@@ -59,7 +59,6 @@ export type TabValue =
   "all" | "needs_data" | "enriching" | "ready" | "approved" | "rejected";
 
 export type ReviewSubmission = BrandSubmissionForReview & {
-  moderationRiskLevel?: "high" | "medium" | "clean";
   brandSlug?: string | null;
 };
 
@@ -78,7 +77,6 @@ export function SubmissionsReviewList({
 }) {
   const t = useTranslations("admin.submissions");
   const denialReasonsT = useTranslations("admin.submissions.denialReasons");
-  const moderationT = useTranslations("admin.moderation");
   const router = useRouter();
   const pathname = usePathname();
   const [activeTab, setActiveTab] = useState<TabValue>(initialTab);
@@ -572,16 +570,6 @@ export function SubmissionsReviewList({
                         </span>
                         {submission.reviewKind === "refresh" && (
                           <Badge variant="secondary">{t("refreshBadge")}</Badge>
-                        )}
-                        {submission.moderationRiskLevel === "high" && (
-                          <Badge variant="destructive">
-                            {moderationT("riskHigh")}
-                          </Badge>
-                        )}
-                        {submission.moderationRiskLevel === "medium" && (
-                          <Badge variant="verified">
-                            {moderationT("riskMedium")}
-                          </Badge>
                         )}
                       </div>
                     </TableCell>

@@ -934,7 +934,7 @@ describe('updateBrandAction', () => {
   })
 })
 
-describe('updateBrandAction — admin bypass', () => {
+describe('updateBrandAction — admin moderation', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     process.env.ADMIN_EMAILS = 'admin@formoria.com'
@@ -971,6 +971,37 @@ describe('updateBrandAction — admin bypass', () => {
     }
 
     expect(updateBrand).toHaveBeenCalled()
+  })
+
+  it('queues violations for admin edits instead of bypassing moderation', async () => {
+    const violations = [
+      {
+        field: 'description',
+        rule: 'contact_injection_phone',
+        userMessage: 'Phone numbers are not allowed in this field',
+      },
+    ]
+    scanContent.mockReturnValue({ violations })
+    mockUser('admin@formoria.com', 'admin-1')
+
+    const { updateBrandAction } = await import('./actions')
+    try {
+      const result = await updateBrandAction(undefined, form({
+        brandSlug: 'test-brand',
+        description: 'Call me at 0912345678',
+      }))
+
+      expect(result).toEqual({ violations })
+      expect(updateBrand).not.toHaveBeenCalled()
+      expect(saveModerationFlags).toHaveBeenCalledWith(
+        'brand-1',
+        'admin-1',
+        violations,
+        'pending',
+      )
+    } finally {
+      scanContent.mockReturnValue({ violations: [] })
+    }
   })
 
   it('forbids a non-owner without admin access from editing a brand', async () => {
@@ -1118,7 +1149,7 @@ describe('updateBrandAction — edit gating', () => {
     )
   })
 
-  it('logs violation to moderation_flags with auto_rejected status', async () => {
+  it('logs violation to moderation_flags with pending status', async () => {
     isActingAsAdmin.mockResolvedValueOnce(false)
     const violations = [
       {
@@ -1139,7 +1170,7 @@ describe('updateBrandAction — edit gating', () => {
       'brand-1',
       'user-1',
       violations,
-      'auto_rejected',
+      'pending',
     )
   })
 
@@ -1190,7 +1221,7 @@ describe('updateBrandAction — edit gating', () => {
     expect(setBrandOnboardingStepStatus).toHaveBeenCalledTimes(2)
   })
 
-  it('admin bypasses scan-gate entirely', async () => {
+  it('scans clean admin edits before updating', async () => {
     isActingAsAdmin.mockResolvedValue(true)
 
     const { updateBrandAction } = await import('./actions')
@@ -1204,7 +1235,10 @@ describe('updateBrandAction — edit gating', () => {
       // redirect throws
     }
 
-    expect(scanContent).not.toHaveBeenCalled()
+    expect(scanContent).toHaveBeenCalledWith(
+      'Direct Name',
+      expect.objectContaining({ name: 'Direct Name' }),
+    )
     expect(updateBrand).toHaveBeenCalled()
   })
 
@@ -1292,7 +1326,7 @@ describe('publishDraftAction — edit gating', () => {
       'brand-1',
       'user-1',
       violations,
-      'auto_rejected',
+      'pending',
     )
   })
 
@@ -1310,21 +1344,35 @@ describe('publishDraftAction — edit gating', () => {
     expect(publishDraft).not.toHaveBeenCalled()
   })
 
-  it('allows admin to bypass scan-gate and publish directly', async () => {
+  it('queues violations for admin draft publishes instead of bypassing moderation', async () => {
     isActingAsAdmin.mockResolvedValue(true)
+    const violations = [
+      {
+        field: 'description',
+        rule: 'contact_injection_phone',
+        userMessage: 'Phone numbers are not allowed in this field',
+      },
+    ]
+    scanContent.mockReturnValue({ violations })
 
     const { publishDraftAction } = await import('./actions')
-
     try {
-      await publishDraftAction(undefined, form({
+      const result = await publishDraftAction(undefined, form({
         brandSlug: 'test-brand',
       }))
-    } catch {
-      // redirect throws
-    }
 
-    expect(scanContent).not.toHaveBeenCalled()
-    expect(publishDraft).toHaveBeenCalledWith('brand-1')
+      expect(result).toEqual({ violations })
+      expect(scanContent).toHaveBeenCalled()
+      expect(publishDraft).not.toHaveBeenCalled()
+      expect(saveModerationFlags).toHaveBeenCalledWith(
+        'brand-1',
+        'user-1',
+        violations,
+        'pending',
+      )
+    } finally {
+      scanContent.mockReturnValue({ violations: [] })
+    }
   })
 
   it('sanitizes admin draft location confirmations before merge and publish', async () => {

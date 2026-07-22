@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import * as supabaseServer from "@/lib/supabase/server";
+import { buildReviewUpdate, type ReviewDecision } from "./review-status";
 
 const SUSPICIOUS_TLDS = [".tk", ".ml", ".ga", ".cf", ".gq"];
 const MAX_URLS_IN_TEXT = 3;
@@ -28,19 +29,10 @@ type SupabaseServerModule = typeof supabaseServer & {
   createServerClient?: () => SupabaseClient<Database>;
 };
 
-type ModerationFlagRow =
-  Database["public"]["Tables"]["moderation_flags"]["Row"];
 type ModerationFlagInsert =
   Database["public"]["Tables"]["moderation_flags"]["Insert"];
-export type ModerationTier = "block" | "flag";
-export type RiskLevel = "clean" | "medium" | "high";
-
-export interface ModerationFlag {
-  fieldName: string;
-  tier: ModerationTier;
-  reason: string;
-  flaggedContent: string;
-}
+type ModerationFlagUpdate =
+  Database["public"]["Tables"]["moderation_flags"]["Update"];
 
 const URL_REGEX = /https?:\/\/[^\s]+/gi;
 const TAIWAN_PHONE_REGEX = /09\d{2}[-.]?\d{3}[-.]?\d{3}/;
@@ -290,54 +282,13 @@ export async function saveModerationFlags(
     field_name: violation.field,
     flag_reason: violation.rule,
     flagged_content: violation.userMessage,
-    tier: "block",
     status,
   }));
   const { error } = await supabase.from("moderation_flags").insert(rows);
   if (error) throw error;
 }
 
-export async function getModerationFlagsBatch(
-  brandIds: string[],
-): Promise<Map<string, ModerationFlag[]>> {
-  const uniqueBrandIds = Array.from(new Set(brandIds.filter(Boolean)));
-  const flagsByBrandId = new Map<string, ModerationFlag[]>();
-
-  for (const brandId of uniqueBrandIds) {
-    flagsByBrandId.set(brandId, []);
-  }
-
-  if (uniqueBrandIds.length === 0) {
-    return flagsByBrandId;
-  }
-
-  const supabase = createModerationClient();
-  const { data, error } = await supabase
-    .from("moderation_flags")
-    .select("*")
-    .in("brand_id", uniqueBrandIds)
-    .neq("status", "reviewed")
-    .order("created_at", { ascending: false });
-
-  if (error || !data) return flagsByBrandId;
-
-  for (const row of data) {
-    const flags = flagsByBrandId.get(row.brand_id) ?? [];
-    flags.push({
-      fieldName: row.field_name,
-      tier: row.tier as ModerationTier,
-      reason: row.flag_reason,
-      flaggedContent: row.flagged_content,
-    });
-    flagsByBrandId.set(row.brand_id, flags);
-  }
-
-  return flagsByBrandId;
-}
-
 export interface FlaggedContentFilters {
-  riskLevel?: string;
-  tier?: string;
   status?: string;
   cursor?: string;
   limit?: number;
@@ -348,14 +299,13 @@ export interface FlaggedContentItem {
   brandId: string;
   brandName: string;
   fieldName: string;
-  tier: ModerationTier;
   reason: string;
   flaggedContent: string;
   status: string;
   createdAt: string;
 }
 
-type FlaggedContentRow = ModerationFlagRow & {
+type FlaggedContentRow = Database["public"]["Tables"]["moderation_flags"]["Row"] & {
   brands: { name: string | null } | { name: string | null }[] | null;
 };
 
@@ -379,7 +329,6 @@ export async function getFlaggedContent(
     .limit(limit + 1);
 
   if (filters.status) query = query.eq("status", filters.status);
-  if (filters.tier) query = query.eq("tier", filters.tier);
   if (filters.cursor) query = query.lt("created_at", filters.cursor);
 
   const { data, error } = await query;
@@ -392,7 +341,6 @@ export async function getFlaggedContent(
     brandId: row.brand_id,
     brandName: getJoinedBrandName(row.brands),
     fieldName: row.field_name,
-    tier: row.tier as ModerationTier,
     reason: row.flag_reason,
     flaggedContent: row.flagged_content,
     status: row.status,
@@ -413,4 +361,21 @@ export async function markFlagsReviewed(brandId: string): Promise<void> {
     .eq("status", "pending");
 
   if (error) console.error("[moderation] markFlagsReviewed failed:", error);
+}
+
+export async function updateModerationFlagStatus(
+  flagId: string,
+  decision: ReviewDecision,
+): Promise<void> {
+  const supabase = createModerationClient();
+  const { data, error } = await supabase
+    .from("moderation_flags")
+    .update(buildReviewUpdate(decision) as ModerationFlagUpdate)
+    .eq("id", flagId)
+    .eq("status", "pending")
+    .select("id")
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) throw new Error("Moderation flag is no longer pending");
 }

@@ -27,6 +27,7 @@ import {
   approveClaimRequest,
   createClaimRequest,
   getClaimRequest,
+  listClaimRequests,
   rejectClaimRequest,
 } from '../claim-requests'
 import { getUserBrands } from '../brand-owners'
@@ -41,6 +42,22 @@ const REVIEWER_PASSWORD = 'ClaimReview123!'
 let brandId = ''
 let userId = ''
 let reviewerId = ''
+
+type CleanupJobsTestTable = {
+  insert(values: Record<string, unknown>[]): PromiseLike<{
+    error: { message: string } | null
+  }>
+  delete(): {
+    like(column: 'storage_key', pattern: string): PromiseLike<{
+      error: { message: string } | null
+    }>
+  }
+}
+
+function cleanupJobsTable(client: SupabaseClient): CleanupJobsTestTable {
+  return (client as unknown as { from(table: string): CleanupJobsTestTable })
+    .from('claim_proof_cleanup_jobs')
+}
 
 it('createClaimRequest rejects image keys outside the user namespace before writing', async () => {
   await expect(
@@ -132,6 +149,10 @@ describeWithDb('claim requests service (integration)', () => {
   beforeEach(async () => {
     const client = createTestClient()
 
+    await cleanupJobsTable(client).delete().like(
+      'storage_key',
+      `claim-proofs/${userId}/${brandId}/%`
+    )
     await client.from('claim_requests').delete().eq('brand_id', brandId)
     await client.from('brand_owners').delete().eq('brand_id', brandId)
     await client.from('brands').update({ contact_email: null }).eq('id', brandId)
@@ -140,6 +161,10 @@ describeWithDb('claim requests service (integration)', () => {
   afterAll(async () => {
     const client = createTestClient()
 
+    await cleanupJobsTable(client).delete().like(
+      'storage_key',
+      `claim-proofs/${userId}/${brandId}/%`
+    )
     await client.from('claim_requests').delete().eq('brand_id', brandId)
     await client.from('brand_owners').delete().eq('brand_id', brandId)
     await client.from('brands').delete().eq('id', brandId)
@@ -164,7 +189,7 @@ describeWithDb('claim requests service (integration)', () => {
       proofEvidence: [
         {
           type: 'domain_email',
-          url: 'https://example.com/proof/domain-email',
+          url: 'owner@example.com',
           note: 'Can receive email at the official domain',
         },
         {
@@ -267,6 +292,147 @@ describeWithDb('claim requests service (integration)', () => {
     expect(approved.status).toBe('approved')
     expect(approved.reviewedBy).toBe(reviewerId)
     expect(ownedBrandIds).toContain(brandId)
+  })
+
+  it('does not approve an unverified domain-email claim or mutate ownership', async () => {
+    const request = await createClaimRequest({
+      userId,
+      brandId,
+      proofEvidence: [{ type: 'domain_email', url: 'owner@example.com' }],
+    })
+
+    await expect(approveClaimRequest(request.id, reviewerId)).rejects.toMatchObject({
+      name: 'ValidationError',
+      code: 'VALIDATION_ERROR',
+      message: 'Domain email proof must be verified before approval',
+    })
+
+    const pending = await getClaimRequest(request.id)
+    const ownedBrandIds = (await getUserBrands(userId)).map((brand) => brand.brandId)
+    expect(pending.status).toBe('pending')
+    expect(ownedBrandIds).not.toContain(brandId)
+  })
+
+  it('does not allow an ordinary authenticated client to execute the approval RPC directly', async () => {
+    const request = await createClaimRequest({
+      userId,
+      brandId,
+      proofEvidence: [
+        {
+          type: 'business_doc',
+          imageKey: `claim-proofs/${userId}/${brandId}/rpc.webp`,
+        },
+      ],
+    })
+
+    const { error } = await mockedServerState.authClient!.rpc('approve_claim_request', {
+      p_claim_id: request.id,
+      p_reviewer_id: userId,
+    })
+
+    expect(error).not.toBeNull()
+    const pending = await getClaimRequest(request.id)
+    const ownedBrandIds = (await getUserBrands(userId)).map((brand) => brand.brandId)
+    expect(pending.status).toBe('pending')
+    expect(ownedBrandIds).not.toContain(brandId)
+  })
+
+  it('maps cleanup status for terminal claims from one batched job lookup', async () => {
+    const client = createTestClient()
+    const cases = [
+      {
+        suffix: 'completed',
+        status: 'approved',
+        proofKeys: ['completed-a', 'completed-b'],
+        jobStatuses: ['completed', 'completed'],
+        expected: 'completed',
+      },
+      {
+        suffix: 'failed',
+        status: 'rejected',
+        proofKeys: ['failed-completed', 'failed-error'],
+        jobStatuses: ['completed', 'failed'],
+        expected: 'failed',
+      },
+      {
+        suffix: 'processing',
+        status: 'rejected',
+        proofKeys: ['processing'],
+        jobStatuses: ['processing'],
+        expected: 'pending',
+      },
+      {
+        suffix: 'missing',
+        status: 'approved',
+        proofKeys: ['missing-completed', 'missing-no-job'],
+        jobStatuses: ['completed'],
+        expected: 'pending',
+      },
+      {
+        suffix: 'deduplicated',
+        status: 'approved',
+        proofKeys: ['deduplicated', 'deduplicated'],
+        jobStatuses: ['completed'],
+        expected: 'completed',
+      },
+      {
+        suffix: 'still-pending',
+        status: 'pending',
+        proofKeys: ['still-pending'],
+        jobStatuses: [],
+        expected: null,
+      },
+      {
+        suffix: 'no-upload',
+        status: 'rejected',
+        proofKeys: [],
+        jobStatuses: [],
+        expected: null,
+      },
+    ] as const
+    const { data: inserted, error: insertError } = await client
+      .from('claim_requests')
+      .insert(cases.map((testCase) => ({
+        brand_id: brandId,
+        user_id: userId,
+        status: testCase.status,
+        proof_evidence: testCase.proofKeys.length > 0
+          ? testCase.proofKeys.map((proofKey) => ({
+              type: 'business_doc',
+              imageKey: `claim-proofs/${userId}/${brandId}/status-${proofKey}.webp`,
+            }))
+          : [{ type: 'domain_email', url: 'owner@example.com', verified: true }],
+      })))
+      .select('id, proof_evidence')
+
+    expect(insertError).toBeNull()
+    expect(inserted).toHaveLength(cases.length)
+
+    const jobs = cases.flatMap((testCase, index) => {
+      const claim = inserted?.[index]
+      if (!claim) return []
+      return testCase.proofKeys.flatMap((proofKey, jobIndex) => {
+        const status = testCase.jobStatuses[jobIndex]
+        return status
+          ? [{
+              claim_request_id: claim.id,
+              storage_key: `claim-proofs/${userId}/${brandId}/status-${proofKey}.webp`,
+              reason: 'decision',
+              status,
+            }]
+          : []
+      })
+    })
+    const { error: jobsError } = await cleanupJobsTable(client).insert(jobs)
+    expect(jobsError).toBeNull()
+
+    const claims = await listClaimRequests()
+    const claimsById = new Map(claims.map((claim) => [claim.id, claim]))
+    cases.forEach((testCase, index) => {
+      expect(claimsById.get(inserted?.[index]?.id ?? '')?.proofCleanupStatus).toBe(
+        testCase.expected
+      )
+    })
   })
 
   it('rejectClaimRequest marks rejected and does not create ownership', async () => {

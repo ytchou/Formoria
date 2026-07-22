@@ -4,6 +4,7 @@ import type { Database } from "@/lib/supabase/database.types";
 import {
   saveModerationFlags,
   scanContent,
+  updateModerationFlagStatus,
   type ContentViolation,
 } from "./moderation";
 
@@ -22,6 +23,61 @@ describe("scanContent (flattened)", () => {
       website: "https://goodbrand.com.tw",
     });
     expect(result.violations).toEqual([]);
+  });
+
+  it("returns blocking violations for every scanner rule", () => {
+    const cases = [
+      {
+        brandName: "Brand",
+        fields: { website: "https://spam.tk" },
+        rule: "suspicious_tld",
+      },
+      {
+        brandName: "Brand",
+        fields: {
+          description:
+            "https://a.com https://b.com https://c.com https://d.com",
+        },
+        rule: "excessive_urls",
+      },
+      {
+        brandName: "Brand",
+        fields: { name: "Click here" },
+        rule: "english_spam",
+      },
+      {
+        brandName: "Brand",
+        fields: { description: "聯絡 0912-345-678" },
+        rule: "contact_injection_phone",
+      },
+      {
+        brandName: "Brand",
+        fields: { description: "Email test@example.com" },
+        rule: "contact_injection_email",
+      },
+      {
+        brandName: "Brand",
+        fields: { name: "😀😀😀😀😀😀😀😀😀😀😀" },
+        rule: "excessive_emoji",
+      },
+      {
+        brandName: "Brand",
+        fields: { description: "好皂品" },
+        rule: "short_description",
+      },
+      {
+        brandName: "Brand",
+        fields: { description: "Brand" },
+        rule: "identical_description",
+      },
+    ];
+
+    for (const { brandName, fields, rule } of cases) {
+      const result = scanContent(brandName, fields);
+      expect(result.violations).toEqual(
+        expect.arrayContaining([expect.objectContaining({ rule })]),
+      );
+    }
   });
 
   it("returns violation with field+rule+message for suspicious TLD", () => {
@@ -105,7 +161,7 @@ describe("saveModerationFlags", () => {
     vi.clearAllMocks();
   });
 
-  it("maps violations to block-tier moderation rows with the requested status", async () => {
+  it("maps violations to moderation rows with the requested status", async () => {
     const insert = vi.fn().mockResolvedValue({ error: null });
     const { createServerClient } =
       (await import("@/lib/supabase/server")) as MockedSupabaseServerModule;
@@ -129,9 +185,63 @@ describe("saveModerationFlags", () => {
         field_name: "website",
         flag_reason: "suspicious_tld",
         flagged_content: "Suspicious URL — .tk domains are not allowed",
-        tier: "block",
         status: "reviewed",
       },
     ]);
+  });
+});
+
+describe("updateModerationFlagStatus", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("reviews only a flag that is still pending", async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: { id: "flag-1" },
+      error: null,
+    });
+    const select = vi.fn().mockReturnValue({ maybeSingle });
+    const statusEq = vi.fn().mockReturnValue({ select });
+    const idEq = vi.fn().mockReturnValue({ eq: statusEq });
+    const update = vi.fn().mockReturnValue({ eq: idEq });
+    const { createServerClient } =
+      (await import("@/lib/supabase/server")) as MockedSupabaseServerModule;
+    vi.mocked(createServerClient).mockReturnValue({
+      from: vi.fn().mockReturnValue({ update }),
+    } as unknown as SupabaseClient<Database>);
+
+    await updateModerationFlagStatus(
+      "flag-1",
+      "reviewed",
+    );
+
+    expect(update).toHaveBeenCalledWith({
+      status: "reviewed",
+      reviewed_at: expect.any(String),
+    });
+    expect(idEq).toHaveBeenCalledWith("id", "flag-1");
+    expect(statusEq).toHaveBeenCalledWith("status", "pending");
+  });
+
+  it("dismisses a pending flag without adding a review timestamp", async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: { id: "flag-1" },
+      error: null,
+    });
+    const select = vi.fn().mockReturnValue({ maybeSingle });
+    const statusEq = vi.fn().mockReturnValue({ select });
+    const idEq = vi.fn().mockReturnValue({ eq: statusEq });
+    const update = vi.fn().mockReturnValue({ eq: idEq });
+    const { createServerClient } =
+      (await import("@/lib/supabase/server")) as MockedSupabaseServerModule;
+    vi.mocked(createServerClient).mockReturnValue({
+      from: vi.fn().mockReturnValue({ update }),
+    } as unknown as SupabaseClient<Database>);
+
+    await updateModerationFlagStatus("flag-1", "dismissed");
+
+    expect(update).toHaveBeenCalledWith({ status: "dismissed" });
+    expect(statusEq).toHaveBeenCalledWith("status", "pending");
   });
 });

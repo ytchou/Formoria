@@ -61,6 +61,17 @@ const SCAN_FIELD_TO_FORM_FIELD: Record<string, keyof BrandEditFormValues> = {
   purchaseUrl: 'purchaseWebsite',
 }
 
+const MODERATION_MESSAGE_KEYS: Record<string, string> = {
+  suspicious_tld: 'moderation.suspiciousTld',
+  excessive_urls: 'moderation.excessiveUrls',
+  english_spam: 'moderation.englishSpam',
+  contact_injection_phone: 'moderation.contactInjectionPhone',
+  contact_injection_email: 'moderation.contactInjectionEmail',
+  excessive_emoji: 'moderation.excessiveEmoji',
+  short_description: 'moderation.shortDescription',
+  identical_description: 'moderation.identicalDescription',
+}
+
 const STEP_VALIDATION_FIELDS: Partial<
   Record<string, (keyof BrandEditFormValues)[]>
 > = {
@@ -221,7 +232,11 @@ export function BrandEditWizard({
           const formField = SCAN_FIELD_TO_FORM_FIELD[violation.field] ?? violation.field as keyof BrandEditFormValues
           form.setError(formField, {
             type: 'server',
-            message: violation.userMessage,
+            message:
+              MODERATION_MESSAGE_KEYS[violation.rule] &&
+              t.has(MODERATION_MESSAGE_KEYS[violation.rule])
+                ? t(MODERATION_MESSAGE_KEYS[violation.rule])
+                : violation.userMessage,
           })
         }
         const firstViolation = publishResult.violations[0]

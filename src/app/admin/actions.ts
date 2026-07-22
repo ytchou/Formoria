@@ -18,6 +18,7 @@ import {
   getClaimRequest,
   rejectClaimRequest,
 } from '@/lib/services/claim-requests'
+import { processClaimProofCleanup } from '@/lib/services/claim-proof-cleanup'
 import { verifyMitByCert } from '@/lib/services/mit-verification'
 import {
   deleteBrand,
@@ -29,7 +30,12 @@ import {
   getUserBrandByEmail,
   revokeOwnership,
 } from '@/lib/services/brand-owners'
-import { scanContent, saveModerationFlags, markFlagsReviewed } from '@/lib/services/moderation'
+import {
+  scanContent,
+  saveModerationFlags,
+  markFlagsReviewed,
+  updateModerationFlagStatus,
+} from '@/lib/services/moderation'
 import { sendEmail } from '@/lib/email/send'
 import {
   buildApprovalEmail,
@@ -46,6 +52,9 @@ import { FEATURE_FLAGS, setAppSetting } from '@/lib/services/app-settings'
 import { DENIAL_REASONS, type DenialReason, type OtherUrl } from '@/lib/types'
 import { getSiteUrl } from '@/lib/site-url'
 import { revalidatePublicBrand } from '@/lib/cache/public-brand-cache'
+
+const MODERATION_FLAG_ID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 export async function resendClaimInviteAction(
   brandId: string
@@ -247,9 +256,27 @@ export async function rejectSubmissionAction(
   }
 }
 
+const CLAIM_PROOF_CLEANUP_WARNING = 'Proof deletion remains queued for automatic retry.'
+
+type ClaimDecisionActionResult =
+  | { error?: string; warning?: string }
+  | undefined
+
+async function processImmediateClaimProofCleanup(
+  claimRequestId: string
+): Promise<string | undefined> {
+  try {
+    const summary = await processClaimProofCleanup({ claimRequestId })
+    return summary.failed > 0 ? CLAIM_PROOF_CLEANUP_WARNING : undefined
+  } catch (err) {
+    console.error('[admin:claim-proof-cleanup] process failed', err)
+    return CLAIM_PROOF_CLEANUP_WARNING
+  }
+}
+
 export async function approveClaimAction(
   claimRequestId: string
-): Promise<{ error: string } | undefined> {
+): Promise<ClaimDecisionActionResult> {
   try {
     const auth = await requireAdminAction()
     if ('error' in auth) return auth
@@ -257,6 +284,7 @@ export async function approveClaimAction(
     const claimRequest = await getClaimRequest(claimRequestId)
     const siteUrl = getSiteUrl()
     await approveClaimRequest(claimRequestId, auth.user.id)
+    const cleanupWarning = await processImmediateClaimProofCleanup(claimRequestId)
 
     try {
       const serviceSupabase = createServiceClient()
@@ -298,7 +326,7 @@ export async function approveClaimAction(
       console.error('[claim-approved-email] send failed', err)
     }
 
-    return undefined
+    return cleanupWarning ? { warning: cleanupWarning } : undefined
   } catch (err) {
     console.error('[admin:approveClaimAction]', err)
     return {
@@ -310,7 +338,7 @@ export async function approveClaimAction(
 export async function rejectClaimAction(
   claimRequestId: string,
   notes: string
-): Promise<{ error: string } | undefined> {
+): Promise<ClaimDecisionActionResult> {
   try {
     const auth = await requireAdminAction()
     if ('error' in auth) return auth
@@ -318,6 +346,7 @@ export async function rejectClaimAction(
     const claimRequest = await getClaimRequest(claimRequestId)
     const siteUrl = getSiteUrl()
     await rejectClaimRequest(claimRequestId, auth.user.id, notes)
+    const cleanupWarning = await processImmediateClaimProofCleanup(claimRequestId)
 
     revalidatePath('/admin/claims')
     revalidatePath('/admin')
@@ -335,7 +364,7 @@ export async function rejectClaimAction(
       console.error('[claim-rejected-email] send failed', err)
     }
 
-    return undefined
+    return cleanupWarning ? { warning: cleanupWarning } : undefined
   } catch (err) {
     console.error('[admin:rejectClaimAction]', err)
     return {
@@ -367,12 +396,6 @@ export async function updateBrandAction(
     const auth = await requireAdminAction()
     if ('error' in auth) return auth
 
-    const previousBrand = await getBrandById(brandId)
-    const updatedBrand = await updateBrand(
-      brandId,
-      data as Parameters<typeof updateBrand>[1],
-    )
-
     const {
       name,
       description,
@@ -400,12 +423,19 @@ export async function updateBrandAction(
     const { violations } = scanContent(name ?? '', moderationFields)
     if (violations.length > 0) {
       try {
-        await saveModerationFlags(brandId, auth.user.id, violations)
-        await markFlagsReviewed(brandId)
+        await saveModerationFlags(brandId, auth.user.id, violations, 'pending')
       } catch (err) {
         console.error('[admin] moderation audit failed:', err)
       }
+
+      return { error: violations.map((violation) => violation.userMessage).join('. ') }
     }
+
+    const previousBrand = await getBrandById(brandId)
+    const updatedBrand = await updateBrand(
+      brandId,
+      data as Parameters<typeof updateBrand>[1],
+    )
 
     revalidatePath('/admin/brands')
     revalidatePath('/admin')
@@ -505,6 +535,42 @@ export async function reviewReportAction(
       error: err instanceof Error ? err.message : 'An unexpected error occurred',
     }
   }
+}
+
+export async function reviewModerationFlagAction(
+  flagId: string,
+  decision: 'reviewed' | 'dismissed',
+): Promise<{ error: string } | undefined> {
+  try {
+    const auth = await requireAdminAction()
+    if ('error' in auth) return auth
+
+    if (!MODERATION_FLAG_ID_REGEX.test(flagId)) {
+      return { error: 'Invalid moderation flag ID' }
+    }
+    if (decision !== 'reviewed' && decision !== 'dismissed') {
+      return { error: 'Invalid moderation decision' }
+    }
+
+    await updateModerationFlagStatus(flagId, decision)
+
+    revalidatePath('/admin/moderation')
+    revalidatePath('/admin')
+    return undefined
+  } catch (err) {
+    console.error('[admin:reviewModerationFlag]', err)
+    return {
+      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+    }
+  }
+}
+
+export async function reviewModerationFlagFormAction(
+  flagId: string,
+  decision: 'reviewed' | 'dismissed',
+): Promise<void> {
+  const result = await reviewModerationFlagAction(flagId, decision)
+  if (result?.error) throw new Error(result.error)
 }
 
 export async function revokeOwnershipAction(

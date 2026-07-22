@@ -7,6 +7,7 @@ import {
   rejectClaimAction,
 } from '@/app/admin/actions'
 import { StatusBadge } from '@/components/admin/status-badge'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -79,6 +80,7 @@ export function ClaimRequestsList({
   const [rejectNotes, setRejectNotes] = useState('')
   const [rejectReasonPreset, setRejectReasonPreset] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [warning, setWarning] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   const filtered =
@@ -99,6 +101,7 @@ export function ClaimRequestsList({
     setRejectNotes('')
     setRejectReasonPreset('')
     setError(null)
+    setWarning(null)
   }
 
   function beginReject(kind: NonNullable<RejectActionTarget>['kind'], id: string) {
@@ -106,13 +109,20 @@ export function ClaimRequestsList({
     setRejectNotes('')
     setRejectReasonPreset('')
     setError(null)
+    setWarning(null)
   }
 
   function handleApprove(id: string) {
     startTransition(async () => {
       setError(null)
-      const result = await approveClaimAction(id)
-      if (result?.error) setError(result.error)
+      setWarning(null)
+      const result: { error?: string; warning?: string } | undefined =
+        await approveClaimAction(id)
+      if (result?.error) {
+        setError(result.error)
+      } else if (result?.warning) {
+        setWarning(adminClaimT('cleanupWarning'))
+      }
     })
   }
 
@@ -130,9 +140,13 @@ export function ClaimRequestsList({
 
     startTransition(async () => {
       setError(null)
-      const result = await rejectClaimAction(id, notes)
-      if (result?.error) setError(result.error)
-      else {
+      setWarning(null)
+      const result: { error?: string; warning?: string } | undefined =
+        await rejectClaimAction(id, notes)
+      if (result?.error) {
+        setError(result.error)
+      } else {
+        if (result?.warning) setWarning(adminClaimT('cleanupWarning'))
         setRejectTarget(null)
         setRejectNotes('')
         setRejectReasonPreset('')
@@ -313,7 +327,37 @@ export function ClaimRequestsList({
                           </div>
                         )}
 
-                        {error && <p className="text-sm text-destructive">{error}</p>}
+                        {claimRequest.status !== 'pending' && claimRequest.proofCleanupStatus && (
+                          <div className="space-y-1 rounded-lg border border-border bg-card p-4">
+                            <p className="type-metadata">
+                              {adminClaimT('cleanupStatus.label')}
+                            </p>
+                            <Badge
+                              variant={
+                                claimRequest.proofCleanupStatus === 'completed'
+                                  ? 'success'
+                                  : claimRequest.proofCleanupStatus === 'failed'
+                                    ? 'destructive'
+                                    : 'warning'
+                              }
+                            >
+                              {adminClaimT(`cleanupStatus.${claimRequest.proofCleanupStatus}.label`)}
+                            </Badge>
+                            <p className="type-card-description">
+                              {adminClaimT(`cleanupStatus.${claimRequest.proofCleanupStatus}.description`)}
+                            </p>
+                          </div>
+                        )}
+
+                        {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
+                        {warning && (
+                          <p
+                            className="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning"
+                            role="status"
+                          >
+                            {warning}
+                          </p>
+                        )}
 
                         {claimRequest.status === 'pending' && (
                           <div className="flex flex-col items-start gap-3 sm:flex-row">

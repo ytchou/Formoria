@@ -276,51 +276,51 @@ export async function updateBrandAction(
     }
     const proposedData = updateData as Record<string, unknown>
 
-    if (!configuredAdmin) {
-      if (detectsSlugChange(brand, proposedData)) {
-        return { error: t('slugChangeBlocked') }
-      }
+    if (!configuredAdmin && detectsSlugChange(brand, proposedData)) {
+      return { error: t('slugChangeBlocked') }
+    }
 
-      const {
-        brandName: moderationBrandName,
-        fields: moderationFields,
-      } = buildModerationPayload(proposedData, brand.name)
-      const { violations } = scanContent(
-        moderationBrandName,
-        moderationFields,
-      )
-      if (violations.length > 0) {
-        try {
-          await saveModerationFlags(
-            brand.id,
-            user.id,
-            violations,
-            'auto_rejected',
-          )
-        } catch (err) {
-          console.error('[brand:moderation] saveModerationFlags failed:', err)
-        }
-
-        try {
-          const email = await buildViolationAdminNotificationEmail({
-            brandName: brand.name,
-            ownerEmail: user.email ?? 'unknown',
-            violations,
-          })
-          await sendEmail(email)
-        } catch (err) {
-          console.error('[brand:moderation] admin notification failed:', err)
-        }
-
-        await completeOnboardingAfterOwnerSubmit(
-          formData,
+    const {
+      brandName: moderationBrandName,
+      fields: moderationFields,
+    } = buildModerationPayload(proposedData, brand.name)
+    const { violations } = scanContent(
+      moderationBrandName,
+      moderationFields,
+    )
+    if (violations.length > 0) {
+      try {
+        await saveModerationFlags(
           brand.id,
           user.id,
-          owner,
+          violations,
+          'pending',
         )
-        return { violations }
+      } catch (err) {
+        console.error('[brand:moderation] saveModerationFlags failed:', err)
       }
 
+      try {
+        const email = await buildViolationAdminNotificationEmail({
+          brandName: brand.name,
+          ownerEmail: user.email ?? 'unknown',
+          violations,
+        })
+        await sendEmail(email)
+      } catch (err) {
+        console.error('[brand:moderation] admin notification failed:', err)
+      }
+
+      await completeOnboardingAfterOwnerSubmit(
+        formData,
+        brand.id,
+        user.id,
+        owner,
+      )
+      return { violations }
+    }
+
+    if (!configuredAdmin) {
       const updatedBrand = await applyBrandUpdate(brand, updateData, {
         syncOwnerImages: owner,
       })
@@ -412,51 +412,51 @@ export async function publishDraftAction(
 
     const draftPartial = snapshot
 
-    if (!configuredAdmin) {
-      if (detectsSlugChange(brand, draftPartial)) {
-        return { error: t('slugChangeBlocked') }
-      }
+    if (!configuredAdmin && detectsSlugChange(brand, draftPartial)) {
+      return { error: t('slugChangeBlocked') }
+    }
 
-      const {
-        brandName: moderationBrandName,
-        fields: moderationFields,
-      } = buildModerationPayload(draftPartial, brand.name)
-      const { violations } = scanContent(
-        moderationBrandName,
-        moderationFields,
-      )
-      if (violations.length > 0) {
-        try {
-          await saveModerationFlags(
-            brand.id,
-            user.id,
-            violations,
-            'auto_rejected',
-          )
-        } catch (err) {
-          console.error('[brand:moderation] saveModerationFlags failed:', err)
-        }
-
-        try {
-          const email = await buildViolationAdminNotificationEmail({
-            brandName: brand.name,
-            ownerEmail: user.email ?? 'unknown',
-            violations,
-          })
-          await sendEmail(email)
-        } catch (err) {
-          console.error('[brand:moderation] admin notification failed:', err)
-        }
-
-        await completeOnboardingAfterOwnerSubmit(
-          formData,
+    const {
+      brandName: moderationBrandName,
+      fields: moderationFields,
+    } = buildModerationPayload(draftPartial, brand.name)
+    const { violations } = scanContent(
+      moderationBrandName,
+      moderationFields,
+    )
+    if (violations.length > 0) {
+      try {
+        await saveModerationFlags(
           brand.id,
           user.id,
-          owner,
+          violations,
+          'pending',
         )
-        return { violations }
+      } catch (err) {
+        console.error('[brand:moderation] saveModerationFlags failed:', err)
       }
 
+      try {
+        const email = await buildViolationAdminNotificationEmail({
+          brandName: brand.name,
+          ownerEmail: user.email ?? 'unknown',
+          violations,
+        })
+        await sendEmail(email)
+      } catch (err) {
+        console.error('[brand:moderation] admin notification failed:', err)
+      }
+
+      await completeOnboardingAfterOwnerSubmit(
+        formData,
+        brand.id,
+        user.id,
+        owner,
+      )
+      return { violations }
+    }
+
+    if (!configuredAdmin) {
       const nextImageUrls = imageUrlsFromBrand({
         heroImageUrl:
           'heroImageUrl' in snapshot

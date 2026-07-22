@@ -98,15 +98,24 @@ vi.mock('@/lib/services/submissions', () => ({
 }))
 
 vi.mock('@/lib/services/moderation', () => ({
-  scanContent: vi.fn().mockReturnValue({ riskLevel: 'clean', flags: [] }),
+  scanContent: vi.fn().mockReturnValue({ violations: [] }),
   saveModerationFlags: vi.fn().mockResolvedValue(undefined),
   markFlagsReviewed: vi.fn().mockResolvedValue(undefined),
+  updateModerationFlagStatus: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('@/lib/services/claim-requests', () => ({
   getClaimRequest: vi.fn(),
   approveClaimRequest: vi.fn().mockResolvedValue(undefined),
   rejectClaimRequest: vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock('@/lib/services/claim-proof-cleanup', () => ({
+  processClaimProofCleanup: vi.fn().mockResolvedValue({
+    claimed: 0,
+    completed: 0,
+    failed: 0,
+  }),
 }))
 
 vi.mock('@/lib/services/mit-verification', () => ({
@@ -179,6 +188,8 @@ describe('admin actions module', () => {
     expect(typeof mod.unhideBrandAction).toBe('function')
     expect(typeof mod.deleteBrandAction).toBe('function')
     expect(typeof mod.resendClaimInviteAction).toBe('function')
+    expect(typeof mod.reviewModerationFlagAction).toBe('function')
+    expect(typeof mod.reviewModerationFlagFormAction).toBe('function')
   })
 })
 
@@ -302,6 +313,7 @@ describe('approveClaimAction', () => {
 
   it('creates email preferences after approving a claim', async () => {
     const { getClaimRequest, approveClaimRequest } = await import('@/lib/services/claim-requests')
+    const { processClaimProofCleanup } = await import('@/lib/services/claim-proof-cleanup')
     const { createEmailPreferences } = await import('@/lib/services/email-lifecycle')
     vi.mocked(getClaimRequest).mockResolvedValue({
       id: 'claim-1',
@@ -320,6 +332,7 @@ describe('approveClaimAction', () => {
       brandName: 'Test Brand',
       brandSlug: 'test-brand',
       requesterEmail: 'owner@example.com',
+      proofCleanupStatus: null,
     })
 
     const { approveClaimAction } = await import('./actions')
@@ -327,7 +340,81 @@ describe('approveClaimAction', () => {
 
     expect(result).toBeUndefined()
     expect(approveClaimRequest).toHaveBeenCalledWith('claim-1', 'admin-1')
+    expect(processClaimProofCleanup).toHaveBeenCalledWith({ claimRequestId: 'claim-1' })
     expect(createEmailPreferences).toHaveBeenCalledWith(expect.anything(), 'owner-1')
+  })
+
+  it('warns when immediate proof cleanup reports failures and continues later side effects', async () => {
+    const { getClaimRequest } = await import('@/lib/services/claim-requests')
+    const { processClaimProofCleanup } = await import('@/lib/services/claim-proof-cleanup')
+    const { verifyMitByCert } = await import('@/lib/services/mit-verification')
+    vi.mocked(getClaimRequest).mockResolvedValue({
+      id: 'claim-1',
+      brandId: 'brand-1',
+      userId: 'owner-1',
+      proofType: 'domain_email',
+      proofUrl: null,
+      proofNotes: null,
+      proofEvidence: [],
+      mitSmileCert: '01200024-02134',
+      status: 'pending',
+      reviewerNotes: null,
+      reviewedAt: null,
+      reviewedBy: null,
+      createdAt: '2026-01-01T00:00:00Z',
+      brandName: 'Test Brand',
+      brandSlug: 'test-brand',
+      requesterEmail: 'owner@example.com',
+      proofCleanupStatus: null,
+    })
+    vi.mocked(processClaimProofCleanup).mockResolvedValueOnce({
+      claimed: 1,
+      completed: 0,
+      failed: 1,
+    })
+
+    const { approveClaimAction } = await import('./actions')
+    const result = await approveClaimAction('claim-1')
+
+    expect(result).toEqual({
+      warning: 'Proof deletion remains queued for automatic retry.',
+    })
+    expect(verifyMitByCert).toHaveBeenCalledWith('brand-1', '01200024-02134')
+    expect(revalidatePath).toHaveBeenCalledWith('/admin/claims')
+  })
+
+  it('warns when immediate proof cleanup throws and still sends the approval email', async () => {
+    const { getClaimRequest } = await import('@/lib/services/claim-requests')
+    const { processClaimProofCleanup } = await import('@/lib/services/claim-proof-cleanup')
+    const { sendEmail } = await import('@/lib/email/send')
+    vi.mocked(getClaimRequest).mockResolvedValue({
+      id: 'claim-1',
+      brandId: 'brand-1',
+      userId: 'owner-1',
+      proofType: 'domain_email',
+      proofUrl: null,
+      proofNotes: null,
+      proofEvidence: [],
+      mitSmileCert: null,
+      status: 'pending',
+      reviewerNotes: null,
+      reviewedAt: null,
+      reviewedBy: null,
+      createdAt: '2026-01-01T00:00:00Z',
+      brandName: 'Test Brand',
+      brandSlug: 'test-brand',
+      requesterEmail: 'owner@example.com',
+      proofCleanupStatus: null,
+    })
+    vi.mocked(processClaimProofCleanup).mockRejectedValueOnce(new Error('Storage unavailable'))
+
+    const { approveClaimAction } = await import('./actions')
+    const result = await approveClaimAction('claim-1')
+
+    expect(result).toEqual({
+      warning: 'Proof deletion remains queued for automatic retry.',
+    })
+    expect(sendEmail).toHaveBeenCalled()
   })
 
   it("claim-approved email is delivered in the owner's preferred language", async () => {
@@ -358,12 +445,97 @@ describe('approveClaimAction', () => {
       brandName: 'Test Brand',
       brandSlug: 'test-brand',
       requesterEmail: 'owner@example.com',
+      proofCleanupStatus: null,
     })
 
     const { approveClaimAction } = await import('./actions')
     await approveClaimAction('claim-1')
 
     expect(buildClaimApprovedEmail).toHaveBeenCalledWith(expect.objectContaining({ locale: 'en' }))
+  })
+
+})
+
+describe('rejectClaimAction', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('processes proof cleanup after rejecting a claim', async () => {
+    const { getClaimRequest, rejectClaimRequest } = await import('@/lib/services/claim-requests')
+    const { processClaimProofCleanup } = await import('@/lib/services/claim-proof-cleanup')
+    vi.mocked(getClaimRequest).mockResolvedValue({
+      id: 'claim-1',
+      brandId: 'brand-1',
+      userId: 'owner-1',
+      proofType: 'domain_email',
+      proofUrl: null,
+      proofNotes: null,
+      proofEvidence: [],
+      mitSmileCert: null,
+      status: 'pending',
+      reviewerNotes: null,
+      reviewedAt: null,
+      reviewedBy: null,
+      createdAt: '2026-01-01T00:00:00Z',
+      brandName: 'Test Brand',
+      brandSlug: 'test-brand',
+      requesterEmail: 'owner@example.com',
+      proofCleanupStatus: null,
+    })
+
+    const { rejectClaimAction } = await import('./actions')
+    const result = await rejectClaimAction('claim-1', 'Insufficient proof')
+
+    expect(result).toBeUndefined()
+    expect(rejectClaimRequest).toHaveBeenCalledWith(
+      'claim-1',
+      'admin-1',
+      'Insufficient proof'
+    )
+    expect(processClaimProofCleanup).toHaveBeenCalledWith({ claimRequestId: 'claim-1' })
+  })
+
+  it.each([
+    ['reports failures', { claimed: 1, completed: 0, failed: 1 }],
+    ['throws', new Error('Storage unavailable')],
+  ])('warns when immediate proof cleanup %s and still sends the rejection email', async (_case, outcome) => {
+    const { getClaimRequest } = await import('@/lib/services/claim-requests')
+    const { processClaimProofCleanup } = await import('@/lib/services/claim-proof-cleanup')
+    const { sendEmail } = await import('@/lib/email/send')
+    vi.mocked(getClaimRequest).mockResolvedValue({
+      id: 'claim-1',
+      brandId: 'brand-1',
+      userId: 'owner-1',
+      proofType: 'domain_email',
+      proofUrl: null,
+      proofNotes: null,
+      proofEvidence: [],
+      mitSmileCert: null,
+      status: 'pending',
+      reviewerNotes: null,
+      reviewedAt: null,
+      reviewedBy: null,
+      createdAt: '2026-01-01T00:00:00Z',
+      brandName: 'Test Brand',
+      brandSlug: 'test-brand',
+      requesterEmail: 'owner@example.com',
+      proofCleanupStatus: null,
+    })
+    if (outcome instanceof Error) {
+      vi.mocked(processClaimProofCleanup).mockRejectedValueOnce(outcome)
+    } else {
+      vi.mocked(processClaimProofCleanup).mockResolvedValueOnce(outcome)
+    }
+
+    const { rejectClaimAction } = await import('./actions')
+    const result = await rejectClaimAction('claim-1', 'Insufficient proof')
+
+    expect(result).toEqual({
+      warning: 'Proof deletion remains queued for automatic retry.',
+    })
+    expect(revalidatePath).toHaveBeenCalledWith('/admin/claims')
+    expect(sendEmail).toHaveBeenCalled()
   })
 })
 
@@ -516,12 +688,12 @@ describe('requestBrandRefreshAction', () => {
   })
 })
 
-describe('updateBrandAction moderation audit', () => {
+describe('updateBrandAction moderation blocking', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it('updateBrandAction (admin edit) calls scanContent and saveModerationFlags when violations exist, then markFlagsReviewed', async () => {
+  it('blocks admin edits when scanContent finds violations', async () => {
     const { updateBrand } = await import('@/lib/services/brands')
     const { scanContent, saveModerationFlags, markFlagsReviewed } =
       await import('@/lib/services/moderation')
@@ -541,12 +713,8 @@ describe('updateBrandAction moderation audit', () => {
       category: 'apparel',
     })
 
-    expect(result).toBeUndefined()
-    expect(updateBrand).toHaveBeenCalledWith('brand-1', {
-      name: 'Test Brand',
-      description: 'bad word',
-      category: 'apparel',
-    })
+    expect(result).toEqual({ error: 'Phone detected' })
+    expect(updateBrand).not.toHaveBeenCalled()
     expect(scanContent).toHaveBeenCalledWith('Test Brand', {
       name: 'Test Brand',
       description: 'bad word',
@@ -559,8 +727,68 @@ describe('updateBrandAction moderation audit', () => {
       purchasePinkoi: undefined,
       purchaseShopee: undefined,
     })
-    expect(saveModerationFlags).toHaveBeenCalledWith('brand-1', 'admin-1', violations)
-    expect(markFlagsReviewed).toHaveBeenCalledWith('brand-1')
+    expect(saveModerationFlags).toHaveBeenCalledWith(
+      'brand-1',
+      'admin-1',
+      violations,
+      'pending',
+    )
+    expect(markFlagsReviewed).not.toHaveBeenCalled()
+  })
+
+  it('allows clean admin edits and does not create moderation flags', async () => {
+    const { updateBrand } = await import('@/lib/services/brands')
+    const { scanContent, saveModerationFlags } =
+      await import('@/lib/services/moderation')
+    vi.mocked(scanContent).mockReturnValue({ violations: [] })
+
+    const { updateBrandAction } = await import('./actions')
+    const result = await updateBrandAction('brand-1', {
+      name: 'Test Brand',
+      description: 'A clean description',
+    })
+
+    expect(result).toBeUndefined()
+    expect(updateBrand).toHaveBeenCalledWith('brand-1', {
+      name: 'Test Brand',
+      description: 'A clean description',
+    })
+    expect(saveModerationFlags).not.toHaveBeenCalled()
+  })
+})
+
+describe('reviewModerationFlagAction', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('updates a valid flag and revalidates the moderation queue', async () => {
+    const { updateModerationFlagStatus } =
+      await import('@/lib/services/moderation')
+    const { reviewModerationFlagAction } = await import('./actions')
+
+    const result = await reviewModerationFlagAction(
+      '11111111-1111-4111-8111-111111111111',
+      'dismissed',
+    )
+
+    expect(result).toBeUndefined()
+    expect(updateModerationFlagStatus).toHaveBeenCalledWith(
+      '11111111-1111-4111-8111-111111111111',
+      'dismissed',
+    )
+    expect(revalidatePath).toHaveBeenCalledWith('/admin/moderation')
+  })
+
+  it('rejects an invalid flag id before updating', async () => {
+    const { updateModerationFlagStatus } =
+      await import('@/lib/services/moderation')
+    const { reviewModerationFlagAction } = await import('./actions')
+
+    const result = await reviewModerationFlagAction('not-a-uuid', 'reviewed')
+
+    expect(result).toEqual({ error: 'Invalid moderation flag ID' })
+    expect(updateModerationFlagStatus).not.toHaveBeenCalled()
   })
 })
 
@@ -595,6 +823,51 @@ describe('reviewReportAction', () => {
     const { reviewReportAction } = await import('./actions')
     const result = await reviewReportAction('report-uuid-1', 'reviewed')
     expect(result).toMatchObject({ error: expect.any(String) })
+  })
+})
+
+describe('reviewModerationFlagAction', () => {
+  const flagId = '00000000-0000-4000-8000-000000000001'
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('updates a pending flag and revalidates the moderation queue', async () => {
+    const { updateModerationFlagStatus } = await import('@/lib/services/moderation')
+    const { reviewModerationFlagAction } = await import('./actions')
+
+    const result = await reviewModerationFlagAction(flagId, 'reviewed')
+
+    expect(result).toBeUndefined()
+    expect(updateModerationFlagStatus).toHaveBeenCalledWith(flagId, 'reviewed')
+    expect(revalidatePath).toHaveBeenCalledWith('/admin/moderation')
+    expect(revalidatePath).toHaveBeenCalledWith('/admin')
+  })
+
+  it('rejects an invalid decision before changing the flag', async () => {
+    const { updateModerationFlagStatus } = await import('@/lib/services/moderation')
+    const { reviewModerationFlagAction } = await import('./actions')
+
+    const result = await reviewModerationFlagAction(flagId, 'invalid' as 'reviewed')
+
+    expect(result).toEqual({ error: 'Invalid moderation decision' })
+    expect(updateModerationFlagStatus).not.toHaveBeenCalled()
+  })
+
+  it('requires admin authorization before changing the flag', async () => {
+    const { requireAdminAction } = await import('@/lib/auth/require-admin')
+    const { updateModerationFlagStatus } = await import('@/lib/services/moderation')
+    vi.mocked(requireAdminAction).mockResolvedValueOnce({
+      error: 'You are not authorized to perform this action',
+      code: 'forbidden',
+    })
+    const { reviewModerationFlagAction } = await import('./actions')
+
+    const result = await reviewModerationFlagAction(flagId, 'dismissed')
+
+    expect(result).toMatchObject({ error: 'You are not authorized to perform this action' })
+    expect(updateModerationFlagStatus).not.toHaveBeenCalled()
   })
 })
 
@@ -728,6 +1001,7 @@ describe('approveClaimAction - MIT auto-verify', () => {
       brandName: 'Test Brand',
       brandSlug: 'test-brand',
       requesterEmail: 'owner@example.com',
+      proofCleanupStatus: null,
     })
     vi.mocked(verifyMitByCert).mockResolvedValue({ data: {} })
 
@@ -759,6 +1033,7 @@ describe('approveClaimAction - MIT auto-verify', () => {
       brandName: 'Test Brand',
       brandSlug: 'test-brand',
       requesterEmail: 'owner@example.com',
+      proofCleanupStatus: null,
     })
 
     const { approveClaimAction } = await import('./actions')
@@ -789,6 +1064,7 @@ describe('approveClaimAction - MIT auto-verify', () => {
       brandName: 'Test Brand',
       brandSlug: 'test-brand',
       requesterEmail: 'owner@example.com',
+      proofCleanupStatus: null,
     })
     vi.mocked(verifyMitByCert).mockRejectedValue(new Error('Registry unavailable'))
 
