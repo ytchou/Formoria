@@ -376,10 +376,7 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
     if (basicResp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
     await expect(userPage.locator('#romanizedName')).toBeVisible({ timeout: 30_000 });
-    await userPage.locator('#romanizedName').fill('Wizard Public Name');
-    await expect(userPage.locator('#brand-url-preview')).toHaveValue(
-      '/brands/wizard-public-name',
-    );
+    await expect(userPage.locator('#romanizedName')).toHaveAttribute('readonly', '');
 
     const linksResp = await userPage.goto(
       `/dashboard/brands/${wizardBrandSlug}/edit?step=2`,

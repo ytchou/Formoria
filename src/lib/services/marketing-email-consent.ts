@@ -54,6 +54,10 @@ export async function requestNewsletterSubscription(
     return 'active'
   }
 
+  if (process.env.PLAYWRIGHT_TEST === 'true') {
+    return 'pending'
+  }
+
   const delivery = await sendEmail(
     await buildNewsletterConfirmEmail({
       to: result.subscriber.email,

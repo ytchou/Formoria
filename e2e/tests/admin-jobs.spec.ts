@@ -36,9 +36,23 @@ test.describe('Admin curation jobs deep', () => {
     targetId = randomUUID();
     phaseError = 'Description provider returned invalid data';
 
+    const { error: submissionError } = await supabase
+      .from('brand_submissions')
+      .insert({
+        id: targetId,
+        brand_name: brandName,
+        submitter_email: 'e2e-admin-jobs@test.example',
+        status: 'pending',
+        intent: 'new',
+      });
+
+    if (submissionError) {
+      throw new Error(`brand submission seed failed: ${submissionError.message}`);
+    }
+
     const { data: jobId, error: enqueueError } = await supabase.rpc('enqueue_curation_job', {
       p_operation: 'enrich',
-      p_params: { target: 'brands', slugs: [brandSlug] },
+      p_params: { target: 'submissions', submissionIds: [targetId] },
       p_dry_run: false,
       p_started_by: 'e2e-admin-jobs',
       p_trigger: 'admin',
@@ -49,7 +63,7 @@ test.describe('Admin curation jobs deep', () => {
       p_dedupe_key: `e2e-admin-jobs:${randomUUID()}`,
       p_targets: [
         {
-          target_type: 'brand',
+          target_type: 'submission',
           target_id: targetId,
           brand_name: brandName,
           brand_slug: brandSlug,
@@ -161,6 +175,16 @@ test.describe('Admin curation jobs deep', () => {
     if (parentDeleteError) {
       console.warn(`[e2e-cleanup] parent job deletion failed: ${parentDeleteError.message}`);
     }
+
+    if (targetId) {
+      const { error: submissionDeleteError } = await supabase
+        .from('brand_submissions')
+        .delete()
+        .eq('id', targetId);
+      if (submissionDeleteError) {
+        console.warn(`[e2e-cleanup] brand submission deletion failed: ${submissionDeleteError.message}`);
+      }
+    }
   });
 
   test('admin sees one job log and cancels active work', async ({ adminPage }) => {
@@ -174,7 +198,7 @@ test.describe('Admin curation jobs deep', () => {
     const dialog = adminPage.getByRole('alertdialog');
     await expect(dialog.getByRole('heading', { name: 'Cancel this job?' })).toBeVisible();
     await dialog.getByRole('button', { name: 'Cancel job' }).click();
-    await expect(row.getByText('Cancelled')).toBeVisible({ timeout: 30_000 });
+    await expect(row.locator('[data-slot="badge"]', { hasText: 'Cancelled' })).toBeVisible({ timeout: 30_000 });
   });
 
   test('admin reviews a failed curation target and manually reruns it', async ({ adminPage }) => {

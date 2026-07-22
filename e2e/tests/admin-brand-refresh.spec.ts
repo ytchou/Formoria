@@ -201,21 +201,41 @@ test.describe("Scheduled brand refresh review", () => {
     await adminPage.goto("/admin/submissions?stage=enriching");
     await expect(adminPage.getByText(brandName, { exact: true })).toBeVisible();
 
+    const heroSubmissionUrl = `https://cdn.example.com/${brandId}/hero-candidate.webp`;
     const candidateUrl = `https://cdn.example.com/${brandId}/candidate.webp`;
     const { error: candidateError } = await supabase
       .from("submission_images")
-      .insert({
-        submission_id: refreshSubmissionId,
-        url: candidateUrl,
-        source_url: candidateUrl,
-        source: "google_image",
-        status: "active",
-        sort_order: 2,
-      });
+      .insert([
+        {
+          submission_id: refreshSubmissionId,
+          url: heroSubmissionUrl,
+          source_url: heroSubmissionUrl,
+          source: "google_image",
+          status: "active",
+          sort_order: 0,
+        },
+        {
+          submission_id: refreshSubmissionId,
+          url: candidateUrl,
+          source_url: candidateUrl,
+          source: "google_image",
+          status: "active",
+          sort_order: 2,
+        },
+      ]);
     if (candidateError) throw candidateError;
     const { error: enrichmentError } = await supabase
       .from("brand_submissions")
-      .update({ enriched_data: { description: "排程更新後的品牌介紹" } })
+      .update({
+        enriched_data: {
+          description: "排程更新後的品牌介紹",
+          product_type: "crafts",
+          product_tags: ["木工"],
+          price_range: 2,
+          purchase_website: "https://refresh-e2e.example.com",
+          hero_image_url: heroSubmissionUrl,
+        },
+      })
       .eq("id", refreshSubmissionId);
     if (enrichmentError) throw enrichmentError;
     const completedAt = new Date().toISOString();
