@@ -8,7 +8,6 @@ import {
 type EndpointPayload = {
   name: string
   query: { kind: 'HogQLQuery'; query: string }
-  variables: Record<string, { type: 'String'; default: string }>
   data_freshness_seconds: number
   is_materialized: false
 }
@@ -35,7 +34,6 @@ export function buildEndpointPayload(def: OwnerEndpointDef): EndpointPayload {
   return {
     name: def.name,
     query: { kind: 'HogQLQuery', query: def.hogql },
-    variables: def.variables,
     data_freshness_seconds: def.dataFreshnessSeconds,
     is_materialized: false,
   }
@@ -170,7 +168,7 @@ async function upsertEndpoints(
       }
 
       const updated = await client.request<EndpointResource>(
-        `/endpoints/${encodeURIComponent(String(current.id))}/`,
+        `/endpoints/${encodeURIComponent(current.name)}/`,
         'PATCH',
         buildEndpointPayload(def),
       )
