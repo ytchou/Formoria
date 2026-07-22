@@ -170,6 +170,51 @@ describe("unified health-agent workflow contract", () => {
     );
   });
 
+  it("escalates automatic and human batches after their two repair cycles fail", async () => {
+    const workflow = await readFile(workflowPath, "utf8");
+    const escalation = jobSection(
+      workflow,
+      "escalate-repair-failure",
+      "validate-repair",
+    );
+
+    expect(escalation).toContain(
+      "needs: [gate, prepare-repair-batches, automatic-repair, human-repair]",
+    );
+    expect(escalation).toContain(
+      "needs.automatic-repair.result == 'failure' || needs.human-repair.result == 'failure'",
+    );
+    expect(escalation).toContain(
+      'lease_owner="github-actions:${GITHUB_RUN_ID}:${GITHUB_RUN_ATTEMPT}"',
+    );
+    for (const policy of ["automatic", "human"]) {
+      const resultVariable = `${policy.toUpperCase()}_RESULT`;
+      const failureStart = escalation.indexOf(
+        `if [[ "$${resultVariable}" == "failure" ]]; then`,
+      );
+      const failureEnd = escalation.indexOf("\n          fi", failureStart);
+      expect(failureStart).toBeGreaterThan(-1);
+      expect(failureEnd).toBeGreaterThan(failureStart);
+      const failureBlock = escalation.slice(failureStart, failureEnd);
+      expect(failureBlock).toContain("workflow-runtime.ts repair-failure \\");
+      expect(failureBlock).toContain(
+        `--metadata .health-agent-artifacts/${policy}-metadata.json \\`,
+      );
+      expect(failureBlock).toContain(
+        `--snapshot .health-agent-artifacts/${policy}-snapshot.json \\`,
+      );
+      expect(failureBlock).toContain(`--merge-policy ${policy} \\`);
+      expect(failureBlock).toContain('--lease-owner "$lease_owner" \\');
+      expect(failureBlock).toContain(
+        `--output .health-agent-artifacts/failures/${policy}.json`,
+      );
+    }
+    expect(escalation).toContain("if: always()");
+    expect(escalation).toContain(
+      "path: .health-agent-artifacts/failures/*.json",
+    );
+  });
+
   it("has a secretless validation job without provider credentials", async () => {
     const workflow = await readFile(workflowPath, "utf8");
     const secretlessStart = workflow.indexOf("  secretless-validation:");

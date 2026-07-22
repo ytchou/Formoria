@@ -95,6 +95,7 @@ export const WORKFLOW_RUNTIME_COMMANDS = [
   "repair-metadata",
   "repair-audit",
   "repair-result",
+  "repair-failure",
 ] as const;
 
 export type WorkflowRuntimeCommand =
@@ -229,6 +230,17 @@ export interface RepairResultInput {
   prNumber: number;
   prUrl: string;
   runAt: string;
+  workflowAttempt: number;
+  workflowRunId: string;
+}
+
+export interface RepairFailureInput {
+  leaseOwner: string;
+  mergePolicy: "automatic" | "human";
+  metadataPath: string;
+  outputPath: string;
+  runAt: string;
+  snapshotPath: string;
   workflowAttempt: number;
   workflowRunId: string;
 }
@@ -2142,6 +2154,130 @@ export async function deliverRepairResult(
   return result;
 }
 
+export async function deliverRepairFailure(
+  input: RepairFailureInput,
+  dependencies: WorkflowRuntimeDependencies = createWorkflowRuntimeDependencies(),
+): Promise<JsonObject> {
+  const metadata = await readBoundedJson(
+    input.metadataPath,
+    filesFor(dependencies),
+  );
+  const snapshot = await readRepairSnapshot(input.snapshotPath, dependencies);
+  const ids = claimedFindingIds(metadata, input.mergePolicy);
+  if (ids.length === 0 || snapshot.findings.length === 0) {
+    throw new Error("repair_failure_findings_empty");
+  }
+
+  await Promise.all(
+    ids.map((id) =>
+      supabaseRequest(
+        dependencies,
+        "transition_health_fix_needs_human",
+        "/rest/v1/rpc/transition_health_fix",
+        "HEALTH_AGENT_WRITER_TOKEN",
+        {
+          body: JSON.stringify({
+            p_confirmation_data: null,
+            p_deployed_at: null,
+            p_expected_status: "claimed",
+            p_id: id,
+            p_last_error: "repair_validation_failed_after_two_cycles",
+            p_lease_owner: input.leaseOwner,
+            p_merge_sha: null,
+            p_new_status: "needs_human",
+            p_next_attempt_at: null,
+            p_pr_number: null,
+            p_pr_url: null,
+          }),
+          method: "POST",
+        },
+        (value) =>
+          isRecord(value) || (Array.isArray(value) && value.length === 1),
+      ),
+    ),
+  );
+
+  const failures: string[] = ["repair_validation_failed_after_two_cycles"];
+  let linearOutcomes: JsonValue[] = [];
+  const linear = dependencies.linear;
+  if (!linear) {
+    failures.push("linear:not_configured");
+  } else {
+    try {
+      const sync =
+        typeof linear === "function" ? linear : linear.sync.bind(linear);
+      const linearResult = await sync({
+        exhaustedAutomationFingerprints: snapshot.findings.map(
+          ({ fingerprint }) => fingerprint,
+        ),
+        findings: snapshot.findings,
+      });
+      linearOutcomes = [...(linearResult.outcomes ?? [])].map(redactForAudit);
+    } catch {
+      failures.push("linear:failed");
+    }
+  }
+
+  const envelope = buildPrResultEnvelope({
+    mergePolicy: input.mergePolicy,
+    mode: "live",
+    result: {
+      autoMergeEnabled: false,
+      findings: snapshot.findings.map((finding) => ({
+        changedFiles: finding.changedFiles ?? [],
+        fingerprint: finding.fingerprint,
+        source: finding.source,
+        status: "needs_human",
+      })),
+      fixed: false,
+      linearRequired: true,
+      mergePolicy: input.mergePolicy,
+      merged: false,
+      snapshotId: snapshot.snapshotId,
+      status: "needs_human",
+    },
+    runAt: input.runAt,
+    snapshotId: snapshot.snapshotId,
+    status: "failed",
+    workflowAttempt: input.workflowAttempt,
+    workflowRunId: input.workflowRunId,
+  });
+  const delivery = dependencies.delivery;
+  if (!delivery) throw new Error("repair_failure_delivery_unavailable");
+  const report: SlackDigestInput = {
+    actionableFindings: snapshot.findings,
+    failures,
+    linearOutcomes,
+    prOutcomes: [
+      {
+        auto_merge_enabled: false,
+        merge_policy: input.mergePolicy,
+        merged: false,
+        status: "needs_human",
+      },
+    ],
+    skippedActions: [],
+  };
+  const [agentHub, slack] = await Promise.allSettled([
+    delivery.agentHub(envelope),
+    delivery.slack(report),
+  ]);
+  const result: JsonObject = {
+    agent_hub: agentHub.status,
+    claimed_finding_ids: ids,
+    failures,
+    linear_outcomes: linearOutcomes,
+    merge_policy: input.mergePolicy,
+    slack: slack.status,
+    status: "needs_human",
+  };
+  await writeRedactedJson(input.outputPath, result, filesFor(dependencies));
+  if (agentHub.status === "rejected" || slack.status === "rejected") {
+    throw new Error("repair_failure_delivery_failed");
+  }
+  return result;
+}
+
 function canonicalCommand(
   command: WorkflowRuntimeCommand,
 ): WorkflowRuntimeCommand {
@@ -2346,6 +2482,25 @@ export async function runWorkflowCommand(
           prNumber: safeAttempt(input.prNumber),
           prUrl: safeString(input.prUrl, "prUrl"),
           runAt: safeString(input.runAt, "runAt"),
+          workflowAttempt: safeAttempt(input.workflowAttempt),
+          workflowRunId: safeString(input.workflowRunId, "workflowRunId"),
+        },
+        dependencies,
+      );
+    case "repair-failure":
+      return deliverRepairFailure(
+        {
+          leaseOwner: safeString(input.leaseOwner, "leaseOwner"),
+          mergePolicy:
+            input.mergePolicy === "automatic" || input.mergePolicy === "human"
+              ? input.mergePolicy
+              : (() => {
+                  throw new Error("invalid_merge_policy");
+                })(),
+          metadataPath: safeString(input.metadataPath, "metadataPath"),
+          outputPath: safeString(input.outputPath, "outputPath"),
+          runAt: safeString(input.runAt, "runAt"),
+          snapshotPath: safeString(input.snapshotPath, "snapshotPath"),
           workflowAttempt: safeAttempt(input.workflowAttempt),
           workflowRunId: safeString(input.workflowRunId, "workflowRunId"),
         },

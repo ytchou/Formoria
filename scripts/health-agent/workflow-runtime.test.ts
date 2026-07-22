@@ -6,10 +6,12 @@ import type { DirectoryHealthInput } from "./directory";
 import {
   createRpcClient,
   createWorkflowRuntimeDependencies,
+  deliverRepairFailure,
   deliverRepairResult,
   finalizeSentryArtifact,
   makeDirectoryArtifact,
   makeLinkArtifact,
+  type RepairFailureInput,
   type RepairResultInput,
 } from "./workflow-runtime";
 
@@ -19,6 +21,44 @@ const automaticFindingIds = [
   "77735d6d-c378-4734-b4f7-3d93747c1022",
 ];
 const humanFindingIds = ["2437fd75-9edc-4e70-815d-a578d4886234"];
+const automaticRepairFindings = [
+  {
+    behaviorChangeRisk: "low",
+    changedFiles: ["src/cart/cart-service.ts"],
+    claimedFindingId: automaticFindingIds[0],
+    confidence: 0.96,
+    defectKind: "application",
+    evidence: { classification: { rootCause: "Missing cart item guard" } },
+    evidenceArtifactRef: "sentry-triage:cart-missing-item",
+    fingerprint: "sentry:issue:cart-missing-item",
+    fixability: "high",
+    mergePolicy: "automatic",
+    reproducible: true,
+    rootCauseKey: "cart-missing-item",
+    sensitivePaths: [],
+    severity: "high",
+    source: "sentry",
+    title: "Cart service does not guard a missing item",
+  },
+  {
+    behaviorChangeRisk: "low",
+    changedFiles: ["src/cart/cart-service.ts"],
+    claimedFindingId: automaticFindingIds[1],
+    confidence: 0.93,
+    defectKind: "application",
+    evidence: { classification: { rootCause: "Missing cart item guard" } },
+    evidenceArtifactRef: "directory-health:cart-missing-item",
+    fingerprint: "directory:runtime:cart-missing-item",
+    fixability: "high",
+    mergePolicy: "automatic",
+    reproducible: true,
+    rootCauseKey: "cart-missing-item",
+    sensitivePaths: [],
+    severity: "medium",
+    source: "directory",
+    title: "Directory cart check reaches the same missing-item defect",
+  },
+];
 
 function repairResultInput(
   mergePolicy: "automatic" | "human",
@@ -37,6 +77,19 @@ function repairResultInput(
   };
 }
 
+function repairFailureInput(): RepairFailureInput {
+  return {
+    leaseOwner: "github-actions:987654321:1",
+    mergePolicy: "automatic",
+    metadataPath: "repair-metadata.json",
+    outputPath: "automatic-repair-failure.json",
+    runAt: now,
+    snapshotPath: "automatic-snapshot.json",
+    workflowAttempt: 1,
+    workflowRunId: "987654321",
+  };
+}
+
 function repairResultFiles() {
   const contents = new Map<string, string>([
     [
@@ -45,6 +98,10 @@ function repairResultFiles() {
         automatic: { claimed_finding_ids: automaticFindingIds },
         human: { claimed_finding_ids: humanFindingIds },
       }),
+    ],
+    [
+      "automatic-snapshot.json",
+      JSON.stringify({ findings: automaticRepairFindings }),
     ],
   ]);
   return {
@@ -333,6 +390,148 @@ describe("repair result delivery", () => {
         claimed_finding_ids: automaticFindingIds,
         slack: failingDelivery === "slack" ? "rejected" : "fulfilled",
         status: "pr_opened",
+      });
+    },
+  );
+});
+
+describe("repair failure delivery", () => {
+  it("moves claimed findings directly to needs_human, syncs Linear, and persists a redacted result", async () => {
+    const { contents, files } = repairResultFiles();
+    const fetchImplementation = transitionFetch();
+    const linearSync = vi.fn(async () => ({
+      outcomes: [
+        {
+          action: "created",
+          access_token: "linear-sensitive-token",
+          issue_identifier: "ENG-142",
+        },
+      ],
+      tickets: ["ENG-142"],
+    }));
+    const agentHub = vi.fn(async () => undefined);
+    const slack = vi.fn(async () => undefined);
+    const input = repairFailureInput();
+
+    const result = await deliverRepairFailure(input, {
+      delivery: { agentHub, slack },
+      env: {
+        HEALTH_AGENT_WRITER_TOKEN: "writer-token",
+        NEXT_PUBLIC_SUPABASE_URL: "https://db.example",
+      },
+      fetchImplementation,
+      files,
+      linear: { sync: linearSync },
+    });
+
+    const transitions = fetchImplementation.mock.calls.map(([, init]) =>
+      JSON.parse(String(init?.body)),
+    );
+    expect(transitions).toHaveLength(automaticFindingIds.length);
+    for (const findingId of automaticFindingIds) {
+      expect(transitions).toContainEqual({
+        p_confirmation_data: null,
+        p_deployed_at: null,
+        p_expected_status: "claimed",
+        p_id: findingId,
+        p_last_error: "repair_validation_failed_after_two_cycles",
+        p_lease_owner: input.leaseOwner,
+        p_merge_sha: null,
+        p_new_status: "needs_human",
+        p_next_attempt_at: null,
+        p_pr_number: null,
+        p_pr_url: null,
+      });
+    }
+    expect(transitions).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ p_new_status: "pr_opened" }),
+      ]),
+    );
+    expect(linearSync).toHaveBeenCalledWith({
+      exhaustedAutomationFingerprints: expect.arrayContaining(
+        automaticRepairFindings.map(({ fingerprint }) => fingerprint),
+      ),
+      findings: expect.arrayContaining(
+        automaticRepairFindings.map(({ fingerprint }) =>
+          expect.objectContaining({ fingerprint }),
+        ),
+      ),
+    });
+    expect(agentHub).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          finding_count: automaticRepairFindings.length,
+          linear_required: true,
+          status: "needs_human",
+        }),
+      }),
+    );
+    expect(slack).toHaveBeenCalledWith(
+      expect.objectContaining({
+        failures: ["repair_validation_failed_after_two_cycles"],
+        linearOutcomes: [
+          expect.objectContaining({ issue_identifier: "ENG-142" }),
+        ],
+      }),
+    );
+    expect(result).toMatchObject({
+      agent_hub: "fulfilled",
+      claimed_finding_ids: automaticFindingIds,
+      merge_policy: "automatic",
+      slack: "fulfilled",
+      status: "needs_human",
+    });
+    const persisted = contents.get(input.outputPath) ?? "";
+    expect(persisted).toContain("ENG-142");
+    expect(persisted).not.toContain("linear-sensitive-token");
+    const persistedResult = JSON.parse(persisted);
+    expect(persistedResult).toMatchObject({
+      agent_hub: "fulfilled",
+      claimed_finding_ids: automaticFindingIds,
+      linear_outcomes: [{ action: "created", issue_identifier: "ENG-142" }],
+      merge_policy: "automatic",
+      slack: "fulfilled",
+      status: "needs_human",
+    });
+    expect(persistedResult.linear_outcomes[0]).not.toHaveProperty(
+      "access_token",
+    );
+  });
+
+  it.each(["agentHub", "slack"] as const)(
+    "attempts both repair-failure deliveries and records outcomes when %s fails",
+    async (failingDelivery) => {
+      const { contents, files } = repairResultFiles();
+      const agentHub = vi.fn(async () => {
+        if (failingDelivery === "agentHub")
+          throw new Error("ingest unavailable");
+      });
+      const slack = vi.fn(async () => {
+        if (failingDelivery === "slack") throw new Error("webhook unavailable");
+      });
+      const input = repairFailureInput();
+
+      await expect(
+        deliverRepairFailure(input, {
+          delivery: { agentHub, slack },
+          env: {
+            HEALTH_AGENT_WRITER_TOKEN: "writer-token",
+            NEXT_PUBLIC_SUPABASE_URL: "https://db.example",
+          },
+          fetchImplementation: transitionFetch(),
+          files,
+          linear: { sync: vi.fn(async () => ({ outcomes: [] })) },
+        }),
+      ).rejects.toThrow("repair_failure_delivery_failed");
+
+      expect(agentHub).toHaveBeenCalledOnce();
+      expect(slack).toHaveBeenCalledOnce();
+      expect(JSON.parse(contents.get(input.outputPath) ?? "{}")).toMatchObject({
+        agent_hub: failingDelivery === "agentHub" ? "rejected" : "fulfilled",
+        claimed_finding_ids: automaticFindingIds,
+        slack: failingDelivery === "slack" ? "rejected" : "fulfilled",
+        status: "needs_human",
       });
     },
   );

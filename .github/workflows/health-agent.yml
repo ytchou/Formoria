@@ -888,6 +888,82 @@ jobs:
             .health-agent-artifacts/human-review-*.json
           retention-days: 14
 
+  escalate-repair-failure:
+    needs: [gate, prepare-repair-batches, automatic-repair, human-repair]
+    if: >-
+      always() && needs.gate.outputs.autofix == 'true' &&
+      needs.prepare-repair-batches.result == 'success' &&
+      (needs.automatic-repair.result == 'failure' || needs.human-repair.result == 'failure')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      AGENT_HUB_INGEST_TOKEN: ${{ secrets.AGENT_HUB_INGEST_TOKEN }}
+      AGENT_HUB_INGEST_URL: ${{ secrets.AGENT_HUB_INGEST_URL }}
+      HEALTH_AGENT_WRITER_TOKEN: ${{ secrets.HEALTH_AGENT_WRITER_TOKEN }}
+      LINEAR_ASSIGNEE_ID: ${{ vars.LINEAR_ASSIGNEE_ID }}
+      LINEAR_OAUTH_ACCESS_TOKEN: ${{ secrets.LINEAR_OAUTH_ACCESS_TOKEN }}
+      LINEAR_PROJECT_ID: ${{ vars.LINEAR_PROJECT_ID }}
+      LINEAR_TEAM_ID: ${{ vars.LINEAR_TEAM_ID }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SLACK_HEALTH_WEBHOOK_URL: ${{ secrets.SLACK_HEALTH_WEBHOOK_URL }}
+    steps:
+      - name: Checkout failure reporter
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.30.1 --activate
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Download repair batch metadata
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: health-repair-batches-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .health-agent-artifacts
+      - name: Escalate exhausted repair batches
+        env:
+          AUTOMATIC_RESULT: ${{ needs.automatic-repair.result }}
+          HUMAN_RESULT: ${{ needs.human-repair.result }}
+        run: |
+          set -euo pipefail
+          mkdir -p .health-agent-artifacts/failures
+          run_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          lease_owner="github-actions:${GITHUB_RUN_ID}:${GITHUB_RUN_ATTEMPT}"
+          if [[ "$AUTOMATIC_RESULT" == "failure" ]]; then
+            pnpm exec tsx scripts/health-agent/workflow-runtime.ts repair-failure \
+              --metadata .health-agent-artifacts/automatic-metadata.json \
+              --snapshot .health-agent-artifacts/automatic-snapshot.json \
+              --merge-policy automatic \
+              --lease-owner "$lease_owner" \
+              --run-at "$run_at" \
+              --attempt "$GITHUB_RUN_ATTEMPT" \
+              --run-id "$GITHUB_RUN_ID" \
+              --output .health-agent-artifacts/failures/automatic.json
+          fi
+          if [[ "$HUMAN_RESULT" == "failure" ]]; then
+            pnpm exec tsx scripts/health-agent/workflow-runtime.ts repair-failure \
+              --metadata .health-agent-artifacts/human-metadata.json \
+              --snapshot .health-agent-artifacts/human-snapshot.json \
+              --merge-policy human \
+              --lease-owner "$lease_owner" \
+              --run-at "$run_at" \
+              --attempt "$GITHUB_RUN_ATTEMPT" \
+              --run-id "$GITHUB_RUN_ID" \
+              --output .health-agent-artifacts/failures/human.json
+          fi
+      - name: Upload repair failure results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          if-no-files-found: warn
+          name: health-repair-failures-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .health-agent-artifacts/failures/*.json
+          retention-days: 14
+
   validate-repair:
     needs: [gate, automatic-repair, human-repair]
     if: >-
