@@ -112,13 +112,10 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
   }
 
   function handleMitDisputeClick(event: MouseEvent<HTMLAnchorElement>) {
-    const evidenceTrigger = document.querySelector<HTMLElement>(
-      '[data-evidence-dialog-trigger]'
-    )
-    if (!evidenceTrigger) return
-
     event.preventDefault()
-    window.requestAnimationFrame(() => evidenceTrigger.click())
+    window.requestAnimationFrame(() => {
+      document.getElementById('mit-status-section')?.scrollIntoView({ behavior: 'smooth' })
+    })
   }
 
   return (

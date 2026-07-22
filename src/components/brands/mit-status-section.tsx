@@ -39,7 +39,7 @@ export async function MitStatusSection({ brand, locale }: MitStatusSectionProps)
   const certificate = isVerified ? brand.mitEvidence?.mit_smile_cert : undefined
 
   return (
-    <SurfaceCard padding="none" className="rounded-md">
+    <SurfaceCard id="mit-status-section" padding="none" className="rounded-md">
       {isDeclared && (
         <div className="space-y-3 p-5">
           <MitDeclaredBadge label={t('mitDeclared')} title={t('mitDeclaredTitle')} />

@@ -4,7 +4,7 @@ import type { Database } from '@/lib/supabase/database.types'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { stripDeclaration } from './mit-declaration'
 
-const MAX_NOTES_LENGTH = 1000
+export const MAX_NOTES_LENGTH = 1000
 const MAX_PENDING_EVIDENCE = 3
 const DEFAULT_PENDING_PAGE_SIZE = 20
 const MAX_PENDING_PAGE_SIZE = 100

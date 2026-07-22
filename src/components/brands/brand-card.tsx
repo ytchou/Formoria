@@ -101,7 +101,7 @@ export function BrandCard({
                   title={tDetail('mitDeclaredTitle')}
                 />
               )}
-              {brand.mitVerified === true && brand.mitStatus !== 'declared' && (
+              {brand.mitVerified === true && (
                 <MitVerifiedBadge
                   label={t('card.mitVerifiedBadge')}
                   title={tDetail('mitVerified')}

@@ -33,7 +33,7 @@ import { useImageUpload } from '@/components/upload/useImageUpload'
 import { usePathname } from '@/i18n/navigation'
 import { signInHref } from '@/i18n/locale-preference'
 import { useUser } from '@/lib/auth/use-user'
-import type { OriginEvidenceStance } from '@/lib/services/origin-evidence'
+import { MAX_NOTES_LENGTH, type OriginEvidenceStance } from '@/lib/services/origin-evidence'
 import { cn } from '@/lib/utils'
 
 interface EvidenceDialogProps {
@@ -216,13 +216,13 @@ export function EvidenceDialog({ brandId, brandSlug }: EvidenceDialogProps) {
                     aria-live="polite"
                     aria-atomic="true"
                   >
-                    {notesLength} / 1000
+                    {notesLength} / {MAX_NOTES_LENGTH}
                   </span>
                 </div>
                 <Textarea
                   id="evidence-notes"
                   name="notes"
-                  maxLength={1000}
+                  maxLength={MAX_NOTES_LENGTH}
                   rows={4}
                   placeholder={t('notesPlaceholder')}
                   className="min-h-24 resize-y"

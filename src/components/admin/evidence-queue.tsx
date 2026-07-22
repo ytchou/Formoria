@@ -127,7 +127,7 @@ export function EvidenceQueue({
         </TabsList>
       </Tabs>
 
-      <div className="mt-4 rounded-lg border bg-white">
+      <div className="mt-4 rounded-lg border bg-background">
         <Table>
           <TableHeader>
             <TableRow>
