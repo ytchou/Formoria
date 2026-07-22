@@ -16,7 +16,7 @@ interface BrandHeaderProps {
 export function BrandHeader({ brand, categoryLabel, cityLabel, locale, actionsSlot, adminSlot }: BrandHeaderProps) {
   const t = useTranslations('brandDetail')
   const hasMitDeclaredBadge = brand.mitStatus === 'declared'
-  const hasMitVerifiedBadge = brand.mitVerified === true
+  const hasMitVerifiedBadge = brand.mitStatus === 'verified'
   const hasOwnerVerifiedBadge = brand.isVerified
   const mitSmileCert = hasMitVerifiedBadge ? brand.mitEvidence?.mit_smile_cert : undefined
   const priceRangeLabel = brand.priceRange != null ? '$'.repeat(brand.priceRange) : null

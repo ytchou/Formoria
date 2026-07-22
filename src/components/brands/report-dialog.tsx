@@ -114,7 +114,7 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
   function handleMitDisputeClick(event: MouseEvent<HTMLAnchorElement>) {
     event.preventDefault()
     window.requestAnimationFrame(() => {
-      document.getElementById('mit-status-section')?.scrollIntoView({ behavior: 'smooth' })
+      document.querySelector<HTMLElement>('[data-evidence-dialog-trigger]')?.click()
     })
   }
 

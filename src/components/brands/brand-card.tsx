@@ -93,7 +93,7 @@ export function BrandCard({
               {brand.name}
             </Link>
           </h3>
-          {(brand.mitStatus === 'declared' || brand.mitVerified === true || brand.isVerified) && (
+          {(brand.mitStatus === 'declared' || brand.mitStatus === 'verified' || brand.isVerified) && (
             <div className="flex shrink-0 items-center gap-1.5">
               {brand.mitStatus === 'declared' && (
                 <MitDeclaredBadge
@@ -101,7 +101,7 @@ export function BrandCard({
                   title={tDetail('mitDeclaredTitle')}
                 />
               )}
-              {brand.mitVerified === true && (
+              {brand.mitStatus === 'verified' && (
                 <MitVerifiedBadge
                   label={t('card.mitVerifiedBadge')}
                   title={tDetail('mitVerified')}
