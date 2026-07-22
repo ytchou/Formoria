@@ -1,0 +1,75 @@
+name: Health Agent Confirmation
+
+on:
+  pull_request:
+    types: [closed]
+  deployment_status:
+
+permissions:
+  contents: read
+  deployments: read
+  pull-requests: read
+
+concurrency:
+  group: health-confirmation-${{ github.event.pull_request.number || github.event.deployment.sha || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  confirm:
+    if: >-
+      vars.HEALTH_AGENT_ENABLED == 'true' &&
+      (github.event_name == 'deployment_status' ||
+       (github.event_name == 'pull_request' &&
+        contains(github.event.pull_request.labels.*.name, 'health-agent')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      AGENT_HUB_INGEST_TOKEN: ${{ secrets.AGENT_HUB_INGEST_TOKEN }}
+      AGENT_HUB_INGEST_URL: ${{ secrets.AGENT_HUB_INGEST_URL }}
+      FORMORIA_RAILWAY_URL: ${{ vars.FORMORIA_RAILWAY_URL }}
+      HEALTH_AGENT_READER_TOKEN: ${{ secrets.HEALTH_AGENT_READER_TOKEN }}
+      HEALTH_AGENT_WRITER_TOKEN: ${{ secrets.HEALTH_AGENT_WRITER_TOKEN }}
+      HEALTH_CONFIRMATION_AUDIT_PATH: .health-agent-artifacts/confirmation-audit.json
+      HEALTH_CONFIRMATION_SOURCE_RUN_ID: github-actions:health-confirmation:${{ github.run_id }}:${{ github.run_attempt }}
+      HEALTH_CONFIRMATION_WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      LINEAR_ASSIGNEE_ID: ${{ secrets.LINEAR_ASSIGNEE_ID }}
+      LINEAR_OAUTH_ACCESS_TOKEN: ${{ secrets.LINEAR_OAUTH_ACCESS_TOKEN }}
+      LINEAR_PROJECT_ID: ${{ secrets.LINEAR_PROJECT_ID }}
+      LINEAR_TEAM_ID: ${{ secrets.LINEAR_TEAM_ID }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SENTRY_BASE_URL: ${{ vars.SENTRY_BASE_URL }}
+      SENTRY_RESOLVER_TOKEN: ${{ secrets.SENTRY_RESOLVER_TOKEN }}
+      SLACK_HEALTH_WEBHOOK_URL: ${{ secrets.SLACK_HEALTH_WEBHOOK_URL }}
+    steps:
+      - name: Checkout confirmation code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          cache: pnpm
+          node-version: 22
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prepare redacted audit artifact
+        run: >-
+          node -e "require('node:fs').mkdirSync('.health-agent-artifacts',{recursive:true});
+          require('node:fs').writeFileSync(process.env.HEALTH_CONFIRMATION_AUDIT_PATH,
+          JSON.stringify({status:'started'})+'\n')"
+
+      - name: Confirm merged health PR deployment
+        run: pnpm exec tsx scripts/health-agent/confirmation.ts
+
+      - name: Upload redacted confirmation audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          if-no-files-found: error
+          name: health-confirmation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .health-agent-artifacts/confirmation-audit.json
+          retention-days: 14
