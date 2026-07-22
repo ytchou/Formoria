@@ -218,8 +218,6 @@ export function hasValidRetailLocationCoordinates(
   )
 }
 
-export const hasLocationCoordinates = hasValidRetailLocationCoordinates
-
 export function isConfirmedRetailLocation(
   location: RetailLocation,
 ): location is PhysicalRetailLocation & {

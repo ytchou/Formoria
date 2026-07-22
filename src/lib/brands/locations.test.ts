@@ -3,7 +3,6 @@ import type { PhysicalRetailLocation, RetailLocation } from '@/lib/types/brand'
 import {
   getDuplicateRetailLocationIndex,
   getLocationMapQuery,
-  hasLocationCoordinates,
   hasValidRetailLocationCoordinates,
   isConfirmedRetailLocation,
   isMappableRetailLocation,
@@ -161,7 +160,7 @@ describe('normalizeRetailLocations', () => {
       confirmationStatus: 'unconfirmed',
     })
     expect(location && hasValidRetailLocationCoordinates(location)).toBe(true)
-    expect(location && hasLocationCoordinates(location)).toBe(true)
+    expect(location && hasValidRetailLocationCoordinates(location)).toBe(true)
     expect(location && isMappableRetailLocation(location)).toBe(false)
   })
 
