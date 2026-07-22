@@ -5,7 +5,7 @@ import { seedBrand } from '../helpers/seed'
  * Dashboard Analytics
  *
  * Journey: Brand owner navigates to /dashboard/brands/<slug>/analytics and
- * sees the PostHog session dashboard or its explicit provider-unavailable
+ * sees the analytics dashboard or its explicit provider-unavailable
  * state. Ownership is seeded before the request reaches analytics.
  *
  * Actor: userPage (authenticated)
@@ -30,7 +30,7 @@ test.describe('Dashboard — analytics', () => {
     await cleanup?.()
   })
 
-  test('renders authorized PostHog session analytics with an explicit provider state', async ({ userPage }) => {
+  test('renders authorized analytics with an explicit provider state', async ({ userPage }) => {
     test.setTimeout(60_000)
 
     const resp = await userPage.goto(
@@ -44,20 +44,19 @@ test.describe('Dashboard — analytics', () => {
       return
     }
 
-    const available = userPage.getByText(/^(Profile sessions|品牌頁工作階段)$/)
+    const available = userPage.getByText(/^(Profile visits|品牌頁瀏覽)$/)
     const unavailable = userPage.getByRole('heading', { name: /^(Analytics temporarily unavailable|數據分析暫時無法使用)$/ })
     await expect(available.or(unavailable)).toBeVisible({ timeout: 30_000 })
 
     if (await available.isVisible()) {
-      await expect(userPage.getByText(/^(Outbound sessions|外連工作階段)$/)).toBeVisible()
-      await expect(userPage.getByText(/^(Outbound conversion|外連轉換率)$/)).toBeVisible()
-      await expect(userPage.getByRole('heading', { name: /^(30-day session trend|30 天工作階段趨勢)$/ })).toBeVisible()
-      await expect(userPage.getByRole('heading', { name: /^(Acquisition sources|流量來源)$/ })).toBeVisible()
-      await expect(userPage.getByRole('heading', { name: /^(Outbound destinations|外連目的地)$/ })).toBeVisible()
-      await expect(userPage.getByRole('link', { name: /^(Open in PostHog|在 PostHog 開啟)$/ })).toHaveAttribute('href', /^https:\/\//)
-      await expect(userPage.getByText(/^(Source|資料來源) · PostHog$/)).toBeVisible()
+      await expect(userPage.getByText(/^(Outbound clicks|外部連結點擊)$/)).toBeVisible()
+      await expect(userPage.getByText(/^(Outbound click rate|外連點擊率)$/)).toBeVisible()
+      await expect(userPage.getByText(/^(Top traffic source|主要流量來源)$/)).toBeVisible()
+      await expect(userPage.getByText(/^(30-day traffic trend|30 天流量趨勢)$/)).toBeVisible()
+      await expect(userPage.getByText(/^(Traffic sources|流量來源)$/)).toBeVisible()
+      await expect(userPage.getByText(/^(Outbound destinations|外連目的地)$/)).toBeVisible()
     } else {
-      await expect(userPage.getByText(/PostHog.*(could not load|目前無法載入)/)).toBeVisible()
+      await expect(userPage.getByText(/Analytics.*(could not load|目前無法載入)/)).toBeVisible()
     }
   })
 })
