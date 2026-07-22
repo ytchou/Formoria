@@ -30,6 +30,8 @@ test.describe('Navbar auth journey', () => {
     await expect(accountMenu).toBeVisible({ timeout: 10_000 });
     await expect(accountMenu.getByRole('menuitem', { name: '帳號設定' })).toBeVisible({ timeout: 5_000 });
     await expect(accountMenu.getByRole('menuitem', { name: '收藏品牌' })).toBeVisible({ timeout: 5_000 });
+    await expect(accountMenu.getByRole('menuitem', { name: '我的貢獻' })).toBeVisible({ timeout: 5_000 });
+    await expect(accountMenu.getByRole('menuitem', { name: '我的提交' })).toBeVisible({ timeout: 5_000 });
     const signOutItem = accountMenu.getByText(/sign out|登出/i);
     await expect(signOutItem).toBeVisible({ timeout: 10_000 });
     // Dashboard link is NOT in the dropdown (moved to main nav)

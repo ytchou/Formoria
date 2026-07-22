@@ -33,7 +33,8 @@ describe('HeroSection', () => {
   it('renders the main heading', async () => {
     render(await HeroSection({ brandCount: 100, categoryCount: 20, recentBrands: { count: 5, period: '7d' } }))
     const heading = screen.getByRole('heading', { level: 1 })
-    expect(heading).toBeInTheDocument()
+    expect(heading).toHaveTextContent(/台灣品牌/)
+    expect(heading).not.toHaveTextContent(/Made in Taiwan directory/i)
   })
 
   it('renders search input', async () => {

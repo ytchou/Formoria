@@ -17,7 +17,7 @@ export default async function OgImage({
 
   try {
     const brandDetail = await getBrandBySlug(slug)
-    const madeInTaiwan = locale === 'en' ? 'Made in Taiwan' : '台灣製造'
+    const brandLabel = locale === 'en' ? 'Taiwanese Brand' : '台灣品牌'
     const categoryName = brandDetail.category ?? 'Taiwan brand'
 
     return new ImageResponse(
@@ -110,7 +110,7 @@ export default async function OgImage({
               fontFamily: 'Bricolage Grotesque',
             }}
           >
-            {madeInTaiwan}
+            {brandLabel}
           </div>
         </OgLayout>
       ),
@@ -200,7 +200,7 @@ export default async function OgImage({
               fontFamily: 'Noto Sans TC',
             }}
           >
-            Made in Taiwan Brands
+            {locale === 'en' ? 'Taiwanese Brands' : '台灣品牌'}
           </div>
 
           <div
@@ -211,7 +211,7 @@ export default async function OgImage({
               fontFamily: 'Bricolage Grotesque',
             }}
           >
-            {locale === 'en' ? 'Made in Taiwan' : '台灣製造'}
+            {locale === 'en' ? 'Taiwanese Brand' : '台灣品牌'}
           </div>
         </OgLayout>
       ),

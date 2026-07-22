@@ -78,7 +78,7 @@ export default async function OgImage() {
               color: brand.espresso,
             }}
           >
-            台灣製造品牌目錄
+            台灣品牌目錄
           </div>
         </div>
       </OgLayout>

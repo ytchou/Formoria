@@ -14,7 +14,7 @@ export async function GET() {
   const body = [
     '# Formoria',
     '',
-    'Formoria is a community-curated Made in Taiwan brand directory, built for bilingual discovery in zh-TW and English.',
+    'Formoria is a community-curated Taiwanese brand directory, built for bilingual discovery in zh-TW and English.',
     '',
     '## Links',
     ...links,

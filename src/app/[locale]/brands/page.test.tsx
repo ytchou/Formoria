@@ -10,7 +10,7 @@ vi.mock('next-intl/server', () => {
   const makeTranslations = (namespace: string) => {
     const translate = ((key: string, values?: Record<string, unknown>) =>
       namespace === 'brands' && key === 'heading'
-        ? 'Made in Taiwan Brand Directory'
+        ? 'Taiwanese Brand Directory'
         : namespace === 'brands' && key === 'filters.activeSearch'
           ? 'Brand name search'
           : namespace === 'brands' && key === 'filters.activeCategory'
@@ -21,19 +21,19 @@ vi.mock('next-intl/server', () => {
                 ? 'Brand status'
                 : namespace === 'brands.verificationFilter' && key === 'owned'
                   ? 'Owner-managed'
-        : namespace === 'brands' && key === 'metadata.title'
-          ? 'Formoria — 台灣品牌目錄'
-          : namespace === 'brands' && key === 'metadata.description'
-            ? '探索精選的台灣品牌，依分類瀏覽、搜尋，發現最值得支持的台灣製造品牌。'
-            : namespace === 'categories' && key === 'metadata.title'
-              ? `${values?.displayName} Brands from Taiwan`
-              : namespace === 'categories' && key === 'metadata.description'
-                ? 'A'.repeat(435)
-                : namespace === 'categories' && key === 'subMetadata.title'
-                  ? `Made in Taiwan ${values?.subName} Brands | ${values?.categoryName} | MIT Map`
-                  : namespace === 'categories' && key === 'subMetadata.description'
-                    ? `Discover Made in Taiwan ${values?.subName} brands in ${values?.categoryName}.`
-                    : key) as ((key: string, values?: Record<string, unknown>) => string) & {
+                  : namespace === 'brands' && key === 'metadata.title'
+                    ? 'Formoria — 台灣品牌目錄'
+                    : namespace === 'brands' && key === 'metadata.description'
+                      ? '探索精選的台灣品牌，依分類瀏覽、搜尋，認識在台灣創立、設計或製造的品牌。'
+                      : namespace === 'categories' && key === 'metadata.title'
+                        ? `${values?.displayName} Brands from Taiwan`
+                        : namespace === 'categories' && key === 'metadata.description'
+                          ? 'A'.repeat(435)
+                          : namespace === 'categories' && key === 'subMetadata.title'
+                            ? `Taiwanese ${values?.subName} Brands | ${values?.categoryName} | Formoria`
+                            : namespace === 'categories' && key === 'subMetadata.description'
+                              ? `Discover Taiwanese ${values?.subName} brands in ${values?.categoryName}.`
+                              : key) as ((key: string, values?: Record<string, unknown>) => string) & {
       has: (key: string) => boolean
     }
     translate.has = () => false
@@ -128,7 +128,7 @@ describe('brands directory headings', () => {
 
     expect(screen.getByRole('heading', {
       level: 1,
-      name: 'Made in Taiwan Brand Directory',
+      name: 'Taiwanese Brand Directory',
     })).toBeInTheDocument()
   })
 
@@ -157,7 +157,7 @@ describe('brands directory headings', () => {
     })
 
     expect(metadata.title).toEqual({ absolute: 'Formoria — 台灣品牌目錄' })
-    expect(metadata.description).toBe('探索精選的台灣品牌，依分類瀏覽、搜尋，發現最值得支持的台灣製造品牌。')
+    expect(metadata.description).toBe('探索精選的台灣品牌，依分類瀏覽、搜尋，認識在台灣創立、設計或製造的品牌。')
   })
 })
 
@@ -169,7 +169,7 @@ describe('generateMetadata with ?sub=', () => {
     }))
 
     expect(metadata.title).toBe(
-      'Made in Taiwan Hiking & Camping Gear Brands | Outdoor & Camping | MIT Map'
+      'Taiwanese Hiking & Camping Gear Brands | Outdoor & Camping | Formoria'
     )
     expect(metadata.alternates?.canonical).toContain('/en/brands?category=outdoor')
     expect(metadata.alternates?.canonical).not.toContain('sub=')
