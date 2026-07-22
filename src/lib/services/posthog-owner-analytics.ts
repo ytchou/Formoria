@@ -54,7 +54,7 @@ function count(value: unknown): number {
 }
 
 function text(value: unknown): string {
-  if (typeof value !== 'string' || !value) invalidResponse()
+  if (typeof value !== 'string') invalidResponse()
   return value
 }
 

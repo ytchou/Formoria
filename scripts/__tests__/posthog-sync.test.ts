@@ -9,6 +9,7 @@ describe('posthog-sync payload builders', () => {
     expect(buildEndpointPayload(def)).toMatchObject({
       name: 'brand_core_totals',
       query: { kind: 'HogQLQuery', query: def.hogql },
+      variables: { brand_id: { type: 'String', default: '' } },
       data_freshness_seconds: 900,
       is_materialized: false,
     })

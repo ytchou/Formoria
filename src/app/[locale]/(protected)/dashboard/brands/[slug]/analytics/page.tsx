@@ -206,7 +206,7 @@ function OwnerAnalytics({
             value={topSource ? trafficSourceLabel(topSource.source, copy) : '—'}
             description={topSource
               ? copy.shareOfVisits(Math.round(topSource.share * 100))
-              : copy.currentRateUnavailable}
+              : copy.sectionUnavailable}
           />
         </div>
 

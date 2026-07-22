@@ -93,8 +93,7 @@ FROM (
         LAG(coalesce(nullIf(properties.$pathname, ''), path(properties.$current_url))) OVER (PARTITION BY ${SESSION_ID} ORDER BY timestamp) AS previous_path,
         LAG(properties.$current_url) OVER (PARTITION BY ${SESSION_ID} ORDER BY timestamp) AS previous_url
       FROM events
-      WHERE ${PUBLIC_EVENT}
-        AND (event = '$pageview' OR (event = 'brand_detail_viewed' AND ${scope}))
+      WHERE (event = '$pageview' OR (event = 'brand_detail_viewed' AND ${PUBLIC_EVENT} AND ${scope}))
         AND timestamp >= now() - INTERVAL 31 DAY
         AND ${SESSION_ID} IN (${profileSessions(scope)})
     )
