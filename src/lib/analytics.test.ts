@@ -46,6 +46,8 @@ import {
   trackSubmissionPathSelected,
   trackNewsletterSubscribed,
   trackBrandClaimStarted,
+  trackMitDeclared,
+  trackOriginEvidenceSubmitted,
   trackBrandClaimFormSubmitted,
   trackBrandReported,
   trackCtaClicked,
@@ -761,6 +763,32 @@ describe('trackBrandClaimStarted', () => {
       brand_slug: 'my-brand',
       is_authenticated: false,
     })
+  })
+})
+
+describe('MIT tiering analytics', () => {
+  it('tracks mit_declared with snake_case props', () => {
+    trackMitDeclared('brand-1', 'acme', 'most')
+    expect(mockPostHogCapture).toHaveBeenCalledWith(
+      'mit_declared',
+      expect.objectContaining({
+        brand_id: 'brand-1',
+        brand_slug: 'acme',
+        declared_scope: 'most',
+      })
+    )
+  })
+
+  it('tracks origin_evidence_submitted', () => {
+    trackOriginEvidenceSubmitted('brand-1', 'acme', 'contradicts')
+    expect(mockPostHogCapture).toHaveBeenCalledWith(
+      'origin_evidence_submitted',
+      expect.objectContaining({
+        brand_id: 'brand-1',
+        brand_slug: 'acme',
+        stance: 'contradicts',
+      })
+    )
   })
 })
 

@@ -24,7 +24,7 @@ const mockUploadPrivateImage = vi.fn()
 const mockUploadPrivateFile = vi.fn()
 const mockGetUploadImageProcessingConfig = vi.fn().mockReturnValue({})
 vi.mock('@/lib/services/image-upload', () => ({
-  ALLOWED_UPLOAD_BUCKETS: ['brand-images', 'claim-proofs'],
+  ALLOWED_UPLOAD_BUCKETS: ['brand-images', 'claim-proofs', 'origin-evidence'],
   uploadPublicImage: mockUploadPublicImage,
   uploadPrivateImage: mockUploadPrivateImage,
   uploadPrivateFile: mockUploadPrivateFile,
@@ -88,6 +88,20 @@ describe('POST /api/upload', () => {
     })
 
     const fd = makeFormData({ path: 'user-1/brand-1', bucket: 'claim-proofs' })
+    const res = await POST(makeRequest(fd))
+    const body = await res.json()
+
+    expect(res.status).toBe(401)
+    expect(body.error).toMatch(/authentication/i)
+  })
+
+  it('returns 401 when origin-evidence upload is not authenticated', async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: null },
+      error: new Error('No session'),
+    })
+
+    const fd = makeFormData({ path: 'user-1/brand-1', bucket: 'origin-evidence' })
     const res = await POST(makeRequest(fd))
     const body = await res.json()
 
@@ -253,6 +267,38 @@ describe('POST /api/upload', () => {
     })
     expect(mockUploadPrivateImage).toHaveBeenCalledWith({
       bucket: 'claim-proofs',
+      path: expect.stringMatching(/^user-1\/brand-1\/\d+-[0-9a-f-]+\.webp$/),
+      data: Buffer.from('processed-webp'),
+      contentType: 'image/webp',
+    })
+  })
+
+  it('returns only the user-namespaced storage key for authenticated origin-evidence uploads', async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'user-1', email: 'test@example.com' } },
+      error: null,
+    })
+    mockProcessImage.mockResolvedValue({
+      buffer: Buffer.from('processed-webp'),
+      width: 1200,
+      height: 900,
+    })
+    mockUploadPrivateImage.mockResolvedValue({
+      key: 'origin-evidence/user-1/brand-1/123-uuid.webp',
+    })
+
+    const fd = makeFormData({ path: 'user-1/brand-1', bucket: 'origin-evidence' })
+    const res = await POST(makeRequest(fd))
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body).toEqual({
+      key: 'origin-evidence/user-1/brand-1/123-uuid.webp',
+      width: 1200,
+      height: 900,
+    })
+    expect(mockUploadPrivateImage).toHaveBeenCalledWith({
+      bucket: 'origin-evidence',
       path: expect.stringMatching(/^user-1\/brand-1\/\d+-[0-9a-f-]+\.webp$/),
       data: Buffer.from('processed-webp'),
       contentType: 'image/webp',

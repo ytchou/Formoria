@@ -1,7 +1,11 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import type { ImageProcessorConfig } from '@/lib/security/image-processor'
 
-export const ALLOWED_UPLOAD_BUCKETS = ['brand-images', 'claim-proofs'] as const
+export const ALLOWED_UPLOAD_BUCKETS = [
+  'brand-images',
+  'claim-proofs',
+  'origin-evidence',
+] as const
 export type AllowedUploadBucket = (typeof ALLOWED_UPLOAD_BUCKETS)[number]
 const BRAND_IMAGES_BUCKET = ALLOWED_UPLOAD_BUCKETS[0]
 const BRAND_IMAGES_PUBLIC_SEGMENT = `/storage/v1/object/public/${BRAND_IMAGES_BUCKET}/`
@@ -24,7 +28,9 @@ interface UploadImageInput {
 }
 
 type PublicUploadImageInput = UploadImageInput & { bucket: 'brand-images' }
-type PrivateUploadImageInput = UploadImageInput & { bucket: 'claim-proofs' }
+type PrivateUploadImageInput = UploadImageInput & {
+  bucket: 'claim-proofs' | 'origin-evidence'
+}
 export type PrivateUploadFileInput = Omit<UploadImageInput, 'bucket'> & {
   bucket: 'claim-proofs' | 'run-logs'
   upsert?: boolean

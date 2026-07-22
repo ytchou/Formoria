@@ -32,9 +32,14 @@ async function captureAssetUploaded(
 const uploadRateLimiter = createInMemoryRateLimiter()
 const UPLOAD_RATE_LIMIT_WINDOW_MS = 60_000
 const UPLOAD_RATE_LIMIT_MAX_REQUESTS = 10
-const PRIVATE_UPLOAD_BUCKET = 'claim-proofs'
 const MAX_FILE_SIZE = 5 * 1024 * 1024
 const PDF_MAGIC_BYTES = '%PDF'
+
+function isPrivateUploadBucket(
+  bucket: AllowedUploadBucket
+): bucket is 'claim-proofs' | 'origin-evidence' {
+  return bucket === 'claim-proofs' || bucket === 'origin-evidence'
+}
 
 function isPdf(buffer: Buffer): boolean {
   return buffer.subarray(0, PDF_MAGIC_BYTES.length).toString('utf8') === PDF_MAGIC_BYTES
@@ -73,7 +78,7 @@ export async function POST(request: Request) {
     }
     const bucket = rawBucket as AllowedUploadBucket
 
-    const requiresAuth = bucket === PRIVATE_UPLOAD_BUCKET
+    const requiresAuth = isPrivateUploadBucket(bucket)
     let userId: string | null = null
 
     if (requiresAuth) {
@@ -99,7 +104,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
     }
 
-    if (bucket === PRIVATE_UPLOAD_BUCKET && !path.startsWith(`${userId}/`)) {
+    if (isPrivateUploadBucket(bucket) && !path.startsWith(`${userId}/`)) {
       return NextResponse.json({ error: 'Invalid path' }, { status: 403 })
     }
 
@@ -111,7 +116,7 @@ export async function POST(request: Request) {
     }
 
     if (file.type === 'application/pdf') {
-      if (bucket !== PRIVATE_UPLOAD_BUCKET || proofType !== 'business_doc') {
+      if (bucket !== 'claim-proofs' || proofType !== 'business_doc') {
         return NextResponse.json({ error: 'PDF uploads are only allowed for business documents' }, { status: 400 })
       }
 
@@ -158,7 +163,7 @@ export async function POST(request: Request) {
     // Upload via service layer
     const objectPath = `${path}/${Date.now()}-${crypto.randomUUID()}.webp`
     try {
-      if (bucket === PRIVATE_UPLOAD_BUCKET) {
+      if (isPrivateUploadBucket(bucket)) {
         const result = await uploadPrivateImage({
           bucket,
           path: objectPath,

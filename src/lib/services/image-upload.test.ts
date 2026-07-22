@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createServiceClient } from '@/lib/supabase/server'
 import {
+  ALLOWED_UPLOAD_BUCKETS,
   deleteBrandImages,
   deleteStoredImagePaths,
   diffRemovedImageUrls,
@@ -31,6 +32,12 @@ beforeAll(() => {
 })
 afterAll(() => {
   process.env.NEXT_PUBLIC_SUPABASE_URL = originalSupabaseUrl
+})
+
+describe('ALLOWED_UPLOAD_BUCKETS', () => {
+  it('accepts the origin-evidence bucket', () => {
+    expect(ALLOWED_UPLOAD_BUCKETS).toContain('origin-evidence')
+  })
 })
 
 describe('storageKeyFromPublicUrl', () => {
