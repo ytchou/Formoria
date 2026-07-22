@@ -76,7 +76,7 @@ jobs:
         if: steps.guard.outputs.skip != 'true'
         id: context
         env:
-          GH_TOKEN: ${{ secrets.SELFHEAL_PAT }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" && -n "${{ inputs.source_run_id }}" ]]; then
             TRIGGER_RUN_ID="${{ inputs.source_run_id }}"
