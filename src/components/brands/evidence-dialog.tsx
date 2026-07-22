@@ -80,6 +80,7 @@ export function EvidenceDialog({ brandId, brandSlug }: EvidenceDialogProps) {
   return (
     <Dialog>
       <DialogTrigger
+        data-evidence-dialog-trigger
         className={buttonVariants({
           variant: 'ghost',
           className: 'min-h-12 w-full justify-start rounded-lg',

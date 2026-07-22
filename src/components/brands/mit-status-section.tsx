@@ -1,6 +1,5 @@
 import { getTranslations } from 'next-intl/server'
 import dynamic from 'next/dynamic'
-import { Suspense } from 'react'
 
 import { MitDeclaredBadge, MitVerifiedBadge } from '@/components/brands/brand-verification-badges'
 import { Button } from '@/components/ui/button'
@@ -70,20 +69,18 @@ export async function MitStatusSection({ brand, locale }: MitStatusSectionProps)
       )}
 
       <div className={hasStatusDetails ? 'border-t border-border p-2' : 'p-2'}>
-        <Suspense
-          fallback={
-            <Button
-              type="button"
-              variant="ghost"
-              className="min-h-12 w-full justify-start rounded-lg"
-              disabled
-            >
-              {t('mitStatus.reportOrigin')}
-            </Button>
-          }
-        >
+        <div className="[&:has([data-evidence-dialog-trigger])>[data-evidence-dialog-fallback]]:hidden">
           <EvidenceDialog brandId={brand.id} brandSlug={brand.slug} />
-        </Suspense>
+          <Button
+            type="button"
+            variant="ghost"
+            className="min-h-12 w-full justify-start rounded-lg"
+            data-evidence-dialog-fallback
+            disabled
+          >
+            {t('mitStatus.reportOrigin')}
+          </Button>
+        </div>
       </div>
     </SurfaceCard>
   )
