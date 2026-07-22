@@ -64,6 +64,9 @@ async function globalSetup() {
   // each Playwright worker will call writeAuthStorageState() for its own
   // per-worker path, giving every worker a distinct Supabase refresh token.
 
+  // CI runs the production server, so there are no on-demand bundles to warm.
+  if (process.env.CI) return;
+
   // Browser warm-up: compile the submit recommendation and owner flows before specs
   // hit them. A plain fetch() only warms the server bundle, not the client bundle.
   // Any failure is swallowed — this must NEVER break the suite.
