@@ -43,8 +43,10 @@ type ProvenanceSourceForm = {
 
 type RetailLocationForm = {
   name: string
+  kind: string
   relationshipType: string
   type: string
+  retailerUrl: string
   address: string
   city: string
   district: string
@@ -54,6 +56,7 @@ type RetailLocationForm = {
   latitude: string
   longitude: string
   verificationStatus: string
+  confirmationStatus: string
 }
 
 function parseProductTags(value: FormDataEntryValue | null): string[] {
@@ -154,23 +157,33 @@ export function parseBrandEditForm(formData: FormData): Partial<Brand> {
     'label',
     'url',
   ])
+  const retailLocationKeys: (keyof RetailLocationForm)[] = [
+    'name',
+    'kind',
+    'relationshipType',
+    'type',
+    'retailerUrl',
+    'address',
+    'city',
+    'district',
+    'venueName',
+    'floorOrCounter',
+    'availabilityNote',
+    'latitude',
+    'longitude',
+    'verificationStatus',
+    'confirmationStatus',
+  ]
   const retailLocations = normalizeRetailLocations(
-    parseArrayField<RetailLocationForm>(formData, 'retailLocations', [
-      'name',
-      'relationshipType',
-      'type',
-      'address',
-      'city',
-      'district',
-      'venueName',
-      'floorOrCounter',
-      'availabilityNote',
-      'latitude',
-      'longitude',
-      'verificationStatus',
-    ]),
+    parseArrayField<RetailLocationForm>(
+      formData,
+      'retailLocations',
+      retailLocationKeys,
+    ),
   )
-  const hasRetailLocationsField = formData.has('retailLocations[0].name')
+  const hasRetailLocationsField = retailLocationKeys.some((key) =>
+    formData.has(`retailLocations[0].${String(key)}`),
+  )
   const duplicateRetailLocationIndex =
     getDuplicateRetailLocationIndex(retailLocations)
   if (duplicateRetailLocationIndex !== undefined) {

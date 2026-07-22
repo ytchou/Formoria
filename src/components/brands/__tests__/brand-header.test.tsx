@@ -110,7 +110,10 @@ describe('BrandHeader — verified badge', () => {
         brand={makeBrand({
           retailLocations: [
             {
+              kind: 'location',
               name: '大零售地點',
+              relationshipType: 'stockist',
+              confirmationStatus: 'unconfirmed',
               address: '新北市林口區麗園一街11巷',
               latitude: 25.073,
               longitude: 121.389,

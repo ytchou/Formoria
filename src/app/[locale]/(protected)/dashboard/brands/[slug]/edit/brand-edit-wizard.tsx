@@ -34,6 +34,7 @@ interface BrandEditWizardProps {
   defaultValues: Partial<BrandEditFormValues>
   initialCompletedSteps?: number[]
   initialStep?: number
+  isActualOwner?: boolean
   productTagSuggestions?: string[]
 }
 
@@ -96,6 +97,7 @@ export function BrandEditWizard({
   defaultValues,
   initialCompletedSteps = [],
   initialStep = 0,
+  isActualOwner = false,
   productTagSuggestions = [],
 }: BrandEditWizardProps) {
   const t = useTranslations('dashboard.edit')
@@ -257,6 +259,7 @@ export function BrandEditWizard({
     activeStep > 0 ? SECTION_COMPONENTS[activeStep - 1] : null
   const dirtyFields = form.formState.dirtyFields
   const isDirty = currentSectionFields.some((field) => Boolean(dirtyFields[field]))
+  const showActualOwnerLocationControls = isActualOwner === true
 
   return (
     <div className="flex gap-0 min-h-screen">
@@ -273,6 +276,11 @@ export function BrandEditWizard({
               form={form}
               productTagSuggestions={productTagSuggestions}
               currentSlug={brand.slug}
+            />
+          ) : activeStep === 3 ? (
+            <LocationsSection
+              form={form}
+              isActualOwner={showActualOwnerLocationControls}
             />
           ) : (
             SectionComponent && <SectionComponent form={form} />

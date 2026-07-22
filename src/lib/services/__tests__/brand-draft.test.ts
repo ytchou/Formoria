@@ -33,7 +33,10 @@ const liveBrand: Brand = {
   otherUrls: [],
   retailLocations: [
     {
+      kind: 'location',
       name: 'Live Store',
+      relationshipType: 'brand_store',
+      confirmationStatus: 'unconfirmed',
       address: 'Taipei',
       latitude: 25.033,
       longitude: 121.5654,

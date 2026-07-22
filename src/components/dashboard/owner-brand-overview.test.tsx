@@ -42,7 +42,17 @@ const brand: Brand = {
   purchasePinkoi: null,
   purchaseShopee: null,
   otherUrls: [],
-  retailLocations: [{ name: 'Showroom', address: 'Taipei', latitude: 0, longitude: 0 }],
+  retailLocations: [
+    {
+      kind: 'location',
+      name: 'Showroom',
+      relationshipType: 'stockist',
+      confirmationStatus: 'unconfirmed',
+      address: 'Taipei',
+      latitude: 0,
+      longitude: 0,
+    },
+  ],
   productPhotos: ['https://abc.supabase.co/storage/v1/object/public/brand-images/product.jpg'],
   contactEmail: null,
   priceRange: 2,
@@ -87,6 +97,52 @@ describe('OwnerBrandOverview', () => {
     ]) {
       expect(screen.getByText(hint)).toBeInTheDocument()
     }
+  })
+
+  it('distinguishes confirmed locations, unconfirmed leads, and retail-chain channels', async () => {
+    render(await OwnerBrandOverview({
+      brand: {
+        ...brand,
+        retailLocations: [
+          {
+            kind: 'location',
+            name: 'Confirmed showroom',
+            relationshipType: 'brand_store',
+            confirmationStatus: 'owner_confirmed',
+            address: 'No. 1, Confirmed Road',
+          },
+          {
+            kind: 'location',
+            name: 'Community lead',
+            relationshipType: 'stockist',
+            confirmationStatus: 'unconfirmed',
+            address: 'No. 2, Review Road',
+          },
+          {
+            kind: 'retail_chain',
+            name: 'Island Retail',
+            retailerUrl: 'https://example.com/stores',
+          },
+        ],
+      },
+    }))
+
+    expect(screen.getByText('ownerConfirmationLabel')).toBeInTheDocument()
+    expect(screen.getByText('locationVerificationNeedsReview')).toBeInTheDocument()
+    expect(screen.getByText('informationKindRetailChain')).toBeInTheDocument()
+    expect(screen.getByText('locationTypeBrandStore')).toBeInTheDocument()
+    expect(screen.getByText('locationTypeStockist')).toBeInTheDocument()
+    expect(screen.getByText('locationNetworkChain')).toBeInTheDocument()
+    expect(screen.getByText('https://example.com/stores')).toBeInTheDocument()
+
+    const locationsEditLink = screen.getByRole('link', {
+      name: 'edit: wizardStepLocations',
+    })
+    expect(locationsEditLink).toHaveAttribute(
+      'href',
+      '/dashboard/brands/brand-one/edit?step=3',
+    )
+    expect(locationsEditLink).toHaveClass('min-h-12')
   })
 
   it('shows hero and product images as separate media groups', async () => {

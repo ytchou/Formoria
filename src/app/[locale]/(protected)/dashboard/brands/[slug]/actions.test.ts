@@ -152,6 +152,62 @@ function form(fields: Record<string, string>) {
   return formData
 }
 
+function physicalLocationFields(
+  index: number,
+  overrides: Partial<{
+    name: string
+    kind: string
+    relationshipType: string
+    type: string
+    address: string
+    city: string
+    district: string
+    venueName: string
+    floorOrCounter: string
+    availabilityNote: string
+    latitude: string
+    longitude: string
+    verificationStatus: string
+    confirmationStatus: string
+    retailerUrl: string
+  }> = {},
+): Record<string, string> {
+  const values = {
+    name: '台北旗艦店',
+    kind: 'location',
+    relationshipType: 'brand_store',
+    type: '',
+    address: '台北市信義區市府路 45 號',
+    city: 'taipei',
+    district: '信義區',
+    venueName: '',
+    floorOrCounter: '',
+    availabilityNote: '',
+    latitude: '',
+    longitude: '',
+    verificationStatus: 'manual',
+    confirmationStatus: 'owner_confirmed',
+    retailerUrl: '',
+    ...overrides,
+  }
+  const prefix = `retailLocations[${index}]`
+
+  return Object.fromEntries(
+    Object.entries(values).map(([key, value]) => [`${prefix}.${key}`, value]),
+  )
+}
+
+const confirmedTaipeiLocation = {
+  kind: 'location' as const,
+  name: '台北旗艦店',
+  relationshipType: 'brand_store' as const,
+  address: '台北市信義區市府路 45 號',
+  city: 'taipei',
+  district: '信義區',
+  verificationStatus: 'manual' as const,
+  confirmationStatus: 'owner_confirmed' as const,
+}
+
 function mockUser(email: string, id = 'user-1') {
   getUser.mockResolvedValue({
     data: { user: { id, email } },
@@ -374,7 +430,7 @@ describe('updateBrandAction', () => {
     expect(parseBrandEditForm(formData).retailLocations).toEqual([])
   })
 
-  it('persists the selected retail location network type', async () => {
+  it('normalizes legacy retail location type input to a canonical record', async () => {
     const { parseBrandEditForm } = await import('./actions-utils')
 
     const formData = form({
@@ -395,10 +451,287 @@ describe('updateBrandAction', () => {
 
     expect(parseBrandEditForm(formData).retailLocations).toEqual([
       expect.objectContaining({
+        kind: 'location',
         name: '台北京站時尚廣場',
-        type: 'independent',
       }),
     ])
+    expect(parseBrandEditForm(formData).retailLocations?.[0]).not.toHaveProperty(
+      'type',
+    )
+  })
+
+  it('parses canonical retail chain fields including retailerUrl', async () => {
+    const { parseBrandEditForm } = await import('./actions-utils')
+
+    const result = parseBrandEditForm(
+      form({
+        brandSlug: 'test-brand',
+        'retailLocations[0].name': '誠品生活',
+        'retailLocations[0].kind': 'retail_chain',
+        'retailLocations[0].retailerUrl': 'https://www.eslite.com/',
+        'retailLocations[0].confirmationStatus': 'owner_confirmed',
+      }),
+    )
+
+    expect(result.retailLocations).toEqual([
+      {
+        kind: 'retail_chain',
+        name: '誠品生活',
+        retailerUrl: 'https://www.eslite.com/',
+        availabilityNote: undefined,
+      },
+    ])
+  })
+
+  it('does not add retailLocations when the form omits the field', async () => {
+    const { parseBrandEditForm } = await import('./actions-utils')
+
+    expect(parseBrandEditForm(form({ brandSlug: 'test-brand' }))).not.toHaveProperty(
+      'retailLocations',
+    )
+  })
+
+  it('allows an owner to newly confirm an addressed location', async () => {
+    const { isOwnerOf } = await import('@/lib/services/brand-owners')
+    vi.mocked(isOwnerOf).mockResolvedValueOnce(true)
+    isActingAsAdmin.mockResolvedValue(false)
+    getBrandBySlug.mockResolvedValue({
+      id: 'brand-1',
+      slug: 'test-brand',
+      name: 'Test Brand',
+      description: 'Original description before edit',
+      socialLinks: {},
+      heroImageUrl: null,
+      productPhotos: [],
+      retailLocations: [],
+    })
+
+    const { updateBrandAction } = await import('./actions')
+    await expect(
+      updateBrandAction(
+        undefined,
+        form({ brandSlug: 'test-brand', ...physicalLocationFields(0) }),
+      ),
+    ).rejects.toThrow('NEXT_REDIRECT')
+
+    expect(updateBrand).toHaveBeenCalledWith(
+      'brand-1',
+      expect.objectContaining({
+        retailLocations: [
+          expect.objectContaining({ confirmationStatus: 'owner_confirmed' }),
+        ],
+      }),
+    )
+  })
+
+  it('allows an owner to revoke an existing location confirmation', async () => {
+    const { isOwnerOf } = await import('@/lib/services/brand-owners')
+    vi.mocked(isOwnerOf).mockResolvedValueOnce(true)
+    isActingAsAdmin.mockResolvedValue(false)
+    getBrandBySlug.mockResolvedValue({
+      id: 'brand-1',
+      slug: 'test-brand',
+      name: 'Test Brand',
+      description: 'Original description before edit',
+      socialLinks: {},
+      heroImageUrl: null,
+      productPhotos: [],
+      retailLocations: [confirmedTaipeiLocation],
+    })
+
+    const { updateBrandAction } = await import('./actions')
+    await expect(
+      updateBrandAction(
+        undefined,
+        form({
+          brandSlug: 'test-brand',
+          ...physicalLocationFields(0, {
+            confirmationStatus: 'unconfirmed',
+          }),
+        }),
+      ),
+    ).rejects.toThrow('NEXT_REDIRECT')
+
+    expect(updateBrand).toHaveBeenCalledWith(
+      'brand-1',
+      expect.objectContaining({
+        retailLocations: [
+          expect.objectContaining({ confirmationStatus: 'unconfirmed' }),
+        ],
+      }),
+    )
+  })
+
+  it('prevents an admin from newly confirming a location', async () => {
+    const { isOwnerOf } = await import('@/lib/services/brand-owners')
+    vi.mocked(isOwnerOf).mockResolvedValueOnce(false)
+    isActingAsAdmin.mockResolvedValue(true)
+    mockUser('admin@formoria.com', 'admin-1')
+    getBrandBySlug.mockResolvedValue({
+      id: 'brand-1',
+      slug: 'test-brand',
+      name: 'Test Brand',
+      description: 'Original description before edit',
+      socialLinks: {},
+      heroImageUrl: null,
+      productPhotos: [],
+      retailLocations: [],
+    })
+
+    const { updateBrandAction } = await import('./actions')
+    await expect(
+      updateBrandAction(
+        undefined,
+        form({ brandSlug: 'test-brand', ...physicalLocationFields(0) }),
+      ),
+    ).rejects.toThrow('NEXT_REDIRECT')
+
+    expect(updateBrand).toHaveBeenCalledWith(
+      'brand-1',
+      expect.objectContaining({
+        retailLocations: [
+          expect.objectContaining({ confirmationStatus: 'unconfirmed' }),
+        ],
+      }),
+    )
+  })
+
+  it('preserves an unchanged owner-confirmed location during an admin edit', async () => {
+    const { isOwnerOf } = await import('@/lib/services/brand-owners')
+    vi.mocked(isOwnerOf).mockResolvedValueOnce(false)
+    isActingAsAdmin.mockResolvedValue(true)
+    mockUser('admin@formoria.com', 'admin-1')
+    getBrandBySlug.mockResolvedValue({
+      id: 'brand-1',
+      slug: 'test-brand',
+      name: 'Test Brand',
+      description: 'Original description before edit',
+      socialLinks: {},
+      heroImageUrl: null,
+      productPhotos: [],
+      retailLocations: [confirmedTaipeiLocation],
+    })
+
+    const { updateBrandAction } = await import('./actions')
+    await expect(
+      updateBrandAction(
+        undefined,
+        form({
+          brandSlug: 'test-brand',
+          ...physicalLocationFields(0, {
+            availabilityNote: '週一至週五有貨',
+          }),
+        }),
+      ),
+    ).rejects.toThrow('NEXT_REDIRECT')
+
+    expect(updateBrand).toHaveBeenCalledWith(
+      'brand-1',
+      expect.objectContaining({
+        retailLocations: [
+          expect.objectContaining({
+            confirmationStatus: 'owner_confirmed',
+            availabilityNote: '週一至週五有貨',
+          }),
+        ],
+      }),
+    )
+  })
+
+  it('resets confirmation when an admin edits location identity', async () => {
+    const { isOwnerOf } = await import('@/lib/services/brand-owners')
+    vi.mocked(isOwnerOf).mockResolvedValueOnce(false)
+    isActingAsAdmin.mockResolvedValue(true)
+    mockUser('admin@formoria.com', 'admin-1')
+    getBrandBySlug.mockResolvedValue({
+      id: 'brand-1',
+      slug: 'test-brand',
+      name: 'Test Brand',
+      description: 'Original description before edit',
+      socialLinks: {},
+      heroImageUrl: null,
+      productPhotos: [],
+      retailLocations: [confirmedTaipeiLocation],
+    })
+
+    const { updateBrandAction } = await import('./actions')
+    await expect(
+      updateBrandAction(
+        undefined,
+        form({
+          brandSlug: 'test-brand',
+          ...physicalLocationFields(0, {
+            address: '台北市信義區松壽路 11 號',
+          }),
+        }),
+      ),
+    ).rejects.toThrow('NEXT_REDIRECT')
+
+    expect(updateBrand).toHaveBeenCalledWith(
+      'brand-1',
+      expect.objectContaining({
+        retailLocations: [
+          expect.objectContaining({ confirmationStatus: 'unconfirmed' }),
+        ],
+      }),
+    )
+  })
+
+  it('preserves confirmations when an admin only reorders locations', async () => {
+    const secondLocation = {
+      ...confirmedTaipeiLocation,
+      name: '台中旗艦店',
+      address: '台中市西屯區台灣大道三段 251 號',
+      city: 'taichung',
+      district: '西屯區',
+    }
+    const { isOwnerOf } = await import('@/lib/services/brand-owners')
+    vi.mocked(isOwnerOf).mockResolvedValueOnce(false)
+    isActingAsAdmin.mockResolvedValue(true)
+    mockUser('admin@formoria.com', 'admin-1')
+    getBrandBySlug.mockResolvedValue({
+      id: 'brand-1',
+      slug: 'test-brand',
+      name: 'Test Brand',
+      description: 'Original description before edit',
+      socialLinks: {},
+      heroImageUrl: null,
+      productPhotos: [],
+      retailLocations: [confirmedTaipeiLocation, secondLocation],
+    })
+
+    const { updateBrandAction } = await import('./actions')
+    await expect(
+      updateBrandAction(
+        undefined,
+        form({
+          brandSlug: 'test-brand',
+          ...physicalLocationFields(0, {
+            name: secondLocation.name,
+            address: secondLocation.address,
+            city: secondLocation.city,
+            district: secondLocation.district,
+          }),
+          ...physicalLocationFields(1),
+        }),
+      ),
+    ).rejects.toThrow('NEXT_REDIRECT')
+
+    expect(updateBrand).toHaveBeenCalledWith(
+      'brand-1',
+      expect.objectContaining({
+        retailLocations: [
+          expect.objectContaining({
+            name: secondLocation.name,
+            confirmationStatus: 'owner_confirmed',
+          }),
+          expect.objectContaining({
+            name: confirmedTaipeiLocation.name,
+            confirmationStatus: 'owner_confirmed',
+          }),
+        ],
+      }),
+    )
   })
 
   it('blocks duplicate retailLocations when parsing owner edits', async () => {
@@ -1040,6 +1373,245 @@ describe('publishDraftAction — edit gating', () => {
     } finally {
       scanContent.mockReturnValue({ violations: [] })
     }
+  })
+
+  it('sanitizes admin draft location confirmations before merge and publish', async () => {
+    const { isOwnerOf } = await import('@/lib/services/brand-owners')
+    vi.mocked(isOwnerOf).mockResolvedValueOnce(false)
+    isActingAsAdmin.mockResolvedValue(true)
+    mockUser('admin@formoria.com', 'admin-1')
+    getBrandBySlug.mockResolvedValue({
+      id: 'brand-1',
+      slug: 'test-brand',
+      name: 'Test Brand',
+      description: 'Original description before edit',
+      socialLinks: {},
+      heroImageUrl: null,
+      productPhotos: [],
+      retailLocations: [],
+    })
+    getBrandDraft.mockResolvedValue({
+      name: 'Draft Name',
+      description: 'Draft description',
+      retailLocations: [confirmedTaipeiLocation],
+    })
+
+    const { publishDraftAction } = await import('./actions')
+    await expect(
+      publishDraftAction(undefined, form({ brandSlug: 'test-brand' })),
+    ).rejects.toThrow('NEXT_REDIRECT')
+
+    const sanitizedLocation = expect.objectContaining({
+      confirmationStatus: 'unconfirmed',
+    })
+    expect(mergeDraftOverBrand).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ retailLocations: [sanitizedLocation] }),
+    )
+    expect(saveDraft).toHaveBeenCalledWith(
+      'brand-1',
+      expect.objectContaining({ retailLocations: [sanitizedLocation] }),
+    )
+    expect(
+      saveDraft.mock.invocationCallOrder.at(0) ?? Number.POSITIVE_INFINITY,
+    ).toBeLessThan(
+      publishDraft.mock.invocationCallOrder.at(0) ?? Number.POSITIVE_INFINITY,
+    )
+  })
+
+  it.each([
+    {
+      name: 'confirm',
+      previous: [],
+      nextStatus: 'owner_confirmed' as const,
+      expectedStatus: 'owner_confirmed',
+    },
+    {
+      name: 'revoke',
+      previous: [confirmedTaipeiLocation],
+      nextStatus: 'unconfirmed' as const,
+      expectedStatus: 'unconfirmed',
+    },
+  ])(
+    'allows an actual owner to $name a location when publishing a draft',
+    async ({ previous, nextStatus, expectedStatus }) => {
+      const { isOwnerOf } = await import('@/lib/services/brand-owners')
+      vi.mocked(isOwnerOf).mockResolvedValueOnce(true)
+      isActingAsAdmin.mockResolvedValue(false)
+      getBrandBySlug.mockResolvedValue({
+        id: 'brand-1',
+        slug: 'test-brand',
+        name: 'Test Brand',
+        description: 'Original description before edit',
+        socialLinks: {},
+        heroImageUrl: null,
+        productPhotos: [],
+        retailLocations: previous,
+      })
+      getBrandDraft.mockResolvedValue({
+        name: 'Draft Name',
+        description: 'Draft description',
+        retailLocations: [
+          { ...confirmedTaipeiLocation, confirmationStatus: nextStatus },
+        ],
+      })
+
+      const { publishDraftAction } = await import('./actions')
+      await expect(
+        publishDraftAction(undefined, form({ brandSlug: 'test-brand' })),
+      ).rejects.toThrow('NEXT_REDIRECT')
+
+      expect(saveDraft).toHaveBeenCalledWith(
+        'brand-1',
+        expect.objectContaining({
+          retailLocations: [
+            expect.objectContaining({ confirmationStatus: expectedStatus }),
+          ],
+        }),
+      )
+    },
+  )
+
+  it('preserves owner confirmations when an admin publishes unchanged reordered locations', async () => {
+    const secondLocation = {
+      ...confirmedTaipeiLocation,
+      name: '台中旗艦店',
+      address: '台中市西屯區台灣大道三段 251 號',
+      city: 'taichung',
+      district: '西屯區',
+    }
+    const { isOwnerOf } = await import('@/lib/services/brand-owners')
+    vi.mocked(isOwnerOf).mockResolvedValueOnce(false)
+    isActingAsAdmin.mockResolvedValue(true)
+    mockUser('admin@formoria.com', 'admin-1')
+    getBrandBySlug.mockResolvedValue({
+      id: 'brand-1',
+      slug: 'test-brand',
+      name: 'Test Brand',
+      description: 'Original description before edit',
+      socialLinks: {},
+      heroImageUrl: null,
+      productPhotos: [],
+      retailLocations: [confirmedTaipeiLocation, secondLocation],
+    })
+    getBrandDraft.mockResolvedValue({
+      name: 'Draft Name',
+      description: 'Draft description',
+      retailLocations: [
+        { ...secondLocation, availabilityNote: '週一至週五有貨' },
+        { ...confirmedTaipeiLocation, confirmationStatus: 'unconfirmed' },
+      ],
+    })
+
+    const { publishDraftAction } = await import('./actions')
+    await expect(
+      publishDraftAction(undefined, form({ brandSlug: 'test-brand' })),
+    ).rejects.toThrow('NEXT_REDIRECT')
+
+    expect(saveDraft).toHaveBeenCalledWith(
+      'brand-1',
+      expect.objectContaining({
+        retailLocations: [
+          expect.objectContaining({
+            name: secondLocation.name,
+            confirmationStatus: 'owner_confirmed',
+          }),
+          expect.objectContaining({
+            name: confirmedTaipeiLocation.name,
+            confirmationStatus: 'owner_confirmed',
+          }),
+        ],
+      }),
+    )
+  })
+
+  it('downgrades confirmation when an admin tampers with location identity before publish', async () => {
+    const { isOwnerOf } = await import('@/lib/services/brand-owners')
+    vi.mocked(isOwnerOf).mockResolvedValueOnce(false)
+    isActingAsAdmin.mockResolvedValue(true)
+    mockUser('admin@formoria.com', 'admin-1')
+    getBrandBySlug.mockResolvedValue({
+      id: 'brand-1',
+      slug: 'test-brand',
+      name: 'Test Brand',
+      description: 'Original description before edit',
+      socialLinks: {},
+      heroImageUrl: null,
+      productPhotos: [],
+      retailLocations: [confirmedTaipeiLocation],
+    })
+    getBrandDraft.mockResolvedValue({
+      name: 'Draft Name',
+      description: 'Draft description',
+      retailLocations: [
+        {
+          ...confirmedTaipeiLocation,
+          address: '台北市信義區松壽路 11 號',
+        },
+      ],
+    })
+
+    const { publishDraftAction } = await import('./actions')
+    await expect(
+      publishDraftAction(undefined, form({ brandSlug: 'test-brand' })),
+    ).rejects.toThrow('NEXT_REDIRECT')
+
+    expect(saveDraft).toHaveBeenCalledWith(
+      'brand-1',
+      expect.objectContaining({
+        retailLocations: [
+          expect.objectContaining({ confirmationStatus: 'unconfirmed' }),
+        ],
+      }),
+    )
+  })
+
+  it('preserves an explicit draft clear when sanitizing before publish', async () => {
+    const { isOwnerOf } = await import('@/lib/services/brand-owners')
+    vi.mocked(isOwnerOf).mockResolvedValueOnce(false)
+    isActingAsAdmin.mockResolvedValue(true)
+    mockUser('admin@formoria.com', 'admin-1')
+    getBrandBySlug.mockResolvedValue({
+      id: 'brand-1',
+      slug: 'test-brand',
+      name: 'Test Brand',
+      description: 'Original description before edit',
+      socialLinks: {},
+      heroImageUrl: null,
+      productPhotos: [],
+      retailLocations: [confirmedTaipeiLocation],
+    })
+    getBrandDraft.mockResolvedValue({
+      name: 'Draft Name',
+      description: 'Draft description',
+      retailLocations: [],
+    })
+
+    const { publishDraftAction } = await import('./actions')
+    await expect(
+      publishDraftAction(undefined, form({ brandSlug: 'test-brand' })),
+    ).rejects.toThrow('NEXT_REDIRECT')
+
+    expect(saveDraft).toHaveBeenCalledWith(
+      'brand-1',
+      expect.objectContaining({ retailLocations: [] }),
+    )
+    expect(mergeDraftOverBrand).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ retailLocations: [] }),
+    )
+  })
+  it('revalidates both public brand locales after publishing', async () => {
+    const { revalidatePath } = await import('next/cache')
+    isActingAsAdmin.mockResolvedValue(false)
+
+    const { publishDraftAction } = await import('./actions')
+    await expect(
+      publishDraftAction(undefined, form({ brandSlug: 'test-brand' })),
+    ).rejects.toThrow('NEXT_REDIRECT')
+
+    expect(revalidatePath).toHaveBeenCalledWith('/brands/test-brand')
+    expect(revalidatePath).toHaveBeenCalledWith('/en/brands/test-brand')
   })
 })
 
