@@ -42,7 +42,17 @@ const brand: Brand = {
   purchasePinkoi: null,
   purchaseShopee: null,
   otherUrls: [],
-  retailLocations: [{ name: 'Showroom', address: 'Taipei', latitude: 0, longitude: 0 }],
+  retailLocations: [
+    {
+      kind: 'location',
+      name: 'Showroom',
+      relationshipType: 'stockist',
+      confirmationStatus: 'unconfirmed',
+      address: 'Taipei',
+      latitude: 0,
+      longitude: 0,
+    },
+  ],
   productPhotos: ['https://abc.supabase.co/storage/v1/object/public/brand-images/product.jpg'],
   contactEmail: null,
   priceRange: 2,

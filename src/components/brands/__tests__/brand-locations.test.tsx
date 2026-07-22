@@ -26,8 +26,10 @@ const brandWithLocation: Brand = {
   otherUrls: [],
   retailLocations: [
     {
+      kind: 'location',
       name: '大零售地點',
       relationshipType: 'stockist',
+      confirmationStatus: 'unconfirmed',
       type: 'independent',
       address: '新北市林口區麗園一街11巷',
       latitude: 25.073,
@@ -35,8 +37,10 @@ const brandWithLocation: Brand = {
       verificationStatus: 'verified',
     },
     {
+      kind: 'location',
       name: '新光三越櫃位',
       relationshipType: 'department_counter',
+      confirmationStatus: 'unconfirmed',
       type: 'chain',
       venueName: '新光三越 台北信義新天地 A11',
       floorOrCounter: '3F',

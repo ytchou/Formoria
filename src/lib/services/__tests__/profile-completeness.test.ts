@@ -62,7 +62,15 @@ describe('computeProfileCompleteness', () => {
       socialInstagram: 'brand',
       purchasePinkoi: 'https://pinkoi.com/store/brand',
       retailLocations: [
-        { name: 'Shop', address: '', latitude: 0, longitude: 0 },
+        {
+          kind: 'location',
+          name: 'Shop',
+          relationshipType: 'stockist',
+          confirmationStatus: 'unconfirmed',
+          address: '',
+          latitude: 0,
+          longitude: 0,
+        },
       ],
       reputationSummary: {
         text: 'Trusted',

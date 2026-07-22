@@ -393,7 +393,9 @@ export function curatedSubmissionToBrand(input: CuratedSubmissionInput): Curated
     otherUrls,
     retailLocations: input.retailLocations.map((location) => ({
       ...location,
+      kind: 'location',
       relationshipType: 'stockist',
+      confirmationStatus: 'unconfirmed',
       verificationStatus: 'manual',
     })),
     productPhotos: input.productPhotos,

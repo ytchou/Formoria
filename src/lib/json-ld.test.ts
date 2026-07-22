@@ -35,7 +35,10 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     otherUrls: [],
     retailLocations: [
       {
+        kind: 'location',
         name: 'Nanzhuang Store',
+        relationshipType: 'brand_store',
+        confirmationStatus: 'unconfirmed',
         address: '苗栗縣南庄鄉',
         latitude: 24.59,
         longitude: 120.99,
@@ -172,13 +175,19 @@ describe('buildBrandJsonLd', () => {
       makeBrand({
         retailLocations: [
           {
+            kind: 'location',
             name: 'Nanzhuang Store',
+            relationshipType: 'brand_store',
+            confirmationStatus: 'unconfirmed',
             address: '苗栗縣南庄鄉',
             latitude: 24.59,
             longitude: 120.99,
           },
           {
+            kind: 'location',
             name: 'Taipei Store',
+            relationshipType: 'brand_store',
+            confirmationStatus: 'unconfirmed',
             address: '台北市信義區',
             latitude: 25.03,
             longitude: 121.56,

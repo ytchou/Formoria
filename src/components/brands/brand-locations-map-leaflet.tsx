@@ -2,11 +2,10 @@
 
 import { CircleMarker, MapContainer, Popup, TileLayer } from 'react-leaflet'
 import type { LatLngBoundsExpression, LatLngExpression } from 'leaflet'
-import type { RetailLocation } from '@/lib/types'
+import type { PhysicalRetailLocation, RetailLocation } from '@/lib/types/brand'
 import { isMappableRetailLocation } from '@/lib/brands/locations'
 
-type PinnedLocation = RetailLocation & {
-  type: 'independent'
+type PinnedLocation = PhysicalRetailLocation & {
   latitude: number
   longitude: number
 }
