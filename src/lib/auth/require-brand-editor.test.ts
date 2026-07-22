@@ -61,6 +61,24 @@ describe('requireBrandEditor', () => {
     })
   })
 
+  it('passes brand loading options through without changing owner authority', async () => {
+    getUser.mockResolvedValue({
+      data: { user: { id: 'user-1', email: 'owner@example.com' } },
+      error: null,
+    })
+    isOwnerOf.mockResolvedValueOnce(true)
+
+    const { requireBrandEditor } = await import('./require-brand-editor')
+    const result = await requireBrandEditor('brand-1', {
+      includeRomanizedName: true,
+    })
+
+    expect(getBrandBySlug).toHaveBeenCalledWith('brand-1', {
+      includeRomanizedName: true,
+    })
+    expect(result).toMatchObject({ owner: true })
+  })
+
   it('allows a god-mode admin who is not the owner', async () => {
     getUser.mockResolvedValue({
       data: { user: { id: 'admin-1', email: 'admin@formoria.com' } },

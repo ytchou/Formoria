@@ -57,7 +57,12 @@ vi.mock('../sections/links-section', () => ({
   ),
 }))
 vi.mock('../sections/locations-section', () => ({
-  LocationsSection: () => <div data-testid="locations-section" />,
+  LocationsSection: ({ isActualOwner }: { isActualOwner?: boolean }) => (
+    <div
+      data-testid="locations-section"
+      data-actual-owner={String(isActualOwner)}
+    />
+  ),
 }))
 vi.mock('../sections/reputation-section', () => ({
   ReputationSection: ({
@@ -88,6 +93,7 @@ function renderWizard(props = {}) {
         brand={mockBrand}
         defaultValues={{ name: 'Test Brand', productType: 'fashion' }}
         initialStep={0}
+        isActualOwner={false}
         {...props}
       />
     </NextIntlClientProvider>,
@@ -112,6 +118,7 @@ describe('BrandEditWizard', () => {
           brand={mockBrand}
           defaultValues={{ name: 'Test Brand', productType: 'fashion' }}
           initialStep={0}
+          isActualOwner={false}
         />
       </NextIntlClientProvider>,
     )
@@ -131,6 +138,15 @@ describe('BrandEditWizard', () => {
   it('starts at the correct step when initialStep is provided', () => {
     renderWizard({ initialStep: 2 })
     expect(screen.getByTestId('links-section')).toBeInTheDocument()
+  })
+
+  it('passes actual ownership only to the locations step', () => {
+    renderWizard({ initialStep: 3, isActualOwner: true })
+
+    expect(screen.getByTestId('locations-section')).toHaveAttribute(
+      'data-actual-owner',
+      'true',
+    )
   })
 
   it('restores completed steps from saved progress metadata', () => {

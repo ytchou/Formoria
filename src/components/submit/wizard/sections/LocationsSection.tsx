@@ -9,7 +9,7 @@ export function LocationsSection() {
 
   return (
     <FormProvider {...form}>
-      <BrandLocationsSection />
+      <BrandLocationsSection isActualOwner={false} />
     </FormProvider>
   )
 }

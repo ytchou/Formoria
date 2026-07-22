@@ -1,32 +1,73 @@
 import { rewriteBrandDescription, type DescriptionAttempt, type DescriptionRewriteResult } from '../description-rewrite'
+import { isPhysicalRetailLocation, normalizeRetailLocations } from '@/lib/brands/locations'
 import { normalizeProductTags } from '@/lib/services/product-tags'
 import { createServiceClient } from '@/lib/supabase/server'
+import type { RetailLocation } from '@/lib/types/brand'
 import type { PhaseResult } from '@/lib/types/curation'
 import type { EnrichScrapedData } from './types'
 import { brandTarget, type EnrichmentTarget } from '../enrichment-target'
 import { buildPhaseResult, getDisplayBrandName, hasPatchValues, timePhase, type EnrichBrand, type EnrichPhase } from './types'
 
-type StockistEntry = {
-  name: string
-  relationshipType: string
-  type?: 'chain' | 'independent'
-  city?: string | null
+type ExtractedStockist = NonNullable<DescriptionRewriteResult['stockists']>[number]
+
+function stockistIdentity(location: RetailLocation): string {
+  const name = location.name.trim().replace(/\s+/g, ' ').toLocaleLowerCase()
+  return `${location.kind}:${name}`
+}
+
+function normalizeExtractedStockists(
+  stockists: ExtractedStockist[],
+): RetailLocation[] {
+  return normalizeRetailLocations(
+    stockists.map((stockist) =>
+      stockist.type === 'chain'
+        ? {
+            kind: 'retail_chain',
+            name: stockist.name,
+          }
+        : {
+            kind: 'location',
+            name: stockist.name,
+            relationshipType: 'stockist',
+            ...(stockist.city ? { city: stockist.city } : {}),
+            confirmationStatus: 'unconfirmed',
+          },
+    ),
+  )
+}
+
+function getOwnerConfirmedLocations(value: unknown): RetailLocation[] {
+  return normalizeRetailLocations(value).filter(
+    (location) =>
+      isPhysicalRetailLocation(location) &&
+      location.confirmationStatus === 'owner_confirmed',
+  )
+}
+
+function getOverwriteRetailLocations(value: unknown): RetailLocation[] | null {
+  const ownerConfirmedLocations = getOwnerConfirmedLocations(value)
+  return ownerConfirmedLocations.length > 0 ? ownerConfirmedLocations : null
 }
 
 function mergeStockists(
-  existing: Array<{ name: string }> | null | undefined,
-  newStockists: Array<{ name: string; city: string | null; type: 'chain' | 'independent' }>
-): StockistEntry[] {
-  const merged = new Map<string, StockistEntry>()
-  for (const loc of (existing as Array<{ name: string; relationshipType?: string; type?: 'chain' | 'independent'; city?: string | null }>) ?? []) {
-    merged.set(loc.name, { name: loc.name, relationshipType: loc.relationshipType ?? 'stockist', type: loc.type, city: loc.city })
-  }
-  for (const s of newStockists) {
-    if (!merged.has(s.name)) {
-      merged.set(s.name, { name: s.name, relationshipType: 'stockist', type: s.type, city: s.city })
+  existing: unknown,
+  newStockists: ExtractedStockist[],
+  overwrite: boolean,
+): RetailLocation[] {
+  const merged = overwrite
+    ? getOwnerConfirmedLocations(existing)
+    : normalizeRetailLocations(existing)
+  const identities = new Set(merged.map(stockistIdentity))
+
+  for (const stockist of normalizeExtractedStockists(newStockists)) {
+    const identity = stockistIdentity(stockist)
+    if (!identities.has(identity)) {
+      merged.push(stockist)
+      identities.add(identity)
     }
   }
-  return [...merged.values()]
+
+  return merged
 }
 
 type DescriptionsPhaseOptions = {
@@ -88,6 +129,10 @@ function changedFieldsForPatch(patch: Record<string, unknown>): string[] {
 
   if (Array.isArray(patch.product_tags_en) && patch.product_tags_en.length > 0) {
     changedFields.push('product_tags_en')
+  }
+
+  if (patch.retail_locations !== undefined) {
+    changedFields.push('retail_locations')
   }
 
   return changedFields
@@ -239,13 +284,14 @@ export async function runDescriptionsPhase({
           }
         } : {}),
         ...(descriptionRewrite.stockists && descriptionRewrite.stockists.length > 0 ? {
-          retail_locations: overwrite
-            ? descriptionRewrite.stockists.map((s) => ({ name: s.name, relationshipType: 'stockist', type: s.type, city: s.city }))
-            : mergeStockists(
-                brand.retail_locations as Array<{ name: string }> | null,
-                descriptionRewrite.stockists
-              ),
-        } : overwrite && brand.retail_locations ? { retail_locations: null } : {}),
+          retail_locations: mergeStockists(
+            brand.retail_locations,
+            descriptionRewrite.stockists,
+            overwrite,
+          ),
+        } : overwrite && brand.retail_locations != null ? {
+          retail_locations: getOverwriteRetailLocations(brand.retail_locations),
+        } : {}),
         ...(descriptionRewrite.mitIndicators && shouldWrite(brand.mit_evidence) ? {
           mit_evidence: {
             enrichment_signals: descriptionRewrite.mitIndicators.evidence,

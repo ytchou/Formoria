@@ -17,6 +17,14 @@ vi.mock('@/app/[locale]/submit/actions', () => ({
 vi.mock('@/lib/actions/location-search', () => ({
   searchLocationAction: vi.fn().mockResolvedValue({ success: true, results: [] }),
 }))
+vi.mock('@/components/brand-wizard/locations-section', () => ({
+  BrandLocationsSection: ({ isActualOwner }: { isActualOwner?: boolean }) => (
+    <div
+      data-testid='brand-locations-section'
+      data-actual-owner={String(isActualOwner)}
+    />
+  ),
+}))
 vi.mock('@/components/submit/TurnstileWidget', () => ({
   TurnstileWidget: ({ onSuccess }: { onSuccess: (token: string) => void }) => (
     <button data-testid='turnstile' onClick={() => onSuccess('mock-token')}>Turnstile</button>
@@ -84,5 +92,34 @@ describe('SubmissionWizard', () => {
       expect(screen.getByText('產品圖片')).toBeInTheDocument()
     })
     expect(submitOwnerDetailedBrand).not.toHaveBeenCalled()
+  })
+
+  it('renders submission locations without owner confirmation capability', async () => {
+    const { default: SubmissionWizard } = await import('../SubmissionWizard')
+    render(
+      <NextIntlClientProvider locale='zh-TW' messages={zhMessages}>
+        <SubmissionWizard />
+      </NextIntlClientProvider>
+    )
+
+    fireEvent.change(screen.getByLabelText(/品牌名稱/i), {
+      target: { value: '暖木生活' },
+    })
+    fireEvent.change(screen.getByLabelText(/網站/i), {
+      target: { value: 'https://warmwood.example' },
+    })
+    fireEvent.change(screen.getByLabelText(/品牌介紹/i), {
+      target: { value: '台灣居家生活品牌' },
+    })
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /販售地點/ })[0],
+    )
+
+    await waitFor(() => {
+      expect(screen.getByTestId('brand-locations-section')).toHaveAttribute(
+        'data-actual-owner',
+        'false',
+      )
+    })
   })
 })

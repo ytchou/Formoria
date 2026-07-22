@@ -249,4 +249,240 @@ describe('runDescriptionsPhase', () => {
     expect(supabaseMocks.upsert).not.toHaveBeenCalled()
   })
 
+  it('persists extracted stockists as canonical locations and channels', async () => {
+    rewriteBrandDescription.mockResolvedValue({
+      result: makeDescriptionRewriteResult({
+        stockists: [
+          { name: ' Chain Store ', city: 'Taipei', type: 'chain' },
+          { name: ' Independent Shop ', city: ' Tainan ', type: 'independent' },
+        ],
+      }),
+      attempts: [],
+    })
+
+    const result = await runDescriptionsPhase({
+      brand,
+      phases: ['descriptions'] as EnrichPhase[],
+      serpSnippets: ['Stockist source material.'],
+    })
+
+    const locations = result.patch.retail_locations as Array<Record<string, unknown>>
+    expect(locations).toHaveLength(2)
+    expect(locations.at(0)).toMatchObject({
+      kind: 'retail_chain',
+      name: 'Chain Store',
+    })
+    expect(locations.at(0)).not.toHaveProperty('city')
+    expect(locations.at(0)).not.toHaveProperty('relationshipType')
+    expect(locations.at(0)).not.toHaveProperty('confirmationStatus')
+    expect(locations.at(1)).toMatchObject({
+      kind: 'location',
+      name: 'Independent Shop',
+      relationshipType: 'stockist',
+      city: 'Tainan',
+      confirmationStatus: 'unconfirmed',
+    })
+    expect(locations.every((location) => !('type' in location))).toBe(true)
+    expect(result.phaseResult.changedFields).toContain('retail_locations')
+  })
+
+  it('normalizes merged records without losing rich existing data or duplicating vague leads', async () => {
+    rewriteBrandDescription.mockResolvedValue({
+      result: makeDescriptionRewriteResult({
+        stockists: [
+          { name: ' Existing Location ', city: 'New City', type: 'independent' },
+          { name: ' EXISTING   CHAIN ', city: 'Ignored', type: 'chain' },
+          { name: 'Existing Location', city: null, type: 'chain' },
+          { name: 'New Location', city: 'Kaohsiung', type: 'independent' },
+        ],
+      }),
+      attempts: [],
+    })
+
+    const result = await runDescriptionsPhase({
+      brand: {
+        ...brand,
+        retail_locations: [
+          {
+            kind: 'location',
+            name: 'Existing Location',
+            relationshipType: 'stockist',
+            address: 'No. 1',
+            city: 'Taipei',
+            district: 'Xinyi',
+            venueName: 'Existing Venue',
+            floorOrCounter: '3F',
+            availabilityNote: 'Call before visiting',
+            latitude: 25.033,
+            longitude: 121.565,
+            verificationStatus: 'verified',
+            confirmationStatus: 'owner_confirmed',
+          },
+          {
+            kind: 'retail_chain',
+            name: 'Existing Chain',
+            retailerUrl: 'https://retailer.example/shops',
+            availabilityNote: 'Selected stores',
+          },
+        ],
+      },
+      phases: ['descriptions'] as EnrichPhase[],
+      serpSnippets: ['Stockist source material.'],
+    })
+
+    const locations = result.patch.retail_locations as Array<Record<string, unknown>>
+    expect(locations).toHaveLength(4)
+    expect(locations.at(0)).toMatchObject({
+      kind: 'location',
+      name: 'Existing Location',
+      relationshipType: 'stockist',
+      address: 'No. 1',
+      city: 'Taipei',
+      district: 'Xinyi',
+      venueName: 'Existing Venue',
+      floorOrCounter: '3F',
+      availabilityNote: 'Call before visiting',
+      latitude: 25.033,
+      longitude: 121.565,
+      verificationStatus: 'verified',
+      confirmationStatus: 'owner_confirmed',
+    })
+    expect(locations.at(1)).toMatchObject({
+      kind: 'retail_chain',
+      name: 'Existing Chain',
+      retailerUrl: 'https://retailer.example/shops',
+      availabilityNote: 'Selected stores',
+    })
+    expect(locations.at(2)).toMatchObject({
+      kind: 'retail_chain',
+      name: 'Existing Location',
+    })
+    expect(locations.at(3)).toMatchObject({
+      kind: 'location',
+      name: 'New Location',
+      city: 'Kaohsiung',
+      confirmationStatus: 'unconfirmed',
+    })
+  })
+
+  it('preserves owner-confirmed locations during overwrite without confirming new leads', async () => {
+    rewriteBrandDescription.mockResolvedValue({
+      result: makeDescriptionRewriteResult({
+        stockists: [
+          { name: 'Confirmed Location', city: 'Changed City', type: 'independent' },
+          { name: 'New Lead', city: 'Taichung', type: 'independent' },
+        ],
+      }),
+      attempts: [],
+    })
+
+    const result = await runDescriptionsPhase({
+      brand: {
+        ...brand,
+        retail_locations: [
+          {
+            kind: 'location',
+            name: 'Confirmed Location',
+            relationshipType: 'stockist',
+            address: 'Owner-confirmed address',
+            confirmationStatus: 'owner_confirmed',
+          },
+          {
+            kind: 'location',
+            name: 'Old Lead',
+            relationshipType: 'stockist',
+            confirmationStatus: 'unconfirmed',
+          },
+        ],
+      },
+      phases: ['descriptions'] as EnrichPhase[],
+      serpSnippets: ['Stockist source material.'],
+      overwrite: true,
+    })
+
+    const locations = result.patch.retail_locations as Array<Record<string, unknown>>
+    expect(locations).toHaveLength(2)
+    expect(locations.at(0)).toMatchObject({
+      name: 'Confirmed Location',
+      address: 'Owner-confirmed address',
+      confirmationStatus: 'owner_confirmed',
+    })
+    expect(locations.at(1)).toMatchObject({
+      name: 'New Lead',
+      city: 'Taichung',
+      confirmationStatus: 'unconfirmed',
+    })
+    expect(locations).not.toContainEqual(expect.objectContaining({ name: 'Old Lead' }))
+    expect(
+      locations.filter((location) => location.confirmationStatus === 'owner_confirmed'),
+    ).toHaveLength(1)
+  })
+
+  it('preserves owner-confirmed locations when overwrite finds no stockists', async () => {
+    rewriteBrandDescription.mockResolvedValue({
+      result: makeDescriptionRewriteResult({ stockists: null }),
+      attempts: [],
+    })
+
+    const result = await runDescriptionsPhase({
+      brand: {
+        ...brand,
+        retail_locations: [
+          {
+            kind: 'location',
+            name: 'Confirmed Location',
+            relationshipType: 'brand_store',
+            address: 'No. 2',
+            confirmationStatus: 'owner_confirmed',
+          },
+          {
+            kind: 'location',
+            name: 'Unconfirmed Lead',
+            relationshipType: 'stockist',
+            confirmationStatus: 'unconfirmed',
+          },
+        ],
+      },
+      phases: ['descriptions'] as EnrichPhase[],
+      serpSnippets: ['No stockists found.'],
+      overwrite: true,
+    })
+
+    expect(result.patch.retail_locations).toEqual([
+      expect.objectContaining({
+        name: 'Confirmed Location',
+        address: 'No. 2',
+        confirmationStatus: 'owner_confirmed',
+      }),
+    ])
+    expect(result.phaseResult.changedFields).toContain('retail_locations')
+  })
+
+  it('tracks an explicit retail_locations clear as a changed field', async () => {
+    rewriteBrandDescription.mockResolvedValue({
+      result: makeDescriptionRewriteResult({ stockists: null }),
+      attempts: [],
+    })
+
+    const result = await runDescriptionsPhase({
+      brand: {
+        ...brand,
+        retail_locations: [
+          {
+            kind: 'location',
+            name: 'Unconfirmed Lead',
+            relationshipType: 'stockist',
+            confirmationStatus: 'unconfirmed',
+          },
+        ],
+      },
+      phases: ['descriptions'] as EnrichPhase[],
+      serpSnippets: ['No stockists found.'],
+      overwrite: true,
+    })
+
+    expect(result.patch.retail_locations).toBeNull()
+    expect(result.phaseResult.changedFields).toContain('retail_locations')
+  })
+
 })

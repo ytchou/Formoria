@@ -18,7 +18,10 @@ async function hasMatchingImpersonation(brandSlug: string): Promise<boolean> {
   return (await getImpersonatedBrandSlug()) === brandSlug
 }
 
-export async function requireBrandEditor(brandSlug: string): Promise<BrandEditorContext> {
+export async function requireBrandEditor(
+  brandSlug: string,
+  options: Parameters<typeof getBrandBySlug>[1] = {},
+): Promise<BrandEditorContext> {
   const supabase = await createClient()
   const {
     data: { user },
@@ -30,7 +33,7 @@ export async function requireBrandEditor(brandSlug: string): Promise<BrandEditor
 
   let brand
   try {
-    brand = await getBrandBySlug(brandSlug)
+    brand = await getBrandBySlug(brandSlug, options)
   } catch {
     return { error: 'brandNotFound' }
   }

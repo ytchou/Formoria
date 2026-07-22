@@ -2,9 +2,8 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { localizePath } from '@/i18n/locale-preference'
 import { getTranslations } from 'next-intl/server'
-import { createClient } from '@/lib/supabase/server'
-import { canManageDashboardBrand } from '@/lib/auth/admin-mode'
-import { getBrandBySlug, getBrandDraft } from '@/lib/services/brands'
+import { requireBrandEditor } from '@/lib/auth/require-brand-editor'
+import { getBrandDraft } from '@/lib/services/brands'
 import { getApprovedProductTagSuggestions } from '@/lib/services/product-tag-suggestions'
 import { BrandEditWizard } from './brand-edit-wizard'
 import {
@@ -28,22 +27,18 @@ export default async function BrandEditPage({ params, searchParams }: Props) {
   const { slug, locale } = await params
   const { step: rawStep } = await searchParams
 
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) redirect('/auth/sign-in')
-
-  const brand = await getBrandBySlug(slug, { includeRomanizedName: true })
-  const owner = await canManageDashboardBrand(
-    user.id,
-    user.email,
-    brand.id,
-    brand.slug,
-  )
-
-  if (!owner) redirect(localizePath('/dashboard', locale))
+  const editor = await requireBrandEditor(slug, {
+    includeRomanizedName: true,
+  })
+  if ('error' in editor) {
+    redirect(
+      editor.error === 'notLoggedIn'
+        ? '/auth/sign-in'
+        : localizePath('/dashboard', locale),
+    )
+    return null
+  }
+  const { brand } = editor
 
   const [draft, productTagSuggestions] = await Promise.all([
     getBrandDraft(brand.id),
@@ -73,6 +68,7 @@ export default async function BrandEditPage({ params, searchParams }: Props) {
         defaultValues={defaultValues}
         initialCompletedSteps={initialCompletedSteps}
         initialStep={initialStep}
+        isActualOwner={editor.owner}
         productTagSuggestions={productTagSuggestions}
       />
     </div>
