@@ -18,6 +18,7 @@ import {
   getClaimRequest,
   rejectClaimRequest,
 } from '@/lib/services/claim-requests'
+import { processClaimProofCleanup } from '@/lib/services/claim-proof-cleanup'
 import { verifyMitByCert } from '@/lib/services/mit-verification'
 import {
   deleteBrand,
@@ -255,9 +256,27 @@ export async function rejectSubmissionAction(
   }
 }
 
+const CLAIM_PROOF_CLEANUP_WARNING = 'Proof deletion remains queued for automatic retry.'
+
+type ClaimDecisionActionResult =
+  | { error?: string; warning?: string }
+  | undefined
+
+async function processImmediateClaimProofCleanup(
+  claimRequestId: string
+): Promise<string | undefined> {
+  try {
+    const summary = await processClaimProofCleanup({ claimRequestId })
+    return summary.failed > 0 ? CLAIM_PROOF_CLEANUP_WARNING : undefined
+  } catch (err) {
+    console.error('[admin:claim-proof-cleanup] process failed', err)
+    return CLAIM_PROOF_CLEANUP_WARNING
+  }
+}
+
 export async function approveClaimAction(
   claimRequestId: string
-): Promise<{ error: string } | undefined> {
+): Promise<ClaimDecisionActionResult> {
   try {
     const auth = await requireAdminAction()
     if ('error' in auth) return auth
@@ -265,6 +284,7 @@ export async function approveClaimAction(
     const claimRequest = await getClaimRequest(claimRequestId)
     const siteUrl = getSiteUrl()
     await approveClaimRequest(claimRequestId, auth.user.id)
+    const cleanupWarning = await processImmediateClaimProofCleanup(claimRequestId)
 
     try {
       const serviceSupabase = createServiceClient()
@@ -306,7 +326,7 @@ export async function approveClaimAction(
       console.error('[claim-approved-email] send failed', err)
     }
 
-    return undefined
+    return cleanupWarning ? { warning: cleanupWarning } : undefined
   } catch (err) {
     console.error('[admin:approveClaimAction]', err)
     return {
@@ -318,7 +338,7 @@ export async function approveClaimAction(
 export async function rejectClaimAction(
   claimRequestId: string,
   notes: string
-): Promise<{ error: string } | undefined> {
+): Promise<ClaimDecisionActionResult> {
   try {
     const auth = await requireAdminAction()
     if ('error' in auth) return auth
@@ -326,6 +346,7 @@ export async function rejectClaimAction(
     const claimRequest = await getClaimRequest(claimRequestId)
     const siteUrl = getSiteUrl()
     await rejectClaimRequest(claimRequestId, auth.user.id, notes)
+    const cleanupWarning = await processImmediateClaimProofCleanup(claimRequestId)
 
     revalidatePath('/admin/claims')
     revalidatePath('/admin')
@@ -343,7 +364,7 @@ export async function rejectClaimAction(
       console.error('[claim-rejected-email] send failed', err)
     }
 
-    return undefined
+    return cleanupWarning ? { warning: cleanupWarning } : undefined
   } catch (err) {
     console.error('[admin:rejectClaimAction]', err)
     return {
@@ -532,6 +553,7 @@ export async function reviewModerationFlagAction(
     }
 
     await updateModerationFlagStatus(flagId, decision)
+
     revalidatePath('/admin/moderation')
     revalidatePath('/admin')
     return undefined

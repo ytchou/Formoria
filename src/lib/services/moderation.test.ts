@@ -192,9 +192,19 @@ describe("saveModerationFlags", () => {
 });
 
 describe("updateModerationFlagStatus", () => {
-  it("updates the review status and timestamp", async () => {
-    const eq = vi.fn().mockResolvedValue({ error: null });
-    const update = vi.fn().mockReturnValue({ eq });
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("reviews only a flag that is still pending", async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: { id: "flag-1" },
+      error: null,
+    });
+    const select = vi.fn().mockReturnValue({ maybeSingle });
+    const statusEq = vi.fn().mockReturnValue({ select });
+    const idEq = vi.fn().mockReturnValue({ eq: statusEq });
+    const update = vi.fn().mockReturnValue({ eq: idEq });
     const { createServerClient } =
       (await import("@/lib/supabase/server")) as MockedSupabaseServerModule;
     vi.mocked(createServerClient).mockReturnValue({
@@ -202,17 +212,36 @@ describe("updateModerationFlagStatus", () => {
     } as unknown as SupabaseClient<Database>);
 
     await updateModerationFlagStatus(
-      "11111111-1111-4111-8111-111111111111",
-      "dismissed",
+      "flag-1",
+      "reviewed",
     );
 
     expect(update).toHaveBeenCalledWith({
-      status: "dismissed",
+      status: "reviewed",
       reviewed_at: expect.any(String),
     });
-    expect(eq).toHaveBeenCalledWith(
-      "id",
-      "11111111-1111-4111-8111-111111111111",
-    );
+    expect(idEq).toHaveBeenCalledWith("id", "flag-1");
+    expect(statusEq).toHaveBeenCalledWith("status", "pending");
+  });
+
+  it("dismisses a pending flag without adding a review timestamp", async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: { id: "flag-1" },
+      error: null,
+    });
+    const select = vi.fn().mockReturnValue({ maybeSingle });
+    const statusEq = vi.fn().mockReturnValue({ select });
+    const idEq = vi.fn().mockReturnValue({ eq: statusEq });
+    const update = vi.fn().mockReturnValue({ eq: idEq });
+    const { createServerClient } =
+      (await import("@/lib/supabase/server")) as MockedSupabaseServerModule;
+    vi.mocked(createServerClient).mockReturnValue({
+      from: vi.fn().mockReturnValue({ update }),
+    } as unknown as SupabaseClient<Database>);
+
+    await updateModerationFlagStatus("flag-1", "dismissed");
+
+    expect(update).toHaveBeenCalledWith({ status: "dismissed" });
+    expect(statusEq).toHaveBeenCalledWith("status", "pending");
   });
 });
