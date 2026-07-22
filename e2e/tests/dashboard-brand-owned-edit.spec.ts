@@ -292,9 +292,9 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
       userPage.getByRole('heading', { name: /^編輯 / }),
     ).toBeVisible({ timeout: 60_000 });
 
-    await expect(userPage.locator('#basic-info')).toBeVisible({ timeout: 10_000 });
+    await expect(userPage.locator('#main-content #basic-info')).toBeVisible({ timeout: 10_000 });
     await expect(userPage.getByRole('heading', { name: '編輯品牌資料' })).toBeVisible();
-    await expect(userPage.getByText('第 1 步，共 5 步').first()).toBeVisible();
+    await expect(userPage.getByText('已完成 0／5 步').first()).toBeVisible();
     await expect(
       userPage.locator('aside nav button').first(),
     ).toHaveAttribute('aria-current', 'step', { timeout: 5_000 });
@@ -332,7 +332,7 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
     await expect(
       userPage.getByRole('heading', { name: /^編輯 / }),
     ).toBeVisible({ timeout: 60_000 });
-    await expect(userPage.locator('#basic-info')).toBeVisible({ timeout: 10_000 });
+    await expect(userPage.locator('#main-content #basic-info')).toBeVisible({ timeout: 10_000 });
 
     // Triple-click selects all text before fill to avoid appending to existing value
     await userPage.locator('#name').click({ clickCount: 3 });
@@ -341,7 +341,7 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
 
     await userPage.getByRole('button', { name: '儲存並繼續' }).click();
     // Increase timeout: saveSectionDraftAction can be slow when dev server is under load
-    await expect(userPage.locator('#media')).toBeVisible({ timeout: 30_000 });
+    await expect(userPage.locator('#main-content #media')).toBeVisible({ timeout: 30_000 });
 
     // Poll for the draft save (async write after URL navigation)
     await expect.poll(async () => {
@@ -354,7 +354,8 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
     }, { timeout: 15_000, intervals: [500, 1_000, 2_000] }).toEqual([0]);
 
     await userPage.reload();
-    await expect(userPage.locator('#media')).toBeVisible({ timeout: 30_000 });
+    await expect(userPage.locator('#main-content #media')).toBeVisible({ timeout: 30_000 });
+    await expect(userPage.getByText('已完成 1／5 步').first()).toBeVisible();
     await expect(userPage.locator('aside nav button').first().locator('svg')).toHaveCount(1);
     // Back button visible on step 1 (non-first, non-final step)
     await expect(
@@ -362,7 +363,7 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
     ).toBeVisible({ timeout: 10_000 });
 
     await userPage.locator('aside nav button').filter({ hasText: '基本資料' }).click();
-    await expect(userPage.locator('#basic-info')).toBeVisible({ timeout: 30_000 });
+    await expect(userPage.locator('#main-content #basic-info')).toBeVisible({ timeout: 30_000 });
     await expect(userPage.locator('#name')).toHaveValue(nextName);
   });
 
@@ -416,11 +417,11 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
     await expect(
       userPage.getByRole('heading', { name: /^編輯 / }),
     ).toBeVisible({ timeout: 60_000 });
-    await expect(userPage.locator('#basic-info')).toBeVisible({ timeout: 30_000 });
+    await expect(userPage.locator('#main-content #basic-info')).toBeVisible({ timeout: 30_000 });
 
     const sidebarNav = userPage.locator('aside nav');
     await sidebarNav.locator('button').filter({ hasText: '品牌口碑' }).click();
-    await expect(userPage.locator('#reputation')).toBeVisible({ timeout: 30_000 });
+    await expect(userPage.locator('#main-content #reputation')).toBeVisible({ timeout: 30_000 });
     await expect(userPage).toHaveURL(/\?step=4/, { timeout: 10_000 });
     await expect(
       sidebarNav.locator('button').filter({ hasText: '品牌口碑' }),
@@ -439,7 +440,7 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
     await expect(
       userPage.getByRole('heading', { name: /^編輯 / }),
     ).toBeVisible({ timeout: 60_000 });
-    await expect(userPage.locator('#locations')).toBeVisible({ timeout: 30_000 });
+    await expect(userPage.locator('#main-content #locations')).toBeVisible({ timeout: 30_000 });
     await expect(
       userPage.locator('aside nav button').nth(3),
     ).toHaveAttribute('aria-current', 'step', { timeout: 10_000 });

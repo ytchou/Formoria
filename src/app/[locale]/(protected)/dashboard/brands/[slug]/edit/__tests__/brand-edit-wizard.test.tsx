@@ -23,6 +23,7 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/dashboard/brands/test-brand/edit',
 }))
 vi.mock('@/i18n/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
   Link: ({ href, children, className }: React.ComponentProps<'a'>) => (
     <a href={href} className={className}>
       {children}
@@ -125,7 +126,7 @@ describe('BrandEditWizard', () => {
 
     expect(screen.getAllByText('基本資料').length).toBeGreaterThanOrEqual(1)
     expect(
-      screen.getAllByRole('progressbar', { name: '第 1 步，共 5 步' }),
+      screen.getAllByRole('progressbar', { name: '已完成 0／5 步' }),
     ).toHaveLength(2)
   })
 
@@ -162,6 +163,26 @@ describe('BrandEditWizard', () => {
       name: 'Basic Info',
     })[0]
     expect(basicInfoButton.querySelector('svg')).toBeTruthy()
+  })
+
+  it('shows the persisted completion count when resuming at step 4', () => {
+    renderWizard({
+      initialStep: 3,
+      initialCompletedSteps: [0, 1, 2],
+    })
+
+    expect(screen.getAllByText('3 of 5 completed').length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('renders focused mode without the guided sidebar', () => {
+    renderWizard({ initialStep: 2, isFocused: true })
+
+    expect(screen.getByTestId('links-section')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Edit brand details' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Back to dashboard' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Save changes' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Publish' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /save & continue/i })).not.toBeInTheDocument()
   })
 
   it('only shows unsaved changes for edits in the active section', async () => {

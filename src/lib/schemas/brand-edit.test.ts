@@ -4,6 +4,7 @@ import {
   brandEditSchema,
   brandPublishSchema,
   SECTION_FIELDS,
+  areAllWizardStepsComplete,
   getOnboardingStepHref,
 } from './brand-edit'
 
@@ -228,6 +229,14 @@ describe('SECTION_FIELDS', () => {
   it('includes name in basicInfo fields', () => {
     expect(SECTION_FIELDS.basicInfo).toContain('name')
     expect(SECTION_FIELDS.basicInfo).toContain('romanizedName')
+  })
+})
+
+describe('areAllWizardStepsComplete', () => {
+  it('requires every wizard index rather than only the count', () => {
+    expect(areAllWizardStepsComplete([0, 1, 2, 3, 4])).toBe(true)
+    expect(areAllWizardStepsComplete([0, 1, 2, 4])).toBe(false)
+    expect(areAllWizardStepsComplete([0, 1, 2, 3, 4, 9])).toBe(true)
   })
 })
 

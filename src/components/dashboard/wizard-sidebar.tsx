@@ -44,8 +44,13 @@ export function WizardSidebar({
   })
 
   const activeStepItem = stepItems[activeStep]
-  const progressText = t('wizardProgress', {
+  const stepProgressText = t('wizardProgress', {
     current: activeStep + 1,
+    total: steps.length,
+  })
+  const completedCount = Math.min(completedSteps.size, steps.length)
+  const completedProgressText = t('wizardCompletedProgress', {
+    completed: completedCount,
     total: steps.length,
   })
 
@@ -54,12 +59,12 @@ export function WizardSidebar({
       <aside className="sticky top-6 hidden w-80 self-start md:block">
         <ProgressStepCard
           title={t('wizardSidebarTitle')}
-          progressText={progressText}
-          progressLabel={progressText}
-          value={activeStep + 1}
+          progressText={completedProgressText}
+          progressLabel={completedProgressText}
+          value={completedCount}
           max={steps.length}
         >
-          <nav aria-label={progressText}>
+          <nav aria-label={stepProgressText}>
             <OnboardingStepList steps={stepItems} onStepClick={onStepClick} />
           </nav>
         </ProgressStepCard>
@@ -75,18 +80,15 @@ export function WizardSidebar({
             <span className="block truncate">
               {activeStepItem
                 ? activeStepItem.title
-                : t('wizardProgress', {
-                    current: activeStep + 1,
-                    total: steps.length,
-                  })}
+                : stepProgressText}
             </span>
           </span>
           <span className="ml-3 type-caption">
-            {progressText}
+            {completedProgressText}
           </span>
         </summary>
 
-        <nav className="border-t border-border p-3" aria-label={progressText}>
+        <nav className="border-t border-border p-3" aria-label={stepProgressText}>
           <OnboardingStepList steps={stepItems} onStepClick={onStepClick} />
         </nav>
 
@@ -94,15 +96,15 @@ export function WizardSidebar({
           <div
             className="h-2 overflow-hidden rounded-full bg-muted"
             role="progressbar"
-            aria-label={progressText}
+            aria-label={completedProgressText}
             aria-valuemin={0}
             aria-valuemax={steps.length}
-            aria-valuenow={activeStep + 1}
+            aria-valuenow={completedCount}
           >
             <div
               className="h-full rounded-full bg-primary transition-[width]"
               style={{
-                width: `${steps.length ? ((activeStep + 1) / steps.length) * 100 : 0}%`,
+                width: `${steps.length ? (completedCount / steps.length) * 100 : 0}%`,
               }}
             />
           </div>

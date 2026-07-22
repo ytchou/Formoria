@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }))
 vi.mock('@/lib/supabase/server', () => ({ createClient: vi.fn() }))
 vi.mock('@/lib/auth/require-brand-editor', () => ({ requireBrandEditor: vi.fn() }))
 vi.mock('@/lib/services/brands', () => ({
@@ -7,12 +8,17 @@ vi.mock('@/lib/services/brands', () => ({
   getBrandDraft: vi.fn(),
   saveDraft: vi.fn(),
 }))
+vi.mock('@/lib/services/brand-onboarding', () => ({
+  completeOnboardingStepsForSection: vi.fn().mockResolvedValue(undefined),
+}))
 vi.mock('next/headers', () => ({ cookies: vi.fn(() => ({ getAll: () => [] })) }))
 
 import { saveSectionDraftAction } from './brand-edit-wizard'
 import { createClient } from '@/lib/supabase/server'
+import { revalidatePath } from 'next/cache'
 import { requireBrandEditor } from '@/lib/auth/require-brand-editor'
 import { getBrandDraft, saveDraft } from '@/lib/services/brands'
+import { completeOnboardingStepsForSection } from '@/lib/services/brand-onboarding'
 
 describe('saveSectionDraftAction', () => {
   beforeEach(() => {
@@ -55,6 +61,13 @@ describe('saveSectionDraftAction', () => {
         productType: 'fashion',
         __wizardCompletedSteps: [0],
       }),
+    )
+    expect(completeOnboardingStepsForSection).toHaveBeenCalledWith(
+      'brand-id',
+      'basicInfo',
+    )
+    expect(revalidatePath).toHaveBeenCalledWith(
+      '/dashboard/brands/brand-slug',
     )
   })
 
