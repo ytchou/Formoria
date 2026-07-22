@@ -5,6 +5,7 @@ import { promisify } from "node:util";
 
 import {
   createAgentHubAdapter,
+  createGitHubAdapter,
   createLinearAdapter,
   sendSlackDigest,
   type AgentHubAdapter,
@@ -90,6 +91,7 @@ export const WORKFLOW_RUNTIME_COMMANDS = [
   "combine-sentry",
   "evaluate-directory",
   "aggregate-and-deliver",
+  "cleanup-stale-branches",
   "enqueue-and-claim",
   "repair-snapshot",
   "repair-metadata",
@@ -201,6 +203,37 @@ export interface QueueWorkflowInput {
   leaseOwner: string;
   mode: "canary_fix" | "live" | "preflight";
   outputPath: string;
+}
+
+export interface StaleBranchCleanupInput {
+  aggregateArtifactPath: string;
+  canaryFingerprints?: readonly string[];
+  mode: "canary_fix" | "live" | "preflight";
+  outputPath: string;
+  runAt: string;
+  runIdentity: string;
+  workflowAttempt: number;
+  workflowRunId: string;
+}
+
+export interface StaleBranchCleanupOutcome {
+  branch: string;
+  deletedTipSha?: string;
+  fingerprint: string;
+  outcome: "deleted" | "skipped";
+  reason?: string;
+  recordedTipSha: string;
+}
+
+export interface StaleBranchCleanupResult {
+  delivery?: {
+    agentHub: "fulfilled" | "rejected";
+    slack: "fulfilled" | "rejected";
+  };
+  mode: StaleBranchCleanupInput["mode"];
+  outcomes: StaleBranchCleanupOutcome[];
+  runIdentity: string;
+  version: 1;
 }
 
 export interface RepairSnapshotInput {
@@ -1346,7 +1379,7 @@ export async function collectLinkArtifact(
       ? await readBoundedJson(input.inputPath, files)
       : await executeLinkHealthRequest(
           buildLinkHealthRequest({
-            dryRun: input.mode === "preflight",
+            dryRun: input.mode !== "live",
             endpoint: optionalEnvironment(
               environmentFor(dependencies),
               "FORMORIA_LINK_HEALTH_URL",
@@ -1696,7 +1729,7 @@ export async function evaluateDirectoryArtifact(
     },
     dependencies,
   );
-  if (input.mode !== "preflight" && isDirectoryHealthInput(evidence)) {
+  if (input.mode === "live" && isDirectoryHealthInput(evidence)) {
     try {
       await supabaseRequest(
         dependencies,
@@ -1762,6 +1795,196 @@ export async function runAggregateAndDeliver(
   return result;
 }
 
+function isStaleBranchFinding(finding: HealthFinding): boolean {
+  return (
+    finding.source === "directory" &&
+    finding.fingerprint.startsWith("directory:stale-branch:")
+  );
+}
+
+function staleBranchFindingsFromAggregate(value: unknown): HealthFinding[] {
+  if (!isRecord(value) || !isRecord(value.artifacts)) {
+    throw new Error("stale_branch_cleanup_aggregate_invalid");
+  }
+  const directoryArtifact = value.artifacts["directory-health"];
+  if (!isRecord(directoryArtifact)) {
+    throw new Error("stale_branch_cleanup_directory_artifact_missing");
+  }
+  return validateCollectorArtifact(directoryArtifact).findings.filter(
+    (finding) =>
+      isStaleBranchFinding(finding) &&
+      finding.mergePolicy === "automatic" &&
+      finding.severity === "low",
+  );
+}
+
+function staleBranchCleanupEvidence(finding: HealthFinding): {
+  branch: string;
+  recordedTipSha: string;
+} {
+  const branch =
+    typeof finding.evidence.branchRef === "string"
+      ? finding.evidence.branchRef.trim()
+      : "";
+  const recordedTipSha =
+    typeof finding.evidence.currentRemoteTipSha === "string"
+      ? finding.evidence.currentRemoteTipSha.trim()
+      : "";
+  const branchMalformed =
+    !branch ||
+    branch.length > 255 ||
+    branch.startsWith("/") ||
+    branch.endsWith("/") ||
+    branch.endsWith(".") ||
+    branch.endsWith(".lock") ||
+    branch.includes("..") ||
+    branch.includes("@{") ||
+    branch.includes("//") ||
+    /[\u0000-\u0020\u007f~^:?*[\]\\]/.test(branch);
+  if (branchMalformed || !/^[0-9a-f]{40}$/i.test(recordedTipSha)) {
+    throw new Error("stale_branch_cleanup_evidence_invalid");
+  }
+  if (
+    finding.fingerprint !==
+    `directory:stale-branch:${recordedTipSha.toLowerCase()}`
+  ) {
+    throw new Error("stale_branch_cleanup_fingerprint_mismatch");
+  }
+  return { branch, recordedTipSha };
+}
+
+function githubRepository(dependencies: WorkflowRuntimeDependencies): {
+  owner: string;
+  repo: string;
+} {
+  const repository = requiredEnvironment(
+    environmentFor(dependencies),
+    "GITHUB_REPOSITORY",
+  );
+  const [owner, repo, extra] = repository.split("/");
+  if (!owner || !repo || extra) throw new Error("github_repository_invalid");
+  return { owner, repo };
+}
+
+export async function cleanupStaleBranches(
+  input: StaleBranchCleanupInput,
+  dependencies: WorkflowRuntimeDependencies = createWorkflowRuntimeDependencies(),
+): Promise<StaleBranchCleanupResult> {
+  const value = await readBoundedJson(
+    input.aggregateArtifactPath,
+    filesFor(dependencies),
+  );
+  const requestedCanary = new Set(input.canaryFingerprints ?? []);
+  const candidates = staleBranchFindingsFromAggregate(value)
+    .filter(
+      (finding) =>
+        input.mode !== "canary_fix" || requestedCanary.has(finding.fingerprint),
+    )
+    .map((finding) => ({
+      ...staleBranchCleanupEvidence(finding),
+      fingerprint: finding.fingerprint,
+    }));
+
+  let outcomes: StaleBranchCleanupOutcome[];
+  if (input.mode === "preflight") {
+    outcomes = candidates.map((candidate) => ({
+      ...candidate,
+      outcome: "skipped",
+      reason: "preflight",
+    }));
+  } else {
+    const environment = environmentFor(dependencies);
+    const repository = githubRepository(dependencies);
+    const github = createGitHubAdapter({
+      ...repository,
+      appToken: requiredEnvironment(environment, "GITHUB_APP_TOKEN"),
+      audit: auditFor(dependencies),
+      fetchImpl: fetchFor(dependencies),
+    });
+    outcomes = await Promise.all(
+      candidates.map(async (candidate) => {
+        const result = await github.deleteBranchIfSafe(
+          candidate.branch,
+          candidate.recordedTipSha,
+        );
+        return {
+          branch: candidate.branch,
+          ...(result.outcome === "deleted" && result.tipSha
+            ? { deletedTipSha: result.tipSha }
+            : {}),
+          fingerprint: candidate.fingerprint,
+          outcome: result.outcome,
+          ...(result.reason ? { reason: result.reason } : {}),
+          recordedTipSha: candidate.recordedTipSha,
+        };
+      }),
+    );
+  }
+
+  const result: StaleBranchCleanupResult = {
+    mode: input.mode,
+    outcomes,
+    runIdentity: input.runIdentity,
+    version: 1,
+  };
+  if (outcomes.length > 0 && dependencies.delivery) {
+    const allDeleted = outcomes.every(({ outcome }) => outcome === "deleted");
+    const envelope = buildPrResultEnvelope({
+      mergePolicy: "automatic",
+      mode: input.mode,
+      result: {
+        autoMergeEnabled: false,
+        findings: outcomes.map((outcome) => ({
+          fingerprint: outcome.fingerprint,
+          source: "directory",
+          status: outcome.outcome,
+        })),
+        fixed: allDeleted,
+        mergePolicy: "automatic",
+        merged: false,
+        snapshotId: input.runIdentity,
+        status: allDeleted ? "fixed" : "skipped",
+      },
+      runAt: input.runAt,
+      snapshotId: input.runIdentity,
+      status: allDeleted ? "opened" : "failed",
+      workflowAttempt: input.workflowAttempt,
+      workflowRunId: `${input.workflowRunId}-cleanup`,
+    });
+    const report: SlackDigestInput = {
+      actionableFindings: [],
+      failures: [],
+      linearOutcomes: [],
+      prOutcomes: outcomes.map((outcome) => ({
+        action: "stale_branch_cleanup",
+        branch: outcome.branch,
+        fingerprint: outcome.fingerprint,
+        outcome: outcome.outcome,
+        ...(outcome.reason ? { reason: outcome.reason } : {}),
+        tip_sha: outcome.deletedTipSha ?? outcome.recordedTipSha,
+      })),
+      skippedActions: outcomes
+        .filter(({ outcome }) => outcome === "skipped")
+        .map((outcome) => ({
+          action: "stale_branch_cleanup",
+          fingerprint: outcome.fingerprint,
+          reason: outcome.reason ?? "safety_revalidation",
+        })),
+    };
+    const [agentHub, slack] = await Promise.allSettled([
+      dependencies.delivery.agentHub(envelope),
+      dependencies.delivery.slack(report),
+    ]);
+    result.delivery = { agentHub: agentHub.status, slack: slack.status };
+    if (agentHub.status === "rejected" || slack.status === "rejected") {
+      await writeRedactedJson(input.outputPath, result, filesFor(dependencies));
+      throw new Error("stale_branch_cleanup_delivery_failed");
+    }
+  }
+  await writeRedactedJson(input.outputPath, result, filesFor(dependencies));
+  return result;
+}
+
 function findingsFromArtifact(value: unknown): readonly HealthFinding[] {
   if (isRecord(value) && value.routine && value.findings) {
     return validateCollectorArtifact(value).findings;
@@ -1803,7 +2026,9 @@ export async function enqueueAndClaimWorkflowBatch(
   const result = await enqueueAndClaimBatch(
     {
       canaryFingerprints: input.canaryFingerprints,
-      findings: findingsFromArtifact(value),
+      findings: findingsFromArtifact(value).filter(
+        (finding) => !isStaleBranchFinding(finding),
+      ),
       leaseOwner: input.leaseOwner,
       mode: input.mode,
     },
@@ -2414,6 +2639,27 @@ export async function runWorkflowCommand(
         },
         dependencies,
       );
+    case "cleanup-stale-branches":
+      return cleanupStaleBranches(
+        {
+          aggregateArtifactPath: safeString(
+            input.aggregateArtifactPath,
+            "aggregateArtifactPath",
+          ),
+          canaryFingerprints: Array.isArray(input.canaryFingerprints)
+            ? input.canaryFingerprints.filter(
+                (value): value is string => typeof value === "string",
+              )
+            : undefined,
+          mode: safeMode(input.mode),
+          outputPath: safeString(input.outputPath, "outputPath"),
+          runAt: safeString(input.runAt, "runAt"),
+          runIdentity: safeString(input.runIdentity, "runIdentity"),
+          workflowAttempt: safeAttempt(input.workflowAttempt),
+          workflowRunId: safeString(input.workflowRunId, "workflowRunId"),
+        },
+        dependencies,
+      );
     case "enqueue-and-claim":
       return enqueueAndClaimWorkflowBatch(
         {
@@ -2536,6 +2782,7 @@ export async function main(
   const mode = optionalArgument(argv, "--mode");
   const attempt = optionalArgument(argv, "--attempt");
   const input: Record<string, unknown> = {
+    aggregateArtifactPath: optionalArgument(argv, "--aggregate-artifact"),
     auditPath: optionalArgument(argv, "--audit"),
     batchKind: optionalArgument(argv, "--batch"),
     canaryFingerprints: optionalArgument(argv, "--canary-fingerprints")
@@ -2556,6 +2803,9 @@ export async function main(
     prNumber: optionalArgument(argv, "--pr-number"),
     prUrl: optionalArgument(argv, "--pr-url"),
     resultPath: optionalArgument(argv, "--result"),
+    runIdentity:
+      optionalArgument(argv, "--run-identity") ??
+      optionalArgument(argv, "--run-id"),
     runAt: optionalArgument(argv, "--run-at"),
     sentryArtifactPath: optionalArgument(argv, "--sentry-artifact"),
     snapshotPath: optionalArgument(argv, "--snapshot"),

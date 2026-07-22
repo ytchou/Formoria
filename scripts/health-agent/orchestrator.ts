@@ -237,6 +237,7 @@ export function mutationPolicy(
   environment: Environment = process.env,
 ): { autofix: boolean; business: boolean } {
   if (mode === "preflight") return { autofix: false, business: false };
+  if (mode === "canary_fix") return { autofix: true, business: true };
   const business = isEnabled(environment.HEALTH_AGENT_ENABLED);
   return {
     autofix: business && isEnabled(environment.HEALTH_AUTOFIX_ENABLED),
@@ -1782,12 +1783,40 @@ export interface QueueBatchResult {
   suppressed: boolean;
 }
 
+export const HEALTH_AGENT_CANARY_FINGERPRINT =
+  "directory:canary:github-app-pr" as const;
+
+function canaryFinding(leaseOwner: string): HealthFinding {
+  return {
+    evidence: {
+      behaviorChangeRisk: "low",
+      canary: true,
+      changedFiles: ["health-agent-canary.txt"],
+      confidence: 1,
+      defectKind: "application",
+      desiredMarker: leaseOwner,
+      evidenceArtifactRef: "github-actions:health-agent-canary",
+      fixability: "high",
+      reproducible: true,
+      rootCause: "Refresh the harmless health-agent canary marker.",
+      rootCauseKey: "github-app-canary",
+      sensitivePaths: [],
+    },
+    fingerprint: HEALTH_AGENT_CANARY_FINGERPRINT,
+    mergePolicy: "automatic",
+    severity: "low",
+    source: "directory",
+    title: "Refresh the GitHub App health-agent canary marker",
+  };
+}
+
 function harmlessCanary(finding: HealthFinding): boolean {
   return (
     finding.source === "directory" &&
     finding.mergePolicy === "automatic" &&
     finding.severity === "low" &&
-    /^directory:stale-branch:[A-Za-z0-9._:-]+$/.test(finding.fingerprint)
+    finding.fingerprint === HEALTH_AGENT_CANARY_FINGERPRINT &&
+    finding.evidence.canary === true
   );
 }
 
@@ -1896,8 +1925,16 @@ export async function enqueueAndClaimPolicyBatches(
   }
 
   const requestedCanary = new Set(input.canaryFingerprints ?? []);
+  const candidates =
+    input.mode === "canary_fix" &&
+    requestedCanary.has(HEALTH_AGENT_CANARY_FINGERPRINT)
+      ? [
+          ...input.findings,
+          canaryFinding(input.leaseOwner ?? "github-actions-health-agent"),
+        ]
+      : input.findings;
   const eligible = uniqueFindings(
-    input.findings.filter((finding) => {
+    candidates.filter((finding) => {
       if (input.mode !== "canary_fix") return true;
       const allowed =
         requestedCanary.has(finding.fingerprint) && harmlessCanary(finding);

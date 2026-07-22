@@ -631,13 +631,50 @@ describe("queue mutation gates", () => {
     expect(result.human.findings).toHaveLength(0);
   });
 
-  it("gates canary autofix on both health and autofix enablement", () => {
+  it("allows only the explicit canary scope while live variables remain disabled", () => {
     expect(
       mutationPolicy("canary_fix", {
         HEALTH_AGENT_ENABLED: "true",
         HEALTH_AUTOFIX_ENABLED: "false",
       }),
-    ).toEqual({ autofix: false, business: true });
+    ).toEqual({ autofix: true, business: true });
+  });
+
+  it("synthesizes one harmless, traceable App canary repair", async () => {
+    const enqueue = vi.fn(async () => undefined);
+    const claim = vi.fn(async () => []);
+    const result = await enqueueAndClaimPolicyBatches(
+      {
+        canaryFingerprints: ["directory:canary:github-app-pr"],
+        findings: [finding("sentry:production")],
+        leaseOwner: "github-actions:987654321:1",
+        mode: "canary_fix",
+      },
+      {
+        database: {
+          claimFindings: claim,
+          enqueueFindings: enqueue,
+          hasUnconfirmedAutomatic: async () => false,
+        },
+      },
+      enabled,
+    );
+
+    expect(enqueue).toHaveBeenCalledWith([
+      expect.objectContaining({
+        evidence: expect.objectContaining({
+          canary: true,
+          changedFiles: ["health-agent-canary.txt"],
+          desiredMarker: "github-actions:987654321:1",
+        }),
+        fingerprint: "directory:canary:github-app-pr",
+        mergePolicy: "automatic",
+      }),
+    ]);
+    expect(result.enqueuedFingerprints).toEqual([
+      "directory:canary:github-app-pr",
+    ]);
+    expect(result.skippedActions).toContain("canary:sentry:production");
   });
 });
 

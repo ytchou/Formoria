@@ -26,6 +26,10 @@ describe("health watchdog workflow", () => {
     );
     expect(workflow).toContain("SLACK_HEALTH_WEBHOOK_URL");
     expect(workflow).toContain("AGENT_HUB_INGEST_TOKEN");
+    expect(workflow).toContain("persist-credentials: false");
+    for (const [, ref] of workflow.matchAll(/uses:\s+[^\s]+@([^\s#]+)/g)) {
+      expect(ref).toMatch(/^[0-9a-f]{40}$/);
+    }
   });
 
   it("does not expose production mutation or analysis credentials", async () => {

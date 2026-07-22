@@ -15,6 +15,12 @@ describe("health confirmation workflow contract", () => {
     );
     expect(workflow).toContain("vars.HEALTH_AGENT_ENABLED == 'true'");
     expect(workflow).toContain(
+      "contains(github.event.pull_request.labels.*.name, 'health-agent-canary')",
+    );
+    expect(workflow).toMatch(
+      /if: >-\n\s+github\.event_name == 'deployment_status' \|\|/,
+    );
+    expect(workflow).toContain(
       "github.event.pull_request.number || github.event.deployment.sha",
     );
   });
@@ -48,7 +54,12 @@ describe("health confirmation workflow contract", () => {
       "pnpm exec tsx scripts/health-agent/confirmation.ts",
     );
     expect(workflow).toContain("if: always()");
-    expect(workflow).toContain("actions/upload-artifact@v4");
+    expect(workflow).toContain(
+      "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+    );
+    for (const [, ref] of workflow.matchAll(/uses:\s+[^\s]+@([^\s#]+)/g)) {
+      expect(ref).toMatch(/^[0-9a-f]{40}$/);
+    }
     expect(workflow).toContain("confirmation-audit.json");
     expect(workflow).toContain("retention-days: 14");
   });

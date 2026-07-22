@@ -4,10 +4,12 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { DirectoryHealthInput } from "./directory";
 import {
+  cleanupStaleBranches,
   createRpcClient,
   createWorkflowRuntimeDependencies,
   deliverRepairFailure,
   deliverRepairResult,
+  enqueueAndClaimWorkflowBatch,
   finalizeSentryArtifact,
   makeDirectoryArtifact,
   makeLinkArtifact,
@@ -142,6 +144,103 @@ function directoryInput(): DirectoryHealthInput {
   };
 }
 
+function staleBranchFinding(branch: string, tipSha: string) {
+  return {
+    evidence: { branchRef: branch, currentRemoteTipSha: tipSha },
+    fingerprint: `directory:stale-branch:${tipSha}`,
+    mergePolicy: "automatic" as const,
+    severity: "low" as const,
+    source: "directory" as const,
+    title: "Merged stale branch is safe to remove",
+  };
+}
+
+function aggregateArtifact(findings: readonly unknown[]) {
+  return {
+    artifacts: {
+      "directory-health": {
+        collectedAt: now,
+        evidence: {},
+        failures: [],
+        findings,
+        routine: "directory-health",
+        skippedActions: [],
+        status: "success",
+        version: 1,
+      },
+    },
+  };
+}
+
+function cleanupFiles(findings: ReturnType<typeof staleBranchFinding>[]) {
+  const contents = new Map<string, string>([
+    ["aggregate.json", JSON.stringify(aggregateArtifact(findings))],
+  ]);
+  return {
+    contents,
+    files: {
+      read: async (path: string) => contents.get(path) ?? "",
+      write: async (path: string, value: string) => {
+        contents.set(path, value);
+      },
+    },
+  };
+}
+
+function githubBranchDeletionFetch(branchTips: ReadonlyMap<string, string>) {
+  return vi.fn<typeof fetch>(async (input, init) => {
+    const url = new URL(String(input));
+    const repositoryPath = "/repos/ytchou/Formoria";
+    if (url.pathname === repositoryPath) {
+      return new Response(JSON.stringify({ default_branch: "main" }), {
+        status: 200,
+      });
+    }
+    if (url.pathname.startsWith(`${repositoryPath}/branches/`)) {
+      return new Response(JSON.stringify({ protected: false }), {
+        status: 200,
+      });
+    }
+    if (url.pathname.startsWith(`${repositoryPath}/git/ref/heads/`)) {
+      const branch = decodeURIComponent(
+        url.pathname.slice(`${repositoryPath}/git/ref/heads/`.length),
+      );
+      const tipSha = branchTips.get(branch);
+      if (!tipSha) return new Response(null, { status: 404 });
+      return new Response(
+        JSON.stringify({
+          object: { sha: tipSha },
+          ref: `refs/heads/${branch}`,
+        }),
+        { status: 200 },
+      );
+    }
+    if (url.pathname === `${repositoryPath}/pulls`) {
+      return new Response(JSON.stringify([]), { status: 200 });
+    }
+    if (url.pathname.startsWith(`${repositoryPath}/compare/`)) {
+      const tipSha = url.pathname
+        .slice(`${repositoryPath}/compare/`.length)
+        .split("...")[0];
+      return new Response(
+        JSON.stringify({
+          base_commit: { sha: tipSha },
+          merge_base_commit: { sha: tipSha },
+          status: "ahead",
+        }),
+        { status: 200 },
+      );
+    }
+    if (
+      init?.method === "DELETE" &&
+      url.pathname.startsWith(`${repositoryPath}/git/refs/heads/`)
+    ) {
+      return new Response(null, { status: 204 });
+    }
+    throw new Error(`unexpected GitHub request: ${init?.method} ${url}`);
+  });
+}
+
 describe("workflow runtime artifacts", () => {
   it("converts link cleanup telemetry into human-owned findings without URLs", () => {
     const artifact = makeLinkArtifact(
@@ -256,6 +355,249 @@ describe("workflow runtime artifacts", () => {
         now,
       ),
     ).toThrow();
+  });
+});
+
+describe("stale branch cleanup runtime", () => {
+  const firstTip = "a".repeat(40);
+  const secondTip = "b".repeat(40);
+  const runtimeInput = {
+    aggregateArtifactPath: "aggregate.json",
+    mode: "live" as const,
+    outputPath: "cleanup-result.json",
+    runAt: now,
+    runIdentity: "github-actions:123:1",
+    workflowAttempt: 1,
+    workflowRunId: "123",
+  };
+  const runtimeEnv = {
+    GITHUB_APP_TOKEN: "github-secret-token",
+    GITHUB_REPOSITORY: "ytchou/Formoria",
+  };
+
+  it("deletes every eligible stale branch in live mode through the GitHub adapter", async () => {
+    const findings = [
+      staleBranchFinding("merged/first", firstTip),
+      staleBranchFinding("merged/second", secondTip),
+    ];
+    const { contents, files } = cleanupFiles(findings);
+    const fetchImplementation = githubBranchDeletionFetch(
+      new Map([
+        ["merged/first", firstTip],
+        ["merged/second", secondTip],
+      ]),
+    );
+
+    const result = await cleanupStaleBranches(runtimeInput, {
+      env: runtimeEnv,
+      fetchImplementation,
+      files,
+    });
+
+    expect(result.outcomes).toEqual([
+      {
+        branch: "merged/first",
+        deletedTipSha: firstTip,
+        fingerprint: `directory:stale-branch:${firstTip}`,
+        outcome: "deleted",
+        recordedTipSha: firstTip,
+      },
+      {
+        branch: "merged/second",
+        deletedTipSha: secondTip,
+        fingerprint: `directory:stale-branch:${secondTip}`,
+        outcome: "deleted",
+        recordedTipSha: secondTip,
+      },
+    ]);
+    expect(
+      fetchImplementation.mock.calls.filter(
+        ([, init]) => init?.method === "DELETE",
+      ),
+    ).toHaveLength(2);
+    expect(contents.get(runtimeInput.outputPath)).not.toContain(
+      runtimeEnv.GITHUB_APP_TOKEN,
+    );
+  });
+
+  it("deletes only exact requested fingerprints in canary mode", async () => {
+    const findings = [
+      staleBranchFinding("merged/first", firstTip),
+      staleBranchFinding("merged/second", secondTip),
+    ];
+    const { files } = cleanupFiles(findings);
+    const fetchImplementation = githubBranchDeletionFetch(
+      new Map([
+        ["merged/first", firstTip],
+        ["merged/second", secondTip],
+      ]),
+    );
+
+    const result = await cleanupStaleBranches(
+      {
+        ...runtimeInput,
+        canaryFingerprints: [
+          `directory:stale-branch:${firstTip.slice(0, -1)}`,
+          `directory:stale-branch:${secondTip}`,
+        ],
+        mode: "canary_fix",
+      },
+      { env: runtimeEnv, fetchImplementation, files },
+    );
+
+    expect(result.outcomes.map(({ fingerprint }) => fingerprint)).toEqual([
+      `directory:stale-branch:${secondTip}`,
+    ]);
+    const deleteCall = fetchImplementation.mock.calls.find(
+      ([, init]) => init?.method === "DELETE",
+    );
+    expect(deleteCall?.[0].toString()).toContain("merged%2Fsecond");
+    expect(
+      fetchImplementation.mock.calls.filter(
+        ([, init]) => init?.method === "DELETE",
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("reports cleanup outcomes to Agent Hub and Slack independently", async () => {
+    const { files } = cleanupFiles([
+      staleBranchFinding("merged/first", firstTip),
+    ]);
+    const fetchImplementation = githubBranchDeletionFetch(
+      new Map([["merged/first", firstTip]]),
+    );
+    const agentHub = vi.fn(async () => undefined);
+    const slack = vi.fn(async () => undefined);
+
+    const result = await cleanupStaleBranches(runtimeInput, {
+      delivery: { agentHub, slack },
+      env: runtimeEnv,
+      fetchImplementation,
+      files,
+    });
+
+    expect(agentHub).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ fixed: true, merged: false }),
+        routine: "health-selfheal",
+        source: "github_actions",
+      }),
+    );
+    expect(slack).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prOutcomes: [
+          expect.objectContaining({
+            action: "stale_branch_cleanup",
+            outcome: "deleted",
+            tip_sha: firstTip,
+          }),
+        ],
+      }),
+    );
+    expect(result.delivery).toEqual({
+      agentHub: "fulfilled",
+      slack: "fulfilled",
+    });
+  });
+
+  it("records preflight skips without configuring or invoking GitHub", async () => {
+    const { contents, files } = cleanupFiles([
+      staleBranchFinding("merged/first", firstTip),
+    ]);
+    const fetchImplementation = vi.fn<typeof fetch>();
+
+    const result = await cleanupStaleBranches(
+      { ...runtimeInput, mode: "preflight" },
+      { env: {}, fetchImplementation, files },
+    );
+
+    expect(fetchImplementation).not.toHaveBeenCalled();
+    expect(result.outcomes).toEqual([
+      expect.objectContaining({
+        branch: "merged/first",
+        outcome: "skipped",
+        reason: "preflight",
+      }),
+    ]);
+    expect(
+      JSON.parse(contents.get(runtimeInput.outputPath) ?? "{}"),
+    ).toMatchObject({
+      mode: "preflight",
+      runIdentity: runtimeInput.runIdentity,
+    });
+  });
+
+  it("rejects malformed branch evidence before any GitHub request", async () => {
+    const malformed = staleBranchFinding("merged/first", firstTip);
+    malformed.evidence.currentRemoteTipSha = "not-a-sha";
+    const { files } = cleanupFiles([malformed]);
+    const fetchImplementation = vi.fn<typeof fetch>();
+
+    await expect(
+      cleanupStaleBranches(runtimeInput, {
+        env: runtimeEnv,
+        fetchImplementation,
+        files,
+      }),
+    ).rejects.toThrow("stale_branch_cleanup_evidence_invalid");
+    expect(fetchImplementation).not.toHaveBeenCalled();
+  });
+
+  it("never sends stale branch cleanup findings to the repair queue", async () => {
+    const ordinaryFinding = {
+      evidence: {},
+      fingerprint: "directory:runtime:repairable",
+      mergePolicy: "automatic" as const,
+      severity: "medium" as const,
+      source: "directory" as const,
+      title: "Repairable runtime problem",
+    };
+    const contents = new Map([
+      [
+        "aggregate.json",
+        JSON.stringify(
+          aggregateArtifact([
+            staleBranchFinding("merged/first", firstTip),
+            ordinaryFinding,
+          ]),
+        ),
+      ],
+    ]);
+    const enqueue = vi.fn(async () => undefined);
+
+    const result = await enqueueAndClaimWorkflowBatch(
+      {
+        findingsArtifactPath: "aggregate.json",
+        leaseOwner: "github-actions:123:1",
+        mode: "live",
+        outputPath: "queue-result.json",
+      },
+      {
+        env: { HEALTH_AGENT_ENABLED: "true" },
+        files: {
+          read: async (path) => contents.get(path) ?? "",
+          write: async (path, value) => {
+            contents.set(path, value);
+          },
+        },
+        queue: {
+          claim: vi.fn(async () => []),
+          enqueue,
+          hasUnconfirmedAutomatic: vi.fn(async () => true),
+        },
+      },
+    );
+
+    expect(enqueue).toHaveBeenCalledOnce();
+    expect(enqueue).toHaveBeenCalledWith(
+      expect.objectContaining({ fingerprint: ordinaryFinding.fingerprint }),
+    );
+    expect(enqueue).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        fingerprint: `directory:stale-branch:${firstTip}`,
+      }),
+    );
+    expect(result.enqueuedFingerprints).toEqual([ordinaryFinding.fingerprint]);
   });
 });
 

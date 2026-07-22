@@ -105,6 +105,20 @@ describe("unified health-agent workflow contract", () => {
     expect(workflow).toContain("steps.human-decision-1.outcome");
     expect(workflow).toContain("explicit final repair cycle, cycle 2");
     expect(workflow).toContain("This is explicit final cycle");
+    expect(workflow).toContain(
+      "test -s .health-agent-artifacts/automatic.patch",
+    );
+    expect(workflow).toContain("test -s .health-agent-artifacts/human.patch");
+    expect(workflow.match(/--slurpfile expected/g) ?? []).toHaveLength(4);
+    expect(
+      workflow.match(/\.snapshot_id == \$expected\[0\]\.snapshotId/g) ?? [],
+    ).toHaveLength(4);
+    expect(workflow.match(/\.cycle == [12]/g) ?? []).toHaveLength(4);
+    expect(
+      (workflow.match(/\.findings\[\]\.fingerprint/g) ?? []).length,
+    ).toBeGreaterThanOrEqual(8);
+    expect(workflow).toContain('"minItems":1');
+    expect(workflow).toContain('"required":["fingerprint","verdict"]');
     const classifierStart = workflow.indexOf("  sentry-triage:");
     const classifierEnd = workflow.indexOf("\n  aggregate-and-deliver:");
     const classifier = workflow.slice(classifierStart, classifierEnd);
@@ -129,7 +143,7 @@ describe("unified health-agent workflow contract", () => {
     expect(workflow).toContain(
       "actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1",
     );
-    const publisherStart = workflow.indexOf("  publish-automatic-pr:");
+    const firstWriterStart = workflow.indexOf("  cleanup-stale-branches:");
     const automaticPublisher = jobSection(
       workflow,
       "publish-automatic-pr",
@@ -138,7 +152,7 @@ describe("unified health-agent workflow contract", () => {
     const humanPublisher = jobSection(workflow, "publish-human-pr");
     expect(automaticPublisher).toContain("HEALTH_AGENT_GITHUB_APP_ID");
     expect(humanPublisher).toContain("HEALTH_AGENT_GITHUB_APP_ID");
-    expect(workflow.slice(0, publisherStart)).not.toContain(
+    expect(workflow.slice(0, firstWriterStart)).not.toContain(
       "HEALTH_AGENT_GITHUB_APP_PRIVATE_KEY",
     );
     for (const publisher of [automaticPublisher, humanPublisher]) {
@@ -167,6 +181,26 @@ describe("unified health-agent workflow contract", () => {
     expect(directory).not.toMatch(/^\s+[a-z-]+:\s+write$/m);
     expect(directory).toMatch(
       /uses: actions\/checkout@[0-9a-f]{40}[\s\S]*?with:\n\s+fetch-depth: 0\n\s+persist-credentials: false/,
+    );
+  });
+
+  it("wires safe stale-branch deletion through the scoped App adapter and outside the repair queue", async () => {
+    const workflow = await readFile(workflowPath, "utf8");
+    const cleanup = jobSection(
+      workflow,
+      "cleanup-stale-branches",
+      "enqueue-and-claim",
+    );
+
+    expect(cleanup).toContain("needs.gate.outputs.mode == 'live'");
+    expect(cleanup).toContain("HEALTH_AGENT_GITHUB_APP_PRIVATE_KEY");
+    expect(cleanup).toContain("workflow-runtime.ts cleanup-stale-branches");
+    expect(cleanup).toContain(
+      "--aggregate-artifact .health-agent-artifacts/aggregate.json",
+    );
+    expect(cleanup).toContain("stale-branch-cleanup-audit.json");
+    expect(workflow).toContain(
+      "needs: [gate, aggregate-and-deliver, cleanup-stale-branches]",
     );
   });
 
@@ -235,6 +269,18 @@ describe("unified health-agent workflow contract", () => {
     expect(workflow).toContain("BATCH_KIND: automatic");
     expect(workflow).toContain('echo "merged=false"');
     expect(workflow).toContain('if [[ "$BATCH_KIND" == "automatic" ]]');
+    expect(workflow).toContain("directory:canary:github-app-pr");
+    expect(workflow).not.toContain("directory:stale-branch:canary");
+    expect(workflow).toContain("health-agent-canary");
+    expect(
+      (workflow.match(/validate-canary-patch\.sh/g) ?? []).length,
+    ).toBeGreaterThanOrEqual(2);
+    expect(workflow).toContain(
+      ".health-agent-artifacts/metadata/automatic-snapshot.json",
+    );
+    expect(
+      workflow.match(/<!-- health-agent:confirmation:v1 -->/g) ?? [],
+    ).toHaveLength(2);
     const humanPublisher = workflow.slice(
       workflow.indexOf("  publish-human-pr:"),
     );

@@ -29,6 +29,11 @@ Sensitive paths and control-plane changes (workflows, prompts, auth,
 permissions, migrations, merge policy, or validation weakening) are human
 gated even when the input says automatic.
 
+The controlled canary is the single finding with fingerprint
+`directory:canary:github-app-pr`. For that finding only, replace the contents of
+`health-agent-canary.txt` with the sanitized `desiredMarker` value from its
+evidence. Do not edit any other file for the canary.
+
 ## Tool and access boundary
 
 The only allowed tools are Read, Glob, Grep, Edit, Write.

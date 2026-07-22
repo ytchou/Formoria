@@ -9,7 +9,7 @@ The target workflow is [`.github/workflows/health-agent.yml`](../../.github/work
 No external cutover is claimed complete until all gates below pass in order:
 
 1. **Preflight:** dispatch `health-agent.yml` in `preflight` mode. Exercise link, Directory, and sanitized production Sentry reads, Claude schema validation, Agent Hub delivery, and Slack delivery. Keep Linear writes, queue claims, branch cleanup, repair PR creation, and all other business mutations disabled.
-2. **GitHub App canary:** create one harmless App-authored canary PR. Confirm required checks run, auto-merge completes, the authoritative merge SHA matches a successful Railway production deployment, and `GET /api/health` succeeds.
+2. **GitHub App canary:** dispatch `health-agent.yml` in `canary_fix` mode with the default `directory:canary:github-app-pr` fingerprint. This mode can run while the two live variables remain disabled, dry-runs collector telemetry, and scopes the repair to `health-agent-canary.txt`. Confirm the App-authored PR runs required checks, auto-merge completes, the authoritative merge SHA matches a successful Railway production deployment, and `GET /api/health` succeeds.
 3. **Cutover:** only after both gates pass, enable `HEALTH_AGENT_ENABLED` and `HEALTH_AUTOFIX_ENABLED` while disabling the external Claude Routine in the same window. Run the integrated link collector successfully before manually unscheduling `link-health-daily`.
 4. **Acceptance:** confirm the next 07:00 run delivers one row for each collector and one complete Slack digest. Confirm the 08:30 watchdog detects a deliberately missing or stale test run. Then remove the external Claude Routine; there is no shadow period.
 
