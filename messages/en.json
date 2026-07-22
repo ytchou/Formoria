@@ -239,7 +239,7 @@
         "businessDoc": {
           "label": "Business registration document",
           "description": "A registration document showing the responsible person's name",
-          "privacyNote": "Seen only by our reviewer and deleted after verification. You may black out everything except your business number, business name, and responsible person's name.",
+          "privacyNote": "Uploads are private and visible only to reviewers. After approval or rejection, deletion starts immediately and retries automatically if needed. Unsubmitted uploads are removed after 24 hours. You may black out everything except your business number, business name, and responsible person's name.",
           "uploadLabel": "Upload business registration document",
           "uploadHint": "PDF / JPG / PNG, max 5MB"
         }
@@ -2072,7 +2072,17 @@
       "dashboard": "Content Moderation",
       "filterByRisk": "Filter by risk",
       "filterByTier": "Filter by tier",
-      "noFlaggedContent": "No flagged content"
+      "noFlaggedContent": "No flagged content",
+      "columnBrand": "Brand",
+      "columnField": "Field",
+      "columnTier": "Tier",
+      "columnReason": "Reason",
+      "columnFlaggedContent": "Flagged content",
+      "columnRisk": "Risk",
+      "columnDetected": "Detected",
+      "columnActions": "Actions",
+      "markReviewed": "Mark reviewed",
+      "dismiss": "Dismiss"
     },
     "evidence": {
       "title": "Origin Evidence",
@@ -2131,6 +2141,22 @@
       "ownerAlreadyManagesShort": "Already owns a brand",
       "ownerAlreadyManagesTitle": "Approval blocked: owner limit reached",
       "ownerAlreadyManagesBody": "This requester already manages {brandName}. Reject this claim using the existing-owner reason.",
+      "cleanupWarning": "Decision saved. Proof deletion remains queued for automatic retry.",
+      "cleanupStatus": {
+        "label": "Proof file cleanup",
+        "pending": {
+          "label": "Queued / retrying",
+          "description": "Deletion is queued and will retry automatically."
+        },
+        "failed": {
+          "label": "Retry failed",
+          "description": "Automatic retries are exhausted. Admin intervention is required."
+        },
+        "completed": {
+          "label": "Deleted",
+          "description": "Private proof files were deleted."
+        }
+      },
       "proofTypes": {
         "domainEmail": "Brand domain email",
         "backendScreenshot": "Admin/backend screenshot",

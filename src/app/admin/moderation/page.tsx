@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { getTranslations } from 'next-intl/server'
+import { reviewModerationFlagFormAction } from '@/app/admin/actions'
 import { Badge } from '@/components/ui/badge'
 import { MitVerifiedBadge } from '@/components/brands/brand-verification-badges'
 import { Button } from '@/components/ui/button'
@@ -8,7 +9,9 @@ import { NativeSelect } from '@/components/ui/native-select'
 import { surfaceCardStyles } from '@/components/ui/card'
 import {
   Table,
+  TableHeader,
   TableBody,
+  TableHead,
   TableCell,
   TableRow,
 } from '@/components/ui/table'
@@ -144,29 +147,65 @@ export default async function ReviewQueueModerationPage({ searchParams }: Modera
 
       <div className={surfaceCardStyles({ className: 'mt-8 overflow-hidden', padding: 'none' })}>
         <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t('columnBrand')}</TableHead>
+              <TableHead>{t('columnField')}</TableHead>
+              <TableHead>{t('columnTier')}</TableHead>
+              <TableHead>{t('columnReason')}</TableHead>
+              <TableHead>{t('columnFlaggedContent')}</TableHead>
+              <TableHead>{t('columnRisk')}</TableHead>
+              <TableHead>{t('columnDetected')}</TableHead>
+              <TableHead>{t('columnActions')}</TableHead>
+            </TableRow>
+          </TableHeader>
           <TableBody>
             {items.map((item) => (
               <TableRow key={item.id}>
-                <TableCell className="font-medium">{item.brandName}</TableCell>
+                <TableCell className="min-w-56 font-medium">{item.brandName}</TableCell>
                 <TableCell>{item.fieldName}</TableCell>
                 <TableCell>
                   <TierBadge tier={item.tier} />
                 </TableCell>
                 <TableCell>{item.reason}</TableCell>
-                <TableCell className="max-w-xs truncate">
+                <TableCell className="max-w-xs min-w-56 truncate">
                   {truncateContent(item.flaggedContent)}
                 </TableCell>
                 <TableCell>
                   <RiskBadge tier={item.tier} t={t} />
                 </TableCell>
                 <TableCell>{formatDate(item.createdAt)}</TableCell>
+                <TableCell className="min-w-56">
+                  <div className="flex flex-wrap gap-2">
+                    <form action={reviewModerationFlagFormAction.bind(null, item.id, 'reviewed')}>
+                      <Button
+                        type="submit"
+                        variant="secondary"
+                        size="compact"
+                        className="min-h-12"
+                      >
+                        {t('markReviewed')}
+                      </Button>
+                    </form>
+                    <form action={reviewModerationFlagFormAction.bind(null, item.id, 'dismissed')}>
+                      <Button
+                        type="submit"
+                        variant="ghost"
+                        size="compact"
+                        className="min-h-12"
+                      >
+                        {t('dismiss')}
+                      </Button>
+                    </form>
+                  </div>
+                </TableCell>
               </TableRow>
             ))}
 
             {items.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={7}
+                  colSpan={8}
                   className="py-8 text-center text-muted-foreground"
                 >
                   {t('noFlaggedContent')}

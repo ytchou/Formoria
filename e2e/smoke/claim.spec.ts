@@ -1,8 +1,10 @@
-// NOTE: This spec covers the link-only claim path (domain_email).
-// The upload-based proof path is deferred until the private `claim-proofs`
-// Supabase Storage bucket is created.
 import { test, expect } from '../fixtures/auth';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+
+const ONE_PIXEL_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+  'base64'
+);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
@@ -86,20 +88,22 @@ test.describe('Claim smoke', () => {
     // Open the claim form
     await userPage.getByRole('button', { name: '認領這個品牌' }).click();
 
-    // Select proof: domain_email — check the checkbox, then fill its email input
-    await userPage.locator('#claim-proof-domain_email').check();
-    await userPage
-      .locator('#claim-domain_email-email')
-      .fill(`owner@${brandSlug}.example.com`);
+    // Use upload-backed proof. Domain-email claims must be verified before approval.
+    await userPage.locator('#claim-proof-backend_screenshot').check();
+    await userPage.locator('#claim-backend_screenshot-image').setInputFiles({
+      name: 'backend-proof.png',
+      mimeType: 'image/png',
+      buffer: ONE_PIXEL_PNG,
+    });
 
     // Submit — button reads "送出認領申請" when idle
-    await userPage.getByRole('button', { name: '送出認領申請' }).click();
+    const submitClaimButton = userPage.getByRole('button', { name: '送出認領申請' });
+    await expect(submitClaimButton).toBeEnabled({ timeout: 15_000 });
+    await submitClaimButton.click();
 
     // Success state: inline pending section (not a toast)
     await expect(userPage.getByText('已收到你的認領申請')).toBeVisible({ timeout: 10_000 });
-    await expect(
-      userPage.getByText(/驗證信已寄至|我們會盡快審核/)
-    ).toBeVisible({ timeout: 5_000 });
+    await expect(userPage.getByText(/我們會盡快審核/)).toBeVisible({ timeout: 5_000 });
 
     // DB: claim_request row exists with proof_evidence array of length >= 1
     await expect

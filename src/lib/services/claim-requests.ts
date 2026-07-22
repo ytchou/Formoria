@@ -13,6 +13,7 @@ type BrandRow = Database['public']['Tables']['brands']['Row']
 type BrandOwnerRow = Database['public']['Tables']['brand_owners']['Row']
 
 type ClaimRequestStatus = 'pending' | 'approved' | 'rejected'
+export type ClaimProofCleanupStatus = 'pending' | 'failed' | 'completed' | null
 const MAX_PROOF_URL_LENGTH = 2048
 const CLAIM_PROOF_BUCKET = 'claim-proofs'
 const CLAIM_PROOF_BUCKET_PREFIX = `${CLAIM_PROOF_BUCKET}/`
@@ -20,6 +21,9 @@ const CLAIM_PROOF_SIGNED_URL_EXPIRES_IN_SECONDS = 300
 const DUPLICATE_PENDING_CLAIM_ERROR = 'a pending claim already exists for this brand'
 const CLAIM_ALREADY_REVIEWED_ERROR = 'claim already reviewed'
 const CLAIM_REQUESTER_EMAIL_NOT_FOUND_ERROR = 'Claim requester email not found'
+const DOMAIN_EMAIL_PROOF_NOT_VERIFIED_ERROR = 'domain email proof not verified'
+const DOMAIN_EMAIL_PROOF_NOT_VERIFIED_MESSAGE =
+  'Domain email proof must be verified before approval'
 const CLAIM_REQUEST_SELECT =
   'id, brand_id, user_id, proof_type, proof_url, proof_notes, proof_evidence, mit_smile_cert, status, reviewer_notes, reviewed_at, reviewed_by, created_at'
 const CLAIM_REQUEST_WITH_BRAND_SELECT = `${CLAIM_REQUEST_SELECT}, brands(name, slug)`
@@ -108,6 +112,21 @@ type ClaimRequestRpcClient = {
   ): Promise<{ data: unknown; error: ClaimRequestError | null }>
 }
 
+type ClaimProofCleanupJobRow = {
+  claim_request_id: string | null
+  storage_key: string
+  status: 'pending' | 'processing' | 'completed' | 'failed'
+}
+
+type ClaimProofCleanupJobsTable = {
+  select(columns: string): {
+    in(
+      column: 'claim_request_id',
+      values: string[]
+    ): Promise<{ data: ClaimProofCleanupJobRow[] | null; error: ClaimRequestError | null }>
+  }
+}
+
 export type ClaimRequest = {
   id: string
   brandId: string
@@ -125,6 +144,7 @@ export type ClaimRequest = {
   brandName: string | null
   brandSlug: string | null
   requesterEmail: string | null
+  proofCleanupStatus: ClaimProofCleanupStatus
   existingOwnedBrand?: {
     brandId: string
     brandName: string
@@ -168,6 +188,7 @@ function rowToClaimRequest(row: ClaimRequestRowWithJoins): ClaimRequest {
     brandName: row.brands?.name ?? null,
     brandSlug: row.brands?.slug ?? null,
     requesterEmail: row.requester_email ?? null,
+    proofCleanupStatus: null,
     existingOwnedBrand: null,
   }
 }
@@ -178,6 +199,61 @@ function claimRequestsTable(client: unknown): ClaimRequestTable {
 
 function claimRequestRpcClient(client: unknown): ClaimRequestRpcClient {
   return client as ClaimRequestRpcClient
+}
+
+function claimProofCleanupJobsTable(client: unknown): ClaimProofCleanupJobsTable {
+  return (client as { from: (table: 'claim_proof_cleanup_jobs') => ClaimProofCleanupJobsTable })
+    .from('claim_proof_cleanup_jobs')
+}
+
+async function attachProofCleanupStatuses(
+  client: unknown,
+  claims: ClaimRequest[]
+): Promise<ClaimRequest[]> {
+  const terminalClaimsWithUploads = claims.filter(
+    (claim) => claim.status !== 'pending' && claim.proofEvidence.some((proof) => proof.imageKey)
+  )
+  if (terminalClaimsWithUploads.length === 0) return claims
+
+  const claimIds = terminalClaimsWithUploads.map((claim) => claim.id)
+  const { data, error } = await claimProofCleanupJobsTable(client)
+    .select('claim_request_id, storage_key, status')
+    .in('claim_request_id', claimIds)
+  if (error) throw error
+
+  const jobsByClaimId = new Map<string, ClaimProofCleanupJobRow[]>()
+  for (const job of data ?? []) {
+    if (!job.claim_request_id) continue
+    const jobs = jobsByClaimId.get(job.claim_request_id) ?? []
+    jobs.push(job)
+    jobsByClaimId.set(job.claim_request_id, jobs)
+  }
+
+  return claims.map((claim) => {
+    const expectedStorageKeys = new Set(
+      claim.proofEvidence.flatMap((proof) => (proof.imageKey ? [proof.imageKey] : []))
+    )
+    if (claim.status === 'pending' || expectedStorageKeys.size === 0) return claim
+
+    const jobs = (jobsByClaimId.get(claim.id) ?? []).filter((job) =>
+      expectedStorageKeys.has(job.storage_key)
+    )
+    let proofCleanupStatus: Exclude<ClaimProofCleanupStatus, null>
+    if (jobs.some((job) => job.status === 'failed')) {
+      proofCleanupStatus = 'failed'
+    } else if (
+      jobs.some((job) => job.status === 'pending' || job.status === 'processing') ||
+      [...expectedStorageKeys].some(
+        (storageKey) => !jobs.some((job) => job.storage_key === storageKey)
+      )
+    ) {
+      proofCleanupStatus = 'pending'
+    } else {
+      proofCleanupStatus = 'completed'
+    }
+
+    return { ...claim, proofCleanupStatus }
+  })
 }
 
 function normalizeDomainEmail(email?: string): string | null {
@@ -334,7 +410,7 @@ async function attachRequesterEmails(rows: ClaimRequestRowWithJoins[]): Promise<
     })
   )
   const emailByUserId = new Map<string, string | null>(emailEntries)
-  return rows.map((row) =>
+  const claims = rows.map((row) =>
     ({
       ...rowToClaimRequest({
         ...row,
@@ -343,6 +419,7 @@ async function attachRequesterEmails(rows: ClaimRequestRowWithJoins[]): Promise<
       existingOwnedBrand: ownedBrandByUserId.get(row.user_id) ?? null,
     })
   )
+  return attachProofCleanupStatuses(supabase, claims)
 }
 
 export async function attachSignedProofUrls(
@@ -642,6 +719,10 @@ export async function approveClaimRequest(id: string, reviewerId: string): Promi
 
   if (error.message.includes(CLAIM_REQUESTER_EMAIL_NOT_FOUND_ERROR)) {
     throw new ValidationError(CLAIM_REQUESTER_EMAIL_NOT_FOUND_ERROR, { cause: error })
+  }
+
+  if (error.message.includes(DOMAIN_EMAIL_PROOF_NOT_VERIFIED_ERROR)) {
+    throw new ValidationError(DOMAIN_EMAIL_PROOF_NOT_VERIFIED_MESSAGE, { cause: error })
   }
 
   throw error

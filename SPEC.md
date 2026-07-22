@@ -52,7 +52,7 @@ Content management and moderation.
 - Brand listing management (edit, hide, delete)
 - Taxonomy tag management (add, merge, rename)
 - New tag suggestion review
-- Content moderation dashboard (`/admin/moderation`) — pending flags with risk badges
+- Content moderation dashboard (`/admin/moderation`) — pending blocked-content records
 - Newsletter operations (`/admin/newsletter`) — status metrics, search/filtering, cursor pagination, safe CSV export, confirmation resend, and irreversible admin unsubscribe; email action tokens never reach the browser
 - Feature toggles live at `/admin/settings`
 
@@ -139,29 +139,27 @@ A brand carries two **orthogonal** trust signals, plus an independent owner sign
 
 **Automated verification:** a weekly cron syncs the government MIT dataset (data.gov.tw #6027) into a local `mit_registry` table. Brand owners submit their MIT 微笑標章 cert number via the dashboard, submission form, or claim flow. On submission, an instant exact lookup against `mit_registry` sets `mit_status` to `verified`; otherwise it remains `unverified`. No admin action required for MIT verification.
 
-**Moderation under admin god mode (DEV-764):** when a god-mode admin edits a brand they do not own via the owner path, the edit runs `scanContent()` + `saveModerationFlags()` (same as any owner edit) and then immediately calls `markFlagsReviewed()` so the resulting flags are recorded as **auto-resolved** — `status='reviewed'` with `flag_reason` prefixed `admin-edit:`. This keeps a full audit trail but does **not** require human review. The tier-1 spam hard-block still applies to everyone, admins included. No DB migration is needed for this behavior.
+**Moderation under admin god mode (DEV-764):** when a god-mode admin edits a brand they do not own via the owner path, the edit uses the same synchronous moderation gate as any owner edit. A violation is recorded as pending and the edit is rejected; admins cannot bypass the blocking policy. A clean edit applies normally and is recorded in the existing admin audit log.
 
 ### Content Moderation (DEV-804)
 
 All brand submissions and owner edits pass through `scanContent()` (synchronous, in-process) before the record is persisted or queued.
 
-**Tier 1 — hard block (applies to everyone, including admins):**
+**Single blocking policy (applies to everyone, including admins):**
 - Suspicious TLDs in URLs: `.tk`, `.ml`, `.ga`, `.cf`, `.gq`
 - Excessive URLs: more than 3 URLs in any single text field
 - Known English spam phrases (curated list in `moderation.ts`)
-
-**Tier 2 — zh-TW flags (queued for admin review):**
 - Contact injection: phone numbers or email addresses embedded in description/name fields
 - Excessive emoji: more than 10 emoji characters in a single field
 - Short or identical descriptions: description duplicates the brand name, or is under the minimum character threshold
 
-**Auto-approval for trusted owner edits:**
-- Owner edits with a clean tier-2 scan (no flags) AND `≥ TRUSTED_OWNER_THRESHOLD` (3) previously approved edits bypass the review queue and are applied directly.
-- New brand submissions always enter the admin review queue regardless of scan result — auto-approval does not apply.
+Any violation is returned to the editor with a field-level remediation message, persisted as a pending moderation record for audit, and prevents the proposed edit from being written. Clean owner and admin edits apply immediately. New brand submissions continue to enter the admin review queue regardless of scan result.
 
 **Admin moderation dashboard (`/admin/moderation`, DEV-804):**
-- Lists all pending moderation flags with risk badges (tier label + matched rule).
-- Admins can approve or reject each flagged item inline.
+- Lists all pending blocked-content records with the matched rule and remediation context.
+- Admins can mark a record reviewed or dismissed for tracking; these actions do not publish the rejected edit or bypass the scanner.
+
+Post-publish agent review of clean edits is deferred to DEV-1142 and will run through a GitHub Actions workflow.
 
 ### Brand Health Score (Internal Engagement Tool)
 

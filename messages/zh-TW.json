@@ -239,7 +239,7 @@
         "businessDoc": {
           "label": "商業登記文件",
           "description": "顯示負責人姓名的登記文件",
-          "privacyNote": "此文件僅供審核人員私下查看，驗證後即刪除。除統一編號、商業名稱、負責人姓名外，其餘資訊可自行塗黑。",
+          "privacyNote": "上傳檔案僅供審核人員私下查看。申請核准或拒絕後會立即開始刪除；若刪除失敗，系統會自動重試。未送出申請的上傳檔案會在 24 小時後移除。除統一編號、商業名稱、負責人姓名外，其餘資訊可自行塗黑。",
           "uploadLabel": "上傳商業登記文件",
           "uploadHint": "PDF / JPG / PNG，最大 5MB"
         }
@@ -2072,7 +2072,17 @@
       "dashboard": "內容審核",
       "filterByRisk": "按風險篩選",
       "filterByTier": "按類型篩選",
-      "noFlaggedContent": "無待審內容"
+      "noFlaggedContent": "無待審內容",
+      "columnBrand": "品牌",
+      "columnField": "欄位",
+      "columnTier": "層級",
+      "columnReason": "原因",
+      "columnFlaggedContent": "被標記內容",
+      "columnRisk": "風險",
+      "columnDetected": "偵測日期",
+      "columnActions": "操作",
+      "markReviewed": "標記為已審核",
+      "dismiss": "駁回標記"
     },
     "evidence": {
       "title": "產地佐證",
@@ -2131,6 +2141,22 @@
       "ownerAlreadyManagesShort": "已擁有品牌",
       "ownerAlreadyManagesTitle": "無法核准：已達品牌管理上限",
       "ownerAlreadyManagesBody": "此申請者已管理 {brandName}。請使用已有品牌的原因拒絕此申請。",
+      "cleanupWarning": "審核決定已儲存，證明檔案仍在刪除佇列中，系統會自動重試。",
+      "cleanupStatus": {
+        "label": "證明檔案清理狀態",
+        "pending": {
+          "label": "已排入佇列／重試中",
+          "description": "刪除作業已排入佇列，失敗時會自動重試。"
+        },
+        "failed": {
+          "label": "重試失敗",
+          "description": "自動重試次數已用完，需要管理員介入處理。"
+        },
+        "completed": {
+          "label": "已刪除",
+          "description": "私密證明檔案已刪除。"
+        }
+      },
       "proofTypes": {
         "domainEmail": "品牌網域信箱",
         "backendScreenshot": "後台截圖",
