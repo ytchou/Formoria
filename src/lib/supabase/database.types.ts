@@ -1170,47 +1170,134 @@ export type Database = {
         }
         Relationships: []
       }
+      health_agent_run_ledger: {
+        Row: {
+          claimed_at: string
+          completed_at: string | null
+          created_at: string
+          dry_run: boolean
+          error: string | null
+          id: string
+          logical_date: string
+          requested_run_id: string
+          result: Json | null
+          routine: string
+          status: string
+          updated_at: string
+          workflow_attempt: number
+        }
+        Insert: {
+          claimed_at?: string
+          completed_at?: string | null
+          created_at?: string
+          dry_run?: boolean
+          error?: string | null
+          id?: string
+          logical_date: string
+          requested_run_id: string
+          result?: Json | null
+          routine: string
+          status?: string
+          updated_at?: string
+          workflow_attempt: number
+        }
+        Update: {
+          claimed_at?: string
+          completed_at?: string | null
+          created_at?: string
+          dry_run?: boolean
+          error?: string | null
+          id?: string
+          logical_date?: string
+          requested_run_id?: string
+          result?: Json | null
+          routine?: string
+          status?: string
+          updated_at?: string
+          workflow_attempt?: number
+        }
+        Relationships: []
+      }
       health_fix_queue: {
         Row: {
+          attempt_count: number
           attempted_at: string | null
+          confirmation_data: Json | null
           created_at: string
+          deployed_at: string | null
+          evidence: Json
+          fingerprint: string
           fixed_at: string | null
           id: string
           key_frames: Json | null
+          last_error: string | null
+          lease_expires_at: string | null
+          lease_owner: string | null
+          merge_policy: string
+          merge_sha: string | null
+          next_attempt_at: string | null
+          pr_number: number | null
           pr_url: string | null
           recommended_action: string | null
           seer_root_cause: string | null
-          sentry_issue_id: string
+          sentry_issue_id: string | null
+          source: string
           status: string
           title: string
           updated_at: string
           url: string | null
         }
         Insert: {
+          attempt_count?: number
           attempted_at?: string | null
+          confirmation_data?: Json | null
           created_at?: string
+          deployed_at?: string | null
+          evidence?: Json
+          fingerprint: string
           fixed_at?: string | null
           id?: string
           key_frames?: Json | null
+          last_error?: string | null
+          lease_expires_at?: string | null
+          lease_owner?: string | null
+          merge_policy?: string
+          merge_sha?: string | null
+          next_attempt_at?: string | null
+          pr_number?: number | null
           pr_url?: string | null
           recommended_action?: string | null
           seer_root_cause?: string | null
-          sentry_issue_id: string
+          sentry_issue_id?: string | null
+          source: string
           status?: string
           title: string
           updated_at?: string
           url?: string | null
         }
         Update: {
+          attempt_count?: number
           attempted_at?: string | null
+          confirmation_data?: Json | null
           created_at?: string
+          deployed_at?: string | null
+          evidence?: Json
+          fingerprint?: string
           fixed_at?: string | null
           id?: string
           key_frames?: Json | null
+          last_error?: string | null
+          lease_expires_at?: string | null
+          lease_owner?: string | null
+          merge_policy?: string
+          merge_sha?: string | null
+          next_attempt_at?: string | null
+          pr_number?: number | null
           pr_url?: string | null
           recommended_action?: string | null
           seer_root_cause?: string | null
-          sentry_issue_id?: string
+          sentry_issue_id?: string | null
+          source?: string
           status?: string
           title?: string
           updated_at?: string
@@ -1246,8 +1333,12 @@ export type Database = {
         Row: {
           auto_nulled_at: string | null
           brand_id: string
+          cleanup_required: boolean
+          cleanup_required_at: string | null
           consecutive_failures: number
           created_at: string
+          distinct_failure_days: number
+          failure_dates: string[]
           field: string
           id: string
           last_checked_at: string | null
@@ -1259,8 +1350,12 @@ export type Database = {
         Insert: {
           auto_nulled_at?: string | null
           brand_id: string
+          cleanup_required?: boolean
+          cleanup_required_at?: string | null
           consecutive_failures?: number
           created_at?: string
+          distinct_failure_days?: number
+          failure_dates?: string[]
           field: string
           id?: string
           last_checked_at?: string | null
@@ -1272,8 +1367,12 @@ export type Database = {
         Update: {
           auto_nulled_at?: string | null
           brand_id?: string
+          cleanup_required?: boolean
+          cleanup_required_at?: string | null
           consecutive_failures?: number
           created_at?: string
+          distinct_failure_days?: number
+          failure_dates?: string[]
           field?: string
           id?: string
           last_checked_at?: string | null
@@ -1894,6 +1993,57 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_health_agent_run: {
+        Args: {
+          p_dry_run?: boolean
+          p_logical_date: string
+          p_requested_run_id: string
+          p_routine: string
+          p_workflow_attempt: number
+        }
+        Returns: Json
+      }
+      claim_health_fixes: {
+        Args: {
+          p_lease_duration?: unknown
+          p_lease_owner: string
+          p_merge_policy: string
+        }
+        Returns: {
+          attempt_count: number
+          attempted_at: string | null
+          confirmation_data: Json | null
+          created_at: string
+          deployed_at: string | null
+          evidence: Json
+          fingerprint: string
+          fixed_at: string | null
+          id: string
+          key_frames: Json | null
+          last_error: string | null
+          lease_expires_at: string | null
+          lease_owner: string | null
+          merge_policy: string
+          merge_sha: string | null
+          next_attempt_at: string | null
+          pr_number: number | null
+          pr_url: string | null
+          recommended_action: string | null
+          seer_root_cause: string | null
+          sentry_issue_id: string | null
+          source: string
+          status: string
+          title: string
+          updated_at: string
+          url: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "health_fix_queue"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       claim_next_curation_job: {
         Args: { p_worker_token: string }
         Returns: {
@@ -1935,6 +2085,16 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      complete_health_agent_run: {
+        Args: {
+          p_logical_date: string
+          p_requested_run_id: string
+          p_result: Json
+          p_routine: string
+          p_workflow_attempt: number
+        }
+        Returns: boolean
+      }
       enqueue_curation_job: {
         Args: {
           p_attempt: number
@@ -1950,6 +2110,29 @@ export type Database = {
           p_trigger: string
         }
         Returns: string
+      }
+      enqueue_health_fix: {
+        Args: {
+          p_evidence: Json
+          p_fingerprint: string
+          p_merge_policy: string
+          p_sentry_issue_id?: string
+          p_source: string
+          p_title: string
+          p_url?: string
+        }
+        Returns: string
+      }
+      fail_health_agent_run: {
+        Args: {
+          p_error: string
+          p_logical_date: string
+          p_requested_run_id: string
+          p_result?: Json
+          p_routine: string
+          p_workflow_attempt: number
+        }
+        Returns: boolean
       }
       find_similar_brands: {
         Args: { p_names: string[]; p_threshold?: number }
@@ -1992,6 +2175,42 @@ export type Database = {
           p_worker_token: string
         }
         Returns: boolean
+      }
+      record_health_snapshot: {
+        Args: { p_metrics: Json; p_snapshot_date: string }
+        Returns: {
+          created_at: string
+          id: string
+          metrics: Json
+          snapshot_date: string
+          updated_at: string
+        }
+      }
+      record_link_health_result: {
+        Args: {
+          p_brand_id: string
+          p_checked_at?: string
+          p_field: string
+          p_status_code: number
+          p_url: string
+        }
+        Returns: {
+          auto_nulled_at: string | null
+          brand_id: string
+          cleanup_required: boolean
+          cleanup_required_at: string | null
+          consecutive_failures: number
+          created_at: string
+          distinct_failure_days: number
+          failure_dates: string[]
+          field: string
+          id: string
+          last_checked_at: string | null
+          last_ok_at: string | null
+          last_status_code: number | null
+          updated_at: string
+          url: string
+        }
       }
       recover_stale_curation_jobs: {
         Args: { p_stale_before: string }
@@ -2085,6 +2304,49 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      transition_health_fix: {
+        Args: {
+          p_confirmation_data?: Json
+          p_deployed_at?: string
+          p_expected_status: string
+          p_id: string
+          p_last_error?: string
+          p_lease_owner?: string
+          p_merge_sha?: string
+          p_new_status: string
+          p_next_attempt_at?: string
+          p_pr_number?: number
+          p_pr_url?: string
+        }
+        Returns: {
+          attempt_count: number
+          attempted_at: string | null
+          confirmation_data: Json | null
+          created_at: string
+          deployed_at: string | null
+          evidence: Json
+          fingerprint: string
+          fixed_at: string | null
+          id: string
+          key_frames: Json | null
+          last_error: string | null
+          lease_expires_at: string | null
+          lease_owner: string | null
+          merge_policy: string
+          merge_sha: string | null
+          next_attempt_at: string | null
+          pr_number: number | null
+          pr_url: string | null
+          recommended_action: string | null
+          seer_root_cause: string | null
+          sentry_issue_id: string | null
+          source: string
+          status: string
+          title: string
+          updated_at: string
+          url: string | null
+        }
+      }
     }
     Enums: {
       [_ in never]: never
