@@ -233,11 +233,7 @@ function buildMitAnswer(brand: Brand, t: TFn, _locale: string): string {
     brandName: brand.name,
     scope,
   })
-  const verificationMarker = t('brandFaq.isMadeInTaiwan.verificationMarker')
-  const story = hasValue(brand.mitStory)
-    && !brand.mitStory.toLocaleLowerCase().includes(verificationMarker.toLocaleLowerCase())
-    ? `\n\n${brand.mitStory}`
-    : ''
+  const story = hasValue(brand.mitStory) ? `\n\n${brand.mitStory}` : ''
 
   return `${declaration}${story}`
 }

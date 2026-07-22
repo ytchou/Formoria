@@ -132,7 +132,7 @@ describe('buildBrandFaq', () => {
     )
   })
 
-  it('omits a declared manufacturing story containing the locale verification marker', () => {
+  it('includes a declared manufacturing story containing the locale verification marker', () => {
     const translate = (key: string, params?: Record<string, unknown>) => {
       if (key === 'brandFaq.isMadeInTaiwan.verificationMarker') return 'verified'
       return t(key, params)
@@ -147,6 +147,6 @@ describe('buildBrandFaq', () => {
     )
     const mitEntry = faq.find((item) => item.id === 'made-in-taiwan')
 
-    expect(mitEntry?.answer).not.toContain('Products verified')
+    expect(mitEntry?.answer).toContain('Products verified')
   })
 })

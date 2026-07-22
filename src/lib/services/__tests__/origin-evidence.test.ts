@@ -154,11 +154,7 @@ describe('origin evidence', () => {
       reviewed_by: 'admin-1',
       reviewer_notes: 'Community evidence contradicts the declaration.',
     })
-    expect(stripDeclaration).toHaveBeenCalledWith(
-      'brand-1',
-      'admin-1',
-      'Community evidence contradicts the declaration.',
-    )
+    expect(stripDeclaration).toHaveBeenCalledWith('brand-1')
     expect(buildDeclarationRemovedEmail).toHaveBeenCalledWith({
       ownerEmail: 'owner@example.com',
       brandName: 'Test Brand',

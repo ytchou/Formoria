@@ -53,7 +53,7 @@ describe('EvidenceQueue', () => {
   it('offers strip-declaration only for declared brands', async () => {
     const user = userEvent.setup()
 
-    renderQueue([makeEvidence({ brandMitStatus: 'declared' })])
+    renderQueue([makeEvidence({ brandMitStatus: 'declared', stance: 'contradicts' })])
 
     await user.click(screen.getByText('測試品牌'))
     expect(screen.getByText('移除聲明')).toBeInTheDocument()

@@ -78,6 +78,10 @@ export function EvidenceQueue({
       setError(t('errors.notesRequired'))
       return
     }
+    if (decision === 'approved' && stripDeclaration && !notes) {
+      setError(t('errors.notesRequired'))
+      return
+    }
 
     startTransition(async () => {
       setError(null)
@@ -245,7 +249,7 @@ export function EvidenceQueue({
                               disabled={isPending}
                             />
 
-                            {item.brandMitStatus === 'declared' && (
+                            {item.brandMitStatus === 'declared' && item.stance === 'contradicts' && (
                               <Label className="min-h-12 cursor-pointer gap-3 text-sm">
                                 <Checkbox
                                   checked={stripDeclaration}

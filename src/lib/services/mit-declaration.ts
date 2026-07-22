@@ -119,10 +119,6 @@ export async function withdrawDeclaration(
 
 export async function stripDeclaration(
   brandId: string,
-  reviewerId: string,
-  notes: string,
 ): Promise<MitDeclarationResult> {
-  void reviewerId
-  void notes
   return resetDeclaration(brandId, getClient())
 }

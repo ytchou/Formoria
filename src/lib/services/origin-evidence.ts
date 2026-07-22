@@ -226,6 +226,25 @@ export async function listPendingEvidence(
   return attachSignedPhotoUrls(evidence)
 }
 
+export async function listAllEvidence(
+  options: ListPendingEvidenceOptions = {},
+): Promise<OriginEvidence[]> {
+  const requestedLimit = options.limit ?? options.pageSize ?? DEFAULT_PENDING_PAGE_SIZE
+  const limit = Math.min(Math.max(1, requestedLimit), MAX_PENDING_PAGE_SIZE)
+  const pageOffset = Math.max(0, (options.page ?? 1) - 1) * limit
+  const offset = Math.max(0, options.offset ?? pageOffset)
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('origin_evidence')
+    .select('*, brands(name, slug, mit_status)')
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1)
+
+  if (error) throw error
+  const evidence = ((data ?? []) as unknown as OriginEvidenceRowWithBrand[]).map(rowToEvidence)
+  return attachSignedPhotoUrls(evidence)
+}
+
 export async function reviewEvidence(
   id: string,
   decision: OriginEvidenceDecision,
@@ -250,7 +269,7 @@ export async function reviewEvidence(
   if (!data) return { ok: false, code: 'already_reviewed_or_not_found' }
   if (opts.tierAction !== 'strip_declaration') return { ok: true }
 
-  const stripResult = await stripDeclaration(data.brand_id, opts.reviewerId, notes)
+  const stripResult = await stripDeclaration(data.brand_id)
   if (!stripResult.ok) return stripResult
 
   const brand = data.brands as unknown as Pick<OriginEvidenceBrand, 'name'> | null

@@ -4,7 +4,7 @@ import { getTranslations } from 'next-intl/server'
 import { EvidenceQueue } from '@/components/admin/evidence-queue'
 import { requireAdminPage } from '@/lib/auth/require-admin'
 import {
-  listPendingEvidence,
+  listAllEvidence,
   reviewEvidence,
   type OriginEvidenceDecision,
 } from '@/lib/services/origin-evidence'
@@ -39,7 +39,7 @@ async function reviewEvidenceAction(
 export default async function AdminEvidencePage() {
   await requireAdminPage('/admin/evidence')
   const [evidence, t] = await Promise.all([
-    listPendingEvidence(),
+    listAllEvidence(),
     getTranslations('admin.evidence'),
   ])
 

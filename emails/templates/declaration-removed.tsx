@@ -80,15 +80,14 @@ export async function buildDeclarationRemovedEmail(
   props: BuildDeclarationRemovedEmailProps,
 ): Promise<EmailMessage> {
   const locale = props.locale ?? 'zh-TW'
-  const brandName = escapeHtml(props.brandName)
 
   return {
     to: props.ownerEmail,
     from: FROM_ADDRESS,
     subject:
       locale === 'en'
-        ? `MIT declaration removed for "${brandName}" — Formoria`
-        : `「${brandName}」的台灣製造聲明已移除 — Formoria`,
+        ? `MIT declaration removed for "${props.brandName}" — Formoria`
+        : `「${props.brandName}」的台灣製造聲明已移除 — Formoria`,
     html: await render(<DeclarationRemovedEmail {...props} />),
   }
 }
