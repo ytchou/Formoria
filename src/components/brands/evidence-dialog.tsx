@@ -172,17 +172,15 @@ export function EvidenceDialog({ brandId, brandSlug }: EvidenceDialogProps) {
                         stance === value && 'border-primary bg-primary/10 text-primary',
                       )}
                     >
-                      {/* eslint-disable no-restricted-syntax -- ui-exception: native radio input required for custom styled radio group */}
-                      <input
+                      <Input
                         type="radio"
                         name="stanceChoice"
                         value={value}
                         checked={stance === value}
                         required
-                        className="size-4 accent-primary"
+                        className="size-4 min-w-4 shrink-0 p-0 accent-primary"
                         onChange={() => setStance(value)}
                       />
-                      {/* eslint-enable no-restricted-syntax */}
                       <span>{t(`stances.${value}`)}</span>
                     </Label>
                   ))}
@@ -243,8 +241,7 @@ export function EvidenceDialog({ brandId, brandSlug }: EvidenceDialogProps) {
                   <Upload className="size-4" aria-hidden="true" />
                   <span>{uploading ? t('uploading') : t('photoHint')}</span>
                 </Button>
-                {/* eslint-disable no-restricted-syntax -- ui-exception: native file input required for photo upload (hidden with sr-only) */}
-                <input
+                <Input
                   ref={inputRef}
                   id="evidence-photo"
                   type="file"
@@ -252,7 +249,6 @@ export function EvidenceDialog({ brandId, brandSlug }: EvidenceDialogProps) {
                   className="sr-only"
                   onChange={handleFileSelect}
                 />
-                {/* eslint-enable no-restricted-syntax */}
                 {photoPath && (
                   <Typography variant="cardDescription" role="status">
                     {t('photoUploaded')}
