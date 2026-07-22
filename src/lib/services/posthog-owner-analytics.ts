@@ -1,25 +1,23 @@
 import {
   PostHogQueryError,
-  createPostHogQueryClient,
-  type PostHogQueryClient,
+  createPostHogEndpointClient,
   type PostHogQueryResult,
 } from '@/lib/adapters/posthog/query-api'
+import { OWNER_ENDPOINTS, type OwnerEndpointDef } from '@/lib/analytics/posthog-queries'
 import type {
-  AcquisitionRow,
   Comparison,
   DateWindow,
   DestinationRow,
   OwnerAnalyticsSnapshotV1,
   OwnerDailyPoint,
   RateComparison,
+  TrafficSourceRow,
 } from '@/lib/analytics/posthog-types'
 import { getAnalyticsDateWindows } from './posthog-analytics'
 
 const TIME_ZONE = 'Asia/Taipei' as const
-const CACHE_TTL_MS = 15 * 60_000
-const SESSION_ID = 'properties.$session_id'
-const PUBLIC_EVENT = `properties.surface = 'public' AND properties.analytics_schema_version = 1`
-const ownerCache = new Map<string, { expiresAt: number; value: OwnerAnalyticsSnapshotV1 }>()
+
+type PostHogEndpointClient = ReturnType<typeof createPostHogEndpointClient>
 
 function taipeiDate(date: Date): string {
   return new Intl.DateTimeFormat('en-CA', {
@@ -37,82 +35,6 @@ function shiftIsoDate(date: string, days: number): string {
   return value.toISOString().slice(0, 10)
 }
 
-function escapeHogQlString(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
-}
-
-function dateCondition(window: DateWindow): string {
-  return `toDate(toTimeZone(timestamp, '${TIME_ZONE}')) BETWEEN toDate('${window.startDate}') AND toDate('${window.endDate}')`
-}
-
-function profileSessions(window: DateWindow, brandId: string): string {
-  return `SELECT DISTINCT ${SESSION_ID} FROM events WHERE event = 'brand_detail_viewed' AND ${PUBLIC_EVENT} AND properties.brand_id = '${escapeHogQlString(brandId)}' AND ${dateCondition(window)}`
-}
-
-function coreQuery(brandId: string, current: DateWindow, prior: DateWindow): string {
-  const safeBrandId = escapeHogQlString(brandId)
-  return `
-SELECT
-  (SELECT toString(minOrNull(toDate(toTimeZone(timestamp, '${TIME_ZONE}')))) FROM events WHERE event = 'brand_detail_viewed' AND ${PUBLIC_EVENT} AND properties.brand_id = '${safeBrandId}') AS available_from,
-  uniqIf(${SESSION_ID}, event = 'brand_detail_viewed' AND properties.brand_id = '${safeBrandId}' AND ${dateCondition(current)}) AS current_profile_sessions,
-  uniqIf(${SESSION_ID}, event = 'brand_detail_viewed' AND properties.brand_id = '${safeBrandId}' AND ${dateCondition(prior)}) AS prior_profile_sessions,
-  uniqIf(${SESSION_ID}, event = 'external_link_clicked' AND properties.brand_id = '${safeBrandId}' AND ${dateCondition(current)} AND ${SESSION_ID} IN (${profileSessions(current, brandId)})) AS current_outbound_sessions,
-  uniqIf(${SESSION_ID}, event = 'external_link_clicked' AND properties.brand_id = '${safeBrandId}' AND ${dateCondition(prior)} AND ${SESSION_ID} IN (${profileSessions(prior, brandId)})) AS prior_outbound_sessions
-FROM events
-WHERE ${PUBLIC_EVENT} AND ${dateCondition({ startDate: prior.startDate, endDate: current.endDate })}
-`.trim()
-}
-
-function dailyQuery(brandId: string, window: DateWindow): string {
-  const safeBrandId = escapeHogQlString(brandId)
-  return `
-SELECT
-  toString(toDate(toTimeZone(timestamp, '${TIME_ZONE}'))) AS date,
-  uniqIf(${SESSION_ID}, event = 'brand_detail_viewed' AND properties.brand_id = '${safeBrandId}') AS profile_sessions,
-  uniqIf(${SESSION_ID}, event = 'external_link_clicked' AND properties.brand_id = '${safeBrandId}' AND ${SESSION_ID} IN (${profileSessions(window, brandId)})) AS outbound_sessions
-FROM events
-WHERE ${PUBLIC_EVENT} AND ${dateCondition(window)}
-GROUP BY date
-ORDER BY date
-`.trim()
-}
-
-function acquisitionQuery(brandId: string, window: DateWindow): string {
-  const pageviewWindow = {
-    startDate: shiftIsoDate(window.startDate, -1),
-    endDate: window.endDate,
-  }
-  return `
-SELECT source, medium, count() AS sessions
-FROM (
-  SELECT
-    ${SESSION_ID} AS session_id,
-    if(notEmpty(argMin(coalesce(properties.$utm_source, ''), timestamp)), argMin(coalesce(properties.$utm_source, ''), timestamp), if(notEmpty(argMin(coalesce(properties.$referring_domain, ''), timestamp)), argMin(coalesce(properties.$referring_domain, ''), timestamp), 'Direct')) AS source,
-    if(notEmpty(argMin(coalesce(properties.$utm_medium, ''), timestamp)), argMin(coalesce(properties.$utm_medium, ''), timestamp), if(notEmpty(argMin(coalesce(properties.$referring_domain, ''), timestamp)), 'referral', 'direct')) AS medium
-  FROM events
-  WHERE event = '$pageview' AND ${PUBLIC_EVENT} AND ${dateCondition(pageviewWindow)} AND ${SESSION_ID} IN (${profileSessions(window, brandId)})
-  GROUP BY session_id
-)
-GROUP BY source, medium
-ORDER BY sessions DESC
-LIMIT 20
-`.trim()
-}
-
-function destinationsQuery(brandId: string, window: DateWindow): string {
-  return `
-SELECT properties.link_type AS destination, uniq(${SESSION_ID}) AS sessions
-FROM events
-WHERE event = 'external_link_clicked'
-  AND ${PUBLIC_EVENT}
-  AND properties.brand_id = '${escapeHogQlString(brandId)}'
-  AND ${dateCondition(window)}
-  AND ${SESSION_ID} IN (${profileSessions(window, brandId)})
-GROUP BY destination
-ORDER BY sessions DESC
-`.trim()
-}
-
 function invalidResponse(): never {
   throw new PostHogQueryError(
     'invalid_provider_response',
@@ -120,21 +42,18 @@ function invalidResponse(): never {
   )
 }
 
-function rows(result: PostHogQueryResult): Array<Record<string, unknown>> {
-  return result.results.map((row) => {
-    if (row.length !== result.columns.length) invalidResponse()
-    return Object.fromEntries(result.columns.map((column, index) => [column, row[index]]))
-  })
+function endpointRows(result: PostHogQueryResult, columnCount: number): unknown[][] {
+  if (result.results.some((row) => row.length !== columnCount)) invalidResponse()
+  return result.results
 }
 
-function count(row: Record<string, unknown>, key: string): number {
-  const value = Number(row[key])
-  if (!Number.isFinite(value) || value < 0) invalidResponse()
-  return value
+function count(value: unknown): number {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || parsed < 0) invalidResponse()
+  return parsed
 }
 
-function text(row: Record<string, unknown>, key: string): string {
-  const value = row[key]
+function text(value: unknown): string {
   if (typeof value !== 'string' || !value) invalidResponse()
   return value
 }
@@ -157,152 +76,172 @@ function conversion(
 }
 
 function parseCore(result: PostHogQueryResult, prior: DateWindow) {
-  const resultRows = rows(result)
+  const resultRows = endpointRows(result, 5)
   if (resultRows.length !== 1) invalidResponse()
-  const row = resultRows[0]
-  const availableFrom = typeof row.available_from === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(row.available_from)
-    ? row.available_from
+  const row = resultRows.at(0)
+  if (!row) invalidResponse()
+  const availableFrom = typeof row[0] === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(row[0])
+    ? row[0]
     : null
+
   return {
     availableFrom,
     comparisonReady: availableFrom !== null && availableFrom < prior.startDate,
-    currentProfiles: count(row, 'current_profile_sessions'),
-    priorProfiles: count(row, 'prior_profile_sessions'),
-    currentOutbound: count(row, 'current_outbound_sessions'),
-    priorOutbound: count(row, 'prior_outbound_sessions'),
+    currentProfiles: count(row[1]),
+    priorProfiles: count(row[2]),
+    currentOutbound: count(row[3]),
+    priorOutbound: count(row[4]),
   }
 }
 
 function parseDaily(result: PostHogQueryResult, window: DateWindow): OwnerDailyPoint[] {
-  const byDate = new Map(rows(result).map((row) => {
-    const date = text(row, 'date')
+  const byDate = new Map(endpointRows(result, 3).map((row) => {
+    const date = text(row[0])
     return [date, {
       date,
-      profileSessions: count(row, 'profile_sessions'),
-      outboundSessions: count(row, 'outbound_sessions'),
+      profileSessions: count(row[1]),
+      outboundSessions: count(row[2]),
     } satisfies OwnerDailyPoint] as const
   }))
   const daily: OwnerDailyPoint[] = []
+
   for (let date = window.startDate; date <= window.endDate; date = shiftIsoDate(date, 1)) {
     daily.push(byDate.get(date) ?? { date, profileSessions: 0, outboundSessions: 0 })
   }
   return daily
 }
 
-function parseAcquisition(result: PostHogQueryResult): AcquisitionRow[] {
-  return rows(result).map((row) => ({
-    source: text(row, 'source'),
-    medium: text(row, 'medium'),
-    sessions: count(row, 'sessions'),
+function parseTrafficSources(result: PostHogQueryResult): TrafficSourceRow[] {
+  return endpointRows(result, 2).map((row) => ({
+    source: text(row[0]),
+    sessions: count(row[1]),
   }))
 }
 
 function parseDestinations(result: PostHogQueryResult): DestinationRow[] {
-  return rows(result).map((row) => ({
-    destination: text(row, 'destination'),
-    sessions: count(row, 'sessions'),
+  return endpointRows(result, 2).map((row) => ({
+    destination: text(row[0]),
+    sessions: count(row[1]),
   }))
 }
 
-function configuredSourceUrl(sourceUrl?: string): string {
-  const value = sourceUrl ?? process.env.POSTHOG_DASHBOARD_URL?.trim()
-  if (!value) {
-    throw new PostHogQueryError('posthog_unconfigured', 'PostHog dashboard URL is not configured.')
-  }
-  try {
-    const url = new URL(value)
-    if (url.origin !== 'https://us.posthog.com') throw new Error('invalid host')
-    return url.toString()
-  } catch {
-    throw new PostHogQueryError('posthog_unconfigured', 'PostHog dashboard URL is invalid.')
-  }
+function deriveTopTrafficSource(
+  trafficSources: TrafficSourceRow[] | null,
+): OwnerAnalyticsSnapshotV1['topTrafficSource'] {
+  if (!trafficSources) return null
+  const total = trafficSources.reduce((sum, row) => sum + row.sessions, 0)
+  if (total === 0) return null
+  const top = trafficSources.reduce<TrafficSourceRow | null>(
+    (current, row) => !current || row.sessions > current.sessions ? row : current,
+    null,
+  )
+  return top ? { source: top.source, share: top.sessions / total } : null
+}
+
+function errorCode(error: unknown): string | null {
+  if (!error || typeof error !== 'object' || !('code' in error)) return null
+  return typeof error.code === 'string' ? error.code : null
+}
+
+function endpointWarning(error: unknown, unavailable: string): string {
+  return errorCode(error) === 'endpoint_missing'
+    ? 'The required PostHog analytics endpoint is missing.'
+    : unavailable
+}
+
+function runEndpoint(
+  client: PostHogEndpointClient,
+  definition: OwnerEndpointDef,
+  brandId: string,
+): Promise<PostHogQueryResult> {
+  return client.runEndpoint(definition.name, definition.version, { brand_id: brandId })
 }
 
 export async function getPostHogOwnerAnalyticsSnapshot(
   brandId: string,
   {
-    queryClient = createPostHogQueryClient(),
+    client = createPostHogEndpointClient(),
     now = () => new Date(),
-    sourceUrl,
-    cache = true,
   }: {
-    queryClient?: PostHogQueryClient
+    client?: PostHogEndpointClient
     now?: () => Date
-    sourceUrl?: string
-    cache?: boolean
   } = {},
 ): Promise<OwnerAnalyticsSnapshotV1> {
   const generatedAt = now()
   const windows = getAnalyticsDateWindows(taipeiDate(generatedAt), 30, 30)
-  const resolvedSourceUrl = configuredSourceUrl(sourceUrl)
-  const cacheKey = `${brandId}:${windows.current.endDate}:${resolvedSourceUrl}`
-  const cached = ownerCache.get(cacheKey)
-  if (cache && cached && cached.expiresAt > generatedAt.getTime()) return cached.value
-
-  const [coreResult, dailyResult, acquisitionResult, destinationResult] = await Promise.allSettled([
-    queryClient.run('owner core totals', coreQuery(brandId, windows.current, windows.prior)),
-    queryClient.run('owner daily trend', dailyQuery(brandId, windows.trend)),
-    queryClient.run('owner acquisition', acquisitionQuery(brandId, windows.current)),
-    queryClient.run('owner destinations', destinationsQuery(brandId, windows.current)),
+  const [coreResult, dailyResult, trafficSourcesResult, destinationsResult] = await Promise.allSettled([
+    runEndpoint(client, OWNER_ENDPOINTS.brand_core_totals, brandId),
+    runEndpoint(client, OWNER_ENDPOINTS.brand_daily_trend, brandId),
+    runEndpoint(client, OWNER_ENDPOINTS.brand_traffic_sources, brandId),
+    runEndpoint(client, OWNER_ENDPOINTS.brand_outbound_destinations, brandId),
   ])
-  if (coreResult.status === 'rejected') throw coreResult.reason
 
-  const core = parseCore(coreResult.value, windows.prior)
-  const warnings: string[] = []
+  let profileSessions: Comparison | null = null
+  let outboundSessions: Comparison | null = null
+  let outboundConversion: RateComparison | null = null
+  let comparisonReady = false
+  let availableFrom: string | null = null
   let daily: OwnerDailyPoint[] | null = null
-  let acquisition: AcquisitionRow[] | null = null
+  let trafficSources: TrafficSourceRow[] | null = null
   let destinations: DestinationRow[] | null = null
+  const warnings: string[] = []
 
   try {
-    if (dailyResult.status === 'rejected') throw dailyResult.reason
-    daily = parseDaily(dailyResult.value, windows.trend)
-  } catch {
-    warnings.push('Daily trend is temporarily unavailable.')
-  }
-  try {
-    if (acquisitionResult.status === 'rejected') throw acquisitionResult.reason
-    acquisition = parseAcquisition(acquisitionResult.value)
-  } catch {
-    warnings.push('Acquisition breakdown is temporarily unavailable.')
-  }
-  try {
-    if (destinationResult.status === 'rejected') throw destinationResult.reason
-    destinations = parseDestinations(destinationResult.value)
-  } catch {
-    warnings.push('Destination breakdown is temporarily unavailable.')
-  }
-
-  const snapshot: OwnerAnalyticsSnapshotV1 = {
-    schemaVersion: 1,
-    generatedAt: generatedAt.toISOString(),
-    dataThrough: windows.current.endDate,
-    timeZone: TIME_ZONE,
-    windows,
-    profileSessions: comparison(core.currentProfiles, core.priorProfiles, core.comparisonReady),
-    outboundSessions: comparison(core.currentOutbound, core.priorOutbound, core.comparisonReady),
-    outboundConversion: conversion(
+    if (coreResult.status === 'rejected') throw coreResult.reason
+    const core = parseCore(coreResult.value, windows.prior)
+    profileSessions = comparison(core.currentProfiles, core.priorProfiles, core.comparisonReady)
+    outboundSessions = comparison(core.currentOutbound, core.priorOutbound, core.comparisonReady)
+    outboundConversion = conversion(
       core.currentOutbound,
       core.currentProfiles,
       core.priorOutbound,
       core.priorProfiles,
       core.comparisonReady,
-    ),
-    daily,
-    acquisition,
-    destinations,
-    completeness: {
-      comparisonReady: core.comparisonReady,
-      availableFrom: core.availableFrom,
-      warnings,
-    },
-    sourceUrl: resolvedSourceUrl,
+    )
+    comparisonReady = core.comparisonReady
+    availableFrom = core.availableFrom
+  } catch (error) {
+    warnings.push(endpointWarning(error, 'Core session metrics are temporarily unavailable.'))
   }
 
-  if (cache && warnings.length === 0) {
-    ownerCache.set(cacheKey, {
-      expiresAt: generatedAt.getTime() + CACHE_TTL_MS,
-      value: snapshot,
-    })
+  try {
+    if (dailyResult.status === 'rejected') throw dailyResult.reason
+    daily = parseDaily(dailyResult.value, windows.trend)
+  } catch (error) {
+    warnings.push(endpointWarning(error, 'Daily trend is temporarily unavailable.'))
   }
-  return snapshot
+
+  try {
+    if (trafficSourcesResult.status === 'rejected') throw trafficSourcesResult.reason
+    trafficSources = parseTrafficSources(trafficSourcesResult.value)
+  } catch (error) {
+    warnings.push(endpointWarning(error, 'Traffic sources are temporarily unavailable.'))
+  }
+
+  try {
+    if (destinationsResult.status === 'rejected') throw destinationsResult.reason
+    destinations = parseDestinations(destinationsResult.value)
+  } catch (error) {
+    warnings.push(endpointWarning(error, 'Destination breakdown is temporarily unavailable.'))
+  }
+
+  return {
+    schemaVersion: 1,
+    generatedAt: generatedAt.toISOString(),
+    dataThrough: windows.current.endDate,
+    timeZone: TIME_ZONE,
+    windows,
+    profileSessions,
+    outboundSessions,
+    outboundConversion,
+    daily,
+    trafficSources,
+    topTrafficSource: deriveTopTrafficSource(trafficSources),
+    destinations,
+    completeness: {
+      comparisonReady,
+      availableFrom,
+      warnings,
+    },
+  }
 }
