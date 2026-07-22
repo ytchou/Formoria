@@ -1,64 +1,50 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { PostHogQueryClient } from '@/lib/adapters/posthog/query-api'
 import { getPostHogOwnerAnalyticsSnapshot } from './posthog-owner-analytics'
 
-function queryClient(): PostHogQueryClient {
+function endpointClientMock(responses: Record<string, unknown[][] | Error>) {
   return {
-    run: vi.fn(async (name) => {
-      if (name === 'owner core totals') {
-        return {
-          columns: ['available_from', 'current_profile_sessions', 'prior_profile_sessions', 'current_outbound_sessions', 'prior_outbound_sessions'],
-          results: [['2026-05-01', 30, 20, 12, 5]],
-        }
-      }
-      if (name === 'owner daily trend') {
-        return {
-          columns: ['date', 'profile_sessions', 'outbound_sessions'],
-          results: [['2026-07-19', 3, 1]],
-        }
-      }
-      if (name === 'owner acquisition') {
-        return { columns: ['source', 'medium', 'sessions'], results: [['Direct', 'direct', 10]] }
-      }
-      return { columns: ['destination', 'sessions'], results: [['website', 8]] }
+    runEndpoint: vi.fn(async (name: string) => {
+      const r = responses[name]
+      if (r instanceof Error) throw r
+      return { results: r, columns: [] }
     }),
   }
 }
 
-describe('PostHog owner analytics', () => {
-  it('uses session-based 30-day metrics ending yesterday', async () => {
-    const client = queryClient()
-    const snapshot = await getPostHogOwnerAnalyticsSnapshot('brand-uuid', {
-      queryClient: client,
-      now: () => new Date('2026-07-20T08:00:00+08:00'),
-      sourceUrl: 'https://us.posthog.com/project/123/dashboard/456',
-      cache: false,
-    })
+const happy = {
+  brand_core_totals: [['2026-05-01', 120, 100, 24, 18]],
+  brand_daily_trend: [['2026-07-01', 10, 2], ['2026-07-02', 14, 3]],
+  brand_traffic_sources: [['search', 52], ['category', 30], ['direct', 18]],
+  brand_outbound_destinations: [['website', 12], ['instagram', 6]],
+}
 
-    expect(snapshot.windows).toEqual({
-      current: { startDate: '2026-06-20', endDate: '2026-07-19' },
-      prior: { startDate: '2026-05-21', endDate: '2026-06-19' },
-      trend: { startDate: '2026-06-20', endDate: '2026-07-19' },
+describe('getPostHogOwnerAnalyticsSnapshot (endpoints)', () => {
+  it('maps endpoint rows into the snapshot with derived rate and top source', async () => {
+    const snap = await getPostHogOwnerAnalyticsSnapshot('b-1', { client: endpointClientMock(happy) })
+    expect(snap.profileSessions).toEqual({ current: 120, prior: 100 })
+    expect(snap.outboundConversion?.current).toBeCloseTo(0.2)
+    expect(snap.trafficSources?.[0]).toEqual({ source: 'search', sessions: 52 })
+    expect(snap.topTrafficSource).toEqual({ source: 'search', share: 0.52 })
+    expect(snap.completeness.warnings).toEqual([])
+    expect(snap.completeness.availableFrom).toBe('2026-05-01')
+    expect(snap).not.toHaveProperty('acquisition')
+    expect(snap).not.toHaveProperty('sourceUrl')
+  })
+
+  it('degrades one failed endpoint to a null section + warning, others intact', async () => {
+    const snap = await getPostHogOwnerAnalyticsSnapshot('b-1', {
+      client: endpointClientMock({ ...happy, brand_traffic_sources: new Error('boom') }),
     })
-    expect(snapshot.profileSessions).toEqual({ current: 30, prior: 20 })
-    expect(snapshot.outboundSessions).toEqual({ current: 12, prior: 5 })
-    expect(snapshot.outboundConversion).toEqual({ current: 0.4, prior: 0.25 })
-    expect(snapshot.destinations).toEqual([{ destination: 'website', sessions: 8 }])
-    expect(vi.mocked(client.run).mock.calls.every(([, query]) =>
-      query.includes('properties.analytics_schema_version = 1'),
-    )).toBe(true)
-    const acquisitionSql = vi.mocked(client.run).mock.calls.find(
-      ([name]) => name === 'owner acquisition',
-    )?.[1]
-    expect(acquisitionSql).toContain(
-      "properties.$session_id IN (SELECT DISTINCT properties.$session_id FROM events WHERE event = 'brand_detail_viewed'",
-    )
-    expect(acquisitionSql).toContain(
-      "argMin(coalesce(properties.$utm_source, ''), timestamp)",
-    )
-    expect(acquisitionSql).toContain(
-      "argMin(coalesce(properties.$referring_domain, ''), timestamp)",
-    )
-    expect(acquisitionSql).toContain("BETWEEN toDate('2026-06-19') AND toDate('2026-07-19')")
+    expect(snap.trafficSources).toBeNull()
+    expect(snap.topTrafficSource).toBeNull()
+    expect(snap.completeness.warnings.length).toBe(1)
+    expect(snap.profileSessions).toEqual({ current: 120, prior: 100 })
+  })
+
+  it('serves no in-memory cache: two calls hit endpoints twice', async () => {
+    const client = endpointClientMock(happy)
+    await getPostHogOwnerAnalyticsSnapshot('b-1', { client })
+    await getPostHogOwnerAnalyticsSnapshot('b-1', { client })
+    expect(client.runEndpoint).toHaveBeenCalledTimes(8)
   })
 })
