@@ -100,7 +100,9 @@ export type Brand = {
   city: string | null
   category: string | null
   isVerified: boolean
-  mitStatus?: 'unverified' | 'verified'
+  mitStatus?: 'unverified' | 'declared' | 'verified'
+  mitDeclaredScope?: 'all' | 'most' | 'some' | null
+  mitDeclaredAt?: string | null
   mitVerifiedAt?: string | null
   mitEvidence?: MitEvidence | null
   mitVerified?: boolean

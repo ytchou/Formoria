@@ -138,6 +138,16 @@ const mockBrands = [
 ]
 
 describe('BrandList', () => {
+  it('renders the declared status label for declared brands', () => {
+    render(
+      <BrandList
+        brands={[{ ...mockBrands[0], mitStatus: 'declared' as const }]}
+      />
+    )
+
+    expect(screen.getByText('品牌聲明')).toBeInTheDocument()
+  })
+
   it('renders brand rows', () => {
     render(<BrandList brands={mockBrands} />)
     expect(screen.getByText('Pottery Studio')).toBeDefined()

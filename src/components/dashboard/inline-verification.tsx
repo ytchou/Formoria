@@ -11,7 +11,7 @@ import { verifyMitAction } from '@/app/[locale]/(protected)/dashboard/actions'
 type InlineVerificationProps = {
   brandId: string
   embedded?: boolean
-  mitStatus: 'unverified' | 'verified'
+  mitStatus: 'unverified' | 'declared' | 'verified'
   mitEvidence?: { mit_smile_cert?: string; mit_smile_listed?: boolean }
 }
 
