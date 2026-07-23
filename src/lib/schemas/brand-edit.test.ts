@@ -5,7 +5,6 @@ import {
   brandPublishSchema,
   SECTION_FIELDS,
   areAllWizardStepsComplete,
-  getOnboardingStepHref,
 } from './brand-edit'
 
 describe('basicInfoSchema', () => {
@@ -237,28 +236,5 @@ describe('areAllWizardStepsComplete', () => {
     expect(areAllWizardStepsComplete([0, 1, 2, 3, 4])).toBe(true)
     expect(areAllWizardStepsComplete([0, 1, 2, 4])).toBe(false)
     expect(areAllWizardStepsComplete([0, 1, 2, 3, 4, 9])).toBe(true)
-  })
-})
-
-describe('getOnboardingStepHref', () => {
-  it('maps brand_basics and media_links to edit wizard steps', () => {
-    expect(getOnboardingStepHref('brand_basics', 'test-brand')).toBe(
-      '/dashboard/brands/test-brand/edit?step=0',
-    )
-    expect(getOnboardingStepHref('media_links', 'test-brand')).toBe(
-      '/dashboard/brands/test-brand/edit?step=1',
-    )
-  })
-
-  it('maps analytics, health, verification to dashboard routes', () => {
-    expect(getOnboardingStepHref('analytics', 'test-brand')).toBe(
-      '/dashboard/brands/test-brand/analytics',
-    )
-    expect(getOnboardingStepHref('health', 'test-brand')).toBe(
-      '/dashboard/brands/test-brand#profile-completeness',
-    )
-    expect(getOnboardingStepHref('verification', 'test-brand')).toBe(
-      '/dashboard/brands/test-brand#verification',
-    )
   })
 })

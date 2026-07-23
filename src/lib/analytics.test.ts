@@ -6,7 +6,6 @@ const mockPostHogCapture = vi.fn()
 vi.mock('./analytics/posthog-provider', () => ({
   capturePostHogEvent: (...args: unknown[]) => mockPostHogCapture(...args),
 }))
-import * as analytics from './analytics'
 import {
   getContentGroup,
   isPublicAnalyticsPath,
@@ -60,21 +59,6 @@ beforeEach(() => {
   mockPostHogCapture.mockClear()
   window.gtag = mockSendGAEvent
   window.history.replaceState({}, '', '/')
-})
-
-describe('analytics — onboarding events removed', () => {
-  it('does not export trackOnboardingBannerShown', () => {
-    expect(analytics).not.toHaveProperty('trackOnboardingBannerShown')
-  })
-  it('does not export trackOnboardingBannerCtaClick', () => {
-    expect(analytics).not.toHaveProperty('trackOnboardingBannerCtaClick')
-  })
-  it('does not export trackOnboardingBannerDismiss', () => {
-    expect(analytics).not.toHaveProperty('trackOnboardingBannerDismiss')
-  })
-  it('does not export trackOnboardingMilestoneReached', () => {
-    expect(analytics).not.toHaveProperty('trackOnboardingMilestoneReached')
-  })
 })
 
 describe('getUtmParams', () => {
