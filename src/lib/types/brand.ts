@@ -158,7 +158,7 @@ export type Brand = {
   approvedAt: string | null
   createdAt: string
   updatedAt: string
-  onboardingDismissedAt?: string | null
+  onboardingDismissedAt: string | null
 }
 
 export type BrandFilters = {

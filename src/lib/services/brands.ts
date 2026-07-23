@@ -1217,6 +1217,16 @@ export async function updateBrand(
   }
 }
 
+export async function dismissOnboardingWelcome(brandId: string): Promise<void> {
+  const supabase = createServiceClient()
+  const { error } = await supabase
+    .from('brands')
+    .update({ onboarding_dismissed_at: new Date().toISOString() })
+    .eq('id', brandId)
+
+  if (error) throw error
+}
+
 export async function saveDraft(brandId: string, data: Partial<Brand>): Promise<void> {
   const supabase = createServiceClient()
   const { error, count } = await supabase

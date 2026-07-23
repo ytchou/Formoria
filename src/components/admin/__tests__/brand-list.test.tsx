@@ -64,6 +64,7 @@ const mockBrands = [
     approvedAt: '2026-05-11T00:00:00Z',
     createdAt: '2026-05-10T00:00:00Z',
     updatedAt: '2026-05-11T00:00:00Z',
+    onboardingDismissedAt: null,
   },
   {
     id: 'brand-2',
@@ -99,6 +100,7 @@ const mockBrands = [
     approvedAt: null,
     createdAt: '2026-05-08T00:00:00Z',
     updatedAt: '2026-05-08T00:00:00Z',
+    onboardingDismissedAt: null,
   },
   {
     id: 'brand-3',
@@ -134,6 +136,7 @@ const mockBrands = [
     approvedAt: null,
     createdAt: '2026-05-15T00:00:00Z',
     updatedAt: '2026-05-15T00:00:00Z',
+    onboardingDismissedAt: null,
   },
 ]
 
