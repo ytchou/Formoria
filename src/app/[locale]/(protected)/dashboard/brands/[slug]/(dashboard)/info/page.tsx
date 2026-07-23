@@ -1,24 +1,12 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { SectionDetailLayout } from '@/components/dashboard/section-detail-layout'
+import { EmptyValue, display } from '@/components/dashboard/display-helpers'
 import { InfoField } from '@/components/ui/card'
 import { getProductTypeLabel } from '@/lib/brands/category-label'
 import { getBrandBySlug } from '@/lib/services/brands'
 
 type Props = {
   params: Promise<{ locale: string; slug: string }>
-}
-
-function EmptyValue({ children }: { children: React.ReactNode }) {
-  return <span className="text-muted-foreground">{children}</span>
-}
-
-function display(
-  value: string | number | null | undefined,
-  fallback: string,
-) {
-  return value === null || value === undefined || value === ''
-    ? <EmptyValue>{fallback}</EmptyValue>
-    : String(value)
 }
 
 export default async function InfoPage({ params }: Props) {

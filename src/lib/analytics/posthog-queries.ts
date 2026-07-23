@@ -166,7 +166,6 @@ const V2_VARIABLES: OwnerEndpointDef['variables'] = {
   current_start: { type: 'String', default: '' },
   current_end: { type: 'String', default: '' },
   prior_start: { type: 'String', default: '' },
-  prior_end: { type: 'String', default: '' },
 }
 
 const CURRENT_START = 'toDate({variables.current_start})'
@@ -301,5 +300,5 @@ export const OWNER_ENDPOINTS_V2: Record<OwnerEndpointNameV2, OwnerEndpointDef> =
 }
 
 export function listOwnerEndpoints(): OwnerEndpointDef[] {
-  return Object.values(OWNER_ENDPOINTS)
+  return [...Object.values(OWNER_ENDPOINTS), ...Object.values(OWNER_ENDPOINTS_V2)]
 }

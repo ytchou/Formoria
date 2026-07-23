@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('next-intl', () => ({
   useTranslations: vi.fn(() => (key: string) => key),
+  useLocale: vi.fn(() => 'en'),
 }))
 
 vi.mock('next/navigation', () => ({

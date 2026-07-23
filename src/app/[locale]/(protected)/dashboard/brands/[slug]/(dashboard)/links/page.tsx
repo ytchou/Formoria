@@ -1,5 +1,6 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { SectionDetailLayout } from '@/components/dashboard/section-detail-layout'
+import { EmptyValue, display } from '@/components/dashboard/display-helpers'
 import { Badge } from '@/components/ui/badge'
 import { InfoField, InfoGroup } from '@/components/ui/card'
 import {
@@ -13,16 +14,6 @@ import type { RetailLocationRelationshipType } from '@/lib/types/brand'
 
 type Props = {
   params: Promise<{ locale: string; slug: string }>
-}
-
-function EmptyValue({ children }: { children: React.ReactNode }) {
-  return <span className="text-muted-foreground">{children}</span>
-}
-
-function display(value: string | null | undefined, fallback: string) {
-  return value === null || value === undefined || value === ''
-    ? <EmptyValue>{fallback}</EmptyValue>
-    : value
 }
 
 function locationTypeLabelKey(type: RetailLocationRelationshipType) {

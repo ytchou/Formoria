@@ -186,7 +186,6 @@ export async function getPostHogOwnerAnalyticsSnapshot(
         current_start: windows.current.startDate,
         current_end: windows.current.endDate,
         prior_start: windows.prior.startDate,
-        prior_end: windows.prior.endDate,
       }
   const [coreResult, dailyResult, trafficSourcesResult, destinationsResult] = await Promise.allSettled([
     runEndpoint(client, endpoints.brand_core_totals, brandId, dateVariables),

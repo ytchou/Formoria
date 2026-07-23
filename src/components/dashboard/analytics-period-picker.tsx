@@ -1,7 +1,7 @@
 'use client'
 
 import { Calendar } from 'lucide-react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { NativeSelect } from '@/components/ui/native-select'
 
@@ -11,14 +11,16 @@ type AnalyticsPeriodPickerProps = {
 
 export function AnalyticsPeriodPicker({ currentPeriod }: AnalyticsPeriodPickerProps) {
   const t = useTranslations('dashboard.period')
+  const locale = useLocale()
   const pathname = usePathname()
   const router = useRouter()
   const searchParams = useSearchParams()
   const now = new Date()
-  const end = now
+  const end = new Date(now)
+  end.setDate(end.getDate() - 1)
   const start = new Date(now)
   start.setDate(start.getDate() - currentPeriod)
-  const format = (date: Date) => date.toLocaleDateString('zh-TW', {
+  const format = (date: Date) => date.toLocaleDateString(locale, {
     month: 'short',
     day: 'numeric',
   })

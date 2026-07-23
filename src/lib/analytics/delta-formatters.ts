@@ -29,7 +29,7 @@ export function rateDelta(
   current: number | null,
   prior: number | null,
 ): MetricDelta | undefined {
-  if (current === null || prior === null || prior === 0) return undefined
+  if (current === null || prior === null) return undefined
   const change = (current - prior) * 100
   return {
     direction: direction(change),

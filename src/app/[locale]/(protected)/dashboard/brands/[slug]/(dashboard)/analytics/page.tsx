@@ -63,7 +63,7 @@ function comparisonDescription(
   copy: OwnerAnalyticsCopy,
 ): string | undefined {
   if (current === null) return copy.currentRateUnavailable
-  if (prior === null || prior === 0) return copy.collectingBaseline
+  if (prior === null) return copy.collectingBaseline
   return undefined
 }
 
@@ -249,8 +249,8 @@ export default async function AnalyticsPage({ params, searchParams }: Props) {
   const { locale, slug } = await params
   const sp = await searchParams
   const periodValue = Array.isArray(sp?.period) ? sp.period.at(0) : sp?.period
-  const parsedPeriod = Number(periodValue)
-  const period: 7 | 30 | 90 = parsedPeriod === 7 || parsedPeriod === 90 ? parsedPeriod : 30
+  const periodRaw = typeof periodValue === 'string' ? parseInt(periodValue, 10) : 30
+  const period: 7 | 30 | 90 = [7, 30, 90].includes(periodRaw) ? (periodRaw as 7 | 30 | 90) : 30
   setRequestLocale(locale)
 
   const brand = await getBrandBySlug(slug)

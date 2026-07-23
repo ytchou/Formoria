@@ -40,7 +40,6 @@ describe('getPostHogOwnerAnalyticsSnapshot (endpoints)', () => {
         current_start: '2026-07-13',
         current_end: '2026-07-19',
         prior_start: '2026-07-06',
-        prior_end: '2026-07-12',
       })
     }
   })

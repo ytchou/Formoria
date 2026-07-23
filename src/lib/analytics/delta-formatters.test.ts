@@ -33,6 +33,10 @@ describe('analytics delta formatters', () => {
     expect(rateDelta(0.25, null)).toBeUndefined()
   })
 
+  it('rateDelta handles prior of zero', () => {
+    expect(rateDelta(0.15, 0)).toEqual({ direction: 'up', text: '↑ 15.0pp' })
+  })
+
   it('percent formats nullable numbers', () => {
     expect(percent(null)).toBe('—')
     expect(percent(0.5)).toBe('50.0%')
