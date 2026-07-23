@@ -3,7 +3,11 @@ import { getPostHogOwnerAnalyticsSnapshot } from './posthog-owner-analytics'
 
 function endpointClientMock(responses: Record<string, unknown[][] | Error>) {
   return {
-    runEndpoint: vi.fn(async (name: string) => {
+    runEndpoint: vi.fn(async (
+      name: string,
+      _version: number,
+      _variables: Record<string, string>,
+    ) => {
       const r = responses[name]
       if (r instanceof Error) throw r
       return { results: r, columns: [] }
@@ -19,6 +23,39 @@ const happy = {
 }
 
 describe('getPostHogOwnerAnalyticsSnapshot (endpoints)', () => {
+  it('passes computed date range for daysBack=7', async () => {
+    const client = endpointClientMock(happy)
+
+    await getPostHogOwnerAnalyticsSnapshot('b-1', {
+      client,
+      daysBack: 7,
+      now: () => new Date('2026-07-20T12:00:00+08:00'),
+    })
+
+    expect(client.runEndpoint).toHaveBeenCalledTimes(4)
+    for (const call of client.runEndpoint.mock.calls) {
+      expect(call[1]).toBe(2)
+      expect(call[2]).toEqual({
+        brand_id: 'b-1',
+        current_start: '2026-07-13',
+        current_end: '2026-07-19',
+        prior_start: '2026-07-06',
+      })
+    }
+  })
+
+  it('defaults to 30 days', async () => {
+    const client = endpointClientMock(happy)
+
+    await getPostHogOwnerAnalyticsSnapshot('b-1', { client })
+
+    expect(client.runEndpoint).toHaveBeenCalledTimes(4)
+    for (const call of client.runEndpoint.mock.calls) {
+      expect(call[1]).toBe(1)
+      expect(call[2]).toEqual({ brand_id: 'b-1' })
+    }
+  })
+
   it('maps endpoint rows into the snapshot with derived rate and top source', async () => {
     const snap = await getPostHogOwnerAnalyticsSnapshot('b-1', { client: endpointClientMock(happy) })
     expect(snap.profileSessions).toEqual({ current: 120, prior: 100 })

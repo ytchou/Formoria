@@ -1,11 +1,15 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server'
-import { redirect } from 'next/navigation'
-import { localizePath } from '@/i18n/locale-preference'
-import { requireBrandEditor } from '@/lib/auth/require-brand-editor'
 import type { OwnerAnalyticsSnapshotV1 } from '@/lib/analytics/posthog-types'
+import {
+  countDelta,
+  percent,
+  rateDelta,
+} from '@/lib/analytics/delta-formatters'
+import { trafficSourceLabel } from '@/lib/analytics/traffic-source-labels'
+import { getBrandBySlug } from '@/lib/services/brands'
 import { getPostHogOwnerAnalyticsSnapshot as getOwnerAnalyticsSnapshot } from '@/lib/services/posthog-owner-analytics'
 import { AnalyticsDonutCard } from '@/components/dashboard/analytics-donut-card'
-import { BrandDashboardShell } from '@/components/dashboard/brand-dashboard-shell'
+import { AnalyticsPeriodPicker } from '@/components/dashboard/analytics-period-picker'
 import { AnalyticsTrendChart } from '@/components/dashboard/analytics-trend-chart'
 import { DataCard, SurfaceCard } from '@/components/ui/card'
 import {
@@ -17,11 +21,7 @@ import {
 
 type Props = {
   params: Promise<{ locale: string; slug: string }>
-}
-
-type MetricDelta = {
-  direction: 'up' | 'down' | 'flat'
-  text: string
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
 }
 
 type OwnerAnalyticsCopy = {
@@ -57,41 +57,13 @@ type OwnerAnalyticsCopy = {
   unavailableBody: string
 }
 
-function percent(value: number | null): string {
-  return value === null ? '—' : `${(value * 100).toFixed(1)}%`
-}
-
-function direction(value: number): MetricDelta['direction'] {
-  if (value > 0) return 'up'
-  if (value < 0) return 'down'
-  return 'flat'
-}
-
-function countDelta(current: number, prior: number | null): MetricDelta | undefined {
-  if (prior === null || prior === 0) return undefined
-  const change = ((current - prior) / prior) * 100
-  return {
-    direction: direction(change),
-    text: `${change > 0 ? '↑' : change < 0 ? '↓' : '—'} ${Math.abs(Math.round(change))}%`,
-  }
-}
-
-function rateDelta(current: number | null, prior: number | null): MetricDelta | undefined {
-  if (current === null || prior === null || prior === 0) return undefined
-  const change = (current - prior) * 100
-  return {
-    direction: direction(change),
-    text: `${change > 0 ? '↑' : change < 0 ? '↓' : '—'} ${Math.abs(change).toFixed(1)}pp`,
-  }
-}
-
 function comparisonDescription(
   current: number | null,
   prior: number | null,
   copy: OwnerAnalyticsCopy,
 ): string | undefined {
   if (current === null) return copy.currentRateUnavailable
-  if (prior === null || prior === 0) return copy.collectingBaseline
+  if (prior === null) return copy.collectingBaseline
   return undefined
 }
 
@@ -113,17 +85,6 @@ function KpiLabel({ definition, label }: { definition: string; label: string }) 
   )
 }
 
-function trafficSourceLabel(source: string, copy: OwnerAnalyticsCopy): string {
-  const labels: Record<string, string> = {
-    search: copy.trafficSourceSearch,
-    category: copy.trafficSourceCategory,
-    homepage: copy.trafficSourceHomepage,
-    direct: copy.trafficSourceDirect,
-    other: copy.trafficSourceOther,
-  }
-  return labels[source.toLowerCase()] ?? copy.trafficSourceOther
-}
-
 function OwnerAnalytics({
   snapshot,
   copy,
@@ -135,6 +96,13 @@ function OwnerAnalytics({
     (point) => point.profileSessions > 0 || point.outboundSessions > 0,
   ) ?? false
   const topSource = snapshot.topTrafficSource
+  const trafficSourceLabels = {
+    search: copy.trafficSourceSearch,
+    category: copy.trafficSourceCategory,
+    homepage: copy.trafficSourceHomepage,
+    direct: copy.trafficSourceDirect,
+    other: copy.trafficSourceOther,
+  }
 
   return (
     <TooltipProvider>
@@ -203,7 +171,9 @@ function OwnerAnalytics({
                 label={copy.topTrafficSource}
               />
             )}
-            value={topSource ? trafficSourceLabel(topSource.source, copy) : '—'}
+            value={topSource
+              ? trafficSourceLabel(topSource.source, trafficSourceLabels)
+              : '—'}
             description={topSource
               ? copy.shareOfVisits(Math.round(topSource.share * 100))
               : copy.sectionUnavailable}
@@ -239,7 +209,7 @@ function OwnerAnalytics({
             title={copy.trafficSources}
             rows={(snapshot.trafficSources ?? []).map((row) => ({
               key: row.source,
-              label: trafficSourceLabel(row.source, copy),
+              label: trafficSourceLabel(row.source, trafficSourceLabels),
               sessions: row.sessions,
             }))}
             emptyLabel={snapshot.trafficSources === null
@@ -275,15 +245,15 @@ function OwnerAnalytics({
   )
 }
 
-export default async function AnalyticsPage({ params }: Props) {
+export default async function AnalyticsPage({ params, searchParams }: Props) {
   const { locale, slug } = await params
+  const sp = await searchParams
+  const periodValue = Array.isArray(sp?.period) ? sp.period.at(0) : sp?.period
+  const periodRaw = typeof periodValue === 'string' ? parseInt(periodValue, 10) : 30
+  const period: 7 | 30 | 90 = [7, 30, 90].includes(periodRaw) ? (periodRaw as 7 | 30 | 90) : 30
   setRequestLocale(locale)
 
-  const editor = await requireBrandEditor(slug)
-  if ('error' in editor) {
-    redirect(editor.error === 'notLoggedIn' ? '/auth/sign-in' : localizePath('/dashboard', locale))
-    return null
-  }
+  const brand = await getBrandBySlug(slug)
 
   const t = await getTranslations({ locale, namespace: 'dashboard.analytics' })
   const copy: OwnerAnalyticsCopy = {
@@ -321,13 +291,17 @@ export default async function AnalyticsPage({ params }: Props) {
 
   let snapshot: OwnerAnalyticsSnapshotV1 | null = null
   try {
-    snapshot = await getOwnerAnalyticsSnapshot(editor.brand.id)
+    snapshot = await getOwnerAnalyticsSnapshot(brand.id, { daysBack: period })
   } catch {
     // The owner remains authorized while analytics are temporarily unavailable.
   }
 
   return (
-    <BrandDashboardShell brandName={editor.brand.name} brandSlug={editor.brand.slug}>
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <h1 className="type-page-title">{t('pageTitle')}</h1>
+        <AnalyticsPeriodPicker currentPeriod={period} />
+      </div>
       {snapshot ? (
         <OwnerAnalytics snapshot={snapshot} copy={copy} />
       ) : (
@@ -336,6 +310,6 @@ export default async function AnalyticsPage({ params }: Props) {
           <p className="mt-2 type-card-description">{copy.unavailableBody}</p>
         </SurfaceCard>
       )}
-    </BrandDashboardShell>
+    </div>
   )
 }

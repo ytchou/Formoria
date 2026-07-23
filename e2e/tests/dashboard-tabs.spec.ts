@@ -20,19 +20,19 @@ type AnySupabaseClient = SupabaseClient<any, any, any>;
 test.describe.configure({ mode: 'serial' });
 
 /**
- * Dashboard tab navigation tests.
+ * Dashboard sidebar navigation tests.
  *
  * Journey 1: Single-brand owner dashboard landing
  *   - Default landing redirects to the path-based brand overview
- *   - Brand overview shows owner actions and active Profile tab
+ *   - Brand overview shows owner actions and active Overview sidebar link
  *   - Navigation shows My Brand instead of Submit a Brand
- *   - Active tab is determined by URL pathname, not a query param value
+ *   - Active sidebar item is determined by URL pathname (aria-current="page")
  *
  * Journey 2: Legacy query and route compatibility
  *   - A stale ?brand=<slug> cannot switch away from the account's single brand
  *   - /dashboard/brands/<slug> renders the brand overview directly
  */
-test.describe('Dashboard — tab navigation', () => {
+test.describe('Dashboard — sidebar navigation', () => {
   let supabase: AnySupabaseClient;
 
   test.beforeAll(async () => {
@@ -82,16 +82,21 @@ test.describe('Dashboard — tab navigation', () => {
     await expect(userPage.getByRole('heading', { level: 1 }).first()).toBeVisible({
       timeout: 60_000,
     });
+
+    // Edit brand link is in the sidebar bottom section.
     await expect(userPage.getByRole('link', { name: '編輯品牌' }).first()).toBeVisible({
       timeout: 60_000,
     });
+
     const mainNav = userPage.locator('header').first();
     await expect(mainNav.getByRole('link', { name: '我的品牌' })).toBeVisible();
     await expect(mainNav.getByRole('link', { name: '提交品牌' })).toHaveCount(0);
 
-    // Profile tab ('總覽') is active on the path-based brand overview.
-    const profileTab = userPage.locator('a').filter({ hasText: '總覽' });
-    await expect(profileTab).toHaveClass(/border-foreground/, { timeout: 60_000 });
+    // Sidebar has 7 nav items; Overview ('總覽') is active on the path-based brand overview.
+    const sidebar = userPage.locator('nav[aria-label]').first();
+    await expect(sidebar.getByRole('link')).toHaveCount(7);
+    const overviewLink = sidebar.getByRole('link', { name: '總覽' });
+    await expect(overviewLink).toHaveAttribute('aria-current', 'page', { timeout: 60_000 });
   });
 
   test('a stale brand query cannot switch away from the account owner brand', async ({ userPage }) => {
@@ -111,9 +116,10 @@ test.describe('Dashboard — tab navigation', () => {
     await expect(userPage.getByRole('heading', { level: 1 }).first()).toBeVisible({ timeout: 60_000 });
     await expect(userPage.getByRole('link', { name: '編輯品牌' }).first()).toBeVisible({ timeout: 60_000 });
 
-    // Profile tab is active on the canonical path-based brand overview.
-    const profileTab = userPage.locator('a').filter({ hasText: '總覽' });
-    await expect(profileTab).toHaveClass(/border-foreground/, { timeout: 5_000 });
+    // Sidebar Overview link is active on the canonical path-based brand overview.
+    const sidebar = userPage.locator('nav[aria-label]').first();
+    const overviewLink = sidebar.getByRole('link', { name: '總覽' });
+    await expect(overviewLink).toHaveAttribute('aria-current', 'page', { timeout: 5_000 });
   });
 
 });
