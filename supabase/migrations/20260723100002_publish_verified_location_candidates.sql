@@ -88,7 +88,7 @@ begin
   if v_address <> '' and v_incoming_address <> '' and v_address <> v_incoming_address then
     return v_locations;
   end if;
-  foreach v_key in array['address', 'city', 'district', 'venueName', 'floorOrCounter', 'availabilityNote', 'latitude', 'longitude'] loop
+  foreach v_key in array array['address', 'city', 'district', 'venueName', 'floorOrCounter', 'availabilityNote', 'latitude', 'longitude'] loop
     if nullif(btrim(v_location ->> v_key), '') is null
       and nullif(btrim(p_incoming ->> v_key), '') is not null then
       v_location := jsonb_set(v_location, array[v_key], p_incoming -> v_key, true);
