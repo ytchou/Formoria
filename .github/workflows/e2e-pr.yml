@@ -49,9 +49,8 @@ jobs:
 
       - name: Grant service_role full table access
         run: |
-          pnpm dlx supabase@2.109.1 db query --local \
-            "GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;
-             GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role;"
+          pnpm dlx supabase@2.109.1 db query --local "GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role"
+          pnpm dlx supabase@2.109.1 db query --local "GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role"
 
       - name: Export disposable Supabase credentials
         run: |
