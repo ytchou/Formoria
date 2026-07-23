@@ -90,6 +90,31 @@ describe("unified health-agent workflow contract", () => {
     expect(brandReview).toMatch(/mkdir -p \.health-agent-artifacts/);
   });
 
+  it("uploads hidden-directory artifacts through explicit paths", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+    const directory = jobSection(
+      workflow,
+      "evaluate-directory",
+      "sentry-triage",
+    );
+    const sentry = jobSection(
+      workflow,
+      "sentry-triage",
+      "aggregate-and-deliver",
+    );
+
+    expect(directory).toContain(
+      "path: |\n            .health-agent-artifacts/directory-evidence.json\n            .health-agent-artifacts/directory-health.json",
+    );
+    expect(directory).not.toContain(
+      "path: .health-agent-artifacts/directory*.json",
+    );
+    expect(sentry).toContain(
+      "path: .health-agent-artifacts/sentry-triage.json",
+    );
+    expect(sentry).not.toContain("path: .health-agent-artifacts/sentry*.json");
+  });
+
   it("uses exactly three collector routines and one aggregated Slack delivery", async () => {
     const workflow = await readFile(workflowPath, "utf8");
     expect(

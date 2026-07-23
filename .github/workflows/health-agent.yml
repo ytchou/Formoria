@@ -306,7 +306,9 @@ jobs:
         with:
           if-no-files-found: warn
           name: health-directory-${{ github.run_id }}-${{ github.run_attempt }}
-          path: .health-agent-artifacts/directory*.json
+          path: |
+            .health-agent-artifacts/directory-evidence.json
+            .health-agent-artifacts/directory-health.json
           retention-days: 14
 
   sentry-triage:
@@ -447,7 +449,7 @@ jobs:
         with:
           if-no-files-found: warn
           name: health-sentry-${{ github.run_id }}-${{ github.run_attempt }}
-          path: .health-agent-artifacts/sentry*.json
+          path: .health-agent-artifacts/sentry-triage.json
           retention-days: 14
 
   aggregate-and-deliver:
