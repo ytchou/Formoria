@@ -736,8 +736,14 @@ function brandMitDeclaredScope(
 }
 
 function brandOtherUrls(value: unknown): RecentBrandEdit["otherUrls"] {
-  const candidate =
-    typeof value === "string" ? (JSON.parse(value) as unknown) : value;
+  let candidate: unknown = value;
+  if (typeof value === "string") {
+    try {
+      candidate = JSON.parse(value) as unknown;
+    } catch {
+      return null;
+    }
+  }
   if (!Array.isArray(candidate)) return null;
   return candidate.flatMap((entry) => {
     if (
