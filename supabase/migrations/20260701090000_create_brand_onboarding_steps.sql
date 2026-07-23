@@ -67,9 +67,9 @@ CREATE POLICY "Brand owners can delete their onboarding steps"
   USING (
     EXISTS (
       SELECT 1
-      FROM public.brands
-      WHERE brands.id = brand_onboarding_steps.brand_id
-        AND brands.owner_id = auth.uid()
+      FROM public.brand_owners bo
+      WHERE bo.brand_id = brand_onboarding_steps.brand_id
+        AND bo.user_id = auth.uid()
     )
   );
 
