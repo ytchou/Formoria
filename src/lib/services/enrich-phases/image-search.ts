@@ -1,6 +1,5 @@
 import type { PhaseResult } from '@/lib/types/curation'
-import { batchSearchBrandImages, type BrandImageSearchResult } from './scraper/search'
-import { insertSearchResult } from '../search-results'
+import { batchSearchBrandImages } from './scraper/search'
 import {
   buildPhaseResult,
   getDisplayBrandName,
@@ -73,7 +72,20 @@ export async function runImageSearchPhase(ctx: BatchPhaseContext, serpResults?: 
         productType: brand.product_type,
         purchaseWebsite: brand.purchaseWebsite ?? brand.purchase_website,
       })),
-      5
+      5,
+      undefined,
+      (input) => {
+        const brandName = typeof input === 'string' ? input : input.brandName
+        const brand = brandsNeedingImages.find((candidate) => getDisplayBrandName(candidate) === brandName)
+        if (!brand) throw new Error(`Missing enrichment target for ${brandName}`)
+        return {
+          target: { type: ctx.targetType ?? 'brand', id: brand.id },
+          ...(ctx.jobId ? { jobId: ctx.jobId } : {}),
+          supabase: ctx.supabase,
+          dryRun: ctx.dryRun,
+          config: { phase: 'image-search' },
+        }
+      },
     )
     const imageSearchResults = new Map<string, string[]>()
     for (const [brandName, rows] of imageSearchRows.entries()) {
@@ -82,32 +94,10 @@ export async function runImageSearchPhase(ctx: BatchPhaseContext, serpResults?: 
     const totalImages = [...imageSearchResults.values()].reduce((sum, urls) => sum + urls.length, 0)
     ctx.onProgress?.(`  [IMAGES] OK — ${totalImages} images across ${imageSearchResults.size} brands`)
 
-    const changedFields: string[] = []
-    if (!ctx.dryRun) {
-      const imageBrandIds: string[] = []
-      for (const brand of brandsNeedingImages) {
-        const brandName = getDisplayBrandName(brand)
-        const rows = imageSearchRows.get(brandName)
-        if (rows && rows.length > 0) {
-          await insertSearchResult(
-            { type: ctx.targetType ?? 'brand', id: brand.id },
-            'image',
-            rows.at(0)?.query ?? `${brandName} 台灣`,
-            rows.map((row: BrandImageSearchResult) => row.url),
-            [],
-            rows.map((row: BrandImageSearchResult) => ({ url: row.url, query: row.query })),
-            undefined,
-            undefined,
-            ctx.jobId,
-          )
-          imageBrandIds.push(brand.id)
-        }
-      }
-
-      if (imageBrandIds.length > 0) {
-        changedFields.push('image_search_results')
-      }
-    }
+    const changedFields: string[] = !ctx.dryRun &&
+      [...imageSearchResults.values()].some((urls) => urls.length > 0)
+      ? ['image_search_results']
+      : []
 
     return { imageSearchResults, changedFields }
   })

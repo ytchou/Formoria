@@ -1,9 +1,8 @@
 import { normalizeToRootUrl } from '@/lib/url'
-import {
-  buildLinkEnrichPatch,
-  extractLinksFromUrls,
-} from '../link-enrichment'
-import { insertSearchResult } from '../search-results'
+import type { Database } from '@/lib/supabase/database.types'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { buildLinkEnrichPatch, extractLinksFromUrls } from '../link-enrichment'
+import { finishSearchAudit, startSearchAudit } from '../search-results'
 import { scrapeBrandUrls } from './scraper'
 import { classifyByDomain } from './scraper/input-detector'
 import type { PhaseResult } from '@/lib/types/curation'
@@ -19,6 +18,7 @@ type LinksPhaseOptions = {
   dryRun?: boolean
   target?: EnrichmentTarget
   jobId?: string
+  supabase?: SupabaseClient<Database>
 }
 
 type LinksPhaseOutput = {
@@ -46,6 +46,20 @@ function uniqueUrls(urls: string[]): string[] {
   return unique
 }
 
+function prioritizeScrapeUrls(urls: string[]): string[] {
+  const official: string[] = []
+  const social: string[] = []
+  const marketplace: string[] = []
+  for (const url of urls) {
+    const classification = classifyByDomain(url)
+    if (classification === null) official.push(url)
+    else if (classification === 'social') social.push(url)
+    else marketplace.push(url)
+  }
+  const firstOfficial = official.at(0)
+  return [...(firstOfficial ? [firstOfficial] : []), ...social, ...marketplace, ...official.slice(1)]
+}
+
 function deriveOfficialWebsite(urls: string[]): string | null {
   const url = urls.find((u) => classifyByDomain(u) === null)
   return normalizeToRootUrl(url ?? null)
@@ -63,18 +77,12 @@ function normalizeScrapedData(scrapedData: EnrichScrapedData): EnrichScrapedData
   }
 }
 
-function buildScrapePayload(scrapedData: EnrichScrapedData): Record<string, unknown> | null {
-  if (!scrapedData.description && !scrapedData.story && !scrapedData.rawJsonLd && !scrapedData.stockistPageText) {
-    return null
-  }
-
-  return {
-    pageUrl: scrapedData.websiteUrl ?? scrapedData.purchaseWebsite ?? scrapedData.purchase_website ?? null,
-    description: scrapedData.description ?? null,
-    story: scrapedData.story ?? null,
-    jsonLd: scrapedData.rawJsonLd ?? null,
-    stockistPageText: scrapedData.stockistPageText ?? null,
-  }
+function boundedScrapeSnippets(extracted: unknown): string[] {
+  if (typeof extracted !== 'object' || extracted === null || Array.isArray(extracted)) return []
+  const record = extracted as Record<string, unknown>
+  return [record.description, record.story, record.stockistPageText]
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    .map((value) => value.slice(0, 4_000))
 }
 
 export async function runLinksPhase({
@@ -85,6 +93,7 @@ export async function runLinksPhase({
   dryRun = false,
   target,
   jobId,
+  supabase,
 }: LinksPhaseOptions): Promise<LinksPhaseOutput> {
   if (!phases.includes('links')) {
     return {
@@ -97,11 +106,51 @@ export async function runLinksPhase({
   }
 
   const { result, durationMs } = await timePhase(async () => {
-    const urls = uniqueUrls([...knownUrls, ...discoveredUrls])
+    const urls = prioritizeScrapeUrls(uniqueUrls([...knownUrls, ...discoveredUrls]))
     const urlExtracted = extractLinksFromUrls(discoveredUrls)
-    const { data: scraped } = urls.length > 0
-      ? await scrapeBrandUrls(urls)
-      : { data: {} as EnrichScrapedData }
+    const { data: scraped } =
+      urls.length > 0
+        ? await scrapeBrandUrls(urls, {
+            onAttempt: async ({ url, classification }) => {
+              const auditId = await startSearchAudit({
+                target: target ?? brandTarget(brand.id),
+                ...(jobId ? { jobId } : {}),
+                supabase,
+                provider: 'scraper',
+                endpoint: url,
+                searchType: 'scrape',
+                query: url,
+                input: { url, classification },
+                config: { phase: 'links', dryRun },
+              })
+              return {
+                finish: async (attempt) => {
+                  await finishSearchAudit(
+                    auditId,
+                    {
+                      callStatus: attempt.callStatus,
+                      httpStatus: attempt.httpStatus,
+                      error: attempt.error,
+                      latencyMs: attempt.latencyMs,
+                      rawResponse: {
+                        url,
+                        classification,
+                        ...(typeof attempt.extracted === 'object' &&
+                        attempt.extracted !== null &&
+                        !Array.isArray(attempt.extracted)
+                          ? attempt.extracted
+                          : { extracted: attempt.extracted }),
+                      },
+                      urls: [url],
+                      snippets: boundedScrapeSnippets(attempt.extracted),
+                    },
+                    supabase,
+                  )
+                },
+              }
+            },
+          })
+        : { data: {} as EnrichScrapedData }
     const derivedWebsite = scraped.purchaseWebsite ?? deriveOfficialWebsite(urls)
     const scrapedData = normalizeScrapedData({
       ...scraped,
@@ -109,25 +158,6 @@ export async function runLinksPhase({
       purchaseWebsite: derivedWebsite,
     })
     const patch = buildLinkEnrichPatch(brand, scrapedData)
-    const scrapePayload = buildScrapePayload(scrapedData)
-
-    if (!dryRun && scrapePayload) {
-      const pageUrl = typeof scrapePayload.pageUrl === 'string'
-        ? scrapePayload.pageUrl
-        : derivedWebsite ?? urls[0] ?? ''
-      await insertSearchResult(
-        target ?? brandTarget(brand.id),
-        'scrape',
-        pageUrl,
-        pageUrl ? [pageUrl] : [],
-        [scrapedData.description, scrapedData.story].filter((text): text is string => Boolean(text)),
-        scrapePayload,
-        undefined,
-        undefined,
-        jobId,
-      )
-    }
-
     return {
       patch,
       scrapedData,

@@ -42,6 +42,7 @@ import {
   runClassifyImagesPhase,
   runImageSearchPhase,
   runLinksPhase,
+  runLocationsPhase,
   runStandaloneClassification,
   runDetectPhase,
   type BrandEnrichState,
@@ -141,7 +142,7 @@ function delay(ms: number): Promise<void> {
 
 export { ENRICH_PHASES };
 
-type EnrichPhase = "clean" | "links" | "images" | "descriptions" | "tags";
+type EnrichPhase = "clean" | "links" | "images" | "descriptions" | "locations" | "tags";
 type RunEnrichPhase =
   EnrichPhase | "discover" | "detect" | "slugs" | "expansion";
 
@@ -535,6 +536,7 @@ function buildBrandPhaseOrder(
     "links",
     "images",
     "descriptions",
+    "locations",
     "expansion",
     phases.includes("tags") && "tags",
   ].filter((phase): phase is string => Boolean(phase));
@@ -756,7 +758,7 @@ export function submissionToEnrichBrand(
     purchase_website:
       typeof existing.purchase_website === "string"
         ? existing.purchase_website
-        : normalizeToRootUrl(submission.purchase_website ?? submission.website_url),
+        : normalizeToRootUrl(submission.purchase_website),
     purchase_pinkoi:
       typeof existing.purchase_pinkoi === "string"
         ? existing.purchase_pinkoi
@@ -886,6 +888,7 @@ export async function runEnrich(
       phases.includes("descriptions") &&
         !phases.includes("tags") &&
         "descriptions",
+      phases.includes("locations") && "locations",
     ].filter(Boolean);
     onProgress(
       `\n[BATCH ${chunkIndex + 1}/${brandChunks.length}] ${chunk.length} brands — fetching ${activeSteps.join(" + ")}...`,
@@ -1133,6 +1136,7 @@ export async function runEnrich(
           knownUrls: collectKnownUrls(brand),
           discoveredUrls: [],
           serpSnippets: [],
+          serpEntries: [],
           scrapedData: {},
         };
         outcomePhaseResults = state.phaseResults;
@@ -1197,11 +1201,13 @@ export async function runEnrich(
             searchResult.urls.filter((url) => !state.knownUrls.includes(url)),
           );
           state.serpSnippets = searchResult.snippets;
+          state.serpEntries = searchResult.entries ?? [];
         } else if (searchResults.size > 0) {
           const searchResult = searchResults.get(
             getDisplayBrandName(brand),
           ) ?? { urls: [], snippets: [] };
           state.serpSnippets = searchResult.snippets;
+          state.serpEntries = searchResult.entries ?? [];
         }
 
         const urlExtracted = extractLinksFromUrls(state.discoveredUrls);
@@ -1214,6 +1220,7 @@ export async function runEnrich(
 
         if (
           !phases.includes("tags") &&
+          !phases.includes("locations") &&
           uniqueUrls([...state.knownUrls, ...state.discoveredUrls]).length ===
             0 &&
           !hasPatchValues(urlExtracted) &&
@@ -1260,6 +1267,7 @@ export async function runEnrich(
           dryRun: config.dryRun,
           target: { type: targetType, id: brand.id },
           jobId: config.jobId,
+          supabase: batchContext.supabase,
         });
         state.phaseResults.push(linksResult.phaseResult);
         await logCurrentPhase(linksResult.phaseResult);
@@ -1312,6 +1320,23 @@ export async function runEnrich(
         appendPatch(state, descriptionsResult.patch);
         const reputationAlreadySet =
           descriptionsResult.patch.reputation_summary != null;
+
+        await markCurrentPhase("locations");
+        const locationsResult = await runLocationsPhase({
+          brand,
+          phases,
+          descriptionRewrite: descriptionsResult.descriptionRewrite,
+          serpResult: searchResults.get(getDisplayBrandName(brand)) ?? null,
+          scrapedData: state.scrapedData,
+          overwrite,
+          dryRun: config.dryRun,
+          target: { type: targetType, id: brand.id },
+          jobId: config.jobId,
+          supabase: batchContext.supabase,
+        });
+        state.phaseResults.push(locationsResult.phaseResult);
+        await logCurrentPhase(locationsResult.phaseResult);
+        appendPatch(state, locationsResult.patch);
 
         await markCurrentPhase("expansion");
         const expansionResult = await runExpansionPhase({

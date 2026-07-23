@@ -16,7 +16,6 @@ vi.mock('next-intl/server', () => ({
       'mitStatus.scope.most': '大部分產品',
       'mitStatus.scope.some': '部分產品',
       'mitStatus.registrySource': '資料來源：MIT Smile 台灣製產品名錄',
-      'mitStatus.reportOrigin': '回報產地資訊',
     }
 
     if (key === 'mitStatus.declaredOn') return `聲明日期：${params?.date}`
@@ -53,7 +52,7 @@ describe('MitStatusSection', () => {
     expect(screen.getByText('聲明日期：2026年5月12日')).toBeInTheDocument()
   })
 
-  it('renders only the evidence entry for unverified brands', async () => {
+  it('renders no status details for unverified brands', async () => {
     render(
       await MitStatusSection({
         brand: makeBrand({ mitStatus: 'unverified' }),
@@ -63,6 +62,5 @@ describe('MitStatusSection', () => {
 
     expect(screen.queryByText('品牌聲明')).not.toBeInTheDocument()
     expect(screen.queryByText('MIT 認證')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '回報產地資訊' })).toBeInTheDocument()
   })
 })

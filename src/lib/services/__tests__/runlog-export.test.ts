@@ -31,8 +31,8 @@ function mockQueryRows(rowsByTable: Record<string, { direct: unknown[]; legacy?:
       lte: () => query,
       order: () => query,
       then: (resolve: (value: { data: unknown[]; error: unknown }) => unknown) => {
-        const error = filters.has('job_id') ? rowsByTable[table]?.directError ?? null : null
-        const source = filters.has('job_id') ? rowsByTable[table]?.direct ?? [] : rowsByTable[table]?.legacy ?? []
+        const error = filters.has('job_id') ? (rowsByTable[table]?.directError ?? null) : null
+        const source = filters.has('job_id') ? (rowsByTable[table]?.direct ?? []) : (rowsByTable[table]?.legacy ?? [])
         return Promise.resolve({ data: source, error }).then(resolve)
       },
     }
@@ -197,16 +197,18 @@ describe('exportJobRunLog', () => {
     mockQueryRows({
       brand_ai_results: { direct: [] },
       brand_search_results: {
-        direct: [{
-          id: 'search-image-1',
-          brand_id: 'brand-1',
-          submission_id: null,
-          search_type: 'image',
-          query: 'Acme product photos',
-          urls: ['https://acme.example/product.jpg'],
-          latency_ms: 500,
-          created_at: '2026-07-15T02:00:01.000Z',
-        }],
+        direct: [
+          {
+            id: 'search-image-1',
+            brand_id: 'brand-1',
+            submission_id: null,
+            search_type: 'image',
+            query: 'Acme product photos',
+            urls: ['https://acme.example/product.jpg'],
+            latency_ms: 500,
+            created_at: '2026-07-15T02:00:01.000Z',
+          },
+        ],
       },
     })
 
@@ -216,23 +218,58 @@ describe('exportJobRunLog', () => {
     expect(runlog.phases.map((phase) => phase.name)).not.toContain('image')
   })
 
+  it('groups Maps audit rows into the locations pipeline phase with call status', async () => {
+    mockQueryRows({
+      brand_ai_results: { direct: [] },
+      brand_search_results: {
+        direct: [
+          {
+            id: 'search-maps-1',
+            brand_id: 'brand-1',
+            submission_id: null,
+            search_type: 'maps',
+            query: 'Acme Taipei',
+            urls: [],
+            snippets: [],
+            call_status: 'timeout',
+            http_status: null,
+            error: 'request timed out',
+            latency_ms: 60_000,
+            created_at: '2026-07-15T02:00:01.000Z',
+          },
+        ],
+      },
+    })
+
+    const runlog = await exportJobRunLog('job-1')
+    const locations = runlog.phases.find((phase) => phase.name === 'locations')
+
+    expect(locations?.events[0]).toMatchObject({
+      name: 'maps',
+      status: 'error',
+      error: 'request timed out',
+    })
+  })
+
   it('falls back to target and time-window queries for legacy jobs', async () => {
     mockQueryRows({
       brand_ai_results: {
         direct: [],
-        legacy: [{
-          id: 'legacy-ai',
-          brand_id: 'brand-1',
-          submission_id: null,
-          phase: 'detect',
-          model: 'deepseek-v4-flash',
-          latency_ms: 500,
-          created_at: '2026-07-15T02:00:02.000Z',
-          attempt: 1,
-          usage: { total_tokens: 50 },
-          response_usage: null,
-          audit_ok: true,
-        }],
+        legacy: [
+          {
+            id: 'legacy-ai',
+            brand_id: 'brand-1',
+            submission_id: null,
+            phase: 'detect',
+            model: 'deepseek-v4-flash',
+            latency_ms: 500,
+            created_at: '2026-07-15T02:00:02.000Z',
+            attempt: 1,
+            usage: { total_tokens: 50 },
+            response_usage: null,
+            audit_ok: true,
+          },
+        ],
       },
       brand_search_results: { direct: [], legacy: [] },
     })

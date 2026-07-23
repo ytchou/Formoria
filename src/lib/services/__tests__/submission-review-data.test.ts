@@ -14,7 +14,7 @@ const baseSubmission = {
   socialInstagram: "https://instagram.com/original",
   socialThreads: null,
   socialFacebook: null,
-  purchaseWebsite: null,
+  purchaseWebsite: "https://original.example.com",
   purchasePinkoi: null,
   purchaseShopee: null,
   otherUrls: [{ label: "Stockist", url: "https://stockist.example.com" }],
@@ -143,7 +143,7 @@ describe("getSubmissionReviewCompleteness", () => {
     ["productTags", { productTags: [] }],
     ["productTags", { productTags: ["一", "二", "三", "四", "五", "六"] }],
     ["priceRange", { priceRange: 4 }],
-    ["website", { websiteUrl: "javascript:alert(1)" }],
+    ["website", { websiteUrl: null, socialInstagram: null, socialThreads: null, socialFacebook: null, purchasePinkoi: null, purchaseShopee: null }],
   ] as const)("reports a missing %s requirement", (missingField, patch) => {
     const result = getSubmissionReviewCompleteness(
       { ...completeData(), ...patch } as ReturnType<typeof completeData>,

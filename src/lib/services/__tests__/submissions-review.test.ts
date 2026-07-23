@@ -39,10 +39,13 @@ describe("submission review curation history", () => {
       })),
     );
     const imagesQuery = imageListQuery([]);
+    const candidatesQuery = candidateListQuery([]);
     mocks.from.mockImplementation((table: string) => {
       if (table === "brand_submissions") return submissionQuery;
       if (table === "curation_job_targets") return historyQuery;
       if (table === "curation_jobs") return jobsQuery;
+      if (table === "submission_images") return imagesQuery;
+      if (table === "brand_location_candidates") return candidatesQuery;
       return imagesQuery;
     });
 
@@ -73,12 +76,16 @@ describe("submission review curation history", () => {
       submission(`submission-${index}`),
     );
     const targetIdChunks: string[][] = [];
+    const candidateIdChunks: string[][] = [];
     const submissionQuery = pagedSubmissionQuery([rows], rows.length, []);
     const historyQuery = pagedQuery([[], []], [], targetIdChunks);
     const imagesQuery = imageListQuery([]);
+    const candidatesQuery = candidateListQuery([], candidateIdChunks);
     mocks.from.mockImplementation((table: string) => {
       if (table === "brand_submissions") return submissionQuery;
       if (table === "curation_job_targets") return historyQuery;
+      if (table === "submission_images") return imagesQuery;
+      if (table === "brand_location_candidates") return candidatesQuery;
       return imagesQuery;
     });
 
@@ -86,6 +93,8 @@ describe("submission review curation history", () => {
 
     expect(targetIdChunks).toHaveLength(2);
     expect(targetIdChunks.every((ids) => ids.length <= 200)).toBe(true);
+    expect(candidateIdChunks).toHaveLength(2);
+    expect(candidateIdChunks.every((ids) => ids.length <= 200)).toBe(true);
   });
 
   it("loads every review submission page past the PostgREST row limit", async () => {
@@ -104,9 +113,12 @@ describe("submission review curation history", () => {
       [],
     );
     const imagesQuery = imageListQuery([]);
+    const candidatesQuery = candidateListQuery([]);
     mocks.from.mockImplementation((table: string) => {
       if (table === "brand_submissions") return submissionQuery;
       if (table === "curation_job_targets") return historyQuery;
+      if (table === "submission_images") return imagesQuery;
+      if (table === "brand_location_candidates") return candidatesQuery;
       return imagesQuery;
     });
 
@@ -154,10 +166,13 @@ describe("submission review curation history", () => {
       ],
       imageIds,
     );
+    const candidatesQuery = candidateListQuery([]);
     mocks.from.mockImplementation((table: string) => {
       if (table === "brand_submissions") return submissionQuery;
       if (table === "curation_job_targets") return historyQuery;
       if (table === "curation_jobs") return jobsQuery;
+      if (table === "submission_images") return imagesQuery;
+      if (table === "brand_location_candidates") return candidatesQuery;
       return imagesQuery;
     });
 
@@ -253,6 +268,21 @@ function imageListQuery(
         ? query
         : Promise.resolve({ data: rows, error: null }),
     ),
+  };
+  return query;
+}
+
+function candidateListQuery(
+  rows: Array<Record<string, unknown>>,
+  submissionIdChunks: string[][] = [],
+) {
+  const query = {
+    select: vi.fn(() => query),
+    in: vi.fn((_column: string, values: string[]) => {
+      submissionIdChunks.push(values);
+      return query;
+    }),
+    order: vi.fn(() => Promise.resolve({ data: rows, error: null })),
   };
   return query;
 }

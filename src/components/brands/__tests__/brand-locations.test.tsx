@@ -132,6 +132,7 @@ const publicAndChainLocations: RetailLocation[] = [
     name: '公開資訊地點',
     relationshipType: 'department_counter',
     confirmationStatus: 'unconfirmed',
+    verificationStatus: 'needs_review',
     address: '不應公開的地址',
     venueName: '不應公開的商場',
     floorOrCounter: '不應公開的樓層',
@@ -203,7 +204,6 @@ describe('BrandLocations', () => {
     if (!(unconfirmedCard instanceof HTMLElement)) {
       throw new Error('Missing unconfirmed location card')
     }
-    expect(within(unconfirmedCard).getByText('百貨專櫃')).toBeInTheDocument()
     expect(
       within(unconfirmedCard).getByText('未經品牌確認'),
     ).toBeInTheDocument()
@@ -223,7 +223,6 @@ describe('BrandLocations', () => {
       screen.getAllByRole('link', { name: '在 Google Maps 開啟' }),
     ).toHaveLength(3)
 
-    expect(screen.getAllByText('連鎖通路')).toHaveLength(2)
     expect(screen.getAllByText('部分門市')).toHaveLength(2)
     const retailerLink = screen.getByRole('link', { name: '查看通路網站' })
     expect(retailerLink).toHaveAttribute(
@@ -263,6 +262,42 @@ describe('BrandLocations', () => {
       '選物店一號|選物店二號',
     )
     expect(screen.queryByText('品牌門市一號')).not.toBeInTheDocument()
+  })
+
+  it('publishes an evidence-verified address without owner confirmation', () => {
+    renderLocations([
+      {
+        kind: 'location',
+        name: '官方驗證門市',
+        relationshipType: 'brand_store',
+        confirmationStatus: 'unconfirmed',
+        verificationStatus: 'verified',
+        address: '台北市官方路 9 號',
+        latitude: 25.03,
+        longitude: 121.56,
+      },
+    ])
+
+    expect(screen.getByText('台北市官方路 9 號')).toBeInTheDocument()
+    expect(screen.getByText('未經品牌確認')).toBeInTheDocument()
+    expect(screen.getByTestId('locations-map')).toHaveAttribute('data-locations', '官方驗證門市')
+  })
+
+  it('publishes an evidence-verified address without requiring coordinates', () => {
+    renderLocations([
+      {
+        kind: 'location',
+        name: '官方地址地點',
+        relationshipType: 'stockist',
+        confirmationStatus: 'unconfirmed',
+        verificationStatus: 'verified',
+        address: '台北市官方地址路 10 號',
+      },
+    ])
+
+    expect(screen.getByText('台北市官方地址路 10 號')).toBeInTheDocument()
+    expect(screen.queryByTestId('locations-map')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '地圖模式' })).not.toBeInTheDocument()
   })
 
   it('falls back to the full list when a filter has no mappable rows', () => {

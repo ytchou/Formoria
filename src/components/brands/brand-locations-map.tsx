@@ -9,7 +9,7 @@ export type BrandMapLocation = PhysicalRetailLocation & {
   address: string
   latitude: number
   longitude: number
-  confirmationStatus: 'owner_confirmed'
+  confirmationStatus: 'unconfirmed' | 'owner_confirmed'
 }
 
 const MapLoadingLabelContext = createContext('')

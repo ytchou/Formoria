@@ -4,7 +4,7 @@ import { test, expect } from '../fixtures/auth'
  * FAQ page
  *
  * Journey: Anonymous visitor lands on /faq (zh-TW, the default locale path),
- * sees both section headings and all 19 expandable items; hash links scroll
+ * sees both section headings and all 20 expandable items; hash links scroll
  * the correct section into view; the #claim item auto-opens via the
  * OpenTargetDetails client component.
  *
@@ -12,7 +12,7 @@ import { test, expect } from '../fixtures/auth'
  * Seed: none
  */
 test.describe('FAQ page', () => {
-  test('renders two section headings and exactly 19 details elements', async ({ anonPage }) => {
+  test('renders two section headings and exactly 20 details elements', async ({ anonPage }) => {
     test.setTimeout(30_000)
 
     // /faq is the zh-TW canonical URL (localePrefix: 'as-needed', defaultLocale: 'zh-TW')
@@ -30,8 +30,8 @@ test.describe('FAQ page', () => {
       timeout: 5_000,
     })
 
-    // 10 general + 1 contact + 8 owner = 19 total <details> elements
-    await expect(anonPage.locator('details')).toHaveCount(19, { timeout: 5_000 })
+    // 11 general + 1 contact + 8 owner = 20 total <details> elements
+    await expect(anonPage.locator('details')).toHaveCount(20, { timeout: 5_000 })
   })
 
   test('#for-owners anchor scrolls the section into viewport', async ({ anonPage }) => {

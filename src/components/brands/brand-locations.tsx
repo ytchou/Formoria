@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { SurfaceCard } from '@/components/ui/card'
 import {
-  isConfirmedRetailLocation,
+  isPublicRetailLocation,
   isRetailChainChannel,
   isUnconfirmedRetailLocation,
   normalizeRetailLocations,
@@ -48,9 +48,6 @@ function UnconfirmedLocationCards({
           >
             <h4 className='type-subsection-title'>{location.name}</h4>
             <div className='mt-2 flex flex-wrap gap-2'>
-              <Badge variant='secondary'>
-                {t(`locations.types.${location.relationshipType}`)}
-              </Badge>
               <Badge variant='warning'>{t('locations.unconfirmedStatus')}</Badge>
             </div>
           </SurfaceCard>
@@ -83,7 +80,6 @@ function ChainCards({
           >
             <h4 className='type-subsection-title'>{location.name}</h4>
             <div className='mt-2 flex flex-wrap gap-2'>
-              <Badge variant='secondary'>{t('locations.chainBadge')}</Badge>
               <Badge variant='outline'>{t('locations.someStoresBadge')}</Badge>
             </div>
             {retailerUrl ? (
@@ -110,8 +106,10 @@ function ChainCards({
 export function BrandLocations({ brand }: BrandLocationsProps) {
   const t = useTranslations('brandDetail')
   const locations = normalizeRetailLocations(brand.retailLocations)
-  const confirmedLocations = locations.filter(isConfirmedRetailLocation)
-  const unconfirmedLocations = locations.filter(isUnconfirmedRetailLocation)
+  const confirmedLocations = locations.filter(isPublicRetailLocation)
+  const unconfirmedLocations = locations.filter(
+    (location) => isUnconfirmedRetailLocation(location) && !isPublicRetailLocation(location),
+  )
   const chainLocations = locations.filter(isRetailChainChannel)
 
   if (locations.length === 0) return null
@@ -135,6 +133,7 @@ export function BrandLocations({ brand }: BrandLocationsProps) {
     defaultNoteDepartmentCounter: t(
       'locations.defaultNotes.department_counter',
     ),
+    unconfirmedStatus: t('locations.unconfirmedStatus'),
   }
 
   return (
@@ -150,7 +149,11 @@ export function BrandLocations({ brand }: BrandLocationsProps) {
               {t('locations.confirmedHeading')} · {confirmedLocations.length}
             </h3>
             <p className='mt-1 type-card-description'>
-              {t('locations.stockDisclaimer')}
+              {confirmedLocations.some(
+                (location) => location.confirmationStatus !== 'owner_confirmed',
+              )
+                ? t('locations.verifiedDisclaimer')
+                : t('locations.stockDisclaimer')}
             </p>
           </div>
           <ConfirmedLocationExplorer

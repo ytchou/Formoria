@@ -1,0 +1,127 @@
+{
+  "findings": [
+    {
+      "severity": "Important",
+      "file": "src/lib/brands/locations.ts",
+      "line": "121",
+      "description": "Legacy retail rows with valid coordinates defaulted to verificationStatus=verified.",
+      "failure_scenario": "A pre-enrichment location with an address and coordinates but no explicit verification status is normalized and passes the new public eligibility guard, exposing an unevidenced address and map pin.",
+      "flagged_by": "Angle A|Angle C|Plan Alignment",
+      "status": "valid"
+    },
+    {
+      "severity": "Important",
+      "file": "src/lib/services/enrich-phases/locations.ts",
+      "line": "429",
+      "description": "Verified candidate merging could upgrade a same-identity row while retaining a conflicting address.",
+      "failure_scenario": "An existing branch with address A and an incoming verified candidate with the same branch identity but address B matches by identity; the merge keeps address A but marks it verified, publishing the wrong address.",
+      "flagged_by": "Angle A|Angle C|Plan Alignment",
+      "status": "valid"
+    },
+    {
+      "severity": "Important",
+      "file": "supabase/migrations/20260723100002_publish_verified_location_candidates.sql",
+      "line": "83",
+      "description": "The SQL publication merge had the same conflicting-address upgrade path as the service merge.",
+      "failure_scenario": "Approval or refresh publication matches a candidate by identity when addresses differ, then upgrades the stored row to verified without changing the old address.",
+      "flagged_by": "Angle A|Angle C|Plan Alignment",
+      "status": "valid"
+    },
+    {
+      "severity": "Important",
+      "file": "src/lib/services/enrich-phases/locations.ts",
+      "line": "273",
+      "description": "Official-source evidence was accepted without proving that the source contained the extracted address.",
+      "failure_scenario": "The description LLM supplies an address and any official URL or unrelated official page text is present; the candidate becomes verified even though the official evidence does not mention that address.",
+      "flagged_by": "Angle A|Plan Alignment|Gap sweep",
+      "status": "valid"
+    },
+    {
+      "severity": "Important",
+      "file": "src/app/admin/submissions/retail-locations-editor.tsx",
+      "line": "153",
+      "description": "Candidate evidence URLs were rendered directly as admin links without an HTTP(S) scheme check.",
+      "failure_scenario": "A persisted candidate evidence record contains a javascript: URL; the admin review page renders it as an executable href.",
+      "flagged_by": "Angle A|Angle C|Design Quality",
+      "status": "valid"
+    },
+    {
+      "severity": "Minor",
+      "file": "src/lib/services/enrich-phases/discover.ts",
+      "line": "131",
+      "description": "Cached SERP rows reconstructed structured entries with a second parser that omitted URL normalization and filtering.",
+      "failure_scenario": "A cached run passes tracking URLs or Google result URLs to location evidence handling even though a live run would strip or reject them.",
+      "flagged_by": "Angle B|Angle C|Wrapper/proxy correctness",
+      "status": "valid"
+    },
+    {
+      "severity": "Minor",
+      "file": "src/lib/services/enrich-phases/scraper/serper.ts",
+      "line": "490",
+      "description": "Blank Maps coordinate values were coerced to numeric zero.",
+      "failure_scenario": "A Maps response contains latitude or longitude as an empty string; Number('') produces 0 and downstream code can treat the place as pinned at the equator.",
+      "flagged_by": "Angle D|Plan Alignment",
+      "status": "valid"
+    },
+    {
+      "severity": "Important",
+      "file": "src/lib/services/enrich-phases/scraper/serper.ts",
+      "line": "88",
+      "description": "Response guards accepted arrays containing malformed entries, allowing normalizers to throw inside the request handler.",
+      "failure_scenario": "A successful HTTP response contains places:[null] or an object without the required fields; normalization throws and the audit records a network_error without retaining the malformed response.",
+      "flagged_by": "Angle A|Angle D|Plan Alignment",
+      "status": "valid"
+    },
+    {
+      "severity": "Important",
+      "file": "supabase/migrations/20260723100002_publish_verified_location_candidates.sql",
+      "line": "120",
+      "description": "The candidate publication trigger checked review overrides but not protected retail-location field state.",
+      "failure_scenario": "A submission is approved or a refresh is applied without a retail_locations review override while the brand field is owner/admin/submitted protected; the trigger can still merge verified candidates into the protected brand list.",
+      "flagged_by": "Angle A|Angle C|Plan Alignment|Gap sweep",
+      "status": "valid"
+    },
+    {
+      "severity": "Minor",
+      "file": "src/lib/services/submissions.ts",
+      "line": "1276",
+      "description": "Location candidate review loading used one unbounded PostgREST IN filter.",
+      "failure_scenario": "An admin review page loads more than the configured filter chunk size of submissions; the candidate query URL grows beyond PostgREST/request limits while image and history queries already chunk the same IDs.",
+      "flagged_by": "Cleanup angles|Angle C|Conventions",
+      "status": "valid"
+    },
+    {
+      "severity": "Minor",
+      "file": "src/lib/services/enrich-phases/locations.ts",
+      "line": "208",
+      "description": "Description-derived evidence did not carry the cached or live SERP audit row ID into the persisted candidate.",
+      "failure_scenario": "An admin reviews a location verified from a SERP snippet; the candidate retains the URL and excerpt but no direct audit reference, making the external-call evidence harder to trace.",
+      "flagged_by": "Plan Alignment|Angle C|Gap sweep",
+      "status": "valid"
+    },
+    {
+      "severity": "Minor",
+      "file": "src/app/admin/submissions/retail-locations-editor.tsx",
+      "line": "96",
+      "description": "Explicit candidate acceptance matched by address or name only, so same-identity branches with a changed address could duplicate.",
+      "failure_scenario": "An admin accepts a candidate for a branch whose name, city, and venue match an existing row but whose address differs; the editor appends a second row instead of upgrading the existing branch.",
+      "flagged_by": "Plan Alignment|Angle C",
+      "status": "valid"
+    }
+  ],
+  "active_lenses": [
+    "Angle A",
+    "Angle B",
+    "Angle C",
+    "Angle D",
+    "Angle E",
+    "Cleanup angles",
+    "Altitude",
+    "Conventions",
+    "Plan Alignment",
+    "Test Quality",
+    "Design Quality",
+    "Dead Code",
+    "Gap sweep"
+  ]
+}

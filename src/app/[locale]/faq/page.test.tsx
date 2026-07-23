@@ -88,11 +88,11 @@ describe('FaqPage (zh-TW)', () => {
     ).toBeInTheDocument()
   })
 
-  it('renders 19 accordion items and preserves FAQ anchors', async () => {
+  it('renders 20 accordion items and preserves FAQ anchors', async () => {
     const { container } = render(
       await FaqPage({ params: Promise.resolve({ locale: 'zh-TW' }) }),
     )
-    expect(container.querySelectorAll('details')).toHaveLength(19)
+    expect(container.querySelectorAll('details')).toHaveLength(20)
     expect(container.querySelector('#for-owners')).toBeInTheDocument()
     expect(container.querySelector('details#claim')).toBeInTheDocument()
   })
@@ -116,7 +116,7 @@ describe('FaqPage (zh-TW)', () => {
     const { container } = render(
       await FaqPage({ params: Promise.resolve({ locale: 'zh-TW' }) }),
     )
-    expect(container.querySelectorAll('details > summary')).toHaveLength(19)
+    expect(container.querySelectorAll('details > summary')).toHaveLength(20)
   })
 
   it('includes the 收錄哪些品牌 question', async () => {

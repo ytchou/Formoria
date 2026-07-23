@@ -3,7 +3,7 @@ import type {
   SubmitBrandForReviewResult,
 } from "@/lib/services/submission-pipeline";
 
-export const MAX_COMMUNITY_SUBMISSIONS = 100;
+export const MAX_COMMUNITY_SUBMISSIONS = 500;
 const EXECUTION_CONCURRENCY = 5;
 
 export type CommunitySubmissionDraft = {

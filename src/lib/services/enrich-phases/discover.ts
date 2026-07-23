@@ -1,6 +1,6 @@
 import type { PhaseResult } from '@/lib/types/curation'
-import { batchSearchBrandsWithSnippets } from './scraper/search'
-import { getLatestSearchResults, insertSearchResult } from '../search-results'
+import { batchSearchBrandsWithSnippets, parseBrandSearchEntries } from './scraper/search'
+import { getLatestSearchResults } from '../search-results'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { buildSerpConfig } from '@/lib/constants/enrichment-config'
 import type { EnrichmentTarget } from '../enrichment-target'
@@ -56,43 +56,42 @@ export async function runDiscoverPhase(ctx: BatchPhaseContext): Promise<{
 
   const { result, durationMs } = await timePhase(async () => {
     try {
-      const searchResults = await batchSearchBrandsWithSnippets(ctx.chunkBrandNames, queryTemplate)
+      const searchResults = await batchSearchBrandsWithSnippets(
+        ctx.chunkBrandNames,
+        queryTemplate,
+        5,
+        (brandName) => {
+          const brand = ctx.chunk.find((candidate) => getDisplayBrandName(candidate) === brandName)
+          if (!brand) throw new Error(`Missing enrichment target for ${brandName}`)
+          return {
+            target: { type: ctx.targetType ?? 'brand', id: brand.id },
+            ...(ctx.jobId ? { jobId: ctx.jobId } : {}),
+            supabase: ctx.supabase,
+            dryRun: ctx.dryRun,
+            config: buildSerpConfig(),
+          }
+        },
+      )
       const serpHits = [...searchResults.values()].filter(
         (searchResult) => searchResult.snippets.length > 0 || searchResult.urls.length > 0
       ).length
       const serpMisses = searchResults.size - serpHits
+      const callFailures = [...searchResults.values()].filter((searchResult) =>
+        searchResult.callStatus && !['succeeded', 'empty'].includes(searchResult.callStatus),
+      )
+      const callStatusDetail = callFailures.length > 0
+        ? `; ${callFailures.length} call(s) failed${callFailures.some((result) => result.error) ? `: ${callFailures.flatMap((result) => result.error ? [result.error] : []).join(' | ')}` : ''}`
+        : ''
       ctx.onProgress?.(
-        `  [SERP] OK — ${serpHits}/${searchResults.size} brands with results${serpMisses > 0 ? ` (${serpMisses} empty)` : ''}`
+        `  [SERP] ${callFailures.length > 0 ? 'PARTIAL' : 'OK'} — ${serpHits}/${searchResults.size} brands with results${serpMisses > 0 ? ` (${serpMisses} empty)` : ''}${callStatusDetail}`
       )
 
-      const changedFields: string[] = []
-      if (!ctx.dryRun) {
-        const serpBrandIds: string[] = []
-        for (const brand of ctx.chunk) {
-          const brandName = getDisplayBrandName(brand)
-          const searchResult = searchResults.get(brandName)
-          if (searchResult && (searchResult.urls.length > 0 || searchResult.snippets.length > 0)) {
-            await insertSearchResult(
-              { type: ctx.targetType ?? 'brand', id: brand.id },
-              'serp',
-              queryTemplate(brandName),
-              searchResult.urls,
-              searchResult.snippets,
-              searchResult.rawEntries,
-              buildSerpConfig(),
-              searchResult.latencyMs,
-              ctx.jobId,
-            )
-            serpBrandIds.push(brand.id)
-          }
-        }
+      const changedFields: string[] = !ctx.dryRun &&
+        [...searchResults.values()].some((searchResult) => searchResult.snippets.length > 0 || searchResult.urls.length > 0)
+        ? ['serp_search_results']
+        : []
 
-        if (serpBrandIds.length > 0) {
-          changedFields.push('serp_search_results')
-        }
-      }
-
-      return { searchResults, searchError: null, changedFields }
+      return { searchResults, searchError: null, changedFields, detail: callStatusDetail.slice(2) || undefined }
     } catch (err) {
       const searchError = errorMessage(err)
       ctx.onProgress?.(`  [SERP] FAILED — ${searchError}`)
@@ -110,7 +109,8 @@ export async function runDiscoverPhase(ctx: BatchPhaseContext): Promise<{
       result.searchError ? 'failed' : 'succeeded',
       result.changedFields,
       durationMs,
-      result.searchError ?? undefined
+      result.searchError ?? undefined,
+      result.detail,
     ),
     searchResults: result.searchResults,
     searchError: result.searchError,
@@ -128,6 +128,13 @@ export async function loadCachedSearchResults(
     searchResults.set(brandId, {
       urls: row.urls,
       snippets: row.snippets,
+      entries: parseBrandSearchEntries(row.rawResponse),
+      rawEntries: row.rawResponse,
+      callStatus: row.callStatus,
+      httpStatus: row.httpStatus,
+      error: row.error,
+      auditResultId: row.id,
+      latencyMs: row.latencyMs,
     })
   }
 

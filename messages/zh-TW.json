@@ -494,6 +494,7 @@
       "zoomOut": "縮小地圖",
       "confirmedHeading": "已確認地點",
       "stockDisclaimer": "以下地點資訊已由品牌主確認；前往前請先向店家確認販售商品與庫存。",
+      "verifiedDisclaimer": "此地址已由品牌公開來源佐證；販售品項與庫存可能變動，前往前請先查看品牌網站並向店家確認。",
       "unconfirmedHeading": "待確認地點",
       "unconfirmedDisclaimer": "以下為盡力整理的公開資訊。品牌主確認前，不提供地址、地圖標記或地圖連結。",
       "unconfirmedStatus": "待品牌主確認",
@@ -831,6 +832,10 @@
       "whoCanSubmit": {
         "question": "誰可以提交品牌？",
         "answer": "任何人都可以提交品牌，不需要先成為品牌負責人。品牌主也可以透過品牌主流程提交資料，審核通過後再認領品牌頁面。"
+      },
+      "taiwaneseBrandCriteria": {
+        "question": "什麼樣的品牌符合收錄資格？",
+        "answer": "只要品牌在台灣創立、設計或製造，符合其中任何一項即可。例如：總部設在台北的公司符合「創立」條件；在台灣設計、海外生產的工作室符合「設計」條件；在鶯歌製作產品的工坊符合「製造」條件。歡迎品牌主、品牌愛好者或社群成員提交。"
       },
       "whatDoesMitMean": {
         "question": "MIT 層級代表什麼？",
@@ -1670,7 +1675,7 @@
       "applySuggestion": "套用",
       "brandDescription": "品牌描述",
       "brandDescriptionPlaceholder": "告訴我們關於您的品牌...",
-      "brandDescriptionHint": "請寫下具體、可查證的介紹（至少 40 個字元）——你做什麼、使用的材料，以及品牌的台灣特色。",
+      "brandDescriptionHint": "請寫下具體、可查證的介紹（至少 40 個字元）——你做什麼、使用的材料，以及品牌如何在台灣創立、設計或製造。",
       "mitSmileMarkNumber": "MIT 微笑標章編號",
       "mitSmileMarkNumberPlaceholder": "例如 01200024-02134",
       "mitSmileMarkNumberHint": "通過驗證後，品牌頁會顯示 MIT 微笑認證標籤。",
@@ -2196,7 +2201,7 @@
     },
     "submissions": {
       "denialReasons": {
-        "not_mit": "非台灣製造",
+        "not_mit": "非台灣品牌",
         "insufficient_info": "資訊不足",
         "duplicate": "重複提交",
         "policy_violation": "違反政策",
@@ -2318,7 +2323,41 @@
         "mitEvidence": "台灣製造證據",
         "reputation": "口碑摘要",
         "reputationSources": "來源",
-        "locations": "實體通路"
+        "locations": "實體通路",
+        "locationEditor": {
+          "item": "通路 {number}",
+          "kind": "資訊類型",
+          "physical": "實體地點",
+          "chain": "零售連鎖",
+          "name": "名稱",
+          "relationshipLabel": "通路關係",
+          "relationship": {
+            "brand_store": "品牌店",
+            "stockist": "合作店家",
+            "department_counter": "百貨專櫃"
+          },
+          "statusLabel": "驗證狀態",
+          "status": {
+            "verified": "已驗證",
+            "manual": "手動地址",
+            "needs_review": "待審核",
+            "rejected": "已拒絕"
+          },
+          "address": "地址",
+          "city": "城市",
+          "venue": "場館",
+          "floor": "樓層或櫃位",
+          "latitude": "緯度",
+          "longitude": "經度",
+          "coordinates": "座標：{latitude}、{longitude}",
+          "evidence": "證據與來源連結",
+          "acceptCandidate": "採用這筆候選資料",
+          "addLocation": "新增實體地點",
+          "addChain": "新增零售連鎖",
+          "remove": "移除通路 {number}",
+          "removeLabel": "移除",
+          "unnamed": "未命名地點"
+        }
       },
       "links": {
         "official": "官方網站"
