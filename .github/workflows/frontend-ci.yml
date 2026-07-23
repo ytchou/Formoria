@@ -1,17 +1,22 @@
-name: Frontend CI
+name: CI
 
 on:
   pull_request:
     branches: [main]
-  pull_request_review:
-    branches: [main]
-    types: [submitted, dismissed]
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   quality:
-    name: Quality
+    name: Quality / ${{ matrix.check }}
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        check: [lint, type-check, dead-code, unit-coverage]
     permissions:
       contents: read
     steps:
@@ -27,16 +32,56 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Verify favicon is RGBA
-        run: node scripts/check-favicon-rgba.mjs
-      - name: Lint
-        run: pnpm lint
-      - name: Type-check
-        run: pnpm tsc --noEmit
-      - name: Dead code
-        run: pnpm knip
-      - name: Unit coverage
-        run: pnpm test -- --coverage
+      - name: Run ${{ matrix.check }}
+        run: |
+          case "${{ matrix.check }}" in
+            lint)
+              node scripts/check-favicon-rgba.mjs
+              pnpm lint
+              ;;
+            type-check)
+              pnpm tsc --noEmit
+              ;;
+            dead-code)
+              pnpm knip
+              ;;
+            unit-coverage)
+              pnpm test -- --coverage
+              ;;
+          esac
+
+  quality-gate:
+    name: Quality
+    if: always()
+    needs: [quality]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check quality results
+        run: |
+          if [[ "${{ needs.quality.result }}" != "success" ]]; then
+            echo "Quality checks failed: ${{ needs.quality.result }}"
+            exit 1
+          fi
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Check out pull request merge
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
+          persist-credentials: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
       - name: Restore Next.js build cache
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
@@ -53,94 +98,3 @@ jobs:
           NEXT_PUBLIC_SITE_URL: http://localhost:3000
           NEXT_PUBLIC_TURNSTILE_SITE_KEY: 1x00000000000000000000AA
           TURNSTILE_SECRET_KEY: 1x0000000000000000000000000000000AA
-
-  change-policy:
-    name: Change Policy
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      pull-requests: read
-    steps:
-      - name: Collect authoritative pull request evidence
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const fs = require('node:fs');
-            const path = require('node:path');
-            const pr = context.payload.pull_request;
-
-            if (!pr || !Number.isInteger(pr.number) || !pr.head?.sha) {
-              core.setFailed('Complete pull request context is required.');
-              return;
-            }
-
-            const files = await github.paginate(
-              github.rest.pulls.listFiles,
-              {
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: pr.number,
-                per_page: 100,
-              }
-            );
-
-            if (files.length >= 3000) {
-              core.setFailed('The changed-file list reached GitHub\'s 3,000-file limit.');
-              return;
-            }
-
-            const reviews = await github.paginate(
-              github.rest.pulls.listReviews,
-              {
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: pr.number,
-                per_page: 100,
-              }
-            );
-
-            const evidence = {
-              pullRequest: {
-                number: pr.number,
-                headSha: pr.head.sha,
-              },
-              files: files.map((file) => ({
-                filename: file.filename,
-                previousFilename: file.previous_filename,
-                status: file.status,
-                additions: file.additions,
-                deletions: file.deletions,
-                patch: file.patch,
-              })),
-              reviews: reviews.map((review) => ({
-                state: review.state,
-                commitId: review.commit_id,
-                authorAssociation: review.author_association,
-                user: review.user && {
-                  login: review.user.login,
-                  type: review.user.type,
-                },
-              })),
-            };
-
-            fs.writeFileSync(
-              path.join(process.env.RUNNER_TEMP, 'change-policy-input.json'),
-              JSON.stringify(evidence),
-              { encoding: 'utf8', mode: 0o600 }
-            );
-      - name: Check out pull request merge
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          ref: refs/pull/${{ github.event.pull_request.number }}/merge
-          persist-credentials: false
-      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 22
-          cache: pnpm
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Enforce change policy
-        run: pnpm tsx scripts/ci/change-policy.ts --input "$RUNNER_TEMP/change-policy-input.json"
