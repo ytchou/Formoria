@@ -10,6 +10,17 @@ export type {
 } from './brand'
 
 export type {
+  BrandChannel,
+  BrandChannelInput,
+  ChannelCandidate,
+  ChannelConfirmedBy,
+  ChannelSource,
+  ChannelStatus,
+  ChannelType,
+  OwnerStatus,
+} from './brand-channel'
+
+export type {
   BrandSubmission,
   DenialReason,
   OwnerLocale,
