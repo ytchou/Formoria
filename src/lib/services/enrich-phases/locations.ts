@@ -72,7 +72,7 @@ function normalizeText(value: unknown): string {
 }
 
 export function normalizeLocationAddress(value: unknown): string {
-  return normalizeText(value).replace(/[，,。．.、\-—_#號號樓室]/g, '')
+  return normalizeText(value).replace(/[\uFF0C,\u3002\uFF0E.\u3001\u002D\u2014_#\u865F\u6A13\u5BA4]/g, '')
 }
 
 function normalizeBranchIdentity(location: Pick<PhysicalRetailLocation, 'name' | 'city' | 'venueName'>): string {
