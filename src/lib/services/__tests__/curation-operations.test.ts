@@ -84,6 +84,19 @@ describe('mergeSubmissionEnrichedData', () => {
     expect(result.product_tags).toEqual(['新一', '新二', '新三', '新四', '新五'])
     expect(result.product_tags_en).toEqual(['New 1', 'New 2', 'New 3', 'New 4', 'New 5'])
   })
+
+  it('replaces retail locations instead of accumulating rerun outputs', () => {
+    const result = mergeSubmissionEnrichedData(
+      {
+        retail_locations: [{ kind: 'location', name: 'Stale location' }],
+      },
+      {
+        retail_locations: [{ kind: 'retail_chain', name: 'Current chain' }],
+      },
+    )
+
+    expect(result.retail_locations).toEqual([{ kind: 'retail_chain', name: 'Current chain' }])
+  })
 })
 
 describe('processEnrichBrand', () => {
@@ -139,7 +152,11 @@ describe('enrichment write guards', () => {
       id: 'submission-1',
       brand_id: 'brand-1',
       intent: 'refresh',
-      base_brand_data: { name: 'Live name', city: '台南' },
+      base_brand_data: {
+        name: 'Live name',
+        city: '台南',
+        retail_locations: [{ kind: 'location', name: 'Base location' }],
+      },
       brand_name: 'Legacy row name',
       description: null,
       website_url: null,
@@ -151,7 +168,10 @@ describe('enrichment write guards', () => {
       purchase_pinkoi: null,
       purchase_shopee: null,
       other_urls: [],
-      enriched_data: { city: '台北' },
+      enriched_data: {
+        city: '台北',
+        retail_locations: [{ kind: 'location', name: 'Latest enriched location' }],
+      },
       owner_data: null,
       status: 'pending',
     })
@@ -183,6 +203,7 @@ describe('enrichment write guards', () => {
       city: '台北',
       overwrite_enrichment: true,
     })
+    expect(refresh.retail_locations).toEqual([{ kind: 'location', name: 'Latest enriched location' }])
     expect(linkedNonRefresh.overwrite_enrichment).toBe(false)
   })
 

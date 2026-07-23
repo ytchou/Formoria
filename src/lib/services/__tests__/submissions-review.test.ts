@@ -196,6 +196,35 @@ describe("submission review curation history", () => {
       "detail",
     ]);
   });
+
+  it("keeps review rows available when the location ledger migration is pending", async () => {
+    const rows = [submission("submission-1")];
+    const submissionQuery = pagedSubmissionQuery([rows], rows.length, []);
+    const historyQuery = pagedQuery([[]], []);
+    const imagesQuery = imageListQuery([]);
+    const candidatesQuery = candidateListQuery(
+      [],
+      [],
+      {
+        code: "PGRST205",
+        message: "Could not find the table in the schema cache",
+      },
+    );
+    mocks.from.mockImplementation((table: string) => {
+      if (table === "brand_submissions") return submissionQuery;
+      if (table === "curation_job_targets") return historyQuery;
+      if (table === "submission_images") return imagesQuery;
+      if (table === "brand_location_candidates") return candidatesQuery;
+      return imagesQuery;
+    });
+
+    const [result] = await getSubmissionsForReview({ status: "pending" });
+
+    expect(result).toMatchObject({
+      id: "submission-1",
+      locationCandidates: [],
+    });
+  });
 });
 
 type Query = {
@@ -275,6 +304,7 @@ function imageListQuery(
 function candidateListQuery(
   rows: Array<Record<string, unknown>>,
   submissionIdChunks: string[][] = [],
+  error: { code: string; message: string } | null = null,
 ) {
   const query = {
     select: vi.fn(() => query),
@@ -282,7 +312,9 @@ function candidateListQuery(
       submissionIdChunks.push(values);
       return query;
     }),
-    order: vi.fn(() => Promise.resolve({ data: rows, error: null })),
+    order: vi.fn(() =>
+      Promise.resolve({ data: error ? null : rows, error }),
+    ),
   };
   return query;
 }

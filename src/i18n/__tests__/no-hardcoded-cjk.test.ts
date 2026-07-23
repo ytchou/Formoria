@@ -91,6 +91,8 @@ const ALLOWLIST = [
   'lib/growth/share-card.tsx',
   // Badge embed snippet alt text is intentional zh-TW brand copy pasted into third-party sites.
   'lib/growth/share-assets.ts',
+  // Location enrichment uses Chinese retailer noise words and city name variants (data constants, not UI copy).
+  'lib/services/enrich-phases/locations.ts',
 ]
 
 function isAllowlisted(relPath: string): boolean {

@@ -106,8 +106,8 @@ function ChainCards({
 export function BrandLocations({ brand }: BrandLocationsProps) {
   const t = useTranslations('brandDetail')
   const locations = normalizeRetailLocations(brand.retailLocations)
-  const confirmedLocations = locations.filter(isPublicRetailLocation)
-  const unconfirmedLocations = locations.filter(
+  const addressedLocations = locations.filter(isPublicRetailLocation)
+  const unaddressedLocations = locations.filter(
     (location) => isUnconfirmedRetailLocation(location) && !isPublicRetailLocation(location),
   )
   const chainLocations = locations.filter(isRetailChainChannel)
@@ -142,14 +142,14 @@ export function BrandLocations({ brand }: BrandLocationsProps) {
         {t('sections.locationsAndRetailChannels')}
       </h2>
 
-      {confirmedLocations.length > 0 ? (
+      {addressedLocations.length > 0 ? (
         <div className='space-y-3'>
           <div>
             <h3 className='type-subsection-title'>
-              {t('locations.confirmedHeading')} · {confirmedLocations.length}
+              {t('locations.locationHeading')} · {addressedLocations.length}
             </h3>
             <p className='mt-1 type-card-description'>
-              {confirmedLocations.some(
+              {addressedLocations.some(
                 (location) => location.confirmationStatus !== 'owner_confirmed',
               )
                 ? t('locations.verifiedDisclaimer')
@@ -157,24 +157,24 @@ export function BrandLocations({ brand }: BrandLocationsProps) {
             </p>
           </div>
           <ConfirmedLocationExplorer
-            locations={confirmedLocations}
+            locations={addressedLocations}
             labels={explorerLabels}
           />
         </div>
       ) : null}
 
-      {unconfirmedLocations.length > 0 ? (
+      {unaddressedLocations.length > 0 ? (
         <div className='space-y-3'>
           <div>
             <h3 className='type-subsection-title'>
               {t('locations.unconfirmedHeading')} ·{' '}
-              {unconfirmedLocations.length}
+              {unaddressedLocations.length}
             </h3>
             <p className='mt-1 type-card-description'>
               {t('locations.unconfirmedDisclaimer')}
             </p>
           </div>
-          <UnconfirmedLocationCards locations={unconfirmedLocations} t={t} />
+          <UnconfirmedLocationCards locations={unaddressedLocations} t={t} />
         </div>
       ) : null}
 

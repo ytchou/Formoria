@@ -7,15 +7,27 @@ describe('parseCliArgs', () => {
   })
 
   it('parses enrich command with phases', () => {
-    const args = parseCliArgs(['enrich', '--phases=discover,links,descriptions'])
+    const args = parseCliArgs(['enrich', '--phases=discover,links,descriptions,locations'])
     expect(args.command).toBe('enrich')
-    expect(args.config.phases).toEqual(['discover', 'links', 'descriptions'])
+    expect(args.config.phases).toEqual(['discover', 'links', 'descriptions', 'locations'])
   })
 
   it('defaults enrich phases to all when not specified', () => {
     const args = parseCliArgs(['enrich'])
     expect(args.command).toBe('enrich')
-    expect(args.config.phases).toEqual(['clean', 'detect', 'slugs', 'tags', 'discover', 'links', 'images', 'classify_images', 'descriptions', 'expansion'])
+    expect(args.config.phases).toEqual([
+      'clean',
+      'detect',
+      'slugs',
+      'tags',
+      'discover',
+      'links',
+      'images',
+      'classify_images',
+      'descriptions',
+      'locations',
+      'expansion',
+    ])
   })
 
   it('rejects old deprecated commands', () => {

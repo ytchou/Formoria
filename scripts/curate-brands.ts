@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 
 import { createServiceClient } from '@/lib/supabase/server'
+import { ENRICH_PHASES } from '@/lib/constants/enrich-phases'
 import {
   type CurationConfig,
   type OperationResult,
@@ -16,21 +17,9 @@ import {
 } from '@/lib/services/eval/scorers'
 
 const COMMANDS = ['enrich', 'eval'] as const
-const DEFAULT_ENRICH_PHASES = [
-  'clean',
-  'detect',
-  'slugs',
-  'tags',
-  'discover',
-  'links',
-  'images',
-  'classify_images',
-  'descriptions',
-  'expansion',
-] as const
 
 type CurationCommand = (typeof COMMANDS)[number]
-type EnrichPhase = (typeof DEFAULT_ENRICH_PHASES)[number]
+type EnrichPhase = (typeof ENRICH_PHASES)[number]
 type ParsedCurationConfig = CurationConfig & {
   phases?: EnrichPhase[]
 }
@@ -170,9 +159,9 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
     const phases = parseCsvFlag(args, 'phases')
     config.phases = phases
       ? phases.filter((phase): phase is EnrichPhase => {
-          return DEFAULT_ENRICH_PHASES.includes(phase as EnrichPhase)
+          return ENRICH_PHASES.includes(phase as EnrichPhase)
         })
-      : [...DEFAULT_ENRICH_PHASES]
+      : [...ENRICH_PHASES]
   }
 
   return { command, config }
@@ -194,7 +183,7 @@ function printUsage(): void {
   )
   console.log('  --status=approved')
   console.log('  --limit=10')
-  console.log('  --phases=clean,detect,slugs,tags,discover,links,images,descriptions  enrich only')
+  console.log(`  --phases=${ENRICH_PHASES.join(',')}  enrich only`)
   console.log('  --overwrite                                  submission enrichment only')
 }
 
@@ -467,7 +456,7 @@ async function runCommand({ command, config }: ParsedCliArgs): Promise<Operation
       return runEnrich(
         {
           ...runConfig,
-          phases: runConfig.phases ?? [...DEFAULT_ENRICH_PHASES],
+          phases: runConfig.phases ?? [...ENRICH_PHASES],
         },
         supabase
       )

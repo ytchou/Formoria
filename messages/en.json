@@ -64,8 +64,8 @@
       "subheadline": "A community-curated Taiwanese brand directory — from stationery and homeware to food and drink. Explore brands founded, designed, or made in Taiwan.",
       "statsBrands": "brands",
       "statsCategories": "categories",
-      "recentWeek": "new this week",
-      "recentMonth": "new this month",
+      "recentWeek": "new brands (last 7 days)",
+      "recentMonth": "new brands (last 30 days)",
       "cta": "Explore brands…"
     },
     "showcase": {
@@ -500,11 +500,12 @@
       "mapLoading": "Loading map…",
       "zoomIn": "Zoom in",
       "zoomOut": "Zoom out",
+      "locationHeading": "Locations",
       "confirmedHeading": "Confirmed locations",
       "stockDisclaimer": "The brand owner has confirmed these location details only. Contact the location to check products and stock before visiting.",
-      "verifiedDisclaimer": "This address was verified from public brand evidence. Check the brand website before visiting because products and stock may change.",
+      "verifiedDisclaimer": "These locations come from public information and may not be confirmed by the brand owner. Check with the brand or location before visiting.",
       "unconfirmedHeading": "Unconfirmed locations",
-      "unconfirmedDisclaimer": "These listings are based on best-effort public information. Until the brand owner confirms them, we do not provide addresses, map pins, or map links.",
+      "unconfirmedDisclaimer": "These incomplete listings come from best-effort public information and have not been confirmed by the brand owner.",
       "unconfirmedStatus": "Awaiting brand owner confirmation",
       "chainHeading": "Retail chains",
       "chainDescription": "Availability varies by branch. The retailer link provides general retailer information, not live stock.",
@@ -825,10 +826,9 @@
       "description": "Frequently asked questions about the Formoria Taiwanese brand directory, including which brands are listed, how trust tiers work, and how to submit or claim a brand page."
     },
     "title": "Frequently Asked Questions",
-    "intro": "If you still have questions, feel free to reach out via the contact information at the bottom of the page.",
-    "stillHaveQuestions": "Still have questions?",
-    "contactCta": "Contact us",
+    "intro": "If you still have questions, please <contact>contact us</contact>.",
     "sections": {
+      "navigation": "FAQ sections",
       "general": "General",
       "forOwners": "For Brand Owners"
     },
@@ -895,7 +895,7 @@
       },
       "brandLocations": {
         "question": "What are owner-confirmed locations and retail channels?",
-        "answer": "Owners can add physical stores or stockists where the brand's products can be purchased, plus retail chains that carry selected products. Confirmed locations appear with address and map details, while retail chains appear as retailer cards; availability can vary by store, so visitors should check before visiting."
+        "answer": "Physical stores and stockists found in public sources appear with address and map details as unconfirmed. After claiming the brand, its verified owner can confirm or edit those locations and add retail chains that carry selected products. Availability can vary by store, so visitors should check before visiting."
       },
       "whatCategories": {
         "question": "What product categories does Formoria cover?",

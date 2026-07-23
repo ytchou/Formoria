@@ -166,7 +166,7 @@ describe('normalizeRetailLocations', () => {
     expect(location && isMappableRetailLocation(location)).toBe(false)
   })
 
-  it('does not infer evidence verification from legacy coordinates alone', () => {
+  it('publishes and maps addressed legacy locations without inferring owner confirmation', () => {
     const [location] = normalizeRetailLocations([
       {
         name: 'Legacy coordinate lead',
@@ -178,8 +178,8 @@ describe('normalizeRetailLocations', () => {
     ])
 
     expect(location).toMatchObject({ verificationStatus: 'manual' })
-    expect(location && isPublicRetailLocation(location)).toBe(false)
-    expect(location && isPublicMappableRetailLocation(location)).toBe(false)
+    expect(location && isPublicRetailLocation(location)).toBe(true)
+    expect(location && isPublicMappableRetailLocation(location)).toBe(true)
   })
 
   it('drops incomplete, out-of-range coordinate pairs and empty rows', () => {

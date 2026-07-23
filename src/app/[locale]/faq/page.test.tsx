@@ -93,23 +93,38 @@ describe('FaqPage (zh-TW)', () => {
       await FaqPage({ params: Promise.resolve({ locale: 'zh-TW' }) }),
     )
     expect(container.querySelectorAll('details')).toHaveLength(20)
+    expect(container.querySelector('#general')).toBeInTheDocument()
     expect(container.querySelector('#for-owners')).toBeInTheDocument()
     expect(container.querySelector('details#claim')).toBeInTheDocument()
+    expect(
+      screen.getByRole('navigation', { name: '常見問題分類' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '一般問題' })).toHaveAttribute(
+      'href',
+      '#general',
+    )
+    expect(
+      screen.getByRole('link', { name: '品牌主專區' }),
+    ).toHaveAttribute('href', '#for-owners')
+    const sectionNav = screen.getByRole('navigation', { name: '常見問題分類' })
+    expect(sectionNav).toHaveClass('space-y-1', 'border-l', 'border-border', 'pl-3')
+    expect(screen.queryByText('常見問題分類')).not.toBeInTheDocument()
+    expect(container.querySelector('summary')).toHaveClass('type-faq-question')
   })
 
   it('keeps the contact prompt concise and distinguishes the contact link', async () => {
     render(await FaqPage({ params: Promise.resolve({ locale: 'zh-TW' }) }))
 
-    expect(
-      screen.getByText('若仍有疑問，歡迎透過頁面底部的聯絡方式與我們聯繫。'),
-    ).toBeInTheDocument()
+    expect(screen.getByText(/若仍有疑問，歡迎/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '與我們聯繫' })).toHaveAttribute(
+      'href',
+      expect.stringContaining('mailto:'),
+    )
     expect(
       screen.queryByText(/以下整理了訪客最常詢問/),
     ).not.toBeInTheDocument()
-    expect(screen.getByText('還有問題？')).toHaveClass('type-body-muted')
-    expect(screen.getByRole('link', { name: '聯絡我們' })).toHaveClass(
-      'type-link',
-    )
+    expect(screen.queryByText('還有問題？')).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: '聯絡我們' })).not.toBeInTheDocument()
   })
 
   it('each item has a summary child element', async () => {
@@ -171,7 +186,7 @@ describe('FaqPage (en)', () => {
     ).toBeInTheDocument()
     expect(
       screen.getByRole('heading', { level: 2, name: 'For Brand Owners' }),
-    ).toBeInTheDocument()
+    ).toHaveClass('type-section-title-large')
   })
 
   it('includes the new owner FAQ questions', async () => {

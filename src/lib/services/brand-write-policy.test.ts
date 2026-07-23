@@ -99,4 +99,72 @@ describe('resolveRefreshEnrichmentPatch', () => {
       skipped: [{ field: 'description', reason: 'protected:owner' }],
     })
   })
+
+  it('preserves owner-confirmed locations without restoring stale unconfirmed rows', () => {
+    expect(
+      resolveRefreshEnrichmentPatch(
+        {
+          retail_locations: [
+            {
+              kind: 'location',
+              name: 'Existing shop',
+              relationshipType: 'brand_store',
+              address: '臺北市新地址 2 號',
+              latitude: 25.03,
+              longitude: 121.56,
+              confirmationStatus: 'unconfirmed',
+            },
+            {
+              kind: 'location',
+              name: 'New stockist',
+              relationshipType: 'stockist',
+              address: '臺中市新增路 3 號',
+              confirmationStatus: 'unconfirmed',
+            },
+          ],
+          description: 'AI replacement',
+        },
+        {
+          retail_locations: [
+            {
+              kind: 'location',
+              name: 'Existing shop',
+              relationshipType: 'brand_store',
+              address: '臺北市人工地址 1 號',
+              availabilityNote: 'Keep this note',
+              confirmationStatus: 'owner_confirmed',
+            },
+            {
+              kind: 'location',
+              name: 'Stale generated location',
+              relationshipType: 'stockist',
+              confirmationStatus: 'unconfirmed',
+            },
+          ],
+          description: 'Human description',
+        },
+        {
+          retail_locations: { source: 'admin' },
+          description: { source: 'admin' },
+        },
+      ),
+    ).toEqual({
+      allowed: {
+        retail_locations: [
+          expect.objectContaining({
+            name: 'Existing shop',
+            address: '臺北市人工地址 1 號',
+            availabilityNote: 'Keep this note',
+            confirmationStatus: 'owner_confirmed',
+          }),
+          expect.objectContaining({
+            name: 'New stockist',
+            address: '臺中市新增路 3 號',
+            confirmationStatus: 'unconfirmed',
+          }),
+        ],
+      },
+      skipped: [{ field: 'description', reason: 'protected:admin' }],
+    })
+  })
 })

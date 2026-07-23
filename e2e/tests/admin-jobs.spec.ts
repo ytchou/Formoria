@@ -43,7 +43,7 @@ test.describe('Admin curation jobs deep', () => {
         brand_name: brandName,
         submitter_email: 'e2e-admin-jobs@test.example',
         status: 'pending',
-        intent: 'new',
+        intent: 'recommend',
       });
 
     if (submissionError) {

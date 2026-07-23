@@ -25,6 +25,7 @@ const messages = {
     },
     locations: {
       ...zh.brandDetail.locations,
+      locationHeading: '販售地點',
       confirmedHeading: '已確認地點',
       stockDisclaimer: '販售品項與庫存可能變動，前往前請先向店家確認。',
       unconfirmedHeading: '待確認地點',
@@ -168,17 +169,14 @@ function renderLocations(locations: RetailLocation[]) {
 }
 
 describe('BrandLocations', () => {
-  it('renders three honest groups and sanitizes data by trust level', () => {
+  it('renders addressed unconfirmed locations publicly with honest trust labels', () => {
     renderLocations([...confirmedLocations, ...publicAndChainLocations])
 
     expect(
       screen.getByRole('heading', { name: '販售地點與零售通路' }),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('heading', { name: '已確認地點 · 4' }),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('heading', { name: '待確認地點 · 1' }),
+      screen.getByRole('heading', { name: '販售地點 · 5' }),
     ).toBeInTheDocument()
     expect(
       screen.getByRole('heading', {
@@ -186,17 +184,15 @@ describe('BrandLocations', () => {
       }),
     ).toBeInTheDocument()
     expect(
-      screen.getAllByText('販售品項與庫存可能變動，前往前請先向店家確認。'),
-    ).toHaveLength(1)
-    expect(
       screen.getByText(
         '各分店販售情況不同；通路連結僅供查詢通路資訊，不代表即時庫存。',
       ),
     ).toBeInTheDocument()
     expect(
-      screen.getByText('以下是盡力整理的公開資訊，尚未經品牌確認。'),
+      screen.getByText(zh.brandDetail.locations.verifiedDisclaimer),
     ).toBeInTheDocument()
 
+    fireEvent.click(screen.getByRole('button', { name: '查看全部' }))
     const unconfirmedCard = screen
       .getByText('公開資訊地點')
       .closest('[data-slot="surface-card"]')
@@ -207,11 +203,10 @@ describe('BrandLocations', () => {
     expect(
       within(unconfirmedCard).getByText('未經品牌確認'),
     ).toBeInTheDocument()
-    expect(within(unconfirmedCard).queryByRole('link')).not.toBeInTheDocument()
-    expect(screen.queryByText('不應公開的地址')).not.toBeInTheDocument()
-    expect(screen.queryByText('不應公開的商場')).not.toBeInTheDocument()
-    expect(screen.queryByText('不應公開的樓層')).not.toBeInTheDocument()
-    expect(screen.queryByText('不應公開的庫存資訊')).not.toBeInTheDocument()
+    expect(within(unconfirmedCard).getByRole('link')).toBeInTheDocument()
+    expect(screen.getByText('不應公開的地址')).toBeInTheDocument()
+    expect(screen.getByText('不應公開的商場 - 不應公開的樓層')).toBeInTheDocument()
+    expect(screen.getByText('不應公開的庫存資訊')).toBeInTheDocument()
     expect(
       screen.queryByText('不應顯示的連鎖庫存資訊'),
     ).not.toBeInTheDocument()
@@ -221,7 +216,7 @@ describe('BrandLocations', () => {
     expect(screen.getByText('現場展示全系列')).toBeInTheDocument()
     expect(
       screen.getAllByRole('link', { name: '在 Google Maps 開啟' }),
-    ).toHaveLength(3)
+    ).toHaveLength(5)
 
     expect(screen.getAllByText('部分門市')).toHaveLength(2)
     const retailerLink = screen.getByRole('link', { name: '查看通路網站' })

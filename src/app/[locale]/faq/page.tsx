@@ -4,6 +4,7 @@ import { ChevronDown } from 'lucide-react'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { CONTACT_EMAILS } from '@/lib/constants'
+import { FaqSection } from '@/components/shared/faq-section'
 import { OpenTargetDetails } from './open-target-details'
 
 type PageProps = {
@@ -78,23 +79,39 @@ export default async function FaqPage({ params }: PageProps) {
           <h1 id="faq-heading" className="type-page-title">
             {t('title')}
           </h1>
-          <p className="type-body-muted">{t('intro')}</p>
-          <div className="space-y-2 pt-2">
-            <p className="type-body-muted">{t('stillHaveQuestions')}</p>
-            <a href={`mailto:${CONTACT_EMAILS.contact}`} className="type-link">
-              {t('contactCta')}
+          <nav
+            aria-label={t('sections.navigation')}
+            className="space-y-1 border-l border-border pl-3"
+          >
+            <a
+              href="#general"
+              className="flex min-h-12 items-center px-3 type-nav-item focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {t('sections.general')}
             </a>
-          </div>
+            <a
+              href="#for-owners"
+              className="flex min-h-12 items-center px-3 type-nav-item focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {t('sections.forOwners')}
+            </a>
+          </nav>
+          <p className="type-body-muted">
+            {t.rich('intro', {
+              contact: (chunks) => (
+                <a href={`mailto:${CONTACT_EMAILS.contact}`} className="type-link">
+                  {chunks}
+                </a>
+              ),
+            })}
+          </p>
         </aside>
         <div role="region" aria-labelledby="faq-heading" className="space-y-10">
-          <section>
-            <h2 className="mb-2 type-subsection-title">
-              {t('sections.general')}
-            </h2>
+          <FaqSection id="general" title={t('sections.general')}>
             <div className="divide-y divide-border">
               {generalItemKeys.map((key, i) => (
                 <details key={i} className="group scroll-mt-24 py-5">
-                  <summary className="flex cursor-pointer list-none items-center justify-between type-card-title [&::-webkit-details-marker]:hidden">
+                  <summary className="flex cursor-pointer list-none items-center justify-between type-faq-question [&::-webkit-details-marker]:hidden">
                     {t(`items.${key}.question`)}
                     <ChevronDown className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
                   </summary>
@@ -104,7 +121,7 @@ export default async function FaqPage({ params }: PageProps) {
                 </details>
               ))}
               <details className="group py-5">
-                <summary className="flex cursor-pointer list-none items-center justify-between type-card-title [&::-webkit-details-marker]:hidden">
+                <summary className="flex cursor-pointer list-none items-center justify-between type-faq-question [&::-webkit-details-marker]:hidden">
                   {t('items.contact.question')}
                   <ChevronDown className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
                 </summary>
@@ -123,11 +140,8 @@ export default async function FaqPage({ params }: PageProps) {
                 </p>
               </details>
             </div>
-          </section>
-          <section id="for-owners" className="scroll-mt-24">
-            <h2 className="mb-2 type-subsection-title">
-              {t('sections.forOwners')}
-            </h2>
+          </FaqSection>
+          <FaqSection id="for-owners" title={t('sections.forOwners')}>
             <div className="divide-y divide-border">
               {ownerItemKeys.map((key, i) => (
                 <details
@@ -135,7 +149,7 @@ export default async function FaqPage({ params }: PageProps) {
                   id={key === 'claimBenefits' ? 'claim' : undefined}
                   className="group scroll-mt-24 py-5"
                 >
-                  <summary className="flex cursor-pointer list-none items-center justify-between type-card-title [&::-webkit-details-marker]:hidden">
+                  <summary className="flex cursor-pointer list-none items-center justify-between type-faq-question [&::-webkit-details-marker]:hidden">
                     {t(`items.${key}.question`)}
                     <ChevronDown className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
                   </summary>
@@ -145,7 +159,7 @@ export default async function FaqPage({ params }: PageProps) {
                 </details>
               ))}
             </div>
-          </section>
+          </FaqSection>
         </div>
       </div>
     </main>

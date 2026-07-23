@@ -10,6 +10,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion'
+import { FaqSection } from '@/components/shared/faq-section'
 import { sanitizeHref } from '@/lib/url'
 
 const LINK_RE = /(\[[^\]]+\]\([^)]+\))/g
@@ -61,22 +62,21 @@ export function BrandFaqAccordion({ items, brandSlug }: BrandFaqAccordionProps) 
   }
 
   return (
-    <section>
-      <h2 className="mb-3 type-section-title">
-        {t('faq')}
-      </h2>
+    <FaqSection title={t('faq')}>
       <Accordion type="multiple" value={openItems} onValueChange={handleValueChange}>
         {items.map((item, index) => (
           <AccordionItem key={`${item.question}-${index}`} value={`faq-${index}`}>
-            <AccordionTrigger>{item.question}</AccordionTrigger>
+            <AccordionTrigger className="type-faq-question py-5 hover:no-underline">
+              {item.question}
+            </AccordionTrigger>
             <AccordionContent>
-              <p className="type-section-description">
+              <p className="max-w-2xl type-body-muted">
                 {renderLinkedText(item.answer)}
               </p>
             </AccordionContent>
           </AccordionItem>
         ))}
       </Accordion>
-    </section>
+    </FaqSection>
   )
 }

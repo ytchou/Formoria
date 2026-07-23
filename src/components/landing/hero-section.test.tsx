@@ -54,6 +54,11 @@ describe('HeroSection', () => {
     expect(screen.getByText(/100/)).toBeInTheDocument()
   })
 
+  it('labels the recent brand count with its rolling time window', async () => {
+    render(await HeroSection({ brandCount: 100, categoryCount: 20, recentBrands: { count: 5, period: '7d' } }))
+    expect(screen.getByText(/\+5 新品牌（近 7 天）/)).toBeInTheDocument()
+  })
+
   it('calls trackHeroCategoryClicked when a category chip is clicked', async () => {
     const user = userEvent.setup()
     render(await HeroSection({ brandCount: 100, categoryCount: 20, recentBrands: { count: 5, period: '7d' } }))
