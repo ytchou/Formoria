@@ -60,26 +60,28 @@ BEGIN
     END IF;
   END LOOP;
 
-  FOREACH v_column IN ARRAY ARRAY[
-    'faq_mit', 'faq_products', 'faq_where_to_buy', 'faq_price',
-    'faq_founded', 'faq_reputation', 'faq_custom_1', 'faq_custom_2',
-    'faq_custom_3', 'faq_custom_4'
-  ]
-  LOOP
-    EXECUTE format(
-      'UPDATE public.brand_faq
-       SET %1$I = jsonb_set(
-         jsonb_set(%1$I, ''{question_zh}'', to_jsonb(public.normalize_taiwan_zh_copy(%1$I->>''question_zh'')), true),
-         ''{answer_zh}'', to_jsonb(public.normalize_taiwan_zh_copy(%1$I->>''answer_zh'')), true
-       ), updated_at = now()
-       WHERE %1$I IS NOT NULL
-         AND (%1$I->>''question_zh'' IS DISTINCT FROM public.normalize_taiwan_zh_copy(%1$I->>''question_zh'')
-           OR %1$I->>''answer_zh'' IS DISTINCT FROM public.normalize_taiwan_zh_copy(%1$I->>''answer_zh''))',
-      v_column
-    );
-    GET DIAGNOSTICS v_rows = ROW_COUNT;
-    v_faq_updates := v_faq_updates + v_rows;
-  END LOOP;
+  IF to_regclass('public.brand_faq') IS NOT NULL THEN
+    FOREACH v_column IN ARRAY ARRAY[
+      'faq_mit', 'faq_products', 'faq_where_to_buy', 'faq_price',
+      'faq_founded', 'faq_reputation', 'faq_custom_1', 'faq_custom_2',
+      'faq_custom_3', 'faq_custom_4'
+    ]
+    LOOP
+      EXECUTE format(
+        'UPDATE public.brand_faq
+         SET %1$I = jsonb_set(
+           jsonb_set(%1$I, ''{question_zh}'', to_jsonb(public.normalize_taiwan_zh_copy(%1$I->>''question_zh'')), true),
+           ''{answer_zh}'', to_jsonb(public.normalize_taiwan_zh_copy(%1$I->>''answer_zh'')), true
+         ), updated_at = now()
+         WHERE %1$I IS NOT NULL
+           AND (%1$I->>''question_zh'' IS DISTINCT FROM public.normalize_taiwan_zh_copy(%1$I->>''question_zh'')
+             OR %1$I->>''answer_zh'' IS DISTINCT FROM public.normalize_taiwan_zh_copy(%1$I->>''answer_zh''))',
+        v_column
+      );
+      GET DIAGNOSTICS v_rows = ROW_COUNT;
+      v_faq_updates := v_faq_updates + v_rows;
+    END LOOP;
+  END IF;
 
   RAISE NOTICE 'Normalized % descriptions and % FAQ fields',
     v_description_updates, v_faq_updates;
