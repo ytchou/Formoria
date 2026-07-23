@@ -1301,6 +1301,7 @@ jobs:
             git add -A -- "$changed_path"
           done < <(jq -r '.automatic.traceability[].changedFiles[]' "$metadata_file" | sort -u)
           git commit -m "fix: apply automatic health repairs"
+          gh auth setup-git
           git push --force-with-lease origin HEAD
           body_file=.health-agent-artifacts/automatic-pr-body.md
           {
@@ -1415,6 +1416,7 @@ jobs:
             git add -A -- "$changed_path"
           done < <(jq -r '.human.traceability[].changedFiles[]' "$metadata_file" | sort -u)
           git commit -m "fix: apply human health repairs"
+          gh auth setup-git
           git push --force-with-lease origin HEAD
           body_file=.health-agent-artifacts/human-pr-body.md
           {

@@ -279,6 +279,7 @@ describe("unified health-agent workflow contract", () => {
       expect(publisher).toContain(
         "permissions:\n      contents: read\n      pull-requests: read",
       );
+      expect(publisher).toContain("gh auth setup-git");
       expect(publisher).not.toMatch(/^\s+[a-z-]+:\s+write$/m);
       expect(publisher).toContain("workflow-runtime.ts repair-result");
     }
