@@ -133,3 +133,62 @@ describe('BrandHeader — verified badge', () => {
     expect(badge.closest('[data-slot="badge"]')).not.toBeNull()
   })
 })
+
+describe('BrandHeader — labeled rows', () => {
+  it('renders all fact labels for full-data brand', () => {
+    renderWithIntl(
+      <BrandHeader
+        brand={makeBrand({
+          foundingYear: 2010,
+          category: 'fashion',
+          priceRange: 2,
+          productTags: ['手工製作'],
+          mitStatus: 'verified',
+          isVerified: true,
+        })}
+        cityLabel="台北市"
+      />,
+    )
+
+    for (const label of ['地點', '創立年份', '類別', '價格區間', '產品特色', '製造與設計']) {
+      expect(screen.getByText(label)).toBeInTheDocument()
+    }
+  })
+
+  it('omits rows for missing data', () => {
+    renderWithIntl(
+      <BrandHeader
+        brand={makeBrand({
+          foundingYear: null,
+          productTags: [],
+          mitStatus: undefined,
+          isVerified: false,
+        })}
+        cityLabel={null}
+      />,
+    )
+
+    expect(screen.queryByText('地點')).not.toBeInTheDocument()
+    expect(screen.queryByText('創立年份')).not.toBeInTheDocument()
+    expect(screen.getByText('類別')).toBeInTheDocument()
+    expect(screen.queryByText('產品特色')).not.toBeInTheDocument()
+    expect(screen.queryByText('製造與設計')).not.toBeInTheDocument()
+  })
+
+  it('renders only populated rows for sparse brand', () => {
+    renderWithIntl(<BrandHeader brand={makeBrand({ category: 'fashion' })} />)
+
+    expect(screen.getByText('類別')).toBeInTheDocument()
+    for (const label of ['地點', '創立年份', '價格區間', '產品特色', '製造與設計']) {
+      expect(screen.queryByText(label)).not.toBeInTheDocument()
+    }
+  })
+
+  it('renders price as accent text not amber pill', () => {
+    renderWithIntl(<BrandHeader brand={makeBrand({ priceRange: 2 })} />)
+
+    const price = screen.getByText('$$')
+    expect(price).toHaveClass('text-primary')
+    expect(price).not.toHaveClass('text-mit-verified')
+  })
+})
