@@ -226,7 +226,7 @@ export function UnconfirmedChannelGrid({
               key={channel.id}
               padding="sm"
               className="flex h-full flex-col gap-4"
-              data-channel-card
+              data-testid="channel-card"
             >
               <div className="flex items-start gap-3">
                 <Icon
