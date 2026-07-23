@@ -502,7 +502,7 @@
         "whatIsThis": "What does unconfirmed mean?",
         "whatIsThisAnswer": "These are retail channel entries provided by community members or collected automatically. When confirmed by the brand or enough community members, they move to the confirmed section.",
         "confirmAction": "I confirm they sell here",
-        "confirmedCount": "{{count}} confirmed",
+        "confirmedCount": "{count} confirmed",
         "confirmed": "Confirmed",
         "signInToConfirm": "Sign in to confirm",
         "showAll": "Show all",
@@ -557,7 +557,7 @@
         "database_error": "System error, please try again later",
         "unknown": "An error occurred, please try again later"
       },
-      "countLabel": "{{count}} channels"
+      "countLabel": "{count} channels"
     },
     "gallery": {
       "viewer": "Photo viewer",

@@ -502,7 +502,7 @@
         "whatIsThis": "什麼是尚待確認？",
         "whatIsThisAnswer": "這些是由社群成員提供或系統自動蒐集的販售資訊，當獲得品牌方確認或足夠的社群確認後，將會移至已確認區域。",
         "confirmAction": "我確認這裡有販售",
-        "confirmedCount": "{{count}} 人確認",
+        "confirmedCount": "{count} 人確認",
         "confirmed": "已確認",
         "signInToConfirm": "登入後即可確認",
         "showAll": "顯示全部",
@@ -557,7 +557,7 @@
         "database_error": "系統錯誤，請稍後再試",
         "unknown": "發生錯誤，請稍後再試"
       },
-      "countLabel": "{{count}} 個通路"
+      "countLabel": "{count} 個通路"
     },
     "gallery": {
       "viewer": "照片檢視",
