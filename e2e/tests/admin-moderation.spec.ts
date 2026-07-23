@@ -1,150 +1,344 @@
-import { test, expect } from '../fixtures/auth';
+import path from 'node:path';
+import type { Page } from '@playwright/test';
+import { test as baseTest, expect } from '../fixtures/auth';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { writeAuthStorageStateForCredentials } from '../helpers/auth-session';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
-test.describe('Admin content moderation dashboard', () => {
-  test.describe.configure({ mode: 'serial' });
+const test = baseTest.extend<{ ownerPage: Page }>({
+  ownerPage: async ({ browser, isolatedUser }, use, testInfo) => {
+    const storagePath = path.join(testInfo.outputDir, 'moderation-owner.json');
+    await writeAuthStorageStateForCredentials(
+      isolatedUser.email,
+      isolatedUser.password,
+      storagePath,
+      'moderation-owner',
+    );
+    const context = await browser.newContext({ storageState: storagePath });
+    const page = await context.newPage();
+    // Playwright fixture callbacks expose a `use` continuation that triggers the React hook rule.
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    await use(page);
+    await context.close();
+  },
+});
 
+test.describe.configure({ mode: 'serial' });
+
+test.describe('Content moderation flow', () => {
   test.beforeEach(() => {
     const adminEmail = process.env.E2E_ADMIN_EMAIL;
-    const list = (process.env.ADMIN_EMAILS ?? '').split(',').map((e) => e.trim());
+    const admins = (process.env.ADMIN_EMAILS ?? '')
+      .split(',')
+      .map((email) => email.trim().toLowerCase());
     test.skip(
-      !adminEmail || !list.includes(adminEmail),
-      'E2E_ADMIN_EMAIL not in ADMIN_EMAILS — admin tests require matching env',
+      !adminEmail || !admins.includes(adminEmail.toLowerCase()),
+      'Admin E2E tests require E2E_ADMIN_EMAIL to be included in ADMIN_EMAILS',
     );
   });
 
   let supabase: AnySupabaseClient;
   let brandId: string;
-  let testUserId: string;
-  let highFlagId: string;
-  let mediumFlagId: string;
+  let brandSlug: string;
+  let brandName: string;
+  let ownerId: string;
+  let cleanDescription: string;
+  let ownerBlockedFlagId: string;
+  let adminBlockedFlagId: string;
 
-  test.beforeAll(async () => {
+  test.beforeAll(async ({ isolatedUser }) => {
     supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
     );
+    ownerId = isolatedUser.id;
 
-    // Resolve a real user id for moderation_flags.user_id (required FK)
-    const { data: usersData, error: usersError } = await supabase.auth.admin.listUsers();
-    if (usersError) throw new Error(`Failed to list users: ${usersError.message}`);
-    const testUser = usersData.users.find((u) => u.email === process.env.E2E_USER_EMAIL);
-    if (!testUser) throw new Error(`E2E test user not found: ${process.env.E2E_USER_EMAIL}`);
-    testUserId = testUser.id;
+    const timestamp = Date.now();
+    brandSlug = `e2e-moderation-flow-${timestamp}`;
+    brandName = `[E2E-TEST] Moderation flow ${timestamp}`;
+    cleanDescription = `台灣手工製作木質生活用品，耐用溫潤，適合日常使用 ${timestamp}`;
+    const heroUrl = `https://cdn.example.com/${brandSlug}/hero.webp`;
+    const productUrl = `https://cdn.example.com/${brandSlug}/product.webp`;
 
-    const ts = Date.now();
-    const brandSlug = `e2e-moderation-${ts}`;
-
-    const { data: brandData, error: brandErr } = await supabase
+    const { data: brand, error: brandError } = await supabase
       .from('brands')
       .insert({
-        name: `[E2E-TEST] Moderation ${ts}`,
+        name: brandName,
         slug: brandSlug,
+        romanized_name: `E2E Moderation Flow ${timestamp}`,
         status: 'approved',
+        approved_at: new Date().toISOString(),
         product_type: 'crafts',
-        description: '[E2E-TEST] Suspicious moderation test brand',
+        product_tags: ['木工'],
+        price_range: 2,
+        founding_year: 2020,
+        description: cleanDescription,
+        hero_image_url: heroUrl,
+        purchase_website: `https://${brandSlug}.example.com`,
         retail_locations: [],
       })
       .select('id')
       .single();
-    if (brandErr || !brandData) throw new Error(`seed brand: ${brandErr?.message}`);
-    brandId = brandData.id;
+    if (brandError || !brand) {
+      throw new Error(`Failed to seed moderation brand: ${brandError?.message}`);
+    }
+    brandId = brand.id;
 
-    // Seed two blocking violations for the queue.
-    const { data: flagsData, error: flagErr } = await supabase.from('moderation_flags').insert([
+    const { error: ownerError } = await supabase
+      .from('brand_owners')
+      .insert({ brand_id: brandId, user_id: ownerId });
+    if (ownerError) {
+      throw new Error(`Failed to seed moderation owner: ${ownerError.message}`);
+    }
+
+    const { error: imageError } = await supabase.from('brand_images').insert([
       {
         brand_id: brandId,
-        user_id: testUserId,
-        field_name: 'website',
-        flag_reason: 'Suspicious TLD detected: .tk',
-        flagged_content: 'https://freegiveaway.tk',
-        status: 'pending',
+        url: heroUrl,
+        source_url: heroUrl,
+        source: 'legacy',
+        status: 'active',
+        sort_order: 0,
       },
       {
         brand_id: brandId,
-        user_id: testUserId,
-        field_name: 'description',
-        flag_reason: 'Email address detected',
-        flagged_content: '[E2E-TEST] Suspicious moderation test brand test@example.com',
-        status: 'pending',
+        url: productUrl,
+        source_url: productUrl,
+        source: 'legacy',
+        status: 'active',
+        sort_order: 1,
       },
-    ]).select('id');
-    if (flagErr) throw new Error(`seed moderation_flags: ${flagErr.message}`);
-    if (!flagsData || flagsData.length !== 2) throw new Error('seed moderation_flags: missing ids');
-    [highFlagId, mediumFlagId] = flagsData.map((flag) => flag.id);
-  });
-
-  test.afterAll(async () => {
-    if (brandId) {
-      await supabase.from('moderation_flags').delete().eq('brand_id', brandId);
-      await supabase.from('brands').delete().eq('id', brandId);
+    ]);
+    if (imageError) {
+      throw new Error(`Failed to seed moderation images: ${imageError.message}`);
     }
   });
 
-  test('moderation dashboard shows blocked rows and review actions', async ({
-    adminPage,
-  }) => {
-    test.setTimeout(120_000);
-
-    await adminPage.goto('/admin/moderation', { timeout: 60_000 });
-    await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
-
-    // Page heading: t('dashboard') = "Content Moderation"
-    await expect(adminPage.getByRole('heading', { name: 'Content Moderation' })).toBeVisible({ timeout: 60_000 });
-
-    // The seeded brand's flag rows appear in the table
-    await expect(adminPage.getByText(/\[E2E-TEST\] Moderation/).first()).toBeVisible({ timeout: 30_000 });
-
-    await expect(adminPage.locator('table').getByRole('columnheader', { name: 'Actions' })).toBeVisible();
-    await expect(adminPage.getByRole('button', { name: 'Mark reviewed' }).first()).toBeVisible();
-    await expect(adminPage.getByRole('button', { name: 'Dismiss' }).first()).toBeVisible();
+  test.afterAll(async () => {
+    if (!supabase || !brandId) return;
+    await supabase.from('moderation_flags').delete().eq('brand_id', brandId);
+    await supabase.from('brand_owners').delete().eq('brand_id', brandId);
+    await supabase.from('brands').delete().eq('id', brandId);
   });
 
-  test('moderation dashboard has no tier or risk filters', async ({
+  async function saveBasicInfoDraft(ownerPage: Page, description: string) {
+    await ownerPage.goto(`/zh-TW/dashboard/brands/${brandSlug}/edit?step=0`, {
+      timeout: 60_000,
+    });
+    await expect(ownerPage.locator('#description')).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(ownerPage.locator('#name')).toHaveValue(brandName, {
+      timeout: 30_000,
+    });
+    await expect(ownerPage.locator('#productType')).toHaveValue('crafts', {
+      timeout: 30_000,
+    });
+    await expect(ownerPage.locator('#priceRange')).toHaveValue('2', {
+      timeout: 30_000,
+    });
+    await ownerPage.locator('#description').fill(description);
+    await ownerPage.getByRole('button', { name: '儲存並繼續' }).click();
+    await expect(ownerPage.getByRole('heading', { name: '產品圖片' })).toBeVisible({
+      timeout: 60_000,
+    });
+    await expect
+      .poll(
+        async () => {
+          const { data, error } = await supabase
+            .from('brands')
+            .select('draft_data')
+            .eq('id', brandId)
+            .single();
+          expect(error).toBeNull();
+          return (data?.draft_data as Record<string, unknown> | null)
+            ?.description;
+        },
+        { timeout: 30_000, intervals: [500, 1_000, 2_000] },
+      )
+      .toBe(description);
+  }
+
+  async function publishDraft(ownerPage: Page) {
+    await ownerPage.goto(`/zh-TW/dashboard/brands/${brandSlug}/edit?step=4`, {
+      timeout: 60_000,
+    });
+    await expect(ownerPage.getByRole('button', { name: '發布' })).toBeVisible({
+      timeout: 30_000,
+    });
+    await ownerPage.getByRole('button', { name: '發布' }).click();
+  }
+
+  test('clean owner edit publishes immediately', async ({ ownerPage }) => {
+    test.setTimeout(120_000);
+    const updatedDescription = `${cleanDescription}，新增耐用設計說明`;
+
+    await saveBasicInfoDraft(ownerPage, updatedDescription);
+    await publishDraft(ownerPage);
+
+    await expect
+      .poll(
+        async () => {
+          const { data, error } = await supabase
+            .from('brands')
+            .select('description, draft_data')
+            .eq('id', brandId)
+            .single();
+          expect(error).toBeNull();
+          return {
+            description: data?.description,
+            draftData: data?.draft_data,
+          };
+        },
+        { timeout: 30_000, intervals: [500, 1_000, 2_000] },
+      )
+      .toEqual({ description: updatedDescription, draftData: null });
+
+    const { data: flags, error: flagsError } = await supabase
+      .from('moderation_flags')
+      .select('id')
+      .eq('brand_id', brandId);
+    expect(flagsError).toBeNull();
+    expect(flags).toEqual([]);
+
+    await ownerPage.goto(`/zh-TW/brands/${brandSlug}`, { timeout: 60_000 });
+    await expect(ownerPage.getByText(updatedDescription, { exact: true })).toBeVisible({
+      timeout: 30_000,
+    });
+  });
+
+  test('blocked owner edit shows localized guidance and stays unpublished', async ({
+    ownerPage,
+  }) => {
+    test.setTimeout(120_000);
+    const blockedDescription = `${cleanDescription}，聯絡電話 0912345678`;
+
+    await saveBasicInfoDraft(ownerPage, blockedDescription);
+    await publishDraft(ownerPage);
+
+    await expect(ownerPage.getByRole('heading', { name: '基本資料' })).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(ownerPage.locator('#description-error')).toHaveText(
+      /此欄位不可放電話號碼/,
+      { timeout: 30_000 },
+    );
+
+    const { data: brand, error: brandError } = await supabase
+      .from('brands')
+      .select('description, draft_data')
+      .eq('id', brandId)
+      .single();
+    expect(brandError).toBeNull();
+    expect(brand?.description).toBe(`${cleanDescription}，新增耐用設計說明`);
+    expect((brand?.draft_data as Record<string, unknown>)?.description).toBe(
+      blockedDescription,
+    );
+
+    await ownerPage.goto(`/zh-TW/brands/${brandSlug}`, { timeout: 60_000 });
+    await expect(
+      ownerPage.getByText(`${cleanDescription}，新增耐用設計說明`, {
+        exact: true,
+      }),
+    ).toBeVisible({ timeout: 30_000 });
+    await expect(ownerPage.getByText(blockedDescription, { exact: true })).toHaveCount(0);
+
+    const { data: flags, error: flagsError } = await supabase
+      .from('moderation_flags')
+      .select('id, field_name, flag_reason, status')
+      .eq('brand_id', brandId)
+      .eq('status', 'pending');
+    expect(flagsError).toBeNull();
+    expect(flags).toHaveLength(1);
+    const ownerFlag = flags?.at(0);
+    expect(ownerFlag).toMatchObject({
+      field_name: 'description',
+      flag_reason: 'contact_injection_phone',
+      status: 'pending',
+    });
+    ownerBlockedFlagId = ownerFlag?.id ?? '';
+  });
+
+  test('admin cannot bypass the block and can review the resulting queue rows', async ({
     adminPage,
   }) => {
     test.setTimeout(120_000);
 
-    await adminPage.goto('/admin/moderation', { timeout: 60_000 });
-    await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
+    await adminPage.goto('/admin/brands', { timeout: 60_000 });
+    await adminPage.getByPlaceholder('Search brand name...').fill(brandName);
+    const brandRow = adminPage.locator('tbody tr').filter({ hasText: brandName });
+    await expect(brandRow).toBeVisible({ timeout: 30_000 });
+    await brandRow.getByRole('button', { name: 'Edit' }).click();
 
+    await expect(adminPage.getByRole('dialog')).toBeVisible({ timeout: 10_000 });
+    await adminPage
+      .locator('#brand-description')
+      .fill(`${cleanDescription}，管理員電話 0912345678`);
+    await adminPage.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
+    await expect(adminPage.getByRole('dialog')).toContainText(
+      'Phone numbers are not allowed in this field',
+      { timeout: 30_000 },
+    );
+
+    const { data: brand, error: brandError } = await supabase
+      .from('brands')
+      .select('description')
+      .eq('id', brandId)
+      .single();
+    expect(brandError).toBeNull();
+    expect(brand?.description).toBe(`${cleanDescription}，新增耐用設計說明`);
+
+    const { data: pendingFlags, error: pendingFlagsError } = await supabase
+      .from('moderation_flags')
+      .select('id, field_name, flag_reason, status')
+      .eq('brand_id', brandId)
+      .eq('status', 'pending');
+    expect(pendingFlagsError).toBeNull();
+    expect(pendingFlags).toHaveLength(2);
+    const adminFlag = pendingFlags?.find(
+      (flag) => flag.id !== ownerBlockedFlagId,
+    );
+    expect(adminFlag).toMatchObject({
+      field_name: 'description',
+      flag_reason: 'contact_injection_phone',
+      status: 'pending',
+    });
+    adminBlockedFlagId = adminFlag?.id ?? '';
+
+    await adminPage.goto('/admin/moderation', { timeout: 60_000 });
+    await expect(
+      adminPage.locator('table').getByRole('columnheader', { name: 'Brand' }),
+    ).toBeVisible({ timeout: 30_000 });
+    await expect(
+      adminPage.locator('table').getByRole('columnheader', { name: 'Actions' }),
+    ).toBeVisible();
     await expect(adminPage.getByText('Filter by risk')).toHaveCount(0);
     await expect(adminPage.getByText('Filter by tier')).toHaveCount(0);
-    await expect(adminPage.getByText('Suspicious domain')).toBeVisible({ timeout: 10_000 });
-    await expect(adminPage.getByText('Email address')).toBeVisible({ timeout: 10_000 });
-  });
 
-  test('moderators can review or dismiss pending flags', async ({ adminPage }) => {
-    test.setTimeout(120_000);
+    const pendingRows = adminPage.locator('tbody tr').filter({ hasText: brandName });
+    await expect(pendingRows).toHaveCount(2, { timeout: 30_000 });
+    await expect(pendingRows.first()).toContainText('Phone number');
+    await expect(pendingRows.first().getByRole('button', { name: 'Mark reviewed' })).toBeVisible();
+    await expect(pendingRows.first().getByRole('button', { name: 'Dismiss' })).toBeVisible();
 
-    await adminPage.goto('/admin/moderation', { timeout: 60_000 });
-    await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
+    await pendingRows.first().getByRole('button', { name: 'Mark reviewed' }).click();
+    await expect(pendingRows).toHaveCount(1, { timeout: 30_000 });
+    await pendingRows.first().getByRole('button', { name: 'Dismiss' }).click();
+    await expect(pendingRows).toHaveCount(0, { timeout: 30_000 });
 
-    const highRow = adminPage.locator('tbody tr').filter({
-      hasText: '[E2E-TEST] Moderation',
-    }).filter({ hasText: 'High Risk' }).first();
-    await expect(highRow).toBeVisible({ timeout: 30_000 });
-    await highRow.getByRole('button', { name: 'Mark reviewed' }).click();
-    await expect(highRow).toHaveCount(0, { timeout: 30_000 });
-
-    const mediumRow = adminPage.locator('tbody tr').filter({
-      hasText: '[E2E-TEST] Moderation',
-    }).filter({ hasText: 'Medium Risk' }).first();
-    await expect(mediumRow).toBeVisible({ timeout: 30_000 });
-    await mediumRow.getByRole('button', { name: 'Dismiss' }).click();
-    await expect(mediumRow).toHaveCount(0, { timeout: 30_000 });
-
-    const { data: flags, error } = await supabase
+    const { data: reviewedFlags, error: reviewedFlagsError } = await supabase
       .from('moderation_flags')
       .select('id, status')
-      .in('id', [highFlagId, mediumFlagId]);
-    expect(error).toBeNull();
-    expect(flags).toEqual(expect.arrayContaining([
-      { id: highFlagId, status: 'reviewed' },
-      { id: mediumFlagId, status: 'dismissed' },
-    ]));
+      .in('id', [ownerBlockedFlagId, adminBlockedFlagId]);
+    expect(reviewedFlagsError).toBeNull();
+    expect(new Set(reviewedFlags?.map((flag) => flag.id))).toEqual(
+      new Set([ownerBlockedFlagId, adminBlockedFlagId]),
+    );
+    expect(reviewedFlags?.map((flag) => flag.status).sort()).toEqual([
+      'dismissed',
+      'reviewed',
+    ]);
   });
 });

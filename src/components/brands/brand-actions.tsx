@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl'
 import { ExternalLink } from 'lucide-react'
 import { trackExternalLinkClicked } from '@/lib/analytics'
+import { EvidenceDialog } from '@/components/brands/evidence-dialog'
 import { ReportDialog } from '@/components/brands/report-dialog'
 import { buttonVariants } from '@/components/ui/button'
 import { SaveBrandButton } from './save-brand-button'
@@ -51,6 +52,7 @@ export function BrandActions({ websiteUrl, brandSlug = '', brandId, brandName }:
         <div className="flex gap-2">
           <ShareDialog brandSlug={brandSlug} brandName={brandName} brandId={brandId} />
           {brandId && <SaveBrandButton brandId={brandId} slug={brandSlug} variant="inline" className="rounded-xl" />}
+          {brandId && <EvidenceDialog brandId={brandId} brandSlug={brandSlug} />}
           {brandId && <ReportDialog brandId={brandId} brandSlug={brandSlug} />}
         </div>
       </div>

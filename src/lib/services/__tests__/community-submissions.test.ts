@@ -70,14 +70,14 @@ describe("community submission CSV parsing", () => {
     expect(() => parseCommunitySubmissionsCsv(csv)).toThrow(message);
   });
 
-  it("ignores fully blank rows and enforces the 100-row limit", () => {
+  it("ignores fully blank rows and enforces the 500-row limit", () => {
     expect(parseCommunitySubmissionsCsv("name,website\n,\n\n")).toEqual([]);
     const body = Array.from(
-      { length: 101 },
+      { length: 501 },
       (_, index) => `Brand ${index},brand${index}.test`,
     ).join("\n");
     expect(() => parseCommunitySubmissionsCsv(`name,website\n${body}`)).toThrow(
-      "CSV cannot contain more than 100 entries",
+      "CSV cannot contain more than 500 entries",
     );
   });
 

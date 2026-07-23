@@ -3,7 +3,10 @@ import { test as base, type Page } from '@playwright/test';
 import path from 'path';
 import fs from 'fs';
 import { createClient } from '@supabase/supabase-js';
-import { writeAuthStorageState } from '../helpers/auth-session';
+import {
+  writeAuthStorageState,
+  writeAuthStorageStateForCredentials,
+} from '../helpers/auth-session';
 
 const AUTH_DIR = path.join(__dirname, '../.auth');
 const SESSION_BUFFER_S = 300;
@@ -31,12 +34,14 @@ function ensureFreshSession(storePath: string): boolean {
 type AuthFixtures = {
   adminPage: Page;
   userPage: Page;
+  isolatedUserPage: Page;
   anonPage: Page;
 };
 
 type WorkerAuthFixtures = {
   adminStorageState: string;
   userStorageState: string;
+  isolatedUserStorageState: string;
   isolatedUser: {
     id: string;
     email: string;
@@ -100,6 +105,25 @@ export const test = base.extend<AuthFixtures, WorkerAuthFixtures>({
     { scope: 'worker' },
   ],
 
+  isolatedUserStorageState: [
+    async ({ isolatedUser }, use, workerInfo) => {
+      const storePath = path.join(AUTH_DIR, `isolated-user-${workerInfo.workerIndex}.json`);
+      await writeAuthStorageStateForCredentials(
+        isolatedUser.email,
+        isolatedUser.password,
+        storePath,
+        'isolated user',
+      );
+
+      try {
+        await use(storePath);
+      } finally {
+        if (fs.existsSync(storePath)) fs.unlinkSync(storePath);
+      }
+    },
+    { scope: 'worker' },
+  ],
+
   adminPage: async ({ browser, adminStorageState }, use) => {
     const context = await browser.newContext({
       storageState: adminStorageState,
@@ -116,6 +140,18 @@ export const test = base.extend<AuthFixtures, WorkerAuthFixtures>({
     const page = await context.newPage();
     await use(page);
     await context.close();
+  },
+
+  isolatedUserPage: async ({ browser, isolatedUserStorageState }, use) => {
+    const context = await browser.newContext({
+      storageState: isolatedUserStorageState,
+    });
+    const page = await context.newPage();
+    try {
+      await use(page);
+    } finally {
+      await context.close();
+    }
   },
 
   anonPage: async ({ browser }, use) => {

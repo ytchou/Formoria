@@ -19,6 +19,15 @@ if (process.env.E2E_ADMIN_EMAIL) {
 const imgSrcHosts = ALLOWED_IMAGE_HOSTS.map((hostname) => `https://${hostname}`).join(' ')
 const mapTileImgSrcHosts = 'https://*.tile.openstreetmap.org'
 const googleAdsImgSrcHosts = 'https://www.google.com https://www.google.com.tw'
+const supabaseOrigin = (() => {
+  const configuredUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()
+  if (!configuredUrl) return ''
+  try {
+    return new URL(configuredUrl).origin
+  } catch {
+    return ''
+  }
+})()
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ['adm-zip', '@playwright/test'],
@@ -47,7 +56,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'",
               `img-src 'self' data: blob: ${imgSrcHosts} ${mapTileImgSrcHosts} ${googleAdsImgSrcHosts}`,
               "font-src 'self'",
-              "connect-src 'self' https://e.formoria.com https://*.supabase.co wss://*.supabase.co https://*.sentry.io https://www.google-analytics.com https://analytics.google.com https://www.google.com https://stats.g.doubleclick.net https://challenges.cloudflare.com https://cloudflareinsights.com https://api.axiom.co",
+              `connect-src 'self' ${supabaseOrigin} https://e.formoria.com https://*.supabase.co wss://*.supabase.co https://*.sentry.io https://www.google-analytics.com https://analytics.google.com https://www.google.com https://stats.g.doubleclick.net https://challenges.cloudflare.com https://cloudflareinsights.com https://api.axiom.co`,
               "worker-src 'self' blob:",
               "frame-src https://challenges.cloudflare.com",
               "frame-ancestors 'none'",

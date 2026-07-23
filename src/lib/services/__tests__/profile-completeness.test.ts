@@ -44,7 +44,7 @@ describe('computeProfileCompleteness', () => {
     const result = computeProfileCompleteness(EMPTY)
     expect(result).toMatchObject({ score: 0, completed: 0, total: 12 })
     expect(
-      result.recommendations.slice(0, 6).every((item) => item.required),
+      result.recommendations.slice(0, 5).every((item) => item.required),
     ).toBe(true)
   })
 

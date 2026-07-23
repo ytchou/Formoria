@@ -82,7 +82,7 @@ describe('buildRejectionEmail', () => {
       locale: 'en',
     })
 
-    expect(email.html).toContain('Not Made in Taiwan')
+    expect(email.html).toContain('Not a Taiwanese Brand')
     expect(email.html).toContain('ops@formoria.com')
   })
 

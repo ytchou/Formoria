@@ -51,9 +51,9 @@ const SLOW_THRESHOLD_MS = 2_000
 
 function defaultAudit(event: AuditEvent): void {
   if (event.status === 'error') {
-    console.error('[posthog-query:audit]', event)
+    console.error(`[posthog-query:audit] ${event.queryName} failed (${event.outcome})`, event.response?.httpStatus ?? 'no status')
   } else if (event.latencyMs >= SLOW_THRESHOLD_MS) {
-    console.warn('[posthog-query:audit] slow query', event.queryName, `${event.latencyMs}ms`)
+    console.warn(`[posthog-query:audit] ${event.queryName} slow (${event.latencyMs}ms)`)
   }
 }
 

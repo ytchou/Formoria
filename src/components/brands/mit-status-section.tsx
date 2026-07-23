@@ -1,14 +1,8 @@
 import { getTranslations } from 'next-intl/server'
-import dynamic from 'next/dynamic'
 
 import { MitDeclaredBadge, MitVerifiedBadge } from '@/components/brands/brand-verification-badges'
-import { Button } from '@/components/ui/button'
 import { SurfaceCard } from '@/components/ui/card'
 import type { Brand } from '@/lib/types'
-
-const EvidenceDialog = dynamic(() =>
-  import('@/components/brands/evidence-dialog').then((module) => module.EvidenceDialog)
-)
 
 type MitStatusSectionProps = {
   brand: Brand
@@ -31,7 +25,6 @@ export async function MitStatusSection({ brand, locale }: MitStatusSectionProps)
   const t = await getTranslations('brandDetail')
   const isDeclared = brand.mitStatus === 'declared'
   const isVerified = brand.mitStatus === 'verified'
-  const hasStatusDetails = isDeclared || isVerified
   const declaredDate =
     isDeclared && brand.mitDeclaredAt
       ? formatDeclaredDate(brand.mitDeclaredAt, locale)
@@ -68,20 +61,6 @@ export async function MitStatusSection({ brand, locale }: MitStatusSectionProps)
         </div>
       )}
 
-      <div className={hasStatusDetails ? 'border-t border-border p-2' : 'p-2'}>
-        <div className="[&:has([data-evidence-dialog-trigger])>[data-evidence-dialog-fallback]]:hidden">
-          <EvidenceDialog brandId={brand.id} brandSlug={brand.slug} />
-          <Button
-            type="button"
-            variant="ghost"
-            className="min-h-12 w-full justify-start rounded-lg"
-            data-evidence-dialog-fallback
-            disabled
-          >
-            {t('mitStatus.reportOrigin')}
-          </Button>
-        </div>
-      </div>
     </SurfaceCard>
   )
 }

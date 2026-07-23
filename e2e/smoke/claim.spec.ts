@@ -9,12 +9,25 @@ const ONE_PIXEL_PNG = Buffer.from(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
+type ClaimRow = {
+  id: string;
+  proof_evidence: Array<{ imageKey?: string }> | null;
+};
+
+function claimProofPath(storageKey: string): string {
+  return storageKey.startsWith('claim-proofs/')
+    ? storageKey.slice('claim-proofs/'.length)
+    : storageKey;
+}
+
 test.describe('Claim smoke', () => {
   let supabaseAdmin: AnySupabaseClient;
   let brandId: string;
   let brandSlug: string;
   let brandName: string;
   let userId: string;
+  let claimRequestId: string | undefined;
+  const proofStorageKeys = new Set<string>();
 
   test.beforeAll(async () => {
     supabaseAdmin = createClient(
@@ -59,6 +72,32 @@ test.describe('Claim smoke', () => {
   test.afterAll(async () => {
     if (!supabaseAdmin || !brandId) return;
 
+    const { data: remainingClaims } = await supabaseAdmin
+      .from('claim_requests')
+      .select('id')
+      .eq('brand_id', brandId);
+    const claimIds = new Set<string>(
+      (remainingClaims ?? []).flatMap((claim: { id?: string }) => claim.id ? [claim.id] : []),
+    );
+    if (claimRequestId) claimIds.add(claimRequestId);
+    if (claimIds.size > 0) {
+      await supabaseAdmin
+        .from('claim_proof_cleanup_jobs')
+        .delete()
+        .in('claim_request_id', [...claimIds]);
+    }
+    const storagePrefix = `${userId}/${brandId}`;
+    const { data: remainingObjects } = await supabaseAdmin.storage
+      .from('claim-proofs')
+      .list(storagePrefix);
+    for (const object of remainingObjects ?? []) {
+      proofStorageKeys.add(`${storagePrefix}/${object.name}`);
+    }
+    if (proofStorageKeys.size > 0) {
+      await supabaseAdmin.storage
+        .from('claim-proofs')
+        .remove([...proofStorageKeys].map(claimProofPath));
+    }
     await supabaseAdmin.from('claim_requests').delete().eq('brand_id', brandId);
     await supabaseAdmin.from('brand_owners').delete().eq('brand_id', brandId);
     await supabaseAdmin.from('brands').delete().eq('id', brandId);
@@ -123,6 +162,21 @@ test.describe('Claim smoke', () => {
       )
       .toBeGreaterThanOrEqual(1);
 
+    const { data: claimRow, error: claimRowError } = await supabaseAdmin
+      .from('claim_requests')
+      .select('id, proof_evidence')
+      .eq('brand_id', brandId)
+      .eq('user_id', userId)
+      .single<ClaimRow>();
+    if (claimRowError || !claimRow) {
+      throw new Error(`Failed to load submitted claim: ${claimRowError?.message ?? 'missing row'}`);
+    }
+    claimRequestId = claimRow.id;
+    for (const proof of claimRow.proof_evidence ?? []) {
+      if (proof.imageKey) proofStorageKeys.add(proof.imageKey);
+    }
+    expect(proofStorageKeys.size).toBeGreaterThanOrEqual(1);
+
     // Admin: approve the claim
     await adminPage.goto('/admin/claims', { timeout: 60_000 });
     await expect(
@@ -137,6 +191,42 @@ test.describe('Claim smoke', () => {
     await expect(approveBtn).toBeVisible({ timeout: 5_000 });
     await approveBtn.click();
     await expect(approveBtn).toBeHidden({ timeout: 15_000 });
+
+    await adminPage.getByRole('tab', { name: /^Approved \(/ }).click();
+    const approvedRow = adminPage.getByRole('row').filter({ hasText: brandName }).first();
+    await expect(approvedRow).toBeVisible({ timeout: 15_000 });
+    await expect(approvedRow).toHaveAttribute('aria-expanded', 'true');
+    await expect(adminPage.getByText(/Proof file cleanup|證明檔案清理狀態/)).toBeVisible();
+    await expect(adminPage.getByText(/Deleted|已刪除/, { exact: true })).toBeVisible();
+
+    await expect
+      .poll(
+        async () => {
+          const { data, error } = await supabaseAdmin
+            .from('claim_proof_cleanup_jobs')
+            .select('status')
+            .eq('claim_request_id', claimRequestId)
+            .maybeSingle<{ status: string }>();
+          if (error) throw error;
+          return data?.status ?? null;
+        },
+        { timeout: 15_000, intervals: [500, 1_000, 2_000] }
+      )
+      .toBe('completed');
+
+    for (const storageKey of proofStorageKeys) {
+      await expect
+        .poll(
+          async () => {
+            const { data } = await supabaseAdmin.storage
+              .from('claim-proofs')
+              .download(claimProofPath(storageKey));
+            return data !== null;
+          },
+          { timeout: 15_000, intervals: [500, 1_000, 2_000] }
+        )
+        .toBe(false);
+    }
 
     // DB: brand_owners row created for this user
     await expect
@@ -156,12 +246,20 @@ test.describe('Claim smoke', () => {
       )
       .toBe(userId);
 
-    // Brand-managed badge is eventually consistent (ISR-cached page): poll-reload
+    // The public brand page is ISR-cached, so assert immediate owner visibility through
+    // the uncached authenticated dashboard instead of waiting for the public badge.
     await expect(async () => {
-      await userPage.goto(brandPath);
-      await expect(
-        userPage.getByTitle('由品牌方經營管理')
-      ).toBeVisible({ timeout: 5_000 });
+      await userPage.goto('/dashboard');
+      await expect(userPage).toHaveURL(
+        new RegExp(`/dashboard/brands/${brandSlug}$`),
+        { timeout: 5_000 },
+      );
+      await expect(userPage.getByRole('heading', { level: 1, name: brandName })).toBeVisible({
+        timeout: 5_000,
+      });
+      await expect(userPage.getByRole('link', { name: '編輯品牌' }).first()).toBeVisible({
+        timeout: 5_000,
+      });
     }).toPass({ timeout: 120_000, intervals: [2_000, 3_000, 5_000, 10_000] });
   });
 });

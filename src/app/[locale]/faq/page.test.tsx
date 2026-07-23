@@ -72,11 +72,11 @@ describe('FaqPage (zh-TW)', () => {
     expect(screen.getByRole('heading', { name: '常見問題' })).toBeInTheDocument()
   })
 
-  it('renders exactly 13 accordion items', async () => {
+  it('renders exactly 14 accordion items', async () => {
     const { container } = render(
       await FaqPage({ params: Promise.resolve({ locale: 'zh-TW' }) })
     )
-    expect(container.querySelectorAll('details')).toHaveLength(13)
+    expect(container.querySelectorAll('details')).toHaveLength(14)
   })
 
   it('keeps the contact prompt concise and distinguishes the contact link', async () => {
@@ -92,7 +92,7 @@ describe('FaqPage (zh-TW)', () => {
     const { container } = render(
       await FaqPage({ params: Promise.resolve({ locale: 'zh-TW' }) })
     )
-    expect(container.querySelectorAll('details > summary')).toHaveLength(13)
+    expect(container.querySelectorAll('details > summary')).toHaveLength(14)
   })
 
   it('includes the 收錄哪些品牌 question', async () => {

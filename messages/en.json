@@ -825,6 +825,10 @@
         "question": "What brands are listed on Formoria?",
         "answer": "Formoria is a community-curated Taiwanese brand directory. We list brands founded, designed, or made in Taiwan so people can discover their products, stories, and official links."
       },
+      "whoCanSubmit": {
+        "question": "What counts as a Taiwanese brand?",
+        "answer": "A brand qualifies if it was founded, designed, or manufactured in Taiwan — meeting any one of the three is enough. For example, a company headquartered in Taipei qualifies under 'founded'; a studio that designs products in Taiwan but manufactures overseas qualifies under 'designed'; a workshop producing goods in Yingge qualifies under 'manufactured'. We welcome submissions from brand owners, fans, and community members alike."
+      },
       "whatDoesMitMean": {
         "question": "What do the MIT tiers mean?",
         "answer": "MIT Verified means Formoria matched a product to the official MIT Smile registry. MIT Declared means the brand owner stated whether some, most, or all products are made in Taiwan. Neither tier implies that every product from the brand is made in Taiwan; check the listed scope and evidence."
@@ -1687,7 +1691,7 @@
       "applySuggestion": "Apply",
       "brandDescription": "Brand Description",
       "brandDescriptionPlaceholder": "Tell us about your brand...",
-      "brandDescriptionHint": "Write a specific, factual description (at least 40 characters) — what you make, your materials, and what makes the brand Taiwanese.",
+      "brandDescriptionHint": "Write a specific, factual description (at least 40 characters) — what you make, your materials, and how the brand is founded, designed, or made in Taiwan.",
       "mitSmileMarkNumber": "MIT Smile mark number",
       "mitSmileMarkNumberPlaceholder": "e.g. 01200024-02134",
       "mitSmileMarkNumberHint": "After verification, the brand page will show a MIT Smile certification tag.",
@@ -2213,7 +2217,7 @@
     },
     "submissions": {
       "denialReasons": {
-        "not_mit": "Not Made in Taiwan",
+        "not_mit": "Not a Taiwanese Brand",
         "insufficient_info": "Insufficient Information",
         "duplicate": "Duplicate Submission",
         "policy_violation": "Policy Violation",

@@ -825,6 +825,10 @@
         "question": "Formoria 收錄哪些品牌？",
         "answer": "Formoria 是由社群共同整理的台灣品牌目錄，收錄在台灣創立、設計或製造的品牌，讓你探索品牌產品、故事與官方連結。"
       },
+      "whoCanSubmit": {
+        "question": "什麼樣的品牌符合收錄資格？",
+        "answer": "只要品牌在台灣創立、設計或製造，符合其中任何一項即可。例如：總部設在台北的公司符合「創立」條件；在台灣設計、海外生產的工作室符合「設計」條件；在鶯歌製作產品的工坊符合「製造」條件。歡迎品牌主、品牌愛好者或社群成員提交。"
+      },
       "whatDoesMitMean": {
         "question": "MIT 層級代表什麼？",
         "answer": "「MIT 認證」代表 Formoria 已比對產品與官方 MIT 微笑標章登錄資料；「品牌聲明」則記錄品牌主聲明的製造範圍，可能是部分、多數或全部產品。兩者都不代表該品牌每項產品皆在台灣製造，請查看頁面標示的範圍與佐證。"
@@ -1687,7 +1691,7 @@
       "applySuggestion": "套用",
       "brandDescription": "品牌描述",
       "brandDescriptionPlaceholder": "告訴我們關於您的品牌...",
-      "brandDescriptionHint": "請寫下具體、可查證的介紹（至少 40 個字元）——你做什麼、使用的材料，以及品牌的台灣特色。",
+      "brandDescriptionHint": "請寫下具體、可查證的介紹（至少 40 個字元）——你做什麼、使用的材料，以及品牌如何在台灣創立、設計或製造。",
       "mitSmileMarkNumber": "MIT 微笑標章編號",
       "mitSmileMarkNumberPlaceholder": "例如 01200024-02134",
       "mitSmileMarkNumberHint": "通過驗證後，品牌頁會顯示 MIT 微笑認證標籤。",
@@ -2213,7 +2217,7 @@
     },
     "submissions": {
       "denialReasons": {
-        "not_mit": "非台灣製造",
+        "not_mit": "非台灣品牌",
         "insufficient_info": "資訊不足",
         "duplicate": "重複提交",
         "policy_violation": "違反政策",

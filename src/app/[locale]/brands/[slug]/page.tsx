@@ -273,7 +273,9 @@ export default async function BrandDetailPage({ params }: PageProps) {
               }
             />
 
-            <MitStatusSection brand={displayBrand} locale={safeLocale} />
+            {displayBrand.mitStatus !== 'unverified' && (
+              <MitStatusSection brand={displayBrand} locale={safeLocale} />
+            )}
 
             <hr className="border-border" />
 
