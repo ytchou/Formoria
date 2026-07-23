@@ -1,7 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import type { Database, Json } from '@/lib/supabase/database.types'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { brandTarget, targetForeignKey, type EnrichmentTarget } from './enrichment-target'
+import { targetForeignKey, type EnrichmentTarget } from './enrichment-target'
 
 export type SearchType = 'serp' | 'image' | 'maps' | 'scrape'
 export type SearchCallStatus =
@@ -120,37 +120,6 @@ export async function finishSearchAudit(
   if (error) {
     throw new Error(`Failed to finish search audit ${id}: ${error.message}`)
   }
-}
-
-export async function insertSearchResult(
-  targetOrBrandId: EnrichmentTarget | string,
-  searchType: SearchType,
-  query: string,
-  urls: string[],
-  snippets: string[],
-  rawResponse?: unknown,
-  config?: unknown,
-  latencyMs?: number,
-  jobId?: string,
-): Promise<void> {
-  const supabase = createServiceClient()
-  const target = typeof targetOrBrandId === 'string'
-    ? brandTarget(targetOrBrandId)
-    : targetOrBrandId
-  const { error } = await supabase.from('brand_search_results').insert({
-    ...targetForeignKey(target),
-    provider: 'legacy',
-    call_status: 'succeeded',
-    job_id: jobId ?? null,
-    search_type: searchType,
-    query,
-    urls,
-    snippets,
-    raw_response: rawResponse ?? null,
-    config: config ?? null,
-    latency_ms: latencyMs ?? null,
-  })
-  if (error) throw error
 }
 
 export async function getLatestSearchResults(
