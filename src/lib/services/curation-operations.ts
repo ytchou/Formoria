@@ -81,7 +81,6 @@ type CurationBrand = {
   category_attributes?: unknown | null;
   site_content?: SiteContent | null;
   reputation_summary?: unknown | null;
-  retail_locations?: unknown | null;
   mit_evidence?: unknown | null;
   purchase_website?: string | null;
   purchaseWebsite?: string | null;
@@ -282,7 +281,6 @@ export function seedEnrichedDataFromOwnerData(
     ["priceRange", "price_range"],
     ["productTags", "product_tags"],
     ["productPhotos", "product_photos"],
-    ["retailLocations", "retail_locations"],
     ["mitStory", "mit_story"],
     ["heroImageUrl", "hero_image_url"],
     ["description", "description"],
@@ -338,11 +336,6 @@ export function mergeSubmissionEnrichedData(
   if (Object.hasOwn(patch, "channels")) {
     // channels are object arrays; deepMergeJsonObjects unions with Set (no-op on objects).
     merged.channels = patch.channels;
-  }
-  if (Object.hasOwn(patch, "retail_locations")) {
-    // retail_locations are object arrays; deepMergeJsonObjects unions with Set (no-op on objects).
-    // Overridden per-site until deepMergeJsonObjects handles object-array fields.
-    merged.retail_locations = patch.retail_locations;
   }
   return merged;
 }
@@ -726,11 +719,6 @@ export function submissionToEnrichBrand(
     isRefresh && isPlainObject(submission.base_brand_data)
       ? deepMergeJsonObjects(submission.base_brand_data, existingEnriched)
       : seedEnrichedDataFromOwnerData(submission.owner_data, existingEnriched);
-  if (isRefresh && Object.hasOwn(existingEnriched, "retail_locations")) {
-    // retail_locations are object arrays; deepMergeJsonObjects unions with Set (no-op on objects).
-    // Overridden per-site until deepMergeJsonObjects handles object-array fields.
-    existing.retail_locations = existingEnriched.retail_locations;
-  }
   if (isRefresh && Object.hasOwn(existingEnriched, "channels")) {
     // channels are object arrays; deepMergeJsonObjects unions with Set (no-op on objects).
     // Overridden per-site until deepMergeJsonObjects handles object-array fields.
@@ -759,7 +747,6 @@ export function submissionToEnrichBrand(
       ? (existing.site_content as EnrichBrand["site_content"])
       : null,
     reputation_summary: existing.reputation_summary ?? null,
-    retail_locations: existing.retail_locations ?? null,
     mit_evidence: existing.mit_evidence ?? null,
     product_type:
       typeof existing.product_type === "string" ? existing.product_type : null,

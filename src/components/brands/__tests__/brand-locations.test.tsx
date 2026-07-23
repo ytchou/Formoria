@@ -50,7 +50,7 @@ const messages = {
   },
 }
 
-const baseBrand: Brand = {
+const baseBrand: Brand & { retailLocations: RetailLocation[] } = {
   id: 'brand-location-1',
   name: 'Warmwood Living',
   slug: 'warmwood-living',

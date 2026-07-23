@@ -17,7 +17,6 @@ describe('brandToInsert', () => {
       socialThreads: null,
       socialFacebook: null,
       otherUrls: [],
-      retailLocations: [],
     })
 
     expect(row.status).toBe('approved')

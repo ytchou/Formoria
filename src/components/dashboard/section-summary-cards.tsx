@@ -111,7 +111,9 @@ export async function SectionSummaryCards({
           { label: tProfile('socialLinks'), value: socialCount },
           {
             label: tProfile('retailLocations'),
-            value: normalizeRetailLocations(brand.retailLocations).length,
+            value: normalizeRetailLocations(
+              (brand as Brand & { retailLocations?: unknown }).retailLocations,
+            ).length,
           },
         ]}
         title={tOverview('sectionLinksTitle')}

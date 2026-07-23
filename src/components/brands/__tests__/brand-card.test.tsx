@@ -71,7 +71,6 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     purchasePinkoi: null,
     purchaseShopee: null,
     otherUrls: [],
-    retailLocations: [],
     productPhotos: [],
     siteContent: null,
     priceRange: null,

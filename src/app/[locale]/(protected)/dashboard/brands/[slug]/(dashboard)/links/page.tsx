@@ -10,6 +10,7 @@ import {
   normalizeRetailLocations,
 } from '@/lib/brands/locations'
 import { getBrandBySlug } from '@/lib/services/brands'
+import type { Brand } from '@/lib/types'
 import type { RetailLocationRelationshipType } from '@/lib/types/brand'
 
 type Props = {
@@ -35,7 +36,9 @@ export default async function LinksPage({ params }: Props) {
     getTranslations({ locale, namespace: 'dashboard.brandProfile' }),
     getTranslations({ locale, namespace: 'dashboard.edit' }),
   ])
-  const retailLocations = normalizeRetailLocations(brand.retailLocations)
+  const retailLocations = normalizeRetailLocations(
+    (brand as Brand & { retailLocations?: unknown }).retailLocations,
+  )
 
   return (
     <SectionDetailLayout

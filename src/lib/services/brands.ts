@@ -14,7 +14,6 @@ import {
   matchSubcategory,
   PRODUCT_TYPE_CATEGORIES,
 } from '@/lib/taxonomy/ontology'
-import { normalizeRetailLocations } from '@/lib/brands/locations'
 import { slugifyRomanizedName, withSlugSuffix } from '@/lib/brands/slug'
 import { downloadAndStoreImages } from './image-download'
 import {
@@ -90,7 +89,6 @@ export type CuratedSubmissionInput = {
   productPhotos: string[]
   purchaseLinks: Array<{ platform: string; url: string }>
   socialLinks: { instagram: string; threads: string; facebook: string; website: string }
-  retailLocations: Array<{ name: string; address: string }>
   region?: string | null
 }
 
@@ -391,13 +389,6 @@ export function curatedSubmissionToBrand(input: CuratedSubmissionInput): Curated
     purchasePinkoi,
     purchaseShopee,
     otherUrls,
-    retailLocations: input.retailLocations.map((location) => ({
-      ...location,
-      kind: 'location',
-      relationshipType: 'stockist',
-      confirmationStatus: 'unconfirmed',
-      verificationStatus: 'manual',
-    })),
     productPhotos: input.productPhotos,
     contactEmail: null,
   }
@@ -425,7 +416,6 @@ const BRAND_DRAFT_EDITABLE_KEYS = [
   'purchaseShopee',
   'mitStory',
   'otherUrls',
-  'retailLocations',
   'reputationSummary',
 ] as const satisfies readonly (keyof Brand)[]
 
@@ -596,11 +586,6 @@ export function draftSnapshotToDomain(
       case 'otherUrls':
         partial.otherUrls = (snapshot.otherUrls as Brand['otherUrls']) ?? []
         break
-      case 'retailLocations':
-        partial.retailLocations = normalizeRetailLocations(
-          snapshot.retailLocations,
-        )
-        break
       case 'reputationSummary':
         partial.reputationSummary = snapshot.reputationSummary as Brand['reputationSummary']
         break
@@ -662,7 +647,6 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     purchasePinkoi: row.purchase_pinkoi ?? null,
     purchaseShopee: row.purchase_shopee ?? null,
     otherUrls: (row.other_urls as OtherUrl[]) ?? [],
-    retailLocations: normalizeRetailLocations(row.retail_locations),
     productPhotos: [],
     imageAlts: [],
     contactEmail: row.contact_email ?? null,
@@ -748,7 +732,7 @@ const BRAND_COLUMNS = [
   'id', 'name', 'slug', 'description', 'description_en', 'blurb', 'blurb_en', 'hero_image_url',
   'product_type', 'contact_email', 'city', 'purchase_website', 'purchase_pinkoi',
   'purchase_shopee', 'social_instagram', 'social_threads', 'social_facebook',
-  'other_urls', 'retail_locations', 'site_content',
+  'other_urls', 'site_content',
   'status', 'submitted_at', 'approved_at', 'created_at', 'updated_at',
   'onboarding_dismissed_at',
   'draft_data', 'draft_updated_at', 'founding_year',

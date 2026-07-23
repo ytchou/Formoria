@@ -70,7 +70,6 @@ describe("buildSubmissionReviewData", () => {
       purchaseWebsite: "https://enriched.example.com",
       mitEvidence: { verified_source: "registry" },
       reputationSummary: { text: "評價良好" },
-      retailLocations: [{ name: "台中店" }],
     }, activeImages);
 
     expect(reviewData).toMatchObject({
@@ -87,7 +86,6 @@ describe("buildSubmissionReviewData", () => {
       heroImageUrl: "https://cdn.example.com/hero.webp",
       mitEvidence: { verified_source: "registry" },
       reputationSummary: { text: "評價良好" },
-      retailLocations: [{ name: "台中店" }],
     });
   });
 

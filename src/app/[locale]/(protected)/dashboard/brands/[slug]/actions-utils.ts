@@ -90,7 +90,9 @@ function getString(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined
 }
 
-export function parseBrandEditForm(formData: FormData): Partial<Brand> {
+export function parseBrandEditForm(
+  formData: FormData,
+): Partial<Brand> & { retailLocations?: RetailLocation[] } {
   // Extract basic fields
   const name = formData.get('name') as string | null
   const romanizedName = parseOptionalString(formData.get('romanizedName'))?.trim() ?? null
@@ -191,7 +193,7 @@ export function parseBrandEditForm(formData: FormData): Partial<Brand> {
   }
 
   // Security-relevant allow-list: only explicitly permitted owner-editable fields may reach updateBrand.
-  const updateData: Partial<Brand> = {}
+  const updateData: Partial<Brand> & { retailLocations?: RetailLocation[] } = {}
   if (name) updateData.name = name
   if (formData.has('romanizedName')) {
     updateData.romanizedName = romanizedName

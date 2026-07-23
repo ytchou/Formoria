@@ -62,7 +62,6 @@ function phaseOptions(
       name: 'Littdlework',
       city: 'taipei',
       purchase_website: 'https://littdlework.example',
-      retail_locations: null,
     },
     phases: ['locations'],
     dryRun: true,

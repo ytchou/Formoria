@@ -6,7 +6,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import messages from "../../../../../messages/en.json";
 import type {
   BrandSubmissionForReview,
-  SubmissionLocationCandidate,
   SubmissionReviewImage,
 } from "@/lib/services/submissions";
 import { SubmissionReviewDetails } from "../submission-review-details";
@@ -301,86 +300,6 @@ describe("SubmissionReviewDetails", () => {
     );
   });
 
-  it("shows structured location evidence and accepts a review candidate", async () => {
-    const user = userEvent.setup();
-    const candidate: SubmissionLocationCandidate = {
-      id: "00000000-0000-4000-8000-000000000041",
-      location: {
-        kind: "location",
-        name: "Candidate Stockist",
-        relationshipType: "stockist",
-        city: "taipei",
-        address: "台北市候選路 1 號",
-        latitude: 25.03,
-        longitude: 121.56,
-        verificationStatus: "needs_review",
-        confirmationStatus: "unconfirmed",
-      },
-      verificationDecision: "needs_review",
-      matchReason: "Maps match needs admin confirmation",
-      evidence: [
-        { source: "maps", url: "https://maps.example.com/candidate" },
-        { source: "maps", url: "javascript:alert(document.domain)" },
-      ],
-      normalizedAddress: "台北市候選路1號",
-      auditResultIds: [],
-    };
-    renderDetails(
-      makeSubmission({
-        reviewData: {
-          ...reviewData,
-          retailLocations: [
-            {
-              kind: "location",
-              name: "Candidate Stockist",
-              relationshipType: "stockist",
-              city: "taipei",
-              address: "台北市舊址 9 號",
-              confirmationStatus: "unconfirmed",
-            },
-          ],
-        },
-        locationCandidates: [candidate],
-      }),
-    );
-
-    const locationsSection = screen
-      .getByText("Retail locations")
-      .closest("section")!;
-    expect(within(locationsSection).getByText("台北市候選路 1 號")).toBeInTheDocument();
-    expect(
-      within(locationsSection).queryByRole("link", {
-        name: "javascript:alert(document.domain)",
-      }),
-    ).not.toBeInTheDocument();
-    await user.click(
-      within(locationsSection).getByRole("button", { name: "Edit" }),
-    );
-    await user.click(
-      within(locationsSection).getByRole("button", {
-        name: "Accept candidate",
-      }),
-    );
-    expect(screen.getByDisplayValue("台北市候選路 1 號")).toBeInTheDocument();
-    expect(screen.queryByDisplayValue("台北市舊址 9 號")).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Save changes" }));
-
-    expect(reviewActions.save).toHaveBeenCalledWith(
-      "00000000-0000-4000-8000-000000000001",
-      expect.objectContaining({
-        retailLocations: [
-          expect.objectContaining({
-            name: "Candidate Stockist",
-            address: "台北市候選路 1 號",
-            verificationStatus: "verified",
-            confirmationStatus: "unconfirmed",
-          }),
-        ],
-      }),
-    );
-  });
-
   it("keeps translated product tags paired when trimming an over-limit review", async () => {
     const user = userEvent.setup();
     renderDetails(
@@ -532,7 +451,6 @@ const reviewData = {
   city: "台中",
   categoryAttributes: null,
   reputationSummary: null,
-  retailLocations: null,
   mitEvidence: null,
   siteContent: null,
   foundingYear: 2018,

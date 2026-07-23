@@ -102,7 +102,6 @@ export type SubmissionReviewData = {
   city: string | null;
   categoryAttributes: Json | null;
   reputationSummary: Json | null;
-  retailLocations?: Json | null;
   channels?: ChannelCandidate[];
   mitEvidence: Json | null;
   siteContent: Json | null;
@@ -533,7 +532,6 @@ export function buildSubmissionReviewData(
     city: normalizeString(enrichedData?.city),
     categoryAttributes: enrichedData?.categoryAttributes ?? null,
     reputationSummary: enrichedData?.reputationSummary ?? null,
-    retailLocations: enrichedData?.retailLocations ?? null,
     channels: enrichedData?.channels,
     mitEvidence: enrichedData?.mitEvidence ?? null,
     siteContent: enrichedData?.siteContent ?? null,
@@ -755,7 +753,6 @@ function submissionToBrandBase(row: SubmissionRow): BrandInsert {
     purchase_pinkoi: row.purchase_pinkoi,
     purchase_shopee: row.purchase_shopee,
     other_urls: normalizeOtherUrls(row.other_urls),
-    retail_locations: [],
     contact_email: row.submitter_email,
     site_content: null,
     submitted_at: row.submitted_at,
@@ -775,7 +772,6 @@ function submissionReviewDataToBrandInsert(
     city: data.city,
     category_attributes: data.categoryAttributes,
     reputation_summary: data.reputationSummary,
-    retail_locations: data.retailLocations ?? [],
     mit_evidence: data.mitEvidence,
     site_content: data.siteContent,
     founding_year: data.foundingYear,
@@ -806,7 +802,6 @@ function submissionReviewDataToDb(
     city: data.city,
     category_attributes: data.categoryAttributes,
     reputation_summary: data.reputationSummary,
-    retail_locations: data.retailLocations,
     channels: data.channels as unknown as Json,
     mit_evidence: data.mitEvidence,
     site_content: data.siteContent,
@@ -860,10 +855,6 @@ function reviewDataFromDb(
       data.reputation_summary === undefined
         ? fallback.reputationSummary
         : (data.reputation_summary as Json | null),
-    retailLocations:
-      data.retail_locations === undefined
-        ? fallback.retailLocations
-        : (data.retail_locations as Json | null),
     channels:
       data.channels === undefined
         ? fallback.channels

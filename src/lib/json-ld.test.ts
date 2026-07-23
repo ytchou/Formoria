@@ -33,17 +33,6 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     socialThreads: null,
     socialFacebook: 'https://facebook.com/chatzutang',
     otherUrls: [],
-    retailLocations: [
-      {
-        kind: 'location',
-        name: 'Nanzhuang Store',
-        relationshipType: 'brand_store',
-        confirmationStatus: 'unconfirmed',
-        address: '苗栗縣南庄鄉',
-        latitude: 24.59,
-        longitude: 120.99,
-      },
-    ],
     productPhotos: [],
     siteContent: null,
     priceRange: null,
@@ -163,110 +152,6 @@ describe('buildBrandJsonLd', () => {
     })
   })
 
-  it('includes one owner-confirmed brand store as a PostalAddress object', () => {
-    const jsonLd = buildBrandJsonLd(
-      makeBrand({
-        retailLocations: [
-          {
-            kind: 'location',
-            name: 'Nanzhuang Store',
-            relationshipType: 'brand_store',
-            confirmationStatus: 'owner_confirmed',
-            address: '苗栗縣南庄鄉',
-          },
-        ],
-      }),
-    )
-
-    expect(Array.isArray(jsonLd.address)).toBe(false)
-    expect(jsonLd.address).toEqual({
-      '@type': 'PostalAddress',
-      streetAddress: '苗栗縣南庄鄉',
-    })
-  })
-
-  it('includes multiple eligible addresses as a PostalAddress array', () => {
-    const jsonLd = buildBrandJsonLd(
-      makeBrand({
-        retailLocations: [
-          {
-            kind: 'location',
-            name: 'Nanzhuang Store',
-            relationshipType: 'brand_store',
-            confirmationStatus: 'owner_confirmed',
-            address: '苗栗縣南庄鄉',
-          },
-          {
-            kind: 'location',
-            name: 'Taipei Store',
-            relationshipType: 'brand_store',
-            confirmationStatus: 'owner_confirmed',
-            address: '台北市信義區',
-          },
-        ],
-      }),
-    )
-    expect(jsonLd.address).toEqual([
-      {
-        '@type': 'PostalAddress',
-        streetAddress: '苗栗縣南庄鄉',
-      },
-      {
-        '@type': 'PostalAddress',
-        streetAddress: '台北市信義區',
-      },
-    ])
-  })
-
-  it('omits ineligible physical locations, chains, blank addresses, and unsafe legacy rows', () => {
-    const jsonLd = buildBrandJsonLd(
-      makeBrand({
-        retailLocations: [
-          {
-            kind: 'location',
-            name: 'Unconfirmed Store',
-            relationshipType: 'brand_store',
-            confirmationStatus: 'unconfirmed',
-            address: '台北市中山區',
-          },
-          {
-            kind: 'location',
-            name: 'Confirmed Stockist',
-            relationshipType: 'stockist',
-            confirmationStatus: 'owner_confirmed',
-            address: '台中市西區',
-          },
-          {
-            kind: 'location',
-            name: 'Confirmed Counter',
-            relationshipType: 'department_counter',
-            confirmationStatus: 'owner_confirmed',
-            address: '高雄市前鎮區',
-          },
-          {
-            kind: 'location',
-            name: 'Blank Address Store',
-            relationshipType: 'brand_store',
-            confirmationStatus: 'owner_confirmed',
-            address: '   ',
-          },
-          {
-            kind: 'retail_chain',
-            name: 'Chain Channel',
-          },
-          {
-            name: 'Legacy Store',
-            relationshipType: 'brand_store',
-            confirmationStatus: 'owner_confirmed',
-            address: '新北市板橋區',
-          },
-        ] as unknown as Brand['retailLocations'],
-      }),
-    )
-
-    expect(jsonLd.address).toBeUndefined()
-  })
-
   it('omits optional fields when null', () => {
     const jsonLd = buildBrandJsonLd(
       makeBrand({
@@ -278,7 +163,6 @@ describe('buildBrandJsonLd', () => {
         purchasePinkoi: null,
         purchaseShopee: null,
         otherUrls: [],
-        retailLocations: [],
         heroImageUrl: null,
         foundingYear: null,
       }),
@@ -286,7 +170,6 @@ describe('buildBrandJsonLd', () => {
     expect(jsonLd.logo).toBeUndefined()
     expect(jsonLd.foundingDate).toBeUndefined()
     expect(jsonLd.sameAs).toBeUndefined()
-    expect(jsonLd.address).toBeUndefined()
   })
 })
 

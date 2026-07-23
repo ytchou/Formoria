@@ -9,11 +9,14 @@ import {
   saveDraft,
 } from '@/lib/services/brands'
 import { WIZARD_STEPS } from '@/lib/schemas/brand-edit'
-import type { Brand } from '@/lib/types'
+import type { Brand, RetailLocation } from '@/lib/types'
 import {
   normalizeRetailLocations,
   reconcileRetailLocationConfirmations,
 } from '@/lib/brands/locations'
+
+type LegacyLocationBrand = Brand & { retailLocations?: unknown }
+type BrandDraftUpdate = Partial<Brand> & { retailLocations?: RetailLocation[] }
 
 type SaveSectionDraftResult = {
   success?: true
@@ -35,7 +38,7 @@ function getCompletedSteps(snapshot: Record<string, unknown> | null): number[] {
 function normalizeSectionData(
   sectionData: Record<string, unknown>,
   existingReputation: unknown,
-): Partial<Brand> {
+): BrandDraftUpdate {
   const { reputationSources, ...data } = sectionData
   if (
     typeof data.reputationSummary !== 'string' &&
@@ -129,7 +132,9 @@ export async function saveSectionDraftAction(
       normalizedSectionData = {
         ...normalizedSectionData,
         retailLocations: reconcileRetailLocationConfirmations({
-          previous: normalizeRetailLocations(editor.brand.retailLocations),
+          previous: normalizeRetailLocations(
+            (editor.brand as LegacyLocationBrand).retailLocations,
+          ),
           next: normalizeRetailLocations(normalizedSectionData.retailLocations),
           isActualOwner: editor.owner,
         }),

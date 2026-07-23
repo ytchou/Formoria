@@ -52,6 +52,10 @@ type Props = {
   submission: BrandSubmissionForReview;
 };
 
+type LegacySubmissionReviewData = SubmissionReviewData & {
+  retailLocations?: unknown;
+};
+
 export function SubmissionReviewDetails({ submission }: Props) {
   const t = useTranslations("admin.submissions");
   const router = useRouter();
@@ -59,7 +63,7 @@ export function SubmissionReviewDetails({ submission }: Props) {
     null,
   );
   const [language, setLanguage] = useState<"mandarin" | "english">("mandarin");
-  const [draft, setDraft] = useState<SubmissionReviewData>(
+  const [draft, setDraft] = useState<LegacySubmissionReviewData>(
     submission.reviewData,
   );
   const [draftImages, setDraftImages] = useState<SubmissionReviewImage[]>(
@@ -74,7 +78,7 @@ export function SubmissionReviewDetails({ submission }: Props) {
     (field) => t(`missingFields.${field}`),
   );
 
-  const data = submission.reviewData;
+  const data = submission.reviewData as LegacySubmissionReviewData;
   const purchaseLinks = compactLinks([
     [t("links.official"), data.websiteUrl],
     ["Pinkoi", data.purchasePinkoi],
@@ -418,7 +422,10 @@ export function SubmissionReviewDetails({ submission }: Props) {
                 value={draft.retailLocations}
                 candidates={submission.locationCandidates}
                 onChange={(value) =>
-                  update("retailLocations", value as unknown as SubmissionReviewData["retailLocations"])
+                  setDraft((current) => ({
+                    ...current,
+                    retailLocations: value,
+                  }))
                 }
               />
             ) : (

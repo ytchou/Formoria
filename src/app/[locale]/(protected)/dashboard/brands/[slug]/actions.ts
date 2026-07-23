@@ -59,6 +59,8 @@ type ActionState =
     }
   | undefined
 
+type LegacyLocationBrand = Brand & { retailLocations?: unknown }
+
 export type MitActionState =
   | { success: true; error?: never }
   | { success?: never; error: string }
@@ -246,7 +248,9 @@ export async function updateBrandAction(
       Object.prototype.hasOwnProperty.call(updateData, 'retailLocations')
     ) {
       updateData.retailLocations = reconcileRetailLocationConfirmations({
-        previous: normalizeRetailLocations(brand.retailLocations),
+        previous: normalizeRetailLocations(
+          (brand as LegacyLocationBrand).retailLocations,
+        ),
         next: normalizeRetailLocations(updateData.retailLocations),
         isActualOwner: owner,
       })
@@ -359,7 +363,9 @@ export async function publishDraftAction(
       snapshot = {
         ...snapshot,
         retailLocations: reconcileRetailLocationConfirmations({
-          previous: normalizeRetailLocations(brand.retailLocations),
+          previous: normalizeRetailLocations(
+            (brand as LegacyLocationBrand).retailLocations,
+          ),
           next: normalizeRetailLocations(snapshot.retailLocations),
           isActualOwner: owner,
         }),

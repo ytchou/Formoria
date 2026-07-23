@@ -13,7 +13,7 @@ import type { Brand, RetailLocation } from '@/lib/types'
 import { ConfirmedLocationExplorer } from './confirmed-location-explorer'
 
 interface BrandLocationsProps {
-  brand: Brand
+  brand: Brand & { retailLocations?: unknown }
 }
 
 type LocationTranslator = (key: string) => string

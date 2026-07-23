@@ -1,8 +1,6 @@
 import { rewriteBrandDescription, type DescriptionAttempt, type DescriptionRewriteResult } from '../description-rewrite'
-import { isPhysicalRetailLocation, normalizeRetailLocations } from '@/lib/brands/locations'
 import { normalizeProductTags } from '@/lib/services/product-tags'
 import { createServiceClient } from '@/lib/supabase/server'
-import type { RetailLocation } from '@/lib/types/brand'
 import type { PhaseResult } from '@/lib/types/curation'
 import type { EnrichScrapedData } from './types'
 import { brandTarget, type EnrichmentTarget } from '../enrichment-target'
@@ -14,70 +12,6 @@ import {
   type EnrichBrand,
   type EnrichPhase,
 } from './types'
-
-type ExtractedStockist = NonNullable<DescriptionRewriteResult['stockists']>[number]
-
-function stockistIdentity(location: RetailLocation): string {
-  return `${location.kind}:${stockistNameIdentity(location)}`
-}
-
-function stockistNameIdentity(location: RetailLocation): string {
-  return location.name.trim().replace(/\s+/g, ' ').toLocaleLowerCase()
-}
-
-function normalizeExtractedStockists(stockists: ExtractedStockist[]): RetailLocation[] {
-  return normalizeRetailLocations(
-    stockists.map((stockist) =>
-      stockist.type === 'chain'
-        ? {
-            kind: 'retail_chain',
-            name: stockist.name,
-          }
-        : {
-            kind: 'location',
-            name: stockist.name,
-            relationshipType: 'stockist',
-            ...(stockist.city ? { city: stockist.city } : {}),
-            ...(stockist.address ? { address: stockist.address } : {}),
-            ...(stockist.venueName ? { venueName: stockist.venueName } : {}),
-            ...(stockist.floorOrCounter ? { floorOrCounter: stockist.floorOrCounter } : {}),
-            confirmationStatus: 'unconfirmed',
-          },
-    ),
-  )
-}
-
-function getOwnerConfirmedLocations(value: unknown): RetailLocation[] {
-  if (!Array.isArray(value)) return []
-
-  return value.flatMap((location) => {
-    const normalized = normalizeRetailLocations([location]).at(0)
-    return normalized && isPhysicalRetailLocation(normalized) && normalized.confirmationStatus === 'owner_confirmed'
-      ? [normalized]
-      : []
-  })
-}
-
-function getOverwriteRetailLocations(value: unknown): RetailLocation[] | null {
-  const ownerConfirmedLocations = getOwnerConfirmedLocations(value)
-  return ownerConfirmedLocations.length > 0 ? ownerConfirmedLocations : null
-}
-
-function mergeStockists(existing: unknown, newStockists: ExtractedStockist[], overwrite: boolean): RetailLocation[] {
-  const merged = overwrite ? getOwnerConfirmedLocations(existing) : normalizeRetailLocations(existing)
-  const identities = new Set(merged.map(stockistIdentity))
-  const protectedNames = overwrite ? new Set(merged.map(stockistNameIdentity)) : null
-
-  for (const stockist of normalizeExtractedStockists(newStockists)) {
-    const identity = stockistIdentity(stockist)
-    if (!identities.has(identity) && !protectedNames?.has(stockistNameIdentity(stockist))) {
-      merged.push(stockist)
-      identities.add(identity)
-    }
-  }
-
-  return merged
-}
 
 type DescriptionsPhaseOptions = {
   brand: EnrichBrand
@@ -138,10 +72,6 @@ function changedFieldsForPatch(patch: Record<string, unknown>): string[] {
 
   if (Array.isArray(patch.product_tags_en) && patch.product_tags_en.length > 0) {
     changedFields.push('product_tags_en')
-  }
-
-  if (patch.retail_locations !== undefined) {
-    changedFields.push('retail_locations')
   }
 
   return changedFields
@@ -313,15 +243,6 @@ export async function runDescriptionsPhase({
               },
             }
           : {}),
-        ...(descriptionRewrite.stockists && descriptionRewrite.stockists.length > 0
-          ? {
-              retail_locations: mergeStockists(brand.retail_locations, descriptionRewrite.stockists, overwrite),
-            }
-          : overwrite && brand.retail_locations != null
-            ? {
-                retail_locations: getOverwriteRetailLocations(brand.retail_locations),
-              }
-            : {}),
         ...(descriptionRewrite.mitIndicators && shouldWrite(brand.mit_evidence)
           ? {
               mit_evidence: {

@@ -193,7 +193,10 @@ export default async function BrandDetailPage({ params }: PageProps) {
       ? productTypeCategory.name
       : productTypeCategory.nameZh
     : getBrandCategoryLabel(displayBrand, safeLocale === 'en' ? 'en' : 'zh-TW')
-  const hasRetailLocations = normalizeRetailLocations(displayBrand.retailLocations).length > 0
+  const hasRetailLocations =
+    normalizeRetailLocations(
+      (displayBrand as Brand & { retailLocations?: unknown }).retailLocations,
+    ).length > 0
 
   const breadcrumbItems: BreadcrumbItem[] = [
     { label: directoryLabel, href: '/brands' },
