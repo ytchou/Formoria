@@ -3,9 +3,8 @@ import { render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
-  requireBrandEditor: vi.fn(),
+  getBrandBySlug: vi.fn(),
   getSnapshot: vi.fn(),
-  redirect: vi.fn(),
 }))
 
 vi.mock('next-intl/server', () => ({
@@ -53,10 +52,8 @@ vi.mock('next-intl/server', () => ({
     trendFlat: 'No change',
   }[key] ?? key)),
 }))
-vi.mock('next/navigation', () => ({ redirect: mocks.redirect }))
-vi.mock('@/lib/auth/require-brand-editor', () => ({ requireBrandEditor: mocks.requireBrandEditor }))
+vi.mock('@/lib/services/brands', () => ({ getBrandBySlug: mocks.getBrandBySlug }))
 vi.mock('@/lib/services/posthog-owner-analytics', () => ({ getPostHogOwnerAnalyticsSnapshot: mocks.getSnapshot }))
-vi.mock('@/components/dashboard/brand-dashboard-shell', () => ({ BrandDashboardShell: ({ children }: { children: React.ReactNode }) => <>{children}</> }))
 
 import AnalyticsPage from './page'
 
@@ -86,43 +83,17 @@ const snapshot = {
   completeness: { comparisonReady: true, availableFrom: '2026-05-01', warnings: [] },
 }
 
-const authorizedEditor = {
-  user: { id: 'user-1' },
-  brand: { id: 'brand-uuid', name: 'Alpha', slug: 'alpha' },
-  owner: true,
-  actingAdmin: false,
-  configuredAdmin: false,
-}
-
-describe('owner analytics page authorization', () => {
+describe('owner analytics page data loading', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.getBrandBySlug.mockResolvedValue({ id: 'brand-uuid', name: 'Alpha', slug: 'alpha' })
     mocks.getSnapshot.mockResolvedValue(snapshot)
   })
 
-  it.each([
-    ['notLoggedIn', '/auth/sign-in'],
-    ['forbidden', '/en/dashboard'],
-  ] as const)('never queries analytics when editor authorization returns %s', async (error, destination) => {
-    mocks.requireBrandEditor.mockResolvedValue({ error })
-    const page = await AnalyticsPage({ params: Promise.resolve({ locale: 'en', slug: 'alpha' }) })
-    render(page)
-
-    expect(mocks.redirect).toHaveBeenCalledWith(destination)
-    expect(mocks.getSnapshot).not.toHaveBeenCalled()
-  })
-
-  it.each([
-    { owner: true, actingAdmin: false },
-    { owner: false, actingAdmin: true },
-  ])('queries analytics after owner/admin authorization', async (authorization) => {
-    mocks.requireBrandEditor.mockResolvedValue({
-      ...authorizedEditor,
-      configuredAdmin: authorization.actingAdmin,
-      ...authorization,
-    })
+  it('queries analytics for the routed brand', async () => {
     render(await AnalyticsPage({ params: Promise.resolve({ locale: 'en', slug: 'alpha' }) }))
 
+    expect(mocks.getBrandBySlug).toHaveBeenCalledWith('alpha')
     expect(mocks.getSnapshot).toHaveBeenCalledWith('brand-uuid')
     expect(screen.getAllByText('Profile visits')).toHaveLength(2)
   })
@@ -131,7 +102,7 @@ describe('owner analytics page authorization', () => {
 describe('owner analytics page content', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mocks.requireBrandEditor.mockResolvedValue(authorizedEditor)
+    mocks.getBrandBySlug.mockResolvedValue({ id: 'brand-uuid', name: 'Alpha', slug: 'alpha' })
     mocks.getSnapshot.mockResolvedValue(snapshot)
   })
 

@@ -9,7 +9,6 @@ import { ProfileCompletenessCard } from '@/components/dashboard/profile-complete
 import { InlineVerification } from '@/components/dashboard/inline-verification'
 import { OwnerBrandOverview } from '@/components/dashboard/owner-brand-overview'
 import { WelcomeBanner } from '@/components/dashboard/welcome-banner'
-import { BrandDashboardShell } from '@/components/dashboard/brand-dashboard-shell'
 
 type Props = {
   params: Promise<{ locale: string; slug: string }>
@@ -58,13 +57,11 @@ export default async function BrandOverviewPage({ params }: Props) {
   )
 
   return (
-    <BrandDashboardShell brandName={brand.name} brandSlug={brand.slug}>
-      <div className="space-y-8">
-        {ownerCheck && !brand.onboardingDismissedAt ? (
-          <WelcomeBanner brandSlug={slug} dismissAction={dismissWelcome} />
-        ) : null}
-        {content}
-      </div>
-    </BrandDashboardShell>
+    <div className="space-y-8">
+      {ownerCheck && !brand.onboardingDismissedAt ? (
+        <WelcomeBanner brandSlug={slug} dismissAction={dismissWelcome} />
+      ) : null}
+      {content}
+    </div>
   )
 }

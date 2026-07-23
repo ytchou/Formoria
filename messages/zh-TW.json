@@ -1166,6 +1166,40 @@
     }
   },
   "dashboard": {
+    "sidebar": {
+      "navLabel": "儀表板導覽",
+      "overview": "總覽",
+      "info": "品牌資訊",
+      "media": "媒體與圖片",
+      "links": "連結與販售地點",
+      "verification": "MIT 驗證",
+      "reputation": "品牌口碑",
+      "analytics": "數據分析",
+      "viewBrandPage": "查看品牌頁面",
+      "editBrand": "編輯品牌",
+      "openMenu": "開啟選單",
+      "completenessTitle": "完成度",
+      "viewMissing": "查看待完成項目"
+    },
+    "overview": {
+      "heroTitle": "儀表板",
+      "viewFullAnalytics": "查看完整分析",
+      "analyticsUnavailable": "數據分析暫時無法使用。",
+      "todoTitle": "待辦事項",
+      "todoEmpty": "所有項目已完成！",
+      "todoVerification": "完成 MIT 認證",
+      "sectionInfoTitle": "品牌資訊",
+      "sectionMediaTitle": "媒體與圖片",
+      "sectionLinksTitle": "連結與販售地點",
+      "sectionVerificationTitle": "MIT 驗證",
+      "refreshTimestamp": "最後更新"
+    },
+    "period": {
+      "periodLabel": "時間範圍",
+      "7d": "過去 7 天",
+      "30d": "過去 30 天",
+      "90d": "過去 90 天"
+    },
     "sources": {
       "title": "流量來源",
       "last30Days": "最近 30 天",

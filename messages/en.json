@@ -1166,6 +1166,40 @@
     }
   },
   "dashboard": {
+    "sidebar": {
+      "navLabel": "Dashboard navigation",
+      "overview": "Overview",
+      "info": "Brand Info",
+      "media": "Media & Photos",
+      "links": "Links & Locations",
+      "verification": "MIT Verification",
+      "reputation": "Reputation",
+      "analytics": "Analytics",
+      "viewBrandPage": "View Brand Page",
+      "editBrand": "Edit Brand",
+      "openMenu": "Open menu",
+      "completenessTitle": "Profile Completeness",
+      "viewMissing": "View missing items"
+    },
+    "overview": {
+      "heroTitle": "Dashboard",
+      "viewFullAnalytics": "View full analytics",
+      "analyticsUnavailable": "Analytics data is temporarily unavailable.",
+      "todoTitle": "To-do",
+      "todoEmpty": "All items complete!",
+      "todoVerification": "Complete MIT verification",
+      "sectionInfoTitle": "Brand Info",
+      "sectionMediaTitle": "Media & Photos",
+      "sectionLinksTitle": "Links & Locations",
+      "sectionVerificationTitle": "MIT Verification",
+      "refreshTimestamp": "Last refreshed"
+    },
+    "period": {
+      "periodLabel": "Time period",
+      "7d": "Last 7 days",
+      "30d": "Last 30 days",
+      "90d": "Last 90 days"
+    },
     "sources": {
       "title": "Traffic Sources",
       "last30Days": "Last 30 days",
