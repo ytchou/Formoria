@@ -22,6 +22,7 @@ export async function DashboardHeroCard({
   ])
   const heroImage = safeImageSrc(brand.heroImageUrl)
   const mitStatus = brand.mitStatus ?? 'unverified'
+  const publicationStatus = brand.status === 'approved' ? 'published' : 'hidden'
   const productType = brand.productType
     ? getProductTypeLabel(
         brand.productType,
@@ -72,7 +73,7 @@ export async function DashboardHeroCard({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant={brand.status === 'approved' ? 'success' : 'secondary'}>
-              {tMit(`status.${mitStatus}`)}
+              {publicationStatus} · {tMit(`status.${mitStatus}`)}
             </Badge>
             <span className="type-caption text-muted-foreground">
               {tOverview('completionTitle')} {completenessScore}%

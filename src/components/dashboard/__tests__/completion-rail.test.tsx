@@ -46,7 +46,9 @@ describe('CompletionRail', () => {
     )
 
     expect(screen.getByText('75%')).toBeInTheDocument()
-    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '75')
+    const progressbar = screen.getByRole('progressbar')
+    expect(progressbar).toHaveAttribute('aria-valuenow', '75')
+    expect(progressbar.firstElementChild).toHaveStyle({ width: '75%' })
     expect(screen.getByText('warningIncomplete:{"count":1}')).toBeInTheDocument()
   })
 

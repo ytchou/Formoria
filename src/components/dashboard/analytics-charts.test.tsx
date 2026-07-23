@@ -76,5 +76,7 @@ describe('AnalyticsBarChart', () => {
     expect(container.querySelector('[data-slot="chart"]')).toBeInTheDocument()
     expect(screen.getByText('Official website')).toBeInTheDocument()
     expect(screen.getByText('Instagram')).toBeInTheDocument()
+    expect(screen.getByText('12')).toBeInTheDocument()
+    expect(screen.getByText('8')).toBeInTheDocument()
   })
 })

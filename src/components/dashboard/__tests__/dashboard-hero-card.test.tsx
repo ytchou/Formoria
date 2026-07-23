@@ -74,7 +74,22 @@ describe('DashboardHeroCard', () => {
 
     expect(screen.getByText('測試品牌')).toBeInTheDocument()
     expect(screen.getByText('Test Brand')).toBeInTheDocument()
-    expect(container.querySelector('[data-slot="badge"]')).toBeInTheDocument()
+    const statusBadge = container.querySelector('[data-slot="badge"]')
+    expect(statusBadge).toHaveTextContent('published · status.verified')
+    expect(statusBadge).toHaveClass('bg-verified-green-bg')
+  })
+
+  it('hero card renders a secondary badge when the brand is hidden', async () => {
+    const { container } = render(
+      await DashboardHeroCard({
+        brand: { ...brand, status: 'hidden', mitStatus: 'unverified' },
+        completenessScore: 80,
+      }),
+    )
+
+    const statusBadge = container.querySelector('[data-slot="badge"]')
+    expect(statusBadge).toHaveTextContent('hidden · status.unverified')
+    expect(statusBadge).toHaveClass('bg-secondary')
   })
 
   it('hero card renders metadata row with 4 items', async () => {
