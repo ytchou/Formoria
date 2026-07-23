@@ -73,7 +73,7 @@ export function BrandHeader({ brand, categoryLabel, cityLabel, locale, actionsSl
             )}
             {priceRangeLabel && (
               <InfoRow label={t('label.priceRange')}>
-                <span className="text-sm font-semibold tracking-wide text-primary">
+                <span className="type-form-label text-primary">
                   {priceRangeLabel}
                 </span>
               </InfoRow>
