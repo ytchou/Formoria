@@ -77,6 +77,9 @@ describe("unified health-agent workflow contract", () => {
     expect(brandReview).toMatch(/HEALTH_AGENT_WRITER_TOKEN/);
     expect(brandReview).toMatch(/NEXT_PUBLIC_SUPABASE_URL/);
     expect(brandReview).toMatch(/SLACK_HEALTH_WEBHOOK_URL/);
+    expect(brandReview).toContain(
+      '--mutate "${{ needs.gate.outputs.mutate }}"',
+    );
   });
 
   it("brand-review job creates its artifact directory", () => {

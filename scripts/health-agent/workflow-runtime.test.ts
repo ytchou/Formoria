@@ -504,7 +504,7 @@ describe("collect-brand-review", () => {
 
     await runWorkflowCommand(
       "collect-brand-review",
-      { ...input, mode: "live" },
+      { ...input, mode: "live", mutate: true },
       { env, fetchImplementation, files },
     );
 
@@ -517,14 +517,58 @@ describe("collect-brand-review", () => {
     ]);
     expect(JSON.parse(String(rpcCalls[0]?.[1]?.body))).toEqual({
       p_logical_date: "2026-07-22",
+      p_requested_run_id: "gha:123/1",
       p_routine: "brand-review",
-      p_source_run_id: "gha:123/1",
+      p_workflow_attempt: 1,
     });
     expect(JSON.parse(String(rpcCalls[1]?.[1]?.body))).toEqual({
       p_logical_date: "2026-07-22",
+      p_requested_run_id: "gha:123/1",
       p_routine: "brand-review",
-      p_source_run_id: "gha:123/1",
+      p_result: {
+        finding_count: 0,
+        reviewed_count: 0,
+        window_start_iso: "2026-07-20T23:00:00.000Z",
+      },
+      p_workflow_attempt: 1,
     });
+  });
+
+  it("keeps live collection read-only when mutation is disabled", async () => {
+    const { contents, files } = brandReviewFiles();
+    const fetchImplementation = vi.fn<typeof fetch>(async (request) => {
+      const url = String(request);
+      if (url.includes("/rest/v1/brands?")) {
+        return new Response(JSON.stringify([]), { status: 200 });
+      }
+      throw new Error(`unexpected request: ${url}`);
+    });
+
+    await runWorkflowCommand(
+      "collect-brand-review",
+      { ...input, mode: "live", mutate: false },
+      {
+        env: {
+          HEALTH_AGENT_READER_TOKEN: "reader-token",
+          NEXT_PUBLIC_SUPABASE_URL: "https://db.example",
+        },
+        fetchImplementation,
+        files,
+      },
+    );
+
+    expect(
+      JSON.parse(contents.get(input.outputPath) ?? "{}"),
+    ).toMatchObject({
+      routine: "brand-review",
+      skippedActions: ["brand_review_delivery"],
+      status: "success",
+    });
+    expect(
+      fetchImplementation.mock.calls.some(([request]) =>
+        String(request).includes("/rest/v1/rpc/"),
+      ),
+    ).toBe(false);
   });
 
   it("skips collection and delivery in preflight mode", async () => {

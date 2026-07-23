@@ -784,6 +784,7 @@ function recentBrandEdit(row: Record<string, unknown>): RecentBrandEdit {
 async function collectBrandReview(
   input: {
     mode: string;
+    mutate: boolean;
     outputPath: string;
     runAt: string;
     windowHours?: number;
@@ -832,19 +833,24 @@ async function collectBrandReview(
       failures: [],
       findings: evaluated.findings,
       routine: "brand-review",
-      skippedActions: [],
+      skippedActions:
+        input.mode === "live" && !input.mutate
+          ? ["brand_review_delivery"]
+          : [],
       snapshot: { ...evaluated.snapshot },
       status: "success",
       version: 1,
     };
     await writeRedactedJson(input.outputPath, artifact, files);
 
-    if (input.mode !== "live") return;
+    if (input.mode !== "live" || !input.mutate) return;
 
+    const requestedRunId = `gha:${input.workflowRunId}/${input.workflowAttempt}`;
     const ledgerBody = {
       p_routine: "brand-review",
       p_logical_date: taipeiDate(input.runAt),
-      p_source_run_id: `gha:${input.workflowRunId}/${input.workflowAttempt}`,
+      p_requested_run_id: requestedRunId,
+      p_workflow_attempt: Number(input.workflowAttempt),
     };
     await supabaseRequest(
       dependencies,
@@ -901,7 +907,14 @@ async function collectBrandReview(
       "HEALTH_AGENT_WRITER_TOKEN",
       {
         method: "POST",
-        body: JSON.stringify(ledgerBody),
+        body: JSON.stringify({
+          ...ledgerBody,
+          p_result: {
+            finding_count: evaluated.findings.length,
+            reviewed_count: evaluated.snapshot.reviewedCount,
+            window_start_iso: evaluated.snapshot.windowStartIso,
+          },
+        }),
       },
       () => true,
     );
@@ -2763,6 +2776,7 @@ export async function runWorkflowCommand(
       return collectBrandReview(
         {
           mode: safeString(input.mode, "mode"),
+          mutate: input.mutate === true,
           outputPath: safeString(input.outputPath, "outputPath"),
           runAt: safeString(input.runAt, "runAt"),
           windowHours:
@@ -3027,6 +3041,7 @@ export async function main(
     metadataPath: optionalArgument(argv, "--metadata"),
     mergePolicy: optionalArgument(argv, "--merge-policy"),
     mode,
+    mutate: optionalArgument(argv, "--mutate") === "true",
     outputPath: requiredArgument(argv, "--output"),
     prNumber: optionalArgument(argv, "--pr-number"),
     prUrl: optionalArgument(argv, "--pr-url"),

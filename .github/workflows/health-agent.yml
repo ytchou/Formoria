@@ -126,6 +126,7 @@ jobs:
           run_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           pnpm exec tsx scripts/health-agent/workflow-runtime.ts collect-brand-review \
             --mode "${{ needs.gate.outputs.mode }}" \
+            --mutate "${{ needs.gate.outputs.mutate }}" \
             --output .health-agent-artifacts/brand-review.json \
             --run-at "$run_at" \
             --attempt "$GITHUB_RUN_ATTEMPT" \
