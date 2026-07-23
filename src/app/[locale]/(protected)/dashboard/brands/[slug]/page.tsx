@@ -1,15 +1,15 @@
+import { revalidatePath } from 'next/cache'
 import { setRequestLocale } from 'next-intl/server'
 import { createClient } from '@/lib/supabase/server'
-import { getBrandBySlug } from '@/lib/services/brands'
+import { getBrandBySlug, dismissOnboardingWelcome } from '@/lib/services/brands'
 import { computeProfileCompleteness } from '@/lib/services/profile-completeness'
 import { canManageDashboardBrand } from '@/lib/auth/admin-mode'
+import { requireBrandEditor } from '@/lib/auth/require-brand-editor'
 import { ProfileCompletenessCard } from '@/components/dashboard/profile-completeness-card'
 import { InlineVerification } from '@/components/dashboard/inline-verification'
 import { OwnerBrandOverview } from '@/components/dashboard/owner-brand-overview'
-import { DashboardContentLayout } from '@/components/dashboard/dashboard-content-layout'
 import { WelcomeBanner } from '@/components/dashboard/welcome-banner'
 import { BrandDashboardShell } from '@/components/dashboard/brand-dashboard-shell'
-import { getBrandOnboardingProgress } from '@/lib/services/brand-onboarding'
 
 type Props = {
   params: Promise<{ locale: string; slug: string }>
@@ -25,13 +25,18 @@ export default async function BrandOverviewPage({ params }: Props) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const [ownerCheck, walkthrough] = await Promise.all([
-    user
-      ? canManageDashboardBrand(user.id, user.email, brand.id, slug)
-      : Promise.resolve(false),
-    getBrandOnboardingProgress(brand.id),
-  ])
+  const ownerCheck = user
+    ? await canManageDashboardBrand(user.id, user.email, brand.id, slug)
+    : false
   const completeness = computeProfileCompleteness(brand)
+
+  async function dismissWelcome() {
+    'use server'
+    const editor = await requireBrandEditor(slug)
+    if ('error' in editor) return
+    await dismissOnboardingWelcome(editor.brand.id)
+    revalidatePath(`/dashboard/brands/${slug}`)
+  }
 
   const content = (
     <div className="w-full space-y-8" data-testid="brand-profile">
@@ -53,26 +58,13 @@ export default async function BrandOverviewPage({ params }: Props) {
   )
 
   return (
-    <BrandDashboardShell
-      brandName={brand.name}
-      brandSlug={brand.slug}
-    >
-      <DashboardContentLayout
-        showOnboarding={ownerCheck && !walkthrough.isComplete}
-        onboarding={
-          ownerCheck ? (
-            <WelcomeBanner
-              brandId={brand.id}
-              completedCount={walkthrough.completedCount}
-              nextStep={walkthrough.nextStep}
-              slug={brand.slug}
-              steps={walkthrough.steps}
-            />
-          ) : null
-        }
-      >
+    <BrandDashboardShell brandName={brand.name} brandSlug={brand.slug}>
+      <div className="space-y-8">
+        {ownerCheck && !brand.onboardingDismissedAt ? (
+          <WelcomeBanner brandSlug={slug} dismissAction={dismissWelcome} />
+        ) : null}
         {content}
-      </DashboardContentLayout>
+      </div>
     </BrandDashboardShell>
   )
 }

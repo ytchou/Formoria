@@ -416,44 +416,6 @@ export type Database = {
           },
         ];
       };
-      brand_onboarding_steps: {
-        Row: {
-          brand_id: string;
-          completed_at: string | null;
-          completed_by_user_id: string | null;
-          started_at: string | null;
-          status: string;
-          step_key: string;
-          updated_at: string;
-        };
-        Insert: {
-          brand_id: string;
-          completed_at?: string | null;
-          completed_by_user_id?: string | null;
-          started_at?: string | null;
-          status?: string;
-          step_key: string;
-          updated_at?: string;
-        };
-        Update: {
-          brand_id?: string;
-          completed_at?: string | null;
-          completed_by_user_id?: string | null;
-          started_at?: string | null;
-          status?: string;
-          step_key?: string;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "brand_onboarding_steps_brand_id_fkey";
-            columns: ["brand_id"];
-            isOneToOne: false;
-            referencedRelation: "brands";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
       brand_owners: {
         Row: {
           brand_id: string;
@@ -897,6 +859,7 @@ export type Database = {
           mit_story: string | null;
           mit_verified_at: string | null;
           name: string;
+          onboarding_dismissed_at: string | null;
           other_urls: Json;
           price_range: number | null;
           product_tags: string[] | null;
@@ -944,6 +907,7 @@ export type Database = {
           mit_story?: string | null;
           mit_verified_at?: string | null;
           name: string;
+          onboarding_dismissed_at?: string | null;
           other_urls?: Json;
           price_range?: number | null;
           product_tags?: string[] | null;
@@ -991,6 +955,7 @@ export type Database = {
           mit_story?: string | null;
           mit_verified_at?: string | null;
           name?: string;
+          onboarding_dismissed_at?: string | null;
           other_urls?: Json;
           price_range?: number | null;
           product_tags?: string[] | null;

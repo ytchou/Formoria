@@ -69,6 +69,7 @@ const brand: Brand = {
   updatedAt: '2026-01-02',
   reputationSummary: { text: 'Well reviewed', sources: [{ url: 'https://example.com/review' }] },
   mitStory: 'Made in Taiwan',
+  onboardingDismissedAt: null,
 }
 
 describe('OwnerBrandOverview', () => {

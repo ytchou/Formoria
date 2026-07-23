@@ -30,10 +30,6 @@ import {
   storageKeyFromPublicUrl,
 } from '@/lib/services/image-upload'
 import { logAdminActionIfAdmin } from '@/lib/services/admin-audit'
-import {
-  isOnboardingStepKey,
-  setBrandOnboardingStepStatus,
-} from '@/lib/services/brand-onboarding'
 import type { Brand } from '@/lib/types'
 import {
   InvalidBrandEditFormError,
@@ -123,25 +119,6 @@ export async function withdrawDeclarationAction(
     console.error('[brand:withdrawDeclarationAction]', error)
     return { error: t('unknown') }
   }
-}
-
-async function completeOnboardingAfterOwnerSubmit(
-  formData: FormData,
-  brandId: string,
-  userId: string,
-  isOwner: boolean,
-): Promise<void> {
-  const rawStep = formData.get('onboardingStep')
-  if (!isOwner || typeof rawStep !== 'string' || !isOnboardingStepKey(rawStep))
-    return
-
-  await setBrandOnboardingStepStatus({
-    brandId,
-    userId,
-    step: rawStep,
-    status: 'complete',
-  })
-  revalidatePath('/dashboard')
 }
 
 function imageUrlsFromBrand(
@@ -311,12 +288,6 @@ export async function updateBrandAction(
         console.error('[brand:moderation] admin notification failed:', err)
       }
 
-      await completeOnboardingAfterOwnerSubmit(
-        formData,
-        brand.id,
-        user.id,
-        owner,
-      )
       return { violations }
     }
 
@@ -325,18 +296,11 @@ export async function updateBrandAction(
         syncOwnerImages: owner,
       })
       redirectSlug = updatedBrand.slug
-      await completeOnboardingAfterOwnerSubmit(
-        formData,
-        brand.id,
-        user.id,
-        owner,
-      )
     } else {
       const updatedBrand = await applyBrandUpdate(brand, updateData, {
         syncOwnerImages: owner,
       })
       redirectSlug = updatedBrand.slug
-      await completeOnboardingAfterOwnerSubmit(formData, brand.id, user.id, owner)
       await logAdminActionIfAdmin(
         actingAdmin,
         { id: user.id, email: user.email ?? null },
@@ -447,12 +411,6 @@ export async function publishDraftAction(
         console.error('[brand:moderation] admin notification failed:', err)
       }
 
-      await completeOnboardingAfterOwnerSubmit(
-        formData,
-        brand.id,
-        user.id,
-        owner,
-      )
       return { violations }
     }
 
@@ -493,12 +451,6 @@ export async function publishDraftAction(
         previousSlug: brand.slug,
       })
       revalidatePath('/dashboard')
-      await completeOnboardingAfterOwnerSubmit(
-        formData,
-        brand.id,
-        user.id,
-        owner,
-      )
     } else {
       const nextImageUrls = imageUrlsFromBrand({
         heroImageUrl:

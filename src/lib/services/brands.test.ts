@@ -6,6 +6,7 @@ import {
   generateSlug,
   extractLatinRun,
   deleteBrand,
+  dismissOnboardingWelcome,
 } from './brands'
 import { NotFoundError } from '@/lib/errors'
 import { RESERVED_ROUTES } from '@/proxy'
@@ -173,6 +174,18 @@ describe('brandToDomain — basic fields', () => {
     }
     const brand = brandToDomain(row)
     expect(brand.description).toBe('介紹')
+  })
+
+  it('maps onboarding_dismissed_at to onboardingDismissedAt', () => {
+    const row = { ...baseRow, onboarding_dismissed_at: '2026-07-23T00:00:00Z' }
+    const brand = brandToDomain(row)
+    expect(brand.onboardingDismissedAt).toBe('2026-07-23T00:00:00Z')
+  })
+
+  it('maps null onboarding_dismissed_at to null', () => {
+    const row = { ...baseRow, onboarding_dismissed_at: null }
+    const brand = brandToDomain(row)
+    expect(brand.onboardingDismissedAt).toBeNull()
   })
 })
 
@@ -731,5 +744,34 @@ describe('brand slug validation against reserved routes', () => {
     expect(isReservedSlug('admin')).toBe(true)
     expect(isReservedSlug('api')).toBe(true)
     expect(isReservedSlug('cha-zi-tang')).toBe(false)
+  })
+})
+
+describe('dismissOnboardingWelcome', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('updates onboarding_dismissed_at for the given brand id', async () => {
+    const mockEq = vi.fn().mockResolvedValue({ error: null })
+    const mockUpdate = vi.fn().mockReturnValue({ eq: mockEq })
+    mockFrom.mockReturnValue({ update: mockUpdate })
+
+    await dismissOnboardingWelcome('brand-123')
+
+    expect(mockFrom).toHaveBeenCalledWith('brands')
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ onboarding_dismissed_at: expect.any(String) })
+    )
+    expect(mockEq).toHaveBeenCalledWith('id', 'brand-123')
+  })
+
+  it('throws when supabase returns an error', async () => {
+    const dbError = { message: 'DB error', code: 'PGRST500' }
+    const mockEq = vi.fn().mockResolvedValue({ error: dbError })
+    const mockUpdate = vi.fn().mockReturnValue({ eq: mockEq })
+    mockFrom.mockReturnValue({ update: mockUpdate })
+
+    await expect(dismissOnboardingWelcome('brand-123')).rejects.toEqual(dbError)
   })
 })

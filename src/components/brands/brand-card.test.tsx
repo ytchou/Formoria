@@ -88,6 +88,7 @@ const mockBrand = {
   approvedAt: null,
   createdAt: '2024-01-01',
   updatedAt: '2024-01-01',
+  onboardingDismissedAt: null,
 }
 
 function renderWithProvider(ui: React.ReactElement) {

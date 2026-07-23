@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import type { OnboardingStepKey } from '@/lib/services/brand-onboarding'
 import {
   BRAND_WIZARD_SHARED_SECTION_FIELDS,
   brandWizardBasicInfoSchema,
@@ -89,29 +88,3 @@ export function areAllWizardStepsComplete(
 
   return true
 }
-
-// --- Onboarding step mappings ---
-export function getOnboardingStepHref(
-  key: OnboardingStepKey,
-  slug: string,
-): string {
-  switch (key) {
-    case 'brand_basics':
-      return `/dashboard/brands/${slug}/edit?step=0`
-    case 'media_links':
-      return `/dashboard/brands/${slug}/edit?step=1`
-    case 'analytics':
-      return `/dashboard/brands/${slug}/analytics`
-    case 'health':
-      return `/dashboard/brands/${slug}#profile-completeness`
-    case 'verification':
-      return `/dashboard/brands/${slug}#verification`
-  }
-}
-
-export const SECTION_TO_ONBOARDING_STEPS: Record<string, OnboardingStepKey[]> =
-  {
-    basicInfo: ['brand_basics'],
-    media: ['media_links'],
-    links: ['media_links'],
-  }

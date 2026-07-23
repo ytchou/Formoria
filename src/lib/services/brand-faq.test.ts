@@ -39,6 +39,7 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     approvedAt: null,
     createdAt: '',
     updatedAt: '',
+    onboardingDismissedAt: null,
     ...overrides,
   }
 }

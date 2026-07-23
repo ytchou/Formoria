@@ -37,8 +37,6 @@ const scanContent = vi.fn()
 const saveModerationFlags = vi.fn().mockResolvedValue(undefined)
 const buildViolationAdminNotificationEmail = vi.fn()
 const sendEmail = vi.fn().mockResolvedValue({ success: true })
-const isOnboardingStepKey = vi.fn().mockReturnValue(true)
-const setBrandOnboardingStepStatus = vi.fn().mockResolvedValue(undefined)
 const declareMit = vi.fn().mockResolvedValue({ ok: true })
 const withdrawDeclaration = vi.fn().mockResolvedValue({ ok: true })
 const trackMitDeclared = vi.fn()
@@ -112,11 +110,6 @@ vi.mock('@/lib/email/templates', () => ({
 
 vi.mock('@/lib/email/send', () => ({
   sendEmail,
-}))
-
-vi.mock('@/lib/services/brand-onboarding', () => ({
-  isOnboardingStepKey,
-  setBrandOnboardingStepStatus,
 }))
 
 vi.mock('@/lib/services/mit-declaration', () => ({
@@ -1218,7 +1211,6 @@ describe('updateBrandAction — edit gating', () => {
       // redirect throws
     }
 
-    expect(setBrandOnboardingStepStatus).toHaveBeenCalledTimes(2)
   })
 
   it('scans clean admin edits before updating', async () => {
@@ -1632,8 +1624,6 @@ describe('updateBrandAction — onboarding revalidation removed', () => {
     })
     diffRemovedImageUrls.mockReturnValue([])
     scanContent.mockReturnValue({ violations: [] })
-    isOnboardingStepKey.mockReturnValue(true)
-    setBrandOnboardingStepStatus.mockResolvedValue(undefined)
   })
 
   it('does not revalidatePath /dashboard/onboarding', async () => {

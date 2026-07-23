@@ -11,9 +11,13 @@ vi.mock('next-intl/server', () => ({
 }))
 
 vi.mock('next/link', () => ({
-  default: ({ href, children }: { href: string; children: React.ReactNode }) => (
-    <a href={href}>{children}</a>
-  ),
+  default: ({
+    href,
+    children,
+  }: {
+    href: string
+    children: React.ReactNode
+  }) => <a href={href}>{children}</a>,
 }))
 
 import { getTranslations } from 'next-intl/server'
@@ -34,7 +38,9 @@ function makeT(messages: Messages, namespace: string) {
 
   const substitute = (str: string, values: Record<string, unknown>) =>
     str.replace(/\{(\w+)\}/g, (_match, name: string) =>
-      typeof values[name] === 'function' ? '' : String(values[name] ?? `{${name}}`)
+      typeof values[name] === 'function'
+        ? ''
+        : String(values[name] ?? `{${name}}`),
     )
 
   // Minimal next-intl t.rich shim: substitutes {placeholders} and a single <tag>…</tag>.
@@ -44,12 +50,20 @@ function makeT(messages: Messages, namespace: string) {
     if (!tagMatch) return substitute(raw, values)
     const [full, tagName, inner] = tagMatch
     const before = substitute(raw.slice(0, tagMatch.index ?? 0), values)
-    const after = substitute(raw.slice((tagMatch.index ?? 0) + full.length), values)
+    const after = substitute(
+      raw.slice((tagMatch.index ?? 0) + full.length),
+      values,
+    )
     const innerText = substitute(inner, values)
     const tagFn = values[tagName]
-    const rendered = typeof tagFn === 'function' ? (tagFn as (c: string) => unknown)(innerText) : innerText
+    const rendered =
+      typeof tagFn === 'function'
+        ? (tagFn as (c: string) => unknown)(innerText)
+        : innerText
     const segments = [before, rendered, after]
-    return segments.every((s) => typeof s === 'string') ? segments.join('') : segments
+    return segments.every((s) => typeof s === 'string')
+      ? segments.join('')
+      : segments
   }
 
   return Object.assign((key: string) => translate(key), { rich })
@@ -69,30 +83,40 @@ describe('FaqPage (zh-TW)', () => {
 
   it('renders the 常見問題 heading', async () => {
     render(await FaqPage({ params: Promise.resolve({ locale: 'zh-TW' }) }))
-    expect(screen.getByRole('heading', { name: '常見問題' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: '常見問題' }),
+    ).toBeInTheDocument()
   })
 
-  it('renders exactly 14 accordion items', async () => {
+  it('renders 20 accordion items and preserves FAQ anchors', async () => {
     const { container } = render(
-      await FaqPage({ params: Promise.resolve({ locale: 'zh-TW' }) })
+      await FaqPage({ params: Promise.resolve({ locale: 'zh-TW' }) }),
     )
-    expect(container.querySelectorAll('details')).toHaveLength(14)
+    expect(container.querySelectorAll('details')).toHaveLength(20)
+    expect(container.querySelector('#for-owners')).toBeInTheDocument()
+    expect(container.querySelector('details#claim')).toBeInTheDocument()
   })
 
   it('keeps the contact prompt concise and distinguishes the contact link', async () => {
     render(await FaqPage({ params: Promise.resolve({ locale: 'zh-TW' }) }))
 
-    expect(screen.getByText('若仍有疑問，歡迎透過頁面底部的聯絡方式與我們聯繫。')).toBeInTheDocument()
-    expect(screen.queryByText(/以下整理了訪客最常詢問/)).not.toBeInTheDocument()
+    expect(
+      screen.getByText('若仍有疑問，歡迎透過頁面底部的聯絡方式與我們聯繫。'),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByText(/以下整理了訪客最常詢問/),
+    ).not.toBeInTheDocument()
     expect(screen.getByText('還有問題？')).toHaveClass('type-body-muted')
-    expect(screen.getByRole('link', { name: '聯絡我們' })).toHaveClass('type-link')
+    expect(screen.getByRole('link', { name: '聯絡我們' })).toHaveClass(
+      'type-link',
+    )
   })
 
   it('each item has a summary child element', async () => {
     const { container } = render(
-      await FaqPage({ params: Promise.resolve({ locale: 'zh-TW' }) })
+      await FaqPage({ params: Promise.resolve({ locale: 'zh-TW' }) }),
     )
-    expect(container.querySelectorAll('details > summary')).toHaveLength(14)
+    expect(container.querySelectorAll('details > summary')).toHaveLength(20)
   })
 
   it('includes the 收錄哪些品牌 question', async () => {
@@ -112,7 +136,9 @@ describe('FaqPage (zh-TW)', () => {
 
   it('generateMetadata includes openGraph and twitter properties', async () => {
     const { generateMetadata } = await import('./page')
-    const metadata = await generateMetadata({ params: Promise.resolve({ locale: 'zh-TW' }) })
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ locale: 'zh-TW' }),
+    })
     expect(metadata.openGraph).toBeDefined()
     expect(metadata.openGraph).toMatchObject({
       title: expect.any(String),
@@ -132,11 +158,48 @@ describe('FaqPage (en)', () => {
 
   it('renders the English FAQ heading', async () => {
     render(await FaqPage({ params: Promise.resolve({ locale: 'en' }) }))
-    expect(screen.getByRole('heading', { name: 'Frequently Asked Questions' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: 'Frequently Asked Questions' }),
+    ).toBeInTheDocument()
+  })
+
+  it('renders the General and For Brand Owners section headings', async () => {
+    render(await FaqPage({ params: Promise.resolve({ locale: 'en' }) }))
+
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'General' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'For Brand Owners' }),
+    ).toBeInTheDocument()
+  })
+
+  it('includes the new owner FAQ questions', async () => {
+    render(await FaqPage({ params: Promise.resolve({ locale: 'en' }) }))
+
+    expect(
+      screen.getByText('What does the profile completeness score measure?'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('How can I upgrade my MIT verification level?'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('What can I see in owner analytics?'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('What happens after I edit my brand page?'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'What are owner-confirmed locations and retail channels?',
+      ),
+    ).toBeInTheDocument()
   })
 
   it('includes the English What brands are listed question', async () => {
     render(await FaqPage({ params: Promise.resolve({ locale: 'en' }) }))
-    expect(screen.getByText(/What brands are listed on Formoria/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/What brands are listed on Formoria/),
+    ).toBeInTheDocument()
   })
 })
