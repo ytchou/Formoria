@@ -265,6 +265,7 @@ jobs:
           retention-days: 14
 
   sentry-triage:
+    continue-on-error: true
     needs: [gate, collect-sentry]
     if: always() && needs.gate.outputs.collect == 'true' && needs.collect-sentry.result != 'skipped'
     runs-on: ubuntu-latest
