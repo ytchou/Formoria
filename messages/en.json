@@ -819,10 +819,18 @@
     "intro": "If you still have questions, feel free to reach out via the contact information at the bottom of the page.",
     "stillHaveQuestions": "Still have questions?",
     "contactCta": "Contact us",
+    "sections": {
+      "general": "General",
+      "forOwners": "For Brand Owners"
+    },
     "items": {
       "whatIsFormoria": {
         "question": "What brands are listed on Formoria?",
         "answer": "Formoria is a community-curated Taiwanese brand directory. We list brands founded, designed, or made in Taiwan so people can discover their products, stories, and official links."
+      },
+      "whoCanSubmit": {
+        "question": "Who can submit a brand?",
+        "answer": "Anyone can submit a brand — you do not need to be the owner. Brand owners can also use the owner flow to submit their details and claim the listing after approval."
       },
       "whatDoesMitMean": {
         "question": "What do the MIT tiers mean?",
@@ -855,6 +863,26 @@
       "editBrand": {
         "question": "Can I edit a brand page after it's published?",
         "answer": "Brand owners can claim their brand page to update information, add photos, and manage their listing. Visit the brand page and look for the claim option, or contact us for assistance."
+      },
+      "profileCompleteness": {
+        "question": "What does the profile completeness score measure?",
+        "answer": "The score measures how much of your brand profile is filled in across core details, images, links, social presence, sales channels, locations, and reputation evidence. Improving it gives visitors a clearer page and helps your brand appear in more searches and category pages."
+      },
+      "mitVerification": {
+        "question": "How can I upgrade my MIT verification level?",
+        "answer": "Start at Unverified, then submit a Brand Declaration for the scope that applies — some, most, or all products made in Taiwan — to reach MIT Declared. To reach MIT Verified, enter an MIT Smile Mark certificate number in the Owner Dashboard so Formoria can check it against the official registry."
+      },
+      "ownerAnalytics": {
+        "question": "What can I see in owner analytics?",
+        "answer": "Owner analytics shows profile visits (page views), outbound link clicks and click rate, top traffic sources, 30-day trends, and outbound destinations. It helps you understand how people find your brand page and engage with your links."
+      },
+      "editModeration": {
+        "question": "What happens after I edit my brand page?",
+        "answer": "After you save an edit, Formoria checks the changed content through moderation. Clean changes can publish immediately; anything flagged is held in the moderation queue until the issue is reviewed and corrected."
+      },
+      "brandLocations": {
+        "question": "What are owner-confirmed locations and retail channels?",
+        "answer": "Owners can add physical stores or stockists where the brand's products can be purchased, plus retail chains that carry selected products. Confirmed locations appear with address and map details, while retail chains appear as retailer cards; availability can vary by store, so visitors should check before visiting."
       },
       "whatCategories": {
         "question": "What product categories does Formoria cover?",
