@@ -32,7 +32,7 @@ interface ReportsTableProps {
 }
 
 const REASON_LABELS: Record<BrandReport['reason'], string> = {
-  not_mit: 'Not Made in Taiwan',
+  not_mit: 'Not a Taiwanese Brand',
   incorrect_info: 'Incorrect information',
   broken_link: 'Broken link',
   inappropriate: 'Inappropriate content',

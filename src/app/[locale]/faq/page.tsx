@@ -46,6 +46,7 @@ export default async function FaqPage({ params }: PageProps) {
 
   const plainItemKeys = [
     'whatIsFormoria',
+    'whoCanSubmit',
     'whatDoesMitMean',
     'howToSubmit',
     'reviewTime',

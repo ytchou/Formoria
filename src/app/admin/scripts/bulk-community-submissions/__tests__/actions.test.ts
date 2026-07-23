@@ -14,7 +14,7 @@ vi.mock("@/lib/auth/require-admin", () => ({
   requireAdminAction: mocks.requireAdminAction,
 }));
 vi.mock("@/lib/services/community-submissions", () => ({
-  MAX_COMMUNITY_SUBMISSIONS: 100,
+  MAX_COMMUNITY_SUBMISSIONS: 500,
   parseCommunitySubmissionsCsv: mocks.parseCsv,
   previewCommunitySubmissions: mocks.preview,
   executeCommunitySubmissions: mocks.execute,

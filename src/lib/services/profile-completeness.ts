@@ -104,8 +104,8 @@ export function computeProfileCompleteness(
     {
       key: 'officialWebsite',
       complete: hasUrl(brand.purchaseWebsite),
-      required: true,
-      weight: 5,
+      required: false,
+      weight: 3,
       step: 2,
     },
     {
@@ -135,9 +135,15 @@ export function computeProfileCompleteness(
     },
     {
       key: 'additionalSalesChannel',
-      complete:
-        [brand.purchasePinkoi, brand.purchaseShopee].some(hasUrl) ||
+      complete: [
+        hasUrl(brand.purchaseWebsite),
+        hasText(brand.socialInstagram),
+        hasText(brand.socialThreads),
+        hasText(brand.socialFacebook),
+        hasUrl(brand.purchasePinkoi),
+        hasUrl(brand.purchaseShopee),
         brand.otherUrls.some((link) => hasUrl(link.url)),
+      ].filter(Boolean).length >= 2,
       required: false,
       weight: 3,
       step: 2,

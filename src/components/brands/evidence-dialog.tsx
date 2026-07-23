@@ -8,7 +8,7 @@ import {
   type ChangeEvent,
 } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
-import { FileSearch, Upload, X } from 'lucide-react'
+import { FileSearch, MapPin, Upload, X } from 'lucide-react'
 import {
   submitEvidenceAction,
   type EvidenceState,
@@ -81,11 +81,9 @@ export function EvidenceDialog({ brandId, brandSlug }: EvidenceDialogProps) {
     <Dialog>
       <DialogTrigger
         data-evidence-dialog-trigger
-        className={buttonVariants({
-          variant: 'ghost',
-          className: 'min-h-12 w-full justify-start rounded-lg',
-        })}
+        className={buttonVariants({ variant: 'secondary', className: 'shrink-0' })}
       >
+        <MapPin className="size-4" />
         {t('trigger')}
       </DialogTrigger>
       <DialogContent

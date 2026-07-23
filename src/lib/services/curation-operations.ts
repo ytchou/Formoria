@@ -758,7 +758,7 @@ export function submissionToEnrichBrand(
     purchase_website:
       typeof existing.purchase_website === "string"
         ? existing.purchase_website
-        : normalizeToRootUrl(submission.purchase_website ?? submission.website_url),
+        : normalizeToRootUrl(submission.purchase_website),
     purchase_pinkoi:
       typeof existing.purchase_pinkoi === "string"
         ? existing.purchase_pinkoi

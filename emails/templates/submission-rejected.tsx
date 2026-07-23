@@ -28,8 +28,8 @@ type RejectionTemplateProps = Omit<RejectionEmailProps, 'submitterEmail' | 'revi
 
 const DENIAL_GUIDANCE: Record<DenialReason, { en: string; zh: string }> = {
   not_mit: {
-    en: "We couldn't verify that this brand's products are made in Taiwan. Please provide MIT certification or manufacturing documentation.",
-    zh: '此提交被標記為非台灣製造，因為我們無法確認此品牌的產品產地。請提供 MIT 認證或製造相關文件。',
+    en: "We couldn't verify that this brand is founded, designed, or made in Taiwan. Please provide documentation showing the brand's connection to Taiwan.",
+    zh: '我們無法確認此品牌在台灣創立、設計或製造。請提供說明品牌與台灣連結的相關文件。',
   },
   insufficient_info: {
     en: 'The submission is missing key details. Please add a complete description and product photos.',
@@ -55,8 +55,8 @@ const DENIAL_GUIDANCE: Record<DenialReason, { en: string; zh: string }> = {
 
 const DENIAL_REASON_LABELS: Record<DenialReason, { en: string; zh: string }> = {
   not_mit: {
-    en: 'Not Made in Taiwan',
-    zh: '非台灣製造',
+    en: 'Not a Taiwanese Brand',
+    zh: '非台灣品牌',
   },
   insufficient_info: {
     en: 'Insufficient Information',

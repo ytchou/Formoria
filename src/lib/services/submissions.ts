@@ -502,7 +502,7 @@ export function buildSubmissionReviewData(
   const imageHero = activeImages.find((image) => image.sortOrder === 0);
   const websiteUrl = preferText(
     enrichedData?.purchaseWebsite,
-    submission.purchaseWebsite ?? submission.websiteUrl,
+    submission.purchaseWebsite,
   );
 
   return {
@@ -697,7 +697,13 @@ export function getSubmissionReviewCompleteness(
   if (![1, 2, 3].includes(data.priceRange ?? 0)) {
     missingFields.push("priceRange");
   }
-  if (!isHttpUrl(data.websiteUrl)) missingFields.push("website");
+  const hasAnyLink = isHttpUrl(data.websiteUrl)
+    || normalizeString(data.socialInstagram) != null
+    || normalizeString(data.socialThreads) != null
+    || normalizeString(data.socialFacebook) != null
+    || isHttpUrl(data.purchasePinkoi)
+    || isHttpUrl(data.purchaseShopee);
+  if (!hasAnyLink) missingFields.push("website");
   if (!heroImage) missingFields.push("heroImage");
   if (activeImages.filter((image) => image.id !== heroImage?.id).length < 1) {
     missingFields.push("additionalImage");
@@ -727,7 +733,7 @@ function submissionToBrandBase(row: SubmissionRow): BrandInsert {
     social_instagram: row.social_instagram,
     social_threads: row.social_threads,
     social_facebook: row.social_facebook,
-    purchase_website: row.purchase_website ?? row.website_url,
+    purchase_website: row.purchase_website,
     purchase_pinkoi: row.purchase_pinkoi,
     purchase_shopee: row.purchase_shopee,
     other_urls: normalizeOtherUrls(row.other_urls),

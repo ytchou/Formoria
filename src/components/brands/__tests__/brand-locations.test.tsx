@@ -203,7 +203,6 @@ describe('BrandLocations', () => {
     if (!(unconfirmedCard instanceof HTMLElement)) {
       throw new Error('Missing unconfirmed location card')
     }
-    expect(within(unconfirmedCard).getByText('百貨專櫃')).toBeInTheDocument()
     expect(
       within(unconfirmedCard).getByText('未經品牌確認'),
     ).toBeInTheDocument()
@@ -223,7 +222,6 @@ describe('BrandLocations', () => {
       screen.getAllByRole('link', { name: '在 Google Maps 開啟' }),
     ).toHaveLength(3)
 
-    expect(screen.getAllByText('連鎖通路')).toHaveLength(2)
     expect(screen.getAllByText('部分門市')).toHaveLength(2)
     const retailerLink = screen.getByRole('link', { name: '查看通路網站' })
     expect(retailerLink).toHaveAttribute(

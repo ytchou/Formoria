@@ -57,12 +57,12 @@ describe('ReportsTable', () => {
 
   it('renders the reason label', () => {
     render(<ReportsTable reports={mockReports} />)
-    expect(screen.getByText('Not Made in Taiwan')).toBeInTheDocument()
+    expect(screen.getByText('Not a Taiwanese Brand')).toBeInTheDocument()
   })
 
   it('renders Review and Dismiss buttons after expanding row', () => {
     render(<ReportsTable reports={mockReports} />)
-    fireEvent.click(screen.getByText('Not Made in Taiwan'))
+    fireEvent.click(screen.getByText('Not a Taiwanese Brand'))
     expect(screen.getByRole('button', { name: /Review/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Dismiss/i })).toBeInTheDocument()
   })

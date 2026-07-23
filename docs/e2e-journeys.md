@@ -12,7 +12,7 @@ Running inventory of e2e-covered user journeys. Updated by `/e2e-author` runs.
 | Submit form load | `e2e/smoke/submit.spec.ts` | pre-existing |
 | Navbar auth state | `e2e/smoke/navbar-auth.spec.ts` | pre-existing |
 | Getting started | `e2e/smoke/getting-started.spec.ts` | pre-existing |
-| Claim flow | `e2e/smoke/claim.spec.ts` | pre-existing |
+| **Screenshot proof — submit, admin approval, private-file deletion, ownership visible** | `e2e/smoke/claim.spec.ts` | 2026-07-23 |
 | **Guide hub browsing + navigation** | `e2e/smoke/guides.spec.ts` | 2026-07-03 |
 
 ## Deep (chromium-only, nightly)
@@ -20,6 +20,8 @@ Running inventory of e2e-covered user journeys. Updated by `/e2e-author` runs.
 | Journey | Spec | Last updated |
 |---------|------|-------------|
 | **Guide detail rendering + SEO** | `e2e/tests/guide-detail.spec.ts` | 2026-07-03 |
+| **Domain-email claim — approval blocked until real-route verification, then ownership granted** | `e2e/tests/claim-lifecycle.spec.ts` | 2026-07-23 |
+| **Private business-document claim — anonymous access denied, admin rejection, deletion, no ownership** | `e2e/tests/claim-lifecycle.spec.ts` | 2026-07-23 |
 | **Submit funnel end-to-end** | `e2e/tests/submit-funnel.spec.ts` | 2026-07-05 |
 | **Submit recommendation — duplicate recovery and rapid repeat-submit persistence** | `e2e/tests/submit-recommend-edge-cases.spec.ts` | 2026-07-19 |
 | **Detailed owner wizard — final-only persistence, shared links, romanized URL preview** | `e2e/tests/submit-funnel.spec.ts` | 2026-07-16 |

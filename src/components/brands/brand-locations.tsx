@@ -48,9 +48,6 @@ function UnconfirmedLocationCards({
           >
             <h4 className='type-subsection-title'>{location.name}</h4>
             <div className='mt-2 flex flex-wrap gap-2'>
-              <Badge variant='secondary'>
-                {t(`locations.types.${location.relationshipType}`)}
-              </Badge>
               <Badge variant='warning'>{t('locations.unconfirmedStatus')}</Badge>
             </div>
           </SurfaceCard>
@@ -83,7 +80,6 @@ function ChainCards({
           >
             <h4 className='type-subsection-title'>{location.name}</h4>
             <div className='mt-2 flex flex-wrap gap-2'>
-              <Badge variant='secondary'>{t('locations.chainBadge')}</Badge>
               <Badge variant='outline'>{t('locations.someStoresBadge')}</Badge>
             </div>
             {retailerUrl ? (

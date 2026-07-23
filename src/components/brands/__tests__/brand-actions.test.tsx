@@ -12,6 +12,10 @@ vi.mock('@/lib/analytics', () => ({
   trackExternalLinkClicked: vi.fn(),
 }))
 
+vi.mock('@/components/brands/evidence-dialog', () => ({
+  EvidenceDialog: () => <button aria-label="回報產地資訊">mock-evidence</button>,
+}))
+
 vi.mock('@/components/brands/report-dialog', () => ({
   ReportDialog: () => <button aria-label="檢舉">mock-report</button>,
 }))
