@@ -207,13 +207,16 @@ describe('brand-channels service', () => {
   })
 
   it('confirms idempotently per user and returns the current count when unconfirmed', async () => {
+    const firstGuard = makeBuilder({ data: { id: 'channel-1' }, error: null })
     const firstUpsert = makeBuilder({ data: null, error: null })
     const firstCount = makeBuilder({ data: null, error: null, count: 1 })
+    const secondGuard = makeBuilder({ data: { id: 'channel-1' }, error: null })
     const secondUpsert = makeBuilder({ data: null, error: null })
     const secondCount = makeBuilder({ data: null, error: null, count: 1 })
     const deletion = makeBuilder({ data: null, error: null })
     const finalCount = makeBuilder({ data: null, error: null, count: 0 })
     mockSupabase({
+      brand_channels: [firstGuard, secondGuard],
       brand_channel_confirmations: [
         firstUpsert,
         firstCount,

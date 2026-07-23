@@ -25,14 +25,22 @@ export const RETAILER_NAME_NOISE: readonly string[] = [
 ]
 
 export function normalizeChannelName(name: string): string {
-  const normalized = name.toLocaleLowerCase().replace(/\s+/g, '')
+  let normalized = name.toLocaleLowerCase().replace(/\s+/g, '')
 
-  for (const noise of RETAILER_NAME_NOISE) {
-    if (normalized.endsWith(noise)) {
-      const withoutNoise = normalized.slice(0, -noise.length)
-      return withoutNoise || normalized
+  let stripped: boolean
+  do {
+    stripped = false
+    for (const noise of RETAILER_NAME_NOISE) {
+      if (normalized.endsWith(noise)) {
+        const withoutNoise = normalized.slice(0, -noise.length)
+        if (withoutNoise) {
+          normalized = withoutNoise
+          stripped = true
+          break
+        }
+      }
     }
-  }
+  } while (stripped)
 
   return normalized
 }

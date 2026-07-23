@@ -109,8 +109,8 @@ export function UnconfirmedChannelGrid({
     channels.length - INITIAL_VISIBLE_CHANNELS,
     0,
   );
-  const ownerConfirmLabel = locale === "en" ? "Confirm sold here" : "確認販售";
-  const ownerRejectLabel = locale === "en" ? "Not sold here" : "未販售";
+  const ownerConfirmLabel = t("channels.ownerBanner.confirm");
+  const ownerRejectLabel = t("channels.ownerBanner.reject");
 
   function setChannelError(channelId: string, message: string | null) {
     setErrors((current) => {

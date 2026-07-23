@@ -88,6 +88,15 @@ describe('groupChannelsForDisplay', () => {
     expect(normalizeChannelName('登山友')).not.toBe(normalizeChannelName('登山王'))
   })
 
+  it('normalizeChannelName strips compound suffixes sequentially', () => {
+    // '登山友門市專賣店': strip '專賣店' → '登山友門市', then strip '門市' → '登山友'
+    expect(normalizeChannelName('登山友門市專賣店')).toBe('登山友')
+    // Should NOT return '登山友門市' (the old single-pass behaviour)
+    expect(normalizeChannelName('登山友門市專賣店')).not.toBe('登山友門市')
+    // Stripping must not reduce to empty string: '店' alone stays '店'
+    expect(normalizeChannelName('店')).toBe('店')
+  })
+
   it('excludes tombstoned and rejected channels from both groups', () => {
     const result = groupChannelsForDisplay([
       channelRow({ id: 'removed', removedAt: '2026-07-24T00:00:00Z' }),

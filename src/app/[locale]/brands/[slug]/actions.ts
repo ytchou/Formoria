@@ -28,8 +28,8 @@ import {
   getChannelsForBrand,
   setOwnerChannelStatus,
   submitChannel,
-  type SubmitChannelErrorCode,
 } from '@/lib/services/brand-channels'
+import { revalidatePublicBrand } from '@/lib/cache/public-brand-cache'
 import { isOwnerOf } from '@/lib/services/brand-owners'
 import type { ChannelType } from '@/lib/types/brand-channel'
 import { createServiceClient } from '@/lib/supabase/server'
@@ -76,28 +76,6 @@ export type EvidenceState = { error?: EvidenceErrorCode; success?: boolean }
 
 export type ChannelFormState = { error?: string; success?: true }
 
-type ChannelErrorKey =
-  | 'invalid_name'
-  | 'invalid_channel_type'
-  | 'invalid_url'
-  | 'active_cap_reached'
-  | 'daily_cap_reached'
-  | 'duplicate_name'
-  | 'database_error'
-  | 'missing_brand_id'
-  | 'missing_brand_slug'
-  | 'unknown'
-
-const CHANNEL_ERROR_KEYS: Record<SubmitChannelErrorCode, ChannelErrorKey> = {
-  invalid_name: 'invalid_name',
-  invalid_channel_type: 'invalid_channel_type',
-  invalid_url: 'invalid_url',
-  active_cap_reached: 'active_cap_reached',
-  daily_cap_reached: 'daily_cap_reached',
-  duplicate_name: 'duplicate_name',
-  database_error: 'database_error',
-}
-
 export type SubmitClaimInput = {
   brandId: string
   proofs: ProofEvidence[]
@@ -111,12 +89,6 @@ export type SubmitClaimResult =
   | { error: string }
 
 const reportRateLimiter = createInMemoryRateLimiter()
-
-function revalidateBrandChannelPaths(brandSlug: string): void {
-  const normalizedSlug = brandSlug.trim()
-  revalidatePath(`/brands/${normalizedSlug}`)
-  revalidatePath(`/en/brands/${normalizedSlug}`)
-}
 
 function getFormString(formData: FormData, key: string): string {
   const value = formData.get(key)
@@ -132,7 +104,7 @@ export async function confirmChannelAction(
     if (!user) return { error: 'not_logged_in' }
 
     const confirmationCount = await confirmChannel(user.id, channelId)
-    revalidateBrandChannelPaths(brandSlug)
+    revalidatePublicBrand({ slug: brandSlug })
     return { confirmationCount }
   } catch (error) {
     console.error('[brands:confirmChannel]', error)
@@ -184,9 +156,9 @@ export async function submitChannelInfoAction(
       address: getFormString(formData, 'address'),
       url: getFormString(formData, 'url'),
     })
-    if (!result.ok) return { error: t(CHANNEL_ERROR_KEYS[result.code]) }
+    if (!result.ok) return { error: t(result.code) }
 
-    revalidateBrandChannelPaths(brandSlug)
+    revalidatePublicBrand({ slug: brandSlug })
     return { success: true }
   } catch (error) {
     console.error('[brands:submitChannelInfo]', error)
@@ -206,7 +178,7 @@ export async function ownerModerateChannelAction(
     const result = await setOwnerChannelStatus(user.id, channelId, status)
     if (!result.ok) return { error: result.code }
 
-    revalidateBrandChannelPaths(brandSlug)
+    revalidatePublicBrand({ slug: brandSlug })
     return { success: true }
   } catch (error) {
     console.error('[brands:ownerModerateChannel]', error)

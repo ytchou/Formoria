@@ -14,6 +14,31 @@ import { isOwnerOf } from './brand-owners'
 export const MAX_ACTIVE_CHANNELS_PER_BRAND = 5
 export const MAX_SUBMISSIONS_PER_DAY = 20
 
+const REGION_LABEL_MAP: Record<string, string> = {
+  taipei: '臺北市',
+  new_taipei: '新北市',
+  taoyuan: '桃園市',
+  taichung: '臺中市',
+  tainan: '臺南市',
+  kaohsiung: '高雄市',
+  keelung: '基隆市',
+  hsinchu_city: '新竹市',
+  chiayi_city: '嘉義市',
+  hsinchu_county: '新竹縣',
+  miaoli: '苗栗縣',
+  changhua: '彰化縣',
+  nantou: '南投縣',
+  yunlin: '雲林縣',
+  chiayi_county: '嘉義縣',
+  pingtung: '屏東縣',
+  yilan: '宜蘭縣',
+  hualien: '花蓮縣',
+  taitung: '臺東縣',
+  penghu: '澎湖縣',
+  kinmen: '金門縣',
+  lienchiang: '連江縣',
+}
+
 export type SubmitChannelErrorCode =
   | 'invalid_name'
   | 'invalid_channel_type'
@@ -83,6 +108,12 @@ function isChannelType(value: string): value is ChannelType {
 function trimNullable(value: string | null | undefined): string | null {
   const trimmed = value?.trim()
   return trimmed ? trimmed : null
+}
+
+function regionSlugToLabel(value: string | null | undefined): string | null {
+  const trimmed = value?.trim()
+  if (!trimmed) return null
+  return REGION_LABEL_MAP[trimmed] ?? trimmed
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -181,15 +212,9 @@ export async function getChannelsForBrand(
   viewerUserId?: string,
 ): Promise<ReturnType<typeof groupChannelsForDisplay>> {
   const supabase = createServiceClient()
-  const select = viewerUserId
-    ? CHANNEL_READ_SELECT.replace(
-        'brand_channel_confirmations(count)',
-        'brand_channel_confirmations(count, user_id)',
-      )
-    : CHANNEL_READ_SELECT
   const { data, error } = await supabase
     .from('brand_channels')
-    .select(select)
+    .select(CHANNEL_READ_SELECT)
     .eq('brand_id', brandId)
     .is('removed_at', null)
     .neq('owner_status', 'rejected')
@@ -197,17 +222,27 @@ export async function getChannelsForBrand(
   if (error) throw error
 
   const rows = (data ?? []) as unknown as BrandChannelRow[]
-  const mappedRows = rows.map(rowToDisplayRow)
-  const viewerConfirmedIds = viewerUserId
-    ? mappedRows
-        .filter((row) => row.confirmationUserIds.includes(viewerUserId))
-        .map((row) => row.displayRow.id)
-    : undefined
+  const displayRows = rows.map((row) => rowToDisplayRow(row).displayRow)
 
-  return groupChannelsForDisplay(
-    mappedRows.map((row) => row.displayRow),
-    viewerConfirmedIds,
-  )
+  let viewerConfirmedIds: string[] | undefined
+  if (viewerUserId) {
+    const channelIds = rows.map((row) => row.id)
+    if (channelIds.length > 0) {
+      const { data: viewerData, error: viewerError } = await supabase
+        .from('brand_channel_confirmations')
+        .select('channel_id')
+        .eq('user_id', viewerUserId)
+        .in('channel_id', channelIds)
+      if (viewerError) throw viewerError
+      viewerConfirmedIds = (viewerData ?? []).map(
+        (row) => (row as { channel_id: string }).channel_id,
+      )
+    } else {
+      viewerConfirmedIds = []
+    }
+  }
+
+  return groupChannelsForDisplay(displayRows, viewerConfirmedIds)
 }
 
 export async function confirmChannel(
@@ -215,6 +250,17 @@ export async function confirmChannel(
   channelId: string,
 ): Promise<number> {
   const supabase = createServiceClient()
+
+  const { data: channel } = await supabase
+    .from('brand_channels')
+    .select('id')
+    .eq('id', channelId)
+    .is('removed_at', null)
+    .neq('owner_status', 'rejected')
+    .maybeSingle()
+
+  if (!channel) return 0
+
   const { error } = await supabase
     .from('brand_channel_confirmations')
     .upsert(
@@ -282,7 +328,7 @@ export async function submitChannel(
       normalized_name: normalizeChannelName(name),
       channel_type: input.channelType,
       category_label: trimNullable(input.category),
-      region_label: trimNullable(input.region),
+      region_label: regionSlugToLabel(input.region),
       address: trimNullable(input.address),
       url,
       source: 'community',
@@ -387,11 +433,13 @@ export async function upsertEnrichedChannels(
   candidates: ChannelCandidate[],
 ): Promise<EnrichedChannelsResult> {
   const rows: EnrichedChannelRow[] = []
+  let invalidCount = 0
   for (const candidate of candidates) {
     const name = candidate.name.trim()
     const normalizedName = normalizeChannelName(name)
     if (name.length < 1 || name.length > 80 || normalizedName.length < 1) {
-      return { ok: false, code: 'invalid_name' }
+      invalidCount++
+      continue
     }
 
     rows.push({
@@ -406,7 +454,11 @@ export async function upsertEnrichedChannels(
     })
   }
 
-  if (rows.length === 0) return { ok: true, count: 0 }
+  if (rows.length === 0) {
+    return invalidCount > 0
+      ? { ok: false, code: 'invalid_name' }
+      : { ok: true, count: 0 }
+  }
 
   const supabase = createServiceClient()
   const { data, error } = await supabase.rpc('upsert_enriched_brand_channels', {

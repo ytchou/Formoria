@@ -1777,12 +1777,16 @@ export async function approveSubmission(
     throw new NotFoundError("BrandSubmission", id, { cause: approvalError });
 
   if (reviewData.channels) {
-    const channelsResult = await upsertEnrichedChannels(
-      approval.brand_id,
-      reviewData.channels,
-    );
-    if (!channelsResult.ok) {
-      throw new Error("Failed to upsert enriched channels: " + channelsResult.code);
+    try {
+      const channelsResult = await upsertEnrichedChannels(
+        approval.brand_id,
+        reviewData.channels,
+      );
+      if (!channelsResult.ok) {
+        console.error('[approveSubmission] Failed to upsert enriched channels:', channelsResult.code);
+      }
+    } catch (channelError) {
+      console.error('[approveSubmission] Failed to upsert enriched channels:', channelError);
     }
   }
 
