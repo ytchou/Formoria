@@ -104,7 +104,7 @@ describe('owner analytics page data loading', () => {
     render(await AnalyticsPage({ params: Promise.resolve({ locale: 'en', slug: 'alpha' }) }))
 
     expect(mocks.getBrandBySlug).toHaveBeenCalledWith('alpha')
-    expect(mocks.getSnapshot).toHaveBeenCalledWith('brand-uuid')
+    expect(mocks.getSnapshot).toHaveBeenCalledWith('brand-uuid', { daysBack: 30 })
     expect(screen.getAllByText('Profile visits')).toHaveLength(2)
   })
 })
