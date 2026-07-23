@@ -669,21 +669,20 @@ BEGIN
     RAISE NOTICE 'Skipping ALTER ROLE hardening — insufficient privileges (expected in local Supabase)';
   END;
 
-  REVOKE ALL ON ALL TABLES IN SCHEMA public FROM health_agent_writer;
-  REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM health_agent_writer;
-  REVOKE INSERT, UPDATE, DELETE ON public.brands FROM health_agent_reader, health_agent_writer;
-
-  GRANT USAGE ON SCHEMA public TO health_agent_reader, health_agent_writer;
-  GRANT SELECT ON public.brands TO health_agent_reader;
-  GRANT SELECT ON public.health_fix_queue TO health_agent_reader;
-  GRANT SELECT ON public.health_snapshots TO health_agent_reader;
-  GRANT SELECT ON public.link_check_results TO health_agent_reader;
-  GRANT SELECT ON public.health_agent_run_ledger TO health_agent_reader;
-
   BEGIN
+    REVOKE ALL ON ALL TABLES IN SCHEMA public FROM health_agent_writer;
+    REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM health_agent_writer;
+    REVOKE INSERT, UPDATE, DELETE ON public.brands FROM health_agent_reader, health_agent_writer;
+
+    GRANT USAGE ON SCHEMA public TO health_agent_reader, health_agent_writer;
+    GRANT SELECT ON public.brands TO health_agent_reader;
+    GRANT SELECT ON public.health_fix_queue TO health_agent_reader;
+    GRANT SELECT ON public.health_snapshots TO health_agent_reader;
+    GRANT SELECT ON public.link_check_results TO health_agent_reader;
+    GRANT SELECT ON public.health_agent_run_ledger TO health_agent_reader;
     GRANT pg_read_all_stats TO health_agent_reader;
   EXCEPTION WHEN insufficient_privilege THEN
-    RAISE NOTICE 'Skipping pg_read_all_stats grant — insufficient privileges (expected in local Supabase)';
+    RAISE NOTICE 'Skipping REVOKE/GRANT — insufficient privileges (expected in local Supabase)';
   END;
 END;
 $$;
