@@ -39,7 +39,23 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Run ${{ matrix.bundle }}
+      - name: Verify favicon is RGBA
+        if: ${{ matrix.bundle == 'lint' }}
+        run: node scripts/check-favicon-rgba.mjs
+      - name: Lint
+        if: ${{ matrix.bundle == 'lint' }}
+        run: pnpm lint
+      - name: Type-check
+        if: ${{ matrix.bundle == 'type-check' }}
+        run: pnpm tsc --noEmit
+      - name: Dead code
+        if: ${{ matrix.bundle == 'dead-code' }}
+        run: pnpm knip
+      - name: Unit coverage
+        if: ${{ matrix.bundle == 'unit-coverage' }}
+        run: pnpm test -- --coverage
+      - name: Production build
+        if: ${{ matrix.bundle == 'build' }}
         env:
           NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-public-anon-key
@@ -47,29 +63,7 @@ jobs:
           NEXT_PUBLIC_SITE_URL: http://localhost:3000
           NEXT_PUBLIC_TURNSTILE_SITE_KEY: 1x00000000000000000000AA
           TURNSTILE_SECRET_KEY: 1x0000000000000000000000000000000AA
-        run: |
-          case "${{ matrix.bundle }}" in
-            lint)
-              node scripts/check-favicon-rgba.mjs
-              pnpm lint
-              ;;
-            type-check)
-              pnpm tsc --noEmit
-              ;;
-            dead-code)
-              pnpm knip
-              ;;
-            unit-coverage)
-              pnpm test -- --coverage
-              ;;
-            build)
-              pnpm build
-              ;;
-            *)
-              echo "Unknown quality bundle: ${{ matrix.bundle }}" >&2
-              exit 1
-              ;;
-          esac
+        run: pnpm build
 
   quality:
     name: Quality
