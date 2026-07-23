@@ -2620,6 +2620,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      upsert_enriched_brand_channels: {
+        Args: { p_brand_id: string; p_candidates: Json }
+        Returns: number
+      }
     }
     Enums: {
       [_ in never]: never
