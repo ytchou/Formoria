@@ -6,7 +6,14 @@ import type { RetailLocation } from '@/lib/types/brand'
 import type { PhaseResult } from '@/lib/types/curation'
 import type { EnrichScrapedData } from './types'
 import { brandTarget, type EnrichmentTarget } from '../enrichment-target'
-import { buildPhaseResult, getDisplayBrandName, hasPatchValues, timePhase, type EnrichBrand, type EnrichPhase } from './types'
+import {
+  buildPhaseResult,
+  getDisplayBrandName,
+  hasPatchValues,
+  timePhase,
+  type EnrichBrand,
+  type EnrichPhase,
+} from './types'
 
 type ExtractedStockist = NonNullable<DescriptionRewriteResult['stockists']>[number]
 
@@ -18,9 +25,7 @@ function stockistNameIdentity(location: RetailLocation): string {
   return location.name.trim().replace(/\s+/g, ' ').toLocaleLowerCase()
 }
 
-function normalizeExtractedStockists(
-  stockists: ExtractedStockist[],
-): RetailLocation[] {
+function normalizeExtractedStockists(stockists: ExtractedStockist[]): RetailLocation[] {
   return normalizeRetailLocations(
     stockists.map((stockist) =>
       stockist.type === 'chain'
@@ -33,6 +38,9 @@ function normalizeExtractedStockists(
             name: stockist.name,
             relationshipType: 'stockist',
             ...(stockist.city ? { city: stockist.city } : {}),
+            ...(stockist.address ? { address: stockist.address } : {}),
+            ...(stockist.venueName ? { venueName: stockist.venueName } : {}),
+            ...(stockist.floorOrCounter ? { floorOrCounter: stockist.floorOrCounter } : {}),
             confirmationStatus: 'unconfirmed',
           },
     ),
@@ -43,10 +51,8 @@ function getOwnerConfirmedLocations(value: unknown): RetailLocation[] {
   if (!Array.isArray(value)) return []
 
   return value.flatMap((location) => {
-    const [normalized] = normalizeRetailLocations([location])
-    return normalized &&
-      isPhysicalRetailLocation(normalized) &&
-      normalized.confirmationStatus === 'owner_confirmed'
+    const normalized = normalizeRetailLocations([location]).at(0)
+    return normalized && isPhysicalRetailLocation(normalized) && normalized.confirmationStatus === 'owner_confirmed'
       ? [normalized]
       : []
   })
@@ -57,25 +63,14 @@ function getOverwriteRetailLocations(value: unknown): RetailLocation[] | null {
   return ownerConfirmedLocations.length > 0 ? ownerConfirmedLocations : null
 }
 
-function mergeStockists(
-  existing: unknown,
-  newStockists: ExtractedStockist[],
-  overwrite: boolean,
-): RetailLocation[] {
-  const merged = overwrite
-    ? getOwnerConfirmedLocations(existing)
-    : normalizeRetailLocations(existing)
+function mergeStockists(existing: unknown, newStockists: ExtractedStockist[], overwrite: boolean): RetailLocation[] {
+  const merged = overwrite ? getOwnerConfirmedLocations(existing) : normalizeRetailLocations(existing)
   const identities = new Set(merged.map(stockistIdentity))
-  const protectedNames = overwrite
-    ? new Set(merged.map(stockistNameIdentity))
-    : null
+  const protectedNames = overwrite ? new Set(merged.map(stockistNameIdentity)) : null
 
   for (const stockist of normalizeExtractedStockists(newStockists)) {
     const identity = stockistIdentity(stockist)
-    if (
-      !identities.has(identity) &&
-      !protectedNames?.has(stockistNameIdentity(stockist))
-    ) {
+    if (!identities.has(identity) && !protectedNames?.has(stockistNameIdentity(stockist))) {
       merged.push(stockist)
       identities.add(identity)
     }
@@ -156,6 +151,7 @@ type PersistedScrapeRow = {
   urls: string[] | null
   snippets: string[] | null
   raw_response: unknown
+  call_status?: string | null
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -172,47 +168,48 @@ export type PersistedScrapeText = {
 }
 
 export async function loadPersistedScrapeText(
-  targetOrBrandId: EnrichmentTarget | string
+  targetOrBrandId: EnrichmentTarget | string,
 ): Promise<PersistedScrapeText> {
   const supabase = createServiceClient()
-  const target = typeof targetOrBrandId === 'string'
-    ? brandTarget(targetOrBrandId)
-    : targetOrBrandId
+  const target = typeof targetOrBrandId === 'string' ? brandTarget(targetOrBrandId) : targetOrBrandId
   const foreignKey = target.type === 'brand' ? 'brand_id' : 'submission_id'
   const { data } = await supabase
     .from('brand_search_results')
-    .select('urls, snippets, raw_response')
+    .select('urls, snippets, raw_response, call_status')
     .eq(foreignKey, target.id)
     .eq('search_type', 'scrape')
     .order('created_at', { ascending: false })
-    .limit(1)
+    .limit(20)
 
-  const row = (data?.[0] ?? null) as PersistedScrapeRow | null
-  if (!row) {
+  const rows = (data ?? []) as PersistedScrapeRow[]
+  if (rows.length === 0) {
     return { snippets: [], siteContent: null }
   }
 
-  const raw = isRecord(row.raw_response) ? row.raw_response : {}
-  const description = stringValue(raw.description)
-  const story = stringValue(raw.story)
-  const stockistPageText = stringValue(raw.stockistPageText)
-  const jsonLd = raw.jsonLd ?? raw.json_ld ?? null
-  const snippets = [
-    ...(row.snippets ?? []),
-    description,
-    story,
-  ].filter((text): text is string => Boolean(text))
-  const siteContentParts = [
-    row.urls?.[0] ? `URL: ${row.urls[0]}` : '',
-    description ? `Description: ${description}` : '',
-    story ? `Story: ${story}` : '',
-    stockistPageText ? `Stockist Page: ${stockistPageText}` : '',
-    jsonLd ? `JSON-LD: ${JSON.stringify(jsonLd)}` : '',
-  ].filter(Boolean)
+  const snippets: string[] = []
+  const siteContentParts: string[] = []
+  for (const row of rows) {
+    if (row.call_status && !['succeeded', 'empty'].includes(row.call_status)) continue
+    const outer = isRecord(row.raw_response) ? row.raw_response : {}
+    const raw = isRecord(outer.extracted) ? outer.extracted : outer
+    const description = stringValue(raw.description)
+    const story = stringValue(raw.story)
+    const stockistPageText = stringValue(raw.stockistPageText)
+    const jsonLd = raw.jsonLd ?? raw.json_ld ?? null
+    snippets.push(...(row.snippets ?? []), ...(description ? [description] : []), ...(story ? [story] : []))
+    const pageUrl = row.urls?.at(0) ?? stringValue(raw.pageUrl) ?? stringValue(raw.url)
+    siteContentParts.push(
+      pageUrl ? `URL: ${pageUrl}` : '',
+      description ? `Description: ${description}` : '',
+      story ? `Story: ${story}` : '',
+      stockistPageText ? `Stockist Page: ${stockistPageText}` : '',
+      jsonLd ? `JSON-LD: ${JSON.stringify(jsonLd)}` : '',
+    )
+  }
 
   return {
-    snippets: [...new Set(snippets)],
-    siteContent: siteContentParts.length > 0 ? siteContentParts.join('\n') : null,
+    snippets: [...new Set(snippets.filter((text): text is string => Boolean(text)))],
+    siteContent: siteContentParts.filter(Boolean).length > 0 ? siteContentParts.filter(Boolean).join('\n') : null,
   }
 }
 
@@ -247,22 +244,22 @@ export async function runDescriptionsPhase({
   }
 
   const { result, durationMs } = await timePhase(async () => {
-    const rewriteSnippets = effectiveSnippets.length > 0
-      ? effectiveSnippets
-      : brand.description ? [brand.description] : []
+    const rewriteSnippets =
+      effectiveSnippets.length > 0 ? effectiveSnippets : brand.description ? [brand.description] : []
     const truncatedSiteContent = persistedScrape.siteContent?.slice(0, 4000) ?? null
-    const descriptionRewriteOutput = rewriteSnippets.length > 0
-      ? await rewriteBrandDescription(
-          getDisplayBrandName(brand),
-          brand.description ?? null,
-          rewriteSnippets,
-          truncatedSiteContent,
-          {
-            target: target ?? brandTarget(brand.id),
-            ...(jobId ? { jobId } : {}),
-          },
-        )
-      : null
+    const descriptionRewriteOutput =
+      rewriteSnippets.length > 0
+        ? await rewriteBrandDescription(
+            getDisplayBrandName(brand),
+            brand.description ?? null,
+            rewriteSnippets,
+            truncatedSiteContent,
+            {
+              target: target ?? brandTarget(brand.id),
+              ...(jobId ? { jobId } : {}),
+            },
+          )
+        : null
 
     const descriptionRewrite = descriptionRewriteOutput?.result ?? null
     const attempts = descriptionRewriteOutput?.attempts ?? []
@@ -270,7 +267,11 @@ export async function runDescriptionsPhase({
     let descriptionPatch: Record<string, unknown> = {}
     let crossBranchTags: string[] = []
     if (descriptionRewrite) {
-      const { tags: mergedTags, tagsEn: mergedTagsEn, crossBranch } = normalizeProductTags(
+      const {
+        tags: mergedTags,
+        tagsEn: mergedTagsEn,
+        crossBranch,
+      } = normalizeProductTags(
         descriptionRewrite.productTags,
         descriptionRewrite.productTagsEn,
         brand.product_type ?? undefined,
@@ -278,47 +279,60 @@ export async function runDescriptionsPhase({
       crossBranchTags = crossBranch
 
       const shouldWrite = (existing: unknown) =>
-        overwrite || existing == null || (typeof existing === 'string' && existing.trim() === '') || (Array.isArray(existing) && existing.length === 0)
+        overwrite ||
+        existing == null ||
+        (typeof existing === 'string' && existing.trim() === '') ||
+        (Array.isArray(existing) && existing.length === 0)
 
       descriptionPatch = {
-        ...(descriptionRewrite.description_zh && shouldWrite(brand.description) ? { description: descriptionRewrite.description_zh } : {}),
-        ...(descriptionRewrite.description_en && shouldWrite(brand.description_en) ? { description_en: descriptionRewrite.description_en } : {}),
+        ...(descriptionRewrite.description_zh && shouldWrite(brand.description)
+          ? { description: descriptionRewrite.description_zh }
+          : {}),
+        ...(descriptionRewrite.description_en && shouldWrite(brand.description_en)
+          ? { description_en: descriptionRewrite.description_en }
+          : {}),
         ...(descriptionRewrite.blurb_zh && shouldWrite(brand.blurb) ? { blurb: descriptionRewrite.blurb_zh } : {}),
-        ...(descriptionRewrite.blurb_en && shouldWrite(brand.blurb_en) ? { blurb_en: descriptionRewrite.blurb_en } : {}),
-        ...(descriptionRewrite.priceRange != null && shouldWrite(brand.price_range) ? { price_range: descriptionRewrite.priceRange } : {}),
+        ...(descriptionRewrite.blurb_en && shouldWrite(brand.blurb_en)
+          ? { blurb_en: descriptionRewrite.blurb_en }
+          : {}),
+        ...(descriptionRewrite.priceRange != null && shouldWrite(brand.price_range)
+          ? { price_range: descriptionRewrite.priceRange }
+          : {}),
         ...(mergedTags.length > 0 && shouldWrite(brand.product_tags) ? { product_tags: mergedTags } : {}),
         ...(mergedTagsEn.length > 0 && shouldWrite(brand.product_tags_en) ? { product_tags_en: mergedTagsEn } : {}),
         ...(descriptionRewrite.city && shouldWrite(brand.city) ? { city: descriptionRewrite.city } : {}),
-        ...(descriptionRewrite.foundingYear != null && shouldWrite(brand.founding_year) ? { founding_year: descriptionRewrite.foundingYear } : {}),
-        ...(descriptionRewrite.reputationSummary && shouldWrite(brand.reputation_summary) ? {
-          reputation_summary: {
-            text: descriptionRewrite.reputationSummary.text,
-            text_en: descriptionRewrite.reputationSummary.textEn,
-            sources: descriptionRewrite.reputationSummary.sources,
-          }
-        } : {}),
-        ...(descriptionRewrite.stockists && descriptionRewrite.stockists.length > 0 ? {
-          retail_locations: mergeStockists(
-            brand.retail_locations,
-            descriptionRewrite.stockists,
-            overwrite,
-          ),
-        } : overwrite && brand.retail_locations != null ? {
-          retail_locations: getOverwriteRetailLocations(brand.retail_locations),
-        } : {}),
-        ...(descriptionRewrite.mitIndicators && shouldWrite(brand.mit_evidence) ? {
-          mit_evidence: {
-            enrichment_signals: descriptionRewrite.mitIndicators.evidence,
-            verified_source: 'enrichment_signal',
-          },
-        } : {}),
+        ...(descriptionRewrite.foundingYear != null && shouldWrite(brand.founding_year)
+          ? { founding_year: descriptionRewrite.foundingYear }
+          : {}),
+        ...(descriptionRewrite.reputationSummary && shouldWrite(brand.reputation_summary)
+          ? {
+              reputation_summary: {
+                text: descriptionRewrite.reputationSummary.text,
+                text_en: descriptionRewrite.reputationSummary.textEn,
+                sources: descriptionRewrite.reputationSummary.sources,
+              },
+            }
+          : {}),
+        ...(descriptionRewrite.stockists && descriptionRewrite.stockists.length > 0
+          ? {
+              retail_locations: mergeStockists(brand.retail_locations, descriptionRewrite.stockists, overwrite),
+            }
+          : overwrite && brand.retail_locations != null
+            ? {
+                retail_locations: getOverwriteRetailLocations(brand.retail_locations),
+              }
+            : {}),
+        ...(descriptionRewrite.mitIndicators && shouldWrite(brand.mit_evidence)
+          ? {
+              mit_evidence: {
+                enrichment_signals: descriptionRewrite.mitIndicators.evidence,
+                verified_source: 'enrichment_signal',
+              },
+            }
+          : {}),
       }
 
-      if (
-        !dryRun &&
-        Array.isArray(descriptionPatch.product_tags) &&
-        Array.isArray(descriptionPatch.product_tags_en)
-      ) {
+      if (!dryRun && Array.isArray(descriptionPatch.product_tags) && Array.isArray(descriptionPatch.product_tags_en)) {
         const supabase = createServiceClient()
         const tagPairs = mergedTags.map((zh, i) => ({
           tag_zh: zh,
@@ -336,7 +350,7 @@ export async function runDescriptionsPhase({
 
         if (canonical && canonical.length > 0) {
           const tagMap = new Map(canonical.map((t: { tag_zh: string; tag_en: string }) => [t.tag_zh, t.tag_en]))
-          descriptionPatch.product_tags_en = mergedTags.map(zh => tagMap.get(zh) ?? zh)
+          descriptionPatch.product_tags_en = mergedTags.map((zh) => tagMap.get(zh) ?? zh)
         }
       }
     }
@@ -354,7 +368,7 @@ export async function runDescriptionsPhase({
       'descriptions',
       'succeeded',
       hasPatchValues(result.patch) ? changedFieldsForPatch(result.patch) : [],
-      durationMs
+      durationMs,
     ),
     patch: result.patch,
     descriptionRewrite: result.descriptionRewrite,

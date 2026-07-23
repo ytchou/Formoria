@@ -8,5 +8,6 @@ export const ENRICH_PHASES = [
   'images',
   'classify_images',
   'descriptions',
+  'locations',
   'expansion',
 ] as const

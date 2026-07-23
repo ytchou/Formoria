@@ -196,6 +196,8 @@ test.describe('Brand detail — public locations and retail channels', () => {
 
   const confirmedStoreName = '[E2E-TEST] Taipei brand store';
   const confirmedStoreAddress = '台北市信義區信義路五段7號';
+  const verifiedStoreName = '[E2E-TEST] Evidence-verified brand store';
+  const verifiedStoreAddress = '台北市大安區證據路9號';
   const confirmedStockistName = '[E2E-TEST] Taichung stockist';
   const privateLeadName = '[E2E-TEST] Private physical lead';
   const privateLeadAddress = '[E2E-TEST] Private Address 991 No Render Lane';
@@ -230,6 +232,16 @@ test.describe('Brand detail — public locations and retail channels', () => {
             latitude: 25.033,
             longitude: 121.5654,
             confirmationStatus: 'owner_confirmed',
+          },
+          {
+            kind: 'location',
+            name: verifiedStoreName,
+            relationshipType: 'brand_store',
+            address: verifiedStoreAddress,
+            latitude: 25.026,
+            longitude: 121.543,
+            verificationStatus: 'verified',
+            confirmationStatus: 'unconfirmed',
           },
           {
             kind: 'location',
@@ -271,16 +283,18 @@ test.describe('Brand detail — public locations and retail channels', () => {
         seeded.brand.name,
         { timeout: 10_000 },
       );
-      await expect(page.getByRole('heading', { name: '已確認地點 · 2', level: 3 })).toBeVisible();
+      await expect(page.getByRole('heading', { name: '已確認地點 · 3', level: 3 })).toBeVisible();
       await expect(page.getByRole('heading', { name: '待確認地點 · 1', level: 3 })).toBeVisible();
       await expect(page.getByRole('heading', { name: '連鎖販售通路 · 1', level: 3 })).toBeVisible();
     }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 10_000] });
 
-    await expect(page.getByText('以下地點資訊已由品牌主確認；前往前請先向店家確認販售商品與庫存。')).toBeVisible();
+    await expect(page.getByText('此地址已由品牌公開來源佐證；販售品項與庫存可能變動，前往前請先查看品牌網站並向店家確認。')).toBeVisible();
     await expect(page.getByText('以下為盡力整理的公開資訊。品牌主確認前，不提供地址、地圖標記或地圖連結。')).toBeVisible();
     await expect(page.getByText('各分店販售情況不同；通路連結僅供查詢通路資訊，不代表即時庫存。')).toBeVisible();
     await expect(page.getByText(privateLeadName)).toBeVisible();
     await expect(page.getByText(privateLeadAddress)).toHaveCount(0);
+    await expect(page.getByText(verifiedStoreName)).toBeVisible();
+    await expect(page.getByText(verifiedStoreAddress)).toBeVisible();
     await expect(page.getByRole('link', { name: '查看通路資訊' })).toHaveAttribute(
       'href',
       retailerUrl,
@@ -292,13 +306,13 @@ test.describe('Brand detail — public locations and retail channels', () => {
     await expect(map).toBeVisible({ timeout: 10_000 });
 
     const confirmedHeading = page.getByRole('heading', {
-      name: '已確認地點 · 2',
+      name: '已確認地點 · 3',
       level: 3,
     });
     const confirmedGroup = confirmedHeading.locator('..').locator('..');
-    const allFilter = confirmedGroup.getByRole('button', { name: '全部 2' });
+    const allFilter = confirmedGroup.getByRole('button', { name: '全部 3' });
     const brandStoreFilter = confirmedGroup.getByRole('button', {
-      name: '品牌門市 1',
+      name: '品牌門市 2',
     });
     const otherSalesFilter = confirmedGroup.getByRole('button', {
       name: '其他販售通路 1',
@@ -314,6 +328,7 @@ test.describe('Brand detail — public locations and retail channels', () => {
     await brandStoreFilter.press('Enter');
     await expect(brandStoreFilter).toHaveAttribute('aria-pressed', 'true');
     await expect(confirmedGroup.getByText(confirmedStoreName)).toBeVisible();
+    await expect(confirmedGroup.getByText(verifiedStoreName)).toBeVisible();
     await expect(confirmedGroup.getByText(confirmedStockistName)).toHaveCount(0);
     await expect(confirmedGroup.getByText(privateLeadName)).toHaveCount(0);
     await expect(confirmedGroup.getByText(chainName)).toHaveCount(0);
@@ -321,6 +336,7 @@ test.describe('Brand detail — public locations and retail channels', () => {
     await otherSalesFilter.click();
     await expect(confirmedGroup.getByText(confirmedStockistName)).toBeVisible();
     await expect(confirmedGroup.getByText(confirmedStoreName)).toHaveCount(0);
+    await expect(confirmedGroup.getByText(verifiedStoreName)).toHaveCount(0);
     await expect(map).toHaveCount(0);
 
     await allFilter.click();
@@ -333,6 +349,7 @@ test.describe('Brand detail — public locations and retail channels', () => {
     await viewAll.click();
     await expect(map).toHaveCount(0);
     await expect(confirmedGroup.getByText(confirmedStoreName)).toBeVisible();
+    await expect(confirmedGroup.getByText(verifiedStoreName)).toBeVisible();
     await expect(confirmedGroup.getByText(confirmedStockistName)).toBeVisible();
   });
 });

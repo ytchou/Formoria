@@ -36,9 +36,16 @@ export function isGoogleUrl(url: string): boolean {
   }
 }
 
-export { searchBrandUrls, batchSearchBrandsWithSnippets, batchSearchBrandImages } from './serper'
+export {
+  searchBrandUrls,
+  batchSearchBrandsWithSnippets,
+  batchSearchBrandImages,
+  searchBrandMaps,
+  parseBrandSearchEntries,
+} from './serper'
 export type {
   BrandImageSearchResult,
+  BrandSearchEntry,
   QueryTemplate,
   ImageQueryInput,
 } from './types'
