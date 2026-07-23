@@ -712,9 +712,12 @@ jobs:
           if-no-files-found: warn
           name: health-repair-batches-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            .health-agent-artifacts/*-snapshot.json
-            .health-agent-artifacts/*-metadata.json
-            .health-agent-artifacts/*-audit.json
+            .health-agent-artifacts/automatic-snapshot.json
+            .health-agent-artifacts/automatic-metadata.json
+            .health-agent-artifacts/automatic-audit.json
+            .health-agent-artifacts/human-snapshot.json
+            .health-agent-artifacts/human-metadata.json
+            .health-agent-artifacts/human-audit.json
           retention-days: 14
 
   automatic-repair:
@@ -877,8 +880,10 @@ jobs:
           name: health-repair-automatic-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             .health-agent-artifacts/automatic.patch
-            .health-agent-artifacts/automatic-cycle-*.json
-            .health-agent-artifacts/automatic-review-*.json
+            .health-agent-artifacts/automatic-cycle-1.json
+            .health-agent-artifacts/automatic-cycle-2.json
+            .health-agent-artifacts/automatic-review-1.json
+            .health-agent-artifacts/automatic-review-2.json
           retention-days: 14
 
   human-repair:
@@ -1037,8 +1042,10 @@ jobs:
           name: health-repair-human-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             .health-agent-artifacts/human.patch
-            .health-agent-artifacts/human-cycle-*.json
-            .health-agent-artifacts/human-review-*.json
+            .health-agent-artifacts/human-cycle-1.json
+            .health-agent-artifacts/human-cycle-2.json
+            .health-agent-artifacts/human-review-1.json
+            .health-agent-artifacts/human-review-2.json
           retention-days: 14
 
   escalate-repair-failure:
@@ -1114,7 +1121,9 @@ jobs:
         with:
           if-no-files-found: warn
           name: health-repair-failures-${{ github.run_id }}-${{ github.run_attempt }}
-          path: .health-agent-artifacts/failures/*.json
+          path: |
+            .health-agent-artifacts/failures/automatic.json
+            .health-agent-artifacts/failures/human.json
           retention-days: 14
 
   validate-repair:

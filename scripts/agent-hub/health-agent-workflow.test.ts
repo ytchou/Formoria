@@ -102,6 +102,21 @@ describe("unified health-agent workflow contract", () => {
       "sentry-triage",
       "aggregate-and-deliver",
     );
+    const repairBatches = jobSection(
+      workflow,
+      "prepare-repair-batches",
+      "automatic-repair",
+    );
+    const automaticRepair = jobSection(
+      workflow,
+      "automatic-repair",
+      "human-repair",
+    );
+    const humanRepair = jobSection(
+      workflow,
+      "human-repair",
+      "escalate-repair-failure",
+    );
 
     expect(directory).toContain(
       "path: |\n            .health-agent-artifacts/directory-evidence.json\n            .health-agent-artifacts/directory-health.json",
@@ -113,6 +128,30 @@ describe("unified health-agent workflow contract", () => {
       "path: .health-agent-artifacts/sentry-triage.json",
     );
     expect(sentry).not.toContain("path: .health-agent-artifacts/sentry*.json");
+    expect(repairBatches).toContain(
+      "path: |\n            .health-agent-artifacts/automatic-snapshot.json\n            .health-agent-artifacts/automatic-metadata.json\n            .health-agent-artifacts/automatic-audit.json\n            .health-agent-artifacts/human-snapshot.json\n            .health-agent-artifacts/human-metadata.json\n            .health-agent-artifacts/human-audit.json",
+    );
+    expect(automaticRepair).toContain(
+      ".health-agent-artifacts/automatic-cycle-1.json",
+    );
+    expect(automaticRepair).toContain(
+      ".health-agent-artifacts/automatic-cycle-2.json",
+    );
+    expect(automaticRepair).toContain(
+      ".health-agent-artifacts/automatic-review-1.json",
+    );
+    expect(automaticRepair).toContain(
+      ".health-agent-artifacts/automatic-review-2.json",
+    );
+    expect(humanRepair).toContain(".health-agent-artifacts/human-cycle-1.json");
+    expect(humanRepair).toContain(".health-agent-artifacts/human-cycle-2.json");
+    expect(humanRepair).toContain(
+      ".health-agent-artifacts/human-review-1.json",
+    );
+    expect(humanRepair).toContain(
+      ".health-agent-artifacts/human-review-2.json",
+    );
+    expect(workflow).not.toMatch(/\.health-agent-artifacts\/[^\n]*\*/);
   });
 
   it("uses exactly three collector routines and one aggregated Slack delivery", async () => {
@@ -308,7 +347,7 @@ describe("unified health-agent workflow contract", () => {
     }
     expect(escalation).toContain("if: always()");
     expect(escalation).toContain(
-      "path: .health-agent-artifacts/failures/*.json",
+      "path: |\n            .health-agent-artifacts/failures/automatic.json\n            .health-agent-artifacts/failures/human.json",
     );
   });
 
