@@ -44,8 +44,6 @@ export {
   parseBrandSearchEntries,
 } from './serper'
 export type {
-  BrandImageSearchResult,
-  BrandSearchEntry,
   QueryTemplate,
   ImageQueryInput,
 } from './types'

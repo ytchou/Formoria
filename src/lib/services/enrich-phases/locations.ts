@@ -27,7 +27,7 @@ import {
 const MAX_MAPS_FALLBACKS = 3
 const MAX_EVIDENCE_EXCERPT = 500
 
-export type LocationEvidence = {
+type LocationEvidence = {
   source: 'official' | 'social' | 'maps' | 'description' | 'serp'
   url?: string
   auditResultId?: string
@@ -35,7 +35,7 @@ export type LocationEvidence = {
   reference?: number
 }
 
-export type LocationCandidateDecision = 'verified' | 'needs_review' | 'rejected'
+type LocationCandidateDecision = 'verified' | 'needs_review' | 'rejected'
 
 export type LocationCandidate = {
   location: PhysicalRetailLocation
@@ -569,5 +569,3 @@ export async function runLocationsPhase(options: LocationsPhaseOptions): Promise
     candidates: result.candidates,
   }
 }
-
-export { MAX_MAPS_FALLBACKS }
