@@ -1225,9 +1225,6 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
-    concurrency:
-      group: formoria-agent-writer
-      cancel-in-progress: false
     steps:
       - name: Create repository-scoped GitHub App token
         id: app-token
@@ -1354,9 +1351,6 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
-    concurrency:
-      group: formoria-agent-writer
-      cancel-in-progress: false
     steps:
       - name: Create repository-scoped GitHub App token
         id: app-token

@@ -259,6 +259,9 @@ describe("unified health-agent workflow contract", () => {
     expect(workflow).toContain(
       "actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1",
     );
+    expect(workflow.match(/group: formoria-agent-writer/g) ?? []).toHaveLength(
+      1,
+    );
     const firstWriterStart = workflow.indexOf("  cleanup-stale-branches:");
     const automaticPublisher = jobSection(
       workflow,
@@ -272,6 +275,7 @@ describe("unified health-agent workflow contract", () => {
       "HEALTH_AGENT_GITHUB_APP_PRIVATE_KEY",
     );
     for (const publisher of [automaticPublisher, humanPublisher]) {
+      expect(publisher).not.toContain("group: formoria-agent-writer");
       expect(publisher).toContain(
         "permissions:\n      contents: read\n      pull-requests: read",
       );
