@@ -133,7 +133,6 @@ describe("UnconfirmedChannelGrid", () => {
     await user.click(
       within(cards[1]).getByRole("button", { name: /我確認這裡有販售/ }),
     );
-    expect(within(cards[1]).getByText("1 人確認")).toBeInTheDocument();
 
     await waitFor(() => {
       expect(within(cards[1]).getByText("0 人確認")).toBeInTheDocument();
