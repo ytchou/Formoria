@@ -338,6 +338,14 @@
       "reportOrigin": "Report origin information"
     },
     "foundingYear": "Est. {year}",
+    "label": {
+      "location": "Location",
+      "foundingYear": "Founded",
+      "category": "Category",
+      "priceRange": "Price",
+      "productFeatures": "Features",
+      "manufacturing": "Verification"
+    },
     "previewBanner": "Preview mode — not live",
     "previewBackToEdit": "Back to edit",
     "actions": {

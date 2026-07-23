@@ -13,6 +13,15 @@ interface BrandHeaderProps {
   adminSlot?: ReactNode
 }
 
+function InfoRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="grid grid-cols-[6rem_1fr] items-baseline gap-3">
+      <span className="type-caption">{label}</span>
+      <div>{children}</div>
+    </div>
+  )
+}
+
 export function BrandHeader({ brand, categoryLabel, cityLabel, locale, actionsSlot, adminSlot }: BrandHeaderProps) {
   const t = useTranslations('brandDetail')
   const hasMitDeclaredBadge = brand.mitStatus === 'declared'
@@ -20,6 +29,9 @@ export function BrandHeader({ brand, categoryLabel, cityLabel, locale, actionsSl
   const hasOwnerVerifiedBadge = brand.isVerified
   const mitSmileCert = hasMitVerifiedBadge ? brand.mitEvidence?.mit_smile_cert : undefined
   const priceRangeLabel = brand.priceRange != null ? '$'.repeat(brand.priceRange) : null
+  const resolvedTags = brand.productTags.length > 0
+    ? (locale === 'en' ? (brand.productTagsEn.length > 0 ? brand.productTagsEn : brand.productTags) : brand.productTags)
+    : []
 
   return (
     <div className="space-y-3">
@@ -34,63 +46,72 @@ export function BrandHeader({ brand, categoryLabel, cityLabel, locale, actionsSl
       {/* CTA slot — rendered between name and meta row */}
       {actionsSlot}
 
-      {/* Meta row */}
-      <div className="flex flex-wrap items-center gap-2">
-        {/* City */}
-        {cityLabel && (
-          <span className="inline-flex items-center gap-1 type-caption">
-            {cityLabel}
-          </span>
-        )}
-
-        {/* Founding year */}
-        {brand.foundingYear && (
-          <span className="type-caption">
-            {t('foundingYear', { year: brand.foundingYear })}
-          </span>
-        )}
-
-        {/* Category pill */}
-        {(categoryLabel ?? brand.category) && (
-          <span className="rounded-full bg-primary/10 px-2 py-1 type-micro text-primary">
-            {categoryLabel ?? brand.category}
-          </span>
-        )}
-
-        {/* Price range pill */}
-        {priceRangeLabel != null && (
-          <span className="rounded-full bg-mit-verified-bg px-2 py-1 type-micro text-mit-verified">
-            {priceRangeLabel}
-          </span>
-        )}
-
-        {/* Product tags */}
-        {brand.productTags.length > 0 &&
-          (locale === 'en' ? (brand.productTagsEn.length > 0 ? brand.productTagsEn : brand.productTags) : brand.productTags).map((tag, index) => (
-            <Badge key={`${tag}-${index}`} variant="secondary">
-              {tag}
-            </Badge>
-          ))}
-
-        {(hasMitDeclaredBadge || hasMitVerifiedBadge || hasOwnerVerifiedBadge) && (
-          <div className="flex items-center gap-2">
-            {hasMitDeclaredBadge && (
-              <MitDeclaredBadge label={t('mitDeclared')} title={t('mitDeclaredTitle')} />
+      <div className="space-y-3">
+        {(cityLabel || brand.foundingYear) && (
+          <div className="grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
+            {cityLabel && (
+              <InfoRow label={t('label.location')}>
+                <span className="text-sm">{cityLabel}</span>
+              </InfoRow>
             )}
-            {hasMitVerifiedBadge && (
-              <MitVerifiedBadge label={t('mitVerified')} title={t('mitVerifiedTitle')} />
-            )}
-            {hasOwnerVerifiedBadge && (
-              <OwnerVerifiedBadge label={t('verified')} title={t('verifiedTitle')} />
+            {brand.foundingYear && (
+              <InfoRow label={t('label.foundingYear')}>
+                <span className="text-sm">{t('foundingYear', { year: brand.foundingYear })}</span>
+              </InfoRow>
             )}
           </div>
         )}
 
-        {/* MIT Smile cert number — plain caption, no link */}
-        {mitSmileCert && (
-          <span className="type-caption">
-            {t('mitProofLink', { cert: mitSmileCert })}
-          </span>
+        {((categoryLabel ?? brand.category) || priceRangeLabel) && (
+          <div className="grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
+            {(categoryLabel ?? brand.category) && (
+              <InfoRow label={t('label.category')}>
+                <span className="w-fit rounded-full bg-primary/10 px-2 py-1 type-micro text-primary">
+                  {categoryLabel ?? brand.category}
+                </span>
+              </InfoRow>
+            )}
+            {priceRangeLabel && (
+              <InfoRow label={t('label.priceRange')}>
+                <span className="type-form-label text-primary">
+                  {priceRangeLabel}
+                </span>
+              </InfoRow>
+            )}
+          </div>
+        )}
+
+        {resolvedTags.length > 0 && (
+          <InfoRow label={t('label.productFeatures')}>
+            <div className="flex flex-wrap gap-1.5">
+              {resolvedTags.map((tag, index) => (
+                <Badge key={`${tag}-${index}`} variant="secondary">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          </InfoRow>
+        )}
+
+        {(hasMitDeclaredBadge || hasMitVerifiedBadge || hasOwnerVerifiedBadge) && (
+          <InfoRow label={t('label.manufacturing')}>
+            <div className="flex flex-wrap items-center gap-2">
+              {hasMitDeclaredBadge && (
+                <MitDeclaredBadge label={t('mitDeclared')} title={t('mitDeclaredTitle')} />
+              )}
+              {hasMitVerifiedBadge && (
+                <MitVerifiedBadge label={t('mitVerified')} title={t('mitVerifiedTitle')} />
+              )}
+              {hasOwnerVerifiedBadge && (
+                <OwnerVerifiedBadge label={t('verified')} title={t('verifiedTitle')} />
+              )}
+              {mitSmileCert && (
+                <span className="type-caption">
+                  {t('mitProofLink', { cert: mitSmileCert })}
+                </span>
+              )}
+            </div>
+          </InfoRow>
         )}
       </div>
     </div>
