@@ -94,6 +94,10 @@ Apply fixes ONE spec at a time. After each fix, `git add` and `git commit` the c
 
 After fixing all specs, ensure all changes are committed. Each commit message should reference the spec it fixes.
 
+## Step 5: Iterate Until Green
+
+The workflow installs dependencies and Chromium before you start. Build the app with `pnpm build` before running Playwright, then run the affected deep specs with `pnpm exec playwright test <files> --project=deep --reporter=json` and the full deep Playwright suite after each fix. If any test is still red—or the repair does not build—use the new failure output to continue the root-cause diagnosis and repair cycle. Keep iterating until the full suite is green; the workflow publishes a PR only after its validation step is green.
+
 ## Forbidden Actions
 
 You MUST NOT:
