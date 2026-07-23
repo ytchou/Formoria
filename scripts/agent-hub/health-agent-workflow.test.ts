@@ -227,6 +227,14 @@ describe("unified health-agent workflow contract", () => {
     ).toBeGreaterThanOrEqual(8);
     expect(workflow).toContain('"minItems":1');
     expect(workflow).toContain('"required":["fingerprint","verdict"]');
+    const schemaArguments = [
+      ...workflow.matchAll(/--json-schema '(\{[^\n]+\})'/g),
+    ].map(([, schema]) => schema);
+    expect(schemaArguments).toHaveLength(6);
+    for (const schema of schemaArguments) {
+      expect(() => JSON.parse(schema)).not.toThrow();
+    }
+    expect(workflow).not.toMatch(/--json-schema\s+\{/);
     const classifierStart = workflow.indexOf("  sentry-triage:");
     const classifierEnd = workflow.indexOf("\n  aggregate-and-deliver:");
     const classifier = workflow.slice(classifierStart, classifierEnd);
