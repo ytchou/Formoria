@@ -338,6 +338,14 @@
       "reportOrigin": "回報產地資訊"
     },
     "foundingYear": "創立於 {year}",
+    "label": {
+      "location": "地點",
+      "foundingYear": "創立年份",
+      "category": "類別",
+      "priceRange": "價格區間",
+      "productFeatures": "產品特色",
+      "manufacturing": "製造與設計"
+    },
     "previewBanner": "預覽模式 — 尚未發布",
     "previewBackToEdit": "返回編輯",
     "actions": {
