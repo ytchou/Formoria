@@ -21,10 +21,6 @@ import {
   checkBrandDuplicates,
 } from '@/lib/services/submissions'
 import { enrollInMarketingEmails } from '@/lib/services/marketing-email-consent'
-import {
-  normalizeRetailLocations,
-  reconcileRetailLocationConfirmations,
-} from '@/lib/brands/locations'
 
 // Per-user in-action rate limiter for brand submissions (5 per 60s)
 const ownerSubmissionRateLimiter = createInMemoryRateLimiter()
@@ -368,11 +364,6 @@ export async function submitOwnerDetailedBrand(
     }
 
     const ownershipAdjusted = Boolean(await getUserBrand(user.id))
-    const retailLocations = reconcileRetailLocationConfirmations({
-      previous: [],
-      next: normalizeRetailLocations(parsed.retailLocations),
-      isActualOwner: false,
-    })
     const ownerData = {
       productType: parsed.productType,
       foundingYear: parsed.foundingYear,
@@ -380,7 +371,6 @@ export async function submitOwnerDetailedBrand(
       city: parsed.city,
       priceRange: parsed.priceRange,
       productPhotos: parsed.productPhotos,
-      retailLocations,
       mitStory: parsed.mitStory,
     }
 

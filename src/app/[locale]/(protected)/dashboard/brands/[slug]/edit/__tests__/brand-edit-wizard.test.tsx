@@ -31,7 +31,7 @@ vi.mock('@/i18n/navigation', () => ({
   ),
 }))
 
-// Mock all 9 section components for isolation
+// Mock all section components for isolation
 vi.mock('../sections/basic-info-section', () => ({
   BasicInfoSection: ({
     form,
@@ -55,14 +55,6 @@ vi.mock('../sections/links-section', () => ({
         {...form.register('purchaseWebsite')}
       />
     </div>
-  ),
-}))
-vi.mock('../sections/locations-section', () => ({
-  LocationsSection: ({ isActualOwner }: { isActualOwner?: boolean }) => (
-    <div
-      data-testid="locations-section"
-      data-actual-owner={String(isActualOwner)}
-    />
   ),
 }))
 vi.mock('../sections/reputation-section', () => ({
@@ -126,7 +118,7 @@ describe('BrandEditWizard', () => {
 
     expect(screen.getAllByText('基本資料').length).toBeGreaterThanOrEqual(1)
     expect(
-      screen.getAllByRole('progressbar', { name: '已完成 0／5 步' }),
+      screen.getAllByRole('progressbar', { name: '已完成 0／4 步' }),
     ).toHaveLength(2)
   })
 
@@ -140,18 +132,6 @@ describe('BrandEditWizard', () => {
     renderWizard({ initialStep: 2 })
     expect(screen.getByTestId('links-section')).toBeInTheDocument()
   })
-
-  it.each([true, false])(
-    'forwards actual-owner presentation state %s to the locations step',
-    (isActualOwner) => {
-      renderWizard({ initialStep: 3, isActualOwner })
-
-      expect(screen.getByTestId('locations-section')).toHaveAttribute(
-        'data-actual-owner',
-        String(isActualOwner),
-      )
-    },
-  )
 
   it('restores completed steps from saved progress metadata', () => {
     renderWizard({
@@ -171,7 +151,7 @@ describe('BrandEditWizard', () => {
       initialCompletedSteps: [0, 1, 2],
     })
 
-    expect(screen.getAllByText('3 of 5 completed').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('3 of 4 completed').length).toBeGreaterThanOrEqual(1)
   })
 
   it('renders focused mode without the guided sidebar', () => {
@@ -259,7 +239,7 @@ describe('BrandEditWizard', () => {
     const { publishDraftAction } =
       await import('@/app/[locale]/(protected)/dashboard/brands/[slug]/actions')
     renderWizard({
-      initialStep: 4,
+      initialStep: 3,
       defaultValues: {
         name: 'Warmwood Living',
         productType: 'home',
@@ -307,7 +287,7 @@ describe('BrandEditWizard', () => {
       error: 'Unable to save reputation edits',
     })
     renderWizard({
-      initialStep: 4,
+      initialStep: 3,
       defaultValues: {
         name: 'Warmwood Living',
         productType: 'home',

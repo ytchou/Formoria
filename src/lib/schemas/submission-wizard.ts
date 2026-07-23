@@ -19,7 +19,6 @@ export type SubmissionWizardStepKey =
   | 'basicInfo'
   | 'media'
   | 'links'
-  | 'locations'
 
 export const SUBMISSION_SECTION_FIELDS: Record<
   SubmissionWizardStepKey,
@@ -28,12 +27,10 @@ export const SUBMISSION_SECTION_FIELDS: Record<
   basicInfo: [...BRAND_WIZARD_SHARED_SECTION_FIELDS.basicInfo, 'website'],
   media: BRAND_WIZARD_SHARED_SECTION_FIELDS.media,
   links: BRAND_WIZARD_SHARED_SECTION_FIELDS.links,
-  locations: BRAND_WIZARD_SHARED_SECTION_FIELDS.locations,
 }
 
 export const SUBMISSION_WIZARD_STEPS: { key: SubmissionWizardStepKey }[] = [
   { key: 'basicInfo' },
   { key: 'media' },
   { key: 'links' },
-  { key: 'locations' },
 ]

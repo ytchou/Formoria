@@ -21,7 +21,6 @@ import {
   getBrandDraft,
   mergeDraftOverBrand,
   publishDraft,
-  saveDraft,
   updateBrand,
 } from '@/lib/services/brands'
 import { createServiceClient } from '@/lib/supabase/server'
@@ -44,10 +43,6 @@ import {
   type MitDeclarationScope,
 } from '@/lib/services/mit-declaration'
 import { trackMitDeclared } from '@/lib/analytics'
-import {
-  normalizeRetailLocations,
-  reconcileRetailLocationConfirmations,
-} from '@/lib/brands/locations'
 
 type ActionState =
   | {
@@ -58,8 +53,6 @@ type ActionState =
       violations?: ContentViolation[]
     }
   | undefined
-
-type LegacyLocationBrand = Brand & { retailLocations?: unknown }
 
 export type MitActionState =
   | { success: true; error?: never }
@@ -244,17 +237,6 @@ export async function updateBrandAction(
     const { user, brand, owner, actingAdmin, configuredAdmin } = editor
 
     const updateData = parseBrandEditForm(formData)
-    if (
-      Object.prototype.hasOwnProperty.call(updateData, 'retailLocations')
-    ) {
-      updateData.retailLocations = reconcileRetailLocationConfirmations({
-        previous: normalizeRetailLocations(
-          (brand as LegacyLocationBrand).retailLocations,
-        ),
-        next: normalizeRetailLocations(updateData.retailLocations),
-        isActualOwner: owner,
-      })
-    }
     const proposedData = updateData as Record<string, unknown>
 
     if (!configuredAdmin && detectsSlugChange(brand, proposedData)) {
@@ -352,25 +334,9 @@ export async function publishDraftAction(
     }
     const { user, brand, owner, actingAdmin, configuredAdmin } = editor
 
-    let snapshot = await getBrandDraft(brand.id)
+    const snapshot = await getBrandDraft(brand.id)
     if (!snapshot) {
       return { error: t('noDraft') }
-    }
-
-    if (
-      Object.prototype.hasOwnProperty.call(snapshot, 'retailLocations')
-    ) {
-      snapshot = {
-        ...snapshot,
-        retailLocations: reconcileRetailLocationConfirmations({
-          previous: normalizeRetailLocations(
-            (brand as LegacyLocationBrand).retailLocations,
-          ),
-          next: normalizeRetailLocations(snapshot.retailLocations),
-          isActualOwner: owner,
-        }),
-      }
-      await saveDraft(brand.id, snapshot as Partial<Brand>)
     }
 
     const publishCandidate = mergeDraftOverBrand(brand, snapshot)

@@ -41,7 +41,6 @@ import {
 } from './submission-wizard-context'
 import { BasicInfoSection } from './sections/BasicInfoSection'
 import { LinksSection } from './sections/LinksSection'
-import { LocationsSection } from './sections/LocationsSection'
 import { MediaSection } from './sections/MediaSection'
 
 type SubmissionWizardProps = {
@@ -90,11 +89,10 @@ const FIELD_STEPS: Partial<Record<keyof SubmissionWizardValues, number>> = {
   purchasePinkoi: 2,
   purchaseShopee: 2,
   otherUrls: 2,
-  retailLocations: 3,
-  pdpaConsent: 3,
-  marketingEmailOptIn: 3,
-  turnstileToken: 3,
-  honeypot: 3,
+  pdpaConsent: 2,
+  marketingEmailOptIn: 2,
+  turnstileToken: 2,
+  honeypot: 2,
 }
 
 export default function SubmissionWizard({
@@ -139,7 +137,6 @@ export default function SubmissionWizard({
       purchasePinkoi: '',
       purchaseShopee: '',
       otherUrls: [],
-      retailLocations: [],
       pdpaConsent: false,
       marketingEmailOptIn: false,
       turnstileToken: '',
@@ -260,8 +257,6 @@ export default function SubmissionWizard({
         return <MediaSection />
       case 'links':
         return <LinksSection />
-      case 'locations':
-        return <LocationsSection />
       case 'basicInfo':
         return <BasicInfoSection />
     }

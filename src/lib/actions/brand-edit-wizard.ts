@@ -9,14 +9,9 @@ import {
   saveDraft,
 } from '@/lib/services/brands'
 import { WIZARD_STEPS } from '@/lib/schemas/brand-edit'
-import type { Brand, RetailLocation } from '@/lib/types'
-import {
-  normalizeRetailLocations,
-  reconcileRetailLocationConfirmations,
-} from '@/lib/brands/locations'
+import type { Brand } from '@/lib/types'
 
-type LegacyLocationBrand = Brand & { retailLocations?: unknown }
-type BrandDraftUpdate = Partial<Brand> & { retailLocations?: RetailLocation[] }
+type BrandDraftUpdate = Partial<Brand>
 
 type SaveSectionDraftResult = {
   success?: true
@@ -119,27 +114,10 @@ export async function saveSectionDraftAction(
     const existingDraft = await getBrandDraft(brandId)
     const existingReputation =
       existingDraft?.reputationSummary ?? editor.brand.reputationSummary
-    let normalizedSectionData = normalizeSectionData(
+    const normalizedSectionData = normalizeSectionData(
       sectionData,
       existingReputation,
     )
-    if (
-      Object.prototype.hasOwnProperty.call(
-        normalizedSectionData,
-        'retailLocations',
-      )
-    ) {
-      normalizedSectionData = {
-        ...normalizedSectionData,
-        retailLocations: reconcileRetailLocationConfirmations({
-          previous: normalizeRetailLocations(
-            (editor.brand as LegacyLocationBrand).retailLocations,
-          ),
-          next: normalizeRetailLocations(normalizedSectionData.retailLocations),
-          isActualOwner: editor.owner,
-        }),
-      }
-    }
     const stepIndex = WIZARD_STEPS.findIndex(
       (step) => step.key === sectionKeyOrSectionData,
     )

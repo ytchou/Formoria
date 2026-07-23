@@ -41,131 +41,12 @@ describe('basicInfoSchema', () => {
 })
 
 describe('brandEditSchema', () => {
-  it('is a merge of all five section schemas', () => {
+  it('is a merge of all section schemas', () => {
     const result = brandEditSchema.safeParse({
       name: 'Brand',
       productType: 'food',
     })
     expect(result.success).toBe(true)
-  })
-
-  it('allows empty location drafts but requires a name for meaningful data', () => {
-    expect(
-      brandEditSchema.safeParse({
-        retailLocations: [{ kind: 'location', relationshipType: 'stockist' }],
-      }).success,
-    ).toBe(true)
-
-    const result = brandEditSchema.safeParse({
-      retailLocations: [{ address: 'Taipei 101' }],
-    })
-    expect(result.success).toBe(false)
-  })
-
-  it('accepts a named legacy retail location with a manual address', () => {
-    const result = brandEditSchema.safeParse({
-      retailLocations: [
-        {
-          name: '林口門市',
-          relationshipType: 'stockist',
-          address: '新北市林口區忠孝路 82號',
-        },
-      ],
-    })
-    expect(result.success).toBe(true)
-  })
-
-  it('requires an address for canonical owner-confirmed physical locations', () => {
-    expect(
-      brandEditSchema.safeParse({
-        retailLocations: [
-          {
-            kind: 'location',
-            name: 'Flagship',
-            relationshipType: 'brand_store',
-            confirmationStatus: 'owner_confirmed',
-          },
-        ],
-      }).success,
-    ).toBe(false)
-  })
-
-  it('validates canonical chain URLs as HTTP(S)', () => {
-    const chain = { kind: 'retail_chain', name: 'Chain' }
-    expect(
-      brandEditSchema.safeParse({
-        retailLocations: [{ ...chain, retailerUrl: 'https://example.com/find' }],
-      }).success,
-    ).toBe(true)
-    expect(
-      brandEditSchema.safeParse({
-        retailLocations: [{ ...chain, retailerUrl: 'ftp://example.com' }],
-      }).success,
-    ).toBe(false)
-  })
-
-  it('rejects meaningful location-only data on canonical chains', () => {
-    expect(
-      brandEditSchema.safeParse({
-        retailLocations: [
-          { kind: 'retail_chain', name: 'Chain', address: 'Taipei 101' },
-        ],
-      }).success,
-    ).toBe(false)
-    expect(
-      brandEditSchema.safeParse({
-        retailLocations: [
-          {
-            kind: 'retail_chain',
-            name: 'Chain',
-            relationshipType: 'stockist',
-          },
-        ],
-      }).success,
-    ).toBe(false)
-  })
-
-  it('blocks duplicate retail locations', () => {
-    const result = brandEditSchema.safeParse({
-      retailLocations: [
-        {
-          name: 'Taipei 101 shop',
-          relationshipType: 'stockist',
-          address: 'Taipei 101',
-        },
-        {
-          name: 'Taipei 101 counter',
-          relationshipType: 'brand_store',
-          address: ' Taipei   101 ',
-        },
-      ],
-    })
-
-    expect(result.success).toBe(false)
-  })
-
-  it('blocks duplicate canonical chains while allowing a physical branch', () => {
-    expect(
-      brandEditSchema.safeParse({
-        retailLocations: [
-          { kind: 'retail_chain', name: 'Retail Chain' },
-          { kind: 'retail_chain', name: ' retail   chain ' },
-        ],
-      }).success,
-    ).toBe(false)
-    expect(
-      brandEditSchema.safeParse({
-        retailLocations: [
-          { kind: 'retail_chain', name: 'Retail Chain' },
-          {
-            kind: 'location',
-            name: 'Retail Chain',
-            relationshipType: 'stockist',
-            address: 'No. 1',
-          },
-        ],
-      }).success,
-    ).toBe(true)
   })
 
   it('accepts a romanized name and social handles', () => {
@@ -222,7 +103,7 @@ describe('brandPublishSchema', () => {
 
 describe('SECTION_FIELDS', () => {
   it('has entries for all five sections', () => {
-    const expected = ['basicInfo', 'media', 'links', 'locations', 'reputation']
+    const expected = ['basicInfo', 'media', 'links', 'reputation']
     expected.forEach((k) => expect(SECTION_FIELDS).toHaveProperty(k))
   })
   it('includes name in basicInfo fields', () => {

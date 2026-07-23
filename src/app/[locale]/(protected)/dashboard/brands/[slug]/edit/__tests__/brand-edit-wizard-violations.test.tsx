@@ -38,9 +38,6 @@ vi.mock('../sections/media-section', () => ({
 vi.mock('../sections/links-section', () => ({
   LinksSection: () => <div data-testid="links-section" />,
 }))
-vi.mock('../sections/locations-section', () => ({
-  LocationsSection: () => <div data-testid="locations-section" />,
-}))
 vi.mock('../sections/reputation-section', () => ({
   ReputationSection: () => <div data-testid="reputation-section" />,
 }))
@@ -61,7 +58,7 @@ describe('BrandEditWizard publish violations', () => {
     render(
       <BrandEditWizard
         brand={mockBrand}
-        initialStep={4}
+        initialStep={3}
         defaultValues={{
           name: 'Warmwood Living',
           productType: 'home',

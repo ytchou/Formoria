@@ -1,6 +1,5 @@
 import { SECTION_FIELDS, type BrandEditFormValues } from '@/lib/schemas/brand-edit'
 import { BRAND_DRAFT_PROGRESS_KEY } from '@/lib/services/brands'
-import { normalizeRetailLocations } from '@/lib/brands/locations'
 import type { Brand } from '@/lib/types'
 
 const BRAND_EDIT_FIELD_KEYS = new Set(
@@ -60,7 +59,9 @@ export function buildBrandEditDefaultValues(
       : {}
   const merged = { ...brand, ...safeDraft } as Record<string, unknown>
   const defaults = Object.fromEntries(
-    Object.entries(merged).filter(([, value]) => value !== null),
+    Object.entries(merged).filter(
+      ([key, value]) => key !== 'retailLocations' && value !== null,
+    ),
   ) as Partial<BrandEditFormValues>
   const reputation = merged.reputationSummary
 
@@ -71,8 +72,6 @@ export function buildBrandEditDefaultValues(
       ? reputationRecord.sources as { url: string }[]
       : []
   }
-
-  defaults.retailLocations = normalizeRetailLocations(merged.retailLocations)
 
   return defaults
 }

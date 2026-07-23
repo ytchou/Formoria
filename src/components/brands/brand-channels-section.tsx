@@ -4,6 +4,8 @@ import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { SurfaceCard } from '@/components/ui/card'
 import type { BrandChannel } from '@/lib/types'
+import { ProvideChannelInfoDialog } from './provide-channel-info-dialog'
+import { UnconfirmedChannelGrid } from './unconfirmed-channel-grid'
 
 export type BrandChannelsSectionProps = {
   confirmed: BrandChannel[]
@@ -103,31 +105,6 @@ function ChannelRow({
   )
 }
 
-function ProvideInfoLink({
-  brandId,
-  brandSlug,
-  children,
-}: {
-  brandId: string
-  brandSlug: string
-  children: string
-}) {
-  return (
-    <a
-      href="#provide-channel-info"
-      className={buttonVariants({
-        variant: 'secondary',
-        className: 'min-h-12',
-      })}
-      data-brand-id={brandId}
-      data-brand-slug={brandSlug}
-      data-dialog-trigger="provide-channel-info"
-    >
-      {children}
-    </a>
-  )
-}
-
 export async function BrandChannelsSection({
   confirmed,
   possible,
@@ -154,9 +131,7 @@ export async function BrandChannelsSection({
           </div>
           <p className="type-card-description">{t('channels.subtitle')}</p>
         </div>
-        <ProvideInfoLink brandId={brandId} brandSlug={brandSlug}>
-          {t('channels.provideInfo')}
-        </ProvideInfoLink>
+        <ProvideChannelInfoDialog brandId={brandId} brandSlug={brandSlug} />
       </div>
 
       {confirmed.length > 0 ? (
@@ -195,13 +170,13 @@ export async function BrandChannelsSection({
               {t('channels.unconfirmed.explainer')}
             </p>
           </div>
-          <div
-            className="mt-4"
-            data-brand-id={brandId}
-            data-brand-slug={brandSlug}
-            data-channels={JSON.stringify(possible)}
-            data-possible-channels="true"
-          />
+          <div className="mt-4">
+            <UnconfirmedChannelGrid
+              channels={possible}
+              brandId={brandId}
+              brandSlug={brandSlug}
+            />
+          </div>
         </SurfaceCard>
       ) : null}
 
@@ -212,18 +187,10 @@ export async function BrandChannelsSection({
             {t('channels.empty.description')}
           </p>
           <div className="mt-4">
-            <ProvideInfoLink brandId={brandId} brandSlug={brandSlug}>
-              {t('channels.empty.cta')}
-            </ProvideInfoLink>
+            <ProvideChannelInfoDialog brandId={brandId} brandSlug={brandSlug} />
           </div>
         </SurfaceCard>
       ) : null}
-
-      <div
-        data-brand-id={brandId}
-        data-brand-slug={brandSlug}
-        data-owner-banner="true"
-      />
     </section>
   )
 }

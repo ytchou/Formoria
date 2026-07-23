@@ -25,7 +25,6 @@ const completeWizardData = {
   purchasePinkoi: '',
   purchaseShopee: '',
   otherUrls: [],
-  retailLocations: [],
 }
 
 describe('submissionWizardSchema', () => {
@@ -96,8 +95,8 @@ describe('submissionWizardRequiredSchema', () => {
 })
 
 describe('submission wizard steps', () => {
-  it('defines four steps', () => {
-    expect(SUBMISSION_WIZARD_STEPS).toHaveLength(4)
+  it('defines three steps', () => {
+    expect(SUBMISSION_WIZARD_STEPS).toHaveLength(3)
   })
 
   it('maps every step key to a non-empty field list', () => {

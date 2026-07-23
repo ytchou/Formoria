@@ -1,31 +1,11 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { SectionDetailLayout } from '@/components/dashboard/section-detail-layout'
 import { EmptyValue, display } from '@/components/dashboard/display-helpers'
-import { Badge } from '@/components/ui/badge'
-import { InfoField, InfoGroup } from '@/components/ui/card'
-import {
-  isConfirmedRetailLocation,
-  isRetailChainChannel,
-  isUnconfirmedRetailLocation,
-  normalizeRetailLocations,
-} from '@/lib/brands/locations'
+import { InfoField } from '@/components/ui/card'
 import { getBrandBySlug } from '@/lib/services/brands'
-import type { Brand } from '@/lib/types'
-import type { RetailLocationRelationshipType } from '@/lib/types/brand'
 
 type Props = {
   params: Promise<{ locale: string; slug: string }>
-}
-
-function locationTypeLabelKey(type: RetailLocationRelationshipType) {
-  switch (type) {
-    case 'brand_store':
-      return 'locationTypeBrandStore'
-    case 'department_counter':
-      return 'locationTypeDepartmentCounter'
-    case 'stockist':
-      return 'locationTypeStockist'
-  }
 }
 
 export default async function LinksPage({ params }: Props) {
@@ -36,10 +16,6 @@ export default async function LinksPage({ params }: Props) {
     getTranslations({ locale, namespace: 'dashboard.brandProfile' }),
     getTranslations({ locale, namespace: 'dashboard.edit' }),
   ])
-  const retailLocations = normalizeRetailLocations(
-    (brand as Brand & { retailLocations?: unknown }).retailLocations,
-  )
-
   return (
     <SectionDetailLayout
       description={t('sectionLinksHint')}
@@ -86,65 +62,6 @@ export default async function LinksPage({ params }: Props) {
           />
         </dl>
 
-        <InfoGroup
-          description={t('sectionLocationsHint')}
-          label={tEdit('wizardStepLocations')}
-        >
-          {retailLocations.length > 0 ? (
-            <dl className="grid gap-4 sm:grid-cols-2">
-              {retailLocations.map((location, index) => {
-                const isConfirmed = isConfirmedRetailLocation(location)
-                const isUnconfirmed = isUnconfirmedRetailLocation(location)
-                const isRetailChain = isRetailChainChannel(location)
-                const statusLabel = isConfirmed
-                  ? tEdit('ownerConfirmationLabel')
-                  : isUnconfirmed
-                    ? tEdit('locationVerificationNeedsReview')
-                    : tEdit('informationKindRetailChain')
-
-                return (
-                  <div
-                    key={`${location.name}-${index}`}
-                    className="rounded-lg bg-secondary p-4"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <dt className="type-field-label">{location.name}</dt>
-                      <Badge
-                        variant={
-                          isConfirmed
-                            ? 'verified'
-                            : isUnconfirmed
-                              ? 'warning'
-                              : 'secondary'
-                        }
-                      >
-                        {statusLabel}
-                      </Badge>
-                    </div>
-                    <dd className="mt-1 type-form-hint">
-                      {isRetailChain
-                        ? tEdit('locationNetworkChain')
-                        : tEdit(
-                            locationTypeLabelKey(location.relationshipType),
-                          )}
-                    </dd>
-                    <dd className="mt-1 break-words type-field-value">
-                      {(isRetailChain
-                        ? location.retailerUrl
-                        : location.address) || (
-                        <EmptyValue>{t('notSet')}</EmptyValue>
-                      )}
-                    </dd>
-                  </div>
-                )
-              })}
-            </dl>
-          ) : (
-            <p className="type-field-value text-muted-foreground">
-              {t('notSet')}
-            </p>
-          )}
-        </InfoGroup>
       </div>
     </SectionDetailLayout>
   )

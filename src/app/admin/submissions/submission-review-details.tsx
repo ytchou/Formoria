@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { RetailLocationsEditor } from "./retail-locations-editor";
 import { getProductTypeLabel } from "@/lib/brands/category-label";
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 import type { OtherUrl } from "@/lib/types";
@@ -45,15 +44,10 @@ type EditableSection =
   | "catalog"
   | "links"
   | "evidence"
-  | "locations"
   | "images";
 
 type Props = {
   submission: BrandSubmissionForReview;
-};
-
-type LegacySubmissionReviewData = SubmissionReviewData & {
-  retailLocations?: unknown;
 };
 
 export function SubmissionReviewDetails({ submission }: Props) {
@@ -63,7 +57,7 @@ export function SubmissionReviewDetails({ submission }: Props) {
     null,
   );
   const [language, setLanguage] = useState<"mandarin" | "english">("mandarin");
-  const [draft, setDraft] = useState<LegacySubmissionReviewData>(
+  const [draft, setDraft] = useState<SubmissionReviewData>(
     submission.reviewData,
   );
   const [draftImages, setDraftImages] = useState<SubmissionReviewImage[]>(
@@ -78,7 +72,7 @@ export function SubmissionReviewDetails({ submission }: Props) {
     (field) => t(`missingFields.${field}`),
   );
 
-  const data = submission.reviewData as LegacySubmissionReviewData;
+  const data = submission.reviewData;
   const purchaseLinks = compactLinks([
     [t("links.official"), data.websiteUrl],
     ["Pinkoi", data.purchasePinkoi],
@@ -408,34 +402,6 @@ export function SubmissionReviewDetails({ submission }: Props) {
             )}
           </InlineEditSection>
 
-          <InlineEditSection
-            title={t("details.locations")}
-            canEdit={canEdit}
-            editing={editingSection === "locations"}
-            onEdit={() => startEditing("locations")}
-            onSave={handleSave}
-            onCancel={handleCancel}
-            isPending={isPending}
-          >
-            {editingSection === "locations" ? (
-              <RetailLocationsEditor
-                value={draft.retailLocations}
-                candidates={submission.locationCandidates}
-                onChange={(value) =>
-                  setDraft((current) => ({
-                    ...current,
-                    retailLocations: value,
-                  }))
-                }
-              />
-            ) : (
-              <RetailLocationsEditor
-                value={data.retailLocations}
-                candidates={submission.locationCandidates}
-                readOnly
-              />
-            )}
-          </InlineEditSection>
         </div>
 
         <InlineEditSection

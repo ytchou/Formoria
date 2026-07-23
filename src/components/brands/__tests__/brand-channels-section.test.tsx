@@ -33,6 +33,20 @@ vi.mock('next-intl/server', () => ({
   }),
 }))
 
+vi.mock('../provide-channel-info-dialog', () => ({
+  ProvideChannelInfoDialog: () => (
+    <button type='button'>提供販售資訊</button>
+  ),
+}))
+
+vi.mock('../unconfirmed-channel-grid', () => ({
+  UnconfirmedChannelGrid: ({ channels }: { channels: BrandChannel[] }) => (
+    <div data-testid='unconfirmed-channel-grid'>
+      {channels.map((channel) => channel.name).join(', ')}
+    </div>
+  ),
+}))
+
 function makeChannel(overrides: Partial<BrandChannel> = {}): BrandChannel {
   return {
     id: 'channel-1',
@@ -186,7 +200,7 @@ describe('BrandChannelsSection', () => {
     expect(screen.getByText('目前沒有販售通路資訊')).toBeInTheDocument()
     const emptyState = screen.getByTestId('brand-channels-empty-state')
     expect(
-      within(emptyState).getByRole('link', { name: '提供販售資訊' }),
+      within(emptyState).getByRole('button', { name: '提供販售資訊' }),
     ).toBeInTheDocument()
   })
 

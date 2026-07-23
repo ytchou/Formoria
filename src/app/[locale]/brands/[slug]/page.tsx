@@ -24,14 +24,14 @@ import { ClaimBrandCta } from '@/components/brands/claim-brand-cta'
 import { BrandAbout } from '@/components/brands/brand-about'
 import { BrandFaqAccordion } from '@/components/brands/brand-faq-accordion'
 import { BrandLinks } from '@/components/brands/brand-links'
-import { BrandLocations } from '@/components/brands/brand-locations'
+import { BrandChannelsSection } from '@/components/brands/brand-channels-section'
 import { RelatedBrands } from '@/components/brands/related-brands'
 import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { getBrandCategoryLabel } from '@/lib/brands/category-label'
 import { getBrandVisitHref } from '@/lib/brands/link-fallback'
-import { normalizeRetailLocations } from '@/lib/brands/locations'
 import { getBrandFaq } from '@/lib/services/brand-faq'
+import { getChannelsForBrand } from '@/lib/services/brand-channels'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { cn } from '@/lib/utils'
 import { NotFoundError } from '@/lib/errors'
@@ -156,7 +156,10 @@ export default async function BrandDetailPage({ params }: PageProps) {
   ])
   const tBrandFaq = ((key: string, params?: Record<string, unknown>) =>
     tBrandDetail(key, params as never)) as BrandFaqTranslateFn
-  const faqItems = await getBrandFaq(displayBrand.id, displayBrand, tBrandFaq, safeLocale)
+  const [faqItems, channels] = await Promise.all([
+    getBrandFaq(displayBrand.id, displayBrand, tBrandFaq, safeLocale),
+    getChannelsForBrand(displayBrand.id),
+  ])
 
   // Gallery images: hero + product photos
   const galleryImages = [displayBrand.heroImageUrl, ...displayBrand.productPhotos].filter(
@@ -193,11 +196,6 @@ export default async function BrandDetailPage({ params }: PageProps) {
       ? productTypeCategory.name
       : productTypeCategory.nameZh
     : getBrandCategoryLabel(displayBrand, safeLocale === 'en' ? 'en' : 'zh-TW')
-  const hasRetailLocations =
-    normalizeRetailLocations(
-      (displayBrand as Brand & { retailLocations?: unknown }).retailLocations,
-    ).length > 0
-
   const breadcrumbItems: BreadcrumbItem[] = [
     { label: directoryLabel, href: '/brands' },
     ...(categoryTag
@@ -288,12 +286,13 @@ export default async function BrandDetailPage({ params }: PageProps) {
 
             <BrandLinks brand={displayBrand} />
 
-            {hasRetailLocations && (
-              <>
-                <hr className="border-border" />
-                <BrandLocations brand={displayBrand} />
-              </>
-            )}
+            <hr className="border-border" />
+            <BrandChannelsSection
+              confirmed={channels.confirmed}
+              possible={channels.possible}
+              brandId={displayBrand.id}
+              brandSlug={displayBrand.slug}
+            />
 
             {faqItems.length > 0 && (
               <>
