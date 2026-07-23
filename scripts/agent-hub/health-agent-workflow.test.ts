@@ -132,6 +132,12 @@ describe("unified health-agent workflow contract", () => {
       "path: |\n            .health-agent-artifacts/automatic-snapshot.json\n            .health-agent-artifacts/automatic-metadata.json\n            .health-agent-artifacts/automatic-audit.json\n            .health-agent-artifacts/human-snapshot.json\n            .health-agent-artifacts/human-metadata.json\n            .health-agent-artifacts/human-audit.json",
     );
     expect(automaticRepair).toContain(
+      "permissions:\n      contents: read\n      id-token: write",
+    );
+    expect(humanRepair).toContain(
+      "permissions:\n      contents: read\n      id-token: write",
+    );
+    expect(automaticRepair).toContain(
       ".health-agent-artifacts/automatic-cycle-1.json",
     );
     expect(automaticRepair).toContain(
