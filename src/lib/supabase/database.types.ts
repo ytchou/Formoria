@@ -559,14 +559,91 @@ export type Database = {
           },
         ];
       };
+      brand_location_candidates: {
+        Row: {
+          audit_result_ids: string[];
+          brand_id: string | null;
+          created_at: string;
+          evidence: Json;
+          id: string;
+          job_id: string | null;
+          location: Json;
+          match_reason: string;
+          normalized_address: string | null;
+          normalized_identity: string;
+          submission_id: string | null;
+          updated_at: string;
+          verification_decision: string;
+        };
+        Insert: {
+          audit_result_ids?: string[];
+          brand_id?: string | null;
+          created_at?: string;
+          evidence?: Json;
+          id?: string;
+          job_id?: string | null;
+          location: Json;
+          match_reason: string;
+          normalized_address?: string | null;
+          normalized_identity: string;
+          submission_id?: string | null;
+          updated_at?: string;
+          verification_decision: string;
+        };
+        Update: {
+          audit_result_ids?: string[];
+          brand_id?: string | null;
+          created_at?: string;
+          evidence?: Json;
+          id?: string;
+          job_id?: string | null;
+          location?: Json;
+          match_reason?: string;
+          normalized_address?: string | null;
+          normalized_identity?: string;
+          submission_id?: string | null;
+          updated_at?: string;
+          verification_decision?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "brand_location_candidates_brand_id_fkey";
+            columns: ["brand_id"];
+            isOneToOne: false;
+            referencedRelation: "brands";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "brand_location_candidates_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "curation_jobs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "brand_location_candidates_submission_id_fkey";
+            columns: ["submission_id"];
+            isOneToOne: false;
+            referencedRelation: "brand_submissions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       brand_search_results: {
         Row: {
           brand_id: string | null;
+          attempt: number;
+          call_status: string;
           config: Json | null;
           created_at: string;
+          endpoint: string | null;
+          error: string | null;
+          http_status: number | null;
           id: string;
+          input: Json | null;
           job_id: string | null;
           latency_ms: number | null;
+          provider: string;
           query: string;
           raw_response: Json | null;
           search_type: string;
@@ -575,12 +652,19 @@ export type Database = {
           urls: string[];
         };
         Insert: {
+          attempt?: number;
           brand_id?: string | null;
+          call_status?: string;
           config?: Json | null;
           created_at?: string;
+          endpoint?: string | null;
+          error?: string | null;
+          http_status?: number | null;
           id?: string;
+          input?: Json | null;
           job_id?: string | null;
           latency_ms?: number | null;
+          provider?: string;
           query: string;
           raw_response?: Json | null;
           search_type: string;
@@ -589,12 +673,19 @@ export type Database = {
           urls?: string[];
         };
         Update: {
+          attempt?: number;
           brand_id?: string | null;
+          call_status?: string;
           config?: Json | null;
           created_at?: string;
+          endpoint?: string | null;
+          error?: string | null;
+          http_status?: number | null;
           id?: string;
+          input?: Json | null;
           job_id?: string | null;
           latency_ms?: number | null;
+          provider?: string;
           query?: string;
           raw_response?: Json | null;
           search_type?: string;

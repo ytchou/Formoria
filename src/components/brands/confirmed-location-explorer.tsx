@@ -7,14 +7,14 @@ import { Button, buttonVariants } from '@/components/ui/button'
 import { SurfaceCard } from '@/components/ui/card'
 import {
   getLocationMapQuery,
-  isMappableRetailLocation,
+  isPublicMappableRetailLocation,
 } from '@/lib/brands/locations'
 import type { RetailLocation } from '@/lib/types'
 import { BrandLocationsMap } from './brand-locations-map'
 
 type ConfirmedLocation = Extract<RetailLocation, { kind: 'location' }> & {
   address: string
-  confirmationStatus: 'owner_confirmed'
+  confirmationStatus: 'unconfirmed' | 'owner_confirmed'
 }
 
 type LocationFilter = 'all' | 'brand-stores' | 'other-sales'
@@ -37,6 +37,7 @@ interface ConfirmedLocationExplorerLabels {
   defaultNoteBrandStore: string
   defaultNoteStockist: string
   defaultNoteDepartmentCounter: string
+  unconfirmedStatus?: string
 }
 
 interface ConfirmedLocationExplorerProps {
@@ -107,6 +108,9 @@ function ConfirmedLocationRow({
             <Badge variant='secondary'>
               {getRelationshipLabel(location, labels)}
             </Badge>
+            {location.confirmationStatus !== 'owner_confirmed' && labels.unconfirmedStatus ? (
+              <Badge variant='warning'>{labels.unconfirmedStatus}</Badge>
+            ) : null}
           </div>
 
           {location.venueName || location.floorOrCounter ? (
@@ -174,12 +178,12 @@ export function ConfirmedLocationExplorer({
   const showFilters = brandStoreCount > 0 && otherSalesCount > 0
   const [filter, setFilter] = useState<LocationFilter>('all')
   const [view, setView] = useState<ViewMode>(() =>
-    locations.some(isMappableRetailLocation) ? 'map' : 'list',
+    locations.some(isPublicMappableRetailLocation) ? 'map' : 'list',
   )
   const filteredLocations = locations.filter((location) =>
     matchesFilter(location, filter),
   )
-  const mappableLocations = filteredLocations.filter(isMappableRetailLocation)
+  const mappableLocations = filteredLocations.filter(isPublicMappableRetailLocation)
   const hasMappableLocations = mappableLocations.length > 0
 
   function selectFilter(nextFilter: LocationFilter) {
@@ -187,7 +191,7 @@ export function ConfirmedLocationExplorer({
     const nextFilterHasMap = locations.some(
       (location) =>
         matchesFilter(location, nextFilter) &&
-        isMappableRetailLocation(location),
+        isPublicMappableRetailLocation(location),
     )
     if (!nextFilterHasMap) setView('list')
   }

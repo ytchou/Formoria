@@ -15,6 +15,7 @@ const PHASE_ORDER = [
   'images',
   'classify_images',
   'descriptions',
+  'locations',
   'expansion',
   'tags',
   'persist',
@@ -29,6 +30,7 @@ const PHASE_KIND: Record<string, PhaseKind> = {
   images: 'io',
   classify_images: 'llm',
   descriptions: 'llm',
+  locations: 'search',
   expansion: 'llm',
   tags: 'llm',
   persist: 'persist',
@@ -60,6 +62,9 @@ type SearchAuditRow = {
   urls: string[] | null
   latency_ms: number | null
   created_at: string
+  call_status?: string | null
+  http_status?: number | null
+  error?: string | null
 }
 
 type PhaseResult = {
@@ -107,10 +112,15 @@ function tokenUsage(value: unknown): TokenUsage | undefined {
   const input = finiteNumber(source.prompt_tokens ?? source.input)
   const output = finiteNumber(source.completion_tokens ?? source.output)
   const suppliedTotal = finiteNumber(source.total_tokens ?? source.total)
-  const total = suppliedTotal ?? (input !== undefined || output !== undefined ? (input ?? 0) + (output ?? 0) : undefined)
+  const total =
+    suppliedTotal ?? (input !== undefined || output !== undefined ? (input ?? 0) + (output ?? 0) : undefined)
   return input === undefined && output === undefined && total === undefined
     ? undefined
-    : { ...(input !== undefined ? { input } : {}), ...(output !== undefined ? { output } : {}), ...(total !== undefined ? { total } : {}) }
+    : {
+        ...(input !== undefined ? { input } : {}),
+        ...(output !== undefined ? { output } : {}),
+        ...(total !== undefined ? { total } : {}),
+      }
 }
 
 function addTokens(left: TokenUsage | undefined, right: TokenUsage | undefined): TokenUsage | undefined {
@@ -129,6 +139,7 @@ function phaseName(value: string): string {
     'image-search': 'image-search',
     'classify-images': 'classify_images',
     description: 'descriptions',
+    maps: 'locations',
     classification: 'tags',
     scrape: 'links',
     serp: 'discover',
@@ -143,13 +154,15 @@ function phaseResults(target: CurationJobTarget): PhaseResult[] {
     if (!source) return []
     const phase = typeof source.phase === 'string' ? source.phase : null
     if (!phase) return []
-    return [{
-      phase: phaseName(phase),
-      status: typeof source.status === 'string' ? source.status : 'unknown',
-      durationMs: finiteNumber(source.durationMs) ?? 0,
-      ...(typeof source.error === 'string' ? { error: sanitizeJobError(source.error) } : {}),
-      ...(typeof source.detail === 'string' ? { detail: source.detail.slice(0, 1_000) } : {}),
-    }]
+    return [
+      {
+        phase: phaseName(phase),
+        status: typeof source.status === 'string' ? source.status : 'unknown',
+        durationMs: finiteNumber(source.durationMs) ?? 0,
+        ...(typeof source.error === 'string' ? { error: sanitizeJobError(source.error) } : {}),
+        ...(typeof source.detail === 'string' ? { detail: source.detail.slice(0, 1_000) } : {}),
+      },
+    ]
   })
 }
 
@@ -187,15 +200,23 @@ function aiEvent(row: AiAuditRow, targetById: Map<string, CurationJobTarget>, ga
 
 function searchEvent(row: SearchAuditRow, targetById: Map<string, CurationJobTarget>): StepEvent {
   const target = targetForRow(row, targetById)
+  const callStatus = row.call_status ?? 'succeeded'
+  const status =
+    callStatus === 'succeeded' ? 'ok' : callStatus === 'empty' || callStatus === 'started' ? 'warning' : 'error'
+  const labels = {
+    ...(targetLabel(target) ? { target: targetLabel(target)! } : {}),
+    ...(row.http_status !== null && row.http_status !== undefined ? { httpStatus: String(row.http_status) } : {}),
+  }
   return {
     timestamp: row.created_at,
     actor: 'HTTP',
     name: row.search_type,
-    summary: row.query,
-    status: 'ok',
+    summary: `${row.query} (${callStatus})`,
+    status,
     ...(row.latency_ms !== null ? { latencyMs: row.latency_ms } : {}),
-    ...(targetLabel(target) ? { labels: { target: targetLabel(target)! } } : {}),
+    ...(Object.keys(labels).length > 0 ? { labels } : {}),
     ...(row.urls?.at(0) ? { payloadRef: row.urls.at(0) } : {}),
+    ...(row.error ? { error: sanitizeJobError(row.error) } : {}),
   }
 }
 
@@ -213,14 +234,19 @@ function stepEvent(target: CurationJobTarget, result: PhaseResult): StepEvent {
 }
 
 function aggregatePhaseStatus(results: PhaseResult[], events: StepEvent[]): PhaseStatus {
-  if (results.some((result) => result.status === 'failed') || events.some((event) => event.status === 'error')) return 'failed'
-  if (results.some((result) => result.status === 'succeeded') || events.some((event) => event.status === 'ok')) return 'succeeded'
+  if (results.some((result) => result.status === 'failed') || events.some((event) => event.status === 'error'))
+    return 'failed'
+  if (results.some((result) => result.status === 'succeeded') || events.some((event) => event.status === 'ok'))
+    return 'succeeded'
   if (results.some((result) => result.status === 'skipped')) return 'skipped'
   if (results.some((result) => result.status === 'running')) return 'running'
   return 'unknown'
 }
 
-function capEvents(events: StepEvent[]): { events: StepEvent[]; eventsTruncated?: number } {
+function capEvents(events: StepEvent[]): {
+  events: StepEvent[]
+  eventsTruncated?: number
+} {
   if (events.length <= MAX_EVENTS_PER_PHASE) return { events }
   const errors = events.filter((event) => event.status === 'error')
   const remaining = events
@@ -234,7 +260,11 @@ function capEvents(events: StepEvent[]): { events: StepEvent[]; eventsTruncated?
 
 async function queryByJob(table: string, columns: string, jobId: string): Promise<JobAuditQueryResult> {
   const client = createServiceClient() as unknown as AuditClient
-  const { data, error } = await client.from(table).select(columns).eq('job_id', jobId).order('created_at', { ascending: true })
+  const { data, error } = await client
+    .from(table)
+    .select(columns)
+    .eq('job_id', jobId)
+    .order('created_at', { ascending: true })
   if (error) {
     if (isMissingJobIdColumn(error)) return { rows: [], jobIdColumnMissing: true }
     throw error
@@ -282,8 +312,10 @@ async function queryLegacy(
   })
 }
 
-const AI_COLUMNS = 'id, brand_id, submission_id, phase, model, latency_ms, created_at, attempt, usage:raw_response->usage, response_usage:raw_response->response->usage, audit_ok:raw_response->ok, audit_error:raw_response->error'
-const SEARCH_COLUMNS = 'id, brand_id, submission_id, search_type, query, urls, latency_ms, created_at'
+const AI_COLUMNS =
+  'id, brand_id, submission_id, phase, model, latency_ms, created_at, attempt, usage:raw_response->usage, response_usage:raw_response->response->usage, audit_ok:raw_response->ok, audit_error:raw_response->error'
+const SEARCH_COLUMNS =
+  'id, brand_id, submission_id, search_type, query, urls, latency_ms, created_at, provider, endpoint, input, call_status, http_status, error, attempt'
 
 export async function exportJobRunLog(jobId: string): Promise<RunLog> {
   const [job, targets, aiQuery, searchQuery] = await Promise.all([
@@ -296,18 +328,26 @@ export async function exportJobRunLog(jobId: string): Promise<RunLog> {
   const directAiRows = aiQuery.rows
   const directSearchRows = searchQuery.rows
   if (aiQuery.jobIdColumnMissing || searchQuery.jobIdColumnMissing) {
-    gaps.push('Job-scoped audit columns are unavailable; using the legacy fallback until the job_id migration is applied')
+    gaps.push(
+      'Job-scoped audit columns are unavailable; using the legacy fallback until the job_id migration is applied',
+    )
   }
   const startedAt = job.started_at ?? job.created_at ?? new Date(0).toISOString()
   const completedAt = job.completed_at ?? new Date().toISOString()
-  const aiRows = (directAiRows.length > 0
-    ? directAiRows
-    : await queryLegacy('brand_ai_results', AI_COLUMNS, targets, startedAt, completedAt)) as AiAuditRow[]
-  const searchRows = (directSearchRows.length > 0
-    ? directSearchRows
-    : await queryLegacy('brand_search_results', SEARCH_COLUMNS, targets, startedAt, completedAt)) as SearchAuditRow[]
-  if (directAiRows.length === 0 && aiRows.length > 0) gaps.push('AI audit rows were loaded through the legacy target/time-window fallback')
-  if (directSearchRows.length === 0 && searchRows.length > 0) gaps.push('Search audit rows were loaded through the legacy target/time-window fallback')
+  const aiRows = (
+    directAiRows.length > 0
+      ? directAiRows
+      : await queryLegacy('brand_ai_results', AI_COLUMNS, targets, startedAt, completedAt)
+  ) as AiAuditRow[]
+  const searchRows = (
+    directSearchRows.length > 0
+      ? directSearchRows
+      : await queryLegacy('brand_search_results', SEARCH_COLUMNS, targets, startedAt, completedAt)
+  ) as SearchAuditRow[]
+  if (directAiRows.length === 0 && aiRows.length > 0)
+    gaps.push('AI audit rows were loaded through the legacy target/time-window fallback')
+  if (directSearchRows.length === 0 && searchRows.length > 0)
+    gaps.push('Search audit rows were loaded through the legacy target/time-window fallback')
 
   const targetById = new Map(targets.map((target) => [target.target_id, target]))
   const resultsByPhase = new Map<string, Array<{ target: CurationJobTarget; result: PhaseResult }>>()
@@ -337,7 +377,10 @@ export async function exportJobRunLog(jobId: string): Promise<RunLog> {
   const orderedPhaseNames = [...phaseNames].toSorted((left, right) => {
     const leftIndex = PHASE_ORDER.indexOf(left as (typeof PHASE_ORDER)[number])
     const rightIndex = PHASE_ORDER.indexOf(right as (typeof PHASE_ORDER)[number])
-    return (leftIndex === -1 ? Number.MAX_SAFE_INTEGER : leftIndex) - (rightIndex === -1 ? Number.MAX_SAFE_INTEGER : rightIndex)
+    return (
+      (leftIndex === -1 ? Number.MAX_SAFE_INTEGER : leftIndex) -
+      (rightIndex === -1 ? Number.MAX_SAFE_INTEGER : rightIndex)
+    )
   })
   const phases: Phase[] = orderedPhaseNames.map((name, index) => {
     const entries = resultsByPhase.get(name) ?? []
@@ -356,7 +399,10 @@ export async function exportJobRunLog(jobId: string): Promise<RunLog> {
       index: index + 1,
       name,
       kind: PHASE_KIND[name] ?? 'unknown',
-      status: aggregatePhaseStatus(entries.map((entry) => entry.result), events),
+      status: aggregatePhaseStatus(
+        entries.map((entry) => entry.result),
+        events,
+      ),
       summary: entries.length > 0 ? `Summed across ${entries.length} targets` : undefined,
       durationMs,
       barWeight: durationMs,
@@ -369,7 +415,7 @@ export async function exportJobRunLog(jobId: string): Promise<RunLog> {
     ? Math.max(0, new Date(job.completed_at ?? Date.now()).getTime() - new Date(job.started_at).getTime())
     : undefined
   const runStatus = ['queued', 'running', 'completed', 'failed', 'cancelled'].includes(job.status)
-    ? job.status as RunLog['run']['status']
+    ? (job.status as RunLog['run']['status'])
     : 'unknown'
 
   return {
@@ -401,8 +447,16 @@ export async function exportJobRunLog(jobId: string): Promise<RunLog> {
     },
     phases,
     provenance: {
-      producer: { name: 'formoria/runlog-export', version: process.env.npm_package_version ?? '0.1.0' },
-      components: [{ name: 'enrich-pipeline', version: process.env.RAILWAY_GIT_COMMIT_SHA ?? 'dev' }],
+      producer: {
+        name: 'formoria/runlog-export',
+        version: process.env.npm_package_version ?? '0.1.0',
+      },
+      components: [
+        {
+          name: 'enrich-pipeline',
+          version: process.env.RAILWAY_GIT_COMMIT_SHA ?? 'dev',
+        },
+      ],
       sourceRef: job.id,
       generatedAt: new Date().toISOString(),
     },

@@ -494,6 +494,7 @@
       "zoomOut": "Zoom out",
       "confirmedHeading": "Confirmed locations",
       "stockDisclaimer": "The brand owner has confirmed these location details only. Contact the location to check products and stock before visiting.",
+      "verifiedDisclaimer": "This address was verified from public brand evidence. Check the brand website before visiting because products and stock may change.",
       "unconfirmedHeading": "Unconfirmed locations",
       "unconfirmedDisclaimer": "These listings are based on best-effort public information. Until the brand owner confirms them, we do not provide addresses, map pins, or map links.",
       "unconfirmedStatus": "Awaiting brand owner confirmation",
@@ -2334,7 +2335,41 @@
         "mitEvidence": "MIT evidence",
         "reputation": "Reputation",
         "reputationSources": "Sources",
-        "locations": "Retail locations"
+        "locations": "Retail locations",
+        "locationEditor": {
+          "item": "Location {number}",
+          "kind": "Information type",
+          "physical": "Physical location",
+          "chain": "Retail chain",
+          "name": "Name",
+          "relationshipLabel": "Relationship",
+          "relationship": {
+            "brand_store": "Brand store",
+            "stockist": "Stockist",
+            "department_counter": "Department counter"
+          },
+          "statusLabel": "Verification status",
+          "status": {
+            "verified": "Verified",
+            "manual": "Manual address",
+            "needs_review": "Needs review",
+            "rejected": "Rejected"
+          },
+          "address": "Address",
+          "city": "City",
+          "venue": "Venue",
+          "floor": "Floor or counter",
+          "latitude": "Latitude",
+          "longitude": "Longitude",
+          "coordinates": "Coordinates: {latitude}, {longitude}",
+          "evidence": "Evidence and source links",
+          "acceptCandidate": "Accept candidate",
+          "addLocation": "Add location",
+          "addChain": "Add retail chain",
+          "remove": "Remove location {number}",
+          "removeLabel": "Remove",
+          "unnamed": "Unnamed location"
+        }
       },
       "links": {
         "official": "Official website"

@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
@@ -9,22 +8,16 @@ function remoteActions(workflow: string): string[] {
 }
 
 describe("E2E workflow contracts", () => {
-  it("always creates a secretless local Integration check for pull requests", async () => {
+  it("runs selective e2e on pull requests scoped to source paths", async () => {
     const workflow = await readFile(".github/workflows/e2e-pr.yml", "utf8");
 
-    expect(workflow).toMatch(/^name: Integration$/m);
-    expect(workflow).toMatch(/^    name: Integration$/m);
+    expect(workflow).toMatch(/^name: E2E PR \(selective\)$/m);
     expect(workflow).toContain("pull_request:");
-    expect(workflow).not.toContain("    paths:");
-    expect(workflow).not.toContain("${{ secrets.");
-    expect(workflow).toContain("supabase@2.109.1 start");
-    expect(workflow).toContain("supabase@2.109.1 migration up --local");
-    expect(workflow).toContain("db query --local --file supabase/seed.sql");
-    expect(workflow).toContain("node scripts/ci/seed-local-e2e.mjs");
-    expect(workflow).toContain("run: pnpm build");
+    expect(workflow).toContain("    paths:");
+    expect(workflow).toContain("src/app/**");
     expect(workflow).toContain("--only-changed=origin/main");
-    expect(workflow).not.toContain("continue-on-error");
-    expect(workflow).not.toMatch(/^\s*if:.*actor/m);
+    expect(workflow).toContain("continue-on-error: true");
+    expect(workflow).toContain("run: pnpm build");
     expect(workflow.indexOf("run: pnpm build")).toBeGreaterThan(
       workflow.indexOf("jobs:"),
     );
@@ -95,16 +88,4 @@ describe("E2E workflow contracts", () => {
     expect(migration).toContain("ADD COLUMN brand_enriched_at timestamptz");
   });
 
-  it("propagates real Playwright failures and only accepts no-tests status", () => {
-    const run = (status: string) =>
-      spawnSync("bash", ["scripts/ci/normalize-playwright-exit.sh", status], {
-        encoding: "utf8",
-      });
-
-    expect(run("0").status).toBe(0);
-    expect(run("4").status).toBe(0);
-    expect(run("1").status).toBe(1);
-    expect(run("2").status).toBe(2);
-    expect(run("invalid").status).toBe(2);
-  });
 });

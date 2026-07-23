@@ -82,6 +82,15 @@ export type SubmissionReviewImage = {
   height: number | null;
   originBrandImageId: string | null;
 };
+export type SubmissionLocationCandidate = {
+  id: string;
+  location: Json;
+  verificationDecision: string;
+  matchReason: string;
+  evidence: Json;
+  normalizedAddress: string | null;
+  auditResultIds: string[];
+};
 export type SubmissionReviewData = {
   name: string;
   description: string | null;
@@ -138,6 +147,7 @@ export type BrandSubmissionForReview = BrandSubmissionWithProductTypeNote & {
   reviewStage: SubmissionReviewStage;
   reviewData: SubmissionReviewData;
   reviewImages: SubmissionReviewImage[];
+  locationCandidates?: SubmissionLocationCandidate[];
   reviewCompleteness: SubmissionReviewCompleteness;
 };
 
@@ -1261,6 +1271,37 @@ export async function getSubmissionsForReview(options?: {
     }
   }
 
+  const locationCandidatesBySubmission = new Map<string, SubmissionLocationCandidate[]>();
+  if (submissionIds.length > 0) {
+    const candidateChunks = await Promise.all(
+      chunkValues(submissionIds, SUPABASE_IN_FILTER_CHUNK_SIZE).map(
+        async (targetIds) => {
+          const { data: candidateData, error: candidatesError } = await supabase
+            .from("brand_location_candidates")
+            .select("id, submission_id, location, verification_decision, match_reason, evidence, normalized_address, audit_result_ids")
+            .in("submission_id", targetIds)
+            .order("created_at", { ascending: false });
+          if (candidatesError) throw candidatesError;
+          return candidateData ?? [];
+        },
+      ),
+    );
+    for (const row of candidateChunks.flat()) {
+      if (!row.submission_id) continue;
+      const current = locationCandidatesBySubmission.get(row.submission_id) ?? [];
+      current.push({
+        id: row.id,
+        location: row.location,
+        verificationDecision: row.verification_decision,
+        matchReason: row.match_reason,
+        evidence: row.evidence,
+        normalizedAddress: row.normalized_address,
+        auditResultIds: row.audit_result_ids ?? [],
+      });
+      locationCandidatesBySubmission.set(row.submission_id, current);
+    }
+  }
+
   return rows.map((row) => {
     const latestTarget = latestTargetBySubmission.get(row.id);
     const latestJob = latestTarget
@@ -1310,6 +1351,7 @@ export async function getSubmissionsForReview(options?: {
       latestCurationDispatchStatus: dispatchStatus,
       reviewData,
       reviewImages,
+      locationCandidates: locationCandidatesBySubmission.get(row.id) ?? [],
       reviewCompleteness,
       reviewStage: deriveSubmissionReviewStage({
         submissionStatus: submission.status,
