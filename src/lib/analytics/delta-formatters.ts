@@ -7,7 +7,7 @@ export function percent(value: number | null): string {
   return value === null ? '—' : `${(value * 100).toFixed(1)}%`
 }
 
-export function direction(value: number): MetricDelta['direction'] {
+function direction(value: number): MetricDelta['direction'] {
   if (value > 0) return 'up'
   if (value < 0) return 'down'
   return 'flat'
