@@ -652,8 +652,17 @@ BEGIN
 END;
 $$;
 
+-- Health agent roles, grants, and policies are provisioned manually in
+-- production after merge. In local/CI Supabase the migration user lacks
+-- the privileges and the roles are not needed, so skip the entire block
+-- when the current user is not a superuser.
 DO $$
 BEGIN
+  IF NOT current_setting('is_superuser', true)::boolean THEN
+    RAISE NOTICE 'Skipping health agent role/grant/policy setup — not superuser (expected in local Supabase)';
+    RETURN;
+  END IF;
+
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'health_agent_reader') THEN
     CREATE ROLE health_agent_reader NOLOGIN;
   END IF;
@@ -662,81 +671,63 @@ BEGIN
     CREATE ROLE health_agent_writer NOLOGIN;
   END IF;
 
-  BEGIN
-    ALTER ROLE health_agent_reader NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-    ALTER ROLE health_agent_writer NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-  EXCEPTION WHEN insufficient_privilege THEN
-    RAISE NOTICE 'Skipping ALTER ROLE hardening — insufficient privileges (expected in local Supabase)';
-  END;
+  ALTER ROLE health_agent_reader NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+  ALTER ROLE health_agent_writer NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 
-  BEGIN
-    REVOKE ALL ON ALL TABLES IN SCHEMA public FROM health_agent_writer;
-    REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM health_agent_writer;
-    REVOKE INSERT, UPDATE, DELETE ON public.brands FROM health_agent_reader, health_agent_writer;
+  REVOKE ALL ON ALL TABLES IN SCHEMA public FROM health_agent_writer;
+  REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM health_agent_writer;
+  REVOKE INSERT, UPDATE, DELETE ON public.brands FROM health_agent_reader, health_agent_writer;
 
-    GRANT USAGE ON SCHEMA public TO health_agent_reader, health_agent_writer;
-    GRANT SELECT ON public.brands TO health_agent_reader;
-    GRANT SELECT ON public.health_fix_queue TO health_agent_reader;
-    GRANT SELECT ON public.health_snapshots TO health_agent_reader;
-    GRANT SELECT ON public.link_check_results TO health_agent_reader;
-    GRANT SELECT ON public.health_agent_run_ledger TO health_agent_reader;
-    GRANT pg_read_all_stats TO health_agent_reader;
-  EXCEPTION WHEN insufficient_privilege THEN
-    RAISE NOTICE 'Skipping REVOKE/GRANT — insufficient privileges (expected in local Supabase)';
-  END;
+  GRANT USAGE ON SCHEMA public TO health_agent_reader, health_agent_writer;
+  GRANT SELECT ON public.brands TO health_agent_reader;
+  GRANT SELECT ON public.health_fix_queue TO health_agent_reader;
+  GRANT SELECT ON public.health_snapshots TO health_agent_reader;
+  GRANT SELECT ON public.link_check_results TO health_agent_reader;
+  GRANT SELECT ON public.health_agent_run_ledger TO health_agent_reader;
+  GRANT pg_read_all_stats TO health_agent_reader;
+
+  DROP POLICY IF EXISTS health_agent_reader_approved_brands ON public.brands;
+  CREATE POLICY health_agent_reader_approved_brands
+    ON public.brands FOR SELECT TO health_agent_reader
+    USING (status = 'approved');
+
+  DROP POLICY IF EXISTS health_agent_reader_fix_queue ON public.health_fix_queue;
+  CREATE POLICY health_agent_reader_fix_queue
+    ON public.health_fix_queue FOR SELECT TO health_agent_reader
+    USING (true);
+
+  DROP POLICY IF EXISTS health_agent_reader_snapshots ON public.health_snapshots;
+  CREATE POLICY health_agent_reader_snapshots
+    ON public.health_snapshots FOR SELECT TO health_agent_reader
+    USING (true);
+
+  DROP POLICY IF EXISTS health_agent_reader_link_results ON public.link_check_results;
+  CREATE POLICY health_agent_reader_link_results
+    ON public.link_check_results FOR SELECT TO health_agent_reader
+    USING (true);
+
+  CREATE POLICY health_agent_reader_run_ledger
+    ON public.health_agent_run_ledger FOR SELECT TO health_agent_reader
+    USING (true);
+
+  REVOKE ALL ON FUNCTION enqueue_health_fix(text, text, jsonb, text, text, text, text) FROM PUBLIC;
+  REVOKE ALL ON FUNCTION claim_health_fixes(text, text, interval) FROM PUBLIC;
+  REVOKE ALL ON FUNCTION transition_health_fix(uuid, text, text, text, text, timestamptz, bigint, text, text, timestamptz, jsonb) FROM PUBLIC;
+  REVOKE ALL ON FUNCTION record_health_snapshot(date, jsonb) FROM PUBLIC;
+  REVOKE ALL ON FUNCTION read_health_directory_database_evidence() FROM PUBLIC;
+  REVOKE ALL ON FUNCTION claim_health_agent_run(text, date, text, integer, boolean) FROM PUBLIC;
+  REVOKE ALL ON FUNCTION complete_health_agent_run(text, date, text, integer, jsonb) FROM PUBLIC;
+  REVOKE ALL ON FUNCTION fail_health_agent_run(text, date, text, integer, text, jsonb) FROM PUBLIC;
+  REVOKE ALL ON FUNCTION record_link_health_result(uuid, text, text, integer, timestamptz) FROM PUBLIC;
+
+  GRANT EXECUTE ON FUNCTION enqueue_health_fix(text, text, jsonb, text, text, text, text) TO health_agent_writer, service_role;
+  GRANT EXECUTE ON FUNCTION claim_health_fixes(text, text, interval) TO health_agent_writer, service_role;
+  GRANT EXECUTE ON FUNCTION transition_health_fix(uuid, text, text, text, text, timestamptz, bigint, text, text, timestamptz, jsonb) TO health_agent_writer, service_role;
+  GRANT EXECUTE ON FUNCTION record_health_snapshot(date, jsonb) TO health_agent_writer, service_role;
+  GRANT EXECUTE ON FUNCTION read_health_directory_database_evidence() TO health_agent_reader, service_role;
+  GRANT EXECUTE ON FUNCTION claim_health_agent_run(text, date, text, integer, boolean) TO health_agent_writer, service_role;
+  GRANT EXECUTE ON FUNCTION complete_health_agent_run(text, date, text, integer, jsonb) TO health_agent_writer, service_role;
+  GRANT EXECUTE ON FUNCTION fail_health_agent_run(text, date, text, integer, text, jsonb) TO health_agent_writer, service_role;
+  GRANT EXECUTE ON FUNCTION record_link_health_result(uuid, text, text, integer, timestamptz) TO health_agent_writer, service_role;
 END;
 $$;
-
-DROP POLICY IF EXISTS health_agent_reader_approved_brands ON public.brands;
-CREATE POLICY health_agent_reader_approved_brands
-  ON public.brands
-  FOR SELECT
-  TO health_agent_reader
-  USING (status = 'approved');
-
-DROP POLICY IF EXISTS health_agent_reader_fix_queue ON public.health_fix_queue;
-CREATE POLICY health_agent_reader_fix_queue
-  ON public.health_fix_queue
-  FOR SELECT
-  TO health_agent_reader
-  USING (true);
-
-DROP POLICY IF EXISTS health_agent_reader_snapshots ON public.health_snapshots;
-CREATE POLICY health_agent_reader_snapshots
-  ON public.health_snapshots
-  FOR SELECT
-  TO health_agent_reader
-  USING (true);
-
-DROP POLICY IF EXISTS health_agent_reader_link_results ON public.link_check_results;
-CREATE POLICY health_agent_reader_link_results
-  ON public.link_check_results
-  FOR SELECT
-  TO health_agent_reader
-  USING (true);
-
-CREATE POLICY health_agent_reader_run_ledger
-  ON public.health_agent_run_ledger
-  FOR SELECT
-  TO health_agent_reader
-  USING (true);
-
-REVOKE ALL ON FUNCTION enqueue_health_fix(text, text, jsonb, text, text, text, text) FROM PUBLIC;
-REVOKE ALL ON FUNCTION claim_health_fixes(text, text, interval) FROM PUBLIC;
-REVOKE ALL ON FUNCTION transition_health_fix(uuid, text, text, text, text, timestamptz, bigint, text, text, timestamptz, jsonb) FROM PUBLIC;
-REVOKE ALL ON FUNCTION record_health_snapshot(date, jsonb) FROM PUBLIC;
-REVOKE ALL ON FUNCTION read_health_directory_database_evidence() FROM PUBLIC;
-REVOKE ALL ON FUNCTION claim_health_agent_run(text, date, text, integer, boolean) FROM PUBLIC;
-REVOKE ALL ON FUNCTION complete_health_agent_run(text, date, text, integer, jsonb) FROM PUBLIC;
-REVOKE ALL ON FUNCTION fail_health_agent_run(text, date, text, integer, text, jsonb) FROM PUBLIC;
-REVOKE ALL ON FUNCTION record_link_health_result(uuid, text, text, integer, timestamptz) FROM PUBLIC;
-
-GRANT EXECUTE ON FUNCTION enqueue_health_fix(text, text, jsonb, text, text, text, text) TO health_agent_writer, service_role;
-GRANT EXECUTE ON FUNCTION claim_health_fixes(text, text, interval) TO health_agent_writer, service_role;
-GRANT EXECUTE ON FUNCTION transition_health_fix(uuid, text, text, text, text, timestamptz, bigint, text, text, timestamptz, jsonb) TO health_agent_writer, service_role;
-GRANT EXECUTE ON FUNCTION record_health_snapshot(date, jsonb) TO health_agent_writer, service_role;
-GRANT EXECUTE ON FUNCTION read_health_directory_database_evidence() TO health_agent_reader, service_role;
-GRANT EXECUTE ON FUNCTION claim_health_agent_run(text, date, text, integer, boolean) TO health_agent_writer, service_role;
-GRANT EXECUTE ON FUNCTION complete_health_agent_run(text, date, text, integer, jsonb) TO health_agent_writer, service_role;
-GRANT EXECUTE ON FUNCTION fail_health_agent_run(text, date, text, integer, text, jsonb) TO health_agent_writer, service_role;
-GRANT EXECUTE ON FUNCTION record_link_health_result(uuid, text, text, integer, timestamptz) TO health_agent_writer, service_role;
