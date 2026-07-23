@@ -1,6 +1,7 @@
 export * from './clean'
 export * from './links'
 export * from './descriptions'
+export * from './locations'
 export * from './expansion'
 export * from './images'
 export * from './classify-images'

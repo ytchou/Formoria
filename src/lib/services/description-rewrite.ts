@@ -30,7 +30,15 @@ export type DescriptionRewriteResult = {
   foundingYear: number | null
   reputationSummary: { text: string; textEn: string | null; sources: { url: string }[] } | null
   faq: Array<{ category: string; question: string; answer: string }> | null
-  stockists: Array<{ name: string; city: string | null; type: 'chain' | 'independent' }> | null
+  stockists: Array<{
+    name: string
+    city: string | null
+    type: 'chain' | 'independent'
+    address?: string | null
+    venueName?: string | null
+    floorOrCounter?: string | null
+    evidenceRefs?: number[]
+  }> | null
   mitIndicators: { mentioned: boolean; evidence: string[]; confidence: string } | null
   validationRejections: Array<{
     field: 'description_zh' | 'description_en' | 'blurb_zh' | 'blurb_en'
@@ -168,6 +176,22 @@ export function parseDescriptionRewriteResult(content: string): DescriptionRewri
           name: s.name as string,
           city: typeof s.city === 'string' ? s.city : null,
           type: (s.type === 'chain' ? 'chain' : 'independent') as 'chain' | 'independent',
+          address: typeof s.address === 'string' ? s.address.trim() || null : null,
+          venueName: typeof s.venue_name === 'string'
+            ? s.venue_name.trim() || null
+            : typeof s.venueName === 'string'
+              ? s.venueName.trim() || null
+              : null,
+          floorOrCounter: typeof s.floor_or_counter === 'string'
+            ? s.floor_or_counter.trim() || null
+            : typeof s.floorOrCounter === 'string'
+              ? s.floorOrCounter.trim() || null
+              : null,
+          evidenceRefs: Array.isArray(s.evidence_refs)
+            ? s.evidence_refs.filter((reference): reference is number => Number.isInteger(reference) && reference > 0)
+            : Array.isArray(s.evidenceRefs)
+              ? s.evidenceRefs.filter((reference): reference is number => Number.isInteger(reference) && reference > 0)
+              : [],
         }))
         .filter((s) => !isOnlineOnly(s.name))
     : null

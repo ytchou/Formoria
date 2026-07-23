@@ -273,6 +273,136 @@ describeWithDb("trusted submission review RPCs", () => {
     expect(state?.source).toBe("enriched");
   });
 
+  it("publishes a verified location candidate during refresh apply", async () => {
+    const brand = await seedRefreshBrand("location-candidate", "approved");
+    const { data: submissionId, error: requestError } = await supabase!.rpc(
+      "request_brand_refresh",
+      {
+        p_brand_id: brand.id,
+        p_requested_by: reviewerId,
+        p_requester_email: "admin@formoria.com",
+      },
+    );
+    expect(requestError).toBeNull();
+    submissionIds.push(submissionId!);
+    const location = {
+      kind: "location",
+      name: "永康旗艦店",
+      relationshipType: "brand_store",
+      address: "臺北市大安區永康街 1 號",
+      city: "taipei",
+      latitude: 25.033,
+      longitude: 121.565,
+      verificationStatus: "verified",
+      confirmationStatus: "unconfirmed",
+    };
+    const { error: candidateError } = await untypedSupabase!
+      .from("brand_location_candidates")
+      .insert({
+        submission_id: submissionId,
+        location,
+        normalized_address: "臺北市大安區永康街1",
+        normalized_identity: "永康旗艦店|taipei|",
+        verification_decision: "verified",
+        match_reason: "official source",
+        evidence: [{ source: "official", url: "https://refresh.example.com/stores" }],
+        audit_result_ids: [],
+      });
+    expect(candidateError).toBeNull();
+    await supabase!
+      .from("brand_submissions")
+      .update({ enriched_data: { description: "更新後的品牌介紹" } })
+      .eq("id", submissionId!);
+    await seedSuccessfulTarget(submissionId!, "refresh-location-candidate");
+
+    const { error: applyError } = await supabase!.rpc("apply_brand_refresh", {
+      p_submission_id: submissionId!,
+      p_reviewer_id: reviewerId,
+    });
+    expect(applyError).toBeNull();
+
+    const { data: refreshed } = await untypedSupabase!
+      .from("brands")
+      .select("retail_locations")
+      .eq("id", brand.id)
+      .single();
+    expect(refreshed?.retail_locations).toEqual([expect.objectContaining(location)]);
+    const { data: candidate } = await untypedSupabase!
+      .from("brand_location_candidates")
+      .select("brand_id, submission_id")
+      .eq("normalized_identity", "永康旗艦店|taipei|")
+      .single();
+    expect(candidate).toEqual({ brand_id: brand.id, submission_id: null });
+  });
+
+  it("does not merge a verified location candidate into a protected refresh field", async () => {
+    const brand = await seedRefreshBrand("protected-location", "approved");
+    const protectedLocation = {
+      kind: "location",
+      name: "Owner Store",
+      relationshipType: "brand_store",
+      address: "臺北市保護路 9 號",
+      confirmationStatus: "owner_confirmed",
+    };
+    const { error: brandError } = await untypedSupabase!
+      .from("brands")
+      .update({ retail_locations: [protectedLocation] })
+      .eq("id", brand.id);
+    expect(brandError).toBeNull();
+    const { error: stateError } = await untypedSupabase!
+      .from("brand_field_state")
+      .insert({ brand_id: brand.id, field: "retail_locations", source: "owner" });
+    expect(stateError).toBeNull();
+    const { data: submissionId, error: requestError } = await supabase!.rpc(
+      "request_brand_refresh",
+      {
+        p_brand_id: brand.id,
+        p_requested_by: reviewerId,
+        p_requester_email: "admin@formoria.com",
+      },
+    );
+    expect(requestError).toBeNull();
+    submissionIds.push(submissionId!);
+    const { error: candidateError } = await untypedSupabase!
+      .from("brand_location_candidates")
+      .insert({
+        submission_id: submissionId,
+        location: {
+          kind: "location",
+          name: "Unrelated Candidate",
+          relationshipType: "stockist",
+          address: "臺北市不應套用路 2 號",
+          verificationStatus: "verified",
+          confirmationStatus: "unconfirmed",
+        },
+        normalized_address: "臺北市不應套用路2",
+        normalized_identity: "unrelatedcandidate||",
+        verification_decision: "verified",
+        match_reason: "official source",
+        evidence: [],
+        audit_result_ids: [],
+      });
+    expect(candidateError).toBeNull();
+    await supabase!
+      .from("brand_submissions")
+      .update({ enriched_data: { description: "更新後的品牌介紹" } })
+      .eq("id", submissionId!);
+    await seedSuccessfulTarget(submissionId!, "refresh-protected-location");
+
+    const { error: applyError } = await supabase!.rpc("apply_brand_refresh", {
+      p_submission_id: submissionId!,
+      p_reviewer_id: reviewerId,
+    });
+    expect(applyError).toBeNull();
+
+    const { data: refreshed } = await untypedSupabase!
+      .from("brands")
+      .select("retail_locations")
+      .eq("id", brand.id)
+      .single();
+    expect(refreshed?.retail_locations).toEqual([protectedLocation]);
+  });
+
   it("retires an enrichment image, preserves the owner image, and promotes a candidate", async () => {
     const brand = await seedRefreshBrand("image-reconcile", "approved");
     const { data: submissionId, error: requestError } = await supabase!.rpc(

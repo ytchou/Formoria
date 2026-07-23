@@ -10,6 +10,7 @@ import type { SiteContent } from '@/lib/types/brand'
 import type { Database } from '@/lib/supabase/database.types'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
 import type { EnrichmentTarget } from '../enrichment-target'
+import type { BrandSearchEntry } from './scraper/types'
 
 export type EnrichPhase = (typeof ENRICH_PHASES)[number]
 
@@ -44,7 +45,13 @@ export type EnrichBrand = {
 export type SearchPhaseResult = {
   urls: string[]
   snippets: string[]
+  entries?: BrandSearchEntry[]
   rawEntries?: unknown
+  auditResultId?: string
+  callStatus?: string
+  httpStatus?: number | null
+  error?: string | null
+  latencyMs?: number | null
 }
 
 export type EnrichScrapedData = Partial<ScrapedBrandData> &
@@ -69,6 +76,7 @@ export type EnrichPatch = Partial<BrandFlatLinkColumns> &
     blurb_en: string | null
     founding_year: number | null
     product_tags_en: string[] | null
+    retail_locations: unknown
   }>
 
 export type BatchPhaseContext = {
@@ -88,6 +96,7 @@ export type BrandEnrichState = {
   knownUrls: string[]
   discoveredUrls: string[]
   serpSnippets: string[]
+  serpEntries: BrandSearchEntry[]
   scrapedData: EnrichScrapedData
 }
 

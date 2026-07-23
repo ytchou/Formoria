@@ -494,6 +494,7 @@
       "zoomOut": "縮小地圖",
       "confirmedHeading": "已確認地點",
       "stockDisclaimer": "以下地點資訊已由品牌主確認；前往前請先向店家確認販售商品與庫存。",
+      "verifiedDisclaimer": "此地址已由品牌公開來源佐證；販售品項與庫存可能變動，前往前請先查看品牌網站並向店家確認。",
       "unconfirmedHeading": "待確認地點",
       "unconfirmedDisclaimer": "以下為盡力整理的公開資訊。品牌主確認前，不提供地址、地圖標記或地圖連結。",
       "unconfirmedStatus": "待品牌主確認",
@@ -2334,7 +2335,41 @@
         "mitEvidence": "台灣製造證據",
         "reputation": "口碑摘要",
         "reputationSources": "來源",
-        "locations": "實體通路"
+        "locations": "實體通路",
+        "locationEditor": {
+          "item": "通路 {number}",
+          "kind": "資訊類型",
+          "physical": "實體地點",
+          "chain": "零售連鎖",
+          "name": "名稱",
+          "relationshipLabel": "通路關係",
+          "relationship": {
+            "brand_store": "品牌店",
+            "stockist": "合作店家",
+            "department_counter": "百貨專櫃"
+          },
+          "statusLabel": "驗證狀態",
+          "status": {
+            "verified": "已驗證",
+            "manual": "手動地址",
+            "needs_review": "待審核",
+            "rejected": "已拒絕"
+          },
+          "address": "地址",
+          "city": "城市",
+          "venue": "場館",
+          "floor": "樓層或櫃位",
+          "latitude": "緯度",
+          "longitude": "經度",
+          "coordinates": "座標：{latitude}、{longitude}",
+          "evidence": "證據與來源連結",
+          "acceptCandidate": "採用這筆候選資料",
+          "addLocation": "新增實體地點",
+          "addChain": "新增零售連鎖",
+          "remove": "移除通路 {number}",
+          "removeLabel": "移除",
+          "unnamed": "未命名地點"
+        }
       },
       "links": {
         "official": "官方網站"

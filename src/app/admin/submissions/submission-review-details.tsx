@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { RetailLocationsEditor } from "./retail-locations-editor";
 import { getProductTypeLabel } from "@/lib/brands/category-label";
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 import type { OtherUrl } from "@/lib/types";
@@ -85,7 +86,6 @@ export function SubmissionReviewDetails({ submission }: Props) {
     ["Facebook", data.socialFacebook],
   ]);
   const evidence = displayStrings(data.mitEvidence);
-  const locations = displayStrings(data.retailLocations);
   const gallery = activeImages(submission.reviewImages);
   const reputation = parseReputationSummary(data.reputationSummary);
   const hasEnglishNarrative = Boolean(
@@ -414,12 +414,19 @@ export function SubmissionReviewDetails({ submission }: Props) {
             isPending={isPending}
           >
             {editingSection === "locations" ? (
-              <StringListEditor
-                value={data.retailLocations}
-                onChange={(lines) => update("retailLocations", lines)}
+              <RetailLocationsEditor
+                value={draft.retailLocations}
+                candidates={submission.locationCandidates}
+                onChange={(value) =>
+                  update("retailLocations", value as unknown as SubmissionReviewData["retailLocations"])
+                }
               />
             ) : (
-              <StringListReadOnly values={locations} />
+              <RetailLocationsEditor
+                value={data.retailLocations}
+                candidates={submission.locationCandidates}
+                readOnly
+              />
             )}
           </InlineEditSection>
         </div>

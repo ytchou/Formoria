@@ -118,17 +118,14 @@ function normalizeLocationType(value: unknown): RetailLocationType | undefined {
     : undefined
 }
 
-function normalizeVerificationStatus(
-  value: unknown,
-  hasValidCoordinates: boolean,
-): RetailLocationVerificationStatus {
+function normalizeVerificationStatus(value: unknown): RetailLocationVerificationStatus {
   if (
     typeof value === 'string' &&
     VERIFICATION_STATUSES.has(value as RetailLocationVerificationStatus)
   ) {
     return value as RetailLocationVerificationStatus
   }
-  return hasValidCoordinates ? 'verified' : 'manual'
+  return 'manual'
 }
 
 function getCanonicalKind(
@@ -179,10 +176,7 @@ function normalizeRetailLocation(value: unknown): RetailLocation | null {
     availabilityNote: optionalString(value.availabilityNote),
     latitude: coordinates?.latitude,
     longitude: coordinates?.longitude,
-    verificationStatus: normalizeVerificationStatus(
-      value.verificationStatus,
-      Boolean(coordinates),
-    ),
+    verificationStatus: normalizeVerificationStatus(value.verificationStatus),
     confirmationStatus:
       isCanonical && value.confirmationStatus === 'owner_confirmed'
         ? 'owner_confirmed'
@@ -237,6 +231,27 @@ export function isUnconfirmedRetailLocation(
   return (
     isPhysicalRetailLocation(location) && !isConfirmedRetailLocation(location)
   )
+}
+
+export function isPublicRetailLocation(
+  location: RetailLocation,
+): location is PhysicalRetailLocation & { address: string } {
+  return (
+    isPhysicalRetailLocation(location) &&
+    Boolean(optionalString(location.address)) &&
+    (location.confirmationStatus === 'owner_confirmed' ||
+      location.verificationStatus === 'verified')
+  )
+}
+
+export function isPublicMappableRetailLocation(
+  location: RetailLocation,
+): location is PhysicalRetailLocation & {
+  address: string
+  latitude: number
+  longitude: number
+} {
+  return isPublicRetailLocation(location) && hasValidRetailLocationCoordinates(location)
 }
 
 export function isMappableRetailLocation(

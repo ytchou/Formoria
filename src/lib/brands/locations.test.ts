@@ -6,6 +6,8 @@ import {
   hasValidRetailLocationCoordinates,
   isConfirmedRetailLocation,
   isMappableRetailLocation,
+  isPublicMappableRetailLocation,
+  isPublicRetailLocation,
   isPhysicalRetailLocation,
   isRetailChainChannel,
   isUnconfirmedRetailLocation,
@@ -162,6 +164,22 @@ describe('normalizeRetailLocations', () => {
     expect(location && hasValidRetailLocationCoordinates(location)).toBe(true)
     expect(location && hasValidRetailLocationCoordinates(location)).toBe(true)
     expect(location && isMappableRetailLocation(location)).toBe(false)
+  })
+
+  it('does not infer evidence verification from legacy coordinates alone', () => {
+    const [location] = normalizeRetailLocations([
+      {
+        name: 'Legacy coordinate lead',
+        address: 'No. 1',
+        latitude: 25.033,
+        longitude: 121.565,
+        confirmationStatus: 'unconfirmed',
+      },
+    ])
+
+    expect(location).toMatchObject({ verificationStatus: 'manual' })
+    expect(location && isPublicRetailLocation(location)).toBe(false)
+    expect(location && isPublicMappableRetailLocation(location)).toBe(false)
   })
 
   it('drops incomplete, out-of-range coordinate pairs and empty rows', () => {
