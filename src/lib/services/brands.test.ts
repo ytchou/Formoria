@@ -174,6 +174,18 @@ describe('brandToDomain — basic fields', () => {
     const brand = brandToDomain(row)
     expect(brand.description).toBe('介紹')
   })
+
+  it('maps onboarding_dismissed_at to onboardingDismissedAt', () => {
+    const row = { ...baseRow, onboarding_dismissed_at: '2026-07-23T00:00:00Z' }
+    const brand = brandToDomain(row)
+    expect(brand.onboardingDismissedAt).toBe('2026-07-23T00:00:00Z')
+  })
+
+  it('maps null onboarding_dismissed_at to null', () => {
+    const row = { ...baseRow, onboarding_dismissed_at: null }
+    const brand = brandToDomain(row)
+    expect(brand.onboardingDismissedAt).toBeNull()
+  })
 })
 
 // ---------------------------------------------------------------------------
