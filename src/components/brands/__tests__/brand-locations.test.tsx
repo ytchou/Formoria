@@ -28,9 +28,11 @@ const messages = {
       locationHeading: '販售地點',
       confirmedHeading: '已確認地點',
       stockDisclaimer: '販售品項與庫存可能變動，前往前請先向店家確認。',
+      verifiedDisclaimer: '以下地點依公開資訊整理，可能尚未經品牌主確認；前往前請先向品牌或店家確認。',
       unconfirmedHeading: '待確認地點',
       unconfirmedDisclaimer: '以下是盡力整理的公開資訊，尚未經品牌確認。',
       unconfirmedStatus: '未經品牌確認',
+      chainHeading: '連鎖販售通路',
       chainBadge: '連鎖通路',
       someStoresBadge: '部分門市',
       retailerWebsite: '查看通路網站',
@@ -189,7 +191,7 @@ describe('BrandLocations', () => {
       ),
     ).toBeInTheDocument()
     expect(
-      screen.getByText(zh.brandDetail.locations.verifiedDisclaimer),
+      screen.getByText(messages.brandDetail.locations.verifiedDisclaimer),
     ).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: '查看全部' }))

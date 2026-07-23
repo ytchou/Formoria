@@ -46,6 +46,26 @@ describe('SurfaceCard', () => {
       'text-info',
     )
   })
+
+  it('supports warning and success tones', () => {
+    render(
+      <>
+        <SurfaceCard tone="warning">Warning</SurfaceCard>
+        <SurfaceCard tone="success">Success</SurfaceCard>
+      </>,
+    )
+
+    expect(screen.getByText('Warning')).toHaveClass(
+      'border-warning/30',
+      'bg-warning/10',
+      'text-warning',
+    )
+    expect(screen.getByText('Success')).toHaveClass(
+      'border-verified-green/30',
+      'bg-verified-green-bg',
+      'text-verified-green',
+    )
+  })
 })
 
 describe('surfaceCardStyles', () => {

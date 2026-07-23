@@ -487,6 +487,78 @@
       "locationsAndRetailChannels": "地點與販售通路",
       "faq": "常見問題"
     },
+    "channels": {
+      "subtitle": "以下為品牌可能的販售通路，部分資料為社群提供",
+      "provideInfo": "提供販售資訊",
+      "confirmed": {
+        "heading": "品牌已確認販售",
+        "explainer": "以下通路經品牌方或社群確認為正確",
+        "storeInfoLink": "查看店家資訊",
+        "officialPageLink": "前往官方頁面"
+      },
+      "unconfirmed": {
+        "heading": "可能販售（尚待確認）",
+        "explainer": "以下資訊來自社群提供或自動蒐集，尚未經品牌方確認",
+        "whatIsThis": "什麼是尚待確認？",
+        "whatIsThisAnswer": "這些是由社群成員提供或系統自動蒐集的販售資訊，當獲得品牌方確認或足夠的社群確認後，將會移至已確認區域。",
+        "confirmAction": "我確認這裡有販售",
+        "confirmedCount": "{{count}} 人確認",
+        "confirmed": "已確認",
+        "signInToConfirm": "登入後即可確認",
+        "showAll": "顯示全部",
+        "showLess": "收合"
+      },
+      "provenance": {
+        "owner": "品牌確認",
+        "community": "社群確認"
+      },
+      "ownerBanner": {
+        "title": "您是品牌擁有者",
+        "description": "您可以確認或標記販售通路的正確性"
+      },
+      "empty": {
+        "title": "目前沒有販售通路資訊",
+        "description": "如果您知道這個品牌的販售地點，歡迎提供資訊",
+        "cta": "提供販售資訊"
+      },
+      "dialog": {
+        "title": "提供販售資訊",
+        "nameLabel": "通路名稱",
+        "namePlaceholder": "例如：誠品書店 信義店",
+        "channelTypeLabel": "通路類型",
+        "channelTypeOnline": "線上通路",
+        "channelTypeOffline": "實體通路",
+        "categoryLabel": "通路分類",
+        "categoryPlaceholder": "選擇分類",
+        "categoryBrandStore": "品牌直營",
+        "categoryDepartment": "百貨專櫃",
+        "categoryStockist": "選品店",
+        "categoryOther": "其他",
+        "regionLabel": "地區",
+        "regionPlaceholder": "選擇地區",
+        "addressLabel": "地址",
+        "addressPlaceholder": "完整地址（選填）",
+        "urlLabel": "網址",
+        "urlPlaceholder": "https://...",
+        "submit": "送出",
+        "success": "感謝您提供的資訊！",
+        "signInRequired": "請先登入才能提供販售資訊"
+      },
+      "errors": {
+        "not_logged_in": "請先登入",
+        "missing_brand_id": "缺少品牌資訊",
+        "missing_brand_slug": "缺少品牌資訊",
+        "invalid_name": "請輸入有效的通路名稱",
+        "invalid_channel_type": "請選擇通路類型",
+        "invalid_url": "請輸入有效的網址",
+        "active_cap_reached": "此品牌的販售通路已達上限",
+        "daily_cap_reached": "您今日提供的資訊已達上限，請明天再試",
+        "duplicate_name": "此通路名稱已存在",
+        "database_error": "系統錯誤，請稍後再試",
+        "unknown": "發生錯誤，請稍後再試"
+      },
+      "countLabel": "{{count}} 個通路"
+    },
     "gallery": {
       "viewer": "照片檢視",
       "close": "關閉",
@@ -495,44 +567,7 @@
       "photoAltWithBrand": "{brand} 產品 {n}",
       "viewPhoto": "檢視第 {n} 張照片"
     },
-    "locations": {
-      "mapTitle": "{name} 販售地點地圖",
-      "mapLoading": "正在載入地圖…",
-      "zoomIn": "放大地圖",
-      "zoomOut": "縮小地圖",
-      "locationHeading": "販售地點",
-      "confirmedHeading": "已確認地點",
-      "stockDisclaimer": "以下地點資訊已由品牌主確認；前往前請先向店家確認販售商品與庫存。",
-      "verifiedDisclaimer": "以下地點依公開資訊整理，可能尚未經品牌主確認；前往前請先向品牌或店家確認。",
-      "unconfirmedHeading": "待確認地點",
-      "unconfirmedDisclaimer": "以下是不完整的公開資訊，尚未經品牌主確認。",
-      "unconfirmedStatus": "待品牌主確認",
-      "chainHeading": "連鎖販售通路",
-      "chainDescription": "各分店販售情況不同；通路連結僅供查詢通路資訊，不代表即時庫存。",
-      "chainBadge": "連鎖通路",
-      "someStoresBadge": "部分門市販售",
-      "retailerWebsite": "查看通路資訊",
-      "openInMaps": "在 Google Maps 開啟",
-      "filters": {
-        "all": "全部",
-        "brandStores": "品牌門市",
-        "otherSales": "其他販售通路"
-      },
-      "views": {
-        "map": "地圖",
-        "viewAll": "查看全部"
-      },
-      "types": {
-        "brand_store": "品牌門市",
-        "stockist": "販售地點",
-        "department_counter": "百貨專櫃"
-      },
-      "defaultNotes": {
-        "brand_store": "品牌自營門市或展示地點。",
-        "stockist": "販售部分商品，建議造訪前先確認庫存。",
-        "department_counter": "百貨專櫃或櫃位，建議造訪前先確認庫存。"
-      }
-    },
+    "locations": {},
     "relatedBrands": {
       "heading": "更多{category}",
       "subtext": "此分類還有 {count} 個品牌",
