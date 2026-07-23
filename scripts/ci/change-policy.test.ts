@@ -7,10 +7,22 @@ import {
   parseChangePolicyInput,
   type ChangePolicyInput,
   type ChangedFile,
+  type PullRequestAuthor,
   type PullRequestReview,
 } from "./change-policy";
 
 const HEAD_SHA = "a".repeat(40);
+
+function author(
+  overrides: Partial<PullRequestAuthor> = {},
+): PullRequestAuthor {
+  return {
+    login: "pull-request-author",
+    type: "User",
+    association: "CONTRIBUTOR",
+    ...overrides,
+  };
+}
 
 function changedFile(overrides: Partial<ChangedFile> = {}): ChangedFile {
   return {
@@ -36,9 +48,14 @@ function review(overrides: Partial<PullRequestReview> = {}): PullRequestReview {
 function input(
   files: ChangedFile[],
   reviews: PullRequestReview[] = [],
+  pullRequestAuthor: PullRequestAuthor = author(),
 ): ChangePolicyInput {
   return {
-    pullRequest: { number: 42, headSha: HEAD_SHA },
+    pullRequest: {
+      number: 42,
+      headSha: HEAD_SHA,
+      author: pullRequestAuthor,
+    },
     files,
     reviews,
   };
@@ -79,6 +96,7 @@ describe("change policy", () => {
       approved: true,
       reasons: [],
       approvers: [],
+      authorExempt: false,
     });
   });
 
@@ -135,6 +153,46 @@ describe("change policy", () => {
 
     expect(result.approved).toBe(true);
     expect(result.approvers).toEqual(["human-reviewer"]);
+  });
+
+  it("exempts flagged changes authored by a trusted human", () => {
+    const result = evaluateChangePolicy(
+      input(
+        [changedFile({ filename: ".github/workflows/frontend-ci.yml" })],
+        [],
+        author({ login: "repo-owner", association: "OWNER" }),
+      ),
+    );
+
+    expect(result.approved).toBe(true);
+    expect(result.authorExempt).toBe(true);
+    expect(result.approvers).toEqual([]);
+  });
+
+  it("does not exempt flagged changes authored by a bot", () => {
+    const result = evaluateChangePolicy(
+      input(
+        [changedFile({ filename: ".github/workflows/frontend-ci.yml" })],
+        [],
+        author({ login: "github-actions[bot]", type: "Bot", association: "NONE" }),
+      ),
+    );
+
+    expect(result.approved).toBe(false);
+    expect(result.authorExempt).toBe(false);
+  });
+
+  it("does not exempt flagged changes from an untrusted association", () => {
+    const result = evaluateChangePolicy(
+      input(
+        [changedFile({ filename: ".github/workflows/frontend-ci.yml" })],
+        [],
+        author({ login: "external-contributor", association: "NONE" }),
+      ),
+    );
+
+    expect(result.approved).toBe(false);
+    expect(result.authorExempt).toBe(false);
   });
 
   it.each([
@@ -198,7 +256,7 @@ describe("change policy", () => {
   it("fails closed on missing or malformed evidence", () => {
     expect(() =>
       parseChangePolicyInput({
-        pullRequest: { number: 42, headSha: HEAD_SHA },
+        pullRequest: { number: 42, headSha: HEAD_SHA, author: author() },
         files: [],
         reviews: [],
       }),
@@ -207,6 +265,26 @@ describe("change policy", () => {
     expect(() =>
       parseChangePolicyInput({
         pullRequest: { number: 42, headSha: HEAD_SHA },
+        files: [changedFile()],
+        reviews: [],
+      }),
+    ).toThrow("pullRequest.author must be an object");
+
+    expect(() =>
+      parseChangePolicyInput({
+        pullRequest: {
+          number: 42,
+          headSha: HEAD_SHA,
+          author: author({ association: "INVALID" }),
+        },
+        files: [changedFile()],
+        reviews: [],
+      }),
+    ).toThrow("pullRequest.author.association is not recognized");
+
+    expect(() =>
+      parseChangePolicyInput({
+        pullRequest: { number: 42, headSha: HEAD_SHA, author: author() },
         files: [
           {
             filename: ".github/workflows/frontend-ci.yml",
@@ -221,7 +299,7 @@ describe("change policy", () => {
 
     expect(() =>
       parseChangePolicyInput({
-        pullRequest: { number: 42, headSha: HEAD_SHA },
+        pullRequest: { number: 42, headSha: HEAD_SHA, author: author() },
         files: [changedFile()],
         reviews: [review({ state: "UNKNOWN" })],
       }),

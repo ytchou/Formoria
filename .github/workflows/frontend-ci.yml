@@ -71,7 +71,7 @@ jobs:
             const path = require('node:path');
             const pr = context.payload.pull_request;
 
-            if (!pr || !Number.isInteger(pr.number) || !pr.head?.sha) {
+            if (!pr || !Number.isInteger(pr.number) || !pr.head?.sha || !pr.user) {
               core.setFailed('Complete pull request context is required.');
               return;
             }
@@ -105,6 +105,11 @@ jobs:
               pullRequest: {
                 number: pr.number,
                 headSha: pr.head.sha,
+                author: {
+                  login: pr.user.login,
+                  type: pr.user.type,
+                  association: pr.author_association,
+                },
               },
               files: files.map((file) => ({
                 filename: file.filename,

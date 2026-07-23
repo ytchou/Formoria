@@ -51,6 +51,8 @@ jobs:
         run: |
           pnpm dlx supabase@2.109.1 db query --local "GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role"
           pnpm dlx supabase@2.109.1 db query --local "GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role"
+          pnpm dlx supabase@2.109.1 db query --local "GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated"
+          pnpm dlx supabase@2.109.1 db query --local "GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated"
 
       - name: Export disposable Supabase credentials
         run: |

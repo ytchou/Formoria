@@ -53,10 +53,17 @@ export interface PullRequestReview {
   };
 }
 
+export interface PullRequestAuthor {
+  login: string;
+  type: string;
+  association: string;
+}
+
 export interface ChangePolicyInput {
   pullRequest: {
     number: number;
     headSha: string;
+    author: PullRequestAuthor;
   };
   files: ChangedFile[];
   reviews: PullRequestReview[];
@@ -67,6 +74,7 @@ export interface ChangePolicyResult {
   approved: boolean;
   reasons: string[];
   approvers: string[];
+  authorExempt: boolean;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -168,6 +176,30 @@ function parseReview(value: unknown, index: number): PullRequestReview {
   };
 }
 
+function parsePullRequestAuthor(value: unknown): PullRequestAuthor {
+  if (!isRecord(value)) {
+    throw new Error("pullRequest.author must be an object");
+  }
+
+  const type = requiredString(value.type, "pullRequest.author.type");
+  const association = requiredString(
+    value.association,
+    "pullRequest.author.association",
+  ).toUpperCase();
+  if (!VALID_USER_TYPES.has(type)) {
+    throw new Error("pullRequest.author.type is not recognized");
+  }
+  if (!VALID_ASSOCIATIONS.has(association)) {
+    throw new Error("pullRequest.author.association is not recognized");
+  }
+
+  return {
+    login: requiredString(value.login, "pullRequest.author.login"),
+    type,
+    association,
+  };
+}
+
 export function parseChangePolicyInput(value: unknown): ChangePolicyInput {
   if (!isRecord(value) || !isRecord(value.pullRequest)) {
     throw new Error("policy input and pullRequest must be objects");
@@ -183,10 +215,19 @@ export function parseChangePolicyInput(value: unknown): ChangePolicyInput {
     pullRequest: {
       number: requiredInteger(value.pullRequest.number, "pullRequest.number"),
       headSha: requiredSha(value.pullRequest.headSha, "pullRequest.headSha"),
+      author: parsePullRequestAuthor(value.pullRequest.author),
     },
     files: value.files.map(parseChangedFile),
     reviews: value.reviews.map(parseReview),
   };
+}
+
+function isTrustedHumanAuthor(author: PullRequestAuthor): boolean {
+  return (
+    author.type === "User" &&
+    !author.login.endsWith("[bot]") &&
+    TRUSTED_ASSOCIATIONS.has(author.association)
+  );
 }
 
 function normalizePath(path: string): string {
@@ -347,11 +388,15 @@ export function evaluateChangePolicy(
     left.localeCompare(right),
   );
   const approvers = currentTrustedApprovers(input);
+  const authorExempt =
+    sortedReasons.length > 0 && isTrustedHumanAuthor(input.pullRequest.author);
   return {
     requiresApproval: sortedReasons.length > 0,
-    approved: sortedReasons.length === 0 || approvers.length > 0,
+    approved:
+      sortedReasons.length === 0 || authorExempt || approvers.length > 0,
     reasons: sortedReasons,
     approvers,
+    authorExempt,
   };
 }
 
@@ -374,7 +419,11 @@ async function main(args: string[]): Promise<void> {
     );
   }
 
-  if (result.requiresApproval) {
+  if (result.authorExempt) {
+    console.log(
+      `Change Policy passed: PR authored by trusted human ${input.pullRequest.author.login}; flagged changes: ${result.reasons.length}.`,
+    );
+  } else if (result.requiresApproval) {
     console.log(
       `Change Policy passed with approval from ${result.approvers.join(", ")}.`,
     );
