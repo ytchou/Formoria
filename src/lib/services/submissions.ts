@@ -1288,7 +1288,12 @@ export async function getSubmissionsForReview(options?: {
             .in("submission_id", targetIds)
             .order("created_at", { ascending: false });
           if (candidatesError) {
-            if (candidatesError.code === "PGRST205") return [];
+            if (candidatesError.code === "PGRST205") {
+              console.warn(
+                `[submissions] brand_location_candidates relationship not found (PGRST205), returning empty for submission ids ${targetIds.join(", ")}`,
+              );
+              return [];
+            }
             throw candidatesError;
           }
           return candidateData ?? [];

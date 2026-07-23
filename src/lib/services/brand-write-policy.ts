@@ -63,16 +63,16 @@ export function resolveRefreshEnrichmentPatch(
 
   for (const [field, value] of Object.entries(patch)) {
     const state = fieldState[field]
-    if (field === 'retail_locations') {
-      allowed[field] = reconcileRetailLocationEnrichment(baseValues[field], value)
-      continue
-    }
     if (REFRESH_ENRICHMENT_EXCLUDED_FIELDS.has(field)) {
       skipped.push({ field, reason: 'excluded:identity' })
       continue
     }
     if (state?.adminLocked) {
       skipped.push({ field, reason: 'protected:admin_locked' })
+      continue
+    }
+    if (field === 'retail_locations') {
+      allowed[field] = reconcileRetailLocationEnrichment(baseValues[field], value)
       continue
     }
     if (state && ['owner', 'admin', 'submitted'].includes(state.source)) {

@@ -52,7 +52,7 @@ function sanitizeHttpUrl(value: unknown): string | undefined {
   }
 }
 
-function normalizeTextIdentity(value: unknown): string {
+export function normalizeTextIdentity(value: unknown): string {
   return typeof value === 'string'
     ? value.trim().replace(/\s+/g, ' ').toLocaleLowerCase()
     : ''
@@ -325,6 +325,7 @@ export function reconcileRetailLocationEnrichment(
       isPhysicalRetailLocation(location) && location.confirmationStatus === 'owner_confirmed',
   )
 
+  const placedIndices = new Set<number>()
   for (const protectedLocation of protectedLocations) {
     const nameKey = normalizeTextIdentity(protectedLocation.name)
     for (let index = reconciled.length - 1; index >= 0; index -= 1) {
@@ -338,34 +339,53 @@ export function reconcileRetailLocationEnrichment(
     const coordinateKey = getLocationCoordinateKey(protectedLocation)
     const identity = getPhysicalLocationIdentity(protectedLocation)
     let index = reconciled.findIndex(
-      (location) =>
+      (location, i) =>
+        !placedIndices.has(i) &&
         isPhysicalRetailLocation(location) &&
         addressKey !== '' &&
         getLocationAddressKey(location.address) === addressKey,
     )
     if (index < 0 && coordinateKey !== '') {
       index = reconciled.findIndex(
-        (location) =>
-          isPhysicalRetailLocation(location) && getLocationCoordinateKey(location) === coordinateKey,
+        (location, i) =>
+          !placedIndices.has(i) &&
+          isPhysicalRetailLocation(location) &&
+          getLocationCoordinateKey(location) === coordinateKey,
       )
     }
     if (index < 0) {
       index = reconciled.findIndex(
-        (location) =>
-          isPhysicalRetailLocation(location) && getPhysicalLocationIdentity(location) === identity,
+        (location, i) =>
+          !placedIndices.has(i) &&
+          isPhysicalRetailLocation(location) &&
+          getPhysicalLocationIdentity(location) === identity,
       )
     }
     if (index < 0) {
       const nameMatches = reconciled.flatMap((location, candidateIndex) =>
-        isPhysicalRetailLocation(location) && normalizeTextIdentity(location.name) === nameKey
+        !placedIndices.has(candidateIndex) &&
+        isPhysicalRetailLocation(location) &&
+        normalizeTextIdentity(location.name) === nameKey
           ? [candidateIndex]
           : [],
       )
       if (nameMatches.length === 1) index = nameMatches.at(0) ?? -1
     }
 
-    if (index >= 0) reconciled[index] = protectedLocation
-    else reconciled.push(protectedLocation)
+    if (index >= 0) {
+      const enriched = reconciled[index]
+      reconciled[index] = isPhysicalRetailLocation(enriched)
+        ? {
+            ...enriched,
+            ...protectedLocation,
+            latitude: protectedLocation.latitude ?? enriched.latitude,
+            longitude: protectedLocation.longitude ?? enriched.longitude,
+          }
+        : protectedLocation
+      placedIndices.add(index)
+    } else {
+      reconciled.push(protectedLocation)
+    }
   }
 
   return reconciled

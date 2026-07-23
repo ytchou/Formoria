@@ -23,15 +23,15 @@ async function main(): Promise<void> {
   }
 
   const supabase = createServiceClient()
+  // ceiling: breaks at >1000 auth users; paginate if user base grows
   const { data: users, error: usersError } = await supabase.auth.admin.listUsers({
     page: 1,
     perPage: 1_000,
   })
   if (usersError) throw usersError
-  const reviewer = users.users.find(
-    (user) =>
-      user.email && adminEmails.includes(user.email.toLocaleLowerCase()),
-  )
+  const reviewer = adminEmails
+    .map((email) => users.users.find((user) => user.email?.toLocaleLowerCase() === email))
+    .find(Boolean)
   if (!reviewer) throw new Error('Configured admin user was not found')
 
   const { data, error } = await supabase.rpc('apply_brand_refresh_locations', {

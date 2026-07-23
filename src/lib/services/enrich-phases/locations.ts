@@ -1,4 +1,4 @@
-import { isPhysicalRetailLocation, isRetailChainChannel, normalizeRetailLocations } from '@/lib/brands/locations'
+import { isPhysicalRetailLocation, isRetailChainChannel, normalizeRetailLocations, normalizeTextIdentity } from '@/lib/brands/locations'
 import type { Json } from '@/lib/supabase/database.types'
 import type { Database } from '@/lib/supabase/database.types'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -25,6 +25,7 @@ import {
 } from './types'
 
 const MAX_EVIDENCE_EXCERPT = 500
+// Taiwan-specific; extract to config if expanding to other markets
 const RETAILER_NAME_NOISE = [
   '戶外休閒專業中心',
   '戶外用品專門店',
@@ -120,7 +121,7 @@ export function normalizeLocationAddress(value: unknown): string {
 }
 
 function normalizeBranchIdentity(location: Pick<PhysicalRetailLocation, 'name' | 'city' | 'venueName'>): string {
-  return [normalizeText(location.name), normalizeText(location.city), normalizeText(location.venueName)].join('|')
+  return [normalizeTextIdentity(location.name), normalizeTextIdentity(location.city), normalizeTextIdentity(location.venueName)].join('|')
 }
 
 function normalizeRetailerName(value: unknown): string {
@@ -447,6 +448,8 @@ function inferCityFromAddress(address: string): (typeof CITY_NAME_VARIANTS)[numb
     { slug: 'chiayi_county' as const, name: '嘉義縣' },
   ].find(({ name }) => normalizedAddress.includes(normalizeText(name)))
   if (ambiguousCounty) return ambiguousCounty.slug
+  if (normalizedAddress.includes(normalizeText('新竹市'))) return 'hsinchu_city'
+  if (normalizedAddress.includes(normalizeText('嘉義市'))) return 'chiayi_city'
   return CITY_NAME_VARIANTS.find(({ names }) =>
     names.some((variant) => normalizedAddress.includes(normalizeText(variant))),
   )?.slug
@@ -1011,9 +1014,15 @@ export async function runLocationsPhase(options: LocationsPhaseOptions): Promise
       .filter((candidate) => candidate.origin === 'existing')
       .filter(needsFallback)
     const unresolved = [...extractedFallbacks, ...existingFallbacks]
-    const fallbackResults = await Promise.all(
-      unresolved.map((candidate, index) =>
-        searchBrandMaps(
+    const FALLBACK_CONCURRENCY = 5
+    const fallbackResults: BrandMapsSearchResult[] = new Array(unresolved.length)
+    const unresolvedQueue = unresolved.map((candidate, index) => ({ candidate, index }))
+    const worker = async () => {
+      while (unresolvedQueue.length > 0) {
+        const item = unresolvedQueue.shift()
+        if (!item) break
+        const { candidate, index } = item
+        fallbackResults[index] = await searchBrandMaps(
           [getDisplayBrandName(options.brand), candidate.location.name, candidate.location.city]
             .filter(Boolean)
             .join(' '),
@@ -1026,9 +1035,10 @@ export async function runLocationsPhase(options: LocationsPhaseOptions): Promise
               candidate: candidate.location.name,
             },
           },
-        ),
-      ),
-    )
+        )
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(FALLBACK_CONCURRENCY, unresolved.length) }, () => worker()))
     for (const [index, fallbackResult] of fallbackResults.entries()) {
       const target = unresolved.at(index)
       if (!target) continue

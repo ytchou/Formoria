@@ -40,6 +40,16 @@ begin
     raise exception 'Location refresh submission not found' using errcode = 'P0002';
   end if;
 
+  if exists (
+    select brand_id
+    from public.brand_submissions
+    where id = any(p_submission_ids)
+    group by brand_id
+    having count(*) > 1
+  ) then
+    raise exception 'Location refresh batch cannot contain multiple submissions for the same brand';
+  end if;
+
   perform brand.id
   from public.brands as brand
   join public.brand_submissions as submission on submission.brand_id = brand.id
@@ -80,6 +90,20 @@ begin
     if v_brand.updated_at is distinct from v_submission.base_brand_updated_at then
       raise exception 'Location refresh is stale: brand changed after request'
         using errcode = '40001';
+    end if;
+
+    if v_submission.enriched_data is null
+      or not (v_submission.enriched_data ? 'retail_locations') then
+      raise exception 'Location-only refresh has no retail_locations data';
+    end if;
+
+    if exists (
+      select 1 from public.brand_field_state
+      where brand_id = v_brand.id
+        and field = 'retail_locations'
+        and admin_locked = true
+    ) then
+      raise exception 'Location refresh blocked: retail_locations is admin-locked';
     end if;
 
     if jsonb_typeof(v_submission.enriched_data -> 'retail_locations') <> 'array'
@@ -174,7 +198,19 @@ begin
         brand_id, field, source, updated_by, updated_at
       ) values (
         v_brand.id, 'retail_locations', 'enriched', null, now()
-      ) on conflict (brand_id, field) do nothing;
+      ) on conflict (brand_id, field) do update set
+        source = excluded.source,
+        updated_by = excluded.updated_by,
+        updated_at = excluded.updated_at;
+
+      update public.brand_submissions
+      set base_brand_updated_at = (
+        select updated_at from public.brands where id = v_brand.id
+      )
+      where brand_id = v_brand.id
+        and status = 'pending'
+        and intent = 'refresh'
+        and id <> v_submission.id;
 
       insert into public.brand_field_events (
         brand_id, field, old_value, new_value, source, actor, job_id

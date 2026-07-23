@@ -336,6 +336,8 @@ export function mergeSubmissionEnrichedData(
 ): JsonObject {
   const merged = deepMergeJsonObjects(base, patch);
   if (Object.hasOwn(patch, "retail_locations")) {
+    // retail_locations are object arrays; deepMergeJsonObjects unions with Set (no-op on objects).
+    // Overridden per-site until deepMergeJsonObjects handles object-array fields.
     merged.retail_locations = patch.retail_locations;
   }
   return merged;
@@ -721,6 +723,8 @@ export function submissionToEnrichBrand(
       ? deepMergeJsonObjects(submission.base_brand_data, existingEnriched)
       : seedEnrichedDataFromOwnerData(submission.owner_data, existingEnriched);
   if (isRefresh && Object.hasOwn(existingEnriched, "retail_locations")) {
+    // retail_locations are object arrays; deepMergeJsonObjects unions with Set (no-op on objects).
+    // Overridden per-site until deepMergeJsonObjects handles object-array fields.
     existing.retail_locations = existingEnriched.retail_locations;
   }
 
