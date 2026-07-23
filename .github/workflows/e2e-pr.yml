@@ -1,14 +1,26 @@
 name: Integration
 
 on:
+  push:
+    branches: ["**"]
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
-  integration:
-    name: Integration
+  integration_bundles:
+    name: Integration / ${{ matrix.bundle }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        bundle: [smoke, selective]
     permissions:
       contents: read
     env:
@@ -27,6 +39,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.number && format('refs/pull/{0}/merge', github.event.pull_request.number) || github.sha }}
 
       - name: Fetch origin/main for selective tests
         run: git fetch origin main
@@ -84,9 +97,15 @@ jobs:
         run: pnpm build
 
       - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium
+        run: |
+          if [ "${{ matrix.bundle }}" = "smoke" ]; then
+            pnpm exec playwright install --with-deps chromium firefox webkit
+          else
+            pnpm exec playwright install --with-deps chromium
+          fi
 
       - name: Determine route-mapped specs
+        if: ${{ matrix.bundle == 'selective' }}
         id: select-specs
         run: |
           route_specs=$(node scripts/e2e-select-specs.mjs)
@@ -97,7 +116,12 @@ jobs:
             echo "Route-mapped specs: $route_specs"
           fi
 
+      - name: Run smoke Playwright specs
+        if: ${{ matrix.bundle == 'smoke' }}
+        run: pnpm test:e2e:smoke
+
       - name: Run changed Playwright specs
+        if: ${{ matrix.bundle == 'selective' }}
         run: |
           set +e
           pnpm exec playwright test --project=deep --only-changed=origin/main
@@ -106,7 +130,7 @@ jobs:
           bash scripts/ci/normalize-playwright-exit.sh "$status"
 
       - name: Run route-mapped Playwright specs
-        if: steps.select-specs.outputs.route_specs != ''
+        if: ${{ matrix.bundle == 'selective' && steps.select-specs.outputs.route_specs != '' }}
         env:
           ROUTE_SPECS: ${{ steps.select-specs.outputs.route_specs }}
         run: |
@@ -129,3 +153,18 @@ jobs:
       - name: Stop disposable local Supabase
         if: always()
         run: pnpm dlx supabase@2.109.1 stop --no-backup
+
+  integration:
+    name: Integration
+    if: ${{ always() }}
+    needs: [integration_bundles]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report integration bundle status
+        env:
+          BUNDLE_RESULT: ${{ needs.integration_bundles.result }}
+        run: |
+          echo "Integration bundles: ${BUNDLE_RESULT}"
+          if [[ "${BUNDLE_RESULT}" != "success" ]]; then
+            exit 1
+          fi

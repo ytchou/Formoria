@@ -1,24 +1,36 @@
 name: Frontend CI
 
 on:
+  push:
+    branches: ["**"]
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened]
   pull_request_review:
     branches: [main]
     types: [submitted, dismissed]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
-  quality:
-    name: Quality
+  quality_bundles:
+    name: Quality / ${{ matrix.bundle }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        bundle: [lint, type-check, dead-code, unit-coverage, build]
     permissions:
       contents: read
     steps:
       - name: Check out pull request merge
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: refs/pull/${{ github.event.pull_request.number }}/merge
+          ref: ${{ github.event.pull_request.number && format('refs/pull/{0}/merge', github.event.pull_request.number) || github.sha }}
           persist-credentials: false
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -27,25 +39,7 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Verify favicon is RGBA
-        run: node scripts/check-favicon-rgba.mjs
-      - name: Lint
-        run: pnpm lint
-      - name: Type-check
-        run: pnpm tsc --noEmit
-      - name: Dead code
-        run: pnpm knip
-      - name: Unit coverage
-        run: pnpm test -- --coverage
-      - name: Restore Next.js build cache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: .next/cache
-          key: ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('src/**/*.ts', 'src/**/*.tsx', 'src/**/*.js', 'src/**/*.jsx') }}
-          restore-keys: |
-            ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-
-      - name: Production build
-        run: pnpm build
+      - name: Run ${{ matrix.bundle }}
         env:
           NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-public-anon-key
@@ -53,9 +47,48 @@ jobs:
           NEXT_PUBLIC_SITE_URL: http://localhost:3000
           NEXT_PUBLIC_TURNSTILE_SITE_KEY: 1x00000000000000000000AA
           TURNSTILE_SECRET_KEY: 1x0000000000000000000000000000000AA
+        run: |
+          case "${{ matrix.bundle }}" in
+            lint)
+              node scripts/check-favicon-rgba.mjs
+              pnpm lint
+              ;;
+            type-check)
+              pnpm tsc --noEmit
+              ;;
+            dead-code)
+              pnpm knip
+              ;;
+            unit-coverage)
+              pnpm test -- --coverage
+              ;;
+            build)
+              pnpm build
+              ;;
+            *)
+              echo "Unknown quality bundle: ${{ matrix.bundle }}" >&2
+              exit 1
+              ;;
+          esac
+
+  quality:
+    name: Quality
+    if: ${{ always() }}
+    needs: [quality_bundles]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report quality bundle status
+        env:
+          BUNDLE_RESULT: ${{ needs.quality_bundles.result }}
+        run: |
+          echo "Quality bundles: ${BUNDLE_RESULT}"
+          if [[ "${BUNDLE_RESULT}" != "success" ]]; then
+            exit 1
+          fi
 
   change-policy:
     name: Change Policy
+    if: ${{ github.event_name != 'push' && github.event_name != 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
