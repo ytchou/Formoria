@@ -12,7 +12,7 @@
 -- BANGSTREE 瀏海樹 — bags/accessories brand from Pinkoi
 INSERT INTO brands (
   id, name, slug, description,
-  hero_image_url, product_photos,
+  hero_image_url,
   purchase_links, social_links,
   status, approved_at, submitted_at, created_at, updated_at
 )
@@ -22,7 +22,6 @@ VALUES (
   'bangstree',
   '包袋',
   'https://cdn01.pinkoi.com/product/42bbieHG/0/2/500x0.jpg',
-  '["https://cdn01.pinkoi.com/product/42bbieHG/0/2/500x0.jpg"]',
   '[{"platform": "pinkoi", "label": "Pinkoi", "url": "https://www.pinkoi.com/store/bangstree"}]',
   '{}',
   'approved', now(), now(), now(), now()
@@ -32,7 +31,7 @@ ON CONFLICT (slug) DO NOTHING;
 -- 慢慢瓷 Slow White Ceramics — handmade ceramics / home goods
 INSERT INTO brands (
   id, name, slug, description,
-  hero_image_url, product_photos,
+  hero_image_url,
   purchase_links, social_links,
   status, approved_at, submitted_at, created_at, updated_at
 )
@@ -42,7 +41,6 @@ VALUES (
   'slow-white-ceramics',
   '居家生活用品',
   'https://cdn01.pinkoi.com/product/CUgMM2CB/0/1/500x0.jpg',
-  '["https://cdn01.pinkoi.com/product/CUgMM2CB/0/1/500x0.jpg", "https://cdn01.pinkoi.com/product/VC2Q6trS/0/2/500x0.jpg"]',
   '[{"platform": "pinkoi", "label": "Pinkoi", "url": "https://www.pinkoi.com/store/slow2hite"}]',
   '{}',
   'approved', now(), now(), now(), now()
@@ -52,7 +50,7 @@ ON CONFLICT (slug) DO NOTHING;
 -- 尾八 — stationery and design goods
 INSERT INTO brands (
   id, name, slug, description,
-  hero_image_url, product_photos,
+  hero_image_url,
   purchase_links, social_links,
   status, approved_at, submitted_at, created_at, updated_at
 )
@@ -62,7 +60,6 @@ VALUES (
   'wei-ba',
   '文具設計、設計商品',
   'https://cdn01.pinkoi.com/product/jhaWrNxa/0/1/500x0.jpg',
-  '["https://cdn01.pinkoi.com/product/jhaWrNxa/0/1/500x0.jpg", "https://cdn01.pinkoi.com/product/hTVcWs2p/0/1/500x0.jpg"]',
   '[{"platform": "pinkoi", "label": "Pinkoi", "url": "https://www.pinkoi.com/store/livinzoo"}]',
   '{}',
   'approved', now(), now(), now(), now()
@@ -72,7 +69,7 @@ ON CONFLICT (slug) DO NOTHING;
 -- FEBBI — jewelry / accessories
 INSERT INTO brands (
   id, name, slug, description,
-  hero_image_url, product_photos,
+  hero_image_url,
   purchase_links, social_links,
   status, approved_at, submitted_at, created_at, updated_at
 )
@@ -82,7 +79,6 @@ VALUES (
   'febbi',
   '飾品',
   'https://cdn01.pinkoi.com/product/RHUfKiVh/0/6/500x0.jpg',
-  '["https://cdn01.pinkoi.com/product/RHUfKiVh/0/6/500x0.jpg", "https://cdn01.pinkoi.com/product/TdR5crNs/0/3/500x0.jpg"]',
   '[{"platform": "pinkoi", "label": "Pinkoi", "url": "https://www.pinkoi.com/store/febbi"}]',
   '{}',
   'approved', now(), now(), now(), now()
@@ -92,7 +88,7 @@ ON CONFLICT (slug) DO NOTHING;
 -- yunski — clothing / fashion brand
 INSERT INTO brands (
   id, name, slug, description,
-  hero_image_url, product_photos,
+  hero_image_url,
   purchase_links, social_links,
   status, approved_at, submitted_at, created_at, updated_at
 )
@@ -102,7 +98,6 @@ VALUES (
   'yunski',
   '服飾',
   'https://cdn01.pinkoi.com/product/bjGfun4v/0/1/500x0.jpg',
-  '["https://cdn01.pinkoi.com/product/bjGfun4v/0/1/500x0.jpg"]',
   '[{"platform": "pinkoi", "label": "Pinkoi", "url": "https://www.pinkoi.com/store/yunski"}]',
   '{}',
   'approved', now(), now(), now(), now()
@@ -112,7 +107,7 @@ ON CONFLICT (slug) DO NOTHING;
 -- Life n Soul — accessories and tech accessories
 INSERT INTO brands (
   id, name, slug, description,
-  hero_image_url, product_photos,
+  hero_image_url,
   purchase_links, social_links,
   status, approved_at, submitted_at, created_at, updated_at
 )
@@ -122,7 +117,6 @@ VALUES (
   'life-n-soul',
   '飾品、3C 配件',
   'https://cdn01.pinkoi.com/product/8tkDEf6P/0/1/500x0.jpg',
-  '["https://cdn01.pinkoi.com/product/8tkDEf6P/0/1/500x0.jpg"]',
   '[{"platform": "pinkoi", "label": "Pinkoi", "url": "https://www.pinkoi.com/store/life-n-soul"}]',
   '{}',
   'approved', now(), now(), now(), now()
@@ -132,7 +126,7 @@ ON CONFLICT (slug) DO NOTHING;
 -- Cicala Pu 喜樂鋪手工鞋 — handmade shoes
 INSERT INTO brands (
   id, name, slug, description,
-  hero_image_url, product_photos,
+  hero_image_url,
   purchase_links, social_links,
   status, approved_at, submitted_at, created_at, updated_at
 )
@@ -142,7 +136,6 @@ VALUES (
   'cicala-pu',
   '鞋履',
   'https://cdn01.pinkoi.com/product/NhMxt5RT/0/1/500x0.jpg',
-  '["https://cdn01.pinkoi.com/product/NhMxt5RT/0/1/500x0.jpg", "https://cdn01.pinkoi.com/product/ZhCgUS6j/0/1/500x0.jpg"]',
   '[{"platform": "pinkoi", "label": "Pinkoi", "url": "https://www.pinkoi.com/store/cicalapu"}]',
   '{}',
   'approved', now(), now(), now(), now()
@@ -152,7 +145,7 @@ ON CONFLICT (slug) DO NOTHING;
 -- Onelife玩生活 — outdoor sports gear (Nantou county)
 INSERT INTO brands (
   id, name, slug, description,
-  hero_image_url, product_photos,
+  hero_image_url,
   purchase_links, social_links,
   status, approved_at, submitted_at, created_at, updated_at
 )
@@ -162,7 +155,6 @@ VALUES (
   'onelife',
   '戶外運動用品',
   'https://twrr.org.tw/uploads/partner/611982834835652661.jpg',
-  '["https://twrr.org.tw/uploads/partner/611982834835652661.jpg", "https://twrr.org.tw/uploads/partner/611989436754035119.jpg"]',
   '[]',
   '{"official_website": "https://onelife.com.tw/"}',
   'approved', now(), now(), now(), now()
@@ -172,7 +164,7 @@ ON CONFLICT (slug) DO NOTHING;
 -- 鮮乳坊 — fresh dairy / food brand (Yunlin county)
 INSERT INTO brands (
   id, name, slug, description,
-  hero_image_url, product_photos,
+  hero_image_url,
   purchase_links, social_links,
   status, approved_at, submitted_at, created_at, updated_at
 )
@@ -182,7 +174,6 @@ VALUES (
   'xian-ru-fang',
   '茶飲食品、農產與加工食品',
   'https://twrr.org.tw/uploads/partner/495301611028742402.jpg',
-  '["https://twrr.org.tw/uploads/partner/495301611028742402.jpg"]',
   '[]',
   '{"official_website": "https://maac.io/1DwtV"}',
   'approved', now(), now(), now(), now()
@@ -192,7 +183,7 @@ ON CONFLICT (slug) DO NOTHING;
 -- 萬源製麵舖 — traditional noodle maker (Yunlin county)
 INSERT INTO brands (
   id, name, slug, description,
-  hero_image_url, product_photos,
+  hero_image_url,
   purchase_links, social_links,
   status, approved_at, submitted_at, created_at, updated_at
 )
@@ -202,7 +193,6 @@ VALUES (
   'wan-yuan-noodles',
   '農產與加工食品',
   'https://twrr.org.tw/uploads/partner/596246476846531142.jpg',
-  '["https://twrr.org.tw/uploads/partner/596246476846531142.jpg", "https://twrr.org.tw/uploads/partner/498788851725107297.jpg"]',
   '[]',
   '{"official_website": "http://www.1931.com.tw/"}',
   'approved', now(), now(), now(), now()
