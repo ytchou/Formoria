@@ -13,6 +13,7 @@ import {
   finalizeSentryArtifact,
   makeDirectoryArtifact,
   makeLinkArtifact,
+  runWorkflowCommand,
   type RepairFailureInput,
   type RepairResultInput,
 } from "./workflow-runtime";
@@ -355,6 +356,202 @@ describe("workflow runtime artifacts", () => {
         now,
       ),
     ).toThrow();
+  });
+});
+
+describe("collect-brand-review", () => {
+  const input = {
+    mode: "dry-run",
+    outputPath: "brand-review.json",
+    runAt: now,
+    windowHours: 25,
+    workflowAttempt: "1",
+    workflowRunId: "123",
+  };
+  const env = {
+    HEALTH_AGENT_READER_TOKEN: "reader-token",
+    HEALTH_AGENT_WRITER_TOKEN: "writer-token",
+    NEXT_PUBLIC_SUPABASE_URL: "https://db.example",
+  };
+
+  function brandReviewFiles() {
+    const contents = new Map<string, string>();
+    return {
+      contents,
+      files: {
+        read: async (path: string) => contents.get(path) ?? "",
+        write: async (path: string, value: string) => {
+          contents.set(path, value);
+        },
+      },
+    };
+  }
+
+  it("produces a successful artifact with findings for recent brand issues", async () => {
+    const { contents, files } = brandReviewFiles();
+    const fetchImplementation = vi.fn<typeof fetch>(async () =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify([
+            {
+              description: "English description",
+              description_en: null,
+              id: "brand-1",
+              mit_declared_at: null,
+              mit_declared_scope: "all",
+              mit_status: "declared",
+              mit_verified_at: null,
+              name: "Brand One",
+              other_urls: JSON.stringify([
+                { label: "Profile", url: "https://formoria.com/brand-one" },
+              ]),
+              purchase_website: null,
+              social_facebook: null,
+              social_instagram: null,
+              social_threads: null,
+            },
+          ]),
+          { status: 200 },
+        ),
+      ),
+    );
+
+    await runWorkflowCommand("collect-brand-review", input, {
+      env,
+      fetchImplementation,
+      files,
+    });
+
+    expect(
+      JSON.parse(contents.get(input.outputPath) ?? "{}"),
+    ).toMatchObject({
+      findings: [
+        expect.objectContaining({ title: "MIT declared without date" }),
+        expect.objectContaining({
+          title: "Self-referential formoria.com URL",
+        }),
+      ],
+      routine: "brand-review",
+      status: "success",
+    });
+  });
+
+  it("produces a successful empty artifact when there are no recent edits", async () => {
+    const { contents, files } = brandReviewFiles();
+    const fetchImplementation = vi.fn<typeof fetch>(async () =>
+      Promise.resolve(new Response(JSON.stringify([]), { status: 200 })),
+    );
+
+    await runWorkflowCommand("collect-brand-review", input, {
+      env,
+      fetchImplementation,
+      files,
+    });
+
+    expect(
+      JSON.parse(contents.get(input.outputPath) ?? "{}"),
+    ).toMatchObject({
+      findings: [],
+      routine: "brand-review",
+      status: "success",
+    });
+  });
+
+  it("writes a failed artifact when the Supabase query fails", async () => {
+    const { contents, files } = brandReviewFiles();
+    const fetchImplementation = vi.fn<typeof fetch>(async () =>
+      Promise.resolve(
+        new Response(JSON.stringify({ message: "unavailable" }), {
+          status: 500,
+        }),
+      ),
+    );
+
+    await runWorkflowCommand("collect-brand-review", input, {
+      env,
+      fetchImplementation,
+      files,
+    });
+
+    expect(
+      JSON.parse(contents.get(input.outputPath) ?? "{}"),
+    ).toMatchObject({
+      failure: "supabase_runtime_request_failed",
+      findings: [],
+      routine: "brand-review",
+      status: "failed",
+    });
+  });
+
+  it("claims the ledger before completing the live run", async () => {
+    const { files } = brandReviewFiles();
+    let claimed = false;
+    const fetchImplementation = vi.fn<typeof fetch>(async (request) => {
+      const url = String(request);
+      if (url.includes("/rest/v1/brands?")) {
+        return new Response(JSON.stringify([]), { status: 200 });
+      }
+      if (url.endsWith("/rest/v1/rpc/claim_health_agent_run")) {
+        claimed = true;
+        return new Response(JSON.stringify({ claimed: true }), { status: 200 });
+      }
+      if (url.endsWith("/rest/v1/rpc/complete_health_agent_run")) {
+        expect(claimed).toBe(true);
+        return new Response(JSON.stringify(true), { status: 200 });
+      }
+      throw new Error(`unexpected request: ${url}`);
+    });
+
+    await runWorkflowCommand(
+      "collect-brand-review",
+      { ...input, mode: "live" },
+      { env, fetchImplementation, files },
+    );
+
+    const rpcCalls = fetchImplementation.mock.calls.filter(([request]) =>
+      String(request).includes("/rest/v1/rpc/"),
+    );
+    expect(rpcCalls.map(([request]) => String(request))).toEqual([
+      "https://db.example/rest/v1/rpc/claim_health_agent_run",
+      "https://db.example/rest/v1/rpc/complete_health_agent_run",
+    ]);
+    expect(JSON.parse(String(rpcCalls[0]?.[1]?.body))).toEqual({
+      p_logical_date: "2026-07-22",
+      p_routine: "brand-review",
+      p_source_run_id: "gha:123/1",
+    });
+    expect(JSON.parse(String(rpcCalls[1]?.[1]?.body))).toEqual({
+      p_logical_date: "2026-07-22",
+      p_routine: "brand-review",
+      p_source_run_id: "gha:123/1",
+    });
+  });
+
+  it("skips collection and delivery in preflight mode", async () => {
+    const { contents, files } = brandReviewFiles();
+    const fetchImplementation = vi.fn<typeof fetch>();
+    const slack = vi.fn(async () => undefined);
+
+    await runWorkflowCommand(
+      "collect-brand-review",
+      { ...input, mode: "preflight" },
+      {
+        delivery: { agentHub: vi.fn(async () => undefined), slack },
+        env,
+        fetchImplementation,
+        files,
+      },
+    );
+
+    expect(
+      JSON.parse(contents.get(input.outputPath) ?? "{}"),
+    ).toMatchObject({
+      findings: [],
+      routine: "brand-review",
+      status: "skipped",
+    });
+    expect(fetchImplementation).not.toHaveBeenCalled();
+    expect(slack).not.toHaveBeenCalled();
   });
 });
 

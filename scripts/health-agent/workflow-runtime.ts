@@ -20,6 +20,10 @@ import {
   type StaleBranchEvidence,
 } from "./directory";
 import {
+  evaluateBrandReview,
+  type RecentBrandEdit,
+} from "./brand-review";
+import {
   buildSentryHealthFinding,
   collectSentryIssues,
   sanitizeSentryIssue,
@@ -85,6 +89,7 @@ type JsonObject = Record<string, JsonValue>;
 
 export const WORKFLOW_RUNTIME_COMMANDS = [
   "collect-link",
+  "collect-brand-review",
   "collect-directory-evidence",
   "collect-sentry",
   "classify-sentry",
@@ -133,6 +138,19 @@ export interface SanitizedSentryArtifact {
   issues: SanitizedSentryIssue[];
   requestCount: number;
   status?: "failed" | "success";
+  version: 1;
+}
+
+interface BrandReviewArtifact {
+  collectedAt: string;
+  evidence: Record<string, unknown>;
+  failure?: string;
+  failures: string[];
+  findings: HealthFinding[];
+  routine: string;
+  skippedActions: string[];
+  snapshot?: Record<string, unknown>;
+  status: "failed" | "skipped" | "success";
   version: 1;
 }
 
@@ -695,6 +713,210 @@ async function supabaseRows(
       (value) => Array.isArray(value),
     ),
   );
+}
+
+function nullableBrandString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function brandMitStatus(value: unknown): RecentBrandEdit["mitStatus"] {
+  return value === "unverified" ||
+    value === "declared" ||
+    value === "verified"
+    ? value
+    : null;
+}
+
+function brandMitDeclaredScope(
+  value: unknown,
+): RecentBrandEdit["mitDeclaredScope"] {
+  return value === "all" || value === "most" || value === "some"
+    ? value
+    : null;
+}
+
+function brandOtherUrls(value: unknown): RecentBrandEdit["otherUrls"] {
+  let candidate: unknown = value;
+  if (typeof value === "string") {
+    try {
+      candidate = JSON.parse(value) as unknown;
+    } catch {
+      return null;
+    }
+  }
+  if (!Array.isArray(candidate)) return null;
+  return candidate.flatMap((entry) => {
+    if (
+      !isRecord(entry) ||
+      typeof entry.label !== "string" ||
+      typeof entry.url !== "string"
+    ) {
+      return [];
+    }
+    return [{ label: entry.label, url: entry.url }];
+  });
+}
+
+function recentBrandEdit(row: Record<string, unknown>): RecentBrandEdit {
+  return {
+    description: nullableBrandString(row.description),
+    descriptionEn: nullableBrandString(row.description_en),
+    id: safeString(row.id, "brand.id"),
+    mitDeclaredAt: nullableBrandString(row.mit_declared_at),
+    mitDeclaredScope: brandMitDeclaredScope(row.mit_declared_scope),
+    mitStatus: brandMitStatus(row.mit_status),
+    mitVerifiedAt: nullableBrandString(row.mit_verified_at),
+    name: safeString(row.name, "brand.name"),
+    otherUrls: brandOtherUrls(row.other_urls),
+    purchaseWebsite: nullableBrandString(row.purchase_website),
+    socialFacebook: nullableBrandString(row.social_facebook),
+    socialInstagram: nullableBrandString(row.social_instagram),
+    socialThreads: nullableBrandString(row.social_threads),
+  };
+}
+
+async function collectBrandReview(
+  input: {
+    mode: string;
+    outputPath: string;
+    runAt: string;
+    windowHours?: number;
+    workflowRunId: string;
+    workflowAttempt: string;
+  },
+  dependencies: WorkflowRuntimeDependencies,
+): Promise<void> {
+  const files = filesFor(dependencies);
+  try {
+    const windowHours = input.windowHours ?? 25;
+    const windowStart = new Date(
+      new Date(input.runAt).getTime() - windowHours * 3600_000,
+    ).toISOString();
+    if (input.mode === "preflight") {
+      const artifact: BrandReviewArtifact = {
+        collectedAt: input.runAt,
+        evidence: { mode: input.mode },
+        failures: [],
+        findings: [],
+        routine: "brand-review",
+        skippedActions: ["brand_review_collection"],
+        status: "skipped",
+        version: 1,
+      };
+      await writeRedactedJson(input.outputPath, artifact, files);
+      return;
+    }
+
+    const rows = await supabaseRows(
+      dependencies,
+      "brands",
+      "id,name,description,description_en,mit_status,mit_declared_scope,mit_declared_at,mit_verified_at,purchase_website,social_instagram,social_threads,social_facebook,other_urls",
+      "brand_review_query",
+      { status: "eq.approved", updated_at: `gte.${windowStart}` },
+    );
+    const brands = rows.map(recentBrandEdit);
+    const evaluated = evaluateBrandReview(brands, input.runAt, windowStart);
+    const artifact: BrandReviewArtifact = {
+      collectedAt: input.runAt,
+      evidence: {
+        mode: input.mode,
+        source: "recent_approved_brand_edits",
+        windowHours,
+      },
+      failures: [],
+      findings: evaluated.findings,
+      routine: "brand-review",
+      skippedActions: [],
+      snapshot: { ...evaluated.snapshot },
+      status: "success",
+      version: 1,
+    };
+    await writeRedactedJson(input.outputPath, artifact, files);
+
+    if (input.mode !== "live") return;
+
+    const ledgerBody = {
+      p_routine: "brand-review",
+      p_logical_date: taipeiDate(input.runAt),
+      p_source_run_id: `gha:${input.workflowRunId}/${input.workflowAttempt}`,
+    };
+    await supabaseRequest(
+      dependencies,
+      "claim_health_agent_run",
+      "/rest/v1/rpc/claim_health_agent_run",
+      "HEALTH_AGENT_WRITER_TOKEN",
+      {
+        method: "POST",
+        body: JSON.stringify(ledgerBody),
+      },
+      () => true,
+    );
+
+    if (evaluated.findings.length > 0) {
+      const delivery = dependencies.delivery;
+      if (!delivery) throw new Error("brand_review_delivery_unavailable");
+      const report: SlackDigestInput = {
+        actionableFindings: evaluated.findings,
+        failures: [],
+        linearOutcomes: [],
+        prOutcomes: [],
+        skippedActions: [],
+      };
+      await delivery.slack(report);
+      await Promise.all(
+        evaluated.findings.map((finding) =>
+          supabaseRequest(
+            dependencies,
+            "enqueue_health_fix",
+            "/rest/v1/rpc/enqueue_health_fix",
+            "HEALTH_AGENT_WRITER_TOKEN",
+            {
+              body: JSON.stringify({
+                p_evidence: JSON.stringify(finding.evidence),
+                p_fingerprint: finding.fingerprint,
+                p_merge_policy: finding.mergePolicy,
+                p_source: finding.source,
+                p_title: finding.title,
+              }),
+              method: "POST",
+            },
+            (candidate) =>
+              typeof candidate === "string" ||
+              (Array.isArray(candidate) && candidate.length <= 1),
+          ),
+        ),
+      );
+    }
+
+    await supabaseRequest(
+      dependencies,
+      "complete_health_agent_run",
+      "/rest/v1/rpc/complete_health_agent_run",
+      "HEALTH_AGENT_WRITER_TOKEN",
+      {
+        method: "POST",
+        body: JSON.stringify(ledgerBody),
+      },
+      () => true,
+    );
+  } catch (error) {
+    const failure =
+      error instanceof Error
+        ? error.message
+        : "brand_review_collection_failed";
+    const artifact: BrandReviewArtifact = {
+      collectedAt: input.runAt,
+      evidence: {},
+      failure,
+      failures: [failure],
+      findings: [],
+      routine: "brand-review",
+      skippedActions: [],
+      status: "failed",
+      version: 1,
+    };
+    await writeRedactedJson(input.outputPath, artifact, files);
+  }
 }
 
 function linkRecordsFromArtifact(
@@ -2531,6 +2753,21 @@ export async function runWorkflowCommand(
         },
         dependencies,
       );
+    case "collect-brand-review":
+      return collectBrandReview(
+        {
+          mode: safeString(input.mode, "mode"),
+          outputPath: safeString(input.outputPath, "outputPath"),
+          runAt: safeString(input.runAt, "runAt"),
+          windowHours:
+            typeof input.windowHours === "number"
+              ? input.windowHours
+              : undefined,
+          workflowAttempt: String(safeAttempt(input.workflowAttempt)),
+          workflowRunId: safeString(input.workflowRunId, "workflowRunId"),
+        },
+        dependencies,
+      );
     case "collect-directory-evidence":
       return collectDirectoryEvidence(
         {
@@ -2765,6 +3002,7 @@ export async function main(
   const runtime = dependencies ?? createWorkflowRuntimeDependencies();
   const mode = optionalArgument(argv, "--mode");
   const attempt = optionalArgument(argv, "--attempt");
+  const windowHours = optionalArgument(argv, "--window-hours");
   const input: Record<string, unknown> = {
     aggregateArtifactPath: optionalArgument(argv, "--aggregate-artifact"),
     auditPath: optionalArgument(argv, "--audit"),
@@ -2795,6 +3033,7 @@ export async function main(
     snapshotPath: optionalArgument(argv, "--snapshot"),
     workflowAttempt: attempt ? Number(attempt) : undefined,
     workflowRunId: optionalArgument(argv, "--run-id"),
+    windowHours: windowHours ? Number(windowHours) : 25,
     autoMergeEnabled: optionalArgument(argv, "--auto-merge-enabled") === "true",
   };
   await runWorkflowCommand(

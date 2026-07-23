@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { access, readFile } from "node:fs/promises";
 
 import * as prettier from "prettier";
@@ -50,6 +51,32 @@ describe("unified health-agent workflow contract", () => {
     expect(workflow).toContain("- name: Deliver Agent Hub envelopes");
     expect(workflow).toContain("aggregate-and-deliver");
     expect(workflow).not.toContain("--limit");
+  });
+
+  it("brand-review job depends only on gate", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+    const aggregate = jobSection(
+      workflow,
+      "aggregate-and-deliver",
+      "cleanup-stale-branches",
+    );
+
+    expect(workflow).toMatch(/brand-review:\n    needs: \[gate\]/);
+    expect(aggregate).not.toMatch(/needs: \[[^\]]*brand-review[^\]]*\]/);
+  });
+
+  it("brand-review job uses correct secrets", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+    const brandReview = jobSection(
+      workflow,
+      "brand-review",
+      "secretless-validation",
+    );
+
+    expect(brandReview).toMatch(/HEALTH_AGENT_READER_TOKEN/);
+    expect(brandReview).toMatch(/HEALTH_AGENT_WRITER_TOKEN/);
+    expect(brandReview).toMatch(/NEXT_PUBLIC_SUPABASE_URL/);
+    expect(brandReview).toMatch(/SLACK_HEALTH_WEBHOOK_URL/);
   });
 
   it("uses exactly three collector routines and one aggregated Slack delivery", async () => {
