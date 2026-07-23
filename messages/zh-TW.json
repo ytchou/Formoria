@@ -1155,7 +1155,17 @@
       "title": "經營者主控台"
     },
     "heading": "經營者主控台",
-    "welcome": "歡迎，{name}",
+    "welcome": {
+      "title": "歡迎來到您的品牌儀表板",
+      "subtitle": "以下是開始管理品牌頁面的方式。",
+      "dismiss": "關閉",
+      "tips": {
+        "editProfile": "編輯品牌資料",
+        "checkHealth": "檢查品牌健康度",
+        "viewAnalytics": "查看分析數據",
+        "readFaq": "閱讀品牌主常見問題"
+      }
+    },
     "yourBrands": "您的品牌",
     "empty": "尚未認領任何品牌。認領品牌後，它將顯示在此處。",
     "claimedAt": "認領於 {date}",
@@ -1212,60 +1222,6 @@
       "trendUp": "上升趨勢",
       "trendDown": "下降趨勢",
       "trendFlat": "持平"
-    },
-    "onboarding": {
-      "progress": "已查看 {completed}/{total}",
-      "card": {
-        "title": "品牌後台導覽",
-        "progressLabel": "品牌後台導覽進度",
-        "next": "下一步",
-        "continue": "繼續檢視",
-        "viewAll": "查看檢查清單"
-      },
-      "page": {
-        "title": "檢視你的品牌",
-        "description": "即使資料已預先填入，也請逐項確認。儲存變更或主動確認後，該步驟才會完成。"
-      },
-      "status": {
-        "not_started": "尚未開始",
-        "in_progress": "進行中",
-        "complete": "已查看"
-      },
-      "review": {
-        "title": "新手任務檢視",
-        "description": "請檢視此區段的資料。若有修改請儲存；若內容已正確，可直接確認。",
-        "confirm": "內容皆正確",
-        "back": "返回檢查清單"
-      },
-      "steps": {
-        "brand_basics": {
-          "title": "查看品牌資料",
-          "description": "開啟品牌資料，了解可在哪裡更新內容。"
-        },
-        "media_links": {
-          "title": "新增媒體與連結",
-          "description": "開啟編輯器，查看照片、社群與購買連結。"
-        },
-        "analytics": {
-          "title": "查看數據分析",
-          "description": "開啟數據分析，了解品牌頁面的瀏覽表現。"
-        },
-        "health": {
-          "title": "檢視品牌檔案完成度",
-          "description": "開啟品牌檔案建議，查看接下來可改善的內容。"
-        },
-        "verification": {
-          "title": "了解品牌驗證",
-          "description": "開啟驗證功能，了解如何取得信任徽章。"
-        }
-      },
-      "milestone": {
-        "gettingStarted": "好的開始！繼續完善你的品牌頁面。",
-        "halfway": "已經完成一半了！你的品牌頁面看起來越來越棒。",
-        "complete": "太棒了！你的品牌頁面已經完整。"
-      },
-      "tier1Label": "重要項目",
-      "tier2Label": "加分項目"
     },
     "profileCompleteness": {
       "title": "品牌檔案完成度",

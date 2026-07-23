@@ -1155,7 +1155,17 @@
       "title": "Owner Dashboard"
     },
     "heading": "Owner Dashboard",
-    "welcome": "Welcome, {name}",
+    "welcome": {
+      "title": "Welcome to your dashboard",
+      "subtitle": "Here's how to get started with your brand page.",
+      "dismiss": "Dismiss",
+      "tips": {
+        "editProfile": "Edit your brand profile",
+        "checkHealth": "Check your brand health",
+        "viewAnalytics": "View analytics",
+        "readFaq": "Read the owner FAQ"
+      }
+    },
     "yourBrands": "Your Brands",
     "empty": "You haven't claimed any brands yet. Once you claim a brand, it will appear here.",
     "claimedAt": "Claimed {date}",
@@ -1212,60 +1222,6 @@
       "trendUp": "Trending up",
       "trendDown": "Trending down",
       "trendFlat": "No change"
-    },
-    "onboarding": {
-      "progress": "{completed} of {total} visited",
-      "card": {
-        "title": "Dashboard walkthrough",
-        "progressLabel": "Dashboard walkthrough progress",
-        "next": "Next step",
-        "continue": "Continue review",
-        "viewAll": "View checklist"
-      },
-      "page": {
-        "title": "Review your brand",
-        "description": "Check each section even when information was pre-filled. A step is complete only after you save or explicitly confirm it."
-      },
-      "status": {
-        "not_started": "Not started",
-        "in_progress": "In progress",
-        "complete": "Visited"
-      },
-      "review": {
-        "title": "Onboarding review",
-        "description": "Review this section. Save any changes, or confirm it if everything is already correct.",
-        "confirm": "Everything is correct",
-        "back": "Back to checklist"
-      },
-      "steps": {
-        "brand_basics": {
-          "title": "Review brand profile",
-          "description": "Open your brand details and see where to update them."
-        },
-        "media_links": {
-          "title": "Add media & links",
-          "description": "Open the editor for photos, social profiles, and purchase links."
-        },
-        "analytics": {
-          "title": "Check your analytics",
-          "description": "Open analytics and see how your brand page is performing."
-        },
-        "health": {
-          "title": "Review profile completeness",
-          "description": "Open your profile recommendations and see what to improve next."
-        },
-        "verification": {
-          "title": "Explore verification",
-          "description": "Open verification and learn how to earn a trust badge."
-        }
-      },
-      "milestone": {
-        "gettingStarted": "Great start! Keep improving your brand page.",
-        "halfway": "Halfway there! Your brand page is looking better.",
-        "complete": "Amazing! Your brand page is complete."
-      },
-      "tier1Label": "High Impact",
-      "tier2Label": "Good to Have"
     },
     "profileCompleteness": {
       "title": "Profile Completeness",
