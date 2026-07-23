@@ -53,11 +53,6 @@ describe('simplified submission schema', () => {
     expect(shape).toContain('heroImageUrl')
   })
 
-  it('does not include retailLocations', () => {
-    const shape = Object.keys(fullSubmissionSchema.shape)
-    expect(shape).not.toContain('retailLocations')
-  })
-
   it('accepts optional social links as strings', () => {
     const ownerSchema = createOwnerSubmissionSchema()
     const data = {

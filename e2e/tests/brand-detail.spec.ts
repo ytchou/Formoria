@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures/auth';
 import { createClient } from '@supabase/supabase-js';
 import { seedBrand, SeededBrand } from "../helpers/seed";
 
@@ -194,19 +194,18 @@ test.describe('Brand detail — hidden brand', () => {
 test.describe('Brand detail — public locations and retail channels', () => {
   let seeded: SeededBrand;
 
-  const confirmedStoreName = '[E2E-TEST] Taipei brand store';
-  const confirmedStoreAddress = '台北市信義區信義路五段7號';
-  const verifiedStoreName = '[E2E-TEST] Evidence-verified brand store';
-  const verifiedStoreAddress = '台北市大安區證據路9號';
-  const confirmedStockistName = '[E2E-TEST] Taichung stockist';
-  const privateLeadName = '[E2E-TEST] Private physical lead';
-  const privateLeadAddress = '[E2E-TEST] Private Address 991 No Render Lane';
-  const chainName = '[E2E-TEST] Retail chain';
-  const retailerUrl = 'https://example.com/e2e-retailer';
+  const confirmedStoreName = '[E2E-TEST] Brand direct store';
+  const confirmedStoreAddress = '台北市信義區信義路五段 7 號';
+  const confirmedOnlineName = '[E2E-TEST] Brand online channel';
+  const anonymousChannelName = '[E2E-TEST] Anonymous confirmation channel';
+  const signedInChannelName = '[E2E-TEST] Signed-in confirmation channel';
+  const submittedChannelName = '[E2E-TEST] Submitted community channel';
+  const confirmedStoreUrl = 'https://example.com/e2e-brand-store';
+  const submittedChannelUrl = 'https://example.com/e2e-submitted-channel';
 
   test.beforeAll(async ({}, workerInfo) => {
     seeded = await seedBrand({
-      name: 'mixed-locations',
+      name: 'mixed-channels',
       status: 'approved',
       workerIndex: workerInfo.workerIndex,
     });
@@ -220,62 +219,105 @@ test.describe('Brand detail — public locations and retail channels', () => {
     const serviceClient = createClient(supabaseUrl, serviceRoleKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
-    const { error } = await serviceClient
-      .from('brands')
-      .update({
-        retail_locations: [
-          {
-            kind: 'location',
-            name: confirmedStoreName,
-            relationshipType: 'brand_store',
-            address: confirmedStoreAddress,
-            latitude: 25.033,
-            longitude: 121.5654,
-            confirmationStatus: 'owner_confirmed',
-          },
-          {
-            kind: 'location',
-            name: verifiedStoreName,
-            relationshipType: 'brand_store',
-            address: verifiedStoreAddress,
-            latitude: 25.026,
-            longitude: 121.543,
-            verificationStatus: 'verified',
-            confirmationStatus: 'unconfirmed',
-          },
-          {
-            kind: 'location',
-            name: confirmedStockistName,
-            relationshipType: 'stockist',
-            address: '台中市西屯區台灣大道三段301號',
-            confirmationStatus: 'owner_confirmed',
-          },
-          {
-            kind: 'location',
-            name: privateLeadName,
-            relationshipType: 'stockist',
-            address: privateLeadAddress,
-            confirmationStatus: 'unconfirmed',
-          },
-          {
-            kind: 'retail_chain',
-            name: chainName,
-            retailerUrl,
-          },
-        ],
-      })
-      .eq('slug', seeded.slug);
 
-    expect(error).toBeNull();
+    const { data: usersData, error: usersError } =
+      await serviceClient.auth.admin.listUsers();
+    if (usersError) {
+      throw new Error(`Failed to list E2E users: ${usersError.message}`);
+    }
+    const confirmationUser = usersData.users.find(
+      (user) => user.email === process.env.E2E_ADMIN_EMAIL,
+    );
+    if (!confirmationUser) {
+      throw new Error('E2E admin user not found for channel confirmation seed');
+    }
+
+    const channelRows = [
+      {
+        brand_id: seeded.brand.id,
+        name: confirmedStoreName,
+        normalized_name: 'e2e-brand-direct-store',
+        channel_type: 'offline',
+        category_label: '品牌直營',
+        region_label: '臺北市',
+        address: confirmedStoreAddress,
+        url: confirmedStoreUrl,
+        source: 'owner',
+        owner_status: 'confirmed',
+      },
+      {
+        brand_id: seeded.brand.id,
+        name: confirmedOnlineName,
+        normalized_name: 'e2e-brand-online-channel',
+        channel_type: 'online',
+        category_label: '選品店',
+        region_label: null,
+        address: null,
+        url: null,
+        source: 'owner',
+        owner_status: 'confirmed',
+      },
+      {
+        brand_id: seeded.brand.id,
+        name: anonymousChannelName,
+        normalized_name: 'e2e-anonymous-confirmation-channel',
+        channel_type: 'offline',
+        category_label: '選品店',
+        region_label: '臺中市',
+        address: null,
+        url: null,
+        source: 'community',
+        owner_status: 'none',
+      },
+      {
+        brand_id: seeded.brand.id,
+        name: signedInChannelName,
+        normalized_name: 'e2e-signed-in-confirmation-channel',
+        channel_type: 'offline',
+        category_label: '選品店',
+        region_label: '新北市',
+        address: null,
+        url: null,
+        source: 'community',
+        owner_status: 'none',
+      },
+    ];
+
+    const { data: channels, error: channelsError } = await serviceClient
+      .from('brand_channels')
+      .insert(channelRows)
+      .select('id, name');
+    if (channelsError || !channels) {
+      throw new Error(
+        `Failed to seed brand channels: ${channelsError?.message ?? 'missing rows'}`,
+      );
+    }
+
+    const channelIds = new Map(channels.map((channel) => [channel.name, channel.id]));
+    const getChannelId = (name: string): string => {
+      const id = channelIds.get(name);
+      if (!id) throw new Error(`Seeded channel not found: ${name}`);
+      return id;
+    };
+    const { error: confirmationsError } = await serviceClient
+      .from('brand_channel_confirmations')
+      .insert([
+        { channel_id: getChannelId(confirmedStoreName), user_id: confirmationUser.id },
+        { channel_id: getChannelId(confirmedOnlineName), user_id: confirmationUser.id },
+      ]);
+    if (confirmationsError) {
+      throw new Error(
+        `Failed to seed channel confirmations: ${confirmationsError.message}`,
+      );
+    }
   });
 
   test.afterAll(async () => {
     await seeded.cleanup();
   });
 
-  test('groups locations safely and supports mobile filter and view controls', async ({ page }) => {
+  test('group headings render with correct counts', async ({ page }) => {
     test.setTimeout(90_000);
-    await page.setViewportSize({ width: 390, height: 844 });
 
     await expect(async () => {
       await page.goto(`/brands/${seeded.slug}`, { waitUntil: 'domcontentloaded' });
@@ -283,80 +325,119 @@ test.describe('Brand detail — public locations and retail channels', () => {
         seeded.brand.name,
         { timeout: 10_000 },
       );
-      await expect(page.getByRole('heading', { name: '販售地點 · 4', level: 3 })).toBeVisible();
-      await expect(page.getByRole('heading', { name: '連鎖販售通路 · 1', level: 3 })).toBeVisible();
+      await expect(
+        page.getByRole('heading', { name: '品牌已確認販售 (2)', level: 3 }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole('heading', {
+          name: '可能販售（尚待確認） (2)',
+          level: 3,
+        }),
+      ).toBeVisible();
     }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 10_000] });
-
-    await expect(page.getByText('以下地點依公開資訊整理，可能尚未經品牌主確認；前往前請先向品牌或店家確認。')).toBeVisible();
-    await expect(page.getByText('各分店販售情況不同；通路連結僅供查詢通路資訊，不代表即時庫存。')).toBeVisible();
-    await expect(page.getByText(privateLeadName)).toBeVisible();
-    await expect(page.getByText(privateLeadAddress)).toBeVisible();
-    await expect(page.getByText(verifiedStoreName)).toBeVisible();
-    await expect(page.getByText(verifiedStoreAddress)).toBeVisible();
-    await expect(page.getByRole('link', { name: '查看通路資訊' })).toHaveAttribute(
-      'href',
-      retailerUrl,
-    );
-
-    const map = page.getByRole('region', {
-      name: `${seeded.brand.name} 販售地點地圖`,
-    });
-    await expect(map).toBeVisible({ timeout: 10_000 });
-
-    const locationHeading = page.getByRole('heading', {
-      name: '販售地點 · 4',
-      level: 3,
-    });
-    const locationGroup = locationHeading.locator('..').locator('..');
-    const allFilter = locationGroup.getByRole('button', { name: '全部 4' });
-    const brandStoreFilter = locationGroup.getByRole('button', {
-      name: '品牌門市 2',
-    });
-    const otherSalesFilter = locationGroup.getByRole('button', {
-      name: '其他販售通路 2',
-    });
-
-    await allFilter.focus();
-    await page.keyboard.press('Tab');
-    await expect(brandStoreFilter).toBeFocused();
-    const filterBox = await brandStoreFilter.boundingBox();
-    expect(filterBox).not.toBeNull();
-    expect(filterBox!.height).toBeGreaterThanOrEqual(48);
-
-    await brandStoreFilter.press('Enter');
-    await expect(brandStoreFilter).toHaveAttribute('aria-pressed', 'true');
-    await expect(locationGroup.getByText(confirmedStoreName)).toBeVisible();
-    await expect(locationGroup.getByText(verifiedStoreName)).toBeVisible();
-    await expect(locationGroup.getByText(confirmedStockistName)).toHaveCount(0);
-    await expect(locationGroup.getByText(privateLeadName)).toHaveCount(0);
-    await expect(locationGroup.getByText(chainName)).toHaveCount(0);
-
-    await otherSalesFilter.click();
-    await expect(locationGroup.getByText(confirmedStockistName)).toBeVisible();
-    await expect(locationGroup.getByText(privateLeadName)).toBeVisible();
-    await expect(locationGroup.getByText(confirmedStoreName)).toHaveCount(0);
-    await expect(locationGroup.getByText(verifiedStoreName)).toHaveCount(0);
-    await expect(map).toHaveCount(0);
-
-    await allFilter.click();
-    const mapView = locationGroup.getByRole('button', { name: '地圖' });
-    await expect(mapView).toBeVisible();
-    await mapView.click();
-    await expect(map).toBeVisible();
-
-    const viewAll = locationGroup.getByRole('button', { name: '查看全部' });
-    await viewAll.click();
-    await expect(map).toHaveCount(0);
-    await expect(locationGroup.getByText(confirmedStoreName)).toBeVisible();
-    await expect(locationGroup.getByText(verifiedStoreName)).toBeVisible();
-    await expect(locationGroup.getByText(confirmedStockistName)).toBeVisible();
-    await expect(locationGroup.getByText(privateLeadName)).toBeVisible();
   });
-});
 
-test('brand with name-only best-effort locations does not render a map', async ({ page }) => {
-  await page.goto('/brands/littdlework', { waitUntil: 'domcontentloaded' });
-  await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByRole('heading', { name: '永康旗艦店' })).toBeVisible();
-  await expect(page.getByRole('region', { name: /販售地點地圖|stockist map/i })).toHaveCount(0);
+  test('category badges render', async ({ page }) => {
+    await page.goto(`/brands/${seeded.slug}`, { waitUntil: 'domcontentloaded' });
+
+    await expect(page.getByText('品牌直營', { exact: true })).toBeVisible();
+    await expect(page.getByText('選品店', { exact: true }).first()).toBeVisible();
+  });
+
+  test('Google Maps link renders when an address is present', async ({ page }) => {
+    await page.goto(`/brands/${seeded.slug}`, { waitUntil: 'domcontentloaded' });
+
+    await expect(page.getByRole('link', { name: '臺北市', exact: true })).toHaveAttribute(
+      'href',
+      /^https:\/\/www\.google\.com\/maps\/search\//,
+    );
+  });
+
+  test('external link renders for channels with a URL', async ({ page }) => {
+    await page.goto(`/brands/${seeded.slug}`, { waitUntil: 'domcontentloaded' });
+
+    await expect(page.getByRole('link', { name: '查看店家資訊', exact: true })).toHaveAttribute(
+      'href',
+      confirmedStoreUrl,
+    );
+  });
+
+  test('disclosure toggle explains unconfirmed channels', async ({ page }) => {
+    await page.goto(`/brands/${seeded.slug}`, { waitUntil: 'domcontentloaded' });
+
+    const disclosure = page.getByText('什麼是尚待確認？', { exact: true });
+    await expect(disclosure).toBeVisible();
+    await disclosure.click();
+    await expect(
+      page.getByText(
+        '這些是由社群成員提供或系統自動蒐集的販售資訊，當獲得品牌方確認或足夠的社群確認後，將會移至已確認區域。',
+        { exact: true },
+      ),
+    ).toBeVisible();
+  });
+
+  test('anonymous confirm shows a sign-in prompt', async ({ anonPage }) => {
+    await anonPage.goto(`/brands/${seeded.slug}`, { waitUntil: 'domcontentloaded' });
+
+    const channelCard = anonPage
+      .locator('[data-channel-card]')
+      .filter({ hasText: anonymousChannelName });
+    await channelCard
+      .getByRole('button', { name: '我確認這裡有販售', exact: true })
+      .click();
+
+    await expect(channelCard.getByText('登入後即可確認')).toBeVisible();
+    await expect(channelCard.getByRole('link', { name: '登入', exact: true })).toHaveAttribute(
+      'href',
+      /\/auth\/sign-in\?next=/,
+    );
+  });
+
+  test('signed-in confirm increments the confirmation count', async ({ userPage }) => {
+    await userPage.goto(`/brands/${seeded.slug}`, { waitUntil: 'domcontentloaded' });
+
+    const channelCard = userPage
+      .locator('[data-channel-card]')
+      .filter({ hasText: signedInChannelName });
+    await expect(channelCard.getByText('0 人確認')).toBeVisible();
+    await channelCard
+      .getByRole('button', { name: '我確認這裡有販售', exact: true })
+      .click();
+    await expect(channelCard.getByText('1 人確認')).toBeVisible();
+    await expect(channelCard.getByRole('button', { name: '已確認', exact: true })).toBeDisabled();
+
+    await userPage.reload({ waitUntil: 'domcontentloaded' });
+    const refreshedCard = userPage
+      .locator('[data-channel-card]')
+      .filter({ hasText: signedInChannelName });
+    await expect(refreshedCard.getByText('1 人確認')).toBeVisible();
+  });
+
+  test('submitted channel appears in the possible group', async ({ userPage }) => {
+    test.setTimeout(90_000);
+    await userPage.goto(`/brands/${seeded.slug}`, { waitUntil: 'domcontentloaded' });
+
+    await userPage.getByRole('button', { name: '提供販售資訊', exact: true }).click();
+    const dialog = userPage.getByRole('dialog', { name: '提供販售資訊' });
+    await dialog.getByRole('textbox', { name: '通路名稱' }).fill(submittedChannelName);
+    await dialog.getByRole('combobox', { name: '通路類型' }).selectOption('online');
+    await dialog.getByRole('combobox', { name: '通路分類' }).selectOption('other');
+    await dialog.getByRole('combobox', { name: '地區' }).selectOption('taipei');
+    await dialog.getByRole('textbox', { name: '網址' }).fill(submittedChannelUrl);
+    await dialog.getByRole('button', { name: '送出', exact: true }).click();
+    await expect(dialog.getByText('感謝您提供的資訊！')).toBeVisible({ timeout: 15_000 });
+    await dialog.getByRole('button', { name: '關閉', exact: true }).click();
+
+    await expect(async () => {
+      await userPage.reload({ waitUntil: 'domcontentloaded' });
+      const possibleGroup = userPage.locator('[data-channel-group="possible"]');
+      await expect(
+        userPage.getByRole('heading', {
+          name: '可能販售（尚待確認） (3)',
+          level: 3,
+        }),
+      ).toBeVisible();
+      await expect(possibleGroup.getByText(submittedChannelName)).toBeVisible();
+    }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 10_000] });
+  });
 });

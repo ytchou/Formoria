@@ -74,7 +74,6 @@ const mockBrand = {
   purchasePinkoi: null,
   purchaseShopee: null,
   otherUrls: [],
-  retailLocations: [],
   contactEmail: null,
   siteContent: null,
   priceRange: null,

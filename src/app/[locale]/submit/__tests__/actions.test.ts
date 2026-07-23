@@ -437,7 +437,6 @@ describe('submit actions', () => {
             url: 'https://retailer.example.com/detailed',
           },
         ],
-        retailLocations: [],
         pdpaConsent: true,
         turnstileToken: 'token-456',
         honeypot: '',
@@ -464,47 +463,6 @@ describe('submit actions', () => {
       )
     })
 
-    it('does not trust owner-confirmed location input from a submission', async () => {
-      const { submitOwnerDetailedBrand } = await import('../actions')
-      await submitOwnerDetailedBrand({
-        name: 'Detailed Brand',
-        website: 'https://detailed.tw',
-        description: 'Full wizard submission',
-        productType: 'fashion',
-        productTags: [],
-        productPhotos: [],
-        socialInstagram: '',
-        socialThreads: '',
-        socialFacebook: '',
-        purchaseWebsite: '',
-        purchasePinkoi: '',
-        purchaseShopee: '',
-        otherUrls: [],
-        retailLocations: [
-          {
-            kind: 'location',
-            name: '台北旗艦店',
-            relationshipType: 'brand_store',
-            address: '台北市信義區市府路 45 號',
-            confirmationStatus: 'owner_confirmed',
-          },
-        ],
-        pdpaConsent: true,
-        turnstileToken: 'token-456',
-        honeypot: '',
-      })
-
-      expect(mockSubmitBrandForReview).toHaveBeenCalledWith(
-        expect.objectContaining({
-          ownerData: expect.objectContaining({
-            retailLocations: [
-              expect.objectContaining({ confirmationStatus: 'unconfirmed' }),
-            ],
-          }),
-        }),
-      )
-    })
-
     it('enrolls an opted-in owner after a detailed submission succeeds', async () => {
       const { submitOwnerDetailedBrand } = await import('../actions')
       await submitOwnerDetailedBrand({
@@ -521,7 +479,6 @@ describe('submit actions', () => {
         purchasePinkoi: '',
         purchaseShopee: '',
         otherUrls: [],
-        retailLocations: [],
         pdpaConsent: true,
         marketingEmailOptIn: true,
         turnstileToken: 'token-456',

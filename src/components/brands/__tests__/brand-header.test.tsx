@@ -104,16 +104,6 @@ describe('BrandHeader — verified badge', () => {
     expect(screen.queryByTitle('由品牌方經營管理')).not.toBeInTheDocument()
   })
 
-  it('does not render retail locations in the metadata row', () => {
-    renderWithIntl(
-      <BrandHeader
-        brand={makeBrand()}
-      />,
-    )
-
-    expect(screen.queryByText('大零售地點')).not.toBeInTheDocument()
-  })
-
   it('renders the verified badge through the Badge primitive', () => {
     renderWithIntl(<BrandHeader brand={makeBrand({ isVerified: true })} />)
     const badge = screen.getByText('品牌經營')

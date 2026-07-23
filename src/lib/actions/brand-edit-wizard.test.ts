@@ -31,7 +31,6 @@ describe('saveSectionDraftAction', () => {
       brand: {
         id: 'brand-id',
         slug: 'brand-slug',
-        retailLocations: [],
       },
       user: { id: 'user-1' },
       owner: true,
@@ -132,68 +131,6 @@ describe('saveSectionDraftAction', () => {
           sources: [{ url: 'https://example.com/warmwood-review' }],
         },
       }),
-    )
-  })
-
-  it('prevents an admin from introducing owner confirmation on any wizard step', async () => {
-    vi.mocked(getBrandDraft).mockResolvedValue({ name: 'Warmwood Living' })
-    vi.mocked(requireBrandEditor).mockResolvedValue({
-      brand: {
-        id: 'brand-id',
-        slug: 'brand-slug',
-        retailLocations: [],
-      },
-      user: { id: 'admin-1' },
-      owner: false,
-      actingAdmin: true,
-      configuredAdmin: true,
-    } as unknown as Awaited<ReturnType<typeof requireBrandEditor>>)
-
-    await saveSectionDraftAction('brand-id', 'brand-slug', 'basicInfo', {
-      name: 'Warmwood Living',
-      retailLocations: [
-        {
-          kind: 'location',
-          name: '台北旗艦店',
-          relationshipType: 'brand_store',
-          address: '台北市信義區市府路 45 號',
-          confirmationStatus: 'owner_confirmed',
-        },
-      ],
-    })
-
-    expect(saveDraft).toHaveBeenCalledWith(
-      'brand-id',
-      expect.objectContaining({
-        retailLocations: [
-          expect.objectContaining({ confirmationStatus: 'unconfirmed' }),
-        ],
-      }),
-    )
-  })
-
-  it('preserves an explicit retail location clear on non-location steps', async () => {
-    vi.mocked(getBrandDraft).mockResolvedValue({
-      name: 'Warmwood Living',
-      retailLocations: [
-        {
-          kind: 'location',
-          name: '台北旗艦店',
-          relationshipType: 'brand_store',
-          address: '台北市信義區市府路 45 號',
-          confirmationStatus: 'owner_confirmed',
-        },
-      ],
-    })
-
-    await saveSectionDraftAction('brand-id', 'brand-slug', 'basicInfo', {
-      name: 'Warmwood Living',
-      retailLocations: [],
-    })
-
-    expect(saveDraft).toHaveBeenCalledWith(
-      'brand-id',
-      expect.objectContaining({ retailLocations: [] }),
     )
   })
 

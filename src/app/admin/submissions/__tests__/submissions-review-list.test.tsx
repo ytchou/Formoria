@@ -435,7 +435,6 @@ const baseReviewData = {
   city: "台中",
   categoryAttributes: null,
   reputationSummary: null,
-  retailLocations: null,
   mitEvidence: null,
   siteContent: null,
   foundingYear: 2018,
