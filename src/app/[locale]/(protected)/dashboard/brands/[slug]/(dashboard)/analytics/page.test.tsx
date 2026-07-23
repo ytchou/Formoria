@@ -7,6 +7,16 @@ const mocks = vi.hoisted(() => ({
   getSnapshot: vi.fn(),
 }))
 
+vi.mock('next-intl', () => ({
+  useTranslations: vi.fn(() => (key: string) => key),
+}))
+
+vi.mock('next/navigation', () => ({
+  usePathname: vi.fn(() => '/dashboard/brands/alpha/analytics'),
+  useRouter: vi.fn(() => ({ replace: vi.fn() })),
+  useSearchParams: vi.fn(() => new URLSearchParams()),
+}))
+
 vi.mock('next-intl/server', () => ({
   setRequestLocale: vi.fn(),
   getTranslations: vi.fn(async () => (key: string, values?: { change?: string; share?: number }) => ({
