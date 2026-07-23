@@ -12,6 +12,7 @@ type AnalyticsDonutCardProps = {
     sessions: number
   }[]
   emptyLabel: string
+  centerLabel?: string
 }
 
 const PALETTE = [
@@ -26,7 +27,12 @@ function paletteColor(index: number): string {
   return PALETTE[Math.min(index, PALETTE.length - 1)] ?? 'var(--muted-foreground)'
 }
 
-export function AnalyticsDonutCard({ title, rows, emptyLabel }: AnalyticsDonutCardProps) {
+export function AnalyticsDonutCard({
+  title,
+  rows,
+  emptyLabel,
+  centerLabel,
+}: AnalyticsDonutCardProps) {
   const total = rows.reduce((sum, row) => sum + row.sessions, 0)
   const chartConfig: ChartConfig = Object.fromEntries(rows.map((row, index) => [
     `segment${index + 1}`,
@@ -40,29 +46,36 @@ export function AnalyticsDonutCard({ title, rows, emptyLabel }: AnalyticsDonutCa
         <p className="mt-4 text-sm text-muted-foreground">{emptyLabel}</p>
       ) : (
         <>
-          <ChartContainer
-            aria-hidden="true"
-            className="mx-auto mt-4 h-[220px] w-full max-w-[280px] aspect-auto"
-            config={chartConfig}
-          >
-            <PieChart>
-              <Pie
-                data={rows}
-                dataKey="sessions"
-                innerRadius={58}
-                nameKey="label"
-                outerRadius={88}
-                strokeWidth={0}
-              >
-                {rows.map((row, index) => (
-                  <Cell
-                    fill={`var(--color-segment${index + 1})`}
-                    key={row.key}
-                  />
-                ))}
-              </Pie>
-            </PieChart>
-          </ChartContainer>
+          <div className="relative mx-auto mt-4 w-full max-w-[280px]">
+            <ChartContainer
+              aria-hidden="true"
+              className="h-[220px] w-full aspect-auto"
+              config={chartConfig}
+            >
+              <PieChart>
+                <Pie
+                  data={rows}
+                  dataKey="sessions"
+                  innerRadius={58}
+                  nameKey="label"
+                  outerRadius={88}
+                  strokeWidth={0}
+                >
+                  {rows.map((row, index) => (
+                    <Cell
+                      fill={`var(--color-segment${index + 1})`}
+                      key={row.key}
+                    />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ChartContainer>
+            {centerLabel ? (
+              <span className="pointer-events-none absolute inset-0 flex items-center justify-center type-stat">
+                {centerLabel}
+              </span>
+            ) : null}
+          </div>
           <ul className="mt-5 space-y-3">
             {rows.map((row, index) => (
               <li className="flex items-center gap-3 text-sm" key={row.key}>

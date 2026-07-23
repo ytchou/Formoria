@@ -1183,6 +1183,10 @@
     },
     "overview": {
       "heroTitle": "Dashboard",
+      "completionTitle": "Profile completeness",
+      "completedCount": "{completed} of {total} components complete",
+      "warningIncomplete": "{count} profile items still need attention.",
+      "viewAllTodos": "View all to-do items",
       "viewFullAnalytics": "View full analytics",
       "analyticsUnavailable": "Analytics data is temporarily unavailable.",
       "todoTitle": "To-do",
@@ -1249,6 +1253,7 @@
       "browseCta": "Browse brands"
     },
     "analytics": {
+      "pageTitle": "Analytics",
       "profileVisits": "Profile visits",
       "outboundClicks": "Outbound clicks",
       "outboundClickRate": "Outbound click rate",

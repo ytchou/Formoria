@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { AnalyticsTrendChart } from './analytics-trend-chart'
 import { AnalyticsDonutCard } from './analytics-donut-card'
+import { AnalyticsBarChart } from './analytics-bar-chart'
 
 const daily = [
   { date: '2026-07-01', profileSessions: 10, outboundSessions: 2 },
@@ -45,5 +46,35 @@ describe('AnalyticsDonutCard', () => {
   it('renders the empty state when rows are empty', () => {
     render(<AnalyticsDonutCard title='Traffic sources' rows={[]} emptyLabel='No data yet' />)
     expect(screen.getByText('No data yet')).toBeInTheDocument()
+  })
+
+  it('donut card renders center label when provided', () => {
+    render(
+      <AnalyticsDonutCard
+        title='Traffic sources'
+        rows={[{ key: 'search', label: 'Search', sessions: 10 }]}
+        emptyLabel='No data yet'
+        centerLabel='72%'
+      />,
+    )
+
+    expect(screen.getByText('72%')).toBeInTheDocument()
+  })
+})
+
+describe('AnalyticsBarChart', () => {
+  it('analytics bar chart renders bars with labels', () => {
+    const { container } = render(
+      <AnalyticsBarChart
+        data={[
+          { label: 'Official website', value: 12 },
+          { label: 'Instagram', value: 8 },
+        ]}
+      />,
+    )
+
+    expect(container.querySelector('[data-slot="chart"]')).toBeInTheDocument()
+    expect(screen.getByText('Official website')).toBeInTheDocument()
+    expect(screen.getByText('Instagram')).toBeInTheDocument()
   })
 })

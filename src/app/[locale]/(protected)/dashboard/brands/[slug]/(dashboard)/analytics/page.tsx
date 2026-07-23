@@ -9,6 +9,7 @@ import { trafficSourceLabel } from '@/lib/analytics/traffic-source-labels'
 import { getBrandBySlug } from '@/lib/services/brands'
 import { getPostHogOwnerAnalyticsSnapshot as getOwnerAnalyticsSnapshot } from '@/lib/services/posthog-owner-analytics'
 import { AnalyticsDonutCard } from '@/components/dashboard/analytics-donut-card'
+import { AnalyticsPeriodPicker } from '@/components/dashboard/analytics-period-picker'
 import { AnalyticsTrendChart } from '@/components/dashboard/analytics-trend-chart'
 import { DataCard, SurfaceCard } from '@/components/ui/card'
 import {
@@ -20,6 +21,7 @@ import {
 
 type Props = {
   params: Promise<{ locale: string; slug: string }>
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
 }
 
 type OwnerAnalyticsCopy = {
@@ -243,8 +245,12 @@ function OwnerAnalytics({
   )
 }
 
-export default async function AnalyticsPage({ params }: Props) {
+export default async function AnalyticsPage({ params, searchParams }: Props) {
   const { locale, slug } = await params
+  const sp = await searchParams
+  const periodValue = Array.isArray(sp?.period) ? sp.period.at(0) : sp?.period
+  const parsedPeriod = Number(periodValue)
+  const period: 7 | 30 | 90 = parsedPeriod === 7 || parsedPeriod === 90 ? parsedPeriod : 30
   setRequestLocale(locale)
 
   const brand = await getBrandBySlug(slug)
@@ -285,17 +291,25 @@ export default async function AnalyticsPage({ params }: Props) {
 
   let snapshot: OwnerAnalyticsSnapshotV1 | null = null
   try {
-    snapshot = await getOwnerAnalyticsSnapshot(brand.id)
+    snapshot = await getOwnerAnalyticsSnapshot(brand.id, { daysBack: period })
   } catch {
     // The owner remains authorized while analytics are temporarily unavailable.
   }
 
-  return snapshot ? (
-    <OwnerAnalytics snapshot={snapshot} copy={copy} />
-  ) : (
-    <SurfaceCard padding="lg">
-      <h2 className="type-card-title">{copy.unavailableTitle}</h2>
-      <p className="mt-2 type-card-description">{copy.unavailableBody}</p>
-    </SurfaceCard>
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <h1 className="type-page-title">{t('pageTitle')}</h1>
+        <AnalyticsPeriodPicker currentPeriod={period} />
+      </div>
+      {snapshot ? (
+        <OwnerAnalytics snapshot={snapshot} copy={copy} />
+      ) : (
+        <SurfaceCard padding="lg">
+          <h2 className="type-card-title">{copy.unavailableTitle}</h2>
+          <p className="mt-2 type-card-description">{copy.unavailableBody}</p>
+        </SurfaceCard>
+      )}
+    </div>
   )
 }

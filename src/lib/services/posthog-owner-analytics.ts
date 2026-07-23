@@ -3,7 +3,11 @@ import {
   createPostHogEndpointClient,
   type PostHogQueryResult,
 } from '@/lib/adapters/posthog/query-api'
-import { OWNER_ENDPOINTS, type OwnerEndpointDef } from '@/lib/analytics/posthog-queries'
+import {
+  OWNER_ENDPOINTS,
+  OWNER_ENDPOINTS_V2,
+  type OwnerEndpointDef,
+} from '@/lib/analytics/posthog-queries'
 import type {
   Comparison,
   DateWindow,
@@ -153,8 +157,12 @@ function runEndpoint(
   client: PostHogEndpointClient,
   definition: OwnerEndpointDef,
   brandId: string,
+  extraVariables?: Record<string, string>,
 ): Promise<PostHogQueryResult> {
-  return client.runEndpoint(definition.name, definition.version, { brand_id: brandId })
+  return client.runEndpoint(definition.name, definition.version, {
+    brand_id: brandId,
+    ...extraVariables,
+  })
 }
 
 export async function getPostHogOwnerAnalyticsSnapshot(
@@ -162,18 +170,29 @@ export async function getPostHogOwnerAnalyticsSnapshot(
   {
     client = createPostHogEndpointClient(),
     now = () => new Date(),
+    daysBack = 30,
   }: {
     client?: PostHogEndpointClient
     now?: () => Date
+    daysBack?: 7 | 30 | 90
   } = {},
 ): Promise<OwnerAnalyticsSnapshotV1> {
   const generatedAt = now()
-  const windows = getAnalyticsDateWindows(taipeiDate(generatedAt), 30, 30)
+  const windows = getAnalyticsDateWindows(taipeiDate(generatedAt), daysBack, daysBack)
+  const endpoints = daysBack === 30 ? OWNER_ENDPOINTS : OWNER_ENDPOINTS_V2
+  const dateVariables = daysBack === 30
+    ? undefined
+    : {
+        current_start: windows.current.startDate,
+        current_end: windows.current.endDate,
+        prior_start: windows.prior.startDate,
+        prior_end: windows.prior.endDate,
+      }
   const [coreResult, dailyResult, trafficSourcesResult, destinationsResult] = await Promise.allSettled([
-    runEndpoint(client, OWNER_ENDPOINTS.brand_core_totals, brandId),
-    runEndpoint(client, OWNER_ENDPOINTS.brand_daily_trend, brandId),
-    runEndpoint(client, OWNER_ENDPOINTS.brand_traffic_sources, brandId),
-    runEndpoint(client, OWNER_ENDPOINTS.brand_outbound_destinations, brandId),
+    runEndpoint(client, endpoints.brand_core_totals, brandId, dateVariables),
+    runEndpoint(client, endpoints.brand_daily_trend, brandId, dateVariables),
+    runEndpoint(client, endpoints.brand_traffic_sources, brandId, dateVariables),
+    runEndpoint(client, endpoints.brand_outbound_destinations, brandId, dateVariables),
   ])
 
   let profileSessions: Comparison | null = null

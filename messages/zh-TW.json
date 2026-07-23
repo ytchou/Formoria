@@ -1183,6 +1183,10 @@
     },
     "overview": {
       "heroTitle": "儀表板",
+      "completionTitle": "品牌檔案完成度",
+      "completedCount": "已完成 {completed}／{total} 個項目",
+      "warningIncomplete": "還有 {count} 個品牌檔案項目需要完成。",
+      "viewAllTodos": "查看所有待辦事項",
       "viewFullAnalytics": "查看完整分析",
       "analyticsUnavailable": "數據分析暫時無法使用。",
       "todoTitle": "待辦事項",
@@ -1249,6 +1253,7 @@
       "browseCta": "瀏覽品牌目錄"
     },
     "analytics": {
+      "pageTitle": "數據分析",
       "profileVisits": "品牌頁瀏覽",
       "outboundClicks": "外部連結點擊",
       "outboundClickRate": "外連點擊率",

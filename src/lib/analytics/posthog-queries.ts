@@ -13,6 +13,8 @@ type OwnerEndpointName =
   | 'brand_traffic_sources'
   | 'brand_outbound_destinations'
 
+export type OwnerEndpointNameV2 = OwnerEndpointName
+
 const TIME_ZONE = 'Asia/Taipei'
 const SESSION_ID = 'properties.$session_id'
 const PUBLIC_EVENT = `equals(properties.analytics_schema_version, 1)
@@ -156,6 +158,145 @@ export const OWNER_ENDPOINTS: Record<OwnerEndpointName, OwnerEndpointDef> = {
     'brand_outbound_destinations',
     'Site analytics — Outbound destinations',
     outboundDestinationsQuery,
+  ),
+}
+
+const V2_VARIABLES: OwnerEndpointDef['variables'] = {
+  brand_id: { type: 'String', default: '' },
+  current_start: { type: 'String', default: '' },
+  current_end: { type: 'String', default: '' },
+  prior_start: { type: 'String', default: '' },
+  prior_end: { type: 'String', default: '' },
+}
+
+const CURRENT_START = 'toDate({variables.current_start})'
+const CURRENT_END = 'addDays(toDate({variables.current_end}), 1)'
+const PRIOR_START = 'toDate({variables.prior_start})'
+
+function profileSessionsV2(scope: string, period: 'current' | 'prior' = 'current'): string {
+  const start = period === 'current' ? CURRENT_START : PRIOR_START
+  const end = period === 'current' ? CURRENT_END : CURRENT_START
+  return `SELECT DISTINCT ${SESSION_ID}
+FROM events
+WHERE event = 'brand_detail_viewed'
+  AND ${PUBLIC_EVENT}
+  AND ${scope}
+  AND timestamp >= ${start}
+  AND timestamp < ${end}`
+}
+
+function coreQueryV2(scope: string): string {
+  return `
+SELECT
+  (SELECT toString(minOrNull(toDate(toTimeZone(timestamp, '${TIME_ZONE}'))))
+   FROM events
+   WHERE event = 'brand_detail_viewed'
+     AND ${PUBLIC_EVENT}
+     AND ${scope}) AS available_from,
+  uniqIf(${SESSION_ID}, event = 'brand_detail_viewed' AND timestamp >= ${CURRENT_START} AND timestamp < ${CURRENT_END}) AS current_profile_sessions,
+  uniqIf(${SESSION_ID}, event = 'brand_detail_viewed' AND timestamp >= ${PRIOR_START} AND timestamp < ${CURRENT_START}) AS prior_profile_sessions,
+  uniqIf(${SESSION_ID}, event = 'external_link_clicked' AND timestamp >= ${CURRENT_START} AND timestamp < ${CURRENT_END} AND ${SESSION_ID} IN (${profileSessionsV2(scope)})) AS current_outbound_sessions,
+  uniqIf(${SESSION_ID}, event = 'external_link_clicked' AND timestamp >= ${PRIOR_START} AND timestamp < ${CURRENT_START} AND ${SESSION_ID} IN (${profileSessionsV2(scope, 'prior')})) AS prior_outbound_sessions
+FROM events
+WHERE ${PUBLIC_EVENT}
+  AND ${scope}
+  AND timestamp >= ${PRIOR_START}
+  AND timestamp < ${CURRENT_END}
+`.trim()
+}
+
+function dailyTrendQueryV2(scope: string): string {
+  return `
+SELECT
+  toString(toDate(toTimeZone(timestamp, '${TIME_ZONE}'))) AS date,
+  uniqIf(${SESSION_ID}, event = 'brand_detail_viewed') AS profile_sessions,
+  uniqIf(${SESSION_ID}, event = 'external_link_clicked' AND ${SESSION_ID} IN (${profileSessionsV2(scope)})) AS outbound_sessions
+FROM events
+WHERE ${PUBLIC_EVENT}
+  AND ${scope}
+  AND timestamp >= ${CURRENT_START}
+  AND timestamp < ${CURRENT_END}
+GROUP BY date
+ORDER BY date
+`.trim()
+}
+
+function trafficSourcesQueryV2(scope: string): string {
+  return `
+SELECT source, uniq(session_id) AS sessions
+FROM (
+  SELECT
+    session_id,
+    multiIf(
+      previous_path IS NULL, 'direct',
+      normalized_previous_path = '/search' OR startsWith(normalized_previous_path, '/search/') OR notEmpty(extractURLParameter(previous_url, 'q')), 'search',
+      normalized_previous_path = '/brands' AND notEmpty(extractURLParameter(previous_url, 'category')), 'category',
+      previous_path IN ('/', '/en', '/zh-TW') OR normalized_previous_path = '/', 'homepage',
+      'other'
+    ) AS source
+  FROM (
+    SELECT
+      session_id,
+      event,
+      is_target,
+      previous_path,
+      previous_url,
+      if(previous_path IN ('/en', '/zh-TW'), '/', replaceRegexpOne(previous_path, '^/(en|zh-TW)/', '/')) AS normalized_previous_path
+    FROM (
+      SELECT
+        ${SESSION_ID} AS session_id,
+        event,
+        event = 'brand_detail_viewed' AND ${scope} AS is_target,
+        LAG(coalesce(nullIf(properties.$pathname, ''), path(properties.$current_url))) OVER (PARTITION BY ${SESSION_ID} ORDER BY timestamp) AS previous_path,
+        LAG(properties.$current_url) OVER (PARTITION BY ${SESSION_ID} ORDER BY timestamp) AS previous_url
+      FROM events
+      WHERE (event = '$pageview' OR (event = 'brand_detail_viewed' AND ${PUBLIC_EVENT} AND ${scope}))
+        AND timestamp >= subtractDays(${CURRENT_START}, 1)
+        AND timestamp < ${CURRENT_END}
+        AND ${SESSION_ID} IN (${profileSessionsV2(scope)})
+    )
+  )
+  WHERE is_target
+)
+GROUP BY source
+ORDER BY sessions DESC
+`.trim()
+}
+
+function outboundDestinationsQueryV2(scope: string): string {
+  return `
+SELECT properties.link_type AS destination, uniq(${SESSION_ID}) AS sessions
+FROM events
+WHERE event = 'external_link_clicked'
+  AND ${PUBLIC_EVENT}
+  AND ${scope}
+  AND timestamp >= ${CURRENT_START}
+  AND timestamp < ${CURRENT_END}
+  AND ${SESSION_ID} IN (${profileSessionsV2(scope)})
+GROUP BY destination
+ORDER BY sessions DESC
+`.trim()
+}
+
+function endpointV2(
+  name: OwnerEndpointNameV2,
+  query: (scope: string) => string,
+): OwnerEndpointDef {
+  return {
+    ...OWNER_ENDPOINTS[name],
+    version: 2,
+    variables: V2_VARIABLES,
+    hogql: query(ENDPOINT_SCOPE),
+  }
+}
+
+export const OWNER_ENDPOINTS_V2: Record<OwnerEndpointNameV2, OwnerEndpointDef> = {
+  brand_core_totals: endpointV2('brand_core_totals', coreQueryV2),
+  brand_daily_trend: endpointV2('brand_daily_trend', dailyTrendQueryV2),
+  brand_traffic_sources: endpointV2('brand_traffic_sources', trafficSourcesQueryV2),
+  brand_outbound_destinations: endpointV2(
+    'brand_outbound_destinations',
+    outboundDestinationsQueryV2,
   ),
 }
 
