@@ -79,6 +79,17 @@ describe("unified health-agent workflow contract", () => {
     expect(brandReview).toMatch(/SLACK_HEALTH_WEBHOOK_URL/);
   });
 
+  it("brand-review job creates its artifact directory", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+    const brandReview = jobSection(
+      workflow,
+      "brand-review",
+      "secretless-validation",
+    );
+
+    expect(brandReview).toMatch(/mkdir -p \.health-agent-artifacts/);
+  });
+
   it("uses exactly three collector routines and one aggregated Slack delivery", async () => {
     const workflow = await readFile(workflowPath, "utf8");
     expect(
