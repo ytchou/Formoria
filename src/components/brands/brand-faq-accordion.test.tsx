@@ -36,6 +36,17 @@ function renderFaq(brandSlug = 'test-brand') {
 }
 
 describe('BrandFaqAccordion', () => {
+  it('uses the shared section heading hierarchy', () => {
+    renderFaq()
+
+    expect(screen.getByRole('heading', { name: 'FAQ' })).toHaveClass(
+      'type-section-title-large',
+    )
+    expect(
+      screen.getByRole('button', { name: '這個品牌在哪裡購買？' }),
+    ).toHaveClass('type-faq-question')
+  })
+
   it('fires trackFaqItemExpanded with brand slug and index when an accordion item is opened', async () => {
     const user = userEvent.setup()
     renderFaq('my-brand')

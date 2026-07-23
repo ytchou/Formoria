@@ -1,22 +1,34 @@
-import { test, expect } from '../fixtures/auth';
+import path from 'node:path';
+import type { Page } from '@playwright/test';
+import { test as baseTest, expect } from '../fixtures/auth';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { ensureOwnedBrand } from '../helpers/owned-brand';
+import { writeAuthStorageStateForCredentials } from '../helpers/auth-session';
+
+const test = baseTest.extend<{ userPage: Page }>({
+  userPage: async ({ browser, isolatedUser }, provideFixture, testInfo) => {
+    const storagePath = path.join(testInfo.outputDir, 'dashboard-tabs-owner.json');
+    await writeAuthStorageStateForCredentials(
+      isolatedUser.email,
+      isolatedUser.password,
+      storagePath,
+      'dashboard-tabs-owner',
+    );
+    const context = await browser.newContext({ storageState: storagePath });
+    const page = await context.newPage();
+    try {
+      await provideFixture(page);
+    } finally {
+      await context.close();
+    }
+  },
+});
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
-// All journeys share the single E2E owner account. The product invariant allows
-// one brand per account, so this file must seed and clean ownership serially.
-// ensureOwnedBrand is used throughout so this file never fights with other
-// test files over the brand_owners slot: it accepts whatever brand the user
-// currently owns rather than creating a conflicting new one.
-//
-// NOTE: Slug assertions are intentionally slug-agnostic (they match any
-// /dashboard/brands/<slug> URL).  Concurrent test files (e.g. dashboard-brand-
-// owned-edit.spec.ts) may change the test user's brand_owners row between
-// beforeAll and the actual test.  Checking a pre-captured slug would be a
-// false assertion — the important invariant is that the user lands on THEIR
-// brand's page, not on a specific slug.
+// Use the worker-scoped isolated owner so this file cannot race with other
+// dashboard specs over the single-brand ownership slot.
 test.describe.configure({ mode: 'serial' });
 
 /**
@@ -35,29 +47,13 @@ test.describe.configure({ mode: 'serial' });
 test.describe('Dashboard — tab navigation', () => {
   let supabase: AnySupabaseClient;
 
-  test.beforeAll(async () => {
+  test.beforeAll(async ({ isolatedUser }) => {
     supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    const { data: usersData, error: usersError } =
-      await supabase.auth.admin.listUsers();
-    if (usersError) throw new Error(`Failed to list users: ${usersError.message}`);
-
-    const testUser = usersData.users.find(
-      (u) => u.email === process.env.E2E_USER_EMAIL
-    );
-    if (!testUser) {
-      throw new Error(
-        `E2E test user not found: ${process.env.E2E_USER_EMAIL}. Run global-setup first.`
-      );
-    }
-
-    // Ensure the user owns SOME brand so the dashboard doesn't show the empty state.
-    // We don't capture the slug here because concurrent files may change ownership
-    // by the time each test actually runs — the slug is read from the live URL instead.
-    await ensureOwnedBrand(supabase, testUser.id);
+    await ensureOwnedBrand(supabase, isolatedUser.id);
   });
 
   // afterAll intentionally omitted: ensureOwnedBrand either found an existing
@@ -121,26 +117,13 @@ test.describe('Dashboard — tab navigation', () => {
 test.describe('Dashboard — legacy brand route redirect', () => {
   let supabase: AnySupabaseClient;
 
-  test.beforeAll(async () => {
+  test.beforeAll(async ({ isolatedUser }) => {
     supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    const { data: usersData, error: usersError } =
-      await supabase.auth.admin.listUsers();
-    if (usersError) throw new Error(`Failed to list users: ${usersError.message}`);
-
-    const testUser = usersData.users.find(
-      (u) => u.email === process.env.E2E_USER_EMAIL
-    );
-    if (!testUser) {
-      throw new Error(
-        `E2E test user not found: ${process.env.E2E_USER_EMAIL}. Run global-setup first.`
-      );
-    }
-
-    await ensureOwnedBrand(supabase, testUser.id);
+    await ensureOwnedBrand(supabase, isolatedUser.id);
   });
 
   test('navigating to /dashboard/brands/<slug> renders the brand overview directly', async ({ userPage }) => {

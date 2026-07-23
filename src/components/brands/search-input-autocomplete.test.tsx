@@ -6,6 +6,7 @@ import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
 import en from '../../../messages/en.json'
+import zhTW from '../../../messages/zh-TW.json'
 
 // Mock useFilterParams
 const mockSetSearch = vi.fn()
@@ -28,9 +29,13 @@ global.fetch = mockFetch
 
 const { default: SearchInput } = await import('./search-input')
 
-function renderWithProvider(ui: React.ReactElement) {
+function renderWithProvider(
+  ui: React.ReactElement,
+  locale = 'en',
+  messages = en,
+) {
   return render(
-    <NextIntlClientProvider locale="en" messages={en}>
+    <NextIntlClientProvider locale={locale} messages={messages}>
       {ui}
     </NextIntlClientProvider>
   )
@@ -105,6 +110,17 @@ describe('SearchInput autocomplete', () => {
     expect(mockFetch).toHaveBeenCalledWith('/api/search?q=tea&limit=5', {
       signal: expect.any(AbortSignal),
     })
+  })
+
+  it('localizes suggestion categories for the Traditional Chinese locale', async () => {
+    const user = userEvent.setup()
+    renderWithProvider(<SearchInput />, 'zh-TW', zhTW)
+
+    await user.type(screen.getByRole('searchbox'), 'tea')
+
+    const option = await screen.findByRole('option', { name: /Tea House/ })
+    expect(option).toHaveTextContent('食品飲料')
+    expect(option).not.toHaveTextContent('Food & Beverage')
   })
 
   it('navigates suggestions with arrow keys', async () => {

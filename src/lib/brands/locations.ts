@@ -238,9 +238,7 @@ export function isPublicRetailLocation(
 ): location is PhysicalRetailLocation & { address: string } {
   return (
     isPhysicalRetailLocation(location) &&
-    Boolean(optionalString(location.address)) &&
-    (location.confirmationStatus === 'owner_confirmed' ||
-      location.verificationStatus === 'verified')
+    Boolean(optionalString(location.address))
   )
 }
 
@@ -307,6 +305,70 @@ export function getDuplicateRetailLocationIndex(
   }
 
   return undefined
+}
+
+function getPhysicalLocationIdentity(location: PhysicalRetailLocation): string {
+  return [
+    normalizeTextIdentity(location.name),
+    normalizeTextIdentity(location.city),
+    normalizeTextIdentity(location.venueName),
+  ].join('|')
+}
+
+export function reconcileRetailLocationEnrichment(
+  existing: unknown,
+  incoming: unknown,
+): RetailLocation[] {
+  const reconciled = normalizeRetailLocations(incoming)
+  const protectedLocations = normalizeRetailLocations(existing).filter(
+    (location): location is PhysicalRetailLocation =>
+      isPhysicalRetailLocation(location) && location.confirmationStatus === 'owner_confirmed',
+  )
+
+  for (const protectedLocation of protectedLocations) {
+    const nameKey = normalizeTextIdentity(protectedLocation.name)
+    for (let index = reconciled.length - 1; index >= 0; index -= 1) {
+      const location = reconciled[index]
+      if (location && isRetailChainChannel(location) && normalizeTextIdentity(location.name) === nameKey) {
+        reconciled.splice(index, 1)
+      }
+    }
+
+    const addressKey = getLocationAddressKey(protectedLocation.address)
+    const coordinateKey = getLocationCoordinateKey(protectedLocation)
+    const identity = getPhysicalLocationIdentity(protectedLocation)
+    let index = reconciled.findIndex(
+      (location) =>
+        isPhysicalRetailLocation(location) &&
+        addressKey !== '' &&
+        getLocationAddressKey(location.address) === addressKey,
+    )
+    if (index < 0 && coordinateKey !== '') {
+      index = reconciled.findIndex(
+        (location) =>
+          isPhysicalRetailLocation(location) && getLocationCoordinateKey(location) === coordinateKey,
+      )
+    }
+    if (index < 0) {
+      index = reconciled.findIndex(
+        (location) =>
+          isPhysicalRetailLocation(location) && getPhysicalLocationIdentity(location) === identity,
+      )
+    }
+    if (index < 0) {
+      const nameMatches = reconciled.flatMap((location, candidateIndex) =>
+        isPhysicalRetailLocation(location) && normalizeTextIdentity(location.name) === nameKey
+          ? [candidateIndex]
+          : [],
+      )
+      if (nameMatches.length === 1) index = nameMatches.at(0) ?? -1
+    }
+
+    if (index >= 0) reconciled[index] = protectedLocation
+    else reconciled.push(protectedLocation)
+  }
+
+  return reconciled
 }
 
 function getRetailLocationConfirmationIdentity(location: RetailLocation): string {

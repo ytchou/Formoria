@@ -1287,7 +1287,10 @@ export async function getSubmissionsForReview(options?: {
             .select("id, submission_id, location, verification_decision, match_reason, evidence, normalized_address, audit_result_ids")
             .in("submission_id", targetIds)
             .order("created_at", { ascending: false });
-          if (candidatesError) throw candidatesError;
+          if (candidatesError) {
+            if (candidatesError.code === "PGRST205") return [];
+            throw candidatesError;
+          }
           return candidateData ?? [];
         },
       ),

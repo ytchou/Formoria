@@ -262,6 +262,10 @@
   @apply font-heading text-base font-semibold leading-[1.3] text-foreground;
 }
 
+@utility type-faq-question {
+  @apply font-heading text-base font-normal leading-[1.4] text-foreground;
+}
+
 @utility type-card-title-small {
   @apply font-heading text-[0.9375rem] font-semibold leading-[1.3] text-foreground;
 }

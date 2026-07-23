@@ -57,7 +57,7 @@ test.describe("Scheduled brand refresh review", () => {
       slug: brandSlug,
       status: "approved",
       description: "更新前的完整品牌介紹",
-      city: "台南",
+      city: "tainan",
       hero_image_url: heroUrl,
       product_type: "crafts",
       product_tags: ["木工"],
@@ -284,7 +284,7 @@ test.describe("Scheduled brand refresh review", () => {
         ]);
       expect(brand).toEqual({
         description: "排程更新後的品牌介紹",
-        city: "台南",
+        city: "tainan",
         status: "approved",
       });
       expect(source?.status).toBe("approved");

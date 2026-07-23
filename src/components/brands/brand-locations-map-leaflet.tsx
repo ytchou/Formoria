@@ -123,6 +123,7 @@ export function BrandLocationsLeaflet({
         <MapBoundsController locations={locations} />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          className='grayscale'
           url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
         />
         <MarkerClusterGroup iconCreateFunction={createClusterIcon}>

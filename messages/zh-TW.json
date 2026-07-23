@@ -64,8 +64,8 @@
       "subheadline": "由社群共同整理的台灣品牌目錄，涵蓋文具、居家與食品飲料，收錄在台灣創立、設計或製造的品牌。",
       "statsBrands": "品牌",
       "statsCategories": "分類",
-      "recentWeek": "新品牌",
-      "recentMonth": "新品牌",
+      "recentWeek": "新品牌（近 7 天）",
+      "recentMonth": "新品牌（近 30 天）",
       "cta": "探索品牌…"
     },
     "showcase": {
@@ -492,11 +492,12 @@
       "mapLoading": "正在載入地圖…",
       "zoomIn": "放大地圖",
       "zoomOut": "縮小地圖",
+      "locationHeading": "販售地點",
       "confirmedHeading": "已確認地點",
       "stockDisclaimer": "以下地點資訊已由品牌主確認；前往前請先向店家確認販售商品與庫存。",
-      "verifiedDisclaimer": "此地址已由品牌公開來源佐證；販售品項與庫存可能變動，前往前請先查看品牌網站並向店家確認。",
+      "verifiedDisclaimer": "以下地點依公開資訊整理，可能尚未經品牌主確認；前往前請先向品牌或店家確認。",
       "unconfirmedHeading": "待確認地點",
-      "unconfirmedDisclaimer": "以下為盡力整理的公開資訊。品牌主確認前，不提供地址、地圖標記或地圖連結。",
+      "unconfirmedDisclaimer": "以下是不完整的公開資訊，尚未經品牌主確認。",
       "unconfirmedStatus": "待品牌主確認",
       "chainHeading": "連鎖販售通路",
       "chainDescription": "各分店販售情況不同；通路連結僅供查詢通路資訊，不代表即時庫存。",
@@ -817,10 +818,9 @@
       "description": "Formoria 台灣品牌目錄常見問題：了解收錄條件、信任層級、品牌提交、審核流程與認領方式。"
     },
     "title": "常見問題",
-    "intro": "若仍有疑問，歡迎透過頁面底部的聯絡方式與我們聯繫。",
-    "stillHaveQuestions": "還有問題？",
-    "contactCta": "聯絡我們",
+    "intro": "若仍有疑問，歡迎<contact>與我們聯繫</contact>。",
     "sections": {
+      "navigation": "常見問題分類",
       "general": "一般問題",
       "forOwners": "品牌主專區"
     },
@@ -887,7 +887,7 @@
       },
       "brandLocations": {
         "question": "品牌主確認的販售地點與零售通路是什麼？",
-        "answer": "品牌主可以新增品牌門市、選物店或百貨專櫃等實體販售地點，也可以填寫販售部分商品的零售連鎖通路。已確認的地點會顯示地址與地圖資訊，零售通路則會以通路卡片呈現；各分店庫存可能不同，前往前請先確認。"
+        "answer": "從公開資訊整理的品牌門市與實體販售地點，會以尚未確認狀態顯示地址與地圖資訊。品牌認領完成後，經驗證的品牌主可以確認或編輯這些地點，也能新增零售連鎖通路。各分店庫存可能不同，前往前請先確認。"
       },
       "whatCategories": {
         "question": "Formoria 收錄哪些產品分類？",

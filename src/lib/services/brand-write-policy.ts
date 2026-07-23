@@ -1,3 +1,5 @@
+import { reconcileRetailLocationEnrichment } from '@/lib/brands/locations'
+
 export type BrandWriteActor = {
   source: 'enriched' | 'owner' | 'admin'
   userId?: string
@@ -61,6 +63,10 @@ export function resolveRefreshEnrichmentPatch(
 
   for (const [field, value] of Object.entries(patch)) {
     const state = fieldState[field]
+    if (field === 'retail_locations') {
+      allowed[field] = reconcileRetailLocationEnrichment(baseValues[field], value)
+      continue
+    }
     if (REFRESH_ENRICHMENT_EXCLUDED_FIELDS.has(field)) {
       skipped.push({ field, reason: 'excluded:identity' })
       continue

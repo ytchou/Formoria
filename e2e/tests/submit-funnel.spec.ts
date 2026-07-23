@@ -123,16 +123,32 @@ test.describe('Submit funnel', () => {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
     )
-    const { data, error } = await supabase
-      .from('brand_submissions')
-      .select('id, intent, source_attribution, submitter_email')
-      .eq('brand_name', brandName)
-      .single()
+    let savedSubmission: {
+      intent: string
+      source_attribution: string | null
+      submitter_email: string | null
+    } | null = null
+    await expect
+      .poll(
+        async () => {
+          const { data, error } = await supabase
+            .from('brand_submissions')
+            .select('id, intent, source_attribution, submitter_email')
+            .eq('brand_name', brandName)
+            .maybeSingle()
+          if (error && error.code !== 'PGRST116') throw error
+          savedSubmission = data
+          return Boolean(data)
+        },
+        { timeout: 30_000, intervals: [500, 1_000, 2_000, 5_000] },
+      )
+      .toBe(true)
 
-    expect(error).toBeNull()
-    expect(data?.intent).toBe('recommend')
-    expect(data?.source_attribution).toBe('found_online')
-    expect(data?.submitter_email).toMatch(/^guest\+.+@guest\.formoria\.invalid$/)
+    expect(savedSubmission).toMatchObject({
+      intent: 'recommend',
+      source_attribution: 'found_online',
+    })
+    expect(savedSubmission?.submitter_email).toMatch(/^guest\+.+@guest\.formoria\.invalid$/)
   })
 
   test('detailed owner wizard writes only on final submit and preserves shared links', async ({ userPage }, workerInfo) => {

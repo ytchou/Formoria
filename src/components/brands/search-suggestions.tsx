@@ -1,8 +1,9 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import type { SearchResult } from '@/lib/services/brands'
+import { getProductTypeLabel } from '@/lib/brands/category-label'
 
 interface SearchSuggestionsProps {
   suggestions: SearchResult[]
@@ -36,6 +37,7 @@ export function SearchSuggestions({
   query,
 }: SearchSuggestionsProps) {
   const t = useTranslations('brands')
+  const locale = useLocale()
   return (
     <ul
       id={SEARCH_SUGGESTIONS_ID}
@@ -59,7 +61,13 @@ export function SearchSuggestions({
             <span className="font-medium text-foreground">{highlightMatch(item.name, query)}</span>
             {item.category && (
               <span className="ml-2 type-caption">
-                {highlightMatch(item.category, query)}
+                {highlightMatch(
+                  getProductTypeLabel(
+                    item.category,
+                    locale === 'zh-TW' ? 'zh-TW' : 'en',
+                  ) ?? item.category,
+                  query,
+                )}
               </span>
             )}
           </li>
