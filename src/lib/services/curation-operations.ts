@@ -42,7 +42,7 @@ import {
   runClassifyImagesPhase,
   runImageSearchPhase,
   runLinksPhase,
-  runLocationsPhase,
+  runChannelsPhase,
   runStandaloneClassification,
   runDetectPhase,
   type BrandEnrichState,
@@ -335,6 +335,10 @@ export function mergeSubmissionEnrichedData(
   patch: JsonObject,
 ): JsonObject {
   const merged = deepMergeJsonObjects(base, patch);
+  if (Object.hasOwn(patch, "channels")) {
+    // channels are object arrays; deepMergeJsonObjects unions with Set (no-op on objects).
+    merged.channels = patch.channels;
+  }
   if (Object.hasOwn(patch, "retail_locations")) {
     // retail_locations are object arrays; deepMergeJsonObjects unions with Set (no-op on objects).
     // Overridden per-site until deepMergeJsonObjects handles object-array fields.
@@ -726,6 +730,11 @@ export function submissionToEnrichBrand(
     // retail_locations are object arrays; deepMergeJsonObjects unions with Set (no-op on objects).
     // Overridden per-site until deepMergeJsonObjects handles object-array fields.
     existing.retail_locations = existingEnriched.retail_locations;
+  }
+  if (isRefresh && Object.hasOwn(existingEnriched, "channels")) {
+    // channels are object arrays; deepMergeJsonObjects unions with Set (no-op on objects).
+    // Overridden per-site until deepMergeJsonObjects handles object-array fields.
+    existing.channels = existingEnriched.channels;
   }
 
   return {
@@ -1333,7 +1342,7 @@ export async function runEnrich(
           descriptionsResult.patch.reputation_summary != null;
 
         await markCurrentPhase("locations");
-        const locationsResult = await runLocationsPhase({
+        const channelsResult = await runChannelsPhase({
           brand,
           phases,
           descriptionRewrite: descriptionsResult.descriptionRewrite,
@@ -1345,9 +1354,9 @@ export async function runEnrich(
           jobId: config.jobId,
           supabase: batchContext.supabase,
         });
-        state.phaseResults.push(locationsResult.phaseResult);
-        await logCurrentPhase(locationsResult.phaseResult);
-        appendPatch(state, locationsResult.patch);
+        state.phaseResults.push(channelsResult.phaseResult);
+        await logCurrentPhase(channelsResult.phaseResult);
+        appendPatch(state, channelsResult.patch);
 
         await markCurrentPhase("expansion");
         const expansionResult = await runExpansionPhase({

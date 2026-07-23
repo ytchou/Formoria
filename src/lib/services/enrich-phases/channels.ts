@@ -1,8 +1,11 @@
-import { isPhysicalRetailLocation, isRetailChainChannel, normalizeRetailLocations, normalizeTextIdentity } from '@/lib/brands/locations'
+import { RETAILER_NAME_NOISE, normalizeChannelName } from '@/lib/brands/channels'
+import { isPhysicalRetailLocation, isRetailChainChannel } from '@/lib/brands/locations'
+import { upsertEnrichedChannels } from '@/lib/services/brand-channels'
 import type { Json } from '@/lib/supabase/database.types'
 import type { Database } from '@/lib/supabase/database.types'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { PhysicalRetailLocation, RetailChainChannel, RetailLocation } from '@/lib/types/brand'
+import type { ChannelCandidate } from '@/lib/types/brand-channel'
 import type { PhaseResult } from '@/lib/types/curation'
 import type { DescriptionRewriteResult } from '../description-rewrite'
 import type { EnrichmentTarget } from '../enrichment-target'
@@ -25,26 +28,6 @@ import {
 } from './types'
 
 const MAX_EVIDENCE_EXCERPT = 500
-// Taiwan-specific; extract to config if expanding to other markets
-const RETAILER_NAME_NOISE = [
-  '戶外休閒專業中心',
-  '戶外用品專門店',
-  '戶外用品店',
-  '戶外休閒',
-  '戶外用品',
-  '戶外',
-  '專業中心',
-  '旗艦門市',
-  '旗艦店',
-  '專賣店',
-  '用品店',
-  '分公司',
-  '門市',
-  '分店',
-  '選物',
-  '商店',
-  '店',
-] as const
 const CITY_NAME_VARIANTS = [
   { slug: 'taipei', names: ['臺北', '台北'] },
   { slug: 'new_taipei', names: ['新北'] },
@@ -69,6 +52,30 @@ const CITY_NAME_VARIANTS = [
   { slug: 'kinmen', names: ['金門'] },
   { slug: 'lienchiang', names: ['連江'] },
 ] as const
+const CITY_REGION_LABELS: Readonly<Record<string, string>> = {
+  taipei: '台北',
+  new_taipei: '新北',
+  taoyuan: '桃園',
+  taichung: '台中',
+  tainan: '台南',
+  kaohsiung: '高雄',
+  keelung: '基隆',
+  hsinchu_city: '新竹',
+  hsinchu_county: '新竹縣',
+  chiayi_city: '嘉義',
+  chiayi_county: '嘉義縣',
+  miaoli: '苗栗',
+  changhua: '彰化',
+  nantou: '南投',
+  yunlin: '雲林',
+  pingtung: '屏東',
+  yilan: '宜蘭',
+  hualien: '花蓮',
+  taitung: '台東',
+  penghu: '澎湖',
+  kinmen: '金門',
+  lienchiang: '連江',
+}
 const CLEARLY_NON_RETAIL_NAMES = ['牙醫', '牙科', '診所', '醫院', '無對外參觀', '不對外開放'] as const
 
 type LocationEvidence = {
@@ -81,7 +88,7 @@ type LocationEvidence = {
 
 type LocationCandidateDecision = 'verified' | 'needs_review' | 'rejected'
 
-export type LocationCandidate = {
+type LocationCandidate = {
   location: RetailLocation
   decision: LocationCandidateDecision
   normalizedAddress: string | null
@@ -93,7 +100,7 @@ export type LocationCandidate = {
   lookupAttempted?: boolean
 }
 
-export type LocationsPhaseOptions = {
+export type ChannelsPhaseOptions = {
   brand: EnrichBrand
   phases: EnrichPhase[]
   descriptionRewrite?: DescriptionRewriteResult | null
@@ -106,10 +113,10 @@ export type LocationsPhaseOptions = {
   supabase: SupabaseClient<Database>
 }
 
-export type LocationsPhaseOutput = {
+export type ChannelsPhaseOutput = {
   phaseResult: PhaseResult
   patch: Record<string, unknown>
-  candidates: LocationCandidate[]
+  candidates: ChannelCandidate[]
 }
 
 function normalizeText(value: unknown): string {
@@ -121,13 +128,13 @@ export function normalizeLocationAddress(value: unknown): string {
 }
 
 function normalizeBranchIdentity(location: Pick<PhysicalRetailLocation, 'name' | 'city' | 'venueName'>): string {
-  return [normalizeTextIdentity(location.name), normalizeTextIdentity(location.city), normalizeTextIdentity(location.venueName)].join('|')
+  return [normalizeChannelName(location.name), normalizeText(location.city), normalizeText(location.venueName)].join('|')
 }
 
 function normalizeRetailerName(value: unknown): string {
   let normalized = normalizeText(value).replace(/[^\p{L}\p{N}]/gu, '')
   for (const noise of RETAILER_NAME_NOISE) {
-    normalized = normalized.replaceAll(noise, '')
+    normalized = normalized.replaceAll(noise.toLocaleLowerCase(), '')
   }
   return normalized
 }
@@ -369,27 +376,6 @@ function isIncompletePhysicalLocation(location: PhysicalRetailLocation): boolean
   )
 }
 
-function getExistingCandidates(value: unknown): LocationCandidate[] {
-  return normalizeRetailLocations(value).flatMap((location) => {
-    if (!isPhysicalRetailLocation(location) || !isIncompletePhysicalLocation(location)) {
-      return []
-    }
-
-    return [
-      {
-        ...makeCandidate(
-          location,
-          'Existing retail location is missing address, coordinates, or verification',
-          [],
-          location.verificationStatus === 'verified' ? 'verified' : 'needs_review',
-          [],
-          'existing',
-        ),
-      },
-    ]
-  })
-}
-
 function samePhysicalCandidate(left: LocationCandidate, right: LocationCandidate): boolean {
   if (!isPhysicalRetailLocation(left.location) || !isPhysicalRetailLocation(right.location)) {
     return false
@@ -404,16 +390,6 @@ function samePhysicalCandidate(left: LocationCandidate, right: LocationCandidate
       !right.location.city ||
       normalizeText(left.location.city) === normalizeText(right.location.city))
   )
-}
-
-function combineLocationCandidates(extracted: LocationCandidate[], existing: LocationCandidate[]): LocationCandidate[] {
-  const combined = [...extracted]
-  for (const candidate of existing) {
-    if (!combined.some((current) => samePhysicalCandidate(current, candidate))) {
-      combined.push(candidate)
-    }
-  }
-  return combined
 }
 
 function normalizedNameMatch(brandName: string, placeTitle: string, candidateName?: string): boolean {
@@ -745,230 +721,130 @@ function applyMapsMatches(
   return next
 }
 
-export function mergeLocationCandidates(existing: unknown, candidates: readonly LocationCandidate[]): RetailLocation[] {
-  const merged = normalizeRetailLocations(existing)
-  const findExisting = (candidate: LocationCandidate): number => {
-    if (!isPhysicalRetailLocation(candidate.location)) return -1
-    if (candidate.normalizedAddress) {
-      const byAddress = merged.findIndex(
-        (location) =>
-          isPhysicalRetailLocation(location) &&
-          normalizeLocationAddress(location.address) === candidate.normalizedAddress,
-      )
-      if (byAddress >= 0) return byAddress
-    }
-    const byIdentity = merged.findIndex(
-      (location) =>
-        isPhysicalRetailLocation(location) && normalizeBranchIdentity(location) === candidate.normalizedIdentity,
-    )
-    if (byIdentity >= 0) return byIdentity
 
-    const name = normalizeText(candidate.location.name)
-    const matches = merged.flatMap((location, index) =>
-      isPhysicalRetailLocation(location) && normalizeText(location.name) === name ? [index] : [],
-    )
-    return matches.length === 1 ? matches[0] : -1
-  }
-
-  for (const candidate of candidates) {
-    if (candidate.decision === 'rejected') {
-      if (
-        candidate.origin === 'existing' &&
-        isPhysicalRetailLocation(candidate.location) &&
-        candidate.location.confirmationStatus !== 'owner_confirmed'
-      ) {
-        const name = normalizeText(candidate.location.name)
-        for (let index = merged.length - 1; index >= 0; index -= 1) {
-          const location = merged[index]
-          if (
-            location &&
-            isPhysicalRetailLocation(location) &&
-            location.confirmationStatus !== 'owner_confirmed' &&
-            normalizeText(location.name) === name
-          ) {
-            merged.splice(index, 1)
-          }
-        }
-      }
-      continue
-    }
-    if (isRetailChainChannel(candidate.location)) {
-      const name = normalizeText(candidate.location.name)
-      const chainIndex = merged.findIndex(
-        (location) =>
-          isRetailChainChannel(location) && normalizeText(location.name) === name,
-      )
-      if (chainIndex >= 0) {
-        const current = merged[chainIndex]
-        if (!current || !isRetailChainChannel(current)) continue
-        merged[chainIndex] = {
-          ...current,
-          ...(!current.retailerUrl && candidate.location.retailerUrl
-            ? { retailerUrl: candidate.location.retailerUrl }
-            : {}),
-        }
-        for (let index = merged.length - 1; index >= 0; index -= 1) {
-          const location = merged[index]
-          if (
-            location &&
-            isPhysicalRetailLocation(location) &&
-            !optionalText(location.address) &&
-            location.confirmationStatus !== 'owner_confirmed' &&
-            normalizeText(location.name) === name
-          ) {
-            merged.splice(index, 1)
-          }
-        }
-        continue
-      }
-
-      const placeholderIndex = merged.findIndex(
-        (location) =>
-          isPhysicalRetailLocation(location) &&
-          !optionalText(location.address) &&
-          location.confirmationStatus !== 'owner_confirmed' &&
-          normalizeText(location.name) === normalizeText(candidate.location.name),
-      )
-      if (placeholderIndex >= 0) {
-        merged[placeholderIndex] = candidate.location
-      } else {
-        merged.push(candidate.location)
-      }
-      continue
-    }
-
-    if (candidate.lookupAttempted && candidate.normalizedAddress) {
-      const name = normalizeText(candidate.location.name)
-      for (let chainIndex = merged.length - 1; chainIndex >= 0; chainIndex -= 1) {
-        const location = merged[chainIndex]
-        if (location && isRetailChainChannel(location) && normalizeText(location.name) === name) {
-          merged.splice(chainIndex, 1)
-        }
-      }
-    }
-    const index = findExisting(candidate)
-    if (index < 0) {
-      merged.push({
-        ...candidate.location,
-        verificationStatus: candidate.decision === 'verified' ? 'verified' : 'needs_review',
-        confirmationStatus: 'unconfirmed',
-      })
-      continue
-    }
-    const existingLocation = merged[index]
-    if (!isPhysicalRetailLocation(existingLocation)) continue
-    const existingAddress = normalizeLocationAddress(existingLocation.address)
-    if (existingAddress && candidate.normalizedAddress && existingAddress !== candidate.normalizedAddress) {
-      continue
-    }
-    const next = { ...existingLocation }
-    const candidateLocation = candidate.location
-    for (const key of [
-      'address',
-      'city',
-      'district',
-      'venueName',
-      'floorOrCounter',
-      'availabilityNote',
-      'latitude',
-      'longitude',
-    ] as const) {
-      const current = next[key]
-      const incoming = candidateLocation[key]
-      if ((current === undefined || current === null || current === '') && incoming !== undefined) {
-        next[key] = incoming as never
-      }
-    }
-    if (candidate.decision === 'verified') {
-      next.verificationStatus = 'verified'
-    } else if (candidate.lookupAttempted && next.verificationStatus !== 'verified') {
-      next.verificationStatus = 'needs_review'
-    }
-    if (next.confirmationStatus !== 'owner_confirmed') next.confirmationStatus = 'unconfirmed'
-    merged[index] = next
-    if (candidate.lookupAttempted && candidate.normalizedAddress) {
-      const name = normalizeText(candidate.location.name)
-      for (let placeholderIndex = merged.length - 1; placeholderIndex >= 0; placeholderIndex -= 1) {
-        if (placeholderIndex === index) continue
-        const location = merged[placeholderIndex]
-        if (
-          location &&
-          isPhysicalRetailLocation(location) &&
-          !optionalText(location.address) &&
-          location.confirmationStatus !== 'owner_confirmed' &&
-          normalizeText(location.name) === name
-        ) {
-          merged.splice(placeholderIndex, 1)
-        }
-      }
-    }
-  }
-  for (let chainIndex = merged.length - 1; chainIndex >= 0; chainIndex -= 1) {
-    const chain = merged[chainIndex]
-    if (!chain || !isRetailChainChannel(chain)) continue
-    const name = normalizeText(chain.name)
-    const sameNamePhysical = merged.filter(
-      (location) => isPhysicalRetailLocation(location) && normalizeText(location.name) === name,
-    )
-    if (
-      sameNamePhysical.some(
-        (location) => location.confirmationStatus === 'owner_confirmed' || optionalText(location.address),
-      )
-    ) {
-      merged.splice(chainIndex, 1)
-      continue
-    }
-    for (let locationIndex = merged.length - 1; locationIndex >= 0; locationIndex -= 1) {
-      const location = merged[locationIndex]
-      if (
-        location &&
-        isPhysicalRetailLocation(location) &&
-        location.confirmationStatus !== 'owner_confirmed' &&
-        normalizeText(location.name) === name
-      ) {
-        merged.splice(locationIndex, 1)
-      }
-    }
-  }
-  return merged.map((location) => {
-    if (
-      !isPhysicalRetailLocation(location) ||
-      location.confirmationStatus === 'owner_confirmed' ||
-      !location.address
-    ) {
-      return location
-    }
-    const city = inferCityFromAddress(location.address)
-    return city && city !== location.city ? { ...location, city } : location
-  })
+function getLocationRegionLabel(location: PhysicalRetailLocation): string | undefined {
+  const city = location.city ?? (location.address ? inferCityFromAddress(location.address) : undefined)
+  return city ? CITY_REGION_LABELS[city] ?? city : undefined
 }
 
-async function persistLocationCandidates(
-  options: LocationsPhaseOptions,
-  candidates: LocationCandidate[],
-): Promise<void> {
-  const auditableCandidates = candidates.filter(
-    (candidate) => candidate.origin !== 'existing' || candidate.lookupAttempted,
+function getCategoryLabel(location: PhysicalRetailLocation): string | undefined {
+  switch (location.relationshipType) {
+    case 'brand_store':
+      return '品牌直營'
+    case 'department_counter':
+      return '百貨專櫃'
+    case 'stockist':
+      return '選品店'
+    default:
+      return undefined
+  }
+}
+
+function getCandidateUrl(candidate: LocationCandidate): string | undefined {
+  if (isRetailChainChannel(candidate.location)) return optionalText(candidate.location.retailerUrl)
+  return candidate.evidence.find((item) => item.source === 'maps' && item.url)?.url
+}
+
+function toChannelCandidate(candidate: LocationCandidate): ChannelCandidate {
+  const location = candidate.location
+  const name = location.name.trim()
+  const chain = isRetailChainChannel(location)
+  const regionLabel = chain
+    ? optionalText(location.availabilityNote) ?? '全台多間門市'
+    : getLocationRegionLabel(location)
+  const url = getCandidateUrl(candidate)
+
+  return {
+    name,
+    normalizedName: normalizeChannelName(name),
+    channelType: 'offline',
+    ...(!chain
+      ? {
+          categoryLabel: getCategoryLabel(location),
+          address: optionalText(location.address) ?? null,
+        }
+      : { address: null }),
+    ...(regionLabel ? { regionLabel } : {}),
+    ...(url ? { url } : {}),
+  }
+}
+
+
+function toChannelCandidates(candidates: LocationCandidate[]): ChannelCandidate[] {
+  const byNormalizedName = new Map<string, ChannelCandidate>()
+  for (const candidate of candidates) {
+    if (candidate.decision === 'rejected') continue
+    const channel = toChannelCandidate(candidate)
+    const current = byNormalizedName.get(channel.normalizedName)
+    if (!current) {
+      byNormalizedName.set(channel.normalizedName, channel)
+      continue
+    }
+
+    const shouldReplace =
+      (!current.address && Boolean(channel.address)) ||
+      (current.regionLabel !== '全台多間門市' && channel.regionLabel === '全台多間門市')
+    if (shouldReplace) {
+      byNormalizedName.set(channel.normalizedName, channel)
+    } else if (!current.url && channel.url) {
+      byNormalizedName.set(channel.normalizedName, { ...current, url: channel.url })
+    }
+  }
+  return [...byNormalizedName.values()]
+}
+
+async function resolveChannelIds(
+  options: ChannelsPhaseOptions,
+  candidates: ChannelCandidate[],
+): Promise<Map<string, string>> {
+  if (options.target.type !== 'brand' || options.dryRun || candidates.length === 0) {
+    return new Map()
+  }
+
+  const normalizedNames = [...new Set(candidates.map((candidate) => candidate.normalizedName))]
+  const { data, error } = await options.supabase
+    .from('brand_channels')
+    .select('id, normalized_name')
+    .eq('brand_id', options.target.id)
+    .in('normalized_name', normalizedNames)
+  if (error) throw error
+
+  return new Map(
+    (data ?? []).flatMap((row) =>
+      row.id && row.normalized_name ? [[row.normalized_name, row.id] as const] : [],
+    ),
   )
-  if (options.dryRun || auditableCandidates.length === 0) return
-  const rows = auditableCandidates.map((candidate) => ({
-    ...(options.target.type === 'brand'
-      ? { brand_id: options.target.id, submission_id: null }
-      : { brand_id: null, submission_id: options.target.id }),
-    job_id: options.jobId ?? null,
-    location: candidate.location as unknown as Json,
-    normalized_address: candidate.normalizedAddress,
-    normalized_identity: candidate.normalizedIdentity,
-    verification_decision: candidate.decision,
-    match_reason: candidate.matchReason,
-    evidence: candidate.evidence as unknown as Json,
-    audit_result_ids: candidate.auditResultIds,
-  }))
+}
+
+async function persistChannelCandidates(
+  options: ChannelsPhaseOptions,
+  candidates: LocationCandidate[],
+  channelIds: ReadonlyMap<string, string>,
+): Promise<void> {
+  if (options.dryRun || candidates.length === 0) return
+
+  const rows = candidates.map((candidate) => {
+    const channel = toChannelCandidate(candidate)
+    return {
+      ...(options.target.type === 'brand'
+        ? { brand_id: options.target.id, submission_id: null }
+        : { brand_id: null, submission_id: options.target.id }),
+      channel_id: channelIds.get(channel.normalizedName) ?? null,
+      job_id: options.jobId ?? null,
+      location: channel as unknown as Json,
+      normalized_address: candidate.normalizedAddress,
+      normalized_identity: candidate.normalizedIdentity,
+      verification_decision: candidate.decision,
+      match_reason: candidate.matchReason,
+      evidence: candidate.evidence as unknown as Json,
+      audit_result_ids: candidate.auditResultIds,
+    }
+  })
   const { error } = await options.supabase.from('brand_location_candidates').insert(rows)
   if (error) throw error
 }
 
-export async function runLocationsPhase(options: LocationsPhaseOptions): Promise<LocationsPhaseOutput> {
+export async function runChannelsPhase(options: ChannelsPhaseOptions): Promise<ChannelsPhaseOutput> {
   if (!options.phases.includes('locations')) {
     return {
       phaseResult: buildPhaseResult('locations', 'skipped', [], 0, undefined, 'locations phase not requested'),
@@ -979,14 +855,11 @@ export async function runLocationsPhase(options: LocationsPhaseOptions): Promise
 
   const { result, durationMs } = await timePhase(async () => {
     const knownOfficialOrigins = officialOrigins(options.brand, options.scrapedData)
-    const initialCandidates = combineLocationCandidates(
-      getDescriptionCandidates(
-        options.descriptionRewrite,
-        options.serpResult,
-        options.scrapedData,
-        knownOfficialOrigins,
-      ),
-      getExistingCandidates(options.brand.retail_locations),
+    const initialCandidates = getDescriptionCandidates(
+      options.descriptionRewrite,
+      options.serpResult,
+      options.scrapedData,
+      knownOfficialOrigins,
     )
     const mapsOptions: SerperAuditOptions = {
       target: options.target,
@@ -1006,14 +879,9 @@ export async function runLocationsPhase(options: LocationsPhaseOptions): Promise
 
     const needsFallback = (candidate: LocationCandidate) =>
       isPhysicalRetailLocation(candidate.location) && isIncompletePhysicalLocation(candidate.location)
-    const extractedFallbacks = candidates
-      .filter((candidate) => candidate.origin !== 'existing')
+    const unresolved = candidates
       .filter((candidate) => candidate.decision !== 'verified')
       .filter(needsFallback)
-    const existingFallbacks = candidates
-      .filter((candidate) => candidate.origin === 'existing')
-      .filter(needsFallback)
-    const unresolved = [...extractedFallbacks, ...existingFallbacks]
     const FALLBACK_CONCURRENCY = 5
     const fallbackResults: BrandMapsSearchResult[] = new Array(unresolved.length)
     const unresolvedQueue = unresolved.map((candidate, index) => ({ candidate, index }))
@@ -1060,18 +928,24 @@ export async function runLocationsPhase(options: LocationsPhaseOptions): Promise
       candidates = rejected === candidates ? markLookupAttempt(candidates, target, fallbackResult) : rejected
     }
 
-    const mergedLocations = mergeLocationCandidates(options.brand.retail_locations, candidates)
-    await persistLocationCandidates(options, candidates)
-    const patch =
-      candidates.length > 0 || options.brand.retail_locations != null ? { retail_locations: mergedLocations } : {}
-    return { candidates, patch }
+    const channelCandidates = toChannelCandidates(candidates)
+    if (options.target.type === 'brand' && !options.dryRun && channelCandidates.length > 0) {
+      const upsertResult = await upsertEnrichedChannels(options.target.id, channelCandidates)
+      if (!upsertResult.ok) {
+        throw new Error('Failed to upsert enriched channels: ' + upsertResult.code)
+      }
+    }
+    const channelIds = await resolveChannelIds(options, channelCandidates)
+    await persistChannelCandidates(options, candidates, channelIds)
+    const patch = channelCandidates.length > 0 ? { channels: channelCandidates } : {}
+    return { candidates: channelCandidates, patch }
   })
 
   return {
     phaseResult: buildPhaseResult(
       'locations',
       hasPatchValues(result.patch) ? 'succeeded' : 'skipped',
-      hasPatchValues(result.patch) ? ['retail_locations'] : [],
+      hasPatchValues(result.patch) ? ['channels'] : [],
       durationMs,
     ),
     patch: result.patch,

@@ -15,7 +15,7 @@ const baseline: SubmissionReviewData = {
   city: "Taipei",
   categoryAttributes: null,
   reputationSummary: null,
-  retailLocations: [],
+  channels: [],
   mitEvidence: null,
   siteContent: null,
   foundingYear: 2020,

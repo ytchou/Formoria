@@ -1010,7 +1010,7 @@ describeWithDb("trusted submission review RPCs", () => {
       city: "台中",
       categoryAttributes: null,
       reputationSummary: null,
-      retailLocations: null,
+      channels: [],
       mitEvidence: null,
       siteContent: null,
       foundingYear: 2018,

@@ -10,6 +10,7 @@ import type { DuplicateCheckResult } from "@/lib/types/submission";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import type { EnrichedData } from "@/lib/types/enriched-data";
 import { enrichedDataFromDb } from "@/lib/types/enriched-data";
+import type { ChannelCandidate } from "@/lib/types/brand-channel";
 import type {
   CurationDispatchStatus,
   CurationTargetStatus,
@@ -31,6 +32,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { deleteStoredImagePaths } from "./image-upload";
 import { slugifyRomanizedName } from "@/lib/brands/slug";
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { upsertEnrichedChannels } from "./brand-channels";
 
 // ---------------------------------------------------------------------------
 // Row types
@@ -100,7 +102,8 @@ export type SubmissionReviewData = {
   city: string | null;
   categoryAttributes: Json | null;
   reputationSummary: Json | null;
-  retailLocations: Json | null;
+  retailLocations?: Json | null;
+  channels?: ChannelCandidate[];
   mitEvidence: Json | null;
   siteContent: Json | null;
   foundingYear: number | null;
@@ -117,6 +120,9 @@ export type SubmissionReviewData = {
   purchasePinkoi: string | null;
   purchaseShopee: string | null;
   otherUrls: OtherUrl[];
+};
+type EnrichedSubmissionData = EnrichedData & {
+  channels?: ChannelCandidate[];
 };
 type SubmissionReviewMissingField =
   | "description"
@@ -137,7 +143,7 @@ export type BrandSubmissionForReview = BrandSubmissionWithProductTypeNote & {
   baseBrandData: Json | null;
   baseBrandUpdatedAt: string | null;
   reviewOverrides: Json;
-  enriched_data: EnrichedData | null;
+  enriched_data: EnrichedSubmissionData | null;
   latestCurationTargetStatus: CurationTargetStatus | null;
   latestCurationJobId: string | null;
   latestCurationPhase: string | null;
@@ -323,8 +329,19 @@ export function submissionToInsert(
   };
 }
 
-function isEnrichedData(value: unknown): value is EnrichedData {
+function isEnrichedData(value: unknown): value is EnrichedSubmissionData {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function enrichedDataFromSubmissionDb(
+  value: Record<string, unknown>,
+): EnrichedSubmissionData {
+  return {
+    ...enrichedDataFromDb(value),
+    ...(Array.isArray(value.channels)
+      ? { channels: value.channels as ChannelCandidate[] }
+      : {}),
+  };
 }
 
 function isJsonObject(value: unknown): value is Record<string, unknown> {
@@ -490,7 +507,7 @@ type SubmissionReviewSource = Pick<
 
 export function buildSubmissionReviewData(
   submission: SubmissionReviewSource,
-  enrichedData: EnrichedData | null | undefined,
+  enrichedData: EnrichedSubmissionData | null | undefined,
   images: SubmissionReviewImage[],
 ): SubmissionReviewData {
   const originalTags = originalSuggestedTags(submission.suggestedTags);
@@ -517,6 +534,7 @@ export function buildSubmissionReviewData(
     categoryAttributes: enrichedData?.categoryAttributes ?? null,
     reputationSummary: enrichedData?.reputationSummary ?? null,
     retailLocations: enrichedData?.retailLocations ?? null,
+    channels: enrichedData?.channels,
     mitEvidence: enrichedData?.mitEvidence ?? null,
     siteContent: enrichedData?.siteContent ?? null,
     foundingYear: enrichedData?.foundingYear ?? null,
@@ -631,7 +649,7 @@ export function buildRefreshSubmissionReviewData(
 function buildReviewLayers(
   row: SubmissionRowWithProductTypeNote,
   submission: BrandSubmissionWithProductTypeNote,
-  enrichedData: EnrichedData | null,
+  enrichedData: EnrichedSubmissionData | null,
   images: SubmissionReviewImage[] = [],
 ): {
   baseline: SubmissionReviewData;
@@ -789,6 +807,7 @@ function submissionReviewDataToDb(
     category_attributes: data.categoryAttributes,
     reputation_summary: data.reputationSummary,
     retail_locations: data.retailLocations,
+    channels: data.channels as unknown as Json,
     mit_evidence: data.mitEvidence,
     site_content: data.siteContent,
     founding_year: data.foundingYear,
@@ -845,6 +864,12 @@ function reviewDataFromDb(
       data.retail_locations === undefined
         ? fallback.retailLocations
         : (data.retail_locations as Json | null),
+    channels:
+      data.channels === undefined
+        ? fallback.channels
+        : Array.isArray(data.channels)
+          ? (data.channels as ChannelCandidate[])
+          : fallback.channels,
     mitEvidence:
       data.mit_evidence === undefined
         ? fallback.mitEvidence
@@ -1323,7 +1348,7 @@ export async function getSubmissionsForReview(options?: {
       : undefined;
     const submission = submissionToDomain(row);
     const enrichedData = isEnrichedData(row.enriched_data)
-      ? enrichedDataFromDb(row.enriched_data as Record<string, unknown>)
+      ? enrichedDataFromSubmissionDb(row.enriched_data as Record<string, unknown>)
       : null;
     const targetStatus = isCurationTargetStatus(latestTarget?.status)
       ? latestTarget.status
@@ -1554,7 +1579,7 @@ export async function saveSubmissionReview(
   const submissionRow = row as unknown as SubmissionRowWithProductTypeNote;
   const submission = submissionToDomain(submissionRow);
   const enrichedData = isEnrichedData(submissionRow.enriched_data)
-    ? enrichedDataFromDb(submissionRow.enriched_data as Record<string, unknown>)
+    ? enrichedDataFromSubmissionDb(submissionRow.enriched_data as Record<string, unknown>)
     : null;
   const { baseline } = buildReviewLayers(
     submissionRow,
@@ -1689,8 +1714,8 @@ export async function approveSubmission(
   }
 
   const enrichedDataRaw = submission.enriched_data;
-  const enrichedData: EnrichedData | null = isEnrichedData(enrichedDataRaw)
-    ? enrichedDataFromDb(enrichedDataRaw as Record<string, unknown>)
+  const enrichedData: EnrichedSubmissionData | null = isEnrichedData(enrichedDataRaw)
+    ? enrichedDataFromSubmissionDb(enrichedDataRaw as Record<string, unknown>)
     : null;
 
   const { data: imageRows, error: imageError } = await supabase
@@ -1759,6 +1784,16 @@ export async function approveSubmission(
   const approval = approvalRows?.at(0);
   if (!approval)
     throw new NotFoundError("BrandSubmission", id, { cause: approvalError });
+
+  if (reviewData.channels) {
+    const channelsResult = await upsertEnrichedChannels(
+      approval.brand_id,
+      reviewData.channels,
+    );
+    if (!channelsResult.ok) {
+      throw new Error("Failed to upsert enriched channels: " + channelsResult.code);
+    }
+  }
 
   return {
     brandId: approval.brand_id,
