@@ -825,6 +825,47 @@ describe("scoped writer RPC", () => {
     expect(init?.method).toBe("POST");
     expect(JSON.stringify(init)).not.toContain("service_role");
   });
+
+  it("preserves the claimed queue row ID returned by the claim RPC", async () => {
+    const queueId = "46591f9f-bbba-4f82-8bee-6b0334f13167";
+    const fetchImplementation = vi.fn<typeof fetch>(
+      async () =>
+        new Response(
+          JSON.stringify([
+            {
+              evidence: { canary: true },
+              fingerprint: "directory:canary:github-app-pr",
+              id: queueId,
+              merge_policy: "automatic",
+              source: "directory",
+              title: "GitHub App canary repair",
+            },
+          ]),
+          {
+            headers: { "content-type": "application/json" },
+            status: 200,
+          },
+        ),
+    );
+    const dependencies = createWorkflowRuntimeDependencies({
+      env: {
+        HEALTH_AGENT_WRITER_TOKEN: "writer-token",
+        NEXT_PUBLIC_SUPABASE_URL: "https://db.example",
+      },
+      fetchImplementation,
+    });
+    const claim = dependencies.queue?.claim;
+    if (!claim) throw new Error("queue_claim_missing");
+
+    const result = await claim("automatic", "github-actions:987654321:1");
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        claimedFindingId: queueId,
+        fingerprint: "directory:canary:github-app-pr",
+      }),
+    ]);
+  });
 });
 
 describe("repair result delivery", () => {

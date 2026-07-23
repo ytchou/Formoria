@@ -621,7 +621,13 @@ function supabaseQueueDependencies(
         },
         (candidate) => Array.isArray(candidate),
       );
-      return (value as unknown[]).filter(isRecord).map(repairFindingFromValue);
+      return (value as unknown[]).filter(isRecord).map((candidate) => {
+        const finding = repairFindingFromValue(candidate);
+        const claimedFindingId =
+          finding.claimedFindingId ??
+          (typeof candidate.id === "string" ? candidate.id : undefined);
+        return claimedFindingId ? { ...finding, claimedFindingId } : finding;
+      });
     },
     enqueue: async (entry) => {
       await supabaseRequest(
