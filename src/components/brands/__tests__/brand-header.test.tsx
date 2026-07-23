@@ -171,6 +171,7 @@ describe('BrandHeader — labeled rows', () => {
     expect(screen.queryByText('地點')).not.toBeInTheDocument()
     expect(screen.queryByText('創立年份')).not.toBeInTheDocument()
     expect(screen.getByText('類別')).toBeInTheDocument()
+    expect(screen.queryByText('價格區間')).not.toBeInTheDocument()
     expect(screen.queryByText('產品特色')).not.toBeInTheDocument()
     expect(screen.queryByText('製造與設計')).not.toBeInTheDocument()
   })

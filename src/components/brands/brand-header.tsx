@@ -15,7 +15,7 @@ interface BrandHeaderProps {
 
 function InfoRow({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="grid grid-cols-[5rem_1fr] items-baseline gap-3">
+    <div className="grid grid-cols-[6rem_1fr] items-baseline gap-3">
       <span className="type-caption">{label}</span>
       <div>{children}</div>
     </div>
