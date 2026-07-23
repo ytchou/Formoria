@@ -85,7 +85,7 @@ jobs:
         run: pnpm build
       - name: Install Playwright browsers
         id: browsers
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
       - name: Run deep Playwright tests
         id: e2e
         env:
@@ -438,7 +438,7 @@ jobs:
 
       - name: Install Playwright browsers
         if: steps.guard.outputs.skip != 'true'
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
 
       - name: Triage and fix
         if: steps.guard.outputs.skip != 'true'

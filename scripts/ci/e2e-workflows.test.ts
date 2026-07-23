@@ -57,6 +57,8 @@ describe("E2E workflow contracts", () => {
     expect(workflow).toContain("repair_branch");
     expect(workflow).toContain("e2e_grep");
     expect(workflow).toContain("E2E_GREP");
+    expect(workflow).toContain("run: npx playwright install chromium");
+    expect(workflow).not.toContain("playwright install --with-deps");
     expect(workflow).toContain('TEST_ARGS+=(--grep "$E2E_GREP")');
     expect(workflow).toContain("gh workflow run e2e-nightly.yml");
     expect(workflow).toContain('--field e2e_grep="$E2E_GREP"');
