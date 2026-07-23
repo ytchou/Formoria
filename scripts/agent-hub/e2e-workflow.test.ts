@@ -21,7 +21,7 @@ describe("nightly E2E Agent Hub reporting", () => {
     expect(workflow).not.toContain("rest/v1/rpc/insert_routine_run");
 
     const reportIndex = workflow.indexOf("Report E2E results to Agent Hub");
-    const alertIndex = workflow.indexOf("actions/github-script@v7");
+    const alertIndex = workflow.indexOf("actions/github-script@");
     expect(reportIndex).toBeGreaterThan(0);
     expect(alertIndex).toBeGreaterThan(reportIndex);
   });

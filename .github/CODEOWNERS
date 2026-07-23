@@ -1,0 +1,27 @@
+# Control-plane automation and its policy gate
+/.github/workflows/ @ytchou
+/.github/health-agent/ @ytchou
+/.github/selfheal/ @ytchou
+/.github/CODEOWNERS @ytchou
+/scripts/health-agent/ @ytchou
+/scripts/ci/change-policy.ts @ytchou
+/scripts/ci/change-policy.test.ts @ytchou
+
+# Database and authorization boundaries
+/supabase/migrations/ @ytchou
+/src/**/auth/ @ytchou
+/src/**/*auth*.ts @ytchou
+/src/**/permissions/ @ytchou
+/src/middleware.ts @ytchou
+/src/proxy.ts @ytchou
+/middleware.ts @ytchou
+
+# Validation configuration
+/eslint.config.mjs @ytchou
+/knip.json @ytchou
+/playwright.config.ts @ytchou
+/tsconfig.json @ytchou
+/vitest.config.ts @ytchou
+
+# Agent prompts outside .github
+/docs/routines/formoria-health-prompt.md @ytchou

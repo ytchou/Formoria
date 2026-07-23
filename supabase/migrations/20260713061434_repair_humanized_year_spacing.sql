@@ -85,6 +85,7 @@ BEGIN
 
   -- Rebuild only corrupted Chinese FAQ values from the original enrichment
   -- response. jsonb_set leaves question_en and answer_en unchanged.
+  IF to_regclass('public.brand_faq') IS NOT NULL THEN
   FOR v_result IN
     SELECT brand_id, content
     FROM (
@@ -164,6 +165,7 @@ BEGIN
       END IF;
     END LOOP;
   END LOOP;
+  END IF;
 
   RAISE NOTICE 'Repaired % descriptions and % FAQ fields',
     v_description_updates, v_faq_updates;

@@ -9,8 +9,12 @@ export const revalidate = 60
 export const dynamicParams = true
 
 export async function generateStaticParams() {
-  const slugs = await getMicrositeSlugs()
-  return slugs.map((slug) => ({ slug }))
+  try {
+    const slugs = await getMicrositeSlugs()
+    return slugs.map((slug) => ({ slug }))
+  } catch {
+    return []
+  }
 }
 
 type PageProps = {

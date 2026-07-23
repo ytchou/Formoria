@@ -1,4 +1,5 @@
 BEGIN;
+DROP TABLE IF EXISTS public.brand_onboarding_steps CASCADE;
 CREATE TABLE public.brand_onboarding_steps (
   brand_id uuid NOT NULL REFERENCES public.brands(id) ON DELETE CASCADE,
   step_key text NOT NULL CHECK (

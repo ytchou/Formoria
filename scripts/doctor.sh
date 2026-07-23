@@ -130,12 +130,98 @@ check_e2e() {
   fi
 }
 
+# ── GitHub health agent (opt-in) ─────────────────────────────────────────────
+has_env_value() {
+  local var="$1"
+
+  if [ -n "${!var:-}" ]; then
+    return 0
+  fi
+
+  grep -Eq "^${var}=.+" .env.local 2>/dev/null
+}
+
+check_health_vars() {
+  local mode=""
+  local arg
+
+  for arg in "$@"; do
+    case "$arg" in
+      --health-preflight)
+        mode="preflight"
+        ;;
+      --health-live|--health-autofix)
+        mode="live"
+        ;;
+    esac
+  done
+
+  if [ -z "$mode" ]; then
+    return
+  fi
+
+  echo "Checking health agent ${mode} configuration..."
+
+  local read_only_vars=(
+    FORMORIA_RAILWAY_URL
+    ORIGIN_SECRET
+    AGENT_HUB_INGEST_URL
+    AGENT_HUB_INGEST_TOKEN
+    SLACK_HEALTH_WEBHOOK_URL
+    SENTRY_BASE_URL
+    SENTRY_ORGANIZATION
+    SENTRY_PROJECT
+    SENTRY_READ_TOKEN
+    HEALTH_AGENT_READ_DATABASE_URL
+    HEALTH_AGENT_READ_DATABASE_PASSWORD
+    HEALTH_AGENT_READER_TOKEN
+    CLAUDE_CODE_OAUTH_TOKEN
+  )
+  local live_vars=(
+    SENTRY_RESOLVER_TOKEN
+    LINEAR_OAUTH_CLIENT_ID
+    LINEAR_OAUTH_CLIENT_SECRET
+    LINEAR_OAUTH_ACCESS_TOKEN
+    LINEAR_TEAM_ID
+    LINEAR_PROJECT_ID
+    LINEAR_ASSIGNEE_ID
+    HEALTH_AGENT_WRITE_DATABASE_URL
+    HEALTH_AGENT_WRITE_DATABASE_PASSWORD
+    HEALTH_AGENT_WRITER_TOKEN
+    HEALTH_AGENT_GITHUB_APP_ID
+    HEALTH_AGENT_GITHUB_APP_PRIVATE_KEY
+    HEALTH_AGENT_GITHUB_APP_INSTALLATION_ID
+  )
+  local var
+
+  for var in "${read_only_vars[@]}"; do
+    if has_env_value "$var"; then
+      echo "  OK: $var"
+    else
+      echo "  MISSING: $var"
+      ERRORS=$((ERRORS + 1))
+    fi
+  done
+
+  if [ "$mode" = "live" ]; then
+    for var in "${live_vars[@]}"; do
+      if has_env_value "$var"; then
+        echo "  OK: $var"
+      else
+        echo "  MISSING: $var"
+        ERRORS=$((ERRORS + 1))
+      fi
+    done
+  fi
+}
+
 # ── Run checks ───────────────────────────────────────────────────────────────
 check_node
 check_pnpm
 check_deps
 check_env
 check_e2e "$@"
+check_health_vars "$@"
 
 echo ""
 if [ $ERRORS -eq 0 ]; then

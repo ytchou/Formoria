@@ -1,103 +1,96 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
-describe("Formoria unified routine delivery contracts", () => {
-  it("delivers three envelopes via report-run.mjs", async () => {
-    const prompt = await readFile(
-      "docs/routines/formoria-health-prompt.md",
-      "utf8",
-    );
+const activePromptPath = "docs/routines/formoria-health-prompt.md";
+const archivePath =
+  "docs/routines/archive/formoria-health-prompt-claude-routine.md";
 
-    const deliveryMatches = prompt.match(
-      /node scripts\/agent-hub\/report-run\.mjs --file/g,
-    );
-    expect(deliveryMatches?.length).toBeGreaterThanOrEqual(3);
+describe("Formoria health-agent retirement contract", () => {
+  it("keeps a no-op tombstone and a complete historical archive", async () => {
+    const [tombstone, archive] = await Promise.all([
+      readFile(activePromptPath, "utf8"),
+      readFile(archivePath, "utf8"),
+    ]);
 
-    expect(prompt).toContain("/tmp/formoria-directory-health.json");
-    expect(prompt).toContain("/tmp/formoria-sentry-triage.json");
-    expect(prompt).toContain("/tmp/formoria-growth-pulse.json");
+    expect(tombstone).toContain("intentionally a no-op");
+    expect(tombstone).toContain(".github/workflows/health-agent.yml");
+    expect(tombstone).toContain(archivePath.split("docs/routines/")[1]);
+    expect(tombstone).toContain("rollback gate");
+    expect(archive).toContain(
+      "# Formoria Health Agent — Unified Daily Routine Prompt",
+    );
+    expect(archive.length).toBeGreaterThan(tombstone.length);
   });
 
-  it("does not commit delivery artifacts to the repository", async () => {
-    const prompt = await readFile(
-      "docs/routines/formoria-health-prompt.md",
-      "utf8",
-    );
+  it("assigns active ownership to GitHub Actions and only three collectors", async () => {
+    const tombstone = await readFile(activePromptPath, "utf8");
+    const collectorNames = [
+      ...tombstone.matchAll(/`(link-checker|directory-health|sentry-triage)`/g),
+    ].map((match) => match[1]);
 
-    expect(prompt).not.toMatch(/git (add|commit|pull --rebase)/);
-    expect(prompt).not.toContain("routine-outputs/");
-    expect(prompt).not.toContain("slack-messages/");
-  });
-
-  it("computes dates deterministically via bash", async () => {
-    const prompt = await readFile(
-      "docs/routines/formoria-health-prompt.md",
-      "utf8",
-    );
-
-    expect(prompt).toContain("TZ=Asia/Taipei date +%F");
-    expect(prompt).toContain("TZ=Asia/Taipei date +%u");
-    expect(prompt).not.toContain("date -u +%u");
-  });
-
-  it("uses the correct routine names in each envelope", async () => {
-    const prompt = await readFile(
-      "docs/routines/formoria-health-prompt.md",
-      "utf8",
-    );
-
-    expect(prompt).toMatch(/"routine":\s*"directory-health"/);
-    expect(prompt).toMatch(/"routine":\s*"sentry-triage"/);
-    expect(prompt).toMatch(/"routine":\s*"growth-pulse"/);
-  });
-
-  it("keeps development-only Sentry events out of actionable triage", async () => {
-    const prompt = await readFile(
-      "docs/routines/formoria-health-prompt.md",
-      "utf8",
-    );
-
-    expect(prompt).toContain("environment:production");
-    expect(prompt).toContain("Development-only events are Noise");
-  });
-
-  it("requires request evidence before classifying a traffic spike as bots", async () => {
-    const prompt = await readFile(
-      "docs/routines/formoria-health-prompt.md",
-      "utf8",
-    );
-
-    expect(prompt).toContain("there is no additional bot-filter setting to enable");
-    expect(prompt).toContain(
-      "Do not create a ticket based on analytics metrics alone",
+    expect(tombstone).toContain("GitHub Actions owns");
+    expect(new Set(collectorNames)).toEqual(
+      new Set(["link-checker", "directory-health", "sentry-triage"]),
     );
   });
 
-  it("uses DB RPC and tables introduced in Phase 3 migrations", async () => {
-    const prompt = await readFile(
-      "docs/routines/formoria-health-prompt.md",
-      "utf8",
-    );
+  it("cannot execute legacy Routine, Growth, correlation, MCP, or Seer work", async () => {
+    const tombstone = await readFile(activePromptPath, "utf8");
 
-    expect(prompt).toContain("get_brand_quality_metrics");
-    expect(prompt).toContain("link_check_results");
-    expect(prompt).toContain("health_fix_queue");
-    expect(prompt).toContain("health_snapshots");
-    expect(prompt).toContain("max_connections");
-    expect(prompt).toContain("ytchou/Formoria");
+    expect(tombstone).toContain("Growth Pulse is retired");
+    expect(tombstone).not.toMatch(/report-run\.mjs|growth-pulse|PostHog/i);
+    expect(tombstone).not.toMatch(
+      /traffic correlation|cross-check correlation/i,
+    );
+    expect(tombstone).not.toMatch(/Supabase MCP|Sentry MCP|\bSeer\b/i);
+    expect(tombstone).not.toMatch(/cron:|07:10|10 0 \* \* \*/);
   });
 
-  it("does not contain removed WebSearch workarounds, VACUUM instructions, or branch-deletion commands", async () => {
-    const prompt = await readFile(
-      "docs/routines/formoria-health-prompt.md",
+  it("treats legacy instructions as archive-only", async () => {
+    const configuration = await readFile(
+      "docs/routines/cloud-routine-configuration.md",
       "utf8",
     );
 
-    expect(prompt).not.toContain("ytchou/mitmap");
-    expect(prompt).not.toContain(
-      "use WebSearch as a workaround to verify URLs are reachable",
-    );
-    expect(prompt).not.toContain("recommend VACUUM");
-    expect(prompt).not.toContain("git push origin --delete");
+    expect(configuration).toContain("There is no active Claude Routine");
+    expect(configuration).toContain("Preflight");
+    expect(configuration).toContain("GitHub App canary");
+    expect(configuration).toContain("Rollback gate");
+    expect(configuration).not.toContain("Daily 07:10");
+  });
+
+  it("declares health credentials as empty names and keeps checks opt-in", async () => {
+    const [exampleEnv, doctor] = await Promise.all([
+      readFile(".env.example", "utf8"),
+      readFile("scripts/doctor.sh", "utf8"),
+    ]);
+    const requiredNames = [
+      "FORMORIA_RAILWAY_URL",
+      "ORIGIN_SECRET",
+      "AGENT_HUB_INGEST_URL",
+      "AGENT_HUB_INGEST_TOKEN",
+      "SLACK_HEALTH_WEBHOOK_URL",
+      "SENTRY_READ_TOKEN",
+      "SENTRY_RESOLVER_TOKEN",
+      "LINEAR_OAUTH_CLIENT_ID",
+      "LINEAR_OAUTH_CLIENT_SECRET",
+      "LINEAR_TEAM_ID",
+      "LINEAR_PROJECT_ID",
+      "HEALTH_AGENT_READ_DATABASE_URL",
+      "HEALTH_AGENT_READ_DATABASE_PASSWORD",
+      "HEALTH_AGENT_WRITE_DATABASE_URL",
+      "HEALTH_AGENT_WRITE_DATABASE_PASSWORD",
+      "HEALTH_AGENT_GITHUB_APP_ID",
+      "HEALTH_AGENT_GITHUB_APP_PRIVATE_KEY",
+      "HEALTH_AGENT_GITHUB_APP_INSTALLATION_ID",
+      "CLAUDE_CODE_OAUTH_TOKEN",
+    ];
+
+    for (const name of requiredNames) {
+      expect(exampleEnv).toMatch(new RegExp(`^${name}=$`, "m"));
+    }
+    expect(doctor).toContain("--health-preflight");
+    expect(doctor).toMatch(/--health-live\|--health-autofix/);
+    expect(doctor).not.toMatch(/read_only_vars=\([\s\S]*POSTHOG/);
   });
 });

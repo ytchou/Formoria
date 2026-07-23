@@ -1,45 +1,39 @@
-name: E2E PR (selective)
+name: Integration
 
 on:
   pull_request:
     branches: [main]
-    paths:
-      - 'src/app/**'
-      - 'src/components/**'
-      - 'src/lib/**'
-      - 'e2e/**'
-      - 'playwright.config.ts'
 
 jobs:
-  e2e-selective:
-    name: e2e-selective
+  integration:
+    name: Integration
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
+    permissions:
+      contents: read
     env:
-      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-      CHALLENGE_SECRET: ${{ secrets.CHALLENGE_SECRET }}
-      ADMIN_EMAILS: ${{ secrets.ADMIN_EMAILS }}
-      E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-      E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-      E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
-      E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
+      E2E_ADMIN_EMAIL: e2e-admin@test.local
+      E2E_ADMIN_PASSWORD: LocalAdminE2e2026!
+      E2E_USER_EMAIL: e2e-user@test.local
+      E2E_USER_PASSWORD: LocalUserE2e2026!
+      ADMIN_EMAILS: e2e-admin@test.local
+      CHALLENGE_SECRET: local-e2e-challenge-secret
       NEXT_PUBLIC_SITE_URL: http://localhost:3000
       NEXT_PUBLIC_TURNSTILE_SITE_KEY: 1x00000000000000000000AA
       TURNSTILE_SECRET_KEY: 1x0000000000000000000000000000000AA
+      PLAYWRIGHT_TEST: "true"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
 
-      - name: Fetch origin/main for --only-changed
+      - name: Fetch origin/main for selective tests
         run: git fetch origin main
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: pnpm
@@ -47,8 +41,38 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Start disposable local Supabase
+        run: pnpm dlx supabase@2.109.1 start
+
+      - name: Apply all local migrations
+        run: pnpm dlx supabase@2.109.1 migration up --local
+
+      - name: Grant service_role full table access
+        run: |
+          pnpm dlx supabase@2.109.1 db query --local "GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role"
+          pnpm dlx supabase@2.109.1 db query --local "GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role"
+
+      - name: Export disposable Supabase credentials
+        run: |
+          eval "$(pnpm dlx supabase@2.109.1 status -o env)"
+          : "${API_URL:?Supabase status did not return API_URL}"
+          : "${ANON_KEY:?Supabase status did not return ANON_KEY}"
+          : "${SERVICE_ROLE_KEY:?Supabase status did not return SERVICE_ROLE_KEY}"
+          echo "::add-mask::$ANON_KEY"
+          echo "::add-mask::$SERVICE_ROLE_KEY"
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+          } >> "$GITHUB_ENV"
+
+      - name: Seed local E2E data and accounts
+        run: |
+          pnpm dlx supabase@2.109.1 db query --local --file supabase/seed.sql
+          node scripts/ci/seed-local-e2e.mjs
+
       - name: Restore Next.js build cache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: .next/cache
           key: ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('src/**/*.ts', 'src/**/*.tsx', 'src/**/*.js', 'src/**/*.jsx') }}
@@ -60,54 +84,48 @@ jobs:
         run: pnpm build
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium
 
-      - name: Determine specs to run
+      - name: Determine route-mapped specs
         id: select-specs
         run: |
-          ROUTE_SPECS=$(node scripts/e2e-select-specs.mjs)
-          echo "route_specs=$ROUTE_SPECS" >> "$GITHUB_OUTPUT"
-          if [ -z "$ROUTE_SPECS" ]; then
+          route_specs=$(node scripts/e2e-select-specs.mjs)
+          echo "route_specs=$route_specs" >> "$GITHUB_OUTPUT"
+          if [ -z "$route_specs" ]; then
             echo "No route-mapped specs found"
           else
-            echo "Route-mapped specs: $ROUTE_SPECS"
+            echo "Route-mapped specs: $route_specs"
           fi
 
-      - name: Run selective e2e tests
-        continue-on-error: true
+      - name: Run changed Playwright specs
         run: |
-          SPECS="${{ steps.select-specs.outputs.route_specs }}"
+          set +e
+          pnpm exec playwright test --project=deep --only-changed=origin/main
+          status=$?
+          set -e
+          bash scripts/ci/normalize-playwright-exit.sh "$status"
 
-          # Pass 1: run --only-changed (catches changed spec files + their imports)
-          if pnpm exec playwright test --project=deep --only-changed=origin/main; then
-            echo "Pass 1 (--only-changed) passed"
-          else
-            EXIT_CODE=$?
-            if [ $EXIT_CODE -ne 4 ]; then
-              echo "Pass 1 (--only-changed) failed with exit $EXIT_CODE"
-            else
-              echo "Pass 1: no changed specs found"
-            fi
-          fi
-
-          # Pass 2: run route-mapped specs (catches app-code-driven changes)
-          if [ -n "$SPECS" ]; then
-            if pnpm exec playwright test --project=deep $SPECS; then
-              echo "Pass 2 (route-mapped) passed"
-            else
-              EXIT_CODE=$?
-              if [ $EXIT_CODE -ne 4 ]; then
-                echo "Pass 2 (route-mapped) failed with exit $EXIT_CODE"
-              else
-                echo "Pass 2: no route-mapped specs found"
-              fi
-            fi
-          fi
+      - name: Run route-mapped Playwright specs
+        if: steps.select-specs.outputs.route_specs != ''
+        env:
+          ROUTE_SPECS: ${{ steps.select-specs.outputs.route_specs }}
+        run: |
+          read -r -a specs <<< "$ROUTE_SPECS"
+          set +e
+          pnpm exec playwright test --project=deep "${specs[@]}"
+          status=$?
+          set -e
+          bash scripts/ci/normalize-playwright-exit.sh "$status"
 
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: playwright-report-pr-${{ github.run_id }}
           path: playwright-report/
+          if-no-files-found: ignore
           retention-days: 7
+
+      - name: Stop disposable local Supabase
+        if: always()
+        run: pnpm dlx supabase@2.109.1 stop --no-backup

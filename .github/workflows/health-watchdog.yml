@@ -1,0 +1,39 @@
+name: Health Agent Freshness Watchdog
+
+on:
+  schedule:
+    - cron: "30 0 * * *" # 08:30 Asia/Taipei daily
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: health-agent-watchdog
+  cancel-in-progress: false
+
+jobs:
+  check-health-agent-delivery:
+    if: ${{ vars.HEALTH_AGENT_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      AGENT_HUB_INGEST_TOKEN: ${{ secrets.AGENT_HUB_INGEST_TOKEN }}
+      AGENT_HUB_INGEST_URL: ${{ secrets.AGENT_HUB_INGEST_URL }}
+      GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
+      GITHUB_TOKEN: ${{ github.token }}
+      SLACK_HEALTH_WEBHOOK_URL: ${{ secrets.SLACK_HEALTH_WEBHOOK_URL }}
+      WATCHDOG_WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          cache: "pnpm"
+          node-version: 22
+      - run: pnpm install --frozen-lockfile
+      - name: Check 07:00 health delivery freshness
+        run: pnpm exec tsx scripts/health-agent/watchdog.ts

@@ -1,492 +1,904 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock('@/lib/supabase/server', () => ({
+vi.mock("@/lib/supabase/server", () => ({
   createServiceClient: vi.fn(),
-}))
+}));
 
-import { createServiceClient } from '@/lib/supabase/server'
-import { checkUrl, runLinkHealthCheck } from './link-health'
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+import { createServiceClient } from "@/lib/supabase/server";
+import {
+  checkUrl,
+  RUN_LEDGER_RPC_NAMES,
+  runLinkHealthCheck,
+  type LinkHealthSummary,
+} from "./link-health";
 
 type BrandRow = {
-  id: string
-  purchase_website: string | null
-  purchase_pinkoi: string | null
-  purchase_shopee: string | null
-  hero_image_url: string | null
-}
+  id: string;
+  purchase_website: string | null;
+  purchase_pinkoi: string | null;
+  purchase_shopee: string | null;
+  hero_image_url: string | null;
+};
 
 type LinkCheckRow = {
-  id: string
-  brand_id: string
-  field: string
-  url: string
-  consecutive_failures: number
-  last_ok_at: string | null
-  auto_nulled_at: string | null
-}
+  id: string;
+  brand_id: string;
+  field: string;
+  url: string;
+  consecutive_failures: number;
+  last_ok_at: string | null;
+  auto_nulled_at: string | null;
+  failure_dates?: string[];
+  cleanup_required_at?: string | null;
+};
 
-function makeSupabaseMock(brands: BrandRow[], existingRows: LinkCheckRow[] = []) {
-  const brandsUpdateEq = vi.fn().mockResolvedValue({ error: null })
-  const brandsUpdateFn = vi.fn().mockReturnValue({ eq: brandsUpdateEq })
+type RpcResponse = { data: unknown; error: { message: string } | null };
 
-  const linkSelectIn = vi.fn().mockResolvedValue({ data: existingRows, error: null })
-  const linkSelectFn = vi.fn().mockReturnValue({ in: linkSelectIn })
+function makeSupabaseMock(
+  brands: BrandRow[],
+  existingRows: LinkCheckRow[] = [],
+) {
+  const brandsSelectEq = vi
+    .fn()
+    .mockResolvedValue({ data: brands, error: null });
+  const brandsUpdateEq = vi.fn().mockResolvedValue({ error: null });
+  const brandsUpdateFn = vi.fn().mockReturnValue({ eq: brandsUpdateEq });
 
-  const linkUpsertFn = vi.fn().mockResolvedValue({ error: null })
-
-  const linkUpdateEq2 = vi.fn().mockResolvedValue({ error: null })
-  const linkUpdateEq1 = vi.fn().mockReturnValue({ eq: linkUpdateEq2 })
-  const linkUpdateFn = vi.fn().mockReturnValue({ eq: linkUpdateEq1 })
-
-  const linkDeleteIn = vi.fn().mockResolvedValue({ error: null })
-  const linkDeleteFn = vi.fn().mockReturnValue({ in: linkDeleteIn })
+  const linkSelectIn = vi
+    .fn()
+    .mockResolvedValue({ data: existingRows, error: null });
+  const linkSelectFn = vi.fn().mockReturnValue({ in: linkSelectIn });
+  const linkUpsertFn = vi.fn().mockResolvedValue({ error: null });
+  const linkDeleteIn = vi.fn().mockResolvedValue({ error: null });
+  const linkDeleteFn = vi.fn().mockReturnValue({ in: linkDeleteIn });
 
   const brandsMock = {
-    select: vi.fn().mockReturnValue({
-      eq: vi.fn().mockResolvedValue({ data: brands, error: null }),
-    }),
+    select: vi.fn().mockReturnValue({ eq: brandsSelectEq }),
     update: brandsUpdateFn,
-  }
-
+  };
   const linkCheckMock = {
     select: linkSelectFn,
     upsert: linkUpsertFn,
-    update: linkUpdateFn,
     delete: linkDeleteFn,
-  }
+  };
+
+  const rpcFn = vi
+    .fn()
+    .mockImplementation(async (name: string): Promise<RpcResponse> => {
+      if (name === RUN_LEDGER_RPC_NAMES.claim) {
+        return {
+          data: { claimed: true, run: { status: "claimed" } },
+          error: null,
+        };
+      }
+      return { data: true, error: null };
+    });
 
   const client = {
     from: vi.fn((table: string) => {
-      if (table === 'brands') return brandsMock
-      if (table === 'link_check_results') return linkCheckMock
-      return {}
+      if (table === "brands") return brandsMock;
+      if (table === "link_check_results") return linkCheckMock;
+      return {};
     }),
-  }
+    rpc: rpcFn,
+  };
 
   return {
     client,
     spies: {
+      brandsSelectEq,
       brandsUpdateFn,
-      brandsUpdateEq,
       linkUpsertFn,
-      linkUpdateFn,
-      linkUpdateEq1,
-      linkUpdateEq2,
-      linkDeleteFn,
       linkDeleteIn,
+      rpcFn,
     },
-  }
+  };
 }
 
+const FIXED_NOW = new Date("2026-07-22T00:30:00.000Z");
+const fixedClock = () => new Date(FIXED_NOW);
+
 const okFetch: typeof fetch = () =>
-  Promise.resolve({ status: 200, ok: true } as unknown as Response)
+  Promise.resolve({ status: 200, ok: true } as unknown as Response);
 
-const silentDeliver: typeof fetch = () =>
-  Promise.resolve({
-    status: 200,
-    ok: true,
-    text: async () => JSON.stringify({ run_id: 'r1', duplicate: false }),
-  } as unknown as Response)
+function runLive(
+  fetchFn: typeof fetch = okFetch,
+  overrides: Partial<Parameters<typeof runLinkHealthCheck>[0]> = {},
+) {
+  return runLinkHealthCheck({
+    fetchFn,
+    now: fixedClock,
+    runIdentity: "github-link-health:2026-07-22",
+    workflowAttempt: 1,
+    ...overrides,
+  });
+}
 
-// ---------------------------------------------------------------------------
-// checkUrl — pure URL checking logic
-// ---------------------------------------------------------------------------
+describe("checkUrl", () => {
+  it("returns ok for 200", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({ status: 200, ok: true });
+    const result = await checkUrl("https://example.com", mockFetch);
 
-describe('checkUrl', () => {
-  it('returns ok for 200', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({ status: 200, ok: true })
-    const result = await checkUrl('https://example.com', mockFetch)
-    expect(result.status).toBe('ok')
-    expect(result.statusCode).toBe(200)
-  })
+    expect(result).toEqual({ status: "ok", statusCode: 200 });
+  });
 
-  it('returns ok for 301 redirect', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({ status: 301, ok: false })
-    const result = await checkUrl('https://example.com', mockFetch)
-    expect(result.status).toBe('ok')
-    expect(result.statusCode).toBe(301)
-  })
+  it("returns ok for 301 redirect", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({ status: 301, ok: false });
+    const result = await checkUrl("https://example.com", mockFetch);
 
-  it('returns broken for 404', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({ status: 404, ok: false })
-    const result = await checkUrl('https://example.com', mockFetch)
-    expect(result.status).toBe('broken')
-    expect(result.statusCode).toBe(404)
-  })
+    expect(result).toEqual({ status: "ok", statusCode: 301 });
+  });
 
-  it('returns broken for 410', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({ status: 410, ok: false })
-    const result = await checkUrl('https://example.com', mockFetch)
-    expect(result.status).toBe('broken')
-  })
+  it("returns broken for deterministic missing resources", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({ status: 404, ok: false });
 
-  it('returns broken for 500', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({ status: 500, ok: false })
-    const result = await checkUrl('https://example.com', mockFetch)
-    expect(result.status).toBe('broken')
-  })
+    await expect(checkUrl("https://example.com", mockFetch)).resolves.toEqual({
+      status: "broken",
+      statusCode: 404,
+    });
+  });
 
-  it('returns broken on network error', async () => {
-    const mockFetch = vi.fn().mockRejectedValue(new TypeError('fetch failed'))
-    const result = await checkUrl('https://example.com', mockFetch)
-    expect(result.status).toBe('broken')
-    expect(result.statusCode).toBeNull()
-  })
+  it("returns broken for 410 and 500", async () => {
+    const goneFetch = vi.fn().mockResolvedValue({ status: 410, ok: false });
+    const failedFetch = vi.fn().mockResolvedValue({ status: 500, ok: false });
 
-  it('returns blocked for 429 from HEAD (no GET retry)', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({ status: 429, ok: false })
-    const result = await checkUrl('https://example.com', mockFetch)
-    expect(result.status).toBe('blocked')
-    // Should not have retried with GET
-    expect(mockFetch).toHaveBeenCalledOnce()
-  })
+    await expect(
+      checkUrl("https://example.com", goneFetch),
+    ).resolves.toMatchObject({
+      status: "broken",
+    });
+    await expect(
+      checkUrl("https://example.com", failedFetch),
+    ).resolves.toMatchObject({
+      status: "broken",
+    });
+  });
 
-  it('retries with GET on 405, returns ok if GET succeeds', async () => {
-    const mockFetch = vi.fn()
-      .mockResolvedValueOnce({ status: 405, ok: false })   // HEAD
-      .mockResolvedValueOnce({ status: 200, ok: true })    // GET
-    const result = await checkUrl('https://example.com', mockFetch)
-    expect(result.status).toBe('ok')
-    expect(mockFetch).toHaveBeenCalledTimes(2)
-    expect(mockFetch.mock.calls[1][1]).toMatchObject({ method: 'GET' })
-  })
+  it("returns broken on network error", async () => {
+    const mockFetch = vi.fn().mockRejectedValue(new TypeError("fetch failed"));
 
-  it('retries with GET on 403, returns blocked if GET also returns 403', async () => {
-    const mockFetch = vi.fn()
-      .mockResolvedValueOnce({ status: 403, ok: false })   // HEAD
-      .mockResolvedValueOnce({ status: 403, ok: false })   // GET
-    const result = await checkUrl('https://example.com', mockFetch)
-    expect(result.status).toBe('blocked')
-  })
+    await expect(checkUrl("https://example.com", mockFetch)).resolves.toEqual({
+      status: "broken",
+      statusCode: null,
+    });
+  });
 
-  it('retries with GET on 403, returns blocked if GET returns 429', async () => {
-    const mockFetch = vi.fn()
-      .mockResolvedValueOnce({ status: 403, ok: false })   // HEAD
-      .mockResolvedValueOnce({ status: 429, ok: false })   // GET
-    const result = await checkUrl('https://example.com', mockFetch)
-    expect(result.status).toBe('blocked')
-  })
+  it("returns blocked for 429 from HEAD without a GET retry", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({ status: 429, ok: false });
 
-  it('retries with GET on 501, returns broken if GET returns 500', async () => {
-    const mockFetch = vi.fn()
-      .mockResolvedValueOnce({ status: 501, ok: false })   // HEAD
-      .mockResolvedValueOnce({ status: 500, ok: false })   // GET
-    const result = await checkUrl('https://example.com', mockFetch)
-    expect(result.status).toBe('broken')
-  })
+    await expect(checkUrl("https://example.com", mockFetch)).resolves.toEqual({
+      status: "blocked",
+      statusCode: 429,
+    });
+    expect(mockFetch).toHaveBeenCalledOnce();
+  });
 
-  it('retries with GET on 403, returns broken if GET network fails', async () => {
-    const mockFetch = vi.fn()
+  it("retries 405 with GET and returns ok when GET succeeds", async () => {
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce({ status: 405, ok: false })
+      .mockResolvedValueOnce({ status: 200, ok: true });
+
+    await expect(checkUrl("https://example.com", mockFetch)).resolves.toEqual({
+      status: "ok",
+      statusCode: 200,
+    });
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(mockFetch.mock.calls[1][1]).toMatchObject({ method: "GET" });
+  });
+
+  it.each([403, 429])("returns blocked when GET returns %s", async (status) => {
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce({ status: 405, ok: false })
+      .mockResolvedValueOnce({ status, ok: false });
+
+    await expect(checkUrl("https://example.com", mockFetch)).resolves.toEqual({
+      status: "blocked",
+      statusCode: status,
+    });
+  });
+
+  it("treats a HEAD 403 followed by a GET network error as blocked", async () => {
+    const mockFetch = vi
+      .fn()
       .mockResolvedValueOnce({ status: 403, ok: false })
-      .mockRejectedValueOnce(new TypeError('network error'))
-    const result = await checkUrl('https://example.com', mockFetch)
-    expect(result.status).toBe('broken')
-  })
-})
+      .mockRejectedValueOnce(new TypeError("network error"));
 
-// ---------------------------------------------------------------------------
-// runLinkHealthCheck — full orchestration
-// ---------------------------------------------------------------------------
+    await expect(checkUrl("https://example.com", mockFetch)).resolves.toEqual({
+      status: "blocked",
+      statusCode: 403,
+    });
+    expect(mockFetch).toHaveBeenCalledOnce();
+  });
 
-describe('runLinkHealthCheck', () => {
+  it("does not let a GET 404 override a blocked HEAD 403", async () => {
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce({ status: 403, ok: false })
+      .mockResolvedValueOnce({ status: 404, ok: false });
+
+    await expect(checkUrl("https://example.com", mockFetch)).resolves.toEqual({
+      status: "blocked",
+      statusCode: 403,
+    });
+    expect(mockFetch).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the HEAD 403 as the blocked evidence when GET is non-authoritative", async () => {
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce({ status: 403, ok: false })
+      .mockResolvedValueOnce({ status: 500, ok: false });
+
+    await expect(checkUrl("https://example.com", mockFetch)).resolves.toEqual({
+      status: "blocked",
+      statusCode: 403,
+    });
+    expect(mockFetch).toHaveBeenCalledOnce();
+  });
+
+  it("returns broken for a non-blocking GET failure", async () => {
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce({ status: 501, ok: false })
+      .mockResolvedValueOnce({ status: 500, ok: false });
+
+    await expect(checkUrl("https://example.com", mockFetch)).resolves.toEqual({
+      status: "broken",
+      statusCode: 500,
+    });
+  });
+});
+
+describe("runLinkHealthCheck", () => {
   beforeEach(() => {
-    vi.clearAllMocks()
-    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://xkcayngbttpxyibgzern.supabase.co')
-    vi.stubEnv('AGENT_HUB_INGEST_URL', 'https://hub.example.com/ingest')
-    vi.stubEnv('AGENT_HUB_INGEST_TOKEN', 'test-token')
-  })
+    vi.clearAllMocks();
+    vi.stubEnv(
+      "NEXT_PUBLIC_SUPABASE_URL",
+      "https://xkcayngbttpxyibgzern.supabase.co",
+    );
+  });
 
-  it('increments consecutive_failures on broken', async () => {
-    const brand: BrandRow = { id: 'b1', purchase_website: 'https://example.com', purchase_pinkoi: null, purchase_shopee: null, hero_image_url: null }
-    const existing: LinkCheckRow = { id: 'r1', brand_id: 'b1', field: 'purchase_website', url: 'https://example.com', consecutive_failures: 1, last_ok_at: null, auto_nulled_at: null }
-    const { client, spies } = makeSupabaseMock([brand], [existing])
-    vi.mocked(createServiceClient).mockReturnValue(client as never)
+  it("requires a stable run identity for live runs", async () => {
+    const { client, spies } = makeSupabaseMock([], []);
+    vi.mocked(createServiceClient).mockReturnValue(client as never);
 
-    const brokenFetch = vi.fn()
-      .mockResolvedValue({ status: 500, ok: false } as Response)
+    await expect(
+      runLinkHealthCheck({ now: fixedClock, fetchFn: okFetch }),
+    ).rejects.toThrow("runIdentity is required for live link health checks");
+    expect(spies.rpcFn).not.toHaveBeenCalled();
+  });
 
-    await runLinkHealthCheck({ fetchFn: brokenFetch, deliverFn: silentDeliver })
+  it("queries approved brands only", async () => {
+    const brand: BrandRow = {
+      id: "b1",
+      purchase_website: null,
+      purchase_pinkoi: null,
+      purchase_shopee: null,
+      hero_image_url: null,
+    };
+    const { client, spies } = makeSupabaseMock([brand], []);
+    vi.mocked(createServiceClient).mockReturnValue(client as never);
 
-    expect(spies.linkUpsertFn).toHaveBeenCalled()
-    const upsertArg = spies.linkUpsertFn.mock.calls[0][0] as { consecutive_failures: number }[]
-    const row = upsertArg.find((r) => r.consecutive_failures !== undefined)
-    expect(row?.consecutive_failures).toBe(2)
-  })
+    await runLive();
 
-  it('resets consecutive_failures to 0 on ok and sets last_ok_at', async () => {
-    const brand: BrandRow = { id: 'b1', purchase_website: 'https://example.com', purchase_pinkoi: null, purchase_shopee: null, hero_image_url: null }
-    const existing: LinkCheckRow = { id: 'r1', brand_id: 'b1', field: 'purchase_website', url: 'https://example.com', consecutive_failures: 2, last_ok_at: null, auto_nulled_at: null }
-    const { client, spies } = makeSupabaseMock([brand], [existing])
-    vi.mocked(createServiceClient).mockReturnValue(client as never)
+    expect(spies.brandsSelectEq).toHaveBeenCalledWith("status", "approved");
+  });
 
-    await runLinkHealthCheck({ fetchFn: okFetch, deliverFn: silentDeliver })
+  it("increments failure telemetry once for a broken URL and records the Taipei date", async () => {
+    const brand: BrandRow = {
+      id: "b1",
+      purchase_website: "https://example.com",
+      purchase_pinkoi: null,
+      purchase_shopee: null,
+      hero_image_url: null,
+    };
+    const existing: LinkCheckRow = {
+      id: "r1",
+      brand_id: "b1",
+      field: "purchase_website",
+      url: "https://example.com",
+      consecutive_failures: 1,
+      last_ok_at: null,
+      auto_nulled_at: null,
+      failure_dates: [],
+      cleanup_required_at: null,
+    };
+    const { client, spies } = makeSupabaseMock([brand], [existing]);
+    vi.mocked(createServiceClient).mockReturnValue(client as never);
+    const brokenFetch = vi
+      .fn()
+      .mockResolvedValue({ status: 500, ok: false } as Response);
 
-    const upsertArg = spies.linkUpsertFn.mock.calls[0][0] as { consecutive_failures: number; last_ok_at: string | null }[]
-    const row = upsertArg[0]
-    expect(row.consecutive_failures).toBe(0)
-    expect(row.last_ok_at).not.toBeNull()
-  })
+    const result = await runLive(brokenFetch);
 
-  it('auto-nulls purchase field at consecutive_failures >= 3 and stamps auto_nulled_at on the row', async () => {
-    const brand: BrandRow = { id: 'b1', purchase_website: 'https://example.com', purchase_pinkoi: null, purchase_shopee: null, hero_image_url: null }
-    // Already at 2 failures; this run makes it 3
-    const existing: LinkCheckRow = { id: 'r1', brand_id: 'b1', field: 'purchase_website', url: 'https://example.com', consecutive_failures: 2, last_ok_at: null, auto_nulled_at: null }
-    const { client, spies } = makeSupabaseMock([brand], [existing])
-    vi.mocked(createServiceClient).mockReturnValue(client as never)
+    const rows = spies.linkUpsertFn.mock.calls[0][0] as Array<{
+      consecutive_failures: number;
+      failure_dates: string[];
+    }>;
+    expect(rows[0]).toMatchObject({
+      consecutive_failures: 2,
+      failure_dates: ["2026-07-22"],
+    });
+    expect(result.broken).toBe(1);
+  });
 
-    const brokenFetch = vi.fn().mockResolvedValue({ status: 500, ok: false } as Response)
+  it("retains distinct failure dates across an intervening successful check", async () => {
+    const brand: BrandRow = {
+      id: "b1",
+      purchase_website: "https://example.com",
+      purchase_pinkoi: null,
+      purchase_shopee: null,
+      hero_image_url: null,
+    };
+    const existing: LinkCheckRow = {
+      id: "r1",
+      brand_id: "b1",
+      field: "purchase_website",
+      url: "https://example.com",
+      consecutive_failures: 2,
+      last_ok_at: null,
+      auto_nulled_at: null,
+      failure_dates: ["2026-07-20", "2026-07-21"],
+      cleanup_required_at: null,
+    };
+    const { client, spies } = makeSupabaseMock([brand], [existing]);
+    vi.mocked(createServiceClient).mockReturnValue(client as never);
 
-    const result = await runLinkHealthCheck({ fetchFn: brokenFetch, deliverFn: silentDeliver })
+    await runLive();
+    const row = (
+      spies.linkUpsertFn.mock.calls[0][0] as Array<{
+        consecutive_failures: number;
+        failure_dates: string[];
+      }>
+    )[0];
 
-    // brands.update called with null for purchase_website
-    expect(spies.brandsUpdateFn).toHaveBeenCalledWith({ purchase_website: null })
-    // link_check_results.update called to stamp auto_nulled_at
-    expect(spies.linkUpdateFn).toHaveBeenCalledWith(expect.objectContaining({ auto_nulled_at: expect.any(String) }))
-    // summary reports the auto-null
-    expect(result.autoNulled).toHaveLength(1)
-    expect(result.autoNulled[0]).toMatchObject({ brandId: 'b1', field: 'purchase_website', url: 'https://example.com' })
-  })
+    expect(row).toMatchObject({
+      consecutive_failures: 0,
+      failure_dates: ["2026-07-20", "2026-07-21"],
+    });
+  });
 
-  it('retains link_check_results row (with url) after auto-null', async () => {
-    const brand: BrandRow = { id: 'b1', purchase_website: 'https://example.com', purchase_pinkoi: null, purchase_shopee: null, hero_image_url: null }
-    const existing: LinkCheckRow = { id: 'r1', brand_id: 'b1', field: 'purchase_website', url: 'https://example.com', consecutive_failures: 2, last_ok_at: null, auto_nulled_at: null }
-    const { client, spies } = makeSupabaseMock([brand], [existing])
-    vi.mocked(createServiceClient).mockReturnValue(client as never)
-
-    const brokenFetch = vi.fn().mockResolvedValue({ status: 500, ok: false } as Response)
-
-    await runLinkHealthCheck({ fetchFn: brokenFetch, deliverFn: silentDeliver })
-
-    // The upsert row still has the url (row is kept)
-    const upsertArg = spies.linkUpsertFn.mock.calls[0][0] as { url: string }[]
-    expect(upsertArg.some((r) => r.url === 'https://example.com')).toBe(true)
-    // delete was NOT called for this row
-    expect(spies.linkDeleteIn).not.toHaveBeenCalledWith('id', ['r1'])
-  })
-
-  it('does NOT null hero_image_url when broken; adds to heroBroken (Supabase storage)', async () => {
-    const heroUrl = 'https://xkcayngbttpxyibgzern.supabase.co/storage/v1/object/public/brand-images/foo.jpg'
-    const brand: BrandRow = { id: 'b1', purchase_website: null, purchase_pinkoi: null, purchase_shopee: null, hero_image_url: heroUrl }
-    const { client, spies } = makeSupabaseMock([brand], [])
-    vi.mocked(createServiceClient).mockReturnValue(client as never)
-
-    const brokenFetch = vi.fn().mockResolvedValue({ status: 404, ok: false } as Response)
-
-    const result = await runLinkHealthCheck({ fetchFn: brokenFetch, deliverFn: silentDeliver })
-
-    // brands.update must NOT be called for hero
-    expect(spies.brandsUpdateFn).not.toHaveBeenCalledWith({ hero_image_url: null })
-    expect(result.heroBroken).toHaveLength(1)
-    expect(result.heroBroken[0]).toMatchObject({ brandId: 'b1', url: heroUrl })
-    expect(result.autoNulled).toHaveLength(0)
-  })
-
-  it('adds to heroExternal when hero URL is broken and NOT on Supabase storage', async () => {
-    const heroUrl = 'https://cdn.external.com/images/hero.jpg'
-    const brand: BrandRow = { id: 'b1', purchase_website: null, purchase_pinkoi: null, purchase_shopee: null, hero_image_url: heroUrl }
-    const { client } = makeSupabaseMock([brand], [])
-    vi.mocked(createServiceClient).mockReturnValue(client as never)
-
-    const brokenFetch = vi.fn().mockResolvedValue({ status: 404, ok: false } as Response)
-
-    const result = await runLinkHealthCheck({ fetchFn: brokenFetch, deliverFn: silentDeliver })
-
-    expect(result.heroExternal).toHaveLength(1)
-    expect(result.heroExternal[0]).toMatchObject({ brandId: 'b1', url: heroUrl })
-    expect(result.heroBroken).toHaveLength(0)
-  })
-
-  it('does NOT increment counter for blocked status (403/429 after GET)', async () => {
-    const brand: BrandRow = { id: 'b1', purchase_website: 'https://shopee.tw/brand', purchase_pinkoi: null, purchase_shopee: null, hero_image_url: null }
-    const existing: LinkCheckRow = { id: 'r1', brand_id: 'b1', field: 'purchase_website', url: 'https://shopee.tw/brand', consecutive_failures: 1, last_ok_at: null, auto_nulled_at: null }
-    const { client, spies } = makeSupabaseMock([brand], [existing])
-    vi.mocked(createServiceClient).mockReturnValue(client as never)
-
-    // HEAD → 403, GET → 403 (WAF-blocked)
-    const blockedFetch = vi.fn()
+  it("does not increment or escalate blocked 403/429 checks", async () => {
+    const brand: BrandRow = {
+      id: "b1",
+      purchase_website: "https://shop.example.com",
+      purchase_pinkoi: null,
+      purchase_shopee: null,
+      hero_image_url: null,
+    };
+    const existing: LinkCheckRow = {
+      id: "r1",
+      brand_id: "b1",
+      field: "purchase_website",
+      url: "https://shop.example.com",
+      consecutive_failures: 2,
+      last_ok_at: null,
+      auto_nulled_at: null,
+      failure_dates: ["2026-07-20", "2026-07-21"],
+      cleanup_required_at: null,
+    };
+    const { client, spies } = makeSupabaseMock([brand], [existing]);
+    vi.mocked(createServiceClient).mockReturnValue(client as never);
+    const blockedFetch = vi
+      .fn()
       .mockResolvedValueOnce({ status: 403, ok: false } as Response)
-      .mockResolvedValueOnce({ status: 403, ok: false } as Response)
+      .mockResolvedValueOnce({ status: 429, ok: false } as Response);
 
-    await runLinkHealthCheck({ fetchFn: blockedFetch, deliverFn: silentDeliver })
+    const result = await runLive(blockedFetch);
+    const rows = spies.linkUpsertFn.mock.calls[0][0] as Array<{
+      consecutive_failures: number;
+      failure_dates: string[];
+      cleanup_required_at: string | null;
+    }>;
 
-    const upsertArg = spies.linkUpsertFn.mock.calls[0][0] as { consecutive_failures: number }[]
-    expect(upsertArg[0].consecutive_failures).toBe(1) // unchanged
-  })
+    expect(rows[0]).toMatchObject({
+      consecutive_failures: 2,
+      failure_dates: ["2026-07-20", "2026-07-21"],
+      cleanup_required_at: null,
+    });
+    expect(result).toMatchObject({
+      blocked: 1,
+      broken: 0,
+      cleanupRequired: [],
+    });
+    expect(blockedFetch).toHaveBeenCalledOnce();
+    expect(result.failingRows).toHaveLength(0);
+  });
 
-  it('does not auto-null when blocked (even if row consecutive_failures would be >= 3)', async () => {
-    const brand: BrandRow = { id: 'b1', purchase_website: 'https://shopee.tw/brand', purchase_pinkoi: null, purchase_shopee: null, hero_image_url: null }
-    const existing: LinkCheckRow = { id: 'r1', brand_id: 'b1', field: 'purchase_website', url: 'https://shopee.tw/brand', consecutive_failures: 5, last_ok_at: null, auto_nulled_at: null }
-    const { client, spies } = makeSupabaseMock([brand], [existing])
-    vi.mocked(createServiceClient).mockReturnValue(client as never)
+  it("requires cleanup after three distinct Taipei failure dates without writing brands", async () => {
+    const brand: BrandRow = {
+      id: "b1",
+      purchase_website: "https://example.com",
+      purchase_pinkoi: null,
+      purchase_shopee: null,
+      hero_image_url: null,
+    };
+    const existing: LinkCheckRow = {
+      id: "r1",
+      brand_id: "b1",
+      field: "purchase_website",
+      url: "https://example.com",
+      consecutive_failures: 2,
+      last_ok_at: null,
+      auto_nulled_at: null,
+      failure_dates: ["2026-07-20", "2026-07-21"],
+      cleanup_required_at: null,
+    };
+    const { client, spies } = makeSupabaseMock([brand], [existing]);
+    vi.mocked(createServiceClient).mockReturnValue(client as never);
+    const brokenFetch = vi
+      .fn()
+      .mockResolvedValue({ status: 500, ok: false } as Response);
 
-    const blockedFetch = vi.fn()
-      .mockResolvedValueOnce({ status: 403, ok: false } as Response)
-      .mockResolvedValueOnce({ status: 403, ok: false } as Response)
+    const result = await runLive(brokenFetch);
+    const rows = spies.linkUpsertFn.mock.calls[0][0] as Array<{
+      cleanup_required_at: string | null;
+      failure_dates: string[];
+    }>;
 
-    const result = await runLinkHealthCheck({ fetchFn: blockedFetch, deliverFn: silentDeliver })
+    expect(rows[0]).toMatchObject({
+      failure_dates: ["2026-07-20", "2026-07-21", "2026-07-22"],
+      cleanup_required_at: FIXED_NOW.toISOString(),
+    });
+    expect(rows[0]).not.toHaveProperty("auto_nulled_at");
+    expect(result.cleanupRequired).toEqual([
+      { brandId: "b1", field: "purchase_website", url: "https://example.com" },
+    ]);
+    expect(spies.brandsUpdateFn).not.toHaveBeenCalled();
+    expect(spies.linkDeleteIn).not.toHaveBeenCalled();
+  });
 
-    expect(spies.brandsUpdateFn).not.toHaveBeenCalled()
-    expect(result.autoNulled).toHaveLength(0)
-  })
+  it("requires cleanup immediately for internal Supabase Storage 404/410", async () => {
+    const url =
+      "https://xkcayngbttpxyibgzern.supabase.co/storage/v1/object/public/brand-images/missing.jpg";
+    const brand: BrandRow = {
+      id: "b1",
+      purchase_website: null,
+      purchase_pinkoi: null,
+      purchase_shopee: null,
+      hero_image_url: url,
+    };
+    const { client, spies } = makeSupabaseMock([brand], []);
+    vi.mocked(createServiceClient).mockReturnValue(client as never);
+    const missingFetch = vi
+      .fn()
+      .mockResolvedValue({ status: 404, ok: false } as Response);
 
-  it('deletes stale rows when brand URL is cleared', async () => {
-    // Brand no longer has purchase_website but a stale row exists
-    const brand: BrandRow = { id: 'b1', purchase_website: null, purchase_pinkoi: null, purchase_shopee: null, hero_image_url: null }
-    const existing: LinkCheckRow = { id: 'r1', brand_id: 'b1', field: 'purchase_website', url: 'https://old.com', consecutive_failures: 1, last_ok_at: null, auto_nulled_at: null }
-    const { client, spies } = makeSupabaseMock([brand], [existing])
-    vi.mocked(createServiceClient).mockReturnValue(client as never)
+    const result = await runLive(missingFetch);
+    const rows = spies.linkUpsertFn.mock.calls[0][0] as Array<{
+      cleanup_required_at: string | null;
+    }>;
 
-    await runLinkHealthCheck({ fetchFn: okFetch, deliverFn: silentDeliver })
+    expect(rows[0].cleanup_required_at).toBe(FIXED_NOW.toISOString());
+    expect(result.cleanupRequired).toEqual([
+      { brandId: "b1", field: "hero_image_url", url },
+    ]);
+  });
 
-    expect(spies.linkDeleteIn).toHaveBeenCalledWith('id', ['r1'])
-  })
+  it("writes migration-consistent failure counts and cleanup flags for every telemetry row", async () => {
+    const brand: BrandRow = {
+      id: "b1",
+      purchase_website: "https://website.example.com",
+      purchase_pinkoi: "https://pinkoi.example.com",
+      purchase_shopee: null,
+      hero_image_url: null,
+    };
+    const existingRows: LinkCheckRow[] = [
+      {
+        id: "r1",
+        brand_id: "b1",
+        field: "purchase_website",
+        url: "https://website.example.com",
+        consecutive_failures: 2,
+        last_ok_at: null,
+        auto_nulled_at: "2026-07-20T00:00:00.000Z",
+        failure_dates: ["2026-07-20", "2026-07-21"],
+        cleanup_required_at: null,
+      },
+      {
+        id: "r2",
+        brand_id: "b1",
+        field: "purchase_pinkoi",
+        url: "https://pinkoi.example.com",
+        consecutive_failures: 0,
+        last_ok_at: null,
+        auto_nulled_at: null,
+        failure_dates: [],
+        cleanup_required_at: null,
+      },
+    ];
+    const { client, spies } = makeSupabaseMock([brand], existingRows);
+    vi.mocked(createServiceClient).mockReturnValue(client as never);
 
-  it('does NOT delete auto-nulled audit rows even though the brand field is null', async () => {
-    // Post-auto-null state: brand field cleared, audit row retained with auto_nulled_at
-    const brand: BrandRow = { id: 'b1', purchase_website: null, purchase_pinkoi: null, purchase_shopee: null, hero_image_url: null }
-    const existing: LinkCheckRow = { id: 'r1', brand_id: 'b1', field: 'purchase_website', url: 'https://dead.example.com', consecutive_failures: 3, last_ok_at: null, auto_nulled_at: '2026-07-20T00:00:00Z' }
-    const { client, spies } = makeSupabaseMock([brand], [existing])
-    vi.mocked(createServiceClient).mockReturnValue(client as never)
+    await runLive(
+      vi.fn().mockResolvedValue({ status: 500, ok: false } as Response),
+    );
+    const rows = spies.linkUpsertFn.mock.calls[0][0] as Array<{
+      failure_dates: string[];
+      distinct_failure_days: number;
+      cleanup_required: boolean;
+      cleanup_required_at: string | null;
+    }>;
 
-    await runLinkHealthCheck({ fetchFn: okFetch, deliverFn: silentDeliver })
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(row.distinct_failure_days).toBe(row.failure_dates.length);
+      expect(row.cleanup_required).toBe(row.cleanup_required_at !== null);
+      expect(row).not.toHaveProperty("auto_nulled_at");
+    }
+  });
 
-    expect(spies.linkDeleteIn).not.toHaveBeenCalled()
-  })
+  it("preserves historical auto_nulled_at while remaining telemetry-only", async () => {
+    const brand: BrandRow = {
+      id: "b1",
+      purchase_website: "https://example.com",
+      purchase_pinkoi: null,
+      purchase_shopee: null,
+      hero_image_url: null,
+    };
+    const historicalStamp = "2026-07-20T00:00:00.000Z";
+    const existing: LinkCheckRow = {
+      id: "r1",
+      brand_id: "b1",
+      field: "purchase_website",
+      url: "https://example.com",
+      consecutive_failures: 3,
+      last_ok_at: null,
+      auto_nulled_at: historicalStamp,
+      failure_dates: ["2026-07-20", "2026-07-21", "2026-07-22"],
+      cleanup_required_at: "2026-07-22T00:00:00.000Z",
+    };
+    const { client, spies } = makeSupabaseMock([brand], [existing]);
+    vi.mocked(createServiceClient).mockReturnValue(client as never);
 
-  it('does not stamp auto_nulled_at when the brands.update fails (retry next run)', async () => {
-    const brand: BrandRow = { id: 'b1', purchase_website: 'https://example.com', purchase_pinkoi: null, purchase_shopee: null, hero_image_url: null }
-    const existing: LinkCheckRow = { id: 'r1', brand_id: 'b1', field: 'purchase_website', url: 'https://example.com', consecutive_failures: 2, last_ok_at: null, auto_nulled_at: null }
-    const { client, spies } = makeSupabaseMock([brand], [existing])
-    spies.brandsUpdateEq.mockResolvedValue({ error: { message: 'transient failure' } })
-    vi.mocked(createServiceClient).mockReturnValue(client as never)
+    const result = await runLive();
+    const row = (
+      spies.linkUpsertFn.mock.calls[0][0] as Record<string, unknown>[]
+    )[0];
 
-    const brokenFetch = vi.fn().mockResolvedValue({ status: 500, ok: false } as Response)
-    const result = await runLinkHealthCheck({ fetchFn: brokenFetch, deliverFn: silentDeliver })
+    expect(row).not.toHaveProperty("auto_nulled_at");
+    expect(result).not.toHaveProperty("autoNulled");
+    expect(result.cleanupRequired).toEqual([
+      { brandId: "b1", field: "purchase_website", url: "https://example.com" },
+    ]);
+    expect(spies.brandsUpdateFn).not.toHaveBeenCalled();
+  });
 
-    // auto_nulled_at must NOT be stamped and the summary must not report a null
-    expect(spies.linkUpdateFn).not.toHaveBeenCalled()
-    expect(result.autoNulled).toHaveLength(0)
-  })
+  it("does not delete or update stale telemetry rows", async () => {
+    const brand: BrandRow = {
+      id: "b1",
+      purchase_website: null,
+      purchase_pinkoi: null,
+      purchase_shopee: null,
+      hero_image_url: null,
+    };
+    const existing: LinkCheckRow = {
+      id: "r1",
+      brand_id: "b1",
+      field: "purchase_website",
+      url: "https://old.example.com",
+      consecutive_failures: 1,
+      last_ok_at: null,
+      auto_nulled_at: null,
+      failure_dates: ["2026-07-20"],
+      cleanup_required_at: null,
+    };
+    const { client, spies } = makeSupabaseMock([brand], [existing]);
+    vi.mocked(createServiceClient).mockReturnValue(client as never);
 
-  it('resets counter when brand URL changes', async () => {
-    // Brand URL changed from old to new
-    const brand: BrandRow = { id: 'b1', purchase_website: 'https://new.example.com', purchase_pinkoi: null, purchase_shopee: null, hero_image_url: null }
-    const existing: LinkCheckRow = { id: 'r1', brand_id: 'b1', field: 'purchase_website', url: 'https://old.example.com', consecutive_failures: 2, last_ok_at: null, auto_nulled_at: null }
-    const { client, spies } = makeSupabaseMock([brand], [existing])
-    vi.mocked(createServiceClient).mockReturnValue(client as never)
+    await runLive();
 
-    const brokenFetch = vi.fn().mockResolvedValue({ status: 500, ok: false } as Response)
+    expect(spies.linkDeleteIn).not.toHaveBeenCalled();
+    expect(spies.brandsUpdateFn).not.toHaveBeenCalled();
+    expect(spies.linkUpsertFn).not.toHaveBeenCalled();
+  });
 
-    await runLinkHealthCheck({ fetchFn: brokenFetch, deliverFn: silentDeliver })
+  it("resets failure evidence when the URL changes but preserves historical auto_nulled_at", async () => {
+    const brand: BrandRow = {
+      id: "b1",
+      purchase_website: "https://new.example.com",
+      purchase_pinkoi: null,
+      purchase_shopee: null,
+      hero_image_url: null,
+    };
+    const existing: LinkCheckRow = {
+      id: "r1",
+      brand_id: "b1",
+      field: "purchase_website",
+      url: "https://old.example.com",
+      consecutive_failures: 2,
+      last_ok_at: "2026-07-21T00:00:00.000Z",
+      auto_nulled_at: "2026-07-21T00:00:00.000Z",
+      failure_dates: ["2026-07-20", "2026-07-21"],
+      cleanup_required_at: "2026-07-21T00:00:00.000Z",
+    };
+    const { client, spies } = makeSupabaseMock([brand], [existing]);
+    vi.mocked(createServiceClient).mockReturnValue(client as never);
+    const brokenFetch = vi
+      .fn()
+      .mockResolvedValue({ status: 500, ok: false } as Response);
 
-    // Should treat as first failure (cf=1), not cf=3
-    const upsertArg = spies.linkUpsertFn.mock.calls[0][0] as { consecutive_failures: number; url: string }[]
-    const row = upsertArg.find((r) => r.url === 'https://new.example.com')
-    expect(row?.consecutive_failures).toBe(1)
-    expect(spies.brandsUpdateFn).not.toHaveBeenCalled()
-  })
+    await runLive(brokenFetch);
+    const row = (
+      spies.linkUpsertFn.mock.calls[0][0] as Array<{
+        consecutive_failures: number;
+        failure_dates: string[];
+        cleanup_required_at: string | null;
+      }>
+    )[0];
 
-  it('severity is critical when heroBroken is non-empty', async () => {
-    const heroUrl = 'https://xkcayngbttpxyibgzern.supabase.co/storage/v1/object/public/brand-images/foo.jpg'
-    const brand: BrandRow = { id: 'b1', purchase_website: null, purchase_pinkoi: null, purchase_shopee: null, hero_image_url: heroUrl }
-    const { client } = makeSupabaseMock([brand], [])
-    vi.mocked(createServiceClient).mockReturnValue(client as never)
+    expect(row).toMatchObject({
+      consecutive_failures: 1,
+      failure_dates: ["2026-07-22"],
+      cleanup_required_at: null,
+    });
+    expect(row).not.toHaveProperty("auto_nulled_at");
+  });
 
-    const brokenFetch = vi.fn().mockResolvedValue({ status: 404, ok: false } as Response)
-    const result = await runLinkHealthCheck({ fetchFn: brokenFetch, deliverFn: silentDeliver })
+  it("replays a same-day completed run without checking or writing telemetry", async () => {
+    const replaySummary: LinkHealthSummary = {
+      checked: 1,
+      ok: 1,
+      broken: 0,
+      blocked: 0,
+      cleanupRequired: [],
+      heroBroken: [],
+      heroExternal: [],
+      failingRows: [],
+      severity: "ok",
+    };
+    const { client, spies } = makeSupabaseMock([], []);
+    spies.rpcFn.mockImplementation(
+      async (name: string): Promise<RpcResponse> => {
+        if (name === RUN_LEDGER_RPC_NAMES.claim) {
+          return {
+            data: {
+              claimed: false,
+              replay: true,
+              result: replaySummary,
+              run: { status: "completed" },
+            },
+            error: null,
+          };
+        }
+        return { data: true, error: null };
+      },
+    );
+    vi.mocked(createServiceClient).mockReturnValue(client as never);
+    const fetchFn = vi.fn();
 
-    expect(result.severity).toBe('critical')
-  })
+    const result = await runLive(fetchFn);
 
-  it('severity is warning when autoNulled is non-empty', async () => {
-    const brand: BrandRow = { id: 'b1', purchase_website: 'https://example.com', purchase_pinkoi: null, purchase_shopee: null, hero_image_url: null }
-    const existing: LinkCheckRow = { id: 'r1', brand_id: 'b1', field: 'purchase_website', url: 'https://example.com', consecutive_failures: 2, last_ok_at: null, auto_nulled_at: null }
-    const { client } = makeSupabaseMock([brand], [existing])
-    vi.mocked(createServiceClient).mockReturnValue(client as never)
+    expect(result).toEqual(replaySummary);
+    expect(fetchFn).not.toHaveBeenCalled();
+    expect(spies.linkUpsertFn).not.toHaveBeenCalled();
+    expect(spies.rpcFn).toHaveBeenCalledOnce();
+  });
 
-    const brokenFetch = vi.fn().mockResolvedValue({ status: 500, ok: false } as Response)
-    const result = await runLinkHealthCheck({ fetchFn: brokenFetch, deliverFn: silentDeliver })
+  it("rejects an active same-day claim without reading or writing telemetry", async () => {
+    const { client, spies } = makeSupabaseMock([], []);
+    spies.rpcFn.mockResolvedValueOnce({
+      data: {
+        claimed: false,
+        replay: false,
+        run: { status: "claimed" },
+      },
+      error: null,
+    });
+    vi.mocked(createServiceClient).mockReturnValue(client as never);
+    const fetchFn = vi.fn();
 
-    expect(result.severity).toBe('warning')
-  })
+    await expect(runLive(fetchFn)).rejects.toThrow("already in progress");
 
-  it('severity is ok when all checks pass', async () => {
-    const brand: BrandRow = { id: 'b1', purchase_website: 'https://example.com', purchase_pinkoi: null, purchase_shopee: null, hero_image_url: null }
-    const { client } = makeSupabaseMock([brand], [])
-    vi.mocked(createServiceClient).mockReturnValue(client as never)
+    expect(fetchFn).not.toHaveBeenCalled();
+    expect(spies.brandsSelectEq).not.toHaveBeenCalled();
+    expect(spies.linkUpsertFn).not.toHaveBeenCalled();
+    expect(spies.rpcFn).toHaveBeenCalledOnce();
+  });
 
-    const result = await runLinkHealthCheck({ fetchFn: okFetch, deliverFn: silentDeliver })
+  it("completes a live run after telemetry persistence", async () => {
+    const brand: BrandRow = {
+      id: "b1",
+      purchase_website: "https://example.com",
+      purchase_pinkoi: null,
+      purchase_shopee: null,
+      hero_image_url: null,
+    };
+    const { client, spies } = makeSupabaseMock([brand], []);
+    vi.mocked(createServiceClient).mockReturnValue(client as never);
 
-    expect(result.severity).toBe('ok')
-  })
+    await runLive();
 
-  it('severity is warning when there are broken links (failingRows)', async () => {
-    const brand: BrandRow = { id: 'b1', purchase_website: 'https://example.com', purchase_pinkoi: null, purchase_shopee: null, hero_image_url: null }
-    const { client } = makeSupabaseMock([brand], [])
-    vi.mocked(createServiceClient).mockReturnValue(client as never)
+    expect(spies.rpcFn).toHaveBeenNthCalledWith(
+      1,
+      RUN_LEDGER_RPC_NAMES.claim,
+      expect.objectContaining({
+        p_requested_run_id: "github-link-health:2026-07-22",
+        p_logical_date: "2026-07-22",
+        p_workflow_attempt: 1,
+        p_dry_run: false,
+      }),
+    );
+    expect(spies.rpcFn).toHaveBeenLastCalledWith(
+      RUN_LEDGER_RPC_NAMES.complete,
+      expect.objectContaining({
+        p_requested_run_id: "github-link-health:2026-07-22",
+      }),
+    );
+    expect(spies.rpcFn.mock.calls[1]?.[1]).not.toHaveProperty("p_dry_run");
+  });
 
-    const brokenFetch = vi.fn().mockResolvedValue({ status: 500, ok: false } as Response)
-    const result = await runLinkHealthCheck({ fetchFn: brokenFetch, deliverFn: silentDeliver })
+  it("surfaces telemetry errors and records a failed live run", async () => {
+    const brand: BrandRow = {
+      id: "b1",
+      purchase_website: "https://example.com",
+      purchase_pinkoi: null,
+      purchase_shopee: null,
+      hero_image_url: null,
+    };
+    const { client, spies } = makeSupabaseMock([brand], []);
+    spies.linkUpsertFn.mockResolvedValue({
+      error: { message: "telemetry unavailable" },
+    });
+    vi.mocked(createServiceClient).mockReturnValue(client as never);
 
-    expect(result.severity).toBe('warning')
-    expect(result.failingRows.length).toBeGreaterThan(0)
-  })
+    await expect(runLive()).rejects.toThrow(
+      "Failed to upsert link_check_results",
+    );
+    expect(spies.rpcFn).toHaveBeenLastCalledWith(
+      RUN_LEDGER_RPC_NAMES.fail,
+      expect.objectContaining({
+        p_requested_run_id: "github-link-health:2026-07-22",
+        p_result: null,
+      }),
+    );
+    expect(spies.rpcFn.mock.calls.at(-1)?.[1]).not.toHaveProperty("p_dry_run");
+  });
 
-  it('envelope has correct version/source/routine/project/source_run_id format', async () => {
-    const { client } = makeSupabaseMock([], [])
-    vi.mocked(createServiceClient).mockReturnValue(client as never)
+  it("surfaces run completion persistence errors and attempts the failure transition", async () => {
+    const brand: BrandRow = {
+      id: "b1",
+      purchase_website: "https://example.com",
+      purchase_pinkoi: null,
+      purchase_shopee: null,
+      hero_image_url: null,
+    };
+    const { client, spies } = makeSupabaseMock([brand], []);
+    spies.rpcFn.mockImplementation(
+      async (name: string): Promise<RpcResponse> => {
+        if (name === RUN_LEDGER_RPC_NAMES.claim) {
+          return {
+            data: { claimed: true, run: { status: "claimed" } },
+            error: null,
+          };
+        }
+        if (name === RUN_LEDGER_RPC_NAMES.complete) {
+          return { data: null, error: { message: "completion unavailable" } };
+        }
+        return { data: true, error: null };
+      },
+    );
+    vi.mocked(createServiceClient).mockReturnValue(client as never);
 
-    let capturedEnvelope: Record<string, unknown> | null = null
-    const captureFetch = vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
-      capturedEnvelope = JSON.parse((init?.body as string) ?? '{}') as Record<string, unknown>
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        text: async () => JSON.stringify({ run_id: 'r1', duplicate: false }),
-      } as unknown as Response)
-    })
+    await expect(runLive()).rejects.toThrow("completion unavailable");
+    expect(spies.rpcFn).toHaveBeenLastCalledWith(
+      RUN_LEDGER_RPC_NAMES.fail,
+      expect.objectContaining({
+        p_requested_run_id: "github-link-health:2026-07-22",
+      }),
+    );
+  });
 
-    await runLinkHealthCheck({ fetchFn: okFetch, deliverFn: captureFetch })
+  it("surfaces failure-transition persistence errors instead of swallowing them", async () => {
+    const brand: BrandRow = {
+      id: "b1",
+      purchase_website: "https://example.com",
+      purchase_pinkoi: null,
+      purchase_shopee: null,
+      hero_image_url: null,
+    };
+    const { client, spies } = makeSupabaseMock([brand], []);
+    spies.linkUpsertFn.mockResolvedValue({
+      error: { message: "telemetry unavailable" },
+    });
+    spies.rpcFn.mockImplementation(
+      async (name: string): Promise<RpcResponse> => {
+        if (name === RUN_LEDGER_RPC_NAMES.claim) {
+          return {
+            data: { claimed: true, run: { status: "claimed" } },
+            error: null,
+          };
+        }
+        if (name === RUN_LEDGER_RPC_NAMES.fail) {
+          return {
+            data: null,
+            error: { message: "failure transition unavailable" },
+          };
+        }
+        return { data: true, error: null };
+      },
+    );
+    vi.mocked(createServiceClient).mockReturnValue(client as never);
 
-    expect(capturedEnvelope).not.toBeNull()
-    expect(capturedEnvelope!.version).toBe(1)
-    expect(capturedEnvelope!.source).toBe('railway_cron')
-    expect(capturedEnvelope!.routine).toBe('link-checker')
-    expect(capturedEnvelope!.project).toBe('formoria')
-    expect(typeof capturedEnvelope!.source_run_id).toBe('string')
-    expect((capturedEnvelope!.source_run_id as string).startsWith('railway-cron:')).toBe(true)
-    // source_run_id format: railway-cron:YYYY-MM-DD
-    expect((capturedEnvelope!.source_run_id as string)).toMatch(/^railway-cron:\d{4}-\d{2}-\d{2}$/)
-  })
+    await expect(runLive()).rejects.toThrow(
+      "Link health failed and its ledger failure could not be persisted",
+    );
+  });
 
-  it('delivery failure does not throw (fail-soft)', async () => {
-    const { client } = makeSupabaseMock([], [])
-    vi.mocked(createServiceClient).mockReturnValue(client as never)
+  it("performs no telemetry or ledger writes during a dry run", async () => {
+    const brand: BrandRow = {
+      id: "b1",
+      purchase_website: "https://example.com",
+      purchase_pinkoi: null,
+      purchase_shopee: null,
+      hero_image_url: null,
+    };
+    const existing: LinkCheckRow = {
+      id: "r1",
+      brand_id: "b1",
+      field: "purchase_website",
+      url: "https://example.com",
+      consecutive_failures: 1,
+      last_ok_at: null,
+      auto_nulled_at: null,
+      failure_dates: ["2026-07-21"],
+      cleanup_required_at: null,
+    };
+    const { client, spies } = makeSupabaseMock([brand], [existing]);
+    vi.mocked(createServiceClient).mockReturnValue(client as never);
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValue({ status: 500, ok: false } as Response);
 
-    const throwingDeliver = vi.fn().mockRejectedValue(new Error('connection refused'))
+    const result = await runLinkHealthCheck({
+      dryRun: true,
+      fetchFn,
+      now: fixedClock,
+    });
 
-    // Should not throw
-    await expect(runLinkHealthCheck({ fetchFn: okFetch, deliverFn: throwingDeliver })).resolves.toBeDefined()
-  })
+    expect(result.broken).toBe(1);
+    expect(fetchFn).toHaveBeenCalledOnce();
+    expect(spies.rpcFn).not.toHaveBeenCalled();
+    expect(spies.linkUpsertFn).not.toHaveBeenCalled();
+    expect(spies.linkDeleteIn).not.toHaveBeenCalled();
+    expect(spies.brandsUpdateFn).not.toHaveBeenCalled();
+  });
 
-  it('social fields (social_instagram etc.) are not checked', async () => {
-    // Brand only has social links — no purchase/hero fields
-    // Service should load 0 URL tasks and check nothing
-    const brand = { id: 'b1', purchase_website: null, purchase_pinkoi: null, purchase_shopee: null, hero_image_url: null }
-    const { client } = makeSupabaseMock([brand as BrandRow], [])
-    vi.mocked(createServiceClient).mockReturnValue(client as never)
+  it("does not call Agent Hub or any second fetch for reporting", async () => {
+    const brand: BrandRow = {
+      id: "b1",
+      purchase_website: "https://example.com",
+      purchase_pinkoi: null,
+      purchase_shopee: null,
+      hero_image_url: null,
+    };
+    const { client } = makeSupabaseMock([brand], []);
+    vi.mocked(createServiceClient).mockReturnValue(client as never);
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValue({ status: 200, ok: true } as Response);
 
-    const mockFetch = vi.fn().mockResolvedValue({ status: 200, ok: true } as Response)
+    await runLive(fetchFn);
 
-    const result = await runLinkHealthCheck({ fetchFn: mockFetch, deliverFn: silentDeliver })
+    expect(fetchFn).toHaveBeenCalledOnce();
+  });
 
-    expect(result.checked).toBe(0)
-    // fetch should only have been called for delivery, not for URL checks
-    // (deliverFn is separate, fetchFn is only for URL checks)
-    expect(mockFetch).not.toHaveBeenCalled()
-  })
-})
+  it("returns ok without telemetry upsert when no URLs are present", async () => {
+    const brand: BrandRow = {
+      id: "b1",
+      purchase_website: null,
+      purchase_pinkoi: null,
+      purchase_shopee: null,
+      hero_image_url: null,
+    };
+    const { client, spies } = makeSupabaseMock([brand], []);
+    vi.mocked(createServiceClient).mockReturnValue(client as never);
+
+    const result = await runLive();
+
+    expect(result).toMatchObject({ checked: 0, severity: "ok" });
+    expect(spies.linkUpsertFn).not.toHaveBeenCalled();
+  });
+});
