@@ -213,6 +213,9 @@ describe('channels enrichment phase', () => {
         dryRun: false,
         target: { type: 'brand', id: 'brand-1' },
         supabase: { from: supabase.from } as never,
+        descriptionRewrite: descriptionRewrite({
+          stockists: [{ name: '永康旗艦店', city: 'taipei', type: 'independent' }],
+        }),
       }),
     )
 
@@ -245,6 +248,9 @@ describe('channels enrichment phase', () => {
       phaseOptions({
         dryRun: false,
         supabase: { from: supabase.from } as never,
+        descriptionRewrite: descriptionRewrite({
+          stockists: [{ name: '永康旗艦店', city: 'taipei', type: 'independent' }],
+        }),
       }),
     )
 
