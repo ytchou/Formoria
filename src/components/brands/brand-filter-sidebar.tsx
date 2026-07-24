@@ -104,14 +104,24 @@ function FilterSection({
           <span className="type-body-emphasis">{title}</span>
           <ChevronDown
             className={cn(
-              "h-4 w-4 text-muted-foreground transition-transform",
+              "h-4 w-4 text-muted-foreground transition-transform duration-200",
               !open && "-rotate-90",
             )}
             aria-hidden="true"
           />
         </Button>
       </div>
-      {open && children}
+      <div
+        className={cn(
+          "grid transition-[grid-template-rows] duration-200",
+          open ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+        )}
+        style={{ transitionTimingFunction: "var(--ease-settle)" }}
+      >
+        <div className="overflow-hidden">
+          {children}
+        </div>
+      </div>
     </section>
   );
 }
@@ -325,7 +335,7 @@ export function BrandFilterSidebar({
                               )
                             }
                             className={cn(
-                              "min-h-12",
+                              "min-h-12 active:animate-spring-pop",
                               subcategoryChecked &&
                                 "border-primary bg-primary text-primary-foreground",
                             )}
@@ -368,7 +378,7 @@ export function BrandFilterSidebar({
                   aria-pressed={checked}
                   onClick={() => togglePriceRange(value, !checked)}
                   className={cn(
-                    "min-h-12",
+                    "min-h-12 active:animate-spring-pop",
                     checked &&
                       "border-primary bg-primary text-primary-foreground",
                   )}

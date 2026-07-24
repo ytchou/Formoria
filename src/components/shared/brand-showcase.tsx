@@ -4,6 +4,7 @@ import { Link } from '@/i18n/navigation'
 import type { Brand } from '@/lib/types'
 import { BrandCard } from '@/components/brands/brand-card'
 import { trackCtaClicked } from '@/lib/analytics'
+import { useInView } from '@/hooks/use-in-view'
 
 interface BrandShowcaseProps {
   brands: Brand[]
@@ -20,6 +21,8 @@ export default function BrandShowcase({
   linkText,
   linkHref,
 }: BrandShowcaseProps) {
+  const { ref, inView } = useInView<HTMLDivElement>()
+
   if (brands.length === 0) return null
 
   return (
@@ -30,9 +33,18 @@ export default function BrandShowcase({
           <p className="mt-1 type-card-description">{subheading}</p>
         )}
       </div>
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      <div
+        ref={ref}
+        className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4"
+      >
         {brands.map((brand, index) => (
-          <BrandCard key={brand.id} brand={brand} position={index} />
+          <div
+            key={brand.id}
+            className={inView ? 'animate-reveal-up' : 'opacity-0'}
+            style={{ animationDelay: `${index * 60}ms` }}
+          >
+            <BrandCard brand={brand} position={index} />
+          </div>
         ))}
       </div>
       <div className="mt-6">

@@ -62,7 +62,7 @@ export function FormField({
         {children ? children : null}
       </FormFieldContext>
       {error ? (
-        <p id={computedErrorId} className={fieldTextStyles.error} aria-live="polite">
+        <p id={computedErrorId} className={cn(fieldTextStyles.error, 'animate-error-shake')} aria-live="polite">
           {error}
         </p>
       ) : null}

@@ -1,9 +1,9 @@
 'use client'
 
-import { Heart } from 'lucide-react'
+import { Bookmark } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
-import type { MouseEvent } from 'react'
+import { type MouseEvent, useRef } from 'react'
 
 import { useSavedBrands } from '@/hooks/use-saved-brands'
 import { buttonVariants } from '@/components/ui/button'
@@ -35,6 +35,7 @@ export function SaveBrandButton({
   const isSaved = savedIds.has(brandId)
   const isLoading = userLoading || savedBrandsLoading
   const label = isSaved ? t('unsave') : t('save')
+  const iconRef = useRef<SVGSVGElement>(null)
 
   function handleClick(event: MouseEvent<HTMLButtonElement>) {
     event.preventDefault()
@@ -53,12 +54,19 @@ export function SaveBrandButton({
       return
     }
 
+    const willSave = !isSaved
     if (isSaved) {
       trackBrandUnsaved(brandId, slug, variant)
     } else {
       trackBrandSaved(brandId, slug, variant)
     }
     toggle(brandId)
+
+    if (willSave && iconRef.current) {
+      const el = iconRef.current
+      el.classList.remove('animate-spring-pop')
+      requestAnimationFrame(() => el.classList.add('animate-spring-pop'))
+    }
   }
 
   return (
@@ -81,8 +89,9 @@ export function SaveBrandButton({
       onClick={handleClick}
       data-ph-no-autocapture
     >
-      <Heart
-        className="h-4 w-4"
+      <Bookmark
+        ref={iconRef}
+        className="h-4 w-4 transition-[fill] duration-200"
         fill={isSaved ? 'currentColor' : 'none'}
         strokeWidth={2}
         aria-hidden

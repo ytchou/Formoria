@@ -16,6 +16,7 @@ import { SurfaceCard } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
+import { StatusPill } from '@/components/ui/status-pill'
 import { Textarea } from '@/components/ui/textarea'
 import { verifyMitAction } from '@/app/[locale]/(protected)/dashboard/actions'
 import {
@@ -125,15 +126,15 @@ export function InlineVerification({
     return (
       <div
         id="verification"
-        className={embedded ? 'flex items-center gap-2' : 'mt-3.5 flex items-center gap-2'}
+        className={embedded ? '' : 'mt-3.5'}
       >
-        <span className="h-2 w-2 shrink-0 rounded-full bg-verified-green" />
-        <span className="type-success">{t('status.verified')}</span>
-        {mitEvidence?.mit_smile_cert && (
-          <span className="rounded bg-verified-green-bg px-2 py-0.5 font-mono type-caption text-verified-green">
-            {mitEvidence.mit_smile_cert}
-          </span>
-        )}
+        <StatusPill variant="verified" label={t('status.verified')}>
+          {mitEvidence?.mit_smile_cert && (
+            <span className="rounded bg-verified-green-bg px-2 py-0.5 font-mono type-caption text-verified-green">
+              {mitEvidence.mit_smile_cert}
+            </span>
+          )}
+        </StatusPill>
       </div>
     )
   }
@@ -144,10 +145,10 @@ export function InlineVerification({
   const content = (
     <>
       <div className="mb-4 flex items-center gap-2">
-        <span className="h-2 w-2 shrink-0 rounded-full bg-muted-foreground" />
-        <span className="type-body-emphasis">
-          {t('title')} — {t(`status.${mitStatus}`)}
-        </span>
+        <StatusPill
+          variant={mitStatus === 'declared' ? 'declared' : 'unverified'}
+          label={`${t('title')} — ${t(`status.${mitStatus}`)}`}
+        />
         {!embedded ? (
           <Button
             type="button"
@@ -292,8 +293,12 @@ export function InlineVerification({
         </div>
       )}
 
-      {error ? <p className="mt-3 type-error">{error}</p> : null}
-      {successMessage ? <p className="mt-3 type-success">{successMessage}</p> : null}
+      {error ? <p className="mt-3 animate-error-shake type-error">{error}</p> : null}
+      {successMessage ? (
+        <div className="mt-3 animate-reveal-up">
+          <StatusPill variant="verified" label={successMessage} />
+        </div>
+      ) : null}
     </>
   )
 

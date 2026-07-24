@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense } from 'react'
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useRouter, usePathname } from '@/i18n/navigation'
 import { useLocale, useTranslations } from 'next-intl'
@@ -20,6 +20,31 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
 
   const isBrandsPage = pathname === '/brands'
   const activeCategory = isBrandsPage ? (searchParams.get('category') ?? '') : ''
+
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [indicator, setIndicator] = useState({ left: 0, width: 0 })
+  const [hasIndicator, setHasIndicator] = useState(false)
+
+  const updateIndicator = useCallback(() => {
+    const container = containerRef.current
+    if (!container) return
+    const activeBtn = container.querySelector<HTMLElement>('[data-active="true"]')
+    if (!activeBtn) {
+      setHasIndicator(false)
+      return
+    }
+    const containerRect = container.getBoundingClientRect()
+    const btnRect = activeBtn.getBoundingClientRect()
+    setIndicator({
+      left: btnRect.left - containerRect.left + container.scrollLeft,
+      width: btnRect.width,
+    })
+    setHasIndicator(true)
+  }, [])
+
+  useEffect(() => {
+    updateIndicator()
+  }, [activeCategory, updateIndicator])
 
   function handleClick(slug: string) {
     if (slug) {
@@ -43,7 +68,7 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
 
   return (
     <nav className="page-gutter mx-auto max-w-screen-xl overflow-x-hidden">
-      <div className="flex h-11 items-center gap-1 overflow-x-auto scrollbar-none">
+      <div ref={containerRef} className="relative flex h-11 items-center gap-1 overflow-x-auto scrollbar-none">
         <button
           type="button"
           data-active={isBrandsPage && !activeCategory ? 'true' : 'false'}
@@ -77,6 +102,18 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
             </button>
           )
         })}
+
+        {hasIndicator && (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute bottom-0 h-0.5 rounded-full bg-primary"
+            style={{
+              left: indicator.left,
+              width: indicator.width,
+              transition: `left var(--duration-morph) var(--ease-settle), width var(--duration-morph) var(--ease-settle)`,
+            }}
+          />
+        )}
       </div>
     </nav>
   )

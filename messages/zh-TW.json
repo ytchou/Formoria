@@ -327,24 +327,16 @@
     "mitDeclared": "品牌聲明",
     "mitDeclaredTitle": "由品牌方自行聲明台灣製造；聲明範圍可能涵蓋部分、多數或全部商品",
     "mitProofLink": "MIT 微笑標章證號 {cert}",
-    "mitStatus": {
-      "scope": {
-        "all": "全部產品",
-        "most": "大部分產品",
-        "some": "部分產品"
-      },
-      "declaredOn": "聲明日期：{date}",
-      "registrySource": "資料來源：MIT 微笑標章產品驗證系統",
-      "reportOrigin": "回報產地資訊"
-    },
     "foundingYear": "創立於 {year}",
+    "sectionTitle": "品牌資訊",
+    "unknown": "尚無資料",
     "label": {
       "location": "地點",
       "foundingYear": "創立年份",
       "category": "類別",
       "priceRange": "價格區間",
-      "productFeatures": "產品特色",
-      "manufacturing": "製造與設計"
+      "productCategories": "產品類別",
+      "certification": "認證"
     },
     "previewBanner": "預覽模式 — 尚未發布",
     "previewBackToEdit": "返回編輯",
@@ -2519,6 +2511,14 @@
     "emptyDescription": "去探索品牌目錄吧！",
     "exploreBrands": "探索品牌目錄",
     "loginToSave": "登入後即可收藏品牌"
+  },
+  "likeBrand": {
+    "like": "喜歡",
+    "likeAriaLabel": "喜歡這個品牌，目前有 {count} 個喜歡",
+    "unlikeAriaLabel": "收回對這個品牌的喜歡，目前有 {count} 個喜歡",
+    "loading": "正在載入喜歡數",
+    "rateLimited": "操作太頻繁，請稍後再試。",
+    "error": "目前無法更新喜歡，請再試一次。"
   },
   "search": {
     "emptyState": {

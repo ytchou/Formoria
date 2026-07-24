@@ -69,13 +69,13 @@ describe('SaveBrandButton', () => {
     vi.clearAllMocks()
   })
 
-  it('renders an unfilled heart when brand is not saved', () => {
+  it('renders an unfilled bookmark when brand is not saved', () => {
     renderWithProviders(<SaveBrandButton brandId="brand-1" slug="brand-slug-1" />)
     const button = screen.getByRole('button', { name: '收藏這個品牌' })
     expect(button).toBeInTheDocument()
   })
 
-  it('renders a filled heart when brand is saved', () => {
+  it('renders a filled bookmark when brand is saved', () => {
     vi.mocked(useSavedBrands).mockReturnValue({
       savedIds: new Set(['brand-1']),
       toggle: vi.fn(),

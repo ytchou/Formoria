@@ -625,6 +625,35 @@ export type Database = {
           },
         ]
       }
+      brand_likes: {
+        Row: {
+          brand_id: string
+          created_at: string
+          id: string
+          visitor_hash: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          id?: string
+          visitor_hash: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          id?: string
+          visitor_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_likes_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_reports: {
         Row: {
           brand_id: string

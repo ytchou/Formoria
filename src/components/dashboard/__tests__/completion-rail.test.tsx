@@ -36,6 +36,40 @@ const incomplete: ProfileCompleteness = {
 }
 
 describe('CompletionRail', () => {
+  it('renders the view-all action as a link without a native button warning', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    try {
+      render(
+        await CompletionRail({
+          completeness: {
+            ...incomplete,
+            score: 100,
+            completed: 12,
+            recommendations: [],
+          },
+          slug: 'test-brand',
+          mitStatus: 'verified',
+        }),
+      )
+
+      expect(screen.getByRole('button', { name: 'viewAllTodos' })).toHaveAttribute(
+        'href',
+        '#profile-completeness',
+      )
+      expect(
+        consoleError.mock.calls.some((args) =>
+          args.some(
+            (argument) =>
+              typeof argument === 'string' && argument.includes('nativeButton'),
+          ),
+        ),
+      ).toBe(false)
+    } finally {
+      consoleError.mockRestore()
+    }
+  })
+
   it('completion rail renders progress bar and warning', async () => {
     render(
       await CompletionRail({
