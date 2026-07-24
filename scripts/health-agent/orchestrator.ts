@@ -1287,6 +1287,7 @@ export interface AggregateInput {
     sentry?: string;
   };
   artifacts?: Partial<Record<HealthRoutine, HealthCollectorArtifact>>;
+  brandReviewArtifactPath?: string;
   directoryArtifactPath?: string;
   exhaustedAutomationFingerprints?: readonly string[];
   failures?: readonly JsonValue[];
@@ -1375,6 +1376,37 @@ async function loadAggregateArtifacts(
     );
   }
   return artifacts;
+}
+
+async function loadBrandReviewFailures(
+  path: string | undefined,
+  dependencies: HealthAgentDependencies,
+): Promise<JsonValue[]> {
+  if (!path) return [];
+  try {
+    const value = await readBoundedJson(path, resolveFiles(dependencies));
+    if (!isRecord(value) || value.status !== "failed") return [];
+    const artifactFailures = Array.isArray(value.failures)
+      ? value.failures.filter(
+          (failure): failure is string =>
+            typeof failure === "string" && failure.trim().length > 0,
+        )
+      : [];
+    const failures = artifactFailures.length
+      ? artifactFailures
+      : [stringValue(value.failure) ?? "brand_review_failed"];
+    return failures.map((failure) => ({
+      failure: redactText(failure),
+      routine: "brand-review",
+    }));
+  } catch {
+    return [
+      {
+        failure: "brand_review_artifact_unavailable",
+        routine: "brand-review",
+      },
+    ];
+  }
 }
 
 function linearFunction(
@@ -1532,11 +1564,16 @@ export async function aggregateAndDeliver(
   const runAt = validRunAt(input.runAt ?? nowFor(dependencies));
   const mode = input.mode ?? "live";
   const artifacts = await loadAggregateArtifacts(input, dependencies, runAt);
+  const brandReviewFailures = await loadBrandReviewFailures(
+    input.brandReviewArtifactPath,
+    dependencies,
+  );
   const findings = uniqueFindings(
     HEALTH_ROUTINES.flatMap((routine) => artifacts[routine].findings),
   );
   const failureEntries: JsonValue[] = [
     ...(input.failures ?? []).map(redactForAudit),
+    ...brandReviewFailures,
     ...HEALTH_ROUTINES.flatMap((routine) => {
       const artifact = artifacts[routine];
       const artifactFailures =
@@ -2377,6 +2414,7 @@ export async function main(
           "link-checker": requiredArgument(argv, "--link-artifact"),
           "sentry-triage": requiredArgument(argv, "--sentry-artifact"),
         },
+        brandReviewArtifactPath: argument(argv, "--brand-review-artifact"),
         mode: parseMode(argv),
         runAt: requiredArgument(argv, "--run-at"),
         workflowAttempt: Number(requiredArgument(argv, "--attempt")),
@@ -2385,7 +2423,12 @@ export async function main(
       dependencies,
     );
     await writeRedactedJson(requiredArgument(argv, "--output"), result, files);
-    if (result.failures.length > 0) throw new Error("Health delivery failed");
+    if (
+      result.deliveryErrors.agentHub.length > 0 ||
+      result.deliveryErrors.slack.length > 0
+    ) {
+      throw new Error("Health delivery failed");
+    }
     return;
   }
   if (canonicalCommand(command) === "enqueue-claim-batch") {

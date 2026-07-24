@@ -14,6 +14,7 @@ function run(overrides: Partial<GitHubWorkflowRun> = {}): GitHubWorkflowRun {
   return {
     conclusion: "success",
     created_at: "2026-07-21T23:02:00.000Z",
+    event: "schedule",
     html_url: "https://github.test/formoria/actions/runs/42",
     id: 42,
     run_attempt: 1,
@@ -74,6 +75,16 @@ describe("health freshness evaluation", () => {
             run_started_at: "2026-07-22T00:31:00.000Z",
           }),
         ],
+      }),
+    ).toMatchObject({ healthy: false, reason: "missing_run" });
+  });
+
+  it("does not accept a manual run inside the logical window", () => {
+    expect(
+      evaluateHealthFreshness({
+        jobs: [aggregateJob()],
+        now,
+        runs: [run({ event: "workflow_dispatch" })],
       }),
     ).toMatchObject({ healthy: false, reason: "missing_run" });
   });

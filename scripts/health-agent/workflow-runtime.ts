@@ -154,6 +154,11 @@ interface BrandReviewArtifact {
   version: 1;
 }
 
+interface BrandReviewLedgerClaim {
+  claimed: boolean;
+  replay: boolean;
+}
+
 export interface SentryClassificationArtifact {
   classifications: SentryClassification[];
   status: "failed" | "success";
@@ -203,6 +208,7 @@ export interface DirectoryEvidenceCollectInput {
 
 export interface AggregateWorkflowInput {
   auditPath?: string;
+  brandReviewArtifactPath?: string;
   directoryArtifactPath: string;
   exhaustedAutomationFingerprints?: readonly string[];
   linkArtifactPath: string;
@@ -701,6 +707,23 @@ function stringArray(value: unknown): string[] {
     : [];
 }
 
+function brandReviewLedgerClaim(value: unknown): BrandReviewLedgerClaim {
+  if (!isRecord(value) || typeof value.claimed !== "boolean") {
+    throw new Error("brand_review_ledger_claim_invalid");
+  }
+  return {
+    claimed: value.claimed,
+    replay: value.replay === true,
+  };
+}
+
+function successfulBooleanRpcResult(value: unknown): boolean {
+  return (
+    value === true ||
+    (Array.isArray(value) && value.length === 1 && value[0] === true)
+  );
+}
+
 async function supabaseRows(
   dependencies: WorkflowRuntimeDependencies,
   resource: string,
@@ -852,17 +875,32 @@ async function collectBrandReview(
       p_requested_run_id: requestedRunId,
       p_workflow_attempt: Number(input.workflowAttempt),
     };
-    await supabaseRequest(
-      dependencies,
-      "claim_health_agent_run",
-      "/rest/v1/rpc/claim_health_agent_run",
-      "HEALTH_AGENT_WRITER_TOKEN",
-      {
-        method: "POST",
-        body: JSON.stringify(ledgerBody),
-      },
-      () => true,
+    const claim = brandReviewLedgerClaim(
+      await supabaseRequest(
+        dependencies,
+        "claim_health_agent_run",
+        "/rest/v1/rpc/claim_health_agent_run",
+        "HEALTH_AGENT_WRITER_TOKEN",
+        {
+          method: "POST",
+          body: JSON.stringify(ledgerBody),
+        },
+        (value) => isRecord(value) && typeof value.claimed === "boolean",
+      ),
     );
+    if (!claim.claimed) {
+      await writeRedactedJson(
+        input.outputPath,
+        {
+          ...artifact,
+          skippedActions: [
+            claim.replay ? "brand_review_replay" : "brand_review_in_progress",
+          ],
+        },
+        files,
+      );
+      return;
+    }
 
     if (evaluated.findings.length > 0) {
       const delivery = dependencies.delivery;
@@ -916,7 +954,7 @@ async function collectBrandReview(
           },
         }),
       },
-      () => true,
+      successfulBooleanRpcResult,
     );
   } catch (error) {
     const failure =
@@ -2000,6 +2038,7 @@ export async function runAggregateAndDeliver(
         "link-checker": input.linkArtifactPath,
         "sentry-triage": input.sentryArtifactPath,
       },
+      brandReviewArtifactPath: input.brandReviewArtifactPath,
       exhaustedAutomationFingerprints: input.exhaustedAutomationFingerprints,
       mode: input.mode,
       prOutcomes: input.prOutcomes,
@@ -2016,6 +2055,12 @@ export async function runAggregateAndDeliver(
       dependencies.auditRecords ?? [],
       filesFor(dependencies),
     );
+  }
+  if (
+    result.deliveryErrors.agentHub.length > 0 ||
+    result.deliveryErrors.slack.length > 0
+  ) {
+    throw new Error("health_delivery_failed");
   }
   return result;
 }
@@ -2850,6 +2895,10 @@ export async function runWorkflowCommand(
         {
           auditPath:
             typeof input.auditPath === "string" ? input.auditPath : undefined,
+          brandReviewArtifactPath:
+            typeof input.brandReviewArtifactPath === "string"
+              ? input.brandReviewArtifactPath
+              : undefined,
           directoryArtifactPath: safeString(
             input.directoryArtifactPath,
             "directoryArtifactPath",
@@ -3027,6 +3076,7 @@ export async function main(
     aggregateArtifactPath: optionalArgument(argv, "--aggregate-artifact"),
     auditPath: optionalArgument(argv, "--audit"),
     batchKind: optionalArgument(argv, "--batch"),
+    brandReviewArtifactPath: optionalArgument(argv, "--brand-review-artifact"),
     canaryFingerprints: optionalArgument(argv, "--canary-fingerprints")
       ?.split(",")
       .filter(Boolean),

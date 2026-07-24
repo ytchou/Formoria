@@ -43,7 +43,7 @@ describe("unified health-agent workflow contract", () => {
       /evaluate-directory:\n\s+needs: \[gate, collect-link\]/,
     );
     expect(workflow).toMatch(
-      /aggregate-and-deliver:\n\s+needs: \[gate, collect-link, evaluate-directory, sentry-triage\]/,
+      /aggregate-and-deliver:\n\s+needs: \[gate, brand-review, collect-link, evaluate-directory, sentry-triage\]/,
     );
     expect(workflow).toMatch(
       /aggregate-and-deliver:\n\s+needs:[\s\S]*?\n\s+if: always\(\)/,
@@ -53,7 +53,7 @@ describe("unified health-agent workflow contract", () => {
     expect(workflow).not.toContain("--limit");
   });
 
-  it("brand-review job depends only on gate", () => {
+  it("aggregates brand-review failures without duplicating its findings", () => {
     const workflow = readFileSync(workflowPath, "utf8");
     const aggregate = jobSection(
       workflow,
@@ -62,7 +62,13 @@ describe("unified health-agent workflow contract", () => {
     );
 
     expect(workflow).toMatch(/brand-review:\n    needs: \[gate\]/);
-    expect(aggregate).not.toMatch(/needs: \[[^\]]*brand-review[^\]]*\]/);
+    expect(aggregate).toMatch(/needs: \[[^\]]*brand-review[^\]]*\]/);
+    expect(aggregate).toContain(
+      "health-brand-review-${{ github.run_id }}-${{ github.run_attempt }}",
+    );
+    expect(aggregate).toContain(
+      "--brand-review-artifact .health-agent-artifacts/brand-review.json",
+    );
   });
 
   it("brand-review job uses correct secrets", () => {
@@ -325,6 +331,9 @@ describe("unified health-agent workflow contract", () => {
     expect(cleanup).toContain("stale-branch-cleanup-audit.json");
     expect(workflow).toContain(
       "needs: [gate, aggregate-and-deliver, cleanup-stale-branches]",
+    );
+    expect(workflow).toContain(
+      "needs.aggregate-and-deliver.result == 'success'",
     );
   });
 

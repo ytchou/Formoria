@@ -458,7 +458,7 @@ jobs:
           retention-days: 14
 
   aggregate-and-deliver:
-    needs: [gate, collect-link, evaluate-directory, sentry-triage]
+    needs: [gate, brand-review, collect-link, evaluate-directory, sentry-triage]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -499,6 +499,13 @@ jobs:
         with:
           name: health-sentry-${{ github.run_id }}-${{ github.run_attempt }}
           path: .health-agent-artifacts
+      - name: Download brand review artifact
+        if: needs.gate.outputs.collect == 'true'
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: health-brand-review-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .health-agent-artifacts
       - name: Deliver Agent Hub envelopes
         if: needs.gate.outputs.collect == 'true'
         env:
@@ -520,6 +527,7 @@ jobs:
             --link-artifact .health-agent-artifacts/link-checker.json \
             --directory-artifact .health-agent-artifacts/directory-health.json \
             --sentry-artifact .health-agent-artifacts/sentry-triage.json \
+            --brand-review-artifact .health-agent-artifacts/brand-review.json \
             --run-at "$run_at" \
             --attempt "$GITHUB_RUN_ATTEMPT" \
             --run-id "$GITHUB_RUN_ID" \
@@ -604,7 +612,8 @@ jobs:
     needs: [gate, aggregate-and-deliver, cleanup-stale-branches]
     if: >-
       always() && needs.gate.outputs.mutate == 'true' &&
-      needs.gate.outputs.autofix == 'true'
+      needs.gate.outputs.autofix == 'true' &&
+      needs.aggregate-and-deliver.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
