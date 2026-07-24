@@ -560,6 +560,15 @@ jobs:
           git checkout -B "$BRANCH"
           echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
 
+      - name: Sync repair branch with default branch
+        if: steps.guard.outputs.skip != 'true'
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          git fetch origin "$DEFAULT_BRANCH" --prune
+          git rebase "origin/$DEFAULT_BRANCH"
+
       - name: Setup pnpm
         if: steps.guard.outputs.skip != 'true'
         uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4

@@ -37,6 +37,8 @@ describe("nightly E2E Agent Hub reporting", () => {
     expect(workflow).toContain(
       'GH_TOKEN="$WORKFLOW_DISPATCH_TOKEN" gh workflow run e2e-nightly.yml',
     );
+    expect(workflow).toContain('git fetch origin "$DEFAULT_BRANCH" --prune');
+    expect(workflow).toContain('git rebase "origin/$DEFAULT_BRANCH"');
     expect(workflow.match(/allowed_bots: github-actions/g)).toHaveLength(2);
     expect(workflow).toContain(
       '--allowedTools "Read,Write,Edit,Replace,Glob,Grep',
