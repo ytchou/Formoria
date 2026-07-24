@@ -370,6 +370,40 @@ describe("aggregate and deliver", () => {
     });
   });
 
+  it("includes a failed brand-review artifact in aggregate notifications", async () => {
+    const { store } = fixtures({
+      "brand-review": {
+        collectedAt: runAt,
+        evidence: {},
+        failure: "brand_review_query_failed",
+        failures: ["brand_review_query_failed"],
+        findings: [],
+        routine: "brand-review",
+        skippedActions: [],
+        status: "failed",
+        version: 1,
+      },
+    });
+    const slack = vi.fn(async (report: SlackDigestInput) => {
+      void report;
+    });
+
+    const result = await aggregateAndDeliver(
+      { ...aggregateInput, brandReviewArtifactPath: "brand-review" },
+      { delivery: { agentHub: async () => undefined, slack }, files: store },
+      enabled,
+    );
+
+    expect(result.envelopes).toHaveLength(3);
+    expect(slack).toHaveBeenCalledWith(
+      expect.objectContaining({
+        failures: expect.arrayContaining([
+          { failure: "brand_review_query_failed", routine: "brand-review" },
+        ]),
+      }),
+    );
+  });
+
   it("gates Linear to human or exhausted findings and includes all outcomes in Slack", async () => {
     const automatic = finding("sentry:auto");
     const exhausted = finding("sentry:exhausted");
