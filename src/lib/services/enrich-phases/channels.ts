@@ -123,7 +123,7 @@ function normalizeText(value: unknown): string {
   return typeof value === 'string' ? value.trim().replace(/\s+/g, '').toLocaleLowerCase() : ''
 }
 
-export function normalizeLocationAddress(value: unknown): string {
+function normalizeLocationAddress(value: unknown): string {
   return normalizeText(value).replace(/[\uFF0C,\u3002\uFF0E.\u3001\u002D\u2014_#\u865F\u6A13\u5BA4]/g, '')
 }
 

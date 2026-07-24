@@ -11,8 +11,8 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { logAdminAction } from './admin-audit'
 import { isOwnerOf } from './brand-owners'
 
-export const MAX_ACTIVE_CHANNELS_PER_BRAND = 5
-export const MAX_SUBMISSIONS_PER_DAY = 20
+const MAX_ACTIVE_CHANNELS_PER_BRAND = 5
+const MAX_SUBMISSIONS_PER_DAY = 20
 
 const REGION_LABEL_MAP: Record<string, string> = {
   taipei: '臺北市',
@@ -39,7 +39,7 @@ const REGION_LABEL_MAP: Record<string, string> = {
   lienchiang: '連江縣',
 }
 
-export type SubmitChannelErrorCode =
+type SubmitChannelErrorCode =
   | 'invalid_name'
   | 'invalid_channel_type'
   | 'invalid_url'

@@ -1,6 +1,6 @@
 import type { BrandChannel } from '@/lib/types/brand-channel'
 
-export const CHANNEL_CONFIRMATION_THRESHOLD = Number(
+const CHANNEL_CONFIRMATION_THRESHOLD = Number(
   process.env.CHANNEL_CONFIRMATION_THRESHOLD ?? 3,
 )
 

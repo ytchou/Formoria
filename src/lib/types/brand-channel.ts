@@ -1,8 +1,8 @@
-export type ChannelStatus = 'confirmed' | 'unconfirmed'
-export type ChannelConfirmedBy = 'owner' | 'community'
-export type ChannelSource = 'backfill' | 'enriched' | 'community' | 'owner' | 'admin'
+type ChannelStatus = 'confirmed' | 'unconfirmed'
+type ChannelConfirmedBy = 'owner' | 'community'
+type ChannelSource = 'backfill' | 'enriched' | 'community' | 'owner' | 'admin'
 export type ChannelType = 'online' | 'offline'
-export type OwnerStatus = 'none' | 'confirmed' | 'rejected'
+type OwnerStatus = 'none' | 'confirmed' | 'rejected'
 
 export interface BrandChannel {
   id: string

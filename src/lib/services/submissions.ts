@@ -84,7 +84,7 @@ export type SubmissionReviewImage = {
   height: number | null;
   originBrandImageId: string | null;
 };
-export type SubmissionLocationCandidate = {
+type SubmissionLocationCandidate = {
   id: string;
   location: Json;
   verificationDecision: string;

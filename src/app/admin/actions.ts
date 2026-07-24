@@ -517,6 +517,7 @@ export async function deleteBrandAction(
   }
 }
 
+// @knip-ignore — admin channel removal UI not yet wired; will be used in DEV-1153 follow-up
 export async function adminRemoveChannelAction(
   channelId: string,
 ): Promise<{ success: true } | { error: string }> {
