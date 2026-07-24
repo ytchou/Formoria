@@ -9,20 +9,16 @@ import { writeAuthStorageStateForCredentials } from '../helpers/auth-session'
 type AnySupabaseClient = SupabaseClient<any, any, any>
 
 /**
- * Dashboard — Welcome Card
+ * Dashboard — Quick Actions
  *
- * Journey: A brand owner visits their dashboard for the first time, sees the
- * onboarding welcome card with 4 tip links, dismisses it, and confirms the
- * dismissal persists across a full page reload.
+ * Journey: A brand owner visits their dashboard overview and sees the
+ * QuickActions section with 4 action links (edit profile, check health,
+ * view analytics, read FAQ).
  *
- * Actor: isolatedUser (throwaway account) so onboarding_dismissed_at starts null.
+ * Actor: isolatedUser (throwaway account).
  * Seed: one approved brand owned by the isolated user.
  * Cleanup: afterAll deletes brand_owners row + brand.
- *
- * Serial mode: the single test mutates state (dismiss), so we force serial to
- * prevent any future test additions from racing.
  */
-// Override userPage to authenticate as the isolated throwaway owner.
 const test = baseTest.extend<{ userPage: Page }>({
   userPage: async ({ browser, isolatedUser }, use, testInfo) => {
     const storagePath = path.join(testInfo.outputDir, 'isolated-owner.json')
@@ -52,8 +48,8 @@ test.beforeAll(async ({ isolatedUser }) => {
   )
 
   const ts = Date.now()
-  brandSlug = `e2e-welcome-card-${ts}`
-  const brandName = `[E2E-TEST] Welcome Card ${ts}`
+  brandSlug = `e2e-quick-actions-${ts}`
+  const brandName = `[E2E-TEST] Quick Actions ${ts}`
 
   const { data: brand, error } = await supabase
     .from('brands')
@@ -62,9 +58,8 @@ test.beforeAll(async ({ isolatedUser }) => {
       slug: brandSlug,
       status: 'approved',
       product_type: 'crafts',
-      description: '[E2E-TEST] Welcome card fixture.',
+      description: '[E2E-TEST] Quick actions fixture.',
       retail_locations: [],
-      // onboarding_dismissed_at intentionally omitted → stays null → card shows
     })
     .select('id')
     .single()
@@ -86,10 +81,8 @@ test.afterAll(async () => {
   await supabase.from('brands').delete().eq('id', brandId)
 })
 
-test.describe('Dashboard — welcome card', () => {
-  test('welcome card visible on fresh brand; dismissed state persists across reload', async ({
-    userPage,
-  }) => {
+test.describe('Dashboard — quick actions', () => {
+  test('quick actions section visible with 4 action links', async ({ userPage }) => {
     test.setTimeout(120_000)
 
     const resp = await userPage.goto(`/dashboard/brands/${brandSlug}`, { timeout: 60_000 })
@@ -98,12 +91,12 @@ test.describe('Dashboard — welcome card', () => {
       return
     }
 
-    // Welcome card must be visible: brand is fresh, onboarding_dismissed_at is null.
-    // The <section aria-labelledby="welcome-banner-title"> gets implicit role=region.
-    const welcomeCard = userPage.getByRole('region', { name: '歡迎來到您的品牌儀表板' })
-    await expect(welcomeCard).toBeVisible({ timeout: 30_000 })
+    // Brand profile wrapper must be present.
+    await expect(userPage.locator('[data-testid="brand-profile"]')).toBeVisible({
+      timeout: 30_000,
+    })
 
-    // Assert all 4 tip links with their expected hrefs.
+    // Assert all 4 quick action links with their expected hrefs.
     await expect(userPage.getByRole('link', { name: '編輯品牌資料' })).toHaveAttribute(
       'href',
       `/dashboard/brands/${brandSlug}/edit`,
@@ -120,26 +113,5 @@ test.describe('Dashboard — welcome card', () => {
       'href',
       '/faq#for-owners',
     )
-
-    // Dismiss: aria-label="關閉" (from dashboard.welcome.dismiss in zh-TW.json)
-    await userPage.getByRole('button', { name: '關閉' }).click()
-
-    // Server action (dismissWelcome) runs → revalidatePath → router refreshes.
-    // The card should disappear without a manual reload.
-    await expect(welcomeCard).not.toBeVisible({ timeout: 15_000 })
-
-    // Explicit reload: confirm server has persisted onboarding_dismissed_at.
-    // Use toPass to tolerate any brief ISR window on this protected page.
-    await expect(async () => {
-      await userPage.reload({ timeout: 30_000 })
-      await expect(
-        userPage.getByRole('region', { name: '歡迎來到您的品牌儀表板' }),
-      ).not.toBeVisible({ timeout: 5_000 })
-    }).toPass({ timeout: 30_000 })
-
-    // Brand profile content must still be rendered after dismissal.
-    await expect(userPage.locator('[data-testid="brand-profile"]')).toBeVisible({
-      timeout: 10_000,
-    })
   })
 })
