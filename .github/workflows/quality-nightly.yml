@@ -90,7 +90,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
       - name: Notify Slack
         env:
           QUALITY_SLACK_PHASE: initial
