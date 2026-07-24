@@ -38,7 +38,13 @@ describe("nightly E2E Agent Hub reporting", () => {
       'GH_TOKEN="$WORKFLOW_DISPATCH_TOKEN" gh workflow run e2e-nightly.yml',
     );
     expect(workflow.match(/allowed_bots: github-actions/g)).toHaveLength(2);
-    expect(workflow).toContain('claude_args: "--max-turns 40"');
+    expect(workflow).toContain(
+      '--allowedTools "Read,Write,Edit,Replace,Glob,Grep',
+    );
+    expect(workflow).toContain("Bash(pnpm:*)");
+    expect(workflow).toContain(
+      '--allowedTools "Read,Glob,Grep,Bash(git status:*)',
+    );
     expect(workflow).toContain(
       "Return the required VERDICT, JUSTIFICATION, APP_FILES, and RISK lines",
     );
