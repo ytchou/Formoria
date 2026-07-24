@@ -1,3 +1,3 @@
-const seededBuildFailure: string = 123
+const seededBuildFailure: number = 123
 
 export { seededBuildFailure }
