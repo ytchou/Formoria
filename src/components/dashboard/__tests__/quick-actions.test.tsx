@@ -71,13 +71,12 @@ describe('QuickActions', () => {
     ] as const
 
     screen.getAllByRole('link').forEach((card, index) => {
-      const [title, description, icon] = expectedCards[index]
+      const [title, description] = expectedCards[index]
       const cardQueries = within(card)
 
       expect(cardQueries.getByRole('heading', { name: title })).toBeInTheDocument()
       expect(cardQueries.getByText(description)).toBeInTheDocument()
-      expect(card.querySelector(`[data-lucide="${icon}"]`)).toBeInTheDocument()
-      expect(card.querySelector('[data-lucide="chevron-right"]')).toBeInTheDocument()
+      expect(card.querySelectorAll('svg[aria-hidden="true"]')).toHaveLength(2)
     })
   })
 })

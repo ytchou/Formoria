@@ -169,7 +169,7 @@ describe('DashboardHeroCard', () => {
 
     expect(screen.getByText('已完成 9/11 個項目')).toBeInTheDocument()
     expect(
-      screen.getByRole('link', { name: '查看待完成項目' }),
+      screen.getByRole('button', { name: '查看待完成項目' }),
     ).toHaveAttribute(
       'href',
       '/dashboard/brands/test-brand#profile-completeness',
