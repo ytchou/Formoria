@@ -31,6 +31,7 @@ export function ImageCarousel({ images, alt, brandId, brandSlug, category, image
   const [brokenImages, setBrokenImages] = useState<Set<number>>(new Set())
   const total = validImages.length
   const viewedIndices = useRef(new Set<number>([0]))
+  const fadeTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const completedFired = useRef(false)
 
   const initial = [...alt][0]
@@ -65,6 +66,7 @@ export function ImageCarousel({ images, alt, brandId, brandSlug, category, image
   function goTo(index: number) {
     const next = ((index % total) + total) % total
     if (next === current) return
+    clearTimeout(fadeTimerRef.current)
     setPrevious(current)
     setCurrent(next)
     viewedIndices.current.add(next)
@@ -73,8 +75,7 @@ export function ImageCarousel({ images, alt, brandId, brandSlug, category, image
       completedFired.current = true
       trackGalleryCompleted(brandId, brandSlug, total)
     }
-    const id = setTimeout(() => setPrevious(null), 200)
-    return () => clearTimeout(id)
+    fadeTimerRef.current = setTimeout(() => setPrevious(null), 200)
   }
 
   const isCurrentBroken = brokenImages.has(current)

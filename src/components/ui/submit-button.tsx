@@ -31,6 +31,7 @@ export function SubmitButton({
       className={cn('relative w-full', className)}
     >
       <span
+        aria-hidden={isSubmitting || undefined}
         className={cn(
           'inline-flex items-center gap-2 transition-opacity duration-200',
           isSubmitting ? 'opacity-0' : 'opacity-100',

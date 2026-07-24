@@ -19,7 +19,11 @@ function bytesToHex(buffer: ArrayBuffer): string {
   ).join('')
 }
 
+let cachedSecret: string | null = null
+
 async function getBrandLikeSecret(): Promise<string> {
+  if (cachedSecret) return cachedSecret
+
   const secret = process.env.CHALLENGE_SECRET
   if (!secret) throw new Error('CHALLENGE_SECRET is required')
 
@@ -36,7 +40,8 @@ async function getBrandLikeSecret(): Promise<string> {
     encoder.encode('brand-likes'),
   )
 
-  return bytesToHex(digest)
+  cachedSecret = bytesToHex(digest)
+  return cachedSecret
 }
 
 export async function signBrandLikeVisitorId(visitorId: string): Promise<string> {

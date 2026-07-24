@@ -48,7 +48,7 @@ export function CompletenessRing({ score }: { score: number }) {
           pathLength="100"
           r="20"
           strokeDasharray="100"
-          strokeDashoffset={100 - normalizedScore}
+          strokeDashoffset={100}
           strokeLinecap="round"
           strokeWidth="4"
         />
