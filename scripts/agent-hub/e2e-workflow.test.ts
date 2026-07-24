@@ -37,6 +37,7 @@ describe("nightly E2E Agent Hub reporting", () => {
     expect(workflow).toContain(
       'GH_TOKEN="$WORKFLOW_DISPATCH_TOKEN" gh workflow run e2e-nightly.yml',
     );
+    expect(workflow.match(/allowed_bots: github-actions/g)).toHaveLength(2);
     expect(workflow).toContain('claude_args: "--max-turns 40"');
     expect(workflow).toContain(
       "Return the required VERDICT, JUSTIFICATION, APP_FILES, and RISK lines",
