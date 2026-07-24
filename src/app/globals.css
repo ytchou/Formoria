@@ -126,9 +126,13 @@
   --nav-height: 100px;
   --filter-bar-height: 48px;
 
-  /* Motion tokens — new */
+  /* Motion tokens */
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-settle: cubic-bezier(0.33, 1, 0.68, 1);
+  --ease-gentle-overshoot: cubic-bezier(0.34, 1.56, 0.64, 1);
   --duration-enter: 200ms;
+  --duration-morph: 300ms;
+  --duration-stagger: 60ms;
 
   /* Signature token — seal-stamp for verified badges */
   --signature-seal: oklch(0.563 0.1600 37.6);          /* Kiln — seal/stamp accent */
@@ -381,6 +385,46 @@
 
 @utility type-empty-body {
   @apply text-sm leading-6 text-muted-foreground;
+}
+
+@keyframes spring-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.25); }
+  70% { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+
+@keyframes error-shake {
+  0%, 100% { translate: 0; }
+  20% { translate: -6px; }
+  40% { translate: 5px; }
+  60% { translate: -3px; }
+  80% { translate: 2px; }
+}
+
+@keyframes reveal-up {
+  from { opacity: 0; translate: 0 12px; }
+  to { opacity: 1; translate: 0; }
+}
+
+@utility animate-spring-pop {
+  animation: spring-pop var(--duration-morph) var(--ease-gentle-overshoot);
+}
+
+@utility animate-error-shake {
+  animation: error-shake 0.4s var(--ease-standard);
+}
+
+@utility animate-reveal-up {
+  animation: reveal-up var(--duration-enter) var(--ease-settle) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 @layer base {

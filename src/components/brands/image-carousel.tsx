@@ -8,6 +8,7 @@ import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { trackGalleryPhotoView, trackGalleryCompleted } from '@/lib/analytics'
 import { Button } from '@/components/ui/button'
 import { BrandImageFallback } from './brand-image-fallback'
+import { LikeBrandButton } from './like-brand-button'
 
 interface ImageCarouselProps {
   images: string[]
@@ -26,6 +27,7 @@ export function ImageCarousel({ images, alt, brandId, brandSlug, category, image
     return safeSrc ? [safeSrc] : []
   })
   const [current, setCurrent] = useState(0)
+  const [previous, setPrevious] = useState<number | null>(null)
   const [brokenImages, setBrokenImages] = useState<Set<number>>(new Set())
   const total = validImages.length
   const viewedIndices = useRef(new Set<number>([0]))
@@ -37,6 +39,12 @@ export function ImageCarousel({ images, alt, brandId, brandSlug, category, image
     return (
       <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-muted">
         <BrandImageFallback name={alt} category={category ?? null} size="detail" />
+        <LikeBrandButton
+          brandId={brandId}
+          slug={brandSlug}
+          variant="overlay"
+          className="absolute right-4 top-4"
+        />
       </div>
     )
   }
@@ -56,13 +64,17 @@ export function ImageCarousel({ images, alt, brandId, brandSlug, category, image
 
   function goTo(index: number) {
     const next = ((index % total) + total) % total
+    if (next === current) return
+    setPrevious(current)
     setCurrent(next)
     viewedIndices.current.add(next)
-    if (next !== current) trackGalleryPhotoView(brandSlug, next, brandId)
+    trackGalleryPhotoView(brandSlug, next, brandId)
     if (!completedFired.current && viewedIndices.current.size >= total) {
       completedFired.current = true
       trackGalleryCompleted(brandId, brandSlug, total)
     }
+    const id = setTimeout(() => setPrevious(null), 200)
+    return () => clearTimeout(id)
   }
 
   const isCurrentBroken = brokenImages.has(current)
@@ -71,19 +83,39 @@ export function ImageCarousel({ images, alt, brandId, brandSlug, category, image
     <div className="space-y-3">
       {/* Hero image */}
       <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-muted">
+        {previous !== null && !brokenImages.has(previous) && (
+          <Image
+            src={validImages[previous]}
+            alt=""
+            fill
+            className="object-contain transition-opacity duration-200 opacity-0"
+            style={{ transitionTimingFunction: 'var(--ease-settle)' }}
+            sizes="(max-width: 1024px) 100vw, 580px"
+            aria-hidden
+          />
+        )}
+
         {isCurrentBroken ? (
           <BrandImageFallback name={alt} category={category ?? null} size="detail" />
         ) : (
           <Image
+            key={current}
             src={validImages[current]}
             alt={getAlt(current)}
             fill
-            className="object-contain"
+            className="object-contain animate-in fade-in duration-200"
             sizes="(max-width: 1024px) 100vw, 580px"
             priority={current === 0}
             onError={() => handleImageError(current)}
           />
         )}
+
+        <LikeBrandButton
+          brandId={brandId}
+          slug={brandSlug}
+          variant="overlay"
+          className="absolute right-4 top-4"
+        />
 
         {total > 1 && (
           <>

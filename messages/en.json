@@ -327,24 +327,16 @@
     "mitDeclared": "MIT Declared",
     "mitDeclaredTitle": "Self-attested as made in Taiwan by the brand owner; the declaration may cover some, most, or all products",
     "mitProofLink": "MIT Smile mark cert. {cert}",
-    "mitStatus": {
-      "scope": {
-        "all": "All products",
-        "most": "Most products",
-        "some": "Some products"
-      },
-      "declaredOn": "Declared on {date}",
-      "registrySource": "Source: MIT Smile Mark product registry",
-      "reportOrigin": "Report origin information"
-    },
     "foundingYear": "Est. {year}",
+    "sectionTitle": "Brand information",
+    "unknown": "Not available",
     "label": {
       "location": "Location",
       "foundingYear": "Founded",
       "category": "Category",
       "priceRange": "Price",
-      "productFeatures": "Features",
-      "manufacturing": "Verification"
+      "productCategories": "Product categories",
+      "certification": "Verification"
     },
     "previewBanner": "Preview mode — not live",
     "previewBackToEdit": "Back to edit",
@@ -2519,6 +2511,14 @@
     "emptyDescription": "Start exploring the brand directory!",
     "exploreBrands": "Browse Brands",
     "loginToSave": "Log in to save brands"
+  },
+  "likeBrand": {
+    "like": "Like",
+    "likeAriaLabel": "Like this brand, {count, plural, one {# like} other {# likes}}",
+    "unlikeAriaLabel": "Remove your like from this brand, {count, plural, one {# like} other {# likes}}",
+    "loading": "Loading likes",
+    "rateLimited": "Too many reactions. Please try again later.",
+    "error": "We couldn't update your like. Please try again."
   },
   "search": {
     "emptyState": {

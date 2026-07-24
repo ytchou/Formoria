@@ -38,6 +38,8 @@ import {
   trackLanguageSwitched,
   trackBrandSaved,
   trackBrandUnsaved,
+  trackBrandLiked,
+  trackBrandUnliked,
   trackRecommendationBrandClicked,
   trackRecommendationSectionViewed,
   trackGalleryCompleted,
@@ -636,6 +638,24 @@ describe('trackBrandUnsaved', () => {
   it('calls PostHog with brand_unsaved and correct properties', () => {
     trackBrandUnsaved('brand-uuid', 'my-brand', 'brand_detail')
     expect(mockPostHogCapture).toHaveBeenCalledWith('brand_unsaved', {
+      brand_id: 'brand-uuid',
+      brand_slug: 'my-brand',
+      location: 'brand_detail',
+    })
+  })
+})
+
+describe('brand like tracking', () => {
+  it('tracks public brand likes and removals separately from saves', () => {
+    trackBrandLiked('brand-uuid', 'my-brand')
+    trackBrandUnliked('brand-uuid', 'my-brand')
+
+    expect(mockPostHogCapture).toHaveBeenNthCalledWith(1, 'brand_liked', {
+      brand_id: 'brand-uuid',
+      brand_slug: 'my-brand',
+      location: 'brand_detail',
+    })
+    expect(mockPostHogCapture).toHaveBeenNthCalledWith(2, 'brand_unliked', {
       brand_id: 'brand-uuid',
       brand_slug: 'my-brand',
       location: 'brand_detail',

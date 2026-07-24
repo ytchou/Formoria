@@ -77,6 +77,7 @@ export async function CompletionRail({
           ) : null}
           <Button
             className="min-h-12 w-full"
+            nativeButton={false}
             render={<Link href="#profile-completeness" />}
             variant="secondary"
           >

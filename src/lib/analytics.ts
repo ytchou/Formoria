@@ -429,6 +429,22 @@ export function trackBrandUnsaved(brandId: string, slug: string, location: strin
   })
 }
 
+export function trackBrandLiked(brandId: string, slug: string) {
+  capturePostHogEvent('brand_liked', {
+    brand_id: brandId,
+    brand_slug: slug,
+    location: 'brand_detail',
+  })
+}
+
+export function trackBrandUnliked(brandId: string, slug: string) {
+  capturePostHogEvent('brand_unliked', {
+    brand_id: brandId,
+    brand_slug: slug,
+    location: 'brand_detail',
+  })
+}
+
 export function trackRecommendationBrandClicked(
   brandId: string,
   slug: string,

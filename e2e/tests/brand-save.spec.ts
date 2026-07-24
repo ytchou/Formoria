@@ -7,18 +7,18 @@ type AnySupabaseClient = SupabaseClient<any, any, any>;
 /**
  * Save / unsave brand journey (DEV-776)
  *
- * Journey 1: Authenticated user saves a brand via card heart overlay
- *   - Heart button aria-label = "收藏這個品牌" → after click → "取消收藏這個品牌"
+ * Journey 1: Authenticated user saves a brand via card bookmark overlay
+ *   - Bookmark button aria-label = "收藏這個品牌" → after click → "取消收藏這個品牌"
  *
  * Journey 2: Favorites page shows saved brand
  *   - Navigate to /favorites → saved brand name visible
  *
- * Journey 3: Unsave from card → heart returns to "收藏這個品牌"
+ * Journey 3: Unsave from card → bookmark returns to "收藏這個品牌"
  *
  * Journey 4: Favorites page shows empty state after unsave
  *   - Navigating to /favorites shows "尚無收藏品牌"
  *
- * Journey 5: Unauthenticated user clicks heart → redirected to sign-in
+ * Journey 5: Unauthenticated user clicks bookmark → redirected to sign-in
  */
 test.describe.serial('Brand save/unsave — card overlay', () => {
   let supabase: AnySupabaseClient;
@@ -88,7 +88,7 @@ test.describe.serial('Brand save/unsave — card overlay', () => {
     }
   });
 
-  test('Journey 1: save brand via card heart — heart becomes filled/active', async ({ userPage }) => {
+  test('Journey 1: save brand via card bookmark — bookmark becomes filled/active', async ({ userPage }) => {
     const resp = await userPage.goto(`/brands/${brandSlug}`);
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping.');
@@ -181,7 +181,7 @@ test.describe.serial('Brand save/unsave — card overlay', () => {
     await expect(userPage.locator(`a[href*="/brands/${brandSlug}"]`)).toBeVisible({ timeout: 5_000 });
   });
 
-  test('Journey 3: unsave from brand page — heart returns to unfilled state', async ({ userPage }) => {
+  test('Journey 3: unsave from brand page — bookmark returns to unfilled state', async ({ userPage }) => {
     // Ensure the brand is saved so there is something to unsave
     await supabase.from('brand_saves').upsert(
       { user_id: testUserId, brand_id: brandId },
@@ -256,7 +256,7 @@ test.describe.serial('Brand save/unsave — card overlay', () => {
     ).toBeVisible({ timeout: 5_000 });
   });
 
-  test('Journey 5: unauthenticated user clicking heart redirects to /auth/sign-in', async ({ anonPage }) => {
+  test('Journey 5: unauthenticated user clicking bookmark redirects to /auth/sign-in', async ({ anonPage }) => {
     const resp = await anonPage.goto(`/brands/${brandSlug}`);
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping.');
@@ -330,7 +330,7 @@ test.describe('Brand save — card overlay on directory', () => {
     }
   });
 
-  test('card heart overlay: save → aria-label changes to unsave', async ({ userPage }) => {
+  test('card bookmark overlay: save → aria-label changes to unsave', async ({ userPage }) => {
     const resp = await userPage.goto(`/brands/${brandSlug}`);
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping.');

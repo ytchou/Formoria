@@ -32,6 +32,7 @@ Primary discovery surface at `/brands`. Filterable brand listing with grid layou
 Individual brand pages with rich content.
 - Brand story / description
 - Product highlights with photos
+- Anonymous, reversible public Likes for lightweight encouragement (not ranking or trust)
 - Social media links (Instagram, Threads, Facebook)
 - Purchase links (official site, Shopee, Pinkoi, etc.)
 - Optional: Google Maps widget showing physical retail locations
@@ -244,6 +245,12 @@ RLS: users can view/insert own evidence. Admin reads via service-role client.
 - user_id: nullable FK to auth.users (SET NULL on deletion) — populated for `ownership_dispute` and `removal_request` reports (sign-in required)
 - RLS: `owner_select_brand_reports` excludes ownership disputes and removal requests so brand owners cannot see sensitive brand-representative reports about their own brand
 
+### BrandLike
+- id, brand_id (FK cascade), visitor_hash, created_at
+- One Like per signed first-party browser identity and brand; only a one-way identity hash is persisted
+- Service-role-only access; public clients never read or mutate rows directly
+- Counts are social encouragement only and never affect ranking, trust, verification, or brand health
+
 ### OwnershipRevocation
 - id, brand_id, revoked_user_id, revoked_user_email, revoked_by (admin email TEXT), reason, revoked_at
 - Written atomically with the `brand_owners` row deletion by `revoke_brand_ownership` SECURITY DEFINER function
@@ -257,7 +264,7 @@ RLS: users can view/insert own evidence. Admin reads via service-role client.
 - Brand owners can request deletion of their listing
 
 ## Observability
-- PostHog: page views, filter usage, brand detail visits, submission funnel
+- PostHog: page views, filter usage, brand detail visits, brand like/unlike events, submission funnel
 - Sentry: error tracking with source maps
 - Railway: built-in request metrics and logs
 - In-app: admin operations pages expose queue and job state; service monitoring remains in the external operations stack

@@ -176,14 +176,17 @@ export function ShareDialog({ brandSlug, brandName, brandImageUrl, brandId }: Sh
               className={buttonVariants({
                 variant: 'secondary',
                 className: cn(
-                  'h-20 cursor-pointer flex-col gap-2 rounded-xl',
+                  'h-20 cursor-pointer flex-col gap-2 rounded-xl transition-colors duration-200',
                   copied && 'border-verified-green-bg bg-verified-green-bg hover:bg-verified-green-bg',
                 ),
               })}
               onClick={handleCopyLink}
               data-ph-no-autocapture
             >
-              {copied ? <Check className="size-5" /> : <Link className="size-5" />}
+              <span className="relative size-5">
+                <Link className={cn('absolute inset-0 size-5 transition-opacity duration-200', copied ? 'opacity-0' : 'opacity-100')} />
+                <Check className={cn('absolute inset-0 size-5 transition-opacity duration-200', copied ? 'opacity-100 animate-spring-pop' : 'opacity-0')} />
+              </span>
               <span className="type-body-emphasis">
                 {copied ? t('copied') : t('copyLink')}
               </span>

@@ -1,7 +1,10 @@
 import { useTranslations } from 'next-intl'
 import type { ReactNode } from 'react'
+import { Calendar, CircleDollarSign, MapPin, Package, ShieldCheck, Tag } from 'lucide-react'
 import type { Brand } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
+import { InfoField, SurfaceCard } from '@/components/ui/card'
+import { Typography } from '@/components/ui/typography'
 import { MitDeclaredBadge, MitVerifiedBadge, OwnerVerifiedBadge } from './brand-verification-badges'
 
 interface BrandHeaderProps {
@@ -13,25 +16,35 @@ interface BrandHeaderProps {
   adminSlot?: ReactNode
 }
 
-function InfoRow({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="grid grid-cols-[6rem_1fr] items-baseline gap-3">
-      <span className="type-caption">{label}</span>
-      <div>{children}</div>
-    </div>
-  )
-}
-
-export function BrandHeader({ brand, categoryLabel, cityLabel, locale, actionsSlot, adminSlot }: BrandHeaderProps) {
+export function BrandHeader({
+  brand,
+  categoryLabel,
+  cityLabel,
+  locale,
+  actionsSlot,
+  adminSlot,
+}: BrandHeaderProps) {
   const t = useTranslations('brandDetail')
   const hasMitDeclaredBadge = brand.mitStatus === 'declared'
   const hasMitVerifiedBadge = brand.mitStatus === 'verified'
   const hasOwnerVerifiedBadge = brand.isVerified
+  const hasVerification = hasMitDeclaredBadge || hasMitVerifiedBadge || hasOwnerVerifiedBadge
   const mitSmileCert = hasMitVerifiedBadge ? brand.mitEvidence?.mit_smile_cert : undefined
   const priceRangeLabel = brand.priceRange != null ? '$'.repeat(brand.priceRange) : null
-  const resolvedTags = brand.productTags.length > 0
-    ? (locale === 'en' ? (brand.productTagsEn.length > 0 ? brand.productTagsEn : brand.productTags) : brand.productTags)
-    : []
+  const resolvedCategory = categoryLabel ?? brand.category
+  const resolvedTags =
+    brand.productTags.length > 0
+      ? locale === 'en'
+        ? brand.productTagsEn.length > 0
+          ? brand.productTagsEn
+          : brand.productTags
+        : brand.productTags
+      : []
+  const unknownValue = (
+    <Typography as="span" className="text-muted-foreground" variant="fieldValue">
+      {t('unknown')}
+    </Typography>
+  )
 
   return (
     <div className="space-y-3">
@@ -46,74 +59,132 @@ export function BrandHeader({ brand, categoryLabel, cityLabel, locale, actionsSl
       {/* CTA slot — rendered between name and meta row */}
       {actionsSlot}
 
-      <div className="space-y-3">
-        {(cityLabel || brand.foundingYear) && (
-          <div className="grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
-            {cityLabel && (
-              <InfoRow label={t('label.location')}>
-                <span className="text-sm">{cityLabel}</span>
-              </InfoRow>
-            )}
-            {brand.foundingYear && (
-              <InfoRow label={t('label.foundingYear')}>
-                <span className="text-sm">{t('foundingYear', { year: brand.foundingYear })}</span>
-              </InfoRow>
-            )}
+      <section aria-labelledby="brand-info-heading" id="brand-info-section">
+        <SurfaceCard>
+          <Typography as="h2" id="brand-info-heading" variant="sectionTitle">
+            {t('sectionTitle')}
+          </Typography>
+          <div className="mt-4 space-y-5">
+            <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
+              <InfoField
+                label={
+                  <span className="flex items-center gap-2">
+                    <MapPin aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+                    {t('label.location')}
+                  </span>
+                }
+                value={cityLabel ? <Badge variant="secondary">{cityLabel}</Badge> : unknownValue}
+              />
+              <InfoField
+                label={
+                  <span className="flex items-center gap-2">
+                    <Calendar aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+                    {t('label.foundingYear')}
+                  </span>
+                }
+                value={
+                  brand.foundingYear != null
+                    ? t('foundingYear', { year: brand.foundingYear })
+                    : unknownValue
+                }
+              />
+            </dl>
+            <hr className="border-border" />
+            <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
+              <InfoField
+                label={
+                  <span className="flex items-center gap-2">
+                    <Tag aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+                    {t('label.category')}
+                  </span>
+                }
+                value={
+                  resolvedCategory ? (
+                    <Badge variant="secondary">{resolvedCategory}</Badge>
+                  ) : (
+                    unknownValue
+                  )
+                }
+              />
+              <InfoField
+                label={
+                  <span className="flex items-center gap-2">
+                    <CircleDollarSign
+                      aria-hidden="true"
+                      className="size-4 shrink-0 text-muted-foreground"
+                    />
+                    {t('label.priceRange')}
+                  </span>
+                }
+                value={
+                  priceRangeLabel ? (
+                    <Badge variant="secondary">{priceRangeLabel}</Badge>
+                  ) : (
+                    unknownValue
+                  )
+                }
+              />
+            </dl>
+            <hr className="border-border" />
+            <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
+              <InfoField
+                label={
+                  <span className="flex items-center gap-2">
+                    <Package aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+                    {t('label.productCategories')}
+                  </span>
+                }
+                value={
+                  resolvedTags.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {resolvedTags.map((tag, index) => (
+                        <Badge key={`${tag}-${index}`} variant="secondary">
+                          {tag}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    unknownValue
+                  )
+                }
+              />
+              <InfoField
+                label={
+                  <span className="flex items-center gap-2">
+                    <ShieldCheck
+                      aria-hidden="true"
+                      className="size-4 shrink-0 text-muted-foreground"
+                    />
+                    {t('label.certification')}
+                  </span>
+                }
+                value={
+                  hasVerification ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {hasMitDeclaredBadge && (
+                        <MitDeclaredBadge label={t('mitDeclared')} title={t('mitDeclaredTitle')} />
+                      )}
+                      {hasMitVerifiedBadge && (
+                        <MitVerifiedBadge label={t('mitVerified')} title={t('mitVerifiedTitle')} />
+                      )}
+                      {hasOwnerVerifiedBadge && (
+                        <OwnerVerifiedBadge label={t('verified')} title={t('verifiedTitle')} />
+                      )}
+                      {mitSmileCert && (
+                        <span className="type-caption">
+                          {t('mitProofLink', { cert: mitSmileCert })}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    unknownValue
+                  )
+                }
+              />
+            </dl>
           </div>
-        )}
-
-        {((categoryLabel ?? brand.category) || priceRangeLabel) && (
-          <div className="grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
-            {(categoryLabel ?? brand.category) && (
-              <InfoRow label={t('label.category')}>
-                <span className="w-fit rounded-full bg-primary/10 px-2 py-1 type-micro text-primary">
-                  {categoryLabel ?? brand.category}
-                </span>
-              </InfoRow>
-            )}
-            {priceRangeLabel && (
-              <InfoRow label={t('label.priceRange')}>
-                <span className="type-form-label text-primary">
-                  {priceRangeLabel}
-                </span>
-              </InfoRow>
-            )}
-          </div>
-        )}
-
-        {resolvedTags.length > 0 && (
-          <InfoRow label={t('label.productFeatures')}>
-            <div className="flex flex-wrap gap-1.5">
-              {resolvedTags.map((tag, index) => (
-                <Badge key={`${tag}-${index}`} variant="secondary">
-                  {tag}
-                </Badge>
-              ))}
-            </div>
-          </InfoRow>
-        )}
-
-        {(hasMitDeclaredBadge || hasMitVerifiedBadge || hasOwnerVerifiedBadge) && (
-          <InfoRow label={t('label.manufacturing')}>
-            <div className="flex flex-wrap items-center gap-2">
-              {hasMitDeclaredBadge && (
-                <MitDeclaredBadge label={t('mitDeclared')} title={t('mitDeclaredTitle')} />
-              )}
-              {hasMitVerifiedBadge && (
-                <MitVerifiedBadge label={t('mitVerified')} title={t('mitVerifiedTitle')} />
-              )}
-              {hasOwnerVerifiedBadge && (
-                <OwnerVerifiedBadge label={t('verified')} title={t('verifiedTitle')} />
-              )}
-              {mitSmileCert && (
-                <span className="type-caption">
-                  {t('mitProofLink', { cert: mitSmileCert })}
-                </span>
-              )}
-            </div>
-          </InfoRow>
-        )}
-      </div>
+        </SurfaceCard>
+      </section>
     </div>
   )
 }

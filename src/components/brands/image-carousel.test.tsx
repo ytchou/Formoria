@@ -14,6 +14,14 @@ vi.mock('@/lib/analytics', () => ({
   trackGalleryCompleted: mocks.trackGalleryCompleted,
 }))
 
+vi.mock('./like-brand-button', () => ({
+  LikeBrandButton: ({ variant }: { variant: string }) => (
+    <button data-testid="brand-like-button" data-like-variant={variant} type="button">
+      like
+    </button>
+  ),
+}))
+
 vi.mock('next/image', () => ({
   default: ({ alt = '', fill, ...props }: Record<string, unknown>) => {
     void fill
@@ -42,6 +50,19 @@ describe('ImageCarousel', () => {
     )
 
     expect(screen.getByRole('img')).not.toHaveAttribute('loading', 'lazy')
+  })
+
+  it('places the like control in the hero image overlay', () => {
+    render(
+      <NextIntlClientProvider locale="zh-TW" messages={zh}>
+        <ImageCarousel images={[imageUrl]} alt="測試品牌" brandId="brand-uuid" brandSlug="test-brand" />
+      </NextIntlClientProvider>,
+    )
+
+    expect(screen.getByTestId('brand-like-button')).toHaveAttribute(
+      'data-like-variant',
+      'overlay',
+    )
   })
 
   it('tracks gallery navigation with immutable ID, public slug, and photo index', async () => {

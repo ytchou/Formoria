@@ -18,6 +18,7 @@ import { StandardForm, StandardFormStack } from '@/components/forms/form-layout'
 import { MarketingEmailOptInField } from '@/components/forms/marketing-email-opt-in-field'
 import { TurnstileWidget } from '@/components/submit/TurnstileWidget'
 import { Button } from '@/components/ui/button'
+import { SubmitButton } from '@/components/ui/submit-button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -231,7 +232,7 @@ export default function SubmitQuickForm() {
               }}
             />
             {nameSuggestion ? (
-              <div className="overflow-hidden transition-all duration-200">
+              <div className="animate-reveal-up">
                 <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 text-sm">
                   <span>
                     {t('ownerForm.suggestedName')}{' '}
@@ -291,7 +292,7 @@ export default function SubmitQuickForm() {
               }}
             />
             {urlSuggestion ? (
-              <div className="overflow-hidden transition-all duration-200">
+              <div className="animate-reveal-up">
                 <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 text-sm">
                   <span>
                     {t('ownerForm.suggestedUrl')}{' '}
@@ -412,17 +413,14 @@ export default function SubmitQuickForm() {
             </p>
           ) : null}
 
-          <Button
-            type="submit"
+          <SubmitButton
             variant="primary"
             tone="cta"
             disabled={isSubmitDisabled}
-            className="w-full"
-          >
-            {isSubmitting
-              ? t('quickForm.submittingButton')
-              : t('quickForm.submitButton')}
-          </Button>
+            isSubmitting={isSubmitting}
+            idleLabel={t('quickForm.submitButton')}
+            submittingLabel={t('quickForm.submittingButton')}
+          />
         </StandardFormStack>
       </StandardForm>
     </div>

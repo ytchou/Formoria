@@ -3,6 +3,7 @@ import { Suspense } from 'react'
 import { getLocale, getTranslations } from 'next-intl/server'
 import { SearchInput } from '@/components/brands/search-input'
 import { HeroCategoryChips } from '@/components/landing/hero-category-chips'
+import { HeroStats } from '@/components/landing/hero-stats'
 import { categoryLabel, PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
 interface HeroSectionProps {
@@ -45,12 +46,14 @@ export default async function HeroSection({ brandCount, categoryCount, recentBra
           />
         </nav>
 
-        <p className="mt-6 type-metadata">
-          {brandCount} {t('statsBrands')} · {categoryCount} {t('statsCategories')}
-          {recentBrands.count > 0 && (
-            <span className="text-primary"> · +{recentBrands.count} {t(recentBrands.period === '7d' ? 'recentWeek' : 'recentMonth')}</span>
-          )}
-        </p>
+        <HeroStats
+          brandCount={brandCount}
+          brandLabel={t('statsBrands')}
+          categoryCount={categoryCount}
+          categoryLabel={t('statsCategories')}
+          recentCount={recentBrands.count > 0 ? recentBrands.count : undefined}
+          recentLabel={recentBrands.count > 0 ? t(recentBrands.period === '7d' ? 'recentWeek' : 'recentMonth') : undefined}
+        />
       </div>
     </section>
   )

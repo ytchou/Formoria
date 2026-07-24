@@ -113,7 +113,7 @@ describe('BrandHeader — verified badge', () => {
 
 describe('BrandHeader — labeled rows', () => {
   it('renders all fact labels for full-data brand', () => {
-    renderWithIntl(
+    const { container } = renderWithIntl(
       <BrandHeader
         brand={makeBrand({
           foundingYear: 2010,
@@ -127,12 +127,19 @@ describe('BrandHeader — labeled rows', () => {
       />,
     )
 
-    for (const label of ['地點', '創立年份', '類別', '價格區間', '產品特色', '製造與設計']) {
-      expect(screen.getByText(label)).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '品牌資訊' })).toBeInTheDocument()
+    for (const label of ['地點', '創立年份', '類別', '價格區間', '產品類別', '認證']) {
+      const labelElement = screen.getByText(label)
+      expect(labelElement).toBeInTheDocument()
+      expect(labelElement.closest('dt')?.querySelector('svg')).toHaveAttribute(
+        'aria-hidden',
+        'true',
+      )
     }
+    expect(container.querySelectorAll('#brand-info-section hr')).toHaveLength(2)
   })
 
-  it('omits rows for missing data', () => {
+  it('keeps every field visible when data is missing', () => {
     renderWithIntl(
       <BrandHeader
         brand={makeBrand({
@@ -145,28 +152,25 @@ describe('BrandHeader — labeled rows', () => {
       />,
     )
 
-    expect(screen.queryByText('地點')).not.toBeInTheDocument()
-    expect(screen.queryByText('創立年份')).not.toBeInTheDocument()
-    expect(screen.getByText('類別')).toBeInTheDocument()
-    expect(screen.queryByText('價格區間')).not.toBeInTheDocument()
-    expect(screen.queryByText('產品特色')).not.toBeInTheDocument()
-    expect(screen.queryByText('製造與設計')).not.toBeInTheDocument()
-  })
-
-  it('renders only populated rows for sparse brand', () => {
-    renderWithIntl(<BrandHeader brand={makeBrand({ category: 'fashion' })} />)
-
-    expect(screen.getByText('類別')).toBeInTheDocument()
-    for (const label of ['地點', '創立年份', '價格區間', '產品特色', '製造與設計']) {
-      expect(screen.queryByText(label)).not.toBeInTheDocument()
+    for (const label of ['地點', '創立年份', '類別', '價格區間', '產品類別', '認證']) {
+      expect(screen.getByText(label)).toBeInTheDocument()
     }
+    expect(screen.getAllByText('尚無資料')).toHaveLength(5)
   })
 
-  it('renders price as accent text not amber pill', () => {
-    renderWithIntl(<BrandHeader brand={makeBrand({ priceRange: 2 })} />)
+  it('uses neutral badges for finite-value fields', () => {
+    renderWithIntl(
+      <BrandHeader
+        brand={makeBrand({ category: 'fashion', priceRange: 2 })}
+        cityLabel="台北市"
+      />,
+    )
 
-    const price = screen.getByText('$$')
-    expect(price).toHaveClass('text-primary')
-    expect(price).not.toHaveClass('text-mit-verified')
+    for (const value of ['台北市', 'fashion', '$$']) {
+      expect(screen.getByText(value).closest('[data-slot="badge"]')).toHaveAttribute(
+        'data-variant',
+        'secondary',
+      )
+    }
   })
 })
