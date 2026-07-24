@@ -51,7 +51,6 @@ const brand: Brand = {
   purchasePinkoi: null,
   purchaseShopee: null,
   otherUrls: [],
-  retailLocations: [],
   productPhotos: [],
   imageAlts: [],
   contactEmail: null,

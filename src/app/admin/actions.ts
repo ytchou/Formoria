@@ -48,6 +48,7 @@ import {
 import { createEmailPreferences } from '@/lib/services/email-lifecycle'
 import { generateClaimToken } from '@/lib/auth/claim-token'
 import { updateReportStatus } from '@/lib/services/reports'
+import { adminRemoveChannel } from '@/lib/services/brand-channels'
 import { FEATURE_FLAGS, setAppSetting } from '@/lib/services/app-settings'
 import { DENIAL_REASONS, type DenialReason, type OtherUrl } from '@/lib/types'
 import { getSiteUrl } from '@/lib/site-url'
@@ -512,6 +513,29 @@ export async function deleteBrandAction(
     console.error('[admin:deleteBrand]', err)
     return {
       error: err instanceof Error ? err.message : 'An unexpected error occurred',
+    }
+  }
+}
+
+export async function adminRemoveChannelAction(
+  channelId: string,
+): Promise<{ success: true } | { error: string }> {
+  try {
+    const auth = await requireAdminAction()
+    if ('error' in auth) return auth
+
+    const result = await adminRemoveChannel(
+      channelId,
+      auth.user.id,
+      auth.user.email ?? auth.user.id,
+    )
+    if (!result.ok) return { error: result.code }
+
+    return { success: true }
+  } catch (error) {
+    console.error('[admin:removeChannel]', error)
+    return {
+      error: error instanceof Error ? error.message : 'An unexpected error occurred',
     }
   }
 }

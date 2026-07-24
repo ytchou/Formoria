@@ -49,7 +49,6 @@ const BRAND_FIELD_MAP = [
   ['mitStory', 'mit_story'],
   ['city', 'city'],
   ['otherUrls', 'other_urls'],
-  ['retailLocations', 'retail_locations'],
 ] as const satisfies FieldMap<
   {
     romanizedName?: string | null
@@ -57,7 +56,6 @@ const BRAND_FIELD_MAP = [
     mitStory?: string | null
     city?: string | null
     otherUrls?: unknown
-    retailLocations?: unknown
     priceRange?: number | null
     productTags?: string[] | null
   },
@@ -130,7 +128,6 @@ export function toBrandRow(input: {
   purchasePinkoi?: string | null
   purchaseShopee?: string | null
   otherUrls?: unknown
-  retailLocations?: unknown
   contactEmail?: string | null
   priceRange?: number | null
   productTags?: string[] | null

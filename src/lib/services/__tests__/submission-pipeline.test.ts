@@ -72,7 +72,6 @@ describeWithDb('submitBrandForReview (submission-first)', () => {
       city: 'tainan',
       priceRange: 2,
       productPhotos: ['https://storage.example.com/p1.webp'],
-      retailLocations: [],
     }
 
     const result = await submitBrandForReview({

@@ -31,17 +31,6 @@ const liveBrand: Brand = {
   purchasePinkoi: null,
   purchaseShopee: 'https://shopee.tw/live',
   otherUrls: [],
-  retailLocations: [
-    {
-      kind: 'location',
-      name: 'Live Store',
-      relationshipType: 'brand_store',
-      confirmationStatus: 'unconfirmed',
-      address: 'Taipei',
-      latitude: 25.033,
-      longitude: 121.5654,
-    },
-  ],
   productPhotos: ['https://x.supabase.co/p-live-1.png'],
   contactEmail: 'live@brand.tw',
   mitStory: 'Our fabrics come from Changhua.',
@@ -122,7 +111,7 @@ describe('draftSnapshotToDomain', () => {
   it('defaults missing array fields to empty arrays', () => {
     const snapshot: Record<string, unknown> = {
       name: 'Test Brand',
-      // productPhotos, otherUrls, retailLocations, productTags all absent
+      // productPhotos, otherUrls, productTags all absent
     }
     const result = draftSnapshotToDomain(snapshot)
     expect(result.productPhotos).toBeUndefined()
@@ -132,13 +121,11 @@ describe('draftSnapshotToDomain', () => {
     const snapshot: Record<string, unknown> = {
       productPhotos: null,
       otherUrls: null,
-      retailLocations: null,
       productTags: null,
     }
     const result = draftSnapshotToDomain(snapshot)
     expect(result.productPhotos).toEqual([])
     expect(result.otherUrls).toEqual([])
-    expect(result.retailLocations).toEqual([])
     expect(result.productTags).toEqual([])
   })
 

@@ -1,5 +1,3 @@
-import { reconcileRetailLocationEnrichment } from '@/lib/brands/locations'
-
 export type BrandWriteActor = {
   source: 'enriched' | 'owner' | 'admin'
   userId?: string
@@ -69,10 +67,6 @@ export function resolveRefreshEnrichmentPatch(
     }
     if (state?.adminLocked) {
       skipped.push({ field, reason: 'protected:admin_locked' })
-      continue
-    }
-    if (field === 'retail_locations') {
-      allowed[field] = reconcileRetailLocationEnrichment(baseValues[field], value)
       continue
     }
     if (state && ['owner', 'admin', 'submitted'].includes(state.source)) {

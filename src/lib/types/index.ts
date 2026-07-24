@@ -5,9 +5,10 @@ export type {
   BrandStatus,
   OtherUrl,
   RetailLocation,
-  RetailLocationRelationshipType,
   SubmissionStatus,
 } from './brand'
+
+export type { BrandChannel } from './brand-channel'
 
 export type {
   BrandSubmission,

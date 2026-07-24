@@ -47,7 +47,7 @@ const reviewSchema = z.object({
   city: z.string().max(200).nullable(),
   categoryAttributes: z.unknown().nullable(),
   reputationSummary: z.unknown().nullable(),
-  retailLocations: z.unknown().nullable(),
+  retailLocations: z.unknown().nullable().optional(),
   mitEvidence: z.unknown().nullable(),
   siteContent: z.unknown().nullable(),
   foundingYear: z.number().int().min(1800).max(2200).nullable(),

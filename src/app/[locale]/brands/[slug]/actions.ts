@@ -23,6 +23,15 @@ import {
   type OriginEvidenceStance,
 } from '@/lib/services/origin-evidence'
 import { enrollInMarketingEmails } from '@/lib/services/marketing-email-consent'
+import {
+  confirmChannel,
+  getChannelsForBrand,
+  setOwnerChannelStatus,
+  submitChannel,
+} from '@/lib/services/brand-channels'
+import { revalidatePublicBrand } from '@/lib/cache/public-brand-cache'
+import { isOwnerOf } from '@/lib/services/brand-owners'
+import type { ChannelType } from '@/lib/types/brand-channel'
 import { createServiceClient } from '@/lib/supabase/server'
 import { trackOriginEvidenceSubmitted } from '@/lib/analytics'
 
@@ -65,6 +74,8 @@ type EvidenceErrorCode =
 
 export type EvidenceState = { error?: EvidenceErrorCode; success?: boolean }
 
+export type ChannelFormState = { error?: string; success?: true }
+
 export type SubmitClaimInput = {
   brandId: string
   proofs: ProofEvidence[]
@@ -78,6 +89,102 @@ export type SubmitClaimResult =
   | { error: string }
 
 const reportRateLimiter = createInMemoryRateLimiter()
+
+function getFormString(formData: FormData, key: string): string {
+  const value = formData.get(key)
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+export async function confirmChannelAction(
+  channelId: string,
+  brandSlug: string,
+): Promise<{ confirmationCount: number } | { error: string }> {
+  try {
+    const user = await requireClaimUser()
+    if (!user) return { error: 'not_logged_in' }
+
+    const confirmationCount = await confirmChannel(user.id, channelId)
+    revalidatePublicBrand({ slug: brandSlug })
+    return { confirmationCount }
+  } catch (error) {
+    console.error('[brands:confirmChannel]', error)
+    return { error: 'unknown' }
+  }
+}
+
+export async function getChannelViewerStateAction(
+  brandId: string,
+): Promise<{ isOwner: boolean; confirmedChannelIds: string[] }> {
+  const user = await requireClaimUser()
+  if (!user) return { isOwner: false, confirmedChannelIds: [] }
+
+  const [channels, isOwner] = await Promise.all([
+    getChannelsForBrand(brandId, user.id),
+    isOwnerOf(user.id, brandId),
+  ])
+  const allChannels = [...channels.confirmed, ...channels.possible]
+
+  return {
+    isOwner,
+    confirmedChannelIds: allChannels
+      .filter((channel) => channel.hasCurrentUserConfirmed === true)
+      .map((channel) => channel.id),
+  }
+}
+
+export async function submitChannelInfoAction(
+  _prevState: ChannelFormState,
+  formData: FormData,
+): Promise<ChannelFormState> {
+  const t = await getTranslations('brandDetail.channels.errors')
+
+  try {
+    const user = await requireClaimUser()
+    if (!user) return { error: 'not_logged_in' }
+
+    const brandId = getFormString(formData, 'brandId')
+    if (!brandId) return { error: t('missing_brand_id') }
+
+    const brandSlug = getFormString(formData, 'brandSlug')
+    if (!brandSlug) return { error: t('missing_brand_slug') }
+
+    const result = await submitChannel(user.id, brandId, {
+      name: getFormString(formData, 'name'),
+      channelType: getFormString(formData, 'channelType') as ChannelType,
+      category: getFormString(formData, 'category'),
+      region: getFormString(formData, 'region'),
+      address: getFormString(formData, 'address'),
+      url: getFormString(formData, 'url'),
+    })
+    if (!result.ok) return { error: t(result.code) }
+
+    revalidatePublicBrand({ slug: brandSlug })
+    return { success: true }
+  } catch (error) {
+    console.error('[brands:submitChannelInfo]', error)
+    return { error: t('unknown') }
+  }
+}
+
+export async function ownerModerateChannelAction(
+  channelId: string,
+  brandSlug: string,
+  status: 'confirmed' | 'rejected',
+): Promise<{ success: true } | { error: string }> {
+  try {
+    const user = await requireClaimUser()
+    if (!user) return { error: 'not_logged_in' }
+
+    const result = await setOwnerChannelStatus(user.id, channelId, status)
+    if (!result.ok) return { error: result.code }
+
+    revalidatePublicBrand({ slug: brandSlug })
+    return { success: true }
+  } catch (error) {
+    console.error('[brands:ownerModerateChannel]', error)
+    return { error: 'unknown' }
+  }
+}
 
 export async function getPendingClaimStatusAction(brandId: string): Promise<boolean> {
   const user = await requireClaimUser()
@@ -336,6 +443,7 @@ export async function submitEvidenceAction(
 
     trackOriginEvidenceSubmitted(brandId.trim(), brandSlug.trim(), stance)
     revalidatePath(`/brands/${brandSlug.trim()}`)
+    revalidatePath(`/en/brands/${brandSlug.trim()}`)
     revalidatePath('/admin/evidence')
     revalidatePath('/contributions')
     return { success: true }

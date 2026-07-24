@@ -136,7 +136,6 @@ function createBrand(overrides: Partial<Brand>): Brand {
     purchasePinkoi: null,
     purchaseShopee: null,
     otherUrls: [],
-    retailLocations: [],
     productPhotos: [],
     contactEmail: null,
     siteContent: null,

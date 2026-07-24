@@ -5,7 +5,6 @@ import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { SurfaceCard } from '@/components/ui/card'
 import { Link } from '@/i18n/navigation'
-import { normalizeRetailLocations } from '@/lib/brands/locations'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import type { Brand } from '@/lib/types'
 
@@ -109,10 +108,6 @@ export async function SectionSummaryCards({
         icon={Link2}
         rows={[
           { label: tProfile('socialLinks'), value: socialCount },
-          {
-            label: tProfile('retailLocations'),
-            value: normalizeRetailLocations(brand.retailLocations).length,
-          },
         ]}
         title={tOverview('sectionLinksTitle')}
       />

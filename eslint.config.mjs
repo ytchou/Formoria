@@ -62,7 +62,6 @@ const eslintConfig = defineConfig([
   // treats them as literals rather than character-class syntax.
   {
     files: [
-      "src/app/\\[locale\\]/(protected)/dashboard/brands/\\[slug\\]/edit/sections/locations-section.tsx",
       "src/app/admin/review-queue/submissions/submissions-review-list.tsx",
       "src/components/brands/brand-filter-sidebar.tsx",
       "src/components/brands/claim-brand-cta.tsx",

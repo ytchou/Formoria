@@ -8,8 +8,6 @@ import { sendEmail } from '@/lib/email/send'
 import * as supabaseServer from '@/lib/supabase/server'
 import type { EmailMessage } from '@/lib/email/types'
 import { normalizeOwnerLocale, type OwnerLocale } from '@/lib/types'
-import type { RetailLocation } from '@/lib/types/brand'
-import { normalizeRetailLocations } from '@/lib/brands/locations'
 import { computeProfileCompleteness } from '@/lib/services/profile-completeness'
 
 declare module '@/lib/supabase/server' {
@@ -41,7 +39,6 @@ type OwnerRow = {
   purchase_pinkoi?: string
   purchase_shopee?: string
   other_urls: { label: string; url: string }[]
-  retail_locations: RetailLocation[]
   reputation_summary?: { text: string; sources: { url: string }[] }
   founding_year?: number
   site_enabled?: boolean
@@ -285,7 +282,7 @@ function queryEligibleOwners(
   const query = supabase.from<Record<string, unknown>>('brand_owners').select(`
       user_id,
       claimed_at,
-      brands!inner(name, slug, description, hero_image_url, founding_year, product_tags, price_range, purchase_website, city, social_instagram, social_threads, social_facebook, purchase_pinkoi, purchase_shopee, other_urls, retail_locations, reputation_summary, site_content, brand_images(url, status, sort_order)),
+      brands!inner(name, slug, description, hero_image_url, founding_year, product_tags, price_range, purchase_website, city, social_instagram, social_threads, social_facebook, purchase_pinkoi, purchase_shopee, other_urls, reputation_summary, site_content, brand_images(url, status, sort_order)),
       owner_email_preferences!inner(unsubscribe_token),
       email:users!brand_owners_user_id_fkey(email)
     `)
@@ -360,7 +357,6 @@ function normalizeOwnerRow(row: Record<string, unknown>): OwnerRow {
     other_urls: Array.isArray(brand?.other_urls)
       ? (brand.other_urls as OwnerRow['other_urls'])
       : [],
-    retail_locations: normalizeRetailLocations(brand?.retail_locations),
     reputation_summary: objectValue(
       brand?.reputation_summary,
     ) as OwnerRow['reputation_summary'],
@@ -392,7 +388,6 @@ function profileCompleteness(owner: OwnerRow): {
     purchasePinkoi: owner.purchase_pinkoi ?? null,
     purchaseShopee: owner.purchase_shopee ?? null,
     otherUrls: owner.other_urls,
-    retailLocations: owner.retail_locations,
     reputationSummary: owner.reputation_summary ?? null,
   })
 

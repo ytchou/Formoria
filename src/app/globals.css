@@ -1,9 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "leaflet/dist/leaflet.css";
-@import "react-leaflet-cluster/dist/assets/MarkerCluster.css";
-@import "react-leaflet-cluster/dist/assets/MarkerCluster.Default.css";
 
 @custom-variant dark (&:is(.dark *));
 

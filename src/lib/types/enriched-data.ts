@@ -9,7 +9,6 @@ export type EnrichedData = {
   city?: string;
   categoryAttributes?: Json;
   reputationSummary?: Json;
-  retailLocations?: Json;
   mitEvidence?: Json;
   siteContent?: Json;
   foundingYear?: number;
@@ -82,9 +81,6 @@ export function enrichedDataFromDb(
     ...(json.reputation_summary !== undefined
       ? { reputationSummary: json.reputation_summary as Json }
       : {}),
-    ...(json.retail_locations !== undefined
-      ? { retailLocations: json.retail_locations as Json }
-      : {}),
     ...(json.mit_evidence !== undefined
       ? { mitEvidence: json.mit_evidence as Json }
       : {}),
@@ -154,8 +150,6 @@ export function enrichedDataToDb(data: EnrichedData): Record<string, unknown> {
     result.category_attributes = data.categoryAttributes;
   if (data.reputationSummary !== undefined)
     result.reputation_summary = data.reputationSummary;
-  if (data.retailLocations !== undefined)
-    result.retail_locations = data.retailLocations;
   if (data.mitEvidence !== undefined) result.mit_evidence = data.mitEvidence;
   if (data.siteContent !== undefined) result.site_content = data.siteContent;
   if (data.foundingYear !== undefined) result.founding_year = data.foundingYear;

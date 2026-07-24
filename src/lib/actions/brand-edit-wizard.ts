@@ -10,10 +10,8 @@ import {
 } from '@/lib/services/brands'
 import { WIZARD_STEPS } from '@/lib/schemas/brand-edit'
 import type { Brand } from '@/lib/types'
-import {
-  normalizeRetailLocations,
-  reconcileRetailLocationConfirmations,
-} from '@/lib/brands/locations'
+
+type BrandDraftUpdate = Partial<Brand>
 
 type SaveSectionDraftResult = {
   success?: true
@@ -35,7 +33,7 @@ function getCompletedSteps(snapshot: Record<string, unknown> | null): number[] {
 function normalizeSectionData(
   sectionData: Record<string, unknown>,
   existingReputation: unknown,
-): Partial<Brand> {
+): BrandDraftUpdate {
   const { reputationSources, ...data } = sectionData
   if (
     typeof data.reputationSummary !== 'string' &&
@@ -116,25 +114,10 @@ export async function saveSectionDraftAction(
     const existingDraft = await getBrandDraft(brandId)
     const existingReputation =
       existingDraft?.reputationSummary ?? editor.brand.reputationSummary
-    let normalizedSectionData = normalizeSectionData(
+    const normalizedSectionData = normalizeSectionData(
       sectionData,
       existingReputation,
     )
-    if (
-      Object.prototype.hasOwnProperty.call(
-        normalizedSectionData,
-        'retailLocations',
-      )
-    ) {
-      normalizedSectionData = {
-        ...normalizedSectionData,
-        retailLocations: reconcileRetailLocationConfirmations({
-          previous: normalizeRetailLocations(editor.brand.retailLocations),
-          next: normalizeRetailLocations(normalizedSectionData.retailLocations),
-          isActualOwner: editor.owner,
-        }),
-      }
-    }
     const stepIndex = WIZARD_STEPS.findIndex(
       (step) => step.key === sectionKeyOrSectionData,
     )

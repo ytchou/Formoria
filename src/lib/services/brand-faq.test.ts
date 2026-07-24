@@ -24,7 +24,6 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     purchasePinkoi: null,
     purchaseShopee: null,
     otherUrls: [],
-    retailLocations: [],
     productPhotos: [],
     contactEmail: null,
     priceRange: null,
@@ -46,23 +45,6 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
 
 const t = (key: string, params?: Record<string, unknown>) =>
   `${key}|${JSON.stringify(params ?? {})}`
-
-const locationMessages = {
-  'brandFaq.listSeparator': ', ',
-  'sections.locationsAndRetailChannels': 'Locations & retail channels',
-  'locations.confirmedHeading': 'Confirmed locations',
-  'locations.stockDisclaimer':
-    'The brand owner has confirmed only the location details. Check products and stock before visiting.',
-  'locations.unconfirmedHeading': 'Locations to confirm',
-  'locations.unconfirmedDisclaimer':
-    'These listings are based on best-effort public information. Until the brand owner confirms them, we do not show an address, map pin, or directions.',
-  'locations.chainHeading': 'Retail chains',
-  'locations.chainDescription':
-    'Availability varies by branch. The retailer link provides general retailer information, not live stock.',
-} as const
-
-const locationT = (key: string, params?: Record<string, unknown>) =>
-  locationMessages[key as keyof typeof locationMessages] ?? t(key, params)
 
 describe('buildBrandFaq', () => {
   it('returns no FAQ for an empty profile', () => {
@@ -168,128 +150,4 @@ describe('buildBrandFaq', () => {
     expect(mitEntry?.answer).toContain('Products verified')
   })
 
-  it('distinguishes confirmed locations, unconfirmed leads, and chain channels', () => {
-    const faq = buildBrandFaq(
-      makeBrand({
-        retailLocations: [
-          {
-            kind: 'location',
-            name: 'Confirmed Shop',
-            relationshipType: 'brand_store',
-            confirmationStatus: 'owner_confirmed',
-            address: '1 Main Street',
-          },
-          {
-            kind: 'location',
-            name: 'Possible Stockist',
-            relationshipType: 'stockist',
-            confirmationStatus: 'unconfirmed',
-            address: '2 Side Street',
-          },
-          {
-            kind: 'retail_chain',
-            name: 'Example Chain',
-          },
-        ],
-      }),
-      locationT,
-      'en',
-    )
-    const locations = faq.find((item) => item.id === 'physical-stores')
-
-    expect(locations?.question).toBe(
-      'Locations & retail channels: Test Brand',
-    )
-    expect(locations?.answer).toContain('Confirmed locations (1): Confirmed Shop.')
-    expect(locations?.answer).toContain('Locations to confirm (1): Possible Stockist.')
-    expect(locations?.answer).toContain(
-      'Retail chains (1): Example Chain. Availability varies by branch.',
-    )
-    expect(locations?.answer).toContain(
-      'Availability is not live; check with the brand or retailer before visiting or ordering.',
-    )
-  })
-
-  it('treats safely normalized legacy locations as unconfirmed leads', () => {
-    const faq = buildBrandFaq(
-      makeBrand({
-        retailLocations: [
-          {
-            name: 'Legacy Location',
-            address: '台北市大安區',
-            confirmationStatus: 'owner_confirmed',
-          },
-        ] as unknown as Brand['retailLocations'],
-      }),
-      (key, params) => {
-        const messages = {
-          ...locationMessages,
-          'brandFaq.listSeparator': '、',
-          'sections.locationsAndRetailChannels': '地點與販售通路',
-          'locations.confirmedHeading': '已確認地點',
-          'locations.stockDisclaimer':
-            '品牌主僅確認此地點資訊；前往前請先確認販售商品與庫存。',
-          'locations.unconfirmedHeading': '待確認地點',
-          'locations.unconfirmedDisclaimer':
-            '以下資料是依公開資訊盡力整理。品牌主確認前，不會顯示地址、地圖標記或路線指引。',
-          'locations.chainHeading': '連鎖販售通路',
-          'locations.chainDescription':
-            '各分店販售情況不同；通路連結僅提供零售商的一般資訊，不代表即時庫存。',
-        }
-        return messages[key as keyof typeof messages] ?? t(key, params)
-      },
-      'zh-TW',
-    )
-    const locations = faq.find((item) => item.id === 'physical-stores')
-
-    expect(locations?.question).toBe('地點與販售通路: Test Brand')
-    expect(locations?.answer).toContain('待確認地點 (1): Legacy Location.')
-    expect(locations?.answer).not.toContain('已確認地點')
-    expect(locations?.answer).toContain('造訪或下單前')
-  })
-
-  it('does not imply that a listed chain covers every branch or has live stock', () => {
-    const faq = buildBrandFaq(
-      makeBrand({
-        retailLocations: [
-          { kind: 'retail_chain', name: 'First Chain' },
-          { kind: 'retail_chain', name: 'Second Chain' },
-        ],
-      }),
-      locationT,
-      'en',
-    )
-    const locations = faq.find((item) => item.id === 'physical-stores')
-
-    expect(locations?.answer).toContain(
-      'Retail chains (2): First Chain, Second Chain.',
-    )
-    expect(locations?.answer).toContain('Availability varies by branch.')
-    expect(locations?.answer).toContain(
-      'general retailer information, not live stock.',
-    )
-    expect(locations?.answer).toContain(
-      'Availability is not live; check with the brand or retailer before visiting or ordering.',
-    )
-  })
-
-  it('keeps generated location answers concise for large location sets', () => {
-    const faq = buildBrandFaq(
-      makeBrand({
-        retailLocations: Array.from({ length: 5 }, (_, index) => ({
-          kind: 'location' as const,
-          name: `Confirmed Shop ${index + 1}`,
-          relationshipType: 'brand_store' as const,
-          confirmationStatus: 'owner_confirmed' as const,
-          address: `${index + 1} Main Street`,
-        })),
-      }),
-      locationT,
-      'en',
-    )
-    const locations = faq.find((item) => item.id === 'physical-stores')
-
-    expect(locations?.answer).toContain('Confirmed locations (5): Confirmed Shop 1, Confirmed Shop 2, Confirmed Shop 3, ….')
-    expect(locations?.answer).not.toContain('Confirmed Shop 4')
-  })
 })

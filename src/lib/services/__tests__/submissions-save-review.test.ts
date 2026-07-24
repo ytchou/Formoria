@@ -76,7 +76,6 @@ describe("saveSubmissionReview", () => {
       city: "台中",
       categoryAttributes: { material: "木" },
       reputationSummary: { text: "評價良好" },
-      retailLocations: [{ name: "台中店" }],
       mitEvidence: { verified_source: "registry" },
       siteContent: null,
       foundingYear: 2018,

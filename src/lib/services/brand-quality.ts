@@ -68,7 +68,6 @@ type BrandQualityRow = {
   purchase_shopee: string | null
   description: string | null
   founding_year: number | null
-  retail_locations: unknown
   other_urls: unknown
 }
 
@@ -213,7 +212,6 @@ export async function getQualityMetrics(): Promise<QualityMetrics> {
         purchase_shopee,
         description,
         founding_year,
-        retail_locations,
         other_urls
       `)
 
@@ -384,9 +382,8 @@ function completenessBucket(row: BrandQualityRow): keyof QualityMetrics['complet
     hasText(row.purchase_website) || hasText(row.purchase_pinkoi) || hasText(row.purchase_shopee) || jsonArrayLength(row.other_urls) > 0,
     hasText(row.social_instagram) || hasText(row.social_threads) || hasText(row.social_facebook),
     row.founding_year != null,
-    jsonArrayLength(row.retail_locations) > 0,
   ].filter(Boolean).length
-  const score = completed / 6
+  const score = completed / 5
 
   if (score >= 0.8) return 'excellent'
   if (score >= 0.6) return 'good'

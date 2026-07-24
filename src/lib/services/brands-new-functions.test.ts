@@ -20,7 +20,7 @@ const mockBrandRows = [
     submitted_at: '2026-01-01T00:00:00Z',
     social_links: {}, brand_owners: [],
     created_at: '2026-01-01', updated_at: '2026-01-01',
-    purchase_links: [], retail_locations: [],
+    purchase_links: [],
     contact_email: null,
   },
   {
@@ -29,7 +29,7 @@ const mockBrandRows = [
     submitted_at: '2026-01-02T00:00:00Z',
     social_links: {}, brand_owners: [],
     created_at: '2026-01-02', updated_at: '2026-01-02',
-    purchase_links: [], retail_locations: [],
+    purchase_links: [],
     contact_email: null,
   },
   {
@@ -38,7 +38,7 @@ const mockBrandRows = [
     submitted_at: '2026-01-03T00:00:00Z',
     social_links: {}, brand_owners: [],
     created_at: '2026-01-03', updated_at: '2026-01-03',
-    purchase_links: [], retail_locations: [],
+    purchase_links: [],
     contact_email: null,
   },
 ]

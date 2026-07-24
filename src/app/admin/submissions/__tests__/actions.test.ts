@@ -30,7 +30,6 @@ const validInput = {
   city: null,
   categoryAttributes: null,
   reputationSummary: null,
-  retailLocations: null,
   mitEvidence: null,
   siteContent: null,
   foundingYear: null,

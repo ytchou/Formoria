@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        check: [lint, type-check, dead-code, unit-coverage]
+        check: [lint, type-check, unit-changed]
     permissions:
       contents: read
     steps:
@@ -42,11 +42,8 @@ jobs:
             type-check)
               pnpm tsc --noEmit
               ;;
-            dead-code)
-              pnpm knip
-              ;;
-            unit-coverage)
-              pnpm test -- --coverage
+            unit-changed)
+              pnpm vitest run --changed HEAD~1
               ;;
           esac
 

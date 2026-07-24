@@ -38,7 +38,6 @@ export type EnrichBrand = {
   heroImageUrl?: string | null
   productPhotos?: string[] | null
   reputation_summary?: unknown | null
-  retail_locations?: unknown | null
   mit_evidence?: unknown | null
 } & Partial<BrandFlatLinkColumns>
 
@@ -76,7 +75,6 @@ export type EnrichPatch = Partial<BrandFlatLinkColumns> &
     blurb_en: string | null
     founding_year: number | null
     product_tags_en: string[] | null
-    retail_locations: unknown
   }>
 
 export type BatchPhaseContext = {

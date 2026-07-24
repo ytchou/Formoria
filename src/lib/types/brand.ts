@@ -146,7 +146,6 @@ export type Brand = {
   purchasePinkoi: string | null
   purchaseShopee: string | null
   otherUrls: OtherUrl[]
-  retailLocations: RetailLocation[]
   productPhotos: string[]
   imageAlts: Array<{ altZh: string | null; altEn: string | null }>
   contactEmail: string | null

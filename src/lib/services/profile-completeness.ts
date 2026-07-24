@@ -1,5 +1,4 @@
 import type { Brand } from '@/lib/types/brand'
-import { normalizeRetailLocations } from '@/lib/brands/locations'
 
 type ProfileComponentKey =
   | 'description'
@@ -12,7 +11,6 @@ type ProfileComponentKey =
   | 'foundingYear'
   | 'socialPresence'
   | 'additionalSalesChannel'
-  | 'retailLocations'
   | 'reputation'
 
 type ProfileComponent = {
@@ -47,7 +45,6 @@ type ProfileInput = Pick<
   | 'purchasePinkoi'
   | 'purchaseShopee'
   | 'otherUrls'
-  | 'retailLocations'
   | 'reputationSummary'
 >
 
@@ -147,13 +144,6 @@ export function computeProfileCompleteness(
       required: false,
       weight: 3,
       step: 2,
-    },
-    {
-      key: 'retailLocations',
-      complete: normalizeRetailLocations(brand.retailLocations).length > 0,
-      required: false,
-      weight: 3,
-      step: 3,
     },
     {
       key: 'reputation',

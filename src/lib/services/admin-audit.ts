@@ -11,6 +11,7 @@ type AdminAction =
   | 'refresh_requested'
   | 'newsletter_confirmation_resent'
   | 'newsletter_unsubscribed'
+  | 'channel_removed'
 
 type LogAdminActionParams = {
   adminUserId: string

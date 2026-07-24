@@ -28,7 +28,6 @@ import { DirtyFieldsContext } from '@/components/brand-wizard/dirty-fields-conte
 import { BasicInfoSection } from './sections/basic-info-section'
 import { MediaSection } from './sections/media-section'
 import { LinksSection } from './sections/links-section'
-import { LocationsSection } from './sections/locations-section'
 import { ReputationSection } from './sections/reputation-section'
 
 interface BrandEditWizardProps {
@@ -44,7 +43,6 @@ interface BrandEditWizardProps {
 const SECTION_COMPONENTS = [
   MediaSection,
   LinksSection,
-  LocationsSection,
   ReputationSection,
 ] as const
 
@@ -80,7 +78,6 @@ const STEP_VALIDATION_FIELDS: Partial<
 > = {
   basicInfo: ['name', 'productType', 'description', 'priceRange'],
   links: ['purchaseWebsite'],
-  locations: ['retailLocations'],
 }
 
 export function BrandEditWizard({
@@ -88,7 +85,6 @@ export function BrandEditWizard({
   defaultValues,
   initialCompletedSteps = [],
   initialStep = 0,
-  isActualOwner = false,
   isFocused = false,
   productTagSuggestions = [],
 }: BrandEditWizardProps) {
@@ -262,7 +258,6 @@ export function BrandEditWizard({
     activeStep > 0 ? SECTION_COMPONENTS[activeStep - 1] : null
   const dirtyFields = form.formState.dirtyFields
   const isDirty = currentSectionFields.some((field) => Boolean(dirtyFields[field]))
-  const showActualOwnerLocationControls = isActualOwner === true
   const isFocusedMode =
     isFocused || areAllWizardStepsComplete(completedSteps, WIZARD_STEPS.length)
   const handleExit = useCallback(() => {
@@ -286,11 +281,6 @@ export function BrandEditWizard({
               form={form}
               productTagSuggestions={productTagSuggestions}
               currentSlug={brand.slug}
-            />
-          ) : activeStep === 3 ? (
-            <LocationsSection
-              form={form}
-              isActualOwner={showActualOwnerLocationControls}
             />
           ) : (
             SectionComponent && <SectionComponent form={form} />

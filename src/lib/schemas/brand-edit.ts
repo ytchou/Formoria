@@ -21,7 +21,7 @@ const reputationSchema = z.object({
     .optional(),
 })
 
-// Composed full schema (merge of all 5)
+// Composed full schema.
 export const brandEditSchema = brandWizardCommonSchema.merge(reputationSchema)
 
 export const brandPublishRequirementsSchema = z.object({
@@ -53,7 +53,6 @@ export const SECTION_FIELDS: Record<string, (keyof BrandEditFormValues)[]> = {
   basicInfo: BRAND_WIZARD_SHARED_SECTION_FIELDS.basicInfo,
   media: BRAND_WIZARD_SHARED_SECTION_FIELDS.media,
   links: BRAND_WIZARD_SHARED_SECTION_FIELDS.links,
-  locations: BRAND_WIZARD_SHARED_SECTION_FIELDS.locations,
   reputation: ['reputationSummary', 'reputationSources'],
 }
 
@@ -62,7 +61,6 @@ type WizardStepKey =
   | 'basicInfo'
   | 'media'
   | 'links'
-  | 'locations'
   | 'reputation'
 
 export type WizardStep = { key: WizardStepKey }
@@ -71,7 +69,6 @@ export const WIZARD_STEPS: WizardStep[] = [
   { key: 'basicInfo' },
   { key: 'media' },
   { key: 'links' },
-  { key: 'locations' },
   { key: 'reputation' },
 ]
 

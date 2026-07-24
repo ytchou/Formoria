@@ -42,7 +42,7 @@ import {
   runClassifyImagesPhase,
   runImageSearchPhase,
   runLinksPhase,
-  runLocationsPhase,
+  runChannelsPhase,
   runStandaloneClassification,
   runDetectPhase,
   type BrandEnrichState,
@@ -81,7 +81,6 @@ type CurationBrand = {
   category_attributes?: unknown | null;
   site_content?: SiteContent | null;
   reputation_summary?: unknown | null;
-  retail_locations?: unknown | null;
   mit_evidence?: unknown | null;
   purchase_website?: string | null;
   purchaseWebsite?: string | null;
@@ -282,7 +281,6 @@ export function seedEnrichedDataFromOwnerData(
     ["priceRange", "price_range"],
     ["productTags", "product_tags"],
     ["productPhotos", "product_photos"],
-    ["retailLocations", "retail_locations"],
     ["mitStory", "mit_story"],
     ["heroImageUrl", "hero_image_url"],
     ["description", "description"],
@@ -335,10 +333,9 @@ export function mergeSubmissionEnrichedData(
   patch: JsonObject,
 ): JsonObject {
   const merged = deepMergeJsonObjects(base, patch);
-  if (Object.hasOwn(patch, "retail_locations")) {
-    // retail_locations are object arrays; deepMergeJsonObjects unions with Set (no-op on objects).
-    // Overridden per-site until deepMergeJsonObjects handles object-array fields.
-    merged.retail_locations = patch.retail_locations;
+  if (Object.hasOwn(patch, "channels")) {
+    // channels are object arrays; deepMergeJsonObjects unions with Set (no-op on objects).
+    merged.channels = patch.channels;
   }
   return merged;
 }
@@ -722,10 +719,10 @@ export function submissionToEnrichBrand(
     isRefresh && isPlainObject(submission.base_brand_data)
       ? deepMergeJsonObjects(submission.base_brand_data, existingEnriched)
       : seedEnrichedDataFromOwnerData(submission.owner_data, existingEnriched);
-  if (isRefresh && Object.hasOwn(existingEnriched, "retail_locations")) {
-    // retail_locations are object arrays; deepMergeJsonObjects unions with Set (no-op on objects).
+  if (isRefresh && Object.hasOwn(existingEnriched, "channels")) {
+    // channels are object arrays; deepMergeJsonObjects unions with Set (no-op on objects).
     // Overridden per-site until deepMergeJsonObjects handles object-array fields.
-    existing.retail_locations = existingEnriched.retail_locations;
+    existing.channels = existingEnriched.channels;
   }
 
   return {
@@ -750,7 +747,6 @@ export function submissionToEnrichBrand(
       ? (existing.site_content as EnrichBrand["site_content"])
       : null,
     reputation_summary: existing.reputation_summary ?? null,
-    retail_locations: existing.retail_locations ?? null,
     mit_evidence: existing.mit_evidence ?? null,
     product_type:
       typeof existing.product_type === "string" ? existing.product_type : null,
@@ -1333,7 +1329,7 @@ export async function runEnrich(
           descriptionsResult.patch.reputation_summary != null;
 
         await markCurrentPhase("locations");
-        const locationsResult = await runLocationsPhase({
+        const channelsResult = await runChannelsPhase({
           brand,
           phases,
           descriptionRewrite: descriptionsResult.descriptionRewrite,
@@ -1345,9 +1341,9 @@ export async function runEnrich(
           jobId: config.jobId,
           supabase: batchContext.supabase,
         });
-        state.phaseResults.push(locationsResult.phaseResult);
-        await logCurrentPhase(locationsResult.phaseResult);
-        appendPatch(state, locationsResult.patch);
+        state.phaseResults.push(channelsResult.phaseResult);
+        await logCurrentPhase(channelsResult.phaseResult);
+        appendPatch(state, channelsResult.patch);
 
         await markCurrentPhase("expansion");
         const expansionResult = await runExpansionPhase({

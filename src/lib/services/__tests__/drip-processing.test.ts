@@ -53,7 +53,6 @@ function eligibleOwner() {
       brand_images: [],
       product_tags: [],
       other_urls: [],
-      retail_locations: [],
     }],
     owner_email_preferences: [{ unsubscribe_token: 'unsubscribe-token' }],
     email: [{ email: 'owner@example.com' }],

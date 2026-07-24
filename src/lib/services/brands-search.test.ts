@@ -144,7 +144,6 @@ describe('getBrands search path', () => {
         slug: 'description-match',
         status: 'approved',
         product_type: 'crafts',
-        retail_locations: [],
         brand_owners: [],
       },
       {
@@ -153,7 +152,6 @@ describe('getBrands search path', () => {
         slug: 'exact-name',
         status: 'approved',
         product_type: 'crafts',
-        retail_locations: [],
         brand_owners: [],
       },
     ]
