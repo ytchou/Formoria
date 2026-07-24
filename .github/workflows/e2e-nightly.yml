@@ -639,6 +639,7 @@ jobs:
 
       - name: Build Next.js after fix
         if: steps.guard.outputs.skip != 'true' && steps.review.outcome == 'success'
+        id: selfheal_build
         run: |
           set -o pipefail
           pnpm build 2>&1 | tee "$RUNNER_TEMP/formoria-selfheal-build.log"
@@ -668,10 +669,16 @@ jobs:
           steps.review.outcome == 'success' &&
           steps.validation.outcome != 'success'
         id: next_report
+        env:
+          BUILD_OUTCOME: ${{ steps.selfheal_build.outcome }}
         run: |
           REPORT_DIR="$RUNNER_TEMP/formoria-selfheal-report"
           rm -rf "$REPORT_DIR"
           mkdir -p "$REPORT_DIR"
+
+          if [ "$BUILD_OUTCOME" = "failure" ] && [ -s "$RUNNER_TEMP/formoria-selfheal-build.log" ]; then
+            cp "$RUNNER_TEMP/formoria-selfheal-build.log" "$REPORT_DIR/build.log"
+          fi
 
           if [ -s playwright-results-validation.json ]; then
             cp playwright-results-validation.json "$REPORT_DIR/playwright-results.json"
