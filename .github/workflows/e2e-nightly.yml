@@ -82,7 +82,9 @@ jobs:
             ${{ runner.os }}-nextjs-
       - name: Build Next.js (production)
         id: build
-        run: pnpm build
+        run: |
+          set -o pipefail
+          pnpm build 2>&1 | tee "$RUNNER_TEMP/formoria-build.log"
       - name: Install Playwright browsers
         id: browsers
         run: npx playwright install chromium
@@ -124,6 +126,10 @@ jobs:
           REPORT_DIR="$RUNNER_TEMP/formoria-nightly-report"
           rm -rf "$REPORT_DIR"
           mkdir -p "$REPORT_DIR"
+
+          if [ -s "$RUNNER_TEMP/formoria-build.log" ]; then
+            cp "$RUNNER_TEMP/formoria-build.log" "$REPORT_DIR/build.log"
+          fi
 
           if [ -d playwright-report ]; then
             cp -R playwright-report "$REPORT_DIR/playwright-report"
@@ -374,7 +380,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
-      actions: read
+      actions: write
       contents: read
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -498,6 +504,10 @@ jobs:
               }
             }' > "$REPORT_PATH"
 
+          if [ -s "$RUNNER_TEMP/formoria-selfheal-build.log" ]; then
+            cp "$RUNNER_TEMP/formoria-selfheal-build.log" "$(dirname "$REPORT_PATH")/build.log"
+          fi
+
       - name: Context
         if: steps.guard.outputs.skip != 'true'
         id: context
@@ -510,6 +520,15 @@ jobs:
             FAILED_SPECS='[]'
           fi
           echo "failed_specs=$FAILED_SPECS" >> "$GITHUB_OUTPUT"
+
+          FAILURE_CONTEXT="No captured build output was available. Inspect the source workflow logs before diagnosing."
+          if [ -s /tmp/playwright-report/build.log ]; then
+            FAILURE_CONTEXT=$(tail -n 240 /tmp/playwright-report/build.log)
+          fi
+          FAILURE_CONTEXT_DELIMITER="FORMORIA_FAILURE_CONTEXT_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}"
+          echo "failure_context<<$FAILURE_CONTEXT_DELIMITER" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "$FAILURE_CONTEXT" >> "$GITHUB_OUTPUT"
+          echo "$FAILURE_CONTEXT_DELIMITER" >> "$GITHUB_OUTPUT"
 
           TOTAL_SPECS=$(echo "$FAILED_SPECS" | jq length)
           SUITE_SIZE=$(jq '(.stats.expected // 0) + (.stats.unexpected // 0) + (.stats.skipped // 0) + (.stats.flaky // 0)' /tmp/playwright-report/playwright-results.json 2>/dev/null || echo 100)
@@ -584,6 +603,9 @@ jobs:
 
             failed_specs: ${{ steps.context.outputs.failed_specs }}
 
+            failure_context:
+            ${{ steps.context.outputs.failure_context }}
+
             source_run_id: ${{ inputs.source_run_id || github.run_id }}
 
             source_workflow_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ inputs.source_run_id || github.run_id }}
@@ -615,7 +637,9 @@ jobs:
 
       - name: Build Next.js after fix
         if: steps.guard.outputs.skip != 'true' && steps.review.outcome == 'success'
-        run: pnpm build
+        run: |
+          set -o pipefail
+          pnpm build 2>&1 | tee "$RUNNER_TEMP/formoria-selfheal-build.log"
 
       - name: Validate fix
         if: steps.guard.outputs.skip != 'true' && steps.review.outcome == 'success'
@@ -686,7 +710,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: playwright-report-selfheal
-          path: ${{ runner.temp }}/formoria-selfheal-report/playwright-results.json
+          path: ${{ runner.temp }}/formoria-selfheal-report
           retention-days: 7
 
       - name: Continue self-heal until green
@@ -703,12 +727,13 @@ jobs:
           DRY_RUN: ${{ inputs.dry_run }}
           E2E_GREP: ${{ inputs.e2e_grep }}
           GH_TOKEN: ${{ secrets.SELFHEAL_PAT }}
+          WORKFLOW_DISPATCH_TOKEN: ${{ github.token }}
           REPAIR_BRANCH: ${{ steps.branch.outputs.branch }}
         run: |
           set -euo pipefail
           DRY_RUN_VALUE="${DRY_RUN:-false}"
           git push origin "$REPAIR_BRANCH" --force-with-lease
-          gh workflow run e2e-nightly.yml \
+          GH_TOKEN="$WORKFLOW_DISPATCH_TOKEN" gh workflow run e2e-nightly.yml \
             --repo "$GITHUB_REPOSITORY" \
             --ref "$DEFAULT_BRANCH" \
             --field selfheal_only=true \

@@ -19,6 +19,17 @@ describe("nightly E2E Agent Hub reporting", () => {
     expect(workflow).not.toContain("TZ=Asia/Taipei date +%F");
     expect(workflow).not.toContain("AGENT_HUB_SERVICE_KEY");
     expect(workflow).not.toContain("rest/v1/rpc/insert_routine_run");
+    expect(workflow).toContain("actions: write\n      contents: read");
+    expect(workflow).toContain(
+      'pnpm build 2>&1 | tee "$RUNNER_TEMP/formoria-build.log"',
+    );
+    expect(workflow).toContain(
+      'pnpm build 2>&1 | tee "$RUNNER_TEMP/formoria-selfheal-build.log"',
+    );
+    expect(workflow).toContain("failure_context:");
+    expect(workflow).toContain(
+      'GH_TOKEN="$WORKFLOW_DISPATCH_TOKEN" gh workflow run e2e-nightly.yml',
+    );
 
     const reportIndex = workflow.indexOf("Report E2E results to Agent Hub");
     const alertIndex = workflow.indexOf("actions/github-script@");
