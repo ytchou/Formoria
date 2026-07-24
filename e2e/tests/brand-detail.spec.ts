@@ -84,6 +84,20 @@ test.describe('Brand detail deep', () => {
     expect(socialBox!.y).toBeLessThan(purchaseBox!.y);
   });
 
+  test('tab nav click scrolls to correct section', async ({ page }) => {
+    await page.goto(`/brands/${seeded.slug}`);
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 10_000 });
+
+    // The seeded brand has social links — the tab nav must include a "社群平台" link
+    const nav = page.getByRole('navigation', { name: '本頁導覽' });
+    await nav.getByRole('link', { name: '社群平台' }).click();
+
+    // After the smooth-scroll the social section heading must be visible in the viewport
+    await expect(
+      page.getByRole('heading', { name: '社群平台', level: 2 })
+    ).toBeInViewport({ timeout: 5_000 });
+  });
+
   test('external links have target="_blank" and rel="noopener"', async ({ page }) => {
     await page.goto(brandHref);
     const externalLinks = page.locator('a[href^="http"]:not([href*="localhost"])');
