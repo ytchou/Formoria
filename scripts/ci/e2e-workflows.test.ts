@@ -51,7 +51,21 @@ describe("E2E workflow contracts", () => {
     expect(workflow).toMatch(/anthropics\/claude-code-action@[0-9a-f]{40}/);
     expect(workflow).toContain("steps.fix.outputs.structured_output");
     expect(workflow).not.toContain("steps.fix.outputs.result");
-    expect(workflow).toContain('--json-schema {"type":"object"');
+    const schemaMatch = workflow.match(/--json-schema '(\{[^']+\})'/);
+    const schema = schemaMatch?.[1];
+    expect(schema).toBeDefined();
+    expect(JSON.parse(schema ?? "")).toMatchObject({
+      type: "object",
+      required: ["classification"],
+      properties: {
+        classification: {
+          type: "array",
+          items: {
+            required: ["file", "title", "category", "reason"],
+          },
+        },
+      },
+    });
     expect(workflow).toContain("default: false");
     expect(workflow).toContain("source_artifact_name");
     expect(workflow).toContain("repair_branch");
