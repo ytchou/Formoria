@@ -320,6 +320,15 @@
       "fallbackDescription": "Explore {name}, a Taiwanese brand featured on Formoria.",
       "notFoundTitle": "Brand Not Found"
     },
+    "tabNav": {
+      "overview": "On this page",
+      "about": "About",
+      "social": "Social",
+      "purchase": "Purchase",
+      "locations": "Locations & Channels",
+      "faq": "FAQ",
+      "backToTop": "Back to top"
+    },
     "verified": "Brand-managed",
     "verifiedTitle": "Managed by the brand owner",
     "mitVerified": "MIT Verified",

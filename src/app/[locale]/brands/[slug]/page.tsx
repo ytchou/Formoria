@@ -23,6 +23,7 @@ import { ClaimBrandCta } from '@/components/brands/claim-brand-cta'
 import { BrandAbout } from '@/components/brands/brand-about'
 import { BrandFaqAccordion } from '@/components/brands/brand-faq-accordion'
 import { BrandLinks } from '@/components/brands/brand-links'
+import { BrandSectionNav } from '@/components/brands/brand-section-nav'
 import { BrandChannelsSection } from '@/components/brands/brand-channels-section'
 import { RelatedBrands } from '@/components/brands/related-brands'
 import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
@@ -36,6 +37,11 @@ import { cn } from '@/lib/utils'
 import { NotFoundError } from '@/lib/errors'
 import { truncateForMeta } from '@/lib/text/truncate-for-meta'
 import { getBrandIndexability } from '@/lib/seo/brand-indexability'
+import {
+  normalizeInstagramHref,
+  normalizeThreadsHref,
+  sanitizeHref,
+} from '@/lib/url'
 
 // 1h ISR: ownership/verified-state changes propagate within ~an hour; route still statically served between regenerations
 export const revalidate = 3600
@@ -187,6 +193,35 @@ export default async function BrandDetailPage({ params }: PageProps) {
   ])
 
   const visitUrl = getBrandVisitHref(displayBrand)
+  const description =
+    safeLocale === 'en'
+      ? (displayBrand.descriptionEn ?? displayBrand.description)
+      : displayBrand.description
+  const hasSocialLinks = [
+    normalizeInstagramHref(displayBrand.socialInstagram),
+    normalizeThreadsHref(displayBrand.socialThreads),
+    sanitizeHref(displayBrand.socialFacebook),
+  ].some(Boolean)
+  const hasPurchaseLinks = [
+    sanitizeHref(displayBrand.purchaseWebsite),
+    sanitizeHref(displayBrand.purchasePinkoi),
+    sanitizeHref(displayBrand.purchaseShopee),
+  ].some(Boolean)
+  const sections = [
+    ...(description
+      ? [{ id: 'about', label: tBrandDetail('tabNav.about') }]
+      : []),
+    ...(hasSocialLinks
+      ? [{ id: 'social', label: tBrandDetail('tabNav.social') }]
+      : []),
+    ...(hasPurchaseLinks
+      ? [{ id: 'purchase', label: tBrandDetail('tabNav.purchase') }]
+      : []),
+    { id: 'locations', label: tBrandDetail('tabNav.locations') },
+    ...(faqItems.length > 0
+      ? [{ id: 'faq', label: tBrandDetail('tabNav.faq') }]
+      : []),
+  ]
 
   // Breadcrumb items for JSON-LD
   const directoryLabel = tBrandDetail('breadcrumb.directory')
@@ -237,24 +272,20 @@ export default async function BrandDetailPage({ params }: PageProps) {
           brandName={displayBrand.name}
         />
 
-        {/* Two-column layout */}
+        {/* Hero */}
         <div className="flex flex-col gap-10 lg:flex-row lg:gap-12">
-          {/* Left: sticky image gallery */}
-          <div className="w-full lg:w-[580px] lg:shrink-0">
-            <div className="lg:sticky lg:top-8">
-              <ImageCarousel
-                images={galleryImages}
-                alt={displayBrand.name}
-                brandId={displayBrand.id}
-                brandSlug={displayBrand.slug}
-                category={productTypeSlug}
-                imageAlts={displayBrand.imageAlts}
-              />
-            </div>
+          <div className="w-full lg:w-2/5">
+            <ImageCarousel
+              images={galleryImages}
+              alt={displayBrand.name}
+              brandId={displayBrand.id}
+              brandSlug={displayBrand.slug}
+              category={productTypeSlug}
+              imageAlts={displayBrand.imageAlts}
+            />
           </div>
 
-          {/* Right: scrolling content */}
-          <div className="min-w-0 flex-1 space-y-6">
+          <div className="min-w-0 lg:w-3/5">
             <BrandHeader
               brand={displayBrand}
               categoryLabel={categoryLabel || null}
@@ -272,34 +303,41 @@ export default async function BrandDetailPage({ params }: PageProps) {
                 </SavedBrandsProvider>
               }
             />
+          </div>
+        </div>
 
-            <hr className="border-border" />
+        <BrandSectionNav sections={sections} />
 
+        <div className="flex flex-col gap-6">
+          {description && (
+            <section id="about">
             <BrandAbout brand={displayBrand} />
+            </section>
+          )}
 
-            <hr className="border-border" />
+          <BrandLinks
+            brand={displayBrand}
+            sectionIds={{ social: 'social', purchase: 'purchase' }}
+          />
 
-            <BrandLinks brand={displayBrand} />
-
-            <hr className="border-border" />
+          <section id="locations">
             <BrandChannelsSection
               confirmed={channels.confirmed}
               possible={channels.possible}
               brandId={displayBrand.id}
               brandSlug={displayBrand.slug}
             />
+          </section>
 
-            {faqItems.length > 0 && (
-              <>
-                <hr className="border-border" />
+          {faqItems.length > 0 && (
+            <section id="faq">
                 <BrandFaqAccordion items={faqItems} brandSlug={displayBrand.slug} />
-              </>
-            )}
+            </section>
+          )}
 
-            {!displayBrand.isVerified && (
-              <ClaimBrandCta brandId={displayBrand.id} brandSlug={displayBrand.slug} />
-            )}
-          </div>
+          {!displayBrand.isVerified && (
+            <ClaimBrandCta brandId={displayBrand.id} brandSlug={displayBrand.slug} />
+          )}
         </div>
 
         {/* Related brands */}

@@ -22,6 +22,10 @@ import { trackExternalLinkClicked } from '@/lib/analytics'
 
 interface BrandLinksProps {
   brand: Brand
+  sectionIds?: {
+    social?: string
+    purchase?: string
+  }
 }
 
 function normalizeDirectUrl(value: string | undefined | null): string | null {
@@ -59,6 +63,7 @@ type LinkSlot = {
 }
 
 type LinkSectionProps = {
+  id?: string
   label: string
   slots: LinkSlot[]
   brand: Brand
@@ -106,12 +111,12 @@ function SectionLabel({
   )
 }
 
-function LinkSection({ label, slots, brand }: LinkSectionProps) {
+function LinkSection({ id, label, slots, brand }: LinkSectionProps) {
   const visibleSlots = slots.filter((slot) => slot.url)
   if (visibleSlots.length === 0) return null
 
   return (
-    <section>
+    <section id={id}>
       <SectionLabel>{label}</SectionLabel>
       <div className="flex flex-wrap gap-3">
         {visibleSlots.map((slot, index) => {
@@ -145,7 +150,7 @@ function LinkSection({ label, slots, brand }: LinkSectionProps) {
   )
 }
 
-function BrandSocialLinks({ brand }: BrandLinksProps) {
+function BrandSocialLinks({ brand, sectionIds }: BrandLinksProps) {
   const t = useTranslations('brandDetail')
 
   const socialSlots: LinkSlot[] = [
@@ -173,6 +178,7 @@ function BrandSocialLinks({ brand }: BrandLinksProps) {
 
   return (
     <LinkSection
+      id={sectionIds?.social}
       label={t('links.socialPlatforms')}
       slots={socialSlots}
       brand={brand}
@@ -180,7 +186,7 @@ function BrandSocialLinks({ brand }: BrandLinksProps) {
   )
 }
 
-function BrandPurchaseLinks({ brand }: BrandLinksProps) {
+function BrandPurchaseLinks({ brand, sectionIds }: BrandLinksProps) {
   const t = useTranslations('brandDetail')
 
   const purchaseSlots: LinkSlot[] = [
@@ -209,6 +215,7 @@ function BrandPurchaseLinks({ brand }: BrandLinksProps) {
 
   return (
     <LinkSection
+      id={sectionIds?.purchase}
       label={t('links.purchaseChannels')}
       slots={purchaseSlots}
       brand={brand}
@@ -243,11 +250,11 @@ function BrandOtherLinks({ brand }: BrandLinksProps) {
   )
 }
 
-export function BrandLinks({ brand }: BrandLinksProps) {
+export function BrandLinks({ brand, sectionIds }: BrandLinksProps) {
   return (
     <div className="space-y-5">
-      <BrandSocialLinks brand={brand} />
-      <BrandPurchaseLinks brand={brand} />
+      <BrandSocialLinks brand={brand} sectionIds={sectionIds} />
+      <BrandPurchaseLinks brand={brand} sectionIds={sectionIds} />
       <BrandOtherLinks brand={brand} />
     </div>
   )

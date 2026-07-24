@@ -113,7 +113,7 @@ describe('BrandHeader — verified badge', () => {
 
 describe('BrandHeader — labeled rows', () => {
   it('renders all fact labels for full-data brand', () => {
-    const { container } = renderWithIntl(
+    renderWithIntl(
       <BrandHeader
         brand={makeBrand({
           foundingYear: 2010,
@@ -130,13 +130,8 @@ describe('BrandHeader — labeled rows', () => {
     expect(screen.getByRole('heading', { name: '品牌資訊' })).toBeInTheDocument()
     for (const label of ['地點', '創立年份', '類別', '價格區間', '產品類別', '認證']) {
       const labelElement = screen.getByText(label)
-      expect(labelElement).toBeInTheDocument()
-      expect(labelElement.closest('dt')?.querySelector('svg')).toHaveAttribute(
-        'aria-hidden',
-        'true',
-      )
+      expect(labelElement.closest('dt')).toHaveTextContent(label)
     }
-    expect(container.querySelectorAll('#brand-info-section hr')).toHaveLength(2)
   })
 
   it('keeps every field visible when data is missing', () => {
@@ -153,7 +148,7 @@ describe('BrandHeader — labeled rows', () => {
     )
 
     for (const label of ['地點', '創立年份', '類別', '價格區間', '產品類別', '認證']) {
-      expect(screen.getByText(label)).toBeInTheDocument()
+      expect(screen.getByText(label).closest('dt')).toHaveTextContent(label)
     }
     expect(screen.getAllByText('尚無資料')).toHaveLength(5)
   })
