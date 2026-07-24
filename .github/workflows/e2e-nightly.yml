@@ -618,7 +618,9 @@ jobs:
 
             systemic: ${{ steps.context.outputs.systemic == '1' && 'true' || 'false' }}
           claude_args: >-
-            --max-turns 60 --json-schema '{"type":"object","additionalProperties":true,"required":["classification"],"properties":{"classification":{"type":"array","items":{"type":"object","additionalProperties":true,"required":["file","title","category","reason"]}}}}'
+            --max-turns 60
+            --allowedTools "Read,Write,Edit,Replace,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git ls-files:*),Bash(git rev-parse:*),Bash(git add:*),Bash(git commit:*),Bash(pnpm:*),Bash(gh run view:*)"
+            --json-schema '{"type":"object","additionalProperties":true,"required":["classification"],"properties":{"classification":{"type":"array","items":{"type":"object","additionalProperties":true,"required":["file","title","category","reason"]}}}}'
 
       - name: Review fix
         if: steps.guard.outputs.skip != 'true' && steps.fix.outcome == 'success'
@@ -633,7 +635,9 @@ jobs:
             Review the changes on this branch against the classification output.
             Keep this review focused on the diff and the stated criteria; do not run the full e2e suite.
             Return the required VERDICT, JUSTIFICATION, APP_FILES, and RISK lines once the diff is reviewed.
-          claude_args: "--max-turns 40"
+          claude_args: >-
+            --max-turns 40
+            --allowedTools "Read,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*)"
 
       - name: Refresh dependencies after fix
         if: steps.guard.outputs.skip != 'true' && steps.review.outcome == 'success'
