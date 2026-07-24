@@ -12,6 +12,7 @@ You receive:
 2. **regression_commits** — `git log` + diff from last green nightly to HEAD
 3. **repeat_offenders** — files changed by merged `selfheal`-labeled PRs in the last 7 days
 4. **systemic** — boolean, true if >25% of the suite is red
+5. **source_run_id** and **source_workflow_url** — the GitHub Actions run that produced the failure
 
 ## Step 1: Read Project Context
 
@@ -24,6 +25,13 @@ For EACH failing spec, follow this diagnosis sequence. Do not skip steps.
 ### 2a. Read the error
 
 The error message is your most important clue. Common patterns:
+
+If a failure title says that a workflow step failed before a Playwright report was
+available, inspect the source run before diagnosing the application. Use
+`gh run view <source_run_id> --log-failed` or the GitHub Actions URL supplied in
+the inputs. A build, dependency, browser, or checkout failure is still a real
+failure; do not treat a missing report as a passing test or change the workflow
+to hide it.
 
 | Error pattern | Likely cause |
 |---|---|
