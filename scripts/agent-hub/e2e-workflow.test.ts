@@ -26,6 +26,13 @@ describe("nightly E2E Agent Hub reporting", () => {
     expect(workflow).toContain(
       'pnpm build 2>&1 | tee "$RUNNER_TEMP/formoria-selfheal-build.log"',
     );
+    expect(workflow).toContain("id: selfheal_build");
+    expect(workflow).toContain(
+      'if [ "$BUILD_OUTCOME" = "failure" ] && [ -s "$RUNNER_TEMP/formoria-selfheal-build.log" ]; then',
+    );
+    expect(workflow).toContain(
+      'cp "$RUNNER_TEMP/formoria-selfheal-build.log" "$REPORT_DIR/build.log"',
+    );
     expect(workflow).toContain("failure_context:");
     expect(workflow).toContain(
       'GH_TOKEN="$WORKFLOW_DISPATCH_TOKEN" gh workflow run e2e-nightly.yml',
