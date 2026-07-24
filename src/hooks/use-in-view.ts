@@ -21,7 +21,7 @@ export function useInView<T extends HTMLElement = HTMLElement>({
     if (!el) return
 
     if (typeof IntersectionObserver === 'undefined') {
-      setInView(true)
+      queueMicrotask(() => setInView(true))
       return
     }
 
