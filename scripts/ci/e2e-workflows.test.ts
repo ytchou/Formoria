@@ -76,6 +76,39 @@ describe("E2E workflow contracts", () => {
     expect(workflow).toContain("name: Notify Slack of green self-heal PR");
     expect(workflow).toContain("SLACK_HEALTH_WEBHOOK_URL");
     expect(workflow).toContain("playwright-report-selfheal");
+    expect(workflow).toContain("name: Prepare nightly failure report");
+    expect(workflow).toContain("name: Upload nightly failure report");
+    expect(workflow).toContain(
+      'REPORT_DIR="$RUNNER_TEMP/formoria-nightly-report"',
+    );
+    expect(workflow).toContain(
+      'cp -R playwright-report "$REPORT_DIR/playwright-report"',
+    );
+    expect(workflow).toContain("if-no-files-found: error");
+    expect(workflow).toContain("name: Prepare self-heal input");
+    expect(workflow).toContain(
+      "The source run did not provide a Playwright report",
+    );
+    expect(workflow).toContain("source_workflow_url:");
+    expect(workflow).toContain(
+      'gh pr list --repo "$GITHUB_REPOSITORY" --state open --label selfheal',
+    );
+    expect(workflow).toContain("set -euo pipefail");
+    expect(workflow).toContain(
+      'gh pr list --repo "$GITHUB_REPOSITORY" --state merged --label selfheal',
+    );
+    expect(workflow).toContain(
+      "Validation did not produce a Playwright report",
+    );
+    expect(workflow).toMatch(
+      /Download nightly report \(same run\)[\s\S]*?continue-on-error: true/,
+    );
+    expect(workflow).toMatch(
+      /Download nightly report \(cross run\)[\s\S]*?continue-on-error: true/,
+    );
+    expect(workflow.indexOf("name: Checkout")).toBeLessThan(
+      workflow.indexOf("name: Download nightly report (same run)"),
+    );
     expect(workflow).toMatch(/pnpm\/action-setup@[0-9a-f]{40}/);
     expect(
       remoteActions(workflow).every((action) => /@[0-9a-f]{40}$/.test(action)),

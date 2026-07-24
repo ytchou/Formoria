@@ -96,13 +96,98 @@ jobs:
             TEST_ARGS+=(--grep "$E2E_GREP")
           fi
           pnpm exec playwright test "${TEST_ARGS[@]}"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        if: ${{ failure() }}
+      - name: Prepare nightly failure report
+        if: >-
+          always() &&
+          (
+            steps.checkout.outcome == 'failure' ||
+            steps.setup_pnpm.outcome == 'failure' ||
+            steps.setup_node.outcome == 'failure' ||
+            steps.install.outcome == 'failure' ||
+            steps.cache.outcome == 'failure' ||
+            steps.build.outcome == 'failure' ||
+            steps.browsers.outcome == 'failure' ||
+            steps.e2e.outcome == 'failure'
+          )
+        id: nightly_report
+        env:
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+          BROWSERS_OUTCOME: ${{ steps.browsers.outcome }}
+          CHECKOUT_OUTCOME: ${{ steps.checkout.outcome }}
+          E2E_OUTCOME: ${{ steps.e2e.outcome }}
+          INSTALL_OUTCOME: ${{ steps.install.outcome }}
+          SETUP_NODE_OUTCOME: ${{ steps.setup_node.outcome }}
+          SETUP_PNPM_OUTCOME: ${{ steps.setup_pnpm.outcome }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          REPORT_DIR="$RUNNER_TEMP/formoria-nightly-report"
+          rm -rf "$REPORT_DIR"
+          mkdir -p "$REPORT_DIR"
+
+          if [ -d playwright-report ]; then
+            cp -R playwright-report "$REPORT_DIR/playwright-report"
+          fi
+
+          if [ -s playwright-results.json ]; then
+            cp playwright-results.json "$REPORT_DIR/playwright-results.json"
+          else
+            FAILED_STEP="workflow setup"
+            if [ "$BUILD_OUTCOME" = "failure" ]; then
+              FAILED_STEP="Next.js build"
+            elif [ "$E2E_OUTCOME" = "failure" ]; then
+              FAILED_STEP="Playwright test execution"
+            elif [ "$BROWSERS_OUTCOME" = "failure" ]; then
+              FAILED_STEP="Playwright browser installation"
+            elif [ "$INSTALL_OUTCOME" = "failure" ]; then
+              FAILED_STEP="dependency installation"
+            elif [ "$SETUP_NODE_OUTCOME" = "failure" ]; then
+              FAILED_STEP="Node.js setup"
+            elif [ "$SETUP_PNPM_OUTCOME" = "failure" ]; then
+              FAILED_STEP="pnpm setup"
+            elif [ "$CHECKOUT_OUTCOME" = "failure" ]; then
+              FAILED_STEP="repository checkout"
+            fi
+
+            jq -n \
+              --arg failed_step "$FAILED_STEP" \
+              --arg workflow_url "$WORKFLOW_URL" \
+              '{
+                version: "1.0",
+                suites: [{
+                  title: "Workflow failure",
+                  file: null,
+                  specs: [{
+                    title: ("\($failed_step) failed before a Playwright report was available. Inspect the source run logs: \($workflow_url)"),
+                    ok: false,
+                    tests: []
+                  }]
+                }],
+                stats: {
+                  duration: 0,
+                  expected: 0,
+                  skipped: 0,
+                  unexpected: 1,
+                  flaky: 0
+                },
+                metadata: {
+                  formoria_failure: {
+                    failed_step: $failed_step,
+                    workflow_url: $workflow_url
+                  }
+                }
+              }' > "$REPORT_DIR/playwright-results.json"
+          fi
+
+          echo "report_dir=$REPORT_DIR" >> "$GITHUB_OUTPUT"
+
+      - name: Upload nightly failure report
+        if: always() && steps.nightly_report.outputs.report_dir != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: playwright-report-nightly
-          path: |
-            playwright-report/
-            playwright-results.json
+          path: ${{ steps.nightly_report.outputs.report_dir }}
+          if-no-files-found: error
           retention-days: 7
       - name: Report E2E results to Agent Hub
         if: ${{ always() }}
@@ -315,6 +400,7 @@ jobs:
           REPAIR_BRANCH: ${{ inputs.repair_branch }}
           SELFHEAL_ENABLED: ${{ vars.SELFHEAL_ENABLED }}
         run: |
+          set -euo pipefail
           if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.selfheal_only }}" == "true" && -z "${{ inputs.source_run_id }}" ]]; then
             echo "::error::source_run_id is required when selfheal_only is true"
             exit 1
@@ -341,24 +427,11 @@ jobs:
               exit 0
             fi
           fi
-          if gh pr list --state open --label selfheal --json number --jq length | grep -qv '^0$'; then
+          if gh pr list --repo "$GITHUB_REPOSITORY" --state open --label selfheal --json number --jq length | grep -qv '^0$'; then
             echo "Open selfheal PR exists, skipping"
             echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-
-      - name: Download nightly report (same run)
-        if: steps.guard.outputs.skip != 'true' && inputs.selfheal_only != true
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          name: playwright-report-nightly
-          path: /tmp/playwright-report
-
-      - name: Download nightly report (cross run)
-        if: steps.guard.outputs.skip != 'true' && inputs.selfheal_only == true
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh run download "${{ inputs.source_run_id }}" -n "${{ inputs.source_artifact_name }}" -D /tmp/playwright-report
 
       - name: Checkout
         if: steps.guard.outputs.skip != 'true'
@@ -367,6 +440,63 @@ jobs:
           token: ${{ secrets.SELFHEAL_PAT }}
           fetch-depth: 0
           ref: ${{ inputs.repair_branch || github.ref }}
+
+      - name: Download nightly report (same run)
+        if: always() && steps.guard.outputs.skip != 'true' && inputs.selfheal_only != true
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: playwright-report-nightly
+          path: /tmp/playwright-report
+
+      - name: Download nightly report (cross run)
+        if: always() && steps.guard.outputs.skip != 'true' && inputs.selfheal_only == true
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download "${{ inputs.source_run_id }}" -n "${{ inputs.source_artifact_name }}" -D /tmp/playwright-report
+
+      - name: Prepare self-heal input
+        if: always() && steps.guard.outputs.skip != 'true'
+        env:
+          SOURCE_RUN_ID: ${{ inputs.source_run_id || github.run_id }}
+          SOURCE_WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ inputs.source_run_id || github.run_id }}
+        run: |
+          set -euo pipefail
+          REPORT_PATH=/tmp/playwright-report/playwright-results.json
+          mkdir -p "$(dirname "$REPORT_PATH")"
+          if [ -s "$REPORT_PATH" ]; then
+            exit 0
+          fi
+
+          jq -n \
+            --arg source_run_id "$SOURCE_RUN_ID" \
+            --arg workflow_url "$SOURCE_WORKFLOW_URL" \
+            '{
+              version: "1.0",
+              suites: [{
+                title: "Workflow failure",
+                file: null,
+                specs: [{
+                  title: ("The source run did not provide a Playwright report. Inspect its workflow logs: \($workflow_url)"),
+                  ok: false,
+                  tests: []
+                }]
+              }],
+              stats: {
+                duration: 0,
+                expected: 0,
+                skipped: 0,
+                unexpected: 1,
+                flaky: 0
+              },
+              metadata: {
+                formoria_failure: {
+                  source_run_id: $source_run_id,
+                  workflow_url: $workflow_url
+                }
+              }
+            }' > "$REPORT_PATH"
 
       - name: Context
         if: steps.guard.outputs.skip != 'true'
@@ -396,7 +526,7 @@ jobs:
           echo "$REGRESSION_DIFF" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
-          REPEAT_OFFENDERS=$(gh pr list --state merged --label selfheal --search "merged:>=$(date -d '-7 days' +%F 2>/dev/null || date -v-7d +%F)" --json files --jq '[.[].files[].path] | unique' 2>/dev/null || echo '[]')
+          REPEAT_OFFENDERS=$(gh pr list --repo "$GITHUB_REPOSITORY" --state merged --label selfheal --search "merged:>=$(date -d '-7 days' +%F 2>/dev/null || date -v-7d +%F)" --json files --jq '[.[].files[].path] | unique' 2>/dev/null || echo '[]')
           echo "repeat_offenders=$REPEAT_OFFENDERS" >> "$GITHUB_OUTPUT"
 
       - name: Create branch
@@ -454,6 +584,10 @@ jobs:
 
             failed_specs: ${{ steps.context.outputs.failed_specs }}
 
+            source_run_id: ${{ inputs.source_run_id || github.run_id }}
+
+            source_workflow_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ inputs.source_run_id || github.run_id }}
+
             regression_commits:
             ${{ steps.context.outputs.regression_diff }}
 
@@ -508,19 +642,42 @@ jobs:
           steps.validation.outcome != 'success'
         id: next_report
         run: |
-          if [ -s playwright-results-validation.json ]; then
-            SOURCE_REPORT="playwright-results-validation.json"
-          elif [ -s /tmp/playwright-report/playwright-results.json ]; then
-            SOURCE_REPORT="/tmp/playwright-report/playwright-results.json"
-          else
-            echo "No Playwright report is available for another self-heal round"
-            echo "available=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
           REPORT_DIR="$RUNNER_TEMP/formoria-selfheal-report"
           rm -rf "$REPORT_DIR"
           mkdir -p "$REPORT_DIR"
-          cp "$SOURCE_REPORT" "$REPORT_DIR/playwright-results.json"
+
+          if [ -s playwright-results-validation.json ]; then
+            cp playwright-results-validation.json "$REPORT_DIR/playwright-results.json"
+          else
+            WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            jq -n \
+              --arg workflow_url "$WORKFLOW_URL" \
+              '{
+                version: "1.0",
+                suites: [{
+                  title: "Self-heal validation failure",
+                  file: null,
+                  specs: [{
+                    title: ("Validation did not produce a Playwright report. Inspect the current run logs: \($workflow_url)"),
+                    ok: false,
+                    tests: []
+                  }]
+                }],
+                stats: {
+                  duration: 0,
+                  expected: 0,
+                  skipped: 0,
+                  unexpected: 1,
+                  flaky: 0
+                },
+                metadata: {
+                  formoria_failure: {
+                    workflow_url: $workflow_url
+                  }
+                }
+              }' > "$REPORT_DIR/playwright-results.json"
+          fi
+
           echo "available=true" >> "$GITHUB_OUTPUT"
 
       - name: Upload self-heal report for next round
