@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Formoria Card — Text</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      width: 1080px;
+      height: 1350px;
+      overflow: hidden;
+      margin: 0;
+      position: relative;
+      background-color: #2F5D50;
+      font-family: 'Noto Sans TC', system-ui, -apple-system, sans-serif;
+    }
+
+    /* Layer 1: Background image */
+    .bg {
+      position: absolute;
+      inset: 0;
+      width: 1080px;
+      height: 1350px;
+      object-fit: cover;
+      display: block;
+    }
+    .bg:not([src]), .bg[src=""] { display: none; }
+
+    /* Layer 2: Scrim overlay */
+    .scrim {
+      position: absolute;
+      inset: 0;
+      background: none;
+      pointer-events: none;
+    }
+
+    /* Layer 3: Left accent bar */
+    .bar {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 6px;
+      height: 1350px;
+      background: #FFFDF8AA;
+    }
+
+    /* Layer 4: Content frame */
+    .frame {
+      position: absolute;
+      inset: 0;
+      padding: 72px 80px 0 80px;
+      display: flex;
+      flex-direction: column;
+      color: #FFFDF8;
+      font-family: 'Noto Sans TC', system-ui, -apple-system, sans-serif;
+    }
+
+    /* Wordmark row */
+    .wordmark-row {
+      display: flex;
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: baseline;
+      flex-shrink: 0;
+    }
+
+    .wordmark-zh {
+      font-family: 'Noto Sans TC', system-ui, -apple-system, sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+      color: #FFFDF8;
+      line-height: 1;
+    }
+
+    .wordmark-en {
+      font-family: 'Noto Sans TC', system-ui, -apple-system, sans-serif;
+      font-size: 16px;
+      font-weight: 400;
+      color: #FFFDF8;
+      opacity: 0.67;
+      line-height: 1;
+    }
+
+    /* Spacer — pushes bottom block to bottom */
+    .spacer {
+      flex-grow: 1;
+    }
+
+    /* Bottom content block */
+    .bottom-block {
+      flex-shrink: 0;
+      margin-bottom: 88px;
+    }
+
+    /* Tag pill */
+    .tag {
+      display: inline-flex;
+      align-self: flex-start;
+      padding: 8px 16px;
+      border: 1.5px solid #FFFFFF66;
+      color: #FFFDF8;
+      border-radius: 999px;
+      font-size: 18px;
+      font-weight: 500;
+      margin-bottom: 28px;
+    }
+
+    .tag:empty {
+      display: none;
+    }
+
+    /* Headline */
+    .headline {
+      font-family: 'Noto Sans TC', system-ui, -apple-system, sans-serif;
+      font-size: 52px;
+      font-weight: 700;
+      line-height: 1.22;
+      max-width: 920px;
+      color: #FFFDF8;
+      margin-bottom: 36px;
+    }
+
+    /* Decorative rule */
+    .rule {
+      width: 40px;
+      height: 3px;
+      background: #FFFDF8AA;
+      margin-bottom: 28px;
+    }
+
+    /* Body content */
+    .body {
+      color: #FFFDF8;
+      opacity: 0.85;
+    }
+
+    /* Quote mark — hidden by default, shown in quote mode */
+    .quote-mark {
+      display: none;
+      font-family: 'Noto Sans TC', system-ui, -apple-system, sans-serif;
+      font-size: 64px;
+      font-weight: 700;
+      color: #FFFDF8AA;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    /* ── Mode: bullets ── */
+    .mode-bullets .body ul {
+      list-style: none;
+    }
+
+    .mode-bullets .body ul li {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      font-size: 22px;
+      font-weight: 400;
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+
+    .mode-bullets .body ul li::before {
+      content: '';
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #FFFDF8AA;
+      flex-shrink: 0;
+      margin-top: 8px;
+    }
+
+    /* ── Mode: prose ── */
+    .mode-prose .body {
+      font-size: 24px;
+      line-height: 1.7;
+    }
+
+    /* ── Mode: numbered ── */
+    .mode-numbered .body ol {
+      list-style: none;
+      counter-reset: item;
+    }
+
+    .mode-numbered .body ol li {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      font-size: 22px;
+      font-weight: 400;
+      line-height: 1.5;
+      margin-bottom: 16px;
+      counter-increment: item;
+    }
+
+    .mode-numbered .body ol li::before {
+      content: counter(item);
+      display: inline-block;
+      color: #FFFDF8AA;
+      font-weight: 700;
+      font-size: 22px;
+      line-height: 1.5;
+      flex-shrink: 0;
+      min-width: 24px;
+    }
+
+    /* ── Mode: quote ── */
+    .mode-quote .quote-mark {
+      display: block;
+    }
+
+    .mode-quote .body {
+      font-size: 26px;
+      line-height: 1.7;
+      font-weight: 400;
+    }
+
+    .mode-quote .body .attr {
+      font-size: 18px;
+      font-weight: 400;
+      color: #FFFDF8;
+      opacity: 0.60;
+      margin-top: 20px;
+    }
+
+    /* ── Mode: big-statement ── */
+    .mode-big-statement .headline {
+      font-size: 62px;
+      line-height: 1.2;
+    }
+
+    /* ── Mode: keyword ── */
+    .mode-keyword .headline {
+      font-size: 58px;
+    }
+
+    /* Layer 5: Bottom strip */
+    .strip {
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      width: 1080px;
+      height: 32px;
+      background: #1D3D34;
+      display: flex;
+      align-items: center;
+    }
+
+    .strip-footer {
+      position: absolute;
+      left: 80px;
+      font-size: 13px;
+      font-weight: 400;
+      color: #FFFDF8;
+      opacity: 0.8;
+      white-space: nowrap;
+    }
+
+    .strip-counter {
+      position: absolute;
+      right: 80px;
+      font-size: 13px;
+      font-weight: 400;
+      color: #FFFDF8;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Layer 1: Background image -->
+  <img class="bg" src="" alt="">
+
+  <!-- Layer 2: Scrim -->
+  <div class="scrim"></div>
+
+  <!-- Layer 3: Left accent bar -->
+  <div class="bar"></div>
+
+  <!-- Layer 4: Content frame -->
+  <div class="frame">
+    <div class="wordmark-row">
+      <span class="wordmark-zh">島藏</span>
+      <span class="wordmark-en">Formoria</span>
+    </div>
+
+    <div class="spacer"></div>
+
+    <div class="mode-numbered bottom-block">
+      <span class="tag">看得見的信任</span>
+
+      <h2 class="headline">三種信任標記</h2>
+
+      <div class="rule"></div>
+
+      <div class="quote-mark">「</div>
+
+      <div class="body"><ol><li>MIT 微笑認證 — 比對台灣製造登錄資料</li><li>社群策展 — 由真實使用者推薦</li><li>品牌經營 — 品牌親自認領與維護</li></ol></div>
+    </div>
+  </div>
+
+  <!-- Layer 5: Bottom strip -->
+  <div class="strip">
+    <span class="strip-footer">島藏 Formoria</span>
+    <span class="strip-counter">07 / 08</span>
+  </div>
+
+</body>
+</html>
