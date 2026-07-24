@@ -631,10 +631,12 @@ export async function confirmHealthEvent({
   let sentryResolved = 0;
   let sentryFailure = false;
   const issueIds = explicitSentryIds(matched);
-  try {
-    sentryResolved = await deps.resolveSentry(issueIds);
-  } catch {
-    sentryFailure = true;
+  if (issueIds.length > 0) {
+    try {
+      sentryResolved = await deps.resolveSentry(issueIds);
+    } catch {
+      sentryFailure = true;
+    }
   }
   const message = `Confirmed health PR deployment ${event.sha}: ${matched.length} finding(s) fixed after production smoke.`;
   const delivery = await deliverIndependently(
