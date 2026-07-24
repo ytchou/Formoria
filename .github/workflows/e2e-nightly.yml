@@ -629,7 +629,9 @@ jobs:
           prompt: |
             Read .github/selfheal/review.md for your full instructions.
             Review the changes on this branch against the classification output.
-          claude_args: "--max-turns 20"
+            Keep this review focused on the diff and the stated criteria; do not run the full e2e suite.
+            Return the required VERDICT, JUSTIFICATION, APP_FILES, and RISK lines once the diff is reviewed.
+          claude_args: "--max-turns 40"
 
       - name: Refresh dependencies after fix
         if: steps.guard.outputs.skip != 'true' && steps.review.outcome == 'success'
