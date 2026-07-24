@@ -332,6 +332,36 @@ describe("Railway deployment confirmation", () => {
     );
   });
 
+  it("does not require Sentry resolution for directory-only findings", async () => {
+    const deps = dependencies();
+    vi.mocked(deps.resolveSentry).mockImplementation(async (ids) => {
+      if (ids.length === 0) throw new Error("Sentry resolver unavailable");
+      return ids.length;
+    });
+
+    const result = await confirmHealthEvent({
+      dependencies: deps,
+      event: deploymentEvent(),
+      now,
+      rows: [
+        row({
+          merge_sha: mergeSha,
+          sentry_issue_id: null,
+          source: "directory",
+          status: "merged",
+        }),
+      ],
+      sourceRunId: "github-actions:confirmation:506-directory:1",
+    });
+
+    expect(result).toMatchObject({
+      action: "deployment_confirmed",
+      sentryResolved: 0,
+      status: "success",
+    });
+    expect(deps.resolveSentry).not.toHaveBeenCalled();
+  });
+
   it("attempts Slack and Agent Hub independently", async () => {
     const deps = dependencies();
     vi.mocked(deps.slack).mockRejectedValueOnce(new Error("Slack unavailable"));
