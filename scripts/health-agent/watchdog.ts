@@ -12,6 +12,7 @@ const LOGICAL_END_MINUTES = 8 * 60 + 30;
 export interface GitHubWorkflowRun {
   conclusion: string | null;
   created_at: string;
+  event: string;
   html_url?: string;
   id: number;
   run_attempt?: number;
@@ -134,6 +135,7 @@ export function selectLogicalRun(
       const started = taipeiParts(runTimestamp(run));
       const timestamp = Date.parse(runTimestamp(run));
       return (
+        run.event === "schedule" &&
         started?.date === target.date &&
         started.minutes >= LOGICAL_START_MINUTES &&
         started.minutes < LOGICAL_END_MINUTES &&

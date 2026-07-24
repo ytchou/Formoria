@@ -154,6 +154,11 @@ interface BrandReviewArtifact {
   version: 1;
 }
 
+interface BrandReviewLedgerClaim {
+  claimed: boolean;
+  replay: boolean;
+}
+
 export interface SentryClassificationArtifact {
   classifications: SentryClassification[];
   status: "failed" | "success";
@@ -203,6 +208,7 @@ export interface DirectoryEvidenceCollectInput {
 
 export interface AggregateWorkflowInput {
   auditPath?: string;
+  brandReviewArtifactPath?: string;
   directoryArtifactPath: string;
   exhaustedAutomationFingerprints?: readonly string[];
   linkArtifactPath: string;
@@ -621,7 +627,13 @@ function supabaseQueueDependencies(
         },
         (candidate) => Array.isArray(candidate),
       );
-      return (value as unknown[]).filter(isRecord).map(repairFindingFromValue);
+      return (value as unknown[]).filter(isRecord).map((candidate) => {
+        const finding = repairFindingFromValue(candidate);
+        const claimedFindingId =
+          finding.claimedFindingId ??
+          (typeof candidate.id === "string" ? candidate.id : undefined);
+        return claimedFindingId ? { ...finding, claimedFindingId } : finding;
+      });
     },
     enqueue: async (entry) => {
       await supabaseRequest(
@@ -693,6 +705,23 @@ function stringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
     : [];
+}
+
+function brandReviewLedgerClaim(value: unknown): BrandReviewLedgerClaim {
+  if (!isRecord(value) || typeof value.claimed !== "boolean") {
+    throw new Error("brand_review_ledger_claim_invalid");
+  }
+  return {
+    claimed: value.claimed,
+    replay: value.replay === true,
+  };
+}
+
+function successfulBooleanRpcResult(value: unknown): boolean {
+  return (
+    value === true ||
+    (Array.isArray(value) && value.length === 1 && value[0] === true)
+  );
 }
 
 async function supabaseRows(
@@ -778,6 +807,7 @@ function recentBrandEdit(row: Record<string, unknown>): RecentBrandEdit {
 async function collectBrandReview(
   input: {
     mode: string;
+    mutate: boolean;
     outputPath: string;
     runAt: string;
     windowHours?: number;
@@ -826,31 +856,51 @@ async function collectBrandReview(
       failures: [],
       findings: evaluated.findings,
       routine: "brand-review",
-      skippedActions: [],
+      skippedActions:
+        input.mode === "live" && !input.mutate
+          ? ["brand_review_delivery"]
+          : [],
       snapshot: { ...evaluated.snapshot },
       status: "success",
       version: 1,
     };
     await writeRedactedJson(input.outputPath, artifact, files);
 
-    if (input.mode !== "live") return;
+    if (input.mode !== "live" || !input.mutate) return;
 
+    const requestedRunId = `gha:${input.workflowRunId}/${input.workflowAttempt}`;
     const ledgerBody = {
       p_routine: "brand-review",
       p_logical_date: taipeiDate(input.runAt),
-      p_source_run_id: `gha:${input.workflowRunId}/${input.workflowAttempt}`,
+      p_requested_run_id: requestedRunId,
+      p_workflow_attempt: Number(input.workflowAttempt),
     };
-    await supabaseRequest(
-      dependencies,
-      "claim_health_agent_run",
-      "/rest/v1/rpc/claim_health_agent_run",
-      "HEALTH_AGENT_WRITER_TOKEN",
-      {
-        method: "POST",
-        body: JSON.stringify(ledgerBody),
-      },
-      () => true,
+    const claim = brandReviewLedgerClaim(
+      await supabaseRequest(
+        dependencies,
+        "claim_health_agent_run",
+        "/rest/v1/rpc/claim_health_agent_run",
+        "HEALTH_AGENT_WRITER_TOKEN",
+        {
+          method: "POST",
+          body: JSON.stringify(ledgerBody),
+        },
+        (value) => isRecord(value) && typeof value.claimed === "boolean",
+      ),
     );
+    if (!claim.claimed) {
+      await writeRedactedJson(
+        input.outputPath,
+        {
+          ...artifact,
+          skippedActions: [
+            claim.replay ? "brand_review_replay" : "brand_review_in_progress",
+          ],
+        },
+        files,
+      );
+      return;
+    }
 
     if (evaluated.findings.length > 0) {
       const delivery = dependencies.delivery;
@@ -895,9 +945,16 @@ async function collectBrandReview(
       "HEALTH_AGENT_WRITER_TOKEN",
       {
         method: "POST",
-        body: JSON.stringify(ledgerBody),
+        body: JSON.stringify({
+          ...ledgerBody,
+          p_result: {
+            finding_count: evaluated.findings.length,
+            reviewed_count: evaluated.snapshot.reviewedCount,
+            window_start_iso: evaluated.snapshot.windowStartIso,
+          },
+        }),
       },
-      () => true,
+      successfulBooleanRpcResult,
     );
   } catch (error) {
     const failure =
@@ -1981,6 +2038,7 @@ export async function runAggregateAndDeliver(
         "link-checker": input.linkArtifactPath,
         "sentry-triage": input.sentryArtifactPath,
       },
+      brandReviewArtifactPath: input.brandReviewArtifactPath,
       exhaustedAutomationFingerprints: input.exhaustedAutomationFingerprints,
       mode: input.mode,
       prOutcomes: input.prOutcomes,
@@ -1997,6 +2055,12 @@ export async function runAggregateAndDeliver(
       dependencies.auditRecords ?? [],
       filesFor(dependencies),
     );
+  }
+  if (
+    result.deliveryErrors.agentHub.length > 0 ||
+    result.deliveryErrors.slack.length > 0
+  ) {
+    throw new Error("health_delivery_failed");
   }
   return result;
 }
@@ -2757,6 +2821,7 @@ export async function runWorkflowCommand(
       return collectBrandReview(
         {
           mode: safeString(input.mode, "mode"),
+          mutate: input.mutate === true,
           outputPath: safeString(input.outputPath, "outputPath"),
           runAt: safeString(input.runAt, "runAt"),
           windowHours:
@@ -2830,6 +2895,10 @@ export async function runWorkflowCommand(
         {
           auditPath:
             typeof input.auditPath === "string" ? input.auditPath : undefined,
+          brandReviewArtifactPath:
+            typeof input.brandReviewArtifactPath === "string"
+              ? input.brandReviewArtifactPath
+              : undefined,
           directoryArtifactPath: safeString(
             input.directoryArtifactPath,
             "directoryArtifactPath",
@@ -3007,6 +3076,7 @@ export async function main(
     aggregateArtifactPath: optionalArgument(argv, "--aggregate-artifact"),
     auditPath: optionalArgument(argv, "--audit"),
     batchKind: optionalArgument(argv, "--batch"),
+    brandReviewArtifactPath: optionalArgument(argv, "--brand-review-artifact"),
     canaryFingerprints: optionalArgument(argv, "--canary-fingerprints")
       ?.split(",")
       .filter(Boolean),
@@ -3021,6 +3091,7 @@ export async function main(
     metadataPath: optionalArgument(argv, "--metadata"),
     mergePolicy: optionalArgument(argv, "--merge-policy"),
     mode,
+    mutate: optionalArgument(argv, "--mutate") === "true",
     outputPath: requiredArgument(argv, "--output"),
     prNumber: optionalArgument(argv, "--pr-number"),
     prUrl: optionalArgument(argv, "--pr-url"),

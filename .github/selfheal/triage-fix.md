@@ -12,6 +12,7 @@ You receive:
 2. **regression_commits** — `git log` + diff from last green nightly to HEAD
 3. **repeat_offenders** — files changed by merged `selfheal`-labeled PRs in the last 7 days
 4. **systemic** — boolean, true if >25% of the suite is red
+5. **source_run_id** and **source_workflow_url** — the GitHub Actions run that produced the failure
 
 ## Step 1: Read Project Context
 
@@ -24,6 +25,13 @@ For EACH failing spec, follow this diagnosis sequence. Do not skip steps.
 ### 2a. Read the error
 
 The error message is your most important clue. Common patterns:
+
+If a failure title says that a workflow step failed before a Playwright report was
+available, inspect the source run before diagnosing the application. Use
+`gh run view <source_run_id> --log-failed` or the GitHub Actions URL supplied in
+the inputs. A build, dependency, browser, or checkout failure is still a real
+failure; do not treat a missing report as a passing test or change the workflow
+to hide it.
 
 | Error pattern | Likely cause |
 |---|---|
@@ -93,6 +101,10 @@ Apply fixes ONE spec at a time. After each fix, `git add` and `git commit` the c
 ## Step 4: Commit
 
 After fixing all specs, ensure all changes are committed. Each commit message should reference the spec it fixes.
+
+## Step 5: Iterate Until Green
+
+The workflow installs dependencies and Chromium before you start. Build the app with `pnpm build` before running Playwright, then run the affected deep specs with `pnpm exec playwright test <files> --project=deep --reporter=json` and the full deep Playwright suite after each fix. If any test is still red—or the repair does not build—use the new failure output to continue the root-cause diagnosis and repair cycle. Keep iterating until the full suite is green; the workflow publishes a PR only after its validation step is green.
 
 ## Forbidden Actions
 

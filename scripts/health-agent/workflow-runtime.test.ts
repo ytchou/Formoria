@@ -14,6 +14,7 @@ import {
   makeDirectoryArtifact,
   makeLinkArtifact,
   runWorkflowCommand,
+  runAggregateAndDeliver,
   type RepairFailureInput,
   type RepairResultInput,
 } from "./workflow-runtime";
@@ -504,7 +505,7 @@ describe("collect-brand-review", () => {
 
     await runWorkflowCommand(
       "collect-brand-review",
-      { ...input, mode: "live" },
+      { ...input, mode: "live", mutate: true },
       { env, fetchImplementation, files },
     );
 
@@ -517,14 +518,133 @@ describe("collect-brand-review", () => {
     ]);
     expect(JSON.parse(String(rpcCalls[0]?.[1]?.body))).toEqual({
       p_logical_date: "2026-07-22",
+      p_requested_run_id: "gha:123/1",
       p_routine: "brand-review",
-      p_source_run_id: "gha:123/1",
+      p_workflow_attempt: 1,
     });
     expect(JSON.parse(String(rpcCalls[1]?.[1]?.body))).toEqual({
       p_logical_date: "2026-07-22",
+      p_requested_run_id: "gha:123/1",
       p_routine: "brand-review",
-      p_source_run_id: "gha:123/1",
+      p_result: {
+        finding_count: 0,
+        reviewed_count: 0,
+        window_start_iso: "2026-07-20T23:00:00.000Z",
+      },
+      p_workflow_attempt: 1,
     });
+  });
+
+  it.each([
+    [{ claimed: false, replay: true }, "brand_review_replay"],
+    [{ claimed: false, replay: false }, "brand_review_in_progress"],
+  ] as const)(
+    "does not complete or deliver when the ledger claim is not granted",
+    async (claimResponse, skippedAction) => {
+      const { contents, files } = brandReviewFiles();
+      const fetchImplementation = vi.fn<typeof fetch>(async (request) => {
+        const url = String(request);
+        if (url.includes("/rest/v1/brands?")) {
+          return new Response(JSON.stringify([]), { status: 200 });
+        }
+        if (url.endsWith("/rest/v1/rpc/claim_health_agent_run")) {
+          return new Response(JSON.stringify(claimResponse), { status: 200 });
+        }
+        throw new Error(`unexpected request: ${url}`);
+      });
+      const delivery = {
+        agentHub: vi.fn(async () => undefined),
+        slack: vi.fn(async () => undefined),
+      };
+
+      await runWorkflowCommand(
+        "collect-brand-review",
+        { ...input, mode: "live", mutate: true },
+        { delivery, env, fetchImplementation, files },
+      );
+
+      expect(
+        JSON.parse(contents.get(input.outputPath) ?? "{}"),
+      ).toMatchObject({
+        skippedActions: [skippedAction],
+        status: "success",
+      });
+      expect(
+        fetchImplementation.mock.calls
+          .filter(([request]) => String(request).includes("/rest/v1/rpc/"))
+          .map(([request]) => String(request)),
+      ).toEqual(["https://db.example/rest/v1/rpc/claim_health_agent_run"]);
+      expect(delivery.agentHub).not.toHaveBeenCalled();
+      expect(delivery.slack).not.toHaveBeenCalled();
+    },
+  );
+
+  it("writes a failed artifact when ledger completion is not successful", async () => {
+    const { contents, files } = brandReviewFiles();
+    const fetchImplementation = vi.fn<typeof fetch>(async (request) => {
+      const url = String(request);
+      if (url.includes("/rest/v1/brands?")) {
+        return new Response(JSON.stringify([]), { status: 200 });
+      }
+      if (url.endsWith("/rest/v1/rpc/claim_health_agent_run")) {
+        return new Response(JSON.stringify({ claimed: true }), { status: 200 });
+      }
+      if (url.endsWith("/rest/v1/rpc/complete_health_agent_run")) {
+        return new Response(JSON.stringify(false), { status: 200 });
+      }
+      throw new Error(`unexpected request: ${url}`);
+    });
+
+    await runWorkflowCommand(
+      "collect-brand-review",
+      { ...input, mode: "live", mutate: true },
+      { env, fetchImplementation, files },
+    );
+
+    expect(
+      JSON.parse(contents.get(input.outputPath) ?? "{}"),
+    ).toMatchObject({
+      failure: "supabase_runtime_request_failed",
+      routine: "brand-review",
+      status: "failed",
+    });
+  });
+
+  it("keeps live collection read-only when mutation is disabled", async () => {
+    const { contents, files } = brandReviewFiles();
+    const fetchImplementation = vi.fn<typeof fetch>(async (request) => {
+      const url = String(request);
+      if (url.includes("/rest/v1/brands?")) {
+        return new Response(JSON.stringify([]), { status: 200 });
+      }
+      throw new Error(`unexpected request: ${url}`);
+    });
+
+    await runWorkflowCommand(
+      "collect-brand-review",
+      { ...input, mode: "live", mutate: false },
+      {
+        env: {
+          HEALTH_AGENT_READER_TOKEN: "reader-token",
+          NEXT_PUBLIC_SUPABASE_URL: "https://db.example",
+        },
+        fetchImplementation,
+        files,
+      },
+    );
+
+    expect(
+      JSON.parse(contents.get(input.outputPath) ?? "{}"),
+    ).toMatchObject({
+      routine: "brand-review",
+      skippedActions: ["brand_review_delivery"],
+      status: "success",
+    });
+    expect(
+      fetchImplementation.mock.calls.some(([request]) =>
+        String(request).includes("/rest/v1/rpc/"),
+      ),
+    ).toBe(false);
   });
 
   it("skips collection and delivery in preflight mode", async () => {
@@ -552,6 +672,67 @@ describe("collect-brand-review", () => {
     });
     expect(fetchImplementation).not.toHaveBeenCalled();
     expect(slack).not.toHaveBeenCalled();
+  });
+});
+
+describe("aggregate-and-deliver runtime", () => {
+  it("persists the aggregate result and fails on delivery errors", async () => {
+    const contents = new Map<string, string>(
+      ["link-checker", "directory-health", "sentry-triage"].map((routine) => [
+        `${routine}.json`,
+        JSON.stringify({
+          collectedAt: now,
+          evidence: {},
+          failures: [],
+          findings: [],
+          routine,
+          skippedActions: [],
+          status: "success",
+          version: 1,
+        }),
+      ]),
+    );
+    const files = {
+      read: async (path: string) => contents.get(path) ?? "",
+      write: async (path: string, value: string) => {
+        contents.set(path, value);
+      },
+    };
+    const delivery = {
+      agentHub: vi.fn(async () => {
+        throw new Error("agent hub unavailable");
+      }),
+      slack: vi.fn(async () => {
+        throw new Error("slack unavailable");
+      }),
+    };
+
+    await expect(
+      runAggregateAndDeliver(
+        {
+          directoryArtifactPath: "directory-health.json",
+          linkArtifactPath: "link-checker.json",
+          mode: "live",
+          outputPath: "aggregate.json",
+          runAt: now,
+          sentryArtifactPath: "sentry-triage.json",
+          workflowAttempt: 1,
+          workflowRunId: "123",
+        },
+        { delivery, files },
+      ),
+    ).rejects.toThrow("health_delivery_failed");
+
+    expect(JSON.parse(contents.get("aggregate.json") ?? "{}")).toMatchObject({
+      deliveryErrors: {
+        agentHub: expect.arrayContaining([
+          "link-checker",
+          "directory-health",
+          "sentry-triage",
+        ]),
+        slack: ["health-digest"],
+      },
+    });
   });
 });
 
@@ -824,6 +1005,47 @@ describe("scoped writer RPC", () => {
     expect(url).toBe("https://db.example/rest/v1/rpc/claim_health_fixes");
     expect(init?.method).toBe("POST");
     expect(JSON.stringify(init)).not.toContain("service_role");
+  });
+
+  it("preserves the claimed queue row ID returned by the claim RPC", async () => {
+    const queueId = "46591f9f-bbba-4f82-8bee-6b0334f13167";
+    const fetchImplementation = vi.fn<typeof fetch>(
+      async () =>
+        new Response(
+          JSON.stringify([
+            {
+              evidence: { canary: true },
+              fingerprint: "directory:canary:github-app-pr",
+              id: queueId,
+              merge_policy: "automatic",
+              source: "directory",
+              title: "GitHub App canary repair",
+            },
+          ]),
+          {
+            headers: { "content-type": "application/json" },
+            status: 200,
+          },
+        ),
+    );
+    const dependencies = createWorkflowRuntimeDependencies({
+      env: {
+        HEALTH_AGENT_WRITER_TOKEN: "writer-token",
+        NEXT_PUBLIC_SUPABASE_URL: "https://db.example",
+      },
+      fetchImplementation,
+    });
+    const claim = dependencies.queue?.claim;
+    if (!claim) throw new Error("queue_claim_missing");
+
+    const result = await claim("automatic", "github-actions:987654321:1");
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        claimedFindingId: queueId,
+        fingerprint: "directory:canary:github-app-pr",
+      }),
+    ]);
   });
 });
 

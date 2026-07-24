@@ -43,7 +43,7 @@ describe("unified health-agent workflow contract", () => {
       /evaluate-directory:\n\s+needs: \[gate, collect-link\]/,
     );
     expect(workflow).toMatch(
-      /aggregate-and-deliver:\n\s+needs: \[gate, collect-link, evaluate-directory, sentry-triage\]/,
+      /aggregate-and-deliver:\n\s+needs: \[gate, brand-review, collect-link, evaluate-directory, sentry-triage\]/,
     );
     expect(workflow).toMatch(
       /aggregate-and-deliver:\n\s+needs:[\s\S]*?\n\s+if: always\(\)/,
@@ -53,7 +53,7 @@ describe("unified health-agent workflow contract", () => {
     expect(workflow).not.toContain("--limit");
   });
 
-  it("brand-review job depends only on gate", () => {
+  it("aggregates brand-review failures without duplicating its findings", () => {
     const workflow = readFileSync(workflowPath, "utf8");
     const aggregate = jobSection(
       workflow,
@@ -62,7 +62,13 @@ describe("unified health-agent workflow contract", () => {
     );
 
     expect(workflow).toMatch(/brand-review:\n    needs: \[gate\]/);
-    expect(aggregate).not.toMatch(/needs: \[[^\]]*brand-review[^\]]*\]/);
+    expect(aggregate).toMatch(/needs: \[[^\]]*brand-review[^\]]*\]/);
+    expect(aggregate).toContain(
+      "health-brand-review-${{ github.run_id }}-${{ github.run_attempt }}",
+    );
+    expect(aggregate).toContain(
+      "--brand-review-artifact .health-agent-artifacts/brand-review.json",
+    );
   });
 
   it("brand-review job uses correct secrets", () => {
@@ -77,6 +83,90 @@ describe("unified health-agent workflow contract", () => {
     expect(brandReview).toMatch(/HEALTH_AGENT_WRITER_TOKEN/);
     expect(brandReview).toMatch(/NEXT_PUBLIC_SUPABASE_URL/);
     expect(brandReview).toMatch(/SLACK_HEALTH_WEBHOOK_URL/);
+    expect(brandReview).toContain(
+      '--mutate "${{ needs.gate.outputs.mutate }}"',
+    );
+  });
+
+  it("brand-review job creates its artifact directory", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+    const brandReview = jobSection(
+      workflow,
+      "brand-review",
+      "secretless-validation",
+    );
+
+    expect(brandReview).toMatch(/mkdir -p \.health-agent-artifacts/);
+  });
+
+  it("uploads hidden-directory artifacts through explicit paths", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+    const directory = jobSection(
+      workflow,
+      "evaluate-directory",
+      "sentry-triage",
+    );
+    const sentry = jobSection(
+      workflow,
+      "sentry-triage",
+      "aggregate-and-deliver",
+    );
+    const repairBatches = jobSection(
+      workflow,
+      "prepare-repair-batches",
+      "automatic-repair",
+    );
+    const automaticRepair = jobSection(
+      workflow,
+      "automatic-repair",
+      "human-repair",
+    );
+    const humanRepair = jobSection(
+      workflow,
+      "human-repair",
+      "escalate-repair-failure",
+    );
+
+    expect(directory).toContain(
+      "path: |\n            .health-agent-artifacts/directory-evidence.json\n            .health-agent-artifacts/directory-health.json",
+    );
+    expect(directory).not.toContain(
+      "path: .health-agent-artifacts/directory*.json",
+    );
+    expect(sentry).toContain(
+      "path: .health-agent-artifacts/sentry-triage.json",
+    );
+    expect(sentry).not.toContain("path: .health-agent-artifacts/sentry*.json");
+    expect(repairBatches).toContain(
+      "path: |\n            .health-agent-artifacts/automatic-snapshot.json\n            .health-agent-artifacts/automatic-metadata.json\n            .health-agent-artifacts/automatic-audit.json\n            .health-agent-artifacts/human-snapshot.json\n            .health-agent-artifacts/human-metadata.json\n            .health-agent-artifacts/human-audit.json",
+    );
+    expect(automaticRepair).toContain(
+      "permissions:\n      contents: read\n      id-token: write",
+    );
+    expect(humanRepair).toContain(
+      "permissions:\n      contents: read\n      id-token: write",
+    );
+    expect(automaticRepair).toContain(
+      ".health-agent-artifacts/automatic-cycle-1.json",
+    );
+    expect(automaticRepair).toContain(
+      ".health-agent-artifacts/automatic-cycle-2.json",
+    );
+    expect(automaticRepair).toContain(
+      ".health-agent-artifacts/automatic-review-1.json",
+    );
+    expect(automaticRepair).toContain(
+      ".health-agent-artifacts/automatic-review-2.json",
+    );
+    expect(humanRepair).toContain(".health-agent-artifacts/human-cycle-1.json");
+    expect(humanRepair).toContain(".health-agent-artifacts/human-cycle-2.json");
+    expect(humanRepair).toContain(
+      ".health-agent-artifacts/human-review-1.json",
+    );
+    expect(humanRepair).toContain(
+      ".health-agent-artifacts/human-review-2.json",
+    );
+    expect(workflow).not.toMatch(/\.health-agent-artifacts\/[^\n]*\*/);
   });
 
   it("uses exactly three collector routines and one aggregated Slack delivery", async () => {
@@ -146,6 +236,14 @@ describe("unified health-agent workflow contract", () => {
     ).toBeGreaterThanOrEqual(8);
     expect(workflow).toContain('"minItems":1');
     expect(workflow).toContain('"required":["fingerprint","verdict"]');
+    const schemaArguments = [
+      ...workflow.matchAll(/--json-schema '(\{[^\n]+\})'/g),
+    ].map(([, schema]) => schema);
+    expect(schemaArguments).toHaveLength(6);
+    for (const schema of schemaArguments) {
+      expect(() => JSON.parse(schema)).not.toThrow();
+    }
+    expect(workflow).not.toMatch(/--json-schema\s+\{/);
     const classifierStart = workflow.indexOf("  sentry-triage:");
     const classifierEnd = workflow.indexOf("\n  aggregate-and-deliver:");
     const classifier = workflow.slice(classifierStart, classifierEnd);
@@ -170,6 +268,9 @@ describe("unified health-agent workflow contract", () => {
     expect(workflow).toContain(
       "actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1",
     );
+    expect(workflow.match(/group: formoria-agent-writer/g) ?? []).toHaveLength(
+      1,
+    );
     const firstWriterStart = workflow.indexOf("  cleanup-stale-branches:");
     const automaticPublisher = jobSection(
       workflow,
@@ -183,9 +284,11 @@ describe("unified health-agent workflow contract", () => {
       "HEALTH_AGENT_GITHUB_APP_PRIVATE_KEY",
     );
     for (const publisher of [automaticPublisher, humanPublisher]) {
+      expect(publisher).not.toContain("group: formoria-agent-writer");
       expect(publisher).toContain(
         "permissions:\n      contents: read\n      pull-requests: read",
       );
+      expect(publisher).toContain("gh auth setup-git");
       expect(publisher).not.toMatch(/^\s+[a-z-]+:\s+write$/m);
       expect(publisher).toContain("workflow-runtime.ts repair-result");
     }
@@ -228,6 +331,9 @@ describe("unified health-agent workflow contract", () => {
     expect(cleanup).toContain("stale-branch-cleanup-audit.json");
     expect(workflow).toContain(
       "needs: [gate, aggregate-and-deliver, cleanup-stale-branches]",
+    );
+    expect(workflow).toContain(
+      "needs.aggregate-and-deliver.result == 'success'",
     );
   });
 
@@ -272,7 +378,7 @@ describe("unified health-agent workflow contract", () => {
     }
     expect(escalation).toContain("if: always()");
     expect(escalation).toContain(
-      "path: .health-agent-artifacts/failures/*.json",
+      "path: |\n            .health-agent-artifacts/failures/automatic.json\n            .health-agent-artifacts/failures/human.json",
     );
   });
 
