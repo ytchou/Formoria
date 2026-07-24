@@ -353,6 +353,48 @@ describe("unified health-agent workflow contract", () => {
     );
   });
 
+  it("passes Linear routing configuration to every live mutation stage", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+    const aggregate = jobSection(
+      workflow,
+      "aggregate-and-deliver",
+      "cleanup-stale-branches",
+    );
+    const enqueue = jobSection(
+      workflow,
+      "enqueue-and-claim",
+      "prepare-repair-batches",
+    );
+    const escalation = jobSection(
+      workflow,
+      "escalate-repair-failure",
+      "validate-repair",
+    );
+
+    for (const section of [aggregate, enqueue, escalation]) {
+      expect(section).toContain(
+        "LINEAR_ASSIGNEE_ID: ${{ vars.LINEAR_ASSIGNEE_ID }}",
+      );
+      expect(section).toContain(
+        "LINEAR_PROJECT_ID: ${{ vars.LINEAR_PROJECT_ID }}",
+      );
+      expect(section).toContain("LINEAR_TEAM_ID: ${{ vars.LINEAR_TEAM_ID }}");
+      expect(section).toContain(
+        "LINEAR_OAUTH_ACCESS_TOKEN: ${{ secrets.LINEAR_OAUTH_ACCESS_TOKEN }}",
+      );
+    }
+
+    expect(aggregate).not.toContain(
+      "LINEAR_ASSIGNEE_ID: ${{ secrets.LINEAR_ASSIGNEE_ID }}",
+    );
+    expect(aggregate).not.toContain(
+      "LINEAR_PROJECT_ID: ${{ secrets.LINEAR_PROJECT_ID }}",
+    );
+    expect(aggregate).not.toContain(
+      "LINEAR_TEAM_ID: ${{ secrets.LINEAR_TEAM_ID }}",
+    );
+  });
+
   it("escalates automatic and human batches after their two repair cycles fail", async () => {
     const workflow = await readFile(workflowPath, "utf8");
     const escalation = jobSection(
