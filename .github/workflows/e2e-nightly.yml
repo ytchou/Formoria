@@ -594,7 +594,8 @@ jobs:
             repeat_offenders: ${{ steps.context.outputs.repeat_offenders }}
 
             systemic: ${{ steps.context.outputs.systemic == '1' && 'true' || 'false' }}
-          claude_args: '--max-turns 60 --json-schema {"type":"object","additionalProperties":true,"required":["classification"],"properties":{"classification":{"type":"array","items":{"type":"object","additionalProperties":true,"required":["file","title","category","reason"]}}}}'
+          claude_args: >-
+            --max-turns 60 --json-schema '{"type":"object","additionalProperties":true,"required":["classification"],"properties":{"classification":{"type":"array","items":{"type":"object","additionalProperties":true,"required":["file","title","category","reason"]}}}}'
 
       - name: Review fix
         if: steps.guard.outputs.skip != 'true' && steps.fix.outcome == 'success'
