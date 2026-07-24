@@ -1235,7 +1235,37 @@
       "viewAllTodos": "查看所有待辦事項",
       "viewFullAnalytics": "查看完整分析",
       "analyticsUnavailable": "數據分析暫時無法使用。",
+      "quickActionsTitle": "管理重點",
+      "quickActions": {
+        "editProfile": {
+          "description": "更新品牌基本資料與描述"
+        },
+        "checkHealth": {
+          "description": "檢視品牌完整度與狀態"
+        },
+        "viewAnalytics": {
+          "description": "掌握品牌表現與趨勢"
+        },
+        "readFaq": {
+          "description": "尋找使用說明與解答"
+        }
+      },
       "todoTitle": "待辦事項",
+      "todoGoComplete": "前往完成",
+      "todoRemaining": "剩 {count} 項",
+      "todoDescription": {
+        "description": "撰寫品牌故事以吸引更多消費者",
+        "productTags": "新增產品標籤以提升搜尋曝光",
+        "priceRange": "選擇價格區間以方便消費者篩選",
+        "heroImage": "上傳主視覺圖片以提升品牌辨識度",
+        "productPhotos": "新增品牌圖片與產品圖片",
+        "officialWebsite": "新增官方網站連結",
+        "city": "新增品牌創立城市資訊",
+        "foundingYear": "新增品牌創立年份",
+        "socialPresence": "連結社群帳號以增加曝光",
+        "additionalSalesChannel": "新增實體或線上販售地點",
+        "reputation": "新增口碑來源以提升品牌可信度"
+      },
       "todoEmpty": "所有項目已完成！",
       "todoVerification": "完成 MIT 認證",
       "sectionInfoTitle": "品牌資訊",

@@ -1235,7 +1235,37 @@
       "viewAllTodos": "View all to-do items",
       "viewFullAnalytics": "View full analytics",
       "analyticsUnavailable": "Analytics data is temporarily unavailable.",
+      "quickActionsTitle": "Quick Actions",
+      "quickActions": {
+        "editProfile": {
+          "description": "Update basic brand info and description"
+        },
+        "checkHealth": {
+          "description": "Review profile completeness and status"
+        },
+        "viewAnalytics": {
+          "description": "Track brand performance and trends"
+        },
+        "readFaq": {
+          "description": "Find guides and answers"
+        }
+      },
       "todoTitle": "To-do",
+      "todoGoComplete": "Complete",
+      "todoRemaining": "{count} remaining",
+      "todoDescription": {
+        "description": "Write your brand story to attract more customers",
+        "productTags": "Add product tags to improve search visibility",
+        "priceRange": "Set a price range so customers can filter",
+        "heroImage": "Upload a hero image for brand recognition",
+        "productPhotos": "Add brand and product photos",
+        "officialWebsite": "Add your official website link",
+        "city": "Add your brand's founding city",
+        "foundingYear": "Add your brand's founding year",
+        "socialPresence": "Connect social accounts for more exposure",
+        "additionalSalesChannel": "Add physical or online sales locations",
+        "reputation": "Add reputation sources to build credibility"
+      },
       "todoEmpty": "All items complete!",
       "todoVerification": "Complete MIT verification",
       "sectionInfoTitle": "Brand Info",

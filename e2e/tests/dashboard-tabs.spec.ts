@@ -32,19 +32,19 @@ type AnySupabaseClient = SupabaseClient<any, any, any>;
 test.describe.configure({ mode: 'serial' });
 
 /**
- * Dashboard sidebar navigation tests.
+ * Dashboard tab navigation tests.
  *
  * Journey 1: Single-brand owner dashboard landing
  *   - Default landing redirects to the path-based brand overview
- *   - Brand overview shows owner actions and active Overview sidebar link
+ *   - Brand overview shows 7-item tab nav with active "總覽" tab
  *   - Navigation shows My Brand instead of Submit a Brand
- *   - Active sidebar item is determined by URL pathname (aria-current="page")
+ *   - Active tab is determined by URL pathname (aria-current="page")
  *
  * Journey 2: Legacy query and route compatibility
  *   - A stale ?brand=<slug> cannot switch away from the account's single brand
  *   - /dashboard/brands/<slug> renders the brand overview directly
  */
-test.describe('Dashboard — sidebar navigation', () => {
+test.describe('Dashboard — tab navigation', () => {
   let supabase: AnySupabaseClient;
 
   test.beforeAll(async ({ isolatedUser }) => {
@@ -79,19 +79,14 @@ test.describe('Dashboard — sidebar navigation', () => {
       timeout: 60_000,
     });
 
-    // Edit brand link is in the sidebar bottom section.
-    await expect(userPage.getByRole('link', { name: '編輯品牌' }).first()).toBeVisible({
-      timeout: 60_000,
-    });
-
     const mainNav = userPage.locator('header').first();
     await expect(mainNav.getByRole('link', { name: '我的品牌' })).toBeVisible();
     await expect(mainNav.getByRole('link', { name: '提交品牌' })).toHaveCount(0);
 
-    // Sidebar has 7 nav items; Overview ('總覽') is active on the path-based brand overview.
-    const sidebar = userPage.locator('nav[aria-label]').first();
-    await expect(sidebar.getByRole('link')).toHaveCount(7);
-    const overviewLink = sidebar.getByRole('link', { name: '總覽' });
+    // Tab nav has 7 items; Overview ('總覽') is active on the path-based brand overview.
+    const tabNav = userPage.locator('nav[aria-label]').first();
+    await expect(tabNav.getByRole('link')).toHaveCount(7);
+    const overviewLink = tabNav.getByRole('link', { name: '總覽' });
     await expect(overviewLink).toHaveAttribute('aria-current', 'page', { timeout: 60_000 });
   });
 
@@ -110,11 +105,10 @@ test.describe('Dashboard — sidebar navigation', () => {
       { timeout: 60_000 }
     );
     await expect(userPage.getByRole('heading', { level: 1 }).first()).toBeVisible({ timeout: 60_000 });
-    await expect(userPage.getByRole('link', { name: '編輯品牌' }).first()).toBeVisible({ timeout: 60_000 });
 
-    // Sidebar Overview link is active on the canonical path-based brand overview.
-    const sidebar = userPage.locator('nav[aria-label]').first();
-    const overviewLink = sidebar.getByRole('link', { name: '總覽' });
+    // Tab nav Overview link is active on the canonical path-based brand overview.
+    const tabNav = userPage.locator('nav[aria-label]').first();
+    const overviewLink = tabNav.getByRole('link', { name: '總覽' });
     await expect(overviewLink).toHaveAttribute('aria-current', 'page', { timeout: 5_000 });
   });
 

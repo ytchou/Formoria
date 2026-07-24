@@ -1,11 +1,8 @@
 import type { ReactNode } from 'react'
 import { setRequestLocale } from 'next-intl/server'
 import { redirect } from 'next/navigation'
-import { DashboardMobileHeader } from '@/components/dashboard/dashboard-mobile-header'
-import {
-  DashboardSidebar,
-  type DashboardSidebarProps,
-} from '@/components/dashboard/dashboard-sidebar'
+import { DashboardHeroCard } from '@/components/dashboard/dashboard-hero-card'
+import { DashboardTabNav } from '@/components/dashboard/dashboard-tab-nav'
 import { localizePath } from '@/i18n/locale-preference'
 import { requireBrandEditor } from '@/lib/auth/require-brand-editor'
 import { computeProfileCompleteness } from '@/lib/services/profile-completeness'
@@ -29,26 +26,17 @@ export default async function DashboardBrandLayout({
         ? '/auth/sign-in'
         : localizePath('/dashboard', locale),
     )
-    return null
   }
 
   const completeness = computeProfileCompleteness(editor.brand)
-  const sidebarProps = {
-    brandName: editor.brand.name,
-    brandNameEn: editor.brand.romanizedName ?? null,
-    brandSlug: editor.brand.slug,
-    brandLogoUrl: editor.brand.heroImageUrl,
-    mitStatus: editor.brand.mitStatus ?? 'unverified',
-    completenessScore: completeness.score,
-    completenessTotal: completeness.total,
-    completenessCompleted: completeness.completed,
-  } satisfies Omit<DashboardSidebarProps, 'className'>
 
   return (
-    <div className="flex min-h-screen">
-      <DashboardSidebar {...sidebarProps} />
-      <DashboardMobileHeader {...sidebarProps} />
-      <main className="flex-1 overflow-y-auto p-6 md:p-8">{children}</main>
+    <div className="min-h-screen">
+      <div className="mx-auto max-w-7xl px-6 md:px-8">
+        <DashboardHeroCard brand={editor.brand} completeness={completeness} />
+        <DashboardTabNav brandSlug={editor.brand.slug} />
+      </div>
+      <main className="mx-auto max-w-7xl p-6 md:p-8">{children}</main>
     </div>
   )
 }
