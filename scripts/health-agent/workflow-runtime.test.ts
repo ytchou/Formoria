@@ -14,6 +14,7 @@ import {
   makeDirectoryArtifact,
   makeLinkArtifact,
   runWorkflowCommand,
+  runAggregateAndDeliver,
   type RepairFailureInput,
   type RepairResultInput,
 } from "./workflow-runtime";
@@ -534,6 +535,81 @@ describe("collect-brand-review", () => {
     });
   });
 
+  it.each([
+    [{ claimed: false, replay: true }, "brand_review_replay"],
+    [{ claimed: false, replay: false }, "brand_review_in_progress"],
+  ] as const)(
+    "does not complete or deliver when the ledger claim is not granted",
+    async (claimResponse, skippedAction) => {
+      const { contents, files } = brandReviewFiles();
+      const fetchImplementation = vi.fn<typeof fetch>(async (request) => {
+        const url = String(request);
+        if (url.includes("/rest/v1/brands?")) {
+          return new Response(JSON.stringify([]), { status: 200 });
+        }
+        if (url.endsWith("/rest/v1/rpc/claim_health_agent_run")) {
+          return new Response(JSON.stringify(claimResponse), { status: 200 });
+        }
+        throw new Error(`unexpected request: ${url}`);
+      });
+      const delivery = {
+        agentHub: vi.fn(async () => undefined),
+        slack: vi.fn(async () => undefined),
+      };
+
+      await runWorkflowCommand(
+        "collect-brand-review",
+        { ...input, mode: "live", mutate: true },
+        { delivery, env, fetchImplementation, files },
+      );
+
+      expect(
+        JSON.parse(contents.get(input.outputPath) ?? "{}"),
+      ).toMatchObject({
+        skippedActions: [skippedAction],
+        status: "success",
+      });
+      expect(
+        fetchImplementation.mock.calls
+          .filter(([request]) => String(request).includes("/rest/v1/rpc/"))
+          .map(([request]) => String(request)),
+      ).toEqual(["https://db.example/rest/v1/rpc/claim_health_agent_run"]);
+      expect(delivery.agentHub).not.toHaveBeenCalled();
+      expect(delivery.slack).not.toHaveBeenCalled();
+    },
+  );
+
+  it("writes a failed artifact when ledger completion is not successful", async () => {
+    const { contents, files } = brandReviewFiles();
+    const fetchImplementation = vi.fn<typeof fetch>(async (request) => {
+      const url = String(request);
+      if (url.includes("/rest/v1/brands?")) {
+        return new Response(JSON.stringify([]), { status: 200 });
+      }
+      if (url.endsWith("/rest/v1/rpc/claim_health_agent_run")) {
+        return new Response(JSON.stringify({ claimed: true }), { status: 200 });
+      }
+      if (url.endsWith("/rest/v1/rpc/complete_health_agent_run")) {
+        return new Response(JSON.stringify(false), { status: 200 });
+      }
+      throw new Error(`unexpected request: ${url}`);
+    });
+
+    await runWorkflowCommand(
+      "collect-brand-review",
+      { ...input, mode: "live", mutate: true },
+      { env, fetchImplementation, files },
+    );
+
+    expect(
+      JSON.parse(contents.get(input.outputPath) ?? "{}"),
+    ).toMatchObject({
+      failure: "supabase_runtime_request_failed",
+      routine: "brand-review",
+      status: "failed",
+    });
+  });
+
   it("keeps live collection read-only when mutation is disabled", async () => {
     const { contents, files } = brandReviewFiles();
     const fetchImplementation = vi.fn<typeof fetch>(async (request) => {
@@ -596,6 +672,67 @@ describe("collect-brand-review", () => {
     });
     expect(fetchImplementation).not.toHaveBeenCalled();
     expect(slack).not.toHaveBeenCalled();
+  });
+});
+
+describe("aggregate-and-deliver runtime", () => {
+  it("persists the aggregate result and fails on delivery errors", async () => {
+    const contents = new Map<string, string>(
+      ["link-checker", "directory-health", "sentry-triage"].map((routine) => [
+        `${routine}.json`,
+        JSON.stringify({
+          collectedAt: now,
+          evidence: {},
+          failures: [],
+          findings: [],
+          routine,
+          skippedActions: [],
+          status: "success",
+          version: 1,
+        }),
+      ]),
+    );
+    const files = {
+      read: async (path: string) => contents.get(path) ?? "",
+      write: async (path: string, value: string) => {
+        contents.set(path, value);
+      },
+    };
+    const delivery = {
+      agentHub: vi.fn(async () => {
+        throw new Error("agent hub unavailable");
+      }),
+      slack: vi.fn(async () => {
+        throw new Error("slack unavailable");
+      }),
+    };
+
+    await expect(
+      runAggregateAndDeliver(
+        {
+          directoryArtifactPath: "directory-health.json",
+          linkArtifactPath: "link-checker.json",
+          mode: "live",
+          outputPath: "aggregate.json",
+          runAt: now,
+          sentryArtifactPath: "sentry-triage.json",
+          workflowAttempt: 1,
+          workflowRunId: "123",
+        },
+        { delivery, files },
+      ),
+    ).rejects.toThrow("health_delivery_failed");
+
+    expect(JSON.parse(contents.get("aggregate.json") ?? "{}")).toMatchObject({
+      deliveryErrors: {
+        agentHub: expect.arrayContaining([
+          "link-checker",
+          "directory-health",
+          "sentry-triage",
+        ]),
+        slack: ["health-digest"],
+      },
+    });
   });
 });
 
