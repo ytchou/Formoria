@@ -3,19 +3,25 @@ name: Quality Nightly
 on:
   schedule:
     - cron: "30 22 * * *" # 06:30 Asia/Taipei daily (after e2e-nightly)
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Selfheal: create PR but do not auto-merge"
+        type: boolean
+        default: false
+
+concurrency:
+  group: formoria-agent-writer
+  cancel-in-progress: false
 
 jobs:
-  full-suite:
-    name: ${{ matrix.check }}
+  unit-coverage:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        check: [unit-coverage, dead-code]
     permissions:
       contents: read
+    outputs:
+      check_outcome: ${{ steps.check.outcome }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -27,13 +33,340 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Run ${{ matrix.check }}
+      - name: Run unit coverage
+        id: check
         run: |
-          case "${{ matrix.check }}" in
-            unit-coverage)
-              pnpm test -- --coverage
-              ;;
-            dead-code)
-              pnpm knip
-              ;;
-          esac
+          set -o pipefail
+          pnpm test -- --coverage 2>&1 | tee "$RUNNER_TEMP/unit-coverage-output.log"
+      - name: Upload unit coverage report
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: quality-report-unit-coverage
+          path: ${{ runner.temp }}/unit-coverage-output.log
+
+  dead-code:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      check_outcome: ${{ steps.check.outcome }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Run dead-code check
+        id: check
+        run: |
+          set -o pipefail
+          pnpm knip 2>&1 | tee "$RUNNER_TEMP/dead-code-output.log"
+      - name: Upload dead-code report
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: quality-report-dead-code
+          path: ${{ runner.temp }}/dead-code-output.log
+
+  notify:
+    needs: [unit-coverage, dead-code]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Notify Slack
+        env:
+          QUALITY_SLACK_PHASE: initial
+          UNIT_COVERAGE_RESULT: ${{ needs.unit-coverage.result }}
+          DEAD_CODE_RESULT: ${{ needs.dead-code.result }}
+          SLACK_HEALTH_WEBHOOK_URL: ${{ secrets.SLACK_HEALTH_WEBHOOK_URL }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: pnpm exec tsx scripts/notifications/quality-slack.ts
+
+  selfheal:
+    needs: [unit-coverage, dead-code, notify]
+    if: >-
+      always() &&
+      (needs.unit-coverage.result == 'failure' || needs.dead-code.result == 'failure')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Guard
+        id: guard
+        env:
+          GH_TOKEN: ${{ secrets.SELFHEAL_PAT }}
+          SELFHEAL_ENABLED: ${{ vars.SELFHEAL_ENABLED }}
+        run: |
+          set -euo pipefail
+          if [[ "$SELFHEAL_ENABLED" != "true" ]]; then
+            echo "SELFHEAL_ENABLED is not true, skipping"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          BRANCH="selfheal/quality-$(date +%F)"
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$BRANCH" >/dev/null 2>&1; then
+            echo "Branch $BRANCH already exists, skipping"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          OPEN_PR_COUNT=$(gh pr list --repo "$GITHUB_REPOSITORY" --label selfheal --state open --json number --jq length 2>/dev/null || true)
+          if [[ "$OPEN_PR_COUNT" != "0" ]]; then
+            echo "Open selfheal PR exists or could not be checked, skipping"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        if: steps.guard.outputs.skip != 'true'
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          token: ${{ secrets.SELFHEAL_PAT }}
+          fetch-depth: 0
+
+      - name: Download unit coverage artifact
+        if: always() && steps.guard.outputs.skip != 'true'
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: quality-report-unit-coverage
+          path: ${{ runner.temp }}/quality-report-unit-coverage
+
+      - name: Download dead-code artifact
+        if: always() && steps.guard.outputs.skip != 'true'
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: quality-report-dead-code
+          path: ${{ runner.temp }}/quality-report-dead-code
+
+      - name: Context
+        if: always()
+        id: context
+        env:
+          GUARD_SKIP: ${{ steps.guard.outputs.skip }}
+          UNIT_COVERAGE_OUTCOME: ${{ needs.unit-coverage.outputs.check_outcome }}
+          DEAD_CODE_OUTCOME: ${{ needs.dead-code.outputs.check_outcome }}
+        run: |
+          set -euo pipefail
+          if [[ "$GUARD_SKIP" == "true" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          FAILED_CHECKS='[]'
+          if [[ "$UNIT_COVERAGE_OUTCOME" == "failure" ]]; then
+            FAILED_CHECKS=$(jq -c '. + [{"check":"unit-coverage","outcome":"failure"}]' <<< "$FAILED_CHECKS")
+          fi
+          if [[ "$DEAD_CODE_OUTCOME" == "failure" ]]; then
+            FAILED_CHECKS=$(jq -c '. + [{"check":"dead-code","outcome":"failure"}]' <<< "$FAILED_CHECKS")
+          fi
+
+          if [[ "$FAILED_CHECKS" == "[]" ]]; then
+            echo "No failed check steps were captured, skipping self-heal"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          write_output() {
+            local name="$1"
+            local value="$2"
+            local delimiter="FORMORIA_${name}_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}"
+            {
+              echo "${name}<<${delimiter}"
+              printf '%s\n' "$value"
+              echo "$delimiter"
+            } >> "$GITHUB_OUTPUT"
+          }
+
+          UNIT_COVERAGE_LOG="No unit-coverage failure log was available."
+          if [[ "$UNIT_COVERAGE_OUTCOME" == "failure" && -s "$RUNNER_TEMP/quality-report-unit-coverage/unit-coverage-output.log" ]]; then
+            UNIT_COVERAGE_LOG=$(tail -n 200 "$RUNNER_TEMP/quality-report-unit-coverage/unit-coverage-output.log")
+          fi
+
+          DEAD_CODE_LOG="No dead-code failure log was available."
+          if [[ "$DEAD_CODE_OUTCOME" == "failure" && -s "$RUNNER_TEMP/quality-report-dead-code/dead-code-output.log" ]]; then
+            DEAD_CODE_LOG=$(tail -n 200 "$RUNNER_TEMP/quality-report-dead-code/dead-code-output.log")
+          fi
+
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          write_output failed_checks "$FAILED_CHECKS"
+          write_output unit_coverage_log "$UNIT_COVERAGE_LOG"
+          write_output dead_code_log "$DEAD_CODE_LOG"
+
+      - name: Capture base SHA
+        if: steps.context.outputs.skip != 'true'
+        id: base
+        run: echo "base_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Create branch
+        if: steps.context.outputs.skip != 'true'
+        id: branch
+        run: |
+          set -euo pipefail
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git checkout -b "selfheal/quality-$(date +%F)"
+          echo "branch=$(git branch --show-current)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup pnpm
+        if: steps.context.outputs.skip != 'true'
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+
+      - name: Setup Node.js
+        if: steps.context.outputs.skip != 'true'
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        if: steps.context.outputs.skip != 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Triage & fix
+        if: steps.context.outputs.skip != 'true'
+        id: triage
+        uses: anthropics/claude-code-action@fa7e2f0a29a126f0b81cdcf360561b36e44cf608 # v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.SELFHEAL_PAT }}
+          allowed_bots: github-actions
+          prompt: |
+            Read .github/selfheal/quality-fix.md for your full instructions.
+
+            Here are the inputs:
+
+            failed_checks: ${{ steps.context.outputs.failed_checks }}
+
+            unit_coverage_log:
+            ${{ steps.context.outputs.unit_coverage_log }}
+
+            dead_code_log:
+            ${{ steps.context.outputs.dead_code_log }}
+          claude_args: >-
+            --max-turns 40
+            --allowedTools "Read,Write,Edit,Replace,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git ls-files:*),Bash(git rev-parse:*),Bash(git add:*),Bash(git commit:*),Bash(pnpm:*),Bash(gh run view:*)"
+
+      - name: Review
+        if: steps.context.outputs.skip != 'true' && steps.triage.outcome == 'success'
+        id: review
+        uses: anthropics/claude-code-action@fa7e2f0a29a126f0b81cdcf360561b36e44cf608 # v1
+        env:
+          BASE_SHA: ${{ steps.base.outputs.base_sha }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.SELFHEAL_PAT }}
+          allowed_bots: github-actions
+          prompt: |
+            Read .github/selfheal/quality-review.md for your full instructions.
+            Review the changes on this branch against the quality self-heal criteria.
+            Return the required VERDICT, JUSTIFICATION, APP_FILES, and RISK lines once the diff is reviewed.
+          claude_args: >-
+            --max-turns 20
+            --allowedTools "Read,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*)"
+
+      - name: Parse verdict
+        if: steps.context.outputs.skip != 'true' && steps.review.outcome == 'success'
+        id: verdict
+        env:
+          REVIEW_OUTPUT: ${{ steps.review.outputs.execution_output }}
+        run: |
+          set -euo pipefail
+          VERDICT=$(printf '%s\n' "$REVIEW_OUTPUT" | grep -E '^VERDICT:' | tail -n 1 | sed 's/^VERDICT:[[:space:]]*//' || true)
+          echo "verdict=$VERDICT" >> "$GITHUB_OUTPUT"
+          if [[ "$VERDICT" != *PASS* ]]; then
+            echo "Review verdict did not contain PASS: ${VERDICT:-<missing>}"
+            exit 1
+          fi
+
+      - name: Validate
+        if: steps.context.outputs.skip != 'true' && steps.verdict.outcome == 'success'
+        env:
+          FAILED_CHECKS: ${{ steps.context.outputs.failed_checks }}
+        run: |
+          set -euo pipefail
+          if jq -e 'any(.[]; .check == "unit-coverage")' <<< "$FAILED_CHECKS" >/dev/null; then
+            pnpm test -- --coverage
+          fi
+          if jq -e 'any(.[]; .check == "dead-code")' <<< "$FAILED_CHECKS" >/dev/null; then
+            pnpm knip
+          fi
+
+      - name: Push + PR
+        if: steps.context.outputs.skip != 'true' && steps.verdict.outcome == 'success' && success()
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.SELFHEAL_PAT }}
+          FAILED_CHECKS: ${{ steps.context.outputs.failed_checks }}
+          BRANCH: ${{ steps.branch.outputs.branch }}
+        run: |
+          set -euo pipefail
+          git push origin HEAD
+
+          PR_URL=$(gh pr create \
+            --label selfheal \
+            --title "fix(quality): self-heal $(date +%F)" \
+            --body "## Self-Heal Fix
+
+          Failed checks: $FAILED_CHECKS
+
+          Triggered by nightly quality run.
+
+          ---
+          Auto-generated by quality-selfheal workflow." \
+            --head "$BRANCH")
+          echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
+
+          DRY_RUN="false"
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.dry_run }}" == "true" ]]; then
+            DRY_RUN="true"
+          fi
+
+          if [[ "$DRY_RUN" != "true" ]]; then
+            gh pr merge --auto --squash "$PR_URL"
+            echo "auto_merge_enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "auto_merge_enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Green Slack
+        if: always() && steps.context.outputs.skip != 'true' && steps.pr.outputs.pr_url != ''
+        continue-on-error: true
+        env:
+          QUALITY_SLACK_PHASE: green
+          PR_URL: ${{ steps.pr.outputs.pr_url }}
+          AUTO_MERGE_ENABLED: ${{ steps.pr.outputs.auto_merge_enabled }}
+          UNIT_COVERAGE_RESULT: success
+          DEAD_CODE_RESULT: success
+          SLACK_HEALTH_WEBHOOK_URL: ${{ secrets.SLACK_HEALTH_WEBHOOK_URL }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: pnpm exec tsx scripts/notifications/quality-slack.ts
