@@ -337,6 +337,22 @@ describe("unified health-agent workflow contract", () => {
     );
   });
 
+  it("passes live mutation gates to the queue runtime", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+    const enqueue = jobSection(
+      workflow,
+      "enqueue-and-claim",
+      "prepare-repair-batches",
+    );
+
+    expect(enqueue).toContain(
+      "HEALTH_AGENT_ENABLED: ${{ vars.HEALTH_AGENT_ENABLED }}",
+    );
+    expect(enqueue).toContain(
+      "HEALTH_AUTOFIX_ENABLED: ${{ vars.HEALTH_AUTOFIX_ENABLED }}",
+    );
+  });
+
   it("escalates automatic and human batches after their two repair cycles fail", async () => {
     const workflow = await readFile(workflowPath, "utf8");
     const escalation = jobSection(
