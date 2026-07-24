@@ -8,19 +8,14 @@ function remoteActions(workflow: string): string[] {
 }
 
 describe("E2E workflow contracts", () => {
-  it("runs selective e2e on pull requests scoped to source paths", async () => {
+  it("e2e-pr workflow is manual-only while smoke gate is pending (DEV-1154)", async () => {
     const workflow = await readFile(".github/workflows/e2e-pr.yml", "utf8");
 
     expect(workflow).toMatch(/^name: E2E PR \(selective\)$/m);
-    expect(workflow).toContain("pull_request:");
-    expect(workflow).toContain("    paths:");
-    expect(workflow).toContain("src/app/**");
+    expect(workflow).toContain("workflow_dispatch:");
+    expect(workflow).not.toContain("pull_request:");
     expect(workflow).toContain("--only-changed=origin/main");
     expect(workflow).toContain("continue-on-error: true");
-    expect(workflow).toContain("run: pnpm build");
-    expect(workflow.indexOf("run: pnpm build")).toBeGreaterThan(
-      workflow.indexOf("jobs:"),
-    );
     expect(
       remoteActions(workflow).every((action) => /@[0-9a-f]{40}$/.test(action)),
     ).toBe(true);
