@@ -320,6 +320,15 @@
       "fallbackDescription": "探索 {name} 的品牌故事、產品與官方連結。",
       "notFoundTitle": "找不到品牌"
     },
+    "tabNav": {
+      "overview": "本頁導覽",
+      "about": "品牌介紹",
+      "social": "社群平台",
+      "purchase": "購買資訊",
+      "locations": "產地與販售地點",
+      "faq": "常見問題",
+      "backToTop": "置頂"
+    },
     "verified": "品牌經營",
     "verifiedTitle": "由品牌方經營管理",
     "mitVerified": "MIT 微笑認證",
