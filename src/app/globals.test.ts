@@ -24,15 +24,13 @@ describe('global H2 contract', () => {
     expect(baseLayer).toContain('h2::before {')
   })
 
-  it('provides the padded section-heading treatment used by content pages', () => {
+  it('uses a compact accent without navigation-row styling', () => {
     const css = readFileSync(new URL('./globals.css', import.meta.url), 'utf8')
+    const baseLayer = readBlock(css, '@layer base')
 
-    expect(css).toContain('.section-heading-scope h2 {')
-    expect(css).toContain(
-      '@apply flex min-h-12 items-center border-b-2 border-primary px-4 type-nav-item-active md:border-b-0 md:border-l-2 md:px-3;',
-    )
-    expect(css).toContain('font-size: var(--text-sm) !important;')
-    expect(css).toContain('line-height: var(--text-sm--line-height) !important;')
-    expect(css).toContain('.section-heading-scope h2::before {')
+    expect(baseLayer).toContain('height: calc(var(--spacing) * 5);')
+    expect(baseLayer).toContain('margin-inline-end: calc(var(--spacing) * 3);')
+    expect(baseLayer).toContain('background-color: var(--primary);')
+    expect(css).not.toContain('.section-heading-scope h2')
   })
 })

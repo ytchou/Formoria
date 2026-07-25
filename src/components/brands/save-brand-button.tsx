@@ -1,6 +1,6 @@
 'use client'
 
-import { Bookmark } from 'lucide-react'
+import { Bookmark, LockKeyhole } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
 import { type MouseEvent, useRef } from 'react'
@@ -96,7 +96,18 @@ export function SaveBrandButton({
         strokeWidth={2}
         aria-hidden
       />
-      {variant === 'inline' && <span>{label}</span>}
+      {variant === 'inline' && (
+        <>
+          <span>{label}</span>
+          {!userLoading && !user && (
+            <LockKeyhole
+              data-auth-required-indicator
+              className="size-3.5 text-muted-foreground"
+              aria-hidden="true"
+            />
+          )}
+        </>
+      )}
     </button>
   )
 }

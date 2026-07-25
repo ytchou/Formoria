@@ -4,7 +4,11 @@ import type { Brand } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { InfoField } from '@/components/ui/card'
 import { Typography } from '@/components/ui/typography'
+import { cn } from '@/lib/utils'
 import { MitDeclaredBadge, MitVerifiedBadge, OwnerVerifiedBadge } from './brand-verification-badges'
+
+const infoLabelClassName =
+  'type-field-label uppercase tracking-[0.08em]'
 
 interface BrandHeaderProps {
   brand: Brand
@@ -12,6 +16,7 @@ interface BrandHeaderProps {
   cityLabel?: string | null
   locale?: string
   actionsSlot?: ReactNode
+  adminSlot?: ReactNode
 }
 
 export function BrandHeader({
@@ -20,6 +25,7 @@ export function BrandHeader({
   cityLabel,
   locale,
   actionsSlot,
+  adminSlot,
 }: BrandHeaderProps) {
   const t = useTranslations('brandDetail')
   const hasMitDeclaredBadge = brand.mitStatus === 'declared'
@@ -44,28 +50,66 @@ export function BrandHeader({
   )
 
   return (
-    <div className="space-y-3">
-      {/* Brand name */}
-      <h1 className="type-display">
-        {brand.name}
-      </h1>
+    <div>
+      <div className="space-y-3">
+        {/* Brand name */}
+        <div className="flex items-start justify-between gap-4">
+          <h1 className="type-display">
+            {brand.name}
+          </h1>
+          {adminSlot}
+        </div>
 
-      {/* CTA slot — rendered between name and meta row */}
-      {actionsSlot}
+        {/* CTA slot — rendered between name and meta row */}
+        {actionsSlot}
+      </div>
 
-      <section aria-labelledby="brand-info-heading" id="brand-info-section">
-        <Typography as="h2" id="brand-info-heading" variant="sectionTitle">
+      <section aria-labelledby="brand-info-heading" id="brand-info-section" className="mt-7">
+        <Typography as="h2" id="brand-info-heading" variant="sectionTitleLarge">
           {t('sectionTitle')}
         </Typography>
-        <dl className="mt-4 space-y-5">
+        {hasVerification && (
+          <div
+            className={cn(
+              'mt-5 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg px-3 py-2.5',
+              hasMitVerifiedBadge ? 'bg-mit-verified-bg' : 'bg-secondary',
+            )}
+          >
+            {hasMitDeclaredBadge && (
+              <MitDeclaredBadge label={t('mitDeclared')} title={t('mitDeclaredTitle')} />
+            )}
+            {hasMitVerifiedBadge && (
+              <MitVerifiedBadge label={t('mitVerified')} title={t('mitVerifiedTitle')} />
+            )}
+            {hasOwnerVerifiedBadge && (
+              <OwnerVerifiedBadge label={t('verified')} title={t('verifiedTitle')} />
+            )}
+            {mitSmileCert && (
+              <span className="type-caption">
+                {t('mitProofLink', { cert: mitSmileCert })}
+              </span>
+            )}
+          </div>
+        )}
+        <dl className="mt-5 grid grid-cols-1 gap-x-7 gap-y-4 sm:grid-cols-2">
           <InfoField
             label={t('label.location')}
-            layout="inline"
-            value={cityLabel ? <Badge variant="secondary">{cityLabel}</Badge> : unknownValue}
+            labelClassName={infoLabelClassName}
+            layout="stacked"
+            value={
+              cityLabel ? (
+                <Badge className="text-foreground" variant="secondary">
+                  {cityLabel}
+                </Badge>
+              ) : (
+                unknownValue
+              )
+            }
           />
           <InfoField
             label={t('label.foundingYear')}
-            layout="inline"
+            labelClassName={infoLabelClassName}
+            layout="stacked"
             value={
               brand.foundingYear != null
                 ? t('foundingYear', { year: brand.foundingYear })
@@ -74,26 +118,45 @@ export function BrandHeader({
           />
           <InfoField
             label={t('label.category')}
-            layout="inline"
+            labelClassName={infoLabelClassName}
+            layout="stacked"
             value={
-              resolvedCategory ? <Badge variant="secondary">{resolvedCategory}</Badge> : unknownValue
+              resolvedCategory ? (
+                <Badge className="text-foreground" variant="secondary">
+                  {resolvedCategory}
+                </Badge>
+              ) : (
+                unknownValue
+              )
             }
           />
           <InfoField
             label={t('label.priceRange')}
-            layout="inline"
+            labelClassName={infoLabelClassName}
+            layout="stacked"
             value={
-              priceRangeLabel ? <Badge variant="secondary">{priceRangeLabel}</Badge> : unknownValue
+              priceRangeLabel ? (
+                <Badge className="text-foreground" variant="secondary">
+                  {priceRangeLabel}
+                </Badge>
+              ) : (
+                unknownValue
+              )
             }
           />
           <InfoField
             label={t('label.productCategories')}
-            layout="inline"
+            labelClassName={infoLabelClassName}
+            layout="stacked"
             value={
               resolvedTags.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5">
                   {resolvedTags.map((tag, index) => (
-                    <Badge key={`${tag}-${index}`} variant="secondary">
+                    <Badge
+                      key={`${tag}-${index}`}
+                      className="text-foreground"
+                      variant="secondary"
+                    >
                       {tag}
                     </Badge>
                   ))}
@@ -102,33 +165,17 @@ export function BrandHeader({
                 unknownValue
               )
             }
+            wide
           />
-          <InfoField
-            label={t('label.certification')}
-            layout="inline"
-            value={
-              hasVerification ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  {hasMitDeclaredBadge && (
-                    <MitDeclaredBadge label={t('mitDeclared')} title={t('mitDeclaredTitle')} />
-                  )}
-                  {hasMitVerifiedBadge && (
-                    <MitVerifiedBadge label={t('mitVerified')} title={t('mitVerifiedTitle')} />
-                  )}
-                  {hasOwnerVerifiedBadge && (
-                    <OwnerVerifiedBadge label={t('verified')} title={t('verifiedTitle')} />
-                  )}
-                  {mitSmileCert && (
-                    <span className="type-caption">
-                      {t('mitProofLink', { cert: mitSmileCert })}
-                    </span>
-                  )}
-                </div>
-              ) : (
-                unknownValue
-              )
-            }
-          />
+          {!hasVerification && (
+            <InfoField
+              label={t('label.certification')}
+              labelClassName={infoLabelClassName}
+              layout="stacked"
+              value={unknownValue}
+              wide
+            />
+          )}
         </dl>
       </section>
     </div>

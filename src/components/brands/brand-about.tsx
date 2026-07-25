@@ -18,7 +18,7 @@ export async function BrandAbout({ brand }: BrandAboutProps) {
 
   return (
     <section>
-      <h2 className="mb-3 type-section-title">
+      <h2 className="mb-4 type-section-title-large">
         {t('sections.about')}
       </h2>
       <div className="space-y-3">

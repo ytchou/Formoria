@@ -44,6 +44,11 @@ import {
   sanitizeHref,
 } from '@/lib/url'
 
+// Shared section rhythm: hairline rule above each section, and enough scroll offset to clear
+// the sticky main nav (100px) plus the mobile section-nav strip (48px).
+const brandSectionClassName =
+  'scroll-mt-40 border-t border-border pt-8 first:border-t-0 first:pt-0 md:scroll-mt-28'
+
 // 1h ISR: ownership/verified-state changes propagate within ~an hour; route still statically served between regenerations
 export const revalidate = 3600
 export const dynamic = 'force-static'
@@ -249,7 +254,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
     <>
       <main
         className={cn(
-          'section-heading-scope page-gutter mx-auto max-w-screen-xl pt-10 lg:pb-10',
+          'page-gutter mx-auto max-w-screen-xl pt-10 lg:pb-10',
           visitUrl ? 'pb-24' : 'pb-10',
         )}
       >
@@ -293,10 +298,10 @@ export default async function BrandDetailPage({ params }: PageProps) {
               categoryLabel={categoryLabel || null}
               cityLabel={displayBrand.city ? tCities(displayBrand.city) : null}
               locale={safeLocale}
+              adminSlot={<AdminBrandMenu brandSlug={displayBrand.slug} />}
               actionsSlot={
                 <SavedBrandsProvider>
                   <BrandActions
-                    adminSlot={<AdminBrandMenu brandSlug={displayBrand.slug} />}
                     websiteUrl={visitUrl ?? null}
                     brandSlug={displayBrand.slug}
                     brandId={displayBrand.id}
@@ -318,12 +323,12 @@ export default async function BrandDetailPage({ params }: PageProps) {
 
           <div
             className={cn(
-              'flex min-w-0 flex-col gap-6',
+              'flex min-w-0 flex-col gap-8',
               hasSectionNav && 'md:col-span-4',
             )}
           >
             {description && (
-              <section id="about">
+              <section id="about" className={brandSectionClassName}>
                 <BrandAbout brand={displayBrand} />
               </section>
             )}
@@ -331,9 +336,10 @@ export default async function BrandDetailPage({ params }: PageProps) {
             <BrandLinks
               brand={displayBrand}
               sectionIds={{ social: 'social', purchase: 'purchase' }}
+              sectionClassName={brandSectionClassName}
             />
 
-            <section id="locations">
+            <section id="locations" className={brandSectionClassName}>
               <BrandChannelsSection
                 confirmed={channels.confirmed}
                 possible={channels.possible}
@@ -343,7 +349,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
             </section>
 
             {faqItems.length > 0 && (
-              <section id="faq">
+              <section id="faq" className={brandSectionClassName}>
                 <BrandFaqAccordion items={faqItems} brandSlug={displayBrand.slug} />
               </section>
             )}

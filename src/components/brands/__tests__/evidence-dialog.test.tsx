@@ -69,7 +69,10 @@ describe('EvidenceDialog', () => {
     const user = userEvent.setup()
     renderWithIntl(<EvidenceDialog brandId="b1" brandSlug="test-brand" />)
 
-    await user.click(screen.getByRole('button', { name: /回報產地資訊/i }))
+    const trigger = screen.getByRole('button', { name: /回報產地資訊/i })
+    expect(trigger).toHaveAttribute('title', '請先登入，再提供產地證據。')
+    expect(trigger.querySelector('[data-auth-required-indicator]')).toBeInTheDocument()
+    await user.click(trigger)
 
     expect(screen.getByRole('link', { name: /登入/i })).toBeInTheDocument()
     expect(screen.queryByLabelText(/產品名稱/i)).not.toBeInTheDocument()
@@ -79,7 +82,9 @@ describe('EvidenceDialog', () => {
     const user = userEvent.setup()
     renderWithIntl(<EvidenceDialog brandId="b1" brandSlug="test-brand" />)
 
-    await user.click(screen.getByRole('button', { name: /回報產地資訊/i }))
+    const trigger = screen.getByRole('button', { name: /回報產地資訊/i })
+    expect(trigger.querySelector('[data-auth-required-indicator]')).not.toBeInTheDocument()
+    await user.click(trigger)
 
     expect(screen.queryByRole('radio', { checked: true })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /送出/i })).toBeDisabled()

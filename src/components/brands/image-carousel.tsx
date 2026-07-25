@@ -8,7 +8,6 @@ import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { trackGalleryPhotoView, trackGalleryCompleted } from '@/lib/analytics'
 import { Button } from '@/components/ui/button'
 import { BrandImageFallback } from './brand-image-fallback'
-import { LikeBrandButton } from './like-brand-button'
 
 interface ImageCarouselProps {
   images: string[]
@@ -40,12 +39,6 @@ export function ImageCarousel({ images, alt, brandId, brandSlug, category, image
     return (
       <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-muted">
         <BrandImageFallback name={alt} category={category ?? null} size="detail" />
-        <LikeBrandButton
-          brandId={brandId}
-          slug={brandSlug}
-          variant="overlay"
-          className="absolute right-4 top-4"
-        />
       </div>
     )
   }
@@ -110,13 +103,6 @@ export function ImageCarousel({ images, alt, brandId, brandSlug, category, image
             onError={() => handleImageError(current)}
           />
         )}
-
-        <LikeBrandButton
-          brandId={brandId}
-          slug={brandSlug}
-          variant="overlay"
-          className="absolute right-4 top-4"
-        />
 
         {total > 1 && (
           <>

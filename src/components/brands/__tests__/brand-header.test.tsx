@@ -54,6 +54,21 @@ function renderWithIntl(ui: React.ReactElement) {
 }
 
 describe('BrandHeader — verified badge', () => {
+  it('places the admin slot at the right edge of the brand name header', () => {
+    renderWithIntl(
+      <BrandHeader
+        brand={makeBrand()}
+        adminSlot={<button data-testid="admin-slot">管理選單</button>}
+      />,
+    )
+
+    const heading = screen.getByRole('heading', { name: 'Test Brand' })
+    const adminSlot = screen.getByTestId('admin-slot')
+
+    expect(heading.parentElement).toHaveClass('flex', 'justify-between')
+    expect(heading.parentElement).toContainElement(adminSlot)
+  })
+
   it('shows the MIT verified badge for MIT-verified brands', () => {
     renderWithIntl(
       <BrandHeader
@@ -111,8 +126,8 @@ describe('BrandHeader — verified badge', () => {
   })
 })
 
-describe('BrandHeader — labeled rows', () => {
-  it('keeps labels and values in separate columns', () => {
+describe('BrandHeader — fact grid', () => {
+  it('stacks each value below its label in a responsive two-column grid', () => {
     renderWithIntl(
       <BrandHeader
         brand={makeBrand({ foundingYear: 2010 })}
@@ -123,11 +138,20 @@ describe('BrandHeader — labeled rows', () => {
     const locationLabel = screen.getByText('地點').closest('dt')
     const locationValue = screen.getByText('台北市').closest('dd')
 
-    expect(locationLabel?.parentElement).toHaveClass('grid-cols-3')
-    expect(locationValue).toHaveClass('col-span-2')
+    expect(locationLabel?.parentElement?.parentElement).toHaveClass(
+      'grid',
+      'sm:grid-cols-2',
+    )
+    expect(locationLabel?.parentElement).toHaveClass('space-y-1')
+    expect(locationLabel).toHaveClass(
+      'type-field-label',
+      'uppercase',
+    )
+    expect(locationLabel).not.toHaveClass('font-bold')
+    expect(locationValue).not.toHaveClass('col-span-2')
   })
 
-  it('renders all fact labels for full-data brand', () => {
+  it('lifts verification into a claim strip above the fact list', () => {
     renderWithIntl(
       <BrandHeader
         brand={makeBrand({
@@ -142,11 +166,18 @@ describe('BrandHeader — labeled rows', () => {
       />,
     )
 
-    expect(screen.getByRole('heading', { name: '品牌資訊' })).toBeInTheDocument()
-    for (const label of ['地點', '創立年份', '類別', '價格區間', '產品類別', '認證']) {
+    expect(screen.getByRole('heading', { name: '品牌資訊' })).toHaveClass(
+      'type-section-title-large',
+    )
+    for (const label of ['地點', '創立年份', '類別', '價格區間', '產品類別']) {
       const labelElement = screen.getByText(label)
       expect(labelElement.closest('dt')).toHaveTextContent(label)
     }
+    expect(screen.queryByText('認證')).not.toBeInTheDocument()
+
+    const claimStrip = screen.getByText('MIT 微笑認證').parentElement
+    expect(claimStrip).toHaveClass('bg-mit-verified-bg')
+    expect(claimStrip?.nextElementSibling?.tagName).toBe('DL')
   })
 
   it('keeps every field visible when data is missing', () => {
@@ -171,16 +202,15 @@ describe('BrandHeader — labeled rows', () => {
   it('uses neutral badges for finite-value fields', () => {
     renderWithIntl(
       <BrandHeader
-        brand={makeBrand({ category: 'fashion', priceRange: 2 })}
+        brand={makeBrand({ category: 'fashion', priceRange: 2, productTags: ['手工製作'] })}
         cityLabel="台北市"
       />,
     )
 
-    for (const value of ['台北市', 'fashion', '$$']) {
-      expect(screen.getByText(value).closest('[data-slot="badge"]')).toHaveAttribute(
-        'data-variant',
-        'secondary',
-      )
+    for (const value of ['台北市', 'fashion', '$$', '手工製作']) {
+      const badge = screen.getByText(value).closest('[data-slot="badge"]')
+      expect(badge).toHaveAttribute('data-variant', 'secondary')
+      expect(badge).toHaveClass('text-foreground')
     }
   })
 })

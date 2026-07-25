@@ -123,7 +123,7 @@ export async function BrandChannelsSection({
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-2">
-          <h2 className="type-section-title">
+          <h2 className="type-section-title-large">
             {t('sections.locationsAndRetailChannels')}
           </h2>
           <p className="type-card-description">{t('channels.subtitle')}</p>

@@ -2552,12 +2552,12 @@
     "loginToSave": "Log in to save brands"
   },
   "likeBrand": {
-    "like": "Like",
-    "likeAriaLabel": "Like this brand, {count, plural, one {# like} other {# likes}}",
-    "unlikeAriaLabel": "Remove your like from this brand, {count, plural, one {# like} other {# likes}}",
-    "loading": "Loading likes",
+    "like": "Support",
+    "likeAriaLabel": "Support this brand, {count, plural, one {# supporter} other {# supporters}}",
+    "unlikeAriaLabel": "Remove your support from this brand, {count, plural, one {# supporter} other {# supporters}}",
+    "loading": "Loading support count",
     "rateLimited": "Too many reactions. Please try again later.",
-    "error": "We couldn't update your like. Please try again."
+    "error": "We couldn't update your support. Please try again."
   },
   "search": {
     "emptyState": {
