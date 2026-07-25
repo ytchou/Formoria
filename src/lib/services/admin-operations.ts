@@ -76,21 +76,24 @@ export const getAdminOperationsSnapshot = cache(
 
 export const getAdminNavCounts = cache(async () => {
   const supabase = createServiceClient();
-  const [submissions, moderation, evidence, reports] = await Promise.allSettled([
+  const [submissions, moderation, evidence, reports, corrections] = await Promise.allSettled([
     exactCount(supabase.from("brand_submissions").select("id", { count: "exact", head: true }).eq("status", "pending")),
     exactCount(supabase.from("moderation_flags").select("id", { count: "exact", head: true }).eq("status", "pending")),
     exactCount(supabase.from("origin_evidence").select("id", { count: "exact", head: true }).eq("status", "pending")),
     exactCount(supabase.from("brand_reports").select("id", { count: "exact", head: true }).eq("status", "pending")),
+    exactCount(supabase.from("brand_field_corrections").select("id", { count: "exact", head: true }).eq("status", "pending")),
   ]);
   logRejected("nav:submissions", submissions);
   logRejected("nav:moderation", moderation);
   logRejected("nav:evidence", evidence);
   logRejected("nav:reports", reports);
+  logRejected("nav:corrections", corrections);
   return {
     submissions: settledValue(submissions),
     moderation: settledValue(moderation),
     evidence: settledValue(evidence),
     reports: settledValue(reports),
+    corrections: settledValue(corrections),
   };
 });
 

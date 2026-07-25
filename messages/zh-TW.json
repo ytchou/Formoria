@@ -2157,7 +2157,8 @@
         "quality": "品質儀表板",
         "newsletter": "電子報",
         "scripts": "工具",
-        "settings": "設定"
+        "settings": "設定",
+        "corrections": "資料修正"
       }
     },
     "dashboard": {
@@ -2272,6 +2273,39 @@
       "errors": {
         "notesRequired": "拒絕佐證時必須填寫審核備註。",
         "generic": "無法審核佐證，請再試一次。"
+      }
+    },
+    "corrections": {
+      "title": "品牌資料修正",
+      "description": "審核訪客針對品牌篩選資料提出的修正，核准後會更新目錄。",
+      "table": {
+        "brand": "品牌",
+        "field": "欄位",
+        "current": "目前值",
+        "proposed": "建議值",
+        "date": "提交日期"
+      },
+      "fields": {
+        "price_range": "價格區間",
+        "product_type": "產品類型",
+        "product_tags": "產品標籤"
+      },
+      "tagDelta": {
+        "projected": "套用後結果"
+      },
+      "stale": "提交後，品牌資料已變更",
+      "tooManyTags": "無法核准：套用後會超過 5 個產品標籤",
+      "actions": {
+        "approve": "核准",
+        "reject": "拒絕"
+      },
+      "reviewerNotes": "審核備註",
+      "reviewerNotesPlaceholder": "補充這項審核決定的備註",
+      "unknownBrand": "未知品牌",
+      "notAvailable": "無法取得",
+      "empty": "目前沒有待審核的品牌修正。",
+      "errors": {
+        "generic": "無法審核這項品牌修正，請稍後再試。"
       }
     },
     "claimRequests": {
