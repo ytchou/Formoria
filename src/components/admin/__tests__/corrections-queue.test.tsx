@@ -16,6 +16,7 @@ function makeCorrection(
     field: "price_range",
     proposedValue: 2,
     previousValue: 1,
+    currentValue: 1,
     visitorHash: null,
     status: "pending",
     reviewedAt: null,
@@ -51,6 +52,7 @@ describe("CorrectionsQueue", () => {
         id: "price-correction",
         field: "price_range",
         previousValue: 1,
+        currentValue: 1,
         proposedValue: 3,
         brandName: "價格品牌",
       }),
@@ -58,6 +60,7 @@ describe("CorrectionsQueue", () => {
         id: "type-correction",
         field: "product_type",
         previousValue: "fashion",
+        currentValue: "fashion",
         proposedValue: "home",
         brandName: "居家品牌",
       }),
@@ -77,6 +80,7 @@ describe("CorrectionsQueue", () => {
       makeCorrection({
         field: "product_tags",
         previousValue: ["香氛"],
+        currentValue: ["香氛"],
         proposedValue: { add: ["燈具"], remove: ["香氛"] },
       }),
     ]);
@@ -102,14 +106,12 @@ describe("CorrectionsQueue", () => {
 
   it("warns when a tag delta would exceed the 5-tag cap against the current value", async () => {
     const user = userEvent.setup();
-    const correction = {
-      ...makeCorrection({
-        field: "product_tags",
-        previousValue: ["上衣", "褲裝", "裙裝", "鞋子"],
-        proposedValue: { add: ["燈具"], remove: [] },
-      }),
+    const correction = makeCorrection({
+      field: "product_tags",
+      previousValue: ["上衣", "褲裝", "裙裝", "鞋子"],
       currentValue: ["上衣", "褲裝", "裙裝", "鞋子", "包袋"],
-    };
+      proposedValue: { add: ["燈具"], remove: [] },
+    });
 
     renderQueue([correction]);
 
@@ -119,6 +121,36 @@ describe("CorrectionsQueue", () => {
 
     await user.click(screen.getByText("測試品牌"));
     expect(screen.getByRole("button", { name: "核准" })).toBeDisabled();
+  });
+
+  it("projects the tag delta against currentValue, not previousValue, for stale corrections", () => {
+    // previousValue: ["香氛"] — the snapshot stored at submit time
+    // currentValue:  ["燈具"] — the live value (changed since submission)
+    // delta: add ["托特包"], remove ["香氛"]
+    //
+    // Correct projection (currentValue-based):
+    //   applyTagDelta(["燈具"], { add: ["托特包"], remove: ["香氛"] })
+    //   = ["燈具", "托特包"]  (remove is a no-op; "香氛" not present)
+    //
+    // Wrong projection (previousValue fallback):
+    //   applyTagDelta(["香氛"], { add: ["托特包"], remove: ["香氛"] })
+    //   = ["托特包"]          ("燈具" would be absent from the projected tags)
+    renderQueue([
+      makeCorrection({
+        field: "product_tags",
+        previousValue: ["香氛"],
+        currentValue: ["燈具"],
+        proposedValue: { add: ["托特包"], remove: ["香氛"] },
+        stale: true,
+      }),
+    ]);
+
+    // "燈具" must appear in the projected result (from currentValue).
+    // It also appears in the current-value column, so we expect it twice total.
+    // If the fallback to previousValue were re-introduced, the projection would
+    // yield only ["托特包"] and "燈具" would appear just once (current column).
+    expect(screen.getAllByText("燈具")).toHaveLength(2);
+    expect(screen.getByText("托特包")).toBeInTheDocument();
   });
 
   it("calls reviewAction with approved on approve", async () => {

@@ -601,6 +601,7 @@ describe("brand corrections service", () => {
         brandId: "brand-1",
         brandName: "Test Brand",
         brandSlug: "test-brand",
+        currentValue: 2,
         stale: false,
       }),
       expect.objectContaining<Partial<BrandCorrection>>({
@@ -608,6 +609,7 @@ describe("brand corrections service", () => {
         brandId: "brand-1",
         brandName: "Test Brand",
         brandSlug: "test-brand",
+        currentValue: 2,
         stale: true,
       }),
     ]);

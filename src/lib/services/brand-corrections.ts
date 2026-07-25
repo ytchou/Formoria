@@ -47,6 +47,7 @@ export type BrandCorrection = {
   field: CorrectionField;
   proposedValue: CorrectionProposedValue;
   previousValue: Json | null;
+  currentValue: CurrentBrandValue;
   visitorHash: string | null;
   status: CorrectionStatus;
   reviewedAt: string | null;
@@ -226,6 +227,7 @@ function rowToCorrection(row: BrandCorrectionRowWithBrand): BrandCorrection {
     field,
     proposedValue: row.proposed_value as CorrectionProposedValue,
     previousValue: row.previous_value,
+    currentValue,
     visitorHash: row.visitor_hash,
     status: row.status as CorrectionStatus,
     reviewedAt: row.reviewed_at,

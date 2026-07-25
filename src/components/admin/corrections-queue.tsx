@@ -31,10 +31,6 @@ type ReviewAction = (
   notes: string,
 ) => Promise<{ error?: string } | undefined>;
 
-type CorrectionWithCurrentValue = BrandCorrection & {
-  currentValue?: unknown;
-};
-
 type TagDeltaState = {
   delta: ProductTagsDelta;
   projectedTags: string[];
@@ -62,10 +58,7 @@ function stringArray(value: unknown): string[] {
 }
 
 function currentValue(correction: BrandCorrection): unknown {
-  const enriched = correction as CorrectionWithCurrentValue;
-  return enriched.currentValue !== undefined
-    ? enriched.currentValue
-    : correction.previousValue;
+  return correction.currentValue;
 }
 
 function tagDeltaState(correction: BrandCorrection): TagDeltaState | null {
