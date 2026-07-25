@@ -564,9 +564,9 @@ describeWithDb("trusted submission review RPCs", () => {
       p_dry_run: false,
       p_started_by: "trusted-review-test",
       p_trigger: "admin",
-      p_parent_job_id: null,
+      p_parent_job_id: null as unknown as string,
       p_attempt: 1,
-      p_scheduled_for: null,
+      p_scheduled_for: null as unknown as string,
       p_run_after: new Date().toISOString(),
       p_dedupe_key: `trusted-review:${suffix}:${randomUUID()}`,
       p_targets: [
