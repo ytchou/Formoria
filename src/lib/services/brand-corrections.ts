@@ -1,5 +1,4 @@
 import { revalidatePublicBrand } from "@/lib/cache/public-brand-cache";
-import { rateLimit } from "@/lib/security/rate-limiter";
 import {
   PRODUCT_SUBCATEGORIES,
   PRODUCT_TYPE_CATEGORIES,
@@ -11,11 +10,6 @@ import { updateBrand } from "./brands";
 
 const CORRECTION_SELECT =
   "*, brands(name, slug, price_range, product_type, product_tags)";
-const CORRECTION_RATE_LIMIT = {
-  windowMs: 60_000,
-  maxRequests: 10,
-  prefix: "brand-correction",
-} as const;
 
 const PRODUCT_TYPE_SLUGS = new Set<string>(
   PRODUCT_TYPE_CATEGORIES.map((category) => category.slug),
@@ -81,7 +75,6 @@ export type SubmitCorrectionResult =
         | "unchanged"
         | "too_many_tags"
         | "already_submitted"
-        | "rate_limited"
         | "not_found"
         | "database_error";
     };
@@ -101,7 +94,6 @@ export type ReviewCorrectionResult =
         | "unchanged"
         | "too_many_tags"
         | "not_found"
-        | "already_reviewed"
         | "database_error";
     };
 
@@ -329,12 +321,6 @@ export async function submitCorrection(
   if (validationError) return { ok: false, code: validationError };
 
   try {
-    const limit = await rateLimit(
-      input.visitorHash ?? "unknown",
-      CORRECTION_RATE_LIMIT,
-    );
-    if (!limit.allowed) return { ok: false, code: "rate_limited" };
-
     const supabase = createServiceClient();
     const { data: brand, error: brandError } = await readBrand(
       supabase,

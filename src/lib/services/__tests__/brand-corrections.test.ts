@@ -217,11 +217,32 @@ describe("brand corrections service", () => {
   });
 
   it("rejects product_tags deltas containing a non-canonical string", async () => {
+    // add array validated
     await expect(
       submitCorrection(
         correctionInput({
           field: "product_tags",
           proposedValue: { add: ["not-an-ontology-label"], remove: [] },
+        }),
+      ),
+    ).resolves.toEqual({ ok: false, code: "invalid_value" });
+
+    // remove array validated too
+    await expect(
+      submitCorrection(
+        correctionInput({
+          field: "product_tags",
+          proposedValue: { add: [], remove: ["not-an-ontology-label"] },
+        }),
+      ),
+    ).resolves.toEqual({ ok: false, code: "invalid_value" });
+
+    // L2 slug ("earrings") is rejected — only nameZh ("耳環") is canonical
+    await expect(
+      submitCorrection(
+        correctionInput({
+          field: "product_tags",
+          proposedValue: { add: ["earrings"], remove: [] },
         }),
       ),
     ).resolves.toEqual({ ok: false, code: "invalid_value" });
@@ -404,12 +425,14 @@ describe("brand corrections service", () => {
 
   it("approval tolerates a remove of an already-absent tag", async () => {
     const update = makeBuilder({ data: null, error: null });
+    // brand has ["外套","洋裝"] — "耳環" is absent, so remove is a no-op;
+    // "斜背包" is new, so it gets added. Distinct from the current-vs-snapshot test above.
     setupReview(
       correctionRow({
         field: "product_tags",
         proposed_value: { add: ["斜背包"], remove: ["耳環"] },
         previous_value: ["耳環"],
-        brands: brandRow({ product_tags: ["托特包"] }),
+        brands: brandRow({ product_tags: ["外套", "洋裝"] }),
       }),
       update,
     );
@@ -421,7 +444,7 @@ describe("brand corrections service", () => {
     ).resolves.toEqual({ ok: true });
     expect(mocks.updateBrand).toHaveBeenCalledWith(
       "brand-1",
-      expect.objectContaining({ productTags: ["托特包", "斜背包"] }),
+      expect.objectContaining({ productTags: ["外套", "洋裝", "斜背包"] }),
       expect.objectContaining({ source: "admin" }),
     );
   });
