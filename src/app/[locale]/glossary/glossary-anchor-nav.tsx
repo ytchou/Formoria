@@ -59,7 +59,7 @@ export function GlossaryAnchorNav({ sections, sectionsLabel }: GlossaryAnchorNav
         aria-label="Glossary sections"
         className="hidden w-60 shrink-0 md:block"
       >
-        <div className="sticky top-16">
+    <div className="sticky top-(--nav-height)">
           <p className="mb-3 type-eyebrow-muted">
             {sectionsLabel}
           </p>

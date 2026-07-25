@@ -127,18 +127,32 @@ function DataCard({
 function InfoField({
   className,
   label,
+  layout = "stacked",
   value,
   wide = false,
 }: {
   className?: string;
   label: ReactNode;
+  layout?: "inline" | "stacked";
   value: ReactNode;
   wide?: boolean;
 }) {
   return (
-    <div className={cn("space-y-1", wide && "sm:col-span-2", className)}>
+    <div
+      className={cn(
+        layout === "inline" ? "grid grid-cols-3 items-start gap-x-4" : "space-y-1",
+        wide && "sm:col-span-2",
+        className,
+      )}
+    >
       <dt className={cn(textStyles({ variant: "fieldLabel" }), "font-bold")}>{label}</dt>
-      <dd className={cn("whitespace-pre-wrap break-words", textStyles({ variant: "fieldValue" }))}>
+      <dd
+        className={cn(
+          "whitespace-pre-wrap break-words",
+          layout === "inline" && "col-span-2",
+          textStyles({ variant: "fieldValue" }),
+        )}
+      >
         {value}
       </dd>
     </div>

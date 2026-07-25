@@ -52,9 +52,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps) {
     <NextIntlClientProvider locale={locale} messages={messages}>
       <SyncHtmlLang />
       <ImpersonationBanner />
-      <div className="relative z-50">
-        <MainNav categories={[...PRODUCT_TYPE_CATEGORIES]} />
-      </div>
+      <MainNav categories={[...PRODUCT_TYPE_CATEGORIES]} />
       <div id="main-content" className="flex-1">{children}</div>
       <Footer />
     </NextIntlClientProvider>

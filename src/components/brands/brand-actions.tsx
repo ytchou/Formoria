@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
 import { ExternalLink } from 'lucide-react'
 import { trackExternalLinkClicked } from '@/lib/analytics'
@@ -10,13 +11,20 @@ import { SaveBrandButton } from './save-brand-button'
 import { ShareDialog } from './share-dialog'
 
 interface BrandActionsProps {
+  adminSlot?: ReactNode
   websiteUrl: string | null
   brandSlug?: string
   brandId?: string
   brandName: string
 }
 
-export function BrandActions({ websiteUrl, brandSlug = '', brandId, brandName }: BrandActionsProps) {
+export function BrandActions({
+  adminSlot,
+  websiteUrl,
+  brandSlug = '',
+  brandId,
+  brandName,
+}: BrandActionsProps) {
   const t = useTranslations('brandDetail')
   const handleWebsiteClick = () => {
     trackExternalLinkClicked(
@@ -54,6 +62,7 @@ export function BrandActions({ websiteUrl, brandSlug = '', brandId, brandName }:
           {brandId && <SaveBrandButton brandId={brandId} slug={brandSlug} variant="inline" className="rounded-xl" />}
           {brandId && <EvidenceDialog brandId={brandId} brandSlug={brandSlug} />}
           {brandId && <ReportDialog brandId={brandId} brandSlug={brandSlug} />}
+          {adminSlot}
         </div>
       </div>
       {websiteUrl && (

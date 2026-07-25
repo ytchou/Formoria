@@ -37,6 +37,22 @@ function renderWithIntl(ui: ReactElement) {
 }
 
 describe('BrandActions', () => {
+  it('renders the admin menu immediately after the report action', () => {
+    renderWithIntl(
+      <BrandActions
+        adminSlot={<button aria-label="管理選單">mock-admin</button>}
+        brandId="brand-1"
+        brandName="測試品牌"
+        brandSlug="test-brand"
+        websiteUrl="https://example.com"
+      />
+    )
+
+    const reportButton = screen.getByRole('button', { name: '檢舉' })
+    const adminButton = screen.getByRole('button', { name: '管理選單' })
+    expect(reportButton.nextElementSibling).toBe(adminButton)
+  })
+
   it('renders an inline save button in the actions row', () => {
     renderWithIntl(
       <BrandActions

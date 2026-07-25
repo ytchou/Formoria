@@ -79,6 +79,14 @@ async function renderSection(
 }
 
 describe('BrandChannelsSection', () => {
+  it('uses the standard H2 treatment without a competing location icon', async () => {
+    await renderSection()
+
+    const heading = screen.getByRole('heading', { level: 2, name: '地點與販售通路' })
+    expect(heading).toHaveClass('type-section-title')
+    expect(heading.parentElement?.querySelector('svg')).toBeNull()
+  })
+
   it('renders confirmed rows with provenance badges and external links', async () => {
     await renderSection({
       confirmed: [

@@ -56,7 +56,7 @@ export function WizardSidebar({
 
   return (
     <>
-      <aside className="sticky top-6 hidden w-80 self-start md:block">
+    <aside className="sticky top-(--nav-height) hidden w-80 self-start md:block">
         <ProgressStepCard
           title={t('wizardSidebarTitle')}
           progressText={completedProgressText}

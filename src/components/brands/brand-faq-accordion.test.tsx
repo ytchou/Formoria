@@ -40,7 +40,7 @@ describe('BrandFaqAccordion', () => {
     renderFaq()
 
     expect(screen.getByRole('heading', { name: 'FAQ' })).toHaveClass(
-      'type-section-title-large',
+      'type-section-title',
     )
     expect(
       screen.getByRole('button', { name: '這個品牌在哪裡購買？' }),

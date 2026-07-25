@@ -425,7 +425,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
       <ViewItemListTracker listName="directory" itemCount={displayBrands.length} />
 
       <aside className="hidden lg:block" aria-label={t('filters.title')}>
-        <div className="sticky top-24">
+              <div className="sticky top-(--nav-height)">
           <BrandFilterSidebar
             activeFilters={activeFilters}
             categories={[...PRODUCT_TYPE_CATEGORIES]}
