@@ -7,6 +7,7 @@ import { trackExternalLinkClicked } from '@/lib/analytics'
 import { EvidenceDialog } from '@/components/brands/evidence-dialog'
 import { ReportDialog } from '@/components/brands/report-dialog'
 import { buttonVariants } from '@/components/ui/button'
+import { LikeBrandButton } from './like-brand-button'
 import { SaveBrandButton } from './save-brand-button'
 import { ShareDialog } from './share-dialog'
 
@@ -57,8 +58,9 @@ export function BrandActions({
             <span className="line-through">{t('actions.visitWebsite')}</span>
           </span>
         )}
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <ShareDialog brandSlug={brandSlug} brandName={brandName} brandId={brandId} />
+          {brandId && <LikeBrandButton brandId={brandId} slug={brandSlug} />}
           {brandId && <SaveBrandButton brandId={brandId} slug={brandSlug} variant="inline" className="rounded-xl" />}
           {brandId && <EvidenceDialog brandId={brandId} brandSlug={brandSlug} />}
           {brandId && <ReportDialog brandId={brandId} brandSlug={brandSlug} />}

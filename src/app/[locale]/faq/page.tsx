@@ -72,7 +72,7 @@ export default async function FaqPage({ params }: PageProps) {
   ] as const
 
   return (
-    <main className="section-heading-scope page-gutter mx-auto w-full max-w-screen-xl py-10">
+    <main className="page-gutter mx-auto w-full max-w-screen-xl py-10">
       <OpenTargetDetails />
       <div className="grid gap-10 md:grid-cols-5 md:gap-16">
         <aside className="space-y-4 md:sticky md:top-(--nav-height) md:self-start">

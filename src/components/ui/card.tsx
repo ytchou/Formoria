@@ -127,12 +127,14 @@ function DataCard({
 function InfoField({
   className,
   label,
+  labelClassName,
   layout = "stacked",
   value,
   wide = false,
 }: {
   className?: string;
   label: ReactNode;
+  labelClassName?: string;
   layout?: "inline" | "stacked";
   value: ReactNode;
   wide?: boolean;
@@ -145,7 +147,7 @@ function InfoField({
         className,
       )}
     >
-      <dt className={cn(textStyles({ variant: "fieldLabel" }), "font-bold")}>{label}</dt>
+      <dt className={labelClassName ?? cn(textStyles({ variant: "fieldLabel" }), "font-bold")}>{label}</dt>
       <dd
         className={cn(
           "whitespace-pre-wrap break-words",

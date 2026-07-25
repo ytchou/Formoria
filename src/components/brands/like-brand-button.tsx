@@ -1,6 +1,6 @@
 'use client'
 
-import { Heart } from 'lucide-react'
+import { ArrowUp } from 'lucide-react'
 import { useEffect, useState, useTransition } from 'react'
 import { useFormatter, useTranslations } from 'next-intl'
 import { toast } from 'sonner'
@@ -16,7 +16,6 @@ import { cn } from '@/lib/utils'
 type LikeBrandButtonProps = {
   brandId: string
   slug: string
-  variant?: 'inline' | 'overlay'
   className?: string
 }
 
@@ -32,7 +31,6 @@ const BURST_PARTICLES = [
 export function LikeBrandButton({
   brandId,
   slug,
-  variant = 'inline',
   className,
 }: LikeBrandButtonProps) {
   const t = useTranslations('likeBrand')
@@ -116,32 +114,25 @@ export function LikeBrandButton({
   }
 
   const ariaLabel = t(liked ? 'unlikeAriaLabel' : 'likeAriaLabel', { count })
-  const isOverlay = variant === 'overlay'
-
   return (
     <Button
       type="button"
-      variant={isOverlay ? 'overlay' : 'secondary'}
-      shape={isOverlay ? 'pill' : 'default'}
-      size={isOverlay ? 'icon' : 'default'}
+      variant="secondary"
       aria-label={ariaLabel}
       aria-pressed={liked}
       aria-busy={isPending}
       title={!isReady ? t('loading') : ariaLabel}
       disabled={!isReady || isPending}
       className={cn(
-        isOverlay
-          ? 'z-10 size-12 min-h-12 min-w-12 overflow-visible p-0'
-          : 'relative min-h-12 overflow-visible rounded-xl',
+        'relative overflow-visible rounded-xl',
         liked && 'border-primary/40 text-primary',
         className,
       )}
       onClick={handleClick}
       data-ph-no-autocapture
-      data-like-variant={variant}
-      >
+    >
       <span className="relative" aria-hidden="true">
-        <Heart fill={liked ? 'currentColor' : 'none'} strokeWidth={2} />
+        <ArrowUp strokeWidth={liked ? 2.5 : 2} />
         {showBurst && (
           <span className="pointer-events-none absolute left-1/2 top-1/2 motion-reduce:hidden">
             {BURST_PARTICLES.map((particle) => (
@@ -157,7 +148,7 @@ export function LikeBrandButton({
           </span>
         )}
       </span>
-      {!isOverlay && <span>{count > 0 ? format.number(count) : t('like')}</span>}
+      <span>{t('like')} {format.number(count)}</span>
     </Button>
   )
 }

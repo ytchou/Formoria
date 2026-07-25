@@ -39,7 +39,7 @@ export function AdminBrandMenu({ brandSlug }: AdminBrandMenuProps) {
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={t('label')}
-        className="flex h-11 w-11 items-center justify-center rounded-xl bg-transparent text-muted-foreground transition-colors hover:bg-secondary"
+        className="flex size-12 items-center justify-center rounded-xl bg-transparent text-muted-foreground transition-colors hover:bg-secondary"
       >
         <Settings className="size-4" />
       </DropdownMenuTrigger>

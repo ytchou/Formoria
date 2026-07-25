@@ -454,15 +454,3 @@
     vertical-align: middle;
   }
 }
-
-@layer components {
-  .section-heading-scope h2 {
-    @apply flex min-h-12 items-center border-b-2 border-primary px-4 type-nav-item-active md:border-b-0 md:border-l-2 md:px-3;
-    font-size: var(--text-sm) !important;
-    line-height: var(--text-sm--line-height) !important;
-  }
-
-  .section-heading-scope h2::before {
-    display: none;
-  }
-}

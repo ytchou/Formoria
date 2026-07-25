@@ -28,6 +28,14 @@ vi.mock('../save-brand-button', () => ({
   ),
 }))
 
+vi.mock('../like-brand-button', () => ({
+  LikeBrandButton: ({ brandId }: { brandId: string }) => (
+    <button aria-label="支持這個品牌，目前有 12 個支持" data-brand-id={brandId} type="button">
+      支持 12
+    </button>
+  ),
+}))
+
 function renderWithIntl(ui: ReactElement) {
   return render(
     <NextIntlClientProvider locale="zh-TW" messages={zh}>
@@ -64,6 +72,22 @@ describe('BrandActions', () => {
     )
 
     expect(screen.getByRole('button', { name: /收藏/ })).toBeInTheDocument()
+  })
+
+  it('renders public support before the private save action', () => {
+    renderWithIntl(
+      <BrandActions
+        brandId="brand-1"
+        brandName="測試品牌"
+        brandSlug="test-brand"
+        websiteUrl="https://example.com"
+      />
+    )
+
+    const supportButton = screen.getByRole('button', { name: /支持這個品牌/ })
+    const saveButton = screen.getByRole('button', { name: /收藏這個品牌/ })
+    expect(supportButton).toHaveTextContent('支持 12')
+    expect(supportButton.nextElementSibling).toBe(saveButton)
   })
 
   it('renders ShareDialog trigger instead of inline share button', () => {

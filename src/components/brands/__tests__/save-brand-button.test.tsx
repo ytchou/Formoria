@@ -73,6 +73,7 @@ describe('SaveBrandButton', () => {
     renderWithProviders(<SaveBrandButton brandId="brand-1" slug="brand-slug-1" />)
     const button = screen.getByRole('button', { name: '收藏這個品牌' })
     expect(button).toBeInTheDocument()
+    expect(button.querySelector('[data-auth-required-indicator]')).not.toBeInTheDocument()
   })
 
   it('renders a filled bookmark when brand is saved', () => {
@@ -105,8 +106,10 @@ describe('SaveBrandButton', () => {
       loading: false,
       ...viewerState,
     })
-    renderWithProviders(<SaveBrandButton brandId="brand-1" slug="brand-slug-1" />)
+    renderWithProviders(<SaveBrandButton brandId="brand-1" slug="brand-slug-1" variant="inline" />)
     const button = screen.getByRole('button', { name: '收藏這個品牌' })
+    expect(button).toHaveAttribute('title', '登入後即可收藏品牌')
+    expect(button.querySelector('[data-auth-required-indicator]')).toBeInTheDocument()
     fireEvent.click(button)
     expect(mockPush).toHaveBeenCalledWith('/auth/sign-in')
   })

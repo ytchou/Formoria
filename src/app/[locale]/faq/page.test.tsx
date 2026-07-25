@@ -92,7 +92,7 @@ describe('FaqPage (zh-TW)', () => {
     const { container } = render(
       await FaqPage({ params: Promise.resolve({ locale: 'zh-TW' }) }),
     )
-    expect(container.querySelector('main')).toHaveClass('section-heading-scope')
+    expect(container.querySelector('main')).not.toHaveClass('section-heading-scope')
     const layout = screen.getByRole('navigation', { name: '常見問題分類' }).closest('.grid')
     const content = screen.getByRole('region', { name: '常見問題' })
 

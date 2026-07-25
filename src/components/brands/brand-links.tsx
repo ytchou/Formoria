@@ -26,6 +26,7 @@ interface BrandLinksProps {
     social?: string
     purchase?: string
   }
+  sectionClassName?: string
 }
 
 function normalizeDirectUrl(value: string | undefined | null): string | null {
@@ -67,6 +68,7 @@ type LinkSectionProps = {
   label: string
   slots: LinkSlot[]
   brand: Brand
+  className?: string
 }
 
 const destinationLinkClassName =
@@ -105,18 +107,18 @@ function SectionLabel({
   children: ReactNode
 }) {
   return (
-    <h2 className="mb-3 type-section-title">
+    <h2 className="mb-4 type-section-title-large">
       {children}
     </h2>
   )
 }
 
-function LinkSection({ id, label, slots, brand }: LinkSectionProps) {
+function LinkSection({ id, label, slots, brand, className }: LinkSectionProps) {
   const visibleSlots = slots.filter((slot) => slot.url)
   if (visibleSlots.length === 0) return null
 
   return (
-    <section id={id}>
+    <section id={id} className={className}>
       <SectionLabel>{label}</SectionLabel>
       <div className="flex flex-wrap gap-3">
         {visibleSlots.map((slot, index) => {
@@ -150,7 +152,7 @@ function LinkSection({ id, label, slots, brand }: LinkSectionProps) {
   )
 }
 
-function BrandSocialLinks({ brand, sectionIds }: BrandLinksProps) {
+function BrandSocialLinks({ brand, sectionIds, sectionClassName }: BrandLinksProps) {
   const t = useTranslations('brandDetail')
 
   const socialSlots: LinkSlot[] = [
@@ -182,11 +184,12 @@ function BrandSocialLinks({ brand, sectionIds }: BrandLinksProps) {
       label={t('links.socialPlatforms')}
       slots={socialSlots}
       brand={brand}
+      className={sectionClassName}
     />
   )
 }
 
-function BrandPurchaseLinks({ brand, sectionIds }: BrandLinksProps) {
+function BrandPurchaseLinks({ brand, sectionIds, sectionClassName }: BrandLinksProps) {
   const t = useTranslations('brandDetail')
 
   const purchaseSlots: LinkSlot[] = [
@@ -219,11 +222,12 @@ function BrandPurchaseLinks({ brand, sectionIds }: BrandLinksProps) {
       label={t('links.purchaseChannels')}
       slots={purchaseSlots}
       brand={brand}
+      className={sectionClassName}
     />
   )
 }
 
-function BrandOtherLinks({ brand }: BrandLinksProps) {
+function BrandOtherLinks({ brand, sectionClassName }: BrandLinksProps) {
   const t = useTranslations('brandDetail')
 
   const otherSlots: LinkSlot[] = brand.otherUrls.flatMap((otherUrl) => {
@@ -246,16 +250,25 @@ function BrandOtherLinks({ brand }: BrandLinksProps) {
       label={t('links.otherLinks')}
       slots={otherSlots}
       brand={brand}
+      className={sectionClassName}
     />
   )
 }
 
-export function BrandLinks({ brand, sectionIds }: BrandLinksProps) {
+export function BrandLinks({ brand, sectionIds, sectionClassName }: BrandLinksProps) {
   return (
-    <div className="space-y-5">
-      <BrandSocialLinks brand={brand} sectionIds={sectionIds} />
-      <BrandPurchaseLinks brand={brand} sectionIds={sectionIds} />
-      <BrandOtherLinks brand={brand} />
-    </div>
+    <>
+      <BrandSocialLinks
+        brand={brand}
+        sectionIds={sectionIds}
+        sectionClassName={sectionClassName}
+      />
+      <BrandPurchaseLinks
+        brand={brand}
+        sectionIds={sectionIds}
+        sectionClassName={sectionClassName}
+      />
+      <BrandOtherLinks brand={brand} sectionClassName={sectionClassName} />
+    </>
   )
 }

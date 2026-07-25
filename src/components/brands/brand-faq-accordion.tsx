@@ -62,7 +62,11 @@ export function BrandFaqAccordion({ items, brandSlug }: BrandFaqAccordionProps) 
   }
 
   return (
-    <FaqSection title={t('faq')}>
+    <FaqSection
+      title={t('faq')}
+      headerClassName="mb-4"
+      titleClassName="type-section-title-large"
+    >
       <Accordion type="multiple" value={openItems} onValueChange={handleValueChange}>
         {items.map((item, index) => (
           <AccordionItem key={`${item.question}-${index}`} value={`faq-${index}`}>

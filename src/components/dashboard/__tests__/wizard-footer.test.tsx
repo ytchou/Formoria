@@ -29,7 +29,7 @@ describe('WizardFooter', () => {
     expect(screen.getByRole('button', { name: /save & continue/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /publish/i })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /save & continue/i })).toHaveClass(
-      'h-10',
+      'h-12',
       'rounded-xl',
       'bg-primary',
     )
@@ -43,7 +43,7 @@ describe('WizardFooter', () => {
     expect(screen.getByRole('button', { name: /publish/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /save & continue/i })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /publish/i })).toHaveClass(
-      'h-10',
+      'h-12',
       'rounded-xl',
       'bg-primary',
     )

@@ -27,22 +27,21 @@ vi.mock('sonner', () => ({ toast: { error: mocks.toastError } }))
 
 const messages = {
   likeBrand: {
-    like: 'Like',
-    likeAriaLabel: 'Like this brand, {count, plural, one {# like} other {# likes}}',
-    unlikeAriaLabel: 'Remove your like from this brand, {count, plural, one {# like} other {# likes}}',
-    loading: 'Loading likes',
+    like: 'Support',
+    likeAriaLabel: 'Support this brand, {count, plural, one {# supporter} other {# supporters}}',
+    unlikeAriaLabel: 'Remove your support from this brand, {count, plural, one {# supporter} other {# supporters}}',
+    loading: 'Loading support count',
     rateLimited: 'Too many reactions. Please try again later.',
-    error: "We couldn't update your like. Please try again.",
+    error: "We couldn't update your support. Please try again.",
   },
 }
 
-function renderButton(variant: 'inline' | 'overlay' = 'inline') {
+function renderButton() {
   return render(
     <NextIntlClientProvider locale="en" messages={messages}>
       <LikeBrandButton
         brandId="d9428888-122b-4e1f-b85c-61c0a8904d6a"
         slug="molasses"
-        variant={variant}
       />
     </NextIntlClientProvider>,
   )
@@ -58,14 +57,15 @@ describe('LikeBrandButton', () => {
   it('loads the public count and applies a like with burst feedback', async () => {
     const { container } = renderButton()
     const button = await screen.findByRole('button', {
-      name: 'Like this brand, 12 likes',
+      name: 'Support this brand, 12 supporters',
     })
     await waitFor(() => expect(button).toBeEnabled())
+    expect(button).toHaveTextContent('Support 12')
 
     fireEvent.click(button)
 
     expect(screen.getByRole('button', {
-      name: 'Remove your like from this brand, 13 likes',
+      name: 'Remove your support from this brand, 13 supporters',
     })).toHaveAttribute('aria-pressed', 'true')
     expect(container.querySelectorAll('[data-like-burst-particle]')).toHaveLength(6)
     expect(mocks.trackLiked).toHaveBeenCalledWith(
@@ -82,14 +82,14 @@ describe('LikeBrandButton', () => {
     mocks.setState.mockResolvedValue({ ok: false, error: 'rate_limited' })
     renderButton()
     const button = await screen.findByRole('button', {
-      name: 'Like this brand, 12 likes',
+      name: 'Support this brand, 12 supporters',
     })
 
     fireEvent.click(button)
 
     await waitFor(() => {
       expect(screen.getByRole('button', {
-        name: 'Like this brand, 12 likes',
+        name: 'Support this brand, 12 supporters',
       })).toHaveAttribute('aria-pressed', 'false')
     })
     expect(mocks.toastError).toHaveBeenCalledWith(
@@ -101,29 +101,30 @@ describe('LikeBrandButton', () => {
     mocks.setState.mockRejectedValue(new Error('network failure'))
     renderButton()
     const button = await screen.findByRole('button', {
-      name: 'Like this brand, 12 likes',
+      name: 'Support this brand, 12 supporters',
     })
 
     fireEvent.click(button)
 
     await waitFor(() => {
       expect(screen.getByRole('button', {
-        name: 'Like this brand, 12 likes',
+        name: 'Support this brand, 12 supporters',
       })).toHaveAttribute('aria-pressed', 'false')
     })
-    expect(mocks.toastError).toHaveBeenCalledWith(
-      "We couldn't update your like. Please try again.",
-    )
+    await waitFor(() => {
+      expect(mocks.toastError).toHaveBeenCalledWith(
+        "We couldn't update your support. Please try again.",
+      )
+    })
   })
 
-  it('renders an icon-only overlay variant for image surfaces', async () => {
-    renderButton('overlay')
+  it('keeps a zero count visible as social proof', async () => {
+    mocks.getState.mockResolvedValue({ ok: true, count: 0, liked: false })
+    renderButton()
     const button = await screen.findByRole('button', {
-      name: 'Like this brand, 12 likes',
+      name: 'Support this brand, 0 supporters',
     })
 
-    expect(button).toHaveAttribute('data-like-variant', 'overlay')
-    expect(button).toHaveClass('size-12')
-    expect(button).not.toHaveTextContent('12')
+    expect(button).toHaveTextContent('Support 0')
   })
 })

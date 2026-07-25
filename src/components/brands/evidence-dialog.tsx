@@ -8,7 +8,7 @@ import {
   type ChangeEvent,
 } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
-import { FileSearch, MapPin, Upload, X } from 'lucide-react'
+import { FileSearch, LockKeyhole, MapPin, Upload, X } from 'lucide-react'
 import {
   submitEvidenceAction,
   type EvidenceState,
@@ -81,10 +81,18 @@ export function EvidenceDialog({ brandId, brandSlug }: EvidenceDialogProps) {
     <Dialog>
       <DialogTrigger
         data-evidence-dialog-trigger
+        title={!loading && !user ? t('signInPrompt') : undefined}
         className={buttonVariants({ variant: 'secondary', className: 'shrink-0' })}
       >
         <MapPin className="size-4" />
         {t('trigger')}
+        {!loading && !user && (
+          <LockKeyhole
+            data-auth-required-indicator
+            className="size-3.5 text-muted-foreground"
+            aria-hidden="true"
+          />
+        )}
       </DialogTrigger>
       <DialogContent
         showCloseButton={false}
