@@ -61,7 +61,7 @@
     "hero": {
       "eyebrow": "TAIWANESE BRANDS",
       "headline": "探索台灣品牌目錄",
-      "subheadline": "由社群共同整理的台灣品牌目錄，涵蓋文具、居家與食品飲料，收錄在台灣創立、設計或製造的品牌。",
+      "subheadline": "由社群共同整理的台灣品牌目錄，收錄台灣創立、設計或製造的品牌。",
       "statsBrands": "品牌",
       "statsCategories": "分類",
       "recentWeek": "新品牌（近 7 天）",
@@ -864,7 +864,7 @@
       "description": "Formoria 台灣品牌目錄常見問題：了解收錄條件、信任層級、品牌提交、審核流程與認領方式。"
     },
     "title": "常見問題",
-    "intro": "若仍有疑問，歡迎<contact>與我們聯繫</contact>。",
+    "intro": "若仍有疑問，請<contact>與我們聯繫</contact>",
     "sections": {
       "navigation": "常見問題分類",
       "general": "一般問題",

@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { shouldShowBrandSectionNav } from '@/lib/brands/section-nav'
 
 type Section = {
   id: string
@@ -59,15 +59,15 @@ export function BrandSectionNav({ sections }: BrandSectionNavProps) {
     }
   }
 
-  if (sections.length < 2) return null
+  if (!shouldShowBrandSectionNav(sections.length)) return null
 
   return (
     <nav
       aria-label={t('tabNav.overview')}
-      className="sticky top-16 border-y border-border bg-background"
+      className="sticky top-(--nav-height) border-y border-border bg-background md:self-start md:border-y-0 md:border-l md:pl-3"
     >
-      <div className="flex items-stretch">
-        <div className="scrollbar-none flex min-w-0 flex-1 overflow-x-auto">
+      <div className="flex items-stretch md:flex-col">
+        <div className="scrollbar-none flex min-w-0 flex-1 overflow-x-auto md:flex-col md:overflow-visible">
           {sections.map(({ id, label }) => {
             const isActive = activeId === id
 
@@ -75,9 +75,10 @@ export function BrandSectionNav({ sections }: BrandSectionNavProps) {
               <a
                 key={id}
                 href={`#${id}`}
+                aria-current={isActive ? 'location' : undefined}
                 onClick={(event) => handleSectionClick(event, id)}
                 className={cn(
-                  'flex min-h-12 shrink-0 items-center border-b-2 border-transparent px-4',
+                  'flex min-h-12 shrink-0 items-center border-b-2 border-transparent px-4 md:border-b-0 md:border-l-2 md:px-3',
                   isActive
                     ? 'type-nav-item-active border-primary'
                     : 'type-nav-item',
@@ -88,15 +89,6 @@ export function BrandSectionNav({ sections }: BrandSectionNavProps) {
             )
           })}
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="large"
-          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          className="min-h-12 shrink-0 rounded-none type-nav-item"
-        >
-          {t('tabNav.backToTop')}
-        </Button>
       </div>
     </nav>
   )

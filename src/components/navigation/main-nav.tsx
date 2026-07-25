@@ -30,7 +30,7 @@ export function MainNav({ categories }: MainNavProps) {
   const hasOwnedBrand = viewer.hasOwnedBrand
   const pathname = usePathname()
   return (
-    <header className="border-b border-border bg-background">
+    <header className="sticky top-0 z-50 border-b border-border bg-background">
       {/* Row 1: Logo | Search | Actions */}
       <div className="page-gutter mx-auto flex h-14 max-w-screen-xl items-center gap-4">
         {/* Logo */}

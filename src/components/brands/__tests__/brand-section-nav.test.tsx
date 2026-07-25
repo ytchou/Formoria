@@ -5,6 +5,7 @@ import { NextIntlClientProvider } from 'next-intl'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import zh from '../../../../messages/zh-TW.json'
+import { shouldShowBrandSectionNav } from '@/lib/brands/section-nav'
 import { BrandSectionNav } from '../brand-section-nav'
 
 const sections = [
@@ -49,16 +50,31 @@ describe('BrandSectionNav', () => {
       'type-nav-item-active',
       'border-b-2',
       'border-primary',
+      'md:border-b-0',
+      'md:border-l-2',
     )
   })
 
-  it('renders the back-to-top button', () => {
+  it('uses a vertical sticky rail on desktop', () => {
     renderWithIntl(<BrandSectionNav sections={sections} />)
 
-    expect(screen.getByRole('button', { name: '置頂' })).toBeInTheDocument()
+    const nav = screen.getByRole('navigation', { name: '本頁導覽' })
+    expect(nav).toHaveClass('top-(--nav-height)', 'md:self-start', 'md:border-l', 'md:pl-3')
+    expect(screen.getByRole('link', { name: sections[0].label }).parentElement).toHaveClass(
+      'md:flex-col',
+    )
+  })
+
+  it('does not add a redundant back-to-top control', () => {
+    renderWithIntl(<BrandSectionNav sections={sections} />)
+
+    expect(screen.queryByRole('button', { name: '置頂' })).not.toBeInTheDocument()
   })
 
   it('does not render when fewer than two sections are provided', () => {
+    expect(shouldShowBrandSectionNav(1)).toBe(false)
+    expect(shouldShowBrandSectionNav(2)).toBe(true)
+
     const { container, rerender } = renderWithIntl(
       <BrandSectionNav sections={[]} />,
     )

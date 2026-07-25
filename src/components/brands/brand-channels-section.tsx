@@ -1,4 +1,4 @@
-import { ExternalLink, MapPin, Monitor, Store } from 'lucide-react'
+import { ExternalLink, Monitor, Store } from 'lucide-react'
 import { getTranslations } from 'next-intl/server'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
@@ -123,12 +123,9 @@ export async function BrandChannelsSection({
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <MapPin aria-hidden="true" className="size-5 shrink-0" />
-            <h2 className="type-card-title">
-              {t('sections.locationsAndRetailChannels')}
-            </h2>
-          </div>
+          <h2 className="type-section-title">
+            {t('sections.locationsAndRetailChannels')}
+          </h2>
           <p className="type-card-description">{t('channels.subtitle')}</p>
         </div>
         <ProvideChannelInfoDialog brandId={brandId} brandSlug={brandSlug} />

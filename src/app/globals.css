@@ -437,4 +437,32 @@
   html {
     @apply font-sans;
   }
+  h2 {
+    font-family: var(--font-heading) !important;
+    font-size: var(--text-base) !important;
+    font-weight: var(--font-weight-semibold) !important;
+    letter-spacing: 0 !important;
+    line-height: 1.3 !important;
+  }
+  h2::before {
+    content: "";
+    display: inline-block;
+    width: var(--spacing);
+    height: calc(var(--spacing) * 5);
+    margin-inline-end: calc(var(--spacing) * 3);
+    background-color: var(--primary);
+    vertical-align: middle;
+  }
+}
+
+@layer components {
+  .section-heading-scope h2 {
+    @apply flex min-h-12 items-center border-b-2 border-primary px-4 type-nav-item-active md:border-b-0 md:border-l-2 md:px-3;
+    font-size: var(--text-sm) !important;
+    line-height: var(--text-sm--line-height) !important;
+  }
+
+  .section-heading-scope h2::before {
+    display: none;
+  }
 }

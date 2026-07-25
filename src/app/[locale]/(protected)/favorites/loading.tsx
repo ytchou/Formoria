@@ -4,7 +4,7 @@ import { BrandCardSkeleton } from '@/components/shared/brand-card-skeleton'
 export default function Loading() {
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur">
+      <header className="sticky top-(--nav-height) z-10 border-b bg-background/95 backdrop-blur">
         <div className="page-gutter mx-auto flex h-14 max-w-screen-xl items-center">
           <Skeleton className="h-5 w-32" />
         </div>

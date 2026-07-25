@@ -37,6 +37,14 @@ describe('HeroSection', () => {
     expect(heading).not.toHaveTextContent(/Made in Taiwan directory/i)
   })
 
+  it('renders the concise one-line directory description', async () => {
+    render(await HeroSection({ brandCount: 100, categoryCount: 20, recentBrands: { count: 5, period: '7d' } }))
+
+    expect(
+      screen.getByText('由社群共同整理的台灣品牌目錄，收錄台灣創立、設計或製造的品牌。'),
+    ).toBeInTheDocument()
+  })
+
   it('renders search input', async () => {
     render(await HeroSection({ brandCount: 100, categoryCount: 20, recentBrands: { count: 5, period: '7d' } }))
     const searchbox = screen.getByRole('searchbox')

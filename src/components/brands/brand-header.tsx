@@ -12,7 +12,6 @@ interface BrandHeaderProps {
   cityLabel?: string | null
   locale?: string
   actionsSlot?: ReactNode
-  adminSlot?: ReactNode
 }
 
 export function BrandHeader({
@@ -21,7 +20,6 @@ export function BrandHeader({
   cityLabel,
   locale,
   actionsSlot,
-  adminSlot,
 }: BrandHeaderProps) {
   const t = useTranslations('brandDetail')
   const hasMitDeclaredBadge = brand.mitStatus === 'declared'
@@ -48,12 +46,9 @@ export function BrandHeader({
   return (
     <div className="space-y-3">
       {/* Brand name */}
-      <div className="flex items-start justify-between gap-2">
-        <h1 className="type-display">
-          {brand.name}
-        </h1>
-        {adminSlot}
-      </div>
+      <h1 className="type-display">
+        {brand.name}
+      </h1>
 
       {/* CTA slot — rendered between name and meta row */}
       {actionsSlot}
@@ -65,10 +60,12 @@ export function BrandHeader({
         <dl className="mt-4 space-y-5">
           <InfoField
             label={t('label.location')}
+            layout="inline"
             value={cityLabel ? <Badge variant="secondary">{cityLabel}</Badge> : unknownValue}
           />
           <InfoField
             label={t('label.foundingYear')}
+            layout="inline"
             value={
               brand.foundingYear != null
                 ? t('foundingYear', { year: brand.foundingYear })
@@ -77,18 +74,21 @@ export function BrandHeader({
           />
           <InfoField
             label={t('label.category')}
+            layout="inline"
             value={
               resolvedCategory ? <Badge variant="secondary">{resolvedCategory}</Badge> : unknownValue
             }
           />
           <InfoField
             label={t('label.priceRange')}
+            layout="inline"
             value={
               priceRangeLabel ? <Badge variant="secondary">{priceRangeLabel}</Badge> : unknownValue
             }
           />
           <InfoField
             label={t('label.productCategories')}
+            layout="inline"
             value={
               resolvedTags.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5">
@@ -105,6 +105,7 @@ export function BrandHeader({
           />
           <InfoField
             label={t('label.certification')}
+            layout="inline"
             value={
               hasVerification ? (
                 <div className="flex flex-wrap items-center gap-2">

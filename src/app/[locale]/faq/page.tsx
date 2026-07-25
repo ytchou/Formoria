@@ -72,10 +72,10 @@ export default async function FaqPage({ params }: PageProps) {
   ] as const
 
   return (
-    <main className="page-gutter mx-auto w-full max-w-screen-xl py-10">
+    <main className="section-heading-scope page-gutter mx-auto w-full max-w-screen-xl py-10">
       <OpenTargetDetails />
-      <div className="grid gap-10 md:grid-cols-[18rem_minmax(0,1fr)] md:gap-16">
-        <aside className="space-y-4 md:sticky md:top-24 md:self-start">
+      <div className="grid gap-10 md:grid-cols-5 md:gap-16">
+        <aside className="space-y-4 md:sticky md:top-(--nav-height) md:self-start">
           <h1 id="faq-heading" className="type-page-title">
             {t('title')}
           </h1>
@@ -106,7 +106,11 @@ export default async function FaqPage({ params }: PageProps) {
             })}
           </p>
         </aside>
-        <div role="region" aria-labelledby="faq-heading" className="space-y-10">
+        <div
+          role="region"
+          aria-labelledby="faq-heading"
+          className="space-y-10 md:col-span-4"
+        >
           <FaqSection id="general" title={t('sections.general')}>
             <div className="divide-y divide-border">
               {generalItemKeys.map((key, i) => (

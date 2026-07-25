@@ -78,6 +78,15 @@ describe('MainNav brand', () => {
 })
 
 describe('MainNav', () => {
+  it('keeps the full navigation, including category tabs, sticky', async () => {
+    const { MainNav } = await import('./main-nav')
+    const { container } = render(<MainNav categories={mockCategories} />)
+    const header = container.querySelector('header')
+
+    expect(header).toHaveClass('sticky', 'top-0', 'z-50')
+    expect(header).toContainElement(screen.getByTestId('nav-category-tabs'))
+  })
+
   it('renders Submit a Brand CTA link', async () => {
     const { MainNav } = await import('./main-nav')
     render(<MainNav categories={mockCategories} />)

@@ -112,6 +112,21 @@ describe('BrandHeader — verified badge', () => {
 })
 
 describe('BrandHeader — labeled rows', () => {
+  it('keeps labels and values in separate columns', () => {
+    renderWithIntl(
+      <BrandHeader
+        brand={makeBrand({ foundingYear: 2010 })}
+        cityLabel="台北市"
+      />,
+    )
+
+    const locationLabel = screen.getByText('地點').closest('dt')
+    const locationValue = screen.getByText('台北市').closest('dd')
+
+    expect(locationLabel?.parentElement).toHaveClass('grid-cols-3')
+    expect(locationValue).toHaveClass('col-span-2')
+  })
+
   it('renders all fact labels for full-data brand', () => {
     renderWithIntl(
       <BrandHeader

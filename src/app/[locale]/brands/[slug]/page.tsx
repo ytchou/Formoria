@@ -34,6 +34,7 @@ import { getBrandFaq } from '@/lib/services/brand-faq'
 import { getChannelsForBrand } from '@/lib/services/brand-channels'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { cn } from '@/lib/utils'
+import { shouldShowBrandSectionNav } from '@/lib/brands/section-nav'
 import { NotFoundError } from '@/lib/errors'
 import { truncateForMeta } from '@/lib/text/truncate-for-meta'
 import { getBrandIndexability } from '@/lib/seo/brand-indexability'
@@ -222,6 +223,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
       ? [{ id: 'faq', label: tBrandDetail('tabNav.faq') }]
       : []),
   ]
+  const hasSectionNav = shouldShowBrandSectionNav(sections.length)
 
   // Breadcrumb items for JSON-LD
   const directoryLabel = tBrandDetail('breadcrumb.directory')
@@ -247,7 +249,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
     <>
       <main
         className={cn(
-          'page-gutter mx-auto max-w-screen-xl pt-10 lg:pb-10',
+          'section-heading-scope page-gutter mx-auto max-w-screen-xl pt-10 lg:pb-10',
           visitUrl ? 'pb-24' : 'pb-10',
         )}
       >
@@ -274,7 +276,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
 
         {/* Hero */}
         <div className="flex flex-col gap-10 lg:flex-row lg:gap-12">
-          <div className="w-full lg:w-2/5">
+          <div className="w-full lg:w-1/2">
             <ImageCarousel
               images={galleryImages}
               alt={displayBrand.name}
@@ -285,16 +287,16 @@ export default async function BrandDetailPage({ params }: PageProps) {
             />
           </div>
 
-          <div className="min-w-0 lg:w-3/5">
+          <div className="min-w-0 lg:w-1/2">
             <BrandHeader
               brand={displayBrand}
               categoryLabel={categoryLabel || null}
               cityLabel={displayBrand.city ? tCities(displayBrand.city) : null}
               locale={safeLocale}
-              adminSlot={<AdminBrandMenu brandSlug={displayBrand.slug} />}
               actionsSlot={
                 <SavedBrandsProvider>
                   <BrandActions
+                    adminSlot={<AdminBrandMenu brandSlug={displayBrand.slug} />}
                     websiteUrl={visitUrl ?? null}
                     brandSlug={displayBrand.slug}
                     brandId={displayBrand.id}
@@ -306,38 +308,50 @@ export default async function BrandDetailPage({ params }: PageProps) {
           </div>
         </div>
 
-        <BrandSectionNav sections={sections} />
-
-        <div className="flex flex-col gap-6">
-          {description && (
-            <section id="about">
-            <BrandAbout brand={displayBrand} />
-            </section>
+        <div
+          className={cn(
+            'mt-8 border-t border-border pt-8',
+            hasSectionNav && 'grid md:grid-cols-5 md:gap-16',
           )}
+        >
+          <BrandSectionNav sections={sections} />
 
-          <BrandLinks
-            brand={displayBrand}
-            sectionIds={{ social: 'social', purchase: 'purchase' }}
-          />
+          <div
+            className={cn(
+              'flex min-w-0 flex-col gap-6',
+              hasSectionNav && 'md:col-span-4',
+            )}
+          >
+            {description && (
+              <section id="about">
+                <BrandAbout brand={displayBrand} />
+              </section>
+            )}
 
-          <section id="locations">
-            <BrandChannelsSection
-              confirmed={channels.confirmed}
-              possible={channels.possible}
-              brandId={displayBrand.id}
-              brandSlug={displayBrand.slug}
+            <BrandLinks
+              brand={displayBrand}
+              sectionIds={{ social: 'social', purchase: 'purchase' }}
             />
-          </section>
 
-          {faqItems.length > 0 && (
-            <section id="faq">
-                <BrandFaqAccordion items={faqItems} brandSlug={displayBrand.slug} />
+            <section id="locations">
+              <BrandChannelsSection
+                confirmed={channels.confirmed}
+                possible={channels.possible}
+                brandId={displayBrand.id}
+                brandSlug={displayBrand.slug}
+              />
             </section>
-          )}
 
-          {!displayBrand.isVerified && (
-            <ClaimBrandCta brandId={displayBrand.id} brandSlug={displayBrand.slug} />
-          )}
+            {faqItems.length > 0 && (
+              <section id="faq">
+                <BrandFaqAccordion items={faqItems} brandSlug={displayBrand.slug} />
+              </section>
+            )}
+
+            {!displayBrand.isVerified && (
+              <ClaimBrandCta brandId={displayBrand.id} brandSlug={displayBrand.slug} />
+            )}
+          </div>
         </div>
 
         {/* Related brands */}

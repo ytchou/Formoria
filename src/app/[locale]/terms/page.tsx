@@ -52,7 +52,7 @@ export default async function TermsPage({ params }: PageProps) {
   return (
     <main className="page-gutter mx-auto w-full max-w-screen-xl py-10">
       <div className="grid gap-10 md:grid-cols-[18rem_minmax(0,1fr)] md:gap-16">
-        <aside className="space-y-4 md:sticky md:top-24 md:self-start">
+        <aside className="space-y-4 md:sticky md:top-(--nav-height) md:self-start">
           <h1 className="type-page-title">{t('title')}</h1>
           <p className="type-body-muted">{t('intro')}</p>
           <p className="type-body-muted">{t('lastUpdated')}</p>
