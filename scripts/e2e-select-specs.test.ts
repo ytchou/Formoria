@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { selectSpecs } from './e2e-select-specs.mjs'
+import {
+  parseRemovedI18nStrings,
+  selectChangedSpecs,
+  selectSpecs,
+  selectSpecsForRemovedStrings,
+} from './e2e-select-specs.mjs'
 
 const routeMap = {
   'src/app/[locale]/brands/[slug]': [
@@ -84,6 +89,100 @@ describe('selectSpecs', () => {
   ])('selects search coverage for %s', (changedFile) => {
     expect(selectSpecs([changedFile], routeMap)).toContain(
       'e2e/tests/search-edge-cases.spec.ts',
+    )
+  })
+})
+
+describe('selectChangedSpecs', () => {
+  it('selects spec files that changed', () => {
+    expect(
+      selectChangedSpecs([
+        'e2e/tests/seo.spec.ts',
+        'src/app/[locale]/brands/page.tsx',
+      ]),
+    ).toEqual(['e2e/tests/seo.spec.ts'])
+  })
+
+  it('ignores non-spec files under e2e/', () => {
+    expect(
+      selectChangedSpecs(['e2e/fixtures/auth.ts', 'e2e/helpers/seed.ts']),
+    ).toEqual([])
+  })
+
+  it('returns empty when nothing under e2e/ changed', () => {
+    expect(selectChangedSpecs(['src/lib/utils.ts'])).toEqual([])
+  })
+})
+
+describe('parseRemovedI18nStrings', () => {
+  const diff = [
+    '--- a/messages/en.json',
+    '+++ b/messages/en.json',
+    '@@ -12 +12 @@',
+    '-    "title": "Formoria — Discover Taiwanese Brands",',
+    '+    "title": "Brand Directory — Browse Taiwanese Brands | Formoria",',
+  ].join('\n')
+
+  it('captures removed values and ignores added ones', () => {
+    expect(parseRemovedI18nStrings(diff)).toEqual([
+      'Formoria — Discover Taiwanese Brands',
+    ])
+  })
+
+  it('ignores the --- file header line', () => {
+    expect(parseRemovedI18nStrings(diff)).not.toContain('a/messages/en.json')
+  })
+
+  it('skips values shorter than the grep threshold', () => {
+    expect(parseRemovedI18nStrings('-    "close": "關閉",')).toEqual([])
+  })
+
+  it('decodes JSON escapes in removed values', () => {
+    expect(parseRemovedI18nStrings('-    "note": "Line\\nbreak",')).toEqual([
+      'Line\nbreak',
+    ])
+  })
+
+  it('deduplicates a value removed from both locale files', () => {
+    const twoFiles = [
+      '-    "title": "Shared Copy Value",',
+      '-    "heading": "Shared Copy Value",',
+    ].join('\n')
+    expect(parseRemovedI18nStrings(twoFiles)).toEqual(['Shared Copy Value'])
+  })
+})
+
+describe('selectSpecsForRemovedStrings', () => {
+  it('selects every spec referencing a removed string', () => {
+    const index: Record<string, string[]> = {
+      'Old Title': ['e2e/tests/seo.spec.ts', 'e2e/tests/directory.spec.ts'],
+    }
+    expect(
+      selectSpecsForRemovedStrings(['Old Title'], (v: string) => index[v] ?? []),
+    ).toEqual(['e2e/tests/seo.spec.ts', 'e2e/tests/directory.spec.ts'])
+  })
+
+  it('deduplicates specs matched by more than one removed string', () => {
+    const result = selectSpecsForRemovedStrings(
+      ['Old Title', 'Old Subtitle'],
+      () => ['e2e/tests/seo.spec.ts'],
+    )
+    expect(result).toEqual(['e2e/tests/seo.spec.ts'])
+  })
+
+  it('returns empty when no spec references the removed strings', () => {
+    expect(selectSpecsForRemovedStrings(['Old Title'], () => [])).toEqual([])
+  })
+
+  it('drops a generic token that matches more than five specs', () => {
+    const many = Array.from({ length: 6 }, (_, i) => `e2e/tests/s${i}.spec.ts`)
+    expect(selectSpecsForRemovedStrings(['owner'], () => many)).toEqual([])
+  })
+
+  it('keeps a string matching exactly the fan-out limit', () => {
+    const five = Array.from({ length: 5 }, (_, i) => `e2e/tests/s${i}.spec.ts`)
+    expect(selectSpecsForRemovedStrings(['Distinct Copy'], () => five)).toEqual(
+      five,
     )
   })
 })
