@@ -24,6 +24,7 @@ import {
   updateBrand,
 } from '@/lib/services/brands'
 import { createServiceClient } from '@/lib/supabase/server'
+import { ConflictError } from '@/lib/errors'
 import {
   deleteBrandImages,
   storageKeyFromPublicUrl,
@@ -469,6 +470,10 @@ export async function publishDraftAction(
       revalidatePath('/dashboard')
     }
   } catch (err) {
+    if (err instanceof ConflictError) {
+      return { error: t('draftConflict') }
+    }
+
     console.error('[brand:publishDraftAction]', err)
     return {
       error: err instanceof Error ? err.message : t('unknown'),

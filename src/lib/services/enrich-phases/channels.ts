@@ -1,4 +1,4 @@
-import { RETAILER_NAME_NOISE, normalizeChannelName } from '@/lib/brands/channels'
+import { CHAIN_REGION_LABEL, RETAILER_NAME_NOISE, normalizeChannelName } from '@/lib/brands/channels'
 import { isPhysicalRetailLocation, isRetailChainChannel } from '@/lib/brands/locations'
 import { upsertEnrichedChannels } from '@/lib/services/brand-channels'
 import type { Json } from '@/lib/supabase/database.types'
@@ -367,6 +367,16 @@ function getDescriptionCandidates(
   })
 }
 
+function combineLocationCandidates(extracted: LocationCandidate[], existing: LocationCandidate[]): LocationCandidate[] {
+  const combined = [...extracted]
+  for (const candidate of existing) {
+    if (!combined.some((current) => samePhysicalCandidate(current, candidate))) {
+      combined.push(candidate)
+    }
+  }
+  return combined
+}
+
 function isIncompletePhysicalLocation(location: PhysicalRetailLocation): boolean {
   return (
     !optionalText(location.address) ||
@@ -374,6 +384,42 @@ function isIncompletePhysicalLocation(location: PhysicalRetailLocation): boolean
     optionalCoordinate(location.longitude) === undefined ||
     location.verificationStatus !== 'verified'
   )
+}
+
+async function getExistingChannelCandidates(options: ChannelsPhaseOptions): Promise<LocationCandidate[]> {
+  if (options.target.type !== 'brand') return []
+
+  const { data, error } = await options.supabase
+    .from('brand_channels')
+    .select('name, category_label, region_label, address, url, owner_status')
+    .eq('brand_id', options.target.id)
+    .eq('channel_type', 'offline')
+    .is('removed_at', null)
+    .neq('owner_status', 'rejected')
+    .is('address', null)
+
+  if (error) throw error
+
+  // Deliberate narrowing: brand_channels has no latitude/longitude or verification_status
+  // columns (dropped with retail_locations). "Incomplete" now means address IS NULL only.
+  return (data ?? []).map((row) => {
+    // Inverse of getLocationRegionLabel via CITY_REGION_LABELS
+    const cityEntry = row.region_label
+      ? Object.entries(CITY_REGION_LABELS).find(([, label]) => label === row.region_label)
+      : undefined
+    const city = cityEntry?.[0]
+
+    const location: PhysicalRetailLocation = {
+      kind: 'location',
+      name: row.name,
+      relationshipType: getRelationshipType(row.category_label),
+      ...(city ? { city } : {}),
+      verificationStatus: 'needs_review',
+      // LOAD-BEARING: getRetailChainCandidate refuses to collapse owner_confirmed rows into a chain.
+      confirmationStatus: row.owner_status === 'confirmed' ? 'owner_confirmed' : 'unconfirmed',
+    }
+    return makeCandidate(location, 'Existing channel is missing an address', [], 'needs_review', [], 'existing')
+  })
 }
 
 function samePhysicalCandidate(left: LocationCandidate, right: LocationCandidate): boolean {
@@ -727,7 +773,7 @@ function getLocationRegionLabel(location: PhysicalRetailLocation): string | unde
   return city ? CITY_REGION_LABELS[city] ?? city : undefined
 }
 
-function getCategoryLabel(location: PhysicalRetailLocation): string | undefined {
+function getCategoryLabel(location: Pick<PhysicalRetailLocation, 'relationshipType'>): string | undefined {
   switch (location.relationshipType) {
     case 'brand_store':
       return '品牌直營'
@@ -740,6 +786,14 @@ function getCategoryLabel(location: PhysicalRetailLocation): string | undefined 
   }
 }
 
+function getRelationshipType(categoryLabel: string | null): PhysicalRetailLocation['relationshipType'] {
+  return (
+    (['brand_store', 'department_counter', 'stockist'] as const).find(
+      (relationshipType) => getCategoryLabel({ relationshipType }) === categoryLabel,
+    ) ?? 'stockist'
+  )
+}
+
 function getCandidateUrl(candidate: LocationCandidate): string | undefined {
   if (isRetailChainChannel(candidate.location)) return optionalText(candidate.location.retailerUrl)
   return candidate.evidence.find((item) => item.source === 'maps' && item.url)?.url
@@ -750,7 +804,7 @@ function toChannelCandidate(candidate: LocationCandidate): ChannelCandidate {
   const name = location.name.trim()
   const chain = isRetailChainChannel(location)
   const regionLabel = chain
-    ? optionalText(location.availabilityNote) ?? '全台多間門市'
+    ? optionalText(location.availabilityNote) ?? CHAIN_REGION_LABEL
     : getLocationRegionLabel(location)
   const url = getCandidateUrl(candidate)
 
@@ -783,7 +837,7 @@ function toChannelCandidates(candidates: LocationCandidate[]): ChannelCandidate[
 
     const shouldReplace =
       (!current.address && Boolean(channel.address)) ||
-      (current.regionLabel !== '全台多間門市' && channel.regionLabel === '全台多間門市')
+      (current.regionLabel !== CHAIN_REGION_LABEL && channel.regionLabel === CHAIN_REGION_LABEL)
     if (shouldReplace) {
       byNormalizedName.set(channel.normalizedName, channel)
     } else if (!current.url && channel.url) {
@@ -821,9 +875,12 @@ async function persistChannelCandidates(
   candidates: LocationCandidate[],
   channelIds: ReadonlyMap<string, string>,
 ): Promise<void> {
-  if (options.dryRun || candidates.length === 0) return
+  const auditableCandidates = candidates.filter(
+    (candidate) => candidate.origin !== 'existing' || candidate.lookupAttempted,
+  )
+  if (options.dryRun || auditableCandidates.length === 0) return
 
-  const rows = candidates.map((candidate) => {
+  const rows = auditableCandidates.map((candidate) => {
     const channel = toChannelCandidate(candidate)
     return {
       ...(options.target.type === 'brand'
@@ -855,11 +912,14 @@ export async function runChannelsPhase(options: ChannelsPhaseOptions): Promise<C
 
   const { result, durationMs } = await timePhase(async () => {
     const knownOfficialOrigins = officialOrigins(options.brand, options.scrapedData)
-    const initialCandidates = getDescriptionCandidates(
-      options.descriptionRewrite,
-      options.serpResult,
-      options.scrapedData,
-      knownOfficialOrigins,
+    const initialCandidates = combineLocationCandidates(
+      getDescriptionCandidates(
+        options.descriptionRewrite,
+        options.serpResult,
+        options.scrapedData,
+        knownOfficialOrigins,
+      ),
+      await getExistingChannelCandidates(options),
     )
     const mapsOptions: SerperAuditOptions = {
       target: options.target,
@@ -879,9 +939,14 @@ export async function runChannelsPhase(options: ChannelsPhaseOptions): Promise<C
 
     const needsFallback = (candidate: LocationCandidate) =>
       isPhysicalRetailLocation(candidate.location) && isIncompletePhysicalLocation(candidate.location)
-    const unresolved = candidates
+    const extractedFallbacks = candidates
+      .filter((candidate) => candidate.origin !== 'existing')
       .filter((candidate) => candidate.decision !== 'verified')
       .filter(needsFallback)
+    const existingFallbacks = candidates
+      .filter((candidate) => candidate.origin === 'existing')
+      .filter(needsFallback)
+    const unresolved = [...extractedFallbacks, ...existingFallbacks]
     const FALLBACK_CONCURRENCY = 5
     const fallbackResults: BrandMapsSearchResult[] = new Array(unresolved.length)
     const unresolvedQueue = unresolved.map((candidate, index) => ({ candidate, index }))
@@ -928,14 +993,20 @@ export async function runChannelsPhase(options: ChannelsPhaseOptions): Promise<C
       candidates = rejected === candidates ? markLookupAttempt(candidates, target, fallbackResult) : rejected
     }
 
-    const channelCandidates = toChannelCandidates(candidates)
+    const candidatesForUpsert = candidates.filter(
+      (candidate) =>
+        candidate.origin !== 'existing' ||
+        isRetailChainChannel(candidate.location) ||
+        (isPhysicalRetailLocation(candidate.location) && Boolean(optionalText(candidate.location.address))),
+    )
+    const channelCandidates = toChannelCandidates(candidatesForUpsert)
     if (options.target.type === 'brand' && !options.dryRun && channelCandidates.length > 0) {
       const upsertResult = await upsertEnrichedChannels(options.target.id, channelCandidates)
       if (!upsertResult.ok) {
         throw new Error('Failed to upsert enriched channels: ' + upsertResult.code)
       }
     }
-    const channelIds = await resolveChannelIds(options, channelCandidates)
+    const channelIds = await resolveChannelIds(options, toChannelCandidates(candidates))
     await persistChannelCandidates(options, candidates, channelIds)
     const patch = channelCandidates.length > 0 ? { channels: channelCandidates } : {}
     return { candidates: channelCandidates, patch }

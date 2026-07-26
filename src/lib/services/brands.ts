@@ -4,7 +4,7 @@ import type { Brand, BrandFilters, OtherUrl } from '@/lib/types'
 import type { ReputationSummary, SiteContent, SiteProduct, SiteTokens } from '@/lib/types/brand'
 import type { Database } from '@/lib/supabase/database.types'
 import { toBrandRow as baseToBrandRow } from './field-map'
-import { NotFoundError, ValidationError } from '@/lib/errors'
+import { ConflictError, NotFoundError, ValidationError } from '@/lib/errors'
 import { createServiceClient } from '@/lib/supabase/server'
 import { BRAND_SORT_CONFIG, DEFAULT_PAGE_SIZE } from '@/lib/pagination'
 import { isNonImageHost } from '@/lib/images/allowed-image-hosts'
@@ -121,9 +121,10 @@ type BrandFieldStateRow = {
   field: string
   source: string
   admin_locked: boolean | null
+  updated_at: string
 }
 type BrandFieldStateTable = {
-  select: (columns: 'field, source, admin_locked') => {
+  select: (columns: 'field, source, admin_locked, updated_at') => {
     eq: (column: 'brand_id', value: string) => Promise<{
       data: BrandFieldStateRow[] | null
       error: { message?: string } | null
@@ -708,7 +709,7 @@ async function loadBrandFieldState(
   brandId: string
 ): Promise<Record<string, BrandFieldWriteState>> {
   const { data, error } = await brandFieldStateTable(supabase)
-    .select('field, source, admin_locked')
+    .select('field, source, admin_locked, updated_at')
     .eq('brand_id', brandId)
 
   if (error) throw error
@@ -719,6 +720,7 @@ async function loadBrandFieldState(
       {
         source: row.source,
         adminLocked: row.admin_locked ?? false,
+        updatedAt: row.updated_at,
       },
     ])
   )
@@ -1244,7 +1246,7 @@ export async function publishDraft(brandId: string): Promise<Brand> {
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('brands')
-    .select('draft_data')
+    .select('draft_data, draft_updated_at')
     .eq('id', brandId)
     .single()
 
@@ -1254,6 +1256,25 @@ export async function publishDraft(brandId: string): Promise<Brand> {
   if (!snapshot) throw new ValidationError('No draft to publish')
 
   const partial = draftSnapshotToDomain(snapshot)
+  if (Object.keys(partial).length > 0) {
+    const draftUpdatedAt = data.draft_updated_at
+    const draftTimestamp = draftUpdatedAt ? Date.parse(draftUpdatedAt) : Number.NaN
+    if (!Number.isFinite(draftTimestamp)) {
+      throw new ConflictError('Draft timestamp is missing or invalid')
+    }
+
+    const fieldState = await loadBrandFieldState(supabase, brandId)
+    const patch = brandToUpdate(partial)
+    const hasStaleField = Object.keys(patch).some((field) => {
+      const fieldTimestamp = Date.parse(fieldState[field]?.updatedAt ?? '')
+      return Number.isFinite(fieldTimestamp) && fieldTimestamp > draftTimestamp
+    })
+
+    if (hasStaleField) {
+      throw new ConflictError('Draft conflicts with newer brand edits')
+    }
+  }
+
   const published = await updateBrand(brandId, partial)
 
   const { error: clearError, count } = await supabase

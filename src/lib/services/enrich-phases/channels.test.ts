@@ -71,18 +71,50 @@ function phaseOptions(
   }
 }
 
-function auditSupabase(channelRows: Array<{ id: string; normalized_name: string }> = []) {
+type ExistingChannelRow = {
+  name: string
+  category_label: string | null
+  region_label: string | null
+  address: string | null
+  url: string | null
+  owner_status: string
+}
+
+function auditSupabase(
+  channelRows: Array<{ id: string; normalized_name: string }> = [],
+  existingChannelRows: ExistingChannelRow[] = [],
+) {
   const insert = vi.fn().mockResolvedValue({ error: null })
   const from = vi.fn((table: string) => {
     if (table === 'brand_location_candidates') return { insert }
     if (table === 'brand_channels') {
-      return {
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            in: vi.fn().mockResolvedValue({ data: channelRows, error: null }),
-          })),
-        })),
+      let selectedColumns = ''
+      const query = {} as {
+        select: ReturnType<typeof vi.fn>
+        eq: ReturnType<typeof vi.fn>
+        in: ReturnType<typeof vi.fn>
+        is: ReturnType<typeof vi.fn>
+        neq: ReturnType<typeof vi.fn>
+        then: (
+          onfulfilled: (value: { data: unknown[]; error: null }) => unknown,
+          onrejected?: (reason: unknown) => unknown,
+        ) => Promise<unknown>
       }
+      query.select = vi.fn((columns: string) => {
+        selectedColumns = columns
+        return query
+      })
+      query.eq = vi.fn(() => query)
+      query.in = vi.fn(() => query)
+      query.is = vi.fn(() => query)
+      query.neq = vi.fn(() => query)
+      query.then = (onfulfilled, onrejected) =>
+        Promise.resolve({
+          data:
+            selectedColumns === 'id, normalized_name' ? channelRows : existingChannelRows,
+          error: null,
+        }).then(onfulfilled, onrejected)
+      return query
     }
     throw new Error(`Unexpected table: ${table}`)
   })
@@ -230,6 +262,240 @@ describe('channels enrichment phase', () => {
         channel_id: 'channel-1',
       }),
     ])
+  })
+
+  it('backfills an addressless existing channel with a fallback Maps lookup', async () => {
+    const supabase = auditSupabase([], [
+      {
+        name: '永康旗艦店',
+        category_label: '選品店',
+        region_label: '台北',
+        address: null,
+        url: null,
+        owner_status: 'none',
+      },
+    ])
+    mocks.searchBrandMaps.mockResolvedValueOnce(mapsResult()).mockResolvedValueOnce(
+      mapsResult([
+        {
+          title: '永康旗艦店',
+          address: '臺北市大安區永康街 1 號',
+          latitude: 25.033,
+          longitude: 121.565,
+        },
+      ]),
+    )
+
+    await runChannelsPhase(
+      phaseOptions({
+        brand: { ...phaseOptions().brand, id: 'brand-1', slug: 'brand-1' },
+        dryRun: false,
+        target: { type: 'brand', id: 'brand-1' },
+        supabase: { from: supabase.from } as never,
+      }),
+    )
+
+    expect(mocks.upsertEnrichedChannels).toHaveBeenCalledWith('brand-1', [
+      expect.objectContaining({
+        name: '永康旗艦店',
+        address: '臺北市大安區永康街 1 號',
+      }),
+    ])
+  })
+
+  it('does not audit an existing candidate when its fallback lookup never ran', async () => {
+    const supabase = auditSupabase([], [
+      {
+        name: '永康旗艦店',
+        category_label: '選品店',
+        region_label: '台北',
+        address: null,
+        url: null,
+        owner_status: 'none',
+      },
+    ])
+    mocks.searchBrandMaps.mockResolvedValueOnce(
+      mapsResult([
+        {
+          title: '永康旗艦店',
+          address: '臺北市大安區永康街 1 號',
+          latitude: 25.033,
+          longitude: 121.565,
+          website: 'https://littdlework.example/stores',
+        },
+      ]),
+    )
+
+    await runChannelsPhase(
+      phaseOptions({
+        brand: { ...phaseOptions().brand, id: 'brand-1', slug: 'brand-1' },
+        dryRun: false,
+        target: { type: 'brand', id: 'brand-1' },
+        supabase: { from: supabase.from } as never,
+      }),
+    )
+
+    expect(supabase.insert).not.toHaveBeenCalled()
+  })
+
+  it('fuzzy-matches an existing stockist name when the city corroborates the Maps result', async () => {
+    const supabase = auditSupabase([], [
+      {
+        name: '鄉野情戶外用品店',
+        category_label: '選品店',
+        region_label: '台中',
+        address: null,
+        url: null,
+        owner_status: 'none',
+      },
+    ])
+    mocks.searchBrandMaps.mockResolvedValueOnce(mapsResult()).mockResolvedValueOnce(
+      mapsResult([
+        {
+          title: '鄉野情戶外休閒專業中心',
+          address: '臺中市南屯區五權西路二段 316 號',
+          website: 'https://camping-life.example/stores',
+        },
+      ]),
+    )
+
+    await runChannelsPhase(
+      phaseOptions({
+        brand: {
+          ...phaseOptions().brand,
+          id: 'brand-1',
+          slug: 'brand-1',
+          name: '鄉野情',
+          purchase_website: 'https://camping-life.example',
+        },
+        dryRun: false,
+        target: { type: 'brand', id: 'brand-1' },
+        supabase: { from: supabase.from } as never,
+      }),
+    )
+
+    expect(mocks.upsertEnrichedChannels).toHaveBeenCalledWith('brand-1', [
+      expect.objectContaining({
+        name: '鄉野情戶外用品店',
+        address: '臺中市南屯區五權西路二段 316 號',
+      }),
+    ])
+  })
+
+  it('does not fuzzy-match an existing stockist against a conflicting named city', async () => {
+    const supabase = auditSupabase([], [
+      {
+        name: '台中鄉野情戶外用品店',
+        category_label: '選品店',
+        region_label: '台中',
+        address: null,
+        url: null,
+        owner_status: 'none',
+      },
+    ])
+    mocks.searchBrandMaps.mockResolvedValueOnce(mapsResult()).mockResolvedValueOnce(
+      mapsResult([
+        {
+          title: '鄉野情戶外休閒專業中心',
+          address: '臺北市大安區忠孝東路四段 1 號',
+          website: 'https://camping-life.example/stores',
+        },
+      ]),
+    )
+
+    const result = await runChannelsPhase(
+      phaseOptions({
+        brand: {
+          ...phaseOptions().brand,
+          id: 'brand-1',
+          slug: 'brand-1',
+          name: '鄉野情',
+          purchase_website: 'https://camping-life.example',
+        },
+        dryRun: false,
+        target: { type: 'brand', id: 'brand-1' },
+        supabase: { from: supabase.from } as never,
+      }),
+    )
+
+    expect(mocks.upsertEnrichedChannels).not.toHaveBeenCalled()
+    expect(result.candidates).toEqual([])
+  })
+
+  it('does not collapse an owner-confirmed existing channel into a retail chain', async () => {
+    const supabase = auditSupabase([], [
+      {
+        name: 'ROCKLAND',
+        category_label: '選品店',
+        region_label: '台北',
+        address: null,
+        url: null,
+        owner_status: 'confirmed',
+      },
+    ])
+    mocks.searchBrandMaps.mockResolvedValueOnce(mapsResult()).mockResolvedValueOnce(
+      mapsResult([
+        {
+          title: 'ROCKLAND 台北忠孝店',
+          address: '臺北市大安區忠孝東路四段 1 號',
+        },
+        {
+          title: 'ROCKLAND 新竹巨城店',
+          address: '新竹市東區中央路 229 號',
+        },
+      ]),
+    )
+
+    const result = await runChannelsPhase(
+      phaseOptions({
+        brand: { ...phaseOptions().brand, id: 'brand-1', slug: 'brand-1', name: 'ROCKLAND' },
+        dryRun: false,
+        target: { type: 'brand', id: 'brand-1' },
+        supabase: { from: supabase.from } as never,
+      }),
+    )
+
+    expect(mocks.upsertEnrichedChannels).not.toHaveBeenCalled()
+    expect(result.candidates).toEqual([])
+  })
+
+  it('deduplicates an existing channel that matches a description-extracted stockist', async () => {
+    const supabase = auditSupabase([], [
+      {
+        name: '永康旗艦店',
+        category_label: '選品店',
+        region_label: '台北',
+        address: null,
+        url: null,
+        owner_status: 'none',
+      },
+    ])
+    mocks.searchBrandMaps.mockResolvedValueOnce(mapsResult()).mockResolvedValueOnce(
+      mapsResult([
+        {
+          title: '永康旗艦店',
+          address: '臺北市大安區永康街 1 號',
+          website: 'https://littdlework.example/stores',
+        },
+      ]),
+    )
+
+    await runChannelsPhase(
+      phaseOptions({
+        brand: { ...phaseOptions().brand, id: 'brand-1', slug: 'brand-1' },
+        dryRun: false,
+        target: { type: 'brand', id: 'brand-1' },
+        supabase: { from: supabase.from } as never,
+        descriptionRewrite: descriptionRewrite({
+          stockists: [{ name: '永康旗艦店', city: 'taipei', type: 'independent' }],
+        }),
+      }),
+    )
+
+    expect(mocks.upsertEnrichedChannels).toHaveBeenCalledWith('brand-1', [
+      expect.objectContaining({ name: '永康旗艦店' }),
+    ])
+    expect(mocks.upsertEnrichedChannels.mock.calls.at(0)?.[1]).toHaveLength(1)
   })
 
   it('stages submission-target channels in enriched data without writing brand channels before approval', async () => {
