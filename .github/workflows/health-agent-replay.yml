@@ -83,7 +83,7 @@ jobs:
       canary_fingerprints: ""
       collect: "true"
       autofix: "false"
-      mutate: ${{ inputs.mutate && 'true' || 'false' }}
+      mutate: "false"
     secrets: inherit
 
   deliver:
@@ -96,7 +96,7 @@ jobs:
       canary_fingerprints: ""
       collect: "true"
       autofix: "false"
-      mutate: ${{ inputs.mutate && 'true' || 'false' }}
+      mutate: "false"
     secrets: inherit
 
   report:

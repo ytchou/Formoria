@@ -72,6 +72,14 @@ describe("unified health-agent workflow contract", () => {
     expect(replay).toContain('gh run download "$SOURCE_RUN_ID"');
     expect(replay).toContain("needs.analyze.result");
     expect(replay).toContain('--defer-delivery "${{ ! inputs.notify }}"');
+    const deliver = replay.slice(
+      replay.indexOf("  deliver:"),
+      replay.indexOf("  report:"),
+    );
+    expect(deliver).toContain(
+      "mode: ${{ inputs.mutate && 'live' || 'preflight' }}",
+    );
+    expect(deliver).toContain('mutate: "false"');
   });
 
   it("uses an object-root schema for Sentry structured output", () => {
