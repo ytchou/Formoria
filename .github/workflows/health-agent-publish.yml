@@ -134,10 +134,7 @@ jobs:
             "${pr_labels[@]}" \
             --title "fix: automatic health repairs" \
             --body-file "$body_file")
-          if [[ "$BATCH_KIND" == "automatic" ]]; then
-            echo "auto_merge_enabled=true"
-            gh pr merge --auto --squash "$automatic_pr"
-          fi
+          echo "Automatic health-repair PR created; awaiting manager merge"
           automatic_pr_number="${automatic_pr##*/}"
           pnpm exec tsx scripts/health-agent/workflow-runtime.ts repair-result \
             --metadata "$metadata_file" \
@@ -145,7 +142,7 @@ jobs:
             --lease-owner "github-actions:${GITHUB_RUN_ID}:${GITHUB_RUN_ATTEMPT}" \
             --pr-number "$automatic_pr_number" \
             --pr-url "$automatic_pr" \
-            --auto-merge-enabled true \
+            --auto-merge-enabled false \
             --defer-delivery true \
             --run-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --attempt "$GITHUB_RUN_ATTEMPT" \
