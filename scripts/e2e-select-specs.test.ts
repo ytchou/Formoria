@@ -11,6 +11,7 @@ import {
   isCodeFile,
   isRouteEntrypoint,
   isSelectableSpec,
+  isSubtreeEntrypoint,
   matchesRoute,
   parseRemovedI18nStrings,
   resolveImport,
@@ -200,6 +201,39 @@ describe('matchesRoute', () => {
     ['/brand/acme', '/brands/[slug]', false],
   ])('matches %s against %s as %s', (route, pattern, expected) => {
     expect(matchesRoute(route, pattern)).toBe(expected)
+  })
+
+  // A layout wraps its whole subtree, so its pattern has to match descendants
+  // too. Exact-matching it made a root-layout change select only the specs
+  // visiting `/` — the under-selection this mechanism exists to prevent.
+  it.each([
+    ['/admin/brands', '/admin', true],
+    ['/admin/jobs/queue', '/admin', true],
+    ['/admin', '/admin', true],
+    ['/brands', '/', true],
+    ['/dashboard/brands/acme/info', '/dashboard', true],
+    ['/administration', '/admin', false],
+    ['/brands', '/admin', false],
+  ])('subtree-matches %s against %s as %s', (route, pattern, expected) => {
+    expect(matchesRoute(route, pattern, { subtree: true })).toBe(expected)
+  })
+
+  it('does not subtree-match unless asked', () => {
+    expect(matchesRoute('/admin/brands', '/admin')).toBe(false)
+  })
+})
+
+describe('isSubtreeEntrypoint', () => {
+  it.each([
+    ['src/app/layout.tsx', true],
+    ['src/app/admin/layout.tsx', true],
+    ['src/app/[locale]/template.tsx', true],
+    ['src/app/[locale]/@modal/default.tsx', true],
+    ['src/app/admin/brands/page.tsx', false],
+    ['src/app/api/search/route.ts', false],
+    ['src/components/layout.tsx', false],
+  ])('classifies %s as %s', (file, expected) => {
+    expect(isSubtreeEntrypoint(file)).toBe(expected)
   })
 })
 

@@ -8,6 +8,13 @@ const MAX_SPECS_PER_I18N_STRING = 5
 const CODE_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx']
 const ROUTE_ENTRYPOINT =
   /^src\/app\/(?:.*\/)?(?:page|layout|route|template|default)\.(?:ts|tsx)$/
+/**
+ * A layout, template, or default wraps its whole subtree, so its route pattern
+ * matches every descendant route — not just the one at its own depth. A `page`
+ * or `route` owns exactly one route and stays an exact match.
+ */
+const SUBTREE_ENTRYPOINT =
+  /^src\/app\/(?:.*\/)?(?:layout|template|default)\.(?:ts|tsx)$/
 
 /**
  * Only `e2e/tests/**` is selectable. The workflow runs `--project=deep`, whose
@@ -24,6 +31,11 @@ export function isCodeFile(file) {
 /** An App Router file that defines a route. */
 export function isRouteEntrypoint(file) {
   return ROUTE_ENTRYPOINT.test(file)
+}
+
+/** An App Router file whose route pattern covers every descendant route. */
+export function isSubtreeEntrypoint(file) {
+  return SUBTREE_ENTRYPOINT.test(file)
 }
 
 /** A spec the selective PR job is able to run. */
@@ -121,7 +133,7 @@ export function extractRoutes(sourceText) {
   return [...routes]
 }
 
-export function matchesRoute(concreteRoute, pattern) {
+export function matchesRoute(concreteRoute, pattern, { subtree = false } = {}) {
   const concreteSegments = concreteRoute.split('/').filter(Boolean)
   const patternSegments = pattern.split('/').filter(Boolean)
 
@@ -141,7 +153,9 @@ export function matchesRoute(concreteRoute, pattern) {
     if (concreteSegment !== patternSegment) return false
   }
 
-  return concreteSegments.length === patternSegments.length
+  return subtree
+    ? concreteSegments.length >= patternSegments.length
+    : concreteSegments.length === patternSegments.length
 }
 
 export function collectSpecRoutes(
@@ -193,12 +207,21 @@ export function selectDerivedSpecs(
   const reachable = collectReachableImporters(changedFiles, reverseGraph)
   const patterns = routeEntrypoints
     .filter(entrypoint => reachable.has(entrypoint))
-    .map(routePatternFor)
+    .map(entrypoint => ({
+      pattern: routePatternFor(entrypoint),
+      subtree: isSubtreeEntrypoint(entrypoint),
+    }))
   if (patterns.length === 0) return []
 
   const specs = []
   for (const [spec, routes] of routesBySpec) {
-    if ([...routes].some(route => patterns.some(pattern => matchesRoute(route, pattern)))) {
+    if (
+      [...routes].some(route =>
+        patterns.some(({ pattern, subtree }) =>
+          matchesRoute(route, pattern, { subtree }),
+        ),
+      )
+    ) {
       specs.push(spec)
     }
   }
