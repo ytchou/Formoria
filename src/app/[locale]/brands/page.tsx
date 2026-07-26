@@ -396,6 +396,10 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
     categoryBreadcrumbJsonLd = buildBreadcrumbJsonLd(breadcrumbItems, safeLocale)
   }
 
+  const scopeNote = categoryTag ? null : (
+    <p className="mt-2 mb-6 max-w-2xl type-page-subtitle">{t('scopeNote')}</p>
+  )
+
   return (
     <NextIntlClientProvider messages={messages}>
     <main className="page-gutter mx-auto grid w-full max-w-screen-xl gap-8 py-10 lg:grid-cols-[16rem_minmax(0,1fr)]">
@@ -476,6 +480,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
                   {t('notFound')}
                 </p>
               </div>
+              {scopeNote}
               <div className="mt-3 lg:hidden">
                 <BrandFilterDrawer
                   activeFilters={activeFilters}
@@ -492,7 +497,9 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
           </div>
         ) : (
           <>
-            <h1 className="mb-6 text-balance type-page-title">{pageHeading}</h1>
+            <h1 className={`${scopeNote ? 'mb-2' : 'mb-6'} text-balance type-page-title`}>
+              {pageHeading}
+            </h1>
             <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <BrandFilterDrawer

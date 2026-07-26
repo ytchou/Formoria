@@ -84,6 +84,10 @@ describe('LikeBrandButton', () => {
     const button = await screen.findByRole('button', {
       name: 'Support this brand, 12 supporters',
     })
+    // The mount transition still reports isPending in the render that publishes the
+    // count, so the button is briefly disabled after the label lands and an
+    // unguarded click is silently dropped by the component's isPending guard.
+    await waitFor(() => expect(button).toBeEnabled())
 
     fireEvent.click(button)
 
@@ -103,6 +107,7 @@ describe('LikeBrandButton', () => {
     const button = await screen.findByRole('button', {
       name: 'Support this brand, 12 supporters',
     })
+    await waitFor(() => expect(button).toBeEnabled())
 
     fireEvent.click(button)
 

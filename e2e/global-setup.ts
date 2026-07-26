@@ -206,6 +206,26 @@ async function globalSetup() {
           err instanceof Error ? err.message : String(err),
         );
       }
+      // /brands is the entry point the brand-detail spec's beforeAll hook uses to
+      // resolve a brand href. Compiling it on demand while several workers hit it
+      // at once pushed that hook past its timeout, failing the whole describe
+      // block before any test body ran.
+      try {
+        await page.goto(baseURL + "/brands", {
+          waitUntil: "domcontentloaded",
+          timeout: 60000,
+        });
+        await page
+          .locator("main a[aria-label]")
+          .first()
+          .waitFor({ state: "visible", timeout: 120_000 });
+        console.log("[global-setup] /brands warm-up complete");
+      } catch (err) {
+        console.warn(
+          "[global-setup] /brands warm-up failed (non-fatal):",
+          err instanceof Error ? err.message : String(err),
+        );
+      }
       // Brand detail is the most-exercised route in the deep suite and carries a
       // heavy client bundle (correction sheets, share dialog, likes). Compiling it
       // on demand while several workers hit it at once pushes first interaction

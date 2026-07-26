@@ -58,6 +58,10 @@ export function ViewerProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const previousPathname = useRef(pathname)
   const reloadAuthRef = useRef<(() => Promise<void>) | null>(null)
+  const viewerRequestRef = useRef<{
+    userId: string
+    promise: Promise<ViewerContext>
+  } | null>(null)
   const [state, setState] = useState<Omit<UseUserState, 'refreshViewer'>>({
     user: null,
     loading: true,
@@ -86,6 +90,24 @@ export function ViewerProvider({ children }: { children: ReactNode }) {
     let active = true
     let viewerRequestId = 0
 
+    // Auth initialization and Supabase's INITIAL_SESSION event can overlap.
+    function loadViewerContext(userId: string): Promise<ViewerContext> {
+      const previousRequest = viewerRequestRef.current
+      if (previousRequest?.userId === userId) {
+        return previousRequest.promise
+      }
+
+      const request = getViewerContextAction()
+      viewerRequestRef.current = { userId, promise: request }
+      const clearRequest = () => {
+        if (viewerRequestRef.current?.promise === request) {
+          viewerRequestRef.current = null
+        }
+      }
+      void request.then(clearRequest, clearRequest)
+      return request
+    }
+
     async function setAuthenticatedUser(user: ViewerUser | null) {
       const requestId = ++viewerRequestId
       if (!active) return
@@ -109,7 +131,7 @@ export function ViewerProvider({ children }: { children: ReactNode }) {
 
       let viewer = EMPTY_VIEWER_CONTEXT
       try {
-        viewer = await getViewerContextAction()
+        viewer = await loadViewerContext(user.id)
       } catch {
         // Viewer state controls privileged UI, so failures must resolve closed.
       }

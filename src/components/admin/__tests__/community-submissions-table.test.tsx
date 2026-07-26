@@ -55,9 +55,14 @@ describe("CommunitySubmissionsTable", () => {
       { id: "csv-1", name: "CSV Brand", website: "https://csv.test" },
     ]);
     expect(screen.getByLabelText("Select CSV Brand")).toBeChecked();
-    expect(
-      screen.getByRole("button", { name: "Import 1 selected" }),
-    ).toBeEnabled();
+    // The import button stays disabled until the load+preview transition settles,
+    // which can land a render after the row itself, so await the enabled state
+    // instead of asserting it synchronously.
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Import 1 selected" }),
+      ).toBeEnabled(),
+    );
     expect(screen.queryByText("Not previewed")).not.toBeInTheDocument();
   });
 

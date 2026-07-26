@@ -61,7 +61,7 @@
     "hero": {
       "eyebrow": "TAIWANESE BRANDS",
       "headline": "Discover Taiwanese Brands",
-      "subheadline": "A community-curated Taiwanese brand directory — from stationery and homeware to food and drink. Explore brands founded, designed, or made in Taiwan.",
+      "subheadline": "A community-curated Taiwanese brand directory, featuring brands founded, designed, or made in Taiwan.",
       "statsBrands": "brands",
       "statsCategories": "categories",
       "recentWeek": "new brands (last 7 days)",
@@ -136,6 +136,7 @@
       "description": "Discover thoughtfully curated Taiwanese brands. Browse by category, search, and explore brands founded, designed, or made in Taiwan."
     },
     "heading": "Taiwanese Brand Directory",
+    "scopeNote": "This directory lists brands founded, designed, or made in Taiwan.",
     "count": "{count} brands",
     "notFound": "No brands found",
     "emptyTitle": "No brands found",
@@ -988,7 +989,7 @@
     },
     "hero": {
       "title": "A community built for Taiwan's brands",
-      "subtitle": "A community-curated Taiwanese brand directory, from everyday staples to thoughtful design.",
+      "subtitle": "A community-curated directory of brands founded, designed, or made in Taiwan.",
       "statSuffix": " — and growing",
       "statsBrands": "brands",
       "statsCategories": "categories",

@@ -443,15 +443,30 @@ test.describe('Brand detail — public locations and retail channels', () => {
     test.setTimeout(90_000);
     await userPage.goto(`/brands/${seeded.slug}`, { waitUntil: 'domcontentloaded' });
 
-    await userPage.getByRole('button', { name: '提供販售資訊', exact: true }).click();
+    // The trigger ships in the server-rendered HTML, so a missing one is a real
+    // regression rather than a timing problem. Assert it before the retry loop so
+    // that case does not surface as an opaque "predicate timed out" on the dialog.
+    const trigger = userPage.getByRole('button', { name: '提供販售資訊', exact: true });
+    await expect(trigger).toBeVisible();
+
+    // The brand page is statically served and hydrates afterwards, so a click that
+    // lands too early is a silent no-op and every later step then times out waiting
+    // on a dialog that was never opened. Retry the idempotent open instead of
+    // sleeping on a guessed hydration delay — same pattern as openCategorySheet in
+    // brand-corrections.spec.ts.
     const dialog = userPage.getByRole('dialog', { name: '提供販售資訊' });
+    await expect(async () => {
+      if (!(await dialog.isVisible())) await trigger.click();
+      await expect(dialog).toBeVisible({ timeout: 2_000 });
+    }).toPass({ timeout: 20_000, intervals: [500, 1_000, 2_000] });
     await dialog.getByRole('textbox', { name: '通路名稱' }).fill(submittedChannelName);
     await dialog.getByRole('combobox', { name: '通路類型' }).selectOption('online');
     await dialog.getByRole('combobox', { name: '通路分類' }).selectOption('other');
     await dialog.getByRole('combobox', { name: '地區' }).selectOption('taipei');
     await dialog.getByRole('textbox', { name: '網址' }).fill(submittedChannelUrl);
     await dialog.getByRole('button', { name: '送出', exact: true }).click();
-    await expect(dialog.getByText('感謝您提供的資訊！')).toBeVisible({ timeout: 15_000 });
+    // The submit still queues behind the like-button action, so give it 30s.
+    await expect(dialog.getByText('感謝您提供的資訊！')).toBeVisible({ timeout: 30_000 });
     await dialog.getByRole('button', { name: '關閉', exact: true }).click();
 
     await expect(async () => {

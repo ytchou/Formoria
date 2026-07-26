@@ -1,13 +1,24 @@
-import { describe, expect, it } from "vitest"
+import { beforeAll, describe, expect, it } from "vitest"
 import { ESLint } from "eslint"
 
+const eslint = new ESLint({ cwd: process.cwd() })
+
 async function lintFixture(code: string, filePath: string) {
-  const eslint = new ESLint({ cwd: process.cwd() })
   const [result] = await eslint.lintText(code, { filePath })
   return result?.messages ?? []
 }
 
 describe("ui sourcing lint rules", () => {
+  // The first lintText pays a cold flat-config load for the whole eslint.config
+  // chain, which exceeds the default 5s test timeout under full-suite CPU
+  // contention. Pay it once here with its own budget; the shared ESLint instance
+  // caches the resolved config for every later lintText call.
+  beforeAll(async () => {
+    await eslint.lintText("", {
+      filePath: "src/components/ui/__warmup__.tsx",
+    })
+  }, 60_000)
+
   it("flags a raw styled button outside ui/", async () => {
     const messages = await lintFixture(
       'export function X(){return <button className="rounded-full px-4">x</button>}',
