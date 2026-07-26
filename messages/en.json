@@ -472,6 +472,23 @@
         "uploadFailed": "Photo upload failed. Please try again."
       }
     },
+    "correction": {
+      "trigger": "Is this incorrect?",
+      "triggerLabel": "Correct {field}",
+      "description": "Submissions are reviewed by an editor before they update the listing.",
+      "submitting": "Submitting…",
+      "submit": "Submit correction",
+      "success": "Correction submitted. Thank you for helping keep this listing accurate.",
+      "errors": {
+        "invalid_brand": "This brand could not be found. Please refresh and try again.",
+        "invalid_value": "That correction is not valid. Please choose another value.",
+        "too_many_tags": "A brand can have at most 5 product categories.",
+        "unchanged": "This correction does not change the current information.",
+        "already_submitted": "You have already submitted this correction. Please wait for review.",
+        "rate_limited": "Too many correction submissions. Please try again later.",
+        "unavailable": "We could not submit the correction. Please try again later."
+      }
+    },
     "adminMenu": {
       "label": "Admin menu",
       "viewAsOwner": "Brand view"

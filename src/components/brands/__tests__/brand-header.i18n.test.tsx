@@ -59,5 +59,7 @@ describe('BrandHeader — English locale (i18n)', () => {
 
     // Founding year uses English translation key (brandDetail.foundingYear)
     expect(screen.getByText('Est. 2010')).toBeInTheDocument()
+
+    expect(screen.getByRole('button', { name: 'Correct Category' })).toBeInTheDocument()
   })
 })

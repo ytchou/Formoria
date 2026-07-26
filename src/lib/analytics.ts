@@ -559,6 +559,14 @@ export function trackBrandReported(slug: string, reason: string, reporterRole: s
   })
 }
 
+export function trackCorrectionSubmitted(brandId: string, slug: string, field: string) {
+  capturePostHogEvent('brand_correction_submitted', {
+    brand_id: brandId,
+    brand_slug: slug,
+    field,
+  })
+}
+
 export function trackCtaClicked(
   ctaName: string,
   ctaLocation: string,

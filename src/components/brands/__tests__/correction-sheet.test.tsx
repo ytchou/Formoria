@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   submitCorrection: vi.fn(),
+  trackCorrectionSubmitted: vi.fn(),
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
 }));
@@ -18,6 +19,10 @@ vi.mock("sonner", () => ({
     error: mocks.toastError,
     success: mocks.toastSuccess,
   },
+}));
+
+vi.mock("@/lib/analytics", () => ({
+  trackCorrectionSubmitted: mocks.trackCorrectionSubmitted,
 }));
 
 import { CorrectionSheet } from "../correction-sheet";
@@ -37,22 +42,26 @@ const messages = {
     },
   },
   brandDetail: {
-    evidence: {
-      description: "分享你看到的資訊，協助我們核實品牌資料。",
+    label: {
+      category: "類別",
+      priceRange: "價格區間",
+      productCategories: "產品類別",
+    },
+    correction: {
+      trigger: "這不對?",
+      triggerLabel: "修正{field}",
+      description: "送出後由編輯審核，通過才會更新。",
       submitting: "送出中…",
+      submit: "送出修正",
+      success: "修正已送出。",
       errors: {
-        unknown: "提交失敗，請稍後再試。",
-      },
-    },
-    channels: {
-      dialog: {
-        submit: "送出",
-        success: "已收到你的回報。",
-      },
-    },
-    report: {
-      errors: {
-        rateLimited: "操作太頻繁，請稍後再試。",
+        invalid_brand: "品牌無效。",
+        invalid_value: "修正無效。",
+        too_many_tags: "標籤太多。",
+        unchanged: "沒有變更。",
+        already_submitted: "已送出。",
+        rate_limited: "操作太頻繁，請稍後再試。",
+        unavailable: "提交失敗，請稍後再試。",
       },
     },
   },
@@ -74,6 +83,10 @@ function renderSheet(
   );
 }
 
+function openSheet(name = "修正價格區間") {
+  fireEvent.click(screen.getByRole("button", { name }));
+}
+
 describe("CorrectionSheet", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -82,6 +95,7 @@ describe("CorrectionSheet", () => {
 
   it("renders the three price options with current value preselected", () => {
     renderSheet();
+    openSheet();
 
     const select = screen.getByRole("combobox");
     expect(select).toHaveValue("2");
@@ -99,6 +113,7 @@ describe("CorrectionSheet", () => {
 
   it("renders all 12 category options with current value preselected", () => {
     renderSheet({ field: "product_type", currentValue: "crafts" });
+    openSheet("修正類別");
 
     expect(screen.getByRole("combobox")).toHaveValue("crafts");
     expect(screen.getAllByRole("option")).toHaveLength(12);
@@ -109,8 +124,9 @@ describe("CorrectionSheet", () => {
 
   it("disables submit until the selection differs from current", () => {
     renderSheet();
+    openSheet();
 
-    const submit = screen.getByRole("button", { name: "送出" });
+    const submit = screen.getByRole("button", { name: "送出修正" });
     expect(submit).toBeDisabled();
     expect(submit).toHaveAttribute("data-ph-no-autocapture");
 
@@ -121,9 +137,10 @@ describe("CorrectionSheet", () => {
 
   it("re-disables submit when the selection returns to the original value", () => {
     renderSheet();
+    openSheet();
 
     const select = screen.getByRole("combobox");
-    const submit = screen.getByRole("button", { name: "送出" });
+    const submit = screen.getByRole("button", { name: "送出修正" });
 
     fireEvent.change(select, { target: { value: "3" } });
     expect(submit).toBeEnabled();
@@ -138,9 +155,10 @@ describe("CorrectionSheet", () => {
       error: "rate_limited",
     });
     renderSheet();
+    openSheet();
 
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "3" } });
-    fireEvent.click(screen.getByRole("button", { name: "送出" }));
+    fireEvent.click(screen.getByRole("button", { name: "送出修正" }));
 
     await waitFor(() => {
       expect(mocks.toastError).toHaveBeenCalledWith("操作太頻繁，請稍後再試。");
@@ -149,9 +167,10 @@ describe("CorrectionSheet", () => {
 
   it("closes and shows a success message on ok", async () => {
     renderSheet();
+    openSheet();
 
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "3" } });
-    fireEvent.click(screen.getByRole("button", { name: "送出" }));
+    fireEvent.click(screen.getByRole("button", { name: "送出修正" }));
 
     await waitFor(() => {
       expect(mocks.submitCorrection).toHaveBeenCalledWith({
@@ -159,7 +178,12 @@ describe("CorrectionSheet", () => {
         field: "price_range",
         proposedValue: 3,
       });
-      expect(mocks.toastSuccess).toHaveBeenCalledWith("已收到你的回報。");
+      expect(mocks.toastSuccess).toHaveBeenCalledWith("修正已送出。");
+      expect(mocks.trackCorrectionSubmitted).toHaveBeenCalledWith(
+        BRAND_ID,
+        "warmwood",
+        "price_range",
+      );
       expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
     });
   });

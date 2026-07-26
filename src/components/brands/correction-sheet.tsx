@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { submitCorrectionAction } from "@/lib/actions/brand-corrections";
+import { trackCorrectionSubmitted } from "@/lib/analytics";
 import type { CorrectionField } from "@/lib/services/brand-corrections";
 import {
   categoryLabel,
@@ -19,6 +20,7 @@ import {
   SheetFooter,
   SheetHeader,
   SheetTitle,
+  SheetTrigger,
 } from "@/components/ui/sheet";
 import { SubmitButton } from "@/components/ui/submit-button";
 
@@ -27,6 +29,16 @@ const PRICE_OPTIONS = [
   { value: "2", prefix: "$$", labelKey: "fieldPriceRangeMidRange" },
   { value: "3", prefix: "$$$", labelKey: "fieldPriceRangePremium" },
 ] as const;
+
+const CORRECTION_ERROR_KEYS = {
+  invalid_brand: "errors.invalid_brand",
+  invalid_value: "errors.invalid_value",
+  too_many_tags: "errors.too_many_tags",
+  unchanged: "errors.unchanged",
+  already_submitted: "errors.already_submitted",
+  rate_limited: "errors.rate_limited",
+  unavailable: "errors.unavailable",
+} as const;
 
 export type CorrectionSheetValue = number | string | string[] | null;
 
@@ -53,14 +65,14 @@ function initialSelection(
 
 export function CorrectionSheet({
   brandId,
+  brandSlug,
   field,
   currentValue,
 }: CorrectionSheetProps) {
   const locale = useLocale();
+  const tBrandDetail = useTranslations("brandDetail");
   const tEdit = useTranslations("dashboard.edit");
-  const tEvidence = useTranslations("brandDetail.evidence");
-  const tReport = useTranslations("brandDetail.report");
-  const tChannelDialog = useTranslations("brandDetail.channels.dialog");
+  const tCorrection = useTranslations("brandDetail.correction");
   const selectId = useId();
   const originalSelection = initialSelection(field, currentValue);
   const selectionKey = `${field}:${originalSelection}`;
@@ -68,7 +80,7 @@ export function CorrectionSheet({
     key: selectionKey,
     value: originalSelection,
   });
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const selection =
     selectionState.key === selectionKey
@@ -83,6 +95,12 @@ export function CorrectionSheet({
       : field === "price_range"
         ? tEdit("fieldPriceRange")
         : tEdit("fieldProductTags");
+  const fieldLabel =
+    field === "product_type"
+      ? tBrandDetail("label.category")
+      : field === "price_range"
+        ? tBrandDetail("label.priceRange")
+        : tBrandDetail("label.productCategories");
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -99,24 +117,34 @@ export function CorrectionSheet({
         });
 
         if (result.ok) {
-          toast.success(tChannelDialog("success"));
+          trackCorrectionSubmitted(brandId, brandSlug, field);
+          toast.success(tCorrection("success"));
           setOpen(false);
           return;
         }
 
-        toast.error(
-          result.error === "rate_limited"
-            ? tReport("errors.rateLimited")
-            : tEvidence("errors.unknown"),
-        );
+        toast.error(tCorrection(CORRECTION_ERROR_KEYS[result.error]));
       } catch {
-        toast.error(tEvidence("errors.unknown"));
+        toast.error(tCorrection(CORRECTION_ERROR_KEYS.unavailable));
       }
     });
   }
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            size="compact"
+            aria-label={tCorrection("triggerLabel", { field: fieldLabel })}
+            className="min-h-12 type-metadata text-muted-foreground focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary"
+          />
+        }
+      >
+        {tCorrection("trigger")}
+      </SheetTrigger>
       <SheetContent
         side="bottom"
         className="max-h-dvh overflow-y-auto border-border bg-card shadow-none sm:mx-auto sm:max-w-xl"
@@ -176,7 +204,7 @@ export function CorrectionSheet({
 
           <SheetFooter className="gap-3 border-t border-border bg-card sm:flex-row sm:items-center sm:justify-between">
             <p className="type-caption sm:max-w-xs">
-              {tEvidence("description")}
+              {tCorrection("description")}
             </p>
             <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
               <Button
@@ -189,8 +217,8 @@ export function CorrectionSheet({
               </Button>
               <SubmitButton
                 isSubmitting={isPending}
-                idleLabel={tChannelDialog("submit")}
-                submittingLabel={tEvidence("submitting")}
+                idleLabel={tCorrection("submit")}
+                submittingLabel={tCorrection("submitting")}
                 disabled={!hasChanged || isPending}
                 className="focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary sm:w-auto"
                 data-ph-no-autocapture

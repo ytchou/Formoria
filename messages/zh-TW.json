@@ -472,6 +472,23 @@
         "uploadFailed": "照片上傳失敗，請重試。"
       }
     },
+    "correction": {
+      "trigger": "這不對?",
+      "triggerLabel": "修正{field}",
+      "description": "送出後由編輯審核，通過才會更新。",
+      "submitting": "送出中…",
+      "submit": "送出修正",
+      "success": "修正已送出，感謝你的協助。",
+      "errors": {
+        "invalid_brand": "找不到這個品牌，請重新整理後再試。",
+        "invalid_value": "這個修正內容無效，請重新選擇。",
+        "too_many_tags": "產品類別最多只能有 5 個。",
+        "unchanged": "這項資料目前沒有變更。",
+        "already_submitted": "你已經送出過這項修正，請等待審核。",
+        "rate_limited": "修正送出次數過多，請稍後再試。",
+        "unavailable": "目前無法送出修正，請稍後再試。"
+      }
+    },
     "adminMenu": {
       "label": "管理選單",
       "viewAsOwner": "品牌主檢視"

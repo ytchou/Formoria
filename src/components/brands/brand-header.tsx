@@ -6,6 +6,7 @@ import { InfoField } from '@/components/ui/card'
 import { Typography } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 import { MitDeclaredBadge, MitVerifiedBadge, OwnerVerifiedBadge } from './brand-verification-badges'
+import { CorrectionSheet } from './correction-sheet'
 
 const infoLabelClassName =
   'type-field-label uppercase tracking-[0.08em]'
@@ -121,13 +122,21 @@ export function BrandHeader({
             labelClassName={infoLabelClassName}
             layout="stacked"
             value={
-              resolvedCategory ? (
-                <Badge className="text-foreground" variant="secondary">
-                  {resolvedCategory}
-                </Badge>
-              ) : (
-                unknownValue
-              )
+              <div className="flex items-center gap-2">
+                {resolvedCategory ? (
+                  <Badge className="text-foreground" variant="secondary">
+                    {resolvedCategory}
+                  </Badge>
+                ) : (
+                  unknownValue
+                )}
+                <CorrectionSheet
+                  brandId={brand.id}
+                  brandSlug={brand.slug}
+                  field="product_type"
+                  currentValue={brand.productType ?? null}
+                />
+              </div>
             }
           />
           <InfoField
@@ -135,13 +144,21 @@ export function BrandHeader({
             labelClassName={infoLabelClassName}
             layout="stacked"
             value={
-              priceRangeLabel ? (
-                <Badge className="text-foreground" variant="secondary">
-                  {priceRangeLabel}
-                </Badge>
-              ) : (
-                unknownValue
-              )
+              <div className="flex items-center gap-2">
+                {priceRangeLabel ? (
+                  <Badge className="text-foreground" variant="secondary">
+                    {priceRangeLabel}
+                  </Badge>
+                ) : (
+                  unknownValue
+                )}
+                <CorrectionSheet
+                  brandId={brand.id}
+                  brandSlug={brand.slug}
+                  field="price_range"
+                  currentValue={brand.priceRange}
+                />
+              </div>
             }
           />
           <InfoField
@@ -149,17 +166,28 @@ export function BrandHeader({
             labelClassName={infoLabelClassName}
             layout="stacked"
             value={
-              resolvedTags.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5">
-                  {resolvedTags.map((tag, index) => (
-                    <Badge
-                      key={`${tag}-${index}`}
-                      className="text-foreground"
-                      variant="secondary"
-                    >
-                      {tag}
-                    </Badge>
-                  ))}
+              resolvedTags.length > 0 || brand.productType != null ? (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {resolvedTags.length > 0
+                    ? resolvedTags.map((tag, index) => (
+                        <Badge
+                          key={`${tag}-${index}`}
+                          className="text-foreground"
+                          variant="secondary"
+                        >
+                          {tag}
+                        </Badge>
+                      ))
+                    : unknownValue}
+                  {brand.productType != null && (
+                    <CorrectionSheet
+                      brandId={brand.id}
+                      brandSlug={brand.slug}
+                      field="product_tags"
+                      currentValue={brand.productTags}
+                      categorySlug={brand.productType}
+                    />
+                  )}
                 </div>
               ) : (
                 unknownValue
