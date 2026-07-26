@@ -1,0 +1,72 @@
+{
+  "findings": [
+    {
+      "severity": "Important",
+      "file": "scripts/health-agent/adapters.ts",
+      "line": "766",
+      "description": "Linear issue lookup ran once per eligible finding after removing the unsupported server-side description filter.",
+      "failure_scenario": "A run with 49 human-routed findings would download the same project issue list 49 times sequentially, slowing delivery and risking provider rate limits.",
+      "flagged_by": "Angle C",
+      "status": "valid"
+    },
+    {
+      "severity": "Important",
+      "file": "scripts/health-agent/adapters.ts",
+      "line": "766",
+      "description": "A single first-page Linear lookup could miss an existing fingerprint marker.",
+      "failure_scenario": "When the configured Linear project has more than 250 issues and the matching issue is on a later page, the agent creates a duplicate issue.",
+      "flagged_by": "Angle A",
+      "status": "valid"
+    },
+    {
+      "severity": "Important",
+      "file": ".github/workflows/health-agent-analyze.yml",
+      "line": "102",
+      "description": "A malformed first structured result failed during materialization without activating the second Sentry attempt.",
+      "failure_scenario": "Claude reports action success but returns an unparseable or wrong-shaped object; materialization fails, the retry condition ignores it, and Sentry triage ends without the promised retry.",
+      "flagged_by": "Angle B",
+      "status": "valid"
+    },
+    {
+      "severity": "Minor",
+      "file": "scripts/health-agent/adapters.ts",
+      "line": "781",
+      "description": "Linear pagination trusted a repeated nonempty end cursor.",
+      "failure_scenario": "A malformed provider response reports `hasNextPage: true` with the same cursor repeatedly, causing the health-agent delivery job to loop until timeout.",
+      "flagged_by": "Gap Sweep",
+      "status": "valid"
+    },
+    {
+      "severity": "Minor",
+      "file": "scripts/health-agent/adapters.ts",
+      "line": "310",
+      "description": "Slack failure summaries ignored the orchestrator's `failure` field.",
+      "failure_scenario": "A collector or Linear failure represented as `{ failure: ... }` appears as `Unspecified failure`, making the summary non-actionable.",
+      "flagged_by": "Angle C",
+      "status": "valid"
+    },
+    {
+      "severity": "Minor",
+      "file": ".github/workflows/health-agent-publish.yml",
+      "line": "41",
+      "description": "Passing the existing numeric App ID secret through the action's `client-id` input might appear semantically mismatched.",
+      "failure_scenario": "If the action treated client ID differently from App ID, token generation would fail in publish and cleanup jobs.",
+      "flagged_by": "Angle E",
+      "status": "incorrect"
+    }
+  ],
+  "active_lenses": [
+    "Angle A",
+    "Angle B",
+    "Angle C",
+    "Angle D",
+    "Angle E",
+    "Cleanup",
+    "Altitude",
+    "Conventions",
+    "Plan Alignment",
+    "Test Quality",
+    "Dead Code",
+    "Gap Sweep"
+  ]
+}

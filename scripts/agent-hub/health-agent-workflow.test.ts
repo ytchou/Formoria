@@ -5,7 +5,27 @@ import * as prettier from "prettier";
 import { describe, expect, it } from "vitest";
 
 const workflowPath = ".github/workflows/health-agent.yml";
-const phaseWorkflowPath = ".github/workflows/health-agent-phase.yml";
+const ownedPhaseWorkflowPaths = [
+  ".github/workflows/health-agent-collect.yml",
+  ".github/workflows/health-agent-analyze.yml",
+  ".github/workflows/health-agent-deliver.yml",
+  ".github/workflows/health-agent-repair.yml",
+  ".github/workflows/health-agent-publish.yml",
+];
+
+function allPhaseWorkflows(): string {
+  return ownedPhaseWorkflowPaths
+    .map((path) => readFileSync(path, "utf8"))
+    .join("\n");
+}
+
+async function readAllPhaseWorkflows(): Promise<string> {
+  return (
+    await Promise.all(
+      ownedPhaseWorkflowPaths.map((path) => readFile(path, "utf8")),
+    )
+  ).join("\n");
+}
 
 function jobSection(workflow: string, job: string, nextJob?: string): string {
   const start = workflow.indexOf(`  ${job}:`);
@@ -18,6 +38,45 @@ function jobSection(workflow: string, job: string, nextJob?: string): string {
 }
 
 describe("unified health-agent workflow contract", () => {
+  it("declares every task in exactly one phase workflow", () => {
+    const phaseJobs = ownedPhaseWorkflowPaths.flatMap((path) => {
+      const workflow = readFileSync(path, "utf8");
+      return [...workflow.matchAll(/^  ([a-z0-9-]+):$/gm)].map(([, jobId]) => ({
+        jobId,
+        path,
+      }));
+    });
+    const owners = new Map<string, string[]>();
+    for (const { jobId, path } of phaseJobs) {
+      owners.set(jobId, [...(owners.get(jobId) ?? []), path]);
+    }
+
+    expect(
+      [...owners.entries()].filter(([, paths]) => paths.length !== 1),
+    ).toEqual([]);
+    expect(readFileSync(workflowPath, "utf8")).not.toContain(
+      "health-agent-phase.yml",
+    );
+  });
+
+  it("uses an object-root schema for Sentry structured output", () => {
+    const workflow = readFileSync(
+      ".github/workflows/health-agent-analyze.yml",
+      "utf8",
+    );
+    const schemas = [...workflow.matchAll(/--json-schema '(\{[^\n]+\})'/g)].map(
+      ([, schema]) => JSON.parse(schema) as { type?: string },
+    );
+
+    expect(schemas).toHaveLength(2);
+    expect(schemas.every(({ type }) => type === "object")).toBe(true);
+  });
+
+  it("continues into repair after a handled analysis failure", () => {
+    const workflow = readFileSync(workflowPath, "utf8");
+    const repair = jobSection(workflow, "repair-and-validate", "publish");
+    expect(repair).toMatch(/if: >-\n\s+always\(\)/);
+  });
   it("exposes exactly five outcome-oriented phases", () => {
     const workflow = readFileSync(workflowPath, "utf8");
     const jobs = workflow.slice(workflow.indexOf("\njobs:\n") + 7);
@@ -35,7 +94,7 @@ describe("unified health-agent workflow contract", () => {
   });
 
   it("retries Sentry analysis when Claude returns no structured output", () => {
-    const workflow = readFileSync(phaseWorkflowPath, "utf8");
+    const workflow = allPhaseWorkflows();
     const analyze = jobSection(
       workflow,
       "sentry-triage",
@@ -46,11 +105,14 @@ describe("unified health-agent workflow contract", () => {
       /id: sentry-analysis-1[\s\S]*?continue-on-error: true[\s\S]*?uses: anthropics\/claude-code-action@/,
     );
     expect(analyze).toContain("steps.sentry-analysis-1.outcome == 'failure'");
+    expect(analyze).toContain(
+      "steps.materialize-sentry-1.outcome == 'failure'",
+    );
     expect(analyze).toContain("steps.validate-sentry-1.outcome == 'failure'");
   });
 
   it("escalates human-only findings without requiring a repository patch", () => {
-    const workflow = readFileSync(phaseWorkflowPath, "utf8");
+    const workflow = allPhaseWorkflows();
     const repair = jobSection(
       workflow,
       "human-repair",
@@ -66,19 +128,24 @@ describe("unified health-agent workflow contract", () => {
 
   it("is parseable and has the daily trigger, dispatch modes, and writer lock", async () => {
     const workflow = await readFile(workflowPath, "utf8");
-    const phaseWorkflow = await readFile(phaseWorkflowPath, "utf8");
+    const phaseWorkflows = await Promise.all(
+      ownedPhaseWorkflowPaths.map((path) => readFile(path, "utf8")),
+    );
     await expect(
       prettier.format(workflow, { parser: "yaml" }),
     ).resolves.toBeTruthy();
-    await expect(
-      prettier.format(phaseWorkflow, { parser: "yaml" }),
-    ).resolves.toBeTruthy();
+    for (const phaseWorkflow of phaseWorkflows) {
+      await expect(
+        prettier.format(phaseWorkflow, { parser: "yaml" }),
+      ).resolves.toBeTruthy();
+    }
+    const phaseWorkflow = phaseWorkflows.join("\n");
 
     expect(workflow).toContain('cron: "13 23 * * *"');
     expect(workflow).toContain("- preflight");
     expect(workflow).toContain("- live");
     expect(workflow).toContain("- canary_fix");
-    expect(workflow).toContain("group: formoria-agent-writer");
+    expect(workflow).toContain("'formoria-agent-writer'");
     expect(phaseWorkflow).toContain('"$HEALTH_AGENT_ENABLED" != "true"');
     expect(phaseWorkflow).toContain('"$HEALTH_AUTOFIX_ENABLED" != "true"');
     expect(phaseWorkflow).toContain(
@@ -87,7 +154,7 @@ describe("unified health-agent workflow contract", () => {
   });
 
   it("keeps collection parallel inside phase 1 and orders the five phases", async () => {
-    const workflow = await readFile(phaseWorkflowPath, "utf8");
+    const workflow = await readAllPhaseWorkflows();
     const controller = await readFile(workflowPath, "utf8");
     expect(workflow).toMatch(/collect-link:\n\s+needs: gate/);
     expect(workflow).toMatch(/collect-sentry:\n\s+needs: gate/);
@@ -100,13 +167,16 @@ describe("unified health-agent workflow contract", () => {
     expect(controller).toMatch(
       /deliver-and-queue:\n[\s\S]*?needs: \[collect-and-preflight, analyze\]/,
     );
-    expect(workflow).toContain("- name: Deliver Agent Hub envelopes");
+    expect(workflow).toContain(
+      "- name: Aggregate findings and sync Linear once",
+    );
+    expect(workflow).toContain("- name: Deliver one final summary");
     expect(workflow).toContain("aggregate-and-deliver");
     expect(workflow).not.toContain("--limit");
   });
 
   it("aggregates brand-review failures without duplicating its findings", () => {
-    const workflow = readFileSync(phaseWorkflowPath, "utf8");
+    const workflow = allPhaseWorkflows();
     const aggregate = jobSection(
       workflow,
       "aggregate-and-deliver",
@@ -114,7 +184,7 @@ describe("unified health-agent workflow contract", () => {
     );
 
     expect(workflow).toMatch(/brand-review:\n    needs: \[gate\]/);
-    expect(aggregate).toContain("inputs.phase == 'deliver'");
+    expect(aggregate).toContain("inputs.collect == 'true'");
     expect(aggregate).toContain(
       "health-brand-review-${{ github.run_id }}-${{ github.run_attempt }}",
     );
@@ -123,8 +193,29 @@ describe("unified health-agent workflow contract", () => {
     );
   });
 
+  it("keeps scheduled Slack and Agent Hub credentials only in terminal reporting", () => {
+    const workflows = allPhaseWorkflows();
+    const finalReport = jobSection(workflows, "final-report");
+    const scheduledReporting = finalReport.slice(
+      0,
+      finalReport.indexOf("- name: Prepare redacted confirmation audit"),
+    );
+
+    expect(
+      scheduledReporting.match(/^\s+SLACK_HEALTH_WEBHOOK_URL:/gm) ?? [],
+    ).toHaveLength(1);
+    expect(
+      scheduledReporting.match(/^\s+AGENT_HUB_INGEST_TOKEN:/gm) ?? [],
+    ).toHaveLength(1);
+    expect(
+      scheduledReporting.match(/^\s+AGENT_HUB_INGEST_URL:/gm) ?? [],
+    ).toHaveLength(1);
+    expect(finalReport).toContain("workflow-runtime.ts final-report");
+    expect(finalReport).toMatch(/if: >-\n\s+always\(\)/);
+  });
+
   it("brand-review job uses correct secrets", () => {
-    const workflow = readFileSync(phaseWorkflowPath, "utf8");
+    const workflow = allPhaseWorkflows();
     const brandReview = jobSection(
       workflow,
       "brand-review",
@@ -134,14 +225,15 @@ describe("unified health-agent workflow contract", () => {
     expect(brandReview).toMatch(/HEALTH_AGENT_READER_TOKEN/);
     expect(brandReview).toMatch(/HEALTH_AGENT_WRITER_TOKEN/);
     expect(brandReview).toMatch(/NEXT_PUBLIC_SUPABASE_URL/);
-    expect(brandReview).toMatch(/SLACK_HEALTH_WEBHOOK_URL/);
+    expect(brandReview).not.toMatch(/SLACK_HEALTH_WEBHOOK_URL/);
+    expect(brandReview).toContain("--defer-delivery true");
     expect(brandReview).toContain(
       '--mutate "${{ needs.gate.outputs.mutate }}"',
     );
   });
 
   it("brand-review job creates its artifact directory", () => {
-    const workflow = readFileSync(phaseWorkflowPath, "utf8");
+    const workflow = allPhaseWorkflows();
     const brandReview = jobSection(
       workflow,
       "brand-review",
@@ -152,7 +244,7 @@ describe("unified health-agent workflow contract", () => {
   });
 
   it("uploads hidden-directory artifacts through explicit paths", () => {
-    const workflow = readFileSync(phaseWorkflowPath, "utf8");
+    const workflow = allPhaseWorkflows();
     const directory = jobSection(
       workflow,
       "evaluate-directory",
@@ -222,7 +314,7 @@ describe("unified health-agent workflow contract", () => {
   });
 
   it("uses exactly three collector routines and one aggregated Slack delivery", async () => {
-    const workflow = await readFile(phaseWorkflowPath, "utf8");
+    const workflow = await readAllPhaseWorkflows();
     expect(
       (
         workflow.match(
@@ -246,7 +338,7 @@ describe("unified health-agent workflow contract", () => {
   });
 
   it("isolates Claude to sanitized artifacts and caps each batch at two explicit cycles", async () => {
-    const workflow = await readFile(phaseWorkflowPath, "utf8");
+    const workflow = await readAllPhaseWorkflows();
     const claudeUses = [
       ...workflow.matchAll(/uses:\s+anthropics\/claude-code-action@([^\s#]+)/g),
     ];
@@ -297,19 +389,25 @@ describe("unified health-agent workflow contract", () => {
     }
     expect(workflow).not.toMatch(/--json-schema\s+\{/);
     const classifierStart = workflow.indexOf("  sentry-triage:");
-    const classifierEnd = workflow.indexOf("\n  aggregate-and-deliver:");
+    const classifierEnd = workflow.indexOf(
+      "\nname: Formoria Health Agent Deliver",
+    );
     const classifier = workflow.slice(classifierStart, classifierEnd);
     expect(classifier).not.toMatch(
       /SENTRY_READ_TOKEN|NEXT_PUBLIC_SUPABASE_URL|FORMORIA_RAILWAY_URL/,
     );
     expect(classifier).toContain("sentry-classification.schema.json");
+    expect(classifier.match(/jq '\.classifications \| length'/g)).toHaveLength(
+      2,
+    );
+    expect(classifier.match(/jq '\.issues \| length'/g)).toHaveLength(2);
     const promptStart = classifier.indexOf("prompt: |");
     const argsStart = classifier.indexOf("claude_args:", promptStart);
     expect(classifier.slice(promptStart, argsStart)).not.toContain("${{");
   });
 
   it("keeps the App token in read-only PR publishers and pins every action immutably", async () => {
-    const workflow = await readFile(phaseWorkflowPath, "utf8");
+    const workflow = await readAllPhaseWorkflows();
     const controller = await readFile(workflowPath, "utf8");
     const actionRefs = [
       ...workflow.matchAll(/^\s+uses:\s+([^\s]+)@([^\s#]+)/gm),
@@ -321,16 +419,24 @@ describe("unified health-agent workflow contract", () => {
     expect(workflow).toContain(
       "actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1",
     );
-    expect(
-      controller.match(/group: formoria-agent-writer/g) ?? [],
-    ).toHaveLength(1);
+    expect(workflow).not.toContain("app-id:");
+    expect(workflow).not.toContain("installation-id:");
+    expect(workflow).not.toContain("node-version-file:");
+    expect(workflow).not.toMatch(
+      /actions\/(?:checkout|setup-node|upload-artifact|download-artifact)@[a-z0-9]+\s+# v4/,
+    );
+    expect(controller.match(/'formoria-agent-writer'/g) ?? []).toHaveLength(1);
     const firstWriterStart = workflow.indexOf("  cleanup-stale-branches:");
     const automaticPublisher = jobSection(
       workflow,
       "publish-automatic-pr",
       "publish-human-pr",
     );
-    const humanPublisher = jobSection(workflow, "publish-human-pr");
+    const humanPublisher = jobSection(
+      workflow,
+      "publish-human-pr",
+      "final-report",
+    );
     expect(automaticPublisher).toContain("HEALTH_AGENT_GITHUB_APP_ID");
     expect(humanPublisher).toContain("HEALTH_AGENT_GITHUB_APP_ID");
     expect(workflow.slice(0, firstWriterStart)).not.toContain(
@@ -338,6 +444,7 @@ describe("unified health-agent workflow contract", () => {
     );
     for (const publisher of [automaticPublisher, humanPublisher]) {
       expect(publisher).not.toContain("group: formoria-agent-writer");
+      expect(publisher).toContain("if-no-files-found: ignore");
       expect(publisher).toContain(
         "permissions:\n      contents: read\n      pull-requests: read",
       );
@@ -351,7 +458,7 @@ describe("unified health-agent workflow contract", () => {
   });
 
   it("checks out full Directory history with only required GitHub read permissions", async () => {
-    const workflow = await readFile(phaseWorkflowPath, "utf8");
+    const workflow = await readAllPhaseWorkflows();
     const directory = jobSection(
       workflow,
       "evaluate-directory",
@@ -368,7 +475,7 @@ describe("unified health-agent workflow contract", () => {
   });
 
   it("wires safe stale-branch deletion through the scoped App adapter and outside the repair queue", async () => {
-    const workflow = await readFile(phaseWorkflowPath, "utf8");
+    const workflow = await readAllPhaseWorkflows();
     const cleanup = jobSection(
       workflow,
       "cleanup-stale-branches",
@@ -391,7 +498,7 @@ describe("unified health-agent workflow contract", () => {
   });
 
   it("passes live mutation gates to the queue runtime", () => {
-    const workflow = readFileSync(phaseWorkflowPath, "utf8");
+    const workflow = allPhaseWorkflows();
     const enqueue = jobSection(
       workflow,
       "enqueue-and-claim",
@@ -406,8 +513,8 @@ describe("unified health-agent workflow contract", () => {
     );
   });
 
-  it("passes Linear routing configuration to every live mutation stage", () => {
-    const workflow = readFileSync(phaseWorkflowPath, "utf8");
+  it("keeps Linear routing only in the single aggregation sync stage", () => {
+    const workflow = allPhaseWorkflows();
     const aggregate = jobSection(
       workflow,
       "aggregate-and-deliver",
@@ -424,16 +531,19 @@ describe("unified health-agent workflow contract", () => {
       "validate-repair",
     );
 
-    for (const section of [aggregate, enqueue, escalation]) {
-      expect(section).toContain(
-        "LINEAR_ASSIGNEE_ID: ${{ vars.LINEAR_ASSIGNEE_ID }}",
-      );
-      expect(section).toContain(
-        "LINEAR_PROJECT_ID: ${{ vars.LINEAR_PROJECT_ID }}",
-      );
-      expect(section).toContain("LINEAR_TEAM_ID: ${{ vars.LINEAR_TEAM_ID }}");
-      expect(section).toContain(
-        "LINEAR_OAUTH_ACCESS_TOKEN: ${{ secrets.LINEAR_OAUTH_ACCESS_TOKEN }}",
+    expect(aggregate).toContain(
+      "LINEAR_ASSIGNEE_ID: ${{ vars.LINEAR_ASSIGNEE_ID }}",
+    );
+    expect(aggregate).toContain(
+      "LINEAR_PROJECT_ID: ${{ vars.LINEAR_PROJECT_ID }}",
+    );
+    expect(aggregate).toContain("LINEAR_TEAM_ID: ${{ vars.LINEAR_TEAM_ID }}");
+    expect(aggregate).toContain(
+      "LINEAR_OAUTH_ACCESS_TOKEN: ${{ secrets.LINEAR_OAUTH_ACCESS_TOKEN }}",
+    );
+    for (const section of [enqueue, escalation]) {
+      expect(section).not.toMatch(
+        /LINEAR_(?:ASSIGNEE_ID|OAUTH_ACCESS_TOKEN|PROJECT_ID|TEAM_ID)/,
       );
     }
 
@@ -449,7 +559,7 @@ describe("unified health-agent workflow contract", () => {
   });
 
   it("escalates automatic and human batches after their two repair cycles fail", async () => {
-    const workflow = await readFile(phaseWorkflowPath, "utf8");
+    const workflow = await readAllPhaseWorkflows();
     const escalation = jobSection(
       workflow,
       "escalate-repair-failure",
@@ -482,14 +592,14 @@ describe("unified health-agent workflow contract", () => {
         `--output .health-agent-artifacts/failures/${policy}.json`,
       );
     }
-    expect(escalation).toContain("if: inputs.phase == 'repair' && always()");
+    expect(escalation).toContain("if: always() && inputs.autofix == 'true'");
     expect(escalation).toContain(
       "path: |\n            .health-agent-artifacts/failures/automatic.json\n            .health-agent-artifacts/failures/human.json",
     );
   });
 
   it("has a secretless validation job without provider credentials", async () => {
-    const workflow = await readFile(phaseWorkflowPath, "utf8");
+    const workflow = await readAllPhaseWorkflows();
     const secretlessStart = workflow.indexOf("  secretless-validation:");
     const nextJob = workflow.indexOf("\n  collect-link:", secretlessStart);
     const secretless = workflow.slice(secretlessStart, nextJob);
@@ -499,7 +609,7 @@ describe("unified health-agent workflow contract", () => {
   });
 
   it("keeps queue arbitration, repair traceability, and the retired workflow out", async () => {
-    const workflow = await readFile(phaseWorkflowPath, "utf8");
+    const workflow = await readAllPhaseWorkflows();
     const controller = await readFile(workflowPath, "utf8");
     expect(workflow).toContain("enqueue-and-claim");
     expect(workflow).toContain("repair-snapshot");
@@ -534,7 +644,7 @@ describe("unified health-agent workflow contract", () => {
   });
 
   it("fails closed around repair artifacts and revalidates exact changed paths", async () => {
-    const workflow = await readFile(phaseWorkflowPath, "utf8");
+    const workflow = await readAllPhaseWorkflows();
     const validation = jobSection(
       workflow,
       "validate-repair",
@@ -545,7 +655,11 @@ describe("unified health-agent workflow contract", () => {
       "publish-automatic-pr",
       "publish-human-pr",
     );
-    const humanPublisher = jobSection(workflow, "publish-human-pr");
+    const humanPublisher = jobSection(
+      workflow,
+      "publish-human-pr",
+      "final-report",
+    );
 
     expect(validation).toContain("Download repair batch metadata");
     expect(validation).not.toContain("continue-on-error");

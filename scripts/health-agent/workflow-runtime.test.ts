@@ -9,6 +9,7 @@ import {
   createWorkflowRuntimeDependencies,
   deliverRepairFailure,
   deliverRepairResult,
+  deliverFinalHealthReport,
   enqueueAndClaimWorkflowBatch,
   finalizeSentryArtifact,
   makeDirectoryArtifact,
@@ -173,6 +174,240 @@ function aggregateArtifact(findings: readonly unknown[]) {
     },
   };
 }
+
+function terminalAggregate() {
+  const artifact = (
+    routine: "directory-health" | "link-checker" | "sentry-triage",
+    findings: readonly unknown[],
+  ) => ({
+    collectedAt: now,
+    evidence: {},
+    failures: [],
+    findings,
+    routine,
+    skippedActions: [],
+    status: "success",
+    version: 1,
+  });
+  return {
+    artifacts: {
+      "directory-health": artifact("directory-health", [
+        {
+          evidence: {},
+          fingerprint: "directory:one",
+          mergePolicy: "human",
+          severity: "high",
+          source: "directory",
+          title: "Directory issue",
+        },
+      ]),
+      "link-checker": artifact("link-checker", [
+        {
+          evidence: {},
+          fingerprint: "link:one",
+          mergePolicy: "human",
+          severity: "medium",
+          source: "link",
+          title: "Link issue",
+        },
+      ]),
+      "sentry-triage": artifact("sentry-triage", [
+        {
+          evidence: {},
+          fingerprint: "sentry:one",
+          mergePolicy: "automatic",
+          severity: "critical",
+          source: "sentry",
+          title: "Sentry issue",
+        },
+      ]),
+    },
+    failures: [],
+  };
+}
+
+describe("terminal health report", () => {
+  it("delivers one unified envelope and one grouped Slack summary after publish", async () => {
+    const contents = new Map<string, string>([
+      ["aggregate.json", JSON.stringify(terminalAggregate())],
+      [
+        "queue.json",
+        JSON.stringify({
+          automatic: { findings: [{ fingerprint: "sentry:one" }] },
+          claimedFingerprints: ["sentry:one"],
+          enqueuedFingerprints: ["directory:one", "link:one", "sentry:one"],
+          human: { findings: [] },
+        }),
+      ],
+      [
+        "automatic-pr.json",
+        JSON.stringify({
+          claimed_finding_ids: [automaticFindingIds[0]],
+          pr_number: 142,
+          status: "pr_opened",
+        }),
+      ],
+    ]);
+    const agentHub = vi.fn(async (envelope: unknown) => void envelope);
+    const slack = vi.fn(async (report: unknown) => void report);
+
+    const result = await deliverFinalHealthReport(
+      {
+        aggregateArtifactPath: "aggregate.json",
+        automaticPrResultPath: "automatic-pr.json",
+        outputPath: "final.json",
+        phases: {
+          analyze: "success",
+          collect: "success",
+          deliver: "success",
+          publish: "success",
+          repair: "success",
+        },
+        queueArtifactPath: "queue.json",
+        runAt: now,
+        workflowAttempt: 1,
+        workflowRunId: "987654321",
+        workflowUrl:
+          "https://github.com/ytchou/Formoria/actions/runs/987654321",
+      },
+      {
+        delivery: { agentHub, slack },
+        files: {
+          read: async (path) => contents.get(path) ?? "",
+          write: async (path, value) => void contents.set(path, value),
+        },
+      },
+    );
+
+    expect(agentHub).toHaveBeenCalledOnce();
+    expect(agentHub.mock.calls[0]?.[0]).toMatchObject({
+      data: {
+        checks: {
+          directory: { finding_count: 1, severities: { high: 1 } },
+          link: { finding_count: 1, severities: { medium: 1 } },
+          sentry: { finding_count: 1, severities: { critical: 1 } },
+        },
+        overall_status: "needs_attention",
+        repair: {
+          batches: {
+            automatic: {
+              finding_count: 1,
+              merge_policy: "automatic",
+              pr_number: 142,
+              pr_url: "https://github.com/ytchou/Formoria/pull/142",
+              status: "pr_opened",
+            },
+            human: {
+              finding_count: 0,
+              merge_policy: "human",
+              status: "not_required",
+            },
+          },
+          claimed: 1,
+          fixed: 1,
+          pull_requests: 1,
+          queued: 3,
+          unresolved: 2,
+        },
+        totals: { finding_count: 3 },
+      },
+      routine: "health-agent",
+      source_run_id: "github-actions:health-agent:987654321:1",
+      status: "success",
+    });
+    expect(slack).toHaveBeenCalledWith(
+      expect.objectContaining({
+        healthSummary: expect.objectContaining({
+          overallStatus: "needs_attention",
+        }),
+      }),
+    );
+    expect(result).toMatchObject({
+      agent_hub: "fulfilled",
+      slack: "fulfilled",
+    });
+  });
+
+  it("delivers the failure summary before failing the terminal command", async () => {
+    const contents = new Map<string, string>();
+    const agentHub = vi.fn(async () => undefined);
+    const slack = vi.fn(async () => undefined);
+
+    await expect(
+      deliverFinalHealthReport(
+        {
+          outputPath: "final.json",
+          phases: {
+            analyze: "failed",
+            collect: "success",
+            deliver: "skipped",
+            publish: "skipped",
+            repair: "skipped",
+          },
+          runAt: now,
+          workflowAttempt: 1,
+          workflowRunId: "987654321",
+        },
+        {
+          delivery: { agentHub, slack },
+          files: {
+            read: async (path) => contents.get(path) ?? "",
+            write: async (path, value) => void contents.set(path, value),
+          },
+        },
+      ),
+    ).rejects.toThrow("health_pipeline_failed");
+
+    expect(agentHub).toHaveBeenCalledOnce();
+    expect(slack).toHaveBeenCalledOnce();
+    expect(contents.has("final.json")).toBe(true);
+  });
+
+  it("treats handled queue adapter failures as terminal pipeline failures", async () => {
+    const contents = new Map<string, string>([
+      ["aggregate.json", JSON.stringify(terminalAggregate())],
+      [
+        "queue.json",
+        JSON.stringify({ failures: ["enqueue:rpc_request_failed"] }),
+      ],
+    ]);
+    const agentHub = vi.fn(async (envelope: unknown) => void envelope);
+    const slack = vi.fn(async (report: unknown) => void report);
+
+    await expect(
+      deliverFinalHealthReport(
+        {
+          aggregateArtifactPath: "aggregate.json",
+          outputPath: "final.json",
+          phases: {
+            analyze: "success",
+            collect: "success",
+            deliver: "success",
+            publish: "success",
+            repair: "success",
+          },
+          queueArtifactPath: "queue.json",
+          runAt: now,
+          workflowAttempt: 1,
+          workflowRunId: "987654321",
+        },
+        {
+          delivery: { agentHub, slack },
+          files: {
+            read: async (path) => contents.get(path) ?? "",
+            write: async (path, value) => void contents.set(path, value),
+          },
+        },
+      ),
+    ).rejects.toThrow("health_pipeline_failed");
+
+    expect(agentHub.mock.calls[0]?.[0]).toMatchObject({
+      data: { failures: ["enqueue:rpc_request_failed"] },
+      status: "failed",
+    });
+    expect(slack).toHaveBeenCalledOnce();
+  });
+});
 
 function cleanupFiles(findings: ReturnType<typeof staleBranchFinding>[]) {
   const contents = new Map<string, string>([
@@ -963,6 +1198,51 @@ describe("stale branch cleanup runtime", () => {
     );
     expect(result.enqueuedFingerprints).toEqual([ordinaryFinding.fingerprint]);
   });
+
+  it("does not repeat Linear synchronization while queueing", async () => {
+    const ordinaryFinding = {
+      evidence: {},
+      fingerprint: "directory:runtime:linear",
+      mergePolicy: "human" as const,
+      severity: "medium" as const,
+      source: "directory" as const,
+      title: "Linear-routed runtime problem",
+    };
+    const contents = new Map([
+      ["aggregate.json", JSON.stringify(aggregateArtifact([ordinaryFinding]))],
+    ]);
+    const linear = {
+      sync: vi.fn(async () => ({ outcomes: [], status: "sent" })),
+    };
+
+    const result = await enqueueAndClaimWorkflowBatch(
+      {
+        findingsArtifactPath: "aggregate.json",
+        leaseOwner: "github-actions:123:1",
+        mode: "live",
+        outputPath: "queue-result.json",
+      },
+      {
+        env: { HEALTH_AGENT_ENABLED: "true" },
+        files: {
+          read: async (path) => contents.get(path) ?? "",
+          write: async (path, value) => {
+            contents.set(path, value);
+          },
+        },
+        linear,
+        queue: {
+          claim: vi.fn(async () => []),
+          enqueue: vi.fn(async () => undefined),
+          hasUnconfirmedAutomatic: vi.fn(async () => false),
+        },
+      },
+    );
+
+    expect(linear.sync).not.toHaveBeenCalled();
+    expect(result.failures).not.toContain("linear:not_configured");
+    expect(result.linear.status).toBe("not_required");
+  });
 });
 
 describe("scoped writer RPC", () => {
@@ -1183,19 +1463,10 @@ describe("repair failure delivery", () => {
     );
   });
 
-  it("moves claimed findings directly to needs_human, syncs Linear, and persists a redacted result", async () => {
+  it("moves claimed findings directly to needs_human without a second Linear sync", async () => {
     const { contents, files } = repairResultFiles();
     const fetchImplementation = transitionFetch();
-    const linearSync = vi.fn(async () => ({
-      outcomes: [
-        {
-          action: "created",
-          access_token: "linear-sensitive-token",
-          issue_identifier: "ENG-142",
-        },
-      ],
-      tickets: ["ENG-142"],
-    }));
+    const linearSync = vi.fn(async () => ({ outcomes: [] }));
     const agentHub = vi.fn(async () => undefined);
     const slack = vi.fn(async () => undefined);
     const input = repairFailureInput();
@@ -1235,21 +1506,12 @@ describe("repair failure delivery", () => {
         expect.objectContaining({ p_new_status: "pr_opened" }),
       ]),
     );
-    expect(linearSync).toHaveBeenCalledWith({
-      exhaustedAutomationFingerprints: expect.arrayContaining(
-        automaticRepairFindings.map(({ fingerprint }) => fingerprint),
-      ),
-      findings: expect.arrayContaining(
-        automaticRepairFindings.map(({ fingerprint }) =>
-          expect.objectContaining({ fingerprint }),
-        ),
-      ),
-    });
+    expect(linearSync).not.toHaveBeenCalled();
     expect(agentHub).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           finding_count: automaticRepairFindings.length,
-          linear_required: true,
+          linear_required: false,
           status: "needs_human",
         }),
       }),
@@ -1257,9 +1519,7 @@ describe("repair failure delivery", () => {
     expect(slack).toHaveBeenCalledWith(
       expect.objectContaining({
         failures: ["repair_validation_failed_after_two_cycles"],
-        linearOutcomes: [
-          expect.objectContaining({ issue_identifier: "ENG-142" }),
-        ],
+        linearOutcomes: [],
       }),
     );
     expect(result).toMatchObject({
@@ -1270,20 +1530,15 @@ describe("repair failure delivery", () => {
       status: "needs_human",
     });
     const persisted = contents.get(input.outputPath) ?? "";
-    expect(persisted).toContain("ENG-142");
-    expect(persisted).not.toContain("linear-sensitive-token");
     const persistedResult = JSON.parse(persisted);
     expect(persistedResult).toMatchObject({
       agent_hub: "fulfilled",
       claimed_finding_ids: automaticFindingIds,
-      linear_outcomes: [{ action: "created", issue_identifier: "ENG-142" }],
+      linear_outcomes: [],
       merge_policy: "automatic",
       slack: "fulfilled",
       status: "needs_human",
     });
-    expect(persistedResult.linear_outcomes[0]).not.toHaveProperty(
-      "access_token",
-    );
   });
 
   it.each(["agentHub", "slack"] as const)(

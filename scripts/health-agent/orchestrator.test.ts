@@ -318,6 +318,23 @@ describe("collector commands", () => {
 });
 
 describe("aggregate and deliver", () => {
+  it("defers all user-facing delivery until terminal reporting", async () => {
+    const { store } = fixtures();
+    const agentHub = vi.fn(async () => undefined);
+    const slack = vi.fn(async () => undefined);
+
+    const result = await aggregateAndDeliver(
+      { ...aggregateInput, deliver: false },
+      { delivery: { agentHub, slack }, files: store },
+      enabled,
+    );
+
+    expect(agentHub).not.toHaveBeenCalled();
+    expect(slack).not.toHaveBeenCalled();
+    expect(result.deliveries).toEqual([]);
+    expect(result.deliveryErrors).toEqual({ agentHub: [], slack: [] });
+  });
+
   it("delivers exactly one envelope per routine and one compact all-clear", async () => {
     const { store } = fixtures();
     const agentHub = vi.fn(async (value: { routine: string }) => {

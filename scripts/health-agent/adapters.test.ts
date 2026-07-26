@@ -49,7 +49,7 @@ function bodyAt(
 }
 
 describe("Slack adapter", () => {
-  it("renders findings, evidence, skips, failures, Linear, and PR outcomes", async () => {
+  it("sends one bounded summary without raw evidence", async () => {
     const { audit, records } = auditLog();
     const fetchImpl = vi
       .fn<typeof fetch>()
@@ -67,23 +67,27 @@ describe("Slack adapter", () => {
       linearOutcomes: [{ identifier: "FOR-42", status: "updated" }],
       pullRequestOutcomes: [{ identifier: "pr-7", status: "opened" }],
       skippedActions: [{ action: "branch deletion", reason: "protected" }],
+      workflowUrl: "https://github.com/ytchou/Formoria/actions/runs/123",
     });
 
     expect(count).toBe(1);
     expect(fetchImpl).toHaveBeenCalledWith(
       "https://hooks.slack.test/services/private-webhook",
       expect.objectContaining({
-        body: expect.stringContaining("user@example.com"),
+        body: expect.stringContaining("Production error needs review"),
         headers: { "content-type": "application/json" },
         method: "POST",
       }),
     );
     const text = String(bodyAt(fetchImpl, 0).text);
     expect(text).toContain("Production error needs review");
-    expect(text).toContain("do-not-audit");
-    expect(text).toContain("protected");
+    expect(text).not.toContain("do-not-audit");
+    expect(text).not.toContain("user@example.com");
+    expect(text).not.toContain("sentry:issue:issue-1");
+    expect([...text].length).toBeLessThan(3_000);
     expect(text).toContain("Linear");
     expect(text).toContain("PR");
+    expect(text).toContain("Open workflow run");
     expect(records.every((record) => record.schemaValid !== undefined)).toBe(
       true,
     );
@@ -93,7 +97,7 @@ describe("Slack adapter", () => {
     expect(auditJson).not.toContain("user@example.com");
   });
 
-  it("chunks messages below Slack's 3000-character limit and returns the count", async () => {
+  it("truncates a large digest into one Slack message", async () => {
     const fetchImpl = vi
       .fn<typeof fetch>()
       .mockResolvedValue(new Response(null, { status: 204 }));
@@ -112,11 +116,10 @@ describe("Slack adapter", () => {
       ],
     });
 
-    expect(count).toBeGreaterThan(1);
-    for (const call of fetchImpl.mock.calls) {
-      const payload = JSON.parse(String(call[1]?.body)) as { text: string };
-      expect([...payload.text].length).toBeLessThan(3_000);
-    }
+    expect(count).toBe(1);
+    expect(fetchImpl).toHaveBeenCalledOnce();
+    const payload = bodyAt(fetchImpl, 0) as { text: string };
+    expect([...payload.text].length).toBeLessThan(3_000);
   });
 
   it("sends a compact all-clear and throws on a non-2xx response", async () => {
@@ -141,6 +144,67 @@ describe("Slack adapter", () => {
       status: "failure",
     });
   });
+
+  it("renders one grouped terminal summary without individual findings", () => {
+    const digest = renderSlackDigest({
+      healthSummary: {
+        checks: {
+          directory: {
+            findingCount: 27,
+            severities: { critical: 0, high: 6, low: 0, medium: 21 },
+            status: "success",
+          },
+          link: {
+            findingCount: 22,
+            severities: { critical: 0, high: 0, low: 0, medium: 22 },
+            status: "success",
+          },
+          sentry: {
+            findingCount: 10,
+            severities: { critical: 2, high: 8, low: 0, medium: 0 },
+            status: "success",
+          },
+        },
+        overallStatus: "needs_attention",
+        phases: {
+          analyze: "success",
+          collect: "success",
+          deliver: "success",
+          publish: "success",
+          repair: "success",
+        },
+        repair: {
+          batches: {
+            automatic: {
+              findingCount: 3,
+              prNumber: 42,
+              prUrl: "https://github.com/ytchou/Formoria/pull/42",
+              status: "pr_opened",
+            },
+            human: { findingCount: 0, status: "not_required" },
+          },
+          claimed: 3,
+          fixed: 3,
+          pullRequests: 1,
+          queued: 59,
+          unresolved: 56,
+        },
+      },
+      workflowUrl: "https://github.com/ytchou/Formoria/actions/runs/123",
+    });
+
+    expect(digest).toContain("*Checks*");
+    expect(digest).toContain("Links — 22 · 22 medium");
+    expect(digest).toContain("Directory — 27 · 6 high · 21 medium");
+    expect(digest).toContain("Sentry — 10 · 2 critical · 8 high");
+    expect(digest).toContain("*Repair outcome*");
+    expect(digest).toContain("3 fixed · 56 unresolved · 1 PR");
+    expect(digest).toContain("59 queued · 3 claimed");
+    expect(digest).toContain(
+      "Automatic — 3 · pr opened · <https://github.com/ytchou/Formoria/pull/42|PR #42>",
+    );
+    expect(digest).not.toContain("Untitled finding");
+  });
 });
 
 describe("Linear adapter", () => {
@@ -158,6 +222,37 @@ describe("Linear adapter", () => {
       teamId: "team-1",
     };
   }
+
+  it("captures bounded GraphQL errors for failed provider requests", async () => {
+    const { audit, records } = auditLog();
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      jsonResponse(
+        {
+          errors: [
+            {
+              extensions: { code: "GRAPHQL_VALIDATION_FAILED" },
+              message: "Argument first must be at most 100 token=private-value",
+            },
+          ],
+        },
+        400,
+      ),
+    );
+    const adapter = createLinearAdapter(linearConfig(fetchImpl, audit));
+
+    await expect(adapter.sync([finding()])).rejects.toThrow(
+      "Argument first must be at most 100 [redacted-secret]",
+    );
+    expect(records.at(-1)?.response).toMatchObject({
+      httpStatus: 400,
+      providerErrors: [
+        {
+          code: "GRAPHQL_VALIDATION_FAILED",
+          message: "Argument first must be at most 100 [redacted-secret]",
+        },
+      ],
+    });
+  });
 
   it("filters automatic findings unless exhausted and creates with configured routing and allowed labels", async () => {
     const { audit, records } = auditLog();
@@ -208,10 +303,13 @@ describe("Linear adapter", () => {
 
     expect(result).toMatchObject({ created: 1, skipped: 1, updated: 0 });
     expect(fetchImpl).toHaveBeenCalledTimes(3);
-    expect(bodyAt(fetchImpl, 0).variables).toMatchObject({
-      marker: expect.stringContaining(exhausted.fingerprint),
+    expect(bodyAt(fetchImpl, 0).variables).toEqual({
       projectId: "project-1",
       teamId: "team-1",
+    });
+    expect(bodyAt(fetchImpl, 0).query).not.toContain("description: { contains");
+    expect(fetchImpl.mock.calls[0]?.[1]?.headers).toMatchObject({
+      Authorization: "Bearer linear-oauth-secret",
     });
     const createInput = (
       bodyAt(fetchImpl, 2).variables as Record<string, unknown>
@@ -225,6 +323,26 @@ describe("Linear adapter", () => {
     });
     expect(JSON.stringify(createInput)).not.toContain("milestone");
     expect(JSON.stringify(records)).not.toContain("linear-oauth-secret");
+  });
+
+  it("sends personal API keys without an OAuth Bearer prefix", async () => {
+    const { audit } = auditLog();
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(jsonResponse({ data: { issues: { nodes: [] } } }));
+    const adapter = createLinearAdapter({
+      ...linearConfig(fetchImpl, audit),
+      apiKey: "linear-personal-api-key",
+      oauthToken: undefined,
+    });
+
+    await expect(adapter.sync([finding()])).rejects.toThrow(
+      "Linear returned an invalid response",
+    );
+
+    expect(fetchImpl.mock.calls[0]?.[1]?.headers).toMatchObject({
+      Authorization: "linear-personal-api-key",
+    });
   });
 
   it("looks up the hidden fingerprint marker before updating an existing issue", async () => {
@@ -277,6 +395,7 @@ describe("Linear adapter", () => {
     expect(bodyAt(fetchImpl, 0).query).toEqual(
       expect.stringContaining("description"),
     );
+    expect(bodyAt(fetchImpl, 0).query).not.toContain("description: { contains");
     expect(bodyAt(fetchImpl, 2).variables).toMatchObject({ id: "linear-1" });
     const updateInput = (
       bodyAt(fetchImpl, 2).variables as Record<string, unknown>
@@ -287,6 +406,114 @@ describe("Linear adapter", () => {
       projectId: "project-1",
     });
     expect(JSON.stringify(updateInput)).not.toContain("milestone");
+  });
+
+  it("loads project issues once for multiple eligible findings", async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse({ data: { issues: { nodes: [] } } }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            issueLabels: {
+              nodes: [{ id: "label-ops", name: "Ops", team: { id: "team-1" } }],
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            issueCreate: {
+              issue: { id: "linear-1", identifier: "FOR-10" },
+              success: true,
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            issueCreate: {
+              issue: { id: "linear-2", identifier: "FOR-11" },
+              success: true,
+            },
+          },
+        }),
+      );
+    const adapter = createLinearAdapter(
+      linearConfig(fetchImpl, () => undefined),
+    );
+
+    await adapter.sync([
+      finding(),
+      finding({ fingerprint: "sentry:issue:issue-2" }),
+    ]);
+
+    const lookupCalls = fetchImpl.mock.calls.filter(([, init]) =>
+      String(init?.body).includes("HealthAgentIssueLookup"),
+    );
+    expect(lookupCalls).toHaveLength(1);
+    expect(fetchImpl).toHaveBeenCalledTimes(4);
+  });
+
+  it("paginates project issues before matching a fingerprint", async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            issues: {
+              nodes: [],
+              pageInfo: { endCursor: "cursor-1", hasNextPage: true },
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            issues: {
+              nodes: [
+                {
+                  description:
+                    "<!-- health-agent:fingerprint:sentry:issue:issue-1 -->",
+                  id: "linear-1",
+                  project: { id: "project-1" },
+                  team: { id: "team-1" },
+                },
+              ],
+              pageInfo: { endCursor: null, hasNextPage: false },
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            issueLabels: {
+              nodes: [{ id: "label-ops", name: "Ops", team: { id: "team-1" } }],
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({ data: { issueUpdate: { success: true } } }),
+      );
+    const adapter = createLinearAdapter(
+      linearConfig(fetchImpl, () => undefined),
+    );
+
+    await expect(adapter.sync([finding()])).resolves.toMatchObject({
+      created: 0,
+      updated: 1,
+    });
+
+    expect(bodyAt(fetchImpl, 1).variables).toMatchObject({
+      after: "cursor-1",
+      projectId: "project-1",
+      teamId: "team-1",
+    });
   });
 
   it("does not update a fingerprint match returned from another project", async () => {
@@ -342,7 +569,7 @@ describe("Linear adapter", () => {
     expect(bodyAt(fetchImpl, 2).query).toContain("issueCreate");
   });
 
-  it("refuses labels outside Data Quality and Ops in the configured team", async () => {
+  it("provisions every missing allowed label before creating any issues", async () => {
     const fetchImpl = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(jsonResponse({ data: { issues: { nodes: [] } } }))
@@ -361,15 +588,66 @@ describe("Linear adapter", () => {
             },
           },
         }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            issueLabelCreate: {
+              issueLabel: { id: "label-dq", name: "Data Quality" },
+              success: true,
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            issueLabelCreate: {
+              issueLabel: { id: "label-ops", name: "Ops" },
+              success: true,
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            issueCreate: {
+              issue: { id: "linear-link", identifier: "FOR-50" },
+              success: true,
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            issueCreate: {
+              issue: { id: "linear-sentry", identifier: "FOR-51" },
+              success: true,
+            },
+          },
+        }),
       );
     const adapter = createLinearAdapter(
       linearConfig(fetchImpl, () => undefined),
     );
 
-    await expect(adapter.sync([finding({ source: "link" })])).rejects.toThrow(
-      "Linear labels are not configured",
-    );
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    await expect(
+      adapter.sync([
+        finding({ fingerprint: "link:broken:one", source: "link" }),
+        finding({ fingerprint: "sentry:issue:one", source: "sentry" }),
+      ]),
+    ).resolves.toMatchObject({ created: 2, updated: 0 });
+
+    expect(bodyAt(fetchImpl, 2)).toMatchObject({
+      variables: { input: { name: "Data Quality", teamId: "team-1" } },
+    });
+    expect(bodyAt(fetchImpl, 3)).toMatchObject({
+      variables: { input: { name: "Ops", teamId: "team-1" } },
+    });
+    expect(bodyAt(fetchImpl, 4).query).toContain("issueCreate");
+    expect(bodyAt(fetchImpl, 5).query).toContain("issueCreate");
   });
 });
 

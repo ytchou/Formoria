@@ -1,0 +1,313 @@
+name: Formoria Health Agent Collect
+
+on:
+  workflow_call:
+    inputs:
+      mode:
+        required: true
+        type: string
+      canary_fingerprints:
+        required: true
+        type: string
+    outputs:
+      autofix:
+        value: ${{ jobs.gate.outputs.autofix }}
+      canary_fingerprints:
+        value: ${{ jobs.gate.outputs.canary_fingerprints }}
+      collect:
+        value: ${{ jobs.gate.outputs.collect }}
+      mode:
+        value: ${{ jobs.gate.outputs.mode }}
+      mutate:
+        value: ${{ jobs.gate.outputs.mutate }}
+
+permissions:
+  contents: read
+
+env:
+  CI: "true"
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      canary_fingerprints: ${{ steps.gate.outputs.canary_fingerprints }}
+      collect: ${{ steps.gate.outputs.collect }}
+      autofix: ${{ steps.gate.outputs.autofix }}
+      mode: ${{ steps.gate.outputs.mode }}
+      mutate: ${{ steps.gate.outputs.mutate }}
+    steps:
+      - name: Resolve mode and safety gates
+        id: gate
+        env:
+          CANARY_FINGERPRINTS: ${{ inputs.canary_fingerprints }}
+          DISPATCH_MODE: ${{ inputs.mode }}
+          HEALTH_AGENT_ENABLED: ${{ vars.HEALTH_AGENT_ENABLED }}
+          HEALTH_AUTOFIX_ENABLED: ${{ vars.HEALTH_AUTOFIX_ENABLED }}
+        run: |
+          set -euo pipefail
+          mode="${DISPATCH_MODE:-live}"
+          case "$mode" in
+            preflight|live|canary_fix) ;;
+            *) echo "Unsupported health-agent mode" >&2; exit 1 ;;
+          esac
+          if [[ "$mode" == "canary_fix" && -z "${CANARY_FINGERPRINTS//[[:space:]]/}" ]]; then
+            echo "canary_fix requires explicit canary_fingerprints" >&2
+            exit 1
+          fi
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "canary_fingerprints=$CANARY_FINGERPRINTS" >> "$GITHUB_OUTPUT"
+          if [[ "$mode" == "preflight" ]]; then
+            echo "collect=true" >> "$GITHUB_OUTPUT"
+            echo "autofix=false" >> "$GITHUB_OUTPUT"
+            echo "mutate=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ "$mode" == "canary_fix" ]]; then
+            echo "collect=true" >> "$GITHUB_OUTPUT"
+            echo "autofix=true" >> "$GITHUB_OUTPUT"
+            echo "mutate=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # HEALTH_AGENT_ENABLED != "true" disables live collection.
+          # Schedule/live is gated by vars.HEALTH_AGENT_ENABLED == 'true'.
+          if [[ "$HEALTH_AGENT_ENABLED" != "true" ]]; then
+            echo "Health agent is disabled"
+            echo "collect=false" >> "$GITHUB_OUTPUT"
+            echo "autofix=false" >> "$GITHUB_OUTPUT"
+            echo "mutate=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "collect=true" >> "$GITHUB_OUTPUT"
+          # HEALTH_AUTOFIX_ENABLED != "true" disables repair and PR publication.
+          # Repair/PR mutation is separately gated by vars.HEALTH_AUTOFIX_ENABLED == 'true'.
+          if [[ "$HEALTH_AUTOFIX_ENABLED" != "true" ]]; then
+            echo "Autofix is disabled"
+            echo "autofix=false" >> "$GITHUB_OUTPUT"
+            echo "mutate=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "autofix=true" >> "$GITHUB_OUTPUT"
+            echo "mutate=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  brand-review:
+    needs: [gate]
+    if: needs.gate.outputs.collect == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      HEALTH_AGENT_READER_TOKEN: ${{ secrets.HEALTH_AGENT_READER_TOKEN }}
+      HEALTH_AGENT_WRITER_TOKEN: ${{ secrets.HEALTH_AGENT_WRITER_TOKEN }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Enable pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Run brand review scan
+        run: |
+          mkdir -p .health-agent-artifacts
+          run_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          pnpm exec tsx scripts/health-agent/workflow-runtime.ts collect-brand-review \
+            --mode "${{ needs.gate.outputs.mode }}" \
+            --mutate "${{ needs.gate.outputs.mutate }}" \
+            --defer-delivery true \
+            --output .health-agent-artifacts/brand-review.json \
+            --run-at "$run_at" \
+            --attempt "$GITHUB_RUN_ATTEMPT" \
+            --run-id "$GITHUB_RUN_ID"
+      - name: Upload brand review artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          if-no-files-found: warn
+          name: health-brand-review-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .health-agent-artifacts/brand-review.json
+          retention-days: 14
+
+  secretless-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.30.1 --activate
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Type-check health agent code
+        run: pnpm exec tsc --noEmit --incremental false
+      - name: Run secretless health-agent contracts
+        run: >-
+          pnpm exec vitest run
+          scripts/health-agent/workflow-runtime.test.ts
+          scripts/health-agent/orchestrator.test.ts
+          scripts/agent-hub/health-agent-workflow.test.ts
+      - name: Parse workflow
+        run: >-
+          pnpm exec prettier --check
+          .github/workflows/health-agent.yml
+          .github/workflows/health-agent-{collect,analyze,deliver,repair,publish}.yml
+
+  collect-link:
+    needs: gate
+    if: needs.gate.outputs.collect == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      FORMORIA_LINK_HEALTH_ORIGIN_SECRET: ${{ secrets.ORIGIN_SECRET }}
+      FORMORIA_LINK_HEALTH_URL: ${{ vars.FORMORIA_LINK_HEALTH_URL }}
+      FORMORIA_RAILWAY_URL: ${{ vars.FORMORIA_RAILWAY_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.30.1 --activate
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Collect link health
+        env:
+          HEALTH_AGENT_MODE: ${{ needs.gate.outputs.mode }}
+          HEALTH_AGENT_RUN_AT: ${{ github.event.head_commit.timestamp || '' }}
+        run: |
+          set -euo pipefail
+          mkdir -p .health-agent-artifacts
+          run_at="${HEALTH_AGENT_RUN_AT:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
+          pnpm exec tsx scripts/health-agent/workflow-runtime.ts collect-link \
+            --mode "$HEALTH_AGENT_MODE" \
+            --output .health-agent-artifacts/link-checker.json \
+            --run-at "$run_at" \
+            --attempt "$GITHUB_RUN_ATTEMPT" \
+            --run-id "$GITHUB_RUN_ID"
+      - name: Upload sanitized link artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          if-no-files-found: warn
+          name: health-link-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .health-agent-artifacts/link-checker.json
+          retention-days: 14
+
+  collect-sentry:
+    needs: gate
+    if: needs.gate.outputs.collect == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      SENTRY_BASE_URL: ${{ vars.SENTRY_BASE_URL }}
+      SENTRY_ORGANIZATION: ${{ vars.SENTRY_ORGANIZATION }}
+      SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+      SENTRY_READ_TOKEN: ${{ secrets.SENTRY_READ_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.30.1 --activate
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Collect sanitized Sentry issues
+        run: |
+          set -euo pipefail
+          mkdir -p .health-agent-artifacts
+          pnpm exec tsx scripts/health-agent/workflow-runtime.ts collect-sentry --mode "${{ needs.gate.outputs.mode }}" \
+            --output .health-agent-artifacts/sentry-issues.json
+      - name: Upload sanitized Sentry artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          if-no-files-found: warn
+          name: health-sentry-issues-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .health-agent-artifacts/sentry-issues.json
+          retention-days: 14
+
+  evaluate-directory:
+    needs: [gate, collect-link]
+    if: always() && needs.gate.outputs.collect == 'true' && needs.collect-link.result != 'skipped'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: read
+      security-events: read
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      HEALTH_AGENT_READER_TOKEN: ${{ secrets.HEALTH_AGENT_READER_TOKEN }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.30.1 --activate
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Download link artifact
+        if: always()
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: health-link-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .health-agent-artifacts
+      - name: Collect Directory evidence
+        run: |
+          set -euo pipefail
+          pnpm exec tsx scripts/health-agent/workflow-runtime.ts collect-directory-evidence \
+            --link-artifact .health-agent-artifacts/link-checker.json \
+            --output .health-agent-artifacts/directory-evidence.json
+      - name: Evaluate Directory after link telemetry
+        env:
+          HEALTH_AGENT_WRITER_TOKEN: ${{ needs.gate.outputs.mode != 'preflight' && secrets.HEALTH_AGENT_WRITER_TOKEN || '' }}
+          HEALTH_AGENT_RUN_AT: ${{ github.event.head_commit.timestamp || '' }}
+        run: |
+          set -euo pipefail
+          run_at="${HEALTH_AGENT_RUN_AT:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
+          pnpm exec tsx scripts/health-agent/workflow-runtime.ts evaluate-directory \
+            --evidence .health-agent-artifacts/directory-evidence.json \
+            --link-artifact .health-agent-artifacts/link-checker.json \
+            --mode "${{ needs.gate.outputs.mode }}" \
+            --run-at "$run_at" \
+            --output .health-agent-artifacts/directory-health.json
+      - name: Upload Directory artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          if-no-files-found: warn
+          name: health-directory-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .health-agent-artifacts/directory-evidence.json
+            .health-agent-artifacts/directory-health.json
+          retention-days: 14

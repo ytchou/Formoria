@@ -423,6 +423,8 @@ describe("Sentry recurrence and merge policy", () => {
     );
 
     expect(firstFinding.fingerprint).toBe(laterFinding.fingerprint);
+    expect(firstFinding.fingerprint).toMatch(/^sentry:issue:[0-9a-f]{32}$/);
+    expect(firstFinding.fingerprint.length).toBeLessThanOrEqual(128);
     expect(firstFinding.evidence.recurrence).toMatchObject({
       isRecurring: true,
       eventCount: 7,

@@ -31,6 +31,7 @@ import {
   stableFingerprint,
   type AuditLogger,
   type HealthFinding,
+  type HealthSummary,
   type HealthSource,
   type JsonValue,
   type MergePolicy,
@@ -1074,7 +1075,7 @@ export interface HealthAgentEnvelope {
   data: JsonObject & { notification_owner: "github_actions" };
   date: string;
   project: "formoria";
-  routine: HealthRoutine | "health-selfheal";
+  routine: HealthRoutine | "health-agent" | "health-selfheal";
   run_at: string;
   source: "github_actions";
   source_run_id: string;
@@ -1149,9 +1150,11 @@ export function createRoutineEnvelope(input: {
 export interface SlackDigestInput {
   actionableFindings?: readonly HealthFinding[];
   failures?: readonly JsonValue[];
+  healthSummary?: HealthSummary;
   linearOutcomes?: readonly JsonValue[];
   prOutcomes?: readonly JsonValue[];
   skippedActions?: readonly JsonValue[];
+  workflowUrl?: string;
 }
 
 export interface DeliveryDependencies {
@@ -1288,6 +1291,7 @@ export interface AggregateInput {
   };
   artifacts?: Partial<Record<HealthRoutine, HealthCollectorArtifact>>;
   brandReviewArtifactPath?: string;
+  deliver?: boolean;
   directoryArtifactPath?: string;
   exhaustedAutomationFingerprints?: readonly string[];
   failures?: readonly JsonValue[];
@@ -1300,6 +1304,7 @@ export interface AggregateInput {
   skippedActions?: readonly JsonValue[];
   workflowAttempt: number;
   workflowRunId: string | number;
+  workflowUrl?: string;
 }
 
 export interface DeliveryStatus {
@@ -1628,34 +1633,41 @@ export async function aggregateAndDeliver(
       workflowRunId: input.workflowRunId,
     }),
   );
-  const delivery = resolveDelivery(dependencies);
+  const delivery =
+    input.deliver === false ? null : resolveDelivery(dependencies);
   const slackReport: SlackDigestInput = {
     actionableFindings: findings.map(redactedFinding),
     failures: slackFailureEntries.map(redactForAudit),
     linearOutcomes: linearOutcomes.map(redactForAudit),
     prOutcomes: (input.prOutcomes ?? []).map(redactForAudit),
     skippedActions: skippedActions.map(redactForAudit),
+    workflowUrl: input.workflowUrl,
   };
   const envelopesByRoutine = new Map(
     envelopes.map((envelope) => [envelope.routine, envelope] as const),
   );
-  const agentHubStatuses = await Promise.all(
-    HEALTH_ROUTINES.map(async (routine) => {
-      const envelope = envelopesByRoutine.get(routine);
-      if (!envelope) throw new Error(`Missing ${routine} envelope`);
-      return deliverEnvelope(envelope, dependencies, delivery);
-    }),
-  );
-  const slackStatus = await deliverSlackDigest(
-    slackReport,
-    dependencies,
-    delivery,
-  );
-  const deliveries = HEALTH_ROUTINES.map((routine, index): DeliveryStatus => ({
-    agentHub: agentHubStatuses[index] ?? "failed",
-    routine,
-    slack: slackStatus,
-  }));
+  const agentHubStatuses =
+    input.deliver === false
+      ? []
+      : await Promise.all(
+          HEALTH_ROUTINES.map(async (routine) => {
+            const envelope = envelopesByRoutine.get(routine);
+            if (!envelope) throw new Error(`Missing ${routine} envelope`);
+            return deliverEnvelope(envelope, dependencies, delivery);
+          }),
+        );
+  const slackStatus =
+    input.deliver === false
+      ? "sent"
+      : await deliverSlackDigest(slackReport, dependencies, delivery);
+  const deliveries =
+    input.deliver === false
+      ? []
+      : HEALTH_ROUTINES.map((routine, index): DeliveryStatus => ({
+          agentHub: agentHubStatuses[index] ?? "failed",
+          routine,
+          slack: slackStatus,
+        }));
   const deliveryErrors = {
     agentHub: deliveries
       .filter(({ agentHub }) => agentHub === "failed")
@@ -1879,22 +1891,6 @@ function claimedRows(
   return rows.map((row) => asRepairFinding(row));
 }
 
-function exhaustedFingerprints(input: QueueBatchInput): Set<string> {
-  const exhausted = new Set(input.exhaustedAutomationFingerprints ?? []);
-  for (const result of input.repairResults ?? []) {
-    if (
-      result.batchKind === "automatic" &&
-      (result.status === "needs_human" ||
-        (result.cycles.length >= 2 && !result.fixed))
-    ) {
-      for (const resultFinding of result.findings) {
-        exhausted.add(resultFinding.fingerprint);
-      }
-    }
-  }
-  return exhausted;
-}
-
 function databaseEnqueue(
   database: HealthAgentDatabase,
 ):
@@ -2052,36 +2048,10 @@ export async function enqueueAndClaimPolicyBatches(
   const claimedUnique = uniqueFindings([...automaticClaimed, ...humanClaimed]);
   const snapshot = claimedResult.snapshot;
   const partition = claimedResult.partition;
-  const exhausted = exhaustedFingerprints(input);
-  const linearEligible = eligibleLinearFindings(eligible, exhausted);
-  let linearResult: QueueBatchResult["linear"] = {
+  const linearResult: QueueBatchResult["linear"] = {
     outcomes: [],
     status: "not_required",
   };
-  if (linearEligible.length > 0) {
-    const sync = linearFunction(dependencies.linear);
-    if (!policy.business) {
-      skippedActions.push("linear");
-      linearResult = { outcomes: [], status: "suppressed" };
-    } else if (!sync) {
-      failures.push("linear:not_configured");
-      linearResult = { outcomes: [], status: "failed" };
-    } else {
-      try {
-        const result = await sync({
-          exhaustedAutomationFingerprints: [...exhausted],
-          findings: linearEligible,
-        });
-        linearResult = {
-          outcomes: [...(result.outcomes ?? [])].map(redactForAudit),
-          status: "sent",
-        };
-      } catch (error) {
-        failures.push(`linear:${safeErrorCode(error)}`);
-        linearResult = { outcomes: [], status: "failed" };
-      }
-    }
-  }
   return {
     automatic: claimedResult.automatic,
     claimedFingerprints: claimedUnique.map(({ fingerprint }) => fingerprint),

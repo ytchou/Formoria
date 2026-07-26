@@ -2,6 +2,7 @@ import {
   requiresHumanPolicy,
   type AuditLogger,
   type HealthFinding,
+  type HealthSummary,
   type JsonValue,
 } from "./contracts";
 
@@ -154,6 +155,30 @@ interface ExternalResponse {
   status: number;
 }
 
+function providerErrors(value: unknown): JsonValue[] {
+  if (!isRecord(value) || !Array.isArray(value.errors)) return [];
+  return value.errors.slice(0, 3).map((entry) => {
+    if (!isRecord(entry)) return { message: "provider_error" };
+    const message = stringValue(entry.message)
+      ?.replace(/https?:\/\/\S+/gi, "[redacted-url]")
+      .replace(/(?:token|secret|password)\s*[:=]\s*\S+/gi, "[redacted-secret]")
+      .slice(0, 300);
+    const extensions = isRecord(entry.extensions)
+      ? entry.extensions
+      : undefined;
+    const code = extensions
+      ? stringValue(extensions.code)
+          ?.replace(/(?:token|secret|password)\s*[:=]\s*\S+/gi, "[redacted]")
+          .replace(/[^a-z0-9_.-]+/gi, "_")
+          .slice(0, 80)
+      : undefined;
+    return {
+      ...(code ? { code } : {}),
+      message: message ?? "provider_error",
+    };
+  });
+}
+
 async function externalRequest(
   deps: ReturnType<typeof dependencies>,
   adapter: string,
@@ -194,6 +219,7 @@ async function externalRequest(
       ? { parsed: true, value: null }
       : await responseJson(response);
   if (!isSuccessStatus(status)) {
+    const errors = providerErrors(parsed.value);
     emitAudit(
       deps.audit,
       adapter,
@@ -201,11 +227,14 @@ async function externalRequest(
       "failure",
       elapsed(deps.clock, startedAt),
       options.request,
-      { httpStatus: status },
+      {
+        httpStatus: status,
+        ...(errors.length > 0 ? { providerErrors: errors } : {}),
+      },
       parsed.parsed,
     );
     throw new HealthAdapterError(
-      `${displayName} request failed`,
+      `${displayName} request failed${errors.length > 0 && isRecord(errors[0]) ? `: ${String(errors[0].message)}` : ""}`,
       adapter,
       operation,
       status,
@@ -215,6 +244,7 @@ async function externalRequest(
   const schemaValid =
     parsed.parsed && (!options.validate || options.validate(parsed.value));
   if (!schemaValid) {
+    const errors = providerErrors(parsed.value);
     emitAudit(
       deps.audit,
       adapter,
@@ -222,11 +252,15 @@ async function externalRequest(
       "failure",
       elapsed(deps.clock, startedAt),
       options.request,
-      { httpStatus: status, error: "invalid_response" },
+      {
+        httpStatus: status,
+        error: "invalid_response",
+        ...(errors.length > 0 ? { providerErrors: errors } : {}),
+      },
       false,
     );
     throw new HealthAdapterError(
-      `${displayName} returned an invalid response`,
+      `${displayName} returned an invalid response${errors.length > 0 && isRecord(errors[0]) ? `: ${String(errors[0].message)}` : ""}`,
       adapter,
       operation,
       status,
@@ -276,27 +310,37 @@ function firstArraySection(report: SlackReport, keys: string[]): unknown[] {
 }
 
 function findingLines(findings: unknown[]): string[] {
-  return findings.map((value) => {
-    if (!isRecord(value)) return `- ${jsonText(value)}`;
+  return findings.slice(0, 3).map((value) => {
+    if (!isRecord(value)) return "- Untitled finding (unknown)";
     const title = stringValue(value.title) ?? "Untitled finding";
     const source = stringValue(value.source) ?? "unknown";
     const severity = stringValue(value.severity)?.toUpperCase() ?? "UNKNOWN";
-    const fingerprint = stringValue(value.fingerprint) ?? "unknown";
-    const evidence = isRecord(value.evidence) ? jsonText(value.evidence) : "{}";
-    const reason = stringValue(value.humanReason);
-    return [
-      `- [${severity}] ${title} (${source})`,
-      `  fingerprint: ${fingerprint}`,
-      `  evidence: ${evidence}`,
-      ...(reason ? [`  human reason: ${reason}`] : []),
-    ].join("\n");
+    return `- [${severity}] ${title.slice(0, 180)} (${source})`;
   });
 }
 
-function noteLines(entries: unknown[]): string[] {
-  return entries.map((entry) => {
-    if (typeof entry === "string") return `- ${entry}`;
-    return `- ${jsonText(entry)}`;
+function groupedCounts(entries: unknown[], key: string): string {
+  const counts = new Map<string, number>();
+  for (const entry of entries) {
+    const value = isRecord(entry) ? stringValue(entry[key]) : undefined;
+    const label = value ?? "unknown";
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([label, count]) => `${label}: ${count}`)
+    .join(", ");
+}
+
+function failureLines(entries: unknown[]): string[] {
+  return entries.slice(0, 3).map((entry) => {
+    if (typeof entry === "string") return `- ${entry.slice(0, 180)}`;
+    if (!isRecord(entry)) return "- Unspecified failure";
+    const reason =
+      stringValue(entry.reason) ??
+      stringValue(entry.failure) ??
+      stringValue(entry.status);
+    return `- ${(reason ?? "Unspecified failure").slice(0, 180)}`;
   });
 }
 
@@ -306,6 +350,7 @@ export interface SlackReport {
   actionableFindings?: readonly HealthFinding[];
   failures?: readonly SlackEntry[] | SlackEntry;
   findings?: readonly HealthFinding[];
+  healthSummary?: HealthSummary;
   linear?: readonly SlackEntry[] | SlackEntry;
   linearOutcomes?: readonly SlackEntry[] | SlackEntry;
   prOutcomes?: readonly SlackEntry[] | SlackEntry;
@@ -313,9 +358,60 @@ export interface SlackReport {
   pullRequestOutcomes?: readonly SlackEntry[] | SlackEntry;
   skipped?: readonly SlackEntry[] | SlackEntry;
   skippedActions?: readonly SlackEntry[] | SlackEntry;
+  workflowUrl?: string;
+}
+
+function summaryCountLine(check: HealthSummary["checks"]["link"]): string {
+  const severities = (["critical", "high", "medium", "low"] as const)
+    .filter((severity) => check.severities[severity] > 0)
+    .map((severity) => `${check.severities[severity]} ${severity}`);
+  return [String(check.findingCount), ...severities].join(" · ");
+}
+
+function renderHealthSummary(
+  summary: HealthSummary,
+  workflowUrl?: string,
+): string {
+  const title =
+    summary.overallStatus === "healthy"
+      ? "Healthy"
+      : summary.overallStatus === "needs_attention"
+        ? "Needs attention"
+        : "Failed";
+  const failedPhases = Object.entries(summary.phases)
+    .filter(([, status]) => status === "failed")
+    .map(([phase]) => phase);
+  const pipeline =
+    failedPhases.length > 0
+      ? `Failed: ${failedPhases.join(", ")}`
+      : "All phases completed";
+  const prLabel = summary.repair.pullRequests === 1 ? "PR" : "PRs";
+  const queueLine = `${summary.repair.queued ?? 0} queued · ${summary.repair.claimed ?? 0} claimed`;
+  const batchLines = summary.repair.batches
+    ? (["automatic", "human"] as const).map((policy) => {
+        const batch = summary.repair.batches![policy];
+        const label = policy === "automatic" ? "Automatic" : "Human";
+        const state = batch.status.replaceAll("_", " ");
+        const pr =
+          batch.prNumber && batch.prUrl
+            ? ` · <${batch.prUrl}|PR #${batch.prNumber}>`
+            : "";
+        return `• ${label} — ${batch.findingCount} · ${state}${pr}`;
+      })
+    : [];
+  return [
+    `*Formoria Health Agent · ${title}*`,
+    `*Checks*\n• Links — ${summaryCountLine(summary.checks.link)}\n• Directory — ${summaryCountLine(summary.checks.directory)}\n• Sentry — ${summaryCountLine(summary.checks.sentry)}`,
+    `*Repair outcome*\n• ${queueLine}\n• ${summary.repair.fixed} fixed · ${summary.repair.unresolved} unresolved · ${summary.repair.pullRequests} ${prLabel}${batchLines.length > 0 ? `\n${batchLines.join("\n")}` : ""}`,
+    `*Pipeline*\n• ${pipeline}`,
+    ...(workflowUrl ? [`<${workflowUrl}|Open workflow run>`] : []),
+  ].join("\n\n");
 }
 
 export function renderSlackDigest(report: SlackReport): string {
+  if (report.healthSummary) {
+    return renderHealthSummary(report.healthSummary, report.workflowUrl);
+  }
   const source = report as unknown as Record<string, unknown>;
   const findings = Array.isArray(source.actionableFindings)
     ? source.actionableFindings
@@ -333,52 +429,49 @@ export function renderSlackDigest(report: SlackReport): string {
 
   const sections: string[] = [];
   if (findings.length > 0) {
-    sections.push(`*Actionable findings*\n${findingLines(findings)}`);
+    const severities = groupedCounts(findings, "severity");
+    const sources = groupedCounts(findings, "source");
+    const remaining = Math.max(0, findings.length - 3);
+    sections.push(
+      `*Findings:* ${findings.length} (${severities}; ${sources})\n${findingLines(findings).join("\n")}${remaining > 0 ? `\n- …and ${remaining} more` : ""}`,
+    );
   }
   if (skipped.length > 0) {
-    sections.push(`*Skipped actions*\n${noteLines(skipped)}`);
+    sections.push(
+      `*Skipped actions* (${skipped.length})\n${failureLines(skipped).join("\n")}`,
+    );
   }
   if (failures.length > 0) {
-    sections.push(`*Failures*\n${noteLines(failures)}`);
+    sections.push(
+      `*Failures* (${failures.length})\n${failureLines(failures).join("\n")}`,
+    );
   }
   if (linear.length > 0) {
-    sections.push(`*Linear outcomes*\n${noteLines(linear)}`);
+    sections.push(
+      `*Linear:* ${linear.length} (${groupedCounts(linear, "status")})`,
+    );
   }
   if (pullRequests.length > 0) {
-    sections.push(`*PR outcomes*\n${noteLines(pullRequests)}`);
+    sections.push(
+      `*PR outcomes* (${pullRequests.length})\n${failureLines(pullRequests).join("\n")}`,
+    );
   }
   if (sections.length === 0) return "Formoria health agent: all clear.";
-  return ["*Formoria health agent*", ...sections].join("\n\n");
+  if (report.workflowUrl)
+    sections.push(`<${report.workflowUrl}|Open workflow run>`);
+  return ["*Formoria health agent summary*", ...sections].join("\n\n");
 }
 
 const SLACK_TEXT_LIMIT = 2_999;
 
-function chunkSlackText(text: string): string[] {
-  const chunks: string[] = [];
-  let current = "";
-  const append = (value: string) => {
-    if (Array.from(value).length <= SLACK_TEXT_LIMIT) {
-      current = value;
-      return;
-    }
-    const characters = Array.from(value);
-    for (let index = 0; index < characters.length; index += SLACK_TEXT_LIMIT) {
-      chunks.push(characters.slice(index, index + SLACK_TEXT_LIMIT).join(""));
-    }
-    current = "";
-  };
-
-  for (const line of text.split("\n")) {
-    const candidate = current ? `${current}\n${line}` : line;
-    if (Array.from(candidate).length <= SLACK_TEXT_LIMIT) {
-      current = candidate;
-      continue;
-    }
-    if (current) chunks.push(current);
-    append(line);
-  }
-  if (current) chunks.push(current);
-  return chunks.length > 0 ? chunks : [""];
+function boundedSlackText(text: string): string {
+  const characters = Array.from(text);
+  if (characters.length <= SLACK_TEXT_LIMIT) return text;
+  const suffix = "\n…summary truncated; open the workflow run for details";
+  return (
+    characters.slice(0, SLACK_TEXT_LIMIT - Array.from(suffix).length).join("") +
+    suffix
+  );
 }
 
 export interface SlackAdapterOptions extends AdapterDependencies {
@@ -400,30 +493,26 @@ export async function sendSlackDigest(
     "Slack webhook URL is required",
   );
   const deps = dependencies(options);
-  const chunks = chunkSlackText(renderSlackDigest(report));
-  for (const [index, text] of chunks.entries()) {
-    await externalRequest(
-      deps,
-      "slack",
-      "send_message",
-      webhookUrl,
-      {
-        body: JSON.stringify({ text }),
-        headers: { "content-type": "application/json" },
-        method: "POST",
+  const text = boundedSlackText(renderSlackDigest(report));
+  await externalRequest(
+    deps,
+    "slack",
+    "send_message",
+    webhookUrl,
+    {
+      body: JSON.stringify({ text }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    },
+    {
+      parseJson: false,
+      request: {
+        channel: "incoming_webhook",
+        characterCount: Array.from(text).length,
       },
-      {
-        parseJson: false,
-        request: {
-          channel: "incoming_webhook",
-          characterCount: Array.from(text).length,
-          chunkIndex: index + 1,
-          chunkCount: chunks.length,
-        },
-      },
-    );
-  }
-  return chunks.length;
+    },
+  );
+  return 1;
 }
 
 export function createSlackAdapter(options: SlackAdapterOptions): SlackAdapter {
@@ -433,14 +522,19 @@ export function createSlackAdapter(options: SlackAdapterOptions): SlackAdapter {
   };
 }
 
-function linearToken(options: LinearAdapterOptions): string {
-  return asNonemptyString(
+function linearAuthorization(options: LinearAdapterOptions): string {
+  if (options.apiKey) {
+    return asNonemptyString(options.apiKey, "Linear API key is required");
+  }
+  const oauthToken =
     options.oauthAccessToken ??
-      options.oauthToken ??
-      options.accessToken ??
-      options.token,
-    "Linear OAuth token is required",
-  );
+    options.oauthToken ??
+    options.accessToken ??
+    options.token;
+  if (oauthToken) {
+    return `Bearer ${asNonemptyString(oauthToken, "Linear OAuth token is required")}`;
+  }
+  throw new Error("Linear API credential is required");
 }
 
 function graphqlData(value: unknown): Record<string, unknown> | null {
@@ -477,6 +571,7 @@ function issueNodes(value: unknown): Record<string, unknown>[] {
 
 export interface LinearAdapterOptions extends AdapterDependencies {
   accessToken?: string;
+  apiKey?: string;
   assigneeId?: string;
   endpoint?: string;
   oauthAccessToken?: string;
@@ -522,9 +617,10 @@ export interface LinearAdapter {
 }
 
 const LINEAR_LOOKUP_QUERY = `
-  query HealthAgentIssueLookup($teamId: ID!, $projectId: ID!, $marker: String!) {
-    issues(filter: { team: { id: { eq: $teamId } }, project: { id: { eq: $projectId } }, description: { contains: $marker } }, first: 10) {
+  query HealthAgentIssueLookup($teamId: ID!, $projectId: ID!, $after: String) {
+    issues(filter: { team: { id: { eq: $teamId } }, project: { id: { eq: $projectId } } }, first: 100, after: $after) {
       nodes { id identifier title description team { id } project { id } }
+      pageInfo { hasNextPage endCursor }
     }
   }
 `;
@@ -546,6 +642,12 @@ const LINEAR_CREATE_MUTATION = `
 const LINEAR_UPDATE_MUTATION = `
   mutation HealthAgentIssueUpdate($id: ID!, $input: IssueUpdateInput!) {
     issueUpdate(id: $id, input: $input) { success issue { id identifier } }
+  }
+`;
+
+const LINEAR_LABEL_CREATE_MUTATION = `
+  mutation HealthAgentLabelCreate($input: IssueLabelCreateInput!) {
+    issueLabelCreate(input: $input) { success issueLabel { id name } }
   }
 `;
 
@@ -664,7 +766,6 @@ export async function syncLinearFindings(
   }
 
   const endpoint = options.endpoint ?? "https://api.linear.app/graphql";
-  const token = linearToken(options);
   const teamId = asNonemptyString(options.teamId, "Linear team ID is required");
   const projectId = asNonemptyString(
     options.projectId,
@@ -676,7 +777,7 @@ export async function syncLinearFindings(
   );
   const headers = {
     Accept: "application/json",
-    Authorization: `Bearer ${token}`,
+    Authorization: linearAuthorization(options),
     "Content-Type": "application/json",
   };
   let labels: Map<"Data Quality" | "Ops", string> | null = null;
@@ -713,9 +814,7 @@ export async function syncLinearFindings(
     return data;
   };
 
-  const loadLabels = async (
-    requiredLabel: "Data Quality" | "Ops",
-  ): Promise<Map<"Data Quality" | "Ops", string>> => {
+  const loadLabels = async (): Promise<Map<"Data Quality" | "Ops", string>> => {
     if (labels) return labels;
     const data = await graphql(
       "lookup_labels",
@@ -737,47 +836,82 @@ export async function syncLinearFindings(
         next.set(name, id);
       }
     }
-    if (!next.has(requiredLabel)) {
-      emitAudit(
-        deps.audit,
-        "linear",
-        "validate_labels",
-        "failure",
-        0,
-        { configuredTeam: true },
-        { error: "missing_allowed_labels" },
-        true,
-      );
-      throw new HealthAdapterError(
-        "Linear labels are not configured",
-        "linear",
-        "validate_labels",
-      );
-    }
     labels = next;
     return next;
   };
 
-  for (const finding of eligible) {
-    const marker = fingerprintMarker(finding.fingerprint);
+  const projectIssues: Record<string, unknown>[] = [];
+  const seenCursors = new Set<string>();
+  let after: string | undefined;
+  do {
     const lookup = await graphql(
-      "lookup_issue",
+      "lookup_issues",
       LINEAR_LOOKUP_QUERY,
-      { marker, projectId, teamId },
+      { ...(after ? { after } : {}), projectId, teamId },
       (value) => graphqlDataHas("issues", value),
     );
-    const existing = issueNodes({ data: lookup }).find((node) => {
+    projectIssues.push(...issueNodes({ data: lookup }));
+    const issues = lookup.issues;
+    const pageInfo = isRecord(issues) ? issues.pageInfo : undefined;
+    const hasNextPage = isRecord(pageInfo) && pageInfo.hasNextPage === true;
+    after = hasNextPage ? stringValue(pageInfo.endCursor) : undefined;
+    if (hasNextPage && (!after || seenCursors.has(after))) {
+      throw new HealthAdapterError(
+        "Linear returned invalid pagination metadata",
+        "linear",
+        "lookup_issues",
+      );
+    }
+    if (after) seenCursors.add(after);
+  } while (after);
+
+  const requiredLabels = new Set(eligible.map(linearLabelName));
+  const allowedLabels = await loadLabels();
+  for (const name of requiredLabels) {
+    if (allowedLabels.has(name)) continue;
+    const data = await graphql(
+      "create_label",
+      LINEAR_LABEL_CREATE_MUTATION,
+      { input: { name, teamId } },
+      (value) => {
+        const payload = graphqlData(value)?.issueLabelCreate;
+        return (
+          isRecord(payload) &&
+          payload.success === true &&
+          isRecord(payload.issueLabel) &&
+          stringValue(payload.issueLabel.id) !== undefined
+        );
+      },
+    );
+    const payload = data.issueLabelCreate;
+    const issueLabel = isRecord(payload) ? payload.issueLabel : undefined;
+    const labelId = isRecord(issueLabel)
+      ? stringValue(issueLabel.id)
+      : undefined;
+    if (!labelId) {
+      throw new HealthAdapterError(
+        "Linear label creation failed",
+        "linear",
+        "create_label",
+      );
+    }
+    allowedLabels.set(name, labelId);
+  }
+
+  for (const finding of eligible) {
+    const marker = fingerprintMarker(finding.fingerprint);
+    const existing = projectIssues.find((node) => {
       const team = node.team;
       const project = node.project;
       return (
         isRecord(team) &&
         stringValue(team.id) === teamId &&
         isRecord(project) &&
-        stringValue(project.id) === projectId
+        stringValue(project.id) === projectId &&
+        stringValue(node.description)?.includes(marker) === true
       );
     });
     const labelName = linearLabelName(finding);
-    const allowedLabels = await loadLabels(labelName);
     const labelId = allowedLabels.get(labelName);
     if (!labelId) {
       throw new HealthAdapterError(
