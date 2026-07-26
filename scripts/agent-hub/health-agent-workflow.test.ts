@@ -66,11 +66,12 @@ describe("unified health-agent workflow contract", () => {
     );
 
     expect(replay).not.toContain("schedule:");
+    expect(replay).toMatch(/permissions:[\s\S]*?pull-requests: read/);
     expect(replay).toMatch(/mutate:[\s\S]*?default: false/);
     expect(replay).toMatch(/notify:[\s\S]*?default: false/);
     expect(replay).toContain('gh run download "$SOURCE_RUN_ID"');
     expect(replay).toContain("needs.analyze.result");
-    expect(replay).toContain('--defer-delivery "${{ !inputs.notify }}"');
+    expect(replay).toContain('--defer-delivery "${{ ! inputs.notify }}"');
   });
 
   it("uses an object-root schema for Sentry structured output", () => {
