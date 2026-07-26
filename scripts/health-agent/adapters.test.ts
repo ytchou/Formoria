@@ -457,6 +457,53 @@ describe("Linear adapter", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(4);
   });
 
+  it("uses workspace-wide allowed labels without creating duplicates", async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse({ data: { issues: { nodes: [] } } }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            issueLabels: {
+              nodes: [
+                { id: "label-ops", name: "Ops", team: null },
+                {
+                  id: "other-team-ops",
+                  name: "Ops",
+                  team: { id: "team-2" },
+                },
+              ],
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            issueCreate: {
+              issue: { id: "linear-1", identifier: "FOR-12" },
+              success: true,
+            },
+          },
+        }),
+      );
+    const adapter = createLinearAdapter(
+      linearConfig(fetchImpl, () => undefined),
+    );
+
+    await expect(adapter.sync([finding()])).resolves.toMatchObject({
+      created: 1,
+      updated: 0,
+    });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    const createInput = (
+      bodyAt(fetchImpl, 2).variables as Record<string, unknown>
+    ).input as Record<string, unknown>;
+    expect(createInput.labelIds).toEqual(["label-ops"]);
+    expect(bodyAt(fetchImpl, 2).query).toContain("issueCreate");
+  });
+
   it("paginates project issues before matching a fingerprint", async () => {
     const fetchImpl = vi
       .fn<typeof fetch>()
