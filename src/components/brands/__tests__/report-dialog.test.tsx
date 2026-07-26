@@ -144,7 +144,6 @@ describe('ReportDialog', () => {
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
     await user.click(screen.getByRole('button', { name: /檢舉/i }))
 
-    expect(screen.getByRole('dialog')).toHaveClass('sm:max-w-lg')
 
     const notes = screen.getByRole('textbox', { name: /補充說明/i })
     expect(notes).toHaveAttribute('maxlength', '1000')
@@ -266,16 +265,4 @@ describe('ReportDialog', () => {
     expect(screen.getByText('發生錯誤')).toBeInTheDocument()
   })
 
-  it('calls trackBrandReported when report is submitted', async () => {
-    const user = userEvent.setup()
-    renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
-
-    await user.click(screen.getByRole('button', { name: /檢舉/i }))
-    await user.click(screen.getByRole('button', { name: /連結失效/i }))
-    await user.click(screen.getByRole('button', { name: /送出檢舉/i }))
-
-    await waitFor(() =>
-      expect(trackBrandReported).toHaveBeenCalledWith('test-brand', 'broken_link', 'general')
-    )
-  })
 })

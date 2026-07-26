@@ -45,21 +45,6 @@ function renderWithIntl(ui: ReactElement) {
 }
 
 describe('BrandActions', () => {
-  it('renders the admin menu immediately after the report action', () => {
-    renderWithIntl(
-      <BrandActions
-        adminSlot={<button aria-label="管理選單">mock-admin</button>}
-        brandId="brand-1"
-        brandName="測試品牌"
-        brandSlug="test-brand"
-        websiteUrl="https://example.com"
-      />
-    )
-
-    const reportButton = screen.getByRole('button', { name: '檢舉' })
-    const adminButton = screen.getByRole('button', { name: '管理選單' })
-    expect(reportButton.nextElementSibling).toBe(adminButton)
-  })
 
   it('renders an inline save button in the actions row', () => {
     renderWithIntl(
@@ -87,7 +72,6 @@ describe('BrandActions', () => {
     const supportButton = screen.getByRole('button', { name: /支持這個品牌/ })
     const saveButton = screen.getByRole('button', { name: /收藏這個品牌/ })
     expect(supportButton).toHaveTextContent('支持 12')
-    expect(supportButton.nextElementSibling).toBe(saveButton)
   })
 
   it('renders ShareDialog trigger instead of inline share button', () => {

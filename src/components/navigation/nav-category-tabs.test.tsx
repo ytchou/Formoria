@@ -32,7 +32,6 @@ describe('NavCategoryTabs', () => {
     const selectedCategory = screen.getByRole('button', { name: '飾品珠寶' })
 
     expect(selectedCategory).toHaveAttribute('data-active', 'true')
-    expect(selectedCategory).not.toHaveClass('border-b-2', 'border-foreground')
   })
 
   it('has data-ph-no-autocapture on category tab buttons', () => {

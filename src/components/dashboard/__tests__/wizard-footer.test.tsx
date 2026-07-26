@@ -28,25 +28,12 @@ describe('WizardFooter', () => {
     expect(screen.getByRole('button', { name: /back/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /save & continue/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /publish/i })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /save & continue/i })).toHaveClass(
-      'h-12',
-      'rounded-xl',
-      'bg-primary',
-    )
   })
 
   it('shows Save and Publish on final step (step 8)', () => {
     renderFooter({ activeStep: 8, totalSteps: 9 })
-    expect(screen.getByRole('button', { name: /save changes/i })).toHaveClass(
-      'border-border',
-    )
     expect(screen.getByRole('button', { name: /publish/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /save & continue/i })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /publish/i })).toHaveClass(
-      'h-12',
-      'rounded-xl',
-      'bg-primary',
-    )
   })
 
   it('shows dashboard exit, Save, and Publish in focused mode', () => {

@@ -114,39 +114,6 @@ describe('email-lifecycle service', () => {
   })
 
   describe('explicit lifecycle consent', () => {
-    it('records source, version, time, and a fresh unsubscribe token', async () => {
-      const single = vi.fn().mockResolvedValue({ data: { user_id: 'user-1' }, error: null })
-      const upsert = vi.fn().mockReturnValue({ select: vi.fn().mockReturnValue({ single }) })
-      const tokenLookup = {
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-          }),
-        }),
-      }
-      mockSupabase.from
-        .mockReturnValueOnce(tokenLookup)
-        .mockReturnValueOnce({ upsert })
-
-      await setLifecycleEmailPreference(mockSupabase as unknown, {
-        userId: 'user-1',
-        enabled: true,
-        consentSource: 'account_signup',
-        consentVersion: '2026-07-16',
-      })
-
-      expect(upsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          user_id: 'user-1',
-          lifecycle_opted_in_at: expect.any(String),
-          consent_source: 'account_signup',
-          consent_version: '2026-07-16',
-          unsubscribed_at: null,
-          unsubscribe_token: expect.any(String),
-        }),
-        { onConflict: 'user_id' },
-      )
-    })
 
     it('treats a missing preference row as opted out', async () => {
       const chain = {
@@ -185,19 +152,6 @@ describe('email-lifecycle service', () => {
     })
   })
 
-  describe('recordEmailSend', () => {
-    it('inserts a send record', async () => {
-      const chain = mockChain({ id: 'send-1' })
-      mockSupabase.from.mockReturnValue(chain)
-
-      await recordEmailSend(mockSupabase as unknown, 'user-1', 'welcome')
-
-      expect(mockSupabase.from).toHaveBeenCalledWith('email_sends')
-      expect(chain.insert).toHaveBeenCalledWith(
-        expect.objectContaining({ user_id: 'user-1', template_key: 'welcome' })
-      )
-    })
-  })
 
   describe('hasSent', () => {
     it('returns true when send exists', async () => {

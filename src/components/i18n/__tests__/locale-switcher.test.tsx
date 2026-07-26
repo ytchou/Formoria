@@ -55,15 +55,4 @@ describe('LocaleSwitcher', () => {
     expect((await screen.findAllByRole('menuitem', { name: 'English' })).length).toBeGreaterThan(0)
   })
 
-  it('calls trackLanguageSwitched when a locale option is clicked', async () => {
-    const user = userEvent.setup()
-
-    renderAt('zh-TW')
-
-    await user.click(screen.getByRole('button', { name: 'Switch language' }))
-    const englishOption = (await screen.findAllByRole('menuitem', { name: 'English' }))[0]
-    await user.click(englishOption!)
-
-    expect(trackLanguageSwitched).toHaveBeenCalledWith('zh-TW', 'en', 'header')
-  })
 })

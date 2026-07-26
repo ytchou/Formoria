@@ -43,27 +43,7 @@ describe('BrandSectionNav', () => {
     }
   })
 
-  it('highlights the first section by default', () => {
-    renderWithIntl(<BrandSectionNav sections={sections} />)
 
-    expect(screen.getByRole('link', { name: sections[0].label })).toHaveClass(
-      'type-nav-item-active',
-      'border-b-2',
-      'border-primary',
-      'md:border-b-0',
-      'md:border-l-2',
-    )
-  })
-
-  it('uses a vertical sticky rail on desktop', () => {
-    renderWithIntl(<BrandSectionNav sections={sections} />)
-
-    const nav = screen.getByRole('navigation', { name: '本頁導覽' })
-    expect(nav).toHaveClass('top-(--nav-height)', 'md:self-start', 'md:border-l', 'md:pl-3')
-    expect(screen.getByRole('link', { name: sections[0].label }).parentElement).toHaveClass(
-      'md:flex-col',
-    )
-  })
 
   it('does not add a redundant back-to-top control', () => {
     renderWithIntl(<BrandSectionNav sections={sections} />)

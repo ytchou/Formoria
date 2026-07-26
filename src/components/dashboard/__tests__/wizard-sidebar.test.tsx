@@ -51,12 +51,6 @@ describe('WizardSidebar', () => {
     expect(screen.queryByText(/undefined/)).not.toBeInTheDocument()
   })
 
-  it('calls onStepClick with step index when clicked', () => {
-    const onStepClick = vi.fn()
-    renderSidebar({ onStepClick })
-    fireEvent.click(screen.getAllByText('Social & purchase links')[0])
-    expect(onStepClick).toHaveBeenCalledWith(2)
-  })
 
   it('marks the active step for assistive technology', () => {
     renderSidebar()

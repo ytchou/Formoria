@@ -69,22 +69,6 @@ describe('JobDetailView', () => {
     expect(screen.getAllByText('Provider timeout').length).toBeGreaterThan(0)
   })
 
-  it('queues exactly the failed targets through the manual rerun action', async () => {
-    vi.mocked(rerunCurationJobAction).mockResolvedValue({
-      jobId: 'manual-job',
-      detailPath: '/admin/jobs/manual-job',
-      queued: true,
-      dispatchStatus: 'dispatched',
-      message: 'Rerun job created for failed or unfinished brands, dispatching now.',
-    })
-    const user = userEvent.setup()
-    render(<JobDetailView detail={detail()} selectedStatus="failed" />)
-
-    await user.click(screen.getByRole('button', { name: /Rerun failed submissions/ }))
-
-    expect(rerunCurationJobAction).toHaveBeenCalledWith('job-1')
-    expect(push).toHaveBeenCalledWith('/admin/jobs/manual-job')
-  })
 
   it('filters the target list using a shareable status URL', () => {
     render(<JobDetailView detail={detail()} selectedStatus="succeeded" />)

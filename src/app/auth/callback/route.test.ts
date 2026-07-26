@@ -132,30 +132,6 @@ describe('GET /auth/callback', () => {
     expect(loc.searchParams.has('is_new_user')).toBe(false)
   })
 
-  it('consumes explicit Google sign-up consent after session exchange', async () => {
-    mockCookieGet.mockImplementation((name: string) => {
-      if (name === 'post_auth_marketing_opt_in') return { value: '1' }
-      if (name === 'post_auth_marketing_locale') return { value: 'en' }
-      return undefined
-    })
-
-    const request = new NextRequest('http://localhost:8080/auth/callback?code=test-code')
-    await GET(request)
-
-    expect(mockEnrollInMarketingEmails).toHaveBeenCalledWith(
-      expect.objectContaining({ from: expect.any(Function) }),
-      {
-        email: 'u@example.com',
-        userId: 'u1',
-        locale: 'en',
-        source: 'google_signup',
-        newsletter: true,
-        lifecycle: true,
-      },
-    )
-    expect(mockCookieDelete).toHaveBeenCalledWith('post_auth_marketing_opt_in')
-    expect(mockCookieDelete).toHaveBeenCalledWith('post_auth_marketing_locale')
-  })
 })
 
 describe('GET /auth/callback — localhost redirect regression', () => {

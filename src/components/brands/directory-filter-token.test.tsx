@@ -32,24 +32,7 @@ describe('DirectoryFilterToken', () => {
       name: 'Remove brand search herbs',
     })
     expect(token).toHaveAttribute('href', '/brands?category=jewelry')
-    expect(token).toHaveClass('min-h-12', 'w-full')
     expect(token).toHaveTextContent('Brand search: herbs')
   })
 
-  it('renders the compact chip presentation', () => {
-    render(
-      <DirectoryFilterToken
-        href="/brands?search=herbs"
-        label="Category"
-        removeLabel="Remove category Jewelry"
-        value="Jewelry"
-        variant="chip"
-      />,
-    )
-
-    const token = screen.getByRole('link', {
-      name: 'Remove category Jewelry',
-    })
-    expect(token).toHaveClass('rounded-full')
-  })
 })

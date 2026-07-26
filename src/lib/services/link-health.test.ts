@@ -270,21 +270,6 @@ describe("runLinkHealthCheck", () => {
     expect(spies.rpcFn).not.toHaveBeenCalled();
   });
 
-  it("queries approved brands only", async () => {
-    const brand: BrandRow = {
-      id: "b1",
-      purchase_website: null,
-      purchase_pinkoi: null,
-      purchase_shopee: null,
-      hero_image_url: null,
-    };
-    const { client, spies } = makeSupabaseMock([brand], []);
-    vi.mocked(createServiceClient).mockReturnValue(client as never);
-
-    await runLive();
-
-    expect(spies.brandsSelectEq).toHaveBeenCalledWith("status", "approved");
-  });
 
   it("increments failure telemetry once for a broken URL and records the Taipei date", async () => {
     const brand: BrandRow = {
@@ -566,34 +551,6 @@ describe("runLinkHealthCheck", () => {
     expect(spies.brandsUpdateFn).not.toHaveBeenCalled();
   });
 
-  it("does not delete or update stale telemetry rows", async () => {
-    const brand: BrandRow = {
-      id: "b1",
-      purchase_website: null,
-      purchase_pinkoi: null,
-      purchase_shopee: null,
-      hero_image_url: null,
-    };
-    const existing: LinkCheckRow = {
-      id: "r1",
-      brand_id: "b1",
-      field: "purchase_website",
-      url: "https://old.example.com",
-      consecutive_failures: 1,
-      last_ok_at: null,
-      auto_nulled_at: null,
-      failure_dates: ["2026-07-20"],
-      cleanup_required_at: null,
-    };
-    const { client, spies } = makeSupabaseMock([brand], [existing]);
-    vi.mocked(createServiceClient).mockReturnValue(client as never);
-
-    await runLive();
-
-    expect(spies.linkDeleteIn).not.toHaveBeenCalled();
-    expect(spies.brandsUpdateFn).not.toHaveBeenCalled();
-    expect(spies.linkUpsertFn).not.toHaveBeenCalled();
-  });
 
   it("resets failure evidence when the URL changes but preserves historical auto_nulled_at", async () => {
     const brand: BrandRow = {

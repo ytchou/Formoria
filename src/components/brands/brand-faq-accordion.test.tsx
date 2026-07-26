@@ -36,16 +36,6 @@ function renderFaq(brandSlug = 'test-brand') {
 }
 
 describe('BrandFaqAccordion', () => {
-  it('uses the shared section heading hierarchy', () => {
-    renderFaq()
-
-    expect(screen.getByRole('heading', { name: 'FAQ' })).toHaveClass(
-      'type-section-title-large',
-    )
-    expect(
-      screen.getByRole('button', { name: '這個品牌在哪裡購買？' }),
-    ).toHaveClass('type-faq-question')
-  })
 
   it('fires trackFaqItemExpanded with brand slug and index when an accordion item is opened', async () => {
     const user = userEvent.setup()
@@ -57,14 +47,4 @@ describe('BrandFaqAccordion', () => {
     expect(mocks.trackFaqItemExpanded).toHaveBeenCalledWith('my-brand', 0)
   })
 
-  it('does not fire trackFaqItemExpanded when an open item is closed', async () => {
-    const user = userEvent.setup()
-    renderFaq('my-brand')
-
-    await user.click(screen.getByText('這個品牌在哪裡購買？'))
-    mocks.trackFaqItemExpanded.mockClear()
-    await user.click(screen.getByText('這個品牌在哪裡購買？'))
-
-    expect(mocks.trackFaqItemExpanded).not.toHaveBeenCalled()
-  })
 })

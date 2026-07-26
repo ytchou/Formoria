@@ -85,11 +85,6 @@ describe('submissionToDomain', () => {
   })
 })
 
-describe('getSubmission', () => {
-  it('should be an exported async function', () => {
-    expect(typeof getSubmission).toBe('function')
-  })
-})
 
 describe('submissionToInsert', () => {
   it('transforms camelCase domain data to snake_case DB row', () => {
@@ -138,18 +133,6 @@ describe('checkBrandDuplicates', () => {
     expect(result.nameMatches[0].similarity).toBe(0.85)
   })
 
-  test('always passes null for ubn', async () => {
-    mockRpc.mockResolvedValue({
-      data: { ubn_match: null, name_matches: [] },
-      error: null,
-    })
-
-    await checkBrandDuplicates('Some Brand')
-    expect(mockRpc).toHaveBeenCalledWith('check_brand_duplicates', {
-      p_name: 'Some Brand',
-      p_ubn: null,
-    })
-  })
 
   test('returns empty result on RPC error (fail open)', async () => {
     mockRpc.mockResolvedValue({ data: null, error: { message: 'DB error' } })

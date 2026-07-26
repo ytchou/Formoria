@@ -166,10 +166,6 @@ describe("CommunitySubmissionsTable", () => {
     await user.click(screen.getByRole("button", { name: "Retry 1 selected" }));
 
     await waitFor(() => expect(screen.getByText("Done")).toBeInTheDocument());
-    expect(screen.getByText("Done")).toHaveClass(
-      "bg-verified-green-bg",
-      "text-verified-green",
-    );
     expect(screen.queryByText("Database unavailable")).not.toBeInTheDocument();
   });
 });

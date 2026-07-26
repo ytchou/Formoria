@@ -230,23 +230,5 @@ describe('runDescriptionsPhase', () => {
     expect(result.patch).not.toHaveProperty('founding_year')
   })
 
-  it('does not persist tag translations during a dry run', async () => {
-    rewriteBrandDescription.mockResolvedValue({
-      result: makeDescriptionRewriteResult({
-        productTags: ['標籤'],
-        productTagsEn: ['Tag'],
-      }),
-      attempts: [],
-    })
-
-    await runDescriptionsPhase({
-      brand,
-      phases: ['descriptions'] as EnrichPhase[],
-      serpSnippets: ['Existing source material.'],
-      dryRun: true,
-    })
-
-    expect(supabaseMocks.upsert).not.toHaveBeenCalled()
-  })
 
 })

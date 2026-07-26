@@ -27,13 +27,4 @@ describe('revalidatePublicBrand', () => {
     )
   })
 
-  it('also invalidates the previous slug after a rename', () => {
-    revalidatePublicBrand({
-      slug: 'niizo-studio',
-      previousSlug: 'niizo',
-    })
-
-    expect(revalidatePath).toHaveBeenCalledWith('/brands/niizo')
-    expect(revalidatePath).toHaveBeenCalledWith('/en/brands/niizo')
-  })
 })

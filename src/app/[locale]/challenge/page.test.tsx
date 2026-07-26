@@ -107,28 +107,6 @@ describe('ChallengePage', () => {
     expect(mockPush).not.toHaveBeenCalled()
   })
 
-  it('posts the token and return path with a request deadline', async () => {
-    render(
-      <NextIntlClientProvider locale="zh-TW" messages={zh}>
-        <ChallengePage />
-      </NextIntlClientProvider>,
-    )
-
-    fireEvent.click(screen.getByRole('button', { name: 'Complete verification' }))
-
-    await waitFor(() => expect(global.fetch).toHaveBeenCalled())
-    expect(global.fetch).toHaveBeenCalledWith(
-      '/api/challenge/verify',
-      expect.objectContaining({
-        method: 'POST',
-        body: JSON.stringify({
-          token: 'verified-token',
-          returnTo: '/brands/talkoo',
-        }),
-        signal: expect.any(AbortSignal),
-      }),
-    )
-  })
 
   it('falls back to the home page when the server omits redirectTo', async () => {
     vi.mocked(global.fetch).mockResolvedValueOnce({

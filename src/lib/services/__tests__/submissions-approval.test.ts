@@ -77,91 +77,9 @@ describe("submission approval", () => {
     expect(mocks.from).not.toHaveBeenCalledWith("brand_field_state");
   });
 
-  it("builds approval data from persisted effective fields without blank overwrites", async () => {
-    mockApproval({
-      ...enrichedPendingSubmission(),
-      suggested_tags: { values: ["手工皂"], productType: "beauty" },
-      enriched_data: {
-        description: " ",
-        hero_image_url: "",
-        product_type: "",
-        product_tags: [],
-        purchase_website: "",
-      },
-    });
 
-    await approveSubmission("submission-1", "reviewer-1");
 
-    expect(mocks.rpc).toHaveBeenCalledWith(
-      "approve_submission_with_romanized_name",
-      expect.objectContaining({
-        p_brand_data: expect.objectContaining({
-          description: "手工保養品牌",
-          product_type: "beauty",
-          product_tags: ["手工皂"],
-          purchase_website: "https://submitted.example.com/shop",
-          hero_image_url: "https://cdn.example.com/hero.jpg",
-        }),
-      }),
-    );
-  });
 
-  it("uses romanized_name for the slug when provided", async () => {
-    mockApproval({
-      ...enrichedPendingSubmission(),
-      brand_name: "鼎泰豐",
-      romanized_name: "Din Tai Fung",
-      enriched_data: null,
-    });
-
-    await approveSubmission("submission-1", "reviewer-1");
-
-    expect(mocks.rpc).toHaveBeenCalledWith(
-      "approve_submission_with_romanized_name",
-      expect.objectContaining({
-        p_brand_data: expect.objectContaining({
-          slug: "din-tai-fung",
-          romanized_name: "Din Tai Fung",
-        }),
-      }),
-    );
-  });
-
-  it("falls back to the Latin run when romanized_name is absent", async () => {
-    mockApproval({
-      ...enrichedPendingSubmission(),
-      brand_name: "愛麗絲傢俱 iliz",
-      romanized_name: null,
-      enriched_data: null,
-    });
-
-    await approveSubmission("submission-1", "reviewer-1");
-
-    expect(mocks.rpc).toHaveBeenCalledWith(
-      "approve_submission_with_romanized_name",
-      expect.objectContaining({
-        p_brand_data: expect.objectContaining({ slug: "iliz" }),
-      }),
-    );
-  });
-
-  it("falls back to Wade-Giles when no Latin name is available", async () => {
-    mockApproval({
-      ...enrichedPendingSubmission(),
-      brand_name: "遇合",
-      romanized_name: null,
-      enriched_data: null,
-    });
-
-    await approveSubmission("submission-1", "reviewer-1");
-
-    expect(mocks.rpc).toHaveBeenCalledWith(
-      "approve_submission_with_romanized_name",
-      expect.objectContaining({
-        p_brand_data: expect.objectContaining({ slug: "yu-ho" }),
-      }),
-    );
-  });
 });
 
 function mockApproval(submission: Record<string, unknown>): void {

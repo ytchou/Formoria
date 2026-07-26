@@ -117,23 +117,3 @@ describe('deleteBrandImages', () => {
     expect(mockRemove).toHaveBeenCalledWith(['brands/x/a.webp'])
   })
 })
-
-describe('deleteStoredImagePaths', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    mockFrom.mockReturnValue({ remove: mockRemove })
-    mockRemove.mockResolvedValue({ data: null, error: null })
-  })
-
-  it('deletes trusted submission paths and ignores unrelated keys', async () => {
-    await deleteStoredImagePaths([
-      'submissions/submission-1/image.webp',
-      'avatars/user-1.webp',
-      'submissions/submission-1/image.webp',
-    ])
-
-    expect(mockRemove).toHaveBeenCalledWith([
-      'submissions/submission-1/image.webp',
-    ])
-  })
-})

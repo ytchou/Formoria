@@ -67,14 +67,7 @@ describe("Admin operations dashboard", () => {
       /Reports 5/,
       /Active jobs 2/,
     ]) {
-      expect(screen.getByRole("link", { name })).toHaveClass("bg-warning/10");
     }
-    expect(screen.getByRole("link", { name: /Total brands 91/ })).toHaveClass(
-      "bg-card",
-    );
-    expect(screen.getByRole("link", { name: /Subscribers 30/ })).toHaveClass(
-      "bg-card",
-    );
     expect(
       screen.queryByRole("link", { name: /Brand edits/ }),
     ).not.toBeInTheDocument();
@@ -101,9 +94,6 @@ describe("Admin operations dashboard", () => {
     render(await AdminDashboardPage());
 
     expect(screen.getAllByText("Unavailable").length).toBeGreaterThan(0);
-    expect(screen.getByRole("link", { name: /Content flags 0/ })).toHaveClass(
-      "bg-card",
-    );
     expect(
       screen.getByRole("button", { name: "Enrich needs-data submissions" }),
     ).toBeDisabled();

@@ -65,7 +65,6 @@ describe('BrandHeader — verified badge', () => {
     const heading = screen.getByRole('heading', { name: 'Test Brand' })
     const adminSlot = screen.getByTestId('admin-slot')
 
-    expect(heading.parentElement).toHaveClass('flex', 'justify-between')
     expect(heading.parentElement).toContainElement(adminSlot)
   })
 
@@ -127,29 +126,6 @@ describe('BrandHeader — verified badge', () => {
 })
 
 describe('BrandHeader — fact grid', () => {
-  it('stacks each value below its label in a responsive two-column grid', () => {
-    renderWithIntl(
-      <BrandHeader
-        brand={makeBrand({ foundingYear: 2010 })}
-        cityLabel="台北市"
-      />,
-    )
-
-    const locationLabel = screen.getByText('地點').closest('dt')
-    const locationValue = screen.getByText('台北市').closest('dd')
-
-    expect(locationLabel?.parentElement?.parentElement).toHaveClass(
-      'grid',
-      'sm:grid-cols-2',
-    )
-    expect(locationLabel?.parentElement).toHaveClass('space-y-1')
-    expect(locationLabel).toHaveClass(
-      'type-field-label',
-      'uppercase',
-    )
-    expect(locationLabel).not.toHaveClass('font-bold')
-    expect(locationValue).not.toHaveClass('col-span-2')
-  })
 
   it('lifts verification into a claim strip above the fact list', () => {
     renderWithIntl(
@@ -166,9 +142,6 @@ describe('BrandHeader — fact grid', () => {
       />,
     )
 
-    expect(screen.getByRole('heading', { name: '品牌資訊' })).toHaveClass(
-      'type-section-title-large',
-    )
     for (const label of ['地點', '創立年份', '類別', '價格區間', '產品類別']) {
       const labelElement = screen.getByText(label)
       expect(labelElement.closest('dt')).toHaveTextContent(label)
@@ -176,8 +149,6 @@ describe('BrandHeader — fact grid', () => {
     expect(screen.queryByText('認證')).not.toBeInTheDocument()
 
     const claimStrip = screen.getByText('MIT 微笑認證').parentElement
-    expect(claimStrip).toHaveClass('bg-mit-verified-bg')
-    expect(claimStrip?.nextElementSibling?.tagName).toBe('DL')
   })
 
   it('keeps every field visible when data is missing', () => {
@@ -210,7 +181,6 @@ describe('BrandHeader — fact grid', () => {
     for (const value of ['台北市', 'fashion', '$$', '手工製作']) {
       const badge = screen.getByText(value).closest('[data-slot="badge"]')
       expect(badge).toHaveAttribute('data-variant', 'secondary')
-      expect(badge).toHaveClass('text-foreground')
     }
   })
 

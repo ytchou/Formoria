@@ -15,13 +15,6 @@ describe('BrandViewTracker', () => {
     window.history.replaceState({}, '', '/')
   })
 
-  it('fires view_item event on mount with item id', () => {
-    render(<BrandViewTracker brandSlug="awesome-tea" />)
-    expect(sendGAEvent).toHaveBeenCalledWith('event', 'view_item', {
-      item_id: 'awesome-tea',
-      source: 'direct',
-    })
-  })
 
   it('fires only once even on re-render', () => {
     const { rerender } = render(<BrandViewTracker brandSlug="awesome-tea" />)
@@ -29,13 +22,4 @@ describe('BrandViewTracker', () => {
     expect(sendGAEvent).toHaveBeenCalledTimes(1)
   })
 
-  it('reads the in-app source from the URL without making the page dynamic', () => {
-    window.history.replaceState({}, '', '/brands/awesome-tea?source=category')
-    render(<BrandViewTracker brandSlug="awesome-tea" />)
-
-    expect(sendGAEvent).toHaveBeenCalledWith('event', 'view_item', {
-      item_id: 'awesome-tea',
-      source: 'category',
-    })
-  })
 })

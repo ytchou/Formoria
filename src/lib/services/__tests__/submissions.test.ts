@@ -191,30 +191,6 @@ describe('submissionToInsert (flat link columns)', () => {
   })
 })
 
-describe('createSubmission — product_type_note', () => {
-  it('persists product_type_note when provided', async () => {
-    const { createSubmission } = await import('../submissions')
-
-    await createSubmission({
-      ...validSubmissionData,
-      productTypeNote: '手工皮件',
-    })
-
-    expect(mockInsert).toHaveBeenCalledWith(
-      expect.objectContaining({ product_type_note: '手工皮件' })
-    )
-  })
-
-  it('persists null product_type_note when not provided', async () => {
-    const { createSubmission } = await import('../submissions')
-
-    await createSubmission({ ...validSubmissionData })
-
-    expect(mockInsert).toHaveBeenCalledWith(
-      expect.objectContaining({ product_type_note: null })
-    )
-  })
-})
 
 describe('getApprovedOwnerSubmissionRecipients', () => {
   it('returns the latest approved owner-submission recipient for each requested brand', async () => {

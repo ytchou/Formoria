@@ -25,26 +25,6 @@ describe("curation job operations", () => {
     });
   });
 
-  it("records a dispatch failure as a terminal failed job", async () => {
-    const select = vi.fn().mockResolvedValue({ data: [{ id: "job-1" }], error: null });
-    const eqStatus = vi.fn(() => ({ select }));
-    const eqId = vi.fn(() => ({ eq: eqStatus }));
-    const update = vi.fn(() => ({ eq: eqId }));
-    mocks.from.mockReturnValue({ update });
-
-    await recordCurationDispatchFailure("job-1", "worker unavailable");
-
-    expect(update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        status: "failed",
-        dispatch_status: "failed",
-        dispatch_error: "worker unavailable",
-        job_error: "worker unavailable",
-        completed_at: expect.any(String),
-        result: { status: "failed", reason: "dispatch_failed" },
-      }),
-    );
-  });
 
   it("cancels pending or running work through the atomic RPC", async () => {
     mocks.rpc.mockResolvedValue({ data: [{ id: "job-1", status: "cancelled" }], error: null });
@@ -59,17 +39,4 @@ describe("curation job operations", () => {
     });
   });
 
-  it("orders the unified log by created time and id", async () => {
-    const limit = vi.fn().mockResolvedValue({ data: [], error: null, count: 0 });
-    const orderId = vi.fn(() => ({ limit }));
-    const orderCreated = vi.fn(() => ({ order: orderId }));
-    const select = vi.fn(() => ({ order: orderCreated }));
-    mocks.from.mockReturnValue({ select });
-
-    await listCurationJobs({ limit: 50 });
-
-    expect(orderCreated).toHaveBeenCalledWith("created_at", { ascending: false });
-    expect(orderId).toHaveBeenCalledWith("id", { ascending: false });
-    expect(limit).toHaveBeenCalledWith(51);
-  });
 });

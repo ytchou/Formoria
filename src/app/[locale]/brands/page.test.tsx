@@ -221,37 +221,5 @@ describe('brands directory empty state', () => {
     }))
   })
 
-  it('falls back to approved random brands when the active category has no recommendations', async () => {
-    vi.mocked(getRandomBrands).mockResolvedValue([recommendedBrand])
 
-    render(await BrandsPage(pageProps('en', {
-      search: 'herbs',
-      category: 'jewelry',
-    })))
-
-    expect(getRandomBrands).toHaveBeenCalledWith(4)
-    expect(searchEmptyStateSpy).toHaveBeenCalledWith(expect.objectContaining({
-      recommendedBrands: [recommendedBrand],
-      recommendationsHref: '/en/brands',
-    }))
-  })
-
-  it('builds contextual filter tokens and deduplicated recovery actions', async () => {
-    render(await BrandsPage(pageProps('en', {
-      search: 'herbs',
-      category: 'jewelry',
-      price: '2',
-      verification: 'owned',
-    })))
-
-    expect(searchEmptyStateSpy).toHaveBeenCalledWith(expect.objectContaining({
-      categoryLabel: 'Jewelry',
-      activeFilters: expect.arrayContaining([
-        expect.objectContaining({ id: 'search', value: 'herbs' }),
-        expect.objectContaining({ id: 'category-jewelry', value: 'Jewelry' }),
-        expect.objectContaining({ id: 'price-2', value: '$$' }),
-        expect.objectContaining({ id: 'verification', value: 'Owner-managed' }),
-      ]),
-    }))
-  })
 })

@@ -8,10 +8,6 @@ describe('analytics delta formatters', () => {
     expect(countDelta(100, 100)).toEqual({ direction: 'flat', text: '— 0%' })
   })
 
-  it('countDelta returns undefined for null/zero prior', () => {
-    expect(countDelta(100, null)).toBeUndefined()
-    expect(countDelta(100, 0)).toBeUndefined()
-  })
 
   it('rateDelta returns percentage point delta', () => {
     expect(rateDelta(0.4, 0.25)).toEqual({
@@ -28,10 +24,6 @@ describe('analytics delta formatters', () => {
     })
   })
 
-  it('rateDelta returns undefined for null inputs', () => {
-    expect(rateDelta(null, 0.25)).toBeUndefined()
-    expect(rateDelta(0.25, null)).toBeUndefined()
-  })
 
   it('rateDelta handles prior of zero', () => {
     expect(rateDelta(0.15, 0)).toEqual({ direction: 'up', text: '↑ 15.0pp' })

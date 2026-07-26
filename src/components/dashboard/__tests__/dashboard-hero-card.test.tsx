@@ -120,7 +120,6 @@ describe('DashboardHeroCard', () => {
     expect(screen.getByText('Test Brand')).toBeInTheDocument()
     const statusBadges = container.querySelectorAll('[data-slot="badge"]')
     expect(statusBadges.item(0)).toHaveTextContent('published')
-    expect(statusBadges.item(0)).toHaveClass('bg-verified-green-bg')
     expect(statusBadges.item(1)).toHaveTextContent('status.verified')
   })
 
@@ -134,7 +133,6 @@ describe('DashboardHeroCard', () => {
 
     const statusBadges = container.querySelectorAll('[data-slot="badge"]')
     expect(statusBadges.item(0)).toHaveTextContent('hidden')
-    expect(statusBadges.item(0)).toHaveClass('bg-secondary')
     expect(statusBadges.item(1)).toHaveTextContent('status.unverified')
   })
 

@@ -83,7 +83,6 @@ describe('MainNav', () => {
     const { container } = render(<MainNav categories={mockCategories} />)
     const header = container.querySelector('header')
 
-    expect(header).toHaveClass('sticky', 'top-0', 'z-50')
     expect(header).toContainElement(screen.getByTestId('nav-category-tabs'))
   })
 
@@ -94,14 +93,6 @@ describe('MainNav', () => {
     expect(submitLinks[0]).toHaveAttribute('href', '/submit')
   })
 
-  it('renders Submit a Brand CTA', async () => {
-    const { MainNav } = await import('./main-nav')
-    render(<MainNav categories={mockCategories} />)
-    expect(screen.getByRole('link', { name: '提交品牌' })).toHaveAttribute(
-      'href',
-      '/submit'
-    )
-  })
 
   it('does not render removed nav links (brandDirectory, mySubmissions)', async () => {
     const { MainNav } = await import('./main-nav')

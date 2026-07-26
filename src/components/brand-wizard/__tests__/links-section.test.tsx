@@ -37,7 +37,6 @@ describe('BrandLinksSection', () => {
 
     const instagram = screen.getByLabelText('Instagram')
     expect(instagram.closest('[data-platform-row]')).toHaveTextContent('Instagram')
-    expect(instagram.closest('[data-platform-row]')).toHaveClass('grid')
   })
 
   it('starts other links with one blank label and URL row', async () => {

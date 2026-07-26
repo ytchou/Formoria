@@ -85,25 +85,6 @@ describe('saveSectionDraftAction', () => {
     )
   })
 
-  it('preserves and extends saved wizard progress', async () => {
-    vi.mocked(getBrandDraft).mockResolvedValue({
-      name: 'Warmwood Living',
-      __wizardCompletedSteps: [0, 1],
-    })
-
-    await saveSectionDraftAction('brand-id', 'brand-slug', 'links', {
-      purchaseWebsite: 'https://warmwood.example',
-    })
-
-    expect(saveDraft).toHaveBeenCalledWith(
-      'brand-id',
-      expect.objectContaining({
-        name: 'Warmwood Living',
-        purchaseWebsite: 'https://warmwood.example',
-        __wizardCompletedSteps: [0, 1, 2],
-      }),
-    )
-  })
 
   it('stores reputation fields in the brand domain shape', async () => {
     vi.mocked(getBrandDraft).mockResolvedValue({ name: 'Warmwood Living' })

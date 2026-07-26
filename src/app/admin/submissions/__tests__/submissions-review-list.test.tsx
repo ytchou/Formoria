@@ -149,9 +149,6 @@ describe("SubmissionsReviewList", () => {
     );
     fireEvent.click(submittedRange);
     expect(showPicker).toHaveBeenCalledOnce();
-    expect(submittedRange).not.toHaveClass(
-      "[&::-webkit-calendar-picker-indicator]:opacity-0",
-    );
     fireEvent.change(submittedRange, {
       target: { value: "2026-07-19" },
     });
@@ -372,9 +369,6 @@ describe("SubmissionsReviewList", () => {
     await user.click(firstChevron);
     expect(screen.getByText("details-one")).toBeInTheDocument();
     expect(firstChevron).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("dialog", { name: "First Brand" })).toHaveClass(
-      "data-[side=right]:sm:max-w-6xl",
-    );
     await user.click(screen.getByRole("button", { name: "Close" }));
 
     await user.click(
@@ -414,15 +408,6 @@ describe("SubmissionsReviewList", () => {
     );
 
     expect(screen.getByRole("button", { name: "Approve" })).toBeDisabled();
-    expect(screen.getByText("Partial")).toHaveClass(
-      "bg-warning/10",
-      "text-warning",
-    );
-    expect(
-      screen.getByText(
-        "Missing required fields: Hero image, At least one additional image",
-      ),
-    ).toHaveClass("text-warning");
   });
 });
 

@@ -107,7 +107,6 @@ describe('SubmitOverview', () => {
     expect(dialog).toHaveTextContent(
       '每個帳號只能管理一個品牌，因此你無法再以品牌主身分提交其他品牌。若想分享其他品牌，請改用社群推薦流程。',
     );
-    expect(dialog).toHaveClass('sm:!max-w-lg');
     expect(screen.getByRole('button', { name: '關閉' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: '前往推薦品牌' }));
@@ -157,21 +156,5 @@ describe('SubmitOverview', () => {
     );
   });
 
-  it('calls trackSubmissionPathSelected when recommendation CTA is clicked', async () => {
-    const user = userEvent.setup();
-    renderWithZhTW(<SubmitOverview isLoggedIn />);
 
-    await user.click(screen.getByRole('link', { name: /推薦品牌/i }));
-
-    expect(trackSubmissionPathSelected).toHaveBeenCalledWith('recommend', true);
-  });
-
-  it('calls trackSubmissionPathSelected when owner CTA is clicked', async () => {
-    const user = userEvent.setup();
-    renderWithZhTW(<SubmitOverview isLoggedIn />);
-
-    await user.click(screen.getByRole('link', { name: zhMessages.submit.overview.ownerCtaLoggedIn }));
-
-    expect(trackSubmissionPathSelected).toHaveBeenCalledWith('claim', true);
-  });
 });

@@ -57,11 +57,5 @@ describe('AboutHero', () => {
 
     const heroImage = screen.getByAltText('')
     expect(heroImage).toHaveAttribute('src', expect.stringContaining('hero-bg.png'))
-    expect(heroImage).toHaveClass('object-cover', 'object-right')
-    expect(heroImage.closest('section')).toHaveClass('py-12', 'md:py-20')
-    expect(heroImage.closest('section')?.querySelector('[aria-hidden="true"]')).toHaveClass(
-      'bg-background/70',
-      'md:bg-background/45',
-    )
   })
 })

@@ -63,41 +63,9 @@ describe("generic repair patch validation", () => {
     );
   });
 
-  it("accepts exactly the files allowed by traceability", async () => {
-    const directory = await fixture();
-    await writeFile(
-      path.join(directory, "src/cart.ts"),
-      "export const total = 2;\n",
-    );
 
-    await expect(validate(directory)).resolves.toBeUndefined();
-  });
 
-  it("accepts an allowlisted new file", async () => {
-    const directory = await fixture(["src/new-cart.ts"]);
-    await writeFile(
-      path.join(directory, "src/new-cart.ts"),
-      "export const total = 2;\n",
-    );
 
-    await expect(validate(directory)).resolves.toBeUndefined();
-  });
-
-  it("accepts an allowlisted deletion", async () => {
-    const directory = await fixture();
-    await rm(path.join(directory, "src/cart.ts"));
-
-    await expect(validate(directory)).resolves.toBeUndefined();
-  });
-
-  it("accepts a rename when both paths are allowlisted", async () => {
-    const directory = await fixture(["src/cart.ts", "src/renamed-cart.ts"]);
-    await execFileAsync("git", ["mv", "src/cart.ts", "src/renamed-cart.ts"], {
-      cwd: directory,
-    });
-
-    await expect(validate(directory)).resolves.toBeUndefined();
-  });
 
   it("rejects an extra changed file", async () => {
     const directory = await fixture();

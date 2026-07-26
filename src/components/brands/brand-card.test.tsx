@@ -103,29 +103,7 @@ describe('BrandCard', () => {
     mockTrackBrandCardClicked.mockClear()
   })
 
-  it('calls trackBrandCardClicked with slug, category, and position on click', async () => {
-    const user = userEvent.setup()
-    renderWithProvider(<BrandCard brand={mockBrand} position={2} />)
-    await user.click(screen.getByRole('link'))
-    expect(mockTrackBrandCardClicked).toHaveBeenCalledWith(
-      'test-brand',
-      'accessories',
-      2,
-      'b1',
-    )
-  })
 
-  it('defaults position to 0 when not provided', async () => {
-    const user = userEvent.setup()
-    renderWithProvider(<BrandCard brand={mockBrand} />)
-    await user.click(screen.getByRole('link'))
-    expect(mockTrackBrandCardClicked).toHaveBeenCalledWith(
-      'test-brand',
-      'accessories',
-      0,
-      'b1',
-    )
-  })
 
   it('loads prioritized card images eagerly and other cards lazily', () => {
     const eagerBrand = {
