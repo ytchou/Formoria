@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 describe("nightly E2E Agent Hub reporting", () => {
-  it("uses the scoped reporter, off-hour schedule, and failure-only artifacts", async () => {
+  it("uses scoped reporting, complete evidence, and a Formoria Slack webhook", async () => {
     const workflow = await readFile(
       ".github/workflows/e2e-nightly.yml",
       "utf8",
@@ -16,6 +16,11 @@ describe("nightly E2E Agent Hub reporting", () => {
       'TZ=Asia/Taipei date -d "$workflow_started_at" +%F',
     );
     expect(workflow).toContain("retention-days: 7");
+    expect(workflow).toContain("test-results");
+    expect(workflow).toContain("selfheal-context.json");
+    expect(workflow).toContain("repair-ledger.json");
+    expect(workflow).toContain("SLACK_FORMORIA_WEBHOOK_URL");
+    expect(workflow).not.toContain("SLACK_HEALTH_WEBHOOK_URL");
     expect(workflow).not.toContain("TZ=Asia/Taipei date +%F");
     expect(workflow).not.toContain("AGENT_HUB_SERVICE_KEY");
     expect(workflow).not.toContain("rest/v1/rpc/insert_routine_run");
@@ -33,27 +38,78 @@ describe("nightly E2E Agent Hub reporting", () => {
     expect(workflow).toContain(
       'cp "$RUNNER_TEMP/formoria-selfheal-build.log" "$REPORT_DIR/build.log"',
     );
-    expect(workflow).toContain("failure_context:");
+    expect(workflow).toContain("cluster_context:");
     expect(workflow).toContain(
       'GH_TOKEN="$WORKFLOW_DISPATCH_TOKEN" gh workflow run e2e-nightly.yml',
     );
-    expect(workflow).toContain('git fetch origin "$DEFAULT_BRANCH" --prune');
-    expect(workflow).toContain('git rebase "origin/$DEFAULT_BRANCH"');
+    expect(workflow).toContain('git fetch origin "$REPAIR_BASE" --prune');
+    expect(workflow).toContain('git rebase "origin/$REPAIR_BASE"');
     expect(workflow.match(/allowed_bots: github-actions/g)).toHaveLength(2);
     expect(workflow).toContain(
       '--allowedTools "Read,Write,Edit,Replace,Glob,Grep',
     );
     expect(workflow).toContain("Bash(pnpm:*)");
+    expect(workflow).toContain("additional_permissions: |");
+    expect(workflow).toContain("actions: read");
     expect(workflow).toContain(
       '--allowedTools "Read,Glob,Grep,Bash(git status:*)',
     );
-    expect(workflow).toContain(
-      "Return the required VERDICT, JUSTIFICATION, APP_FILES, and RISK lines",
-    );
+    expect(workflow).toContain("id: review_gate");
+    expect(workflow).toContain("REVIEW_RESULT");
+    expect(workflow).toContain('.verdict == "PASS"');
 
     const reportIndex = workflow.indexOf("Report E2E results to Agent Hub");
     const alertIndex = workflow.indexOf("actions/github-script@");
     expect(reportIndex).toBeGreaterThan(0);
     expect(alertIndex).toBeGreaterThan(reportIndex);
+  });
+
+  it("repairs one cluster per round and persists incomplete work", async () => {
+    const workflow = await readFile(
+      ".github/workflows/e2e-nightly.yml",
+      "utf8",
+    );
+
+    expect(workflow).toContain("cluster_file=");
+    expect(workflow).toContain("cluster_specs=");
+    expect(workflow).toContain("Checkpoint repair progress");
+    expect(workflow).toContain("previous_state");
+    expect(workflow).toContain("no_progress=true");
+    expect(workflow).toContain("steps.checkpoint.outputs.complete == 'true'");
+    expect(workflow).toContain("steps.checkpoint.outputs.complete != 'true'");
+    expect(workflow).toContain("Continue incomplete self-heal");
+    expect(workflow).not.toMatch(/max[_-](attempts|retries|rounds)/i);
+    expect(workflow).not.toContain("--max-turns 60");
+  });
+
+  it("guards canary bases and never auto-merges a self-heal PR", async () => {
+    const workflow = await readFile(
+      ".github/workflows/e2e-nightly.yml",
+      "utf8",
+    );
+
+    expect(workflow).toContain("repair_base:");
+    expect(workflow).toContain("selfheal-test/*");
+    expect(workflow).toContain('--base "$REPAIR_BASE"');
+    expect(workflow).toContain("Manual review and merge required");
+    expect(workflow).not.toContain("gh pr merge");
+    expect(workflow).not.toContain("dry_run");
+  });
+
+  it("sends one initial result and one terminal ready-or-blocked result", async () => {
+    const workflow = await readFile(
+      ".github/workflows/e2e-nightly.yml",
+      "utf8",
+    );
+
+    expect(workflow.match(/E2E_SLACK_PHASE: initial/g)).toHaveLength(1);
+    expect(workflow.match(/E2E_SLACK_PHASE: ready/g)).toHaveLength(1);
+    expect(workflow.match(/E2E_SLACK_PHASE: blocked/g)).toHaveLength(1);
+    expect(workflow).toContain("needs: [selfheal]");
+    expect(workflow).toContain(
+      "needs.selfheal.outputs.continuation_dispatched != 'true'",
+    );
+    expect(workflow).toContain("Notify Slack that the self-heal PR is ready");
+    expect(workflow).toContain("Notify Slack that self-heal is blocked");
   });
 });
