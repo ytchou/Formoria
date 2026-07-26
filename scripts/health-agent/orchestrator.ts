@@ -1152,6 +1152,7 @@ export interface SlackDigestInput {
   linearOutcomes?: readonly JsonValue[];
   prOutcomes?: readonly JsonValue[];
   skippedActions?: readonly JsonValue[];
+  workflowUrl?: string;
 }
 
 export interface DeliveryDependencies {
@@ -1300,6 +1301,7 @@ export interface AggregateInput {
   skippedActions?: readonly JsonValue[];
   workflowAttempt: number;
   workflowRunId: string | number;
+  workflowUrl?: string;
 }
 
 export interface DeliveryStatus {
@@ -1635,6 +1637,7 @@ export async function aggregateAndDeliver(
     linearOutcomes: linearOutcomes.map(redactForAudit),
     prOutcomes: (input.prOutcomes ?? []).map(redactForAudit),
     skippedActions: skippedActions.map(redactForAudit),
+    workflowUrl: input.workflowUrl,
   };
   const envelopesByRoutine = new Map(
     envelopes.map((envelope) => [envelope.routine, envelope] as const),

@@ -276,27 +276,37 @@ function firstArraySection(report: SlackReport, keys: string[]): unknown[] {
 }
 
 function findingLines(findings: unknown[]): string[] {
-  return findings.map((value) => {
-    if (!isRecord(value)) return `- ${jsonText(value)}`;
+  return findings.slice(0, 3).map((value) => {
+    if (!isRecord(value)) return "- Untitled finding (unknown)";
     const title = stringValue(value.title) ?? "Untitled finding";
     const source = stringValue(value.source) ?? "unknown";
     const severity = stringValue(value.severity)?.toUpperCase() ?? "UNKNOWN";
-    const fingerprint = stringValue(value.fingerprint) ?? "unknown";
-    const evidence = isRecord(value.evidence) ? jsonText(value.evidence) : "{}";
-    const reason = stringValue(value.humanReason);
-    return [
-      `- [${severity}] ${title} (${source})`,
-      `  fingerprint: ${fingerprint}`,
-      `  evidence: ${evidence}`,
-      ...(reason ? [`  human reason: ${reason}`] : []),
-    ].join("\n");
+    return `- [${severity}] ${title.slice(0, 180)} (${source})`;
   });
 }
 
-function noteLines(entries: unknown[]): string[] {
-  return entries.map((entry) => {
-    if (typeof entry === "string") return `- ${entry}`;
-    return `- ${jsonText(entry)}`;
+function groupedCounts(entries: unknown[], key: string): string {
+  const counts = new Map<string, number>();
+  for (const entry of entries) {
+    const value = isRecord(entry) ? stringValue(entry[key]) : undefined;
+    const label = value ?? "unknown";
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([label, count]) => `${label}: ${count}`)
+    .join(", ");
+}
+
+function failureLines(entries: unknown[]): string[] {
+  return entries.slice(0, 3).map((entry) => {
+    if (typeof entry === "string") return `- ${entry.slice(0, 180)}`;
+    if (!isRecord(entry)) return "- Unspecified failure";
+    const reason =
+      stringValue(entry.reason) ??
+      stringValue(entry.failure) ??
+      stringValue(entry.status);
+    return `- ${(reason ?? "Unspecified failure").slice(0, 180)}`;
   });
 }
 
@@ -313,6 +323,7 @@ export interface SlackReport {
   pullRequestOutcomes?: readonly SlackEntry[] | SlackEntry;
   skipped?: readonly SlackEntry[] | SlackEntry;
   skippedActions?: readonly SlackEntry[] | SlackEntry;
+  workflowUrl?: string;
 }
 
 export function renderSlackDigest(report: SlackReport): string {
@@ -333,52 +344,47 @@ export function renderSlackDigest(report: SlackReport): string {
 
   const sections: string[] = [];
   if (findings.length > 0) {
-    sections.push(`*Actionable findings*\n${findingLines(findings)}`);
+    const severities = groupedCounts(findings, "severity");
+    const sources = groupedCounts(findings, "source");
+    const remaining = Math.max(0, findings.length - 3);
+    sections.push(
+      `*Findings:* ${findings.length} (${severities}; ${sources})\n${findingLines(findings).join("\n")}${remaining > 0 ? `\n- …and ${remaining} more` : ""}`,
+    );
   }
   if (skipped.length > 0) {
-    sections.push(`*Skipped actions*\n${noteLines(skipped)}`);
+    sections.push(`*Skipped actions:* ${skipped.length}`);
   }
   if (failures.length > 0) {
-    sections.push(`*Failures*\n${noteLines(failures)}`);
+    sections.push(
+      `*Failures:* ${failures.length}\n${failureLines(failures).join("\n")}`,
+    );
   }
   if (linear.length > 0) {
-    sections.push(`*Linear outcomes*\n${noteLines(linear)}`);
+    sections.push(
+      `*Linear:* ${linear.length} (${groupedCounts(linear, "status")})`,
+    );
   }
   if (pullRequests.length > 0) {
-    sections.push(`*PR outcomes*\n${noteLines(pullRequests)}`);
+    sections.push(
+      `*PR:* ${pullRequests.length} (${groupedCounts(pullRequests, "status")})`,
+    );
   }
   if (sections.length === 0) return "Formoria health agent: all clear.";
-  return ["*Formoria health agent*", ...sections].join("\n\n");
+  if (report.workflowUrl)
+    sections.push(`<${report.workflowUrl}|Open workflow run>`);
+  return ["*Formoria health agent summary*", ...sections].join("\n\n");
 }
 
 const SLACK_TEXT_LIMIT = 2_999;
 
-function chunkSlackText(text: string): string[] {
-  const chunks: string[] = [];
-  let current = "";
-  const append = (value: string) => {
-    if (Array.from(value).length <= SLACK_TEXT_LIMIT) {
-      current = value;
-      return;
-    }
-    const characters = Array.from(value);
-    for (let index = 0; index < characters.length; index += SLACK_TEXT_LIMIT) {
-      chunks.push(characters.slice(index, index + SLACK_TEXT_LIMIT).join(""));
-    }
-    current = "";
-  };
-
-  for (const line of text.split("\n")) {
-    const candidate = current ? `${current}\n${line}` : line;
-    if (Array.from(candidate).length <= SLACK_TEXT_LIMIT) {
-      current = candidate;
-      continue;
-    }
-    if (current) chunks.push(current);
-    append(line);
-  }
-  if (current) chunks.push(current);
-  return chunks.length > 0 ? chunks : [""];
+function boundedSlackText(text: string): string {
+  const characters = Array.from(text);
+  if (characters.length <= SLACK_TEXT_LIMIT) return text;
+  const suffix = "\n…summary truncated; open the workflow run for details";
+  return (
+    characters.slice(0, SLACK_TEXT_LIMIT - Array.from(suffix).length).join("") +
+    suffix
+  );
 }
 
 export interface SlackAdapterOptions extends AdapterDependencies {
@@ -400,30 +406,26 @@ export async function sendSlackDigest(
     "Slack webhook URL is required",
   );
   const deps = dependencies(options);
-  const chunks = chunkSlackText(renderSlackDigest(report));
-  for (const [index, text] of chunks.entries()) {
-    await externalRequest(
-      deps,
-      "slack",
-      "send_message",
-      webhookUrl,
-      {
-        body: JSON.stringify({ text }),
-        headers: { "content-type": "application/json" },
-        method: "POST",
+  const text = boundedSlackText(renderSlackDigest(report));
+  await externalRequest(
+    deps,
+    "slack",
+    "send_message",
+    webhookUrl,
+    {
+      body: JSON.stringify({ text }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    },
+    {
+      parseJson: false,
+      request: {
+        channel: "incoming_webhook",
+        characterCount: Array.from(text).length,
       },
-      {
-        parseJson: false,
-        request: {
-          channel: "incoming_webhook",
-          characterCount: Array.from(text).length,
-          chunkIndex: index + 1,
-          chunkCount: chunks.length,
-        },
-      },
-    );
-  }
-  return chunks.length;
+    },
+  );
+  return 1;
 }
 
 export function createSlackAdapter(options: SlackAdapterOptions): SlackAdapter {
@@ -522,9 +524,10 @@ export interface LinearAdapter {
 }
 
 const LINEAR_LOOKUP_QUERY = `
-  query HealthAgentIssueLookup($teamId: ID!, $projectId: ID!, $marker: String!) {
-    issues(filter: { team: { id: { eq: $teamId } }, project: { id: { eq: $projectId } }, description: { contains: $marker } }, first: 10) {
+  query HealthAgentIssueLookup($teamId: ID!, $projectId: ID!, $after: String) {
+    issues(filter: { team: { id: { eq: $teamId } }, project: { id: { eq: $projectId } } }, first: 250, after: $after) {
       nodes { id identifier title description team { id } project { id } }
+      pageInfo { hasNextPage endCursor }
     }
   }
 `;
@@ -758,22 +761,42 @@ export async function syncLinearFindings(
     return next;
   };
 
-  for (const finding of eligible) {
-    const marker = fingerprintMarker(finding.fingerprint);
+  const projectIssues: Record<string, unknown>[] = [];
+  const seenCursors = new Set<string>();
+  let after: string | undefined;
+  do {
     const lookup = await graphql(
-      "lookup_issue",
+      "lookup_issues",
       LINEAR_LOOKUP_QUERY,
-      { marker, projectId, teamId },
+      { ...(after ? { after } : {}), projectId, teamId },
       (value) => graphqlDataHas("issues", value),
     );
-    const existing = issueNodes({ data: lookup }).find((node) => {
+    projectIssues.push(...issueNodes({ data: lookup }));
+    const issues = lookup.issues;
+    const pageInfo = isRecord(issues) ? issues.pageInfo : undefined;
+    const hasNextPage = isRecord(pageInfo) && pageInfo.hasNextPage === true;
+    after = hasNextPage ? stringValue(pageInfo.endCursor) : undefined;
+    if (hasNextPage && (!after || seenCursors.has(after))) {
+      throw new HealthAdapterError(
+        "Linear returned invalid pagination metadata",
+        "linear",
+        "lookup_issues",
+      );
+    }
+    if (after) seenCursors.add(after);
+  } while (after);
+
+  for (const finding of eligible) {
+    const marker = fingerprintMarker(finding.fingerprint);
+    const existing = projectIssues.find((node) => {
       const team = node.team;
       const project = node.project;
       return (
         isRecord(team) &&
         stringValue(team.id) === teamId &&
         isRecord(project) &&
-        stringValue(project.id) === projectId
+        stringValue(project.id) === projectId &&
+        stringValue(node.description)?.includes(marker) === true
       );
     });
     const labelName = linearLabelName(finding);

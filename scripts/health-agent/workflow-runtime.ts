@@ -42,7 +42,7 @@ import {
   buildPrResultEnvelope,
   buildLinkHealthRequest,
   collectDirectoryArtifact,
-  enqueueAndClaimBatch,
+  enqueueAndClaimPolicyBatches,
   executeLinkHealthRequest,
   failedCollectorArtifact,
   loadCollectorArtifact,
@@ -216,6 +216,7 @@ export interface AggregateWorkflowInput {
   sentryArtifactPath: string;
   workflowAttempt: number;
   workflowRunId: string;
+  workflowUrl?: string;
 }
 
 export interface QueueWorkflowInput {
@@ -2038,6 +2039,7 @@ export async function runAggregateAndDeliver(
       runAt: input.runAt,
       workflowAttempt: input.workflowAttempt,
       workflowRunId: input.workflowRunId,
+      workflowUrl: input.workflowUrl,
     },
     dependencies,
   );
@@ -2286,7 +2288,7 @@ export async function enqueueAndClaimWorkflowBatch(
     input.findingsArtifactPath,
     filesFor(dependencies),
   );
-  const result = await enqueueAndClaimBatch(
+  const result = await enqueueAndClaimPolicyBatches(
     {
       canaryFingerprints: input.canaryFingerprints,
       findings: findingsFromArtifact(value).filter(
@@ -2295,7 +2297,10 @@ export async function enqueueAndClaimWorkflowBatch(
       leaseOwner: input.leaseOwner,
       mode: input.mode,
     },
-    dependencies.queue ?? supabaseQueueDependencies(dependencies),
+    {
+      ...dependencies,
+      queue: dependencies.queue ?? supabaseQueueDependencies(dependencies),
+    },
     environmentFor(dependencies),
   );
   await writeRedactedJson(input.outputPath, result, filesFor(dependencies));
@@ -2920,6 +2925,10 @@ export async function runWorkflowCommand(
           ),
           workflowAttempt: safeAttempt(input.workflowAttempt),
           workflowRunId: safeString(input.workflowRunId, "workflowRunId"),
+          workflowUrl:
+            typeof input.workflowUrl === "string"
+              ? input.workflowUrl
+              : undefined,
         },
         dependencies,
       );
@@ -3104,6 +3113,7 @@ export async function main(
     snapshotPath: optionalArgument(argv, "--snapshot"),
     workflowAttempt: attempt ? Number(attempt) : undefined,
     workflowRunId: optionalArgument(argv, "--run-id"),
+    workflowUrl: optionalArgument(argv, "--workflow-url"),
     windowHours: windowHours ? Number(windowHours) : 25,
     autoMergeEnabled: optionalArgument(argv, "--auto-merge-enabled") === "true",
     expectedEscalation:

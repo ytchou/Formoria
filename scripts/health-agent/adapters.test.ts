@@ -49,7 +49,7 @@ function bodyAt(
 }
 
 describe("Slack adapter", () => {
-  it("renders findings, evidence, skips, failures, Linear, and PR outcomes", async () => {
+  it("sends one bounded summary without raw evidence", async () => {
     const { audit, records } = auditLog();
     const fetchImpl = vi
       .fn<typeof fetch>()
@@ -67,23 +67,27 @@ describe("Slack adapter", () => {
       linearOutcomes: [{ identifier: "FOR-42", status: "updated" }],
       pullRequestOutcomes: [{ identifier: "pr-7", status: "opened" }],
       skippedActions: [{ action: "branch deletion", reason: "protected" }],
+      workflowUrl: "https://github.com/ytchou/Formoria/actions/runs/123",
     });
 
     expect(count).toBe(1);
     expect(fetchImpl).toHaveBeenCalledWith(
       "https://hooks.slack.test/services/private-webhook",
       expect.objectContaining({
-        body: expect.stringContaining("user@example.com"),
+        body: expect.stringContaining("Production error needs review"),
         headers: { "content-type": "application/json" },
         method: "POST",
       }),
     );
     const text = String(bodyAt(fetchImpl, 0).text);
     expect(text).toContain("Production error needs review");
-    expect(text).toContain("do-not-audit");
-    expect(text).toContain("protected");
+    expect(text).not.toContain("do-not-audit");
+    expect(text).not.toContain("user@example.com");
+    expect(text).not.toContain("sentry:issue:issue-1");
+    expect([...text].length).toBeLessThan(3_000);
     expect(text).toContain("Linear");
     expect(text).toContain("PR");
+    expect(text).toContain("Open workflow run");
     expect(records.every((record) => record.schemaValid !== undefined)).toBe(
       true,
     );
@@ -93,7 +97,7 @@ describe("Slack adapter", () => {
     expect(auditJson).not.toContain("user@example.com");
   });
 
-  it("chunks messages below Slack's 3000-character limit and returns the count", async () => {
+  it("truncates a large digest into one Slack message", async () => {
     const fetchImpl = vi
       .fn<typeof fetch>()
       .mockResolvedValue(new Response(null, { status: 204 }));
@@ -112,11 +116,10 @@ describe("Slack adapter", () => {
       ],
     });
 
-    expect(count).toBeGreaterThan(1);
-    for (const call of fetchImpl.mock.calls) {
-      const payload = JSON.parse(String(call[1]?.body)) as { text: string };
-      expect([...payload.text].length).toBeLessThan(3_000);
-    }
+    expect(count).toBe(1);
+    expect(fetchImpl).toHaveBeenCalledOnce();
+    const payload = bodyAt(fetchImpl, 0) as { text: string };
+    expect([...payload.text].length).toBeLessThan(3_000);
   });
 
   it("sends a compact all-clear and throws on a non-2xx response", async () => {
@@ -208,11 +211,11 @@ describe("Linear adapter", () => {
 
     expect(result).toMatchObject({ created: 1, skipped: 1, updated: 0 });
     expect(fetchImpl).toHaveBeenCalledTimes(3);
-    expect(bodyAt(fetchImpl, 0).variables).toMatchObject({
-      marker: expect.stringContaining(exhausted.fingerprint),
+    expect(bodyAt(fetchImpl, 0).variables).toEqual({
       projectId: "project-1",
       teamId: "team-1",
     });
+    expect(bodyAt(fetchImpl, 0).query).not.toContain("description: { contains");
     const createInput = (
       bodyAt(fetchImpl, 2).variables as Record<string, unknown>
     ).input as Record<string, unknown>;
@@ -277,6 +280,7 @@ describe("Linear adapter", () => {
     expect(bodyAt(fetchImpl, 0).query).toEqual(
       expect.stringContaining("description"),
     );
+    expect(bodyAt(fetchImpl, 0).query).not.toContain("description: { contains");
     expect(bodyAt(fetchImpl, 2).variables).toMatchObject({ id: "linear-1" });
     const updateInput = (
       bodyAt(fetchImpl, 2).variables as Record<string, unknown>
@@ -287,6 +291,114 @@ describe("Linear adapter", () => {
       projectId: "project-1",
     });
     expect(JSON.stringify(updateInput)).not.toContain("milestone");
+  });
+
+  it("loads project issues once for multiple eligible findings", async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse({ data: { issues: { nodes: [] } } }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            issueLabels: {
+              nodes: [{ id: "label-ops", name: "Ops", team: { id: "team-1" } }],
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            issueCreate: {
+              issue: { id: "linear-1", identifier: "FOR-10" },
+              success: true,
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            issueCreate: {
+              issue: { id: "linear-2", identifier: "FOR-11" },
+              success: true,
+            },
+          },
+        }),
+      );
+    const adapter = createLinearAdapter(
+      linearConfig(fetchImpl, () => undefined),
+    );
+
+    await adapter.sync([
+      finding(),
+      finding({ fingerprint: "sentry:issue:issue-2" }),
+    ]);
+
+    const lookupCalls = fetchImpl.mock.calls.filter(([, init]) =>
+      String(init?.body).includes("HealthAgentIssueLookup"),
+    );
+    expect(lookupCalls).toHaveLength(1);
+    expect(fetchImpl).toHaveBeenCalledTimes(4);
+  });
+
+  it("paginates project issues before matching a fingerprint", async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            issues: {
+              nodes: [],
+              pageInfo: { endCursor: "cursor-1", hasNextPage: true },
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            issues: {
+              nodes: [
+                {
+                  description:
+                    "<!-- health-agent:fingerprint:sentry:issue:issue-1 -->",
+                  id: "linear-1",
+                  project: { id: "project-1" },
+                  team: { id: "team-1" },
+                },
+              ],
+              pageInfo: { endCursor: null, hasNextPage: false },
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            issueLabels: {
+              nodes: [{ id: "label-ops", name: "Ops", team: { id: "team-1" } }],
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({ data: { issueUpdate: { success: true } } }),
+      );
+    const adapter = createLinearAdapter(
+      linearConfig(fetchImpl, () => undefined),
+    );
+
+    await expect(adapter.sync([finding()])).resolves.toMatchObject({
+      created: 0,
+      updated: 1,
+    });
+
+    expect(bodyAt(fetchImpl, 1).variables).toMatchObject({
+      after: "cursor-1",
+      projectId: "project-1",
+      teamId: "team-1",
+    });
   });
 
   it("does not update a fingerprint match returned from another project", async () => {
