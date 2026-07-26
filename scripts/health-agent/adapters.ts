@@ -564,8 +564,8 @@ export interface SlackAdapter {
   send(report: SlackReport): Promise<number>;
 }
 
-export async function sendSlackMessage(
-  message: string,
+export async function sendSlackDigest(
+  report: SlackReport,
   options: SlackAdapterOptions,
 ): Promise<number> {
   const webhookUrl = asNonemptyString(
@@ -573,7 +573,7 @@ export async function sendSlackMessage(
     "Slack webhook URL is required",
   );
   const deps = dependencies(options);
-  const text = boundedSlackText(message);
+  const text = boundedSlackText(renderSlackDigest(report));
   await externalRequest(
     deps,
     "slack",
@@ -593,13 +593,6 @@ export async function sendSlackMessage(
     },
   );
   return 1;
-}
-
-export async function sendSlackDigest(
-  report: SlackReport,
-  options: SlackAdapterOptions,
-): Promise<number> {
-  return sendSlackMessage(renderSlackDigest(report), options);
 }
 
 export function createSlackAdapter(options: SlackAdapterOptions): SlackAdapter {

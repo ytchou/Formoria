@@ -49,6 +49,8 @@ describe("nightly E2E Agent Hub reporting", () => {
       '--allowedTools "Read,Write,Edit,Replace,Glob,Grep',
     );
     expect(workflow).toContain("Bash(pnpm:*)");
+    expect(workflow).toContain("Bash(git status:*)");
+    expect(workflow).not.toContain("Bash(git:*)");
     expect(workflow).toContain("additional_permissions: |");
     expect(workflow).toContain("actions: read");
     expect(workflow).toContain(
@@ -105,6 +107,9 @@ describe("nightly E2E Agent Hub reporting", () => {
     expect(workflow.match(/E2E_SLACK_PHASE: initial/g)).toHaveLength(1);
     expect(workflow.match(/E2E_SLACK_PHASE: ready/g)).toHaveLength(1);
     expect(workflow.match(/E2E_SLACK_PHASE: blocked/g)).toHaveLength(1);
+    expect(workflow).toContain(
+      "SELFHEAL_ENABLED: ${{ vars.SELFHEAL_ENABLED }}",
+    );
     expect(workflow).toContain("needs: [selfheal]");
     expect(workflow).toContain(
       "needs.selfheal.outputs.continuation_dispatched != 'true'",

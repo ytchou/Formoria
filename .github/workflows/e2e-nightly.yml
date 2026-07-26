@@ -275,6 +275,7 @@ jobs:
           GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
           GITHUB_RUN_ID: ${{ github.run_id }}
           JOB_STATUS: ${{ job.status }}
+          SELFHEAL_ENABLED: ${{ vars.SELFHEAL_ENABLED }}
           SLACK_FORMORIA_WEBHOOK_URL: ${{ secrets.SLACK_FORMORIA_WEBHOOK_URL }}
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: pnpm exec tsx scripts/notifications/e2e-slack.ts
@@ -560,7 +561,7 @@ jobs:
             the minimal justified edits, run only the affected spec, and return
             the required structured result.
           claude_args: >-
-            --allowedTools "Read,Write,Edit,Replace,Glob,Grep,Bash(git:*),Bash(pnpm:*),Bash(gh run view:*),Bash(ls:*),Bash(find:*),Bash(sed:*),Bash(cat:*),Bash(pwd:*)"
+            --allowedTools "Read,Write,Edit,Replace,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git blame:*),Bash(pnpm:*),Bash(gh run view:*),Bash(ls:*),Bash(find:*),Bash(sed:*),Bash(cat:*),Bash(pwd:*)"
             --json-schema '{"type":"object","additionalProperties":false,"required":["classification","summary","changed_files","commands_run","remaining_work","complete"],"properties":{"classification":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["file","title","category","reason"],"properties":{"file":{"type":"string"},"title":{"type":"string"},"category":{"type":"string","enum":["test-drift","app-regression","seed-drift","env-flake","flaky-suspect","systemic"]},"reason":{"type":"string"}}}},"summary":{"type":"string"},"changed_files":{"type":"array","items":{"type":"string"}},"commands_run":{"type":"array","items":{"type":"string"}},"remaining_work":{"type":"array","items":{"type":"string"}},"complete":{"type":"boolean"}}}'
 
       - name: Checkpoint repair progress

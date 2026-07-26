@@ -79,7 +79,8 @@ This is the critical step most agents skip. You MUST:
 
 ## Step 3: Fix
 
-Apply fixes ONE spec at a time. After each fix, `git add` and `git commit` the changed files.
+Apply fixes ONE spec at a time. Leave every edit uncommitted so the workflow can
+validate the changed paths and create the repair checkpoint itself.
 
 ### Fix strategies by category
 
@@ -132,7 +133,7 @@ You MUST NOT:
 
 ## Required Output
 
-After all fixes are committed, return a JSON object:
+After the cluster is repaired and verified, return a JSON object:
 
 ```json
 {

@@ -45,6 +45,7 @@ describe("E2E Slack notifications", () => {
         phase: "initial",
         runAttempt: "1",
         runId: "42",
+        selfHealEnabled: true,
         skipped: 1,
         status: "failure",
         workflowUrl: "https://github.com/ytchou/Formoria/actions/runs/42",
@@ -63,9 +64,9 @@ describe("E2E Slack notifications", () => {
       [
         "⚠️ *Formoria E2E — Needs attention*",
         "*Summary*\n• 8 passed · 2 failed · 1 skipped",
-        "*Work done*\n• Repair in progress",
-        "*Manager action*\n• No action while self-heal runs",
-        "*Details*\n• Self-heal started",
+        "*Work done*\n• Automated repair requested",
+        "*Manager action*\n• Monitor self-heal; investigate if no repair run starts",
+        "*Details*\n• Self-heal is enabled and will run after guard checks",
         "<https://github.com/ytchou/Formoria/actions/runs/42|Open workflow run>",
       ].join("\n\n"),
     );
@@ -76,6 +77,71 @@ describe("E2E Slack notifications", () => {
       operation: "send_message",
       status: "success",
     });
+  });
+
+  it("asks for investigation when the first result fails with self-heal disabled", async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response("ok", { status: 200 }));
+
+    await sendE2ESlackNotification(
+      {
+        failed: 1,
+        passed: 9,
+        phase: "initial",
+        runAttempt: "1",
+        runId: "45",
+        selfHealEnabled: false,
+        skipped: 0,
+        status: "failure",
+        workflowUrl: "https://github.com/ytchou/Formoria/actions/runs/45",
+      },
+      {
+        fetchImpl,
+        webhookUrl: "https://hooks.slack.test/webhook",
+      },
+    );
+
+    const body = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body)) as {
+      text: string;
+    };
+    expect(body.text).toContain("*Work done*\n• No automated repair started");
+    expect(body.text).toContain(
+      "*Manager action*\n• Investigate the failed E2E checks",
+    );
+    expect(body.text).toContain("*Details*\n• Self-heal is disabled");
+  });
+
+  it("reports a successful first result without starting repair", async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response("ok", { status: 200 }));
+
+    await sendE2ESlackNotification(
+      {
+        failed: 0,
+        passed: 12,
+        phase: "initial",
+        runAttempt: "1",
+        runId: "46",
+        selfHealEnabled: true,
+        skipped: 0,
+        status: "success",
+        workflowUrl: "https://github.com/ytchou/Formoria/actions/runs/46",
+      },
+      {
+        fetchImpl,
+        webhookUrl: "https://hooks.slack.test/webhook",
+      },
+    );
+
+    const body = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body)) as {
+      text: string;
+    };
+    expect(body.text).toContain("✅ *Formoria E2E — Success*");
+    expect(body.text).toContain("*Work done*\n• No repair needed");
+    expect(body.text).toContain("*Manager action*\n• None");
+    expect(body.text).toContain("*Details*\n• No failures detected");
   });
 
   it("shares the review-ready self-heal PR without promising auto-merge", async () => {

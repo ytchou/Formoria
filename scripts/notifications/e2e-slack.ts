@@ -19,6 +19,7 @@ export interface E2ESlackNotification {
   reason?: string;
   runAttempt: string;
   runId: string;
+  selfHealEnabled?: boolean;
   skipped: number;
   status: string;
   workflowUrl: string;
@@ -60,13 +61,30 @@ function e2eNotification(input: E2ESlackNotification): AgentNotification {
   }
 
   const succeeded = input.status === "success";
+  const selfHealEnabled = input.selfHealEnabled === true;
   return {
     agent: "E2E",
-    details: [succeeded ? "• No failures detected" : "• Self-heal started"],
-    managerAction: succeeded ? "None" : "No action while self-heal runs",
+    details: [
+      succeeded
+        ? "• No failures detected"
+        : selfHealEnabled
+          ? "• Self-heal is enabled and will run after guard checks"
+          : "• Self-heal is disabled",
+    ],
+    managerAction: succeeded
+      ? "None"
+      : selfHealEnabled
+        ? "Monitor self-heal; investigate if no repair run starts"
+        : "Investigate the failed E2E checks",
     status: succeeded ? "success" : "needs_attention",
     summary: [summary],
-    workDone: [succeeded ? "• No repair needed" : "• Repair in progress"],
+    workDone: [
+      succeeded
+        ? "• No repair needed"
+        : selfHealEnabled
+          ? "• Automated repair requested"
+          : "• No automated repair started",
+    ],
     workflowUrl: input.workflowUrl,
   };
 }
@@ -156,6 +174,7 @@ async function main(): Promise<void> {
       reason: process.env.BLOCKED_REASON,
       runAttempt: requiredEnvironment("GITHUB_RUN_ATTEMPT"),
       runId: requiredEnvironment("GITHUB_RUN_ID"),
+      selfHealEnabled: process.env.SELFHEAL_ENABLED === "true",
       status: process.env.JOB_STATUS ?? "unknown",
       workflowUrl: requiredEnvironment("WORKFLOW_URL"),
     },
