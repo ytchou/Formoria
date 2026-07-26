@@ -644,7 +644,16 @@ describe("unified health-agent workflow contract", () => {
     expect(workflow).toContain("repair-audit");
     expect(workflow).toContain("retention-days: 14");
     expect(workflow).toContain("BATCH_KIND: automatic");
-    expect(workflow).toContain('if [[ "$BATCH_KIND" == "automatic" ]]');
+    expect(workflow).not.toContain("gh pr merge --auto");
+    const automaticPublisher = jobSection(
+      workflow,
+      "publish-automatic-pr",
+      "publish-human-pr",
+    );
+    expect(automaticPublisher).toContain(
+      "Automatic health-repair PR created; awaiting manager merge",
+    );
+    expect(automaticPublisher).toContain("--auto-merge-enabled false");
     expect(controller).toContain("directory:canary:github-app-pr");
     expect(workflow).not.toContain("directory:stale-branch:canary");
     expect(workflow).toContain("health-agent-canary");
