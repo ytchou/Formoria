@@ -720,6 +720,48 @@ describe('brand not found errors preserve Supabase cause', () => {
   })
 })
 
+describe('publishDraft staleness guard', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('rejects a draft when a draft field was updated more recently', async () => {
+    const draftQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: {
+          draft_data: { description: 'stale draft' },
+          draft_updated_at: '2026-07-25T10:00:00.000Z',
+        },
+        error: null,
+      }),
+    }
+    const fieldStateQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockResolvedValue({
+        data: [
+          {
+            field: 'description',
+            source: 'admin',
+            admin_locked: false,
+            updated_at: '2026-07-25T10:01:00.000Z',
+          },
+        ],
+        error: null,
+      }),
+    }
+    mockFrom.mockReturnValueOnce(draftQuery).mockReturnValueOnce(fieldStateQuery)
+
+    const { publishDraft } = await import('./brands')
+
+    await expect(publishDraft('brand-1')).rejects.toMatchObject({
+      code: 'CONFLICT',
+    })
+    expect(mockRpc).not.toHaveBeenCalled()
+  })
+})
+
 describe('brand slug validation against reserved routes', () => {
   it('RESERVED_ROUTES set is available and non-empty', () => {
     expect(RESERVED_ROUTES.size).toBeGreaterThan(0)

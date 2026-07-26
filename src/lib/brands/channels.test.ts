@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { groupChannelsForDisplay, normalizeChannelName } from './channels'
+import {
+  groupChannelsByKind,
+  groupChannelsForDisplay,
+  normalizeChannelName,
+} from './channels'
+import type { BrandChannel } from '@/lib/types/brand-channel'
 
 type ChannelRow = {
   id: string
@@ -117,5 +122,116 @@ describe('groupChannelsForDisplay', () => {
 
     expect(result.confirmed[0]).toMatchObject({ hasCurrentUserConfirmed: true })
     expect(result.possible[0]).toMatchObject({ hasCurrentUserConfirmed: false })
+  })
+})
+
+describe('groupChannelsByKind', () => {
+  function channel(overrides: Partial<BrandChannel> = {}): BrandChannel {
+    return {
+      id: 'channel-1',
+      name: '通路',
+      channelType: 'offline',
+      categoryLabel: null,
+      regionLabel: null,
+      address: null,
+      url: null,
+      ownerStatus: 'none',
+      source: 'community',
+      confirmationCount: 0,
+      status: 'unconfirmed',
+      ...overrides,
+    }
+  }
+
+  it('uses the ordered kind precedence and omits empty groups', () => {
+    const groups = groupChannelsByKind([
+      channel({
+        id: 'online',
+        name: '線上',
+        channelType: 'online',
+      }),
+      channel({
+        id: 'chain',
+        name: '連鎖',
+      }),
+      channel({
+        id: 'visitable',
+        name: '可造訪',
+        address: '台北市',
+      }),
+      channel({
+        id: 'official',
+        name: '官方',
+        source: 'owner',
+        ownerStatus: 'confirmed',
+        status: 'confirmed',
+      }),
+      channel({
+        id: 'official-with-address',
+        name: '官方有地址',
+        source: 'owner',
+        ownerStatus: 'confirmed',
+        status: 'confirmed',
+        address: '台北市',
+      }),
+    ])
+
+    expect(groups.map((group) => group.key)).toEqual([
+      'official',
+      'visitable',
+      'chain',
+      'online',
+    ])
+    expect(groups[0].channels.map((item) => item.id)).toEqual([
+      'official',
+      'official-with-address',
+    ])
+  })
+
+  it('omits kinds that have no channels', () => {
+    const groups = groupChannelsByKind([
+      channel({ id: 'chain-only', name: '連鎖' }),
+    ])
+
+    expect(groups.map((group) => group.key)).toEqual(['chain'])
+  })
+
+  it('sorts confirmed first, then confirmations, then name', () => {
+    const groups = groupChannelsByKind([
+      channel({
+        id: 'unconfirmed-high',
+        name: 'A',
+        confirmationCount: 9,
+      }),
+      channel({
+        id: 'confirmed-low',
+        name: 'C',
+        status: 'confirmed',
+      }),
+      channel({
+        id: 'confirmed-high',
+        name: 'B',
+        status: 'confirmed',
+        confirmationCount: 3,
+      }),
+      channel({
+        id: 'unconfirmed-name-b',
+        name: 'E',
+        confirmationCount: 1,
+      }),
+      channel({
+        id: 'unconfirmed-name-a',
+        name: 'D',
+        confirmationCount: 1,
+      }),
+    ])
+
+    expect(groups[0].channels.map((item) => item.id)).toEqual([
+      'confirmed-high',
+      'confirmed-low',
+      'unconfirmed-high',
+      'unconfirmed-name-a',
+      'unconfirmed-name-b',
+    ])
   })
 })

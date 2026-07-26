@@ -7,6 +7,7 @@ export type BrandWriteActor = {
 export type BrandFieldWriteState = {
   source: string
   adminLocked?: boolean
+  updatedAt?: string
 }
 
 export type SkippedBrandField = {

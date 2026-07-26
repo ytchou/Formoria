@@ -7,18 +7,26 @@ import type { BrandChannel } from '@/lib/types'
 import { BrandChannelsSection } from '../brand-channels-section'
 
 vi.mock('next-intl/server', () => ({
-  getTranslations: vi.fn(async () => (key: string) => {
+  getTranslations: vi.fn(async () => (
+    key: string,
+    values?: Record<string, unknown>,
+  ) => {
     const messages: Record<string, string> = {
       'sections.locationsAndRetailChannels': '地點與販售通路',
       'channels.subtitle': '以下為品牌可能的販售通路，部分資料為社群提供',
       'channels.provideInfo': '提供販售資訊',
-      'channels.confirmed.heading': '品牌已確認販售',
-      'channels.confirmed.explainer': '以下通路經品牌方或社群確認為正確',
+      'channels.groups.official': '官方通路',
+      'channels.groups.visitable': '可造訪門市',
+      'channels.groups.chain': '連鎖與其他門市',
+      'channels.groups.chainNote': '這些通路可能有多間門市或未提供地址，建議先致電確認庫存',
+      'channels.groups.online': '線上通路',
       'channels.confirmed.storeInfoLink': '查看店家資訊',
       'channels.confirmed.officialPageLink': '前往官方頁面',
-      'channels.unconfirmed.heading': '可能販售（尚待確認）',
-      'channels.unconfirmed.explainer':
-        '以下資訊來自社群提供或自動蒐集，尚未經品牌方確認',
+      'channels.unconfirmed.progress': '{count}/{threshold} 人確認',
+      'channels.unconfirmed.thresholdNote':
+        '虛線為尚待確認，累積 {threshold} 人確認後公開顯示',
+      'channels.unconfirmed.foldSummary':
+        '{count} 個社群提供的通路待確認',
       'channels.provenance.owner': '品牌確認',
       'channels.provenance.community': '社群確認',
       'channels.empty.title': '目前沒有販售通路資訊',
@@ -27,9 +35,16 @@ vi.mock('next-intl/server', () => ({
       'channels.empty.cta': '提供販售資訊',
       'channels.dialog.channelTypeOnline': '線上通路',
       'channels.dialog.channelTypeOffline': '實體通路',
+      'channels.chips.showRest': '顯示其餘 {count} 家',
+      'channels.chips.confirmAria': '我確認{name}有販售',
     }
 
-    return messages[key] ?? key
+    const message = messages[key] ?? key
+    if (!values) return message
+
+    return message.replace(/\{(\w+)\}/g, (match, name: string) =>
+      name in values ? String(values[name]) : match,
+    )
   }),
 }))
 
@@ -39,10 +54,20 @@ vi.mock('../provide-channel-info-dialog', () => ({
   ),
 }))
 
-vi.mock('../unconfirmed-channel-grid', () => ({
-  UnconfirmedChannelGrid: ({ channels }: { channels: BrandChannel[] }) => (
-    <div data-testid='unconfirmed-channel-grid'>
-      {channels.map((channel) => channel.name).join(', ')}
+// Thin stub: the grouped/chip/row rendering is the list component's contract and is
+// covered in brand-channel-list.test.tsx. Here we only assert what the section forwards.
+vi.mock('../brand-channel-list', () => ({
+  BrandChannelList: ({
+    confirmed,
+    possible,
+    threshold,
+  }: {
+    confirmed: BrandChannel[]
+    possible: BrandChannel[]
+    threshold: number
+  }) => (
+    <div data-testid='brand-channel-list' data-threshold={threshold}>
+      {[...confirmed, ...possible].map((channel) => channel.name).join(', ')}
     </div>
   ),
 }))
@@ -87,119 +112,59 @@ describe('BrandChannelsSection', () => {
     expect(heading.parentElement?.querySelector('svg')).toBeNull()
   })
 
-  it('renders confirmed rows with provenance badges and external links', async () => {
+  it('forwards every channel and the confirmation threshold to the list', async () => {
     await renderSection({
       confirmed: [
         makeChannel({
           id: 'owner-channel',
           name: '品牌門市',
           ownerStatus: 'confirmed',
+          source: 'owner',
           status: 'confirmed',
           confirmedBy: 'owner',
-          url: 'https://brand.example/store',
-        }),
-        makeChannel({
-          id: 'community-channel',
-          name: '社群選物店',
-          status: 'confirmed',
-          confirmedBy: 'community',
         }),
       ],
+      possible: [makeChannel({ id: 'possible-1', name: '可能通路一' })],
+    })
+
+    const list = screen.getByTestId('brand-channel-list')
+    expect(list).toHaveTextContent('品牌門市, 可能通路一')
+    expect(list).toHaveAttribute('data-threshold', '3')
+  })
+
+  it('replaces the subtitle with the threshold note when unconfirmed channels exist', async () => {
+    const { unmount } = await renderSection({
+      possible: [makeChannel({ id: 'possible-1', name: '可能通路一' })],
     })
 
     expect(
-      screen.getByRole('heading', { name: '品牌已確認販售 (2)' }),
+      screen.getByText('虛線為尚待確認，累積 3 人確認後公開顯示'),
     ).toBeInTheDocument()
-    expect(screen.getByText('品牌確認')).toBeInTheDocument()
-    expect(screen.getByText('社群確認')).toBeInTheDocument()
-
-    const externalLink = screen.getByRole('link', { name: '查看店家資訊' })
-    expect(externalLink).toHaveAttribute(
-      'href',
-      'https://brand.example/store',
-    )
-    expect(externalLink).toHaveAttribute('target', '_blank')
-    expect(externalLink).toHaveAttribute('rel', 'noopener noreferrer')
-  })
-
-  it('renders google maps link when address present', async () => {
-    const address = '台北市信義區市府路 1 號'
-    const { container } = await renderSection({
-      confirmed: [
-        makeChannel({
-          id: 'addressed-channel',
-          name: '有地址通路',
-          address,
-        }),
-        makeChannel({
-          id: 'region-only-channel',
-          name: '只有地區通路',
-          regionLabel: '台中市',
-        }),
-      ],
-    })
-
-    const mapsLink = screen.getByRole('link', { name: '台北市' })
-    expect(mapsLink).toHaveAttribute(
-      'href',
-      `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`,
-    )
-
-    const regionOnlyText = screen.getByText('台中市')
-    expect(regionOnlyText.closest('a')).toBeNull()
     expect(
-      container.querySelectorAll('a[href^="https://www.google.com/maps/search/"]'),
-    ).toHaveLength(1)
-  })
-
-  it('renders online channels with monitor icon and 線上通路', async () => {
-    const { container } = await renderSection({
-      confirmed: [
-        makeChannel({
-          channelType: 'online',
-          name: '品牌官網',
-          status: 'confirmed',
-          confirmedBy: 'owner',
-        }),
-      ],
-    })
-
-    expect(screen.getByText('線上通路')).toBeInTheDocument()
-    expect(container.querySelector('[data-channel-icon="monitor"]')).toBeInTheDocument()
-  })
-
-  it('omits empty groups and renders counts in headings', async () => {
-    const { container } = await renderSection({
-      possible: [
-        makeChannel({ id: 'possible-1', name: '可能通路一' }),
-        makeChannel({ id: 'possible-2', name: '可能通路二' }),
-      ],
-    })
-
-    expect(
-      screen.queryByRole('heading', { name: /品牌已確認販售/ }),
+      screen.queryByText('以下為品牌可能的販售通路，部分資料為社群提供'),
     ).not.toBeInTheDocument()
-    expect(
-      screen.getByRole('heading', { name: '可能販售（尚待確認） (2)' }),
-    ).toBeInTheDocument()
-    expect(container.querySelector('[data-channel-group="confirmed"]')).toBeNull()
+    unmount()
 
-    const confirmedRender = await renderSection({
+    await renderSection({
       confirmed: [
         makeChannel({ id: 'confirmed-1', name: '已確認一', status: 'confirmed' }),
-        makeChannel({ id: 'confirmed-2', name: '已確認二', status: 'confirmed' }),
       ],
     })
-    const confirmedGroup = confirmedRender.container.querySelector(
-      '[data-channel-group="confirmed"]',
-    )
-    expect(confirmedGroup).not.toBeNull()
+
     expect(
-      within(confirmedGroup as HTMLElement).getByRole('heading', {
-        name: '品牌已確認販售 (2)',
-      }),
+      screen.getByText('以下為品牌可能的販售通路，部分資料為社群提供'),
     ).toBeInTheDocument()
-    expect(confirmedGroup?.querySelectorAll('[data-channel-row]')).toHaveLength(2)
+  })
+
+  it('renders the list instead of the empty state once any channel exists', async () => {
+    await renderSection({
+      possible: [makeChannel({ id: 'possible-1', name: '可能通路一' })],
+    })
+
+    expect(screen.getByTestId('brand-channel-list')).toBeInTheDocument()
+    expect(
+      screen.queryByTestId('brand-channels-empty-state'),
+    ).not.toBeInTheDocument()
   })
 
   it('renders empty state with provide-info CTA when no channels', async () => {
@@ -216,20 +181,21 @@ describe('BrandChannelsSection', () => {
     const requiredKeys = [
       'subtitle',
       'provideInfo',
-      'confirmed.heading',
-      'confirmed.explainer',
+      'groups.official',
+      'groups.visitable',
+      'groups.chain',
+      'groups.chainNote',
+      'groups.online',
       'confirmed.storeInfoLink',
       'confirmed.officialPageLink',
-      'unconfirmed.heading',
-      'unconfirmed.explainer',
-      'unconfirmed.whatIsThis',
-      'unconfirmed.whatIsThisAnswer',
       'unconfirmed.confirmAction',
-      'unconfirmed.confirmedCount',
       'unconfirmed.confirmed',
+      'unconfirmed.progress',
+      'unconfirmed.thresholdNote',
+      'unconfirmed.foldSummary',
       'unconfirmed.signInToConfirm',
-      'unconfirmed.showAll',
-      'unconfirmed.showLess',
+      'chips.showRest',
+      'chips.confirmAria',
       'provenance.owner',
       'provenance.community',
       'ownerBanner.title',

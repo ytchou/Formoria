@@ -4,6 +4,14 @@ import {
   type JsonValue,
 } from "./contracts";
 
+const THIRD_PARTY_DIRECTORY_HOSTS = ["twrr.org.tw"] as const;
+const SOCIAL_HOSTS = [
+  "threads.com",
+  "threads.net",
+  "instagram.com",
+  "facebook.com",
+] as const;
+
 export interface RecentBrandEdit {
   readonly id: string;
   readonly name: string;
@@ -223,6 +231,80 @@ function checkSelfReferentialUrls(brand: RecentBrandEdit): HealthFinding[] {
   ];
 }
 
+function hostMatches(
+  host: string,
+  candidates: readonly string[],
+): boolean {
+  return candidates.some((c) => host === c || host.endsWith("." + c));
+}
+
+function checkPurchaseWebsiteShape(brand: RecentBrandEdit): HealthFinding[] {
+  const url = brand.purchaseWebsite;
+  if (url === null) return [];
+
+  const host = normalizedHostname(url);
+  if (host === null) return [];
+
+  if (hostMatches(host, THIRD_PARTY_DIRECTORY_HOSTS)) {
+    return [
+      finding(
+        "brand-review-purchase-website-third-party",
+        brand,
+        "purchase_website points at a third-party directory",
+        "medium",
+        {
+          brandId: brand.id,
+          brandName: brand.name,
+          purchaseWebsite: url,
+          hostname: host,
+        },
+      ),
+    ];
+  }
+
+  if (hostMatches(host, SOCIAL_HOSTS)) {
+    return [
+      finding(
+        "brand-review-purchase-website-social",
+        brand,
+        "purchase_website holds a social URL",
+        "medium",
+        {
+          brandId: brand.id,
+          brandName: brand.name,
+          purchaseWebsite: url,
+          hostname: host,
+        },
+      ),
+    ];
+  }
+
+  if (host === "formoria.com") {
+    return [];
+  }
+
+  const parsedUrl = new URL(url);
+  if (parsedUrl.pathname !== "/") {
+    return [
+      finding(
+        "brand-review-purchase-website-non-root",
+        brand,
+        "purchase_website is not a root URL",
+        "low",
+        {
+          brandId: brand.id,
+          brandName: brand.name,
+          purchaseWebsite: url,
+          hostname: host,
+          pathname: parsedUrl.pathname,
+        },
+      ),
+    ];
+  }
+
+  return [];
+}
+
 export function evaluateBrandReview(
   brands: readonly RecentBrandEdit[],
   nowIso: string,
@@ -234,6 +316,7 @@ export function evaluateBrandReview(
       ...checkDescriptionLanguageSwap(brand),
       ...checkExcessiveDomainDiversity(brand),
       ...checkSelfReferentialUrls(brand),
+      ...checkPurchaseWebsiteShape(brand),
     ])
     .sort((left, right) => compareText(left.fingerprint, right.fingerprint));
 
