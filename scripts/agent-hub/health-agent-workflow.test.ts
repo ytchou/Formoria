@@ -397,6 +397,10 @@ describe("unified health-agent workflow contract", () => {
       /SENTRY_READ_TOKEN|NEXT_PUBLIC_SUPABASE_URL|FORMORIA_RAILWAY_URL/,
     );
     expect(classifier).toContain("sentry-classification.schema.json");
+    expect(classifier.match(/jq '\.classifications \| length'/g)).toHaveLength(
+      2,
+    );
+    expect(classifier.match(/jq '\.issues \| length'/g)).toHaveLength(2);
     const promptStart = classifier.indexOf("prompt: |");
     const argsStart = classifier.indexOf("claude_args:", promptStart);
     expect(classifier.slice(promptStart, argsStart)).not.toContain("${{");

@@ -128,6 +128,8 @@ jobs:
           pnpm exec tsx scripts/health-agent/workflow-runtime.ts classify-sentry \
             --input .health-agent-artifacts/sentry-classifications.json \
             --output .health-agent-artifacts/sentry-classifications-normalized.json
+          test "$(jq '.classifications | length' .health-agent-artifacts/sentry-classifications-normalized.json)" = \
+            "$(jq '.issues | length' .health-agent-artifacts/sentry-issues.json)"
       - name: Retry sanitized Sentry analysis once
         id: sentry-analysis-2
         if: >-
@@ -174,6 +176,8 @@ jobs:
           pnpm exec tsx scripts/health-agent/workflow-runtime.ts classify-sentry \
             --input .health-agent-artifacts/sentry-classifications.json \
             --output .health-agent-artifacts/sentry-classifications-normalized.json
+          test "$(jq '.classifications | length' .health-agent-artifacts/sentry-classifications-normalized.json)" = \
+            "$(jq '.issues | length' .health-agent-artifacts/sentry-issues.json)"
       - name: Build Sentry triage artifact
         if: always()
         env:
