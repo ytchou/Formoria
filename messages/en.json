@@ -478,6 +478,10 @@
       "description": "Submissions are reviewed by an editor before they update the listing.",
       "submitting": "Submitting…",
       "submit": "Submit correction",
+      "productTagsTitle": "Correct product categories",
+      "productTagsSubtitle": "{category} product categories (up to 5)",
+      "productTagsSelected": "Selected {count} / 5",
+      "productTagsLimit": "Select up to 5 product categories.",
       "success": "Correction submitted. Thank you for helping keep this listing accurate.",
       "errors": {
         "invalid_brand": "This brand could not be found. Please refresh and try again.",

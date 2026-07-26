@@ -3,6 +3,11 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import {
+  PRODUCT_SUBCATEGORIES,
+  subcategoryLabel,
+} from "@/lib/taxonomy/ontology";
+
 const mocks = vi.hoisted(() => ({
   submitCorrection: vi.fn(),
   trackCorrectionSubmitted: vi.fn(),
@@ -53,6 +58,10 @@ const messages = {
       description: "送出後由編輯審核，通過才會更新。",
       submitting: "送出中…",
       submit: "送出修正",
+      productTagsTitle: "修正產品類別",
+      productTagsSubtitle: "{category} 的產品類別（最多 5 項）",
+      productTagsSelected: "已選 {count} / 5",
+      productTagsLimit: "最多選 5 項產品類別。",
       success: "修正已送出。",
       errors: {
         invalid_brand: "品牌無效。",
@@ -85,6 +94,22 @@ function renderSheet(
 
 function openSheet(name = "修正價格區間") {
   fireEvent.click(screen.getByRole("button", { name }));
+}
+
+function renderProductTags(currentValue: string[] = []) {
+  renderSheet({
+    field: "product_tags",
+    currentValue,
+    categorySlug: "home",
+  });
+}
+
+function openProductTagsSheet() {
+  openSheet("修正產品類別");
+}
+
+function productTagCheckbox(name: string) {
+  return screen.getByRole("checkbox", { name });
 }
 
 describe("CorrectionSheet", () => {
@@ -185,6 +210,154 @@ describe("CorrectionSheet", () => {
         "price_range",
       );
       expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    });
+  });
+
+  it("renders only subcategories belonging to the brand's category", () => {
+    const homeSubcategories = PRODUCT_SUBCATEGORIES.filter(
+      (subcategory) => subcategory.category === "home",
+    );
+    expect(homeSubcategories).toHaveLength(22);
+
+    renderProductTags();
+    openProductTagsSheet();
+
+    expect(screen.getAllByRole("checkbox")).toHaveLength(22);
+    for (const subcategory of homeSubcategories) {
+      expect(
+        productTagCheckbox(subcategoryLabel(subcategory, "zh-TW")),
+      ).toBeInTheDocument();
+    }
+    for (const subcategory of PRODUCT_SUBCATEGORIES.filter(
+      (item) => item.category !== "home",
+    )) {
+      expect(
+        screen.queryByRole("checkbox", {
+          name: subcategoryLabel(subcategory, "zh-TW"),
+        }),
+      ).not.toBeInTheDocument();
+    }
+  });
+
+  it("preselects the brand's current tags", () => {
+    renderProductTags(["寢具", "家具"]);
+    openProductTagsSheet();
+
+    expect(productTagCheckbox("寢具")).toBeChecked();
+    expect(productTagCheckbox("家具")).toBeChecked();
+    expect(productTagCheckbox("床墊")).not.toBeChecked();
+  });
+
+  it("disables unchecked options once 5 are selected", () => {
+    const selectedTags = PRODUCT_SUBCATEGORIES.filter(
+      (subcategory) => subcategory.category === "home",
+    )
+      .slice(0, 5)
+      .map((subcategory) => subcategory.nameZh);
+
+    renderProductTags(selectedTags);
+    openProductTagsSheet();
+
+    const unchecked = screen
+      .getAllByRole("checkbox")
+      .filter((checkbox) => !(checkbox as HTMLInputElement).checked);
+    expect(unchecked).toHaveLength(17);
+    expect(unchecked.every((checkbox) => checkbox.hasAttribute("disabled"))).toBe(
+      true,
+    );
+    expect(screen.getByText("最多選 5 項產品類別。")).toBeInTheDocument();
+  });
+
+  it("keeps checked options enabled at the limit so they can be removed", () => {
+    const selectedTags = PRODUCT_SUBCATEGORIES.filter(
+      (subcategory) => subcategory.category === "home",
+    )
+      .slice(0, 5)
+      .map((subcategory) => subcategory.nameZh);
+
+    renderProductTags(selectedTags);
+    openProductTagsSheet();
+
+    for (const tag of selectedTags) {
+      expect(productTagCheckbox(tag)).toBeEnabled();
+    }
+  });
+
+  it("shows the selected count as N / 5", () => {
+    renderProductTags(["寢具", "家具"]);
+    openProductTagsSheet();
+
+    expect(screen.getByText("已選 2 / 5")).toBeInTheDocument();
+
+    fireEvent.click(productTagCheckbox("床墊"));
+
+    expect(screen.getByText("已選 3 / 5")).toBeInTheDocument();
+  });
+
+  it("submits a delta, not the full set", async () => {
+    renderProductTags(["寢具", "家具"]);
+    openProductTagsSheet();
+
+    fireEvent.click(productTagCheckbox("床墊"));
+    fireEvent.click(productTagCheckbox("家具"));
+    fireEvent.click(screen.getByRole("button", { name: "送出修正" }));
+
+    await waitFor(() => {
+      expect(mocks.submitCorrection).toHaveBeenCalledWith({
+        brandId: BRAND_ID,
+        field: "product_tags",
+        proposedValue: {
+          add: ["床墊"],
+          remove: ["家具"],
+        },
+      });
+    });
+  });
+
+  it("submits canonical nameZh values in both delta arrays", async () => {
+    renderProductTags(["寢具"]);
+    openProductTagsSheet();
+
+    fireEvent.click(productTagCheckbox("寢具"));
+    fireEvent.click(productTagCheckbox("床墊"));
+    fireEvent.click(screen.getByRole("button", { name: "送出修正" }));
+
+    await waitFor(() => {
+      expect(mocks.submitCorrection).toHaveBeenCalledWith(
+        expect.objectContaining({
+          proposedValue: {
+            add: ["床墊"],
+            remove: ["寢具"],
+          },
+        }),
+      );
+    });
+    expect(mocks.submitCorrection).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        proposedValue: {
+          add: ["mattresses"],
+          remove: ["Bedding"],
+        },
+      }),
+    );
+  });
+
+  it("omits untouched tags from the delta", async () => {
+    renderProductTags(["寢具", "家具"]);
+    openProductTagsSheet();
+
+    fireEvent.click(productTagCheckbox("床墊"));
+    fireEvent.click(screen.getByRole("button", { name: "送出修正" }));
+
+    await waitFor(() => {
+      expect(mocks.submitCorrection).toHaveBeenCalledWith({
+        brandId: BRAND_ID,
+        field: "product_tags",
+        proposedValue: {
+          add: ["床墊"],
+          remove: [],
+        },
+      });
     });
   });
 });

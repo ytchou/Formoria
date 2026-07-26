@@ -7,11 +7,15 @@ import { toast } from "sonner";
 import { submitCorrectionAction } from "@/lib/actions/brand-corrections";
 import { trackCorrectionSubmitted } from "@/lib/analytics";
 import type { CorrectionField } from "@/lib/services/brand-corrections";
+import { MAX_PRODUCT_TAGS } from "@/lib/services/product-tags";
 import {
   categoryLabel,
+  PRODUCT_SUBCATEGORIES,
   PRODUCT_TYPE_CATEGORIES,
+  subcategoryLabel,
 } from "@/lib/taxonomy/ontology";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import {
@@ -63,11 +67,32 @@ function initialSelection(
   return "";
 }
 
+function initialTagSelection(currentValue: CorrectionSheetValue): string[] {
+  return Array.isArray(currentValue) ? currentValue : [];
+}
+
+function sameTagSet(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) return false;
+  const rightSet = new Set(right);
+  return left.every((tag) => rightSet.has(tag));
+}
+
+function buildTagDelta(initialTags: string[], selectedTags: string[]) {
+  const initialSet = new Set(initialTags);
+  const selectedSet = new Set(selectedTags);
+
+  return {
+    add: selectedTags.filter((tag) => !initialSet.has(tag)),
+    remove: initialTags.filter((tag) => !selectedSet.has(tag)),
+  };
+}
+
 export function CorrectionSheet({
   brandId,
   brandSlug,
   field,
   currentValue,
+  categorySlug,
 }: CorrectionSheetProps) {
   const locale = useLocale();
   const tBrandDetail = useTranslations("brandDetail");
@@ -75,6 +100,8 @@ export function CorrectionSheet({
   const tCorrection = useTranslations("brandDetail.correction");
   const selectId = useId();
   const originalSelection = initialSelection(field, currentValue);
+  const [initialTags] = useState(() => initialTagSelection(currentValue));
+  const [selectedTags, setSelectedTags] = useState(initialTags);
   const selectionKey = `${field}:${originalSelection}`;
   const [selectionState, setSelectionState] = useState({
     key: selectionKey,
@@ -88,9 +115,23 @@ export function CorrectionSheet({
       : originalSelection;
 
   const isSupportedField = field === "price_range" || field === "product_type";
-  const hasChanged = isSupportedField && selection !== originalSelection;
+  const hasChanged =
+    field === "product_tags"
+      ? !sameTagSet(initialTags, selectedTags)
+      : isSupportedField && selection !== originalSelection;
+  const productTagsCategory = PRODUCT_TYPE_CATEGORIES.find(
+    (category) => category.slug === categorySlug,
+  );
+  const productTagsCategoryLabel = productTagsCategory
+    ? categoryLabel(productTagsCategory, locale)
+    : categorySlug ?? "";
+  const productSubcategories = PRODUCT_SUBCATEGORIES.filter(
+    (subcategory) => subcategory.category === categorySlug,
+  );
   const title =
-    field === "product_type"
+    field === "product_tags"
+      ? tCorrection("productTagsTitle")
+      : field === "product_type"
       ? tEdit("fieldCategory")
       : field === "price_range"
         ? tEdit("fieldPriceRange")
@@ -102,12 +143,26 @@ export function CorrectionSheet({
         ? tBrandDetail("label.priceRange")
         : tBrandDetail("label.productCategories");
 
+  function toggleTag(tag: string, checked: boolean) {
+    setSelectedTags((current) => {
+      if (!checked) return current.filter((item) => item !== tag);
+      if (current.includes(tag) || current.length >= MAX_PRODUCT_TAGS) {
+        return current;
+      }
+      return [...current, tag];
+    });
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!hasChanged || isPending) return;
 
     const proposedValue =
-      field === "price_range" ? Number(selection) : selection;
+      field === "price_range"
+        ? Number(selection)
+        : field === "product_type"
+          ? selection
+          : buildTagDelta(initialTags, selectedTags);
     startTransition(async () => {
       try {
         const result = await submitCorrectionAction({
@@ -151,6 +206,13 @@ export function CorrectionSheet({
       >
         <SheetHeader className="border-b border-border bg-card pr-16">
           <SheetTitle>{title}</SheetTitle>
+          {field === "product_tags" && (
+            <p className="type-caption">
+              {tCorrection("productTagsSubtitle", {
+                category: productTagsCategoryLabel,
+              })}
+            </p>
+          )}
         </SheetHeader>
 
         <form className="flex flex-col" onSubmit={handleSubmit}>
@@ -199,6 +261,49 @@ export function CorrectionSheet({
                   </option>
                 ))}
               </NativeSelect>
+            </div>
+          )}
+
+          {field === "product_tags" && (
+            <div className="space-y-3 p-4">
+              <div className="flex items-center justify-end">
+                <span className="type-caption tabular-nums" aria-live="polite">
+                  {tCorrection("productTagsSelected", {
+                    count: selectedTags.length,
+                  })}
+                </span>
+              </div>
+              {selectedTags.length >= MAX_PRODUCT_TAGS && (
+                <p className="rounded-md bg-secondary px-3 py-2 type-caption">
+                  {tCorrection("productTagsLimit")}
+                </p>
+              )}
+              <div className="max-h-72 overflow-y-auto rounded-md border border-border bg-card">
+                {productSubcategories.map((subcategory) => {
+                  const label = subcategoryLabel(subcategory, locale);
+                  const checked = selectedTags.includes(subcategory.nameZh);
+                  const disabled =
+                    !checked && selectedTags.length >= MAX_PRODUCT_TAGS;
+
+                  return (
+                    <Label
+                      key={subcategory.slug}
+                      className="min-h-12 border-b border-border px-3 py-3 last:border-b-0"
+                    >
+                      <Checkbox
+                        checked={checked}
+                        disabled={disabled}
+                        onCheckedChange={(value) =>
+                          toggleTag(subcategory.nameZh, value)
+                        }
+                        className="size-5 shrink-0 focus-visible:ring-2 focus-visible:ring-primary"
+                        data-ph-no-autocapture
+                      />
+                      <span>{label}</span>
+                    </Label>
+                  );
+                })}
+              </div>
             </div>
           )}
 
