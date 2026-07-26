@@ -2,6 +2,7 @@ import {
   requiresHumanPolicy,
   type AuditLogger,
   type HealthFinding,
+  type HealthSummary,
   type JsonValue,
 } from "./contracts";
 
@@ -154,6 +155,30 @@ interface ExternalResponse {
   status: number;
 }
 
+function providerErrors(value: unknown): JsonValue[] {
+  if (!isRecord(value) || !Array.isArray(value.errors)) return [];
+  return value.errors.slice(0, 3).map((entry) => {
+    if (!isRecord(entry)) return { message: "provider_error" };
+    const message = stringValue(entry.message)
+      ?.replace(/https?:\/\/\S+/gi, "[redacted-url]")
+      .replace(/(?:token|secret|password)\s*[:=]\s*\S+/gi, "[redacted-secret]")
+      .slice(0, 300);
+    const extensions = isRecord(entry.extensions)
+      ? entry.extensions
+      : undefined;
+    const code = extensions
+      ? stringValue(extensions.code)
+          ?.replace(/(?:token|secret|password)\s*[:=]\s*\S+/gi, "[redacted]")
+          .replace(/[^a-z0-9_.-]+/gi, "_")
+          .slice(0, 80)
+      : undefined;
+    return {
+      ...(code ? { code } : {}),
+      message: message ?? "provider_error",
+    };
+  });
+}
+
 async function externalRequest(
   deps: ReturnType<typeof dependencies>,
   adapter: string,
@@ -194,6 +219,7 @@ async function externalRequest(
       ? { parsed: true, value: null }
       : await responseJson(response);
   if (!isSuccessStatus(status)) {
+    const errors = providerErrors(parsed.value);
     emitAudit(
       deps.audit,
       adapter,
@@ -201,11 +227,14 @@ async function externalRequest(
       "failure",
       elapsed(deps.clock, startedAt),
       options.request,
-      { httpStatus: status },
+      {
+        httpStatus: status,
+        ...(errors.length > 0 ? { providerErrors: errors } : {}),
+      },
       parsed.parsed,
     );
     throw new HealthAdapterError(
-      `${displayName} request failed`,
+      `${displayName} request failed${errors.length > 0 && isRecord(errors[0]) ? `: ${String(errors[0].message)}` : ""}`,
       adapter,
       operation,
       status,
@@ -215,6 +244,7 @@ async function externalRequest(
   const schemaValid =
     parsed.parsed && (!options.validate || options.validate(parsed.value));
   if (!schemaValid) {
+    const errors = providerErrors(parsed.value);
     emitAudit(
       deps.audit,
       adapter,
@@ -222,11 +252,15 @@ async function externalRequest(
       "failure",
       elapsed(deps.clock, startedAt),
       options.request,
-      { httpStatus: status, error: "invalid_response" },
+      {
+        httpStatus: status,
+        error: "invalid_response",
+        ...(errors.length > 0 ? { providerErrors: errors } : {}),
+      },
       false,
     );
     throw new HealthAdapterError(
-      `${displayName} returned an invalid response`,
+      `${displayName} returned an invalid response${errors.length > 0 && isRecord(errors[0]) ? `: ${String(errors[0].message)}` : ""}`,
       adapter,
       operation,
       status,
@@ -316,6 +350,7 @@ export interface SlackReport {
   actionableFindings?: readonly HealthFinding[];
   failures?: readonly SlackEntry[] | SlackEntry;
   findings?: readonly HealthFinding[];
+  healthSummary?: HealthSummary;
   linear?: readonly SlackEntry[] | SlackEntry;
   linearOutcomes?: readonly SlackEntry[] | SlackEntry;
   prOutcomes?: readonly SlackEntry[] | SlackEntry;
@@ -326,7 +361,57 @@ export interface SlackReport {
   workflowUrl?: string;
 }
 
+function summaryCountLine(check: HealthSummary["checks"]["link"]): string {
+  const severities = (["critical", "high", "medium", "low"] as const)
+    .filter((severity) => check.severities[severity] > 0)
+    .map((severity) => `${check.severities[severity]} ${severity}`);
+  return [String(check.findingCount), ...severities].join(" · ");
+}
+
+function renderHealthSummary(
+  summary: HealthSummary,
+  workflowUrl?: string,
+): string {
+  const title =
+    summary.overallStatus === "healthy"
+      ? "Healthy"
+      : summary.overallStatus === "needs_attention"
+        ? "Needs attention"
+        : "Failed";
+  const failedPhases = Object.entries(summary.phases)
+    .filter(([, status]) => status === "failed")
+    .map(([phase]) => phase);
+  const pipeline =
+    failedPhases.length > 0
+      ? `Failed: ${failedPhases.join(", ")}`
+      : "All phases completed";
+  const prLabel = summary.repair.pullRequests === 1 ? "PR" : "PRs";
+  const queueLine = `${summary.repair.queued ?? 0} queued · ${summary.repair.claimed ?? 0} claimed`;
+  const batchLines = summary.repair.batches
+    ? (["automatic", "human"] as const).map((policy) => {
+        const batch = summary.repair.batches![policy];
+        const label = policy === "automatic" ? "Automatic" : "Human";
+        const state = batch.status.replaceAll("_", " ");
+        const pr =
+          batch.prNumber && batch.prUrl
+            ? ` · <${batch.prUrl}|PR #${batch.prNumber}>`
+            : "";
+        return `• ${label} — ${batch.findingCount} · ${state}${pr}`;
+      })
+    : [];
+  return [
+    `*Formoria Health Agent · ${title}*`,
+    `*Checks*\n• Links — ${summaryCountLine(summary.checks.link)}\n• Directory — ${summaryCountLine(summary.checks.directory)}\n• Sentry — ${summaryCountLine(summary.checks.sentry)}`,
+    `*Repair outcome*\n• ${queueLine}\n• ${summary.repair.fixed} fixed · ${summary.repair.unresolved} unresolved · ${summary.repair.pullRequests} ${prLabel}${batchLines.length > 0 ? `\n${batchLines.join("\n")}` : ""}`,
+    `*Pipeline*\n• ${pipeline}`,
+    ...(workflowUrl ? [`<${workflowUrl}|Open workflow run>`] : []),
+  ].join("\n\n");
+}
+
 export function renderSlackDigest(report: SlackReport): string {
+  if (report.healthSummary) {
+    return renderHealthSummary(report.healthSummary, report.workflowUrl);
+  }
   const source = report as unknown as Record<string, unknown>;
   const findings = Array.isArray(source.actionableFindings)
     ? source.actionableFindings
@@ -525,7 +610,7 @@ export interface LinearAdapter {
 
 const LINEAR_LOOKUP_QUERY = `
   query HealthAgentIssueLookup($teamId: ID!, $projectId: ID!, $after: String) {
-    issues(filter: { team: { id: { eq: $teamId } }, project: { id: { eq: $projectId } } }, first: 250, after: $after) {
+    issues(filter: { team: { id: { eq: $teamId } }, project: { id: { eq: $projectId } } }, first: 100, after: $after) {
       nodes { id identifier title description team { id } project { id } }
       pageInfo { hasNextPage endCursor }
     }

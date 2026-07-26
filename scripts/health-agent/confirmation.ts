@@ -103,7 +103,7 @@ export interface ConfirmationEnvelope {
   date: string;
   log_url?: string;
   project: "formoria";
-  routine: "health-selfheal";
+  routine: "health-agent";
   run_at: string;
   source: "github_actions";
   source_run_id: string;
@@ -292,7 +292,7 @@ function envelope({
     date: taipeiDate(now),
     ...(workflowUrl ? { log_url: workflowUrl } : {}),
     project: "formoria",
-    routine: "health-selfheal",
+    routine: "health-agent",
     run_at: now.toISOString(),
     source: "github_actions",
     source_run_id: sourceRunId,

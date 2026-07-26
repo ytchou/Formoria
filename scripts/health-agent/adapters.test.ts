@@ -144,6 +144,67 @@ describe("Slack adapter", () => {
       status: "failure",
     });
   });
+
+  it("renders one grouped terminal summary without individual findings", () => {
+    const digest = renderSlackDigest({
+      healthSummary: {
+        checks: {
+          directory: {
+            findingCount: 27,
+            severities: { critical: 0, high: 6, low: 0, medium: 21 },
+            status: "success",
+          },
+          link: {
+            findingCount: 22,
+            severities: { critical: 0, high: 0, low: 0, medium: 22 },
+            status: "success",
+          },
+          sentry: {
+            findingCount: 10,
+            severities: { critical: 2, high: 8, low: 0, medium: 0 },
+            status: "success",
+          },
+        },
+        overallStatus: "needs_attention",
+        phases: {
+          analyze: "success",
+          collect: "success",
+          deliver: "success",
+          publish: "success",
+          repair: "success",
+        },
+        repair: {
+          batches: {
+            automatic: {
+              findingCount: 3,
+              prNumber: 42,
+              prUrl: "https://github.com/ytchou/Formoria/pull/42",
+              status: "pr_opened",
+            },
+            human: { findingCount: 0, status: "not_required" },
+          },
+          claimed: 3,
+          fixed: 3,
+          pullRequests: 1,
+          queued: 59,
+          unresolved: 56,
+        },
+      },
+      workflowUrl: "https://github.com/ytchou/Formoria/actions/runs/123",
+    });
+
+    expect(digest).toContain("*Checks*");
+    expect(digest).toContain("Links — 22 · 22 medium");
+    expect(digest).toContain("Directory — 27 · 6 high · 21 medium");
+    expect(digest).toContain("Sentry — 10 · 2 critical · 8 high");
+    expect(digest).toContain("*Repair outcome*");
+    expect(digest).toContain("3 fixed · 56 unresolved · 1 PR");
+    expect(digest).toContain("59 queued · 3 claimed");
+    expect(digest).toContain(
+      "Automatic — 3 · pr opened · <https://github.com/ytchou/Formoria/pull/42|PR #42>",
+    );
+    expect(digest).not.toContain("Untitled finding");
+  });
 });
 
 describe("Linear adapter", () => {
@@ -161,6 +222,37 @@ describe("Linear adapter", () => {
       teamId: "team-1",
     };
   }
+
+  it("captures bounded GraphQL errors for failed provider requests", async () => {
+    const { audit, records } = auditLog();
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      jsonResponse(
+        {
+          errors: [
+            {
+              extensions: { code: "GRAPHQL_VALIDATION_FAILED" },
+              message: "Argument first must be at most 100 token=private-value",
+            },
+          ],
+        },
+        400,
+      ),
+    );
+    const adapter = createLinearAdapter(linearConfig(fetchImpl, audit));
+
+    await expect(adapter.sync([finding()])).rejects.toThrow(
+      "Argument first must be at most 100 [redacted-secret]",
+    );
+    expect(records.at(-1)?.response).toMatchObject({
+      httpStatus: 400,
+      providerErrors: [
+        {
+          code: "GRAPHQL_VALIDATION_FAILED",
+          message: "Argument first must be at most 100 [redacted-secret]",
+        },
+      ],
+    });
+  });
 
   it("filters automatic findings unless exhausted and creates with configured routing and allowed labels", async () => {
     const { audit, records } = auditLog();

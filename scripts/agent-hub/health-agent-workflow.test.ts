@@ -145,7 +145,7 @@ describe("unified health-agent workflow contract", () => {
     expect(workflow).toContain("- preflight");
     expect(workflow).toContain("- live");
     expect(workflow).toContain("- canary_fix");
-    expect(workflow).toContain("group: formoria-agent-writer");
+    expect(workflow).toContain("'formoria-agent-writer'");
     expect(phaseWorkflow).toContain('"$HEALTH_AGENT_ENABLED" != "true"');
     expect(phaseWorkflow).toContain('"$HEALTH_AUTOFIX_ENABLED" != "true"');
     expect(phaseWorkflow).toContain(
@@ -167,7 +167,10 @@ describe("unified health-agent workflow contract", () => {
     expect(controller).toMatch(
       /deliver-and-queue:\n[\s\S]*?needs: \[collect-and-preflight, analyze\]/,
     );
-    expect(workflow).toContain("- name: Deliver Agent Hub envelopes");
+    expect(workflow).toContain(
+      "- name: Aggregate findings and sync Linear once",
+    );
+    expect(workflow).toContain("- name: Deliver one final summary");
     expect(workflow).toContain("aggregate-and-deliver");
     expect(workflow).not.toContain("--limit");
   });
@@ -190,6 +193,27 @@ describe("unified health-agent workflow contract", () => {
     );
   });
 
+  it("keeps scheduled Slack and Agent Hub credentials only in terminal reporting", () => {
+    const workflows = allPhaseWorkflows();
+    const finalReport = jobSection(workflows, "final-report");
+    const scheduledReporting = finalReport.slice(
+      0,
+      finalReport.indexOf("- name: Prepare redacted confirmation audit"),
+    );
+
+    expect(
+      scheduledReporting.match(/^\s+SLACK_HEALTH_WEBHOOK_URL:/gm) ?? [],
+    ).toHaveLength(1);
+    expect(
+      scheduledReporting.match(/^\s+AGENT_HUB_INGEST_TOKEN:/gm) ?? [],
+    ).toHaveLength(1);
+    expect(
+      scheduledReporting.match(/^\s+AGENT_HUB_INGEST_URL:/gm) ?? [],
+    ).toHaveLength(1);
+    expect(finalReport).toContain("workflow-runtime.ts final-report");
+    expect(finalReport).toMatch(/if: >-\n\s+always\(\)/);
+  });
+
   it("brand-review job uses correct secrets", () => {
     const workflow = allPhaseWorkflows();
     const brandReview = jobSection(
@@ -201,7 +225,8 @@ describe("unified health-agent workflow contract", () => {
     expect(brandReview).toMatch(/HEALTH_AGENT_READER_TOKEN/);
     expect(brandReview).toMatch(/HEALTH_AGENT_WRITER_TOKEN/);
     expect(brandReview).toMatch(/NEXT_PUBLIC_SUPABASE_URL/);
-    expect(brandReview).toMatch(/SLACK_HEALTH_WEBHOOK_URL/);
+    expect(brandReview).not.toMatch(/SLACK_HEALTH_WEBHOOK_URL/);
+    expect(brandReview).toContain("--defer-delivery true");
     expect(brandReview).toContain(
       '--mutate "${{ needs.gate.outputs.mutate }}"',
     );
@@ -372,6 +397,10 @@ describe("unified health-agent workflow contract", () => {
       /SENTRY_READ_TOKEN|NEXT_PUBLIC_SUPABASE_URL|FORMORIA_RAILWAY_URL/,
     );
     expect(classifier).toContain("sentry-classification.schema.json");
+    expect(classifier.match(/jq '\.classifications \| length'/g)).toHaveLength(
+      2,
+    );
+    expect(classifier.match(/jq '\.issues \| length'/g)).toHaveLength(2);
     const promptStart = classifier.indexOf("prompt: |");
     const argsStart = classifier.indexOf("claude_args:", promptStart);
     expect(classifier.slice(promptStart, argsStart)).not.toContain("${{");
@@ -396,16 +425,18 @@ describe("unified health-agent workflow contract", () => {
     expect(workflow).not.toMatch(
       /actions\/(?:checkout|setup-node|upload-artifact|download-artifact)@[a-z0-9]+\s+# v4/,
     );
-    expect(
-      controller.match(/group: formoria-agent-writer/g) ?? [],
-    ).toHaveLength(1);
+    expect(controller.match(/'formoria-agent-writer'/g) ?? []).toHaveLength(1);
     const firstWriterStart = workflow.indexOf("  cleanup-stale-branches:");
     const automaticPublisher = jobSection(
       workflow,
       "publish-automatic-pr",
       "publish-human-pr",
     );
-    const humanPublisher = jobSection(workflow, "publish-human-pr");
+    const humanPublisher = jobSection(
+      workflow,
+      "publish-human-pr",
+      "final-report",
+    );
     expect(automaticPublisher).toContain("HEALTH_AGENT_GITHUB_APP_ID");
     expect(humanPublisher).toContain("HEALTH_AGENT_GITHUB_APP_ID");
     expect(workflow.slice(0, firstWriterStart)).not.toContain(
@@ -481,7 +512,7 @@ describe("unified health-agent workflow contract", () => {
     );
   });
 
-  it("passes Linear routing configuration to every live mutation stage", () => {
+  it("keeps Linear routing only in the single aggregation sync stage", () => {
     const workflow = allPhaseWorkflows();
     const aggregate = jobSection(
       workflow,
@@ -499,16 +530,19 @@ describe("unified health-agent workflow contract", () => {
       "validate-repair",
     );
 
-    for (const section of [aggregate, enqueue, escalation]) {
-      expect(section).toContain(
-        "LINEAR_ASSIGNEE_ID: ${{ vars.LINEAR_ASSIGNEE_ID }}",
-      );
-      expect(section).toContain(
-        "LINEAR_PROJECT_ID: ${{ vars.LINEAR_PROJECT_ID }}",
-      );
-      expect(section).toContain("LINEAR_TEAM_ID: ${{ vars.LINEAR_TEAM_ID }}");
-      expect(section).toContain(
-        "LINEAR_OAUTH_ACCESS_TOKEN: ${{ secrets.LINEAR_OAUTH_ACCESS_TOKEN }}",
+    expect(aggregate).toContain(
+      "LINEAR_ASSIGNEE_ID: ${{ vars.LINEAR_ASSIGNEE_ID }}",
+    );
+    expect(aggregate).toContain(
+      "LINEAR_PROJECT_ID: ${{ vars.LINEAR_PROJECT_ID }}",
+    );
+    expect(aggregate).toContain("LINEAR_TEAM_ID: ${{ vars.LINEAR_TEAM_ID }}");
+    expect(aggregate).toContain(
+      "LINEAR_OAUTH_ACCESS_TOKEN: ${{ secrets.LINEAR_OAUTH_ACCESS_TOKEN }}",
+    );
+    for (const section of [enqueue, escalation]) {
+      expect(section).not.toMatch(
+        /LINEAR_(?:ASSIGNEE_ID|OAUTH_ACCESS_TOKEN|PROJECT_ID|TEAM_ID)/,
       );
     }
 
@@ -620,7 +654,11 @@ describe("unified health-agent workflow contract", () => {
       "publish-automatic-pr",
       "publish-human-pr",
     );
-    const humanPublisher = jobSection(workflow, "publish-human-pr");
+    const humanPublisher = jobSection(
+      workflow,
+      "publish-human-pr",
+      "final-report",
+    );
 
     expect(validation).toContain("Download repair batch metadata");
     expect(validation).not.toContain("continue-on-error");

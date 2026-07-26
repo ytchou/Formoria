@@ -102,7 +102,6 @@ jobs:
       HEALTH_AGENT_READER_TOKEN: ${{ secrets.HEALTH_AGENT_READER_TOKEN }}
       HEALTH_AGENT_WRITER_TOKEN: ${{ secrets.HEALTH_AGENT_WRITER_TOKEN }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-      SLACK_HEALTH_WEBHOOK_URL: ${{ secrets.SLACK_HEALTH_WEBHOOK_URL }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -124,6 +123,7 @@ jobs:
           pnpm exec tsx scripts/health-agent/workflow-runtime.ts collect-brand-review \
             --mode "${{ needs.gate.outputs.mode }}" \
             --mutate "${{ needs.gate.outputs.mutate }}" \
+            --defer-delivery true \
             --output .health-agent-artifacts/brand-review.json \
             --run-at "$run_at" \
             --attempt "$GITHUB_RUN_ATTEMPT" \
