@@ -3,6 +3,10 @@
 Date: 2026-07-22
 Status: Approved for implementation; production cutover remains gated
 
+Revision (2026-07-26): The daily schedule moved to 07:13 Asia/Taipei. The independent
+freshness monitor was retired in favor of GitHub Actions failure notifications; a scheduled
+run that is never created has no repository-owned alert.
+
 ## Goal
 
 Replace the Claude Routine and `health-selfheal` workflow with a disabled-by-default,
@@ -85,9 +89,9 @@ Verification:
   Slack chunking, and independent delivery failures.
 - Run one `code-verifier` gate for the wave.
 
-### Wave 4 — Orchestration, repair, confirmation, and watchdog
+### Wave 4 — Orchestration, repair, and confirmation
 
-- Replace `health-selfheal.yml` with a 07:00 Taipei orchestrator (`0 23 * * *`) supporting
+- Replace `health-selfheal.yml` with a 07:13 Taipei orchestrator (`13 23 * * *`) supporting
   `preflight`, `live`, and controlled canary/fix dispatch modes.
 - Start link and Sentry collection in parallel, run Directory after link telemetry, and
   aggregate under `if: always()` with synthesized failure envelopes.
@@ -95,14 +99,14 @@ Verification:
   digest; mark Agent Hub data with `notification_owner: github_actions`.
 - Claim all eligible findings present at batch creation, build one automatic PR, confirm it,
   then build one separate human-review PR. Cap fix/review at two cycles.
-- Add event-driven PR/Railway confirmation and the 08:30 Taipei freshness watchdog.
+- Add event-driven PR/Railway confirmation.
 - Archive the Routine prompt and leave a retirement tombstone.
 
 Verification:
 
 - Workflow contract tests cover triggers, disabled gates, outputs, `if: always()`, secret
   isolation, batching, two-cycle escalation, merge semantics, SHA matching, smoke gating,
-  Sentry resolution timing, and watchdog failure delivery.
+  and Sentry resolution timing.
 - Run one `code-verifier` gate for the wave.
 
 ### Wave 5 — Stable PR CI and control-plane policy
@@ -136,9 +140,9 @@ Verification:
 
 Verification:
 
-- Confirm the next 07:00 run produces Link, Directory, and Sentry Agent Hub rows plus one
+- Confirm the next 07:13 run produces Link, Directory, and Sentry Agent Hub rows plus one
   Slack digest.
-- Deliberately exercise the 08:30 watchdog against a missing/stale test run.
+- Confirm operators receive GitHub Actions notifications for an intentionally failed test run.
 - Record first-five-run local Supabase runner overhead.
 
 ## Dependency sweep

@@ -12,7 +12,7 @@ or validation jobs.
 
 ## Daily flow
 
-1. At 07:00 Taipei, link and Sentry collection start in parallel.
+1. At 07:13 Taipei, link and Sentry collection start in parallel.
 2. Link collection calls the authenticated Railway endpoint with a stable run identity; the
    endpoint is idempotent and telemetry-only.
 3. Directory collection runs after link telemetry and combines approved-brand invariants,
@@ -74,6 +74,8 @@ the Yung-Tang Chou team, Formoria project, `Ops`/`Data Quality`, and no mileston
 ## Operational controls
 
 Both health variables default false. `preflight` disables Linear, queue claims, cleanup,
-pull requests, and all business mutations. `live` requires both gates. The 08:30 watchdog
-uses an independent delivery path. Repository rules require stable Quality, Integration,
-and Change Policy checks plus Code Owner approval for control-plane paths.
+pull requests, and all business mutations. `live` requires both gates. Operators enable
+GitHub Actions failure notifications for workflow failures; GitHub's schedule remains
+best-effort and does not notify when no run is created. Repository rules require stable
+Quality, Integration, and Change Policy checks plus Code Owner approval for control-plane
+paths.

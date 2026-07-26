@@ -23,7 +23,7 @@ describe("unified health-agent workflow contract", () => {
       prettier.format(workflow, { parser: "yaml" }),
     ).resolves.toBeTruthy();
 
-    expect(workflow).toContain('cron: "0 23 * * *"');
+    expect(workflow).toContain('cron: "13 23 * * *"');
     expect(workflow).toContain("- preflight");
     expect(workflow).toContain("- live");
     expect(workflow).toContain("- canary_fix");
