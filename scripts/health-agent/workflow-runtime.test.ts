@@ -963,6 +963,50 @@ describe("stale branch cleanup runtime", () => {
     );
     expect(result.enqueuedFingerprints).toEqual([ordinaryFinding.fingerprint]);
   });
+
+  it("preserves the configured Linear adapter while queueing", async () => {
+    const ordinaryFinding = {
+      evidence: {},
+      fingerprint: "directory:runtime:linear",
+      mergePolicy: "human" as const,
+      severity: "medium" as const,
+      source: "directory" as const,
+      title: "Linear-routed runtime problem",
+    };
+    const contents = new Map([
+      ["aggregate.json", JSON.stringify(aggregateArtifact([ordinaryFinding]))],
+    ]);
+    const linear = {
+      sync: vi.fn(async () => ({ outcomes: [], status: "sent" })),
+    };
+
+    const result = await enqueueAndClaimWorkflowBatch(
+      {
+        findingsArtifactPath: "aggregate.json",
+        leaseOwner: "github-actions:123:1",
+        mode: "live",
+        outputPath: "queue-result.json",
+      },
+      {
+        env: { HEALTH_AGENT_ENABLED: "true" },
+        files: {
+          read: async (path) => contents.get(path) ?? "",
+          write: async (path, value) => {
+            contents.set(path, value);
+          },
+        },
+        linear,
+        queue: {
+          claim: vi.fn(async () => []),
+          enqueue: vi.fn(async () => undefined),
+          hasUnconfirmedAutomatic: vi.fn(async () => false),
+        },
+      },
+    );
+
+    expect(linear.sync).toHaveBeenCalledOnce();
+    expect(result.failures).not.toContain("linear:not_configured");
+  });
 });
 
 describe("scoped writer RPC", () => {
