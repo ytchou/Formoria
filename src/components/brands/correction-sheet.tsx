@@ -118,7 +118,7 @@ export function CorrectionSheet({
   const hasChanged =
     field === "product_tags"
       ? !sameTagSet(initialTags, selectedTags)
-      : isSupportedField && selection !== originalSelection;
+      : isSupportedField && selection !== "" && selection !== originalSelection;
   const productTagsCategory = PRODUCT_TYPE_CATEGORIES.find(
     (category) => category.slug === categorySlug,
   );
@@ -128,14 +128,17 @@ export function CorrectionSheet({
   const productSubcategories = PRODUCT_SUBCATEGORIES.filter(
     (subcategory) => subcategory.category === categorySlug,
   );
+  const placeholderOption = originalSelection === "" && (
+    <option value="" disabled>
+      {tCorrection("selectPlaceholder")}
+    </option>
+  );
   const title =
     field === "product_tags"
       ? tCorrection("productTagsTitle")
       : field === "product_type"
-      ? tEdit("fieldCategory")
-      : field === "price_range"
-        ? tEdit("fieldPriceRange")
-        : tEdit("fieldProductTags");
+        ? tEdit("fieldCategory")
+        : tEdit("fieldPriceRange");
   const fieldLabel =
     field === "product_type"
       ? tBrandDetail("label.category")
@@ -231,6 +234,7 @@ export function CorrectionSheet({
                 }
                 className="bg-card focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary"
               >
+                {placeholderOption}
                 {PRICE_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.prefix} · {tEdit(option.labelKey)}
@@ -255,6 +259,7 @@ export function CorrectionSheet({
                 }
                 className="bg-card focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary"
               >
+                {placeholderOption}
                 {PRODUCT_TYPE_CATEGORIES.map((item) => (
                   <option key={item.slug} value={item.slug}>
                     {categoryLabel(item, locale)}

@@ -478,6 +478,7 @@
       "description": "Submissions are reviewed by an editor before they update the listing.",
       "submitting": "Submitting…",
       "submit": "Submit correction",
+      "selectPlaceholder": "Not set yet — choose a value…",
       "productTagsTitle": "Correct product categories",
       "productTagsSubtitle": "{category} product categories (up to 5)",
       "productTagsSelected": "Selected {count} / 5",

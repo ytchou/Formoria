@@ -478,6 +478,7 @@
       "description": "送出後由編輯審核，通過才會更新。",
       "submitting": "送出中…",
       "submit": "送出修正",
+      "selectPlaceholder": "尚未填寫，請選擇…",
       "productTagsTitle": "修正產品類別",
       "productTagsSubtitle": "{category} 的產品類別（最多 5 項）",
       "productTagsSelected": "已選 {count} / 5",

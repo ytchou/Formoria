@@ -58,6 +58,7 @@ const messages = {
       description: "送出後由編輯審核，通過才會更新。",
       submitting: "送出中…",
       submit: "送出修正",
+      selectPlaceholder: "尚未填寫，請選擇…",
       productTagsTitle: "修正產品類別",
       productTagsSubtitle: "{category} 的產品類別（最多 5 項）",
       productTagsSelected: "已選 {count} / 5",
@@ -172,6 +173,56 @@ describe("CorrectionSheet", () => {
 
     fireEvent.change(select, { target: { value: "2" } });
     expect(submit).toBeDisabled();
+  });
+
+  it("shows a disabled placeholder as the selected option when there is no current value", () => {
+    renderSheet({ currentValue: null });
+    openSheet();
+
+    const select = screen.getByRole("combobox");
+    const placeholder = screen.getByRole("option", { name: "尚未填寫，請選擇…" });
+
+    expect(select).toHaveValue("");
+    expect(placeholder).toBeDisabled();
+    expect((placeholder as HTMLOptionElement).selected).toBe(true);
+    expect(screen.getAllByRole("option")).toHaveLength(4);
+  });
+
+  it("gates submit on the placeholder when there is no current value", () => {
+    renderSheet({ currentValue: null });
+    openSheet();
+
+    const select = screen.getByRole("combobox");
+    const submit = screen.getByRole("button", { name: "送出修正" });
+    expect(submit).toBeDisabled();
+
+    fireEvent.change(select, { target: { value: "3" } });
+    expect(submit).toBeEnabled();
+
+    fireEvent.change(select, { target: { value: "" } });
+    expect(select).toHaveValue("");
+    expect(submit).toBeDisabled();
+  });
+
+  it("shows the placeholder for a category with no current value", () => {
+    renderSheet({ field: "product_type", currentValue: null });
+    openSheet("修正類別");
+
+    expect(screen.getByRole("combobox")).toHaveValue("");
+    expect(
+      screen.getByRole("option", { name: "尚未填寫，請選擇…" }),
+    ).toBeDisabled();
+    expect(screen.getAllByRole("option")).toHaveLength(13);
+    expect(screen.getByRole("button", { name: "送出修正" })).toBeDisabled();
+  });
+
+  it("omits the placeholder when a current value exists", () => {
+    renderSheet();
+    openSheet();
+
+    expect(
+      screen.queryByRole("option", { name: "尚未填寫，請選擇…" }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows the rate-limit message on a rate_limited result", async () => {
