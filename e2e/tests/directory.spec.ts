@@ -3,6 +3,11 @@ import { test, expect } from '@playwright/test';
 test.describe('Directory deep', () => {
   test('all filter combinations return results or empty state', async ({ page }) => {
     await page.goto('/brands');
+    const categoryToggle = page
+      .locator('aside')
+      .getByRole('button', { name: /分類|Category/ });
+    await categoryToggle.click();
+    await expect(categoryToggle).toHaveAttribute('aria-expanded', 'true');
     const filters = page.getByRole('checkbox');
     const count = await filters.count();
     for (let i = 1; i < Math.min(count, 4); i++) {
@@ -49,7 +54,7 @@ test.describe('Directory deep', () => {
   });
 
   test('category page loads with filtered brands', async ({ page }) => {
-    const categorySlug = process.env.E2E_CATEGORY_SLUG ?? 'clothing';
+    const categorySlug = process.env.E2E_CATEGORY_SLUG ?? 'fashion';
     const response = await page.goto(`/brands?category=${categorySlug}`);
     if (!response || response.status() === 404) {
       test.skip(true, `Category "${categorySlug}" not found — set E2E_CATEGORY_SLUG`);

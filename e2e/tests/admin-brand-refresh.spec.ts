@@ -134,6 +134,7 @@ test.describe("Scheduled brand refresh review", () => {
     test.setTimeout(120_000);
 
     await adminPage.goto("/admin/brands");
+    await adminPage.getByPlaceholder("Search brand name...").fill(brandName);
     const brandRow = adminPage
       .locator("tbody tr")
       .filter({ hasText: brandName });

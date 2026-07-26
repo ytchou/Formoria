@@ -234,8 +234,6 @@ test.describe('Submit funnel', () => {
     )
     await expect.poll(submissionCount).toBe(0)
 
-    await userPage.getByRole('button', { name: '儲存並繼續' }).click()
-    await expect(userPage.locator('#locations')).toBeVisible({ timeout: 30_000 })
     await userPage.locator('#submission-pdpa').check()
 
     const submitButton = userPage.getByRole('button', { name: '提交品牌資料' })

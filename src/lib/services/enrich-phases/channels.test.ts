@@ -498,6 +498,179 @@ describe('channels enrichment phase', () => {
     expect(mocks.upsertEnrichedChannels.mock.calls.at(0)?.[1]).toHaveLength(1)
   })
 
+  it('retains the existing channel url when collapsing it into a retail chain', async () => {
+    const supabase = auditSupabase([], [
+      {
+        name: 'ROCKLAND',
+        category_label: '選品店',
+        region_label: '台北',
+        address: null,
+        url: 'https://rockland.example/stores',
+        owner_status: 'none',
+      },
+    ])
+    mocks.searchBrandMaps.mockResolvedValueOnce(mapsResult()).mockResolvedValueOnce(
+      mapsResult([
+        {
+          title: 'ROCKLAND 台北忠孝店',
+          address: '臺北市大安區忠孝東路四段 1 號',
+        },
+        {
+          title: 'ROCKLAND 新竹巨城店',
+          address: '新竹市東區中央路 229 號',
+        },
+      ]),
+    )
+
+    await runChannelsPhase(
+      phaseOptions({
+        brand: { ...phaseOptions().brand, id: 'brand-1', slug: 'brand-1', name: 'ROCKLAND' },
+        dryRun: false,
+        target: { type: 'brand', id: 'brand-1' },
+        supabase: { from: supabase.from } as never,
+      }),
+    )
+
+    expect(mocks.upsertEnrichedChannels).toHaveBeenCalledWith('brand-1', [
+      expect.objectContaining<Partial<ChannelCandidate>>({
+        name: 'ROCKLAND',
+        address: null,
+        regionLabel: '全台多間門市',
+        url: 'https://rockland.example/stores',
+      }),
+    ])
+  })
+
+  it('prefers a shared branch retailer origin over the existing channel url', async () => {
+    const supabase = auditSupabase([], [
+      {
+        name: 'ROCKLAND',
+        category_label: '選品店',
+        region_label: '台北',
+        address: null,
+        url: 'https://rockland.example/stores',
+        owner_status: 'none',
+      },
+    ])
+    mocks.searchBrandMaps.mockResolvedValueOnce(mapsResult()).mockResolvedValueOnce(
+      mapsResult([
+        {
+          title: 'ROCKLAND 台北忠孝店',
+          address: '臺北市大安區忠孝東路四段 1 號',
+          website: 'https://rockland-official.example/taipei',
+        },
+        {
+          title: 'ROCKLAND 新竹巨城店',
+          address: '新竹市東區中央路 229 號',
+          website: 'https://rockland-official.example/hsinchu',
+        },
+      ]),
+    )
+
+    await runChannelsPhase(
+      phaseOptions({
+        brand: { ...phaseOptions().brand, id: 'brand-1', slug: 'brand-1', name: 'ROCKLAND' },
+        dryRun: false,
+        target: { type: 'brand', id: 'brand-1' },
+        supabase: { from: supabase.from } as never,
+      }),
+    )
+
+    expect(mocks.upsertEnrichedChannels).toHaveBeenCalledWith('brand-1', [
+      expect.objectContaining<Partial<ChannelCandidate>>({
+        name: 'ROCKLAND',
+        url: 'https://rockland-official.example/taipei',
+      }),
+    ])
+  })
+
+  it('falls back to a branch maps url when a chain has no shared origin or existing url', async () => {
+    const supabase = auditSupabase([], [
+      {
+        name: 'ROCKLAND',
+        category_label: '選品店',
+        region_label: '台北',
+        address: null,
+        url: null,
+        owner_status: 'none',
+      },
+    ])
+    mocks.searchBrandMaps.mockResolvedValueOnce(mapsResult()).mockResolvedValueOnce(
+      mapsResult([
+        {
+          title: 'ROCKLAND 台北忠孝店',
+          address: '臺北市大安區忠孝東路四段 1 號',
+          website: 'https://branch-a.example/store',
+        },
+        {
+          title: 'ROCKLAND 新竹巨城店',
+          address: '新竹市東區中央路 229 號',
+        },
+      ]),
+    )
+
+    await runChannelsPhase(
+      phaseOptions({
+        brand: { ...phaseOptions().brand, id: 'brand-1', slug: 'brand-1', name: 'ROCKLAND' },
+        dryRun: false,
+        target: { type: 'brand', id: 'brand-1' },
+        supabase: { from: supabase.from } as never,
+      }),
+    )
+
+    expect(mocks.upsertEnrichedChannels).toHaveBeenCalledWith('brand-1', [
+      expect.objectContaining<Partial<ChannelCandidate>>({
+        name: 'ROCKLAND',
+        address: null,
+        url: 'https://branch-a.example/store',
+      }),
+    ])
+  })
+
+  it('does not adopt a serp evidence url as a location channel url', async () => {
+    const supabase = auditSupabase()
+
+    const result = await runChannelsPhase(
+      phaseOptions({
+        brand: { ...phaseOptions().brand, id: 'brand-1', slug: 'brand-1' },
+        dryRun: false,
+        target: { type: 'brand', id: 'brand-1' },
+        supabase: { from: supabase.from } as never,
+        serpResult: {
+          urls: ['https://blog.example/littdlework-stockists'],
+          snippets: ['永康旗艦店'],
+          entries: [
+            {
+              title: 'Littdlework stockists',
+              link: 'https://blog.example/littdlework-stockists',
+              snippet: '永康旗艦店',
+            },
+          ],
+          auditResultId: 'serp-audit-1',
+        },
+        descriptionRewrite: descriptionRewrite({
+          stockists: [
+            {
+              name: '永康旗艦店',
+              city: 'taipei',
+              address: '臺北市大安區永康街 1 號',
+              type: 'independent',
+              evidenceRefs: [1],
+            },
+          ],
+        }),
+      }),
+    )
+
+    expect(result.candidates).toEqual([
+      expect.objectContaining<Partial<ChannelCandidate>>({
+        name: '永康旗艦店',
+        address: '臺北市大安區永康街 1 號',
+      }),
+    ])
+    expect(result.candidates.at(0)).not.toHaveProperty('url')
+  })
+
   it('stages submission-target channels in enriched data without writing brand channels before approval', async () => {
     const supabase = auditSupabase()
     mocks.searchBrandMaps.mockResolvedValueOnce(
