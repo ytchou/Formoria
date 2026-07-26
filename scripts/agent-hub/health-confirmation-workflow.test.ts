@@ -29,10 +29,16 @@ describe("health confirmation workflow contract", () => {
   });
 
   it("uses least privilege and scoped health credentials", async () => {
-    const combined = await workflow();
+    const [controller, combined] = await Promise.all([
+      readFile(".github/workflows/health-agent.yml", "utf8"),
+      workflow(),
+    ]);
 
     expect(combined).toContain("contents: read");
     expect(combined).toContain("deployments: read");
+    expect(controller).toContain(
+      "permissions:\n  contents: read\n  deployments: read",
+    );
     expect(combined).toContain("pull-requests: read");
     expect(combined).toContain("persist-credentials: false");
     expect(combined).toContain("HEALTH_AGENT_READER_TOKEN");

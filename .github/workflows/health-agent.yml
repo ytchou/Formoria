@@ -29,6 +29,7 @@ concurrency:
 
 permissions:
   contents: read
+  deployments: read
   id-token: write
   pull-requests: read
   security-events: read
