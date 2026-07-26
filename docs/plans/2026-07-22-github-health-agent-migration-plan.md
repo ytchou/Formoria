@@ -5,7 +5,9 @@ Status: Approved for implementation; production cutover remains gated
 
 Revision (2026-07-26): The daily schedule moved to 07:13 Asia/Taipei. The independent
 freshness monitor was retired in favor of GitHub Actions failure notifications; a scheduled
-run that is never created has no repository-owned alert.
+run that is never created has no repository-owned alert. The daily controller now groups the
+implementation into five top-level phases while retaining reusable internal jobs and credential
+isolation.
 
 ## Goal
 

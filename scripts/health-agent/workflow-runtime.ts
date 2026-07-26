@@ -19,10 +19,7 @@ import {
   type LinkTelemetryRecord,
   type StaleBranchEvidence,
 } from "./directory";
-import {
-  evaluateBrandReview,
-  type RecentBrandEdit,
-} from "./brand-review";
+import { evaluateBrandReview, type RecentBrandEdit } from "./brand-review";
 import {
   buildSentryHealthFinding,
   collectSentryIssues,
@@ -292,10 +289,12 @@ export interface RepairResultInput {
 }
 
 export interface RepairFailureInput {
+  expectedEscalation?: boolean;
   leaseOwner: string;
   mergePolicy: "automatic" | "human";
   metadataPath: string;
   outputPath: string;
+  reason?: string;
   runAt: string;
   snapshotPath: string;
   workflowAttempt: number;
@@ -749,9 +748,7 @@ function nullableBrandString(value: unknown): string | null {
 }
 
 function brandMitStatus(value: unknown): RecentBrandEdit["mitStatus"] {
-  return value === "unverified" ||
-    value === "declared" ||
-    value === "verified"
+  return value === "unverified" || value === "declared" || value === "verified"
     ? value
     : null;
 }
@@ -759,9 +756,7 @@ function brandMitStatus(value: unknown): RecentBrandEdit["mitStatus"] {
 function brandMitDeclaredScope(
   value: unknown,
 ): RecentBrandEdit["mitDeclaredScope"] {
-  return value === "all" || value === "most" || value === "some"
-    ? value
-    : null;
+  return value === "all" || value === "most" || value === "some" ? value : null;
 }
 
 function brandOtherUrls(value: unknown): RecentBrandEdit["otherUrls"] {
@@ -859,9 +854,7 @@ async function collectBrandReview(
       findings: evaluated.findings,
       routine: "brand-review",
       skippedActions:
-        input.mode === "live" && !input.mutate
-          ? ["brand_review_delivery"]
-          : [],
+        input.mode === "live" && !input.mutate ? ["brand_review_delivery"] : [],
       snapshot: { ...evaluated.snapshot },
       status: "success",
       version: 1,
@@ -960,9 +953,7 @@ async function collectBrandReview(
     );
   } catch (error) {
     const failure =
-      error instanceof Error
-        ? error.message
-        : "brand_review_collection_failed";
+      error instanceof Error ? error.message : "brand_review_collection_failed";
     const artifact: BrandReviewArtifact = {
       collectedAt: input.runAt,
       evidence: {},
@@ -2665,6 +2656,7 @@ export async function deliverRepairFailure(
     throw new Error("repair_failure_findings_empty");
   }
 
+  const reason = input.reason ?? "repair_validation_failed_after_two_cycles";
   await Promise.all(
     ids.map((id) =>
       supabaseRequest(
@@ -2678,7 +2670,7 @@ export async function deliverRepairFailure(
             p_deployed_at: null,
             p_expected_status: "claimed",
             p_id: id,
-            p_last_error: "repair_validation_failed_after_two_cycles",
+            p_last_error: reason,
             p_lease_owner: input.leaseOwner,
             p_merge_sha: null,
             p_new_status: "needs_human",
@@ -2694,7 +2686,7 @@ export async function deliverRepairFailure(
     ),
   );
 
-  const failures: string[] = ["repair_validation_failed_after_two_cycles"];
+  const failures: string[] = input.expectedEscalation ? [] : [reason];
   let linearOutcomes: JsonValue[] = [];
   const linear = dependencies.linear;
   if (!linear) {
@@ -2735,7 +2727,7 @@ export async function deliverRepairFailure(
     },
     runAt: input.runAt,
     snapshotId: snapshot.snapshotId,
-    status: "failed",
+    status: input.expectedEscalation ? "awaiting_human" : "failed",
     workflowAttempt: input.workflowAttempt,
     workflowRunId: input.workflowRunId,
   });
@@ -3028,6 +3020,7 @@ export async function runWorkflowCommand(
     case "repair-failure":
       return deliverRepairFailure(
         {
+          expectedEscalation: input.expectedEscalation === true,
           leaseOwner: safeString(input.leaseOwner, "leaseOwner"),
           mergePolicy:
             input.mergePolicy === "automatic" || input.mergePolicy === "human"
@@ -3037,6 +3030,10 @@ export async function runWorkflowCommand(
                 })(),
           metadataPath: safeString(input.metadataPath, "metadataPath"),
           outputPath: safeString(input.outputPath, "outputPath"),
+          reason:
+            typeof input.reason === "string"
+              ? safeString(input.reason, "reason")
+              : undefined,
           runAt: safeString(input.runAt, "runAt"),
           snapshotPath: safeString(input.snapshotPath, "snapshotPath"),
           workflowAttempt: safeAttempt(input.workflowAttempt),
@@ -3098,6 +3095,7 @@ export async function main(
     prNumber: optionalArgument(argv, "--pr-number"),
     prUrl: optionalArgument(argv, "--pr-url"),
     resultPath: optionalArgument(argv, "--result"),
+    reason: optionalArgument(argv, "--reason"),
     runIdentity:
       optionalArgument(argv, "--run-identity") ??
       optionalArgument(argv, "--run-id"),
@@ -3108,6 +3106,8 @@ export async function main(
     workflowRunId: optionalArgument(argv, "--run-id"),
     windowHours: windowHours ? Number(windowHours) : 25,
     autoMergeEnabled: optionalArgument(argv, "--auto-merge-enabled") === "true",
+    expectedEscalation:
+      optionalArgument(argv, "--expected-escalation") === "true",
   };
   await runWorkflowCommand(
     commandValue as WorkflowRuntimeCommand,
