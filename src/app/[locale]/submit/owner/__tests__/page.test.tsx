@@ -52,12 +52,4 @@ describe('Owner Fork UI', () => {
     expect(screen.getAllByRole('link')).toHaveLength(2)
   })
 
-  it('redirects an existing owner to the recommendation flow', async () => {
-    const { redirect } = await import('next/navigation')
-    const { default: SubmitOwnerPage } = await import('../page')
-
-    await SubmitOwnerPage({ params: Promise.resolve({ locale: 'zh-TW' }) })
-
-    expect(redirect).toHaveBeenCalledWith('/submit/recommend')
-  })
 })

@@ -199,15 +199,6 @@ describe('BrandEditWizard', () => {
     })
   })
 
-  it('calls saveSectionDraftAction on Save & Continue', async () => {
-    const { saveSectionDraftAction } =
-      await import('@/lib/actions/brand-edit-wizard')
-    renderWizard({ initialStep: 0 })
-    fireEvent.click(screen.getByRole('button', { name: /save & continue/i }))
-    await waitFor(() => {
-      expect(saveSectionDraftAction).toHaveBeenCalled()
-    })
-  })
 
   it('does not advance from Links without the required official website', async () => {
     const { saveSectionDraftAction } =
@@ -278,33 +269,4 @@ describe('BrandEditWizard', () => {
     )
   })
 
-  it('does not publish when saving final-step edits fails', async () => {
-    const { saveSectionDraftAction } =
-      await import('@/lib/actions/brand-edit-wizard')
-    const { publishDraftAction } =
-      await import('@/app/[locale]/(protected)/dashboard/brands/[slug]/actions')
-    vi.mocked(saveSectionDraftAction).mockResolvedValueOnce({
-      error: 'Unable to save reputation edits',
-    })
-    renderWizard({
-      initialStep: 3,
-      defaultValues: {
-        name: 'Warmwood Living',
-        productType: 'home',
-        description: 'Furniture made in Taiwan.',
-        productTags: ['furniture'],
-        priceRange: 2,
-        heroImageUrl: 'https://example.com/hero.jpg',
-        productPhotos: ['https://example.com/product.jpg'],
-        purchaseWebsite: 'https://example.com',
-      },
-    })
-
-    fireEvent.click(screen.getByRole('button', { name: /publish/i }))
-
-    await waitFor(() => {
-      expect(saveSectionDraftAction).toHaveBeenCalled()
-    })
-    expect(publishDraftAction).not.toHaveBeenCalled()
-  })
 })

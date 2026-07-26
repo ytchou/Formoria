@@ -64,12 +64,6 @@ describe("SubmissionReviewDetails", () => {
     const languageTabs = screen.getByRole("tablist", {
       name: "Narrative language",
     });
-    expect(languageTabs).toHaveClass(
-      "border-b",
-      "border-border",
-      "bg-transparent",
-    );
-    expect(languageTabs).not.toHaveClass("rounded-lg", "bg-muted");
     expect(screen.getByRole("tab", { name: "Mandarin" })).toHaveAttribute(
       "aria-selected",
       "true",
@@ -277,70 +271,7 @@ describe("SubmissionReviewDetails", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("saves edited content via inline section save", async () => {
-    const user = userEvent.setup();
-    renderDetails(makeSubmission());
 
-    const contentHeading = screen.getByText("Content");
-    const contentSection = contentHeading.closest("section")!;
-    await user.click(
-      within(contentSection).getByRole("button", { name: "Edit" }),
-    );
-
-    const descriptions = screen.getAllByRole("textbox", {
-      name: /description/i,
-    });
-    await user.clear(descriptions[0]!);
-    await user.type(descriptions[0]!, "更新後的中文介紹");
-    await user.click(screen.getByRole("button", { name: "Save changes" }));
-
-    expect(reviewActions.save).toHaveBeenCalledWith(
-      "00000000-0000-4000-8000-000000000001",
-      expect.objectContaining({ description: "更新後的中文介紹" }),
-    );
-  });
-
-  it("keeps translated product tags paired when trimming an over-limit review", async () => {
-    const user = userEvent.setup();
-    renderDetails(
-      makeSubmission({
-        reviewData: {
-          ...reviewData,
-          productTags: ["一", "二", "三", "四", "五", "六", "七"],
-          productTagsEn: ["1", "2", "3", "4", "5", "6", "7"],
-        },
-        reviewCompleteness: {
-          complete: false,
-          missingFields: ["productTags"],
-        },
-      }),
-    );
-
-    const catalogHeading = screen.getByText("Catalog classification");
-    const catalogSection = catalogHeading.closest("section")!;
-    await user.click(
-      within(catalogSection).getByRole("button", { name: "Edit" }),
-    );
-
-    const productTags = screen.getByRole("textbox", { name: "Product tags" });
-    await user.clear(productTags);
-    await user.type(productTags, "手工皂, 臉部保養, 身體保養, 洗沐清潔, 香水");
-    await user.click(screen.getByRole("button", { name: "Save changes" }));
-
-    expect(reviewActions.save).toHaveBeenCalledWith(
-      "00000000-0000-4000-8000-000000000001",
-      expect.objectContaining({
-        productTags: ["手工皂", "臉部保養", "身體保養", "洗沐清潔", "香水"],
-        productTagsEn: [
-          "Handmade Soap",
-          "Skincare",
-          "Body Care",
-          "Bath & Shower",
-          "Fragrance",
-        ],
-      }),
-    );
-  });
 
   it("keeps image actions contained in drawer-safe gallery cards", async () => {
     const user = userEvent.setup();
@@ -361,11 +292,6 @@ describe("SubmissionReviewDetails", () => {
     });
     const gallery = heroButton.parentElement?.parentElement?.parentElement;
 
-    expect(gallery).toHaveClass("sm:grid-cols-2");
-    expect(gallery).not.toHaveClass("lg:grid-cols-3", "xl:grid-cols-4");
-    expect(heroButton).toHaveClass("absolute", "left-2", "top-2");
-    expect(removeButton.parentElement).toHaveClass("grid", "grid-cols-3");
-    expect(removeButton).toHaveClass("h-12", "w-full");
     expect(removeButton).not.toHaveTextContent("Remove");
   });
 

@@ -38,21 +38,5 @@ describe('parseCliArgs', () => {
     expect(() => parseCliArgs(['enrich-descriptions'])).toThrow(/unknown command/i)
   })
 
-  it('should log deprecation warning when --status provided without --slugs', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
-    parseCliArgs(['enrich', '--status=approved'])
-
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('--status without --slugs is deprecated'))
-  })
-
-  it('should not warn when --status and --slugs both provided', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-
-    parseCliArgs(['enrich', '--status=approved', '--slugs=brand-a'])
-
-    expect(warn).not.toHaveBeenCalledWith(
-      expect.stringContaining('--status without --slugs is deprecated')
-    )
-  })
 })

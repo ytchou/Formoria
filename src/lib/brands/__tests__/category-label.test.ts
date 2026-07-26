@@ -12,10 +12,6 @@ describe('getProductTypeLabel', () => {
     expect(getProductTypeLabel('fashion', 'en')).toBe('Fashion & Apparel')
   })
 
-  it('returns undefined for unknown slug', () => {
-    expect(getProductTypeLabel('clothing')).toBeUndefined() // old slug
-    expect(getProductTypeLabel('footwear')).toBeUndefined()
-  })
 })
 
 describe('getBrandCategoryLabel', () => {

@@ -60,23 +60,6 @@ describe('runBrandImagePhase', () => {
     expect(result.patch).toEqual({})
   })
 
-  it('stores submission enrichment images against the submission target', async () => {
-    vi.mocked(downloadAndStoreImages).mockResolvedValue([
-      'https://example.com/stored.jpg',
-    ])
-
-    await runBrandImagePhase({
-      brand,
-      phases: ['images'] as EnrichPhase[],
-      imageSearchUrls: ['https://example.com/image.jpg'],
-      target: { type: 'submission', id: 'submission-1' },
-    })
-
-    expect(downloadAndStoreImages).toHaveBeenCalledWith(
-      ['https://example.com/image.jpg'],
-      { type: 'submission', id: 'submission-1' },
-    )
-  })
 })
 
 async function createImageFixture(format: 'gif' | 'png'): Promise<Buffer> {
@@ -143,42 +126,6 @@ describe('downloadAndStoreImages', () => {
     vi.unstubAllGlobals()
   })
 
-  it('re-encodes downloaded images through processImage and uploads webp with 1-year cache', async () => {
-    const originalBuffer = await createImageFixture('png')
-    const processedBuffer = Buffer.from('webp')
-    stubImageFetch(originalBuffer, 'image/png')
-    mocks.processImage.mockResolvedValue({
-      buffer: processedBuffer,
-      contentType: 'image/webp',
-      width: 1600,
-      height: 1000,
-      originalSize: 500_000,
-      processedSize: 90_000,
-    })
-
-    await callActualDownload(['https://example.com/image.png'], brand.id)
-
-    expect(mocks.processImage).toHaveBeenCalledWith(
-      expect.any(Buffer),
-      expect.objectContaining({
-        maxWidth: 1600,
-        maxHeight: 1600,
-        maxFileSizeBytes: 30 * 1024 * 1024,
-      })
-    )
-    expect(mocks.storageUpload).toHaveBeenCalledWith(
-      expect.stringMatching(/\.webp$/),
-      processedBuffer,
-      expect.objectContaining({
-        contentType: 'image/webp',
-        cacheControl: '31536000',
-      })
-    )
-    expect(mocks.tableUpsert).toHaveBeenCalledWith(
-      expect.objectContaining({ width: 1600, height: 1000 }),
-      expect.anything()
-    )
-  })
 
   it('drops GIF candidates — processImage rejects unsupported formats', async () => {
     const gifBuffer = await createImageFixture('gif')

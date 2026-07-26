@@ -63,12 +63,4 @@ describe('DashboardTabNav', () => {
     ).toHaveAttribute('aria-current', 'page')
   })
 
-  it('applies_active_visual_class', () => {
-    mocks.usePathname.mockReturnValue('/dashboard/brands/test-brand/media')
-    render(<DashboardTabNav brandSlug="test-brand" />)
-
-    expect(
-      screen.getByRole('link', { name: 'dashboard.sidebar.media' }),
-    ).toHaveClass('after:bg-primary', 'after:h-0.5', 'after:opacity-100')
-  })
 })

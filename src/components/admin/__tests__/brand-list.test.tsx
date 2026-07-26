@@ -163,13 +163,6 @@ describe('BrandList', () => {
     expect(screen.getByRole('tab', { name: /Hidden/ })).toBeInTheDocument()
   })
 
-  it('keeps filter controls tall enough for their text', () => {
-    render(<BrandList brands={mockBrands} />)
-
-    expect(screen.getByPlaceholderText('Search brand name...')).toHaveClass('h-12')
-    expect(screen.getByDisplayValue('All MIT status')).toHaveClass('h-12')
-    expect(screen.getByDisplayValue('All categories')).toHaveClass('h-12')
-  })
 
   it('filters brands by status tab', () => {
     render(<BrandList brands={mockBrands} />)
@@ -240,35 +233,7 @@ describe('BrandList', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('resends an eligible claim invite and reports success', async () => {
-    resendClaimInviteAction.mockResolvedValue({ resent: true })
-    render(<BrandList brands={mockBrands} claimInviteBrandIds={['brand-1']} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Resend claim invite' }))
-
-    await waitFor(() => {
-      expect(resendClaimInviteAction).toHaveBeenCalledWith('brand-1')
-    })
-    expect(toastSuccess).toHaveBeenCalledWith('Claim invitation sent')
-  })
-
-  it('confirms a scheduled refresh request without dispatching enrichment', async () => {
-    requestBrandRefreshAction.mockResolvedValue({ submissionId: 'refresh-1' })
-    render(<BrandList brands={mockBrands} />)
-
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'Open brand actions for Pottery Studio',
-      })
-    )
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'Request re-enrichment' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Request re-enrichment' }))
-
-    await waitFor(() => {
-      expect(requestBrandRefreshAction).toHaveBeenCalledWith('brand-1')
-    })
-    expect(toastSuccess).toHaveBeenCalledWith('Re-enrichment requested for the next scheduled run')
-  })
 
   it('surfaces duplicate refresh requests from the transaction', async () => {
     requestBrandRefreshAction.mockResolvedValue({

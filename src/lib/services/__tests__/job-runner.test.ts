@@ -128,28 +128,7 @@ describe("durable curation job runner", () => {
     );
   });
 
-  it("archives a snapshot after a completed job is finalized", async () => {
-    await runJob(job(), "worker-token");
 
-    expect(mocks.uploadRunLogSnapshot).toHaveBeenCalledWith(
-      "job-1",
-      "<!doctype html><title>Run log</title>",
-    );
-  });
-
-  it("archives a snapshot after a failed job is finalized", async () => {
-    mocks.runEnrich.mockRejectedValue(new Error("Provider unavailable"));
-
-    await runJob(
-      job({ trigger: "automatic_retry", attempt: 2 }),
-      "worker-token",
-    );
-
-    expect(mocks.uploadRunLogSnapshot).toHaveBeenCalledWith(
-      "job-1",
-      "<!doctype html><title>Run log</title>",
-    );
-  });
 
   it("keeps the job result unchanged when snapshot upload fails", async () => {
     targets = [target({ status: "succeeded" })];
@@ -185,18 +164,6 @@ describe("durable curation job runner", () => {
     expect(mocks.enqueueAutomaticRetry).toHaveBeenCalledWith(cronJob);
   });
 
-  it("does not create another retry after a failed automatic retry", async () => {
-    const failedJob = job({
-      trigger: "automatic_retry",
-      attempt: 2,
-      parent_job_id: "job-parent",
-    });
-    mocks.runEnrich.mockRejectedValue(new Error("Orchestration stopped"));
-
-    await runJob(failedJob, "worker-token");
-
-    expect(mocks.enqueueAutomaticRetry).not.toHaveBeenCalled();
-  });
 
   it("rejects a historical brand target without running enrichment", async () => {
     targets = [

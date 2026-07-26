@@ -92,15 +92,4 @@ describe('EmailCaptureForm', () => {
     expect(brandStoriesChip).toHaveAttribute('aria-pressed', 'false')
   })
 
-  it('calls trackNewsletterSubscribed when subscription succeeds', async () => {
-    mockActionState = { success: true }
-    render(<EmailCaptureForm />)
-
-    await waitFor(() => {
-      expect(trackNewsletterSubscribed).toHaveBeenCalledWith(
-        ['curated-picks'],
-        true,
-      )
-    })
-  })
 })

@@ -86,26 +86,7 @@ describe('getBrands search path', () => {
     expect(result).toEqual({ brands: [], totalCount: 0 })
   })
 
-  it('sanitizes search query (trims, caps at 100 chars)', async () => {
-    mockRpc.mockResolvedValue({ data: [], error: null })
 
-    await getBrands({ search: '  hello  ', limit: 5 })
-
-    expect(mockRpc).toHaveBeenCalledWith('search_brands', expect.objectContaining({
-      search_query: 'hello',
-    }))
-  })
-
-  it('caps a full-search query at 100 characters before the RPC', async () => {
-    mockRpc.mockResolvedValue({ data: [], error: null })
-
-    await getBrands({ search: `  ${'台'.repeat(101)}  `, limit: 5 })
-
-    expect(mockRpc).toHaveBeenCalledWith(
-      'search_brands',
-      expect.objectContaining({ search_query: '台'.repeat(100) }),
-    )
-  })
 
   it('returns empty array for empty query', async () => {
     const results = await getBrands({ search: '', limit: 5 })

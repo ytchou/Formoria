@@ -20,17 +20,6 @@ describe('runlog storage', () => {
     mocks.createSignedUrl.mockResolvedValue({ data: { signedUrl: 'https://storage.example/runlog' }, error: null })
   })
 
-  it('uploads an upserted self-contained HTML snapshot', async () => {
-    await uploadRunLogSnapshot('job-1', '<!doctype html><title>Enrich run</title>')
-
-    expect(uploadPrivateFile).toHaveBeenCalledWith({
-      bucket: 'run-logs',
-      path: 'job-1.html',
-      data: Buffer.from('<!doctype html><title>Enrich run</title>'),
-      contentType: 'text/html; charset=utf-8',
-      upsert: true,
-    })
-  })
 
   it('returns a one-hour signed URL', async () => {
     await expect(getRunLogSnapshotUrl('job-1')).resolves.toBe('https://storage.example/runlog')

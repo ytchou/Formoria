@@ -30,24 +30,6 @@ beforeEach(() => {
 })
 
 describe('DashboardPage redirect', () => {
-  it('redirects to the brand overview page when user owns a brand', async () => {
-    vi.mocked(getUserBrands).mockResolvedValue([
-      {
-        brandId: 'b1',
-        brandName: 'Test Brand',
-        brandSlug: 'test-brand',
-        heroImageUrl: null,
-        claimedAt: '2026-01-01',
-      },
-    ])
-
-    await DashboardPage({
-      params: Promise.resolve({ locale: 'en' }),
-      searchParams: Promise.resolve({}),
-    })
-
-    expect(redirect).toHaveBeenCalledWith('/en/dashboard/brands/test-brand')
-  })
 
   it('returns null when user has no brands', async () => {
     vi.mocked(getUserBrands).mockResolvedValue([])

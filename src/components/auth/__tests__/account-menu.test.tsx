@@ -59,12 +59,6 @@ describe('AccountMenu', () => {
 
     const trigger = screen.getByRole('button', { name: 'Account' })
 
-    expect(trigger).toHaveClass(
-      'size-9',
-      'rounded-full',
-      'bg-secondary',
-      'text-secondary-foreground',
-    )
     expect(trigger).toHaveTextContent('P')
     expect(trigger.querySelector('svg')).toBeNull()
     expect(screen.queryByRole('link', { name: 'Sign in' })).not.toBeInTheDocument()

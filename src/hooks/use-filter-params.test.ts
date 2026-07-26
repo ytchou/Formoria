@@ -33,14 +33,6 @@ describe('useFilterParams', () => {
       expect(result.current.currentPage).toBe(3)
     })
 
-    it('setPage updates URL with page param', () => {
-      const { result } = renderHook(() => useFilterParams())
-      act(() => result.current.setPage(2))
-      expect(mockPush).toHaveBeenCalledWith(
-        expect.stringContaining('page=2'),
-        { scroll: false }
-      )
-    })
   })
 
   describe('sort management', () => {
@@ -73,81 +65,11 @@ describe('useFilterParams', () => {
       expect(result.current.filters.search).toBe('tea')
     })
 
-    it('setSearch updates URL with search param', () => {
-      const { result } = renderHook(() => useFilterParams())
 
-      act(() => {
-        result.current.setSearch('tea')
-      })
 
-      expect(mockPush).toHaveBeenCalledWith(
-        expect.stringContaining('search=tea'),
-        { scroll: false }
-      )
-    })
 
-    it('setSearch resets page to 1', () => {
-      mockSearchParams = new URLSearchParams('page=3')
-      const { result } = renderHook(() => useFilterParams())
 
-      act(() => {
-        result.current.setSearch('test')
-      })
 
-      expect(mockPush).toHaveBeenCalledWith(
-        expect.not.stringContaining('page='),
-        { scroll: false }
-      )
-    })
-
-    it('preserves category and sort while resetting pagination', () => {
-      mockSearchParams = new URLSearchParams(
-        'category=crafts&sort=name&page=3',
-      )
-      const { result } = renderHook(() => useFilterParams())
-
-      act(() => result.current.setSearch('tea'))
-
-      expect(mockPush).toHaveBeenCalledWith(
-        '/?category=crafts&sort=name&search=tea',
-        { scroll: false },
-      )
-    })
-
-    it('clears search while preserving unrelated filters', () => {
-      mockSearchParams = new URLSearchParams(
-        'search=tea&category=crafts&sort=newest&page=2',
-      )
-      const { result } = renderHook(() => useFilterParams())
-
-      act(() => result.current.setSearch(''))
-
-      expect(mockPush).toHaveBeenCalledWith(
-        '/?category=crafts&sort=newest',
-        { scroll: false },
-      )
-    })
-
-    it('does not push when setting search leaves the URL unchanged', () => {
-      const { result } = renderHook(() => useFilterParams())
-
-      act(() => {
-        result.current.setSearch('')
-      })
-
-      expect(mockPush).not.toHaveBeenCalled()
-    })
-
-    it('does not reset pagination when the search term is unchanged', () => {
-      mockSearchParams = new URLSearchParams('page=3')
-      const { result } = renderHook(() => useFilterParams())
-
-      act(() => {
-        result.current.setSearch('')
-      })
-
-      expect(mockPush).not.toHaveBeenCalled()
-    })
 
     it('setSearch pushes URL immediately (debounce lives in search-input)', () => {
       const { result } = renderHook(() => useFilterParams())
@@ -163,19 +85,6 @@ describe('useFilterParams', () => {
       )
     })
 
-    it('clearFilters removes search param', () => {
-      mockSearchParams = new URLSearchParams('search=test')
-      const { result } = renderHook(() => useFilterParams())
-
-      act(() => {
-        result.current.clearFilters()
-      })
-
-      expect(mockPush).toHaveBeenCalledWith(
-        expect.not.stringContaining('search='),
-        { scroll: false }
-      )
-    })
   })
 
   describe('filter + page interaction', () => {

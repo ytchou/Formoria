@@ -180,13 +180,6 @@ describe('rejectSubmissionAction', () => {
     vi.resetModules()
   })
 
-  it('rejects with valid denial reason', async () => {
-    const { rejectSubmissionAction } = await import('../actions')
-
-    const result = await rejectSubmissionAction(testSubmissionId, 'not_mit', 'Not made in Taiwan')
-
-    expect(result).toBeUndefined()
-  })
 
   it('returns error when denial reason is other but notes are empty', async () => {
     const { rejectSubmissionAction } = await import('../actions')

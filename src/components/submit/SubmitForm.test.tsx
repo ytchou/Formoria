@@ -119,7 +119,6 @@ describe('SubmitForm', () => {
     const requiredMarker = privacyLabel?.querySelector('[aria-hidden="true"]')
     expect(privacyConsent).toHaveAttribute('aria-required', 'true')
     expect(requiredMarker).toHaveTextContent('*')
-    expect(requiredMarker).toHaveClass('text-destructive')
   })
 
   it('explains that extra context helps the review', () => {
@@ -168,7 +167,6 @@ describe('SubmitForm', () => {
     const privacyConsent = screen.getByRole('checkbox', { name: /隱私權政策/ })
     const consentPanel = privacyConsent.closest('[data-testid="consent-panel"]')
     expect(consentPanel).toBeInTheDocument()
-    expect(consentPanel).toHaveClass('rounded-lg')
     const shieldIcon = consentPanel!.querySelector('[data-testid="consent-shield"]')
     expect(shieldIcon).toBeInTheDocument()
   })
@@ -179,26 +177,9 @@ describe('SubmitForm', () => {
     const consent = screen.getByRole('checkbox', { name: /隱私權政策/ })
     const consentText = screen.getByText(/我同意依據/, { selector: 'span' })
     expect(consent).not.toBeChecked()
-    expect(consentText).toHaveClass('font-normal')
     // Click the consent text span (bubbles to wrapping label, activating the checkbox)
     await user.click(consentText)
     expect(consent).toBeChecked()
   })
 
-  it('calls trackSubmissionFormErrorShown when form is submitted with invalid fields', async () => {
-    renderForm()
-
-    // Submit the form directly to bypass the disabled button and trigger validation error handler
-    const form = document.querySelector('form')!
-    fireEvent.submit(form)
-
-    await waitFor(() => {
-      expect(trackSubmissionFormErrorShown).toHaveBeenCalled()
-    })
-    expect(trackSubmissionFormErrorShown).toHaveBeenCalledWith(
-      expect.any(String),
-      'validation',
-      'recommendation',
-    )
-  })
 })

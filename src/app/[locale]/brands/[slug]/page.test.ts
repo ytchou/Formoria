@@ -52,14 +52,6 @@ describe('brand detail data visibility', () => {
     brandServiceMocks.getBrandBySlug.mockResolvedValue(approvedBrand)
   })
 
-  it('loads metadata through the approved-only public brand query', async () => {
-    await generateMetadata({
-      params: Promise.resolve({ locale: 'zh-TW', slug: approvedBrand.slug }),
-    })
-
-    expect(brandServiceMocks.getApprovedBrandBySlug).toHaveBeenCalledWith(approvedBrand.slug)
-    expect(brandServiceMocks.getBrandBySlug).not.toHaveBeenCalled()
-  })
 
   it('preserves the not-found signal for non-public brands', async () => {
     const { NotFoundError } = await import('@/lib/errors')

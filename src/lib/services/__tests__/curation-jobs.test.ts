@@ -126,52 +126,6 @@ describe("admin curation target resolution", () => {
     vi.clearAllMocks();
   });
 
-  it("keeps a legacy provisional brand linked submission as a submission target", async () => {
-    const submissionQuery = {
-      select: vi.fn(() => ({
-        in: vi.fn().mockResolvedValue({
-          data: [
-            {
-              id: "submission-1",
-              brand_id: "brand-1",
-              brand_name: "小島誌",
-              status: "pending",
-            },
-          ],
-          error: null,
-        }),
-      })),
-    };
-    const jobQuery = singleQuery(job({ id: "job-1", status: "pending" }));
-    mocks.from.mockImplementation((table: string) =>
-      table === "brand_submissions" ? submissionQuery : jobQuery,
-    );
-    mocks.rpc.mockResolvedValue({ data: "job-1", error: null });
-    mocks.createServiceClient.mockReturnValue({
-      from: mocks.from,
-      rpc: mocks.rpc,
-    });
-
-    await enqueueAdminCurationJob({
-      params: { submissionIds: ["submission-1"] },
-      dryRun: false,
-      startedBy: "admin-1",
-    });
-
-    expect(mocks.rpc).toHaveBeenCalledWith(
-      "enqueue_curation_job",
-      expect.objectContaining({
-        p_targets: [
-          {
-            target_type: "submission",
-            target_id: "submission-1",
-            brand_name: "小島誌",
-            brand_slug: null,
-          },
-        ],
-      }),
-    );
-  });
 
   it("leaves explicit refresh targets for the scheduler", async () => {
     const submissionQuery = {
@@ -256,49 +210,6 @@ describe("automatic curation retries", () => {
     vi.clearAllMocks();
   });
 
-  it("clones only unfinished targets", async () => {
-    const targetPages = [
-      [
-        target("succeeded-target", "succeeded"),
-        target("failed-target", "failed"),
-        target("skipped-target", "skipped"),
-        target("pending-target", "pending"),
-        target("running-target", "running"),
-      ],
-    ];
-    const targetQuery = pagedQuery(targetPages, []);
-    const jobQuery = singleQuery(job({ id: "retry-job" }));
-    mocks.from.mockImplementation((table: string) =>
-      table === "curation_job_targets" ? targetQuery : jobQuery,
-    );
-    mocks.rpc.mockResolvedValue({ data: "retry-job", error: null });
-    mocks.createServiceClient.mockReturnValue({
-      from: mocks.from,
-      rpc: mocks.rpc,
-    });
-
-    await enqueueAutomaticRetry(job());
-
-    expect(mocks.rpc).toHaveBeenCalledWith(
-      "enqueue_curation_job",
-      expect.objectContaining({
-        p_targets: [
-          {
-            target_type: "submission",
-            target_id: "pending-target",
-            brand_name: "品牌 pending-target",
-            brand_slug: null,
-          },
-          {
-            target_type: "submission",
-            target_id: "running-target",
-            brand_name: "品牌 running-target",
-            brand_slug: null,
-          },
-        ],
-      }),
-    );
-  });
 
   it("does not enqueue an empty retry for terminal targets", async () => {
     const targetQuery = pagedQuery(

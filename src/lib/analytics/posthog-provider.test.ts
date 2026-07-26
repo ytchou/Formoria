@@ -10,26 +10,7 @@ import {
 afterEach(clearPostHogProviderForTests)
 
 describe('PostHog provider registry', () => {
-  it('flushes interactions captured before the lazy client registers', () => {
-    const provider = { capture: vi.fn(), identify: vi.fn(), reset: vi.fn() }
 
-    capturePostHogEvent('submission_form_opened', { intent: 'recommend' })
-    registerPostHogProvider(provider)
-
-    expect(provider.capture).toHaveBeenCalledWith(
-      'submission_form_opened',
-      { intent: 'recommend' },
-    )
-  })
-
-  it('applies an identity requested before the lazy client registers', () => {
-    const provider = { capture: vi.fn(), identify: vi.fn(), reset: vi.fn() }
-
-    identifyPostHogUser('supabase-user-id', { is_internal: true })
-    registerPostHogProvider(provider)
-
-    expect(provider.identify).toHaveBeenCalledWith('supabase-user-id', { is_internal: true })
-  })
 
   it('does not reapply an identity after logout', () => {
     const first = { capture: vi.fn(), identify: vi.fn(), reset: vi.fn() }

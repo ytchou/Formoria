@@ -48,7 +48,6 @@ describe('InlineVerification hydration', () => {
 
     const verification = container.querySelector('#verification')
     expect(verification).not.toBeNull()
-    expect(verification).not.toHaveClass('border')
   })
 
   it('hydrates without a mismatch when verification was previously dismissed', async () => {

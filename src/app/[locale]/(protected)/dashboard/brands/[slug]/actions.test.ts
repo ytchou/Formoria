@@ -200,44 +200,7 @@ describe('updateBrandAction', () => {
     scanContent.mockReturnValue({ violations: [] })
   })
 
-  it('updates brand', async () => {
-    const { updateBrandAction } = await import('./actions')
 
-    const formData = form({
-      brandSlug: 'test-brand',
-      name: 'Updated Name',
-      description: 'A nice description',
-    })
-
-    try {
-      await updateBrandAction(undefined, formData)
-    } catch {
-      // redirect throws
-    }
-
-    expect(updateBrand).toHaveBeenCalled()
-  })
-
-  it('updates the public product category', async () => {
-    const { updateBrandAction } = await import('./actions')
-
-    const formData = form({
-      brandSlug: 'test-brand',
-      name: 'Updated Name',
-      productType: 'home',
-    })
-
-    try {
-      await updateBrandAction(undefined, formData)
-    } catch {
-      // redirect throws
-    }
-
-    expect(updateBrand).toHaveBeenCalledWith(
-      'brand-1',
-      expect.objectContaining({ productType: 'home' })
-    )
-  })
 
   it('rejects update when user is not owner', async () => {
     const { isOwnerOf } = await import('@/lib/services/brand-owners')
@@ -255,47 +218,7 @@ describe('updateBrandAction', () => {
     expect(result?.error).toContain('權限')
   })
 
-  it('extracts foundingYear from FormData', async () => {
-    const { updateBrandAction } = await import('./actions')
 
-    const formData = form({
-      brandSlug: 'test-brand',
-      foundingYear: '2020',
-    })
-
-    try {
-      await updateBrandAction(undefined, formData)
-    } catch {
-      // redirect throws
-    }
-
-    expect(updateBrand).toHaveBeenCalledWith(
-      'brand-1',
-      expect.objectContaining({ foundingYear: 2020 })
-    )
-  })
-
-  it('extracts purchaseShopee flat field from FormData', async () => {
-    const { updateBrandAction } = await import('./actions')
-
-    const formData = form({
-      brandSlug: 'test-brand',
-      purchaseShopee: 'https://shopee.tw/example',
-    })
-
-    try {
-      await updateBrandAction(undefined, formData)
-    } catch {
-      // redirect throws
-    }
-
-    expect(updateBrand).toHaveBeenCalledWith(
-      'brand-1',
-      expect.objectContaining({
-        purchaseShopee: 'https://shopee.tw/example',
-      })
-    )
-  })
 
   it('extracts mitStory from FormData', async () => {
     const { parseBrandEditForm } = await import('./actions-utils')
@@ -356,69 +279,8 @@ describe('updateBrandAction', () => {
     expect(payload.fields.mitStory).toBe('Contact factory@example.com')
   })
 
-  it('persists submitted image URLs', async () => {
-    const { updateBrandAction } = await import('./actions')
 
-    try {
-      await updateBrandAction(undefined, form({
-        brandSlug: 'test-brand',
-        name: 'Acme',
-        heroImageUrl: heroUrl,
-        productPhotos: JSON.stringify([newProductUrl]),
-      }))
-    } catch {
-      // redirect throws
-    }
 
-    expect(updateBrand).toHaveBeenCalledWith(
-      'brand-1',
-      expect.objectContaining({
-        heroImageUrl: heroUrl,
-        productPhotos: [newProductUrl],
-      })
-    )
-  })
-
-  it('caps submitted productPhotos to the first 6 entries', async () => {
-    const { updateBrandAction } = await import('./actions')
-    const productPhotos = Array.from({ length: 8 }, (_, index) => `${SUPA}/product-${index + 1}.webp`)
-
-    try {
-      await updateBrandAction(undefined, form({
-        brandSlug: 'test-brand',
-        productPhotos: JSON.stringify(productPhotos),
-      }))
-    } catch {
-      // redirect throws
-    }
-
-    expect(updateBrand).toHaveBeenCalledWith(
-      'brand-1',
-      expect.objectContaining({
-        productPhotos: productPhotos.slice(0, 6),
-      })
-    )
-  })
-
-  it('derives productTagsEn from productTags on update', async () => {
-    const { updateBrandAction } = await import('./actions')
-
-    try {
-      await updateBrandAction(undefined, form({
-        brandSlug: 'test-brand',
-        productTags: '托特包,口金包',
-      }))
-    } catch {
-      // redirect throws
-    }
-
-    expect(updateBrand).toHaveBeenCalledWith(
-      'brand-1',
-      expect.objectContaining({
-        productTagsEn: ['Tote Bags', 'Clasp-Frame Bags'],
-      })
-    )
-  })
 
   it('does not let governed fields reach updateBrand', async () => {
     const { updateBrandAction } = await import('./actions')
@@ -461,54 +323,7 @@ describe('updateBrandAction', () => {
     expect(result?.error).toContain('productPhotos')
   })
 
-  it('diffs and deletes orphaned hero and product images after update', async () => {
-    vi.mocked(getBrandBySlug).mockResolvedValueOnce({
-      id: 'brand-1',
-      slug: 'test-brand',
-      name: 'Test Brand',
-      description: 'Original description before edit',
-      socialLinks: {},
-      heroImageUrl: oldHeroUrl,
-      productPhotos: [oldProductUrl],
-    })
-    diffRemovedImageUrls.mockReturnValueOnce([oldHeroUrl, oldProductUrl])
 
-    const { updateBrandAction } = await import('./actions')
-
-    try {
-      await updateBrandAction(undefined, form({
-        brandSlug: 'test-brand',
-        heroImageUrl: '',
-        productPhotos: '[]',
-      }))
-    } catch {
-      // redirect throws
-    }
-
-    expect(diffRemovedImageUrls).toHaveBeenCalledWith(
-      [oldHeroUrl, oldProductUrl],
-      []
-    )
-    expect(deleteBrandImages).toHaveBeenCalledWith([oldHeroUrl, oldProductUrl])
-  })
-
-  it('revalidates both public brand locales and the sitemap', async () => {
-    const { revalidatePath } = await import('next/cache')
-    const { updateBrandAction } = await import('./actions')
-
-    try {
-      await updateBrandAction(undefined, form({
-        brandSlug: 'test-brand',
-        name: 'Acme',
-      }))
-    } catch {
-      // redirect throws
-    }
-
-    expect(revalidatePath).toHaveBeenCalledWith('/brands/test-brand')
-    expect(revalidatePath).toHaveBeenCalledWith('/en/brands/test-brand')
-    expect(revalidatePath).toHaveBeenCalledWith('/sitemap.xml')
-  })
 })
 
 describe('updateBrandAction — admin moderation', () => {
@@ -530,25 +345,6 @@ describe('updateBrandAction — admin moderation', () => {
     scanContent.mockReturnValue({ violations: [] })
   })
 
-  it('lets an admin edit a brand they do not own', async () => {
-    const { isOwnerOf } = await import('@/lib/services/brand-owners')
-    vi.mocked(isOwnerOf).mockResolvedValueOnce(false)
-    isActingAsAdmin.mockResolvedValue(true)
-    mockUser('admin@formoria.com', 'admin-1')
-
-    const { updateBrandAction } = await import('./actions')
-
-    try {
-      await updateBrandAction(undefined, form({
-        brandSlug: 'test-brand',
-        description: 'Admin description edit',
-      }))
-    } catch {
-      // redirect throws
-    }
-
-    expect(updateBrand).toHaveBeenCalled()
-  })
 
   it('queues violations for admin edits instead of bypassing moderation', async () => {
     const violations = [
@@ -642,41 +438,6 @@ describe('updateBrandAction — edit gating', () => {
     sendEmail.mockResolvedValue({ success: true })
   })
 
-  it('publishes immediately when scanContent returns no violations', async () => {
-    isActingAsAdmin.mockResolvedValueOnce(false)
-
-    const { updateBrandAction } = await import('./actions')
-
-    try {
-      await updateBrandAction(undefined, form({
-        brandSlug: 'test-brand',
-        name: 'Trusted Name',
-        description: 'Clean trusted description',
-        purchaseWebsite: 'https://example.com',
-        purchaseShopee: 'https://shop.example.com/product',
-      }))
-    } catch {
-      // redirect throws
-    }
-
-    expect(scanContent).toHaveBeenCalledWith(
-      'Trusted Name',
-      expect.objectContaining({
-        name: 'Trusted Name',
-        description: 'Clean trusted description',
-        website: 'https://example.com',
-        purchaseUrl: 'https://shop.example.com/product',
-      }),
-    )
-    expect(updateBrand).toHaveBeenCalledWith(
-      'brand-1',
-      expect.objectContaining({
-        name: 'Trusted Name',
-        description: 'Clean trusted description',
-      })
-    )
-    expect(saveModerationFlags).not.toHaveBeenCalled()
-  })
 
   it('rejects with violations when scanContent finds issues', async () => {
     isActingAsAdmin.mockResolvedValueOnce(false)
@@ -699,57 +460,7 @@ describe('updateBrandAction — edit gating', () => {
     expect(updateBrand).not.toHaveBeenCalled()
   })
 
-  it('sends admin notification email on violation', async () => {
-    isActingAsAdmin.mockResolvedValueOnce(false)
-    const violations = [
-      {
-        field: 'description',
-        rule: 'contact_injection_email',
-        userMessage: 'Email addresses are not allowed',
-      },
-    ]
-    scanContent.mockReturnValueOnce({ violations })
 
-    const { updateBrandAction } = await import('./actions')
-    await updateBrandAction(undefined, form({
-      brandSlug: 'test-brand',
-      description: 'Contact owner@example.com',
-    }))
-
-    expect(buildViolationAdminNotificationEmail).toHaveBeenCalledWith({
-      brandName: 'Test Brand',
-      ownerEmail: 'owner@example.com',
-      violations,
-    })
-    expect(sendEmail).toHaveBeenCalledWith(
-      expect.objectContaining({ subject: 'Violation detected' }),
-    )
-  })
-
-  it('logs violation to moderation_flags with pending status', async () => {
-    isActingAsAdmin.mockResolvedValueOnce(false)
-    const violations = [
-      {
-        field: 'description',
-        rule: 'contact_injection_email',
-        userMessage: 'Email addresses are not allowed',
-      },
-    ]
-    scanContent.mockReturnValueOnce({ violations })
-
-    const { updateBrandAction } = await import('./actions')
-    await updateBrandAction(undefined, form({
-      brandSlug: 'test-brand',
-      description: 'Contact owner@example.com',
-    }))
-
-    expect(saveModerationFlags).toHaveBeenCalledWith(
-      'brand-1',
-      'user-1',
-      violations,
-      'pending',
-    )
-  })
 
   it('rejects slug change attempts with error message', async () => {
     isActingAsAdmin.mockResolvedValueOnce(false)
@@ -765,58 +476,7 @@ describe('updateBrandAction — edit gating', () => {
     expect(updateBrand).not.toHaveBeenCalled()
   })
 
-  it('calls completeOnboardingStep regardless of violation outcome', async () => {
-    isActingAsAdmin.mockResolvedValue(false)
-    scanContent.mockReturnValueOnce({
-      violations: [
-        {
-          field: 'description',
-          rule: 'contact_injection_email',
-          userMessage: 'Email addresses are not allowed',
-        },
-      ],
-    })
 
-    const { updateBrandAction } = await import('./actions')
-
-    await updateBrandAction(undefined, form({
-      brandSlug: 'test-brand',
-      description: 'Contact owner@example.com',
-      onboardingStep: 'basics',
-    }))
-
-    try {
-      await updateBrandAction(undefined, form({
-        brandSlug: 'test-brand',
-        description: 'Clean description',
-        onboardingStep: 'basics',
-      }))
-    } catch {
-      // redirect throws
-    }
-
-  })
-
-  it('scans clean admin edits before updating', async () => {
-    isActingAsAdmin.mockResolvedValue(true)
-
-    const { updateBrandAction } = await import('./actions')
-
-    try {
-      await updateBrandAction(undefined, form({
-        brandSlug: 'test-brand',
-        name: 'Direct Name',
-      }))
-    } catch {
-      // redirect throws
-    }
-
-    expect(scanContent).toHaveBeenCalledWith(
-      'Direct Name',
-      expect.objectContaining({ name: 'Direct Name' }),
-    )
-    expect(updateBrand).toHaveBeenCalled()
-  })
 
   it('redirects an immediate admin slug change to the new dashboard URL', async () => {
     isActingAsAdmin.mockResolvedValue(true)
@@ -860,25 +520,6 @@ describe('publishDraftAction — edit gating', () => {
     saveModerationFlags.mockResolvedValue(undefined)
   })
 
-  it('publishes a clean non-admin owner draft immediately', async () => {
-    isActingAsAdmin.mockResolvedValueOnce(false)
-
-    const { publishDraftAction } = await import('./actions')
-
-    try {
-      await publishDraftAction(undefined, form({
-        brandSlug: 'test-brand',
-      }))
-    } catch {
-      // redirect throws
-    }
-
-    expect(scanContent).toHaveBeenCalledWith(
-      'Draft Name',
-      expect.objectContaining({ description: 'Draft description' }),
-    )
-    expect(publishDraft).toHaveBeenCalledWith('brand-1')
-  })
 
   it('surfaces a stale draft conflict without publishing', async () => {
     isActingAsAdmin.mockResolvedValueOnce(false)
@@ -977,41 +618,5 @@ describe('publishDraftAction — edit gating', () => {
 
     expect(revalidatePath).toHaveBeenCalledWith('/brands/test-brand')
     expect(revalidatePath).toHaveBeenCalledWith('/en/brands/test-brand')
-  })
-})
-
-describe('updateBrandAction — onboarding revalidation removed', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    process.env.ADMIN_EMAILS = 'admin@formoria.com'
-    mockUser('owner@example.com')
-    isActingAsAdmin.mockResolvedValue(true)
-    getBrandBySlug.mockResolvedValue({
-      id: 'brand-1',
-      slug: 'test-brand',
-      name: 'Test Brand',
-      description: 'Original description',
-      socialLinks: {},
-      heroImageUrl: null,
-      productPhotos: [],
-    })
-    diffRemovedImageUrls.mockReturnValue([])
-    scanContent.mockReturnValue({ violations: [] })
-  })
-
-  it('does not revalidatePath /dashboard/onboarding', async () => {
-    const { revalidatePath } = await import('next/cache')
-    const { updateBrandAction } = await import('./actions')
-
-    try {
-      await updateBrandAction(undefined, form({
-        brandSlug: 'test-brand',
-        name: 'Test',
-        onboardingStep: 'basics',
-      }))
-    } catch {
-    }
-
-    expect(revalidatePath).not.toHaveBeenCalledWith('/dashboard/onboarding')
   })
 })

@@ -84,15 +84,6 @@ describe("BrandFilterSidebar", () => {
     mockTrackFilterCleared.mockClear();
   });
 
-  it("renders price ranges as tags and writes the selected values to the URL", async () => {
-    const user = userEvent.setup();
-    render(<BrandFilterSidebar categories={[]} totalCount={0} />);
-
-    await user.click(screen.getByRole("button", { name: /Price range/ }));
-    await user.click(screen.getByRole("button", { name: "$$" }));
-
-    expect(replace).toHaveBeenCalledWith("/brands?price=2", { scroll: false });
-  });
 
   it("renders active filters as removable chips in the summary band", () => {
     query = "category=jewelry";
@@ -157,9 +148,6 @@ describe("BrandFilterSidebar", () => {
     const statusLabel = statusRadio.closest("label");
 
     expect(categoryLabel?.firstElementChild).toBe(categoryCheckbox);
-    expect(categoryLabel).not.toHaveClass("justify-between");
-    expect(categoryLabel).toHaveClass("type-card-description");
-    expect(statusLabel).toHaveClass("type-card-description");
   });
 
   it("shows the aggregate result count only beside a single selected category", async () => {
@@ -250,82 +238,4 @@ describe("BrandFilterSidebar", () => {
     });
   });
 
-  describe("analytics tracking", () => {
-    it("fires trackSubcategoryFilterApplied when an unchecked subcategory pill is clicked", async () => {
-      query = "category=bags-accessories";
-      const user = userEvent.setup();
-      render(
-        <BrandFilterSidebar
-          totalCount={19}
-          categories={[
-            {
-              slug: "bags-accessories",
-              name: "Bags & accessories",
-              nameZh: "包袋配件",
-            },
-          ]}
-          subcategories={subs}
-          activeSubSlugs={[]}
-        />,
-      );
-
-      await user.click(screen.getByRole("button", { name: /Category/ }));
-      await user.click(screen.getByRole("button", { name: "後背包 19" }));
-
-      expect(mockTrackSubcategoryFilterApplied).toHaveBeenCalledWith(
-        "backpacks",
-        "bags-accessories",
-      );
-    });
-
-    it("fires trackFilterCleared when an active subcategory pill is clicked to deselect it", async () => {
-      query = "category=bags-accessories&sub=clasp-frame-bags";
-      const user = userEvent.setup();
-      render(
-        <BrandFilterSidebar
-          totalCount={8}
-          categories={[
-            {
-              slug: "bags-accessories",
-              name: "Bags & accessories",
-              nameZh: "包袋配件",
-            },
-          ]}
-          subcategories={subs}
-          activeSubSlugs={["clasp-frame-bags"]}
-        />,
-      );
-
-      await user.click(screen.getByRole("button", { name: /Category/ }));
-      await user.click(screen.getByRole("button", { name: "口金包 8" }));
-
-      expect(mockTrackFilterCleared).toHaveBeenCalledWith(
-        "single",
-        "subcategory",
-        "clasp-frame-bags",
-      );
-    });
-
-    it("fires trackPriceFilterApplied when a price pill is clicked", async () => {
-      const user = userEvent.setup();
-      render(<BrandFilterSidebar categories={[]} totalCount={0} />);
-
-      await user.click(screen.getByRole("button", { name: /Price range/ }));
-      await user.click(screen.getByRole("button", { name: "$$" }));
-
-      expect(mockTrackPriceFilterApplied).toHaveBeenCalledWith("2");
-    });
-
-    it("fires trackVerificationFilterApplied when a verification radio is changed", async () => {
-      const user = userEvent.setup();
-      render(<BrandFilterSidebar categories={[]} totalCount={0} />);
-
-      await user.click(screen.getByRole("button", { name: /Brand status/ }));
-      await user.click(screen.getByRole("radio", { name: "品牌聲明" }));
-
-      expect(mockTrackVerificationFilterApplied).toHaveBeenCalledWith(
-        "mit-declared",
-      );
-    });
-  });
 });

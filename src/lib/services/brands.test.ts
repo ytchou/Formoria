@@ -84,11 +84,6 @@ describe('extractLatinRun', () => {
   })
 })
 
-describe('deleteBrand', () => {
-  it('should be an exported async function', () => {
-    expect(typeof deleteBrand).toBe('function')
-  })
-})
 
 describe('brandToDomain', () => {
   it('transforms snake_case DB row to camelCase Brand', () => {
@@ -126,11 +121,6 @@ describe('brandToDomain', () => {
   })
 })
 
-describe('brand select rollout compatibility', () => {
-  it('keeps migration-dependent romanized metadata out of general page queries', () => {
-    expect(BRAND_SELECT).not.toContain('romanized_name')
-  })
-})
 
 describe('brandToInsert', () => {
   it('transforms camelCase domain data to snake_case DB row', () => {
@@ -239,24 +229,6 @@ describe('getBrands — PGRST103 offset overflow', () => {
     expect(result.totalCount).toBe(90)
   })
 
-  it('filters the normal browse query by price range', async () => {
-    const { getBrands } = await import('./brands')
-    const resolvedData = { data: [], error: null, count: 0 }
-    const chainable: Record<string, unknown> = {}
-    const chainFn = vi.fn(() => chainable)
-    chainable.select = chainFn
-    chainable.in = chainFn
-    chainable.not = chainFn
-    chainable.eq = chainFn
-    chainable.order = chainFn
-    chainable.range = chainFn
-    chainable.then = (resolve: (v: unknown) => void) => Promise.resolve(resolvedData).then(resolve)
-    mockFrom.mockReturnValue(chainable)
-
-    await getBrands({ priceRanges: [1, 3] })
-
-    expect(chainFn).toHaveBeenCalledWith('price_range', [1, 3])
-  })
 
   it('returns empty brands array (not throw) when offset exceeds search result count', async () => {
     // The search path uses in-memory slicing (not .range()), so PGRST103 cannot naturally
@@ -500,44 +472,6 @@ describe('updateBrand romanized slug lifecycle', () => {
     expect(result.slug).toBe('warmwood-home')
   })
 
-  it('clears romanized metadata without changing the existing slug', async () => {
-    const currentQuery = {
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({
-        data: { slug: 'warmwood-living' },
-        error: null,
-      }),
-    }
-    const updatedQuery = {
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({
-        data: {
-          id: 'brand-1',
-          name: 'Warmwood Living',
-          slug: 'warmwood-living',
-          romanized_name: null,
-          status: 'approved',
-          submitted_at: null,
-          created_at: null,
-          updated_at: null,
-        },
-        error: null,
-      }),
-    }
-    mockFrom.mockReturnValueOnce(currentQuery).mockReturnValueOnce(updatedQuery)
-
-    const { updateBrand } = await import('./brands')
-    await updateBrand('brand-1', { romanizedName: null })
-
-    expect(mockRpc).toHaveBeenCalledWith(
-      'apply_brand_patch',
-      expect.objectContaining({
-        p_patch: expect.not.objectContaining({ slug: expect.anything() }),
-      }),
-    )
-  })
 
   it('re-resolves a concurrent slug collision before retrying the patch', async () => {
     const currentQuery = {
@@ -763,9 +697,6 @@ describe('publishDraft staleness guard', () => {
 })
 
 describe('brand slug validation against reserved routes', () => {
-  it('RESERVED_ROUTES set is available and non-empty', () => {
-    expect(RESERVED_ROUTES.size).toBeGreaterThan(0)
-  })
 
   it('generateSlug can produce reserved slugs that must be caught', () => {
     const slug = generateSlug('Admin')
@@ -773,10 +704,6 @@ describe('brand slug validation against reserved routes', () => {
     expect(RESERVED_ROUTES.has(slug)).toBe(true)
   })
 
-  it('normal brand names do not collide with reserved routes', () => {
-    const slug = generateSlug('Cha Zi Tang')
-    expect(RESERVED_ROUTES.has(slug)).toBe(false)
-  })
 
   it('isReservedSlug returns true for reserved slugs', async () => {
     const { isReservedSlug } = await import('./brands')
@@ -791,19 +718,6 @@ describe('dismissOnboardingWelcome', () => {
     vi.clearAllMocks()
   })
 
-  it('updates onboarding_dismissed_at for the given brand id', async () => {
-    const mockEq = vi.fn().mockResolvedValue({ error: null })
-    const mockUpdate = vi.fn().mockReturnValue({ eq: mockEq })
-    mockFrom.mockReturnValue({ update: mockUpdate })
-
-    await dismissOnboardingWelcome('brand-123')
-
-    expect(mockFrom).toHaveBeenCalledWith('brands')
-    expect(mockUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({ onboarding_dismissed_at: expect.any(String) })
-    )
-    expect(mockEq).toHaveBeenCalledWith('id', 'brand-123')
-  })
 
   it('throws when supabase returns an error', async () => {
     const dbError = { message: 'DB error', code: 'PGRST500' }

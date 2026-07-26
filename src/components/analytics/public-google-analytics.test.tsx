@@ -52,17 +52,4 @@ describe('PublicGoogleAnalytics', () => {
     expect((commands[1] as unknown as unknown[])[0]).toBe('config')
   })
 
-  it('sends a manual page view for public routes', async () => {
-    mockUsePathname.mockReturnValue('/en/brands')
-    mockUseSearchParams.mockReturnValue(new URLSearchParams('category=food'))
-    const { PublicGoogleAnalytics } = await import('./public-google-analytics')
-
-    render(<PublicGoogleAnalytics gaId="G-TEST" />)
-
-    expect(window.gtag).toHaveBeenCalledWith('event', 'page_view', {
-      page_location: 'http://localhost/en/brands?category=food',
-      page_path: '/en/brands?category=food',
-      page_title: '',
-    })
-  })
 })

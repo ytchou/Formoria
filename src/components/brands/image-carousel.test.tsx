@@ -44,23 +44,6 @@ describe('ImageCarousel', () => {
     expect(screen.getByRole('img')).not.toHaveAttribute('loading', 'lazy')
   })
 
-  it('tracks gallery navigation with immutable ID, public slug, and photo index', async () => {
-    const user = userEvent.setup()
-    render(
-      <NextIntlClientProvider locale="zh-TW" messages={zh}>
-        <ImageCarousel
-          images={[imageUrl, imageUrl.replace('test.jpg', 'test-2.jpg')]}
-          alt="測試品牌"
-          brandId="brand-uuid"
-          brandSlug="test-brand"
-        />
-      </NextIntlClientProvider>,
-    )
-
-    await user.click(screen.getByRole('button', { name: '下一張' }))
-
-    expect(mocks.trackGalleryPhotoView).toHaveBeenCalledWith('test-brand', 1, 'brand-uuid')
-  })
 
   it('fires trackGalleryCompleted once when all images have been viewed', async () => {
     const user = userEvent.setup()

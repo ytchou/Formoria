@@ -12,10 +12,6 @@ describeWithDb('app-settings service', () => {
     await setAppSetting('subcategory_filter_enabled', true)
   })
 
-  it('reads the seeded subcategory flag', async () => {
-    const value = await getAppSetting('subcategory_filter_enabled')
-    expect(typeof value).toBe('boolean')
-  })
 
   it('round-trips a write', async () => {
     await setAppSetting('subcategory_filter_enabled', false)

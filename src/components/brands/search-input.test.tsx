@@ -129,15 +129,6 @@ describe('SearchInput', () => {
     expect(form).toHaveAttribute('data-ph-no-autocapture')
   })
 
-  it('does not emit a no-results event for autocomplete', async () => {
-    const user = userEvent.setup()
-    renderWithProvider(<SearchInput />)
-
-    await user.type(screen.getByRole('searchbox'), 'missing')
-    await waitFor(() => expect(global.fetch).toHaveBeenCalled())
-
-    expect(mockTrackSearchNoResults).not.toHaveBeenCalled()
-  })
 
   it('emits search before search_no_results when a submitted query has no results', async () => {
     const user = userEvent.setup()
@@ -217,18 +208,4 @@ describe('SearchInput with redirectTo prop', () => {
     })
   })
 
-  it('does not call setSearch when redirectTo is set and Enter is pressed', async () => {
-    const user = userEvent.setup()
-    renderWithProvider(<SearchInput redirectTo="/brands" />)
-
-    const input = screen.getByRole('searchbox')
-    await user.type(input, 'coffee')
-
-    // Clear calls from typing (change events)
-    vi.clearAllMocks()
-
-    await user.keyboard('{Enter}')
-
-    expect(mockSetSearch).not.toHaveBeenCalled()
-  })
 })

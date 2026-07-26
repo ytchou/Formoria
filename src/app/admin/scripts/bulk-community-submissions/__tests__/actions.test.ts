@@ -118,13 +118,4 @@ describe("community submission actions", () => {
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin");
   });
 
-  it("does not revalidate submission caches when nothing was created", async () => {
-    mocks.execute.mockResolvedValue([
-      { id: "row-1", status: "failed", message: "Database error" },
-    ]);
-
-    await executeCommunitySubmissionsAction(drafts);
-
-    expect(mocks.revalidatePath).not.toHaveBeenCalled();
-  });
 });

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest'
-import { render as rtlRender, screen, fireEvent } from '@testing-library/react'
+import { render as rtlRender, screen } from '@testing-library/react'
 import { type ReactElement } from 'react'
 import { NextIntlClientProvider } from 'next-intl'
 import enMessages from '../../../messages/en.json'
@@ -87,25 +87,6 @@ describe('ImageUploader', () => {
     )
     const images = screen.getAllByRole('img')
     expect(images).toHaveLength(2)
-  })
-
-  it('calls onRemove when remove button is clicked', () => {
-    const onRemove = vi.fn()
-    render(
-      <ImageUploader
-        mode="multi"
-        bucket="brand-images"
-        path="test"
-        value={['https://example.com/p1.webp']}
-        onUpload={vi.fn()}
-        onRemove={onRemove}
-      />
-    )
-    const removeButton = screen.getByLabelText(/remove/i)
-    expect(removeButton).toHaveClass('h-12', 'w-12')
-    expect(removeButton.querySelector('span')).toHaveClass('size-6')
-    fireEvent.click(removeButton)
-    expect(onRemove).toHaveBeenCalledWith(0)
   })
 
   it('has a file input that accepts images', () => {

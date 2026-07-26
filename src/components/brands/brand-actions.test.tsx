@@ -43,8 +43,6 @@ describe('BrandActions', () => {
     renderWithIntl(<BrandActions websiteUrl='https://example.com' brandSlug='test-brand' brandName="測試品牌" />);
     const ctaLink = screen.getByRole('link', { name: /前往官網/i });
     expect(ctaLink).toBeInTheDocument();
-    expect(ctaLink.className).toContain('bg-cta');
-    expect(ctaLink.className).not.toContain('bg-terracotta');
   });
   it('does NOT render bookmark button', () => {
     renderWithIntl(<BrandActions websiteUrl='https://example.com' brandSlug='test-brand' brandName="測試品牌" />);

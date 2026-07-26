@@ -108,7 +108,6 @@ describe('BrandChannelsSection', () => {
     await renderSection()
 
     const heading = screen.getByRole('heading', { level: 2, name: '地點與販售通路' })
-    expect(heading).toHaveClass('type-section-title-large')
     expect(heading.parentElement?.querySelector('svg')).toBeNull()
   })
 

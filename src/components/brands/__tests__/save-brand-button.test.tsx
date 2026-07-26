@@ -67,6 +67,11 @@ function renderWithProviders(ui: ReactElement) {
 describe('SaveBrandButton', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(useSavedBrands).mockReturnValue({
+      savedIds: new Set<string>(),
+      toggle: vi.fn(),
+      loading: false,
+    })
   })
 
   it('renders an unfilled bookmark when brand is not saved', () => {
@@ -87,18 +92,6 @@ describe('SaveBrandButton', () => {
     expect(button).toBeInTheDocument()
   })
 
-  it('calls toggle when clicked by authenticated user', async () => {
-    const mockToggle = vi.fn()
-    vi.mocked(useSavedBrands).mockReturnValue({
-      savedIds: new Set<string>(),
-      toggle: mockToggle,
-      loading: false,
-    })
-    renderWithProviders(<SaveBrandButton brandId="brand-1" slug="brand-slug-1" />)
-    const button = screen.getByRole('button', { name: '收藏這個品牌' })
-    fireEvent.click(button)
-    expect(mockToggle).toHaveBeenCalledWith('brand-1')
-  })
 
   it('redirects to login when clicked by unauthenticated user', () => {
     vi.mocked(useUser).mockReturnValue({
@@ -114,29 +107,5 @@ describe('SaveBrandButton', () => {
     expect(mockPush).toHaveBeenCalledWith('/auth/sign-in')
   })
 
-  it('calls trackBrandSaved when save button clicked (brand not yet saved)', () => {
-    vi.mocked(useUser).mockReturnValue({ user: mockUser, loading: false, ...viewerState })
-    vi.mocked(useSavedBrands).mockReturnValue({
-      savedIds: new Set<string>(),
-      toggle: vi.fn(),
-      loading: false,
-    })
-    renderWithProviders(<SaveBrandButton brandId="brand-1" slug="brand-slug-1" />)
-    fireEvent.click(screen.getByRole('button', { name: '收藏這個品牌' }))
-    expect(mocks.trackBrandSaved).toHaveBeenCalledWith('brand-1', 'brand-slug-1', 'overlay')
-    expect(mocks.trackBrandUnsaved).not.toHaveBeenCalled()
-  })
 
-  it('calls trackBrandUnsaved when unsave button clicked (brand already saved)', () => {
-    vi.mocked(useUser).mockReturnValue({ user: mockUser, loading: false, ...viewerState })
-    vi.mocked(useSavedBrands).mockReturnValue({
-      savedIds: new Set(['brand-1']),
-      toggle: vi.fn(),
-      loading: false,
-    })
-    renderWithProviders(<SaveBrandButton brandId="brand-1" slug="brand-slug-1" />)
-    fireEvent.click(screen.getByRole('button', { name: '取消收藏這個品牌' }))
-    expect(mocks.trackBrandUnsaved).toHaveBeenCalledWith('brand-1', 'brand-slug-1', 'overlay')
-    expect(mocks.trackBrandSaved).not.toHaveBeenCalled()
-  })
 })

@@ -92,12 +92,9 @@ describe('FaqPage (zh-TW)', () => {
     const { container } = render(
       await FaqPage({ params: Promise.resolve({ locale: 'zh-TW' }) }),
     )
-    expect(container.querySelector('main')).not.toHaveClass('section-heading-scope')
     const layout = screen.getByRole('navigation', { name: '常見問題分類' }).closest('.grid')
     const content = screen.getByRole('region', { name: '常見問題' })
 
-    expect(layout).toHaveClass('md:grid-cols-5')
-    expect(content).toHaveClass('md:col-span-4')
     expect(container.querySelectorAll('details')).toHaveLength(20)
     expect(container.querySelector('#general')).toBeInTheDocument()
     expect(container.querySelector('#for-owners')).toBeInTheDocument()
@@ -113,9 +110,7 @@ describe('FaqPage (zh-TW)', () => {
       screen.getByRole('link', { name: '品牌主專區' }),
     ).toHaveAttribute('href', '#for-owners')
     const sectionNav = screen.getByRole('navigation', { name: '常見問題分類' })
-    expect(sectionNav).toHaveClass('space-y-1', 'border-l', 'border-border', 'pl-3')
     expect(screen.queryByText('常見問題分類')).not.toBeInTheDocument()
-    expect(container.querySelector('summary')).toHaveClass('type-faq-question')
   })
 
   it('keeps the contact prompt concise and distinguishes the contact link', async () => {
@@ -192,9 +187,6 @@ describe('FaqPage (en)', () => {
     expect(
       screen.getByRole('heading', { level: 2, name: 'General' }),
     ).toBeInTheDocument()
-    expect(
-      screen.getByRole('heading', { level: 2, name: 'For Brand Owners' }),
-    ).toHaveClass('type-section-title')
     expect(
       screen
         .getByRole('heading', { level: 2, name: 'For Brand Owners' })

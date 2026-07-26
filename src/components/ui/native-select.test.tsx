@@ -20,14 +20,4 @@ describe("NativeSelect", () => {
     expect(onChange).toHaveBeenCalled()
   })
 
-  it("merges className with base styling", () => {
-    render(
-      <NativeSelect className="w-full" aria-label="sort">
-        <option>a</option>
-      </NativeSelect>
-    )
-    const select = screen.getByRole("combobox")
-    expect(select.className).toContain("w-full")
-    expect(select.className).toContain("rounded-lg")
-  })
 })

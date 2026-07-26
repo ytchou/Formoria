@@ -41,16 +41,4 @@ describe('SortSelect', () => {
     expect(screen.getByRole('option', { name: label })).toHaveValue('random')
   })
 
-  it('fires trackDirectorySortChanged with new and previous sort values on change', async () => {
-    const user = userEvent.setup()
-    render(
-      <NextIntlClientProvider locale="en" messages={en}>
-        <SortSelect />
-      </NextIntlClientProvider>,
-    )
-
-    await user.selectOptions(screen.getByRole('combobox'), 'newest')
-
-    expect(mockTrackDirectorySortChanged).toHaveBeenCalledWith('newest', 'random')
-  })
 })

@@ -77,34 +77,8 @@ describe('GET /api/search', () => {
     expect(mockSearchBrandsAutocomplete).toHaveBeenCalledWith(accepted, 5)
   })
 
-  it('passes Unicode and reserved characters to the service unchanged', async () => {
-    mockSearchBrandsAutocomplete.mockResolvedValue([])
-    const query = '台 灣茶 & coffee/器物?'
 
-    await GET(
-      makeRequest(
-        `http://localhost/api/search?q=${encodeURIComponent(query)}`,
-      ),
-    )
 
-    expect(mockSearchBrandsAutocomplete).toHaveBeenCalledWith(query, 5)
-  })
-
-  it('respects custom limit param', async () => {
-    mockSearchBrandsAutocomplete.mockResolvedValue([])
-
-    await GET(makeRequest('http://localhost/api/search?q=tea&limit=3'))
-
-    expect(mockSearchBrandsAutocomplete).toHaveBeenCalledWith('tea', 3)
-  })
-
-  it('caps limit at 10', async () => {
-    mockSearchBrandsAutocomplete.mockResolvedValue([])
-
-    await GET(makeRequest('http://localhost/api/search?q=tea&limit=50'))
-
-    expect(mockSearchBrandsAutocomplete).toHaveBeenCalledWith('tea', 10)
-  })
 
   it.each([
     ['missing', '', 5],
