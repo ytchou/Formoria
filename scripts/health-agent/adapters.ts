@@ -624,8 +624,8 @@ const LINEAR_LOOKUP_QUERY = `
 `;
 
 const LINEAR_LABEL_QUERY = `
-  query HealthAgentLabels($teamId: ID!, $after: String) {
-    issueLabels(filter: { team: { id: { eq: $teamId } } }, first: 100, after: $after) {
+  query HealthAgentLabels($after: String) {
+    issueLabels(first: 100, after: $after) {
       nodes { id name team { id } }
       pageInfo { hasNextPage endCursor }
     }
@@ -857,7 +857,7 @@ export async function syncLinearFindings(
       const data = await graphql(
         "lookup_labels",
         LINEAR_LABEL_QUERY,
-        { ...(labelAfter ? { after: labelAfter } : {}), teamId },
+        labelAfter ? { after: labelAfter } : {},
         (value) => graphqlDataHas("issueLabels", value),
       );
       for (const node of labelNodes({ data })) {
