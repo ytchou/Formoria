@@ -2,7 +2,7 @@
 
 GitHub Actions is the intended owner of Formoria health automation. There is no active Claude Routine configuration in this repository. The former prompt is a retirement tombstone, and its last complete contents remain in [`archive/formoria-health-prompt-claude-routine.md`](archive/formoria-health-prompt-claude-routine.md) for audit and rollback only.
 
-The target workflow is [`.github/workflows/health-agent.yml`](../../.github/workflows/health-agent.yml), scheduled best-effort for 07:13 Asia/Taipei (`13 23 * * *`). It emits exactly three Agent Hub collector routines: `link-checker`, `directory-health`, and `sentry-triage`. Growth Pulse and traffic correlation are retired.
+The target workflow is [`.github/workflows/health-agent.yml`](../../.github/workflows/health-agent.yml), scheduled best-effort for 07:13 Asia/Taipei (`13 23 * * *`). Its run page exposes five phases: Collect & Preflight, Analyze, Deliver & Queue, Repair & Validate, and Publish. It emits exactly three Agent Hub collector routines: `link-checker`, `directory-health`, and `sentry-triage`. Growth Pulse and traffic correlation are retired.
 
 ## Rollout gates
 

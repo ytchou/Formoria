@@ -423,9 +423,7 @@ describe("collect-brand-review", () => {
       files,
     });
 
-    expect(
-      JSON.parse(contents.get(input.outputPath) ?? "{}"),
-    ).toMatchObject({
+    expect(JSON.parse(contents.get(input.outputPath) ?? "{}")).toMatchObject({
       findings: [
         expect.objectContaining({ title: "MIT declared without date" }),
         expect.objectContaining({
@@ -449,9 +447,7 @@ describe("collect-brand-review", () => {
       files,
     });
 
-    expect(
-      JSON.parse(contents.get(input.outputPath) ?? "{}"),
-    ).toMatchObject({
+    expect(JSON.parse(contents.get(input.outputPath) ?? "{}")).toMatchObject({
       findings: [],
       routine: "brand-review",
       status: "success",
@@ -474,9 +470,7 @@ describe("collect-brand-review", () => {
       files,
     });
 
-    expect(
-      JSON.parse(contents.get(input.outputPath) ?? "{}"),
-    ).toMatchObject({
+    expect(JSON.parse(contents.get(input.outputPath) ?? "{}")).toMatchObject({
       failure: "supabase_runtime_request_failed",
       findings: [],
       routine: "brand-review",
@@ -563,9 +557,7 @@ describe("collect-brand-review", () => {
         { delivery, env, fetchImplementation, files },
       );
 
-      expect(
-        JSON.parse(contents.get(input.outputPath) ?? "{}"),
-      ).toMatchObject({
+      expect(JSON.parse(contents.get(input.outputPath) ?? "{}")).toMatchObject({
         skippedActions: [skippedAction],
         status: "success",
       });
@@ -601,9 +593,7 @@ describe("collect-brand-review", () => {
       { env, fetchImplementation, files },
     );
 
-    expect(
-      JSON.parse(contents.get(input.outputPath) ?? "{}"),
-    ).toMatchObject({
+    expect(JSON.parse(contents.get(input.outputPath) ?? "{}")).toMatchObject({
       failure: "supabase_runtime_request_failed",
       routine: "brand-review",
       status: "failed",
@@ -633,9 +623,7 @@ describe("collect-brand-review", () => {
       },
     );
 
-    expect(
-      JSON.parse(contents.get(input.outputPath) ?? "{}"),
-    ).toMatchObject({
+    expect(JSON.parse(contents.get(input.outputPath) ?? "{}")).toMatchObject({
       routine: "brand-review",
       skippedActions: ["brand_review_delivery"],
       status: "success",
@@ -663,9 +651,7 @@ describe("collect-brand-review", () => {
       },
     );
 
-    expect(
-      JSON.parse(contents.get(input.outputPath) ?? "{}"),
-    ).toMatchObject({
+    expect(JSON.parse(contents.get(input.outputPath) ?? "{}")).toMatchObject({
       findings: [],
       routine: "brand-review",
       status: "skipped",
@@ -1157,6 +1143,46 @@ describe("repair result delivery", () => {
 });
 
 describe("repair failure delivery", () => {
+  it("records an expected human-only escalation without reporting an automation failure", async () => {
+    const { files } = repairResultFiles();
+    const fetchImplementation = transitionFetch();
+    const agentHub = vi.fn(async () => undefined);
+    const slack = vi.fn(async () => undefined);
+    const input = {
+      ...repairFailureInput(),
+      expectedEscalation: true,
+      reason: "human_action_required_no_repository_patch",
+    };
+
+    await deliverRepairFailure(input, {
+      delivery: { agentHub, slack },
+      env: {
+        HEALTH_AGENT_WRITER_TOKEN: "writer-token",
+        NEXT_PUBLIC_SUPABASE_URL: "https://db.example",
+      },
+      fetchImplementation,
+      files,
+      linear: { sync: async () => ({ outcomes: [] }) },
+    });
+
+    expect(fetchImplementation).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        body: expect.stringContaining(
+          '"p_last_error":"human_action_required_no_repository_patch"',
+        ),
+      }),
+    );
+    expect(agentHub).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "needs_human" }),
+      }),
+    );
+    expect(slack).toHaveBeenCalledWith(
+      expect.objectContaining({ failures: [] }),
+    );
+  });
+
   it("moves claimed findings directly to needs_human, syncs Linear, and persists a redacted result", async () => {
     const { contents, files } = repairResultFiles();
     const fetchImplementation = transitionFetch();

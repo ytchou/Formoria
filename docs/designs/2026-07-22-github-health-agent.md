@@ -39,6 +39,17 @@ GitHub's authoritative merge SHA. A matching successful Railway production deplo
 the batch to `deployed`; a successful `GET /api/health` moves it to `fixed` and permits
 Sentry resolution. A closed-unmerged PR moves to `needs_human` and never resolves Sentry.
 
+## Execution phases
+
+The scheduled controller exposes five top-level phases: Collect & Preflight, Analyze, Deliver &
+Queue, Repair & Validate, and Publish. Detailed jobs run inside the matching reusable phase so the
+daily run graph shows business progress instead of orchestration plumbing. Claude jobs remain on
+separate runners from collection, delivery, escalation, and GitHub App credentials.
+
+Human-policy findings without repository-relative changed files bypass code repair, transition to
+`needs_human`, and notify Linear/Agent Hub/Slack without failing the workflow. Claude Sentry
+classification retries once when the action itself fails or returns an invalid structured result.
+
 ## Merge policy
 
 - `automatic`: noncritical, high-confidence, reproducible application defects with no
