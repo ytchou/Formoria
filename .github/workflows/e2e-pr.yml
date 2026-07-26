@@ -1,7 +1,23 @@
 name: E2E PR (selective)
 
 on:
+  pull_request:
+    branches: [main]
+    # Evaluated before a runner is allocated: a PR touching none of these
+    # costs zero runner-seconds.
+    paths:
+      - 'src/**'
+      - 'e2e/**'
+      - 'messages/**'
+      - 'playwright.config.ts'
+      - 'scripts/e2e-select-specs.mjs'
+      - 'scripts/e2e-route-map.json'
+      - '.github/workflows/e2e-pr.yml'
   workflow_dispatch: {}
+
+concurrency:
+  group: e2e-pr-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   select:
