@@ -271,6 +271,71 @@ describe("BrandChannelList", () => {
     });
   });
 
+  it("marks only the pending chip while the confirm round-trip is in flight", async () => {
+    let settleConfirm: (result: { confirmationCount: number }) => void = () => {};
+    mocks.confirmChannelAction.mockImplementation(
+      () =>
+        new Promise<{ confirmationCount: number }>((resolve) => {
+          settleConfirm = resolve;
+        }),
+    );
+    const user = userEvent.setup();
+    const { container } = renderList({ possible: makeChannels(4) });
+
+    const chip = getChip(container, "測試通路 1");
+    expect(chip).not.toHaveAttribute("data-confirm-pending");
+
+    await user.click(
+      within(chip).getByRole("button", { name: chipConfirmName("測試通路 1") }),
+    );
+
+    // The optimistic count is already 1/3 here — the attribute is what separates
+    // "queued" from "written".
+    expect(within(chip).getByText("1/3 人確認")).toBeInTheDocument();
+    expect(chip).toHaveAttribute("data-confirm-pending", "");
+    expect(
+      within(chip).getByRole("button", { name: chipConfirmName("測試通路 1") }),
+    ).toHaveAttribute("aria-busy", "true");
+    expect(getChip(container, "測試通路 2")).not.toHaveAttribute(
+      "data-confirm-pending",
+    );
+
+    settleConfirm({ confirmationCount: 1 });
+
+    await waitFor(() => {
+      expect(chip).not.toHaveAttribute("data-confirm-pending");
+    });
+  });
+
+  it("marks the pending row while the confirm round-trip is in flight", async () => {
+    let settleConfirm: (result: { confirmationCount: number }) => void = () => {};
+    mocks.confirmChannelAction.mockImplementation(
+      () =>
+        new Promise<{ confirmationCount: number }>((resolve) => {
+          settleConfirm = resolve;
+        }),
+    );
+    const user = userEvent.setup();
+    const { container } = renderList({ possible: makeChannels(3) });
+
+    const rows = container.querySelectorAll<HTMLElement>("[data-channel-row]");
+    const firstRow = rows[0] as HTMLElement;
+    expect(firstRow).not.toHaveAttribute("data-confirm-pending");
+
+    await user.click(
+      within(firstRow).getByRole("button", { name: "我確認這裡有販售" }),
+    );
+
+    expect(firstRow).toHaveAttribute("data-confirm-pending", "");
+    expect(rows[1]).not.toHaveAttribute("data-confirm-pending");
+
+    settleConfirm({ confirmationCount: 1 });
+
+    await waitFor(() => {
+      expect(firstRow).not.toHaveAttribute("data-confirm-pending");
+    });
+  });
+
   it("renders an already-confirmed chip as pressed and disabled", async () => {
     mocks.getChannelViewerStateAction.mockResolvedValue({
       isOwner: false,

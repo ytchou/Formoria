@@ -1,13 +1,61 @@
 name: E2E PR (selective)
 
 on:
+  pull_request:
+    branches: [main]
+    # Evaluated before a runner is allocated: a PR touching none of these
+    # costs zero runner-seconds.
+    paths:
+      - 'src/**'
+      - 'e2e/**'
+      - 'messages/**'
+      - 'playwright.config.ts'
+      - 'scripts/e2e-select-specs.mjs'
+      - '.github/workflows/e2e-pr.yml'
   workflow_dispatch: {}
 
+concurrency:
+  group: e2e-pr-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  select:
+    name: select-specs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      specs: ${{ steps.select-specs.outputs.specs }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch origin/main to diff against
+        run: git fetch --no-tags origin main:refs/remotes/origin/main
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+
+      - name: Determine specs to run
+        id: select-specs
+        run: |
+          SPECS=$(node scripts/e2e-select-specs.mjs)
+          echo "specs=$SPECS" >> "$GITHUB_OUTPUT"
+          if [ -z "$SPECS" ]; then
+            echo "No specs selected — the e2e job will be skipped." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Selected specs:" >> "$GITHUB_STEP_SUMMARY"
+            for spec in $SPECS; do echo "- \`$spec\`" >> "$GITHUB_STEP_SUMMARY"; done
+          fi
+
   e2e-selective:
     name: e2e-selective
+    needs: select
+    # Skips the build entirely — the most expensive step — when nothing matched.
+    if: needs.select.outputs.specs != ''
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
@@ -25,11 +73,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          fetch-depth: 0
-
-      - name: Fetch origin/main for --only-changed
-        run: git fetch origin main
 
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
 
@@ -56,47 +99,12 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Determine specs to run
-        id: select-specs
-        run: |
-          ROUTE_SPECS=$(node scripts/e2e-select-specs.mjs)
-          echo "route_specs=$ROUTE_SPECS" >> "$GITHUB_OUTPUT"
-          if [ -z "$ROUTE_SPECS" ]; then
-            echo "No route-mapped specs found"
-          else
-            echo "Route-mapped specs: $ROUTE_SPECS"
-          fi
-
       - name: Run selective e2e tests
-        continue-on-error: true
-        run: |
-          SPECS="${{ steps.select-specs.outputs.route_specs }}"
-
-          # Pass 1: run --only-changed (catches changed spec files + their imports)
-          if pnpm exec playwright test --project=deep --only-changed=origin/main; then
-            echo "Pass 1 (--only-changed) passed"
-          else
-            EXIT_CODE=$?
-            if [ $EXIT_CODE -ne 4 ]; then
-              echo "Pass 1 (--only-changed) failed with exit $EXIT_CODE"
-            else
-              echo "Pass 1: no changed specs found"
-            fi
-          fi
-
-          # Pass 2: run route-mapped specs (catches app-code-driven changes)
-          if [ -n "$SPECS" ]; then
-            if pnpm exec playwright test --project=deep $SPECS; then
-              echo "Pass 2 (route-mapped) passed"
-            else
-              EXIT_CODE=$?
-              if [ $EXIT_CODE -ne 4 ]; then
-                echo "Pass 2 (route-mapped) failed with exit $EXIT_CODE"
-              else
-                echo "Pass 2: no route-mapped specs found"
-              fi
-            fi
-          fi
+        env:
+          # Via env, not `${{ }}` inside the script: spec paths are
+          # repo-controlled but must never be interpolated into a shell line.
+          SPECS: ${{ needs.select.outputs.specs }}
+        run: pnpm exec playwright test --project=deep $SPECS
 
       - name: Upload test report
         if: always()

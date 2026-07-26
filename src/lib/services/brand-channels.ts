@@ -251,7 +251,7 @@ export async function confirmChannel(
 ): Promise<number> {
   const supabase = createServiceClient()
 
-  const { data: channel } = await supabase
+  const { data: channel, error: lookupError } = await supabase
     .from('brand_channels')
     .select('id')
     .eq('id', channelId)
@@ -259,6 +259,10 @@ export async function confirmChannel(
     .neq('owner_status', 'rejected')
     .maybeSingle()
 
+  // A failed lookup must surface as an action error; returning 0 here would read
+  // to the caller as a successful write that simply changed nothing.
+  if (lookupError) throw lookupError
+  // Genuine miss: the channel was removed or the owner rejected it.
   if (!channel) return 0
 
   const { error } = await supabase

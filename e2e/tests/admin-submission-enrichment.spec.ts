@@ -214,6 +214,12 @@ test.describe("Admin submission enrichment lifecycle", () => {
       contentSection.getByRole("button", { name: "Edit", exact: true }),
     ).toBeVisible();
 
+    // The review pane is a modal Sheet: while it is open the table underneath is
+    // aria-hidden and covered by the backdrop, so the row checkbox is neither in
+    // the a11y tree nor clickable. Close it and wait for it to unmount first.
+    await adminPage.keyboard.press("Escape");
+    await expect(review).toBeHidden();
+
     await readyRow.getByRole("checkbox").click();
     await readyRow
       .getByRole("button", { name: "Approve", exact: true })

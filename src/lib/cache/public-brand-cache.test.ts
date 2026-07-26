@@ -6,25 +6,60 @@ const { revalidatePath } = vi.hoisted(() => ({
 
 vi.mock('next/cache', () => ({ revalidatePath }))
 
+import { routing } from '@/i18n/routing'
 import { revalidatePublicBrand } from './public-brand-cache'
+
+const revalidatedPaths = () => revalidatePath.mock.calls.map(([path]) => path)
 
 describe('revalidatePublicBrand', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('invalidates both locale variants, discovery pages, and the sitemap', () => {
+  it('invalidates every locale-prefixed variant, discovery pages, and the sitemap', () => {
     revalidatePublicBrand({ slug: 'niizo' })
 
-    expect(revalidatePath.mock.calls.map(([path]) => path)).toEqual(
+    expect(revalidatedPaths()).toEqual(
       expect.arrayContaining([
-        '/brands/niizo',
+        '/zh-TW/brands/niizo',
         '/en/brands/niizo',
-        '/',
+        '/zh-TW',
         '/en',
-        '/brands',
+        '/zh-TW/brands',
         '/en/brands',
         '/sitemap.xml',
       ]),
     )
   })
 
+  it('never emits unprefixed paths — `as-needed` keeps the locale in the ISR cache key', () => {
+    revalidatePublicBrand({ slug: 'niizo', previousSlug: 'old-niizo' })
+
+    expect(revalidatedPaths()).not.toContain('/brands/niizo')
+    expect(revalidatedPaths()).not.toContain('/brands/old-niizo')
+    expect(revalidatedPaths()).not.toContain('/brands')
+    expect(revalidatedPaths()).not.toContain('/')
+  })
+
+  it('covers the previous slug in every locale after a rename', () => {
+    revalidatePublicBrand({ slug: 'niizo', previousSlug: 'old-niizo' })
+
+    expect(revalidatedPaths()).toEqual(
+      expect.arrayContaining(['/zh-TW/brands/old-niizo', '/en/brands/old-niizo']),
+    )
+  })
+
+  it('skips the previous slug when it matches the current slug', () => {
+    revalidatePublicBrand({ slug: 'niizo', previousSlug: 'niizo' })
+
+    expect(
+      revalidatedPaths().filter((path) => path === '/zh-TW/brands/niizo'),
+    ).toHaveLength(1)
+  })
+
+  it('emits one brand path per configured locale so a new locale cannot regress', () => {
+    revalidatePublicBrand({ slug: 'niizo' })
+
+    expect(
+      revalidatedPaths().filter((path) => path.endsWith('/brands/niizo')),
+    ).toEqual(routing.locales.map((locale) => `/${locale}/brands/niizo`))
+  })
 })

@@ -400,6 +400,7 @@ test.describe('Brand detail — public locations and retail channels', () => {
   });
 
   test('signed-in confirm increments the confirmation count', async ({ userPage }) => {
+    test.setTimeout(90_000);
     await userPage.goto(`/brands/${seeded.slug}`, { waitUntil: 'domcontentloaded' });
 
     const channelChip = userPage
@@ -414,11 +415,28 @@ test.describe('Brand detail — public locations and retail channels', () => {
       .click();
     await expect(channelChip.getByText('1/3 人確認')).toBeVisible();
 
-    await userPage.reload({ waitUntil: 'domcontentloaded' });
-    const refreshedChip = userPage
-      .locator('[data-channel-chip]')
-      .filter({ hasText: signedInChannelName });
-    await expect(refreshedChip.getByText('1/3 人確認')).toBeVisible();
+    // That count is optimistic: Next.js serializes server actions into one global
+    // queue, so the confirm can still be waiting behind the mount-time actions.
+    // Reloading now would tear the page down before the write is ever dispatched.
+    await expect(channelChip).not.toHaveAttribute('data-confirm-pending', '', {
+      timeout: 15_000,
+    });
+
+    // The page is `force-static` with `revalidate = 3600`, so on-demand
+    // revalidation is stale-while-revalidate: the first request after the
+    // mutation can still be served from the old cache entry while the
+    // regeneration runs. Retry the reload rather than assuming the write is
+    // readable on the very next request. Same pattern as the submitted-channel
+    // test below.
+    await expect(async () => {
+      await userPage.reload({ waitUntil: 'domcontentloaded' });
+      await expect(
+        userPage
+          .locator('[data-channel-chip]')
+          .filter({ hasText: signedInChannelName })
+          .getByText('1/3 人確認'),
+      ).toBeVisible();
+    }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 10_000] });
   });
 
   test('submitted channel appears in the online group', async ({ userPage }) => {
