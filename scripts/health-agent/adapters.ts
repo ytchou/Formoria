@@ -624,9 +624,10 @@ const LINEAR_LOOKUP_QUERY = `
 `;
 
 const LINEAR_LABEL_QUERY = `
-  query HealthAgentLabels($teamId: ID!) {
-    issueLabels(filter: { team: { id: { eq: $teamId } } }, first: 100) {
+  query HealthAgentLabels($teamId: ID!, $after: String) {
+    issueLabels(filter: { team: { id: { eq: $teamId } } }, first: 100, after: $after) {
       nodes { id name team { id } }
+      pageInfo { hasNextPage endCursor }
     }
   }
 `;
@@ -849,26 +850,42 @@ export async function syncLinearFindings(
 
   const loadLabels = async (): Promise<Map<"Data Quality" | "Ops", string>> => {
     if (labels) return labels;
-    const data = await graphql(
-      "lookup_labels",
-      LINEAR_LABEL_QUERY,
-      { teamId },
-      (value) => graphqlDataHas("issueLabels", value),
-    );
     const next = new Map<"Data Quality" | "Ops", string>();
-    for (const node of labelNodes({ data })) {
-      const name = node.name;
-      const team = node.team;
-      const id = stringValue(node.id);
-      const teamValue = isRecord(team) ? stringValue(team.id) : undefined;
-      if (
-        id &&
-        (teamValue === teamId || team === null) &&
-        (name === "Data Quality" || name === "Ops")
-      ) {
-        next.set(name, id);
+    const labelCursors = new Set<string>();
+    let labelAfter: string | undefined;
+    do {
+      const data = await graphql(
+        "lookup_labels",
+        LINEAR_LABEL_QUERY,
+        { ...(labelAfter ? { after: labelAfter } : {}), teamId },
+        (value) => graphqlDataHas("issueLabels", value),
+      );
+      for (const node of labelNodes({ data })) {
+        const name = node.name;
+        const team = node.team;
+        const id = stringValue(node.id);
+        const teamValue = isRecord(team) ? stringValue(team.id) : undefined;
+        if (
+          id &&
+          (teamValue === teamId || team === null) &&
+          (name === "Data Quality" || name === "Ops")
+        ) {
+          next.set(name, id);
+        }
       }
-    }
+      const issueLabels = data.issueLabels;
+      const pageInfo = isRecord(issueLabels) ? issueLabels.pageInfo : undefined;
+      const hasNextPage = isRecord(pageInfo) && pageInfo.hasNextPage === true;
+      labelAfter = hasNextPage ? stringValue(pageInfo.endCursor) : undefined;
+      if (hasNextPage && (!labelAfter || labelCursors.has(labelAfter))) {
+        throw new HealthAdapterError(
+          "Linear returned invalid pagination metadata",
+          "linear",
+          "lookup_labels",
+        );
+      }
+      if (labelAfter) labelCursors.add(labelAfter);
+    } while (labelAfter);
     labels = next;
     return next;
   };
