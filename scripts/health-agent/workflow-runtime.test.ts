@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { DirectoryHealthInput } from "./directory";
 import {
   cleanupStaleBranches,
+  collectDirectoryEvidence,
   createRpcClient,
   createWorkflowRuntimeDependencies,
   deliverRepairFailure,
@@ -1664,17 +1665,32 @@ describe("default runtime dependencies", () => {
         }
         if (url.includes("/rest/v1/health_snapshots?")) {
           return new Response(
-            JSON.stringify([
-              {
-                id: "snapshot-1",
+            JSON.stringify(
+              Array.from({ length: 220 }, (_, index) => ({
+                id: `snapshot-${index}`,
                 metrics: {
                   database: {
                     connections: { maximum: 100, total: 10 },
+                    deadTupleSnapshots: [
+                      {
+                        snapshotDate:
+                          index === 219
+                            ? "not-a-date"
+                            : `2026-01-${String((index % 28) + 1).padStart(2, "0")}`,
+                        tables: Array.from(
+                          { length: 100 },
+                          (_, tableIndex) => ({
+                            deadTuplePercent: tableIndex % 2,
+                            tableName: `table-${tableIndex}`,
+                          }),
+                        ),
+                      },
+                    ],
                   },
                 },
-                snapshot_date: "2026-07-22",
-              },
-            ]),
+                snapshot_date: `2026-01-${String((index % 28) + 1).padStart(2, "0")}`,
+              })),
+            ),
             { status: 200 },
           );
         }
@@ -1799,7 +1815,36 @@ describe("default runtime dependencies", () => {
       ],
       links: [{ brandId: "approved-brand", recordId: "artifact-link" }],
     });
+    expect(directory).toBeDefined();
+    const collectedDirectory = directory as DirectoryHealthInput;
     expect(JSON.stringify(directory)).not.toContain("unapproved-brand");
+    expect(collectedDirectory.database.deadTupleSnapshots).toHaveLength(2);
+    expect(
+      collectedDirectory.database.deadTupleSnapshots.map(
+        ({ snapshotDate }) => snapshotDate,
+      ),
+    ).toEqual(["2026-01-28", "2026-07-22"]);
+
+    const contents = new Map([
+      ["directory-input.json", JSON.stringify(collectedDirectory)],
+    ]);
+    await collectDirectoryEvidence(
+      {
+        inputPath: "directory-input.json",
+        outputPath: "directory-evidence.json",
+      },
+      createWorkflowRuntimeDependencies({
+        files: {
+          read: async (path) => contents.get(path) ?? "",
+          write: async (path, value) => void contents.set(path, value),
+        },
+      }),
+    );
+    const serializedEvidence = contents.get("directory-evidence.json");
+    expect(serializedEvidence).toBeDefined();
+    expect(
+      new TextEncoder().encode(serializedEvidence ?? "").byteLength,
+    ).toBeLessThan(512 * 1024);
     expect(fetchImplementation).toHaveBeenCalledTimes(5);
   });
 
