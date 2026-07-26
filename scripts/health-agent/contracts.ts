@@ -22,6 +22,43 @@ export interface HealthFinding {
   sentryIssueId?: string;
 }
 
+export type HealthSummaryStatus = "failed" | "skipped" | "success";
+
+export interface HealthSummaryCheck {
+  findingCount: number;
+  severities: Readonly<Record<HealthSeverity, number>>;
+  status: HealthSummaryStatus;
+}
+
+export interface HealthSummary {
+  checks: Readonly<Record<"directory" | "link" | "sentry", HealthSummaryCheck>>;
+  overallStatus: "failed" | "healthy" | "needs_attention";
+  phases: Readonly<
+    Record<
+      "analyze" | "collect" | "deliver" | "publish" | "repair",
+      HealthSummaryStatus
+    >
+  >;
+  repair: {
+    batches?: Readonly<
+      Record<
+        "automatic" | "human",
+        {
+          findingCount: number;
+          prNumber?: number;
+          prUrl?: string;
+          status: string;
+        }
+      >
+    >;
+    claimed?: number;
+    fixed: number;
+    pullRequests: number;
+    queued?: number;
+    unresolved: number;
+  };
+}
+
 export interface AuditRecord {
   adapter: string;
   operation: string;

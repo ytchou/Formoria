@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { z } from "zod";
 import {
   type AuditLogger,
@@ -1266,6 +1268,10 @@ export function buildSentryHealthFinding(
 ): HealthFinding {
   const safeClassification = sanitizedClassification(classification);
   const safeIssueId = opaqueIssueId(issueId);
+  const fallbackIssueId = createHash("sha256")
+    .update(fingerprintIdentity(issue))
+    .digest("hex")
+    .slice(0, 32);
   const policy = decideSentryMergePolicy(safeClassification.classification, {
     incidentMode: options.incidentMode,
     textWasRedacted:
@@ -1322,7 +1328,7 @@ export function buildSentryHealthFinding(
     fingerprint: stableFingerprint(
       "sentry",
       "issue",
-      safeIssueId ?? fingerprintIdentity(issue),
+      safeIssueId ?? fallbackIssueId,
     ),
     title: issue.title,
     severity: safeClassification.classification.severity as HealthSeverity,

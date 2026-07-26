@@ -327,7 +327,7 @@ describe("Railway deployment confirmation", () => {
           deployment_timestamp: now.toISOString(),
           production_smoke: true,
         }),
-        routine: "health-selfheal",
+        routine: "health-agent",
       }),
     );
   });
@@ -382,7 +382,7 @@ describe("Railway deployment confirmation", () => {
         data: expect.objectContaining({
           deployment_status: "failure",
         }),
-        routine: "health-selfheal",
+        routine: "health-agent",
       }),
     );
   });

@@ -377,15 +377,8 @@ jobs:
     permissions:
       contents: read
     env:
-      AGENT_HUB_INGEST_TOKEN: ${{ secrets.AGENT_HUB_INGEST_TOKEN }}
-      AGENT_HUB_INGEST_URL: ${{ secrets.AGENT_HUB_INGEST_URL }}
       HEALTH_AGENT_WRITER_TOKEN: ${{ secrets.HEALTH_AGENT_WRITER_TOKEN }}
-      LINEAR_ASSIGNEE_ID: ${{ vars.LINEAR_ASSIGNEE_ID }}
-      LINEAR_OAUTH_ACCESS_TOKEN: ${{ secrets.LINEAR_OAUTH_ACCESS_TOKEN }}
-      LINEAR_PROJECT_ID: ${{ vars.LINEAR_PROJECT_ID }}
-      LINEAR_TEAM_ID: ${{ vars.LINEAR_TEAM_ID }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-      SLACK_HEALTH_WEBHOOK_URL: ${{ secrets.SLACK_HEALTH_WEBHOOK_URL }}
     steps:
       - name: Checkout failure reporter
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -422,6 +415,7 @@ jobs:
               --metadata .health-agent-artifacts/automatic-metadata.json \
               --snapshot .health-agent-artifacts/automatic-snapshot.json \
               --merge-policy automatic \
+              --defer-delivery true \
               --lease-owner "$lease_owner" \
               --run-at "$run_at" \
               --attempt "$GITHUB_RUN_ATTEMPT" \
@@ -433,6 +427,7 @@ jobs:
               --metadata .health-agent-artifacts/human-metadata.json \
               --snapshot .health-agent-artifacts/human-snapshot.json \
               --merge-policy human \
+              --defer-delivery true \
               --lease-owner "$lease_owner" \
               --run-at "$run_at" \
               --attempt "$GITHUB_RUN_ATTEMPT" \
@@ -443,6 +438,7 @@ jobs:
               --metadata .health-agent-artifacts/human-metadata.json \
               --snapshot .health-agent-artifacts/human-snapshot.json \
               --merge-policy human \
+              --defer-delivery true \
               --reason human_action_required_no_repository_patch \
               --expected-escalation true \
               --lease-owner "$lease_owner" \

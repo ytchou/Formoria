@@ -19,9 +19,12 @@ on:
         required: false
         type: string
         default: "directory:canary:github-app-pr"
+  pull_request:
+    types: [closed]
+  deployment_status:
 
 concurrency:
-  group: formoria-agent-writer
+  group: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'formoria-agent-writer' || format('health-confirmation-{0}', github.event.pull_request.number || github.event.deployment.sha || github.run_id) }}
   cancel-in-progress: false
 
 permissions:
@@ -33,6 +36,7 @@ permissions:
 jobs:
   collect-and-preflight:
     name: "Phase 1 · Collect & Preflight"
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     uses: ./.github/workflows/health-agent-collect.yml
     with:
       mode: ${{ github.event_name == 'schedule' && 'live' || inputs.mode }}
@@ -42,7 +46,9 @@ jobs:
   analyze:
     name: "Phase 2 · Analyze"
     needs: [collect-and-preflight]
-    if: needs.collect-and-preflight.outputs.collect == 'true'
+    if: >-
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') &&
+      needs.collect-and-preflight.outputs.collect == 'true'
     uses: ./.github/workflows/health-agent-analyze.yml
     with:
       mode: ${{ needs.collect-and-preflight.outputs.mode }}
@@ -56,7 +62,8 @@ jobs:
     name: "Phase 3 · Deliver & Queue"
     needs: [collect-and-preflight, analyze]
     if: >-
-      always() && needs.collect-and-preflight.result == 'success' &&
+      always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') &&
+      needs.collect-and-preflight.result == 'success' &&
       needs.collect-and-preflight.outputs.collect == 'true'
     uses: ./.github/workflows/health-agent-deliver.yml
     with:
@@ -71,7 +78,8 @@ jobs:
     name: "Phase 4 · Repair & Validate"
     needs: [collect-and-preflight, deliver-and-queue]
     if: >-
-      always() && needs.deliver-and-queue.result == 'success' &&
+      always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') &&
+      needs.deliver-and-queue.result == 'success' &&
       needs.collect-and-preflight.outputs.autofix == 'true'
     uses: ./.github/workflows/health-agent-repair.yml
     with:
@@ -83,17 +91,19 @@ jobs:
     secrets: inherit
 
   publish:
-    name: "Phase 5 · Publish"
-    needs: [collect-and-preflight, deliver-and-queue, repair-and-validate]
-    if: >-
-      always() && needs.deliver-and-queue.result == 'success' &&
-      needs.repair-and-validate.result == 'success' &&
-      needs.collect-and-preflight.outputs.autofix == 'true'
+    name: "Phase 5 · Publish & Report"
+    needs:
+      [collect-and-preflight, analyze, deliver-and-queue, repair-and-validate]
+    if: always()
     uses: ./.github/workflows/health-agent-publish.yml
     with:
-      mode: ${{ needs.collect-and-preflight.outputs.mode }}
-      canary_fingerprints: ${{ needs.collect-and-preflight.outputs.canary_fingerprints }}
-      collect: ${{ needs.collect-and-preflight.outputs.collect }}
-      autofix: ${{ needs.collect-and-preflight.outputs.autofix }}
-      mutate: ${{ needs.collect-and-preflight.outputs.mutate }}
+      mode: ${{ needs.collect-and-preflight.outputs.mode || (github.event_name == 'schedule' && 'live' || inputs.mode || 'preflight') }}
+      canary_fingerprints: ${{ needs.collect-and-preflight.outputs.canary_fingerprints || 'directory:canary:github-app-pr' }}
+      collect: ${{ needs.collect-and-preflight.outputs.collect || 'false' }}
+      autofix: ${{ needs.collect-and-preflight.outputs.autofix || 'false' }}
+      mutate: ${{ needs.collect-and-preflight.outputs.mutate || 'false' }}
+      collect_status: ${{ needs.collect-and-preflight.result }}
+      analyze_status: ${{ needs.analyze.result }}
+      deliver_status: ${{ needs.deliver-and-queue.result }}
+      repair_status: ${{ needs.repair-and-validate.result }}
     secrets: inherit

@@ -55,7 +55,9 @@ import {
   type ArtifactFileSystem,
   type DirectoryCollectionProvider,
   type HealthAgentDependencies,
+  type HealthAgentEnvelope,
   type HealthCollectorArtifact,
+  type HealthRoutine,
   type JsonFileStore,
   type QueueBatchResult,
   type SlackDigestInput,
@@ -64,6 +66,7 @@ import type {
   AuditLogger,
   AuditRecord,
   HealthFinding,
+  HealthSummary,
   JsonValue,
 } from "./contracts";
 
@@ -80,6 +83,14 @@ const ACTIVE_AUTOMATIC_STATUSES = [
   "failed",
 ] as const;
 
+function safeRuntimeFailure(error: unknown): string {
+  if (!(error instanceof Error)) return "operation_failed";
+  return error.message
+    .replace(/https?:\/\/\S+/gi, "[redacted-url]")
+    .replace(/(?:token|secret|password)\s*[:=]\s*\S+/gi, "[redacted-secret]")
+    .slice(0, 300);
+}
+
 type RuntimeEnvironment = Readonly<Record<string, string | undefined>>;
 type RuntimeFiles = JsonFileStore | ArtifactFileSystem;
 type JsonObject = Record<string, JsonValue>;
@@ -93,6 +104,7 @@ export const WORKFLOW_RUNTIME_COMMANDS = [
   "combine-sentry",
   "evaluate-directory",
   "aggregate-and-deliver",
+  "final-report",
   "cleanup-stale-branches",
   "enqueue-and-claim",
   "repair-snapshot",
@@ -206,6 +218,7 @@ export interface DirectoryEvidenceCollectInput {
 export interface AggregateWorkflowInput {
   auditPath?: string;
   brandReviewArtifactPath?: string;
+  deferDelivery?: boolean;
   directoryArtifactPath: string;
   exhaustedAutomationFingerprints?: readonly string[];
   linkArtifactPath: string;
@@ -214,6 +227,19 @@ export interface AggregateWorkflowInput {
   prOutcomes?: readonly JsonValue[];
   runAt: string;
   sentryArtifactPath: string;
+  workflowAttempt: number;
+  workflowRunId: string;
+  workflowUrl?: string;
+}
+
+export interface FinalReportInput {
+  aggregateArtifactPath?: string;
+  automaticPrResultPath?: string;
+  humanPrResultPath?: string;
+  outputPath: string;
+  phases: HealthSummary["phases"];
+  queueArtifactPath?: string;
+  runAt: string;
   workflowAttempt: number;
   workflowRunId: string;
   workflowUrl?: string;
@@ -278,6 +304,7 @@ export interface RepairAuditInput {
 
 export interface RepairResultInput {
   autoMergeEnabled: boolean;
+  deferDelivery?: boolean;
   leaseOwner: string;
   mergePolicy: "automatic" | "human";
   metadataPath: string;
@@ -290,6 +317,7 @@ export interface RepairResultInput {
 }
 
 export interface RepairFailureInput {
+  deferDelivery?: boolean;
   expectedEscalation?: boolean;
   leaseOwner: string;
   mergePolicy: "automatic" | "human";
@@ -376,6 +404,10 @@ function safeMode(value: unknown): LinkCollectInput["mode"] {
     return value;
   }
   throw new Error("invalid_runtime_mode");
+}
+
+function safePhaseStatus(value: unknown): "failed" | "skipped" | "success" {
+  return value === "failed" || value === "success" ? value : "skipped";
 }
 
 function safeString(value: unknown, field: string): string {
@@ -701,12 +733,6 @@ function numberValue(value: unknown, fallback = 0): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
-function stringArray(value: unknown): string[] {
-  return Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === "string")
-    : [];
-}
-
 function brandReviewLedgerClaim(value: unknown): BrandReviewLedgerClaim {
   if (!isRecord(value) || typeof value.claimed !== "boolean") {
     throw new Error("brand_review_ledger_claim_invalid");
@@ -804,6 +830,7 @@ function recentBrandEdit(row: Record<string, unknown>): RecentBrandEdit {
 
 async function collectBrandReview(
   input: {
+    deferDelivery?: boolean;
     mode: string;
     mutate: boolean;
     outputPath: string;
@@ -900,15 +927,17 @@ async function collectBrandReview(
 
     if (evaluated.findings.length > 0) {
       const delivery = dependencies.delivery;
-      if (!delivery) throw new Error("brand_review_delivery_unavailable");
-      const report: SlackDigestInput = {
-        actionableFindings: evaluated.findings,
-        failures: [],
-        linearOutcomes: [],
-        prOutcomes: [],
-        skippedActions: [],
-      };
-      await delivery.slack(report);
+      if (!input.deferDelivery) {
+        if (!delivery) throw new Error("brand_review_delivery_unavailable");
+        const report: SlackDigestInput = {
+          actionableFindings: evaluated.findings,
+          failures: [],
+          linearOutcomes: [],
+          prOutcomes: [],
+          skippedActions: [],
+        };
+        await delivery.slack(report);
+      }
       await Promise.all(
         evaluated.findings.map((finding) =>
           supabaseRequest(
@@ -2033,6 +2062,7 @@ export async function runAggregateAndDeliver(
         "sentry-triage": input.sentryArtifactPath,
       },
       brandReviewArtifactPath: input.brandReviewArtifactPath,
+      deliver: input.deferDelivery !== true,
       exhaustedAutomationFingerprints: input.exhaustedAutomationFingerprints,
       mode: input.mode,
       prOutcomes: input.prOutcomes,
@@ -2057,6 +2087,328 @@ export async function runAggregateAndDeliver(
   ) {
     throw new Error("health_delivery_failed");
   }
+  return result;
+}
+
+const EMPTY_SEVERITIES = {
+  critical: 0,
+  high: 0,
+  low: 0,
+  medium: 0,
+};
+
+async function optionalArtifact(
+  path: string | undefined,
+  dependencies: WorkflowRuntimeDependencies,
+): Promise<unknown> {
+  if (!path) return undefined;
+  try {
+    return await readBoundedJson(path, filesFor(dependencies));
+  } catch {
+    return undefined;
+  }
+}
+
+function terminalCheck(
+  aggregate: unknown,
+  routine: HealthRoutine,
+): HealthSummary["checks"]["link"] {
+  const artifacts = isRecord(aggregate) ? aggregate.artifacts : undefined;
+  const value = isRecord(artifacts) ? artifacts[routine] : undefined;
+  if (!isRecord(value)) {
+    return {
+      findingCount: 0,
+      severities: { ...EMPTY_SEVERITIES },
+      status: "failed",
+    };
+  }
+  const artifact = validateCollectorArtifact(value);
+  const severities = { ...EMPTY_SEVERITIES };
+  for (const finding of artifact.findings) severities[finding.severity] += 1;
+  return {
+    findingCount: artifact.findings.length,
+    severities,
+    status:
+      artifact.status === "failed"
+        ? "failed"
+        : artifact.status === "skipped"
+          ? "skipped"
+          : "success",
+  };
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === "string")
+    : [];
+}
+
+function queueBatchFindingCount(
+  queue: unknown,
+  policy: "automatic" | "human",
+): number {
+  if (!isRecord(queue) || !isRecord(queue[policy])) return 0;
+  const findings = queue[policy].findings;
+  return Array.isArray(findings) ? findings.length : 0;
+}
+
+function repairResult(
+  value: unknown,
+  policy: "automatic" | "human",
+  findingCount: number,
+  phases: FinalReportInput["phases"],
+): {
+  batch: JsonObject;
+  fixedIds: string[];
+  pr?: number;
+} {
+  const fallbackStatus =
+    findingCount === 0
+      ? "not_required"
+      : phases.repair === "failed" || phases.publish === "failed"
+        ? "failed"
+        : policy === "human"
+          ? "needs_human"
+          : "not_published";
+  if (!isRecord(value)) {
+    return {
+      batch: {
+        finding_count: findingCount,
+        merge_policy: policy,
+        status: fallbackStatus,
+      },
+      fixedIds: [],
+    };
+  }
+  const fixedIds = stringArray(value.claimed_finding_ids);
+  const pr =
+    typeof value.pr_number === "number" &&
+    Number.isSafeInteger(value.pr_number) &&
+    value.pr_number > 0
+      ? value.pr_number
+      : undefined;
+  const status =
+    typeof value.status === "string" && value.status.trim()
+      ? value.status.trim().slice(0, 80)
+      : fallbackStatus;
+  return {
+    batch: {
+      finding_count: findingCount,
+      merge_policy: policy,
+      ...(pr
+        ? {
+            pr_number: pr,
+            pr_url: `https://github.com/ytchou/Formoria/pull/${pr}`,
+          }
+        : {}),
+      status,
+    },
+    fixedIds: pr ? fixedIds : [],
+    ...(pr ? { pr } : {}),
+  };
+}
+
+function aggregateFailures(value: unknown): string[] {
+  return isRecord(value) ? stringArray(value.failures) : ["aggregate_missing"];
+}
+
+export async function deliverFinalHealthReport(
+  input: FinalReportInput,
+  dependencies: WorkflowRuntimeDependencies = createWorkflowRuntimeDependencies(),
+): Promise<JsonObject> {
+  const aggregate = await optionalArtifact(
+    input.aggregateArtifactPath,
+    dependencies,
+  );
+  const queue = await optionalArtifact(input.queueArtifactPath, dependencies);
+  const [automaticPr, humanPr] = await Promise.all([
+    optionalArtifact(input.automaticPrResultPath, dependencies),
+    optionalArtifact(input.humanPrResultPath, dependencies),
+  ]);
+  const checks: HealthSummary["checks"] = {
+    directory: terminalCheck(aggregate, "directory-health"),
+    link: terminalCheck(aggregate, "link-checker"),
+    sentry: terminalCheck(aggregate, "sentry-triage"),
+  };
+  const findingCount = Object.values(checks).reduce(
+    (total, check) => total + check.findingCount,
+    0,
+  );
+  const severities = { ...EMPTY_SEVERITIES };
+  for (const check of Object.values(checks)) {
+    severities.critical += check.severities.critical;
+    severities.high += check.severities.high;
+    severities.low += check.severities.low;
+    severities.medium += check.severities.medium;
+  }
+  const automatic = repairResult(
+    automaticPr,
+    "automatic",
+    queueBatchFindingCount(queue, "automatic"),
+    input.phases,
+  );
+  const human = repairResult(
+    humanPr,
+    "human",
+    queueBatchFindingCount(queue, "human"),
+    input.phases,
+  );
+  const prResults = [automatic, human];
+  const fixedIds = new Set(prResults.flatMap((result) => result.fixedIds));
+  const pullRequests = prResults.filter(
+    (result) => result.pr !== undefined,
+  ).length;
+  const failures = [
+    ...aggregateFailures(aggregate),
+    ...(isRecord(queue) ? stringArray(queue.failures) : []),
+  ];
+  const operationalFailure =
+    failures.length > 0 ||
+    Object.values(input.phases).includes("failed") ||
+    Object.values(checks).some((check) => check.status === "failed");
+  const overallStatus: HealthSummary["overallStatus"] = operationalFailure
+    ? "failed"
+    : findingCount > 0
+      ? "needs_attention"
+      : "healthy";
+  const repair = {
+    batches: {
+      automatic: {
+        findingCount: queueBatchFindingCount(queue, "automatic"),
+        ...(typeof automatic.batch.pr_number === "number"
+          ? { prNumber: automatic.batch.pr_number }
+          : {}),
+        ...(typeof automatic.batch.pr_url === "string"
+          ? { prUrl: automatic.batch.pr_url }
+          : {}),
+        status: String(automatic.batch.status),
+      },
+      human: {
+        findingCount: queueBatchFindingCount(queue, "human"),
+        ...(typeof human.batch.pr_number === "number"
+          ? { prNumber: human.batch.pr_number }
+          : {}),
+        ...(typeof human.batch.pr_url === "string"
+          ? { prUrl: human.batch.pr_url }
+          : {}),
+        status: String(human.batch.status),
+      },
+    },
+    claimed: isRecord(queue)
+      ? stringArray(queue.claimedFingerprints).length
+      : 0,
+    fixed: fixedIds.size,
+    pullRequests,
+    queued: isRecord(queue)
+      ? stringArray(queue.enqueuedFingerprints).length
+      : 0,
+    unresolved: Math.max(0, findingCount - fixedIds.size),
+  };
+  const healthSummary: HealthSummary = {
+    checks,
+    overallStatus,
+    phases: input.phases,
+    repair,
+  };
+  const queued = repair.queued;
+  const claimed = repair.claimed;
+  const envelope: HealthAgentEnvelope = {
+    data: {
+      checks: {
+        directory: {
+          finding_count: checks.directory.findingCount,
+          urgency: {
+            follow_up:
+              checks.directory.severities.medium +
+              checks.directory.severities.low,
+            urgent:
+              checks.directory.severities.critical +
+              checks.directory.severities.high,
+          },
+          severities: checks.directory.severities,
+          status: checks.directory.status,
+        },
+        link: {
+          finding_count: checks.link.findingCount,
+          urgency: {
+            follow_up:
+              checks.link.severities.medium + checks.link.severities.low,
+            urgent:
+              checks.link.severities.critical + checks.link.severities.high,
+          },
+          severities: checks.link.severities,
+          status: checks.link.status,
+        },
+        sentry: {
+          finding_count: checks.sentry.findingCount,
+          urgency: {
+            follow_up:
+              checks.sentry.severities.medium + checks.sentry.severities.low,
+            urgent:
+              checks.sentry.severities.critical + checks.sentry.severities.high,
+          },
+          severities: checks.sentry.severities,
+          status: checks.sentry.status,
+        },
+      },
+      failures,
+      notification_owner: "github_actions",
+      overall_status: overallStatus,
+      phases: input.phases,
+      repair: {
+        batches: { automatic: automatic.batch, human: human.batch },
+        claimed,
+        fixed: repair.fixed,
+        pull_requests: repair.pullRequests,
+        queued,
+        unresolved: repair.unresolved,
+      },
+      totals: { finding_count: findingCount, severities },
+      ...(input.workflowUrl ? { workflow_url: input.workflowUrl } : {}),
+    },
+    date: taipeiDate(input.runAt),
+    project: "formoria",
+    routine: "health-agent",
+    run_at: input.runAt,
+    source: "github_actions",
+    source_run_id: `github-actions:health-agent:${input.workflowRunId}:${input.workflowAttempt}`,
+    status: operationalFailure ? "failed" : "success",
+    tickets_created: [],
+    verdict_severity: operationalFailure
+      ? "error"
+      : severities.critical > 0
+        ? "critical"
+        : severities.high > 0
+          ? "error"
+          : findingCount > 0
+            ? "warning"
+            : "ok",
+    verdict_text: operationalFailure
+      ? "Health workflow failed; see the terminal phase summary."
+      : findingCount > 0
+        ? `${findingCount} findings; ${repair.fixed} repaired into ${repair.pullRequests} pull request${repair.pullRequests === 1 ? "" : "s"}.`
+        : "All health checks passed with no findings.",
+    version: 1,
+  };
+  if (!dependencies.delivery)
+    throw new Error("final_report_delivery_unavailable");
+  const [agentHub, slack] = await Promise.allSettled([
+    dependencies.delivery.agentHub(envelope),
+    dependencies.delivery.slack({
+      healthSummary,
+      workflowUrl: input.workflowUrl,
+    }),
+  ]);
+  const result: JsonObject = {
+    agent_hub: agentHub.status,
+    envelope: envelope as unknown as JsonValue,
+    slack: slack.status,
+  };
+  await writeRedactedJson(input.outputPath, result, filesFor(dependencies));
+  if (agentHub.status === "rejected" || slack.status === "rejected") {
+    throw new Error("final_report_delivery_failed");
+  }
+  if (operationalFailure) throw new Error("health_pipeline_failed");
   return result;
 }
 
@@ -2608,7 +2960,6 @@ export async function deliverRepairResult(
     workflowRunId: input.workflowRunId,
   });
   const delivery = dependencies.delivery;
-  if (!delivery) throw new Error("repair_result_delivery_unavailable");
   const report: SlackDigestInput = {
     actionableFindings: [],
     failures: [],
@@ -2625,10 +2976,15 @@ export async function deliverRepairResult(
     ],
     skippedActions: [],
   };
-  const [agentHub, slack] = await Promise.allSettled([
-    delivery.agentHub(envelope),
-    delivery.slack(report),
-  ]);
+  if (!input.deferDelivery && !delivery) {
+    throw new Error("repair_result_delivery_unavailable");
+  }
+  const [agentHub, slack] = input.deferDelivery
+    ? ([{ status: "fulfilled" }, { status: "fulfilled" }] as const)
+    : await Promise.allSettled([
+        delivery!.agentHub(envelope),
+        delivery!.slack(report),
+      ]);
   const result: JsonObject = {
     agent_hub: agentHub.status,
     auto_merge_enabled: input.autoMergeEnabled,
@@ -2692,25 +3048,7 @@ export async function deliverRepairFailure(
   );
 
   const failures: string[] = input.expectedEscalation ? [] : [reason];
-  let linearOutcomes: JsonValue[] = [];
-  const linear = dependencies.linear;
-  if (!linear) {
-    failures.push("linear:not_configured");
-  } else {
-    try {
-      const sync =
-        typeof linear === "function" ? linear : linear.sync.bind(linear);
-      const linearResult = await sync({
-        exhaustedAutomationFingerprints: snapshot.findings.map(
-          ({ fingerprint }) => fingerprint,
-        ),
-        findings: snapshot.findings,
-      });
-      linearOutcomes = [...(linearResult.outcomes ?? [])].map(redactForAudit);
-    } catch {
-      failures.push("linear:failed");
-    }
-  }
+  const linearOutcomes: JsonValue[] = [];
 
   const envelope = buildPrResultEnvelope({
     mergePolicy: input.mergePolicy,
@@ -2724,7 +3062,7 @@ export async function deliverRepairFailure(
         status: "needs_human",
       })),
       fixed: false,
-      linearRequired: true,
+      linearRequired: false,
       mergePolicy: input.mergePolicy,
       merged: false,
       snapshotId: snapshot.snapshotId,
@@ -2737,7 +3075,6 @@ export async function deliverRepairFailure(
     workflowRunId: input.workflowRunId,
   });
   const delivery = dependencies.delivery;
-  if (!delivery) throw new Error("repair_failure_delivery_unavailable");
   const report: SlackDigestInput = {
     actionableFindings: snapshot.findings,
     failures,
@@ -2752,10 +3089,15 @@ export async function deliverRepairFailure(
     ],
     skippedActions: [],
   };
-  const [agentHub, slack] = await Promise.allSettled([
-    delivery.agentHub(envelope),
-    delivery.slack(report),
-  ]);
+  if (!input.deferDelivery && !delivery) {
+    throw new Error("repair_failure_delivery_unavailable");
+  }
+  const [agentHub, slack] = input.deferDelivery
+    ? ([{ status: "fulfilled" }, { status: "fulfilled" }] as const)
+    : await Promise.allSettled([
+        delivery!.agentHub(envelope),
+        delivery!.slack(report),
+      ]);
   const result: JsonObject = {
     agent_hub: agentHub.status,
     claimed_finding_ids: ids,
@@ -2820,6 +3162,7 @@ export async function runWorkflowCommand(
       return collectBrandReview(
         {
           mode: safeString(input.mode, "mode"),
+          deferDelivery: input.deferDelivery === true,
           mutate: input.mutate === true,
           outputPath: safeString(input.outputPath, "outputPath"),
           runAt: safeString(input.runAt, "runAt"),
@@ -2898,6 +3241,7 @@ export async function runWorkflowCommand(
             typeof input.brandReviewArtifactPath === "string"
               ? input.brandReviewArtifactPath
               : undefined,
+          deferDelivery: input.deferDelivery === true,
           directoryArtifactPath: safeString(
             input.directoryArtifactPath,
             "directoryArtifactPath",
@@ -2923,6 +3267,43 @@ export async function runWorkflowCommand(
             input.sentryArtifactPath,
             "sentryArtifactPath",
           ),
+          workflowAttempt: safeAttempt(input.workflowAttempt),
+          workflowRunId: safeString(input.workflowRunId, "workflowRunId"),
+          workflowUrl:
+            typeof input.workflowUrl === "string"
+              ? input.workflowUrl
+              : undefined,
+        },
+        dependencies,
+      );
+    case "final-report":
+      return deliverFinalHealthReport(
+        {
+          aggregateArtifactPath:
+            typeof input.aggregateArtifactPath === "string"
+              ? input.aggregateArtifactPath
+              : undefined,
+          automaticPrResultPath:
+            typeof input.automaticPrResultPath === "string"
+              ? input.automaticPrResultPath
+              : undefined,
+          humanPrResultPath:
+            typeof input.humanPrResultPath === "string"
+              ? input.humanPrResultPath
+              : undefined,
+          outputPath: safeString(input.outputPath, "outputPath"),
+          phases: {
+            analyze: safePhaseStatus(input.analyzeStatus),
+            collect: safePhaseStatus(input.collectStatus),
+            deliver: safePhaseStatus(input.deliverStatus),
+            publish: safePhaseStatus(input.publishStatus),
+            repair: safePhaseStatus(input.repairStatus),
+          },
+          queueArtifactPath:
+            typeof input.queueArtifactPath === "string"
+              ? input.queueArtifactPath
+              : undefined,
+          runAt: safeString(input.runAt, "runAt"),
           workflowAttempt: safeAttempt(input.workflowAttempt),
           workflowRunId: safeString(input.workflowRunId, "workflowRunId"),
           workflowUrl:
@@ -3009,6 +3390,7 @@ export async function runWorkflowCommand(
       return deliverRepairResult(
         {
           autoMergeEnabled: input.autoMergeEnabled === true,
+          deferDelivery: input.deferDelivery === true,
           leaseOwner: safeString(input.leaseOwner, "leaseOwner"),
           mergePolicy:
             input.mergePolicy === "automatic" || input.mergePolicy === "human"
@@ -3030,6 +3412,7 @@ export async function runWorkflowCommand(
       return deliverRepairFailure(
         {
           expectedEscalation: input.expectedEscalation === true,
+          deferDelivery: input.deferDelivery === true,
           leaseOwner: safeString(input.leaseOwner, "leaseOwner"),
           mergePolicy:
             input.mergePolicy === "automatic" || input.mergePolicy === "human"
@@ -3082,6 +3465,7 @@ export async function main(
   const windowHours = optionalArgument(argv, "--window-hours");
   const input: Record<string, unknown> = {
     aggregateArtifactPath: optionalArgument(argv, "--aggregate-artifact"),
+    analyzeStatus: optionalArgument(argv, "--analyze-status"),
     auditPath: optionalArgument(argv, "--audit"),
     batchKind: optionalArgument(argv, "--batch"),
     brandReviewArtifactPath: optionalArgument(argv, "--brand-review-artifact"),
@@ -3116,8 +3500,16 @@ export async function main(
     workflowUrl: optionalArgument(argv, "--workflow-url"),
     windowHours: windowHours ? Number(windowHours) : 25,
     autoMergeEnabled: optionalArgument(argv, "--auto-merge-enabled") === "true",
+    automaticPrResultPath: optionalArgument(argv, "--automatic-pr-result"),
+    collectStatus: optionalArgument(argv, "--collect-status"),
+    deferDelivery: optionalArgument(argv, "--defer-delivery") === "true",
+    deliverStatus: optionalArgument(argv, "--deliver-status"),
     expectedEscalation:
       optionalArgument(argv, "--expected-escalation") === "true",
+    humanPrResultPath: optionalArgument(argv, "--human-pr-result"),
+    publishStatus: optionalArgument(argv, "--publish-status"),
+    queueArtifactPath: optionalArgument(argv, "--queue-artifact"),
+    repairStatus: optionalArgument(argv, "--repair-status"),
   };
   await runWorkflowCommand(
     commandValue as WorkflowRuntimeCommand,
@@ -3140,8 +3532,10 @@ const isDirectInvocation =
   import.meta.url === pathToFileURL(process.argv[1]).href;
 
 if (isDirectInvocation) {
-  main().catch(() => {
-    console.error("Health agent workflow runtime failed");
+  main().catch((error) => {
+    console.error(
+      `Health agent workflow runtime failed: ${safeRuntimeFailure(error)}`,
+    );
     process.exitCode = 1;
   });
 }
