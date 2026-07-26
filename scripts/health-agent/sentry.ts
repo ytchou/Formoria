@@ -60,6 +60,7 @@ export function sentryClassificationBatchJsonSchema(issueCount: number) {
         classifications: z.array(SentryClassificationSchema).length(issueCount),
       })
       .strict(),
+    { target: "draft-07" },
   );
 }
 

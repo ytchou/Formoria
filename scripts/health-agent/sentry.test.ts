@@ -15,6 +15,7 @@ import {
 describe("Sentry classifier schema contract", () => {
   it("exposes the runtime bounds and exact requested issue count", () => {
     const schema = sentryClassificationBatchJsonSchema(10) as unknown as {
+      $schema: string;
       properties: {
         classifications: {
           items: { properties: { rootCause: { maxLength: number } } };
@@ -29,6 +30,7 @@ describe("Sentry classifier schema contract", () => {
     expect(
       schema.properties.classifications.items.properties.rootCause.maxLength,
     ).toBe(500);
+    expect(schema.$schema).toBe("http://json-schema.org/draft-07/schema#");
   });
 });
 
