@@ -11,6 +11,14 @@ const migration = readFileSync(
   "utf8",
 ).toLowerCase();
 
+const accessMigration = readFileSync(
+  join(
+    process.cwd(),
+    "supabase/migrations/20260727003500_revoke_reconcile_health_fix_public_access.sql",
+  ),
+  "utf8",
+).toLowerCase();
+
 describe("health fix absence reconciliation migration", () => {
   it("marks only unobserved active fingerprints fixed", () => {
     expect(migration).toContain(
@@ -38,5 +46,14 @@ describe("health fix absence reconciliation migration", () => {
       "revoke all on function reconcile_health_fix_lifecycle(text[]) from public",
     );
     expect(migration).not.toMatch(/\bdelete\s+from\b/);
+  });
+
+  it("revokes Supabase API roles while preserving agent execution", () => {
+    expect(accessMigration).toContain(
+      "from public, anon, authenticated",
+    );
+    expect(accessMigration).toContain(
+      "to health_agent_writer, service_role",
+    );
   });
 });
