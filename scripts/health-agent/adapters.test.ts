@@ -193,17 +193,61 @@ describe("Slack adapter", () => {
       workflowUrl: "https://github.com/ytchou/Formoria/actions/runs/123",
     });
 
-    expect(digest).toContain("*Checks*");
-    expect(digest).toContain("Links — 22 · 22 medium");
-    expect(digest).toContain("Directory — 27 · 6 high · 21 medium");
-    expect(digest).toContain("Sentry — 10 · 2 critical · 8 high");
-    expect(digest).toContain("*Repair outcome*");
-    expect(digest).toContain("3 fixed · 56 unresolved · 1 PR");
-    expect(digest).toContain("59 queued · 3 claimed");
+    expect(digest).toContain(
+      "*Issues*\n• 59 total · Links 22 · Directory 27 · Sentry 10",
+    );
+    expect(digest).toContain("*Fixed*\n• 3");
+    expect(digest).toContain("*Work done*\n• 1 PR");
     expect(digest).toContain(
       "Automatic — 3 · pr opened · <https://github.com/ytchou/Formoria/pull/42|PR #42>",
     );
+    expect(digest).not.toContain("Human — 0 · not required");
     expect(digest).not.toContain("Untitled finding");
+  });
+
+  it("uses the manager summary format and links the grouped Linear ticket", () => {
+    const digest = renderSlackDigest({
+      healthSummary: {
+        checks: {
+          directory: {
+            findingCount: 28,
+            severities: { critical: 0, high: 0, low: 0, medium: 28 },
+            status: "success",
+          },
+          link: {
+            findingCount: 22,
+            severities: { critical: 0, high: 0, low: 0, medium: 22 },
+            status: "success",
+          },
+          sentry: {
+            findingCount: 0,
+            severities: { critical: 0, high: 0, low: 0, medium: 0 },
+            status: "failed",
+          },
+        },
+        overallStatus: "failed",
+        phases: {
+          analyze: "failed",
+          collect: "success",
+          deliver: "skipped",
+          publish: "skipped",
+          repair: "skipped",
+        },
+        repair: { fixed: 0, pullRequests: 0, unresolved: 50 },
+        ticket: {
+          identifier: "DEV-1231",
+          url: "https://linear.app/ytchou/issue/DEV-1231",
+        },
+      },
+    });
+
+    expect(digest).toContain("*Issues*\n• 50 total");
+    expect(digest).toContain("*Fixed*\n• 0");
+    expect(digest).toContain("No repair PR created");
+    expect(digest).toContain(
+      "<https://linear.app/ytchou/issue/DEV-1231|DEV-1231>",
+    );
+    expect(digest).toContain("*Manager action*");
   });
 });
 
@@ -294,7 +338,7 @@ describe("Linear adapter", () => {
       fingerprint: "link:broken:exhausted",
       mergePolicy: "automatic",
       source: "link",
-      title: "Repeated link failure",
+      title: "Health Agent findings require review (1 finding)",
     });
 
     const result = await adapter.sync([automatic, exhausted], {
@@ -319,7 +363,7 @@ describe("Linear adapter", () => {
       labelIds: ["label-dq"],
       projectId: "project-1",
       teamId: "team-1",
-      title: "Repeated link failure",
+      title: "Health Agent findings require review (1 finding)",
     });
     expect(JSON.stringify(createInput)).not.toContain("milestone");
     expect(JSON.stringify(records)).not.toContain("linear-oauth-secret");
@@ -356,8 +400,7 @@ describe("Linear adapter", () => {
                 {
                   id: "linear-1",
                   identifier: "FOR-7",
-                  description:
-                    "<!-- health-agent:fingerprint:sentry:issue:issue-1 -->",
+                  description: "<!-- health-agent:summary:v1 -->",
                   project: { id: "project-1" },
                   team: { id: "team-1" },
                 },
@@ -408,7 +451,7 @@ describe("Linear adapter", () => {
     expect(JSON.stringify(updateInput)).not.toContain("milestone");
   });
 
-  it("loads project issues once for multiple eligible findings", async () => {
+  it("groups multiple eligible findings into one reviewable issue", async () => {
     const fetchImpl = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(jsonResponse({ data: { issues: { nodes: [] } } }))
@@ -416,7 +459,14 @@ describe("Linear adapter", () => {
         jsonResponse({
           data: {
             issueLabels: {
-              nodes: [{ id: "label-ops", name: "Ops", team: { id: "team-1" } }],
+              nodes: [
+                {
+                  id: "label-dq",
+                  name: "Data Quality",
+                  team: { id: "team-1" },
+                },
+                { id: "label-ops", name: "Ops", team: { id: "team-1" } },
+              ],
             },
           },
         }),
@@ -430,31 +480,44 @@ describe("Linear adapter", () => {
             },
           },
         }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          data: {
-            issueCreate: {
-              issue: { id: "linear-2", identifier: "FOR-11" },
-              success: true,
-            },
-          },
-        }),
       );
     const adapter = createLinearAdapter(
       linearConfig(fetchImpl, () => undefined),
     );
 
-    await adapter.sync([
+    const result = await adapter.sync([
       finding(),
-      finding({ fingerprint: "sentry:issue:issue-2" }),
+      finding({
+        fingerprint: "link:broken:brand-2",
+        source: "link",
+        title: "Purchase website needs review",
+      }),
     ]);
 
     const lookupCalls = fetchImpl.mock.calls.filter(([, init]) =>
       String(init?.body).includes("HealthAgentIssueLookup"),
     );
     expect(lookupCalls).toHaveLength(1);
-    expect(fetchImpl).toHaveBeenCalledTimes(4);
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(result).toMatchObject({ created: 1, updated: 0 });
+    const createInput = (
+      bodyAt(fetchImpl, 2).variables as Record<string, unknown>
+    ).input as Record<string, unknown>;
+    expect(createInput.title).toContain("2 findings");
+    expect(createInput.description).toEqual(
+      expect.stringContaining("<!-- health-agent:summary:v1 -->"),
+    );
+    expect(createInput.description).toEqual(expect.stringContaining("Sentry"));
+    expect(createInput.description).toEqual(expect.stringContaining("Link"));
+    expect(createInput.description).toEqual(
+      expect.stringContaining("link:broken:brand-2"),
+    );
+    expect(createInput.description).toEqual(
+      expect.stringContaining("**Fixed:** 0 at triage time"),
+    );
+    expect(createInput.description).toEqual(
+      expect.stringContaining("**Manager action:**"),
+    );
   });
 
   it("uses workspace-wide allowed labels without creating duplicates", async () => {
@@ -523,8 +586,7 @@ describe("Linear adapter", () => {
             issues: {
               nodes: [
                 {
-                  description:
-                    "<!-- health-agent:fingerprint:sentry:issue:issue-1 -->",
+                  description: "<!-- health-agent:summary:v1 -->",
                   id: "linear-1",
                   project: { id: "project-1" },
                   team: { id: "team-1" },
@@ -665,16 +727,6 @@ describe("Linear adapter", () => {
             },
           },
         }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          data: {
-            issueCreate: {
-              issue: { id: "linear-sentry", identifier: "FOR-51" },
-              success: true,
-            },
-          },
-        }),
       );
     const adapter = createLinearAdapter(
       linearConfig(fetchImpl, () => undefined),
@@ -685,7 +737,7 @@ describe("Linear adapter", () => {
         finding({ fingerprint: "link:broken:one", source: "link" }),
         finding({ fingerprint: "sentry:issue:one", source: "sentry" }),
       ]),
-    ).resolves.toMatchObject({ created: 2, updated: 0 });
+    ).resolves.toMatchObject({ created: 1, updated: 0 });
 
     expect(bodyAt(fetchImpl, 2)).toMatchObject({
       variables: { input: { name: "Data Quality", teamId: "team-1" } },
@@ -694,7 +746,10 @@ describe("Linear adapter", () => {
       variables: { input: { name: "Ops", teamId: "team-1" } },
     });
     expect(bodyAt(fetchImpl, 4).query).toContain("issueCreate");
-    expect(bodyAt(fetchImpl, 5).query).toContain("issueCreate");
+    const groupedInput = (
+      bodyAt(fetchImpl, 4).variables as { input: { labelIds: string[] } }
+    ).input;
+    expect(groupedInput.labelIds).toEqual(["label-dq", "label-ops"]);
   });
 });
 

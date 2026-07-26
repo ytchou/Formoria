@@ -1,0 +1,141 @@
+name: Formoria Health Agent Replay
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Source health run ID"
+        required: true
+        type: string
+      source_attempt:
+        description: "Source run attempt"
+        required: true
+        default: "1"
+        type: string
+      mutate:
+        description: "Update the grouped Linear ticket"
+        required: true
+        default: false
+        type: boolean
+      notify:
+        description: "Send the terminal summary to Slack and Agent Hub"
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: formoria-health-replay
+  cancel-in-progress: false
+
+permissions:
+  actions: read
+  contents: read
+  id-token: write
+  security-events: read
+
+jobs:
+  prepare:
+    name: Prepare source artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download source artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_ATTEMPT: ${{ inputs.source_attempt }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+        run: |
+          set -euo pipefail
+          mkdir -p source
+          for prefix in health-link health-directory health-brand-review health-sentry-issues; do
+            gh run download "$SOURCE_RUN_ID" \
+              --repo "$GITHUB_REPOSITORY" \
+              --name "${prefix}-${SOURCE_RUN_ID}-${SOURCE_ATTEMPT}" \
+              --dir "source/$prefix"
+          done
+      - name: Upload link artifact for replay
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: health-link-${{ github.run_id }}-${{ github.run_attempt }}
+          path: source/health-link/link-checker.json
+      - name: Upload Directory artifact for replay
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: health-directory-${{ github.run_id }}-${{ github.run_attempt }}
+          path: source/health-directory/directory-health.json
+      - name: Upload brand review artifact for replay
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: health-brand-review-${{ github.run_id }}-${{ github.run_attempt }}
+          path: source/health-brand-review/brand-review.json
+      - name: Upload Sentry input for replay
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: health-sentry-issues-${{ github.run_id }}-${{ github.run_attempt }}
+          path: source/health-sentry-issues/sentry-issues.json
+
+  analyze:
+    name: Replay Phase 2 · Analyze
+    needs: prepare
+    uses: ./.github/workflows/health-agent-analyze.yml
+    with:
+      mode: ${{ inputs.mutate && 'live' || 'preflight' }}
+      canary_fingerprints: ""
+      collect: "true"
+      autofix: "false"
+      mutate: ${{ inputs.mutate && 'true' || 'false' }}
+    secrets: inherit
+
+  deliver:
+    name: Replay Phase 3 · Group findings
+    needs: [prepare, analyze]
+    if: always() && needs.prepare.result == 'success'
+    uses: ./.github/workflows/health-agent-deliver.yml
+    with:
+      mode: ${{ inputs.mutate && 'live' || 'preflight' }}
+      canary_fingerprints: ""
+      collect: "true"
+      autofix: "false"
+      mutate: ${{ inputs.mutate && 'true' || 'false' }}
+    secrets: inherit
+
+  report:
+    name: Replay manager report
+    needs: [analyze, deliver]
+    if: always() && needs.deliver.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: |
+          corepack enable
+          corepack prepare pnpm@10.30.1 --activate
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: health-aggregate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .health-agent-artifacts
+      - name: Build and optionally send manager report
+        env:
+          AGENT_HUB_INGEST_TOKEN: ${{ secrets.AGENT_HUB_INGEST_TOKEN }}
+          AGENT_HUB_INGEST_URL: ${{ secrets.AGENT_HUB_INGEST_URL }}
+          SLACK_HEALTH_WEBHOOK_URL: ${{ secrets.SLACK_HEALTH_WEBHOOK_URL }}
+        run: |
+          set -euo pipefail
+          pnpm exec tsx scripts/health-agent/workflow-runtime.ts final-report \
+            --aggregate-artifact .health-agent-artifacts/aggregate.json \
+            --collect-status success \
+            --analyze-status "${{ needs.analyze.result }}" \
+            --deliver-status "${{ needs.deliver.result }}" \
+            --repair-status skipped \
+            --publish-status skipped \
+            --defer-delivery "${{ !inputs.notify }}" \
+            --run-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --attempt "$GITHUB_RUN_ATTEMPT" \
+            --run-id "$GITHUB_RUN_ID" \
+            --workflow-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --output .health-agent-artifacts/final-report.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: health-replay-report-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .health-agent-artifacts/final-report.json

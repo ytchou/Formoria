@@ -235,6 +235,7 @@ export interface AggregateWorkflowInput {
 export interface FinalReportInput {
   aggregateArtifactPath?: string;
   automaticPrResultPath?: string;
+  deferDelivery?: boolean;
   humanPrResultPath?: string;
   outputPath: string;
   phases: HealthSummary["phases"];
@@ -406,8 +407,13 @@ function safeMode(value: unknown): LinkCollectInput["mode"] {
   throw new Error("invalid_runtime_mode");
 }
 
-function safePhaseStatus(value: unknown): "failed" | "skipped" | "success" {
-  return value === "failed" || value === "success" ? value : "skipped";
+export function safePhaseStatus(
+  value: unknown,
+): "failed" | "skipped" | "success" {
+  if (value === "failed" || value === "failure" || value === "cancelled") {
+    return "failed";
+  }
+  return value === "success" ? value : "skipped";
 }
 
 function safeString(value: unknown, field: string): string {
@@ -2306,6 +2312,7 @@ export async function deliverFinalHealthReport(
     overallStatus,
     phases: input.phases,
     repair,
+    ...terminalLinearTicket(aggregate),
   };
   const queued = repair.queued;
   const claimed = repair.claimed;
@@ -2370,7 +2377,9 @@ export async function deliverFinalHealthReport(
     source: "github_actions",
     source_run_id: `github-actions:health-agent:${input.workflowRunId}:${input.workflowAttempt}`,
     status: operationalFailure ? "failed" : "success",
-    tickets_created: [],
+    tickets_created: healthSummary.ticket
+      ? [healthSummary.ticket.identifier]
+      : [],
     verdict_severity: operationalFailure
       ? "error"
       : severities.critical > 0
@@ -2380,22 +2389,20 @@ export async function deliverFinalHealthReport(
           : findingCount > 0
             ? "warning"
             : "ok",
-    verdict_text: operationalFailure
-      ? "Health workflow failed; see the terminal phase summary."
-      : findingCount > 0
-        ? `${findingCount} findings; ${repair.fixed} repaired into ${repair.pullRequests} pull request${repair.pullRequests === 1 ? "" : "s"}.`
-        : "All health checks passed with no findings.",
+    verdict_text: managerVerdict(healthSummary),
     version: 1,
   };
-  if (!dependencies.delivery)
+  if (!input.deferDelivery && !dependencies.delivery)
     throw new Error("final_report_delivery_unavailable");
-  const [agentHub, slack] = await Promise.allSettled([
-    dependencies.delivery.agentHub(envelope),
-    dependencies.delivery.slack({
-      healthSummary,
-      workflowUrl: input.workflowUrl,
-    }),
-  ]);
+  const [agentHub, slack] = input.deferDelivery
+    ? ([{ status: "fulfilled" }, { status: "fulfilled" }] as const)
+    : await Promise.allSettled([
+        dependencies.delivery!.agentHub(envelope),
+        dependencies.delivery!.slack({
+          healthSummary,
+          workflowUrl: input.workflowUrl,
+        }),
+      ]);
   const result: JsonObject = {
     agent_hub: agentHub.status,
     envelope: envelope as unknown as JsonValue,
@@ -2405,8 +2412,43 @@ export async function deliverFinalHealthReport(
   if (agentHub.status === "rejected" || slack.status === "rejected") {
     throw new Error("final_report_delivery_failed");
   }
-  if (operationalFailure) throw new Error("health_pipeline_failed");
   return result;
+}
+
+function terminalLinearTicket(
+  aggregate: unknown,
+): Pick<HealthSummary, "ticket"> {
+  if (!isRecord(aggregate) || !Array.isArray(aggregate.linearOutcomes))
+    return {};
+  const outcome = aggregate.linearOutcomes.find(
+    (value) => isRecord(value) && typeof value.identifier === "string",
+  );
+  if (!isRecord(outcome) || typeof outcome.identifier !== "string") return {};
+  const identifier = outcome.identifier.trim();
+  if (!/^[A-Z]+-\d+$/.test(identifier)) return {};
+  return {
+    ticket: {
+      identifier,
+      url: `https://linear.app/ytchou/issue/${identifier}`,
+    },
+  };
+}
+
+function managerVerdict(summary: HealthSummary): string {
+  const total = Object.values(summary.checks).reduce(
+    (count, check) => count + check.findingCount,
+    0,
+  );
+  const work =
+    summary.repair.pullRequests === 0
+      ? "No repair PR created."
+      : `${summary.repair.pullRequests} repair PR${summary.repair.pullRequests === 1 ? "" : "s"} created.`;
+  const action = summary.ticket
+    ? `Review ${summary.ticket.identifier}: ${summary.ticket.url}`
+    : summary.overallStatus === "healthy"
+      ? "No manager action needed."
+      : "Review the failed workflow.";
+  return `${total} issues; ${summary.repair.fixed} fixed. ${work} ${action}`;
 }
 
 function isStaleBranchFinding(finding: HealthFinding): boolean {
@@ -3284,6 +3326,7 @@ export async function runWorkflowCommand(
             typeof input.automaticPrResultPath === "string"
               ? input.automaticPrResultPath
               : undefined,
+          deferDelivery: input.deferDelivery === true,
           humanPrResultPath:
             typeof input.humanPrResultPath === "string"
               ? input.humanPrResultPath

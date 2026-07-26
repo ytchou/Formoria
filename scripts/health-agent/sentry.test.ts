@@ -7,9 +7,30 @@ import {
   collectSentryFindings,
   collectSentryIssues,
   decideSentryMergePolicy,
+  sentryClassificationBatchJsonSchema,
   sanitizeExternalValue,
   sanitizeSentryIssue,
 } from "./sentry";
+
+describe("Sentry classifier schema contract", () => {
+  it("exposes the runtime bounds and exact requested issue count", () => {
+    const schema = sentryClassificationBatchJsonSchema(10) as unknown as {
+      properties: {
+        classifications: {
+          items: { properties: { rootCause: { maxLength: number } } };
+          maxItems: number;
+          minItems: number;
+        };
+      };
+    };
+
+    expect(schema.properties.classifications.minItems).toBe(10);
+    expect(schema.properties.classifications.maxItems).toBe(10);
+    expect(
+      schema.properties.classifications.items.properties.rootCause.maxLength,
+    ).toBe(500);
+  });
+});
 
 function response(
   body: unknown,

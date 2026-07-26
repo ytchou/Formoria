@@ -56,30 +56,13 @@ jobs:
           mkdir -p .health-agent-artifacts
           node -e "require('node:fs').writeFileSync('.health-agent-artifacts/sentry-classifications.json','[]\\n')"
       - name: Write bounded classification schema
+        id: sentry-schema
         run: |
           set -euo pipefail
-          node <<'NODE'
-          const fs = require("node:fs");
-          fs.writeFileSync(
-            ".health-agent-artifacts/sentry-classification.schema.json",
-            JSON.stringify({
-              type: "object",
-              additionalProperties: false,
-              required: ["classifications"],
-              properties: {
-                classifications: {
-                  type: "array",
-                  maxItems: 20,
-                  items: {
-                    type: "object",
-                    additionalProperties: false,
-                    required: ["severity", "rootCause", "rootCauseKey", "confidence", "recurrence", "reproducible", "fixability", "behaviorChangeRisk", "sensitivePaths", "changedFiles", "defectKind", "recommendedAction", "mergePolicy"]
-                  }
-                }
-              }
-            }) + "\\n",
-          );
-          NODE
+          schema="$(pnpm exec tsx scripts/health-agent/write-sentry-schema.ts \
+            .health-agent-artifacts/sentry-issues.json \
+            .health-agent-artifacts/sentry-classification.schema.json)"
+          printf 'schema=%s\n' "$schema" >> "$GITHUB_OUTPUT"
       - name: Analyze sanitized Sentry evidence
         id: sentry-analysis-1
         continue-on-error: true
@@ -97,7 +80,7 @@ jobs:
             schema-valid classification object per issue inside a JSON object with a classifications array and nothing else.
           claude_args: >-
             --allowedTools Read,Glob,Grep --disallowedTools Bash,Edit,Write,WebFetch,WebSearch,Task
-            --json-schema '{"type":"object","additionalProperties":false,"required":["classifications"],"properties":{"classifications":{"type":"array","maxItems":20,"items":{"type":"object","additionalProperties":true,"required":["severity","rootCause","rootCauseKey","confidence","recurrence","reproducible","fixability","behaviorChangeRisk","sensitivePaths","changedFiles","defectKind","recommendedAction","mergePolicy"]}}}}'
+            --json-schema '${{ steps.sentry-schema.outputs.schema }}'
       - name: Materialize first classification result
         id: materialize-sentry-1
         if: steps.sentry-analysis-1.outcome == 'success'
@@ -149,7 +132,7 @@ jobs:
             Do not access networks, providers, external integrations, or production systems.
           claude_args: >-
             --allowedTools Read,Glob,Grep --disallowedTools Bash,Edit,Write,WebFetch,WebSearch,Task
-            --json-schema '{"type":"object","additionalProperties":false,"required":["classifications"],"properties":{"classifications":{"type":"array","maxItems":20,"items":{"type":"object","additionalProperties":true,"required":["severity","rootCause","rootCauseKey","confidence","recurrence","reproducible","fixability","behaviorChangeRisk","sensitivePaths","changedFiles","defectKind","recommendedAction","mergePolicy"]}}}}'
+            --json-schema '${{ steps.sentry-schema.outputs.schema }}'
       - name: Materialize retry classification result
         if: steps.sentry-analysis-2.outcome == 'success'
         env:

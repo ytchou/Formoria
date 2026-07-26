@@ -286,15 +286,6 @@ function asNonemptyString(value: unknown, message: string): string {
   return result;
 }
 
-function jsonText(value: unknown): string {
-  if (typeof value === "string") return value;
-  try {
-    return JSON.stringify(value) ?? String(value);
-  } catch {
-    return "[unserializable]";
-  }
-}
-
 function sectionEntries(value: unknown): unknown[] {
   if (Array.isArray(value)) return value;
   if (isRecord(value) && Array.isArray(value.outcomes)) return value.outcomes;
@@ -361,13 +352,6 @@ export interface SlackReport {
   workflowUrl?: string;
 }
 
-function summaryCountLine(check: HealthSummary["checks"]["link"]): string {
-  const severities = (["critical", "high", "medium", "low"] as const)
-    .filter((severity) => check.severities[severity] > 0)
-    .map((severity) => `${check.severities[severity]} ${severity}`);
-  return [String(check.findingCount), ...severities].join(" · ");
-}
-
 function renderHealthSummary(
   summary: HealthSummary,
   workflowUrl?: string,
@@ -386,26 +370,40 @@ function renderHealthSummary(
       ? `Failed: ${failedPhases.join(", ")}`
       : "All phases completed";
   const prLabel = summary.repair.pullRequests === 1 ? "PR" : "PRs";
-  const queueLine = `${summary.repair.queued ?? 0} queued · ${summary.repair.claimed ?? 0} claimed`;
+  const total = Object.values(summary.checks).reduce(
+    (count, check) => count + check.findingCount,
+    0,
+  );
   const batchLines = summary.repair.batches
-    ? (["automatic", "human"] as const).map((policy) => {
+    ? (["automatic", "human"] as const).flatMap((policy) => {
         const batch = summary.repair.batches![policy];
+        if (batch.findingCount === 0 && !batch.prUrl) return [];
         const label = policy === "automatic" ? "Automatic" : "Human";
         const state = batch.status.replaceAll("_", " ");
         const pr =
           batch.prNumber && batch.prUrl
             ? ` · <${batch.prUrl}|PR #${batch.prNumber}>`
             : "";
-        return `• ${label} — ${batch.findingCount} · ${state}${pr}`;
+        return [`• ${label} — ${batch.findingCount} · ${state}${pr}`];
       })
     : [];
   return [
     `*Formoria Health Agent · ${title}*`,
-    `*Checks*\n• Links — ${summaryCountLine(summary.checks.link)}\n• Directory — ${summaryCountLine(summary.checks.directory)}\n• Sentry — ${summaryCountLine(summary.checks.sentry)}`,
-    `*Repair outcome*\n• ${queueLine}\n• ${summary.repair.fixed} fixed · ${summary.repair.unresolved} unresolved · ${summary.repair.pullRequests} ${prLabel}${batchLines.length > 0 ? `\n${batchLines.join("\n")}` : ""}`,
-    `*Pipeline*\n• ${pipeline}`,
+    `*Issues*\n• ${total} total · Links ${summary.checks.link.findingCount} · Directory ${summary.checks.directory.findingCount} · Sentry ${summary.checks.sentry.findingCount}`,
+    `*Fixed*\n• ${summary.repair.fixed}`,
+    `*Work done*\n• ${summary.repair.pullRequests === 0 ? "No repair PR created" : `${summary.repair.pullRequests} ${prLabel}`}${batchLines.length > 0 ? `\n${batchLines.join("\n")}` : ""}`,
+    `*Manager action*\n• ${summary.ticket ? `<${summary.ticket.url}|${summary.ticket.identifier}> requires review` : operationalManagerAction(summary, pipeline)}`,
     ...(workflowUrl ? [`<${workflowUrl}|Open workflow run>`] : []),
   ].join("\n\n");
+}
+
+function operationalManagerAction(summary: HealthSummary, pipeline: string) {
+  if (summary.overallStatus === "healthy") return "None";
+  if (summary.repair.pullRequests > 0)
+    return "Review the repair PR links above";
+  return pipeline === "All phases completed"
+    ? "Review unresolved findings"
+    : pipeline;
 }
 
 export function renderSlackDigest(report: SlackReport): string {
@@ -651,26 +649,61 @@ const LINEAR_LABEL_CREATE_MUTATION = `
   }
 `;
 
-function fingerprintMarker(fingerprint: string): string {
-  return `<!-- health-agent:fingerprint:${fingerprint} -->`;
-}
+const LINEAR_SUMMARY_FINGERPRINT = "health-agent:summary:v1";
+const LINEAR_SUMMARY_MARKER = "<!-- health-agent:summary:v1 -->";
 
-export const linearFingerprintMarker = fingerprintMarker;
-
-function linearIssueDescription(
-  finding: HealthFinding,
-  marker: string,
-): string {
-  const evidence = jsonText(finding.evidence);
+function groupedLinearDescription(findings: readonly HealthFinding[]): string {
+  const sources = (["sentry", "directory", "link"] as const)
+    .map((source) => {
+      const matches = findings.filter((finding) => finding.source === source);
+      if (matches.length === 0) return undefined;
+      const label = { directory: "Directory", link: "Link", sentry: "Sentry" }[
+        source
+      ];
+      const titles = new Map<string, number>();
+      for (const finding of matches) {
+        titles.set(finding.title, (titles.get(finding.title) ?? 0) + 1);
+      }
+      const groups = [...titles.entries()]
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .slice(0, 20)
+        .map(([title, count]) => {
+          const samples = matches
+            .filter((finding) => finding.title === title)
+            .slice(0, 5)
+            .map((finding) => finding.fingerprint)
+            .join(", ");
+          return `  - ${count} × ${title}${samples ? ` — ${samples}` : ""}`;
+        });
+      return `- ${label}: ${matches.length}\n${groups.join("\n")}`;
+    })
+    .filter((line): line is string => Boolean(line));
+  const severities = (["critical", "high", "medium", "low"] as const)
+    .map(
+      (severity) =>
+        [
+          severity,
+          findings.filter((finding) => finding.severity === severity).length,
+        ] as const,
+    )
+    .filter(([, count]) => count > 0)
+    .map(([severity, count]) => `${count} ${severity}`)
+    .join(", ");
   return [
-    marker,
-    `Source: ${finding.source}`,
-    `Fingerprint: ${finding.fingerprint}`,
+    LINEAR_SUMMARY_MARKER,
+    `# Health Agent review summary`,
     "",
-    finding.title,
+    `**Issues:** ${findings.length} (${severities || "unclassified"})`,
     "",
-    `Evidence: ${evidence}`,
-    ...(finding.humanReason ? [`Human reason: ${finding.humanReason}`] : []),
+    ...sources,
+    "",
+    "**Fixed:** 0 at triage time",
+    "",
+    "**Work done:** No repair PR created yet",
+    "",
+    "**Manager action:** Review this grouped ticket after the run completes",
+    "",
+    "This rolling ticket is updated by each health run. The terminal Slack and Agent Hub summary reports the final repair outcome and links back here.",
   ].join("\n");
 }
 
@@ -898,8 +931,7 @@ export async function syncLinearFindings(
     allowedLabels.set(name, labelId);
   }
 
-  for (const finding of eligible) {
-    const marker = fingerprintMarker(finding.fingerprint);
+  {
     const existing = projectIssues.find((node) => {
       const team = node.team;
       const project = node.project;
@@ -908,24 +940,25 @@ export async function syncLinearFindings(
         stringValue(team.id) === teamId &&
         isRecord(project) &&
         stringValue(project.id) === projectId &&
-        stringValue(node.description)?.includes(marker) === true
+        stringValue(node.description)?.includes(LINEAR_SUMMARY_MARKER) === true
       );
     });
-    const labelName = linearLabelName(finding);
-    const labelId = allowedLabels.get(labelName);
-    if (!labelId) {
-      throw new HealthAdapterError(
-        "Linear label is not configured",
-        "linear",
-        "validate_labels",
-      );
-    }
+    const labelIds = [...requiredLabels].map((name) => {
+      const labelId = allowedLabels.get(name);
+      if (!labelId)
+        throw new HealthAdapterError(
+          "Linear label is not configured",
+          "linear",
+          "validate_labels",
+        );
+      return labelId;
+    });
     const inputPayload: Record<string, JsonValue> = {
       assigneeId,
-      description: linearIssueDescription(finding, marker),
-      labelIds: [labelId],
+      description: groupedLinearDescription(eligible),
+      labelIds,
       projectId,
-      title: finding.title,
+      title: `Health Agent findings require review (${eligible.length} finding${eligible.length === 1 ? "" : "s"})`,
     };
 
     if (existing) {
@@ -948,7 +981,7 @@ export async function syncLinearFindings(
       result.outcomes.push({
         action: "updated",
         ...(mutation.identifier ? { identifier: mutation.identifier } : {}),
-        fingerprint: finding.fingerprint,
+        fingerprint: LINEAR_SUMMARY_FINGERPRINT,
       });
     } else {
       const data = await graphql(
@@ -971,7 +1004,7 @@ export async function syncLinearFindings(
       result.outcomes.push({
         action: "created",
         ...(mutation.identifier ? { identifier: mutation.identifier } : {}),
-        fingerprint: finding.fingerprint,
+        fingerprint: LINEAR_SUMMARY_FINGERPRINT,
       });
     }
   }

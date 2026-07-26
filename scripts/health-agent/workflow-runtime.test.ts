@@ -16,9 +16,18 @@ import {
   makeLinkArtifact,
   runWorkflowCommand,
   runAggregateAndDeliver,
+  safePhaseStatus,
   type RepairFailureInput,
   type RepairResultInput,
 } from "./workflow-runtime";
+
+describe("workflow result normalization", () => {
+  it("maps GitHub failure and cancellation results to failed", () => {
+    expect(safePhaseStatus("failure")).toBe("failed");
+    expect(safePhaseStatus("cancelled")).toBe("failed");
+    expect(safePhaseStatus("skipped")).toBe("skipped");
+  });
+});
 
 const now = "2026-07-22T00:00:00.000Z";
 const automaticFindingIds = [
@@ -223,6 +232,13 @@ function terminalAggregate() {
       ]),
     },
     failures: [],
+    linearOutcomes: [
+      {
+        action: "updated",
+        fingerprint: "health-agent:summary:v1",
+        identifier: "DEV-1231",
+      },
+    ],
   };
 }
 
@@ -314,11 +330,17 @@ describe("terminal health report", () => {
       routine: "health-agent",
       source_run_id: "github-actions:health-agent:987654321:1",
       status: "success",
+      tickets_created: ["DEV-1231"],
+      verdict_text: expect.stringContaining("DEV-1231"),
     });
     expect(slack).toHaveBeenCalledWith(
       expect.objectContaining({
         healthSummary: expect.objectContaining({
           overallStatus: "needs_attention",
+          ticket: {
+            identifier: "DEV-1231",
+            url: "https://linear.app/ytchou/issue/DEV-1231",
+          },
         }),
       }),
     );
@@ -328,7 +350,7 @@ describe("terminal health report", () => {
     });
   });
 
-  it("delivers the failure summary before failing the terminal command", async () => {
+  it("delivers an upstream failure without failing the terminal command", async () => {
     const contents = new Map<string, string>();
     const agentHub = vi.fn(async () => undefined);
     const slack = vi.fn(async () => undefined);
@@ -356,7 +378,7 @@ describe("terminal health report", () => {
           },
         },
       ),
-    ).rejects.toThrow("health_pipeline_failed");
+    ).resolves.toMatchObject({ agent_hub: "fulfilled", slack: "fulfilled" });
 
     expect(agentHub).toHaveBeenCalledOnce();
     expect(slack).toHaveBeenCalledOnce();
@@ -399,7 +421,7 @@ describe("terminal health report", () => {
           },
         },
       ),
-    ).rejects.toThrow("health_pipeline_failed");
+    ).resolves.toMatchObject({ agent_hub: "fulfilled", slack: "fulfilled" });
 
     expect(agentHub.mock.calls[0]?.[0]).toMatchObject({
       data: { failures: ["enqueue:rpc_request_failed"] },

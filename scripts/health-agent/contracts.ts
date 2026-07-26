@@ -57,6 +57,10 @@ export interface HealthSummary {
     queued?: number;
     unresolved: number;
   };
+  ticket?: {
+    identifier: string;
+    url: string;
+  };
 }
 
 export interface AuditRecord {
