@@ -821,7 +821,7 @@ function runtimeDependencies(
         {
           assigneeId: requiredEnvironment("LINEAR_ASSIGNEE_ID"),
           audit: auditLogger,
-          oauthAccessToken: requiredEnvironment("LINEAR_OAUTH_ACCESS_TOKEN"),
+          apiKey: requiredEnvironment("LINEAR_OAUTH_ACCESS_TOKEN"),
           projectId: requiredEnvironment("LINEAR_PROJECT_ID"),
           teamId: requiredEnvironment("LINEAR_TEAM_ID"),
         },

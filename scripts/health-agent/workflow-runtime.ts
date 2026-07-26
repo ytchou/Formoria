@@ -1528,10 +1528,7 @@ export function createWorkflowRuntimeDependencies(
       assigneeId: requiredEnvironment(environment, "LINEAR_ASSIGNEE_ID"),
       audit,
       fetchImpl: fetchFor(dependencies),
-      oauthAccessToken: requiredEnvironment(
-        environment,
-        "LINEAR_OAUTH_ACCESS_TOKEN",
-      ),
+      apiKey: requiredEnvironment(environment, "LINEAR_OAUTH_ACCESS_TOKEN"),
       projectId: requiredEnvironment(environment, "LINEAR_PROJECT_ID"),
       teamId: requiredEnvironment(environment, "LINEAR_TEAM_ID"),
     });

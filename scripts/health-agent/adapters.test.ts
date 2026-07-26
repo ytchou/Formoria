@@ -308,6 +308,9 @@ describe("Linear adapter", () => {
       teamId: "team-1",
     });
     expect(bodyAt(fetchImpl, 0).query).not.toContain("description: { contains");
+    expect(fetchImpl.mock.calls[0]?.[1]?.headers).toMatchObject({
+      Authorization: "Bearer linear-oauth-secret",
+    });
     const createInput = (
       bodyAt(fetchImpl, 2).variables as Record<string, unknown>
     ).input as Record<string, unknown>;
@@ -320,6 +323,26 @@ describe("Linear adapter", () => {
     });
     expect(JSON.stringify(createInput)).not.toContain("milestone");
     expect(JSON.stringify(records)).not.toContain("linear-oauth-secret");
+  });
+
+  it("sends personal API keys without an OAuth Bearer prefix", async () => {
+    const { audit } = auditLog();
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(jsonResponse({ data: { issues: { nodes: [] } } }));
+    const adapter = createLinearAdapter({
+      ...linearConfig(fetchImpl, audit),
+      apiKey: "linear-personal-api-key",
+      oauthToken: undefined,
+    });
+
+    await expect(adapter.sync([finding()])).rejects.toThrow(
+      "Linear returned an invalid response",
+    );
+
+    expect(fetchImpl.mock.calls[0]?.[1]?.headers).toMatchObject({
+      Authorization: "linear-personal-api-key",
+    });
   });
 
   it("looks up the hidden fingerprint marker before updating an existing issue", async () => {
