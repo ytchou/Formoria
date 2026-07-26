@@ -31,6 +31,7 @@ permissions:
   actions: read
   contents: read
   id-token: write
+  pull-requests: read
   security-events: read
 
 jobs:
@@ -129,7 +130,7 @@ jobs:
             --deliver-status "${{ needs.deliver.result }}" \
             --repair-status skipped \
             --publish-status skipped \
-            --defer-delivery "${{ !inputs.notify }}" \
+            --defer-delivery "${{ ! inputs.notify }}" \
             --run-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --attempt "$GITHUB_RUN_ATTEMPT" \
             --run-id "$GITHUB_RUN_ID" \
