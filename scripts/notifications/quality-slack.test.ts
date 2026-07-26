@@ -28,10 +28,10 @@ describe("Quality Slack notifications", () => {
     const body = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body)) as {
       text: string;
     };
-    expect(body.text).toContain("*Failures*");
-    expect(body.text).toContain("Quality nightly");
-    expect(body.text).toContain("unit-coverage: FAILED");
-    expect(body.text).toContain("dead-code: passed");
+    expect(body.text).toContain("⚠️ *Formoria Quality — Needs attention*");
+    expect(body.text).toContain("*Summary*");
+    expect(body.text).toContain("Unit coverage: FAILED");
+    expect(body.text).toContain("Dead code: passed");
     expect(body.text).toContain("actions/runs/42");
     expect(records).toHaveLength(1);
     expect(records[0]).toMatchObject({
@@ -64,11 +64,9 @@ describe("Quality Slack notifications", () => {
     const body = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body)) as {
       text: string;
     };
-    expect(body.text).toContain("*Skipped actions*");
-    expect(body.text).not.toContain("*Failures*");
-    expect(body.text).toContain("all clear");
-    expect(body.text).toContain("unit-coverage: passed");
-    expect(body.text).toContain("dead-code: passed");
+    expect(body.text).toContain("✅ *Formoria Quality — Success*");
+    expect(body.text).toContain("Unit coverage: passed");
+    expect(body.text).toContain("Dead code: passed");
   });
 
   it("reports green self-heal with PR URL", async () => {
@@ -96,8 +94,8 @@ describe("Quality Slack notifications", () => {
     const body = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body)) as {
       text: string;
     };
-    expect(body.text).toContain("*PR outcomes*");
-    expect(body.text).toContain("Self-heal green");
+    expect(body.text).toContain("*Work done*");
+    expect(body.text).toContain("✅ *Formoria Quality — Success*");
     expect(body.text).toContain("pull/99");
     expect(body.text).toContain("Auto-merge enabled");
   });

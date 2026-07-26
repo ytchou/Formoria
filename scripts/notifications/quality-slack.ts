@@ -1,8 +1,10 @@
 import { pathToFileURL } from "node:url";
 
 import {
+  renderAgentNotification,
   sendSlackDigest,
   type AdapterDependencies,
+  type AgentNotification,
   type SlackReport,
 } from "../health-agent/adapters";
 
@@ -23,18 +25,9 @@ export interface QualitySlackDependencies extends AdapterDependencies {
   webhookUrl: string;
 }
 
-export function renderQualitySlackNotification(
+function qualityNotification(
   input: QualitySlackNotification,
-): string {
-  if (input.phase === "green") {
-    return [
-      "Self-heal green",
-      `PR: ${input.prUrl ?? "not available"}`,
-      `Auto-merge ${input.autoMergeEnabled ? "enabled" : "not enabled"}`,
-      `Workflow: ${input.workflowUrl}`,
-    ].join("\n");
-  }
-
+): AgentNotification {
   const unitCoverageStatus =
     input.unitCoverageResult === "success" ? "passed" : "FAILED";
   const deadCodeStatus =
@@ -42,29 +35,35 @@ export function renderQualitySlackNotification(
   const allClear =
     input.unitCoverageResult === "success" &&
     input.deadCodeResult === "success";
+  return {
+    agent: "Quality",
+    details: [
+      `• Source phase: ${input.phase}`,
+      `• Auto-merge ${input.autoMergeEnabled ? "enabled" : "not enabled"}`,
+    ],
+    managerAction: allClear ? "None" : "Investigate the failed quality checks",
+    status: allClear ? "success" : "needs_attention",
+    summary: [
+      `• Unit coverage: ${unitCoverageStatus} · Dead code: ${deadCodeStatus}`,
+    ],
+    workDone: input.prUrl
+      ? [`• Repair PR: <${input.prUrl}|Open PR>`]
+      : ["• No repair PR"],
+    workflowUrl: input.workflowUrl,
+  };
+}
 
-  return [
-    allClear ? "Quality nightly — all clear" : "Quality nightly",
-    `unit-coverage: ${unitCoverageStatus}`,
-    `dead-code: ${deadCodeStatus}`,
-    ...(!allClear ? [`Workflow: ${input.workflowUrl}`] : []),
-  ].join("\n");
+export function renderQualitySlackNotification(
+  input: QualitySlackNotification,
+): string {
+  return renderAgentNotification(qualityNotification(input));
 }
 
 export async function sendQualitySlackNotification(
   input: QualitySlackNotification,
   dependencies: QualitySlackDependencies,
 ): Promise<number> {
-  const message = renderQualitySlackNotification(input);
-  const allClear =
-    input.unitCoverageResult === "success" &&
-    input.deadCodeResult === "success";
-  const report: SlackReport =
-    input.phase === "green"
-      ? { pullRequests: [message] }
-      : allClear
-        ? { skipped: [message] }
-        : { failures: [message] };
+  const report: SlackReport = { notification: qualityNotification(input) };
   return sendSlackDigest(report, dependencies);
 }
 

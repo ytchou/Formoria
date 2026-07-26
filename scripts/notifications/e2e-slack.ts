@@ -2,8 +2,10 @@ import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 
 import {
+  renderAgentNotification,
   sendSlackDigest,
   type AdapterDependencies,
+  type AgentNotification,
   type SlackReport,
 } from "../health-agent/adapters";
 
@@ -26,35 +28,45 @@ export interface E2ESlackDependencies extends AdapterDependencies {
   webhookUrl: string;
 }
 
+function e2eNotification(input: E2ESlackNotification): AgentNotification {
+  const summary = `${input.passed} passed, ${input.failed} failed, ${input.skipped} skipped`;
+  return {
+    agent: "E2E",
+    details: [
+      `• Source phase: ${input.phase}`,
+      `• Auto-merge ${input.autoMergeEnabled ? "enabled" : "not enabled"}`,
+    ],
+    managerAction:
+      input.phase === "green"
+        ? "None"
+        : input.failed > 0
+          ? "Investigate the failed E2E checks"
+          : "None",
+    status:
+      input.failed > 0
+        ? "needs_attention"
+        : input.status === "success"
+          ? "success"
+          : "failed",
+    summary: [`• ${summary}`],
+    workDone: input.prUrl
+      ? [`• Repair PR: <${input.prUrl}|Open PR>`]
+      : ["• No repair PR"],
+    workflowUrl: input.workflowUrl,
+  };
+}
+
 export function renderE2ESlackNotification(
   input: E2ESlackNotification,
 ): string {
-  const summary = `${input.passed} passed, ${input.failed} failed, ${input.skipped} skipped`;
-  if (input.phase === "green") {
-    return [
-      `Formoria E2E Self-heal green — ${summary}`,
-      `PR: ${input.prUrl ?? "not available"}`,
-      `Auto-merge ${input.autoMergeEnabled ? "enabled" : "not enabled"}`,
-      `Workflow: ${input.workflowUrl}`,
-    ].join("\n");
-  }
-
-  return [
-    `Formoria E2E nightly — ${input.status}: ${summary}`,
-    "Self-heal will continue from this failure if enabled.",
-    `Workflow: ${input.workflowUrl}`,
-  ].join("\n");
+  return renderAgentNotification(e2eNotification(input));
 }
 
 export async function sendE2ESlackNotification(
   input: E2ESlackNotification,
   dependencies: E2ESlackDependencies,
 ): Promise<number> {
-  const message = renderE2ESlackNotification(input);
-  const report: SlackReport =
-    input.phase === "green"
-      ? { pullRequests: [message] }
-      : { failures: [message] };
+  const report: SlackReport = { notification: e2eNotification(input) };
   return sendSlackDigest(report, dependencies);
 }
 

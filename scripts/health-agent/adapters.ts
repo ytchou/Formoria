@@ -337,11 +337,24 @@ function failureLines(entries: unknown[]): string[] {
 
 export type SlackEntry = string | Readonly<Record<string, JsonValue>>;
 
+export type AgentNotificationStatus = "failed" | "needs_attention" | "success";
+
+export interface AgentNotification {
+  agent: string;
+  details?: readonly string[];
+  managerAction?: string;
+  status: AgentNotificationStatus;
+  summary: readonly string[];
+  workDone?: readonly string[];
+  workflowUrl?: string;
+}
+
 export interface SlackReport {
   actionableFindings?: readonly HealthFinding[];
   failures?: readonly SlackEntry[] | SlackEntry;
   findings?: readonly HealthFinding[];
   healthSummary?: HealthSummary;
+  notification?: AgentNotification;
   linear?: readonly SlackEntry[] | SlackEntry;
   linearOutcomes?: readonly SlackEntry[] | SlackEntry;
   prOutcomes?: readonly SlackEntry[] | SlackEntry;
@@ -356,24 +369,20 @@ function renderHealthSummary(
   summary: HealthSummary,
   workflowUrl?: string,
 ): string {
-  const title =
-    summary.overallStatus === "healthy"
-      ? "Healthy"
-      : summary.overallStatus === "needs_attention"
-        ? "Needs attention"
-        : "Failed";
-  const failedPhases = Object.entries(summary.phases)
-    .filter(([, status]) => status === "failed")
-    .map(([phase]) => phase);
-  const pipeline =
-    failedPhases.length > 0
-      ? `Failed: ${failedPhases.join(", ")}`
-      : "All phases completed";
-  const prLabel = summary.repair.pullRequests === 1 ? "PR" : "PRs";
   const total = Object.values(summary.checks).reduce(
     (count, check) => count + check.findingCount,
     0,
   );
+  const lifecycle = summary.lifecycle ?? {
+    new: total,
+    ongoing: 0,
+    regressed: 0,
+  };
+  const failedPhases = Object.entries(summary.phases)
+    .filter(([, status]) => status === "failed")
+    .map(([phase]) => phase);
+  const pipeline =
+    failedPhases.length > 0 ? failedPhases.join(", ") : "All phases completed";
   const batchLines = summary.repair.batches
     ? (["automatic", "human"] as const).flatMap((policy) => {
         const batch = summary.repair.batches![policy];
@@ -387,18 +396,36 @@ function renderHealthSummary(
         return [`• ${label} — ${batch.findingCount} · ${state}${pr}`];
       })
     : [];
-  return [
-    `*Formoria Health Agent · ${title}*`,
-    `*Issues*\n• ${total} total · Links ${summary.checks.link.findingCount} · Directory ${summary.checks.directory.findingCount} · Sentry ${summary.checks.sentry.findingCount}`,
-    `*Fixed*\n• ${summary.repair.fixed}`,
-    `*Work done*\n• ${summary.repair.pullRequests === 0 ? "No repair PR created" : `${summary.repair.pullRequests} ${prLabel}`}${batchLines.length > 0 ? `\n${batchLines.join("\n")}` : ""}`,
-    `*Manager action*\n• ${summary.ticket ? `<${summary.ticket.url}|${summary.ticket.identifier}> requires review` : operationalManagerAction(summary, pipeline)}`,
-    ...(workflowUrl ? [`<${workflowUrl}|Open workflow run>`] : []),
-  ].join("\n\n");
+  return renderAgentNotification({
+    agent: "Health Agent",
+    details: [
+      `• Links ${summary.checks.link.findingCount} · Directory ${summary.checks.directory.findingCount} · Sentry ${summary.checks.sentry.findingCount}`,
+      `• Pipeline: ${pipeline}`,
+    ],
+    managerAction: operationalManagerAction(summary, pipeline),
+    status:
+      summary.overallStatus === "healthy"
+        ? "success"
+        : summary.overallStatus === "needs_attention"
+          ? "needs_attention"
+          : "failed",
+    summary: [
+      `• ${total} total · ${lifecycle.new} new · ${lifecycle.ongoing} ongoing · ${lifecycle.regressed} regressed`,
+      `• ${summary.repair.fixed} fixed · ${summary.repair.unresolved} unresolved`,
+    ],
+    workDone: [
+      `• ${summary.repair.pullRequests} repair PR${summary.repair.pullRequests === 1 ? "" : "s"}`,
+      ...batchLines,
+    ],
+    workflowUrl,
+  });
 }
 
 function operationalManagerAction(summary: HealthSummary, pipeline: string) {
   if (summary.overallStatus === "healthy") return "None";
+  if (summary.overallStatus === "failed") return `Investigate ${pipeline}`;
+  if (summary.ticket)
+    return `<${summary.ticket.url}|${summary.ticket.identifier}> requires review`;
   if (summary.repair.pullRequests > 0)
     return "Review the repair PR links above";
   return pipeline === "All phases completed"
@@ -406,7 +433,44 @@ function operationalManagerAction(summary: HealthSummary, pipeline: string) {
     : pipeline;
 }
 
+function notificationStatusLabel(status: AgentNotificationStatus): string {
+  return status === "success"
+    ? "Success"
+    : status === "needs_attention"
+      ? "Needs attention"
+      : "Failed";
+}
+
+function notificationStatusEmoji(status: AgentNotificationStatus): string {
+  return status === "success"
+    ? "✅"
+    : status === "needs_attention"
+      ? "⚠️"
+      : "❌";
+}
+
+export function renderAgentNotification(input: AgentNotification): string {
+  const sections = [
+    `${notificationStatusEmoji(input.status)} *Formoria ${input.agent} — ${notificationStatusLabel(input.status)}*`,
+    `*Summary*\n${input.summary.join("\n")}`,
+  ];
+  if (input.workDone && input.workDone.length > 0) {
+    sections.push(`*Work done*\n${input.workDone.join("\n")}`);
+  }
+  if (input.managerAction) {
+    sections.push(`*Manager action*\n• ${input.managerAction}`);
+  }
+  if (input.details && input.details.length > 0) {
+    sections.push(`*Details*\n${input.details.join("\n")}`);
+  }
+  if (input.workflowUrl) {
+    sections.push(`<${input.workflowUrl}|Open workflow run>`);
+  }
+  return sections.join("\n\n");
+}
+
 export function renderSlackDigest(report: SlackReport): string {
+  if (report.notification) return renderAgentNotification(report.notification);
   if (report.healthSummary) {
     return renderHealthSummary(report.healthSummary, report.workflowUrl);
   }
@@ -425,39 +489,57 @@ export function renderSlackDigest(report: SlackReport): string {
     "prOutcomes",
   ]);
 
-  const sections: string[] = [];
+  const details: string[] = [];
+  const summary: string[] = [];
   if (findings.length > 0) {
     const severities = groupedCounts(findings, "severity");
     const sources = groupedCounts(findings, "source");
     const remaining = Math.max(0, findings.length - 3);
-    sections.push(
-      `*Findings:* ${findings.length} (${severities}; ${sources})\n${findingLines(findings).join("\n")}${remaining > 0 ? `\n- …and ${remaining} more` : ""}`,
+    summary.push(`• ${findings.length} findings (${severities}; ${sources})`);
+    details.push(
+      `• Findings\n${findingLines(findings).join("\n")}${remaining > 0 ? `\n- …and ${remaining} more` : ""}`,
     );
   }
   if (skipped.length > 0) {
-    sections.push(
-      `*Skipped actions* (${skipped.length})\n${failureLines(skipped).join("\n")}`,
+    details.push(
+      `• Skipped actions (${skipped.length})\n${failureLines(skipped).join("\n")}`,
     );
   }
   if (failures.length > 0) {
-    sections.push(
-      `*Failures* (${failures.length})\n${failureLines(failures).join("\n")}`,
+    details.push(
+      `• Failures (${failures.length})\n${failureLines(failures).join("\n")}`,
     );
   }
   if (linear.length > 0) {
-    sections.push(
-      `*Linear:* ${linear.length} (${groupedCounts(linear, "status")})`,
+    details.push(
+      `• Linear (${linear.length}) — ${groupedCounts(linear, "status")}`,
     );
   }
   if (pullRequests.length > 0) {
-    sections.push(
-      `*PR outcomes* (${pullRequests.length})\n${failureLines(pullRequests).join("\n")}`,
+    details.push(
+      `• PR outcomes (${pullRequests.length})\n${failureLines(pullRequests).join("\n")}`,
     );
   }
-  if (sections.length === 0) return "Formoria health agent: all clear.";
-  if (report.workflowUrl)
-    sections.push(`<${report.workflowUrl}|Open workflow run>`);
-  return ["*Formoria health agent summary*", ...sections].join("\n\n");
+  const status: AgentNotificationStatus =
+    failures.length > 0
+      ? "failed"
+      : findings.length > 0 || linear.length > 0 || pullRequests.length > 0
+        ? "needs_attention"
+        : "success";
+  if (summary.length === 0) summary.push("• All clear");
+  return renderAgentNotification({
+    agent: "Health Agent",
+    details,
+    managerAction:
+      failures.length > 0
+        ? "Investigate the failed workflow"
+        : findings.length > 0 || linear.length > 0 || pullRequests.length > 0
+          ? "Review unresolved findings"
+          : "None",
+    status,
+    summary,
+    workflowUrl: report.workflowUrl,
+  });
 }
 
 const SLACK_TEXT_LIMIT = 2_999;
@@ -583,6 +665,21 @@ export interface LinearSyncInput {
   exhaustedAutomation?: readonly (HealthFinding | string)[];
   exhaustedAutomationFingerprints?: readonly string[];
   findings: readonly HealthFinding[];
+  summary?: LinearSyncSummary;
+}
+
+export interface LinearSyncSummary {
+  fixed: number;
+  newFindings: number;
+  ongoingFindings: number;
+  pullRequestUrls?: readonly string[];
+  regressedFindings: number;
+  reviewFindings: number;
+  runAt?: string;
+  status: "failed" | "needs_attention" | "resolved";
+  totalFindings: number;
+  unresolved: number;
+  workflowUrl?: string;
 }
 
 export interface LinearSyncOptions {
@@ -617,8 +714,16 @@ export interface LinearAdapter {
 const LINEAR_LOOKUP_QUERY = `
   query HealthAgentIssueLookup($teamId: ID!, $projectId: ID!, $after: String) {
     issues(filter: { team: { id: { eq: $teamId } }, project: { id: { eq: $projectId } } }, first: 100, after: $after) {
-      nodes { id identifier title description team { id } project { id } }
+      nodes { id identifier title description state { id name type } team { id } project { id } }
       pageInfo { hasNextPage endCursor }
+    }
+  }
+`;
+
+const LINEAR_WORKFLOW_STATE_QUERY = `
+  query HealthAgentWorkflowStates($teamId: ID!) {
+    workflowStates(filter: { team: { id: { eq: $teamId } } }, first: 100) {
+      nodes { id name type }
     }
   }
 `;
@@ -650,10 +755,14 @@ const LINEAR_LABEL_CREATE_MUTATION = `
   }
 `;
 
-const LINEAR_SUMMARY_FINGERPRINT = "health-agent:summary:v1";
+const LINEAR_SUMMARY_FINGERPRINT = "health-agent:summary:v2";
 const LINEAR_SUMMARY_MARKER = "<!-- health-agent:summary:v1 -->";
+const LINEAR_SUMMARY_V2_MARKER = "<!-- health-agent:summary:v2 -->";
 
-function groupedLinearDescription(findings: readonly HealthFinding[]): string {
+function groupedLinearDescription(
+  findings: readonly HealthFinding[],
+  summary?: LinearSyncSummary,
+): string {
   const sources = (["sentry", "directory", "link"] as const)
     .map((source) => {
       const matches = findings.filter((finding) => finding.source === source);
@@ -690,28 +799,51 @@ function groupedLinearDescription(findings: readonly HealthFinding[]): string {
     .filter(([, count]) => count > 0)
     .map(([severity, count]) => `${count} ${severity}`)
     .join(", ");
+  const summaryLines = summary
+    ? [
+        `**Run status:** ${summary.status.replaceAll("_", " ")}`,
+        summary.runAt ? `**Run at:** ${summary.runAt}` : undefined,
+        summary.workflowUrl
+          ? `**Workflow:** ${summary.workflowUrl}`
+          : undefined,
+        `**Findings:** ${summary.totalFindings} total (${summary.reviewFindings} review-required)`,
+        `**Lifecycle:** ${summary.newFindings} new · ${summary.ongoingFindings} ongoing · ${summary.regressedFindings} regressed`,
+        `**Fixed:** ${summary.fixed}`,
+        `**Unresolved:** ${summary.unresolved}`,
+        `**Work done:** ${summary.pullRequestUrls?.length ? summary.pullRequestUrls.join(", ") : "No repair PR created"}`,
+      ].filter((line): line is string => Boolean(line))
+    : [
+        `**Findings:** ${findings.length} review-required`,
+        "**Lifecycle:** New review findings",
+        "**Fixed:** 0 at triage time",
+        "**Unresolved:** Pending final verification",
+        "**Work done:** No repair PR created yet",
+      ];
   return [
-    LINEAR_SUMMARY_MARKER,
+    LINEAR_SUMMARY_V2_MARKER,
     `# Health Agent review summary`,
     "",
-    `**Issues:** ${findings.length} (${severities || "unclassified"})`,
+    ...summaryLines,
     "",
-    ...sources,
+    `**Severity:** ${severities || "unclassified"}`,
     "",
-    "**Fixed:** 0 at triage time",
+    "## Grouped findings",
+    ...(sources.length > 0 ? sources : ["No active findings."]),
     "",
-    "**Work done:** No repair PR created yet",
+    `**Manager action:** ${summary?.status === "resolved" ? "No action needed; resolution was verified" : summary?.status === "failed" ? "Investigate the failed workflow; resolution was not verified" : "Review unresolved findings"}`,
     "",
-    "**Manager action:** Review this grouped ticket after the run completes",
-    "",
-    "This rolling ticket is updated by each health run. The terminal Slack and Agent Hub summary reports the final repair outcome and links back here.",
+    "This rolling ticket is updated by each health run. Findings remain open until a later health run verifies that their fingerprints are gone.",
   ].join("\n");
 }
 
 function normalizeLinearInput(
   input: readonly HealthFinding[] | LinearSyncInput,
   options: LinearSyncOptions,
-): { exhausted: Set<string>; findings: readonly HealthFinding[] } {
+): {
+  exhausted: Set<string>;
+  findings: readonly HealthFinding[];
+  summary?: LinearSyncSummary;
+} {
   const value: LinearSyncInput = Array.isArray(input)
     ? { findings: input as readonly HealthFinding[] }
     : (input as LinearSyncInput);
@@ -726,7 +858,49 @@ function normalizeLinearInput(
       typeof candidate === "string" ? candidate : candidate.fingerprint;
     if (fingerprint.trim()) exhausted.add(fingerprint);
   }
-  return { exhausted, findings: value.findings };
+  return { exhausted, findings: value.findings, summary: value.summary };
+}
+
+function workflowStateNodes(value: unknown): Record<string, unknown>[] {
+  const data = graphqlData(value);
+  const container = data?.workflowStates;
+  return isRecord(container) && Array.isArray(container.nodes)
+    ? container.nodes.filter(isRecord)
+    : [];
+}
+
+function workflowStateId(
+  states: readonly Record<string, unknown>[],
+  status: LinearSyncSummary["status"],
+): string | undefined {
+  const desiredType = status === "resolved" ? "completed" : "unstarted";
+  const candidates = states.filter((state) => state.type === desiredType);
+  const preferredNames =
+    status === "resolved" ? ["Done", "Completed"] : ["Todo", "Backlog"];
+  const preferred = candidates.find((state) =>
+    preferredNames.includes(String(state.name)),
+  );
+  const candidate = preferred ?? candidates[0];
+  return candidate && typeof candidate.id === "string"
+    ? candidate.id
+    : undefined;
+}
+
+function linearSummaryTitle(
+  summary: LinearSyncSummary | undefined,
+  eligibleCount: number,
+): string {
+  if (summary?.status === "resolved") {
+    return "Health Agent findings verified (0 active findings)";
+  }
+  if (summary?.status === "failed") {
+    return "Health Agent status unverified (workflow failed)";
+  }
+  if (!summary) {
+    return `Health Agent findings require review (${eligibleCount} finding${eligibleCount === 1 ? "" : "s"})`;
+  }
+  const count = summary.totalFindings;
+  return `Health Agent findings require review (${count} active finding${count === 1 ? "" : "s"})`;
 }
 
 function linearLabelName(finding: HealthFinding): "Data Quality" | "Ops" {
@@ -788,7 +962,7 @@ export async function syncLinearFindings(
     updated: 0,
   };
   const deps = dependencies(options);
-  if (eligible.length === 0) {
+  if (eligible.length === 0 && !normalized.summary) {
     emitSuppressed(
       deps.audit,
       "linear",
@@ -890,6 +1064,16 @@ export async function syncLinearFindings(
     return next;
   };
 
+  const loadWorkflowStates = async (): Promise<Record<string, unknown>[]> => {
+    const data = await graphql(
+      "lookup_workflow_states",
+      LINEAR_WORKFLOW_STATE_QUERY,
+      { teamId },
+      (value) => graphqlDataHas("workflowStates", value),
+    );
+    return workflowStateNodes({ data });
+  };
+
   const projectIssues: Record<string, unknown>[] = [];
   const seenCursors = new Set<string>();
   let after: string | undefined;
@@ -916,7 +1100,8 @@ export async function syncLinearFindings(
   } while (after);
 
   const requiredLabels = new Set(eligible.map(linearLabelName));
-  const allowedLabels = await loadLabels();
+  const allowedLabels =
+    requiredLabels.size > 0 ? await loadLabels() : new Map();
   for (const name of requiredLabels) {
     if (allowedLabels.has(name)) continue;
     const data = await graphql(
@@ -957,9 +1142,21 @@ export async function syncLinearFindings(
         stringValue(team.id) === teamId &&
         isRecord(project) &&
         stringValue(project.id) === projectId &&
-        stringValue(node.description)?.includes(LINEAR_SUMMARY_MARKER) === true
+        [LINEAR_SUMMARY_MARKER, LINEAR_SUMMARY_V2_MARKER].some((marker) =>
+          stringValue(node.description)?.includes(marker),
+        )
       );
     });
+    if (!existing && eligible.length === 0) {
+      emitSuppressed(
+        deps.audit,
+        "linear",
+        "update_summary",
+        { candidateCount: normalized.findings.length, eligibleCount: 0 },
+        { reason: "summary_ticket_not_found" },
+      );
+      return result;
+    }
     const labelIds = [...requiredLabels].map((name) => {
       const labelId = allowedLabels.get(name);
       if (!labelId)
@@ -972,11 +1169,38 @@ export async function syncLinearFindings(
     });
     const inputPayload: Record<string, JsonValue> = {
       assigneeId,
-      description: groupedLinearDescription(eligible),
-      labelIds,
+      description: groupedLinearDescription(
+        normalized.summary ? normalized.findings : eligible,
+        normalized.summary,
+      ),
       projectId,
-      title: `Health Agent findings require review (${eligible.length} finding${eligible.length === 1 ? "" : "s"})`,
+      title: linearSummaryTitle(normalized.summary, eligible.length),
     };
+    if (labelIds.length > 0) inputPayload.labelIds = labelIds;
+
+    if (normalized.summary && existing) {
+      const state = isRecord(existing.state) ? existing.state : undefined;
+      const stateType = stringValue(state?.type);
+      const stateNeedsUpdate =
+        normalized.summary.status === "resolved"
+          ? stateType !== "completed"
+          : normalized.summary.totalFindings > 0 &&
+            (stateType === "completed" || stateType === "canceled");
+      if (stateNeedsUpdate) {
+        const stateId = workflowStateId(
+          await loadWorkflowStates(),
+          normalized.summary.status,
+        );
+        if (!stateId) {
+          throw new HealthAdapterError(
+            "Linear workflow state is not configured",
+            "linear",
+            "lookup_workflow_states",
+          );
+        }
+        inputPayload.stateId = stateId;
+      }
+    }
 
     if (existing) {
       const existingId = asNonemptyString(

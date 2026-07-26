@@ -621,6 +621,60 @@ describe("queue mutation gates", () => {
     expect(claim).toHaveBeenCalledWith("automatic", "run-blocked");
   });
 
+  it("classifies lifecycle through the production queue adapter", async () => {
+    const findings = [
+      finding("directory:new", "human", "directory"),
+      finding("directory:ongoing", "human", "directory"),
+      finding("directory:regressed", "human", "directory"),
+    ];
+    const listFingerprintStates = vi.fn(async () => [
+      { fingerprint: "directory:ongoing", status: "needs_human" },
+      { fingerprint: "directory:regressed", status: "fixed" },
+    ]);
+    const reconcileFingerprintLifecycle = vi.fn(async () => ({
+      failedVerificationFingerprints: ["directory:still-broken"],
+      fixedFingerprints: ["directory:resolved"],
+    }));
+
+    const result = await enqueueAndClaimBatch(
+      {
+        findings,
+        leaseOwner: "run-lifecycle",
+        mode: "live",
+        verifyAbsentFindings: true,
+      },
+      {
+        claim: async () => [],
+        enqueue: async () => undefined,
+        hasUnconfirmedAutomatic: async () => false,
+        listFingerprintStates,
+        reconcileFingerprintLifecycle,
+      },
+      enabled,
+    );
+
+    expect(listFingerprintStates).toHaveBeenCalledWith([
+      "directory:new",
+      "directory:ongoing",
+      "directory:regressed",
+    ]);
+    expect(result.lifecycle).toEqual({ new: 1, ongoing: 1, regressed: 1 });
+    expect(result.lifecycleFingerprints).toEqual({
+      new: ["directory:new"],
+      ongoing: ["directory:ongoing"],
+      regressed: ["directory:regressed"],
+    });
+    expect(reconcileFingerprintLifecycle).toHaveBeenCalledWith([
+      "directory:new",
+      "directory:ongoing",
+      "directory:regressed",
+    ]);
+    expect(result.verifiedFixedFingerprints).toEqual(["directory:resolved"]);
+    expect(result.failedVerificationFingerprints).toEqual([
+      "directory:still-broken",
+    ]);
+  });
+
   it("applies automatic-first arbitration to the database queue boundary", async () => {
     const automatic = finding("sentry:auto") as RepairFinding;
     const human = finding(

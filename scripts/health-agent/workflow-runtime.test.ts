@@ -196,6 +196,9 @@ function terminalAggregate() {
     findings,
     routine,
     skippedActions: [],
+    ...(routine === "sentry-triage"
+      ? { snapshot: { hasMore: false, incidentMode: false } }
+      : {}),
     status: "success",
     version: 1,
   });
@@ -254,6 +257,8 @@ describe("terminal health report", () => {
           claimedFingerprints: ["sentry:one"],
           enqueuedFingerprints: ["directory:one", "link:one", "sentry:one"],
           human: { findings: [] },
+          lifecycle: { new: 1, ongoing: 2, regressed: 0 },
+          verifiedFixedFingerprints: ["directory:resolved"],
         }),
       ],
       [
@@ -267,11 +272,22 @@ describe("terminal health report", () => {
     ]);
     const agentHub = vi.fn(async (envelope: unknown) => void envelope);
     const slack = vi.fn(async (report: unknown) => void report);
+    const linear = vi.fn(async () => ({
+      outcomes: [
+        {
+          action: "updated",
+          fingerprint: "health-agent:summary:v2",
+          identifier: "DEV-1231",
+        },
+      ],
+      tickets: ["DEV-1231"],
+    }));
 
     const result = await deliverFinalHealthReport(
       {
         aggregateArtifactPath: "aggregate.json",
         automaticPrResultPath: "automatic-pr.json",
+        mode: "live",
         outputPath: "final.json",
         phases: {
           analyze: "success",
@@ -293,6 +309,7 @@ describe("terminal health report", () => {
           read: async (path) => contents.get(path) ?? "",
           write: async (path, value) => void contents.set(path, value),
         },
+        linear,
       },
     );
 
@@ -324,7 +341,7 @@ describe("terminal health report", () => {
           fixed: 1,
           pull_requests: 1,
           queued: 3,
-          unresolved: 2,
+          unresolved: 3,
         },
         totals: { finding_count: 3 },
       },
@@ -345,6 +362,21 @@ describe("terminal health report", () => {
         }),
       }),
     );
+    expect(linear).toHaveBeenCalledWith(
+      expect.objectContaining({
+        findings: expect.arrayContaining([
+          expect.objectContaining({ fingerprint: "directory:one" }),
+        ]),
+        summary: expect.objectContaining({
+          newFindings: 1,
+          ongoingFindings: 2,
+          fixed: 1,
+          reviewFindings: 2,
+          status: "needs_attention",
+          totalFindings: 3,
+        }),
+      }),
+    );
     expect(result).toMatchObject({
       agent_hub: "fulfilled",
       slack: "fulfilled",
@@ -359,6 +391,7 @@ describe("terminal health report", () => {
     await expect(
       deliverFinalHealthReport(
         {
+          mode: "preflight",
           outputPath: "final.json",
           phases: {
             analyze: "failed",
@@ -401,6 +434,7 @@ describe("terminal health report", () => {
       deliverFinalHealthReport(
         {
           aggregateArtifactPath: "aggregate.json",
+          mode: "preflight",
           outputPath: "final.json",
           phases: {
             analyze: "success",
@@ -429,6 +463,78 @@ describe("terminal health report", () => {
       status: "failed",
     });
     expect(slack).toHaveBeenCalledOnce();
+  });
+
+  it("keeps Linear active when only automatic findings remain", async () => {
+    const aggregate = terminalAggregate();
+    aggregate.artifacts["directory-health"].findings = [];
+    aggregate.artifacts["link-checker"].findings = [];
+    const contents = new Map([
+      ["aggregate.json", JSON.stringify(aggregate)],
+      [
+        "queue.json",
+        JSON.stringify({
+          automatic: { findings: [{ fingerprint: "sentry:one" }] },
+          lifecycle: { new: 0, ongoing: 1, regressed: 0 },
+        }),
+      ],
+    ]);
+    const agentHub = vi.fn(async () => undefined);
+    const slack = vi.fn(async () => undefined);
+    const linear = vi.fn(async () => ({
+      outcomes: [
+        {
+          action: "updated",
+          fingerprint: "health-agent:summary:v2",
+          identifier: "DEV-1231",
+        },
+      ],
+    }));
+
+    await deliverFinalHealthReport(
+      {
+        aggregateArtifactPath: "aggregate.json",
+        mode: "live",
+        outputPath: "final.json",
+        phases: {
+          analyze: "success",
+          collect: "success",
+          deliver: "success",
+          publish: "success",
+          repair: "success",
+        },
+        queueArtifactPath: "queue.json",
+        runAt: now,
+        workflowAttempt: 1,
+        workflowRunId: "987654321",
+      },
+      {
+        delivery: { agentHub, slack },
+        files: {
+          read: async (path) => contents.get(path) ?? "",
+          write: async (path, value) => void contents.set(path, value),
+        },
+        linear,
+      },
+    );
+
+    expect(linear).toHaveBeenCalledWith(
+      expect.objectContaining({
+        summary: expect.objectContaining({
+          reviewFindings: 1,
+          status: "needs_attention",
+          totalFindings: 1,
+        }),
+      }),
+    );
+    expect(slack).toHaveBeenCalledWith(
+      expect.objectContaining({
+        healthSummary: expect.objectContaining({
+          overallStatus: "needs_attention",
+          ticket: expect.objectContaining({ identifier: "DEV-1231" }),
+        }),
+      }),
+    );
   });
 });
 
@@ -1266,6 +1372,47 @@ describe("stale branch cleanup runtime", () => {
     expect(result.failures).not.toContain("linear:not_configured");
     expect(result.linear.status).toBe("not_required");
   });
+
+  it("verifies absent fingerprints only after every detector succeeds", async () => {
+    const contents = new Map([
+      ["aggregate.json", JSON.stringify(terminalAggregate())],
+    ]);
+    const reconcileFingerprintLifecycle = vi.fn(async () => ({
+      failedVerificationFingerprints: [],
+      fixedFingerprints: ["directory:resolved"],
+    }));
+
+    const result = await enqueueAndClaimWorkflowBatch(
+      {
+        findingsArtifactPath: "aggregate.json",
+        leaseOwner: "github-actions:123:1",
+        mode: "live",
+        outputPath: "queue-result.json",
+      },
+      {
+        env: { HEALTH_AGENT_ENABLED: "true" },
+        files: {
+          read: async (path) => contents.get(path) ?? "",
+          write: async (path, value) => {
+            contents.set(path, value);
+          },
+        },
+        queue: {
+          claim: vi.fn(async () => []),
+          enqueue: vi.fn(async () => undefined),
+          hasUnconfirmedAutomatic: vi.fn(async () => false),
+          reconcileFingerprintLifecycle,
+        },
+      },
+    );
+
+    expect(reconcileFingerprintLifecycle).toHaveBeenCalledWith([
+      "directory:one",
+      "link:one",
+      "sentry:one",
+    ]);
+    expect(result.verifiedFixedFingerprints).toEqual(["directory:resolved"]);
+  });
 });
 
 describe("scoped writer RPC", () => {
@@ -1335,6 +1482,79 @@ describe("scoped writer RPC", () => {
         fingerprint: "directory:canary:github-app-pr",
       }),
     ]);
+  });
+
+  it("uses only the latest persisted state for each fingerprint", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(
+      async () =>
+        new Response(
+          JSON.stringify([
+            { fingerprint: "directory:repeat", status: "needs_human" },
+            { fingerprint: "directory:repeat", status: "fixed" },
+          ]),
+          { headers: { "content-type": "application/json" }, status: 200 },
+        ),
+    );
+    const dependencies = createWorkflowRuntimeDependencies({
+      env: {
+        HEALTH_AGENT_READER_TOKEN: "reader-token",
+        NEXT_PUBLIC_SUPABASE_URL: "https://db.example",
+      },
+      fetchImplementation,
+    });
+    const listFingerprintStates = dependencies.queue?.listFingerprintStates;
+    if (!listFingerprintStates) throw new Error("queue_state_lookup_missing");
+
+    await expect(listFingerprintStates(["directory:repeat"])).resolves.toEqual([
+      { fingerprint: "directory:repeat", status: "needs_human" },
+    ]);
+    expect(String(fetchImplementation.mock.calls[0]?.[0])).toContain(
+      "order=created_at.desc",
+    );
+  });
+
+  it("reconciles absent fingerprints through the scoped writer RPC", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(
+      async () =>
+        new Response(
+          JSON.stringify([
+            {
+              fingerprint: "directory:resolved",
+              id: "46591f9f-bbba-4f82-8bee-6b0334f13167",
+              reconciliation: "fixed",
+            },
+            {
+              fingerprint: "directory:still-broken",
+              id: "77735d6d-c378-4734-b4f7-3d93747c1022",
+              reconciliation: "failed_verification",
+            },
+          ]),
+          { headers: { "content-type": "application/json" }, status: 200 },
+        ),
+    );
+    const dependencies = createWorkflowRuntimeDependencies({
+      env: {
+        HEALTH_AGENT_WRITER_TOKEN: "writer-token",
+        NEXT_PUBLIC_SUPABASE_URL: "https://db.example",
+      },
+      fetchImplementation,
+    });
+    const reconcile = dependencies.queue?.reconcileFingerprintLifecycle;
+    if (!reconcile) throw new Error("queue_reconciliation_missing");
+
+    await expect(reconcile(["directory:current"])).resolves.toEqual({
+      failedVerificationFingerprints: ["directory:still-broken"],
+      fixedFingerprints: ["directory:resolved"],
+    });
+    expect(fetchImplementation.mock.calls[0]?.[0]).toBe(
+      "https://db.example/rest/v1/rpc/reconcile_health_fix_lifecycle",
+    );
+    expect(fetchImplementation.mock.calls[0]?.[1]).toMatchObject({
+      body: JSON.stringify({
+        p_observed_fingerprints: ["directory:current"],
+      }),
+      method: "POST",
+    });
   });
 });
 

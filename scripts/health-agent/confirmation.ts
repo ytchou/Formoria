@@ -90,7 +90,7 @@ export interface ConfirmationEnvelope {
   data: {
     action: string;
     authoritative_merge_sha?: string;
-    confirmed_fixed_count?: number;
+    confirmed_deployed_count?: number;
     deployment_status?: string;
     deployment_timestamp?: string;
     finding_count: number;
@@ -271,7 +271,9 @@ function envelope({
       ...(sha && (deploymentConfirmed || mergeRecorded)
         ? { authoritative_merge_sha: sha }
         : {}),
-      ...(deploymentConfirmed ? { confirmed_fixed_count: findingCount } : {}),
+      ...(deploymentConfirmed
+        ? { confirmed_deployed_count: findingCount }
+        : {}),
       ...(event.kind === "deployment_status"
         ? { deployment_status: event.state }
         : {}),
@@ -619,15 +621,6 @@ export async function confirmHealthEvent({
       newStatus: "deployed",
     });
   }
-  for (const row of matched) {
-    await deps.transition({
-      confirmationData,
-      expectedStatus: "deployed",
-      id: row.id,
-      newStatus: "fixed",
-    });
-  }
-
   let sentryResolved = 0;
   let sentryFailure = false;
   const issueIds = explicitSentryIds(matched);
@@ -638,7 +631,7 @@ export async function confirmHealthEvent({
       sentryFailure = true;
     }
   }
-  const message = `Confirmed health PR deployment ${event.sha}: ${matched.length} finding(s) fixed after production smoke.`;
+  const message = `Confirmed health PR deployment ${event.sha}: ${matched.length} finding(s) deployed and awaiting detector verification.`;
   const delivery = await deliverIndependently(
     deps,
     {

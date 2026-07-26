@@ -30,7 +30,10 @@ describe("E2E Slack notifications", () => {
     const body = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body)) as {
       text: string;
     };
-    expect(body.text).toContain("E2E nightly");
+    expect(body.text).toContain("⚠️ *Formoria E2E — Needs attention*");
+    expect(body.text).toContain("*Summary*");
+    expect(body.text).toContain("*Work done*");
+    expect(body.text).toContain("*Manager action*");
     expect(body.text).toContain("2 failed");
     expect(body.text).toContain("actions/runs/42");
     expect(records).toHaveLength(1);
@@ -68,7 +71,7 @@ describe("E2E Slack notifications", () => {
     const body = JSON.parse(String(fetchImpl.mock.calls[0]?.[1]?.body)) as {
       text: string;
     };
-    expect(body.text).toContain("Self-heal green");
+    expect(body.text).toContain("✅ *Formoria E2E — Success*");
     expect(body.text).toContain("pull/99");
     expect(body.text).toContain("Auto-merge enabled");
   });

@@ -58,6 +58,7 @@ pnpm exec tsx scripts/health-agent/workflow-runtime.ts aggregate-and-deliver \
 analyze_status="$(jq -er '.status | if . == "failed" then "failure" else . end' "$stage_root/sentry-triage.json")"
 
 pnpm exec tsx scripts/health-agent/workflow-runtime.ts final-report \
+  --mode preflight \
   --aggregate-artifact "$stage_root/aggregate.json" \
   --collect-status success \
   --analyze-status "$analyze_status" \
