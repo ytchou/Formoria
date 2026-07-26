@@ -114,3 +114,15 @@ jobs:
           path: playwright-report/
           if-no-files-found: ignore
           retention-days: 7
+
+      # The HTML report alone is not enough to diagnose a flake: error-context.md
+      # and the failing attempt's trace live under test-results/, and are lost
+      # once the retry passes.
+      - name: Upload failure artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: playwright-results-pr-${{ github.run_id }}
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7

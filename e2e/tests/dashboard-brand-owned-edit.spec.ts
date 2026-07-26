@@ -376,8 +376,18 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
     );
     if (basicResp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
-    await expect(userPage.locator('#romanizedName')).toBeVisible({ timeout: 30_000 });
-    await expect(userPage.locator('#romanizedName')).toHaveAttribute('readonly', '');
+    // Scoped to #main-content — unlike the bare field locators elsewhere in this
+    // file, which are all preceded by a `#main-content #<section>` gate that has
+    // already settled the navigation. This is the only field assertion that runs
+    // straight off a goto, so a bare `#romanizedName` also matches the copy the
+    // router stages outside the live tree, tripping strict mode with
+    // "resolved to 2 elements".
+    await expect(
+      userPage.locator('#main-content #romanizedName'),
+    ).toBeVisible({ timeout: 30_000 });
+    await expect(
+      userPage.locator('#main-content #romanizedName'),
+    ).toHaveAttribute('readonly', '');
 
     const linksResp = await userPage.goto(
       `/dashboard/brands/${wizardBrandSlug}/edit?step=2`,
