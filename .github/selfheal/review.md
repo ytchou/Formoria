@@ -5,9 +5,10 @@ the fix does not weaken test coverage or introduce regressions.
 
 ## Review Criteria
 
-### FAIL conditions (exit non-zero)
+### REJECT conditions
 
 Any of the following MUST cause a REJECT:
+
 - A test was deleted, skipped, or annotated with `.skip()` / `test.fixme()`
 - An assertion was weakened (e.g., exact match → partial match, count reduced)
 - A timeout or retry value was increased
@@ -26,6 +27,7 @@ Any of the following MUST cause a REJECT:
 
 The triage agent is designed to fix both test code AND product code. Common legitimate
 app code changes include:
+
 - Adding `process.env.PLAYWRIGHT_TEST` guards to skip external calls (email, payments)
 - Fixing validation logic that incorrectly rejects valid inputs
 - Restoring accidentally removed UI elements
@@ -38,17 +40,22 @@ Read `CLAUDE.md` in the repo root for project context. Then run `git diff HEAD~1
 however many commits the triage agent made) to see all changes.
 
 For each changed file, verify:
+
 1. The change is justified by a specific failing spec
 2. The change doesn't weaken test coverage
 3. Product code changes don't alter production behavior beyond what's needed
 
-Print a verdict:
+Return one JSON object matching this shape:
 
-```
-VERDICT: PASS | REJECT
-JUSTIFICATION: <one-line summary>
-APP_FILES: <comma-separated list of non-e2e files changed, or "none">
-RISK: low | medium | high
+```json
+{
+  "verdict": "PASS",
+  "justification": "One-line evidence-based summary",
+  "app_files": ["src/lib/example.ts"],
+  "risk": "low",
+  "findings": []
+}
 ```
 
-Exit with code 0 for PASS, non-zero for REJECT.
+Use `REJECT` and list every finding when any reject condition is present. Do not
+edit files. A separate workflow step parses this object and enforces the verdict.

@@ -9,16 +9,17 @@ import {
   type SlackReport,
 } from "../health-agent/adapters";
 
-export type E2ESlackPhase = "initial" | "green";
+export type E2ESlackPhase = "blocked" | "initial" | "ready";
 
 export interface E2ESlackNotification {
-  autoMergeEnabled?: boolean;
   failed: number;
   passed: number;
   phase: E2ESlackPhase;
   prUrl?: string;
+  reason?: string;
   runAttempt: string;
   runId: string;
+  selfHealEnabled?: boolean;
   skipped: number;
   status: string;
   workflowUrl: string;
@@ -29,29 +30,61 @@ export interface E2ESlackDependencies extends AdapterDependencies {
 }
 
 function e2eNotification(input: E2ESlackNotification): AgentNotification {
-  const summary = `${input.passed} passed, ${input.failed} failed, ${input.skipped} skipped`;
+  const summary = `• ${input.passed} passed · ${input.failed} failed · ${input.skipped} skipped`;
+  if (input.phase === "ready") {
+    return {
+      agent: "E2E",
+      details: [
+        "• Self-heal validation is green",
+        "• Automatic merge is disabled",
+      ],
+      managerAction: "Review and merge the repair PR",
+      status: "success",
+      summary: [summary],
+      workDone: [`• Repair PR: <${input.prUrl ?? input.workflowUrl}|Open PR>`],
+      workflowUrl: input.workflowUrl,
+    };
+  }
+
+  if (input.phase === "blocked") {
+    return {
+      agent: "E2E",
+      details: [
+        `• Reason: ${input.reason ?? "the repair process could not continue"}`,
+      ],
+      managerAction: "Investigate why self-heal stopped",
+      status: "failed",
+      summary: [summary],
+      workDone: ["• No repair PR created"],
+      workflowUrl: input.workflowUrl,
+    };
+  }
+
+  const succeeded = input.status === "success";
+  const selfHealEnabled = input.selfHealEnabled === true;
   return {
     agent: "E2E",
     details: [
-      `• Source phase: ${input.phase}`,
-      `• Auto-merge ${input.autoMergeEnabled ? "enabled" : "not enabled"}`,
+      succeeded
+        ? "• No failures detected"
+        : selfHealEnabled
+          ? "• Self-heal is enabled and will run after guard checks"
+          : "• Self-heal is disabled",
     ],
-    managerAction:
-      input.phase === "green"
-        ? "None"
-        : input.failed > 0
-          ? "Investigate the failed E2E checks"
-          : "None",
-    status:
-      input.failed > 0
-        ? "needs_attention"
-        : input.status === "success"
-          ? "success"
-          : "failed",
-    summary: [`• ${summary}`],
-    workDone: input.prUrl
-      ? [`• Repair PR: <${input.prUrl}|Open PR>`]
-      : ["• No repair PR"],
+    managerAction: succeeded
+      ? "None"
+      : selfHealEnabled
+        ? "Monitor self-heal; investigate if no repair run starts"
+        : "Investigate the failed E2E checks",
+    status: succeeded ? "success" : "needs_attention",
+    summary: [summary],
+    workDone: [
+      succeeded
+        ? "• No repair needed"
+        : selfHealEnabled
+          ? "• Automated repair requested"
+          : "• No automated repair started",
+    ],
     workflowUrl: input.workflowUrl,
   };
 }
@@ -70,7 +103,7 @@ export async function sendE2ESlackNotification(
   return sendSlackDigest(report, dependencies);
 }
 
-interface PlaywrightStats {
+export interface PlaywrightStats {
   failed: number;
   passed: number;
   skipped: number;
@@ -97,6 +130,25 @@ async function readPlaywrightStats(path: string): Promise<PlaywrightStats> {
   }
 }
 
+export function e2eSlackWebhookUrl(
+  environment: Readonly<Record<string, string | undefined>> = process.env,
+): string {
+  const value = environment.SLACK_FORMORIA_WEBHOOK_URL;
+  if (!value) throw new Error("SLACK_FORMORIA_WEBHOOK_URL is required");
+  return value;
+}
+
+export function playwrightStatsFromEnvironment(
+  stats: PlaywrightStats,
+  environment: Readonly<Record<string, string | undefined>> = process.env,
+): PlaywrightStats {
+  return {
+    failed: Number(environment.E2E_FAILED ?? stats.failed),
+    passed: Number(environment.E2E_PASSED ?? stats.passed),
+    skipped: Number(environment.E2E_SKIPPED ?? stats.skipped),
+  };
+}
+
 function requiredEnvironment(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`${name} is required`);
@@ -105,7 +157,7 @@ function requiredEnvironment(name: string): string {
 
 async function main(): Promise<void> {
   const phase = requiredEnvironment("E2E_SLACK_PHASE");
-  if (phase !== "initial" && phase !== "green") {
+  if (phase !== "initial" && phase !== "ready" && phase !== "blocked") {
     throw new Error(`Unsupported E2E Slack phase: ${phase}`);
   }
   const stats = await readPlaywrightStats(
@@ -113,14 +165,16 @@ async function main(): Promise<void> {
       ? "playwright-results.json"
       : "playwright-results-validation.json",
   );
+  const reportedStats = playwrightStatsFromEnvironment(stats);
   await sendE2ESlackNotification(
     {
-      autoMergeEnabled: process.env.AUTO_MERGE_ENABLED === "true",
-      ...stats,
+      ...reportedStats,
       phase,
       prUrl: process.env.PR_URL,
+      reason: process.env.BLOCKED_REASON,
       runAttempt: requiredEnvironment("GITHUB_RUN_ATTEMPT"),
       runId: requiredEnvironment("GITHUB_RUN_ID"),
+      selfHealEnabled: process.env.SELFHEAL_ENABLED === "true",
       status: process.env.JOB_STATUS ?? "unknown",
       workflowUrl: requiredEnvironment("WORKFLOW_URL"),
     },
@@ -129,7 +183,7 @@ async function main(): Promise<void> {
         console.log(
           JSON.stringify({ event: "e2e_nightly_slack_audit", ...record }),
         ),
-      webhookUrl: requiredEnvironment("SLACK_HEALTH_WEBHOOK_URL"),
+      webhookUrl: e2eSlackWebhookUrl(),
     },
   );
 }
