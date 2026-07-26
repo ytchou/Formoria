@@ -18,6 +18,11 @@ test.describe('Subcategory filter deep', () => {
    */
   test('clicking 口金包 chip adds sub=clasp-frame-bags to URL and restores on un-click', async ({ page }) => {
     await page.goto(`/brands?category=${E2E_CATEGORY_SLUG}`, { waitUntil: 'networkidle' });
+    const categoryToggle = page
+      .locator('aside')
+      .getByRole('button', { name: /分類|Category/ });
+    await categoryToggle.click();
+    await expect(categoryToggle).toHaveAttribute('aria-expanded', 'true');
 
     // Guard: look for the 口金包 chip specifically.
     // getSubcategoryCounts() excludes [E2E-TEST]% brands, so chips depend on real data.
@@ -26,7 +31,9 @@ test.describe('Subcategory filter deep', () => {
       .filter({ hasText: new RegExp(E2E_SUB_LABEL_ZH) })
       .first();
 
-    const chipVisible = await claspChip.isVisible({ timeout: 5_000 }).catch(() => false);
+    const chipVisible =
+      (await claspChip.count()) > 0 &&
+      ((await claspChip.boundingBox().catch(() => null))?.height ?? 0) > 0;
     if (!chipVisible) {
       test.skip(
         true,
@@ -66,13 +73,20 @@ test.describe('Subcategory filter deep', () => {
    */
   test('direct navigation to sub-filtered URL pre-activates the correct chip', async ({ page }) => {
     await page.goto(`/brands?category=${E2E_CATEGORY_SLUG}&sub=${E2E_SUB_SLUG}`, { waitUntil: 'networkidle' });
+    const categoryToggle = page
+      .locator('aside')
+      .getByRole('button', { name: /分類|Category/ });
+    await categoryToggle.click();
+    await expect(categoryToggle).toHaveAttribute('aria-expanded', 'true');
 
     const activeChip = page
       .locator('aside button[aria-pressed="true"]')
       .filter({ hasText: new RegExp(E2E_SUB_LABEL_ZH) })
       .first();
 
-    const chipActive = await activeChip.isVisible({ timeout: 5_000 }).catch(() => false);
+    const chipActive =
+      (await activeChip.count()) > 0 &&
+      ((await activeChip.boundingBox().catch(() => null))?.height ?? 0) > 0;
     if (!chipActive) {
       test.skip(
         true,

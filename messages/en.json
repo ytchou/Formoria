@@ -132,7 +132,7 @@
   },
   "brands": {
     "metadata": {
-      "title": "Formoria — Taiwanese Brand Directory",
+      "title": "Brand Directory — Browse Taiwanese Brands | Formoria",
       "description": "Discover thoughtfully curated Taiwanese brands. Browse by category, search, and explore brands founded, designed, or made in Taiwan."
     },
     "heading": "Taiwanese Brand Directory",
@@ -514,23 +514,28 @@
     "channels": {
       "subtitle": "Possible retail channels for this brand, some information provided by the community",
       "provideInfo": "Provide channel info",
+      "groups": {
+        "official": "Official channels",
+        "visitable": "Stores you can visit",
+        "chain": "Chains & other stockists",
+        "chainNote": "These may have several branches or no listed address — call ahead to check stock",
+        "online": "Online"
+      },
       "confirmed": {
-        "heading": "Confirmed channels",
-        "explainer": "These channels have been confirmed by the brand or community",
         "storeInfoLink": "Store info",
         "officialPageLink": "Official page"
       },
       "unconfirmed": {
-        "heading": "Possible channels (unconfirmed)",
-        "explainer": "Information below is community-provided or auto-collected and has not been confirmed by the brand",
-        "whatIsThis": "What does unconfirmed mean?",
-        "whatIsThisAnswer": "These are retail channel entries provided by community members or collected automatically. When confirmed by the brand or enough community members, they move to the confirmed section.",
         "confirmAction": "I confirm they sell here",
-        "confirmedCount": "{count} confirmed",
         "confirmed": "Confirmed",
-        "signInToConfirm": "Sign in to confirm",
-        "showAll": "Show all",
-        "showLess": "Show less"
+        "progress": "{count}/{threshold} confirmed",
+        "thresholdNote": "Dashed entries are unconfirmed; shown publicly after {threshold} confirmations",
+        "foldSummary": "{count} community-suggested channels awaiting confirmation",
+        "signInToConfirm": "Sign in to confirm"
+      },
+      "chips": {
+        "showRest": "Show {count} more",
+        "confirmAria": "Confirm {name} sells this brand"
       },
       "provenance": {
         "owner": "Brand confirmed",
@@ -1618,6 +1623,7 @@
         "forbidden": "You do not have permission to edit this brand",
         "noDraft": "No draft to publish.",
         "requiredFieldsIncomplete": "Complete all required fields before publishing.",
+        "draftConflict": "This draft is out of date because the brand changed after it was saved. Reload the draft, review the newer values, and publish again.",
         "unknown": "An unexpected error occurred. Please try again."
       },
       "fieldRegion": "Region",

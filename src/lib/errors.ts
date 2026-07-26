@@ -22,6 +22,13 @@ export class ValidationError extends ServiceError {
   }
 }
 
+export class ConflictError extends ServiceError {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, 'CONFLICT', options)
+    this.name = 'ConflictError'
+  }
+}
+
 export function sanitizeErrorResponse(
   _error: unknown,
   digest?: string

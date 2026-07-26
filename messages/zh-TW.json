@@ -132,7 +132,7 @@
   },
   "brands": {
     "metadata": {
-      "title": "Formoria — 台灣品牌目錄",
+      "title": "品牌目錄 — 依分類探索台灣品牌 | Formoria",
       "description": "探索精選的台灣品牌，依分類瀏覽、搜尋，認識在台灣創立、設計或製造的品牌。"
     },
     "heading": "台灣品牌目錄",
@@ -514,23 +514,28 @@
     "channels": {
       "subtitle": "以下為品牌可能的販售通路，部分資料為社群提供",
       "provideInfo": "提供販售資訊",
+      "groups": {
+        "official": "官方通路",
+        "visitable": "可造訪門市",
+        "chain": "連鎖與其他門市",
+        "chainNote": "這些通路可能有多間門市或未提供地址，建議先致電確認庫存",
+        "online": "線上通路"
+      },
       "confirmed": {
-        "heading": "品牌已確認販售",
-        "explainer": "以下通路經品牌方或社群確認為正確",
         "storeInfoLink": "查看店家資訊",
         "officialPageLink": "前往官方頁面"
       },
       "unconfirmed": {
-        "heading": "可能販售（尚待確認）",
-        "explainer": "以下資訊來自社群提供或自動蒐集，尚未經品牌方確認",
-        "whatIsThis": "什麼是尚待確認？",
-        "whatIsThisAnswer": "這些是由社群成員提供或系統自動蒐集的販售資訊，當獲得品牌方確認或足夠的社群確認後，將會移至已確認區域。",
         "confirmAction": "我確認這裡有販售",
-        "confirmedCount": "{count} 人確認",
         "confirmed": "已確認",
-        "signInToConfirm": "登入後即可確認",
-        "showAll": "顯示全部",
-        "showLess": "收合"
+        "progress": "{count}/{threshold} 人確認",
+        "thresholdNote": "虛線為尚待確認，累積 {threshold} 人確認後公開顯示",
+        "foldSummary": "{count} 個社群提供的通路待確認",
+        "signInToConfirm": "登入後即可確認"
+      },
+      "chips": {
+        "showRest": "顯示其餘 {count} 家",
+        "confirmAria": "我確認{name}有販售"
       },
       "provenance": {
         "owner": "品牌確認",
@@ -1618,6 +1623,7 @@
         "forbidden": "您沒有權限編輯此品牌",
         "noDraft": "沒有可發布的草稿。",
         "requiredFieldsIncomplete": "發布前請完成所有必填欄位。",
+        "draftConflict": "草稿有較新的品牌資料，請重新載入後確認再發布。",
         "unknown": "發生預期外的錯誤，請再試一次。"
       },
       "fieldRegion": "品牌所在地區",

@@ -340,11 +340,11 @@ test.describe('Brand detail — public locations and retail channels', () => {
         { timeout: 10_000 },
       );
       await expect(
-        page.getByRole('heading', { name: '品牌已確認販售 (2)', level: 3 }),
+        page.getByRole('heading', { name: '官方通路 (2)', level: 3 }),
       ).toBeVisible();
       await expect(
         page.getByRole('heading', {
-          name: '可能販售（尚待確認） (2)',
+          name: '連鎖與其他門市 (2)',
           level: 3,
         }),
       ).toBeVisible();
@@ -376,32 +376,24 @@ test.describe('Brand detail — public locations and retail channels', () => {
     );
   });
 
-  test('disclosure toggle explains unconfirmed channels', async ({ page }) => {
-    await page.goto(`/brands/${seeded.slug}`, { waitUntil: 'domcontentloaded' });
-
-    const disclosure = page.getByText('什麼是尚待確認？', { exact: true });
-    await expect(disclosure).toBeVisible();
-    await disclosure.click();
-    await expect(
-      page.getByText(
-        '這些是由社群成員提供或系統自動蒐集的販售資訊，當獲得品牌方確認或足夠的社群確認後，將會移至已確認區域。',
-        { exact: true },
-      ),
-    ).toBeVisible();
-  });
-
   test('anonymous confirm shows a sign-in prompt', async ({ anonPage }) => {
     await anonPage.goto(`/brands/${seeded.slug}`, { waitUntil: 'domcontentloaded' });
 
-    const channelCard = anonPage
-      .locator('[data-channel-card]')
+    const channelChip = anonPage
+      .locator('[data-channel-chip]')
       .filter({ hasText: anonymousChannelName });
-    await channelCard
-      .getByRole('button', { name: '我確認這裡有販售', exact: true })
+    await channelChip
+      .getByRole('button', {
+        name: `我確認${anonymousChannelName}有販售`,
+        exact: true,
+      })
       .click();
 
-    await expect(channelCard.getByText('登入後即可確認')).toBeVisible();
-    await expect(channelCard.getByRole('link', { name: '登入', exact: true })).toHaveAttribute(
+    const chipGroup = anonPage
+      .locator('[data-channel-chip-group]')
+      .filter({ hasText: anonymousChannelName });
+    await expect(chipGroup.getByText('登入後即可確認')).toBeVisible();
+    await expect(chipGroup.getByRole('link', { name: '登入', exact: true })).toHaveAttribute(
       'href',
       /\/auth\/sign-in\?next=/,
     );
@@ -410,24 +402,26 @@ test.describe('Brand detail — public locations and retail channels', () => {
   test('signed-in confirm increments the confirmation count', async ({ userPage }) => {
     await userPage.goto(`/brands/${seeded.slug}`, { waitUntil: 'domcontentloaded' });
 
-    const channelCard = userPage
-      .locator('[data-channel-card]')
+    const channelChip = userPage
+      .locator('[data-channel-chip]')
       .filter({ hasText: signedInChannelName });
-    await expect(channelCard.getByText('0 人確認')).toBeVisible();
-    await channelCard
-      .getByRole('button', { name: '我確認這裡有販售', exact: true })
+    await expect(channelChip.getByText('0/3 人確認')).toBeVisible();
+    await channelChip
+      .getByRole('button', {
+        name: `我確認${signedInChannelName}有販售`,
+        exact: true,
+      })
       .click();
-    await expect(channelCard.getByText('1 人確認')).toBeVisible();
-    await expect(channelCard.getByRole('button', { name: '已確認', exact: true })).toBeDisabled();
+    await expect(channelChip.getByText('1/3 人確認')).toBeVisible();
 
     await userPage.reload({ waitUntil: 'domcontentloaded' });
-    const refreshedCard = userPage
-      .locator('[data-channel-card]')
+    const refreshedChip = userPage
+      .locator('[data-channel-chip]')
       .filter({ hasText: signedInChannelName });
-    await expect(refreshedCard.getByText('1 人確認')).toBeVisible();
+    await expect(refreshedChip.getByText('1/3 人確認')).toBeVisible();
   });
 
-  test('submitted channel appears in the possible group', async ({ userPage }) => {
+  test('submitted channel appears in the online group', async ({ userPage }) => {
     test.setTimeout(90_000);
     await userPage.goto(`/brands/${seeded.slug}`, { waitUntil: 'domcontentloaded' });
 
@@ -444,14 +438,15 @@ test.describe('Brand detail — public locations and retail channels', () => {
 
     await expect(async () => {
       await userPage.reload({ waitUntil: 'domcontentloaded' });
-      const possibleGroup = userPage.locator('[data-channel-group="possible"]');
       await expect(
         userPage.getByRole('heading', {
-          name: '可能販售（尚待確認） (3)',
+          name: '線上通路 (1)',
           level: 3,
         }),
       ).toBeVisible();
-      await expect(possibleGroup.getByText(submittedChannelName)).toBeVisible();
+      await expect(
+        userPage.locator('[data-channel-chip]').filter({ hasText: submittedChannelName }),
+      ).toBeVisible();
     }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 10_000] });
   });
 });

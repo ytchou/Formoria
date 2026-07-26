@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import zhMessages from '../../../../../../../messages/zh-TW.json'
+import { ConflictError } from '@/lib/errors'
 
 function makeT(messages: Record<string, unknown>, namespace: string) {
   return (key: string) => {
@@ -876,6 +877,21 @@ describe('publishDraftAction — edit gating', () => {
       'Draft Name',
       expect.objectContaining({ description: 'Draft description' }),
     )
+    expect(publishDraft).toHaveBeenCalledWith('brand-1')
+  })
+
+  it('surfaces a stale draft conflict without publishing', async () => {
+    isActingAsAdmin.mockResolvedValueOnce(false)
+    publishDraft.mockRejectedValueOnce(new ConflictError('Draft is stale'))
+
+    const { publishDraftAction } = await import('./actions')
+    const result = await publishDraftAction(undefined, form({
+      brandSlug: 'test-brand',
+    }))
+
+    expect(result).toEqual({
+      error: '草稿有較新的品牌資料，請重新載入後確認再發布。',
+    })
     expect(publishDraft).toHaveBeenCalledWith('brand-1')
   })
 

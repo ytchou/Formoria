@@ -1,8 +1,14 @@
 import type { BrandChannel } from '@/lib/types/brand-channel'
 
-const CHANNEL_CONFIRMATION_THRESHOLD = Number(
+export const CHANNEL_CONFIRMATION_THRESHOLD = Number(
   process.env.CHANNEL_CONFIRMATION_THRESHOLD ?? 3,
 )
+
+/**
+ * Region-label sentinel the enrichment phase writes for multi-branch retailers.
+ * Data value, not UI copy — the UI matches on it to suppress a location label.
+ */
+export const CHAIN_REGION_LABEL = '全台多間門市'
 
 export const RETAILER_NAME_NOISE: readonly string[] = [
   '戶外休閒專業中心',
@@ -57,6 +63,61 @@ type ChannelRow = {
   source: string
   confirmationCount: number
   removedAt: string | null
+}
+
+export type ChannelKind = 'official' | 'visitable' | 'chain' | 'online'
+
+export type ChannelKindGroups = Array<{
+  key: ChannelKind
+  channels: BrandChannel[]
+}>
+
+const CHANNEL_KIND_ORDER: ChannelKind[] = [
+  'official',
+  'visitable',
+  'chain',
+  'online',
+]
+
+function sortChannelsForDisplay(a: BrandChannel, b: BrandChannel): number {
+  const statusOrder =
+    Number(a.status !== 'confirmed') - Number(b.status !== 'confirmed')
+  if (statusOrder !== 0) return statusOrder
+
+  const confirmationOrder = b.confirmationCount - a.confirmationCount
+  if (confirmationOrder !== 0) return confirmationOrder
+
+  return a.name.localeCompare(b.name)
+}
+
+export function groupChannelsByKind(
+  channels: BrandChannel[],
+): ChannelKindGroups {
+  const grouped: Record<ChannelKind, BrandChannel[]> = {
+    official: [],
+    visitable: [],
+    chain: [],
+    online: [],
+  }
+
+  for (const channel of channels) {
+    const key: ChannelKind =
+      channel.ownerStatus === 'confirmed' && channel.source === 'owner'
+        ? 'official'
+        : channel.address != null
+          ? 'visitable'
+          : channel.channelType === 'offline'
+            ? 'chain'
+            : 'online'
+
+    grouped[key].push(channel)
+  }
+
+  return CHANNEL_KIND_ORDER.flatMap((key) => {
+    const group = grouped[key]
+    if (group.length === 0) return []
+    return [{ key, channels: [...group].sort(sortChannelsForDisplay) }]
+  })
 }
 
 export function groupChannelsForDisplay(

@@ -4,6 +4,14 @@ import {
   type JsonValue,
 } from "./contracts";
 
+const THIRD_PARTY_DIRECTORY_HOSTS = ["twrr.org.tw"] as const;
+const SOCIAL_HOSTS = [
+  "threads.com",
+  "threads.net",
+  "instagram.com",
+  "facebook.com",
+] as const;
+
 export interface RecentBrandEdit {
   readonly id: string;
   readonly name: string;
@@ -14,6 +22,8 @@ export interface RecentBrandEdit {
   readonly mitDeclaredAt: string | null;
   readonly mitVerifiedAt: string | null;
   readonly purchaseWebsite: string | null;
+  readonly purchasePinkoi: string | null;
+  readonly purchaseShopee: string | null;
   readonly socialInstagram: string | null;
   readonly socialThreads: string | null;
   readonly socialFacebook: string | null;
@@ -150,6 +160,10 @@ function checkDescriptionLanguageSwap(
   return [];
 }
 
+// Deliberately excludes purchasePinkoi/purchaseShopee. A fully-populated brand
+// already reaches 4 domains here; adding the two marketplaces puts it at 6 and
+// trips checkExcessiveDomainDiversity's >5 threshold on a perfectly healthy
+// record. Widen this only together with that threshold.
 function collectBrandUrls(brand: RecentBrandEdit): string[] {
   return [
     brand.purchaseWebsite,
@@ -223,6 +237,143 @@ function checkSelfReferentialUrls(brand: RecentBrandEdit): HealthFinding[] {
   ];
 }
 
+function hostMatches(
+  host: string,
+  candidates: readonly string[],
+): boolean {
+  return candidates.some((c) => host === c || host.endsWith("." + c));
+}
+
+function checkPurchaseWebsiteShape(brand: RecentBrandEdit): HealthFinding[] {
+  const url = brand.purchaseWebsite;
+  if (url === null) return [];
+
+  const host = normalizedHostname(url);
+  if (host === null) return [];
+
+  if (hostMatches(host, THIRD_PARTY_DIRECTORY_HOSTS)) {
+    return [
+      finding(
+        "brand-review-purchase-website-third-party",
+        brand,
+        "purchase_website points at a third-party directory",
+        "medium",
+        {
+          brandId: brand.id,
+          brandName: brand.name,
+          purchaseWebsite: url,
+          hostname: host,
+        },
+      ),
+    ];
+  }
+
+  if (hostMatches(host, SOCIAL_HOSTS)) {
+    return [
+      finding(
+        "brand-review-purchase-website-social",
+        brand,
+        "purchase_website holds a social URL",
+        "medium",
+        {
+          brandId: brand.id,
+          brandName: brand.name,
+          purchaseWebsite: url,
+          hostname: host,
+        },
+      ),
+    ];
+  }
+
+  if (host === "formoria.com") {
+    return [];
+  }
+
+  const parsedUrl = new URL(url);
+  if (parsedUrl.pathname !== "/") {
+    return [
+      finding(
+        "brand-review-purchase-website-non-root",
+        brand,
+        "purchase_website is not a root URL",
+        "low",
+        {
+          brandId: brand.id,
+          brandName: brand.name,
+          purchaseWebsite: url,
+          hostname: host,
+          pathname: parsedUrl.pathname,
+        },
+      ),
+    ];
+  }
+
+  return [];
+}
+
+// Source of truth: getBrandVisitHref in src/lib/brands/link-fallback.ts, backed by
+// sanitizeHref/normalizeInstagramHref/normalizeThreadsHref in src/lib/url.ts. This
+// tree imports nothing from src/, so the chain is mirrored here — change both sides
+// together. Do not mirror hasText in src/lib/services/brand-quality.ts: it counts
+// other_urls, which the CTA chain does not.
+//
+// The mirror is deliberately STRICTER than the real chain in two spots, so it
+// over-reports rather than under-reports: it requires the href to be URL-parseable
+// (sanitizeHref does not), and it rejects a non-http scheme on the handle fields
+// (normalizeInstagramHref would happily synthesize https://instagram.com/mailto:x).
+function sanitizedHref(value: string | null): string | null {
+  if (value === null) return null;
+  const trimmed = value.trim();
+  if (trimmed === "") return null;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return null;
+  return `https://${trimmed}`;
+}
+
+function isUsableHref(value: string | null): boolean {
+  const href = sanitizedHref(value);
+  return href !== null && normalizedHostname(href) !== null;
+}
+
+function isUsableHandleHref(value: string | null): boolean {
+  if (value === null) return false;
+  const trimmed = value.trim();
+  if (trimmed === "") return false;
+  if (/^https?:\/\//i.test(trimmed)) return isUsableHref(trimmed);
+  // Instagram/Threads also accept a bare handle ("@warmwood") and synthesize a
+  // profile URL from it; a non-http scheme stays unusable.
+  return !/^[a-z][a-z0-9+.-]*:/i.test(trimmed);
+}
+
+function checkVisitCtaDisabled(brand: RecentBrandEdit): HealthFinding[] {
+  // other_urls is deliberately absent: it is not part of the CTA chain, so a brand
+  // with only other_urls entries still renders a disabled visit button.
+  const hasUsableChannel =
+    isUsableHref(brand.purchaseWebsite) ||
+    isUsableHref(brand.purchasePinkoi) ||
+    isUsableHref(brand.purchaseShopee) ||
+    isUsableHandleHref(brand.socialInstagram) ||
+    isUsableHandleHref(brand.socialThreads) ||
+    isUsableHref(brand.socialFacebook);
+
+  if (hasUsableChannel) {
+    return [];
+  }
+
+  return [
+    finding(
+      "brand-review-visit-cta-disabled",
+      brand,
+      "Brand has no usable visit CTA",
+      "medium",
+      {
+        brandId: brand.id,
+        brandName: brand.name,
+      },
+    ),
+  ];
+}
+
 export function evaluateBrandReview(
   brands: readonly RecentBrandEdit[],
   nowIso: string,
@@ -234,6 +385,8 @@ export function evaluateBrandReview(
       ...checkDescriptionLanguageSwap(brand),
       ...checkExcessiveDomainDiversity(brand),
       ...checkSelfReferentialUrls(brand),
+      ...checkPurchaseWebsiteShape(brand),
+      ...checkVisitCtaDisabled(brand),
     ])
     .sort((left, right) => compareText(left.fingerprint, right.fingerprint));
 

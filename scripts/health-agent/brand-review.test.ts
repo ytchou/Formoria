@@ -20,7 +20,9 @@ function brand(
     mitDeclaredScope: null,
     mitDeclaredAt: null,
     mitVerifiedAt: null,
-    purchaseWebsite: null,
+    purchaseWebsite: "https://example.com/",
+    purchasePinkoi: null,
+    purchaseShopee: null,
     socialInstagram: null,
     socialThreads: null,
     socialFacebook: null,
@@ -320,6 +322,160 @@ describe("evaluateBrandReview", () => {
 
     expect(result.findings).toHaveLength(4);
     expect(result.snapshot.findingCount).toBe(4);
+  });
+
+  it("flags a non-root purchase_website on an own domain", () => {
+    const result = evaluateBrandReview(
+      [brand({ purchaseWebsite: "https://brand.example/about" })],
+      NOW_ISO,
+      WINDOW_START_ISO,
+    );
+
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0]).toMatchObject({
+      severity: "low",
+      title: "purchase_website is not a root URL",
+      evidence: {
+        brandId: "brand-1",
+        brandName: "Test Brand",
+        purchaseWebsite: "https://brand.example/about",
+        hostname: "brand.example",
+        pathname: "/about",
+      },
+    });
+  });
+
+  it("flags a third-party directory URL (precedence over non-root)", () => {
+    const result = evaluateBrandReview(
+      [brand({ purchaseWebsite: "https://twrr.org.tw/partners/brand-x" })],
+      NOW_ISO,
+      WINDOW_START_ISO,
+    );
+
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0]).toMatchObject({
+      severity: "medium",
+      title: "purchase_website points at a third-party directory",
+    });
+    expect(result.findings[0]?.title).not.toBe("purchase_website is not a root URL");
+  });
+
+  it("flags a social URL in purchase_website", () => {
+    const result = evaluateBrandReview(
+      [brand({ purchaseWebsite: "https://www.threads.com/@brand" })],
+      NOW_ISO,
+      WINDOW_START_ISO,
+    );
+
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0]).toMatchObject({
+      severity: "medium",
+      title: "purchase_website holds a social URL",
+    });
+  });
+
+  it("produces no finding for root purchase_website URLs", () => {
+    const resultTrailingSlash = evaluateBrandReview(
+      [brand({ purchaseWebsite: "https://brand.example/" })],
+      NOW_ISO,
+      WINDOW_START_ISO,
+    );
+    expect(resultTrailingSlash.findings).toHaveLength(0);
+
+    const resultBare = evaluateBrandReview(
+      [brand({ purchaseWebsite: "https://brand.example" })],
+      NOW_ISO,
+      WINDOW_START_ISO,
+    );
+    expect(resultBare.findings).toHaveLength(0);
+  });
+
+  it("does not double-report formoria.com non-root purchase_website", () => {
+    const result = evaluateBrandReview(
+      [brand({ purchaseWebsite: "https://formoria.com/brands/test-brand" })],
+      NOW_ISO,
+      WINDOW_START_ISO,
+    );
+
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0]).toMatchObject({
+      title: "Self-referential formoria.com URL",
+    });
+    expect(result.findings[0]?.title).not.toBe("purchase_website is not a root URL");
+  });
+
+  it("flags a brand with no usable visit CTA", () => {
+    const result = evaluateBrandReview(
+      [brand({ purchaseWebsite: null })],
+      NOW_ISO,
+      WINDOW_START_ISO,
+    );
+
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0]).toMatchObject({
+      severity: "medium",
+      title: "Brand has no usable visit CTA",
+      evidence: {
+        brandId: "brand-1",
+        brandName: "Test Brand",
+      },
+    });
+    expect(result.findings[0]?.fingerprint).toContain(
+      "brand-review-visit-cta-disabled",
+    );
+  });
+
+  it("skips a brand whose only channel is purchase_pinkoi", () => {
+    const result = evaluateBrandReview(
+      [
+        brand({
+          purchaseWebsite: null,
+          purchasePinkoi: "https://www.pinkoi.com/store/warmwood",
+        }),
+      ],
+      NOW_ISO,
+      WINDOW_START_ISO,
+    );
+
+    expect(result.findings).toHaveLength(0);
+  });
+
+  it("skips a brand whose only channel is a bare Instagram handle", () => {
+    const result = evaluateBrandReview(
+      [brand({ purchaseWebsite: null, socialInstagram: "@warmwood" })],
+      NOW_ISO,
+      WINDOW_START_ISO,
+    );
+
+    expect(result.findings).toHaveLength(0);
+  });
+
+  it("flags a non-http purchase_website as an unusable visit CTA", () => {
+    const result = evaluateBrandReview(
+      [brand({ purchaseWebsite: "mailto:hi@brand.com" })],
+      NOW_ISO,
+      WINDOW_START_ISO,
+    );
+
+    expect(result.findings.map((finding) => finding.title)).toContain(
+      "Brand has no usable visit CTA",
+    );
+  });
+
+  it("flags a brand whose only URLs live in otherUrls", () => {
+    const result = evaluateBrandReview(
+      [
+        brand({
+          purchaseWebsite: null,
+          otherUrls: [{ label: "Store", url: "https://shop.example" }],
+        }),
+      ],
+      NOW_ISO,
+      WINDOW_START_ISO,
+    );
+
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0]?.title).toBe("Brand has no usable visit CTA");
   });
 
   it("deduplicates fingerprints across brands", () => {
