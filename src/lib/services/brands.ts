@@ -108,7 +108,7 @@ type CuratedBrand = Partial<Brand> &
     | 'foundingYear'
   > & { productType: string }
 
-type BrandWriteInput = Partial<Brand> & { productType?: string | null }
+export type BrandWriteInput = Partial<Brand> & { productType?: string | null }
 type BrandWriteResult = Brand & { skipped: SkippedBrandField[] }
 type ApplyBrandPatchArgs = {
   p_brand_id: string

@@ -216,23 +216,12 @@ describe("brand corrections service", () => {
     ).resolves.toEqual({ ok: false, code: "invalid_value" });
   });
 
-  it("rejects product_tags deltas containing a non-canonical string", async () => {
-    // add array validated
+  it("rejects product_tags additions that are not canonical", async () => {
     await expect(
       submitCorrection(
         correctionInput({
           field: "product_tags",
           proposedValue: { add: ["not-an-ontology-label"], remove: [] },
-        }),
-      ),
-    ).resolves.toEqual({ ok: false, code: "invalid_value" });
-
-    // remove array validated too
-    await expect(
-      submitCorrection(
-        correctionInput({
-          field: "product_tags",
-          proposedValue: { add: [], remove: ["not-an-ontology-label"] },
         }),
       ),
     ).resolves.toEqual({ ok: false, code: "invalid_value" });
@@ -246,6 +235,47 @@ describe("brand corrections service", () => {
         }),
       ),
     ).resolves.toEqual({ ok: false, code: "invalid_value" });
+  });
+
+  it("accepts removal of a non-canonical tag while still rejecting its addition", async () => {
+    // A novel tag persisted by normalizeProductTags: removing it is the repair
+    // this feature exists for, adding it would break the exact-match ?sub= filter.
+    const brand = makeBuilder({
+      data: brandRow({ product_tags: ["耳環", "手作蠟燭"] }),
+      error: null,
+    });
+    const insert = makeBuilder({ data: { id: "correction-1" }, error: null });
+    mockClient({ brands: [brand], brand_field_corrections: [insert] });
+
+    await expect(
+      submitCorrection(
+        correctionInput({
+          field: "product_tags",
+          proposedValue: { add: [], remove: ["手作蠟燭"] },
+        }),
+      ),
+    ).resolves.toEqual({ ok: true, id: "correction-1" });
+
+    await expect(
+      submitCorrection(
+        correctionInput({
+          field: "product_tags",
+          proposedValue: { add: ["手作蠟燭"], remove: [] },
+        }),
+      ),
+    ).resolves.toEqual({ ok: false, code: "invalid_value" });
+  });
+
+  it("only reads approved brands, so unlisted brand ids are not probeable", async () => {
+    const brand = makeBuilder({ data: null, error: null });
+    mockClient({ brands: [brand] });
+
+    await expect(submitCorrection(correctionInput())).resolves.toEqual({
+      ok: false,
+      code: "not_found",
+    });
+    expect(brand.eq).toHaveBeenCalledWith("id", "brand-1");
+    expect(brand.eq).toHaveBeenCalledWith("status", "approved");
   });
 
   it("rejects an empty delta", async () => {
@@ -495,8 +525,8 @@ describe("brand corrections service", () => {
     expect(mocks.updateBrand).not.toHaveBeenCalled();
   });
 
-  it("approval of a delta that has become a no-op fails cleanly", async () => {
-    const update = makeBuilder({ data: null, error: null });
+  it("approval of a delta that has already been applied leaves the queue as approved", async () => {
+    const update = makeBuilder({ data: null, error: null, count: 1 });
     setupReview(
       correctionRow({
         field: "product_tags",
@@ -511,8 +541,98 @@ describe("brand corrections service", () => {
       reviewCorrection("correction-1", "approved", "", {
         reviewerId: "reviewer-1",
       }),
-    ).resolves.toEqual({ ok: false, code: "unchanged" });
+    ).resolves.toEqual({ ok: true });
     expect(mocks.updateBrand).not.toHaveBeenCalled();
+    expect(update.update).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "approved" }),
+      { count: "exact" },
+    );
+  });
+
+  it("approval of a scalar value the brand already holds is marked approved without a redundant write", async () => {
+    // The dedup index is per visitor_hash, so duplicate reports of the same
+    // wrong price all land as pending rows; approving the first applies it.
+    const update = makeBuilder({ data: null, error: null, count: 1 });
+    setupReview(
+      correctionRow({
+        proposed_value: 3,
+        previous_value: 2,
+        brands: brandRow({ price_range: 3 }),
+      }),
+      update,
+    );
+
+    await expect(
+      reviewCorrection("correction-1", "approved", "Already applied", {
+        reviewerId: "reviewer-1",
+      }),
+    ).resolves.toEqual({ ok: true });
+    expect(mocks.updateBrand).not.toHaveBeenCalled();
+    expect(update.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "approved",
+        reviewed_by: "reviewer-1",
+        reviewer_notes: "Already applied",
+      }),
+      { count: "exact" },
+    );
+  });
+
+  it("a claim that touches no row reports already_reviewed instead of success", async () => {
+    // Second admin tab: both saw `pending`, the first one already claimed it.
+    const update = makeBuilder({ data: null, error: null, count: 0 });
+    setupReview(correctionRow(), update);
+
+    await expect(
+      reviewCorrection("correction-1", "approved", "", {
+        reviewerId: "reviewer-2",
+      }),
+    ).resolves.toEqual({ ok: false, code: "already_reviewed" });
+    expect(mocks.updateBrand).not.toHaveBeenCalled();
+    expect(mocks.revalidatePublicBrand).not.toHaveBeenCalled();
+  });
+
+  it("revalidates the public brand even when bookkeeping after the write fails", async () => {
+    const update = makeBuilder({ data: null, error: null, count: 1 });
+    const supersede = makeBuilder({
+      data: null,
+      error: { message: "supersede failed" },
+    });
+    setupReview(
+      correctionRow({
+        field: "product_type",
+        proposed_value: "beauty",
+        previous_value: "fashion",
+      }),
+      update,
+      supersede,
+    );
+
+    await expect(
+      reviewCorrection("correction-1", "approved", "", {
+        reviewerId: "reviewer-1",
+      }),
+    ).resolves.toEqual({ ok: false, code: "database_error" });
+    expect(mocks.updateBrand).toHaveBeenCalled();
+    expect(mocks.revalidatePublicBrand).toHaveBeenCalledWith({
+      slug: "test-brand",
+    });
+  });
+
+  it("returns the correction to the queue when the brand write fails", async () => {
+    const update = makeBuilder({ data: null, error: null, count: 1 });
+    const release = makeBuilder({ data: null, error: null });
+    setupReview(correctionRow(), update, release);
+    mocks.updateBrand.mockRejectedValue(new Error("apply_brand_patch failed"));
+
+    await expect(
+      reviewCorrection("correction-1", "approved", "", {
+        reviewerId: "reviewer-1",
+      }),
+    ).resolves.toEqual({ ok: false, code: "database_error" });
+    expect(release.update).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "pending", reviewed_at: null }),
+    );
   });
 
   it("approval revalidates the public brand", async () => {
@@ -567,12 +687,15 @@ describe("brand corrections service", () => {
       }),
     ).resolves.toEqual({ ok: true });
     expect(mocks.updateBrand).not.toHaveBeenCalled();
-    expect(update.update).toHaveBeenCalledWith({
-      status: "rejected",
-      reviewed_at: expect.any(String),
-      reviewed_by: "reviewer-1",
-      reviewer_notes: "Not supported",
-    });
+    expect(update.update).toHaveBeenCalledWith(
+      {
+        status: "rejected",
+        reviewed_at: expect.any(String),
+        reviewed_by: "reviewer-1",
+        reviewer_notes: "Not supported",
+      },
+      { count: "exact" },
+    );
   });
 
   it("listCorrections flags stale rows", async () => {

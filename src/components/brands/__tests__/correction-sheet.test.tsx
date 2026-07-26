@@ -63,6 +63,7 @@ const messages = {
       productTagsSubtitle: "{category} 的產品類別（最多 5 項）",
       productTagsSelected: "已選 {count} / 5",
       productTagsLimit: "最多選 5 項產品類別。",
+      productTagsOtherCategory: "其他分類的既有標籤",
       success: "修正已送出。",
       errors: {
         invalid_brand: "品牌無效。",
@@ -410,5 +411,91 @@ describe("CorrectionSheet", () => {
         },
       });
     });
+  });
+
+  // A `home` brand can still carry `fashion` tags: normalizeProductTags keeps
+  // cross-branch tags, and approving a product_type correction moves the
+  // category without re-deriving product_tags. Those tags consume the 5-tag
+  // cap, so they have to be visible and removable.
+  it("renders out-of-category tags as checked, removable rows", () => {
+    renderProductTags(["寢具", "上衣・T恤"]);
+    openProductTagsSheet();
+
+    expect(screen.getByText("其他分類的既有標籤")).toBeInTheDocument();
+
+    const offCategory = productTagCheckbox("上衣・T恤");
+    expect(offCategory).toBeChecked();
+    expect(offCategory).toBeEnabled();
+    expect(productTagCheckbox("寢具")).toBeChecked();
+    expect(screen.getByText("已選 2 / 5")).toBeInTheDocument();
+  });
+
+  it("counts out-of-category tags against the 5-tag cap", () => {
+    renderProductTags(["上衣・T恤", "褲裝", "裙裝", "洋裝", "外套"]);
+    openProductTagsSheet();
+
+    expect(screen.getByText("已選 5 / 5")).toBeInTheDocument();
+    expect(screen.getByText("最多選 5 項產品類別。")).toBeInTheDocument();
+    expect(productTagCheckbox("上衣・T恤")).toBeEnabled();
+    expect(productTagCheckbox("寢具")).toBeDisabled();
+  });
+
+  it("emits a remove-only delta when an out-of-category tag is unchecked", async () => {
+    renderProductTags(["寢具", "上衣・T恤"]);
+    openProductTagsSheet();
+
+    fireEvent.click(productTagCheckbox("上衣・T恤"));
+
+    expect(productTagCheckbox("上衣・T恤")).not.toBeChecked();
+    expect(screen.getByText("已選 1 / 5")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "送出修正" }));
+
+    await waitFor(() => {
+      expect(mocks.submitCorrection).toHaveBeenCalledWith({
+        brandId: BRAND_ID,
+        field: "product_tags",
+        proposedValue: {
+          add: [],
+          remove: ["上衣・T恤"],
+        },
+      });
+    });
+  });
+
+  it("resets the scalar selection to the current value after a successful submit", async () => {
+    renderSheet();
+    openSheet();
+
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "3" } });
+    fireEvent.click(screen.getByRole("button", { name: "送出修正" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    });
+
+    openSheet();
+
+    expect(screen.getByRole("combobox")).toHaveValue("2");
+    expect(screen.getByRole("button", { name: "送出修正" })).toBeDisabled();
+  });
+
+  it("resets the tag selection to the current tags after a successful submit", async () => {
+    renderProductTags(["寢具"]);
+    openProductTagsSheet();
+
+    fireEvent.click(productTagCheckbox("床墊"));
+    fireEvent.click(screen.getByRole("button", { name: "送出修正" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    });
+
+    openProductTagsSheet();
+
+    expect(productTagCheckbox("寢具")).toBeChecked();
+    expect(productTagCheckbox("床墊")).not.toBeChecked();
+    expect(screen.getByText("已選 1 / 5")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "送出修正" })).toBeDisabled();
   });
 });

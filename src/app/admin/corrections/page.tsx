@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
-import { CorrectionsQueue } from "@/components/admin/corrections-queue";
+import {
+  CorrectionsQueue,
+  type CorrectionQueueItem,
+} from "@/components/admin/corrections-queue";
 import { requireAdminPage } from "@/lib/auth/require-admin";
 import {
   listCorrections,
@@ -40,6 +43,16 @@ export default async function AdminCorrectionsPage() {
     listCorrections({ status: "pending" }),
     getTranslations("admin.corrections"),
   ]);
+  // Keep visitor hashes and review metadata out of the client payload.
+  const queueItems: CorrectionQueueItem[] = corrections.map((correction) => ({
+    id: correction.id,
+    brandName: correction.brandName,
+    field: correction.field,
+    currentValue: correction.currentValue,
+    proposedValue: correction.proposedValue,
+    stale: correction.stale,
+    createdAt: correction.createdAt,
+  }));
 
   return (
     <div>
@@ -48,7 +61,7 @@ export default async function AdminCorrectionsPage() {
 
       <div className="mt-8">
         <CorrectionsQueue
-          corrections={corrections}
+          corrections={queueItems}
           reviewAction={reviewCorrectionAction}
         />
       </div>

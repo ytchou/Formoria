@@ -1,16 +1,10 @@
 "use server";
 
-import { cookies, headers } from "next/headers";
+import { headers } from "next/headers";
 import { z } from "zod/v3";
 
-import {
-  BRAND_LIKE_VISITOR_COOKIE,
-  BRAND_LIKE_VISITOR_COOKIE_OPTIONS,
-  hashBrandLikeVisitorId,
-  signBrandLikeVisitorId,
-  verifyBrandLikeVisitorId,
-} from "@/lib/security/brand-like-identity";
-import { rateLimit } from "@/lib/security/rate-limiter";
+import { ensureVisitorHash } from "@/lib/actions/visitor-identity";
+import { getClientIpFromHeaders, rateLimit } from "@/lib/security/rate-limiter";
 import {
   submitCorrection,
   type SubmitCorrectionResult,
@@ -52,16 +46,6 @@ export type SubmitCorrectionActionResult =
         | "unavailable";
     };
 
-async function getRequestIp(): Promise<string> {
-  const headerList = await headers();
-  return (
-    headerList.get("cf-connecting-ip") ??
-    headerList.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    headerList.get("x-real-ip") ??
-    "unknown"
-  );
-}
-
 function getBrandId(input: unknown): unknown {
   if (typeof input !== "object" || input === null) return undefined;
   return "brandId" in input
@@ -90,26 +74,15 @@ export async function submitCorrectionAction(
   if (!parsed.success) return { ok: false, error: "invalid_value" };
 
   try {
-    const limit = await rateLimit(await getRequestIp(), CORRECTION_RATE_LIMIT);
-    if (!limit.allowed) return { ok: false, error: "rate_limited" };
-
-    const cookieStore = await cookies();
-    let visitorId = await verifyBrandLikeVisitorId(
-      cookieStore.get(BRAND_LIKE_VISITOR_COOKIE)?.value,
+    const limit = await rateLimit(
+      getClientIpFromHeaders(await headers()),
+      CORRECTION_RATE_LIMIT,
     );
-
-    if (!visitorId) {
-      visitorId = crypto.randomUUID();
-      cookieStore.set(
-        BRAND_LIKE_VISITOR_COOKIE,
-        await signBrandLikeVisitorId(visitorId),
-        BRAND_LIKE_VISITOR_COOKIE_OPTIONS,
-      );
-    }
+    if (!limit.allowed) return { ok: false, error: "rate_limited" };
 
     const result = await submitCorrection({
       ...parsed.data,
-      visitorHash: await hashBrandLikeVisitorId(visitorId),
+      visitorHash: await ensureVisitorHash(),
     });
 
     if (result.ok) return result;

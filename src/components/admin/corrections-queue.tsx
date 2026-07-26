@@ -13,17 +13,36 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { formatPriceRange } from "@/lib/brands/price-range";
+import type {
+  BrandCorrection,
+  CorrectionDecision,
+} from "@/lib/services/brand-corrections";
 import {
   applyTagDelta,
-  type BrandCorrection,
-  type CorrectionDecision,
+  isProductTagsDelta,
+  MAX_PRODUCT_TAGS,
   type ProductTagsDelta,
-} from "@/lib/services/brand-corrections";
-import { MAX_PRODUCT_TAGS } from "@/lib/services/product-tags";
+} from "@/lib/services/product-tags";
 import {
   categoryLabel,
   PRODUCT_TYPE_CATEGORIES,
 } from "@/lib/taxonomy/ontology";
+
+/**
+ * Exactly the fields this queue renders — the page projects rows down to this
+ * shape so visitor hashes and review metadata never reach the client bundle.
+ */
+export type CorrectionQueueItem = Pick<
+  BrandCorrection,
+  | "id"
+  | "brandName"
+  | "field"
+  | "currentValue"
+  | "proposedValue"
+  | "stale"
+  | "createdAt"
+>;
 
 type ReviewAction = (
   id: string,
@@ -37,34 +56,20 @@ type TagDeltaState = {
   exceedsCap: boolean;
 };
 
-function isTagDelta(value: unknown): value is ProductTagsDelta {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return false;
-  }
-
-  const record = value as Record<string, unknown>;
-  return (
-    Array.isArray(record.add) &&
-    record.add.every((tag) => typeof tag === "string") &&
-    Array.isArray(record.remove) &&
-    record.remove.every((tag) => typeof tag === "string")
-  );
-}
-
 function stringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
     : [];
 }
 
-function currentValue(correction: BrandCorrection): unknown {
+function currentValue(correction: CorrectionQueueItem): unknown {
   return correction.currentValue;
 }
 
-function tagDeltaState(correction: BrandCorrection): TagDeltaState | null {
+function tagDeltaState(correction: CorrectionQueueItem): TagDeltaState | null {
   if (
     correction.field !== "product_tags" ||
-    !isTagDelta(correction.proposedValue)
+    !isProductTagsDelta(correction.proposedValue)
   ) {
     return null;
   }
@@ -100,15 +105,13 @@ function tagBadges(tags: string[], emptyLabel: string): ReactNode {
 }
 
 function scalarValue(
-  field: BrandCorrection["field"],
+  field: CorrectionQueueItem["field"],
   value: unknown,
   locale: string,
   unavailableLabel: string,
 ): string {
   if (field === "price_range") {
-    return typeof value === "number" && Number.isInteger(value) && value > 0
-      ? "$".repeat(value)
-      : unavailableLabel;
+    return formatPriceRange(value) ?? unavailableLabel;
   }
 
   if (field === "product_type" && typeof value === "string") {
@@ -126,6 +129,7 @@ function formatDate(date: string, locale: string): string {
     year: "numeric",
     month: "short",
     day: "numeric",
+    timeZone: "Asia/Taipei",
   }).format(new Date(date));
 }
 
@@ -133,7 +137,7 @@ export function CorrectionsQueue({
   corrections,
   reviewAction,
 }: {
-  corrections: BrandCorrection[];
+  corrections: CorrectionQueueItem[];
   reviewAction?: ReviewAction;
 }) {
   const t = useTranslations("admin.corrections");
@@ -143,17 +147,13 @@ export function CorrectionsQueue({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const pendingCorrections = corrections.filter(
-    (item) => item.status === "pending",
-  );
-
   function handleRowClick(id: string) {
     setExpandedId((current) => (current === id ? null : id));
     setReviewerNotes("");
     setError(null);
   }
 
-  function renderCurrentValue(item: BrandCorrection): ReactNode {
+  function renderCurrentValue(item: CorrectionQueueItem): ReactNode {
     const value = currentValue(item);
     if (item.field === "product_tags") {
       return tagBadges(stringArray(value), t("notAvailable"));
@@ -166,7 +166,7 @@ export function CorrectionsQueue({
     );
   }
 
-  function renderProposedValue(item: BrandCorrection): ReactNode {
+  function renderProposedValue(item: CorrectionQueueItem): ReactNode {
     const delta = tagDeltaState(item);
     if (delta) {
       return (
@@ -202,7 +202,10 @@ export function CorrectionsQueue({
     );
   }
 
-  function handleReview(item: BrandCorrection, decision: CorrectionDecision) {
+  function handleReview(
+    item: CorrectionQueueItem,
+    decision: CorrectionDecision,
+  ) {
     const notes = reviewerNotes.trim();
 
     startTransition(async () => {
@@ -220,7 +223,7 @@ export function CorrectionsQueue({
     });
   }
 
-  if (pendingCorrections.length === 0) {
+  if (corrections.length === 0) {
     return <p className="type-empty-body mt-4">{t("empty")}</p>;
   }
 
@@ -237,7 +240,7 @@ export function CorrectionsQueue({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {pendingCorrections.map((item) => {
+          {corrections.map((item) => {
             const delta = tagDeltaState(item);
             const expanded = expandedId === item.id;
 

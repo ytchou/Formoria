@@ -5,8 +5,15 @@ import {
 } from "@/lib/taxonomy/ontology";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { createServiceClient } from "@/lib/supabase/server";
-import { deriveProductTagsEn, MAX_PRODUCT_TAGS } from "./product-tags";
-import { updateBrand } from "./brands";
+import {
+  applyTagDelta,
+  deriveProductTagsEn,
+  isProductTagsDelta,
+  MAX_PRODUCT_TAGS,
+  sameTagSet,
+  type ProductTagsDelta,
+} from "./product-tags";
+import { updateBrand, type BrandWriteInput } from "./brands";
 
 const CORRECTION_SELECT =
   "*, brands(name, slug, price_range, product_type, product_tags)";
@@ -34,10 +41,7 @@ export type CorrectionField = "price_range" | "product_type" | "product_tags";
 export type CorrectionStatus = "pending" | "approved" | "rejected";
 export type CorrectionDecision = Exclude<CorrectionStatus, "pending">;
 
-export type ProductTagsDelta = {
-  add: string[];
-  remove: string[];
-};
+export type { ProductTagsDelta };
 
 export type CorrectionProposedValue = number | string | ProductTagsDelta;
 
@@ -92,9 +96,9 @@ export type ReviewCorrectionResult =
       ok: false;
       code:
         | "invalid_value"
-        | "unchanged"
         | "too_many_tags"
         | "not_found"
+        | "already_reviewed"
         | "database_error";
     };
 
@@ -107,19 +111,6 @@ function isCorrectionField(value: string): value is CorrectionField {
     value === "product_type" ||
     value === "product_tags"
   );
-}
-
-function isStringArray(value: unknown): value is string[] {
-  return (
-    Array.isArray(value) && value.every((item) => typeof item === "string")
-  );
-}
-
-function isProductTagsDelta(value: unknown): value is ProductTagsDelta {
-  if (typeof value !== "object" || value === null || Array.isArray(value))
-    return false;
-  const record = value as Record<string, unknown>;
-  return isStringArray(record.add) && isStringArray(record.remove);
 }
 
 function validateProposedValue(
@@ -142,43 +133,17 @@ function validateProposedValue(
   }
 
   if (!isProductTagsDelta(value)) return "invalid_value";
-  if (
-    [...value.add, ...value.remove].some(
-      (tag) => !PRODUCT_TAG_NAMES_ZH.has(tag),
-    )
-  ) {
+  // Asymmetric on purpose. Every `add` must be an exact canonical `nameZh`:
+  // brands.product_tags stores canonical labels and the `?sub=` filter matches
+  // by exact-string array overlap, so a non-canonical addition would silently
+  // drop the brand from subcategory results. `remove` is unrestricted — a brand
+  // can carry novel tags persisted by normalizeProductTags, and removing a bad
+  // value can never introduce one. Rejecting those removals would block exactly
+  // the repair this feature exists to perform.
+  if (value.add.some((tag) => !PRODUCT_TAG_NAMES_ZH.has(tag))) {
     return "invalid_value";
   }
   return null;
-}
-
-export function applyTagDelta(
-  current: string[],
-  delta: ProductTagsDelta,
-): string[] {
-  const removed = new Set(delta.remove);
-  const seen = new Set<string>();
-  const next: string[] = [];
-
-  for (const tag of current) {
-    if (removed.has(tag) || seen.has(tag)) continue;
-    seen.add(tag);
-    next.push(tag);
-  }
-
-  for (const tag of delta.add) {
-    if (seen.has(tag)) continue;
-    seen.add(tag);
-    next.push(tag);
-  }
-
-  return next;
-}
-
-function sameTagSet(left: string[], right: string[]): boolean {
-  if (left.length !== right.length) return false;
-  const rightSet = new Set(right);
-  return left.every((tag) => rightSet.has(tag));
 }
 
 function valuesEqual(left: unknown, right: unknown): boolean {
@@ -253,10 +218,16 @@ async function readBrand(
   data: BrandCorrectionBrandRow | null;
   error: { code?: string } | null;
 }> {
+  // Scoped to approved like every other public read path. This runs on the
+  // RLS-bypassing service client behind an unauthenticated action, and brand
+  // UUIDs are in the public RSC payload — without this filter the distinct
+  // result codes let an anonymous caller probe the existence and field values
+  // of brands that are not publicly listed.
   const { data, error } = await supabase
     .from("brands")
     .select("id, name, slug, price_range, product_type, product_tags")
     .eq("id", brandId)
+    .eq("status", "approved")
     .maybeSingle();
 
   return {
@@ -265,6 +236,12 @@ async function readBrand(
   };
 }
 
+/**
+ * Claims a pending correction for one reviewer. The `status = 'pending'` guard
+ * plus the exact row count make this the concurrency token: the guarding SELECT
+ * is a separate round-trip, so two admin tabs can both see `pending`, and only
+ * the tab whose UPDATE touches a row may go on to write the brand.
+ */
 async function markReviewed(
   supabase: ReturnType<typeof createServiceClient>,
   id: string,
@@ -272,20 +249,47 @@ async function markReviewed(
   notes: string,
   reviewerId: string,
   reviewedAt: string,
-): Promise<{ ok: true } | { ok: false; code: "database_error" }> {
-  const { error } = await supabase
+): Promise<
+  { ok: true } | { ok: false; code: "database_error" | "already_reviewed" }
+> {
+  const { error, count } = await supabase
     .from("brand_field_corrections")
-    .update({
-      status: decision,
-      reviewed_at: reviewedAt,
-      reviewed_by: reviewerId,
-      reviewer_notes: notes,
-    })
+    .update(
+      {
+        status: decision,
+        reviewed_at: reviewedAt,
+        reviewed_by: reviewerId,
+        reviewer_notes: notes,
+      },
+      { count: "exact" },
+    )
     .eq("id", id)
     .eq("status", "pending");
 
   if (error) return { ok: false, code: "database_error" };
+  if (count === 0) return { ok: false, code: "already_reviewed" };
   return { ok: true };
+}
+
+/**
+ * Compensating write for a claim whose brand update then failed — puts the row
+ * back in the queue so a transient database error cannot silently drop a
+ * correction. Best effort: if this write fails too, the row stays reviewed and
+ * the reviewer already has the error result.
+ */
+async function releaseClaim(
+  supabase: ReturnType<typeof createServiceClient>,
+  id: string,
+): Promise<void> {
+  await supabase
+    .from("brand_field_corrections")
+    .update({
+      status: "pending",
+      reviewed_at: null,
+      reviewed_by: null,
+      reviewer_notes: null,
+    })
+    .eq("id", id);
 }
 
 async function supersedePendingTags(
@@ -442,37 +446,40 @@ export async function reviewCorrection(
     }
 
     const currentValue = currentValueForField(row.field, row.brands);
-    let patch: Record<string, unknown>;
+    // `null` means the brand already holds the proposed value. The dedup index
+    // is per visitor_hash, so N visitors reporting the same wrong value each
+    // create a row; approving the first applies it and every later row is a
+    // no-op. Those are still correct suggestions — approve them and let them
+    // leave the queue instead of stranding them as un-approvable pending rows.
+    let patch: BrandWriteInput | null;
 
     if (row.field === "product_tags") {
       const delta = row.proposed_value as ProductTagsDelta;
       const currentTags = Array.isArray(currentValue) ? currentValue : [];
       const next = applyTagDelta(currentTags, delta);
-      if (sameTagSet(currentTags, next))
-        return { ok: false, code: "unchanged" };
-      if (next.length > MAX_PRODUCT_TAGS) {
+      if (sameTagSet(currentTags, next)) {
+        patch = null;
+      } else if (next.length > MAX_PRODUCT_TAGS) {
         return { ok: false, code: "too_many_tags" };
+      } else {
+        patch = {
+          productTags: next,
+          productTagsEn: deriveProductTagsEn(next),
+        };
       }
-      patch = {
-        productTags: next,
-        productTagsEn: deriveProductTagsEn(next),
-      };
+    } else if (valuesEqual(currentValue, row.proposed_value)) {
+      patch = null;
     } else {
-      if (valuesEqual(currentValue, row.proposed_value)) {
-        return { ok: false, code: "unchanged" };
-      }
       patch =
         row.field === "price_range"
-          ? { priceRange: row.proposed_value }
-          : { productType: row.proposed_value };
+          ? { priceRange: row.proposed_value as number }
+          : { productType: row.proposed_value as string };
     }
 
-    await updateBrand(row.brand_id, patch, {
-      source: "admin",
-      userId: reviewerId,
-    });
-
-    const reviewed = await markReviewed(
+    // Claim before writing the brand: losing the race here means another
+    // reviewer already applied this decision, and re-running updateBrand would
+    // append a second brand_field_events row for one human decision.
+    const claimed = await markReviewed(
       supabase,
       id,
       decision,
@@ -480,19 +487,35 @@ export async function reviewCorrection(
       reviewerId,
       reviewedAt,
     );
-    if (!reviewed.ok) return reviewed;
+    if (!claimed.ok) return claimed;
 
-    if (row.field === "product_type") {
-      const superseded = await supersedePendingTags(
-        supabase,
-        row.brand_id,
-        reviewerId,
-        reviewedAt,
-      );
-      if (!superseded.ok) return superseded;
+    if (patch) {
+      try {
+        await updateBrand(row.brand_id, patch, {
+          source: "admin",
+          userId: reviewerId,
+        });
+      } catch (writeError) {
+        await releaseClaim(supabase, id);
+        throw writeError;
+      }
     }
 
+    const superseded =
+      row.field === "product_type"
+        ? await supersedePendingTags(
+            supabase,
+            row.brand_id,
+            reviewerId,
+            reviewedAt,
+          )
+        : { ok: true as const };
+
+    // Cache invalidation follows the data write, never the happy path: a failed
+    // supersede must not leave the public ISR pages serving the old value for
+    // up to an hour with no way to trigger revalidation.
     revalidatePublicBrand({ slug: row.brands.slug });
+    if (!superseded.ok) return superseded;
     return { ok: true };
   } catch {
     return { ok: false, code: "database_error" };

@@ -22,7 +22,10 @@ vi.mock("next/headers", () => ({
   })),
 }));
 
-vi.mock("@/lib/security/rate-limiter", () => ({
+// Keep the real getClientIpFromHeaders — the header cascade is what this
+// action delegates, so mocking it would test nothing.
+vi.mock("@/lib/security/rate-limiter", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/security/rate-limiter")>()),
   rateLimit: mocks.rateLimit,
 }));
 

@@ -7,6 +7,11 @@ export type NormalizeProductTagsResult = {
   crossBranch: string[]
 }
 
+export type ProductTagsDelta = {
+  add: string[]
+  remove: string[]
+}
+
 export const MAX_PRODUCT_TAGS = 5
 const MIN_NOVEL_LENGTH = 2
 const MAX_NOVEL_LENGTH = 8
@@ -65,6 +70,46 @@ export function normalizeProductTags(
 
 export function deriveProductTagsEn(tags: string[]): string[] {
   return tags.map((tag) => matchSubcategory(tag)?.nameEn ?? tag)
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string')
+}
+
+export function isProductTagsDelta(value: unknown): value is ProductTagsDelta {
+  if (typeof value !== 'object' || value === null || Array.isArray(value))
+    return false
+  const record = value as Record<string, unknown>
+  return isStringArray(record.add) && isStringArray(record.remove)
+}
+
+export function applyTagDelta(
+  current: string[],
+  delta: ProductTagsDelta,
+): string[] {
+  const removed = new Set(delta.remove)
+  const seen = new Set<string>()
+  const next: string[] = []
+
+  for (const tag of current) {
+    if (removed.has(tag) || seen.has(tag)) continue
+    seen.add(tag)
+    next.push(tag)
+  }
+
+  for (const tag of delta.add) {
+    if (seen.has(tag)) continue
+    seen.add(tag)
+    next.push(tag)
+  }
+
+  return next
+}
+
+export function sameTagSet(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) return false
+  const rightSet = new Set(right)
+  return left.every((tag) => rightSet.has(tag))
 }
 
 type TagBackfillMatch = {
