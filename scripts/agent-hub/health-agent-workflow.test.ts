@@ -444,6 +444,7 @@ describe("unified health-agent workflow contract", () => {
     );
     for (const publisher of [automaticPublisher, humanPublisher]) {
       expect(publisher).not.toContain("group: formoria-agent-writer");
+      expect(publisher).toContain("if-no-files-found: ignore");
       expect(publisher).toContain(
         "permissions:\n      contents: read\n      pull-requests: read",
       );

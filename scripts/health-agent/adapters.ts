@@ -520,14 +520,19 @@ export function createSlackAdapter(options: SlackAdapterOptions): SlackAdapter {
   };
 }
 
-function linearToken(options: LinearAdapterOptions): string {
-  return asNonemptyString(
+function linearAuthorization(options: LinearAdapterOptions): string {
+  if (options.apiKey) {
+    return asNonemptyString(options.apiKey, "Linear API key is required");
+  }
+  const oauthToken =
     options.oauthAccessToken ??
-      options.oauthToken ??
-      options.accessToken ??
-      options.token,
-    "Linear OAuth token is required",
-  );
+    options.oauthToken ??
+    options.accessToken ??
+    options.token;
+  if (oauthToken) {
+    return `Bearer ${asNonemptyString(oauthToken, "Linear OAuth token is required")}`;
+  }
+  throw new Error("Linear API credential is required");
 }
 
 function graphqlData(value: unknown): Record<string, unknown> | null {
@@ -564,6 +569,7 @@ function issueNodes(value: unknown): Record<string, unknown>[] {
 
 export interface LinearAdapterOptions extends AdapterDependencies {
   accessToken?: string;
+  apiKey?: string;
   assigneeId?: string;
   endpoint?: string;
   oauthAccessToken?: string;
@@ -752,7 +758,6 @@ export async function syncLinearFindings(
   }
 
   const endpoint = options.endpoint ?? "https://api.linear.app/graphql";
-  const token = linearToken(options);
   const teamId = asNonemptyString(options.teamId, "Linear team ID is required");
   const projectId = asNonemptyString(
     options.projectId,
@@ -764,7 +769,7 @@ export async function syncLinearFindings(
   );
   const headers = {
     Accept: "application/json",
-    Authorization: `Bearer ${token}`,
+    Authorization: linearAuthorization(options),
     "Content-Type": "application/json",
   };
   let labels: Map<"Data Quality" | "Ops", string> | null = null;
