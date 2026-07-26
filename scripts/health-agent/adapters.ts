@@ -638,7 +638,7 @@ const LINEAR_CREATE_MUTATION = `
 `;
 
 const LINEAR_UPDATE_MUTATION = `
-  mutation HealthAgentIssueUpdate($id: ID!, $input: IssueUpdateInput!) {
+  mutation HealthAgentIssueUpdate($id: String!, $input: IssueUpdateInput!) {
     issueUpdate(id: $id, input: $input) { success issue { id identifier } }
   }
 `;

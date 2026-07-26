@@ -440,6 +440,7 @@ describe("Linear adapter", () => {
     );
     expect(bodyAt(fetchImpl, 0).query).not.toContain("description: { contains");
     expect(bodyAt(fetchImpl, 2).variables).toMatchObject({ id: "linear-1" });
+    expect(bodyAt(fetchImpl, 2).query).toContain("$id: String!");
     const updateInput = (
       bodyAt(fetchImpl, 2).variables as Record<string, unknown>
     ).input as Record<string, unknown>;
