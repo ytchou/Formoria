@@ -472,6 +472,29 @@
         "uploadFailed": "Photo upload failed. Please try again."
       }
     },
+    "correction": {
+      "trigger": "Is this incorrect?",
+      "triggerLabel": "Correct {field}",
+      "description": "Submissions are reviewed by an editor before they update the listing.",
+      "submitting": "Submitting…",
+      "submit": "Submit correction",
+      "selectPlaceholder": "Not set yet — choose a value…",
+      "productTagsTitle": "Correct product categories",
+      "productTagsSubtitle": "{category} product categories (up to 5)",
+      "productTagsSelected": "Selected {count} / 5",
+      "productTagsLimit": "Select up to 5 product categories.",
+      "productTagsOtherCategory": "Existing tags from other categories",
+      "success": "Correction submitted. Thank you for helping keep this listing accurate.",
+      "errors": {
+        "invalid_brand": "This brand could not be found. Please refresh and try again.",
+        "invalid_value": "That correction is not valid. Please choose another value.",
+        "too_many_tags": "A brand can have at most 5 product categories.",
+        "unchanged": "This correction does not change the current information.",
+        "already_submitted": "You have already submitted this correction. Please wait for review.",
+        "rate_limited": "Too many correction submissions. Please try again later.",
+        "unavailable": "We could not submit the correction. Please try again later."
+      }
+    },
     "adminMenu": {
       "label": "Admin menu",
       "viewAsOwner": "Brand view"
@@ -2163,7 +2186,8 @@
         "quality": "Quality Dashboard",
         "newsletter": "Newsletter",
         "scripts": "Scripts",
-        "settings": "Settings"
+        "settings": "Settings",
+        "corrections": "Corrections"
       }
     },
     "dashboard": {
@@ -2278,6 +2302,39 @@
       "errors": {
         "notesRequired": "Reviewer notes are required when rejecting evidence.",
         "generic": "Unable to review evidence. Please try again."
+      }
+    },
+    "corrections": {
+      "title": "Brand Corrections",
+      "description": "Review visitor suggestions for the brand fields that power directory filters. Approved corrections update the catalog.",
+      "table": {
+        "brand": "Brand",
+        "field": "Field",
+        "current": "Current value",
+        "proposed": "Proposed value",
+        "date": "Submitted"
+      },
+      "fields": {
+        "price_range": "Price range",
+        "product_type": "Product type",
+        "product_tags": "Product tags"
+      },
+      "tagDelta": {
+        "projected": "Projected result"
+      },
+      "stale": "Brand data changed after submission",
+      "tooManyTags": "Cannot approve: the result would exceed 5 product tags",
+      "actions": {
+        "approve": "Approve",
+        "reject": "Reject"
+      },
+      "reviewerNotes": "Reviewer notes",
+      "reviewerNotesPlaceholder": "Add notes about this review decision",
+      "unknownBrand": "Unknown brand",
+      "notAvailable": "Not available",
+      "empty": "No pending brand corrections.",
+      "errors": {
+        "generic": "Unable to review this brand correction. Please try again."
       }
     },
     "claimRequests": {

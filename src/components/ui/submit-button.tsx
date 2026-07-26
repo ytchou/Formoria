@@ -11,6 +11,7 @@ interface SubmitButtonProps {
   variant?: 'primary'
   tone?: 'cta' | 'default'
   className?: string
+  'data-ph-no-autocapture'?: boolean
 }
 
 export function SubmitButton({
@@ -21,6 +22,7 @@ export function SubmitButton({
   variant = 'primary',
   tone = 'cta',
   className,
+  'data-ph-no-autocapture': dataPhNoAutocapture,
 }: SubmitButtonProps) {
   return (
     <Button
@@ -29,6 +31,7 @@ export function SubmitButton({
       tone={tone}
       disabled={disabled}
       className={cn('relative w-full', className)}
+      data-ph-no-autocapture={dataPhNoAutocapture}
     >
       <span
         aria-hidden={isSubmitting || undefined}

@@ -1,11 +1,83 @@
 import path from "path";
 import fs from "fs";
+import { execFileSync } from "child_process";
 import { chromium, type Browser } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import { cleanupTestData } from "./helpers/cleanup";
 import { writeAuthStorageState } from "./helpers/auth-session";
 
+const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+
+/** Working directory of whatever process is listening on `port`, or null if undeterminable. */
+function listeningProcessCwd(port: string): string | null {
+  const run = (args: string[]) =>
+    execFileSync("lsof", args, {
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+  try {
+    const pids = run(["-t", `-i:${port}`, "-sTCP:LISTEN"])
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+    for (const pid of pids) {
+      const cwdLine = run(["-a", "-p", pid, "-d", "cwd", "-Fn"])
+        .split("\n")
+        .find((line) => line.startsWith("n/"));
+      if (cwdLine) return cwdLine.slice(1);
+    }
+  } catch {
+    // lsof missing (non-macOS/Linux) or no listener — fall through
+  }
+  return null;
+}
+
+/**
+ * `reuseExistingServer` is on outside CI, so a `pnpm dev` left running from a
+ * *different* checkout answers on the same port and the whole suite silently
+ * tests the wrong code. It is not an obvious failure: brand rows live in the
+ * shared cloud database, so pages still render and only branch-specific UI is
+ * missing — specs die on opaque "element(s) not found" timeouts that look like
+ * selector bugs. This repo keeps many worktrees, so it is easy to hit.
+ * Fail fast and name the directory actually being served.
+ */
+function assertServerServesThisCheckout(): void {
+  if (process.env.CI) return;
+
+  const baseURL =
+    process.env.BASE_URL ??
+    process.env.PLAYWRIGHT_BASE_URL ??
+    "http://localhost:3000";
+  let url: URL;
+  try {
+    url = new URL(baseURL);
+  } catch {
+    return;
+  }
+  // A remote target is deliberate (preview/staging) — nothing to compare against.
+  if (!LOCAL_HOSTNAMES.has(url.hostname)) return;
+
+  const serverCwd = listeningProcessCwd(url.port || "3000");
+  if (!serverCwd) return; // nothing listening yet, or no lsof — don't block the run
+
+  const projectRoot = path.resolve(__dirname, "..");
+  if (path.resolve(serverCwd) === projectRoot) return;
+
+  throw new Error(
+    `E2E preflight failed — ${baseURL} is served from a different checkout.\n` +
+      `  serving:  ${serverCwd}\n` +
+      `  expected: ${projectRoot}\n` +
+      `Playwright reuses an already-running dev server, so this run would have\n` +
+      `tested the wrong branch's code and failed with misleading selector errors.\n` +
+      `Hint: stop that dev server (\`lsof -ti:${url.port || "3000"} | xargs kill\`) and re-run,\n` +
+      `or point this run elsewhere with BASE_URL=http://localhost:<other-port>.`,
+  );
+}
+
 async function globalSetup() {
+  // Guard first: everything below is wasted work if the wrong server answers.
+  assertServerServesThisCheckout();
+
   // Purge stale auth session files so every worker gets a fresh Supabase token
   const authDir = path.join(__dirname, ".auth");
   if (fs.existsSync(authDir)) {
@@ -131,6 +203,35 @@ async function globalSetup() {
       } catch (err) {
         console.warn(
           "[global-setup] /admin warm-up failed (non-fatal):",
+          err instanceof Error ? err.message : String(err),
+        );
+      }
+      // Brand detail is the most-exercised route in the deep suite and carries a
+      // heavy client bundle (correction sheets, share dialog, likes). Compiling it
+      // on demand while several workers hit it at once pushes first interaction
+      // and the first server-action round-trip past the specs' timeouts, which
+      // shows up as flaky "element(s) not found" on dialogs and toasts.
+      try {
+        const { data: warmBrand } = await supabase
+          .from("brands")
+          .select("slug")
+          .eq("status", "approved")
+          .limit(1)
+          .maybeSingle();
+        if (warmBrand?.slug) {
+          await page.goto(`${baseURL}/brands/${warmBrand.slug}`, {
+            waitUntil: "domcontentloaded",
+            timeout: 60000,
+          });
+          await page
+            .getByRole("heading", { level: 1 })
+            .first()
+            .waitFor({ state: "visible", timeout: 120_000 });
+          console.log("[global-setup] /brands/[slug] warm-up complete");
+        }
+      } catch (err) {
+        console.warn(
+          "[global-setup] /brands/[slug] warm-up failed (non-fatal):",
           err instanceof Error ? err.message : String(err),
         );
       }

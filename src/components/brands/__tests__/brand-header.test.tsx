@@ -213,4 +213,72 @@ describe('BrandHeader — fact grid', () => {
       expect(badge).toHaveClass('text-foreground')
     }
   })
+
+  it('renders a correction trigger beside category, price, and tags', () => {
+    renderWithIntl(
+      <BrandHeader
+        brand={
+          makeBrand({
+            productType: 'fashion',
+            category: 'fashion',
+            priceRange: 2,
+            productTags: ['手工製作'],
+          })
+        }
+        cityLabel="台北市"
+      />,
+    )
+
+    expect(screen.getByRole('button', { name: '修正類別' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '修正價格區間' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '修正產品類別' })).toBeInTheDocument()
+  })
+
+  it('does not render a correction trigger for city or founding year', () => {
+    renderWithIntl(
+      <BrandHeader
+        brand={
+          makeBrand({
+            productType: 'fashion',
+            category: 'fashion',
+            priceRange: 2,
+            productTags: ['手工製作'],
+            foundingYear: 2010,
+          })
+        }
+        cityLabel="台北市"
+      />,
+    )
+
+    expect(screen.queryByRole('button', { name: '修正地點' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '修正創立年份' })).not.toBeInTheDocument()
+  })
+
+  it('hides the tags trigger when product_type is null', () => {
+    renderWithIntl(
+      <BrandHeader
+        brand={
+          makeBrand({
+            productType: null,
+            category: 'fashion',
+            priceRange: 2,
+            productTags: ['手工製作'],
+          })
+        }
+      />,
+    )
+
+    expect(screen.getAllByRole('button')).toHaveLength(2)
+    expect(screen.queryByRole('button', { name: '修正產品類別' })).not.toBeInTheDocument()
+  })
+
+  it('keeps badges as direct children of the value cell', () => {
+    renderWithIntl(
+      <BrandHeader brand={makeBrand({ productType: 'fashion', category: 'fashion', priceRange: 2 })} />,
+    )
+
+    const badge = screen.getByText('$$').closest('[data-slot="badge"]')
+    expect(badge).toHaveAttribute('data-variant', 'secondary')
+    expect(badge?.parentElement?.parentElement?.tagName).toBe('DD')
+  })
 })

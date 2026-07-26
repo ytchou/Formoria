@@ -359,6 +359,56 @@ export type Database = {
           },
         ]
       }
+      brand_field_corrections: {
+        Row: {
+          brand_id: string
+          created_at: string
+          field: string
+          id: string
+          previous_value: Json | null
+          proposed_value: Json
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewer_notes: string | null
+          status: string
+          visitor_hash: string | null
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          field: string
+          id?: string
+          previous_value?: Json | null
+          proposed_value: Json
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewer_notes?: string | null
+          status?: string
+          visitor_hash?: string | null
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          field?: string
+          id?: string
+          previous_value?: Json | null
+          proposed_value?: Json
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewer_notes?: string | null
+          status?: string
+          visitor_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_field_corrections_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_field_events: {
         Row: {
           actor: string | null
@@ -513,6 +563,35 @@ export type Database = {
           },
         ]
       }
+      brand_likes: {
+        Row: {
+          brand_id: string
+          created_at: string
+          id: string
+          visitor_hash: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          id?: string
+          visitor_hash: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          id?: string
+          visitor_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_likes_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_location_candidates: {
         Row: {
           audit_result_ids: string[]
@@ -620,35 +699,6 @@ export type Database = {
             foreignKeyName: "brand_owners_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: true
-            referencedRelation: "brands"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      brand_likes: {
-        Row: {
-          brand_id: string
-          created_at: string
-          id: string
-          visitor_hash: string
-        }
-        Insert: {
-          brand_id: string
-          created_at?: string
-          id?: string
-          visitor_hash: string
-        }
-        Update: {
-          brand_id?: string
-          created_at?: string
-          id?: string
-          visitor_hash?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "brand_likes_brand_id_fkey"
-            columns: ["brand_id"]
-            isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
@@ -2377,9 +2427,9 @@ export type Database = {
           p_dry_run: boolean
           p_operation: string
           p_params: Json
-          p_parent_job_id: string | null
+          p_parent_job_id: string
           p_run_after: string
-          p_scheduled_for: string | null
+          p_scheduled_for: string
           p_started_by: string
           p_targets: Json
           p_trigger: string

@@ -148,17 +148,28 @@ export function isLikelyCrawler(request: NextRequest): boolean {
   return CRAWLER_RE.test(userAgent)
 }
 
-export function getClientIp(request: Request): string {
-  const cfConnectingIp = request.headers.get('cf-connecting-ip')
+/**
+ * Structural shape shared by `Headers` and Next's `ReadonlyHeaders`, so Server
+ * Actions (which have no `Request`) can resolve the client IP the same way
+ * route handlers and middleware do.
+ */
+type HeaderReader = { get(name: string): string | null }
+
+export function getClientIpFromHeaders(headerList: HeaderReader): string {
+  const cfConnectingIp = headerList.get('cf-connecting-ip')
   if (cfConnectingIp) {
     return cfConnectingIp
   }
 
-  const forwarded = request.headers.get('x-forwarded-for')
+  const forwarded = headerList.get('x-forwarded-for')
   if (forwarded) {
     return forwarded.split(',')[0].trim()
   }
-  return request.headers.get('x-real-ip') ?? 'unknown'
+  return headerList.get('x-real-ip') ?? 'unknown'
+}
+
+export function getClientIp(request: Request): string {
+  return getClientIpFromHeaders(request.headers)
 }
 
 const SOFT_LIMIT = { windowMs: 60_000, maxRequests: 30 }
