@@ -610,9 +610,9 @@ describe("Linear adapter", () => {
       created: 1,
       updated: 0,
     });
+    expect(bodyAt(fetchImpl, 1).query).not.toContain("issueLabels(filter:");
     expect(bodyAt(fetchImpl, 2).variables).toEqual({
       after: "label-cursor-1",
-      teamId: "team-1",
     });
     expect(bodyAt(fetchImpl, 3).query).toContain("issueCreate");
   });
