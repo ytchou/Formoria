@@ -89,6 +89,13 @@ function categoryValue(page: Page) {
 // lands too early is a no-op. Retry the (idempotent) open until the sheet is up
 // rather than sleeping on a guessed hydration delay.
 async function openCategorySheet(page: Page) {
+  // The trigger ships in the server-rendered HTML, so a missing one is never a
+  // hydration race — it means the page under test doesn't have this feature at
+  // all. Assert it up front: folded into the retry loop below it surfaces as an
+  // opaque "predicate timed out" pointing at the dialog, which reads like a
+  // broken dialog selector and sends debugging the wrong way.
+  await expect(categoryTrigger(page)).toBeVisible();
+
   const sheet = categorySheet(page);
   await expect(async () => {
     if (!(await sheet.isVisible())) await categoryTrigger(page).click();
