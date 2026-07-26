@@ -643,6 +643,12 @@ const LINEAR_UPDATE_MUTATION = `
   }
 `;
 
+const LINEAR_LABEL_CREATE_MUTATION = `
+  mutation HealthAgentLabelCreate($input: IssueLabelCreateInput!) {
+    issueLabelCreate(input: $input) { success issueLabel { id name } }
+  }
+`;
+
 function fingerprintMarker(fingerprint: string): string {
   return `<!-- health-agent:fingerprint:${fingerprint} -->`;
 }
@@ -806,9 +812,7 @@ export async function syncLinearFindings(
     return data;
   };
 
-  const loadLabels = async (
-    requiredLabel: "Data Quality" | "Ops",
-  ): Promise<Map<"Data Quality" | "Ops", string>> => {
+  const loadLabels = async (): Promise<Map<"Data Quality" | "Ops", string>> => {
     if (labels) return labels;
     const data = await graphql(
       "lookup_labels",
@@ -829,23 +833,6 @@ export async function syncLinearFindings(
       ) {
         next.set(name, id);
       }
-    }
-    if (!next.has(requiredLabel)) {
-      emitAudit(
-        deps.audit,
-        "linear",
-        "validate_labels",
-        "failure",
-        0,
-        { configuredTeam: true },
-        { error: "missing_allowed_labels" },
-        true,
-      );
-      throw new HealthAdapterError(
-        "Linear labels are not configured",
-        "linear",
-        "validate_labels",
-      );
     }
     labels = next;
     return next;
@@ -876,6 +863,39 @@ export async function syncLinearFindings(
     if (after) seenCursors.add(after);
   } while (after);
 
+  const requiredLabels = new Set(eligible.map(linearLabelName));
+  const allowedLabels = await loadLabels();
+  for (const name of requiredLabels) {
+    if (allowedLabels.has(name)) continue;
+    const data = await graphql(
+      "create_label",
+      LINEAR_LABEL_CREATE_MUTATION,
+      { input: { name, teamId } },
+      (value) => {
+        const payload = graphqlData(value)?.issueLabelCreate;
+        return (
+          isRecord(payload) &&
+          payload.success === true &&
+          isRecord(payload.issueLabel) &&
+          stringValue(payload.issueLabel.id) !== undefined
+        );
+      },
+    );
+    const payload = data.issueLabelCreate;
+    const issueLabel = isRecord(payload) ? payload.issueLabel : undefined;
+    const labelId = isRecord(issueLabel)
+      ? stringValue(issueLabel.id)
+      : undefined;
+    if (!labelId) {
+      throw new HealthAdapterError(
+        "Linear label creation failed",
+        "linear",
+        "create_label",
+      );
+    }
+    allowedLabels.set(name, labelId);
+  }
+
   for (const finding of eligible) {
     const marker = fingerprintMarker(finding.fingerprint);
     const existing = projectIssues.find((node) => {
@@ -890,7 +910,6 @@ export async function syncLinearFindings(
       );
     });
     const labelName = linearLabelName(finding);
-    const allowedLabels = await loadLabels(labelName);
     const labelId = allowedLabels.get(labelName);
     if (!labelId) {
       throw new HealthAdapterError(

@@ -569,7 +569,7 @@ describe("Linear adapter", () => {
     expect(bodyAt(fetchImpl, 2).query).toContain("issueCreate");
   });
 
-  it("refuses labels outside Data Quality and Ops in the configured team", async () => {
+  it("provisions every missing allowed label before creating any issues", async () => {
     const fetchImpl = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(jsonResponse({ data: { issues: { nodes: [] } } }))
@@ -588,15 +588,66 @@ describe("Linear adapter", () => {
             },
           },
         }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            issueLabelCreate: {
+              issueLabel: { id: "label-dq", name: "Data Quality" },
+              success: true,
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            issueLabelCreate: {
+              issueLabel: { id: "label-ops", name: "Ops" },
+              success: true,
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            issueCreate: {
+              issue: { id: "linear-link", identifier: "FOR-50" },
+              success: true,
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            issueCreate: {
+              issue: { id: "linear-sentry", identifier: "FOR-51" },
+              success: true,
+            },
+          },
+        }),
       );
     const adapter = createLinearAdapter(
       linearConfig(fetchImpl, () => undefined),
     );
 
-    await expect(adapter.sync([finding({ source: "link" })])).rejects.toThrow(
-      "Linear labels are not configured",
-    );
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    await expect(
+      adapter.sync([
+        finding({ fingerprint: "link:broken:one", source: "link" }),
+        finding({ fingerprint: "sentry:issue:one", source: "sentry" }),
+      ]),
+    ).resolves.toMatchObject({ created: 2, updated: 0 });
+
+    expect(bodyAt(fetchImpl, 2)).toMatchObject({
+      variables: { input: { name: "Data Quality", teamId: "team-1" } },
+    });
+    expect(bodyAt(fetchImpl, 3)).toMatchObject({
+      variables: { input: { name: "Ops", teamId: "team-1" } },
+    });
+    expect(bodyAt(fetchImpl, 4).query).toContain("issueCreate");
+    expect(bodyAt(fetchImpl, 5).query).toContain("issueCreate");
   });
 });
 
