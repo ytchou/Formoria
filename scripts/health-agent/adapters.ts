@@ -830,7 +830,7 @@ export async function syncLinearFindings(
       const teamValue = isRecord(team) ? stringValue(team.id) : undefined;
       if (
         id &&
-        teamValue === teamId &&
+        (teamValue === teamId || team === null) &&
         (name === "Data Quality" || name === "Ops")
       ) {
         next.set(name, id);
