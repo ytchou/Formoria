@@ -22,7 +22,7 @@ vi.mock('next-intl/server', () => {
                 : namespace === 'brands.verificationFilter' && key === 'owned'
                   ? 'Owner-managed'
                   : namespace === 'brands' && key === 'metadata.title'
-                    ? 'Formoria — 台灣品牌目錄'
+                    ? '品牌目錄 — 依分類探索台灣品牌 | Formoria'
                     : namespace === 'brands' && key === 'metadata.description'
                       ? '探索精選的台灣品牌，依分類瀏覽、搜尋，認識在台灣創立、設計或製造的品牌。'
                       : namespace === 'categories' && key === 'metadata.title'
@@ -156,7 +156,7 @@ describe('brands directory headings', () => {
       searchParams: Promise.resolve({}),
     })
 
-    expect(metadata.title).toEqual({ absolute: 'Formoria — 台灣品牌目錄' })
+    expect(metadata.title).toEqual({ absolute: '品牌目錄 — 依分類探索台灣品牌 | Formoria' })
     expect(metadata.description).toBe('探索精選的台灣品牌，依分類瀏覽、搜尋，認識在台灣創立、設計或製造的品牌。')
   })
 })
@@ -190,7 +190,7 @@ describe('generateMetadata with ?sub=', () => {
       sub: 'hiking-and-camping-gear',
     }))
 
-    expect(metadata.title).toEqual({ absolute: 'Formoria — 台灣品牌目錄' })
+    expect(metadata.title).toEqual({ absolute: '品牌目錄 — 依分類探索台灣品牌 | Formoria' })
     expect(metadata.alternates?.canonical).not.toContain('sub=')
   })
 })

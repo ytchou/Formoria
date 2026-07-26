@@ -797,6 +797,8 @@ function recentBrandEdit(row: Record<string, unknown>): RecentBrandEdit {
     mitVerifiedAt: nullableBrandString(row.mit_verified_at),
     name: safeString(row.name, "brand.name"),
     otherUrls: brandOtherUrls(row.other_urls),
+    purchasePinkoi: nullableBrandString(row.purchase_pinkoi),
+    purchaseShopee: nullableBrandString(row.purchase_shopee),
     purchaseWebsite: nullableBrandString(row.purchase_website),
     socialFacebook: nullableBrandString(row.social_facebook),
     socialInstagram: nullableBrandString(row.social_instagram),
@@ -840,7 +842,7 @@ async function collectBrandReview(
     const rows = await supabaseRows(
       dependencies,
       "brands",
-      "id,name,description,description_en,mit_status,mit_declared_scope,mit_declared_at,mit_verified_at,purchase_website,social_instagram,social_threads,social_facebook,other_urls",
+      "id,name,description,description_en,mit_status,mit_declared_scope,mit_declared_at,mit_verified_at,purchase_website,purchase_pinkoi,purchase_shopee,social_instagram,social_threads,social_facebook,other_urls",
       "brand_review_query",
       { status: "eq.approved", updated_at: `gte.${windowStart}` },
     );

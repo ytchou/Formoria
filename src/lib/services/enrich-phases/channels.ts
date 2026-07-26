@@ -79,7 +79,7 @@ const CITY_REGION_LABELS: Readonly<Record<string, string>> = {
 const CLEARLY_NON_RETAIL_NAMES = ['牙醫', '牙科', '診所', '醫院', '無對外參觀', '不對外開放'] as const
 
 type LocationEvidence = {
-  source: 'official' | 'social' | 'maps' | 'description' | 'serp'
+  source: 'official' | 'social' | 'maps' | 'description' | 'serp' | 'existing'
   url?: string
   auditResultId?: string
   excerpt?: string
@@ -418,7 +418,15 @@ async function getExistingChannelCandidates(options: ChannelsPhaseOptions): Prom
       // LOAD-BEARING: getRetailChainCandidate refuses to collapse owner_confirmed rows into a chain.
       confirmationStatus: row.owner_status === 'confirmed' ? 'owner_confirmed' : 'unconfirmed',
     }
-    return makeCandidate(location, 'Existing channel is missing an address', [], 'needs_review', [], 'existing')
+    const existingUrl = optionalText(row.url)
+    return makeCandidate(
+      location,
+      'Existing channel is missing an address',
+      existingUrl ? [{ source: 'existing', url: existingUrl }] : [],
+      'needs_review',
+      [],
+      'existing',
+    )
   })
 }
 
@@ -586,7 +594,7 @@ function getRetailChainCandidate(
   const distinctAddresses = new Set(branchPlaces.map((place) => normalizeLocationAddress(place.address)))
   if (distinctAddresses.size < 2) return null
 
-  const retailerUrl = getSharedRetailerUrl(branchPlaces)
+  const retailerUrl = getSharedRetailerUrl(branchPlaces) ?? getCandidateUrl(target)
   const location: RetailChainChannel = {
     kind: 'retail_chain',
     name: target.location.name,
@@ -795,8 +803,17 @@ function getRelationshipType(categoryLabel: string | null): PhysicalRetailLocati
 }
 
 function getCandidateUrl(candidate: LocationCandidate): string | undefined {
-  if (isRetailChainChannel(candidate.location)) return optionalText(candidate.location.retailerUrl)
-  return candidate.evidence.find((item) => item.source === 'maps' && item.url)?.url
+  // Priority: retailer locator > maps-corroborated branch URL > URL the row already had.
+  // DEV-1151 AC5 — a chain conversion must never drop a URL we already knew.
+  // Deliberately narrow: only 'maps' and 'existing' evidence may supply a channel URL;
+  // description/serp/social evidence URLs must never leak into brand_channels.url.
+  const evidenceUrl =
+    candidate.evidence.find((item) => item.source === 'maps' && item.url)?.url ??
+    candidate.evidence.find((item) => item.source === 'existing' && item.url)?.url
+  if (isRetailChainChannel(candidate.location)) {
+    return optionalText(candidate.location.retailerUrl) ?? evidenceUrl
+  }
+  return evidenceUrl
 }
 
 function toChannelCandidate(candidate: LocationCandidate): ChannelCandidate {

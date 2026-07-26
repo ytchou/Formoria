@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 }
 
 export default async function BrandsPage() {
-  const { brands } = await getBrands({ includeTestBrands: true })
+  const { brands } = await getBrands({ includeTestBrands: true, sort: 'newest' })
   const resendableBrandIds = brands
     .filter((brand) => brand.status === 'approved' && !brand.isVerified)
     .map((brand) => brand.id)

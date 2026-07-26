@@ -406,7 +406,7 @@ describe("collect-brand-review", () => {
               other_urls: JSON.stringify([
                 { label: "Profile", url: "https://formoria.com/brand-one" },
               ]),
-              purchase_website: null,
+              purchase_website: "https://brand-one.example",
               social_facebook: null,
               social_instagram: null,
               social_threads: null,
