@@ -58,19 +58,24 @@ import {
   type HealthAgentEnvelope,
   type HealthCollectorArtifact,
   type HealthRoutine,
+  type LinearSyncInput,
+  type LinearSyncResult,
   type JsonFileStore,
   type QueueBatchResult,
   type SlackDigestInput,
 } from "./orchestrator";
-import type {
-  AuditLogger,
-  AuditRecord,
-  HealthFinding,
-  HealthSummary,
-  JsonValue,
+import {
+  requiresHumanPolicy,
+  type AuditLogger,
+  type AuditRecord,
+  type HealthFinding,
+  type HealthFindingLifecycle,
+  type HealthSummary,
+  type JsonValue,
 } from "./contracts";
 
 const MAX_RUNTIME_FINDINGS = 10_000;
+const FINGERPRINT_STATE_BATCH_SIZE = 40;
 const MAX_RUNTIME_ISSUES = 20;
 const execFileAsync = promisify(execFile);
 const ACTIVE_AUTOMATIC_STATUSES = [
@@ -237,6 +242,7 @@ export interface FinalReportInput {
   automaticPrResultPath?: string;
   deferDelivery?: boolean;
   humanPrResultPath?: string;
+  mode: "canary_fix" | "live" | "preflight";
   outputPath: string;
   phases: HealthSummary["phases"];
   queueArtifactPath?: string;
@@ -570,6 +576,7 @@ const HEALTH_AGENT_RPC_NAMES = new Set([
   "fail_health_agent_run",
   "record_health_snapshot",
   "record_link_health_result",
+  "reconcile_health_fix_lifecycle",
   "transition_health_fix",
 ]);
 
@@ -711,6 +718,78 @@ function supabaseQueueDependencies(
         (candidate) => Array.isArray(candidate),
       );
       return (value as unknown[]).length > 0;
+    },
+    listFingerprintStates: async (fingerprints) => {
+      if (fingerprints.length === 0) return [];
+      const batches = Array.from(
+        {
+          length: Math.ceil(fingerprints.length / FINGERPRINT_STATE_BATCH_SIZE),
+        },
+        (_, index) =>
+          fingerprints.slice(
+            index * FINGERPRINT_STATE_BATCH_SIZE,
+            (index + 1) * FINGERPRINT_STATE_BATCH_SIZE,
+          ),
+      );
+      const values = await Promise.all(
+        batches.map((batch) => {
+          const params = new URLSearchParams({
+            fingerprint: `in.(${batch.join(",")})`,
+            order: "created_at.desc",
+            select: "fingerprint,status",
+          });
+          return supabaseRequest(
+            dependencies,
+            "list_health_fingerprint_states",
+            `/rest/v1/health_fix_queue?${params.toString()}`,
+            "HEALTH_AGENT_READER_TOKEN",
+            { method: "GET" },
+            (candidate) => Array.isArray(candidate),
+          );
+        }),
+      );
+      const states = values
+        .flatMap((value) => value as unknown[])
+        .flatMap((candidate) => {
+          if (!isRecord(candidate)) return [];
+          return typeof candidate.fingerprint === "string" &&
+            typeof candidate.status === "string"
+            ? [{ fingerprint: candidate.fingerprint, status: candidate.status }]
+            : [];
+        });
+      const seen = new Set<string>();
+      return states.filter(({ fingerprint }) => {
+        if (seen.has(fingerprint)) return false;
+        seen.add(fingerprint);
+        return true;
+      });
+    },
+    reconcileFingerprintLifecycle: async (observedFingerprints) => {
+      const value = await supabaseRequest(
+        dependencies,
+        "reconcile_health_fix_lifecycle",
+        "/rest/v1/rpc/reconcile_health_fix_lifecycle",
+        "HEALTH_AGENT_WRITER_TOKEN",
+        {
+          body: JSON.stringify({
+            p_observed_fingerprints: observedFingerprints,
+          }),
+          method: "POST",
+        },
+        (candidate) => Array.isArray(candidate),
+      );
+      const fixedFingerprints: string[] = [];
+      const failedVerificationFingerprints: string[] = [];
+      for (const candidate of value as unknown[]) {
+        if (!isRecord(candidate) || typeof candidate.fingerprint !== "string")
+          continue;
+        if (candidate.reconciliation === "fixed") {
+          fixedFingerprints.push(candidate.fingerprint);
+        } else if (candidate.reconciliation === "failed_verification") {
+          failedVerificationFingerprints.push(candidate.fingerprint);
+        }
+      }
+      return { failedVerificationFingerprints, fixedFingerprints };
     },
   };
 }
@@ -2169,6 +2248,54 @@ function queueBatchFindingCount(
   return Array.isArray(findings) ? findings.length : 0;
 }
 
+function queueBatchFingerprints(
+  queue: unknown,
+  policy: "automatic" | "human",
+): string[] {
+  if (!isRecord(queue) || !isRecord(queue[policy])) return [];
+  const findings = queue[policy].findings;
+  if (!Array.isArray(findings)) return [];
+  return findings.flatMap((finding) =>
+    isRecord(finding) && typeof finding.fingerprint === "string"
+      ? [finding.fingerprint]
+      : [],
+  );
+}
+
+function queueLifecycle(queue: unknown): HealthFindingLifecycle {
+  const lifecycle =
+    isRecord(queue) && isRecord(queue.lifecycle) ? queue.lifecycle : {};
+  const count = (value: unknown): number =>
+    typeof value === "number" && Number.isSafeInteger(value) && value >= 0
+      ? value
+      : 0;
+  return {
+    new: count(lifecycle.new),
+    ongoing: count(lifecycle.ongoing),
+    regressed: count(lifecycle.regressed),
+  };
+}
+
+function queueVerifiedFixedCount(queue: unknown): number {
+  return isRecord(queue)
+    ? stringArray(queue.verifiedFixedFingerprints).length
+    : 0;
+}
+
+function queueFailedVerificationFingerprints(queue: unknown): string[] {
+  return isRecord(queue)
+    ? stringArray(queue.failedVerificationFingerprints)
+    : [];
+}
+
+function linearSyncFunction(
+  dependencies: WorkflowRuntimeDependencies,
+): ((input: LinearSyncInput) => Promise<LinearSyncResult>) | undefined {
+  const linear = dependencies.linear;
+  if (!linear) return undefined;
+  return typeof linear === "function" ? linear : (input) => linear.sync(input);
+}
+
 function repairResult(
   value: unknown,
   policy: "automatic" | "human",
@@ -2176,7 +2303,6 @@ function repairResult(
   phases: FinalReportInput["phases"],
 ): {
   batch: JsonObject;
-  fixedIds: string[];
   pr?: number;
 } {
   const fallbackStatus =
@@ -2194,10 +2320,8 @@ function repairResult(
         merge_policy: policy,
         status: fallbackStatus,
       },
-      fixedIds: [],
     };
   }
-  const fixedIds = stringArray(value.claimed_finding_ids);
   const pr =
     typeof value.pr_number === "number" &&
     Number.isSafeInteger(value.pr_number) &&
@@ -2220,13 +2344,21 @@ function repairResult(
         : {}),
       status,
     },
-    fixedIds: pr ? fixedIds : [],
     ...(pr ? { pr } : {}),
   };
 }
 
 function aggregateFailures(value: unknown): string[] {
   return isRecord(value) ? stringArray(value.failures) : ["aggregate_missing"];
+}
+
+function terminalFindings(value: unknown): readonly HealthFinding[] {
+  if (!isRecord(value)) return [];
+  try {
+    return findingsFromArtifact(value);
+  } catch {
+    return [];
+  }
 }
 
 export async function deliverFinalHealthReport(
@@ -2238,6 +2370,7 @@ export async function deliverFinalHealthReport(
     dependencies,
   );
   const queue = await optionalArtifact(input.queueArtifactPath, dependencies);
+  const findings = terminalFindings(aggregate);
   const [automaticPr, humanPr] = await Promise.all([
     optionalArtifact(input.automaticPrResultPath, dependencies),
     optionalArtifact(input.humanPrResultPath, dependencies),
@@ -2271,7 +2404,6 @@ export async function deliverFinalHealthReport(
     input.phases,
   );
   const prResults = [automatic, human];
-  const fixedIds = new Set(prResults.flatMap((result) => result.fixedIds));
   const pullRequests = prResults.filter(
     (result) => result.pr !== undefined,
   ).length;
@@ -2279,10 +2411,59 @@ export async function deliverFinalHealthReport(
     ...aggregateFailures(aggregate),
     ...(isRecord(queue) ? stringArray(queue.failures) : []),
   ];
-  const operationalFailure =
+  const lifecycle = queueLifecycle(queue);
+  const verifiedFixed = queueVerifiedFixedCount(queue);
+  const exhaustedAutomationFingerprints = automatic.pr
+    ? queueFailedVerificationFingerprints(queue)
+    : [
+        ...queueBatchFingerprints(queue, "automatic"),
+        ...queueFailedVerificationFingerprints(queue),
+      ];
+  const reviewFingerprints = new Set([
+    ...findings
+      .filter(requiresHumanPolicy)
+      .map(({ fingerprint }) => fingerprint),
+    ...exhaustedAutomationFingerprints,
+  ]);
+  const reviewFindingCount = reviewFingerprints.size;
+  const pullRequestUrls = prResults.flatMap((result) =>
+    typeof result.batch.pr_url === "string" ? [result.batch.pr_url] : [],
+  );
+  const hasOperationalFailure = () =>
     failures.length > 0 ||
     Object.values(input.phases).includes("failed") ||
     Object.values(checks).some((check) => check.status === "failed");
+  const linearOutcomes: JsonValue[] = [];
+  const linear = linearSyncFunction(dependencies);
+  if (input.mode === "live" && linear) {
+    try {
+      const sync = await linear({
+        exhaustedAutomationFingerprints,
+        findings,
+        summary: {
+          fixed: verifiedFixed,
+          newFindings: lifecycle.new,
+          ongoingFindings: lifecycle.ongoing,
+          pullRequestUrls,
+          regressedFindings: lifecycle.regressed,
+          reviewFindings: reviewFindingCount,
+          runAt: input.runAt,
+          status: hasOperationalFailure()
+            ? "failed"
+            : findingCount > 0
+              ? "needs_attention"
+              : "resolved",
+          totalFindings: findingCount,
+          unresolved: findingCount,
+          workflowUrl: input.workflowUrl,
+        },
+      });
+      linearOutcomes.push(...(sync.outcomes ?? []));
+    } catch {
+      failures.push("linear_final_sync:failed");
+    }
+  }
+  const operationalFailure = hasOperationalFailure();
   const overallStatus: HealthSummary["overallStatus"] = operationalFailure
     ? "failed"
     : findingCount > 0
@@ -2314,19 +2495,24 @@ export async function deliverFinalHealthReport(
     claimed: isRecord(queue)
       ? stringArray(queue.claimedFingerprints).length
       : 0,
-    fixed: fixedIds.size,
+    fixed: verifiedFixed,
     pullRequests,
     queued: isRecord(queue)
       ? stringArray(queue.enqueuedFingerprints).length
       : 0,
-    unresolved: Math.max(0, findingCount - fixedIds.size),
+    unresolved: findingCount,
   };
   const healthSummary: HealthSummary = {
     checks,
+    lifecycle,
     overallStatus,
     phases: input.phases,
     repair,
-    ...terminalLinearTicket(aggregate),
+    ...terminalLinearTicket(
+      aggregate,
+      linearOutcomes,
+      overallStatus === "needs_attention" && findingCount > 0,
+    ),
   };
   const queued = repair.queued;
   const claimed = repair.claimed;
@@ -2370,6 +2556,12 @@ export async function deliverFinalHealthReport(
         },
       },
       failures,
+      lifecycle: {
+        new: lifecycle.new,
+        ongoing: lifecycle.ongoing,
+        regressed: lifecycle.regressed,
+      },
+      linear_outcomes: linearOutcomes,
       notification_owner: "github_actions",
       overall_status: overallStatus,
       phases: input.phases,
@@ -2431,10 +2623,15 @@ export async function deliverFinalHealthReport(
 
 function terminalLinearTicket(
   aggregate: unknown,
+  finalOutcomes: readonly JsonValue[] = [],
+  active = true,
 ): Pick<HealthSummary, "ticket"> {
-  if (!isRecord(aggregate) || !Array.isArray(aggregate.linearOutcomes))
-    return {};
-  const outcome = aggregate.linearOutcomes.find(
+  if (!active) return {};
+  const aggregateOutcomes =
+    isRecord(aggregate) && Array.isArray(aggregate.linearOutcomes)
+      ? aggregate.linearOutcomes
+      : [];
+  const outcome = [...finalOutcomes, ...aggregateOutcomes].find(
     (value) => isRecord(value) && typeof value.identifier === "string",
   );
   if (!isRecord(outcome) || typeof outcome.identifier !== "string") return {};
@@ -2457,11 +2654,16 @@ function managerVerdict(summary: HealthSummary): string {
     summary.repair.pullRequests === 0
       ? "No repair PR created."
       : `${summary.repair.pullRequests} repair PR${summary.repair.pullRequests === 1 ? "" : "s"} created.`;
-  const action = summary.ticket
-    ? `Review ${summary.ticket.identifier}: ${summary.ticket.url}`
-    : summary.overallStatus === "healthy"
-      ? "No manager action needed."
-      : "Review the failed workflow.";
+  const action =
+    summary.overallStatus === "failed"
+      ? "Review the failed workflow."
+      : summary.ticket
+        ? `Review ${summary.ticket.identifier}: ${summary.ticket.url}`
+        : summary.repair.pullRequests > 0
+          ? "Review the repair PR."
+          : summary.overallStatus === "healthy"
+            ? "No manager action needed."
+            : "Review unresolved findings.";
   return `${total} issues; ${summary.repair.fixed} fixed. ${work} ${action}`;
 }
 
@@ -2685,6 +2887,27 @@ function findingsFromArtifact(value: unknown): readonly HealthFinding[] {
   throw new Error("repair_findings_missing");
 }
 
+function canVerifyDetectorAbsence(value: unknown): boolean {
+  if (!isRecord(value) || !isRecord(value.artifacts)) return false;
+  const artifacts = value.artifacts;
+  return (["directory-health", "link-checker", "sentry-triage"] as const).every(
+    (routine) => {
+      const artifact = artifacts[routine];
+      if (!isRecord(artifact)) return false;
+      try {
+        if (validateCollectorArtifact(artifact).status !== "success") {
+          return false;
+        }
+        if (routine !== "sentry-triage") return true;
+        const snapshot = isRecord(artifact.snapshot) ? artifact.snapshot : {};
+        return snapshot.hasMore === false && snapshot.incidentMode === false;
+      } catch {
+        return false;
+      }
+    },
+  );
+}
+
 export async function enqueueAndClaimWorkflowBatch(
   input: QueueWorkflowInput,
   dependencies: WorkflowRuntimeDependencies = createWorkflowRuntimeDependencies(),
@@ -2693,14 +2916,17 @@ export async function enqueueAndClaimWorkflowBatch(
     input.findingsArtifactPath,
     filesFor(dependencies),
   );
+  const findings = findingsFromArtifact(value).filter(
+    (finding) => !isStaleBranchFinding(finding),
+  );
   const result = await enqueueAndClaimPolicyBatches(
     {
       canaryFingerprints: input.canaryFingerprints,
-      findings: findingsFromArtifact(value).filter(
-        (finding) => !isStaleBranchFinding(finding),
-      ),
+      findings,
       leaseOwner: input.leaseOwner,
       mode: input.mode,
+      verifyAbsentFindings:
+        input.mode === "live" && canVerifyDetectorAbsence(value),
     },
     {
       ...dependencies,
@@ -3345,6 +3571,7 @@ export async function runWorkflowCommand(
             typeof input.humanPrResultPath === "string"
               ? input.humanPrResultPath
               : undefined,
+          mode: safeMode(input.mode),
           outputPath: safeString(input.outputPath, "outputPath"),
           phases: {
             analyze: safePhaseStatus(input.analyzeStatus),

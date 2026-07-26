@@ -31,6 +31,7 @@ import {
   stableFingerprint,
   type AuditLogger,
   type HealthFinding,
+  type HealthFindingLifecycle,
   type HealthSummary,
   type HealthSource,
   type JsonValue,
@@ -1165,6 +1166,21 @@ export interface DeliveryDependencies {
 export interface LinearSyncInput {
   exhaustedAutomationFingerprints: readonly string[];
   findings: readonly HealthFinding[];
+  summary?: LinearSyncSummary;
+}
+
+export interface LinearSyncSummary {
+  fixed: number;
+  newFindings: number;
+  ongoingFindings: number;
+  pullRequestUrls?: readonly string[];
+  regressedFindings: number;
+  reviewFindings: number;
+  runAt: string;
+  status: "failed" | "needs_attention" | "resolved";
+  totalFindings: number;
+  unresolved: number;
+  workflowUrl?: string;
 }
 
 export interface LinearSyncResult {
@@ -1220,6 +1236,22 @@ export interface HealthAgentDatabase {
     input: readonly HealthQueueFindingInput[],
   ) => Promise<unknown>;
   hasUnconfirmedAutomatic?: () => Promise<boolean>;
+  listFingerprintStates?: (
+    fingerprints: readonly string[],
+  ) => Promise<readonly HealthFingerprintState[]>;
+  reconcileFingerprintLifecycle?: (
+    observedFingerprints: readonly string[],
+  ) => Promise<HealthFingerprintReconciliation>;
+}
+
+export interface HealthFingerprintState {
+  fingerprint: string;
+  status: string;
+}
+
+export interface HealthFingerprintReconciliation {
+  failedVerificationFingerprints: readonly string[];
+  fixedFingerprints: readonly string[];
 }
 
 export type QueueEntryInput = HealthQueueFindingInput;
@@ -1231,6 +1263,12 @@ export interface QueueDependencies {
   ): Promise<readonly RepairFinding[]>;
   enqueue(input: QueueEntryInput): Promise<unknown>;
   hasUnconfirmedAutomatic?: () => Promise<boolean>;
+  listFingerprintStates?: (
+    fingerprints: readonly string[],
+  ) => Promise<readonly HealthFingerprintState[]>;
+  reconcileFingerprintLifecycle?: (
+    observedFingerprints: readonly string[],
+  ) => Promise<HealthFingerprintReconciliation>;
 }
 
 export interface HealthAgentDependencies {
@@ -1814,14 +1852,22 @@ export interface QueueBatchInput {
   leaseOwner?: string;
   mode: HealthAgentMode;
   repairResults?: readonly RepairResult[];
+  verifyAbsentFindings?: boolean;
 }
 
 export interface QueueBatchResult {
   automatic: RepairSnapshot;
   claimedFingerprints: string[];
   enqueuedFingerprints: string[];
+  failedVerificationFingerprints: string[];
   failures: string[];
   human: RepairSnapshot;
+  lifecycle: HealthFindingLifecycle;
+  lifecycleFingerprints: {
+    new: string[];
+    ongoing: string[];
+    regressed: string[];
+  };
   linear: {
     outcomes: JsonValue[];
     status: "failed" | "not_required" | "sent" | "suppressed";
@@ -1830,10 +1876,51 @@ export interface QueueBatchResult {
   skippedActions: string[];
   snapshot: RepairSnapshot;
   suppressed: boolean;
+  verifiedFixedFingerprints: string[];
 }
 
 export const HEALTH_AGENT_CANARY_FINGERPRINT =
   "directory:canary:github-app-pr" as const;
+
+const ACTIVE_FINDING_STATUSES = new Set([
+  "awaiting_human",
+  "claimed",
+  "deployed",
+  "failed",
+  "merged",
+  "needs_human",
+  "pending",
+  "pr_opened",
+]);
+
+function findingLifecycle(
+  fingerprints: readonly string[],
+  states: ReadonlyMap<string, string>,
+): {
+  counts: HealthFindingLifecycle;
+  fingerprints: { new: string[]; ongoing: string[]; regressed: string[] };
+} {
+  const result = {
+    new: [] as string[],
+    ongoing: [] as string[],
+    regressed: [] as string[],
+  };
+  for (const fingerprint of fingerprints) {
+    const status = states.get(fingerprint);
+    if (status === "fixed") result.regressed.push(fingerprint);
+    else if (status && ACTIVE_FINDING_STATUSES.has(status))
+      result.ongoing.push(fingerprint);
+    else result.new.push(fingerprint);
+  }
+  return {
+    counts: {
+      new: result.new.length,
+      ongoing: result.ongoing.length,
+      regressed: result.regressed.length,
+    },
+    fingerprints: result,
+  };
+}
 
 function canaryFinding(leaseOwner: string): HealthFinding {
   return {
@@ -1926,17 +2013,29 @@ export async function enqueueAndClaimPolicyBatches(
     partition = empty,
     enqueuedFingerprints: string[] = [],
     claimedFingerprints: string[] = [],
+    lifecycle: HealthFindingLifecycle = { new: 0, ongoing: 0, regressed: 0 },
+    lifecycleFingerprints: {
+      new: string[];
+      ongoing: string[];
+      regressed: string[];
+    } = { new: [], ongoing: [], regressed: [] },
+    verifiedFixedFingerprints: string[] = [],
+    failedVerificationFingerprints: string[] = [],
   ): QueueBatchResult => ({
     automatic: snapshotClaimedFindings(partition.automatic.findings),
     claimedFingerprints,
     enqueuedFingerprints,
+    failedVerificationFingerprints,
     failures,
     human: snapshotClaimedFindings(partition.human.findings),
+    lifecycle,
+    lifecycleFingerprints,
     linear: { outcomes: [], status: "not_required" },
     partition,
     skippedActions,
     snapshot,
     suppressed,
+    verifiedFixedFingerprints,
   });
 
   if (input.mode === "preflight") {
@@ -1980,13 +2079,50 @@ export async function enqueueAndClaimPolicyBatches(
     return baseResult(true);
   }
 
-  const enqueueInput = eligible.map(queueInput);
   const database = dependencies.database;
   const legacyQueue =
     dependencies.queue ??
     ("claim" in dependencies && "enqueue" in dependencies
       ? (dependencies as unknown as QueueDependencies)
       : undefined);
+  const enqueueInput = eligible.map(queueInput);
+  const listFingerprintStates =
+    database?.listFingerprintStates ?? legacyQueue?.listFingerprintStates;
+  const reconcileFingerprintLifecycle =
+    database?.reconcileFingerprintLifecycle ??
+    legacyQueue?.reconcileFingerprintLifecycle;
+  let priorStates = new Map<string, string>();
+  if (listFingerprintStates && eligible.length > 0) {
+    try {
+      const states = await listFingerprintStates(
+        eligible.map(({ fingerprint }) => fingerprint),
+      );
+      priorStates = new Map(
+        states.map(({ fingerprint, status }) => [fingerprint, status]),
+      );
+    } catch {
+      failures.push("fingerprint_state_lookup:failed");
+    }
+  }
+  const lifecycle = findingLifecycle(
+    eligible.map(({ fingerprint }) => fingerprint),
+    priorStates,
+  );
+  let verifiedFixedFingerprints: string[] = [];
+  let failedVerificationFingerprints: string[] = [];
+  if (input.verifyAbsentFindings && reconcileFingerprintLifecycle) {
+    try {
+      const reconciliation = await reconcileFingerprintLifecycle(
+        eligible.map(({ fingerprint }) => fingerprint),
+      );
+      verifiedFixedFingerprints = [...reconciliation.fixedFingerprints];
+      failedVerificationFingerprints = [
+        ...reconciliation.failedVerificationFingerprints,
+      ];
+    } catch {
+      failures.push("fingerprint_absence_reconciliation:failed");
+    }
+  }
   try {
     if (database) {
       const enqueue = databaseEnqueue(database);
@@ -2000,7 +2136,17 @@ export async function enqueueAndClaimPolicyBatches(
     }
   } catch (error) {
     failures.push(`enqueue:${safeErrorCode(error)}`);
-    return baseResult(false, empty.snapshot, empty, [], []);
+    return baseResult(
+      false,
+      empty.snapshot,
+      empty,
+      [],
+      [],
+      lifecycle.counts,
+      lifecycle.fingerprints,
+      verifiedFixedFingerprints,
+      failedVerificationFingerprints,
+    );
   }
 
   const leaseOwner = input.leaseOwner ?? "github-actions-health-agent";
@@ -2041,6 +2187,10 @@ export async function enqueueAndClaimPolicyBatches(
       empty,
       eligible.map(({ fingerprint }) => fingerprint),
       [],
+      lifecycle.counts,
+      lifecycle.fingerprints,
+      verifiedFixedFingerprints,
+      failedVerificationFingerprints,
     );
   }
 
@@ -2058,11 +2208,15 @@ export async function enqueueAndClaimPolicyBatches(
     enqueuedFingerprints: eligible.map(({ fingerprint }) => fingerprint),
     failures,
     human: claimedResult.human,
+    lifecycle: lifecycle.counts,
+    lifecycleFingerprints: lifecycle.fingerprints,
     linear: linearResult,
     partition,
     skippedActions,
     snapshot,
     suppressed: false,
+    verifiedFixedFingerprints,
+    failedVerificationFingerprints,
   };
 }
 

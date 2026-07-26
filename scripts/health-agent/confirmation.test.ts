@@ -264,7 +264,7 @@ describe("Railway deployment confirmation", () => {
     expect(smokeDeps.resolveSentry).not.toHaveBeenCalled();
   });
 
-  it("resolves Sentry only after exact deployment, healthy smoke, deployed, and fixed transitions", async () => {
+  it("records deployment and waits for a later detector pass to verify fixes", async () => {
     const deps = dependencies();
     const order: string[] = [];
     vi.mocked(deps.transition).mockImplementation(async (input) => {
@@ -293,11 +293,7 @@ describe("Railway deployment confirmation", () => {
       sentryResolved: 1,
       status: "success",
     });
-    expect(order).toEqual([
-      "transition:deployed",
-      "transition:fixed",
-      "sentry:resolve",
-    ]);
+    expect(order).toEqual(["transition:deployed", "sentry:resolve"]);
     expect(deps.transition).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
@@ -311,18 +307,12 @@ describe("Railway deployment confirmation", () => {
         newStatus: "deployed",
       }),
     );
-    expect(deps.transition).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({
-        expectedStatus: "deployed",
-        newStatus: "fixed",
-      }),
-    );
+    expect(deps.transition).toHaveBeenCalledTimes(1);
     expect(deps.agentHub).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           authoritative_merge_sha: mergeSha,
-          confirmed_fixed_count: 1,
+          confirmed_deployed_count: 1,
           deployment_status: "success",
           deployment_timestamp: now.toISOString(),
           production_smoke: true,

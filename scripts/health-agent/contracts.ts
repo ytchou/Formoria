@@ -30,9 +30,16 @@ export interface HealthSummaryCheck {
   status: HealthSummaryStatus;
 }
 
+export interface HealthFindingLifecycle {
+  new: number;
+  ongoing: number;
+  regressed: number;
+}
+
 export interface HealthSummary {
   checks: Readonly<Record<"directory" | "link" | "sentry", HealthSummaryCheck>>;
   overallStatus: "failed" | "healthy" | "needs_attention";
+  lifecycle?: HealthFindingLifecycle;
   phases: Readonly<
     Record<
       "analyze" | "collect" | "deliver" | "publish" | "repair",

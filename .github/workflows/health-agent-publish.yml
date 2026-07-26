@@ -311,6 +311,10 @@ jobs:
         env:
           AGENT_HUB_INGEST_TOKEN: ${{ secrets.AGENT_HUB_INGEST_TOKEN }}
           AGENT_HUB_INGEST_URL: ${{ secrets.AGENT_HUB_INGEST_URL }}
+          LINEAR_ASSIGNEE_ID: ${{ vars.LINEAR_ASSIGNEE_ID }}
+          LINEAR_OAUTH_ACCESS_TOKEN: ${{ secrets.LINEAR_OAUTH_ACCESS_TOKEN }}
+          LINEAR_PROJECT_ID: ${{ vars.LINEAR_PROJECT_ID }}
+          LINEAR_TEAM_ID: ${{ vars.LINEAR_TEAM_ID }}
           SLACK_HEALTH_WEBHOOK_URL: ${{ secrets.SLACK_HEALTH_WEBHOOK_URL }}
         run: |
           set -euo pipefail
@@ -322,6 +326,7 @@ jobs:
             publish_status=skipped
           fi
           pnpm exec tsx scripts/health-agent/workflow-runtime.ts final-report \
+            --mode "${{ inputs.mode }}" \
             --aggregate-artifact .health-agent-artifacts/aggregate.json \
             --queue-artifact .health-agent-artifacts/queue.json \
             --automatic-pr-result .health-agent-artifacts/automatic-pr-result.json \
