@@ -145,8 +145,9 @@ describe('brand channel actions', () => {
     await expect(confirmChannelAction('channel-1', 'example-brand')).resolves.toEqual({
       confirmationCount: 4,
     })
-    expect(mocks.revalidatePath).toHaveBeenCalledWith('/brands/example-brand')
+    expect(mocks.revalidatePath).toHaveBeenCalledWith('/zh-TW/brands/example-brand')
     expect(mocks.revalidatePath).toHaveBeenCalledWith('/en/brands/example-brand')
+    expect(mocks.revalidatePath).not.toHaveBeenCalledWith('/brands/example-brand')
   })
 
   it('validates form data and maps cap and collision errors to distinct i18n messages', async () => {

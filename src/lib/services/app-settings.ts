@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { routing } from '@/i18n/routing'
 import type { Json } from '@/lib/supabase/database.types'
 import { createServiceClient } from '@/lib/supabase/server'
 
@@ -16,7 +17,12 @@ export const FEATURE_FLAGS: FeatureFlag[] = [
     label: 'Subcategory filter on /brands',
     description: 'Shows product-type chips in the directory filter sidebar',
     defaultValue: true,
-    revalidatePaths: ['/brands', '/en/brands', '/admin/settings'],
+    // The ISR cache key keeps the locale prefix even where the URL hides it,
+    // so a bare `/brands` matches nothing. See `revalidateLocalizedPath`.
+    revalidatePaths: [
+      ...routing.locales.map((locale) => `/${locale}/brands`),
+      '/admin/settings',
+    ],
   },
 ]
 

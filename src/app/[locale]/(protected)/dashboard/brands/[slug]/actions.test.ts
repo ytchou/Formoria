@@ -616,7 +616,8 @@ describe('publishDraftAction — edit gating', () => {
       publishDraftAction(undefined, form({ brandSlug: 'test-brand' })),
     ).rejects.toThrow('NEXT_REDIRECT')
 
-    expect(revalidatePath).toHaveBeenCalledWith('/brands/test-brand')
+    expect(revalidatePath).toHaveBeenCalledWith('/zh-TW/brands/test-brand')
     expect(revalidatePath).toHaveBeenCalledWith('/en/brands/test-brand')
+    expect(revalidatePath).not.toHaveBeenCalledWith('/brands/test-brand')
   })
 })

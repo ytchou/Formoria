@@ -29,7 +29,10 @@ import {
   setOwnerChannelStatus,
   submitChannel,
 } from '@/lib/services/brand-channels'
-import { revalidatePublicBrand } from '@/lib/cache/public-brand-cache'
+import {
+  revalidateLocalizedPath,
+  revalidatePublicBrand,
+} from '@/lib/cache/public-brand-cache'
 import { isOwnerOf } from '@/lib/services/brand-owners'
 import type { ChannelType } from '@/lib/types/brand-channel'
 import { createServiceClient } from '@/lib/supabase/server'
@@ -442,10 +445,10 @@ export async function submitEvidenceAction(
     if (!result.ok) return { error: result.code }
 
     trackOriginEvidenceSubmitted(brandId.trim(), brandSlug.trim(), stance)
-    revalidatePath(`/brands/${brandSlug.trim()}`)
-    revalidatePath(`/en/brands/${brandSlug.trim()}`)
+    revalidateLocalizedPath(`/brands/${brandSlug.trim()}`)
+    revalidateLocalizedPath('/contributions')
+    // `/admin` lives outside `[locale]`, so its cache key is already literal.
     revalidatePath('/admin/evidence')
-    revalidatePath('/contributions')
     return { success: true }
   } catch (err: unknown) {
     console.error('[brands:submitEvidence]', err)

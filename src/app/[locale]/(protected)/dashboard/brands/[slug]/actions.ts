@@ -65,11 +65,6 @@ function isMitDeclarationScope(value: string): value is MitDeclarationScope {
   return MIT_DECLARATION_SCOPES.includes(value as MitDeclarationScope)
 }
 
-function revalidateMitPages(brandSlug: string): void {
-  revalidatePath(`/brands/${brandSlug}`)
-  revalidatePath('/brands')
-}
-
 export async function declareMitAction(
   brandSlug: string,
   scope: string,
@@ -87,7 +82,7 @@ export async function declareMitAction(
     if (!result.ok) return { error: t(result.code) }
 
     trackMitDeclared(editor.brand.id, editor.brand.slug, scope)
-    revalidateMitPages(editor.brand.slug)
+    revalidatePublicBrand({ slug: editor.brand.slug })
     return { success: true }
   } catch (error) {
     console.error('[brand:declareMitAction]', error)
@@ -109,7 +104,7 @@ export async function withdrawDeclarationAction(
     })
     if (!result.ok) return { error: t(result.code) }
 
-    revalidateMitPages(editor.brand.slug)
+    revalidatePublicBrand({ slug: editor.brand.slug })
     return { success: true }
   } catch (error) {
     console.error('[brand:withdrawDeclarationAction]', error)

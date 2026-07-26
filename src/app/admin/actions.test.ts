@@ -126,16 +126,14 @@ vi.mock('@/lib/services/reports', () => ({
   updateReportStatus: vi.fn().mockResolvedValue(undefined),
 }))
 
-vi.mock('@/lib/services/app-settings', () => ({
-  FEATURE_FLAGS: [
-    {
-      key: 'subcategory_filter_enabled',
-      label: 'Subcategory filter on /brands',
-      description: 'Shows product-type chips in the directory filter sidebar',
-      defaultValue: true,
-      revalidatePaths: ['/brands', '/en/brands', '/admin/settings'],
-    },
-  ],
+// Bind to the real registry rather than duplicating it: a local fixture would
+// let the revalidate-path assertion pass against paths the app never emits.
+vi.mock('@/lib/services/app-settings', async () => ({
+  FEATURE_FLAGS: (
+    await vi.importActual<typeof import('@/lib/services/app-settings')>(
+      '@/lib/services/app-settings'
+    )
+  ).FEATURE_FLAGS,
   setAppSetting: vi.fn().mockResolvedValue(undefined),
 }))
 
@@ -891,9 +889,11 @@ describe('setFeatureFlagAction', () => {
 
     expect(res.error).toBeUndefined()
     expect(setAppSetting).toHaveBeenCalledWith('subcategory_filter_enabled', false)
-    expect(revalidatePath).toHaveBeenCalledWith('/brands')
+    expect(revalidatePath).toHaveBeenCalledWith('/zh-TW/brands')
     expect(revalidatePath).toHaveBeenCalledWith('/en/brands')
     expect(revalidatePath).toHaveBeenCalledWith('/admin/settings')
+    // The unprefixed path is not an ISR cache key — emitting it is the bug.
+    expect(revalidatePath).not.toHaveBeenCalledWith('/brands')
     await setFeatureFlagAction('subcategory_filter_enabled', true)
   })
 
