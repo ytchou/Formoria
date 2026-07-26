@@ -735,6 +735,15 @@ function stringValue(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
+function isIsoDateValue(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = Date.parse(`${value}T00:00:00.000Z`);
+  return (
+    Number.isFinite(parsed) &&
+    new Date(parsed).toISOString().slice(0, 10) === value
+  );
+}
+
 function numberValue(value: unknown, fallback = 0): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
@@ -1086,6 +1095,31 @@ function directoryDatabaseEvidence(
   const indexConcerns = Array.isArray(database.indexConcerns)
     ? database.indexConcerns.filter(isRecord)
     : [];
+  const normalizedDeadTupleSnapshots = deadTupleSnapshots
+    .flatMap((value) => {
+      const snapshotDate = stringValue(
+        value.snapshotDate ?? value.snapshot_date,
+      );
+      const tables = Array.isArray(value.tables)
+        ? value.tables.filter(isRecord).flatMap((table) => {
+            const tableName = stringValue(table.tableName ?? table.table_name);
+            return tableName
+              ? [
+                  {
+                    deadTuplePercent: numberValue(
+                      table.deadTuplePercent ?? table.dead_tuple_percent,
+                    ),
+                    tableName,
+                  },
+                ]
+              : [];
+          })
+        : [];
+      return snapshotDate ? [{ snapshotDate, tables }] : [];
+    })
+    .filter((snapshot) => isIsoDateValue(snapshot.snapshotDate))
+    .sort((left, right) => left.snapshotDate.localeCompare(right.snapshotDate))
+    .slice(-2);
   return {
     activeQueries: activeQueries.flatMap((value) => {
       const queryId = stringValue(value.queryId ?? value.query_id);
@@ -1112,27 +1146,7 @@ function directoryDatabaseEvidence(
           connections.total_connections,
       ),
     },
-    deadTupleSnapshots: deadTupleSnapshots.flatMap((value) => {
-      const snapshotDate = stringValue(
-        value.snapshotDate ?? value.snapshot_date,
-      );
-      const tables = Array.isArray(value.tables)
-        ? value.tables.filter(isRecord).flatMap((table) => {
-            const tableName = stringValue(table.tableName ?? table.table_name);
-            return tableName
-              ? [
-                  {
-                    deadTuplePercent: numberValue(
-                      table.deadTuplePercent ?? table.dead_tuple_percent,
-                    ),
-                    tableName,
-                  },
-                ]
-              : [];
-          })
-        : [];
-      return snapshotDate ? [{ snapshotDate, tables }] : [];
-    }),
+    deadTupleSnapshots: normalizedDeadTupleSnapshots,
     indexConcerns: indexConcerns.flatMap((value) => {
       const concernId = stringValue(value.concernId ?? value.concern_id);
       const tableName = stringValue(value.tableName ?? value.table_name);
