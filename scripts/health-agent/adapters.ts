@@ -437,11 +437,13 @@ export function renderSlackDigest(report: SlackReport): string {
     );
   }
   if (skipped.length > 0) {
-    sections.push(`*Skipped actions:* ${skipped.length}`);
+    sections.push(
+      `*Skipped actions* (${skipped.length})\n${failureLines(skipped).join("\n")}`,
+    );
   }
   if (failures.length > 0) {
     sections.push(
-      `*Failures:* ${failures.length}\n${failureLines(failures).join("\n")}`,
+      `*Failures* (${failures.length})\n${failureLines(failures).join("\n")}`,
     );
   }
   if (linear.length > 0) {
@@ -451,7 +453,7 @@ export function renderSlackDigest(report: SlackReport): string {
   }
   if (pullRequests.length > 0) {
     sections.push(
-      `*PR:* ${pullRequests.length} (${groupedCounts(pullRequests, "status")})`,
+      `*PR outcomes* (${pullRequests.length})\n${failureLines(pullRequests).join("\n")}`,
     );
   }
   if (sections.length === 0) return "Formoria health agent: all clear.";
