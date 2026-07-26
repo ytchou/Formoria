@@ -568,6 +568,55 @@ describe("Linear adapter", () => {
     expect(bodyAt(fetchImpl, 2).query).toContain("issueCreate");
   });
 
+  it("paginates allowed labels before deciding a label is missing", async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse({ data: { issues: { nodes: [] } } }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            issueLabels: {
+              nodes: [],
+              pageInfo: { endCursor: "label-cursor-1", hasNextPage: true },
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            issueLabels: {
+              nodes: [{ id: "label-ops", name: "Ops", team: null }],
+              pageInfo: { endCursor: null, hasNextPage: false },
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            issueCreate: {
+              issue: { id: "linear-1", identifier: "FOR-13" },
+              success: true,
+            },
+          },
+        }),
+      );
+    const adapter = createLinearAdapter(
+      linearConfig(fetchImpl, () => undefined),
+    );
+
+    await expect(adapter.sync([finding()])).resolves.toMatchObject({
+      created: 1,
+      updated: 0,
+    });
+    expect(bodyAt(fetchImpl, 2).variables).toEqual({
+      after: "label-cursor-1",
+      teamId: "team-1",
+    });
+    expect(bodyAt(fetchImpl, 3).query).toContain("issueCreate");
+  });
+
   it("paginates project issues before matching a fingerprint", async () => {
     const fetchImpl = vi
       .fn<typeof fetch>()
