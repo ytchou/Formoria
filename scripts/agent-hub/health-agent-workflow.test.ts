@@ -59,17 +59,32 @@ describe("unified health-agent workflow contract", () => {
     );
   });
 
+  it("keeps targeted artifact replay manual and side-effect free by default", () => {
+    const replay = readFileSync(
+      ".github/workflows/health-agent-replay.yml",
+      "utf8",
+    );
+
+    expect(replay).not.toContain("schedule:");
+    expect(replay).toMatch(/mutate:[\s\S]*?default: false/);
+    expect(replay).toMatch(/notify:[\s\S]*?default: false/);
+    expect(replay).toContain('gh run download "$SOURCE_RUN_ID"');
+    expect(replay).toContain("needs.analyze.result");
+    expect(replay).toContain('--defer-delivery "${{ !inputs.notify }}"');
+  });
+
   it("uses an object-root schema for Sentry structured output", () => {
     const workflow = readFileSync(
       ".github/workflows/health-agent-analyze.yml",
       "utf8",
     );
-    const schemas = [...workflow.matchAll(/--json-schema '(\{[^\n]+\})'/g)].map(
-      ([, schema]) => JSON.parse(schema) as { type?: string },
-    );
-
-    expect(schemas).toHaveLength(2);
-    expect(schemas.every(({ type }) => type === "object")).toBe(true);
+    expect(
+      workflow.match(
+        /--json-schema '\$\{\{ steps\.sentry-schema\.outputs\.schema \}\}'/g,
+      ),
+    ).toHaveLength(2);
+    expect(workflow).toContain("write-sentry-schema.ts");
+    expect(workflow).not.toContain('"additionalProperties":true');
   });
 
   it("continues into repair after a handled analysis failure", () => {
@@ -383,10 +398,13 @@ describe("unified health-agent workflow contract", () => {
     const schemaArguments = [
       ...workflow.matchAll(/--json-schema '(\{[^\n]+\})'/g),
     ].map(([, schema]) => schema);
-    expect(schemaArguments).toHaveLength(6);
+    expect(schemaArguments).toHaveLength(4);
     for (const schema of schemaArguments) {
       expect(() => JSON.parse(schema)).not.toThrow();
     }
+    expect(
+      workflow.match(/steps\.sentry-schema\.outputs\.schema/g),
+    ).toHaveLength(2);
     expect(workflow).not.toMatch(/--json-schema\s+\{/);
     const classifierStart = workflow.indexOf("  sentry-triage:");
     const classifierEnd = workflow.indexOf(

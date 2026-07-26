@@ -50,6 +50,19 @@ export const SentryClassificationSchema = z
   })
   .strict();
 
+export function sentryClassificationBatchJsonSchema(issueCount: number) {
+  if (!Number.isSafeInteger(issueCount) || issueCount < 0 || issueCount > 20) {
+    throw new Error("invalid_sentry_issue_count");
+  }
+  return z.toJSONSchema(
+    z
+      .object({
+        classifications: z.array(SentryClassificationSchema).length(issueCount),
+      })
+      .strict(),
+  );
+}
+
 export type SentryClassification = z.infer<typeof SentryClassificationSchema>;
 
 export interface SentryRecurrenceEvidence {
