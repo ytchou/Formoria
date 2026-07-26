@@ -242,6 +242,25 @@ describe('brand-channels service', () => {
     expect(deletion.delete).toHaveBeenCalled()
   })
 
+  it('throws when the confirm lookup fails instead of reporting a silent zero', async () => {
+    const guard = makeBuilder({
+      data: null,
+      error: { code: '57014', message: 'canceling statement due to statement timeout' },
+    })
+    mockSupabase({ brand_channels: [guard] })
+
+    await expect(confirmChannel('user-1', 'channel-1')).rejects.toMatchObject({
+      code: '57014',
+    })
+  })
+
+  it('returns zero without writing when the channel is removed or rejected', async () => {
+    const guard = makeBuilder({ data: null, error: null })
+    mockSupabase({ brand_channels: [guard] })
+
+    await expect(confirmChannel('user-1', 'channel-1')).resolves.toBe(0)
+  })
+
   it('submits a community channel and auto-confirms the submitter', async () => {
     const brandCap = makeBuilder({ data: null, error: null, count: 0 })
     const dailyCap = makeBuilder({ data: null, error: null, count: 0 })

@@ -150,6 +150,10 @@ function ChannelRow({
     <div
       className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between"
       data-channel-row
+      // The optimistic count and pressed state land before the server action is
+      // even dispatched, so they cannot tell "saving" from "saved". This is the
+      // only signal that the round-trip has settled.
+      data-confirm-pending={isPending ? '' : undefined}
     >
       <div className="flex min-w-0 items-start gap-3">
         <StatusMarker confirmed={isConfirmed} />
@@ -267,6 +271,7 @@ function ChannelRow({
             variant={isViewerConfirmed ? 'primary' : 'secondary'}
             size="compact"
             aria-pressed={isViewerConfirmed}
+            aria-busy={isPending}
             disabled={loading || isViewerConfirmed || isPending}
             onClick={() => onConfirm(channel, 'row')}
           >
@@ -322,6 +327,7 @@ function ChannelChip({
           : 'border-dashed border-border',
       )}
       data-channel-chip
+      data-confirm-pending={isPending ? '' : undefined}
     >
       {isConfirmed ? (
         <Check aria-hidden="true" className="size-3.5 shrink-0" />
@@ -361,6 +367,7 @@ function ChannelChip({
               name: channel.name,
             })}
             aria-pressed={isViewerConfirmed}
+            aria-busy={isPending}
             disabled={loading || isViewerConfirmed || isPending}
             onClick={() => onConfirm(channel, 'chip')}
           >

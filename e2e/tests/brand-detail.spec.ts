@@ -415,6 +415,13 @@ test.describe('Brand detail — public locations and retail channels', () => {
       .click();
     await expect(channelChip.getByText('1/3 人確認')).toBeVisible();
 
+    // That count is optimistic: Next.js serializes server actions into one global
+    // queue, so the confirm can still be waiting behind the mount-time actions.
+    // Reloading now would tear the page down before the write is ever dispatched.
+    await expect(channelChip).not.toHaveAttribute('data-confirm-pending', '', {
+      timeout: 15_000,
+    });
+
     // The page is `force-static` with `revalidate = 3600`, so on-demand
     // revalidation is stale-while-revalidate: the first request after the
     // mutation can still be served from the old cache entry while the
