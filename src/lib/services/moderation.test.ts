@@ -1,20 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/lib/supabase/database.types";
-import {
-  saveModerationFlags,
-  scanContent,
-  updateModerationFlagStatus,
-  type ContentViolation,
-} from "./moderation";
-
-type MockedSupabaseServerModule = typeof import("@/lib/supabase/server") & {
-  createServerClient: ReturnType<typeof vi.fn>;
-};
-
-vi.mock("@/lib/supabase/server", () => ({
-  createServerClient: vi.fn(),
-}));
+import { describe, expect, it } from "vitest";
+import { scanContent } from "./moderation";
 
 describe("scanContent (flattened)", () => {
   it("returns empty violations for clean content", () => {
