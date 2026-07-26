@@ -32,8 +32,9 @@ merge-to-production confirmation.
 - Automatic and human-gated fixes are batched separately, with all eligible findings in the
   batch and at most two repair/review cycles.
 - Queue state is authoritative; merge, deployment, and smoke are distinct states.
-- The daily target is 07:00 Asia/Taipei and the 08:30 watchdog independently detects stale
-  or pre-delivery runs. GitHub scheduling remains best-effort.
+- The daily target is 07:13 Asia/Taipei. GitHub scheduling remains best-effort, and operators
+  rely on GitHub Actions failure notifications for runs that start and fail. A scheduled run
+  that is never created does not produce a repository-owned alert.
 - Production cutover depends on GitHub Pro controls, a repository-scoped GitHub App,
   separate scoped credentials, Personal OS compatibility, a mutation-free preflight, and a
   successful App-authored canary.

@@ -2,7 +2,7 @@ name: Formoria Health Agent
 
 on:
   schedule:
-    - cron: "0 23 * * *"
+    - cron: "13 23 * * *"
   workflow_dispatch:
     inputs:
       mode:
