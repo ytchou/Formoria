@@ -204,6 +204,17 @@ test.describe("Scheduled brand refresh review", () => {
 
     const heroSubmissionUrl = `https://cdn.example.com/${brandId}/hero-candidate.webp`;
     const candidateUrl = `https://cdn.example.com/${brandId}/candidate.webp`;
+    // `request_brand_refresh` already copied the brand's active images into
+    // submission_images at sort_order 0 and 1. Drop them first, otherwise the
+    // candidates below collide on sort_order and apply_brand_refresh rejects the
+    // set ("Refresh must satisfy publishable core before apply"): that gate needs
+    // exactly one active row at sort_order 0 whose url equals hero_image_url, and
+    // unique sort_order values across all active rows.
+    const { error: resetImagesError } = await supabase
+      .from("submission_images")
+      .delete()
+      .eq("submission_id", refreshSubmissionId);
+    if (resetImagesError) throw resetImagesError;
     const { error: candidateError } = await supabase
       .from("submission_images")
       .insert([
@@ -221,7 +232,7 @@ test.describe("Scheduled brand refresh review", () => {
           source_url: candidateUrl,
           source: "google_image",
           status: "active",
-          sort_order: 2,
+          sort_order: 1,
         },
       ]);
     if (candidateError) throw candidateError;
