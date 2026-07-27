@@ -471,6 +471,8 @@ describe("isolated health-agent prompts", () => {
     expect(prompt).toContain("no production credentials");
     expect(prompt).toContain("no GitHub tokens");
     expect(prompt).toContain("at most two");
+    expect(prompt).toContain("sentry-real-lifecycle");
+    expect(prompt).toContain("desiredMarker");
     expect(prompt).toContain("fingerprint");
     expect(prompt).toContain("changed_files");
     expect(prompt).not.toContain("{{");

@@ -65,3 +65,29 @@ the requested scope before building a repair batch.
 Any operation that selects a bounded repair set must carry that identity set through the final
 mutating query. A local filter is not an authorization boundary when the downstream mutation can
 select a broader population.
+
+## Sentry evidence continuity
+
+### Symptom
+
+The split Sentry collector produced a valid finding fingerprint, but the queue row had no exact
+provider issue ID and nested activity evidence became empty objects after aggregation.
+
+### Cause
+
+Provider metadata was discarded when collection and classification were separated, and the generic
+artifact redactor treated normal aggregate nesting as excessive depth. The same canary normalization
+also initially ran outside its explicit canary mode.
+
+### Prevention
+
+Persist each sanitized issue and provider identity as one paired record before classification, and
+keep the redactor deep enough for the validated run schema.
+Derive controlled repair scope only in `canary_fix`, after checking the exact requested fingerprint,
+provider identity, marker tag, stack file, severity, and human merge policy.
+
+### How to apply
+
+When a provider workflow has multiple local stages, model identity metadata as part of the stage
+contract even if the external classifier does not use it. Aggregation must preserve already-sanitized
+evidence, while any synthetic repair scope remains mode-gated and cannot affect ordinary live runs.

@@ -1,0 +1,27 @@
+{
+  "findings": [
+    {
+      "severity": "Critical",
+      "file": "scripts/health-agent/orchestrator.ts",
+      "line": "2199",
+      "description": "Controlled Sentry canary normalization was initially applied in ordinary live mode.",
+      "failure_scenario": "A similarly tagged production event is collected while live autofix is enabled and gains a trusted marker-file repair scope without an explicit canary run.",
+      "flagged_by": "Altitude",
+      "status": "valid"
+    }
+  ],
+  "active_lenses": [
+    "Angle A",
+    "Angle B",
+    "Angle C",
+    "Angle D",
+    "Angle E",
+    "Cleanup",
+    "Altitude",
+    "Conventions",
+    "Plan Alignment",
+    "Test Quality",
+    "Dead Code",
+    "Gap Sweep"
+  ]
+}
