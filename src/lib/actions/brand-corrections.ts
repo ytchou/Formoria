@@ -17,9 +17,12 @@ const correctionInputSchema = z.object({
   proposedValue: z.union([
     z.number(),
     z.string(),
+    // Payload-size bounds only. The tag rules (ontology match, 2-8 char novel
+    // band, blocklist) live in normalizeProposedValue so the client and the
+    // server share one implementation — do not restate them here.
     z.object({
-      add: z.array(z.string()),
-      remove: z.array(z.string()),
+      add: z.array(z.string().trim().min(1).max(40)).max(20),
+      remove: z.array(z.string().trim().min(1).max(40)).max(20),
     }),
   ]),
 });

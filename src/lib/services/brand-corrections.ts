@@ -1,6 +1,6 @@
 import { revalidatePublicBrand } from "@/lib/cache/public-brand-cache";
 import {
-  PRODUCT_SUBCATEGORIES,
+  normalizeTagKey,
   PRODUCT_TYPE_CATEGORIES,
 } from "@/lib/taxonomy/ontology";
 import type { Database, Json } from "@/lib/supabase/database.types";
@@ -10,6 +10,7 @@ import {
   deriveProductTagsEn,
   isProductTagsDelta,
   MAX_PRODUCT_TAGS,
+  resolveProductTagInput,
   sameTagSet,
   type ProductTagsDelta,
 } from "./product-tags";
@@ -21,10 +22,6 @@ const CORRECTION_SELECT =
 const PRODUCT_TYPE_SLUGS = new Set<string>(
   PRODUCT_TYPE_CATEGORIES.map((category) => category.slug),
 );
-const PRODUCT_TAG_NAMES_ZH = new Set(
-  PRODUCT_SUBCATEGORIES.map((subcategory) => subcategory.nameZh),
-);
-
 type BrandCorrectionRow =
   Database["public"]["Tables"]["brand_field_corrections"]["Row"];
 type BrandCorrectionInsert =
@@ -113,37 +110,93 @@ function isCorrectionField(value: string): value is CorrectionField {
   );
 }
 
-function validateProposedValue(
+export type NormalizeProposedValueResult =
+  | { ok: true; value: CorrectionProposedValue }
+  | { ok: false; error: Extract<CorrectionError, "invalid_value"> };
+
+/**
+ * Validates AND canonicalizes a proposed value. The result is what gets
+ * persisted at submit, and the same function re-runs over the stored value at
+ * approval — so it must be idempotent: `normalize(normalize(x).value)` has to
+ * deep-equal `normalize(x).value`, or a correction that passes at submit would
+ * fail at approval. `src/lib/services/__tests__/brand-corrections.test.ts` pins
+ * that directly.
+ *
+ * Idempotency holds against a FIXED ontology only. Two drift directions across
+ * ontology EDITS are known and accepted:
+ *
+ * 1. Removal: reviewCorrection runs this guard BEFORE its rejection branch, so
+ *    if a `nameZh` is later dropped from the ontology a stale pending row can
+ *    become both un-approvable and un-rejectable. Pre-existing, not introduced
+ *    here.
+ * 2. Add-as-alias: a novel tag is persisted raw and the admin queue renders that
+ *    stored string. If that exact string is later added to the ontology as an
+ *    ALIAS of a subcategory, the approval-time re-normalization rewrites `add`
+ *    to that subcategory's `nameZh` — so the reviewer approves a label they
+ *    never saw. Deliberately not snapshotted or versioned: an alias is by
+ *    definition a synonym of what was on screen, so the substitution preserves
+ *    meaning and the added machinery would not earn its cost.
+ */
+export function normalizeProposedValue(
   field: CorrectionField,
   value: unknown,
-): Extract<CorrectionError, "invalid_value"> | null {
+): NormalizeProposedValueResult {
   if (field === "price_range") {
     return typeof value === "number" &&
       Number.isInteger(value) &&
       value >= 1 &&
       value <= 3
-      ? null
-      : "invalid_value";
+      ? { ok: true, value }
+      : { ok: false, error: "invalid_value" };
   }
 
   if (field === "product_type") {
     return typeof value === "string" && PRODUCT_TYPE_SLUGS.has(value)
-      ? null
-      : "invalid_value";
+      ? { ok: true, value }
+      : { ok: false, error: "invalid_value" };
   }
 
-  if (!isProductTagsDelta(value)) return "invalid_value";
-  // Asymmetric on purpose. Every `add` must be an exact canonical `nameZh`:
-  // brands.product_tags stores canonical labels and the `?sub=` filter matches
-  // by exact-string array overlap, so a non-canonical addition would silently
-  // drop the brand from subcategory results. `remove` is unrestricted — a brand
+  if (!isProductTagsDelta(value)) return { ok: false, error: "invalid_value" };
+
+  // Asymmetric on purpose. Every `add` is canonicalized through the ontology
+  // (alias or English name -> `nameZh`) before it is persisted: brands.product_tags
+  // stores canonical labels and the `?sub=` filter matches by exact-string array
+  // overlap, so an un-canonicalized addition would silently drop the brand from
+  // subcategory results. A tag the ontology does not know is still allowed
+  // through — that escape hatch is the point — but only if it clears the same
+  // novel-tag heuristics enrichment applies. `remove` stays unrestricted: a brand
   // can carry novel tags persisted by normalizeProductTags, and removing a bad
   // value can never introduce one. Rejecting those removals would block exactly
   // the repair this feature exists to perform.
-  if (value.add.some((tag) => !PRODUCT_TAG_NAMES_ZH.has(tag))) {
-    return "invalid_value";
+  // Ceiling: `novelTagRejection` is a code-point length band plus a
+  // marketing-noise regex whose terms are all Han — so non-CJK input passes
+  // with NO content filter at all, and admin review is the only gate on it;
+  // swap for a language-agnostic blocklist (or a moderation call) if reviewers
+  // report abusive submissions.
+  // Dedupe on the ontology's matching key, not the raw string: novel tags are
+  // stored as typed, so 'Vegan' and 'vegan' would otherwise both survive and
+  // take two of the five cap slots. First-seen casing wins.
+  const add: string[] = [];
+  const seenAdd = new Set<string>();
+  for (const raw of value.add) {
+    const resolved = resolveProductTagInput(raw);
+    if (!resolved.ok) return { ok: false, error: "invalid_value" };
+    const key = normalizeTagKey(resolved.tag);
+    if (seenAdd.has(key)) continue;
+    seenAdd.add(key);
+    add.push(resolved.tag);
   }
-  return null;
+
+  const remove: string[] = [];
+  const seenRemove = new Set<string>();
+  for (const raw of value.remove) {
+    const trimmed = raw.trim();
+    if (!trimmed || seenRemove.has(trimmed)) continue;
+    seenRemove.add(trimmed);
+    remove.push(trimmed);
+  }
+
+  return { ok: true, value: { add, remove } };
 }
 
 function valuesEqual(left: unknown, right: unknown): boolean {
@@ -320,11 +373,11 @@ export async function submitCorrection(
   if (!isCorrectionField(input.field))
     return { ok: false, code: "invalid_field" };
 
-  const validationError = validateProposedValue(
-    input.field,
-    input.proposedValue,
-  );
-  if (validationError) return { ok: false, code: validationError };
+  const normalized = normalizeProposedValue(input.field, input.proposedValue);
+  if (!normalized.ok) return { ok: false, code: normalized.error };
+  // Everything downstream — the delta application, the cap check and the row we
+  // persist — reads the normalized value, never `input.proposedValue`.
+  const proposedValue = normalized.value;
 
   try {
     const supabase = createServiceClient();
@@ -339,7 +392,7 @@ export async function submitCorrection(
     let previousValue: Json | null = currentValue;
 
     if (input.field === "product_tags") {
-      const delta = input.proposedValue as ProductTagsDelta;
+      const delta = proposedValue as ProductTagsDelta;
       const currentTags = Array.isArray(currentValue) ? currentValue : [];
       const next = applyTagDelta(currentTags, delta);
       if (sameTagSet(currentTags, next))
@@ -348,14 +401,14 @@ export async function submitCorrection(
         return { ok: false, code: "too_many_tags" };
       }
       previousValue = currentTags;
-    } else if (valuesEqual(currentValue, input.proposedValue)) {
+    } else if (valuesEqual(currentValue, proposedValue)) {
       return { ok: false, code: "unchanged" };
     }
 
     const row: BrandCorrectionInsert = {
       brand_id: input.brandId,
       field: input.field,
-      proposed_value: input.proposedValue as Json,
+      proposed_value: proposedValue as Json,
       previous_value: previousValue,
       visitor_hash: input.visitorHash ?? null,
       status: "pending",
@@ -427,11 +480,11 @@ export async function reviewCorrection(
       return { ok: false, code: "invalid_value" };
     }
 
-    const validationError = validateProposedValue(
-      row.field,
-      row.proposed_value,
-    );
-    if (validationError) return { ok: false, code: validationError };
+    // Re-normalizes an already-normalized stored value; idempotency is what
+    // keeps a row that passed at submit from failing here.
+    const normalized = normalizeProposedValue(row.field, row.proposed_value);
+    if (!normalized.ok) return { ok: false, code: normalized.error };
+    const proposedValue = normalized.value;
 
     const reviewedAt = new Date().toISOString();
     if (decision === "rejected") {
@@ -454,7 +507,7 @@ export async function reviewCorrection(
     let patch: BrandWriteInput | null;
 
     if (row.field === "product_tags") {
-      const delta = row.proposed_value as ProductTagsDelta;
+      const delta = proposedValue as ProductTagsDelta;
       const currentTags = Array.isArray(currentValue) ? currentValue : [];
       const next = applyTagDelta(currentTags, delta);
       if (sameTagSet(currentTags, next)) {
@@ -467,13 +520,13 @@ export async function reviewCorrection(
           productTagsEn: deriveProductTagsEn(next),
         };
       }
-    } else if (valuesEqual(currentValue, row.proposed_value)) {
+    } else if (valuesEqual(currentValue, proposedValue)) {
       patch = null;
     } else {
       patch =
         row.field === "price_range"
-          ? { priceRange: row.proposed_value as number }
-          : { productType: row.proposed_value as string };
+          ? { priceRange: proposedValue as number }
+          : { productType: proposedValue as string };
     }
 
     // Claim before writing the brand: losing the race here means another

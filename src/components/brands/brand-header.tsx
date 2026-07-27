@@ -6,7 +6,7 @@ import { InfoField } from '@/components/ui/card'
 import { Typography } from '@/components/ui/typography'
 import { cn } from '@/lib/utils'
 import { MitDeclaredBadge, MitVerifiedBadge, OwnerVerifiedBadge } from './brand-verification-badges'
-import { CorrectionSheet } from './correction-sheet'
+import { CorrectionDialog } from './correction-dialog'
 
 const infoLabelClassName =
   'type-field-label uppercase tracking-[0.08em]'
@@ -66,9 +66,18 @@ export function BrandHeader({
       </div>
 
       <section aria-labelledby="brand-info-heading" id="brand-info-section" className="mt-7">
-        <Typography as="h2" id="brand-info-heading" variant="sectionTitleLarge">
-          {t('sectionTitle')}
-        </Typography>
+        <div className="flex items-center gap-2">
+          <Typography as="h2" id="brand-info-heading" variant="sectionTitleLarge">
+            {t('sectionTitle')}
+          </Typography>
+          <CorrectionDialog
+            brandId={brand.id}
+            brandSlug={brand.slug}
+            productType={brand.productType ?? null}
+            priceRange={brand.priceRange}
+            productTags={brand.productTags}
+          />
+        </div>
         {hasVerification && (
           <div
             className={cn(
@@ -122,21 +131,13 @@ export function BrandHeader({
             labelClassName={infoLabelClassName}
             layout="stacked"
             value={
-              <div className="flex items-center gap-2">
-                {resolvedCategory ? (
-                  <Badge className="text-foreground" variant="secondary">
-                    {resolvedCategory}
-                  </Badge>
-                ) : (
-                  unknownValue
-                )}
-                <CorrectionSheet
-                  brandId={brand.id}
-                  brandSlug={brand.slug}
-                  field="product_type"
-                  currentValue={brand.productType ?? null}
-                />
-              </div>
+              resolvedCategory ? (
+                <Badge className="text-foreground" variant="secondary">
+                  {resolvedCategory}
+                </Badge>
+              ) : (
+                unknownValue
+              )
             }
           />
           <InfoField
@@ -144,21 +145,13 @@ export function BrandHeader({
             labelClassName={infoLabelClassName}
             layout="stacked"
             value={
-              <div className="flex items-center gap-2">
-                {priceRangeLabel ? (
-                  <Badge className="text-foreground" variant="secondary">
-                    {priceRangeLabel}
-                  </Badge>
-                ) : (
-                  unknownValue
-                )}
-                <CorrectionSheet
-                  brandId={brand.id}
-                  brandSlug={brand.slug}
-                  field="price_range"
-                  currentValue={brand.priceRange}
-                />
-              </div>
+              priceRangeLabel ? (
+                <Badge className="text-foreground" variant="secondary">
+                  {priceRangeLabel}
+                </Badge>
+              ) : (
+                unknownValue
+              )
             }
           />
           <InfoField
@@ -166,28 +159,17 @@ export function BrandHeader({
             labelClassName={infoLabelClassName}
             layout="stacked"
             value={
-              resolvedTags.length > 0 || brand.productType != null ? (
+              resolvedTags.length > 0 ? (
                 <div className="flex flex-wrap items-center gap-1.5">
-                  {resolvedTags.length > 0
-                    ? resolvedTags.map((tag, index) => (
-                        <Badge
-                          key={`${tag}-${index}`}
-                          className="text-foreground"
-                          variant="secondary"
-                        >
-                          {tag}
-                        </Badge>
-                      ))
-                    : unknownValue}
-                  {brand.productType != null && (
-                    <CorrectionSheet
-                      brandId={brand.id}
-                      brandSlug={brand.slug}
-                      field="product_tags"
-                      currentValue={brand.productTags}
-                      categorySlug={brand.productType}
-                    />
-                  )}
+                  {resolvedTags.map((tag, index) => (
+                    <Badge
+                      key={`${tag}-${index}`}
+                      className="text-foreground"
+                      variant="secondary"
+                    >
+                      {tag}
+                    </Badge>
+                  ))}
                 </div>
               ) : (
                 unknownValue
