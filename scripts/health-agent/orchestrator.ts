@@ -1247,14 +1247,17 @@ export interface HealthAgentDatabase {
   claim?: (
     policy: MergePolicy,
     leaseOwner: string,
+    fingerprints: readonly string[],
   ) => Promise<readonly HealthQueueRow[] | readonly RepairFinding[]>;
   claimFindings?: (
     policy: MergePolicy,
     leaseOwner: string,
+    fingerprints: readonly string[],
   ) => Promise<readonly HealthQueueRow[] | readonly RepairFinding[]>;
   claimHealthFixes?: (
     policy: MergePolicy,
     leaseOwner: string,
+    fingerprints: readonly string[],
   ) => Promise<readonly HealthQueueRow[] | readonly RepairFinding[]>;
   enqueue?: (input: readonly HealthQueueFindingInput[]) => Promise<unknown>;
   enqueueFindings?: (
@@ -1296,6 +1299,7 @@ export interface QueueDependencies {
   claim(
     policy: MergePolicy,
     leaseOwner: string,
+    fingerprints: readonly string[],
   ): Promise<readonly RepairFinding[]>;
   enqueue(input: QueueEntryInput): Promise<unknown>;
   listFingerprintStates?: (
@@ -2047,6 +2051,7 @@ function databaseClaim(
   | ((
       policy: MergePolicy,
       leaseOwner: string,
+      fingerprints: readonly string[],
     ) => Promise<readonly HealthQueueRow[] | readonly RepairFinding[]>)
   | undefined {
   return database.claimFindings ?? database.claimHealthFixes ?? database.claim;
@@ -2243,18 +2248,61 @@ export async function enqueueAndClaimPolicyBatches(
   const leaseOwner = input.leaseOwner ?? "github-actions-health-agent";
   let automaticClaimed: RepairFinding[] = [];
   let humanClaimed: RepairFinding[] = [];
+  const automaticFingerprints = eligible
+    .filter(({ mergePolicy }) => mergePolicy === "automatic")
+    .map(({ fingerprint }) => fingerprint);
+  const humanFingerprints = eligible
+    .filter(({ mergePolicy }) => mergePolicy === "human")
+    .map(({ fingerprint }) => fingerprint);
   try {
     if (database) {
       const claim = databaseClaim(database);
       if (!claim) throw new Error("Queue claim is unavailable");
-      automaticClaimed = claimedRows(await claim("automatic", leaseOwner));
-      humanClaimed = claimedRows(await claim("human", leaseOwner));
+      automaticClaimed =
+        automaticFingerprints.length > 0
+          ? claimedRows(
+              await claim("automatic", leaseOwner, automaticFingerprints),
+            )
+          : [];
+      humanClaimed =
+        humanFingerprints.length > 0
+          ? claimedRows(await claim("human", leaseOwner, humanFingerprints))
+          : [];
     } else {
       if (!legacyQueue) throw new Error("Queue adapter is unavailable");
-      automaticClaimed = [
-        ...(await legacyQueue.claim("automatic", leaseOwner)),
-      ];
-      humanClaimed = [...(await legacyQueue.claim("human", leaseOwner))];
+      automaticClaimed =
+        automaticFingerprints.length > 0
+          ? [
+              ...(await legacyQueue.claim(
+                "automatic",
+                leaseOwner,
+                automaticFingerprints,
+              )),
+            ]
+          : [];
+      humanClaimed =
+        humanFingerprints.length > 0
+          ? [
+              ...(await legacyQueue.claim(
+                "human",
+                leaseOwner,
+                humanFingerprints,
+              )),
+            ]
+          : [];
+    }
+    const requestedFingerprints = new Set([
+      ...automaticFingerprints,
+      ...humanFingerprints,
+    ]);
+    if (
+      [...automaticClaimed, ...humanClaimed].some(
+        ({ fingerprint }) => !requestedFingerprints.has(fingerprint),
+      )
+    ) {
+      const error = new Error("Claimed fingerprint is outside request scope");
+      error.name = "claimed_fingerprint_out_of_scope";
+      throw error;
     }
   } catch (error) {
     failures.push(`claim:${safeErrorCode(error)}`);

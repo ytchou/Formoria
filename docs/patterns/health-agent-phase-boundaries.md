@@ -41,3 +41,27 @@ with a shell trap; a successful token-creation action does not prove a later cre
 use that token for Git transport.
 Treat every external adapter invocation as its own credential boundary: a secret available to an
 earlier queue step is not inherited by the later publication step that records the PR transition.
+
+## Bounded queue claims
+
+### Symptom
+
+A one-fingerprint canary selected the correct repair locally but left unrelated production findings
+in `claimed` because the queue RPC acquired every eligible row with the same merge policy.
+
+### Cause
+
+The orchestrator's exact finding selection stopped at the database boundary; the RPC accepted only
+a merge policy and lease owner, so it could not preserve the selected fingerprint scope.
+
+### Prevention
+
+Pass the exact fingerprint allowlist through every claim interface and require the database query to
+match it. Remove policy-wide overloads, skip empty policy buckets, and reject any returned row outside
+the requested scope before building a repair batch.
+
+### How to apply
+
+Any operation that selects a bounded repair set must carry that identity set through the final
+mutating query. A local filter is not an authorization boundary when the downstream mutation can
+select a broader population.
