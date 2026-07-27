@@ -39,3 +39,5 @@ broad `git add --all` can silently publish evidence and audit files even after p
 Authenticate the repair push with the installation token explicitly and restore the original remote
 with a shell trap; a successful token-creation action does not prove a later credential helper will
 use that token for Git transport.
+Treat every external adapter invocation as its own credential boundary: a secret available to an
+earlier queue step is not inherited by the later publication step that records the PR transition.

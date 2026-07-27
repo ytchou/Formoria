@@ -97,6 +97,23 @@ describe("unified health-agent workflow contract", () => {
     );
   });
 
+  it("passes Supabase credentials to post-publication queue transitions", async () => {
+    const workflow = await readFile(workflowPath, "utf8");
+    const publishStep = workflow.slice(
+      workflow.indexOf(
+        'name: "Stage 4 · Publish — create at most one manager-reviewed PR"',
+      ),
+      workflow.indexOf('name: "Stage 5 · Final manager report"'),
+    );
+
+    expect(publishStep).toContain(
+      "HEALTH_AGENT_WRITER_TOKEN: ${{ secrets.HEALTH_AGENT_WRITER_TOKEN }}",
+    );
+    expect(publishStep).toContain(
+      "NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}",
+    );
+  });
+
   it("sends only the findings report and final report and uploads one run artifact", async () => {
     const workflow = await readFile(workflowPath, "utf8");
 

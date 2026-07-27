@@ -427,6 +427,8 @@ jobs:
         continue-on-error: true
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          HEALTH_AGENT_WRITER_TOKEN: ${{ secrets.HEALTH_AGENT_WRITER_TOKEN }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
         run: |
           set -euo pipefail
           branch="health-agent/run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
