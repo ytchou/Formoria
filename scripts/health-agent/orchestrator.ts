@@ -2030,23 +2030,32 @@ function sentryLifecycleCanaryMarker(
   const rootCauseEvidence = isRecord(finding.evidence.rootCauseEvidence)
     ? finding.evidence.rootCauseEvidence
     : {};
-  const tags = isRecord(rootCauseEvidence.tags) ? rootCauseEvidence.tags : {};
+  const latestEvent = isRecord(finding.evidence.latestEvent)
+    ? finding.evidence.latestEvent
+    : {};
   const stack = Array.isArray(rootCauseEvidence.stack)
     ? rootCauseEvidence.stack
     : [];
-  if (
-    provider.issueId !== finding.sentryIssueId ||
-    !stack.some(
+  const hasCanaryLocation =
+    rootCauseEvidence.culprit ===
+      "verifyHealthAgentCanary(health-agent-canary.txt)" ||
+    stack.some(
       (frame) =>
         typeof frame === "string" && frame.includes("health-agent-canary.txt"),
-    )
+    );
+  const marker = finding.title.match(
+    /expected (sentry-lifecycle-[0-9]{10,16})$/,
+  )?.[1];
+  if (
+    provider.issueId !== finding.sentryIssueId ||
+    !hasCanaryLocation ||
+    typeof latestEvent.eventId !== "string" ||
+    typeof latestEvent.occurredAt !== "string" ||
+    !marker
   ) {
     return undefined;
   }
-  const runtime = typeof tags.runtime === "string" ? tags.runtime : "";
-  return runtime.match(
-    /^health-agent-real-lifecycle:(sentry-lifecycle-[0-9]{10,16})$/,
-  )?.[1];
+  return marker;
 }
 
 function scopedCanaryFinding(finding: HealthFinding): HealthFinding {
