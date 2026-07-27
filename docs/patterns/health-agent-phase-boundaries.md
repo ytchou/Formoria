@@ -1,24 +1,29 @@
-# Health-agent phase boundaries
+# Unified health-agent run boundary
 
 ## Symptom
 
-A five-phase controller called one reusable workflow five times. GitHub rendered every job from that reusable workflow in every phase, and downstream repair was skipped after a handled analysis failure. Later, notifications were emitted before repair and Sentry title text produced queue fingerprints longer than the database-safe identity limit.
+Reusable phase workflows made one nightly run appear as several control planes, transferred
+intermediate artifacts between jobs, and allowed one failed collector to hide successful work.
+Separate quality reporting and repair also produced duplicate notifications and publication paths.
 
 ## Cause
 
-- GitHub determines the job graph from declarations, not from job-level `if` conditions; skipped jobs still belong to every reusable-workflow invocation.
-- The controller omitted `always()` on a downstream phase, so a skipped or failed dependency prevented its condition from being evaluated as intended.
-- The queue reused unbounded human-readable Sentry text as a machine identity.
-- Collector, repair, and publish jobs each owned delivery credentials, so Slack and Agent Hub received partial reports before the terminal outcome existed.
+- Workflow jobs, rather than health groups, owned setup, delivery, and artifacts.
+- Global completion was used for lifecycle reconciliation even though absence is source-specific.
+- Human-readable identities and duplicated Link ownership produced unsafe or duplicate queue rows.
+- Repair policy was split across automatic and human publishers.
 
 ## Prevention
 
-- Give each visible phase its own reusable workflow and declare each job in exactly one file.
-- Test downstream phase conditions explicitly when an independent upstream phase fails.
-- Derive bounded opaque fingerprints from provider IDs or deterministic hashes; never use titles as queue identities.
-- Keep delivery credentials in the terminal reporting job. Earlier phases produce artifacts only.
-- Keep notification adapters bounded: summarize each check by count and severity, include repair totals, and link to detailed artifacts instead of forwarding individual findings.
+- Use one scheduled/manual job with five named stages and one working directory.
+- Let product, runtime, and repository collectors fail independently, then validate all outputs.
+- Reconcile absence only for sources whose collectors completed.
+- Canonicalize bounded fingerprints before queueing and keep Link findings Link-owned.
+- Create one manager-reviewed repair batch and at most one PR; never auto-merge.
+- Send one findings report before repair and one standalone final report, then upload one run artifact.
 
 ## How to apply
 
-When adding a health-agent task, place it only in its owning phase workflow, emit a redacted artifact for terminal reporting, and extend the workflow contract tests to prove unique ownership, bounded identities, one final delivery, and intended failure propagation.
+Add a detector to its health group, return validated structured output, extend the run-level schema,
+and add a contract test proving that its failure does not stop the other groups. Keep temporary
+detector output local and embed only validated, sanitized evidence in `health-run.json`.

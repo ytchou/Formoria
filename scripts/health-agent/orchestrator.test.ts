@@ -88,6 +88,7 @@ function fixtures(overrides: Record<string, unknown> = {}) {
   return files({
     directory: artifact("directory-health"),
     link: artifact("link-checker"),
+    quality: artifact("quality-health"),
     sentry: artifact("sentry-triage"),
     ...overrides,
   });
@@ -96,6 +97,7 @@ function fixtures(overrides: Record<string, unknown> = {}) {
 const paths = {
   "directory-health": "directory",
   "link-checker": "link",
+  "quality-health": "quality",
   "sentry-triage": "sentry",
 } as const;
 
@@ -127,6 +129,7 @@ describe("artifact and envelope contracts", () => {
       "link-checker",
       "directory-health",
       "sentry-triage",
+      "quality-health",
     ]);
     expect(HEALTH_AGENT_COMMANDS.join(" ")).not.toMatch(
       /growth|posthog|traffic/i,
@@ -349,7 +352,7 @@ describe("aggregate and deliver", () => {
       enabled,
     );
 
-    expect(agentHub).toHaveBeenCalledTimes(3);
+    expect(agentHub).toHaveBeenCalledTimes(4);
     expect(agentHub.mock.calls.map(([value]) => value.routine)).toEqual(
       HEALTH_ROUTINES,
     );
@@ -379,7 +382,7 @@ describe("aggregate and deliver", () => {
       enabled,
     );
 
-    expect(agentHub).toHaveBeenCalledTimes(3);
+    expect(agentHub).toHaveBeenCalledTimes(4);
     expect(slack).toHaveBeenCalledTimes(1);
     expect(result.deliveryErrors).toEqual({
       agentHub: [...HEALTH_ROUTINES],
@@ -411,7 +414,7 @@ describe("aggregate and deliver", () => {
       enabled,
     );
 
-    expect(result.envelopes).toHaveLength(3);
+    expect(result.envelopes).toHaveLength(4);
     expect(slack).toHaveBeenCalledWith(
       expect.objectContaining({
         failures: expect.arrayContaining([
@@ -527,7 +530,7 @@ describe("queue mutation gates", () => {
         leaseOwner: "run-1",
         mode: "preflight",
       },
-      { claim, enqueue, hasUnconfirmedAutomatic: async () => false },
+      { claim, enqueue },
       enabled,
     );
     expect(result.suppressed).toBe(true);
@@ -535,7 +538,33 @@ describe("queue mutation gates", () => {
     expect(claim).not.toHaveBeenCalled();
   });
 
-  it("enqueues without a cap, snapshots automatic work first, and excludes late findings", async () => {
+  it("enqueues live findings without claiming them when autofix is disabled", async () => {
+    const enqueue = vi.fn(async () => undefined);
+    const claim = vi.fn(async () => []);
+    const result = await enqueueAndClaimBatch(
+      {
+        findings: [finding("directory:manager-review", "human", "directory")],
+        leaseOwner: "run-report-only",
+        mode: "live",
+      },
+      { claim, enqueue },
+      {
+        HEALTH_AGENT_ENABLED: "true",
+        HEALTH_AUTOFIX_ENABLED: "false",
+      },
+    );
+
+    expect(enqueue).toHaveBeenCalledTimes(1);
+    expect(claim).not.toHaveBeenCalled();
+    expect(result.enqueuedFingerprints).toEqual(["directory:manager-review"]);
+    expect(result.skippedActions).toEqual([
+      "claim",
+      "pull_request",
+      "autofix_disabled",
+    ]);
+  });
+
+  it("enqueues without a cap, claims both policies for one manager batch, and excludes late findings", async () => {
     const automatic = Array.from({ length: 35 }, (_, index) =>
       finding(`sentry:auto-${index}`),
     );
@@ -557,16 +586,16 @@ describe("queue mutation gates", () => {
       {
         claim,
         enqueue,
-        hasUnconfirmedAutomatic: async () => false,
       },
       enabled,
     );
 
     expect(enqueue).toHaveBeenCalledTimes(62);
     expect(result.automatic.findings).toHaveLength(35);
-    expect(result.human.findings).toHaveLength(0);
-    expect(claim).toHaveBeenCalledTimes(1);
+    expect(result.human.findings).toHaveLength(27);
+    expect(claim).toHaveBeenCalledTimes(2);
     expect(claim).toHaveBeenCalledWith("automatic", "run-2");
+    expect(claim).toHaveBeenCalledWith("human", "run-2");
     claims.automatic.push(finding("sentry:late") as RepairFinding);
     expect(result.automatic.findings).not.toEqual(
       expect.arrayContaining([
@@ -575,7 +604,7 @@ describe("queue mutation gates", () => {
     );
   });
 
-  it("claims human work only when no automatic batch is claimed or unconfirmed", async () => {
+  it("claims human work independently of outstanding automatic work", async () => {
     const human = [
       finding("directory:human", "human", "directory") as RepairFinding,
     ];
@@ -591,7 +620,6 @@ describe("queue mutation gates", () => {
       {
         claim,
         enqueue: async () => undefined,
-        hasUnconfirmedAutomatic: async () => false,
       },
       enabled,
     );
@@ -612,13 +640,13 @@ describe("queue mutation gates", () => {
       {
         claim,
         enqueue: async () => undefined,
-        hasUnconfirmedAutomatic: async () => true,
       },
       enabled,
     );
-    expect(blocked.human.findings).toHaveLength(0);
-    expect(claim).toHaveBeenCalledTimes(1);
+    expect(blocked.human.findings).toHaveLength(1);
+    expect(claim).toHaveBeenCalledTimes(2);
     expect(claim).toHaveBeenCalledWith("automatic", "run-blocked");
+    expect(claim).toHaveBeenCalledWith("human", "run-blocked");
   });
 
   it("classifies lifecycle through the production queue adapter", async () => {
@@ -631,22 +659,25 @@ describe("queue mutation gates", () => {
       { fingerprint: "directory:ongoing", status: "needs_human" },
       { fingerprint: "directory:regressed", status: "fixed" },
     ]);
-    const reconcileFingerprintLifecycle = vi.fn(async () => ({
-      failedVerificationFingerprints: ["directory:still-broken"],
-      fixedFingerprints: ["directory:resolved"],
-    }));
+    const operationOrder: string[] = [];
+    const reconcileFingerprintLifecycle = vi.fn(async () => {
+      operationOrder.push("reconcile");
+      return {
+        failedVerificationFingerprints: ["directory:still-broken"],
+        fixedFingerprints: ["directory:resolved"],
+      };
+    });
 
     const result = await enqueueAndClaimBatch(
       {
         findings,
         leaseOwner: "run-lifecycle",
         mode: "live",
-        verifyAbsentFindings: true,
+        completedSources: ["directory"],
       },
       {
         claim: async () => [],
-        enqueue: async () => undefined,
-        hasUnconfirmedAutomatic: async () => false,
+        enqueue: async () => void operationOrder.push("enqueue"),
         listFingerprintStates,
         reconcileFingerprintLifecycle,
       },
@@ -664,18 +695,23 @@ describe("queue mutation gates", () => {
       ongoing: ["directory:ongoing"],
       regressed: ["directory:regressed"],
     });
-    expect(reconcileFingerprintLifecycle).toHaveBeenCalledWith([
-      "directory:new",
-      "directory:ongoing",
-      "directory:regressed",
-    ]);
+    expect(reconcileFingerprintLifecycle).toHaveBeenCalledWith(
+      ["directory:new", "directory:ongoing", "directory:regressed"],
+      ["directory"],
+    );
     expect(result.verifiedFixedFingerprints).toEqual(["directory:resolved"]);
     expect(result.failedVerificationFingerprints).toEqual([
       "directory:still-broken",
     ]);
+    expect(operationOrder).toEqual([
+      "enqueue",
+      "enqueue",
+      "enqueue",
+      "reconcile",
+    ]);
   });
 
-  it("applies automatic-first arbitration to the database queue boundary", async () => {
+  it("claims both policies at the database queue boundary", async () => {
     const automatic = finding("sentry:auto") as RepairFinding;
     const human = finding(
       "directory:human",
@@ -695,19 +731,19 @@ describe("queue mutation gates", () => {
         database: {
           claimFindings: claim,
           enqueueFindings: async () => undefined,
-          hasUnconfirmedAutomatic: async () => false,
         },
       },
       enabled,
     );
 
-    expect(claim).toHaveBeenCalledTimes(1);
+    expect(claim).toHaveBeenCalledTimes(2);
     expect(claim).toHaveBeenCalledWith("automatic", "run-database");
+    expect(claim).toHaveBeenCalledWith("human", "run-database");
     expect(result.automatic.findings).toHaveLength(1);
-    expect(result.human.findings).toHaveLength(0);
+    expect(result.human.findings).toHaveLength(1);
   });
 
-  it("does not claim human work when the automatic-active query is unavailable", async () => {
+  it("claims human work when the automatic-active query is unavailable", async () => {
     const claim = vi.fn(async (policy: MergePolicy) =>
       policy === "human"
         ? [finding("directory:human", "human", "directory") as RepairFinding]
@@ -732,8 +768,8 @@ describe("queue mutation gates", () => {
       "automatic",
       "run-unknown-automatic-state",
     );
-    expect(claim).toHaveBeenCalledTimes(1);
-    expect(result.human.findings).toHaveLength(0);
+    expect(claim).toHaveBeenCalledTimes(2);
+    expect(result.human.findings).toHaveLength(1);
   });
 
   it("allows only the explicit canary scope while live variables remain disabled", () => {
@@ -759,7 +795,6 @@ describe("queue mutation gates", () => {
         database: {
           claimFindings: claim,
           enqueueFindings: enqueue,
-          hasUnconfirmedAutomatic: async () => false,
         },
       },
       enabled,

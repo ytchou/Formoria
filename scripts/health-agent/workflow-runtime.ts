@@ -7,6 +7,7 @@ import {
   createAgentHubAdapter,
   createGitHubAdapter,
   createLinearAdapter,
+  resolveSentryIssues,
   sendSlackDigest,
   type AgentHubAdapter,
   type SlackReport,
@@ -30,6 +31,7 @@ import {
 } from "./sentry";
 import {
   buildRepairBranchName,
+  managerRepairSnapshot,
   partitionRepairBatch,
   redactEvidenceArtifactReference,
   snapshotClaimedFindings,
@@ -70,6 +72,7 @@ import {
   type AuditRecord,
   type HealthFinding,
   type HealthFindingLifecycle,
+  type HealthSource,
   type HealthSummary,
   type JsonValue,
 } from "./contracts";
@@ -78,15 +81,6 @@ const MAX_RUNTIME_FINDINGS = 10_000;
 const FINGERPRINT_STATE_BATCH_SIZE = 40;
 const MAX_RUNTIME_ISSUES = 20;
 const execFileAsync = promisify(execFile);
-const ACTIVE_AUTOMATIC_STATUSES = [
-  "pending",
-  "claimed",
-  "pr_opened",
-  "awaiting_human",
-  "merged",
-  "deployed",
-  "failed",
-] as const;
 
 function safeRuntimeFailure(error: unknown): string {
   if (!(error instanceof Error)) return "operation_failed";
@@ -229,6 +223,7 @@ export interface AggregateWorkflowInput {
   linkArtifactPath: string;
   mode: "canary_fix" | "live" | "preflight";
   outputPath: string;
+  qualityArtifactPath?: string;
   prOutcomes?: readonly JsonValue[];
   runAt: string;
   sentryArtifactPath: string;
@@ -292,7 +287,7 @@ export interface StaleBranchCleanupResult {
 }
 
 export interface RepairSnapshotInput {
-  batchKind?: "automatic" | "human";
+  batchKind?: "automatic" | "human" | "manager";
   inputPath: string;
   outputPath: string;
 }
@@ -703,22 +698,6 @@ function supabaseQueueDependencies(
           (Array.isArray(candidate) && candidate.length <= 1),
       );
     },
-    hasUnconfirmedAutomatic: async () => {
-      const params = new URLSearchParams({
-        merge_policy: "eq.automatic",
-        select: "id",
-        status: `in.(${ACTIVE_AUTOMATIC_STATUSES.join(",")})`,
-      });
-      const value = await supabaseRequest(
-        dependencies,
-        "check_unconfirmed_automatic_health_fixes",
-        `/rest/v1/health_fix_queue?${params.toString()}`,
-        "HEALTH_AGENT_READER_TOKEN",
-        { method: "GET" },
-        (candidate) => Array.isArray(candidate),
-      );
-      return (value as unknown[]).length > 0;
-    },
     listFingerprintStates: async (fingerprints) => {
       if (fingerprints.length === 0) return [];
       const batches = Array.from(
@@ -764,7 +743,10 @@ function supabaseQueueDependencies(
         return true;
       });
     },
-    reconcileFingerprintLifecycle: async (observedFingerprints) => {
+    reconcileFingerprintLifecycle: async (
+      observedFingerprints,
+      completedSources,
+    ) => {
       const value = await supabaseRequest(
         dependencies,
         "reconcile_health_fix_lifecycle",
@@ -773,6 +755,7 @@ function supabaseQueueDependencies(
         {
           body: JSON.stringify({
             p_observed_fingerprints: observedFingerprints,
+            p_completed_sources: completedSources,
           }),
           method: "POST",
         },
@@ -780,6 +763,12 @@ function supabaseQueueDependencies(
       );
       const fixedFingerprints: string[] = [];
       const failedVerificationFingerprints: string[] = [];
+      const regressedFingerprints: string[] = [];
+      const verifiedSentryAbsences: Array<{
+        fingerprint: string;
+        id: string;
+        issueId: string;
+      }> = [];
       for (const candidate of value as unknown[]) {
         if (!isRecord(candidate) || typeof candidate.fingerprint !== "string")
           continue;
@@ -787,9 +776,27 @@ function supabaseQueueDependencies(
           fixedFingerprints.push(candidate.fingerprint);
         } else if (candidate.reconciliation === "failed_verification") {
           failedVerificationFingerprints.push(candidate.fingerprint);
+        } else if (candidate.reconciliation === "regressed") {
+          regressedFingerprints.push(candidate.fingerprint);
+        }
+        if (
+          candidate.reconciliation === "verified_sentry_absence" &&
+          typeof candidate.id === "string" &&
+          typeof candidate.sentry_issue_id === "string"
+        ) {
+          verifiedSentryAbsences.push({
+            fingerprint: candidate.fingerprint,
+            id: candidate.id,
+            issueId: candidate.sentry_issue_id,
+          });
         }
       }
-      return { failedVerificationFingerprints, fixedFingerprints };
+      return {
+        failedVerificationFingerprints,
+        fixedFingerprints,
+        regressedFingerprints,
+        verifiedSentryAbsences,
+      };
     },
   };
 }
@@ -1185,8 +1192,17 @@ function directoryDatabaseEvidence(
             return tableName
               ? [
                   {
+                    autovacuumThreshold: numberValue(
+                      table.autovacuumThreshold ?? table.autovacuum_threshold,
+                    ),
+                    deadTuples: numberValue(
+                      table.deadTuples ?? table.dead_tuples,
+                    ),
                     deadTuplePercent: numberValue(
                       table.deadTuplePercent ?? table.dead_tuple_percent,
+                    ),
+                    liveTuples: numberValue(
+                      table.liveTuples ?? table.live_tuples,
                     ),
                     tableName,
                   },
@@ -2155,6 +2171,7 @@ export async function runAggregateAndDeliver(
       artifactPaths: {
         "directory-health": input.directoryArtifactPath,
         "link-checker": input.linkArtifactPath,
+        "quality-health": input.qualityArtifactPath,
         "sentry-triage": input.sentryArtifactPath,
       },
       brandReviewArtifactPath: input.brandReviewArtifactPath,
@@ -2378,6 +2395,7 @@ export async function deliverFinalHealthReport(
   const checks: HealthSummary["checks"] = {
     directory: terminalCheck(aggregate, "directory-health"),
     link: terminalCheck(aggregate, "link-checker"),
+    quality: terminalCheck(aggregate, "quality-health"),
     sentry: terminalCheck(aggregate, "sentry-triage"),
   };
   const findingCount = Object.values(checks).reduce(
@@ -2407,6 +2425,14 @@ export async function deliverFinalHealthReport(
   const pullRequests = prResults.filter(
     (result) => result.pr !== undefined,
   ).length;
+  const repairedThisRun = prResults.reduce(
+    (total, result) =>
+      total +
+      (result.pr && typeof result.batch.finding_count === "number"
+        ? result.batch.finding_count
+        : 0),
+    0,
+  );
   const failures = [
     ...aggregateFailures(aggregate),
     ...(isRecord(queue) ? stringArray(queue.failures) : []),
@@ -2500,7 +2526,8 @@ export async function deliverFinalHealthReport(
     queued: isRecord(queue)
       ? stringArray(queue.enqueuedFingerprints).length
       : 0,
-    unresolved: findingCount,
+    repaired: repairedThisRun,
+    unresolved: Math.max(0, findingCount - repairedThisRun),
   };
   const healthSummary: HealthSummary = {
     checks,
@@ -2508,11 +2535,7 @@ export async function deliverFinalHealthReport(
     overallStatus,
     phases: input.phases,
     repair,
-    ...terminalLinearTicket(
-      aggregate,
-      linearOutcomes,
-      overallStatus === "needs_attention" && findingCount > 0,
-    ),
+    ...terminalLinearTicket(aggregate, linearOutcomes, findingCount > 0),
   };
   const queued = repair.queued;
   const claimed = repair.claimed;
@@ -2543,6 +2566,18 @@ export async function deliverFinalHealthReport(
           severities: checks.link.severities,
           status: checks.link.status,
         },
+        quality: {
+          finding_count: checks.quality.findingCount,
+          urgency: {
+            follow_up:
+              checks.quality.severities.medium + checks.quality.severities.low,
+            urgent:
+              checks.quality.severities.critical +
+              checks.quality.severities.high,
+          },
+          severities: checks.quality.severities,
+          status: checks.quality.status,
+        },
         sentry: {
           finding_count: checks.sentry.findingCount,
           urgency: {
@@ -2571,6 +2606,7 @@ export async function deliverFinalHealthReport(
         fixed: repair.fixed,
         pull_requests: repair.pullRequests,
         queued,
+        repaired_this_run: repairedThisRun,
         unresolved: repair.unresolved,
       },
       totals: { finding_count: findingCount, severities },
@@ -2654,17 +2690,16 @@ function managerVerdict(summary: HealthSummary): string {
     summary.repair.pullRequests === 0
       ? "No repair PR created."
       : `${summary.repair.pullRequests} repair PR${summary.repair.pullRequests === 1 ? "" : "s"} created.`;
-  const action =
-    summary.overallStatus === "failed"
+  const action = summary.ticket
+    ? `Review ${summary.ticket.identifier}: ${summary.ticket.url}`
+    : summary.overallStatus === "failed"
       ? "Review the failed workflow."
-      : summary.ticket
-        ? `Review ${summary.ticket.identifier}: ${summary.ticket.url}`
-        : summary.repair.pullRequests > 0
-          ? "Review the repair PR."
-          : summary.overallStatus === "healthy"
-            ? "No manager action needed."
-            : "Review unresolved findings.";
-  return `${total} issues; ${summary.repair.fixed} fixed. ${work} ${action}`;
+      : summary.repair.pullRequests > 0
+        ? "Review the repair PR."
+        : summary.overallStatus === "healthy"
+          ? "No manager action needed."
+          : "Review unresolved findings.";
+  return `${total} issues; ${summary.repair.repaired ?? 0} repaired this run. ${work} ${action}`;
 }
 
 function isStaleBranchFinding(finding: HealthFinding): boolean {
@@ -2887,25 +2922,31 @@ function findingsFromArtifact(value: unknown): readonly HealthFinding[] {
   throw new Error("repair_findings_missing");
 }
 
-function canVerifyDetectorAbsence(value: unknown): boolean {
-  if (!isRecord(value) || !isRecord(value.artifacts)) return false;
+function completedDetectorSources(value: unknown): HealthSource[] {
+  if (!isRecord(value) || !isRecord(value.artifacts)) return [];
   const artifacts = value.artifacts;
-  return (["directory-health", "link-checker", "sentry-triage"] as const).every(
-    (routine) => {
-      const artifact = artifacts[routine];
-      if (!isRecord(artifact)) return false;
-      try {
-        if (validateCollectorArtifact(artifact).status !== "success") {
-          return false;
-        }
-        if (routine !== "sentry-triage") return true;
-        const snapshot = isRecord(artifact.snapshot) ? artifact.snapshot : {};
-        return snapshot.hasMore === false && snapshot.incidentMode === false;
-      } catch {
-        return false;
+  const routines = [
+    ["directory-health", "directory"],
+    ["link-checker", "link"],
+    ["quality-health", "quality"],
+    ["sentry-triage", "sentry"],
+  ] as const;
+  return routines.flatMap(([routine, source]) => {
+    const artifact = artifacts[routine];
+    if (!isRecord(artifact)) return [];
+    try {
+      if (validateCollectorArtifact(artifact).status !== "success") {
+        return [];
       }
-    },
-  );
+      if (routine !== "sentry-triage") return [source];
+      const snapshot = isRecord(artifact.snapshot) ? artifact.snapshot : {};
+      return snapshot.hasMore === false && snapshot.incidentMode === false
+        ? [source]
+        : [];
+    } catch {
+      return [];
+    }
+  });
 }
 
 export async function enqueueAndClaimWorkflowBatch(
@@ -2925,8 +2966,8 @@ export async function enqueueAndClaimWorkflowBatch(
       findings,
       leaseOwner: input.leaseOwner,
       mode: input.mode,
-      verifyAbsentFindings:
-        input.mode === "live" && canVerifyDetectorAbsence(value),
+      completedSources:
+        input.mode === "live" ? completedDetectorSources(value) : [],
     },
     {
       ...dependencies,
@@ -2934,8 +2975,65 @@ export async function enqueueAndClaimWorkflowBatch(
     },
     environmentFor(dependencies),
   );
+  if (result.verifiedSentryAbsences.length > 0) {
+    try {
+      await resolveSentryIssues(
+        result.verifiedSentryAbsences.map(({ issueId }) => issueId),
+        {
+          audit: auditFor(dependencies),
+          baseUrl: requiredEnvironment(
+            environmentFor(dependencies),
+            "SENTRY_BASE_URL",
+          ),
+          resolveToken: requiredEnvironment(
+            environmentFor(dependencies),
+            "SENTRY_RESOLVER_TOKEN",
+          ),
+          fetchImplementation: fetchFor(dependencies),
+        },
+      );
+      for (const absence of result.verifiedSentryAbsences) {
+        await transitionVerifiedSentryAbsence(absence.id, dependencies);
+        result.verifiedFixedFingerprints.push(absence.fingerprint);
+        result.verifiedFixedSentryIssueIds.push(absence.issueId);
+      }
+    } catch {
+      result.failures.push("sentry_post_verification_resolution:failed");
+    }
+  }
   await writeRedactedJson(input.outputPath, result, filesFor(dependencies));
   return result;
+}
+
+async function transitionVerifiedSentryAbsence(
+  id: string,
+  dependencies: WorkflowRuntimeDependencies,
+): Promise<void> {
+  await supabaseRequest(
+    dependencies,
+    "transition_verified_sentry_fix",
+    "/rest/v1/rpc/transition_health_fix",
+    "HEALTH_AGENT_WRITER_TOKEN",
+    {
+      body: JSON.stringify({
+        p_confirmation_data: {
+          verification: "provider_resolved_after_detector_absence",
+        },
+        p_deployed_at: null,
+        p_expected_status: "deployed",
+        p_id: id,
+        p_last_error: null,
+        p_lease_owner: null,
+        p_merge_sha: null,
+        p_new_status: "fixed",
+        p_next_attempt_at: null,
+        p_pr_number: null,
+        p_pr_url: null,
+      }),
+      method: "POST",
+    },
+    (value) => isRecord(value) || (Array.isArray(value) && value.length === 1),
+  );
 }
 
 function repairFindingFromValue(value: unknown): RepairFinding {
@@ -2947,7 +3045,10 @@ function repairFindingFromValue(value: unknown): RepairFinding {
   const title = typeof value.title === "string" ? value.title : "";
   if (
     !fingerprint.trim() ||
-    (source !== "link" && source !== "directory" && source !== "sentry") ||
+    (source !== "link" &&
+      source !== "directory" &&
+      source !== "quality" &&
+      source !== "sentry") ||
     (mergePolicy !== "automatic" && mergePolicy !== "human") ||
     !title.trim()
   ) {
@@ -3059,11 +3160,29 @@ export async function prepareRepairSnapshot(
 ): Promise<RepairSnapshot> {
   const value = await readBoundedJson(input.inputPath, filesFor(dependencies));
   const selected =
-    input.batchKind && isRecord(value) && value[input.batchKind] !== undefined
+    input.batchKind &&
+    input.batchKind !== "manager" &&
+    isRecord(value) &&
+    value[input.batchKind] !== undefined
       ? value[input.batchKind]
       : value;
   const findings = findingsFromArtifact(selected).map(repairFindingFromValue);
-  const snapshot = snapshotClaimedFindings(findings);
+  const snapshot =
+    input.batchKind === "manager"
+      ? managerRepairSnapshot(
+          findings,
+          new Set(
+            (
+              await execFileAsync("git", ["ls-files"], {
+                encoding: "utf8",
+                maxBuffer: 2 * 1024 * 1024,
+              })
+            ).stdout
+              .split("\n")
+              .filter(Boolean),
+          ),
+        )
+      : snapshotClaimedFindings(findings);
   await writeRedactedJson(input.outputPath, snapshot, filesFor(dependencies));
   return snapshot;
 }
@@ -3538,6 +3657,10 @@ export async function runWorkflowCommand(
           ),
           mode: safeMode(input.mode),
           outputPath: safeString(input.outputPath, "outputPath"),
+          qualityArtifactPath: safeString(
+            input.qualityArtifactPath,
+            "qualityArtifactPath",
+          ),
           prOutcomes: Array.isArray(input.prOutcomes)
             ? (input.prOutcomes as JsonValue[])
             : undefined,
@@ -3637,7 +3760,9 @@ export async function runWorkflowCommand(
       return prepareRepairSnapshot(
         {
           batchKind:
-            input.batchKind === "automatic" || input.batchKind === "human"
+            input.batchKind === "automatic" ||
+            input.batchKind === "human" ||
+            input.batchKind === "manager"
               ? input.batchKind
               : undefined,
           inputPath: safeString(input.inputPath, "inputPath"),
@@ -3768,6 +3893,7 @@ export async function main(
     outputPath: requiredArgument(argv, "--output"),
     prNumber: optionalArgument(argv, "--pr-number"),
     prUrl: optionalArgument(argv, "--pr-url"),
+    qualityArtifactPath: optionalArgument(argv, "--quality-artifact"),
     resultPath: optionalArgument(argv, "--result"),
     reason: optionalArgument(argv, "--reason"),
     runIdentity:

@@ -1,0 +1,54 @@
+name: Formoria Health Agent Confirmation
+
+on:
+  pull_request:
+    types: [closed]
+  deployment_status:
+
+concurrency:
+  group: health-confirmation-${{ github.event.pull_request.number || github.event.deployment.sha || github.run_id }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  deployments: read
+  pull-requests: read
+
+jobs:
+  confirm:
+    if: >-
+      github.event_name == 'deployment_status' ||
+      contains(github.event.pull_request.labels.*.name, 'health-agent')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Initialize redacted audit
+        run: |
+          mkdir -p .health-agent-artifacts
+          printf '{"status":"started"}\n' > .health-agent-artifacts/confirmation-audit.json
+      - name: Record merge or deployment confirmation
+        env:
+          AGENT_HUB_INGEST_TOKEN: ${{ secrets.AGENT_HUB_INGEST_TOKEN }}
+          AGENT_HUB_INGEST_URL: ${{ secrets.AGENT_HUB_INGEST_URL }}
+          FORMORIA_RAILWAY_URL: ${{ vars.FORMORIA_RAILWAY_URL }}
+          HEALTH_AGENT_READER_TOKEN: ${{ secrets.HEALTH_AGENT_READER_TOKEN }}
+          HEALTH_AGENT_WRITER_TOKEN: ${{ secrets.HEALTH_AGENT_WRITER_TOKEN }}
+          HEALTH_CONFIRMATION_AUDIT_PATH: .health-agent-artifacts/confirmation-audit.json
+          HEALTH_CONFIRMATION_SOURCE_RUN_ID: github-actions:health-confirmation:${{ github.run_id }}:${{ github.run_attempt }}
+          HEALTH_CONFIRMATION_WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          LINEAR_ASSIGNEE_ID: ${{ vars.LINEAR_ASSIGNEE_ID }}
+          LINEAR_OAUTH_ACCESS_TOKEN: ${{ secrets.LINEAR_OAUTH_ACCESS_TOKEN }}
+          LINEAR_PROJECT_ID: ${{ vars.LINEAR_PROJECT_ID }}
+          LINEAR_TEAM_ID: ${{ vars.LINEAR_TEAM_ID }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SLACK_HEALTH_WEBHOOK_URL: ${{ secrets.SLACK_HEALTH_WEBHOOK_URL }}
+        run: pnpm exec tsx scripts/health-agent/confirmation.ts

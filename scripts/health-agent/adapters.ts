@@ -399,7 +399,7 @@ function renderHealthSummary(
   return renderAgentNotification({
     agent: "Health Agent",
     details: [
-      `• Links ${summary.checks.link.findingCount} · Directory ${summary.checks.directory.findingCount} · Sentry ${summary.checks.sentry.findingCount}`,
+      `• Links ${summary.checks.link.findingCount} · Directory ${summary.checks.directory.findingCount} · Sentry ${summary.checks.sentry.findingCount} · Repository ${summary.checks.quality.findingCount}`,
       `• Pipeline: ${pipeline}`,
     ],
     managerAction: operationalManagerAction(summary, pipeline),
@@ -411,7 +411,7 @@ function renderHealthSummary(
           : "failed",
     summary: [
       `• ${total} total · ${lifecycle.new} new · ${lifecycle.ongoing} ongoing · ${lifecycle.regressed} regressed`,
-      `• ${summary.repair.fixed} fixed · ${summary.repair.unresolved} unresolved`,
+      `• ${summary.repair.repaired ?? 0} repaired this run · ${summary.repair.unresolved} unresolved`,
     ],
     workDone: [
       `• ${summary.repair.pullRequests} repair PR${summary.repair.pullRequests === 1 ? "" : "s"}`,
@@ -423,7 +423,19 @@ function renderHealthSummary(
 
 function operationalManagerAction(summary: HealthSummary, pipeline: string) {
   if (summary.overallStatus === "healthy") return "None";
-  if (summary.overallStatus === "failed") return `Investigate ${pipeline}`;
+  const repairPr = Object.values(summary.repair.batches ?? {}).find(
+    (batch) => batch.prUrl,
+  );
+  if (repairPr?.prUrl) {
+    const pr = `<${repairPr.prUrl}|Review PR${repairPr.prNumber ? ` #${repairPr.prNumber}` : ""}>`;
+    return summary.ticket
+      ? `${pr} and track <${summary.ticket.url}|${summary.ticket.identifier}>`
+      : pr;
+  }
+  if (summary.overallStatus === "failed")
+    return summary.ticket
+      ? `Investigate ${pipeline} and review <${summary.ticket.url}|${summary.ticket.identifier}>`
+      : `Investigate ${pipeline}`;
   if (summary.ticket)
     return `<${summary.ticket.url}|${summary.ticket.identifier}> requires review`;
   if (summary.repair.pullRequests > 0)
@@ -763,13 +775,16 @@ function groupedLinearDescription(
   findings: readonly HealthFinding[],
   summary?: LinearSyncSummary,
 ): string {
-  const sources = (["sentry", "directory", "link"] as const)
+  const sources = (["sentry", "directory", "link", "quality"] as const)
     .map((source) => {
       const matches = findings.filter((finding) => finding.source === source);
       if (matches.length === 0) return undefined;
-      const label = { directory: "Directory", link: "Link", sentry: "Sentry" }[
-        source
-      ];
+      const label = {
+        directory: "Directory",
+        link: "Link",
+        quality: "Repository",
+        sentry: "Sentry",
+      }[source];
       const titles = new Map<string, number>();
       for (const finding of matches) {
         titles.set(finding.title, (titles.get(finding.title) ?? 0) + 1);
