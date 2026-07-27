@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures/auth';
 import { seedBrand, SeededBrand } from '../helpers/seed';
 
@@ -11,6 +11,10 @@ import { seedBrand, SeededBrand } from '../helpers/seed';
  * The proposal lands in a pending queue and the public page keeps showing the
  * original value until an admin approves it.
  *
+ * The value control is a two-row chip picker (DEV-1244): row 1 is the brand's
+ * current value, row 2 is everything else. A visitor whose product category is
+ * missing from row 2 can type it via the 其他 escape hatch.
+ *
  * Admin approval is deliberately out of scope here — admin review paths are
  * exercised elsewhere and excluded from this journey.
  */
@@ -21,18 +25,30 @@ const CORRECTION_TRIGGER_NAME = '修正品牌資訊'; // brandDetail.correction.
 const CORRECTION_TRIGGER_TEXT = '資料有誤?'; // brandDetail.correction.trigger
 const CORRECTION_DIALOG_TITLE = '修正品牌資訊'; // brandDetail.correction.title
 const FIELD_PICKER_LABEL = '要修正哪一項?'; // brandDetail.correction.fieldPickerLabel
+// The value control is two role="group" rows. Row 1 (the brand's current value)
+// is named by the 目前 heading; row 2 (the options a visitor may pick) is named
+// by the field label itself, so 類別 addresses the options row, not the current one.
+const CURRENT_VALUE_LABEL = '目前'; // brandDetail.correction.currentHeading
 const CATEGORY_VALUE_LABEL = '類別'; // brandDetail.label.category
+const ADD_TAGS_LABEL = '可加入的類別'; // brandDetail.correction.addTagsHeading
+const OTHER_TAG_CHIP = '其他'; // brandDetail.correction.otherTagChip
+const OTHER_TAG_INPUT_LABEL = '其他類別名稱'; // brandDetail.correction.otherTagInputLabel
+const OTHER_TAG_CONFIRM = '加入'; // brandDetail.correction.otherTagConfirm
 const SUBMIT_LABEL = '送出修正'; // brandDetail.correction.submit
 const CANCEL_LABEL = '取消'; // dashboard.edit.cancel
 const REVIEW_PROMISE = '感謝您的建議！送出後將由官方審核決定是否更新。'; // brandDetail.correction.description
 const SUCCESS_TOAST = '修正已送出，感謝你的協助。'; // brandDetail.correction.success
 const ALREADY_SUBMITTED_TOAST = '你已經送出過這項修正，請等待審核。'; // ...correction.errors.already_submitted
 
-// seedBrand() always writes product_type: 'crafts'
-const CURRENT_CATEGORY_SLUG = 'crafts';
+// seedBrand() always writes product_type: 'crafts' and no product_tags
 const CURRENT_CATEGORY_LABEL = '工藝文創';
-const PROPOSED_CATEGORY_SLUG = 'stationery';
 const PROPOSED_CATEGORY_LABEL = '文具設計';
+
+// A tag the taxonomy does not know: 4 characters (inside the 2–8 rule), no
+// ontology name or alias (grep 藺 in ontology.ts returns nothing), and it misses
+// both blocklists in product-tags.ts — no marketing-noise term and no leading
+// size qualifier. See `novelTagRejection`.
+const NOVEL_TAG = '藺草編織';
 
 /**
  * Correction submits and `/brands/` page loads are both rate limited per client
@@ -95,7 +111,7 @@ function categoryValue(page: Page) {
 // The brand page is statically served and hydrates afterwards, so a click that
 // lands too early is a no-op. Retry the (idempotent) open until the dialog is up
 // rather than sleeping on a guessed hydration delay.
-async function openCategoryDialog(page: Page) {
+async function openCorrectionDialog(page: Page, field: 'product_type' | 'product_tags') {
   // The trigger ships in the server-rendered HTML, so a missing one is never a
   // hydration race — it means the page under test doesn't have this feature at
   // all. Assert it up front: folded into the retry loop below it surfaces as an
@@ -108,17 +124,33 @@ async function openCategoryDialog(page: Page) {
     if (!(await dialog.isVisible())) await correctionTrigger(page).click();
     await expect(dialog).toBeVisible({ timeout: 2_000 });
   }).toPass({ timeout: 20_000, intervals: [500, 1_000, 2_000] });
-  // The picker opens on a disabled placeholder with no field selected, so the
-  // value control only exists after this selection.
-  await dialog.getByRole('combobox', { name: FIELD_PICKER_LABEL }).selectOption('product_type');
+  // The field picker is the one control that is still a real <select>. The
+  // picker opens on a disabled placeholder with no field selected, so the value
+  // rows only exist after this selection.
+  await dialog.getByRole('combobox', { name: FIELD_PICKER_LABEL }).selectOption(field);
   return dialog;
+}
+
+async function openCategoryDialog(page: Page) {
+  return openCorrectionDialog(page, 'product_type');
+}
+
+// Every chip lookup goes through one of these two. Bare
+// getByRole('button', { name: '工藝文創' }) is strict-mode ambiguous — the
+// category labels also render in the breadcrumb and the related-brands rail.
+function optionsRow(dialog: Locator, name: string) {
+  return dialog.getByRole('group', { name });
+}
+
+function currentRow(dialog: Locator) {
+  return dialog.getByRole('group', { name: CURRENT_VALUE_LABEL });
 }
 
 async function proposeCategoryChange(page: Page) {
   const dialog = await openCategoryDialog(page);
-  await dialog
-    .getByRole('combobox', { name: CATEGORY_VALUE_LABEL })
-    .selectOption(PROPOSED_CATEGORY_SLUG);
+  await optionsRow(dialog, CATEGORY_VALUE_LABEL)
+    .getByRole('button', { name: PROPOSED_CATEGORY_LABEL, exact: true })
+    .click();
   const submit = dialog.getByRole('button', { name: SUBMIT_LABEL, exact: true });
   await expect(submit).toBeEnabled();
   await submit.click();
@@ -164,9 +196,11 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
       await expect(dialog.getByRole('link', { name: /登入|sign in/i })).toHaveCount(0);
       await expect(dialog.getByText(REVIEW_PROMISE)).toBeVisible();
 
-      await dialog
-        .getByRole('combobox', { name: CATEGORY_VALUE_LABEL })
-        .selectOption(PROPOSED_CATEGORY_SLUG);
+      // Row 1 shows what the brand says today; row 2 offers everything else.
+      await expect(currentRow(dialog)).toContainText(CURRENT_CATEGORY_LABEL);
+      await optionsRow(dialog, CATEGORY_VALUE_LABEL)
+        .getByRole('button', { name: PROPOSED_CATEGORY_LABEL, exact: true })
+        .click();
       await dialog.getByRole('button', { name: SUBMIT_LABEL, exact: true }).click();
 
       await expectToast(anonPage, 'success', SUCCESS_TOAST);
@@ -184,18 +218,28 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
     await openSeededBrand(anonPage, seeded);
 
     const dialog = await openCategoryDialog(anonPage);
-    const select = dialog.getByRole('combobox', { name: CATEGORY_VALUE_LABEL });
+    const options = optionsRow(dialog, CATEGORY_VALUE_LABEL);
+    const proposed = options.getByRole('button', { name: PROPOSED_CATEGORY_LABEL, exact: true });
     const submit = dialog.getByRole('button', { name: SUBMIT_LABEL, exact: true });
 
-    // Opens on the brand's current category — there is nothing to propose yet.
-    await expect(select).toHaveValue(CURRENT_CATEGORY_SLUG);
+    // The brand's current category is shown as a reference, not as something to
+    // click: it sits in row 1 and is deliberately absent from the options row,
+    // so there is nothing to propose yet.
+    await expect(currentRow(dialog)).toContainText(CURRENT_CATEGORY_LABEL);
+    await expect(
+      options.getByRole('button', { name: CURRENT_CATEGORY_LABEL, exact: true }),
+    ).toHaveCount(0);
+    await expect(proposed).toHaveAttribute('aria-pressed', 'false');
     await expect(submit).toBeDisabled();
 
-    await select.selectOption(PROPOSED_CATEGORY_SLUG);
+    await proposed.click();
+    await expect(proposed).toHaveAttribute('aria-pressed', 'true');
     await expect(submit).toBeEnabled();
 
-    // Going back to the original value re-disables it.
-    await select.selectOption(CURRENT_CATEGORY_SLUG);
+    // Row 2 never offers the current value, so the way back to the baseline is a
+    // second click on the same chip — which clears the selection.
+    await proposed.click();
+    await expect(proposed).toHaveAttribute('aria-pressed', 'false');
     await expect(submit).toBeDisabled();
   });
 
@@ -238,4 +282,41 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
     // The dialog stays open on failure so the visitor can see what happened.
     await expect(dialog).toBeVisible();
   });
+
+  test(
+    'a visitor can propose a tag the taxonomy does not offer',
+    async ({ anonPage }, testInfo) => {
+      test.setTimeout(90_000);
+      await isolateVisitorIp(anonPage, testInfo.workerIndex);
+      await openSeededBrand(anonPage, seeded);
+
+      const dialog = await openCorrectionDialog(anonPage, 'product_tags');
+      const options = optionsRow(dialog, ADD_TAGS_LABEL);
+      const submit = dialog.getByRole('button', { name: SUBMIT_LABEL, exact: true });
+
+      // Nothing picked yet — the seeded brand carries no tags at all.
+      await expect(submit).toBeDisabled();
+
+      // The escape hatch: the visitor's tag is not one of the offered chips.
+      await expect(
+        options.getByRole('button', { name: NOVEL_TAG, exact: true }),
+      ).toHaveCount(0);
+      await options.getByRole('button', { name: OTHER_TAG_CHIP, exact: true }).click();
+
+      await dialog.getByRole('textbox', { name: OTHER_TAG_INPUT_LABEL }).fill(NOVEL_TAG);
+      await dialog.getByRole('button', { name: OTHER_TAG_CONFIRM, exact: true }).click();
+
+      // Accepted: it joins the options row already selected, so the visitor sees
+      // what they are about to propose rather than a silent form change.
+      const novelChip = options.getByRole('button', { name: NOVEL_TAG, exact: true });
+      await expect(novelChip).toBeVisible();
+      await expect(novelChip).toHaveAttribute('aria-pressed', 'true');
+
+      await expect(submit).toBeEnabled();
+      await submit.click();
+
+      await expectToast(anonPage, 'success', SUCCESS_TOAST);
+      await expect(dialog).toBeHidden();
+    },
+  );
 });
