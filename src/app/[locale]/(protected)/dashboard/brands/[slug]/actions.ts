@@ -12,6 +12,7 @@ import { sendEmail } from '@/lib/email/send'
 import {
   insertBrandImage,
   rejectBrandImages,
+  releaseBrandImageUrls,
   syncHeroDenormalized,
 } from '@/lib/services/brand-images'
 import { brandPublishRequirementsSchema } from '@/lib/schemas/brand-edit'
@@ -25,10 +26,7 @@ import {
 } from '@/lib/services/brands'
 import { createServiceClient } from '@/lib/supabase/server'
 import { ConflictError } from '@/lib/errors'
-import {
-  deleteBrandImages,
-  storageKeyFromPublicUrl,
-} from '@/lib/services/image-upload'
+import { storageKeyFromPublicUrl } from '@/lib/services/image-upload'
 import { logAdminActionIfAdmin } from '@/lib/services/admin-audit'
 import type { Brand } from '@/lib/types'
 import {
@@ -168,6 +166,7 @@ async function applyBrandUpdate(
   updateData: Partial<Brand>,
   options: { syncOwnerImages?: boolean } = {},
 ): Promise<Brand> {
+  const supabase = createServiceClient()
   const previousImageUrls = imageUrlsFromBrand(brand)
   const nextImageUrls = imageUrlsFromBrand({ ...brand, ...updateData })
   const orphans = diffRemovedImageUrls(previousImageUrls, nextImageUrls)
@@ -178,14 +177,14 @@ async function applyBrandUpdate(
     await syncOwnerUploadedImages(brand.id, previousImageUrls, nextImageUrls)
   }
 
-  await deleteBrandImages(orphans)
+  await releaseBrandImageUrls(supabase, brand.id, orphans)
 
   const { snapshot } = await discardDraft(brand.id)
   const draftOnlyImages = diffRemovedImageUrls(
     imageUrlsFromSnapshot(snapshot),
     imageUrlsFromBrand(updatedBrand),
   )
-  await deleteBrandImages(draftOnlyImages)
+  await releaseBrandImageUrls(supabase, brand.id, draftOnlyImages)
 
   revalidatePublicBrand({
     slug: updatedBrand.slug,
@@ -382,6 +381,8 @@ export async function publishDraftAction(
       return { violations }
     }
 
+    const supabase = createServiceClient()
+
     if (!configuredAdmin) {
       const nextImageUrls = imageUrlsFromBrand({
         heroImageUrl:
@@ -412,7 +413,7 @@ export async function publishDraftAction(
           nextImageUrls,
         )
       }
-      await deleteBrandImages(orphans)
+      await releaseBrandImageUrls(supabase, brand.id, orphans)
 
       revalidatePublicBrand({
         slug: publishedBrand.slug,
@@ -449,7 +450,7 @@ export async function publishDraftAction(
           nextImageUrls,
         )
       }
-      await deleteBrandImages(orphans)
+      await releaseBrandImageUrls(supabase, brand.id, orphans)
       await logAdminActionIfAdmin(
         actingAdmin,
         { id: user.id, email: user.email ?? null },

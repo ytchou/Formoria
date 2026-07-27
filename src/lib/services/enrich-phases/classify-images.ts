@@ -26,7 +26,7 @@ const VALID_TAGS = new Set([
   'text_banner',
   'irrelevant',
 ])
-const JUNK_TAGS = new Set(['promo', 'text_banner', 'irrelevant', 'logo'])
+export const JUNK_TAGS = new Set(['promo', 'text_banner', 'irrelevant', 'logo'])
 const MIN_HERO_SCORE = 50
 
 type ImageClassificationTag =
