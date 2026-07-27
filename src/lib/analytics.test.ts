@@ -290,6 +290,18 @@ describe('analytics', () => {
 
 
 
+describe('brand share tracking', () => {
+  it('trackBrandPageShared sends brand_page_shared with the channel', () => {
+    trackBrandPageShared('my-brand', 'brand-uuid', 'threads')
+
+    expect(mockPostHogCapture).toHaveBeenCalledWith('brand_page_shared', {
+      brand_id: 'brand-uuid',
+      brand_slug: 'my-brand',
+      method: 'threads',
+    })
+  })
+})
+
 describe('brand like tracking', () => {
   it('tracks public brand likes and removals separately from saves', () => {
     trackBrandLiked('brand-uuid', 'my-brand')

@@ -359,11 +359,16 @@
     "share": {
       "trigger": "Share",
       "dialogTitle": "Share",
-      "copyLink": "Copy Link",
+      "urlLabel": "Brand page URL",
+      "copy": "Copy",
       "copied": "Copied!",
+      "orShareTo": "Or share to",
       "line": "LINE",
+      "threads": "Threads",
       "facebook": "Facebook",
-      "x": "X"
+      "instagram": "Instagram",
+      "instagramCopied": "Link copied — paste it into your story or bio",
+      "close": "Close"
     },
     "links": {
       "socialPlatforms": "Social Platforms",
