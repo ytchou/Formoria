@@ -22,14 +22,15 @@ const share = zh.brandDetail.share
 const SLUG = 'test-brand'
 const BRAND_NAME = 'Test Brand'
 const ABSOLUTE_URL = `http://localhost/brands/${SLUG}`
+const HOST = window.location.host
 
 let writeText: ReturnType<typeof vi.fn>
 let openSpy: ReturnType<typeof vi.fn>
 
-function renderDialog() {
+function renderDialog(props: { categoryLabel?: string | null; brandImageUrl?: string } = {}) {
   return render(
     <NextIntlClientProvider locale="zh-TW" messages={zh}>
-      <ShareDialog brandSlug={SLUG} brandName={BRAND_NAME} brandId="b1" />
+      <ShareDialog brandSlug={SLUG} brandName={BRAND_NAME} brandId="b1" {...props} />
     </NextIntlClientProvider>
   )
 }
@@ -136,5 +137,30 @@ describe('ShareDialog', () => {
     expect(screen.getByRole('button', { name: share.facebook })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: share.instagram })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'X' })).not.toBeInTheDocument()
+  })
+
+  it('preview card appends the category after the host separator', async () => {
+    const user = setupUser()
+    renderDialog({ categoryLabel: 'Test Category' })
+    await openDialog(user)
+
+    expect(screen.getByText(`${HOST} · Test Category`)).toBeInTheDocument()
+  })
+
+  it('preview card leaves no dangling separator without a category', async () => {
+    const user = setupUser()
+    renderDialog()
+    await openDialog(user)
+
+    expect(screen.getByText(HOST)).toBeInTheDocument()
+    expect(screen.queryByText(new RegExp(`${HOST}\\s*·`))).not.toBeInTheDocument()
+  })
+
+  it('preview card falls back to the brand initial without a hero image', async () => {
+    const user = setupUser()
+    renderDialog()
+    await openDialog(user)
+
+    expect(screen.getByText(Array.from(BRAND_NAME)[0] as string)).toBeInTheDocument()
   })
 })

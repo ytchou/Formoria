@@ -15,6 +15,7 @@ import { trackBrandPageShared, type ShareChannel } from '@/lib/analytics'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogClose, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { InstagramIcon } from '@/components/icons/instagram-icon'
 import { cn } from '@/lib/utils'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 
@@ -47,28 +48,13 @@ function FacebookIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
-// lucide-react dropped its brand glyphs, so the Instagram mark is drawn locally.
-function InstagramIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      {...props}
-    >
-      <rect x="2" y="2" width="20" height="20" rx="5" />
-      <circle cx="12" cy="12" r="4" />
-      <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
-    </svg>
-  )
-}
+// Only the channels this dialog actually renders. Narrower than `ShareChannel`
+// (which also carries 'native' and 'copy_link') so the dispatcher's `never`
+// default forces every array entry to have a matching handler.
+type ChannelKey = Extract<ShareChannel, 'line' | 'threads' | 'facebook' | 'instagram'>
 
 type Channel = {
-  key: ShareChannel
+  key: ChannelKey
   label: string
   discClass: string
   discStyle?: CSSProperties
@@ -85,28 +71,55 @@ export function ShareDialog({
   const t = useTranslations('brandDetail.share')
   const safeImage = safeImageSrc(brandImageUrl)
   const [open, setOpen] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const [instagramCopied, setInstagramCopied] = useState(false)
+  // One success signal for both affordances: the copy chip and the Instagram
+  // status strip can never light at the same time, and it is reset on close so
+  // reopening inside the flash window never shows a stale banner.
+  const [copiedKind, setCopiedKind] = useState<'link' | 'instagram' | null>(null)
   // Read at render time rather than via an effect: the popup (the only consumer
   // of `origin`) is unmounted while the dialog is closed, so there is nothing
   // for the server pass to mismatch against.
-  const origin = typeof window === 'undefined' ? '' : window.location.origin
+  const { origin, host } =
+    typeof window === 'undefined' ? { origin: '', host: '' } : window.location
   const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const instagramTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const shareUrl = `${origin}/brands/${brandSlug}`
-  const host = origin.replace(/^https?:\/\//, '')
   const displayUrl = `${host}/brands/${brandSlug}`
+
+  const copied = copiedKind === 'link'
+  const instagramCopied = copiedKind === 'instagram'
 
   useEffect(() => {
     return () => {
       if (copiedTimeoutRef.current) {
         clearTimeout(copiedTimeoutRef.current)
       }
-      if (instagramTimeoutRef.current) {
-        clearTimeout(instagramTimeoutRef.current)
-      }
     }
   }, [])
+
+  // Reset on close in the change handler rather than an `open`-keyed effect:
+  // the React Compiler lint rejects synchronous setState inside an effect.
+  const handleOpenChange = (next: boolean) => {
+    if (!next) {
+      if (copiedTimeoutRef.current) {
+        clearTimeout(copiedTimeoutRef.current)
+        copiedTimeoutRef.current = null
+      }
+      setCopiedKind(null)
+    }
+    setOpen(next)
+  }
+
+  const flashCopied = (kind: 'link' | 'instagram', ms: number) => {
+    setCopiedKind(kind)
+
+    if (copiedTimeoutRef.current) {
+      clearTimeout(copiedTimeoutRef.current)
+    }
+
+    copiedTimeoutRef.current = setTimeout(() => {
+      setCopiedKind(null)
+      copiedTimeoutRef.current = null
+    }, ms)
+  }
 
   const handleTriggerClick = async () => {
     // Only genuine touch devices get the OS share sheet; desktop Chrome/Edge
@@ -138,16 +151,7 @@ export function ShareDialog({
     try {
       await navigator.clipboard.writeText(shareUrl)
       trackBrandPageShared(brandSlug, brandId, 'copy_link')
-      setCopied(true)
-
-      if (copiedTimeoutRef.current) {
-        clearTimeout(copiedTimeoutRef.current)
-      }
-
-      copiedTimeoutRef.current = setTimeout(() => {
-        setCopied(false)
-        copiedTimeoutRef.current = null
-      }, COPIED_RESET_MS)
+      flashCopied('link', COPIED_RESET_MS)
     } catch {
       // Ignore copy failures so the UI only shows success after an actual copy.
     }
@@ -178,59 +182,67 @@ export function ShareDialog({
     }
 
     trackBrandPageShared(brandSlug, brandId, 'instagram')
-    window.open('https://www.instagram.com/', '_blank', 'noopener,noreferrer')
-    setInstagramCopied(true)
-
-    if (instagramTimeoutRef.current) {
-      clearTimeout(instagramTimeoutRef.current)
-    }
-
-    instagramTimeoutRef.current = setTimeout(() => {
-      setInstagramCopied(false)
-      instagramTimeoutRef.current = null
-    }, INSTAGRAM_STATUS_MS)
+    // Ceiling: awaiting the clipboard write can consume transient user
+    // activation on Safari/Firefox, so this popup may be blocked there.
+    // Accepted — the role="status" strip already tells the user the link is
+    // copied and to paste it.
+    openShareWindow('https://www.instagram.com/')
+    flashCopied('instagram', INSTAGRAM_STATUS_MS)
   }
 
   // Single dispatcher instead of an `onClick` per array entry: the React
   // Compiler lint (react-hooks/refs) rejects mapping over a render-time array
   // that carries closures which touch timeout refs.
-  const handleChannelClick = (key: ShareChannel) => {
-    if (key === 'line') return handleLineShare()
-    if (key === 'threads') return handleThreadsShare()
-    if (key === 'facebook') return handleFacebookShare()
-    void handleInstagramShare()
+  const handleChannelClick = (key: ChannelKey) => {
+    switch (key) {
+      case 'line':
+        return handleLineShare()
+      case 'threads':
+        return handleThreadsShare()
+      case 'facebook':
+        return handleFacebookShare()
+      case 'instagram':
+        return void handleInstagramShare()
+      default: {
+        const exhaustive: never = key
+        return exhaustive
+      }
+    }
   }
 
   const channels: Channel[] = [
     {
       key: 'line',
       label: t('line'),
-      discClass: LINE_DISC,
+      // Fixed brand backgrounds need the canonical white glyph; `text-background`
+      // would flip to near-black in the dark theme. Only Threads (bg-foreground)
+      // is genuinely theme-paired.
+      discClass: `${LINE_DISC} text-white`,
       icon: <MessageCircle className="size-5" aria-hidden="true" />,
     },
     {
       key: 'threads',
       label: t('threads'),
-      discClass: 'bg-foreground',
+      discClass: 'bg-foreground text-background',
       icon: <AtSign className="size-5" aria-hidden="true" />,
     },
     {
       key: 'facebook',
       label: t('facebook'),
-      discClass: FACEBOOK_DISC,
+      discClass: `${FACEBOOK_DISC} text-white`,
       icon: <FacebookIcon className="size-5" />,
     },
     {
       key: 'instagram',
       label: t('instagram'),
-      discClass: '',
+      discClass: 'text-white',
       discStyle: INSTAGRAM_DISC_STYLE,
       icon: <InstagramIcon className="size-5" />,
     },
   ]
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <Button
         variant="secondary"
         className="shrink-0"
@@ -261,7 +273,13 @@ export function ShareDialog({
           <div className="overflow-hidden rounded-xl border border-border bg-muted">
             {safeImage ? (
               <div className="relative h-[74px] w-full">
-                <Image src={safeImage} alt="" fill sizes="336px" className="object-cover" />
+                <Image
+                  src={safeImage}
+                  alt=""
+                  fill
+                  sizes="(max-width: 352px) 256px, 336px"
+                  className="object-cover"
+                />
               </div>
             ) : (
               <div
@@ -269,13 +287,15 @@ export function ShareDialog({
                 className="flex h-[74px] w-full items-center justify-center bg-linear-to-br from-secondary to-muted"
               >
                 <span className="type-page-title text-muted-foreground">
-                  {brandName.slice(0, 1)}
+                  {Array.from(brandName)[0] ?? ''}
                 </span>
               </div>
             )}
             <div className="space-y-0.5 px-3 py-2.5">
               <p className="truncate type-body-emphasis">{brandName}</p>
-              <p className="truncate type-caption">
+              {/* text-foreground/70, not text-muted-foreground: muted-on-muted
+                  computes to 4.39:1 in the dark theme, below the 4.5:1 minimum. */}
+              <p className="truncate type-caption text-foreground/70">
                 {host}
                 {categoryLabel ? ` · ${categoryLabel}` : ''}
               </p>
@@ -289,7 +309,10 @@ export function ShareDialog({
               value={displayUrl}
               aria-label={t('urlLabel')}
               onFocus={(event) => event.currentTarget.select()}
-              className="h-10 rounded-lg border-border bg-muted pr-24 font-mono text-[13px] text-muted-foreground md:text-[13px]"
+              // text-base on mobile keeps the 16px floor that stops iOS Safari
+              // auto-zooming on focus (this field calls select() on focus);
+              // text-foreground/70 clears 4.5:1 on the muted surface in dark mode.
+              className="h-10 rounded-lg border-border bg-muted pr-28 font-mono text-base text-foreground/70 md:text-[13px]"
               data-ph-no-autocapture
             />
             <Button
@@ -310,6 +333,10 @@ export function ShareDialog({
             </Button>
           </div>
 
+          {/* Hand-rolled rather than ui/separator: that primitive has no
+              children/label slot, so a centred label would need two Separators
+              and would announce two role="separator" nodes. These spans are
+              aria-hidden. */}
           <div className="flex items-center gap-3">
             <span className="h-px flex-1 bg-border" aria-hidden="true" />
             <span className="type-micro text-muted-foreground">{t('orShareTo')}</span>
@@ -323,15 +350,18 @@ export function ShareDialog({
                 type="button"
                 onClick={() => handleChannelClick(channel.key)}
                 data-ph-no-autocapture
+                // w-15 (60px), not w-16: four 64px buttons exactly fill the
+                // 256px content width at a 288px dialog, so the hit rectangles
+                // would abut with no gutter. The 44px disc is unchanged.
                 // eslint-disable-next-line no-restricted-syntax -- ui-exception: 44px brand disc with label beneath, not a Button shape
-                className="flex w-16 cursor-pointer flex-col items-center gap-1.5 rounded-lg py-1 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex w-15 cursor-pointer flex-col items-center gap-1.5 rounded-lg py-1 outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <span
                   aria-hidden="true"
                   style={channel.discStyle}
                   className={cn(
                     // Tailwind's `hover:` variant is already wrapped in @media (hover: hover).
-                    'flex size-11 items-center justify-center rounded-full text-background transition-transform duration-150 hover:scale-105',
+                    'flex size-11 items-center justify-center rounded-full transition-transform duration-150 hover:scale-105',
                     channel.discClass,
                   )}
                 >

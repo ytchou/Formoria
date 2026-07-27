@@ -69,7 +69,9 @@ export function renderShareCard(
           display: 'flex',
           fontSize: 52,
           fontWeight: 700,
-          color: brandColors.primary,
+          // Muted grey so the ink brand name below stays the dominant element —
+          // `primary` now equals `fg`, so colour is the only separation left.
+          color: brandColors.espresso,
           fontFamily: 'Noto Sans TC',
           lineHeight: 1.7,
           marginBottom: '48px',

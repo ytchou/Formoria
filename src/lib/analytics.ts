@@ -295,6 +295,7 @@ export function trackSubmissionFormAbandoned(
 
 /** Share channels offered by the brand share dialog. Adding a channel here is the
  *  compile-time contract the dialog is checked against. */
+// 'x' was retired in DEV-1242; historical brand_page_shared events retain method: 'x'.
 export type ShareChannel =
   | 'native'
   | 'copy_link'

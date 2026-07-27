@@ -12,6 +12,12 @@ const allowedMatches = [
     values: ['#4285F4', '#34A853', '#FBBC04', '#EA4335'],
   },
   {
+    // Ceiling: brand marks only — the LINE / Facebook / Instagram hexes exist so
+    // each channel disc reads as that platform's own logo. Never extend this
+    // entry to Formoria chrome (accent, surfaces, text). The `text-[13px]` value
+    // is a separate typography escape, not a brand mark: it is the desktop-only
+    // density of the read-only URL field, paired with a `text-base` mobile floor
+    // so iOS Safari does not auto-zoom on focus.
     file: 'src/components/brands/share-dialog.tsx',
     names: [
       'raw hex color class',
