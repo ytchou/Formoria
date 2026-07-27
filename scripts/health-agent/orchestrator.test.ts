@@ -834,7 +834,7 @@ describe("queue mutation gates", () => {
     expect(result.skippedActions).toContain("canary:sentry:production");
   });
 
-  it("bounds an explicit provider-backed Sentry canary to the marker file", async () => {
+  it("bounds the provider-backed Sentry canary using the evidence returned by production", async () => {
     const fingerprint = "sentry:issue:88442211";
     const enqueue = vi.fn(async () => undefined);
     const claim = vi.fn(async () => []);
@@ -845,15 +845,15 @@ describe("queue mutation gates", () => {
           {
             changedFiles: [],
             evidence: {
+              latestEvent: {
+                eventId: "0d316788727e48b0911d20d90c640d51",
+                occurredAt: "2026-07-27T08:29:05.149Z",
+              },
               provider: { issueId: "88442211" },
               rootCauseEvidence: {
-                stack: [
-                  "verifyHealthAgentCanary (/app/health-agent-canary.txt:1:1)",
-                ],
-                tags: {
-                  runtime:
-                    "health-agent-real-lifecycle:sentry-lifecycle-1785140945140",
-                },
+                culprit: "verifyHealthAgentCanary(health-agent-canary.txt)",
+                stack: [],
+                tags: { runtime: "node v26.5.0" },
               },
             },
             fingerprint,
@@ -863,7 +863,7 @@ describe("queue mutation gates", () => {
             severity: "low",
             source: "sentry",
             title:
-              "HealthAgentLifecycleCanaryError: expected sentry-lifecycle-1785140945140",
+              "HealthAgentLifecycleCanaryError: Health Agent lifecycle canary marker mismatch: expected sentry-lifecycle-1785140945140",
           },
         ],
         leaseOwner: "github-actions:123:1",
@@ -989,6 +989,10 @@ describe("queue mutation gates", () => {
         canary: true,
         canaryKind: "sentry-real-lifecycle",
         desiredMarker: "sentry-lifecycle-1785140945140",
+        latestEvent: {
+          eventId: "0d316788727e48b0911d20d90c640d51",
+          occurredAt: "2026-07-27T08:29:05.149Z",
+        },
         provider: { issueId: "88442211" },
         rootCauseEvidence: {
           stack: ["verifyHealthAgentCanary (/app/health-agent-canary.txt:1:1)"],
@@ -1005,7 +1009,7 @@ describe("queue mutation gates", () => {
       severity: "low" as const,
       source: "sentry" as const,
       title:
-        "HealthAgentLifecycleCanaryError: expected sentry-lifecycle-1785140945140",
+        "HealthAgentLifecycleCanaryError: Health Agent lifecycle canary marker mismatch: expected sentry-lifecycle-1785140945140",
     } as RepairFinding;
     const createPullRequest = vi.fn(async () => ({ number: 520 }));
 

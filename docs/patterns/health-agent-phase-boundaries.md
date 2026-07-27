@@ -87,6 +87,8 @@ Persist each sanitized issue and provider identity as one paired record before c
 keep the redactor deep enough for the validated run schema.
 Use a shape-specific, idempotent validator once data has crossed the provider boundary; test that
 validating an already-canonical record twice produces the same record.
+Gate provider canaries on the sanitized evidence the production API actually retains; SDK-defined
+tags and synthetic frames may be normalized or replaced before the latest-event endpoint returns.
 Derive controlled repair scope only in `canary_fix`, after checking the exact requested fingerprint,
 provider identity, marker tag, stack file, severity, and human merge policy.
 
