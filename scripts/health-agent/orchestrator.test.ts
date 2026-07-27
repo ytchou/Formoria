@@ -594,8 +594,16 @@ describe("queue mutation gates", () => {
     expect(result.automatic.findings).toHaveLength(35);
     expect(result.human.findings).toHaveLength(27);
     expect(claim).toHaveBeenCalledTimes(2);
-    expect(claim).toHaveBeenCalledWith("automatic", "run-2");
-    expect(claim).toHaveBeenCalledWith("human", "run-2");
+    expect(claim).toHaveBeenCalledWith(
+      "automatic",
+      "run-2",
+      automatic.map(({ fingerprint }) => fingerprint),
+    );
+    expect(claim).toHaveBeenCalledWith(
+      "human",
+      "run-2",
+      human.map(({ fingerprint }) => fingerprint),
+    );
     claims.automatic.push(finding("sentry:late") as RepairFinding);
     expect(result.automatic.findings).not.toEqual(
       expect.arrayContaining([
@@ -625,9 +633,8 @@ describe("queue mutation gates", () => {
     );
     expect(result.automatic.findings).toHaveLength(0);
     expect(result.human.findings).toHaveLength(1);
-    expect(claim.mock.calls.map(([policy]) => policy)).toEqual([
-      "automatic",
-      "human",
+    expect(claim.mock.calls).toEqual([
+      ["human", "run-human", ["directory:human"]],
     ]);
 
     claim.mockClear();
@@ -644,9 +651,10 @@ describe("queue mutation gates", () => {
       enabled,
     );
     expect(blocked.human.findings).toHaveLength(1);
-    expect(claim).toHaveBeenCalledTimes(2);
-    expect(claim).toHaveBeenCalledWith("automatic", "run-blocked");
-    expect(claim).toHaveBeenCalledWith("human", "run-blocked");
+    expect(claim).toHaveBeenCalledTimes(1);
+    expect(claim).toHaveBeenCalledWith("human", "run-blocked", [
+      "directory:human",
+    ]);
   });
 
   it("classifies lifecycle through the production queue adapter", async () => {
@@ -737,8 +745,12 @@ describe("queue mutation gates", () => {
     );
 
     expect(claim).toHaveBeenCalledTimes(2);
-    expect(claim).toHaveBeenCalledWith("automatic", "run-database");
-    expect(claim).toHaveBeenCalledWith("human", "run-database");
+    expect(claim).toHaveBeenCalledWith("automatic", "run-database", [
+      "sentry:auto",
+    ]);
+    expect(claim).toHaveBeenCalledWith("human", "run-database", [
+      "directory:human",
+    ]);
     expect(result.automatic.findings).toHaveLength(1);
     expect(result.human.findings).toHaveLength(1);
   });
@@ -764,11 +776,10 @@ describe("queue mutation gates", () => {
       enabled,
     );
 
-    expect(claim).toHaveBeenCalledWith(
-      "automatic",
-      "run-unknown-automatic-state",
-    );
-    expect(claim).toHaveBeenCalledTimes(2);
+    expect(claim).toHaveBeenCalledWith("human", "run-unknown-automatic-state", [
+      "directory:human",
+    ]);
+    expect(claim).toHaveBeenCalledTimes(1);
     expect(result.human.findings).toHaveLength(1);
   });
 
@@ -814,7 +825,39 @@ describe("queue mutation gates", () => {
     expect(result.enqueuedFingerprints).toEqual([
       "directory:canary:github-app-pr",
     ]);
+    expect(claim).toHaveBeenCalledTimes(1);
+    expect(claim).toHaveBeenCalledWith(
+      "automatic",
+      "github-actions:987654321:1",
+      ["directory:canary:github-app-pr"],
+    );
     expect(result.skippedActions).toContain("canary:sentry:production");
+  });
+
+  it("rejects queue rows outside the exact requested fingerprint scope", async () => {
+    const result = await enqueueAndClaimPolicyBatches(
+      {
+        findings: [finding("directory:selected", "human", "directory")],
+        leaseOwner: "run-bounded",
+        mode: "live",
+      },
+      {
+        database: {
+          claimFindings: async () => [
+            finding(
+              "directory:unrelated",
+              "human",
+              "directory",
+            ) as RepairFinding,
+          ],
+          enqueueFindings: async () => undefined,
+        },
+      },
+      enabled,
+    );
+
+    expect(result.claimedFingerprints).toEqual([]);
+    expect(result.failures).toEqual(["claim:claimed_fingerprint_out_of_scope"]);
   });
 });
 

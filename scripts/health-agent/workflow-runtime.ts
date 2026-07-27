@@ -651,7 +651,7 @@ function supabaseQueueDependencies(
   dependencies: WorkflowRuntimeDependencies,
 ): NonNullable<HealthAgentDependencies["queue"]> {
   return {
-    claim: async (policy, leaseOwner) => {
+    claim: async (policy, leaseOwner, fingerprints) => {
       const value = await supabaseRequest(
         dependencies,
         "claim_health_fixes",
@@ -659,6 +659,7 @@ function supabaseQueueDependencies(
         "HEALTH_AGENT_WRITER_TOKEN",
         {
           body: JSON.stringify({
+            p_fingerprints: fingerprints,
             p_lease_duration: "30 minutes",
             p_lease_owner: leaseOwner,
             p_merge_policy: policy,

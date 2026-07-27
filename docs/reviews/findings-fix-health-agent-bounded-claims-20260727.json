@@ -1,0 +1,27 @@
+{
+  "findings": [
+    {
+      "severity": "Important",
+      "file": "supabase/migrations/20260727150000_bound_health_fix_claims.sql",
+      "line": "17",
+      "description": "The security-definer RPC validation allowed NULL policy, lease owner, and lease duration values because SQL boolean comparisons with NULL do not enter an IF branch.",
+      "failure_scenario": "A scoped writer calls the RPC with a NULL lease owner or duration, and eligible rows can be claimed without a usable lease identity or expiry.",
+      "flagged_by": "Angle D",
+      "status": "valid"
+    }
+  ],
+  "active_lenses": [
+    "Angle A",
+    "Angle B",
+    "Angle C",
+    "Angle D",
+    "Angle E",
+    "Cleanup",
+    "Altitude",
+    "Conventions",
+    "Plan Alignment",
+    "Test Quality",
+    "Dead Code",
+    "Gap Sweep"
+  ]
+}

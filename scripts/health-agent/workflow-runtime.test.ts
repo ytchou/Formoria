@@ -1637,7 +1637,9 @@ describe("scoped writer RPC", () => {
     const claim = dependencies.queue?.claim;
     if (!claim) throw new Error("queue_claim_missing");
 
-    const result = await claim("automatic", "github-actions:987654321:1");
+    const result = await claim("automatic", "github-actions:987654321:1", [
+      "directory:canary:github-app-pr",
+    ]);
 
     expect(result).toEqual([
       expect.objectContaining({
@@ -1645,6 +1647,14 @@ describe("scoped writer RPC", () => {
         fingerprint: "directory:canary:github-app-pr",
       }),
     ]);
+    expect(
+      JSON.parse(String(fetchImplementation.mock.calls[0]?.[1]?.body)),
+    ).toEqual({
+      p_fingerprints: ["directory:canary:github-app-pr"],
+      p_lease_duration: "30 minutes",
+      p_lease_owner: "github-actions:987654321:1",
+      p_merge_policy: "automatic",
+    });
   });
 
   it("uses only the latest persisted state for each fingerprint", async () => {
