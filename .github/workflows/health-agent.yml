@@ -435,7 +435,9 @@ jobs:
           test "${#repair_paths[@]}" -gt 0
           git config user.name "formoria-health-agent[bot]"
           git config user.email "formoria-health-agent[bot]@users.noreply.github.com"
-          gh auth setup-git
+          original_origin="$(git remote get-url origin)"
+          trap 'git remote set-url origin "$original_origin"' EXIT
+          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git switch -c "$branch"
           git add -- "${repair_paths[@]}"
           if git diff --cached --quiet; then
