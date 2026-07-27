@@ -21,7 +21,8 @@ import { seedBrand, SeededBrand } from '../helpers/seed';
 
 // zh-TW is the default locale (playwright.config sets `locale: 'zh-TW'`).
 // Strings below are the literal values in messages/zh-TW.json.
-const CORRECTION_TRIGGER_NAME = '修正品牌資訊'; // brandDetail.correction.title
+// The trigger has no aria-label: its visible text IS its accessible name
+// (WCAG 2.5.3), so one constant covers both the role query and the text check.
 const CORRECTION_TRIGGER_TEXT = '資料有誤?'; // brandDetail.correction.trigger
 const CORRECTION_DIALOG_TITLE = '修正品牌資訊'; // brandDetail.correction.title
 const FIELD_PICKER_LABEL = '要修正哪一項?'; // brandDetail.correction.fieldPickerLabel
@@ -91,7 +92,7 @@ async function openSeededBrand(page: Page, seeded: SeededBrand): Promise<void> {
 }
 
 function correctionTrigger(page: Page) {
-  return page.getByRole('button', { name: CORRECTION_TRIGGER_NAME, exact: true });
+  return page.getByRole('button', { name: CORRECTION_TRIGGER_TEXT, exact: true });
 }
 
 function correctionDialog(page: Page) {
@@ -183,8 +184,8 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
       await isolateVisitorIp(anonPage, testInfo.workerIndex);
       await openSeededBrand(anonPage, seeded);
 
-      // One quiet trigger beside the 品牌資訊 heading; visible text is short, the
-      // accessible name says what it opens. The field is picked inside the dialog.
+      // One quiet trigger beside the 品牌資訊 heading, named by its own visible
+      // text. The field is picked inside the dialog.
       const trigger = correctionTrigger(anonPage);
       await expect(trigger).toBeVisible();
       await expect(trigger).toHaveText(CORRECTION_TRIGGER_TEXT);

@@ -37,86 +37,41 @@ vi.mock("@/lib/analytics", () => ({
   trackCorrectionSubmitted: mocks.trackCorrectionSubmitted,
 }));
 
+import messages from "../../../../messages/zh-TW.json";
 import { CorrectionDialog } from "../correction-dialog";
 
 const BRAND_ID = "d9428888-122b-4e1f-b85c-61c0a8904d6a";
 
-const TRIGGER_NAME = "修正品牌資訊";
-const SUBMIT_NAME = "送出修正";
-const FIELD_PICKER_LABEL = "要修正哪一項?";
-const FIELD_PICKER_PLACEHOLDER = "請選擇要修正的項目…";
-const CATEGORY_LABEL = "類別";
-const PRICE_RANGE_LABEL = "價格區間";
-const CURRENT_HEADING = "目前";
-const CURRENT_TAGS_HEADING = "目前（點擊移除）";
-const ADD_TAGS_HEADING = "可加入的類別";
-const PLACEHOLDER_COPY = "尚未填寫";
-const OTHER_CHIP = "其他";
-const OTHER_INPUT_LABEL = "其他類別名稱";
-const OTHER_CONFIRM = "加入";
-const OTHER_CANCEL = "取消";
+// The real locale file is the fixture: a dropped or renamed key then fails the
+// suite instead of surfacing as a raw key path at runtime.
+const COPY = messages.brandDetail.correction;
+const EDIT_COPY = messages.dashboard.edit;
+
+// The trigger has no aria-label — its visible text is its accessible name.
+const TRIGGER_NAME = COPY.trigger;
+const SUBMIT_NAME = COPY.submit;
+const FIELD_PICKER_LABEL = COPY.fieldPickerLabel;
+const CATEGORY_LABEL = messages.brandDetail.label.category;
+const PRICE_RANGE_LABEL = messages.brandDetail.label.priceRange;
+const CURRENT_HEADING = COPY.currentHeading;
+const CHANGE_TO_HEADING = COPY.changeToHeading;
+const CURRENT_TAGS_HEADING = COPY.currentTagsHeading;
+const ADD_TAGS_HEADING = COPY.addTagsHeading;
+const PLACEHOLDER_COPY = COPY.selectPlaceholder;
+const OTHER_CHIP = COPY.otherTagChip;
+const OTHER_INPUT_LABEL = COPY.otherTagInputLabel;
+const OTHER_CONFIRM = COPY.otherTagConfirm;
+const OTHER_CANCEL = EDIT_COPY.cancel;
 
 const PRICE_CHIP = {
-  1: "$ · 平價",
-  2: "$$ · 中價位",
-  3: "$$$ · 高價位",
+  1: `$ · ${EDIT_COPY.fieldPriceRangeBudget}`,
+  2: `$$ · ${EDIT_COPY.fieldPriceRangeMidRange}`,
+  3: `$$$ · ${EDIT_COPY.fieldPriceRangePremium}`,
 } as const;
 
-const messages = {
-  dashboard: {
-    edit: {
-      fieldCategory: "分類",
-      fieldProductType: "產品類型",
-      fieldPriceRange: "價格範圍",
-      fieldPriceRangeBudget: "平價",
-      fieldPriceRangeMidRange: "中價位",
-      fieldPriceRangePremium: "高價位",
-      cancel: OTHER_CANCEL,
-    },
-  },
-  brandDetail: {
-    label: {
-      category: CATEGORY_LABEL,
-      priceRange: PRICE_RANGE_LABEL,
-      productCategories: "產品類別",
-    },
-    correction: {
-      trigger: "資料有誤?",
-      close: "關閉",
-      title: TRIGGER_NAME,
-      fieldPickerLabel: FIELD_PICKER_LABEL,
-      fieldPickerPlaceholder: FIELD_PICKER_PLACEHOLDER,
-      description: "感謝您的建議！送出後將由官方審核決定是否更新。",
-      submitting: "送出中…",
-      submit: SUBMIT_NAME,
-      selectPlaceholder: PLACEHOLDER_COPY,
-      currentHeading: CURRENT_HEADING,
-      currentTagsHeading: CURRENT_TAGS_HEADING,
-      changeToHeading: "改成",
-      addTagsHeading: ADD_TAGS_HEADING,
-      productTagsSubtitle: "{category} 的產品類別（最多 5 項）",
-      productTagsSelected: "已選 {count} / 5",
-      productTagsLimit: "最多選 5 項產品類別。",
-      otherTagChip: OTHER_CHIP,
-      otherTagInputLabel: OTHER_INPUT_LABEL,
-      otherTagHint: "請輸入 2–8 個字，送出後由官方審核才會更新品牌資料。",
-      otherTagConfirm: OTHER_CONFIRM,
-      otherTagDuplicate: "這個類別已列在上方，若要移除請點擊上方的標籤。",
-      success: "修正已送出。",
-      errors: {
-        invalid_brand: "品牌無效。",
-        invalid_value: "修正無效。",
-        too_many_tags: "標籤太多。",
-        unchanged: "沒有變更。",
-        already_submitted: "已送出。",
-        rate_limited: "操作太頻繁，請稍後再試。",
-        unavailable: "提交失敗，請稍後再試。",
-        tagTooShort: "請輸入 2–8 個字，試試更簡短的類別名稱。",
-        tagBlocked: "這個詞無法作為產品類別，請改用能描述產品本身的名稱。",
-      },
-    },
-  },
-};
+function selectedCount(count: number) {
+  return COPY.productTagsSelected.replace("{count}", String(count));
+}
 
 function renderDialog(
   props: Partial<React.ComponentProps<typeof CorrectionDialog>> = {},
@@ -215,6 +170,20 @@ describe("CorrectionDialog", () => {
       const current = group(CURRENT_HEADING);
       expect(within(current).getByText("工藝文創")).toBeInTheDocument();
       expect(within(current).queryAllByRole("button")).toHaveLength(0);
+    });
+
+    // The dialog reads as a diff: 目前 / 改成. The field label stays the group's
+    // accessible name so the row is still addressable as 類別 / 價格區間.
+    it("heads the options row with 改成 while keeping the field label as its name", () => {
+      renderDialog({ productType: "crafts" });
+      openDialog();
+      selectField("product_type");
+
+      const options = group(CATEGORY_LABEL);
+      expect(within(options).getByText(CHANGE_TO_HEADING)).toBeInTheDocument();
+      expect(
+        within(options).queryByText(CATEGORY_LABEL),
+      ).not.toBeInTheDocument();
     });
 
     it("excludes the current value from the options row", () => {
@@ -357,7 +326,7 @@ describe("CorrectionDialog", () => {
         "warmwood",
         "price_range",
       );
-      expect(mocks.toastSuccess).toHaveBeenCalledWith("修正已送出。");
+      expect(mocks.toastSuccess).toHaveBeenCalledWith(COPY.success);
       await waitFor(() => {
         expect(screen.queryAllByRole("group")).toHaveLength(0);
       });
@@ -423,7 +392,7 @@ describe("CorrectionDialog", () => {
       openProductTagsDialog();
 
       clickChip(CURRENT_TAGS_HEADING, "上衣・T恤");
-      expect(screen.getByText("已選 1 / 5")).toBeInTheDocument();
+      expect(screen.getByText(selectedCount(1))).toBeInTheDocument();
 
       submit();
 
@@ -449,9 +418,7 @@ describe("CorrectionDialog", () => {
       submit();
 
       await waitFor(() => {
-        expect(mocks.toastError).toHaveBeenCalledWith(
-          "操作太頻繁，請稍後再試。",
-        );
+        expect(mocks.toastError).toHaveBeenCalledWith(COPY.errors.rate_limited);
       });
     });
   });
@@ -474,7 +441,7 @@ describe("CorrectionDialog", () => {
       });
       expect(offCategory).toBeEnabled();
       expect(offCategory).toHaveAttribute("aria-pressed", "true");
-      expect(screen.getByText("已選 2 / 5")).toBeInTheDocument();
+      expect(screen.getByText(selectedCount(2))).toBeInTheDocument();
     });
 
     it("row 1 tags start pressed and flip to unpressed when marked for removal", () => {
@@ -492,7 +459,7 @@ describe("CorrectionDialog", () => {
         "aria-pressed",
         "false",
       );
-      expect(screen.getByText("已選 0 / 5")).toBeInTheDocument();
+      expect(screen.getByText(selectedCount(0))).toBeInTheDocument();
     });
 
     it("row 2 excludes tags already held", () => {
@@ -522,14 +489,14 @@ describe("CorrectionDialog", () => {
       renderProductTags(["上衣・T恤", "褲裝", "裙裝", "洋裝"]);
       openProductTagsDialog();
 
-      expect(screen.getByText("已選 4 / 5")).toBeInTheDocument();
+      expect(screen.getByText(selectedCount(4))).toBeInTheDocument();
 
       expandOther();
       typeOther("藤編椅");
       confirmOther();
 
-      expect(screen.getByText("已選 5 / 5")).toBeInTheDocument();
-      expect(screen.getByText("最多選 5 項產品類別。")).toBeInTheDocument();
+      expect(screen.getByText(selectedCount(5))).toBeInTheDocument();
+      expect(screen.getByText(COPY.productTagsLimit)).toBeInTheDocument();
       expect(chip(ADD_TAGS_HEADING, "寢具")).toBeDisabled();
     });
 
@@ -538,7 +505,7 @@ describe("CorrectionDialog", () => {
       renderProductTags(currentTags);
       openProductTagsDialog();
 
-      expect(screen.getByText("已選 5 / 5")).toBeInTheDocument();
+      expect(screen.getByText(selectedCount(5))).toBeInTheDocument();
 
       const options = within(group(ADD_TAGS_HEADING)).getAllByRole("button");
       expect(options.length).toBeGreaterThan(0);
@@ -549,6 +516,44 @@ describe("CorrectionDialog", () => {
       for (const tag of currentTags) {
         expect(chip(CURRENT_TAGS_HEADING, tag)).toBeEnabled();
       }
+    });
+
+    // Restoring a tag that was marked for removal is an add, and adds no-op at
+    // the cap. Without the guard the chip would look live and do nothing.
+    it("disables a removed row-1 tag once the cap is refilled elsewhere", () => {
+      const currentTags = homeTagsAt(5);
+      const [removed] = currentTags;
+      const replacement = HOME_SUBCATEGORIES[5]?.nameZh;
+      expect(removed).toBeDefined();
+      expect(replacement).toBeDefined();
+      if (!removed || !replacement) return;
+
+      renderProductTags(currentTags);
+      openProductTagsDialog();
+
+      clickChip(CURRENT_TAGS_HEADING, removed);
+      expect(screen.getByText(selectedCount(4))).toBeInTheDocument();
+      expect(chip(CURRENT_TAGS_HEADING, removed)).toBeEnabled();
+
+      clickChip(ADD_TAGS_HEADING, replacement);
+      expect(screen.getByText(selectedCount(5))).toBeInTheDocument();
+      expect(chip(CURRENT_TAGS_HEADING, removed)).toBeDisabled();
+      expect(chip(CURRENT_TAGS_HEADING, removed)).toHaveAttribute(
+        "aria-pressed",
+        "false",
+      );
+    });
+
+    it("counts a duplicated legacy tag once", () => {
+      renderProductTags(["寢具", "寢具"]);
+      openProductTagsDialog();
+
+      expect(
+        within(group(CURRENT_TAGS_HEADING)).getAllByRole("button", {
+          name: "寢具",
+        }),
+      ).toHaveLength(1);
+      expect(screen.getByText(selectedCount(1))).toBeInTheDocument();
     });
 
     it("resets the selection after a successful submit", async () => {
@@ -572,7 +577,7 @@ describe("CorrectionDialog", () => {
         "aria-pressed",
         "false",
       );
-      expect(screen.getByText("已選 1 / 5")).toBeInTheDocument();
+      expect(screen.getByText(selectedCount(1))).toBeInTheDocument();
       expect(submitButton()).toBeDisabled();
     });
   });
@@ -623,7 +628,7 @@ describe("CorrectionDialog", () => {
         "aria-pressed",
         "true",
       );
-      expect(screen.getByText("已選 1 / 5")).toBeInTheDocument();
+      expect(screen.getByText(selectedCount(1))).toBeInTheDocument();
     });
 
     it("appends an accepted novel tag as a selected chip", async () => {
@@ -666,15 +671,13 @@ describe("CorrectionDialog", () => {
       const text = messageIds
         .map((id) => document.getElementById(id)?.textContent ?? "")
         .join(" ");
-      expect(text).toContain(
-        "這個詞無法作為產品類別，請改用能描述產品本身的名稱。",
-      );
+      expect(text).toContain(COPY.errors.tagBlocked);
       expect(
         within(group(ADD_TAGS_HEADING)).queryByRole("button", {
           name: "限定",
         }),
       ).not.toBeInTheDocument();
-      expect(screen.getByText("已選 0 / 5")).toBeInTheDocument();
+      expect(screen.getByText(selectedCount(0))).toBeInTheDocument();
     });
 
     it("shows an inline reason for a too-short entry and does not add it", () => {
@@ -689,10 +692,8 @@ describe("CorrectionDialog", () => {
         "aria-invalid",
         "true",
       );
-      expect(
-        screen.getByText("請輸入 2–8 個字，試試更簡短的類別名稱。"),
-      ).toBeInTheDocument();
-      expect(screen.getByText("已選 0 / 5")).toBeInTheDocument();
+      expect(screen.getByText(COPY.errors.tagLength)).toBeInTheDocument();
+      expect(screen.getByText(selectedCount(0))).toBeInTheDocument();
     });
 
     it("reports a duplicate when the typed value is already in row 1", () => {
@@ -703,10 +704,8 @@ describe("CorrectionDialog", () => {
       typeOther("床包");
       confirmOther();
 
-      expect(
-        screen.getByText("這個類別已列在上方，若要移除請點擊上方的標籤。"),
-      ).toBeInTheDocument();
-      expect(screen.getByText("已選 1 / 5")).toBeInTheDocument();
+      expect(screen.getByText(COPY.otherTagDuplicate)).toBeInTheDocument();
+      expect(screen.getByText(selectedCount(1))).toBeInTheDocument();
       expect(
         within(group(CURRENT_TAGS_HEADING)).getAllByRole("button", {
           name: "寢具",
@@ -722,6 +721,76 @@ describe("CorrectionDialog", () => {
       expect(
         screen.queryByLabelText(OTHER_INPUT_LABEL),
       ).not.toBeInTheDocument();
+    });
+
+    // Stored tags are not guaranteed canonical — the owner edit path persists
+    // whatever alias was typed — so the duplicate check has to compare on a
+    // canonical basis or the same subcategory lands twice.
+    it("reports a duplicate when the brand carries an alias of the typed tag", () => {
+      renderProductTags(["床包"]);
+      openProductTagsDialog();
+
+      expandOther();
+      typeOther("寢具");
+      confirmOther();
+
+      expect(screen.getByText(COPY.otherTagDuplicate)).toBeInTheDocument();
+      expect(screen.getByText(selectedCount(1))).toBeInTheDocument();
+      expect(
+        within(group(ADD_TAGS_HEADING)).queryByRole("button", {
+          name: "寢具",
+        }),
+      ).not.toBeInTheDocument();
+    });
+
+    // Disabling the 其他 chip does not unmount an entry panel opened below the
+    // cap, so the cap has to be stated inside the panel too.
+    it("keeps the entry open and explains the cap instead of dropping the tag", () => {
+      const replacement = HOME_SUBCATEGORIES[4]?.nameZh;
+      expect(replacement).toBeDefined();
+      if (!replacement) return;
+
+      renderProductTags(homeTagsAt(4));
+      openProductTagsDialog();
+
+      expandOther();
+      // The cap is reached while the entry panel is already open.
+      clickChip(ADD_TAGS_HEADING, replacement);
+      expect(screen.getByText(selectedCount(5))).toBeInTheDocument();
+
+      typeOther("藤編椅");
+      confirmOther();
+
+      const input = screen.getByLabelText(OTHER_INPUT_LABEL);
+      expect(input).toBeInTheDocument();
+      expect(input).toHaveAttribute("aria-invalid", "true");
+      expect(screen.getAllByText(COPY.productTagsLimit).length).toBeGreaterThan(
+        0,
+      );
+      expect(screen.getByText(selectedCount(5))).toBeInTheDocument();
+      expect(
+        within(group(ADD_TAGS_HEADING)).queryByRole("button", {
+          name: "藤編椅",
+        }),
+      ).not.toBeInTheDocument();
+    });
+
+    // The 其他 chip is disabled at the cap, and focusing an element that is
+    // about to be disabled drops focus to <body> mid-dialog.
+    it("keeps focus inside the dialog after the confirmed tag fills the cap", () => {
+      renderProductTags(homeTagsAt(4));
+      openProductTagsDialog();
+
+      expandOther();
+      typeOther("藤編椅");
+      confirmOther();
+
+      expect(screen.getByText(selectedCount(5))).toBeInTheDocument();
+      expect(chip(ADD_TAGS_HEADING, OTHER_CHIP)).toBeDisabled();
+
+      const dialog = screen.getByRole("dialog");
+      expect(document.activeElement).not.toBe(document.body);
+      expect(dialog.contains(document.activeElement)).toBe(true);
     });
 
     it("returns focus to the 其他 chip when the entry is cancelled", () => {

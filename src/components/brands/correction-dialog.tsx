@@ -57,8 +57,6 @@ const CORRECTION_ERROR_KEYS = {
   unavailable: "errors.unavailable",
 } as const;
 
-export type CorrectionDialogValue = number | string | string[] | null;
-
 export type CorrectionDialogProps = {
   brandId: string;
   brandSlug: string;
@@ -75,23 +73,6 @@ type SelectionState = {
   // not already offer — kept so the chip stays visible after it is toggled off.
   extras: string[];
 };
-
-function initialSelection(
-  field: CorrectionField | "",
-  currentValue: CorrectionDialogValue,
-): string {
-  if (field === "price_range" && typeof currentValue === "number") {
-    return String(currentValue);
-  }
-  if (field === "product_type" && typeof currentValue === "string") {
-    return currentValue;
-  }
-  return "";
-}
-
-function initialTagSelection(currentValue: CorrectionDialogValue): string[] {
-  return Array.isArray(currentValue) ? currentValue : [];
-}
 
 function buildTagDelta(initialTags: string[], selectedTags: string[]) {
   const initialSet = new Set(initialTags);
@@ -123,6 +104,7 @@ export function CorrectionDialog({
   const otherMessageId = `${baseId}-other-message`;
   const otherChipRef = useRef<HTMLButtonElement>(null);
   const otherInputRef = useRef<HTMLInputElement>(null);
+  const addTagsGroupRef = useRef<HTMLDivElement>(null);
   // Starts empty so the dialog opens on the picker alone — no value control is
   // shown until the contributor says what they are correcting.
   const [field, setField] = useState<CorrectionField | "">("");
@@ -132,16 +114,17 @@ export function CorrectionDialog({
     productType != null
       ? ["product_type", "price_range", "product_tags"]
       : ["product_type", "price_range"];
-  const currentValue: CorrectionDialogValue =
+  const originalSelection =
     field === "product_type"
-      ? productType
-      : field === "price_range"
-        ? priceRange
-        : field === "product_tags"
-          ? productTags
-          : null;
-  const originalSelection = initialSelection(field, currentValue);
-  const originalTags = initialTagSelection(currentValue);
+      ? (productType ?? "")
+      : field === "price_range" && priceRange != null
+        ? String(priceRange)
+        : "";
+  // `brands.product_tags` is a bare text[] with no unique constraint, so a
+  // legacy row can carry the same tag twice. De-duplicating once here keeps the
+  // counter, the 5-tag cap and the row-1 chips reading the same list.
+  const originalTags =
+    field === "product_tags" ? Array.from(new Set(productTags)) : [];
   // Both branches share one reset key so a changed `currentValue` re-baselines
   // the scalar chips and the tag chips alike.
   const selectionKey = `${field}:${originalSelection}:${originalTags.join("\u0000")}`;
@@ -183,7 +166,12 @@ export function CorrectionDialog({
   const productSubcategories = PRODUCT_SUBCATEGORIES.filter(
     (subcategory) => subcategory.category === productType,
   );
-  const currentTagSet = new Set(originalTags);
+  // Stored tags are not guaranteed canonical: the owner edit path only trims
+  // and de-dupes, so a brand can hold an alias of a subcategory. Comparing on a
+  // canonical basis is what stops a visitor adding the canonical twin of a tag
+  // the brand already carries.
+  const canonicalTag = (tag: string) => matchSubcategory(tag)?.nameZh ?? tag;
+  const currentTagSet = new Set(originalTags.map(canonicalTag));
   // Row 2 offers only what the brand does not already carry — row 1 owns the
   // rest, in-category or not.
   const offeredSubcategories = productSubcategories.filter(
@@ -196,6 +184,17 @@ export function CorrectionDialog({
     const subcategory = matchSubcategory(tag);
     return subcategory ? subcategoryLabel(subcategory, locale) : tag;
   };
+  // Row 2 renders in one pass: the in-category subcategories the brand does not
+  // hold, then anything the free-text escape hatch resolved that row 2 did not
+  // offer.
+  const addableTags = [
+    ...offeredSubcategories.map((subcategory) => ({
+      key: subcategory.slug,
+      tag: subcategory.nameZh,
+      label: subcategoryLabel(subcategory, locale),
+    })),
+    ...extraTags.map((tag) => ({ key: tag, tag, label: tagLabel(tag) })),
+  ];
   const labelForField = (item: CorrectionField) =>
     item === "product_type"
       ? tBrandDetail("label.category")
@@ -264,9 +263,14 @@ export function CorrectionDialog({
     });
   }
 
-  function closeOtherEntry() {
+  function closeOtherEntry(atLimitAfter = false) {
     resetOtherEntry();
-    otherChipRef.current?.focus();
+    // The escape-hatch chip renders `disabled` at the cap. focus() here runs
+    // before React commits that attribute, and a focused element that becomes
+    // disabled drops focus to <body> — so when this confirmation fills the last
+    // slot, focus goes to the row that now owns the selection instead.
+    if (atLimitAfter) addTagsGroupRef.current?.focus();
+    else otherChipRef.current?.focus();
   }
 
   function confirmOtherTag() {
@@ -274,7 +278,7 @@ export function CorrectionDialog({
     if (!result.ok) {
       setOtherMessage(
         result.reason === "length"
-          ? tCorrection("errors.tagTooShort")
+          ? tCorrection("errors.tagLength")
           : tCorrection("errors.tagBlocked"),
       );
       return;
@@ -283,13 +287,24 @@ export function CorrectionDialog({
       setOtherMessage(tCorrection("otherTagDuplicate"));
       return;
     }
+    const alreadySelected = selectedTags.includes(result.tag);
+    // Disabling the escape-hatch chip at the cap does not unmount an entry
+    // panel opened below the cap, so the cap has to be stated here too — both
+    // add paths no-op silently and the tag would vanish without a word.
+    if (!alreadySelected && atTagLimit) {
+      setOtherMessage(tCorrection("productTagsLimit"));
+      return;
+    }
     if (offeredTagNames.has(result.tag)) {
       // Already on screen in row 2 — select it instead of adding a twin.
       toggleTag(result.tag, true);
     } else {
       appendExtraTag(result.tag);
     }
-    closeOtherEntry();
+    const nextCount = alreadySelected
+      ? selectedTags.length
+      : selectedTags.length + 1;
+    closeOtherEntry(nextCount >= MAX_PRODUCT_TAGS);
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -353,13 +368,16 @@ export function CorrectionDialog({
           </div>
         </div>
 
-        <div
-          role="group"
-          aria-labelledby={optionsHeadingId}
-          className="space-y-2"
-        >
-          <Typography id={optionsHeadingId} variant="subsectionTitle">
-            {fieldLabel}
+        {/*
+          The visible heading says what the row is for ("change to"), which is
+          what makes the dialog read as a diff. The accessible name stays the
+          field label so the group is still addressable by the field it edits.
+          aria-label rather than aria-labelledby: aria-labelledby wins
+          precedence and would drag the visible copy back into the name.
+        */}
+        <div role="group" aria-label={fieldLabel} className="space-y-2">
+          <Typography variant="subsectionTitle">
+            {tCorrection("changeToHeading")}
           </Typography>
           <div className="flex flex-wrap gap-2">
             {options.map((option) => (
@@ -394,7 +412,6 @@ export function CorrectionDialog({
             type="button"
             variant="ghost"
             size="compact"
-            aria-label={tCorrection("title")}
             className="min-h-10 type-metadata text-muted-foreground focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary"
           />
         }
@@ -528,7 +545,7 @@ export function CorrectionDialog({
                     </p>
                   ) : (
                     <div className="flex flex-wrap gap-2">
-                      {Array.from(new Set(originalTags)).map((tag) => {
+                      {originalTags.map((tag) => {
                         const kept = selectedTags.includes(tag);
                         const Icon = kept ? X : RotateCcw;
 
@@ -538,6 +555,10 @@ export function CorrectionDialog({
                             size="chip"
                             tone="reference"
                             pressed={kept}
+                            // Restoring a removed tag is an add, and adds no-op
+                            // at the cap — without this the chip would be a
+                            // dead control that never flips back.
+                            disabled={!kept && atTagLimit}
                             onPressedChange={(next) => toggleTag(tag, next)}
                             data-ph-no-autocapture
                           >
@@ -551,45 +572,32 @@ export function CorrectionDialog({
                 </div>
 
                 <div
+                  ref={addTagsGroupRef}
                   role="group"
+                  // Programmatic focus target only — see closeOtherEntry.
+                  tabIndex={-1}
                   aria-labelledby={optionsHeadingId}
-                  className="space-y-2"
+                  className="space-y-2 outline-none"
                 >
                   <Typography id={optionsHeadingId} variant="subsectionTitle">
                     {tCorrection("addTagsHeading")}
                   </Typography>
                   <div className="flex flex-wrap gap-2">
-                    {offeredSubcategories.map((subcategory) => {
-                      const pressed = selectedTags.includes(subcategory.nameZh);
+                    {addableTags.map((option) => {
+                      const pressed = selectedTags.includes(option.tag);
 
                       return (
                         <ToggleChip
-                          key={subcategory.slug}
+                          key={option.key}
                           size="chip"
                           pressed={pressed}
                           disabled={!pressed && atTagLimit}
                           onPressedChange={(next) =>
-                            toggleTag(subcategory.nameZh, next)
+                            toggleTag(option.tag, next)
                           }
                           data-ph-no-autocapture
                         >
-                          {subcategoryLabel(subcategory, locale)}
-                        </ToggleChip>
-                      );
-                    })}
-                    {extraTags.map((tag) => {
-                      const pressed = selectedTags.includes(tag);
-
-                      return (
-                        <ToggleChip
-                          key={tag}
-                          size="chip"
-                          pressed={pressed}
-                          disabled={!pressed && atTagLimit}
-                          onPressedChange={(next) => toggleTag(tag, next)}
-                          data-ph-no-autocapture
-                        >
-                          {tagLabel(tag)}
+                          {option.label}
                         </ToggleChip>
                       );
                     })}
@@ -664,7 +672,7 @@ export function CorrectionDialog({
                         <Button
                           type="button"
                           variant="ghost"
-                          onClick={closeOtherEntry}
+                          onClick={() => closeOtherEntry()}
                           className="focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary"
                         >
                           {tEdit("cancel")}

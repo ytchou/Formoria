@@ -5,6 +5,7 @@ import {
   planTagBackfill,
   novelTagRejection,
   resolveProductTagInput,
+  applyTagDelta,
 } from '../product-tags'
 
 describe('normalizeProductTags', () => {
@@ -130,6 +131,38 @@ describe('novelTagRejection', () => {
     expect(novelTagRejection('手工玻璃吹製花瓶器')).toBe('length')
     expect(novelTagRejection('超值限定組')).toBe('blocklist')
     expect(novelTagRejection('藍鵲系列襪子')).toBe('blocklist')
+  })
+
+  it('measures the band in code points, not UTF-16 units', () => {
+    // One emoji: 2 code units, 1 character — must fail the min like '襪' does.
+    expect(novelTagRejection('🧦')).toBe('length')
+    expect(resolveProductTagInput('🧦')).toEqual({
+      ok: false,
+      reason: 'length',
+    })
+    // Nine emoji: 9 characters, over the max.
+    expect(novelTagRejection('🧦🧦🧦🧦🧦🧦🧦🧦🧦')).toBe('length')
+    // The Han cases the band was written against are untouched.
+    expect(novelTagRejection('手工燈籠')).toBeNull()
+  })
+})
+
+describe('applyTagDelta', () => {
+  it('removes and dedupes on the ontology matching key, keeping first casing', () => {
+    expect(applyTagDelta(['Vegan'], { add: ['vegan'], remove: [] })).toEqual([
+      'Vegan',
+    ])
+    expect(applyTagDelta([], { add: ['Vegan', 'vegan'], remove: [] })).toEqual([
+      'Vegan',
+    ])
+    // A removal typed in a different casing still removes the stored tag.
+    expect(applyTagDelta(['Vegan'], { add: [], remove: ['vegan'] })).toEqual([])
+  })
+
+  it('preserves order and leaves unrelated tags alone', () => {
+    expect(
+      applyTagDelta(['托特包', '後背包'], { add: ['斜背包'], remove: ['後背包'] }),
+    ).toEqual(['托特包', '斜背包'])
   })
 })
 

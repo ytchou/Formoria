@@ -1,5 +1,8 @@
 import { revalidatePublicBrand } from "@/lib/cache/public-brand-cache";
-import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
+import {
+  normalizeTagKey,
+  PRODUCT_TYPE_CATEGORIES,
+} from "@/lib/taxonomy/ontology";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { createServiceClient } from "@/lib/supabase/server";
 import {
@@ -119,9 +122,20 @@ export type NormalizeProposedValueResult =
  * fail at approval. `src/lib/services/__tests__/brand-corrections.test.ts` pins
  * that directly.
  *
- * Pre-existing behaviour, not introduced here: reviewCorrection runs this guard
- * BEFORE its rejection branch, so if a `nameZh` is later dropped from the
- * ontology a stale pending row can become both un-approvable and un-rejectable.
+ * Idempotency holds against a FIXED ontology only. Two drift directions across
+ * ontology EDITS are known and accepted:
+ *
+ * 1. Removal: reviewCorrection runs this guard BEFORE its rejection branch, so
+ *    if a `nameZh` is later dropped from the ontology a stale pending row can
+ *    become both un-approvable and un-rejectable. Pre-existing, not introduced
+ *    here.
+ * 2. Add-as-alias: a novel tag is persisted raw and the admin queue renders that
+ *    stored string. If that exact string is later added to the ontology as an
+ *    ALIAS of a subcategory, the approval-time re-normalization rewrites `add`
+ *    to that subcategory's `nameZh` — so the reviewer approves a label they
+ *    never saw. Deliberately not snapshotted or versioned: an alias is by
+ *    definition a synonym of what was on screen, so the substitution preserves
+ *    meaning and the added machinery would not earn its cost.
  */
 export function normalizeProposedValue(
   field: CorrectionField,
@@ -154,15 +168,22 @@ export function normalizeProposedValue(
   // can carry novel tags persisted by normalizeProductTags, and removing a bad
   // value can never introduce one. Rejecting those removals would block exactly
   // the repair this feature exists to perform.
-  // Ceiling: `novelTagRejection` is a marketing-noise regex plus a length band
-  // only; swap for a real blocklist if reviewers report abusive submissions.
+  // Ceiling: `novelTagRejection` is a code-point length band plus a
+  // marketing-noise regex whose terms are all Han — so non-CJK input passes
+  // with NO content filter at all, and admin review is the only gate on it;
+  // swap for a language-agnostic blocklist (or a moderation call) if reviewers
+  // report abusive submissions.
+  // Dedupe on the ontology's matching key, not the raw string: novel tags are
+  // stored as typed, so 'Vegan' and 'vegan' would otherwise both survive and
+  // take two of the five cap slots. First-seen casing wins.
   const add: string[] = [];
   const seenAdd = new Set<string>();
   for (const raw of value.add) {
     const resolved = resolveProductTagInput(raw);
     if (!resolved.ok) return { ok: false, error: "invalid_value" };
-    if (seenAdd.has(resolved.tag)) continue;
-    seenAdd.add(resolved.tag);
+    const key = normalizeTagKey(resolved.tag);
+    if (seenAdd.has(key)) continue;
+    seenAdd.add(key);
     add.push(resolved.tag);
   }
 

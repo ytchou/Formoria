@@ -1,4 +1,4 @@
-import { matchSubcategory } from '@/lib/taxonomy/ontology'
+import { matchSubcategory, normalizeTagKey } from '@/lib/taxonomy/ontology'
 
 export type NormalizeProductTagsResult = {
   tags: string[]
@@ -30,12 +30,19 @@ const BLOCKLIST_SIZE_PREFIX = /^(超|迷你|小|大|長|短)/u
 
 /**
  * The single novel-tag gate: a tag that misses the ontology is only kept when
- * this returns `null`. Shared by the enrichment writers and by the visitor-facing
- * correction validator so the two can never drift.
+ * this returns `null`. Both callers live in this module — the enrichment writer
+ * (`normalizeProductTags`) and the visitor-facing correction validator
+ * (`resolveProductTagInput`) — so the two can never drift. The `export` exists
+ * for the unit test.
  * Expects an already-trimmed tag.
  */
 export function novelTagRejection(tag: string): NovelTagRejectionReason | null {
-  if (tag.length < MIN_NOVEL_LENGTH || tag.length > MAX_NOVEL_LENGTH) {
+  // Code points, not `.length`: `String.prototype.length` counts UTF-16 code
+  // units, so one astral character (an emoji) would score 2 and clear the min,
+  // and four would score 8 and clear the max — the exact input the band exists
+  // to exclude.
+  const length = [...tag].length
+  if (length < MIN_NOVEL_LENGTH || length > MAX_NOVEL_LENGTH) {
     return 'length'
   }
   if (BLOCKLIST_CONTENT.test(tag) || BLOCKLIST_SIZE_PREFIX.test(tag)) {
@@ -108,6 +115,13 @@ export function normalizeProductTags(
   }
 }
 
+/**
+ * ACCEPTED TRADEOFF, not a bug: a novel tag misses the ontology, so the raw
+ * (usually Chinese) string is written to `product_tags_en` verbatim and renders
+ * untranslated on `/en`. `docs/decisions/2026-07-27-correction-novel-tag-escape-hatch.md`
+ * weighs this against the alternatives and takes it deliberately — do not
+ * "fix" it by dropping the tag or machine-translating it here.
+ */
 export function deriveProductTagsEn(tags: string[]): string[] {
   return tags.map((tag) => matchSubcategory(tag)?.nameEn ?? tag)
 }
@@ -123,23 +137,33 @@ export function isProductTagsDelta(value: unknown): value is ProductTagsDelta {
   return isStringArray(record.add) && isStringArray(record.remove)
 }
 
+/**
+ * Applies a correction delta. Membership — removal and dedupe alike — is keyed
+ * by `normalizeTagKey`, the same basis `matchSubcategory` matches on, so a
+ * novel tag stored raw ('Vegan') cannot coexist with a case or full-width
+ * variant of itself ('vegan') and burn two of the five cap slots. The string
+ * kept is always the FIRST-seen original, never the normalized key: the key is
+ * an identity, not a display value.
+ */
 export function applyTagDelta(
   current: string[],
   delta: ProductTagsDelta,
 ): string[] {
-  const removed = new Set(delta.remove)
+  const removed = new Set(delta.remove.map(normalizeTagKey))
   const seen = new Set<string>()
   const next: string[] = []
 
   for (const tag of current) {
-    if (removed.has(tag) || seen.has(tag)) continue
-    seen.add(tag)
+    const key = normalizeTagKey(tag)
+    if (removed.has(key) || seen.has(key)) continue
+    seen.add(key)
     next.push(tag)
   }
 
   for (const tag of delta.add) {
-    if (seen.has(tag)) continue
-    seen.add(tag)
+    const key = normalizeTagKey(tag)
+    if (seen.has(key)) continue
+    seen.add(key)
     next.push(tag)
   }
 

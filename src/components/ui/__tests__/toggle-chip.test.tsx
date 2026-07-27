@@ -76,6 +76,50 @@ describe("ToggleChip", () => {
     expect(unpressedChip).not.toHaveClass("text-primary-foreground");
   });
 
+  // The Button `secondary` variant hovers to bg-muted/text-foreground. Without
+  // hover-scope overrides twMerge keeps both and the hover rule wins the
+  // cascade, so a selected chip would look unselected under the cursor while
+  // aria-pressed stayed true.
+  it("keeps the selected fill at hover scope", () => {
+    render(
+      <ToggleChip pressed onPressedChange={vi.fn()}>
+        Ceramics
+      </ToggleChip>,
+    );
+
+    const chip = screen.getByRole("button", { name: "Ceramics" });
+    expect(chip).toHaveClass("hover:border-primary");
+    expect(chip).toHaveClass("hover:bg-primary");
+    expect(chip).toHaveClass("hover:text-primary-foreground");
+    expect(chip).not.toHaveClass("hover:bg-muted");
+    expect(chip).not.toHaveClass("hover:text-foreground");
+  });
+
+  it("keeps the reference treatment at hover scope", () => {
+    const { rerender } = render(
+      <ToggleChip pressed tone="reference" onPressedChange={vi.fn()}>
+        Ceramics
+      </ToggleChip>,
+    );
+
+    const keptChip = screen.getByRole("button", { name: "Ceramics" });
+    expect(keptChip).toHaveClass("hover:bg-secondary");
+    expect(keptChip).not.toHaveClass("hover:bg-muted");
+    expect(keptChip).not.toHaveClass("hover:bg-primary");
+
+    rerender(
+      <ToggleChip pressed={false} tone="reference" onPressedChange={vi.fn()}>
+        Ceramics
+      </ToggleChip>,
+    );
+
+    const struckChip = screen.getByRole("button", { name: "Ceramics" });
+    expect(struckChip).toHaveClass("hover:bg-secondary");
+    expect(struckChip).toHaveClass("hover:text-muted-foreground");
+    expect(struckChip).not.toHaveClass("hover:bg-muted");
+    expect(struckChip).not.toHaveClass("hover:text-foreground");
+  });
+
   it("reference tone never uses the primary fill", () => {
     const { rerender } = render(
       <ToggleChip pressed tone="reference" onPressedChange={vi.fn()}>

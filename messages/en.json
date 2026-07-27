@@ -504,7 +504,7 @@
         "already_submitted": "You have already submitted this correction. Please wait for review.",
         "rate_limited": "Too many correction submissions. Please try again later.",
         "unavailable": "We could not submit the correction. Please try again later.",
-        "tagTooShort": "Use 2–8 characters — try a shorter category name.",
+        "tagLength": "Use 2–8 characters for the category name.",
         "tagBlocked": "That word can't be used as a category — try a name that describes the product itself."
       }
     },

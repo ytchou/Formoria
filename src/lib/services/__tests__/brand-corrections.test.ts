@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
 
+// Coupling to keep in view: `normalizeProposedValue` is pure and
+// dependency-free, but importing it drags in `brand-corrections`' module scope
+// (`next/cache`, the Supabase server client). The day one of those gains a
+// module-scope env assertion — a pattern this repo uses elsewhere — every case
+// below fails at import for reasons unrelated to what it asserts. Escape hatch
+// if that happens: move the validator beside `resolveProductTagInput` in
+// `product-tags.ts`, which is ontology-only imports precisely so it can be
+// imported freely.
 import { normalizeProposedValue } from "../brand-corrections";
 import type { ProductTagsDelta } from "../product-tags";
 
@@ -69,6 +77,35 @@ describe("normalizeProposedValue — product_tags", () => {
       normalizeTags({ add: ["T恤", "上衣・T恤"], remove: [] }),
     );
     expect(value.add).toEqual(["上衣・T恤"]);
+  });
+
+  it("collapses case variants of one novel tag, keeping the first casing", () => {
+    const value = expectOkDelta(
+      normalizeTags({ add: ["Vegan", "vegan"], remove: [] }),
+    );
+    expect(value.add).toEqual(["Vegan"]);
+  });
+
+  it("collapses a full-width variant of one novel tag", () => {
+    const value = expectOkDelta(
+      normalizeTags({ add: ["vegan", "ｖｅｇａｎ"], remove: [] }),
+    );
+    expect(value.add).toEqual(["vegan"]);
+  });
+
+  it("rejects an emoji-only add", () => {
+    // One emoji is 2 UTF-16 code units but 1 character — it must fail the
+    // min-2 band exactly like a 1-character Han string does.
+    expect(normalizeTags({ add: ["🧦"], remove: [] })).toEqual({
+      ok: false,
+      error: "invalid_value",
+    });
+    // Nine emoji are 9 characters (18 code units) — over the max either way,
+    // but this pins the max as a code-point count, not a unit count.
+    expect(normalizeTags({ add: ["🧦🧦🧦🧦🧦🧦🧦🧦🧦"], remove: [] })).toEqual({
+      ok: false,
+      error: "invalid_value",
+    });
   });
 
   it("leaves remove unrestricted", () => {
