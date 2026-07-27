@@ -71,7 +71,6 @@ describe("Formoria health-agent retirement contract", () => {
       "AGENT_HUB_INGEST_TOKEN",
       "SLACK_HEALTH_WEBHOOK_URL",
       "SENTRY_READ_TOKEN",
-      "SENTRY_RESOLVER_TOKEN",
       "LINEAR_OAUTH_CLIENT_ID",
       "LINEAR_OAUTH_CLIENT_SECRET",
       "LINEAR_TEAM_ID",

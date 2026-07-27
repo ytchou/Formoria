@@ -64,6 +64,13 @@ describe("unified health-agent workflow contract", () => {
     );
   });
 
+  it("uses one write-capable Sentry token for collection and verified resolution", async () => {
+    const workflow = await readFile(workflowPath, "utf8");
+
+    expect(workflow.match(/secrets\.SENTRY_READ_TOKEN/g)).toHaveLength(3);
+    expect(workflow).not.toContain("SENTRY_RESOLVER_TOKEN");
+  });
+
   it("sends only the findings report and final report and uploads one run artifact", async () => {
     const workflow = await readFile(workflowPath, "utf8");
 
