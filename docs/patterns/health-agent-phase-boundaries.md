@@ -36,3 +36,6 @@ canary into an ordinary report-only run.
 At publication, request the GitHub App permissions the operation requires and stage only the
 validated `changedFiles` allowlist. Run artifacts are intentionally local and may be untracked, so a
 broad `git add --all` can silently publish evidence and audit files even after patch validation passes.
+Authenticate the repair push with the installation token explicitly and restore the original remote
+with a shell trap; a successful token-creation action does not prove a later credential helper will
+use that token for Git transport.

@@ -118,7 +118,13 @@ describe("unified health-agent workflow contract", () => {
 
     expect(workflow.match(/Self-heal — repair cycle [12]/g)).toHaveLength(2);
     expect(workflow.match(/gh pr create/g)).toHaveLength(1);
-    expect(workflow).toContain("gh auth setup-git");
+    expect(workflow).toContain(
+      'git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"',
+    );
+    expect(workflow).toContain(
+      "trap 'git remote set-url origin \"$original_origin\"' EXIT",
+    );
+    expect(workflow).not.toContain("gh auth setup-git");
     expect(workflow).toContain("secrets.HEALTH_AGENT_GITHUB_APP_ID");
     expect(workflow).toContain("secrets.HEALTH_AGENT_GITHUB_APP_PRIVATE_KEY");
     expect(workflow).toContain("permission-contents: write");
