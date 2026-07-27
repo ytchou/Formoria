@@ -293,7 +293,21 @@ export function trackSubmissionFormAbandoned(
   })
 }
 
-export function trackBrandPageShared(slug: string, brandId?: string, method?: string) {
+/** Share channels offered by the brand share dialog. Adding a channel here is the
+ *  compile-time contract the dialog is checked against. */
+export type ShareChannel =
+  | 'native'
+  | 'copy_link'
+  | 'line'
+  | 'threads'
+  | 'facebook'
+  | 'instagram'
+
+export function trackBrandPageShared(
+  slug: string,
+  brandId?: string,
+  method?: ShareChannel
+) {
   capturePostHogEvent('brand_page_shared', {
     brand_id: brandId,
     brand_slug: slug,

@@ -123,7 +123,8 @@ export function ShareDialog({ brandSlug, brandName, brandImageUrl, brandId }: Sh
   }
 
   const handleXShare = () => {
-    trackBrandPageShared(brandSlug, brandId, 'x')
+    // X is off the ShareChannel roster (DEV-1242) so this share is untracked; the
+    // button itself is removed with the dialog rewrite in the component wave.
     window.open(
       `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(brandName)}`,
       '_blank',

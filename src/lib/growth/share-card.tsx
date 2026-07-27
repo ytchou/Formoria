@@ -52,13 +52,13 @@ export function renderShareCard(
         </div>
       </div>
 
-      {/* Green accent bar */}
+      {/* Kiln accent bar */}
       <div
         style={{
           display: 'flex',
           width: 80,
           height: 6,
-          backgroundColor: brandColors.primary,
+          backgroundColor: brandColors.cta,
           marginBottom: '56px',
         }}
       />

@@ -359,11 +359,16 @@
     "share": {
       "trigger": "分享",
       "dialogTitle": "分享",
-      "copyLink": "複製連結",
+      "urlLabel": "品牌頁網址",
+      "copy": "複製",
       "copied": "已複製！",
+      "orShareTo": "或分享至",
       "line": "LINE",
+      "threads": "Threads",
       "facebook": "Facebook",
-      "x": "X"
+      "instagram": "Instagram",
+      "instagramCopied": "已複製連結，貼到限時動態或個人簡介",
+      "close": "關閉"
     },
     "links": {
       "socialPlatforms": "社群平台",
