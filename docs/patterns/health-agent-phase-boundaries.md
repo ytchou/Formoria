@@ -32,3 +32,7 @@ For manual workflow inputs, trace the value from `workflow_dispatch` through the
 boundary and assert that forwarding in the workflow contract test. Declaring an input alone does not
 make it available to the queue or repair stages; a missing argument can silently turn a controlled
 canary into an ordinary report-only run.
+
+At publication, request the GitHub App permissions the operation requires and stage only the
+validated `changedFiles` allowlist. Run artifacts are intentionally local and may be untracked, so a
+broad `git add --all` can silently publish evidence and audit files even after patch validation passes.
