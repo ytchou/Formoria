@@ -121,12 +121,20 @@ describe("unified health-agent workflow contract", () => {
     expect(workflow).toContain("gh auth setup-git");
     expect(workflow).toContain("secrets.HEALTH_AGENT_GITHUB_APP_ID");
     expect(workflow).toContain("secrets.HEALTH_AGENT_GITHUB_APP_PRIVATE_KEY");
+    expect(workflow).toContain("permission-contents: write");
+    expect(workflow).toContain("permission-pull-requests: write");
     expect(workflow).not.toContain("secrets.HEALTH_GITHUB_APP_ID");
     expect(workflow).not.toContain("secrets.HEALTH_GITHUB_APP_PRIVATE_KEY");
     expect(workflow).toContain("--auto-merge-enabled false");
     expect(workflow).not.toMatch(/gh pr merge|--auto(?:\s|$)/i);
     expect(workflow).toContain("validate-repair-patch.sh");
     expect(workflow).toContain("manager-snapshot.json");
+    expect(workflow).toContain("jq -er '.human.traceability[].changedFiles[]'");
+    expect(workflow).toContain(
+      'mapfile -t repair_paths < "$HEALTH_ARTIFACT_DIR/repair-paths.txt"',
+    );
+    expect(workflow).toContain('git add -- "${repair_paths[@]}"');
+    expect(workflow).not.toContain("git add --all");
     expect(workflow.match(/--json-schema/g)).toHaveLength(4);
     expect(workflow).toContain("steps.review-decision-1.outcome");
     expect(workflow).toContain("steps.review-decision-2.outcome");

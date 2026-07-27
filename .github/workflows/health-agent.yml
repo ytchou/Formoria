@@ -419,6 +419,8 @@ jobs:
         with:
           app-id: ${{ secrets.HEALTH_AGENT_GITHUB_APP_ID }}
           private-key: ${{ secrets.HEALTH_AGENT_GITHUB_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
       - name: "Stage 4 · Publish — create at most one manager-reviewed PR"
         id: publish
         if: steps.app-token.outcome == 'success'
@@ -427,13 +429,19 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
-          test -n "$(git status --short)" || exit 0
           branch="health-agent/run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          jq -er '.human.traceability[].changedFiles[]' "$HEALTH_ARTIFACT_DIR/manager-metadata.json" | sort -u > "$HEALTH_ARTIFACT_DIR/repair-paths.txt"
+          mapfile -t repair_paths < "$HEALTH_ARTIFACT_DIR/repair-paths.txt"
+          test "${#repair_paths[@]}" -gt 0
           git config user.name "formoria-health-agent[bot]"
           git config user.email "formoria-health-agent[bot]@users.noreply.github.com"
           gh auth setup-git
           git switch -c "$branch"
-          git add --all
+          git add -- "${repair_paths[@]}"
+          if git diff --cached --quiet; then
+            echo "Validated repair produced no staged changes" >&2
+            exit 1
+          fi
           git commit -m "fix(health): repair nightly findings"
           git push origin "$branch"
           ticket="$(jq -r '.linearOutcomes[]? | select(.identifier) | .identifier' "$HEALTH_ARTIFACT_DIR/aggregate.json" | head -1)"
