@@ -19,7 +19,7 @@ test.describe('Mobile responsive', () => {
     await page.goto('/brands');
     const firstCard = page.locator('main [role="list"] [role="listitem"] article').first();
     await expect(firstCard).toBeVisible({ timeout: 10_000 });
-    await expect(firstCard.getByRole('link')).toHaveAttribute('href', /\/brands\//);
+    await expect(firstCard.getByRole('link')).toHaveAttribute('href', /\/catalog\//);
   });
 
   test('navigation is accessible (hamburger or nav visible)', async ({ page }) => {
