@@ -85,6 +85,18 @@ describe("unified health-agent workflow contract", () => {
     );
   });
 
+  it("forwards the requested deterministic canary into queue reconciliation", async () => {
+    const workflow = await readFile(workflowPath, "utf8");
+    const queueStep = workflow.slice(
+      workflow.indexOf('name: "Stage 3 · Consolidate — queue and reconcile"'),
+      workflow.indexOf('name: "Stage 3 · Consolidate — manager repair scope"'),
+    );
+
+    expect(queueStep).toContain(
+      '--canary-fingerprints "${{ inputs.canary_fingerprints }}"',
+    );
+  });
+
   it("sends only the findings report and final report and uploads one run artifact", async () => {
     const workflow = await readFile(workflowPath, "utf8");
 

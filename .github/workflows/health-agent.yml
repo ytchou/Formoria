@@ -279,6 +279,7 @@ jobs:
         run: >-
           pnpm exec tsx scripts/health-agent/workflow-runtime.ts enqueue-and-claim
           --mode "${{ steps.setup.outputs.mode }}"
+          --canary-fingerprints "${{ inputs.canary_fingerprints }}"
           --findings-artifact "$HEALTH_ARTIFACT_DIR/aggregate.json"
           --lease-owner "github-actions:${GITHUB_RUN_ID}:${GITHUB_RUN_ATTEMPT}"
           --output "$HEALTH_ARTIFACT_DIR/queue.json"
