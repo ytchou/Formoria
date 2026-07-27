@@ -276,6 +276,39 @@ describe("Sentry REST collection", () => {
     expect(JSON.stringify(classifier.mock.calls)).not.toContain("123456");
   });
 
+  it("fetches independent latest events concurrently and audits provider failure", async () => {
+    let releaseLatest: (() => void) | undefined;
+    const latestGate = new Promise<void>((resolve) => {
+      releaseLatest = resolve;
+    });
+    let latestStarted = 0;
+    const audit = vi.fn();
+    const fetchImpl = vi.fn<typeof fetch>(async (input) => {
+      if (String(input).includes("/organizations/")) {
+        return response([
+          productionIssue({ id: "123456", latestEvent: undefined }),
+          productionIssue({ id: "789012", latestEvent: undefined }),
+        ]);
+      }
+      latestStarted += 1;
+      if (latestStarted === 2) releaseLatest?.();
+      await latestGate;
+      return response({ detail: "unavailable" }, 503);
+    });
+
+    await expect(
+      collectSentryIssues({ ...collectorOptions(fetchImpl), audit }),
+    ).rejects.toThrow("invalid latest-event evidence");
+    expect(latestStarted).toBe(2);
+    expect(audit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operation: "get-latest-issue-event",
+        schemaValid: false,
+        status: "failure",
+      }),
+    );
+  });
+
   it("follows bounded cursors and stops at the configured request/page bound", async () => {
     const fetchImpl = vi.fn<typeof fetch>();
     fetchImpl

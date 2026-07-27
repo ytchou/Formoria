@@ -36,21 +36,17 @@ describe("health confirmation workflow contract", () => {
     expect(combined).not.toContain("contents: write");
   });
 
-  it("runs the validated confirmation module and always retains redacted audit evidence", async () => {
+  it("runs the validated confirmation module without creating a separate durable artifact", async () => {
     const combined = await workflow();
 
     expect(combined).toContain(
       "pnpm exec tsx scripts/health-agent/confirmation.ts",
     );
-    expect(combined).toContain("if: always()");
-    expect(combined).toContain(
-      "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
-    );
+    expect(combined).not.toContain("actions/upload-artifact@");
     for (const [, ref] of combined.matchAll(/uses:\s+[^\s]+@([^\s#]+)/g)) {
       expect(ref).toMatch(/^[0-9a-f]{40}$/);
     }
     expect(combined).toContain("confirmation-audit.json");
-    expect(combined).toContain("retention-days: 14");
   });
 
   it("enforces Railway identity, exact SHA, smoke, transition, and Sentry timing in code", async () => {

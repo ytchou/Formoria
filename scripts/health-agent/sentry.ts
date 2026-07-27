@@ -1082,11 +1082,26 @@ async function fetchLatestEvent(
     });
     return body;
   } catch (error) {
-    if (error instanceof SentryCollectorError) throw error;
-    throw new SentryCollectorError(
-      "request_failed",
-      "Sentry latest-event request failed.",
-    );
+    const collectorError =
+      error instanceof SentryCollectorError
+        ? error
+        : new SentryCollectorError(
+            "request_failed",
+            "Sentry latest-event request failed.",
+          );
+    emitAudit(config.audit, {
+      adapter: "sentry-rest",
+      latencyMs: Math.round(performance.now() - startedAt),
+      operation: "get-latest-issue-event",
+      request: { issueId },
+      response: {
+        error: collectorError.code,
+        httpStatus: collectorError.httpStatus,
+      },
+      schemaValid: false,
+      status: "failure",
+    });
+    throw collectorError;
   }
 }
 
@@ -1114,21 +1129,36 @@ async function collectIssueCandidates(
     pageCount += 1;
     totalFromProvider = page.total ?? totalFromProvider;
 
-    for (const rawIssue of page.issues) {
-      if (isDevelopmentOnly(rawIssue)) continue;
-      const issueId = opaqueIssueId(recordValue(rawIssue, "id"));
-      if (!issueId) {
-        throw new SentryCollectorError(
-          "invalid_provider_response",
-          "Sentry issue is missing its provider ID.",
-        );
-      }
-      const issueWithLatest = nestedRecord(rawIssue, "latestEvent")
-        ? rawIssue
-        : {
-            ...rawIssue,
-            latestEvent: await fetchLatestEvent(config, issueId),
-          };
+    const remaining = Math.max(0, MAX_ANALYZED_ISSUES - candidates.length);
+    const eligiblePageIssues = page.issues.filter(
+      (rawIssue) => !isDevelopmentOnly(rawIssue),
+    );
+    const pageOverflow = eligiblePageIssues.length > remaining;
+    const pageIssues = eligiblePageIssues
+      .slice(0, remaining)
+      .map((rawIssue) => {
+        const issueId = opaqueIssueId(recordValue(rawIssue, "id"));
+        if (!issueId) {
+          throw new SentryCollectorError(
+            "invalid_provider_response",
+            "Sentry issue is missing its provider ID.",
+          );
+        }
+        return { issueId, rawIssue };
+      });
+    const issuesWithLatest = await Promise.all(
+      pageIssues.map(async ({ issueId, rawIssue }) => ({
+        issueId,
+        rawIssue,
+        issueWithLatest: nestedRecord(rawIssue, "latestEvent")
+          ? rawIssue
+          : {
+              ...rawIssue,
+              latestEvent: await fetchLatestEvent(config, issueId),
+            },
+      })),
+    );
+    for (const { issueId, issueWithLatest, rawIssue } of issuesWithLatest) {
       const sanitized = sanitizeSentryIssue(issueWithLatest);
       const identity = issueIdentity(rawIssue, sanitized);
       if (seen.has(identity)) continue;
@@ -1143,7 +1173,7 @@ async function collectIssueCandidates(
       });
     }
 
-    hasMore = page.hasNext;
+    hasMore = page.hasNext || pageOverflow;
     if (!page.hasNext) break;
     if (candidates.length >= MAX_ANALYZED_ISSUES) break;
     if (!page.nextCursor) {

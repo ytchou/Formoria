@@ -129,4 +129,73 @@ describe("repository health", () => {
     expect(result.findings[0]?.fingerprint).toHaveLength(128);
     expect(result.findings[0]?.fingerprint).toMatch(/:[a-f0-9]{16}$/);
   });
+
+  it("reports an import-time suite crash as a repairable finding", () => {
+    const result = evaluateQualityReports({
+      knipExitCode: 0,
+      knipReport: { issues: [] },
+      repoRoot: "/repo",
+      trackedFiles,
+      vitestExitCode: 1,
+      vitestReport: {
+        numFailedTestSuites: 1,
+        numFailedTests: 0,
+        numTotalTestSuites: 1,
+        numTotalTests: 0,
+        success: false,
+        testResults: [
+          {
+            assertionResults: [],
+            message:
+              "Failed to load module at /repo/src/lib/services/submissions.ts:7:1",
+            name: "/repo/scripts/agent-hub/health-confirmation-workflow.test.ts",
+            status: "failed",
+          },
+        ],
+      },
+    });
+
+    expect(result.status).toBe("success");
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0]).toMatchObject({
+      changedFiles: [
+        "scripts/agent-hub/health-confirmation-workflow.test.ts",
+        "src/lib/services/submissions.ts",
+      ],
+      fingerprint:
+        "quality:full-unit-suite:scripts/agent-hub/health-confirmation-workflow.test.ts::suite-failure",
+      mergePolicy: "human",
+      severity: "high",
+    });
+  });
+
+  it("rejects a normalized path that escapes the repository", () => {
+    const result = evaluateQualityReports({
+      knipExitCode: 1,
+      knipReport: {
+        issues: [
+          {
+            exports: [{ name: "leakedSymbol" }],
+            file: "scripts/../../outside.ts",
+          },
+        ],
+      },
+      repoRoot: "/repo",
+      trackedFiles,
+      vitestExitCode: 0,
+      vitestReport: {
+        numFailedTestSuites: 0,
+        numFailedTests: 0,
+        numTotalTestSuites: 1,
+        numTotalTests: 1,
+        success: true,
+        testResults: [],
+      },
+    });
+
+    expect(result.findings[0]).toMatchObject({
+      changedFiles: [],
+      fingerprint: "quality:dead-code:exports:package.json:leakedsymbol",
+    });
+  });
 });

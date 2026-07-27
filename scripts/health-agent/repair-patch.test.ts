@@ -63,10 +63,6 @@ describe("generic repair patch validation", () => {
     );
   });
 
-
-
-
-
   it("rejects an extra changed file", async () => {
     const directory = await fixture();
     await writeFile(

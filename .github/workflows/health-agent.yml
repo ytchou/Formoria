@@ -61,6 +61,8 @@ jobs:
           FORMORIA_LINK_HEALTH_ORIGIN_SECRET: ${{ secrets.ORIGIN_SECRET }}
           HEALTH_AGENT_READER_TOKEN: ${{ secrets.HEALTH_AGENT_READER_TOKEN }}
           HEALTH_AGENT_WRITER_TOKEN: ${{ secrets.HEALTH_AGENT_WRITER_TOKEN }}
+          HEALTH_AGENT_ENABLED: ${{ vars.HEALTH_AGENT_ENABLED }}
+          HEALTH_AUTOFIX_ENABLED: ${{ vars.HEALTH_AUTOFIX_ENABLED }}
           LINEAR_OAUTH_ACCESS_TOKEN: ${{ secrets.LINEAR_OAUTH_ACCESS_TOKEN }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SENTRY_READ_TOKEN: ${{ secrets.SENTRY_READ_TOKEN }}
@@ -83,7 +85,9 @@ jobs:
           echo "run_at=$run_at" >> "$GITHUB_OUTPUT"
           echo "expected_at=$expected_at" >> "$GITHUB_OUTPUT"
           echo "delay_seconds=$delay_seconds" >> "$GITHUB_OUTPUT"
-          echo "autofix=$([[ "$mode" == preflight ]] && echo false || echo true)" >> "$GITHUB_OUTPUT"
+          autofix=false
+          if [[ "$mode" == canary_fix ]] || [[ "$mode" == live && "$HEALTH_AGENT_ENABLED" == true && "$HEALTH_AUTOFIX_ENABLED" == true ]]; then autofix=true; fi
+          echo "autofix=$autofix" >> "$GITHUB_OUTPUT"
           jq -n --arg run_id "$GITHUB_RUN_ID" --arg attempt "$GITHUB_RUN_ATTEMPT" --arg mode "$mode" --arg expected_at "$expected_at" --arg started_at "$run_at" --argjson delay_seconds "$delay_seconds" '{version:1,runId:$run_id,attempt:($attempt|tonumber),mode:$mode,schedule:{expectedAt:$expected_at,startedAt:$started_at,delaySeconds:$delay_seconds},groups:{},canonicalFindings:[],lifecycle:null,repair:null,managerReport:null}' > "$HEALTH_ARTIFACT_DIR/health-run.json"
 
       - name: "Stage 2 · Product health — Link"
@@ -244,6 +248,7 @@ jobs:
         continue-on-error: true
         env:
           HEALTH_AGENT_ENABLED: ${{ vars.HEALTH_AGENT_ENABLED }}
+          HEALTH_AUTOFIX_ENABLED: ${{ vars.HEALTH_AUTOFIX_ENABLED }}
           LINEAR_ASSIGNEE_ID: ${{ vars.LINEAR_ASSIGNEE_ID }}
           LINEAR_OAUTH_ACCESS_TOKEN: ${{ secrets.LINEAR_OAUTH_ACCESS_TOKEN }}
           LINEAR_PROJECT_ID: ${{ vars.LINEAR_PROJECT_ID }}
@@ -339,11 +344,25 @@ jobs:
             access providers, commit, push, open, or merge a PR.
           claude_args: >-
             --max-turns 20 --allowedTools Read,Glob,Grep,Bash(git diff:*),Bash(git status:*)
+            --json-schema '{"type":"object","required":["cycle","verdict","review_state","auto_merge_enabled","merged","findings"],"properties":{"cycle":{"const":1},"verdict":{"const":"pass"},"review_state":{"const":"passed"},"auto_merge_enabled":{"const":false},"merged":{"const":false},"findings":{"type":"array","items":{"type":"object","required":["fingerprint","verdict","review_state"],"properties":{"fingerprint":{"type":"string"},"verdict":{"const":"pass"},"review_state":{"const":"passed"}}}}}}'
+      - name: "Stage 4 · Self-heal — review decision cycle 1"
+        id: review-decision-1
+        if: steps.review-1.outcome == 'success'
+        continue-on-error: true
+        env:
+          REVIEW_RESULT: ${{ steps.review-1.outputs.structured_output }}
+        run: |
+          jq -e --argjson review "$REVIEW_RESULT" '
+            ($review.verdict == "pass") and ($review.review_state == "passed") and
+            ($review.auto_merge_enabled == false) and ($review.merged == false) and
+            (([.findings[].fingerprint] | sort) == ([$review.findings[].fingerprint] | sort)) and
+            ([$review.findings[] | select(.verdict != "pass" or .review_state != "passed")] | length == 0)
+          ' "$HEALTH_ARTIFACT_DIR/manager-snapshot.json" >/dev/null
       - name: "Stage 4 · Self-heal — repair cycle 2"
         id: repair-2
         if: >-
           steps.repair-1.outcome == 'success' &&
-          (steps.validate-1.outcome != 'success' || steps.review-1.outcome != 'success')
+          (steps.validate-1.outcome != 'success' || steps.review-decision-1.outcome != 'success')
         continue-on-error: true
         uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1
         with:
@@ -359,8 +378,8 @@ jobs:
         if: steps.repair-2.outcome == 'success'
         continue-on-error: true
         run: |
-          pnpm test
-          pnpm knip
+          if jq -e '.findings[] | select(.fingerprint | startswith("quality:full-unit-suite:"))' "$HEALTH_ARTIFACT_DIR/manager-snapshot.json" >/dev/null; then pnpm test; fi
+          if jq -e '.findings[] | select(.fingerprint | startswith("quality:dead-code:"))' "$HEALTH_ARTIFACT_DIR/manager-snapshot.json" >/dev/null; then pnpm knip; fi
           pnpm exec vitest run scripts/health-agent
           pnpm lint
           pnpm exec tsc --noEmit --incremental false
@@ -377,10 +396,24 @@ jobs:
             manager-scoped diff. Do not edit, commit, push, open, or merge a PR.
           claude_args: >-
             --max-turns 20 --allowedTools Read,Glob,Grep,Bash(git diff:*),Bash(git status:*)
+            --json-schema '{"type":"object","required":["cycle","verdict","review_state","auto_merge_enabled","merged","findings"],"properties":{"cycle":{"const":2},"verdict":{"const":"pass"},"review_state":{"const":"passed"},"auto_merge_enabled":{"const":false},"merged":{"const":false},"findings":{"type":"array","items":{"type":"object","required":["fingerprint","verdict","review_state"],"properties":{"fingerprint":{"type":"string"},"verdict":{"const":"pass"},"review_state":{"const":"passed"}}}}}}'
+      - name: "Stage 4 · Self-heal — review decision cycle 2"
+        id: review-decision-2
+        if: steps.review-2.outcome == 'success'
+        continue-on-error: true
+        env:
+          REVIEW_RESULT: ${{ steps.review-2.outputs.structured_output }}
+        run: |
+          jq -e --argjson review "$REVIEW_RESULT" '
+            ($review.verdict == "pass") and ($review.review_state == "passed") and
+            ($review.auto_merge_enabled == false) and ($review.merged == false) and
+            (([.findings[].fingerprint] | sort) == ([$review.findings[].fingerprint] | sort)) and
+            ([$review.findings[] | select(.verdict != "pass" or .review_state != "passed")] | length == 0)
+          ' "$HEALTH_ARTIFACT_DIR/manager-snapshot.json" >/dev/null
       - name: "Stage 4 · Publish — GitHub App token"
         id: app-token
         if: >-
-          steps.review-1.outcome == 'success' || steps.review-2.outcome == 'success'
+          steps.review-decision-1.outcome == 'success' || steps.review-decision-2.outcome == 'success'
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.0.0
         with:
           app-id: ${{ secrets.HEALTH_GITHUB_APP_ID }}
@@ -441,7 +474,7 @@ jobs:
           --collect-status "${{ steps.link.outcome }}"
           --analyze-status "${{ steps.sentry-materialize.outcome }}"
           --deliver-status "${{ steps.initial-report.outcome }}"
-          --repair-status "${{ steps.snapshot.outputs.count == '0' && 'skipped' || (steps.review-1.outcome == 'success' || steps.review-2.outcome == 'success') && 'success' || 'failed' }}"
+          --repair-status "${{ steps.snapshot.outputs.count == '0' && 'skipped' || (steps.review-decision-1.outcome == 'success' || steps.review-decision-2.outcome == 'success') && 'success' || 'failed' }}"
           --publish-status "${{ steps.publish.outcome }}"
           --run-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           --attempt "$GITHUB_RUN_ATTEMPT" --run-id "$GITHUB_RUN_ID"
@@ -479,3 +512,4 @@ jobs:
           test "${{ steps.aggregate.outcome }}" = success
           test "${{ steps.queue.outcome }}" = success
           test "${{ steps.final-report.outcome }}" = success
+          jq -e '.managerReport.envelope.status != "failed"' "$HEALTH_ARTIFACT_DIR/health-run.json" >/dev/null

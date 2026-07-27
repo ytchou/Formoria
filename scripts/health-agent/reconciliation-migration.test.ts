@@ -31,6 +31,8 @@ describe("health fix absence reconciliation migration", () => {
     expect(migration).toContain("'detector_verification_failed'");
     expect(migration).toContain("'failed_verification'::text");
     expect(migration).toContain("'regressed'::text");
+    expect(migration).toContain("'verified_sentry_absence'::text");
+    expect(migration).toContain("and queue.source <> 'sentry'");
     expect(migration).toContain("queue.source = any (p_completed_sources)");
   });
 

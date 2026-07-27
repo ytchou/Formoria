@@ -1263,7 +1263,6 @@ export interface HealthAgentDatabase {
   enqueueHealthFixes?: (
     input: readonly HealthQueueFindingInput[],
   ) => Promise<unknown>;
-  hasUnconfirmedAutomatic?: () => Promise<boolean>;
   listFingerprintStates?: (
     fingerprints: readonly string[],
   ) => Promise<readonly HealthFingerprintState[]>;
@@ -1282,7 +1281,13 @@ export interface HealthFingerprintReconciliation {
   failedVerificationFingerprints: readonly string[];
   fixedFingerprints: readonly string[];
   regressedFingerprints?: readonly string[];
-  verifiedFixedSentryIssueIds?: readonly string[];
+  verifiedSentryAbsences?: readonly VerifiedSentryAbsence[];
+}
+
+export interface VerifiedSentryAbsence {
+  fingerprint: string;
+  id: string;
+  issueId: string;
 }
 
 export type QueueEntryInput = HealthQueueFindingInput;
@@ -1293,7 +1298,6 @@ export interface QueueDependencies {
     leaseOwner: string,
   ): Promise<readonly RepairFinding[]>;
   enqueue(input: QueueEntryInput): Promise<unknown>;
-  hasUnconfirmedAutomatic?: () => Promise<boolean>;
   listFingerprintStates?: (
     fingerprints: readonly string[],
   ) => Promise<readonly HealthFingerprintState[]>;
@@ -1925,6 +1929,7 @@ export interface QueueBatchResult {
   suppressed: boolean;
   verifiedFixedFingerprints: string[];
   verifiedFixedSentryIssueIds: string[];
+  verifiedSentryAbsences: VerifiedSentryAbsence[];
 }
 
 export const HEALTH_AGENT_CANARY_FINGERPRINT =
@@ -2070,6 +2075,7 @@ export async function enqueueAndClaimPolicyBatches(
     verifiedFixedFingerprints: string[] = [],
     failedVerificationFingerprints: string[] = [],
     verifiedFixedSentryIssueIds: string[] = [],
+    verifiedSentryAbsences: VerifiedSentryAbsence[] = [],
   ): QueueBatchResult => ({
     automatic: snapshotClaimedFindings(partition.automatic.findings),
     claimedFingerprints,
@@ -2086,6 +2092,7 @@ export async function enqueueAndClaimPolicyBatches(
     suppressed,
     verifiedFixedFingerprints,
     verifiedFixedSentryIssueIds,
+    verifiedSentryAbsences,
   });
 
   if (input.mode === "preflight") {
@@ -2160,7 +2167,8 @@ export async function enqueueAndClaimPolicyBatches(
   );
   let verifiedFixedFingerprints: string[] = [];
   let failedVerificationFingerprints: string[] = [];
-  let verifiedFixedSentryIssueIds: string[] = [];
+  const verifiedFixedSentryIssueIds: string[] = [];
+  let verifiedSentryAbsences: VerifiedSentryAbsence[] = [];
   try {
     if (database) {
       const enqueue = databaseEnqueue(database);
@@ -2185,6 +2193,7 @@ export async function enqueueAndClaimPolicyBatches(
       verifiedFixedFingerprints,
       failedVerificationFingerprints,
       verifiedFixedSentryIssueIds,
+      verifiedSentryAbsences,
     );
   }
   if (
@@ -2200,8 +2209,8 @@ export async function enqueueAndClaimPolicyBatches(
       failedVerificationFingerprints = [
         ...reconciliation.failedVerificationFingerprints,
       ];
-      verifiedFixedSentryIssueIds = [
-        ...(reconciliation.verifiedFixedSentryIssueIds ?? []),
+      verifiedSentryAbsences = [
+        ...(reconciliation.verifiedSentryAbsences ?? []),
       ];
       for (const fingerprint of reconciliation.regressedFingerprints ?? []) {
         if (!lifecycle.fingerprints.regressed.includes(fingerprint)) {
@@ -2212,6 +2221,23 @@ export async function enqueueAndClaimPolicyBatches(
     } catch {
       failures.push("fingerprint_absence_reconciliation:failed");
     }
+  }
+
+  if (!policy.autofix) {
+    skippedActions.push("claim", "pull_request", "autofix_disabled");
+    return baseResult(
+      false,
+      empty.snapshot,
+      empty,
+      eligible.map(({ fingerprint }) => fingerprint),
+      [],
+      lifecycle.counts,
+      lifecycle.fingerprints,
+      verifiedFixedFingerprints,
+      failedVerificationFingerprints,
+      verifiedFixedSentryIssueIds,
+      verifiedSentryAbsences,
+    );
   }
 
   const leaseOwner = input.leaseOwner ?? "github-actions-health-agent";
@@ -2243,6 +2269,7 @@ export async function enqueueAndClaimPolicyBatches(
       verifiedFixedFingerprints,
       failedVerificationFingerprints,
       verifiedFixedSentryIssueIds,
+      verifiedSentryAbsences,
     );
   }
 
@@ -2269,6 +2296,7 @@ export async function enqueueAndClaimPolicyBatches(
     suppressed: false,
     verifiedFixedFingerprints,
     verifiedFixedSentryIssueIds,
+    verifiedSentryAbsences,
     failedVerificationFingerprints,
   };
 }

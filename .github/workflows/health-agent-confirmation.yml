@@ -52,11 +52,3 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SLACK_HEALTH_WEBHOOK_URL: ${{ secrets.SLACK_HEALTH_WEBHOOK_URL }}
         run: pnpm exec tsx scripts/health-agent/confirmation.ts
-      - name: Upload confirmation audit
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: health-confirmation-${{ github.run_id }}-${{ github.run_attempt }}
-          path: .health-agent-artifacts/confirmation-audit.json
-          if-no-files-found: error
-          retention-days: 14

@@ -1314,7 +1314,6 @@ describe("stale branch cleanup runtime", () => {
         queue: {
           claim: vi.fn(async () => []),
           enqueue,
-          hasUnconfirmedAutomatic: vi.fn(async () => true),
         },
       },
     );
@@ -1366,7 +1365,6 @@ describe("stale branch cleanup runtime", () => {
         queue: {
           claim: vi.fn(async () => []),
           enqueue: vi.fn(async () => undefined),
-          hasUnconfirmedAutomatic: vi.fn(async () => false),
         },
       },
     );
@@ -1403,7 +1401,6 @@ describe("stale branch cleanup runtime", () => {
         queue: {
           claim: vi.fn(async () => []),
           enqueue: vi.fn(async () => undefined),
-          hasUnconfirmedAutomatic: vi.fn(async () => false),
           reconcileFingerprintLifecycle,
         },
       },
@@ -1444,7 +1441,6 @@ describe("stale branch cleanup runtime", () => {
         queue: {
           claim: vi.fn(async () => []),
           enqueue: vi.fn(async () => undefined),
-          hasUnconfirmedAutomatic: vi.fn(async () => false),
           reconcileFingerprintLifecycle,
         },
       },
@@ -1454,6 +1450,122 @@ describe("stale branch cleanup runtime", () => {
       ["directory:one", "link:one", "sentry:one"],
       ["directory", "link", "sentry"],
     );
+  });
+
+  it("keeps a verified Sentry row deployed when provider resolution fails", async () => {
+    const contents = new Map([
+      ["aggregate.json", JSON.stringify(terminalAggregate())],
+    ]);
+    const fetchImplementation = vi.fn<typeof fetch>(
+      async () =>
+        new Response(JSON.stringify({ detail: "provider unavailable" }), {
+          status: 503,
+        }),
+    );
+
+    const result = await enqueueAndClaimWorkflowBatch(
+      {
+        findingsArtifactPath: "aggregate.json",
+        leaseOwner: "github-actions:123:1",
+        mode: "live",
+        outputPath: "queue-result.json",
+      },
+      {
+        env: {
+          HEALTH_AGENT_ENABLED: "true",
+          HEALTH_AUTOFIX_ENABLED: "false",
+          SENTRY_BASE_URL: "https://sentry.example",
+          SENTRY_RESOLVER_TOKEN: "resolver-token",
+        },
+        fetchImplementation,
+        files: {
+          read: async (path) => contents.get(path) ?? "",
+          write: async (path, value) => void contents.set(path, value),
+        },
+        queue: {
+          claim: vi.fn(async () => []),
+          enqueue: vi.fn(async () => undefined),
+          reconcileFingerprintLifecycle: vi.fn(async () => ({
+            failedVerificationFingerprints: [],
+            fixedFingerprints: [],
+            verifiedSentryAbsences: [
+              {
+                fingerprint: "sentry:resolved-after-deployment",
+                id: "46591f9f-bbba-4f82-8bee-6b0334f13167",
+                issueId: "88442211",
+              },
+            ],
+          })),
+        },
+      },
+    );
+
+    expect(result.failures).toContain(
+      "sentry_post_verification_resolution:failed",
+    );
+    expect(result.verifiedFixedFingerprints).not.toContain(
+      "sentry:resolved-after-deployment",
+    );
+    expect(fetchImplementation).toHaveBeenCalledTimes(1);
+  });
+
+  it("marks a Sentry row fixed only after provider resolution succeeds", async () => {
+    const contents = new Map([
+      ["aggregate.json", JSON.stringify(terminalAggregate())],
+    ]);
+    const requests: string[] = [];
+    const fetchImplementation = vi.fn<typeof fetch>(async (input) => {
+      requests.push(String(input));
+      return new Response(JSON.stringify({ id: "88442211" }), { status: 200 });
+    });
+
+    const result = await enqueueAndClaimWorkflowBatch(
+      {
+        findingsArtifactPath: "aggregate.json",
+        leaseOwner: "github-actions:123:1",
+        mode: "live",
+        outputPath: "queue-result.json",
+      },
+      {
+        env: {
+          HEALTH_AGENT_ENABLED: "true",
+          HEALTH_AUTOFIX_ENABLED: "false",
+          HEALTH_AGENT_WRITER_TOKEN: "writer-token",
+          NEXT_PUBLIC_SUPABASE_URL: "https://db.example",
+          SENTRY_BASE_URL: "https://sentry.example",
+          SENTRY_RESOLVER_TOKEN: "resolver-token",
+        },
+        fetchImplementation,
+        files: {
+          read: async (path) => contents.get(path) ?? "",
+          write: async (path, value) => void contents.set(path, value),
+        },
+        queue: {
+          claim: vi.fn(async () => []),
+          enqueue: vi.fn(async () => undefined),
+          reconcileFingerprintLifecycle: vi.fn(async () => ({
+            failedVerificationFingerprints: [],
+            fixedFingerprints: [],
+            verifiedSentryAbsences: [
+              {
+                fingerprint: "sentry:resolved-after-deployment",
+                id: "46591f9f-bbba-4f82-8bee-6b0334f13167",
+                issueId: "88442211",
+              },
+            ],
+          })),
+        },
+      },
+    );
+
+    expect(requests).toEqual([
+      "https://sentry.example/api/0/issues/88442211/",
+      "https://db.example/rest/v1/rpc/transition_health_fix",
+    ]);
+    expect(result.verifiedFixedFingerprints).toContain(
+      "sentry:resolved-after-deployment",
+    );
+    expect(result.verifiedFixedSentryIssueIds).toEqual(["88442211"]);
   });
 });
 
@@ -1590,7 +1702,7 @@ describe("scoped writer RPC", () => {
       failedVerificationFingerprints: ["directory:still-broken"],
       fixedFingerprints: ["directory:resolved"],
       regressedFingerprints: [],
-      verifiedFixedSentryIssueIds: [],
+      verifiedSentryAbsences: [],
     });
     expect(fetchImplementation.mock.calls[0]?.[0]).toBe(
       "https://db.example/rest/v1/rpc/reconcile_health_fix_lifecycle",
@@ -2127,8 +2239,5 @@ describe("default runtime dependencies", () => {
     expect(dependencies.linear).toEqual(expect.any(Function));
     expect(dependencies.queue?.claim).toEqual(expect.any(Function));
     expect(dependencies.queue?.enqueue).toEqual(expect.any(Function));
-    expect(dependencies.queue?.hasUnconfirmedAutomatic).toEqual(
-      expect.any(Function),
-    );
   });
 });

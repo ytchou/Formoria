@@ -530,12 +530,38 @@ describe("queue mutation gates", () => {
         leaseOwner: "run-1",
         mode: "preflight",
       },
-      { claim, enqueue, hasUnconfirmedAutomatic: async () => false },
+      { claim, enqueue },
       enabled,
     );
     expect(result.suppressed).toBe(true);
     expect(enqueue).not.toHaveBeenCalled();
     expect(claim).not.toHaveBeenCalled();
+  });
+
+  it("enqueues live findings without claiming them when autofix is disabled", async () => {
+    const enqueue = vi.fn(async () => undefined);
+    const claim = vi.fn(async () => []);
+    const result = await enqueueAndClaimBatch(
+      {
+        findings: [finding("directory:manager-review", "human", "directory")],
+        leaseOwner: "run-report-only",
+        mode: "live",
+      },
+      { claim, enqueue },
+      {
+        HEALTH_AGENT_ENABLED: "true",
+        HEALTH_AUTOFIX_ENABLED: "false",
+      },
+    );
+
+    expect(enqueue).toHaveBeenCalledTimes(1);
+    expect(claim).not.toHaveBeenCalled();
+    expect(result.enqueuedFingerprints).toEqual(["directory:manager-review"]);
+    expect(result.skippedActions).toEqual([
+      "claim",
+      "pull_request",
+      "autofix_disabled",
+    ]);
   });
 
   it("enqueues without a cap, claims both policies for one manager batch, and excludes late findings", async () => {
@@ -560,7 +586,6 @@ describe("queue mutation gates", () => {
       {
         claim,
         enqueue,
-        hasUnconfirmedAutomatic: async () => false,
       },
       enabled,
     );
@@ -595,7 +620,6 @@ describe("queue mutation gates", () => {
       {
         claim,
         enqueue: async () => undefined,
-        hasUnconfirmedAutomatic: async () => false,
       },
       enabled,
     );
@@ -616,7 +640,6 @@ describe("queue mutation gates", () => {
       {
         claim,
         enqueue: async () => undefined,
-        hasUnconfirmedAutomatic: async () => true,
       },
       enabled,
     );
@@ -655,7 +678,6 @@ describe("queue mutation gates", () => {
       {
         claim: async () => [],
         enqueue: async () => void operationOrder.push("enqueue"),
-        hasUnconfirmedAutomatic: async () => false,
         listFingerprintStates,
         reconcileFingerprintLifecycle,
       },
@@ -709,7 +731,6 @@ describe("queue mutation gates", () => {
         database: {
           claimFindings: claim,
           enqueueFindings: async () => undefined,
-          hasUnconfirmedAutomatic: async () => false,
         },
       },
       enabled,
@@ -774,7 +795,6 @@ describe("queue mutation gates", () => {
         database: {
           claimFindings: claim,
           enqueueFindings: enqueue,
-          hasUnconfirmedAutomatic: async () => false,
         },
       },
       enabled,

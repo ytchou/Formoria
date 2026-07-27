@@ -90,6 +90,15 @@ describe("unified health-agent workflow contract", () => {
     expect(workflow).not.toMatch(/gh pr merge|--auto(?:\s|$)/i);
     expect(workflow).toContain("validate-repair-patch.sh");
     expect(workflow).toContain("manager-snapshot.json");
+    expect(workflow.match(/--json-schema/g)).toHaveLength(4);
+    expect(workflow).toContain("steps.review-decision-1.outcome");
+    expect(workflow).toContain("steps.review-decision-2.outcome");
+    expect(workflow).not.toMatch(
+      /steps\.review-[12]\.outcome == 'success' \|\|/,
+    );
+    expect(workflow.match(/startswith\("quality:dead-code:"\)/g)).toHaveLength(
+      2,
+    );
     expect(workflow).toContain(
       "permissions:\n  contents: read\n  id-token: write\n  pull-requests: read",
     );
@@ -105,6 +114,9 @@ describe("unified health-agent workflow contract", () => {
     expect(upload).toBeGreaterThan(-1);
     expect(failure).toBeGreaterThan(upload);
     expect(workflow.slice(failure)).toContain('all(.status != "failed")');
+    expect(workflow.slice(failure)).toContain(
+      '.managerReport.envelope.status != "failed"',
+    );
   });
 
   it("removes every superseded control-plane file", async () => {

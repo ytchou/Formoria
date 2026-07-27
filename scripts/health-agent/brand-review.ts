@@ -117,9 +117,7 @@ function countCjkCharacters(value: string | null): number {
   return value?.match(/[一-鿿]/g)?.length ?? 0;
 }
 
-function checkDescriptionLanguageSwap(
-  brand: RecentBrandEdit,
-): HealthFinding[] {
+function checkDescriptionLanguageSwap(brand: RecentBrandEdit): HealthFinding[] {
   if (brand.description === null && brand.descriptionEn === null) {
     return [];
   }
@@ -237,10 +235,7 @@ function checkSelfReferentialUrls(brand: RecentBrandEdit): HealthFinding[] {
   ];
 }
 
-function hostMatches(
-  host: string,
-  candidates: readonly string[],
-): boolean {
+function hostMatches(host: string, candidates: readonly string[]): boolean {
   return candidates.some((c) => host === c || host.endsWith("." + c));
 }
 

@@ -95,11 +95,24 @@ BEGIN
       'pending', 'claimed', 'pr_opened', 'awaiting_human', 'merged',
       'deployed', 'failed', 'needs_human'
     )
-    AND (queue.source <> 'sentry' OR queue.status = 'deployed')
+    AND queue.source <> 'sentry'
     AND queue.fingerprint NOT LIKE 'directory:canary:%'
     AND queue.fingerprint NOT LIKE 'directory:stale-branch:%'
     AND NOT (queue.fingerprint = ANY (p_observed_fingerprints))
   RETURNING queue.id, queue.fingerprint, 'fixed'::text, queue.sentry_issue_id;
+
+  RETURN QUERY
+  SELECT
+    queue.id,
+    queue.fingerprint,
+    'verified_sentry_absence'::text,
+    queue.sentry_issue_id
+  FROM public.health_fix_queue AS queue
+  WHERE queue.source = 'sentry'
+    AND 'sentry' = ANY (p_completed_sources)
+    AND queue.status = 'deployed'
+    AND queue.sentry_issue_id IS NOT NULL
+    AND NOT (queue.fingerprint = ANY (p_observed_fingerprints));
 
   RETURN QUERY
   UPDATE public.health_fix_queue AS queue

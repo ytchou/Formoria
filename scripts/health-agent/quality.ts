@@ -60,15 +60,16 @@ function repositoryPath(value: unknown, repoRoot: string): string | undefined {
   const relative = normalized.startsWith(`${root}/`)
     ? normalized.slice(root.length + 1)
     : normalized.replace(/^\.\//, "");
+  const repositoryRelative = path.posix.normalize(relative);
   if (
-    !relative ||
-    relative.startsWith("../") ||
-    path.posix.isAbsolute(relative) ||
-    relative.includes("\0")
+    !repositoryRelative ||
+    repositoryRelative.startsWith("../") ||
+    path.posix.isAbsolute(repositoryRelative) ||
+    repositoryRelative.includes("\0")
   ) {
     return undefined;
   }
-  return path.posix.normalize(relative);
+  return repositoryRelative;
 }
 
 function trackedScope(
@@ -167,7 +168,11 @@ function parseVitestReport(
     (exitCode === 0 &&
       (!value.success ||
         value.numFailedTestSuites > 0 ||
-        value.numFailedTests > 0))
+        value.numFailedTests > 0)) ||
+    (exitCode !== 0 &&
+      value.success &&
+      value.numFailedTestSuites === 0 &&
+      value.numFailedTests === 0)
   ) {
     return null;
   }
@@ -177,8 +182,10 @@ function parseVitestReport(
     if (!isRecord(result) || typeof result.name !== "string") return null;
     if (!Array.isArray(result.assertionResults)) return null;
     const testFile = repositoryPath(result.name, repoRoot);
+    let assertionFailureCount = 0;
     for (const assertion of result.assertionResults) {
       if (!isRecord(assertion) || assertion.status !== "failed") continue;
+      assertionFailureCount += 1;
       const testName =
         typeof assertion.fullName === "string" && assertion.fullName.trim()
           ? assertion.fullName.trim()
@@ -208,6 +215,33 @@ function parseVitestReport(
           ),
           severity: "high",
           title: `Vitest failure: ${testName}`,
+        }),
+      );
+    }
+    if (result.status === "failed" && assertionFailureCount === 0) {
+      if (!testFile) return null;
+      const suiteMessages = [result.message, result.failureMessage].filter(
+        (message): message is string => typeof message === "string",
+      );
+      const changedFiles = trackedScope(
+        [testFile, ...parseStackFiles(suiteMessages, repoRoot)],
+        trackedFiles,
+      );
+      findings.push(
+        qualityFinding({
+          changedFiles,
+          evidence: {
+            check: "full-unit-suite",
+            exitCode,
+            testFile,
+            testName: "suite failure",
+          },
+          fingerprint: qualityFingerprint(
+            "full-unit-suite",
+            `${testFile}::suite-failure`,
+          ),
+          severity: "high",
+          title: `Vitest suite failure: ${testFile}`,
         }),
       );
     }

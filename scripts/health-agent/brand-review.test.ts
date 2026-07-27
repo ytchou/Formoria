@@ -1,16 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  evaluateBrandReview,
-  type RecentBrandEdit,
-} from "./brand-review";
+import { evaluateBrandReview, type RecentBrandEdit } from "./brand-review";
 
 const NOW_ISO = "2026-07-23T12:00:00.000Z";
 const WINDOW_START_ISO = "2026-07-22T12:00:00.000Z";
 
-function brand(
-  overrides: Partial<RecentBrandEdit> = {},
-): RecentBrandEdit {
+function brand(overrides: Partial<RecentBrandEdit> = {}): RecentBrandEdit {
   return {
     id: "brand-1",
     name: "Test Brand",
@@ -277,9 +272,7 @@ describe("evaluateBrandReview", () => {
     );
 
     expect(result.findings).toHaveLength(1);
-    expect(result.findings[0]?.title).toBe(
-      "Self-referential formoria.com URL",
-    );
+    expect(result.findings[0]?.title).toBe("Self-referential formoria.com URL");
   });
 
   it("skips non-formoria URLs", () => {
@@ -357,7 +350,9 @@ describe("evaluateBrandReview", () => {
       severity: "medium",
       title: "purchase_website points at a third-party directory",
     });
-    expect(result.findings[0]?.title).not.toBe("purchase_website is not a root URL");
+    expect(result.findings[0]?.title).not.toBe(
+      "purchase_website is not a root URL",
+    );
   });
 
   it("flags a social URL in purchase_website", () => {
@@ -401,7 +396,9 @@ describe("evaluateBrandReview", () => {
     expect(result.findings[0]).toMatchObject({
       title: "Self-referential formoria.com URL",
     });
-    expect(result.findings[0]?.title).not.toBe("purchase_website is not a root URL");
+    expect(result.findings[0]?.title).not.toBe(
+      "purchase_website is not a root URL",
+    );
   });
 
   it("flags a brand with no usable visit CTA", () => {
@@ -499,9 +496,7 @@ describe("evaluateBrandReview", () => {
       WINDOW_START_ISO,
     );
 
-    const fingerprints = result.findings.map(
-      (finding) => finding.fingerprint,
-    );
+    const fingerprints = result.findings.map((finding) => finding.fingerprint);
     expect(fingerprints).toHaveLength(2);
     expect(new Set(fingerprints).size).toBe(2);
   });

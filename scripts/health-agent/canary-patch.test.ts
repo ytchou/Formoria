@@ -58,7 +58,6 @@ describe("controlled canary patch validation", () => {
     );
   });
 
-
   it("rejects an additional changed file", async () => {
     const directory = await fixture();
     await writeFile(path.join(directory, "health-agent-canary.txt"), marker);

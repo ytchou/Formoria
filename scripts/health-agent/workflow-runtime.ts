@@ -81,15 +81,6 @@ const MAX_RUNTIME_FINDINGS = 10_000;
 const FINGERPRINT_STATE_BATCH_SIZE = 40;
 const MAX_RUNTIME_ISSUES = 20;
 const execFileAsync = promisify(execFile);
-const ACTIVE_AUTOMATIC_STATUSES = [
-  "pending",
-  "claimed",
-  "pr_opened",
-  "awaiting_human",
-  "merged",
-  "deployed",
-  "failed",
-] as const;
 
 function safeRuntimeFailure(error: unknown): string {
   if (!(error instanceof Error)) return "operation_failed";
@@ -707,22 +698,6 @@ function supabaseQueueDependencies(
           (Array.isArray(candidate) && candidate.length <= 1),
       );
     },
-    hasUnconfirmedAutomatic: async () => {
-      const params = new URLSearchParams({
-        merge_policy: "eq.automatic",
-        select: "id",
-        status: `in.(${ACTIVE_AUTOMATIC_STATUSES.join(",")})`,
-      });
-      const value = await supabaseRequest(
-        dependencies,
-        "check_unconfirmed_automatic_health_fixes",
-        `/rest/v1/health_fix_queue?${params.toString()}`,
-        "HEALTH_AGENT_READER_TOKEN",
-        { method: "GET" },
-        (candidate) => Array.isArray(candidate),
-      );
-      return (value as unknown[]).length > 0;
-    },
     listFingerprintStates: async (fingerprints) => {
       if (fingerprints.length === 0) return [];
       const batches = Array.from(
@@ -789,7 +764,11 @@ function supabaseQueueDependencies(
       const fixedFingerprints: string[] = [];
       const failedVerificationFingerprints: string[] = [];
       const regressedFingerprints: string[] = [];
-      const verifiedFixedSentryIssueIds: string[] = [];
+      const verifiedSentryAbsences: Array<{
+        fingerprint: string;
+        id: string;
+        issueId: string;
+      }> = [];
       for (const candidate of value as unknown[]) {
         if (!isRecord(candidate) || typeof candidate.fingerprint !== "string")
           continue;
@@ -801,17 +780,22 @@ function supabaseQueueDependencies(
           regressedFingerprints.push(candidate.fingerprint);
         }
         if (
-          candidate.reconciliation === "fixed" &&
+          candidate.reconciliation === "verified_sentry_absence" &&
+          typeof candidate.id === "string" &&
           typeof candidate.sentry_issue_id === "string"
         ) {
-          verifiedFixedSentryIssueIds.push(candidate.sentry_issue_id);
+          verifiedSentryAbsences.push({
+            fingerprint: candidate.fingerprint,
+            id: candidate.id,
+            issueId: candidate.sentry_issue_id,
+          });
         }
       }
       return {
         failedVerificationFingerprints,
         fixedFingerprints,
         regressedFingerprints,
-        verifiedFixedSentryIssueIds,
+        verifiedSentryAbsences,
       };
     },
   };
@@ -2991,25 +2975,65 @@ export async function enqueueAndClaimWorkflowBatch(
     },
     environmentFor(dependencies),
   );
-  if (result.verifiedFixedSentryIssueIds.length > 0) {
+  if (result.verifiedSentryAbsences.length > 0) {
     try {
-      await resolveSentryIssues(result.verifiedFixedSentryIssueIds, {
-        audit: auditFor(dependencies),
-        baseUrl: requiredEnvironment(
-          environmentFor(dependencies),
-          "SENTRY_BASE_URL",
-        ),
-        resolveToken: requiredEnvironment(
-          environmentFor(dependencies),
-          "SENTRY_RESOLVER_TOKEN",
-        ),
-      });
+      await resolveSentryIssues(
+        result.verifiedSentryAbsences.map(({ issueId }) => issueId),
+        {
+          audit: auditFor(dependencies),
+          baseUrl: requiredEnvironment(
+            environmentFor(dependencies),
+            "SENTRY_BASE_URL",
+          ),
+          resolveToken: requiredEnvironment(
+            environmentFor(dependencies),
+            "SENTRY_RESOLVER_TOKEN",
+          ),
+          fetchImplementation: fetchFor(dependencies),
+        },
+      );
+      for (const absence of result.verifiedSentryAbsences) {
+        await transitionVerifiedSentryAbsence(absence.id, dependencies);
+        result.verifiedFixedFingerprints.push(absence.fingerprint);
+        result.verifiedFixedSentryIssueIds.push(absence.issueId);
+      }
     } catch {
       result.failures.push("sentry_post_verification_resolution:failed");
     }
   }
   await writeRedactedJson(input.outputPath, result, filesFor(dependencies));
   return result;
+}
+
+async function transitionVerifiedSentryAbsence(
+  id: string,
+  dependencies: WorkflowRuntimeDependencies,
+): Promise<void> {
+  await supabaseRequest(
+    dependencies,
+    "transition_verified_sentry_fix",
+    "/rest/v1/rpc/transition_health_fix",
+    "HEALTH_AGENT_WRITER_TOKEN",
+    {
+      body: JSON.stringify({
+        p_confirmation_data: {
+          verification: "provider_resolved_after_detector_absence",
+        },
+        p_deployed_at: null,
+        p_expected_status: "deployed",
+        p_id: id,
+        p_last_error: null,
+        p_lease_owner: null,
+        p_merge_sha: null,
+        p_new_status: "fixed",
+        p_next_attempt_at: null,
+        p_pr_number: null,
+        p_pr_url: null,
+      }),
+      method: "POST",
+    },
+    (value) => isRecord(value) || (Array.isArray(value) && value.length === 1),
+  );
 }
 
 function repairFindingFromValue(value: unknown): RepairFinding {
