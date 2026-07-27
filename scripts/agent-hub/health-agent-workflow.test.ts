@@ -71,6 +71,20 @@ describe("unified health-agent workflow contract", () => {
     expect(workflow).not.toContain("SENTRY_RESOLVER_TOKEN");
   });
 
+  it("passes the Supabase URL to the live Directory snapshot writer", async () => {
+    const workflow = await readFile(workflowPath, "utf8");
+    const directoryStep = workflow.slice(
+      workflow.indexOf(
+        'name: "Stage 2 · Product health — Directory evaluation"',
+      ),
+      workflow.indexOf('name: "Stage 2 · Runtime health — collect Sentry"'),
+    );
+
+    expect(directoryStep).toContain(
+      "NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}",
+    );
+  });
+
   it("sends only the findings report and final report and uploads one run artifact", async () => {
     const workflow = await readFile(workflowPath, "utf8");
 

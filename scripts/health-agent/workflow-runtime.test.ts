@@ -612,6 +612,7 @@ function githubBranchDeletionFetch(branchTips: ReadonlyMap<string, string>) {
 
 describe("workflow runtime artifacts", () => {
   it("converts link cleanup telemetry into human-owned findings without URLs", () => {
+    const brandId = "4ce279a6-b1dc-4836-ae92-aad0acfc5431";
     const artifact = makeLinkArtifact(
       {
         blocked: 0,
@@ -619,12 +620,20 @@ describe("workflow runtime artifacts", () => {
         checked: 1,
         cleanupRequired: [
           {
-            brandId: "brand-1",
+            brandId,
             field: "purchase_website",
             url: "https://secret.example/path?token=value",
           },
         ],
-        failingRows: [],
+        failingRows: [
+          {
+            brandId,
+            failureDates: ["2026-07-23", "2026-07-24", "2026-07-25"],
+            field: "purchase_website",
+            recordId: `${brandId}:purchase_website`,
+            statusCode: 404,
+          },
+        ],
         heroBroken: [],
         heroExternal: [],
         ok: 0,
@@ -635,7 +644,7 @@ describe("workflow runtime artifacts", () => {
 
     expect(artifact.findings).toEqual([
       expect.objectContaining({
-        fingerprint: "link:cleanup-required:brand-1:purchase_website",
+        fingerprint: `link:link-cleanup:${brandId}:purchase_website`,
         mergePolicy: "human",
         source: "link",
       }),
