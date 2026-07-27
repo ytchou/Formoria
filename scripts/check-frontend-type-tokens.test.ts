@@ -68,7 +68,11 @@ describe('check-frontend-type-tokens', () => {
     writeFixture(
       cwd,
       'src/components/brands/share-dialog.tsx',
-      '<span className="text-[#07B53B] text-[#123456]" />',
+      // Exercises every allowlisted value for this file (both brand-disc hex
+      // classes, all four Instagram gradient hexes, and the arbitrary text
+      // size) so deleting any of them from the allowlist turns this red.
+      '<span className="bg-[#06C755] bg-[#1877F2] md:text-[13px] text-[#123456]" ' +
+        'style={{ backgroundImage: "radial-gradient(#FDF497, #FD5949, #D6249F, #285AEB)" }} />',
     )
 
     expect(collectFrontendTokenFailures({ cwd })).toEqual([

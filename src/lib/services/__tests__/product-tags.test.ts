@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeProductTags, deriveProductTagsEn, planTagBackfill } from '../product-tags'
+import {
+  normalizeProductTags,
+  deriveProductTagsEn,
+  planTagBackfill,
+  novelTagRejection,
+  resolveProductTagInput,
+  applyTagDelta,
+} from '../product-tags'
 
 describe('normalizeProductTags', () => {
   it('replaces vocab matches with canonical zh/en pairs', () => {
@@ -42,6 +49,120 @@ describe('normalizeProductTags', () => {
   it('flags cross-branch picks when brandCategory provided', () => {
     const result = normalizeProductTags(['手工皂'], [], 'fashion')
     expect(result.crossBranch).toEqual(['手工皂'])
+  })
+})
+
+describe('resolveProductTagInput', () => {
+  it('resolves an exact canonical nameZh to itself', () => {
+    expect(resolveProductTagInput('洋裝')).toEqual({
+      ok: true,
+      tag: '洋裝',
+      canonical: true,
+    })
+  })
+
+  it('canonicalizes a known alias to its nameZh', () => {
+    expect(resolveProductTagInput('T恤')).toEqual({
+      ok: true,
+      tag: '上衣・T恤',
+      canonical: true,
+    })
+  })
+
+  it('canonicalizes an English name to its nameZh', () => {
+    expect(resolveProductTagInput('Dresses')).toEqual({
+      ok: true,
+      tag: '洋裝',
+      canonical: true,
+    })
+  })
+
+  it('accepts a genuinely novel tag', () => {
+    expect(resolveProductTagInput('手工燈籠')).toEqual({
+      ok: true,
+      tag: '手工燈籠',
+      canonical: false,
+    })
+  })
+
+  it('rejects a too-short input', () => {
+    expect(resolveProductTagInput('襪')).toEqual({ ok: false, reason: 'length' })
+  })
+
+  it('rejects a too-long input', () => {
+    expect(resolveProductTagInput('手工玻璃吹製花瓶器')).toEqual({
+      ok: false,
+      reason: 'length',
+    })
+  })
+
+  it('rejects a blocklisted input', () => {
+    expect(resolveProductTagInput('禮盒組')).toEqual({
+      ok: false,
+      reason: 'blocklist',
+    })
+    expect(resolveProductTagInput('迷你花瓶')).toEqual({
+      ok: false,
+      reason: 'blocklist',
+    })
+  })
+
+  it('trims surrounding whitespace before matching', () => {
+    expect(resolveProductTagInput('  洋裝  ')).toEqual({
+      ok: true,
+      tag: '洋裝',
+      canonical: true,
+    })
+    expect(resolveProductTagInput('  手工燈籠  ')).toEqual({
+      ok: true,
+      tag: '手工燈籠',
+      canonical: false,
+    })
+  })
+})
+
+describe('novelTagRejection', () => {
+  it('novelTagRejection returns null for an acceptable novel tag', () => {
+    expect(novelTagRejection('手工燈籠')).toBeNull()
+  })
+
+  it('agrees with the heuristics it replaced', () => {
+    expect(novelTagRejection('襪')).toBe('length')
+    expect(novelTagRejection('手工玻璃吹製花瓶器')).toBe('length')
+    expect(novelTagRejection('超值限定組')).toBe('blocklist')
+    expect(novelTagRejection('藍鵲系列襪子')).toBe('blocklist')
+  })
+
+  it('measures the band in code points, not UTF-16 units', () => {
+    // One emoji: 2 code units, 1 character — must fail the min like '襪' does.
+    expect(novelTagRejection('🧦')).toBe('length')
+    expect(resolveProductTagInput('🧦')).toEqual({
+      ok: false,
+      reason: 'length',
+    })
+    // Nine emoji: 9 characters, over the max.
+    expect(novelTagRejection('🧦🧦🧦🧦🧦🧦🧦🧦🧦')).toBe('length')
+    // The Han cases the band was written against are untouched.
+    expect(novelTagRejection('手工燈籠')).toBeNull()
+  })
+})
+
+describe('applyTagDelta', () => {
+  it('removes and dedupes on the ontology matching key, keeping first casing', () => {
+    expect(applyTagDelta(['Vegan'], { add: ['vegan'], remove: [] })).toEqual([
+      'Vegan',
+    ])
+    expect(applyTagDelta([], { add: ['Vegan', 'vegan'], remove: [] })).toEqual([
+      'Vegan',
+    ])
+    // A removal typed in a different casing still removes the stored tag.
+    expect(applyTagDelta(['Vegan'], { add: [], remove: ['vegan'] })).toEqual([])
+  })
+
+  it('preserves order and leaves unrelated tags alone', () => {
+    expect(
+      applyTagDelta(['托特包', '後背包'], { add: ['斜背包'], remove: ['後背包'] }),
+    ).toEqual(['托特包', '斜背包'])
   })
 })
 

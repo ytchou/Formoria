@@ -359,11 +359,16 @@
     "share": {
       "trigger": "分享",
       "dialogTitle": "分享",
-      "copyLink": "複製連結",
+      "urlLabel": "品牌頁網址",
+      "copy": "複製",
       "copied": "已複製！",
+      "orShareTo": "或分享至",
       "line": "LINE",
+      "threads": "Threads",
       "facebook": "Facebook",
-      "x": "X"
+      "instagram": "Instagram",
+      "instagramCopied": "已複製連結，貼到限時動態或個人簡介",
+      "close": "關閉"
     },
     "links": {
       "socialPlatforms": "社群平台",
@@ -482,11 +487,19 @@
       "description": "感謝您的建議！送出後將由官方審核決定是否更新。",
       "submitting": "送出中…",
       "submit": "送出修正",
-      "selectPlaceholder": "尚未填寫，請選擇…",
+      "selectPlaceholder": "尚未填寫",
+      "currentHeading": "目前",
+      "currentTagsHeading": "目前（點擊移除）",
+      "changeToHeading": "改成",
+      "addTagsHeading": "可加入的類別",
       "productTagsSubtitle": "{category} 的產品類別（最多 5 項）",
       "productTagsSelected": "已選 {count} / 5",
       "productTagsLimit": "最多選 5 項產品類別。",
-      "productTagsOtherCategory": "其他分類的既有標籤",
+      "otherTagChip": "其他",
+      "otherTagInputLabel": "其他類別名稱",
+      "otherTagHint": "請輸入 2–8 個字，送出後由官方審核才會更新品牌資料。",
+      "otherTagConfirm": "加入",
+      "otherTagDuplicate": "這個類別已列在上方，若要移除請點擊上方的標籤。",
       "success": "修正已送出，感謝你的協助。",
       "errors": {
         "invalid_brand": "找不到這個品牌，請重新整理後再試。",
@@ -495,7 +508,9 @@
         "unchanged": "這項資料目前沒有變更。",
         "already_submitted": "你已經送出過這項修正，請等待審核。",
         "rate_limited": "修正送出次數過多，請稍後再試。",
-        "unavailable": "目前無法送出修正，請稍後再試。"
+        "unavailable": "目前無法送出修正，請稍後再試。",
+        "tagLength": "請輸入 2–8 個字的類別名稱。",
+        "tagBlocked": "這個詞無法作為產品類別，請改用能描述產品本身的名稱。"
       }
     },
     "adminMenu": {
@@ -2326,6 +2341,8 @@
         "projected": "套用後結果"
       },
       "stale": "提交後，品牌資料已變更",
+      "novelTag": "不在分類表中",
+      "novelTagTitle": "核准後只會新增純顯示用的標籤：它不對應任何 ?sub= 篩選條件，不會出現在目錄篩選中。",
       "tooManyTags": "無法核准：套用後會超過 5 個產品標籤",
       "actions": {
         "approve": "核准",

@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { subscribeToNewsletter } from '@/app/actions/newsletter'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { ToggleChip } from '@/components/ui/toggle-chip'
 import { trackNewsletterSubscribed } from '@/lib/analytics'
 
 const INTEREST_CHIPS = [
@@ -100,17 +101,14 @@ export function EmailCaptureForm() {
             const isSelected = selectedChips.includes(chip.slug)
 
             return (
-              <Button
+              <ToggleChip
                 key={chip.slug}
-                variant={isSelected ? 'primary' : 'secondary'}
-                shape="pill"
+                pressed={isSelected}
                 size="chip"
-                type="button"
-                aria-pressed={isSelected}
-                onClick={() => toggleChip(chip.slug)}
+                onPressedChange={() => toggleChip(chip.slug)}
               >
                 {t(chip.labelKey)}
-              </Button>
+              </ToggleChip>
             )
           })}
         </div>

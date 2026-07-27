@@ -68,7 +68,6 @@ const eslintConfig = defineConfig([
       "src/components/brands/image-carousel.tsx",
       "src/components/brands/report-dialog.tsx",
       "src/components/brands/save-brand-button.tsx",
-      "src/components/brands/share-dialog.tsx",
       "src/components/dashboard/analytics-chart.tsx",
       "src/components/dashboard/onboarding-step-list.tsx",
       "src/components/forms/product-tag-field.tsx",

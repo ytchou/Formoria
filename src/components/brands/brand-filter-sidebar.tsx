@@ -25,6 +25,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { ToggleChip } from "@/components/ui/toggle-chip";
 import type { BrandFilters } from "@/lib/types";
 import {
   clearDirectoryFilters,
@@ -321,24 +322,17 @@ export function BrandFilterSidebar({
                           subcategory.slug,
                         );
                         return (
-                          <Button
+                          <ToggleChip
                             key={subcategory.slug}
-                            type="button"
-                            variant="secondary"
-                            shape="pill"
-                            aria-pressed={subcategoryChecked}
-                            onClick={() =>
+                            pressed={subcategoryChecked}
+                            onPressedChange={(next) =>
                               toggleSubcategory(
                                 subcategory.slug,
-                                !subcategoryChecked,
+                                next,
                                 category.slug,
                               )
                             }
-                            className={cn(
-                              "min-h-12 active:animate-spring-pop",
-                              subcategoryChecked &&
-                                "border-primary bg-primary text-primary-foreground",
-                            )}
+                            className="min-h-12 active:animate-spring-pop"
                             data-ph-no-autocapture
                           >
                             {subcategory.label}{" "}
@@ -351,7 +345,7 @@ export function BrandFilterSidebar({
                             >
                               {subcategory.count}
                             </span>
-                          </Button>
+                          </ToggleChip>
                         );
                       })}
                     </div>
@@ -370,22 +364,15 @@ export function BrandFilterSidebar({
               const checked = activePriceRanges.has(value);
               const label = "$".repeat(value);
               return (
-                <Button
+                <ToggleChip
                   key={value}
-                  type="button"
-                  variant="secondary"
-                  shape="pill"
-                  aria-pressed={checked}
-                  onClick={() => togglePriceRange(value, !checked)}
-                  className={cn(
-                    "min-h-12 active:animate-spring-pop",
-                    checked &&
-                      "border-primary bg-primary text-primary-foreground",
-                  )}
+                  pressed={checked}
+                  onPressedChange={(next) => togglePriceRange(value, next)}
+                  className="min-h-12 active:animate-spring-pop"
                   data-ph-no-autocapture
                 >
                   {label}
-                </Button>
+                </ToggleChip>
               );
             })}
           </div>

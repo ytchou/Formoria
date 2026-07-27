@@ -240,7 +240,14 @@ export const PRODUCT_SUBCATEGORIES: readonly ProductSubcategory[] = [
   { slug: 'pet-supplies', nameZh: '寵物生活用品', nameEn: 'Pet Supplies', category: 'kids-pets', aliases: ['食器'] },
 ]
 
-function _normalizeKey(s: string): string {
+/**
+ * The single matching basis for tag strings: NFKC (collapses full-width Latin),
+ * middle-dot strip, trim, lowercase, whitespace collapse. Exported because
+ * callers that store tags the ontology does NOT know (novel correction tags)
+ * still have to dedupe them the way `matchSubcategory` would have, or 'Vegan'
+ * and 'vegan' become two distinct tags for one concept.
+ */
+export function normalizeTagKey(s: string): string {
   return s
     .normalize('NFKC')
     .replace(/・/g, '') // strip katakana middle dot (U+30FB ・)
@@ -252,12 +259,12 @@ function _normalizeKey(s: string): string {
 const _subcategoryMap = new Map<string, ProductSubcategory>()
 for (const sub of PRODUCT_SUBCATEGORIES) {
   for (const key of [sub.nameZh, sub.nameEn, ...sub.aliases]) {
-    _subcategoryMap.set(_normalizeKey(key), sub)
+    _subcategoryMap.set(normalizeTagKey(key), sub)
   }
 }
 
 export function matchSubcategory(input: string): ProductSubcategory | null {
-  const key = _normalizeKey(input)
+  const key = normalizeTagKey(input)
   if (!key) return null
   return _subcategoryMap.get(key) ?? null
 }
