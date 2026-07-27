@@ -27,3 +27,8 @@ Separate quality reporting and repair also produced duplicate notifications and 
 Add a detector to its health group, return validated structured output, extend the run-level schema,
 and add a contract test proving that its failure does not stop the other groups. Keep temporary
 detector output local and embed only validated, sanitized evidence in `health-run.json`.
+
+For manual workflow inputs, trace the value from `workflow_dispatch` through the exact runtime CLI
+boundary and assert that forwarding in the workflow contract test. Declaring an input alone does not
+make it available to the queue or repair stages; a missing argument can silently turn a controlled
+canary into an ordinary report-only run.
