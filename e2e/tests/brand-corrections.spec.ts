@@ -5,10 +5,11 @@ import { seedBrand, SeededBrand } from '../helpers/seed';
 /**
  * Crowd-QA corrections (DEV-1170).
  *
- * Journey: an anonymous visitor spots a wrong value in the brand header,
- * taps the quiet "這不對?" trigger next to it, proposes a different value,
- * and submits. No account required. The proposal lands in a pending queue and
- * the public page keeps showing the original value until an admin approves it.
+ * Journey: an anonymous visitor spots a wrong value in the brand header, taps
+ * the single quiet "資料有誤?" trigger next to the 品牌資訊 heading, picks which
+ * field is wrong, proposes a different value, and submits. No account required.
+ * The proposal lands in a pending queue and the public page keeps showing the
+ * original value until an admin approves it.
  *
  * Admin approval is deliberately out of scope here — admin review paths are
  * exercised elsewhere and excluded from this journey.
@@ -16,12 +17,14 @@ import { seedBrand, SeededBrand } from '../helpers/seed';
 
 // zh-TW is the default locale (playwright.config sets `locale: 'zh-TW'`).
 // Strings below are the literal values in messages/zh-TW.json.
-const CATEGORY_TRIGGER_NAME = '修正類別'; // brandDetail.correction.triggerLabel
-const CATEGORY_TRIGGER_TEXT = '這不對?'; // brandDetail.correction.trigger
-const CATEGORY_SHEET_TITLE = '分類'; // dashboard.edit.fieldCategory
+const CORRECTION_TRIGGER_NAME = '修正品牌資訊'; // brandDetail.correction.title
+const CORRECTION_TRIGGER_TEXT = '資料有誤?'; // brandDetail.correction.trigger
+const CORRECTION_DIALOG_TITLE = '修正品牌資訊'; // brandDetail.correction.title
+const FIELD_PICKER_LABEL = '要修正哪一項?'; // brandDetail.correction.fieldPickerLabel
+const CATEGORY_VALUE_LABEL = '類別'; // brandDetail.label.category
 const SUBMIT_LABEL = '送出修正'; // brandDetail.correction.submit
 const CANCEL_LABEL = '取消'; // dashboard.edit.cancel
-const REVIEW_PROMISE = '送出後由編輯審核，通過才會更新。'; // brandDetail.correction.description
+const REVIEW_PROMISE = '感謝您的建議！送出後將由官方審核決定是否更新。'; // brandDetail.correction.description
 const SUCCESS_TOAST = '修正已送出，感謝你的協助。'; // brandDetail.correction.success
 const ALREADY_SUBMITTED_TOAST = '你已經送出過這項修正，請等待審核。'; // ...correction.errors.already_submitted
 
@@ -71,48 +74,55 @@ async function openSeededBrand(page: Page, seeded: SeededBrand): Promise<void> {
   }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 10_000] });
 }
 
-function categoryTrigger(page: Page) {
-  return page.getByRole('button', { name: CATEGORY_TRIGGER_NAME, exact: true });
+function correctionTrigger(page: Page) {
+  return page.getByRole('button', { name: CORRECTION_TRIGGER_NAME, exact: true });
 }
 
-function categorySheet(page: Page) {
-  return page.getByRole('dialog', { name: CATEGORY_SHEET_TITLE });
+function correctionDialog(page: Page) {
+  return page.getByRole('dialog', { name: CORRECTION_DIALOG_TITLE });
 }
 
-// The value cell the correction trigger belongs to. Scoping here matters:
-// the category label also appears in the breadcrumb and the related-brands rail.
+// The 類別 value cell. Scoping here matters: the category label also appears in
+// the breadcrumb and the related-brands rail. `:text-is` is exact on purpose —
+// a substring match would also select the 產品類別 row.
 function categoryValue(page: Page) {
-  return categoryTrigger(page).locator('xpath=ancestor::dd[1]');
+  return page
+    .locator('#brand-info-section > dl > div')
+    .filter({ has: page.locator('dt:text-is("類別")') })
+    .locator('dd');
 }
 
 // The brand page is statically served and hydrates afterwards, so a click that
-// lands too early is a no-op. Retry the (idempotent) open until the sheet is up
+// lands too early is a no-op. Retry the (idempotent) open until the dialog is up
 // rather than sleeping on a guessed hydration delay.
-async function openCategorySheet(page: Page) {
+async function openCategoryDialog(page: Page) {
   // The trigger ships in the server-rendered HTML, so a missing one is never a
   // hydration race — it means the page under test doesn't have this feature at
   // all. Assert it up front: folded into the retry loop below it surfaces as an
   // opaque "predicate timed out" pointing at the dialog, which reads like a
   // broken dialog selector and sends debugging the wrong way.
-  await expect(categoryTrigger(page)).toBeVisible();
+  await expect(correctionTrigger(page)).toBeVisible();
 
-  const sheet = categorySheet(page);
+  const dialog = correctionDialog(page);
   await expect(async () => {
-    if (!(await sheet.isVisible())) await categoryTrigger(page).click();
-    await expect(sheet).toBeVisible({ timeout: 2_000 });
+    if (!(await dialog.isVisible())) await correctionTrigger(page).click();
+    await expect(dialog).toBeVisible({ timeout: 2_000 });
   }).toPass({ timeout: 20_000, intervals: [500, 1_000, 2_000] });
-  return sheet;
+  // The picker opens on a disabled placeholder with no field selected, so the
+  // value control only exists after this selection.
+  await dialog.getByRole('combobox', { name: FIELD_PICKER_LABEL }).selectOption('product_type');
+  return dialog;
 }
 
 async function proposeCategoryChange(page: Page) {
-  const sheet = await openCategorySheet(page);
-  await sheet
-    .getByRole('combobox', { name: CATEGORY_SHEET_TITLE })
+  const dialog = await openCategoryDialog(page);
+  await dialog
+    .getByRole('combobox', { name: CATEGORY_VALUE_LABEL })
     .selectOption(PROPOSED_CATEGORY_SLUG);
-  const submit = sheet.getByRole('button', { name: SUBMIT_LABEL, exact: true });
+  const submit = dialog.getByRole('button', { name: SUBMIT_LABEL, exact: true });
   await expect(submit).toBeEnabled();
   await submit.click();
-  return sheet;
+  return dialog;
 }
 
 test.describe('Brand corrections — anonymous crowd QA', () => {
@@ -141,29 +151,29 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
       await isolateVisitorIp(anonPage, testInfo.workerIndex);
       await openSeededBrand(anonPage, seeded);
 
-      // Quiet trigger sitting beside the 類別 value; visible text is short, the
-      // accessible name says which field it corrects.
-      const trigger = categoryTrigger(anonPage);
+      // One quiet trigger beside the 品牌資訊 heading; visible text is short, the
+      // accessible name says what it opens. The field is picked inside the dialog.
+      const trigger = correctionTrigger(anonPage);
       await expect(trigger).toBeVisible();
-      await expect(trigger).toHaveText(CATEGORY_TRIGGER_TEXT);
+      await expect(trigger).toHaveText(CORRECTION_TRIGGER_TEXT);
 
-      const sheet = await openCategorySheet(anonPage);
-      await expect(sheet.getByRole('button', { name: CANCEL_LABEL, exact: true })).toBeVisible();
+      const dialog = await openCategoryDialog(anonPage);
+      await expect(dialog.getByRole('button', { name: CANCEL_LABEL, exact: true })).toBeVisible();
 
-      // Anonymous by design: the sheet asks for a value, never for an account.
-      await expect(sheet.getByRole('link', { name: /登入|sign in/i })).toHaveCount(0);
-      await expect(sheet.getByText(REVIEW_PROMISE)).toBeVisible();
+      // Anonymous by design: the dialog asks for a value, never for an account.
+      await expect(dialog.getByRole('link', { name: /登入|sign in/i })).toHaveCount(0);
+      await expect(dialog.getByText(REVIEW_PROMISE)).toBeVisible();
 
-      await sheet
-        .getByRole('combobox', { name: CATEGORY_SHEET_TITLE })
+      await dialog
+        .getByRole('combobox', { name: CATEGORY_VALUE_LABEL })
         .selectOption(PROPOSED_CATEGORY_SLUG);
-      await sheet.getByRole('button', { name: SUBMIT_LABEL, exact: true }).click();
+      await dialog.getByRole('button', { name: SUBMIT_LABEL, exact: true }).click();
 
       await expectToast(anonPage, 'success', SUCCESS_TOAST);
-      await expect(sheet).toBeHidden();
+      await expect(dialog).toBeHidden();
 
       // Never bounced to sign-in. (Site chrome legitimately links to sign-in for
-      // anonymous visitors, so the no-auth check is scoped to the sheet above.)
+      // anonymous visitors, so the no-auth check is scoped to the dialog above.)
       await expect(anonPage).toHaveURL(new RegExp(`/brands/${seeded.slug}`));
     },
   );
@@ -173,9 +183,9 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
     await isolateVisitorIp(anonPage, testInfo.workerIndex);
     await openSeededBrand(anonPage, seeded);
 
-    const sheet = await openCategorySheet(anonPage);
-    const select = sheet.getByRole('combobox', { name: CATEGORY_SHEET_TITLE });
-    const submit = sheet.getByRole('button', { name: SUBMIT_LABEL, exact: true });
+    const dialog = await openCategoryDialog(anonPage);
+    const select = dialog.getByRole('combobox', { name: CATEGORY_VALUE_LABEL });
+    const submit = dialog.getByRole('button', { name: SUBMIT_LABEL, exact: true });
 
     // Opens on the brand's current category — there is nothing to propose yet.
     await expect(select).toHaveValue(CURRENT_CATEGORY_SLUG);
@@ -198,9 +208,9 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
 
       await expect(categoryValue(anonPage)).toContainText(CURRENT_CATEGORY_LABEL);
 
-      const sheet = await proposeCategoryChange(anonPage);
+      const dialog = await proposeCategoryChange(anonPage);
       await expectToast(anonPage, 'success', SUCCESS_TOAST);
-      await expect(sheet).toBeHidden();
+      await expect(dialog).toBeHidden();
 
       // Pending, not applied: the header must still read the original category.
       await expect(categoryValue(anonPage)).toContainText(CURRENT_CATEGORY_LABEL);
@@ -222,10 +232,10 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
 
     // Same browser, same brand, same field — only one pending correction is allowed.
     await anonPage.reload({ waitUntil: 'domcontentloaded' });
-    const sheet = await proposeCategoryChange(anonPage);
+    const dialog = await proposeCategoryChange(anonPage);
 
     await expectToast(anonPage, 'error', ALREADY_SUBMITTED_TOAST);
-    // The sheet stays open on failure so the visitor can see what happened.
-    await expect(sheet).toBeVisible();
+    // The dialog stays open on failure so the visitor can see what happened.
+    await expect(dialog).toBeVisible();
   });
 });

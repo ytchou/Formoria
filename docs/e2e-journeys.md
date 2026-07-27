@@ -52,6 +52,13 @@ Running inventory of e2e-covered user journeys. Updated by `/e2e-author` runs.
 | **Owner welcome card — visible on fresh brand, dismissal persists** (RED: duplicate content tree after dismiss+reload — see e2e/reports/2026-07-23.md) | `e2e/tests/dashboard-welcome-card.spec.ts` | 2026-07-23 |
 | _(30+ existing deep specs omitted — see e2e/tests/ for full inventory)_ | | |
 
+## Mobile (Pixel 5, nightly)
+
+| Journey | Spec | Last updated |
+|---------|------|-------------|
+| **Responsive overflow on landing, directory, submission, and sign-in pages** | `e2e/tests/mobile.spec.ts` | 2026-07-27 |
+| **Mobile brand-card rendering and navigation access** | `e2e/tests/mobile.spec.ts` | 2026-07-27 |
+
 ## Carried backlog (from 2026-07-11 run)
 
 - Error-boundary rendering journey (force a route error, assert localized RouteError copy) — P3; negative assertions exist in brand-detail/guide-detail/cjk-slug/stats/admin specs.

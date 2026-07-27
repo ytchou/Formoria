@@ -452,7 +452,7 @@ test.describe('Brand detail — public locations and retail channels', () => {
     // The brand page is statically served and hydrates afterwards, so a click that
     // lands too early is a silent no-op and every later step then times out waiting
     // on a dialog that was never opened. Retry the idempotent open instead of
-    // sleeping on a guessed hydration delay — same pattern as openCategorySheet in
+    // sleeping on a guessed hydration delay — same pattern as openCategoryDialog in
     // brand-corrections.spec.ts.
     const dialog = userPage.getByRole('dialog', { name: '提供販售資訊' });
     await expect(async () => {

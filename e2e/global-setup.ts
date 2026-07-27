@@ -227,7 +227,7 @@ async function globalSetup() {
         );
       }
       // Brand detail is the most-exercised route in the deep suite and carries a
-      // heavy client bundle (correction sheets, share dialog, likes). Compiling it
+      // heavy client bundle (correction dialog, share dialog, likes). Compiling it
       // on demand while several workers hit it at once pushes first interaction
       // and the first server-action round-trip past the specs' timeouts, which
       // shows up as flaky "element(s) not found" on dialogs and toasts.
