@@ -15,10 +15,10 @@ Sentry.init({
     Sentry.feedbackIntegration({
       colorScheme: 'light',
       themeLight: {
-        background: '#FAF8F3',
-        submitBackground: '#C4693B',
-        submitBackgroundHover: '#A85A30',
-        inputOutlineColor: '#E5E0D8',
+        background: '#FDFCFA',
+        submitBackground: '#C04A24',
+        submitBackgroundHover: '#A33D1E',
+        inputOutlineColor: '#E8E5E0',
       },
       triggerLabel: isEn ? 'Report Issue' : '回報問題',
       formTitle: isEn ? 'Report Issue' : '回報問題',

@@ -1,12 +1,12 @@
 import { Text } from '@react-email/components'
-import { BRAND_GREEN, FONT_STACK } from '@emails/styles'
+import { FONT_STACK, INK } from '@emails/styles'
 
 export function Header() {
   return <Text style={wordmark}>Formoria</Text>
 }
 
 const wordmark = {
-  color: BRAND_GREEN,
+  color: INK,
   fontFamily: FONT_STACK,
   fontSize: '28px',
   fontWeight: '700',
