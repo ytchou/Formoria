@@ -9,6 +9,7 @@ import {
   decideSentryMergePolicy,
   sentryClassificationBatchJsonSchema,
   sanitizeExternalValue,
+  sanitizeSentryCandidate,
   sanitizeSentryIssue,
 } from "./sentry";
 
@@ -109,6 +110,40 @@ function safeClassification(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
+
+describe("Sentry collection artifact boundary", () => {
+  it("preserves canonical event evidence when validating a sanitized candidate", () => {
+    const issue = sanitizeSentryIssue(productionIssue());
+
+    const candidate = sanitizeSentryCandidate({
+      issue,
+      provider: {
+        issueId: "123456",
+        permalink: "https://sentry.io/organizations/formoria/issues/123456/",
+        shortId: "FORMORIA-123",
+      },
+    });
+
+    expect(candidate.issue).toMatchObject({
+      latestEventEvidence: {
+        eventId: "event-root-abc",
+        occurredAt: "2026-07-22T04:05:06.000Z",
+      },
+      recurrence: {
+        eventCount: 7,
+        firstSeen: "2026-07-20T01:02:03.000Z",
+        lastSeen: "2026-07-22T04:05:06.000Z",
+        userCount: 3,
+      },
+      rootCauseEvidence: {
+        exceptionType: "TypeError",
+        stack: ["sumCart @ src/cart/total.ts:42"],
+        tags: { browser: "Chrome", environment: "production" },
+      },
+    });
+    expect(sanitizeSentryCandidate(candidate)).toEqual(candidate);
+  });
+});
 
 function collectorOptions(
   fetchImpl: typeof fetch,

@@ -1228,12 +1228,65 @@ export function sanitizeSentryProviderMetadata(
   };
 }
 
+function sanitizeCanonicalSentryIssue(value: unknown): SanitizedSentryIssue {
+  if (!isRecord(value)) throw new Error("invalid_sentry_candidate_issue");
+  const rootCause = nestedRecord(value, "rootCauseEvidence");
+  const recurrence = nestedRecord(value, "recurrence");
+  const latestEvent = nestedRecord(value, "latestEventEvidence");
+  if (!rootCause || !recurrence) {
+    throw new Error("invalid_sentry_candidate_issue");
+  }
+  const rawStack = recordValue(rootCause, "stack");
+
+  return {
+    environment: "production",
+    latestEventEvidence: {
+      eventId: opaqueIssueId(recordValue(latestEvent ?? {}, "eventId")) ?? null,
+      occurredAt: normalizedDate(
+        recordValue(latestEvent ?? {}, "occurredAt"),
+      ),
+    },
+    recurrence: {
+      eventCount: countValue(recordValue(recurrence, "eventCount")),
+      firstSeen: normalizedDate(recordValue(recurrence, "firstSeen")),
+      lastSeen: normalizedDate(recordValue(recurrence, "lastSeen")),
+      userCount: countValue(recordValue(recurrence, "userCount")),
+    },
+    rootCauseEvidence: {
+      culprit:
+        sanitizeExternalText(recordValue(rootCause, "culprit"), 240) || null,
+      exceptionType:
+        sanitizeExternalText(recordValue(rootCause, "exceptionType"), 160) ||
+        null,
+      level:
+        sanitizeExternalText(recordValue(rootCause, "level"), 40) || null,
+      message:
+        sanitizeExternalText(recordValue(rootCause, "message"), 700) || null,
+      platform:
+        sanitizeExternalText(recordValue(rootCause, "platform"), 80) || null,
+      stack: Array.isArray(rawStack)
+        ? rawStack
+            .slice(-8)
+            .map((frame) => sanitizeExternalText(frame, 340))
+            .filter(Boolean)
+        : [],
+      tags: safeTags(
+        { tags: recordValue(rootCause, "tags") },
+        null,
+      ),
+    },
+    title:
+      sanitizeExternalText(recordValue(value, "title"), 240) ||
+      "Unspecified Sentry issue",
+  };
+}
+
 export function sanitizeSentryCandidate(
   value: unknown,
 ): SanitizedSentryCandidate {
   if (!isRecord(value)) throw new Error("invalid_sentry_candidate");
   return {
-    issue: sanitizeSentryIssue(recordValue(value, "issue")),
+    issue: sanitizeCanonicalSentryIssue(recordValue(value, "issue")),
     provider: sanitizeSentryProviderMetadata(recordValue(value, "provider")),
   };
 }

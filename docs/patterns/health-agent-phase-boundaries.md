@@ -77,12 +77,16 @@ provider issue ID and nested activity evidence became empty objects after aggreg
 
 Provider metadata was discarded when collection and classification were separated, and the generic
 artifact redactor treated normal aggregate nesting as excessive depth. The same canary normalization
-also initially ran outside its explicit canary mode.
+also initially ran outside its explicit canary mode. The collection validator then passed the
+canonical issue shape back through the raw-provider sanitizer, which silently reset counts, dates,
+tags, stack frames, and latest-event identity.
 
 ### Prevention
 
 Persist each sanitized issue and provider identity as one paired record before classification, and
 keep the redactor deep enough for the validated run schema.
+Use a shape-specific, idempotent validator once data has crossed the provider boundary; test that
+validating an already-canonical record twice produces the same record.
 Derive controlled repair scope only in `canary_fix`, after checking the exact requested fingerprint,
 provider identity, marker tag, stack file, severity, and human merge policy.
 
