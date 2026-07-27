@@ -1707,7 +1707,7 @@ export function makeLinkArtifact(
         cleanupRequired: true,
         field: cleanup.field,
       },
-      fingerprint: `link:cleanup-required:${cleanup.brandId}:${cleanup.field}`,
+      fingerprint: `link:link-cleanup:${cleanup.brandId}:${cleanup.field}`,
       humanReason: "Link, image, and brand-field cleanup are human-owned",
       mergePolicy: "human",
       severity: "medium",
@@ -1715,22 +1715,15 @@ export function makeLinkArtifact(
       title: "Link cleanup requires review",
     }),
   );
-  const evaluatedFindings = evaluated.findings.map(
-    (finding): HealthFinding => ({
-      ...finding,
-      fingerprint: `link:${finding.fingerprint.slice("directory:".length)}`,
-      source: "link",
-    }),
+  const findingsByFingerprint = new Map(
+    cleanupFindings.map((finding) => [finding.fingerprint, finding]),
   );
-  const findings = [
-    ...cleanupFindings,
-    ...evaluatedFindings.filter(
-      (finding) =>
-        !cleanupFindings.some(
-          (cleanup) => cleanup.fingerprint === finding.fingerprint,
-        ),
-    ),
-  ];
+  for (const finding of evaluated.findings) {
+    findingsByFingerprint.set(finding.fingerprint, finding);
+  }
+  const findings = [...findingsByFingerprint.values()].sort((left, right) =>
+    left.fingerprint.localeCompare(right.fingerprint),
+  );
   return {
     collectedAt,
     evidence: { mode, source: "link_health_endpoint" },
