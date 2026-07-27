@@ -710,14 +710,26 @@ describe("workflow runtime artifacts", () => {
         candidateIssueCount: 1,
         hasMore: false,
         incidentMode: false,
-        issues: [issue],
+        issues: [
+          {
+            issue,
+            provider: {
+              issueId: "88442211",
+              permalink:
+                "https://sentry.io/organizations/formoria/issues/88442211/",
+              shortId: "FORMORIA-321",
+            },
+          },
+        ],
         requestCount: 1,
       },
       [classification],
       now,
     );
     expect(artifact.findings[0]).toMatchObject({
+      fingerprint: "sentry:issue:88442211",
       mergePolicy: "automatic",
+      sentryIssueId: "88442211",
       source: "sentry",
     });
     expect(() =>
@@ -726,7 +738,16 @@ describe("workflow runtime artifacts", () => {
           candidateIssueCount: 1,
           hasMore: false,
           incidentMode: false,
-          issues: [issue],
+          issues: [
+            {
+              issue,
+              provider: {
+                issueId: "88442211",
+                permalink: null,
+                shortId: "FORMORIA-321",
+              },
+            },
+          ],
           requestCount: 1,
         },
         [{ ...classification, confidence: 2 }],
@@ -1038,6 +1059,101 @@ describe("collect-brand-review", () => {
 });
 
 describe("aggregate-and-deliver runtime", () => {
+  it("preserves sanitized nested Sentry evidence in the aggregate artifact", async () => {
+    const sentryFinding = {
+      changedFiles: ["src/app.ts"],
+      evidence: {
+        classification: {
+          changedFiles: ["src/app.ts"],
+          recurrence: { count: 2, evidence: "Two events", status: "recurring" },
+        },
+        latestEvent: {
+          eventId: "latest-event-1",
+          occurredAt: "2026-07-22T04:05:06.000Z",
+        },
+        provider: {
+          issueId: "88442211",
+          permalink:
+            "https://sentry.io/organizations/formoria/issues/88442211/",
+          shortId: "FORMORIA-321",
+        },
+        recurrence: {
+          eventCount: 2,
+          firstSeen: "2026-07-21T04:05:06.000Z",
+          lastSeen: "2026-07-22T04:05:06.000Z",
+          userCount: 0,
+        },
+      },
+      fingerprint: "sentry:issue:88442211",
+      mergePolicy: "human" as const,
+      sentryIssueId: "88442211",
+      severity: "medium" as const,
+      source: "sentry" as const,
+      title: "Production TypeError",
+    };
+    const contents = new Map<string, string>();
+    for (const routine of [
+      "link-checker",
+      "directory-health",
+      "quality-health",
+      "sentry-triage",
+    ]) {
+      contents.set(
+        `${routine}.json`,
+        JSON.stringify({
+          collectedAt: now,
+          evidence: {},
+          failures: [],
+          findings: routine === "sentry-triage" ? [sentryFinding] : [],
+          routine,
+          skippedActions: [],
+          snapshot:
+            routine === "sentry-triage"
+              ? { hasMore: false, incidentMode: false }
+              : {},
+          status: "success",
+          version: 1,
+        }),
+      );
+    }
+    const files = {
+      read: async (path: string) => contents.get(path) ?? "",
+      write: async (path: string, value: string) => {
+        contents.set(path, value);
+      },
+    };
+
+    await runAggregateAndDeliver(
+      {
+        deferDelivery: true,
+        directoryArtifactPath: "directory-health.json",
+        linkArtifactPath: "link-checker.json",
+        mode: "live",
+        outputPath: "aggregate.json",
+        qualityArtifactPath: "quality-health.json",
+        runAt: now,
+        sentryArtifactPath: "sentry-triage.json",
+        workflowAttempt: 1,
+        workflowRunId: "123",
+      },
+      { files },
+    );
+
+    const aggregate = JSON.parse(contents.get("aggregate.json") ?? "{}");
+    expect(aggregate.artifacts["sentry-triage"].findings[0]).toMatchObject({
+      sentryIssueId: "88442211",
+      evidence: {
+        latestEvent: { eventId: "latest-event-1" },
+        provider: { issueId: "88442211", shortId: "FORMORIA-321" },
+        recurrence: {
+          eventCount: 2,
+          lastSeen: "2026-07-22T04:05:06.000Z",
+          userCount: 0,
+        },
+      },
+    });
+  });
+
   it("persists the aggregate result and fails on delivery errors", async () => {
     const contents = new Map<string, string>(
       ["link-checker", "directory-health", "sentry-triage"].map((routine) => [
@@ -1617,6 +1733,7 @@ describe("scoped writer RPC", () => {
               fingerprint: "directory:canary:github-app-pr",
               id: queueId,
               merge_policy: "automatic",
+              sentry_issue_id: "88442211",
               source: "directory",
               title: "GitHub App canary repair",
             },
@@ -1645,6 +1762,7 @@ describe("scoped writer RPC", () => {
       expect.objectContaining({
         claimedFindingId: queueId,
         fingerprint: "directory:canary:github-app-pr",
+        sentryIssueId: "88442211",
       }),
     ]);
     expect(

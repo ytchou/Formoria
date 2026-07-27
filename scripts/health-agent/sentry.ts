@@ -137,6 +137,7 @@ export interface SentryFindingsOptions extends SentryCollectorOptions {
 }
 
 export interface SentryIssueCollection {
+  candidates: SanitizedSentryCandidate[];
   issues: SanitizedSentryIssue[];
   incidentMode: boolean;
   hasMore: boolean;
@@ -151,7 +152,7 @@ export interface SentryCollectionResult extends SentryIssueCollection {
 
 type UnknownRecord = Record<string, unknown>;
 
-interface SentryIssueCandidate {
+export interface SanitizedSentryCandidate {
   issue: SanitizedSentryIssue;
   provider: SentryProviderMetadata;
 }
@@ -1108,13 +1109,13 @@ async function fetchLatestEvent(
 async function collectIssueCandidates(
   options: SentryCollectorOptions,
 ): Promise<{
-  candidates: SentryIssueCandidate[];
+  candidates: SanitizedSentryCandidate[];
   incidentMode: boolean;
   hasMore: boolean;
   requestCount: number;
 }> {
   const config = collectorConfig(options);
-  const candidates: SentryIssueCandidate[] = [];
+  const candidates: SanitizedSentryCandidate[] = [];
   const seen = new Set<string>();
   let cursor: string | null = null;
   let requestCount = 0;
@@ -1205,11 +1206,35 @@ export async function collectSentryIssues(
 ): Promise<SentryIssueCollection> {
   const collected = await collectIssueCandidates(options);
   return {
+    candidates: collected.candidates,
     issues: collected.candidates.map((candidate) => candidate.issue),
     incidentMode: collected.incidentMode,
     hasMore: collected.hasMore,
     requestCount: collected.requestCount,
     candidateIssueCount: collected.candidates.length,
+  };
+}
+
+export function sanitizeSentryProviderMetadata(
+  value: unknown,
+): SentryProviderMetadata {
+  if (!isRecord(value)) throw new Error("invalid_sentry_provider_metadata");
+  const issueId = opaqueIssueId(recordValue(value, "issueId"));
+  if (!issueId) throw new Error("invalid_sentry_provider_metadata");
+  return {
+    issueId,
+    permalink: safePermalink(recordValue(value, "permalink")),
+    shortId: opaqueIssueId(recordValue(value, "shortId")) ?? null,
+  };
+}
+
+export function sanitizeSentryCandidate(
+  value: unknown,
+): SanitizedSentryCandidate {
+  if (!isRecord(value)) throw new Error("invalid_sentry_candidate");
+  return {
+    issue: sanitizeSentryIssue(recordValue(value, "issue")),
+    provider: sanitizeSentryProviderMetadata(recordValue(value, "provider")),
   };
 }
 
@@ -1532,6 +1557,7 @@ export async function collectSentryFindings(
   }
 
   return {
+    candidates: collected.candidates,
     issues: collected.candidates.map((candidate) => candidate.issue),
     incidentMode: collected.incidentMode,
     hasMore: collected.hasMore,

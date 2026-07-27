@@ -834,6 +834,195 @@ describe("queue mutation gates", () => {
     expect(result.skippedActions).toContain("canary:sentry:production");
   });
 
+  it("bounds an explicit provider-backed Sentry canary to the marker file", async () => {
+    const fingerprint = "sentry:issue:88442211";
+    const enqueue = vi.fn(async () => undefined);
+    const claim = vi.fn(async () => []);
+    const result = await enqueueAndClaimPolicyBatches(
+      {
+        canaryFingerprints: [fingerprint],
+        findings: [
+          {
+            changedFiles: [],
+            evidence: {
+              provider: { issueId: "88442211" },
+              rootCauseEvidence: {
+                stack: [
+                  "verifyHealthAgentCanary (/app/health-agent-canary.txt:1:1)",
+                ],
+                tags: {
+                  runtime:
+                    "health-agent-real-lifecycle:sentry-lifecycle-1785140945140",
+                },
+              },
+            },
+            fingerprint,
+            humanReason: "Review required",
+            mergePolicy: "human",
+            sentryIssueId: "88442211",
+            severity: "low",
+            source: "sentry",
+            title:
+              "HealthAgentLifecycleCanaryError: expected sentry-lifecycle-1785140945140",
+          },
+        ],
+        leaseOwner: "github-actions:123:1",
+        mode: "canary_fix",
+      },
+      {
+        database: {
+          claimFindings: claim,
+          enqueueFindings: enqueue,
+        },
+      },
+      enabled,
+    );
+
+    expect(result.enqueuedFingerprints).toEqual([fingerprint]);
+    expect(enqueue).toHaveBeenCalledWith([
+      expect.objectContaining({
+        evidence: expect.objectContaining({
+          canary: true,
+          canaryKind: "sentry-real-lifecycle",
+          changedFiles: ["health-agent-canary.txt"],
+          desiredMarker: "sentry-lifecycle-1785140945140",
+        }),
+        fingerprint,
+        mergePolicy: "human",
+        sentryIssueId: "88442211",
+      }),
+    ]);
+    expect(claim).toHaveBeenCalledWith("human", "github-actions:123:1", [
+      fingerprint,
+    ]);
+  });
+
+  it("rejects a Sentry canary without exact provider identity", async () => {
+    const enqueue = vi.fn(async () => undefined);
+    const claim = vi.fn(async () => []);
+    const result = await enqueueAndClaimPolicyBatches(
+      {
+        canaryFingerprints: ["sentry:issue:88442211"],
+        findings: [
+          {
+            evidence: {
+              rootCauseEvidence: {
+                stack: ["/app/health-agent-canary.txt:1:1"],
+                tags: {
+                  runtime:
+                    "health-agent-real-lifecycle:sentry-lifecycle-1785140945140",
+                },
+              },
+            },
+            fingerprint: "sentry:issue:88442211",
+            mergePolicy: "human",
+            severity: "low",
+            source: "sentry",
+            title: "HealthAgentLifecycleCanaryError",
+          },
+        ],
+        mode: "canary_fix",
+      },
+      {
+        database: {
+          claimFindings: claim,
+          enqueueFindings: enqueue,
+        },
+      },
+      enabled,
+    );
+
+    expect(result.suppressed).toBe(true);
+    expect(enqueue).not.toHaveBeenCalled();
+    expect(claim).not.toHaveBeenCalled();
+  });
+
+  it("never promotes tagged Sentry evidence outside canary mode", async () => {
+    const enqueue = vi.fn(async () => undefined);
+    await enqueueAndClaimPolicyBatches(
+      {
+        findings: [
+          {
+            changedFiles: [],
+            evidence: {
+              provider: { issueId: "88442211" },
+              rootCauseEvidence: {
+                stack: ["/app/health-agent-canary.txt:1:1"],
+                tags: {
+                  runtime:
+                    "health-agent-real-lifecycle:sentry-lifecycle-1785140945140",
+                },
+              },
+            },
+            fingerprint: "sentry:issue:88442211",
+            mergePolicy: "human",
+            sentryIssueId: "88442211",
+            severity: "low",
+            source: "sentry",
+            title:
+              "HealthAgentLifecycleCanaryError: expected sentry-lifecycle-1785140945140",
+          },
+        ],
+        mode: "live",
+      },
+      {
+        database: {
+          claimFindings: async () => [],
+          enqueueFindings: enqueue,
+        },
+      },
+      { HEALTH_AGENT_ENABLED: "true", HEALTH_AUTOFIX_ENABLED: "false" },
+    );
+
+    expect(enqueue).toHaveBeenCalledWith([
+      expect.objectContaining({
+        evidence: expect.not.objectContaining({ canary: true }),
+      }),
+    ]);
+  });
+
+  it("publishes a scoped Sentry canary only through the human lane", async () => {
+    const fingerprint = "sentry:issue:88442211";
+    const canary = {
+      changedFiles: ["health-agent-canary.txt"],
+      evidence: {
+        canary: true,
+        canaryKind: "sentry-real-lifecycle",
+        desiredMarker: "sentry-lifecycle-1785140945140",
+        provider: { issueId: "88442211" },
+        rootCauseEvidence: {
+          stack: ["verifyHealthAgentCanary (/app/health-agent-canary.txt:1:1)"],
+          tags: {
+            runtime:
+              "health-agent-real-lifecycle:sentry-lifecycle-1785140945140",
+          },
+        },
+      },
+      fingerprint,
+      humanReason: "Health repairs require manager review",
+      mergePolicy: "human" as const,
+      sentryIssueId: "88442211",
+      severity: "low" as const,
+      source: "sentry" as const,
+      title:
+        "HealthAgentLifecycleCanaryError: expected sentry-lifecycle-1785140945140",
+    } as RepairFinding;
+    const createPullRequest = vi.fn(async () => ({ number: 520 }));
+
+    await expect(
+      createRepairPullRequest(
+        {
+          batch: partitionRepairBatch([canary]).human,
+          canaryFingerprints: [fingerprint],
+          mode: "canary_fix",
+        },
+        { createPullRequest },
+        enabled,
+      ),
+    ).resolves.toEqual({ number: 520, status: "opened" });
+    expect(createPullRequest).toHaveBeenCalledOnce();
+  });
+
   it("rejects queue rows outside the exact requested fingerprint scope", async () => {
     const result = await enqueueAndClaimPolicyBatches(
       {

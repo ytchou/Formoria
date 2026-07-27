@@ -226,6 +226,10 @@ describe("Sentry REST collection", () => {
     const [url, init] = fetchImpl.mock.calls[0] ?? [];
 
     expect(result.issues).toHaveLength(20);
+    expect(result.candidates.at(0)?.provider).toMatchObject({
+      issueId: "issue-0",
+      shortId: "FORMORIA-123",
+    });
     expect(result.candidateIssueCount).toBe(20);
     expect(result.incidentMode).toBe(true);
     expect(result.requestCount).toBe(1);

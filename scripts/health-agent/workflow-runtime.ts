@@ -24,9 +24,9 @@ import { evaluateBrandReview, type RecentBrandEdit } from "./brand-review";
 import {
   buildSentryHealthFinding,
   collectSentryIssues,
-  sanitizeSentryIssue,
+  sanitizeSentryCandidate,
   SentryClassificationSchema,
-  type SanitizedSentryIssue,
+  type SanitizedSentryCandidate,
   type SentryClassification,
 } from "./sentry";
 import {
@@ -143,7 +143,7 @@ export interface SanitizedSentryArtifact {
   classificationsRequired: number;
   hasMore: boolean;
   incidentMode: boolean;
-  issues: SanitizedSentryIssue[];
+  issues: SanitizedSentryCandidate[];
   requestCount: number;
   status?: "failed" | "success";
   version: 1;
@@ -352,7 +352,7 @@ export interface SentryCollectionInput {
   candidateIssueCount: number;
   hasMore: boolean;
   incidentMode: boolean;
-  issues: readonly SanitizedSentryIssue[];
+  issues: readonly SanitizedSentryCandidate[];
   requestCount: number;
 }
 
@@ -1827,7 +1827,7 @@ function normalizeSentryCollectionArtifact(
   if (!Array.isArray(rawIssues) || rawIssues.length > MAX_RUNTIME_ISSUES) {
     throw new Error("sentry_collection_issues_invalid");
   }
-  const issues = rawIssues.map((issue) => sanitizeSentryIssue(issue));
+  const issues = rawIssues.map(sanitizeSentryCandidate);
   const incidentMode = value.incidentMode === true;
   const hasMore = value.hasMore === true;
   const requestCount =
@@ -1853,14 +1853,17 @@ export function finalizeSentryArtifact(
     throw new Error("sentry_classification_count_invalid");
   }
   const findings = collection.issues.map((rawIssue, index) => {
-    const issue = sanitizeSentryIssue(rawIssue);
+    const { issue, provider } = sanitizeSentryCandidate(rawIssue);
     const candidate = classifications[index];
     if (candidate === undefined)
       throw new Error("sentry_classification_missing");
     const classification = SentryClassificationSchema.parse(candidate);
-    return buildSentryHealthFinding(issue, classification, {
-      incidentMode: collection.incidentMode,
-    });
+    return buildSentryHealthFinding(
+      issue,
+      classification,
+      { incidentMode: collection.incidentMode },
+      provider,
+    );
   });
   return {
     collectedAt,
@@ -1910,7 +1913,7 @@ export async function collectSanitizedSentryArtifact(
       classificationsRequired: result.issues.length,
       hasMore: result.hasMore,
       incidentMode: result.incidentMode,
-      issues: result.issues.map(sanitizeSentryIssue),
+      issues: result.candidates.map(sanitizeSentryCandidate),
       requestCount: result.requestCount,
       status: "success",
       version: 1,
@@ -3079,6 +3082,11 @@ function repairFindingFromValue(value: unknown): RepairFinding {
       : {}),
     ...(typeof value.humanReason === "string"
       ? { humanReason: value.humanReason }
+      : {}),
+    ...(typeof (value.sentryIssueId ?? value.sentry_issue_id) === "string"
+      ? {
+          sentryIssueId: String(value.sentryIssueId ?? value.sentry_issue_id),
+        }
       : {}),
     ...(typeof value.evidenceArtifactRef === "string"
       ? { evidenceArtifactRef: value.evidenceArtifactRef }

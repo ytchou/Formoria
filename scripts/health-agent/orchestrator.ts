@@ -43,6 +43,7 @@ const MAX_RESULT_BYTES = 512 * 1024;
 const MAX_FINDINGS = 10_000;
 const MAX_SENTRY_ISSUES = 20;
 const MAX_TEXT_LENGTH = 2_000;
+const MAX_REDACTION_DEPTH = 20;
 const TAIPEI_TIME_ZONE = "Asia/Taipei";
 const SAFE_IDENTITY = /^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,127}$/;
 
@@ -121,7 +122,7 @@ const defaultFileSystem: ArtifactFileSystem = {
 };
 
 const sensitiveKey =
-  /(?:authorization|cookie|csrf|token|secret|password|credential|private.?key|api.?key|webhook|raw.?sentry|sentry.?payload|database.?url|db.?url|request|body|payload|headers?|user(?:s|_id)?|email|session|dsn|connection.?string)/i;
+  /(?:authorization|cookie|csrf|token|secret|password|credential|private.?key|api.?key|webhook|raw.?sentry|sentry.?payload|database.?url|db.?url|request|body|payload|headers?|(?:^|[._-])users?(?:$|[._-])|(?:^|[._-])user_?id(?:$|[._-])|email|session|dsn|connection.?string)/i;
 const sensitiveValue =
   /(?:bearer\s+[a-z0-9._~+\-/]+=*|postgres(?:ql)?:\/\/|hooks\.slack\.com\/services\/|(?:ghp|gho|github_pat|xox[baprs]-)[a-z0-9_-]{8,}|sk-[a-z0-9_-]{8,})/i;
 const inlineSensitiveValue =
@@ -163,7 +164,7 @@ function redactJsonValue(
   key = "",
   depth = 0,
 ): JsonValue | undefined {
-  if (depth > 6 || sensitiveKey.test(key)) return undefined;
+  if (depth > MAX_REDACTION_DEPTH || sensitiveKey.test(key)) return undefined;
   if (value === null || typeof value === "boolean") return value;
   if (typeof value === "number")
     return Number.isFinite(value) ? value : undefined;
@@ -1239,6 +1240,7 @@ export interface HealthQueueRow extends Partial<HealthFinding> {
   id?: string;
   merge_policy?: MergePolicy;
   mergePolicy?: MergePolicy;
+  sentry_issue_id?: string;
   source?: HealthSource;
   title?: string;
 }
@@ -1832,8 +1834,12 @@ function asRepairFinding(value: HealthQueueRow | RepairFinding): RepairFinding {
     ...(candidate.humanReason
       ? { humanReason: redactText(candidate.humanReason) }
       : {}),
-    ...(candidate.sentryIssueId
-      ? { sentryIssueId: redactText(candidate.sentryIssueId) }
+    ...((candidate.sentryIssueId ?? candidate.sentry_issue_id)
+      ? {
+          sentryIssueId: redactText(
+            candidate.sentryIssueId ?? candidate.sentry_issue_id ?? "",
+          ),
+        }
       : {}),
   } as RepairFinding;
 }
@@ -2003,14 +2009,77 @@ function canaryFinding(leaseOwner: string): HealthFinding {
   };
 }
 
+function sentryLifecycleCanaryMarker(
+  finding: HealthFinding,
+): string | undefined {
+  if (
+    finding.source !== "sentry" ||
+    finding.mergePolicy !== "human" ||
+    finding.severity !== "low" ||
+    !finding.sentryIssueId ||
+    finding.fingerprint !== `sentry:issue:${finding.sentryIssueId}` ||
+    !finding.title.startsWith("HealthAgentLifecycleCanaryError:") ||
+    (finding.changedFiles?.some((file) => file !== "health-agent-canary.txt") ??
+      false)
+  ) {
+    return undefined;
+  }
+  const provider = isRecord(finding.evidence.provider)
+    ? finding.evidence.provider
+    : {};
+  const rootCauseEvidence = isRecord(finding.evidence.rootCauseEvidence)
+    ? finding.evidence.rootCauseEvidence
+    : {};
+  const tags = isRecord(rootCauseEvidence.tags) ? rootCauseEvidence.tags : {};
+  const stack = Array.isArray(rootCauseEvidence.stack)
+    ? rootCauseEvidence.stack
+    : [];
+  if (
+    provider.issueId !== finding.sentryIssueId ||
+    !stack.some(
+      (frame) =>
+        typeof frame === "string" && frame.includes("health-agent-canary.txt"),
+    )
+  ) {
+    return undefined;
+  }
+  const runtime = typeof tags.runtime === "string" ? tags.runtime : "";
+  return runtime.match(
+    /^health-agent-real-lifecycle:(sentry-lifecycle-[0-9]{10,16})$/,
+  )?.[1];
+}
+
+function scopedCanaryFinding(finding: HealthFinding): HealthFinding {
+  const marker = sentryLifecycleCanaryMarker(finding);
+  if (!marker) return finding;
+  return {
+    ...finding,
+    changedFiles: ["health-agent-canary.txt"],
+    evidence: {
+      ...finding.evidence,
+      canary: true,
+      canaryKind: "sentry-real-lifecycle",
+      changedFiles: ["health-agent-canary.txt"],
+      desiredMarker: marker,
+      repairScopeTrusted: true,
+    },
+  };
+}
+
 function harmlessCanary(finding: HealthFinding): boolean {
-  return (
+  const directoryCanary =
     finding.source === "directory" &&
     finding.mergePolicy === "automatic" &&
     finding.severity === "low" &&
     finding.fingerprint === HEALTH_AGENT_CANARY_FINGERPRINT &&
-    finding.evidence.canary === true
-  );
+    finding.evidence.canary === true;
+  const sentryCanary =
+    finding.evidence.canary === true &&
+    finding.evidence.canaryKind === "sentry-real-lifecycle" &&
+    finding.evidence.desiredMarker === sentryLifecycleCanaryMarker(finding) &&
+    finding.changedFiles?.length === 1 &&
+    finding.changedFiles.at(0) === "health-agent-canary.txt";
+  return directoryCanary || sentryCanary;
 }
 
 function queueInput(finding: HealthFinding): HealthQueueFindingInput {
@@ -2127,8 +2196,12 @@ export async function enqueueAndClaimPolicyBatches(
           canaryFinding(input.leaseOwner ?? "github-actions-health-agent"),
         ]
       : input.findings;
+  const scopedCandidates =
+    input.mode === "canary_fix"
+      ? candidates.map(scopedCanaryFinding)
+      : candidates;
   const eligible = uniqueFindings(
-    candidates.filter((finding) => {
+    scopedCandidates.filter((finding) => {
       if (input.mode !== "canary_fix") return true;
       const allowed =
         requestedCanary.has(finding.fingerprint) && harmlessCanary(finding);
