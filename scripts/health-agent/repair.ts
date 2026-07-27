@@ -345,6 +345,41 @@ function rawChangedFileMapping(finding: RepairFinding): readonly string[] {
   );
 }
 
+export function changedFilesForRepair(
+  finding: RepairFinding,
+): readonly string[] {
+  return rawChangedFileMapping(finding);
+}
+
+export function managerRepairSnapshot(
+  findings: readonly RepairFinding[],
+  trackedFiles: ReadonlySet<string>,
+): RepairSnapshot {
+  const repairable = findings.flatMap((finding) => {
+    const changedFiles = changedFilesForRepair(finding);
+    const unsafe = changedFiles.some(
+      (file) =>
+        file.startsWith("/") ||
+        file.includes("\\") ||
+        file
+          .split("/")
+          .some((segment) => !segment || segment === "." || segment === "..") ||
+        !trackedFiles.has(file),
+    );
+    if (changedFiles.length === 0 || unsafe) return [];
+    return [
+      {
+        ...finding,
+        changedFiles,
+        humanReason:
+          finding.humanReason ?? "Health repairs require manager review",
+        mergePolicy: "human" as const,
+      },
+    ];
+  });
+  return snapshotClaimedFindings(repairable);
+}
+
 function artifactReferenceOf(finding: RepairFinding): string | null {
   return (
     nonemptyString(finding.evidenceArtifactRef) ??

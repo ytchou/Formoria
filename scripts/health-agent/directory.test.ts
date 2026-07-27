@@ -5,6 +5,7 @@ import {
   evaluateApprovedBrandInvariants,
   evaluateDatabaseEvidence,
   evaluateDependabotAlerts,
+  evaluateDirectoryHealth,
   evaluateLinkTelemetry,
   evaluateStaleBranches,
 } from "./directory";
@@ -100,8 +101,8 @@ describe("Directory Health policies", () => {
     ]);
 
     expect(result.findings.map((finding) => finding.fingerprint)).toEqual([
-      "directory:link-cleanup:internal-missing",
-      "directory:link-cleanup:link-three-days",
+      "link:link-cleanup:internal-missing",
+      "link:link-cleanup:link-three-days",
     ]);
     expect(result.findings[0]?.evidence).toEqual({
       brandId: "brand-1",
@@ -121,6 +122,39 @@ describe("Directory Health policies", () => {
     ]);
   });
 
+  it("keeps link findings owned by Link while reusing their evidence in Directory", () => {
+    const link = {
+      brandId: "brand-one",
+      failureDates: ["2026-07-20", "2026-07-21", "2026-07-22"],
+      field: "purchase_website",
+      internalStorage: false,
+      recordId: "brand-one:purchase_website",
+      statusCode: 500,
+      target: "link" as const,
+    };
+    const linkResult = evaluateLinkTelemetry([link]);
+    const directoryResult = evaluateDirectoryHealth({
+      approvedBrands: { addedToday: 0, gaps: [], totalApproved: 1 },
+      branches: [],
+      database: {
+        activeQueries: [],
+        connections: { maximum: 100, total: 1 },
+        deadTupleSnapshots: [],
+        indexConcerns: [],
+      },
+      dependabot: [],
+      links: [link],
+      nowIso: "2026-07-22T00:00:00.000Z",
+    });
+
+    expect(linkResult.findings).toHaveLength(1);
+    expect(linkResult.findings[0]?.source).toBe("link");
+    expect(directoryResult.findings).toEqual([]);
+    expect(directoryResult.snapshot.links.cleanupRequiredRecordIds).toEqual([
+      "brand-one:purchase_website",
+    ]);
+  });
+
   it("applies strict DB thresholds across the latest two dead-tuple snapshots", () => {
     const result = evaluateDatabaseEvidence({
       connections: { total: 81, maximum: 100 },
@@ -132,15 +166,30 @@ describe("Directory Health policies", () => {
         {
           snapshotDate: "2026-07-22",
           tables: [
-            { tableName: "brands", deadTuplePercent: 21 },
+            {
+              tableName: "brands",
+              deadTuplePercent: 21,
+              deadTuples: 300,
+              autovacuumThreshold: 250,
+            },
             { tableName: "profiles", deadTuplePercent: 20 },
           ],
         },
         {
           snapshotDate: "2026-07-21",
           tables: [
-            { tableName: "brands", deadTuplePercent: 20.01 },
-            { tableName: "profiles", deadTuplePercent: 25 },
+            {
+              tableName: "brands",
+              deadTuplePercent: 20.01,
+              deadTuples: 280,
+              autovacuumThreshold: 250,
+            },
+            {
+              tableName: "profiles",
+              deadTuplePercent: 25,
+              deadTuples: 50,
+              autovacuumThreshold: 100,
+            },
           ],
         },
       ],
@@ -185,14 +234,24 @@ describe("Directory Health policies", () => {
         {
           snapshotDate: "2026-07-22",
           tables: [
-            { tableName: "brands", deadTuplePercent: 99 },
+            {
+              tableName: "brands",
+              deadTuplePercent: 99,
+              deadTuples: 500,
+              autovacuumThreshold: 100,
+            },
             { tableName: "profiles", deadTuplePercent: 99 },
           ],
         },
         {
           snapshotDate: "2026-07-20",
           tables: [
-            { tableName: "brands", deadTuplePercent: 99 },
+            {
+              tableName: "brands",
+              deadTuplePercent: 99,
+              deadTuples: 500,
+              autovacuumThreshold: 100,
+            },
             { tableName: "profiles", deadTuplePercent: 20 },
           ],
         },
@@ -203,6 +262,28 @@ describe("Directory Health policies", () => {
     expect(result.findings.map((finding) => finding.fingerprint)).toEqual([
       "directory:dead-tuples:brands",
     ]);
+  });
+
+  it("does not flag high dead-tuple ratios below the effective autovacuum threshold", () => {
+    const result = evaluateDatabaseEvidence({
+      connections: { total: 1, maximum: 100 },
+      activeQueries: [],
+      deadTupleSnapshots: ["2026-07-20", "2026-07-22"].map((snapshotDate) => ({
+        snapshotDate,
+        tables: [
+          {
+            autovacuumThreshold: 50.4,
+            deadTuplePercent: 40,
+            deadTuples: 2,
+            liveTuples: 2,
+            tableName: "small_lookup",
+          },
+        ],
+      })),
+      indexConcerns: [],
+    });
+
+    expect(result.findings).toEqual([]);
   });
 
   it("routes only high/critical Dependabot alerts by known version impact", () => {

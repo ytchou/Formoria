@@ -1,4 +1,9 @@
-export const HEALTH_SOURCES = ["link", "directory", "sentry"] as const;
+export const HEALTH_SOURCES = [
+  "link",
+  "directory",
+  "sentry",
+  "quality",
+] as const;
 export type HealthSource = (typeof HEALTH_SOURCES)[number];
 
 export const HEALTH_SEVERITIES = ["low", "medium", "high", "critical"] as const;
@@ -19,6 +24,7 @@ export interface HealthFinding {
   evidence: Record<string, JsonValue>;
   mergePolicy: MergePolicy;
   humanReason?: string;
+  changedFiles?: readonly string[];
   sentryIssueId?: string;
 }
 
@@ -37,7 +43,9 @@ export interface HealthFindingLifecycle {
 }
 
 export interface HealthSummary {
-  checks: Readonly<Record<"directory" | "link" | "sentry", HealthSummaryCheck>>;
+  checks: Readonly<
+    Record<"directory" | "link" | "quality" | "sentry", HealthSummaryCheck>
+  >;
   overallStatus: "failed" | "healthy" | "needs_attention";
   lifecycle?: HealthFindingLifecycle;
   phases: Readonly<
@@ -62,6 +70,7 @@ export interface HealthSummary {
     fixed: number;
     pullRequests: number;
     queued?: number;
+    repaired?: number;
     unresolved: number;
   };
   ticket?: {

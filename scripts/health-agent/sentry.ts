@@ -83,11 +83,23 @@ export interface SentryRootCauseEvidence {
   tags: Record<string, string>;
 }
 
+export interface SentryLatestEventEvidence {
+  eventId: string | null;
+  occurredAt: string | null;
+}
+
+export interface SentryProviderMetadata {
+  issueId: string;
+  shortId: string | null;
+  permalink: string | null;
+}
+
 export interface SanitizedSentryIssue {
   title: string;
   environment: "production";
   rootCauseEvidence: SentryRootCauseEvidence;
   recurrence: SentryRecurrenceEvidence;
+  latestEventEvidence?: SentryLatestEventEvidence;
 }
 
 export interface SentryClassifierPayload {
@@ -141,7 +153,7 @@ type UnknownRecord = Record<string, unknown>;
 
 interface SentryIssueCandidate {
   issue: SanitizedSentryIssue;
-  issueId?: string;
+  provider: SentryProviderMetadata;
 }
 
 interface CollectorConfig {
@@ -514,6 +526,26 @@ function normalizedDate(value: unknown): string | null {
   return date.toISOString();
 }
 
+function safePermalink(value: unknown): string | null {
+  const candidate = stringValue(value);
+  if (!candidate || candidate.length > 1_000) return null;
+  try {
+    const url = new URL(candidate);
+    if (
+      url.protocol !== "https:" ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash
+    ) {
+      return null;
+    }
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
 function countValue(...values: unknown[]): number {
   for (const value of values) {
     const number = numberValue(value);
@@ -654,6 +686,15 @@ export function sanitizeSentryIssue(value: unknown): SanitizedSentryIssue {
       userCount,
       firstSeen: normalizedDate(recordValue(issue, "firstSeen")),
       lastSeen: normalizedDate(recordValue(issue, "lastSeen")),
+    },
+    latestEventEvidence: {
+      eventId:
+        opaqueIssueId(recordValue(latestEvent ?? {}, "eventID")) ??
+        opaqueIssueId(recordValue(latestEvent ?? {}, "id")) ??
+        null,
+      occurredAt:
+        normalizedDate(recordValue(latestEvent ?? {}, "dateCreated")) ??
+        normalizedDate(recordValue(latestEvent ?? {}, "dateReceived")),
     },
   };
 }
@@ -893,9 +934,9 @@ async function fetchSentryPage(
   cursor: string | null,
   page: number,
 ): Promise<SentryPage> {
-  const endpoint = `${config.baseUrl}/api/0/projects/${encodeURIComponent(config.organization)}/${encodeURIComponent(config.project)}/issues/`;
+  const endpoint = `${config.baseUrl}/api/0/organizations/${encodeURIComponent(config.organization)}/issues/`;
   const params = new URLSearchParams({
-    query: "is:unresolved",
+    query: `is:unresolved project:${config.project}`,
     environment: "production",
     limit: String(config.pageSize),
   });
@@ -1003,6 +1044,52 @@ async function fetchSentryPage(
   }
 }
 
+async function fetchLatestEvent(
+  config: CollectorConfig,
+  issueId: string,
+): Promise<UnknownRecord> {
+  const endpoint = `${config.baseUrl}/api/0/issues/${encodeURIComponent(issueId)}/events/latest/`;
+  const startedAt = performance.now();
+  try {
+    const response = await config.fetchImpl(endpoint, {
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${config.token}`,
+      },
+      method: "GET",
+      signal:
+        typeof AbortSignal !== "undefined" &&
+        typeof AbortSignal.timeout === "function"
+          ? AbortSignal.timeout(config.timeoutMs)
+          : undefined,
+    });
+    const body: unknown = await response.json().catch(() => null);
+    if (!response.ok || !isRecord(body)) {
+      throw new SentryCollectorError(
+        "invalid_provider_response",
+        "Sentry returned invalid latest-event evidence.",
+        response.status,
+      );
+    }
+    emitAudit(config.audit, {
+      adapter: "sentry-rest",
+      latencyMs: Math.round(performance.now() - startedAt),
+      operation: "get-latest-issue-event",
+      request: { issueId },
+      response: { httpStatus: response.status, received: true },
+      schemaValid: true,
+      status: "success",
+    });
+    return body;
+  } catch (error) {
+    if (error instanceof SentryCollectorError) throw error;
+    throw new SentryCollectorError(
+      "request_failed",
+      "Sentry latest-event request failed.",
+    );
+  }
+}
+
 async function collectIssueCandidates(
   options: SentryCollectorOptions,
 ): Promise<{
@@ -1029,15 +1116,30 @@ async function collectIssueCandidates(
 
     for (const rawIssue of page.issues) {
       if (isDevelopmentOnly(rawIssue)) continue;
-      const sanitized = sanitizeSentryIssue(rawIssue);
+      const issueId = opaqueIssueId(recordValue(rawIssue, "id"));
+      if (!issueId) {
+        throw new SentryCollectorError(
+          "invalid_provider_response",
+          "Sentry issue is missing its provider ID.",
+        );
+      }
+      const issueWithLatest = nestedRecord(rawIssue, "latestEvent")
+        ? rawIssue
+        : {
+            ...rawIssue,
+            latestEvent: await fetchLatestEvent(config, issueId),
+          };
+      const sanitized = sanitizeSentryIssue(issueWithLatest);
       const identity = issueIdentity(rawIssue, sanitized);
       if (seen.has(identity)) continue;
       seen.add(identity);
       candidates.push({
         issue: sanitized,
-        issueId:
-          opaqueIssueId(recordValue(rawIssue, "id")) ??
-          opaqueIssueId(recordValue(rawIssue, "shortId")),
+        provider: {
+          issueId,
+          shortId: opaqueIssueId(recordValue(rawIssue, "shortId")) ?? null,
+          permalink: safePermalink(recordValue(rawIssue, "permalink")),
+        },
       });
     }
 
@@ -1278,10 +1380,18 @@ export function buildSentryHealthFinding(
   issue: SanitizedSentryIssue,
   classification: SentryClassification,
   options: { incidentMode?: boolean; textWasRedacted?: boolean } = {},
-  issueId?: string,
+  provider?: string | SentryProviderMetadata,
 ): HealthFinding {
   const safeClassification = sanitizedClassification(classification);
-  const safeIssueId = opaqueIssueId(issueId);
+  const metadata: SentryProviderMetadata | undefined =
+    typeof provider === "string"
+      ? {
+          issueId: opaqueIssueId(provider) ?? "",
+          permalink: null,
+          shortId: null,
+        }
+      : provider;
+  const safeIssueId = opaqueIssueId(metadata?.issueId);
   const fallbackIssueId = createHash("sha256")
     .update(fingerprintIdentity(issue))
     .digest("hex")
@@ -1292,6 +1402,15 @@ export function buildSentryHealthFinding(
       options.textWasRedacted ?? safeClassification.textWasRedacted,
   });
   const evidence: Record<string, JsonValue> = {
+    provider: {
+      issueId: safeIssueId ?? null,
+      shortId: opaqueIssueId(metadata?.shortId) ?? null,
+      permalink: safePermalink(metadata?.permalink),
+    },
+    latestEvent: {
+      eventId: issue.latestEventEvidence?.eventId ?? null,
+      occurredAt: issue.latestEventEvidence?.occurredAt ?? null,
+    },
     recurrence: {
       isRecurring: issue.recurrence.eventCount > 1,
       eventCount: issue.recurrence.eventCount,
@@ -1338,6 +1457,7 @@ export function buildSentryHealthFinding(
     },
   };
   const finding: HealthFinding = {
+    changedFiles: safeClassification.classification.changedFiles ?? [],
     source: "sentry",
     fingerprint: stableFingerprint(
       "sentry",
@@ -1376,7 +1496,7 @@ export async function collectSentryFindings(
           incidentMode: options.incidentMode ?? collected.incidentMode,
           textWasRedacted: classified.textWasRedacted,
         },
-        candidate.issueId,
+        candidate.provider,
       ),
     );
   }

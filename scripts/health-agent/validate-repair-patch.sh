@@ -57,6 +57,10 @@ while IFS= read -r allowed_path; do
     echo "Unsafe allowed repair path: $allowed_path" >&2
     exit 1
   fi
+  if ! git ls-files --error-unmatch -- "$allowed_path" >/dev/null 2>&1; then
+    echo "Untracked allowed repair path: $allowed_path" >&2
+    exit 1
+  fi
 done < "$allowed_paths_file"
 
 record_path() {

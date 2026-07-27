@@ -97,14 +97,32 @@ export const DIRECTORY_QUERY_SPECS = {
     scope: "database_statistics",
     readOnly: true,
     sql: `
-      SELECT relname AS table_name,
+      SELECT stats.relname AS table_name,
+        stats.n_live_tup AS live_tuples,
+        stats.n_dead_tup AS dead_tuples,
+        COALESCE(
+          (
+            SELECT split_part(option, '=', 2)::numeric
+            FROM unnest(classes.reloptions) AS option
+            WHERE option LIKE 'autovacuum_vacuum_threshold=%'
+          ),
+          current_setting('autovacuum_vacuum_threshold')::numeric
+        ) + COALESCE(
+          (
+            SELECT split_part(option, '=', 2)::numeric
+            FROM unnest(classes.reloptions) AS option
+            WHERE option LIKE 'autovacuum_vacuum_scale_factor=%'
+          ),
+          current_setting('autovacuum_vacuum_scale_factor')::numeric
+        ) * stats.n_live_tup AS autovacuum_threshold,
         CASE WHEN n_live_tup + n_dead_tup > 0
           THEN 100.0 * n_dead_tup / (n_live_tup + n_dead_tup)
           ELSE 0
         END AS dead_tuple_percent
-      FROM pg_stat_user_tables
-      WHERE schemaname = 'public'
-      ORDER BY relname
+      FROM pg_stat_user_tables AS stats
+      JOIN pg_class AS classes ON classes.oid = stats.relid
+      WHERE stats.schemaname = 'public'
+      ORDER BY stats.relname
     `.trim(),
   },
 } as const satisfies Record<string, DirectoryQuerySpec>;
@@ -291,16 +309,12 @@ export function evaluateLinkTelemetry(
 
   const findings = normalized
     .filter((record) => record.cleanupRequired)
-    .map((record) => {
+    .map((record): HealthFinding => {
       const immediateInternalFailure =
         record.internalStorage &&
         (record.statusCode === 404 || record.statusCode === 410);
-      return humanFinding(
-        "link-cleanup",
-        record.recordId,
-        `${record.target === "image" ? "Image" : "Link"} cleanup requires review`,
-        "medium",
-        {
+      return {
+        evidence: {
           recordId: record.recordId,
           brandId: record.brandId,
           field: record.field,
@@ -311,8 +325,13 @@ export function evaluateLinkTelemetry(
           immediateInternalFailure,
           cleanupRequired: true,
         },
-        "Link, image, and brand-field cleanup are human-owned",
-      );
+        fingerprint: stableFingerprint("link", "link-cleanup", record.recordId),
+        humanReason: "Link, image, and brand-field cleanup are human-owned",
+        mergePolicy: "human",
+        severity: "medium",
+        source: "link",
+        title: `${record.target === "image" ? "Image" : "Link"} cleanup requires review`,
+      };
     });
 
   return {
@@ -345,6 +364,9 @@ export interface ActiveQueryEvidence {
 export interface DeadTupleTableEvidence {
   tableName: string;
   deadTuplePercent: number;
+  deadTuples?: number;
+  liveTuples?: number;
+  autovacuumThreshold?: number;
 }
 
 export interface DeadTupleSnapshotEvidence {
@@ -440,20 +462,27 @@ export function evaluateDatabaseEvidence(evidence: DatabaseEvidence): {
     recentSnapshots[0] &&
     recentSnapshots[1]
   ) {
-    const earlierRates = new Map(
-      recentSnapshots[0].tables.map((table) => [
-        table.tableName,
-        table.deadTuplePercent,
-      ]),
+    const earlierTables = new Map(
+      recentSnapshots[0].tables.map((table) => [table.tableName, table]),
     );
     for (const table of [...recentSnapshots[1].tables].sort((left, right) =>
       compareText(left.tableName, right.tableName),
     )) {
-      const earlierRate = earlierRates.get(table.tableName);
+      const earlier = earlierTables.get(table.tableName);
+      const exceedsEffectiveThreshold = (
+        candidate: DeadTupleTableEvidence,
+      ): boolean =>
+        typeof candidate.deadTuples === "number" &&
+        Number.isFinite(candidate.deadTuples) &&
+        typeof candidate.autovacuumThreshold === "number" &&
+        Number.isFinite(candidate.autovacuumThreshold) &&
+        candidate.deadTuples > candidate.autovacuumThreshold;
       if (
-        earlierRate !== undefined &&
-        earlierRate > 20 &&
-        table.deadTuplePercent > 20
+        earlier !== undefined &&
+        earlier.deadTuplePercent > 20 &&
+        table.deadTuplePercent > 20 &&
+        exceedsEffectiveThreshold(earlier) &&
+        exceedsEffectiveThreshold(table)
       ) {
         recurringDeadTupleTables.push(table.tableName);
         findings.push(
@@ -467,7 +496,18 @@ export function evaluateDatabaseEvidence(evidence: DatabaseEvidence): {
               snapshotDates: recentSnapshots.map(
                 (snapshot) => snapshot.snapshotDate,
               ),
-              deadTuplePercents: [earlierRate, table.deadTuplePercent],
+              deadTuplePercents: [
+                earlier.deadTuplePercent,
+                table.deadTuplePercent,
+              ],
+              deadTuples: [
+                earlier.deadTuples ?? null,
+                table.deadTuples ?? null,
+              ],
+              autovacuumThresholds: [
+                earlier.autovacuumThreshold ?? null,
+                table.autovacuumThreshold ?? null,
+              ],
             },
             "Database maintenance is human-owned",
           ),
@@ -761,7 +801,6 @@ export function evaluateDirectoryHealth(input: DirectoryHealthInput) {
   return {
     findings: sortFindings([
       ...approvedBrands.findings,
-      ...links.findings,
       ...database.findings,
       ...dependabot.findings,
       ...branches.findings,

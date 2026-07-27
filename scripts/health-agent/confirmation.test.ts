@@ -41,7 +41,6 @@ function dependencies() {
   const deps: ConfirmationDependencies = {
     agentHub: vi.fn(async () => ({ duplicate: false, run_id: "run-1" })),
     linear: vi.fn(async () => ({ tickets: ["DEV-123"] })),
-    resolveSentry: vi.fn(async (ids) => ids.length),
     slack: vi.fn(async () => 1),
     smoke: vi.fn<ConfirmationDependencies["smoke"]>(async () => ({
       body: { status: "ok" },
@@ -170,7 +169,6 @@ describe("pull request confirmation", () => {
       }),
     );
     expect(deps.linear).toHaveBeenCalledTimes(1);
-    expect(deps.resolveSentry).not.toHaveBeenCalled();
   });
 
   it("records only GitHub's authoritative merge_commit_sha as merged", async () => {
@@ -195,7 +193,6 @@ describe("pull request confirmation", () => {
       prUrl: "https://github.test/formoria/pull/42",
     });
     expect(deps.smoke).not.toHaveBeenCalled();
-    expect(deps.resolveSentry).not.toHaveBeenCalled();
   });
 });
 
@@ -216,7 +213,6 @@ describe("Railway deployment confirmation", () => {
       });
       expect(result.status).toBe("skipped");
       expect(deps.transition).not.toHaveBeenCalled();
-      expect(deps.resolveSentry).not.toHaveBeenCalled();
     }
   });
 
@@ -233,7 +229,6 @@ describe("Railway deployment confirmation", () => {
     expect(result).toMatchObject({ action: "wrong_sha", status: "failed" });
     expect(deps.smoke).not.toHaveBeenCalled();
     expect(deps.transition).not.toHaveBeenCalled();
-    expect(deps.resolveSentry).not.toHaveBeenCalled();
   });
 
   it("retains unresolved findings and alerts when deployment or smoke fails", async () => {
@@ -247,7 +242,6 @@ describe("Railway deployment confirmation", () => {
     });
     expect(failedDeployment.action).toBe("deployment_failed");
     expect(failedDeploymentDeps.transition).not.toHaveBeenCalled();
-    expect(failedDeploymentDeps.resolveSentry).not.toHaveBeenCalled();
     expect(failedDeploymentDeps.slack).toHaveBeenCalledTimes(1);
 
     const smokeDeps = dependencies();
@@ -261,7 +255,6 @@ describe("Railway deployment confirmation", () => {
     });
     expect(smokeFailure.action).toBe("smoke_failed");
     expect(smokeDeps.transition).not.toHaveBeenCalled();
-    expect(smokeDeps.resolveSentry).not.toHaveBeenCalled();
   });
 
   it("records deployment and waits for a later detector pass to verify fixes", async () => {
@@ -275,11 +268,6 @@ describe("Railway deployment confirmation", () => {
         status: input.newStatus,
       });
     });
-    vi.mocked(deps.resolveSentry).mockImplementation(async () => {
-      order.push("sentry:resolve");
-      return 1;
-    });
-
     const result = await confirmHealthEvent({
       dependencies: deps,
       event: deploymentEvent(),
@@ -290,10 +278,10 @@ describe("Railway deployment confirmation", () => {
 
     expect(result).toMatchObject({
       action: "deployment_confirmed",
-      sentryResolved: 1,
+      sentryResolved: 0,
       status: "success",
     });
-    expect(order).toEqual(["transition:deployed", "sentry:resolve"]);
+    expect(order).toEqual(["transition:deployed"]);
     expect(deps.transition).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
@@ -324,11 +312,6 @@ describe("Railway deployment confirmation", () => {
 
   it("does not require Sentry resolution for directory-only findings", async () => {
     const deps = dependencies();
-    vi.mocked(deps.resolveSentry).mockImplementation(async (ids) => {
-      if (ids.length === 0) throw new Error("Sentry resolver unavailable");
-      return ids.length;
-    });
-
     const result = await confirmHealthEvent({
       dependencies: deps,
       event: deploymentEvent(),
@@ -349,7 +332,6 @@ describe("Railway deployment confirmation", () => {
       sentryResolved: 0,
       status: "success",
     });
-    expect(deps.resolveSentry).not.toHaveBeenCalled();
   });
 
   it("attempts Slack and Agent Hub independently", async () => {

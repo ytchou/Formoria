@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source_run_id="${1:?usage: replay-run.sh SOURCE_RUN_ID [DOWNLOADED_ARTIFACT_DIRECTORY]}"
+source_run_id="${1:?usage: replay-run.sh SOURCE_RUN_ID [DOWNLOADED_ARTIFACT_DIRECTORY] [consolidate|report|repair]}"
 source_attempt="${SOURCE_ATTEMPT:-1}"
 provided_root="${2:-}"
+action="${3:-report}"
 temp_root=""
 
 cleanup() {
@@ -13,62 +14,29 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+case "$action" in consolidate|report|repair) ;; *) echo "Invalid replay action: $action" >&2; exit 1 ;; esac
+
 if [[ -n "$provided_root" ]]; then
   source_root="$provided_root"
 else
   temp_root="$(mktemp -d "${TMPDIR:-/tmp}/formoria-health-replay.XXXXXX")"
-  source_root="$temp_root/downloads"
-  mkdir -p "$source_root"
-  gh run download "$source_run_id" --dir "$source_root"
+  source_root="$temp_root"
+  gh run download "$source_run_id" \
+    --name "health-run-${source_run_id}-${source_attempt}" \
+    --dir "$source_root"
 fi
 
-stage_root="${temp_root:-$(mktemp -d "${TMPDIR:-/tmp}/formoria-health-replay.XXXXXX")}/stage"
-if [[ -z "$temp_root" ]]; then
-  temp_root="${stage_root%/stage}"
-fi
-mkdir -p "$stage_root"
+run_file="$(/usr/bin/find "$source_root" -type f -name health-run.json -print -quit)"
+[[ -n "$run_file" ]] || { echo "Missing replay artifact: health-run.json" >&2; exit 1; }
 
-copy_artifact() {
-  local name="$1"
-  local source
-  source="$(/usr/bin/find "$source_root" -type f -name "$name" -print -quit)"
-  [[ -n "$source" ]] || { echo "Missing replay artifact: $name" >&2; exit 1; }
-  cp "$source" "$stage_root/$name"
-}
-
-copy_artifact link-checker.json
-copy_artifact directory-health.json
-copy_artifact sentry-triage.json
-copy_artifact sentry-issues.json
-
-pnpm exec tsx scripts/health-agent/write-sentry-schema.ts \
-  "$stage_root/sentry-issues.json" "$stage_root/sentry-classification.schema.json" >/dev/null
-
-pnpm exec tsx scripts/health-agent/workflow-runtime.ts aggregate-and-deliver \
-  --mode preflight \
-  --link-artifact "$stage_root/link-checker.json" \
-  --directory-artifact "$stage_root/directory-health.json" \
-  --sentry-artifact "$stage_root/sentry-triage.json" \
-  --defer-delivery true \
-  --run-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-  --attempt "$source_attempt" \
-  --run-id "$source_run_id" \
-  --output "$stage_root/aggregate.json"
-
-analyze_status="$(jq -er '.status | if . == "failed" then "failure" else . end' "$stage_root/sentry-triage.json")"
-
-pnpm exec tsx scripts/health-agent/workflow-runtime.ts final-report \
-  --mode preflight \
-  --aggregate-artifact "$stage_root/aggregate.json" \
-  --collect-status success \
-  --analyze-status "$analyze_status" \
-  --deliver-status success \
-  --repair-status skipped \
-  --publish-status skipped \
-  --defer-delivery true \
-  --run-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-  --attempt "$source_attempt" \
-  --run-id "$source_run_id" \
-  --output "$stage_root/final-report.json"
-
-jq '{source_run_id: "'"$source_run_id"'", envelope: .envelope}' "$stage_root/final-report.json"
+case "$action" in
+  consolidate)
+    jq --arg source_run_id "$source_run_id" '{sourceRunId:$source_run_id,groups,canonicalFindings:([.groups.product.link.findings[],.groups.product.directory.findings[],.groups.runtime.findings[],.groups.repository.findings[]]|unique_by(.fingerprint)),lifecycle}' "$run_file"
+    ;;
+  report)
+    jq --arg source_run_id "$source_run_id" '{sourceRunId:$source_run_id,managerReport}' "$run_file"
+    ;;
+  repair)
+    jq --arg source_run_id "$source_run_id" '{sourceRunId:$source_run_id,publication:.repair,repairableFindings:[.canonicalFindings[]|select(.evidence.repairScopeTrusted == true and (.changedFiles|length)>0)]}' "$run_file"
+    ;;
+esac

@@ -3,7 +3,6 @@ import { pathToFileURL } from "node:url";
 
 import {
   delegateToAgentHub,
-  resolveSentryIssues,
   sendSlackDigest,
   syncLinearFindings,
   type SlackReport,
@@ -32,7 +31,7 @@ export interface HealthFixRow {
   merge_sha: string | null;
   pr_number: number | null;
   sentry_issue_id: string | null;
-  source: "directory" | "link" | "sentry";
+  source: "directory" | "link" | "quality" | "sentry";
   status: QueueStatus;
   title: string;
 }
@@ -80,7 +79,6 @@ interface LinearResult {
 export interface ConfirmationDependencies {
   agentHub(envelope: ConfirmationEnvelope): Promise<unknown>;
   linear(rows: readonly HealthFixRow[]): Promise<LinearResult>;
-  resolveSentry(issueIds: readonly string[]): Promise<number>;
   slack(report: SlackReport): Promise<unknown>;
   smoke(sha: string): Promise<SmokeResult>;
   transition(input: TransitionInput): Promise<HealthFixRow>;
@@ -621,23 +619,10 @@ export async function confirmHealthEvent({
       newStatus: "deployed",
     });
   }
-  let sentryResolved = 0;
-  let sentryFailure = false;
-  const issueIds = explicitSentryIds(matched);
-  if (issueIds.length > 0) {
-    try {
-      sentryResolved = await deps.resolveSentry(issueIds);
-    } catch {
-      sentryFailure = true;
-    }
-  }
   const message = `Confirmed health PR deployment ${event.sha}: ${matched.length} finding(s) deployed and awaiting detector verification.`;
   const delivery = await deliverIndependently(
     deps,
     {
-      ...(sentryFailure
-        ? { failures: ["Sentry resolution failed after confirmed deployment."] }
-        : {}),
       prOutcomes: [message],
     },
     envelope({
@@ -646,11 +631,9 @@ export async function confirmHealthEvent({
       findingCount: matched.length,
       now,
       sourceRunId,
-      status: sentryFailure ? "failed" : "success",
+      status: "success",
       tickets: [],
-      verdict: sentryFailure
-        ? `${message} Sentry resolution failed and requires retry.`
-        : message,
+      verdict: message,
       workflowUrl,
     }),
   );
@@ -659,8 +642,8 @@ export async function confirmHealthEvent({
     delivery,
     findingCount: matched.length,
     linear: "not_required",
-    sentryResolved,
-    status: sentryFailure || isDeliveryFailure(delivery) ? "failed" : "success",
+    sentryResolved: 0,
+    status: isDeliveryFailure(delivery) ? "failed" : "success",
   };
 }
 
@@ -672,7 +655,11 @@ function queueRow(value: unknown): HealthFixRow {
     "health fix merge policy",
   );
   const status = requiredString(row.status, "health fix status");
-  if (!(["directory", "link", "sentry"] as const).includes(source as never)) {
+  if (
+    !(["directory", "link", "quality", "sentry"] as const).includes(
+      source as never,
+    )
+  ) {
     throw new Error("health fix source is invalid");
   }
   if (!(mergePolicy === "automatic" || mergePolicy === "human")) {
@@ -825,12 +812,6 @@ function runtimeDependencies(
           .filter((value): value is string => Boolean(value)),
       };
     },
-    resolveSentry: (issueIds) =>
-      resolveSentryIssues(issueIds, {
-        audit: auditLogger,
-        baseUrl: requiredEnvironment("SENTRY_BASE_URL"),
-        resolveToken: requiredEnvironment("SENTRY_RESOLVER_TOKEN"),
-      }),
     slack: (report) =>
       sendSlackDigest(report, {
         audit: auditLogger,

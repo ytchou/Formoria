@@ -8,6 +8,7 @@ import {
   clusterRepairFindings,
   decideRepairPolicy,
   evaluateRepairCycles,
+  managerRepairSnapshot,
   partitionRepairBatch,
   snapshotClaimedFindings,
 } from "./repair";
@@ -42,6 +43,25 @@ function passedCycle(cycle: 1 | 2): RepairCycleReport {
 }
 
 describe("health repair snapshot and partition policy", () => {
+  it("keeps only tracked bounded scopes in the manager repair batch", () => {
+    const snapshot = managerRepairSnapshot(
+      [
+        finding({ changedFiles: ["src/cart/cart-service.ts"] }),
+        finding({
+          changedFiles: ["generated/fix.ts"],
+          fingerprint: "sentry:untracked",
+        }),
+        finding({ changedFiles: [], fingerprint: "sentry:missing" }),
+      ],
+      new Set(["src/cart/cart-service.ts"]),
+    );
+
+    expect(snapshot.findings).toHaveLength(1);
+    expect(snapshot.findings[0]).toMatchObject({
+      changedFiles: ["src/cart/cart-service.ts"],
+      mergePolicy: "human",
+    });
+  });
   it("snapshots exactly the claimed findings and is isolated from later input changes", () => {
     const claimed = [
       finding({ fingerprint: "sentry:issue:one" }),

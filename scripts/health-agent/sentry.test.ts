@@ -48,6 +48,8 @@ function response(
 function productionIssue(overrides: Record<string, unknown> = {}) {
   return {
     id: "123456",
+    shortId: "FORMORIA-123",
+    permalink: "https://sentry.io/organizations/formoria/issues/123456/",
     title: "TypeError: Cannot read cart total",
     culprit: "src/cart/total.ts",
     environment: "production",
@@ -58,6 +60,8 @@ function productionIssue(overrides: Record<string, unknown> = {}) {
     firstSeen: "2026-07-20T01:02:03.000Z",
     lastSeen: "2026-07-22T04:05:06.000Z",
     latestEvent: {
+      eventID: "event-root-abc",
+      dateCreated: "2026-07-22T04:05:06.000Z",
       message: "Cannot read properties of undefined (reading 'total')",
       exception: {
         values: [
@@ -225,11 +229,51 @@ describe("Sentry REST collection", () => {
     expect(result.candidateIssueCount).toBe(20);
     expect(result.incidentMode).toBe(true);
     expect(result.requestCount).toBe(1);
-    expect(String(url)).toContain("query=is%3Aunresolved");
+    expect(String(url)).toContain("/api/0/organizations/formoria/issues/");
+    expect(String(url)).toContain("query=is%3Aunresolved+project%3Aweb");
     expect(String(url)).toContain("environment=production");
     expect(new Headers(init?.headers).get("authorization")).toBe(
       "Bearer sentry-read-token",
     );
+  });
+
+  it("fetches bounded latest-event evidence and retains exact provider metadata", async () => {
+    const issue = productionIssue({ latestEvent: undefined });
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(response([issue]))
+      .mockResolvedValueOnce(
+        response({
+          dateCreated: "2026-07-22T04:05:06.000Z",
+          eventID: "latest-event-1",
+          message: "Latest production failure",
+          tags: { environment: "production" },
+        }),
+      );
+    const classifier = vi.fn().mockResolvedValue(safeClassification());
+
+    const result = await collectSentryFindings({
+      ...collectorOptions(fetchImpl),
+      classifier,
+    });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(String(fetchImpl.mock.calls[1]?.[0])).toContain(
+      "/api/0/issues/123456/events/latest/",
+    );
+    expect(result.findings[0]).toMatchObject({
+      fingerprint: "sentry:issue:123456",
+      sentryIssueId: "123456",
+      evidence: {
+        latestEvent: { eventId: "latest-event-1" },
+        provider: {
+          issueId: "123456",
+          permalink: "https://sentry.io/organizations/formoria/issues/123456/",
+          shortId: "FORMORIA-123",
+        },
+      },
+    });
+    expect(JSON.stringify(classifier.mock.calls)).not.toContain("123456");
   });
 
   it("follows bounded cursors and stops at the configured request/page bound", async () => {

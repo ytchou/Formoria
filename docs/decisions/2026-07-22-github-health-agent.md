@@ -29,8 +29,9 @@ merge-to-production confirmation.
 - GitHub Actions owns direct Slack delivery; Agent Hub stores marked envelopes without
   sending a duplicate Slack message.
 - Link health is telemetry-only. Content and database repair remain human-owned.
-- Automatic and human-gated fixes are batched separately, with all eligible findings in the
-  batch and at most two repair/review cycles.
+- Product, runtime, and repository health run independently inside one scheduled/manual job.
+- All safely scoped repairs form one manager-reviewed batch with at most two repair/review
+  cycles and at most one PR.
 - Queue state is authoritative; merge, deployment, and smoke are distinct states.
 - The daily target is 07:13 Asia/Taipei. GitHub scheduling remains best-effort, and operators
   rely on GitHub Actions failure notifications for runs that start and fail. A scheduled run
@@ -45,12 +46,13 @@ merge-to-production confirmation.
   provide atomic leases, least privilege, idempotency, or deployment confirmation.
 - Keep link health as a separate writer: rejected because retries can race and duplicate
   evidence, and the old service writes application data.
-- One mixed repair PR: rejected because human-gated findings would either block safe
-  automatic work or weaken the gate.
+- Separate automatic and human PRs: rejected because two publication paths complicate
+  lifecycle tracking and can produce conflicting repairs. Every repair now requires review.
 - Mark fixed at merge: rejected because the deployed SHA and production smoke remain
   unknown.
 
 ## Cutover gate
 
-The App-authored canary must prove required checks, auto-merge, Railway deployment events,
-matching SHA, and production smoke. Failure keeps both health variables disabled.
+The App-authored canary must prove required checks, an unmerged manager-reviewed PR, Railway
+deployment events after manager merge, matching SHA, production smoke, and later detector
+verification. Failure keeps both health variables disabled.

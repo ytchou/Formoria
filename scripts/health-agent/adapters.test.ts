@@ -159,6 +159,11 @@ describe("Slack adapter", () => {
             severities: { critical: 0, high: 0, low: 0, medium: 22 },
             status: "success",
           },
+          quality: {
+            findingCount: 0,
+            severities: { critical: 0, high: 0, low: 0, medium: 0 },
+            status: "success",
+          },
           sentry: {
             findingCount: 10,
             severities: { critical: 2, high: 8, low: 0, medium: 0 },
@@ -187,6 +192,7 @@ describe("Slack adapter", () => {
           fixed: 3,
           pullRequests: 1,
           queued: 59,
+          repaired: 3,
           unresolved: 56,
         },
       },
@@ -195,7 +201,7 @@ describe("Slack adapter", () => {
 
     expect(digest).toContain("⚠️ *Formoria Health Agent — Needs attention*");
     expect(digest).toContain("*Summary*\n• 59 total · 59 new");
-    expect(digest).toContain("• 3 fixed · 56 unresolved");
+    expect(digest).toContain("• 3 repaired this run · 56 unresolved");
     expect(digest).toContain("*Work done*\n• 1 repair PR");
     expect(digest).toContain(
       "Automatic — 3 · pr opened · <https://github.com/ytchou/Formoria/pull/42|PR #42>",
@@ -216,6 +222,11 @@ describe("Slack adapter", () => {
           link: {
             findingCount: 22,
             severities: { critical: 0, high: 0, low: 0, medium: 22 },
+            status: "success",
+          },
+          quality: {
+            findingCount: 0,
+            severities: { critical: 0, high: 0, low: 0, medium: 0 },
             status: "success",
           },
           sentry: {
@@ -242,9 +253,9 @@ describe("Slack adapter", () => {
 
     expect(digest).toContain("❌ *Formoria Health Agent — Failed*");
     expect(digest).toContain("*Summary*\n• 50 total");
-    expect(digest).toContain("• 0 fixed · 50 unresolved");
+    expect(digest).toContain("• 0 repaired this run · 50 unresolved");
     expect(digest).toContain("• 0 repair PRs");
-    expect(digest).not.toContain("linear.app/ytchou/issue/DEV-1231");
+    expect(digest).toContain("linear.app/ytchou/issue/DEV-1231");
     expect(digest).toContain("Investigate analyze");
     expect(digest).toContain("*Manager action*");
   });

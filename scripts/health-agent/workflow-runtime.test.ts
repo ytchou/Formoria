@@ -187,12 +187,13 @@ function aggregateArtifact(findings: readonly unknown[]) {
 
 function terminalAggregate() {
   const artifact = (
-    routine: "directory-health" | "link-checker" | "sentry-triage",
+    routine:
+      "directory-health" | "link-checker" | "quality-health" | "sentry-triage",
     findings: readonly unknown[],
   ) => ({
     collectedAt: now,
     evidence: {},
-    failures: [],
+    failures: [] as string[],
     findings,
     routine,
     skippedActions: [],
@@ -224,6 +225,7 @@ function terminalAggregate() {
           title: "Link issue",
         },
       ]),
+      "quality-health": artifact("quality-health", []),
       "sentry-triage": artifact("sentry-triage", [
         {
           evidence: {},
@@ -341,7 +343,8 @@ describe("terminal health report", () => {
           fixed: 1,
           pull_requests: 1,
           queued: 3,
-          unresolved: 3,
+          repaired_this_run: 1,
+          unresolved: 2,
         },
         totals: { finding_count: 3 },
       },
@@ -1406,12 +1409,51 @@ describe("stale branch cleanup runtime", () => {
       },
     );
 
-    expect(reconcileFingerprintLifecycle).toHaveBeenCalledWith([
-      "directory:one",
-      "link:one",
-      "sentry:one",
-    ]);
+    expect(reconcileFingerprintLifecycle).toHaveBeenCalledWith(
+      ["directory:one", "link:one", "sentry:one"],
+      ["directory", "link", "quality", "sentry"],
+    );
     expect(result.verifiedFixedFingerprints).toEqual(["directory:resolved"]);
+  });
+
+  it("reconciles complete sources when repository health fails independently", async () => {
+    const aggregate = terminalAggregate();
+    aggregate.artifacts["quality-health"].status = "failed";
+    aggregate.artifacts["quality-health"].failures = [
+      "dead-code:malformed_output",
+    ];
+    const contents = new Map([["aggregate.json", JSON.stringify(aggregate)]]);
+    const reconcileFingerprintLifecycle = vi.fn(async () => ({
+      failedVerificationFingerprints: [],
+      fixedFingerprints: ["link:resolved"],
+    }));
+
+    await enqueueAndClaimWorkflowBatch(
+      {
+        findingsArtifactPath: "aggregate.json",
+        leaseOwner: "github-actions:123:1",
+        mode: "live",
+        outputPath: "queue-result.json",
+      },
+      {
+        env: { HEALTH_AGENT_ENABLED: "true" },
+        files: {
+          read: async (path) => contents.get(path) ?? "",
+          write: async (path, value) => void contents.set(path, value),
+        },
+        queue: {
+          claim: vi.fn(async () => []),
+          enqueue: vi.fn(async () => undefined),
+          hasUnconfirmedAutomatic: vi.fn(async () => false),
+          reconcileFingerprintLifecycle,
+        },
+      },
+    );
+
+    expect(reconcileFingerprintLifecycle).toHaveBeenCalledWith(
+      ["directory:one", "link:one", "sentry:one"],
+      ["directory", "link", "sentry"],
+    );
   });
 });
 
@@ -1542,9 +1584,13 @@ describe("scoped writer RPC", () => {
     const reconcile = dependencies.queue?.reconcileFingerprintLifecycle;
     if (!reconcile) throw new Error("queue_reconciliation_missing");
 
-    await expect(reconcile(["directory:current"])).resolves.toEqual({
+    await expect(
+      reconcile(["directory:current"], ["directory"]),
+    ).resolves.toEqual({
       failedVerificationFingerprints: ["directory:still-broken"],
       fixedFingerprints: ["directory:resolved"],
+      regressedFingerprints: [],
+      verifiedFixedSentryIssueIds: [],
     });
     expect(fetchImplementation.mock.calls[0]?.[0]).toBe(
       "https://db.example/rest/v1/rpc/reconcile_health_fix_lifecycle",
@@ -1552,6 +1598,7 @@ describe("scoped writer RPC", () => {
     expect(fetchImplementation.mock.calls[0]?.[1]).toMatchObject({
       body: JSON.stringify({
         p_observed_fingerprints: ["directory:current"],
+        p_completed_sources: ["directory"],
       }),
       method: "POST",
     });

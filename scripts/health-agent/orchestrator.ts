@@ -53,6 +53,7 @@ export const HEALTH_ROUTINES = [
   "link-checker",
   "directory-health",
   "sentry-triage",
+  "quality-health",
 ] as const;
 export type HealthRoutine = (typeof HEALTH_ROUTINES)[number];
 
@@ -91,12 +92,13 @@ const jsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
 const healthFindingSchema = z
   .object({
     evidence: z.record(z.string().max(120), jsonValueSchema),
+    changedFiles: z.array(z.string().trim().min(1).max(300)).max(40).optional(),
     fingerprint: z.string().trim().min(1).max(500),
     humanReason: z.string().trim().min(1).max(MAX_TEXT_LENGTH).optional(),
     mergePolicy: z.enum(["automatic", "human"]),
     sentryIssueId: z.string().trim().min(1).max(500).optional(),
     severity: z.enum(["low", "medium", "high", "critical"]),
-    source: z.enum(["link", "directory", "sentry"]),
+    source: z.enum(["link", "directory", "sentry", "quality"]),
     title: z.string().trim().min(1).max(MAX_TEXT_LENGTH),
   })
   .strict();
@@ -138,6 +140,24 @@ function redactText(value: string): string {
     .slice(0, MAX_TEXT_LENGTH);
 }
 
+function validatedProviderPermalink(value: string): string | undefined {
+  try {
+    const url = new URL(value);
+    if (
+      url.protocol !== "https:" ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash
+    ) {
+      return undefined;
+    }
+    return url.toString().slice(0, MAX_TEXT_LENGTH);
+  } catch {
+    return undefined;
+  }
+}
+
 function redactJsonValue(
   value: unknown,
   key = "",
@@ -147,7 +167,12 @@ function redactJsonValue(
   if (value === null || typeof value === "boolean") return value;
   if (typeof value === "number")
     return Number.isFinite(value) ? value : undefined;
-  if (typeof value === "string") return redactText(value);
+  if (typeof value === "string") {
+    if (key === "permalink") {
+      return validatedProviderPermalink(value) ?? "[redacted-url]";
+    }
+    return redactText(value);
+  }
   if (Array.isArray(value)) {
     return value
       .slice(0, 200)
@@ -453,6 +478,9 @@ export type CollectorArtifact = HealthCollectorArtifact;
 
 function redactedFinding(finding: HealthFinding): HealthFinding {
   return {
+    ...(finding.changedFiles
+      ? { changedFiles: finding.changedFiles.map(redactText) }
+      : {}),
     evidence: redactedRecord(finding.evidence),
     fingerprint: redactText(finding.fingerprint),
     ...(finding.humanReason
@@ -1241,6 +1269,7 @@ export interface HealthAgentDatabase {
   ) => Promise<readonly HealthFingerprintState[]>;
   reconcileFingerprintLifecycle?: (
     observedFingerprints: readonly string[],
+    completedSources: readonly HealthSource[],
   ) => Promise<HealthFingerprintReconciliation>;
 }
 
@@ -1252,6 +1281,8 @@ export interface HealthFingerprintState {
 export interface HealthFingerprintReconciliation {
   failedVerificationFingerprints: readonly string[];
   fixedFingerprints: readonly string[];
+  regressedFingerprints?: readonly string[];
+  verifiedFixedSentryIssueIds?: readonly string[];
 }
 
 export type QueueEntryInput = HealthQueueFindingInput;
@@ -1268,6 +1299,7 @@ export interface QueueDependencies {
   ) => Promise<readonly HealthFingerprintState[]>;
   reconcileFingerprintLifecycle?: (
     observedFingerprints: readonly string[],
+    completedSources: readonly HealthSource[],
   ) => Promise<HealthFingerprintReconciliation>;
 }
 
@@ -1307,6 +1339,7 @@ function pathForRoutine(
   paths: Partial<Record<HealthRoutine, string>> & {
     directory?: string;
     link?: string;
+    quality?: string;
     sentry?: string;
   },
   routine: HealthRoutine,
@@ -1317,7 +1350,9 @@ function pathForRoutine(
       ? paths.link
       : routine === "directory-health"
         ? paths.directory
-        : paths.sentry)
+        : routine === "quality-health"
+          ? paths.quality
+          : paths.sentry)
   );
 }
 
@@ -1325,6 +1360,7 @@ export interface AggregateInput {
   artifactPaths?: Partial<Record<HealthRoutine, string>> & {
     directory?: string;
     link?: string;
+    quality?: string;
     sentry?: string;
   };
   artifacts?: Partial<Record<HealthRoutine, HealthCollectorArtifact>>;
@@ -1334,6 +1370,7 @@ export interface AggregateInput {
   exhaustedAutomationFingerprints?: readonly string[];
   failures?: readonly JsonValue[];
   linkArtifactPath?: string;
+  qualityArtifactPath?: string;
   linearOutcomes?: readonly JsonValue[];
   mode?: HealthAgentMode;
   prOutcomes?: readonly JsonValue[];
@@ -1377,6 +1414,8 @@ async function loadAggregateArtifacts(
       input.directoryArtifactPath ?? pathForRoutine(paths, "directory-health"),
     "link-checker":
       input.linkArtifactPath ?? pathForRoutine(paths, "link-checker"),
+    "quality-health":
+      input.qualityArtifactPath ?? pathForRoutine(paths, "quality-health"),
     "sentry-triage":
       input.sentryArtifactPath ?? pathForRoutine(paths, "sentry-triage"),
   };
@@ -1766,9 +1805,17 @@ function asRepairFinding(value: HealthQueueRow | RepairFinding): RepairFinding {
     throw new Error("Claimed finding is invalid");
   }
   const severity = candidate.severity ?? "medium";
+  const changedFilesValue =
+    candidate.changedFiles ??
+    (Array.isArray(evidence.changedFiles) ? evidence.changedFiles : undefined);
+  const changedFiles = changedFilesValue?.filter(
+    (file): file is string =>
+      typeof file === "string" && file.trim().length > 0,
+  );
   return {
     ...(candidate.id ? { claimedFindingId: candidate.id } : {}),
     evidence: redactedRecord(evidence),
+    ...(changedFiles ? { changedFiles } : {}),
     fingerprint: redactText(fingerprint),
     mergePolicy,
     severity,
@@ -1852,7 +1899,7 @@ export interface QueueBatchInput {
   leaseOwner?: string;
   mode: HealthAgentMode;
   repairResults?: readonly RepairResult[];
-  verifyAbsentFindings?: boolean;
+  completedSources?: readonly HealthSource[];
 }
 
 export interface QueueBatchResult {
@@ -1877,6 +1924,7 @@ export interface QueueBatchResult {
   snapshot: RepairSnapshot;
   suppressed: boolean;
   verifiedFixedFingerprints: string[];
+  verifiedFixedSentryIssueIds: string[];
 }
 
 export const HEALTH_AGENT_CANARY_FINGERPRINT =
@@ -2021,6 +2069,7 @@ export async function enqueueAndClaimPolicyBatches(
     } = { new: [], ongoing: [], regressed: [] },
     verifiedFixedFingerprints: string[] = [],
     failedVerificationFingerprints: string[] = [],
+    verifiedFixedSentryIssueIds: string[] = [],
   ): QueueBatchResult => ({
     automatic: snapshotClaimedFindings(partition.automatic.findings),
     claimedFingerprints,
@@ -2036,6 +2085,7 @@ export async function enqueueAndClaimPolicyBatches(
     snapshot,
     suppressed,
     verifiedFixedFingerprints,
+    verifiedFixedSentryIssueIds,
   });
 
   if (input.mode === "preflight") {
@@ -2110,19 +2160,7 @@ export async function enqueueAndClaimPolicyBatches(
   );
   let verifiedFixedFingerprints: string[] = [];
   let failedVerificationFingerprints: string[] = [];
-  if (input.verifyAbsentFindings && reconcileFingerprintLifecycle) {
-    try {
-      const reconciliation = await reconcileFingerprintLifecycle(
-        eligible.map(({ fingerprint }) => fingerprint),
-      );
-      verifiedFixedFingerprints = [...reconciliation.fixedFingerprints];
-      failedVerificationFingerprints = [
-        ...reconciliation.failedVerificationFingerprints,
-      ];
-    } catch {
-      failures.push("fingerprint_absence_reconciliation:failed");
-    }
-  }
+  let verifiedFixedSentryIssueIds: string[] = [];
   try {
     if (database) {
       const enqueue = databaseEnqueue(database);
@@ -2146,7 +2184,34 @@ export async function enqueueAndClaimPolicyBatches(
       lifecycle.fingerprints,
       verifiedFixedFingerprints,
       failedVerificationFingerprints,
+      verifiedFixedSentryIssueIds,
     );
+  }
+  if (
+    (input.completedSources?.length ?? 0) > 0 &&
+    reconcileFingerprintLifecycle
+  ) {
+    try {
+      const reconciliation = await reconcileFingerprintLifecycle(
+        eligible.map(({ fingerprint }) => fingerprint),
+        input.completedSources ?? [],
+      );
+      verifiedFixedFingerprints = [...reconciliation.fixedFingerprints];
+      failedVerificationFingerprints = [
+        ...reconciliation.failedVerificationFingerprints,
+      ];
+      verifiedFixedSentryIssueIds = [
+        ...(reconciliation.verifiedFixedSentryIssueIds ?? []),
+      ];
+      for (const fingerprint of reconciliation.regressedFingerprints ?? []) {
+        if (!lifecycle.fingerprints.regressed.includes(fingerprint)) {
+          lifecycle.fingerprints.regressed.push(fingerprint);
+          lifecycle.counts.regressed += 1;
+        }
+      }
+    } catch {
+      failures.push("fingerprint_absence_reconciliation:failed");
+    }
   }
 
   const leaseOwner = input.leaseOwner ?? "github-actions-health-agent";
@@ -2157,27 +2222,13 @@ export async function enqueueAndClaimPolicyBatches(
       const claim = databaseClaim(database);
       if (!claim) throw new Error("Queue claim is unavailable");
       automaticClaimed = claimedRows(await claim("automatic", leaseOwner));
-      if (automaticClaimed.length === 0) {
-        const unconfirmed = database.hasUnconfirmedAutomatic
-          ? await database.hasUnconfirmedAutomatic()
-          : true;
-        if (!unconfirmed) {
-          humanClaimed = claimedRows(await claim("human", leaseOwner));
-        }
-      }
+      humanClaimed = claimedRows(await claim("human", leaseOwner));
     } else {
       if (!legacyQueue) throw new Error("Queue adapter is unavailable");
       automaticClaimed = [
         ...(await legacyQueue.claim("automatic", leaseOwner)),
       ];
-      if (automaticClaimed.length === 0) {
-        const unconfirmed = legacyQueue.hasUnconfirmedAutomatic
-          ? await legacyQueue.hasUnconfirmedAutomatic()
-          : true;
-        if (!unconfirmed) {
-          humanClaimed = [...(await legacyQueue.claim("human", leaseOwner))];
-        }
-      }
+      humanClaimed = [...(await legacyQueue.claim("human", leaseOwner))];
     }
   } catch (error) {
     failures.push(`claim:${safeErrorCode(error)}`);
@@ -2191,6 +2242,7 @@ export async function enqueueAndClaimPolicyBatches(
       lifecycle.fingerprints,
       verifiedFixedFingerprints,
       failedVerificationFingerprints,
+      verifiedFixedSentryIssueIds,
     );
   }
 
@@ -2216,6 +2268,7 @@ export async function enqueueAndClaimPolicyBatches(
     snapshot,
     suppressed: false,
     verifiedFixedFingerprints,
+    verifiedFixedSentryIssueIds,
     failedVerificationFingerprints,
   };
 }
