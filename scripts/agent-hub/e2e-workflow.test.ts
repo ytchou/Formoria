@@ -2,6 +2,33 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 describe("nightly E2E Agent Hub reporting", () => {
+  it("routes mobile coverage and repair validation through the mobile project", async () => {
+    const [config, mobileSpec, workflow, guidance] = await Promise.all([
+      readFile("playwright.config.ts", "utf8"),
+      readFile("e2e/tests/mobile.spec.ts", "utf8"),
+      readFile(".github/workflows/e2e-nightly.yml", "utf8"),
+      readFile(".github/selfheal/triage-fix.md", "utf8"),
+    ]);
+
+    expect(config).toContain("testIgnore: 'e2e/tests/mobile.spec.ts'");
+    expect(mobileSpec).not.toContain("test.skip(");
+    expect(workflow).toContain(
+      "TEST_ARGS=(--project=deep --project=mobile --reporter=html,json)",
+    );
+    expect(workflow).toContain(
+      'project: ([$spec.tests[]?.projectName // empty] | unique | .[0] // "deep")',
+    );
+    expect(workflow).toContain("cluster_project=");
+    expect(workflow).toContain(
+      "CLUSTER_PROJECT: ${{ steps.context.outputs.cluster_project }}",
+    );
+    expect(workflow).toContain('--project="$CLUSTER_PROJECT"');
+    expect(guidance).toContain(
+      "affected spec with its supplied Playwright project",
+    );
+    expect(guidance).not.toContain("affected deep spec");
+  });
+
   it("uses scoped reporting, complete evidence, and a Formoria Slack webhook", async () => {
     const workflow = await readFile(
       ".github/workflows/e2e-nightly.yml",

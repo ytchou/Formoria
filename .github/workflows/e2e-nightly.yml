@@ -96,12 +96,12 @@ jobs:
       - name: Install Playwright browsers
         id: browsers
         run: npx playwright install chromium
-      - name: Run deep Playwright tests
+      - name: Run nightly Playwright tests
         id: e2e
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: playwright-results.json
         run: |
-          TEST_ARGS=(--project=deep --reporter=html,json)
+          TEST_ARGS=(--project=deep --project=mobile --reporter=html,json)
           if [ -n "$E2E_GREP" ]; then
             TEST_ARGS+=(--grep "$E2E_GREP")
           fi
@@ -196,6 +196,7 @@ jobs:
                {
                  file: ($suite.file // null),
                  title: $spec.title,
+                 project: ([$spec.tests[]?.projectName // empty] | unique | .[0] // "deep"),
                  errors: ([$spec.tests[]?.results[]?.errors[]? | (.message // .value // tostring)] | unique)
                }
              ] as $failures |
@@ -207,7 +208,7 @@ jobs:
                repair_base: $repair_base,
                e2e_grep: $e2e_grep,
                failures: $failures,
-               clusters: ($failures | sort_by(.file // "") | group_by(.file // "") | map({file: .[0].file, failures: .}))
+               clusters: ($failures | sort_by([.project, (.file // "")]) | group_by([.project, (.file // "")]) | map({project: .[0].project, file: .[0].file, failures: .}))
              }' "$REPORT_DIR/playwright-results.json" > "$REPORT_DIR/selfheal-context.json"
           printf '[]\n' > "$REPORT_DIR/repair-ledger.json"
           echo "report_dir=$REPORT_DIR" >> "$GITHUB_OUTPUT"
@@ -445,12 +446,13 @@ jobs:
               'def all_suites: .suites[]? | ., all_suites;
                [all_suites as $suite | $suite.specs[]? as $spec | select($spec.ok == false) |
                  {file: ($suite.file // null), title: $spec.title,
+                  project: ([$spec.tests[]?.projectName // empty] | unique | .[0] // "deep"),
                   errors: ([$spec.tests[]?.results[]?.errors[]? | (.message // .value // tostring)] | unique)}
                ] as $failures |
                {version: 1, source_run_id: $source_run_id, source_workflow_url: $source_workflow_url,
                 source_sha: $source_sha, repair_base: $repair_base, e2e_grep: $e2e_grep,
                 failures: $failures,
-                clusters: ($failures | sort_by(.file // "") | group_by(.file // "") | map({file: .[0].file, failures: .}))}' \
+                clusters: ($failures | sort_by([.project, (.file // "")]) | group_by([.project, (.file // "")]) | map({project: .[0].project, file: .[0].file, failures: .}))}' \
               /tmp/playwright-report/playwright-results.json > /tmp/playwright-report/selfheal-context.json
           fi
           if [ ! -s /tmp/playwright-report/repair-ledger.json ]; then
@@ -463,16 +465,18 @@ jobs:
         run: |
           set -euo pipefail
           CONTEXT=/tmp/playwright-report/selfheal-context.json
-          FAILED_SPECS=$(jq -c '[.failures[] | {file, title}]' "$CONTEXT")
+          FAILED_SPECS=$(jq -c '[.failures[] | {project, file, title}]' "$CONTEXT")
           CLUSTER_FILE=$(jq -r '.clusters[0].file // ""' "$CONTEXT")
+          CLUSTER_PROJECT=$(jq -r '.clusters[0].project // "deep"' "$CONTEXT")
           CLUSTER_SPECS=$(jq -c '.clusters[0].failures // []' "$CONTEXT")
           echo "failed_specs=$FAILED_SPECS" >> "$GITHUB_OUTPUT"
           echo "cluster_file=$CLUSTER_FILE" >> "$GITHUB_OUTPUT"
+          echo "cluster_project=$CLUSTER_PROJECT" >> "$GITHUB_OUTPUT"
           echo "cluster_specs=$CLUSTER_SPECS" >> "$GITHUB_OUTPUT"
 
           DELIMITER="FORMORIA_CLUSTER_CONTEXT_${GITHUB_RUN_ID}_${GITHUB_RUN_ATTEMPT}"
           echo "cluster_context<<$DELIMITER" >> "$GITHUB_OUTPUT"
-          jq '.clusters[0] // {file: null, failures: []}' "$CONTEXT" >> "$GITHUB_OUTPUT"
+          jq '.clusters[0] // {project: "deep", file: null, failures: []}' "$CONTEXT" >> "$GITHUB_OUTPUT"
           echo "$DELIMITER" >> "$GITHUB_OUTPUT"
 
           TOTAL_SPECS=$(jq '.failures | length' "$CONTEXT")
@@ -680,6 +684,7 @@ jobs:
         id: cluster_validation
         env:
           CLUSTER_FILE: ${{ steps.context.outputs.cluster_file }}
+          CLUSTER_PROJECT: ${{ steps.context.outputs.cluster_project }}
           PLAYWRIGHT_JSON_OUTPUT_NAME: playwright-results-cluster.json
         run: |
           set -euo pipefail
@@ -690,7 +695,11 @@ jobs:
             e2e/*) SPEC_PATH="$CLUSTER_FILE" ;;
             *) SPEC_PATH="e2e/$CLUSTER_FILE" ;;
           esac
-          TEST_ARGS=("$SPEC_PATH" --project=deep --reporter=json)
+          case "$CLUSTER_PROJECT" in
+            deep|mobile) ;;
+            *) echo "::error::unsupported Playwright project: $CLUSTER_PROJECT"; exit 1 ;;
+          esac
+          TEST_ARGS=("$SPEC_PATH" --project="$CLUSTER_PROJECT" --reporter=json)
           if [ -n "$E2E_GREP" ]; then
             TEST_ARGS+=(--grep "$E2E_GREP")
           fi
@@ -701,7 +710,7 @@ jobs:
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: playwright-results-validation.json
         run: |
-          TEST_ARGS=(--project=deep --reporter=html,json)
+          TEST_ARGS=(--project=deep --project=mobile --reporter=html,json)
           if [ -n "$E2E_GREP" ]; then
             TEST_ARGS+=(--grep "$E2E_GREP")
           fi
@@ -747,12 +756,13 @@ jobs:
             'def all_suites: .suites[]? | ., all_suites;
              [all_suites as $suite | $suite.specs[]? as $spec | select($spec.ok == false) |
                {file: ($suite.file // null), title: $spec.title,
+                project: ([$spec.tests[]?.projectName // empty] | unique | .[0] // "deep"),
                 errors: ([$spec.tests[]?.results[]?.errors[]? | (.message // .value // tostring)] | unique)}
              ] as $failures |
              {version: 1, source_run_id: $source_run_id, source_workflow_url: $source_workflow_url,
               source_sha: $source_sha, repair_base: $repair_base, e2e_grep: $e2e_grep,
               failures: $failures,
-              clusters: ($failures | sort_by(.file // "") | group_by(.file // "") | map({file: .[0].file, failures: .}))}' \
+              clusters: ($failures | sort_by([.project, (.file // "")]) | group_by([.project, (.file // "")]) | map({project: .[0].project, file: .[0].file, failures: .}))}' \
             "$REPORT_DIR/playwright-results.json" > "$REPORT_DIR/selfheal-context.json"
           echo "available=true" >> "$GITHUB_OUTPUT"
       - name: Upload self-heal report for next round

@@ -13,8 +13,9 @@ You receive:
 1. **cluster_context** — the failed tests, exact errors, and one spec file to repair
 2. **failure bundle path** — Playwright JSON, error contexts, traces, screenshots,
    videos, and a build log when the build itself failed
-3. **systemic** — boolean, true if >25% of the selected suite is red
-4. **source_workflow_url** — the GitHub Actions run that produced the failure
+3. **project** — the Playwright project that observed the failure
+4. **systemic** — boolean, true if >25% of the selected suite is red
+5. **source_workflow_url** — the GitHub Actions run that produced the failure
 
 ## Step 1: Read Project Context
 
@@ -110,9 +111,9 @@ validate the changed paths and create the repair checkpoint itself.
 ## Step 4: Verify the cluster
 
 The workflow installs dependencies and Chromium before you start. Run only the
-affected deep spec with `pnpm exec playwright test <file> --project=deep` after
-the edit. Do not run the production build or full E2E suite; the workflow owns
-those gates after your action returns.
+affected spec with its supplied Playwright project after the edit, for example
+`pnpm exec playwright test <file> --project=<project>`. Do not run the production
+build or full E2E suite; the workflow owns those gates after your action returns.
 
 Do not commit or push. The workflow validates changed paths and owns the repair
 checkpoint so incomplete work can be resumed safely.

@@ -16,17 +16,10 @@ test.describe('Mobile responsive', () => {
   }
 
   test('brands directory renders brand cards on mobile', async ({ page }) => {
-    const vw = page.viewportSize()?.width ?? 1280;
-    test.skip(vw > 640, 'Mobile card assertion only valid on mobile viewports');
     await page.goto('/brands');
-    // Verify at least one brand card is visible in the masonry grid
-    const firstCard = page.locator('.masonry-grid [role="listitem"] a[aria-label]:visible').first();
-    const hasCard = await firstCard.isVisible({ timeout: 10_000 }).catch(() => false);
-    if (!hasCard) {
-      test.skip(true, 'No brands seeded — skipping brand card mobile check');
-      return;
-    }
-    await expect(firstCard).toBeVisible();
+    const firstCard = page.locator('main [role="list"] [role="listitem"] article').first();
+    await expect(firstCard).toBeVisible({ timeout: 10_000 });
+    await expect(firstCard.getByRole('link')).toHaveAttribute('href', /\/brands\//);
   });
 
   test('navigation is accessible (hamburger or nav visible)', async ({ page }) => {

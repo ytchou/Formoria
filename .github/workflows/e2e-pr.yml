@@ -104,7 +104,7 @@ jobs:
           # Via env, not `${{ }}` inside the script: spec paths are
           # repo-controlled but must never be interpolated into a shell line.
           SPECS: ${{ needs.select.outputs.specs }}
-        run: pnpm exec playwright test --project=deep $SPECS
+        run: pnpm exec playwright test --project=deep --project=mobile $SPECS
 
       - name: Upload test report
         if: always()
