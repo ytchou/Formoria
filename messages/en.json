@@ -482,11 +482,19 @@
       "description": "Thanks for the suggestion! Our team reviews every submission and decides whether to update the listing.",
       "submitting": "Submitting…",
       "submit": "Submit correction",
-      "selectPlaceholder": "Not set yet — choose a value…",
+      "selectPlaceholder": "Not set yet",
+      "currentHeading": "Current",
+      "currentTagsHeading": "Current (tap to remove)",
+      "changeToHeading": "Change to",
+      "addTagsHeading": "Categories you can add",
       "productTagsSubtitle": "{category} product categories (up to 5)",
       "productTagsSelected": "Selected {count} / 5",
       "productTagsLimit": "Select up to 5 product categories.",
-      "productTagsOtherCategory": "Existing tags from other categories",
+      "otherTagChip": "Other",
+      "otherTagInputLabel": "Other category name",
+      "otherTagHint": "Use 2–8 characters. Every suggestion is reviewed before it updates the listing.",
+      "otherTagConfirm": "Add",
+      "otherTagDuplicate": "This category is already listed above — remove it there instead.",
       "success": "Correction submitted. Thank you for helping keep this listing accurate.",
       "errors": {
         "invalid_brand": "This brand could not be found. Please refresh and try again.",
@@ -495,7 +503,9 @@
         "unchanged": "This correction does not change the current information.",
         "already_submitted": "You have already submitted this correction. Please wait for review.",
         "rate_limited": "Too many correction submissions. Please try again later.",
-        "unavailable": "We could not submit the correction. Please try again later."
+        "unavailable": "We could not submit the correction. Please try again later.",
+        "tagTooShort": "Use 2–8 characters — try a shorter category name.",
+        "tagBlocked": "That word can't be used as a category — try a name that describes the product itself."
       }
     },
     "adminMenu": {
@@ -2326,6 +2336,8 @@
         "projected": "Projected result"
       },
       "stale": "Brand data changed after submission",
+      "novelTag": "Not in taxonomy",
+      "novelTagTitle": "Approving this adds a display-only tag: it matches no ?sub= filter, so it will not appear in directory filtering.",
       "tooManyTags": "Cannot approve: the result would exceed 5 product tags",
       "actions": {
         "approve": "Approve",
