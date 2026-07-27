@@ -1,4 +1,4 @@
-import { deleteStoredImagePaths } from './image-upload'
+import { deleteBrandImages, deleteStoredImagePaths } from './image-upload'
 
 type BrandImageStatus = 'active' | 'rejected'
 type BrandImageSource = 'scrape' | 'google_image' | 'owner' | 'admin' | 'legacy'
@@ -32,7 +32,10 @@ export type BrandImageInsert = {
 
 type QueryError = { code?: string; message?: string }
 type BrandImagesSelectQuery = {
-  eq: (column: 'brand_id' | 'status', value: string) => BrandImagesSelectQuery
+  eq: (
+    column: 'brand_id' | 'status' | 'source_url',
+    value: string,
+  ) => BrandImagesSelectQuery
   in: (
     column: 'url',
     values: string[],
@@ -41,6 +44,10 @@ type BrandImagesSelectQuery = {
     column: 'sort_order',
     options: { ascending: boolean },
   ) => Promise<{ data: BrandImageRow[] | null; error: QueryError | null }>
+  maybeSingle: () => Promise<{
+    data: BrandImageRow | null
+    error: QueryError | null
+  }>
 }
 type BrandImagesTable = {
   select: (columns: string) => BrandImagesSelectQuery
@@ -129,6 +136,32 @@ export async function insertBrandImage(
     ...data,
   }
 
+  if (data.source_url && data.source !== 'owner') {
+    // A rejection is sticky. The classifier's verdict is about the CONTENT at
+    // this source_url, and re-downloading the same url yields the same content,
+    // so re-inserting it must be a no-op. Without this guard the upsert below
+    // merges only the payload's columns: it flips the rejected row back to
+    // active with a fresh storage_path while leaving its stale junk tags/score
+    // in place, and getUnclassifiedImages (`.is('tags', null)`) then never
+    // re-examines it. Nulling tags/score on upsert instead would re-classify
+    // every re-downloaded image on every enrichment run and burn LLM budget.
+    //
+    // `source: 'owner'` is exempt because that stickiness argument only holds
+    // for automated re-downloads. An owner re-adding a photo from the dashboard
+    // is deliberate human intent aimed at THIS image, and human intent outranks
+    // the classifier: swallowing it would make the dashboard silently no-op with
+    // no way for the owner to ever get the photo back. The re-add resurrects the
+    // row (status flips back to active), and the stale tags are acceptable here
+    // because an owner-curated image is not a classification candidate.
+    const { data: existing, error: lookupError } = await brandImagesTable(supabase)
+      .select('status')
+      .eq('brand_id', data.brand_id)
+      .eq('source_url', data.source_url)
+      .maybeSingle()
+    if (lookupError) throw lookupError
+    if (existing?.status === 'rejected') return
+  }
+
   const { error } = data.source_url
     ? await brandImagesTable(supabase).upsert(row, {
         onConflict: 'brand_id,source_url',
@@ -170,6 +203,50 @@ export async function rejectBrandImages(
     .eq('brand_id', brandId)
     .in('url', urls)
   if (error) throw error
+}
+
+/**
+ * Releases image URLs that dropped out of a brand's image list.
+ *
+ * Invariant: never delete a storage object that a live `brand_images` row still
+ * references. Leaking an unreferenced object is harmless (the storage purge
+ * reclaims it later); deleting a referenced one leaves a permanently broken
+ * image. So urls backed by a row go through `rejectBrandImages`, which updates
+ * the row and its storage object as a pair, and only urls with no row at all
+ * are deleted straight from storage.
+ */
+export async function releaseBrandImageUrls(
+  supabase: unknown,
+  brandId: string,
+  urls: string[],
+): Promise<void> {
+  if (urls.length === 0) return
+
+  const { data: rows, error } = await brandImagesTable(supabase)
+    .select('url, storage_path')
+    .eq('brand_id', brandId)
+    .in('url', urls)
+  if (error) throw error
+
+  const referencedUrls = new Set((rows ?? []).map((row) => row.url))
+  const unreferencedUrls = urls.filter((url) => !referencedUrls.has(url))
+
+  await rejectBrandImages(
+    supabase,
+    brandId,
+    urls.filter((url) => referencedUrls.has(url)),
+  )
+
+  if (unreferencedUrls.length > 0) {
+    try {
+      await deleteBrandImages(unreferencedUrls)
+    } catch (storageError) {
+      console.error(
+        `[releaseBrandImageUrls] Failed to delete unreferenced images for ${brandId}:`,
+        storageError,
+      )
+    }
+  }
 }
 
 export async function syncHeroDenormalized(

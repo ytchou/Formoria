@@ -19,7 +19,7 @@ describe('Layout', () => {
     expect(html).toContain('Made in Taiwan')
     expect(html).toContain('Hello world')
     expect(html).toContain('600')
-    expect(html).toContain('#FAF8F3')
+    expect(html).toContain('#FDFCFA')
   })
 
   it('renders unsubscribe link when provided', async () => {
@@ -46,7 +46,7 @@ describe('Header', () => {
   it('renders logo and wordmark', async () => {
     const html = await render(<Header />)
     expect(html).toContain('Formoria')
-    expect(html).toContain('#2F5D50')
+    expect(html).toContain('#18181B')
   })
 })
 
@@ -65,9 +65,9 @@ describe('Footer', () => {
 })
 
 describe('Button', () => {
-  it('renders terracotta CTA button', async () => {
+  it('renders kiln CTA button', async () => {
     const html = await render(<Button href="https://example.com">Click me</Button>)
-    expect(html).toContain('#C4693B')
+    expect(html).toContain('#C04A24')
     expect(html).toContain('Click me')
     expect(html).toContain('https://example.com')
   })
@@ -77,7 +77,7 @@ describe('EmailHeading', () => {
   it('renders styled heading', async () => {
     const html = await render(<EmailHeading>Title</EmailHeading>)
     expect(html).toContain('Title')
-    expect(html).toContain('#1C1C1C')
+    expect(html).toContain('#18181B')
   })
 })
 
@@ -91,6 +91,6 @@ describe('EmailText', () => {
 describe('EmailDivider', () => {
   it('renders styled hr', async () => {
     const html = await render(<EmailDivider />)
-    expect(html).toContain('#E5E0D8')
+    expect(html).toContain('#E8E5E0')
   })
 })

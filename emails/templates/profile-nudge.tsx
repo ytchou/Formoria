@@ -4,7 +4,7 @@ import { Button } from '@emails/components/button'
 import { EmailHeading } from '@emails/components/email-heading'
 import { EmailText } from '@emails/components/email-text'
 import { Layout } from '@emails/components/layout'
-import { FROM_ADDRESS, SITE_URL } from '@emails/styles'
+import { FROM_ADDRESS, SITE_URL, TEXT_PRIMARY } from '@emails/styles'
 import type { EmailMessage } from '@emails/types'
 import { listUnsubscribeHeaders } from '@emails/utils'
 
@@ -93,7 +93,7 @@ export async function buildProfileNudgeEmail({
 }
 
 const listText = {
-  color: '#1C1C1C',
+  color: TEXT_PRIMARY,
   fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
   fontSize: '16px',
   lineHeight: '24px',

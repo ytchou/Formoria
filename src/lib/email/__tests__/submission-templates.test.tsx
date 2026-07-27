@@ -17,7 +17,7 @@ describe('buildApprovalEmail', () => {
     expect(email.html).toContain('test-brand')
     expect(email.html).toContain('Formoria')
     expect(email.html).toContain('Made in Taiwan')
-    expect(email.html).toContain('#FAF8F3')
+    expect(email.html).toContain('#FDFCFA')
     expect(email.html).not.toContain('<script>')
     expect(email.html).not.toContain('undefined')
   })

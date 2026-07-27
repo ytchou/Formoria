@@ -238,7 +238,12 @@ async function listPrefix(
   const objects: BucketObject[] = []
   const folders: string[] = []
 
-  for (let offset = 0; ; offset += PAGE_SIZE) {
+  // The storage endpoint may cap a page below the requested `limit`
+  // (storage-js's own default is 100), so a short page does NOT mean the end
+  // of the listing. Terminate only on an empty page, and advance by the actual
+  // page length — advancing by PAGE_SIZE would silently skip objects and make
+  // the inventory look incomplete to callers that treat it as authoritative.
+  for (let offset = 0; ; ) {
     const { data, error } = await supabase.storage.from(BUCKET).list(prefix, {
       limit: PAGE_SIZE,
       offset,
@@ -251,6 +256,9 @@ async function listPrefix(
     }
 
     const page = data ?? []
+    if (page.length === 0) break
+    offset += page.length
+
     for (const entry of page) {
       const path = prefix ? `${prefix}/${entry.name}` : entry.name
       if (entry.id === null) {
@@ -265,8 +273,6 @@ async function listPrefix(
         objects.push({ path, size, contentType })
       }
     }
-
-    if (page.length < PAGE_SIZE) break
   }
 
   const uniqueFolders = [...new Set(folders)]
