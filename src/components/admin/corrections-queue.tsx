@@ -26,6 +26,7 @@ import {
 } from "@/lib/services/product-tags";
 import {
   categoryLabel,
+  matchSubcategory,
   PRODUCT_TYPE_CATEGORIES,
 } from "@/lib/taxonomy/ontology";
 
@@ -173,9 +174,18 @@ export function CorrectionsQueue({
         <div className="space-y-2">
           <div className="flex flex-wrap gap-2">
             {delta.delta.add.map((tag, index) => (
-              <Badge key={`add-${tag}-${index}`} variant="secondary">
-                +{tag}
-              </Badge>
+              <span
+                key={`add-${tag}-${index}`}
+                className="inline-flex items-center gap-1"
+              >
+                <Badge variant="secondary">+{tag}</Badge>
+                {/* Novel tags are display-only: they match no ?sub= filter. */}
+                {matchSubcategory(tag) === null && (
+                  <Badge variant="warning" title={t("novelTagTitle")}>
+                    {t("novelTag")}
+                  </Badge>
+                )}
+              </span>
             ))}
             {delta.delta.remove.map((tag, index) => (
               <Badge
