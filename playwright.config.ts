@@ -70,6 +70,7 @@ export default defineConfig({
     {
       name: 'deep',
       testMatch: 'e2e/tests/**/*.spec.ts',
+      testIgnore: 'e2e/tests/mobile.spec.ts',
       use: { ...devices['Desktop Chrome'] },
     },
     // Mobile: Chrome
