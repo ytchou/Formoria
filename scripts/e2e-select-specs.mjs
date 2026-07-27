@@ -17,9 +17,9 @@ const SUBTREE_ENTRYPOINT =
   /^src\/app\/(?:.*\/)?(?:layout|template|default)\.(?:ts|tsx)$/
 
 /**
- * Only `e2e/tests/**` is selectable. The workflow runs `--project=deep`, whose
- * testMatch is `e2e/tests/**\/*.spec.ts`; a path from `e2e/smoke/` would filter
- * every test out of that project and fail the run with "no tests found".
+ * Only `e2e/tests/**` is selectable. The workflow runs the `deep` and `mobile`
+ * projects, which collectively own those specs; a path from `e2e/smoke/` would
+ * filter every test out and fail the run with "no tests found".
  */
 const SELECTABLE_SPEC = /^e2e\/tests\/.+\.spec\.ts$/
 

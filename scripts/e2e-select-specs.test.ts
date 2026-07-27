@@ -21,6 +21,17 @@ import {
   selectSpecsForRemovedStrings,
 } from './e2e-select-specs.mjs'
 
+describe('selective E2E workflow project routing', () => {
+  it('runs selected deep and mobile specs with their owning projects', () => {
+    const workflow = readFileSync('.github/workflows/e2e-pr.yml', 'utf8')
+
+    expect(workflow).toContain(
+      'playwright test --project=deep --project=mobile $SPECS',
+    )
+    expect(workflow).not.toContain('playwright test --project=deep $SPECS')
+  })
+})
+
 describe('resolveImport', () => {
   const files = new Set([
     'src/components/button.tsx',
@@ -126,10 +137,11 @@ describe('isCodeFile', () => {
 })
 
 describe('isSelectableSpec', () => {
-  it('accepts deep specs and rejects everything the deep project cannot run', () => {
+  it('accepts deep and mobile specs and rejects unsupported paths', () => {
     expect(isSelectableSpec('e2e/tests/directory.spec.ts')).toBe(true)
-    // --project=deep matches e2e/tests/** only: a smoke path would filter
-    // every test out of the project and fail the run.
+    expect(isSelectableSpec('e2e/tests/mobile.spec.ts')).toBe(true)
+    // The selective workflow does not run smoke projects, so a smoke path
+    // would filter every selected test out and fail the run.
     expect(isSelectableSpec('e2e/smoke/landing.spec.ts')).toBe(false)
     expect(isSelectableSpec('e2e/utils/submit-form.ts')).toBe(false)
   })
@@ -315,8 +327,8 @@ describe('selectDerivedSpecs against the repository', () => {
   })
 
   it('never selects a spec the deep project cannot run', () => {
-    // /getting-started is covered only by e2e/smoke: handing that path to
-    // `--project=deep` would match no tests and fail the job.
+    // /getting-started is covered only by e2e/smoke: handing that path to the
+    // selective deep/mobile projects would match no tests and fail the job.
     expect(select(['src/app/[locale]/getting-started/page.tsx'])).toEqual([])
 
     const everySpec = select(['src/components/ui/button.tsx'])
@@ -353,10 +365,9 @@ describe('selectChangedSpecs', () => {
     expect(selectChangedSpecs(['src/lib/utils.ts'])).toEqual([])
   })
 
-  // `--project=deep` only matches `e2e/tests/**`. Passing it a smoke path
-  // filters every test out of the project, and Playwright exits non-zero with
-  // "no tests found" — a PR that touched only a smoke spec would red-wall.
-  it('ignores smoke specs the deep project cannot run', () => {
+  // The selective workflow does not run smoke projects. Passing it a smoke path
+  // filters every test out, and Playwright exits non-zero with "no tests found".
+  it('ignores smoke specs the selective projects cannot run', () => {
     expect(
       selectChangedSpecs([
         'e2e/smoke/landing.spec.ts',
