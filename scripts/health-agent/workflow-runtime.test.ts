@@ -1475,7 +1475,7 @@ describe("stale branch cleanup runtime", () => {
           HEALTH_AGENT_ENABLED: "true",
           HEALTH_AUTOFIX_ENABLED: "false",
           SENTRY_BASE_URL: "https://sentry.example",
-          SENTRY_RESOLVER_TOKEN: "resolver-token",
+          SENTRY_READ_TOKEN: "read-write-token",
         },
         fetchImplementation,
         files: {
@@ -1533,7 +1533,7 @@ describe("stale branch cleanup runtime", () => {
           HEALTH_AGENT_WRITER_TOKEN: "writer-token",
           NEXT_PUBLIC_SUPABASE_URL: "https://db.example",
           SENTRY_BASE_URL: "https://sentry.example",
-          SENTRY_RESOLVER_TOKEN: "resolver-token",
+          SENTRY_READ_TOKEN: "read-write-token",
         },
         fetchImplementation,
         files: {

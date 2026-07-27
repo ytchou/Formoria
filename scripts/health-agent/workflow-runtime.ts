@@ -2987,7 +2987,7 @@ export async function enqueueAndClaimWorkflowBatch(
           ),
           resolveToken: requiredEnvironment(
             environmentFor(dependencies),
-            "SENTRY_RESOLVER_TOKEN",
+            "SENTRY_READ_TOKEN",
           ),
           fetchImplementation: fetchFor(dependencies),
         },
