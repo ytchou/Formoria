@@ -68,7 +68,7 @@ describe('check-frontend-type-tokens', () => {
     writeFixture(
       cwd,
       'src/components/brands/share-dialog.tsx',
-      '<span className="text-[#07B53B] text-[#123456]" />',
+      '<span className="bg-[#06C755] text-[#123456]" />',
     )
 
     expect(collectFrontendTokenFailures({ cwd })).toEqual([

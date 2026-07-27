@@ -13,8 +13,22 @@ const allowedMatches = [
   },
   {
     file: 'src/components/brands/share-dialog.tsx',
-    names: ['raw hex color class', 'raw hex color literal'],
-    values: ['text-[#07B53B]', '#07B53B', 'text-[#1877F2]', '#1877F2'],
+    names: [
+      'raw hex color class',
+      'raw hex color literal',
+      'arbitrary numeric text size',
+    ],
+    values: [
+      'bg-[#06C755]',
+      '#06C755',
+      'bg-[#1877F2]',
+      '#1877F2',
+      '#FDF497',
+      '#FD5949',
+      '#D6249F',
+      '#285AEB',
+      'text-[13px]',
+    ],
   },
   {
     file: 'src/components/brands/brand-links.tsx',

@@ -17,6 +17,8 @@ interface BrandActionsProps {
   brandSlug?: string
   brandId?: string
   brandName: string
+  brandImageUrl?: string
+  categoryLabel?: string | null
 }
 
 export function BrandActions({
@@ -25,6 +27,8 @@ export function BrandActions({
   brandSlug = '',
   brandId,
   brandName,
+  brandImageUrl,
+  categoryLabel,
 }: BrandActionsProps) {
   const t = useTranslations('brandDetail')
   const handleWebsiteClick = () => {
@@ -59,7 +63,13 @@ export function BrandActions({
           </span>
         )}
         <div className="flex flex-wrap gap-2">
-          <ShareDialog brandSlug={brandSlug} brandName={brandName} brandId={brandId} />
+          <ShareDialog
+            brandSlug={brandSlug}
+            brandName={brandName}
+            brandId={brandId}
+            brandImageUrl={brandImageUrl}
+            categoryLabel={categoryLabel}
+          />
           {brandId && <LikeBrandButton brandId={brandId} slug={brandSlug} />}
           {brandId && <SaveBrandButton brandId={brandId} slug={brandSlug} variant="inline" className="rounded-xl" />}
           {brandId && <EvidenceDialog brandId={brandId} brandSlug={brandSlug} />}

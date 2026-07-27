@@ -306,6 +306,8 @@ export default async function BrandDetailPage({ params }: PageProps) {
                     brandSlug={displayBrand.slug}
                     brandId={displayBrand.id}
                     brandName={displayBrand.name}
+                    brandImageUrl={displayBrand.heroImageUrl ?? undefined}
+                    categoryLabel={categoryLabel || null}
                   />
                 </SavedBrandsProvider>
               }
