@@ -166,7 +166,7 @@ test.describe('Brand detail — brand without links', () => {
     await seeded.cleanup();
   });
 
-  test('no dangling social/purchase section headings when brand has no links', async ({ page }) => {
+  test('social section is hidden and purchase section shows its empty prompt when brand has no links', async ({ page }) => {
     test.setTimeout(90_000);
 
     // ISR pages may serve a stale cache — poll-reload until the seeded brand page renders
@@ -177,9 +177,19 @@ test.describe('Brand detail — brand without links', () => {
       });
     }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 10_000] });
 
-    // With no links seeded, neither section label may dangle without content
+    // The social section has no empty state, so its label must not dangle without content.
     await expect(page.getByRole('heading', { name: '社群平台', level: 2 })).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: '購買管道', level: 2 })).toHaveCount(0);
+
+    // The purchase section deliberately stays rendered when empty: it carries the
+    // "provide a purchase link" correction trigger, so the heading is accompanied by
+    // an explicit empty message rather than dangling.
+    await expect(page.getByRole('heading', { name: '購買管道', level: 2 })).toHaveCount(1);
+    await expect(
+      page.getByText('目前還沒有購買連結，歡迎協助補充。'),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: '提供購買連結' }),
+    ).toBeVisible();
   });
 });
 
