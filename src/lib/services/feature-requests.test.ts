@@ -56,9 +56,9 @@ describe("rowToFeatureRequest", () => {
 
       expect(keys).not.toContain("submittedBy");
       expect(keys).not.toContain("submitted_by");
-      expect(JSON.stringify(projected)).not.toContain(
-        String(input.submitted_by),
-      );
+      if (input.submitted_by) {
+        expect(JSON.stringify(projected)).not.toContain(input.submitted_by);
+      }
       expect(projected.voteCount).toBe(3);
     }
   });
