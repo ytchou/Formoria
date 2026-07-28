@@ -2205,7 +2205,8 @@
         "newsletter": "Newsletter",
         "scripts": "Scripts",
         "settings": "Settings",
-        "corrections": "Corrections"
+        "corrections": "Corrections",
+        "featureRequests": "Feature Requests"
       }
     },
     "dashboard": {

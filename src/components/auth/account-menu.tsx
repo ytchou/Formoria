@@ -9,7 +9,6 @@ import { localizePath, signInHref } from '@/i18n/locale-preference'
 import { signOut } from '@/app/auth/actions'
 import { setLocalePreference } from '@/app/actions/locale-preference'
 import { useUser } from '@/lib/auth/use-user'
-import { FEEDBACK_FORM_URL } from '@/lib/constants'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -82,7 +81,7 @@ export function AccountMenu() {
           {t('account.mySubmissions')}
         </DropdownMenuItem>
         <DropdownMenuItem
-          render={<a href={FEEDBACK_FORM_URL} target="_blank" rel="noopener noreferrer" />}
+          render={<Link href="/feedback" />}
         >
           {t('account.feedback')}
         </DropdownMenuItem>

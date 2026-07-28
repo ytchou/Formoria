@@ -2205,7 +2205,8 @@
         "newsletter": "電子報",
         "scripts": "工具",
         "settings": "設定",
-        "corrections": "資料修正"
+        "corrections": "資料修正",
+        "featureRequests": "功能許願"
       }
     },
     "dashboard": {
