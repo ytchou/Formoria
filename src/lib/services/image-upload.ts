@@ -56,16 +56,6 @@ export function storageKeyFromPublicUrl(url: string): string | null {
   return key
 }
 
-export function diffRemovedImageUrls(
-  prev: string[] | null | undefined,
-  next: string[] | null | undefined
-): string[] {
-  const prevUrls = prev ?? []
-  const nextUrls = next ?? []
-
-  return prevUrls.filter((url) => !nextUrls.includes(url))
-}
-
 export async function deleteBrandImages(urls: string[]): Promise<void> {
   const keys = (urls ?? []).map(storageKeyFromPublicUrl).filter((key): key is string => Boolean(key))
 

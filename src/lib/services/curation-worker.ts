@@ -41,7 +41,7 @@ export async function runScheduledCuration(
   }
 }
 
-export function getTaipeiScheduleSlot(now: Date): Date {
+function getTaipeiScheduleSlot(now: Date): Date {
   const taipeiTime = new Date(now.getTime() + TAIPEI_OFFSET_MS);
   const slotHour =
     Math.floor(taipeiTime.getUTCHours() / SCHEDULE_INTERVAL_HOURS) *

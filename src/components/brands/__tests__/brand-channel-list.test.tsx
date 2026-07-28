@@ -106,11 +106,11 @@ describe("BrandChannelList", () => {
     mocks.ownerModerateChannelAction.mockResolvedValue({ success: true });
   });
 
-  it("renders a flat row list without group headings below four channels", () => {
+  it("renders a flat chip list without group headings below four channels", () => {
     const { container } = renderList({ possible: makeChannels(3) });
 
-    expect(container.querySelectorAll("[data-channel-row]")).toHaveLength(3);
-    expect(container.querySelectorAll("[data-channel-chip]")).toHaveLength(0);
+    expect(container.querySelectorAll("[data-channel-chip]")).toHaveLength(3);
+    expect(container.querySelectorAll("[data-channel-row]")).toHaveLength(0);
     expect(screen.queryByRole("heading", { level: 3 })).not.toBeInTheDocument();
   });
 
@@ -136,17 +136,14 @@ describe("BrandChannelList", () => {
       screen.getByRole("heading", { level: 3, name: "官方通路 (1)" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { level: 3, name: "可造訪門市 (1)" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { level: 3, name: "連鎖與其他門市 (1)" }),
+      screen.getByRole("heading", { level: 3, name: "實體通路 (2)" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { level: 3, name: "線上通路 (1)" }),
     ).toBeInTheDocument();
   });
 
-  it("renders addressless channels as chips and addressed ones as rows", () => {
+  it("renders addressed and addressless physical retailers as one chip group", () => {
     const address = "台北市信義區信義路五段 7 號";
     const { container } = renderList({
       possible: [
@@ -155,9 +152,9 @@ describe("BrandChannelList", () => {
       ],
     });
 
-    expect(getChip(container, "測試通路 2")).toBeInTheDocument();
-    expect(container.querySelectorAll("[data-channel-chip]")).toHaveLength(3);
-    expect(container.querySelectorAll("[data-channel-row]")).toHaveLength(1);
+    expect(getChip(container, "有地址門市")).toBeInTheDocument();
+    expect(container.querySelectorAll("[data-channel-chip]")).toHaveLength(4);
+    expect(container.querySelectorAll("[data-channel-row]")).toHaveLength(0);
     expect(screen.getByRole("link", { name: "臺北市" })).toHaveAttribute(
       "href",
       `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`,
@@ -181,7 +178,7 @@ describe("BrandChannelList", () => {
     );
   });
 
-  it("keeps unconfirmed rows in the DOM inside a collapsed fold when confirmed channels exist", () => {
+  it("shows unconfirmed physical retailers as chips without a collapsed fold", () => {
     const { container } = renderList({
       confirmed: [
         makeChannel(1, {
@@ -196,23 +193,11 @@ describe("BrandChannelList", () => {
       possible: makeChannels(3, { address: "台中市西區" }),
     });
 
-    const fold = container.querySelector("details");
-    expect(fold).not.toBeNull();
-    expect(fold).not.toHaveAttribute("open");
+    expect(container.querySelector("details")).not.toBeInTheDocument();
+    expect(container.querySelectorAll("[data-channel-chip]")).toHaveLength(3);
     expect(
-      within(fold as HTMLElement).getAllByText(/測試通路/),
-    ).not.toHaveLength(0);
-    expect(
-      screen.getByText("3 個社群提供的通路待確認"),
-    ).toBeInTheDocument();
-  });
-
-  it("expands the fold when there is nothing confirmed yet", () => {
-    const { container } = renderList({
-      possible: makeChannels(4, { address: "台中市西區" }),
-    });
-
-    expect(container.querySelector("details")).toHaveAttribute("open");
+      screen.queryByText("3 個社群提供的通路待確認"),
+    ).not.toBeInTheDocument();
   });
 
   it("shows a shared sign-in prompt below the chip group for anonymous viewers", async () => {
@@ -304,35 +289,6 @@ describe("BrandChannelList", () => {
 
     await waitFor(() => {
       expect(chip).not.toHaveAttribute("data-confirm-pending");
-    });
-  });
-
-  it("marks the pending row while the confirm round-trip is in flight", async () => {
-    let settleConfirm: (result: { confirmationCount: number }) => void = () => {};
-    mocks.confirmChannelAction.mockImplementation(
-      () =>
-        new Promise<{ confirmationCount: number }>((resolve) => {
-          settleConfirm = resolve;
-        }),
-    );
-    const user = userEvent.setup();
-    const { container } = renderList({ possible: makeChannels(3) });
-
-    const rows = container.querySelectorAll<HTMLElement>("[data-channel-row]");
-    const firstRow = rows[0] as HTMLElement;
-    expect(firstRow).not.toHaveAttribute("data-confirm-pending");
-
-    await user.click(
-      within(firstRow).getByRole("button", { name: "我確認這裡有販售" }),
-    );
-
-    expect(firstRow).toHaveAttribute("data-confirm-pending", "");
-    expect(rows[1]).not.toHaveAttribute("data-confirm-pending");
-
-    settleConfirm({ confirmationCount: 1 });
-
-    await waitFor(() => {
-      expect(firstRow).not.toHaveAttribute("data-confirm-pending");
     });
   });
 

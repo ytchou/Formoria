@@ -87,7 +87,7 @@ describe('ReportDialog', () => {
     expect(screen.queryByRole('button', { name: /非台灣製造/ })).not.toBeInTheDocument()
   })
 
-  it('links MIT disputes into the evidence flow', async () => {
+  it('routes MIT disputes into the evidence flow', async () => {
     const user = userEvent.setup()
     const handleEvidenceClick = vi.fn()
     renderWithIntl(
@@ -105,12 +105,7 @@ describe('ReportDialog', () => {
     await user.click(screen.getByRole('button', { name: /檢舉/i }))
 
     expect(screen.getByText(/產地資訊/)).toBeInTheDocument()
-    const evidenceLink = screen.getByRole('link', { name: /產地資訊/ })
-    expect(evidenceLink).toHaveAttribute(
-      'href',
-      '/brands/test-brand',
-    )
-    await user.click(evidenceLink)
+    await user.click(screen.getByRole('button', { name: /產地資訊/ }))
 
     await waitFor(() => expect(handleEvidenceClick).toHaveBeenCalledOnce())
   })

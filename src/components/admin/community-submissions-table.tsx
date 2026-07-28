@@ -13,6 +13,7 @@ import { SurfaceCard } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 import {
   Table,
   TableBody,
@@ -34,10 +35,13 @@ type EditableRow = CommunitySubmissionDraft & {
   selected: boolean;
 };
 
+type StatusFilter = "all" | ReturnType<typeof getRowStatus>;
+
 export function CommunitySubmissionsTable() {
   const idBase = useId();
   const [rows, setRows] = useState<EditableRow[]>([]);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -83,7 +87,10 @@ export function CommunitySubmissionsTable() {
           setError("CSV did not contain any brand entries");
           return;
         }
-        if (await previewDrafts(result.rows)) setFileName(file.name);
+        if (await previewDrafts(result.rows)) {
+          setFileName(file.name);
+          setStatusFilter("all");
+        }
       });
     } catch {
       setError("Unable to read CSV file");
@@ -147,9 +154,32 @@ export function CommunitySubmissionsTable() {
   const selectedCount = rows.filter(
     (row) => row.selected && isSelectable(row),
   ).length;
+  const filteredRows = rows.filter(
+    (row) => statusFilter === "all" || getRowStatus(row) === statusFilter,
+  );
+  const selectableFilteredRows = filteredRows.filter(isSelectable);
+  const selectedFilteredCount = selectableFilteredRows.filter(
+    (row) => row.selected,
+  ).length;
+  const allFilteredSelected =
+    selectableFilteredRows.length > 0 &&
+    selectedFilteredCount === selectableFilteredRows.length;
+  const someFilteredSelected =
+    selectedFilteredCount > 0 && !allFilteredSelected;
   const hasRetry = rows.some(
     (row) => row.selected && row.result?.status === "failed",
   );
+
+  function toggleSelectAllFiltered() {
+    const filteredIds = new Set(selectableFilteredRows.map((row) => row.id));
+    setRows((current) =>
+      current.map((row) =>
+        filteredIds.has(row.id)
+          ? { ...row, selected: !allFilteredSelected }
+          : row,
+      ),
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -208,26 +238,64 @@ export function CommunitySubmissionsTable() {
             <div>
               <h2 className="type-section-title">Review import</h2>
               <p className="mt-1 type-card-description">
-                {rows.length} rows · {selectedCount} selected. Similar matches
-                require an explicit selection.
+                Showing {filteredRows.length} of {rows.length} rows ·{" "}
+                {selectedCount} selected. Similar matches require an explicit
+                selection.
               </p>
             </div>
-            <Button
-              type="button"
-              className="min-h-12"
-              disabled={isPending || selectedCount === 0}
-              onClick={executeRows}
-            >
-              {hasRetry
-                ? `Retry ${selectedCount} selected`
-                : `Import ${selectedCount} selected`}
-            </Button>
+            <div className="flex w-full flex-wrap items-end gap-3 sm:w-auto">
+              <div className="min-w-56 flex-1 space-y-1 sm:flex-none">
+                <Label htmlFor={`${idBase}-status-filter`}>Status</Label>
+                <NativeSelect
+                  id={`${idBase}-status-filter`}
+                  value={statusFilter}
+                  disabled={isPending}
+                  onChange={(event) =>
+                    setStatusFilter(event.currentTarget.value as StatusFilter)
+                  }
+                >
+                  <option value="all">All statuses</option>
+                  <option value="ready">Ready</option>
+                  <option value="similar">Similar</option>
+                  <option value="duplicate">Exact duplicate</option>
+                  <option value="invalid">Invalid</option>
+                  <option value="edited">Edited</option>
+                  <option value="created">Done</option>
+                  <option value="skipped_duplicate">Skipped duplicate</option>
+                  <option value="failed">Failed</option>
+                </NativeSelect>
+              </div>
+              <Button
+                type="button"
+                className="min-h-12"
+                disabled={isPending || selectedCount === 0}
+                onClick={executeRows}
+              >
+                {hasRetry
+                  ? `Retry ${selectedCount} selected`
+                  : `Import ${selectedCount} selected`}
+              </Button>
+            </div>
           </div>
           <SurfaceCard padding="none" className="overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-14">Import</TableHead>
+                  <TableHead className="w-14">
+                    <Label
+                      htmlFor={`${idBase}-select-all`}
+                      className="flex min-h-12 min-w-12 cursor-pointer items-center"
+                    >
+                      <Checkbox
+                        id={`${idBase}-select-all`}
+                        aria-label="Select all filtered rows"
+                        checked={allFilteredSelected}
+                        indeterminate={someFilteredSelected}
+                        disabled={isPending || selectableFilteredRows.length === 0}
+                        onCheckedChange={toggleSelectAllFiltered}
+                      />
+                    </Label>
+                  </TableHead>
                   <TableHead>Brand name</TableHead>
                   <TableHead>Official website</TableHead>
                   <TableHead>Status</TableHead>
@@ -235,7 +303,7 @@ export function CommunitySubmissionsTable() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((row, index) => {
+                {filteredRows.map((row, index) => {
                   const selectable = isSelectable(row);
                   const checkboxId = `${idBase}-select-${index}`;
                   return (
@@ -307,6 +375,16 @@ export function CommunitySubmissionsTable() {
                     </TableRow>
                   );
                 })}
+                {filteredRows.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={5}
+                      className="py-12 text-center type-card-description"
+                    >
+                      No rows match this status.
+                    </TableCell>
+                  </TableRow>
+                ) : null}
               </TableBody>
             </Table>
           </SurfaceCard>
@@ -357,6 +435,12 @@ function RowStatus({ row }: { row: EditableRow }) {
       ) : null}
     </div>
   );
+}
+
+function getRowStatus(row: EditableRow) {
+  if (row.result) return row.result.status;
+  if (!row.preview) return "edited";
+  return row.preview.status;
 }
 
 function toDrafts(rows: EditableRow[]): CommunitySubmissionDraft[] {

@@ -100,7 +100,7 @@ const SAFE_RUN_IDENTITY = /^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,127}$/;
 const MAX_WORKFLOW_ATTEMPT = 1_000_000;
 
 // These names are the public contract created by the health-agent foundation migration.
-export const RUN_LEDGER_RPC_NAMES = {
+const RUN_LEDGER_RPC_NAMES = {
   claim: "claim_health_agent_run",
   complete: "complete_health_agent_run",
   fail: "fail_health_agent_run",

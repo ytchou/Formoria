@@ -55,7 +55,7 @@ function parseCsvLine(line: string): string[] {
   return fields
 }
 
-export function parseMitCsv(csvContent: string): MitRegistryRecord[] {
+function parseMitCsv(csvContent: string): MitRegistryRecord[] {
   if (!csvContent.trim()) return []
 
   const lines = csvContent.split('\n').filter((line) => line.trim())

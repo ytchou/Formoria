@@ -38,14 +38,14 @@ type ImageClassificationTag =
   | 'text_banner'
   | 'irrelevant'
 
-export type ParsedImageClassification = {
+type ParsedImageClassification = {
   tag: ImageClassificationTag
   score: number
   altZh: string
   altEn: string
 }
 
-export type ClassifiedImage = {
+type ClassifiedImage = {
   id: string
   tag: ImageClassificationTag
   score: number
@@ -106,33 +106,6 @@ type ClassifyImagesClient = {
   from(table: 'brand_images' | 'submission_images'): BrandImagesTable
 }
 
-function normalizeLooseJson(content: string): string | null {
-  const trimmed = content.trim()
-  if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return null
-
-  const entries = trimmed.slice(1, -1).split(',')
-  const normalized = entries.map((entry) => {
-    const separator = entry.indexOf(':')
-    if (separator === -1) return null
-
-    const key = entry.slice(0, separator).trim()
-    const value = entry.slice(separator + 1).trim()
-    if (!key || !value) return null
-
-    const jsonKey = JSON.stringify(key.replace(/^["']|["']$/g, ''))
-    const numericValue = Number(value)
-    const jsonValue = Number.isFinite(numericValue)
-      ? String(numericValue)
-      : JSON.stringify(value.replace(/^["']|["']$/g, ''))
-
-    return `${jsonKey}:${jsonValue}`
-  })
-
-  if (normalized.some((entry) => entry === null)) return null
-
-  return `{${normalized.join(',')}}`
-}
-
 function isImageClassificationTag(value: unknown): value is ImageClassificationTag {
   return typeof value === 'string' && VALID_TAGS.has(value)
 }
@@ -157,31 +130,6 @@ function classifiedImageFromRow(row: BrandImageForClassification): ClassifiedIma
   }
 }
 
-export function parseClassification(responseText: string): ParsedImageClassification | null {
-  type RawClassification = {
-    tag?: unknown
-    score?: unknown
-    alt_zh?: unknown
-    alt_en?: unknown
-  }
-
-  const normalized = normalizeLooseJson(responseText)
-  const raw = parseJson<RawClassification>(responseText)
-    ?? (normalized ? parseJson<RawClassification>(normalized) : null)
-
-  if (!raw || !isImageClassificationTag(raw.tag)) return null
-
-  const score = typeof raw.score === 'number' ? raw.score : Number(raw.score)
-  if (!Number.isFinite(score)) return null
-
-  return {
-    tag: raw.tag,
-    score: Math.max(0, Math.min(100, Math.round(score))),
-    altZh: typeof raw.alt_zh === 'string' ? localizeToTW(raw.alt_zh).text : '',
-    altEn: typeof raw.alt_en === 'string' ? raw.alt_en : '',
-  }
-}
-
 function extractArray(raw: unknown): unknown[] | null {
   if (Array.isArray(raw)) return raw
   if (raw && typeof raw === 'object') {
@@ -194,7 +142,7 @@ function extractArray(raw: unknown): unknown[] | null {
   return null
 }
 
-export function parseClassificationBatch(
+function parseClassificationBatch(
   responseText: string,
   count: number
 ): (ParsedImageClassification | null)[] {
@@ -222,7 +170,7 @@ export function parseClassificationBatch(
   })
 }
 
-export function applyClassifications(images: ImageClassificationInput[]): {
+function applyClassifications(images: ImageClassificationInput[]): {
   rejectedIds: string[]
   rejectedUpdates: Array<{
     id: string
@@ -255,7 +203,7 @@ function classifyImagesClient(supabase: unknown): ClassifyImagesClient {
   return supabase as ClassifyImagesClient
 }
 
-export async function getUnclassifiedImages(
+async function getUnclassifiedImages(
   supabase: unknown,
   target: EnrichmentTarget
 ): Promise<BrandImageForClassification[]> {
@@ -304,7 +252,7 @@ async function updateImage(
   if (error) throw error
 }
 
-export async function resetImageTags(
+async function resetImageTags(
   supabase: unknown,
   target: EnrichmentTarget
 ): Promise<number> {

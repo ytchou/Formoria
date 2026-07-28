@@ -182,13 +182,6 @@ export type SearchBrandAutocompleteResult = {
   category: string
 }
 
-export type SimilarBrand = {
-  inputName: string
-  brandName: string
-  brandSlug: string
-  score: number
-}
-
 // ---------------------------------------------------------------------------
 // Slug generation
 // ---------------------------------------------------------------------------
@@ -966,7 +959,7 @@ export async function getSubcategoryCounts(categorySlug: string): Promise<Map<st
 
 export const EXPLORE_BRAND_LIMIT = 12
 
-export function selectCategoryBalancedBrands(
+function selectCategoryBalancedBrands(
   brands: Brand[],
   categorySlugs: readonly string[],
   limit = categorySlugs.length,
@@ -1173,16 +1166,6 @@ export async function updateBrand(
   }
 }
 
-export async function dismissOnboardingWelcome(brandId: string): Promise<void> {
-  const supabase = createServiceClient()
-  const { error } = await supabase
-    .from('brands')
-    .update({ onboarding_dismissed_at: new Date().toISOString() })
-    .eq('id', brandId)
-
-  if (error) throw error
-}
-
 export async function saveDraft(brandId: string, data: Partial<Brand>): Promise<void> {
   const supabase = createServiceClient()
   const { error, count } = await supabase
@@ -1256,30 +1239,6 @@ export async function publishDraft(brandId: string): Promise<Brand> {
   if (count === 0) throw new NotFoundError('Brand', brandId)
 
   return published
-}
-
-export async function discardDraft(
-  brandId: string,
-): Promise<{ snapshot: Record<string, unknown> | null }> {
-  const supabase = createServiceClient()
-  const { data, error } = await supabase
-    .from('brands')
-    .select('draft_data')
-    .eq('id', brandId)
-    .maybeSingle()
-
-  if (error) throw error
-
-  const snapshot = draftDataToSnapshot(data?.draft_data ?? null)
-  const { error: clearError, count } = await supabase
-    .from('brands')
-    .update({ draft_data: null, draft_updated_at: null }, { count: 'exact' })
-    .eq('id', brandId)
-
-  if (clearError) throw clearError
-  if (count === 0) throw new NotFoundError('Brand', brandId)
-
-  return { snapshot }
 }
 
 export async function deleteBrand(id: string): Promise<void> {
@@ -1546,29 +1505,6 @@ export async function completeBrandClaim({
     .eq('id', brandId)
 
   if (updateError) throw updateError
-}
-
-export async function findSimilarBrands(names: string[]): Promise<SimilarBrand[]> {
-  if (names.length === 0) return []
-
-  const supabase = createServiceClient()
-  const { data, error } = await supabase.rpc('find_similar_brands', {
-    p_names: names,
-    p_threshold: 0.3,
-  })
-  if (error) throw new Error(`findSimilarBrands: ${error.message}`)
-
-  return (data ?? []).map((row: {
-    input_name: string
-    brand_name: string
-    brand_slug: string
-    similarity_score: number
-  }) => ({
-    inputName: row.input_name,
-    brandName: row.brand_name,
-    brandSlug: row.brand_slug,
-    score: row.similarity_score,
-  }))
 }
 
 export async function getRandomBrands(limit = 4): Promise<Brand[]> {

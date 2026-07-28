@@ -121,9 +121,13 @@ export function BrandHeader({
             labelClassName={infoLabelClassName}
             layout="stacked"
             value={
-              brand.foundingYear != null
-                ? t('foundingYear', { year: brand.foundingYear })
-                : unknownValue
+              brand.foundingYear != null ? (
+                <Badge className="text-foreground" variant="secondary">
+                  {brand.foundingYear}
+                </Badge>
+              ) : (
+                unknownValue
+              )
             }
           />
           <InfoField

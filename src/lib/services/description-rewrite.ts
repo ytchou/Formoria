@@ -51,7 +51,7 @@ export type DescriptionRewriteResult = {
   rawResponse?: unknown
 }
 
-export type DescriptionAttemptInput = {
+type DescriptionAttemptInput = {
   brandName: string
   existingDescription: string | null
   snippets: string[]
