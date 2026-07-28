@@ -1465,6 +1465,85 @@ export type Database = {
         }
         Relationships: []
       }
+      feature_request_votes: {
+        Row: {
+          created_at: string
+          id: string
+          request_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          request_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          request_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feature_request_votes_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "feature_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feature_requests: {
+        Row: {
+          admin_note: string | null
+          body: string | null
+          category: string
+          created_at: string
+          id: string
+          is_seed: boolean
+          merged_into_id: string | null
+          status: string
+          submitted_by: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          admin_note?: string | null
+          body?: string | null
+          category: string
+          created_at?: string
+          id?: string
+          is_seed?: boolean
+          merged_into_id?: string | null
+          status?: string
+          submitted_by?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          admin_note?: string | null
+          body?: string | null
+          category?: string
+          created_at?: string
+          id?: string
+          is_seed?: boolean
+          merged_into_id?: string | null
+          status?: string
+          submitted_by?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feature_requests_merged_into_id_fkey"
+            columns: ["merged_into_id"]
+            isOneToOne: false
+            referencedRelation: "feature_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       health_agent_run_ledger: {
         Row: {
           claimed_at: string

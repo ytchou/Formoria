@@ -2205,7 +2205,8 @@
         "newsletter": "Newsletter",
         "scripts": "Scripts",
         "settings": "Settings",
-        "corrections": "Corrections"
+        "corrections": "Corrections",
+        "featureRequests": "Feature Requests"
       }
     },
     "dashboard": {
@@ -2621,6 +2622,42 @@
       "suggestedTags": "Suggested Tags",
       "approvalRequired": "Complete enrichment required before approval.",
       "notSet": "Not set"
+    },
+    "featureRequests": {
+      "title": "Feature requests",
+      "description": "Move requests through the board and fold duplicates into the request they belong to.",
+      "empty": "No feature requests yet.",
+      "table": {
+        "request": "Request",
+        "category": "Audience",
+        "votes": "Votes",
+        "status": "Status",
+        "merge": "Merge into"
+      },
+      "status": {
+        "open": "Open",
+        "planned": "Planned",
+        "in_progress": "In progress",
+        "shipped": "Shipped",
+        "declined": "Declined",
+        "duplicate": "Duplicate"
+      },
+      "category": {
+        "owner": "Brand owners",
+        "visitor": "Visitors"
+      },
+      "statusLabel": "Status for {title}",
+      "noteLabel": "Admin note for {title}",
+      "saveStatus": "Save status",
+      "mergeLabel": "Merge {title} into",
+      "mergeTargetNone": "Pick a target",
+      "mergeAction": "Merge",
+      "mergedInto": "Merged",
+      "toast": {
+        "statusSaved": "Status updated.",
+        "merged": "Requests merged.",
+        "error": "That didn't work. Please try again."
+      }
     }
   },
   "saveBrand": {
@@ -2695,6 +2732,67 @@
   "guideDetail": {
     "metadata": {
       "notFoundTitle": "Guide Not Found"
+    }
+  },
+  "feedback": {
+    "metadata": {
+      "title": "Feature requests",
+      "description": "Tell us what Formoria should build next, and upvote the ideas you want most."
+    },
+    "title": "Feature requests",
+    "description": "Tell us what Formoria should build next. Upvote an idea to move it up the board.",
+    "filters": {
+      "label": "Filter requests",
+      "all": "All",
+      "owner": "For brand owners",
+      "visitor": "For visitors"
+    },
+    "status": {
+      "open": "Open",
+      "planned": "Planned",
+      "in_progress": "In progress",
+      "shipped": "Shipped",
+      "declined": "Declined"
+    },
+    "upvote": {
+      "action": "Upvote {title}",
+      "remove": "Remove your upvote from {title}",
+      "signIn": "Sign in to upvote {title}",
+      "locked": "Sign in required",
+      "error": "We couldn't record your vote. Please try again.",
+      "rateLimited": "That's a lot of voting. Please wait a moment and try again."
+    },
+    "empty": {
+      "title": "No requests here yet",
+      "description": "Nothing has been requested in this category. Be the first to ask for something."
+    },
+    "submit": {
+      "trigger": "Request a feature",
+      "title": "Request a feature",
+      "description": "Describe what you want Formoria to do. We read every request.",
+      "titleLabel": "What should we build?",
+      "titleHint": "One sentence, 4 to 120 characters.",
+      "detailsLabel": "Any details? (optional)",
+      "detailsHint": "What are you trying to do, and what gets in the way?",
+      "categoryLabel": "Who is this for?",
+      "categoryOwner": "Brand owners",
+      "categoryVisitor": "Visitors browsing brands",
+      "anonymityDisclosure": "Your request is shown publicly without your name. We store your account so we can follow up with you about it.",
+      "idle": "Send request",
+      "submitting": "Sending",
+      "cancel": "Cancel",
+      "success": "Thanks — your request is on the board.",
+      "signInCta": "Sign in to send a request",
+      "errors": {
+        "title": "Give your request a title between 4 and 120 characters so others can find it.",
+        "unauthenticated": "Please sign in again, then resend your request.",
+        "invalid_input": "Shorten the title to 120 characters or fewer and try again.",
+        "rate_limited": "You've sent a few requests already. Please try again in an hour.",
+        "not_found": "That request no longer exists. Reload the board and try again.",
+        "merged": "That request was merged into another one. Reload the board to find it.",
+        "already_submitted": "You've already asked for this. Upvote the existing request instead.",
+        "unavailable": "We couldn't send your request. Please try again in a moment."
+      }
     }
   }
 }

@@ -1,6 +1,6 @@
 import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
-import { CONTACT_EMAILS, FEEDBACK_FORM_URL } from '@/lib/constants'
+import { CONTACT_EMAILS } from '@/lib/constants'
 import { LocaleSwitcher } from '@/components/i18n/locale-switcher'
 
 export function Footer() {
@@ -137,14 +137,13 @@ export function Footer() {
                 </a>
               </li>
               <li>
-                <a
-                  href={FEEDBACK_FORM_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <Link
+                  href="/feedback"
+                  prefetch={false}
                   className="type-card-description hover:text-foreground transition-colors"
                 >
                   {t('feedback')}
-                </a>
+                </Link>
               </li>
             </ul>
           </div>

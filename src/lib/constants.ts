@@ -6,5 +6,3 @@ export const CONTACT_EMAILS = {
 
 // Official Formoria social handles (full URLs) for structured data sameAs.
 export const FORMORIA_SOCIALS: string[] = []
-
-export const FEEDBACK_FORM_URL = 'https://tally.so/r/obxKyN'

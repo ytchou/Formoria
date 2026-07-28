@@ -611,3 +611,17 @@ export function trackApiErrorShown(endpoint: string, statusCode: number, userAct
     user_action: userAction,
   })
 }
+
+export function trackFeatureRequestSubmitted(requestId: string, category: string) {
+  capturePostHogEvent('feature_request_submitted', {
+    request_id: requestId,
+    category,
+  })
+}
+
+export function trackFeatureRequestVoted(requestId: string, voted: boolean) {
+  capturePostHogEvent('feature_request_voted', {
+    request_id: requestId,
+    voted,
+  })
+}

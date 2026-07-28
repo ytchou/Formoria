@@ -2205,7 +2205,8 @@
         "newsletter": "電子報",
         "scripts": "工具",
         "settings": "設定",
-        "corrections": "資料修正"
+        "corrections": "資料修正",
+        "featureRequests": "功能許願"
       }
     },
     "dashboard": {
@@ -2621,6 +2622,42 @@
       "suggestedTags": "建議標籤",
       "approvalRequired": "需完成資料抓取才可核准。",
       "notSet": "未設定"
+    },
+    "featureRequests": {
+      "title": "功能許願",
+      "description": "調整許願的狀態，並把重複的許願併入正確的那一則。",
+      "empty": "目前沒有任何功能許願。",
+      "table": {
+        "request": "許願",
+        "category": "對象",
+        "votes": "票數",
+        "status": "狀態",
+        "merge": "併入"
+      },
+      "status": {
+        "open": "待評估",
+        "planned": "已排入規劃",
+        "in_progress": "進行中",
+        "shipped": "已上線",
+        "declined": "不會做",
+        "duplicate": "重複"
+      },
+      "category": {
+        "owner": "品牌方",
+        "visitor": "訪客"
+      },
+      "statusLabel": "「{title}」的狀態",
+      "noteLabel": "「{title}」的管理備註",
+      "saveStatus": "儲存狀態",
+      "mergeLabel": "把「{title}」併入",
+      "mergeTargetNone": "選擇目標",
+      "mergeAction": "合併",
+      "mergedInto": "已合併",
+      "toast": {
+        "statusSaved": "狀態已更新。",
+        "merged": "許願已合併。",
+        "error": "操作失敗，請再試一次。"
+      }
     }
   },
   "saveBrand": {
@@ -2695,6 +2732,67 @@
   "guideDetail": {
     "metadata": {
       "notFoundTitle": "找不到指南"
+    }
+  },
+  "feedback": {
+    "metadata": {
+      "title": "功能許願板",
+      "description": "告訴我們 Formoria 接下來該做什麼，並為你最想要的點子投票。"
+    },
+    "title": "功能許願板",
+    "description": "告訴我們 Formoria 接下來該做什麼。為點子投票，就能把它往上推。",
+    "filters": {
+      "label": "篩選許願",
+      "all": "全部",
+      "owner": "給品牌方",
+      "visitor": "給瀏覽者"
+    },
+    "status": {
+      "open": "待評估",
+      "planned": "已排入規劃",
+      "in_progress": "進行中",
+      "shipped": "已上線",
+      "declined": "不會做"
+    },
+    "upvote": {
+      "action": "為「{title}」投票",
+      "remove": "收回對「{title}」的投票",
+      "signIn": "登入後為「{title}」投票",
+      "locked": "需要登入",
+      "error": "無法記錄你的投票，請再試一次。",
+      "rateLimited": "投票次數過多，請稍候再試。"
+    },
+    "empty": {
+      "title": "這裡還沒有許願",
+      "description": "這個分類目前沒有任何許願，成為第一個提出的人吧。"
+    },
+    "submit": {
+      "trigger": "提出許願",
+      "title": "提出許願",
+      "description": "描述你希望 Formoria 能做到什麼，我們會讀過每一則許願。",
+      "titleLabel": "你希望我們做什麼？",
+      "titleHint": "一句話，4 到 120 個字。",
+      "detailsLabel": "想補充什麼嗎？（選填）",
+      "detailsHint": "你想完成什麼事？目前卡在哪裡？",
+      "categoryLabel": "這是給誰用的？",
+      "categoryOwner": "品牌方",
+      "categoryVisitor": "瀏覽品牌的訪客",
+      "anonymityDisclosure": "你的許願會以不具名的方式公開顯示。我們會保留你的帳號，以便後續與你聯繫。",
+      "idle": "送出許願",
+      "submitting": "送出中",
+      "cancel": "取消",
+      "success": "謝謝你，許願已經上板了。",
+      "signInCta": "登入後提出許願",
+      "errors": {
+        "title": "請把標題控制在 4 到 120 個字，讓其他人更容易找到。",
+        "unauthenticated": "請重新登入後再送出一次。",
+        "invalid_input": "請將標題縮短到 120 個字以內再試一次。",
+        "rate_limited": "你已經送出好幾則許願了，請一小時後再試。",
+        "not_found": "找不到這則許願，請重新整理後再試。",
+        "merged": "這則許願已被合併到另一則，請重新整理後查看。",
+        "already_submitted": "你已經許過這個願了，請直接為既有的那則投票。",
+        "unavailable": "無法送出許願，請稍候再試。"
+      }
     }
   }
 }
