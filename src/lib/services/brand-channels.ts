@@ -60,11 +60,6 @@ export type EnrichedChannelsResult =
   | { ok: true; count: number }
   | { ok: false; code: 'database_error' | 'invalid_name' }
 
-export type DuplicateCollision = {
-  normalizedName: string
-  channelIds: string[]
-}
-
 type ConfirmationEmbed = {
   count?: number
   user_id?: string
@@ -279,21 +274,6 @@ export async function confirmChannel(
   return countConfirmations(channelId)
 }
 
-export async function unconfirmChannel(
-  userId: string,
-  channelId: string,
-): Promise<number> {
-  const supabase = createServiceClient()
-  const { error } = await supabase
-    .from('brand_channel_confirmations')
-    .delete()
-    .eq('channel_id', channelId)
-    .eq('user_id', userId)
-
-  if (error) throw error
-  return countConfirmations(channelId)
-}
-
 export async function submitChannel(
   userId: string,
   brandId: string,
@@ -478,39 +458,4 @@ export async function upsertEnrichedChannels(
         ? data.length
         : rows.length
   return { ok: true, count }
-}
-
-export async function findDuplicateCollisions(
-  brandId: string,
-): Promise<DuplicateCollision[]> {
-  const supabase = createServiceClient()
-  const { data, error } = await supabase
-    .from('brand_channels')
-    .select('id, name, removed_at, owner_status')
-    .eq('brand_id', brandId)
-    .is('removed_at', null)
-    .neq('owner_status', 'rejected')
-
-  if (error) throw error
-
-  const rows = (data ?? []) as Array<{
-    id: string
-    name: string
-    removed_at: string | null
-    owner_status: string
-  }>
-  const channelsByNormalizedName = new Map<string, string[]>()
-  for (const row of rows.filter(
-    (candidate) =>
-      candidate.removed_at === null && candidate.owner_status !== 'rejected',
-  )) {
-    const normalizedName = normalizeChannelName(row.name)
-    const channelIds = channelsByNormalizedName.get(normalizedName) ?? []
-    channelIds.push(row.id)
-    channelsByNormalizedName.set(normalizedName, channelIds)
-  }
-
-  return [...channelsByNormalizedName.entries()]
-    .filter(([, channelIds]) => channelIds.length >= 2)
-    .map(([normalizedName, channelIds]) => ({ normalizedName, channelIds }))
 }

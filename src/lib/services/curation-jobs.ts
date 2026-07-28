@@ -715,7 +715,7 @@ async function resolveSubmissionTargets(
   return uniqueTargets;
 }
 
-export function isScheduledSubmissionEligible(input: {
+function isScheduledSubmissionEligible(input: {
   intent: string;
   complete: boolean;
   targetStatuses: string[];

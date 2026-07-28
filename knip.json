@@ -11,9 +11,11 @@
     "emails/**/*.{ts,tsx}"
   ],
   "ignoreDependencies": ["tw-animate-css", "tailwindcss", "shadcn", "@react-email/ui"],
+  "ignoreBinaries": ["lsof"],
   "ignore": [
     "src/lib/supabase/database.types.ts",
-    "src/lib/logger.ts"
+    "src/lib/logger.ts",
+    "scripts/threads-scraper/.venv/**"
   ],
   "ignoreIssues": {
     "src/components/ui/card.tsx": ["exports"],

@@ -274,7 +274,7 @@ export function buildSubmissionRecord(
 // Mappers
 // ---------------------------------------------------------------------------
 
-export function submissionToDomain(
+function submissionToDomain(
   row: SubmissionRowInput,
 ): BrandSubmissionWithProductTypeNote {
   return {
@@ -313,7 +313,7 @@ export function submissionToDomain(
   };
 }
 
-export function submissionToInsert(
+function submissionToInsert(
   data: Partial<Omit<BrandSubmission, "suggestedTags">> & {
     romanizedName?: string | null;
     websiteUrl?: string | null;
@@ -1064,44 +1064,6 @@ export async function getApprovedOwnerSubmissionRecipients(
   return recipients;
 }
 
-const ADMIN_SUBMISSIONS_SELECT = `
-  id,
-  base_brand_data,
-  base_brand_updated_at,
-  brand_id,
-  brand_name,
-  submitter_email,
-  submitter_name,
-  description,
-  website_url,
-  hero_image_url,
-  social_instagram,
-  social_threads,
-  social_facebook,
-  purchase_website,
-  purchase_pinkoi,
-  purchase_shopee,
-  other_urls,
-  suggested_tags,
-  status,
-  reviewer_notes,
-  submitted_at,
-  reviewed_at,
-  reviewed_by,
-  pdpa_consent_at,
-  validation_status,
-  validation_errors,
-  notified_at,
-  is_brand_owner,
-  intent,
-  source_attribution,
-  product_type_note,
-  enriched_data,
-  owner_data,
-  review_overrides,
-  refresh_requested_by
-`;
-
 const ADMIN_REVIEW_SUBMISSIONS_SELECT = `
   id,
   base_brand_data,
@@ -1139,21 +1101,6 @@ const ADMIN_REVIEW_SUBMISSIONS_SELECT = `
   review_overrides,
   refresh_requested_by
 `;
-
-export async function getAdminSubmissions(): Promise<
-  BrandSubmissionWithProductTypeNote[]
-> {
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("brand_submissions")
-    .select(ADMIN_SUBMISSIONS_SELECT)
-    .order("submitted_at", { ascending: false });
-
-  if (error) throw error;
-  return ((data ?? []) as unknown as SubmissionRowWithProductTypeNote[]).map(
-    submissionToDomain,
-  );
-}
 
 export async function getSubmissionsForReview(options?: {
   status?: SubmissionStatus;

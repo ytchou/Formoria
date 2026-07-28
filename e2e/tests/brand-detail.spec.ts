@@ -444,7 +444,7 @@ test.describe('Brand detail — public locations and retail channels', () => {
       ).toBeVisible();
       await expect(
         page.getByRole('heading', {
-          name: '連鎖與其他門市 (2)',
+          name: '實體通路 (2)',
           level: 3,
         }),
       ).toBeVisible();

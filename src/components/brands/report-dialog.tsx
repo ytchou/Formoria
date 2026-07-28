@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useEffect, useId, useState, type MouseEvent } from 'react'
+import { useActionState, useEffect, useId, useState } from 'react'
 import NextLink from 'next/link'
 import { useLocale, useTranslations } from 'next-intl'
 import {
@@ -111,8 +111,7 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
     if (!open) setReportedField('')
   }
 
-  function handleMitDisputeClick(event: MouseEvent<HTMLAnchorElement>) {
-    event.preventDefault()
+  function handleMitDisputeClick() {
     window.requestAnimationFrame(() => {
       document.querySelector<HTMLElement>('[data-evidence-dialog-trigger]')?.click()
     })
@@ -225,9 +224,10 @@ export function ReportDialog({ brandId, brandSlug }: ReportDialogProps) {
                     {t('mitDisputePrompt')}{' '}
                     <DialogClose
                       render={
-                        <NextLink
-                          href={pathname}
-                          className="font-medium text-foreground underline underline-offset-4"
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="h-auto min-h-12 px-1 font-medium text-foreground underline underline-offset-4 hover:bg-transparent"
                           onClick={handleMitDisputeClick}
                         />
                       }

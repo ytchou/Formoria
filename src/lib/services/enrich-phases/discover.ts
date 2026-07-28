@@ -12,7 +12,7 @@ import {
   type SearchPhaseResult,
 } from './types'
 
-export function buildSerpQuery(brandName: string, productTypeSlug?: string | null): string {
+function buildSerpQuery(brandName: string, productTypeSlug?: string | null): string {
   const typeZh = productTypeSlug
     ? PRODUCT_TYPE_CATEGORIES.find((c) => c.slug === productTypeSlug)?.nameZh
     : undefined

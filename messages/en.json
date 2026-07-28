@@ -535,8 +535,7 @@
       "groups": {
         "official": "Official channels",
         "visitable": "Stores you can visit",
-        "chain": "Chains & other stockists",
-        "chainNote": "These may have several branches or no listed address — call ahead to check stock",
+        "chain": "Physical retailers",
         "online": "Online"
       },
       "confirmed": {
@@ -548,7 +547,6 @@
         "confirmed": "Confirmed",
         "progress": "{count}/{threshold} confirmed",
         "thresholdNote": "Dashed entries are unconfirmed; shown publicly after {threshold} confirmations",
-        "foldSummary": "{count} community-suggested channels awaiting confirmation",
         "signInToConfirm": "Sign in to confirm"
       },
       "chips": {

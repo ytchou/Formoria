@@ -35,12 +35,10 @@ type BrandCorrectionRowWithBrand = BrandCorrectionRow & {
 };
 
 export type CorrectionField = "price_range" | "product_type" | "product_tags";
-export type CorrectionStatus = "pending" | "approved" | "rejected";
+type CorrectionStatus = "pending" | "approved" | "rejected";
 export type CorrectionDecision = Exclude<CorrectionStatus, "pending">;
 
-export type { ProductTagsDelta };
-
-export type CorrectionProposedValue = number | string | ProductTagsDelta;
+type CorrectionProposedValue = number | string | ProductTagsDelta;
 
 export type BrandCorrection = {
   id: string;

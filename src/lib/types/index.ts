@@ -4,7 +4,6 @@ export type {
   BrandFlatLinkColumns,
   BrandStatus,
   OtherUrl,
-  RetailLocation,
   SubmissionStatus,
 } from './brand'
 

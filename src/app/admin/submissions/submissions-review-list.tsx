@@ -96,6 +96,7 @@ export function SubmissionsReviewList({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [isEnriching, startEnrichTransition] = useTransition();
+  const showEnrichment = activeTab !== "needs_data";
 
   const tabCounts = useMemo(
     () => ({
@@ -529,7 +530,7 @@ export function SubmissionsReviewList({
               <TableHead>{t("table.status")}</TableHead>
               <TableHead>{t("table.submitter")}</TableHead>
               <TableHead>{t("table.date")}</TableHead>
-              <TableHead>{t("table.enrichment")}</TableHead>
+              {showEnrichment && <TableHead>{t("table.enrichment")}</TableHead>}
               <TableHead className="text-right">{t("table.actions")}</TableHead>
               <TableHead className="w-12">
                 <span className="sr-only">{t("table.details")}</span>
@@ -594,29 +595,31 @@ export function SubmissionsReviewList({
                       )}
                     </TableCell>
                     <TableCell>{formatDate(submission.submittedAt)}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={enrichment.variant}>
-                          {enrichment.label}
-                        </Badge>
-                        {submission.latestCurationJobId && (
-                          <Link
-                            className="type-link"
-                            href={`/admin/jobs/${submission.latestCurationJobId}`}
-                          >
-                            {t("viewJob")}
-                          </Link>
+                    {showEnrichment && (
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={enrichment.variant}>
+                            {enrichment.label}
+                          </Badge>
+                          {submission.latestCurationJobId && (
+                            <Link
+                              className="type-link"
+                              href={`/admin/jobs/${submission.latestCurationJobId}`}
+                            >
+                              {t("viewJob")}
+                            </Link>
+                          )}
+                        </div>
+                        {submission.reviewCompleteness.missingFields.length >
+                          0 && (
+                          <p className="mt-1 type-caption text-warning">
+                            {`${t("missingRequired")}: ${submission.reviewCompleteness.missingFields
+                              .map((field) => t(`missingFields.${field}`))
+                              .join(", ")}`}
+                          </p>
                         )}
-                      </div>
-                      {submission.reviewCompleteness.missingFields.length >
-                        0 && (
-                        <p className="mt-1 type-caption text-warning">
-                          {`${t("missingRequired")}: ${submission.reviewCompleteness.missingFields
-                            .map((field) => t(`missingFields.${field}`))
-                            .join(", ")}`}
-                        </p>
-                      )}
-                    </TableCell>
+                      </TableCell>
+                    )}
                     <TableCell>
                       <div className="flex justify-end gap-1">
                         {submission.status === "pending" &&
@@ -678,7 +681,7 @@ export function SubmissionsReviewList({
             {visible.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={8}
+                  colSpan={showEnrichment ? 8 : 7}
                   className="py-10 text-center type-body-muted"
                 >
                   {t("notFound")}

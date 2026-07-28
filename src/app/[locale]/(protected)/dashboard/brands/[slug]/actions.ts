@@ -18,24 +18,18 @@ import {
 import { brandPublishRequirementsSchema } from '@/lib/schemas/brand-edit'
 import {
   diffRemovedImageUrls,
-  discardDraft,
   getBrandDraft,
   mergeDraftOverBrand,
   publishDraft,
-  updateBrand,
 } from '@/lib/services/brands'
 import { createServiceClient } from '@/lib/supabase/server'
 import { ConflictError } from '@/lib/errors'
 import { storageKeyFromPublicUrl } from '@/lib/services/image-upload'
 import { logAdminActionIfAdmin } from '@/lib/services/admin-audit'
 import type { Brand } from '@/lib/types'
-import {
-  InvalidBrandEditFormError,
-  parseBrandEditForm,
-  buildModerationPayload,
-} from './actions-utils'
-import { revalidatePublicBrand } from '@/lib/cache/public-brand-cache'
+import { buildModerationPayload } from './actions-utils'
 import { slugifyRomanizedName } from '@/lib/brands/slug'
+import { revalidatePublicBrand } from '@/lib/cache/public-brand-cache'
 import {
   declareMit,
   withdrawDeclaration,
@@ -118,23 +112,6 @@ function imageUrlsFromBrand(
   )
 }
 
-function imageUrlsFromSnapshot(
-  snapshot: Record<string, unknown> | null,
-): string[] {
-  if (!snapshot) {
-    return []
-  }
-
-  return [
-    typeof snapshot.heroImageUrl === 'string' ? snapshot.heroImageUrl : null,
-    ...(Array.isArray(snapshot.productPhotos)
-      ? snapshot.productPhotos.filter(
-          (url): url is string => typeof url === 'string',
-        )
-      : []),
-  ].filter((url): url is string => Boolean(url))
-}
-
 async function syncOwnerUploadedImages(
   brandId: string,
   previousImageUrls: string[],
@@ -161,39 +138,6 @@ async function syncOwnerUploadedImages(
   await syncHeroDenormalized(supabase, brandId)
 }
 
-async function applyBrandUpdate(
-  brand: Brand,
-  updateData: Partial<Brand>,
-  options: { syncOwnerImages?: boolean } = {},
-): Promise<Brand> {
-  const supabase = createServiceClient()
-  const previousImageUrls = imageUrlsFromBrand(brand)
-  const nextImageUrls = imageUrlsFromBrand({ ...brand, ...updateData })
-  const orphans = diffRemovedImageUrls(previousImageUrls, nextImageUrls)
-
-  const updatedBrand = await updateBrand(brand.id, updateData)
-
-  if (options.syncOwnerImages) {
-    await syncOwnerUploadedImages(brand.id, previousImageUrls, nextImageUrls)
-  }
-
-  await releaseBrandImageUrls(supabase, brand.id, orphans)
-
-  const { snapshot } = await discardDraft(brand.id)
-  const draftOnlyImages = diffRemovedImageUrls(
-    imageUrlsFromSnapshot(snapshot),
-    imageUrlsFromBrand(updatedBrand),
-  )
-  await releaseBrandImageUrls(supabase, brand.id, draftOnlyImages)
-
-  revalidatePublicBrand({
-    slug: updatedBrand.slug,
-    previousSlug: brand.slug,
-  })
-  revalidatePath('/dashboard')
-  return updatedBrand
-}
-
 function detectsSlugChange(
   brand: Pick<Brand, 'slug'>,
   proposedData: Record<string, unknown>,
@@ -205,104 +149,6 @@ function detectsSlugChange(
 
   const requestedSlug = slugifyRomanizedName(proposedData.romanizedName)
   return Boolean(requestedSlug && requestedSlug !== brand.slug)
-}
-
-export async function updateBrandAction(
-  _prevState: ActionState,
-  formData: FormData,
-): Promise<ActionState> {
-  const t = await getTranslations('dashboard.edit.errors')
-  const brandSlug = formData.get('brandSlug') as string
-  if (!brandSlug) {
-    return { error: 'Missing brand slug' }
-  }
-  let redirectSlug = brandSlug
-
-  try {
-    const editor = await requireBrandEditor(brandSlug)
-    if ('error' in editor) {
-      if (editor.error === 'notLoggedIn') {
-        return { error: t('notLoggedIn') }
-      }
-      if (editor.error === 'forbidden') {
-        return { error: t('forbidden') }
-      }
-      return { error: `Brand not found: ${brandSlug}` }
-    }
-    const { user, brand, owner, actingAdmin, configuredAdmin } = editor
-
-    const updateData = parseBrandEditForm(formData)
-    const proposedData = updateData as Record<string, unknown>
-
-    if (!configuredAdmin && detectsSlugChange(brand, proposedData)) {
-      return { error: t('slugChangeBlocked') }
-    }
-
-    const {
-      brandName: moderationBrandName,
-      fields: moderationFields,
-    } = buildModerationPayload(proposedData, brand.name)
-    const { violations } = scanContent(
-      moderationBrandName,
-      moderationFields,
-    )
-    if (violations.length > 0) {
-      try {
-        await saveModerationFlags(
-          brand.id,
-          user.id,
-          violations,
-          'pending',
-        )
-      } catch (err) {
-        console.error('[brand:moderation] saveModerationFlags failed:', err)
-      }
-
-      try {
-        const email = await buildViolationAdminNotificationEmail({
-          brandName: brand.name,
-          ownerEmail: user.email ?? 'unknown',
-          violations,
-        })
-        await sendEmail(email)
-      } catch (err) {
-        console.error('[brand:moderation] admin notification failed:', err)
-      }
-
-      return { violations }
-    }
-
-    if (!configuredAdmin) {
-      const updatedBrand = await applyBrandUpdate(brand, updateData, {
-        syncOwnerImages: owner,
-      })
-      redirectSlug = updatedBrand.slug
-    } else {
-      const updatedBrand = await applyBrandUpdate(brand, updateData, {
-        syncOwnerImages: owner,
-      })
-      redirectSlug = updatedBrand.slug
-      await logAdminActionIfAdmin(
-        actingAdmin,
-        { id: user.id, email: user.email ?? null },
-        'brand_edit',
-        brandSlug,
-        brand.id,
-      )
-    }
-  } catch (err) {
-    if (err instanceof InvalidBrandEditFormError) {
-      return { error: err.message }
-    }
-
-    console.error('[brand:updateBrandAction]', err)
-    return {
-      error: err instanceof Error ? err.message : t('unknown'),
-    }
-  }
-
-  const locale = await getLocale()
-  redirect(localizePath(`/dashboard/brands/${redirectSlug}`, locale))
 }
 
 export async function publishDraftAction(

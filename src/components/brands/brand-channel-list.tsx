@@ -4,7 +4,6 @@ import NextLink from 'next/link'
 import { useLocale, useTranslations } from 'next-intl'
 import {
   Check,
-  ChevronDown,
   ExternalLink,
   Monitor,
   Store,
@@ -38,7 +37,6 @@ const GROUPED_LAYOUT_MIN_CHANNELS = 4
 const CHAIN_MARKER = CHAIN_REGION_LABEL
 const ROW_KINDS: ReadonlySet<ChannelKind> = new Set<ChannelKind>([
   'official',
-  'visitable',
 ])
 
 type ChannelKindGroup = ChannelKindGroups[number]
@@ -158,7 +156,7 @@ function ChannelRow({
       <div className="flex min-w-0 items-start gap-3">
         <StatusMarker confirmed={isConfirmed} />
         <div className="min-w-0">
-          <p className="type-body-sm font-semibold">{channel.name}</p>
+          <p className="type-body-emphasis">{channel.name}</p>
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <Icon
               aria-hidden="true"
@@ -177,7 +175,7 @@ function ChannelRow({
             ) : null}
           </div>
           {region ? (
-            <div className="mt-2 type-body-sm">
+            <div className="mt-2 type-body">
               {mapsHref ? (
                 <a
                   href={mapsHref}
@@ -317,6 +315,9 @@ function ChannelChip({
     channel.regionLabel && channel.regionLabel !== CHAIN_MARKER
       ? channel.regionLabel
       : null
+  const mapsHref = channel.address
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(channel.address)}`
+    : null
 
   return (
     <li
@@ -332,9 +333,22 @@ function ChannelChip({
       {isConfirmed ? (
         <Check aria-hidden="true" className="size-3.5 shrink-0" />
       ) : null}
-      <span className="type-body-sm font-medium">{channel.name}</span>
+      <span className="type-body-emphasis">{channel.name}</span>
       {region ? (
-        <span className="type-metadata text-muted-foreground">({region})</span>
+        <span className="type-metadata text-muted-foreground">
+          ({mapsHref ? (
+            <a
+              href={mapsHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-4 hover:text-foreground"
+            >
+              {region}
+            </a>
+          ) : (
+            region
+          )})
+        </span>
       ) : null}
       {channel.url ? (
         <a
@@ -440,6 +454,16 @@ export function BrandChannelList({
   }, [brandId, loading, user])
 
   const groups = groupChannelsByKind(allChannels)
+  const physicalChannels = groups.flatMap((group) =>
+    group.key === 'visitable' || group.key === 'chain' ? group.channels : [],
+  )
+  const displayGroups: ChannelKindGroup[] = [
+    ...groups.filter((group) => group.key === 'official'),
+    ...(physicalChannels.length > 0
+      ? [{ key: 'chain' as const, channels: physicalChannels }]
+      : []),
+    ...groups.filter((group) => group.key === 'online'),
+  ]
   const signInHrefValue = signInHref(pathname, locale)
   const ownerConfirmLabel = t('channels.ownerBanner.confirm')
   const ownerRejectLabel = t('channels.ownerBanner.reject')
@@ -571,44 +595,9 @@ export function BrandChannelList({
   function renderRowStack(rows: BrandChannel[]) {
     if (rows.length === 0) return null
 
-    const confirmedRows = rows.filter(
-      (channel) => channel.status === 'confirmed',
-    )
-    const unconfirmedRows = rows.filter(
-      (channel) => channel.status !== 'confirmed',
-    )
-
     return (
-      <div className="space-y-4">
-        {confirmedRows.length > 0 ? (
-          <div className="divide-y divide-border">
-            {confirmedRows.map(renderRow)}
-          </div>
-        ) : null}
-        {unconfirmedRows.length > 0 ? (
-          <details
-            className="group rounded-lg border border-border px-4"
-            open={confirmed.length === 0}
-          >
-            <summary className="flex min-h-12 cursor-pointer list-none flex-wrap items-center gap-3 type-body-sm [&::-webkit-details-marker]:hidden">
-              <ChevronDown
-                aria-hidden="true"
-                className="size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180"
-              />
-              <span>
-                {t('channels.unconfirmed.foldSummary', {
-                  count: unconfirmedRows.length,
-                })}
-              </span>
-              <Badge variant="secondary" className="h-auto whitespace-normal">
-                {t('channels.unconfirmed.thresholdNote', { threshold })}
-              </Badge>
-            </summary>
-            <div className="divide-y divide-border pb-2">
-              {unconfirmedRows.map(renderRow)}
-            </div>
-          </details>
-        ) : null}
+      <div className="divide-y divide-border">
+        {rows.map(renderRow)}
       </div>
     )
   }
@@ -706,38 +695,32 @@ export function BrandChannelList({
         <h3 className="type-subsection-title">
           {`${t(`channels.groups.${group.key}`)} (${group.channels.length})`}
         </h3>
-        {group.key === 'chain' ? (
-          <p className="type-card-description text-muted-foreground">
-            {t('channels.groups.chainNote')}
-          </p>
-        ) : null}
         {renderChipStack(group.key, chipChannels)}
         {renderRowStack(rowChannels)}
       </section>
     )
   }
 
-  // Too few entries for grouping to earn its headings: one flat list of rows.
+  // Too few entries for grouping to earn headings: render one flat list.
   if (allChannels.length < GROUPED_LAYOUT_MIN_CHANNELS) {
+    const rowChannels = displayGroups.flatMap((group) =>
+      group.channels.filter((channel) => rendersAsRow(group.key, channel)),
+    )
+    const chipChannels = displayGroups.flatMap((group) =>
+      group.channels.filter((channel) => !rendersAsRow(group.key, channel)),
+    )
+
     return (
       <div className="space-y-8" data-brand-channel-list>
-        {renderRowStack(groups.flatMap((group) => group.channels))}
+        {renderChipStack('chain', chipChannels)}
+        {renderRowStack(rowChannels)}
       </div>
     )
   }
 
   return (
     <div className="space-y-8" data-brand-channel-list>
-      <div className="flex flex-wrap gap-x-4 gap-y-1 type-metadata">
-        {groups.map((group) => (
-          <span key={group.key}>
-            {`${t(`channels.groups.${group.key}`)} · ${group.channels.length}`}
-          </span>
-        ))}
-      </div>
-      <div className="space-y-8">
-        {groups.map(renderGroup)}
-      </div>
+      {displayGroups.map(renderGroup)}
     </div>
   )
 }

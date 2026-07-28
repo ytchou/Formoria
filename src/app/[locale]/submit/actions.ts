@@ -4,7 +4,6 @@ import { headers } from 'next/headers'
 import { getLocale, getTranslations } from 'next-intl/server'
 import { z } from 'zod'
 import {
-  createOwnerSubmissionSchema,
   createRecommendationSubmissionSchema,
   type SubmissionFormData,
 } from '@/lib/validations/submission'
@@ -156,77 +155,6 @@ export async function submitRecommendation(
     console.error('Submit recommendation error:', err)
     if (isDnsResolutionError(err)) {
       console.error('Submit recommendation DNS resolution failure:', err)
-      return { error: t('unexpected') }
-    }
-    return { error: t('unexpected') }
-  }
-}
-
-export async function submitOwnerBrand(
-  data: SubmitBrandInput
-): Promise<{ error?: string; ownershipAdjusted?: boolean } | undefined> {
-  const t = await getTranslations('submit.errors')
-  const tSubmit = await getTranslations('submit')
-  const tValidation = (key: string) => tSubmit(key as Parameters<typeof tSubmit>[0])
-
-  try {
-    const schema = createOwnerSubmissionSchema(tValidation)
-    const parsed = schema.parse(data)
-
-    if (parsed.honeypot) {
-      return undefined
-    }
-
-    const supabase = await createClient()
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return { error: t('notAuthenticated') }
-    }
-
-    const rateResult = ownerSubmissionRateLimiter.check(user.id, 60_000, 5)
-    if (!rateResult.allowed) {
-      return { error: t('rateLimit') }
-    }
-
-    const headerStore = await headers()
-    const turnstile = await verifyTurnstileToken(
-      parsed.turnstileToken,
-      undefined,
-      getRequestHost(headerStore),
-    )
-    if (!turnstile.success) {
-      return { error: t('validation') }
-    }
-
-    const ownershipAdjusted = Boolean(await getUserBrand(user.id))
-
-    await submitBrandForReview({
-      intent: ownershipAdjusted ? 'recommend' : 'owner_claim',
-      brandName: parsed.name,
-      romanizedName: parsed.romanizedName?.trim() || undefined,
-      websiteUrl: parsed.website,
-      description: parsed.description?.trim() || undefined,
-      heroImageUrl: parsed.heroImageUrl || undefined,
-      isBrandOwner: !ownershipAdjusted,
-      pdpaConsent: parsed.pdpaConsent,
-      submitterEmail: user.email ?? '',
-      submitterName: user.user_metadata?.full_name ?? undefined,
-      socialLinks: parsed.socialLinks ?? null,
-      purchaseLinks: parsed.purchaseLinks ?? null,
-      mitSmileCert: parsed.mitSmileCert || undefined,
-    })
-
-    return ownershipAdjusted ? { ownershipAdjusted: true } : undefined
-  } catch (err) {
-    console.error('Submit owner brand error:', err)
-    if (
-      isDnsResolutionError(err)
-    ) {
-      console.error('Submit owner brand DNS resolution failure:', err)
       return { error: t('unexpected') }
     }
     return { error: t('unexpected') }

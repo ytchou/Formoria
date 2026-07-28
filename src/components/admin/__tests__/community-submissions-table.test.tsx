@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -116,10 +116,11 @@ describe("CommunitySubmissionsTable", () => {
     render(<CommunitySubmissionsTable />);
     await uploadCsv(user);
 
-    expect(await screen.findByText("Ready")).toBeInTheDocument();
-    expect(screen.getByText("Similar")).toBeInTheDocument();
-    expect(screen.getByText("Exact duplicate")).toBeInTheDocument();
-    expect(screen.getByText("Invalid")).toBeInTheDocument();
+    const table = await screen.findByRole("table");
+    expect(await within(table).findByText("Ready")).toBeInTheDocument();
+    expect(within(table).getByText("Similar")).toBeInTheDocument();
+    expect(within(table).getByText("Exact duplicate")).toBeInTheDocument();
+    expect(within(table).getByText("Invalid")).toBeInTheDocument();
     expect(screen.getByLabelText("Select Ready")).toBeChecked();
     expect(screen.getByLabelText("Select Similar")).not.toBeChecked();
     expect(screen.getByLabelText("Select Duplicate")).toBeDisabled();
@@ -165,12 +166,15 @@ describe("CommunitySubmissionsTable", () => {
       await screen.findByRole("button", { name: "Import 1 selected" }),
     );
 
-    expect(await screen.findByText("Failed")).toBeInTheDocument();
+    const table = screen.getByRole("table");
+    expect(await within(table).findByText("Failed")).toBeInTheDocument();
     expect(screen.getByText("Database unavailable")).toBeInTheDocument();
     expect(screen.getByLabelText("Select Retry Brand")).toBeChecked();
     await user.click(screen.getByRole("button", { name: "Retry 1 selected" }));
 
-    await waitFor(() => expect(screen.getByText("Done")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(within(table).getByText("Done")).toBeInTheDocument(),
+    );
     expect(screen.queryByText("Database unavailable")).not.toBeInTheDocument();
   });
 });

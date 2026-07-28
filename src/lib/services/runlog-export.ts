@@ -3,7 +3,7 @@ import { getCurationJob, listCurationJobTargets, type CurationJobTarget } from '
 import { sanitizeJobError } from './job-errors'
 import { createServiceClient } from '@/lib/supabase/server'
 
-export const MAX_EVENTS_PER_PHASE = 300
+const MAX_EVENTS_PER_PHASE = 300
 const LEGACY_QUERY_CHUNK_SIZE = 100
 
 const PHASE_ORDER = [

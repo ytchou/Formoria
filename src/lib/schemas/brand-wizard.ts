@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const romanizedNameSchema = z
+const romanizedNameSchema = z
   .string()
   .trim()
   .min(2)

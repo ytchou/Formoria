@@ -41,7 +41,9 @@ export async function BrandChannelsSection({
               : t('channels.subtitle')}
           </p>
         </div>
-        <ProvideChannelInfoDialog brandId={brandId} brandSlug={brandSlug} />
+        {hasChannels ? (
+          <ProvideChannelInfoDialog brandId={brandId} brandSlug={brandSlug} />
+        ) : null}
       </div>
 
       {hasChannels ? (
