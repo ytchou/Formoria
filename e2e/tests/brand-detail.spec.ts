@@ -1,5 +1,6 @@
 import { test, expect } from '../fixtures/auth';
 import { createClient } from '@supabase/supabase-js';
+import { load } from 'cheerio';
 import { seedBrand, SeededBrand } from "../helpers/seed";
 
 test.describe('Brand detail deep', () => {
@@ -202,6 +203,101 @@ test.describe('Brand detail — hidden brand', () => {
 
     await expect(page.getByRole('heading', { name: seeded.brand.name })).toHaveCount(0);
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/i);
+  });
+});
+
+test.describe('Brand detail — historical slugs', () => {
+  let approved: SeededBrand;
+  let hidden: SeededBrand;
+  let approvedOldSlug: string;
+  let hiddenOldSlug: string;
+
+  test.beforeAll(async ({}, workerInfo) => {
+    approved = await seedBrand({
+      name: 'redirect-approved',
+      status: 'approved',
+      workerIndex: workerInfo.workerIndex,
+    });
+    hidden = await seedBrand({
+      name: 'redirect-hidden',
+      status: 'hidden',
+      workerIndex: workerInfo.workerIndex,
+    });
+    approvedOldSlug = `${approved.slug}-old`;
+    hiddenOldSlug = `${hidden.slug}-old`;
+
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
+    const { error: descriptionError } = await supabase
+      .from('brands')
+      .update({
+        description: '這是經過驗證的台灣品牌。',
+        description_en: 'This is a verified Taiwanese brand.',
+        blurb_en: 'Independent design and careful local production.',
+      })
+      .eq('id', approved.brand.id);
+    if (descriptionError) {
+      throw new Error(`Failed to seed localized brand copy: ${descriptionError.message}`);
+    }
+
+    const { error: redirectError } = await supabase
+      .from('brand_slug_redirects')
+      .insert([
+        { old_slug: approvedOldSlug, new_slug: approved.slug },
+        { old_slug: hiddenOldSlug, new_slug: hidden.slug },
+      ]);
+    if (redirectError) {
+      throw new Error(`Failed to seed brand redirects: ${redirectError.message}`);
+    }
+  });
+
+  test.afterAll(async () => {
+    await approved.cleanup();
+    await hidden.cleanup();
+  });
+
+  test('approved historical slugs redirect once to localized self-canonical pages', async ({
+    request,
+  }) => {
+    const cases = [
+      { source: `/brands/${approvedOldSlug}`, target: `/brands/${approved.slug}` },
+      { source: `/en/brands/${approvedOldSlug}`, target: `/en/brands/${approved.slug}` },
+    ];
+
+    for (const { source, target } of cases) {
+      const redirectResponse = await request.get(source, {
+        maxRedirects: 0,
+        headers: { 'user-agent': 'Googlebot' },
+      });
+      expect(redirectResponse.status()).toBe(308);
+      expect(redirectResponse.headers().location).toBe(target);
+
+      const targetResponse = await request.get(target, {
+        maxRedirects: 0,
+        headers: { 'user-agent': 'Googlebot' },
+      });
+      expect(targetResponse.status()).toBe(200);
+      const $ = load(await targetResponse.text());
+      const canonical = $('link[rel="canonical"]').attr('href');
+      expect(new URL(canonical!).pathname).toBe(target);
+      expect($('link[rel="alternate"][hreflang="zh-TW"]').length).toBe(1);
+      expect($('link[rel="alternate"][hreflang="en"]').length).toBe(1);
+    }
+  });
+
+  test('historical slugs targeting hidden brands return direct 404 responses', async ({
+    request,
+  }) => {
+    for (const source of [`/brands/${hiddenOldSlug}`, `/en/brands/${hiddenOldSlug}`]) {
+      const response = await request.get(source, {
+        maxRedirects: 0,
+        headers: { 'user-agent': 'Googlebot' },
+      });
+      expect(response.status()).toBe(404);
+      expect(response.headers().location).toBeUndefined();
+    }
   });
 });
 

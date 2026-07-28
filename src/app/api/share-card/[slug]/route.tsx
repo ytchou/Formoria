@@ -2,7 +2,10 @@ export const runtime = 'nodejs'
 
 import { ImageResponse } from 'next/og'
 import { NextResponse } from 'next/server'
-import { getApprovedBrandBySlug, findBrandByOldSlug } from '@/lib/services/brands'
+import {
+  getApprovedBrandBySlug,
+  resolveApprovedBrandRedirect,
+} from '@/lib/services/brands'
 import { getOgFonts, getOgMarkDataUri } from '@/lib/brand/og-fonts'
 import { NotFoundError } from '@/lib/errors'
 import { renderShareCard } from '@/lib/growth/share-card'
@@ -22,8 +25,8 @@ export async function GET(
   try {
     brand = await getApprovedBrandBySlug(slug)
   } catch (err) {
-    if (err instanceof NotFoundError) {
-      const newSlug = await findBrandByOldSlug(slug)
+    if (err instanceof NotFoundError && !err.cause) {
+      const newSlug = await resolveApprovedBrandRedirect(slug)
       if (newSlug) {
         const redirectTarget = new URL(`/api/share-card/${newSlug}`, request.url)
         redirectTarget.search = searchParams.toString()

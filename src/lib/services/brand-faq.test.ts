@@ -64,6 +64,29 @@ describe('buildBrandFaq', () => {
     expect(faq.some((item) => item.id === 'reputation')).toBe(true)
   })
 
+  it('uses only English product copy and omits untranslated reputation in English', () => {
+    const faq = buildBrandFaq(
+      makeBrand({
+        productType: 'crafts',
+        category: '工藝文創',
+        productTags: ['陶瓷', '手作'],
+        productTagsEn: ['ceramics', 'handmade'],
+        reputationSummary: {
+          text: '以穩定品質與細膩手工著稱。',
+          sources: [{ url: 'https://example.com/review' }],
+        },
+      }),
+      t,
+      'en',
+    )
+    const products = faq.find((item) => item.id === 'main-products')
+
+    expect(products?.answer).toContain('Crafts & Art')
+    expect(products?.answer).toContain('ceramics')
+    expect(products?.answer).not.toMatch(/工藝文創|陶瓷|手作/)
+    expect(faq.some((item) => item.id === 'reputation')).toBe(false)
+  })
+
   it('does not expose retired FAQ categories', () => {
     const ids = buildBrandFaq(
       makeBrand({

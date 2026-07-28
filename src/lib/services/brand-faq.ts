@@ -1,5 +1,6 @@
 import type { Brand } from '@/lib/types'
 import { createServiceClient } from '@/lib/supabase/server'
+import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
 type TFn = (key: string, params?: Record<string, unknown>) => string
 
@@ -61,7 +62,7 @@ export async function getBrandFaq(
 
 type FaqGenerator = {
   id: string
-  condition: (brand: Brand) => boolean
+  condition: (brand: Brand, locale: string) => boolean
   questionKey: string
   buildAnswer: (
     brand: Brand,
@@ -130,10 +131,15 @@ function buildWhereToBuyAnswer(brand: Brand, t: TFn): string {
   })
 }
 
-function buildMainProductsAnswer(brand: Brand, t: TFn): string {
-  const category = brand.category
+function buildMainProductsAnswer(brand: Brand, t: TFn, locale: string): string {
+  const isEnglish = locale === 'en'
+  const category = isEnglish
+    ? PRODUCT_TYPE_CATEGORIES.find((item) => item.slug === brand.productType)?.name
+    : brand.category
   const sep = t('brandFaq.listSeparator')
-  const productTags = truncate(brand.productTags ?? []).join(sep)
+  const productTags = truncate(
+    isEnglish ? (brand.productTagsEn ?? []) : (brand.productTags ?? []),
+  ).join(sep)
   const context = buildBrandContext(brand, t)
 
   if (category && productTags) {
@@ -178,7 +184,7 @@ function buildOfficialAccountsAnswer(brand: Brand, t: TFn): string {
 
 function buildReputationAnswer(brand: Brand, t: TFn, locale: string): string {
   const summary = locale === 'en'
-    ? (brand.reputationSummary?.textEn ?? brand.reputationSummary?.text ?? '')
+    ? (brand.reputationSummary?.textEn ?? '')
     : (brand.reputationSummary?.text ?? '')
   return t('brandFaq.reputation.answer', {
     brandName: brand.name,
@@ -244,7 +250,8 @@ const FAQ_GENERATORS: FaqGenerator[] = [
   },
   {
     id: 'main-products',
-    condition: (brand) => compactValues(brand.productTags ?? []).length > 0,
+    condition: (brand, locale) =>
+      compactValues(locale === 'en' ? brand.productTagsEn : brand.productTags).length > 0,
     questionKey: 'brandFaq.mainProducts.question',
     buildAnswer: buildMainProductsAnswer,
   },
@@ -271,7 +278,12 @@ const FAQ_GENERATORS: FaqGenerator[] = [
   },
   {
     id: 'reputation',
-    condition: (brand) => hasMinLength(brand.reputationSummary?.text, 10),
+    condition: (brand, locale) => hasMinLength(
+      locale === 'en'
+        ? brand.reputationSummary?.textEn
+        : brand.reputationSummary?.text,
+      10,
+    ),
     questionKey: 'brandFaq.reputation.question',
     buildAnswer: buildReputationAnswer,
   },
@@ -279,7 +291,7 @@ const FAQ_GENERATORS: FaqGenerator[] = [
 
 export function buildBrandFaq(brand: Brand, t: TFn, locale: string = 'zh-TW'): FaqItem[] {
   return FAQ_GENERATORS.filter((generator) =>
-    generator.condition(brand),
+    generator.condition(brand, locale),
   ).map((generator) => ({
       id: generator.id,
       question: t(generator.questionKey, { brandName: brand.name }),
