@@ -106,7 +106,14 @@ function normalizePathname(pathname: string): string {
   )
 
   return segments
-    .map((segment, index) => (index === 1 && canonicalLocale ? canonicalLocale : segment.toLowerCase()))
+    .map((segment, index) =>
+      index === 1 && canonicalLocale
+        ? canonicalLocale
+        : segment
+            .split(/(%[0-9A-Fa-f]{2})/)
+            .map((part, partIndex) => (partIndex % 2 === 0 ? part.toLowerCase() : part))
+            .join(''),
+    )
     .join('/')
 }
 

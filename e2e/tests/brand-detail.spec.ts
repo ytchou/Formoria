@@ -264,6 +264,10 @@ test.describe('Brand detail — historical slugs', () => {
     const cases = [
       { source: `/brands/${approvedOldSlug}`, target: `/brands/${approved.slug}` },
       { source: `/en/brands/${approvedOldSlug}`, target: `/en/brands/${approved.slug}` },
+      {
+        source: `/brands/${encodeURIComponent('cicala-pu-喜樂鋪手工鞋')}`,
+        target: '/brands/cicala-pu',
+      },
     ];
 
     for (const { source, target } of cases) {
