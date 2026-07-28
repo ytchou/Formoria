@@ -50,6 +50,7 @@ Running inventory of e2e-covered user journeys. Updated by `/e2e-author` runs.
 | **FAQ sections (General + For Owners), #for-owners anchor, #claim auto-open** | `e2e/tests/faq.spec.ts` | 2026-07-23 |
 | **Public brand support toggle, evidence sign-in guidance, and admin heading-menu placement** | `e2e/tests/brand-actions.spec.ts` | 2026-07-25 |
 | **Owner welcome card — visible on fresh brand, dismissal persists** (RED: duplicate content tree after dismiss+reload — see e2e/reports/2026-07-23.md) | `e2e/tests/dashboard-welcome-card.spec.ts` | 2026-07-23 |
+| **Public feature request board — anonymous read, sign-in handoff on upvote, submit, vote toggle, category filter, admin duplicate merge** | `e2e/tests/feature-requests.spec.ts` | 2026-07-28 |
 | _(30+ existing deep specs omitted — see e2e/tests/ for full inventory)_ | | |
 
 ## Mobile (Pixel 5, nightly)
