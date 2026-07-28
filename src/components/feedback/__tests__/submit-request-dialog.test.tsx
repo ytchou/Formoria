@@ -67,7 +67,9 @@ describe('SubmitRequestDialog', () => {
     const link = screen.getByRole('link', { name: copy.signInCta })
     expect(link).toHaveAttribute(
       'href',
-      `/auth/sign-in?next=${encodeURIComponent('/feedback')}`,
+      // `en` is not the default locale (zh-TW is), so signInHref localizes the
+      // return path to `/en/feedback`.
+      `/auth/sign-in?next=${encodeURIComponent('/en/feedback')}`,
     )
     expect(screen.queryByRole('button', { name: copy.idle })).toBeNull()
   })

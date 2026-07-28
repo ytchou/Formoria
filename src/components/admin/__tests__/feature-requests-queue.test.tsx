@@ -59,8 +59,14 @@ function renderQueue(
   )
 }
 
+// Every row's merge <select> lists all requests, so a bare getByText(title)
+// matches the <option>s too. The title cell is the only <span> carrying it.
+function titleCell(title: string): HTMLElement {
+  return screen.getByText(title, { selector: 'span' })
+}
+
 function rowFor(title: string): HTMLElement {
-  const cell = screen.getByText(title)
+  const cell = titleCell(title)
   const row = cell.closest('tr')
   if (!row) throw new Error(`expected a row for ${title}`)
   return row
@@ -74,8 +80,8 @@ describe('FeatureRequestsQueue', () => {
   it('renders every request including merged ones', () => {
     renderQueue()
 
-    expect(screen.getByText(OPEN_REQUEST.title)).toBeInTheDocument()
-    expect(screen.getByText(MERGED_REQUEST.title)).toBeInTheDocument()
+    expect(titleCell(OPEN_REQUEST.title)).toBeInTheDocument()
+    expect(titleCell(MERGED_REQUEST.title)).toBeInTheDocument()
     expect(
       within(rowFor(MERGED_REQUEST.title)).getByText(copy.mergedInto),
     ).toBeInTheDocument()
