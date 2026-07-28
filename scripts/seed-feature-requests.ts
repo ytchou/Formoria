@@ -1,9 +1,7 @@
 /**
  * Seeds the public feature request board with a small set of starter requests.
  *
- * PLACEHOLDER CONTENT: the array below is a stand-in. Replace it with the real
- * requests drawn from Linear tickets and the retained Tally responses before
- * running this against production.
+ * Starter content is derived from open Formoria Linear feature tickets.
  *
  * Seeded rows carry `is_seed: true`, have no `submitted_by`, and start with
  * genuinely zero upvotes — this script never inserts votes.
@@ -20,28 +18,28 @@ type SeedRequest = {
 
 const SEED_REQUESTS: SeedRequest[] = [
   {
-    title: 'Email alerts when my brand receives a new review',
-    body: 'As a brand owner I want a notification when someone reviews my brand so I can respond quickly instead of checking the dashboard.',
+    title: 'Generate bilingual brand stories and social copy',
+    body: 'Use my existing brand profile and Made-in-Taiwan story to create ready-to-use About-page copy, product stories, and social captions in Traditional Chinese and English.',
     category: 'owner',
   },
   {
-    title: 'Bulk edit product tags from the owner dashboard',
-    body: 'Editing tags one product at a time is slow for brands with a large catalog. A multi-select bulk edit would make catalog cleanup practical.',
+    title: 'Show which marketing channels are working',
+    body: 'Give small brand owners one simple dashboard that combines key channel results and explains what is working, what is not, and what to try next.',
     category: 'owner',
   },
   {
-    title: 'Save searches and get notified about new matching brands',
-    body: 'Let visitors save a filter combination (category plus verification tier) and receive a digest when new brands match it.',
+    title: 'Add reviews and ratings to brand pages',
+    body: 'Let signed-in visitors share their experience with a brand so shoppers can judge customer experience separately from Made-in-Taiwan verification.',
     category: 'visitor',
   },
   {
-    title: 'Compare two brands side by side',
-    body: 'A comparison view showing verification tier, categories, and origin evidence for two brands at once would help when deciding between similar options.',
+    title: 'Browse Taiwanese brands by occasion',
+    body: 'Let visitors discover brands by shopping intent, such as gifts, small-apartment decor, or sustainable essentials, without needing to understand the category structure first.',
     category: 'visitor',
   },
   {
-    title: 'Map view of brands with physical stores',
-    body: 'Many brands list a storefront address. A map view would make it easy to find Taiwanese brands to visit in person.',
+    title: 'Show nearby Taiwanese brands on a map',
+    body: 'Let visitors browse brands with physical locations on one map and filter by city, district, and category to find places they can visit nearby.',
     category: 'visitor',
   },
 ]

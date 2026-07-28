@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { isLocalizedPublicPath } from '@/proxy'
+import { NextRequest } from 'next/server'
+import { isLocalizedPublicPath, proxy } from '@/proxy'
 
 describe('isLocalizedPublicPath', () => {
   it('treats moved app routes as localized (prefix-free + /en)', () => {
@@ -18,5 +19,17 @@ describe('isLocalizedPublicPath', () => {
   it('still excludes non-localized routes', () => {
     expect(isLocalizedPublicPath('/auth/sign-in')).toBe(false)
     expect(isLocalizedPublicPath('/admin')).toBe(false)
+  })
+
+  it('keeps the feature request board out of the brand-slug redirect', async () => {
+    const request = new NextRequest('https://formoria.com/feedback', {
+      headers: { host: 'formoria.com' },
+    })
+
+    const response = await proxy(request)
+
+    expect(response.headers.get('location')).not.toContain('/brands/feedback')
+    expect(isLocalizedPublicPath('/feedback')).toBe(true)
+    expect(isLocalizedPublicPath('/en/feedback')).toBe(true)
   })
 })
