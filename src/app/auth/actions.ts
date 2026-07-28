@@ -53,8 +53,7 @@ export async function signIn(
   }
 
   const next = formData.get("next") as string | null;
-  const isRelativeUrl = next && next.startsWith("/") && !next.startsWith("//");
-  redirect(isRelativeUrl ? next : "/dashboard");
+  redirect(next && isRelativeUrl(next) ? next : "/dashboard");
 }
 
 export async function signUp(

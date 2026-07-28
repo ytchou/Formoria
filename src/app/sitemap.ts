@@ -49,10 +49,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     '/faq',
     '/terms',
     '/privacy',
-    '/guides',
     '/getting-started',
     '/submit',
   ].flatMap((path) => localizedEntries(path))
+
+  // All guide content is zh-TW only, so /en/guides would be a permanently empty
+  // page — keep it reachable but out of the sitemap.
+  const guideIndexPages = localizedEntries('/guides', ['zh-TW'])
 
   try {
     const [brands, guideResult] = await Promise.all([
@@ -86,7 +89,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })
 
     const guidePages = guides.flatMap((guide) => {
-      const locale: Locale = guide.frontmatter.locale === 'en' ? 'en' : 'zh-TW'
+      if (guide.frontmatter.locale === 'en') return []
+      const locale: Locale = 'zh-TW'
       return localizedEntries(
         `/guides/${guide.frontmatter.slug}`,
         [locale],
@@ -94,8 +98,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       )
     })
 
-    return [...staticPages, ...categoryPages, ...brandPages, ...guidePages]
+    return [
+      ...staticPages,
+      ...guideIndexPages,
+      ...categoryPages,
+      ...brandPages,
+      ...guidePages,
+    ]
   } catch {
-    return staticPages
+    return [...staticPages, ...guideIndexPages]
   }
 }

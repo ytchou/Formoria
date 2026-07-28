@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import messages from "../../../../../messages/en.json";
 import type { ReviewSubmission, TabValue } from "../submissions-review-list";
 import { SubmissionsReviewList } from "../submissions-review-list";
@@ -45,10 +45,13 @@ beforeEach(() => {
   vi.clearAllMocks();
   actions.approve.mockResolvedValue(undefined);
   actions.reject.mockResolvedValue(undefined);
-});
-
-afterEach(() => {
-  Reflect.deleteProperty(HTMLInputElement.prototype, "showPicker");
+  actions.enrich.mockResolvedValue({
+    jobId: "job-1",
+    detailPath: "/admin/jobs/job-1",
+    queued: true,
+    dispatchStatus: "dispatched",
+    message: "Queued 1 submission.",
+  });
 });
 
 describe("SubmissionsReviewList", () => {
@@ -60,14 +63,13 @@ describe("SubmissionsReviewList", () => {
         makeSubmission({
           id: "incomplete",
           brandName: "Incomplete Brand",
-          reviewStage: "needs_data",
           reviewCompleteness: {
             complete: false,
             missingFields: ["priceRange"],
           },
         }),
       ],
-      "all",
+      "ready",
     );
 
     await user.click(
@@ -110,67 +112,6 @@ describe("SubmissionsReviewList", () => {
 
     expect(screen.getByText("Tea House")).toBeInTheDocument();
     expect(screen.queryByText("Wood Studio")).not.toBeInTheDocument();
-  });
-
-  it("selects and orders an inclusive submitted date range from one input", () => {
-    const showPicker = vi.fn();
-    Object.defineProperty(HTMLInputElement.prototype, "showPicker", {
-      configurable: true,
-      value: showPicker,
-    });
-    renderList(
-      [
-        makeSubmission({
-          id: "before",
-          brandName: "Before Range",
-          submittedAt: "2026-07-17T15:59:00.000Z",
-        }),
-        makeSubmission({
-          id: "start",
-          brandName: "Start Boundary",
-          submittedAt: "2026-07-17T16:00:00.000Z",
-        }),
-        makeSubmission({
-          id: "end",
-          brandName: "End Boundary",
-          submittedAt: "2026-07-18T15:59:00.000Z",
-        }),
-        makeSubmission({
-          id: "after",
-          brandName: "After Range",
-          submittedAt: "2026-07-18T16:00:00.000Z",
-        }),
-      ],
-      "all",
-    );
-
-    const submittedRange = screen.getByLabelText(
-      "Submitted from / Submitted through",
-    );
-    fireEvent.click(submittedRange);
-    expect(showPicker).toHaveBeenCalledOnce();
-    fireEvent.change(submittedRange, {
-      target: { value: "2026-07-19" },
-    });
-    expect(
-      screen.getByText("2026-07-19 – Submitted through"),
-    ).toBeInTheDocument();
-    fireEvent.change(submittedRange, {
-      target: { value: "2026-07-18" },
-    });
-
-    expect(screen.queryByText("Before Range")).not.toBeInTheDocument();
-    expect(screen.getByText("Start Boundary")).toBeInTheDocument();
-    expect(screen.getByText("End Boundary")).toBeInTheDocument();
-    expect(screen.getByText("After Range")).toBeInTheDocument();
-    expect(screen.getByText("2026-07-18 – 2026-07-19")).toBeInTheDocument();
-
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Remove Submitted from / Submitted through",
-      }),
-    );
-    expect(screen.getByText("Before Range")).toBeInTheDocument();
   });
 
   it("paginates needs-data selection by ten and selects only the visible page", async () => {
@@ -236,7 +177,7 @@ describe("SubmissionsReviewList", () => {
     ]);
   });
 
-  it("labels refreshes and routes mixed bulk approval through the shared action", async () => {
+  it("routes mixed bulk approval through the shared action", async () => {
     const user = userEvent.setup();
     vi.spyOn(window, "confirm").mockReturnValue(true);
     renderList(
@@ -253,9 +194,10 @@ describe("SubmissionsReviewList", () => {
       "ready",
     );
 
-    expect(screen.getByText("Refresh")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Apply refresh" }),
+      screen.getByRole("button", {
+        name: "Approve — updates the live brand",
+      }),
     ).toBeInTheDocument();
     await user.click(
       screen.getByRole("checkbox", { name: "Select New Brand" }),
@@ -277,6 +219,9 @@ describe("SubmissionsReviewList", () => {
     const readyView = renderList([makeSubmission()], "ready");
 
     expect(
+      screen.getByRole("combobox", { name: /enrichment completeness/i }),
+    ).toBeInTheDocument();
+    expect(
       screen.queryByRole("button", { name: "Fetch Data" }),
     ).not.toBeInTheDocument();
     expect(
@@ -284,6 +229,12 @@ describe("SubmissionsReviewList", () => {
     ).toBeDisabled();
     expect(
       screen.getByRole("button", { name: "Reject 0 selected" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Run image curation again (0)" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Run text curation again (0)" }),
     ).toBeDisabled();
     expect(screen.getAllByRole("checkbox")).toHaveLength(2);
     expect(
@@ -312,6 +263,9 @@ describe("SubmissionsReviewList", () => {
       screen.getByRole("button", { name: "Fetch Data" }),
     ).toBeInTheDocument();
     expect(
+      screen.queryByRole("combobox", { name: /enrichment completeness/i }),
+    ).not.toBeInTheDocument();
+    expect(
       screen.queryByRole("button", { name: /Approve \d+ selected/ }),
     ).not.toBeInTheDocument();
     expect(
@@ -323,9 +277,76 @@ describe("SubmissionsReviewList", () => {
     expect(
       screen.queryByRole("button", { name: /^Reject$/ }),
     ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Run image curation again/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Run text curation again/ }),
+    ).not.toBeInTheDocument();
   });
 
-  it("keeps refresh requests on the scheduled path while they need data", () => {
+  it("re-runs only the image phases for the selected ready submissions", async () => {
+    const user = userEvent.setup();
+    renderList(
+      [
+        makeSubmission({ id: "ready-1", brandName: "Ready Brand 1" }),
+        makeSubmission({ id: "ready-2", brandName: "Ready Brand 2" }),
+      ],
+      "ready",
+    );
+
+    await user.click(
+      screen.getByRole("checkbox", { name: "Select Ready Brand 2" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Run image curation again (1)" }),
+    );
+
+    expect(actions.enrich).toHaveBeenCalledTimes(1);
+    expect(actions.enrich).toHaveBeenCalledWith(
+      "enrich",
+      { submissionIds: ["ready-2"], phases: ["images", "classify_images"] },
+      false,
+    );
+  });
+
+  it("re-runs every non-image phase for the selected ready submissions", async () => {
+    const user = userEvent.setup();
+    renderList(
+      [makeSubmission({ id: "ready-1", brandName: "Ready Brand 1" })],
+      "ready",
+    );
+
+    await user.click(
+      screen.getByRole("checkbox", { name: "Select Ready Brand 1" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Run text curation again (1)" }),
+    );
+
+    expect(actions.enrich).toHaveBeenCalledTimes(1);
+    expect(actions.enrich).toHaveBeenCalledWith(
+      "enrich",
+      {
+        submissionIds: ["ready-1"],
+        phases: [
+          "clean",
+          "detect",
+          "slugs",
+          "tags",
+          "discover",
+          "links",
+          "descriptions",
+          "locations",
+          "expansion",
+        ],
+      },
+      false,
+    );
+  });
+
+  it("lets admins select pending refresh requests for enrichment", async () => {
+    const user = userEvent.setup();
     renderList(
       [
         makeSubmission({
@@ -345,10 +366,10 @@ describe("SubmissionsReviewList", () => {
       "needs_data",
     );
 
-    expect(
+    await user.click(
       screen.getByRole("checkbox", { name: "Select Scheduled Brand" }),
-    ).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Fetch Data" })).toBeDisabled();
+    );
+    expect(screen.getByRole("button", { name: "Fetch Data" })).toBeEnabled();
   });
 
   it("opens a wide accessible review drawer and keeps row actions independent", async () => {

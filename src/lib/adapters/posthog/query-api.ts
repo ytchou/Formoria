@@ -51,7 +51,7 @@ const SLOW_THRESHOLD_MS = 2_000
 
 function defaultAudit(event: AuditEvent): void {
   if (event.status === 'error') {
-    console.error(`[posthog-query:audit] ${event.queryName} failed (${event.outcome})`, event.response?.httpStatus ?? 'no status')
+    console.warn(`[posthog-query:audit] ${event.queryName} failed (${event.outcome})`, event.response?.httpStatus ?? 'no status')
   } else if (event.latencyMs >= SLOW_THRESHOLD_MS) {
     console.warn(`[posthog-query:audit] ${event.queryName} slow (${event.latencyMs}ms)`)
   }
@@ -208,14 +208,13 @@ export function createPostHogEndpointClient({
 } = {}): {
   runEndpoint(
     name: string,
-    version: number,
     variables: Record<string, string>,
   ): Promise<PostHogQueryResult>
 } {
   return {
-    async runEndpoint(name, version, variables) {
+    async runEndpoint(name, variables) {
       const { projectId, personalApiKey, apiHost } = configuration()
-      const endpoint = `${apiHost}/api/projects/${encodeURIComponent(projectId)}/endpoints/${encodeURIComponent(name)}/run?version=${encodeURIComponent(String(version))}`
+      const endpoint = `${apiHost}/api/projects/${encodeURIComponent(projectId)}/endpoints/${encodeURIComponent(name)}/run`
       const payload = { variables }
       const startedAt = performance.now()
 

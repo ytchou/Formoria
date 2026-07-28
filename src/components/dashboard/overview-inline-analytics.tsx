@@ -5,7 +5,10 @@ import { AnalyticsTrendChart } from '@/components/dashboard/analytics-trend-char
 import { SurfaceCard } from '@/components/ui/card'
 import { countDelta, percent } from '@/lib/analytics/delta-formatters'
 import type { OwnerAnalyticsSnapshotV1 } from '@/lib/analytics/posthog-types'
-import { trafficSourceLabel } from '@/lib/analytics/traffic-source-labels'
+import {
+  outboundDestinationLabel,
+  trafficSourceLabel,
+} from '@/lib/analytics/traffic-source-labels'
 
 export async function OverviewInlineAnalytics({
   snapshot,
@@ -44,6 +47,15 @@ export async function OverviewInlineAnalytics({
     homepage: tAnalytics('trafficSourceHomepage'),
     direct: tAnalytics('trafficSourceDirect'),
     other: tAnalytics('trafficSourceOther'),
+  }
+  const outboundDestinationLabels = {
+    website: tAnalytics('outboundDestinationWebsite'),
+    instagram: tAnalytics('outboundDestinationInstagram'),
+    threads: tAnalytics('outboundDestinationThreads'),
+    facebook: tAnalytics('outboundDestinationFacebook'),
+    pinkoi: tAnalytics('outboundDestinationPinkoi'),
+    shopee: tAnalytics('outboundDestinationShopee'),
+    other: tAnalytics('outboundDestinationOther'),
   }
   const profileDelta = snapshot.profileSessions
     ? countDelta(
@@ -117,7 +129,10 @@ export async function OverviewInlineAnalytics({
             <div className="mt-4">
               <AnalyticsBarChart
                 data={snapshot.destinations.map((row) => ({
-                  label: row.destination,
+                  label: outboundDestinationLabel(
+                    row.destination,
+                    outboundDestinationLabels,
+                  ),
                   value: row.sessions,
                 }))}
               />

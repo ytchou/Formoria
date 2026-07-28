@@ -13,7 +13,6 @@ import {
   getUploadImageProcessingConfig,
   type AllowedUploadBucket,
 } from '@/lib/services/image-upload'
-import { getClientIp } from '@/lib/security/rate-limiter'
 
 async function captureAssetUploaded(
   request: Request,
@@ -78,25 +77,22 @@ export async function POST(request: Request) {
     }
     const bucket = rawBucket as AllowedUploadBucket
 
-    const requiresAuth = isPrivateUploadBucket(bucket)
-    let userId: string | null = null
+    // Every bucket requires an authenticated user — the public brand-images
+    // bucket has no anonymous upload path, and the in-memory rate limiter alone
+    // is not an access control.
+    const supabase = await createClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
 
-    if (requiresAuth) {
-      const supabase = await createClient()
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser()
-
-      if (authError || !user) {
-        return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
-      }
-      userId = user.id
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
+    const userId = user.id
 
-    const rateKey = userId ?? `guest:${getClientIp(request)}`
     const rateResult = uploadRateLimiter.check(
-      rateKey,
+      userId,
       UPLOAD_RATE_LIMIT_WINDOW_MS,
       UPLOAD_RATE_LIMIT_MAX_REQUESTS
     )
@@ -199,7 +195,7 @@ export async function POST(request: Request) {
         size_bytes: buffer.length,
         width: processed.width,
         height: processed.height,
-        authenticated: false,
+        authenticated: true,
       })
       return NextResponse.json({
         url: result.url,

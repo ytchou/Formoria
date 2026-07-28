@@ -379,7 +379,8 @@
       "facebook": "Facebook",
       "website": "Official Website",
       "pinkoi": "Pinkoi",
-      "shopee": "Shopee"
+      "shopee": "Shopee",
+      "purchaseEmpty": "No purchase links are known yet. You can help add one."
     },
     "notFound": {
       "title": "Brand Not Found",
@@ -481,6 +482,12 @@
     "correction": {
       "trigger": "Something wrong?",
       "title": "Correct brand information",
+      "purchaseTrigger": "Provide a purchase link",
+      "purchaseTitle": "Provide a purchase link",
+      "purchaseFieldPickerLabel": "Which purchase channel are you adding?",
+      "purchaseFieldPickerPlaceholder": "Choose a purchase channel…",
+      "purchaseUrlLabel": "Link URL",
+      "purchaseUrlPlaceholder": "https://example.com/shop",
       "close": "Close",
       "fieldPickerLabel": "Which field is wrong?",
       "fieldPickerPlaceholder": "Choose a field…",
@@ -1122,7 +1129,13 @@
       "submit": "Sign In",
       "submitting": "Signing in...",
       "noAccount": "Don't have an account?",
-      "signUpLink": "Sign up"
+      "signUpLink": "Sign up",
+      "errors": {
+        "missingCode": "That sign-in link is incomplete. Enter your email below to get a new one.",
+        "expiredCode": "That link has expired or has already been used. Enter your email below to get a new one.",
+        "oauthFailed": "Google sign-in failed. Please try again or sign in with your email.",
+        "default": "Something went wrong signing you in. Please try again."
+      }
     },
     "forgotPassword": {
       "heading": "Reset Password",
@@ -1273,6 +1286,8 @@
     },
     "overview": {
       "heroTitle": "Dashboard",
+      "statusPublished": "Published",
+      "statusHidden": "Not published",
       "completionTitle": "Profile completeness",
       "completedCount": "{completed} of {total} components complete",
       "warningIncomplete": "{count} profile items still need attention.",
@@ -1401,12 +1416,16 @@
       "trafficSourcesUnavailable": "Traffic sources are temporarily unavailable.",
       "trafficSourcesEmpty": "No traffic source data in this window.",
       "outboundDestinations": "Outbound destinations",
+      "outboundDestinationWebsite": "Official Website",
+      "outboundDestinationInstagram": "Instagram",
+      "outboundDestinationThreads": "Threads",
+      "outboundDestinationFacebook": "Facebook",
+      "outboundDestinationPinkoi": "Pinkoi",
+      "outboundDestinationShopee": "Shopee",
+      "outboundDestinationOther": "Other",
       "destinationsUnavailable": "Destinations are temporarily unavailable.",
       "destinationsEmpty": "No outbound sessions in this window.",
-      "nudgeTitle": "Keep growing your visibility",
-      "nudgeBody": "Claim and complete your brand profile to appear in more searches and category pages.",
       "sectionUnavailable": "This section is temporarily unavailable.",
-      "dataThrough": "Data through",
       "generated": "Generated",
       "unavailableTitle": "Analytics temporarily unavailable",
       "unavailableBody": "Analytics could not load this brand's session metrics. Try again later.",
@@ -2334,7 +2353,10 @@
       "fields": {
         "price_range": "Price range",
         "product_type": "Product type",
-        "product_tags": "Product tags"
+        "product_tags": "Product tags",
+        "purchase_website": "Official website",
+        "purchase_pinkoi": "Pinkoi",
+        "purchase_shopee": "Shopee"
       },
       "tagDelta": {
         "projected": "Projected result"
@@ -2420,8 +2442,9 @@
       "fetching": "Fetching...",
       "fetchData": "Fetch Data",
       "approve": "Approve",
-      "applyRefresh": "Apply refresh",
-      "refreshBadge": "Refresh",
+      "approveRefresh": "Approve — updates the live brand",
+      "runImageCuration": "Run image curation again ({count})",
+      "runTextCuration": "Run text curation again ({count})",
       "storageCleanupWarning": "The refresh was applied, but some retired image files still need cleanup.",
       "reject": "Reject",
       "edit": "Edit",

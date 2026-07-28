@@ -122,6 +122,10 @@ function scalarValue(
     return category ? categoryLabel(category, locale) : unavailableLabel;
   }
 
+  if (field.startsWith("purchase_") && typeof value === "string") {
+    return value;
+  }
+
   return unavailableLabel;
 }
 

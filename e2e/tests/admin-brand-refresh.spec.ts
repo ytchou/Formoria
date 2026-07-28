@@ -168,9 +168,10 @@ test.describe("Scheduled brand refresh review", () => {
     const needsDataRow = adminPage
       .locator("tbody tr")
       .filter({ hasText: brandName });
-    await expect(
-      needsDataRow.getByText("Refresh", { exact: true }),
-    ).toBeVisible();
+    // The per-row "Refresh" badge was removed from the submissions list, so the
+    // refresh intent is no longer observable at the needs_data stage. It is
+    // asserted at the ready stage instead, via the Approve button's label.
+    await expect(needsDataRow).toBeVisible();
 
     const { data: queuedJobId, error: enqueueError } = await supabase.rpc(
       "enqueue_curation_job",
@@ -268,8 +269,9 @@ test.describe("Scheduled brand refresh review", () => {
     const readyRow = adminPage
       .locator("tbody tr")
       .filter({ hasText: brandName });
-    await expect(readyRow.getByText("Refresh", { exact: true })).toBeVisible();
-    await readyRow.getByRole("button", { name: "Apply refresh" }).click();
+    await readyRow
+      .getByRole("button", { name: "Approve — updates the live brand" })
+      .click();
 
     await expect(async () => {
       const [{ data: brand }, { data: source }, { data: refresh }, { count }] =

@@ -13,7 +13,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 type Props = {
-  searchParams: Promise<{ claim?: string }>;
+  searchParams: Promise<{ claim?: string; error?: string }>;
 };
 
 export default async function SignInPage({ searchParams }: Props) {
@@ -36,6 +36,7 @@ export default async function SignInPage({ searchParams }: Props) {
     <SignInForm
       claimToken={claimToken}
       claimBrandName={claimBrandName}
+      errorCode={params.error}
     />
   );
 }

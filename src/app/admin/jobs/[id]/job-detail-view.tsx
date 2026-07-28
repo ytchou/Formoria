@@ -69,7 +69,15 @@ export function JobDetailView({
     (target) => target.target_id === job.current_target_id,
   );
   const active = job.status === "pending" || job.status === "running";
-  const canRerunFailures = job.status === "completed" && job.failed_count > 0;
+  const canRerunCompleted =
+    job.status === "completed" &&
+    (job.failed_count > 0 || job.skipped_count > 0);
+  const completedRerunLabel =
+    job.failed_count > 0 && job.skipped_count > 0
+      ? "Rerun failed and skipped submissions"
+      : job.failed_count > 0
+        ? "Rerun failed submissions"
+        : "Rerun skipped submissions";
   const canRerunUnfinished =
     (job.status === "failed" || job.status === "cancelled") &&
     targets.some(
@@ -105,8 +113,8 @@ export function JobDetailView({
             <DispatchJobButton jobId={job.id} label="Run now" />
           ) : null}
           {active ? <CancelJobButton jobId={job.id} /> : null}
-          {canRerunFailures ? (
-            <RerunJobButton jobId={job.id} label="Rerun failed submissions" />
+          {canRerunCompleted ? (
+            <RerunJobButton jobId={job.id} label={completedRerunLabel} />
           ) : null}
           {canRerunUnfinished ? (
             <RerunJobButton

@@ -5,12 +5,10 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
-  CalendarRange,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Search,
-  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -23,6 +21,7 @@ import { SubmissionStatusBadge } from "@/components/admin/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -47,12 +46,22 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  IMAGE_ENRICH_PHASES,
+  TEXT_ENRICH_PHASES,
+} from "@/lib/constants/enrich-phases";
+import {
+  isoDateInTimeZone,
+  isDateInRange,
+  type IsoDateRange,
+} from "@/lib/date-range";
 import type { DenialReason } from "@/lib/types";
 import { DENIAL_REASONS } from "@/lib/types";
 import type {
   BrandSubmissionForReview,
   EnrichmentFilter,
 } from "@/lib/services/submissions";
+import { isSubmissionEnrichmentFailure } from "@/lib/services/submission-review-stage";
 import { SubmissionReviewDetails } from "./submission-review-details";
 
 export type TabValue =
@@ -83,8 +92,9 @@ export function SubmissionsReviewList({
   const [enrichmentFilter, setEnrichmentFilter] =
     useState<EnrichmentFilter>("all");
   const [search, setSearch] = useState("");
-  const [submittedFrom, setSubmittedFrom] = useState("");
-  const [submittedTo, setSubmittedTo] = useState("");
+  const [submittedRange, setSubmittedRange] = useState<IsoDateRange | null>(
+    null,
+  );
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZES)[number]>(10);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -120,19 +130,23 @@ export function SubmissionsReviewList({
   const filtered = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
     return stageFiltered.filter((submission) => {
-      const submittedDate = formatTaipeiDate(submission.submittedAt);
+      const submittedDate = isoDateInTimeZone(
+        submission.submittedAt,
+        "Asia/Taipei",
+      );
       if (
+        activeTab === "ready" &&
         enrichmentFilter === "complete" &&
         !submission.reviewCompleteness.complete
       )
         return false;
       if (
+        activeTab === "ready" &&
         enrichmentFilter === "incomplete" &&
         submission.reviewCompleteness.complete
       )
         return false;
-      if (submittedFrom && submittedDate < submittedFrom) return false;
-      if (submittedTo && submittedDate > submittedTo) return false;
+      if (!isDateInRange(submittedDate, submittedRange)) return false;
       if (!query) return true;
 
       return [
@@ -143,7 +157,13 @@ export function SubmissionsReviewList({
         submission.reviewData.websiteUrl,
       ].some((value) => value?.toLocaleLowerCase().includes(query));
     });
-  }, [enrichmentFilter, search, stageFiltered, submittedFrom, submittedTo]);
+  }, [
+    activeTab,
+    enrichmentFilter,
+    search,
+    stageFiltered,
+    submittedRange,
+  ]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, pageCount);
@@ -154,9 +174,7 @@ export function SubmissionsReviewList({
   const expandedSubmission =
     submissions.find((submission) => submission.id === expandedId) ?? null;
   const selectableVisible = visible.filter(
-    (submission) =>
-      submission.status === "pending" &&
-      !(activeTab === "needs_data" && submission.reviewKind === "refresh"),
+    (submission) => submission.status === "pending",
   );
   const selectedVisible = selectableVisible.filter((submission) =>
     selectedIds.has(submission.id),
@@ -176,21 +194,6 @@ export function SubmissionsReviewList({
     setBulkRejectReason("");
     setError(null);
     setExpandedId(null);
-  }
-
-  function selectSubmittedDate(value: string) {
-    if (!value) return;
-
-    if (!submittedFrom || submittedTo) {
-      setSubmittedFrom(value);
-      setSubmittedTo("");
-    } else if (value < submittedFrom) {
-      setSubmittedFrom(value);
-      setSubmittedTo(submittedFrom);
-    } else {
-      setSubmittedTo(value);
-    }
-    resetView();
   }
 
   function toggleSelection(id: string) {
@@ -322,6 +325,35 @@ export function SubmissionsReviewList({
     });
   }
 
+  function runScopedCuration(phases: readonly string[]) {
+    const ids = selectedVisible.map((submission) => submission.id);
+    if (ids.length === 0) return;
+
+    startEnrichTransition(async () => {
+      const result = await startCurationJobAction(
+        "enrich",
+        { submissionIds: ids, phases: [...phases] },
+        false,
+      );
+      if ("error" in result) {
+        toast.error(result.error);
+        return;
+      }
+      if ("queued" in result) {
+        const notify =
+          result.dispatchStatus === "failed" ? toast.error : toast.info;
+        notify(result.message, {
+          action: {
+            label: t("viewJob"),
+            onClick: () => router.push(result.detailPath),
+          },
+        });
+        setSelectedIds(new Set());
+        router.refresh();
+      }
+    });
+  }
+
   return (
     <div>
       <JobAutoRefresh
@@ -354,7 +386,13 @@ export function SubmissionsReviewList({
         </TabsList>
       </Tabs>
 
-      <div className="mt-4 grid gap-3 lg:grid-cols-2 lg:items-center xl:grid-cols-[minmax(260px,1fr)_220px_minmax(340px,auto)_auto]">
+      <div
+        className={`mt-4 grid gap-3 lg:grid-cols-2 lg:items-center ${
+          activeTab === "ready"
+            ? "xl:grid-cols-[minmax(260px,1fr)_220px_minmax(340px,auto)_auto]"
+            : "xl:grid-cols-[minmax(260px,1fr)_minmax(340px,auto)_auto]"
+        }`}
+      >
         <div className="relative">
           <Search
             className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
@@ -371,69 +409,43 @@ export function SubmissionsReviewList({
             className="pl-9"
           />
         </div>
-        <Select
-          value={enrichmentFilter}
-          onValueChange={(value) => {
-            setEnrichmentFilter(value as EnrichmentFilter);
+        {activeTab === "ready" && (
+          <Select
+            value={enrichmentFilter}
+            onValueChange={(value) => {
+              setEnrichmentFilter(value as EnrichmentFilter);
+              resetView();
+            }}
+          >
+            <SelectTrigger aria-label={t("enrichmentFilter.label")}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t("enrichmentFilter.all")}</SelectItem>
+              <SelectItem value="complete">
+                {t("enrichmentFilter.complete")}
+              </SelectItem>
+              <SelectItem value="incomplete">
+                {t("enrichmentFilter.incomplete")}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        )}
+        <DateRangePicker
+          ariaLabel={`${t("submittedDate.from")} / ${t("submittedDate.to")}`}
+          value={submittedRange}
+          locale="en"
+          placeholder={`${t("submittedDate.from")} – ${t("submittedDate.to")}`}
+          clearLabel={`${t("fields.remove")} ${t("submittedDate.from")} / ${t("submittedDate.to")}`}
+          onChange={(range) => {
+            setSubmittedRange(range);
             resetView();
           }}
-        >
-          <SelectTrigger aria-label={t("enrichmentFilter.label")}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t("enrichmentFilter.all")}</SelectItem>
-            <SelectItem value="complete">
-              {t("enrichmentFilter.complete")}
-            </SelectItem>
-            <SelectItem value="incomplete">
-              {t("enrichmentFilter.incomplete")}
-            </SelectItem>
-          </SelectContent>
-        </Select>
-        <div className="relative">
-          <Input
-            type="date"
-            value=""
-            aria-label={`${t("submittedDate.from")} / ${t("submittedDate.to")}`}
-            className="cursor-pointer text-transparent"
-            onClick={(event) => event.currentTarget.showPicker?.()}
-            onChange={(event) => selectSubmittedDate(event.target.value)}
-          />
-          <div
-            className="pointer-events-none absolute inset-y-0 left-3.5 right-12 flex items-center gap-2"
-            aria-hidden="true"
-          >
-            <CalendarRange
-              className="size-4 shrink-0 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <span
-              className={`min-w-0 truncate ${submittedFrom ? "type-body" : "type-body-muted"}`}
-            >
-              {submittedFrom
-                ? `${submittedFrom} – ${submittedTo || t("submittedDate.to")}`
-                : `${t("submittedDate.from")} – ${t("submittedDate.to")}`}
-            </span>
-          </div>
-          {submittedFrom && (
-            <Button
-              type="button"
-              variant="ghost"
-              shape="square"
-              size="icon"
-              className="absolute right-1 top-1 z-10 size-10"
-              aria-label={`${t("fields.remove")} ${t("submittedDate.from")} / ${t("submittedDate.to")}`}
-              onClick={() => {
-                setSubmittedFrom("");
-                setSubmittedTo("");
-                resetView();
-              }}
-            >
-              <X className="size-4" aria-hidden="true" />
-            </Button>
-          )}
-        </div>
+          onClear={() => {
+            setSubmittedRange(null);
+            resetView();
+          }}
+        />
         <div className="flex flex-wrap justify-end gap-2">
           {activeTab === "needs_data" ? (
             <Button
@@ -446,6 +458,34 @@ export function SubmissionsReviewList({
             </Button>
           ) : (
             <>
+              {activeTab === "ready" && (
+                <>
+                  <Button
+                    aria-label={t("runImageCuration", {
+                      count: selectedVisible.length,
+                    })}
+                    size="compact"
+                    className="min-h-12"
+                    variant="secondary"
+                    onClick={() => runScopedCuration(IMAGE_ENRICH_PHASES)}
+                    disabled={isEnriching || selectedVisible.length === 0}
+                  >
+                    {t("runImageCuration", { count: selectedVisible.length })}
+                  </Button>
+                  <Button
+                    aria-label={t("runTextCuration", {
+                      count: selectedVisible.length,
+                    })}
+                    size="compact"
+                    className="min-h-12"
+                    variant="secondary"
+                    onClick={() => runScopedCuration(TEXT_ENRICH_PHASES)}
+                    disabled={isEnriching || selectedVisible.length === 0}
+                  >
+                    {t("runTextCuration", { count: selectedVisible.length })}
+                  </Button>
+                </>
+              )}
               <Button
                 aria-label={t("approveSelected", {
                   count: approvableSelected.length,
@@ -556,11 +596,7 @@ export function SubmissionsReviewList({
                           name: submission.brandName,
                         })}
                         checked={selectedIds.has(submission.id)}
-                        disabled={
-                          submission.status !== "pending" ||
-                          (activeTab === "needs_data" &&
-                            submission.reviewKind === "refresh")
-                        }
+                        disabled={submission.status !== "pending"}
                         onCheckedChange={() => toggleSelection(submission.id)}
                       />
                     </TableCell>
@@ -569,9 +605,6 @@ export function SubmissionsReviewList({
                         <span className="truncate">
                           {submission.reviewData.name}
                         </span>
-                        {submission.reviewKind === "refresh" && (
-                          <Badge variant="secondary">{t("refreshBadge")}</Badge>
-                        )}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -629,15 +662,16 @@ export function SubmissionsReviewList({
                                 size="compact"
                                 className="min-h-12"
                                 variant="primary"
+                                {...(submission.reviewKind === "refresh"
+                                  ? { "aria-label": t("approveRefresh") }
+                                  : {})}
                                 onClick={() => approveOne(submission.id)}
                                 disabled={
                                   isPending ||
                                   !submission.reviewCompleteness.complete
                                 }
                               >
-                                {submission.reviewKind === "refresh"
-                                  ? t("applyRefresh")
-                                  : t("approve")}
+                                {t("approve")}
                               </Button>
                               <Button
                                 size="compact"
@@ -707,13 +741,8 @@ export function SubmissionsReviewList({
             <>
               <SheetHeader className="border-b p-5 pr-16">
                 <SheetTitle>
-                  <span className="flex items-center gap-2">
-                    {expandedSubmission.reviewData.name ||
-                      expandedSubmission.brandName}
-                    {expandedSubmission.reviewKind === "refresh" && (
-                      <Badge variant="secondary">{t("refreshBadge")}</Badge>
-                    )}
-                  </span>
+                  {expandedSubmission.reviewData.name ||
+                    expandedSubmission.brandName}
                 </SheetTitle>
                 <p className="type-metadata">
                   {formatDate(expandedSubmission.submittedAt)}
@@ -814,19 +843,6 @@ function formatDate(value: string) {
   });
 }
 
-function formatTaipeiDate(value: string) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    timeZone: "Asia/Taipei",
-  }).formatToParts(new Date(value));
-  const values = Object.fromEntries(
-    parts.map((part) => [part.type, part.value]),
-  );
-  return `${values.year}-${values.month}-${values.day}`;
-}
-
 function enrichmentLabel(
   submission: ReviewSubmission,
   t: ReturnType<typeof useTranslations<"admin.submissions">>,
@@ -844,10 +860,11 @@ function enrichmentLabel(
     };
   }
   if (
-    submission.latestCurationTargetStatus === "failed" ||
-    submission.latestCurationDispatchStatus === "failed" ||
-    submission.latestCurationJobStatus === "failed" ||
-    submission.latestCurationJobStatus === "cancelled"
+    isSubmissionEnrichmentFailure({
+      targetStatus: submission.latestCurationTargetStatus,
+      jobStatus: submission.latestCurationJobStatus,
+      dispatchStatus: submission.latestCurationDispatchStatus,
+    })
   ) {
     return { label: t("enrichmentStatus.failed"), variant: "destructive" };
   }

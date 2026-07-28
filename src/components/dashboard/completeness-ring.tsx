@@ -30,7 +30,11 @@ export function CompletenessRing({ score }: { score: number }) {
       className="relative flex size-12 shrink-0 items-center justify-center"
       role="img"
     >
-      <svg aria-hidden="true" className="absolute inset-0 size-full -rotate-90">
+      <svg
+        aria-hidden="true"
+        className="absolute inset-0 size-full -rotate-90"
+        viewBox="0 0 48 48"
+      >
         <circle
           className="stroke-muted"
           cx="24"

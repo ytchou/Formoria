@@ -91,6 +91,15 @@ function brandHeroTable(supabase: unknown): BrandHeroTable {
   return (supabase as BrandHeroClient).from('brands')
 }
 
+export function getBrandGalleryImages(brand: {
+  heroImageUrl: string | null
+  productPhotos: readonly string[]
+}): string[] {
+  return [brand.heroImageUrl, ...brand.productPhotos].filter(
+    (url): url is string => Boolean(url),
+  )
+}
+
 export function toImageFields(rows: BrandImageRow[]): {
   heroImageUrl: string | null
   productPhotos: string[]

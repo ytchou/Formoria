@@ -3,11 +3,12 @@ import { getPostHogOwnerAnalyticsSnapshot } from './posthog-owner-analytics'
 
 function endpointClientMock(responses: Record<string, unknown[][] | Error>) {
   return {
-    runEndpoint: vi.fn(async (
-      name: string,
-      _version: number,
-      _variables: Record<string, string>,
-    ) => {
+    runEndpoint: vi.fn<
+      (name: string, variables: Record<string, string>) => Promise<{
+        results: unknown[][]
+        columns: string[]
+      }>
+    >(async (name) => {
       const r = responses[name]
       if (r instanceof Error) throw r
       return { results: r, columns: [] }
@@ -33,13 +34,17 @@ describe('getPostHogOwnerAnalyticsSnapshot (endpoints)', () => {
     })
 
     expect(client.runEndpoint).toHaveBeenCalledTimes(4)
-    for (const call of client.runEndpoint.mock.calls) {
-      expect(call[1]).toBe(2)
-      expect(call[2]).toEqual({
+    expect(client.runEndpoint.mock.calls[0]?.[1]).toEqual({
         brand_id: 'b-1',
         current_start: '2026-07-13',
         current_end: '2026-07-19',
         prior_start: '2026-07-06',
+    })
+    for (const call of client.runEndpoint.mock.calls.slice(1)) {
+      expect(call[1]).toEqual({
+        brand_id: 'b-1',
+        current_start: '2026-07-13',
+        current_end: '2026-07-19',
       })
     }
   })
@@ -47,12 +52,24 @@ describe('getPostHogOwnerAnalyticsSnapshot (endpoints)', () => {
   it('defaults to 30 days', async () => {
     const client = endpointClientMock(happy)
 
-    await getPostHogOwnerAnalyticsSnapshot('b-1', { client })
+    await getPostHogOwnerAnalyticsSnapshot('b-1', {
+      client,
+      now: () => new Date('2026-07-20T12:00:00+08:00'),
+    })
 
     expect(client.runEndpoint).toHaveBeenCalledTimes(4)
-    for (const call of client.runEndpoint.mock.calls) {
-      expect(call[1]).toBe(1)
-      expect(call[2]).toEqual({ brand_id: 'b-1' })
+    expect(client.runEndpoint.mock.calls[0]?.[1]).toEqual({
+        brand_id: 'b-1',
+        current_start: '2026-06-20',
+        current_end: '2026-07-19',
+        prior_start: '2026-05-21',
+    })
+    for (const call of client.runEndpoint.mock.calls.slice(1)) {
+      expect(call[1]).toEqual({
+        brand_id: 'b-1',
+        current_start: '2026-06-20',
+        current_end: '2026-07-19',
+      })
     }
   })
 

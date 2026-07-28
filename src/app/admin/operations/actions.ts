@@ -113,7 +113,7 @@ export async function rerunCurationJobAction(
 
     return dispatchQueuedJob(
       job.id,
-      "Rerun job created for failed or unfinished brands, dispatching now.",
+      "Rerun job created for failed, skipped, or unfinished submissions, dispatching now.",
     );
   } catch (error) {
     console.error("[admin:rerunCurationJobAction]", error);

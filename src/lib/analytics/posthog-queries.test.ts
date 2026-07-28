@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   OWNER_ENDPOINTS,
+  OWNER_ENDPOINTS_V2,
   SITE_DASHBOARD_NAME,
   listOwnerEndpoints,
 } from './posthog-queries'
@@ -15,15 +16,30 @@ describe('posthog-queries definitions', () => {
     ])
   })
 
-  it('every endpoint is versioned, cached at 900s, and parameterized by brand_id', () => {
+  it('syncs one current date-window endpoint per owner metric', () => {
+    expect(listOwnerEndpoints()).toHaveLength(4)
     for (const def of listOwnerEndpoints()) {
-      expect(def.version).toBeGreaterThanOrEqual(1)
       expect(def.dataFreshnessSeconds).toBe(900)
       expect(def.hogql).toContain('{variables.brand_id}')
+      expect(def.hogql).toContain('{variables.current_start}')
+      expect(def.hogql).toContain('{variables.current_end}')
       expect(def.variables.brand_id).toMatchObject({ type: 'String' })
+      expect(def.variables).toHaveProperty('current_start')
+      expect(def.variables).toHaveProperty('current_end')
       expect(def.variables.brand_id.default).toBeDefined()
       expect(def.hogql).toContain('analytics_schema_version')
       expect(def.hogql).toContain("surface, 'public'")
+    }
+    expect(OWNER_ENDPOINTS_V2.brand_core_totals.hogql).toContain(
+      '{variables.prior_start}',
+    )
+    expect(OWNER_ENDPOINTS_V2.brand_core_totals.variables).toHaveProperty('prior_start')
+    for (const name of [
+      'brand_daily_trend',
+      'brand_traffic_sources',
+      'brand_outbound_destinations',
+    ] as const) {
+      expect(OWNER_ENDPOINTS_V2[name].variables).not.toHaveProperty('prior_start')
     }
   })
 

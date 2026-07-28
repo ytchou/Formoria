@@ -8,7 +8,10 @@ import { describe, it, expect } from "vitest";
 // if that happens: move the validator beside `resolveProductTagInput` in
 // `product-tags.ts`, which is ontology-only imports precisely so it can be
 // imported freely.
-import { normalizeProposedValue } from "../brand-corrections";
+import {
+  buildScalarCorrectionPatch,
+  normalizeProposedValue,
+} from "../brand-corrections";
 import type { ProductTagsDelta } from "../product-tags";
 
 function normalizeTags(delta: unknown) {
@@ -182,6 +185,84 @@ describe("normalizeProposedValue — price_range and product_type", () => {
     expect(normalizeProposedValue("product_type", 1)).toEqual({
       ok: false,
       error: "invalid_value",
+    });
+  });
+});
+
+describe("normalizeProposedValue — purchase links", () => {
+  it("accepts and normalizes the URL for each supported purchase destination", () => {
+    expect(
+      normalizeProposedValue("purchase_website", "formoria.example/shop"),
+    ).toEqual({ ok: true, value: "https://formoria.example/shop" });
+    expect(
+      normalizeProposedValue(
+        "purchase_pinkoi",
+        "https://www.pinkoi.com/store/maría-garcía",
+      ),
+    ).toEqual({
+      ok: true,
+      value: "https://www.pinkoi.com/store/mar%C3%ADa-garc%C3%ADa",
+    });
+    expect(
+      normalizeProposedValue(
+        "purchase_shopee",
+        "https://shopee.tw/m.garcia-test",
+      ),
+    ).toEqual({
+      ok: true,
+      value: "https://shopee.tw/m.garcia-test",
+    });
+  });
+
+  it("rejects a marketplace URL submitted for the wrong destination", () => {
+    expect(
+      normalizeProposedValue(
+        "purchase_pinkoi",
+        "https://shopee.tw/m.garcia-test",
+      ),
+    ).toEqual({ ok: false, error: "invalid_value" });
+    expect(
+      normalizeProposedValue(
+        "purchase_shopee",
+        "https://www.pinkoi.com/store/maría-garcía",
+      ),
+    ).toEqual({ ok: false, error: "invalid_value" });
+  });
+
+  it("rejects private, non-http, and oversized URLs", () => {
+    expect(
+      normalizeProposedValue("purchase_website", "http://127.0.0.1/shop"),
+    ).toEqual({ ok: false, error: "invalid_value" });
+    expect(
+      normalizeProposedValue("purchase_website", "http://127.0.0.2/shop"),
+    ).toEqual({ ok: false, error: "invalid_value" });
+    expect(
+      normalizeProposedValue("purchase_website", "http://[fc00::1]/shop"),
+    ).toEqual({ ok: false, error: "invalid_value" });
+    expect(
+      normalizeProposedValue("purchase_website", "http://[fe80::1]/shop"),
+    ).toEqual({ ok: false, error: "invalid_value" });
+    expect(
+      normalizeProposedValue("purchase_website", "javascript:alert(1)"),
+    ).toEqual({ ok: false, error: "invalid_value" });
+    expect(
+      normalizeProposedValue(
+        "purchase_website",
+        `https://formoria.example/${"a".repeat(2048)}`,
+      ),
+    ).toEqual({ ok: false, error: "invalid_value" });
+  });
+});
+
+describe("buildScalarCorrectionPatch — purchase links", () => {
+  it.each([
+    ["purchase_website", "purchaseWebsite"],
+    ["purchase_pinkoi", "purchasePinkoi"],
+    ["purchase_shopee", "purchaseShopee"],
+  ] as const)("maps %s to %s", (field, brandField) => {
+    const value = "https://shop.formoria.example/maría-garcía";
+    expect(buildScalarCorrectionPatch(field, value)).toEqual({
+      [brandField]: value,
     });
   });
 });

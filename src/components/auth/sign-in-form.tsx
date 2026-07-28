@@ -14,15 +14,32 @@ import { Label } from "@/components/ui/label";
 type SignInFormProps = {
   claimToken?: string;
   claimBrandName?: string;
+  /** `?error=` code written by /auth/callback and the OAuth action. */
+  errorCode?: string;
 };
 
-export function SignInForm({ claimToken, claimBrandName }: SignInFormProps) {
+const ERROR_MESSAGE_KEYS = {
+  "missing-code": "signIn.errors.missingCode",
+  "expired-code": "signIn.errors.expiredCode",
+  "oauth-failed": "signIn.errors.oauthFailed",
+} as const;
+
+export function SignInForm({ claimToken, claimBrandName, errorCode }: SignInFormProps) {
   const [state, action, pending] = useActionState<AuthState, FormData>(signIn, {});
   const searchParams = useSearchParams();
   const message = searchParams.get("message");
   const next = searchParams.get("next");
   const googleAction = signInWithGoogle.bind(null, claimToken, next ?? undefined);
   const t = useTranslations("auth");
+
+  const errorMessage =
+    state.error ??
+    (errorCode
+      ? t(
+          ERROR_MESSAGE_KEYS[errorCode as keyof typeof ERROR_MESSAGE_KEYS] ??
+            "signIn.errors.default",
+        )
+      : undefined);
 
   const signUpHref = claimToken
     ? `/auth/sign-up?claim=${claimToken}`
@@ -54,9 +71,9 @@ export function SignInForm({ claimToken, claimBrandName }: SignInFormProps) {
         </div>
       )}
 
-      {state.error && (
+      {errorMessage && (
         <div role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {state.error}
+          {errorMessage}
         </div>
       )}
 

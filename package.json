@@ -32,7 +32,10 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
+    "@heroui/react": "^3.2.2",
+    "@heroui/styles": "^3.2.2",
     "@hookform/resolvers": "^5.2.2",
+    "@internationalized/date": "^3.12.2",
     "@radix-ui/react-accordion": "^1.2.13",
     "@radix-ui/react-tooltip": "^1.2.13",
     "@react-email/components": "^1.0.12",

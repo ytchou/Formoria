@@ -379,7 +379,8 @@
       "facebook": "Facebook",
       "website": "品牌官網",
       "pinkoi": "Pinkoi",
-      "shopee": "蝦皮購物"
+      "shopee": "蝦皮購物",
+      "purchaseEmpty": "目前還沒有購買連結，歡迎協助補充。"
     },
     "notFound": {
       "title": "找不到品牌",
@@ -481,6 +482,12 @@
     "correction": {
       "trigger": "資料有誤?",
       "title": "修正品牌資訊",
+      "purchaseTrigger": "提供購買連結",
+      "purchaseTitle": "提供購買連結",
+      "purchaseFieldPickerLabel": "要提供哪一個購買管道?",
+      "purchaseFieldPickerPlaceholder": "請選擇購買管道…",
+      "purchaseUrlLabel": "連結網址",
+      "purchaseUrlPlaceholder": "https://example.com/shop",
       "close": "關閉",
       "fieldPickerLabel": "要修正哪一項?",
       "fieldPickerPlaceholder": "請選擇要修正的項目…",
@@ -1122,7 +1129,13 @@
       "submit": "登入",
       "submitting": "登入中...",
       "noAccount": "還沒有帳號？",
-      "signUpLink": "註冊"
+      "signUpLink": "註冊",
+      "errors": {
+        "missingCode": "登入連結不完整，請在下方輸入電子郵件以重新取得。",
+        "expiredCode": "此連結已過期或已被使用，請在下方輸入電子郵件以重新取得。",
+        "oauthFailed": "Google 登入失敗，請再試一次或改用電子郵件登入。",
+        "default": "登入時發生問題，請再試一次。"
+      }
     },
     "forgotPassword": {
       "heading": "重設密碼",
@@ -1273,6 +1286,8 @@
     },
     "overview": {
       "heroTitle": "儀表板",
+      "statusPublished": "已發布",
+      "statusHidden": "未發布",
       "completionTitle": "品牌檔案完成度",
       "completedCount": "已完成 {completed}／{total} 個項目",
       "warningIncomplete": "還有 {count} 個品牌檔案項目需要完成。",
@@ -1401,12 +1416,16 @@
       "trafficSourcesUnavailable": "流量來源暫時無法使用。",
       "trafficSourcesEmpty": "此期間沒有流量來源資料。",
       "outboundDestinations": "外連目的地",
+      "outboundDestinationWebsite": "品牌官網",
+      "outboundDestinationInstagram": "Instagram",
+      "outboundDestinationThreads": "Threads",
+      "outboundDestinationFacebook": "Facebook",
+      "outboundDestinationPinkoi": "Pinkoi",
+      "outboundDestinationShopee": "蝦皮購物",
+      "outboundDestinationOther": "其他",
       "destinationsUnavailable": "外連目的地明細暫時無法使用。",
       "destinationsEmpty": "此期間沒有外連工作階段。",
-      "nudgeTitle": "持續提升能見度",
-      "nudgeBody": "完善品牌資料，讓更多人在搜尋和分類頁面找到您。",
       "sectionUnavailable": "此區塊暫時無法使用。",
-      "dataThrough": "資料截至",
       "generated": "產生時間",
       "unavailableTitle": "數據分析暫時無法使用",
       "unavailableBody": "數據分析目前無法載入此品牌的工作階段指標，請稍後再試。",
@@ -2334,7 +2353,10 @@
       "fields": {
         "price_range": "價格區間",
         "product_type": "產品類型",
-        "product_tags": "產品標籤"
+        "product_tags": "產品標籤",
+        "purchase_website": "品牌官網",
+        "purchase_pinkoi": "Pinkoi",
+        "purchase_shopee": "蝦皮購物"
       },
       "tagDelta": {
         "projected": "套用後結果"
@@ -2420,8 +2442,9 @@
       "fetching": "抓取中…",
       "fetchData": "抓取資料",
       "approve": "核准",
-      "applyRefresh": "套用更新",
-      "refreshBadge": "資料更新",
+      "approveRefresh": "核准 — 將更新線上品牌資料",
+      "runImageCuration": "重新執行圖片擷取（{count}）",
+      "runTextCuration": "重新執行文字擷取（{count}）",
       "storageCleanupWarning": "資料已更新，但部分已淘汰的圖片檔案仍需清理。",
       "reject": "拒絕",
       "edit": "編輯",

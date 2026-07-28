@@ -38,6 +38,7 @@ import { shouldShowBrandSectionNav } from '@/lib/brands/section-nav'
 import { NotFoundError } from '@/lib/errors'
 import { truncateForMeta } from '@/lib/text/truncate-for-meta'
 import { getBrandIndexability } from '@/lib/seo/brand-indexability'
+import { getBrandGalleryImages } from '@/lib/services/brand-images'
 import {
   normalizeInstagramHref,
   normalizeThreadsHref,
@@ -146,10 +147,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
     getChannelsForBrand(displayBrand.id),
   ])
 
-  // Gallery images: hero + product photos
-  const galleryImages = [displayBrand.heroImageUrl, ...displayBrand.productPhotos].filter(
-    (url): url is string => Boolean(url),
-  )
+  const galleryImages = getBrandGalleryImages(displayBrand)
 
   const productTypeSlug =
     (displayBrand as Brand & { product_type?: string | null }).product_type ?? null
@@ -182,11 +180,6 @@ export default async function BrandDetailPage({ params }: PageProps) {
     normalizeThreadsHref(displayBrand.socialThreads),
     sanitizeHref(displayBrand.socialFacebook),
   ].some(Boolean)
-  const hasPurchaseLinks = [
-    sanitizeHref(displayBrand.purchaseWebsite),
-    sanitizeHref(displayBrand.purchasePinkoi),
-    sanitizeHref(displayBrand.purchaseShopee),
-  ].some(Boolean)
   const sections = [
     ...(description
       ? [{ id: 'about', label: tBrandDetail('tabNav.about') }]
@@ -194,9 +187,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
     ...(hasSocialLinks
       ? [{ id: 'social', label: tBrandDetail('tabNav.social') }]
       : []),
-    ...(hasPurchaseLinks
-      ? [{ id: 'purchase', label: tBrandDetail('tabNav.purchase') }]
-      : []),
+    { id: 'purchase', label: tBrandDetail('tabNav.purchase') },
     { id: 'locations', label: tBrandDetail('tabNav.locations') },
     ...(faqItems.length > 0
       ? [{ id: 'faq', label: tBrandDetail('tabNav.faq') }]
