@@ -2,10 +2,8 @@ export const runtime = 'nodejs'
 
 import { ImageResponse } from 'next/og'
 import { NextResponse } from 'next/server'
-import {
-  getApprovedBrandBySlug,
-  resolveApprovedBrandRedirect,
-} from '@/lib/services/brands'
+import { getApprovedBrandBySlug } from '@/lib/services/brands'
+import { resolveApprovedBrandRedirect } from '@/lib/services/brand-redirects'
 import { getOgFonts, getOgMarkDataUri } from '@/lib/brand/og-fonts'
 import { NotFoundError } from '@/lib/errors'
 import { renderShareCard } from '@/lib/growth/share-card'

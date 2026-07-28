@@ -1,9 +1,9 @@
-import { notFound, permanentRedirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
+import { cache } from 'react'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import {
   getApprovedBrandBySlug,
-  resolveApprovedBrandRedirect,
   getRelatedBrands,
   getBrandCountByCategory,
   getAllBrandSlugs,
@@ -38,7 +38,6 @@ import { shouldShowBrandSectionNav } from '@/lib/brands/section-nav'
 import { NotFoundError } from '@/lib/errors'
 import { truncateForMeta } from '@/lib/text/truncate-for-meta'
 import { getBrandIndexability } from '@/lib/seo/brand-indexability'
-import { localizePath } from '@/i18n/locale-preference'
 import {
   normalizeInstagramHref,
   normalizeThreadsHref,
@@ -69,22 +68,14 @@ type PageProps = {
 
 type BrandFaqTranslateFn = (key: string, params?: Record<string, unknown>) => string
 
-async function loadApprovedBrandOrRedirect(slug: string, locale: string): Promise<Brand> {
+const loadApprovedBrand = cache(async (slug: string): Promise<Brand> => {
   try {
     return await getApprovedBrandBySlug(slug)
   } catch (error) {
     if (!(error instanceof NotFoundError) || error.cause) throw error
   }
-
-  const redirectSlug = await resolveApprovedBrandRedirect(slug)
-  if (redirectSlug) {
-    permanentRedirect(
-      localizePath(`/brands/${encodeURIComponent(redirectSlug)}`, locale),
-    )
-  }
-
   notFound()
-}
+})
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { locale, slug: rawSlug } = await params
@@ -93,7 +84,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
   const t = await getTranslations('brandDetail')
 
-  const brand = await loadApprovedBrandOrRedirect(slug, locale)
+  const brand = await loadApprovedBrand(slug)
   const indexability = getBrandIndexability(brand)
   const availableLocales: Locale[] = [
     ...(indexability['zh-TW'] ? (['zh-TW'] as const) : []),
@@ -141,7 +132,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
   const slug = decodeURIComponent(rawSlug)
   setRequestLocale(locale)
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
-  const brand = await loadApprovedBrandOrRedirect(slug, locale)
+  const brand = await loadApprovedBrand(slug)
 
   const displayBrand: Brand = brand
   const [tBrandDetail, tCities] = await Promise.all([
