@@ -6,6 +6,8 @@ import type { Database } from "@/lib/supabase/database.types";
 import {
   buildFeatureRequestBoard,
   countVotesByRequest,
+  listAllFeatureRequests,
+  listFeatureRequests,
   mergeFeatureRequests,
   rowToFeatureRequest,
   setFeatureRequestVote,
@@ -65,7 +67,7 @@ describe("rowToFeatureRequest", () => {
 });
 
 describe("buildFeatureRequestBoard", () => {
-  it("listFeatureRequests excludes merged requests", () => {
+  it("buildFeatureRequestBoard excludes merged requests", () => {
     const board = buildFeatureRequestBoard(
       [row({ id: "kept" }), row({ id: "merged", merged_into_id: "kept" })],
       [],
@@ -74,7 +76,7 @@ describe("buildFeatureRequestBoard", () => {
     expect(board.map((entry) => entry.id)).toEqual(["kept"]);
   });
 
-  it("listFeatureRequests sorts by votes desc then created desc", () => {
+  it("buildFeatureRequestBoard sorts by votes desc then created desc", () => {
     const board = buildFeatureRequestBoard(
       [
         row({ id: "older-tie", created_at: "2026-07-01T00:00:00.000Z" }),
@@ -103,7 +105,7 @@ describe("buildFeatureRequestBoard", () => {
     expect(board.map((entry) => entry.voteCount)).toEqual([3, 2, 2, 1]);
   });
 
-  it("listFeatureRequests filters by category", () => {
+  it("buildFeatureRequestBoard filters by category", () => {
     const board = buildFeatureRequestBoard(
       [
         row({ id: "owner-1", category: "owner" }),
@@ -272,6 +274,40 @@ describeWithDb("feature requests service (database)", () => {
       .eq("id", result.id)
       .single();
     expect(data?.submitted_by).toBe(voter);
+  });
+
+  // The SQL-side clauses live in the query builder, not in the pure assembler
+  // above, so they can only be pinned against a real database — mocking
+  // `@/lib/supabase/*` is forbidden by scripts/check-test-boundaries.mjs.
+  it("listFeatureRequests applies the merged, category and limit clauses", async () => {
+    const target = await createRequest({ category: "visitor" });
+    const merged = await createRequest({
+      category: "visitor",
+      merged_into_id: target,
+      status: "duplicate",
+    });
+    const owner = await createRequest({ category: "owner" });
+
+    const visitors = await listFeatureRequests({ category: "visitor" });
+    const visitorIds = visitors.map((entry) => entry.id);
+    expect(visitorIds).toContain(target);
+    expect(visitorIds).not.toContain(merged);
+    expect(visitorIds).not.toContain(owner);
+
+    const limited = await listFeatureRequests({ limit: 1 });
+    expect(limited).toHaveLength(1);
+  });
+
+  it("listAllFeatureRequests keeps merged tombstones", async () => {
+    const target = await createRequest();
+    const merged = await createRequest({
+      merged_into_id: target,
+      status: "duplicate",
+    });
+
+    const ids = (await listAllFeatureRequests()).map((entry) => entry.id);
+    expect(ids).toContain(target);
+    expect(ids).toContain(merged);
   });
 
   it("mergeFeatureRequests re-points votes", async () => {

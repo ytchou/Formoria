@@ -140,9 +140,15 @@ export function FeatureRequestVotesProvider({
 }
 
 /**
- * Outside a provider the control still works — it just has no memory of prior
- * votes, so it renders unpressed. That keeps a stray upvote button from
- * throwing the way `useUser` does.
+ * Outside a provider this degrades instead of throwing, the same way
+ * `useSavedBrands` does — a stray control must not blank the page it sits on.
+ *
+ * Degraded mode is inert, not partial: with no provider there is no membership
+ * data, so every row would render unpressed and a click would only ever send
+ * `voted: true` — a no-op upsert for anyone who already voted, whose count then
+ * snaps back. The fallback therefore refuses the write and reports
+ * `unavailable`, which the caller already surfaces as an error toast and a
+ * count rollback. Mount `FeatureRequestVotesProvider` to get a working control.
  */
 export function useFeatureRequestVotes(): FeatureRequestVotesContextValue {
   const context = useContext(FeatureRequestVotesContext)
@@ -151,8 +157,12 @@ export function useFeatureRequestVotes(): FeatureRequestVotesContextValue {
     return {
       votedIds: new Set(),
       loading: false,
-      vote: (requestId, voted) =>
-        setFeatureRequestVoteAction({ requestId, voted }),
+      vote: async () => {
+        console.error(
+          'useFeatureRequestVotes used outside FeatureRequestVotesProvider; voting is disabled.',
+        )
+        return { ok: false, error: 'unavailable' }
+      },
     }
   }
 

@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
   useUser: vi.fn(),
+  refresh: vi.fn(),
 }))
 
 vi.mock('@/lib/actions/feature-requests', () => ({
@@ -24,6 +25,10 @@ vi.mock('@/lib/analytics', () => ({
 
 vi.mock('sonner', () => ({
   toast: { error: mocks.toastError, success: mocks.toastSuccess },
+}))
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ refresh: mocks.refresh }),
 }))
 
 vi.mock('@/i18n/navigation', () => ({ usePathname: () => '/feedback' }))
@@ -94,6 +99,23 @@ describe('SubmitRequestDialog', () => {
       copy.errors.title,
     )
     expect(mocks.submit).not.toHaveBeenCalled()
+  })
+
+  it('refreshes the board after a successful submit', async () => {
+    const user = await openDialog()
+
+    await user.type(
+      screen.getByLabelText(copy.titleLabel),
+      'Let owners schedule a launch date',
+    )
+    await user.click(screen.getByRole('button', { name: copy.idle }))
+
+    await waitFor(() =>
+      expect(mocks.toastSuccess).toHaveBeenCalledWith(copy.success),
+    )
+    // Without this the submitter is told the request is on the board and then
+    // cannot see it until a manual reload.
+    expect(mocks.refresh).toHaveBeenCalled()
   })
 
   it('maps action error codes to localized messages', async () => {

@@ -1,6 +1,7 @@
 import { useTranslations } from 'next-intl'
 
 import { buttonVariants } from '@/components/ui/button'
+import { toggleChipSelectedClasses } from '@/components/ui/toggle-chip'
 import { Link } from '@/i18n/navigation'
 import type { FeatureRequestCategory } from '@/lib/services/feature-requests'
 import { cn } from '@/lib/utils'
@@ -42,8 +43,11 @@ export function FeatureRequestFilters({
                     shape: 'pill',
                     size: 'chip',
                   }),
-                  selected &&
-                    'border-primary bg-primary text-primary-foreground hover:border-primary hover:bg-primary hover:text-primary-foreground',
+                  // ToggleChip's own selected treatment, imported rather than
+                  // cloned. The chip stays a real <Link> — it needs no
+                  // `pressed` handler, and `aria-pressed` would be invalid on
+                  // an anchor — but it must never drift from the button chips.
+                  selected && toggleChipSelectedClasses,
                 )}
               >
                 {t(category ?? 'all')}

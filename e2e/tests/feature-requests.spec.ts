@@ -213,7 +213,9 @@ test.describe('Public feature request board', () => {
         'aria-label',
         `登入後為「${request.title}」投票`,
       );
-      await expect(button).toHaveAttribute('aria-pressed', 'false');
+      // Signed out the control navigates rather than toggles, so it carries no
+      // pressed state — aria-pressed is emitted only on the signed-in toggle.
+      await expect(button).not.toHaveAttribute('aria-pressed', /.*/);
       await button.click();
 
       await expect(anonPage).toHaveURL(/\/auth\/sign-in/, { timeout: 30_000 });

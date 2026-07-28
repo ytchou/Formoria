@@ -24,8 +24,10 @@ const STATUS_BADGE: Record<FeatureRequestStatus, BadgeVariant> = {
   planned: 'outline',
   in_progress: 'warning',
   shipped: 'success',
-  declined: 'ghost',
-  duplicate: 'ghost',
+  // `declared`, not `ghost`: the ghost variant carries hover rules only, so it
+  // renders as plain text on a badge base that is otherwise transparent.
+  declined: 'declared',
+  duplicate: 'declared',
 }
 
 export function FeatureRequestRow({ request }: { request: FeatureRequest }) {
@@ -40,7 +42,7 @@ export function FeatureRequestRow({ request }: { request: FeatureRequest }) {
       />
       <div className="min-w-0 flex-1 space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <Typography as="h3" variant="cardTitle" className="min-w-0">
+          <Typography as="h2" variant="cardTitle" className="min-w-0">
             {request.title}
           </Typography>
           {request.status !== 'duplicate' && (

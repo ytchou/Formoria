@@ -74,7 +74,27 @@ export type MergeFeatureRequestsResult =
  * Hard cap on a single board render. The board is one page with no pagination,
  * so this doubles as the query cap and the render cap.
  */
-export const MAX_BOARD_REQUESTS = 200;
+const MAX_BOARD_REQUESTS = 200;
+
+/**
+ * Length bounds for a submitted request. These are the single source of truth
+ * for the dialog, the zod schema in `@/lib/actions/feature-requests-core`, and
+ * this module's own guard — they must keep matching the migration's
+ * `check (char_length(title) between 4 and 120)` and
+ * `check (char_length(body) <= 2000)`, so changing one means changing both.
+ */
+export const FEATURE_REQUEST_TITLE_MIN = 4;
+export const FEATURE_REQUEST_TITLE_MAX = 120;
+export const FEATURE_REQUEST_BODY_MAX = 2000;
+
+/**
+ * `.in()` serialises every id into the GET query string, so an unbounded id
+ * list on a 200-row board produces a ~7.5 KB request line — past the 8 KB cap
+ * that gateways commonly enforce, and postgrest-js has no POST fallback.
+ * Batching keeps each request line small at the cost of at most four round
+ * trips per board render.
+ */
+const VOTE_ID_BATCH_SIZE = 50;
 
 const FEATURE_REQUEST_COLUMNS =
   "id, title, body, category, status, merged_into_id, is_seed, admin_note, created_at, updated_at";
@@ -130,8 +150,10 @@ export function rowToFeatureRequest(
 }
 
 /**
- * Vote counts are aggregated in JS from one flat `request_id` select rather
- * than a per-request count query, so a board render costs 2 queries regardless
+ * Vote counts are aggregated in JS from one flat `request_id` select (batched
+ * into `VOTE_ID_BATCH_SIZE` chunks to keep the GET query string under the
+ * gateway limit) rather than a per-request count query, so a board render
+ * costs one row query plus a small constant number of vote queries regardless
  * of how many requests are on it.
  *
  * Ceiling: this holds while the board stays under ~500 requests / ~50k vote
@@ -154,16 +176,17 @@ export function countVotesByRequest(
  * Board order: most-wanted first, newest first on a tie. Sorting happens in JS
  * because the vote count itself is computed in JS.
  */
-export function compareFeatureRequests(a: FeatureRequest, b: FeatureRequest) {
+function compareFeatureRequests(a: FeatureRequest, b: FeatureRequest) {
   if (b.voteCount !== a.voteCount) return b.voteCount - a.voteCount;
   return b.createdAt.localeCompare(a.createdAt);
 }
 
 /**
- * Pure assembly step: rows + vote rows -> ordered public board. Extracted so
- * the filtering and ordering rules can be tested with no database and no mocks.
+ * Shared assembly: rows + vote rows -> ordered listing. Callers decide whether
+ * merged tombstones reached this point; nothing here re-checks that, which is
+ * why the public entry point below is a separate exported function.
  */
-export function buildFeatureRequestBoard(
+function assembleFeatureRequests(
   rows: FeatureRequestRow[],
   voteRows: Pick<FeatureRequestVoteRow, "request_id">[],
   options: ListFeatureRequestsOptions = {},
@@ -171,14 +194,67 @@ export function buildFeatureRequestBoard(
   const counts = countVotesByRequest(voteRows);
 
   return rows
-    .filter((row) => row.merged_into_id === null)
     .filter((row) => !options.category || row.category === options.category)
     .map((row) => rowToFeatureRequest(row, counts.get(row.id) ?? 0))
     .sort(compareFeatureRequests);
 }
 
-export async function listFeatureRequests(
+/**
+ * Pure assembly step for the public board: rows + vote rows -> ordered board
+ * with merged tombstones dropped. Extracted so the filtering and ordering
+ * rules can be tested with no database and no mocks.
+ */
+export function buildFeatureRequestBoard(
+  rows: FeatureRequestRow[],
+  voteRows: Pick<FeatureRequestVoteRow, "request_id">[],
   options: ListFeatureRequestsOptions = {},
+): FeatureRequest[] {
+  return assembleFeatureRequests(
+    rows.filter((row) => row.merged_into_id === null),
+    voteRows,
+    options,
+  );
+}
+
+/**
+ * Reads vote rows for a set of request ids in `VOTE_ID_BATCH_SIZE` batches, so
+ * the id list never grows the GET query string past what gateways accept.
+ */
+async function fetchVoteRows(
+  supabase: ReturnType<typeof createServiceClient>,
+  requestIds: string[],
+  userId?: string,
+): Promise<Pick<FeatureRequestVoteRow, "request_id">[]> {
+  const batches: string[][] = [];
+  for (let index = 0; index < requestIds.length; index += VOTE_ID_BATCH_SIZE) {
+    batches.push(requestIds.slice(index, index + VOTE_ID_BATCH_SIZE));
+  }
+
+  const results = await Promise.all(
+    batches.map(async (batch) => {
+      let query = supabase
+        .from("feature_request_votes")
+        .select("request_id")
+        .in("request_id", batch);
+      if (userId) query = query.eq("user_id", userId);
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data ?? []) as Pick<FeatureRequestVoteRow, "request_id">[];
+    }),
+  );
+
+  return results.flat();
+}
+
+/**
+ * The one query path behind both listings. `includeMerged` is a private
+ * parameter on purpose: the public entry point below hard-codes `false`, so no
+ * caller can flip tombstones onto the board.
+ */
+async function loadFeatureRequests(
+  options: ListFeatureRequestsOptions,
+  includeMerged: boolean,
 ): Promise<FeatureRequest[]> {
   const supabase = createServiceClient();
   const limit = Math.min(
@@ -189,10 +265,10 @@ export async function listFeatureRequests(
   let query = supabase
     .from("feature_requests")
     .select(FEATURE_REQUEST_COLUMNS)
-    .is("merged_into_id", null)
     .order("created_at", { ascending: false })
     .limit(limit);
 
+  if (!includeMerged) query = query.is("merged_into_id", null);
   if (options.category) query = query.eq("category", options.category);
 
   const { data, error } = await query;
@@ -201,21 +277,21 @@ export async function listFeatureRequests(
   const rows = (data ?? []) as unknown as FeatureRequestRow[];
   if (rows.length === 0) return [];
 
-  // One flat select for every visible request — never a count per row.
-  const { data: voteData, error: voteError } = await supabase
-    .from("feature_request_votes")
-    .select("request_id")
-    .in(
-      "request_id",
-      rows.map((row) => row.id),
-    );
-  if (voteError) throw voteError;
-
-  return buildFeatureRequestBoard(
-    rows,
-    (voteData ?? []) as Pick<FeatureRequestVoteRow, "request_id">[],
-    options,
+  // Batched flat selects for every visible request — never a count per row.
+  const voteRows = await fetchVoteRows(
+    supabase,
+    rows.map((row) => row.id),
   );
+
+  return includeMerged
+    ? assembleFeatureRequests(rows, voteRows, options)
+    : buildFeatureRequestBoard(rows, voteRows, options);
+}
+
+export async function listFeatureRequests(
+  options: ListFeatureRequestsOptions = {},
+): Promise<FeatureRequest[]> {
+  return loadFeatureRequests(options, false);
 }
 
 /**
@@ -226,43 +302,36 @@ export async function listFeatureRequests(
  * the board.
  */
 export async function listAllFeatureRequests(): Promise<FeatureRequest[]> {
-  const supabase = createServiceClient();
-
-  const { data, error } = await supabase
-    .from("feature_requests")
-    .select(FEATURE_REQUEST_COLUMNS)
-    .order("created_at", { ascending: false })
-    .limit(MAX_BOARD_REQUESTS);
-
-  if (error) throw error;
-
-  const rows = (data ?? []) as unknown as FeatureRequestRow[];
-  if (rows.length === 0) return [];
-
-  const { data: voteData, error: voteError } = await supabase
-    .from("feature_request_votes")
-    .select("request_id")
-    .in(
-      "request_id",
-      rows.map((row) => row.id),
-    );
-  if (voteError) throw voteError;
-
-  const counts = countVotesByRequest(
-    (voteData ?? []) as Pick<FeatureRequestVoteRow, "request_id">[],
-  );
-
-  return rows
-    .map((row) => rowToFeatureRequest(row, counts.get(row.id) ?? 0))
-    .sort(compareFeatureRequests);
+  return loadFeatureRequests({}, true);
 }
 
-export async function getMyVotedRequestIds(userId: string): Promise<string[]> {
+/**
+ * The caller passes the ids currently on screen whenever it has them, which
+ * keeps this to the votes that can actually be rendered. Without a scope it
+ * falls back to a capped read — a user with more votes than the board can show
+ * would otherwise drag their whole vote history across the wire.
+ */
+export async function getMyVotedRequestIds(
+  userId: string,
+  requestIds?: string[],
+): Promise<string[]> {
   const supabase = createServiceClient();
+
+  if (requestIds) {
+    if (requestIds.length === 0) return [];
+    const rows = await fetchVoteRows(
+      supabase,
+      requestIds.slice(0, MAX_BOARD_REQUESTS),
+      userId,
+    );
+    return rows.map((row) => row.request_id);
+  }
+
   const { data, error } = await supabase
     .from("feature_request_votes")
     .select("request_id")
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .limit(MAX_BOARD_REQUESTS);
 
   if (error) throw error;
   return ((data ?? []) as Pick<FeatureRequestVoteRow, "request_id">[]).map(
@@ -287,10 +356,13 @@ export async function submitFeatureRequest(
   const title = input.title.trim();
   const body = input.body?.trim() ?? null;
 
-  if (title.length < 4 || title.length > 120) {
+  if (
+    title.length < FEATURE_REQUEST_TITLE_MIN ||
+    title.length > FEATURE_REQUEST_TITLE_MAX
+  ) {
     return { ok: false, code: "invalid_input" };
   }
-  if (body !== null && body.length > 2000) {
+  if (body !== null && body.length > FEATURE_REQUEST_BODY_MAX) {
     return { ok: false, code: "invalid_input" };
   }
   if (!isFeatureRequestCategory(input.category)) {

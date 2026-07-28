@@ -94,9 +94,40 @@ describe('UpvoteButton', () => {
       container.querySelector('[data-auth-required-indicator]'),
     ).not.toBeNull()
 
+    // `?next=` is what the email + password form forwards; the cookie alone
+    // only covers the OAuth/email-link callback.
     fireEvent.click(button)
-    expect(mocks.push).toHaveBeenCalledWith('/auth/sign-in')
+    expect(mocks.push).toHaveBeenCalledWith(
+      `/auth/sign-in?next=${encodeURIComponent('/en/feedback')}`,
+    )
+    expect(document.cookie).toContain('post_auth_next')
     expect(mocks.setVote).not.toHaveBeenCalled()
+    // Not a toggle when signed out: the click navigates.
+    expect(button).not.toHaveAttribute('aria-pressed')
+  })
+
+  it('re-syncs the count when a fresher server value arrives', async () => {
+    // Filter chips are soft navigations and rows are keyed by id, so the same
+    // instance survives with a new `count` prop instead of remounting.
+    const { rerender } = upvoteButton()
+    const button = await screen.findByRole('button', {
+      name: `Upvote ${REQUEST_TITLE}`,
+    })
+    expect(button).toHaveTextContent('7')
+
+    rerender(
+      <NextIntlClientProvider locale="en" messages={messages}>
+        <FeatureRequestVotesProvider>
+          <UpvoteButton
+            requestId={REQUEST_ID}
+            title={REQUEST_TITLE}
+            count={12}
+          />
+        </FeatureRequestVotesProvider>
+      </NextIntlClientProvider>,
+    )
+
+    expect(button).toHaveTextContent('12')
   })
 
   it('exposes pressed state', async () => {

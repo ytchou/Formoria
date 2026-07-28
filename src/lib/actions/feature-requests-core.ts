@@ -4,12 +4,15 @@ import type {
   RateLimitOptions,
   RateLimitResult,
 } from "@/lib/security/rate-limiter";
-import type {
-  getMyVotedRequestIds,
-  setFeatureRequestVote,
-  submitFeatureRequest,
-  SetFeatureRequestVoteResult,
-  SubmitFeatureRequestResult,
+import {
+  FEATURE_REQUEST_BODY_MAX,
+  FEATURE_REQUEST_TITLE_MAX,
+  FEATURE_REQUEST_TITLE_MIN,
+  type getMyVotedRequestIds,
+  type setFeatureRequestVote,
+  type submitFeatureRequest,
+  type SetFeatureRequestVoteResult,
+  type SubmitFeatureRequestResult,
 } from "@/lib/services/feature-requests";
 
 /**
@@ -32,13 +35,19 @@ export type FeatureRequestActionDeps = {
   getMyVotedRequestIds: typeof getMyVotedRequestIds;
 };
 
-export const submitInputSchema = z.object({
-  title: z.string().trim().min(4).max(120),
-  body: z.string().trim().max(2000).optional(),
+// Bounds come from the service module so the schema, the service guard, the
+// dialog, and the migration's CHECK constraints cannot drift apart.
+const submitInputSchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(FEATURE_REQUEST_TITLE_MIN)
+    .max(FEATURE_REQUEST_TITLE_MAX),
+  body: z.string().trim().max(FEATURE_REQUEST_BODY_MAX).optional(),
   category: z.enum(["owner", "visitor"]),
 });
 
-export const voteInputSchema = z.object({
+const voteInputSchema = z.object({
   requestId: z.string().uuid(),
   voted: z.boolean(),
 });
@@ -46,13 +55,13 @@ export const voteInputSchema = z.object({
 // Keyed by user, not IP: the board is authenticated-write-only, so the account
 // is the real identity and an IP key would throttle everyone behind one campus
 // NAT together.
-export const SUBMIT_RATE_LIMIT = {
+const SUBMIT_RATE_LIMIT = {
   windowMs: 3_600_000,
   maxRequests: 3,
   prefix: "feature-request-submit",
 } as const;
 
-export const VOTE_RATE_LIMIT = {
+const VOTE_RATE_LIMIT = {
   windowMs: 60_000,
   maxRequests: 30,
   prefix: "feature-request-vote",
@@ -62,7 +71,7 @@ export const VOTE_RATE_LIMIT = {
 // per-user cap is the real gate; this only raises the cost of farming throwaway
 // accounts from one host. Ceiling: a determined abuser on rotating IPs still
 // gets through — add account-age or email-verification gating if that happens.
-export const SUBMIT_IP_RATE_LIMIT = {
+const SUBMIT_IP_RATE_LIMIT = {
   windowMs: 3_600_000,
   maxRequests: 10,
   prefix: "feature-request-submit-ip",

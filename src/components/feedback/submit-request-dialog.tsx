@@ -1,6 +1,7 @@
 'use client'
 
 import NextLink from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
 import { Lightbulb } from 'lucide-react'
 import { useId, useState, useTransition, type FormEvent } from 'react'
@@ -28,7 +29,12 @@ import { usePathname } from '@/i18n/navigation'
 import { submitFeatureRequestAction } from '@/lib/actions/feature-requests'
 import { trackFeatureRequestSubmitted } from '@/lib/analytics'
 import { useUser } from '@/lib/auth/use-user'
-import type { FeatureRequestCategory } from '@/lib/services/feature-requests'
+import {
+  FEATURE_REQUEST_BODY_MAX,
+  FEATURE_REQUEST_TITLE_MAX,
+  FEATURE_REQUEST_TITLE_MIN,
+  type FeatureRequestCategory,
+} from '@/lib/services/feature-requests'
 
 /**
  * Action error code -> copy key. The action's error vocabulary is a closed
@@ -45,12 +51,10 @@ const FEATURE_REQUEST_ERROR_KEYS = {
   unavailable: 'errors.unavailable',
 } as const
 
-const TITLE_MIN = 4
-const TITLE_MAX = 120
-
 export function SubmitRequestDialog() {
   const t = useTranslations('feedback.submit')
   const locale = useLocale()
+  const router = useRouter()
   const pathname = usePathname()
   const { user, loading: userLoading } = useUser()
   const baseId = useId()
@@ -88,7 +92,10 @@ export function SubmitRequestDialog() {
     if (isPending) return
 
     const trimmedTitle = title.trim()
-    if (trimmedTitle.length < TITLE_MIN || trimmedTitle.length > TITLE_MAX) {
+    if (
+      trimmedTitle.length < FEATURE_REQUEST_TITLE_MIN ||
+      trimmedTitle.length > FEATURE_REQUEST_TITLE_MAX
+    ) {
       setTitleError(t('errors.title'))
       return
     }
@@ -108,6 +115,9 @@ export function SubmitRequestDialog() {
           trackFeatureRequestSubmitted(result.id, category)
           toast.success(t('success'))
           handleOpenChange(false)
+          // The board is a server component: without this the submitter is
+          // told their request is up and then does not see it until a reload.
+          router.refresh()
           return
         }
 
@@ -137,7 +147,7 @@ export function SubmitRequestDialog() {
               id={titleId}
               name="title"
               value={title}
-              maxLength={TITLE_MAX}
+              maxLength={FEATURE_REQUEST_TITLE_MAX}
               // Deliberately not `required`: the native bubble would say
               // "please fill out this field" instead of the length rule the
               // submitter actually has to satisfy.
@@ -167,7 +177,7 @@ export function SubmitRequestDialog() {
               id={detailsId}
               name="body"
               rows={4}
-              maxLength={2000}
+              maxLength={FEATURE_REQUEST_BODY_MAX}
               value={body}
               aria-describedby={detailsHintId}
               onChange={(event) => setBody(event.currentTarget.value)}
