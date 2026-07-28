@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 
 import { ContributionsList } from '@/components/contributions/contributions-list'
-import { localizePath } from '@/i18n/locale-preference'
+import { signInHref } from '@/i18n/locale-preference'
 import { listMyEvidence } from '@/lib/services/origin-evidence'
 import { createClient } from '@/lib/supabase/server'
 
@@ -37,7 +37,7 @@ export default async function ContributionsPage({ params }: ContributionsPagePro
   } = await supabase.auth.getUser()
 
   if (!user) {
-    redirect(localizePath('/auth/sign-in', locale))
+    redirect(signInHref('/contributions', locale))
   }
 
   const items = await listMyEvidence(user.id)

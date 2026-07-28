@@ -12,6 +12,15 @@ import { test, expect } from '@playwright/test';
  *   → menu with persisted locale actions for Traditional Chinese and English
  */
 test.describe('i18n English browse', () => {
+  test('/en/contributions preserves the localized return path when signed out', async ({ request }) => {
+    const response = await request.get('/en/contributions', { maxRedirects: 0 });
+
+    expect(response.status()).toBe(307);
+    const location = new URL(response.headers().location, 'http://localhost');
+    expect(location.pathname).toBe('/auth/sign-in');
+    expect(location.searchParams.get('next')).toBe('/en/contributions');
+  });
+
   test('/en returns 200 and shows English header chrome', async ({ page }) => {
     const response = await page.goto('/en');
     expect(response?.status()).toBe(200);

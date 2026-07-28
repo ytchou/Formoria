@@ -58,17 +58,6 @@ function shuffleArray<T>(arr: T[], seed?: number): void {
 
 type BrandRow = Database['public']['Tables']['brands']['Row']
 type BrandDraftData = BrandRow['draft_data']
-type BrandSlugRedirectRow = { new_slug: string }
-type BrandSlugRedirectTable = {
-  select: (columns: 'new_slug') => {
-    eq: (column: 'old_slug', value: string) => {
-      single: () => Promise<{
-        data: BrandSlugRedirectRow | null
-        error: { code?: string; message?: string } | null
-      }>
-    }
-  }
-}
 type BrandFlatLinkColumns = {
   social_instagram?: string | null
   social_threads?: string | null
@@ -1079,25 +1068,6 @@ export async function getApprovedBrandBySlug(slug: string): Promise<Brand> {
   const brand = await getBrandBySlug(slug)
   if (brand.status !== 'approved') throw new NotFoundError('Brand', slug)
   return brand
-}
-
-function brandSlugRedirectsTable(client: unknown): BrandSlugRedirectTable {
-  return (client as { from: (table: 'brand_slug_redirects') => BrandSlugRedirectTable }).from('brand_slug_redirects')
-}
-
-export async function findBrandByOldSlug(oldSlug: string): Promise<string | null> {
-  const supabase = createServiceClient()
-  const { data, error } = await brandSlugRedirectsTable(supabase)
-    .select('new_slug')
-    .eq('old_slug', oldSlug)
-    .single()
-
-  if (error) {
-    if (error.code === 'PGRST116' || error.code === 'PGRST205') return null
-    throw error
-  }
-
-  return data?.new_slug ?? null
 }
 
 async function resolveUniqueRomanizedSlug(

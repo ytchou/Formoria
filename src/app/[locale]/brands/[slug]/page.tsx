@@ -1,9 +1,9 @@
-import { notFound, permanentRedirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
+import { cache } from 'react'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import {
   getApprovedBrandBySlug,
-  findBrandByOldSlug,
   getRelatedBrands,
   getBrandCountByCategory,
   getAllBrandSlugs,
@@ -68,6 +68,15 @@ type PageProps = {
 
 type BrandFaqTranslateFn = (key: string, params?: Record<string, unknown>) => string
 
+const loadApprovedBrand = cache(async (slug: string): Promise<Brand> => {
+  try {
+    return await getApprovedBrandBySlug(slug)
+  } catch (error) {
+    if (!(error instanceof NotFoundError) || error.cause) throw error
+  }
+  notFound()
+})
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { locale, slug: rawSlug } = await params
   const slug = decodeURIComponent(rawSlug)
@@ -75,63 +84,46 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
   const t = await getTranslations('brandDetail')
 
-  try {
-    const brand = await getApprovedBrandBySlug(slug)
-    const indexability = getBrandIndexability(brand)
-    const availableLocales: Locale[] = [
-      ...(indexability['zh-TW'] ? (['zh-TW'] as const) : []),
-      ...(indexability.en ? (['en'] as const) : []),
-    ]
-    const heroImageUrl = safeImageSrc(brand.heroImageUrl)
-    const { canonical, languages } = buildAlternates(
-      `/brands/${brand.slug}`,
-      safeLocale,
-      availableLocales,
-    )
-    const ogLocale = safeLocale === 'zh-TW' ? 'zh_TW' : 'en_US'
-    const ogAlternateLocale = safeLocale === 'zh-TW' ? 'en_US' : 'zh_TW'
-    const rawDescription =
-      safeLocale === 'en'
-        ? (brand.blurbEn ?? brand.descriptionEn ?? brand.blurb ?? brand.description)
-        : (brand.blurb ?? brand.description)
-    const description = truncateForMeta(
-      rawDescription || t('metadata.fallbackDescription', { name: brand.name }),
-    )
-    return {
+  const brand = await loadApprovedBrand(slug)
+  const indexability = getBrandIndexability(brand)
+  const availableLocales: Locale[] = [
+    ...(indexability['zh-TW'] ? (['zh-TW'] as const) : []),
+    ...(indexability.en ? (['en'] as const) : []),
+  ]
+  const heroImageUrl = safeImageSrc(brand.heroImageUrl)
+  const { canonical, languages } = buildAlternates(
+    `/brands/${brand.slug}`,
+    safeLocale,
+    availableLocales,
+  )
+  const ogLocale = safeLocale === 'zh-TW' ? 'zh_TW' : 'en_US'
+  const ogAlternateLocale = safeLocale === 'zh-TW' ? 'en_US' : 'zh_TW'
+  const rawDescription =
+    safeLocale === 'en'
+      ? (brand.blurbEn ?? brand.descriptionEn ?? brand.blurb ?? brand.description)
+      : (brand.blurb ?? brand.description)
+  const description = truncateForMeta(
+    rawDescription || t('metadata.fallbackDescription', { name: brand.name }),
+  )
+  return {
+    title: brand.name,
+    description,
+    alternates: { canonical, languages },
+    robots: indexability[safeLocale] ? undefined : { index: false, follow: true },
+    openGraph: {
       title: brand.name,
       description,
-      alternates: { canonical, languages },
-      robots: indexability[safeLocale] ? undefined : { index: false, follow: true },
-      openGraph: {
-        title: brand.name,
-        description,
-        images: heroImageUrl ? [{ url: heroImageUrl }] : undefined,
-        locale: ogLocale,
-        alternateLocale: availableLocales.includes(safeLocale === 'en' ? 'zh-TW' : 'en')
-          ? [ogAlternateLocale]
-          : undefined,
-      },
-      twitter: {
-        title: brand.name,
-        description,
-        images: heroImageUrl ?? undefined,
-      },
-    }
-  } catch (error) {
-    try {
-      const redirectSlug = await findBrandByOldSlug(slug)
-      if (redirectSlug) {
-        permanentRedirect(`/${locale}/brands/${encodeURIComponent(redirectSlug)}`)
-      }
-    } catch {
-      // Fall through to original error handling.
-    }
-
-    if (error instanceof NotFoundError) {
-      notFound()
-    }
-
-    throw error
+      images: heroImageUrl ? [{ url: heroImageUrl }] : undefined,
+      locale: ogLocale,
+      alternateLocale: availableLocales.includes(safeLocale === 'en' ? 'zh-TW' : 'en')
+        ? [ogAlternateLocale]
+        : undefined,
+    },
+    twitter: {
+      title: brand.name,
+      description,
+      images: heroImageUrl ?? undefined,
+    },
   }
 }
 
@@ -140,25 +132,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
   const slug = decodeURIComponent(rawSlug)
   setRequestLocale(locale)
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
-  let brand
-  try {
-    brand = await getApprovedBrandBySlug(slug)
-  } catch (error) {
-    try {
-      const redirectSlug = await findBrandByOldSlug(slug)
-      if (redirectSlug) {
-        permanentRedirect(`/${locale}/brands/${encodeURIComponent(redirectSlug)}`)
-      }
-    } catch {
-      // Fall through to original error handling.
-    }
-
-    if (error instanceof NotFoundError) {
-      notFound()
-    }
-
-    throw error
-  }
+  const brand = await loadApprovedBrand(slug)
 
   const displayBrand: Brand = brand
   const [tBrandDetail, tCities] = await Promise.all([

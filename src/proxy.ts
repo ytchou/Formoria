@@ -6,6 +6,7 @@ import { isAppLocale, localizePath, LOCALE_COOKIE, resolveInitialLocale } from '
 import { IMPERSONATE_COOKIE, resolveImpersonationCookie } from '@/lib/auth/impersonation'
 import { verifyChallengeToken, CHALLENGE_COOKIE_NAME } from '@/lib/security/challenge'
 import { checkRateLimit, checkSoftRateLimit, getClientIp, isLikelyCrawler } from "@/lib/security/rate-limiter";
+import { resolveApprovedBrandRedirect } from '@/lib/services/brand-redirects'
 
 /**
  * Routes that are reserved for static pages and cannot be used as brand slugs.
@@ -107,6 +108,18 @@ function normalizePathname(pathname: string): string {
   return segments
     .map((segment, index) => (index === 1 && canonicalLocale ? canonicalLocale : segment.toLowerCase()))
     .join('/')
+}
+
+function getBrandDetailSlug(segments: string[]): string | null {
+  if (segments.length === 2 && segments[0] === 'brands') return segments[1] ?? null
+  if (
+    segments.length === 3 &&
+    KNOWN_LOCALES.has(segments[0] ?? '') &&
+    segments[1] === 'brands'
+  ) {
+    return segments[2] ?? null
+  }
+  return null
 }
 
 async function refreshSupabaseSession(request: NextRequest, response: NextResponse) {
@@ -234,10 +247,28 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  const segments = pathname.split('/').filter(Boolean)
+  const brandSlug = getBrandDetailSlug(segments)
+  if (brandSlug) {
+    let decodedSlug: string
+    try {
+      decodedSlug = decodeURIComponent(brandSlug)
+    } catch {
+      return new NextResponse(null, { status: 404 })
+    }
+
+    const redirectSlug = await resolveApprovedBrandRedirect(decodedSlug)
+    if (redirectSlug) {
+      const url = request.nextUrl.clone()
+      const locale = isAppLocale(segments[0]) ? segments[0] : 'zh-TW'
+      url.pathname = localizePath(`/brands/${encodeURIComponent(redirectSlug)}`, locale)
+      return NextResponse.redirect(url, 308)
+    }
+  }
+
   // Redirect top-level brand slugs: /:slug → /brands/:slug (301 for SEO continuity)
   // Only applies to single-segment paths that match the brand slug format
   // and are not reserved app routes or locale prefixes.
-  const segments = pathname.split('/').filter(Boolean)
   if (segments.length === 1) {
     const slug = segments[0]
     if (!KNOWN_LOCALES.has(slug) && !RESERVED_ROUTES.has(slug) && SLUG_PATTERN.test(slug)) {
