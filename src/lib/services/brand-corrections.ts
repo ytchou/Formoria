@@ -1,4 +1,5 @@
 import { revalidatePublicBrand } from "@/lib/cache/public-brand-cache";
+import { isPrivateUrl, sanitizeHref } from "@/lib/url";
 import {
   normalizeTagKey,
   PRODUCT_TYPE_CATEGORIES,
@@ -17,7 +18,14 @@ import {
 import { updateBrand, type BrandWriteInput } from "./brands";
 
 const CORRECTION_SELECT =
-  "*, brands(name, slug, price_range, product_type, product_tags)";
+  "*, brands(name, slug, price_range, product_type, product_tags, purchase_website, purchase_pinkoi, purchase_shopee)";
+
+const MAX_PURCHASE_URL_LENGTH = 2048;
+const PURCHASE_LINK_FIELDS = [
+  "purchase_website",
+  "purchase_pinkoi",
+  "purchase_shopee",
+] as const;
 
 const PRODUCT_TYPE_SLUGS = new Set<string>(
   PRODUCT_TYPE_CATEGORIES.map((category) => category.slug),
@@ -28,13 +36,24 @@ type BrandCorrectionInsert =
   Database["public"]["Tables"]["brand_field_corrections"]["Insert"];
 type BrandCorrectionBrandRow = Pick<
   Database["public"]["Tables"]["brands"]["Row"],
-  "id" | "name" | "slug" | "price_range" | "product_type" | "product_tags"
+  | "id"
+  | "name"
+  | "slug"
+  | "price_range"
+  | "product_type"
+  | "product_tags"
+  | "purchase_website"
+  | "purchase_pinkoi"
+  | "purchase_shopee"
 >;
 type BrandCorrectionRowWithBrand = BrandCorrectionRow & {
   brands?: BrandCorrectionBrandRow | null;
 };
 
-export type CorrectionField = "price_range" | "product_type" | "product_tags";
+export type PurchaseLinkCorrectionField = (typeof PURCHASE_LINK_FIELDS)[number];
+export type CorrectionField =
+  "price_range" | "product_type" | "product_tags" | PurchaseLinkCorrectionField;
+type ScalarCorrectionField = Exclude<CorrectionField, "product_tags">;
 type CorrectionStatus = "pending" | "approved" | "rejected";
 export type CorrectionDecision = Exclude<CorrectionStatus, "pending">;
 
@@ -104,8 +123,50 @@ function isCorrectionField(value: string): value is CorrectionField {
   return (
     value === "price_range" ||
     value === "product_type" ||
-    value === "product_tags"
+    value === "product_tags" ||
+    PURCHASE_LINK_FIELDS.some((field) => field === value)
   );
+}
+
+function isPurchaseLinkField(
+  field: CorrectionField,
+): field is PurchaseLinkCorrectionField {
+  return PURCHASE_LINK_FIELDS.some((purchaseField) => purchaseField === field);
+}
+
+function hasHostname(url: URL, hostname: string): boolean {
+  return url.hostname === hostname || url.hostname.endsWith(`.${hostname}`);
+}
+
+function normalizePurchaseUrl(
+  field: PurchaseLinkCorrectionField,
+  value: unknown,
+): string | null {
+  if (typeof value !== "string" || value.length > MAX_PURCHASE_URL_LENGTH) {
+    return null;
+  }
+
+  const href = sanitizeHref(value);
+  if (!href || href.length > MAX_PURCHASE_URL_LENGTH || isPrivateUrl(href)) {
+    return null;
+  }
+
+  try {
+    const url = new URL(href);
+    if (url.username || url.password) return null;
+
+    const isPinkoi = hasHostname(url, "pinkoi.com");
+    const isShopee =
+      hasHostname(url, "shopee.tw") || hasHostname(url, "shopee.com.tw");
+
+    if (field === "purchase_pinkoi" && !isPinkoi) return null;
+    if (field === "purchase_shopee" && !isShopee) return null;
+    if (field === "purchase_website" && (isPinkoi || isShopee)) return null;
+
+    return url.href;
+  } catch {
+    return null;
+  }
 }
 
 export type NormalizeProposedValueResult =
@@ -154,6 +215,13 @@ export function normalizeProposedValue(
       : { ok: false, error: "invalid_value" };
   }
 
+  if (isPurchaseLinkField(field)) {
+    const normalizedUrl = normalizePurchaseUrl(field, value);
+    return normalizedUrl
+      ? { ok: true, value: normalizedUrl }
+      : { ok: false, error: "invalid_value" };
+  }
+
   if (!isProductTagsDelta(value)) return { ok: false, error: "invalid_value" };
 
   // Asymmetric on purpose. Every `add` is canonicalized through the ontology
@@ -197,6 +265,24 @@ export function normalizeProposedValue(
   return { ok: true, value: { add, remove } };
 }
 
+export function buildScalarCorrectionPatch(
+  field: ScalarCorrectionField,
+  proposedValue: number | string,
+): BrandWriteInput {
+  switch (field) {
+    case "price_range":
+      return { priceRange: proposedValue as number };
+    case "product_type":
+      return { productType: proposedValue as string };
+    case "purchase_website":
+      return { purchaseWebsite: proposedValue as string };
+    case "purchase_pinkoi":
+      return { purchasePinkoi: proposedValue as string };
+    case "purchase_shopee":
+      return { purchaseShopee: proposedValue as string };
+  }
+}
+
 function valuesEqual(left: unknown, right: unknown): boolean {
   if (Array.isArray(left) && Array.isArray(right)) {
     if (left.length !== right.length) return false;
@@ -223,6 +309,18 @@ function valuesEqual(left: unknown, right: unknown): boolean {
   return left === right;
 }
 
+function correctionValuesEqual(
+  field: CorrectionField,
+  currentValue: CurrentBrandValue,
+  proposedValue: CorrectionProposedValue,
+): boolean {
+  if (!isPurchaseLinkField(field)) {
+    return valuesEqual(currentValue, proposedValue);
+  }
+
+  return normalizePurchaseUrl(field, currentValue) === proposedValue;
+}
+
 function currentValueForField(
   field: CorrectionField,
   brand: BrandCorrectionBrandRow | null | undefined,
@@ -230,7 +328,12 @@ function currentValueForField(
   if (!brand) return null;
   if (field === "price_range") return brand.price_range;
   if (field === "product_type") return brand.product_type;
-  return Array.isArray(brand.product_tags) ? brand.product_tags : [];
+  if (field === "product_tags") {
+    return Array.isArray(brand.product_tags) ? brand.product_tags : [];
+  }
+  if (field === "purchase_website") return brand.purchase_website;
+  if (field === "purchase_pinkoi") return brand.purchase_pinkoi;
+  return brand.purchase_shopee;
 }
 
 function rowToCorrection(row: BrandCorrectionRowWithBrand): BrandCorrection {
@@ -276,7 +379,9 @@ async function readBrand(
   // of brands that are not publicly listed.
   const { data, error } = await supabase
     .from("brands")
-    .select("id, name, slug, price_range, product_type, product_tags")
+    .select(
+      "id, name, slug, price_range, product_type, product_tags, purchase_website, purchase_pinkoi, purchase_shopee",
+    )
     .eq("id", brandId)
     .eq("status", "approved")
     .maybeSingle();
@@ -399,7 +504,9 @@ export async function submitCorrection(
         return { ok: false, code: "too_many_tags" };
       }
       previousValue = currentTags;
-    } else if (valuesEqual(currentValue, proposedValue)) {
+    } else if (
+      correctionValuesEqual(input.field, currentValue, proposedValue)
+    ) {
       return { ok: false, code: "unchanged" };
     }
 
@@ -518,13 +625,13 @@ export async function reviewCorrection(
           productTagsEn: deriveProductTagsEn(next),
         };
       }
-    } else if (valuesEqual(currentValue, proposedValue)) {
+    } else if (correctionValuesEqual(row.field, currentValue, proposedValue)) {
       patch = null;
     } else {
-      patch =
-        row.field === "price_range"
-          ? { priceRange: proposedValue as number }
-          : { productType: proposedValue as string };
+      patch = buildScalarCorrectionPatch(
+        row.field as ScalarCorrectionField,
+        proposedValue as number | string,
+      );
     }
 
     // Claim before writing the brand: losing the race here means another

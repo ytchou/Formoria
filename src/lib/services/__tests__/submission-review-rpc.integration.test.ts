@@ -144,6 +144,36 @@ describeWithDb("trusted submission review RPCs", () => {
     ]);
   });
 
+  it("approves a complete submission with a social profile and no purchase website", async () => {
+    const submissionId = await seedSubmission("social-link");
+    const images = await seedImages(submissionId);
+    await seedSuccessfulTarget(submissionId, "social-link");
+    await saveSubmissionReview(submissionId, {
+      ...completeReviewInput(images),
+      websiteUrl: null,
+      purchaseWebsite: null,
+      socialInstagram: "https://www.instagram.com/maria.garcia.design/",
+    });
+
+    const result = await approveSubmission(
+      supabase!,
+      submissionId,
+      reviewerId,
+    );
+    brandIds.push(result.brandId);
+
+    const { data: brand, error } = await supabase!
+      .from("brands")
+      .select("purchase_website, social_instagram")
+      .eq("id", result.brandId)
+      .single();
+    expect(error).toBeNull();
+    expect(brand).toEqual({
+      purchase_website: null,
+      social_instagram: "https://www.instagram.com/maria.garcia.design/",
+    });
+  });
+
   it("persists the owner MIT story on the approved brand", async () => {
     const submissionId = await seedSubmission("mit-story");
     const images = await seedImages(submissionId);
@@ -271,6 +301,65 @@ describeWithDb("trusted submission review RPCs", () => {
       .eq("field", "description")
       .single();
     expect(state?.source).toBe("enriched");
+  });
+
+  it("applies a complete refresh with a social profile and selected hero", async () => {
+    const brand = await seedRefreshBrand("social-link", "hidden", {
+      purchaseWebsite: null,
+      socialInstagram: "https://www.instagram.com/maria.garcia.design/",
+    });
+    const { data: submissionId, error: requestError } = await supabase!.rpc(
+      "request_brand_refresh",
+      {
+        p_brand_id: brand.id,
+        p_requested_by: reviewerId,
+        p_requester_email: "admin@formoria.com",
+      },
+    );
+    expect(requestError).toBeNull();
+    submissionIds.push(submissionId!);
+    await seedSuccessfulTarget(submissionId!, "refresh-social-link");
+    const { data: images, error: imagesError } = await supabase!
+      .from("submission_images")
+      .select("id, url")
+      .eq("submission_id", submissionId!)
+      .order("sort_order");
+    expect(imagesError).toBeNull();
+    expect(images).toHaveLength(2);
+    const selectedHero = images?.at(1);
+    const selectedDetail = images?.at(0);
+    expect(selectedHero).toBeDefined();
+    expect(selectedDetail).toBeDefined();
+    const { error: saveError } = await supabase!.rpc(
+      "save_submission_review",
+      {
+        p_submission_id: submissionId!,
+        p_review_data: {},
+        p_images: [
+          { id: selectedHero!.id, is_hero: true, sort_order: 0 },
+          { id: selectedDetail!.id, is_hero: false, sort_order: 1 },
+        ],
+      },
+    );
+    expect(saveError).toBeNull();
+
+    const { error: applyError } = await supabase!.rpc("apply_brand_refresh", {
+      p_submission_id: submissionId!,
+      p_reviewer_id: reviewerId,
+    });
+    expect(applyError).toBeNull();
+
+    const { data: refreshed, error } = await supabase!
+      .from("brands")
+      .select("hero_image_url, purchase_website, social_instagram")
+      .eq("id", brand.id)
+      .single();
+    expect(error).toBeNull();
+    expect(refreshed).toEqual({
+      hero_image_url: selectedHero!.url,
+      purchase_website: null,
+      social_instagram: "https://www.instagram.com/maria.garcia.design/",
+    });
   });
 
   it("continues to reject protected non-location enrichment", async () => {
@@ -636,6 +725,10 @@ describeWithDb("trusted submission review RPCs", () => {
   async function seedRefreshBrand(
     suffix: string,
     status: "approved" | "hidden",
+    links: {
+      purchaseWebsite?: string | null;
+      socialInstagram?: string | null;
+    } = {},
   ): Promise<{ id: string; slug: string }> {
     const id = randomUUID();
     const slug = `refresh-${suffix}-${id.slice(0, 8)}`;
@@ -651,7 +744,11 @@ describeWithDb("trusted submission review RPCs", () => {
       product_type: "crafts",
       product_tags: ["木工"],
       price_range: 2,
-      purchase_website: "https://refresh.example.com",
+      purchase_website:
+        links.purchaseWebsite === undefined
+          ? "https://refresh.example.com"
+          : links.purchaseWebsite,
+      social_instagram: links.socialInstagram ?? null,
       updated_at: new Date().toISOString(),
     });
     expect(error).toBeNull();

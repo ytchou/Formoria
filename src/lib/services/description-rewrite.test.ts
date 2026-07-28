@@ -180,4 +180,104 @@ describe('parseDescriptionRewriteResult', () => {
       { apiKey: 'test-key' },
     )
   })
+
+  it('retries when generated descriptions contain pricing information', async () => {
+    const cleanDescriptionZh = '品牌以台灣製鞋工藝為核心，從打版、看樣到量產皆由團隊親自監督，產品聚焦於簡約舒適的帆布鞋與防水系列，並透過材質選擇與結構調整回應日常穿著需求。'.repeat(3)
+    const cleanDescriptionEn = 'The brand develops canvas sneakers in Taiwan, overseeing pattern making, sample reviews, and production while refining materials and construction for comfortable everyday wear. '.repeat(3).trim()
+    const blurbZh = '從打版到量產皆親自把關，以台灣製鞋工藝打造簡約舒適的日常帆布鞋。'
+    const blurbEn = 'Taiwan-made canvas sneakers shaped by close oversight from pattern making through production.'
+    const response = (
+      descriptionZh: string,
+      descriptionEn: string,
+      options: { blurbZh?: string; blurbEn?: string; priceRange?: 1 | 2 | 3 | null } = {},
+    ) => ({
+      response: { ok: true, status: 200 },
+      data: {},
+      content: JSON.stringify({
+        description_zh: descriptionZh,
+        description_en: descriptionEn,
+        blurb_zh: options.blurbZh ?? blurbZh,
+        blurb_en: options.blurbEn ?? blurbEn,
+        price_range: options.priceRange === undefined ? 2 : options.priceRange,
+        product_tags: [],
+        product_tags_en: [],
+        city: null,
+        founding_year: null,
+      }),
+    })
+    const chat = vi
+      .fn()
+      .mockResolvedValueOnce(
+        response(
+          `${cleanDescriptionZh}鞋款價格約 NT$1,316 至 NT$2,980。`,
+          `${cleanDescriptionEn} Products are priced around NT$1,316 to NT$2,980.`,
+          {
+            blurbZh: `${blurbZh} 售價約 NT$1,316 起。`,
+            blurbEn: `${blurbEn} Priced from NT$1,316.`,
+            priceRange: 2,
+          },
+        ),
+      )
+      .mockResolvedValueOnce(
+        response(cleanDescriptionZh, cleanDescriptionEn, { priceRange: null }),
+      )
+    vi.mocked(createAuditedDeepSeekClient).mockReturnValue({ chat } as never)
+    vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
+
+    const output = await rewriteBrandDescription(
+      'Southgate 南登機口',
+      null,
+      ['品牌以帆布鞋為核心產品。'],
+      null,
+      { jobId: 'job-1', target: { type: 'brand', id: 'brand-1' } },
+    )
+
+    expect(chat).toHaveBeenCalledTimes(2)
+    expect(chat.mock.calls[0]?.[0].system).toContain('不得包含價格資訊')
+    expect(output?.attempts[0]?.validationRejections).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: 'description_zh', reasons: ['pricing_information'] }),
+        expect.objectContaining({ field: 'description_en', reasons: ['pricing_information'] }),
+        expect.objectContaining({ field: 'blurb_zh', reasons: ['pricing_information'] }),
+        expect.objectContaining({ field: 'blurb_en', reasons: ['pricing_information'] }),
+      ]),
+    )
+    expect(output?.result.description_zh).toBe(cleanDescriptionZh)
+    expect(output?.result.description_en).toBe(cleanDescriptionEn)
+    expect(output?.result.priceRange).toBe(2)
+  })
+
+  it('keeps non-pricing financial achievements in descriptions', async () => {
+    const descriptionZh = `${'品牌以台灣工藝開發日常用品，從材料選擇、打樣到生產皆由團隊持續調整，並與在地供應夥伴合作，建立穩定且可追溯的製作流程。'.repeat(3)}品牌曾透過群眾集資募得新台幣5,000,000元，用於擴大產品開發。`
+    const descriptionEn = `${'The brand develops everyday goods in Taiwan, refining materials, prototypes, and production with local partners to maintain a stable and traceable manufacturing process. '.repeat(3)}Its crowdfunding campaign raised NT$5 million to expand product development.`
+    const chat = vi.fn().mockResolvedValue({
+      response: { ok: true, status: 200 },
+      data: {},
+      content: JSON.stringify({
+        description_zh: descriptionZh,
+        description_en: descriptionEn,
+        blurb_zh: '以台灣工藝開發日常用品，串連在地供應夥伴建立穩定且可追溯的製作流程，持續改善產品品質。',
+        blurb_en: 'Taiwan-made everyday goods developed through a stable, traceable process with local partners.',
+        price_range: null,
+        product_tags: [],
+        product_tags_en: [],
+        city: null,
+        founding_year: null,
+      }),
+    })
+    vi.mocked(createAuditedDeepSeekClient).mockReturnValue({ chat } as never)
+    vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
+
+    const output = await rewriteBrandDescription(
+      '集資品牌',
+      null,
+      ['品牌完成群眾集資。'],
+      null,
+      { jobId: 'job-1', target: { type: 'brand', id: 'brand-1' } },
+    )
+
+    expect(chat).toHaveBeenCalledTimes(1)
+    expect(output?.result.description_zh).toContain('新台幣5,000,000元')
+    expect(output?.result.description_en).toContain('raised NT$5 million')
+  })
 })

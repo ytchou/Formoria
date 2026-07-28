@@ -39,3 +39,21 @@ export function deriveSubmissionReviewStage({
 
   return "needs_data";
 }
+
+export function isSubmissionEnrichmentFailure({
+  targetStatus,
+  jobStatus,
+  dispatchStatus,
+}: Pick<
+  SubmissionReviewStageInput,
+  "targetStatus" | "jobStatus" | "dispatchStatus"
+>): boolean {
+  if (targetStatus === "succeeded" || targetStatus === "skipped") return false;
+
+  return (
+    targetStatus === "failed" ||
+    dispatchStatus === "failed" ||
+    jobStatus === "failed" ||
+    jobStatus === "cancelled"
+  );
+}

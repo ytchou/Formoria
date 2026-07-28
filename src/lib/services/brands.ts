@@ -906,6 +906,11 @@ export async function getBrands(
   if (sortKey !== 'random') {
     const sortConfig = BRAND_SORT_CONFIG[sortKey]
     query = query.order(sortConfig.column, { ascending: sortConfig.ascending })
+  } else {
+    // Postgres gives no stable row order without ORDER BY, so .range() below
+    // could repeat or drop rows across pages. Paginate over a deterministic
+    // id sequence; the daily shuffle then reorders within each returned page.
+    query = query.order('id', { ascending: true })
   }
 
   // Pagination

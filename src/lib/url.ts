@@ -8,13 +8,26 @@ const BLOCKED_HOSTNAMES = new Set([
 export function isPrivateUrl(urlString: string): boolean {
   try {
     const parsed = new URL(urlString)
-    const hostname = parsed.hostname
+    const hostname = parsed.hostname.toLowerCase()
 
     if (BLOCKED_HOSTNAMES.has(hostname)) return true
+
+    const ipv6 = hostname.startsWith('[') && hostname.endsWith(']')
+      ? hostname.slice(1, -1)
+      : hostname
+    if (
+      ipv6 === '::' ||
+      ipv6 === '::1' ||
+      /^f[cd][0-9a-f]{2}(?::|$)/.test(ipv6) ||
+      /^fe[89ab][0-9a-f](?::|$)/.test(ipv6)
+    ) {
+      return true
+    }
 
     const parts = hostname.split('.')
     if (parts.length === 4 && parts.every((part) => /^\d+$/.test(part))) {
       const [first = -1, second = -1] = parts.map(Number)
+      if (first === 127) return true
       if (first === 10) return true
       if (first === 172 && second >= 16 && second <= 31) return true
       if (first === 192 && second === 168) return true

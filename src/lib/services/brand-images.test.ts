@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  getBrandGalleryImages,
   insertBrandImage,
   rejectBrandImages,
   releaseBrandImageUrls,
@@ -181,6 +182,25 @@ describe('toImageFields', () => {
         { altZh: null, altEn: null },
       ],
     })
+  })
+})
+
+describe('getBrandGalleryImages', () => {
+  it('keeps the hero followed by every valid product image', () => {
+    expect(
+      getBrandGalleryImages({
+        heroImageUrl: 'https://images.example.com/hero.webp',
+        productPhotos: [
+          'https://images.example.com/product-one.webp',
+          '',
+          'https://images.example.com/product-two.webp',
+        ],
+      }),
+    ).toEqual([
+      'https://images.example.com/hero.webp',
+      'https://images.example.com/product-one.webp',
+      'https://images.example.com/product-two.webp',
+    ])
   })
 })
 

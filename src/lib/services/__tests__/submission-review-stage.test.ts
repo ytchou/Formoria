@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { deriveSubmissionReviewStage } from "../submission-review-stage";
+import {
+  deriveSubmissionReviewStage,
+  isSubmissionEnrichmentFailure,
+} from "../submission-review-stage";
 
 describe("deriveSubmissionReviewStage", () => {
   it("keeps a newly submitted brand in needs data", () => {
@@ -77,5 +80,32 @@ describe("deriveSubmissionReviewStage", () => {
         dispatchStatus: "dispatched",
       }),
     ).toBe("approved");
+  });
+});
+
+describe("isSubmissionEnrichmentFailure", () => {
+  it("does not inherit a failed batch status after this target succeeds", () => {
+    expect(
+      isSubmissionEnrichmentFailure({
+        targetStatus: "succeeded",
+        jobStatus: "failed",
+        dispatchStatus: "dispatched",
+      }),
+    ).toBe(false);
+  });
+
+  it.each([
+    {
+      targetStatus: "failed",
+      jobStatus: "completed",
+      dispatchStatus: "dispatched",
+    },
+    {
+      targetStatus: null,
+      jobStatus: "failed",
+      dispatchStatus: "dispatched",
+    },
+  ] as const)("still reports genuine target and batch failures", (state) => {
+    expect(isSubmissionEnrichmentFailure(state)).toBe(true);
   });
 });

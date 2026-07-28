@@ -33,6 +33,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ['adm-zip', '@playwright/test'],
   transpilePackages: ['react-simple-maps'],
   experimental: {
+    turbopackFileSystemCacheForDev: false,
     serverActions: {
       bodySizeLimit: '5mb',
     },

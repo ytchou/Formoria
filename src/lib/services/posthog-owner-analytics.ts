@@ -4,7 +4,6 @@ import {
   type PostHogQueryResult,
 } from '@/lib/adapters/posthog/query-api'
 import {
-  OWNER_ENDPOINTS,
   OWNER_ENDPOINTS_V2,
   type OwnerEndpointDef,
 } from '@/lib/analytics/posthog-queries'
@@ -159,10 +158,15 @@ function runEndpoint(
   brandId: string,
   extraVariables?: Record<string, string>,
 ): Promise<PostHogQueryResult> {
-  return client.runEndpoint(definition.name, definition.version, {
+  const candidates = {
     brand_id: brandId,
     ...extraVariables,
-  })
+  }
+  const variables = Object.fromEntries(
+    Object.entries(candidates).filter(([name]) => name in definition.variables),
+  )
+
+  return client.runEndpoint(definition.name, variables)
 }
 
 export async function getPostHogOwnerAnalyticsSnapshot(
@@ -179,14 +183,12 @@ export async function getPostHogOwnerAnalyticsSnapshot(
 ): Promise<OwnerAnalyticsSnapshotV1> {
   const generatedAt = now()
   const windows = getAnalyticsDateWindows(taipeiDate(generatedAt), daysBack, daysBack)
-  const endpoints = daysBack === 30 ? OWNER_ENDPOINTS : OWNER_ENDPOINTS_V2
-  const dateVariables = daysBack === 30
-    ? undefined
-    : {
-        current_start: windows.current.startDate,
-        current_end: windows.current.endDate,
-        prior_start: windows.prior.startDate,
-      }
+  const endpoints = OWNER_ENDPOINTS_V2
+  const dateVariables = {
+    current_start: windows.current.startDate,
+    current_end: windows.current.endDate,
+    prior_start: windows.prior.startDate,
+  }
   const [coreResult, dailyResult, trafficSourcesResult, destinationsResult] = await Promise.allSettled([
     runEndpoint(client, endpoints.brand_core_totals, brandId, dateVariables),
     runEndpoint(client, endpoints.brand_daily_trend, brandId, dateVariables),

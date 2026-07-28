@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { buildEndpointPayload, buildInsightPayload, planSyncActions } from '../posthog-sync'
-import { OWNER_ENDPOINTS } from '@/lib/analytics/posthog-queries'
+import {
+  buildEndpointPayload,
+  buildInsightPayload,
+  collectEndpointVariables,
+  planSyncActions,
+} from '../posthog-sync'
+import {
+  listOwnerEndpoints,
+  OWNER_ENDPOINTS,
+} from '@/lib/analytics/posthog-queries'
 
 describe('posthog-sync payload builders', () => {
   const def = OWNER_ENDPOINTS.brand_core_totals
@@ -27,5 +35,14 @@ describe('posthog-sync payload builders', () => {
     )
     expect(actions.create).toContain('brand_daily_trend')
     expect(actions.update).toEqual(['brand_core_totals'])
+  })
+
+  it('collects each required PostHog variable once before endpoint sync', () => {
+    expect(collectEndpointVariables(listOwnerEndpoints())).toEqual([
+      { codeName: 'brand_id', type: 'String', defaultValue: '' },
+      { codeName: 'current_end', type: 'String', defaultValue: '' },
+      { codeName: 'current_start', type: 'String', defaultValue: '' },
+      { codeName: 'prior_start', type: 'String', defaultValue: '' },
+    ])
   })
 })

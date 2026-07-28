@@ -256,6 +256,16 @@ function validateDescriptionFields(
     return value
   }
 
+  const rejectPricingInformation = (
+    field: DescriptionRewriteResult['validationRejections'][number]['field'],
+    value: string,
+    locale: 'zh' | 'en'
+  ): string | null => {
+    if (!containsPricingInformation(value, locale)) return value
+    validationRejections.push({ field, reasons: ['pricing_information'], warnings: [], attempt })
+    return null
+  }
+
   if (descriptionZh) {
     const validation = validateLocalizedText(descriptionZh, 'zh', ZH_DESCRIPTION_BAND)
     const hasHardFailure = !validation.ok
@@ -268,6 +278,9 @@ function validateDescriptionFields(
     }
     if (descriptionZh) {
       descriptionZh = rejectAiArtifacts('description_zh', descriptionZh, 'zh')
+    }
+    if (descriptionZh) {
+      descriptionZh = rejectPricingInformation('description_zh', descriptionZh, 'zh')
     }
   } else {
     validationRejections.push({ field: 'description_zh', reasons: ['missing'], warnings: [], attempt })
@@ -286,6 +299,9 @@ function validateDescriptionFields(
     if (descriptionEn) {
       descriptionEn = rejectAiArtifacts('description_en', descriptionEn, 'en')
     }
+    if (descriptionEn) {
+      descriptionEn = rejectPricingInformation('description_en', descriptionEn, 'en')
+    }
   } else {
     validationRejections.push({ field: 'description_en', reasons: ['missing'], warnings: [], attempt })
   }
@@ -302,6 +318,9 @@ function validateDescriptionFields(
     }
     if (blurbZh) {
       blurbZh = rejectAiArtifacts('blurb_zh', blurbZh, 'zh')
+    }
+    if (blurbZh) {
+      blurbZh = rejectPricingInformation('blurb_zh', blurbZh, 'zh')
     }
   } else {
     validationRejections.push({ field: 'blurb_zh', reasons: ['missing'], warnings: [], attempt })
@@ -320,6 +339,9 @@ function validateDescriptionFields(
     if (blurbEn) {
       blurbEn = rejectAiArtifacts('blurb_en', blurbEn, 'en')
     }
+    if (blurbEn) {
+      blurbEn = rejectPricingInformation('blurb_en', blurbEn, 'en')
+    }
   } else {
     validationRejections.push({ field: 'blurb_en', reasons: ['missing'], warnings: [], attempt })
   }
@@ -333,6 +355,27 @@ function validateDescriptionFields(
     blurb_en: blurbEn,
     validationRejections,
   }
+}
+
+function containsPricingInformation(value: string, locale: 'zh' | 'en'): boolean {
+  const sentences = value.split(locale === 'zh' ? /[。！？]/u : /[.!?]+\s+/u)
+  return sentences.some((sentence) => {
+    if (locale === 'zh') {
+      if (/(?:價格|價位|價錢|售價|定價|加價|平價|中價|高價|低價|千元即可入手|不再昂貴|折扣|優惠|促銷|特價|買一送一|滿額)/u.test(sentence)) {
+        return true
+      }
+      const hasMoney = /(?:NT[$.]?|TWD|新台幣|台幣)\s*[\d,]+|[\d,]+\s*元/u.test(sentence)
+      const isNonPricingAmount = /(?:保險|理賠|集資|募資|銷售額|業績|佳績)/u.test(sentence)
+      return hasMoney && !isNonPricingAmount
+    }
+
+    if (/\b(?:prices?|priced|pricing|affordable|budget(?:-friendly)?|discount(?:ed|s)?|promotion(?:al|s)?)\b|\b(?:on sale|sale price)\b/iu.test(sentence)) {
+      return true
+    }
+    const hasMoney = /(?:NT\$|TWD|US\$|\$)\s*[\d,]+/iu.test(sentence)
+    const isNonPricingAmount = /\b(?:insurance|insured|coverage|crowdfunding|fundraising|raised|sales|revenue)\b/iu.test(sentence)
+    return hasMoney && !isNonPricingAmount
+  })
 }
 
 const DESCRIPTION_CONFIG_PARAMS = {
@@ -385,6 +428,7 @@ export async function rewriteBrandDescription(
   let acceptedDescriptionEn: string | null = null
   let acceptedBlurbZh: string | null = null
   let acceptedBlurbEn: string | null = null
+  let acceptedPriceRange: 1 | 2 | 3 | null = null
   const allValidationRejections: DescriptionRewriteResult['validationRejections'] = []
   const attempts: DescriptionAttempt[] = []
   const localizeAcceptedZh = (value: string | null): string | null =>
@@ -481,6 +525,7 @@ export async function rewriteBrandDescription(
       acceptedDescriptionEn ??= validated.description_en
       acceptedBlurbZh ??= localizeAcceptedZh(validated.blurb_zh)
       acceptedBlurbEn ??= validated.blurb_en
+      acceptedPriceRange ??= validated.priceRange
       bestResult = {
         ...validated,
         description_zh: acceptedDescriptionZh,
@@ -488,6 +533,7 @@ export async function rewriteBrandDescription(
         description: acceptedDescriptionZh,
         blurb_zh: acceptedBlurbZh,
         blurb_en: acceptedBlurbEn,
+        priceRange: acceptedPriceRange,
         validationRejections: allValidationRejections,
         rawResponse: {
           response: data,

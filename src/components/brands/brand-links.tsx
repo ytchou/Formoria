@@ -19,6 +19,7 @@ import { buttonVariants } from '@/components/ui/button'
 import type { Brand } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { trackExternalLinkClicked } from '@/lib/analytics'
+import { CorrectionDialog } from './correction-dialog'
 
 interface BrandLinksProps {
   brand: Brand
@@ -69,6 +70,8 @@ type LinkSectionProps = {
   slots: LinkSlot[]
   brand: Brand
   className?: string
+  headerAction?: ReactNode
+  emptyMessage?: string
 }
 
 const destinationLinkClassName =
@@ -107,47 +110,62 @@ function SectionLabel({
   children: ReactNode
 }) {
   return (
-    <h2 className="mb-4 type-section-title-large">
+    <h2 className="type-section-title-large">
       {children}
     </h2>
   )
 }
 
-function LinkSection({ id, label, slots, brand, className }: LinkSectionProps) {
+function LinkSection({
+  id,
+  label,
+  slots,
+  brand,
+  className,
+  headerAction,
+  emptyMessage,
+}: LinkSectionProps) {
   const visibleSlots = slots.filter((slot) => slot.url)
-  if (visibleSlots.length === 0) return null
+  if (visibleSlots.length === 0 && !headerAction && !emptyMessage) return null
 
   return (
     <section id={id} className={className}>
-      <SectionLabel>{label}</SectionLabel>
-      <div className="flex flex-wrap gap-3">
-        {visibleSlots.map((slot, index) => {
-          const slotKey = `${slot.linkType}:${slot.label}:${index}`
-
-          return (
-            <a
-              key={slotKey}
-              href={slot.url!}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={destinationLinkClassName}
-              data-ph-no-autocapture
-              onClick={() => {
-                trackExternalLinkClicked(
-                  brand.slug,
-                  slot.linkType,
-                  typeof window !== 'undefined' ? window.location.pathname : '',
-                  brand.id,
-                )
-              }}
-            >
-              <DestinationLinkButton slot={slot}>
-                {slot.label}
-              </DestinationLinkButton>
-            </a>
-          )
-        })}
+      <div className="mb-4 flex items-center gap-2">
+        <SectionLabel>{label}</SectionLabel>
+        {headerAction}
       </div>
+      {visibleSlots.length > 0 ? (
+        <div className="flex flex-wrap gap-3">
+          {visibleSlots.map((slot, index) => {
+            const slotKey = `${slot.linkType}:${slot.label}:${index}`
+
+            return (
+              <a
+                key={slotKey}
+                href={slot.url!}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={destinationLinkClassName}
+                data-ph-no-autocapture
+                onClick={() => {
+                  trackExternalLinkClicked(
+                    brand.slug,
+                    slot.linkType,
+                    typeof window !== 'undefined' ? window.location.pathname : '',
+                    brand.id,
+                  )
+                }}
+              >
+                <DestinationLinkButton slot={slot}>
+                  {slot.label}
+                </DestinationLinkButton>
+              </a>
+            )
+          })}
+        </div>
+      ) : (
+        <p className="type-body-muted">{emptyMessage}</p>
+      )}
     </section>
   )
 }
@@ -223,6 +241,17 @@ function BrandPurchaseLinks({ brand, sectionIds, sectionClassName }: BrandLinksP
       slots={purchaseSlots}
       brand={brand}
       className={sectionClassName}
+      headerAction={
+        <CorrectionDialog
+          mode="purchaseLinks"
+          brandId={brand.id}
+          brandSlug={brand.slug}
+          purchaseWebsite={brand.purchaseWebsite}
+          purchasePinkoi={brand.purchasePinkoi}
+          purchaseShopee={brand.purchaseShopee}
+        />
+      }
+      emptyMessage={t('links.purchaseEmpty')}
     />
   )
 }

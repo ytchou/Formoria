@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
 import { afterEach, describe, expect, it } from 'vitest'
 import { createTestClient, describeWithDb } from '@/test/setup'
-import { finalizeCurationJob } from '../curation-jobs'
+import { enqueueManualRerun, finalizeCurationJob } from '../curation-jobs'
 
 const createdJobIds = new Set<string>()
 
@@ -164,6 +164,33 @@ describeWithDb('durable curation job queue integration', () => {
         completed_at: new Date().toISOString(),
       })
     ).resolves.toBe(false)
+  })
+
+  it('creates a manual rerun for a completed job with a skipped submission', async () => {
+    const client = createTestClient()
+    const sourceJobId = await enqueue(client)
+    const completedAt = new Date().toISOString()
+    await client
+      .from('curation_job_targets')
+      .update({ status: 'skipped', completed_at: completedAt })
+      .eq('job_id', sourceJobId)
+    await client
+      .from('curation_jobs')
+      .update({ status: 'completed', completed_at: completedAt })
+      .eq('id', sourceJobId)
+
+    const rerun = await enqueueManualRerun(sourceJobId, 'm.garcia+test@company.co.uk')
+    createdJobIds.add(rerun.id)
+
+    const { data: targets, error } = await client
+      .from('curation_job_targets')
+      .select('status, target_type')
+      .eq('job_id', rerun.id)
+
+    expect(error).toBeNull()
+    expect(rerun.parent_job_id).toBe(sourceJobId)
+    expect(rerun.trigger).toBe('manual_rerun')
+    expect(targets).toEqual([{ status: 'pending', target_type: 'submission' }])
   })
 })
 

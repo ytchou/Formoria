@@ -64,7 +64,7 @@ export default async function MediaPage({ params }: Props) {
                 >
                   <Image
                     alt={`${tEdit('fieldProductPhotos')} ${index + 1}`}
-                    className="object-cover"
+                    className="object-contain"
                     fill
                     sizes="176px"
                     src={photo}

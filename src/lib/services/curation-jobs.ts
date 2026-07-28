@@ -295,10 +295,6 @@ export async function enqueueManualRerun(
   startedBy: string,
 ): Promise<CurationJob> {
   const source = await getCurationJob(sourceJobId);
-  const retryStatuses: CurationTargetStatus[] =
-    source.status === "failed" || source.status === "cancelled"
-      ? ["pending", "running", "failed", "cancelled"]
-      : ["failed"];
   const allTargets = await listCurationJobTargets(source.id);
   if (allTargets.some((target) => target.target_type === "brand")) {
     throw new Error(
@@ -339,13 +335,19 @@ export async function enqueueManualRerun(
 
   const targets = allTargets.filter(
     (target) =>
-      retryStatuses.includes(target.status) ||
-      (target.target_type === "submission" &&
-        incompleteSubmissionIds.has(target.target_id)),
+      isManualRerunTargetEligible({
+        sourceStatus: source.status,
+        targetStatus: target.status,
+        isIncompleteSubmission:
+          target.target_type === "submission" &&
+          incompleteSubmissionIds.has(target.target_id),
+      }),
   );
 
   if (targets.length === 0) {
-    throw new Error("This job has no failed or unfinished targets to rerun");
+    throw new Error(
+      "This job has no failed, skipped, or unfinished targets to rerun",
+    );
   }
 
   const params = parseJobParams(source.params);
@@ -361,6 +363,27 @@ export async function enqueueManualRerun(
     targets: targets.map(targetToEnqueueInput),
     parentJobId: source.id,
   });
+}
+
+export function isManualRerunTargetEligible({
+  sourceStatus,
+  targetStatus,
+  isIncompleteSubmission,
+}: {
+  sourceStatus: CurationJobStatus;
+  targetStatus: CurationTargetStatus;
+  isIncompleteSubmission: boolean;
+}): boolean {
+  if (isIncompleteSubmission) return true;
+  if (sourceStatus === "completed") {
+    return targetStatus === "failed" || targetStatus === "skipped";
+  }
+  if (sourceStatus === "failed" || sourceStatus === "cancelled") {
+    return ["pending", "running", "failed", "cancelled"].includes(
+      targetStatus,
+    );
+  }
+  return false;
 }
 
 export async function heartbeatCurationJob(
@@ -690,10 +713,7 @@ async function resolveSubmissionTargets(
   );
   const targets = pages
     .flat()
-    .filter(
-      (submission) =>
-        submission.status === "pending" && submission.intent !== "refresh",
-    )
+    .filter(isExplicitSubmissionEligible)
     .map((submission) => ({
       targetType: "submission" as const,
       targetId: submission.id,
@@ -710,9 +730,18 @@ async function resolveSubmissionTargets(
     ).values(),
   ];
   if (uniqueTargets.length === 0 && submissionIds.length > 0) {
-    throw new Error("Refresh submissions wait for scheduled enrichment");
+    throw new Error("Selected submissions are no longer pending");
   }
   return uniqueTargets;
+}
+
+export function isExplicitSubmissionEligible({
+  status,
+}: {
+  status: string;
+  intent: string;
+}): boolean {
+  return status === "pending";
 }
 
 function isScheduledSubmissionEligible(input: {

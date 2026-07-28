@@ -29,6 +29,7 @@ import {
   PRODUCT_TYPE_CATEGORIES,
   subcategoryLabel,
 } from "@/lib/taxonomy/ontology";
+import { sanitizeHref } from "@/lib/url";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,9 +61,13 @@ const CORRECTION_ERROR_KEYS = {
 export type CorrectionDialogProps = {
   brandId: string;
   brandSlug: string;
-  productType: string | null;
-  priceRange: number | null;
-  productTags: string[];
+  mode?: "brandInfo" | "purchaseLinks";
+  productType?: string | null;
+  priceRange?: number | null;
+  productTags?: string[];
+  purchaseWebsite?: string | null;
+  purchasePinkoi?: string | null;
+  purchaseShopee?: string | null;
 };
 
 type SelectionState = {
@@ -87,9 +92,13 @@ function buildTagDelta(initialTags: string[], selectedTags: string[]) {
 export function CorrectionDialog({
   brandId,
   brandSlug,
-  productType,
-  priceRange,
-  productTags,
+  mode = "brandInfo",
+  productType = null,
+  priceRange = null,
+  productTags = [],
+  purchaseWebsite = null,
+  purchasePinkoi = null,
+  purchaseShopee = null,
 }: CorrectionDialogProps) {
   const locale = useLocale();
   const tBrandDetail = useTranslations("brandDetail");
@@ -97,6 +106,7 @@ export function CorrectionDialog({
   const tCorrection = useTranslations("brandDetail.correction");
   const baseId = useId();
   const fieldSelectId = useId();
+  const purchaseUrlInputId = useId();
   const currentHeadingId = `${baseId}-current`;
   const optionsHeadingId = `${baseId}-options`;
   const otherInputId = `${baseId}-other`;
@@ -108,18 +118,28 @@ export function CorrectionDialog({
   // Starts empty so the dialog opens on the picker alone — no value control is
   // shown until the contributor says what they are correcting.
   const [field, setField] = useState<CorrectionField | "">("");
-  // Listed in page order. product_tags needs a category to enumerate
-  // subcategories from, so it is only offered once the brand has one.
   const availableFields: CorrectionField[] =
-    productType != null
-      ? ["product_type", "price_range", "product_tags"]
-      : ["product_type", "price_range"];
+    mode === "purchaseLinks"
+      ? ["purchase_website", "purchase_pinkoi", "purchase_shopee"]
+      : productType != null
+        ? ["product_type", "price_range", "product_tags"]
+        : ["product_type", "price_range"];
+  const isPurchaseField =
+    field === "purchase_website" ||
+    field === "purchase_pinkoi" ||
+    field === "purchase_shopee";
   const originalSelection =
     field === "product_type"
       ? (productType ?? "")
       : field === "price_range" && priceRange != null
         ? String(priceRange)
-        : "";
+        : field === "purchase_website"
+          ? (purchaseWebsite ?? "")
+          : field === "purchase_pinkoi"
+            ? (purchasePinkoi ?? "")
+            : field === "purchase_shopee"
+              ? (purchaseShopee ?? "")
+              : "";
   // `brands.product_tags` is a bare text[] with no unique constraint, so a
   // legacy row can carry the same tag twice. De-duplicating once here keeps the
   // counter, the 5-tag cap and the row-1 chips reading the same list.
@@ -130,7 +150,7 @@ export function CorrectionDialog({
   const selectionKey = `${field}:${originalSelection}:${originalTags.join("\u0000")}`;
   const baseline: SelectionState = {
     key: selectionKey,
-    value: originalSelection,
+    value: isPurchaseField ? "" : originalSelection,
     tags: originalTags,
     extras: [],
   };
@@ -156,7 +176,10 @@ export function CorrectionDialog({
       ? false
       : field === "product_tags"
         ? !sameTagSet(originalTags, selectedTags)
-        : selection !== "" && selection !== originalSelection;
+        : isPurchaseField
+          ? selection.trim() !== "" &&
+            sanitizeHref(selection) !== sanitizeHref(originalSelection)
+          : selection !== "" && selection !== originalSelection;
   const productTagsCategory = PRODUCT_TYPE_CATEGORIES.find(
     (category) => category.slug === productType,
   );
@@ -200,7 +223,13 @@ export function CorrectionDialog({
       ? tBrandDetail("label.category")
       : item === "price_range"
         ? tBrandDetail("label.priceRange")
-        : tBrandDetail("label.productCategories");
+        : item === "product_tags"
+          ? tBrandDetail("label.productCategories")
+          : item === "purchase_website"
+            ? tBrandDetail("links.website")
+            : item === "purchase_pinkoi"
+              ? tBrandDetail("links.pinkoi")
+              : tBrandDetail("links.shopee");
   // Only read inside the value branches, which never render while field is "".
   const fieldLabel = field === "" ? "" : labelForField(field);
 
@@ -314,7 +343,7 @@ export function CorrectionDialog({
     const proposedValue =
       field === "price_range"
         ? Number(selection)
-        : field === "product_type"
+        : field !== "product_tags"
           ? selection
           : buildTagDelta(originalTags, selectedTags);
     startTransition(async () => {
@@ -332,7 +361,7 @@ export function CorrectionDialog({
           // value, so re-baseline instead of leaving the proposal on screen.
           setSelectionState({
             key: selectionKey,
-            value: originalSelection,
+            value: isPurchaseField ? "" : originalSelection,
             tags: originalTags,
             extras: [],
           });
@@ -416,7 +445,7 @@ export function CorrectionDialog({
           />
         }
       >
-        {tCorrection("trigger")}
+        {tCorrection(mode === "purchaseLinks" ? "purchaseTrigger" : "trigger")}
       </DialogTrigger>
       <DialogContent
         showCloseButton={false}
@@ -436,7 +465,9 @@ export function CorrectionDialog({
         </DialogClose>
 
         <DialogHeader className="gap-0.5 border-b border-border p-4 pr-14 sm:pr-16">
-          <DialogTitle>{tCorrection("title")}</DialogTitle>
+          <DialogTitle>
+            {tCorrection(mode === "purchaseLinks" ? "purchaseTitle" : "title")}
+          </DialogTitle>
           {field === "product_tags" && (
             <p className="type-caption">
               {tCorrection("productTagsSubtitle", {
@@ -453,11 +484,19 @@ export function CorrectionDialog({
           <div className="min-h-0 flex-1 overflow-y-auto">
             <div className="space-y-2 border-b border-border p-4">
               <Label htmlFor={fieldSelectId}>
-                {tCorrection("fieldPickerLabel")}
+                {tCorrection(
+                  mode === "purchaseLinks"
+                    ? "purchaseFieldPickerLabel"
+                    : "fieldPickerLabel",
+                )}
               </Label>
               <NativeSelect
                 id={fieldSelectId}
-                aria-label={tCorrection("fieldPickerLabel")}
+                aria-label={tCorrection(
+                  mode === "purchaseLinks"
+                    ? "purchaseFieldPickerLabel"
+                    : "fieldPickerLabel",
+                )}
                 value={field}
                 onChange={(event) => {
                   // Matching against the offered fields keeps the union honest
@@ -473,7 +512,11 @@ export function CorrectionDialog({
               >
                 {field === "" && (
                   <option value="" disabled>
-                    {tCorrection("fieldPickerPlaceholder")}
+                    {tCorrection(
+                      mode === "purchaseLinks"
+                        ? "purchaseFieldPickerPlaceholder"
+                        : "fieldPickerPlaceholder",
+                    )}
                   </option>
                 )}
                 {availableFields.map((item) => (
@@ -680,6 +723,44 @@ export function CorrectionDialog({
                       </div>
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+
+            {isPurchaseField && (
+              <div className="space-y-4 p-4">
+                <div
+                  role="group"
+                  aria-labelledby={currentHeadingId}
+                  className="space-y-2"
+                >
+                  <Typography id={currentHeadingId} variant="subsectionTitle">
+                    {tCorrection("currentHeading")}
+                  </Typography>
+                  <p className="type-field-value break-all">
+                    {originalSelection || tCorrection("selectPlaceholder")}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor={purchaseUrlInputId}>
+                    {tCorrection("purchaseUrlLabel")}
+                  </Label>
+                  <Input
+                    id={purchaseUrlInputId}
+                    type="url"
+                    inputMode="url"
+                    value={selection}
+                    placeholder={tCorrection("purchaseUrlPlaceholder")}
+                    onChange={(event) => {
+                      updateSelection((base) => ({
+                        ...base,
+                        key: selectionKey,
+                        value: event.target.value,
+                      }));
+                    }}
+                    autoComplete="url"
+                    data-ph-no-autocapture
+                  />
                 </div>
               </div>
             )}

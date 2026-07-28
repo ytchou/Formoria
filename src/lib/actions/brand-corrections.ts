@@ -13,7 +13,14 @@ import {
 const brandIdSchema = z.string().uuid();
 const correctionInputSchema = z.object({
   brandId: brandIdSchema,
-  field: z.enum(["price_range", "product_type", "product_tags"]),
+  field: z.enum([
+    "price_range",
+    "product_type",
+    "product_tags",
+    "purchase_website",
+    "purchase_pinkoi",
+    "purchase_shopee",
+  ]),
   proposedValue: z.union([
     z.number(),
     z.string(),

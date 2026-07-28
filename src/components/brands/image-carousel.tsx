@@ -7,6 +7,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { trackGalleryPhotoView, trackGalleryCompleted } from '@/lib/analytics'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { BrandImageFallback } from './brand-image-fallback'
 
 interface ImageCarouselProps {
@@ -16,9 +17,20 @@ interface ImageCarouselProps {
   brandSlug: string
   category?: string | null
   imageAlts?: Array<{ altZh: string | null; altEn: string | null }>
+  variant?: 'detail' | 'compact'
+  trackingEnabled?: boolean
 }
 
-export function ImageCarousel({ images, alt, brandId, brandSlug, category, imageAlts }: ImageCarouselProps) {
+export function ImageCarousel({
+  images,
+  alt,
+  brandId,
+  brandSlug,
+  category,
+  imageAlts,
+  variant = 'detail',
+  trackingEnabled = true,
+}: ImageCarouselProps) {
   const t = useTranslations('brandDetail')
   const locale = useLocale()
   const validImages = images.flatMap((image) => {
@@ -37,7 +49,12 @@ export function ImageCarousel({ images, alt, brandId, brandSlug, category, image
 
   if (total === 0) {
     return (
-      <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-muted">
+      <div
+        className={cn(
+          'relative overflow-hidden rounded-xl bg-muted',
+          variant === 'detail' ? 'aspect-[4/3]' : 'aspect-square',
+        )}
+      >
         <BrandImageFallback name={alt} category={category ?? null} size="detail" />
       </div>
     )
@@ -63,10 +80,12 @@ export function ImageCarousel({ images, alt, brandId, brandSlug, category, image
     setPrevious(current)
     setCurrent(next)
     viewedIndices.current.add(next)
-    trackGalleryPhotoView(brandSlug, next, brandId)
-    if (!completedFired.current && viewedIndices.current.size >= total) {
-      completedFired.current = true
-      trackGalleryCompleted(brandId, brandSlug, total)
+    if (trackingEnabled) {
+      trackGalleryPhotoView(brandSlug, next, brandId)
+      if (!completedFired.current && viewedIndices.current.size >= total) {
+        completedFired.current = true
+        trackGalleryCompleted(brandId, brandSlug, total)
+      }
     }
     fadeTimerRef.current = setTimeout(() => setPrevious(null), 200)
   }
@@ -74,9 +93,14 @@ export function ImageCarousel({ images, alt, brandId, brandSlug, category, image
   const isCurrentBroken = brokenImages.has(current)
 
   return (
-    <div className="space-y-3">
+    <div className={cn(variant === 'detail' && 'space-y-3')}>
       {/* Hero image */}
-      <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-muted">
+      <div
+        className={cn(
+          'relative overflow-hidden rounded-xl bg-muted',
+          variant === 'detail' ? 'aspect-[4/3]' : 'aspect-square',
+        )}
+      >
         {previous !== null && !brokenImages.has(previous) && (
           <Image
             src={validImages[previous]}
@@ -84,7 +108,7 @@ export function ImageCarousel({ images, alt, brandId, brandSlug, category, image
             fill
             className="object-contain transition-opacity duration-200 opacity-0"
             style={{ transitionTimingFunction: 'var(--ease-settle)' }}
-            sizes="(max-width: 1024px) 100vw, 580px"
+            sizes={variant === 'detail' ? '(max-width: 1024px) 100vw, 580px' : '192px'}
             aria-hidden
           />
         )}
@@ -98,7 +122,7 @@ export function ImageCarousel({ images, alt, brandId, brandSlug, category, image
             alt={getAlt(current)}
             fill
             className="object-contain animate-in fade-in duration-200"
-            sizes="(max-width: 1024px) 100vw, 580px"
+            sizes={variant === 'detail' ? '(max-width: 1024px) 100vw, 580px' : '192px'}
             priority={current === 0}
             onError={() => handleImageError(current)}
           />
@@ -112,7 +136,10 @@ export function ImageCarousel({ images, alt, brandId, brandSlug, category, image
               variant="overlay"
               shape="pill"
               size="icon"
-              className="absolute left-4 top-1/2 -translate-y-1/2"
+              className={cn(
+                'absolute top-1/2 -translate-y-1/2',
+                variant === 'detail' ? 'left-4' : 'left-2',
+              )}
               onClick={() => goTo(current - 1)}
               aria-label={t('gallery.previous')}
               data-ph-no-autocapture
@@ -126,7 +153,10 @@ export function ImageCarousel({ images, alt, brandId, brandSlug, category, image
               variant="overlay"
               shape="pill"
               size="icon"
-              className="absolute right-4 top-1/2 -translate-y-1/2"
+              className={cn(
+                'absolute top-1/2 -translate-y-1/2',
+                variant === 'detail' ? 'right-4' : 'right-2',
+              )}
               onClick={() => goTo(current + 1)}
               aria-label={t('gallery.next')}
               data-ph-no-autocapture
@@ -135,7 +165,12 @@ export function ImageCarousel({ images, alt, brandId, brandSlug, category, image
             </Button>
 
             {/* Counter badge */}
-            <span className="absolute bottom-4 right-4 rounded-full bg-accent/80 px-2.5 py-1 type-field-label text-accent-foreground backdrop-blur-sm">
+            <span
+              className={cn(
+                'absolute rounded-full bg-accent/80 px-2.5 py-1 type-field-label text-accent-foreground backdrop-blur-sm',
+                variant === 'detail' ? 'bottom-4 right-4' : 'bottom-2 right-2',
+              )}
+            >
               {current + 1} / {total}
             </span>
           </>
@@ -143,7 +178,7 @@ export function ImageCarousel({ images, alt, brandId, brandSlug, category, image
       </div>
 
       {/* Thumbnail grid */}
-      {total > 1 && (
+      {total > 1 && variant === 'detail' && (
         <div className="scrollbar-none flex gap-2 overflow-x-auto">
           {validImages.map((src, i) => (
             <Button

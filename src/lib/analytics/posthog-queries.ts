@@ -1,6 +1,5 @@
 export type OwnerEndpointDef = {
   name: string
-  version: number
   dataFreshnessSeconds: 900
   variables: Record<string, { type: 'String'; default: string }>
   hogql: string
@@ -128,7 +127,6 @@ function endpoint(
 ): OwnerEndpointDef {
   return {
     name,
-    version: 1,
     dataFreshnessSeconds: 900,
     variables: { brand_id: { type: 'String', default: '' } },
     hogql: query(ENDPOINT_SCOPE),
@@ -281,11 +279,16 @@ function endpointV2(
   name: OwnerEndpointNameV2,
   query: (scope: string) => string,
 ): OwnerEndpointDef {
+  const hogql = query(ENDPOINT_SCOPE)
+
   return {
     ...OWNER_ENDPOINTS[name],
-    version: 2,
-    variables: V2_VARIABLES,
-    hogql: query(ENDPOINT_SCOPE),
+    variables: Object.fromEntries(
+      Object.entries(V2_VARIABLES).filter(([variable]) => (
+        hogql.includes(`{variables.${variable}}`)
+      )),
+    ),
+    hogql,
   }
 }
 
@@ -300,5 +303,5 @@ export const OWNER_ENDPOINTS_V2: Record<OwnerEndpointNameV2, OwnerEndpointDef> =
 }
 
 export function listOwnerEndpoints(): OwnerEndpointDef[] {
-  return [...Object.values(OWNER_ENDPOINTS), ...Object.values(OWNER_ENDPOINTS_V2)]
+  return Object.values(OWNER_ENDPOINTS_V2)
 }

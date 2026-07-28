@@ -5,7 +5,10 @@ import {
   percent,
   rateDelta,
 } from '@/lib/analytics/delta-formatters'
-import { trafficSourceLabel } from '@/lib/analytics/traffic-source-labels'
+import {
+  outboundDestinationLabel,
+  trafficSourceLabel,
+} from '@/lib/analytics/traffic-source-labels'
 import { getBrandBySlug } from '@/lib/services/brands'
 import { getPostHogOwnerAnalyticsSnapshot as getOwnerAnalyticsSnapshot } from '@/lib/services/posthog-owner-analytics'
 import { AnalyticsDonutCard } from '@/components/dashboard/analytics-donut-card'
@@ -46,13 +49,11 @@ type OwnerAnalyticsCopy = {
   trafficSourceHomepage: string
   trafficSourceDirect: string
   trafficSourceOther: string
+  outboundDestinationLabels: Record<string, string>
   trafficSourcesEmpty: string
   outboundDestinations: string
   destinationsEmpty: string
   sectionUnavailable: string
-  nudgeTitle: string
-  nudgeBody: string
-  dataThrough: string
   unavailableTitle: string
   unavailableBody: string
 }
@@ -220,7 +221,10 @@ function OwnerAnalytics({
             title={copy.outboundDestinations}
             rows={(snapshot.destinations ?? []).map((row) => ({
               key: row.destination,
-              label: row.destination,
+              label: outboundDestinationLabel(
+                row.destination,
+                copy.outboundDestinationLabels,
+              ),
               sessions: row.sessions,
             }))}
             emptyLabel={snapshot.destinations === null
@@ -229,17 +233,6 @@ function OwnerAnalytics({
           />
         </div>
 
-        <SurfaceCard tone="info" padding="lg">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h2 className="type-card-title">{copy.nudgeTitle}</h2>
-              <p className="mt-2 type-card-description">{copy.nudgeBody}</p>
-            </div>
-            <p className="shrink-0 type-caption sm:text-right">
-              {copy.dataThrough} · {snapshot.dataThrough}
-            </p>
-          </div>
-        </SurfaceCard>
       </div>
     </TooltipProvider>
   )
@@ -278,13 +271,19 @@ export default async function AnalyticsPage({ params, searchParams }: Props) {
     trafficSourceHomepage: t('trafficSourceHomepage'),
     trafficSourceDirect: t('trafficSourceDirect'),
     trafficSourceOther: t('trafficSourceOther'),
+    outboundDestinationLabels: {
+      website: t('outboundDestinationWebsite'),
+      instagram: t('outboundDestinationInstagram'),
+      threads: t('outboundDestinationThreads'),
+      facebook: t('outboundDestinationFacebook'),
+      pinkoi: t('outboundDestinationPinkoi'),
+      shopee: t('outboundDestinationShopee'),
+      other: t('outboundDestinationOther'),
+    },
     trafficSourcesEmpty: t('trafficSourcesEmpty'),
     outboundDestinations: t('outboundDestinations'),
     destinationsEmpty: t('destinationsEmpty'),
     sectionUnavailable: t('sectionUnavailable'),
-    nudgeTitle: t('nudgeTitle'),
-    nudgeBody: t('nudgeBody'),
-    dataThrough: t('dataThrough'),
     unavailableTitle: t('unavailableTitle'),
     unavailableBody: t('unavailableBody'),
   }

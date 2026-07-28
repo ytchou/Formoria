@@ -1,18 +1,20 @@
-import Image from 'next/image'
-import { Calendar, CircleDollarSign, MapPin, Tag } from 'lucide-react'
 import { getLocale, getTranslations } from 'next-intl/server'
+import { ImageCarousel } from '@/components/brands/image-carousel'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { SurfaceCard } from '@/components/ui/card'
+import { InfoField, SurfaceCard } from '@/components/ui/card'
+import { Typography } from '@/components/ui/typography'
 import { CompletenessRing } from '@/components/dashboard/completeness-ring'
 import { Link } from '@/i18n/navigation'
 import { getProductTypeLabel } from '@/lib/brands/category-label'
-import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
+import { getBrandGalleryImages } from '@/lib/services/brand-images'
 import {
   computeProfileCompleteness,
   type ProfileCompleteness,
 } from '@/lib/services/profile-completeness'
 import type { Brand } from '@/lib/types'
+
+const infoLabelClassName = 'type-field-label uppercase tracking-[0.08em]'
 
 type DashboardHeroCardProps =
   | {
@@ -29,36 +31,33 @@ type DashboardHeroCardProps =
 export async function DashboardHeroCard(props: DashboardHeroCardProps) {
   const { brand } = props
   const completeness = props.completeness ?? computeProfileCompleteness(brand)
-  const [locale, tOverview, tEdit, tMit] = await Promise.all([
+  const [locale, tOverview, tMit, tBrandDetail, tCities] = await Promise.all([
     getLocale(),
     getTranslations('dashboard.overview'),
-    getTranslations('dashboard.edit'),
     getTranslations('dashboard.mit'),
+    getTranslations('brandDetail'),
+    getTranslations('cities'),
   ])
-  const heroImage = safeImageSrc(brand.heroImageUrl)
+  const galleryImages = getBrandGalleryImages(brand)
   const mitStatus = brand.mitStatus ?? 'unverified'
-  const publicationStatus = brand.status === 'approved' ? 'published' : 'hidden'
+  const publicationStatus = tOverview(
+    brand.status === 'approved' ? 'statusPublished' : 'statusHidden',
+  )
   const productType = brand.productType
     ? (getProductTypeLabel(
         brand.productType,
         locale === 'zh-TW' ? 'zh-TW' : 'en',
       ) ?? brand.productType)
     : '—'
-  const priceRange = brand.priceRange
-    ? tEdit(
-        brand.priceRange === 1
-          ? 'fieldPriceRangeBudget'
-          : brand.priceRange === 2
-            ? 'fieldPriceRangeMidRange'
-            : 'fieldPriceRangePremium',
-      )
-    : '—'
-  const metadata = [
-    { icon: Calendar, value: brand.foundingYear ?? '—' },
-    { icon: MapPin, value: brand.city ?? '—' },
-    { icon: Tag, value: productType },
-    { icon: CircleDollarSign, value: priceRange },
-  ]
+  const priceRange = brand.priceRange != null ? '$'.repeat(brand.priceRange) : null
+  const productTags = locale === 'en' && brand.productTagsEn.length > 0
+    ? brand.productTagsEn
+    : brand.productTags
+  const unknownValue = (
+    <Typography as="span" className="text-muted-foreground" variant="fieldValue">
+      {tBrandDetail('unknown')}
+    </Typography>
+  )
 
   return (
     <SurfaceCard
@@ -66,30 +65,24 @@ export async function DashboardHeroCard(props: DashboardHeroCardProps) {
       padding="lg"
     >
       <div
-        className="relative aspect-square w-32 shrink-0 overflow-hidden rounded-lg bg-muted md:w-48"
+        className="w-32 shrink-0 md:w-48"
         data-testid="hero-image"
       >
-        {heroImage ? (
-          <Image
-            alt={brand.name}
-            className="object-cover"
-            fill
-            sizes="(min-width: 768px) 192px, 128px"
-            src={heroImage}
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center type-page-title text-muted-foreground">
-            {brand.name.trim().charAt(0) || '?'}
-          </div>
-        )}
+        <ImageCarousel
+          alt={brand.name}
+          brandId={brand.id}
+          brandSlug={brand.slug}
+          category={brand.productType ?? brand.category}
+          imageAlts={brand.imageAlts}
+          images={galleryImages}
+          trackingEnabled={false}
+          variant="compact"
+        />
       </div>
 
       <div className="min-w-0" data-testid="hero-metadata">
         <div className="min-w-0">
           <h1 className="type-page-title">{brand.name}</h1>
-          {brand.romanizedName ? (
-            <p className="type-body-muted">{brand.romanizedName}</p>
-          ) : null}
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Badge
               variant={brand.status === 'approved' ? 'success' : 'secondary'}
@@ -110,30 +103,62 @@ export async function DashboardHeroCard(props: DashboardHeroCardProps) {
           </div>
         </div>
 
-        <dl className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
-          {metadata.map(({ icon: Icon, value }, index) => (
-            <div
-              className="flex min-w-0 items-center gap-2 type-metadata"
-              key={index}
-            >
-              <Icon
-                aria-hidden="true"
-                className="size-4 shrink-0 text-muted-foreground"
-              />
-              <dd className="truncate">{value}</dd>
-            </div>
-          ))}
-        </dl>
-
-        {brand.productTags.length > 0 ? (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {brand.productTags.map((productTag) => (
-              <Badge key={productTag} variant="secondary">
-                {productTag}
+        <dl className="mt-5 grid grid-cols-1 gap-x-7 gap-y-4 sm:grid-cols-2">
+          <InfoField
+            label={tBrandDetail('label.location')}
+            labelClassName={infoLabelClassName}
+            value={brand.city ? (
+              <Badge className="text-foreground" variant="secondary">
+                {tCities(brand.city)}
               </Badge>
-            ))}
-          </div>
-        ) : null}
+            ) : unknownValue}
+          />
+          <InfoField
+            label={tBrandDetail('label.foundingYear')}
+            labelClassName={infoLabelClassName}
+            value={brand.foundingYear != null ? (
+              <Badge className="text-foreground" variant="secondary">
+                {brand.foundingYear}
+              </Badge>
+            ) : unknownValue}
+          />
+          <InfoField
+            label={tBrandDetail('label.category')}
+            labelClassName={infoLabelClassName}
+            value={productType !== '—' ? (
+              <Badge className="text-foreground" variant="secondary">
+                {productType}
+              </Badge>
+            ) : unknownValue}
+          />
+          <InfoField
+            label={tBrandDetail('label.priceRange')}
+            labelClassName={infoLabelClassName}
+            value={priceRange ? (
+              <Badge className="text-foreground" variant="secondary">
+                {priceRange}
+              </Badge>
+            ) : unknownValue}
+          />
+          <InfoField
+            label={tBrandDetail('label.productCategories')}
+            labelClassName={infoLabelClassName}
+            value={productTags.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-1.5">
+                {productTags.map((productTag) => (
+                  <Badge
+                    className="text-foreground"
+                    key={productTag}
+                    variant="secondary"
+                  >
+                    {productTag}
+                  </Badge>
+                ))}
+              </div>
+            ) : unknownValue}
+            wide
+          />
+        </dl>
       </div>
 
       <div

@@ -1,9 +1,9 @@
 'use client'
 
-import { Calendar } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { NativeSelect } from '@/components/ui/native-select'
+import { dateRangeForPastDays, formatIsoDate } from '@/lib/date-range'
 
 type AnalyticsPeriodPickerProps = {
   currentPeriod: number
@@ -15,18 +15,10 @@ export function AnalyticsPeriodPicker({ currentPeriod }: AnalyticsPeriodPickerPr
   const pathname = usePathname()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const now = new Date()
-  const end = new Date(now)
-  end.setDate(end.getDate() - 1)
-  const start = new Date(now)
-  start.setDate(start.getDate() - currentPeriod)
-  const format = (date: Date) => date.toLocaleDateString(locale, {
-    month: 'short',
-    day: 'numeric',
-  })
+  const range = dateRangeForPastDays(currentPeriod)
 
   return (
-    <div className="flex flex-col gap-2 sm:items-end">
+    <div className="flex items-center gap-2">
       <NativeSelect
         aria-label={t('periodLabel')}
         className="w-fit"
@@ -43,10 +35,9 @@ export function AnalyticsPeriodPicker({ currentPeriod }: AnalyticsPeriodPickerPr
           </option>
         ))}
       </NativeSelect>
-      <p className="flex items-center gap-1.5 type-caption text-muted-foreground">
-        <Calendar aria-hidden="true" className="size-4" />
-        {format(start)} – {format(end)}
-      </p>
+      <span className="type-caption truncate text-muted-foreground">
+        {`${formatIsoDate(range.start, locale, false)} – ${formatIsoDate(range.end, locale, false)}`}
+      </span>
     </div>
   )
 }

@@ -28,7 +28,34 @@ type EndpointResource = NamedResource & {
 
 type InsightResource = NamedResource
 type DashboardResource = NamedResource
+type InsightVariableResource = NamedResource & {
+  code_name: string
+  type: 'String'
+  default_value: string
+}
 type ApiList<T> = T[] | { results: T[] }
+
+type EndpointVariable = {
+  codeName: string
+  type: 'String'
+  defaultValue: string
+}
+
+export function collectEndpointVariables(definitions: OwnerEndpointDef[]): EndpointVariable[] {
+  const variablesByCodeName = new Map<string, EndpointVariable>()
+
+  for (const { variables } of definitions) {
+    for (const [codeName, variable] of Object.entries(variables)) {
+      variablesByCodeName.set(codeName, {
+        codeName,
+        type: variable.type,
+        defaultValue: variable.default,
+      })
+    }
+  }
+
+  return [...variablesByCodeName.values()].sort((a, b) => a.codeName.localeCompare(b.codeName))
+}
 
 export function buildEndpointPayload(def: OwnerEndpointDef): EndpointPayload {
   return {
@@ -186,6 +213,52 @@ async function upsertEndpoints(
   }
 }
 
+async function upsertEndpointVariables(
+  client: ReturnType<typeof createPostHogClient>,
+  failures: string[],
+): Promise<void> {
+  const listed = await client.request<ApiList<InsightVariableResource>>(
+    '/insight_variables/?limit=100',
+  )
+  const existingByCodeName = new Map(
+    listResults(listed).map((variable) => [variable.code_name, variable]),
+  )
+
+  for (const variable of collectEndpointVariables(listOwnerEndpoints())) {
+    const current = existingByCodeName.get(variable.codeName)
+    const payload = {
+      name: variable.codeName,
+      code_name: variable.codeName,
+      type: variable.type,
+      default_value: variable.defaultValue,
+    }
+
+    try {
+      if (!current) {
+        await client.request('/insight_variables/', 'POST', payload)
+        console.info(`${variable.codeName}: variable created`)
+        continue
+      }
+
+      if (
+        current.name !== payload.name
+        || current.type !== payload.type
+        || current.default_value !== payload.default_value
+      ) {
+        await client.request(
+          `/insight_variables/${encodeURIComponent(String(current.id))}/`,
+          'PATCH',
+          payload,
+        )
+        console.info(`${variable.codeName}: variable updated`)
+      }
+    } catch (error) {
+      failures.push(`variable ${variable.codeName}`)
+      console.error(`Failed to sync variable ${variable.codeName}:`, error)
+    }
+  }
+}
+
 async function upsertInsights(
   client: ReturnType<typeof createPostHogClient>,
   failures: string[],
@@ -245,6 +318,7 @@ async function main(): Promise<void> {
   const client = createPostHogClient()
   const failures: string[] = []
 
+  await upsertEndpointVariables(client, failures)
   await upsertEndpoints(client, failures)
   const insightIds = await upsertInsights(client, failures)
 
