@@ -254,8 +254,8 @@ test.describe('Brand detail — historical slugs', () => {
   });
 
   test.afterAll(async () => {
-    await approved.cleanup();
-    await hidden.cleanup();
+    if (approved) await approved.cleanup();
+    if (hidden) await hidden.cleanup();
   });
 
   test('approved historical slugs redirect once to localized self-canonical pages', async ({
