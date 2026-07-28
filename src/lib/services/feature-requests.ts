@@ -218,6 +218,45 @@ export async function listFeatureRequests(
   );
 }
 
+/**
+ * Moderation listing: every request, including the merged tombstones the
+ * public board hides. Separate from `listFeatureRequests` on purpose — the
+ * merged filter is a public-surface guarantee, and an `includeMerged` flag on
+ * the public function would be one boolean away from leaking tombstones onto
+ * the board.
+ */
+export async function listAllFeatureRequests(): Promise<FeatureRequest[]> {
+  const supabase = createServiceClient();
+
+  const { data, error } = await supabase
+    .from("feature_requests")
+    .select(FEATURE_REQUEST_COLUMNS)
+    .order("created_at", { ascending: false })
+    .limit(MAX_BOARD_REQUESTS);
+
+  if (error) throw error;
+
+  const rows = (data ?? []) as unknown as FeatureRequestRow[];
+  if (rows.length === 0) return [];
+
+  const { data: voteData, error: voteError } = await supabase
+    .from("feature_request_votes")
+    .select("request_id")
+    .in(
+      "request_id",
+      rows.map((row) => row.id),
+    );
+  if (voteError) throw voteError;
+
+  const counts = countVotesByRequest(
+    (voteData ?? []) as Pick<FeatureRequestVoteRow, "request_id">[],
+  );
+
+  return rows
+    .map((row) => rowToFeatureRequest(row, counts.get(row.id) ?? 0))
+    .sort(compareFeatureRequests);
+}
+
 export async function getMyVotedRequestIds(userId: string): Promise<string[]> {
   const supabase = createServiceClient();
   const { data, error } = await supabase
