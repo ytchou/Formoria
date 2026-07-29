@@ -179,6 +179,8 @@ describe("SubmissionsReviewList", () => {
       "ready-5",
     ]);
     expect(actions.approve).not.toHaveBeenCalled();
+    expect(screen.queryByText("Ready Brand 1")).not.toBeInTheDocument();
+    expect(screen.getByText("Ready Brand 2")).toBeInTheDocument();
   });
 
   it("routes mixed bulk approval through the shared action", async () => {

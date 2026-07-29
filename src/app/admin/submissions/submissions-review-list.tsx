@@ -105,6 +105,9 @@ export function SubmissionsReviewList({
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZES)[number]>(10);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [completedApprovalIds, setCompletedApprovalIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [bulkRejecting, setBulkRejecting] = useState(false);
   const [bulkRejectReason, setBulkRejectReason] = useState<DenialReason | "">(
@@ -115,27 +118,44 @@ export function SubmissionsReviewList({
   const [isEnriching, startEnrichTransition] = useTransition();
   const showEnrichment = activeTab !== "needs_data";
   const showSkipReason = activeTab === "skipped";
+  const displayedSubmissions = useMemo(
+    () =>
+      submissions.filter(
+        (submission) =>
+          !completedApprovalIds.has(submission.id) ||
+          submission.status !== "pending",
+      ),
+    [completedApprovalIds, submissions],
+  );
 
   const tabCounts = useMemo(
     () => ({
-      all: submissions.length,
-      needs_data: submissions.filter(
+      all: displayedSubmissions.length,
+      needs_data: displayedSubmissions.filter(
         (item) => item.reviewStage === "needs_data",
       ).length,
-      enriching: submissions.filter((item) => item.reviewStage === "enriching")
+      enriching: displayedSubmissions.filter(
+        (item) => item.reviewStage === "enriching",
+      ).length,
+      skipped: displayedSubmissions.filter(
+        (item) => item.reviewStage === "skipped",
+      ).length,
+      ready: displayedSubmissions.filter((item) => item.reviewStage === "ready")
         .length,
-      skipped: submissions.filter((item) => item.reviewStage === "skipped")
+      approved: displayedSubmissions.filter((item) => item.status === "approved")
         .length,
-      ready: submissions.filter((item) => item.reviewStage === "ready").length,
-      approved: submissions.filter((item) => item.status === "approved").length,
-      rejected: submissions.filter((item) => item.status === "rejected").length,
+      rejected: displayedSubmissions.filter((item) => item.status === "rejected")
+        .length,
     }),
-    [submissions],
+    [displayedSubmissions],
   );
 
   const stageFiltered = useMemo(
-    () => submissions.filter((submission) => matchesTab(submission, activeTab)),
-    [activeTab, submissions],
+    () =>
+      displayedSubmissions.filter((submission) =>
+        matchesTab(submission, activeTab),
+      ),
+    [activeTab, displayedSubmissions],
   );
   const filtered = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
@@ -282,6 +302,13 @@ export function SubmissionsReviewList({
       if (result.storageCleanupWarning) {
         toast.warning(t("storageCleanupWarning"));
       }
+      setCompletedApprovalIds((current) => {
+        const next = new Set(current);
+        for (const submission of approvableSelected) {
+          if (!failedIds.has(submission.id)) next.add(submission.id);
+        }
+        return next;
+      });
       setSelectedIds(failedIds);
       router.refresh();
     });
