@@ -52,10 +52,15 @@ export function resolveInitialLocale({
           .find((parameter) => parameter.startsWith('q='))
         return { language, quality: quality ? Number(quality.slice(2)) : 1 }
       })
-      .filter(({ language, quality }) => Boolean(language) && Number.isFinite(quality))
+      .filter(({ language, quality }) =>
+        Boolean(language) && Number.isFinite(quality) && quality > 0 && quality <= 1,
+      )
       .sort((a, b) => b.quality - a.quality)
-      .at(0)?.language
-    return preferred?.startsWith('zh') ? 'zh-TW' : 'en'
+      .map(({ language }) => language)
+      .find((language) => language === 'en' || language.startsWith('en-') || language.startsWith('zh'))
+    if (preferred?.startsWith('zh')) return 'zh-TW'
+    if (preferred) return 'en'
   }
-  return country?.toUpperCase() === 'TW' ? 'zh-TW' : 'en'
+  if (country) return country.toUpperCase() === 'TW' ? 'zh-TW' : 'en'
+  return routing.defaultLocale
 }

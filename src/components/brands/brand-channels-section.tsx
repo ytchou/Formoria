@@ -1,11 +1,13 @@
 import { getTranslations } from 'next-intl/server'
 import { SurfaceCard } from '@/components/ui/card'
 import { CHANNEL_CONFIRMATION_THRESHOLD } from '@/lib/brands/channels'
+import type { AppLocale } from '@/i18n/locale-preference'
 import type { BrandChannel } from '@/lib/types'
 import { BrandChannelList } from './brand-channel-list'
 import { ProvideChannelInfoDialog } from './provide-channel-info-dialog'
 
 export type BrandChannelsSectionProps = {
+  locale: AppLocale
   confirmed: BrandChannel[]
   possible: BrandChannel[]
   brandId: string
@@ -13,12 +15,13 @@ export type BrandChannelsSectionProps = {
 }
 
 export async function BrandChannelsSection({
+  locale,
   confirmed,
   possible,
   brandId,
   brandSlug,
 }: BrandChannelsSectionProps) {
-  const t = await getTranslations('brandDetail')
+  const t = await getTranslations({ locale, namespace: 'brandDetail' })
   const hasChannels = confirmed.length > 0 || possible.length > 0
 
   return (

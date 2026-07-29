@@ -1,4 +1,16 @@
 import { test, expect } from '@playwright/test';
+import { load } from 'cheerio';
+
+function renderedDocument(html: string) {
+  const $ = load(html);
+  $('script, style, noscript').remove();
+
+  return {
+    lang: $('html').attr('lang'),
+    headerText: $('header').text().replace(/\s+/g, ' ').trim(),
+    mainText: $('main').text().replace(/\s+/g, ' ').trim(),
+  };
+}
 
 /**
  * i18n: English browse journey
@@ -12,6 +24,95 @@ import { test, expect } from '@playwright/test';
  *   → menu with persisted locale actions for Traditional Chinese and English
  */
 test.describe('i18n English browse', () => {
+  test('/en declares the English locale in the initial HTTP document', async ({ request }) => {
+    const response = await request.get('/en');
+
+    expect(response.status()).toBe(200);
+    const document = renderedDocument(await response.text());
+    expect(document.lang).toBe('en');
+  });
+
+  test('/en/brands/djulis server-renders English chrome and taxonomy', async ({ request }) => {
+    const response = await request.get('/en/brands/djulis');
+
+    expect(response.status()).toBe(200);
+    const document = renderedDocument(await response.text());
+    expect(document.lang).toBe('en');
+
+    for (const text of ['About Formoria', 'Submit a Brand']) {
+      expect(document.headerText).toContain(text);
+    }
+    for (const text of [
+      'Brand Directory',
+      'Visit Website',
+      'Brand information',
+      'Location',
+      'Founded',
+      'Category',
+      'Price',
+      'Product categories',
+      'Food & Beverage',
+      'Snacks',
+    ]) {
+      expect(document.mainText).toContain(text);
+    }
+    for (const text of [
+      '品牌目錄',
+      '前往官網',
+      '品牌資訊',
+      '地點',
+      '創立年份',
+      '類別',
+      '價格區間',
+      '產品類別',
+      '食品飲料',
+      '零食',
+    ]) {
+      expect(document.mainText).not.toContain(text);
+    }
+  });
+
+  test('/brands/djulis server-renders Traditional Chinese chrome and taxonomy', async ({
+    request,
+  }) => {
+    const response = await request.get('/brands/djulis');
+
+    expect(response.status()).toBe(200);
+    const document = renderedDocument(await response.text());
+    expect(document.lang).toBe('zh-TW');
+
+    for (const text of ['關於 Formoria', '提交品牌']) {
+      expect(document.headerText).toContain(text);
+    }
+    for (const text of [
+      '品牌目錄',
+      '前往官網',
+      '品牌資訊',
+      '地點',
+      '創立年份',
+      '類別',
+      '價格區間',
+      '產品類別',
+      '食品飲料',
+      '零食',
+    ]) {
+      expect(document.mainText).toContain(text);
+    }
+    for (const text of [
+      'Brand Directory',
+      'Visit Website',
+      'Brand information',
+      'Location',
+      'Founded',
+      'Category',
+      'Product categories',
+      'Food & Beverage',
+      'Snacks',
+    ]) {
+      expect(document.mainText).not.toContain(text);
+    }
+  });
+
   test('/en/contributions preserves the localized return path when signed out', async ({ request }) => {
     const response = await request.get('/en/contributions', { maxRedirects: 0 });
 

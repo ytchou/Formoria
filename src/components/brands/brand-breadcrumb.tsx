@@ -1,15 +1,17 @@
 import { getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
 import { ChevronRight } from 'lucide-react'
+import type { AppLocale } from '@/i18n/locale-preference'
 
 interface BrandBreadcrumbProps {
+  locale: AppLocale
   categorySlug: string | null
   categoryLabel: string | null
   brandName: string
 }
 
-export async function BrandBreadcrumb({ categorySlug, categoryLabel, brandName }: BrandBreadcrumbProps) {
-  const t = await getTranslations('brandDetail')
+export async function BrandBreadcrumb({ locale, categorySlug, categoryLabel, brandName }: BrandBreadcrumbProps) {
+  const t = await getTranslations({ locale, namespace: 'brandDetail' })
 
   return (
     <nav aria-label="Breadcrumb" className="mb-6">

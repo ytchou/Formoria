@@ -21,9 +21,32 @@ describe('locale preference', () => {
     })).toBe('zh-TW')
   })
 
+  it('chooses the highest-ranked supported browser language', () => {
+    expect(resolveInitialLocale({
+      acceptLanguage: 'ja-JP,zh-TW;q=0.9,en;q=0.8',
+      country: 'US',
+    })).toBe('zh-TW')
+    expect(resolveInitialLocale({
+      acceptLanguage: 'fr-FR,en-US;q=0.9,zh-TW;q=0.8',
+      country: 'TW',
+    })).toBe('en')
+  })
+
   it('uses country only when browser language is unavailable', () => {
     expect(resolveInitialLocale({ country: 'TW' })).toBe('zh-TW')
     expect(resolveInitialLocale({ country: 'US' })).toBe('en')
+  })
+
+  it('falls back to country, then the configured default, when no supported language exists', () => {
+    expect(resolveInitialLocale({
+      acceptLanguage: 'ja-JP,fr-FR;q=0.9',
+      country: 'TW',
+    })).toBe('zh-TW')
+    expect(resolveInitialLocale({
+      acceptLanguage: 'ja-JP,fr-FR;q=0.9',
+      country: 'US',
+    })).toBe('en')
+    expect(resolveInitialLocale({})).toBe('zh-TW')
   })
 
   it('uses locale-prefixed paths only for English', () => {
