@@ -1578,7 +1578,6 @@ export async function aggregateAndDeliver(
   environment: Environment = environmentValue(dependencies),
 ): Promise<AggregateResult> {
   const runAt = validRunAt(input.runAt ?? nowFor(dependencies));
-  const mode = input.mode ?? "live";
   const artifacts = await loadAggregateArtifacts(input, dependencies, runAt);
   const brandReviewFailures = await loadBrandReviewFailures(
     input.brandReviewArtifactPath,

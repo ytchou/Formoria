@@ -8,6 +8,8 @@ export interface LinkHealthOptions {
   workflowAttempt?: number;
   fetchFn?: typeof fetch;
   now?: () => Date;
+  /** Injected only by tests; production always uses the service client. */
+  client?: LinkHealthDatabaseClient;
 }
 
 interface LinkHealthFinding {
@@ -60,7 +62,7 @@ type LedgerResult = LedgerClaim | boolean;
 
 type QueryResult<T> = Promise<{ data: T; error: { message: string } | null }>;
 
-interface LinkHealthDatabaseClient {
+export interface LinkHealthDatabaseClient {
   from(table: "brands"): {
     select(columns: string): {
       eq(column: "status", value: "approved"): QueryResult<BrandRow[] | null>;
@@ -243,7 +245,9 @@ export async function runLinkHealthCheck(
   const logicalDate = getTaipeiDate(nowDate);
   const runIdentity = options.runIdentity ?? null;
   const fetchFn = options.fetchFn ?? fetch;
-  const db = createServiceClient() as unknown as LinkHealthDatabaseClient;
+  const db =
+    options.client ??
+    (createServiceClient() as unknown as LinkHealthDatabaseClient);
   const ledgerArgs = {
     p_routine: "link-checker",
     p_logical_date: logicalDate,
