@@ -44,21 +44,6 @@ function count(value: unknown): number {
     : 0;
 }
 
-function ticket(
-  aggregate: unknown,
-): { identifier: string; url: string } | null {
-  if (!isRecord(aggregate) || !Array.isArray(aggregate.linearOutcomes))
-    return null;
-  const outcome = aggregate.linearOutcomes.find(
-    (value) => isRecord(value) && typeof value.identifier === "string",
-  );
-  if (!isRecord(outcome) || typeof outcome.identifier !== "string") return null;
-  return {
-    identifier: outcome.identifier,
-    url: `https://linear.app/ytchou/issue/${outcome.identifier}`,
-  };
-}
-
 async function main(): Promise<void> {
   const aggregate = await json(argument("--aggregate"));
   const queue = await json(argument("--queue"));
@@ -90,7 +75,6 @@ async function main(): Promise<void> {
       ? snapshot.findings.length
       : 0;
   const escalation = Math.max(0, allFindings.length - repairable);
-  const linear = ticket(aggregate);
   const selfHeal = process.env.HEALTH_SELF_HEAL === "true" && repairable > 0;
   const audit: AuditRecord[] = [];
   await sendSlackDigest(
@@ -100,12 +84,12 @@ async function main(): Promise<void> {
         details: [
           `• Product ${findingCount("link-checker") + findingCount("directory-health")} · Runtime ${findingCount("sentry-triage")} · Repository ${findingCount("quality-health")}`,
           `• ${repairable} repairable · ${escalation} escalation-only`,
-          `• Linear: ${linear ? `<${linear.url}|${linear.identifier}>` : "unavailable"}`,
           `• Self-heal: ${selfHeal ? "will run" : "will not run"}`,
         ],
-        managerAction: linear
-          ? `<${linear.url}|Review ${linear.identifier}> after the final report`
-          : "Wait for the final report",
+        // No Linear ticket exists yet at this stage. The digest ticket is
+        // created once by the final report, and its message carries the link.
+        managerAction:
+          "Wait for the final report; it carries the Linear digest ticket",
         status: "needs_attention",
         summary: [
           `• ${allFindings.length} distinct findings`,
@@ -121,7 +105,7 @@ async function main(): Promise<void> {
   );
   await writeFile(
     output,
-    `${JSON.stringify({ linear, repairable, sent: true, selfHeal })}\n`,
+    `${JSON.stringify({ repairable, sent: true, selfHeal })}\n`,
     "utf8",
   );
   await writeFile(

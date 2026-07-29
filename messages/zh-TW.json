@@ -223,7 +223,7 @@
       "submitSuccess": "我們已收到你的認領申請，會盡快審核。",
       "submitError": "提交失敗，請稍後再試。",
       "communityTitle": "這是你的品牌嗎？",
-      "communityListing": "認領後即可管理品牌頁面、更新資訊並建立顧客信任。",
+      "communityListing": "認領後即可管理品牌並建立顧客信任。",
       "claimButton": "認領這個品牌",
       "proofHeading": "提交認領證明",
       "proofPrompt": "請提交所有權證明，以便我們審核你的認領申請。",
@@ -276,7 +276,7 @@
       "submitting": "提交中…",
       "submit": "送出認領申請",
       "cancel": "取消",
-      "whyClaim": "為什麼要認領？了解好處"
+      "whyClaim": "為什麼要認領？"
     },
     "loadingAria": "載入品牌中...",
     "noResultsInSuggestions": "找不到結果"
@@ -1037,7 +1037,40 @@
       },
       "contact": {
         "question": "如何聯繫 Formoria 團隊？",
-        "answer": "如有任何問題、建議或合作洽詢，歡迎來信：<mail>{email}</mail>。我們通常會在收到信後 2–3 個工作天內回覆。"
+        "answer": "如有任何問題、建議或合作洽詢，請到<link>聯絡我們</link>頁面，挑選最適合的管道。我們通常會在 2–3 個工作天內回覆。"
+      }
+    }
+  },
+  "contact": {
+    "metadata": {
+      "title": "聯絡我們",
+      "description": "想回報問題、許願新功能，或修正品牌資料？看看該從哪個管道找到 Formoria 團隊。"
+    },
+    "hero": {
+      "eyebrow": "聯絡 Formoria",
+      "title": "找到最適合的聯絡方式",
+      "intro": "不同的問題，有不同的最快路徑。挑一個下面的管道，我們會盡快回覆你。"
+    },
+    "channels": {
+      "problem": {
+        "title": "回報問題",
+        "body": "網站壞掉、頁面載入失敗，或操作時跳出錯誤訊息？來信告訴我們，附上頁面網址與畫面截圖會更快處理。",
+        "cta": "寫信給我們"
+      },
+      "feature": {
+        "title": "功能許願",
+        "body": "希望 Formoria 多做一點什麼？到許願板提出你的想法，也可以為別人的點子投票。",
+        "cta": "前往許願板"
+      },
+      "brand": {
+        "title": "品牌資料有誤",
+        "body": "每個品牌頁都有回報與資料勘誤的功能，直接在該品牌頁提交，會比來信更快進入審核流程。",
+        "cta": "瀏覽品牌"
+      },
+      "question": {
+        "title": "一般問題",
+        "body": "收錄條件、審核時間、品牌認領方式，常見問題頁大多已經整理好答案。",
+        "cta": "查看常見問題"
       }
     }
   },

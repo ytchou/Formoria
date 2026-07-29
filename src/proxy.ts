@@ -56,6 +56,7 @@ const PUBLIC_INTL_SEGMENTS = new Set([
   'brands',
   'guides',
   'about',
+  'contact',
   'faq',
   'getting-started',
   'terms',

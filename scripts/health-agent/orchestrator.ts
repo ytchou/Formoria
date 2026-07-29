@@ -27,7 +27,6 @@ import {
   type RepairSnapshot,
 } from "./repair";
 import {
-  requiresHumanPolicy,
   stableFingerprint,
   type AuditLogger,
   type HealthFinding,
@@ -37,6 +36,11 @@ import {
   type JsonValue,
   type MergePolicy,
 } from "./contracts";
+// Single source of truth for the Linear digest summary shape; it used to be
+// declared here as well, with `runAt` diverging in optionality.
+import type { LinearSyncSummary } from "./adapters";
+
+export type { LinearSyncSummary };
 
 const MAX_ARTIFACT_BYTES = 512 * 1024;
 const MAX_RESULT_BYTES = 512 * 1024;
@@ -1198,20 +1202,6 @@ export interface LinearSyncInput {
   summary?: LinearSyncSummary;
 }
 
-export interface LinearSyncSummary {
-  fixed: number;
-  newFindings: number;
-  ongoingFindings: number;
-  pullRequestUrls?: readonly string[];
-  regressedFindings: number;
-  reviewFindings: number;
-  runAt: string;
-  status: "failed" | "needs_attention" | "resolved";
-  totalFindings: number;
-  unresolved: number;
-  workflowUrl?: string;
-}
-
 export interface LinearSyncResult {
   outcomes?: readonly JsonValue[];
   tickets?: readonly string[];
@@ -1271,6 +1261,13 @@ export interface HealthAgentDatabase {
   listFingerprintStates?: (
     fingerprints: readonly string[],
   ) => Promise<readonly HealthFingerprintState[]>;
+  listUnticketedFingerprints?: (
+    fingerprints: readonly string[],
+  ) => Promise<readonly string[]>;
+  markFingerprintsTicketed?: (
+    fingerprints: readonly string[],
+    linearIdentifier: string,
+  ) => Promise<unknown>;
   reconcileFingerprintLifecycle?: (
     observedFingerprints: readonly string[],
     completedSources: readonly HealthSource[],
@@ -1293,6 +1290,7 @@ export interface VerifiedSentryAbsence {
   fingerprint: string;
   id: string;
   issueId: string;
+  status: string;
 }
 
 export type QueueEntryInput = HealthQueueFindingInput;
@@ -1307,6 +1305,13 @@ export interface QueueDependencies {
   listFingerprintStates?: (
     fingerprints: readonly string[],
   ) => Promise<readonly HealthFingerprintState[]>;
+  listUnticketedFingerprints?: (
+    fingerprints: readonly string[],
+  ) => Promise<readonly string[]>;
+  markFingerprintsTicketed?: (
+    fingerprints: readonly string[],
+    linearIdentifier: string,
+  ) => Promise<unknown>;
   reconcileFingerprintLifecycle?: (
     observedFingerprints: readonly string[],
     completedSources: readonly HealthSource[],
@@ -1501,13 +1506,6 @@ async function loadBrandReviewFailures(
   }
 }
 
-function linearFunction(
-  linear: HealthAgentDependencies["linear"],
-): LinearDelivery | undefined {
-  if (!linear) return undefined;
-  return typeof linear === "function" ? linear : (input) => linear.sync(input);
-}
-
 function uniqueFindings(findings: readonly HealthFinding[]): HealthFinding[] {
   const seen = new Set<string>();
   const result: HealthFinding[] = [];
@@ -1517,80 +1515,6 @@ function uniqueFindings(findings: readonly HealthFinding[]): HealthFinding[] {
     result.push(redactedFinding(finding));
   }
   return result;
-}
-
-function eligibleLinearFindings(
-  findings: readonly HealthFinding[],
-  exhausted: ReadonlySet<string>,
-): HealthFinding[] {
-  return uniqueFindings(
-    findings.filter(
-      (finding) =>
-        requiresHumanPolicy(finding) || exhausted.has(finding.fingerprint),
-    ),
-  );
-}
-
-async function syncLinearIfRequired(
-  findings: readonly HealthFinding[],
-  exhausted: ReadonlySet<string>,
-  mode: HealthAgentMode,
-  dependencies: HealthAgentDependencies,
-  failures: string[],
-  skippedActions: JsonValue[],
-): Promise<{ outcomes: JsonValue[]; tickets: string[] }> {
-  const eligible = eligibleLinearFindings(findings, exhausted);
-  if (eligible.length === 0) return { outcomes: [], tickets: [] };
-  if (mode === "canary_fix") {
-    skippedActions.push({ action: "linear", reason: "canary_fix_scope" });
-    return { outcomes: [], tickets: [] };
-  }
-  const policy = mutationPolicy(mode, environmentValue(dependencies));
-  if (!policy.business) {
-    skippedActions.push({ action: "linear", reason: "mutations_disabled" });
-    return { outcomes: [], tickets: [] };
-  }
-  const sync = linearFunction(dependencies.linear);
-  if (!sync) {
-    failures.push("linear:not_configured");
-    return { outcomes: [], tickets: [] };
-  }
-  const startedAt = performance.now();
-  try {
-    const result = await sync({
-      exhaustedAutomationFingerprints: [...exhausted],
-      findings: eligible,
-    });
-    const outcomes = [...(result.outcomes ?? [])].map(redactForAudit);
-    const tickets = [...(result.tickets ?? [])]
-      .filter((ticket): ticket is string => typeof ticket === "string")
-      .map(redactText);
-    emitAudit(dependencies, {
-      adapter: "linear",
-      latencyMs: Math.max(0, Math.round(performance.now() - startedAt)),
-      operation: "sync_findings",
-      request: { eligible_count: eligible.length },
-      response: {
-        outcome_count: outcomes.length,
-        ticket_count: tickets.length,
-      },
-      schemaValid: true,
-      status: "success",
-    });
-    return { outcomes, tickets };
-  } catch (error) {
-    emitAudit(dependencies, {
-      adapter: "linear",
-      latencyMs: Math.max(0, Math.round(performance.now() - startedAt)),
-      operation: "sync_findings",
-      request: { eligible_count: eligible.length },
-      response: { error: safeErrorCode(error) },
-      schemaValid: false,
-      status: "failure",
-    });
-    failures.push("linear:failed");
-    return { outcomes: [], tickets: [] };
-  }
 }
 
 async function deliverEnvelope(
@@ -1654,7 +1578,6 @@ export async function aggregateAndDeliver(
   environment: Environment = environmentValue(dependencies),
 ): Promise<AggregateResult> {
   const runAt = validRunAt(input.runAt ?? nowFor(dependencies));
-  const mode = input.mode ?? "live";
   const artifacts = await loadAggregateArtifacts(input, dependencies, runAt);
   const brandReviewFailures = await loadBrandReviewFailures(
     input.brandReviewArtifactPath,
@@ -1691,31 +1614,17 @@ export async function aggregateAndDeliver(
   ];
   const failures = failureEntries.map((value) => JSON.stringify(value));
   const skippedActions = skippedEntries;
-  const exhausted = new Set(input.exhaustedAutomationFingerprints ?? []);
-  const linear = await syncLinearIfRequired(
-    findings,
-    exhausted,
-    mode,
-    { ...dependencies, env: environment },
-    failures,
-    skippedActions,
-  );
-  const linearOutcomes = [
-    ...(input.linearOutcomes ?? []).map(redactForAudit),
-    ...linear.outcomes,
-  ];
-  const slackFailureEntries: JsonValue[] = [
-    ...failureEntries,
-    ...failures.slice(failureEntries.length).map((failure) => ({
-      failure: redactText(failure),
-      routine: "orchestrator",
-    })),
-  ];
+  // No Linear write happens here. The aggregate stage runs before
+  // enqueue-and-claim, so it cannot know which findings have never been
+  // ticketed; deliverFinalHealthReport (Stage 5) is the sole writer, and it is
+  // the only place an orchestrator-level failure could now be appended.
+  const linearOutcomes = [...(input.linearOutcomes ?? []).map(redactForAudit)];
+  const slackFailureEntries: JsonValue[] = [...failureEntries];
   const envelopes = HEALTH_ROUTINES.map((routine) =>
     createRoutineEnvelope({
       artifact: artifacts[routine],
       runAt,
-      tickets: linear.tickets,
+      tickets: [],
       workflowAttempt: input.workflowAttempt,
       workflowRunId: input.workflowRunId,
     }),

@@ -179,7 +179,6 @@ export function BrandHeader({
                 unknownValue
               )
             }
-            wide
           />
           {!hasVerification && (
             <InfoField
@@ -187,7 +186,6 @@ export function BrandHeader({
               labelClassName={infoLabelClassName}
               layout="stacked"
               value={unknownValue}
-              wide
             />
           )}
         </dl>

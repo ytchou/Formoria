@@ -40,7 +40,7 @@ test.describe('Getting Started page smoke', () => {
   });
 
   test('CTA footer section renders and Browse link points to /brands', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: 'Ready to explore Taiwan-made brands?' })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('heading', { name: 'Ready to explore Taiwanese brands?' })).toBeVisible({ timeout: 10_000 });
     const browseLink = page.getByRole('link', { name: 'Browse brands' }).last();
     await expect(browseLink).toBeVisible();
     const href = await browseLink.getAttribute('href');

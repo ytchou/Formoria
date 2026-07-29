@@ -79,6 +79,18 @@ import {
 
 const MAX_RUNTIME_FINDINGS = 10_000;
 const FINGERPRINT_STATE_BATCH_SIZE = 40;
+// Mirrors health_fix_queue_active_fingerprint_idx: every status except the two
+// terminal ones ('fixed', 'skipped').
+const ACTIVE_QUEUE_STATUSES = [
+  "pending",
+  "claimed",
+  "pr_opened",
+  "awaiting_human",
+  "merged",
+  "deployed",
+  "failed",
+  "needs_human",
+] as const;
 const MAX_RUNTIME_ISSUES = 20;
 const execFileAsync = promisify(execFile);
 
@@ -744,6 +756,94 @@ function supabaseQueueDependencies(
         return true;
       });
     },
+    // "Needs a Linear ticket" is exactly ticketed_at IS NULL on a row in an
+    // active status. Lifecycle "new" is not a substitute: it means "no active
+    // queue row", which is wrong for skipped rows and for automatic-policy
+    // rows that were enqueued but never ticketed.
+    listUnticketedFingerprints: async (fingerprints) => {
+      if (fingerprints.length === 0) return [];
+      const batches = Array.from(
+        {
+          length: Math.ceil(fingerprints.length / FINGERPRINT_STATE_BATCH_SIZE),
+        },
+        (_, index) =>
+          fingerprints.slice(
+            index * FINGERPRINT_STATE_BATCH_SIZE,
+            (index + 1) * FINGERPRINT_STATE_BATCH_SIZE,
+          ),
+      );
+      const values = await Promise.all(
+        batches.map((batch) => {
+          const params = new URLSearchParams({
+            fingerprint: `in.(${batch.join(",")})`,
+            order: "created_at.desc",
+            select: "fingerprint,status,ticketed_at",
+            status: `in.(${ACTIVE_QUEUE_STATUSES.join(",")})`,
+            ticketed_at: "is.null",
+          });
+          return supabaseRequest(
+            dependencies,
+            "list_unticketed_health_fingerprints",
+            `/rest/v1/health_fix_queue?${params.toString()}`,
+            "HEALTH_AGENT_READER_TOKEN",
+            { method: "GET" },
+            (candidate) => Array.isArray(candidate),
+          );
+        }),
+      );
+      const seen = new Set<string>();
+      return values
+        .flatMap((value) => value as unknown[])
+        .flatMap((candidate) => {
+          if (!isRecord(candidate)) return [];
+          if (typeof candidate.fingerprint !== "string") return [];
+          if (candidate.ticketed_at !== null) return [];
+          if (seen.has(candidate.fingerprint)) return [];
+          seen.add(candidate.fingerprint);
+          return [candidate.fingerprint];
+        });
+    },
+    markFingerprintsTicketed: async (fingerprints, linearIdentifier) => {
+      if (fingerprints.length === 0) return;
+      const identifier = linearIdentifier.trim();
+      if (!identifier) throw new Error("linear_identifier_required");
+      const batches = Array.from(
+        {
+          length: Math.ceil(fingerprints.length / FINGERPRINT_STATE_BATCH_SIZE),
+        },
+        (_, index) =>
+          fingerprints.slice(
+            index * FINGERPRINT_STATE_BATCH_SIZE,
+            (index + 1) * FINGERPRINT_STATE_BATCH_SIZE,
+          ),
+      );
+      await Promise.all(
+        batches.map((batch) => {
+          // The ticketed_at=is.null filter is what makes a partially failed
+          // run safe to repeat: already-stamped rows are never restamped.
+          const params = new URLSearchParams({
+            fingerprint: `in.(${batch.join(",")})`,
+            status: `in.(${ACTIVE_QUEUE_STATUSES.join(",")})`,
+            ticketed_at: "is.null",
+          });
+          return supabaseRequest(
+            dependencies,
+            "mark_health_fingerprints_ticketed",
+            `/rest/v1/health_fix_queue?${params.toString()}`,
+            "HEALTH_AGENT_WRITER_TOKEN",
+            {
+              body: JSON.stringify({
+                linear_identifier: identifier,
+                ticketed_at: new Date().toISOString(),
+              }),
+              headers: { Prefer: "return=minimal" },
+              method: "PATCH",
+            },
+            (candidate) => candidate === null || Array.isArray(candidate),
+          );
+        }),
+      );
+    },
     reconcileFingerprintLifecycle: async (
       observedFingerprints,
       completedSources,
@@ -769,6 +869,7 @@ function supabaseQueueDependencies(
         fingerprint: string;
         id: string;
         issueId: string;
+        status: string;
       }> = [];
       for (const candidate of value as unknown[]) {
         if (!isRecord(candidate) || typeof candidate.fingerprint !== "string")
@@ -783,12 +884,14 @@ function supabaseQueueDependencies(
         if (
           candidate.reconciliation === "verified_sentry_absence" &&
           typeof candidate.id === "string" &&
-          typeof candidate.sentry_issue_id === "string"
+          typeof candidate.sentry_issue_id === "string" &&
+          typeof candidate.current_status === "string"
         ) {
           verifiedSentryAbsences.push({
             fingerprint: candidate.fingerprint,
             id: candidate.id,
             issueId: candidate.sentry_issue_id,
+            status: candidate.current_status,
           });
         }
       }
@@ -2310,6 +2413,39 @@ function linearSyncFunction(
   return typeof linear === "function" ? linear : (input) => linear.sync(input);
 }
 
+function ticketLedger(dependencies: WorkflowRuntimeDependencies): {
+  listUnticketed?: (
+    fingerprints: readonly string[],
+  ) => Promise<readonly string[]>;
+  markTicketed?: (
+    fingerprints: readonly string[],
+    linearIdentifier: string,
+  ) => Promise<unknown>;
+} {
+  const database = dependencies.database;
+  const queue = dependencies.queue;
+  const listUnticketed =
+    database?.listUnticketedFingerprints ?? queue?.listUnticketedFingerprints;
+  const markTicketed =
+    database?.markFingerprintsTicketed ?? queue?.markFingerprintsTicketed;
+  return {
+    ...(listUnticketed ? { listUnticketed } : {}),
+    ...(markTicketed ? { markTicketed } : {}),
+  };
+}
+
+function linearOutcomeIdentifier(
+  outcomes: readonly JsonValue[],
+): string | undefined {
+  for (const outcome of outcomes) {
+    if (!isRecord(outcome)) continue;
+    const identifier =
+      typeof outcome.identifier === "string" ? outcome.identifier.trim() : "";
+    if (/^[A-Z]+-\d+$/.test(identifier)) return identifier;
+  }
+  return undefined;
+}
+
 function repairResult(
   value: unknown,
   policy: "automatic" | "human",
@@ -2459,31 +2595,66 @@ export async function deliverFinalHealthReport(
   const linearOutcomes: JsonValue[] = [];
   const linear = linearSyncFunction(dependencies);
   if (input.mode === "live" && linear) {
-    try {
-      const sync = await linear({
-        exhaustedAutomationFingerprints,
-        findings,
-        summary: {
-          fixed: verifiedFixed,
-          newFindings: lifecycle.new,
-          ongoingFindings: lifecycle.ongoing,
-          pullRequestUrls,
-          regressedFindings: lifecycle.regressed,
-          reviewFindings: reviewFindingCount,
-          runAt: input.runAt,
-          status: hasOperationalFailure()
-            ? "failed"
-            : findingCount > 0
-              ? "needs_attention"
-              : "resolved",
-          totalFindings: findingCount,
-          unresolved: findingCount,
-          workflowUrl: input.workflowUrl,
-        },
-      });
-      linearOutcomes.push(...(sync.outcomes ?? []));
-    } catch {
-      failures.push("linear_final_sync:failed");
+    // Sole Linear writer. Only findings that have never been ticketed reach
+    // the adapter, and the adapter always creates a fresh digest ticket.
+    const ledger = ticketLedger(dependencies);
+    const reviewFindings = findings.filter(({ fingerprint }) =>
+      reviewFingerprints.has(fingerprint),
+    );
+    let ticketFindings = reviewFindings;
+    if (ledger.listUnticketed && reviewFindings.length > 0) {
+      try {
+        const unticketed = new Set(
+          await ledger.listUnticketed(
+            reviewFindings.map(({ fingerprint }) => fingerprint),
+          ),
+        );
+        ticketFindings = reviewFindings.filter(({ fingerprint }) =>
+          unticketed.has(fingerprint),
+        );
+      } catch {
+        ticketFindings = [];
+        failures.push("linear_ticket_candidates:failed");
+      }
+    }
+    if (ticketFindings.length > 0) {
+      try {
+        const sync = await linear({
+          exhaustedAutomationFingerprints,
+          findings: ticketFindings,
+          summary: {
+            fixed: verifiedFixed,
+            newFindings: lifecycle.new,
+            ongoingFindings: lifecycle.ongoing,
+            pullRequestUrls,
+            regressedFindings: lifecycle.regressed,
+            reviewFindings: reviewFindingCount,
+            runAt: input.runAt,
+            status: hasOperationalFailure()
+              ? "failed"
+              : findingCount > 0
+                ? "needs_attention"
+                : "resolved",
+            totalFindings: findingCount,
+            unresolved: findingCount,
+            workflowUrl: input.workflowUrl,
+          },
+        });
+        linearOutcomes.push(...(sync.outcomes ?? []));
+        const identifier = linearOutcomeIdentifier(sync.outcomes ?? []);
+        if (identifier && ledger.markTicketed) {
+          try {
+            await ledger.markTicketed(
+              ticketFindings.map(({ fingerprint }) => fingerprint),
+              identifier,
+            );
+          } catch {
+            failures.push("linear_ticket_ledger:failed");
+          }
+        }
+      } catch {
+        failures.push("linear_final_sync:failed");
+      }
     }
   }
   const operationalFailure = hasOperationalFailure();
@@ -2990,7 +3161,11 @@ export async function enqueueAndClaimWorkflowBatch(
         },
       );
       for (const absence of result.verifiedSentryAbsences) {
-        await transitionVerifiedSentryAbsence(absence.id, dependencies);
+        await transitionVerifiedSentryAbsence(
+          absence.id,
+          absence.status,
+          dependencies,
+        );
         result.verifiedFixedFingerprints.push(absence.fingerprint);
         result.verifiedFixedSentryIssueIds.push(absence.issueId);
       }
@@ -3004,28 +3179,18 @@ export async function enqueueAndClaimWorkflowBatch(
 
 async function transitionVerifiedSentryAbsence(
   id: string,
+  expectedStatus: string,
   dependencies: WorkflowRuntimeDependencies,
 ): Promise<void> {
   await supabaseRequest(
     dependencies,
     "transition_verified_sentry_fix",
-    "/rest/v1/rpc/transition_health_fix",
+    "/rest/v1/rpc/verify_health_fix_absence",
     "HEALTH_AGENT_WRITER_TOKEN",
     {
       body: JSON.stringify({
-        p_confirmation_data: {
-          verification: "provider_resolved_after_detector_absence",
-        },
-        p_deployed_at: null,
-        p_expected_status: "deployed",
+        p_expected_status: expectedStatus,
         p_id: id,
-        p_last_error: null,
-        p_lease_owner: null,
-        p_merge_sha: null,
-        p_new_status: "fixed",
-        p_next_attempt_at: null,
-        p_pr_number: null,
-        p_pr_url: null,
       }),
       method: "POST",
     },

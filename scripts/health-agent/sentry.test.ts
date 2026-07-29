@@ -576,12 +576,15 @@ describe("Sentry recurrence and merge policy", () => {
 
   it.each([
     ["critical severity", { severity: "critical" }],
-    ["low confidence", { confidence: 0.79 }],
+    ["low confidence", { confidence: 0.69 }],
     ["not reproducible", { reproducible: false }],
     ["behavior change", { behaviorChangeRisk: "high" }],
     ["sensitive path", { sensitivePaths: ["src/auth/session.ts"] }],
     ["unknown fixability", { fixability: "unknown" }],
+    ["low fixability", { fixability: "low" }],
     ["classifier human request", { mergePolicy: "human" }],
+    ["no changed files", { changedFiles: [] }],
+    ["dependency defect kind", { defectKind: "dependency" }],
   ])("forces human policy for %s", (_label, override) => {
     const parsed = SentryClassificationSchema.parse(
       safeClassification(override),
@@ -595,17 +598,124 @@ describe("Sentry recurrence and merge policy", () => {
       mergePolicy: "automatic",
     });
     expect(
-      decideSentryMergePolicy(parsed, { incidentMode: true }).mergePolicy,
-    ).toBe("human");
-    expect(
       decideSentryMergePolicy(
         SentryClassificationSchema.parse(
           safeClassification({
-            rootCause: "Dependency outage in a vendor service.",
+            rootCause: "Outage in a vendor service.",
           }),
         ),
       ).mergePolicy,
     ).toBe("human");
+  });
+
+  it("no longer vetoes on incident mode alone", () => {
+    const parsed = SentryClassificationSchema.parse(safeClassification());
+
+    expect(decideSentryMergePolicy(parsed, { incidentMode: true })).toEqual({
+      mergePolicy: "automatic",
+    });
+  });
+
+  it.each([
+    ["confidence at the threshold", { confidence: 0.7 }],
+    ["medium behavior change risk", { behaviorChangeRisk: "medium" }],
+    ["medium fixability", { fixability: "medium" }],
+  ])("allows automatic policy for %s", (_label, override) => {
+    const parsed = SentryClassificationSchema.parse(
+      safeClassification(override),
+    );
+    expect(decideSentryMergePolicy(parsed).mergePolicy).toBe("automatic");
+  });
+
+  it.each([
+    ["infrastructure", "An infrastructure outage dropped the request."],
+    ["network", "A network partition interrupted the upstream call."],
+    ["credential", "An expired credential blocked the upstream call."],
+    ["data loss", "A data loss event truncated the persisted rows."],
+  ])("still vetoes non-application root cause: %s", (_label, rootCause) => {
+    const parsed = SentryClassificationSchema.parse(
+      safeClassification({ rootCause }),
+    );
+    expect(decideSentryMergePolicy(parsed).mergePolicy).toBe("human");
+  });
+
+  it.each([
+    ["configuration", "A configuration value was read before initialization."],
+    ["database", "The database row was missing and the code dereferenced it."],
+    ["schema", "The schema field is optional but the caller assumed it."],
+    ["permission", "The permission check returned undefined for guests."],
+    ["deployment", "The deployment banner renders before its data resolves."],
+  ])("no longer vetoes ordinary engineering prose: %s", (_label, rootCause) => {
+    const parsed = SentryClassificationSchema.parse(
+      safeClassification({ rootCause }),
+    );
+    expect(decideSentryMergePolicy(parsed).mergePolicy).toBe("automatic");
+  });
+
+  it("does not treat cosmetic whitespace in classifier prose as redaction", () => {
+    const finding = buildSentryHealthFinding(
+      sanitizeSentryIssue(productionIssue()),
+      SentryClassificationSchema.parse(
+        safeClassification({
+          rootCause:
+            "The cart total is read before the cart loads.\nThe guard is missing.",
+          recommendedAction: "Guard the missing value.  Add a regression test.",
+          recurrence: {
+            status: "recurring",
+            count: 7,
+            evidence: "Seven production events.\n\nAll in one window.",
+          },
+        }),
+      ),
+    );
+
+    expect(finding.mergePolicy).toBe("automatic");
+    expect(finding.humanReason).toBeUndefined();
+  });
+
+  it("emits a merge-policy audit record for every classification, including passing ones", () => {
+    const audit = vi.fn();
+
+    buildSentryHealthFinding(
+      sanitizeSentryIssue(productionIssue()),
+      SentryClassificationSchema.parse(safeClassification()),
+      { audit },
+      { issueId: "123456", shortId: null, permalink: null },
+    );
+
+    const record = audit.mock.calls
+      .map(([entry]) => entry)
+      .find((entry) => entry.adapter === "sentry-merge-policy");
+
+    expect(record).toMatchObject({
+      operation: "decide-merge-policy",
+      status: "success",
+      request: { issueId: "123456", incidentMode: false },
+      response: { mergePolicy: "automatic", reasons: [] },
+    });
+  });
+
+  it("emits the triggered veto reasons when policy falls back to human", () => {
+    const audit = vi.fn();
+
+    buildSentryHealthFinding(
+      sanitizeSentryIssue(productionIssue()),
+      SentryClassificationSchema.parse(
+        safeClassification({ severity: "critical", reproducible: false }),
+      ),
+      { audit },
+      { issueId: "123456", shortId: null, permalink: null },
+    );
+
+    const record = audit.mock.calls
+      .map(([entry]) => entry)
+      .find((entry) => entry.adapter === "sentry-merge-policy");
+
+    expect(record?.response.mergePolicy).toBe("human");
+    expect(record?.response.reasons).toEqual([
+      "Critical severity requires human review.",
+      "The defect is not reproducible.",
+    ]);
   });
 
   it("forces human policy when classifier text needed sanitization and keeps the finding clean", () => {

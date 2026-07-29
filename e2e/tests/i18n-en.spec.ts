@@ -212,6 +212,37 @@ test.describe('i18n English browse', () => {
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 10_000 });
   });
 
+  test('/en/brands/[slug] renders English chrome, not the default locale', async ({ page }) => {
+    await page.goto('/en/brands');
+    const firstBrand = page.locator('main [role="list"] article a[href*="/brands/"]').first();
+    const hasBrand = await firstBrand.isVisible({ timeout: 10_000 }).catch(() => false);
+    if (!hasBrand) {
+      test.skip(true, 'No brands seeded — skipping brand detail locale check');
+      return;
+    }
+    const href = await firstBrand.getAttribute('href');
+    expect(href).toBeTruthy();
+    await page.goto(href!);
+    await expect(page.getByRole('link', { name: 'About Formoria' })).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByText('關於 Formoria')).toHaveCount(0);
+  });
+
+  test('/en/guides/[slug] renders English chrome, not the default locale', async ({ page }) => {
+    await page.goto('/en/guides');
+    const firstGuide = page.locator('main a[href*="/guides/"]').first();
+    const hasGuide = await firstGuide.isVisible({ timeout: 10_000 }).catch(() => false);
+    const href = hasGuide
+      ? await firstGuide.getAttribute('href')
+      : '/en/guides/taiwan-skincare-brands';
+    await page.goto(href || '/en/guides/taiwan-skincare-brands');
+    await expect(page.getByRole('link', { name: 'About Formoria' })).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByText('關於 Formoria')).toHaveCount(0);
+  });
+
   test('switching to EN via the switcher updates chrome + client components without refresh', async ({
     page,
   }) => {

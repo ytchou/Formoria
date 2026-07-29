@@ -5,6 +5,13 @@ import { evaluateBrandReview, type RecentBrandEdit } from "./brand-review";
 const NOW_ISO = "2026-07-23T12:00:00.000Z";
 const WINDOW_START_ISO = "2026-07-22T12:00:00.000Z";
 
+const CJK_PARAGRAPH =
+  "海漂計畫以台灣海岸線回收的漂流材料製作模組化包款，外殼採用耐用的再生帆布，並搭配可自由調整的背帶系統，讓同一個包身能夠依照通勤、旅行或週末外出的需求重新組合，不必為每個場合另外購買一個包。";
+// 4 CJK characters inside ~300 non-whitespace characters of English prose:
+// a correct EN description that names the brand in its native script.
+const EN_PARAGRAPH_WITH_BRAND_NAME =
+  "Entadar 海漂計畫 designs modular bags from reclaimed ocean drift materials collected along the coastline of Taiwan, pairing a durable recycled canvas shell with a modular strap system so that one body can be reconfigured for commuting, travel, or weekend use without buying a separate product for each occasion.";
+
 function brand(overrides: Partial<RecentBrandEdit> = {}): RecentBrandEdit {
   return {
     id: "brand-1",
@@ -165,6 +172,35 @@ describe("evaluateBrandReview", () => {
     );
 
     expect(result.findings).toHaveLength(0);
+  });
+
+  it("skips an EN description that only embeds the native-script brand name", () => {
+    const result = evaluateBrandReview(
+      [
+        brand({
+          description: CJK_PARAGRAPH,
+          descriptionEn: EN_PARAGRAPH_WITH_BRAND_NAME,
+        }),
+      ],
+      NOW_ISO,
+      WINDOW_START_ISO,
+    );
+
+    expect(result.findings).toHaveLength(0);
+  });
+
+  it("flags a genuinely swapped EN description", () => {
+    const result = evaluateBrandReview(
+      [brand({ description: CJK_PARAGRAPH, descriptionEn: CJK_PARAGRAPH })],
+      NOW_ISO,
+      WINDOW_START_ISO,
+    );
+
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0]).toMatchObject({
+      severity: "low",
+      title: "EN description contains CJK characters",
+    });
   });
 
   it("flags excessive domain diversity", () => {

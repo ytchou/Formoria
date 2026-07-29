@@ -154,7 +154,6 @@ function ClaimProofUpload({
 
 export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
   const t = useTranslations('brands.claimCta')
-  const claimErrorsT = useTranslations('brandDetail.claim.errors')
   const locale = useLocale() as 'zh-TW' | 'en'
   const pathname = usePathname()
   const { user, loading, viewer, viewerLoading } = useUser()
@@ -317,14 +316,16 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
     >
       {!isOpen ? (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0 flex-1 space-y-1">
+          <div className="min-w-0 space-y-1 sm:basis-4/5">
             <p className="type-subsection-title">{t('communityTitle')}</p>
-            <p className="type-card-description">{t('communityListing')}</p>
+            <p className="type-card-description">
+              {t('communityListing')}{' '}
+              <Link href="/faq#claim" className="type-link">
+                {t('whyClaim')}
+              </Link>
+            </p>
           </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2">
-            {!user && (
-              <p className="basis-full type-caption">{claimErrorsT('notLoggedIn')}</p>
-            )}
+          <div className="shrink-0">
             {user ? (
               <Button
                 type="button"
@@ -342,9 +343,6 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
                 {t('signIn')}
               </NextLink>
             )}
-            <Link href="/faq#claim" className="type-caption text-primary underline underline-offset-4">
-              {t('whyClaim')}
-            </Link>
           </div>
         </div>
       ) : (

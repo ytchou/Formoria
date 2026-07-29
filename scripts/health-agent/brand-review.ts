@@ -117,6 +117,17 @@ function countCjkCharacters(value: string | null): number {
   return value?.match(/[一-鿿]/g)?.length ?? 0;
 }
 
+function cjkRatio(value: string | null): number {
+  const significant = value?.replace(/\s+/g, "") ?? "";
+  if (significant.length === 0) return 0;
+  return countCjkCharacters(significant) / significant.length;
+}
+
+// A correct English description that embeds the brand's own Chinese name sits
+// around 0.01-0.05; a description genuinely swapped into the EN field sits near
+// 1.0. 0.3 separates the two with a wide margin in both directions.
+const SWAPPED_DESCRIPTION_CJK_RATIO = 0.3;
+
 function checkDescriptionLanguageSwap(brand: RecentBrandEdit): HealthFinding[] {
   if (brand.description === null && brand.descriptionEn === null) {
     return [];
@@ -124,14 +135,20 @@ function checkDescriptionLanguageSwap(brand: RecentBrandEdit): HealthFinding[] {
 
   const descriptionCjkCount = countCjkCharacters(brand.description);
   const descriptionEnCjkCount = countCjkCharacters(brand.descriptionEn);
+  const descriptionEnCjkRatio =
+    Math.round(cjkRatio(brand.descriptionEn) * 1000) / 1000;
   const evidence = {
     brandId: brand.id,
     brandName: brand.name,
     descriptionCjkCount,
     descriptionEnCjkCount,
+    descriptionEnCjkRatio,
   };
 
-  if (descriptionCjkCount === 0 && descriptionEnCjkCount >= 3) {
+  if (
+    descriptionCjkCount === 0 &&
+    descriptionEnCjkRatio >= SWAPPED_DESCRIPTION_CJK_RATIO
+  ) {
     return [
       finding(
         "brand-review-language-swap",
@@ -143,7 +160,10 @@ function checkDescriptionLanguageSwap(brand: RecentBrandEdit): HealthFinding[] {
     ];
   }
 
-  if (descriptionCjkCount >= 3 && descriptionEnCjkCount >= 3) {
+  if (
+    descriptionCjkCount >= 3 &&
+    descriptionEnCjkRatio >= SWAPPED_DESCRIPTION_CJK_RATIO
+  ) {
     return [
       finding(
         "brand-review-language-swap",

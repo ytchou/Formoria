@@ -214,7 +214,6 @@ describe("unified health-agent workflow contract", () => {
     const workflows = await Promise.all([
       readFile(workflowPath, "utf8"),
       readFile(".github/workflows/health-agent-replay.yml", "utf8"),
-      readFile(".github/workflows/health-agent-confirmation.yml", "utf8"),
     ]);
 
     for (const workflow of workflows) {

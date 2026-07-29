@@ -223,7 +223,7 @@
       "submitSuccess": "Your claim has been submitted.",
       "submitError": "Something went wrong. Please try again.",
       "communityTitle": "Is this your brand?",
-      "communityListing": "Claim your listing with business proof — domain email, backend access, or an official document. Once reviewed, you manage your brand's presence directly: update details, add products, and build trust with customers.",
+      "communityListing": "Claim it to manage your brand and build trust.",
       "claimButton": "Claim this brand",
       "proofHeading": "Submit claim proof",
       "proofPrompt": "Submit proof of ownership so we can review your claim request.",
@@ -276,7 +276,7 @@
       "submitting": "Submitting claim...",
       "submit": "Submit claim request",
       "cancel": "Cancel",
-      "whyClaim": "Why claim? See the benefits"
+      "whyClaim": "Why claim?"
     },
     "loadingAria": "Loading brands...",
     "noResultsInSuggestions": "No results found"
@@ -1037,7 +1037,40 @@
       },
       "contact": {
         "question": "How do I contact the Formoria team?",
-        "answer": "For any questions, suggestions, or partnership inquiries, please email: <mail>{email}</mail>. Our team typically responds within 2–3 business days."
+        "answer": "For any questions, suggestions, or partnership inquiries, visit our <link>contact page</link> to pick the right channel. Our team typically responds within 2–3 business days."
+      }
+    }
+  },
+  "contact": {
+    "metadata": {
+      "title": "Contact us",
+      "description": "Report a problem, request a feature, or fix brand data — find the right way to reach the Formoria team."
+    },
+    "hero": {
+      "eyebrow": "Contact Formoria",
+      "title": "Find the right way to reach us",
+      "intro": "Different questions have different fastest paths. Pick a channel below and we'll get back to you."
+    },
+    "channels": {
+      "problem": {
+        "title": "Report a problem",
+        "body": "Something broken, a page that won't load, or an error message while using the site? Email us — a page URL and a screenshot help us fix it faster.",
+        "cta": "Email us"
+      },
+      "feature": {
+        "title": "Request a feature",
+        "body": "Want Formoria to do more? Post your idea on the feature request board, and upvote the ideas other people have already asked for.",
+        "cta": "Open the request board"
+      },
+      "brand": {
+        "title": "Something wrong with a brand",
+        "body": "Every brand page has its own report and correction dialogs. Submitting there goes straight into our review queue, which is faster than email.",
+        "cta": "Browse brands"
+      },
+      "question": {
+        "title": "General questions",
+        "body": "Listing criteria, review times, and how to claim a brand page are already answered on our FAQ.",
+        "cta": "Read the FAQ"
       }
     }
   },

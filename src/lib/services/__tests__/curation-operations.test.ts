@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createServiceClient } from '@/lib/supabase/server'
 import {
   processEnrichBrand,
+  mapWithConcurrency,
   mergeEnrichPatches,
   mergeSubmissionEnrichedData,
   persistEnrichmentResults,
@@ -20,6 +21,25 @@ vi.mock('../product-type-classifier', async (importOriginal) => {
     ...actual,
     detectBrandsBatch: vi.fn(),
   }
+})
+
+describe('bounded enrichment concurrency', () => {
+  it('runs multiple targets concurrently without exceeding the limit or reordering results', async () => {
+    const targets = ['森雨製作所', 'Lumière Atelier', 'María García Ceramics', 'Formoria']
+    let activeTargets = 0
+    let maxActiveTargets = 0
+
+    const results = await mapWithConcurrency(targets, 3, async (target, index) => {
+      activeTargets += 1
+      maxActiveTargets = Math.max(maxActiveTargets, activeTargets)
+      await new Promise((resolve) => setTimeout(resolve, (targets.length - index) * 10))
+      activeTargets -= 1
+      return target
+    })
+
+    expect(maxActiveTargets).toBe(3)
+    expect(results).toEqual(targets)
+  })
 })
 
 describe('seedEnrichedDataFromOwnerData', () => {
@@ -422,6 +442,86 @@ describeWithDb('runEnrich submissions mode', () => {
     )
 
     expect(result.processed).toBe(1)
+  })
+
+  it('processes independent submission targets with bounded concurrency and ordered progress', async () => {
+    const { data: additionalSubmissions, error } = await serviceSupabase!
+      .from('brand_submissions')
+      .insert([
+        {
+          brand_name: '[TEST-RUN-ENRICH-CONCURRENCY] 森雨製作所',
+          submitter_email: 'senyu+concurrency@company.co.uk',
+          website_url: 'https://senyu-concurrency.example.com',
+          status: 'pending',
+          brand_id: null,
+        },
+        {
+          brand_name: '[TEST-RUN-ENRICH-CONCURRENCY] Lumière Atelier',
+          submitter_email: 'lumiere+concurrency@company.co.uk',
+          website_url: 'https://lumiere-concurrency.example.com',
+          status: 'pending',
+          brand_id: null,
+        },
+        {
+          brand_name: '[TEST-RUN-ENRICH-CONCURRENCY] María García Ceramics',
+          submitter_email: 'm.garcia+concurrency@company.co.uk',
+          website_url: 'https://maria-garcia-concurrency.example.com',
+          status: 'pending',
+          brand_id: null,
+        },
+      ])
+      .select('id')
+
+    if (error) {
+      throw error
+    }
+
+    const additionalIds = (additionalSubmissions ?? []).map((submission) => submission.id)
+    const submissionIds = [testSubmissionId!, ...additionalIds]
+    const seenTargets = new Set<string>()
+    const statusesByTarget = new Map<string, string[]>()
+    let activeTargets = 0
+    let maxActiveTargets = 0
+
+    try {
+      const result = await runEnrich(
+        {
+          target: 'submissions',
+          submissionIds,
+          dryRun: true,
+          phases: [],
+          onTargetProgress: async (event) => {
+            statusesByTarget.set(event.targetId, [
+              ...(statusesByTarget.get(event.targetId) ?? []),
+              event.status,
+            ])
+            if (seenTargets.has(event.targetId)) return
+
+            seenTargets.add(event.targetId)
+            activeTargets += 1
+            maxActiveTargets = Math.max(maxActiveTargets, activeTargets)
+            await new Promise((resolve) => setTimeout(resolve, 75))
+            activeTargets -= 1
+          },
+        },
+        serviceSupabase!
+      )
+
+      expect(result.processed).toBe(4)
+      expect(maxActiveTargets).toBe(3)
+      expect(new Set(result.brandOutcomes.map((outcome) => outcome.submissionId))).toEqual(
+        new Set(submissionIds)
+      )
+      for (const submissionId of submissionIds) {
+        const statuses = statusesByTarget.get(submissionId)
+        expect(statuses?.at(0)).toBe('running')
+        expect(statuses?.at(-1)).toBe('skipped')
+      }
+    } finally {
+      if (additionalIds.length > 0) {
+        await serviceSupabase!.from('brand_submissions').delete().in('id', additionalIds)
+      }
+    }
   })
 
   it('records why an explicitly selected submission is skipped when no phase changes it', async () => {
