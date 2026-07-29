@@ -3,13 +3,16 @@ import { getTranslations } from 'next-intl/server'
 import { brand } from '@/lib/brand/colors'
 import { OgLayout } from '@/lib/brand/og-layout'
 import { getOgFonts, getOgMarkDataUri } from '@/lib/brand/og-fonts'
+import en from '../../../../../messages/en.json'
+import zhTW from '../../../../../messages/zh-TW.json'
 
-export const alt = 'Formoria — trust'
+export const alt = 'Formoria'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
 export default async function OgImage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params
+  const fallbackTagline = locale === 'en' ? en.about.trust.tagline : zhTW.about.trust.tagline
   const [fonts, markDataUri] = await Promise.all([getOgFonts(), getOgMarkDataUri()])
 
   try {
@@ -164,7 +167,7 @@ export default async function OgImage({ params }: { params: Promise<{ locale: st
               fontFamily: locale === 'en' ? 'Bricolage Grotesque' : 'Noto Sans TC',
             }}
           >
-            Trust Made Visible
+            {fallbackTagline}
           </div>
         </OgLayout>
       ),

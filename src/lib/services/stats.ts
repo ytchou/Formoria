@@ -1,11 +1,9 @@
 import { cache } from 'react'
 import { createServiceClient } from '@/lib/supabase/server'
-import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
 export type StatsPageData = {
   totalBrands: number
   categoryBreakdown: Array<{
-    category: string
     slug: string
     count: number
   }>
@@ -19,7 +17,7 @@ export type StatsPageData = {
     percentage: number
   }
   foundingDecadeDistribution: Array<{
-    decade: string
+    decade: number
     count: number
   }>
 }
@@ -28,14 +26,6 @@ type BrandRow = {
   product_type: string | null
   founding_year: number | null
   city: string | null
-}
-
-function getProductTypeMeta(productType: string): { category: string; slug: string } {
-  const match = PRODUCT_TYPE_CATEGORIES.find((item) => item.slug === productType)
-  return {
-    category: match?.name ?? productType,
-    slug: match?.slug ?? productType,
-  }
 }
 
 async function getStatsPageDataImpl(): Promise<StatsPageData> {
@@ -111,14 +101,7 @@ async function getStatsPageDataImpl(): Promise<StatsPageData> {
   }
 
   const categoryBreakdown = Array.from(categoryCounts.entries())
-    .map(([productType, count]) => {
-      const meta = getProductTypeMeta(productType)
-      return {
-        category: meta.category,
-        slug: meta.slug,
-        count,
-      }
-    })
+    .map(([slug, count]) => ({ slug, count }))
     .sort((a, b) => b.count - a.count)
 
   const cityCounts = new Map<string, number>()
@@ -148,10 +131,10 @@ async function getStatsPageDataImpl(): Promise<StatsPageData> {
 
   const foundingDecadeDistribution = Array.from(decadeCounts.entries())
     .map(([decade, count]) => ({
-      decade: `${decade}s`,
+      decade,
       count,
     }))
-    .sort((a, b) => parseInt(a.decade) - parseInt(b.decade))
+    .sort((a, b) => a.decade - b.decade)
 
   return {
     totalBrands,

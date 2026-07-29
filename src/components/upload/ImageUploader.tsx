@@ -37,6 +37,9 @@ export function ImageUploader({
     bucket,
     path,
     endpoint: uploadEndpoint,
+    invalidTypeMessage: t('invalidType'),
+    fileTooLargeMessage: t('fileTooLarge'),
+    uploadFailedMessage: t('genericUploadFailed'),
   })
   const queueRef = useRef<File[]>([])
   const onUploadRef = useRef(onUpload)

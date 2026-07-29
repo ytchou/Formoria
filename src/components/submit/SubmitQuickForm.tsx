@@ -23,7 +23,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { useRouter } from '@/i18n/navigation'
+import { Link, useRouter } from '@/i18n/navigation'
 import { trackSubmissionCompleted } from '@/lib/analytics'
 import { useSubmissionAnalytics } from '@/hooks/use-submission-analytics'
 
@@ -345,14 +345,14 @@ export default function SubmitQuickForm() {
                     <span className="type-body font-normal">
                       {tReview.rich('pdpaConsent', {
                         privacyPolicy: (chunks) => (
-                          <a
+                          <Link
                             href="/privacy"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           >
                             {chunks}
-                          </a>
+                          </Link>
                         ),
                       })}
                     </span>

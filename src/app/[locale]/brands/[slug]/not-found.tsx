@@ -1,9 +1,11 @@
-import { getTranslations } from 'next-intl/server'
+'use client'
+
+import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import { buttonVariants } from '@/components/ui/button'
 
-export default async function BrandNotFound() {
-  const t = await getTranslations('brandDetail')
+export default function BrandNotFound() {
+  const t = useTranslations('brandDetail')
 
   return (
     <main className="page-gutter mx-auto flex max-w-screen-xl flex-col items-center justify-center py-24">

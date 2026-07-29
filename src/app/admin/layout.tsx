@@ -1,11 +1,24 @@
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, getTranslations } from "next-intl/server";
+import { RootDocument } from "@/components/shared/root-document";
 import { createClient } from "@/lib/supabase/server";
 import { isActingAsAdmin } from "@/lib/auth/admin-mode";
 import { AdminNav } from "@/components/admin/admin-nav";
 import type { NavItem } from "@/components/admin/admin-nav";
 import { getAdminNavCounts } from "@/lib/services/admin-operations";
+import { getSiteUrl } from "@/lib/seo/site-url";
+import "../globals.css";
+
+export const metadata: Metadata = {
+  metadataBase: new URL(getSiteUrl()),
+  title: {
+    default: "Formoria Admin",
+    template: "%s | Formoria Admin",
+  },
+  robots: { index: false, follow: false },
+};
 
 export default async function AdminLayout({
   children,
@@ -25,11 +38,12 @@ export default async function AdminLayout({
     redirect("/");
   }
 
-  const [messages, counts, t] =
+  const [messages, counts, t, tCommon] =
     await Promise.all([
-      getMessages(),
+      getMessages({ locale: "en" }),
       getAdminNavCounts(),
-      getTranslations("admin.layout"),
+      getTranslations({ locale: "en", namespace: "admin.layout" }),
+      getTranslations({ locale: "en", namespace: "common" }),
     ]);
 
   const navItems: NavItem[] = [
@@ -62,14 +76,20 @@ export default async function AdminLayout({
   ];
 
   return (
-    <NextIntlClientProvider locale="en" messages={messages}>
-      <div className="min-h-screen bg-background">
-        <main className="mx-auto max-w-screen-2xl px-10 pb-8 pt-8">
-          <h1 className="type-page-title-large">{t("title")}</h1>
-          <AdminNav items={navItems} />
-          <div className="mt-8">{children}</div>
-        </main>
-      </div>
-    </NextIntlClientProvider>
+    <RootDocument
+      locale="en"
+      skipToContentLabel={tCommon("skipToContent")}
+      feedbackCopy={messages.feedbackWidget as Record<string, string>}
+    >
+      <NextIntlClientProvider locale="en" messages={messages}>
+        <div className="min-h-screen bg-background">
+          <main id="main-content" className="mx-auto max-w-screen-2xl px-10 pb-8 pt-8">
+            <h1 className="type-page-title-large">{t("title")}</h1>
+            <AdminNav items={navItems} />
+            <div className="mt-8">{children}</div>
+          </main>
+        </div>
+      </NextIntlClientProvider>
+    </RootDocument>
   );
 }

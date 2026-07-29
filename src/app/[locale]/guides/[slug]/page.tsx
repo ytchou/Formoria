@@ -71,7 +71,7 @@ export default async function GuidePage({ params }: PageProps) {
 
   return (
     <main className="page-gutter mx-auto w-full max-w-[720px] py-12 md:py-16">
-      <nav aria-label="Breadcrumb" className="mb-6">
+      <nav aria-label={t('breadcrumbAria')} className="mb-6">
         <ol className="flex items-center gap-1.5 type-card-description">
           <li>
             <Link href="/guides" className="hover:text-foreground transition-colors">

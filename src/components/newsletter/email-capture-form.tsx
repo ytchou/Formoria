@@ -7,6 +7,7 @@ import { subscribeToNewsletter } from '@/app/actions/newsletter'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ToggleChip } from '@/components/ui/toggle-chip'
+import { Link } from '@/i18n/navigation'
 import { trackNewsletterSubscribed } from '@/lib/analytics'
 
 const INTEREST_CHIPS = [
@@ -121,14 +122,14 @@ export function EmailCaptureForm() {
       <p className="type-form-hint">
         {t.rich('consentNotice', {
           privacyPolicy: (chunks) => (
-            <a
+            <Link
               href="/privacy"
               target="_blank"
               rel="noopener noreferrer"
               className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {chunks}
-            </a>
+            </Link>
           ),
         })}
       </p>

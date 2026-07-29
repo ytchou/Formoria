@@ -63,6 +63,7 @@ export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
       )}
 
       <form action={action} className="space-y-4">
+        <input type="hidden" name="locale" value={locale} />
         {claimToken && (
           <input type="hidden" name="claimToken" value={claimToken} />
         )}
@@ -73,7 +74,7 @@ export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
             id="email"
             name="email"
             type="email"
-            placeholder="you@example.com"
+            placeholder={t("emailPlaceholder")}
             defaultValue={email}
             required
             autoComplete="email"

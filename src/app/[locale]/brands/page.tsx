@@ -380,7 +380,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
       editorialDescription
     )
     const breadcrumbItems = [
-      { label: 'Brands', href: '/brands' },
+      { label: t('heading'), href: '/brands' },
       {
         label: categoryName,
         ...(activeSubcategory
@@ -442,7 +442,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
 
       <div className="min-w-0">
         {activeSubcategory && categoryTag ? (
-          <nav aria-label="Breadcrumb" className="mb-6">
+          <nav aria-label={t('breadcrumbAria')} className="mb-6">
             <ol className="flex items-center gap-1.5 type-card-description">
               <li>
                 <Link href="/brands" className="transition-colors hover:text-foreground">

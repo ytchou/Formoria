@@ -1,12 +1,13 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
+import { Link } from '@/i18n/navigation'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { dateLocale } from '@/i18n/locale-preference'
 import { getStatsPageData } from '@/lib/services/stats'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { TaiwanMapDynamic } from '@/components/stats/TaiwanMapDynamic'
+import { categoryLabel, PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
 interface StatsPageProps {
   params: Promise<{ locale: string }>
@@ -89,18 +90,22 @@ export default async function StatsPage({ params }: StatsPageProps) {
           </div>
           <div className={surfaceCardStyles({ padding: 'sm' })}>
             <div className="grid gap-3">
-              {data.categoryBreakdown.map((item) => (
-                <Link
-                  key={item.slug}
-                  href={`/brands?category=${encodeURIComponent(item.slug)}`}
-                  className="flex items-center justify-between gap-4 rounded-lg border border-border px-3 py-3 transition-colors hover:bg-secondary"
-                >
-                  <span className="type-body-emphasis">{item.category}</span>
-                  <span className="type-metadata">
-                    {t('categories.brandCount', { count: item.count })}
-                  </span>
-                </Link>
-              ))}
+              {data.categoryBreakdown.map((item) => {
+                const category = PRODUCT_TYPE_CATEGORIES.find(({ slug }) => slug === item.slug)
+                const label = category ? categoryLabel(category, safeLocale) : item.slug
+                return (
+                  <Link
+                    key={item.slug}
+                    href={`/brands?category=${encodeURIComponent(item.slug)}`}
+                    className="flex items-center justify-between gap-4 rounded-lg border border-border px-3 py-3 transition-colors hover:bg-secondary"
+                  >
+                    <span className="type-body-emphasis">{label}</span>
+                    <span className="type-metadata">
+                      {t('categories.brandCount', { count: item.count })}
+                    </span>
+                  </Link>
+                )
+              })}
             </div>
           </div>
         </section>
@@ -147,6 +152,9 @@ export default async function StatsPage({ params }: StatsPageProps) {
                 ))}
               </ol>
             )}
+            {data.cityCoverage.length === 0 && (
+              <p className="mt-4 type-card-description">{t('noCityData')}</p>
+            )}
           </div>
         </section>
 
@@ -162,7 +170,9 @@ export default async function StatsPage({ params }: StatsPageProps) {
               <div className="grid gap-3">
                 {data.foundingDecadeDistribution.map((item) => (
                   <div key={item.decade} className="flex items-center justify-between gap-4">
-                    <span className="type-body-emphasis">{item.decade}</span>
+                    <span className="type-body-emphasis">
+                      {t('foundingDecade.label', { decade: item.decade })}
+                    </span>
                     <span className="type-metadata">
                       {item.count}
                     </span>

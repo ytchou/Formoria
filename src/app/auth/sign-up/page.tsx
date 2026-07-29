@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { decodeJwt } from "jose";
-import { getLocale } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
 import { redirectIfAuthenticated } from "@/lib/auth/redirect-if-authenticated";
 import { SignUpForm } from "@/components/auth/sign-up-form";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const locale = await getLocale();
+  const t = await getTranslations("auth");
   return {
-    title: locale === 'en' ? 'Sign Up' : '註冊',
+    title: t("signUp.heading"),
     robots: { index: false, follow: true },
   };
 }

@@ -10,8 +10,26 @@
     "noBrandsFound": "找不到品牌",
     "adjustOrClearFilters": "請調整或清除篩選條件",
     "tryAdjustOrClearFilters": "請嘗試調整或清除篩選條件。",
+    "skipToContent": "跳至主要內容",
+    "close": "關閉",
+    "closeDialog": "關閉對話框",
     "foundingYear": "創立於 {year}",
     "verified": "已認證"
+  },
+  "feedbackWidget": {
+    "triggerLabel": "回報問題",
+    "formTitle": "回報問題",
+    "nameLabel": "姓名",
+    "namePlaceholder": "你的名字",
+    "emailLabel": "電子信箱",
+    "emailPlaceholder": "you@example.com",
+    "messageLabel": "問題描述",
+    "messagePlaceholder": "請描述你遇到的問題",
+    "submitButtonLabel": "送出",
+    "cancelButtonLabel": "取消",
+    "addScreenshotButtonLabel": "新增截圖",
+    "removeScreenshotButtonLabel": "移除截圖",
+    "successMessageText": "感謝你的回報！"
   },
   "nav": {
     "brandDirectory": "品牌目錄",
@@ -131,6 +149,7 @@
     "combinedDescription": "電子報需完成信箱確認；你之後可在設定中分別關閉任一類別，或全部免費取消。詳情請見<privacyPolicy>隱私權政策</privacyPolicy>。"
   },
   "brands": {
+    "breadcrumbAria": "麵包屑導覽",
     "metadata": {
       "title": "品牌目錄 — 依分類探索台灣品牌 | Formoria",
       "description": "探索精選的台灣品牌，依分類瀏覽、搜尋，認識在台灣創立、設計或製造的品牌。"
@@ -178,6 +197,7 @@
       "clear": "清除搜尋"
     },
     "pagination": {
+      "label": "分頁導覽",
       "previous": "‹ 上一頁",
       "previousAria": "上一頁",
       "next": "下一頁 ›",
@@ -213,6 +233,9 @@
       "readyToSubmit": "可以送出申請了",
       "noteLabel": "備註（選填）",
       "uploadingLabel": "上傳中…",
+      "invalidUploadType": "請選擇支援的檔案格式。",
+      "fileTooLarge": "檔案大小不得超過 5MB。",
+      "uploadFailed": "上傳失敗，請再試一次。",
       "pendingTitle": "已收到你的認領申請",
       "pendingBody": "我們會盡快審核你提交的擁有證明，並以 Email 通知你結果。",
       "pendingDomainEmailBody": "驗證信已寄至 {email}，請點開信中連結完成驗證。",
@@ -286,10 +309,12 @@
     },
     "geographicDistribution": "地理分布",
     "geographicDistributionDesc": "台灣各縣市品牌數量分布（僅含有地點資料的品牌）",
+    "mapAria": "台灣品牌分布地圖",
     "noCityData": "尚無城市資料",
     "foundingDecade": {
       "title": "創立年代分布",
-      "description": "台灣品牌的創立時間（僅含有創立年份資料的品牌）"
+      "description": "台灣品牌的創立時間（僅含有創立年份資料的品牌）",
+      "label": "{decade} 年代"
     }
   },
   "cities": {
@@ -529,6 +554,7 @@
       "viewAsOwner": "品牌主檢視"
     },
     "breadcrumb": {
+      "ariaLabel": "麵包屑導覽",
       "directory": "品牌目錄"
     },
     "sections": {
@@ -738,6 +764,13 @@
     "eyebrow": "參考",
     "heading": "名詞解說",
     "lede": "Formoria 上使用的名詞與定義——從「台灣製造」的意義、信任標章的運作，到我們如何組織整個目錄。",
+    "breadcrumbHome": "首頁",
+    "sectionsLabel": "分類",
+    "sectionsAria": "名詞解說分類",
+    "verifiedBadgeLabel": "MIT 微笑認證",
+    "verifiedBadgeTitle": "已通過 MIT 微笑標章登錄驗證",
+    "ownerBadgeLabel": "品牌經營",
+    "ownerBadgeTitle": "由品牌方經營管理",
     "sections": {
       "core": {
         "title": "核心概念",
@@ -1150,6 +1183,7 @@
     }
   },
   "auth": {
+    "emailPlaceholder": "you@example.com",
     "validation": {
       "emailInvalid": "請輸入有效的電子郵件地址",
       "passwordRequired": "請輸入密碼",
@@ -1274,6 +1308,7 @@
     "submit": "儲存設定",
     "submitting": "儲存中…",
     "saved": "設定已儲存",
+    "unauthorized": "請先登入再更新設定。",
     "validation": {
       "displayNameMaxLength": "顯示名稱不能超過 50 個字元",
       "invalidLocale": "請選擇有效的語言"
@@ -1297,6 +1332,9 @@
     },
     "uploader": {
       "uploading": "上傳中…",
+      "invalidType": "請上傳圖片檔案",
+      "fileTooLarge": "檔案大小不得超過 5MB",
+      "genericUploadFailed": "上傳失敗，請再試一次。",
       "clickOrDrag": "點擊上傳或拖曳檔案",
       "clickToReplace": "點擊或拖曳以更換圖片",
       "replace": "更換圖片",
@@ -1435,6 +1473,8 @@
       "tooltipOutboundClicks": "訪客在品牌頁面點擊外部連結的工作階段。",
       "tooltipOutboundClickRate": "外連點擊 ÷ 品牌頁瀏覽。衡量訪客與連結互動的頻率。",
       "tooltipTopTrafficSource": "訪客找到您品牌頁面的最常見方式。",
+      "definitionAria": "查看定義",
+      "sessions": "工作階段",
       "collectingBaseline": "正在累積比較基準",
       "priorChangeUnavailable": "無法計算前期變化",
       "currentRateUnavailable": "目前無法計算比率",
@@ -2787,6 +2827,8 @@
     "comingSoon": "敬請期待",
     "loadError": "指南暫時無法載入，請稍後再試。",
     "breadcrumb": "指南",
+    "breadcrumbAria": "麵包屑導覽",
+    "categoriesAria": "指南分類",
     "notFound": {
       "title": "找不到指南",
       "description": "您所尋找的指南不存在或已被移除。",
