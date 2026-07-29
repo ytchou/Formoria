@@ -12,6 +12,7 @@
     "tryAdjustOrClearFilters": "Try adjusting or clearing your filters.",
     "skipToContent": "Skip to content",
     "close": "Close",
+    "closeDialog": "Close dialog",
     "foundingYear": "Est. {year}",
     "verified": "Verified"
   },

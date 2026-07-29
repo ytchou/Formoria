@@ -12,6 +12,7 @@
     "tryAdjustOrClearFilters": "請嘗試調整或清除篩選條件。",
     "skipToContent": "跳至主要內容",
     "close": "關閉",
+    "closeDialog": "關閉對話框",
     "foundingYear": "創立於 {year}",
     "verified": "已認證"
   },
