@@ -25,6 +25,7 @@ export default async function ReviewQueueSubmissionsPage({
     "all",
     "needs_data",
     "enriching",
+    "skipped",
     "ready",
     "approved",
     "rejected",

@@ -16,6 +16,12 @@ import {
 } from 'lucide-react'
 import { InstagramIcon } from '@/components/icons/instagram-icon'
 import { buttonVariants } from '@/components/ui/button'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import type { Brand } from '@/lib/types'
 import { cn } from '@/lib/utils'
 import { trackExternalLinkClicked } from '@/lib/analytics'
@@ -71,7 +77,6 @@ type LinkSectionProps = {
   brand: Brand
   className?: string
   headerAction?: ReactNode
-  emptyMessage?: string
 }
 
 const destinationLinkClassName =
@@ -123,26 +128,52 @@ function LinkSection({
   brand,
   className,
   headerAction,
-  emptyMessage,
 }: LinkSectionProps) {
-  const visibleSlots = slots.filter((slot) => slot.url)
-  if (visibleSlots.length === 0 && !headerAction && !emptyMessage) return null
+  const t = useTranslations('brandDetail')
+  if (slots.length === 0 && !headerAction) return null
 
   return (
     <section id={id} className={className}>
-      <div className="mb-4 flex items-center gap-2">
+      <div className="mb-4 flex items-center justify-between gap-4">
         <SectionLabel>{label}</SectionLabel>
         {headerAction}
       </div>
-      {visibleSlots.length > 0 ? (
+      <TooltipProvider>
         <div className="flex flex-wrap gap-3">
-          {visibleSlots.map((slot, index) => {
+          {slots.map((slot, index) => {
             const slotKey = `${slot.linkType}:${slot.label}:${index}`
+
+            // A destination we hold no URL for stays on screen as an inert,
+            // dimmed chip: the set of channels a brand could be on is itself
+            // useful, and hiding the gap reads as "not on Instagram" rather
+            // than "we do not know".
+            if (!slot.url) {
+              return (
+                <Tooltip key={slotKey}>
+                  <TooltipTrigger
+                    type="button"
+                    aria-disabled="true"
+                    aria-label={`${slot.label} — ${t('links.unknown')}`}
+                    onClick={(event) => event.preventDefault()}
+                    className={cn(
+                      destinationLinkClassName,
+                      'cursor-not-allowed opacity-50',
+                    )}
+                    data-ph-no-autocapture
+                  >
+                    <DestinationLinkButton slot={slot}>
+                      {slot.label}
+                    </DestinationLinkButton>
+                  </TooltipTrigger>
+                  <TooltipContent>{t('links.unknown')}</TooltipContent>
+                </Tooltip>
+              )
+            }
 
             return (
               <a
                 key={slotKey}
-                href={slot.url!}
+                href={slot.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={destinationLinkClassName}
@@ -163,9 +194,7 @@ function LinkSection({
             )
           })}
         </div>
-      ) : (
-        <p className="type-body-muted">{emptyMessage}</p>
-      )}
+      </TooltipProvider>
     </section>
   )
 }
@@ -203,6 +232,16 @@ function BrandSocialLinks({ brand, sectionIds, sectionClassName }: BrandLinksPro
       slots={socialSlots}
       brand={brand}
       className={sectionClassName}
+      headerAction={
+        <CorrectionDialog
+          mode="socialLinks"
+          brandId={brand.id}
+          brandSlug={brand.slug}
+          socialInstagram={brand.socialInstagram}
+          socialThreads={brand.socialThreads}
+          socialFacebook={brand.socialFacebook}
+        />
+      }
     />
   )
 }
@@ -251,7 +290,6 @@ function BrandPurchaseLinks({ brand, sectionIds, sectionClassName }: BrandLinksP
           purchaseShopee={brand.purchaseShopee}
         />
       }
-      emptyMessage={t('links.purchaseEmpty')}
     />
   )
 }

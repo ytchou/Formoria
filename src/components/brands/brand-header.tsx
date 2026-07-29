@@ -66,7 +66,7 @@ export function BrandHeader({
       </div>
 
       <section aria-labelledby="brand-info-heading" id="brand-info-section" className="mt-7">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-4">
           <Typography as="h2" id="brand-info-heading" variant="sectionTitleLarge">
             {t('sectionTitle')}
           </Typography>

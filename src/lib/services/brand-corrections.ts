@@ -1,5 +1,10 @@
 import { revalidatePublicBrand } from "@/lib/cache/public-brand-cache";
-import { isPrivateUrl, sanitizeHref } from "@/lib/url";
+import {
+  isPrivateUrl,
+  normalizeInstagramHref,
+  normalizeThreadsHref,
+  sanitizeHref,
+} from "@/lib/url";
 import {
   normalizeTagKey,
   PRODUCT_TYPE_CATEGORIES,
@@ -18,13 +23,18 @@ import {
 import { updateBrand, type BrandWriteInput } from "./brands";
 
 const CORRECTION_SELECT =
-  "*, brands(name, slug, price_range, product_type, product_tags, purchase_website, purchase_pinkoi, purchase_shopee)";
+  "*, brands(name, slug, price_range, product_type, product_tags, purchase_website, purchase_pinkoi, purchase_shopee, social_instagram, social_threads, social_facebook)";
 
-const MAX_PURCHASE_URL_LENGTH = 2048;
+const MAX_LINK_URL_LENGTH = 2048;
 const PURCHASE_LINK_FIELDS = [
   "purchase_website",
   "purchase_pinkoi",
   "purchase_shopee",
+] as const;
+const SOCIAL_LINK_FIELDS = [
+  "social_instagram",
+  "social_threads",
+  "social_facebook",
 ] as const;
 
 const PRODUCT_TYPE_SLUGS = new Set<string>(
@@ -45,14 +55,24 @@ type BrandCorrectionBrandRow = Pick<
   | "purchase_website"
   | "purchase_pinkoi"
   | "purchase_shopee"
+  | "social_instagram"
+  | "social_threads"
+  | "social_facebook"
 >;
 type BrandCorrectionRowWithBrand = BrandCorrectionRow & {
   brands?: BrandCorrectionBrandRow | null;
 };
 
 export type PurchaseLinkCorrectionField = (typeof PURCHASE_LINK_FIELDS)[number];
+export type SocialLinkCorrectionField = (typeof SOCIAL_LINK_FIELDS)[number];
+type LinkCorrectionField =
+  | PurchaseLinkCorrectionField
+  | SocialLinkCorrectionField;
 export type CorrectionField =
-  "price_range" | "product_type" | "product_tags" | PurchaseLinkCorrectionField;
+  | "price_range"
+  | "product_type"
+  | "product_tags"
+  | LinkCorrectionField;
 type ScalarCorrectionField = Exclude<CorrectionField, "product_tags">;
 type CorrectionStatus = "pending" | "approved" | "rejected";
 export type CorrectionDecision = Exclude<CorrectionStatus, "pending">;
@@ -119,12 +139,13 @@ export type ReviewCorrectionResult =
 type CorrectionError = Extract<SubmitCorrectionResult, { ok: false }>["code"];
 type CurrentBrandValue = number | string | string[] | null;
 
-function isCorrectionField(value: string): value is CorrectionField {
+export function isCorrectionField(value: string): value is CorrectionField {
   return (
     value === "price_range" ||
     value === "product_type" ||
     value === "product_tags" ||
-    PURCHASE_LINK_FIELDS.some((field) => field === value)
+    PURCHASE_LINK_FIELDS.some((field) => field === value) ||
+    SOCIAL_LINK_FIELDS.some((field) => field === value)
   );
 }
 
@@ -134,39 +155,133 @@ function isPurchaseLinkField(
   return PURCHASE_LINK_FIELDS.some((purchaseField) => purchaseField === field);
 }
 
+function isSocialLinkField(
+  field: CorrectionField,
+): field is SocialLinkCorrectionField {
+  return SOCIAL_LINK_FIELDS.some((socialField) => socialField === field);
+}
+
+function isLinkField(field: CorrectionField): field is LinkCorrectionField {
+  return isPurchaseLinkField(field) || isSocialLinkField(field);
+}
+
 function hasHostname(url: URL, hostname: string): boolean {
   return url.hostname === hostname || url.hostname.endsWith(`.${hostname}`);
 }
 
-function normalizePurchaseUrl(
-  field: PurchaseLinkCorrectionField,
+/**
+ * Shared guard preamble for every link field: length bound, scheme/host
+ * sanitation, private-network rejection, parse, and credential rejection. The
+ * caller supplies the raw -> href resolver (plain `sanitizeHref` for purchase
+ * links, a handle-aware resolver for social ones) and applies its own host rule
+ * to the returned URL. Purchase and social must not drift apart on any of these
+ * checks, so they live in exactly one place.
+ */
+function parseLinkUrl(
   value: unknown,
-): string | null {
-  if (typeof value !== "string" || value.length > MAX_PURCHASE_URL_LENGTH) {
+  resolveHref: (raw: string) => string | null,
+): URL | null {
+  if (typeof value !== "string" || value.length > MAX_LINK_URL_LENGTH) {
     return null;
   }
 
-  const href = sanitizeHref(value);
-  if (!href || href.length > MAX_PURCHASE_URL_LENGTH || isPrivateUrl(href)) {
+  const href = resolveHref(value);
+  if (!href || href.length > MAX_LINK_URL_LENGTH || isPrivateUrl(href)) {
     return null;
   }
 
   try {
     const url = new URL(href);
     if (url.username || url.password) return null;
-
-    const isPinkoi = hasHostname(url, "pinkoi.com");
-    const isShopee =
-      hasHostname(url, "shopee.tw") || hasHostname(url, "shopee.com.tw");
-
-    if (field === "purchase_pinkoi" && !isPinkoi) return null;
-    if (field === "purchase_shopee" && !isShopee) return null;
-    if (field === "purchase_website" && (isPinkoi || isShopee)) return null;
-
-    return url.href;
+    return url;
   } catch {
     return null;
   }
+}
+
+function normalizePurchaseUrl(
+  field: PurchaseLinkCorrectionField,
+  value: unknown,
+): string | null {
+  const url = parseLinkUrl(value, sanitizeHref);
+  if (!url) return null;
+
+  const isPinkoi = hasHostname(url, "pinkoi.com");
+  const isShopee =
+    hasHostname(url, "shopee.tw") || hasHostname(url, "shopee.com.tw");
+
+  if (field === "purchase_pinkoi" && !isPinkoi) return null;
+  if (field === "purchase_shopee" && !isShopee) return null;
+  if (field === "purchase_website" && (isPinkoi || isShopee)) return null;
+
+  return url.href;
+}
+
+/**
+ * Wraps a handle-expanding resolver so an explicit non-http(s) scheme is
+ * rejected BEFORE expansion. `normalizeInstagramHref`/`normalizeThreadsHref`
+ * treat any string without an `https?://` prefix as a bare handle and
+ * interpolate it into a profile URL — so `javascript:alert(1)` would become a
+ * well-formed `https://instagram.com/javascript:alert(1)` and never reach
+ * `sanitizeHref`'s own scheme guard, which only fires on the raw value. That is
+ * the drift from the purchase path (`parseLinkUrl(value, sanitizeHref)`) that
+ * this closes. Contained here on purpose: `@/lib/url`'s helpers are shared with
+ * the render path and have a far wider blast radius.
+ */
+function handleResolver(
+  expand: (raw: string) => string | null,
+): (raw: string) => string | null {
+  return (raw) => {
+    const trimmed = raw.trim();
+    if (
+      !/^https?:\/\//i.test(trimmed) &&
+      /^[a-z][a-z0-9+.-]*:/i.test(trimmed)
+    ) {
+      return null;
+    }
+    return expand(trimmed);
+  };
+}
+
+function normalizeSocialUrl(
+  field: SocialLinkCorrectionField,
+  value: unknown,
+): string | null {
+  // Visitors paste bare handles (`@foo`, `foo`) as often as URLs, so the
+  // resolver expands those first. Trap: `normalizeInstagramHref` /
+  // `normalizeThreadsHref` pass ANY existing http(s) URL through untouched —
+  // they convert handle -> URL and do NOT check the host. The `hasHostname`
+  // rules below are the only host validation in this path.
+  const url = parseLinkUrl(
+    value,
+    field === "social_instagram"
+      ? handleResolver(normalizeInstagramHref)
+      : field === "social_threads"
+        ? handleResolver(normalizeThreadsHref)
+        : sanitizeHref,
+  );
+  if (!url) return null;
+
+  const isInstagram = hasHostname(url, "instagram.com");
+  // Meta migrated Threads from threads.net to threads.com; both resolve to live
+  // profiles and both appear in the wild, so accept either. Handle expansion
+  // still mints the .net form, which keeps normalization idempotent.
+  const isThreads =
+    hasHostname(url, "threads.net") || hasHostname(url, "threads.com");
+  const isFacebook = hasHostname(url, "facebook.com");
+
+  if (field === "social_instagram") return isInstagram ? url.href : null;
+  if (field === "social_threads") return isThreads ? url.href : null;
+  return isFacebook ? url.href : null;
+}
+
+function normalizeLinkUrl(
+  field: LinkCorrectionField,
+  value: unknown,
+): string | null {
+  return isPurchaseLinkField(field)
+    ? normalizePurchaseUrl(field, value)
+    : normalizeSocialUrl(field, value);
 }
 
 export type NormalizeProposedValueResult =
@@ -215,8 +330,8 @@ export function normalizeProposedValue(
       : { ok: false, error: "invalid_value" };
   }
 
-  if (isPurchaseLinkField(field)) {
-    const normalizedUrl = normalizePurchaseUrl(field, value);
+  if (isLinkField(field)) {
+    const normalizedUrl = normalizeLinkUrl(field, value);
     return normalizedUrl
       ? { ok: true, value: normalizedUrl }
       : { ok: false, error: "invalid_value" };
@@ -280,6 +395,12 @@ export function buildScalarCorrectionPatch(
       return { purchasePinkoi: proposedValue as string };
     case "purchase_shopee":
       return { purchaseShopee: proposedValue as string };
+    case "social_instagram":
+      return { socialInstagram: proposedValue as string };
+    case "social_threads":
+      return { socialThreads: proposedValue as string };
+    case "social_facebook":
+      return { socialFacebook: proposedValue as string };
   }
 }
 
@@ -314,11 +435,15 @@ function correctionValuesEqual(
   currentValue: CurrentBrandValue,
   proposedValue: CorrectionProposedValue,
 ): boolean {
-  if (!isPurchaseLinkField(field)) {
+  // Link fields compare through the same normalizer that produced the stored
+  // proposal: a brand column can hold a bare handle or an un-canonicalized URL,
+  // which would never string-equal the normalized proposal, so the `unchanged`
+  // guard would stop firing and no-op rows would pile up in the queue.
+  if (!isLinkField(field)) {
     return valuesEqual(currentValue, proposedValue);
   }
 
-  return normalizePurchaseUrl(field, currentValue) === proposedValue;
+  return normalizeLinkUrl(field, currentValue) === proposedValue;
 }
 
 function currentValueForField(
@@ -326,14 +451,29 @@ function currentValueForField(
   brand: BrandCorrectionBrandRow | null | undefined,
 ): CurrentBrandValue {
   if (!brand) return null;
-  if (field === "price_range") return brand.price_range;
-  if (field === "product_type") return brand.product_type;
-  if (field === "product_tags") {
-    return Array.isArray(brand.product_tags) ? brand.product_tags : [];
+  // Exhaustive by design — no fallthrough default, so a field added to
+  // `CorrectionField` without a case here cannot silently read another
+  // column's value.
+  switch (field) {
+    case "price_range":
+      return brand.price_range;
+    case "product_type":
+      return brand.product_type;
+    case "product_tags":
+      return Array.isArray(brand.product_tags) ? brand.product_tags : [];
+    case "purchase_website":
+      return brand.purchase_website;
+    case "purchase_pinkoi":
+      return brand.purchase_pinkoi;
+    case "purchase_shopee":
+      return brand.purchase_shopee;
+    case "social_instagram":
+      return brand.social_instagram;
+    case "social_threads":
+      return brand.social_threads;
+    case "social_facebook":
+      return brand.social_facebook;
   }
-  if (field === "purchase_website") return brand.purchase_website;
-  if (field === "purchase_pinkoi") return brand.purchase_pinkoi;
-  return brand.purchase_shopee;
 }
 
 function rowToCorrection(row: BrandCorrectionRowWithBrand): BrandCorrection {
@@ -380,7 +520,7 @@ async function readBrand(
   const { data, error } = await supabase
     .from("brands")
     .select(
-      "id, name, slug, price_range, product_type, product_tags, purchase_website, purchase_pinkoi, purchase_shopee",
+      "id, name, slug, price_range, product_type, product_tags, purchase_website, purchase_pinkoi, purchase_shopee, social_instagram, social_threads, social_facebook",
     )
     .eq("id", brandId)
     .eq("status", "approved")

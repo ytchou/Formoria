@@ -20,6 +20,9 @@ const correctionInputSchema = z.object({
     "purchase_website",
     "purchase_pinkoi",
     "purchase_shopee",
+    "social_instagram",
+    "social_threads",
+    "social_facebook",
   ]),
   proposedValue: z.union([
     z.number(),

@@ -67,7 +67,7 @@ export function JobStatusBadge({ job }: { job: CurationJob }) {
   }
 
   const statusMap: Record<string, { label: string; variant: "secondary" | "verified" | "destructive" }> = {
-    pending: { label: "Pending", variant: "secondary" },
+    pending: { label: "Queued", variant: "secondary" },
     running: { label: "Running", variant: "secondary" },
     completed: { label: "Completed", variant: "verified" },
     failed: { label: "Job failed", variant: "destructive" },

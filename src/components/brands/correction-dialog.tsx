@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Plus, RotateCcw, X } from "lucide-react";
+import { Pencil, Plus, RotateCcw, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { submitCorrectionAction } from "@/lib/actions/brand-corrections";
@@ -58,16 +58,52 @@ const CORRECTION_ERROR_KEYS = {
   unavailable: "errors.unavailable",
 } as const;
 
+type CorrectionDialogMode = "brandInfo" | "purchaseLinks" | "socialLinks";
+
+// One row per mode keeps the trigger/title/picker copy readable as the mode set
+// grows — a fourth mode is a single entry here, not another nested ternary.
+const COPY_KEYS: Record<
+  CorrectionDialogMode,
+  {
+    trigger: string;
+    title: string;
+    fieldPickerLabel: string;
+    fieldPickerPlaceholder: string;
+  }
+> = {
+  brandInfo: {
+    trigger: "trigger",
+    title: "title",
+    fieldPickerLabel: "fieldPickerLabel",
+    fieldPickerPlaceholder: "fieldPickerPlaceholder",
+  },
+  purchaseLinks: {
+    trigger: "purchaseTrigger",
+    title: "purchaseTitle",
+    fieldPickerLabel: "purchaseFieldPickerLabel",
+    fieldPickerPlaceholder: "purchaseFieldPickerPlaceholder",
+  },
+  socialLinks: {
+    trigger: "socialTrigger",
+    title: "socialTitle",
+    fieldPickerLabel: "socialFieldPickerLabel",
+    fieldPickerPlaceholder: "socialFieldPickerPlaceholder",
+  },
+};
+
 export type CorrectionDialogProps = {
   brandId: string;
   brandSlug: string;
-  mode?: "brandInfo" | "purchaseLinks";
+  mode?: CorrectionDialogMode;
   productType?: string | null;
   priceRange?: number | null;
   productTags?: string[];
   purchaseWebsite?: string | null;
   purchasePinkoi?: string | null;
   purchaseShopee?: string | null;
+  socialInstagram?: string | null;
+  socialThreads?: string | null;
+  socialFacebook?: string | null;
 };
 
 type SelectionState = {
@@ -99,6 +135,9 @@ export function CorrectionDialog({
   purchaseWebsite = null,
   purchasePinkoi = null,
   purchaseShopee = null,
+  socialInstagram = null,
+  socialThreads = null,
+  socialFacebook = null,
 }: CorrectionDialogProps) {
   const locale = useLocale();
   const tBrandDetail = useTranslations("brandDetail");
@@ -115,19 +154,27 @@ export function CorrectionDialog({
   const otherChipRef = useRef<HTMLButtonElement>(null);
   const otherInputRef = useRef<HTMLInputElement>(null);
   const addTagsGroupRef = useRef<HTMLDivElement>(null);
+  const copy = COPY_KEYS[mode];
   // Starts empty so the dialog opens on the picker alone — no value control is
   // shown until the contributor says what they are correcting.
   const [field, setField] = useState<CorrectionField | "">("");
   const availableFields: CorrectionField[] =
     mode === "purchaseLinks"
       ? ["purchase_website", "purchase_pinkoi", "purchase_shopee"]
-      : productType != null
-        ? ["product_type", "price_range", "product_tags"]
-        : ["product_type", "price_range"];
-  const isPurchaseField =
+      : mode === "socialLinks"
+        ? ["social_instagram", "social_threads", "social_facebook"]
+        : productType != null
+          ? ["product_type", "price_range", "product_tags"]
+          : ["product_type", "price_range"];
+  // Every link field — purchase and social alike — is edited as a free-text URL
+  // rather than a chip, so they share the baseline, diff and body branches.
+  const isLinkField =
     field === "purchase_website" ||
     field === "purchase_pinkoi" ||
-    field === "purchase_shopee";
+    field === "purchase_shopee" ||
+    field === "social_instagram" ||
+    field === "social_threads" ||
+    field === "social_facebook";
   const originalSelection =
     field === "product_type"
       ? (productType ?? "")
@@ -139,7 +186,13 @@ export function CorrectionDialog({
             ? (purchasePinkoi ?? "")
             : field === "purchase_shopee"
               ? (purchaseShopee ?? "")
-              : "";
+              : field === "social_instagram"
+                ? (socialInstagram ?? "")
+                : field === "social_threads"
+                  ? (socialThreads ?? "")
+                  : field === "social_facebook"
+                    ? (socialFacebook ?? "")
+                    : "";
   // `brands.product_tags` is a bare text[] with no unique constraint, so a
   // legacy row can carry the same tag twice. De-duplicating once here keeps the
   // counter, the 5-tag cap and the row-1 chips reading the same list.
@@ -150,7 +203,7 @@ export function CorrectionDialog({
   const selectionKey = `${field}:${originalSelection}:${originalTags.join("\u0000")}`;
   const baseline: SelectionState = {
     key: selectionKey,
-    value: isPurchaseField ? "" : originalSelection,
+    value: isLinkField ? "" : originalSelection,
     tags: originalTags,
     extras: [],
   };
@@ -176,7 +229,7 @@ export function CorrectionDialog({
       ? false
       : field === "product_tags"
         ? !sameTagSet(originalTags, selectedTags)
-        : isPurchaseField
+        : isLinkField
           ? selection.trim() !== "" &&
             sanitizeHref(selection) !== sanitizeHref(originalSelection)
           : selection !== "" && selection !== originalSelection;
@@ -229,7 +282,13 @@ export function CorrectionDialog({
             ? tBrandDetail("links.website")
             : item === "purchase_pinkoi"
               ? tBrandDetail("links.pinkoi")
-              : tBrandDetail("links.shopee");
+              : item === "purchase_shopee"
+                ? tBrandDetail("links.shopee")
+                : item === "social_instagram"
+                  ? tBrandDetail("links.instagram")
+                  : item === "social_threads"
+                    ? tBrandDetail("links.threads")
+                    : tBrandDetail("links.facebook");
   // Only read inside the value branches, which never render while field is "".
   const fieldLabel = field === "" ? "" : labelForField(field);
 
@@ -361,7 +420,7 @@ export function CorrectionDialog({
           // value, so re-baseline instead of leaving the proposal on screen.
           setSelectionState({
             key: selectionKey,
-            value: isPurchaseField ? "" : originalSelection,
+            value: isLinkField ? "" : originalSelection,
             tags: originalTags,
             extras: [],
           });
@@ -441,11 +500,12 @@ export function CorrectionDialog({
             type="button"
             variant="ghost"
             size="compact"
-            className="min-h-10 type-metadata text-muted-foreground focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary"
+            className="relative min-h-10 gap-1.5 px-1 type-metadata text-primary underline-offset-4 after:absolute after:-inset-y-1 after:inset-x-0 after:content-[''] hover:bg-transparent hover:text-primary/80 hover:underline focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary"
           />
         }
       >
-        {tCorrection(mode === "purchaseLinks" ? "purchaseTrigger" : "trigger")}
+        <Pencil aria-hidden="true" />
+        {tCorrection(copy.trigger)}
       </DialogTrigger>
       <DialogContent
         showCloseButton={false}
@@ -466,7 +526,7 @@ export function CorrectionDialog({
 
         <DialogHeader className="gap-0.5 border-b border-border p-4 pr-14 sm:pr-16">
           <DialogTitle>
-            {tCorrection(mode === "purchaseLinks" ? "purchaseTitle" : "title")}
+            {tCorrection(copy.title)}
           </DialogTitle>
           {field === "product_tags" && (
             <p className="type-caption">
@@ -484,19 +544,11 @@ export function CorrectionDialog({
           <div className="min-h-0 flex-1 overflow-y-auto">
             <div className="space-y-2 border-b border-border p-4">
               <Label htmlFor={fieldSelectId}>
-                {tCorrection(
-                  mode === "purchaseLinks"
-                    ? "purchaseFieldPickerLabel"
-                    : "fieldPickerLabel",
-                )}
+                {tCorrection(copy.fieldPickerLabel)}
               </Label>
               <NativeSelect
                 id={fieldSelectId}
-                aria-label={tCorrection(
-                  mode === "purchaseLinks"
-                    ? "purchaseFieldPickerLabel"
-                    : "fieldPickerLabel",
-                )}
+                aria-label={tCorrection(copy.fieldPickerLabel)}
                 value={field}
                 onChange={(event) => {
                   // Matching against the offered fields keeps the union honest
@@ -512,11 +564,7 @@ export function CorrectionDialog({
               >
                 {field === "" && (
                   <option value="" disabled>
-                    {tCorrection(
-                      mode === "purchaseLinks"
-                        ? "purchaseFieldPickerPlaceholder"
-                        : "fieldPickerPlaceholder",
-                    )}
+                    {tCorrection(copy.fieldPickerPlaceholder)}
                   </option>
                 )}
                 {availableFields.map((item) => (
@@ -727,7 +775,7 @@ export function CorrectionDialog({
               </div>
             )}
 
-            {isPurchaseField && (
+            {isLinkField && (
               <div className="space-y-4 p-4">
                 <div
                   role="group"

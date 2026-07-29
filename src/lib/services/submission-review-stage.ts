@@ -4,7 +4,12 @@ import type {
 } from "./curation-jobs";
 
 export type SubmissionReviewStage =
-  "needs_data" | "enriching" | "ready" | "approved" | "rejected";
+  | "needs_data"
+  | "enriching"
+  | "skipped"
+  | "ready"
+  | "approved"
+  | "rejected";
 
 type SubmissionReviewStageInput = {
   submissionStatus: string;
@@ -35,6 +40,10 @@ export function deriveSubmissionReviewStage({
 
   if (targetStatus === "succeeded") {
     return "ready";
+  }
+
+  if (targetStatus === "skipped") {
+    return "skipped";
   }
 
   return "needs_data";

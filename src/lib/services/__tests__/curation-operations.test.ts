@@ -424,7 +424,7 @@ describeWithDb('runEnrich submissions mode', () => {
     expect(result.processed).toBe(1)
   })
 
-  it('should rerun explicitly selected pending submissions with brand_id set', async () => {
+  it('records why an explicitly selected submission is skipped when no phase changes it', async () => {
     const { data: brand, error } = await serviceSupabase!
       .from('brands')
       .insert({
@@ -461,6 +461,13 @@ describeWithDb('runEnrich submissions mode', () => {
     )
 
     expect(result.processed).toBe(1)
+    expect(result.brandOutcomes).toEqual([
+      expect.objectContaining({
+        submissionId: testSubmissionId,
+        status: 'skipped',
+        error: 'All requested phases completed, but no new enrichment fields were found',
+      }),
+    ])
   })
 
   it('rejects the retired brand-target mode when slugs are provided', async () => {

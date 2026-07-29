@@ -57,6 +57,25 @@ type TagDeltaState = {
   exceedsCap: boolean;
 };
 
+/**
+ * Purchase and social fields both store a plain URL string. The service layer's
+ * own link-field guard is module-private, so the queue keeps its own list —
+ * an explicit enumeration fails loudly when `CorrectionField` gains a member,
+ * where prefix matching would silently swallow it.
+ */
+const LINK_FIELDS: readonly CorrectionQueueItem["field"][] = [
+  "purchase_website",
+  "purchase_pinkoi",
+  "purchase_shopee",
+  "social_instagram",
+  "social_threads",
+  "social_facebook",
+];
+
+function isLinkField(field: CorrectionQueueItem["field"]): boolean {
+  return LINK_FIELDS.includes(field);
+}
+
 function stringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
@@ -122,7 +141,7 @@ function scalarValue(
     return category ? categoryLabel(category, locale) : unavailableLabel;
   }
 
-  if (field.startsWith("purchase_") && typeof value === "string") {
+  if (isLinkField(field) && typeof value === "string") {
     return value;
   }
 

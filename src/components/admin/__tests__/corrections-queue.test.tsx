@@ -12,6 +12,9 @@ import {
 const NOVEL_TAG = "手工皂磨具";
 const CANONICAL_TAG = "洋裝";
 const NOVEL_MARKER = messages.admin.corrections.novelTag;
+const NOT_AVAILABLE = messages.admin.corrections.notAvailable;
+const INSTAGRAM_URL = "https://instagram.com/foo";
+const WEBSITE_URL = "https://example.com";
 
 function tagCorrection(
   delta: { add: string[]; remove: string[] },
@@ -28,6 +31,21 @@ function tagCorrection(
   };
 }
 
+function linkCorrection(
+  field: CorrectionQueueItem["field"],
+  proposedUrl: string,
+): CorrectionQueueItem {
+  return {
+    id: "correction-2",
+    brandName: "Test Brand",
+    field,
+    currentValue: null,
+    proposedValue: proposedUrl,
+    stale: false,
+    createdAt: "2026-07-27T00:00:00.000Z",
+  };
+}
+
 function renderQueue(item: CorrectionQueueItem) {
   return render(
     <NextIntlClientProvider locale="en" messages={messages}>
@@ -36,15 +54,23 @@ function renderQueue(item: CorrectionQueueItem) {
   );
 }
 
-/** The proposed-value cell is the only place the add/remove badges render. */
-function proposedCell(): HTMLElement {
+function dataCell(index: number): HTMLElement {
   const rows = screen.getAllByRole("row");
   const dataRow = rows[1];
   if (!dataRow) throw new Error("expected a correction row");
   const cells = within(dataRow).getAllByRole("cell");
-  const cell = cells[3];
-  if (!cell) throw new Error("expected a proposed-value cell");
+  const cell = cells[index];
+  if (!cell) throw new Error(`expected a cell at index ${index}`);
   return cell;
+}
+
+/** The proposed-value cell is the only place the add/remove badges render. */
+function proposedCell(): HTMLElement {
+  return dataCell(3);
+}
+
+function fieldCell(): HTMLElement {
+  return dataCell(1);
 }
 
 describe("CorrectionsQueue novel-tag marker", () => {
@@ -76,5 +102,33 @@ describe("CorrectionsQueue novel-tag marker", () => {
     const cell = proposedCell();
     expect(within(cell).getByText(`−${NOVEL_TAG}`)).toBeInTheDocument();
     expect(within(cell).queryByText(NOVEL_MARKER)).toBeNull();
+  });
+});
+
+describe("CorrectionsQueue link fields", () => {
+  it("renders a proposed social link as its raw URL", () => {
+    renderQueue(linkCorrection("social_instagram", INSTAGRAM_URL));
+
+    const cell = proposedCell();
+    expect(within(cell).getByText(INSTAGRAM_URL)).toBeInTheDocument();
+    expect(within(cell).queryByText(NOT_AVAILABLE)).toBeNull();
+  });
+
+  it("labels a social link row from its field message key", () => {
+    renderQueue(linkCorrection("social_instagram", INSTAGRAM_URL));
+
+    expect(
+      within(fieldCell()).getByText(
+        messages.admin.corrections.fields.social_instagram,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("still renders a proposed purchase link as its raw URL", () => {
+    renderQueue(linkCorrection("purchase_website", WEBSITE_URL));
+
+    const cell = proposedCell();
+    expect(within(cell).getByText(WEBSITE_URL)).toBeInTheDocument();
+    expect(within(cell).queryByText(NOT_AVAILABLE)).toBeNull();
   });
 });

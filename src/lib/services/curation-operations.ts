@@ -1160,6 +1160,9 @@ export async function runEnrich(
         appendPatch(state, detectApplication.patch);
 
         if (detectApplication.isNonBrand) {
+          const skipReason = detectResult?.nonBrandReason
+            ? `Detection classified this entry as not a brand: ${detectResult.nonBrandReason}`
+            : "Detection classified this entry as not a brand";
           onProgress(
             `  [NON-BRAND] ${brand.slug}: ${detectResult?.nonBrandReason ?? "non-brand"} (${detectResult?.confidence})`,
           );
@@ -1183,6 +1186,7 @@ export async function runEnrich(
             status: "skipped",
             changedFields: changedFieldsFromPhaseResults(state.phaseResults),
             phaseResults: state.phaseResults,
+            error: skipReason,
           });
           result.skipped += 1;
           onProgress(
@@ -1246,6 +1250,8 @@ export async function runEnrich(
             status: "skipped",
             changedFields: changedFieldsFromPhaseResults(state.phaseResults),
             phaseResults: state.phaseResults,
+            error:
+              "No usable website, social link, image, or classification data was found",
           });
           result.skipped += 1;
           onProgress(
@@ -1443,6 +1449,8 @@ export async function runEnrich(
             status: "skipped",
             changedFields,
             phaseResults: state.phaseResults,
+            error:
+              "All requested phases completed, but no new enrichment fields were found",
           };
           await recordOutcome(skippedOutcome);
           result.skipped += 1;

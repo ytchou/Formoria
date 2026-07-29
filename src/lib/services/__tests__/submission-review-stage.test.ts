@@ -42,15 +42,21 @@ describe("deriveSubmissionReviewStage", () => {
     ).toBe("ready");
   });
 
+  it("moves a completed skipped target out of needs data", () => {
+    expect(
+      deriveSubmissionReviewStage({
+        submissionStatus: "pending",
+        targetStatus: "skipped",
+        jobStatus: "completed",
+        dispatchStatus: "dispatched",
+      }),
+    ).toBe("skipped");
+  });
+
   it.each([
     {
       targetStatus: "failed",
       jobStatus: "failed",
-      dispatchStatus: "dispatched",
-    },
-    {
-      targetStatus: "skipped",
-      jobStatus: "completed",
       dispatchStatus: "dispatched",
     },
     { targetStatus: "pending", jobStatus: "pending", dispatchStatus: "failed" },

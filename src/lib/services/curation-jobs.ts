@@ -174,6 +174,34 @@ export async function claimNextCurationJob(
   return data[0] ? (data[0] as CurationJob) : null;
 }
 
+export async function claimCurationDispatchWork(
+  requestedJobId: string,
+  workerToken: string,
+): Promise<{
+  requestedJob: CurationJob;
+  claimedJob: CurationJob | null;
+} | null> {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase
+    .from("curation_jobs")
+    .select("*")
+    .eq("id", requestedJobId)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return null;
+
+  const requestedJob = data as CurationJob;
+  if (requestedJob.status !== "pending") {
+    return { requestedJob, claimedJob: null };
+  }
+
+  return {
+    requestedJob,
+    claimedJob: await claimNextCurationJob(workerToken),
+  };
+}
+
 export async function claimCurationJob(
   jobId: string,
   workerToken: string,

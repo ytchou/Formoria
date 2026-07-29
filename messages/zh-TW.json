@@ -380,7 +380,7 @@
       "website": "品牌官網",
       "pinkoi": "Pinkoi",
       "shopee": "蝦皮購物",
-      "purchaseEmpty": "目前還沒有購買連結，歡迎協助補充。"
+      "unknown": "尚無已知連結"
     },
     "notFound": {
       "title": "找不到品牌",
@@ -488,6 +488,10 @@
       "purchaseFieldPickerPlaceholder": "請選擇購買管道…",
       "purchaseUrlLabel": "連結網址",
       "purchaseUrlPlaceholder": "https://example.com/shop",
+      "socialTrigger": "提供社群連結",
+      "socialTitle": "提供社群連結",
+      "socialFieldPickerLabel": "要提供哪一個社群管道?",
+      "socialFieldPickerPlaceholder": "請選擇社群管道…",
       "close": "關閉",
       "fieldPickerLabel": "要修正哪一項?",
       "fieldPickerPlaceholder": "請選擇要修正的項目…",
@@ -2356,7 +2360,10 @@
         "product_tags": "產品標籤",
         "purchase_website": "品牌官網",
         "purchase_pinkoi": "Pinkoi",
-        "purchase_shopee": "蝦皮購物"
+        "purchase_shopee": "蝦皮購物",
+        "social_instagram": "Instagram",
+        "social_threads": "Threads",
+        "social_facebook": "Facebook"
       },
       "tagDelta": {
         "projected": "套用後結果"
@@ -2430,6 +2437,7 @@
       "title": "品牌提交",
       "description": "人工核准或拒絕前請先完成資料抓取。",
       "noSubmitter": "未提供",
+      "noSkipReason": "未記錄略過原因",
       "viewJob": "查看任務",
       "notFound": "找不到提交記錄。",
       "confirmBulkApprove": "核准已選取的 {count} 筆提交？",
@@ -2472,6 +2480,7 @@
       "tabs": {
         "needsData": "待資料處理",
         "enriching": "抓取中",
+        "skipped": "已略過",
         "ready": "可供審核",
         "approved": "已核准",
         "rejected": "已拒絕",
@@ -2490,6 +2499,7 @@
         "source": "來源",
         "status": "狀態",
         "enrichment": "資料抓取",
+        "reason": "略過原因",
         "submitter": "提交者",
         "date": "日期",
         "actions": "操作",
