@@ -6,6 +6,7 @@ import { Toaster } from "sonner";
 import { PublicGoogleAnalytics } from "@/components/analytics/public-google-analytics";
 import { GaUserSync } from "@/components/analytics/ga-user-sync";
 import { PostHogUserSync } from "@/components/analytics/posthog-user-sync";
+import { WebVitalsReporter } from "@/components/analytics/web-vitals-reporter";
 import { ViewerProvider } from "@/lib/auth/use-user";
 import { getSiteUrl } from "@/lib/seo/site-url";
 import "./globals.css";
@@ -72,6 +73,7 @@ export default function RootLayout({
         <ViewerProvider>
           <PostHogUserSync />
           <GaUserSync />
+          <WebVitalsReporter />
           {children}
           {process.env.NODE_ENV === "development" && !process.env.PLAYWRIGHT_TEST && <Agentation />}
           {process.env.NEXT_PUBLIC_GA_ID && (

@@ -612,6 +612,35 @@ export function trackApiErrorShown(endpoint: string, statusCode: number, userAct
   })
 }
 
+/** Core Web Vitals field measurement (LCP/CLS/INP/FCP/TTFB).
+ *  Shape matches the metric object Next's `useReportWebVitals` yields. */
+export function trackWebVital(metric: {
+  name: string
+  value: number
+  rating: string
+  delta: number
+  id: string
+  navigationType?: string
+}) {
+  // CLS is unitless and small; every other vital is milliseconds. Rounding keeps
+  // PostHog property cardinality low without losing meaningful precision.
+  const value =
+    metric.name === 'CLS'
+      ? Math.round(metric.value * 1000) / 1000
+      : Math.round(metric.value)
+
+  capturePostHogEvent('web_vital_reported', {
+    metric_name: metric.name,
+    metric_value: value,
+    metric_rating: metric.rating,
+    metric_delta: metric.name === 'CLS' ? metric.delta : Math.round(metric.delta),
+    metric_id: metric.id,
+    navigation_type: metric.navigationType ?? null,
+    content_group:
+      typeof window !== 'undefined' ? getContentGroup(window.location.pathname) : null,
+  })
+}
+
 export function trackFeatureRequestSubmitted(requestId: string, category: string) {
   capturePostHogEvent('feature_request_submitted', {
     request_id: requestId,
