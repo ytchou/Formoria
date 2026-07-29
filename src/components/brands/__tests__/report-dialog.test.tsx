@@ -66,6 +66,7 @@ describe('ReportDialog', () => {
     const user = userEvent.setup()
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
     await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await screen.findByRole('dialog')
     expect(screen.getByRole('group', { name: '選擇檢舉原因' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /資訊有誤/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /連結失效/i })).toBeInTheDocument()
@@ -82,6 +83,7 @@ describe('ReportDialog', () => {
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
 
     await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await screen.findByRole('dialog')
 
     expect(screen.queryByRole('radio', { name: /非台灣製造/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /非台灣製造/ })).not.toBeInTheDocument()
@@ -103,6 +105,7 @@ describe('ReportDialog', () => {
     )
 
     await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await screen.findByRole('dialog')
 
     expect(screen.getByText(/產地資訊/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /產地資訊/ }))
@@ -115,6 +118,7 @@ describe('ReportDialog', () => {
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
 
     await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await screen.findByRole('dialog')
 
     expect(screen.getByRole('combobox')).toHaveAttribute('name', 'reportedField')
   })
@@ -124,6 +128,7 @@ describe('ReportDialog', () => {
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
 
     await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await screen.findByRole('dialog')
     await user.click(screen.getByRole('button', { name: /連結失效/i }))
     await user.selectOptions(screen.getByRole('combobox'), 'website')
     await user.click(screen.getByRole('button', { name: /送出檢舉/i }))
@@ -138,6 +143,7 @@ describe('ReportDialog', () => {
     const user = userEvent.setup()
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
     await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await screen.findByRole('dialog')
 
 
     const notes = screen.getByRole('textbox', { name: /補充說明/i })
@@ -153,6 +159,7 @@ describe('ReportDialog', () => {
     const user = userEvent.setup()
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
     await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await screen.findByRole('dialog')
 
     const brokenLink = screen.getByRole('button', { name: /連結失效/i })
     const inappropriate = screen.getByRole('button', { name: /不當內容/i })
@@ -174,6 +181,7 @@ describe('ReportDialog', () => {
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
 
     await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await screen.findByRole('dialog')
     await user.click(screen.getByRole('button', { name: /所有權爭議/i }))
 
     expect(screen.getByRole('link', { name: '登入' })).toBeInTheDocument()
@@ -189,6 +197,7 @@ describe('ReportDialog', () => {
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
 
     await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await screen.findByRole('dialog')
     await user.click(screen.getByRole('button', { name: /所有權爭議/i }))
 
     expect(screen.getByRole('textbox', { name: /補充說明/i })).toBeInTheDocument()
@@ -204,6 +213,7 @@ describe('ReportDialog', () => {
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
 
     await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await screen.findByRole('dialog')
     await user.click(screen.getByRole('button', { name: /要求移除品牌頁/i }))
 
     expect(screen.getByText('請登入以提出品牌頁移除要求')).toBeInTheDocument()
@@ -220,6 +230,7 @@ describe('ReportDialog', () => {
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
 
     await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await screen.findByRole('dialog')
     await user.click(screen.getByRole('button', { name: /連結失效/i }))
 
     expect(screen.queryByText('請登入以提出所有權爭議')).not.toBeInTheDocument()
@@ -232,6 +243,7 @@ describe('ReportDialog', () => {
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
 
     await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await screen.findByRole('dialog')
     await user.click(screen.getByRole('button', { name: /要求移除品牌頁/i }))
     expect(screen.queryByText('你已回報過此品牌')).not.toBeInTheDocument()
 
@@ -247,6 +259,7 @@ describe('ReportDialog', () => {
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
     // Open dialog
     await userEvent.setup().click(screen.getByRole('button', { name: /檢舉/i }))
+    await screen.findByRole('dialog')
     expect(screen.getByText(/感謝你的回報/i)).toBeInTheDocument()
   })
 
@@ -257,6 +270,7 @@ describe('ReportDialog', () => {
     )
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
     await userEvent.setup().click(screen.getByRole('button', { name: /檢舉/i }))
+    await screen.findByRole('dialog')
     expect(screen.getByText('發生錯誤')).toBeInTheDocument()
   })
 

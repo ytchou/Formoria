@@ -1,4 +1,4 @@
-import { capturePostHogEvent } from './analytics/posthog-provider'
+import { capturePostHogEvent, resetPostHogUser } from './analytics/posthog-provider'
 
 const UTM_KEYS = [
   'utm_source',
@@ -361,6 +361,14 @@ export function trackSignUp(method: string) {
 export function trackLogin(method: string) {
   safeGAEvent('event', 'login', { method })
   capturePostHogEvent('user_logged_in', { method })
+}
+
+// Routed through the provider shim rather than `posthog-js` directly: the sign-out
+// control lives in the globally hydrated nav, and a static SDK import there would
+// pull the whole bundle into the shared chunk.
+export function trackSignOut() {
+  capturePostHogEvent('user_signed_out')
+  resetPostHogUser()
 }
 
 export function trackViewItemList(listName: string, itemCount: number) {

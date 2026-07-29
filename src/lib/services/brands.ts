@@ -712,7 +712,8 @@ async function loadBrandFieldState(
 // Service functions
 // ---------------------------------------------------------------------------
 
-const BRAND_COLUMNS = [
+/** Every column the brand detail paths hydrate. */
+export const BRAND_COLUMN_LIST = [
   'id', 'name', 'slug', 'description', 'description_en', 'blurb', 'blurb_en', 'hero_image_url',
   'product_type', 'contact_email', 'city', 'purchase_website', 'purchase_pinkoi',
   'purchase_shopee', 'social_instagram', 'social_threads', 'social_facebook',
@@ -725,7 +726,29 @@ const BRAND_COLUMNS = [
   'mit_status', 'mit_declared_scope', 'mit_declared_at', 'mit_verified_at',
   'mit_story',
   'mit_evidence', 'source', 'is_demo',
-].join(', ')
+] as const
+
+/**
+ * Large jsonb payloads (and unpublished editorial content) that brand cards and
+ * directory structured data never render. Every one of them is serialized into
+ * the RSC payload once per card, so a 12-card page ships 12 copies for nothing;
+ * `draft_data` additionally leaks unpublished editorial content to the client.
+ * Detail paths keep the full projection — narrow only list/card queries.
+ */
+export const DIRECTORY_OMITTED_COLUMNS = [
+  'site_content',
+  'draft_data',
+  'mit_evidence',
+  'reputation_summary',
+] as const
+
+/** Columns hydrated by directory/card queries: the full list minus the four above. */
+export const DIRECTORY_BRAND_COLUMN_LIST = BRAND_COLUMN_LIST.filter(
+  (column) => !(DIRECTORY_OMITTED_COLUMNS as readonly string[]).includes(column)
+)
+
+const BRAND_COLUMNS = BRAND_COLUMN_LIST.join(', ')
+const DIRECTORY_BRAND_COLUMNS = DIRECTORY_BRAND_COLUMN_LIST.join(', ')
 
 export const BRAND_SELECT =
   `${BRAND_COLUMNS}, brand_owners(user_id)` as unknown as '*'
@@ -733,6 +756,11 @@ const BRAND_SELECT_WITH_ROMANIZED_NAME =
   `${BRAND_COLUMNS}, romanized_name, brand_owners(user_id)` as unknown as '*'
 const VERIFIED_BRAND_SELECT =
   `${BRAND_COLUMNS}, brand_owners!inner(user_id)` as unknown as '*'
+/** Narrow projection for directory/card queries. */
+const BRAND_LIST_SELECT =
+  `${DIRECTORY_BRAND_COLUMNS}, brand_owners(user_id)` as unknown as '*'
+const VERIFIED_BRAND_LIST_SELECT =
+  `${DIRECTORY_BRAND_COLUMNS}, brand_owners!inner(user_id)` as unknown as '*'
 
 export async function getBrandSlugsBatch(brandIds: string[]): Promise<Map<string, string>> {
   if (brandIds.length === 0) return new Map()
@@ -748,6 +776,20 @@ export async function getBrandSlugsBatch(brandIds: string[]): Promise<Map<string
 type GetBrandsFilters = BrandFilters & {
   page?: number
   subcategoryTags?: string[]
+  /**
+   * Opt in to the full column projection (jsonb blobs + draft data). Public
+   * directory callers must leave this off — those columns are dead weight in
+   * the RSC payload. Only the admin table, which renders `mitEvidence`, needs it.
+   */
+  includeDetailColumns?: boolean
+}
+
+function getBrandsSelect(filters: GetBrandsFilters | undefined): '*' {
+  const owned = filters?.verificationFilter === 'owned'
+  if (filters?.includeDetailColumns) {
+    return owned ? VERIFIED_BRAND_SELECT : BRAND_SELECT
+  }
+  return owned ? VERIFIED_BRAND_LIST_SELECT : BRAND_LIST_SELECT
 }
 
 function getSearchPagination(filters: GetBrandsFilters): { offset: number; limit?: number } {
@@ -830,8 +872,7 @@ export async function getBrands(
       return { brands: [], totalCount: 0 }
     }
 
-    const selectClause =
-      verificationFilter === 'owned' ? VERIFIED_BRAND_SELECT : BRAND_SELECT
+    const selectClause = getBrandsSelect(filters)
     const { offset, limit: pageLimit } = getSearchPagination(filters)
     const pageEnd = pageLimit === undefined ? undefined : offset + pageLimit
 
@@ -860,22 +901,31 @@ export async function getBrands(
     }
 
     const sortConfig = BRAND_SORT_CONFIG[sortKey]
+    // Sort and paginate in Postgres: hydrating every matched row only to slice
+    // 12 of them in JS meant a broad search read ~400 full rows per page.
+    // The id tiebreaker makes the order total — without it, rows tied on the
+    // sort column can repeat or disappear between .range() windows.
+    const rangeEnd = pageLimit === undefined ? totalCount - 1 : offset + pageLimit - 1
+    if (offset > rangeEnd) return { brands: [], totalCount }
+
     const { data, error } = await supabase
       .from('brands')
       .select(selectClause)
       .in('id', allIds)
       .order(sortConfig.column, { ascending: sortConfig.ascending })
+      .order('id', { ascending: true })
+      .range(offset, rangeEnd)
 
-    if (error) throw error
+    if (error) {
+      if (error.code === 'PGRST103') return { brands: [], totalCount }
+      throw error
+    }
 
-    const brands = (data ?? [])
-      .map(brandToDomain)
-      .slice(offset, pageEnd)
-    return { brands, totalCount }
+    return { brands: (data ?? []).map(brandToDomain), totalCount }
   }
 
   const verificationFilter = filters?.verificationFilter
-  const selectClause = verificationFilter === 'owned' ? VERIFIED_BRAND_SELECT : BRAND_SELECT
+  const selectClause = getBrandsSelect(filters)
 
   let query = supabase.from('brands').select(selectClause, { count: 'exact' })
 
@@ -1516,7 +1566,7 @@ export async function getRandomBrands(limit = 4): Promise<Brand[]> {
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('brands')
-    .select(BRAND_SELECT)
+    .select(BRAND_LIST_SELECT)
     .eq('status', 'approved')
     .limit(limit * 3)
 
@@ -1539,7 +1589,7 @@ export async function getNewBrands(limit = 4): Promise<Brand[]> {
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('brands')
-    .select(BRAND_SELECT)
+    .select(BRAND_LIST_SELECT)
     .eq('status', 'approved')
     .not('approved_at', 'is', null)
     .order('approved_at', { ascending: false })

@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
 import { ChevronRight } from 'lucide-react'
-import { getPublishedGuideBySlug } from '@/lib/services/guides'
+import { getAllGuides, getPublishedGuideBySlug } from '@/lib/services/guides'
 import { FaqBlock } from '@/components/guides/faq-block'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
@@ -16,6 +16,20 @@ type PageProps = {
 
 export const revalidate = 3600
 export const dynamic = 'force-static'
+
+// Prebuild every published guide so the first production visit is served from the
+// ISR cache instead of paying on-demand generation. Locale comes from the parent
+// `[locale]` layout's own `generateStaticParams`, so both locales are covered.
+// `getAllGuides()` is the same published set the index and sitemap use; anything
+// outside it (drafts, future non-zh-TW guides) still renders on demand.
+export async function generateStaticParams() {
+  const result = await getAllGuides()
+  if (!result.ok) return []
+  // `guide.slug` is the filename stem, which is what the route param resolves against
+  // (`getPublishedGuideBySlug` reads `content/guides/<param>.mdx`); `frontmatter.slug`
+  // is only used for canonical URLs and may diverge.
+  return result.guides.map((guide) => ({ slug: guide.slug }))
+}
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { locale, slug: rawSlug } = await params

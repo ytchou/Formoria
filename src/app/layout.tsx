@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { Bricolage_Grotesque, Geist_Mono, Inter, Noto_Sans_TC } from "next/font/google";
+import { Bricolage_Grotesque, Geist_Mono, Inter } from "next/font/google";
 import { Agentation } from "agentation";
 import { Toaster } from "sonner";
 import { PublicGoogleAnalytics } from "@/components/analytics/public-google-analytics";
@@ -21,15 +21,9 @@ const bricolage = Bricolage_Grotesque({
   subsets: ["latin"],
 });
 
-// Traditional Chinese fallback (Taiwan 教育部 glyphs). preload:false — the full CJK
-// set is too large to preload; Latin renders via Inter/Bricolage first, CJK falls through.
-const notoSansTC = Noto_Sans_TC({
-  variable: "--font-noto-tc",
-  weight: ["400", "500", "700"],
-  subsets: ["latin"],
-  preload: false,
-});
-
+// No webfont for Traditional Chinese: the CJK set is far too large to ship, so
+// CJK deliberately falls through to the platform's own system face (PingFang TC,
+// Microsoft JhengHei, Noto Sans CJK). Do not reintroduce a CJK webfont here.
 const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
   subsets: ['latin'],
@@ -60,7 +54,7 @@ export default function RootLayout({
   return (
     <html
       lang="zh-TW"
-      className={`${inter.variable} ${bricolage.variable} ${notoSansTC.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${bricolage.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <a

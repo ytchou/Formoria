@@ -8,7 +8,13 @@ export const metadata: Metadata = {
 }
 
 export default async function BrandsPage() {
-  const { brands } = await getBrands({ includeTestBrands: true, sort: 'newest' })
+  // Admin table renders brand.mitEvidence, which the narrow directory
+  // projection omits — opt back into the full column list here.
+  const { brands } = await getBrands({
+    includeTestBrands: true,
+    sort: 'newest',
+    includeDetailColumns: true,
+  })
   const resendableBrandIds = brands
     .filter((brand) => brand.status === 'approved' && !brand.isVerified)
     .map((brand) => brand.id)

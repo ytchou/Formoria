@@ -1,7 +1,6 @@
 "use client";
 
 import * as Sentry from "@sentry/nextjs";
-import posthog from "posthog-js";
 import NextError from "next/error";
 import { useEffect } from "react";
 
@@ -12,7 +11,16 @@ export default function GlobalError({
 }) {
   useEffect(() => {
     Sentry.captureException(error);
-    posthog.captureException(error);
+    // Loaded lazily: a static `posthog-js` import here put the ~230KB
+    // analytics vendor chunk in the first load of all 65 routes, because the
+    // global error boundary is part of every route's client entry. Fire and
+    // forget — this runs while the app is already broken, so nothing in the
+    // analytics path may throw or block Sentry's report above.
+    void import("posthog-js")
+      .then(({ default: posthog }) => {
+        if (posthog.__loaded) posthog.captureException(error);
+      })
+      .catch(() => undefined);
   }, [error]);
 
   return (

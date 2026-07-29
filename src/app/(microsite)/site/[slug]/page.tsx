@@ -1,11 +1,16 @@
-import { createElement } from 'react'
+import { cache, createElement } from 'react'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { getBrandBySlug, getMicrositeSlugs } from '@/lib/services/brands'
+import type { Brand } from '@/lib/types'
 import { getTemplate } from '@/components/microsite/templates/registry'
 import { isMicrositeEnabled, micrositeMetadata } from './microsite-helpers'
 
-export const revalidate = 60
+// 1h ISR, matching every other public route. Microsite content is written by the
+// admin enrichment/approval pipeline, not by owners editing live, so a sub-hour
+// window buys nothing. If owner-facing live editing ever lands, add an on-demand
+// `revalidatePath('/site/<slug>')` to that mutation instead of lowering this.
+export const revalidate = 3600
 export const dynamicParams = true
 
 export async function generateStaticParams() {
@@ -21,29 +26,30 @@ type PageProps = {
   params: Promise<{ slug: string }>
 }
 
+// Memoized per request: `generateMetadata` and the page body both need the brand,
+// and each `getBrandBySlug` costs a `brands` select plus a `brand_images` select.
+const loadMicrositeBrand = cache(async (slug: string): Promise<Brand | null> => {
+  try {
+    return await getBrandBySlug(slug)
+  } catch {
+    return null
+  }
+})
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params
 
-  try {
-    const brand = await getBrandBySlug(slug)
-    if (!isMicrositeEnabled(brand)) return {}
-    return micrositeMetadata(brand)
-  } catch {
-    return {}
-  }
+  const brand = await loadMicrositeBrand(slug)
+  if (!isMicrositeEnabled(brand) || !brand) return {}
+  return micrositeMetadata(brand)
 }
 
 export default async function MicrositePage({ params }: PageProps) {
   const { slug } = await params
 
-  let brand
-  try {
-    brand = await getBrandBySlug(slug)
-  } catch {
-    notFound()
-  }
+  const brand = await loadMicrositeBrand(slug)
 
-  if (!isMicrositeEnabled(brand) || !brand.siteContent) {
+  if (!brand || !isMicrositeEnabled(brand) || !brand.siteContent) {
     notFound()
   }
 
