@@ -24,6 +24,13 @@ export interface PhaseResult {
   durationMs: number;
   error?: string;
   detail?: string;
+  /**
+   * Set when this phase failed because a search/LLM provider was unavailable
+   * (Gate A), not because the brand legitimately had no data. Persisted inside
+   * `curation_job_targets.phase_results`, so the signal survives the worker /
+   * Next split and is readable when the job summary is aggregated.
+   */
+  providerFailure?: boolean;
 }
 
 export interface BrandOutcome {

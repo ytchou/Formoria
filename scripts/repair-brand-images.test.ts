@@ -1,9 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  applyReactivations,
   detectJunkAnomalies,
+  detectReactivationAnomalies,
   planBrandHides,
   planHeroResync,
+  planReactivations,
+  probeUrlReachable,
   selectJunkRows,
+  type ReactivationDecision,
+  type RejectedImageRow,
+  type RepairableImageTable,
 } from './repair-brand-images'
 
 const SUPABASE_URL = 'https://xkcayngbttpxyibgzern.supabase.co'
@@ -572,5 +579,332 @@ describe('detectJunkAnomalies', () => {
     const anomalies = detectJunkAnomalies(hideEntries(81))
     expect(anomalies).toHaveLength(1)
     expect(anomalies[0]).toContain('81')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Pass (d) — reactivating rejections the classifier never gave a verdict for.
+// ---------------------------------------------------------------------------
+
+const OURS_KEY = 'brands/b1/1784881848670-recoverable.webp'
+
+function rejectedRow(
+  id: string,
+  url: string,
+  overrides: Partial<RejectedImageRow> = {},
+): RejectedImageRow {
+  return {
+    id,
+    url,
+    status: 'rejected',
+    // Every affected row has a null storage_path — that is precisely why the
+    // bucket listing cannot answer reachability and the url must be probed.
+    storage_path: null,
+    source: 'scrape',
+    tags: null,
+    ...overrides,
+  }
+}
+
+function candidate(
+  row: RejectedImageRow,
+  table: RepairableImageTable = 'brand_images',
+) {
+  return { table, row }
+}
+
+describe('planReactivations', () => {
+  beforeEach(() => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', SUPABASE_URL)
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('reactivates a row whose url still resolves, leaving tags null', async () => {
+    const probe = vi.fn(async () => true)
+    const decisions = await planReactivations({
+      candidates: [candidate(rejectedRow('r1', `${PUBLIC_PREFIX}${OURS_KEY}`))],
+      probe,
+    })
+
+    expect(decisions).toHaveLength(1)
+    expect(decisions[0]!.action).toBe('reactivate')
+    // The whole point: no tag and no score are invented, so the fixed
+    // classifier picks the row up and gives it a real verdict next run.
+    expect(decisions[0]!.row.tags).toBeNull()
+    expect(probe).toHaveBeenCalledWith(`${PUBLIC_PREFIX}${OURS_KEY}`)
+  })
+
+  // Fail closed: reactivating a row whose bytes are gone recreates the dangling
+  // row of pass (a), which renders as a permanent broken letter-tile.
+  it('leaves a row rejected when the url 404s', async () => {
+    const decisions = await planReactivations({
+      candidates: [candidate(rejectedRow('r1', `${PUBLIC_PREFIX}${OURS_KEY}`))],
+      probe: async () => false,
+    })
+    expect(decisions[0]!.action).toBe('skip')
+    expect(decisions[0]!.reason).toContain('2xx')
+  })
+
+  it('leaves a row rejected when the probe throws (network error / timeout)', async () => {
+    const decisions = await planReactivations({
+      candidates: [candidate(rejectedRow('r1', `${PUBLIC_PREFIX}${OURS_KEY}`))],
+      probe: async () => {
+        throw new Error('ETIMEDOUT')
+      },
+    })
+    expect(decisions[0]!.action).toBe('skip')
+  })
+
+  it('keeps processing the remaining candidates after a probe throws', async () => {
+    const probe = vi.fn(async (url: string) => {
+      if (url.endsWith('boom.webp')) throw new Error('ECONNRESET')
+      return true
+    })
+    const decisions = await planReactivations({
+      candidates: [
+        candidate(rejectedRow('r1', `${PUBLIC_PREFIX}brands/b1/boom.webp`)),
+        candidate(rejectedRow('r2', `${PUBLIC_PREFIX}${OURS_KEY}`)),
+      ],
+      probe,
+    })
+    expect(decisions.map((entry) => entry.action)).toEqual([
+      'skip',
+      'reactivate',
+    ])
+  })
+
+  it('never probes or touches a url outside our storage prefix', async () => {
+    const probe = vi.fn(async () => true)
+    const decisions = await planReactivations({
+      candidates: [
+        candidate(rejectedRow('r1', 'https://cdn.example.com/hero.jpg')),
+        // Right host, wrong bucket path — storageKeyFromPublicUrl rejects it.
+        candidate(rejectedRow('r2', `${SUPABASE_URL}/storage/v1/object/public/claim-proofs/x.webp`)),
+        candidate(rejectedRow('r3', 'not a url at all')),
+      ],
+      probe,
+    })
+
+    expect(decisions.every((entry) => entry.action === 'skip')).toBe(true)
+    expect(decisions[0]!.reason).toContain('prefix')
+    expect(probe).not.toHaveBeenCalled()
+  })
+
+  // A real junk verdict always writes a tag. Reverting one would re-publish an
+  // image a working classifier deliberately removed.
+  it('treats a row with non-null tags as out of scope', async () => {
+    const probe = vi.fn(async () => true)
+    const decisions = await planReactivations({
+      candidates: [
+        candidate(
+          rejectedRow('r1', `${PUBLIC_PREFIX}${OURS_KEY}`, { tags: ['promo'] }),
+        ),
+        // Even an empty array is a verdict: the classifier answered, it just
+        // had nothing to say.
+        candidate(
+          rejectedRow('r2', `${PUBLIC_PREFIX}${OURS_KEY}`, { tags: [] }),
+        ),
+        // Not rejected at all — an active row must never be re-touched here.
+        candidate(
+          rejectedRow('r3', `${PUBLIC_PREFIX}${OURS_KEY}`, { status: 'active' }),
+        ),
+      ],
+      probe,
+    })
+
+    expect(decisions.every((entry) => entry.action === 'skip')).toBe(true)
+    expect(decisions[0]!.reason).toContain('out of scope')
+    expect(probe).not.toHaveBeenCalled()
+  })
+
+  it('spans both brand_images and submission_images', async () => {
+    const decisions = await planReactivations({
+      candidates: [
+        candidate(rejectedRow('r1', `${PUBLIC_PREFIX}${OURS_KEY}`), 'brand_images'),
+        candidate(
+          rejectedRow('r2', `${PUBLIC_PREFIX}${OURS_KEY}`),
+          'submission_images',
+        ),
+      ],
+      probe: async () => true,
+    })
+    expect(decisions.map((entry) => entry.table)).toEqual([
+      'brand_images',
+      'submission_images',
+    ])
+    expect(decisions.every((entry) => entry.action === 'reactivate')).toBe(true)
+  })
+})
+
+describe('probeUrlReachable', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('answers true only for a 2xx response', async () => {
+    const fetchMock = vi.fn(
+      async (_url: string, _init?: RequestInit) => new Response('x', { status: 200 }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(probeUrlReachable('https://example.test/a.webp')).resolves.toBe(
+      true,
+    )
+    const request = fetchMock.mock.calls[0]!
+    expect(request[1]).toMatchObject({ method: 'GET', headers: { Range: 'bytes=0-0' } })
+  })
+
+  it('answers false for a non-2xx response', async () => {
+    vi.stubGlobal('fetch', async () => new Response('', { status: 404 }))
+    await expect(probeUrlReachable('https://example.test/a.webp')).resolves.toBe(
+      false,
+    )
+  })
+
+  it('answers false when fetch rejects', async () => {
+    vi.stubGlobal('fetch', async () => {
+      throw new Error('ENOTFOUND')
+    })
+    await expect(probeUrlReachable('https://example.test/a.webp')).resolves.toBe(
+      false,
+    )
+  })
+})
+
+describe('detectReactivationAnomalies', () => {
+  it('passes at the measured population (1323 matched, ~10 reachable)', () => {
+    expect(detectReactivationAnomalies(1_323, 10)).toEqual([])
+  })
+
+  // The whole point of the re-scoping: 99% of matched rows are already dead and
+  // are discarded by the fail-closed probe, so a large candidate count must not
+  // block a small repair.
+  it('does not block a small repair just because many rows matched', () => {
+    expect(detectReactivationAnomalies(1_323, 9)).toEqual([])
+  })
+
+  it('passes exactly at the reactivation threshold', () => {
+    expect(detectReactivationAnomalies(1_323, 60)).toEqual([])
+  })
+
+  it('blocks one reactivation above the threshold', () => {
+    const anomalies = detectReactivationAnomalies(1_323, 61)
+    expect(anomalies).toHaveLength(1)
+    expect(anomalies[0]).toContain('61')
+  })
+
+  // The outer guard: a selector that lost its `tags IS NULL` clause entirely
+  // would match far beyond the known population.
+  it('blocks a selector that matched far beyond the known population', () => {
+    const anomalies = detectReactivationAnomalies(50_000, 0)
+    expect(anomalies).toHaveLength(1)
+    expect(anomalies[0]).toContain('50000')
+  })
+
+  it('reports both guards when both trip', () => {
+    expect(detectReactivationAnomalies(50_000, 999)).toHaveLength(2)
+  })
+})
+
+describe('applyReactivations', () => {
+  type UpdateCall = {
+    table: string
+    payload: Record<string, unknown>
+    filters: Array<[string, unknown]>
+    ids: string[]
+  }
+
+  function fakeClient() {
+    const calls: UpdateCall[] = []
+    const client = {
+      from(table: string) {
+        return {
+          update(payload: Record<string, unknown>) {
+            const filters: Array<[string, unknown]> = []
+            const builder = {
+              eq(column: string, value: unknown) {
+                filters.push([column, value])
+                return builder
+              },
+              is(column: string, value: unknown) {
+                filters.push([column, value])
+                return builder
+              },
+              in(_column: string, ids: string[]) {
+                calls.push({ table, payload, filters, ids })
+                return Promise.resolve({ error: null })
+              },
+            }
+            return builder
+          },
+        }
+      },
+    }
+    return {
+      calls,
+      client: client as unknown as Parameters<typeof applyReactivations>[0],
+    }
+  }
+
+  function decision(
+    id: string,
+    action: ReactivationDecision['action'],
+    table: RepairableImageTable = 'brand_images',
+  ): ReactivationDecision {
+    return {
+      table,
+      row: rejectedRow(id, `${PUBLIC_PREFIX}${OURS_KEY}`),
+      action,
+      reason: 'test',
+    }
+  }
+
+  // The safe default: a preview run must be indistinguishable from not running.
+  it('mutates nothing in dry-run mode', async () => {
+    const { client, calls } = fakeClient()
+    const mutated = await applyReactivations(
+      client,
+      [decision('r1', 'reactivate'), decision('r2', 'reactivate')],
+      false,
+    )
+    expect(mutated).toBe(0)
+    expect(calls).toEqual([])
+  })
+
+  it('updates only the reactivate decisions, guarded by the selector', async () => {
+    const { client, calls } = fakeClient()
+    const mutated = await applyReactivations(
+      client,
+      [
+        decision('r1', 'reactivate'),
+        decision('r2', 'skip'),
+        decision('r3', 'reactivate', 'submission_images'),
+      ],
+      true,
+    )
+
+    expect(mutated).toBe(2)
+    expect(calls.map((call) => call.table)).toEqual([
+      'brand_images',
+      'submission_images',
+    ])
+    expect(calls[0]!.ids).toEqual(['r1'])
+    expect(calls[1]!.ids).toEqual(['r3'])
+    // status only — tags stay NULL so the fixed classifier reclassifies.
+    expect(calls[0]!.payload).toEqual({ status: 'active' })
+    // Belt-and-braces re-check of the selector at write time.
+    expect(calls[0]!.filters).toEqual([
+      ['status', 'rejected'],
+      ['tags', null],
+    ])
+  })
+
+  it('issues no query when nothing is reachable', async () => {
+    const { client, calls } = fakeClient()
+    expect(await applyReactivations(client, [decision('r1', 'skip')], true)).toBe(0)
+    expect(calls).toEqual([])
   })
 })

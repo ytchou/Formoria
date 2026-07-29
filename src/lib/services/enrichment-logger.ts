@@ -8,6 +8,12 @@ export type EnrichmentSummary = {
   failed: number
   failedBrands: Array<{ slug: string; phase: string; error: string }>
   durationMs: number
+  /**
+   * Subset of `failed` whose failure was a search/LLM provider outage (Gate A)
+   * rather than a brand with no data. Optional so existing summary literals stay
+   * valid; every summary the job runner produces sets it.
+   */
+  providerFailed?: number
 }
 
 export type BrandPhaseProgress = {

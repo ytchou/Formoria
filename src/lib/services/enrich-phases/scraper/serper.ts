@@ -5,6 +5,7 @@ import {
   type SearchCallStatus,
 } from '@/lib/services/search-results'
 import type {
+  BrandImageSearchOutcome,
   BrandImageSearchResult,
   BrandSearchEntry,
   BrandSearchResult,
@@ -28,8 +29,10 @@ export type SerperAuditOptions = SearchAuditContext & {
 
 type AuditResolver<T> = SerperAuditOptions | ((input: T) => SerperAuditOptions | undefined)
 
+// serper.dev omits the result-array key entirely when a search has zero results,
+// so these members are optional: absent means "empty", not "malformed".
 type SerperSerpResponse = {
-  organic: Array<{
+  organic?: Array<{
     title: string
     link: string
     snippet?: string
@@ -38,7 +41,7 @@ type SerperSerpResponse = {
 }
 
 type SerperImageResponse = {
-  images: Array<{
+  images?: Array<{
     imageUrl: string
     imageWidth?: number
     imageHeight?: number
@@ -58,7 +61,7 @@ export type SerperMapPlace = {
 }
 
 type SerperMapsResponse = {
-  places: Array<Record<string, unknown>>
+  places?: Array<Record<string, unknown>>
 }
 
 type SerperCallResult<T> = {
@@ -85,29 +88,31 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
+// A missing key is a legitimately empty result set; a present-but-wrong-shaped
+// key is still malformed.
+function isOptionalArrayOf(value: unknown, entryPredicate: (entry: unknown) => boolean): boolean {
+  if (value === undefined) return true
+  return Array.isArray(value) && value.every(entryPredicate)
+}
+
 function isSerperSerpResponse(value: unknown): value is SerperSerpResponse {
   return (
     isRecord(value) &&
-    Array.isArray(value.organic) &&
-    value.organic.every(
-      (entry) => isRecord(entry) && typeof entry.link === 'string',
-    )
+    isOptionalArrayOf(value.organic, (entry) => isRecord(entry) && typeof entry.link === 'string')
   )
 }
 
 function isSerperImageResponse(value: unknown): value is SerperImageResponse {
   return (
     isRecord(value) &&
-    Array.isArray(value.images) &&
-    value.images.every((entry) => isRecord(entry) && typeof entry.imageUrl === 'string')
+    isOptionalArrayOf(value.images, (entry) => isRecord(entry) && typeof entry.imageUrl === 'string')
   )
 }
 
 function isSerperMapsResponse(value: unknown): value is SerperMapsResponse {
   return (
     isRecord(value) &&
-    Array.isArray(value.places) &&
-    value.places.every((entry) => isRecord(entry) && typeof entry.title === 'string')
+    isOptionalArrayOf(value.places, (entry) => isRecord(entry) && typeof entry.title === 'string')
   )
 }
 
@@ -257,10 +262,10 @@ async function callSerperJson<T>(
 
     const resultCount =
       searchType === 'serp'
-        ? (responseBody as SerperSerpResponse).organic.length
+        ? ((responseBody as SerperSerpResponse).organic?.length ?? 0)
         : searchType === 'image'
-          ? (responseBody as SerperImageResponse).images.length
-          : (responseBody as SerperMapsResponse).places.length
+          ? ((responseBody as SerperImageResponse).images?.length ?? 0)
+          : ((responseBody as SerperMapsResponse).places?.length ?? 0)
     const normalized = normalizeResponse(responseBody)
     return await finalize({
       data: responseBody,
@@ -289,7 +294,7 @@ function parseBrandSearchResults(
   const snippets: string[] = []
   const entries: BrandSearchEntry[] = []
 
-  for (const result of organic) {
+  for (const result of organic ?? []) {
     const link = typeof result.link === 'string' ? result.link.trim() : ''
     if (!link) continue
 
@@ -392,7 +397,7 @@ export async function batchSearchBrandsWithSnippets(
 
 const IMAGE_BLOCKED_HOSTS = ['lookaside.instagram.com', 'lookaside.fbsbx.com']
 
-function shouldKeepImage(result: SerperImageResponse['images'][number]): boolean {
+function shouldKeepImage(result: NonNullable<SerperImageResponse['images']>[number]): boolean {
   try {
     const host = new URL(result.imageUrl).hostname
     if (IMAGE_BLOCKED_HOSTS.some((blocked) => host.includes(blocked))) return false
@@ -419,8 +424,8 @@ async function searchBrandImagesForQuery(
     { q: query, num: 10, gl: 'tw', hl: 'zh-TW' },
     isSerperImageResponse,
     (value) => ({
-      urls: value.images.flatMap((image) => (typeof image.imageUrl === 'string' ? [image.imageUrl] : [])),
-      snippets: value.images.flatMap((image) => (typeof image.title === 'string' ? [image.title] : [])),
+      urls: (value.images ?? []).flatMap((image) => (typeof image.imageUrl === 'string' ? [image.imageUrl] : [])),
+      snippets: (value.images ?? []).flatMap((image) => (typeof image.title === 'string' ? [image.title] : [])),
     }),
     options,
   )
@@ -439,15 +444,22 @@ async function searchBrandImagesForQuery(
   return { rows: [...rows.values()], call }
 }
 
+function emptyImageOutcome(): BrandImageSearchOutcome {
+  return { rows: [], callStatus: 'empty', httpStatus: null, error: null }
+}
+
 async function searchBrandImages(
   input: ImageSearchBrandInput,
   queryTemplate: QueryTemplate = DEFAULT_QUERY,
   auditResolver?: AuditResolver<ImageSearchBrandInput>,
-): Promise<BrandImageSearchResult[]> {
+): Promise<BrandImageSearchOutcome> {
   const brandName = typeof input === 'string' ? input : input.brandName
   const queries = typeof input === 'string' ? [queryTemplate(brandName)] : buildImageQueryVariants(input)
   const results = new Map<string, BrandImageSearchResult>()
   const baseOptions = resolveAuditOptions(auditResolver, input)
+  // First non-succeeded/non-empty variant status, kept so a provider outage is
+  // reportable even though every variant yielded zero rows.
+  let firstFailure: Pick<BrandImageSearchOutcome, 'callStatus' | 'httpStatus' | 'error'> | null = null
 
   for (const [index, query] of queries.entries()) {
     const options = baseOptions
@@ -461,13 +473,27 @@ async function searchBrandImages(
         }
       : undefined
     const { rows, call } = await searchBrandImagesForQuery(query, options)
-    if (call.callStatus === 'failed' || call.callStatus === 'timeout' || call.callStatus === 'network_error') continue
+    if (call.callStatus !== 'succeeded' && call.callStatus !== 'empty') {
+      firstFailure ??= {
+        callStatus: call.callStatus,
+        httpStatus: call.httpStatus,
+        error: call.error,
+      }
+      continue
+    }
     for (const row of rows) {
       if (!results.has(row.url)) results.set(row.url, row)
     }
   }
 
-  return [...results.values()]
+  const rows = [...results.values()]
+  if (rows.length > 0) {
+    return { rows, callStatus: 'succeeded', httpStatus: null, error: null }
+  }
+  if (firstFailure) {
+    return { rows, ...firstFailure }
+  }
+  return emptyImageOutcome()
 }
 
 export async function batchSearchBrandImages(
@@ -475,11 +501,11 @@ export async function batchSearchBrandImages(
   concurrency = 5,
   queryTemplate: QueryTemplate = DEFAULT_QUERY,
   auditResolver?: AuditResolver<ImageSearchBrandInput>,
-): Promise<Map<string, BrandImageSearchResult[]>> {
-  const results = new Map<string, BrandImageSearchResult[]>()
+): Promise<Map<string, BrandImageSearchOutcome>> {
+  const results = new Map<string, BrandImageSearchOutcome>()
   for (const input of brandInputs) {
     const brandName = typeof input === 'string' ? input : input.brandName
-    results.set(brandName, [])
+    results.set(brandName, emptyImageOutcome())
   }
   if (brandInputs.length === 0) return results
 
@@ -534,12 +560,12 @@ export async function searchBrandMaps(
     { q: query, num: 10, gl: 'tw', hl: 'zh-TW' },
     isSerperMapsResponse,
     (value) => ({
-      urls: value.places.flatMap((place) => {
+      urls: (value.places ?? []).flatMap((place) => {
         const url =
           typeof place.website === 'string' ? place.website : typeof place.link === 'string' ? place.link : null
         return url ? [url] : []
       }),
-      snippets: value.places.flatMap((place) => {
+      snippets: (value.places ?? []).flatMap((place) => {
         const title = typeof place.title === 'string' ? place.title : ''
         const address = typeof place.address === 'string' ? place.address : ''
         return title || address ? [title && address ? `${title} — ${address}` : title || address] : []

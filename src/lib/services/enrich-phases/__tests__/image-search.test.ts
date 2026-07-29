@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { runImageSearchPhase } from '../image-search'
-import type { BatchPhaseContext, EnrichBrand, EnrichPhase } from '../types'
+import type { BrandImageSearchOutcome } from '../scraper/types'
+import type { BatchPhaseContext, EnrichBrand, EnrichPhase, SearchPhaseResult } from '../types'
 
 const searchMocks = vi.hoisted(() => ({
   batchSearchBrandImages: vi.fn(),
@@ -14,6 +15,14 @@ const brand: EnrichBrand = {
   id: 'brand-1',
   slug: 'test-brand',
   name: 'Test Brand',
+}
+
+function outcome(overrides: Partial<BrandImageSearchOutcome> = {}): BrandImageSearchOutcome {
+  return { rows: [], callStatus: 'empty', httpStatus: null, error: null, ...overrides }
+}
+
+function serp(overrides: Partial<SearchPhaseResult> = {}): SearchPhaseResult {
+  return { urls: [], snippets: [], ...overrides }
 }
 
 function ctx(overrides: Partial<BatchPhaseContext> = {}): BatchPhaseContext {
@@ -76,7 +85,10 @@ describe('runImageSearchPhase', () => {
       hero_image_url: 'https://example.com/hero.webp',
     }
     searchMocks.batchSearchBrandImages.mockResolvedValue(new Map([
-      ['Has One Image', [{ url: 'https://example.com/additional.webp', query: 'query' }]],
+      ['Has One Image', outcome({
+        rows: [{ url: 'https://example.com/additional.webp', query: 'query' }],
+        callStatus: 'succeeded',
+      })],
     ]))
 
     const result = await runImageSearchPhase(ctx({

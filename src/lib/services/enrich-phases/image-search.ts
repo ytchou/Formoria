@@ -1,21 +1,30 @@
 import type { PhaseResult } from '@/lib/types/curation'
 import { batchSearchBrandImages } from './scraper/search'
+import type { BrandImageSearchOutcome } from './scraper/types'
 import {
   buildPhaseResult,
   getDisplayBrandName,
+  isProviderFailure,
   timePhase,
   type BatchPhaseContext,
   type SearchPhaseResult,
 } from './types'
 
-export async function runImageSearchPhase(ctx: BatchPhaseContext, serpResults?: Map<string, SearchPhaseResult>): Promise<{
+type ImageSearchPhaseOutput = {
   phaseResult: PhaseResult
   imageSearchResults: Map<string, string[]>
-}> {
+  imageSearchOutcomes: Map<string, BrandImageSearchOutcome>
+}
+
+export async function runImageSearchPhase(
+  ctx: BatchPhaseContext,
+  serpResults?: Map<string, SearchPhaseResult>,
+): Promise<ImageSearchPhaseOutput> {
   if (!ctx.phases.includes('images')) {
     return {
       phaseResult: buildPhaseResult('image-search', 'skipped', [], 0, undefined, 'images not requested'),
       imageSearchResults: new Map(),
+      imageSearchOutcomes: new Map(),
     }
   }
 
@@ -23,11 +32,16 @@ export async function runImageSearchPhase(ctx: BatchPhaseContext, serpResults?: 
     return {
       phaseResult: buildPhaseResult('image-search', 'skipped', [], 0, undefined, 'empty batch'),
       imageSearchResults: new Map(),
+      imageSearchOutcomes: new Map(),
     }
   }
 
   const activeSubmissionImageCounts = await loadActiveSubmissionImageCounts(ctx)
   const brandsNeedingImages: typeof ctx.chunk = []
+  // Brands we could not search because a provider call failed. Zero results from
+  // a dead provider says nothing about the brand, so it must never read as
+  // "no images needed".
+  const providerFailed = new Set<string>()
   let skippedEnoughImages = 0
   let skippedNoSerp = 0
   for (const brand of ctx.chunk) {
@@ -40,12 +54,20 @@ export async function runImageSearchPhase(ctx: BatchPhaseContext, serpResults?: 
     }
     const brandName = getDisplayBrandName(brand)
     const serp = serpResults?.get(brandName)
+    if (isProviderFailure(serp?.callStatus)) {
+      providerFailed.add(brandName)
+      continue
+    }
     if (serpResults && serp && serp.urls.length === 0 && serp.snippets.length === 0) {
       skippedNoSerp++
       continue
     }
     brandsNeedingImages.push(brand)
   }
+
+  // Every brand that is not already covered — the denominator for "did the whole
+  // phase fail?".
+  const brandsWithoutImages = ctx.chunk.length - skippedEnoughImages
 
   if (skippedEnoughImages > 0) {
     ctx.onProgress?.(
@@ -57,16 +79,30 @@ export async function runImageSearchPhase(ctx: BatchPhaseContext, serpResults?: 
       `  [IMAGES] Skipping image search for ${skippedNoSerp} brand(s) with no SERP results`
     )
   }
+  if (providerFailed.size > 0) {
+    ctx.onProgress?.(
+      `  [IMAGES] ${providerFailed.size} brand(s) had a failed search provider call — not counted as "no images needed"`
+    )
+  }
 
   if (brandsNeedingImages.length === 0) {
+    const allFailed = providerFailed.size > 0 && providerFailed.size === brandsWithoutImages
     return {
-      phaseResult: buildPhaseResult('image-search', 'skipped', [], 0, undefined, 'all brands have images'),
+      phaseResult: buildPhaseResult(
+        'image-search',
+        allFailed ? 'failed' : 'skipped',
+        [],
+        0,
+        allFailed ? providerFailureError(providerFailed) : undefined,
+        buildDetail(ctx.chunk.length, skippedEnoughImages, skippedNoSerp, providerFailed.size),
+      ),
       imageSearchResults: new Map(),
+      imageSearchOutcomes: new Map(),
     }
   }
 
   const { result, durationMs } = await timePhase(async () => {
-    const imageSearchRows = await batchSearchBrandImages(
+    const imageSearchOutcomes = await batchSearchBrandImages(
       brandsNeedingImages.map((brand) => ({
         brandName: getDisplayBrandName(brand),
         productType: brand.product_type,
@@ -88,24 +124,57 @@ export async function runImageSearchPhase(ctx: BatchPhaseContext, serpResults?: 
       },
     )
     const imageSearchResults = new Map<string, string[]>()
-    for (const [brandName, rows] of imageSearchRows.entries()) {
-      imageSearchResults.set(brandName, rows.map((row) => row.url))
+    for (const [brandName, outcome] of imageSearchOutcomes.entries()) {
+      imageSearchResults.set(brandName, outcome.rows.map((row) => row.url))
+      if (isProviderFailure(outcome.callStatus)) providerFailed.add(brandName)
     }
     const totalImages = [...imageSearchResults.values()].reduce((sum, urls) => sum + urls.length, 0)
-    ctx.onProgress?.(`  [IMAGES] OK — ${totalImages} images across ${imageSearchResults.size} brands`)
+    ctx.onProgress?.(
+      `  [IMAGES] ${providerFailed.size > 0 ? 'PARTIAL' : 'OK'} — ${totalImages} images across ${imageSearchResults.size} brands${providerFailed.size > 0 ? `; ${providerFailed.size} provider error(s)` : ''}`
+    )
 
     const changedFields: string[] = !ctx.dryRun &&
       [...imageSearchResults.values()].some((urls) => urls.length > 0)
       ? ['image_search_results']
       : []
 
-    return { imageSearchResults, changedFields }
+    return { imageSearchResults, imageSearchOutcomes, changedFields }
   })
 
+  const allFailed = providerFailed.size > 0 && providerFailed.size === brandsWithoutImages
+
   return {
-    phaseResult: buildPhaseResult('image-search', 'succeeded', result.changedFields, durationMs),
+    phaseResult: buildPhaseResult(
+      'image-search',
+      allFailed ? 'failed' : 'succeeded',
+      result.changedFields,
+      durationMs,
+      allFailed ? providerFailureError(providerFailed) : undefined,
+      buildDetail(ctx.chunk.length, skippedEnoughImages, skippedNoSerp, providerFailed.size),
+    ),
     imageSearchResults: result.imageSearchResults,
+    imageSearchOutcomes: result.imageSearchOutcomes,
   }
+}
+
+// 'all brands have images' is only honest when every brand in the chunk was
+// skipped for already having enough images. Anything else reports real counts.
+function buildDetail(
+  chunkSize: number,
+  skippedEnoughImages: number,
+  skippedNoSerp: number,
+  providerFailedCount: number,
+): string | undefined {
+  if (skippedEnoughImages === chunkSize) return 'all brands have images'
+  const parts: string[] = []
+  if (skippedEnoughImages > 0) parts.push(`${skippedEnoughImages} had images`)
+  if (skippedNoSerp > 0) parts.push(`${skippedNoSerp} had no SERP results`)
+  if (providerFailedCount > 0) parts.push(`${providerFailedCount} provider errors`)
+  return parts.length > 0 ? parts.join(', ') : undefined
+}
+
+function providerFailureError(providerFailed: Set<string>): string {
+  return `Search provider failed for all ${providerFailed.size} brand(s) needing images: ${[...providerFailed].join(', ')}`
 }
 
 async function loadActiveSubmissionImageCounts(

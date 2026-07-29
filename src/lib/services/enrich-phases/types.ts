@@ -10,6 +10,7 @@ import type { SiteContent } from '@/lib/types/brand'
 import type { Database } from '@/lib/supabase/database.types'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
 import type { EnrichmentTarget } from '../enrichment-target'
+import type { SearchCallStatus } from '../search-results'
 import type { BrandSearchEntry } from './scraper/types'
 
 export type EnrichPhase = (typeof ENRICH_PHASES)[number]
@@ -47,10 +48,31 @@ export type SearchPhaseResult = {
   entries?: BrandSearchEntry[]
   rawEntries?: unknown
   auditResultId?: string
-  callStatus?: string
+  callStatus?: SearchCallStatus
   httpStatus?: number | null
   error?: string | null
   latencyMs?: number | null
+  /**
+   * True when the result was replayed from `brand_search_results` instead of a
+   * live provider call. `callStatus` is copied verbatim from the stored row, so
+   * a cached row can carry `failed` from an outage that ended days ago —
+   * callers must not read that as a live provider failure.
+   */
+  fromCache?: boolean
+}
+
+/**
+ * True when the search provider itself failed, so the absence of results says
+ * nothing about the target. Callers use this to hard-fail a target instead of
+ * reading an outage as "no results found".
+ *
+ * `malformed` is deliberately EXCLUDED and must never hard-fail a target: it
+ * fires both on a genuine provider fault and on a response shape we simply
+ * failed to anticipate. Treating it as a provider failure would hard-fail
+ * brands whose payload is merely unusual. Do not add it.
+ */
+export function isProviderFailure(status?: SearchCallStatus): boolean {
+  return status === 'failed' || status === 'timeout' || status === 'network_error'
 }
 
 export type EnrichScrapedData = Partial<ScrapedBrandData> &

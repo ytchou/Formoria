@@ -1,4 +1,4 @@
-import type { PhaseResult } from '@/lib/types/curation'
+import type { PhaseResult, PhaseStatus } from '@/lib/types/curation'
 import { batchSearchBrandsWithSnippets, parseBrandSearchEntries } from './scraper/search'
 import { getLatestSearchResults } from '../search-results'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
@@ -7,10 +7,22 @@ import type { EnrichmentTarget } from '../enrichment-target'
 import {
   buildPhaseResult,
   getDisplayBrandName,
+  isProviderFailure,
   timePhase,
   type BatchPhaseContext,
   type SearchPhaseResult,
 } from './types'
+
+const MAX_PROVIDER_ERROR_LENGTH = 500
+
+type DiscoverAttempt = {
+  searchResults: Map<string, SearchPhaseResult>
+  searchError: string | null
+  changedFields: string[]
+  detail: string | undefined
+  status: PhaseStatus
+  providerError: string | null
+}
 
 function buildSerpQuery(brandName: string, productTypeSlug?: string | null): string {
   const typeZh = productTypeSlug
@@ -54,7 +66,7 @@ export async function runDiscoverPhase(ctx: BatchPhaseContext): Promise<{
   )
   const queryTemplate = (name: string) => buildSerpQuery(name, brandProductTypes.get(name))
 
-  const { result, durationMs } = await timePhase(async () => {
+  const { result, durationMs } = await timePhase(async (): Promise<DiscoverAttempt> => {
     try {
       const searchResults = await batchSearchBrandsWithSnippets(
         ctx.chunkBrandNames,
@@ -77,7 +89,7 @@ export async function runDiscoverPhase(ctx: BatchPhaseContext): Promise<{
       ).length
       const serpMisses = searchResults.size - serpHits
       const callFailures = [...searchResults.values()].filter((searchResult) =>
-        searchResult.callStatus && !['succeeded', 'empty'].includes(searchResult.callStatus),
+        isProviderFailure(searchResult.callStatus),
       )
       const callStatusDetail = callFailures.length > 0
         ? `; ${callFailures.length} call(s) failed${callFailures.some((result) => result.error) ? `: ${callFailures.flatMap((result) => result.error ? [result.error] : []).join(' | ')}` : ''}`
@@ -91,7 +103,21 @@ export async function runDiscoverPhase(ctx: BatchPhaseContext): Promise<{
         ? ['serp_search_results']
         : []
 
-      return { searchResults, searchError: null, changedFields, detail: callStatusDetail.slice(2) || undefined }
+      // Every call hitting a provider failure means the provider is down, not
+      // that these brands have no coverage — surface it as a failed phase.
+      // A partial failure stays `succeeded` at the batch level; the per-brand
+      // callStatus in `searchResults` is what the per-target gate reads.
+      const allCallsFailed = searchResults.size > 0 && callFailures.length === searchResults.size
+      const providerError = allCallsFailed ? summarizeProviderErrors(callFailures) : null
+
+      return {
+        searchResults,
+        searchError: null,
+        changedFields,
+        detail: callStatusDetail.slice(2) || undefined,
+        status: (allCallsFailed ? 'failed' : 'succeeded'),
+        providerError,
+      }
     } catch (err) {
       const searchError = errorMessage(err)
       ctx.onProgress?.(`  [SERP] FAILED — ${searchError}`)
@@ -99,6 +125,9 @@ export async function runDiscoverPhase(ctx: BatchPhaseContext): Promise<{
         searchResults: new Map<string, SearchPhaseResult>(),
         searchError,
         changedFields: [],
+        detail: undefined,
+        status: 'failed',
+        providerError: null,
       }
     }
   })
@@ -106,15 +135,25 @@ export async function runDiscoverPhase(ctx: BatchPhaseContext): Promise<{
   return {
     phaseResult: buildPhaseResult(
       'discover',
-      result.searchError ? 'failed' : 'succeeded',
+      result.searchError ? 'failed' : result.status,
       result.changedFields,
       durationMs,
-      result.searchError ?? undefined,
+      result.searchError ?? result.providerError ?? undefined,
       result.detail,
     ),
     searchResults: result.searchResults,
+    // `searchError` means "the whole batch threw" — curation-operations rethrows
+    // it for every brand in the chunk, so per-call failures must not set it.
     searchError: result.searchError,
   }
+}
+
+function summarizeProviderErrors(callFailures: SearchPhaseResult[]): string {
+  const distinct = [...new Set(callFailures.flatMap((failure) => (failure.error ? [failure.error] : [])))]
+  const summary = distinct.length > 0
+    ? `All ${callFailures.length} search call(s) failed: ${distinct.join(' | ')}`
+    : `All ${callFailures.length} search call(s) failed`
+  return summary.slice(0, MAX_PROVIDER_ERROR_LENGTH)
 }
 
 export async function loadCachedSearchResults(
@@ -135,6 +174,7 @@ export async function loadCachedSearchResults(
       error: row.error,
       auditResultId: row.id,
       latencyMs: row.latencyMs,
+      fromCache: true,
     })
   }
 

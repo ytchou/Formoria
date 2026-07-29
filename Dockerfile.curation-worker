@@ -6,5 +6,10 @@ RUN node -e "const p=require('./package.json'); p.type='module'; require('fs').w
 COPY src/ src/
 COPY scripts/ scripts/
 RUN pnpm install --frozen-lockfile
+# Set AFTER the install: `NODE_ENV=production` makes pnpm skip devDependencies,
+# so declaring it earlier would strip the build. At runtime it marks this
+# container as production so anything gating on NODE_ENV (Sentry's server
+# config, library production paths) behaves as deployed rather than as dev.
+ENV NODE_ENV=production
 EXPOSE 8080
 CMD ["pnpm", "curation:worker"]

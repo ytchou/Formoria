@@ -19,6 +19,31 @@ import { listAllObjects } from './brand-storage-maintenance'
 //       stayed), and `.is('tags', null)` kept the classifier from ever looking
 //       at it again. The insert path is fixed; this pass cleans up the rows the
 //       loop already produced.
+//   (d) rows the image classifier rejected WITHOUT ever getting a verdict.
+//       classifyImages used to turn a failed OpenAI call (`content: null`) into
+//       null verdicts, which read as junk: status -> 'rejected', storage_path ->
+//       null, and the storage object deleted. Two HTTP 400 `invalid_image_url`
+//       responses destroyed 18 live images that way. Those rows are exactly
+//       `status = 'rejected' AND tags IS NULL` — a genuine junk verdict always
+//       writes a tag, so a null tag means "we never got an answer". This pass
+//       reactivates them, but ONLY the ones whose bytes are still there: the
+//       url is HTTP-probed first, because storage_path is null on every
+//       affected row so the bucket listing cannot decide it. Fail closed —
+//       any non-2xx, network error or timeout leaves the row rejected. A false
+//       positive would recreate the dangling row of pass (a), which is strictly
+//       worse than leaving a recoverable image rejected. `tags` is left NULL so
+//       the (now fixed) classifier reclassifies the row on the next run; this
+//       pass invents no tag and no score, and deletes nothing from storage.
+//       It spans BOTH `brand_images` and `submission_images`.
+//
+// ORDERING — pass (d) must be run only AFTER the classify-images fix is
+// DEPLOYED. If the old classifier is still live, the next curation run will
+// re-destroy exactly the rows this pass restores.
+//
+// Pass (d) cannot collide with (a)/(b)/(c): (a) and (c) only look at ACTIVE
+// rows, and (d) only reactivates rows whose url sits on our brand-images public
+// prefix — which makes them supabase-hosted, so they can never be in (b)'s
+// hotlink set either.
 //
 // Afterwards each affected brand's denormalized `brands.hero_image_url` is
 // reconciled. That step is NOT a blanket syncHeroDenormalized() call, because
@@ -77,12 +102,54 @@ const MAX_BRANDS_FULLY_CLEARED = 2
  */
 const MAX_BRANDS_HIDDEN = 80
 /**
- * `logo` is a junk tag for hero selection but not for keeping: the 4 logo-tagged
- * rows are high-confidence real brand marks (scores 70–90), and a clean logo
- * beats a letter tile for a brand whose only other option is the fallback.
- * Opt them in with --include-logos.
+ * Tags this sweep can purge on demand even though the classifier no longer
+ * treats them as junk.
+ *
+ * `logo` used to live in JUNK_TAGS, so --include-logos derived its meaning from
+ * that membership. The classifier now keeps logos (a clean brand mark reads far
+ * better than a letter tile, and logo rows score p50 90), which left this flag
+ * inert. Classifier policy and a manual operator sweep are separate decisions,
+ * so the sweep carries its own set: purging logos stays available to an operator
+ * who explicitly asks for it, and stays off by default.
  */
-const JUNK_TAGS_EXCLUDED_BY_DEFAULT = new Set(['logo'])
+const OPT_IN_PURGE_TAGS = new Set(['logo'])
+
+/**
+ * Every tag the sweep considers. Opt-in tags are always *detected* so the report
+ * can surface them; `includeLogos` only decides reject-vs-report.
+ */
+const SWEEP_CANDIDATE_TAGS = new Set([...JUNK_TAGS, ...OPT_IN_PURGE_TAGS])
+/**
+ * Circuit-breaker thresholds for pass (d).
+ *
+ * Measured 2026-07-29: the selector matches 1323 rows (1246 brand_images —
+ * mostly a legacy batch created 2026-07-06 — plus 77 submission_images), but
+ * only ~10 of those urls still resolve. The dead 99% are filtered out by the
+ * fail-closed probe and never mutated.
+ *
+ * So the guard that matters is on rows we would actually WRITE, not on rows the
+ * selector matched: capping candidates blocks a ~10-row repair because 1300
+ * unrelated rows happen to share the predicate. MAX_REACTIVATIONS is the real
+ * blast radius — "mass un-rejection" means mass *writes*, and this is the
+ * number that bounds them.
+ *
+ * MAX_NULL_VERDICT_CANDIDATES stays as a much looser second line of defence: it
+ * catches a selector that lost its `tags IS NULL` clause entirely (which would
+ * match tens of thousands), without tripping on the known legacy population.
+ */
+const MAX_REACTIVATIONS = 60
+const MAX_NULL_VERDICT_CANDIDATES = 5_000
+/**
+ * Reachability probe budget per row. Short on purpose: the probe answers "do
+ * the bytes still exist", and a slow answer is indistinguishable from no answer
+ * for that question. A timeout fails closed (row stays rejected).
+ */
+const REACHABILITY_TIMEOUT_MS = 8_000
+/**
+ * Parallel reachability probes. Bounded so a ~1300-row dry run finishes in
+ * seconds without bursting our own storage endpoint.
+ */
+const REACHABILITY_CONCURRENCY = 20
 
 /**
  * Only the columns this script reasons about are declared. Rows are fetched
@@ -99,6 +166,41 @@ type BrandImageRow = {
   sort_order: number | null
   tags: string[] | null
   score: number | null
+}
+
+/**
+ * The two tables pass (d) spans. Deliberately scoped to that pass — the rest of
+ * the script stays `brand_images`-only (BUCKET_TABLE).
+ */
+export type RepairableImageTable = 'brand_images' | 'submission_images'
+
+/**
+ * The table-agnostic subset pass (d) reasons about. `brand_id` exists only on
+ * `brand_images`; it is carried so the report can warn when a reactivated row
+ * belongs to a brand this same run delists. Rows are fetched with select('*'),
+ * so instances carry every column at runtime and the manifest serializes all of
+ * them — the restore is "set these ids back to status 'rejected'".
+ */
+export type RejectedImageRow = {
+  id: string
+  url: string
+  status: string
+  storage_path: string | null
+  source: string | null
+  tags: string[] | null
+  brand_id?: string | null
+}
+
+/**
+ * One pass (d) decision. `reactivate` flips status to 'active' and leaves tags
+ * NULL; `skip` leaves the row exactly as it is. Every non-2xx, network error,
+ * timeout and non-bucket url lands on `skip` — see planReactivations.
+ */
+export type ReactivationDecision = {
+  table: RepairableImageTable
+  row: RejectedImageRow
+  action: 'reactivate' | 'skip'
+  reason: string
 }
 
 type BrandRow = {
@@ -155,6 +257,13 @@ type RepairManifest = {
   danglingRows: BrandImageRow[]
   externalRows: BrandImageRow[]
   junkRows: BrandImageRow[]
+  /**
+   * Every pass (d) decision, not just the mutated ones: the skipped rows are the
+   * record of WHY an image was left rejected (404 vs. network error vs. not a
+   * bucket url), which is what a re-run is compared against. Restore = set the
+   * `reactivate` ids back to status 'rejected'.
+   */
+  reactivationPlan: ReactivationDecision[]
   brandsToHide: BrandHideEntry[]
   brandsBefore: BrandRow[]
 }
@@ -169,9 +278,10 @@ function printUsage(): void {
       'Usage:',
       '  Preview: [--dry-run]   (default — no mutations)',
       '  Apply:   --live',
-      '  Override: --force      (bypass the inventory safety check; only use',
-      '                          after manually confirming the bucket listing',
-      '                          is complete and the losses are expected)',
+      '  Override: --force      (bypass the inventory safety check and the pass',
+      '                          (d) candidate-count breaker; only use after',
+      '                          manually confirming the bucket listing is',
+      '                          complete and the losses are expected)',
       '  --include-logos        (pass (c) also rejects logo-tagged rows; by',
       '                          default they are kept — a real brand mark beats',
       '                          a letter tile)',
@@ -252,6 +362,37 @@ async function loadBrandImages(
   )
 }
 
+/**
+ * Pass (d) candidates from one table: `status = 'rejected' AND tags IS NULL`.
+ * The two branches are spelled out rather than passing `table` to `.from()`
+ * because the generated Supabase types make `from(union)` uncallable.
+ *
+ * select('*') for the same reason loadBrandImages uses it: the manifest must
+ * carry every column so the run stays reversible.
+ */
+async function loadNullVerdictRejections(
+  supabase: ServiceClient,
+  table: RepairableImageTable,
+): Promise<RejectedImageRow[]> {
+  return fetchAllRows<RejectedImageRow>(table, (from, to) =>
+    table === 'brand_images'
+      ? supabase
+          .from('brand_images')
+          .select('*')
+          .eq('status', 'rejected')
+          .is('tags', null)
+          .order('id', { ascending: true })
+          .range(from, to)
+      : supabase
+          .from('submission_images')
+          .select('*')
+          .eq('status', 'rejected')
+          .is('tags', null)
+          .order('id', { ascending: true })
+          .range(from, to),
+  )
+}
+
 async function loadBrands(supabase: ServiceClient): Promise<BrandRow[]> {
   return fetchAllRows<BrandRow>('brands', (from, to) =>
     supabase
@@ -315,12 +456,14 @@ export function selectJunkRows(input: {
   for (const row of rows) {
     if (row.status !== 'active') continue
     const tags = row.tags ?? []
-    if (!tags.some((tag) => JUNK_TAGS.has(tag))) continue
+    if (!tags.some((tag) => SWEEP_CANDIDATE_TAGS.has(tag))) continue
 
-    const excludedOnly = tags.every(
-      (tag) => !JUNK_TAGS.has(tag) || JUNK_TAGS_EXCLUDED_BY_DEFAULT.has(tag),
+    // Rows whose only purgeable tag is an opt-in one are reported, not rejected,
+    // when the operator did not ask for them.
+    const optInOnly = tags.every(
+      (tag) => !SWEEP_CANDIDATE_TAGS.has(tag) || OPT_IN_PURGE_TAGS.has(tag),
     )
-    if (!includeLogos && excludedOnly) {
+    if (!includeLogos && optInOnly) {
       excludedLogoRows.push(row)
       continue
     }
@@ -328,6 +471,154 @@ export function selectJunkRows(input: {
   }
 
   return { junkRows, excludedLogoRows }
+}
+
+/**
+ * Does the object behind this url still exist? A ranged GET rather than a HEAD:
+ * some storage edges answer HEAD from a cache that outlives the object, and one
+ * byte is cheap. Anything other than a 2xx — 400, 404, DNS failure, socket
+ * reset, timeout — answers `false`, because this pass must fail closed.
+ *
+ * Only ever called with a url that storageKeyFromPublicUrl has already accepted,
+ * so it never fetches a third-party host.
+ */
+export async function probeUrlReachable(url: string): Promise<boolean> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), REACHABILITY_TIMEOUT_MS)
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { Range: 'bytes=0-0' },
+      signal: controller.signal,
+    })
+    return response.ok
+  } catch {
+    return false
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/**
+ * Pass (d): decides, per candidate, whether a never-verdicted rejection may be
+ * reactivated. Async but pure apart from `probe`, so the dry run and the live
+ * run share one decision — the preview IS the plan that gets executed.
+ *
+ * Three gates, all fail-closed:
+ *   1. the row must still be `status = 'rejected'` with NULL tags. A non-null
+ *      tag is a real junk verdict and is out of scope entirely — reverting it
+ *      would re-publish images a working classifier deliberately rejected.
+ *   2. the url must resolve to a key under our brand-images public prefix
+ *      (storageKeyFromPublicUrl returns null otherwise). A legacy hotlink to a
+ *      third-party host is never probed and never reactivated.
+ *   3. the probe must answer 2xx. Not-2xx / error / timeout ⇒ stays rejected;
+ *      reactivating a row whose bytes are gone would recreate the dangling row
+ *      of pass (a), i.e. a permanent broken letter-tile on the brand page.
+ *
+ * Probed through a bounded worker pool. The matched population is ~1300 rows
+ * (mostly a long-dead legacy batch), so a serial walk takes many minutes and
+ * makes the dry run unusable. Decisions are written back by index, so the report
+ * stays deterministic regardless of completion order.
+ */
+export async function planReactivations(input: {
+  candidates: Array<{ table: RepairableImageTable; row: RejectedImageRow }>
+  probe: (url: string) => Promise<boolean>
+  concurrency?: number
+}): Promise<ReactivationDecision[]> {
+  const { candidates, probe } = input
+  const decisions: ReactivationDecision[] = new Array<ReactivationDecision>(
+    candidates.length,
+  )
+
+  async function decide(index: number): Promise<void> {
+    const { table, row } = candidates[index]
+
+    if (row.status !== 'rejected' || row.tags !== null) {
+      decisions[index] = {
+        table,
+        row,
+        action: 'skip',
+        reason: 'not a null-verdict rejection (status/tags out of scope)',
+      }
+      return
+    }
+
+    if (storageKeyFromPublicUrl(row.url) === null) {
+      decisions[index] = {
+        table,
+        row,
+        action: 'skip',
+        reason: 'url is not on our brand-images public prefix',
+      }
+      return
+    }
+
+    // The probe swallows its own errors, but a throwing probe must still fail
+    // closed rather than abort the run: one unreachable host cannot be allowed
+    // to leave the other candidates unprocessed.
+    let reachable = false
+    try {
+      reachable = await probe(row.url)
+    } catch {
+      reachable = false
+    }
+
+    decisions[index] = reachable
+      ? { table, row, action: 'reactivate', reason: 'url still resolves (2xx)' }
+      : {
+          table,
+          row,
+          action: 'skip',
+          reason: 'url did not answer 2xx — bytes are gone or unverifiable',
+        }
+  }
+
+  const workers = Math.max(
+    1,
+    Math.min(input.concurrency ?? REACHABILITY_CONCURRENCY, candidates.length),
+  )
+  let next = 0
+  await Promise.all(
+    Array.from({ length: workers }, async () => {
+      while (next < candidates.length) await decide(next++)
+    }),
+  )
+
+  return decisions
+}
+
+/**
+ * Circuit breaker for pass (d). The primary guard is on rows we would actually
+ * WRITE — that is the blast radius of "mass un-rejection". The candidate count
+ * is a much looser secondary guard for a selector that lost its `tags IS NULL`
+ * clause outright. Any reason returned here blocks mutation unless --force.
+ */
+export function detectReactivationAnomalies(
+  candidateCount: number,
+  reactivationCount: number,
+): string[] {
+  const reasons: string[] = []
+
+  if (reactivationCount > MAX_REACTIVATIONS) {
+    reasons.push(
+      `Pass (d) would reactivate ${reactivationCount} row(s), above the ` +
+        `threshold of ${MAX_REACTIVATIONS}. Only ~10 of the matched rows had ` +
+        'surviving bytes when this was measured, so a number materially above ' +
+        'that means the probe is accepting urls it should not, and un-rejecting ' +
+        'those would re-publish images somebody deliberately removed.',
+    )
+  }
+
+  if (candidateCount > MAX_NULL_VERDICT_CANDIDATES) {
+    reasons.push(
+      `Pass (d) matched ${candidateCount} row(s) with status='rejected' AND ` +
+        `tags IS NULL, above the threshold of ${MAX_NULL_VERDICT_CANDIDATES}. ` +
+        'That is far beyond the known population and suggests the selector lost ' +
+        'its tags IS NULL clause.',
+    )
+  }
+
+  return reasons
 }
 
 /**
@@ -556,6 +847,75 @@ async function rejectJunkRows(
   }
 }
 
+/**
+ * Pass (d)'s only mutation: status back to 'active'. `tags` is deliberately NOT
+ * written — leaving it NULL is what makes the fixed classifier pick the row up
+ * and give it a real verdict on the next run. Nothing is removed from storage.
+ *
+ * The eq/is pair re-checks the selector at write time (same belt-and-braces as
+ * hideBrands): if anything classified the row between the read and this update,
+ * the update matches nothing rather than un-rejecting a real verdict.
+ */
+async function reactivateRows(
+  supabase: ServiceClient,
+  table: RepairableImageTable,
+  rows: RejectedImageRow[],
+): Promise<void> {
+  const ids = rows.map((row) => row.id)
+
+  for (let index = 0; index < ids.length; index += CHUNK_SIZE) {
+    const chunk = ids.slice(index, index + CHUNK_SIZE)
+    const { error } =
+      table === 'brand_images'
+        ? await supabase
+            .from('brand_images')
+            .update({ status: 'active' })
+            .eq('status', 'rejected')
+            .is('tags', null)
+            .in('id', chunk)
+        : await supabase
+            .from('submission_images')
+            .update({ status: 'active' })
+            .eq('status', 'rejected')
+            .is('tags', null)
+            .in('id', chunk)
+    if (error) {
+      throw new Error(
+        `Failed to reactivate null-verdict rows in ${table}: ${error.message}`,
+      )
+    }
+  }
+}
+
+/**
+ * Applies pass (d), with the dry-run gate INSIDE rather than at the call site:
+ * `live === false` returns before touching the client, so the safe default
+ * cannot be lost to a future refactor of repair()'s control flow. Returns the
+ * number of rows actually mutated (0 in a dry run).
+ */
+export async function applyReactivations(
+  supabase: ServiceClient,
+  decisions: ReactivationDecision[],
+  live: boolean,
+): Promise<number> {
+  const approved = decisions.filter((entry) => entry.action === 'reactivate')
+  if (!live || approved.length === 0) return 0
+
+  let mutated = 0
+  for (const table of ['brand_images', 'submission_images'] as const) {
+    const tableRows = approved
+      .filter((entry) => entry.table === table)
+      .map((entry) => entry.row)
+    if (tableRows.length === 0) continue
+    await reactivateRows(supabase, table, tableRows)
+    mutated += tableRows.length
+    console.log(
+      `[OK] Reactivated ${tableRows.length} null-verdict rejection(s) in ${table}.`,
+    )
+  }
+  return mutated
+}
+
 async function hideBrands(
   supabase: ServiceClient,
   entries: BrandHideEntry[],
@@ -778,6 +1138,64 @@ function reportJunkPlan(
   }
 }
 
+/**
+ * Pass (d)'s preview: every candidate with its verdict and the reason, so a dry
+ * run predicts the live run row for row.
+ *
+ * The trailing warning covers the one cross-pass interaction that exists: pass
+ * (a)/(b)/(c) may delist a brand for having zero active images while pass (d)
+ * hands one of its images back. Nothing is auto-corrected — the hide decision
+ * belongs to those passes — but the operator is told to re-approve the brand.
+ */
+function reportReactivationPlan(
+  decisions: ReactivationDecision[],
+  candidateCount: number,
+  brandsToHide: BrandHideEntry[],
+  slugById: Map<string, string>,
+): void {
+  const reactivated = decisions.filter((entry) => entry.action === 'reactivate')
+  console.log(
+    `\n--- Null-verdict rejections (${candidateCount} candidate(s), ` +
+      `${reactivated.length} reachable) ---`,
+  )
+  if (candidateCount === 0) {
+    console.log('  (none)')
+    return
+  }
+  if (decisions.length === 0) {
+    console.log('  (not probed — the candidate-count breaker below tripped)')
+    return
+  }
+
+  for (const entry of decisions) {
+    const label = entry.action === 'reactivate' ? 'REACTIVATE' : 'LEAVE REJECTED'
+    console.log(
+      `  ${label.padEnd(15)} ${entry.table.padEnd(18)} ${entry.row.id} | ` +
+        `source:${entry.row.source ?? 'null'} | ${entry.reason}`,
+    )
+  }
+
+  const hiddenIds = new Set(brandsToHide.map((entry) => entry.brandId))
+  const conflicts = [
+    ...new Set(
+      reactivated
+        .map((entry) => entry.row.brand_id)
+        .filter(
+          (brandId): brandId is string =>
+            typeof brandId === 'string' && hiddenIds.has(brandId),
+        ),
+    ),
+  ].map((brandId) => slugById.get(brandId) ?? brandId)
+
+  if (conflicts.length > 0) {
+    console.log(
+      `  !! ${conflicts.length} brand(s) would be delisted by pass (a)/(b)/(c) ` +
+        'yet regain an image from pass (d): ' +
+        `${conflicts.sort().join(', ')}. Re-approve them after this run.`,
+    )
+  }
+}
+
 const HERO_ACTION_LABEL: Record<HeroAction, string> = {
   sync: 'RESYNC (hero set from a remaining active row)',
   keep: 'KEEP   (hero url is live — left untouched)',
@@ -819,11 +1237,14 @@ function countHeroActions(plan: HeroPlanEntry[]): Record<HeroAction, number> {
 async function repair({ live, force, includeLogos }: CliOptions): Promise<void> {
   const supabase = createServiceClient()
 
-  const [rows, brands, objects] = await Promise.all([
-    loadBrandImages(supabase),
-    loadBrands(supabase),
-    listAllObjects(supabase as unknown as StorageListClient),
-  ])
+  const [rows, brands, objects, brandImageCandidates, submissionImageCandidates] =
+    await Promise.all([
+      loadBrandImages(supabase),
+      loadBrands(supabase),
+      listAllObjects(supabase as unknown as StorageListClient),
+      loadNullVerdictRejections(supabase, 'brand_images'),
+      loadNullVerdictRejections(supabase, 'submission_images'),
+    ])
 
   const slugById = new Map(brands.map((brand) => [brand.id, brand.slug]))
   const brandById = new Map(brands.map((brand) => [brand.id, brand]))
@@ -892,6 +1313,44 @@ async function repair({ live, force, includeLogos }: CliOptions): Promise<void> 
     junkPaths,
   })
 
+  // Pass (d): rejections the classifier never actually delivered a verdict for.
+  // Probed in both modes — the dry run's whole job is to predict the live run,
+  // and reachability is the only thing that decides it.
+  const reactivationCandidates = [
+    ...brandImageCandidates.map((row) => ({
+      table: 'brand_images' as const,
+      row,
+    })),
+    ...submissionImageCandidates.map((row) => ({
+      table: 'submission_images' as const,
+      row,
+    })),
+  ]
+  // The candidate count is only the loose outer guard, so it is checked first:
+  // if the selector matched an absurd population, skip probing entirely rather
+  // than firing thousands of unexpected requests. With --force the operator has
+  // accepted the count, so the plan is built normally.
+  const candidateAnomalies = detectReactivationAnomalies(
+    reactivationCandidates.length,
+    0,
+  )
+  const reactivationPlan =
+    candidateAnomalies.length > 0 && !force
+      ? []
+      : await planReactivations({
+          candidates: reactivationCandidates,
+          probe: probeUrlReachable,
+        })
+  // The real blast radius is rows we would WRITE, which is only knowable after
+  // probing — the fail-closed probe discards the (large, already-dead) majority.
+  const reactivationAnomalies = detectReactivationAnomalies(
+    reactivationCandidates.length,
+    reactivationPlan.filter((entry) => entry.action === 'reactivate').length,
+  )
+  const rowsToReactivate = reactivationPlan.filter(
+    (entry) => entry.action === 'reactivate',
+  )
+
   const brandsToHide = planBrandHides({
     affectedBrandIds,
     activeCountsBefore: beforeCounts,
@@ -904,12 +1363,19 @@ async function repair({ live, force, includeLogos }: CliOptions): Promise<void> 
   reportRows('Dangling active rows (storage object missing)', danglingRows, slugById)
   reportRows('Legacy hotlink rows (non-supabase host)', externalRows, slugById)
   reportJunkPlan(junkRows, excludedLogoRows, brandCounts, heroPlan, brandsToHide, slugById)
+  reportReactivationPlan(
+    reactivationPlan,
+    reactivationCandidates.length,
+    brandsToHide,
+    slugById,
+  )
   reportCounts(brandCounts, brandsToHide)
   reportHeroPlan(heroPlan)
 
   const anomalies = [
     ...detectInventoryAnomalies(objects.length, rows, danglingRows, slugById),
     ...detectJunkAnomalies(brandsToHide),
+    ...reactivationAnomalies,
   ]
   reportAnomalies(anomalies)
 
@@ -921,6 +1387,7 @@ async function repair({ live, force, includeLogos }: CliOptions): Promise<void> 
     danglingRows,
     externalRows,
     junkRows,
+    reactivationPlan,
     brandsToHide,
     brandsBefore: brands.filter((brand) =>
       brandCounts.has(brand.id),
@@ -934,7 +1401,9 @@ async function repair({ live, force, includeLogos }: CliOptions): Promise<void> 
     console.log(
       `\nA --live run would: reject ${danglingRows.length} dangling row(s), ` +
         `delete ${externalRows.length} hotlink row(s), reject ${junkRows.length} junk-tagged row(s) ` +
-        `(${excludedLogoRows.length} logo row(s) excluded), hide ${brandsToHide.length} emptied brand(s), ` +
+        `(${excludedLogoRows.length} logo row(s) excluded), ` +
+        `reactivate ${rowsToReactivate.length} of ${reactivationCandidates.length} null-verdict rejection(s), ` +
+        `hide ${brandsToHide.length} emptied brand(s), ` +
         `resync ${heroCounts.sync} hero(es), ` +
         `keep ${heroCounts.keep} live hero url(s) untouched, ` +
         `clear ${heroCounts.clear} broken hero url(s), skip ${heroCounts.skip}.`,
@@ -986,11 +1455,20 @@ async function repair({ live, force, includeLogos }: CliOptions): Promise<void> 
     console.log(`[OK] Hid ${brandsToHide.length} brand(s) left with zero active images.`)
   }
 
+  // Pass (d) runs LAST, deliberately: syncHeroDenormalized picks from the active
+  // rows at call time, so reactivating first would let a not-yet-reclassified
+  // row become a brand's hero and make the live run diverge from its preview.
+  // Running after means the other passes execute exactly as reported.
+  await applyReactivations(supabase, reactivationPlan, live)
+
   console.log('\n--- Repair Summary ---')
   console.log(`Dangling rows rejected: ${danglingRows.length}`)
   console.log(`Hotlink rows deleted:   ${externalRows.length}`)
   console.log(`Junk rows rejected:     ${junkRows.length}`)
   console.log(`Logo rows kept:         ${excludedLogoRows.length}`)
+  console.log(
+    `Null-verdict reactivated: ${rowsToReactivate.length} of ${reactivationCandidates.length} candidate(s)`,
+  )
   console.log(`Brands hidden:          ${brandsToHide.length}`)
   console.log(`Heroes resynced:        ${heroCounts.sync}`)
   console.log(`Heroes kept (live url): ${heroCounts.keep}`)

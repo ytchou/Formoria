@@ -23,6 +23,7 @@ export type CurationJobParams = Record<string, Json | undefined> & {
   submissionIds?: string[];
   stopAfter?: number;
   phases?: string[];
+  overwrite?: boolean;
   status?: string;
   target?: "submissions" | "brands";
 };
@@ -321,6 +322,7 @@ export async function enqueueAutomaticRetry(
 export async function enqueueManualRerun(
   sourceJobId: string,
   startedBy: string,
+  options?: { overwrite?: boolean },
 ): Promise<CurationJob> {
   const source = await getCurationJob(sourceJobId);
   const allTargets = await listCurationJobTargets(source.id);
@@ -378,9 +380,7 @@ export async function enqueueManualRerun(
     );
   }
 
-  const params = parseJobParams(source.params);
-  delete params.phases;
-  delete params.stopAfter;
+  const params = rerunJobParams(source.params, options);
 
   return enqueueCurationJob({
     operation: "enrich",
@@ -808,4 +808,33 @@ function parseJobParams(params: Json | null): CurationJobParams {
   return params && typeof params === "object" && !Array.isArray(params)
     ? ({ ...params } as CurationJobParams)
     : {};
+}
+
+/**
+ * Params for a manual rerun. A rerun must behave like the run it repeats, so
+ * the source job's phase scope is preserved — dropping `phases` here silently
+ * escalated an images-only job into the full pipeline (serper + LLM spend, and
+ * rewritten text fields the admin never asked for).
+ *
+ * `stopAfter` is still dropped: the runner maps it to a SQL LIMIT, and a rerun
+ * already carries an explicit, pre-filtered target list, so a stale limit would
+ * silently truncate that list instead of capping a broad scan.
+ */
+export function rerunJobParams(
+  params: Json | null,
+  options?: { overwrite?: boolean },
+): CurationJobParams {
+  const rerunParams = parseJobParams(params);
+  delete rerunParams.stopAfter;
+  rerunParams.overwrite =
+    parseOverwriteParam(rerunParams.overwrite) || options?.overwrite === true;
+  return rerunParams;
+}
+
+/**
+ * `params` is a JSON column, so the stored value may be any JSON scalar.
+ * Only a real boolean `true` (or its "true" string form) enables overwrite.
+ */
+export function parseOverwriteParam(value: unknown): boolean {
+  return value === true || value === "true";
 }

@@ -239,7 +239,7 @@ describe("SubmissionReviewDetails", () => {
       makeSubmission({
         reviewCompleteness: {
           complete: false,
-          missingFields: ["description", "website", "additionalImage"],
+          missingFields: ["description", "website"],
         },
       }),
     );
@@ -249,9 +249,6 @@ describe("SubmissionReviewDetails", () => {
     expect(within(missing!).getByText("Description")).toBeInTheDocument();
     expect(
       within(missing!).getByText("Valid official website"),
-    ).toBeInTheDocument();
-    expect(
-      within(missing!).getByText("At least one additional image"),
     ).toBeInTheDocument();
   });
 

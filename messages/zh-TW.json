@@ -2598,7 +2598,6 @@
         "priceRange": "價格區間",
         "website": "有效的官方網站",
         "heroImage": "主圖",
-        "additionalImage": "至少一張額外圖片",
         "successfulEnrichment": "最近一次資料抓取成功"
       },
       "details": {
