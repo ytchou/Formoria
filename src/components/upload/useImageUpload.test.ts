@@ -3,6 +3,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useImageUpload } from './useImageUpload'
 
+const uploadConfig = {
+  bucket: 'brand-images',
+  path: 'brands/taiwan-tea-company',
+  invalidTypeMessage: 'Choose an image file.',
+  fileTooLargeMessage: 'The image must be 5MB or smaller.',
+  uploadFailedMessage: 'Upload failed. Please try again.',
+}
+
 function createMockFile(name: string, size: number, type: string): File {
   const buffer = new ArrayBuffer(size)
   return new File([buffer], name, { type })
@@ -19,7 +27,7 @@ describe('useImageUpload', () => {
 
   it('returns idle status initially', () => {
     const { result } = renderHook(() =>
-      useImageUpload({ bucket: 'brand-images', path: 'test' })
+      useImageUpload(uploadConfig)
     )
     expect(result.current.status).toBe('idle')
     expect(result.current.url).toBeNull()
@@ -28,7 +36,7 @@ describe('useImageUpload', () => {
 
   it('rejects files over 5MB', async () => {
     const { result } = renderHook(() =>
-      useImageUpload({ bucket: 'brand-images', path: 'test' })
+      useImageUpload(uploadConfig)
     )
     const bigFile = createMockFile('huge.jpg', 6 * 1024 * 1024, 'image/jpeg')
 
@@ -42,7 +50,7 @@ describe('useImageUpload', () => {
 
   it('rejects non-image files', async () => {
     const { result } = renderHook(() =>
-      useImageUpload({ bucket: 'brand-images', path: 'test' })
+      useImageUpload(uploadConfig)
     )
     const textFile = createMockFile('doc.txt', 100, 'text/plain')
 
@@ -57,13 +65,13 @@ describe('useImageUpload', () => {
   it('uploads and returns public URL on success', async () => {
     vi.spyOn(global, 'fetch').mockResolvedValueOnce(
       new Response(
-        JSON.stringify({ url: 'https://storage.example.com/test/logo.webp' }),
+        JSON.stringify({ url: 'https://storage.example.com/brands/taiwan-tea-company/logo.webp' }),
         { status: 200 }
       )
     )
 
     const { result } = renderHook(() =>
-      useImageUpload({ bucket: 'brand-images', path: 'test' })
+      useImageUpload(uploadConfig)
     )
     const file = createMockFile('logo.png', 1024, 'image/png')
 
@@ -72,33 +80,40 @@ describe('useImageUpload', () => {
     })
 
     expect(result.current.status).toBe('success')
-    expect(result.current.url).toBe('https://storage.example.com/test/logo.webp')
+    expect(result.current.url).toBe(
+      'https://storage.example.com/brands/taiwan-tea-company/logo.webp',
+    )
   })
 
   it('allows caller-provided file types and upload fields', async () => {
     const fetchMock = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
       new Response(
-        JSON.stringify({ key: 'claim-proofs/user-1/brand-1/doc.pdf' }),
+        JSON.stringify({
+          key: 'claim-proofs/2fd12f4c-51a6-4af4-9dac-7dd12a5ec914/taiwan-tea-company/business-registration.pdf',
+        }),
         { status: 200 }
       )
     )
 
     const { result } = renderHook(() =>
       useImageUpload({
+        ...uploadConfig,
         bucket: 'claim-proofs',
-        path: 'user-1/brand-1',
+        path: 'maría-garcía/taiwan-tea-company',
         acceptedTypes: ['application/pdf'],
         uploadFields: { proofType: 'business_doc' },
       })
     )
-    const file = createMockFile('doc.pdf', 1024, 'application/pdf')
+    const file = createMockFile('business-registration.pdf', 1024, 'application/pdf')
 
     await act(async () => {
       await result.current.upload(file)
     })
 
     expect(result.current.status).toBe('success')
-    expect(result.current.key).toBe('claim-proofs/user-1/brand-1/doc.pdf')
+    expect(result.current.key).toBe(
+      'claim-proofs/2fd12f4c-51a6-4af4-9dac-7dd12a5ec914/taiwan-tea-company/business-registration.pdf',
+    )
     const body = fetchMock.mock.calls[0]?.[1]?.body
     expect(body).toBeInstanceOf(FormData)
     expect((body as FormData).get('proofType')).toBe('business_doc')
@@ -106,8 +121,8 @@ describe('useImageUpload', () => {
 
   it('returns staged metadata from a custom upload endpoint', async () => {
     const stagedImage = {
-      id: 'image-1',
-      submissionId: 'submission-1',
+      id: '7a0ea90d-4a8c-4d2f-91cf-a6864a41a26d',
+      submissionId: 'b5cd2968-6587-48fe-9c6a-6104db171db5',
       url: 'https://storage.example.com/submission/image.webp',
       status: 'draft',
     }
@@ -116,9 +131,9 @@ describe('useImageUpload', () => {
     )
     const { result } = renderHook(() =>
       useImageUpload({
-        bucket: 'brand-images',
-        path: 'submissions/submission-1',
-        endpoint: '/api/admin/submissions/submission-1/images',
+        ...uploadConfig,
+        path: 'submissions/taiwan-tea-company',
+        endpoint: '/api/admin/submissions/b5cd2968-6587-48fe-9c6a-6104db171db5/images',
       })
     )
 
@@ -130,7 +145,7 @@ describe('useImageUpload', () => {
     })
 
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/admin/submissions/submission-1/images',
+      '/api/admin/submissions/b5cd2968-6587-48fe-9c6a-6104db171db5/images',
       expect.objectContaining({ method: 'POST' })
     )
     expect(uploaded).toMatchObject({
@@ -146,7 +161,7 @@ describe('useImageUpload', () => {
     )
 
     const { result } = renderHook(() =>
-      useImageUpload({ bucket: 'brand-images', path: 'test' })
+      useImageUpload(uploadConfig)
     )
     const file = createMockFile('logo.png', 1024, 'image/png')
 
@@ -155,6 +170,6 @@ describe('useImageUpload', () => {
     })
 
     expect(result.current.status).toBe('error')
-    expect(result.current.error).toBe('Bucket not found')
+    expect(result.current.error).toBe(uploadConfig.uploadFailedMessage)
   })
 })

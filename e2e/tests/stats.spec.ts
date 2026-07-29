@@ -26,6 +26,19 @@ test.describe('Stats page', () => {
     expect(linkCount).toBeGreaterThan(0);
   });
 
+  test('category labels and links follow the page locale', async ({ page }) => {
+    await expect(page.getByRole('link', { name: /食品飲料/ })).toHaveAttribute(
+      'href',
+      '/brands?category=food-drink',
+    );
+
+    await page.goto('/en/stats');
+    await expect(page.getByRole('link', { name: /Food & Beverage/ })).toHaveAttribute(
+      'href',
+      '/en/brands?category=food-drink',
+    );
+  });
+
   test('MIT verified section displays a percentage value', async ({ page }) => {
     // h2 "MIT 認證" confirms the section rendered
     await expect(page.getByRole('heading', { level: 2, name: 'MIT 認證' })).toBeVisible();

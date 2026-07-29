@@ -80,3 +80,15 @@ export async function updateProfile(userId: string, update: ProfileUpdate): Prom
   const { error } = await supabase.from('profiles').update(row).eq('id', userId)
   if (error) throw error
 }
+
+export async function updateProfileAdmin(userId: string, update: ProfileUpdate): Promise<void> {
+  const supabase = createServiceClient()
+
+  const row: Database['public']['Tables']['profiles']['Update'] = {}
+  if (update.displayName !== undefined) row.display_name = update.displayName
+  if (update.localePreference !== undefined) row.locale_preference = update.localePreference
+  row.updated_at = new Date().toISOString()
+
+  const { error } = await supabase.from('profiles').update(row).eq('id', userId)
+  if (error) throw error
+}

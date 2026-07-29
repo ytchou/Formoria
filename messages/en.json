@@ -10,8 +10,26 @@
     "noBrandsFound": "No brands found",
     "adjustOrClearFilters": "Try adjusting or clearing your filters",
     "tryAdjustOrClearFilters": "Try adjusting or clearing your filters.",
+    "skipToContent": "Skip to content",
+    "close": "Close",
+    "closeDialog": "Close dialog",
     "foundingYear": "Est. {year}",
     "verified": "Verified"
+  },
+  "feedbackWidget": {
+    "triggerLabel": "Report Issue",
+    "formTitle": "Report Issue",
+    "nameLabel": "Name",
+    "namePlaceholder": "Your name",
+    "emailLabel": "Email",
+    "emailPlaceholder": "you@example.com",
+    "messageLabel": "Description",
+    "messagePlaceholder": "Describe the issue you encountered",
+    "submitButtonLabel": "Submit",
+    "cancelButtonLabel": "Cancel",
+    "addScreenshotButtonLabel": "Add screenshot",
+    "removeScreenshotButtonLabel": "Remove screenshot",
+    "successMessageText": "Thank you for your report!"
   },
   "nav": {
     "brandDirectory": "Brand Directory",
@@ -131,6 +149,7 @@
     "combinedDescription": "Newsletter delivery starts after email confirmation. You can later disable either category or unsubscribe from all free of charge in Settings. See our <privacyPolicy>Privacy Policy</privacyPolicy>."
   },
   "brands": {
+    "breadcrumbAria": "Breadcrumb",
     "metadata": {
       "title": "Brand Directory — Browse Taiwanese Brands | Formoria",
       "description": "Discover thoughtfully curated Taiwanese brands. Browse by category, search, and explore brands founded, designed, or made in Taiwan."
@@ -178,6 +197,7 @@
       "clear": "Clear search"
     },
     "pagination": {
+      "label": "Pagination",
       "previous": "‹ Previous",
       "previousAria": "Previous page",
       "next": "Next ›",
@@ -213,6 +233,9 @@
       "readyToSubmit": "Ready to submit",
       "noteLabel": "Note (optional)",
       "uploadingLabel": "Uploading…",
+      "invalidUploadType": "Choose a supported file type.",
+      "fileTooLarge": "File size must be under 5MB.",
+      "uploadFailed": "Upload failed. Please try again.",
       "pendingTitle": "Claim request received",
       "pendingBody": "We'll review the ownership proof you submitted and email you the result.",
       "pendingDomainEmailBody": "A verification email has been sent to {email}. Open the link in that email to complete verification.",
@@ -286,10 +309,12 @@
     },
     "geographicDistribution": "Geographic Distribution",
     "geographicDistributionDesc": "Brand distribution across Taiwan's cities and counties (of brands with location data)",
+    "mapAria": "Taiwan brand distribution map",
     "noCityData": "No city data available yet",
     "foundingDecade": {
       "title": "Founding Decade Distribution",
-      "description": "When Taiwan's brands were established (of brands with founding year data)"
+      "description": "When Taiwan's brands were established (of brands with founding year data)",
+      "label": "{decade}s"
     }
   },
   "cities": {
@@ -529,6 +554,7 @@
       "viewAsOwner": "Brand view"
     },
     "breadcrumb": {
+      "ariaLabel": "Breadcrumb",
       "directory": "Brands"
     },
     "sections": {
@@ -738,6 +764,13 @@
     "eyebrow": "Reference",
     "heading": "Glossary",
     "lede": "Terms and definitions used across Formoria — from what 'Made in Taiwan' means to how trust badges work and how we organise the directory.",
+    "breadcrumbHome": "Home",
+    "sectionsLabel": "SECTIONS",
+    "sectionsAria": "Glossary sections",
+    "verifiedBadgeLabel": "MIT Verified",
+    "verifiedBadgeTitle": "Verified MIT Smile Mark registration",
+    "ownerBadgeLabel": "Brand-managed",
+    "ownerBadgeTitle": "Managed by the brand owner",
     "sections": {
       "core": {
         "title": "Core",
@@ -1117,6 +1150,7 @@
     }
   },
   "auth": {
+    "emailPlaceholder": "you@example.com",
     "validation": {
       "emailInvalid": "Please enter a valid email address",
       "passwordRequired": "Please enter your password",
@@ -1241,6 +1275,7 @@
     "submit": "Save Settings",
     "submitting": "Saving…",
     "saved": "Settings saved",
+    "unauthorized": "Please sign in to update your settings.",
     "validation": {
       "displayNameMaxLength": "Display name cannot exceed 50 characters",
       "invalidLocale": "Please select a valid language"
@@ -1264,6 +1299,9 @@
     },
     "uploader": {
       "uploading": "Uploading...",
+      "invalidType": "Please upload an image file",
+      "fileTooLarge": "File size must be under 5MB",
+      "genericUploadFailed": "Upload failed. Please try again.",
       "clickOrDrag": "Click to upload or drag and drop",
       "clickToReplace": "Click or drag to replace",
       "replace": "Replace image",
@@ -1402,6 +1440,8 @@
       "tooltipOutboundClicks": "Sessions where a visitor clicked an external link from your brand page.",
       "tooltipOutboundClickRate": "Outbound clicks ÷ profile visits. Measures how often visitors engage with your links.",
       "tooltipTopTrafficSource": "The most common way visitors find your brand page.",
+      "definitionAria": "Definition",
+      "sessions": "Sessions",
       "collectingBaseline": "Collecting comparison baseline",
       "priorChangeUnavailable": "Prior-period change unavailable",
       "currentRateUnavailable": "Current rate unavailable",
@@ -2754,6 +2794,8 @@
     "comingSoon": "coming soon",
     "loadError": "Guides are temporarily unavailable. Please try again later.",
     "breadcrumb": "Guides",
+    "breadcrumbAria": "Breadcrumb",
+    "categoriesAria": "Guide categories",
     "notFound": {
       "title": "Guide not found",
       "description": "The guide you're looking for doesn't exist or has been removed.",

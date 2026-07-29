@@ -24,7 +24,7 @@ import { MarketingEmailOptInField } from '@/components/forms/marketing-email-opt
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
-import { useRouter } from '@/i18n/navigation'
+import { Link, useRouter } from '@/i18n/navigation'
 import { trackSubmissionCompleted } from '@/lib/analytics'
 import { useSubmissionAnalytics } from '@/hooks/use-submission-analytics'
 import type { WizardStep } from '@/lib/schemas/brand-edit'
@@ -296,14 +296,14 @@ export default function SubmissionWizard({
                           <span className="type-body font-normal">
                             {tReview.rich('pdpaConsent', {
                               privacyPolicy: (chunks) => (
-                                <a
+                                <Link
                                   href="/privacy"
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                 >
                                   {chunks}
-                                </a>
+                                </Link>
                               ),
                             })}
                           </span>

@@ -158,7 +158,7 @@ export async function publishDraftAction(
   const t = await getTranslations('dashboard.edit.errors')
   const brandSlug = formData.get('brandSlug') as string
   if (!brandSlug) {
-    return { error: 'Missing brand slug' }
+    return { error: t('brandNotFound') }
   }
   let redirectSlug = brandSlug
 
@@ -171,7 +171,7 @@ export async function publishDraftAction(
       if (editor.error === 'forbidden') {
         return { error: t('forbidden') }
       }
-      return { error: `Brand not found: ${brandSlug}` }
+      return { error: t('brandNotFound') }
     }
     const { user, brand, owner, actingAdmin, configuredAdmin } = editor
 

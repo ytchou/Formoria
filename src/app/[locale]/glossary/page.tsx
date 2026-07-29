@@ -97,8 +97,8 @@ export default async function GlossaryPage({ params }: PageProps) {
   const definedTermSetJsonLd = buildDefinedTermSetJsonLd(allTerms, safeLocale)
   const breadcrumbJsonLd = buildBreadcrumbJsonLd(
     [
-      { label: safeLocale === 'zh-TW' ? '首頁' : 'Home', href: '/' },
-      { label: safeLocale === 'zh-TW' ? '名詞解說' : 'Glossary', href: '/glossary' },
+      { label: t('breadcrumbHome'), href: '/' },
+      { label: t('heading'), href: '/glossary' },
     ],
     safeLocale,
   )
@@ -138,7 +138,8 @@ export default async function GlossaryPage({ params }: PageProps) {
           <div className="flex flex-col gap-10 md:flex-row md:gap-12">
             <GlossaryAnchorNav
               sections={navSections}
-              sectionsLabel={safeLocale === 'zh-TW' ? '分類' : 'SECTIONS'}
+              sectionsLabel={t('sectionsLabel')}
+              navigationLabel={t('sectionsAria')}
             />
 
             {/* Content */}
@@ -186,14 +187,14 @@ export default async function GlossaryPage({ params }: PageProps) {
                             </span>
                             {term.badge === 'verified' && (
                               <MitVerifiedBadge
-                                label={safeLocale === 'zh-TW' ? 'MIT 微笑認證' : 'MIT Verified'}
-                                title={safeLocale === 'zh-TW' ? '已通過 MIT 微笑標章登錄驗證' : 'Verified MIT Smile Mark registration'}
+                                label={t('verifiedBadgeLabel')}
+                                title={t('verifiedBadgeTitle')}
                               />
                             )}
                             {term.badge === 'owner' && (
                               <OwnerVerifiedBadge
-                                label={safeLocale === 'zh-TW' ? '品牌經營' : 'Brand-managed'}
-                                title={safeLocale === 'zh-TW' ? '由品牌方經營管理' : 'Managed by the brand owner'}
+                                label={t('ownerBadgeLabel')}
+                                title={t('ownerBadgeTitle')}
                               />
                             )}
                             {term.range && (

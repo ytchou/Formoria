@@ -5,13 +5,21 @@ import { isRelativeUrl } from "@/lib/auth/validations";
 import { verifyClaimToken } from "@/lib/auth/claim-token";
 import { getRequestOrigin } from "@/lib/auth/site-url";
 import { completeBrandClaim, getBrandById } from "@/lib/services/brands";
-import { getProfileAdmin } from "@/lib/services/profiles";
+import { getProfileAdmin, updateProfileAdmin } from "@/lib/services/profiles";
 import { enrollInMarketingEmails } from "@/lib/services/marketing-email-consent";
 import { getPostHogClient } from "@/lib/posthog-server";
+import {
+  isAppLocale,
+  localizePostAuthPath,
+  LOCALE_COOKIE,
+  resolveAuthenticatedLocale,
+  type AppLocale,
+} from "@/i18n/locale-preference";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const code = searchParams.get("code");
+  const origin = await getRequestOrigin();
 
   // Post-auth intent is carried via short-lived cookies for the OAuth flow
   // (see signInWithGoogle), with query params as the fallback for the
@@ -22,18 +30,22 @@ export async function GET(request: NextRequest) {
     cookieStore.get("post_auth_claim")?.value ?? searchParams.get("claim");
   const marketingEmailOptIn =
     cookieStore.get("post_auth_marketing_opt_in")?.value === "1";
-  const marketingLocale =
-    cookieStore.get("post_auth_marketing_locale")?.value === "en"
-      ? "en"
-      : "zh-TW";
+  const rawIntendedLocale = cookieStore.get("post_auth_locale")?.value;
+  const legacyMarketingLocale = cookieStore.get("post_auth_marketing_locale")?.value;
+  const intendedLocale: AppLocale | null = isAppLocale(rawIntendedLocale)
+    ? rawIntendedLocale
+    : isAppLocale(legacyMarketingLocale)
+      ? legacyMarketingLocale
+      : null;
   cookieStore.delete("post_auth_next");
   cookieStore.delete("post_auth_claim");
   cookieStore.delete("post_auth_marketing_opt_in");
   cookieStore.delete("post_auth_marketing_locale");
+  cookieStore.delete("post_auth_locale");
 
   if (!code && !claimToken) {
     return NextResponse.redirect(
-      new URL("/auth/sign-in?error=missing-code", await getRequestOrigin())
+      new URL("/auth/sign-in?error=missing-code", origin)
     );
   }
 
@@ -48,7 +60,7 @@ export async function GET(request: NextRequest) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {
       return NextResponse.redirect(
-        new URL("/auth/sign-in?error=expired-code", await getRequestOrigin())
+        new URL("/auth/sign-in?error=expired-code", origin)
       );
     }
     userId = data.user?.id;
@@ -69,11 +81,31 @@ export async function GET(request: NextRequest) {
     userEmail = user?.email;
   }
 
+  const profile = userId ? await getProfileAdmin(userId) : null;
+  const locale = resolveAuthenticatedLocale({
+    isNewUser,
+    profileLocale: profile?.localePreference,
+    intendedLocale,
+  });
+
+  if (userId && isNewUser && profile?.localePreference !== locale) {
+    await updateProfileAdmin(userId, { localePreference: locale });
+  }
+  if (userId) {
+    cookieStore.set(LOCALE_COOKIE, locale, {
+      sameSite: "lax",
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production" && process.env.PLAYWRIGHT_TEST !== "true",
+      path: "/",
+      maxAge: 365 * 24 * 60 * 60,
+    });
+  }
+
   if (marketingEmailOptIn && userId && userEmail) {
     await enrollInMarketingEmails(createServiceClient(), {
       email: userEmail,
       userId,
-      locale: marketingLocale,
+      locale: intendedLocale ?? locale,
       source: "google_signup",
       newsletter: true,
       lifecycle: true,
@@ -86,13 +118,13 @@ export async function GET(request: NextRequest) {
 
     if (!claim) {
       return NextResponse.redirect(
-        new URL("/dashboard?error=invalid-claim", await getRequestOrigin())
+        new URL(localizePostAuthPath("/dashboard?error=invalid-claim", locale), origin)
       );
     }
 
     if (claim.email !== userEmail) {
       return NextResponse.redirect(
-        new URL("/dashboard?error=email-mismatch", await getRequestOrigin())
+        new URL(localizePostAuthPath("/dashboard?error=email-mismatch", locale), origin)
       );
     }
 
@@ -114,7 +146,10 @@ export async function GET(request: NextRequest) {
         },
       });
       await posthog.flush();
-      const url = new URL(`/dashboard/brands/${brand.slug}`, await getRequestOrigin());
+      const url = new URL(
+        localizePostAuthPath(`/dashboard/brands/${brand.slug}`, locale),
+        origin,
+      );
       if (isNewUser) {
         url.searchParams.set("is_new_user", "1");
       }
@@ -124,22 +159,8 @@ export async function GET(request: NextRequest) {
         ? 'owner-limit'
         : 'claim-failed'
       return NextResponse.redirect(
-        new URL(`/dashboard?error=${reason}`, await getRequestOrigin())
+        new URL(localizePostAuthPath(`/dashboard?error=${reason}`, locale), origin)
       );
-    }
-  }
-
-  // Sync locale preference cookie on login
-  if (userId) {
-    const profile = await getProfileAdmin(userId);
-    if (profile?.localePreference) {
-      cookieStore.set("NEXT_LOCALE", profile.localePreference, {
-        sameSite: "lax",
-        httpOnly: false,
-        secure: process.env.NODE_ENV === "production" && process.env.PLAYWRIGHT_TEST !== "true",
-        path: "/",
-        maxAge: 365 * 24 * 60 * 60,
-      });
     }
   }
 
@@ -161,7 +182,7 @@ export async function GET(request: NextRequest) {
   }
 
   const redirectTo = next && isRelativeUrl(next) ? next : "/dashboard";
-  const url = new URL(redirectTo, await getRequestOrigin());
+  const url = new URL(localizePostAuthPath(redirectTo, locale), origin);
   if (isNewUser) {
     url.searchParams.set("is_new_user", "1");
   }

@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { signIn, signInWithGoogle } from "@/app/auth/actions";
 import type { AuthState } from "@/app/auth/actions";
 import { GoogleButton } from "@/components/auth/google-button";
@@ -29,7 +29,14 @@ export function SignInForm({ claimToken, claimBrandName, errorCode }: SignInForm
   const searchParams = useSearchParams();
   const message = searchParams.get("message");
   const next = searchParams.get("next");
-  const googleAction = signInWithGoogle.bind(null, claimToken, next ?? undefined);
+  const locale = useLocale();
+  const googleAction = signInWithGoogle.bind(
+    null,
+    claimToken,
+    next ?? undefined,
+    false,
+    locale,
+  );
   const t = useTranslations("auth");
 
   const errorMessage =
@@ -78,6 +85,7 @@ export function SignInForm({ claimToken, claimBrandName, errorCode }: SignInForm
       )}
 
       <form action={action} className="space-y-4">
+        <input type="hidden" name="locale" value={locale} />
         {claimToken && (
           <input type="hidden" name="claimToken" value={claimToken} />
         )}
@@ -91,7 +99,7 @@ export function SignInForm({ claimToken, claimBrandName, errorCode }: SignInForm
             id="email"
             name="email"
             type="email"
-            placeholder="you@example.com"
+            placeholder={t("emailPlaceholder")}
             required
             autoComplete="email"
           />

@@ -1,5 +1,6 @@
 'use client'
 
+import type { FormEvent } from 'react'
 import { Globe } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { setLocalePreference } from '@/app/actions/locale-preference'
@@ -12,6 +13,13 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { usePathname } from '@/i18n/navigation'
 import { trackLanguageSwitched } from '@/lib/analytics'
+
+function preserveCurrentUrl(event: FormEvent<HTMLFormElement>) {
+  const returnTo = event.currentTarget.elements.namedItem('returnTo')
+  if (returnTo instanceof HTMLInputElement) {
+    returnTo.value = `${window.location.pathname}${window.location.search}${window.location.hash}`
+  }
+}
 
 export function LocaleSwitcher({ compact = false }: { compact?: boolean }) {
   const locale = useLocale()
@@ -31,7 +39,12 @@ export function LocaleSwitcher({ compact = false }: { compact?: boolean }) {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-36 min-w-36">
         {(['zh-TW', 'en'] as const).map((targetLocale) => (
-          <form key={targetLocale} action={setLocalePreference.bind(null, targetLocale, pathname)}>
+          <form
+            key={targetLocale}
+            action={setLocalePreference.bind(null, targetLocale)}
+            onSubmit={preserveCurrentUrl}
+          >
+            <input type="hidden" name="returnTo" defaultValue={pathname} />
             <DropdownMenuItem
               className={locale === targetLocale ? 'font-medium' : undefined}
               render={

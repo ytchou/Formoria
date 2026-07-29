@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
+import ts from 'typescript'
 
 /**
  * i18n regression guard — Chinese-in-English direction.
@@ -18,6 +19,8 @@ const SRC = join(process.cwd(), 'src')
 
 // Han ideographs (main + Ext-A + compatibility). Catches any Chinese string.
 const HAN = /[㐀-鿿豈-﫿]/
+const LATIN = /[A-Za-z]/
+const USER_FACING_ATTRIBUTES = new Set(['alt', 'aria-label', 'placeholder', 'title'])
 
 const ALLOWLIST = [
   // Admin surface is intentionally single-locale (Chinese-only).
@@ -28,20 +31,12 @@ const ALLOWLIST = [
   // Email copy lives in-file and is locale-branched inside the template.
   'lib/email/templates.ts',
   // Language endonyms (中文 / English) — correct in both locales.
-  'components/i18n/locale-switcher.tsx',
   'components/settings/settings-form.tsx',
   // OG images: rendered to PNG, locale-branched or zh default by design.
   'app/opengraph-image.tsx',
   'app/[locale]/brands/[slug]/opengraph-image.tsx',
-  // Structured data + glossary: inline `locale === 'zh-TW' ? … : …` (locale-aware).
+  // Structured data uses locale-aware labels outside React rendering.
   'lib/json-ld.ts',
-  'app/[locale]/glossary/page.tsx',
-  // Root metadata fallback ([locale] layout overrides) + a zh comment.
-  'app/layout.tsx',
-  // Auth pages live outside [locale] (no request locale) — metadata zh fallback.
-  'app/auth/sign-in/page.tsx',
-  'app/auth/sign-up/page.tsx',
-  'app/auth/forgot-password/page.tsx',
   // Owner mailto subject — locale-branched template.
   'components/dashboard/inline-verification.tsx',
   // Non-display Chinese: a comment and scraper keyword regex.
@@ -83,8 +78,6 @@ const ALLOWLIST = [
   // Microsite is intentionally ZH-TW-only (v1 single-locale surface, DEV-767).
   'components/microsite/',
   'app/(microsite)/',
-  // Sentry feedback widget: static SDK config outside next-intl (zh-TW default).
-  'instrumentation-client.ts',
   // MIT registry parser uses Chinese column header keys from the government CSV dataset (not UI copy).
   'lib/services/mit-registry.ts',
   // Share card is a satori-rendered PNG image (same as OG images) — zh-TW headline by design.
@@ -134,6 +127,60 @@ describe('i18n guard — no hardcoded Chinese in source', () => {
     expect(
       offenders,
       `Hardcoded Chinese found in source. Move it into messages/*.json (or allowlist if intentional single-locale):\n${offenders.join('\n')}`,
+    ).toEqual([])
+  })
+
+  it('rendered JSX copy outside the allowlist comes from a message catalogue', () => {
+    const offenders: string[] = []
+
+    for (const file of walk(SRC)) {
+      const rel = relative(SRC, file)
+      if (isAllowlisted(rel) || !file.endsWith('.tsx')) continue
+
+      const sourceFile = ts.createSourceFile(
+        file,
+        readFileSync(file, 'utf8'),
+        ts.ScriptTarget.Latest,
+        true,
+        ts.ScriptKind.TSX,
+      )
+
+      function report(node: ts.Node, value: string) {
+        const normalized = value.replace(/\s+/g, ' ').trim()
+        if (!LATIN.test(normalized) || normalized === 'Formoria') return
+        const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile))
+        offenders.push(`${rel.split(sep).join('/')}:${line + 1}  ${normalized.slice(0, 90)}`)
+      }
+
+      function visit(node: ts.Node) {
+        if (ts.isJsxText(node)) {
+          report(node, node.getText(sourceFile))
+        } else if (
+          ts.isJsxAttribute(node) &&
+          USER_FACING_ATTRIBUTES.has(node.name.getText(sourceFile)) &&
+          node.initializer &&
+          ts.isStringLiteral(node.initializer)
+        ) {
+          report(node, node.initializer.text)
+        } else if (
+          ts.isJsxExpression(node) &&
+          (ts.isJsxElement(node.parent) || ts.isJsxFragment(node.parent)) &&
+          node.expression &&
+          ts.isConditionalExpression(node.expression)
+        ) {
+          const { whenTrue, whenFalse } = node.expression
+          if (ts.isStringLiteral(whenTrue)) report(whenTrue, whenTrue.text)
+          if (ts.isStringLiteral(whenFalse)) report(whenFalse, whenFalse.text)
+        }
+        ts.forEachChild(node, visit)
+      }
+
+      visit(sourceFile)
+    }
+
+    expect(
+      offenders,
+      `Hardcoded rendered English found in source. Move it into messages/*.json (or document a narrow exception):\n${offenders.join('\n')}`,
     ).toEqual([])
   })
 })

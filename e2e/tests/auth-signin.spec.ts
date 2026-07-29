@@ -1,4 +1,49 @@
 import { test, expect } from '../fixtures/auth';
+import { load } from 'cheerio';
+
+function signInDocument(html: string) {
+  const $ = load(html);
+  const credentialForm = $('form').has('input[name="email"]');
+
+  return {
+    lang: $('html').attr('lang'),
+    heading: $('h1, h2').first().text().trim(),
+    submittedLocale: credentialForm.find('input[name="locale"]').attr('value'),
+  };
+}
+
+test.describe('Auth — locale intent', () => {
+  test('fresh sign-in HTML submits the inferred English locale', async ({ request }) => {
+    const response = await request.get('/auth/sign-in', {
+      headers: { 'accept-language': 'en-US,en;q=0.9' },
+    });
+
+    expect(response.status()).toBe(200);
+    const document = signInDocument(await response.text());
+    expect(document).toEqual({
+      lang: 'en',
+      heading: 'Sign In',
+      submittedLocale: 'en',
+    });
+  });
+
+  test('sign-in HTML honors the locale cookie over browser inference', async ({ request }) => {
+    const response = await request.get('/auth/sign-in', {
+      headers: {
+        'accept-language': 'en-US,en;q=0.9',
+        cookie: 'NEXT_LOCALE=zh-TW',
+      },
+    });
+
+    expect(response.status()).toBe(200);
+    const document = signInDocument(await response.text());
+    expect(document).toEqual({
+      lang: 'zh-TW',
+      heading: '登入 Formoria',
+      submittedLocale: 'zh-TW',
+    });
+  });
+});
 
 test.describe('Auth — Google OAuth offline guard', () => {
   /**

@@ -63,7 +63,7 @@ export default async function GuidesHubPage({ params, searchParams }: PageProps)
           </p>
         </header>
 
-        <nav aria-label="Guide categories" className="flex flex-wrap gap-2">
+        <nav aria-label={t('categoriesAria')} className="flex flex-wrap gap-2">
           <Link
             href="/guides"
             className={buttonVariants({ variant: activeCategory === null ? 'primary' : 'secondary', shape: 'pill', size: 'chip' })}
