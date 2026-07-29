@@ -315,3 +315,244 @@ test.describe("Scheduled brand refresh review", () => {
     expect(images).toEqual(expect.arrayContaining([{ url: candidateUrl }]));
   });
 });
+
+test.describe("Bulk refresh approval", () => {
+  let supabase: AnySupabaseClient;
+  const brandIds: string[] = [];
+  const submissionIds: string[] = [];
+  let jobId: string | undefined;
+
+  test.beforeEach(() => {
+    const adminEmail = process.env.E2E_ADMIN_EMAIL;
+    const admins = (process.env.ADMIN_EMAILS ?? "")
+      .split(",")
+      .map((email) => email.trim());
+    test.skip(
+      !adminEmail || !admins.includes(adminEmail),
+      "E2E_ADMIN_EMAIL not in ADMIN_EMAILS — admin tests require matching env",
+    );
+  });
+
+  test.afterEach(async () => {
+    if (!supabase) return;
+    if (jobId) await supabase.from("curation_jobs").delete().eq("id", jobId);
+    if (submissionIds.length > 0) {
+      const { data: submissions } = await supabase
+        .from("brand_submissions")
+        .select("brand_id")
+        .in("id", submissionIds);
+      for (const submission of submissions ?? []) {
+        if (submission.brand_id && !brandIds.includes(submission.brand_id)) {
+          brandIds.push(submission.brand_id);
+        }
+      }
+      await supabase
+        .from("brand_submissions")
+        .delete()
+        .in("id", submissionIds);
+    }
+    if (brandIds.length > 0) {
+      await supabase.from("brands").delete().in("id", brandIds);
+    }
+  });
+
+  test("keeps a failed refresh selected while removing successful approvals", async ({
+    adminPage,
+  }) => {
+    test.setTimeout(90_000);
+    supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
+    const suffix = `${Date.now()}-${randomUUID().slice(0, 8)}`;
+    const validName = `[E2E-TEST] Bulk valid ${suffix}`;
+    const staleName = `[E2E-TEST] Bulk stale ${suffix}`;
+    const adminEmail = process.env.E2E_ADMIN_EMAIL!;
+    const { data: users, error: usersError } =
+      await supabase.auth.admin.listUsers({ page: 1, perPage: 1_000 });
+    if (usersError) throw usersError;
+    const admin = users.users.find((user) => user.email === adminEmail);
+    if (!admin) throw new Error("E2E admin user not found");
+
+    const validSubmissionId = randomUUID();
+    submissionIds.push(validSubmissionId);
+    const storageBase = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/brand-images/e2e/${validSubmissionId}`;
+    const validHeroUrl = `${storageBase}/hero.webp`;
+    const validDetailUrl = `${storageBase}/detail.webp`;
+    const { error: validSubmissionError } = await supabase
+      .from("brand_submissions")
+      .insert({
+        id: validSubmissionId,
+        brand_name: validName,
+        submitter_email: `${validSubmissionId}@guest.formoria.invalid`,
+        status: "pending",
+        intent: "recommend",
+        is_brand_owner: false,
+        enriched_data: {
+          description: "完整的品牌介紹",
+          product_type: "crafts",
+          product_tags: ["木工"],
+          price_range: 2,
+          purchase_website: "https://bulk-approval.example.com",
+          hero_image_url: validHeroUrl,
+        },
+      });
+    if (validSubmissionError) throw validSubmissionError;
+    const { error: validImagesError } = await supabase
+      .from("submission_images")
+      .insert([
+        {
+          submission_id: validSubmissionId,
+          url: validHeroUrl,
+          source_url: validHeroUrl,
+          source: "admin",
+          status: "active",
+          sort_order: 0,
+        },
+        {
+          submission_id: validSubmissionId,
+          url: validDetailUrl,
+          source_url: validDetailUrl,
+          source: "admin",
+          status: "active",
+          sort_order: 1,
+        },
+      ]);
+    if (validImagesError) throw validImagesError;
+
+    const staleBrandId = randomUUID();
+    brandIds.push(staleBrandId);
+    const staleHeroUrl = `https://cdn.example.com/${staleBrandId}/hero.webp`;
+    const staleDetailUrl = `https://cdn.example.com/${staleBrandId}/detail.webp`;
+    const { error: staleBrandError } = await supabase.from("brands").insert({
+      id: staleBrandId,
+      name: staleName,
+      slug: `e2e-bulk-refresh-stale-${suffix}`,
+      status: "approved",
+      description: "完整的品牌介紹",
+      hero_image_url: staleHeroUrl,
+      product_type: "crafts",
+      product_tags: ["木工"],
+      price_range: 2,
+      purchase_website: "https://bulk-refresh.example.com",
+    });
+    if (staleBrandError) throw staleBrandError;
+    const { error: staleImagesError } = await supabase
+      .from("brand_images")
+      .insert([
+        {
+          brand_id: staleBrandId,
+          url: staleHeroUrl,
+          source_url: staleHeroUrl,
+          source: "owner",
+          status: "active",
+          sort_order: 0,
+        },
+        {
+          brand_id: staleBrandId,
+          url: staleDetailUrl,
+          source_url: staleDetailUrl,
+          source: "owner",
+          status: "active",
+          sort_order: 1,
+        },
+      ]);
+    if (staleImagesError) throw staleImagesError;
+    const { data: staleSubmissionId, error: requestError } = await supabase.rpc(
+      "request_brand_refresh",
+      {
+        p_brand_id: staleBrandId,
+        p_requested_by: admin.id,
+        p_requester_email: adminEmail,
+      },
+    );
+    if (requestError || !staleSubmissionId) {
+      throw requestError ?? new Error("Refresh request did not return an id");
+    }
+    submissionIds.push(staleSubmissionId);
+
+    const { data: queuedJobId, error: enqueueError } = await supabase.rpc(
+      "enqueue_curation_job",
+      {
+        p_operation: "enrich",
+        p_params: { target: "submissions" },
+        p_dry_run: false,
+        p_started_by: "e2e-bulk-refresh",
+        p_trigger: "admin",
+        p_parent_job_id: null,
+        p_attempt: 1,
+        p_scheduled_for: new Date().toISOString(),
+        p_run_after: "2099-01-01T00:00:00.000Z",
+        p_dedupe_key: `e2e-bulk-refresh:${randomUUID()}`,
+        p_targets: submissionIds.map((submissionId, index) => ({
+          target_type: "submission",
+          target_id: submissionId,
+          brand_name: index === 0 ? validName : staleName,
+          brand_slug: null,
+        })),
+      },
+    );
+    if (enqueueError || !queuedJobId) {
+      throw enqueueError ?? new Error("missing job id");
+    }
+    jobId = queuedJobId;
+    const completedAt = new Date().toISOString();
+    const { error: targetError } = await supabase
+      .from("curation_job_targets")
+      .update({ status: "succeeded", completed_at: completedAt })
+      .eq("job_id", jobId);
+    if (targetError) throw targetError;
+    const { error: jobError } = await supabase
+      .from("curation_jobs")
+      .update({
+        status: "completed",
+        completed_at: completedAt,
+        succeeded_count: 2,
+      })
+      .eq("id", jobId);
+    if (jobError) throw jobError;
+
+    const { error: staleError } = await supabase
+      .from("brands")
+      .update({ updated_at: new Date(Date.now() + 1_000).toISOString() })
+      .eq("id", staleBrandId);
+    if (staleError) throw staleError;
+
+    await adminPage.goto("/admin/submissions?stage=ready");
+    await adminPage
+      .getByRole("textbox", { name: "Search submissions" })
+      .fill(suffix);
+    const validRow = adminPage.locator("tbody tr").filter({ hasText: validName });
+    const staleRow = adminPage.locator("tbody tr").filter({ hasText: staleName });
+    await expect(validRow).toBeVisible();
+    await expect(staleRow).toBeVisible();
+    await validRow.getByRole("checkbox").click();
+    await staleRow.getByRole("checkbox").click();
+
+    await Promise.all([
+      adminPage.waitForEvent("dialog").then((dialog) => dialog.accept()),
+      adminPage
+        .getByRole("button", { name: "Approve 2 selected" })
+        .click(),
+    ]);
+
+    await expect(async () => {
+      const { data: submissions, error: submissionsError } = await supabase
+        .from("brand_submissions")
+        .select("id, status")
+        .in("id", submissionIds);
+      expect(submissionsError).toBeNull();
+      expect(submissions).toEqual(
+        expect.arrayContaining([
+          { id: submissionIds[0], status: "approved" },
+          { id: submissionIds[1], status: "pending" },
+        ]),
+      );
+    }).toPass({ timeout: 30_000, intervals: [1_000, 2_000, 5_000] });
+
+    await expect(validRow).toBeHidden({ timeout: 30_000 });
+    await expect(staleRow).toBeVisible();
+    await expect(staleRow.getByRole("checkbox")).toBeChecked();
+    await expect(adminPage.locator("p.type-error")).toContainText(staleName);
+  });
+});

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 /**
  * Share dialog journey (DEV-849, redesigned in DEV-1242)
@@ -17,6 +17,26 @@ import { test, expect } from '@playwright/test';
  *      clipboard write is refused
  *   7. Close the dialog via the "關閉" button
  */
+
+/**
+ * Open the share dialog and return its locator.
+ *
+ * The brand detail route can still be compiling on a cold dev server, so the h1
+ * goes visible before React hydrates the share trigger — a single click then
+ * lands as a silent no-op and every later step times out on a dialog that was
+ * never opened. Retry the idempotent open rather than sleeping on a guessed
+ * hydration delay — same pattern as brand-detail.spec.ts / brand-corrections.spec.ts.
+ */
+async function openShareDialog(page: Page) {
+  const trigger = page.getByRole('button', { name: '分享' });
+  const dialog = page.getByRole('dialog', { name: '分享' });
+  await expect(async () => {
+    if (!(await dialog.isVisible())) await trigger.click();
+    await expect(dialog).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 20_000, intervals: [500, 1_000, 2_000] });
+  return dialog;
+}
+
 test.describe('Brand share dialog', () => {
   let brandHref: string;
 
@@ -50,12 +70,8 @@ test.describe('Brand share dialog', () => {
     // Grab the brand name from the h1 for later assertion in the dialog
     const brandName = await page.getByRole('heading', { level: 1 }).innerText();
 
-    // Click the share trigger button
-    await page.getByRole('button', { name: '分享' }).click();
-
-    // Dialog must appear with its title
-    const dialog = page.getByRole('dialog', { name: '分享' });
-    await expect(dialog).toBeVisible({ timeout: 5_000 });
+    // Click the share trigger button; dialog must appear with its title
+    const dialog = await openShareDialog(page);
 
     // The preview card repeats the brand name the recipient will see
     await expect(dialog.getByText(brandName, { exact: false }).first()).toBeVisible();
@@ -90,10 +106,7 @@ test.describe('Brand share dialog', () => {
     // Grant clipboard permission so navigator.clipboard.writeText succeeds
     await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
 
-    await page.getByRole('button', { name: '分享' }).click();
-
-    const dialog = page.getByRole('dialog', { name: '分享' });
-    await expect(dialog).toBeVisible({ timeout: 5_000 });
+    const dialog = await openShareDialog(page);
 
     await dialog.getByRole('button', { name: '複製' }).click();
 
@@ -137,10 +150,7 @@ test.describe('Brand share dialog', () => {
       popupOpened = true;
     });
 
-    await page.getByRole('button', { name: '分享' }).click();
-
-    const dialog = page.getByRole('dialog', { name: '分享' });
-    await expect(dialog).toBeVisible({ timeout: 5_000 });
+    const dialog = await openShareDialog(page);
 
     await dialog.getByRole('button', { name: 'Instagram' }).click();
 
@@ -165,10 +175,7 @@ test.describe('Brand share dialog', () => {
 
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 10_000 });
 
-    await page.getByRole('button', { name: '分享' }).click();
-
-    const dialog = page.getByRole('dialog', { name: '分享' });
-    await expect(dialog).toBeVisible({ timeout: 5_000 });
+    const dialog = await openShareDialog(page);
 
     await dialog.getByRole('button', { name: '關閉' }).click();
 

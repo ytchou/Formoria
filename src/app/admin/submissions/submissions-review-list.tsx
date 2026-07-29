@@ -13,6 +13,7 @@ import {
 import { toast } from "sonner";
 import {
   approveSubmissionAction,
+  approveSubmissionsAction,
   rejectSubmissionAction,
 } from "@/app/admin/actions";
 import { JobAutoRefresh } from "@/app/admin/jobs/job-auto-refresh";
@@ -259,21 +260,29 @@ export function SubmissionsReviewList({
 
     startTransition(async () => {
       setError(null);
-      const results = await Promise.all(
-        approvableSelected.map(async (submission) => ({
-          submission,
-          result: await approveSubmissionAction(submission.id),
-        })),
+      const result = await approveSubmissionsAction(
+        approvableSelected.map((submission) => submission.id),
       );
-      const failed = results.find(({ result }) => result?.error);
-      if (failed?.result?.error) {
-        setError(`${failed.submission.brandName}: ${failed.result.error}`);
+      if ("error" in result) {
+        setError(result.error);
         return;
       }
-      if (results.some(({ result }) => result?.storageCleanupWarning)) {
+      const failedIds = new Set(
+        result.failures.map((failure) => failure.submissionId),
+      );
+      const firstFailure = result.failures.at(0);
+      if (firstFailure) {
+        const submission = approvableSelected.find(
+          (item) => item.id === firstFailure.submissionId,
+        );
+        setError(
+          `${submission?.brandName ?? firstFailure.submissionId}: ${firstFailure.error}`,
+        );
+      }
+      if (result.storageCleanupWarning) {
         toast.warning(t("storageCleanupWarning"));
       }
-      setSelectedIds(new Set());
+      setSelectedIds(failedIds);
       router.refresh();
     });
   }

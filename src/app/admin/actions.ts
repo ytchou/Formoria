@@ -57,6 +57,24 @@ import { revalidatePublicBrand } from '@/lib/cache/public-brand-cache'
 const MODERATION_FLAG_ID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
+type ApprovalResult = {
+  brandSlug: string
+  refresh: boolean
+  imageSyncWarning?: { synced: number; failed: number }
+  storageCleanupWarning?: true
+}
+
+type ApprovalFailure = {
+  submissionId: string
+  error: string
+}
+
+type ApprovalOutcome =
+  | { ok: true; submissionId: string; result: ApprovalResult }
+  | { ok: false; submissionId: string; error: string }
+
+const MAX_BULK_APPROVALS = 100
+
 export async function resendClaimInviteAction(
   brandId: string
 ): Promise<{ resent: true } | { error: string }> {
@@ -100,6 +118,85 @@ export async function resendClaimInviteAction(
     }
   }
 }
+async function approveSubmissionForAdmin(
+  submissionId: string,
+  reviewerId: string
+): Promise<ApprovalResult> {
+  const submission = await getSubmission(submissionId)
+  if (submission.intent === 'refresh') {
+    const refresh = await applyBrandRefresh(submissionId, reviewerId)
+    const brand = await getBrandById(refresh.brandId)
+    return {
+      brandSlug: brand.slug,
+      refresh: true,
+      ...(refresh.cleanupFailed ? { storageCleanupWarning: true as const } : {}),
+    }
+  }
+
+  const siteUrl = getSiteUrl()
+
+  const { brandId, submitterEmail, brandName, isBrandOwner } = await approveSubmission(submissionId, reviewerId)
+  const brand = await getBrandById(brandId)
+  let imageSyncWarning: { synced: number; failed: number } | undefined
+
+  try {
+    await markFlagsReviewed(brandId)
+  } catch (err) {
+    console.error('[admin] markFlagsReviewed failed:', err)
+  }
+
+  if (brand.heroImageUrl) {
+    try {
+      const syncResult = await syncBrandImages(brandId)
+      if (syncResult.failed > 0) imageSyncWarning = syncResult
+    } catch (err) {
+      console.error('[admin] syncBrandImages failed:', err)
+      imageSyncWarning = { synced: 0, failed: 1 }
+    }
+  }
+
+  const existingOwnedBrand = isBrandOwner
+    ? await getUserBrandByEmail(submitterEmail)
+    : null
+
+  const shouldEmailSubmitter = !isGeneratedGuestSubmissionEmail(submitterEmail)
+
+  if (isBrandOwner && !existingOwnedBrand) {
+    const token = await generateClaimToken(brandId, submitterEmail, brandName)
+    const claimUrl = `${siteUrl}/auth/sign-up?claim=${token}`
+    await sendEmail(await buildClaimEmail({
+      submitterEmail,
+      brandName,
+      claimUrl,
+      siteUrl,
+    }))
+  } else if (shouldEmailSubmitter) {
+    await sendEmail(await buildApprovalEmail({
+      submitterEmail,
+      brandName,
+      brandSlug: brand.slug,
+      siteUrl,
+    }))
+  }
+
+  return {
+    brandSlug: brand.slug,
+    refresh: false,
+    ...(imageSyncWarning ? { imageSyncWarning } : {}),
+  }
+}
+
+function revalidateApprovals(results: ApprovalResult[]): void {
+  revalidatePath('/admin/submissions')
+  revalidatePath('/admin')
+  if (results.some((result) => result.refresh)) {
+    revalidatePath('/admin/brands')
+  }
+  for (const result of results) {
+    revalidatePublicBrand({ slug: result.brandSlug })
+  }
+}
+
 export async function approveSubmissionAction(
   submissionId: string
 ): Promise<
@@ -114,71 +211,79 @@ export async function approveSubmissionAction(
     const auth = await requireAdminAction()
     if ('error' in auth) return auth
 
-    const submission = await getSubmission(submissionId)
-    if (submission.intent === 'refresh') {
-      const refresh = await applyBrandRefresh(submissionId, auth.user.id)
-      const brand = await getBrandById(refresh.brandId)
-      revalidatePath('/admin/submissions')
-      revalidatePath('/admin/brands')
-      revalidatePath('/admin')
-      revalidatePublicBrand({ slug: brand.slug })
-      return refresh.cleanupFailed ? { storageCleanupWarning: true } : undefined
-    }
+    const result = await approveSubmissionForAdmin(submissionId, auth.user.id)
+    revalidateApprovals([result])
 
-    const siteUrl = getSiteUrl()
-
-    const { brandId, submitterEmail, brandName, isBrandOwner } = await approveSubmission(submissionId, auth.user.id)
-    const brand = await getBrandById(brandId)
-    let imageSyncWarning: { synced: number; failed: number } | undefined
-
-    try {
-      await markFlagsReviewed(brandId)
-    } catch (err) {
-      console.error('[admin] markFlagsReviewed failed:', err)
-    }
-
-    if (brand.heroImageUrl) {
-      try {
-        const syncResult = await syncBrandImages(brandId)
-        if (syncResult.failed > 0) imageSyncWarning = syncResult
-      } catch (err) {
-        console.error('[admin] syncBrandImages failed:', err)
-        imageSyncWarning = { synced: 0, failed: 1 }
-      }
-    }
-
-
-    const existingOwnedBrand = isBrandOwner
-      ? await getUserBrandByEmail(submitterEmail)
-      : null
-
-    const shouldEmailSubmitter = !isGeneratedGuestSubmissionEmail(submitterEmail)
-
-    if (isBrandOwner && !existingOwnedBrand) {
-      const token = await generateClaimToken(brandId, submitterEmail, brandName)
-      const claimUrl = `${siteUrl}/auth/sign-up?claim=${token}`
-      await sendEmail(await buildClaimEmail({
-        submitterEmail,
-        brandName,
-        claimUrl,
-        siteUrl,
-      }))
-    } else if (shouldEmailSubmitter) {
-      await sendEmail(await buildApprovalEmail({
-        submitterEmail,
-        brandName,
-        brandSlug: brand.slug,
-        siteUrl,
-      }))
-    }
-
-    revalidatePath('/admin/submissions')
-    revalidatePath('/admin')
-    revalidatePublicBrand({ slug: brand.slug })
-    if (imageSyncWarning) return { imageSyncWarning }
+    if (result.imageSyncWarning) return { imageSyncWarning: result.imageSyncWarning }
+    if (result.storageCleanupWarning) return { storageCleanupWarning: true }
     return undefined
   } catch (err) {
     console.error('[admin:approveSubmission]', err)
+    return {
+      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+    }
+  }
+}
+
+export async function approveSubmissionsAction(
+  submissionIds: string[]
+): Promise<
+  | { failures: ApprovalFailure[]; storageCleanupWarning?: true }
+  | { error: string }
+> {
+  try {
+    const auth = await requireAdminAction()
+    if ('error' in auth) return auth
+    if (!Array.isArray(submissionIds)) {
+      return { error: 'Invalid bulk approval selection' }
+    }
+
+    const ids = [...new Set(submissionIds)]
+    if (
+      ids.length === 0 ||
+      ids.length > MAX_BULK_APPROVALS ||
+      ids.some((id) => typeof id !== 'string' || id.length === 0 || id.length > 64)
+    ) {
+      return { error: 'Invalid bulk approval selection' }
+    }
+
+    const outcomes = await Promise.all(
+      ids.map(async (submissionId): Promise<ApprovalOutcome> => {
+        try {
+          return {
+            ok: true,
+            submissionId,
+            result: await approveSubmissionForAdmin(submissionId, auth.user.id),
+          }
+        } catch (err) {
+          console.error('[admin:approveSubmissions]', { submissionId, error: err })
+          return {
+            ok: false,
+            submissionId,
+            error: err instanceof Error ? err.message : 'An unexpected error occurred',
+          }
+        }
+      })
+    )
+
+    const successes = outcomes.flatMap((outcome) =>
+      outcome.ok ? [outcome.result] : []
+    )
+    if (successes.length > 0) revalidateApprovals(successes)
+
+    const failures = outcomes.flatMap((outcome) =>
+      outcome.ok
+        ? []
+        : [{ submissionId: outcome.submissionId, error: outcome.error }]
+    )
+    return {
+      failures,
+      ...(successes.some((result) => result.storageCleanupWarning)
+        ? { storageCleanupWarning: true as const }
+        : {}),
+    }
+  } catch (err) {
+    console.error('[admin:approveSubmissions]', err)
     return {
       error: err instanceof Error ? err.message : 'An unexpected error occurred',
     }
