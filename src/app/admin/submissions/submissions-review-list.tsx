@@ -310,7 +310,6 @@ export function SubmissionsReviewList({
         return next;
       });
       setSelectedIds(failedIds);
-      router.refresh();
     });
   }
 
