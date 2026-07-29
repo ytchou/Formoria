@@ -47,6 +47,31 @@ function renderWithIntl(ui: React.ReactElement) {
   )
 }
 
+// The body is a `next/dynamic` chunk behind a `loading:` skeleton that already
+// renders a real `role="dialog"` (that is the point — the overlay and focus trap
+// mount immediately). So waiting on the role alone resolves against the
+// skeleton and every synchronous query that follows races the real body. Wait
+// for the loaded surface instead: only the skeleton carries `aria-busy`.
+// waitFor's 1s default is not a real budget for this: resolving the chunk is a
+// module import competing with every other vitest worker for CPU, so under a
+// full parallel suite it routinely overruns. The wait is generous; nothing it
+// waits for is weakened. The per-test budget that must exceed this one lives in
+// vitest.config.ts (testTimeout).
+const CHUNK_LOAD_TIMEOUT_MS = 10_000
+
+async function findLoadedDialog() {
+  return waitFor(
+    () => {
+      const loaded = screen
+        .getAllByRole('dialog')
+        .find((node) => node.getAttribute('aria-busy') !== 'true')
+      if (!loaded) throw new Error('dialog body has not mounted yet')
+      return loaded
+    },
+    { timeout: CHUNK_LOAD_TIMEOUT_MS }
+  )
+}
+
 describe('ReportDialog', () => {
   beforeEach(() => {
     window.localStorage.clear()
@@ -66,6 +91,7 @@ describe('ReportDialog', () => {
     const user = userEvent.setup()
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
     await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await findLoadedDialog()
     expect(screen.getByRole('group', { name: '選擇檢舉原因' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /資訊有誤/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /連結失效/i })).toBeInTheDocument()
@@ -82,6 +108,7 @@ describe('ReportDialog', () => {
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
 
     await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await findLoadedDialog()
 
     expect(screen.queryByRole('radio', { name: /非台灣製造/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /非台灣製造/ })).not.toBeInTheDocument()
@@ -103,6 +130,7 @@ describe('ReportDialog', () => {
     )
 
     await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await findLoadedDialog()
 
     expect(screen.getByText(/產地資訊/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /產地資訊/ }))
@@ -115,6 +143,7 @@ describe('ReportDialog', () => {
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
 
     await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await findLoadedDialog()
 
     expect(screen.getByRole('combobox')).toHaveAttribute('name', 'reportedField')
   })
@@ -124,6 +153,7 @@ describe('ReportDialog', () => {
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
 
     await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await findLoadedDialog()
     await user.click(screen.getByRole('button', { name: /連結失效/i }))
     await user.selectOptions(screen.getByRole('combobox'), 'website')
     await user.click(screen.getByRole('button', { name: /送出檢舉/i }))
@@ -138,6 +168,7 @@ describe('ReportDialog', () => {
     const user = userEvent.setup()
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
     await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await findLoadedDialog()
 
 
     const notes = screen.getByRole('textbox', { name: /補充說明/i })
@@ -153,6 +184,7 @@ describe('ReportDialog', () => {
     const user = userEvent.setup()
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
     await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await findLoadedDialog()
 
     const brokenLink = screen.getByRole('button', { name: /連結失效/i })
     const inappropriate = screen.getByRole('button', { name: /不當內容/i })
@@ -174,6 +206,7 @@ describe('ReportDialog', () => {
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
 
     await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await findLoadedDialog()
     await user.click(screen.getByRole('button', { name: /所有權爭議/i }))
 
     expect(screen.getByRole('link', { name: '登入' })).toBeInTheDocument()
@@ -189,6 +222,7 @@ describe('ReportDialog', () => {
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
 
     await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await findLoadedDialog()
     await user.click(screen.getByRole('button', { name: /所有權爭議/i }))
 
     expect(screen.getByRole('textbox', { name: /補充說明/i })).toBeInTheDocument()
@@ -204,6 +238,7 @@ describe('ReportDialog', () => {
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
 
     await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await findLoadedDialog()
     await user.click(screen.getByRole('button', { name: /要求移除品牌頁/i }))
 
     expect(screen.getByText('請登入以提出品牌頁移除要求')).toBeInTheDocument()
@@ -220,6 +255,7 @@ describe('ReportDialog', () => {
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
 
     await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await findLoadedDialog()
     await user.click(screen.getByRole('button', { name: /連結失效/i }))
 
     expect(screen.queryByText('請登入以提出所有權爭議')).not.toBeInTheDocument()
@@ -232,6 +268,7 @@ describe('ReportDialog', () => {
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
 
     await user.click(screen.getByRole('button', { name: /檢舉/i }))
+    await findLoadedDialog()
     await user.click(screen.getByRole('button', { name: /要求移除品牌頁/i }))
     expect(screen.queryByText('你已回報過此品牌')).not.toBeInTheDocument()
 
@@ -247,6 +284,7 @@ describe('ReportDialog', () => {
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
     // Open dialog
     await userEvent.setup().click(screen.getByRole('button', { name: /檢舉/i }))
+    await findLoadedDialog()
     expect(screen.getByText(/感謝你的回報/i)).toBeInTheDocument()
   })
 
@@ -257,6 +295,7 @@ describe('ReportDialog', () => {
     )
     renderWithIntl(<ReportDialog brandId="b1" brandSlug="test-brand" />)
     await userEvent.setup().click(screen.getByRole('button', { name: /檢舉/i }))
+    await findLoadedDialog()
     expect(screen.getByText('發生錯誤')).toBeInTheDocument()
   })
 

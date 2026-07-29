@@ -7,7 +7,8 @@ import { HeroStats } from '@/components/landing/hero-stats'
 import { categoryLabel, PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
 interface HeroSectionProps {
-  brandCount: number
+  /** Omitted when the brand count could not be read — renders no figure rather than a false zero. */
+  brandCount?: number
   categoryCount: number
   recentBrands: { count: number; period: '7d' | '30d' }
 }

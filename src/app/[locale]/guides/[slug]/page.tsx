@@ -15,11 +15,19 @@ type PageProps = {
 }
 
 export const revalidate = 3600
+export const dynamic = 'force-static'
 
-// Slugs only — `src/app/[locale]/layout.tsx` supplies the locale segment and Next composes the two.
+// Prebuild every published guide so the first production visit is served from the
+// ISR cache instead of paying on-demand generation. Locale comes from the parent
+// `[locale]` layout's own `generateStaticParams`, so both locales are covered.
+// `getAllGuides()` is the same published set the index and sitemap use; anything
+// outside it (drafts, future non-zh-TW guides) still renders on demand.
 export async function generateStaticParams() {
   const result = await getAllGuides()
   if (!result.ok) return []
+  // `guide.slug` is the filename stem, which is what the route param resolves against
+  // (`getPublishedGuideBySlug` reads `content/guides/<param>.mdx`); `frontmatter.slug`
+  // is only used for canonical URLs and may diverge.
   return result.guides.map((guide) => ({ slug: guide.slug }))
 }
 

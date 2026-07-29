@@ -1,4 +1,4 @@
-import { Suspense } from 'react'
+import { cache, Suspense } from 'react'
 import type { Metadata } from 'next'
 import { ChevronRight } from 'lucide-react'
 import { NextIntlClientProvider } from 'next-intl'
@@ -34,11 +34,20 @@ import {
   updateDirectoryUrl,
 } from '@/lib/directory-filter-url'
 
-// ISR: revalidate every hour
+// Both `generateMetadata` and the page body read `searchParams`, which opts this route
+// into dynamic rendering, so this `revalidate` never produces a static ISR entry. It is
+// kept because `revalidatePath('/<locale>/brands')` still targets this segment. Freshness
+// for the served HTML comes from the edge cache header set in `src/proxy.ts` instead.
 export const revalidate = 3600
 
 const VALID_CATEGORY_SLUGS: Set<string> = new Set(PRODUCT_TYPE_CATEGORIES.map((c) => c.slug))
 const EMPTY_STATE_RECOMMENDATION_LIMIT = 4
+
+// `generateMetadata` and the page body both need this flag. React `cache` collapses
+// them into a single Supabase round trip per request.
+const loadSubcategoryFilterEnabled = cache(
+  async (): Promise<boolean | undefined> => getAppSetting<boolean>(SUBCATEGORY_FILTER_KEY, true)
+)
 
 interface BrandsPageProps {
   params: Promise<{ locale: string }>
@@ -86,7 +95,7 @@ export async function generateMetadata({ params, searchParams }: BrandsPageProps
   const singleValidCategory = validCategoryFilter.length === 1
     ? validCategoryFilter.at(0) ?? null
     : null
-  const subcategoryFilterEnabled = await getAppSetting<boolean>(SUBCATEGORY_FILTER_KEY, true)
+  const subcategoryFilterEnabled = await loadSubcategoryFilterEnabled()
   const resolvedSubs = subcategoryFilterEnabled
     ? resolveSubcategorySlugs(singleValidCategory, parseCommaParam(sp.sub))
     : []
@@ -158,7 +167,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
     getTranslations('brands'),
     getTranslations('brands.verificationFilter'),
     getMessages(),
-    getAppSetting<boolean>(SUBCATEGORY_FILTER_KEY, true),
+    loadSubcategoryFilterEnabled(),
   ])
   const sp = await searchParams
 
@@ -551,8 +560,11 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
                 />
               ) : (
                 <MasonryGrid>
+                  {/* Only the first card preloads: the grid is single-column on mobile, so
+                      preloading four 100vw images would put three below-fold fetches at
+                      fetchpriority=high in front of the real LCP element. */}
                   {displayBrands.map((brand, index) => (
-                    <BrandCard key={brand.id} brand={brand} priority={index < 4} />
+                    <BrandCard key={brand.id} brand={brand} priority={index < 1} />
                   ))}
                 </MasonryGrid>
               )}

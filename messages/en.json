@@ -14,7 +14,8 @@
     "close": "Close",
     "closeDialog": "Close dialog",
     "foundingYear": "Est. {year}",
-    "verified": "Verified"
+    "verified": "Verified",
+    "loading": "Loading…"
   },
   "feedbackWidget": {
     "triggerLabel": "Report Issue",

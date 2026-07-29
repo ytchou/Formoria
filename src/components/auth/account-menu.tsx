@@ -1,7 +1,6 @@
 'use client'
 
 import type { FormEvent } from 'react'
-import posthog from 'posthog-js'
 import NextLink from 'next/link'
 import { useLocale, useTranslations } from 'next-intl'
 import { Link, usePathname } from '@/i18n/navigation'
@@ -10,6 +9,7 @@ import { signInHref } from '@/i18n/locale-preference'
 import { signOut } from '@/app/auth/actions'
 import { setLocalePreference } from '@/app/actions/locale-preference'
 import { useUser } from '@/lib/auth/use-user'
+import { trackSignOut } from '@/lib/analytics'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,8 +19,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 
 function handleSignOut() {
-  posthog.capture('user_signed_out')
-  posthog.reset()
+  trackSignOut()
 }
 
 function preserveCurrentUrl(event: FormEvent<HTMLFormElement>) {

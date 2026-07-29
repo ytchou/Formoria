@@ -1,4 +1,4 @@
-import { capturePostHogEvent } from './analytics/posthog-provider'
+import { capturePostHogEvent, resetPostHogUser } from './analytics/posthog-provider'
 
 const UTM_KEYS = [
   'utm_source',
@@ -363,6 +363,15 @@ export function trackLogin(method: string) {
   capturePostHogEvent('user_logged_in', { method })
 }
 
+// Routed through the provider shim rather than `posthog-js` directly: the sign-out
+// control lives in the globally hydrated nav, and a static SDK import there would
+// pull the whole bundle into the shared chunk.
+export function trackSignOut() {
+  // Emitted through the reset itself: a separate capture beforehand is wiped by the
+  // buffer clear when no provider has registered yet.
+  resetPostHogUser({ event: 'user_signed_out' })
+}
+
 export function trackViewItemList(listName: string, itemCount: number) {
   safeGAEvent('event', 'view_item_list', {
     item_list_name: listName,
@@ -609,6 +618,40 @@ export function trackApiErrorShown(endpoint: string, statusCode: number, userAct
     endpoint,
     status_code: statusCode,
     user_action: userAction,
+  })
+}
+
+/** Core Web Vitals field measurement (LCP/CLS/INP/FCP/TTFB).
+ *  Shape matches the metric object Next's `useReportWebVitals` yields. */
+export function trackWebVital(metric: {
+  name: string
+  value: number
+  rating: string
+  delta: number
+  id: string
+  navigationType?: string
+}) {
+  // CLS is unitless and small; every other vital is milliseconds. Rounding keeps
+  // PostHog property cardinality low without losing meaningful precision.
+  const value =
+    metric.name === 'CLS'
+      ? Math.round(metric.value * 1000) / 1000
+      : Math.round(metric.value)
+
+  capturePostHogEvent('web_vital_reported', {
+    metric_name: metric.name,
+    metric_value: value,
+    metric_rating: metric.rating,
+    metric_delta: metric.name === 'CLS' ? metric.delta : Math.round(metric.delta),
+    metric_id: metric.id,
+    navigation_type: metric.navigationType ?? null,
+    // Caveat: read at REPORT time. CLS and INP finalize on page-hide, after any
+    // soft navigation, so a metric accrued on /brands/<slug> can be tagged with
+    // the content group of whatever route the user ended on. Neither the web-vitals
+    // metric object nor `useReportWebVitals` exposes the pathname at accrual time,
+    // and per-attribution tracking is not worth the machinery for this nuance.
+    content_group:
+      typeof window !== 'undefined' ? getContentGroup(window.location.pathname) : null,
   })
 }
 

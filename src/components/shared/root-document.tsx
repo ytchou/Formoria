@@ -1,10 +1,11 @@
 import { Suspense } from 'react'
 import { Agentation } from 'agentation'
-import { Bricolage_Grotesque, Geist_Mono, Inter, Noto_Sans_TC } from 'next/font/google'
+import { Bricolage_Grotesque, Geist_Mono, Inter } from 'next/font/google'
 import { Toaster } from 'sonner'
 import { PublicGoogleAnalytics } from '@/components/analytics/public-google-analytics'
 import { GaUserSync } from '@/components/analytics/ga-user-sync'
 import { PostHogUserSync } from '@/components/analytics/posthog-user-sync'
+import { WebVitalsReporter } from '@/components/analytics/web-vitals-reporter'
 import type { AppLocale } from '@/i18n/locale-preference'
 import { ViewerProvider } from '@/lib/auth/use-user'
 
@@ -18,13 +19,9 @@ const bricolage = Bricolage_Grotesque({
   subsets: ['latin'],
 })
 
-const notoSansTC = Noto_Sans_TC({
-  variable: '--font-noto-tc',
-  weight: ['400', '500', '700'],
-  subsets: ['latin'],
-  preload: false,
-})
-
+// No webfont for Traditional Chinese: the CJK set is far too large to ship, so
+// CJK deliberately falls through to the platform's own system face (PingFang TC,
+// Microsoft JhengHei, Noto Sans CJK). Do not reintroduce a CJK webfont here.
 const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
   subsets: ['latin'],
@@ -47,7 +44,7 @@ export function RootDocument({
     <html
       lang={locale}
       data-feedback-copy={JSON.stringify(feedbackCopy)}
-      className={`${inter.variable} ${bricolage.variable} ${notoSansTC.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${bricolage.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <a
@@ -59,6 +56,7 @@ export function RootDocument({
         <ViewerProvider>
           <PostHogUserSync />
           <GaUserSync />
+          <WebVitalsReporter />
           {children}
           {process.env.NODE_ENV === 'development' && !process.env.PLAYWRIGHT_TEST && (
             <Agentation />

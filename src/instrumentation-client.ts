@@ -3,6 +3,7 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from "@sentry/nextjs";
+import { isPostHogConfigured } from '@/lib/analytics/posthog-provider';
 
 const feedbackCopy = (() => {
   if (typeof document === 'undefined') return {}
@@ -35,14 +36,14 @@ Sentry.init({
   ],
 
   // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
-  tracesSampleRate: 1,
+  tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1,
   // Enable logs to be sent to Sentry
   enableLogs: true,
 
-  // Define how likely Replay events are sampled.
-  // This sets the sample rate to be 10%. You may want this to be 100% while
-  // in development and sample at a lower rate in production
-  replaysSessionSampleRate: 0.1,
+  // Session replay is disabled: recording 10% of all sessions burns the Sentry
+  // quota on a pre-launch site. On-error replay below keeps the high-value half.
+  // Raise this once quota headroom is known.
+  replaysSessionSampleRate: 0,
 
   // Define how likely Replay events are sampled when an error occurs.
   replaysOnErrorSampleRate: 1.0,
@@ -61,11 +62,7 @@ Sentry.init({
   },
 });
 
-if (
-  process.env.NODE_ENV === 'production'
-  && process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN
-  && process.env.NEXT_PUBLIC_POSTHOG_HOST === 'https://e.formoria.com'
-) {
+if (isPostHogConfigured()) {
   void import('@/lib/analytics/posthog-client')
     .then(({ initializePostHog }) => initializePostHog())
     .catch(() => undefined)

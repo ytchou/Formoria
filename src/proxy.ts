@@ -329,8 +329,17 @@ export async function proxy(request: NextRequest) {
     response = NextResponse.next({ request: { headers: requestHeaders } })
   }
 
+  // Only write the cookie when it would actually change. A Set-Cookie header on
+  // every HTML response makes the response uncacheable at Cloudflare, so the CDN
+  // caches nothing and every request falls through to the origin.
+  //
+  // Accepted trade-off: because it is not rewritten on every response, the maxAge
+  // never refreshes — the cookie has a 1-year ABSOLUTE horizon rather than a
+  // rolling one. Refreshing it would reintroduce Set-Cookie and defeat the CDN
+  // cacheability this exists for, and an expired or absent cookie self-heals via
+  // resolveInitialLocale.
   const resolvedLocale = explicitLocale ?? inferredLocale
-  if (resolvedLocale && !isRouterRequest) {
+  if (resolvedLocale && resolvedLocale !== cookieLocale && !isRouterRequest) {
     response.cookies.set(LOCALE_COOKIE, resolvedLocale, {
       sameSite: 'lax',
       path: '/',

@@ -6,9 +6,10 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Latin first (Inter / Bricolage), Traditional Chinese (Noto Sans TC) fallback. */
-  --font-sans: var(--font-inter), var(--font-noto-tc), ui-sans-serif, system-ui, sans-serif;
-  --font-heading: var(--font-bricolage), var(--font-noto-tc), ui-sans-serif, system-ui, sans-serif;
+  /* Latin first (Inter / Bricolage); Traditional Chinese falls through to the
+     platform system face — no CJK webfont is shipped. See src/app/layout.tsx. */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
 }
 
 @theme inline {

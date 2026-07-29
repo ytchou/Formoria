@@ -14,7 +14,8 @@
     "close": "關閉",
     "closeDialog": "關閉對話框",
     "foundingYear": "創立於 {year}",
-    "verified": "已認證"
+    "verified": "已認證",
+    "loading": "載入中…"
   },
   "feedbackWidget": {
     "triggerLabel": "回報問題",

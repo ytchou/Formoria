@@ -4,9 +4,11 @@ import { Link } from '@/i18n/navigation'
 import { buttonVariants } from '@/components/ui/button'
 
 interface AboutHeroProps {
-  brandCount: number
-  categoryCount: number
-  recentBrands: { count: number; period: '7d' | '30d' }
+  /** Omitted when the count could not be read — renders no figure rather than a false zero. */
+  brandCount?: number
+  /** Omitted when the count could not be read — renders no figure rather than a false zero. */
+  categoryCount?: number
+  recentBrands?: { count: number; period: '7d' | '30d' }
 }
 
 export default async function AboutHero({ brandCount, categoryCount, recentBrands }: AboutHeroProps) {
@@ -14,6 +16,11 @@ export default async function AboutHero({ brandCount, categoryCount, recentBrand
     getTranslations('about.hero'),
     getTranslations('about.guide'),
   ])
+
+  // Only the figures that are actually known are rendered, so no separator dangles.
+  const facts: string[] = []
+  if (brandCount != null) facts.push(`${brandCount} ${t('statsBrands')}`)
+  if (categoryCount != null) facts.push(`${categoryCount} ${t('statsCategories')}`)
 
   return (
     <section className="relative overflow-hidden py-12 md:py-20">
@@ -56,14 +63,17 @@ export default async function AboutHero({ brandCount, categoryCount, recentBrand
             </Link>
           </div>
 
-          <p className="mt-6 type-metadata">
-            {brandCount} {t('statsBrands')} · {categoryCount} {t('statsCategories')}
-            {recentBrands.count > 0 && (
-              <span className="text-primary">
-                {' · '}+{recentBrands.count} {t(recentBrands.period === '7d' ? 'recentWeek' : 'recentMonth')}
-              </span>
-            )}
-          </p>
+          {(facts.length > 0 || (recentBrands != null && recentBrands.count > 0)) && (
+            <p className="mt-6 type-metadata">
+              {facts.join(' · ')}
+              {recentBrands != null && recentBrands.count > 0 && (
+                <span className="text-primary">
+                  {facts.length > 0 ? ' · ' : ''}+{recentBrands.count}{' '}
+                  {t(recentBrands.period === '7d' ? 'recentWeek' : 'recentMonth')}
+                </span>
+              )}
+            </p>
+          )}
         </div>
       </div>
     </section>

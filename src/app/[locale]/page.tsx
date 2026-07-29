@@ -15,6 +15,7 @@ import {
   getRecentBrandCount,
 } from '@/lib/services/brands'
 import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
+import { captureReadFailure, markRenderDegraded } from '@/lib/degraded-render'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
@@ -61,12 +62,28 @@ export default async function LandingPage({ params }: PageProps) {
   const jsonLd = buildWebSiteJsonLd(safeLocale)
   const organizationJsonLd = buildOrganizationJsonLd(safeLocale)
 
-  const [{ brands: exploreBrands, totalCount: totalBrandCount }, newBrands, recentBrands, messages] = await Promise.all([
-    getExploreBrands(EXPLORE_BRAND_LIMIT).catch(() => ({ brands: [], totalCount: 0 })),
-    getNewBrands(4).catch(() => []),
-    getRecentBrandCount().catch(() => ({ count: 0, period: '30d' as const })),
+  const [exploreResult, newBrandsResult, recentResult, messages] = await Promise.all([
+    getExploreBrands(EXPLORE_BRAND_LIMIT).catch(captureReadFailure('landing.exploreBrands')),
+    getNewBrands(4).catch(captureReadFailure('landing.newBrands')),
+    getRecentBrandCount().catch(captureReadFailure('landing.recentBrandCount')),
     getMessages(),
   ])
+
+  // Aggregate flag: ANY failed read means this render is degraded, and a degraded
+  // render must never be frozen by `revalidate = 3600`.
+  const degraded = exploreResult === null || newBrandsResult === null || recentResult === null
+  if (degraded) {
+    await markRenderDegraded('landing')
+  }
+
+  const exploreBrands = exploreResult?.brands ?? []
+  const newBrands = newBrandsResult ?? []
+  const recentBrands = recentResult ?? { count: 0, period: '30d' as const }
+  // Suppressed per read, not per page: a failed `getNewBrands` must not hide a
+  // total count that `getExploreBrands` returned successfully. `undefined` omits
+  // the figure rather than asserting a false zero; a genuinely empty DB still
+  // resolves `totalCount: 0` and renders 0.
+  const totalBrandCount = exploreResult?.totalCount
 
   return (
     <>
