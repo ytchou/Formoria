@@ -7,7 +7,11 @@ import {
   getAdminOperationsSnapshot,
   type AdminOperationsMetrics,
 } from "@/lib/services/admin-operations";
+import { isOwnerFeaturesEnabled } from "@/lib/services/app-settings";
 import { cn } from "@/lib/utils";
+
+const cardStyles =
+  "group flex min-h-40 flex-col justify-between border-b border-r border-border p-5 transition-colors focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 type Metric = {
   key: keyof AdminOperationsMetrics;
@@ -77,9 +81,10 @@ const metrics: Metric[] = [
 ];
 
 export default async function AdminPage() {
-  const [snapshot, t] = await Promise.all([
+  const [snapshot, t, ownerFeaturesEnabled] = await Promise.all([
     getAdminOperationsSnapshot(),
     getTranslations("admin.dashboard"),
+    isOwnerFeaturesEnabled(),
   ]);
   const dashboardMetrics: Metric[] = [
     ...metrics.slice(0, 3),
@@ -116,7 +121,7 @@ export default async function AdminPage() {
                 key={metric.key}
                 href={metric.href}
                 className={cn(
-                  "group flex min-h-40 flex-col justify-between border-b border-r border-border p-5 transition-colors focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  cardStyles,
                   metric.requiresAction && value !== null && value > 0
                     ? "bg-warning/10 hover:bg-warning/20"
                     : "bg-card hover:bg-muted/50",
@@ -138,6 +143,30 @@ export default async function AdminPage() {
               </Link>
             );
           })}
+          <Link
+            href="/admin/settings"
+            className={cn(cardStyles, "bg-card hover:bg-muted/50")}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <span className="type-body-emphasis">
+                {t("ownerFeatures.label")}
+              </span>
+              <ArrowUpRight
+                className="size-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+                aria-hidden="true"
+              />
+            </div>
+            <div>
+              <p className="type-stat">
+                {ownerFeaturesEnabled
+                  ? t("ownerFeatures.enabled")
+                  : t("ownerFeatures.disabled")}
+              </p>
+              <p className="mt-1 type-card-description">
+                {t("ownerFeatures.manage")}
+              </p>
+            </div>
+          </Link>
         </div>
       </section>
 

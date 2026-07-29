@@ -2330,6 +2330,12 @@
         "label": "Evidence",
         "description": "Origin evidence awaiting review"
       },
+      "ownerFeatures": {
+        "label": "Owner features",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "manage": "Manage feature flags"
+      },
       "queues": {
         "claims": {
           "title": "Brand Claims",

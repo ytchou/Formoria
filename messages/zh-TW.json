@@ -2330,6 +2330,12 @@
         "label": "產地佐證",
         "description": "等待審核的產地佐證"
       },
+      "ownerFeatures": {
+        "label": "品牌主功能",
+        "enabled": "已啟用",
+        "disabled": "已停用",
+        "manage": "管理功能開關"
+      },
       "queues": {
         "claims": {
           "title": "品牌認領",

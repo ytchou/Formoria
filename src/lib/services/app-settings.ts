@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { routing } from '@/i18n/routing'
 import type { Json } from '@/lib/supabase/database.types'
@@ -24,9 +25,21 @@ export const FEATURE_FLAGS: FeatureFlag[] = [
       '/admin/settings',
     ],
   },
+  // Keep new flags appended: `SUBCATEGORY_FILTER_KEY` reads `FEATURE_FLAGS[0]`.
+  {
+    key: 'owner_features_enabled',
+    label: 'Owner features',
+    description:
+      'Enables brand claiming and the owner dashboard; off hides both surfaces',
+    defaultValue: false,
+    // Owner surfaces are gated per-request, so only the toggle page needs busting.
+    revalidatePaths: ['/admin/settings'],
+  },
 ]
 
 export const SUBCATEGORY_FILTER_KEY = FEATURE_FLAGS[0].key
+
+export const OWNER_FEATURES_KEY = 'owner_features_enabled'
 
 export async function getAppSetting<T extends Json = Json>(
   key: string,
@@ -52,6 +65,16 @@ export async function getAppSetting<T extends Json = Json>(
 
   return data.value as T
 }
+
+/**
+ * Fail-closed read of the owner-features kill switch. A missing row or a query
+ * error resolves to `false`, so owner surfaces stay hidden by default. React
+ * `cache` collapses repeat reads within one request into a single round trip.
+ */
+export const isOwnerFeaturesEnabled = cache(
+  async (): Promise<boolean> =>
+    (await getAppSetting<boolean>(OWNER_FEATURES_KEY, false)) ?? false
+)
 
 export async function setAppSetting(key: string, value: Json): Promise<void> {
   const supabase = createServiceClient()
