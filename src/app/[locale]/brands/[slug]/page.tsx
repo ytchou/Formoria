@@ -39,11 +39,6 @@ import { NotFoundError } from '@/lib/errors'
 import { truncateForMeta } from '@/lib/text/truncate-for-meta'
 import { getBrandIndexability } from '@/lib/seo/brand-indexability'
 import { getBrandGalleryImages } from '@/lib/services/brand-images'
-import {
-  normalizeInstagramHref,
-  normalizeThreadsHref,
-  sanitizeHref,
-} from '@/lib/url'
 
 // Shared section rhythm: hairline rule above each section, and enough scroll offset to clear
 // the sticky main nav (100px) plus the mobile section-nav strip (48px).
@@ -175,18 +170,13 @@ export default async function BrandDetailPage({ params }: PageProps) {
     safeLocale === 'en'
       ? (displayBrand.descriptionEn ?? displayBrand.description)
       : displayBrand.description
-  const hasSocialLinks = [
-    normalizeInstagramHref(displayBrand.socialInstagram),
-    normalizeThreadsHref(displayBrand.socialThreads),
-    sanitizeHref(displayBrand.socialFacebook),
-  ].some(Boolean)
   const sections = [
     ...(description
       ? [{ id: 'about', label: tBrandDetail('tabNav.about') }]
       : []),
-    ...(hasSocialLinks
-      ? [{ id: 'social', label: tBrandDetail('tabNav.social') }]
-      : []),
+    // Both link sections render unconditionally now — a channel with no known
+    // URL shows as a dimmed chip rather than disappearing.
+    { id: 'social', label: tBrandDetail('tabNav.social') },
     { id: 'purchase', label: tBrandDetail('tabNav.purchase') },
     { id: 'locations', label: tBrandDetail('tabNav.locations') },
     ...(faqItems.length > 0

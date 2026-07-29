@@ -52,7 +52,7 @@ export async function startCurationJobAction(
     revalidatePath("/admin/jobs");
     revalidatePath("/admin/submissions");
 
-    return dispatchQueuedJob(job.id, "Data job created and dispatching now.");
+    return dispatchQueuedJob(job.id, "Data job created.");
   } catch (error) {
     console.error("[admin:startCurationJobAction]", error);
     return {
@@ -86,7 +86,7 @@ export async function startNeedsDataSubmissionEnrichmentAction(): Promise<
     revalidatePath("/admin/submissions");
     return dispatchQueuedJob(
       job.id,
-      `${submissionIds.length} submissions queued for enrichment.`,
+      `${submissionIds.length} submissions added to enrichment.`,
     );
   } catch (error) {
     console.error("[admin:startNeedsDataSubmissionEnrichmentAction]", error);
@@ -113,7 +113,7 @@ export async function rerunCurationJobAction(
 
     return dispatchQueuedJob(
       job.id,
-      "Rerun job created for failed, skipped, or unfinished submissions, dispatching now.",
+      "Rerun job created for failed, skipped, or unfinished submissions.",
     );
   } catch (error) {
     console.error("[admin:rerunCurationJobAction]", error);
@@ -235,7 +235,7 @@ async function dispatchQueuedJob(
   successMessage: string,
 ): Promise<QueuedJobResult> {
   try {
-    await dispatchCurationJob(jobId);
+    const dispatch = await dispatchCurationJob(jobId);
     try {
       await markCurationJobDispatched(jobId);
     } catch (error) {
@@ -244,7 +244,15 @@ async function dispatchQueuedJob(
         sanitizeDispatchError(error),
       );
     }
-    return queuedJobResult(jobId, successMessage, "dispatched");
+    const dispatchMessage =
+      dispatch.status === "queued"
+        ? "Queued behind earlier jobs."
+        : "Dispatching now.";
+    return queuedJobResult(
+      jobId,
+      `${successMessage} ${dispatchMessage}`,
+      "dispatched",
+    );
   } catch (error) {
     const message = sanitizeDispatchError(error);
     try {

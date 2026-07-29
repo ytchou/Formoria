@@ -194,6 +194,9 @@ test.describe('Admin curation jobs deep', () => {
     await expect(adminPage.getByRole('navigation', { name: 'Filter data jobs' })).toHaveCount(0);
     const row = adminPage.locator('tbody tr').filter({ has: adminPage.locator(`a[href="/admin/jobs/${cancellableJobId}"]`) });
     await expect(row).toBeVisible({ timeout: 60_000 });
+    await expect(row.locator('[data-slot="badge"]', { hasText: 'Queued' })).toBeVisible();
+    await expect(adminPage.getByRole('columnheader', { name: 'Created' })).toBeVisible();
+    await expect(adminPage.getByRole('columnheader', { name: 'Started' })).toBeVisible();
     await row.getByRole('button', { name: 'Cancel job' }).click();
     const dialog = adminPage.getByRole('alertdialog');
     await expect(dialog.getByRole('heading', { name: 'Cancel this job?' })).toBeVisible();
@@ -233,6 +236,8 @@ test.describe('Admin curation jobs deep', () => {
     await expect(targetRow).toBeVisible();
     await expect(targetRow).toContainText('Failed');
     await expect(targetRow).toContainText('descriptions');
+    await expect(targetRow).toContainText(phaseError);
+    await expect(adminPage.getByText('What do phases mean?', { exact: true })).toBeVisible();
 
     const detailsToggle = targetRow.getByText('View details', { exact: true });
     await expect(detailsToggle).toHaveCount(1);

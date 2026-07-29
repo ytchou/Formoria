@@ -12,6 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { Json } from "@/lib/supabase/database.types";
+import { ENRICH_PHASES } from "@/lib/constants/enrich-phases";
 import type {
   CurationJobDetail,
   CurationJobTarget,
@@ -38,6 +39,29 @@ type PhaseResult = {
   error?: string;
   detail?: string;
 };
+
+const phaseDescriptions = {
+  clean: "Normalizes the submitted brand name.",
+  detect: "Checks whether the entry is a real brand and validates its identity.",
+  slugs: "Generates a stable URL slug from the validated brand name.",
+  tags: "Classifies the brand's product type and tags.",
+  discover: "Searches the web for useful official sources and brand context.",
+  links: "Extracts and verifies official website and social links.",
+  images: "Finds and selects usable brand and product images.",
+  classify_images: "Classifies candidate images by their role and quality.",
+  descriptions: "Generates descriptions and related structured brand details.",
+  locations: "Finds physical shops and retail channels.",
+  expansion: "Adds reputation context when it is not already available.",
+} satisfies Record<(typeof ENRICH_PHASES)[number], string>;
+
+const phaseDefinitions = [
+  ["Preflight", "Checks whether the target still exists and is eligible to run."],
+  ...ENRICH_PHASES.map(
+    (phase) => [phase.replaceAll("_", " "), phaseDescriptions[phase]] as const,
+  ),
+  ["Image search", "Searches for candidate images before image selection."],
+  ["Persist", "Saves the completed enrichment result."],
+] as const;
 
 const filters: Array<{ value: "all" | CurationTargetStatus; label: string }> = [
   { value: "all", label: "All" },
@@ -87,7 +111,7 @@ export function JobDetailView({
         target.status === "failed" ||
         target.status === "cancelled",
     );
-  const canDispatch = job.status === "pending" && job.dispatch_status !== "failed";
+  const canDispatch = job.status === "pending" && job.dispatch_status === "pending";
 
   return (
     <div className="space-y-6">
@@ -192,6 +216,7 @@ export function JobDetailView({
             label="Scheduled"
             value={formatJobDate(job.scheduled_for)}
           />
+          <InfoField label="Created" value={formatJobDate(job.created_at)} />
           <InfoField label="Started" value={formatJobDate(job.started_at)} />
           <InfoField label="Completed" value={formatJobDate(job.completed_at)} />
           <InfoField
@@ -209,7 +234,9 @@ export function JobDetailView({
             value={
               job.dispatch_status === "failed"
                 ? "Dispatch failed"
-                : job.dispatch_status === "dispatched"
+                : job.status === "pending" && job.dispatch_status === "dispatched"
+                  ? "Queued"
+                  : job.dispatch_status === "dispatched"
                   ? "Dispatched"
                   : "Pending dispatch"
             }
@@ -252,6 +279,21 @@ export function JobDetailView({
           <p className="mt-1 type-card-description">
             Phase results, changed fields, and error summary per brand.
           </p>
+          <details className="mt-2">
+            <summary className="flex min-h-12 cursor-pointer items-center font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              What do phases mean?
+            </summary>
+            <dl className="grid gap-x-6 gap-y-3 rounded-lg bg-muted/40 p-4 sm:grid-cols-2 lg:grid-cols-3">
+              {phaseDefinitions.map(([phase, description]) => (
+                <div key={phase}>
+                  <dt className="type-body-emphasis capitalize">{phase}</dt>
+                  <dd className="mt-1 text-sm text-muted-foreground">
+                    {description}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </details>
         </div>
         <nav aria-label="Filter brands by status" className="flex flex-wrap gap-2">
           {filters.map((filter) => {
@@ -290,6 +332,7 @@ export function JobDetailView({
                   <TableHead>Type</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Current Phase</TableHead>
+                  <TableHead>Reason</TableHead>
                   <TableHead>Duration</TableHead>
                   <TableHead>Details</TableHead>
                 </TableRow>
@@ -309,6 +352,9 @@ export function JobDetailView({
                       <TargetStatusBadge target={target} />
                     </TableCell>
                     <TableCell>{target.current_phase ?? "-"}</TableCell>
+                    <TableCell className="max-w-80 whitespace-normal text-sm text-muted-foreground">
+                      {targetReason(target)}
+                    </TableCell>
                     <TableCell>{formatTargetDuration(target)}</TableCell>
                     <TableCell>
                       <TargetDetail target={target} />
@@ -322,6 +368,33 @@ export function JobDetailView({
       </section>
     </div>
   );
+}
+
+function targetReason(target: CurationJobTarget): string {
+  if (target.status === "pending" || target.status === "running") return "-";
+  if (target.status === "succeeded") return "Completed successfully";
+
+  const recordedReason = target.error?.trim();
+  if (recordedReason) return recordedReason;
+
+  const phases = parsePhaseResults(target.phase_results);
+  const phaseReason = phases
+    .toReversed()
+    .find(
+      (phase) =>
+        Boolean(phase.error?.trim()) ||
+        (phase.status === "skipped" && Boolean(phase.detail?.trim())),
+    );
+  if (phaseReason?.error) return phaseReason.error;
+  if (phaseReason?.detail) return formatPhaseDetail(phaseReason);
+
+  if (target.status === "cancelled") {
+    return "The job was cancelled before this brand completed";
+  }
+  if (target.status === "skipped") {
+    return "No changes were needed or no usable enrichment data was found";
+  }
+  return "No failure reason was recorded";
 }
 
 function LineageLink({ id, label }: { id: string; label: string }) {

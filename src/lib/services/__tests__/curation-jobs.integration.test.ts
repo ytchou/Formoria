@@ -2,7 +2,11 @@ import { randomUUID } from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
 import { afterEach, describe, expect, it } from 'vitest'
 import { createTestClient, describeWithDb } from '@/test/setup'
-import { enqueueManualRerun, finalizeCurationJob } from '../curation-jobs'
+import {
+  claimCurationDispatchWork,
+  enqueueManualRerun,
+  finalizeCurationJob,
+} from '../curation-jobs'
 
 const createdJobIds = new Set<string>()
 
@@ -91,6 +95,50 @@ describeWithDb('durable curation job queue integration', () => {
         completed_at: new Date().toISOString(),
       })
     ).resolves.toBe(true)
+  })
+
+  it('runs due admin jobs in FIFO order after the active job completes', async () => {
+    const client = createTestClient()
+    const firstJobId = await enqueue(client, {
+      runAfter: '2000-01-01T00:00:00.000Z',
+    })
+    const secondJobId = await enqueue(client, {
+      runAfter: '2000-01-01T00:00:01.000Z',
+    })
+    const thirdJobId = await enqueue(client, {
+      runAfter: '2000-01-01T00:00:02.000Z',
+    })
+    const firstToken = randomUUID()
+    const secondToken = randomUUID()
+
+    const { data: firstClaim, error: firstClaimError } = await client.rpc(
+      'claim_curation_job',
+      { p_job_id: firstJobId, p_worker_token: firstToken }
+    )
+    expect(firstClaimError).toBeNull()
+    expect(firstClaim?.[0]?.id).toBe(firstJobId)
+
+    const { data: queuedJob, error: queuedJobError } = await client
+      .from('curation_jobs')
+      .select('status, created_at, started_at')
+      .eq('id', secondJobId)
+      .single()
+    expect(queuedJobError).toBeNull()
+    expect(queuedJob).toMatchObject({ status: 'pending', started_at: null })
+
+    await expect(
+      finalizeCurationJob(firstJobId, firstToken, {
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+      })
+    ).resolves.toBe(true)
+
+    const dispatch = await claimCurationDispatchWork(thirdJobId, secondToken)
+    expect(dispatch?.requestedJob.id).toBe(thirdJobId)
+    expect(dispatch?.claimedJob?.id).toBe(secondJobId)
+    expect(new Date(dispatch!.claimedJob!.started_at!).getTime()).toBeGreaterThan(
+      new Date(queuedJob!.created_at).getTime()
+    )
   })
 
   it('recovers stale runs as cancelled without scheduling a retry', async () => {

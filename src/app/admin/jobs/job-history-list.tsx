@@ -74,6 +74,7 @@ export function JobHistoryList({
           <TableHeader>
             <TableRow>
               <TableHead>Created</TableHead>
+              <TableHead>Started</TableHead>
               <TableHead>Trigger</TableHead>
               <TableHead>Attempt</TableHead>
               <TableHead>Status</TableHead>
@@ -87,7 +88,7 @@ export function JobHistoryList({
             {initialJobs.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={8}
+                  colSpan={9}
                   className="py-8 text-center text-muted-foreground"
                 >
                   No data jobs yet.
@@ -104,6 +105,7 @@ export function JobHistoryList({
                       {formatJobDate(job.created_at)}
                     </Link>
                   </TableCell>
+                  <TableCell>{formatJobDate(job.started_at)}</TableCell>
                   <TableCell>{jobTriggerLabel(job.trigger)}</TableCell>
                   <TableCell>{job.attempt}</TableCell>
                   <TableCell>

@@ -65,7 +65,13 @@ import { isSubmissionEnrichmentFailure } from "@/lib/services/submission-review-
 import { SubmissionReviewDetails } from "./submission-review-details";
 
 export type TabValue =
-  "all" | "needs_data" | "enriching" | "ready" | "approved" | "rejected";
+  | "all"
+  | "needs_data"
+  | "enriching"
+  | "skipped"
+  | "ready"
+  | "approved"
+  | "rejected";
 
 export type ReviewSubmission = BrandSubmissionForReview & {
   brandSlug?: string | null;
@@ -107,6 +113,7 @@ export function SubmissionsReviewList({
   const [isPending, startTransition] = useTransition();
   const [isEnriching, startEnrichTransition] = useTransition();
   const showEnrichment = activeTab !== "needs_data";
+  const showSkipReason = activeTab === "skipped";
 
   const tabCounts = useMemo(
     () => ({
@@ -115,6 +122,8 @@ export function SubmissionsReviewList({
         (item) => item.reviewStage === "needs_data",
       ).length,
       enriching: submissions.filter((item) => item.reviewStage === "enriching")
+        .length,
+      skipped: submissions.filter((item) => item.reviewStage === "skipped")
         .length,
       ready: submissions.filter((item) => item.reviewStage === "ready").length,
       approved: submissions.filter((item) => item.status === "approved").length,
@@ -374,6 +383,7 @@ export function SubmissionsReviewList({
               "needs_data",
               "enriching",
               "ready",
+              "skipped",
               "approved",
               "rejected",
               "all",
@@ -570,7 +580,11 @@ export function SubmissionsReviewList({
               <TableHead>{t("table.status")}</TableHead>
               <TableHead>{t("table.submitter")}</TableHead>
               <TableHead>{t("table.date")}</TableHead>
-              {showEnrichment && <TableHead>{t("table.enrichment")}</TableHead>}
+              {showEnrichment && (
+                <TableHead>
+                  {t(showSkipReason ? "table.reason" : "table.enrichment")}
+                </TableHead>
+              )}
               <TableHead className="text-right">{t("table.actions")}</TableHead>
               <TableHead className="w-12">
                 <span className="sr-only">{t("table.details")}</span>
@@ -630,26 +644,39 @@ export function SubmissionsReviewList({
                     <TableCell>{formatDate(submission.submittedAt)}</TableCell>
                     {showEnrichment && (
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={enrichment.variant}>
-                            {enrichment.label}
-                          </Badge>
-                          {submission.latestCurationJobId && (
-                            <Link
-                              className="type-link"
-                              href={`/admin/jobs/${submission.latestCurationJobId}`}
-                            >
-                              {t("viewJob")}
-                            </Link>
-                          )}
-                        </div>
-                        {submission.reviewCompleteness.missingFields.length >
-                          0 && (
-                          <p className="mt-1 type-caption text-warning">
-                            {`${t("missingRequired")}: ${submission.reviewCompleteness.missingFields
-                              .map((field) => t(`missingFields.${field}`))
-                              .join(", ")}`}
+                        {showSkipReason ? (
+                          <p className="max-w-96 whitespace-normal text-sm text-muted-foreground">
+                            {submission.latestCurationError ?? t("noSkipReason")}
                           </p>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <Badge variant={enrichment.variant}>
+                                {enrichment.label}
+                              </Badge>
+                              {submission.latestCurationJobId && (
+                                <Link
+                                  className="type-link"
+                                  href={`/admin/jobs/${submission.latestCurationJobId}`}
+                                >
+                                  {t("viewJob")}
+                                </Link>
+                              )}
+                            </div>
+                            {submission.latestCurationError && (
+                              <p className="mt-1 max-w-72 type-caption text-muted-foreground">
+                                {submission.latestCurationError}
+                              </p>
+                            )}
+                            {submission.reviewCompleteness.missingFields.length >
+                              0 && (
+                              <p className="mt-1 type-caption text-warning">
+                                {`${t("missingRequired")}: ${submission.reviewCompleteness.missingFields
+                                  .map((field) => t(`missingFields.${field}`))
+                                  .join(", ")}`}
+                              </p>
+                            )}
+                          </>
                         )}
                       </TableCell>
                     )}

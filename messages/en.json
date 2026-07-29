@@ -380,7 +380,7 @@
       "website": "Official Website",
       "pinkoi": "Pinkoi",
       "shopee": "Shopee",
-      "purchaseEmpty": "No purchase links are known yet. You can help add one."
+      "unknown": "No link known yet"
     },
     "notFound": {
       "title": "Brand Not Found",
@@ -488,6 +488,10 @@
       "purchaseFieldPickerPlaceholder": "Choose a purchase channel…",
       "purchaseUrlLabel": "Link URL",
       "purchaseUrlPlaceholder": "https://example.com/shop",
+      "socialTrigger": "Provide a social link",
+      "socialTitle": "Provide a social link",
+      "socialFieldPickerLabel": "Which social channel are you adding?",
+      "socialFieldPickerPlaceholder": "Choose a social channel…",
       "close": "Close",
       "fieldPickerLabel": "Which field is wrong?",
       "fieldPickerPlaceholder": "Choose a field…",
@@ -2356,7 +2360,10 @@
         "product_tags": "Product tags",
         "purchase_website": "Official website",
         "purchase_pinkoi": "Pinkoi",
-        "purchase_shopee": "Shopee"
+        "purchase_shopee": "Shopee",
+        "social_instagram": "Instagram",
+        "social_threads": "Threads",
+        "social_facebook": "Facebook"
       },
       "tagDelta": {
         "projected": "Projected result"
@@ -2430,6 +2437,7 @@
       "title": "Brand Submissions",
       "description": "Complete data enrichment before manual approval or rejection.",
       "noSubmitter": "Not provided",
+      "noSkipReason": "No skip reason recorded",
       "viewJob": "View job",
       "notFound": "No submissions found.",
       "confirmBulkApprove": "Approve {count} selected submissions?",
@@ -2472,6 +2480,7 @@
       "tabs": {
         "needsData": "Needs Data",
         "enriching": "Enriching",
+        "skipped": "Skipped",
         "ready": "Ready for Review",
         "approved": "Approved",
         "rejected": "Rejected",
@@ -2490,6 +2499,7 @@
         "source": "Source",
         "status": "Status",
         "enrichment": "Enrichment",
+        "reason": "Reason",
         "submitter": "Submitter",
         "date": "Date",
         "actions": "Actions",

@@ -9,8 +9,11 @@ import type { CurationJob } from "@/lib/services/curation-jobs";
 
 config({ path: ".env.local", quiet: true });
 
-const { claimCurationJob, getCurationJob, getCurationJobDetail, recoverStaleJobs } =
-  await import("@/lib/services/curation-jobs");
+const {
+  claimCurationDispatchWork,
+  claimNextCurationJob,
+  recoverStaleJobs,
+} = await import("@/lib/services/curation-jobs");
 const { runJob, sanitizeJobError } = await import("@/lib/services/job-runner");
 const { runScheduledCuration } = await import(
   "@/lib/services/curation-worker"
@@ -168,57 +171,58 @@ async function handleRequest(
   }
 
   const workerToken = randomUUID();
-  const claimed = await claimCurationJob(jobId, workerToken);
-  if (!claimed) {
-    const current = await getCurationJob(jobId).catch(() => null);
-    if (current?.status === "running") {
+  const dispatch = await claimCurationDispatchWork(jobId, workerToken);
+  if (!dispatch) {
+    sendJson(response, 404, { error: "Job not found" });
+    return;
+  }
+
+  if (!dispatch.claimedJob) {
+    if (dispatch.requestedJob.status === "running") {
       sendJson(response, 202, { accepted: true, status: "running" });
       return;
     }
 
-    if (!current) {
-      sendJson(response, 404, { error: "Job not found" });
+    if (dispatch.requestedJob.status === "pending") {
+      sendJson(response, 202, { accepted: true, status: "queued" });
       return;
     }
 
-    sendJson(response, 409, {
-      error:
-        current.status === "pending"
-          ? "Worker is busy or the job is not due yet"
-          : "Job is no longer pending",
-    });
+    sendJson(response, 409, { error: "Job is no longer pending" });
     return;
   }
 
-  activeJobs.add(jobId);
-  sendJson(response, 202, { accepted: true, status: "started" });
+  const claimed = dispatch.claimedJob;
+  activeJobs.add(claimed.id);
+  sendJson(response, 202, {
+    accepted: true,
+    status: claimed.id === jobId ? "started" : "queued",
+  });
 
-  void runWithImmediateRetry(claimed, workerToken)
-    .catch((error) => {
-      console.error("[curation-worker:run]", sanitizeJobError(error));
-    })
-    .finally(() => {
-      activeJobs.delete(jobId);
-    });
+  void runQueuedJobs(claimed, workerToken).catch((error) => {
+    console.error("[curation-worker:run]", sanitizeJobError(error));
+  });
 }
 
-async function runWithImmediateRetry(
+async function runQueuedJobs(
   job: CurationJob,
   workerToken: string,
 ): Promise<void> {
-  await runJob(job, workerToken);
+  let currentJob: CurationJob | null = job;
+  let currentToken = workerToken;
 
-  const detail = await getCurationJobDetail(job.id);
-  const retry = detail.children.find(
-    (child) =>
-      child.trigger === "automatic_retry" && child.status === "pending",
-  );
-  if (!retry) return;
+  while (currentJob) {
+    try {
+      await runJob(currentJob, currentToken);
+    } finally {
+      activeJobs.delete(currentJob.id);
+    }
 
-  const retryToken = randomUUID();
-  const claimedRetry = await claimCurationJob(retry.id, retryToken);
-  if (claimedRetry) {
-    await runJob(claimedRetry, retryToken);
+    currentToken = randomUUID();
+    currentJob = await claimNextCurationJob(currentToken);
+    if (currentJob) {
+      activeJobs.add(currentJob.id);
+    }
   }
 }
 

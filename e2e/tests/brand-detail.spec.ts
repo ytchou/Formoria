@@ -177,16 +177,18 @@ test.describe('Brand detail — brand without links', () => {
       });
     }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 10_000] });
 
-    // The social section has no empty state, so its label must not dangle without content.
-    await expect(page.getByRole('heading', { name: '社群平台', level: 2 })).toHaveCount(0);
-
-    // The purchase section deliberately stays rendered when empty: it carries the
-    // "provide a purchase link" correction trigger, so the heading is accompanied by
-    // an explicit empty message rather than dangling.
+    // Both link sections stay rendered when the brand has no links: every
+    // destination shows as a dimmed, inert chip so the gap reads as "unknown"
+    // rather than "not on that channel".
+    await expect(page.getByRole('heading', { name: '社群平台', level: 2 })).toHaveCount(1);
     await expect(page.getByRole('heading', { name: '購買管道', level: 2 })).toHaveCount(1);
-    await expect(
-      page.getByText('目前還沒有購買連結，歡迎協助補充。'),
-    ).toBeVisible();
+
+    for (const label of ['Instagram', 'Threads', 'Facebook', '品牌官網']) {
+      const chip = page.getByRole('button', { name: new RegExp(`^${label} — 尚無已知連結$`) });
+      await expect(chip).toBeVisible();
+      await expect(chip).toHaveAttribute('aria-disabled', 'true');
+    }
+
     await expect(
       page.getByRole('button', { name: '提供購買連結' }),
     ).toBeVisible();

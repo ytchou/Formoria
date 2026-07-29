@@ -10,6 +10,7 @@ import { describe, it, expect } from "vitest";
 // imported freely.
 import {
   buildScalarCorrectionPatch,
+  isCorrectionField,
   normalizeProposedValue,
 } from "../brand-corrections";
 import type { ProductTagsDelta } from "../product-tags";
@@ -254,6 +255,135 @@ describe("normalizeProposedValue — purchase links", () => {
   });
 });
 
+describe("normalizeProposedValue — social links", () => {
+  it("accepts a URL on each social destination's own host", () => {
+    expect(
+      normalizeProposedValue(
+        "social_instagram",
+        "https://www.instagram.com/m.garcia",
+      ),
+    ).toEqual({ ok: true, value: "https://www.instagram.com/m.garcia" });
+    expect(
+      normalizeProposedValue("social_threads", "https://threads.net/@m.garcia"),
+    ).toEqual({ ok: true, value: "https://threads.net/@m.garcia" });
+    expect(
+      normalizeProposedValue(
+        "social_facebook",
+        "https://www.facebook.com/m.garcia",
+      ),
+    ).toEqual({ ok: true, value: "https://www.facebook.com/m.garcia" });
+  });
+
+  it("accepts threads.com alongside threads.net", () => {
+    expect(
+      normalizeProposedValue("social_threads", "https://www.threads.com/@foo"),
+    ).toEqual({ ok: true, value: "https://www.threads.com/@foo" });
+  });
+
+  it("rejects a social URL submitted for a different social field", () => {
+    // The handle helpers pass any existing http(s) URL straight through, so
+    // these only fail because of the explicit host check.
+    expect(
+      normalizeProposedValue("social_instagram", "https://threads.net/@foo"),
+    ).toEqual({ ok: false, error: "invalid_value" });
+    expect(
+      normalizeProposedValue("social_instagram", "https://facebook.com/foo"),
+    ).toEqual({ ok: false, error: "invalid_value" });
+    expect(
+      normalizeProposedValue("social_threads", "https://instagram.com/foo"),
+    ).toEqual({ ok: false, error: "invalid_value" });
+    expect(
+      normalizeProposedValue("social_threads", "https://facebook.com/foo"),
+    ).toEqual({ ok: false, error: "invalid_value" });
+    expect(
+      normalizeProposedValue("social_facebook", "https://instagram.com/foo"),
+    ).toEqual({ ok: false, error: "invalid_value" });
+    expect(
+      normalizeProposedValue("social_facebook", "https://threads.net/@foo"),
+    ).toEqual({ ok: false, error: "invalid_value" });
+  });
+
+  it("rejects a URL on an unrelated host", () => {
+    expect(
+      normalizeProposedValue("social_instagram", "https://formoria.example/foo"),
+    ).toEqual({ ok: false, error: "invalid_value" });
+    expect(
+      normalizeProposedValue("social_threads", "https://formoria.example/foo"),
+    ).toEqual({ ok: false, error: "invalid_value" });
+    expect(
+      normalizeProposedValue("social_facebook", "https://formoria.example/foo"),
+    ).toEqual({ ok: false, error: "invalid_value" });
+  });
+
+  it("expands bare handles to the canonical profile URL", () => {
+    expect(normalizeProposedValue("social_instagram", "@foo")).toEqual({
+      ok: true,
+      value: "https://instagram.com/foo",
+    });
+    expect(normalizeProposedValue("social_instagram", "foo")).toEqual({
+      ok: true,
+      value: "https://instagram.com/foo",
+    });
+    expect(normalizeProposedValue("social_threads", "@foo")).toEqual({
+      ok: true,
+      value: "https://threads.net/@foo",
+    });
+    expect(normalizeProposedValue("social_threads", "foo")).toEqual({
+      ok: true,
+      value: "https://threads.net/@foo",
+    });
+  });
+
+  it("rejects private, credentialed, non-http, and oversized URLs", () => {
+    expect(
+      normalizeProposedValue("social_instagram", "http://127.0.0.1/foo"),
+    ).toEqual({ ok: false, error: "invalid_value" });
+    expect(
+      normalizeProposedValue("social_threads", "http://[::1]/@foo"),
+    ).toEqual({ ok: false, error: "invalid_value" });
+    expect(
+      normalizeProposedValue("social_facebook", "http://192.168.1.4/foo"),
+    ).toEqual({ ok: false, error: "invalid_value" });
+    expect(
+      normalizeProposedValue(
+        "social_instagram",
+        "https://user:pw@instagram.com/foo",
+      ),
+    ).toEqual({ ok: false, error: "invalid_value" });
+    expect(
+      normalizeProposedValue("social_instagram", "javascript:alert(1)"),
+    ).toEqual({ ok: false, error: "invalid_value" });
+    expect(
+      normalizeProposedValue(
+        "social_instagram",
+        `https://instagram.com/${"a".repeat(2048)}`,
+      ),
+    ).toEqual({ ok: false, error: "invalid_value" });
+    expect(normalizeProposedValue("social_instagram", 42)).toEqual({
+      ok: false,
+      error: "invalid_value",
+    });
+  });
+
+  it("is idempotent for every social field", () => {
+    const cases = [
+      ["social_instagram", "@foo"],
+      ["social_instagram", "https://www.instagram.com/m.garcía"],
+      ["social_threads", "foo"],
+      ["social_threads", "https://www.threads.com/@m.garcía"],
+      ["social_facebook", "facebook.com/m.garcía"],
+    ] as const;
+
+    for (const [field, input] of cases) {
+      const once = normalizeProposedValue(field, input);
+      expect(once.ok).toBe(true);
+      if (!once.ok) throw new Error(`expected ok result for ${field}`);
+      const twice = normalizeProposedValue(field, once.value);
+      expect(twice).toEqual(once);
+    }
+  });
+});
+
 describe("buildScalarCorrectionPatch — purchase links", () => {
   it.each([
     ["purchase_website", "purchaseWebsite"],
@@ -264,5 +394,40 @@ describe("buildScalarCorrectionPatch — purchase links", () => {
     expect(buildScalarCorrectionPatch(field, value)).toEqual({
       [brandField]: value,
     });
+  });
+});
+
+describe("buildScalarCorrectionPatch — social links", () => {
+  it.each([
+    ["social_instagram", "socialInstagram"],
+    ["social_threads", "socialThreads"],
+    ["social_facebook", "socialFacebook"],
+  ] as const)("maps %s to %s", (field, brandField) => {
+    const value = "https://instagram.com/m.garcia";
+    expect(buildScalarCorrectionPatch(field, value)).toEqual({
+      [brandField]: value,
+    });
+  });
+});
+
+describe("isCorrectionField", () => {
+  it("accepts every supported field name and rejects unknown ones", () => {
+    for (const field of [
+      "price_range",
+      "product_type",
+      "product_tags",
+      "purchase_website",
+      "purchase_pinkoi",
+      "purchase_shopee",
+      "social_instagram",
+      "social_threads",
+      "social_facebook",
+    ]) {
+      expect(isCorrectionField(field)).toBe(true);
+    }
+
+    expect(isCorrectionField("social_twitter")).toBe(false);
+    expect(isCorrectionField("socialInstagram")).toBe(false);
+    expect(isCorrectionField("")).toBe(false);
   });
 });
