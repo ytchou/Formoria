@@ -32,6 +32,7 @@ export function DirectoryFilterToken({
         variant === 'row' ? 'w-full px-3 text-left' : 'px-4',
       )}
       href={href}
+      prefetch={false}
       replace
       scroll={false}
     >

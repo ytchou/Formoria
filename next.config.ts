@@ -43,6 +43,12 @@ const nextConfig: NextConfig = {
       protocol: 'https',
       hostname,
     })),
+    formats: ['image/avif', 'image/webp'],
+    // The optimizer cache lives on the single Railway container's ephemeral disk,
+    // so every cold start re-derives from source. A long TTL maximises reuse within
+    // a container's lifetime; 30 days bounds staleness if a brand image is replaced
+    // at the same URL.
+    minimumCacheTTL: 2592000,
   },
   async headers() {
     return [

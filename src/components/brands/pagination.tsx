@@ -76,6 +76,7 @@ export function Pagination({
           href={buildPageUrl(pathname, searchParams, currentPage - 1)}
           className={navLinkClass}
           aria-label={t('pagination.previousAria')}
+          prefetch={false}
           scroll={false}
           onClick={() =>
             trackDirectoryPageNavigated(currentPage - 1, 'prev', totalPages)
@@ -122,6 +123,7 @@ export function Pagination({
             key={page}
             href={buildPageUrl(pathname, searchParams, page)}
             className={pageLinkClass}
+            prefetch={false}
             scroll={false}
             onClick={() =>
               trackDirectoryPageNavigated(
@@ -143,6 +145,7 @@ export function Pagination({
           href={buildPageUrl(pathname, searchParams, currentPage + 1)}
           className={navLinkClass}
           aria-label={t('pagination.nextAria')}
+          prefetch={false}
           scroll={false}
           onClick={() =>
             trackDirectoryPageNavigated(currentPage + 1, 'next', totalPages)
