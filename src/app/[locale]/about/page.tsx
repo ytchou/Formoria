@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Image from 'next/image'
+import { connection } from 'next/server'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { buildArticleJsonLd, buildOrganizationJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 import { buildAlternates } from '@/lib/seo/alternates'
@@ -61,9 +62,16 @@ export default async function AboutPage({ params }: PageProps) {
   const articleJsonLd = buildArticleJsonLd({ title, description, path: '/about', locale: safeLocale })
 
   const [stats, recentBrands] = await Promise.all([
-    getBrandStats().catch(() => ({ brandCount: 0, categoryCount: 0 })),
-    getRecentBrandCount().catch(() => ({ count: 0, period: '30d' as const })),
+    getBrandStats().catch(() => null),
+    getRecentBrandCount().catch(() => null),
   ])
+
+  // A read failure degrades the page but must never be frozen by `revalidate = 3600`:
+  // opt this render out of the static cache so the next request retries against the DB.
+  const degraded = stats === null || recentBrands === null
+  if (degraded) {
+    await connection()
+  }
 
   return (
     <>
@@ -76,10 +84,11 @@ export default async function AboutPage({ params }: PageProps) {
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(articleJsonLd) }}
       />
       <main>
+        {/* Counts are omitted rather than shown as zero when the read failed. */}
         <AboutHero
-          brandCount={stats.brandCount}
-          categoryCount={stats.categoryCount}
-          recentBrands={recentBrands}
+          brandCount={degraded ? undefined : stats?.brandCount}
+          categoryCount={degraded ? undefined : stats?.categoryCount}
+          recentBrands={recentBrands ?? undefined}
         />
 
         <OriginStory

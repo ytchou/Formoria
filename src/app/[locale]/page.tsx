@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Image from 'next/image'
+import { connection } from 'next/server'
 import { NextIntlClientProvider } from 'next-intl'
 import { getTranslations, setRequestLocale, getMessages } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
@@ -61,12 +62,25 @@ export default async function LandingPage({ params }: PageProps) {
   const jsonLd = buildWebSiteJsonLd(safeLocale)
   const organizationJsonLd = buildOrganizationJsonLd(safeLocale)
 
-  const [{ brands: exploreBrands, totalCount: totalBrandCount }, newBrands, recentBrands, messages] = await Promise.all([
-    getExploreBrands(EXPLORE_BRAND_LIMIT).catch(() => ({ brands: [], totalCount: 0 })),
-    getNewBrands(4).catch(() => []),
-    getRecentBrandCount().catch(() => ({ count: 0, period: '30d' as const })),
+  const [exploreResult, newBrandsResult, recentResult, messages] = await Promise.all([
+    getExploreBrands(EXPLORE_BRAND_LIMIT).catch(() => null),
+    getNewBrands(4).catch(() => null),
+    getRecentBrandCount().catch(() => null),
     getMessages(),
   ])
+
+  // A read failure degrades the page but must never be frozen by `revalidate = 3600`:
+  // opt this render out of the static cache so the next request retries against the DB.
+  const degraded = exploreResult === null || newBrandsResult === null || recentResult === null
+  if (degraded) {
+    await connection()
+  }
+
+  const exploreBrands = exploreResult?.brands ?? []
+  const newBrands = newBrandsResult ?? []
+  const recentBrands = recentResult ?? { count: 0, period: '30d' as const }
+  // Omit the figure entirely on the error path rather than asserting a false zero.
+  const totalBrandCount = degraded ? undefined : exploreResult?.totalCount
 
   return (
     <>

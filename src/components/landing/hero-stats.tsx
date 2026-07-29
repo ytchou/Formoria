@@ -3,7 +3,8 @@
 import { AnimatedNumber } from '@/components/ui/animated-number'
 
 interface HeroStatsProps {
-  brandCount: number
+  /** Omitted when the count is unknown; the figure and its separator are dropped. */
+  brandCount?: number
   brandLabel: string
   categoryCount: number
   categoryLabel: string
@@ -21,7 +22,11 @@ export function HeroStats({
 }: HeroStatsProps) {
   return (
     <p className="mt-6 type-metadata">
-      <AnimatedNumber value={brandCount} /> {brandLabel} ·{' '}
+      {brandCount != null && (
+        <>
+          <AnimatedNumber value={brandCount} /> {brandLabel} ·{' '}
+        </>
+      )}
       <AnimatedNumber value={categoryCount} /> {categoryLabel}
       {recentCount != null && recentCount > 0 && recentLabel && (
         <span className="text-primary">
