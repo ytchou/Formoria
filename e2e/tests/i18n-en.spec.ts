@@ -43,7 +43,7 @@ test.describe('i18n English browse', () => {
       expect(document.headerText).toContain(text);
     }
     for (const text of [
-      'Brand Directory',
+      'Brands',
       'Visit Website',
       'Brand information',
       'Location',
