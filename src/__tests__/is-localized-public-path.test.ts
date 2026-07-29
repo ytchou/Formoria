@@ -28,7 +28,7 @@ describe('isLocalizedPublicPath', () => {
 
     const response = await proxy(request)
 
-    expect(response.headers.get('location')).not.toContain('/brands/feedback')
+    expect(response.headers.get('location')).toBeNull()
     expect(isLocalizedPublicPath('/feedback')).toBe(true)
     expect(isLocalizedPublicPath('/en/feedback')).toBe(true)
   })

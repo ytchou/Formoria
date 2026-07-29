@@ -288,9 +288,11 @@ export async function proxy(request: NextRequest) {
   }
 
   const isPublicPath = isLocalizedPublicPath(pathname)
+  const isAuthPath = pathname === '/auth' || pathname.startsWith('/auth/')
   const explicitLocale = isAppLocale(segments.at(0)) ? segments.at(0) : null
   const cookieLocale = request.cookies.get(LOCALE_COOKIE)?.value
-  const inferredLocale = isPublicPath && !explicitLocale && !isLikelyCrawler(request)
+  const shouldInferLocale = isAuthPath || (isPublicPath && !explicitLocale && !isLikelyCrawler(request))
+  const inferredLocale = shouldInferLocale
     ? resolveInitialLocale({
         cookieLocale,
         acceptLanguage: request.headers.get('accept-language'),
@@ -320,6 +322,8 @@ export async function proxy(request: NextRequest) {
     const requestHeaders = new Headers(request.headers)
     if (pathname === '/admin' || pathname.startsWith('/admin/')) {
       requestHeaders.set(NEXT_INTL_LOCALE_HEADER, ADMIN_DEFAULT_LOCALE)
+    } else if (isAuthPath) {
+      requestHeaders.set(NEXT_INTL_LOCALE_HEADER, inferredLocale ?? routing.defaultLocale)
     }
     response = NextResponse.next({ request: { headers: requestHeaders } })
   }

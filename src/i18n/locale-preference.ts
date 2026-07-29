@@ -23,6 +23,28 @@ export function localizePath(pathname: string, locale: string): string {
     : `/en${unprefixedPath === '/' ? '' : unprefixedPath}`
 }
 
+export function localizePostAuthPath(path: string, locale: string): string {
+  const pathname = path.split(/[?#]/, 1)[0]
+  return pathname === '/auth' || pathname.startsWith('/auth/')
+    ? path
+    : localizePath(path, locale)
+}
+
+export function resolveAuthenticatedLocale({
+  isNewUser,
+  profileLocale,
+  intendedLocale,
+}: {
+  isNewUser: boolean
+  profileLocale?: string | null
+  intendedLocale?: string | null
+}): AppLocale {
+  if (!isNewUser && isAppLocale(profileLocale)) return profileLocale
+  if (isAppLocale(intendedLocale)) return intendedLocale
+  if (isAppLocale(profileLocale)) return profileLocale
+  return routing.defaultLocale
+}
+
 export function signInHref(path: string, locale: string): string {
   return `/auth/sign-in?next=${encodeURIComponent(localizePath(path, locale))}`
 }
