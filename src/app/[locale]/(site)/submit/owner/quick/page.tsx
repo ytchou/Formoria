@@ -32,17 +32,21 @@ export default async function SubmitOwnerQuickPage({
   const { locale } = await params
   setRequestLocale(locale)
 
-  // Gate before the auth check so signed-out visitors get a 404 rather than a
-  // sign-in bounce into a route that no longer exists.
-  if (!(await isOwnerFeaturesEnabled())) {
-    notFound()
-  }
-
+  // Read the session first so this route stays dynamic. Gating before any
+  // dynamic API makes the page statically eligible, which bakes a flag-off 404
+  // into the prerender — the flag's `revalidatePaths` never busts it, so the
+  // kill switch would become one-way until the next deploy.
   const supabase = await createClient()
   const {
     data: { user },
     error,
   } = await supabase.auth.getUser()
+
+  // Gate before the auth redirect so signed-out visitors get a 404 rather than a
+  // sign-in bounce into a route that no longer exists.
+  if (!(await isOwnerFeaturesEnabled())) {
+    notFound()
+  }
 
   if (error || !user) {
     redirect(signInHref('/submit/owner/quick', locale))

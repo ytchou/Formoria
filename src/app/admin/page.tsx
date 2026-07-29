@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { getTranslations } from "next-intl/server";
@@ -10,8 +11,49 @@ import {
 import { isOwnerFeaturesEnabled } from "@/lib/services/app-settings";
 import { cn } from "@/lib/utils";
 
-const cardStyles =
-  "group flex min-h-40 flex-col justify-between border-b border-r border-border p-5 transition-colors focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+/**
+ * One tile of the operations grid. Both the numeric queue metrics and the
+ * owner-features flag tile render through this, so their markup, focus ring and
+ * accessible name (label, then state, then description) cannot drift apart.
+ * `value` is a ReactNode because the flag tile's state is text, not a count.
+ */
+function OperationsCard({
+  href,
+  label,
+  value,
+  description,
+  needsAttention = false,
+}: {
+  href: string;
+  label: string;
+  value: ReactNode;
+  description: string;
+  needsAttention?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "group flex min-h-40 flex-col justify-between border-b border-r border-border p-5 transition-colors focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        needsAttention
+          ? "bg-warning/10 hover:bg-warning/20"
+          : "bg-card hover:bg-muted/50",
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <span className="type-body-emphasis">{label}</span>
+        <ArrowUpRight
+          className="size-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+          aria-hidden="true"
+        />
+      </div>
+      <div>
+        <p className="type-stat">{value}</p>
+        <p className="mt-1 type-card-description">{description}</p>
+      </div>
+    </Link>
+  );
+}
 
 type Metric = {
   key: keyof AdminOperationsMetrics;
@@ -117,56 +159,32 @@ export default async function AdminPage() {
           {dashboardMetrics.map((metric) => {
             const value = snapshot.metrics[metric.key];
             return (
-              <Link
+              <OperationsCard
                 key={metric.key}
                 href={metric.href}
-                className={cn(
-                  cardStyles,
+                label={metric.label}
+                value={value ?? "—"}
+                description={
+                  value === null ? "Unavailable" : metric.description
+                }
+                needsAttention={
                   metric.requiresAction && value !== null && value > 0
-                    ? "bg-warning/10 hover:bg-warning/20"
-                    : "bg-card hover:bg-muted/50",
-                )}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <span className="type-body-emphasis">{metric.label}</span>
-                  <ArrowUpRight
-                    className="size-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
-                    aria-hidden="true"
-                  />
-                </div>
-                <div>
-                  <p className="type-stat">{value ?? "—"}</p>
-                  <p className="mt-1 type-card-description">
-                    {value === null ? "Unavailable" : metric.description}
-                  </p>
-                </div>
-              </Link>
+                }
+              />
             );
           })}
-          <Link
+          {/* State is conveyed as text, never colour alone, so the accessible
+              name reads "Owner features / Disabled / Manage feature flags". */}
+          <OperationsCard
             href="/admin/settings"
-            className={cn(cardStyles, "bg-card hover:bg-muted/50")}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <span className="type-body-emphasis">
-                {t("ownerFeatures.label")}
-              </span>
-              <ArrowUpRight
-                className="size-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
-                aria-hidden="true"
-              />
-            </div>
-            <div>
-              <p className="type-stat">
-                {ownerFeaturesEnabled
-                  ? t("ownerFeatures.enabled")
-                  : t("ownerFeatures.disabled")}
-              </p>
-              <p className="mt-1 type-card-description">
-                {t("ownerFeatures.manage")}
-              </p>
-            </div>
-          </Link>
+            label={t("ownerFeatures.label")}
+            value={
+              ownerFeaturesEnabled
+                ? t("ownerFeatures.enabled")
+                : t("ownerFeatures.disabled")
+            }
+            description={t("ownerFeatures.manage")}
+          />
         </div>
       </section>
 

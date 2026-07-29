@@ -26,24 +26,31 @@ export type ViewerContext = {
   } | null
 }
 
-const EMPTY_VIEWER_CONTEXT: ViewerContext = {
-  hasOwnedBrand: false,
-  isAdmin: false,
-  ownerFeaturesEnabled: false,
-  impersonation: null,
-}
-
 export async function getViewerContextAction(): Promise<ViewerContext> {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
 
   // Signed-out visitors are the claim funnel's entry point, so the flag is read
-  // on every path — not just the authenticated one.
-  const ownerFeaturesEnabled = await isOwnerFeaturesEnabled()
+  // on every path — not just the authenticated one. It does not depend on the
+  // session, so it resolves alongside the auth lookup rather than after it.
+  //
+  // Every branch below spells out all four fields instead of spreading a
+  // default: a field added later must then fail to compile on each branch,
+  // rather than silently defaulting for one class of viewer.
+  const [
+    {
+      data: { user },
+    },
+    ownerFeaturesEnabled,
+  ] = await Promise.all([supabase.auth.getUser(), isOwnerFeaturesEnabled()])
 
-  if (!user) return { ...EMPTY_VIEWER_CONTEXT, ownerFeaturesEnabled }
+  if (!user) {
+    return {
+      hasOwnedBrand: false,
+      isAdmin: false,
+      ownerFeaturesEnabled,
+      impersonation: null,
+    }
+  }
 
   const [ownedBrand, isAdmin] = await Promise.all([
     getUserBrand(user.id),

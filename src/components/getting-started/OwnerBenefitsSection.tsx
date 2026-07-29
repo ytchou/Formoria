@@ -1,5 +1,3 @@
-'use client'
-
 import { Pencil, ShieldCheck, TrendingUp } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 

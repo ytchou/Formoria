@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { isOwnerFeaturesEnabled } from '@/lib/services/app-settings'
+import { requireOwnerFeaturesEnabled } from '@/lib/auth/require-owner-features'
 import { isOwnerOf } from '@/lib/services/brand-owners'
 import { verifyMitByCert } from '@/lib/services/mit-verification'
 import { getBrandById } from '@/lib/services/brands'
@@ -13,9 +13,7 @@ export async function verifyMitAction(
   certNumber: string
 ): Promise<{ error: string } | undefined> {
   try {
-    // Owner-features kill switch: refuse before auth so a stale client that
-    // still holds the form cannot write while the surface is hidden.
-    if (!(await isOwnerFeaturesEnabled())) {
+    if (!(await requireOwnerFeaturesEnabled())) {
       return { error: 'forbidden' }
     }
 

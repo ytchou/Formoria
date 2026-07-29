@@ -41,10 +41,15 @@ describeWithDb('getViewerContextAction owner features flag', () => {
     }
   })
 
-  it('hasOwnedBrand is NOT mutated by the flag', async ({ skip }) => {
+  it('getUserBrand resolves flag-independently', async ({ skip }) => {
     // The claim CTA hides when `hasOwnedBrand` is true, so a flag that leaked
     // into this field would REVEAL the surface it is meant to hide. Ownership
     // must stay derived from brand_owners alone, whatever the flag says.
+    //
+    // Scope: this covers the SOURCE of that field only — `getUserBrand` takes a
+    // user id and has no access to the flag. Asserting the assembled
+    // `ViewerContext.hasOwnedBrand` polarity needs an authenticated session and
+    // is owned by the deferred e2e spec.
     const supabase = createTestClient()
     const { data: ownerRow } = await supabase
       .from('brand_owners')

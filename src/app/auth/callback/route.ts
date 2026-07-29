@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { isRelativeUrl } from "@/lib/auth/validations";
+import { resolvePostAuthPath } from "@/lib/auth/owner-landing";
 import { verifyClaimToken } from "@/lib/auth/claim-token";
 import { getRequestOrigin } from "@/lib/auth/site-url";
 import { completeBrandClaim, getBrandById } from "@/lib/services/brands";
@@ -192,15 +193,12 @@ export async function GET(request: NextRequest) {
     await posthog.flush();
   }
 
-  // With owner features off the dashboard 404s, so land signed-in users home.
-  // A claim token that survived the flag flip also lands home rather than on a
-  // stale post-claim `next` target.
-  const fallbackPath = ownerFeaturesEnabled ? "/dashboard" : "/";
+  // A claim token that survived the flag flip ignores `next` entirely and lands
+  // home rather than on a stale post-claim target. Everything else defers to the
+  // shared post-auth rule (gated owner routes fall back to the landing path).
   const requestedNext = next && isRelativeUrl(next) ? next : null;
-  const redirectTo =
-    requestedNext && (ownerFeaturesEnabled || !claimToken)
-      ? requestedNext
-      : fallbackPath;
+  const suppressNext = Boolean(claimToken) && !ownerFeaturesEnabled;
+  const redirectTo = await resolvePostAuthPath(suppressNext ? null : requestedNext);
   const url = new URL(localizePath(redirectTo, locale), origin);
   if (isNewUser) {
     url.searchParams.set("is_new_user", "1");

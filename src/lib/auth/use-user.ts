@@ -40,6 +40,12 @@ const EMPTY_VIEWER_CONTEXT: ViewerContext = {
   impersonation: null,
 }
 
+/**
+ * De-duplication key for the signed-out viewer request. A user id is a UUID, so
+ * this sentinel can never collide with an authenticated key.
+ */
+const ANONYMOUS_VIEWER_KEY = 'anonymous'
+
 const UserContext = createContext<UseUserState | null>(null)
 
 function toViewerUser(user: {
@@ -61,7 +67,7 @@ export function ViewerProvider({ children }: { children: ReactNode }) {
   const previousPathname = useRef(pathname)
   const reloadAuthRef = useRef<(() => Promise<void>) | null>(null)
   const viewerRequestRef = useRef<{
-    userId: string
+    viewerKey: string
     promise: Promise<ViewerContext>
   } | null>(null)
   const [state, setState] = useState<Omit<UseUserState, 'refreshViewer'>>({
@@ -93,14 +99,16 @@ export function ViewerProvider({ children }: { children: ReactNode }) {
     let viewerRequestId = 0
 
     // Auth initialization and Supabase's INITIAL_SESSION event can overlap.
-    function loadViewerContext(userId: string): Promise<ViewerContext> {
+    // `viewerKey` is a user id, or ANONYMOUS_VIEWER_KEY for signed-out visitors —
+    // both need viewer context, so both take part in the de-duplication.
+    function loadViewerContext(viewerKey: string): Promise<ViewerContext> {
       const previousRequest = viewerRequestRef.current
-      if (previousRequest?.userId === userId) {
+      if (previousRequest?.viewerKey === viewerKey) {
         return previousRequest.promise
       }
 
       const request = getViewerContextAction()
-      viewerRequestRef.current = { userId, promise: request }
+      viewerRequestRef.current = { viewerKey, promise: request }
       const clearRequest = () => {
         if (viewerRequestRef.current?.promise === request) {
           viewerRequestRef.current = null
@@ -114,26 +122,25 @@ export function ViewerProvider({ children }: { children: ReactNode }) {
       const requestId = ++viewerRequestId
       if (!active) return
 
-      if (!user) {
-        setState({
-          user: null,
-          loading: false,
-          viewer: EMPTY_VIEWER_CONTEXT,
-          viewerLoading: false,
-        })
-        return
-      }
-
-      setState((current) => ({
-        ...current,
-        user,
-        loading: false,
-        viewerLoading: true,
-      }))
+      // Signed-out visitors are the claim funnel's entry point, so they need the
+      // owner-features flag too — the anonymous branch fetches viewer context
+      // instead of settling on the closed default. Privileged fields are reset
+      // to the closed default up front so a sign-out cannot leave admin or owner
+      // UI on screen while the anonymous fetch is in flight.
+      setState((current) =>
+        user
+          ? { ...current, user, loading: false, viewerLoading: true }
+          : {
+              user: null,
+              loading: false,
+              viewer: EMPTY_VIEWER_CONTEXT,
+              viewerLoading: true,
+            },
+      )
 
       let viewer = EMPTY_VIEWER_CONTEXT
       try {
-        viewer = await loadViewerContext(user.id)
+        viewer = await loadViewerContext(user?.id ?? ANONYMOUS_VIEWER_KEY)
       } catch {
         // Viewer state controls privileged UI, so failures must resolve closed.
       }

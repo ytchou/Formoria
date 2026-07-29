@@ -141,8 +141,8 @@ async function globalSetup() {
   // CI runs the production server, so there are no on-demand bundles to warm.
   if (process.env.CI) return;
 
-  // Browser warm-up: compile the submit recommendation and owner flows before specs
-  // hit them. A plain fetch() only warms the server bundle, not the client bundle.
+  // Browser warm-up: compile the submit flows before specs hit them.
+  // A plain fetch() only warms the server bundle, not the client bundle.
   // Any failure is swallowed — this must NEVER break the suite.
   const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
 
@@ -174,14 +174,26 @@ async function globalSetup() {
         .locator('input[type="url"]')
         .first()
         .waitFor({ state: "visible", timeout: 120_000 });
-      await page.goto(`${baseURL}/submit/owner/quick`, {
-        waitUntil: "domcontentloaded",
-        timeout: 60000,
-      });
-      await page
-        .locator('input[type="url"]')
-        .first()
-        .waitFor({ state: "visible", timeout: 120_000 });
+      // The submit overview, NOT /submit/owner/quick: the owner routes 404 while
+      // the owner-features flag is off, so warming them stalled for the full
+      // waitFor timeout and — being the one un-wrapped step here — threw past
+      // every warm-up below it. Like its siblings, this now fails on its own.
+      try {
+        await page.goto(`${baseURL}/submit`, {
+          waitUntil: "domcontentloaded",
+          timeout: 60000,
+        });
+        await page
+          .getByRole("heading", { level: 1 })
+          .first()
+          .waitFor({ state: "visible", timeout: 120_000 });
+        console.log("[global-setup] /submit warm-up complete");
+      } catch (err) {
+        console.warn(
+          "[global-setup] /submit warm-up failed (non-fatal):",
+          err instanceof Error ? err.message : String(err),
+        );
+      }
       try {
         await page.goto(baseURL + "/dashboard", {
           waitUntil: "domcontentloaded",

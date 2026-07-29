@@ -66,10 +66,15 @@ export default function SubmitOverview({
         <p className="mt-2 type-body-muted">{t('criteria')}</p>
       </div>
 
+      {/* With the owner fork hidden the recommend card is the grid's only child,
+          so the container carries the measure — otherwise its copy runs the full
+          max-w-5xl width under a heading block capped at max-w-3xl. */}
       <div
         className={cn(
           'mt-10 grid gap-6',
-          ownerFeaturesEnabled && 'md:grid-cols-2',
+          ownerFeaturesEnabled
+            ? 'md:grid-cols-2'
+            : 'max-w-2xl md:max-w-3xl',
         )}
       >
         <section className={surfaceCardStyles({ padding: 'lg' })}>

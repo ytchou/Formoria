@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { requireBrandEditor } from '@/lib/auth/require-brand-editor'
-import { isOwnerFeaturesEnabled } from '@/lib/services/app-settings'
+import { requireOwnerFeaturesEnabled } from '@/lib/auth/require-owner-features'
 import {
   BRAND_DRAFT_PROGRESS_KEY,
   getBrandDraft,
@@ -92,9 +92,7 @@ export async function saveSectionDraftAction(
   sectionData?: Record<string, unknown>
 ): Promise<SaveSectionDraftResult> {
   try {
-    // Owner-features kill switch: refuse before auth so a stale client that
-    // still holds the wizard cannot write while the surface is hidden.
-    if (!(await isOwnerFeaturesEnabled())) {
+    if (!(await requireOwnerFeaturesEnabled())) {
       return { error: 'Unauthorized' }
     }
 

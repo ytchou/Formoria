@@ -12,7 +12,7 @@ import {
   getResetPasswordSchema,
 } from "@/lib/auth/validations";
 import { getRequestOrigin } from "@/lib/auth/site-url";
-import { isOwnerFeaturesEnabled } from "@/lib/services/app-settings";
+import { resolvePostAuthPath } from "@/lib/auth/owner-landing";
 import { enrollInMarketingEmails } from "@/lib/services/marketing-email-consent";
 import { getProfile } from "@/lib/services/profiles";
 import {
@@ -90,9 +90,8 @@ export async function signIn(
   }
 
   const next = formData.get("next") as string | null;
-  // With owner features off the dashboard 404s, so land signed-in users home.
-  const fallbackPath = (await isOwnerFeaturesEnabled()) ? "/dashboard" : "/";
-  const redirectPath = next && isRelativeUrl(next) ? next : fallbackPath;
+  const requestedNext = next && isRelativeUrl(next) ? next : null;
+  const redirectPath = await resolvePostAuthPath(requestedNext);
   redirect(localizePath(redirectPath, locale));
 }
 

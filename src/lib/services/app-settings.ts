@@ -12,9 +12,15 @@ export type FeatureFlag = {
   revalidatePaths: string[]
 }
 
+// Flag keys are declared before the registry so each key has exactly one
+// source of truth: helpers resolve by key, never by position in the array.
+export const SUBCATEGORY_FILTER_KEY = 'subcategory_filter_enabled'
+
+export const OWNER_FEATURES_KEY = 'owner_features_enabled'
+
 export const FEATURE_FLAGS: FeatureFlag[] = [
   {
-    key: 'subcategory_filter_enabled',
+    key: SUBCATEGORY_FILTER_KEY,
     label: 'Subcategory filter on /brands',
     description: 'Shows product-type chips in the directory filter sidebar',
     defaultValue: true,
@@ -25,9 +31,8 @@ export const FEATURE_FLAGS: FeatureFlag[] = [
       '/admin/settings',
     ],
   },
-  // Keep new flags appended: `SUBCATEGORY_FILTER_KEY` reads `FEATURE_FLAGS[0]`.
   {
-    key: 'owner_features_enabled',
+    key: OWNER_FEATURES_KEY,
     label: 'Owner features',
     description:
       'Enables brand claiming and the owner dashboard; off hides both surfaces',
@@ -37,18 +42,27 @@ export const FEATURE_FLAGS: FeatureFlag[] = [
   },
 ]
 
-export const SUBCATEGORY_FILTER_KEY = FEATURE_FLAGS[0].key
+// Reads run on the request hot path (page gates, server actions, viewer
+// context), so reuse one anon client instead of constructing a supabase-js
+// client plus its GoTrue auth client per call. Mirrors `createServiceClient`.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _anonClient: ReturnType<typeof createClient<any>> | null = null
 
-export const OWNER_FEATURES_KEY = 'owner_features_enabled'
+function getAnonClient() {
+  if (!_anonClient) {
+    _anonClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+  }
+  return _anonClient
+}
 
 export async function getAppSetting<T extends Json = Json>(
   key: string,
   defaultValue?: T
 ): Promise<T | undefined> {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  const supabase = getAnonClient()
   const { data, error } = await supabase
     .from('app_settings')
     .select('value')
@@ -67,13 +81,16 @@ export async function getAppSetting<T extends Json = Json>(
 }
 
 /**
- * Fail-closed read of the owner-features kill switch. A missing row or a query
- * error resolves to `false`, so owner surfaces stay hidden by default. React
- * `cache` collapses repeat reads within one request into a single round trip.
+ * Fail-closed read of the owner-features kill switch. A missing row, a query
+ * error, or any stored jsonb that is not literally `true` resolves to `false`,
+ * so owner surfaces stay hidden by default — the strict `=== true` also stops a
+ * truthy non-boolean (e.g. the string `"false"` written by a manual SQL fix)
+ * from unlocking every guard. React `cache` collapses repeat reads within one
+ * request into a single round trip.
  */
 export const isOwnerFeaturesEnabled = cache(
   async (): Promise<boolean> =>
-    (await getAppSetting<boolean>(OWNER_FEATURES_KEY, false)) ?? false
+    (await getAppSetting<Json>(OWNER_FEATURES_KEY, false)) === true
 )
 
 export async function setAppSetting(key: string, value: Json): Promise<void> {

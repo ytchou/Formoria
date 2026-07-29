@@ -23,7 +23,7 @@ import {
   publishDraft,
 } from '@/lib/services/brands'
 import { createServiceClient } from '@/lib/supabase/server'
-import { isOwnerFeaturesEnabled } from '@/lib/services/app-settings'
+import { requireOwnerFeaturesEnabled } from '@/lib/auth/require-owner-features'
 import { ConflictError } from '@/lib/errors'
 import { storageKeyFromPublicUrl } from '@/lib/services/image-upload'
 import { logAdminActionIfAdmin } from '@/lib/services/admin-audit'
@@ -63,9 +63,7 @@ export async function declareMitAction(
   scope: string,
 ): Promise<MitActionState> {
   const t = await getTranslations('dashboard.mit.errors')
-  // Owner-features kill switch: refuse before auth so a stale client that still
-  // holds the form cannot write while the surface is hidden.
-  if (!(await isOwnerFeaturesEnabled())) return { error: t('forbidden') }
+  if (!(await requireOwnerFeaturesEnabled())) return { error: t('forbidden') }
   if (!isMitDeclarationScope(scope)) return { error: t('invalidScope') }
 
   try {
@@ -90,7 +88,7 @@ export async function withdrawDeclarationAction(
   brandSlug: string,
 ): Promise<MitActionState> {
   const t = await getTranslations('dashboard.mit.errors')
-  if (!(await isOwnerFeaturesEnabled())) return { error: t('forbidden') }
+  if (!(await requireOwnerFeaturesEnabled())) return { error: t('forbidden') }
 
   try {
     const editor = await requireBrandEditor(brandSlug)
@@ -161,7 +159,7 @@ export async function publishDraftAction(
   formData: FormData,
 ): Promise<ActionState> {
   const t = await getTranslations('dashboard.edit.errors')
-  if (!(await isOwnerFeaturesEnabled())) {
+  if (!(await requireOwnerFeaturesEnabled())) {
     return { error: t('forbidden') }
   }
   const brandSlug = formData.get('brandSlug') as string
