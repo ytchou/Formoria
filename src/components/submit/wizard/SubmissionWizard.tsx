@@ -15,7 +15,7 @@ import {
   useForm,
 } from 'react-hook-form'
 import { z } from 'zod'
-import { submitOwnerDetailedBrand } from '@/app/[locale]/submit/actions'
+import { submitOwnerDetailedBrand } from '@/app/[locale]/(site)/submit/actions'
 import { useWizardController } from '@/components/brand-wizard/use-wizard-controller'
 import { WizardFooter } from '@/components/dashboard/wizard-footer'
 import { WizardSidebar } from '@/components/dashboard/wizard-sidebar'

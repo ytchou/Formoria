@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { useSearchParams } from "next/navigation";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { signIn, signInWithGoogle } from "@/app/auth/actions";
 import type { AuthState } from "@/app/auth/actions";

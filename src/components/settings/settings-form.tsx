@@ -6,7 +6,7 @@ import type { Profile } from "@/lib/services/profiles";
 import {
   updateSettings,
   type SettingsState,
-} from "@/app/[locale]/(protected)/settings/actions";
+} from "@/app/[locale]/(site)/(protected)/settings/actions";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";

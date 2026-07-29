@@ -28,13 +28,6 @@ export function localizePath(pathname: string, locale: string): string {
   return `${localizedPath}${suffix}`
 }
 
-export function localizePostAuthPath(path: string, locale: string): string {
-  const pathname = path.split(/[?#]/, 1)[0]
-  return pathname === '/auth' || pathname.startsWith('/auth/')
-    ? path
-    : localizePath(path, locale)
-}
-
 export function resolveAuthenticatedLocale({
   isNewUser,
   profileLocale,
@@ -51,7 +44,7 @@ export function resolveAuthenticatedLocale({
 }
 
 export function signInHref(path: string, locale: string): string {
-  return `/auth/sign-in?next=${encodeURIComponent(localizePath(path, locale))}`
+  return `${localizePath('/auth/sign-in', locale)}?next=${encodeURIComponent(localizePath(path, locale))}`
 }
 
 export function dateLocale(locale: string): string {
@@ -68,6 +61,14 @@ export function resolveInitialLocale({
   country?: string | null
 }): AppLocale {
   if (isAppLocale(cookieLocale)) return cookieLocale
+  // Taiwan geography outranks an English browser UI: most visitors from TW are
+  // Taiwanese, and a large share of them run an English-language OS or browser,
+  // so Accept-Language is a poor proxy for reading preference here.
+  //
+  // Accepted trade-off: an actual English speaker in Taiwan gets Chinese on their
+  // first visit. One click in the language switcher fixes it permanently — that
+  // choice is written to the sticky NEXT_LOCALE cookie, which is checked above.
+  if (country?.toUpperCase() === 'TW') return 'zh-TW'
   if (acceptLanguage?.trim()) {
     const preferred = acceptLanguage
       .toLowerCase()
@@ -88,6 +89,6 @@ export function resolveInitialLocale({
     if (preferred?.startsWith('zh')) return 'zh-TW'
     if (preferred) return 'en'
   }
-  if (country) return country.toUpperCase() === 'TW' ? 'zh-TW' : 'en'
+  if (country) return 'en'
   return routing.defaultLocale
 }

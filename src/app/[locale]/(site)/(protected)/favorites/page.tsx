@@ -2,6 +2,7 @@ import Image from 'next/image'
 import { redirect } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { Heart } from 'lucide-react'
+import { signInHref } from '@/i18n/locale-preference'
 import { Link } from '@/i18n/navigation'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { getUserSavedBrands } from '@/lib/services/saved-brands'
@@ -107,7 +108,7 @@ export default async function FavoritesPage({ params }: Props) {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    redirect('/auth/sign-in')
+    redirect(signInHref('/favorites', locale))
   }
 
   const brands = await getUserSavedBrands(user.id)

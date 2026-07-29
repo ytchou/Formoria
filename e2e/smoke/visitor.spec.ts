@@ -67,19 +67,25 @@ test.describe('Visitor smoke', () => {
     }
   });
 
-  test('locale-prefixed legacy auth URLs redirect once and preserve query parameters', async ({ request }) => {
-    for (const source of [
-      '/en/auth/sign-in?next=%2Fen%2Fcontributions',
-      '/zh-TW/auth/reset-password?next=%2Fbrands%2Fexample',
-    ]) {
-      const response = await request.get(source, { maxRedirects: 0 });
-      expect(response.status()).toBe(308);
+  test('/zh-TW auth URLs redirect once to the prefix-free page and preserve query parameters', async ({ request }) => {
+    // zh-TW is the default locale, so its auth pages stay prefix-free.
+    const source = '/zh-TW/auth/reset-password?next=%2Fbrands%2Fexample';
+    const response = await request.get(source, { maxRedirects: 0 });
+    expect(response.status()).toBe(308);
 
-      const sourceUrl = new URL(source, 'http://localhost');
-      const location = new URL(response.headers().location, 'http://localhost');
-      expect(location.pathname).toBe(sourceUrl.pathname.replace(/^\/(?:en|zh-TW)/, ''));
-      expect(location.searchParams.get('next')).toBe(sourceUrl.searchParams.get('next'));
-    }
+    const sourceUrl = new URL(source, 'http://localhost');
+    const location = new URL(response.headers().location, 'http://localhost');
+    expect(location.pathname).toBe(sourceUrl.pathname.replace(/^\/zh-TW/, ''));
+    expect(location.searchParams.get('next')).toBe(sourceUrl.searchParams.get('next'));
+  });
+
+  test('/en auth URLs render in place instead of redirecting', async ({ request }) => {
+    // Auth pages moved under [locale]: /en/auth/* is now a real page, not a legacy alias.
+    const response = await request.get('/en/auth/sign-in?next=%2Fen%2Fcontributions', {
+      maxRedirects: 0,
+    });
+    expect(response.status()).toBe(200);
+    expect(response.headers().location).toBeUndefined();
   });
 
   test('CSP allows the GA4 audience pixel host', async ({ page }) => {

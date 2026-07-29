@@ -118,7 +118,7 @@ test.describe('i18n English browse', () => {
 
     expect(response.status()).toBe(307);
     const location = new URL(response.headers().location, 'http://localhost');
-    expect(location.pathname).toBe('/auth/sign-in');
+    expect(location.pathname).toBe('/en/auth/sign-in');
     expect(location.searchParams.get('next')).toBe('/en/contributions');
   });
 

@@ -1,10 +1,21 @@
 import type { Metadata } from "next";
 import { decodeJwt } from "jose";
-import { getTranslations } from "next-intl/server";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { redirectIfAuthenticated } from "@/lib/auth/redirect-if-authenticated";
 import { SignUpForm } from "@/components/auth/sign-up-form";
 
-export async function generateMetadata(): Promise<Metadata> {
+type Props = {
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<{ claim?: string }>;
+};
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  setRequestLocale(locale);
   const t = await getTranslations("auth");
   return {
     title: t("signUp.heading"),
@@ -12,15 +23,14 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-type Props = {
-  searchParams: Promise<{ claim?: string }>;
-};
+export default async function SignUpPage({ params, searchParams }: Props) {
+  const { locale } = await params;
+  setRequestLocale(locale);
 
-export default async function SignUpPage({ searchParams }: Props) {
   await redirectIfAuthenticated();
 
-  const params = await searchParams;
-  const claimToken = params.claim;
+  const search = await searchParams;
+  const claimToken = search.claim;
   let claimBrandName: string | undefined;
 
   if (claimToken) {

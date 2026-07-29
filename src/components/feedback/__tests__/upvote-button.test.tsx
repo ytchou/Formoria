@@ -98,7 +98,7 @@ describe('UpvoteButton', () => {
     // only covers the OAuth/email-link callback.
     fireEvent.click(button)
     expect(mocks.push).toHaveBeenCalledWith(
-      `/auth/sign-in?next=${encodeURIComponent('/en/feedback')}`,
+      `/en/auth/sign-in?next=${encodeURIComponent('/en/feedback')}`,
     )
     expect(document.cookie).toContain('post_auth_next')
     expect(mocks.setVote).not.toHaveBeenCalled()

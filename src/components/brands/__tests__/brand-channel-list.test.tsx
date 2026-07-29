@@ -10,12 +10,19 @@ const mocks = vi.hoisted(() => ({
   confirmChannelAction: vi.fn(),
   getChannelViewerStateAction: vi.fn(),
   ownerModerateChannelAction: vi.fn(),
-  signInHref: vi.fn(() => "/auth/sign-in?next=%2Fbrands%2Ftest-brand"),
+  // Mirrors the real signInHref: the sign-in URL itself is localized too, so a
+  // hardcoded return value would stay green even if the component leaked the
+  // wrong locale into the href.
+  signInHref: vi.fn((path: string, locale: string) =>
+    locale === "en"
+      ? `/en/auth/sign-in?next=${encodeURIComponent(`/en${path}`)}`
+      : `/auth/sign-in?next=${encodeURIComponent(path)}`,
+  ),
   usePathname: vi.fn(() => "/brands/test-brand"),
   useUser: vi.fn(),
 }));
 
-vi.mock("@/app/[locale]/brands/[slug]/actions", () => ({
+vi.mock("@/app/[locale]/(site)/brands/[slug]/actions", () => ({
   confirmChannelAction: mocks.confirmChannelAction,
   getChannelViewerStateAction: mocks.getChannelViewerStateAction,
   ownerModerateChannelAction: mocks.ownerModerateChannelAction,

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
-import { localizePath } from '@/i18n/locale-preference'
+import { localizePath, signInHref } from '@/i18n/locale-preference'
 import { getTranslations } from 'next-intl/server'
 import { requireBrandEditor } from '@/lib/auth/require-brand-editor'
 import { getBrandDraft } from '@/lib/services/brands'
@@ -37,7 +37,7 @@ export default async function BrandEditPage({ params, searchParams }: Props) {
   if ('error' in editor) {
     redirect(
       editor.error === 'notLoggedIn'
-        ? '/auth/sign-in'
+        ? signInHref(`/dashboard/brands/${slug}/edit`, locale)
         : localizePath('/dashboard', locale),
     )
     return null

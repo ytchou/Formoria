@@ -15,7 +15,7 @@ import {
   confirmChannelAction,
   getChannelViewerStateAction,
   ownerModerateChannelAction,
-} from '@/app/[locale]/brands/[slug]/actions'
+} from '@/app/[locale]/(site)/brands/[slug]/actions'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { usePathname } from '@/i18n/navigation'

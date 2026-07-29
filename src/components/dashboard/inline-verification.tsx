@@ -18,11 +18,11 @@ import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
 import { StatusPill } from '@/components/ui/status-pill'
 import { Textarea } from '@/components/ui/textarea'
-import { verifyMitAction } from '@/app/[locale]/(protected)/dashboard/actions'
+import { verifyMitAction } from '@/app/[locale]/(site)/(protected)/dashboard/actions'
 import {
   declareMitAction,
   withdrawDeclarationAction,
-} from '@/app/[locale]/(protected)/dashboard/brands/[slug]/actions'
+} from '@/app/[locale]/(site)/(protected)/dashboard/brands/[slug]/actions'
 
 type MitScope = 'all' | 'most' | 'some'
 

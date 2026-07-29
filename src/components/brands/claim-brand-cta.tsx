@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, useTransition, type ChangeEvent, type Form
 import {
   getPendingClaimStatusAction,
   submitClaimAction,
-} from '@/app/[locale]/brands/[slug]/actions'
+} from '@/app/[locale]/(site)/brands/[slug]/actions'
 import NextLink from 'next/link'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { MarketingEmailOptInField } from '@/components/forms/marketing-email-opt-in-field'

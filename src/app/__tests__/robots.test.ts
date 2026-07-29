@@ -7,6 +7,8 @@ describe('robots', () => {
     const rule = Array.isArray(result.rules) ? result.rules[0] : result.rules
     const disallow = ([] as string[]).concat(rule.disallow ?? [])
     expect(disallow).not.toContain('/submit')
-    expect(disallow).toEqual(expect.arrayContaining(['/admin', '/api/', '/auth/']))
+    expect(disallow).toEqual(
+      expect.arrayContaining(['/admin', '/api/', '/auth/', '/en/auth/']),
+    )
   })
 })

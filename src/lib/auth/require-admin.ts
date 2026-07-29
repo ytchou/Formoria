@@ -36,7 +36,8 @@ export async function requireAdminPage(nextPath: string): Promise<AdminUser> {
   const auth = await getAdminUser();
 
   if ("error" in auth) {
-    redirect(`/auth/sign-in?next=${nextPath}`);
+    // Admin is pinned to English (ADMIN_DEFAULT_LOCALE in proxy.ts).
+    redirect(`/en/auth/sign-in?next=${nextPath}`);
   }
 
   return auth.user;
