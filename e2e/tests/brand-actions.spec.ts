@@ -87,8 +87,11 @@ test.describe("Brand detail actions", () => {
     );
     await evidenceTrigger.click();
 
+    // The evidence body is a next/dynamic chunk behind a loading skeleton whose
+    // accessible name is the loading label, so this name-scoped locator only
+    // matches once the chunk has landed — a slow open, not a broken dialog.
     const dialog = anonPage.getByRole("dialog", { name: "提供產地證據" });
-    await expect(dialog).toBeVisible({ timeout: 5_000 });
+    await expect(dialog).toBeVisible({ timeout: 15_000 });
     await expect(dialog).toContainText("請先登入，再提供產地證據。");
     await expect(dialog.getByRole("link", { name: "登入" })).toHaveAttribute(
       "href",

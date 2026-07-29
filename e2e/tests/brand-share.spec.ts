@@ -53,9 +53,16 @@ test.describe('Brand share dialog', () => {
     // Click the share trigger button
     await page.getByRole('button', { name: '分享' }).click();
 
-    // Dialog must appear with its title
+    // Dialog must appear with its title.
+    //
+    // The body is a next/dynamic chunk behind a loading skeleton. The skeleton
+    // renders a real role="dialog" (so the overlay and focus trap exist), but its
+    // accessible name is the loading label — so this name-scoped locator only
+    // matches once the chunk has landed. On CI hardware that fetch has overrun a
+    // 5s budget, which is a slow open, not a broken dialog. Every dialog
+    // assertion in this file carries the wider budget for the same reason.
     const dialog = page.getByRole('dialog', { name: '分享' });
-    await expect(dialog).toBeVisible({ timeout: 5_000 });
+    await expect(dialog).toBeVisible({ timeout: 15_000 });
 
     // The preview card repeats the brand name the recipient will see
     await expect(dialog.getByText(brandName, { exact: false }).first()).toBeVisible();
@@ -93,7 +100,7 @@ test.describe('Brand share dialog', () => {
     await page.getByRole('button', { name: '分享' }).click();
 
     const dialog = page.getByRole('dialog', { name: '分享' });
-    await expect(dialog).toBeVisible({ timeout: 5_000 });
+    await expect(dialog).toBeVisible({ timeout: 15_000 });
 
     await dialog.getByRole('button', { name: '複製' }).click();
 
@@ -140,7 +147,7 @@ test.describe('Brand share dialog', () => {
     await page.getByRole('button', { name: '分享' }).click();
 
     const dialog = page.getByRole('dialog', { name: '分享' });
-    await expect(dialog).toBeVisible({ timeout: 5_000 });
+    await expect(dialog).toBeVisible({ timeout: 15_000 });
 
     await dialog.getByRole('button', { name: 'Instagram' }).click();
 
@@ -168,7 +175,7 @@ test.describe('Brand share dialog', () => {
     await page.getByRole('button', { name: '分享' }).click();
 
     const dialog = page.getByRole('dialog', { name: '分享' });
-    await expect(dialog).toBeVisible({ timeout: 5_000 });
+    await expect(dialog).toBeVisible({ timeout: 15_000 });
 
     await dialog.getByRole('button', { name: '關閉' }).click();
 
