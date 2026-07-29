@@ -4,6 +4,7 @@ import { test as baseTest, expect } from '../fixtures/auth';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { ensureOwnedBrand } from '../helpers/owned-brand';
 import { writeAuthStorageStateForCredentials } from '../helpers/auth-session';
+import { ownerFeaturesDisabled, OWNER_FEATURES_OFF_REASON } from '../helpers/owner-features';
 
 const test = baseTest.extend<{ userPage: Page }>({
   userPage: async ({ browser, isolatedUser }, provideFixture, testInfo) => {
@@ -30,6 +31,16 @@ type AnySupabaseClient = SupabaseClient<any, any, any>;
 // Use the worker-scoped isolated owner so this file cannot race with other
 // dashboard specs over the single-brand ownership slot.
 test.describe.configure({ mode: 'serial' });
+
+// Suite-level gate (DEV-1261). Declared at file scope so it runs before every
+// describe's seeding beforeAll: the owner dashboard is unreachable while the
+// flag is off, so there is nothing to seed for. Probes the running app, never
+// app_settings.
+test.beforeAll(async ({ browser }) => {
+  if (await ownerFeaturesDisabled(browser)) {
+    test.skip(true, OWNER_FEATURES_OFF_REASON);
+  }
+});
 
 /**
  * Dashboard tab navigation tests.

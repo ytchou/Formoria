@@ -1,9 +1,10 @@
 import type { Metadata } from 'next'
-import { redirect } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { localizePath, signInHref } from '@/i18n/locale-preference'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
+import { isOwnerFeaturesEnabled } from '@/lib/services/app-settings'
 import { createClient } from '@/lib/supabase/server'
 import { getUserBrand } from '@/lib/services/brand-owners'
 import OwnerForkClient from './owner-fork-client'
@@ -30,11 +31,21 @@ export default async function SubmitOwnerPage({ params }: OwnerPageProps) {
   const { locale } = await params
   setRequestLocale(locale)
 
+  // Read the session first so this route stays dynamic. Gating before any
+  // dynamic API makes the page statically eligible, which bakes a flag-off 404
+  // into the prerender — the flag's `revalidatePaths` never busts it, so the
+  // kill switch would become one-way until the next deploy.
   const supabase = await createClient()
   const {
     data: { user },
     error,
   } = await supabase.auth.getUser()
+
+  // Gate before the auth redirect so signed-out visitors get a 404 rather than a
+  // sign-in bounce into a route that no longer exists.
+  if (!(await isOwnerFeaturesEnabled())) {
+    notFound()
+  }
 
   if (error || !user) {
     redirect(signInHref('/submit/owner', locale))

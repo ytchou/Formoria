@@ -2,6 +2,16 @@ import { createHash } from 'node:crypto';
 import type { Page } from '@playwright/test';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { test, expect } from '../fixtures/auth';
+import { ownerFeaturesDisabled, OWNER_FEATURES_OFF_REASON } from '../helpers/owner-features';
+
+// Suite-level gate (DEV-1261). The claim CTA is not rendered and the owner
+// dashboard 404s while the flag is off, so the whole lifecycle is unreachable.
+// Probes the running app, never app_settings.
+test.beforeAll(async ({ browser }) => {
+  if (await ownerFeaturesDisabled(browser)) {
+    test.skip(true, OWNER_FEATURES_OFF_REASON);
+  }
+});
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;

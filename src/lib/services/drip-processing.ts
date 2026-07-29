@@ -9,6 +9,7 @@ import * as supabaseServer from '@/lib/supabase/server'
 import type { EmailMessage } from '@/lib/email/types'
 import { normalizeOwnerLocale, type OwnerLocale } from '@/lib/types'
 import { computeProfileCompleteness } from '@/lib/services/profile-completeness'
+import { isOwnerFeaturesEnabled } from './app-settings'
 
 declare module '@/lib/supabase/server' {
   export function createAdminClient(): unknown
@@ -107,6 +108,12 @@ export async function evaluateDrips(
   const drip = DRIP_TYPES.find((type) => type.key === dripType)
   if (!drip) {
     throw new Error(`Unknown drip type: ${dripType}`)
+  }
+
+  // Owner-features kill switch: every drip deep-links to /dashboard, which 404s
+  // while the flag is off, so stop before the queue is touched or mail is sent.
+  if (!(await isOwnerFeaturesEnabled())) {
+    return { sent: 0, skipped: 0, errors: 0 }
   }
 
   const supabase = getAdminClient()

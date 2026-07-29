@@ -9,6 +9,7 @@ import { getSiteUrl } from '@/lib/auth/site-url'
 import { sendEmail } from '@/lib/email/send'
 import { buildClaimEmailVerificationEmail } from '@/lib/email/templates'
 import { createInMemoryRateLimiter } from '@/lib/security/rate-limiter'
+import { isOwnerFeaturesEnabled } from '@/lib/services/app-settings'
 import { getBrandById } from '@/lib/services/brands'
 import {
   CLAIM_PROOF_TYPES,
@@ -190,6 +191,10 @@ export async function ownerModerateChannelAction(
 }
 
 export async function getPendingClaimStatusAction(brandId: string): Promise<boolean> {
+  // Owner-features kill switch: no claim can be pending while claiming is off,
+  // so report the same "nothing pending" state as a signed-out visitor.
+  if (!(await isOwnerFeaturesEnabled())) return false
+
   const user = await requireClaimUser()
   return user ? hasPendingClaim(user.id, brandId) : false
 }
@@ -242,6 +247,10 @@ function getSubmitClaimSchema(t: Translator) {
 
 export async function submitClaimAction(input: SubmitClaimInput): Promise<SubmitClaimResult> {
   const t = await getTranslations('brandDetail.claim.errors')
+  // Owner-features kill switch: refuse before auth so a stale client that still
+  // holds the claim dialog cannot write while the surface is hidden.
+  if (!(await isOwnerFeaturesEnabled())) return { error: t('unknown') }
+
   try {
     const user = await requireClaimUser()
     if (!user) return { error: t('notLoggedIn') }

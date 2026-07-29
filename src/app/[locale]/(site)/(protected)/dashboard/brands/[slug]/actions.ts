@@ -23,6 +23,7 @@ import {
   publishDraft,
 } from '@/lib/services/brands'
 import { createServiceClient } from '@/lib/supabase/server'
+import { requireOwnerFeaturesEnabled } from '@/lib/auth/require-owner-features'
 import { ConflictError } from '@/lib/errors'
 import { storageKeyFromPublicUrl } from '@/lib/services/image-upload'
 import { logAdminActionIfAdmin } from '@/lib/services/admin-audit'
@@ -62,6 +63,7 @@ export async function declareMitAction(
   scope: string,
 ): Promise<MitActionState> {
   const t = await getTranslations('dashboard.mit.errors')
+  if (!(await requireOwnerFeaturesEnabled())) return { error: t('forbidden') }
   if (!isMitDeclarationScope(scope)) return { error: t('invalidScope') }
 
   try {
@@ -86,6 +88,7 @@ export async function withdrawDeclarationAction(
   brandSlug: string,
 ): Promise<MitActionState> {
   const t = await getTranslations('dashboard.mit.errors')
+  if (!(await requireOwnerFeaturesEnabled())) return { error: t('forbidden') }
 
   try {
     const editor = await requireBrandEditor(brandSlug)
@@ -156,6 +159,9 @@ export async function publishDraftAction(
   formData: FormData,
 ): Promise<ActionState> {
   const t = await getTranslations('dashboard.edit.errors')
+  if (!(await requireOwnerFeaturesEnabled())) {
+    return { error: t('forbidden') }
+  }
   const brandSlug = formData.get('brandSlug') as string
   if (!brandSlug) {
     return { error: t('brandNotFound') }

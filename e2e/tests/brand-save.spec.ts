@@ -1,6 +1,11 @@
 import { test, expect } from '../fixtures/auth';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
+// DEV-1261 note: deliberately NOT gated on `owner_features_enabled`. Save/unsave
+// and favorites are consumer journeys that touch no owner surface, and they are
+// live at launch — pausing them would take consumer coverage dark for no reason.
+// Verified green with the flag off.
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 

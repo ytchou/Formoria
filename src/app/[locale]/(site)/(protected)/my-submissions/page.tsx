@@ -4,6 +4,7 @@ import { localizePath } from '@/i18n/locale-preference'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
+import { ownerLandingPath } from '@/lib/auth/owner-landing'
 
 type MySubmissionsPageProps = {
   params: Promise<{ locale: string }>
@@ -24,5 +25,5 @@ export async function generateMetadata({ params }: MySubmissionsPageProps): Prom
 export default async function MySubmissionsPage({ params }: MySubmissionsPageProps) {
   const { locale } = await params
   setRequestLocale(locale)
-  redirect(localizePath('/dashboard', locale))
+  redirect(localizePath(await ownerLandingPath(), locale))
 }

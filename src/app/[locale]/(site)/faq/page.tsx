@@ -60,16 +60,6 @@ export default async function FaqPage({ params }: PageProps) {
     'languageSupport',
     'howVerified',
   ] as const
-  const ownerItemKeys = [
-    'claimBenefits',
-    'claimOrUpdate',
-    'editBrand',
-    'profileCompleteness',
-    'mitVerification',
-    'ownerAnalytics',
-    'editModeration',
-    'brandLocations',
-  ] as const
 
   return (
     <main className="page-gutter mx-auto w-full max-w-screen-xl py-10">
@@ -143,21 +133,27 @@ export default async function FaqPage({ params }: PageProps) {
           </FaqSection>
           <FaqSection id="for-owners" title={t('sections.forOwners')}>
             <div className="divide-y divide-border">
-              {ownerItemKeys.map((key, i) => (
-                <details
-                  key={i}
-                  id={key === 'claimBenefits' ? 'claim' : undefined}
-                  className="group scroll-mt-24 py-5"
-                >
-                  <summary className="flex cursor-pointer list-none items-center justify-between type-faq-question [&::-webkit-details-marker]:hidden">
-                    {t(`items.${key}.question`)}
-                    <ChevronDown className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
-                  </summary>
-                  <p className="mt-3 max-w-2xl type-body-muted">
-                    {t(`items.${key}.answer`)}
-                  </p>
-                </details>
-              ))}
+              {/* Owner self-serve is not open yet, so the whole section is one
+                  interest-collection item. `id="claim"` is kept so legacy
+                  /faq#claim deep links still land on an answer. */}
+              <details id="claim" className="group scroll-mt-24 py-5">
+                <summary className="flex cursor-pointer list-none items-center justify-between type-faq-question [&::-webkit-details-marker]:hidden">
+                  {t('items.ownerInterest.question')}
+                  <ChevronDown className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
+                </summary>
+                <p className="mt-3 max-w-2xl type-body-muted">
+                  {t.rich('items.ownerInterest.answer', {
+                    link: (chunks) => (
+                      <Link
+                        href="/feedback"
+                        className="underline underline-offset-4"
+                      >
+                        {chunks}
+                      </Link>
+                    ),
+                  })}
+                </p>
+              </details>
             </div>
           </FaqSection>
         </div>

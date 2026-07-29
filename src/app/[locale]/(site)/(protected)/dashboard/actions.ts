@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { requireOwnerFeaturesEnabled } from '@/lib/auth/require-owner-features'
 import { isOwnerOf } from '@/lib/services/brand-owners'
 import { verifyMitByCert } from '@/lib/services/mit-verification'
 import { getBrandById } from '@/lib/services/brands'
@@ -12,6 +13,10 @@ export async function verifyMitAction(
   certNumber: string
 ): Promise<{ error: string } | undefined> {
   try {
+    if (!(await requireOwnerFeaturesEnabled())) {
+      return { error: 'forbidden' }
+    }
+
     const supabase = await createClient()
     const {
       data: { user },

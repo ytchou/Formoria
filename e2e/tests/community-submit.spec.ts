@@ -34,22 +34,27 @@ test.describe('Community submit flow', () => {
     await expect(userPage.locator('[data-state="active"]')).not.toBeVisible()
   })
 
-  test('my-submissions redirects authenticated users to /dashboard', async ({ userPage }) => {
-    // /my-submissions now server-redirects to /dashboard (no submissions list page).
+  // There is no submissions list page, and while owner features are gated off
+  // (DEV-1261) there is no owner dashboard to fall back to either — so the
+  // route hands a signed-in user the home page rather than a dead end.
+  // zh-TW is the default locale and its prefix is stripped, so the zh-TW home
+  // page is `/` and the English one is `/en`.
+  const isHomePath = (pathname: string) => /^\/(?:en)?\/?$/.test(pathname)
+
+  test('my-submissions redirects authenticated users to the home page', async ({ userPage }) => {
     test.setTimeout(60_000)
     await userPage.goto('/my-submissions')
-    await userPage.waitForURL(/\/dashboard/, { timeout: 15_000 })
-    // Dashboard renders: brand panel uses <main>; empty state (no brands) uses <section>.
-    await expect(userPage.locator('main, section').first()).toBeVisible({ timeout: 5_000 })
+    await userPage.waitForURL((url) => isHomePath(url.pathname), { timeout: 15_000 })
+    expect(new URL(userPage.url()).pathname).not.toContain('/dashboard')
+    await expect(userPage.locator('main, section').first()).toBeVisible({ timeout: 10_000 })
   })
 
-  test('my-submissions /en redirects to /dashboard', async ({ userPage }) => {
-    // /en/my-submissions also server-redirects to /dashboard.
+  test('my-submissions /en redirects to the home page', async ({ userPage }) => {
     test.setTimeout(60_000)
     const res = await userPage.goto('/en/my-submissions')
     expect(res?.status()).toBeLessThan(400)
-    await userPage.waitForURL(/\/dashboard/, { timeout: 15_000 })
-    // Dashboard renders: brand panel uses <main>; empty state (no brands) uses <section>.
-    await expect(userPage.locator('main, section').first()).toBeVisible({ timeout: 5_000 })
+    await userPage.waitForURL((url) => isHomePath(url.pathname), { timeout: 15_000 })
+    expect(new URL(userPage.url()).pathname).not.toContain('/dashboard')
+    await expect(userPage.locator('main, section').first()).toBeVisible({ timeout: 10_000 })
   })
 })

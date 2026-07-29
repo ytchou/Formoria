@@ -1,5 +1,6 @@
 import { test, expect } from '../fixtures/auth'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { ownerFeaturesDisabled } from '../helpers/owner-features'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>
@@ -120,7 +121,7 @@ test.describe('Static & compliance pages', () => {
     // The widget may redirect quickly in dev; assert the heading appeared above.
   })
 
-  test('submit landing page renders with recommendation and owner CTAs', async ({ anonPage }) => {
+  test('submit landing page renders with recommendation and owner CTAs', async ({ anonPage, browser }) => {
     test.setTimeout(30_000)
     const resp = await anonPage.goto('/submit', { timeout: 30_000 })
     if (resp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return }
@@ -129,7 +130,16 @@ test.describe('Static & compliance pages', () => {
       anonPage.getByRole('heading', { name: '提交你的台灣品牌' }),
     ).toBeVisible({ timeout: 15_000 })
     await expect(anonPage.locator('a[href*="/submit/recommend"]')).toBeVisible({ timeout: 10_000 })
-    await expect(anonPage.locator('a[href*="/auth/sign-in?next=%2Fsubmit%2Fowner"]')).toBeVisible({ timeout: 10_000 })
+    // The owner fork CTA is gated by `owner_features_enabled` (DEV-1261). Assert
+    // both polarities here rather than skipping: the recommendation CTA above is
+    // a live consumer journey in either flag state, and the owner CTA's absence
+    // while off is exactly what this PR ships.
+    const ownerCta = anonPage.locator('a[href*="/auth/sign-in?next=%2Fsubmit%2Fowner"]')
+    if (await ownerFeaturesDisabled(browser)) {
+      await expect(ownerCta).toHaveCount(0)
+    } else {
+      await expect(ownerCta).toBeVisible({ timeout: 10_000 })
+    }
   })
 
   test('microsite renders for seeded brand', async ({ anonPage }) => {

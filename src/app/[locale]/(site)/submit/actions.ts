@@ -14,6 +14,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { verifyTurnstileToken } from '@/lib/security/turnstile'
 import { createInMemoryRateLimiter } from '@/lib/security/rate-limiter'
 import type { SourceAttribution } from '@/lib/types/submission'
+import { isOwnerFeaturesEnabled } from '@/lib/services/app-settings'
 import { getUserBrand } from '@/lib/services/brand-owners'
 import {
   buildGuestSubmissionEmail,
@@ -165,6 +166,9 @@ export async function submitOwnerQuick(
   data: unknown,
 ): Promise<{ error?: string; ownershipAdjusted?: boolean } | undefined> {
   const t = await getTranslations('submit.errors')
+  // Owner-features kill switch: refuse before auth so a stale client that still
+  // holds the owner form cannot write while the surface is hidden.
+  if (!(await isOwnerFeaturesEnabled())) return { error: t('unexpected') }
 
   try {
     const parsed = z.object({
@@ -253,6 +257,7 @@ export async function submitOwnerDetailedBrand(
   data: unknown,
 ): Promise<{ error?: string; ownershipAdjusted?: boolean } | undefined> {
   const t = await getTranslations('submit.errors')
+  if (!(await isOwnerFeaturesEnabled())) return { error: t('unexpected') }
 
   try {
     const parsed = submissionWizardSchema.extend({

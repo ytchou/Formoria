@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { requireBrandEditor } from '@/lib/auth/require-brand-editor'
+import { requireOwnerFeaturesEnabled } from '@/lib/auth/require-owner-features'
 import {
   BRAND_DRAFT_PROGRESS_KEY,
   getBrandDraft,
@@ -91,6 +92,10 @@ export async function saveSectionDraftAction(
   sectionData?: Record<string, unknown>
 ): Promise<SaveSectionDraftResult> {
   try {
+    if (!(await requireOwnerFeaturesEnabled())) {
+      return { error: 'Unauthorized' }
+    }
+
     if (typeof sectionKeyOrSectionData !== 'string' || !sectionData) {
       return { error: 'Unauthorized' }
     }

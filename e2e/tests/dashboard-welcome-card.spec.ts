@@ -4,6 +4,7 @@ import type { Page } from '@playwright/test'
 import { test as baseTest, expect } from '../fixtures/auth'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { writeAuthStorageStateForCredentials } from '../helpers/auth-session'
+import { ownerFeaturesDisabled, OWNER_FEATURES_OFF_REASON } from '../helpers/owner-features'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>
@@ -36,6 +37,16 @@ const test = baseTest.extend<{ userPage: Page }>({
 })
 
 test.describe.configure({ mode: 'serial' })
+
+// Suite-level gate (DEV-1261). MUST stay above the seeding beforeAll below —
+// beforeAll hooks run in declaration order, and skipping here stops the seed
+// from running for a dashboard that is unreachable while the flag is off.
+// Probes the running app, never app_settings.
+test.beforeAll(async ({ browser }) => {
+  if (await ownerFeaturesDisabled(browser)) {
+    test.skip(true, OWNER_FEATURES_OFF_REASON)
+  }
+})
 
 let supabase: AnySupabaseClient
 let brandId: string

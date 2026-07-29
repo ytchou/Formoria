@@ -2,12 +2,14 @@ import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { isRelativeUrl } from "@/lib/auth/validations";
+import { resolvePostAuthPath } from "@/lib/auth/owner-landing";
 import { verifyClaimToken } from "@/lib/auth/claim-token";
 import { getRequestOrigin } from "@/lib/auth/site-url";
 import { completeBrandClaim, getBrandById } from "@/lib/services/brands";
 import { getProfileAdmin, updateProfileAdmin } from "@/lib/services/profiles";
 import { enrollInMarketingEmails } from "@/lib/services/marketing-email-consent";
 import { getPostHogClient } from "@/lib/posthog-server";
+import { isOwnerFeaturesEnabled } from "@/lib/services/app-settings";
 import { routing } from "@/i18n/routing";
 import {
   isAppLocale,
@@ -118,8 +120,12 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Process claim token if present
-  if (claimToken && userId && userEmail) {
+  const ownerFeaturesEnabled = await isOwnerFeaturesEnabled();
+
+  // Process claim token if present. With owner features off a stale claim token
+  // is ignored entirely — no claim is completed and no error state is shown;
+  // the request degrades to a plain sign-in landing below.
+  if (claimToken && userId && userEmail && ownerFeaturesEnabled) {
     const claim = await verifyClaimToken(claimToken);
 
     if (!claim) {
@@ -187,7 +193,12 @@ export async function GET(request: NextRequest) {
     await posthog.flush();
   }
 
-  const redirectTo = next && isRelativeUrl(next) ? next : "/dashboard";
+  // A claim token that survived the flag flip ignores `next` entirely and lands
+  // home rather than on a stale post-claim target. Everything else defers to the
+  // shared post-auth rule (gated owner routes fall back to the landing path).
+  const requestedNext = next && isRelativeUrl(next) ? next : null;
+  const suppressNext = Boolean(claimToken) && !ownerFeaturesEnabled;
+  const redirectTo = await resolvePostAuthPath(suppressNext ? null : requestedNext);
   const url = new URL(localizePath(redirectTo, locale), origin);
   if (isNewUser) {
     url.searchParams.set("is_new_user", "1");

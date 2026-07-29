@@ -12,6 +12,7 @@ import {
   getResetPasswordSchema,
 } from "@/lib/auth/validations";
 import { getRequestOrigin } from "@/lib/auth/site-url";
+import { resolvePostAuthPath } from "@/lib/auth/owner-landing";
 import { enrollInMarketingEmails } from "@/lib/services/marketing-email-consent";
 import { getProfile } from "@/lib/services/profiles";
 import {
@@ -89,7 +90,8 @@ export async function signIn(
   }
 
   const next = formData.get("next") as string | null;
-  const redirectPath = next && isRelativeUrl(next) ? next : "/dashboard";
+  const requestedNext = next && isRelativeUrl(next) ? next : null;
+  const redirectPath = await resolvePostAuthPath(requestedNext);
   redirect(localizePath(redirectPath, locale));
 }
 

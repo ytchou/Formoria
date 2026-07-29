@@ -92,8 +92,9 @@ test.describe('Auth — Google OAuth offline guard', () => {
 });
 
 test.describe('Auth — sign-in flow', () => {
-  test('signs in through the UI and lands on the dashboard', async ({ anonPage }) => {
-    // Supabase signInWithPassword and dashboard cold-compile can be slow in dev.
+  test('signs in through the UI and leaves the sign-in page authenticated', async ({ anonPage }) => {
+    // Supabase signInWithPassword and a cold-compile of the landing page can be
+    // slow in dev.
     test.setTimeout(120_000);
 
     const email = process.env.E2E_USER_EMAIL;
@@ -118,14 +119,18 @@ test.describe('Auth — sign-in flow', () => {
     await anonPage.getByLabel('密碼', { exact: true }).fill(password);
 
     await Promise.all([
-      // Server Action → Supabase round-trip plus dashboard cold-compile can be slow in dev.
-      anonPage.waitForURL(/\/dashboard(?:[/?#]|$)/, { timeout: 60_000 }),
+      // Server Action → Supabase round-trip plus a cold-compile of the landing
+      // page can be slow in dev.
+      anonPage.waitForURL((url) => !url.pathname.includes('/auth/sign-in'), {
+        timeout: 60_000,
+      }),
       anonPage.getByRole('button', { name: '登入', exact: true }).click(),
     ]);
 
     await expect(anonPage).not.toHaveURL(/\/auth\/sign-in(?:[/?#]|$)/);
-    await expect(anonPage).toHaveURL(/\/dashboard(?:[/?#]|$)/);
-    // Dashboard redesigned in PR #221: no top-level 経営者主控台 h1 or 歡迎 welcome text.
+    // Where sign-in lands depends on the owner-features flag, so this spec only
+    // asserts that the user left the sign-in page authenticated. The flag-off
+    // landing (`/`, not `/dashboard`) is owned by owner-features-flag-off.spec.ts.
     // The account menu button in the main nav is always visible when authenticated.
     await expect(anonPage.getByRole('button', { name: /account|帳號/i })).toBeVisible({
       timeout: 10_000,

@@ -1,5 +1,16 @@
 import { test, expect } from '../fixtures/auth';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { ownerFeaturesDisabled, OWNER_FEATURES_OFF_REASON } from '../helpers/owner-features';
+
+// Suite-level gate (DEV-1261). Declared at file scope so it runs before the
+// describe's seeding beforeAll: the claim CTA is not rendered and the owner
+// dashboard 404s while the flag is off. Probes the running app, never
+// app_settings.
+test.beforeAll(async ({ browser }) => {
+  if (await ownerFeaturesDisabled(browser)) {
+    test.skip(true, OWNER_FEATURES_OFF_REASON);
+  }
+});
 
 const ONE_PIXEL_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',

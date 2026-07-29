@@ -180,7 +180,10 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
   useEffect(() => {
     let active = true
 
-    if (!user || viewer.hasOwnedBrand) return
+    // `hasOwnedBrand` keeps its inverted polarity (true HIDES the CTA); the flag
+    // term is appended, never folded into it. With the kill switch off the
+    // component renders null regardless, so the round trip is pure waste.
+    if (!user || viewer.hasOwnedBrand || !viewer.ownerFeaturesEnabled) return
 
     const key = `${user.id}:${brandId}`
     void (async () => {
@@ -198,7 +201,7 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
     return () => {
       active = false
     }
-  }, [brandId, user, viewer.hasOwnedBrand])
+  }, [brandId, user, viewer.hasOwnedBrand, viewer.ownerFeaturesEnabled])
 
   const pendingClaimKey = user ? `${user.id}:${brandId}` : null
   const hasExistingPendingClaim =
@@ -280,6 +283,12 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
   }
 
   if (loading || viewerLoading || pendingClaimLoading) return null
+
+  // Kill switch first: `hasOwnedBrand` has inverted polarity below (it HIDES
+  // the CTA), so the flag must gate ahead of it rather than feed into it.
+  if (!viewer.ownerFeaturesEnabled) {
+    return null
+  }
 
   if (viewer.hasOwnedBrand) {
     return null
