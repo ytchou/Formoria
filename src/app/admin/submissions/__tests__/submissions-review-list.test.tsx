@@ -14,6 +14,7 @@ const navigation = vi.hoisted(() => ({
 }));
 const actions = vi.hoisted(() => ({
   approve: vi.fn(),
+  bulkApprove: vi.fn(),
   reject: vi.fn(),
   enrich: vi.fn(),
 }));
@@ -24,6 +25,7 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("@/app/admin/actions", () => ({
   approveSubmissionAction: actions.approve,
+  approveSubmissionsAction: actions.bulkApprove,
   rejectSubmissionAction: actions.reject,
 }));
 vi.mock("@/app/admin/operations/actions", () => ({
@@ -44,6 +46,7 @@ vi.mock("../submission-review-details", () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   actions.approve.mockResolvedValue(undefined);
+  actions.bulkApprove.mockResolvedValue({ failures: [] });
   actions.reject.mockResolvedValue(undefined);
   actions.enrich.mockResolvedValue({
     jobId: "job-1",
@@ -169,12 +172,16 @@ describe("SubmissionsReviewList", () => {
       screen.getByRole("button", { name: "Approve 3 selected" }),
     );
 
-    expect(actions.approve).toHaveBeenCalledTimes(3);
-    expect(actions.approve.mock.calls.map(([id]) => id)).toEqual([
+    expect(actions.bulkApprove).toHaveBeenCalledOnce();
+    expect(actions.bulkApprove).toHaveBeenCalledWith([
       "ready-1",
       "ready-3",
       "ready-5",
     ]);
+    expect(actions.approve).not.toHaveBeenCalled();
+    expect(navigation.refresh).not.toHaveBeenCalled();
+    expect(screen.queryByText("Ready Brand 1")).not.toBeInTheDocument();
+    expect(screen.getByText("Ready Brand 2")).toBeInTheDocument();
   });
 
   it("routes mixed bulk approval through the shared action", async () => {
@@ -209,10 +216,8 @@ describe("SubmissionsReviewList", () => {
       screen.getByRole("button", { name: "Approve 2 selected" }),
     );
 
-    expect(actions.approve.mock.calls.map(([id]) => id)).toEqual([
-      "new-1",
-      "refresh-1",
-    ]);
+    expect(actions.bulkApprove).toHaveBeenCalledWith(["new-1", "refresh-1"]);
+    expect(actions.approve).not.toHaveBeenCalled();
   });
 
   it("shows only the actions owned by the active review stage", () => {

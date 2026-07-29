@@ -13,6 +13,7 @@ import {
 import { toast } from "sonner";
 import {
   approveSubmissionAction,
+  approveSubmissionsAction,
   rejectSubmissionAction,
 } from "@/app/admin/actions";
 import { JobAutoRefresh } from "@/app/admin/jobs/job-auto-refresh";
@@ -104,6 +105,9 @@ export function SubmissionsReviewList({
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZES)[number]>(10);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [completedApprovalIds, setCompletedApprovalIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [bulkRejecting, setBulkRejecting] = useState(false);
   const [bulkRejectReason, setBulkRejectReason] = useState<DenialReason | "">(
@@ -114,27 +118,44 @@ export function SubmissionsReviewList({
   const [isEnriching, startEnrichTransition] = useTransition();
   const showEnrichment = activeTab !== "needs_data";
   const showSkipReason = activeTab === "skipped";
+  const displayedSubmissions = useMemo(
+    () =>
+      submissions.filter(
+        (submission) =>
+          !completedApprovalIds.has(submission.id) ||
+          submission.status !== "pending",
+      ),
+    [completedApprovalIds, submissions],
+  );
 
   const tabCounts = useMemo(
     () => ({
-      all: submissions.length,
-      needs_data: submissions.filter(
+      all: displayedSubmissions.length,
+      needs_data: displayedSubmissions.filter(
         (item) => item.reviewStage === "needs_data",
       ).length,
-      enriching: submissions.filter((item) => item.reviewStage === "enriching")
+      enriching: displayedSubmissions.filter(
+        (item) => item.reviewStage === "enriching",
+      ).length,
+      skipped: displayedSubmissions.filter(
+        (item) => item.reviewStage === "skipped",
+      ).length,
+      ready: displayedSubmissions.filter((item) => item.reviewStage === "ready")
         .length,
-      skipped: submissions.filter((item) => item.reviewStage === "skipped")
+      approved: displayedSubmissions.filter((item) => item.status === "approved")
         .length,
-      ready: submissions.filter((item) => item.reviewStage === "ready").length,
-      approved: submissions.filter((item) => item.status === "approved").length,
-      rejected: submissions.filter((item) => item.status === "rejected").length,
+      rejected: displayedSubmissions.filter((item) => item.status === "rejected")
+        .length,
     }),
-    [submissions],
+    [displayedSubmissions],
   );
 
   const stageFiltered = useMemo(
-    () => submissions.filter((submission) => matchesTab(submission, activeTab)),
-    [activeTab, submissions],
+    () =>
+      displayedSubmissions.filter((submission) =>
+        matchesTab(submission, activeTab),
+      ),
+    [activeTab, displayedSubmissions],
   );
   const filtered = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
@@ -259,22 +280,36 @@ export function SubmissionsReviewList({
 
     startTransition(async () => {
       setError(null);
-      const results = await Promise.all(
-        approvableSelected.map(async (submission) => ({
-          submission,
-          result: await approveSubmissionAction(submission.id),
-        })),
+      const result = await approveSubmissionsAction(
+        approvableSelected.map((submission) => submission.id),
       );
-      const failed = results.find(({ result }) => result?.error);
-      if (failed?.result?.error) {
-        setError(`${failed.submission.brandName}: ${failed.result.error}`);
+      if ("error" in result) {
+        setError(result.error);
         return;
       }
-      if (results.some(({ result }) => result?.storageCleanupWarning)) {
+      const failedIds = new Set(
+        result.failures.map((failure) => failure.submissionId),
+      );
+      const firstFailure = result.failures.at(0);
+      if (firstFailure) {
+        const submission = approvableSelected.find(
+          (item) => item.id === firstFailure.submissionId,
+        );
+        setError(
+          `${submission?.brandName ?? firstFailure.submissionId}: ${firstFailure.error}`,
+        );
+      }
+      if (result.storageCleanupWarning) {
         toast.warning(t("storageCleanupWarning"));
       }
-      setSelectedIds(new Set());
-      router.refresh();
+      setCompletedApprovalIds((current) => {
+        const next = new Set(current);
+        for (const submission of approvableSelected) {
+          if (!failedIds.has(submission.id)) next.add(submission.id);
+        }
+        return next;
+      });
+      setSelectedIds(failedIds);
     });
   }
 
