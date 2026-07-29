@@ -13,7 +13,8 @@ test.describe('Navbar auth smoke', () => {
     await anonPage.goto('/');
     const signInLink = anonPage.getByRole('link', { name: /sign in|登入/i });
     await expect(signInLink).toBeVisible({ timeout: 10_000 });
-    await expect(signInLink).toHaveAttribute('href', /^\/auth\/sign-in/);
+    // The /en prefix appears on English pages now that auth lives under [locale].
+    await expect(signInLink).toHaveAttribute('href', /^(?:\/en)?\/auth\/sign-in/);
   });
 
   test('authenticated user sees account menu, not sign-in link', async ({ userPage }) => {

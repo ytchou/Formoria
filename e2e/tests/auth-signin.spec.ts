@@ -13,8 +13,10 @@ function signInDocument(html: string) {
 }
 
 test.describe('Auth — locale intent', () => {
-  test('fresh sign-in HTML submits the inferred English locale', async ({ request }) => {
-    const response = await request.get('/auth/sign-in', {
+  test('the English sign-in page submits the English locale', async ({ request }) => {
+    // Auth pages live under [locale] now, so the English render has its own URL
+    // rather than being negotiated onto the prefix-free one.
+    const response = await request.get('/en/auth/sign-in', {
       headers: { 'accept-language': 'en-US,en;q=0.9' },
     });
 

@@ -11,6 +11,9 @@ import { resolveApprovedBrandRedirect } from '@/lib/services/brand-redirects'
 /**
  * Routes that are reserved for static pages and cannot be used as brand slugs.
  * Used by the brands service to validate slug uniqueness against app routes.
+ *
+ * A single-segment app route missing from this set is silently 301'd to
+ * `/brands/<segment>` and 404s. `route-registration.test.ts` enforces coverage.
  */
 export const RESERVED_ROUTES = new Set([
   'admin',
@@ -20,6 +23,7 @@ export const RESERVED_ROUTES = new Set([
   'challenge',
   'submit',
   'brands',
+  'contact',
   'guides',
   'site',
   'dashboard',
@@ -47,12 +51,18 @@ export const RESERVED_ROUTES = new Set([
   'twitter-image',
 ])
 
-const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{2,79}$/
+export const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{2,79}$/
 const intlMiddleware = createMiddleware(routing)
 const KNOWN_LOCALES = new Set<string>(routing.locales)
 const ADMIN_DEFAULT_LOCALE = 'en'
 const NEXT_INTL_LOCALE_HEADER = 'X-NEXT-INTL-LOCALE'
-const PUBLIC_INTL_SEGMENTS = new Set([
+/**
+ * First path segments that carry a locale. Drives locale inference for
+ * prefix-free (zh-TW) URLs. Every `src/app/[locale]` route with a `page.tsx`
+ * belongs here — `route-registration.test.ts` enforces it.
+ */
+export const PUBLIC_INTL_SEGMENTS = new Set([
+  'auth',
   'brands',
   'guides',
   'about',
@@ -289,10 +299,9 @@ export async function proxy(request: NextRequest) {
   }
 
   const isPublicPath = isLocalizedPublicPath(pathname)
-  const isAuthPath = pathname === '/auth' || pathname.startsWith('/auth/')
   const explicitLocale = isAppLocale(segments.at(0)) ? segments.at(0) : null
   const cookieLocale = request.cookies.get(LOCALE_COOKIE)?.value
-  const shouldInferLocale = isAuthPath || (isPublicPath && !explicitLocale && !isLikelyCrawler(request))
+  const shouldInferLocale = isPublicPath && !explicitLocale && !isLikelyCrawler(request)
   const inferredLocale = shouldInferLocale
     ? resolveInitialLocale({
         cookieLocale,
@@ -323,8 +332,6 @@ export async function proxy(request: NextRequest) {
     const requestHeaders = new Headers(request.headers)
     if (pathname === '/admin' || pathname.startsWith('/admin/')) {
       requestHeaders.set(NEXT_INTL_LOCALE_HEADER, ADMIN_DEFAULT_LOCALE)
-    } else if (isAuthPath) {
-      requestHeaders.set(NEXT_INTL_LOCALE_HEADER, inferredLocale ?? routing.defaultLocale)
     }
     response = NextResponse.next({ request: { headers: requestHeaders } })
   }
@@ -355,7 +362,10 @@ export async function proxy(request: NextRequest) {
     const segment = segments.length > 0 && KNOWN_LOCALES.has(segments[0])
       ? segments[1]
       : segments[0]
-    const AUTH_REQUIRED_SEGMENTS = new Set(['dashboard', 'settings', 'my-submissions', 'submit', 'admin', 'favorites'])
+    // 'auth' is here because the auth pages call redirectIfAuthenticated(), which
+    // needs a live Supabase session — skipping the refresh would silently strand
+    // already-signed-in users on the sign-in form.
+    const AUTH_REQUIRED_SEGMENTS = new Set(['auth', 'dashboard', 'settings', 'my-submissions', 'submit', 'admin', 'favorites'])
     if (!AUTH_REQUIRED_SEGMENTS.has(segment)) {
       return response
     }

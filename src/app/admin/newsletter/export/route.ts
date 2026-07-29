@@ -13,7 +13,7 @@ export async function GET(request: Request): Promise<Response> {
   const auth = await requireAdminAction();
   if ("error" in auth) {
     if (auth.code === "unauthenticated") {
-      const signInUrl = new URL("/auth/sign-in", await getRequestOrigin());
+      const signInUrl = new URL("/en/auth/sign-in", await getRequestOrigin());
       signInUrl.searchParams.set("next", "/admin/newsletter");
       return Response.redirect(signInUrl, 307);
     }

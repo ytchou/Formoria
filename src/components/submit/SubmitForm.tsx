@@ -20,7 +20,7 @@ import {
 import {
   inspectRecommendationName,
   submitRecommendation,
-} from '@/app/[locale]/submit/actions'
+} from '@/app/[locale]/(site)/submit/actions'
 import { SOURCE_ATTRIBUTION_VALUES } from '@/lib/types/submission'
 import type { SourceAttribution } from '@/lib/types/submission'
 import { FormField } from '@/components/forms/form-field'

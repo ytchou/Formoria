@@ -17,6 +17,8 @@ describe('robots', () => {
     expect(rule.disallow).toContain('/admin')
     expect(rule.disallow).toContain('/api/')
     expect(rule.disallow).toContain('/auth/')
+    // Auth pages now live under [locale], so the English copies need their own rule.
+    expect(rule.disallow).toContain('/en/auth/')
     expect(rule.disallow).not.toContain('/submit')
   })
 

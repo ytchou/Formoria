@@ -16,8 +16,12 @@ describe('isLocalizedPublicPath', () => {
     expect(isLocalizedPublicPath('/en/challenge')).toBe(true)
   })
 
+  it('treats auth pages as localized now that they live under [locale]', () => {
+    expect(isLocalizedPublicPath('/auth/sign-in')).toBe(true)
+    expect(isLocalizedPublicPath('/en/auth/sign-in')).toBe(true)
+  })
+
   it('still excludes non-localized routes', () => {
-    expect(isLocalizedPublicPath('/auth/sign-in')).toBe(false)
     expect(isLocalizedPublicPath('/admin')).toBe(false)
   })
 

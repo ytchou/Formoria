@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { FormProvider } from 'react-hook-form'
-import { suggestCleanName } from '@/app/[locale]/submit/actions'
+import { suggestCleanName } from '@/app/[locale]/(site)/submit/actions'
 import { BrandBasicInfoSection } from '@/components/brand-wizard/basic-info-section'
 import { FormField } from '@/components/forms/form-field'
 import { Input } from '@/components/ui/input'

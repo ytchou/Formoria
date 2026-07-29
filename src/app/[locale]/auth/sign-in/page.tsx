@@ -1,10 +1,21 @@
 import type { Metadata } from "next";
 import { decodeJwt } from "jose";
-import { getTranslations } from "next-intl/server";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { redirectIfAuthenticated } from "@/lib/auth/redirect-if-authenticated";
 import { SignInForm } from "@/components/auth/sign-in-form";
 
-export async function generateMetadata(): Promise<Metadata> {
+type Props = {
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<{ claim?: string; error?: string }>;
+};
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  setRequestLocale(locale);
   const t = await getTranslations("auth");
   return {
     title: t("signIn.heading"),
@@ -12,15 +23,14 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-type Props = {
-  searchParams: Promise<{ claim?: string; error?: string }>;
-};
+export default async function SignInPage({ params, searchParams }: Props) {
+  const { locale } = await params;
+  setRequestLocale(locale);
 
-export default async function SignInPage({ searchParams }: Props) {
   await redirectIfAuthenticated();
 
-  const params = await searchParams;
-  const claimToken = params.claim;
+  const search = await searchParams;
+  const claimToken = search.claim;
   let claimBrandName: string | undefined;
 
   if (claimToken) {
@@ -36,7 +46,7 @@ export default async function SignInPage({ searchParams }: Props) {
     <SignInForm
       claimToken={claimToken}
       claimBrandName={claimBrandName}
-      errorCode={params.error}
+      errorCode={search.error}
     />
   );
 }

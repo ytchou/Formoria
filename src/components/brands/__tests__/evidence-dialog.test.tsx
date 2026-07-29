@@ -9,7 +9,7 @@ vi.mock('@/lib/analytics', () => ({
   trackBrandReported: vi.fn(),
 }))
 
-vi.mock('@/app/[locale]/brands/[slug]/actions', () => ({
+vi.mock('@/app/[locale]/(site)/brands/[slug]/actions', () => ({
   submitReportAction: vi.fn(),
   submitEvidenceAction: vi.fn(),
 }))

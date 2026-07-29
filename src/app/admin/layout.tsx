@@ -31,7 +31,9 @@ export default async function AdminLayout({
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/auth/sign-in?next=/admin");
+    // Admin is pinned to English (ADMIN_DEFAULT_LOCALE in proxy.ts), so its
+    // sign-in target is explicitly the /en auth page.
+    redirect("/en/auth/sign-in?next=/admin");
   }
 
   if (!(await isActingAsAdmin(user.email))) {

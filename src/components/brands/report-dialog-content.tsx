@@ -14,7 +14,7 @@ import {
   TriangleAlert,
   X,
 } from 'lucide-react'
-import { submitReportAction, type ReportState } from '@/app/[locale]/brands/[slug]/actions'
+import { submitReportAction, type ReportState } from '@/app/[locale]/(site)/brands/[slug]/actions'
 import {
   DialogContent,
   DialogHeader,

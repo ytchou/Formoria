@@ -12,7 +12,7 @@ import { FileSearch, Upload, X } from 'lucide-react'
 import {
   submitEvidenceAction,
   type EvidenceState,
-} from '@/app/[locale]/brands/[slug]/actions'
+} from '@/app/[locale]/(site)/brands/[slug]/actions'
 import {
   DialogContent,
   DialogHeader,

@@ -1,7 +1,7 @@
 'use client'
 
 import { useActionState } from 'react'
-import Link from 'next/link'
+import { Link } from '@/i18n/navigation'
 import { useTranslations } from 'next-intl'
 import { resetPassword } from '@/app/auth/actions'
 import type { AuthState } from '@/app/auth/actions'

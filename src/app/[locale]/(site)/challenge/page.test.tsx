@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import zh from '../../../../messages/zh-TW.json'
+import zh from '../../../../../messages/zh-TW.json'
 import ChallengePage from './page'
 
 const mockPush = vi.fn()

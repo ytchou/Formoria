@@ -8,9 +8,10 @@ import { completeBrandClaim, getBrandById } from "@/lib/services/brands";
 import { getProfileAdmin, updateProfileAdmin } from "@/lib/services/profiles";
 import { enrollInMarketingEmails } from "@/lib/services/marketing-email-consent";
 import { getPostHogClient } from "@/lib/posthog-server";
+import { routing } from "@/i18n/routing";
 import {
   isAppLocale,
-  localizePostAuthPath,
+  localizePath,
   LOCALE_COOKIE,
   resolveAuthenticatedLocale,
   type AppLocale,
@@ -37,6 +38,11 @@ export async function GET(request: NextRequest) {
     : isAppLocale(legacyMarketingLocale)
       ? legacyMarketingLocale
       : null;
+  // Errors below are raised before the profile locale can be resolved, so fall
+  // back through the post-auth intent cookie to the sticky NEXT_LOCALE cookie.
+  const rawCookieLocale = cookieStore.get(LOCALE_COOKIE)?.value;
+  const errorLocale: AppLocale =
+    intendedLocale ?? (isAppLocale(rawCookieLocale) ? rawCookieLocale : routing.defaultLocale);
   cookieStore.delete("post_auth_next");
   cookieStore.delete("post_auth_claim");
   cookieStore.delete("post_auth_marketing_opt_in");
@@ -45,7 +51,7 @@ export async function GET(request: NextRequest) {
 
   if (!code && !claimToken) {
     return NextResponse.redirect(
-      new URL("/auth/sign-in?error=missing-code", origin)
+      new URL(localizePath("/auth/sign-in?error=missing-code", errorLocale), origin)
     );
   }
 
@@ -60,7 +66,7 @@ export async function GET(request: NextRequest) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {
       return NextResponse.redirect(
-        new URL("/auth/sign-in?error=expired-code", origin)
+        new URL(localizePath("/auth/sign-in?error=expired-code", errorLocale), origin)
       );
     }
     userId = data.user?.id;
@@ -118,13 +124,13 @@ export async function GET(request: NextRequest) {
 
     if (!claim) {
       return NextResponse.redirect(
-        new URL(localizePostAuthPath("/dashboard?error=invalid-claim", locale), origin)
+        new URL(localizePath("/dashboard?error=invalid-claim", locale), origin)
       );
     }
 
     if (claim.email !== userEmail) {
       return NextResponse.redirect(
-        new URL(localizePostAuthPath("/dashboard?error=email-mismatch", locale), origin)
+        new URL(localizePath("/dashboard?error=email-mismatch", locale), origin)
       );
     }
 
@@ -147,7 +153,7 @@ export async function GET(request: NextRequest) {
       });
       await posthog.flush();
       const url = new URL(
-        localizePostAuthPath(`/dashboard/brands/${brand.slug}`, locale),
+        localizePath(`/dashboard/brands/${brand.slug}`, locale),
         origin,
       );
       if (isNewUser) {
@@ -159,7 +165,7 @@ export async function GET(request: NextRequest) {
         ? 'owner-limit'
         : 'claim-failed'
       return NextResponse.redirect(
-        new URL(localizePostAuthPath(`/dashboard?error=${reason}`, locale), origin)
+        new URL(localizePath(`/dashboard?error=${reason}`, locale), origin)
       );
     }
   }
@@ -182,7 +188,7 @@ export async function GET(request: NextRequest) {
   }
 
   const redirectTo = next && isRelativeUrl(next) ? next : "/dashboard";
-  const url = new URL(localizePostAuthPath(redirectTo, locale), origin);
+  const url = new URL(localizePath(redirectTo, locale), origin);
   if (isNewUser) {
     url.searchParams.set("is_new_user", "1");
   }

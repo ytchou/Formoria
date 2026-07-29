@@ -16,7 +16,7 @@ import { enrollInMarketingEmails } from "@/lib/services/marketing-email-consent"
 import { getProfile } from "@/lib/services/profiles";
 import {
   isAppLocale,
-  localizePostAuthPath,
+  localizePath,
   LOCALE_COOKIE,
   resolveAuthenticatedLocale,
   type AppLocale,
@@ -90,7 +90,7 @@ export async function signIn(
 
   const next = formData.get("next") as string | null;
   const redirectPath = next && isRelativeUrl(next) ? next : "/dashboard";
-  redirect(localizePostAuthPath(redirectPath, locale));
+  redirect(localizePath(redirectPath, locale));
 }
 
 export async function signUp(
@@ -148,7 +148,9 @@ export async function signUp(
 
   await setLocaleCookie(locale);
 
-  redirect(`/auth/sign-in?message=${encodeURIComponent(t("confirmEmail"))}`);
+  redirect(
+    localizePath(`/auth/sign-in?message=${encodeURIComponent(t("confirmEmail"))}`, locale)
+  );
 }
 
 export async function signInWithGoogle(
@@ -198,7 +200,7 @@ export async function signInWithGoogle(
   });
 
   if (error || !data?.url) {
-    redirect("/auth/sign-in?error=oauth-failed");
+    redirect(localizePath("/auth/sign-in?error=oauth-failed", locale));
   }
 
   redirect(data.url);
@@ -271,5 +273,10 @@ export async function updatePassword(
     return { error: error.message };
   }
 
-  redirect(`/auth/sign-in?message=${encodeURIComponent(t("resetPassword.success"))}`);
+  redirect(
+    localizePath(
+      `/auth/sign-in?message=${encodeURIComponent(t("resetPassword.success"))}`,
+      await getLocale()
+    )
+  );
 }

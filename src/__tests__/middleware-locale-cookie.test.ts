@@ -62,4 +62,34 @@ describe('locale cookie is only written when it changes', () => {
     expect(res.headers.get('location')).toContain('/en/about')
     expect(res.cookies.get(LOCALE_COOKIE)?.value).toBe('en')
   })
+
+  it('marks the first-time locale redirect as private and uncacheable', async () => {
+    const res = await proxy(req('/about', { acceptLanguage: 'en-US,en;q=0.9' }))
+
+    expect(res.status).toBe(307)
+    expect(res.headers.get('cache-control')).toBe('private, no-store')
+  })
+
+  it('does NOT redirect a Taiwan visitor whose browser is in English', async () => {
+    const res = await proxy(
+      req('/about', {
+        acceptLanguage: 'en-US,en;q=0.9',
+        extraHeaders: { 'cf-ipcountry': 'TW' },
+      }),
+    )
+
+    expect(res.status).not.toBe(307)
+    expect(res.cookies.get(LOCALE_COOKIE)?.value).toBe('zh-TW')
+  })
+
+  it('never geo-redirects a crawler', async () => {
+    const res = await proxy(
+      req('/about', {
+        acceptLanguage: 'en-US,en;q=0.9',
+        extraHeaders: { 'cf-ipcountry': 'TW', 'user-agent': 'Googlebot/2.1' },
+      }),
+    )
+
+    expect(res.status).not.toBe(307)
+  })
 })

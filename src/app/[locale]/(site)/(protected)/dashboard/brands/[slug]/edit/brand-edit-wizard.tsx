@@ -16,7 +16,7 @@ import {
   type BrandEditFormValues,
 } from '@/lib/schemas/brand-edit'
 import { saveSectionDraftAction } from '@/lib/actions/brand-edit-wizard'
-import { publishDraftAction } from '@/app/[locale]/(protected)/dashboard/brands/[slug]/actions'
+import { publishDraftAction } from '@/app/[locale]/(site)/(protected)/dashboard/brands/[slug]/actions'
 import { useWizardController } from '@/components/brand-wizard/use-wizard-controller'
 import { useRouter } from '@/i18n/navigation'
 import type { ContentViolation } from '@/lib/services/moderation'

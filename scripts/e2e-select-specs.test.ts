@@ -329,7 +329,7 @@ describe('selectDerivedSpecs against the repository', () => {
   it('never selects a spec the deep project cannot run', () => {
     // /getting-started is covered only by e2e/smoke: handing that path to the
     // selective deep/mobile projects would match no tests and fail the job.
-    expect(select(['src/app/[locale]/getting-started/page.tsx'])).toEqual([])
+    expect(select(['src/app/[locale]/(site)/getting-started/page.tsx'])).toEqual([])
 
     const everySpec = select(['src/components/ui/button.tsx'])
     expect(everySpec.length).toBeGreaterThan(0)
@@ -339,7 +339,7 @@ describe('selectDerivedSpecs against the repository', () => {
   it('reaches a route through a helper the spec imports rather than a literal', () => {
     // submit-name-suggestion.spec.ts has no URL of its own — it navigates via
     // gotoSubmitRecommend() in e2e/utils/submit-form.ts.
-    expect(select(['src/app/[locale]/submit/recommend/page.tsx'])).toContain(
+    expect(select(['src/app/[locale]/(site)/submit/recommend/page.tsx'])).toContain(
       'e2e/tests/submit-name-suggestion.spec.ts',
     )
   })

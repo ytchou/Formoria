@@ -7,8 +7,9 @@ test.describe('Navbar auth journey', () => {
 
     const signInLink = anonPage.getByRole('link', { name: /sign in|登入/i });
     await expect(signInLink).toBeVisible({ timeout: 10_000 });
-    // href includes ?next=... query param — assert it starts with /auth/sign-in
-    await expect(signInLink).toHaveAttribute('href', /^\/auth\/sign-in/);
+    // href includes ?next=... query param — assert it starts with the sign-in
+    // route, which carries an /en prefix on English pages.
+    await expect(signInLink).toHaveAttribute('href', /^(?:\/en)?\/auth\/sign-in/);
   });
 
   test('authenticated user sees account menu, not sign-in link', async ({ userPage }) => {

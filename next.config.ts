@@ -155,11 +155,6 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
-        source: '/en/auth/:path*',
-        destination: '/auth/:path*',
-        permanent: true,
-      },
-      {
         source: '/zh-TW/auth/:path*',
         destination: '/auth/:path*',
         permanent: true,

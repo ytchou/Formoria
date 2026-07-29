@@ -3,7 +3,7 @@ import { setRequestLocale } from 'next-intl/server'
 import { redirect } from 'next/navigation'
 import { DashboardHeroCard } from '@/components/dashboard/dashboard-hero-card'
 import { DashboardTabNav } from '@/components/dashboard/dashboard-tab-nav'
-import { localizePath } from '@/i18n/locale-preference'
+import { localizePath, signInHref } from '@/i18n/locale-preference'
 import { requireBrandEditor } from '@/lib/auth/require-brand-editor'
 import { computeProfileCompleteness } from '@/lib/services/profile-completeness'
 
@@ -23,7 +23,7 @@ export default async function DashboardBrandLayout({
   if ('error' in editor) {
     redirect(
       editor.error === 'notLoggedIn'
-        ? '/auth/sign-in'
+        ? signInHref(`/dashboard/brands/${slug}`, locale)
         : localizePath('/dashboard', locale),
     )
   }

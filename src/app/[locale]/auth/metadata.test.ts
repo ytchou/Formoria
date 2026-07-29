@@ -4,6 +4,7 @@ vi.mock('jose', () => ({ decodeJwt: vi.fn() }))
 vi.mock('next-intl/server', () => ({
   getLocale: vi.fn(async () => 'en'),
   getTranslations: vi.fn(async () => (key: string) => key),
+  setRequestLocale: vi.fn(),
 }))
 vi.mock('@/lib/auth/redirect-if-authenticated', () => ({
   redirectIfAuthenticated: vi.fn(),
@@ -24,11 +25,12 @@ import { generateMetadata as signUpMetadata } from './sign-up/page'
 
 describe('auth page metadata', () => {
   it('marks every auth page as noindex while allowing link following', async () => {
+    const props = { params: Promise.resolve({ locale: 'en' }) }
     const metadata = await Promise.all([
-      signInMetadata(),
-      signUpMetadata(),
-      forgotPasswordMetadata(),
-      resetPasswordMetadata(),
+      signInMetadata(props),
+      signUpMetadata(props),
+      forgotPasswordMetadata(props),
+      resetPasswordMetadata(props),
     ])
 
     for (const pageMetadata of metadata) {

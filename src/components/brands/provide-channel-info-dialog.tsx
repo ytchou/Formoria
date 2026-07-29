@@ -7,7 +7,7 @@ import { useActionState, useId, useState } from "react";
 import {
   submitChannelInfoAction,
   type ChannelFormState,
-} from "@/app/[locale]/brands/[slug]/actions";
+} from "@/app/[locale]/(site)/brands/[slug]/actions";
 import {
   Dialog,
   DialogClose,

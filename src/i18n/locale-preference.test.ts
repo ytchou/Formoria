@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
   localizePath,
-  localizePostAuthPath,
   resolveAuthenticatedLocale,
   resolveInitialLocale,
 } from './locale-preference'
@@ -15,11 +14,15 @@ describe('locale preference', () => {
     })).toBe('en')
   })
 
-  it('respects Accept-Language quality before country', () => {
+  it('prefers Taiwan geography over an English browser UI', () => {
     expect(resolveInitialLocale({
       acceptLanguage: 'en-US,en;q=0.9,zh-TW;q=0.8',
       country: 'TW',
-    })).toBe('en')
+    })).toBe('zh-TW')
+    expect(resolveInitialLocale({
+      acceptLanguage: 'fr-FR,en-US;q=0.9,zh-TW;q=0.8',
+      country: 'TW',
+    })).toBe('zh-TW')
     expect(resolveInitialLocale({
       acceptLanguage: 'zh-TW,zh;q=0.9,en;q=0.8',
       country: 'US',
@@ -31,13 +34,20 @@ describe('locale preference', () => {
       acceptLanguage: 'ja-JP,zh-TW;q=0.9,en;q=0.8',
       country: 'US',
     })).toBe('zh-TW')
-    expect(resolveInitialLocale({
-      acceptLanguage: 'fr-FR,en-US;q=0.9,zh-TW;q=0.8',
-      country: 'TW',
-    })).toBe('en')
   })
 
-  it('uses country only when browser language is unavailable', () => {
+  it('keeps browser language in charge for visitors outside Taiwan', () => {
+    expect(resolveInitialLocale({
+      acceptLanguage: 'en-US,en;q=0.9',
+      country: 'JP',
+    })).toBe('en')
+    expect(resolveInitialLocale({
+      acceptLanguage: 'zh-TW,zh;q=0.9',
+      country: 'JP',
+    })).toBe('zh-TW')
+  })
+
+  it('falls back to country when no browser language is present', () => {
     expect(resolveInitialLocale({ country: 'TW' })).toBe('zh-TW')
     expect(resolveInitialLocale({ country: 'US' })).toBe('en')
   })
@@ -85,13 +95,5 @@ describe('locale preference', () => {
       isNewUser: true,
       profileLocale: 'en',
     })).toBe('en')
-  })
-
-  it('localizes app redirects without prefixing auth-only routes', () => {
-    expect(localizePostAuthPath('/dashboard?welcome=1', 'en')).toBe('/en/dashboard?welcome=1')
-    expect(localizePostAuthPath('/en/dashboard', 'zh-TW')).toBe('/dashboard')
-    expect(localizePostAuthPath('/auth/reset-password?code=ok', 'en')).toBe(
-      '/auth/reset-password?code=ok',
-    )
   })
 })
