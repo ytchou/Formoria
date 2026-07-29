@@ -128,6 +128,7 @@ export async function OverviewInlineAnalytics({
           {snapshot.destinations?.length ? (
             <div className="mt-4">
               <AnalyticsBarChart
+                valueLabel={tAnalytics('sessions')}
                 data={snapshot.destinations.map((row) => ({
                   label: outboundDestinationLabel(
                     row.destination,

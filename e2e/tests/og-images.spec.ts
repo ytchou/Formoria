@@ -58,6 +58,12 @@ test.describe('OG / twitter image routes', () => {
     await assertPngRoute(request, '/twitter-image');
   });
 
+  test('English homepage social images return meaningful PNGs', async ({ request }) => {
+    for (const path of ['/en/opengraph-image', '/en/twitter-image']) {
+      await assertPngRoute(request, path);
+    }
+  });
+
   // --- Brand detail routes ---
 
   test('/brands/<slug>/opengraph-image returns 200 PNG > 5 KB', async ({ request }) => {

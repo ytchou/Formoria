@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
+import { Link } from '@/i18n/navigation'
 
 type MarketingEmailOptInFieldProps = {
   id: string
@@ -47,14 +48,14 @@ export function MarketingEmailOptInField({
         <p className="pl-[30px] type-form-hint">
           {t.rich('combinedDescription', {
             privacyPolicy: (chunks) => (
-              <a
+              <Link
                 href="/privacy"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {chunks}
-              </a>
+              </Link>
             ),
           })}
         </p>

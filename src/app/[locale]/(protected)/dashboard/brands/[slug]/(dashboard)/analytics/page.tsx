@@ -37,6 +37,7 @@ type OwnerAnalyticsCopy = {
   tooltipOutboundClicks: string
   tooltipOutboundClickRate: string
   tooltipTopTrafficSource: string
+  definitionAria: string
   collectingBaseline: string
   currentRateUnavailable: string
   trendTitle: string
@@ -68,13 +69,21 @@ function comparisonDescription(
   return undefined
 }
 
-function KpiLabel({ definition, label }: { definition: string; label: string }) {
+function KpiLabel({
+  definition,
+  definitionAria,
+  label,
+}: {
+  definition: string
+  definitionAria: string
+  label: string
+}) {
   return (
     <span className="flex items-center gap-1">
       <span>{label}</span>
       <Tooltip>
         <TooltipTrigger
-          aria-label="definition"
+          aria-label={definitionAria}
           className="flex min-h-12 min-w-12 items-center justify-center rounded-md text-muted-foreground"
           type="button"
         >
@@ -111,7 +120,7 @@ function OwnerAnalytics({
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <DataCard
             tone="white"
-            label={<KpiLabel definition={copy.tooltipProfileVisits} label={copy.profileVisits} />}
+            label={<KpiLabel definition={copy.tooltipProfileVisits} definitionAria={copy.definitionAria} label={copy.profileVisits} />}
             value={snapshot.profileSessions?.current ?? '—'}
             delta={snapshot.profileSessions
               ? countDelta(snapshot.profileSessions.current, snapshot.profileSessions.prior)
@@ -126,7 +135,7 @@ function OwnerAnalytics({
           />
           <DataCard
             tone="white"
-            label={<KpiLabel definition={copy.tooltipOutboundClicks} label={copy.outboundClicks} />}
+            label={<KpiLabel definition={copy.tooltipOutboundClicks} definitionAria={copy.definitionAria} label={copy.outboundClicks} />}
             value={snapshot.outboundSessions?.current ?? '—'}
             delta={snapshot.outboundSessions
               ? countDelta(snapshot.outboundSessions.current, snapshot.outboundSessions.prior)
@@ -144,6 +153,7 @@ function OwnerAnalytics({
             label={(
               <KpiLabel
                 definition={copy.tooltipOutboundClickRate}
+                definitionAria={copy.definitionAria}
                 label={copy.outboundClickRate}
               />
             )}
@@ -169,6 +179,7 @@ function OwnerAnalytics({
             label={(
               <KpiLabel
                 definition={copy.tooltipTopTrafficSource}
+                definitionAria={copy.definitionAria}
                 label={copy.topTrafficSource}
               />
             )}
@@ -259,6 +270,7 @@ export default async function AnalyticsPage({ params, searchParams }: Props) {
     tooltipOutboundClicks: t('tooltipOutboundClicks'),
     tooltipOutboundClickRate: t('tooltipOutboundClickRate'),
     tooltipTopTrafficSource: t('tooltipTopTrafficSource'),
+    definitionAria: t('definitionAria'),
     collectingBaseline: t('collectingBaseline'),
     currentRateUnavailable: t('currentRateUnavailable'),
     trendTitle: t('trendTitle'),

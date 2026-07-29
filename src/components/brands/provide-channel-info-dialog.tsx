@@ -2,7 +2,7 @@
 
 import NextLink from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { Check, TriangleAlert } from "lucide-react";
+import { Check, Pencil, TriangleAlert } from "lucide-react";
 import { useActionState, useId, useState } from "react";
 import {
   submitChannelInfoAction,
@@ -80,11 +80,16 @@ export function ProvideChannelInfoDialog({
   return (
     <Dialog>
       <DialogTrigger
-        className={buttonVariants({
-          variant: "secondary",
-          className: "min-h-12 shrink-0",
-        })}
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            size="compact"
+            className="relative min-h-10 gap-1.5 px-1 type-metadata text-primary underline-offset-4 after:absolute after:-inset-y-1 after:inset-x-0 after:content-[''] hover:bg-transparent hover:text-primary/80 hover:underline focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary"
+          />
+        }
       >
+        <Pencil aria-hidden="true" />
         {t("channels.provideInfo")}
       </DialogTrigger>
       <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto p-0 sm:max-w-lg">

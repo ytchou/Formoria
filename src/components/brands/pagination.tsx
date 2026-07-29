@@ -69,7 +69,7 @@ export function Pagination({
   const pages = getPageRange(currentPage, totalPages)
 
   return (
-    <nav aria-label="Pagination" className="mt-10 flex items-center justify-center gap-1">
+    <nav aria-label={t('pagination.label')} className="mt-10 flex items-center justify-center gap-1">
       {/* Previous */}
       {currentPage > 1 ? (
         <Link

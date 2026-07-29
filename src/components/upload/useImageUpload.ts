@@ -12,7 +12,9 @@ type UseImageUploadConfig = {
   path: string
   acceptedTypes?: string[]
   uploadFields?: Record<string, string>
-  invalidTypeMessage?: string
+  invalidTypeMessage: string
+  fileTooLargeMessage: string
+  uploadFailedMessage: string
   endpoint?: string
 }
 
@@ -53,7 +55,7 @@ export function useImageUpload(config: UseImageUploadConfig): UseImageUploadRetu
         : file.type.startsWith(ACCEPTED_TYPE_PREFIX)
       if (!typeOk) {
         setStatus('error')
-        setError(config.invalidTypeMessage ?? 'Please upload an image file')
+        setError(config.invalidTypeMessage)
         setUrl(null)
         setKey(null)
         setMetadata(null)
@@ -62,7 +64,7 @@ export function useImageUpload(config: UseImageUploadConfig): UseImageUploadRetu
 
       if (file.size > MAX_FILE_SIZE) {
         setStatus('error')
-        setError('File size must be under 5MB')
+        setError(config.fileTooLargeMessage)
         setUrl(null)
         setKey(null)
         setMetadata(null)
@@ -90,9 +92,8 @@ export function useImageUpload(config: UseImageUploadConfig): UseImageUploadRetu
         })
 
         if (!response.ok) {
-          const data = (await response.json()) as { error?: string }
           setStatus('error')
-          setError(data.error ?? 'Upload failed')
+          setError(config.uploadFailedMessage)
           return null
         }
 
@@ -104,16 +105,16 @@ export function useImageUpload(config: UseImageUploadConfig): UseImageUploadRetu
         setMetadata(data)
         setStatus('success')
         return { url: nextUrl, key: nextKey, metadata: data }
-      } catch (err) {
+      } catch {
         setStatus('error')
-        setError(err instanceof Error ? err.message : 'Upload failed')
+        setError(config.uploadFailedMessage)
         setUrl(null)
         setKey(null)
         setMetadata(null)
         return null
       }
     },
-    [config.acceptedTypes, config.bucket, config.endpoint, config.invalidTypeMessage, config.path, config.uploadFields]
+    [config.acceptedTypes, config.bucket, config.endpoint, config.fileTooLargeMessage, config.invalidTypeMessage, config.path, config.uploadFailedMessage, config.uploadFields]
   )
 
   const reset = useCallback(() => {

@@ -12,9 +12,10 @@ type Section = {
 type GlossaryAnchorNavProps = {
   sections: Section[]
   sectionsLabel: string
+  navigationLabel: string
 }
 
-export function GlossaryAnchorNav({ sections, sectionsLabel }: GlossaryAnchorNavProps) {
+export function GlossaryAnchorNav({ sections, sectionsLabel, navigationLabel }: GlossaryAnchorNavProps) {
   const [activeId, setActiveId] = useState<string>(sections[0]?.id ?? '')
   const observerRef = useRef<IntersectionObserver | null>(null)
 
@@ -56,7 +57,7 @@ export function GlossaryAnchorNav({ sections, sectionsLabel }: GlossaryAnchorNav
     <>
       {/* Desktop: sticky left sidebar */}
       <nav
-        aria-label="Glossary sections"
+        aria-label={navigationLabel}
         className="hidden w-60 shrink-0 md:block"
       >
     <div className="sticky top-(--nav-height)">
@@ -96,7 +97,7 @@ export function GlossaryAnchorNav({ sections, sectionsLabel }: GlossaryAnchorNav
 
       {/* Mobile: horizontal pill scroll bar */}
       <nav
-        aria-label="Glossary sections"
+        aria-label={navigationLabel}
         className="mb-6 md:hidden"
       >
         <div className="flex gap-2 overflow-x-auto pb-2">

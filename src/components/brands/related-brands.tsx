@@ -1,11 +1,13 @@
 import { getTranslations } from 'next-intl/server'
 import { ChevronRight } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
+import type { AppLocale } from '@/i18n/locale-preference'
 import type { Brand } from '@/lib/types'
 import { BrandCard } from './brand-card'
 import { RelatedBrandsTracker } from './related-brands-tracker'
 
 interface RelatedBrandsProps {
+  locale: AppLocale
   brands: Brand[]
   category: string | null
   categoryName: string
@@ -15,6 +17,7 @@ interface RelatedBrandsProps {
 }
 
 export async function RelatedBrands({
+  locale,
   brands,
   category,
   categoryLabel,
@@ -24,7 +27,7 @@ export async function RelatedBrands({
 }: RelatedBrandsProps) {
   if (!category || brands.length === 0) return null
 
-  const t = await getTranslations('brandDetail')
+  const t = await getTranslations({ locale, namespace: 'brandDetail' })
   const displayLabel = categoryLabel ?? categoryName
 
   return (

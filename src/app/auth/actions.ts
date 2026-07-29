@@ -13,11 +13,38 @@ import {
 } from "@/lib/auth/validations";
 import { getRequestOrigin } from "@/lib/auth/site-url";
 import { enrollInMarketingEmails } from "@/lib/services/marketing-email-consent";
+import { getProfile } from "@/lib/services/profiles";
+import {
+  isAppLocale,
+  localizePostAuthPath,
+  LOCALE_COOKIE,
+  resolveAuthenticatedLocale,
+  type AppLocale,
+} from "@/i18n/locale-preference";
 
 export type AuthState = {
   error?: string;
   message?: string;
 };
+
+function localeFromForm(formData: FormData, fallback: string): AppLocale {
+  const requestedLocale = formData.get("locale");
+  if (typeof requestedLocale === "string" && isAppLocale(requestedLocale)) {
+    return requestedLocale;
+  }
+  return isAppLocale(fallback) ? fallback : "zh-TW";
+}
+
+async function setLocaleCookie(locale: AppLocale): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.set(LOCALE_COOKIE, locale, {
+    sameSite: "lax",
+    httpOnly: false,
+    secure: process.env.NODE_ENV === "production" && process.env.PLAYWRIGHT_TEST !== "true",
+    path: "/",
+    maxAge: 365 * 24 * 60 * 60,
+  });
+}
 
 export async function signIn(
   _prevState: AuthState,
@@ -38,7 +65,7 @@ export async function signIn(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await supabase.auth.signInWithPassword({
     email: parsed.data.email,
     password: parsed.data.password,
   });
@@ -47,13 +74,23 @@ export async function signIn(
     return { error: error.message };
   }
 
+  const requestedLocale = localeFromForm(formData, await getLocale());
+  const profile = data.user ? await getProfile(data.user.id) : null;
+  const locale = resolveAuthenticatedLocale({
+    isNewUser: false,
+    profileLocale: profile?.localePreference,
+    intendedLocale: requestedLocale,
+  });
+  await setLocaleCookie(locale);
+
   const claimToken = formData.get("claimToken") as string | null;
   if (claimToken) {
     redirect(`/auth/callback?claim=${claimToken}`);
   }
 
   const next = formData.get("next") as string | null;
-  redirect(next && isRelativeUrl(next) ? next : "/dashboard");
+  const redirectPath = next && isRelativeUrl(next) ? next : "/dashboard";
+  redirect(localizePostAuthPath(redirectPath, locale));
 }
 
 export async function signUp(
@@ -77,6 +114,7 @@ export async function signUp(
 
   const claimToken = formData.get("claimToken") as string | null;
   const marketingEmailOptIn = formData.get("marketingEmailOptIn") === "true";
+  const locale = localeFromForm(formData, await getLocale());
   const siteUrl = await getRequestOrigin();
 
   const emailRedirectTo = claimToken
@@ -89,6 +127,7 @@ export async function signUp(
     password: parsed.data.password,
     options: {
       emailRedirectTo,
+      data: { locale_preference: locale },
     },
   });
 
@@ -100,12 +139,14 @@ export async function signUp(
     await enrollInMarketingEmails(createServiceClient(), {
       email: parsed.data.email,
       userId: signUpData.user.id,
-      locale: await getLocale(),
+      locale,
       source: "account_signup",
       newsletter: true,
       lifecycle: true,
     });
   }
+
+  await setLocaleCookie(locale);
 
   redirect(`/auth/sign-in?message=${encodeURIComponent(t("confirmEmail"))}`);
 }
@@ -114,7 +155,7 @@ export async function signInWithGoogle(
   claimToken?: string,
   next?: string,
   marketingEmailOptIn = false,
-  marketingLocale = "zh-TW",
+  authLocale = "zh-TW",
 ): Promise<void> {
   const supabase = await createClient();
   const siteUrl = await getRequestOrigin();
@@ -128,10 +169,12 @@ export async function signInWithGoogle(
   const intentCookie = {
     httpOnly: true,
     sameSite: "lax" as const,
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.NODE_ENV === "production" && process.env.PLAYWRIGHT_TEST !== "true",
     path: "/",
     maxAge: 600,
   };
+  const locale = isAppLocale(authLocale) ? authLocale : "zh-TW";
+  cookieStore.set("post_auth_locale", locale, intentCookie);
   if (claimToken) {
     cookieStore.set("post_auth_claim", claimToken, intentCookie);
   }
@@ -140,15 +183,10 @@ export async function signInWithGoogle(
   }
   if (marketingEmailOptIn) {
     cookieStore.set("post_auth_marketing_opt_in", "1", intentCookie);
-    cookieStore.set(
-      "post_auth_marketing_locale",
-      marketingLocale === "en" ? "en" : "zh-TW",
-      intentCookie,
-    );
   } else {
     cookieStore.delete("post_auth_marketing_opt_in");
-    cookieStore.delete("post_auth_marketing_locale");
   }
+  cookieStore.delete("post_auth_marketing_locale");
 
   const redirectTo = `${siteUrl}/auth/callback`;
 
@@ -166,10 +204,11 @@ export async function signInWithGoogle(
   redirect(data.url);
 }
 
-export async function signOut(returnTo?: string): Promise<void> {
+export async function signOut(formData: FormData): Promise<void> {
   const supabase = await createClient();
   await supabase.auth.signOut({ scope: 'local' });
-  redirect(returnTo && isRelativeUrl(returnTo) ? returnTo : "/");
+  const returnTo = formData.get("returnTo");
+  redirect(typeof returnTo === "string" && isRelativeUrl(returnTo) ? returnTo : "/");
 }
 
 export async function resetPassword(

@@ -61,6 +61,8 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
     bucket: 'origin-evidence',
     path: `${user?.id ?? 'anonymous'}/${brandId}`,
     invalidTypeMessage: t('errors.invalidPhotoType'),
+    fileTooLargeMessage: t('errors.uploadFailed'),
+    uploadFailedMessage: t('errors.uploadFailed'),
   })
   const uploading = uploadState.status === 'uploading'
 

@@ -47,7 +47,6 @@ const brandSectionClassName =
 
 // 1h ISR: ownership/verified-state changes propagate within ~an hour; route still statically served between regenerations
 export const revalidate = 3600
-export const dynamic = 'force-static'
 
 export async function generateStaticParams() {
   try {
@@ -78,7 +77,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const slug = decodeURIComponent(rawSlug)
   setRequestLocale(locale)
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
-  const t = await getTranslations('brandDetail')
+  const t = await getTranslations({ locale: safeLocale, namespace: 'brandDetail' })
 
   const brand = await loadApprovedBrand(slug)
   const indexability = getBrandIndexability(brand)
@@ -132,8 +131,8 @@ export default async function BrandDetailPage({ params }: PageProps) {
 
   const displayBrand: Brand = brand
   const [tBrandDetail, tCities] = await Promise.all([
-    getTranslations('brandDetail'),
-    getTranslations('cities'),
+    getTranslations({ locale: safeLocale, namespace: 'brandDetail' }),
+    getTranslations({ locale: safeLocale, namespace: 'cities' }),
   ])
   const tBrandFaq = ((key: string, params?: Record<string, unknown>) =>
     tBrandDetail(key, params as never)) as BrandFaqTranslateFn
@@ -229,6 +228,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
         />
         {/* Breadcrumb */}
         <BrandBreadcrumb
+          locale={safeLocale}
           categorySlug={categoryTag?.slug ?? null}
           categoryLabel={categoryLabel || null}
           brandName={displayBrand.name}
@@ -267,6 +267,11 @@ export default async function BrandDetailPage({ params }: PageProps) {
                 </SavedBrandsProvider>
               }
             />
+            {!displayBrand.isVerified && (
+              <div className="mt-8">
+                <ClaimBrandCta brandId={displayBrand.id} brandSlug={displayBrand.slug} />
+              </div>
+            )}
           </div>
         </div>
 
@@ -286,7 +291,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
           >
             {description && (
               <section id="about" className={brandSectionClassName}>
-                <BrandAbout brand={displayBrand} />
+                <BrandAbout brand={displayBrand} locale={safeLocale} />
               </section>
             )}
 
@@ -298,6 +303,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
 
             <section id="locations" className={brandSectionClassName}>
               <BrandChannelsSection
+                locale={safeLocale}
                 confirmed={channels.confirmed}
                 possible={channels.possible}
                 brandId={displayBrand.id}
@@ -310,16 +316,13 @@ export default async function BrandDetailPage({ params }: PageProps) {
                 <BrandFaqAccordion items={faqItems} brandSlug={displayBrand.slug} />
               </section>
             )}
-
-            {!displayBrand.isVerified && (
-              <ClaimBrandCta brandId={displayBrand.id} brandSlug={displayBrand.slug} />
-            )}
           </div>
         </div>
 
         {/* Related brands */}
         {categoryTag && (
           <RelatedBrands
+            locale={safeLocale}
             brands={relatedBrands}
             category={categoryTag.slug}
             categoryName={categoryLabel || categoryTag.name}

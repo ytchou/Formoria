@@ -10,14 +10,16 @@ import {
 
 export function AnalyticsBarChart({
   data,
+  valueLabel,
 }: {
   data: { label: string; value: number }[]
+  valueLabel: string
 }) {
   if (data.length === 0) return null
 
   const chartConfig = {
     value: {
-      label: 'Sessions',
+      label: valueLabel,
       color: 'var(--chart-1)',
     },
   } satisfies ChartConfig

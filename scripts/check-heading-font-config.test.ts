@@ -11,11 +11,14 @@ function readProjectFile(path: string) {
 
 describe('zh-TW heading font configuration', () => {
   it('uses the sans CJK fallback without loading the serif family', () => {
-    const layout = readProjectFile('src/app/layout.tsx')
+    // The font declarations moved out of the deleted src/app/layout.tsx into the
+    // shared RootDocument, which now wraps every layout (locale, microsite, admin,
+    // auth) rather than only the root.
+    const rootDocument = readProjectFile('src/components/shared/root-document.tsx')
     const globals = readProjectFile('src/app/globals.css')
 
-    expect(layout).not.toContain('Noto_Serif_TC')
-    expect(layout).not.toContain('--font-noto-serif-tc')
+    expect(rootDocument).not.toContain('Noto_Serif_TC')
+    expect(rootDocument).not.toContain('--font-noto-serif-tc')
     expect(globals).not.toContain('var(--font-noto-serif-tc)')
     expect(globals).toContain(
       // The latin-only Noto TC webfont was removed in 06f7e077 — it declared

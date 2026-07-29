@@ -1,6 +1,5 @@
 import { useLocale, useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
-import { CONTACT_EMAILS } from '@/lib/constants'
 import { LocaleSwitcher } from '@/components/i18n/locale-switcher'
 
 export function Footer() {
@@ -135,12 +134,13 @@ export function Footer() {
             </p>
             <ul className="mt-4 space-y-2">
               <li>
-                <a
-                  href={`mailto:${CONTACT_EMAILS.contact}`}
+                <Link
+                  href="/contact"
+                  prefetch={false}
                   className="type-card-description hover:text-foreground transition-colors"
                 >
                   {t('contact')}
-                </a>
+                </Link>
               </li>
               <li>
                 <Link

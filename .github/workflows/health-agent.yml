@@ -448,18 +448,15 @@ jobs:
           fi
           git commit -m "fix(health): repair nightly findings"
           git push origin "$branch"
-          ticket="$(jq -r '.linearOutcomes[]? | select(.identifier) | .identifier' "$HEALTH_ARTIFACT_DIR/aggregate.json" | head -1)"
           jq -r '.findings[] | "- `\(.fingerprint)` — \(.title)"' "$HEALTH_ARTIFACT_DIR/manager-snapshot.json" > "$HEALTH_ARTIFACT_DIR/pr-findings.md"
+          jq -r '.findings[] | "- `\(.fingerprint)`"' "$HEALTH_ARTIFACT_DIR/manager-snapshot.json" > "$HEALTH_ARTIFACT_DIR/pr-fingerprints.md"
           {
-            printf '%s\n\n' '<!-- health-agent:confirmation:v1 -->' '## Health Agent repair'
+            printf '%s\n\n' '<!-- health-agent:repair:v1 -->' '## Health Agent repair'
             cat "$HEALTH_ARTIFACT_DIR/pr-findings.md"
             printf '\n## Validation\n- Detector reruns, lint, type-check, focused Health Agent tests, and independent review passed.\n'
-          if [[ -n "$ticket" ]]; then
-            printf '\n## Traceability\nRolling Linear ticket: https://linear.app/ytchou/issue/%s\n' "$ticket"
-          else
-            printf '\n## Traceability\nRolling Linear ticket: unavailable\n'
-          fi
-            printf '\nUnresolved escalation-only findings remain in the rolling ticket.\n'
+            printf '\n## Traceability\nFinding fingerprints addressed by this PR:\n'
+            cat "$HEALTH_ARTIFACT_DIR/pr-fingerprints.md"
+            printf '\nNo Linear ticket exists at this stage. The final report creates one digest ticket per run, covering findings that were never ticketed.\n'
           } > "$HEALTH_ARTIFACT_DIR/pr-body.md"
           pr_url="$(gh pr create --title "fix(health): nightly repair ${GITHUB_RUN_ID}" --body-file "$HEALTH_ARTIFACT_DIR/pr-body.md" --head "$branch" --label health-agent)"
           pr_number="${pr_url##*/}"

@@ -3,7 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { ChevronDown } from 'lucide-react'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
-import { CONTACT_EMAILS } from '@/lib/constants'
+import { Link } from '@/i18n/navigation'
 import { FaqSection } from '@/components/shared/faq-section'
 import { OpenTargetDetails } from './open-target-details'
 
@@ -99,9 +99,9 @@ export default async function FaqPage({ params }: PageProps) {
           <p className="type-body-muted">
             {t.rich('intro', {
               contact: (chunks) => (
-                <a href={`mailto:${CONTACT_EMAILS.contact}`} className="type-link">
+                <Link href="/contact" className="type-link">
                   {chunks}
-                </a>
+                </Link>
               ),
             })}
           </p>
@@ -131,14 +131,10 @@ export default async function FaqPage({ params }: PageProps) {
                 </summary>
                 <p className="mt-3 max-w-2xl type-body-muted">
                   {t.rich('items.contact.answer', {
-                    email: CONTACT_EMAILS.contact,
-                    mail: (chunks) => (
-                      <a
-                        href={`mailto:${CONTACT_EMAILS.contact}`}
-                        className="underline underline-offset-4"
-                      >
+                    link: (chunks) => (
+                      <Link href="/contact" className="underline underline-offset-4">
                         {chunks}
-                      </a>
+                      </Link>
                     ),
                   })}
                 </p>

@@ -424,7 +424,10 @@ describe("aggregate and deliver", () => {
     );
   });
 
-  it("gates Linear to human or exhausted findings and includes all outcomes in Slack", async () => {
+  // The aggregate stage runs before enqueue-and-claim, so it cannot know which
+  // findings have never been ticketed. deliverFinalHealthReport is the sole
+  // Linear writer; this stage only forwards outcomes it was handed.
+  it("never writes Linear from the aggregate stage and still reports every finding in Slack", async () => {
     const automatic = finding("sentry:auto");
     const exhausted = finding("sentry:exhausted");
     const human = finding("directory:human", "human", "directory");
@@ -462,30 +465,26 @@ describe("aggregate and deliver", () => {
       enabled,
     );
 
-    expect(
-      linear.mock.calls[0]?.[0].findings.map(({ fingerprint }) => fingerprint),
-    ).toEqual(
-      expect.arrayContaining([human.fingerprint, exhausted.fingerprint]),
-    );
+    expect(linear).not.toHaveBeenCalled();
     expect(slack.mock.calls[0]?.[0]).toMatchObject({
       actionableFindings: expect.arrayContaining([human, automatic, exhausted]),
       failures: expect.arrayContaining([
         { failure: "query failed", routine: "directory-health" },
       ]),
-      linearOutcomes: [{ action: "created", fingerprint: human.fingerprint }],
+      linearOutcomes: [],
       prOutcomes: [{ pr: 123, status: "opened" }],
       skippedActions: expect.arrayContaining([
         { action: "cleanup human-owned", routine: "directory-health" },
       ]),
     });
     expect(
-      result.envelopes.every(({ tickets_created }) =>
-        tickets_created.includes("FOR-88"),
+      result.envelopes.every(
+        ({ tickets_created }) => tickets_created.length === 0,
       ),
     ).toBe(true);
   });
 
-  it("suppresses Linear in preflight while still reporting the skip", async () => {
+  it("does not sync Linear in preflight and reports no Linear skip", async () => {
     const human = finding("directory:human", "human", "directory");
     const { store } = fixtures({
       directory: artifact("directory-health", [human]),
@@ -510,8 +509,9 @@ describe("aggregate and deliver", () => {
       enabled,
     );
     expect(linear).not.toHaveBeenCalled();
-    expect(slack.mock.calls[0]?.[0]).toMatchObject({
-      skippedActions: [{ action: "linear", reason: "mutations_disabled" }],
+    expect(slack.mock.calls[0]?.[0]?.skippedActions).not.toContainEqual({
+      action: "linear",
+      reason: "mutations_disabled",
     });
   });
 });

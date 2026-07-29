@@ -33,7 +33,7 @@ export async function updateSettings(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { error: "Unauthorized" };
+  if (!user) return { error: t("settings.unauthorized") };
 
   const serviceSupabase = createServiceClient();
   const unsubscribeAll = formData.get("_intent") === "unsubscribeAll";

@@ -1,4 +1,16 @@
 import { test, expect } from '@playwright/test';
+import { load } from 'cheerio';
+
+function renderedDocument(html: string) {
+  const $ = load(html);
+  $('script, style, noscript').remove();
+
+  return {
+    lang: $('html').attr('lang'),
+    headerText: $('header').text().replace(/\s+/g, ' ').trim(),
+    mainText: $('main').text().replace(/\s+/g, ' ').trim(),
+  };
+}
 
 /**
  * i18n: English browse journey
@@ -12,6 +24,95 @@ import { test, expect } from '@playwright/test';
  *   → menu with persisted locale actions for Traditional Chinese and English
  */
 test.describe('i18n English browse', () => {
+  test('/en declares the English locale in the initial HTTP document', async ({ request }) => {
+    const response = await request.get('/en');
+
+    expect(response.status()).toBe(200);
+    const document = renderedDocument(await response.text());
+    expect(document.lang).toBe('en');
+  });
+
+  test('/en/brands/djulis server-renders English chrome and taxonomy', async ({ request }) => {
+    const response = await request.get('/en/brands/djulis');
+
+    expect(response.status()).toBe(200);
+    const document = renderedDocument(await response.text());
+    expect(document.lang).toBe('en');
+
+    for (const text of ['About Formoria', 'Submit a Brand']) {
+      expect(document.headerText).toContain(text);
+    }
+    for (const text of [
+      'Brands',
+      'Visit Website',
+      'Brand information',
+      'Location',
+      'Founded',
+      'Category',
+      'Price',
+      'Product categories',
+      'Food & Beverage',
+      'Snacks',
+    ]) {
+      expect(document.mainText).toContain(text);
+    }
+    for (const text of [
+      '品牌目錄',
+      '前往官網',
+      '品牌資訊',
+      '地點',
+      '創立年份',
+      '類別',
+      '價格區間',
+      '產品類別',
+      '食品飲料',
+      '零食',
+    ]) {
+      expect(document.mainText).not.toContain(text);
+    }
+  });
+
+  test('/brands/djulis server-renders Traditional Chinese chrome and taxonomy', async ({
+    request,
+  }) => {
+    const response = await request.get('/brands/djulis');
+
+    expect(response.status()).toBe(200);
+    const document = renderedDocument(await response.text());
+    expect(document.lang).toBe('zh-TW');
+
+    for (const text of ['關於 Formoria', '提交品牌']) {
+      expect(document.headerText).toContain(text);
+    }
+    for (const text of [
+      '品牌目錄',
+      '前往官網',
+      '品牌資訊',
+      '地點',
+      '創立年份',
+      '類別',
+      '價格區間',
+      '產品類別',
+      '食品飲料',
+      '零食',
+    ]) {
+      expect(document.mainText).toContain(text);
+    }
+    for (const text of [
+      'Brand Directory',
+      'Visit Website',
+      'Brand information',
+      'Location',
+      'Founded',
+      'Category',
+      'Product categories',
+      'Food & Beverage',
+      'Snacks',
+    ]) {
+      expect(document.mainText).not.toContain(text);
+    }
+  });
+
   test('/en/contributions preserves the localized return path when signed out', async ({ request }) => {
     const response = await request.get('/en/contributions', { maxRedirects: 0 });
 
@@ -78,6 +179,24 @@ test.describe('i18n English browse', () => {
     await expect(page).toHaveURL(/\/en\/brands/, { timeout: 10_000 });
   });
 
+  test('LocaleSwitcher preserves repeated and encoded query parameters', async ({ page }) => {
+    const search = '?category=food-drink&tag=rice%2Fgrains&tag=gift%20boxes';
+    await page.goto(`/brands${search}`);
+
+    const switcherBtn = page.getByRole('banner').getByRole('button', { name: '切換語言' });
+    await expect(switcherBtn).toBeVisible({ timeout: 10_000 });
+    await switcherBtn.click();
+    await page.getByRole('menuitem', { name: 'English' }).click();
+
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === '/en/brands' &&
+        url.searchParams.get('category') === 'food-drink' &&
+        url.searchParams.getAll('tag').join('|') === 'rice/grains|gift boxes',
+      { timeout: 10_000 },
+    );
+  });
+
   test('/en/brands brand cards link to /en/brands/[slug]', async ({ page }) => {
     await page.goto('/en/brands');
     const firstBrand = page.locator('main [role="list"] article a[href*="/brands/"]').first();
@@ -91,6 +210,37 @@ test.describe('i18n English browse', () => {
     expect(href).toContain('/en/brands/');
     await page.goto(href!);
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 10_000 });
+  });
+
+  test('/en/brands/[slug] renders English chrome, not the default locale', async ({ page }) => {
+    await page.goto('/en/brands');
+    const firstBrand = page.locator('main [role="list"] article a[href*="/brands/"]').first();
+    const hasBrand = await firstBrand.isVisible({ timeout: 10_000 }).catch(() => false);
+    if (!hasBrand) {
+      test.skip(true, 'No brands seeded — skipping brand detail locale check');
+      return;
+    }
+    const href = await firstBrand.getAttribute('href');
+    expect(href).toBeTruthy();
+    await page.goto(href!);
+    await expect(page.getByRole('link', { name: 'About Formoria' })).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByText('關於 Formoria')).toHaveCount(0);
+  });
+
+  test('/en/guides/[slug] renders English chrome, not the default locale', async ({ page }) => {
+    await page.goto('/en/guides');
+    const firstGuide = page.locator('main a[href*="/guides/"]').first();
+    const hasGuide = await firstGuide.isVisible({ timeout: 10_000 }).catch(() => false);
+    const href = hasGuide
+      ? await firstGuide.getAttribute('href')
+      : '/en/guides/taiwan-skincare-brands';
+    await page.goto(href || '/en/guides/taiwan-skincare-brands');
+    await expect(page.getByRole('link', { name: 'About Formoria' })).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(page.getByText('關於 Formoria')).toHaveCount(0);
   });
 
   test('switching to EN via the switcher updates chrome + client components without refresh', async ({

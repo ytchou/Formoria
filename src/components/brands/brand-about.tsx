@@ -1,19 +1,20 @@
-import { getTranslations, getLocale } from 'next-intl/server'
+import { getTranslations } from 'next-intl/server'
+import type { AppLocale } from '@/i18n/locale-preference'
 import type { Brand } from '@/lib/types'
 
 interface BrandAboutProps {
   brand: Brand
+  locale: AppLocale
 }
 
-export async function BrandAbout({ brand }: BrandAboutProps) {
-  const locale = await getLocale()
+export async function BrandAbout({ brand, locale }: BrandAboutProps) {
   const description = locale === 'en'
     ? (brand.descriptionEn ?? brand.description)
     : brand.description
 
   if (!description) return null
 
-  const t = await getTranslations('brandDetail')
+  const t = await getTranslations({ locale, namespace: 'brandDetail' })
   const paragraphs = description.split('\n\n')
 
   return (

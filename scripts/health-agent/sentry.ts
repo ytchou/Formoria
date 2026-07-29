@@ -18,7 +18,20 @@ const MAX_PAGE_SIZE = 20;
 const MAX_PAGES = 5;
 const MAX_REQUESTS = 5;
 const MAX_CLASSIFIER_OUTPUT = 20_000;
-const HIGH_CONFIDENCE = 0.8;
+
+// Auto-repair gate tuning. These three are the only *tuned* vetoes in
+// `decideSentryMergePolicy` — every other veto is a hard blocker (sensitive
+// paths, critical severity, non-reproducible, classifier-requested human, no
+// changed files). They are exported so a rollback is a one-line edit here
+// rather than a hunt through the decision function.
+export const MIN_AUTOMATIC_CONFIDENCE = 0.7;
+export const AUTOMATIC_BEHAVIOR_CHANGE_RISKS = ["low", "medium"] as const;
+export const AUTOMATIC_FIXABILITY = ["high", "medium"] as const;
+
+// The explicit Sentry lookback window. The `/issues/` endpoint inherits a 14d
+// default when `statsPeriod` is omitted, so pinning "14d" is behavior
+// preserving; it exists to make the window visible and tunable.
+const SENTRY_STATS_PERIOD = "14d";
 
 const HEALTH_SEVERITY_VALUES = ["low", "medium", "high", "critical"] as const;
 const MERGE_POLICY_VALUES = ["automatic", "human"] as const;
@@ -939,6 +952,7 @@ async function fetchSentryPage(
   const params = new URLSearchParams({
     query: `is:unresolved project:${config.project}`,
     environment: "production",
+    statsPeriod: SENTRY_STATS_PERIOD,
     limit: String(config.pageSize),
   });
   if (cursor) params.set("cursor", cursor);
@@ -952,6 +966,7 @@ async function fetchSentryPage(
     query: {
       unresolved: true,
       environment: "production",
+      statsPeriod: SENTRY_STATS_PERIOD,
       cursor: cursor ? "[redacted]" : null,
     },
   } satisfies Record<string, JsonValue>;
@@ -1301,6 +1316,19 @@ function parseClassifierJson(value: unknown): unknown {
   throw new Error("classifier output is not JSON");
 }
 
+/**
+ * The final step of `sanitizeExternalText` collapses runs of whitespace and
+ * trims. Comparing sanitized output against the *raw* original therefore reads
+ * any newline or double space in ordinary model prose as evidence of
+ * redaction. Redaction comparisons normalize both sides through this helper so
+ * only substantive edits (secrets, identifiers, instruction-like fragments)
+ * count. Injection detection itself is untouched — it happens earlier, inside
+ * `sanitizeExternalText`.
+ */
+function normalizeWhitespace(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
 function sanitizedClassification(value: SentryClassification): {
   classification: SentryClassification;
   textWasRedacted: boolean;
@@ -1322,15 +1350,25 @@ function sanitizedClassification(value: SentryClassification): {
   const rootCauseKey = value.rootCauseKey
     ? sanitizeExternalText(value.rootCauseKey, 200)
     : undefined;
+  // Compare against a whitespace-normalized baseline: cosmetic collapsing of
+  // newlines/double spaces is not redaction, and treating it as such vetoed
+  // every finding whose classifier prose happened to contain a line break.
   const textWasRedacted =
-    rootCause !== value.rootCause ||
-    recurrenceEvidence !== value.recurrence.evidence ||
-    recommendedAction !== value.recommendedAction ||
-    paths.some((path, index) => path !== value.sensitivePaths[index]);
+    rootCause !== normalizeWhitespace(value.rootCause) ||
+    recurrenceEvidence !== normalizeWhitespace(value.recurrence.evidence) ||
+    recommendedAction !== normalizeWhitespace(value.recommendedAction) ||
+    paths.some(
+      (path, index) =>
+        path !== normalizeWhitespace(value.sensitivePaths[index] ?? ""),
+    );
   const repairMetadataWasRedacted =
     changedFiles.some(
-      (path, index) => path !== (value.changedFiles ?? [])[index],
-    ) || rootCauseKey !== value.rootCauseKey;
+      (path, index) =>
+        path !== normalizeWhitespace((value.changedFiles ?? [])[index] ?? ""),
+    ) ||
+    (rootCauseKey === undefined
+      ? value.rootCauseKey !== undefined
+      : rootCauseKey !== normalizeWhitespace(value.rootCauseKey ?? ""));
 
   return {
     classification: {
@@ -1356,8 +1394,22 @@ function sanitizedClassification(value: SentryClassification): {
   };
 }
 
+/**
+ * Prose sniffing is a coarse instrument, so it is scoped to causes that are
+ * genuinely *outside* the application: infrastructure, the network, a vendor,
+ * or anything touching credentials or data loss. The previous pattern also
+ * matched ordinary engineering vocabulary ("configuration", "database",
+ * "schema", "permission", "deployment"), which vetoed plain null-check bugs
+ * described in normal English. Dependency defects are no longer sniffed at all
+ * — `classification.defectKind` types them, and `decideSentryMergePolicy`
+ * vetoes on that field directly.
+ *
+ * Ceiling: this is still a keyword heuristic. Upgrade path is to have the
+ * classifier emit a structured `causeDomain` enum alongside `defectKind` and
+ * drop the regex entirely.
+ */
 function likelyApplicationDefect(rootCause: string): boolean {
-  return !/\b(?:infrastructure|network|third[- ]party|vendor|dependency|configuration|config(?:uration)?|credential|authentication|authorization|permission|database|migration|schema|data loss|privacy|security|deployment|secret|token)\b/i.test(
+  return !/\b(?:infrastructure|network|third[- ]party|vendor|credential|secret|private key|data loss)\b/i.test(
     rootCause,
   );
 }
@@ -1369,37 +1421,91 @@ export interface MergePolicyDecision {
 
 export function decideSentryMergePolicy(
   classification: SentryClassification,
-  options: { incidentMode?: boolean; textWasRedacted?: boolean } = {},
+  options: {
+    incidentMode?: boolean;
+    textWasRedacted?: boolean;
+    audit?: AuditLogger;
+    providerIssueId?: string | null;
+  } = {},
 ): MergePolicyDecision {
   const reasons: string[] = [];
+  // Hard blockers — never relax these without an explicit decision.
   if (classification.mergePolicy === "human")
     reasons.push("Classifier requested human review.");
   if (classification.severity === "critical")
     reasons.push("Critical severity requires human review.");
-  if (classification.confidence < HIGH_CONFIDENCE)
-    reasons.push("Confidence is below the automatic-merge threshold.");
   if (!classification.reproducible)
     reasons.push("The defect is not reproducible.");
-  if (classification.behaviorChangeRisk !== "low")
-    reasons.push("The proposed change may alter behavior.");
   if (classification.sensitivePaths.length > 0)
     reasons.push("Sensitive paths require human review.");
-  if (classification.fixability !== "high")
-    reasons.push("Fixability is not high confidence.");
   if (!classification.changedFiles?.length)
     reasons.push("No repository files were identified for a bounded repair.");
+
+  // Tuned vetoes — thresholds live in the exported constants at the top.
+  if (classification.confidence < MIN_AUTOMATIC_CONFIDENCE)
+    reasons.push("Confidence is below the automatic-merge threshold.");
+  if (
+    !(AUTOMATIC_BEHAVIOR_CHANGE_RISKS as readonly string[]).includes(
+      classification.behaviorChangeRisk,
+    )
+  )
+    reasons.push("The proposed change may alter behavior.");
+  if (
+    !(AUTOMATIC_FIXABILITY as readonly string[]).includes(
+      classification.fixability,
+    )
+  )
+    reasons.push("Fixability is not high confidence.");
+
+  // Dependency defects are typed by the schema, so veto on the field rather
+  // than sniffing the prose for the word "dependency".
+  if (classification.defectKind === "dependency")
+    reasons.push("Dependency defects are out of scope for automatic repair.");
   if (!likelyApplicationDefect(classification.rootCause))
     reasons.push("The root cause is not a clearly scoped application defect.");
-  if (options.incidentMode)
-    reasons.push(
-      "The bounded issue limit was exceeded; human triage is required.",
-    );
   if (options.textWasRedacted)
     reasons.push("Classifier text required sanitization.");
 
-  return reasons.length === 0
-    ? { mergePolicy: "automatic" }
-    : { mergePolicy: "human", humanReason: reasons.join(" ") };
+  // NOTE: `options.incidentMode` is deliberately *not* a veto. Sentry's
+  // `/issues/` endpoint returns a bare array, so `page.total` is always null
+  // and incident mode is driven by the `Link` header — any project with more
+  // than MAX_ANALYZED_ISSUES unresolved production issues latches it on
+  // permanently. That is the steady state for a live app, not an incident, and
+  // it made `automatic` unreachable. Incident mode remains a *collection*
+  // signal (it still drives `hasMore`); issues truncated by the bound are never
+  // classified at all, so no safety is lost here.
+
+  const decision: MergePolicyDecision =
+    reasons.length === 0
+      ? { mergePolicy: "automatic" }
+      : { mergePolicy: "human", humanReason: reasons.join(" ") };
+
+  // Emit for every classification, passing ones included: without the
+  // zero-reason records there is no way to tell which veto is doing the work
+  // when the thresholds above are next tuned.
+  if (options.audit) {
+    emitAudit(options.audit, {
+      adapter: "sentry-merge-policy",
+      operation: "decide-merge-policy",
+      status: "success",
+      latencyMs: 0,
+      request: {
+        issueId: opaqueIssueId(options.providerIssueId) ?? null,
+        incidentMode: options.incidentMode === true,
+        textWasRedacted: options.textWasRedacted === true,
+      },
+      response: {
+        mergePolicy: decision.mergePolicy,
+        // Fixed literals defined in this function — no provider text, so no
+        // sanitization is required and the array length is bounded by the
+        // veto count.
+        reasons,
+      },
+      schemaValid: true,
+    });
+  }
+
+  return decision;
 }
 
 function auditClassifier(
@@ -1487,7 +1593,11 @@ export async function classifySentryIssue(
 export function buildSentryHealthFinding(
   issue: SanitizedSentryIssue,
   classification: SentryClassification,
-  options: { incidentMode?: boolean; textWasRedacted?: boolean } = {},
+  options: {
+    incidentMode?: boolean;
+    textWasRedacted?: boolean;
+    audit?: AuditLogger;
+  } = {},
   provider?: string | SentryProviderMetadata,
 ): HealthFinding {
   const safeClassification = sanitizedClassification(classification);
@@ -1508,6 +1618,8 @@ export function buildSentryHealthFinding(
     incidentMode: options.incidentMode,
     textWasRedacted:
       options.textWasRedacted ?? safeClassification.textWasRedacted,
+    ...(options.audit ? { audit: options.audit } : {}),
+    providerIssueId: safeIssueId ?? null,
   });
   const evidence: Record<string, JsonValue> = {
     provider: {
@@ -1603,6 +1715,7 @@ export async function collectSentryFindings(
         {
           incidentMode: options.incidentMode ?? collected.incidentMode,
           textWasRedacted: classified.textWasRedacted,
+          audit,
         },
         candidate.provider,
       ),
