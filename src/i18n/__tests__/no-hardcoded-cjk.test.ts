@@ -34,7 +34,7 @@ const ALLOWLIST = [
   'components/settings/settings-form.tsx',
   // OG images: rendered to PNG, locale-branched or zh default by design.
   'app/opengraph-image.tsx',
-  'app/[locale]/(site)/brands/[slug]/opengraph-image.tsx',
+  'app/[locale]/brands/[slug]/opengraph-image.tsx',
   // Structured data uses locale-aware labels outside React rendering.
   'lib/json-ld.ts',
   // Owner mailto subject — locale-branched template.
