@@ -238,13 +238,9 @@ function terminalAggregate() {
       ]),
     },
     failures: [],
-    linearOutcomes: [
-      {
-        action: "updated",
-        fingerprint: "health-agent:summary:v1",
-        identifier: "DEV-1231",
-      },
-    ],
+    // The aggregate stage no longer writes Linear, so it never carries an
+    // identifier. The final report is the sole writer.
+    linearOutcomes: [] as unknown[],
   };
 }
 
@@ -277,13 +273,17 @@ describe("terminal health report", () => {
     const linear = vi.fn(async () => ({
       outcomes: [
         {
-          action: "updated",
+          action: "created",
           fingerprint: "health-agent:summary:v2",
-          identifier: "DEV-1231",
+          identifier: "DEV-1400",
         },
       ],
-      tickets: ["DEV-1231"],
+      tickets: ["DEV-1400"],
     }));
+    const listUnticketedFingerprints = vi.fn(
+      async (fingerprints: readonly string[]) => fingerprints,
+    );
+    const markFingerprintsTicketed = vi.fn(async () => undefined);
 
     const result = await deliverFinalHealthReport(
       {
@@ -306,6 +306,7 @@ describe("terminal health report", () => {
           "https://github.com/ytchou/Formoria/actions/runs/987654321",
       },
       {
+        database: { listUnticketedFingerprints, markFingerprintsTicketed },
         delivery: { agentHub, slack },
         files: {
           read: async (path) => contents.get(path) ?? "",
@@ -351,16 +352,16 @@ describe("terminal health report", () => {
       routine: "health-agent",
       source_run_id: "github-actions:health-agent:987654321:1",
       status: "success",
-      tickets_created: ["DEV-1231"],
-      verdict_text: expect.stringContaining("DEV-1231"),
+      tickets_created: ["DEV-1400"],
+      verdict_text: expect.stringContaining("DEV-1400"),
     });
     expect(slack).toHaveBeenCalledWith(
       expect.objectContaining({
         healthSummary: expect.objectContaining({
           overallStatus: "needs_attention",
           ticket: {
-            identifier: "DEV-1231",
-            url: "https://linear.app/ytchou/issue/DEV-1231",
+            identifier: "DEV-1400",
+            url: "https://linear.app/ytchou/issue/DEV-1400",
           },
         }),
       }),
@@ -380,10 +381,205 @@ describe("terminal health report", () => {
         }),
       }),
     );
+    // Only review-required findings are candidates, and only never-ticketed
+    // candidates reach the adapter.
+    expect(listUnticketedFingerprints).toHaveBeenCalledWith([
+      "directory:one",
+      "link:one",
+    ]);
+    expect(markFingerprintsTicketed).toHaveBeenCalledWith(
+      ["directory:one", "link:one"],
+      "DEV-1400",
+    );
     expect(result).toMatchObject({
       agent_hub: "fulfilled",
       slack: "fulfilled",
     });
+  });
+
+  it("files only never-ticketed findings and stamps the ledger after the create", async () => {
+    const contents = new Map<string, string>([
+      ["aggregate.json", JSON.stringify(terminalAggregate())],
+      [
+        "queue.json",
+        JSON.stringify({
+          human: { findings: [] },
+          lifecycle: { new: 2, ongoing: 0, regressed: 0 },
+        }),
+      ],
+    ]);
+    const agentHub = vi.fn(async () => undefined);
+    const slack = vi.fn(async () => undefined);
+    const linear = vi.fn(
+      async (input: { findings: readonly { fingerprint: string }[] }) => {
+        void input;
+        return {
+          outcomes: [
+            {
+              action: "created",
+              fingerprint: "health-agent:summary:v2",
+              identifier: "DEV-1401",
+            },
+          ],
+        };
+      },
+    );
+    // "link:one" already carries a ticketed_at stamp from an earlier run.
+    const listUnticketedFingerprints = vi.fn(async () => ["directory:one"]);
+    const markFingerprintsTicketed = vi.fn(async () => undefined);
+
+    await deliverFinalHealthReport(
+      {
+        aggregateArtifactPath: "aggregate.json",
+        mode: "live",
+        outputPath: "final.json",
+        phases: {
+          analyze: "success",
+          collect: "success",
+          deliver: "success",
+          publish: "success",
+          repair: "success",
+        },
+        queueArtifactPath: "queue.json",
+        runAt: now,
+        workflowAttempt: 1,
+        workflowRunId: "987654321",
+      },
+      {
+        database: { listUnticketedFingerprints, markFingerprintsTicketed },
+        delivery: { agentHub, slack },
+        files: {
+          read: async (path) => contents.get(path) ?? "",
+          write: async (path, value) => void contents.set(path, value),
+        },
+        linear,
+      },
+    );
+
+    expect(
+      linear.mock.calls[0]?.[0].findings.map(
+        ({ fingerprint }) => fingerprint,
+      ),
+    ).toEqual(["directory:one"]);
+    expect(markFingerprintsTicketed).toHaveBeenCalledWith(
+      ["directory:one"],
+      "DEV-1401",
+    );
+  });
+
+  it("skips the Linear write entirely when every candidate is already ticketed", async () => {
+    const contents = new Map<string, string>([
+      ["aggregate.json", JSON.stringify(terminalAggregate())],
+      [
+        "queue.json",
+        JSON.stringify({
+          human: { findings: [] },
+          lifecycle: { new: 0, ongoing: 2, regressed: 0 },
+        }),
+      ],
+    ]);
+    const agentHub = vi.fn(async () => undefined);
+    const slack = vi.fn(async (_report: unknown) => undefined);
+    const linear = vi.fn(async () => ({ outcomes: [] }));
+    const listUnticketedFingerprints = vi.fn(async () => []);
+    const markFingerprintsTicketed = vi.fn(async () => undefined);
+
+    await deliverFinalHealthReport(
+      {
+        aggregateArtifactPath: "aggregate.json",
+        mode: "live",
+        outputPath: "final.json",
+        phases: {
+          analyze: "success",
+          collect: "success",
+          deliver: "success",
+          publish: "success",
+          repair: "success",
+        },
+        queueArtifactPath: "queue.json",
+        runAt: now,
+        workflowAttempt: 1,
+        workflowRunId: "987654321",
+      },
+      {
+        database: { listUnticketedFingerprints, markFingerprintsTicketed },
+        delivery: { agentHub, slack },
+        files: {
+          read: async (path) => contents.get(path) ?? "",
+          write: async (path, value) => void contents.set(path, value),
+        },
+        linear,
+      },
+    );
+
+    expect(linear).not.toHaveBeenCalled();
+    expect(markFingerprintsTicketed).not.toHaveBeenCalled();
+    expect(slack.mock.calls[0]?.[0]).not.toHaveProperty(
+      "healthSummary.ticket",
+    );
+  });
+
+  it("records a failure without throwing when the ticket ledger PATCH fails", async () => {
+    const contents = new Map<string, string>([
+      ["aggregate.json", JSON.stringify(terminalAggregate())],
+      [
+        "queue.json",
+        JSON.stringify({
+          human: { findings: [] },
+          lifecycle: { new: 2, ongoing: 0, regressed: 0 },
+        }),
+      ],
+    ]);
+    const agentHub = vi.fn(async (envelope: unknown) => void envelope);
+    const slack = vi.fn(async () => undefined);
+    const linear = vi.fn(async () => ({
+      outcomes: [
+        {
+          action: "created",
+          fingerprint: "health-agent:summary:v2",
+          identifier: "DEV-1402",
+        },
+      ],
+    }));
+
+    await expect(
+      deliverFinalHealthReport(
+        {
+          aggregateArtifactPath: "aggregate.json",
+          mode: "live",
+          outputPath: "final.json",
+          phases: {
+            analyze: "success",
+            collect: "success",
+            deliver: "success",
+            publish: "success",
+            repair: "success",
+          },
+          queueArtifactPath: "queue.json",
+          runAt: now,
+          workflowAttempt: 1,
+          workflowRunId: "987654321",
+        },
+        {
+          database: {
+            listUnticketedFingerprints: async (fingerprints) => fingerprints,
+            markFingerprintsTicketed: async () => {
+              throw new Error("patch_failed");
+            },
+          },
+          delivery: { agentHub, slack },
+          files: {
+            read: async (path) => contents.get(path) ?? "",
+            write: async (path, value) => void contents.set(path, value),
+          },
+          linear,
+        },
+      ),
+    ).resolves.toMatchObject({ agent_hub: "fulfilled" });
+
+    expect(JSON.stringify(agentHub.mock.calls[0]?.[0])).toContain(
+      "linear_ticket_ledger:failed",
+    );
   });
 
   it("delivers an upstream failure without failing the terminal command", async () => {
@@ -468,7 +664,7 @@ describe("terminal health report", () => {
     expect(slack).toHaveBeenCalledOnce();
   });
 
-  it("keeps Linear active when only automatic findings remain", async () => {
+  it("keeps Linear active when only exhausted automatic findings remain", async () => {
     const aggregate = terminalAggregate();
     aggregate.artifacts["directory-health"].findings = [];
     aggregate.artifacts["link-checker"].findings = [];
@@ -487,9 +683,9 @@ describe("terminal health report", () => {
     const linear = vi.fn(async () => ({
       outcomes: [
         {
-          action: "updated",
+          action: "created",
           fingerprint: "health-agent:summary:v2",
-          identifier: "DEV-1231",
+          identifier: "DEV-1403",
         },
       ],
     }));
@@ -534,7 +730,7 @@ describe("terminal health report", () => {
       expect.objectContaining({
         healthSummary: expect.objectContaining({
           overallStatus: "needs_attention",
-          ticket: expect.objectContaining({ identifier: "DEV-1231" }),
+          ticket: expect.objectContaining({ identifier: "DEV-1403" }),
         }),
       }),
     );
@@ -1618,6 +1814,7 @@ describe("stale branch cleanup runtime", () => {
                 fingerprint: "sentry:resolved-after-deployment",
                 id: "46591f9f-bbba-4f82-8bee-6b0334f13167",
                 issueId: "88442211",
+                status: "pr_opened",
               },
             ],
           })),
@@ -1676,6 +1873,7 @@ describe("stale branch cleanup runtime", () => {
                 fingerprint: "sentry:resolved-after-deployment",
                 id: "46591f9f-bbba-4f82-8bee-6b0334f13167",
                 issueId: "88442211",
+                status: "pr_opened",
               },
             ],
           })),
@@ -1685,7 +1883,7 @@ describe("stale branch cleanup runtime", () => {
 
     expect(requests).toEqual([
       "https://sentry.example/api/0/issues/88442211/",
-      "https://db.example/rest/v1/rpc/transition_health_fix",
+      "https://db.example/rest/v1/rpc/verify_health_fix_absence",
     ]);
     expect(result.verifiedFixedFingerprints).toContain(
       "sentry:resolved-after-deployment",
@@ -1801,6 +1999,72 @@ describe("scoped writer RPC", () => {
     ]);
     expect(String(fetchImplementation.mock.calls[0]?.[0])).toContain(
       "order=created_at.desc",
+    );
+  });
+
+  it("selects ticket candidates by ticketed_at IS NULL on an active row", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(
+      async () =>
+        new Response(
+          JSON.stringify([
+            {
+              fingerprint: "directory:untitled",
+              status: "needs_human",
+              ticketed_at: null,
+            },
+            {
+              fingerprint: "directory:untitled",
+              status: "needs_human",
+              ticketed_at: null,
+            },
+          ]),
+          { headers: { "content-type": "application/json" }, status: 200 },
+        ),
+    );
+    const dependencies = createWorkflowRuntimeDependencies({
+      env: {
+        HEALTH_AGENT_READER_TOKEN: "reader-token",
+        NEXT_PUBLIC_SUPABASE_URL: "https://db.example",
+      },
+      fetchImplementation,
+    });
+    const listUnticketed = dependencies.queue?.listUnticketedFingerprints;
+    if (!listUnticketed) throw new Error("queue_ticket_lookup_missing");
+
+    await expect(
+      listUnticketed(["directory:untitled", "link:ticketed"]),
+    ).resolves.toEqual(["directory:untitled"]);
+    const url = String(fetchImplementation.mock.calls[0]?.[0]);
+    expect(url).toContain("ticketed_at=is.null");
+    expect(url).toContain("select=fingerprint%2Cstatus%2Cticketed_at");
+    expect(url).toContain("status=in.%28pending%2Cclaimed");
+    expect(url).not.toContain("fixed%2Cskipped");
+  });
+
+  it("stamps linear_identifier and ticketed_at through the writer token", async () => {
+    const fetchImplementation = vi.fn<typeof fetch>(
+      async () => new Response(null, { status: 204 }),
+    );
+    const dependencies = createWorkflowRuntimeDependencies({
+      env: {
+        HEALTH_AGENT_WRITER_TOKEN: "writer-token",
+        NEXT_PUBLIC_SUPABASE_URL: "https://db.example",
+      },
+      fetchImplementation,
+    });
+    const markTicketed = dependencies.queue?.markFingerprintsTicketed;
+    if (!markTicketed) throw new Error("queue_ticket_writer_missing");
+
+    await markTicketed(["directory:untitled"], "DEV-1400");
+
+    const [url, init] = fetchImplementation.mock.calls[0] ?? [];
+    expect(String(url)).toContain("ticketed_at=is.null");
+    expect(init?.method).toBe("PATCH");
+    expect(init?.headers).toMatchObject({ Authorization: "Bearer writer-token" });
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    expect(body.linear_identifier).toBe("DEV-1400");
+    expect(String(body.ticketed_at)).toMatch(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/,
     );
   });
 
@@ -2376,5 +2640,11 @@ describe("default runtime dependencies", () => {
     expect(dependencies.linear).toEqual(expect.any(Function));
     expect(dependencies.queue?.claim).toEqual(expect.any(Function));
     expect(dependencies.queue?.enqueue).toEqual(expect.any(Function));
+    expect(dependencies.queue?.listUnticketedFingerprints).toEqual(
+      expect.any(Function),
+    );
+    expect(dependencies.queue?.markFingerprintsTicketed).toEqual(
+      expect.any(Function),
+    );
   });
 });

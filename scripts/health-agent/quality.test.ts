@@ -4,8 +4,8 @@ import { evaluateQualityReports } from "./quality";
 
 const trackedFiles = new Set([
   "package.json",
-  "scripts/agent-hub/health-confirmation-workflow.test.ts",
-  "scripts/agent-hub/health-confirmation-workflow.ts",
+  "scripts/agent-hub/health-agent-workflow.test.ts",
+  "scripts/agent-hub/report-run.mjs",
   "src/lib/services/submissions.ts",
 ]);
 
@@ -35,17 +35,17 @@ describe("repository health", () => {
           {
             assertionResults: [
               {
-                ancestorTitles: ["health confirmation workflow contract"],
+                ancestorTitles: ["health agent workflow contract"],
                 failureMessages: [
-                  "at /repo/scripts/agent-hub/health-confirmation-workflow.ts:83:28",
+                  "at /repo/scripts/agent-hub/report-run.mjs:83:28",
                 ],
                 fullName:
-                  "health confirmation workflow contract waits for verification",
+                  "health agent workflow contract pins all third-party actions to immutable commits",
                 status: "failed",
-                title: "waits for verification",
+                title: "pins all third-party actions to immutable commits",
               },
             ],
-            name: "/repo/scripts/agent-hub/health-confirmation-workflow.test.ts",
+            name: "/repo/scripts/agent-hub/health-agent-workflow.test.ts",
             status: "failed",
           },
         ],
@@ -58,14 +58,14 @@ describe("repository health", () => {
       "quality:dead-code:exports:src/lib/services/submissions.ts:getadminsubmissions",
     );
     expect(result.findings[1]?.fingerprint).toMatch(
-      /^quality:full-unit-suite:scripts\/agent-hub\/health-confirmation-workflow\.test\.ts::health-confirmation-workflow-co:[a-f0-9]{16}$/,
+      /^quality:full-unit-suite:scripts\/agent-hub\/health-agent-workflow\.test\.ts::health-agent-workflow-contract-pins-al:[a-f0-9]{16}$/,
     );
     expect(
       result.findings.every(({ mergePolicy }) => mergePolicy === "human"),
     ).toBe(true);
     expect(result.findings[1]?.changedFiles).toEqual([
-      "scripts/agent-hub/health-confirmation-workflow.test.ts",
-      "scripts/agent-hub/health-confirmation-workflow.ts",
+      "scripts/agent-hub/health-agent-workflow.test.ts",
+      "scripts/agent-hub/report-run.mjs",
     ]);
   });
 
@@ -120,7 +120,7 @@ describe("repository health", () => {
                 status: "failed",
               },
             ],
-            name: "/repo/scripts/agent-hub/health-confirmation-workflow.test.ts",
+            name: "/repo/scripts/agent-hub/health-agent-workflow.test.ts",
           },
         ],
       },
@@ -148,7 +148,7 @@ describe("repository health", () => {
             assertionResults: [],
             message:
               "Failed to load module at /repo/src/lib/services/submissions.ts:7:1",
-            name: "/repo/scripts/agent-hub/health-confirmation-workflow.test.ts",
+            name: "/repo/scripts/agent-hub/health-agent-workflow.test.ts",
             status: "failed",
           },
         ],
@@ -159,11 +159,11 @@ describe("repository health", () => {
     expect(result.findings).toHaveLength(1);
     expect(result.findings[0]).toMatchObject({
       changedFiles: [
-        "scripts/agent-hub/health-confirmation-workflow.test.ts",
+        "scripts/agent-hub/health-agent-workflow.test.ts",
         "src/lib/services/submissions.ts",
       ],
       fingerprint:
-        "quality:full-unit-suite:scripts/agent-hub/health-confirmation-workflow.test.ts::suite-failure",
+        "quality:full-unit-suite:scripts/agent-hub/health-agent-workflow.test.ts::suite-failure",
       mergePolicy: "human",
       severity: "high",
     });

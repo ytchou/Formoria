@@ -64,7 +64,7 @@ describe("Slack adapter", () => {
     const count = await adapter.send({
       failures: [{ reason: "Linear was unavailable", status: "failed" }],
       findings: [finding()],
-      linearOutcomes: [{ identifier: "FOR-42", status: "updated" }],
+      linearOutcomes: [{ identifier: "FOR-42", status: "created" }],
       pullRequestOutcomes: [{ identifier: "pr-7", status: "opened" }],
       skippedActions: [{ action: "branch deletion", reason: "protected" }],
       workflowUrl: "https://github.com/ytchou/Formoria/actions/runs/123",
@@ -145,7 +145,7 @@ describe("Slack adapter", () => {
     });
   });
 
-  it("renders one grouped terminal summary without individual findings", () => {
+  it("renders one grouped terminal summary with no ticket before the digest is filed", () => {
     const digest = renderSlackDigest({
       healthSummary: {
         checks: {
@@ -208,9 +208,10 @@ describe("Slack adapter", () => {
     );
     expect(digest).not.toContain("Human — 0 · not required");
     expect(digest).not.toContain("Untitled finding");
+    expect(digest).not.toContain("linear.app");
   });
 
-  it("uses the manager summary format and links the grouped Linear ticket", () => {
+  it("uses the manager summary format and links this run's digest ticket", () => {
     const digest = renderSlackDigest({
       healthSummary: {
         checks: {
@@ -244,9 +245,11 @@ describe("Slack adapter", () => {
           repair: "skipped",
         },
         repair: { fixed: 0, pullRequests: 0, unresolved: 50 },
+        // Each run files its own digest ticket; DEV-1231 was the retired
+        // rolling ticket and is never written to again.
         ticket: {
-          identifier: "DEV-1231",
-          url: "https://linear.app/ytchou/issue/DEV-1231",
+          identifier: "DEV-1400",
+          url: "https://linear.app/ytchou/issue/DEV-1400",
         },
       },
     });
@@ -255,7 +258,7 @@ describe("Slack adapter", () => {
     expect(digest).toContain("*Summary*\n• 50 total");
     expect(digest).toContain("• 0 repaired this run · 50 unresolved");
     expect(digest).toContain("• 0 repair PRs");
-    expect(digest).toContain("linear.app/ytchou/issue/DEV-1231");
+    expect(digest).toContain("linear.app/ytchou/issue/DEV-1400");
     expect(digest).toContain("Investigate analyze");
     expect(digest).toContain("*Manager action*");
   });
@@ -274,6 +277,55 @@ describe("Linear adapter", () => {
       oauthToken: "linear-oauth-secret",
       projectId: "project-1",
       teamId: "team-1",
+    };
+  }
+
+  function allowedLabelsResponse(): Response {
+    return jsonResponse({
+      data: {
+        issueLabels: {
+          nodes: [
+            { id: "label-dq", name: "Data Quality", team: { id: "team-1" } },
+            { id: "label-ops", name: "Ops", team: { id: "team-1" } },
+          ],
+        },
+      },
+    });
+  }
+
+  function issueCreateResponse(identifier: string): Response {
+    return jsonResponse({
+      data: {
+        issueCreate: {
+          issue: { id: `linear-${identifier}`, identifier },
+          success: true,
+        },
+      },
+    });
+  }
+
+  function digestSummary(
+    overrides: Partial<{
+      fixed: number;
+      newFindings: number;
+      ongoingFindings: number;
+      regressedFindings: number;
+      reviewFindings: number;
+      totalFindings: number;
+      unresolved: number;
+    }> = {},
+  ) {
+    return {
+      fixed: 0,
+      newFindings: 1,
+      ongoingFindings: 0,
+      regressedFindings: 0,
+      reviewFindings: 1,
+      runAt: "2026-07-29T02:00:00.000Z",
+      status: "needs_attention" as const,
+      totalFindings: 1,
+      unresolved: 1,
+      ...overrides,
     };
   }
 
@@ -312,33 +364,8 @@ describe("Linear adapter", () => {
     const { audit, records } = auditLog();
     const fetchImpl = vi
       .fn<typeof fetch>()
-      .mockResolvedValueOnce(jsonResponse({ data: { issues: { nodes: [] } } }))
-      .mockResolvedValueOnce(
-        jsonResponse({
-          data: {
-            issueLabels: {
-              nodes: [
-                {
-                  id: "label-dq",
-                  name: "Data Quality",
-                  team: { id: "team-1" },
-                },
-                { id: "label-ops", name: "Ops", team: { id: "team-1" } },
-              ],
-            },
-          },
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          data: {
-            issueCreate: {
-              issue: { id: "linear-1", identifier: "FOR-42" },
-              success: true,
-            },
-          },
-        }),
-      );
+      .mockResolvedValueOnce(allowedLabelsResponse())
+      .mockResolvedValueOnce(issueCreateResponse("FOR-42"));
     const adapter = createLinearAdapter(linearConfig(fetchImpl, audit));
     const automatic = finding({
       fingerprint: "link:broken:automatic",
@@ -348,7 +375,7 @@ describe("Linear adapter", () => {
       fingerprint: "link:broken:exhausted",
       mergePolicy: "automatic",
       source: "link",
-      title: "Health Agent findings require review (1 finding)",
+      title: "Purchase website needs review",
     });
 
     const result = await adapter.sync([automatic, exhausted], {
@@ -356,25 +383,23 @@ describe("Linear adapter", () => {
     });
 
     expect(result).toMatchObject({ created: 1, skipped: 1, updated: 0 });
-    expect(fetchImpl).toHaveBeenCalledTimes(3);
-    expect(bodyAt(fetchImpl, 0).variables).toEqual({
-      projectId: "project-1",
-      teamId: "team-1",
-    });
-    expect(bodyAt(fetchImpl, 0).query).not.toContain("description: { contains");
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(bodyAt(fetchImpl, 0).query).toContain("issueLabels");
     expect(fetchImpl.mock.calls[0]?.[1]?.headers).toMatchObject({
       Authorization: "Bearer linear-oauth-secret",
     });
     const createInput = (
-      bodyAt(fetchImpl, 2).variables as Record<string, unknown>
+      bodyAt(fetchImpl, 1).variables as Record<string, unknown>
     ).input as Record<string, unknown>;
     expect(createInput).toMatchObject({
       assigneeId: "assignee-1",
       labelIds: ["label-dq"],
       projectId: "project-1",
       teamId: "team-1",
-      title: "Health Agent findings require review (1 finding)",
     });
+    expect(createInput.title).toMatch(
+      /^Health Agent — 1 new finding \(\d{4}-\d{2}-\d{2}\)$/,
+    );
     expect(JSON.stringify(createInput)).not.toContain("milestone");
     expect(JSON.stringify(records)).not.toContain("linear-oauth-secret");
   });
@@ -399,99 +424,107 @@ describe("Linear adapter", () => {
     });
   });
 
-  it("looks up the hidden fingerprint marker before updating an existing issue", async () => {
+  it("creates a fresh digest issue on every run and never updates one", async () => {
     const fetchImpl = vi
       .fn<typeof fetch>()
-      .mockResolvedValueOnce(
-        jsonResponse({
-          data: {
-            issues: {
-              nodes: [
-                {
-                  id: "linear-1",
-                  identifier: "FOR-7",
-                  description: "<!-- health-agent:summary:v1 -->",
-                  project: { id: "project-1" },
-                  team: { id: "team-1" },
-                },
-              ],
-            },
-          },
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          data: {
-            issueLabels: {
-              nodes: [
-                {
-                  id: "label-dq",
-                  name: "Data Quality",
-                  team: { id: "team-1" },
-                },
-                { id: "label-ops", name: "Ops", team: { id: "team-1" } },
-              ],
-            },
-          },
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({ data: { issueUpdate: { success: true } } }),
-      );
+      .mockResolvedValueOnce(allowedLabelsResponse())
+      .mockResolvedValueOnce(issueCreateResponse("FOR-100"))
+      .mockResolvedValueOnce(allowedLabelsResponse())
+      .mockResolvedValueOnce(issueCreateResponse("FOR-101"));
     const adapter = createLinearAdapter(
       linearConfig(fetchImpl, () => undefined),
     );
 
-    const result = await adapter.sync([finding()]);
-
-    expect(result).toMatchObject({ created: 0, updated: 1 });
-    expect(bodyAt(fetchImpl, 0).query).toEqual(
-      expect.stringContaining("description"),
-    );
-    expect(bodyAt(fetchImpl, 0).query).not.toContain("description: { contains");
-    expect(bodyAt(fetchImpl, 2).variables).toMatchObject({ id: "linear-1" });
-    expect(bodyAt(fetchImpl, 2).query).toContain("$id: String!");
-    const updateInput = (
-      bodyAt(fetchImpl, 2).variables as Record<string, unknown>
-    ).input as Record<string, unknown>;
-    expect(updateInput).toMatchObject({
-      assigneeId: "assignee-1",
-      labelIds: ["label-ops"],
-      projectId: "project-1",
+    const first = await adapter.sync({
+      exhaustedAutomationFingerprints: [],
+      findings: [finding()],
+      summary: digestSummary(),
     });
-    expect(JSON.stringify(updateInput)).not.toContain("milestone");
+    const second = await adapter.sync({
+      exhaustedAutomationFingerprints: [],
+      findings: [finding()],
+      summary: digestSummary(),
+    });
+
+    expect(first).toMatchObject({ created: 1, updated: 0 });
+    expect(second).toMatchObject({ created: 1, updated: 0 });
+    expect(first.outcomes[0]).toMatchObject({
+      action: "created",
+      identifier: "FOR-100",
+    });
+    expect(second.outcomes[0]).toMatchObject({
+      action: "created",
+      identifier: "FOR-101",
+    });
+    const bodies = fetchImpl.mock.calls.map(([, init]) => String(init?.body));
+    expect(bodies.filter((body) => body.includes("issueCreate"))).toHaveLength(
+      2,
+    );
+    expect(bodies.some((body) => body.includes("issueUpdate"))).toBe(false);
+    expect(bodies.some((body) => body.includes("HealthAgentIssueLookup"))).toBe(
+      false,
+    );
+    expect(bodies.some((body) => body.includes("workflowStates"))).toBe(false);
+  });
+
+  it("titles the digest with the in-ticket count and the run date", async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(allowedLabelsResponse())
+      .mockResolvedValueOnce(issueCreateResponse("FOR-200"));
+    const adapter = createLinearAdapter(
+      linearConfig(fetchImpl, () => undefined),
+    );
+
+    await adapter.sync({
+      exhaustedAutomationFingerprints: [],
+      findings: [
+        finding(),
+        finding({
+          fingerprint: "link:broken:brand-2",
+          source: "link",
+          title: "Purchase website needs review",
+        }),
+      ],
+      // The run carries 37 findings in total; the ticket carries 2. The title
+      // must report 2 — the mismatch is what produced the misleading "37".
+      summary: digestSummary({ reviewFindings: 37, totalFindings: 37 }),
+    });
+
+    const createInput = (
+      bodyAt(fetchImpl, 1).variables as Record<string, unknown>
+    ).input as Record<string, unknown>;
+    expect(createInput.title).toBe("Health Agent — 2 new findings (2026-07-29)");
+    expect(createInput.description).not.toContain("This rolling ticket");
+  });
+
+  it("creates nothing when no finding needs a ticket", async () => {
+    const { audit, records } = auditLog();
+    const fetchImpl = vi.fn<typeof fetch>();
+    const adapter = createLinearAdapter(linearConfig(fetchImpl, audit));
+
+    const result = await adapter.sync({
+      exhaustedAutomationFingerprints: [],
+      findings: [finding({ mergePolicy: "automatic" })],
+      summary: digestSummary({ reviewFindings: 0 }),
+    });
+
+    expect(result).toMatchObject({ created: 0, skipped: 1, updated: 0 });
+    expect(result.outcomes).toEqual([]);
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(records.at(-1)).toMatchObject({
+      adapter: "linear",
+      operation: "filter_findings",
+      response: { reason: "no_human_or_exhausted_findings" },
+      status: "suppressed",
+    });
   });
 
   it("groups multiple eligible findings into one reviewable issue", async () => {
     const fetchImpl = vi
       .fn<typeof fetch>()
-      .mockResolvedValueOnce(jsonResponse({ data: { issues: { nodes: [] } } }))
-      .mockResolvedValueOnce(
-        jsonResponse({
-          data: {
-            issueLabels: {
-              nodes: [
-                {
-                  id: "label-dq",
-                  name: "Data Quality",
-                  team: { id: "team-1" },
-                },
-                { id: "label-ops", name: "Ops", team: { id: "team-1" } },
-              ],
-            },
-          },
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          data: {
-            issueCreate: {
-              issue: { id: "linear-1", identifier: "FOR-10" },
-              success: true,
-            },
-          },
-        }),
-      );
+      .mockResolvedValueOnce(allowedLabelsResponse())
+      .mockResolvedValueOnce(issueCreateResponse("FOR-10"));
     const adapter = createLinearAdapter(
       linearConfig(fetchImpl, () => undefined),
     );
@@ -505,16 +538,12 @@ describe("Linear adapter", () => {
       }),
     ]);
 
-    const lookupCalls = fetchImpl.mock.calls.filter(([, init]) =>
-      String(init?.body).includes("HealthAgentIssueLookup"),
-    );
-    expect(lookupCalls).toHaveLength(1);
-    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
     expect(result).toMatchObject({ created: 1, updated: 0 });
     const createInput = (
-      bodyAt(fetchImpl, 2).variables as Record<string, unknown>
+      bodyAt(fetchImpl, 1).variables as Record<string, unknown>
     ).input as Record<string, unknown>;
-    expect(createInput.title).toContain("2 findings");
+    expect(createInput.title).toContain("2 new findings");
     expect(createInput.description).toEqual(
       expect.stringContaining("<!-- health-agent:summary:v2 -->"),
     );
@@ -534,7 +563,6 @@ describe("Linear adapter", () => {
   it("uses workspace-wide allowed labels without creating duplicates", async () => {
     const fetchImpl = vi
       .fn<typeof fetch>()
-      .mockResolvedValueOnce(jsonResponse({ data: { issues: { nodes: [] } } }))
       .mockResolvedValueOnce(
         jsonResponse({
           data: {
@@ -551,16 +579,7 @@ describe("Linear adapter", () => {
           },
         }),
       )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          data: {
-            issueCreate: {
-              issue: { id: "linear-1", identifier: "FOR-12" },
-              success: true,
-            },
-          },
-        }),
-      );
+      .mockResolvedValueOnce(issueCreateResponse("FOR-12"));
     const adapter = createLinearAdapter(
       linearConfig(fetchImpl, () => undefined),
     );
@@ -570,18 +589,17 @@ describe("Linear adapter", () => {
       updated: 0,
     });
 
-    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
     const createInput = (
-      bodyAt(fetchImpl, 2).variables as Record<string, unknown>
+      bodyAt(fetchImpl, 1).variables as Record<string, unknown>
     ).input as Record<string, unknown>;
     expect(createInput.labelIds).toEqual(["label-ops"]);
-    expect(bodyAt(fetchImpl, 2).query).toContain("issueCreate");
+    expect(bodyAt(fetchImpl, 1).query).toContain("issueCreate");
   });
 
   it("paginates allowed labels before deciding a label is missing", async () => {
     const fetchImpl = vi
       .fn<typeof fetch>()
-      .mockResolvedValueOnce(jsonResponse({ data: { issues: { nodes: [] } } }))
       .mockResolvedValueOnce(
         jsonResponse({
           data: {
@@ -602,16 +620,7 @@ describe("Linear adapter", () => {
           },
         }),
       )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          data: {
-            issueCreate: {
-              issue: { id: "linear-1", identifier: "FOR-13" },
-              success: true,
-            },
-          },
-        }),
-      );
+      .mockResolvedValueOnce(issueCreateResponse("FOR-13"));
     const adapter = createLinearAdapter(
       linearConfig(fetchImpl, () => undefined),
     );
@@ -620,128 +629,16 @@ describe("Linear adapter", () => {
       created: 1,
       updated: 0,
     });
-    expect(bodyAt(fetchImpl, 1).query).not.toContain("issueLabels(filter:");
-    expect(bodyAt(fetchImpl, 2).variables).toEqual({
+    expect(bodyAt(fetchImpl, 0).query).not.toContain("issueLabels(filter:");
+    expect(bodyAt(fetchImpl, 1).variables).toEqual({
       after: "label-cursor-1",
     });
-    expect(bodyAt(fetchImpl, 3).query).toContain("issueCreate");
-  });
-
-  it("paginates project issues before matching a fingerprint", async () => {
-    const fetchImpl = vi
-      .fn<typeof fetch>()
-      .mockResolvedValueOnce(
-        jsonResponse({
-          data: {
-            issues: {
-              nodes: [],
-              pageInfo: { endCursor: "cursor-1", hasNextPage: true },
-            },
-          },
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          data: {
-            issues: {
-              nodes: [
-                {
-                  description: "<!-- health-agent:summary:v1 -->",
-                  id: "linear-1",
-                  project: { id: "project-1" },
-                  team: { id: "team-1" },
-                },
-              ],
-              pageInfo: { endCursor: null, hasNextPage: false },
-            },
-          },
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          data: {
-            issueLabels: {
-              nodes: [{ id: "label-ops", name: "Ops", team: { id: "team-1" } }],
-            },
-          },
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({ data: { issueUpdate: { success: true } } }),
-      );
-    const adapter = createLinearAdapter(
-      linearConfig(fetchImpl, () => undefined),
-    );
-
-    await expect(adapter.sync([finding()])).resolves.toMatchObject({
-      created: 0,
-      updated: 1,
-    });
-
-    expect(bodyAt(fetchImpl, 1).variables).toMatchObject({
-      after: "cursor-1",
-      projectId: "project-1",
-      teamId: "team-1",
-    });
-  });
-
-  it("does not update a fingerprint match returned from another project", async () => {
-    const fetchImpl = vi
-      .fn<typeof fetch>()
-      .mockResolvedValueOnce(
-        jsonResponse({
-          data: {
-            issues: {
-              nodes: [
-                {
-                  id: "linear-other-project",
-                  project: { id: "project-2" },
-                  team: { id: "team-1" },
-                },
-              ],
-            },
-          },
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          data: {
-            issueLabels: {
-              nodes: [{ id: "label-ops", name: "Ops", team: { id: "team-1" } }],
-            },
-          },
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          data: {
-            issueCreate: {
-              issue: { id: "linear-project-1", identifier: "FOR-9" },
-              success: true,
-            },
-          },
-        }),
-      );
-    const adapter = createLinearAdapter(
-      linearConfig(fetchImpl, () => undefined),
-    );
-
-    await expect(adapter.sync([finding()])).resolves.toMatchObject({
-      created: 1,
-      updated: 0,
-    });
-    expect(bodyAt(fetchImpl, 0).variables).toMatchObject({
-      projectId: "project-1",
-      teamId: "team-1",
-    });
-    expect(bodyAt(fetchImpl, 0).query).toContain("project");
     expect(bodyAt(fetchImpl, 2).query).toContain("issueCreate");
   });
 
   it("provisions every missing allowed label before creating any issues", async () => {
     const fetchImpl = vi
       .fn<typeof fetch>()
-      .mockResolvedValueOnce(jsonResponse({ data: { issues: { nodes: [] } } }))
       .mockResolvedValueOnce(
         jsonResponse({
           data: {
@@ -778,16 +675,7 @@ describe("Linear adapter", () => {
           },
         }),
       )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          data: {
-            issueCreate: {
-              issue: { id: "linear-link", identifier: "FOR-50" },
-              success: true,
-            },
-          },
-        }),
-      );
+      .mockResolvedValueOnce(issueCreateResponse("FOR-50"));
     const adapter = createLinearAdapter(
       linearConfig(fetchImpl, () => undefined),
     );
@@ -799,356 +687,17 @@ describe("Linear adapter", () => {
       ]),
     ).resolves.toMatchObject({ created: 1, updated: 0 });
 
-    expect(bodyAt(fetchImpl, 2)).toMatchObject({
+    expect(bodyAt(fetchImpl, 1)).toMatchObject({
       variables: { input: { name: "Data Quality", teamId: "team-1" } },
     });
-    expect(bodyAt(fetchImpl, 3)).toMatchObject({
+    expect(bodyAt(fetchImpl, 2)).toMatchObject({
       variables: { input: { name: "Ops", teamId: "team-1" } },
     });
-    expect(bodyAt(fetchImpl, 4).query).toContain("issueCreate");
+    expect(bodyAt(fetchImpl, 3).query).toContain("issueCreate");
     const groupedInput = (
-      bodyAt(fetchImpl, 4).variables as { input: { labelIds: string[] } }
+      bodyAt(fetchImpl, 3).variables as { input: { labelIds: string[] } }
     ).input;
     expect(groupedInput.labelIds).toEqual(["label-dq", "label-ops"]);
-  });
-
-  it("reopens a completed rolling ticket when review findings remain", async () => {
-    const fetchImpl = vi
-      .fn<typeof fetch>()
-      .mockResolvedValueOnce(
-        jsonResponse({
-          data: {
-            issues: {
-              nodes: [
-                {
-                  description: "<!-- health-agent:summary:v1 -->",
-                  id: "linear-1",
-                  identifier: "DEV-1231",
-                  project: { id: "project-1" },
-                  state: { id: "done", name: "Done", type: "completed" },
-                  team: { id: "team-1" },
-                },
-              ],
-            },
-          },
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          data: {
-            issueLabels: {
-              nodes: [{ id: "label-ops", name: "Ops", team: null }],
-            },
-          },
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          data: {
-            workflowStates: {
-              nodes: [
-                { id: "todo", name: "Todo", type: "unstarted" },
-                { id: "done", name: "Done", type: "completed" },
-              ],
-            },
-          },
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          data: {
-            issueUpdate: {
-              issue: { id: "linear-1", identifier: "DEV-1231" },
-              success: true,
-            },
-          },
-        }),
-      );
-    const adapter = createLinearAdapter(
-      linearConfig(fetchImpl, () => undefined),
-    );
-
-    await adapter.sync({
-      exhaustedAutomationFingerprints: [],
-      findings: [finding()],
-      summary: {
-        fixed: 0,
-        newFindings: 0,
-        ongoingFindings: 1,
-        regressedFindings: 0,
-        reviewFindings: 1,
-        status: "needs_attention",
-        totalFindings: 1,
-        unresolved: 1,
-      },
-    });
-
-    const update = (
-      bodyAt(fetchImpl, 3).variables as { input: Record<string, unknown> }
-    ).input;
-    expect(update).toMatchObject({
-      stateId: "todo",
-      title: "Health Agent findings require review (1 active finding)",
-    });
-    expect(update.description).toEqual(expect.stringContaining("1 ongoing"));
-  });
-
-  it("closes the rolling ticket only after a clean terminal run", async () => {
-    const fetchImpl = vi
-      .fn<typeof fetch>()
-      .mockResolvedValueOnce(
-        jsonResponse({
-          data: {
-            issues: {
-              nodes: [
-                {
-                  description: "<!-- health-agent:summary:v2 -->",
-                  id: "linear-1",
-                  identifier: "DEV-1231",
-                  project: { id: "project-1" },
-                  state: { id: "todo", name: "Todo", type: "unstarted" },
-                  team: { id: "team-1" },
-                },
-              ],
-            },
-          },
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          data: {
-            workflowStates: {
-              nodes: [{ id: "done", name: "Done", type: "completed" }],
-            },
-          },
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          data: {
-            issueUpdate: {
-              issue: { id: "linear-1", identifier: "DEV-1231" },
-              success: true,
-            },
-          },
-        }),
-      );
-    const adapter = createLinearAdapter(
-      linearConfig(fetchImpl, () => undefined),
-    );
-
-    await adapter.sync({
-      exhaustedAutomationFingerprints: [],
-      findings: [],
-      summary: {
-        fixed: 0,
-        newFindings: 0,
-        ongoingFindings: 0,
-        regressedFindings: 0,
-        reviewFindings: 0,
-        status: "resolved",
-        totalFindings: 0,
-        unresolved: 0,
-      },
-    });
-
-    const update = (
-      bodyAt(fetchImpl, 2).variables as { input: Record<string, unknown> }
-    ).input;
-    expect(update).toMatchObject({
-      stateId: "done",
-      title: "Health Agent findings verified (0 active findings)",
-    });
-    expect(update).not.toHaveProperty("labelIds");
-  });
-
-  it("does not reopen or close the rolling ticket when collection failed", async () => {
-    const fetchImpl = vi
-      .fn<typeof fetch>()
-      .mockResolvedValueOnce(
-        jsonResponse({
-          data: {
-            issues: {
-              nodes: [
-                {
-                  description: "<!-- health-agent:summary:v2 -->",
-                  id: "linear-1",
-                  identifier: "DEV-1231",
-                  project: { id: "project-1" },
-                  state: { id: "done", name: "Done", type: "completed" },
-                  team: { id: "team-1" },
-                },
-              ],
-            },
-          },
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          data: {
-            issueUpdate: {
-              issue: { id: "linear-1", identifier: "DEV-1231" },
-              success: true,
-            },
-          },
-        }),
-      );
-    const adapter = createLinearAdapter(
-      linearConfig(fetchImpl, () => undefined),
-    );
-
-    await adapter.sync({
-      exhaustedAutomationFingerprints: [],
-      findings: [],
-      summary: {
-        fixed: 0,
-        newFindings: 0,
-        ongoingFindings: 0,
-        regressedFindings: 0,
-        reviewFindings: 0,
-        status: "failed",
-        totalFindings: 0,
-        unresolved: 0,
-      },
-    });
-
-    const update = (
-      bodyAt(fetchImpl, 1).variables as { input: Record<string, unknown> }
-    ).input;
-    expect(update).toMatchObject({
-      title: "Health Agent status unverified (workflow failed)",
-    });
-    expect(update).not.toHaveProperty("stateId");
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
-  });
-
-  it("reopens a completed ticket when automatic-only findings remain", async () => {
-    const fetchImpl = vi
-      .fn<typeof fetch>()
-      .mockResolvedValueOnce(
-        jsonResponse({
-          data: {
-            issues: {
-              nodes: [
-                {
-                  description: "<!-- health-agent:summary:v2 -->",
-                  id: "linear-1",
-                  project: { id: "project-1" },
-                  state: { id: "done", type: "completed" },
-                  team: { id: "team-1" },
-                },
-              ],
-            },
-          },
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          data: {
-            workflowStates: {
-              nodes: [{ id: "todo", name: "Todo", type: "unstarted" }],
-            },
-          },
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({ data: { issueUpdate: { success: true } } }),
-      );
-    const adapter = createLinearAdapter(
-      linearConfig(fetchImpl, () => undefined),
-    );
-
-    await adapter.sync({
-      exhaustedAutomationFingerprints: [],
-      findings: [finding({ mergePolicy: "automatic" })],
-      summary: {
-        fixed: 0,
-        newFindings: 0,
-        ongoingFindings: 1,
-        regressedFindings: 0,
-        reviewFindings: 0,
-        status: "needs_attention",
-        totalFindings: 1,
-        unresolved: 1,
-      },
-    });
-
-    const update = (
-      bodyAt(fetchImpl, 2).variables as { input: Record<string, unknown> }
-    ).input;
-    expect(update).toMatchObject({
-      stateId: "todo",
-      title: "Health Agent findings require review (1 active finding)",
-    });
-  });
-
-  it("reopens a completed ticket after a failed run when findings were detected", async () => {
-    const fetchImpl = vi
-      .fn<typeof fetch>()
-      .mockResolvedValueOnce(
-        jsonResponse({
-          data: {
-            issues: {
-              nodes: [
-                {
-                  description: "<!-- health-agent:summary:v2 -->",
-                  id: "linear-1",
-                  project: { id: "project-1" },
-                  state: { id: "done", type: "completed" },
-                  team: { id: "team-1" },
-                },
-              ],
-            },
-          },
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          data: {
-            issueLabels: {
-              nodes: [{ id: "label-ops", name: "Ops", team: null }],
-            },
-          },
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          data: {
-            workflowStates: {
-              nodes: [{ id: "todo", name: "Todo", type: "unstarted" }],
-            },
-          },
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({ data: { issueUpdate: { success: true } } }),
-      );
-    const adapter = createLinearAdapter(
-      linearConfig(fetchImpl, () => undefined),
-    );
-
-    await adapter.sync({
-      exhaustedAutomationFingerprints: [],
-      findings: [finding()],
-      summary: {
-        fixed: 0,
-        newFindings: 1,
-        ongoingFindings: 0,
-        regressedFindings: 0,
-        reviewFindings: 1,
-        status: "failed",
-        totalFindings: 1,
-        unresolved: 1,
-      },
-    });
-
-    const update = (
-      bodyAt(fetchImpl, 3).variables as { input: Record<string, unknown> }
-    ).input;
-    expect(update).toMatchObject({
-      stateId: "todo",
-      title: "Health Agent status unverified (workflow failed)",
-    });
   });
 });
 

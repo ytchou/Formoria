@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
 import { ChevronRight } from 'lucide-react'
-import { getPublishedGuideBySlug } from '@/lib/services/guides'
+import { getAllGuides, getPublishedGuideBySlug } from '@/lib/services/guides'
 import { FaqBlock } from '@/components/guides/faq-block'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
@@ -15,7 +15,13 @@ type PageProps = {
 }
 
 export const revalidate = 3600
-export const dynamic = 'force-static'
+
+// Slugs only — `src/app/[locale]/layout.tsx` supplies the locale segment and Next composes the two.
+export async function generateStaticParams() {
+  const result = await getAllGuides()
+  if (!result.ok) return []
+  return result.guides.map((guide) => ({ slug: guide.slug }))
+}
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { locale, slug: rawSlug } = await params

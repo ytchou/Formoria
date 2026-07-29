@@ -47,7 +47,6 @@ const brandSectionClassName =
 
 // 1h ISR: ownership/verified-state changes propagate within ~an hour; route still statically served between regenerations
 export const revalidate = 3600
-export const dynamic = 'force-static'
 
 export async function generateStaticParams() {
   try {
@@ -267,6 +266,11 @@ export default async function BrandDetailPage({ params }: PageProps) {
                 </SavedBrandsProvider>
               }
             />
+            {!displayBrand.isVerified && (
+              <div className="mt-8">
+                <ClaimBrandCta brandId={displayBrand.id} brandSlug={displayBrand.slug} />
+              </div>
+            )}
           </div>
         </div>
 
@@ -309,10 +313,6 @@ export default async function BrandDetailPage({ params }: PageProps) {
               <section id="faq" className={brandSectionClassName}>
                 <BrandFaqAccordion items={faqItems} brandSlug={displayBrand.slug} />
               </section>
-            )}
-
-            {!displayBrand.isVerified && (
-              <ClaimBrandCta brandId={displayBrand.id} brandSlug={displayBrand.slug} />
             )}
           </div>
         </div>

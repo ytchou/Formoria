@@ -10,7 +10,7 @@
     "scripts/**/*.{ts,mjs}",
     "emails/**/*.{ts,tsx}"
   ],
-  "ignoreDependencies": ["tw-animate-css", "tailwindcss", "shadcn", "@react-email/ui"],
+  "ignoreDependencies": ["tw-animate-css", "tailwindcss", "shadcn", "@react-email/ui", "@heroui/styles"],
   "ignoreBinaries": ["lsof"],
   "ignore": [
     "src/lib/supabase/database.types.ts",

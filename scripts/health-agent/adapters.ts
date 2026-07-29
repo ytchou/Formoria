@@ -653,14 +653,6 @@ function labelNodes(value: unknown): Record<string, unknown>[] {
     : [];
 }
 
-function issueNodes(value: unknown): Record<string, unknown>[] {
-  const data = graphqlData(value);
-  const container = data?.issues;
-  return isRecord(container) && Array.isArray(container.nodes)
-    ? container.nodes.filter(isRecord)
-    : [];
-}
-
 export interface LinearAdapterOptions extends AdapterDependencies {
   accessToken?: string;
   apiKey?: string;
@@ -723,23 +715,6 @@ export interface LinearAdapter {
   ): Promise<LinearSyncResult>;
 }
 
-const LINEAR_LOOKUP_QUERY = `
-  query HealthAgentIssueLookup($teamId: ID!, $projectId: ID!, $after: String) {
-    issues(filter: { team: { id: { eq: $teamId } }, project: { id: { eq: $projectId } } }, first: 100, after: $after) {
-      nodes { id identifier title description state { id name type } team { id } project { id } }
-      pageInfo { hasNextPage endCursor }
-    }
-  }
-`;
-
-const LINEAR_WORKFLOW_STATE_QUERY = `
-  query HealthAgentWorkflowStates($teamId: ID!) {
-    workflowStates(filter: { team: { id: { eq: $teamId } } }, first: 100) {
-      nodes { id name type }
-    }
-  }
-`;
-
 const LINEAR_LABEL_QUERY = `
   query HealthAgentLabels($after: String) {
     issueLabels(first: 100, after: $after) {
@@ -755,12 +730,6 @@ const LINEAR_CREATE_MUTATION = `
   }
 `;
 
-const LINEAR_UPDATE_MUTATION = `
-  mutation HealthAgentIssueUpdate($id: String!, $input: IssueUpdateInput!) {
-    issueUpdate(id: $id, input: $input) { success issue { id identifier } }
-  }
-`;
-
 const LINEAR_LABEL_CREATE_MUTATION = `
   mutation HealthAgentLabelCreate($input: IssueLabelCreateInput!) {
     issueLabelCreate(input: $input) { success issueLabel { id name } }
@@ -768,8 +737,24 @@ const LINEAR_LABEL_CREATE_MUTATION = `
 `;
 
 const LINEAR_SUMMARY_FINGERPRINT = "health-agent:summary:v2";
-const LINEAR_SUMMARY_MARKER = "<!-- health-agent:summary:v1 -->";
+// Traceability marker only. Nothing reads it back — each run creates a fresh
+// digest ticket, so there is no existing issue to look up.
 const LINEAR_SUMMARY_V2_MARKER = "<!-- health-agent:summary:v2 -->";
+const LINEAR_TAIPEI_TIME_ZONE = "Asia/Taipei";
+
+function linearRunDate(runAt: string | undefined): string {
+  const date = runAt ? new Date(runAt) : new Date();
+  const resolved = Number.isNaN(date.getTime()) ? new Date() : date;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: LINEAR_TAIPEI_TIME_ZONE,
+    year: "numeric",
+  }).formatToParts(resolved);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((item) => item.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
 
 function groupedLinearDescription(
   findings: readonly HealthFinding[],
@@ -846,8 +831,6 @@ function groupedLinearDescription(
     ...(sources.length > 0 ? sources : ["No active findings."]),
     "",
     `**Manager action:** ${summary?.status === "resolved" ? "No action needed; resolution was verified" : summary?.status === "failed" ? "Investigate the failed workflow; resolution was not verified" : "Review unresolved findings"}`,
-    "",
-    "This rolling ticket is updated by each health run. Findings remain open until a later health run verifies that their fingerprints are gone.",
   ].join("\n");
 }
 
@@ -876,46 +859,14 @@ function normalizeLinearInput(
   return { exhausted, findings: value.findings, summary: value.summary };
 }
 
-function workflowStateNodes(value: unknown): Record<string, unknown>[] {
-  const data = graphqlData(value);
-  const container = data?.workflowStates;
-  return isRecord(container) && Array.isArray(container.nodes)
-    ? container.nodes.filter(isRecord)
-    : [];
-}
-
-function workflowStateId(
-  states: readonly Record<string, unknown>[],
-  status: LinearSyncSummary["status"],
-): string | undefined {
-  const desiredType = status === "resolved" ? "completed" : "unstarted";
-  const candidates = states.filter((state) => state.type === desiredType);
-  const preferredNames =
-    status === "resolved" ? ["Done", "Completed"] : ["Todo", "Backlog"];
-  const preferred = candidates.find((state) =>
-    preferredNames.includes(String(state.name)),
-  );
-  const candidate = preferred ?? candidates[0];
-  return candidate && typeof candidate.id === "string"
-    ? candidate.id
-    : undefined;
-}
-
+// The count is the number of findings carried by THIS ticket, never
+// summary.totalFindings — that mismatch is what produced the misleading
+// "37 active findings" on the old rolling ticket.
 function linearSummaryTitle(
   summary: LinearSyncSummary | undefined,
   eligibleCount: number,
 ): string {
-  if (summary?.status === "resolved") {
-    return "Health Agent findings verified (0 active findings)";
-  }
-  if (summary?.status === "failed") {
-    return "Health Agent status unverified (workflow failed)";
-  }
-  if (!summary) {
-    return `Health Agent findings require review (${eligibleCount} finding${eligibleCount === 1 ? "" : "s"})`;
-  }
-  const count = summary.totalFindings;
-  return `Health Agent findings require review (${count} active finding${count === 1 ? "" : "s"})`;
+  return `Health Agent — ${eligibleCount} new finding${eligibleCount === 1 ? "" : "s"} (${linearRunDate(summary?.runAt)})`;
 }
 
 function linearLabelName(finding: HealthFinding): "Data Quality" | "Ops" {
@@ -924,7 +875,7 @@ function linearLabelName(finding: HealthFinding): "Data Quality" | "Ops" {
 
 function linearMutationResult(
   data: Record<string, unknown>,
-  field: "issueCreate" | "issueUpdate",
+  field: "issueCreate",
 ): { identifier?: string; success: boolean } {
   const result = data[field];
   if (!isRecord(result) || typeof result.success !== "boolean") {
@@ -977,7 +928,9 @@ export async function syncLinearFindings(
     updated: 0,
   };
   const deps = dependencies(options);
-  if (eligible.length === 0 && !normalized.summary) {
+  // Create-only: with no eligible findings there is nothing to file. There is
+  // no rolling ticket left to refresh with the run summary either.
+  if (eligible.length === 0) {
     emitSuppressed(
       deps.audit,
       "linear",
@@ -1079,41 +1032,6 @@ export async function syncLinearFindings(
     return next;
   };
 
-  const loadWorkflowStates = async (): Promise<Record<string, unknown>[]> => {
-    const data = await graphql(
-      "lookup_workflow_states",
-      LINEAR_WORKFLOW_STATE_QUERY,
-      { teamId },
-      (value) => graphqlDataHas("workflowStates", value),
-    );
-    return workflowStateNodes({ data });
-  };
-
-  const projectIssues: Record<string, unknown>[] = [];
-  const seenCursors = new Set<string>();
-  let after: string | undefined;
-  do {
-    const lookup = await graphql(
-      "lookup_issues",
-      LINEAR_LOOKUP_QUERY,
-      { ...(after ? { after } : {}), projectId, teamId },
-      (value) => graphqlDataHas("issues", value),
-    );
-    projectIssues.push(...issueNodes({ data: lookup }));
-    const issues = lookup.issues;
-    const pageInfo = isRecord(issues) ? issues.pageInfo : undefined;
-    const hasNextPage = isRecord(pageInfo) && pageInfo.hasNextPage === true;
-    after = hasNextPage ? stringValue(pageInfo.endCursor) : undefined;
-    if (hasNextPage && (!after || seenCursors.has(after))) {
-      throw new HealthAdapterError(
-        "Linear returned invalid pagination metadata",
-        "linear",
-        "lookup_issues",
-      );
-    }
-    if (after) seenCursors.add(after);
-  } while (after);
-
   const requiredLabels = new Set(eligible.map(linearLabelName));
   const allowedLabels =
     requiredLabels.size > 0 ? await loadLabels() : new Map();
@@ -1149,29 +1067,6 @@ export async function syncLinearFindings(
   }
 
   {
-    const existing = projectIssues.find((node) => {
-      const team = node.team;
-      const project = node.project;
-      return (
-        isRecord(team) &&
-        stringValue(team.id) === teamId &&
-        isRecord(project) &&
-        stringValue(project.id) === projectId &&
-        [LINEAR_SUMMARY_MARKER, LINEAR_SUMMARY_V2_MARKER].some((marker) =>
-          stringValue(node.description)?.includes(marker),
-        )
-      );
-    });
-    if (!existing && eligible.length === 0) {
-      emitSuppressed(
-        deps.audit,
-        "linear",
-        "update_summary",
-        { candidateCount: normalized.findings.length, eligibleCount: 0 },
-        { reason: "summary_ticket_not_found" },
-      );
-      return result;
-    }
     const labelIds = [...requiredLabels].map((name) => {
       const labelId = allowedLabels.get(name);
       if (!labelId)
@@ -1182,87 +1077,40 @@ export async function syncLinearFindings(
         );
       return labelId;
     });
+    // The body describes exactly the findings carried by this ticket, so it
+    // can never disagree with the count in the title.
     const inputPayload: Record<string, JsonValue> = {
       assigneeId,
-      description: groupedLinearDescription(
-        normalized.summary ? normalized.findings : eligible,
-        normalized.summary,
-      ),
+      description: groupedLinearDescription(eligible, normalized.summary),
       projectId,
       title: linearSummaryTitle(normalized.summary, eligible.length),
     };
     if (labelIds.length > 0) inputPayload.labelIds = labelIds;
 
-    if (normalized.summary && existing) {
-      const state = isRecord(existing.state) ? existing.state : undefined;
-      const stateType = stringValue(state?.type);
-      const stateNeedsUpdate =
-        normalized.summary.status === "resolved"
-          ? stateType !== "completed"
-          : normalized.summary.totalFindings > 0 &&
-            (stateType === "completed" || stateType === "canceled");
-      if (stateNeedsUpdate) {
-        const stateId = workflowStateId(
-          await loadWorkflowStates(),
-          normalized.summary.status,
-        );
-        if (!stateId) {
-          throw new HealthAdapterError(
-            "Linear workflow state is not configured",
-            "linear",
-            "lookup_workflow_states",
-          );
-        }
-        inputPayload.stateId = stateId;
-      }
-    }
-
-    if (existing) {
-      const existingId = asNonemptyString(
-        existing.id,
-        "Linear issue ID is required",
-      );
-      const data = await graphql(
-        "update_issue",
-        LINEAR_UPDATE_MUTATION,
-        { id: existingId, input: inputPayload },
-        (value) => {
-          const data = graphqlData(value);
-          const mutation = data?.issueUpdate;
-          return isRecord(mutation) && mutation.success === true;
+    // Always create. A digest ticket is a per-run record; existing tickets are
+    // never revisited, whatever a human has since done to their state.
+    const data = await graphql(
+      "create_issue",
+      LINEAR_CREATE_MUTATION,
+      {
+        input: {
+          ...inputPayload,
+          teamId,
         },
-      );
-      const mutation = linearMutationResult(data, "issueUpdate");
-      result.updated += 1;
-      result.outcomes.push({
-        action: "updated",
-        ...(mutation.identifier ? { identifier: mutation.identifier } : {}),
-        fingerprint: LINEAR_SUMMARY_FINGERPRINT,
-      });
-    } else {
-      const data = await graphql(
-        "create_issue",
-        LINEAR_CREATE_MUTATION,
-        {
-          input: {
-            ...inputPayload,
-            teamId,
-          },
-        },
-        (value) => {
-          const data = graphqlData(value);
-          const mutation = data?.issueCreate;
-          return isRecord(mutation) && mutation.success === true;
-        },
-      );
-      const mutation = linearMutationResult(data, "issueCreate");
-      result.created += 1;
-      result.outcomes.push({
-        action: "created",
-        ...(mutation.identifier ? { identifier: mutation.identifier } : {}),
-        fingerprint: LINEAR_SUMMARY_FINGERPRINT,
-      });
-    }
+      },
+      (value) => {
+        const data = graphqlData(value);
+        const mutation = data?.issueCreate;
+        return isRecord(mutation) && mutation.success === true;
+      },
+    );
+    const mutation = linearMutationResult(data, "issueCreate");
+    result.created += 1;
+    result.outcomes.push({
+      action: "created",
+      ...(mutation.identifier ? { identifier: mutation.identifier } : {}),
+      fingerprint: LINEAR_SUMMARY_FINGERPRINT,
+    });
   }
   return result;
 }

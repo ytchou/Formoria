@@ -130,6 +130,7 @@ async function logDescriptionAiResult(
 
 const SCRAPE_DELAY_MS = 1000;
 const ENRICH_CHUNK_SIZE = 20;
+const ENRICH_BRAND_CONCURRENCY = 3;
 const TARGET_PROGRESS_BATCH_SIZE = 20;
 const TARGET_PROGRESS_FLUSH_INTERVAL_MS = 15_000;
 
@@ -139,9 +140,36 @@ function delay(ms: number): Promise<void> {
   });
 }
 
+export async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  concurrency: number,
+  callback: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  if (!Number.isSafeInteger(concurrency) || concurrency < 1) {
+    throw new Error("Concurrency must be a positive integer");
+  }
+
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+
+  async function worker(): Promise<void> {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      results[index] = await callback(items[index]!, index);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, items.length) }, () => worker()),
+  );
+  return results;
+}
+
 export { ENRICH_PHASES };
 
-type EnrichPhase = "clean" | "links" | "images" | "descriptions" | "locations" | "tags";
+type EnrichPhase =
+  "clean" | "links" | "images" | "descriptions" | "locations" | "tags";
 type RunEnrichPhase =
   EnrichPhase | "discover" | "detect" | "slugs" | "expansion";
 
@@ -917,6 +945,17 @@ export async function runEnrich(
 
     const pendingTargetProgress: CurationTargetProgressEvent[] = [];
     let lastTargetProgressFlushAt = Date.now();
+    let targetProgressBatchWrite = Promise.resolve();
+    const serializeTargetProgressBatch = <T>(
+      write: () => Promise<T>,
+    ): Promise<T> => {
+      const nextWrite = targetProgressBatchWrite.then(write, write);
+      targetProgressBatchWrite = nextWrite.then(
+        () => undefined,
+        () => undefined,
+      );
+      return nextWrite;
+    };
     const flushTargetProgress = async (force: boolean): Promise<void> => {
       if (!onTargetProgressBatch || pendingTargetProgress.length === 0) {
         return;
@@ -947,9 +986,11 @@ export async function runEnrich(
         return;
       }
 
-      await flushTargetProgress(true);
-      await onTargetProgressBatch(mergeTargetProgressEvents(events));
-      lastTargetProgressFlushAt = Date.now();
+      await serializeTargetProgressBatch(async () => {
+        await flushTargetProgress(true);
+        await onTargetProgressBatch(mergeTargetProgressEvents(events));
+        lastTargetProgressFlushAt = Date.now();
+      });
     };
     const queueTargetProgress = async (
       event: CurationTargetProgressEvent,
@@ -959,8 +1000,10 @@ export async function runEnrich(
         return;
       }
 
-      pendingTargetProgress.push(event);
-      await flushTargetProgress(false);
+      await serializeTargetProgressBatch(async () => {
+        pendingTargetProgress.push(event);
+        await flushTargetProgress(false);
+      });
     };
     const batchPhaseResults = new Map<string, PhaseResult[]>();
     const emitBatchPhaseProgress = async (phase: string): Promise<void> => {
@@ -1063,457 +1106,135 @@ export async function runEnrich(
     const batchClassifications =
       standaloneClassificationResult.batchClassifications;
 
-    for (const brand of chunk) {
-      result.processed += 1;
-      const brandIndex = result.processed;
-      const brandStartedAt = Date.now();
-      const overwrite = brand.overwrite_enrichment === true;
-      const phaseOrder = buildBrandPhaseOrder(phases, hasDetectPhases);
-      const totalPhases = phaseOrder.length;
-      let currentPhase: string | undefined;
-      const emitTargetProgress = async (
-        status: "running" | BrandOutcome["status"],
-        options?: {
-          phaseResults?: PhaseResult[];
-          changedFields?: string[];
-          error?: string;
-          durationMs?: number;
-        },
-      ): Promise<void> => {
-        const event: CurationTargetProgressEvent = {
-          targetId: brand.id,
-          targetType,
-          slug: brand.slug,
-          name: getDisplayBrandName(brand),
-          status,
-          currentPhase,
-          ...options,
-        };
-        await queueTargetProgress(event);
-      };
-      const markCurrentPhase = async (phase: string): Promise<void> => {
-        currentPhase = phase;
-        await emitTargetProgress("running");
-      };
-      const logCurrentPhase = async (
-        phaseResult: PhaseResult,
-      ): Promise<void> => {
-        currentPhase = phaseResult.phase;
-        const rawIndex = phaseOrder.indexOf(phaseResult.phase);
-        const phaseIndex = rawIndex >= 0 ? rawIndex + 1 : totalPhases;
-        logPhaseResult(
-          onProgress,
-          brand,
-          brandIndex,
-          totalBrands,
-          phaseResult,
-          phaseIndex,
-          totalPhases,
-        );
-        await emitTargetProgress("running", {
-          phaseResults: outcomePhaseResults,
-        });
-      };
-      const recordOutcome = async (outcome: BrandOutcome): Promise<void> => {
-        result.brandOutcomes.push(outcome);
-        await emitTargetProgressBatch([
-          {
+    const chunkStartIndex = chunkIndex * ENRICH_CHUNK_SIZE;
+    await mapWithConcurrency(
+      chunk,
+      ENRICH_BRAND_CONCURRENCY,
+      async (brand, brandOffset) => {
+        result.processed += 1;
+        const brandIndex = chunkStartIndex + brandOffset + 1;
+        const outcomeIndex = brandIndex - 1;
+        const brandStartedAt = Date.now();
+        const overwrite = brand.overwrite_enrichment === true;
+        const phaseOrder = buildBrandPhaseOrder(phases, hasDetectPhases);
+        const totalPhases = phaseOrder.length;
+        let currentPhase: string | undefined;
+        const emitTargetProgress = async (
+          status: "running" | BrandOutcome["status"],
+          options?: {
+            phaseResults?: PhaseResult[];
+            changedFields?: string[];
+            error?: string;
+            durationMs?: number;
+          },
+        ): Promise<void> => {
+          const event: CurationTargetProgressEvent = {
             targetId: brand.id,
             targetType,
             slug: brand.slug,
             name: getDisplayBrandName(brand),
-            status: outcome.status,
+            status,
             currentPhase,
-            phaseResults: outcome.phaseResults,
-            changedFields: outcome.changedFields,
-            error: outcome.error,
-            durationMs: Date.now() - brandStartedAt,
-          },
-        ]);
-      };
-      let outcomePhaseResults: PhaseResult[] = [];
-
-      await emitTargetProgress("running");
-
-      try {
-        const detectResult = detectResults.get(brand.slug);
-        const state: BrandEnrichState = {
-          patches: {},
-          phaseResults: [...(batchPhaseResults.get(brand.id) ?? [])],
-          knownUrls: collectKnownUrls(brand),
-          discoveredUrls: [],
-          serpSnippets: [],
-          serpEntries: [],
-          scrapedData: {},
-        };
-        outcomePhaseResults = state.phaseResults;
-        const detectApplication = applyDetectResult(
-          detectResult,
-          brand,
-          phases,
-        );
-        if (hasDetectPhases) {
-          await markCurrentPhase("detect");
-          state.phaseResults.push(detectApplication.phaseResult);
-          await logCurrentPhase(detectApplication.phaseResult);
-        }
-        appendPatch(state, detectApplication.patch);
-
-        if (detectApplication.isNonBrand) {
-          const skipReason = detectResult?.nonBrandReason
-            ? `Detection classified this entry as not a brand: ${detectResult.nonBrandReason}`
-            : "Detection classified this entry as not a brand";
-          onProgress(
-            `  [NON-BRAND] ${brand.slug}: ${detectResult?.nonBrandReason ?? "non-brand"} (${detectResult?.confidence})`,
-          );
-
-          if (!config.dryRun) {
-            await insertTriageResult({
-              brandId: brand.id,
-              target: { type: targetType, id: brand.id },
-              isNonBrand: true,
-              nonBrandReason: detectResult?.nonBrandReason ?? null,
-              slugGenerated: detectResult?.slugGenerated ?? null,
-              productType: detectResult?.productType ?? null,
-              confidence: detectResult?.confidence ?? "high",
-            });
-          }
-
-          await recordOutcome({
-            slug: brand.slug,
-            name: getDisplayBrandName(brand),
-            ...(target === "submissions" ? { submissionId: brand.id } : {}),
-            status: "skipped",
-            changedFields: changedFieldsFromPhaseResults(state.phaseResults),
-            phaseResults: state.phaseResults,
-            error: skipReason,
-          });
-          result.skipped += 1;
-          onProgress(
-            formatBrandComplete(
-              brand.slug,
-              brandIndex,
-              totalBrands,
-              Date.now() - brandStartedAt,
-            ),
-          );
-          continue;
-        }
-
-        if (searchError) {
-          throw new Error(searchError);
-        }
-
-        if (phases.includes("discover")) {
-          const searchResult = searchResults.get(
-            getDisplayBrandName(brand),
-          ) ?? { urls: [], snippets: [] };
-          state.discoveredUrls = uniqueUrls(
-            searchResult.urls.filter((url) => !state.knownUrls.includes(url)),
-          );
-          state.serpSnippets = searchResult.snippets;
-          state.serpEntries = searchResult.entries ?? [];
-        } else if (searchResults.size > 0) {
-          const searchResult = searchResults.get(
-            getDisplayBrandName(brand),
-          ) ?? { urls: [], snippets: [] };
-          state.serpSnippets = searchResult.snippets;
-          state.serpEntries = searchResult.entries ?? [];
-        }
-
-        const urlExtracted = extractLinksFromUrls(state.discoveredUrls);
-        let imageSearchUrls: string[] = [];
-        if (phases.includes("images")) {
-          imageSearchUrls =
-            imageSearchResults.get(getDisplayBrandName(brand)) ?? [];
-          onProgress(`  [IMAGE-SEARCH] ${imageSearchUrls.length} images found`);
-        }
-
-        if (
-          !phases.includes("tags") &&
-          !phases.includes("locations") &&
-          uniqueUrls([...state.knownUrls, ...state.discoveredUrls]).length ===
-            0 &&
-          !hasPatchValues(urlExtracted) &&
-          imageSearchUrls.length === 0
-        ) {
-          if (includesDiscover && state.discoveredUrls.length <= 1) {
-            weakBrandCount += 1;
-            onProgress(
-              `  [WEAK-BRAND] ${brand.slug}: no useful data found (${state.discoveredUrls.length} search results, nothing to scrape)`,
-            );
-          }
-          await recordOutcome({
-            slug: brand.slug,
-            name: getDisplayBrandName(brand),
-            ...(target === "submissions" ? { submissionId: brand.id } : {}),
-            status: "skipped",
-            changedFields: changedFieldsFromPhaseResults(state.phaseResults),
-            phaseResults: state.phaseResults,
-            error:
-              "No usable website, social link, image, or classification data was found",
-          });
-          result.skipped += 1;
-          onProgress(
-            formatBrandComplete(
-              brand.slug,
-              brandIndex,
-              totalBrands,
-              Date.now() - brandStartedAt,
-            ),
-          );
-          continue;
-        }
-
-        await markCurrentPhase("clean");
-        const cleanResult = await runCleanPhase(brand, phases);
-        state.phaseResults.push(cleanResult.phaseResult);
-        await logCurrentPhase(cleanResult.phaseResult);
-        appendPatch(state, cleanResult.patch);
-
-        await markCurrentPhase("links");
-        const linksResult = await runLinksPhase({
-          brand,
-          phases,
-          discoveredUrls: state.discoveredUrls,
-          knownUrls: state.knownUrls,
-          dryRun: config.dryRun,
-          target: { type: targetType, id: brand.id },
-          jobId: config.jobId,
-          supabase: batchContext.supabase,
-        });
-        state.phaseResults.push(linksResult.phaseResult);
-        await logCurrentPhase(linksResult.phaseResult);
-        state.scrapedData = linksResult.scrapedData ?? {};
-        appendPatch(state, linksResult.patch);
-
-        const candidateImages = buildCandidatePool({
-          scraped: linksResult.scrapedImageUrls,
-          jsonLdImages: linksResult.jsonLdImageUrls,
-          googleImages: imageSearchUrls,
-        });
-        await markCurrentPhase("images");
-        const brandImageResult = await runBrandImagePhase({
-          brand,
-          phases,
-          imageSearchUrls,
-          candidateImages,
-          dryRun: config.dryRun,
-          target: { type: targetType, id: brand.id },
-        });
-        state.phaseResults.push(brandImageResult.phaseResult);
-        await logCurrentPhase(brandImageResult.phaseResult);
-        appendPatch(state, brandImageResult.patch);
-
-        await markCurrentPhase("classify-images");
-        const classifyImagesResult = await runClassifyImagesPhase({
-          brand,
-          phases,
-          dryRun: config.dryRun,
-          overwrite,
-          target: { type: targetType, id: brand.id },
-          jobId: config.jobId,
-        });
-        state.phaseResults.push(classifyImagesResult.phaseResult);
-        await logCurrentPhase(classifyImagesResult.phaseResult);
-        appendPatch(state, classifyImagesResult.patch);
-
-        await markCurrentPhase("descriptions");
-        const descriptionsResult = await runDescriptionsPhase({
-          brand,
-          phases,
-          serpSnippets: state.serpSnippets,
-          overwrite,
-          dryRun: config.dryRun,
-          target: { type: targetType, id: brand.id },
-          jobId: config.jobId,
-        });
-        state.phaseResults.push(descriptionsResult.phaseResult);
-        await logCurrentPhase(descriptionsResult.phaseResult);
-        appendPatch(state, descriptionsResult.patch);
-        const reputationAlreadySet =
-          descriptionsResult.patch.reputation_summary != null;
-
-        await markCurrentPhase("locations");
-        const channelsResult = await runChannelsPhase({
-          brand,
-          phases,
-          descriptionRewrite: descriptionsResult.descriptionRewrite,
-          serpResult: searchResults.get(getDisplayBrandName(brand)) ?? null,
-          scrapedData: state.scrapedData,
-          overwrite,
-          dryRun: config.dryRun,
-          target: { type: targetType, id: brand.id },
-          jobId: config.jobId,
-          supabase: batchContext.supabase,
-        });
-        state.phaseResults.push(channelsResult.phaseResult);
-        await logCurrentPhase(channelsResult.phaseResult);
-        appendPatch(state, channelsResult.patch);
-
-        await markCurrentPhase("expansion");
-        const expansionResult = await runExpansionPhase({
-          brand,
-          phases,
-          serpSnippets: state.serpSnippets,
-          scrapedData: state.scrapedData,
-          overwrite,
-          reputationAlreadySet,
-          target: { type: targetType, id: brand.id },
-          jobId: config.jobId,
-        });
-        state.phaseResults.push(expansionResult.phaseResult);
-        await logCurrentPhase(expansionResult.phaseResult);
-        appendPatch(state, expansionResult.patch);
-
-        let classification: ClassificationResult | null = null;
-        let hasCompletedTagClassification = false;
-        if (
-          !(phases.includes("descriptions") && state.serpSnippets.length > 0) &&
-          phases.includes("tags")
-        ) {
-          classification = batchClassifications.get(brand.slug) ?? null;
-        }
-
-        if (classification) {
-          await markCurrentPhase("tags");
-          const tagStartedAt = Date.now();
-          hasCompletedTagClassification = true;
-          if (classification.productType !== brand.product_type) {
-            appendPatch(state, { product_type: classification.productType });
-            const tagPhaseResult = buildPhaseResult(
-              "tags",
-              "succeeded",
-              ["product_type"],
-              Date.now() - tagStartedAt,
-            );
-            state.phaseResults.push(tagPhaseResult);
-            await logCurrentPhase(tagPhaseResult);
-            onProgress(
-              `  [TAG] ${brand.slug}: ${brand.product_type ?? "null"} → ${classification.productType} (${classification.confidence})`,
-            );
-          } else {
-            const tagPhaseResult = buildPhaseResult(
-              "tags",
-              "succeeded",
-              [],
-              Date.now() - tagStartedAt,
-            );
-            state.phaseResults.push(tagPhaseResult);
-            await logCurrentPhase(tagPhaseResult);
-            onProgress(
-              `  [TAG] ${brand.slug}: ${brand.product_type} (unchanged)`,
-            );
-          }
-        }
-
-        const patch = state.patches;
-        if (includesDiscover) {
-          onProgress(
-            `  [DISCOVER] ${state.discoveredUrls.length} new URLs found`,
-          );
-        }
-        const patchKeys = Object.keys(patch);
-        if (patchKeys.length > 0) {
-          for (const key of patchKeys) {
-            const val = (patch as Record<string, unknown>)[key];
-            const display = Array.isArray(val)
-              ? `[${val.length} items]`
-              : typeof val === "string" && val.length > 60
-                ? `${val.slice(0, 60)}…`
-                : val;
-            onProgress(`  [ENRICH] ${key}: ${display}`);
-          }
-        }
-
-        const changedFields = changedFieldsFromPhaseResults(state.phaseResults);
-
-        if (!hasPatchValues(patch) && !hasCompletedTagClassification) {
-          if (includesDiscover && state.discoveredUrls.length <= 1) {
-            weakBrandCount += 1;
-            onProgress(
-              `  [WEAK-BRAND] ${brand.slug}: no useful data found (${state.discoveredUrls.length} search results, no enrichment changes)`,
-            );
-          }
-          if (!config.dryRun && descriptionsResult.attempts.length > 0) {
-            await logDescriptionAiResult(
-              brand.id,
-              descriptionsResult.attempts,
-              { type: targetType, id: brand.id },
-            );
-          }
-          const skippedOutcome: BrandOutcome = {
-            slug: brand.slug,
-            name: getDisplayBrandName(brand),
-            ...(target === "submissions" ? { submissionId: brand.id } : {}),
-            status: "skipped",
-            changedFields,
-            phaseResults: state.phaseResults,
-            error:
-              "All requested phases completed, but no new enrichment fields were found",
+            ...options,
           };
-          await recordOutcome(skippedOutcome);
-          result.skipped += 1;
-          onProgress(
-            formatBrandComplete(
-              brand.slug,
-              brandIndex,
-              totalBrands,
-              Date.now() - brandStartedAt,
-            ),
+          await queueTargetProgress(event);
+        };
+        const markCurrentPhase = async (phase: string): Promise<void> => {
+          currentPhase = phase;
+          await emitTargetProgress("running");
+        };
+        const logCurrentPhase = async (
+          phaseResult: PhaseResult,
+        ): Promise<void> => {
+          currentPhase = phaseResult.phase;
+          const rawIndex = phaseOrder.indexOf(phaseResult.phase);
+          const phaseIndex = rawIndex >= 0 ? rawIndex + 1 : totalPhases;
+          logPhaseResult(
+            onProgress,
+            brand,
+            brandIndex,
+            totalBrands,
+            phaseResult,
+            phaseIndex,
+            totalPhases,
           );
-          continue;
-        }
+          await emitTargetProgress("running", {
+            phaseResults: outcomePhaseResults,
+          });
+        };
+        const recordOutcome = async (outcome: BrandOutcome): Promise<void> => {
+          result.brandOutcomes[outcomeIndex] = outcome;
+          await emitTargetProgressBatch([
+            {
+              targetId: brand.id,
+              targetType,
+              slug: brand.slug,
+              name: getDisplayBrandName(brand),
+              status: outcome.status,
+              currentPhase,
+              phaseResults: outcome.phaseResults,
+              changedFields: outcome.changedFields,
+              error: outcome.error,
+              durationMs: Date.now() - brandStartedAt,
+            },
+          ]);
+        };
+        let outcomePhaseResults: PhaseResult[] = [];
 
-        if (!config.dryRun) {
-          if (detectResult) {
-            await insertTriageResult({
-              brandId: brand.id,
-              target: { type: targetType, id: brand.id },
-              isNonBrand: false,
-              nonBrandReason: null,
-              slugGenerated: detectResult.slugGenerated,
-              productType: detectResult.productType,
-              confidence: detectResult.confidence,
-            });
+        await emitTargetProgress("running");
+
+        try {
+          const detectResult = detectResults.get(brand.slug);
+          const state: BrandEnrichState = {
+            patches: {},
+            phaseResults: [...(batchPhaseResults.get(brand.id) ?? [])],
+            knownUrls: collectKnownUrls(brand),
+            discoveredUrls: [],
+            serpSnippets: [],
+            serpEntries: [],
+            scrapedData: {},
+          };
+          outcomePhaseResults = state.phaseResults;
+          const detectApplication = applyDetectResult(
+            detectResult,
+            brand,
+            phases,
+          );
+          if (hasDetectPhases) {
+            await markCurrentPhase("detect");
+            state.phaseResults.push(detectApplication.phaseResult);
+            await logCurrentPhase(detectApplication.phaseResult);
           }
-          if (descriptionsResult.attempts.length > 0) {
-            await logDescriptionAiResult(
-              brand.id,
-              descriptionsResult.attempts,
-              { type: targetType, id: brand.id },
+          appendPatch(state, detectApplication.patch);
+
+          if (detectApplication.isNonBrand) {
+            const skipReason = detectResult?.nonBrandReason
+              ? `Detection classified this entry as not a brand: ${detectResult.nonBrandReason}`
+              : "Detection classified this entry as not a brand";
+            onProgress(
+              `  [NON-BRAND] ${brand.slug}: ${detectResult?.nonBrandReason ?? "non-brand"} (${detectResult?.confidence})`,
             );
-          }
-          if (classification) {
-            await insertClassificationResult({
-              brandId: brand.id,
-              target: { type: targetType, id: brand.id },
-              productType: classification.productType,
-              confidence: classification.confidence,
-            });
-          }
-          await markCurrentPhase("persist");
-          try {
-            await persistSubmissionEnrichmentResults(
-              supabase as unknown as SupabaseClient,
-              brand.id,
-              patch as JsonObject,
-              config.jobId,
-            );
-          } catch (err) {
-            const errMsg = errorMessage(err);
-            outcomePhaseResults.push(
-              buildPhaseResult("persist", "failed", [], 0, errMsg),
-            );
-            result.errors.push(`${brand.slug}: ${errMsg}`);
+
+            if (!config.dryRun) {
+              await insertTriageResult({
+                brandId: brand.id,
+                target: { type: targetType, id: brand.id },
+                isNonBrand: true,
+                nonBrandReason: detectResult?.nonBrandReason ?? null,
+                slugGenerated: detectResult?.slugGenerated ?? null,
+                productType: detectResult?.productType ?? null,
+                confidence: detectResult?.confidence ?? "high",
+              });
+            }
+
             await recordOutcome({
               slug: brand.slug,
               name: getDisplayBrandName(brand),
               ...(target === "submissions" ? { submissionId: brand.id } : {}),
-              status: "failed",
-              changedFields: changedFieldsFromPhaseResults(outcomePhaseResults),
-              phaseResults: outcomePhaseResults,
-              error: errMsg,
+              status: "skipped",
+              changedFields: changedFieldsFromPhaseResults(state.phaseResults),
+              phaseResults: state.phaseResults,
+              error: skipReason,
             });
             result.skipped += 1;
             onProgress(
@@ -1524,62 +1245,403 @@ export async function runEnrich(
                 Date.now() - brandStartedAt,
               ),
             );
-            continue;
+            return;
           }
-        }
 
-        const succeededOutcome: BrandOutcome = {
-          slug: brand.slug,
-          name: getDisplayBrandName(brand),
-          ...(target === "submissions" ? { submissionId: brand.id } : {}),
-          status: "succeeded",
-          changedFields,
-          phaseResults: state.phaseResults,
-        };
-        await recordOutcome(succeededOutcome);
-        result.updated += 1;
-        onProgress(
-          formatBrandComplete(
-            brand.slug,
-            brandIndex,
-            totalBrands,
-            Date.now() - brandStartedAt,
-          ),
-        );
-      } catch (err) {
-        const errMsg = errorMessage(err);
-        if (
-          !outcomePhaseResults.some(
-            (phaseResult) => phaseResult.status === "failed",
-          )
-        ) {
-          outcomePhaseResults.push(
-            buildPhaseResult(currentPhase ?? "brand", "failed", [], 0, errMsg),
+          if (searchError) {
+            throw new Error(searchError);
+          }
+
+          if (phases.includes("discover")) {
+            const searchResult = searchResults.get(
+              getDisplayBrandName(brand),
+            ) ?? { urls: [], snippets: [] };
+            state.discoveredUrls = uniqueUrls(
+              searchResult.urls.filter((url) => !state.knownUrls.includes(url)),
+            );
+            state.serpSnippets = searchResult.snippets;
+            state.serpEntries = searchResult.entries ?? [];
+          } else if (searchResults.size > 0) {
+            const searchResult = searchResults.get(
+              getDisplayBrandName(brand),
+            ) ?? { urls: [], snippets: [] };
+            state.serpSnippets = searchResult.snippets;
+            state.serpEntries = searchResult.entries ?? [];
+          }
+
+          const urlExtracted = extractLinksFromUrls(state.discoveredUrls);
+          let imageSearchUrls: string[] = [];
+          if (phases.includes("images")) {
+            imageSearchUrls =
+              imageSearchResults.get(getDisplayBrandName(brand)) ?? [];
+            onProgress(
+              `  [IMAGE-SEARCH] ${imageSearchUrls.length} images found`,
+            );
+          }
+
+          if (
+            !phases.includes("tags") &&
+            !phases.includes("locations") &&
+            uniqueUrls([...state.knownUrls, ...state.discoveredUrls]).length ===
+              0 &&
+            !hasPatchValues(urlExtracted) &&
+            imageSearchUrls.length === 0
+          ) {
+            if (includesDiscover && state.discoveredUrls.length <= 1) {
+              weakBrandCount += 1;
+              onProgress(
+                `  [WEAK-BRAND] ${brand.slug}: no useful data found (${state.discoveredUrls.length} search results, nothing to scrape)`,
+              );
+            }
+            await recordOutcome({
+              slug: brand.slug,
+              name: getDisplayBrandName(brand),
+              ...(target === "submissions" ? { submissionId: brand.id } : {}),
+              status: "skipped",
+              changedFields: changedFieldsFromPhaseResults(state.phaseResults),
+              phaseResults: state.phaseResults,
+              error:
+                "No usable website, social link, image, or classification data was found",
+            });
+            result.skipped += 1;
+            onProgress(
+              formatBrandComplete(
+                brand.slug,
+                brandIndex,
+                totalBrands,
+                Date.now() - brandStartedAt,
+              ),
+            );
+            return;
+          }
+
+          await markCurrentPhase("clean");
+          const cleanResult = await runCleanPhase(brand, phases);
+          state.phaseResults.push(cleanResult.phaseResult);
+          await logCurrentPhase(cleanResult.phaseResult);
+          appendPatch(state, cleanResult.patch);
+
+          await markCurrentPhase("links");
+          const linksResult = await runLinksPhase({
+            brand,
+            phases,
+            discoveredUrls: state.discoveredUrls,
+            knownUrls: state.knownUrls,
+            dryRun: config.dryRun,
+            target: { type: targetType, id: brand.id },
+            jobId: config.jobId,
+            supabase: batchContext.supabase,
+          });
+          state.phaseResults.push(linksResult.phaseResult);
+          await logCurrentPhase(linksResult.phaseResult);
+          state.scrapedData = linksResult.scrapedData ?? {};
+          appendPatch(state, linksResult.patch);
+
+          const candidateImages = buildCandidatePool({
+            scraped: linksResult.scrapedImageUrls,
+            jsonLdImages: linksResult.jsonLdImageUrls,
+            googleImages: imageSearchUrls,
+          });
+          await markCurrentPhase("images");
+          const brandImageResult = await runBrandImagePhase({
+            brand,
+            phases,
+            imageSearchUrls,
+            candidateImages,
+            dryRun: config.dryRun,
+            target: { type: targetType, id: brand.id },
+          });
+          state.phaseResults.push(brandImageResult.phaseResult);
+          await logCurrentPhase(brandImageResult.phaseResult);
+          appendPatch(state, brandImageResult.patch);
+
+          await markCurrentPhase("classify-images");
+          const classifyImagesResult = await runClassifyImagesPhase({
+            brand,
+            phases,
+            dryRun: config.dryRun,
+            overwrite,
+            target: { type: targetType, id: brand.id },
+            jobId: config.jobId,
+          });
+          state.phaseResults.push(classifyImagesResult.phaseResult);
+          await logCurrentPhase(classifyImagesResult.phaseResult);
+          appendPatch(state, classifyImagesResult.patch);
+
+          await markCurrentPhase("descriptions");
+          const descriptionsResult = await runDescriptionsPhase({
+            brand,
+            phases,
+            serpSnippets: state.serpSnippets,
+            overwrite,
+            dryRun: config.dryRun,
+            target: { type: targetType, id: brand.id },
+            jobId: config.jobId,
+          });
+          state.phaseResults.push(descriptionsResult.phaseResult);
+          await logCurrentPhase(descriptionsResult.phaseResult);
+          appendPatch(state, descriptionsResult.patch);
+          const reputationAlreadySet =
+            descriptionsResult.patch.reputation_summary != null;
+
+          await markCurrentPhase("locations");
+          const channelsResult = await runChannelsPhase({
+            brand,
+            phases,
+            descriptionRewrite: descriptionsResult.descriptionRewrite,
+            serpResult: searchResults.get(getDisplayBrandName(brand)) ?? null,
+            scrapedData: state.scrapedData,
+            overwrite,
+            dryRun: config.dryRun,
+            target: { type: targetType, id: brand.id },
+            jobId: config.jobId,
+            supabase: batchContext.supabase,
+          });
+          state.phaseResults.push(channelsResult.phaseResult);
+          await logCurrentPhase(channelsResult.phaseResult);
+          appendPatch(state, channelsResult.patch);
+
+          await markCurrentPhase("expansion");
+          const expansionResult = await runExpansionPhase({
+            brand,
+            phases,
+            serpSnippets: state.serpSnippets,
+            scrapedData: state.scrapedData,
+            overwrite,
+            reputationAlreadySet,
+            target: { type: targetType, id: brand.id },
+            jobId: config.jobId,
+          });
+          state.phaseResults.push(expansionResult.phaseResult);
+          await logCurrentPhase(expansionResult.phaseResult);
+          appendPatch(state, expansionResult.patch);
+
+          let classification: ClassificationResult | null = null;
+          let hasCompletedTagClassification = false;
+          if (
+            !(
+              phases.includes("descriptions") && state.serpSnippets.length > 0
+            ) &&
+            phases.includes("tags")
+          ) {
+            classification = batchClassifications.get(brand.slug) ?? null;
+          }
+
+          if (classification) {
+            await markCurrentPhase("tags");
+            const tagStartedAt = Date.now();
+            hasCompletedTagClassification = true;
+            if (classification.productType !== brand.product_type) {
+              appendPatch(state, { product_type: classification.productType });
+              const tagPhaseResult = buildPhaseResult(
+                "tags",
+                "succeeded",
+                ["product_type"],
+                Date.now() - tagStartedAt,
+              );
+              state.phaseResults.push(tagPhaseResult);
+              await logCurrentPhase(tagPhaseResult);
+              onProgress(
+                `  [TAG] ${brand.slug}: ${brand.product_type ?? "null"} → ${classification.productType} (${classification.confidence})`,
+              );
+            } else {
+              const tagPhaseResult = buildPhaseResult(
+                "tags",
+                "succeeded",
+                [],
+                Date.now() - tagStartedAt,
+              );
+              state.phaseResults.push(tagPhaseResult);
+              await logCurrentPhase(tagPhaseResult);
+              onProgress(
+                `  [TAG] ${brand.slug}: ${brand.product_type} (unchanged)`,
+              );
+            }
+          }
+
+          const patch = state.patches;
+          if (includesDiscover) {
+            onProgress(
+              `  [DISCOVER] ${state.discoveredUrls.length} new URLs found`,
+            );
+          }
+          const patchKeys = Object.keys(patch);
+          if (patchKeys.length > 0) {
+            for (const key of patchKeys) {
+              const val = (patch as Record<string, unknown>)[key];
+              const display = Array.isArray(val)
+                ? `[${val.length} items]`
+                : typeof val === "string" && val.length > 60
+                  ? `${val.slice(0, 60)}…`
+                  : val;
+              onProgress(`  [ENRICH] ${key}: ${display}`);
+            }
+          }
+
+          const changedFields = changedFieldsFromPhaseResults(
+            state.phaseResults,
+          );
+
+          if (!hasPatchValues(patch) && !hasCompletedTagClassification) {
+            if (includesDiscover && state.discoveredUrls.length <= 1) {
+              weakBrandCount += 1;
+              onProgress(
+                `  [WEAK-BRAND] ${brand.slug}: no useful data found (${state.discoveredUrls.length} search results, no enrichment changes)`,
+              );
+            }
+            if (!config.dryRun && descriptionsResult.attempts.length > 0) {
+              await logDescriptionAiResult(
+                brand.id,
+                descriptionsResult.attempts,
+                { type: targetType, id: brand.id },
+              );
+            }
+            const skippedOutcome: BrandOutcome = {
+              slug: brand.slug,
+              name: getDisplayBrandName(brand),
+              ...(target === "submissions" ? { submissionId: brand.id } : {}),
+              status: "skipped",
+              changedFields,
+              phaseResults: state.phaseResults,
+              error:
+                "All requested phases completed, but no new enrichment fields were found",
+            };
+            await recordOutcome(skippedOutcome);
+            result.skipped += 1;
+            onProgress(
+              formatBrandComplete(
+                brand.slug,
+                brandIndex,
+                totalBrands,
+                Date.now() - brandStartedAt,
+              ),
+            );
+            return;
+          }
+
+          if (!config.dryRun) {
+            if (detectResult) {
+              await insertTriageResult({
+                brandId: brand.id,
+                target: { type: targetType, id: brand.id },
+                isNonBrand: false,
+                nonBrandReason: null,
+                slugGenerated: detectResult.slugGenerated,
+                productType: detectResult.productType,
+                confidence: detectResult.confidence,
+              });
+            }
+            if (descriptionsResult.attempts.length > 0) {
+              await logDescriptionAiResult(
+                brand.id,
+                descriptionsResult.attempts,
+                { type: targetType, id: brand.id },
+              );
+            }
+            if (classification) {
+              await insertClassificationResult({
+                brandId: brand.id,
+                target: { type: targetType, id: brand.id },
+                productType: classification.productType,
+                confidence: classification.confidence,
+              });
+            }
+            await markCurrentPhase("persist");
+            try {
+              await persistSubmissionEnrichmentResults(
+                supabase as unknown as SupabaseClient,
+                brand.id,
+                patch as JsonObject,
+                config.jobId,
+              );
+            } catch (err) {
+              const errMsg = errorMessage(err);
+              outcomePhaseResults.push(
+                buildPhaseResult("persist", "failed", [], 0, errMsg),
+              );
+              result.errors.push(`${brand.slug}: ${errMsg}`);
+              await recordOutcome({
+                slug: brand.slug,
+                name: getDisplayBrandName(brand),
+                ...(target === "submissions" ? { submissionId: brand.id } : {}),
+                status: "failed",
+                changedFields:
+                  changedFieldsFromPhaseResults(outcomePhaseResults),
+                phaseResults: outcomePhaseResults,
+                error: errMsg,
+              });
+              result.skipped += 1;
+              onProgress(
+                formatBrandComplete(
+                  brand.slug,
+                  brandIndex,
+                  totalBrands,
+                  Date.now() - brandStartedAt,
+                ),
+              );
+              return;
+            }
+          }
+
+          const succeededOutcome: BrandOutcome = {
+            slug: brand.slug,
+            name: getDisplayBrandName(brand),
+            ...(target === "submissions" ? { submissionId: brand.id } : {}),
+            status: "succeeded",
+            changedFields,
+            phaseResults: state.phaseResults,
+          };
+          await recordOutcome(succeededOutcome);
+          result.updated += 1;
+          onProgress(
+            formatBrandComplete(
+              brand.slug,
+              brandIndex,
+              totalBrands,
+              Date.now() - brandStartedAt,
+            ),
+          );
+        } catch (err) {
+          const errMsg = errorMessage(err);
+          if (
+            !outcomePhaseResults.some(
+              (phaseResult) => phaseResult.status === "failed",
+            )
+          ) {
+            outcomePhaseResults.push(
+              buildPhaseResult(
+                currentPhase ?? "brand",
+                "failed",
+                [],
+                0,
+                errMsg,
+              ),
+            );
+          }
+          result.errors.push(`${brand.slug}: ${errMsg}`);
+          await recordOutcome({
+            slug: brand.slug,
+            name: getDisplayBrandName(brand),
+            ...(target === "submissions" ? { submissionId: brand.id } : {}),
+            status: "failed",
+            changedFields: changedFieldsFromPhaseResults(outcomePhaseResults),
+            phaseResults: outcomePhaseResults,
+            error: errMsg,
+          });
+          result.skipped += 1;
+          onProgress(
+            formatBrandComplete(
+              brand.slug,
+              brandIndex,
+              totalBrands,
+              Date.now() - brandStartedAt,
+            ),
           );
         }
-        result.errors.push(`${brand.slug}: ${errMsg}`);
-        await recordOutcome({
-          slug: brand.slug,
-          name: getDisplayBrandName(brand),
-          ...(target === "submissions" ? { submissionId: brand.id } : {}),
-          status: "failed",
-          changedFields: changedFieldsFromPhaseResults(outcomePhaseResults),
-          phaseResults: outcomePhaseResults,
-          error: errMsg,
-        });
-        result.skipped += 1;
-        onProgress(
-          formatBrandComplete(
-            brand.slug,
-            brandIndex,
-            totalBrands,
-            Date.now() - brandStartedAt,
-          ),
-        );
-      }
-    }
+      },
+    );
 
-    await flushTargetProgress(true);
+    await serializeTargetProgressBatch(() => flushTargetProgress(true));
 
     onProgress(
       `[PROGRESS] ${result.processed}/${totalBrands} processed | ${result.updated} updated | ${result.skipped} skipped | ${result.errors.length} errors`,

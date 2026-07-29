@@ -1607,6 +1607,7 @@ export type Database = {
           last_error: string | null
           lease_expires_at: string | null
           lease_owner: string | null
+          linear_identifier: string | null
           merge_policy: string
           merge_sha: string | null
           next_attempt_at: string | null
@@ -1617,6 +1618,7 @@ export type Database = {
           sentry_issue_id: string | null
           source: string
           status: string
+          ticketed_at: string | null
           title: string
           updated_at: string
           url: string | null
@@ -1635,6 +1637,7 @@ export type Database = {
           last_error?: string | null
           lease_expires_at?: string | null
           lease_owner?: string | null
+          linear_identifier?: string | null
           merge_policy?: string
           merge_sha?: string | null
           next_attempt_at?: string | null
@@ -1645,6 +1648,7 @@ export type Database = {
           sentry_issue_id?: string | null
           source: string
           status?: string
+          ticketed_at?: string | null
           title: string
           updated_at?: string
           url?: string | null
@@ -1663,6 +1667,7 @@ export type Database = {
           last_error?: string | null
           lease_expires_at?: string | null
           lease_owner?: string | null
+          linear_identifier?: string | null
           merge_policy?: string
           merge_sha?: string | null
           next_attempt_at?: string | null
@@ -1673,6 +1678,7 @@ export type Database = {
           sentry_issue_id?: string | null
           source?: string
           status?: string
+          ticketed_at?: string | null
           title?: string
           updated_at?: string
           url?: string | null

@@ -63,8 +63,8 @@ type BrandCorrectionRowWithBrand = BrandCorrectionRow & {
   brands?: BrandCorrectionBrandRow | null;
 };
 
-export type PurchaseLinkCorrectionField = (typeof PURCHASE_LINK_FIELDS)[number];
-export type SocialLinkCorrectionField = (typeof SOCIAL_LINK_FIELDS)[number];
+type PurchaseLinkCorrectionField = (typeof PURCHASE_LINK_FIELDS)[number];
+type SocialLinkCorrectionField = (typeof SOCIAL_LINK_FIELDS)[number];
 type LinkCorrectionField =
   | PurchaseLinkCorrectionField
   | SocialLinkCorrectionField;

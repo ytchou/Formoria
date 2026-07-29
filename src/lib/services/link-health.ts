@@ -338,6 +338,11 @@ export async function runLinkHealthCheck(
         ok++;
         consecutiveFailures = 0;
         lastOkAt = now;
+        // A recovered link must drop its cleanup flag and failure history,
+        // otherwise the cleanup finding stays sticky forever. "blocked" is
+        // deliberately excluded below: a bot challenge is not evidence of recovery.
+        cleanupRequiredAt = null;
+        failureDates = [];
       } else if (result.status === "blocked") {
         blocked++;
       } else {
