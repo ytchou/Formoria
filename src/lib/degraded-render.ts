@@ -29,17 +29,33 @@ function isPrerendering(): boolean {
  * of the static cache so the next request retries against the DB.
  *
  * At prerender time `connection()` is `throwToInterruptStaticGeneration`, which
- * would mark the route dynamic (ƒ) for the entire deployment: `revalidate` would
- * produce no static entry and every request would render on demand with no ISR
- * cache, with nothing surfacing it at runtime. A build-time read failure
- * therefore fails the build loudly instead — a failed deploy is recoverable,
- * a silently uncached route is not.
+ * marks the route dynamic (ƒ) for the whole deployment: `revalidate` produces no
+ * static entry and every request renders on demand with no ISR cache. That is bad
+ * but recoverable, and it is no longer *silent* — `captureReadFailure` logs and
+ * reports every read failure to Sentry, so a demotion is visible without having
+ * to fail the build.
+ *
+ * Failing the build is therefore opt-in. Deploy builds that genuinely expect a
+ * reachable database can set `STRICT_PRERENDER_DATA=1` to turn a read failure
+ * into a hard build error. It is off by default because CI builds this app with
+ * no database on purpose — the Build job is a compile check and points Supabase
+ * at 127.0.0.1, so a mandatory throw fails a build that is working as intended.
  */
+const STRICT_PRERENDER_DATA = process.env.STRICT_PRERENDER_DATA === '1'
+
 export async function markRenderDegraded(scope: string): Promise<void> {
   if (isPrerendering()) {
-    throw new Error(
-      `[${scope}] page data read failed during prerender. Failing the build rather than `
-      + 'demoting the route to fully dynamic. See the captured exception above for the cause.',
+    if (STRICT_PRERENDER_DATA) {
+      throw new Error(
+        `[${scope}] page data read failed during prerender, and STRICT_PRERENDER_DATA is set. `
+        + 'Failing the build rather than demoting the route to fully dynamic. '
+        + 'See the captured exception above for the cause.',
+      )
+    }
+    console.warn(
+      `[${scope}] page data read failed during prerender — this route will be DYNAMIC for the `
+      + 'whole deployment, with no ISR cache, until the next build. Set STRICT_PRERENDER_DATA=1 '
+      + 'on builds that should fail instead.',
     )
   }
   await connection()

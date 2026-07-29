@@ -55,7 +55,8 @@ function renderWithIntl(ui: React.ReactElement) {
 // waitFor's 1s default is not a real budget for this: resolving the chunk is a
 // module import competing with every other vitest worker for CPU, so under a
 // full parallel suite it routinely overruns. The wait is generous; nothing it
-// waits for is weakened.
+// waits for is weakened. The per-test budget that must exceed this one lives in
+// vitest.config.ts (testTimeout).
 const CHUNK_LOAD_TIMEOUT_MS = 10_000
 
 async function findLoadedDialog() {
