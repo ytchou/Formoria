@@ -5,7 +5,7 @@ import { useImageUpload } from './useImageUpload'
 
 const uploadConfig = {
   bucket: 'brand-images',
-  path: 'test',
+  path: 'brands/taiwan-tea-company',
   invalidTypeMessage: 'Choose an image file.',
   fileTooLargeMessage: 'The image must be 5MB or smaller.',
   uploadFailedMessage: 'Upload failed. Please try again.',
@@ -65,7 +65,7 @@ describe('useImageUpload', () => {
   it('uploads and returns public URL on success', async () => {
     vi.spyOn(global, 'fetch').mockResolvedValueOnce(
       new Response(
-        JSON.stringify({ url: 'https://storage.example.com/test/logo.webp' }),
+        JSON.stringify({ url: 'https://storage.example.com/brands/taiwan-tea-company/logo.webp' }),
         { status: 200 }
       )
     )
@@ -80,13 +80,17 @@ describe('useImageUpload', () => {
     })
 
     expect(result.current.status).toBe('success')
-    expect(result.current.url).toBe('https://storage.example.com/test/logo.webp')
+    expect(result.current.url).toBe(
+      'https://storage.example.com/brands/taiwan-tea-company/logo.webp',
+    )
   })
 
   it('allows caller-provided file types and upload fields', async () => {
     const fetchMock = vi.spyOn(global, 'fetch').mockResolvedValueOnce(
       new Response(
-        JSON.stringify({ key: 'claim-proofs/user-1/brand-1/doc.pdf' }),
+        JSON.stringify({
+          key: 'claim-proofs/2fd12f4c-51a6-4af4-9dac-7dd12a5ec914/taiwan-tea-company/business-registration.pdf',
+        }),
         { status: 200 }
       )
     )
@@ -100,14 +104,16 @@ describe('useImageUpload', () => {
         uploadFields: { proofType: 'business_doc' },
       })
     )
-    const file = createMockFile('doc.pdf', 1024, 'application/pdf')
+    const file = createMockFile('business-registration.pdf', 1024, 'application/pdf')
 
     await act(async () => {
       await result.current.upload(file)
     })
 
     expect(result.current.status).toBe('success')
-    expect(result.current.key).toBe('claim-proofs/user-1/brand-1/doc.pdf')
+    expect(result.current.key).toBe(
+      'claim-proofs/2fd12f4c-51a6-4af4-9dac-7dd12a5ec914/taiwan-tea-company/business-registration.pdf',
+    )
     const body = fetchMock.mock.calls[0]?.[1]?.body
     expect(body).toBeInstanceOf(FormData)
     expect((body as FormData).get('proofType')).toBe('business_doc')
@@ -115,8 +121,8 @@ describe('useImageUpload', () => {
 
   it('returns staged metadata from a custom upload endpoint', async () => {
     const stagedImage = {
-      id: 'image-1',
-      submissionId: 'submission-1',
+      id: '7a0ea90d-4a8c-4d2f-91cf-a6864a41a26d',
+      submissionId: 'b5cd2968-6587-48fe-9c6a-6104db171db5',
       url: 'https://storage.example.com/submission/image.webp',
       status: 'draft',
     }
@@ -127,7 +133,7 @@ describe('useImageUpload', () => {
       useImageUpload({
         ...uploadConfig,
         path: 'submissions/taiwan-tea-company',
-        endpoint: '/api/admin/submissions/submission-1/images',
+        endpoint: '/api/admin/submissions/b5cd2968-6587-48fe-9c6a-6104db171db5/images',
       })
     )
 
@@ -139,7 +145,7 @@ describe('useImageUpload', () => {
     })
 
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/admin/submissions/submission-1/images',
+      '/api/admin/submissions/b5cd2968-6587-48fe-9c6a-6104db171db5/images',
       expect.objectContaining({ method: 'POST' })
     )
     expect(uploaded).toMatchObject({

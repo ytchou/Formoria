@@ -61,6 +61,15 @@ describe('locale preference', () => {
     expect(localizePath('/en/dashboard', 'zh-TW')).toBe('/dashboard')
   })
 
+  it('preserves query and fragment when a visitor switches locale from either homepage', () => {
+    expect(localizePath('/en?campaign=summer#brands', 'zh-TW')).toBe(
+      '/?campaign=summer#brands',
+    )
+    expect(localizePath('/?campaign=summer#brands', 'en')).toBe(
+      '/en?campaign=summer#brands',
+    )
+  })
+
   it('restores a returning user profile locale while new users keep their auth intent', () => {
     expect(resolveAuthenticatedLocale({
       isNewUser: false,

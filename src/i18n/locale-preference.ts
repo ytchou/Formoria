@@ -10,7 +10,11 @@ export function isAppLocale(value: string | null | undefined): value is AppLocal
 
 export function localizePath(pathname: string, locale: string): string {
   const safeLocale = isAppLocale(locale) ? locale : routing.defaultLocale
-  const safePath = pathname.startsWith('/') && !pathname.startsWith('//') ? pathname : '/'
+  const suffixIndex = pathname.search(/[?#]/)
+  const pathOnly = suffixIndex === -1 ? pathname : pathname.slice(0, suffixIndex)
+  const isSafePath = pathOnly.startsWith('/') && !pathOnly.startsWith('//')
+  const safePath = isSafePath ? pathOnly : '/'
+  const suffix = isSafePath && suffixIndex !== -1 ? pathname.slice(suffixIndex) : ''
   const unprefixedPath = safePath === '/en' || safePath === '/zh-TW'
     ? '/'
     : safePath.startsWith('/en/')
@@ -18,9 +22,10 @@ export function localizePath(pathname: string, locale: string): string {
       : safePath.startsWith('/zh-TW/')
         ? safePath.slice(6)
         : safePath
-  return safeLocale === routing.defaultLocale
+  const localizedPath = safeLocale === routing.defaultLocale
     ? unprefixedPath
     : `/en${unprefixedPath === '/' ? '' : unprefixedPath}`
+  return `${localizedPath}${suffix}`
 }
 
 export function localizePostAuthPath(path: string, locale: string): string {

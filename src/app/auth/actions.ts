@@ -169,7 +169,7 @@ export async function signInWithGoogle(
   const intentCookie = {
     httpOnly: true,
     sameSite: "lax" as const,
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.NODE_ENV === "production" && process.env.PLAYWRIGHT_TEST !== "true",
     path: "/",
     maxAge: 600,
   };
