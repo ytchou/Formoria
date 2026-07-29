@@ -30,7 +30,6 @@ const IMAGE_TAGS = [
 
 const VALID_TAGS = new Set<string>(IMAGE_TAGS)
 export const JUNK_TAGS = new Set(['promo', 'text_banner', 'irrelevant'])
-const MIN_HERO_SCORE = 50
 
 /**
  * Hero ordering is rank-major, score-minor — rank MUST beat score.
@@ -600,21 +599,11 @@ export async function runClassifyImagesPhase({
         .flatMap((row) => (typeof row.sort_order === 'number' ? [row.sort_order] : []))
     )
 
-    if (ordered.length === 0 && classifications.length > 0) {
-      const best = classifications
-        .filter((image) => !JUNK_TAGS.has(image.tag))
-        .toSorted((a, b) => b.score - a.score)
-        .at(0)
-      if (best && best.score >= MIN_HERO_SCORE && !reservedSortOrders.has(0)) {
-        await updateImage(supabase, target, best.id, { status: 'active', sort_order: 0 })
-      }
-    } else {
-      let sortOrder = 0
-      for (const image of ordered) {
-        while (reservedSortOrders.has(sortOrder)) sortOrder += 1
-        await updateImage(supabase, target, image.id, { sort_order: sortOrder })
-        sortOrder += 1
-      }
+    let sortOrder = 0
+    for (const image of ordered) {
+      while (reservedSortOrders.has(sortOrder)) sortOrder += 1
+      await updateImage(supabase, target, image.id, { sort_order: sortOrder })
+      sortOrder += 1
     }
 
     if (target.type === 'brand') {
