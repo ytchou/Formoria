@@ -76,7 +76,11 @@ export default async function AdminLayout({
   ];
 
   return (
-    <RootDocument locale="en" skipToContentLabel={tCommon("skipToContent")}>
+    <RootDocument
+      locale="en"
+      skipToContentLabel={tCommon("skipToContent")}
+      feedbackCopy={messages.feedbackWidget as Record<string, string>}
+    >
       <NextIntlClientProvider locale="en" messages={messages}>
         <div className="min-h-screen bg-background">
           <main id="main-content" className="mx-auto max-w-screen-2xl px-10 pb-8 pt-8">

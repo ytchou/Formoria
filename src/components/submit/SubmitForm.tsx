@@ -12,7 +12,7 @@ import { useForm, useWatch, Controller, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ShieldCheck } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { useRouter } from '@/i18n/navigation'
+import { Link, useRouter } from '@/i18n/navigation'
 import {
   createRecommendationSubmissionSchema,
   type SubmissionFormData,
@@ -441,14 +441,14 @@ export default function SubmitForm({
                       <span className="type-body font-normal">
                         {tReview.rich('pdpaConsent', {
                           privacyPolicy: (chunks) => (
-                            <a
+                            <Link
                               href="/privacy"
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             >
                               {chunks}
-                            </a>
+                            </Link>
                           ),
                         })}
                         <span aria-hidden="true" className="text-destructive">

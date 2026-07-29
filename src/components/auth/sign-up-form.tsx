@@ -74,7 +74,7 @@ export function SignUpForm({ claimToken, claimBrandName }: SignUpFormProps) {
             id="email"
             name="email"
             type="email"
-            placeholder="you@example.com"
+            placeholder={t("emailPlaceholder")}
             defaultValue={email}
             required
             autoComplete="email"

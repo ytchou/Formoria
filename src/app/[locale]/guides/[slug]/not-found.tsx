@@ -1,10 +1,12 @@
-import { getTranslations } from 'next-intl/server'
+'use client'
+
+import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
-export default async function GuideNotFound() {
-  const t = await getTranslations('guides')
+export default function GuideNotFound() {
+  const t = useTranslations('guides')
 
   return (
     <main className="page-gutter mx-auto flex max-w-screen-xl flex-col items-center justify-center py-24 text-center">

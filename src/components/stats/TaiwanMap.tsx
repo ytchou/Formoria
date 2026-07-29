@@ -1,6 +1,7 @@
 'use client'
 
 import { ComposableMap, Geographies, Geography } from 'react-simple-maps'
+import { useTranslations } from 'next-intl'
 import { TAIWAN_CITIES } from '@/lib/constants/taiwan-cities'
 
 interface Props {
@@ -17,11 +18,12 @@ const TOPO_NAME_TO_SLUG: Record<string, string> = Object.fromEntries([
 ])
 
 export function TaiwanMap({ data }: Props) {
+  const t = useTranslations('stats')
   const maxCount = Math.max(...data.map((item) => item.count), 1)
   const countBySlug = new Map(data.map((item) => [item.city, item.count]))
 
   return (
-    <div className="mx-auto w-full max-w-md" role="img" aria-label="Taiwan brand distribution map">
+    <div className="mx-auto w-full max-w-md" role="img" aria-label={t('mapAria')}>
       <ComposableMap
         projection="geoMercator"
         projectionConfig={{ center: [121, 24], scale: 4000 }}

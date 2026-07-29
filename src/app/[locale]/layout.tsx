@@ -67,7 +67,11 @@ export default async function LocaleLayout({ children, params }: LayoutProps) {
     getTranslations({ locale: safeLocale, namespace: 'common' }),
   ])
   return (
-    <RootDocument locale={safeLocale} skipToContentLabel={tCommon('skipToContent')}>
+    <RootDocument
+      locale={safeLocale}
+      skipToContentLabel={tCommon('skipToContent')}
+      feedbackCopy={messages.feedbackWidget as Record<string, string>}
+    >
       <NextIntlClientProvider locale={safeLocale} messages={messages}>
         <ImpersonationBanner />
         <MainNav categories={[...PRODUCT_TYPE_CATEGORIES]} />

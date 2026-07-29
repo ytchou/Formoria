@@ -15,7 +15,11 @@ export default function MicrositeLayout({
   children: React.ReactNode
 }) {
   return (
-    <RootDocument locale="zh-TW" skipToContentLabel={zhTW.common.skipToContent}>
+    <RootDocument
+      locale="zh-TW"
+      skipToContentLabel={zhTW.common.skipToContent}
+      feedbackCopy={zhTW.feedbackWidget}
+    >
       {children}
     </RootDocument>
   )

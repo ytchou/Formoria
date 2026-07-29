@@ -3,6 +3,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useImageUpload } from './useImageUpload'
 
+const uploadConfig = {
+  bucket: 'brand-images',
+  path: 'test',
+  invalidTypeMessage: 'Choose an image file.',
+  fileTooLargeMessage: 'The image must be 5MB or smaller.',
+  uploadFailedMessage: 'Upload failed. Please try again.',
+}
+
 function createMockFile(name: string, size: number, type: string): File {
   const buffer = new ArrayBuffer(size)
   return new File([buffer], name, { type })
@@ -19,7 +27,7 @@ describe('useImageUpload', () => {
 
   it('returns idle status initially', () => {
     const { result } = renderHook(() =>
-      useImageUpload({ bucket: 'brand-images', path: 'test' })
+      useImageUpload(uploadConfig)
     )
     expect(result.current.status).toBe('idle')
     expect(result.current.url).toBeNull()
@@ -28,7 +36,7 @@ describe('useImageUpload', () => {
 
   it('rejects files over 5MB', async () => {
     const { result } = renderHook(() =>
-      useImageUpload({ bucket: 'brand-images', path: 'test' })
+      useImageUpload(uploadConfig)
     )
     const bigFile = createMockFile('huge.jpg', 6 * 1024 * 1024, 'image/jpeg')
 
@@ -42,7 +50,7 @@ describe('useImageUpload', () => {
 
   it('rejects non-image files', async () => {
     const { result } = renderHook(() =>
-      useImageUpload({ bucket: 'brand-images', path: 'test' })
+      useImageUpload(uploadConfig)
     )
     const textFile = createMockFile('doc.txt', 100, 'text/plain')
 
@@ -63,7 +71,7 @@ describe('useImageUpload', () => {
     )
 
     const { result } = renderHook(() =>
-      useImageUpload({ bucket: 'brand-images', path: 'test' })
+      useImageUpload(uploadConfig)
     )
     const file = createMockFile('logo.png', 1024, 'image/png')
 
@@ -85,8 +93,9 @@ describe('useImageUpload', () => {
 
     const { result } = renderHook(() =>
       useImageUpload({
+        ...uploadConfig,
         bucket: 'claim-proofs',
-        path: 'user-1/brand-1',
+        path: 'maría-garcía/taiwan-tea-company',
         acceptedTypes: ['application/pdf'],
         uploadFields: { proofType: 'business_doc' },
       })
@@ -116,8 +125,8 @@ describe('useImageUpload', () => {
     )
     const { result } = renderHook(() =>
       useImageUpload({
-        bucket: 'brand-images',
-        path: 'submissions/submission-1',
+        ...uploadConfig,
+        path: 'submissions/taiwan-tea-company',
         endpoint: '/api/admin/submissions/submission-1/images',
       })
     )
@@ -146,7 +155,7 @@ describe('useImageUpload', () => {
     )
 
     const { result } = renderHook(() =>
-      useImageUpload({ bucket: 'brand-images', path: 'test' })
+      useImageUpload(uploadConfig)
     )
     const file = createMockFile('logo.png', 1024, 'image/png')
 
@@ -155,6 +164,6 @@ describe('useImageUpload', () => {
     })
 
     expect(result.current.status).toBe('error')
-    expect(result.current.error).toBe('Bucket not found')
+    expect(result.current.error).toBe(uploadConfig.uploadFailedMessage)
   })
 })

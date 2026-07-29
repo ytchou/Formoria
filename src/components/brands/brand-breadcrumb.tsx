@@ -14,7 +14,7 @@ export async function BrandBreadcrumb({ locale, categorySlug, categoryLabel, bra
   const t = await getTranslations({ locale, namespace: 'brandDetail' })
 
   return (
-    <nav aria-label="Breadcrumb" className="mb-6">
+    <nav aria-label={t('breadcrumb.ariaLabel')} className="mb-6">
       <ol className="flex items-center gap-1.5 type-card-description">
         <li>
           <Link

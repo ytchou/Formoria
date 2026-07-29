@@ -107,6 +107,9 @@ function ClaimProofUpload({
     path: uploadPath,
     acceptedTypes,
     uploadFields: { proofType },
+    invalidTypeMessage: t('invalidUploadType'),
+    fileTooLargeMessage: t('fileTooLarge'),
+    uploadFailedMessage: t('uploadFailed'),
   }) as UploadHookState
   const uploading = uploadState.uploading ?? uploadState.status === 'uploading'
 

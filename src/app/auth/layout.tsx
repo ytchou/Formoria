@@ -37,7 +37,11 @@ export default async function AuthLayout({
   const homePath = localizePath('/', locale);
 
   return (
-    <RootDocument locale={locale} skipToContentLabel={tCommon("skipToContent")}>
+    <RootDocument
+      locale={locale}
+      skipToContentLabel={tCommon("skipToContent")}
+      feedbackCopy={messages.feedbackWidget as Record<string, string>}
+    >
       <NextIntlClientProvider locale={locale} messages={messages}>
         <div className="flex min-h-screen flex-col bg-background">
           <header className="flex h-14 items-center px-6">

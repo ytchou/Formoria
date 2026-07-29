@@ -4,7 +4,17 @@
 
 import * as Sentry from "@sentry/nextjs";
 
-const isEn = typeof window !== 'undefined' && window.location.pathname.startsWith('/en')
+const feedbackCopy = (() => {
+  if (typeof document === 'undefined') return {}
+  const serialized = document.documentElement.dataset.feedbackCopy
+  if (!serialized) return {}
+
+  try {
+    return JSON.parse(serialized) as Record<string, string>
+  } catch {
+    return {}
+  }
+})()
 
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
@@ -20,19 +30,7 @@ Sentry.init({
         submitBackgroundHover: '#A33D1E',
         inputOutlineColor: '#E8E5E0',
       },
-      triggerLabel: isEn ? 'Report Issue' : '回報問題',
-      formTitle: isEn ? 'Report Issue' : '回報問題',
-      nameLabel: isEn ? 'Name' : '姓名',
-      namePlaceholder: isEn ? 'Your name' : '你的名字',
-      emailLabel: isEn ? 'Email' : '電子信箱',
-      emailPlaceholder: 'you@example.com',
-      messageLabel: isEn ? 'Description' : '問題描述',
-      messagePlaceholder: isEn ? 'Describe the issue you encountered' : '請描述你遇到的問題',
-      submitButtonLabel: isEn ? 'Submit' : '送出',
-      cancelButtonLabel: isEn ? 'Cancel' : '取消',
-      addScreenshotButtonLabel: isEn ? 'Add screenshot' : '新增截圖',
-      removeScreenshotButtonLabel: isEn ? 'Remove screenshot' : '移除截圖',
-      successMessageText: isEn ? 'Thank you for your report!' : '感謝你的回報！',
+      ...feedbackCopy,
     }),
   ],
 

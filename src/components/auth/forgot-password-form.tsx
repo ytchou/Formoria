@@ -38,7 +38,7 @@ export function ForgotPasswordForm() {
               id="email"
               name="email"
               type="email"
-              placeholder="you@example.com"
+              placeholder={t('emailPlaceholder')}
               required
               autoComplete="email"
             />
