@@ -270,7 +270,13 @@ export async function approveSubmissionsAction(
     const successes = outcomes.flatMap((outcome) =>
       outcome.ok ? [outcome.result] : []
     )
-    if (successes.length > 0) revalidateApprovals(successes)
+    if (successes.length > 0) {
+      try {
+        revalidateApprovals(successes)
+      } catch (err) {
+        console.error('[admin:approveSubmissions] revalidateApprovals failed:', err)
+      }
+    }
 
     const failures = outcomes.flatMap((outcome) =>
       outcome.ok
