@@ -1,5 +1,6 @@
 import { test, expect } from '../fixtures/auth'
 import { createClient } from '@supabase/supabase-js'
+import { OWNER_FEATURES_OFF_REASON } from '../helpers/owner-features'
 
 const TINY_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
@@ -176,6 +177,12 @@ test.describe('Submit funnel', () => {
     const resp = await userPage.goto('/submit/owner/details', { timeout: 60_000 })
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping')
+      return
+    }
+    // The owner fork 404s while owner features are gated off (DEV-1261). Probed
+    // from the navigation that is already here rather than from app_settings.
+    if (resp?.status() === 404) {
+      test.skip(true, OWNER_FEATURES_OFF_REASON)
       return
     }
 

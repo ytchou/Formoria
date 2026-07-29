@@ -4,15 +4,19 @@ import { test, expect } from '../fixtures/auth'
  * FAQ page
  *
  * Journey: Anonymous visitor lands on /faq (zh-TW, the default locale path),
- * sees both section headings and all 20 expandable items; hash links scroll
+ * sees both section headings and all 13 expandable items; hash links scroll
  * the correct section into view; the #claim item auto-opens via the
  * OpenTargetDetails client component.
+ *
+ * The 品牌主專區 section collapsed to a single interest-collection item while
+ * owner self-serve is gated off (DEV-1261). It keeps id="claim", so the
+ * legacy /faq#claim deep link still lands on an answer — see the last test.
  *
  * Actor: anonPage (no authentication, no DB state)
  * Seed: none
  */
 test.describe('FAQ page', () => {
-  test('renders two section headings and exactly 20 details elements', async ({ anonPage }) => {
+  test('renders two section headings and exactly 13 details elements', async ({ anonPage }) => {
     test.setTimeout(30_000)
 
     // /faq is the zh-TW canonical URL (localePrefix: 'as-needed', defaultLocale: 'zh-TW')
@@ -30,8 +34,8 @@ test.describe('FAQ page', () => {
       timeout: 5_000,
     })
 
-    // 11 general + 1 contact + 8 owner = 20 total <details> elements
-    await expect(anonPage.locator('details')).toHaveCount(20, { timeout: 5_000 })
+    // 11 general + 1 contact + 1 owner interest = 13 total <details> elements
+    await expect(anonPage.locator('details')).toHaveCount(13, { timeout: 5_000 })
   })
 
   test('#for-owners anchor scrolls the section into viewport', async ({ anonPage }) => {

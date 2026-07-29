@@ -3,6 +3,7 @@ import type { Page } from '@playwright/test';
 import { test as baseTest, expect } from '../fixtures/auth';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { writeAuthStorageStateForCredentials } from '../helpers/auth-session';
+import { ownerFeaturesDisabled, OWNER_FEATURES_OFF_REASON } from '../helpers/owner-features';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
@@ -26,6 +27,17 @@ const test = baseTest.extend<{ ownerPage: Page }>({
 });
 
 test.describe.configure({ mode: 'serial' });
+
+// Suite-level gate (DEV-1261). Every journey here drives the OWNER edit wizard
+// at /dashboard/brands/<slug>/edit as a non-admin owner, and that route 404s
+// while the flag is off — the admin exemption does not apply to `ownerPage`.
+// Declared at file scope so it runs before the seeding beforeAll below. Probes
+// the running app, never app_settings.
+test.beforeAll(async ({ browser }) => {
+  if (await ownerFeaturesDisabled(browser)) {
+    test.skip(true, OWNER_FEATURES_OFF_REASON);
+  }
+});
 
 test.describe('Content moderation flow', () => {
   test.beforeEach(() => {

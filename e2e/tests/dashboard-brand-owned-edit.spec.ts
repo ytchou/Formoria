@@ -3,6 +3,7 @@ import type { Page } from '@playwright/test';
 import { test as baseTest, expect } from '../fixtures/auth';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { writeAuthStorageStateForCredentials } from '../helpers/auth-session';
+import { ownerFeaturesDisabled, OWNER_FEATURES_OFF_REASON } from '../helpers/owner-features';
 
 const test = baseTest.extend<{ userPage: Page }>({
   userPage: async ({ browser, isolatedUser }, provideFixture, testInfo) => {
@@ -39,6 +40,15 @@ type AnySupabaseClient = SupabaseClient<any, any, any>;
 // "Save & Continue" saves target the same brand.
 // ─────────────────────────────────────────────────────────────────────────────
 test.describe.configure({ mode: 'serial' });
+
+// Suite-level gate (DEV-1261). Declared at file scope so it runs before the
+// seeding beforeAll hooks below: /dashboard/brands/<slug>/edit is unreachable
+// while the flag is off. Probes the running app, never app_settings.
+test.beforeAll(async ({ browser }) => {
+  if (await ownerFeaturesDisabled(browser)) {
+    test.skip(true, OWNER_FEATURES_OFF_REASON);
+  }
+});
 
 // Minimal 1×1 transparent PNG (67 bytes) — used by image-upload section
 const TINY_PNG = Buffer.from(

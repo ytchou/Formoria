@@ -27,9 +27,10 @@ test.describe('Navbar auth smoke', () => {
     // Sign-in link must not appear for authenticated user
     await expect(userPage.getByRole('link', { name: /sign in|登入/i })).toHaveCount(0);
 
-    // The "我的品牌" nav link is conditional on hasOwnedBrand — only shown when the
-    // user owns a brand. Asserting it here requires a seeded brand_owners row, which
-    // belongs in dashboard-specific tests. Mirrors e2e/tests/navbar-auth.spec.ts.
+    // The "我的品牌" nav link is conditional on hasOwnedBrand AND ownerFeaturesEnabled
+    // — shown only when the user owns a brand and owner features are turned on
+    // (DEV-1261). Asserting it here requires a seeded brand_owners row, which belongs
+    // in dashboard-specific tests. Mirrors e2e/tests/navbar-auth.spec.ts.
 
     // Open the account dropdown — use click (works cross-browser including WebKit)
     await accountTrigger.click();

@@ -1,5 +1,15 @@
 import { test, expect } from '../fixtures/auth'
 import { seedBrand } from '../helpers/seed'
+import { ownerFeaturesDisabled, OWNER_FEATURES_OFF_REASON } from '../helpers/owner-features'
+
+// Suite-level gate (DEV-1261). Declared at file scope so it runs before the
+// describe's seeding beforeAll: the owner analytics tab is unreachable while
+// the flag is off. Probes the running app, never app_settings.
+test.beforeAll(async ({ browser }) => {
+  if (await ownerFeaturesDisabled(browser)) {
+    test.skip(true, OWNER_FEATURES_OFF_REASON)
+  }
+})
 
 /**
  * Dashboard Analytics

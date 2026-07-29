@@ -19,7 +19,8 @@ test.describe('Navbar auth journey', () => {
     await expect(accountTrigger).toBeVisible({ timeout: 10_000 });
     await expect(userPage.getByRole('link', { name: /sign in|登入/i })).toHaveCount(0);
 
-    // "我的品牌" link is conditional on hasOwnedBrand — only shown when user owns a brand.
+    // "我的品牌" link is conditional on hasOwnedBrand AND ownerFeaturesEnabled — shown
+    // only when the user owns a brand and owner features are turned on (DEV-1261).
     // That nav link is NOT in the account dropdown (verified below); testing its presence
     // requires a seeded brand_owners row which belongs in dashboard-specific tests.
 
@@ -32,7 +33,9 @@ test.describe('Navbar auth journey', () => {
     await expect(accountMenu.getByRole('menuitem', { name: '帳號設定' })).toBeVisible({ timeout: 5_000 });
     await expect(accountMenu.getByRole('menuitem', { name: '收藏品牌' })).toBeVisible({ timeout: 5_000 });
     await expect(accountMenu.getByRole('menuitem', { name: '我的貢獻' })).toBeVisible({ timeout: 5_000 });
-    await expect(accountMenu.getByRole('menuitem', { name: '我的提交' })).toBeVisible({ timeout: 5_000 });
+    // "我的提交" is deliberately not asserted here: it is gated on
+    // ownerFeaturesEnabled (DEV-1261), so its presence is flag state, not navbar
+    // behaviour. Its absence is owned by owner-features-flag-off.spec.ts.
     const signOutItem = accountMenu.getByText(/sign out|登出/i);
     await expect(signOutItem).toBeVisible({ timeout: 10_000 });
     // Dashboard link is NOT in the dropdown (moved to main nav)

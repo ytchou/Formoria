@@ -142,14 +142,21 @@ test.describe('Auth — reset password page guard', () => {
     await expect(userPage.getByLabel('確認新密碼', { exact: true })).toBeVisible();
   });
 
-  test('authenticated user visiting sign-in is still redirected to dashboard', async ({
+  test('authenticated user visiting sign-in is still redirected away', async ({
     userPage,
   }) => {
     test.setTimeout(120_000);
 
     // Inverse sanity: moving the guard out of the layout must not drop it
-    // from the sign-in page.
+    // from the sign-in page. The destination depends on the owner-features flag
+    // (DEV-1261) — `/` while owner features are off — so assert only that the
+    // guard fired and the user did not stay on the sign-in page.
     await userPage.goto('/auth/sign-in', { timeout: 60_000 });
-    await userPage.waitForURL(/\/dashboard/, { timeout: 60_000 });
+    await userPage.waitForURL((url) => !url.pathname.includes('/auth/sign-in'), {
+      timeout: 60_000,
+    });
+    await expect(userPage.getByRole('button', { name: /account|帳號/i })).toBeVisible({
+      timeout: 30_000,
+    });
   });
 });
