@@ -1,9 +1,10 @@
 import type { Metadata } from 'next'
-import { redirect } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import SubmissionWizard from '@/components/submit/wizard/SubmissionWizard'
 import { signInHref } from '@/i18n/locale-preference'
 import { buildAlternates, type Locale } from '@/lib/seo/alternates'
+import { isOwnerFeaturesEnabled } from '@/lib/services/app-settings'
 import { getApprovedProductTagSuggestions } from '@/lib/services/product-tag-suggestions'
 import { createClient } from '@/lib/supabase/server'
 
@@ -30,6 +31,12 @@ export default async function SubmitOwnerDetailsPage({
 }: OwnerDetailsPageProps) {
   const { locale } = await params
   setRequestLocale(locale)
+
+  // Gate before the auth check so signed-out visitors get a 404 rather than a
+  // sign-in bounce into a route that no longer exists.
+  if (!(await isOwnerFeaturesEnabled())) {
+    notFound()
+  }
 
   const supabase = await createClient()
   const {

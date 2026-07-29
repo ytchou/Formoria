@@ -4,8 +4,6 @@ import { Pencil, ShieldCheck, TrendingUp } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { Link } from '@/i18n/navigation'
-import { useMounted } from '@/hooks/use-mounted'
-import { useUser } from '@/lib/auth/use-user'
 import { buttonVariants } from '@/components/ui/button'
 import { surfaceCardStyles } from '@/components/ui/card'
 
@@ -25,13 +23,13 @@ const benefits = [
 ] as const
 
 export function OwnerBenefitsSection() {
-  const { user } = useUser()
-  const mounted = useMounted()
   const t = useTranslations('gettingStarted.forOwners')
   const ctaT = useTranslations('gettingStarted.ctaFooter')
 
   return (
     <div className="space-y-5">
+      <p className="type-body-muted">{t('comingSoon')}</p>
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {benefits.map(({ key, Icon }) => (
           <article
@@ -45,14 +43,15 @@ export function OwnerBenefitsSection() {
         ))}
       </div>
 
-      {mounted && !user && (
-        <Link
-          href="/submit"
-          className={buttonVariants({ variant: 'primary', tone: 'cta' })}
-        >
-          {ctaT('cta')}
-        </Link>
-      )}
+      {/* Owner tools are not open yet, so the only action here is registering
+          interest on the feature request board — shown to every visitor, since
+          signed-in owners have no dashboard to be sent to either. */}
+      <Link
+        href="/feedback"
+        className={buttonVariants({ variant: 'primary', tone: 'cta' })}
+      >
+        {ctaT('cta')}
+      </Link>
     </div>
   )
 }

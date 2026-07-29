@@ -984,14 +984,6 @@
         "question": "How long does the brand review take?",
         "answer": "Brand reviews generally take about 7 business days. We check that the brand exists, the submission is complete, and it meets our inclusion criteria. Approved brands then appear in the directory; if information is missing, we may contact the submitter by email."
       },
-      "claimBenefits": {
-        "question": "Why claim a brand? What are the benefits?",
-        "answer": "Every listing on Formoria starts as a community label — accurate as far as the community knows, but unmanaged and often incomplete. Claiming is free and gives you direct control: edit your brand info, photos, and links, and your page earns a \"managed by the brand\" badge that builds visitor trust. Once you're established, upgrading unlocks a richer microsite, page analytics so you can see how shoppers find you, and featured placement in the directory."
-      },
-      "claimOrUpdate": {
-        "question": "I'm the brand owner — how do I claim or update my brand page?",
-        "answer": "On the brand page, click \"Claim this brand\" and submit one proof of ownership (brand domain email, backend screenshot, or business registration document). Our team reviews claims promptly and emails you the result. Once approved, you can edit and publish changes from the Owner Dashboard at any time."
-      },
       "dataAccuracy": {
         "question": "How is the accuracy of brand information ensured?",
         "answer": "Formoria collects brand information through community contributions and our admin team performs an initial review during the approval process. If you find any brand information that is incorrect or outdated, please let us know through our contact channel and we'll address it promptly."
@@ -1000,29 +992,9 @@
         "question": "Is it free to list a brand on Formoria?",
         "answer": "Yes. Submitting a brand to Formoria is free, and brand owners, fans, and community members are all welcome to help build the Taiwanese brand directory."
       },
-      "editBrand": {
-        "question": "Can I edit a brand page after it's published?",
-        "answer": "Brand owners can claim their brand page to update information, add photos, and manage their listing. Visit the brand page and look for the claim option, or contact us for assistance."
-      },
-      "profileCompleteness": {
-        "question": "What does the profile completeness score measure?",
-        "answer": "The score measures how much of your brand profile is filled in across core details, images, links, social presence, sales channels, locations, and reputation evidence. Improving it gives visitors a clearer page and helps your brand appear in more searches and category pages."
-      },
-      "mitVerification": {
-        "question": "How can I upgrade my MIT verification level?",
-        "answer": "Start at Unverified, then submit a Brand Declaration for the scope that applies — some, most, or all products made in Taiwan — to reach MIT Declared. To reach MIT Verified, enter an MIT Smile Mark certificate number in the Owner Dashboard so Formoria can check it against the official registry."
-      },
-      "ownerAnalytics": {
-        "question": "What can I see in owner analytics?",
-        "answer": "Owner analytics shows profile visits (page views), outbound link clicks and click rate, top traffic sources, 30-day trends, and outbound destinations. It helps you understand how people find your brand page and engage with your links."
-      },
-      "editModeration": {
-        "question": "What happens after I edit my brand page?",
-        "answer": "After you save an edit, Formoria checks the changed content through moderation. Clean changes can publish immediately; anything flagged is held in the moderation queue until the issue is reviewed and corrected."
-      },
-      "brandLocations": {
-        "question": "What are owner-confirmed locations and retail channels?",
-        "answer": "Physical stores and stockists found in public sources appear with address and map details as unconfirmed. After claiming the brand, its verified owner can confirm or edit those locations and add retail chains that carry selected products. Availability can vary by store, so visitors should check before visiting."
+      "ownerInterest": {
+        "question": "I own a brand — can I manage my own brand page yet?",
+        "answer": "Not yet. Owner tools — claiming your brand page, editing it yourself, and submitting MIT declarations — are coming soon. Until then our team keeps listings up to date, so email us any correction and we'll apply it. If you want owner tools, register your interest on the <link>feature request board</link> and we'll let you know the moment they open."
       },
       "whatCategories": {
         "question": "What product categories does Formoria cover?",
@@ -1251,7 +1223,6 @@
   },
   "account": {
     "menuLabel": "Account",
-    "dashboard": "Owner Dashboard",
     "favorites": "Saved Brands",
     "contributions": "My Contributions",
     "mySubmissions": "My Submissions",
@@ -1840,7 +1811,7 @@
     },
     "overview": {
       "heading": "Submit Your Taiwan Brand",
-      "description": "Recommend a brand you love, or start the owner flow to claim and manage your own listing.",
+      "description": "Share a Taiwanese brand with the community — recommend one you love and we will review it for the directory.",
       "criteria": "We list brands founded, designed, or made in Taiwan.",
       "recommendEyebrow": "Community recommendation",
       "recommendTitle": "Recommend a brand worth discovering",
@@ -1898,7 +1869,7 @@
       "urlInvalid": "Please enter a valid URL.",
       "urlAriaLabel": "Brand website URL {index}",
       "isBrandOwner": "I am the brand owner",
-      "ownerHint": "We'll ask you to verify ownership. Once claimed, you can manage your brand page and update information.",
+      "ownerHint": "Owner tools are coming soon. We'll note that you are the owner, keep the listing updated for you, and let you know when you can manage it yourself.",
       "ownerLearnMore": "Learn more",
       "howKnowBrand": "How do you know this brand?",
       "howKnowPlaceholder": "Select how you know this brand (optional)",
@@ -2261,17 +2232,18 @@
     },
     "forOwners": {
       "heading": "If you own a brand",
+      "comingSoon": "Owner tools are on the way. You can't claim or edit your own brand page yet — here is what we are building, and how to tell us it matters to you.",
       "claim": {
         "title": "Claim Your Brand",
-        "description": "If someone else submitted your brand, verify your ownership to manage the listing."
+        "description": "You will be able to verify your ownership and take over the listing the community started."
       },
       "manage": {
         "title": "Manage Your Listing",
-        "description": "Update products, links, and descriptions when details change."
+        "description": "You will be able to update products, links, and descriptions whenever details change."
       },
       "track": {
         "title": "Track Performance",
-        "description": "See how visitors discover and interact with your brand."
+        "description": "You will be able to see how visitors discover and interact with your brand."
       }
     },
     "cta": {
@@ -2281,7 +2253,7 @@
       "faq": "Read the FAQ"
     },
     "ctaFooter": {
-      "cta": "Submit Your Brand"
+      "cta": "Register your interest on the feature request board"
     }
   },
   "admin": {

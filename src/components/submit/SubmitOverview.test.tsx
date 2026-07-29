@@ -60,12 +60,10 @@ describe('SubmitOverview', () => {
   });
 
   it('explains the owner submission path with concise copy', () => {
-    renderWithZhTW(<SubmitOverview />);
+    renderWithZhTW(<SubmitOverview ownerFeaturesEnabled />);
 
     expect(
-      screen.getByText(
-        '推薦你喜歡的品牌，或以品牌主身分提交，之後認領並管理品牌頁面。',
-      ),
+      screen.getByText('與社群分享你喜歡的台灣品牌，我們會審核後收錄進品牌目錄。'),
     ).toBeInTheDocument();
     expect(
       screen.getByRole('heading', {
@@ -90,14 +88,37 @@ describe('SubmitOverview', () => {
   });
 
   it('renders owner CTA behind sign-in when logged out', () => {
-    renderWithZhTW(<SubmitOverview />);
+    renderWithZhTW(<SubmitOverview ownerFeaturesEnabled />);
     const cta = screen.getByRole('link', { name: /登入後開始/i });
     expect(cta).toHaveAttribute('href', '/auth/sign-in?next=%2Fsubmit%2Fowner');
   });
 
+  it('hides the owner fork entirely when owner features are disabled', () => {
+    renderWithZhTW(<SubmitOverview ownerFeaturesEnabled={false} />);
+
+    expect(document.querySelector('a[href*="/submit/owner"]')).toBeNull();
+    expect(
+      screen.queryByRole('heading', { level: 2, name: '開始創建完整品牌資訊' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /推薦品牌/i }),
+    ).toHaveAttribute('href', '/submit/recommend');
+  });
+
+  it('hides the owner fork for a signed-in visitor when owner features are disabled', () => {
+    renderWithZhTW(<SubmitOverview isLoggedIn ownerFeaturesEnabled={false} />);
+
+    expect(document.querySelector('a[href*="/submit/owner"]')).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: ownerCtaLoggedIn }),
+    ).not.toBeInTheDocument();
+  });
+
   it('directs an existing owner to the recommendation flow from a dialog', async () => {
     const user = userEvent.setup();
-    renderWithZhTW(<SubmitOverview isLoggedIn hasOwnedBrand />);
+    renderWithZhTW(
+      <SubmitOverview isLoggedIn hasOwnedBrand ownerFeaturesEnabled />,
+    );
 
     const trigger = screen.getByRole('button', { name: ownerCtaLoggedIn });
     await user.click(trigger);
@@ -117,7 +138,9 @@ describe('SubmitOverview', () => {
 
   it('closes without replacing the underlying submit overview and restores focus', async () => {
     const user = userEvent.setup();
-    renderWithZhTW(<SubmitOverview isLoggedIn hasOwnedBrand />);
+    renderWithZhTW(
+      <SubmitOverview isLoggedIn hasOwnedBrand ownerFeaturesEnabled />,
+    );
     const trigger = screen.getByRole('button', { name: ownerCtaLoggedIn });
 
     await user.click(trigger);
@@ -130,7 +153,9 @@ describe('SubmitOverview', () => {
 
   it('closes with Escape and restores focus to the owner action', async () => {
     const user = userEvent.setup();
-    renderWithZhTW(<SubmitOverview isLoggedIn hasOwnedBrand />);
+    renderWithZhTW(
+      <SubmitOverview isLoggedIn hasOwnedBrand ownerFeaturesEnabled />,
+    );
     const trigger = screen.getByRole('button', { name: ownerCtaLoggedIn });
 
     await user.click(trigger);
@@ -145,7 +170,9 @@ describe('SubmitOverview', () => {
     push.mockImplementationOnce(() => {
       throw new Error('navigation failed');
     });
-    renderWithZhTW(<SubmitOverview isLoggedIn hasOwnedBrand />);
+    renderWithZhTW(
+      <SubmitOverview isLoggedIn hasOwnedBrand ownerFeaturesEnabled />,
+    );
 
     await user.click(screen.getByRole('button', { name: ownerCtaLoggedIn }));
     await user.click(screen.getByRole('button', { name: '前往推薦品牌' }));

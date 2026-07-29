@@ -1,10 +1,11 @@
 import type { Metadata } from 'next'
-import { redirect } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import SubmitQuickForm from '@/components/submit/SubmitQuickForm'
 import { signInHref } from '@/i18n/locale-preference'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
+import { isOwnerFeaturesEnabled } from '@/lib/services/app-settings'
 import { createClient } from '@/lib/supabase/server'
 
 type QuickOwnerPageProps = {
@@ -30,6 +31,12 @@ export default async function SubmitOwnerQuickPage({
 }: QuickOwnerPageProps) {
   const { locale } = await params
   setRequestLocale(locale)
+
+  // Gate before the auth check so signed-out visitors get a 404 rather than a
+  // sign-in bounce into a route that no longer exists.
+  if (!(await isOwnerFeaturesEnabled())) {
+    notFound()
+  }
 
   const supabase = await createClient()
   const {

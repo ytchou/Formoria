@@ -281,6 +281,12 @@ export function ClaimBrandCta({ brandId, brandSlug }: ClaimBrandCtaProps) {
 
   if (loading || viewerLoading || pendingClaimLoading) return null
 
+  // Kill switch first: `hasOwnedBrand` has inverted polarity below (it HIDES
+  // the CTA), so the flag must gate ahead of it rather than feed into it.
+  if (!viewer.ownerFeaturesEnabled) {
+    return null
+  }
+
   if (viewer.hasOwnedBrand) {
     return null
   }

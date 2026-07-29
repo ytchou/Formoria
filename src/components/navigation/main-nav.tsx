@@ -28,6 +28,7 @@ export function MainNav({ categories }: MainNavProps) {
   const t = useTranslations('nav')
   const { user, viewer } = useUser()
   const hasOwnedBrand = viewer.hasOwnedBrand
+  const ownerFeaturesEnabled = viewer.ownerFeaturesEnabled
   const pathname = usePathname()
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background">
@@ -54,7 +55,7 @@ export function MainNav({ categories }: MainNavProps) {
           >
             {t('about')}
           </Link>
-          {hasOwnedBrand ? (
+          {hasOwnedBrand && ownerFeaturesEnabled ? (
             <Link
               href="/dashboard"
               className={buttonVariants({ variant: 'primary' })}
@@ -105,7 +106,7 @@ export function MainNav({ categories }: MainNavProps) {
                 >
                   {t('about')}
                 </Link>
-                {hasOwnedBrand ? (
+                {hasOwnedBrand && ownerFeaturesEnabled ? (
                   <Link
                     href="/dashboard"
                     className={buttonVariants({ variant: 'primary', className: 'w-full' })}

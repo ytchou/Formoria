@@ -8,6 +8,7 @@ import { completeBrandClaim, getBrandById } from "@/lib/services/brands";
 import { getProfileAdmin, updateProfileAdmin } from "@/lib/services/profiles";
 import { enrollInMarketingEmails } from "@/lib/services/marketing-email-consent";
 import { getPostHogClient } from "@/lib/posthog-server";
+import { isOwnerFeaturesEnabled } from "@/lib/services/app-settings";
 import { routing } from "@/i18n/routing";
 import {
   isAppLocale,
@@ -118,8 +119,12 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Process claim token if present
-  if (claimToken && userId && userEmail) {
+  const ownerFeaturesEnabled = await isOwnerFeaturesEnabled();
+
+  // Process claim token if present. With owner features off a stale claim token
+  // is ignored entirely — no claim is completed and no error state is shown;
+  // the request degrades to a plain sign-in landing below.
+  if (claimToken && userId && userEmail && ownerFeaturesEnabled) {
     const claim = await verifyClaimToken(claimToken);
 
     if (!claim) {
@@ -187,7 +192,15 @@ export async function GET(request: NextRequest) {
     await posthog.flush();
   }
 
-  const redirectTo = next && isRelativeUrl(next) ? next : "/dashboard";
+  // With owner features off the dashboard 404s, so land signed-in users home.
+  // A claim token that survived the flag flip also lands home rather than on a
+  // stale post-claim `next` target.
+  const fallbackPath = ownerFeaturesEnabled ? "/dashboard" : "/";
+  const requestedNext = next && isRelativeUrl(next) ? next : null;
+  const redirectTo =
+    requestedNext && (ownerFeaturesEnabled || !claimToken)
+      ? requestedNext
+      : fallbackPath;
   const url = new URL(localizePath(redirectTo, locale), origin);
   if (isNewUser) {
     url.searchParams.set("is_new_user", "1");

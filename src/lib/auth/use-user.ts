@@ -35,6 +35,8 @@ type UseUserState = {
 const EMPTY_VIEWER_CONTEXT: ViewerContext = {
   hasOwnedBrand: false,
   isAdmin: false,
+  // Fail closed: owner surfaces stay hidden until the server says otherwise.
+  ownerFeaturesEnabled: false,
   impersonation: null,
 }
 

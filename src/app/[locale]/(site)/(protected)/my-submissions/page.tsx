@@ -4,6 +4,7 @@ import { localizePath } from '@/i18n/locale-preference'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
+import { isOwnerFeaturesEnabled } from '@/lib/services/app-settings'
 
 type MySubmissionsPageProps = {
   params: Promise<{ locale: string }>
@@ -24,5 +25,7 @@ export async function generateMetadata({ params }: MySubmissionsPageProps): Prom
 export default async function MySubmissionsPage({ params }: MySubmissionsPageProps) {
   const { locale } = await params
   setRequestLocale(locale)
-  redirect(localizePath('/dashboard', locale))
+  // With owner features off the dashboard 404s, so send visitors home instead.
+  const destination = (await isOwnerFeaturesEnabled()) ? '/dashboard' : '/'
+  redirect(localizePath(destination, locale))
 }

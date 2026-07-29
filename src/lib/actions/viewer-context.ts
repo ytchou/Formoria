@@ -5,6 +5,7 @@ import {
   getImpersonatedBrandSlug,
   getImpersonationExpiresAt,
 } from '@/lib/auth/impersonation'
+import { isOwnerFeaturesEnabled } from '@/lib/services/app-settings'
 import {
   getBrandBySlugForAdmin,
   getUserBrand,
@@ -14,6 +15,11 @@ import { createClient } from '@/lib/supabase/server'
 export type ViewerContext = {
   hasOwnedBrand: boolean
   isAdmin: boolean
+  /**
+   * Owner-features kill switch, read per request. Separate from
+   * `hasOwnedBrand`, which keeps its own inverted-polarity meaning.
+   */
+  ownerFeaturesEnabled: boolean
   impersonation: {
     brandName: string
     expiresAt: number
@@ -23,6 +29,7 @@ export type ViewerContext = {
 const EMPTY_VIEWER_CONTEXT: ViewerContext = {
   hasOwnedBrand: false,
   isAdmin: false,
+  ownerFeaturesEnabled: false,
   impersonation: null,
 }
 
@@ -32,7 +39,11 @@ export async function getViewerContextAction(): Promise<ViewerContext> {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) return EMPTY_VIEWER_CONTEXT
+  // Signed-out visitors are the claim funnel's entry point, so the flag is read
+  // on every path — not just the authenticated one.
+  const ownerFeaturesEnabled = await isOwnerFeaturesEnabled()
+
+  if (!user) return { ...EMPTY_VIEWER_CONTEXT, ownerFeaturesEnabled }
 
   const [ownedBrand, isAdmin] = await Promise.all([
     getUserBrand(user.id),
@@ -43,6 +54,7 @@ export async function getViewerContextAction(): Promise<ViewerContext> {
     return {
       hasOwnedBrand: Boolean(ownedBrand),
       isAdmin: false,
+      ownerFeaturesEnabled,
       impersonation: null,
     }
   }
@@ -56,6 +68,7 @@ export async function getViewerContextAction(): Promise<ViewerContext> {
   return {
     hasOwnedBrand: Boolean(ownedBrand),
     isAdmin: true,
+    ownerFeaturesEnabled,
     impersonation:
       impersonatedBrand && expiresAt
         ? { brandName: impersonatedBrand.brandName, expiresAt }

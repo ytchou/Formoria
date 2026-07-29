@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getLocale } from "next-intl/server";
 import { routing } from "@/i18n/routing";
 import { createClient } from "@/lib/supabase/server";
+import { isOwnerFeaturesEnabled } from "@/lib/services/app-settings";
 import { localizePath } from "@/i18n/locale-preference";
 
 export async function redirectIfAuthenticated(): Promise<void> {
@@ -19,5 +20,7 @@ export async function redirectIfAuthenticated(): Promise<void> {
     ? resolvedLocale
     : routing.defaultLocale;
 
-  redirect(localizePath('/dashboard', locale));
+  // With owner features off the dashboard 404s, so land signed-in users home.
+  const destination = (await isOwnerFeaturesEnabled()) ? '/dashboard' : '/';
+  redirect(localizePath(destination, locale));
 }

@@ -4,6 +4,7 @@ import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { createClient } from '@/lib/supabase/server'
 import SubmitOverview from '@/components/submit/SubmitOverview'
+import { isOwnerFeaturesEnabled } from '@/lib/services/app-settings'
 import { getUserBrand } from '@/lib/services/brand-owners'
 
 type SubmitPageProps = {
@@ -51,12 +52,16 @@ export default async function SubmitPage({ params }: SubmitPageProps) {
 
   const isLoggedIn = !error && !!user
   const hasOwnedBrand = isLoggedIn ? Boolean(await getUserBrand(user.id)) : false
+  // This page is already dynamic (it reads the session), so the flag can be
+  // resolved server-side and handed to the presentational overview.
+  const ownerFeaturesEnabled = await isOwnerFeaturesEnabled()
 
   return (
     <SubmitOverview
       recommendPath="/submit/recommend"
       isLoggedIn={isLoggedIn}
       hasOwnedBrand={hasOwnedBrand}
+      ownerFeaturesEnabled={ownerFeaturesEnabled}
     />
   )
 }

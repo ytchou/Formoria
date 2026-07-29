@@ -1,9 +1,10 @@
 import type { Metadata } from 'next'
-import { redirect } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { localizePath, signInHref } from '@/i18n/locale-preference'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
+import { isOwnerFeaturesEnabled } from '@/lib/services/app-settings'
 import { createClient } from '@/lib/supabase/server'
 import { getUserBrand } from '@/lib/services/brand-owners'
 import OwnerForkClient from './owner-fork-client'
@@ -29,6 +30,12 @@ export async function generateMetadata({
 export default async function SubmitOwnerPage({ params }: OwnerPageProps) {
   const { locale } = await params
   setRequestLocale(locale)
+
+  // Gate before the auth check so signed-out visitors get a 404 rather than a
+  // sign-in bounce into a route that no longer exists.
+  if (!(await isOwnerFeaturesEnabled())) {
+    notFound()
+  }
 
   const supabase = await createClient()
   const {
