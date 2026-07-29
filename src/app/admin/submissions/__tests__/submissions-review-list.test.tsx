@@ -390,14 +390,14 @@ describe("SubmissionsReviewList", () => {
     await user.click(firstChevron);
     expect(screen.getByText("details-one")).toBeInTheDocument();
     expect(firstChevron).toHaveAttribute("aria-expanded", "true");
-    await user.click(screen.getByRole("button", { name: "Close" }));
+    await user.click(screen.getByRole("button", { name: "Close dialog" }));
 
     await user.click(
       screen.getByRole("button", { name: "Expand review for Second Brand" }),
     );
     expect(screen.queryByText("details-one")).not.toBeInTheDocument();
     expect(screen.getByText("details-two")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Close" }));
+    await user.click(screen.getByRole("button", { name: "Close dialog" }));
 
     const secondRow = screen.getByText("Second Brand").closest("tr");
     expect(secondRow).not.toBeNull();
