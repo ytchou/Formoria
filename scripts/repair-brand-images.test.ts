@@ -775,24 +775,37 @@ describe('probeUrlReachable', () => {
 })
 
 describe('detectReactivationAnomalies', () => {
-  it('passes at the measured population (20 rows)', () => {
-    expect(detectReactivationAnomalies(20)).toEqual([])
+  it('passes at the measured population (1323 matched, ~10 reachable)', () => {
+    expect(detectReactivationAnomalies(1_323, 10)).toEqual([])
   })
 
-  it('passes exactly at the threshold', () => {
-    expect(detectReactivationAnomalies(40)).toEqual([])
+  // The whole point of the re-scoping: 99% of matched rows are already dead and
+  // are discarded by the fail-closed probe, so a large candidate count must not
+  // block a small repair.
+  it('does not block a small repair just because many rows matched', () => {
+    expect(detectReactivationAnomalies(1_323, 9)).toEqual([])
   })
 
-  it('blocks one row above the threshold', () => {
-    const anomalies = detectReactivationAnomalies(41)
+  it('passes exactly at the reactivation threshold', () => {
+    expect(detectReactivationAnomalies(1_323, 60)).toEqual([])
+  })
+
+  it('blocks one reactivation above the threshold', () => {
+    const anomalies = detectReactivationAnomalies(1_323, 61)
     expect(anomalies).toHaveLength(1)
-    expect(anomalies[0]).toContain('41')
+    expect(anomalies[0]).toContain('61')
   })
 
-  // The failure this breaker exists for: a selector that lost its
-  // `tags IS NULL` clause matches every rejected row in the table.
-  it('blocks a selector that matched the whole rejected population', () => {
-    expect(detectReactivationAnomalies(1_200)).toHaveLength(1)
+  // The outer guard: a selector that lost its `tags IS NULL` clause entirely
+  // would match far beyond the known population.
+  it('blocks a selector that matched far beyond the known population', () => {
+    const anomalies = detectReactivationAnomalies(50_000, 0)
+    expect(anomalies).toHaveLength(1)
+    expect(anomalies[0]).toContain('50000')
+  })
+
+  it('reports both guards when both trip', () => {
+    expect(detectReactivationAnomalies(50_000, 999)).toHaveLength(2)
   })
 })
 

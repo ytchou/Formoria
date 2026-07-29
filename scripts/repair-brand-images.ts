@@ -120,23 +120,36 @@ const OPT_IN_PURGE_TAGS = new Set(['logo'])
  */
 const SWEEP_CANDIDATE_TAGS = new Set([...JUNK_TAGS, ...OPT_IN_PURGE_TAGS])
 /**
- * Circuit-breaker threshold for pass (d). The population is known and finite:
- * 20 rows carry `status = 'rejected' AND tags IS NULL` in production (10
- * `legacy`, 8 `scrape`, 2 `admin`, across brand_images + submission_images),
- * of which 9 urls still resolve. The failure mode of a bad selector here is
- * "mass un-rejection" — every deliberately rejected row flipped back to active
- * — so the guard is on the CANDIDATE count, before any probing. 40 leaves 2x
- * headroom for rows that appeared after the measurement without letting a
- * selector that lost its `tags IS NULL` clause through. Above this, refuse to
- * mutate without --force.
+ * Circuit-breaker thresholds for pass (d).
+ *
+ * Measured 2026-07-29: the selector matches 1323 rows (1246 brand_images —
+ * mostly a legacy batch created 2026-07-06 — plus 77 submission_images), but
+ * only ~10 of those urls still resolve. The dead 99% are filtered out by the
+ * fail-closed probe and never mutated.
+ *
+ * So the guard that matters is on rows we would actually WRITE, not on rows the
+ * selector matched: capping candidates blocks a ~10-row repair because 1300
+ * unrelated rows happen to share the predicate. MAX_REACTIVATIONS is the real
+ * blast radius — "mass un-rejection" means mass *writes*, and this is the
+ * number that bounds them.
+ *
+ * MAX_NULL_VERDICT_CANDIDATES stays as a much looser second line of defence: it
+ * catches a selector that lost its `tags IS NULL` clause entirely (which would
+ * match tens of thousands), without tripping on the known legacy population.
  */
-const MAX_NULL_VERDICT_CANDIDATES = 40
+const MAX_REACTIVATIONS = 60
+const MAX_NULL_VERDICT_CANDIDATES = 5_000
 /**
  * Reachability probe budget per row. Short on purpose: the probe answers "do
  * the bytes still exist", and a slow answer is indistinguishable from no answer
  * for that question. A timeout fails closed (row stays rejected).
  */
 const REACHABILITY_TIMEOUT_MS = 8_000
+/**
+ * Parallel reachability probes. Bounded so a ~1300-row dry run finishes in
+ * seconds without bursting our own storage endpoint.
+ */
+const REACHABILITY_CONCURRENCY = 20
 
 /**
  * Only the columns this script reasons about are declared. Rows are fetched
@@ -502,35 +515,42 @@ export async function probeUrlReachable(url: string): Promise<boolean> {
  *      reactivating a row whose bytes are gone would recreate the dangling row
  *      of pass (a), i.e. a permanent broken letter-tile on the brand page.
  *
- * Probed sequentially: the population is ~20 rows, and a serial walk keeps the
- * report deterministic and puts no burst on storage.
+ * Probed through a bounded worker pool. The matched population is ~1300 rows
+ * (mostly a long-dead legacy batch), so a serial walk takes many minutes and
+ * makes the dry run unusable. Decisions are written back by index, so the report
+ * stays deterministic regardless of completion order.
  */
 export async function planReactivations(input: {
   candidates: Array<{ table: RepairableImageTable; row: RejectedImageRow }>
   probe: (url: string) => Promise<boolean>
+  concurrency?: number
 }): Promise<ReactivationDecision[]> {
   const { candidates, probe } = input
-  const decisions: ReactivationDecision[] = []
+  const decisions: ReactivationDecision[] = new Array<ReactivationDecision>(
+    candidates.length,
+  )
 
-  for (const { table, row } of candidates) {
+  async function decide(index: number): Promise<void> {
+    const { table, row } = candidates[index]
+
     if (row.status !== 'rejected' || row.tags !== null) {
-      decisions.push({
+      decisions[index] = {
         table,
         row,
         action: 'skip',
         reason: 'not a null-verdict rejection (status/tags out of scope)',
-      })
-      continue
+      }
+      return
     }
 
     if (storageKeyFromPublicUrl(row.url) === null) {
-      decisions.push({
+      decisions[index] = {
         table,
         row,
         action: 'skip',
         reason: 'url is not on our brand-images public prefix',
-      })
-      continue
+      }
+      return
     }
 
     // The probe swallows its own errors, but a throwing probe must still fail
@@ -543,37 +563,62 @@ export async function planReactivations(input: {
       reachable = false
     }
 
-    decisions.push(
-      reachable
-        ? { table, row, action: 'reactivate', reason: 'url still resolves (2xx)' }
-        : {
-            table,
-            row,
-            action: 'skip',
-            reason: 'url did not answer 2xx — bytes are gone or unverifiable',
-          },
-    )
+    decisions[index] = reachable
+      ? { table, row, action: 'reactivate', reason: 'url still resolves (2xx)' }
+      : {
+          table,
+          row,
+          action: 'skip',
+          reason: 'url did not answer 2xx — bytes are gone or unverifiable',
+        }
   }
+
+  const workers = Math.max(
+    1,
+    Math.min(input.concurrency ?? REACHABILITY_CONCURRENCY, candidates.length),
+  )
+  let next = 0
+  await Promise.all(
+    Array.from({ length: workers }, async () => {
+      while (next < candidates.length) await decide(next++)
+    }),
+  )
 
   return decisions
 }
 
 /**
- * Circuit breaker for pass (d). Guards the CANDIDATE count, not the reactivated
- * count: by the time probing has run, a selector that lost its `tags IS NULL`
- * clause has already told us it matched the wrong population. Any reason
- * returned here blocks mutation unless --force is passed.
+ * Circuit breaker for pass (d). The primary guard is on rows we would actually
+ * WRITE — that is the blast radius of "mass un-rejection". The candidate count
+ * is a much looser secondary guard for a selector that lost its `tags IS NULL`
+ * clause outright. Any reason returned here blocks mutation unless --force.
  */
-export function detectReactivationAnomalies(candidateCount: number): string[] {
-  if (candidateCount <= MAX_NULL_VERDICT_CANDIDATES) return []
-  return [
-    `Pass (d) matched ${candidateCount} row(s) with status='rejected' AND ` +
-      `tags IS NULL, above the threshold of ${MAX_NULL_VERDICT_CANDIDATES}. ` +
-      'The measured population of the classifier bug is 20 rows. A number ' +
-      'materially above that means the selector matched rows that were ' +
-      'rejected for some other reason, and un-rejecting those would re-publish ' +
-      'images somebody deliberately removed.',
-  ]
+export function detectReactivationAnomalies(
+  candidateCount: number,
+  reactivationCount: number,
+): string[] {
+  const reasons: string[] = []
+
+  if (reactivationCount > MAX_REACTIVATIONS) {
+    reasons.push(
+      `Pass (d) would reactivate ${reactivationCount} row(s), above the ` +
+        `threshold of ${MAX_REACTIVATIONS}. Only ~10 of the matched rows had ` +
+        'surviving bytes when this was measured, so a number materially above ' +
+        'that means the probe is accepting urls it should not, and un-rejecting ' +
+        'those would re-publish images somebody deliberately removed.',
+    )
+  }
+
+  if (candidateCount > MAX_NULL_VERDICT_CANDIDATES) {
+    reasons.push(
+      `Pass (d) matched ${candidateCount} row(s) with status='rejected' AND ` +
+        `tags IS NULL, above the threshold of ${MAX_NULL_VERDICT_CANDIDATES}. ` +
+        'That is far beyond the known population and suggests the selector lost ' +
+        'its tags IS NULL clause.',
+    )
+  }
+
+  return reasons
 }
 
 /**
@@ -1281,21 +1326,27 @@ async function repair({ live, force, includeLogos }: CliOptions): Promise<void> 
       row,
     })),
   ]
-  const reactivationAnomalies = detectReactivationAnomalies(
+  // The candidate count is only the loose outer guard, so it is checked first:
+  // if the selector matched an absurd population, skip probing entirely rather
+  // than firing thousands of unexpected requests. With --force the operator has
+  // accepted the count, so the plan is built normally.
+  const candidateAnomalies = detectReactivationAnomalies(
     reactivationCandidates.length,
+    0,
   )
-  // Skip probing entirely when the breaker has tripped and --force was NOT
-  // passed: nothing will be mutated either way, and firing hundreds of
-  // unexpected requests is the wrong response to "the selector matched
-  // something it shouldn't". With --force the operator has accepted the count,
-  // so the plan is built normally.
   const reactivationPlan =
-    reactivationAnomalies.length > 0 && !force
+    candidateAnomalies.length > 0 && !force
       ? []
       : await planReactivations({
           candidates: reactivationCandidates,
           probe: probeUrlReachable,
         })
+  // The real blast radius is rows we would WRITE, which is only knowable after
+  // probing — the fail-closed probe discards the (large, already-dead) majority.
+  const reactivationAnomalies = detectReactivationAnomalies(
+    reactivationCandidates.length,
+    reactivationPlan.filter((entry) => entry.action === 'reactivate').length,
+  )
   const rowsToReactivate = reactivationPlan.filter(
     (entry) => entry.action === 'reactivate',
   )
