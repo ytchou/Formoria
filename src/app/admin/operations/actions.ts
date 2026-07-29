@@ -99,21 +99,26 @@ export async function startNeedsDataSubmissionEnrichmentAction(): Promise<
 
 export async function rerunCurationJobAction(
   jobId: string,
+  options?: { overwrite?: boolean },
 ): Promise<QueuedJobResult | { error: string }> {
   try {
     const auth = await requireAdminAction();
     if ("error" in auth) return auth;
 
+    const overwrite = options?.overwrite === true;
     const job = await enqueueManualRerun(
       jobId,
       auth.user.email ?? auth.user.id,
+      { overwrite },
     );
     revalidatePath("/admin/jobs");
     revalidatePath(`/admin/jobs/${jobId}`);
 
     return dispatchQueuedJob(
       job.id,
-      "Rerun job created for failed, skipped, or unfinished submissions.",
+      overwrite
+        ? "Rerun job created for failed, skipped, or unfinished submissions. Existing enrichment will be overwritten."
+        : "Rerun job created for failed, skipped, or unfinished submissions.",
     );
   } catch (error) {
     console.error("[admin:rerunCurationJobAction]", error);

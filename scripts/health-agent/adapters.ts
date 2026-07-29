@@ -1,10 +1,22 @@
 import {
+  boundedSlackText,
+  renderAgentNotification,
+  type AgentNotification,
+  type AgentNotificationStatus,
+} from "@/lib/adapters/slack/notification";
+import {
   requiresHumanPolicy,
   type AuditLogger,
   type HealthFinding,
   type HealthSummary,
   type JsonValue,
 } from "./contracts";
+
+// Slack notification rendering lives in `src/lib/adapters/slack` so that
+// application code can reuse it without importing from `scripts/`. Re-exported
+// here to keep existing importers (scripts/notifications/e2e-slack.ts and the
+// GitHub Actions path) working unchanged.
+export { renderAgentNotification, type AgentNotification };
 
 type FetchImplementation = typeof fetch;
 type Clock = () => number;
@@ -337,18 +349,6 @@ function failureLines(entries: unknown[]): string[] {
 
 export type SlackEntry = string | Readonly<Record<string, JsonValue>>;
 
-export type AgentNotificationStatus = "failed" | "needs_attention" | "success";
-
-export interface AgentNotification {
-  agent: string;
-  details?: readonly string[];
-  managerAction?: string;
-  status: AgentNotificationStatus;
-  summary: readonly string[];
-  workDone?: readonly string[];
-  workflowUrl?: string;
-}
-
 export interface SlackReport {
   actionableFindings?: readonly HealthFinding[];
   failures?: readonly SlackEntry[] | SlackEntry;
@@ -445,42 +445,6 @@ function operationalManagerAction(summary: HealthSummary, pipeline: string) {
     : pipeline;
 }
 
-function notificationStatusLabel(status: AgentNotificationStatus): string {
-  return status === "success"
-    ? "Success"
-    : status === "needs_attention"
-      ? "Needs attention"
-      : "Failed";
-}
-
-function notificationStatusEmoji(status: AgentNotificationStatus): string {
-  return status === "success"
-    ? "✅"
-    : status === "needs_attention"
-      ? "⚠️"
-      : "❌";
-}
-
-export function renderAgentNotification(input: AgentNotification): string {
-  const sections = [
-    `${notificationStatusEmoji(input.status)} *Formoria ${input.agent} — ${notificationStatusLabel(input.status)}*`,
-    `*Summary*\n${input.summary.join("\n")}`,
-  ];
-  if (input.workDone && input.workDone.length > 0) {
-    sections.push(`*Work done*\n${input.workDone.join("\n")}`);
-  }
-  if (input.managerAction) {
-    sections.push(`*Manager action*\n• ${input.managerAction}`);
-  }
-  if (input.details && input.details.length > 0) {
-    sections.push(`*Details*\n${input.details.join("\n")}`);
-  }
-  if (input.workflowUrl) {
-    sections.push(`<${input.workflowUrl}|Open workflow run>`);
-  }
-  return sections.join("\n\n");
-}
-
 export function renderSlackDigest(report: SlackReport): string {
   if (report.notification) return renderAgentNotification(report.notification);
   if (report.healthSummary) {
@@ -552,18 +516,6 @@ export function renderSlackDigest(report: SlackReport): string {
     summary,
     workflowUrl: report.workflowUrl,
   });
-}
-
-const SLACK_TEXT_LIMIT = 2_999;
-
-function boundedSlackText(text: string): string {
-  const characters = Array.from(text);
-  if (characters.length <= SLACK_TEXT_LIMIT) return text;
-  const suffix = "\n…summary truncated; open the workflow run for details";
-  return (
-    characters.slice(0, SLACK_TEXT_LIMIT - Array.from(suffix).length).join("") +
-    suffix
-  );
 }
 
 export interface SlackAdapterOptions extends AdapterDependencies {

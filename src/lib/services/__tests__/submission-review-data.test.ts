@@ -153,7 +153,7 @@ describe("getSubmissionReviewCompleteness", () => {
     expect(result.missingFields).toContain(missingField);
   });
 
-  it("requires a hero and an additional distinct active image", () => {
+  it("accepts a hero image as the only active image", () => {
     const duplicateAndInactiveImages: SubmissionReviewImage[] = [
       activeImages[0]!,
       { ...activeImages[1]!, id: "duplicate", url: activeImages[0]!.url },
@@ -167,8 +167,24 @@ describe("getSubmissionReviewCompleteness", () => {
       "succeeded",
     );
 
-    expect(result.missingFields).toContain("additionalImage");
     expect(result.missingFields).not.toContain("heroImage");
+    expect(result).toEqual({ complete: true, missingFields: [] });
+  });
+
+  it("still requires a hero image when no active image remains", () => {
+    const inactiveImages: SubmissionReviewImage[] = [
+      { ...activeImages[0]!, status: "draft" },
+      { ...activeImages[1]!, status: "rejected" },
+    ];
+
+    const result = getSubmissionReviewCompleteness(
+      completeData(),
+      inactiveImages,
+      "succeeded",
+    );
+
+    expect(result.complete).toBe(false);
+    expect(result.missingFields).toContain("heroImage");
   });
 
   it("requires the latest enrichment target to have succeeded", () => {

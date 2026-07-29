@@ -46,4 +46,6 @@ export {
 export type {
   QueryTemplate,
   ImageQueryInput,
+  BrandImageSearchOutcome,
+  BrandImageSearchResult,
 } from './types'

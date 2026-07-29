@@ -9,6 +9,7 @@ import {
   approveSubmission,
   applyBrandRefresh,
   rejectSubmission,
+  reopenSubmission,
   requestBrandRefresh,
   isGeneratedGuestSubmissionEmail,
 } from '@/lib/services/submissions'
@@ -251,6 +252,26 @@ export async function rejectSubmissionAction(
     return undefined
   } catch (err) {
     console.error('[admin:rejectSubmission]', err)
+    return {
+      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+    }
+  }
+}
+
+export async function reopenSubmissionAction(
+  submissionId: string
+): Promise<{ error: string } | undefined> {
+  try {
+    const auth = await requireAdminAction()
+    if ('error' in auth) return auth
+
+    await reopenSubmission(submissionId)
+
+    revalidatePath('/admin/submissions')
+    revalidatePath('/admin')
+    return undefined
+  } catch (err) {
+    console.error('[admin:reopenSubmission]', err)
     return {
       error: err instanceof Error ? err.message : 'An unexpected error occurred',
     }

@@ -1,9 +1,14 @@
 import {
   ENRICH_PHASES,
   createEnrichmentSummary,
+  isProviderFailureMessage,
   runEnrich,
   type OperationResult as CurationOperationResult,
 } from "@/lib/services/curation-operations";
+import {
+  reportJobFailure,
+  reportProviderFailures,
+} from "@/lib/services/job-alerts";
 import {
   logEnrichmentProgress,
   type EnrichmentSummary,
@@ -14,6 +19,7 @@ import {
   heartbeatCurationJob,
   JOB_HEARTBEAT_INTERVAL_MS,
   listCurationJobTargets,
+  parseOverwriteParam,
   updateCurationJobTarget,
   type CurationJob,
   type CurationJobTarget,
@@ -44,6 +50,7 @@ type JobParams = {
   target?: EnrichTarget;
   stopAfter?: number;
   phases?: EnrichPhase[];
+  overwrite?: boolean;
   status?: BrandStatus;
 };
 type OperationWithSummary = CurationOperationResult & {
@@ -54,6 +61,7 @@ type JobTargetProgressConfig = {
   slugs?: string[];
   limit?: number;
   phases?: EnrichPhase[];
+  overwrite?: boolean;
   onProgress?: (message: string) => void;
   onTargetProgress?: (
     event: CurationTargetProgressEvent,
@@ -120,6 +128,10 @@ export async function runJob(
     }
 
     await archiveRunLog(job.id);
+    // A search-provider outage never throws — it finalizes right here, as a
+    // `completed` job carrying failed targets. This is the only reachable alert
+    // path for it; the catch below only sees process-level crashes.
+    await reportProviderFailures(job, summary);
     return summary;
   } catch (error) {
     const message = sanitizeJobError(error);
@@ -139,6 +151,8 @@ export async function runJob(
         await enqueueAutomaticRetry(job);
       }
     }
+
+    await reportJobFailure(job, message);
 
     return failedJobSummary(job, message, Date.now() - startedAt);
   } finally {
@@ -181,6 +195,7 @@ async function runOperation(
     dryRun: job.dry_run,
     slugs: params.slugs,
     limit: params.stopAfter,
+    overwrite: params.overwrite,
     onProgress: logEnrichmentProgress,
     onTargetProgress: (event: CurationTargetProgressEvent) =>
       persistTargetProgress(supabase, job, workerToken, event),
@@ -274,6 +289,7 @@ function parseParams(params: Json | null): JobParams {
     target,
     stopAfter,
     phases: parseEnrichPhases(raw.phases),
+    overwrite: parseOverwriteParam(raw.overwrite),
     status: parseStatus(raw.status),
   };
 }
@@ -621,6 +637,7 @@ function summaryFromTargets(
     success: targets.filter((target) => target.status === "succeeded").length,
     skipped: targets.filter((target) => target.status === "skipped").length,
     failed: failedTargets.length,
+    providerFailed: failedTargets.filter(isProviderFailedTarget).length,
     failedBrands: failedTargets.map((target) => {
       const phaseResults = parsePhaseResults(target.phase_results);
       const failedPhase = phaseResults.find(
@@ -634,6 +651,25 @@ function summaryFromTargets(
     }),
     durationMs,
   };
+}
+
+/**
+ * A failed target counts as a provider failure when the per-brand loop tagged
+ * its phase result (`providerFailure`) — or, as a fallback for targets written
+ * before that flag existed, when the persisted error still carries the Gate A
+ * marker. Both signals live in the `curation_job_targets` row, so this works
+ * identically whether the job ran in the Next runtime or the worker container.
+ */
+function isProviderFailedTarget(target: CurationJobTarget): boolean {
+  const phaseResults = parsePhaseResults(target.phase_results);
+
+  return (
+    phaseResults.some(
+      (phaseResult) =>
+        phaseResult.providerFailure === true ||
+        isProviderFailureMessage(phaseResult.error),
+    ) || isProviderFailureMessage(target.error)
+  );
 }
 
 function parsePhaseResults(value: Json): PhaseResult[] {
@@ -671,6 +707,7 @@ function failedJobSummary(
     success: 0,
     skipped: 0,
     failed: 1,
+    providerFailed: isProviderFailureMessage(error) ? 1 : 0,
     failedBrands: [{ slug: job.id, phase: "job", error }],
     durationMs,
   };

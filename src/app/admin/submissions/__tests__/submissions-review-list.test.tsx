@@ -421,7 +421,7 @@ describe("SubmissionsReviewList", () => {
         makeSubmission({
           reviewCompleteness: {
             complete: false,
-            missingFields: ["heroImage", "additionalImage"],
+            missingFields: ["heroImage"],
           },
         }),
       ],

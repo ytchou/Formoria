@@ -299,7 +299,11 @@ export const IMAGE_CLASSIFY_SYSTEM_PROMPT = `你是品牌圖片審核與分類�
 - alt_en 使用英文，一句話描述圖片具體內容
 - alt_zh 使用台灣繁體中文用語，標點使用全形
 - 不要輸出 Markdown、解釋文字或額外欄位
-- 必須回傳 JSON object，包含 "classifications" 陣列，每張圖片對應一個物件，順序與輸入相同
+- 必須回傳 JSON object，包含 "classifications" 陣列
+- 每張圖片在使用者訊息中都有一個編號（1、2、3……）。每個分類物件必須包含 "id" 欄位，值為該圖片編號的字串（例如 "3"），用來對應圖片
+- id 必須完全對應輸入編號，不可自行編號、跳號或重複
+- 只回傳你能實際判斷的圖片；無法判斷的圖片請直接省略，不要為了湊數而輸出猜測的結果
+- alt_zh 與 alt_en 一律為字串；若無法描述請填空字串 ""
 
 回應格式（嚴格 JSON）：
-{"classifications":[{"tag":"product","score":85,"alt_zh":"繁體中文描述","alt_en":"English description"}]}`
+{"classifications":[{"id":"1","tag":"product","score":85,"alt_zh":"繁體中文描述","alt_en":"English description"}]}`

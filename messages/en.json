@@ -2597,7 +2597,6 @@
         "priceRange": "Price range",
         "website": "Valid official website",
         "heroImage": "Hero image",
-        "additionalImage": "At least one additional image",
         "successfulEnrichment": "Successful latest enrichment"
       },
       "details": {

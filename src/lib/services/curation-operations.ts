@@ -4,7 +4,10 @@ import { resolveRefreshEnrichmentPatch } from "./brand-write-policy";
 import type { BrandFlatLinkColumns } from "@/lib/types";
 import type { SiteContent } from "@/lib/types/brand";
 import type { ScrapedBrandData } from "@/lib/types/scraper";
-import { ENRICH_PHASES } from "@/lib/constants/enrich-phases";
+import {
+  ENRICH_LLM_PHASES,
+  ENRICH_PHASES,
+} from "@/lib/constants/enrich-phases";
 import { normalizeToRootUrl } from "@/lib/url";
 import {
   buildLinkEnrichPatch,
@@ -48,7 +51,9 @@ import {
   type BrandEnrichState,
   type SearchPhaseResult,
   hasPatchValues,
+  isProviderFailure,
 } from "./enrich-phases";
+import type { BrandImageSearchOutcome } from "./enrich-phases/scraper/types";
 import { buildCandidatePool } from "./enrich-phases/candidate-pool";
 import type { EnrichmentTarget } from "./enrichment-target";
 import { MAX_PRODUCT_TAGS } from "./product-tags";
@@ -385,6 +390,119 @@ function uniqueUrls(urls: string[]): string[] {
   return unique;
 }
 
+/**
+ * Every Gate A message starts with this marker. It is the only thing that
+ * survives the throw -> per-brand catch -> persisted target round trip, so it
+ * doubles as the classifier used to count provider failures in the job summary.
+ */
+const PROVIDER_FAILURE_PREFIX = "Search provider unavailable";
+
+/** True when `message` was produced by {@link describeProviderFailure}. */
+export function isProviderFailureMessage(
+  message: string | null | undefined,
+): boolean {
+  return (
+    typeof message === "string" && message.startsWith(PROVIDER_FAILURE_PREFIX)
+  );
+}
+
+function describeProviderFailure(
+  stage: string,
+  detail: { error?: string | null; httpStatus?: number | null },
+): string {
+  const reason =
+    detail.error ??
+    (typeof detail.httpStatus === "number"
+      ? `Serper HTTP ${detail.httpStatus}`
+      : "provider call failed");
+
+  return `${PROVIDER_FAILURE_PREFIX} — ${stage}: ${reason}`;
+}
+
+/**
+ * Gate A: the SERP stage for this brand failed at the provider, so any absence
+ * of results says nothing about the brand. Returns the failure message to throw
+ * with, or `null` when the stage is healthy.
+ *
+ * A `fromCache` search result is a replayed `brand_search_results` row whose
+ * `callStatus` was copied verbatim from a past run — a failure recorded during
+ * an outage that ended days ago must never fail a live run, so cached results
+ * are ignored entirely.
+ */
+export function serpStageFailure(input: {
+  searchResult?: SearchPhaseResult;
+  imageOutcome?: BrandImageSearchOutcome;
+}): string | null {
+  const { searchResult, imageOutcome } = input;
+
+  if (
+    searchResult &&
+    searchResult.fromCache !== true &&
+    isProviderFailure(searchResult.callStatus)
+  ) {
+    return describeProviderFailure("SERP", {
+      error: searchResult.error,
+      httpStatus: searchResult.httpStatus,
+    });
+  }
+
+  if (imageOutcome && isProviderFailure(imageOutcome.callStatus)) {
+    return describeProviderFailure("image search", {
+      error: imageOutcome.error,
+      httpStatus: imageOutcome.httpStatus,
+    });
+  }
+
+  return null;
+}
+
+export type ProviderGateDecision = {
+  /** `warn` when the kill switch is off — log and continue instead of failing. */
+  action: "fail" | "warn";
+  message: string;
+};
+
+/**
+ * Gate A with its kill switch applied. `CURATION_PROVIDER_GATE=off` downgrades a
+ * hard fail to a logged warning so the gate can be disabled without a deploy;
+ * unset (the default) keeps the gate active.
+ */
+export function evaluateProviderGate(input: {
+  searchResult?: SearchPhaseResult;
+  imageOutcome?: BrandImageSearchOutcome;
+}): ProviderGateDecision | null {
+  const message = serpStageFailure(input);
+  if (!message) {
+    return null;
+  }
+
+  return {
+    action: process.env.CURATION_PROVIDER_GATE === "off" ? "warn" : "fail",
+    message,
+  };
+}
+
+/**
+ * Gate B: nothing downstream can consume. URLs feed scraping and link phases,
+ * images feed classification, and SERP snippets feed the description and
+ * channel phases — so a brand with snippets but zero URLs still has usable LLM
+ * input and must NOT be treated as empty.
+ */
+export function hasNoEnrichmentInputs(input: {
+  knownUrls: string[];
+  discoveredUrls: string[];
+  urlExtracted: object;
+  imageSearchUrls: string[];
+  serpSnippets: string[];
+}): boolean {
+  return (
+    uniqueUrls([...input.knownUrls, ...input.discoveredUrls]).length === 0 &&
+    !hasPatchValues(input.urlExtracted) &&
+    input.imageSearchUrls.length === 0 &&
+    input.serpSnippets.length === 0
+  );
+}
+
 function chunkItems<T>(items: T[], size: number): T[][] {
   const chunks: T[][] = [];
 
@@ -587,6 +705,15 @@ export function createEnrichmentSummary(
     failed: result.brandOutcomes.filter(
       (outcome) => outcome.status === "failed",
     ).length,
+    providerFailed: result.brandOutcomes.filter(
+      (outcome) =>
+        outcome.status === "failed" &&
+        (isProviderFailureMessage(outcome.error) ||
+          (outcome.phaseResults?.some(
+            (phaseResult) => phaseResult.providerFailure === true,
+          ) ??
+            false)),
+    ).length,
     failedBrands: result.brandOutcomes
       .filter(
         (outcome): outcome is BrandOutcome & { error: string } =>
@@ -738,6 +865,7 @@ export async function persistSubmissionEnrichmentResults(
 
 export function submissionToEnrichBrand(
   submission: SubmissionEnrichmentRow,
+  options?: { overwrite?: boolean },
 ): EnrichBrand {
   const existingEnriched = isPlainObject(submission.enriched_data)
     ? submission.enriched_data
@@ -756,7 +884,10 @@ export function submissionToEnrichBrand(
   return {
     ...existing,
     id: submission.id,
-    overwrite_enrichment: isRefresh,
+    // A refresh always overwrites; an explicit job-level `overwrite` lets an
+    // admin force a re-run to re-touch already-populated rows (e.g. re-running
+    // image classification on submissions whose tags are already set).
+    overwrite_enrichment: isRefresh || options?.overwrite === true,
     slug: `submission-${submission.id}`,
     name:
       typeof existing.name === "string" ? existing.name : submission.brand_name,
@@ -893,7 +1024,10 @@ export async function runEnrich(
   }
 
   allBrands = ((submissions ?? []) as SubmissionEnrichmentRow[]).map(
-    submissionToEnrichBrand,
+    (submission) =>
+      submissionToEnrichBrand(submission, {
+        overwrite: config.overwrite === true,
+      }),
   );
 
   const totalBrands = allBrands.length;
@@ -1059,10 +1193,16 @@ export async function runEnrich(
       );
     }
 
-    if (
-      !phases.includes("discover") &&
-      (hasDetectPhases || phases.includes("descriptions"))
-    ) {
+    // An enrichment-only run (no `discover`) still needs SERP context, so replay
+    // the stored results for any run that includes at least one LLM phase.
+    // Replayed rows are marked `fromCache` so a historical provider failure is
+    // never mistaken for a live one.
+    const requestedPhases = new Set<string>(phases);
+    const needsCachedSerp =
+      !requestedPhases.has("discover") &&
+      ENRICH_LLM_PHASES.some((phase) => requestedPhases.has(phase));
+
+    if (needsCachedSerp) {
       const cached = await loadCachedSearchResults(
         chunk.map((brand) => brand.id),
         targetType,
@@ -1089,6 +1229,9 @@ export async function runEnrich(
       searchResults,
     );
     const imageSearchResults = imageSearchResult.imageSearchResults;
+    // Per-brand provider call outcomes; Gate A consumes these to hard-fail a
+    // target whose image search never actually reached the provider.
+    const imageSearchOutcomes = imageSearchResult.imageSearchOutcomes;
     if (phases.includes("images")) {
       await recordBatchPhase(
         imageSearchResult.phaseResult,
@@ -1279,13 +1422,36 @@ export async function runEnrich(
             );
           }
 
+          // Gate A — the pipeline is one-way SERP -> ENRICHMENT: a provider
+          // failure means there is no input, so hard-fail the target instead of
+          // burning LLM tokens on nothing. The per-brand catch below turns this
+          // throw into a recorded FAILED target carrying the provider message.
+          const providerGate = evaluateProviderGate({
+            searchResult: searchResults.get(getDisplayBrandName(brand)),
+            imageOutcome: imageSearchOutcomes.get(getDisplayBrandName(brand)),
+          });
+          if (providerGate) {
+            if (providerGate.action === "warn") {
+              // Kill switch (CURATION_PROVIDER_GATE=off) is engaged.
+              onProgress(
+                `  [PROVIDER-GATE OFF] ${brand.slug}: ${providerGate.message}`,
+              );
+            } else {
+              throw new Error(providerGate.message);
+            }
+          }
+
+          // Gate B — nothing downstream can consume, so skip before any LLM
+          // phase runs. Snippets count as usable input (descriptions and
+          // channels read them), so this only fires when every input is empty.
           if (
-            !phases.includes("tags") &&
-            !phases.includes("locations") &&
-            uniqueUrls([...state.knownUrls, ...state.discoveredUrls]).length ===
-              0 &&
-            !hasPatchValues(urlExtracted) &&
-            imageSearchUrls.length === 0
+            hasNoEnrichmentInputs({
+              knownUrls: state.knownUrls,
+              discoveredUrls: state.discoveredUrls,
+              urlExtracted,
+              imageSearchUrls,
+              serpSnippets: state.serpSnippets,
+            })
           ) {
             if (includesDiscover && state.discoveredUrls.length <= 1) {
               weakBrandCount += 1;
@@ -1301,7 +1467,7 @@ export async function runEnrich(
               changedFields: changedFieldsFromPhaseResults(state.phaseResults),
               phaseResults: state.phaseResults,
               error:
-                "No usable website, social link, image, or classification data was found",
+                "No usable enrichment inputs: no known or discovered URLs, no extractable links, no image results, and no search snippets",
             });
             result.skipped += 1;
             onProgress(
@@ -1603,20 +1769,36 @@ export async function runEnrich(
           );
         } catch (err) {
           const errMsg = errorMessage(err);
+          // A Gate A throw lands here. Tag the recorded phase result so the job
+          // summary can tell "the provider was down" apart from "this brand
+          // legitimately had no data" — the two must not page the same way.
+          const providerFailure = isProviderFailureMessage(errMsg);
           if (
             !outcomePhaseResults.some(
               (phaseResult) => phaseResult.status === "failed",
             )
           ) {
-            outcomePhaseResults.push(
-              buildPhaseResult(
+            outcomePhaseResults.push({
+              ...buildPhaseResult(
                 currentPhase ?? "brand",
                 "failed",
                 [],
                 0,
                 errMsg,
               ),
+              ...(providerFailure ? { providerFailure: true } : {}),
+            });
+          } else if (providerFailure) {
+            const failedIndex = outcomePhaseResults.findIndex(
+              (phaseResult) => phaseResult.status === "failed",
             );
+            const failedPhase = outcomePhaseResults[failedIndex];
+            if (failedPhase) {
+              outcomePhaseResults[failedIndex] = {
+                ...failedPhase,
+                providerFailure: true,
+              };
+            }
           }
           result.errors.push(`${brand.slug}: ${errMsg}`);
           await recordOutcome({
@@ -1650,7 +1832,7 @@ export async function runEnrich(
 
   if (weakBrandCount > 0) {
     onProgress(
-      `\n[WEAK-BRAND SUMMARY] ${weakBrandCount} brand(s) had no useful search results — review for potential non-brands`,
+      `\n[WEAK-BRAND SUMMARY] ${weakBrandCount} brand(s) had no usable enrichment inputs — review for potential non-brands`,
     );
   }
 

@@ -18,6 +18,25 @@ const { runJob, sanitizeJobError } = await import("@/lib/services/job-runner");
 const { runScheduledCuration } = await import(
   "@/lib/services/curation-worker"
 );
+const { reportWorkerFailure } = await import("@/lib/services/job-alerts");
+
+// This container never loads Next's instrumentation hook, so nothing else here
+// would ever reach Sentry. Alerting swallows its own errors by contract.
+process.on("unhandledRejection", (reason) => {
+  console.error(
+    "[curation-worker:unhandled-rejection]",
+    sanitizeJobError(reason),
+  );
+  void reportWorkerFailure("unhandledRejection", reason);
+});
+
+process.on("uncaughtException", (error) => {
+  console.error(
+    "[curation-worker:uncaught-exception]",
+    sanitizeJobError(error),
+  );
+  void reportWorkerFailure("uncaughtException", error);
+});
 
 const MAX_BODY_BYTES = 16 * 1024;
 const CRON_SCHEDULE = process.env.CURATION_CRON_SCHEDULE ?? "";
@@ -124,6 +143,7 @@ async function runCron(): Promise<void> {
         ? error.message
         : JSON.stringify(error, null, 2),
     );
+    await reportWorkerFailure("cron", error);
   }
 }
 
@@ -199,8 +219,9 @@ async function handleRequest(
     status: claimed.id === jobId ? "started" : "queued",
   });
 
-  void runQueuedJobs(claimed, workerToken).catch((error) => {
+  void runQueuedJobs(claimed, workerToken).catch(async (error) => {
     console.error("[curation-worker:run]", sanitizeJobError(error));
+    await reportWorkerFailure("runQueuedJobs", error);
   });
 }
 

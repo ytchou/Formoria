@@ -95,7 +95,7 @@ describe('batchSearchBrandImages (Serper)', () => {
       new Response(JSON.stringify(MOCK_SERPER_IMAGE_RESPONSE), { status: 200, headers: { 'content-type': 'application/json' } })
     ))
     const results = await batchSearchBrandImages(['testBrand'], 1)
-    const brandResults = results.get('testBrand') ?? []
+    const brandResults = results.get('testBrand')?.rows ?? []
     // img1 (800x600) passes, img2 (200x150) filtered, img3 (0x0) passes (unknown dims)
     expect(brandResults.length).toBeGreaterThanOrEqual(2)
     const fetchCall = vi.mocked(fetch).mock.calls[0]

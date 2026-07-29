@@ -130,7 +130,6 @@ type SubmissionReviewMissingField =
   | "priceRange"
   | "website"
   | "heroImage"
-  | "additionalImage"
   | "successfulEnrichment";
 export type SubmissionReviewCompleteness = {
   complete: boolean;
@@ -721,9 +720,6 @@ export function getSubmissionReviewCompleteness(
     || isHttpUrl(data.purchaseShopee);
   if (!hasAnyLink) missingFields.push("website");
   if (!heroImage) missingFields.push("heroImage");
-  if (activeImages.filter((image) => image.id !== heroImage?.id).length < 1) {
-    missingFields.push("additionalImage");
-  }
   if (latestTargetStatus !== "succeeded") {
     missingFields.push("successfulEnrichment");
   }
@@ -1350,6 +1346,38 @@ export async function getSubmission(id: string): Promise<BrandSubmission> {
 
   if (error || !data)
     throw new NotFoundError("BrandSubmission", id, { cause: error });
+  return submissionToDomain(data);
+}
+
+/**
+ * Rolls a rejected submission back to `pending` so curation can run against it
+ * again. Approved submissions are deliberately excluded: they carry a live
+ * `brand_id` and their status transition drives provenance/location triggers,
+ * so unwinding one is not a status flip.
+ */
+export async function reopenSubmission(
+  id: string,
+): Promise<BrandSubmission> {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase
+    .from("brand_submissions")
+    .update({
+      status: "pending",
+      reviewed_at: null,
+      reviewed_by: null,
+      denial_reason: null,
+      reviewer_notes: null,
+    })
+    .eq("id", id)
+    .eq("status", "rejected")
+    .select("*")
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) {
+    throw new Error("Only rejected submissions can be reopened");
+  }
+
   return submissionToDomain(data);
 }
 
