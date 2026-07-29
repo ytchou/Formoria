@@ -7,13 +7,16 @@ import { LockKeyhole, MapPin } from 'lucide-react'
 import { Dialog, DialogTrigger } from '@/components/ui/dialog'
 import { buttonVariants } from '@/components/ui/button'
 import { useUser } from '@/lib/auth/use-user'
+import { DialogLoadingContent } from '@/components/brands/dialog-loading-content'
 
 // Click-gated: the dialog body (form, upload hook, server action binding) is a
 // separate chunk. `ssr: false` because it only ever renders inside an open
-// dialog portal — there is no server markup to preserve.
+// dialog portal — there is no server markup to preserve. `loading` matters most
+// here: the report dialog opens this one via a synthetic `click()`, so the
+// chunk request starts in the same commit that opens the dialog.
 const EvidenceDialogContent = dynamic(
   () => import('@/components/brands/evidence-dialog-content').then((m) => m.EvidenceDialogContent),
-  { ssr: false },
+  { ssr: false, loading: () => <DialogLoadingContent /> },
 )
 
 interface EvidenceDialogProps {

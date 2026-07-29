@@ -955,7 +955,11 @@ export async function getBrands(
   const sortKey = filters?.sort ?? 'random'
   if (sortKey !== 'random') {
     const sortConfig = BRAND_SORT_CONFIG[sortKey]
+    // The id tiebreaker makes the order total. Many brands tie on the sort column
+    // (NULL founding_year, bulk-import approved_at), and without a total order the
+    // .range() windows below can repeat a row on two pages and drop another.
     query = query.order(sortConfig.column, { ascending: sortConfig.ascending })
+    query = query.order('id', { ascending: true })
   } else {
     // Postgres gives no stable row order without ORDER BY, so .range() below
     // could repeat or drop rows across pages. Paginate over a deterministic

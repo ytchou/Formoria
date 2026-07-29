@@ -3,6 +3,7 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from "@sentry/nextjs";
+import { isPostHogConfigured } from '@/lib/analytics/posthog-provider';
 
 const isEn = typeof window !== 'undefined' && window.location.pathname.startsWith('/en')
 
@@ -63,11 +64,7 @@ Sentry.init({
   },
 });
 
-if (
-  process.env.NODE_ENV === 'production'
-  && process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN
-  && process.env.NEXT_PUBLIC_POSTHOG_HOST === 'https://e.formoria.com'
-) {
+if (isPostHogConfigured()) {
   void import('@/lib/analytics/posthog-client')
     .then(({ initializePostHog }) => initializePostHog())
     .catch(() => undefined)

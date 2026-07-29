@@ -35,9 +35,34 @@ function renderDialog(props: { categoryLabel?: string | null; brandImageUrl?: st
   )
 }
 
+// The body is a `next/dynamic` chunk behind a `loading:` skeleton that already
+// renders a real `role="dialog"` (that is the point — the overlay and focus trap
+// mount immediately). So waiting on the role alone resolves against the
+// skeleton and every synchronous query that follows races the real body. Wait
+// for the loaded surface instead: only the skeleton carries `aria-busy`.
+// waitFor's 1s default is not a real budget for this: resolving the chunk is a
+// module import competing with every other vitest worker for CPU, so under a
+// full parallel suite it routinely overruns. The wait is generous; nothing it
+// waits for is weakened.
+const CHUNK_LOAD_TIMEOUT_MS = 10_000
+
+async function findLoadedDialog() {
+  return waitFor(
+    () => {
+      const loaded = screen
+        .getAllByRole('dialog')
+        .find((node) => node.getAttribute('aria-busy') !== 'true')
+      if (!loaded) throw new Error('dialog body has not mounted yet')
+      return loaded
+    },
+    { timeout: CHUNK_LOAD_TIMEOUT_MS }
+  )
+}
+
 async function openDialog(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('button', { name: share.trigger }))
-  await screen.findByRole('dialog')
+  await findLoadedDialog()
+  await screen.findByRole('button', { name: share.copy })
 }
 
 // userEvent.setup() installs its own navigator.clipboard stub, so ours has to

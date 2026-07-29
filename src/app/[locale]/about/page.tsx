@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import Image from 'next/image'
-import { connection } from 'next/server'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { buildArticleJsonLd, buildOrganizationJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 import { buildAlternates } from '@/lib/seo/alternates'
@@ -13,6 +12,7 @@ import MissionPillars from '@/components/about/mission-pillars'
 import { buttonVariants } from '@/components/ui/button'
 import { TrustModel } from '@/components/about/trust-model'
 import { getBrandStats, getRecentBrandCount } from '@/lib/services/brands'
+import { captureReadFailure, markRenderDegraded } from '@/lib/degraded-render'
 
 export const revalidate = 3600
 
@@ -62,15 +62,15 @@ export default async function AboutPage({ params }: PageProps) {
   const articleJsonLd = buildArticleJsonLd({ title, description, path: '/about', locale: safeLocale })
 
   const [stats, recentBrands] = await Promise.all([
-    getBrandStats().catch(() => null),
-    getRecentBrandCount().catch(() => null),
+    getBrandStats().catch(captureReadFailure('about.brandStats')),
+    getRecentBrandCount().catch(captureReadFailure('about.recentBrandCount')),
   ])
 
-  // A read failure degrades the page but must never be frozen by `revalidate = 3600`:
-  // opt this render out of the static cache so the next request retries against the DB.
+  // Aggregate flag: ANY failed read means this render is degraded, and a degraded
+  // render must never be frozen by `revalidate = 3600`.
   const degraded = stats === null || recentBrands === null
   if (degraded) {
-    await connection()
+    await markRenderDegraded('about')
   }
 
   return (
@@ -84,10 +84,12 @@ export default async function AboutPage({ params }: PageProps) {
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(articleJsonLd) }}
       />
       <main>
-        {/* Counts are omitted rather than shown as zero when the read failed. */}
+        {/* Each figure is suppressed by ITS OWN read: a failed `getRecentBrandCount`
+            must not hide stats that `getBrandStats` returned. `undefined` omits the
+            figure; a genuinely empty DB still resolves 0 and renders 0. */}
         <AboutHero
-          brandCount={degraded ? undefined : stats?.brandCount}
-          categoryCount={degraded ? undefined : stats?.categoryCount}
+          brandCount={stats?.brandCount}
+          categoryCount={stats?.categoryCount}
           recentBrands={recentBrands ?? undefined}
         />
 

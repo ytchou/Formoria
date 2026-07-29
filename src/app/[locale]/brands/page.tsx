@@ -560,8 +560,11 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
                 />
               ) : (
                 <MasonryGrid>
+                  {/* Only the first card preloads: the grid is single-column on mobile, so
+                      preloading four 100vw images would put three below-fold fetches at
+                      fetchpriority=high in front of the real LCP element. */}
                   {displayBrands.map((brand, index) => (
-                    <BrandCard key={brand.id} brand={brand} priority={index < 4} />
+                    <BrandCard key={brand.id} brand={brand} priority={index < 1} />
                   ))}
                 </MasonryGrid>
               )}

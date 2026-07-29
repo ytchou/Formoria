@@ -43,7 +43,12 @@ const nextConfig: NextConfig = {
       protocol: 'https',
       hostname,
     })),
-    formats: ['image/avif', 'image/webp'],
+    // WebP only, no AVIF: brand images are already stored as WebP (1,647 of
+    // ~2,027 storage objects; src/app/api/upload/route.ts writes
+    // contentType: 'image/webp'), so AVIF's marginal payload win over an
+    // already-efficient source does not justify its much slower encode on a
+    // container whose optimizer cache is ephemeral and re-derives on cold start.
+    formats: ['image/webp'],
     // The optimizer cache lives on the single Railway container's ephemeral disk,
     // so every cold start re-derives from source. A long TTL maximises reuse within
     // a container's lifetime; 30 days bounds staleness if a brand image is replaced

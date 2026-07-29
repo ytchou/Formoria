@@ -67,7 +67,7 @@ describe('check-frontend-type-tokens', () => {
     )
     writeFixture(
       cwd,
-      'src/components/brands/share-dialog.tsx',
+      'src/components/brands/share-dialog-content.tsx',
       // Exercises every allowlisted value for this file (both brand-disc hex
       // classes, all four Instagram gradient hexes, and the arbitrary text
       // size) so deleting any of them from the allowlist turns this red.
@@ -77,12 +77,12 @@ describe('check-frontend-type-tokens', () => {
 
     expect(collectFrontendTokenFailures({ cwd })).toEqual([
       expect.objectContaining({
-        file: 'src/components/brands/share-dialog.tsx',
+        file: 'src/components/brands/share-dialog-content.tsx',
         name: 'raw hex color class',
         value: 'text-[#123456]',
       }),
       expect.objectContaining({
-        file: 'src/components/brands/share-dialog.tsx',
+        file: 'src/components/brands/share-dialog-content.tsx',
         name: 'raw hex color literal',
         value: '#123456',
       }),

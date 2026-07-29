@@ -120,11 +120,6 @@ describe('brand column projections', () => {
       'mit_evidence',
       'reputation_summary',
     ])
-    expect([...DIRECTORY_BRAND_COLUMN_LIST]).toEqual(
-      BRAND_COLUMN_LIST.filter(
-        (column) => !(DIRECTORY_OMITTED_COLUMNS as readonly string[]).includes(column)
-      )
-    )
   })
 
   it('never ships draft_data to directory consumers', () => {

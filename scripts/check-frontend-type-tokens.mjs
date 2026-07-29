@@ -18,7 +18,9 @@ const allowedMatches = [
     // is a separate typography escape, not a brand mark: it is the desktop-only
     // density of the read-only URL field, paired with a `text-base` mobile floor
     // so iOS Safari does not auto-zoom on focus.
-    file: 'src/components/brands/share-dialog.tsx',
+    // The values moved out of `share-dialog.tsx` into the click-gated
+    // `share-dialog-content.tsx` chunk; the shell now holds no literals.
+    file: 'src/components/brands/share-dialog-content.tsx',
     names: [
       'raw hex color class',
       'raw hex color literal',

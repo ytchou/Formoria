@@ -11,7 +11,8 @@
     "adjustOrClearFilters": "請調整或清除篩選條件",
     "tryAdjustOrClearFilters": "請嘗試調整或清除篩選條件。",
     "foundingYear": "創立於 {year}",
-    "verified": "已認證"
+    "verified": "已認證",
+    "loading": "載入中…"
   },
   "nav": {
     "brandDirectory": "品牌目錄",

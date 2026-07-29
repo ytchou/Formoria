@@ -7,13 +7,20 @@ import { Share2 } from 'lucide-react'
 import { trackBrandPageShared } from '@/lib/analytics'
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
+import { DialogLoadingContent } from '@/components/brands/dialog-loading-content'
 
 // Click-gated: the preview card, channel discs and copy affordances only reach
 // the browser once the trigger is primed. `ssr: false` because the body only
-// ever renders inside an open dialog portal.
+// ever renders inside an open dialog portal. `loading` keeps the overlay and
+// focus trap mounted while the chunk is in flight, matching the body's width.
 const ShareDialogContent = dynamic(
   () => import('@/components/brands/share-dialog-content').then((m) => m.ShareDialogContent),
-  { ssr: false },
+  {
+    ssr: false,
+    loading: () => (
+      <DialogLoadingContent className="w-[21rem] max-w-[calc(100%-2rem)] rounded-2xl sm:max-w-[21rem]" />
+    ),
+  },
 )
 
 interface ShareDialogProps {
@@ -44,6 +51,18 @@ export function ShareDialog({
   const copiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const prime = () => setPrimed(true)
+
+  // Only genuine touch devices get the OS share sheet; desktop Chrome/Edge
+  // also expose navigator.share and would otherwise never see this dialog.
+  const isCoarsePointer = () =>
+    typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)')?.matches === true
+
+  // Hover/press/focus priming is a desktop-only preload. On coarse pointers the
+  // same gestures precede a tap that usually ends in the OS share sheet, where
+  // the dialog body chunk is pure waste — which is the traffic majority.
+  const primeOnDesktopPointer = () => {
+    if (!isCoarsePointer()) prime()
+  }
 
   useEffect(() => {
     return () => {
@@ -80,13 +99,7 @@ export function ShareDialog({
   }
 
   const handleTriggerClick = async () => {
-    prime()
-
-    // Only genuine touch devices get the OS share sheet; desktop Chrome/Edge
-    // also expose navigator.share and would otherwise never see this dialog.
-    const isTouchDevice =
-      typeof window !== 'undefined' &&
-      window.matchMedia?.('(pointer: coarse)')?.matches === true
+    const isTouchDevice = isCoarsePointer()
 
     const shareUrl =
       typeof window === 'undefined' ? '' : `${window.location.origin}/brands/${brandSlug}`
@@ -103,6 +116,9 @@ export function ShareDialog({
       }
     }
 
+    // Primed only once the in-app dialog is certain to be shown: a native share
+    // sheet (or its dismissal) returns above without ever mounting the body.
+    prime()
     setOpen(true)
   }
 
@@ -112,9 +128,9 @@ export function ShareDialog({
         variant="secondary"
         className="shrink-0"
         onClick={handleTriggerClick}
-        onPointerEnter={prime}
-        onPointerDown={prime}
-        onFocus={prime}
+        onPointerEnter={primeOnDesktopPointer}
+        onPointerDown={primeOnDesktopPointer}
+        onFocus={primeOnDesktopPointer}
         data-ph-no-autocapture
       >
         <Share2 className="size-4" aria-hidden="true" />

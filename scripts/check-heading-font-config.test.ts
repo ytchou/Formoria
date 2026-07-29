@@ -18,7 +18,10 @@ describe('zh-TW heading font configuration', () => {
     expect(layout).not.toContain('--font-noto-serif-tc')
     expect(globals).not.toContain('var(--font-noto-serif-tc)')
     expect(globals).toContain(
-      '--font-heading: var(--font-bricolage), var(--font-noto-tc), ui-sans-serif, system-ui, sans-serif;',
+      // The latin-only Noto TC webfont was removed in 06f7e077 — it declared
+      // `subsets: ["latin"]` so it never served CJK glyphs. CJK now falls
+      // through to the platform system face.
+      '--font-heading: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;',
     )
   })
 })

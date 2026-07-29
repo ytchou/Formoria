@@ -6,13 +6,15 @@ import { useTranslations } from 'next-intl'
 import { Flag } from 'lucide-react'
 import { Dialog, DialogTrigger } from '@/components/ui/dialog'
 import { buttonVariants } from '@/components/ui/button'
+import { DialogLoadingContent } from '@/components/brands/dialog-loading-content'
 
 // Click-gated: the dialog body only reaches the browser once the trigger is
 // primed. `ssr: false` because it only ever renders inside an open dialog
-// portal — there is no server markup to preserve.
+// portal — there is no server markup to preserve. `loading` guarantees the
+// portal (overlay + focus trap) still mounts while the chunk is in flight.
 const ReportDialogContent = dynamic(
   () => import('@/components/brands/report-dialog-content').then((m) => m.ReportDialogContent),
-  { ssr: false },
+  { ssr: false, loading: () => <DialogLoadingContent /> },
 )
 
 interface ReportDialogProps {

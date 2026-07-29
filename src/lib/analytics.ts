@@ -367,8 +367,9 @@ export function trackLogin(method: string) {
 // control lives in the globally hydrated nav, and a static SDK import there would
 // pull the whole bundle into the shared chunk.
 export function trackSignOut() {
-  capturePostHogEvent('user_signed_out')
-  resetPostHogUser()
+  // Emitted through the reset itself: a separate capture beforehand is wiped by the
+  // buffer clear when no provider has registered yet.
+  resetPostHogUser({ event: 'user_signed_out' })
 }
 
 export function trackViewItemList(listName: string, itemCount: number) {
@@ -644,6 +645,11 @@ export function trackWebVital(metric: {
     metric_delta: metric.name === 'CLS' ? metric.delta : Math.round(metric.delta),
     metric_id: metric.id,
     navigation_type: metric.navigationType ?? null,
+    // Caveat: read at REPORT time. CLS and INP finalize on page-hide, after any
+    // soft navigation, so a metric accrued on /brands/<slug> can be tagged with
+    // the content group of whatever route the user ended on. Neither the web-vitals
+    // metric object nor `useReportWebVitals` exposes the pathname at accrual time,
+    // and per-attribution tracking is not worth the machinery for this nuance.
     content_group:
       typeof window !== 'undefined' ? getContentGroup(window.location.pathname) : null,
   })

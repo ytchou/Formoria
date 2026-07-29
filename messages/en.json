@@ -11,7 +11,8 @@
     "adjustOrClearFilters": "Try adjusting or clearing your filters",
     "tryAdjustOrClearFilters": "Try adjusting or clearing your filters.",
     "foundingYear": "Est. {year}",
-    "verified": "Verified"
+    "verified": "Verified",
+    "loading": "Loading…"
   },
   "nav": {
     "brandDirectory": "Brand Directory",
