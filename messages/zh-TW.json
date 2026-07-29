@@ -290,7 +290,8 @@
     "noCityData": "尚無城市資料",
     "foundingDecade": {
       "title": "創立年代分布",
-      "description": "台灣品牌的創立時間（僅含有創立年份資料的品牌）"
+      "description": "台灣品牌的創立時間（僅含有創立年份資料的品牌）",
+      "label": "{decade} 年代"
     }
   },
   "cities": {

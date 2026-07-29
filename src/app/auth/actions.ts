@@ -204,10 +204,11 @@ export async function signInWithGoogle(
   redirect(data.url);
 }
 
-export async function signOut(returnTo?: string): Promise<void> {
+export async function signOut(formData: FormData): Promise<void> {
   const supabase = await createClient();
   await supabase.auth.signOut({ scope: 'local' });
-  redirect(returnTo && isRelativeUrl(returnTo) ? returnTo : "/");
+  const returnTo = formData.get("returnTo");
+  redirect(typeof returnTo === "string" && isRelativeUrl(returnTo) ? returnTo : "/");
 }
 
 export async function resetPassword(

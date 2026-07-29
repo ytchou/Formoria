@@ -179,6 +179,24 @@ test.describe('i18n English browse', () => {
     await expect(page).toHaveURL(/\/en\/brands/, { timeout: 10_000 });
   });
 
+  test('LocaleSwitcher preserves repeated and encoded query parameters', async ({ page }) => {
+    const search = '?category=food-drink&tag=rice%2Fgrains&tag=gift%20boxes';
+    await page.goto(`/brands${search}`);
+
+    const switcherBtn = page.getByRole('banner').getByRole('button', { name: '切換語言' });
+    await expect(switcherBtn).toBeVisible({ timeout: 10_000 });
+    await switcherBtn.click();
+    await page.getByRole('menuitem', { name: 'English' }).click();
+
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === '/en/brands' &&
+        url.searchParams.get('category') === 'food-drink' &&
+        url.searchParams.getAll('tag').join('|') === 'rice/grains|gift boxes',
+      { timeout: 10_000 },
+    );
+  });
+
   test('/en/brands brand cards link to /en/brands/[slug]', async ({ page }) => {
     await page.goto('/en/brands');
     const firstBrand = page.locator('main [role="list"] article a[href*="/brands/"]').first();

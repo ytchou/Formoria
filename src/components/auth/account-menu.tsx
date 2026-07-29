@@ -1,10 +1,11 @@
 'use client'
 
+import type { FormEvent } from 'react'
 import posthog from 'posthog-js'
 import NextLink from 'next/link'
 import { useLocale, useTranslations } from 'next-intl'
 import { Link, usePathname } from '@/i18n/navigation'
-import { localizePath, signInHref } from '@/i18n/locale-preference'
+import { signInHref } from '@/i18n/locale-preference'
 
 import { signOut } from '@/app/auth/actions'
 import { setLocalePreference } from '@/app/actions/locale-preference'
@@ -20,6 +21,13 @@ import {
 function handleSignOut() {
   posthog.capture('user_signed_out')
   posthog.reset()
+}
+
+function preserveCurrentUrl(event: FormEvent<HTMLFormElement>) {
+  const returnTo = event.currentTarget.elements.namedItem('returnTo')
+  if (returnTo instanceof HTMLInputElement) {
+    returnTo.value = `${window.location.pathname}${window.location.search}${window.location.hash}`
+  }
 }
 
 function getUserInitial(email?: string | null): string {
@@ -87,7 +95,12 @@ export function AccountMenu() {
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         {(['zh-TW', 'en'] as const).map((targetLocale) => (
-          <form key={targetLocale} action={setLocalePreference.bind(null, targetLocale, pathname)}>
+          <form
+            key={targetLocale}
+            action={setLocalePreference.bind(null, targetLocale)}
+            onSubmit={preserveCurrentUrl}
+          >
+            <input type="hidden" name="returnTo" defaultValue={pathname} />
             <DropdownMenuItem
               className={locale === targetLocale ? 'font-medium' : undefined}
               render={
@@ -102,7 +115,8 @@ export function AccountMenu() {
           </form>
         ))}
         <DropdownMenuSeparator />
-        <form action={signOut.bind(null, localizePath(pathname, locale))}>
+        <form action={signOut} onSubmit={preserveCurrentUrl}>
+          <input type="hidden" name="returnTo" defaultValue={pathname} />
           <DropdownMenuItem
             variant="destructive"
             render={

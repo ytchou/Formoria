@@ -290,7 +290,8 @@
     "noCityData": "No city data available yet",
     "foundingDecade": {
       "title": "Founding Decade Distribution",
-      "description": "When Taiwan's brands were established (of brands with founding year data)"
+      "description": "When Taiwan's brands were established (of brands with founding year data)",
+      "label": "{decade}s"
     }
   },
   "cities": {
