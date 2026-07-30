@@ -1,10 +1,10 @@
 import type { Metadata } from 'next'
 import { Link } from '@/i18n/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
-import { dateLocale } from '@/i18n/locale-preference'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { buttonVariants } from '@/components/ui/button'
-import { getAllStories, getStoriesByTag } from '@/lib/services/stories'
+import { formatStoryDate } from '@/components/stories/story-date'
+import { getAllStories, getStoriesByTag, groupStoriesBySeries } from '@/lib/services/stories'
 import type { StoryEntry } from '@/lib/services/stories'
 import { categoryLabel, PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { isStoryTag, STORY_TAGS } from '@/lib/taxonomy/story-tags'
@@ -14,12 +14,6 @@ import type { Locale } from '@/lib/seo/alternates'
 type PageProps = {
   params: Promise<{ locale: string }>
   searchParams: Promise<Record<string, string | string[] | undefined>>
-}
-
-type SeriesGroup = {
-  id: string
-  title: string
-  stories: StoryEntry[]
 }
 
 export const revalidate = 3600
@@ -38,58 +32,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 }
 
-function formatStoryDate(date: string, locale: string): string {
-  return new Intl.DateTimeFormat(dateLocale(locale), {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date(date))
-}
-
-/**
- * Splits the published list into series groups (rendered first, as titled
- * sections) and the remaining standalone entries. Group order follows first
- * appearance in the source list; members are ordered by `seriesOrder`, with
- * entries missing an order sinking to the end.
- */
-function partitionBySeries(stories: StoryEntry[]): {
-  series: SeriesGroup[]
-  standalone: StoryEntry[]
-} {
-  const groups = new Map<string, SeriesGroup>()
-  const standalone: StoryEntry[] = []
-
-  for (const story of stories) {
-    const seriesId = story.frontmatter.series
-    if (!seriesId) {
-      standalone.push(story)
-      continue
-    }
-
-    const existing = groups.get(seriesId)
-    if (existing) {
-      existing.stories.push(story)
-    } else {
-      groups.set(seriesId, { id: seriesId, title: seriesId, stories: [story] })
-    }
-  }
-
-  for (const group of groups.values()) {
-    group.stories.sort(
-      (a, b) =>
-        (a.frontmatter.seriesOrder ?? Number.MAX_SAFE_INTEGER) -
-        (b.frontmatter.seriesOrder ?? Number.MAX_SAFE_INTEGER),
-    )
-    // Title comes from the earliest member that declares one, so the section
-    // heading stays stable even if a later part omits `seriesTitle`.
-    group.title =
-      group.stories.find(entry => entry.frontmatter.seriesTitle)?.frontmatter.seriesTitle ??
-      group.id
-  }
-
-  return { series: [...groups.values()], standalone }
-}
-
 function StoryCard({
   story,
   locale,
@@ -100,6 +42,10 @@ function StoryCard({
   headingLevel: 2 | 3
 }) {
   const Heading = headingLevel === 3 ? 'h3' : 'h2'
+  // `null` for a story whose frontmatter carries no usable `publishedAt` — the
+  // card drops its date line rather than throwing out of the server component
+  // and taking the whole hub with it.
+  const publishedLabel = formatStoryDate(story.frontmatter.publishedAt, locale)
 
   return (
     <Link
@@ -118,9 +64,7 @@ function StoryCard({
             {story.frontmatter.description}
           </p>
         </div>
-        <p className="type-caption">
-          {formatStoryDate(story.frontmatter.publishedAt, locale)}
-        </p>
+        {publishedLabel ? <p className="type-caption">{publishedLabel}</p> : null}
       </div>
     </Link>
   )
@@ -138,7 +82,18 @@ export default async function StoriesHubPage({ params, searchParams }: PageProps
     ? await getStoriesByTag(activeTag, safeLocale)
     : await getAllStories(safeLocale)
   const stories = storyResult.ok ? storyResult.stories : []
-  const { series, standalone } = partitionBySeries(stories)
+  // Grouping and ordering live in the service (`groupStoriesBySeries`), which is
+  // also what `getStorySeries` orders by — one definition of "series order", not
+  // one here and one there.
+  const { series, standalone } = groupStoriesBySeries(stories, safeLocale)
+  // A group down to a single visible entry gets no titled section, matching
+  // `SeriesNav`, which renders nothing below two members. Its story still shows
+  // — it just joins the ungrouped grid instead of sitting alone under a heading.
+  const seriesSections = series.filter((group) => group.stories.length >= 2)
+  const ungrouped: StoryEntry[] = [
+    ...series.filter((group) => group.stories.length < 2).flatMap((group) => group.stories),
+    ...standalone,
+  ]
 
   // Product-type tags share the brand ontology's labels; editorial tags have no
   // ontology entry and read their label from the `stories.tags.*` messages.
@@ -161,8 +116,15 @@ export default async function StoriesHubPage({ params, searchParams }: PageProps
         </header>
 
         <nav aria-label={t('tagsAria')} className="flex flex-wrap gap-2">
+          {/*
+            `aria-current` carries the active state, matching the project's
+            canonical filter-chip nav (`components/feedback/feature-request-filters`).
+            The `primary` fill alone is colour-only signalling: invisible to a
+            screen reader and unreliable in forced-colours mode.
+          */}
           <Link
             href="/stories"
+            aria-current={activeTag === null ? 'page' : undefined}
             className={buttonVariants({ variant: activeTag === null ? 'primary' : 'secondary', shape: 'pill', size: 'chip' })}
           >
             {t('allTags')}
@@ -174,6 +136,7 @@ export default async function StoriesHubPage({ params, searchParams }: PageProps
               <Link
                 key={tag}
                 href={`/stories?tag=${encodeURIComponent(tag)}`}
+                aria-current={isActive ? 'page' : undefined}
                 className={buttonVariants({ variant: isActive ? 'primary' : 'secondary', shape: 'pill', size: 'chip' })}
               >
                 {tagLabel(tag)}
@@ -195,8 +158,12 @@ export default async function StoriesHubPage({ params, searchParams }: PageProps
           </div>
         ) : (
           <div className="space-y-10">
-            {series.map((group, index) => {
+            {seriesSections.map((group, index) => {
               const headingId = `story-series-${index}`
+              // Under a tag filter the visible members are a subset of the
+              // series, so a bare count contradicts `SeriesNav` on the detail
+              // page, which always reports the full series. Say "N of M" instead.
+              const isPartial = group.stories.length !== group.totalCount
 
               return (
                 <section key={group.id} aria-labelledby={headingId} className="space-y-4">
@@ -205,7 +172,12 @@ export default async function StoriesHubPage({ params, searchParams }: PageProps
                       {group.title}
                     </h2>
                     <p className="type-caption">
-                      {t('seriesCount', { count: group.stories.length })}
+                      {isPartial
+                        ? t('seriesCountFiltered', {
+                            shown: group.stories.length,
+                            total: group.totalCount,
+                          })
+                        : t('seriesCount', { count: group.stories.length })}
                     </p>
                   </div>
                   <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -222,9 +194,9 @@ export default async function StoriesHubPage({ params, searchParams }: PageProps
               )
             })}
 
-            {standalone.length > 0 && (
+            {ungrouped.length > 0 && (
               <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {standalone.map((story) => (
+                {ungrouped.map((story) => (
                   <StoryCard
                     key={story.slug}
                     story={story}

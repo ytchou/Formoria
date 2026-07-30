@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import type { ReactNode } from 'react'
-import { render, screen } from '@testing-library/react'
+import type { ComponentPropsWithoutRef, ReactNode } from 'react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { NextIntlClientProvider } from 'next-intl'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -21,44 +21,51 @@ vi.mock('@/lib/services/brands', () => ({
   getBrandsBySlugs: mocks.getBrandsBySlugs,
 }))
 
+/**
+ * `getTranslations` delegates to next-intl's own `createTranslator` against the
+ * real `messages/en.json`, rather than a hand-rolled `{name}` substitution.
+ *
+ * A regex formatter silently diverges from production the moment a message uses
+ * ICU syntax — `stories.seriesCount` is a plural — so the test would render
+ * "{count, plural, one {# part}…}" as a literal, or render fine while the page
+ * broke. Only the message *source* is a boundary here; the formatter is not.
+ */
 vi.mock('next-intl/server', async () => {
-  const messages = (await import('../../../../messages/en.json')).default as Record<
-    string,
-    unknown
-  >
+  const { createTranslator } = await import('next-intl')
+  const messages = (await import('../../../../messages/en.json')).default
+
+  type TranslatorOptions = Parameters<typeof createTranslator>[0]
+
+  // Both call shapes are in use in the tree: `getTranslations('stories')` in
+  // components, `getTranslations({ locale, namespace })` in route files.
+  const getTranslations = async (
+    options?: string | { locale?: string; namespace?: string },
+  ) =>
+    createTranslator({
+      locale: typeof options === 'string' ? 'en' : (options?.locale ?? 'en'),
+      messages,
+      namespace: typeof options === 'string' ? options : options?.namespace,
+    } as unknown as TranslatorOptions)
 
   return {
     getLocale: async () => 'en',
-    getTranslations: async (namespace: string) => {
-      const scope = (messages[namespace] ?? {}) as Record<string, unknown>
-      return (key: string, values?: Record<string, string | number>) => {
-        const template = key
-          .split('.')
-          .reduce<unknown>(
-            (acc, part) => (acc as Record<string, unknown> | undefined)?.[part],
-            scope,
-          )
-        if (typeof template !== 'string') return key
-        if (!values) return template
-        return template.replace(/\{(\w+)\}/g, (_match, name: string) =>
-          String(values[name] ?? ''),
-        )
-      }
-    },
+    getTranslations,
   }
 })
 
 vi.mock('@/i18n/navigation', () => ({
+  // `...rest` is load-bearing: destructuring a fixed prop list silently drops
+  // `onClick`, and click-tracking assertions then see zero calls against a
+  // handler that is wired correctly in production.
   Link: ({
     href,
     children,
-    className,
+    ...rest
   }: {
     href: string
     children: ReactNode
-    className?: string
-  }) => (
-    <a href={href} className={className}>
+  } & Omit<ComponentPropsWithoutRef<'a'>, 'href' | 'children'>) => (
+    <a href={href} {...rest}>
       {children}
     </a>
   ),
@@ -83,6 +90,9 @@ vi.mock('@/lib/analytics', () => ({
   trackBrandSaved: vi.fn(),
   trackBrandUnsaved: vi.fn(),
 }))
+
+import { getTranslations } from 'next-intl/server'
+import { trackBrandCardClicked } from '@/lib/analytics'
 
 import { BrandCardMdx } from '../brand-card-mdx'
 import { BrandGrid } from '../brand-grid'
@@ -178,6 +188,7 @@ describe('BrandCardMdx', () => {
 describe('BrandGrid', () => {
   beforeEach(() => {
     mocks.getBrandsBySlugs.mockReset()
+    vi.mocked(trackBrandCardClicked).mockClear()
   })
 
   it('issues one batched lookup for all slugs', async () => {
@@ -191,5 +202,40 @@ describe('BrandGrid', () => {
     expect(mocks.getBrandsBySlugs).toHaveBeenCalledTimes(1)
     expect(mocks.getBrandsBySlugs).toHaveBeenCalledWith(slugs)
     expect(screen.getAllByRole('heading')).toHaveLength(3)
+  })
+
+  it('numbers its cards from startIndex so two grids do not both report rank 0', async () => {
+    // Every grid otherwise indexes from 0, so a story with two of them reports
+    // two different brands at `position_in_grid: 0` and GA4 rank analysis mixes
+    // them. `startIndex` is the manual escape hatch until a story-scoped counter
+    // is threaded through the shortcode map.
+    const slugs = ['tainan-soy', 'paper-mill']
+    mocks.getBrandsBySlugs.mockResolvedValue(
+      new Map(slugs.map((slug) => [slug, makeBrand(slug, slug)])),
+    )
+
+    renderWithIntl(await BrandGrid({ slugs, startIndex: 3 }))
+    fireEvent.click(screen.getByRole('link', { name: 'paper-mill' }))
+
+    expect(vi.mocked(trackBrandCardClicked)).toHaveBeenCalledWith(
+      'paper-mill',
+      'bags-accessories',
+      4,
+      'id-paper-mill',
+    )
+  })
+})
+
+/**
+ * Guards the translator this file mocks, not a component. A hand-rolled `{name}`
+ * substitution renders ICU syntax literally, so every assertion above would keep
+ * passing while the real page shipped `{count, plural, …}` to readers.
+ */
+describe('the mocked server translator', () => {
+  it('formats ICU plurals the way next-intl does in production', async () => {
+    const t = await getTranslations('stories')
+
+    expect(t('seriesCount', { count: 1 })).toBe('1 part')
+    expect(t('seriesCount', { count: 5 })).toBe('5 parts')
   })
 })

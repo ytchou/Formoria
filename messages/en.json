@@ -2869,17 +2869,13 @@
     },
     "seriesHeading": "In this series",
     "seriesNavAria": "Stories in this series",
-    "seriesCount": "{count} parts",
+    "seriesCount": "{count, plural, one {# part} other {# parts}}",
+    "seriesCountFiltered": "{shown} of {total, plural, one {# part} other {# parts}}",
     "brandMissing": "Brand unavailable: {slug}",
     "notFound": {
       "title": "Story not found",
       "description": "The story you're looking for doesn't exist or has been removed.",
       "browseAll": "Browse all stories"
-    }
-  },
-  "storyDetail": {
-    "metadata": {
-      "notFoundTitle": "Story Not Found"
     }
   },
   "feedback": {

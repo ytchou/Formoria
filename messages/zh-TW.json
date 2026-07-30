@@ -2870,16 +2870,12 @@
     "seriesHeading": "本系列專題",
     "seriesNavAria": "本系列其他專題",
     "seriesCount": "共 {count} 篇",
+    "seriesCountFiltered": "共 {total} 篇中的 {shown} 篇",
     "brandMissing": "找不到品牌：{slug}",
     "notFound": {
       "title": "找不到專題",
       "description": "您所尋找的專題不存在或已被移除。",
       "browseAll": "瀏覽所有專題"
-    }
-  },
-  "storyDetail": {
-    "metadata": {
-      "notFoundTitle": "找不到專題"
     }
   },
   "feedback": {

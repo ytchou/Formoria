@@ -1,12 +1,20 @@
+import path from 'path'
+
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+/**
+ * `fs` is mocked — it is the system boundary. `gray-matter` deliberately is NOT.
+ *
+ * It is a fast, deterministic, in-process parser, and every coercion in
+ * `parseStoryFile` exists to defend against what YAML does to author-typed
+ * frontmatter: an unquoted date becomes a JS `Date`, `draft: no` becomes a
+ * boolean, a single-item list stays a scalar. Mocking it away hands the service
+ * a pre-built JS object and removes the only thing those coercions are for, so
+ * these fixtures are real YAML strings and the real parser runs.
+ */
 vi.mock('fs')
-vi.mock('gray-matter', () => ({
-  default: vi.fn(),
-}))
 
 import fs from 'fs'
-import matter from 'gray-matter'
 import {
   getAllStories,
   getStoryBySlug,
@@ -15,7 +23,48 @@ import {
   getPublishedStoryBySlug,
 } from './stories'
 
-const mockFrontmatter = {
+/** Frontmatter value emitted verbatim, for pinning YAML's own type inference. */
+type RawYaml = { __raw: string }
+const raw = (value: string): RawYaml => ({ __raw: value })
+
+function isRaw(value: unknown): value is RawYaml {
+  return typeof value === 'object' && value !== null && '__raw' in value
+}
+
+function yamlScalar(value: unknown): string {
+  if (isRaw(value)) return value.__raw
+  if (typeof value === 'string') return JSON.stringify(value)
+  return String(value)
+}
+
+function yamlEntry(key: string, value: unknown): string {
+  if (Array.isArray(value)) {
+    if (value.length === 0) return `${key}: []`
+    if (value.every((item) => typeof item === 'object' && item !== null && !isRaw(item))) {
+      const block = (value as Array<Record<string, unknown>>)
+        .map((item) =>
+          Object.entries(item)
+            .map(([k, v], index) => `${index === 0 ? '  - ' : '    '}${k}: ${yamlScalar(v)}`)
+            .join('\n'),
+        )
+        .join('\n')
+      return `${key}:\n${block}`
+    }
+    return `${key}: [${value.map(yamlScalar).join(', ')}]`
+  }
+  return `${key}: ${yamlScalar(value)}`
+}
+
+/** Serializes fixture fields into the MDX-with-frontmatter shape authors write. */
+function storyFile(fields: Record<string, unknown>, body = 'Content here.'): string {
+  const lines = Object.entries(fields)
+    .filter(([, value]) => value !== undefined)
+    .map(([key, value]) => yamlEntry(key, value))
+
+  return `---\n${lines.join('\n')}\n---\n\n${body}\n`
+}
+
+const baseFields: Record<string, unknown> = {
   title: '在鶯歌燒出一只碗',
   description: '走訪鶯歌窯廠，看一只日用碗如何從土坯到出窯',
   slug: 'yingge-kiln-bowl',
@@ -28,7 +77,23 @@ const mockFrontmatter = {
   faq: [{ q: '鶯歌的陶土有什麼不同？', a: '含鐵量較高，燒成後偏暖色。' }],
 }
 
-const mockRawMdx = `---\ntitle: 在鶯歌燒出一只碗\n---\n\nContent here.`
+/**
+ * Serves `content/stories/<name>` from an in-memory map, keyed by filename.
+ * Keyed rather than sequenced because the `en` fallback reads the directory
+ * twice, so a `mockReturnValueOnce` chain runs dry halfway through.
+ */
+function mockStoryFiles(files: Record<string, string>) {
+  vi.mocked(fs.readdirSync).mockReturnValue(
+    Object.keys(files) as unknown as ReturnType<typeof fs.readdirSync>,
+  )
+  vi.mocked(fs.readFileSync).mockImplementation(((filePath: string) => {
+    const content = files[path.basename(String(filePath))]
+    if (content === undefined) {
+      throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
+    }
+    return content
+  }) as unknown as typeof fs.readFileSync)
+}
 
 describe('stories service (filesystem-backed)', () => {
   beforeEach(() => {
@@ -37,9 +102,7 @@ describe('stories service (filesystem-backed)', () => {
 
   describe('getAllStories', () => {
     it('returns stories with preserved nested frontmatter shape', async () => {
-      vi.mocked(fs.readdirSync).mockReturnValue(['yingge-kiln-bowl.mdx'] as unknown as ReturnType<typeof fs.readdirSync>)
-      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
-      vi.mocked(matter).mockReturnValue({ data: mockFrontmatter, content: 'Content here.' } as unknown as ReturnType<typeof matter>)
+      mockStoryFiles({ 'yingge-kiln-bowl.mdx': storyFile(baseFields) })
 
       const result = await getAllStories()
       expect(result.ok).toBe(true)
@@ -61,12 +124,9 @@ describe('stories service (filesystem-backed)', () => {
     })
 
     it('filters out non-zh-TW locale stories', async () => {
-      vi.mocked(fs.readdirSync).mockReturnValue(['en-story.mdx'] as unknown as ReturnType<typeof fs.readdirSync>)
-      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
-      vi.mocked(matter).mockReturnValue({
-        data: { ...mockFrontmatter, locale: 'en' },
-        content: 'Content.',
-      } as unknown as ReturnType<typeof matter>)
+      mockStoryFiles({
+        'en-story.mdx': storyFile({ ...baseFields, locale: 'en' }),
+      })
 
       const result = await getAllStories()
       expect(result.ok).toBe(true)
@@ -75,9 +135,7 @@ describe('stories service (filesystem-backed)', () => {
     })
 
     it('falls back to the zh-TW set for the en locale while no English edition exists', async () => {
-      vi.mocked(fs.readdirSync).mockReturnValue(['yingge-kiln-bowl.mdx'] as unknown as ReturnType<typeof fs.readdirSync>)
-      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
-      vi.mocked(matter).mockReturnValue({ data: mockFrontmatter, content: 'Content here.' } as unknown as ReturnType<typeof matter>)
+      mockStoryFiles({ 'yingge-kiln-bowl.mdx': storyFile(baseFields) })
 
       const enResult = await getAllStories('en')
       expect(enResult.ok).toBe(true)
@@ -91,14 +149,10 @@ describe('stories service (filesystem-backed)', () => {
     })
 
     it('prefers real English editions over the zh-TW fallback once they exist', async () => {
-      vi.mocked(fs.readdirSync).mockReturnValue([
-        'yingge-kiln-bowl.mdx',
-        'en-story.mdx',
-      ] as unknown as ReturnType<typeof fs.readdirSync>)
-      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
-      vi.mocked(matter)
-        .mockReturnValueOnce({ data: mockFrontmatter, content: 'Content here.' } as unknown as ReturnType<typeof matter>)
-        .mockReturnValueOnce({ data: { ...mockFrontmatter, locale: 'en' }, content: 'Content.' } as unknown as ReturnType<typeof matter>)
+      mockStoryFiles({
+        'yingge-kiln-bowl.mdx': storyFile(baseFields),
+        'en-story.mdx': storyFile({ ...baseFields, slug: 'en-story', locale: 'en' }),
+      })
 
       const enResult = await getAllStories('en')
       expect(enResult.ok).toBe(true)
@@ -107,12 +161,9 @@ describe('stories service (filesystem-backed)', () => {
     })
 
     it('filters out draft stories', async () => {
-      vi.mocked(fs.readdirSync).mockReturnValue(['draft-story.mdx'] as unknown as ReturnType<typeof fs.readdirSync>)
-      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
-      vi.mocked(matter).mockReturnValue({
-        data: { ...mockFrontmatter, draft: true },
-        content: 'Content.',
-      } as unknown as ReturnType<typeof matter>)
+      mockStoryFiles({
+        'draft-story.mdx': storyFile({ ...baseFields, slug: 'draft-story', draft: true }),
+      })
 
       const result = await getAllStories()
       expect(result.ok).toBe(true)
@@ -123,7 +174,7 @@ describe('stories service (filesystem-backed)', () => {
     it('returns an empty published list when the content directory is empty', async () => {
       // The surface ships with `content/stories/` holding only `.gitkeep`, so the
       // hub, the sitemap, and `generateStaticParams` all have to survive zero rows.
-      vi.mocked(fs.readdirSync).mockReturnValue(['.gitkeep'] as unknown as ReturnType<typeof fs.readdirSync>)
+      mockStoryFiles({ '.gitkeep': '' })
 
       const result = await getAllStories()
 
@@ -134,19 +185,9 @@ describe('stories service (filesystem-backed)', () => {
     })
 
     it('handles missing optional fields with defaults', async () => {
-      vi.mocked(fs.readdirSync).mockReturnValue(['yingge-kiln-bowl.mdx'] as unknown as ReturnType<typeof fs.readdirSync>)
-      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
-      vi.mocked(matter).mockReturnValue({
-        data: {
-          ...mockFrontmatter,
-          updatedAt: undefined,
-          tags: undefined,
-          sources: undefined,
-          faq: undefined,
-          draft: undefined,
-        },
-        content: 'Content.',
-      } as unknown as ReturnType<typeof matter>)
+      // Rest-siblings drop the optional keys, leaving only what an author must type.
+      const { updatedAt, tags, sources, faq, draft, ...required } = baseFields
+      mockStoryFiles({ 'yingge-kiln-bowl.mdx': storyFile(required) })
 
       const result = await getAllStories()
       expect(result.ok).toBe(true)
@@ -176,13 +217,70 @@ describe('stories service (filesystem-backed)', () => {
     })
   })
 
+  describe('frontmatter coercion (real YAML)', () => {
+    it('normalizes an unquoted YAML date into an ISO-8601 string', async () => {
+      // `publishedAt: 2026-06-15` (no quotes) is a YAML *timestamp*, so the
+      // parser hands the service a JS `Date`, not a string. Stringifying that
+      // naively yields "Mon Jun 15 2026 08:00:00 GMT+0800 (…)", which the detail
+      // route would put in `datePublished` — schema.org requires ISO-8601, and
+      // Google reports anything else as an invalid value. Authors write
+      // unquoted dates constantly, so the service must normalize here.
+      mockStoryFiles({
+        'yingge-kiln-bowl.mdx': storyFile({ ...baseFields, publishedAt: raw('2026-06-15') }),
+      })
+
+      const result = await getStoryBySlug('yingge-kiln-bowl')
+
+      expect(result).not.toBeNull()
+      if (!result) throw new Error('Expected story detail result')
+      expect(result.entry.frontmatter.publishedAt).toBe('2026-06-15T00:00:00.000Z')
+    })
+
+    it('leaves a story with no publishedAt renderable instead of throwing', async () => {
+      // Empty string is the documented default. It must stay a string: the hub
+      // and the Article JSON-LD both guard it, and neither can guard `undefined`
+      // through a `string` type.
+      const { publishedAt, ...withoutDate } = baseFields
+      mockStoryFiles({ 'yingge-kiln-bowl.mdx': storyFile(withoutDate) })
+
+      const result = await getStoryBySlug('yingge-kiln-bowl')
+
+      expect(result).not.toBeNull()
+      if (!result) throw new Error('Expected story detail result')
+      expect(result.entry.frontmatter.publishedAt).toBe('')
+    })
+
+    it('reads a numeric seriesOrder as a number and ignores a non-numeric one', async () => {
+      mockStoryFiles({
+        'part-one.mdx': storyFile({
+          ...baseFields,
+          slug: 'part-one',
+          series: 'expo-2026',
+          seriesOrder: 2,
+        }),
+        'part-bad.mdx': storyFile({
+          ...baseFields,
+          slug: 'part-bad',
+          series: 'expo-2026',
+          seriesOrder: 'second',
+        }),
+      })
+
+      const result = await getStorySeries('expo-2026')
+      expect(result.ok).toBe(true)
+      if (!result.ok) throw result.error
+
+      const bySlug = new Map(result.stories.map(story => [story.slug, story]))
+      expect(bySlug.get('part-one')?.frontmatter.seriesOrder).toBe(2)
+      expect(bySlug.get('part-bad')?.frontmatter.seriesOrder).toBeUndefined()
+    })
+  })
+
   describe('getStoryBySlug', () => {
     it('returns entry with preserved shape and raw content string', async () => {
-      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
-      vi.mocked(matter).mockReturnValue({
-        data: mockFrontmatter,
-        content: 'Content here.',
-      } as unknown as ReturnType<typeof matter>)
+      mockStoryFiles({
+        'yingge-kiln-bowl.mdx': storyFile(baseFields, 'The kiln has run since 1974.'),
+      })
 
       const result = await getStoryBySlug('yingge-kiln-bowl')
 
@@ -190,19 +288,14 @@ describe('stories service (filesystem-backed)', () => {
       if (!result) throw new Error('Expected story detail result')
       expect(result.entry.slug).toBe('yingge-kiln-bowl')
       expect(result.entry.frontmatter.title).toBe('在鶯歌燒出一只碗')
-      expect(typeof result.content).toBe('string')
+      expect(result.content).toContain('The kiln has run since 1974.')
     })
 
     it('parseStoryFile coerces a missing tags field to an empty array', async () => {
       // Legacy frontmatter authored before the tag axis existed must not crash
       // the parse — `tags` is always an array downstream.
-      const legacyFrontmatter: Record<string, unknown> = { ...mockFrontmatter }
-      delete legacyFrontmatter.tags
-      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
-      vi.mocked(matter).mockReturnValue({
-        data: legacyFrontmatter,
-        content: 'Content.',
-      } as unknown as ReturnType<typeof matter>)
+      const { tags, ...legacyFields } = baseFields
+      mockStoryFiles({ 'yingge-kiln-bowl.mdx': storyFile(legacyFields) })
 
       const result = await getStoryBySlug('yingge-kiln-bowl')
 
@@ -212,9 +305,7 @@ describe('stories service (filesystem-backed)', () => {
     })
 
     it('returns null when the file does not exist', async () => {
-      vi.mocked(fs.readFileSync).mockImplementation(() => {
-        throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' })
-      })
+      mockStoryFiles({})
 
       const result = await getStoryBySlug('missing-story')
 
@@ -224,11 +315,9 @@ describe('stories service (filesystem-backed)', () => {
 
   describe('getPublishedStoryBySlug', () => {
     it('does not expose a draft story through the public query', async () => {
-      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
-      vi.mocked(matter).mockReturnValue({
-        data: { ...mockFrontmatter, draft: true },
-        content: 'Content.',
-      } as unknown as ReturnType<typeof matter>)
+      mockStoryFiles({
+        'yingge-kiln-bowl.mdx': storyFile({ ...baseFields, draft: true }),
+      })
 
       await expect(
         getPublishedStoryBySlug('yingge-kiln-bowl'),
@@ -236,11 +325,7 @@ describe('stories service (filesystem-backed)', () => {
     })
 
     it('returns the story when it is published', async () => {
-      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
-      vi.mocked(matter).mockReturnValue({
-        data: { ...mockFrontmatter, draft: false },
-        content: 'Content.',
-      } as unknown as ReturnType<typeof matter>)
+      mockStoryFiles({ 'yingge-kiln-bowl.mdx': storyFile(baseFields) })
 
       const result = await getPublishedStoryBySlug('yingge-kiln-bowl')
       expect(result).not.toBeNull()
@@ -250,11 +335,7 @@ describe('stories service (filesystem-backed)', () => {
     // is what turned every /en/stories/<slug> into a 404 next to a live zh-TW twin.
     // English now serves the zh-TW document and canonicals to the zh-TW URL.
     it('serves the zh-TW document for an en request instead of 404ing', async () => {
-      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
-      vi.mocked(matter).mockReturnValue({
-        data: mockFrontmatter,
-        content: 'Content.',
-      } as unknown as ReturnType<typeof matter>)
+      mockStoryFiles({ 'yingge-kiln-bowl.mdx': storyFile(baseFields) })
 
       const enResult = await getPublishedStoryBySlug('yingge-kiln-bowl', 'en')
       expect(enResult).not.toBeNull()
@@ -268,19 +349,34 @@ describe('stories service (filesystem-backed)', () => {
 
   describe('getStoriesByTag', () => {
     it('returns only stories whose tags array contains the tag', async () => {
-      const files = ['yingge-kiln-bowl.mdx', 'tainan-soy-sauce.mdx', 'expo-report.mdx']
-      vi.mocked(fs.readdirSync).mockReturnValue(files as unknown as ReturnType<typeof fs.readdirSync>)
-      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
-      vi.mocked(matter)
-        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'yingge-kiln-bowl', tags: ['home', 'crafts'] }, content: 'content' } as unknown as ReturnType<typeof matter>)
-        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'tainan-soy-sauce', tags: ['food-drink'] }, content: 'content' } as unknown as ReturnType<typeof matter>)
-        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'expo-report', tags: ['event', 'crafts'] }, content: 'content' } as unknown as ReturnType<typeof matter>)
+      mockStoryFiles({
+        // Distinct `publishedAt` values on the two matches, so the expectation
+        // below pins newest-first ordering rather than the equal-timestamp
+        // slug tie-break it would otherwise assert by accident.
+        'yingge-kiln-bowl.mdx': storyFile({
+          ...baseFields,
+          publishedAt: '2026-06-20T00:00:00.000Z',
+          tags: ['home', 'crafts'],
+        }),
+        'tainan-soy-sauce.mdx': storyFile({
+          ...baseFields,
+          slug: 'tainan-soy-sauce',
+          tags: ['food-drink'],
+        }),
+        'expo-report.mdx': storyFile({
+          ...baseFields,
+          slug: 'expo-report',
+          publishedAt: '2026-06-10T00:00:00.000Z',
+          tags: ['event', 'crafts'],
+        }),
+      })
 
       const result = await getStoriesByTag('crafts')
       expect(result.ok).toBe(true)
       if (!result.ok) throw result.error
 
       // Membership, not equality: `crafts` is a secondary tag on both matches.
+      // Order is newest-first by `publishedAt`.
       expect(result.stories.map(story => story.slug)).toEqual([
         'yingge-kiln-bowl',
         'expo-report',
@@ -291,13 +387,21 @@ describe('stories service (filesystem-backed)', () => {
     })
 
     it('filters by locale and excludes drafts', async () => {
-      const files = ['zh-published.mdx', 'zh-draft.mdx', 'en-published.mdx']
-      vi.mocked(fs.readdirSync).mockReturnValue(files as unknown as ReturnType<typeof fs.readdirSync>)
-      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
-      vi.mocked(matter)
-        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'zh-published', tags: ['home'] }, content: 'content' } as unknown as ReturnType<typeof matter>)
-        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'zh-draft', tags: ['home'], draft: true }, content: 'content' } as unknown as ReturnType<typeof matter>)
-        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'en-published', tags: ['home'], locale: 'en' }, content: 'content' } as unknown as ReturnType<typeof matter>)
+      mockStoryFiles({
+        'zh-published.mdx': storyFile({ ...baseFields, slug: 'zh-published', tags: ['home'] }),
+        'zh-draft.mdx': storyFile({
+          ...baseFields,
+          slug: 'zh-draft',
+          tags: ['home'],
+          draft: true,
+        }),
+        'en-published.mdx': storyFile({
+          ...baseFields,
+          slug: 'en-published',
+          tags: ['home'],
+          locale: 'en',
+        }),
+      })
 
       const result = await getStoriesByTag('home')
       expect(result.ok).toBe(true)
@@ -308,14 +412,21 @@ describe('stories service (filesystem-backed)', () => {
 
   describe('getStorySeries', () => {
     it('returns members sorted by seriesOrder ascending', async () => {
-      const files = ['part-three.mdx', 'part-one.mdx', 'part-unordered.mdx', 'part-two.mdx']
-      vi.mocked(fs.readdirSync).mockReturnValue(files as unknown as ReturnType<typeof fs.readdirSync>)
-      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
-      vi.mocked(matter)
-        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'part-three', series: 'expo-2026', seriesTitle: '2026 Expo', seriesOrder: 3 }, content: 'content' } as unknown as ReturnType<typeof matter>)
-        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'part-one', series: 'expo-2026', seriesTitle: '2026 Expo', seriesOrder: 1 }, content: 'content' } as unknown as ReturnType<typeof matter>)
-        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'part-unordered', series: 'expo-2026', seriesTitle: '2026 Expo' }, content: 'content' } as unknown as ReturnType<typeof matter>)
-        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'part-two', series: 'expo-2026', seriesTitle: '2026 Expo', seriesOrder: 2 }, content: 'content' } as unknown as ReturnType<typeof matter>)
+      const member = (slug: string, seriesOrder?: number) =>
+        storyFile({
+          ...baseFields,
+          slug,
+          series: 'expo-2026',
+          seriesTitle: '2026 Expo',
+          seriesOrder,
+        })
+
+      mockStoryFiles({
+        'part-three.mdx': member('part-three', 3),
+        'part-one.mdx': member('part-one', 1),
+        'part-unordered.mdx': member('part-unordered'),
+        'part-two.mdx': member('part-two', 2),
+      })
 
       const result = await getStorySeries('expo-2026')
       expect(result.ok).toBe(true)
@@ -331,13 +442,28 @@ describe('stories service (filesystem-backed)', () => {
     })
 
     it('excludes drafts and other locales', async () => {
-      const files = ['zh-published.mdx', 'zh-draft.mdx', 'en-published.mdx']
-      vi.mocked(fs.readdirSync).mockReturnValue(files as unknown as ReturnType<typeof fs.readdirSync>)
-      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
-      vi.mocked(matter)
-        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'zh-published', series: 'expo-2026', seriesOrder: 1 }, content: 'content' } as unknown as ReturnType<typeof matter>)
-        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'zh-draft', series: 'expo-2026', seriesOrder: 2, draft: true }, content: 'content' } as unknown as ReturnType<typeof matter>)
-        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'en-published', series: 'expo-2026', seriesOrder: 3, locale: 'en' }, content: 'content' } as unknown as ReturnType<typeof matter>)
+      mockStoryFiles({
+        'zh-published.mdx': storyFile({
+          ...baseFields,
+          slug: 'zh-published',
+          series: 'expo-2026',
+          seriesOrder: 1,
+        }),
+        'zh-draft.mdx': storyFile({
+          ...baseFields,
+          slug: 'zh-draft',
+          series: 'expo-2026',
+          seriesOrder: 2,
+          draft: true,
+        }),
+        'en-published.mdx': storyFile({
+          ...baseFields,
+          slug: 'en-published',
+          series: 'expo-2026',
+          seriesOrder: 3,
+          locale: 'en',
+        }),
+      })
 
       const result = await getStorySeries('expo-2026')
       expect(result.ok).toBe(true)
@@ -346,12 +472,14 @@ describe('stories service (filesystem-backed)', () => {
     })
 
     it('returns an empty list for an unknown series id', async () => {
-      vi.mocked(fs.readdirSync).mockReturnValue(['part-one.mdx'] as unknown as ReturnType<typeof fs.readdirSync>)
-      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
-      vi.mocked(matter).mockReturnValue({
-        data: { ...mockFrontmatter, slug: 'part-one', series: 'expo-2026', seriesOrder: 1 },
-        content: 'content',
-      } as unknown as ReturnType<typeof matter>)
+      mockStoryFiles({
+        'part-one.mdx': storyFile({
+          ...baseFields,
+          slug: 'part-one',
+          series: 'expo-2026',
+          seriesOrder: 1,
+        }),
+      })
 
       const result = await getStorySeries('no-such-series')
       expect(result.ok).toBe(true)
@@ -360,13 +488,16 @@ describe('stories service (filesystem-backed)', () => {
     })
 
     it('excludes stories with no series field from every series result', async () => {
-      const files = ['standalone-a.mdx', 'standalone-b.mdx', 'part-one.mdx']
-      vi.mocked(fs.readdirSync).mockReturnValue(files as unknown as ReturnType<typeof fs.readdirSync>)
-      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
-      vi.mocked(matter)
-        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'standalone-a' }, content: 'content' } as unknown as ReturnType<typeof matter>)
-        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'standalone-b' }, content: 'content' } as unknown as ReturnType<typeof matter>)
-        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'part-one', series: 'expo-2026', seriesOrder: 1 }, content: 'content' } as unknown as ReturnType<typeof matter>)
+      mockStoryFiles({
+        'standalone-a.mdx': storyFile({ ...baseFields, slug: 'standalone-a' }),
+        'standalone-b.mdx': storyFile({ ...baseFields, slug: 'standalone-b' }),
+        'part-one.mdx': storyFile({
+          ...baseFields,
+          slug: 'part-one',
+          series: 'expo-2026',
+          seriesOrder: 1,
+        }),
+      })
 
       const result = await getStorySeries('expo-2026')
       expect(result.ok).toBe(true)

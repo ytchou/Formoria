@@ -779,21 +779,39 @@ export async function getBrandSlugsBatch(brandIds: string[]): Promise<Map<string
 /**
  * Batched slug -> brand lookup for editorial content (story MDX shortcodes).
  *
- * Deliberately non-throwing, unlike `getBrandBySlug`: an author can reference a
- * slug that was renamed, hidden, or never existed, and a whole story page must
- * not 500 because one inline card cannot resolve. Callers render a placeholder
- * for any slug missing from the returned Map.
+ * Two failure modes, deliberately distinguished:
+ *
+ *  - **Unresolvable slug** — renamed, hidden, or never existed. Absent from the
+ *    returned Map, no throw. Unlike `getBrandBySlug`, a whole story page must
+ *    not 500 because one inline card cannot resolve; callers render a
+ *    placeholder for any slug missing from the Map.
+ *  - **Query failure** — pooler restart, statement timeout, bad credentials.
+ *    Throws. Swallowing it returned an empty Map, which made *every* shortcode
+ *    on the page render the missing-brand placeholder while the render itself
+ *    *succeeded* — so ISR cached that degraded HTML for a full `revalidate`
+ *    window with no error signal anywhere. Throwing fails the regeneration
+ *    instead, which keeps the last good page served and surfaces the error.
  *
  * Uses the narrow `BRAND_LIST_SELECT` projection and plain `brandToDomain` —
  * `brandToDomainWithImages` would fire one extra query per brand. Under this
  * projection `productPhotos` stays `[]`, so cards fall back to `heroImageUrl`
  * and then `BrandImageFallback`.
  *
- * Cached per request so repeated single-brand shortcodes on one page dedupe.
- * The cache key is a joined slug string, not the array: React's `cache()`
- * compares arguments by identity, and every shortcode builds a fresh array
- * literal, so an array-keyed cache would never hit. Treat the returned Map as
- * read-only — callers with the same slug set share one instance.
+ * Cached per request, keyed on a joined slug string rather than the array:
+ * React's `cache()` compares arguments by identity, and every shortcode builds
+ * a fresh array literal, so an array-keyed cache would never hit. The key is
+ * deduped *and sorted*, so `['a','b']` and `['b','a']` share one entry.
+ *
+ * What this does and does not dedupe: two calls with the same slug *set* share
+ * one round trip. Calls with different sets do not — `<BrandCard>` and
+ * `<BrandSpotlight>` each pass a one-element array, so five distinct cards
+ * still issue five queries. Only `<BrandGrid>` is genuinely batched. Collapsing
+ * the singles would need a per-request collector that knows the page's full
+ * slug set before the first card renders, which RSC's streaming render does not
+ * offer without changing this signature.
+ *
+ * Treat the returned Map as read-only — callers with the same slug set share
+ * one instance.
  */
 const getBrandsBySlugKey = cache(async (slugKey: string): Promise<Map<string, Brand>> => {
   const supabase = createServiceClient()
@@ -804,8 +822,11 @@ const getBrandsBySlugKey = cache(async (slugKey: string): Promise<Map<string, Br
     .eq('status', 'approved')
 
   if (error) {
-    console.error('getBrandsBySlugs error:', error.message)
-    return new Map()
+    // Logged as well as thrown: the throw fails ISR regeneration (which keeps
+    // the last good page served), but without a log line the failed
+    // regeneration leaves no trace anywhere.
+    console.error('getBrandsBySlugKey query error:', error)
+    throw new Error(`Failed to fetch brands by slug: ${error.message}`)
   }
 
   return new Map(
@@ -816,7 +837,8 @@ const getBrandsBySlugKey = cache(async (slugKey: string): Promise<Map<string, Br
 export async function getBrandsBySlugs(slugs: string[]): Promise<Map<string, Brand>> {
   if (slugs.length === 0) return new Map()
   // Slugs are kebab-case, so a newline is a safe separator for the cache key.
-  return getBrandsBySlugKey([...new Set(slugs)].join('\n'))
+  // Sorted so call order cannot fork one lookup into two identical round trips.
+  return getBrandsBySlugKey([...new Set(slugs)].sort().join('\n'))
 }
 
 type GetBrandsFilters = BrandFilters & {

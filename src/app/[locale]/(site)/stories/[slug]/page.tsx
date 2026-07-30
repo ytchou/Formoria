@@ -11,11 +11,13 @@ import {
 } from '@/lib/services/stories'
 import { FaqBlock } from '@/components/stories/faq-block'
 import { SeriesNav } from '@/components/stories/series-nav'
+import { toStoryIsoDate } from '@/components/stories/story-date'
 import { ViewItemListTracker } from '@/components/analytics/view-item-list-tracker'
 import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
+import { extractBrandSlugs } from '@/lib/mdx/extract-brand-slugs'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
-import { buildArticleJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
+import { buildArticleJsonLd, buildBreadcrumbJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 import { StoryContent } from './story-content'
 
 type PageProps = {
@@ -23,33 +25,6 @@ type PageProps = {
 }
 
 export const revalidate = 3600
-
-/** `<BrandCard>` / `<BrandSpotlight>` — one brand each. */
-const BRAND_SHORTCODE_PATTERN = /<(?:BrandCard|BrandSpotlight)\b/g
-/** `<BrandGrid slugs={[...]}>` — one brand per slug in the array literal. */
-const BRAND_GRID_SLUGS_PATTERN = /<BrandGrid\b[^>]*?slugs=\{\s*\[([^\]]*)\]/g
-const QUOTED_SLUG_PATTERN = /['"][^'"]+['"]/g
-
-/**
- * How many brands this story puts in front of the reader, for `view_item_list`.
- *
- * Counted from the raw MDX source rather than the rendered tree: the shortcodes
- * only resolve inside `MDXRemote`, which renders after this component returns, and
- * a tracker that always reported a constant would make the event useless. Counting
- * source shortcodes over-reports a brand whose slug no longer resolves (it renders
- * as a placeholder) — acceptable; upgrade path is to resolve the slugs server-side
- * here if the drift ever matters.
- */
-function countBrandReferences(source: string): number {
-  const singles = source.match(BRAND_SHORTCODE_PATTERN)?.length ?? 0
-
-  let gridItems = 0
-  for (const match of source.matchAll(BRAND_GRID_SLUGS_PATTERN)) {
-    gridItems += match[1]?.match(QUOTED_SLUG_PATTERN)?.length ?? 0
-  }
-
-  return singles + gridItems
-}
 
 // Prebuild every published story so the first production visit is served from the
 // ISR cache instead of paying on-demand generation. Locale comes from the parent
@@ -125,6 +100,25 @@ export default async function StoryPage({ params }: PageProps) {
     path: `/stories/${story.entry.frontmatter.slug}`,
     locale: safeLocale,
   })
+  // Both are omitted rather than emitted raw when the frontmatter date is
+  // missing or unparseable: schema.org date properties must be ISO-8601, and an
+  // empty (or JS `Date.toString()`) value is reported as invalid by Google.
+  const datePublished = toStoryIsoDate(story.entry.frontmatter.publishedAt)
+  const dateModified = toStoryIsoDate(story.entry.frontmatter.updatedAt)
+  // Mirrors the visible breadcrumb below, so the two never disagree. Same
+  // builder every other content route uses (`/brands/[slug]`, `/glossary`).
+  const breadcrumbJsonLd = buildBreadcrumbJsonLd(
+    [
+      { label: t('breadcrumb'), href: '/stories' },
+      { label: story.entry.frontmatter.title },
+    ],
+    safeLocale,
+  )
+  // The shortcodes only resolve inside `MDXRemote`, which renders after this
+  // component returns, so the list size is read off the raw source with the same
+  // extractor the content guard uses. Zero brands means no list at all — an
+  // empty `view_item_list` is noise in GA4, not a datapoint.
+  const brandCount = extractBrandSlugs(story.content).length
 
   return (
     <main className="page-gutter mx-auto w-full max-w-[720px] py-12 md:py-16">
@@ -151,17 +145,18 @@ export default async function StoryPage({ params }: PageProps) {
           dangerouslySetInnerHTML={{
             __html: safeJsonLdStringify({
               ...articleJsonLd,
-              datePublished: story.entry.frontmatter.publishedAt,
-              ...(story.entry.frontmatter.updatedAt
-                ? { dateModified: story.entry.frontmatter.updatedAt }
-                : {}),
+              ...(datePublished ? { datePublished } : {}),
+              ...(dateModified ? { dateModified } : {}),
             }),
           }}
         />
-        <ViewItemListTracker
-          listName={`story:${slug}`}
-          itemCount={countBrandReferences(story.content)}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(breadcrumbJsonLd) }}
         />
+        {brandCount > 0 ? (
+          <ViewItemListTracker listName={`story:${slug}`} itemCount={brandCount} />
+        ) : null}
         <header className="space-y-4">
           <h1 className="type-page-title-large">{story.entry.frontmatter.title}</h1>
           <p className="type-page-subtitle">{story.entry.frontmatter.description}</p>

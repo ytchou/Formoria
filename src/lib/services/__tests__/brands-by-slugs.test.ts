@@ -26,7 +26,11 @@ vi.mock('@/lib/supabase/server', async (importOriginal) => ({
   createServiceClient: mocks.createServiceClient,
 }))
 
-import { getBrandsBySlugs } from '../brands'
+import {
+  DIRECTORY_BRAND_COLUMN_LIST,
+  DIRECTORY_OMITTED_COLUMNS,
+  getBrandsBySlugs,
+} from '../brands'
 
 type QueryCall = {
   table: string
@@ -133,6 +137,27 @@ describe('getBrandsBySlugs', () => {
     expect(queries[0]?.eqFilters).toContainEqual(['status', 'approved'])
   })
 
+  it('requests the narrow directory projection, not the full brand row', async () => {
+    // Story pages render many editorial cards, and every column in the
+    // projection is serialized into the RSC payload once per card. The four
+    // `DIRECTORY_OMITTED_COLUMNS` are large jsonb blobs the card never renders
+    // — and `draft_data` is unpublished editorial content that must not reach
+    // the client at all. Asserted here rather than left to a reviewer's grep,
+    // so widening the projection fails a test instead of passing review.
+    await getBrandsBySlugs(['molasses'])
+
+    const select = queries[0]?.select ?? ''
+    const selected = select.split(',').map((column) => column.trim())
+
+    for (const column of DIRECTORY_BRAND_COLUMN_LIST) {
+      expect(selected, `expected ${column} in the directory projection`).toContain(column)
+    }
+    for (const column of DIRECTORY_OMITTED_COLUMNS) {
+      expect(selected, `${column} must stay out of card queries`).not.toContain(column)
+    }
+    expect(selected).toContain('brand_owners(user_id)')
+  })
+
   it('omits slugs with no matching brand instead of throwing', async () => {
     const result = await getBrandsBySlugs(['molasses', 'does-not-exist'])
 
@@ -160,17 +185,22 @@ describe('getBrandsBySlugs', () => {
     const result = await getBrandsBySlugs(['molasses', 'molasses', 'kiln-studio'])
 
     expect(queries).toHaveLength(1)
-    expect(queries[0]?.inValues).toEqual(['molasses', 'kiln-studio'])
+    // The cache key sorts its slugs so the same set in a different order is one
+    // cache entry rather than two identical round trips.
+    expect(queries[0]?.inValues).toEqual(['kiln-studio', 'molasses'])
     expect(result.size).toBe(2)
   })
 
-  it('returns an empty Map instead of throwing when the query errors', async () => {
+  it('throws when the query itself errors, so ISR keeps the last good page', async () => {
+    // A missing slug and a broken database must not look the same. An absent slug
+    // stays absent from the Map (covered above) and the story still renders; a real
+    // query error has to propagate, or a transient outage during revalidation bakes
+    // "brand unavailable" placeholders into the cached page for the full TTL.
     queryError = { message: 'connection reset' }
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    const result = await getBrandsBySlugs(['molasses'])
+    await expect(getBrandsBySlugs(['molasses'])).rejects.toThrow()
 
-    expect(result.size).toBe(0)
     expect(consoleError).toHaveBeenCalled()
     consoleError.mockRestore()
   })

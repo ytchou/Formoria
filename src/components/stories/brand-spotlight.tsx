@@ -52,7 +52,7 @@ export async function BrandSpotlight({ slug, children }: BrandSpotlightProps) {
         <h3 className="type-section-title">
           <Link
             href={`/brands/${brand.slug}`}
-            className="inline-flex min-h-11 items-center rounded-xs text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex min-h-11 items-center rounded-sm text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {brand.name}
           </Link>

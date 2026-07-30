@@ -152,7 +152,15 @@ export function BrandCard({
           </>
         ) : variant === 'editorial' ? (
           <>
-            {note ? <p className="mt-1.5 type-body">{note}</p> : null}
+            {/*
+              Same reserved block as the directory variant below: a fixed
+              minimum height plus a two-line clamp so every card in a
+              `<BrandGrid>` row lands its badge row on the same baseline,
+              whatever length note the author wrote. Rendered unconditionally
+              (with a space) for the same reason — a card without a note must
+              still occupy the block, or it pulls its badges up out of line.
+            */}
+            <p className="mt-1.5 min-h-[2.625rem] type-body line-clamp-2">{note ?? ' '}</p>
             {categoryLabel ? (
               <div className="mt-3 flex items-center gap-1.5 overflow-hidden">
                 <Badge variant="secondary">{categoryLabel}</Badge>
