@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { extname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -40,6 +40,8 @@ const RETIRED_IDENTITY_PATTERNS = [
 ];
 
 function textFiles(root: string): string[] {
+  if (!existsSync(root)) return [];
+
   if (!statSync(root).isDirectory()) {
     return TEXT_EXTENSIONS.has(extname(root)) ? [root] : [];
   }

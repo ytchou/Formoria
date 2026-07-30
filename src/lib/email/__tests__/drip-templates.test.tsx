@@ -95,7 +95,7 @@ describe('buildWelcomeEmail', () => {
     expect(email.from).toContain('noreply@formoria.com')
     expect(email.html).toContain('Test Brand')
     expect(email.html).toContain('Formoria')
-    expect(email.html).toContain('Made in Taiwan')
+    expect(email.html).toContain('台灣品牌探索與選物平台')
     expect(email.html).toContain('取消訂閱')
     expect(email.html).toContain('token123')
     expect(email.headers?.['List-Unsubscribe']).toBeDefined()
