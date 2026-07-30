@@ -61,10 +61,14 @@ export function BrandSectionNav({ sections }: BrandSectionNavProps) {
 
   if (!shouldShowBrandSectionNav(sections.length)) return null
 
+  // min-w-0: as a grid item the nav defaults to min-width:auto, which pins it to its
+  // min-content width and scrolls the whole page horizontally when labels are long
+  // (en "Locations & Channels" is 177px vs zh 130px). Shrinking to the grid track lets
+  // the inner overflow-x-auto do the scrolling it was already there to do.
   return (
     <nav
       aria-label={t('tabNav.overview')}
-      className="sticky top-(--nav-height) border-y border-border bg-background md:self-start md:border-y-0 md:border-l md:pl-3"
+      className="sticky top-(--nav-height) z-40 min-w-0 border-y border-border bg-background md:self-start md:border-y-0 md:border-l md:pl-3"
     >
       <div className="flex items-stretch md:flex-col">
         <div className="scrollbar-none flex min-w-0 flex-1 overflow-x-auto md:flex-col md:overflow-visible">

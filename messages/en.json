@@ -3,8 +3,8 @@
     "brandName": "Formoria",
     "exploreBrands": "Explore Brands",
     "browseAllBrands": "Browse All Brands →",
-    "submitBrand": "Submit a Brand",
-    "submitYourBrand": "Submit Your Brand",
+    "submitBrand": "Recommend a Brand",
+    "submitYourBrand": "Recommend a Brand You Love",
     "all": "All",
     "allBrands": "All Brands",
     "noBrandsFound": "No brands found",
@@ -36,7 +36,7 @@
     "brandDirectory": "Brand Directory",
     "faq": "FAQ",
     "support": "Buy Us a Coffee",
-    "submitBrand": "Submit a Brand",
+    "submitBrand": "Recommend a Brand",
     "allBrands": "All Brands",
     "searchPlaceholder": "Search brands...",
     "searchAria": "Search brands",
@@ -53,18 +53,19 @@
   },
   "footer": {
     "about": "About",
+    "vision": "Mission & Vision",
     "terms": "Terms of Service",
     "privacy": "Privacy Policy",
     "contact": "Contact",
     "copyright": "© {year} Formoria",
-    "tagline": "Putting Taiwanese brands on the world map.",
+    "tagline": "Making Taiwanese brands easier to discover, choose, and grow.",
     "discoverHeading": "Discover",
     "directory": "Brand Directory",
     "stats": "Statistics",
     "gettingStarted": "Getting Started",
     "guides": "Guides",
     "glossary": "Glossary",
-    "submit": "Submit a Brand",
+    "submit": "Recommend a Brand",
     "companyHeading": "Company",
     "faq": "FAQ",
     "support": "Support",
@@ -74,13 +75,13 @@
   },
   "landing": {
     "metadata": {
-      "title": "Formoria — Taiwanese Brand Directory",
-      "description": "Explore a community-curated directory of Taiwanese brands, from food and fashion to homeware and design."
+      "title": "Formoria — Taiwanese Brand Discovery & Curation",
+      "description": "Discover Taiwanese brands, product highlights, and official purchase channels in one curated platform."
     },
     "hero": {
       "eyebrow": "TAIWANESE BRANDS",
-      "headline": "Formoria — Discover Taiwanese Brands",
-      "subheadline": "A community-curated Taiwanese brand directory, featuring brands founded, designed, or made in Taiwan.",
+      "headline": "Discover Taiwanese brands like browsing a select shop",
+      "subheadline": "Formoria brings together fragmented brand, product, and purchase-channel information so worthwhile Taiwanese brands are easier to find.",
       "statsBrands": "brands",
       "statsCategories": "categories",
       "recentWeek": "new brands (last 7 days)",
@@ -107,16 +108,16 @@
       "heading": "Explore Categories"
     },
     "manifesto": {
-      "headline": "Putting Taiwanese Brands on the World Map",
-      "body1": "Taiwanese brands are more than an origin label. Each has its own craft, ideas, and story.",
-      "body2": "Too many remarkable brands work in quiet, waiting to be found.",
-      "body3": "Formoria is the bridge between them and the world.",
-      "cta": "Learn Our Story"
+      "headline": "Make Taiwanese brands easier to discover, choose, and grow",
+      "body1": "We first organize fragmented brand, product, and purchase-channel information so worthwhile Taiwanese brands are easier to find.",
+      "body2": "Curation can then help people choose, while owner tools support brands as they grow.",
+      "body3": "Step by step, we are working toward an online Taiwanese select shop led by the brands themselves.",
+      "cta": "Read Our Mission and Vision"
     },
     "submitBand": {
-      "headline": "Your brand deserves to be seen by the world",
-      "body": "Submit for free and join the Formoria community directory.",
-      "cta": "Submit Your Brand"
+      "headline": "Recommend a Taiwanese brand worth discovering",
+      "body": "Recommendations are free; approved brands join the Formoria community directory.",
+      "cta": "Recommend a Brand"
     },
     "newBrands": {
       "heading": "Newest Brands",
@@ -153,7 +154,7 @@
     "breadcrumbAria": "Breadcrumb",
     "metadata": {
       "title": "Brand Directory — Browse Taiwanese Brands | Formoria",
-      "description": "Discover thoughtfully curated Taiwanese brands. Browse by category, search, and explore brands founded, designed, or made in Taiwan."
+      "description": "Discover Taiwanese brands. Browse by category, search, and explore brands founded, designed, or made in Taiwan."
     },
     "heading": "Taiwanese Brand Directory",
     "scopeNote": "This directory lists brands founded, designed, or made in Taiwan.",
@@ -177,7 +178,7 @@
       "brandSearch": "Brand or product search",
       "brandSearchHelp": "This search is applied with every active filter",
       "brandSearchLandmark": "Filter by brand or product keyword",
-      "activeSearch": "Brand or product search",
+      "activeSearch": "Search",
       "activeCategory": "Category",
       "activeSubcategory": "Subcategory",
       "activePrice": "Price range",
@@ -787,9 +788,9 @@
             "definition": "Primary design, manufacturing, or founding rooted in Taiwan — a commitment to craft, not just an origin label."
           },
           "communityCurated": {
-            "zh": "Community curated",
-            "en": "Community-curated",
-            "definition": "Submitted and reviewed by the community, not by an algorithm — every listing reflects a human decision."
+            "zh": "Community contributed",
+            "en": "Community-contributed",
+            "definition": "Brand information comes from the community and is reviewed by Formoria before listing. This is distinct from an editorial Formoria selection."
           }
         }
       },
@@ -887,19 +888,19 @@
         "description": "Read Formoria's terms of service, including content ownership, data usage, brand review process, and disclaimer."
       },
       "title": "Terms of Service",
-      "intro": "Thank you for using Formoria. By using this platform, you agree to the following terms. Please read carefully before submitting brand information.",
-      "lastUpdated": "Last updated: May 2026",
+      "intro": "Thank you for using Formoria. By using this platform, you agree to the following terms. Please read carefully before providing brand information.",
+      "lastUpdated": "Last updated: July 2026",
       "contentOwnership": {
         "heading": "Content Ownership",
-        "body": "Brand information you submit to Formoria (including name, description, images, links, etc.) must be content you legally own or have the right to use. By submitting, you grant Formoria a non-exclusive, royalty-free license to display and promote the content on this platform for the purpose of showcasing Taiwanese brands."
+        "body": "Brand information you provide to Formoria (including name, description, images, links, etc.) must be content you legally own or have the right to use. By providing it, you grant Formoria a non-exclusive, royalty-free license to display and promote the content on this platform for the purpose of showcasing Taiwanese brands."
       },
       "dataUse": {
         "heading": "Data Usage",
-        "body": "Brand data collected by Formoria is used solely to build the Taiwanese brand directory and provide brand discovery features. We do not sell your personal information or brand data to third parties. Data use is governed by these terms and our privacy policy."
+        "body": "Brand data collected by Formoria is used to build and maintain the directory, provide discovery and curation features, improve data quality, support brand owners in maintaining their pages, and showcase Taiwanese brands. We do not sell your personal information or brand data to third parties. Data use is governed by these terms and our privacy policy."
       },
       "reviewProcess": {
         "heading": "Brand Review Process",
-        "body": "New brand submissions are subject to manual review before they are published. Edits to an existing brand are scanned automatically: clean changes are published immediately, while blocked changes are not published until corrected. Formoria reserves the right to reject or remove any brand information that does not meet our platform standards, without liability to the submitter. Approval does not constitute endorsement or certification of the brand by Formoria."
+        "body": "New brand recommendations and owner-provided details are subject to manual review before they are published. Edits to an existing brand are scanned automatically: clean changes are published immediately, while blocked changes are not published until corrected. Formoria reserves the right to reject or remove any brand information that does not meet our platform standards, without liability to the person who provided it. Approval does not constitute endorsement or certification of the brand by Formoria."
       },
       "disclaimer": {
         "heading": "Disclaimer",
@@ -920,11 +921,11 @@
       "lastUpdated": "Last updated: July 2026",
       "dataCollection": {
         "heading": "Data Collection",
-        "body": "When you use Formoria, we may collect your email address and optional name when you submit a brand, send feedback, or contact support, along with brand details, social and purchase links, ownership status, and source attribution. When you create an account, we collect your email and authentication details through Supabase Auth. If you choose to receive marketing email, we also record the consent category, source, version, and time. We collect browsing and product-usage events through PostHog and continue collecting Google Analytics data. Analytics events exclude form values, search text, names, email addresses, phone numbers, authentication codes, and tokens."
+        "body": "When you use Formoria, we may collect your email address and optional name when you recommend a brand, provide brand details, send feedback, or contact support, along with brand details, social and purchase links, ownership status, and source attribution. When you create an account, we collect your email and authentication details through Supabase Auth. If you choose to receive marketing email, we also record the consent category, source, version, and time. We collect browsing and product-usage events through PostHog and continue collecting Google Analytics data. Analytics events exclude form values, search text, names, email addresses, phone numbers, authentication codes, and tokens."
       },
       "purpose": {
         "heading": "Purpose of Use",
-        "body": "We collect personal data to build and maintain the Taiwan brand directory, provide discovery and search, improve brand information, prevent spam and abuse, improve the service, and send submission, claim, verification, security, and account-related notices. We send newsletters or owner lifecycle content such as operating reminders and feature guidance only after separate consent; you can turn off either marketing category independently. Declining marketing email does not affect brand submissions, account creation, or core service access."
+        "body": "We collect personal data to build and maintain the Taiwan brand directory, provide discovery and search, improve brand information, prevent spam and abuse, improve the service, and send recommendation, claim, verification, security, and account-related notices. We send newsletters or owner lifecycle content such as operating reminders and feature guidance only after separate consent; you can turn off either marketing category independently. Declining marketing email does not affect brand recommendations, account creation, or core service access."
       },
       "thirdParty": {
         "heading": "Third-Party Services",
@@ -955,7 +956,7 @@
   "faq": {
     "metadata": {
       "title": "FAQ",
-      "description": "Frequently asked questions about the Formoria Taiwanese brand directory, including which brands are listed, how trust tiers work, and how to submit or claim a brand page."
+      "description": "Frequently asked questions about Formoria's Taiwanese brand discovery and curation platform, including listings, trust tiers, recommendations, and brand claims."
     },
     "title": "Frequently Asked Questions",
     "intro": "If you still have questions, please <contact>contact us</contact>.",
@@ -966,28 +967,28 @@
     },
     "items": {
       "whatIsFormoria": {
-        "question": "What brands are listed on Formoria?",
-        "answer": "Formoria is a community-curated Taiwanese brand directory. We list brands founded, designed, or made in Taiwan so people can discover their products, stories, and official links."
+        "question": "What is Formoria?",
+        "answer": "Formoria is a Taiwanese brand discovery and curation platform. Our community-built directory lists brands founded, designed, or made in Taiwan and brings together product highlights and official purchase channels so worthwhile brands are easier to find."
       },
       "whoCanSubmit": {
-        "question": "Who can submit a brand?",
-        "answer": "Anyone can submit a brand — you do not need to be the owner. Brand owners can also use the owner flow to submit their details and claim the listing after approval."
+        "question": "Who can recommend a brand?",
+        "answer": "Anyone can recommend a brand — you do not need to be the owner. Brand owners can also use the owner flow to provide complete details and claim the listing after approval."
       },
       "taiwaneseBrandCriteria": {
         "question": "What counts as a Taiwanese brand?",
-        "answer": "A brand qualifies if it was founded, designed, or manufactured in Taiwan — meeting any one of the three is enough. For example, a company headquartered in Taipei qualifies under 'founded'; a studio that designs products in Taiwan but manufactures overseas qualifies under 'designed'; a workshop producing goods in Yingge qualifies under 'manufactured'. We welcome submissions from brand owners, fans, and community members alike."
+        "answer": "A brand qualifies if it was founded, designed, or manufactured in Taiwan — meeting any one of the three is enough. For example, a company headquartered in Taipei qualifies under 'founded'; a studio that designs products in Taiwan but manufactures overseas qualifies under 'designed'; a workshop producing goods in Yingge qualifies under 'manufactured'. We welcome recommendations from brand owners, fans, and community members alike."
       },
       "whatDoesMitMean": {
         "question": "What do the MIT tiers mean?",
         "answer": "MIT Verified means Formoria matched a product to the official MIT Smile registry. MIT Declared means the brand owner stated whether some, most, or all products are made in Taiwan. Neither tier implies that every product from the brand is made in Taiwan; check the listed scope and evidence."
       },
       "howToSubmit": {
-        "question": "How do I submit a brand to Formoria?",
-        "answer": "Anyone can submit a brand using our submission form. Go to the Submit a Brand page, fill in the brand's basic information, official website, social media links, and more. Once submitted, the Formoria team will review the listing. There is no fee — we evaluate submissions based solely on quality and authenticity."
+        "question": "How do I recommend a brand to Formoria?",
+        "answer": "Anyone can share a brand through our recommendation form. Go to Recommend a Brand, provide the brand name and an official link, and the Formoria team will review it. There is no fee; we check that the information is complete, the brand exists, and it has a genuine connection to Taiwan."
       },
       "reviewTime": {
         "question": "How long does the brand review take?",
-        "answer": "Brand reviews generally take about 7 business days. We check that the brand exists, the submission is complete, and it meets our inclusion criteria. Approved brands then appear in the directory; if information is missing, we may contact the submitter by email."
+        "answer": "Brand reviews generally take about 7 business days. We check that the brand exists, the information is complete, and it meets our inclusion criteria. Approved brands then appear in the directory; if information is missing, we may contact the person who recommended it by email."
       },
       "dataAccuracy": {
         "question": "How is the accuracy of brand information ensured?",
@@ -995,7 +996,7 @@
       },
       "isBrandFree": {
         "question": "Is it free to list a brand on Formoria?",
-        "answer": "Yes. Submitting a brand to Formoria is free, and brand owners, fans, and community members are all welcome to help build the Taiwanese brand directory."
+        "answer": "Yes. Recommending a brand to Formoria is free, and brand owners, fans, and community members are all welcome to help build the Taiwanese brand directory."
       },
       "ownerInterest": {
         "question": "I own a brand — can I manage my own brand page yet?",
@@ -1055,11 +1056,11 @@
   "about": {
     "metadata": {
       "title": "About Formoria",
-      "description": "Formoria is a community-curated Taiwanese brand directory built to help more people discover brands founded, designed, or made in Taiwan."
+      "description": "Formoria is a Taiwanese brand discovery and curation platform built to make Taiwanese brands easier to discover, choose, and grow."
     },
     "hero": {
-      "title": "A community built for Taiwan's brands",
-      "subtitle": "A community-curated directory of brands founded, designed, or made in Taiwan.",
+      "title": "A discovery and curation platform built for Taiwanese brands",
+      "subtitle": "Starting with a searchable directory of brands, products, and official purchase channels.",
       "statSuffix": " — and growing",
       "statsBrands": "brands",
       "statsCategories": "categories",
@@ -1075,19 +1076,20 @@
     },
     "mission": {
       "heading": "Our Mission",
-      "statement": "Our mission is to make Taiwanese brands easier to find through a clear, searchable directory built for discovery.",
+      "statement": "Make Taiwanese brands easier to discover, choose, and grow.",
       "promote": {
-        "heading": "Promote Taiwanese Brands",
-        "body": "Make it easier for people around the world to discover Taiwanese brands with strong products, thoughtful stories, and a real connection to place."
+        "heading": "Start with discovery",
+        "body": "Organize information scattered across websites, social channels, marketplaces, and physical shops so the right people can find each brand."
       },
       "smallBusiness": {
-        "heading": "Support Small Businesses",
-        "body": "Give independent makers, family businesses, and emerging labels another path to visibility without asking them to become something they are not."
+        "heading": "Make choosing easier",
+        "body": "Use clear product highlights, purchase channels, and curation to help visitors understand why a brand may be right for them."
       },
       "platform": {
-        "heading": "Build a Discovery Platform",
-        "body": "Create a clear, useful place where shoppers, travelers, editors, and diaspora communities can discover Taiwanese brands."
-      }
+        "heading": "Make growth easier",
+        "body": "Keep brand owners in control while gradually giving them better ways to reach customers, understand demand, and operate efficiently."
+      },
+      "visionCta": "Read our mission and vision →"
     },
     "qualifies": {
       "heading": "What qualifies",
@@ -1123,15 +1125,15 @@
     },
     "guide": {
       "heading": "Ready to use Formoria?",
-      "body": "Learn how to browse, save, submit, and manage brand listings.",
+      "body": "Learn how to browse, save, recommend, and manage brand listings.",
       "cta": "Get started →"
     },
     "trust": {
       "heading": "How We Build Trust",
       "subtitle": "Listings start as community contributions. When an owner steps forward with proof, they can manage their brand directly.",
-      "tagline": "Community-curated. Owner-claimed. Proof-reviewed.",
+      "tagline": "Community-contributed. Owner-claimed. Proof-reviewed.",
       "pillar1": {
-        "title": "Community-curated",
+        "title": "Community-contributed",
         "desc": "Brands are discovered and shared by people who care about Taiwanese makers. These are real contributors, not automated bots."
       },
       "pillar2": {
@@ -1144,15 +1146,62 @@
       }
     }
   },
+  "vision": {
+    "metadata": {
+      "title": "Formoria's Mission and Vision",
+      "description": "See how Formoria is addressing Taiwanese brands' discovery challenge first, then working toward an owner-led online Taiwanese select shop."
+    },
+    "hero": {
+      "eyebrow": "FORMORIA'S MISSION",
+      "title": "Make Taiwanese brands easier to discover, choose, and grow",
+      "intro": "Formoria is a Taiwanese brand discovery and curation platform. We organize information scattered across websites, social media, marketplaces, and physical shops so worthwhile Taiwanese brands are easier to find."
+    },
+    "today": {
+      "eyebrow": "WHAT WE ARE BUILDING TODAY",
+      "heading": "First, make fragmented brand information clear",
+      "body": "Brand stories, product highlights, store locations, and purchase channels often live in different places. We are building a complete, searchable directory so people do not need to piece everything together across multiple sites and social channels."
+    },
+    "path": {
+      "heading": "Start with being discovered",
+      "statement": "Each stage builds on the one before it, moving brand discovery toward more useful choices and more sustainable growth.",
+      "discover": {
+        "heading": "Be discovered",
+        "body": "Organize reliable brand, product, store, and purchase-channel information to address fragmented information and limited awareness first."
+      },
+      "choose": {
+        "heading": "Be chosen",
+        "body": "Use themed collections, editorial stories, and product-level recommendations to help people find what is genuinely right for them."
+      },
+      "grow": {
+        "heading": "Grow more easily",
+        "body": "Give brand owners demand insights and operating tools that make reaching customers, maintaining information, and scaling more efficient."
+      }
+    },
+    "future": {
+      "eyebrow": "OUR VISION",
+      "heading": "Become an online Taiwanese select shop led by the brands themselves",
+      "body": "In the future, people can discover and order from Taiwanese brands through Formoria. Formoria supports discovery, organization, recommendations, and enabling tools while each brand remains in control of its business.",
+      "principleHeading": "Brands stay in control",
+      "principleBody": "Pricing, orders, payments, fulfillment, after-sales service, and customer relationships remain with each brand. Formoria does not replace brands; it helps them reach the right people, understand demand, and operate more efficiently."
+    },
+    "participate": {
+      "eyebrow": "TAKE PART",
+      "heading": "Help us carry this mission forward",
+      "body": "The feature request board lets visitors and brand owners share needs and vote, helping us understand which problems are most valuable to solve next.",
+      "visitorCta": "Improve discovery and curation",
+      "ownerCta": "Improve brand owner tools",
+      "note": "Requests and votes inform our priorities, but they are not a published timeline or feature commitment."
+    }
+  },
   "mySubmissions": {
     "metadata": {
-      "title": "My Submissions"
+      "title": "My Recommendations"
     },
-    "heading": "My Submissions",
-    "subheading": "View all brands you have submitted",
+    "heading": "My Recommendations",
+    "subheading": "View all brands you have recommended",
     "empty": {
-      "message": "You haven't submitted any brands yet.",
-      "cta": "Submit a Brand"
+      "message": "You haven't recommended any brands yet.",
+      "cta": "Recommend a Brand"
     },
     "status": {
       "pending": "Under Review",
@@ -1231,7 +1280,7 @@
     "menuLabel": "Account",
     "favorites": "Saved Brands",
     "contributions": "My Contributions",
-    "mySubmissions": "My Submissions",
+    "mySubmissions": "My Recommendations",
     "signOut": "Sign out",
     "settings": "Settings",
     "feedback": "Feedback"
@@ -1431,13 +1480,13 @@
     "tabs": {
       "profile": "Overview",
       "analytics": "Analytics",
-      "submissions": "Submissions",
+      "submissions": "Updates",
       "dashboardNav": "Dashboard navigation"
     },
     "emptyState": {
       "title": "This page is for brand owners only",
-      "description": "Only logged-in brand accounts can view this page. If you own a Taiwanese brand, submit it to join the Formoria directory.",
-      "submitCta": "Submit your brand",
+      "description": "Only logged-in brand accounts can view this page. If you own a Taiwanese brand, start by building its Formoria page.",
+      "submitCta": "Build your brand page",
       "browseCta": "Browse brands"
     },
     "analytics": {
@@ -1586,7 +1635,7 @@
       "subtitle": "Manage your brand page",
       "viewButton": "View brand page",
       "editButton": "Edit brand",
-      "submitOtherBrand": "Submit another listing",
+      "submitOtherBrand": "Recommend another brand",
       "analyticsHeading": "Analytics",
       "detailsCardTitle": "Details",
       "descriptionLabel": "Description",
@@ -1812,11 +1861,11 @@
   },
   "submit": {
     "metadata": {
-      "title": "Submit a Brand",
-      "description": "Submit a Taiwanese brand to the Formoria directory"
+      "title": "Recommend a Brand",
+      "description": "Recommend a Taiwanese brand worth discovering; approved brands join the Formoria directory"
     },
     "overview": {
-      "heading": "Submit Your Taiwan Brand",
+      "heading": "Recommend a Taiwanese Brand",
       "description": "Share a Taiwanese brand with the community — recommend one you love and we will review it for the directory.",
       "criteria": "We list brands founded, designed, or made in Taiwan.",
       "recommendEyebrow": "Community recommendation",
@@ -1829,25 +1878,25 @@
       "ownerEyebrow": "Brand owner",
       "ownerTitle": "Start your brand management flow",
       "ownerDescription": "Best for founders, operators, and brand teams. After approval, we’ll send the invitation to claim and manage the listing.",
-      "ownerPoint1": "Submit core brand details and representative links",
+      "ownerPoint1": "Provide core brand details and representative links",
       "ownerPoint2": "Complete the owner claim flow, and we’ll send an invitation after approval",
       "ownerPoint3": "Use your dashboard to manage the brand page afterwards",
       "ownerCta": "Sign in to start",
-      "ownerCtaLoggedIn": "Submit my brand",
+      "ownerCtaLoggedIn": "Build my brand page",
       "ownerLimitTitle": "You already own a brand",
-      "ownerLimitDescription": "Each account can manage only one brand, so you can’t submit another through the brand owner flow. To share a different brand, use the community recommendation flow.",
+      "ownerLimitDescription": "Each account can manage only one brand, so you can’t build another page through the brand owner flow. To share a different brand, use the community recommendation flow.",
       "ownerLimitRecommendCta": "Recommend a brand",
       "ownerLimitCancelCta": "Cancel",
       "ownerLimitCloseCta": "Close",
       "ownerLimitNavigationError": "We couldn’t open the recommendation flow. Please try again."
     },
     "wizard": {
-      "heading": "Submit a Brand",
+      "heading": "Recommend a Brand",
       "subheading": "Share a Taiwanese brand with the community",
       "back": "Back",
       "next": "Next",
-      "submitting": "Submitting...",
-      "submitBrand": "Submit Brand",
+      "submitting": "Sending...",
+      "submitBrand": "Send Recommendation",
       "steps": {
         "brandInfo": "Brand Info",
         "tags": "Categories & Values",
@@ -1857,10 +1906,10 @@
       }
     },
     "url": {
-      "heading": "Submit a brand you love",
+      "heading": "Recommend a brand you love",
       "subheading": "Share a Taiwanese brand with the community",
       "label": "Brand Website URL",
-      "hint": "Paste the brand's website URL and we'll auto-fill your submission data",
+      "hint": "Paste the brand's website URL and we'll auto-fill the recommendation",
       "socialLinksLabel": "Social Links",
       "purchaseLinksLabel": "Purchase Links",
       "purchaseLinksHint": "Add links where customers can buy this brand's products",
@@ -1960,6 +2009,7 @@
       "ubnDuplicateTitle": "A brand with this UBN already exists in the directory",
       "ubnDuplicateSeeExisting": "See existing brand:",
       "nameDuplicateTitle": "Similar brand names found",
+      "websiteDuplicateTitle": "This website is already listed for a brand",
       "nameDuplicateConfirmLabel": "I confirm this is not a duplicate brand",
       "checking": "Checking",
       "next": "Next",
@@ -1988,13 +2038,13 @@
     },
     "confirmation": {
       "metadata": {
-        "title": "Submission Successful",
-        "description": "We have received your brand submission and it is under review."
+        "title": "Brand Details Received",
+        "description": "We have received your brand details and they are under review."
       },
       "heading": "Thank you!",
       "subheading": "We’ve received your brand recommendation",
-      "ownerSubheading": "We’ve received your owner submission",
-      "communityOwnershipNotice": "Because your account already manages a brand, this submission was accepted as a community listing and cannot be claimed by this account.",
+      "ownerSubheading": "We’ve received your brand details",
+      "communityOwnershipNotice": "Because your account already manages a brand, this recommendation was accepted as a community listing and cannot be claimed by this account.",
       "timeline": {
         "review": {
           "label": "Under Review",
@@ -2014,7 +2064,7 @@
       },
       "cta": {
         "explore": "Explore the Formoria Directory",
-        "submitAnother": "Submit Another Brand"
+        "submitAnother": "Recommend Another Brand"
       },
       "whatNext": {
         "heading": "What Happens Next",
@@ -2058,8 +2108,8 @@
       "regionRequired": "Please select a region"
     },
     "errors": {
-      "notAuthenticated": "Please sign in before submitting a brand",
-      "rateLimit": "Too many submissions, please try again later.",
+      "notAuthenticated": "Please sign in before building your brand page",
+      "rateLimit": "Too many requests, please try again later.",
       "validation": "Validation failed, please try again.",
       "unexpected": "An unexpected error occurred, please try again.",
       "turnstileError": "Verification failed. Please refresh and try again."
@@ -2090,8 +2140,8 @@
       "applySuggestion": "Apply"
     },
     "ownerForm": {
-      "heading": "Owner Submission",
-      "subheading": "Submit your brand details first. After approval, we’ll send the claim invitation.",
+      "heading": "Build Your Brand Page",
+      "subheading": "Provide your brand details first. After approval, we’ll send the claim invitation.",
       "websiteLabel": "Official Brand Website",
       "websiteHint": "Use your main website. We’ll use it as the anchor for review and later claim steps.",
       "websitePlaceholder": "https://yourbrand.com",
@@ -2116,8 +2166,8 @@
       "pinkoiLabel": "Pinkoi",
       "shopeeLabel": "Shopee",
       "requiredHint": "indicates a required field",
-      "submitButton": "Submit Brand Details",
-      "submittingButton": "Submitting…",
+      "submitButton": "Send Brand Details",
+      "submittingButton": "Sending…",
       "suggestedName": "Suggested name:",
       "suggestedUrl": "Suggested URL:",
       "applySuggestion": "Apply"
@@ -2125,13 +2175,13 @@
     "ownerFork": {
       "heading": "Choose How to Build Your Brand Page",
       "description": "Pick the option that best fits your time and needs.",
-      "quickEyebrow": "Quick Submit",
-      "quickTitle": "Submit Basic Brand Info",
+      "quickEyebrow": "Quick Setup",
+      "quickTitle": "Add Basic Brand Info",
       "quickDescription": "Our system will try to crawl your brand information based on the basics you provide, but we cannot guarantee data accuracy. Best for time-pressed founders — review will be needed afterwards.",
       "quickPoint1": "Just provide brand name, official website, and description",
       "quickPoint2": "System crawls brand info based on what you provide",
       "quickPoint3": "Data enrichment completed within 3 business days",
-      "quickCta": "Quick Submit",
+      "quickCta": "Start Quick Setup",
       "detailsEyebrow": "Full Details",
       "detailsTitle": "Provide Full Brand Details",
       "detailsDescription": "You'll fill in complete brand information yourself, ensuring every detail accurately represents your brand.",
@@ -2141,10 +2191,10 @@
       "detailsCta": "Fill in Details"
     },
     "quickForm": {
-      "heading": "Quick Brand Submission",
+      "heading": "Quick Brand Page Setup",
       "subheading": "Provide basic info — we'll auto-enrich the rest from your website.",
-      "submitButton": "Submit Brand",
-      "submittingButton": "Submitting…"
+      "submitButton": "Build Brand Page",
+      "submittingButton": "Building…"
     },
     "submissionWizard": {
       "heading": "Fill in Brand Details",
@@ -2153,12 +2203,12 @@
       "stepMedia": "Brand Images",
       "stepLinks": "Links",
       "stepLocations": "Retail Locations",
-      "sidebarTitle": "Submission Progress",
+      "sidebarTitle": "Setup Progress",
       "progressText": "Step {current} / {total}",
       "continueButton": "Continue",
       "backButton": "Back",
-      "submitButton": "Submit Brand Details",
-      "submittingButton": "Submitting…",
+      "submitButton": "Send Brand Details",
+      "submittingButton": "Sending…",
       "basicInfoHeading": "Basic Info",
       "mediaHeading": "Brand Images",
       "linksHeading": "Brand Links",
@@ -2168,7 +2218,7 @@
       "addLocation": "Add Location"
     },
     "form": {
-      "heading": "Submit a Brand",
+      "heading": "Recommend a Brand",
       "subheading": "Share a Taiwanese brand with the community",
       "websiteLabel": "Official Brand Website",
       "websitePlaceholder": "https://yourbrand.com",
@@ -2187,8 +2237,8 @@
       "facebookLabel": "Facebook",
       "pinkoiLabel": "Pinkoi",
       "shopeeLabel": "Shopee",
-      "submitButton": "Submit Brand",
-      "submittingButton": "Submitting...",
+      "submitButton": "Send Recommendation",
+      "submittingButton": "Sending...",
       "suggestedName": "Suggested name:",
       "suggestedUrl": "Suggested URL:",
       "applySuggestion": "Apply"
@@ -2197,12 +2247,12 @@
   "gettingStarted": {
     "metadata": {
       "title": "Explore Formoria",
-      "description": "Learn how to browse Taiwanese brands, save favorites, and follow official links to learn more."
+      "description": "Learn how to discover Taiwanese brands, compare product highlights, save brands, and follow official links to buy directly from them."
     },
     "hero": {
       "eyebrow": "Explore Formoria",
       "title": "Find your next favorite brand",
-      "intro": "Browse Taiwanese brands by category, values, location, and shopping channel. Open a listing to learn more, save it for later, or follow official links to shop.",
+      "intro": "Formoria is a Taiwanese brand discovery and curation platform. Browse or search for brands, compare product highlights and purchase channels, and save favorites for later.",
       "primaryCta": "Browse brands",
       "secondaryCta": "Read the FAQ"
     },
@@ -2251,9 +2301,9 @@
     },
     "cta": {
       "heading": "Ready to explore Taiwanese brands?",
-      "body": "Browse the directory to find brands that match your interests, or read the FAQ to learn how listings work.",
+      "body": "Browse the directory to find brands that match your interests, or see how Formoria plans to carry this mission forward.",
       "browse": "Browse brands",
-      "faq": "Read the FAQ"
+      "faq": "Read our mission and vision"
     },
     "ctaFooter": {
       "cta": "Register your interest on the feature request board"
@@ -2786,6 +2836,10 @@
         "browseAll": {
           "title": "Browse all brands",
           "description": "Explore every brand on Formoria"
+        },
+        "recommendBrand": {
+          "title": "Recommend this brand",
+          "description": "Can't find it? Recommend it to Formoria and we'll review it shortly."
         }
       },
       "recommendations": "You may be looking for",

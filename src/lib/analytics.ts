@@ -200,9 +200,13 @@ export function trackCategoryFilterApplied(category: string) {
   capturePostHogEvent('category_filter_applied', { category })
 }
 
+// Raw query text is deliberately never sent to either destination — the privacy policy
+// promises search text is excluded from analytics events. `query_length` preserves the
+// useful signal (are people typing long/short queries, and do they find anything) without
+// the text itself. This drops GA4's built-in site-search term report by design.
 export function trackSearchExecuted(query: string, resultCount: number) {
   safeGAEvent('event', 'search', {
-    search_term: query,
+    query_length: query.length,
     result_count: resultCount,
     has_results: resultCount > 0,
   })
@@ -220,7 +224,7 @@ export function trackSearchResultClicked(
   brandSlug?: string,
 ) {
   safeGAEvent('event', 'search_result_clicked', {
-    query,
+    query_length: query.length,
     position_in_results: positionInResults,
   })
   if (brandId && brandSlug) {
@@ -343,7 +347,7 @@ export function trackSearchSuggestionSelect(slug: string, brandId?: string) {
 }
 
 export function trackSearchNoResults(searchTerm: string) {
-  safeGAEvent('event', 'search_no_results', { search_term: searchTerm })
+  safeGAEvent('event', 'search_no_results', { query_length: searchTerm.length })
   capturePostHogEvent('brand_search_empty', { query_length: searchTerm.length })
 }
 

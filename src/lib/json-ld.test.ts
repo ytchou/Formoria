@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect } from "vitest";
 import {
   buildArticleJsonLd,
   buildBrandJsonLd,
@@ -10,28 +10,28 @@ import {
   buildWebSiteJsonLd,
   safeJsonLdStringify,
   type JsonLdObject,
-} from '@/lib/json-ld'
-import type { Brand } from '@/lib/types'
+} from "@/lib/json-ld";
+import type { Brand } from "@/lib/types";
 
 function makeBrand(overrides: Partial<Brand> = {}): Brand {
   return {
-    id: '123',
-    name: '茶籽堂 Chatzutang',
-    slug: 'chatzutang',
-    description: 'Natural body care with camellia seed oil',
-    heroImageUrl: 'https://example.com/hero.jpg',
-    status: 'approved',
+    id: "123",
+    name: "茶籽堂 Chatzutang",
+    slug: "chatzutang",
+    description: "Natural body care with camellia seed oil",
+    heroImageUrl: "https://example.com/hero.jpg",
+    status: "approved",
     isVerified: false,
     isDemo: false,
-    category: 'Food & Beverage',
+    category: "Food & Beverage",
     foundingYear: 2004,
     city: null,
-    purchaseWebsite: 'https://chatzutang.com',
-    purchasePinkoi: 'https://pinkoi.com/chatzutang',
+    purchaseWebsite: "https://chatzutang.com",
+    purchasePinkoi: "https://pinkoi.com/chatzutang",
     purchaseShopee: null,
-    socialInstagram: 'https://instagram.com/chatzutang',
+    socialInstagram: "https://instagram.com/chatzutang",
     socialThreads: null,
-    socialFacebook: 'https://facebook.com/chatzutang',
+    socialFacebook: "https://facebook.com/chatzutang",
     otherUrls: [],
     productPhotos: [],
     siteContent: null,
@@ -42,97 +42,97 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     blurb: null,
     blurbEn: null,
     imageAlts: [],
-    contactEmail: 'hello@chatzutang.com',
-    submittedAt: '2026-01-01T00:00:00Z',
-    approvedAt: '2026-01-02T00:00:00Z',
-    createdAt: '2026-01-01T00:00:00Z',
-    updatedAt: '2026-01-02T00:00:00Z',
+    contactEmail: "hello@chatzutang.com",
+    submittedAt: "2026-01-01T00:00:00Z",
+    approvedAt: "2026-01-02T00:00:00Z",
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-01-02T00:00:00Z",
     onboardingDismissedAt: null,
     ...overrides,
-  }
+  };
 }
 
-describe('buildBrandJsonLd', () => {
-  it('returns Organization schema with required fields', () => {
-    const jsonLd = buildBrandJsonLd(makeBrand())
-    expect(jsonLd['@context']).toBe('https://schema.org')
-    expect(jsonLd['@type']).toBe('Organization')
-    expect(jsonLd.name).toBe('茶籽堂 Chatzutang')
-    expect(jsonLd.url).toBe('https://chatzutang.com')
-    expect(jsonLd.logo).toBe('https://example.com/hero.jpg')
-    expect(jsonLd.foundingDate).toBe('2004')
-  })
+describe("buildBrandJsonLd", () => {
+  it("returns Organization schema with required fields", () => {
+    const jsonLd = buildBrandJsonLd(makeBrand());
+    expect(jsonLd["@context"]).toBe("https://schema.org");
+    expect(jsonLd["@type"]).toBe("Organization");
+    expect(jsonLd.name).toBe("茶籽堂 Chatzutang");
+    expect(jsonLd.url).toBe("https://chatzutang.com");
+    expect(jsonLd.logo).toBe("https://example.com/hero.jpg");
+    expect(jsonLd.foundingDate).toBe("2004");
+  });
 
-  it('includes sameAs array from social links', () => {
-    const jsonLd = buildBrandJsonLd(makeBrand())
-    expect(jsonLd.sameAs).toContain('https://instagram.com/chatzutang')
-    expect(jsonLd.sameAs).toContain('https://facebook.com/chatzutang')
-  })
+  it("includes sameAs array from social links", () => {
+    const jsonLd = buildBrandJsonLd(makeBrand());
+    expect(jsonLd.sameAs).toContain("https://instagram.com/chatzutang");
+    expect(jsonLd.sameAs).toContain("https://facebook.com/chatzutang");
+  });
 
-  it('omits keywords field', () => {
-    const jsonLd = buildBrandJsonLd(makeBrand())
-    expect(jsonLd.keywords).toBeUndefined()
-  })
+  it("omits keywords field", () => {
+    const jsonLd = buildBrandJsonLd(makeBrand());
+    expect(jsonLd.keywords).toBeUndefined();
+  });
 
-  it('includes purchase link URLs in sameAs alongside social links', () => {
+  it("includes purchase link URLs in sameAs alongside social links", () => {
     const jsonLd = buildBrandJsonLd(
       makeBrand({
-        purchasePinkoi: 'https://pinkoi.com/chatzutang',
-        purchaseShopee: 'https://shopee.tw/chatzutang',
+        purchasePinkoi: "https://pinkoi.com/chatzutang",
+        purchaseShopee: "https://shopee.tw/chatzutang",
       }),
-    )
-    expect(jsonLd.sameAs).toContain('https://instagram.com/chatzutang')
-    expect(jsonLd.sameAs).toContain('https://facebook.com/chatzutang')
-    expect(jsonLd.sameAs).toContain('https://pinkoi.com/chatzutang')
-    expect(jsonLd.sameAs).toContain('https://shopee.tw/chatzutang')
-  })
+    );
+    expect(jsonLd.sameAs).toContain("https://instagram.com/chatzutang");
+    expect(jsonLd.sameAs).toContain("https://facebook.com/chatzutang");
+    expect(jsonLd.sameAs).toContain("https://pinkoi.com/chatzutang");
+    expect(jsonLd.sameAs).toContain("https://shopee.tw/chatzutang");
+  });
 
-  describe('buildBrandJsonLd audit', () => {
-    it('never exposes contactEmail as email in the output', () => {
+  describe("buildBrandJsonLd audit", () => {
+    it("never exposes contactEmail as email in the output", () => {
       const withEmail = buildBrandJsonLd(
-        makeBrand({ contactEmail: 'hello@chatzutang.com' }),
-      )
-      expect(withEmail.email).toBeUndefined()
+        makeBrand({ contactEmail: "hello@chatzutang.com" }),
+      );
+      expect(withEmail.email).toBeUndefined();
 
-      const withoutEmail = buildBrandJsonLd(makeBrand({ contactEmail: null }))
-      expect(withoutEmail.email).toBeUndefined()
-    })
+      const withoutEmail = buildBrandJsonLd(makeBrand({ contactEmail: null }));
+      expect(withoutEmail.email).toBeUndefined();
+    });
 
-    it('maps heroImageUrl to logo and omits it when null', () => {
+    it("maps heroImageUrl to logo and omits it when null", () => {
       const withHero = buildBrandJsonLd(
-        makeBrand({ heroImageUrl: 'https://example.com/hero.jpg' }),
-      )
-      expect(withHero.logo).toBe('https://example.com/hero.jpg')
+        makeBrand({ heroImageUrl: "https://example.com/hero.jpg" }),
+      );
+      expect(withHero.logo).toBe("https://example.com/hero.jpg");
 
-      const withoutHero = buildBrandJsonLd(makeBrand({ heroImageUrl: null }))
-      expect(withoutHero.logo).toBeUndefined()
-    })
+      const withoutHero = buildBrandJsonLd(makeBrand({ heroImageUrl: null }));
+      expect(withoutHero.logo).toBeUndefined();
+    });
 
-    it('includes all non-null social and purchase URLs in sameAs', () => {
+    it("includes all non-null social and purchase URLs in sameAs", () => {
       const jsonLd = buildBrandJsonLd(
         makeBrand({
-          socialInstagram: 'https://instagram.com/chatzutang',
-          socialThreads: 'https://threads.net/@chatzutang',
-          socialFacebook: 'https://facebook.com/chatzutang',
-          purchaseWebsite: 'https://chatzutang.com',
-          purchasePinkoi: 'https://pinkoi.com/chatzutang',
-          purchaseShopee: 'https://shopee.tw/chatzutang',
-          otherUrls: [{ label: 'Blog', url: 'https://example.com/brand' }],
+          socialInstagram: "https://instagram.com/chatzutang",
+          socialThreads: "https://threads.net/@chatzutang",
+          socialFacebook: "https://facebook.com/chatzutang",
+          purchaseWebsite: "https://chatzutang.com",
+          purchasePinkoi: "https://pinkoi.com/chatzutang",
+          purchaseShopee: "https://shopee.tw/chatzutang",
+          otherUrls: [{ label: "Blog", url: "https://example.com/brand" }],
         }),
-      )
+      );
 
       expect(jsonLd.sameAs).toEqual([
-        'https://instagram.com/chatzutang',
-        'https://threads.net/@chatzutang',
-        'https://facebook.com/chatzutang',
-        'https://chatzutang.com',
-        'https://pinkoi.com/chatzutang',
-        'https://shopee.tw/chatzutang',
-        'https://example.com/brand',
-      ])
-    })
+        "https://instagram.com/chatzutang",
+        "https://threads.net/@chatzutang",
+        "https://facebook.com/chatzutang",
+        "https://chatzutang.com",
+        "https://pinkoi.com/chatzutang",
+        "https://shopee.tw/chatzutang",
+        "https://example.com/brand",
+      ]);
+    });
 
-    it('excludes null and undefined values from sameAs', () => {
+    it("excludes null and undefined values from sameAs", () => {
       const jsonLd = buildBrandJsonLd(
         makeBrand({
           socialInstagram: null,
@@ -142,17 +142,17 @@ describe('buildBrandJsonLd', () => {
           purchasePinkoi: undefined,
           purchaseShopee: null,
           otherUrls: [
-            { label: 'Blog', url: '' },
-            { label: 'Docs', url: 'https://docs.example.com' },
+            { label: "Blog", url: "" },
+            { label: "Docs", url: "https://docs.example.com" },
           ],
         } as unknown as Partial<Brand>),
-      )
+      );
 
-      expect(jsonLd.sameAs).toEqual(['https://docs.example.com'])
-    })
-  })
+      expect(jsonLd.sameAs).toEqual(["https://docs.example.com"]);
+    });
+  });
 
-  it('omits optional fields when null', () => {
+  it("omits optional fields when null", () => {
     const jsonLd = buildBrandJsonLd(
       makeBrand({
         contactEmail: null,
@@ -166,244 +166,246 @@ describe('buildBrandJsonLd', () => {
         heroImageUrl: null,
         foundingYear: null,
       }),
-    )
-    expect(jsonLd.logo).toBeUndefined()
-    expect(jsonLd.foundingDate).toBeUndefined()
-    expect(jsonLd.sameAs).toBeUndefined()
-  })
-})
+    );
+    expect(jsonLd.logo).toBeUndefined();
+    expect(jsonLd.foundingDate).toBeUndefined();
+    expect(jsonLd.sameAs).toBeUndefined();
+  });
+});
 
-describe('buildCategoryItemListJsonLd', () => {
+describe("buildCategoryItemListJsonLd", () => {
   const mockBrands = [
-    { name: '茶籽堂', slug: 'cha-zi-tang' },
-    { name: 'DAYLILY', slug: 'daylily' },
-    { name: '印花樂', slug: 'inblooom' },
-  ]
+    { name: "茶籽堂", slug: "cha-zi-tang" },
+    { name: "DAYLILY", slug: "daylily" },
+    { name: "印花樂", slug: "inblooom" },
+  ];
 
-  it('returns valid ItemList JSON-LD', () => {
-    const result = buildCategoryItemListJsonLd('美妝', 'beauty', mockBrands)
+  it("returns valid ItemList JSON-LD", () => {
+    const result = buildCategoryItemListJsonLd("美妝", "beauty", mockBrands);
 
-    expect(result['@context']).toBe('https://schema.org')
-    expect(result['@type']).toBe('ItemList')
-    expect(result.name).toContain('美妝')
-    expect(result.numberOfItems).toBe(3)
-  })
+    expect(result["@context"]).toBe("https://schema.org");
+    expect(result["@type"]).toBe("ItemList");
+    expect(result.name).toContain("美妝");
+    expect(result.numberOfItems).toBe(3);
+  });
 
-  it('generates ListItem entries with correct positions', () => {
-    const result = buildCategoryItemListJsonLd('美妝', 'beauty', mockBrands)
-    const items = result.itemListElement
+  it("generates ListItem entries with correct positions", () => {
+    const result = buildCategoryItemListJsonLd("美妝", "beauty", mockBrands);
+    const items = result.itemListElement;
 
-    expect(items).toHaveLength(3)
+    expect(items).toHaveLength(3);
     expect(items[0]).toMatchObject({
-      '@type': 'ListItem',
+      "@type": "ListItem",
       position: 1,
-      name: '茶籽堂',
-    })
-    expect(items[0].url).toContain('/cha-zi-tang')
-    expect(items[2].position).toBe(3)
-  })
+      name: "茶籽堂",
+    });
+    expect(items[0].url).toContain("/cha-zi-tang");
+    expect(items[2].position).toBe(3);
+  });
 
-  it('handles empty brands array', () => {
-    const result = buildCategoryItemListJsonLd('食品', 'food', [])
+  it("handles empty brands array", () => {
+    const result = buildCategoryItemListJsonLd("食品", "food", []);
 
-    expect(result.numberOfItems).toBe(0)
-    expect(result.itemListElement).toEqual([])
-  })
+    expect(result.numberOfItems).toBe(0);
+    expect(result.itemListElement).toEqual([]);
+  });
 
-  it('uses /brands/:slug for brand item URLs', () => {
-    const result = buildCategoryItemListJsonLd('美妝', 'beauty', [
-      { name: 'Test', slug: 'test-brand' },
-    ])
-    expect(result.itemListElement[0].url).toContain('/brands/test-brand')
+  it("uses /brands/:slug for brand item URLs", () => {
+    const result = buildCategoryItemListJsonLd("美妝", "beauty", [
+      { name: "Test", slug: "test-brand" },
+    ]);
+    expect(result.itemListElement[0].url).toContain("/brands/test-brand");
     expect(result.itemListElement[0].url).not.toMatch(
       /^https?:\/\/[^/]+\/test-brand$/,
-    )
-  })
-})
+    );
+  });
+});
 
-describe('buildCategoryItemListJsonLd parentGroup', () => {
-  it('adds an about Thing when a parent group is provided', () => {
+describe("buildCategoryItemListJsonLd parentGroup", () => {
+  it("adds an about Thing when a parent group is provided", () => {
     const result = buildCategoryItemListJsonLd(
-      '服飾',
-      'clothing',
-      [{ name: 'oqLiq', slug: 'oqliq' }],
-      'zh-TW',
-      'Taiwan clothing brands',
-      'Fashion',
-    )
+      "服飾",
+      "clothing",
+      [{ name: "oqLiq", slug: "oqliq" }],
+      "zh-TW",
+      "Taiwan clothing brands",
+      "Fashion",
+    );
 
-    expect(result.about).toEqual({ '@type': 'Thing', name: 'Fashion' })
-  })
+    expect(result.about).toEqual({ "@type": "Thing", name: "Fashion" });
+  });
 
-  it('omits about when no parent group is provided', () => {
+  it("omits about when no parent group is provided", () => {
     const result = buildCategoryItemListJsonLd(
-      '服飾',
-      'clothing',
-      [{ name: 'oqLiq', slug: 'oqliq' }],
-      'zh-TW',
-      'Taiwan clothing brands',
+      "服飾",
+      "clothing",
+      [{ name: "oqLiq", slug: "oqliq" }],
+      "zh-TW",
+      "Taiwan clothing brands",
       undefined,
-    )
+    );
 
-    expect('about' in result).toBe(false)
-  })
-})
+    expect("about" in result).toBe(false);
+  });
+});
 
-describe('buildBreadcrumbJsonLd', () => {
-  it('builds BreadcrumbList with correct positions', () => {
+describe("buildBreadcrumbJsonLd", () => {
+  it("builds BreadcrumbList with correct positions", () => {
     const items = [
-      { label: 'Brands', href: '/' },
-      { label: 'Food & Beverage', href: '/?category=Food+%26+Beverage' },
-      { label: '茶籽堂 Chatzutang' },
-    ]
-    const jsonLd = buildBreadcrumbJsonLd(items)
-    expect(jsonLd['@context']).toBe('https://schema.org')
-    expect(jsonLd['@type']).toBe('BreadcrumbList')
-    expect(jsonLd.itemListElement).toHaveLength(3)
-    expect(jsonLd.itemListElement[0].position).toBe(1)
-    expect(jsonLd.itemListElement[2].position).toBe(3)
-  })
+      { label: "Brands", href: "/" },
+      { label: "Food & Beverage", href: "/?category=Food+%26+Beverage" },
+      { label: "茶籽堂 Chatzutang" },
+    ];
+    const jsonLd = buildBreadcrumbJsonLd(items);
+    expect(jsonLd["@context"]).toBe("https://schema.org");
+    expect(jsonLd["@type"]).toBe("BreadcrumbList");
+    expect(jsonLd.itemListElement).toHaveLength(3);
+    expect(jsonLd.itemListElement[0].position).toBe(1);
+    expect(jsonLd.itemListElement[2].position).toBe(3);
+  });
 
-  it('omits item URL for the last breadcrumb (current page)', () => {
-    const items = [{ label: 'Brands', href: '/' }, { label: 'Brand Name' }]
-    const jsonLd = buildBreadcrumbJsonLd(items)
-    expect(jsonLd.itemListElement[0].item).toBeDefined()
-    expect(jsonLd.itemListElement[1].item).toBeUndefined()
-  })
-})
+  it("omits item URL for the last breadcrumb (current page)", () => {
+    const items = [{ label: "Brands", href: "/" }, { label: "Brand Name" }];
+    const jsonLd = buildBreadcrumbJsonLd(items);
+    expect(jsonLd.itemListElement[0].item).toBeDefined();
+    expect(jsonLd.itemListElement[1].item).toBeUndefined();
+  });
+});
 
-describe('buildBrandsItemListJsonLd', () => {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://formoria.com'
+describe("buildBrandsItemListJsonLd", () => {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://formoria.com";
 
-  it('returns valid ItemList schema with correct structure', () => {
-    expect(siteUrl).toBeTruthy()
+  it("returns valid ItemList schema with correct structure", () => {
+    expect(siteUrl).toBeTruthy();
     const brands = [
-      { name: 'Brand Alpha', slug: 'brand-alpha' },
-      { name: 'Brand Beta', slug: 'brand-beta' },
-    ]
-    const result = buildBrandsItemListJsonLd(brands)
+      { name: "Brand Alpha", slug: "brand-alpha" },
+      { name: "Brand Beta", slug: "brand-beta" },
+    ];
+    const result = buildBrandsItemListJsonLd(brands);
 
-    expect(result['@context']).toBe('https://schema.org')
-    expect(result['@type']).toBe('ItemList')
-    expect(result.itemListElement).toHaveLength(2)
-    expect(result.numberOfItems).toBe(brands.length)
+    expect(result["@context"]).toBe("https://schema.org");
+    expect(result["@type"]).toBe("ItemList");
+    expect(result.itemListElement).toHaveLength(2);
+    expect(result.numberOfItems).toBe(brands.length);
     expect(result.itemListElement[0]).toMatchObject({
-      '@type': 'ListItem',
+      "@type": "ListItem",
       position: 1,
-      name: 'Brand Alpha',
-    })
-    expect(result.itemListElement[0].url).toContain('/brands/brand-alpha')
-    expect(result.itemListElement[1].position).toBe(2)
-  })
+      name: "Brand Alpha",
+    });
+    expect(result.itemListElement[0].url).toContain("/brands/brand-alpha");
+    expect(result.itemListElement[1].position).toBe(2);
+  });
 
-  it('returns empty itemListElement for empty brands array', () => {
-    const result = buildBrandsItemListJsonLd([])
-    expect(result['@type']).toBe('ItemList')
-    expect(result.itemListElement).toHaveLength(0)
-  })
+  it("returns empty itemListElement for empty brands array", () => {
+    const result = buildBrandsItemListJsonLd([]);
+    expect(result["@type"]).toBe("ItemList");
+    expect(result.itemListElement).toHaveLength(0);
+  });
 
-  it('defaults to zh-TW locale', () => {
-    const result = buildBrandsItemListJsonLd([{ name: 'X', slug: 'x' }])
-    expect(result.inLanguage).toBe('zh-TW')
-  })
+  it("defaults to zh-TW locale", () => {
+    const result = buildBrandsItemListJsonLd([{ name: "X", slug: "x" }]);
+    expect(result.inLanguage).toBe("zh-TW");
+  });
 
-  it('respects explicit locale parameter', () => {
-    const result = buildBrandsItemListJsonLd([{ name: 'X', slug: 'x' }], 'en')
-    expect(result.inLanguage).toBe('en')
-  })
+  it("respects explicit locale parameter", () => {
+    const result = buildBrandsItemListJsonLd([{ name: "X", slug: "x" }], "en");
+    expect(result.inLanguage).toBe("en");
+  });
 
-  it('generates correct URLs with locale prefix for en', () => {
-    const result = buildBrandsItemListJsonLd([{ name: 'X', slug: 'x' }], 'en')
-    expect(result.itemListElement[0].url).toContain('/en/brands/x')
-  })
-})
+  it("generates correct URLs with locale prefix for en", () => {
+    const result = buildBrandsItemListJsonLd([{ name: "X", slug: "x" }], "en");
+    expect(result.itemListElement[0].url).toContain("/en/brands/x");
+  });
+});
 
-describe('buildWebSiteJsonLd', () => {
-  it('returns WebSite schema with correct structure', () => {
-    const jsonLd = buildWebSiteJsonLd()
-    expect(jsonLd['@context']).toBe('https://schema.org')
-    expect(jsonLd['@type']).toBe('WebSite')
-    expect(jsonLd.name).toBe('Formoria')
-    expect(jsonLd.alternateName).toBeUndefined()
-    expect(jsonLd.url).toBeDefined()
-    expect(jsonLd.url).toContain('localhost:3000')
-    expect(jsonLd.url).not.toContain('mitmap')
-  })
+describe("buildWebSiteJsonLd", () => {
+  it("returns WebSite schema with correct structure", () => {
+    const jsonLd = buildWebSiteJsonLd();
+    expect(jsonLd["@context"]).toBe("https://schema.org");
+    expect(jsonLd["@type"]).toBe("WebSite");
+    expect(jsonLd.name).toBe("Formoria");
+    expect(jsonLd.alternateName).toBeUndefined();
+    expect(jsonLd.url).toBeDefined();
+    expect(jsonLd.url).toContain("localhost:3000");
+    expect(jsonLd.url).not.toContain("mitmap");
+  });
 
-  it('includes SearchAction with search URL template', () => {
-    const jsonLd = buildWebSiteJsonLd()
-    expect(jsonLd.potentialAction['@type']).toBe('SearchAction')
-    expect(jsonLd.potentialAction.target.urlTemplate).toContain('search=')
-    expect(jsonLd.potentialAction['query-input']).toContain(
-      'search_term_string',
-    )
-  })
+  it("includes SearchAction with search URL template", () => {
+    const jsonLd = buildWebSiteJsonLd();
+    expect(jsonLd.potentialAction["@type"]).toBe("SearchAction");
+    expect(jsonLd.potentialAction.target.urlTemplate).toContain("search=");
+    expect(jsonLd.potentialAction["query-input"]).toContain(
+      "search_term_string",
+    );
+  });
 
-  it('SearchAction targets /brands?search= not /?search=', () => {
-    const jsonLd = buildWebSiteJsonLd()
-    const urlTemplate = jsonLd.potentialAction.target.urlTemplate
-    expect(urlTemplate).toContain('/brands?search=')
-    expect(urlTemplate).not.toContain('/?search=')
-  })
-})
+  it("SearchAction targets /brands?search= not /?search=", () => {
+    const jsonLd = buildWebSiteJsonLd();
+    const urlTemplate = jsonLd.potentialAction.target.urlTemplate;
+    expect(urlTemplate).toContain("/brands?search=");
+    expect(urlTemplate).not.toContain("/?search=");
+  });
+});
 
-describe('buildOrganizationJsonLd', () => {
-  it('emits an Organization with name and absolute url', () => {
-    const ld = buildOrganizationJsonLd('zh-TW') as JsonLdObject
-    expect(ld['@type']).toBe('Organization')
-    expect(ld.name).toBe('Formoria')
-    expect(ld.url).toMatch(/^https?:\/\//)
-  })
-  it('omits sameAs when no socials are configured', () => {
-    const ld = buildOrganizationJsonLd('en') as JsonLdObject
-    expect('sameAs' in ld).toBe(false)
-  })
-})
+describe("buildOrganizationJsonLd", () => {
+  it("emits an Organization with name and absolute url", () => {
+    const ld = buildOrganizationJsonLd("zh-TW") as JsonLdObject;
+    expect(ld["@type"]).toBe("Organization");
+    expect(ld.name).toBe("Formoria");
+    expect(ld.url).toMatch(/^https?:\/\//);
+    expect(ld.description).toContain("台灣品牌探索與選物平台");
+  });
+  it("omits sameAs when no socials are configured", () => {
+    const ld = buildOrganizationJsonLd("en") as JsonLdObject;
+    expect("sameAs" in ld).toBe(false);
+    expect(ld.description).toContain("discovery and curation platform");
+  });
+});
 
-describe('buildArticleJsonLd', () => {
-  it('emits an Article with headline and publisher Organization', () => {
+describe("buildArticleJsonLd", () => {
+  it("emits an Article with headline and publisher Organization", () => {
     const ld = buildArticleJsonLd({
-      title: 'About',
-      description: 'desc',
-      path: '/about',
-      locale: 'zh-TW',
-    }) as JsonLdObject
-    expect(ld['@type']).toBe('Article')
-    expect(ld.headline).toBe('About')
-    expect(ld.publisher['@type']).toBe('Organization')
-  })
-})
+      title: "About",
+      description: "desc",
+      path: "/about",
+      locale: "zh-TW",
+    }) as JsonLdObject;
+    expect(ld["@type"]).toBe("Article");
+    expect(ld.headline).toBe("About");
+    expect(ld.publisher["@type"]).toBe("Organization");
+  });
+});
 
-describe('buildDefinedTermSetJsonLd', () => {
-  it('emits a DefinedTermSet with DefinedTerm members', () => {
+describe("buildDefinedTermSetJsonLd", () => {
+  it("emits a DefinedTermSet with DefinedTerm members", () => {
     const ld = buildDefinedTermSetJsonLd(
-      [{ name: '台灣製造', description: 'Made in Taiwan' }],
-      'zh-TW',
-    ) as JsonLdObject
-    expect(ld['@type']).toBe('DefinedTermSet')
-    expect(ld.hasDefinedTerm[0]['@type']).toBe('DefinedTerm')
-    expect(ld.hasDefinedTerm[0].name).toBe('台灣製造')
-  })
-})
+      [{ name: "台灣製造", description: "Made in Taiwan" }],
+      "zh-TW",
+    ) as JsonLdObject;
+    expect(ld["@type"]).toBe("DefinedTermSet");
+    expect(ld.hasDefinedTerm[0]["@type"]).toBe("DefinedTerm");
+    expect(ld.hasDefinedTerm[0].name).toBe("台灣製造");
+  });
+});
 
-describe('safeJsonLdStringify', () => {
-  it('produces valid JSON', () => {
-    const data = { name: 'Test Brand', description: 'A brand' }
-    const result = safeJsonLdStringify(data)
-    expect(JSON.parse(result)).toEqual(data)
-  })
+describe("safeJsonLdStringify", () => {
+  it("produces valid JSON", () => {
+    const data = { name: "Test Brand", description: "A brand" };
+    const result = safeJsonLdStringify(data);
+    expect(JSON.parse(result)).toEqual(data);
+  });
 
-  it('escapes script-closing sequences', () => {
-    const data = { name: '</script><script>alert(1)</script>' }
-    const result = safeJsonLdStringify(data)
-    expect(result).not.toContain('</script>')
-    expect(result).toContain('\\u003c')
-    expect(JSON.parse(result)).toEqual(data)
-  })
+  it("escapes script-closing sequences", () => {
+    const data = { name: "</script><script>alert(1)</script>" };
+    const result = safeJsonLdStringify(data);
+    expect(result).not.toContain("</script>");
+    expect(result).toContain("\\u003c");
+    expect(JSON.parse(result)).toEqual(data);
+  });
 
-  it('preserves CJK characters and emoji', () => {
-    const data = { name: '茶籽堂 🌿' }
-    const result = safeJsonLdStringify(data)
-    expect(JSON.parse(result)).toEqual(data)
-  })
-})
+  it("preserves CJK characters and emoji", () => {
+    const data = { name: "茶籽堂 🌿" };
+    const result = safeJsonLdStringify(data);
+    expect(JSON.parse(result)).toEqual(data);
+  });
+});

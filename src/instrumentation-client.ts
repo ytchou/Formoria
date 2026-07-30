@@ -5,35 +5,11 @@
 import * as Sentry from "@sentry/nextjs";
 import { isPostHogConfigured } from '@/lib/analytics/posthog-provider';
 
-const feedbackCopy = (() => {
-  if (typeof document === 'undefined') return {}
-  const serialized = document.documentElement.dataset.feedbackCopy
-  if (!serialized) return {}
-
-  try {
-    return JSON.parse(serialized) as Record<string, string>
-  } catch {
-    return {}
-  }
-})()
-
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
 
   // Add optional integrations for additional features
-  integrations: [
-    Sentry.replayIntegration(),
-    Sentry.feedbackIntegration({
-      colorScheme: 'light',
-      themeLight: {
-        background: '#FDFCFA',
-        submitBackground: '#C04A24',
-        submitBackgroundHover: '#A33D1E',
-        inputOutlineColor: '#E8E5E0',
-      },
-      ...feedbackCopy,
-    }),
-  ],
+  integrations: [Sentry.replayIntegration()],
 
   // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
   tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1,

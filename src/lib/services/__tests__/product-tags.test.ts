@@ -189,6 +189,39 @@ describe('deriveProductTagsEn', () => {
   it('returns empty for empty input', () => {
     expect(deriveProductTagsEn([])).toEqual([])
   })
+
+  it('lets an ontology hit override a stale stored EN', () => {
+    // The DEV-1266 drift case: '後背包' was stored as 'Backpack', not the
+    // canonical 'Backpacks'.
+    expect(deriveProductTagsEn(['後背包'], ['Backpack'])).toEqual(['Backpacks'])
+    expect(deriveProductTagsEn(['後背包'], ['backpack'])).toEqual(['Backpacks'])
+  })
+
+  it('keeps a novel tag stored EN, Title Cased', () => {
+    // '手工燈籠' misses the ontology, so the stored translation is the best
+    // English available and must survive.
+    expect(deriveProductTagsEn(['手工燈籠'], ['handmade lantern'])).toEqual([
+      'Handmade Lantern',
+    ])
+  })
+
+  it('falls back to the raw zh when a novel tag has no stored EN', () => {
+    expect(deriveProductTagsEn(['手工燈籠'], [])).toEqual(['手工燈籠'])
+    expect(deriveProductTagsEn(['手工燈籠'], ['  '])).toEqual(['手工燈籠'])
+  })
+
+  it('aligns existingEn by index and ignores a shorter stored array', () => {
+    expect(
+      deriveProductTagsEn(['後背包', '手工燈籠'], ['backpack']),
+    ).toEqual(['Backpacks', '手工燈籠'])
+  })
+
+  it('behaves identically when called with one argument', () => {
+    expect(deriveProductTagsEn(['後背包', '手工燈籠'])).toEqual([
+      'Backpacks',
+      '手工燈籠',
+    ])
+  })
 })
 
 describe('planTagBackfill', () => {

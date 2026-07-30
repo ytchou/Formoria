@@ -19,7 +19,7 @@ import {
   deriveSubmissionReviewStage,
   type SubmissionReviewStage,
 } from "./submission-review-stage";
-import { NotFoundError } from "@/lib/errors";
+import { ConflictError, NotFoundError } from "@/lib/errors";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import {
   extractLatinRun,
@@ -28,11 +28,13 @@ import {
   isValidSlug,
 } from "@/lib/services/brands";
 import { toSubmissionRow } from "./field-map";
+import { deriveProductTagsEn } from "./product-tags";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { deleteStoredImagePaths } from "./image-upload";
 import { slugifyRomanizedName } from "@/lib/brands/slug";
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { upsertEnrichedChannels } from "./brand-channels";
+import { normalizeCommunityWebsite } from "./community-submissions";
 
 // ---------------------------------------------------------------------------
 // Row types
@@ -712,12 +714,13 @@ export function getSubmissionReviewCompleteness(
   if (![1, 2, 3].includes(data.priceRange ?? 0)) {
     missingFields.push("priceRange");
   }
-  const hasAnyLink = isHttpUrl(data.websiteUrl)
-    || normalizeString(data.socialInstagram) != null
-    || normalizeString(data.socialThreads) != null
-    || normalizeString(data.socialFacebook) != null
-    || isHttpUrl(data.purchasePinkoi)
-    || isHttpUrl(data.purchaseShopee);
+  const hasAnyLink =
+    isHttpUrl(data.websiteUrl) ||
+    normalizeString(data.socialInstagram) != null ||
+    normalizeString(data.socialThreads) != null ||
+    normalizeString(data.socialFacebook) != null ||
+    isHttpUrl(data.purchasePinkoi) ||
+    isHttpUrl(data.purchaseShopee);
   if (!hasAnyLink) missingFields.push("website");
   if (!heroImage) missingFields.push("heroImage");
   if (latestTargetStatus !== "succeeded") {
@@ -775,7 +778,10 @@ function submissionReviewDataToBrandInsert(
     product_type: data.productType,
     price_range: data.priceRange,
     product_tags: data.productTags,
-    product_tags_en: data.productTagsEn,
+    // Approval is a brand's first write and does not go through `toBrandRow`,
+    // so the normalizer has to be repeated here — otherwise the EN array the
+    // admin form supplied (validated for length only) lands raw. See DEV-1266.
+    product_tags_en: deriveProductTagsEn(data.productTags, data.productTagsEn),
     social_instagram: data.socialInstagram,
     social_threads: data.socialThreads,
     social_facebook: data.socialFacebook,
@@ -806,7 +812,9 @@ function submissionReviewDataToDb(
     product_type: data.productType,
     price_range: data.priceRange,
     product_tags: data.productTags,
-    product_tags_en: data.productTagsEn,
+    // Normalize in the staging row too, so the queue shows the admin the exact
+    // strings approval will publish rather than a value that changes on insert.
+    product_tags_en: deriveProductTagsEn(data.productTags, data.productTagsEn),
     social_instagram: data.socialInstagram,
     social_threads: data.socialThreads,
     social_facebook: data.socialFacebook,
@@ -1236,14 +1244,19 @@ export async function getSubmissionsForReview(options?: {
     }
   }
 
-  const locationCandidatesBySubmission = new Map<string, SubmissionLocationCandidate[]>();
+  const locationCandidatesBySubmission = new Map<
+    string,
+    SubmissionLocationCandidate[]
+  >();
   if (submissionIds.length > 0) {
     const candidateChunks = await Promise.all(
       chunkValues(submissionIds, SUPABASE_IN_FILTER_CHUNK_SIZE).map(
         async (targetIds) => {
           const { data: candidateData, error: candidatesError } = await supabase
             .from("brand_location_candidates")
-            .select("id, submission_id, location, verification_decision, match_reason, evidence, normalized_address, audit_result_ids")
+            .select(
+              "id, submission_id, location, verification_decision, match_reason, evidence, normalized_address, audit_result_ids",
+            )
             .in("submission_id", targetIds)
             .order("created_at", { ascending: false });
           if (candidatesError) {
@@ -1261,7 +1274,8 @@ export async function getSubmissionsForReview(options?: {
     );
     for (const row of candidateChunks.flat()) {
       if (!row.submission_id) continue;
-      const current = locationCandidatesBySubmission.get(row.submission_id) ?? [];
+      const current =
+        locationCandidatesBySubmission.get(row.submission_id) ?? [];
       current.push({
         id: row.id,
         location: row.location,
@@ -1282,7 +1296,9 @@ export async function getSubmissionsForReview(options?: {
       : undefined;
     const submission = submissionToDomain(row);
     const enrichedData = isEnrichedData(row.enriched_data)
-      ? enrichedDataFromSubmissionDb(row.enriched_data as Record<string, unknown>)
+      ? enrichedDataFromSubmissionDb(
+          row.enriched_data as Record<string, unknown>,
+        )
       : null;
     const targetStatus = isCurationTargetStatus(latestTarget?.status)
       ? latestTarget.status
@@ -1355,9 +1371,7 @@ export async function getSubmission(id: string): Promise<BrandSubmission> {
  * `brand_id` and their status transition drives provenance/location triggers,
  * so unwinding one is not a status flip.
  */
-export async function reopenSubmission(
-  id: string,
-): Promise<BrandSubmission> {
+export async function reopenSubmission(id: string): Promise<BrandSubmission> {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("brand_submissions")
@@ -1507,6 +1521,15 @@ export async function applyBrandRefresh(
     "apply_brand_refresh",
     { p_reviewer_id: reviewerId, p_submission_id: submissionId },
   );
+  // 55P03 = lock_not_available: the brand or submission row is locked by another
+  // in-flight apply. The function sets a 2s lock_timeout so this surfaces as a
+  // retryable message instead of blocking the whole bulk approval.
+  if (error?.code === "55P03") {
+    throw new ConflictError(
+      "Another update is being applied to this brand. Try again in a moment.",
+      { cause: error },
+    );
+  }
   if (error) throw error;
 
   let cleanupFailed = false;
@@ -1545,7 +1568,9 @@ export async function saveSubmissionReview(
   const submissionRow = row as unknown as SubmissionRowWithProductTypeNote;
   const submission = submissionToDomain(submissionRow);
   const enrichedData = isEnrichedData(submissionRow.enriched_data)
-    ? enrichedDataFromSubmissionDb(submissionRow.enriched_data as Record<string, unknown>)
+    ? enrichedDataFromSubmissionDb(
+        submissionRow.enriched_data as Record<string, unknown>,
+      )
     : null;
   const { baseline } = buildReviewLayers(
     submissionRow,
@@ -1680,7 +1705,9 @@ export async function approveSubmission(
   }
 
   const enrichedDataRaw = submission.enriched_data;
-  const enrichedData: EnrichedSubmissionData | null = isEnrichedData(enrichedDataRaw)
+  const enrichedData: EnrichedSubmissionData | null = isEnrichedData(
+    enrichedDataRaw,
+  )
     ? enrichedDataFromSubmissionDb(enrichedDataRaw as Record<string, unknown>)
     : null;
 
@@ -1758,10 +1785,16 @@ export async function approveSubmission(
         reviewData.channels,
       );
       if (!channelsResult.ok) {
-        console.error('[approveSubmission] Failed to upsert enriched channels:', channelsResult.code);
+        console.error(
+          "[approveSubmission] Failed to upsert enriched channels:",
+          channelsResult.code,
+        );
       }
     } catch (channelError) {
-      console.error('[approveSubmission] Failed to upsert enriched channels:', channelError);
+      console.error(
+        "[approveSubmission] Failed to upsert enriched channels:",
+        channelError,
+      );
     }
   }
 
@@ -1835,20 +1868,23 @@ export async function rejectSubmission(
 
 export async function checkBrandDuplicates(
   name: string,
+  website?: string,
 ): Promise<DuplicateCheckResult> {
   const supabase = await createClient();
+  const websiteKey = normalizeCommunityWebsite(website)?.key;
 
   const { data, error } = await supabase.rpc("check_brand_duplicates", {
     p_name: name,
-    p_ubn: null,
+    p_website_key: websiteKey,
   });
 
   if (error) {
     console.error("[checkBrandDuplicates] RPC error:", error.message);
-    return { nameMatches: [] };
+    return { nameMatches: [], websiteMatches: [] };
   }
 
   return {
     nameMatches: data?.name_matches ?? [],
+    websiteMatches: data?.website_matches ?? [],
   };
 }

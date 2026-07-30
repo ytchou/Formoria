@@ -48,7 +48,7 @@ test.beforeAll(async ({ browser }) => {
  * Journey 1: Single-brand owner dashboard landing
  *   - Default landing redirects to the path-based brand overview
  *   - Brand overview shows 7-item tab nav with active "總覽" tab
- *   - Navigation shows My Brand instead of Submit a Brand
+ *   - Navigation shows My Brand instead of Recommend a Brand
  *   - Active tab is determined by URL pathname (aria-current="page")
  *
  * Journey 2: Legacy query and route compatibility
@@ -92,7 +92,7 @@ test.describe('Dashboard — tab navigation', () => {
 
     const mainNav = userPage.locator('header').first();
     await expect(mainNav.getByRole('link', { name: '我的品牌' })).toBeVisible();
-    await expect(mainNav.getByRole('link', { name: '提交品牌' })).toHaveCount(0);
+    await expect(mainNav.getByRole('link', { name: '推薦品牌' })).toHaveCount(0);
 
     // Tab nav has 7 items; Overview ('總覽') is active on the path-based brand overview.
     const tabNav = userPage.locator('nav[aria-label]').first();

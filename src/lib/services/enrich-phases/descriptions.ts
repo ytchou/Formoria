@@ -228,8 +228,16 @@ export async function runDescriptionsPhase({
         ...(descriptionRewrite.priceRange != null && shouldWrite(brand.price_range)
           ? { price_range: descriptionRewrite.priceRange }
           : {}),
-        ...(mergedTags.length > 0 && shouldWrite(brand.product_tags) ? { product_tags: mergedTags } : {}),
-        ...(mergedTagsEn.length > 0 && shouldWrite(brand.product_tags_en) ? { product_tags_en: mergedTagsEn } : {}),
+        // `product_tags` and `product_tags_en` are index-aligned by contract, so
+        // they have to be written as one unit. Gating them on two independent
+        // `shouldWrite` checks let one land without the other, which is how the
+        // rows with more EN entries than zh entries in DEV-1266 were produced.
+        // The zh array is the source of truth, so it owns the gate; a brand that
+        // already has zh tags but an empty EN array is repaired by
+        // `deriveProductTagsEn` at the write boundary, not by a half-write here.
+        ...(mergedTags.length > 0 && shouldWrite(brand.product_tags)
+          ? { product_tags: mergedTags, product_tags_en: mergedTagsEn }
+          : {}),
         ...(descriptionRewrite.city && shouldWrite(brand.city) ? { city: descriptionRewrite.city } : {}),
         ...(descriptionRewrite.foundingYear != null && shouldWrite(brand.founding_year)
           ? { founding_year: descriptionRewrite.foundingYear }

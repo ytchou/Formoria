@@ -45,9 +45,15 @@ export async function runImageSearchPhase(
   let skippedEnoughImages = 0
   let skippedNoSerp = 0
   for (const brand of ctx.chunk) {
-    const hasEnoughImages = ctx.targetType === 'submission'
+    // An explicit re-run means "go and look again", so the already-has-images
+    // shortcut must not silently skip it — that shortcut is what kept brands
+    // with two mediocre images from ever seeing better ones. It still applies
+    // on the scheduled path, which never sets overwrite, so a nightly sweep
+    // does not re-search the whole pending queue.
+    const overwrite = brand.overwrite_enrichment === true
+    const hasEnoughImages = !overwrite && (ctx.targetType === 'submission'
       ? (activeSubmissionImageCounts.get(brand.id) ?? 0) >= 2
-      : !!brand.hero_image_url
+      : !!brand.hero_image_url)
     if (hasEnoughImages) {
       skippedEnoughImages++
       continue

@@ -40,10 +40,15 @@ import { useSubmissionAnalytics } from '@/hooks/use-submission-analytics'
 
 type SubmitFormProps = {
   source?: 'header_cta' | 'hero_cta' | 'footer_link'
+  // Prefilled from the directory's no-results CTA so the visitor doesn't retype the name
+  // they just searched for. Read server-side from `?name=` and passed down, deliberately
+  // not via useSearchParams — that would need a Suspense boundary in this client tree.
+  initialName?: string
 }
 
 export default function SubmitForm({
   source = 'hero_cta',
+  initialName = '',
 }: SubmitFormProps) {
   const t = useTranslations('submit')
   const tForm = useTranslations('submit.recommendForm')
@@ -79,7 +84,7 @@ export default function SubmitForm({
   } = useForm<SubmissionFormData>({
     resolver,
     defaultValues: {
-      name: '',
+      name: initialName,
       website: '',
       description: '',
       guestEmail: '',

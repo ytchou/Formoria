@@ -235,7 +235,8 @@ export function parseDescriptionRewriteResult(content: string): DescriptionRewri
 
 function validateDescriptionFields(
   parsed: DescriptionRewriteResult,
-  attempt: number
+  attempt: number,
+  brandName?: string | null
 ): DescriptionRewriteResult {
   const validationRejections: DescriptionRewriteResult['validationRejections'] = []
   let descriptionZh = parsed.description_zh
@@ -267,7 +268,7 @@ function validateDescriptionFields(
   }
 
   if (descriptionZh) {
-    const validation = validateLocalizedText(descriptionZh, 'zh', ZH_DESCRIPTION_BAND)
+    const validation = validateLocalizedText(descriptionZh, 'zh', ZH_DESCRIPTION_BAND, brandName)
     const hasHardFailure = !validation.ok
     const hasWarnings = validation.warnings.length > 0
     if (hasHardFailure || hasWarnings) {
@@ -307,7 +308,7 @@ function validateDescriptionFields(
   }
 
   if (blurbZh) {
-    const validation = validateLocalizedText(blurbZh, 'zh', ZH_BLURB_BAND)
+    const validation = validateLocalizedText(blurbZh, 'zh', ZH_BLURB_BAND, brandName)
     const hasHardFailure = !validation.ok
     const hasWarnings = validation.warnings.length > 0
     if (hasHardFailure || hasWarnings) {
@@ -378,6 +379,90 @@ function containsPricingInformation(value: string, locale: 'zh' | 'en'): boolean
   })
 }
 
+const RETRY_FIELD_BANDS = {
+  description_zh: ZH_DESCRIPTION_BAND,
+  description_en: EN_DESCRIPTION_BAND,
+  blurb_zh: ZH_BLURB_BAND,
+  blurb_en: EN_BLURB_BAND,
+} as const
+
+const RETRY_FIELD_UNITS: Record<keyof typeof RETRY_FIELD_BANDS, string> = {
+  description_zh: '字',
+  description_en: 'characters',
+  blurb_zh: '字',
+  blurb_en: 'characters',
+}
+
+/** Non-length rejection reasons, mapped to the edit that actually clears them. */
+const RETRY_REASON_GUIDANCE: Record<string, string> = {
+  language_purity:
+    '語言不純：請全文改為該欄位指定語言，且連續拉丁字母單詞不可超過 2 個（外文專有名詞請改寫為中文或用《》括住）',
+  pricing_information: '含價格資訊：請移除所有售價、金額、價位級距、折扣與促銷描述',
+  missing: '欄位缺漏：必須輸出此欄位',
+  parse_failed: '無法解析：請只輸出單一 JSON 物件，不要加上說明文字或 Markdown',
+}
+
+/**
+ * Turns the previous attempt's rejections into instructions the model can act on.
+ *
+ * The old retry passed `JSON.stringify(rejections)` verbatim, so a length miss
+ * arrived as the bare token `length_band` — which says a bound was crossed but
+ * not which one. Observed consequence: the model assumed "too long" and cut
+ * further, so attempt 2 came back shorter than attempt 1 (125 字 -> 101 字,
+ * 230 字 -> 111 字) and failed the same check again. Naming the measured length,
+ * the target band, and the direction is what makes the second call worth
+ * spending.
+ */
+export function buildDescriptionRetryInstruction(
+  rejections: DescriptionRewriteResult['validationRejections'],
+  parsed: Partial<
+    Record<keyof typeof RETRY_FIELD_BANDS, string | null>
+  > | null,
+): string {
+  // Only hard failures nulled a field; warnings kept their value and need no edit.
+  const hardFailures = rejections.filter((rejection) => rejection.reasons.length > 0)
+  if (hardFailures.length === 0) return ''
+
+  const notesByField = new Map<string, Set<string>>()
+  for (const rejection of hardFailures) {
+    const notes = notesByField.get(rejection.field) ?? new Set<string>()
+    for (const reason of rejection.reasons) {
+      if (reason === 'length_band') {
+        const band = RETRY_FIELD_BANDS[rejection.field]
+        const unit = RETRY_FIELD_UNITS[rejection.field]
+        const value = parsed?.[rejection.field]
+        const length = typeof value === 'string' ? value.length : null
+        if (length === null) {
+          notes.add(`長度不符：必須介於 ${band[0]}-${band[1]} ${unit}`)
+        } else if (length < band[0]) {
+          notes.add(
+            `長度不足：目前 ${length} ${unit}，少於下限 ${band[0]}，請「增加」至少 ${band[0] - length} ${unit}（目標 ${band[0]}-${band[1]} ${unit}）。` +
+              `補字數請「多寫一個具體面向」——代表產品與品項細節、材料與工藝、製程或生產地、通路與販售方式、創辦背景與年份、所在城市、外界評價；` +
+              `不可加形容詞或「用心」「堅持」「品質保證」這類無資訊句子，那會觸發套話檢查而同樣作廢`,
+          )
+        } else {
+          notes.add(
+            `長度超標：目前 ${length} ${unit}，超過上限 ${band[1]}，請「刪減」至少 ${length - band[1]} ${unit}（目標 ${band[0]}-${band[1]} ${unit}）`,
+          )
+        }
+        continue
+      }
+      notes.add(RETRY_REASON_GUIDANCE[reason] ?? `未通過檢查：${reason}`)
+    }
+    notesByField.set(rejection.field, notes)
+  }
+
+  const lines = [...notesByField.entries()].map(
+    ([field, notes]) => `- ${field}：${[...notes].join('；')}`,
+  )
+
+  return [
+    '\n\n前一次輸出未通過品質檢查，請只修正以下欄位，其餘欄位維持原樣：',
+    ...lines,
+    '注意：description_zh 必須全文繁體中文，description_en 必須全文英文（品牌中文名可保留）。兩者獨立撰寫，不可只產出其中一種語言。',
+  ].join('\n')
+}
+
 const DESCRIPTION_CONFIG_PARAMS = {
   model: 'deepseek-v4-flash',
   maxTokens: 4500,
@@ -434,11 +519,15 @@ export async function rewriteBrandDescription(
   const localizeAcceptedZh = (value: string | null): string | null =>
     value ? localizeToTW(value, { brandName }).text : null
 
+  // The retry needs the previous attempt's own text to measure, so the pre-validation
+  // parse is carried forward rather than the accumulated (already nulled) result.
+  let lastRejections: DescriptionRewriteResult['validationRejections'] = []
+  let lastParsed: DescriptionRewriteResult | null = null
+
   try {
     for (let attemptIndex = 0; attemptIndex < 2; attemptIndex += 1) {
-      const retryInstruction = attemptIndex === 0 || allValidationRejections.length === 0
-        ? ''
-        : `\n\n前一次輸出未通過品質檢查：${JSON.stringify(allValidationRejections)}。請只修正不合格欄位。注意：description_zh 必須全文繁體中文，description_en 必須全文英文（品牌中文名可保留）。兩者獨立撰寫，不可只產出其中一種語言。`
+      const retryInstruction =
+        attemptIndex === 0 ? '' : buildDescriptionRetryInstruction(lastRejections, lastParsed)
 
       const startAt = Date.now()
       const client = createAuditedDeepSeekClient(
@@ -508,7 +597,7 @@ export async function rewriteBrandDescription(
       }
 
       const parsedResult = parseDescriptionRewriteResult(content)
-      const validated = validateDescriptionFields(parsedResult, attemptIndex + 1)
+      const validated = validateDescriptionFields(parsedResult, attemptIndex + 1, brandName)
 
       attempts.push({
         attempt: attemptIndex + 1,
@@ -521,6 +610,8 @@ export async function rewriteBrandDescription(
       })
 
       allValidationRejections.push(...validated.validationRejections)
+      lastRejections = validated.validationRejections
+      lastParsed = parsedResult
       acceptedDescriptionZh ??= localizeAcceptedZh(validated.description_zh)
       acceptedDescriptionEn ??= validated.description_en
       acceptedBlurbZh ??= localizeAcceptedZh(validated.blurb_zh)

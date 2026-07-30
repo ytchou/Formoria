@@ -35,10 +35,11 @@ describe('locale cookie is only written when it changes', () => {
     expect(res.headers.get('set-cookie')).toBeNull()
   })
 
-  it('sets the cookie when the incoming cookie differs from the resolved locale', async () => {
+  it('does NOT persist a URL-derived locale over an existing preference', async () => {
     const res = await proxy(req('/en/about', { cookie: 'zh-TW' }))
 
-    expect(res.cookies.get(LOCALE_COOKIE)?.value).toBe('en')
+    expect(res.cookies.get(LOCALE_COOKIE)).toBeUndefined()
+    expect(res.headers.get('set-cookie')).toBeNull()
   })
 
   it('sets the cookie when there is no incoming cookie', async () => {

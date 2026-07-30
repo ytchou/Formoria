@@ -78,4 +78,5 @@ type DuplicateCandidate = {
 
 export type DuplicateCheckResult = {
   nameMatches: DuplicateCandidate[]
+  websiteMatches: DuplicateCandidate[]
 }

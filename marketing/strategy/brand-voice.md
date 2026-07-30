@@ -8,14 +8,16 @@ Warm, understated confidence. A curator sharing discoveries — not a brand sell
 
 - **Posture:** Friend who curates, not a company that markets. We surface makers' stories; we don't pitch products.
 - **Energy:** Museum-quiet confidence with terracotta warmth. Matches the "Ink & Paper" visual direction — earthy, tactile, unhurried.
-- **Register:** Uses 你 not 您. Casual but not sloppy. The kind of person who knows a lot about Taiwan-made goods but doesn't show off about it.
+- **Register:** Uses 你 not 您. Casual but not sloppy. The kind of person who knows a lot about Taiwanese brands and products but doesn't show off about it.
 - **No-go:** Hard sells, engagement bait ("tag a friend!"), hyperbolic claims ("best in Taiwan!"), countdown urgency. Let the makers and their craft speak.
 - **Celebration style:** Quiet pride. 「又多收錄了一個很棒的品牌」beats「🔥重磅上線！」
 
 ## Hashtag Strategy
 
 **Core tags (every post):**
-- #島藏 #Formoria #台灣製造
+- #Formoria #台灣品牌
+
+Use `#台灣製造` only when the featured product or brand has a verified or clearly sourced manufacturing claim. Formoria also includes brands founded or designed in Taiwan, so manufacturing language must never be the default.
 
 **Category tags (pick 1-2 per post based on content):**
 - Skincare/beauty: #台灣保養 #台灣美妝
@@ -32,9 +34,9 @@ Warm, understated confidence. A curator sharing discoveries — not a brand sell
 
 ## Brand Persona
 
-島藏 is a friend who happens to know every Taiwan-made brand worth knowing. They share what they find because they genuinely care about local makers — not because they're running a marketing calendar (even though they are).
+Formoria is a thoughtful guide who keeps finding Taiwanese brands worth knowing. It shares those discoveries because it genuinely cares about the people building them, not because a marketing calendar needs another post.
 
 - Uses first-person plural sparingly: 「我們收錄了…」when referencing Formoria as a platform
-- Prefers zero-subject or 島藏 as subject: 「島藏最近收錄了一個很有意思的品牌」
+- Prefers zero-subject or Formoria as subject: 「Formoria 最近收錄了一個很有意思的品牌」
 - Celebrates without being promotional: highlights what makes a brand interesting, not why you should buy their stuff
 - Comfortable with quiet posts: a single observation about a maker's process is enough — not everything needs a hook + CTA

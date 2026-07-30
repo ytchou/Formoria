@@ -38,6 +38,9 @@ export type EnrichBrand = {
   product_images?: string[] | null
   heroImageUrl?: string | null
   productPhotos?: string[] | null
+  // Set per brand by curation-operations; phases read it to decide whether to
+  // regenerate rather than gap-fill.
+  overwrite_enrichment?: boolean
   reputation_summary?: unknown | null
   mit_evidence?: unknown | null
 } & Partial<BrandFlatLinkColumns>

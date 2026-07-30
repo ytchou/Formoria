@@ -14,8 +14,36 @@ const LANGUAGE_PURITY_THRESHOLD: Record<LanguageLocale, number> = {
 const LATIN_WORD_REGEX = /^[A-Za-z][A-Za-z'&.-]*$/u
 const MAX_LATIN_WORD_RUN_IN_ZH = 2
 
-function hasLongLatinRun(text: string): boolean {
-  const tokens = text.split(/[^\p{L}'&.-]+/u).filter(Boolean)
+/**
+ * Quoted spans hold proper nouns the writer cannot translate — album titles,
+ * product model names, book titles. `孫燕姿《My Story, Your Song》湖水綠版` is
+ * correct Traditional Chinese prose, but the four consecutive Latin words inside
+ * the quotes used to trip the run check and null the whole description. The
+ * overall purity ratio still runs against the untouched text, so stripping the
+ * quoted spans here narrows the run check without opening the door to an
+ * English description wearing quote marks.
+ */
+const QUOTED_SPAN_REGEX = /[《〈「『][^》〉」』]*[》〉」』]|[“"][^”"]*[”"]/gu
+
+function escapeForRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function hasLongLatinRun(text: string, exemptPhrase?: string | null): boolean {
+  let scanned = text.replace(QUOTED_SPAN_REGEX, ' ')
+
+  // A brand cannot be described without being named, and a name like
+  // "Seal F Bikini" or "Hsin Jin Rain Boots" is itself a long Latin run. Removing
+  // the brand's own name keeps the run check aimed at English prose that leaked
+  // into Chinese text, which is what it exists to catch.
+  const phrase = exemptPhrase?.trim()
+  if (phrase) {
+    scanned = scanned.replace(new RegExp(escapeForRegex(phrase), 'giu'), ' ')
+  }
+
+  const tokens = scanned
+    .split(/[^\p{L}'&.-]+/u)
+    .filter(Boolean)
   let run = 0
 
   for (const token of tokens) {
@@ -33,13 +61,17 @@ function hasLongLatinRun(text: string): boolean {
   return false
 }
 
-function failsLanguagePurity(text: string, locale: LanguageLocale): boolean {
+function failsLanguagePurity(
+  text: string,
+  locale: LanguageLocale,
+  exemptPhrase?: string | null
+): boolean {
   if (languagePurity(text, locale) < LANGUAGE_PURITY_THRESHOLD[locale]) {
     return true
   }
 
   if (locale === 'zh') {
-    return hasLongLatinRun(text)
+    return hasLongLatinRun(text, exemptPhrase)
   }
 
   return false
@@ -48,12 +80,14 @@ function failsLanguagePurity(text: string, locale: LanguageLocale): boolean {
 export function validateLocalizedText(
   text: string,
   locale: LanguageLocale,
-  band: LengthBand
+  band: LengthBand,
+  /** Brand name, exempted from the Latin-word-run check — see hasLongLatinRun. */
+  exemptPhrase?: string | null
 ): LocalizedTextValidation {
   const reasons: string[] = []
   const warnings: string[] = []
 
-  if (failsLanguagePurity(text, locale)) {
+  if (failsLanguagePurity(text, locale, exemptPhrase)) {
     reasons.push('language_purity')
   }
 

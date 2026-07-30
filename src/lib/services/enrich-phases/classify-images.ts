@@ -55,6 +55,14 @@ const TAG_RANK: Record<ImageClassificationTag, number> = {
 /** Images a human picked. The classifier must never retag, reorder away, or delete these. */
 const EXEMPT_SOURCES = new Set(['owner', 'admin'])
 
+/**
+ * sort_order doubles as the hero designation (position 0) and as the gallery
+ * order, and the publishability guards encode that: exactly one active row at
+ * 0, no duplicate sort_orders, and `sort_order between 0 and 6` — which is what
+ * caps a brand at seven active images.
+ */
+const MAX_ACTIVE_IMAGES = 7
+
 /** Width sent to the vision model — `detail: 'low'` downsamples to 512px anyway. */
 const CLASSIFY_RENDER_WIDTH = 512
 
@@ -158,7 +166,7 @@ function scoreValue(value: BrandImageRow['score']): number {
   return 0
 }
 
-function isExemptSource(source: BrandImageRow['source']): boolean {
+function isExemptSource(source: BrandImageRow['source'] | string | null): boolean {
   return typeof source === 'string' && EXEMPT_SOURCES.has(source)
 }
 
@@ -258,6 +266,64 @@ export function applyClassifications(images: ClassifiedImage[]): {
     )
 
   return { rejectedIds, rejectedUpdates, pathsToDelete, ordered }
+}
+
+export type ActiveImageForOrdering = {
+  id: string
+  source?: string | null
+  sort_order?: number | null
+}
+
+/**
+ * Decides the final sort_order of every active image, and which ones have to
+ * step down to stay inside the seven-slot window.
+ *
+ * Exists because the reindex used to walk only *judged* images. An image the
+ * vision model returned no verdict for is deliberately left active, but it was
+ * then skipped here and kept the column default of 0 — so a submission could
+ * end up with ten active rows all claiming to be the hero, which the app reads
+ * as "has a hero" and the database rejects as "not exactly one".
+ *
+ * Judged images keep the classifier's ranking; unjudged ones are appended after
+ * them, never ahead, so an unranked image cannot displace a scored product shot
+ * as the hero. Human picks are never reordered or demoted — their positions are
+ * reserved and merely counted against the cap.
+ */
+export function planActiveImageOrder(input: {
+  activeImages: ActiveImageForOrdering[]
+  rankedJudgedIds: string[]
+}): { assignments: Array<{ id: string; sortOrder: number }>; demotedIds: string[] } {
+  const { activeImages, rankedJudgedIds } = input
+
+  const exempt = activeImages.filter((row) => isExemptSource(row.source))
+  const managed = activeImages.filter((row) => !isExemptSource(row.source))
+
+  const rankIndex = new Map(rankedJudgedIds.map((id, index) => [id, index]))
+  const judged = managed
+    .filter((row) => rankIndex.has(row.id))
+    .toSorted((left, right) => rankIndex.get(left.id)! - rankIndex.get(right.id)!)
+  // Unjudged rows keep their incoming order (getActiveImages sorts by
+  // sort_order) so repeated runs do not shuffle the gallery for no reason.
+  const unjudged = managed.filter((row) => !rankIndex.has(row.id))
+
+  const ranked = [...judged, ...unjudged]
+  const capacity = Math.max(0, MAX_ACTIVE_IMAGES - exempt.length)
+  const keep = ranked.slice(0, capacity)
+  const demotedIds = ranked.slice(capacity).map((row) => row.id)
+
+  const reserved = new Set(
+    exempt.flatMap((row) => (typeof row.sort_order === 'number' ? [row.sort_order] : [])),
+  )
+
+  const assignments: Array<{ id: string; sortOrder: number }> = []
+  let sortOrder = 0
+  for (const row of keep) {
+    while (reserved.has(sortOrder)) sortOrder += 1
+    assignments.push({ id: row.id, sortOrder })
+    sortOrder += 1
+  }
+
+  return { assignments, demotedIds }
 }
 
 function classifyImagesClient(supabase: unknown): ClassifyImagesClient {
@@ -591,19 +657,24 @@ export async function runClassifyImagesPhase({
       )
     }
 
-    // Human-chosen images are excluded from `ordered`, so reindexing from 0 would hand
-    // sort_order 0 (the hero) to a classifier-managed image and steal it from an admin pick.
-    const reservedSortOrders = new Set(
-      activeImages
-        .filter((row) => isExemptSource(row.source))
-        .flatMap((row) => (typeof row.sort_order === 'number' ? [row.sort_order] : []))
-    )
+    // Reindex every row that is still active — including ones the model never
+    // judged. Human-chosen images keep their reserved positions so a
+    // classifier-managed image cannot steal sort_order 0 from an admin pick.
+    const rejectedIdSet = new Set(rejectedIds)
+    const { assignments, demotedIds } = planActiveImageOrder({
+      activeImages: activeImages.filter((row) => !rejectedIdSet.has(row.id)),
+      rankedJudgedIds: ordered.map((image) => image.id),
+    })
 
-    let sortOrder = 0
-    for (const image of ordered) {
-      while (reservedSortOrders.has(sortOrder)) sortOrder += 1
-      await updateImage(supabase, target, image.id, { sort_order: sortOrder })
-      sortOrder += 1
+    for (const { id, sortOrder } of assignments) {
+      await updateImage(supabase, target, id, { sort_order: sortOrder })
+    }
+
+    // Overflow past the seven-slot window steps down to 'rejected', but its
+    // storage object is deliberately kept: these ranked eighth, they are not
+    // junk, and deleting them would be irreversible.
+    for (const id of demotedIds) {
+      await updateImage(supabase, target, id, { status: 'rejected' })
     }
 
     if (target.type === 'brand') {

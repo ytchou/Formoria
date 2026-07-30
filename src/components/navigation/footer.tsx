@@ -1,27 +1,22 @@
-import { useLocale, useTranslations } from 'next-intl'
-import { Link } from '@/i18n/navigation'
-import { LocaleSwitcher } from '@/components/i18n/locale-switcher'
+import { useLocale, useTranslations } from "next-intl";
+import { Link } from "@/i18n/navigation";
+import { LocaleSwitcher } from "@/components/i18n/locale-switcher";
 
 export function Footer() {
-  const t = useTranslations('footer')
-  const locale = useLocale()
+  const t = useTranslations("footer");
+  const locale = useLocale();
   // All guide content is zh-TW only — /en/guides renders a permanently empty
   // state, so don't advertise it on English pages.
-  const showGuides = locale !== 'en'
+  const showGuides = locale !== "en";
 
   return (
-    <footer
-      role="contentinfo"
-      className="border-t border-border bg-card"
-    >
+    <footer role="contentinfo" className="border-t border-border bg-card">
       <div className="page-gutter mx-auto max-w-screen-xl py-12">
         {/* Multi-column link grid */}
         <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
           {/* Discover */}
           <div>
-            <p className="type-eyebrow-foreground">
-              {t('discoverHeading')}
-            </p>
+            <p className="type-eyebrow-foreground">{t("discoverHeading")}</p>
             <ul className="mt-4 space-y-2">
               <li>
                 <Link
@@ -29,7 +24,7 @@ export function Footer() {
                   prefetch={false}
                   className="type-card-description hover:text-foreground transition-colors"
                 >
-                  {t('directory')}
+                  {t("directory")}
                 </Link>
               </li>
               <li>
@@ -38,7 +33,7 @@ export function Footer() {
                   prefetch={false}
                   className="type-card-description hover:text-foreground transition-colors"
                 >
-                  {t('stats')}
+                  {t("stats")}
                 </Link>
               </li>
               <li>
@@ -47,7 +42,7 @@ export function Footer() {
                   prefetch={false}
                   className="type-card-description hover:text-foreground transition-colors"
                 >
-                  {t('gettingStarted')}
+                  {t("gettingStarted")}
                 </Link>
               </li>
               {showGuides && (
@@ -57,7 +52,7 @@ export function Footer() {
                     prefetch={false}
                     className="type-card-description hover:text-foreground transition-colors"
                   >
-                    {t('guides')}
+                    {t("guides")}
                   </Link>
                 </li>
               )}
@@ -67,7 +62,7 @@ export function Footer() {
                   prefetch={false}
                   className="type-card-description hover:text-foreground transition-colors"
                 >
-                  {t('submit')}
+                  {t("submit")}
                 </Link>
               </li>
             </ul>
@@ -75,9 +70,7 @@ export function Footer() {
 
           {/* Company */}
           <div>
-            <p className="type-eyebrow-foreground">
-              {t('companyHeading')}
-            </p>
+            <p className="type-eyebrow-foreground">{t("companyHeading")}</p>
             <ul className="mt-4 space-y-2">
               <li>
                 <Link
@@ -85,7 +78,16 @@ export function Footer() {
                   prefetch={false}
                   className="type-card-description hover:text-foreground transition-colors"
                 >
-                  {t('about')}
+                  {t("about")}
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/vision"
+                  prefetch={false}
+                  className="type-card-description hover:text-foreground transition-colors"
+                >
+                  {t("vision")}
                 </Link>
               </li>
               <li>
@@ -94,7 +96,7 @@ export function Footer() {
                   prefetch={false}
                   className="type-card-description hover:text-foreground transition-colors"
                 >
-                  {t('faq')}
+                  {t("faq")}
                 </Link>
               </li>
             </ul>
@@ -102,9 +104,7 @@ export function Footer() {
 
           {/* Legal */}
           <div>
-            <p className="type-eyebrow-foreground">
-              {t('legalHeading')}
-            </p>
+            <p className="type-eyebrow-foreground">{t("legalHeading")}</p>
             <ul className="mt-4 space-y-2">
               <li>
                 <Link
@@ -112,7 +112,7 @@ export function Footer() {
                   prefetch={false}
                   className="type-card-description hover:text-foreground transition-colors"
                 >
-                  {t('terms')}
+                  {t("terms")}
                 </Link>
               </li>
               <li>
@@ -121,7 +121,7 @@ export function Footer() {
                   prefetch={false}
                   className="type-card-description hover:text-foreground transition-colors"
                 >
-                  {t('privacy')}
+                  {t("privacy")}
                 </Link>
               </li>
             </ul>
@@ -129,9 +129,7 @@ export function Footer() {
 
           {/* Connect */}
           <div>
-            <p className="type-eyebrow-foreground">
-              {t('connectHeading')}
-            </p>
+            <p className="type-eyebrow-foreground">{t("connectHeading")}</p>
             <ul className="mt-4 space-y-2">
               <li>
                 <Link
@@ -139,7 +137,7 @@ export function Footer() {
                   prefetch={false}
                   className="type-card-description hover:text-foreground transition-colors"
                 >
-                  {t('contact')}
+                  {t("contact")}
                 </Link>
               </li>
               <li>
@@ -148,7 +146,7 @@ export function Footer() {
                   prefetch={false}
                   className="type-card-description hover:text-foreground transition-colors"
                 >
-                  {t('feedback')}
+                  {t("feedback")}
                 </Link>
               </li>
             </ul>
@@ -157,15 +155,15 @@ export function Footer() {
 
         {/* Bottom bar: tagline + copyright */}
         <div className="mt-10 flex flex-col items-start gap-3 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
-          <p className="type-card-description">{t('tagline')}</p>
+          <p className="type-card-description">{t("tagline")}</p>
           <div className="flex items-center gap-3">
             <LocaleSwitcher compact />
             <p className="type-caption">
-              {t('copyright', { year: new Date().getFullYear() })}
+              {t("copyright", { year: new Date().getFullYear() })}
             </p>
           </div>
         </div>
       </div>
     </footer>
-  )
+  );
 }

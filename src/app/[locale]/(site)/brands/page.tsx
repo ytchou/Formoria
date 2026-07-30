@@ -29,10 +29,7 @@ import type { Locale } from '@/lib/seo/alternates'
 import { truncateForMeta } from '@/lib/text/truncate-for-meta'
 import type { Brand, BrandFilters } from '@/lib/types'
 import { localizePath } from '@/i18n/locale-preference'
-import {
-  clearDirectoryFilters,
-  updateDirectoryUrl,
-} from '@/lib/directory-filter-url'
+import { updateDirectoryUrl } from '@/lib/directory-filter-url'
 
 // Both `generateMetadata` and the page body read `searchParams`, which opts this route
 // into dynamic rendering, so this `revalidate` never produces a static ISR entry. It is
@@ -407,10 +404,6 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
     categoryBreadcrumbJsonLd = buildBreadcrumbJsonLd(breadcrumbItems, safeLocale)
   }
 
-  const scopeNote = categoryTag ? null : (
-    <p className="mt-2 mb-6 max-w-2xl type-page-subtitle">{t('scopeNote')}</p>
-  )
-
   return (
     <NextIntlClientProvider messages={messages}>
     <main className="page-gutter mx-auto grid w-full max-w-screen-xl gap-8 py-10 lg:grid-cols-[16rem_minmax(0,1fr)]">
@@ -482,54 +475,24 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
             </ol>
           </nav>
         ) : null}
-        {displayBrands.length === 0 ? (
-          <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <div className="flex flex-wrap items-baseline gap-3">
-                <h1 className="text-balance type-page-title">{pageHeading}</h1>
-                <p className="type-card-description" aria-live="polite" aria-atomic="true">
-                  {t('notFound')}
-                </p>
-              </div>
-              {scopeNote}
-              <div className="mt-3 lg:hidden">
-                <BrandFilterDrawer
-                  activeFilters={activeFilters}
-                  categories={[...PRODUCT_TYPE_CATEGORIES]}
-                  subcategories={subcategoryOptions}
-                  activeSubSlugs={activeSubSlugs}
-                  totalCount={totalCount}
-                />
-              </div>
-            </div>
-            <Suspense fallback={null}>
-              <SortSelect />
-            </Suspense>
+        <h1 className="mb-6 text-balance type-page-title">{pageHeading}</h1>
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <BrandFilterDrawer
+              activeFilters={activeFilters}
+              categories={[...PRODUCT_TYPE_CATEGORIES]}
+              subcategories={subcategoryOptions}
+              activeSubSlugs={activeSubSlugs}
+              totalCount={totalCount}
+            />
+            <p className="type-card-description" aria-live="polite" aria-atomic="true">
+              {t('count', { count: totalCount })}
+            </p>
           </div>
-        ) : (
-          <>
-            <h1 className={`${scopeNote ? 'mb-2' : 'mb-6'} text-balance type-page-title`}>
-              {pageHeading}
-            </h1>
-            <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <BrandFilterDrawer
-                  activeFilters={activeFilters}
-                  categories={[...PRODUCT_TYPE_CATEGORIES]}
-                  subcategories={subcategoryOptions}
-                  activeSubSlugs={activeSubSlugs}
-                  totalCount={totalCount}
-                />
-                <p className="type-card-description" aria-live="polite" aria-atomic="true">
-                  {t('count', { count: totalCount })}
-                </p>
-              </div>
-              <Suspense fallback={null}>
-                <SortSelect />
-              </Suspense>
-            </div>
-          </>
-        )}
+          <Suspense fallback={null}>
+            <SortSelect />
+          </Suspense>
+        </div>
 
         {/* Masonry brand grid */}
           <Suspense
@@ -556,7 +519,6 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
                   query={search}
                   categoryLabel={categoryTag ? categoryLabel(categoryTag, safeLocale) : undefined}
                   activeFilters={activeFilters}
-                  clearAllHref={clearDirectoryFilters(directoryPath, normalizedParams, { includeSearch: true })}
                   recommendedBrands={recommendedBrands}
                   recommendationsHref={recommendationsHref}
                 />

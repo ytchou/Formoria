@@ -124,9 +124,12 @@ export async function submitRecommendation(
       return { error: t('validation') }
     }
 
-    const duplicates = await checkBrandDuplicates(parsed.name)
+    const duplicates = await checkBrandDuplicates(parsed.name, parsed.website)
     if (duplicates.nameMatches.length > 0) {
       return { error: tSubmit('fields.nameDuplicateTitle') }
+    }
+    if (duplicates.websiteMatches.length > 0) {
+      return { error: tSubmit('fields.websiteDuplicateTitle') }
     }
 
     await submitBrandForReview({

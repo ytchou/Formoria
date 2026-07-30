@@ -5,6 +5,43 @@ describe('validateLocalizedText', () => {
   it('accepts pure zh within band', () => {
     expect(validateLocalizedText('這是'.repeat(160), 'zh', [300, 600]).ok).toBe(true)
   })
+  it('allows an untranslatable proper noun inside quotes to exceed the Latin-word run', () => {
+    // Real failure: a zh description quoting an album title was nulled outright.
+    const text = `由音樂愛好者經營的黑膠選物，內容以華語流行彩膠為核心，例如孫燕姿《My Story, Your Song》湖水綠版。${'黑膠唱片的溝紋與音色差異值得細細品味。'.repeat(6)}`
+    const r = validateLocalizedText(text, 'zh', [150, 400])
+    expect(r.reasons).not.toContain('language_purity')
+  })
+
+  it('exempts the brand name from the Latin-word-run check', () => {
+    // "Seal F Bikini" is three Latin words, so naming the brand in its own zh
+    // description used to fail purity outright.
+    const text = `以海豹為靈感的泳裝品牌，Seal F Bikini 專為亞洲女性身形設計。${'剪裁與布料選擇皆以貼合亞洲身形為前提。'.repeat(6)}`
+    expect(validateLocalizedText(text, 'zh', [150, 400], 'Seal F Bikini').reasons).not.toContain(
+      'language_purity',
+    )
+    // Without the exemption the same text is still rejected.
+    expect(validateLocalizedText(text, 'zh', [150, 400]).reasons).toContain('language_purity')
+  })
+
+  it('does not let the brand-name exemption whitelist unrelated English prose', () => {
+    const text = `Seal F Bikini sells many different products worldwide ${'好'.repeat(200)}`
+    expect(validateLocalizedText(text, 'zh', [150, 400], 'Seal F Bikini').reasons).toContain(
+      'language_purity',
+    )
+  })
+
+  it('still rejects a long Latin run that is not quoted', () => {
+    const text = `這個品牌 sells many different things worldwide ${'好'.repeat(200)}`
+    const r = validateLocalizedText(text, 'zh', [150, 400])
+    expect(r.reasons).toContain('language_purity')
+  })
+
+  it('still rejects mostly-English text even when it hides inside quotes', () => {
+    const text = `《${'This brand sells many different products worldwide and ships globally. '.repeat(4)}》`
+    const r = validateLocalizedText(text, 'zh', [150, 400])
+    expect(r.reasons).toContain('language_purity')
+  })
+
   it('rejects mixed-language text with language_purity reason', () => {
     const r = validateLocalizedText('這個品牌 sells many things ' + '好'.repeat(300), 'zh', [300, 600])
     expect(r.ok).toBe(false)

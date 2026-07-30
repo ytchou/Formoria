@@ -9,10 +9,25 @@ describe('toBrandRow product_tags_en derivation', () => {
     expect(row.product_tags_en).toEqual(['Tote Bags', '手工燈籠'])
   })
 
-  it('uses explicit productTagsEn when provided', () => {
-    const row = toBrandRow({ productTags: ['托特包'], productTagsEn: ['Custom Bags'] })
-    expect(row.product_tags).toEqual(['托特包'])
-    expect(row.product_tags_en).toEqual(['Custom Bags'])
+  it('normalizes a caller-supplied productTagsEn instead of trusting it', () => {
+    // DEV-1266: the admin review action validates EN tags for length only, so
+    // a stale hand-edited array must not survive the write boundary.
+    const row = toBrandRow({ productTags: ['後背包'], productTagsEn: ['backpack'] })
+    expect(row.product_tags).toEqual(['後背包'])
+    expect(row.product_tags_en).toEqual(['Backpacks'])
+  })
+
+  it('keeps a novel tag supplied EN but Title Cases it', () => {
+    const row = toBrandRow({
+      productTags: ['手工燈籠'],
+      productTagsEn: ['handmade lantern'],
+    })
+    expect(row.product_tags_en).toEqual(['Handmade Lantern'])
+  })
+
+  it('still derives when productTagsEn is omitted', () => {
+    const row = toBrandRow({ productTags: ['托特包', '手工燈籠'] })
+    expect(row.product_tags_en).toEqual(['Tote Bags', '手工燈籠'])
   })
 
   it('does not set product_tags_en when productTags is absent', () => {

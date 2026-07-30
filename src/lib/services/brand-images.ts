@@ -16,6 +16,8 @@ export type BrandImageRow = {
   source_url?: string | null
   alt_zh?: string | null
   alt_en?: string | null
+  width?: number | null
+  height?: number | null
 }
 
 export type BrandImageInsert = {
@@ -102,6 +104,12 @@ export function getBrandGalleryImages(brand: {
 
 export function toImageFields(rows: BrandImageRow[]): {
   heroImageUrl: string | null
+  heroImageMetadata: {
+    altZh: string | null
+    altEn: string | null
+    width: number | null
+    height: number | null
+  } | null
   productPhotos: string[]
   imageAlts: Array<{ altZh: string | null; altEn: string | null }>
 } {
@@ -113,6 +121,14 @@ export function toImageFields(rows: BrandImageRow[]): {
 
   return {
     heroImageUrl: hero?.url ?? null,
+    heroImageMetadata: hero
+      ? {
+          altZh: hero.alt_zh ?? null,
+          altEn: hero.alt_en ?? null,
+          width: hero.width && hero.width > 0 ? hero.width : null,
+          height: hero.height && hero.height > 0 ? hero.height : null,
+        }
+      : null,
     productPhotos: active.slice(1).map((row) => row.url),
     imageAlts: active.map((row) => ({ altZh: row.alt_zh ?? null, altEn: row.alt_en ?? null })),
   }
@@ -123,7 +139,7 @@ export async function getBrandImages(
   brandId: string,
 ): Promise<BrandImageRow[]> {
   const { data, error } = await brandImagesTable(supabase)
-    .select('url, status, tags, score, sort_order, source_url, alt_zh, alt_en')
+    .select('url, status, tags, score, sort_order, source_url, alt_zh, alt_en, width, height')
     .eq('brand_id', brandId)
     .eq('status', 'active')
     .order('sort_order', { ascending: true })

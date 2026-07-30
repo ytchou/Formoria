@@ -5,20 +5,20 @@ import { SectionBandCtaLink } from '@/components/landing/section-band-cta-link'
 import { cn } from '@/lib/utils'
 
 export default async function SectionBand() {
-  const tSubmit = await getTranslations('landing.submitBand')
+  const tRecommend = await getTranslations('landing.submitBand')
   const tNewsletter = await getTranslations('newsletter')
 
   return (
     <section className="bg-secondary py-12 md:py-16">
       <div className="mx-auto max-w-6xl page-gutter">
         <div className="grid gap-10 md:grid-cols-2 md:gap-16 items-start">
-          {/* Submit CTA */}
+          {/* Recommendation CTA */}
           <div>
-            <h2 className="type-section-title-large">{tSubmit('headline')}</h2>
-            <p className="mt-2 type-body-muted">{tSubmit('body')}</p>
+            <h2 className="type-section-title-large">{tRecommend('headline')}</h2>
+            <p className="mt-2 type-body-muted">{tRecommend('body')}</p>
             <SectionBandCtaLink
               href="/submit"
-              label={tSubmit('cta')}
+              label={tRecommend('cta')}
               className={cn(buttonVariants({ variant: 'primary', tone: 'cta' }), 'mt-4')}
             />
           </div>

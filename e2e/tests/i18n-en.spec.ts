@@ -39,7 +39,7 @@ test.describe('i18n English browse', () => {
     const document = renderedDocument(await response.text());
     expect(document.lang).toBe('en');
 
-    for (const text of ['About Formoria', 'Submit a Brand']) {
+    for (const text of ['About Formoria', 'Recommend a Brand']) {
       expect(document.headerText).toContain(text);
     }
     for (const text of [
@@ -81,7 +81,7 @@ test.describe('i18n English browse', () => {
     const document = renderedDocument(await response.text());
     expect(document.lang).toBe('zh-TW');
 
-    for (const text of ['關於 Formoria', '提交品牌']) {
+    for (const text of ['關於 Formoria', '推薦品牌']) {
       expect(document.headerText).toContain(text);
     }
     for (const text of [
@@ -125,9 +125,9 @@ test.describe('i18n English browse', () => {
   test('/en returns 200 and shows English header chrome', async ({ page }) => {
     const response = await page.goto('/en');
     expect(response?.status()).toBe(200);
-    // Header renders "Submit a Brand" in English; html[lang] is "en"
+    // Header renders "Recommend a Brand" in English; html[lang] is "en"
     await expect(
-      page.locator('header').getByRole('link', { name: 'Submit a Brand' })
+      page.locator('header').getByRole('link', { name: 'Recommend a Brand' })
     ).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   });
@@ -253,7 +253,7 @@ test.describe('i18n English browse', () => {
     await expect(page).toHaveURL(/\/en/, { timeout: 10_000 });
     // After switching: header submit link should be in English
     await expect(
-      page.locator('header').getByRole('link', { name: 'Submit a Brand' })
+      page.locator('header').getByRole('link', { name: 'Recommend a Brand' })
     ).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   });

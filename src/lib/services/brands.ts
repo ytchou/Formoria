@@ -608,6 +608,7 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     blurb: row.blurb ?? null,
     blurbEn: row.blurb_en ?? null,
     heroImageUrl: row.hero_image_url ?? null,
+    heroImageMetadata: null,
     // status is text in the DB — cast to BrandStatus at the boundary
     status: row.status as Brand['status'],
     product_type: row.product_type ?? null,
