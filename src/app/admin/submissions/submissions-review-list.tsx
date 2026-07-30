@@ -4,12 +4,7 @@ import { Fragment, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import {
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Search,
-} from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { toast } from "sonner";
 import {
   approveSubmissionAction,
@@ -143,10 +138,12 @@ export function SubmissionsReviewList({
       ).length,
       ready: displayedSubmissions.filter((item) => item.reviewStage === "ready")
         .length,
-      approved: displayedSubmissions.filter((item) => item.status === "approved")
-        .length,
-      rejected: displayedSubmissions.filter((item) => item.status === "rejected")
-        .length,
+      approved: displayedSubmissions.filter(
+        (item) => item.status === "approved",
+      ).length,
+      rejected: displayedSubmissions.filter(
+        (item) => item.status === "rejected",
+      ).length,
     }),
     [displayedSubmissions],
   );
@@ -188,13 +185,7 @@ export function SubmissionsReviewList({
         submission.reviewData.websiteUrl,
       ].some((value) => value?.toLocaleLowerCase().includes(query));
     });
-  }, [
-    activeTab,
-    enrichmentFilter,
-    search,
-    stageFiltered,
-    submittedRange,
-  ]);
+  }, [activeTab, enrichmentFilter, search, stageFiltered, submittedRange]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, pageCount);
@@ -696,7 +687,8 @@ export function SubmissionsReviewList({
                       <TableCell>
                         {showSkipReason ? (
                           <p className="max-w-96 whitespace-normal text-sm text-muted-foreground">
-                            {submission.latestCurationError ?? t("noSkipReason")}
+                            {submission.latestCurationError ??
+                              t("noSkipReason")}
                           </p>
                         ) : (
                           <>
@@ -718,8 +710,8 @@ export function SubmissionsReviewList({
                                 {submission.latestCurationError}
                               </p>
                             )}
-                            {submission.reviewCompleteness.missingFields.length >
-                              0 && (
+                            {submission.reviewCompleteness.missingFields
+                              .length > 0 && (
                               <p className="mt-1 type-caption text-warning">
                                 {`${t("missingRequired")}: ${submission.reviewCompleteness.missingFields
                                   .map((field) => t(`missingFields.${field}`))
