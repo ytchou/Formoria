@@ -8,6 +8,7 @@ import { isActingAsAdmin } from "@/lib/auth/admin-mode";
 import { AdminNav } from "@/components/admin/admin-nav";
 import type { NavItem } from "@/components/admin/admin-nav";
 import { getAdminNavCounts } from "@/lib/services/admin-operations";
+import { isOwnerFeaturesEnabled } from "@/lib/services/app-settings";
 import { getSiteUrl } from "@/lib/seo/site-url";
 import "../globals.css";
 
@@ -40,12 +41,13 @@ export default async function AdminLayout({
     redirect("/");
   }
 
-  const [messages, counts, t, tCommon] =
+  const [messages, counts, t, tCommon, ownerFeaturesEnabled] =
     await Promise.all([
       getMessages({ locale: "en" }),
       getAdminNavCounts(),
       getTranslations({ locale: "en", namespace: "admin.layout" }),
       getTranslations({ locale: "en", namespace: "common" }),
+      isOwnerFeaturesEnabled(),
     ]);
 
   const navItems: NavItem[] = [
@@ -66,11 +68,12 @@ export default async function AdminLayout({
       href: "/admin/evidence",
       count: counts.evidence ?? undefined,
     },
-    { label: t("nav.claims"), href: "/admin/claims" },
+    ...(ownerFeaturesEnabled
+      ? [{ label: t("nav.claims"), href: "/admin/claims" }]
+      : []),
     { label: t("nav.reports"), href: "/admin/reports", count: counts.reports ?? undefined },
     { label: t("nav.brands"), href: "/admin/brands" },
     { label: t("nav.corrections"), href: "/admin/corrections", count: counts.corrections ?? undefined },
-    { label: t("nav.featureRequests"), href: "/admin/feature-requests" },
     { label: t("nav.quality"), href: "/admin/quality" },
     { label: t("nav.newsletter"), href: "/admin/newsletter" },
     { label: t("nav.scripts"), href: "/admin/scripts" },

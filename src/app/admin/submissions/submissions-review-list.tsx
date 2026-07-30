@@ -33,11 +33,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  BrandDetailSheet,
+  isInteractiveTableTarget,
+} from "@/components/admin/brand-detail-sheet";
 import {
   Table,
   TableBody,
@@ -635,7 +633,7 @@ export function SubmissionsReviewList({
                   <TableRow
                     className="cursor-pointer hover:bg-secondary"
                     onClick={(event) => {
-                      if (isInteractiveTarget(event.target)) return;
+                      if (isInteractiveTableTarget(event.target)) return;
                       toggleExpanded(submission.id);
                     }}
                   >
@@ -788,38 +786,32 @@ export function SubmissionsReviewList({
         </Table>
       </div>
 
-      <Sheet
+      <BrandDetailSheet
         open={Boolean(expandedSubmission)}
         onOpenChange={(open) => {
           if (open) return;
           setExpandedId(null);
         }}
+        title={
+          expandedSubmission?.reviewData.name ||
+          expandedSubmission?.brandName ||
+          ""
+        }
+        metadata={
+          expandedSubmission ? (
+            <p className="type-metadata">
+              {formatDate(expandedSubmission.submittedAt)}
+            </p>
+          ) : null
+        }
       >
-        <SheetContent
-          side="right"
-          className="gap-0 p-0 data-[side=right]:w-[calc(100vw-1rem)] data-[side=right]:max-w-none data-[side=right]:sm:w-3/4 data-[side=right]:sm:max-w-6xl"
-        >
-          {expandedSubmission && (
-            <>
-              <SheetHeader className="border-b p-5 pr-16">
-                <SheetTitle>
-                  {expandedSubmission.reviewData.name ||
-                    expandedSubmission.brandName}
-                </SheetTitle>
-                <p className="type-metadata">
-                  {formatDate(expandedSubmission.submittedAt)}
-                </p>
-              </SheetHeader>
-              <div className="flex-1 overflow-y-auto p-5">
-                <SubmissionReviewDetails
-                  key={expandedSubmission.id}
-                  submission={expandedSubmission}
-                />
-              </div>
-            </>
-          )}
-        </SheetContent>
-      </Sheet>
+        {expandedSubmission && (
+          <SubmissionReviewDetails
+            key={expandedSubmission.id}
+            submission={expandedSubmission}
+          />
+        )}
+      </BrandDetailSheet>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <p className="type-card-description">
@@ -936,15 +928,4 @@ function enrichmentLabel(
   return submission.reviewCompleteness.complete
     ? { label: t("enrichmentStatus.complete"), variant: "verified" }
     : { label: t("enrichmentStatus.partial"), variant: "warning" };
-}
-
-function isInteractiveTarget(target: EventTarget | null) {
-  return (
-    target instanceof Element &&
-    Boolean(
-      target.closest(
-        "button, a, input, select, textarea, [role='checkbox'], [role='combobox']",
-      ),
-    )
-  );
 }

@@ -11,6 +11,18 @@ export type FeatureRequestStatus =
 
 export type FeatureRequestCategory = "owner" | "visitor";
 
+const FEATURE_REQUEST_I18N_KEYS_BY_TITLE = {
+  "Generate bilingual brand stories and social copy":
+    "bilingual_brand_content",
+  "Show which marketing channels are working": "marketing_channel_insights",
+  "Add reviews and ratings to brand pages": "brand_reviews",
+  "Browse Taiwanese brands by occasion": "occasion_discovery",
+  "Show nearby Taiwanese brands on a map": "nearby_brand_map",
+} as const;
+
+export type FeatureRequestI18nKey =
+  (typeof FEATURE_REQUEST_I18N_KEYS_BY_TITLE)[keyof typeof FEATURE_REQUEST_I18N_KEYS_BY_TITLE];
+
 /**
  * Public projection of a board entry. `submitted_by` is deliberately absent:
  * the column exists for moderation and abuse tracing only, and this type is the
@@ -26,6 +38,7 @@ export type FeatureRequest = {
   status: FeatureRequestStatus;
   voteCount: number;
   isSeed: boolean;
+  i18nKey: FeatureRequestI18nKey | null;
   adminNote: string | null;
   mergedIntoId: string | null;
   createdAt: string;
@@ -125,6 +138,14 @@ export function isFeatureRequestCategory(
   return (FEATURE_REQUEST_CATEGORIES as readonly string[]).includes(value);
 }
 
+function seedI18nKey(title: string): FeatureRequestI18nKey | null {
+  return (
+    FEATURE_REQUEST_I18N_KEYS_BY_TITLE[
+      title as keyof typeof FEATURE_REQUEST_I18N_KEYS_BY_TITLE
+    ] ?? null
+  );
+}
+
 /**
  * Row -> public shape. Takes the vote count as an argument rather than reading
  * it, so the projection stays a pure function that is testable without a
@@ -142,6 +163,7 @@ export function rowToFeatureRequest(
     status: row.status as FeatureRequestStatus,
     voteCount,
     isSeed: row.is_seed,
+    i18nKey: row.is_seed ? seedI18nKey(row.title) : null,
     adminNote: row.admin_note,
     mergedIntoId: row.merged_into_id,
     createdAt: row.created_at,

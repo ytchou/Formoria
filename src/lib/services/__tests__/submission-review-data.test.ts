@@ -3,6 +3,7 @@ import {
   buildSubmissionReviewData,
   getSubmissionReviewCompleteness,
   normalizeSubmissionReviewImages,
+  resolveSubmissionReviewImages,
   type SubmissionReviewImage,
 } from "../submissions";
 
@@ -207,5 +208,31 @@ describe("normalizeSubmissionReviewImages", () => {
         { ...activeImages[1]!, id: "duplicate", sortOrder: 1 },
       ]).map((image) => image.id),
     ).toEqual(["hero", "duplicate"]);
+  });
+
+  it("uses the published gallery after approval removes active staging images", () => {
+    const rejectedStagingImage: SubmissionReviewImage = {
+      ...activeImages[1]!,
+      id: "rejected-staging-image",
+      status: "rejected",
+      sortOrder: 2,
+      url: "https://cdn.example.com/rejected.webp",
+    };
+    const publishedGallery = activeImages.map((image) => ({
+      ...image,
+      id: `published-${image.id}`,
+      originBrandImageId: image.id,
+    }));
+
+    expect(
+      resolveSubmissionReviewImages(
+        [rejectedStagingImage],
+        publishedGallery,
+      ).map((image) => image.url),
+    ).toEqual([
+      "https://cdn.example.com/hero.webp",
+      "https://cdn.example.com/detail.webp",
+      "https://cdn.example.com/rejected.webp",
+    ]);
   });
 });

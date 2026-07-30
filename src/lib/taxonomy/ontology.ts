@@ -118,7 +118,7 @@ export const PRODUCT_SUBCATEGORIES: readonly ProductSubcategory[] = [
   { slug: 'fragrance', nameZh: '香水', nameEn: 'Fragrance', category: 'beauty', aliases: [] },
   { slug: 'essential-oils-and-hydrosols', nameZh: '精油・純露', nameEn: 'Essential Oils & Hydrosols', category: 'beauty', aliases: ['精油純露', '精油', '純露'] },
   { slug: 'supplements', nameZh: '保健食品', nameEn: 'Supplements', category: 'beauty', aliases: ['益生菌', '膠囊', '機能食品'] },
-  { slug: 'oral-care', nameZh: '口腔護理', nameEn: 'Oral Care', category: 'beauty', aliases: [] },
+  { slug: 'oral-care', nameZh: '口腔護理', nameEn: 'Oral Care', category: 'beauty', aliases: ['牙刷', '牙膏', '牙線', '漱口水'] },
   { slug: 'protective-sprays', nameZh: '防蚊・止汗噴霧', nameEn: 'Protective Sprays', category: 'beauty', aliases: ['防蚊止汗噴霧', '防蚊', '止汗噴霧'] },
 
   // home (22 in list; spec header says 23 — see deviations note)

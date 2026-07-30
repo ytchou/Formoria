@@ -32,18 +32,24 @@ const STATUS_BADGE: Record<FeatureRequestStatus, BadgeVariant> = {
 
 export function FeatureRequestRow({ request }: { request: FeatureRequest }) {
   const t = useTranslations('feedback')
+  const title = request.i18nKey
+    ? t(`requests.${request.i18nKey}.title`)
+    : request.title
+  const body = request.i18nKey
+    ? t(`requests.${request.i18nKey}.body`)
+    : request.body
 
   return (
     <SurfaceCard tone="card" padding="md" className="flex items-start gap-4">
       <UpvoteButton
         requestId={request.id}
-        title={request.title}
+        title={title}
         count={request.voteCount}
       />
       <div className="min-w-0 flex-1 space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <Typography as="h2" variant="cardTitle" className="min-w-0">
-            {request.title}
+            {title}
           </Typography>
           {request.status !== 'duplicate' && (
             <Badge variant={STATUS_BADGE[request.status]}>
@@ -51,9 +57,9 @@ export function FeatureRequestRow({ request }: { request: FeatureRequest }) {
             </Badge>
           )}
         </div>
-        {request.body ? (
+        {body ? (
           <Typography variant="cardDescription" className="line-clamp-2">
-            {request.body}
+            {body}
           </Typography>
         ) : null}
       </div>

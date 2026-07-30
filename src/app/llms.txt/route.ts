@@ -8,7 +8,6 @@ export async function GET() {
   const links = [
     `- [Brands](${base}/brands)`,
     `- [About](${base}/about)`,
-    `- [Mission and Vision](${base}/vision)`,
     `- [Glossary](${base}/glossary)`,
   ];
 

@@ -220,7 +220,8 @@ test.describe("SEO deep", () => {
   test("sitemap includes the public editorial pages", async ({ request }) => {
     const body = await (await request.get("/sitemap.xml")).text();
     expect(body).toContain("/glossary");
-    expect(body).toContain("/vision");
+    expect(body).toContain("/about");
+    expect(body).not.toContain("/vision");
   });
 
   test("llms.txt is served as text", async ({ request }) => {
@@ -229,7 +230,8 @@ test.describe("SEO deep", () => {
     expect(res.headers()["content-type"]).toContain("text/plain");
     const body = await res.text();
     expect(body).toContain("/glossary");
-    expect(body).toContain("/vision");
+    expect(body).toContain("/about");
+    expect(body).not.toContain("/vision");
   });
 
   test("/brands (unfiltered) emits ItemList JSON-LD with itemListElement", async ({

@@ -260,7 +260,13 @@ export default async function BrandDetailPage({ params }: PageProps) {
               categoryLabel={categoryLabel || null}
               cityLabel={displayBrand.city ? tCities(displayBrand.city) : null}
               locale={safeLocale}
-              adminSlot={<AdminBrandMenu brandSlug={displayBrand.slug} />}
+              adminSlot={
+                <AdminBrandMenu
+                  brandId={displayBrand.id}
+                  brandName={displayBrand.name}
+                  brandSlug={displayBrand.slug}
+                />
+              }
               actionsSlot={
                 <SavedBrandsProvider>
                   <BrandActions

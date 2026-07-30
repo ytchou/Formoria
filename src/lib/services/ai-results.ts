@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import type { DescriptionAttempt } from './description-rewrite'
 import { brandTarget, targetForeignKey, type EnrichmentTarget } from './enrichment-target'
 
 const DEEPSEEK_MODEL = 'deepseek-v4-flash'
@@ -45,16 +46,6 @@ export type AiTriageInput = {
   confidence: 'high' | 'medium' | 'low'
 }
 
-export type AiDescriptionInput = {
-  brandId: string
-  target?: EnrichmentTarget
-  description: string
-  productType?: string | null
-  confidence?: 'high' | 'medium' | 'low'
-  priceRange?: number | null
-  productTags?: string[]
-}
-
 export type AiExpansionInput = {
   brandId: string
   target?: EnrichmentTarget
@@ -75,19 +66,56 @@ export async function insertTriageResult(input: AiTriageInput): Promise<void> {
   if (error) console.error(`  [AI-RESULTS] insertTriageResult failed:`, error.message)
 }
 
-export async function insertDescriptionResult(input: AiDescriptionInput): Promise<void> {
+export function mergeDescriptionAuditResponse(
+  rawResponse: unknown,
+  parsed: unknown,
+  validationRejections: unknown,
+): Record<string, unknown> {
+  const auditResponse =
+    rawResponse && typeof rawResponse === 'object' && !Array.isArray(rawResponse)
+      ? rawResponse as Record<string, unknown>
+      : { response: rawResponse }
+
+  return { ...auditResponse, parsed, validationRejections }
+}
+
+export async function updateDescriptionAuditResult(input: {
+  target: EnrichmentTarget
+  jobId?: string
+  attempt: DescriptionAttempt
+}): Promise<void> {
   const supabase = createServiceClient()
-  const { error } = await supabase.from('brand_ai_results').insert({
-    ...targetForeignKey(input.target ?? brandTarget(input.brandId)),
-    phase: 'description',
-    description: input.description,
-    product_type: input.productType ?? null,
-    confidence: input.confidence ?? null,
-    price_range: input.priceRange ?? null,
-    product_tags: input.productTags ?? [],
-    model: DEEPSEEK_MODEL,
-  } as never)
-  if (error) console.error(`  [AI-RESULTS] insertDescriptionResult failed:`, error.message)
+  const targetColumn = input.target.type === 'brand' ? 'brand_id' : 'submission_id'
+  let query = supabase
+    .from('brand_ai_results')
+    .select('id, raw_response')
+    .eq(targetColumn, input.target.id)
+    .eq('phase', 'description')
+    .eq('attempt', input.attempt.attempt)
+
+  query = input.jobId ? query.eq('job_id', input.jobId) : query.is('job_id', null)
+  const { data, error } = await query.order('created_at', { ascending: false }).limit(1).maybeSingle()
+
+  if (error || !data) {
+    console.error(`  [AI-RESULTS] updateDescriptionAuditResult failed:`, error?.message ?? 'audit row not found')
+    return
+  }
+
+  const parsed = input.attempt.parsed
+  const { error: updateError } = await supabase
+    .from('brand_ai_results')
+    .update({
+      raw_response: mergeDescriptionAuditResponse(
+        data.raw_response,
+        parsed,
+        input.attempt.validationRejections,
+      ),
+      description: parsed.description_zh ?? null,
+      price_range: parsed.priceRange,
+      product_tags: parsed.productTags,
+    } as never)
+    .eq('id', data.id)
+  if (updateError) console.error(`  [AI-RESULTS] updateDescriptionAuditResult failed:`, updateError.message)
 }
 
 export async function insertExpansionResult(input: AiExpansionInput): Promise<void> {

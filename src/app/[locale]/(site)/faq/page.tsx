@@ -109,7 +109,7 @@ export default async function FaqPage({ params }: PageProps) {
                     {t(`items.${key}.question`)}
                     <ChevronDown className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
                   </summary>
-                  <p className="mt-3 max-w-2xl type-body-muted">
+                  <p className="mt-3 type-body-muted">
                     {t(`items.${key}.answer`)}
                   </p>
                 </details>
@@ -119,7 +119,7 @@ export default async function FaqPage({ params }: PageProps) {
                   {t('items.contact.question')}
                   <ChevronDown className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
                 </summary>
-                <p className="mt-3 max-w-2xl type-body-muted">
+                <p className="mt-3 type-body-muted">
                   {t.rich('items.contact.answer', {
                     link: (chunks) => (
                       <Link href="/contact" className="underline underline-offset-4">
@@ -141,7 +141,7 @@ export default async function FaqPage({ params }: PageProps) {
                   {t('items.ownerInterest.question')}
                   <ChevronDown className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
                 </summary>
-                <p className="mt-3 max-w-2xl type-body-muted">
+                <p className="mt-3 type-body-muted">
                   {t.rich('items.ownerInterest.answer', {
                     link: (chunks) => (
                       <Link

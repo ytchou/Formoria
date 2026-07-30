@@ -6,6 +6,7 @@ import {
   novelTagRejection,
   resolveProductTagInput,
   applyTagDelta,
+  deriveProductTypeFromTags,
 } from '../product-tags'
 
 describe('normalizeProductTags', () => {
@@ -65,6 +66,21 @@ describe('normalizeProductTags', () => {
   it('flags cross-branch picks when brandCategory provided', () => {
     const result = normalizeProductTags(['手工皂'], [], 'fashion')
     expect(result.crossBranch).toEqual(['手工皂'])
+  })
+})
+
+describe('deriveProductTypeFromTags', () => {
+  it('derives the only ontology category represented by accepted tags', () => {
+    expect(deriveProductTypeFromTags(['家具', '地板材料', '天花板材料'])).toBe('home')
+  })
+
+  it('uses the unique category winner when recognized tags span categories', () => {
+    expect(deriveProductTypeFromTags(['休閒鞋', '洋裝', '家具'])).toBe('fashion')
+  })
+
+  it('leaves tied or entirely novel tag sets uncategorized', () => {
+    expect(deriveProductTypeFromTags(['休閒鞋', '家具'])).toBeNull()
+    expect(deriveProductTypeFromTags(['學步鞋', '機能鞋'])).toBeNull()
   })
 })
 

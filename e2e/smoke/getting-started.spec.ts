@@ -80,7 +80,7 @@ test.describe("Getting Started page smoke", () => {
     ).toHaveAttribute("href", /\/faq/);
     await expect(
       page.getByRole("link", { name: "Read our mission and vision" }),
-    ).toHaveAttribute("href", /\/vision/);
+    ).toHaveAttribute("href", /\/about#vision/);
   });
 
   test("CTA footer section renders and Browse link points to /brands", async ({

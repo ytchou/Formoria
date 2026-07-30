@@ -12,10 +12,7 @@ interface AboutHeroProps {
 }
 
 export default async function AboutHero({ brandCount, categoryCount, recentBrands }: AboutHeroProps) {
-  const [t, guideT] = await Promise.all([
-    getTranslations('about.hero'),
-    getTranslations('about.guide'),
-  ])
+  const t = await getTranslations('about.hero')
 
   // Only the figures that are actually known are rendered, so no separator dangles.
   const facts: string[] = []
@@ -39,7 +36,7 @@ export default async function AboutHero({ brandCount, categoryCount, recentBrand
           <h1 className="type-hero text-balance">{t('title')}</h1>
           <p className="mt-3 max-w-2xl type-page-subtitle text-pretty">{t('subtitle')}</p>
 
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+          <div className="mt-6">
             <Link
               href="/brands"
               className={buttonVariants({
@@ -50,16 +47,6 @@ export default async function AboutHero({ brandCount, categoryCount, recentBrand
               })}
             >
               {t('cta')}
-            </Link>
-            <Link
-              href="/getting-started"
-              className={buttonVariants({
-                variant: 'secondary',
-                size: 'large',
-                className: 'min-h-12',
-              })}
-            >
-              {guideT('cta')}
             </Link>
           </div>
 
