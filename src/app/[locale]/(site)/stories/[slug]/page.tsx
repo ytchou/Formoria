@@ -114,7 +114,13 @@ export default async function StoryPage({ params }: PageProps) {
           <h1 className="type-page-title-large">{story.entry.frontmatter.title}</h1>
           <p className="type-page-subtitle">{story.entry.frontmatter.description}</p>
         </header>
-        <div className="prose prose-neutral max-w-none prose-headings:scroll-mt-24 prose-a:break-words dark:prose-invert">
+        {/*
+          No `prose` classes: the Tailwind typography plugin is not installed,
+          so they were inert. Story typography comes from the element map in
+          `storyComponentMap` (src/lib/mdx/components.ts), built on the
+          project's own `type-*` scale.
+        */}
+        <div>
           <StoryContent source={story.content} />
         </div>
         {story.entry.frontmatter.faq && story.entry.frontmatter.faq.length > 0 && (

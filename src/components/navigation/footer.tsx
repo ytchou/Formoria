@@ -1,13 +1,9 @@
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { LocaleSwitcher } from "@/components/i18n/locale-switcher";
 
 export function Footer() {
   const t = useTranslations("footer");
-  const locale = useLocale();
-  // All story content is zh-TW only — /en/stories renders a permanently empty
-  // state, so don't advertise it on English pages.
-  const showStories = locale !== "en";
 
   return (
     <footer role="contentinfo" className="border-t border-border bg-card">
@@ -45,17 +41,15 @@ export function Footer() {
                   {t("gettingStarted")}
                 </Link>
               </li>
-              {showStories && (
-                <li>
-                  <Link
-                    href="/stories"
-                    prefetch={false}
-                    className="type-card-description hover:text-foreground transition-colors"
-                  >
-                    {t("stories")}
-                  </Link>
-                </li>
-              )}
+              <li>
+                <Link
+                  href="/stories"
+                  prefetch={false}
+                  className="type-card-description hover:text-foreground transition-colors"
+                >
+                  {t("stories")}
+                </Link>
+              </li>
               <li>
                 <Link
                   href="/submit"

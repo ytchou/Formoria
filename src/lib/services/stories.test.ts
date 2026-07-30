@@ -10,7 +10,8 @@ import matter from 'gray-matter'
 import {
   getAllStories,
   getStoryBySlug,
-  getStoriesByCategory,
+  getStoriesByTag,
+  getStorySeries,
   getPublishedStoryBySlug,
 } from './stories'
 
@@ -18,7 +19,7 @@ const mockFrontmatter = {
   title: '在鶯歌燒出一只碗',
   description: '走訪鶯歌窯廠，看一只日用碗如何從土坯到出窯',
   slug: 'yingge-kiln-bowl',
-  category: 'home',
+  tags: ['home', 'crafts'],
   locale: 'zh-TW',
   publishedAt: '2026-06-15T00:00:00.000Z',
   updatedAt: '2026-07-01T00:00:00.000Z',
@@ -49,7 +50,7 @@ describe('stories service (filesystem-backed)', () => {
       expect(stories[0].slug).toBe('yingge-kiln-bowl')
       expect(stories[0].frontmatter.title).toBe('在鶯歌燒出一只碗')
       expect(stories[0].frontmatter.description).toBe('走訪鶯歌窯廠，看一只日用碗如何從土坯到出窯')
-      expect(stories[0].frontmatter.category).toBe('home')
+      expect(stories[0].frontmatter.tags).toEqual(['home', 'crafts'])
       expect(stories[0].frontmatter.locale).toBe('zh-TW')
       expect(stories[0].frontmatter.publishedAt).toBe('2026-06-15T00:00:00.000Z')
       expect(stories[0].frontmatter.faq).toEqual([
@@ -123,6 +124,7 @@ describe('stories service (filesystem-backed)', () => {
         data: {
           ...mockFrontmatter,
           updatedAt: undefined,
+          tags: undefined,
           sources: undefined,
           faq: undefined,
           draft: undefined,
@@ -136,6 +138,7 @@ describe('stories service (filesystem-backed)', () => {
       const stories = result.stories
 
       expect(stories[0].frontmatter.updatedAt).toBeUndefined()
+      expect(stories[0].frontmatter.tags).toEqual([])
       expect(stories[0].frontmatter.sources).toEqual([])
       expect(stories[0].frontmatter.faq).toEqual([])
       expect(stories[0].frontmatter.draft).toBe(false)
@@ -172,6 +175,24 @@ describe('stories service (filesystem-backed)', () => {
       expect(result.entry.slug).toBe('yingge-kiln-bowl')
       expect(result.entry.frontmatter.title).toBe('在鶯歌燒出一只碗')
       expect(typeof result.content).toBe('string')
+    })
+
+    it('parseStoryFile coerces a missing tags field to an empty array', async () => {
+      // Legacy frontmatter authored before the tag axis existed must not crash
+      // the parse — `tags` is always an array downstream.
+      const legacyFrontmatter: Record<string, unknown> = { ...mockFrontmatter }
+      delete legacyFrontmatter.tags
+      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
+      vi.mocked(matter).mockReturnValue({
+        data: legacyFrontmatter,
+        content: 'Content.',
+      } as unknown as ReturnType<typeof matter>)
+
+      const result = await getStoryBySlug('yingge-kiln-bowl')
+
+      expect(result).not.toBeNull()
+      if (!result) throw new Error('Expected story detail result')
+      expect(result.entry.frontmatter.tags).toEqual([])
     })
 
     it('returns null when the file does not exist', async () => {
@@ -225,36 +246,114 @@ describe('stories service (filesystem-backed)', () => {
     })
   })
 
-  describe('getStoriesByCategory', () => {
-    it('filters by category, locale, and draft status', async () => {
-      const files = ['yingge-kiln-bowl.mdx', 'tainan-soy-sauce.mdx']
+  describe('getStoriesByTag', () => {
+    it('returns only stories whose tags array contains the tag', async () => {
+      const files = ['yingge-kiln-bowl.mdx', 'tainan-soy-sauce.mdx', 'expo-report.mdx']
       vi.mocked(fs.readdirSync).mockReturnValue(files as unknown as ReturnType<typeof fs.readdirSync>)
-      vi.mocked(fs.readFileSync)
-        .mockReturnValueOnce(mockRawMdx)
-        .mockReturnValueOnce(mockRawMdx)
+      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
       vi.mocked(matter)
-        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'yingge-kiln-bowl', category: 'home' }, content: 'content' } as unknown as ReturnType<typeof matter>)
-        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'tainan-soy-sauce', category: 'food-drink' }, content: 'content' } as unknown as ReturnType<typeof matter>)
+        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'yingge-kiln-bowl', tags: ['home', 'crafts'] }, content: 'content' } as unknown as ReturnType<typeof matter>)
+        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'tainan-soy-sauce', tags: ['food-drink'] }, content: 'content' } as unknown as ReturnType<typeof matter>)
+        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'expo-report', tags: ['event', 'crafts'] }, content: 'content' } as unknown as ReturnType<typeof matter>)
 
-      const result = await getStoriesByCategory('home')
+      const result = await getStoriesByTag('crafts')
       expect(result.ok).toBe(true)
       if (!result.ok) throw result.error
-      expect(result.stories).toHaveLength(1)
-      expect(result.stories[0].frontmatter.category).toBe('home')
+
+      // Membership, not equality: `crafts` is a secondary tag on both matches.
+      expect(result.stories.map(story => story.slug)).toEqual([
+        'yingge-kiln-bowl',
+        'expo-report',
+      ])
+      for (const story of result.stories) {
+        expect(story.frontmatter.tags).toContain('crafts')
+      }
     })
 
-    it('returns no stories for the en locale when the category stories are zh-TW', async () => {
-      vi.mocked(fs.readdirSync).mockReturnValue(['yingge-kiln-bowl.mdx'] as unknown as ReturnType<typeof fs.readdirSync>)
+    it('filters by locale and excludes drafts', async () => {
+      const files = ['zh-published.mdx', 'zh-draft.mdx', 'en-published.mdx']
+      vi.mocked(fs.readdirSync).mockReturnValue(files as unknown as ReturnType<typeof fs.readdirSync>)
+      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
+      vi.mocked(matter)
+        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'zh-published', tags: ['home'] }, content: 'content' } as unknown as ReturnType<typeof matter>)
+        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'zh-draft', tags: ['home'], draft: true }, content: 'content' } as unknown as ReturnType<typeof matter>)
+        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'en-published', tags: ['home'], locale: 'en' }, content: 'content' } as unknown as ReturnType<typeof matter>)
+
+      const result = await getStoriesByTag('home')
+      expect(result.ok).toBe(true)
+      if (!result.ok) throw result.error
+      expect(result.stories.map(story => story.slug)).toEqual(['zh-published'])
+    })
+  })
+
+  describe('getStorySeries', () => {
+    it('returns members sorted by seriesOrder ascending', async () => {
+      const files = ['part-three.mdx', 'part-one.mdx', 'part-unordered.mdx', 'part-two.mdx']
+      vi.mocked(fs.readdirSync).mockReturnValue(files as unknown as ReturnType<typeof fs.readdirSync>)
+      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
+      vi.mocked(matter)
+        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'part-three', series: 'expo-2026', seriesTitle: '2026 Expo', seriesOrder: 3 }, content: 'content' } as unknown as ReturnType<typeof matter>)
+        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'part-one', series: 'expo-2026', seriesTitle: '2026 Expo', seriesOrder: 1 }, content: 'content' } as unknown as ReturnType<typeof matter>)
+        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'part-unordered', series: 'expo-2026', seriesTitle: '2026 Expo' }, content: 'content' } as unknown as ReturnType<typeof matter>)
+        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'part-two', series: 'expo-2026', seriesTitle: '2026 Expo', seriesOrder: 2 }, content: 'content' } as unknown as ReturnType<typeof matter>)
+
+      const result = await getStorySeries('expo-2026')
+      expect(result.ok).toBe(true)
+      if (!result.ok) throw result.error
+
+      // Unordered members sink to the end deterministically.
+      expect(result.stories.map(story => story.slug)).toEqual([
+        'part-one',
+        'part-two',
+        'part-three',
+        'part-unordered',
+      ])
+    })
+
+    it('excludes drafts and other locales', async () => {
+      const files = ['zh-published.mdx', 'zh-draft.mdx', 'en-published.mdx']
+      vi.mocked(fs.readdirSync).mockReturnValue(files as unknown as ReturnType<typeof fs.readdirSync>)
+      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
+      vi.mocked(matter)
+        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'zh-published', series: 'expo-2026', seriesOrder: 1 }, content: 'content' } as unknown as ReturnType<typeof matter>)
+        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'zh-draft', series: 'expo-2026', seriesOrder: 2, draft: true }, content: 'content' } as unknown as ReturnType<typeof matter>)
+        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'en-published', series: 'expo-2026', seriesOrder: 3, locale: 'en' }, content: 'content' } as unknown as ReturnType<typeof matter>)
+
+      const result = await getStorySeries('expo-2026')
+      expect(result.ok).toBe(true)
+      if (!result.ok) throw result.error
+      expect(result.stories.map(story => story.slug)).toEqual(['zh-published'])
+    })
+
+    it('returns an empty list for an unknown series id', async () => {
+      vi.mocked(fs.readdirSync).mockReturnValue(['part-one.mdx'] as unknown as ReturnType<typeof fs.readdirSync>)
       vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
       vi.mocked(matter).mockReturnValue({
-        data: { ...mockFrontmatter, slug: 'yingge-kiln-bowl', category: 'home' },
+        data: { ...mockFrontmatter, slug: 'part-one', series: 'expo-2026', seriesOrder: 1 },
         content: 'content',
       } as unknown as ReturnType<typeof matter>)
 
-      const result = await getStoriesByCategory('home', 'en')
+      const result = await getStorySeries('no-such-series')
       expect(result.ok).toBe(true)
       if (!result.ok) throw result.error
-      expect(result.stories).toHaveLength(0)
+      expect(result.stories).toEqual([])
+    })
+
+    it('excludes stories with no series field from every series result', async () => {
+      const files = ['standalone-a.mdx', 'standalone-b.mdx', 'part-one.mdx']
+      vi.mocked(fs.readdirSync).mockReturnValue(files as unknown as ReturnType<typeof fs.readdirSync>)
+      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
+      vi.mocked(matter)
+        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'standalone-a' }, content: 'content' } as unknown as ReturnType<typeof matter>)
+        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'standalone-b' }, content: 'content' } as unknown as ReturnType<typeof matter>)
+        .mockReturnValueOnce({ data: { ...mockFrontmatter, slug: 'part-one', series: 'expo-2026', seriesOrder: 1 }, content: 'content' } as unknown as ReturnType<typeof matter>)
+
+      const result = await getStorySeries('expo-2026')
+      expect(result.ok).toBe(true)
+      if (!result.ok) throw result.error
+
+      // Two `series: undefined` stories must never be grouped together.
+      expect(result.stories.map(story => story.slug)).toEqual(['part-one'])
     })
   })
 })

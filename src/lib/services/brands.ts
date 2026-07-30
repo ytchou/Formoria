@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { pinyin } from 'pinyin-pro'
 import { convertPinyinToWadeGiles } from '@/lib/utils/pinyin-to-wade-giles'
 import type { Brand, BrandFilters, OtherUrl } from '@/lib/types'
@@ -773,6 +774,49 @@ export async function getBrandSlugsBatch(brandIds: string[]): Promise<Map<string
     .in('id', brandIds)
   if (error) throw new Error(`Failed to fetch brand slugs: ${error.message}`)
   return new Map((data ?? []).map(b => [b.id, b.slug]))
+}
+
+/**
+ * Batched slug -> brand lookup for editorial content (story MDX shortcodes).
+ *
+ * Deliberately non-throwing, unlike `getBrandBySlug`: an author can reference a
+ * slug that was renamed, hidden, or never existed, and a whole story page must
+ * not 500 because one inline card cannot resolve. Callers render a placeholder
+ * for any slug missing from the returned Map.
+ *
+ * Uses the narrow `BRAND_LIST_SELECT` projection and plain `brandToDomain` —
+ * `brandToDomainWithImages` would fire one extra query per brand. Under this
+ * projection `productPhotos` stays `[]`, so cards fall back to `heroImageUrl`
+ * and then `BrandImageFallback`.
+ *
+ * Cached per request so repeated single-brand shortcodes on one page dedupe.
+ * The cache key is a joined slug string, not the array: React's `cache()`
+ * compares arguments by identity, and every shortcode builds a fresh array
+ * literal, so an array-keyed cache would never hit. Treat the returned Map as
+ * read-only — callers with the same slug set share one instance.
+ */
+const getBrandsBySlugKey = cache(async (slugKey: string): Promise<Map<string, Brand>> => {
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('brands')
+    .select(BRAND_LIST_SELECT)
+    .in('slug', slugKey.split('\n'))
+    .eq('status', 'approved')
+
+  if (error) {
+    console.error('getBrandsBySlugs error:', error.message)
+    return new Map()
+  }
+
+  return new Map(
+    (data ?? []).map(brandToDomain).map((brand): [string, Brand] => [brand.slug, brand])
+  )
+})
+
+export async function getBrandsBySlugs(slugs: string[]): Promise<Map<string, Brand>> {
+  if (slugs.length === 0) return new Map()
+  // Slugs are kebab-case, so a newline is a safe separator for the cache key.
+  return getBrandsBySlugKey([...new Set(slugs)].join('\n'))
 }
 
 type GetBrandsFilters = BrandFilters & {

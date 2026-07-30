@@ -4,7 +4,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { dateLocale } from '@/i18n/locale-preference'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { buttonVariants } from '@/components/ui/button'
-import { getAllStories, getStoriesByCategory } from '@/lib/services/stories'
+import { getAllStories, getStoriesByTag } from '@/lib/services/stories'
 import { categoryLabel, PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
@@ -49,7 +49,7 @@ export default async function StoriesHubPage({ params, searchParams }: PageProps
     ? category
     : null
   const storyResult = activeCategory
-    ? await getStoriesByCategory(activeCategory, safeLocale)
+    ? await getStoriesByTag(activeCategory, safeLocale)
     : await getAllStories(safeLocale)
   const stories = storyResult.ok ? storyResult.stories : []
 
