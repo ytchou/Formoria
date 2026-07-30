@@ -2858,13 +2858,11 @@
     "heading": "專題",
     "subheading": "長篇報導台灣品牌的故事：製作的人、所在的地方，以及一件東西實際是怎麼做出來的。",
     "badgeLabel": "編輯室",
-    "allCategories": "全部",
     "allTags": "全部",
     "comingSoon": "首批專題正在準備中，敬請期待。",
     "loadError": "專題暫時無法載入，請稍後再試。",
     "breadcrumb": "專題",
     "breadcrumbAria": "麵包屑導覽",
-    "categoriesAria": "專題分類",
     "tagsAria": "專題標籤",
     "tags": {
       "event": "展會"

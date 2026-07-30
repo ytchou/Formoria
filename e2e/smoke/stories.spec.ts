@@ -5,8 +5,7 @@ import { NO_PUBLISHED_STORIES, publishedStories } from '../utils/published-stori
 // - `stories` is registered in RESERVED_ROUTES + PUBLIC_INTL_SEGMENTS in proxy.ts, so
 //   bare `/stories` is not swallowed by the brand-slug redirect and resolves to the hub
 //   under the prefix-free zh-TW locale.
-// - Category filter links on the hub use /stories?category=… (no locale prefix) and stay
-//   on the hub.
+// - Tag filter links on the hub use /stories?tag=… (no locale prefix) and stay on the hub.
 // - The story card href is /stories/<slug> (2-segment path, no brand-slug redirect).
 //
 // Content gating: editorial content lives in `content/stories/`, which ships empty. The
@@ -58,40 +57,43 @@ test.describe('Stories hub smoke', () => {
     });
   });
 
-  test('story detail renders in zh-TW and 404s in en', async ({ anonPage }) => {
+  test('story detail renders in zh-TW and is also served on en', async ({ anonPage }) => {
     test.skip(stories.length === 0, NO_PUBLISHED_STORIES);
     await anonPage.goto(`/zh-TW/stories/${firstStory.slug}`);
     await expect(anonPage.getByRole('heading', { level: 1 })).toBeVisible({
       timeout: 10_000,
     });
 
-    // The story is authored in zh-TW only — the English route must not serve it
+    // Inverted from a 404 expectation: English editions do not exist yet, so the
+    // English route serves the same zh-TW document instead of a dead end. It must
+    // canonical back to the prefix-free zh-TW URL — asserted in detail in
+    // e2e/tests/story-detail.spec.ts.
     const response = await anonPage.goto(`/en/stories/${firstStory.slug}`);
-    expect(response?.status()).toBe(404);
+    expect(response?.status()).toBe(200);
   });
 
-  test('category filter pill updates URL with ?category= and stays on hub', async ({ anonPage }) => {
+  test('tag filter pill updates URL with ?tag= and stays on hub', async ({ anonPage }) => {
     await anonPage.goto('/zh-TW/stories');
-    // Accessible name is stories.categoriesAria, so it is localized — this route is
-    // zh-TW, so matching the English 'Story categories' can never resolve.
-    const categoryNav = anonPage.getByRole('navigation', { name: '專題分類' });
-    await expect(categoryNav).toBeVisible({ timeout: 10_000 });
-    // Scoped to the story categories nav to avoid clicking the brand category bar
-    await categoryNav.getByRole('link', { name: '美妝保養' }).click();
-    await expect(anonPage).toHaveURL(/[?&]category=beauty/, { timeout: 10_000 });
+    // Accessible name is stories.tagsAria, so it is localized — this route is
+    // zh-TW, so matching the English 'Story tags' can never resolve.
+    const tagNav = anonPage.getByRole('navigation', { name: '專題標籤' });
+    await expect(tagNav).toBeVisible({ timeout: 10_000 });
+    // Scoped to the story tags nav to avoid clicking the brand category bar
+    await tagNav.getByRole('link', { name: '美妝保養' }).click();
+    await expect(anonPage).toHaveURL(/[?&]tag=beauty/, { timeout: 10_000 });
     // Must remain on stories hub — not redirected to /brands
     await expect(
       anonPage.getByRole('heading', { name: '專題', level: 1 })
     ).toBeVisible({ timeout: 5_000 });
   });
 
-  test('All pill clears category filter and stays on hub', async ({ anonPage }) => {
-    await anonPage.goto('/zh-TW/stories?category=beauty');
-    const categoryNav = anonPage.getByRole('navigation', { name: '專題分類' });
-    await expect(categoryNav).toBeVisible({ timeout: 10_000 });
-    // stories.allCategories, localized: '全部' on zh-TW, 'All' on en
-    await categoryNav.getByRole('link', { name: '全部' }).click();
-    await expect(anonPage).not.toHaveURL(/[?&]category=/, { timeout: 10_000 });
+  test('All pill clears the tag filter and stays on hub', async ({ anonPage }) => {
+    await anonPage.goto('/zh-TW/stories?tag=beauty');
+    const tagNav = anonPage.getByRole('navigation', { name: '專題標籤' });
+    await expect(tagNav).toBeVisible({ timeout: 10_000 });
+    // stories.allTags, localized: '全部' on zh-TW, 'All' on en
+    await tagNav.getByRole('link', { name: '全部' }).click();
+    await expect(anonPage).not.toHaveURL(/[?&]tag=/, { timeout: 10_000 });
     await expect(
       anonPage.getByRole('heading', { name: '專題', level: 1 })
     ).toBeVisible({ timeout: 5_000 });

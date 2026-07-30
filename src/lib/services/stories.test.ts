@@ -74,7 +74,7 @@ describe('stories service (filesystem-backed)', () => {
       expect(result.stories).toHaveLength(0)
     })
 
-    it('returns no stories for the en locale when the only story is zh-TW', async () => {
+    it('falls back to the zh-TW set for the en locale while no English edition exists', async () => {
       vi.mocked(fs.readdirSync).mockReturnValue(['yingge-kiln-bowl.mdx'] as unknown as ReturnType<typeof fs.readdirSync>)
       vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
       vi.mocked(matter).mockReturnValue({ data: mockFrontmatter, content: 'Content here.' } as unknown as ReturnType<typeof matter>)
@@ -82,12 +82,28 @@ describe('stories service (filesystem-backed)', () => {
       const enResult = await getAllStories('en')
       expect(enResult.ok).toBe(true)
       if (!enResult.ok) throw enResult.error
-      expect(enResult.stories).toHaveLength(0)
+      expect(enResult.stories.map(story => story.slug)).toEqual(['yingge-kiln-bowl'])
 
       const defaultResult = await getAllStories()
       expect(defaultResult.ok).toBe(true)
       if (!defaultResult.ok) throw defaultResult.error
       expect(defaultResult.stories).toHaveLength(1)
+    })
+
+    it('prefers real English editions over the zh-TW fallback once they exist', async () => {
+      vi.mocked(fs.readdirSync).mockReturnValue([
+        'yingge-kiln-bowl.mdx',
+        'en-story.mdx',
+      ] as unknown as ReturnType<typeof fs.readdirSync>)
+      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
+      vi.mocked(matter)
+        .mockReturnValueOnce({ data: mockFrontmatter, content: 'Content here.' } as unknown as ReturnType<typeof matter>)
+        .mockReturnValueOnce({ data: { ...mockFrontmatter, locale: 'en' }, content: 'Content.' } as unknown as ReturnType<typeof matter>)
+
+      const enResult = await getAllStories('en')
+      expect(enResult.ok).toBe(true)
+      if (!enResult.ok) throw enResult.error
+      expect(enResult.stories.map(story => story.slug)).toEqual(['en-story'])
     })
 
     it('filters out draft stories', async () => {
@@ -230,16 +246,20 @@ describe('stories service (filesystem-backed)', () => {
       expect(result).not.toBeNull()
     })
 
-    it('returns null when the requested locale does not match the authored locale', async () => {
+    // Inverted from "returns null when the requested locale does not match": that gate
+    // is what turned every /en/stories/<slug> into a 404 next to a live zh-TW twin.
+    // English now serves the zh-TW document and canonicals to the zh-TW URL.
+    it('serves the zh-TW document for an en request instead of 404ing', async () => {
       vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
       vi.mocked(matter).mockReturnValue({
         data: mockFrontmatter,
         content: 'Content.',
       } as unknown as ReturnType<typeof matter>)
 
-      await expect(
-        getPublishedStoryBySlug('yingge-kiln-bowl', 'en'),
-      ).resolves.toBeNull()
+      const enResult = await getPublishedStoryBySlug('yingge-kiln-bowl', 'en')
+      expect(enResult).not.toBeNull()
+      expect(enResult?.entry.frontmatter.locale).toBe('zh-TW')
+
       await expect(
         getPublishedStoryBySlug('yingge-kiln-bowl', 'zh-TW'),
       ).resolves.not.toBeNull()

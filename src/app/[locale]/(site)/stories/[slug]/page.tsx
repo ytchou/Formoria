@@ -3,8 +3,16 @@ import { notFound } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
 import { ChevronRight } from 'lucide-react'
-import { getAllStories, getPublishedStoryBySlug } from '@/lib/services/stories'
+import {
+  getAllStories,
+  getPublishedStoryBySlug,
+  getStorySeries,
+  type StoryLocale,
+} from '@/lib/services/stories'
 import { FaqBlock } from '@/components/stories/faq-block'
+import { SeriesNav } from '@/components/stories/series-nav'
+import { ViewItemListTracker } from '@/components/analytics/view-item-list-tracker'
+import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { buildArticleJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
@@ -15,6 +23,33 @@ type PageProps = {
 }
 
 export const revalidate = 3600
+
+/** `<BrandCard>` / `<BrandSpotlight>` — one brand each. */
+const BRAND_SHORTCODE_PATTERN = /<(?:BrandCard|BrandSpotlight)\b/g
+/** `<BrandGrid slugs={[...]}>` — one brand per slug in the array literal. */
+const BRAND_GRID_SLUGS_PATTERN = /<BrandGrid\b[^>]*?slugs=\{\s*\[([^\]]*)\]/g
+const QUOTED_SLUG_PATTERN = /['"][^'"]+['"]/g
+
+/**
+ * How many brands this story puts in front of the reader, for `view_item_list`.
+ *
+ * Counted from the raw MDX source rather than the rendered tree: the shortcodes
+ * only resolve inside `MDXRemote`, which renders after this component returns, and
+ * a tracker that always reported a constant would make the event useless. Counting
+ * source shortcodes over-reports a brand whose slug no longer resolves (it renders
+ * as a placeholder) — acceptable; upgrade path is to resolve the slugs server-side
+ * here if the drift ever matters.
+ */
+function countBrandReferences(source: string): number {
+  const singles = source.match(BRAND_SHORTCODE_PATTERN)?.length ?? 0
+
+  let gridItems = 0
+  for (const match of source.matchAll(BRAND_GRID_SLUGS_PATTERN)) {
+    gridItems += match[1]?.match(QUOTED_SLUG_PATTERN)?.length ?? 0
+  }
+
+  return singles + gridItems
+}
 
 // Prebuild every published story so the first production visit is served from the
 // ISR cache instead of paying on-demand generation. Locale comes from the parent
@@ -38,17 +73,21 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { locale, slug: rawSlug } = await params
   const slug = decodeURIComponent(rawSlug)
   setRequestLocale(locale)
-  const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
-  const story = await getPublishedStoryBySlug(slug, safeLocale)
+  const story = await getPublishedStoryBySlug(slug)
 
   if (!story) {
     notFound()
   }
 
+  // Canonical is pinned to 'zh-TW' on BOTH routes, deliberately not `safeLocale`:
+  // until English editions exist, `/en/stories/<slug>` serves byte-identical zh-TW
+  // body copy, so a self-referencing canonical there would enter the index as a
+  // duplicate of the prefix-free URL. `buildAlternates` is shared with /brands and
+  // must stay locale-agnostic — the zh-TW-only decision belongs at this call site.
   const { canonical, languages } = buildAlternates(
     `/stories/${story.entry.frontmatter.slug}`,
-    safeLocale,
-    [safeLocale],
+    'zh-TW',
+    ['zh-TW'],
   )
 
   return {
@@ -63,13 +102,22 @@ export default async function StoryPage({ params }: PageProps) {
   const slug = decodeURIComponent(rawSlug)
   setRequestLocale(locale)
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
-  const story = await getPublishedStoryBySlug(slug, safeLocale)
+  const story = await getPublishedStoryBySlug(slug)
 
   if (!story) {
     notFound()
   }
 
   const t = await getTranslations({ locale, namespace: 'stories' })
+
+  // Siblings are resolved against the story's OWN authored locale, not the request
+  // locale: `/en` serves the zh-TW document, so asking for the (empty) `en` set here
+  // would silently drop the series nav on exactly that route.
+  const seriesId = story.entry.frontmatter.series
+  const authoredLocale: StoryLocale =
+    story.entry.frontmatter.locale === 'en' ? 'en' : 'zh-TW'
+  const seriesResult = seriesId ? await getStorySeries(seriesId, authoredLocale) : null
+  const series = seriesResult?.ok ? seriesResult.stories : []
 
   const articleJsonLd = buildArticleJsonLd({
     title: story.entry.frontmatter.title,
@@ -110,6 +158,10 @@ export default async function StoryPage({ params }: PageProps) {
             }),
           }}
         />
+        <ViewItemListTracker
+          listName={`story:${slug}`}
+          itemCount={countBrandReferences(story.content)}
+        />
         <header className="space-y-4">
           <h1 className="type-page-title-large">{story.entry.frontmatter.title}</h1>
           <p className="type-page-subtitle">{story.entry.frontmatter.description}</p>
@@ -120,12 +172,24 @@ export default async function StoryPage({ params }: PageProps) {
           `storyComponentMap` (src/lib/mdx/components.ts), built on the
           project's own `type-*` scale.
         */}
-        <div>
-          <StoryContent source={story.content} />
-        </div>
+        {/*
+          Embedded `<BrandCard>`s carry a save button, which reads `useSavedBrands`.
+          The hook degrades to a no-op without a provider, so this is what makes the
+          buttons live for signed-in readers while leaving signed-out ones untouched;
+          the provider seeds itself from `getSavedBrandIdsAction` once a session exists.
+          Scoped to the MDX body — nothing else on the page saves anything.
+        */}
+        <SavedBrandsProvider>
+          <div>
+            <StoryContent source={story.content} />
+          </div>
+        </SavedBrandsProvider>
         {story.entry.frontmatter.faq && story.entry.frontmatter.faq.length > 0 && (
           <FaqBlock questions={story.entry.frontmatter.faq} />
         )}
+        {seriesId ? (
+          <SeriesNav series={series} currentSlug={story.entry.slug} locale={safeLocale} />
+        ) : null}
       </article>
     </main>
   )

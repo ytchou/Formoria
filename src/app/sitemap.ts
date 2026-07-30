@@ -59,8 +59,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     "/submit",
   ].flatMap((path) => localizedEntries(path));
 
-  // All story content is zh-TW only, so /en/stories would be a permanently empty
-  // page — keep it reachable but out of the sitemap.
+  // Stories are zh-TW only. /en/stories and /en/stories/[slug] are reachable and now
+  // serve that same zh-TW content rather than 404ing, which is exactly why they stay
+  // OUT of the sitemap: the two URLs are byte-identical, so submitting both would put
+  // duplicates in front of the crawler. Each /en story page canonicals to its
+  // prefix-free zh-TW twin; the sitemap lists only that twin.
   const storyIndexPages = localizedEntries("/stories", ["zh-TW"]);
 
   try {
@@ -96,6 +99,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     const storyPages = stories.flatMap((story) => {
       if (story.frontmatter.locale === "en") return [];
+      // zh-TW only, deliberately: the /en twin serves identical bytes and canonicals
+      // here, so listing it would be a self-inflicted duplicate-content signal.
       const locale: Locale = "zh-TW";
       return localizedEntries(
         `/stories/${story.frontmatter.slug}`,

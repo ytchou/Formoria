@@ -94,7 +94,19 @@ export async function getAllStories(
   locale: StoryLocale = 'zh-TW',
 ): Promise<StoryListResult> {
   try {
-    return { ok: true, stories: readPublishedEntries(locale) }
+    const stories = readPublishedEntries(locale)
+
+    // English editions are not authored yet (tracked separately). An empty `/en`
+    // hub next to a populated zh-TW one reads as a broken surface, so `en` falls
+    // back to the zh-TW set: readers translate the body themselves, and every
+    // `/en/stories/*` URL canonicals back to its prefix-free zh-TW twin so the two
+    // never compete as duplicate content. Once real English editions land they win
+    // on their own — the fallback only fires when the `en` set is empty.
+    if (locale === 'en' && stories.length === 0) {
+      return { ok: true, stories: readPublishedEntries('zh-TW') }
+    }
+
+    return { ok: true, stories }
   } catch (error) {
     return storyListError('getAllStories', error)
   }
@@ -115,7 +127,15 @@ export async function getPublishedStoryBySlug(
 ): Promise<StoryDetailResult | null> {
   const story = await getStoryBySlug(slug)
   if (!story || story.entry.frontmatter.draft) return null
-  if (locale && story.entry.frontmatter.locale !== locale) return null
+
+  // `locale` is accepted but deliberately does NOT gate the lookup. It used to
+  // (`if (locale && story.entry.frontmatter.locale !== locale) return null`), which
+  // is what made every `/en/stories/<slug>` a 404 while the zh-TW twin rendered.
+  // Until English editions exist, the English route serves the zh-TW document and
+  // canonicals to the zh-TW URL (see `generateMetadata` in the detail route).
+  // Restore the one-line gate above to re-split the locales.
+  void locale
+
   return story
 }
 

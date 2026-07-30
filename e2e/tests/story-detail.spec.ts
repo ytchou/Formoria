@@ -78,17 +78,32 @@ test.describe('Story detail deep', () => {
     await expect(anonPage.locator('link[rel="alternate"][hreflang="en"]')).toHaveCount(0);
   });
 
-  // Was "stays readable but is not indexable" (200 + noindex). That only ever looked
-  // readable: `dynamic = 'force-static'` stripped request-scoped state, so next-intl
-  // silently fell back to zh-TW and the English route served Chinese body copy under
-  // html lang="en". A locale with no authored story is a missing document, so it 404s.
-  test('unavailable English locale 404s instead of serving zh-TW content', async ({ anonPage }) => {
+  // Inverted from "404s instead of serving zh-TW content". English editions do not
+  // exist yet, so /en now serves the zh-TW document rather than a dead end — the
+  // duplicate-content risk is carried by the canonical, not by the status code.
+  // Two things this still has to prove: the canonical points at the prefix-free
+  // zh-TW URL (never self-referencing), and page chrome is genuinely English, i.e.
+  // next-intl did not silently fall back to zh-TW the way `force-static` once made it.
+  test('English locale serves the zh-TW story under a zh-TW canonical', async ({ anonPage }) => {
     const response = await anonPage.goto(`/en${STORY_URL}`);
 
-    expect(response?.status()).toBe(404);
-    // English not-found chrome, not the zh-TW fallback the old behavior produced
-    await expect(anonPage.getByText('Story not found')).toBeVisible({ timeout: 10_000 });
-    await expect(anonPage.getByText(firstStory.title)).toHaveCount(0);
+    expect(response?.status()).toBe(200);
+    await expect(
+      anonPage.getByRole('heading', { name: firstStory.title, level: 1 })
+    ).toBeVisible({ timeout: 10_000 });
+
+    const canonical = anonPage.locator('link[rel="canonical"]');
+    await expect(canonical).toHaveCount(1);
+    await expect(canonical).toHaveAttribute(
+      'href',
+      new RegExp(`/stories/${escapeRegExp(firstStory.canonicalSlug)}$`)
+    );
+    // Never self-canonical: /en and the prefix-free URL serve identical bytes.
+    await expect(canonical).not.toHaveAttribute('href', /\/en\/stories\//);
+    // English chrome, not the zh-TW fallback the old force-static behavior produced.
+    await expect(anonPage.getByRole('link', { name: 'Stories' }).first()).toBeVisible({
+      timeout: 10_000,
+    });
   });
 });
 
