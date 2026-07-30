@@ -18,14 +18,17 @@ const firstStory = stories[0];
 test.describe('Stories hub smoke', () => {
   test('nav has visible 專題 link pointing to /stories', async ({ anonPage }) => {
     await anonPage.goto('/');
-    const storiesLink = anonPage.getByRole('link', { name: '專題' });
+    // 專題 now appears twice on every page — the header nav gained a /stories entry
+    // alongside the footer's. `.first()` is the header one in DOM order; without it
+    // this is a strict-mode violation, not a selector problem.
+    const storiesLink = anonPage.getByRole('link', { name: '專題' }).first();
     await expect(storiesLink).toBeVisible({ timeout: 10_000 });
     await expect(storiesLink).toHaveAttribute('href', '/stories');
   });
 
   test('clicking 專題 nav link arrives at stories hub', async ({ anonPage }) => {
     await anonPage.goto('/');
-    await anonPage.getByRole('link', { name: '專題' }).click();
+    await anonPage.getByRole('link', { name: '專題' }).first().click();
     // Default zh-TW locale — must land at /stories (no prefix)
     await expect(anonPage).toHaveURL(/\/stories(?:[?#]|$)/, { timeout: 15_000 });
     await expect(

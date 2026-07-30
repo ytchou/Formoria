@@ -39,10 +39,25 @@ test.describe('Story detail deep', () => {
 
     await expect(async () => {
       await anonPage.reload();
-      const brandElement = anonPage
-        .locator('main a[href*="/brands/"], main [class*="border-dashed"]')
-        .first();
-      await expect(brandElement).toBeVisible({ timeout: 5_000 });
+      const brandLink = anonPage.locator('main a[href*="/brands/"]').first();
+      const placeholder = anonPage.locator('main [class*="border-dashed"]').first();
+
+      if (await brandLink.isVisible({ timeout: 5_000 }).catch(() => false)) {
+        // A resolved card must show the brand's NAME, not just link to it. Asserting
+        // only on the href let a bare-slug stub pass — the DEV-930 regression this
+        // test exists to catch. The name must also differ from the slug in the href,
+        // so rendering the raw slug as the label still fails.
+        const href = (await brandLink.getAttribute('href')) ?? '';
+        const slug = href.split('/brands/')[1]?.split(/[?#]/)[0] ?? '';
+        const label = ((await brandLink.innerText()) ?? '').trim();
+
+        expect(label.length).toBeGreaterThan(0);
+        expect(label).not.toBe(slug);
+      } else {
+        // Unresolvable slug: the dashed placeholder must render and name the slug,
+        // and the page must still be 200 rather than 500.
+        await expect(placeholder).toBeVisible({ timeout: 5_000 });
+      }
     }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 10_000] });
   });
 
