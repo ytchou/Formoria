@@ -112,6 +112,9 @@ export function SubmissionsReviewList({
     "",
   );
   const [error, setError] = useState<string | null>(null);
+  const [pendingSubmissionIds, setPendingSubmissionIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [isPending, startTransition] = useTransition();
   const [isEnriching, startEnrichTransition] = useTransition();
   const showEnrichment = activeTab !== "needs_data";
@@ -247,8 +250,9 @@ export function SubmissionsReviewList({
     setExpandedId((current) => (current === id ? null : id));
   }
 
-  function approveOne(id: string) {
-    startTransition(async () => {
+  async function approveOne(id: string) {
+    setPendingSubmissionIds((current) => new Set(current).add(id));
+    try {
       setError(null);
       const result = await approveSubmissionAction(id);
       if (result?.error) setError(result.error);
@@ -258,17 +262,30 @@ export function SubmissionsReviewList({
         }
         router.refresh();
       }
-    });
+    } finally {
+      setPendingSubmissionIds((current) => {
+        const next = new Set(current);
+        next.delete(id);
+        return next;
+      });
+    }
   }
 
-  function rejectOne(id: string) {
+  async function rejectOne(id: string) {
     if (!confirm(t("confirmReject"))) return;
-    startTransition(async () => {
+    setPendingSubmissionIds((current) => new Set(current).add(id));
+    try {
       setError(null);
       const result = await rejectSubmissionAction(id, "admin_reject", "");
       if (result?.error) setError(result.error);
       else router.refresh();
-    });
+    } finally {
+      setPendingSubmissionIds((current) => {
+        const next = new Set(current);
+        next.delete(id);
+        return next;
+      });
+    }
   }
 
   function bulkApprove() {
@@ -725,9 +742,10 @@ export function SubmissionsReviewList({
                                 {...(submission.reviewKind === "refresh"
                                   ? { "aria-label": t("approveRefresh") }
                                   : {})}
-                                onClick={() => approveOne(submission.id)}
+                                onClick={() => void approveOne(submission.id)}
                                 disabled={
                                   isPending ||
+                                  pendingSubmissionIds.has(submission.id) ||
                                   !submission.reviewCompleteness.complete
                                 }
                               >
@@ -737,8 +755,11 @@ export function SubmissionsReviewList({
                                 size="compact"
                                 className="min-h-12"
                                 variant="destructive"
-                                onClick={() => rejectOne(submission.id)}
-                                disabled={isPending}
+                                onClick={() => void rejectOne(submission.id)}
+                                disabled={
+                                  isPending ||
+                                  pendingSubmissionIds.has(submission.id)
+                                }
                               >
                                 {t("reject")}
                               </Button>
