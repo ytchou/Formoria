@@ -5,6 +5,7 @@ import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { dateLocale } from '@/i18n/locale-preference'
 import { getStatsPageData } from '@/lib/services/stats'
+import { markRenderDegraded } from '@/lib/degraded-render'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { TaiwanMapDynamic } from '@/components/stats/TaiwanMapDynamic'
 import { categoryLabel, PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
@@ -59,6 +60,13 @@ export default async function StatsPage({ params }: StatsPageProps) {
     getTranslations('cities'),
     getStatsPageData(),
   ])
+
+  // ANY failed read means this render is degraded, and a degraded render must never
+  // be frozen by `revalidate = 3600`.
+  if (data.degraded) {
+    await markRenderDegraded('stats')
+  }
+
   const formattedDate = formatDate(new Date(), safeLocale)
 
   return (

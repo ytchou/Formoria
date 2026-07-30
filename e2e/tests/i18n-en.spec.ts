@@ -229,14 +229,11 @@ test.describe('i18n English browse', () => {
     await expect(page.getByText('關於 Formoria')).toHaveCount(0);
   });
 
-  test('/en/guides/[slug] renders English chrome, not the default locale', async ({ page }) => {
+  // Every guide is authored zh-TW, so /en/guides is an empty hub and
+  // /en/guides/[slug] 404s (covered in e2e/smoke/guides.spec.ts). The hub is the
+  // English guides surface that still has to prove it isn't falling back to zh-TW.
+  test('/en/guides renders English chrome, not the default locale', async ({ page }) => {
     await page.goto('/en/guides');
-    const firstGuide = page.locator('main a[href*="/guides/"]').first();
-    const hasGuide = await firstGuide.isVisible({ timeout: 10_000 }).catch(() => false);
-    const href = hasGuide
-      ? await firstGuide.getAttribute('href')
-      : '/en/guides/taiwan-skincare-brands';
-    await page.goto(href || '/en/guides/taiwan-skincare-brands');
     await expect(page.getByRole('link', { name: 'About Formoria' })).toBeVisible({
       timeout: 10_000,
     });

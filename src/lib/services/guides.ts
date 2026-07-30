@@ -21,6 +21,8 @@ type GuideEntry = {
   };
 };
 
+export type GuideLocale = 'zh-TW' | 'en'
+
 export type GuideDetailResult = {
   entry: GuideEntry;
   content: string;
@@ -66,7 +68,9 @@ function guideListError(scope: string, error: unknown): GuideListResult {
   return { ok: false, error: normalizedError }
 }
 
-export async function getAllGuides(): Promise<GuideListResult> {
+export async function getAllGuides(
+  locale: GuideLocale = 'zh-TW',
+): Promise<GuideListResult> {
   try {
     const files = fs.readdirSync(GUIDES_DIR).filter(f => f.endsWith('.mdx'))
 
@@ -78,7 +82,7 @@ export async function getAllGuides(): Promise<GuideListResult> {
       })
       .filter((entry): entry is GuideEntry => entry !== null)
       .filter(
-        entry => entry.frontmatter.locale === 'zh-TW' && !entry.frontmatter.draft,
+        entry => entry.frontmatter.locale === locale && !entry.frontmatter.draft,
       )
 
     return { ok: true, guides }
@@ -98,12 +102,18 @@ export async function getGuideBySlug(slug: string): Promise<GuideDetailResult | 
 
 export async function getPublishedGuideBySlug(
   slug: string,
+  locale?: GuideLocale,
 ): Promise<GuideDetailResult | null> {
   const guide = await getGuideBySlug(slug)
-  return guide?.entry.frontmatter.draft ? null : guide
+  if (!guide || guide.entry.frontmatter.draft) return null
+  if (locale && guide.entry.frontmatter.locale !== locale) return null
+  return guide
 }
 
-export async function getGuidesByCategory(category: string): Promise<GuideListResult> {
+export async function getGuidesByCategory(
+  category: string,
+  locale: GuideLocale = 'zh-TW',
+): Promise<GuideListResult> {
   try {
     const files = fs.readdirSync(GUIDES_DIR).filter(f => f.endsWith('.mdx'))
 
@@ -116,7 +126,7 @@ export async function getGuidesByCategory(category: string): Promise<GuideListRe
       .filter((entry): entry is GuideEntry => entry !== null)
       .filter(
         entry =>
-          entry.frontmatter.locale === 'zh-TW' &&
+          entry.frontmatter.locale === locale &&
           !entry.frontmatter.draft &&
           entry.frontmatter.category === category,
       )

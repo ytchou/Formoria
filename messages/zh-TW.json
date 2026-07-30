@@ -174,10 +174,10 @@
       "brandValues": "品牌價值",
       "appliedHint": "點擊標籤上的 × 可移除篩選條件",
       "currentConditions": "目前套用的篩選",
-      "brandSearch": "品牌名稱搜尋",
+      "brandSearch": "搜尋品牌或產品",
       "brandSearchHelp": "此搜尋會與所有篩選條件同時套用",
-      "brandSearchLandmark": "依品牌名稱篩選",
-      "activeSearch": "品牌名稱搜尋",
+      "brandSearchLandmark": "依品牌或產品關鍵字篩選",
+      "activeSearch": "搜尋品牌或產品",
       "activeCategory": "分類",
       "activeSubcategory": "子分類",
       "activePrice": "價格區間",
@@ -378,6 +378,11 @@
     "previewBackToEdit": "返回編輯",
     "actions": {
       "visitWebsite": "前往官網",
+      "visitPinkoi": "前往 Pinkoi",
+      "visitShopee": "前往蝦皮購物",
+      "visitInstagram": "前往 Instagram",
+      "visitThreads": "前往 Threads",
+      "visitFacebook": "前往 Facebook",
       "share": "分享",
       "copied": "已複製",
       "visitOfficialWebsiteAria": "前往品牌官網"
@@ -584,7 +589,7 @@
         "confirmAction": "我確認這裡有販售",
         "confirmed": "已確認",
         "progress": "{count}/{threshold} 人確認",
-        "thresholdNote": "虛線為尚待確認，累積 {threshold} 人確認後公開顯示",
+        "thresholdNote": "虛線為社群提供、尚待確認的通路；累積 {threshold} 人確認後會移入已確認清單並標示「社群確認」",
         "signInToConfirm": "登入後即可確認"
       },
       "chips": {
@@ -1165,6 +1170,7 @@
     },
     "signIn": {
       "heading": "登入 Formoria",
+      "metaTitle": "登入",
       "subheading": "請輸入您的電子郵件和密碼以繼續",
       "claimMessage": "登入以在 Formoria 認領 <strong>{brandName}</strong>。",
       "emailLabel": "電子郵件",

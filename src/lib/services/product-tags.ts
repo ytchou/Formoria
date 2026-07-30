@@ -52,6 +52,21 @@ export function novelTagRejection(tag: string): NovelTagRejectionReason | null {
 }
 
 /**
+ * Every ontology `nameEn` is Title Case ('Rain Boots', 'Clasp-Frame Bags'), so a
+ * novel tag that keeps the model's lowercase output ('rain boots') sits next to
+ * canonical ones on the same card and reads as a data bug. Capitalizes the first
+ * letter of each whitespace-separated word and touches nothing else, so existing
+ * capitals survive ('USB-C' stays 'USB-C') and a Chinese fallback is a no-op.
+ * Casing only — this does NOT drop or machine-translate the tag, which
+ * `docs/decisions/2026-07-27-correction-novel-tag-escape-hatch.md` rules out.
+ */
+function toTagTitleCase(value: string): string {
+  return value.replace(/(^|\s)(\p{Ll})/gu, (_, lead: string, letter: string) =>
+    `${lead}${letter.toLocaleUpperCase()}`,
+  )
+}
+
+/**
  * Resolves one free-text tag a person typed. An ontology hit (nameZh, nameEn or
  * any alias) is canonicalized to its nameZh; a miss is accepted as-is when it
  * clears `novelTagRejection`. Pure and ontology-only, so a client component can
@@ -101,7 +116,7 @@ export function normalizeProductTags(
       if (rejection) {
         rejected.push({ tag: rawZh, reason: rejection })
       } else {
-        pairs.push({ zh, en: en || zh })
+        pairs.push({ zh, en: toTagTitleCase(en || zh) })
       }
     }
   }
@@ -123,7 +138,7 @@ export function normalizeProductTags(
  * "fix" it by dropping the tag or machine-translating it here.
  */
 export function deriveProductTagsEn(tags: string[]): string[] {
-  return tags.map((tag) => matchSubcategory(tag)?.nameEn ?? tag)
+  return tags.map((tag) => matchSubcategory(tag)?.nameEn ?? toTagTitleCase(tag))
 }
 
 function isStringArray(value: unknown): value is string[] {

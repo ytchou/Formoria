@@ -62,6 +62,27 @@ const server = createServer((request, response) => {
 });
 
 server.listen(port, "0.0.0.0", () => {
+  // Which build is actually running. Without this, confirming that merged worker
+  // code reached production needs deployment-ID archaeology in the Railway
+  // dashboard (DEV-1260 — the service had no GitHub source, so merges to main
+  // never deployed it and nothing in the logs revealed the staleness).
+  // RAILWAY_GIT_COMMIT_SHA is injected only for repo-connected services;
+  // WORKER_BUILD_SHA is baked in by Dockerfile.curation-worker so that a manual
+  // `railway up` still identifies itself.
+  const sha =
+    process.env.RAILWAY_GIT_COMMIT_SHA ??
+    process.env.WORKER_BUILD_SHA ??
+    "unknown";
+  // NODE_ENV is logged because sentry.server.config.ts gates on
+  // `NODE_ENV === 'production'`; anything else here means worker errors are
+  // silently not reaching Sentry.
+  console.log(
+    `[curation-worker] build sha=${sha.slice(0, 12)} branch=${
+      process.env.RAILWAY_GIT_BRANCH ?? "unknown"
+    } deployment=${process.env.RAILWAY_DEPLOYMENT_ID ?? "unknown"} nodeEnv=${
+      process.env.NODE_ENV ?? "unset"
+    }`,
+  );
   console.log(`[curation-worker] listening on port ${port}`);
   startStaleJobMaintenance();
   if (CRON_SCHEDULE) {

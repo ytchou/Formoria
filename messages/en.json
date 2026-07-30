@@ -174,10 +174,10 @@
       "brandValues": "Brand values",
       "appliedHint": "Select × on a tag to remove that filter.",
       "currentConditions": "Active filters",
-      "brandSearch": "Brand name search",
+      "brandSearch": "Brand or product search",
       "brandSearchHelp": "This search is applied with every active filter",
-      "brandSearchLandmark": "Filter by brand name",
-      "activeSearch": "Brand name search",
+      "brandSearchLandmark": "Filter by brand or product keyword",
+      "activeSearch": "Brand or product search",
       "activeCategory": "Category",
       "activeSubcategory": "Subcategory",
       "activePrice": "Price range",
@@ -378,6 +378,11 @@
     "previewBackToEdit": "Back to edit",
     "actions": {
       "visitWebsite": "Visit Website",
+      "visitPinkoi": "Visit Pinkoi",
+      "visitShopee": "Visit Shopee",
+      "visitInstagram": "Visit Instagram",
+      "visitThreads": "Visit Threads",
+      "visitFacebook": "Visit Facebook",
       "share": "Share",
       "copied": "Copied",
       "visitOfficialWebsiteAria": "Visit the brand's official website"
@@ -584,7 +589,7 @@
         "confirmAction": "I confirm they sell here",
         "confirmed": "Confirmed",
         "progress": "{count}/{threshold} confirmed",
-        "thresholdNote": "Dashed entries are unconfirmed; shown publicly after {threshold} confirmations",
+        "thresholdNote": "Dashed entries are community-submitted and not yet confirmed; at {threshold} confirmations they move to the confirmed list with a Community confirmed badge",
         "signInToConfirm": "Sign in to confirm"
       },
       "chips": {
@@ -1165,6 +1170,7 @@
     },
     "signIn": {
       "heading": "Sign In",
+      "metaTitle": "Sign In",
       "subheading": "Enter your email and password to continue",
       "claimMessage": "Sign in to claim <strong>{brandName}</strong> on Formoria.",
       "emailLabel": "Email",
@@ -2799,7 +2805,7 @@
     "subheading": "Explore Taiwan brands, industries, and purchasing context. From daily skincare to local food, find the guides you are looking for.",
     "badgeLabel": "Guide Hub",
     "allCategories": "All",
-    "comingSoon": "coming soon",
+    "comingSoon": "Coming soon",
     "loadError": "Guides are temporarily unavailable. Please try again later.",
     "breadcrumb": "Guides",
     "breadcrumbAria": "Breadcrumb",

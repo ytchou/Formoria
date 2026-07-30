@@ -40,20 +40,24 @@ test.describe('Guides hub smoke', () => {
     });
   });
 
-  test('guide detail renders in both locales', async ({ anonPage }) => {
-    for (const locale of ['zh-TW', 'en']) {
-      await anonPage.goto(`/${locale}/guides/taiwan-skincare-brands`);
-      await expect(anonPage.getByRole('heading', { level: 1 })).toBeVisible({
-        timeout: 10_000,
-      });
-    }
+  test('guide detail renders in zh-TW and 404s in en', async ({ anonPage }) => {
+    await anonPage.goto('/zh-TW/guides/taiwan-skincare-brands');
+    await expect(anonPage.getByRole('heading', { level: 1 })).toBeVisible({
+      timeout: 10_000,
+    });
+
+    // The guide is authored in zh-TW only — the English route must not serve it
+    const response = await anonPage.goto('/en/guides/taiwan-skincare-brands');
+    expect(response?.status()).toBe(404);
   });
 
   test('category filter pill updates URL with ?category= and stays on hub', async ({ anonPage }) => {
     await anonPage.goto('/zh-TW/guides');
-    const categoryNav = anonPage.getByRole('navigation', { name: 'Guide categories' });
+    // Accessible name is guides.categoriesAria, so it is localized — this route is
+    // zh-TW, so matching the English 'Guide categories' can never resolve.
+    const categoryNav = anonPage.getByRole('navigation', { name: '指南分類' });
     await expect(categoryNav).toBeVisible({ timeout: 10_000 });
-    // Scoped to Guide categories nav to avoid clicking the brand category bar
+    // Scoped to the guide categories nav to avoid clicking the brand category bar
     await categoryNav.getByRole('link', { name: '美妝保養' }).click();
     await expect(anonPage).toHaveURL(/[?&]category=beauty/, { timeout: 10_000 });
     // Must remain on guides hub — not redirected to /brands
@@ -64,9 +68,10 @@ test.describe('Guides hub smoke', () => {
 
   test('All pill clears category filter and stays on hub', async ({ anonPage }) => {
     await anonPage.goto('/zh-TW/guides?category=beauty');
-    const categoryNav = anonPage.getByRole('navigation', { name: 'Guide categories' });
+    const categoryNav = anonPage.getByRole('navigation', { name: '指南分類' });
     await expect(categoryNav).toBeVisible({ timeout: 10_000 });
-    await categoryNav.getByRole('link', { name: 'All' }).click();
+    // guides.allCategories, localized: '全部' on zh-TW, 'All' on en
+    await categoryNav.getByRole('link', { name: '全部' }).click();
     await expect(anonPage).not.toHaveURL(/[?&]category=/, { timeout: 10_000 });
     await expect(
       anonPage.getByRole('heading', { name: '台灣品牌指南', level: 1 })

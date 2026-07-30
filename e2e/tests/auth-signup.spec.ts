@@ -1,5 +1,9 @@
-import { createClient } from '@supabase/supabase-js';
 import { test, expect } from '../fixtures/auth';
+import {
+  deleteSignupTestUsers,
+  isEmailRateLimitMessage,
+  signupTestEmail,
+} from '../helpers/signup-namespace';
 
 // Post-signup behavior per src/app/auth/actions.ts signUp():
 //   supabase.auth.signUp() → redirect("/auth/sign-in?message=請確認您的電子郵件以完成帳號驗證")
@@ -7,37 +11,17 @@ import { test, expect } from '../fixtures/auth';
 // confirmation-required message on the sign-in page.
 
 test.describe('Auth — sign-up flow', () => {
-  const timestamp = Date.now();
-  // Use @test.local — the project's established e2e domain (see E2E_USER_EMAIL / E2E_ADMIN_EMAIL)
-  const testEmail = `e2e-test+signup-${timestamp}@test.local`;
   const testPassword = 'TestPass1234!';
 
+  // Generated inside the test: test.info() is unavailable at module scope.
+  let signupEmail: string | null = null;
+
   test.afterAll(async () => {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!url || !key) {
-      console.warn('[e2e-cleanup] SUPABASE_SERVICE_ROLE_KEY not set — skipping user cleanup');
-      return;
-    }
-
-    const supabase = createClient(url, key);
-
-    // Find the test user (may be unconfirmed) and delete them
-    const { data: listData, error: listError } = await supabase.auth.admin.listUsers();
-    if (listError) {
-      console.warn('[e2e-cleanup] listUsers error:', listError.message);
-      return;
-    }
-
-    const target = listData.users.find((u) => u.email === testEmail);
-    if (!target) {
-      // User may not have been created (e.g. test was skipped) — nothing to clean up
-      return;
-    }
-
-    const { error: deleteError } = await supabase.auth.admin.deleteUser(target.id);
-    if (deleteError) {
-      console.warn('[e2e-cleanup] deleteUser error:', deleteError.message);
+    // Sweep the whole namespace, not just signupEmail — a crashed run would
+    // otherwise leak an account that blocks the next run on "already registered".
+    const deleted = await deleteSignupTestUsers();
+    if (signupEmail && deleted === 0) {
+      console.warn(`[e2e-cleanup] sign-up account was not swept: ${signupEmail}`);
     }
   });
 
@@ -79,44 +63,63 @@ test.describe('Auth — sign-up flow', () => {
     await expect(anonPage.getByText('密碼至少需要 8 個字元')).toBeVisible({ timeout: 10_000 });
   });
 
+  // Three outcomes, and only one of them is a pass. A green run of this spec must
+  // mean signup actually works — the previous version had an `else` branch that
+  // accepted ANY inline error, so a permanent HTTP 400 (invalid email domain) read
+  // as success and the spec could never go red during a signup outage.
+  //
+  // The only tolerated non-pass is the Supabase project-wide email quota (429):
+  // that is infrastructure we do not control, not an app defect. It is recorded as
+  // a SKIP so the run is visibly incomplete rather than falsely green. Everything
+  // else — an invalid-email 400, an empty error, a silent no-op — is a FAIL.
   test('registers a new user and redirects to sign-in with confirmation message', async ({
     anonPage,
   }) => {
     test.setTimeout(30_000);
 
+    signupEmail = signupTestEmail('happy', test.info().workerIndex);
+
     await anonPage.goto('/auth/sign-up');
 
-    await anonPage.locator('#email').fill(testEmail);
+    await anonPage.locator('#email').fill(signupEmail);
     await anonPage.locator('#password').fill(testPassword);
     await anonPage.locator('#confirmPassword').fill(testPassword);
 
     await anonPage.getByRole('button', { name: '建立帳號', exact: true }).click();
 
     // actions.ts happy path: redirect("/auth/sign-in?message=請確認您的電子郵件以完成帳號驗證")
-    // On cloud Supabase the email rate limit may fire instead (transient constraint).
-    // Assert whichever observable state occurs:
-    //   (a) success → navigated to sign-in with confirmation message
-    //   (b) rate-limited → error shown inline; form stays on sign-up page
     const redirected = await anonPage
       .waitForURL(/\/auth\/sign-in/, { timeout: 15_000 })
       .then(() => true)
       .catch(() => false);
 
     if (redirected) {
-      // Success path — Supabase accepted the sign-up
-      await expect(anonPage).toHaveURL(/\/auth\/sign-in/);
+      // (1) Success — Supabase accepted the sign-up and created the unconfirmed user.
       await expect(anonPage.getByText('請確認您的電子郵件以完成帳號驗證')).toBeVisible({
         timeout: 10_000,
       });
-    } else {
-      // Rate-limit / transient Supabase error path — form shows error, URL unchanged.
-      // This is still a valid characterization: the app correctly surfaces the error.
-      // The error div from sign-up-form.tsx: {state.error && <div>…{state.error}</div>}
-      // Filter out the empty Next.js route announcer which also has role="alert".
-      await expect(anonPage).toHaveURL(/\/auth\/sign-up/);
-      await expect(
-        anonPage.locator('[role="alert"]:not(#__next-route-announcer__)'),
-      ).toBeVisible({ timeout: 5_000 });
+      return;
     }
+
+    // The error div from sign-up-form.tsx: {state.error && <div role="alert">…</div>}
+    // Filter out the empty Next.js route announcer which also has role="alert".
+    const alertText = await anonPage
+      .locator('[role="alert"]:not(#__next-route-announcer__)')
+      .first()
+      .textContent({ timeout: 5_000 })
+      .catch(() => null);
+    const observed = `url=${anonPage.url()} error=${alertText?.trim() || '(no error alert rendered)'}`;
+
+    if (isEmailRateLimitMessage(alertText)) {
+      // (2) Supabase's project-wide email quota is exhausted. It is not per-address,
+      // so a fresh namespace cannot dodge it — skip rather than fail or pass.
+      test.skip(true, `Supabase project-wide email quota exhausted — ${observed}`);
+      return;
+    }
+
+    // (3) Signup is broken. Fail loudly, carrying what was actually observed.
+    expect(observed, 'sign-up did not reach /auth/sign-in and was not email rate limited').toBe(
+      'redirected to /auth/sign-in with the confirmation message',
+    );
   });
 });

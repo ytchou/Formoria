@@ -37,7 +37,9 @@ import {
 // Both `generateMetadata` and the page body read `searchParams`, which opts this route
 // into dynamic rendering, so this `revalidate` never produces a static ISR entry. It is
 // kept because `revalidatePath('/<locale>/brands')` still targets this segment. Freshness
-// for the served HTML comes from the edge cache header set in `src/proxy.ts` instead.
+// needs no cache layer today: the origin serves this route `no-store` and Cloudflare
+// reports `cf-cache-status: DYNAMIC`, so every request reads live data. Putting it behind
+// the edge cache is DEV-1251 — until that lands, there is no cache header to rely on.
 export const revalidate = 3600
 
 const VALID_CATEGORY_SLUGS: Set<string> = new Set(PRODUCT_TYPE_CATEGORIES.map((c) => c.slug))

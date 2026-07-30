@@ -56,12 +56,16 @@ test.describe('Guide detail deep', () => {
     await expect(anonPage.locator('link[rel="alternate"][hreflang="en"]')).toHaveCount(0);
   });
 
-  test('unavailable English locale stays readable but is not indexable', async ({ anonPage }) => {
+  // Was "stays readable but is not indexable" (200 + noindex). That only ever looked
+  // readable: `dynamic = 'force-static'` stripped request-scoped state, so next-intl
+  // silently fell back to zh-TW and the English route served Chinese body copy under
+  // html lang="en". A locale with no authored guide is a missing document, so it 404s.
+  test('unavailable English locale 404s instead of serving zh-TW content', async ({ anonPage }) => {
     const response = await anonPage.goto(`/en${GUIDE_URL}`);
 
-    expect(response?.status()).toBe(200);
-    await expect(anonPage.locator('meta[name="robots"]')).toHaveAttribute('content', /noindex/i);
-    await expect(anonPage.locator('link[rel="alternate"][hreflang="zh-TW"]')).toHaveCount(1);
-    await expect(anonPage.locator('link[rel="alternate"][hreflang="en"]')).toHaveCount(0);
+    expect(response?.status()).toBe(404);
+    // English not-found chrome, not the zh-TW fallback the old behavior produced
+    await expect(anonPage.getByText('Guide not found')).toBeVisible({ timeout: 10_000 });
+    await expect(anonPage.getByText('台灣護膚品牌推薦')).toHaveCount(0);
   });
 });

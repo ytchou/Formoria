@@ -1,5 +1,7 @@
 import { cache } from 'react'
 import { createServiceClient } from '@/lib/supabase/server'
+import { captureReadFailure } from '@/lib/degraded-render'
+import { excludeTestBrands } from './public-brand-filter'
 
 export type StatsPageData = {
   totalBrands: number
@@ -20,6 +22,8 @@ export type StatsPageData = {
     decade: number
     count: number
   }>
+  /** True when any underlying read failed, so the caller can keep this render out of the ISR cache. */
+  degraded: boolean
 }
 
 type BrandRow = {
@@ -33,69 +37,55 @@ async function getStatsPageDataImpl(): Promise<StatsPageData> {
 
   const [totalResult, categoryResult, cityResult, mitResult, foundingResult] = await Promise.all([
     (async () => {
-      const { count, error } = await supabase
-        .from('brands')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'approved')
-      if (error) {
-        console.warn('Stats query failed:', error.message)
-        return { count: 0 }
-      }
+      const { count, error } = await excludeTestBrands(
+        supabase.from('brands').select('*', { count: 'exact', head: true }).eq('status', 'approved'),
+      )
+      if (error) throw error
       return { count }
-    })(),
+    })().catch(captureReadFailure('stats.totalBrands')),
     (async () => {
-      const { data, error } = await supabase
-        .from('brands')
-        .select('product_type')
-        .eq('status', 'approved')
-        .not('product_type', 'is', null)
-      if (error) {
-        console.warn('Stats query failed:', error.message)
-        return { data: [] as BrandRow[] }
-      }
+      const { data, error } = await excludeTestBrands(
+        supabase.from('brands').select('product_type').eq('status', 'approved'),
+      ).not('product_type', 'is', null)
+      if (error) throw error
       return { data: data as BrandRow[] | null }
-    })(),
+    })().catch(captureReadFailure('stats.categoryBreakdown')),
     (async () => {
-      const { data, error } = await supabase
-        .from('brands')
-        .select('city')
-        .eq('status', 'approved')
-        .not('city', 'is', null)
-      if (error) {
-        console.warn('Stats query failed:', error.message)
-        return { data: [] as BrandRow[] }
-      }
+      const { data, error } = await excludeTestBrands(
+        supabase.from('brands').select('city').eq('status', 'approved'),
+      ).not('city', 'is', null)
+      if (error) throw error
       return { data: data as BrandRow[] | null }
-    })(),
+    })().catch(captureReadFailure('stats.cityCoverage')),
     (async () => {
-      const { count, error } = await supabase
-        .from('brands')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'approved')
-        .eq('mit_status', 'verified')
-      if (error) {
-        console.warn('Stats query failed:', error.message)
-        return { count: 0 }
-      }
+      const { count, error } = await excludeTestBrands(
+        supabase
+          .from('brands')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'approved')
+          .eq('mit_status', 'verified'),
+      )
+      if (error) throw error
       return { count }
-    })(),
+    })().catch(captureReadFailure('stats.mitVerified')),
     (async () => {
-      const { data, error } = await supabase
-        .from('brands')
-        .select('founding_year')
-        .eq('status', 'approved')
-        .not('founding_year', 'is', null)
-      if (error) {
-        console.warn('Stats query failed:', error.message)
-        return { data: [] as BrandRow[] }
-      }
+      const { data, error } = await excludeTestBrands(
+        supabase.from('brands').select('founding_year').eq('status', 'approved'),
+      ).not('founding_year', 'is', null)
+      if (error) throw error
       return { data: data as BrandRow[] | null }
-    })(),
+    })().catch(captureReadFailure('stats.foundingDecades')),
   ])
 
-  const totalBrands = totalResult.count ?? 0
+  // ANY failed read degrades the render; the figures that DID resolve still render,
+  // so one broken query does not blank the whole page.
+  const degraded = [totalResult, categoryResult, cityResult, mitResult, foundingResult].some(
+    (result) => result === null,
+  )
+
+  const totalBrands = totalResult?.count ?? 0
   const categoryCounts = new Map<string, number>()
-  for (const row of categoryResult.data ?? []) {
+  for (const row of categoryResult?.data ?? []) {
     if (!row.product_type) continue
     categoryCounts.set(row.product_type, (categoryCounts.get(row.product_type) ?? 0) + 1)
   }
@@ -105,7 +95,7 @@ async function getStatsPageDataImpl(): Promise<StatsPageData> {
     .sort((a, b) => b.count - a.count)
 
   const cityCounts = new Map<string, number>()
-  for (const row of cityResult.data ?? []) {
+  for (const row of cityResult?.data ?? []) {
     if (!row.city) continue
     cityCounts.set(row.city, (cityCounts.get(row.city) ?? 0) + 1)
   }
@@ -117,12 +107,12 @@ async function getStatsPageDataImpl(): Promise<StatsPageData> {
     }))
     .sort((a, b) => b.count - a.count)
 
-  const verified = mitResult.count ?? 0
+  const verified = mitResult?.count ?? 0
   const percentage = totalBrands > 0 ? Math.round((verified / totalBrands) * 100) : 0
 
   const currentYear = new Date().getFullYear()
   const decadeCounts = new Map<number, number>()
-  for (const row of foundingResult.data ?? []) {
+  for (const row of foundingResult?.data ?? []) {
     const year = row.founding_year
     if (typeof year !== 'number' || year < 1900 || year > currentYear) continue
     const decade = Math.floor(year / 10) * 10
@@ -146,6 +136,7 @@ async function getStatsPageDataImpl(): Promise<StatsPageData> {
     },
     cityCoverage,
     foundingDecadeDistribution,
+    degraded,
   }
 }
 

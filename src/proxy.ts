@@ -223,7 +223,18 @@ export async function proxy(request: NextRequest) {
   const cfOriginSecret = process.env.CF_ORIGIN_SECRET
   if (process.env.NODE_ENV === 'production' && cfOriginSecret) {
     const cfSecret = request.headers.get('x-origin-verify')
-    if (cfSecret !== cfOriginSecret && !request.nextUrl.pathname.startsWith('/api/health') && !request.nextUrl.pathname.startsWith('/api/cron/')) {
+    // Exempt paths are called machine-to-machine straight at the Railway origin
+    // (the public host is Cloudflare-fronted and bot-challenges those POSTs), so
+    // they carry ORIGIN_SECRET — not CF_ORIGIN_SECRET — in this header and
+    // authenticate themselves inside their own handler. /api/internal/revalidate-brands
+    // follows the same contract as /api/cron/; the rest of /api/internal/ keeps
+    // this guard as a second layer and is deliberately not exempt.
+    if (
+      cfSecret !== cfOriginSecret &&
+      !request.nextUrl.pathname.startsWith('/api/health') &&
+      !request.nextUrl.pathname.startsWith('/api/cron/') &&
+      request.nextUrl.pathname !== '/api/internal/revalidate-brands'
+    ) {
       return new NextResponse('Forbidden', { status: 403 })
     }
   }

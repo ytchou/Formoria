@@ -29,7 +29,7 @@ import { RelatedBrands } from '@/components/brands/related-brands'
 import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { getBrandCategoryLabel } from '@/lib/brands/category-label'
-import { getBrandVisitHref } from '@/lib/brands/link-fallback'
+import { getBrandVisitLink } from '@/lib/brands/link-fallback'
 import { getBrandFaq } from '@/lib/services/brand-faq'
 import { getChannelsForBrand } from '@/lib/services/brand-channels'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
@@ -164,7 +164,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
     categoryTag ? getBrandCountByCategory(categoryTag.slug, displayBrand.slug) : Promise.resolve(0),
   ])
 
-  const visitUrl = getBrandVisitHref(displayBrand)
+  const visitLink = getBrandVisitLink(displayBrand)
   const description =
     safeLocale === 'en'
       ? (displayBrand.descriptionEn ?? displayBrand.description)
@@ -209,7 +209,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
       <main
         className={cn(
           'page-gutter mx-auto max-w-screen-xl pt-10 lg:pb-10',
-          visitUrl ? 'pb-24' : 'pb-10',
+          visitLink ? 'pb-24' : 'pb-10',
         )}
       >
         <BrandViewTracker brandId={displayBrand.id} brandSlug={slug} />
@@ -257,7 +257,8 @@ export default async function BrandDetailPage({ params }: PageProps) {
               actionsSlot={
                 <SavedBrandsProvider>
                   <BrandActions
-                    websiteUrl={visitUrl ?? null}
+                    websiteUrl={visitLink?.href ?? null}
+                    visitKind={visitLink?.kind}
                     brandSlug={displayBrand.slug}
                     brandId={displayBrand.id}
                     brandName={displayBrand.name}

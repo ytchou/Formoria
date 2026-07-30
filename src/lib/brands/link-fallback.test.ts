@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getBrandVisitHref } from './link-fallback'
+import { getBrandVisitLink } from './link-fallback'
 
 const emptyLinks = {
   purchaseWebsite: null,
@@ -10,10 +10,10 @@ const emptyLinks = {
   purchaseShopee: null,
 }
 
-describe('getBrandVisitHref', () => {
+describe('getBrandVisitLink', () => {
   it('uses the brand visit fallback order', () => {
     expect(
-      getBrandVisitHref({
+      getBrandVisitLink({
         ...emptyLinks,
         socialInstagram: '@warmwood',
         socialThreads: '@threads-warmwood',
@@ -21,23 +21,49 @@ describe('getBrandVisitHref', () => {
         purchasePinkoi: 'https://pinkoi.com/store/warmwood',
         purchaseShopee: 'https://shopee.tw/warmwood',
       }),
-    ).toBe('https://pinkoi.com/store/warmwood')
+    ).toEqual({ href: 'https://pinkoi.com/store/warmwood', kind: 'pinkoi' })
 
     expect(
-      getBrandVisitHref({
+      getBrandVisitLink({
         ...emptyLinks,
         socialThreads: '@threads-warmwood',
         socialFacebook: 'https://facebook.com/warmwood',
         purchasePinkoi: 'https://pinkoi.com/store/warmwood',
       }),
-    ).toBe('https://pinkoi.com/store/warmwood')
+    ).toEqual({ href: 'https://pinkoi.com/store/warmwood', kind: 'pinkoi' })
 
     expect(
-      getBrandVisitHref({
+      getBrandVisitLink({
         ...emptyLinks,
         purchaseWebsite: 'warmwood.example',
         socialInstagram: '@warmwood',
       }),
-    ).toBe('https://warmwood.example')
+    ).toEqual({ href: 'https://warmwood.example', kind: 'website' })
+  })
+
+  it('classifies by hostname when a marketplace url is stored as the website', () => {
+    expect(
+      getBrandVisitLink({
+        ...emptyLinks,
+        purchaseWebsite: 'https://pinkoi.com/store/cucare',
+      }),
+    ).toEqual({ href: 'https://pinkoi.com/store/cucare', kind: 'pinkoi' })
+
+    expect(
+      getBrandVisitLink({
+        ...emptyLinks,
+        purchaseWebsite: 'https://hk.pinkoi.com/store/cucare',
+      }),
+    ).toEqual({ href: 'https://hk.pinkoi.com/store/cucare', kind: 'pinkoi' })
+  })
+
+  it('labels the instagram handle fallback as instagram', () => {
+    expect(
+      getBrandVisitLink({ ...emptyLinks, socialInstagram: '@warmwood' }),
+    ).toEqual({ href: 'https://instagram.com/warmwood', kind: 'instagram' })
+  })
+
+  it('returns null when every link is empty', () => {
+    expect(getBrandVisitLink(emptyLinks)).toBeNull()
   })
 })

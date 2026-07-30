@@ -70,7 +70,9 @@ describe('field-map', () => {
       contact_email: 'hello@senzi.tw',
       price_range: 2,
       product_tags: ['handmade', 'home'],
-      product_tags_en: ['handmade', 'home'],
+      // Neither tag is in the ontology, so deriveProductTagsEn falls through to
+      // the novel-tag path, which now Title Cases to match ontology nameEn casing.
+      product_tags_en: ['Handmade', 'Home'],
       is_demo: true,
     })
   })

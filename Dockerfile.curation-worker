@@ -11,5 +11,11 @@ RUN pnpm install --frozen-lockfile
 # container as production so anything gating on NODE_ENV (Sentry's server
 # config, library production paths) behaves as deployed rather than as dev.
 ENV NODE_ENV=production
+# Identifies the build in the worker's startup log. Railway injects
+# RAILWAY_GIT_COMMIT_SHA only for repo-connected services, so a manual
+# `railway up` would otherwise log an unidentifiable build:
+#   railway up --service curation-worker  (add: --build-arg GIT_COMMIT_SHA=$(git rev-parse HEAD))
+ARG GIT_COMMIT_SHA=unknown
+ENV WORKER_BUILD_SHA=$GIT_COMMIT_SHA
 EXPOSE 8080
 CMD ["pnpm", "curation:worker"]
