@@ -55,61 +55,39 @@ export function BrandActions({
   }
 
   return (
-    <>
-      <div className="space-y-3">
-        {websiteUrl ? (
-          <a
-            href={websiteUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={buttonVariants({ variant: 'primary', tone: 'cta', className: 'w-full' })}
-            data-ph-no-autocapture
-            onClick={handleWebsiteClick}
-          >
-            <ExternalLink className="size-[15px]" />
-            {visitLabel}
-          </a>
-        ) : (
-          <span className={buttonVariants({ variant: 'secondary', className: 'w-full cursor-default opacity-50' })} aria-disabled="true">
-            <ExternalLink className="size-[15px]" />
-            <span className="line-through">{visitLabel}</span>
-          </span>
-        )}
-        <div className="flex flex-wrap gap-2">
-          <ShareDialog
-            brandSlug={brandSlug}
-            brandName={brandName}
-            brandId={brandId}
-            brandImageUrl={brandImageUrl}
-            categoryLabel={categoryLabel}
-          />
-          {brandId && <LikeBrandButton brandId={brandId} slug={brandSlug} />}
-          {brandId && <SaveBrandButton brandId={brandId} slug={brandSlug} variant="inline" className="rounded-xl" />}
-          {brandId && <EvidenceDialog brandId={brandId} brandSlug={brandSlug} />}
-          {brandId && <ReportDialog brandId={brandId} brandSlug={brandSlug} />}
-          {adminSlot}
-        </div>
-      </div>
-      {websiteUrl && (
-        <div
-          data-testid="mobile-cta-bar"
-          className="lg:hidden fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background px-4 py-3 pb-[env(safe-area-inset-bottom,0.75rem)]"
+    <div className="space-y-3">
+      {websiteUrl ? (
+        <a
+          href={websiteUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={buttonVariants({ variant: 'primary', tone: 'cta', className: 'w-full' })}
+          data-ph-no-autocapture
+          onClick={handleWebsiteClick}
         >
-          <a
-            href={websiteUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={
-              visitKind === 'website' ? t('actions.visitOfficialWebsiteAria') : undefined
-            }
-            data-ph-no-autocapture
-            onClick={handleWebsiteClick}
-            className={buttonVariants({ variant: 'primary', tone: 'cta', className: 'w-full' })}
-          >
-            {visitLabel} <ExternalLink size={14} />
-          </a>
-        </div>
+          <ExternalLink className="size-[15px]" />
+          {visitLabel}
+        </a>
+      ) : (
+        <span className={buttonVariants({ variant: 'secondary', className: 'w-full cursor-default opacity-50' })} aria-disabled="true">
+          <ExternalLink className="size-[15px]" />
+          <span className="line-through">{visitLabel}</span>
+        </span>
       )}
-    </>
+      <div className="flex flex-wrap gap-2">
+        <ShareDialog
+          brandSlug={brandSlug}
+          brandName={brandName}
+          brandId={brandId}
+          brandImageUrl={brandImageUrl}
+          categoryLabel={categoryLabel}
+        />
+        {brandId && <LikeBrandButton brandId={brandId} slug={brandSlug} />}
+        {brandId && <SaveBrandButton brandId={brandId} slug={brandSlug} variant="inline" className="rounded-xl" />}
+        {brandId && <EvidenceDialog brandId={brandId} brandSlug={brandSlug} />}
+        {brandId && <ReportDialog brandId={brandId} brandSlug={brandSlug} />}
+        {adminSlot}
+      </div>
+    </div>
   )
 }

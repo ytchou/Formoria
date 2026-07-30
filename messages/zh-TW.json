@@ -3,8 +3,8 @@
     "brandName": "Formoria",
     "exploreBrands": "探索品牌",
     "browseAllBrands": "瀏覽全部品牌 →",
-    "submitBrand": "提交品牌",
-    "submitYourBrand": "提交你的品牌",
+    "submitBrand": "推薦品牌",
+    "submitYourBrand": "推薦你喜歡的品牌",
     "all": "全部",
     "allBrands": "全部品牌",
     "noBrandsFound": "找不到品牌",
@@ -36,7 +36,7 @@
     "brandDirectory": "品牌目錄",
     "faq": "常見問題",
     "support": "請我喝咖啡",
-    "submitBrand": "提交品牌",
+    "submitBrand": "推薦品牌",
     "allBrands": "全部品牌",
     "searchPlaceholder": "搜尋品牌…",
     "searchAria": "搜尋品牌",
@@ -53,18 +53,19 @@
   },
   "footer": {
     "about": "關於我們",
+    "vision": "使命與願景",
     "terms": "服務條款",
     "privacy": "隱私權政策",
     "contact": "聯絡我們",
     "copyright": "© {year} Formoria",
-    "tagline": "讓台灣品牌被世界看見",
+    "tagline": "讓台灣品牌更容易被看見、被選擇，也更容易成長",
     "discoverHeading": "探索",
     "directory": "品牌目錄",
     "stats": "數據統計",
     "gettingStarted": "開始使用",
     "guides": "指南",
     "glossary": "名詞解說",
-    "submit": "提交品牌",
+    "submit": "推薦品牌",
     "companyHeading": "關於",
     "faq": "常見問題",
     "support": "支持我們",
@@ -74,13 +75,13 @@
   },
   "landing": {
     "metadata": {
-      "title": "Formoria — 台灣品牌目錄",
-      "description": "探索社群共同整理的台灣品牌目錄，從食品、服飾到居家與設計，找到更多台灣品牌。"
+      "title": "Formoria — 台灣品牌探索與選物平台",
+      "description": "探索台灣品牌、產品特色與官方購買通路，像逛選物店一樣找到值得認識的品牌。"
     },
     "hero": {
       "eyebrow": "TAIWANESE BRANDS",
-      "headline": "Formoria — 探索台灣品牌目錄",
-      "subheadline": "由社群共同整理的台灣品牌目錄，收錄台灣創立、設計或製造的品牌。",
+      "headline": "像逛選物店一樣，發現台灣品牌",
+      "subheadline": "Formoria 整理分散的品牌、產品與購買通路資訊，讓你更容易找到值得認識的台灣品牌。",
       "statsBrands": "品牌",
       "statsCategories": "分類",
       "recentWeek": "新品牌（近 7 天）",
@@ -107,16 +108,16 @@
       "heading": "探索分類"
     },
     "manifesto": {
-      "headline": "讓台灣品牌被世界看見",
-      "body1": "台灣品牌不只是一個產地標籤，每個品牌都有自己的創意、工藝與故事。",
-      "body2": "太多用心的品牌，仍默默耕耘、等待被看見",
-      "body3": "Formoria 想成為他們與世界之間的橋樑",
-      "cta": "了解我們的故事"
+      "headline": "讓台灣品牌更容易被看見、被選擇，也更容易成長",
+      "body1": "我們先整理分散的品牌、產品與購買通路資訊，讓值得被認識的台灣品牌更容易被找到。",
+      "body2": "接著以選物內容幫助人們選擇，並用工具支持品牌自主成長。",
+      "body3": "一步一步，朝由品牌自主經營的線上台灣選物店前進。",
+      "cta": "了解我們的使命與願景"
     },
     "submitBand": {
-      "headline": "把你的台灣品牌加入 Formoria 目錄",
-      "body": "免費提交，加入 Formoria 社群目錄",
-      "cta": "提交你的品牌"
+      "headline": "推薦一個值得被看見的台灣品牌",
+      "body": "免費推薦，通過審核後加入 Formoria 社群目錄",
+      "cta": "推薦品牌"
     },
     "newBrands": {
       "heading": "最新品牌",
@@ -153,7 +154,7 @@
     "breadcrumbAria": "麵包屑導覽",
     "metadata": {
       "title": "品牌目錄 — 依分類探索台灣品牌 | Formoria",
-      "description": "探索精選的台灣品牌，依分類瀏覽、搜尋，認識在台灣創立、設計或製造的品牌。"
+      "description": "探索台灣品牌，依分類瀏覽、搜尋，認識在台灣創立、設計或製造的品牌。"
     },
     "heading": "台灣品牌目錄",
     "scopeNote": "本目錄收錄在台灣創立、設計或製造的品牌。",
@@ -177,7 +178,7 @@
       "brandSearch": "搜尋品牌或產品",
       "brandSearchHelp": "此搜尋會與所有篩選條件同時套用",
       "brandSearchLandmark": "依品牌或產品關鍵字篩選",
-      "activeSearch": "搜尋品牌或產品",
+      "activeSearch": "搜尋",
       "activeCategory": "分類",
       "activeSubcategory": "子分類",
       "activePrice": "價格區間",
@@ -787,9 +788,9 @@
             "definition": "主要設計、製造或創立根植於台灣——是對工藝的承諾，而非僅是產地標籤。"
           },
           "communityCurated": {
-            "zh": "社群策展",
-            "en": "Community-curated",
-            "definition": "由社群提交與審核，而非演算法——每筆收錄都來自真人的判斷。"
+            "zh": "社群共編",
+            "en": "Community-contributed",
+            "definition": "品牌資料由社群提供，經 Formoria 人工審核後收錄；這與編輯主動挑選的「Formoria 精選」不同。"
           }
         }
       },
@@ -887,19 +888,19 @@
         "description": "了解 Formoria 的服務條款，包括內容所有權、資料使用方式、品牌審核流程及免責聲明。"
       },
       "title": "服務條款",
-      "intro": "感謝您使用 Formoria。使用本平台即表示您同意以下條款。請在提交品牌資料前仔細閱讀。",
-      "lastUpdated": "最後更新：2026 年 5 月",
+      "intro": "感謝您使用 Formoria。使用本平台即表示您同意以下條款。請在提供品牌資料前仔細閱讀。",
+      "lastUpdated": "最後更新：2026 年 7 月",
       "contentOwnership": {
         "heading": "內容所有權",
-        "body": "您提交至 Formoria 的品牌資料（包括名稱、描述、圖片、連結等）應為您合法擁有或已獲授權使用的內容。提交內容即表示您授予 Formoria 非獨家、免授權費的使用權，用於在本平台展示及推廣台灣品牌。"
+        "body": "您提供給 Formoria 的品牌資料（包括名稱、描述、圖片、連結等）應為您合法擁有或已獲授權使用的內容。提供內容即表示您授予 Formoria 非獨家、免授權費的使用權，用於在本平台展示及推廣台灣品牌。"
       },
       "dataUse": {
         "heading": "資料使用方式",
-        "body": "品牌資料用於建立與維護目錄、提供搜尋與探索功能、改善資料品質，以及在 Formoria 上展示與推廣台灣品牌。我們不會將您的個人資料或品牌資訊出售予第三方。資料使用方式以本條款及相關隱私政策為準。"
+        "body": "品牌資料用於建立與維護目錄、提供搜尋與選物功能、改善資料品質、支援品牌主維護頁面，以及在 Formoria 上展示與推廣台灣品牌。我們不會將您的個人資料或品牌資訊出售予第三方。資料使用方式以本條款及相關隱私政策為準。"
       },
       "reviewProcess": {
         "heading": "品牌審核流程",
-        "body": "新提交的品牌資料會在發布前經過人工審核。已上線品牌的編輯會先經過自動掃描：沒有問題的變更會立即發布，被阻擋的變更則必須修正後才能發布。Formoria 保留拒絕或移除任何不符合平台標準之品牌資料的權利，且不承擔因審核結果對提交者造成影響的責任。審核通過不代表 Formoria 對該品牌的背書或認可。"
+        "body": "新推薦的品牌與品牌主提供的資料會在發布前經過人工審核。已上線品牌的編輯會先經過自動掃描：沒有問題的變更會立即發布，被阻擋的變更則必須修正後才能發布。Formoria 保留拒絕或移除任何不符合平台標準之品牌資料的權利，且不承擔因審核結果對資料提供者造成影響的責任。審核通過不代表 Formoria 對該品牌的背書或認可。"
       },
       "disclaimer": {
         "heading": "免責聲明",
@@ -920,11 +921,11 @@
       "lastUpdated": "最後更新：2026 年 7 月",
       "dataCollection": {
         "heading": "資料蒐集",
-        "body": "當您使用 Formoria 時，我們可能蒐集以下個人資料：提交品牌、提供意見或聯絡支援時留下的電子郵件地址與姓名（選填）、品牌名稱、品牌官方網站、品牌所在地區、社群連結、購買連結、是否為品牌負責人，以及資料來源。註冊帳號時，我們透過 Supabase Auth 蒐集您的電子郵件與驗證資訊。若您選擇接收行銷信件，我們也會保存同意類別、來源、版本與時間。我們透過 PostHog 蒐集瀏覽與產品使用事件，並持續使用 Google Analytics。分析事件不包含表單內容、搜尋文字、姓名、電子郵件地址、電話號碼、驗證碼或權杖。"
+        "body": "當您使用 Formoria 時，我們可能蒐集以下個人資料：推薦品牌、提供品牌資料、提供意見或聯絡支援時留下的電子郵件地址與姓名（選填）、品牌名稱、品牌官方網站、品牌所在地區、社群連結、購買連結、是否為品牌負責人，以及資料來源。註冊帳號時，我們透過 Supabase Auth 蒐集您的電子郵件與驗證資訊。若您選擇接收行銷信件，我們也會保存同意類別、來源、版本與時間。我們透過 PostHog 蒐集瀏覽與產品使用事件，並持續使用 Google Analytics。分析事件不包含表單內容、搜尋文字、姓名、電子郵件地址、電話號碼、驗證碼或權杖。"
       },
       "purpose": {
         "heading": "使用目的",
-        "body": "我們蒐集個人資料的目的包括：建立及維護台灣品牌目錄、提供品牌探索與搜尋功能、補充與校正品牌資料、防止垃圾訊息與濫用、改善網站功能與使用體驗，以及處理您的品牌提交、認領、驗證、安全性與帳號相關通知。只有在您另外選擇同意後，我們才會寄送電子報，或適用於品牌主的經營提醒與功能建議；這兩類行銷信件可分別關閉。是否同意行銷信件不影響您提交品牌、建立帳號或使用核心服務。"
+        "body": "我們蒐集個人資料的目的包括：建立及維護台灣品牌目錄、提供品牌探索與搜尋功能、補充與校正品牌資料、防止垃圾訊息與濫用、改善網站功能與使用體驗，以及處理您的品牌推薦、認領、驗證、安全性與帳號相關通知。只有在您另外選擇同意後，我們才會寄送電子報，或適用於品牌主的經營提醒與功能建議；這兩類行銷信件可分別關閉。是否同意行銷信件不影響您推薦品牌、建立帳號或使用核心服務。"
       },
       "thirdParty": {
         "heading": "第三方服務",
@@ -955,7 +956,7 @@
   "faq": {
     "metadata": {
       "title": "常見問題",
-      "description": "Formoria 台灣品牌目錄常見問題：了解收錄條件、信任層級、品牌提交、審核流程與認領方式。"
+      "description": "Formoria 台灣品牌探索與選物平台常見問題：了解收錄條件、信任層級、品牌推薦、審核流程與認領方式。"
     },
     "title": "常見問題",
     "intro": "若仍有疑問，請<contact>與我們聯繫</contact>",
@@ -966,28 +967,28 @@
     },
     "items": {
       "whatIsFormoria": {
-        "question": "Formoria 收錄哪些品牌？",
-        "answer": "Formoria 是由社群共同整理的台灣品牌目錄，收錄在台灣創立、設計或製造的品牌，讓你探索品牌產品、故事與官方連結。"
+        "question": "Formoria 是什麼？",
+        "answer": "Formoria 是台灣品牌探索與選物平台。我們以社群共同整理的品牌目錄為基礎，收錄在台灣創立、設計或製造的品牌，並整理產品特色與官方購買通路，讓值得認識的品牌更容易被找到。"
       },
       "whoCanSubmit": {
-        "question": "誰可以提交品牌？",
-        "answer": "任何人都可以提交品牌，不需要先成為品牌負責人。品牌主也可以透過品牌主流程提交資料，審核通過後再認領品牌頁面。"
+        "question": "誰可以推薦品牌？",
+        "answer": "任何人都可以推薦品牌，不需要先成為品牌負責人。品牌主也可以透過品牌主流程提供完整資料，審核通過後再認領品牌頁面。"
       },
       "taiwaneseBrandCriteria": {
         "question": "什麼樣的品牌符合收錄資格？",
-        "answer": "只要品牌在台灣創立、設計或製造，符合其中任何一項即可。例如：總部設在台北的公司符合「創立」條件；在台灣設計、海外生產的工作室符合「設計」條件；在鶯歌製作產品的工坊符合「製造」條件。歡迎品牌主、品牌愛好者或社群成員提交。"
+        "answer": "只要品牌在台灣創立、設計或製造，符合其中任何一項即可。例如：總部設在台北的公司符合「創立」條件；在台灣設計、海外生產的工作室符合「設計」條件；在鶯歌製作產品的工坊符合「製造」條件。歡迎品牌主、品牌愛好者或社群成員推薦。"
       },
       "whatDoesMitMean": {
         "question": "MIT 層級代表什麼？",
         "answer": "「MIT 認證」代表 Formoria 已比對產品與官方 MIT 微笑標章登錄資料；「品牌聲明」則記錄品牌主聲明的製造範圍，可能是部分、多數或全部產品。兩者都不代表該品牌每項產品皆在台灣製造，請查看頁面標示的範圍與佐證。"
       },
       "howToSubmit": {
-        "question": "如何提交品牌到 Formoria？",
-        "answer": "任何人都可以透過我們的提交表單提交品牌資料。請前往「提交品牌」頁面，填寫品牌基本資訊、官方網站、社群連結等內容，送出後由 Formoria 團隊進行審核。我們不收取任何費用；審核會確認資料是否完整、品牌是否真實存在，以及品牌與台灣的連結。"
+        "question": "如何推薦品牌到 Formoria？",
+        "answer": "任何人都可以透過推薦表單分享品牌。請前往「推薦品牌」頁面，提供品牌名稱與官方連結，送出後由 Formoria 團隊進行審核。我們不收取任何費用；審核會確認資料是否完整、品牌是否真實存在，以及品牌與台灣的連結。"
       },
       "reviewTime": {
         "question": "品牌審核需要多久時間？",
-        "answer": "品牌審核通常約需 7 個工作天。我們會確認品牌真實存在、提交資料完整，並符合收錄條件。審核通過後，品牌會出現在目錄中；若資料不完整，我們可能會透過信件聯繫提交者補件。"
+        "answer": "品牌審核通常約需 7 個工作天。我們會確認品牌真實存在、資料完整，並符合收錄條件。審核通過後，品牌會出現在目錄中；若資料不完整，我們可能會透過信件聯繫推薦人補件。"
       },
       "dataAccuracy": {
         "question": "品牌資料的準確性如何保障？",
@@ -995,7 +996,7 @@
       },
       "isBrandFree": {
         "question": "在 Formoria 刊登品牌需要付費嗎？",
-        "answer": "不用，提交品牌到 Formoria 完全免費。歡迎品牌經營者、品牌愛好者或社群成員一起完善台灣品牌目錄。"
+        "answer": "不用，推薦品牌到 Formoria 完全免費。歡迎品牌經營者、品牌愛好者或社群成員一起完善台灣品牌目錄。"
       },
       "ownerInterest": {
         "question": "我是品牌主，現在可以自己管理品牌頁面嗎？",
@@ -1055,11 +1056,11 @@
   "about": {
     "metadata": {
       "title": "關於 Formoria",
-      "description": "Formoria 是由社群共同整理的台灣品牌目錄，收錄品牌介紹、產品、照片與官方連結，讓更多人找到台灣品牌。"
+      "description": "Formoria 是台灣品牌探索與選物平台，從可搜尋的品牌目錄出發，讓台灣品牌更容易被看見、被選擇，也更容易成長。"
     },
     "hero": {
-      "title": "讓更多人找到台灣品牌的社群目錄",
-      "subtitle": "由社群共同整理的目錄，收錄在台灣創立、設計或製造的品牌。",
+      "title": "讓台灣品牌更容易被看見的探索與選物平台",
+      "subtitle": "從可搜尋的品牌目錄出發，整理品牌、產品與官方購買通路。",
       "statSuffix": "，持續增加中",
       "statsBrands": "品牌",
       "statsCategories": "分類",
@@ -1075,19 +1076,20 @@
     },
     "mission": {
       "heading": "我們的使命",
-      "statement": "Formoria 把分散在各處的台灣品牌資料整理成可搜尋的目錄，讓本地與海外使用者更容易找到它們。",
+      "statement": "讓台灣品牌更容易被看見、被選擇，也更容易成長。",
       "promote": {
-        "heading": "推廣台灣品牌",
-        "body": "讓世界各地的人更容易發現產品扎實、故事清楚，並與台灣有真實連結的品牌"
+        "heading": "先解決被看見",
+        "body": "整理散落在官網、社群、購物平台與實體通路的品牌資訊，讓正在尋找的人更容易發現它們。"
       },
       "smallBusiness": {
-        "heading": "支持小型企業",
-        "body": "為獨立創作者、家族企業與新興品牌提供另一條被看見的路，不要求它們變成不是自己的樣子"
+        "heading": "讓選擇更容易",
+        "body": "透過清楚的產品特色、購買通路與選物內容，幫助訪客理解品牌為什麼適合自己。"
       },
       "platform": {
-        "heading": "建立探索平台",
-        "body": "整理品牌介紹、產品、照片與官方連結，讓消費者、旅人、編輯與海外台灣社群能集中查找台灣品牌"
-      }
+        "heading": "讓品牌更容易成長",
+        "body": "讓品牌主保有經營主導權，同時逐步提供觸及顧客、理解需求與提升效率的工具。"
+      },
+      "visionCta": "了解我們的使命與願景 →"
     },
     "qualifies": {
       "heading": "收錄條件",
@@ -1123,15 +1125,15 @@
     },
     "guide": {
       "heading": "想了解如何使用 Formoria？",
-      "body": "指南會說明怎麼探索、收藏、提交或認領品牌。",
+      "body": "指南會說明怎麼探索、收藏、推薦或認領品牌。",
       "cta": "開始使用 →"
     },
     "trust": {
       "heading": "我們如何建立信任",
       "subtitle": "品牌資料可由社群提交；品牌主提供所有權證明並通過審核後，可管理自己的品牌頁面。",
-      "tagline": "社群精選。品牌認領。實證審核。",
+      "tagline": "社群共編。品牌認領。實證審核。",
       "pillar1": {
-        "title": "社群精選",
+        "title": "社群共編",
         "desc": "品牌資料來自社群提交與公開資料，並經人工審核後上線。"
       },
       "pillar2": {
@@ -1144,15 +1146,62 @@
       }
     }
   },
+  "vision": {
+    "metadata": {
+      "title": "Formoria 的使命與願景",
+      "description": "了解 Formoria 如何先解決台灣品牌的曝光與探索問題，並朝品牌自主經營的線上台灣選物店前進。"
+    },
+    "hero": {
+      "eyebrow": "FORMORIA 的使命",
+      "title": "讓台灣品牌更容易被看見、被選擇，也更容易成長",
+      "intro": "Formoria 是台灣品牌探索與選物平台。我們整理分散在官網、社群、購物平台與實體通路的資訊，讓值得被認識的台灣品牌更容易被找到。"
+    },
+    "today": {
+      "eyebrow": "我們現在正在做的事",
+      "heading": "先把分散的品牌資訊整理清楚",
+      "body": "品牌故事、產品特色、門市與購買通路經常散落在不同地方。我們先建立完整、可搜尋的品牌目錄，讓消費者不用在多個網站與社群之間來回尋找。"
+    },
+    "path": {
+      "heading": "從被看見開始",
+      "statement": "每一個階段都建立在前一個階段之上，讓探索品牌逐步走向真正有幫助的選擇與成長。",
+      "discover": {
+        "heading": "被看見",
+        "body": "整理可靠的品牌、產品、門市與購買通路資訊，先解決品牌曝光與資訊分散的問題。"
+      },
+      "choose": {
+        "heading": "被選擇",
+        "body": "透過主題選物、編輯內容與產品層級的推薦，幫助人們找到真正適合自己的選擇。"
+      },
+      "grow": {
+        "heading": "更容易成長",
+        "body": "提供品牌主需求洞察與經營工具，讓觸及顧客、維護資訊與擴大品牌變得更有效率。"
+      }
+    },
+    "future": {
+      "eyebrow": "我們的願景",
+      "heading": "成為一間由品牌自主經營的線上台灣選物店",
+      "body": "未來，人們可以在 Formoria 發現並直接向台灣品牌下單；Formoria 負責探索、整理、推薦與支援工具，品牌則保有自己的經營主導權。",
+      "principleHeading": "品牌保有主導權",
+      "principleBody": "定價、訂單、付款、出貨、售後服務與顧客關係仍由品牌方掌握。Formoria 不取代品牌，而是幫助品牌更容易觸及對的人、理解需求並提升經營效率。"
+    },
+    "participate": {
+      "eyebrow": "一起參與",
+      "heading": "一起把這項使命做得更好",
+      "body": "功能許願板讓訪客與品牌主提出需求並參與投票，幫助我們理解下一步最值得解決的問題。",
+      "visitorCta": "改善探索與選物體驗",
+      "ownerCta": "改善品牌經營工具",
+      "note": "許願與投票會協助我們判斷優先順序，但不代表公開時程或功能承諾。"
+    }
+  },
   "mySubmissions": {
     "metadata": {
-      "title": "我的提交"
+      "title": "我的推薦"
     },
-    "heading": "我的提交",
-    "subheading": "查看您提交的所有品牌",
+    "heading": "我的推薦",
+    "subheading": "查看你推薦的所有品牌",
     "empty": {
-      "message": "您尚未提交任何品牌。",
-      "cta": "提交品牌"
+      "message": "你還沒有推薦任何品牌。",
+      "cta": "推薦品牌"
     },
     "status": {
       "pending": "審核中",
@@ -1231,7 +1280,7 @@
     "menuLabel": "帳號",
     "favorites": "收藏品牌",
     "contributions": "我的貢獻",
-    "mySubmissions": "我的提交",
+    "mySubmissions": "我的推薦",
     "signOut": "登出",
     "settings": "帳號設定",
     "feedback": "意見回饋"
@@ -1431,13 +1480,13 @@
     "tabs": {
       "profile": "總覽",
       "analytics": "數據分析",
-      "submissions": "提交紀錄",
+      "submissions": "更新紀錄",
       "dashboardNav": "帳號導覽"
     },
     "emptyState": {
       "title": "此頁面為品牌經營者專屬主控台",
-      "description": "只有已登入的品牌帳號才能查看這個頁面。如果你是台灣品牌的主理人，歡迎提交品牌，加入 Formoria 目錄。",
-      "submitCta": "提交你的品牌",
+      "description": "只有已登入的品牌帳號才能查看這個頁面。如果你是台灣品牌的主理人，可以先建立品牌的 Formoria 頁面。",
+      "submitCta": "建立品牌頁面",
       "browseCta": "瀏覽品牌目錄"
     },
     "analytics": {
@@ -1586,7 +1635,7 @@
       "subtitle": "管理您的品牌頁面",
       "viewButton": "查看品牌頁面",
       "editButton": "編輯品牌",
-      "submitOtherBrand": "提交其他品牌",
+      "submitOtherBrand": "推薦其他品牌",
       "analyticsHeading": "數據分析",
       "detailsCardTitle": "品牌資訊總覽",
       "descriptionLabel": "品牌介紹",
@@ -1812,11 +1861,11 @@
   },
   "submit": {
     "metadata": {
-      "title": "提交品牌",
-      "description": "提交台灣品牌到 Formoria 品牌目錄"
+      "title": "推薦品牌",
+      "description": "推薦值得被看見的台灣品牌，通過審核後加入 Formoria 品牌目錄"
     },
     "overview": {
-      "heading": "提交你的台灣品牌",
+      "heading": "推薦台灣品牌",
       "description": "與社群分享你喜歡的台灣品牌，我們會審核後收錄進品牌目錄。",
       "criteria": "我們收錄在台灣創立、設計或製造的品牌。",
       "recommendEyebrow": "社群推薦",
@@ -1829,25 +1878,25 @@
       "ownerEyebrow": "品牌主",
       "ownerTitle": "開始創建完整品牌資訊",
       "ownerDescription": "提交審核通過後將直接擁有編輯管理權",
-      "ownerPoint1": "填寫品牌基本資料與代表性連結",
+      "ownerPoint1": "提供品牌基本資料與代表性連結",
       "ownerPoint2": "完成認領流程，審核通過後我們會寄送認領邀請",
       "ownerPoint3": "你即可進入後台管理品牌頁面",
       "ownerCta": "登入後開始",
-      "ownerCtaLoggedIn": "提交我的品牌",
+      "ownerCtaLoggedIn": "建立我的品牌頁",
       "ownerLimitTitle": "你已經擁有一個品牌",
-      "ownerLimitDescription": "每個帳號只能管理一個品牌，因此你無法再以品牌主身分提交其他品牌。若想分享其他品牌，請改用社群推薦流程。",
+      "ownerLimitDescription": "每個帳號只能管理一個品牌，因此你無法再透過品牌主流程建立另一個品牌頁。若想分享其他品牌，請改用社群推薦流程。",
       "ownerLimitRecommendCta": "前往推薦品牌",
       "ownerLimitCancelCta": "取消",
       "ownerLimitCloseCta": "關閉",
       "ownerLimitNavigationError": "目前無法前往推薦流程，請再試一次。"
     },
     "wizard": {
-      "heading": "提交品牌",
+      "heading": "推薦品牌",
       "subheading": "與社群分享台灣品牌",
       "back": "返回",
       "next": "下一步",
-      "submitting": "提交中...",
-      "submitBrand": "提交品牌",
+      "submitting": "送出中...",
+      "submitBrand": "送出推薦",
       "steps": {
         "brandInfo": "品牌資訊",
         "tags": "分類與特色",
@@ -1857,10 +1906,10 @@
       }
     },
     "url": {
-      "heading": "提交你喜愛的品牌",
+      "heading": "推薦你喜愛的品牌",
       "subheading": "與社群分享台灣品牌",
       "label": "品牌網站",
-      "hint": "貼上品牌網站的網址，我們將自動填入您的提交資料",
+      "hint": "貼上品牌網站的網址，我們會自動填入推薦資料",
       "socialLinksLabel": "社群連結",
       "purchaseLinksLabel": "購買連結",
       "purchaseLinksHint": "新增品牌的購買通路連結",
@@ -1960,6 +2009,7 @@
       "ubnDuplicateTitle": "此統一編號的品牌已存在於目錄中",
       "ubnDuplicateSeeExisting": "請查看現有品牌：",
       "nameDuplicateTitle": "發現相似品牌名稱",
+      "websiteDuplicateTitle": "這個網站已經登錄在其他品牌資料中",
       "nameDuplicateConfirmLabel": "我確認這不是重複的品牌",
       "checking": "檢查中",
       "next": "下一步",
@@ -1988,13 +2038,13 @@
     },
     "confirmation": {
       "metadata": {
-        "title": "提交成功",
-        "description": "我們已收到您的品牌提交，正在進行審核。"
+        "title": "已收到品牌資料",
+        "description": "我們已收到你的品牌資料，正在進行審核。"
       },
       "heading": "感謝您！",
       "subheading": "我們已收到你的品牌推薦",
-      "ownerSubheading": "我們已收到你的品牌主提交",
-      "communityOwnershipNotice": "你的帳號已管理一個品牌，因此這次提交會以社群品牌資料受理，且無法由此帳號認領。",
+      "ownerSubheading": "我們已收到你的品牌資料",
+      "communityOwnershipNotice": "你的帳號已管理一個品牌，因此這次推薦會以社群品牌資料受理，且無法由此帳號認領。",
       "timeline": {
         "review": {
           "label": "審核中",
@@ -2014,7 +2064,7 @@
       },
       "cta": {
         "explore": "探索 Formoria 目錄",
-        "submitAnother": "再提交一個品牌"
+        "submitAnother": "再推薦一個品牌"
       },
       "whatNext": {
         "heading": "接下來會發生什麼",
@@ -2058,8 +2108,8 @@
       "regionRequired": "請選擇地區"
     },
     "errors": {
-      "notAuthenticated": "請先登入才能提交品牌",
-      "rateLimit": "提交次數過多，請稍後再試。",
+      "notAuthenticated": "請先登入才能建立品牌頁面",
+      "rateLimit": "操作次數過多，請稍後再試。",
       "validation": "驗證失敗，請再試一次。",
       "unexpected": "發生預期外的錯誤，請再試一次。",
       "turnstileError": "驗證失敗，請重新整理頁面後再試。"
@@ -2090,8 +2140,8 @@
       "applySuggestion": "套用"
     },
     "ownerForm": {
-      "heading": "品牌主提交",
-      "subheading": "先提交品牌資料；審核通過後，我們會寄出品牌認領邀請。",
+      "heading": "建立品牌頁面",
+      "subheading": "先提供品牌資料；審核通過後，我們會寄出品牌認領邀請。",
       "websiteLabel": "品牌官方網站",
       "websiteHint": "請填最主要的官方網站，作為後續品牌頁面與認領流程的依據。",
       "websitePlaceholder": "https://yourbrand.com",
@@ -2116,22 +2166,22 @@
       "pinkoiLabel": "Pinkoi",
       "shopeeLabel": "蝦皮購物",
       "requiredHint": "為必填欄位",
-      "submitButton": "提交品牌主資料",
-      "submittingButton": "提交中…",
+      "submitButton": "送出品牌資料",
+      "submittingButton": "送出中…",
       "suggestedName": "建議名稱：",
       "suggestedUrl": "建議網址：",
       "applySuggestion": "套用"
     },
     "ownerFork": {
       "heading": "選擇品牌建立方式",
-      "description": "依照你的時間與需求，選擇最適合的方式提交品牌資料。",
-      "quickEyebrow": "快速提交",
-      "quickTitle": "提交品牌基本資訊",
+      "description": "依照你的時間與需求，選擇最適合的品牌頁建立方式。",
+      "quickEyebrow": "快速建立",
+      "quickTitle": "提供品牌基本資訊",
       "quickDescription": "我們系統會根據您提供的基本資訊盡可能從網路上爬取您的資訊，但無法保證資料的正確性。適合目前時間有限的品牌主，但需要後續的檢查。",
       "quickPoint1": "只需提供品牌名稱、官方網站、品牌簡介",
       "quickPoint2": "系統根據您提供的資料爬取品牌資訊",
       "quickPoint3": "將會於三個工作天內完成資料爬取",
-      "quickCta": "快速提交",
+      "quickCta": "開始快速建立",
       "detailsEyebrow": "完整資料",
       "detailsTitle": "提供完整品牌資料",
       "detailsDescription": "您將親自填寫完整品牌資訊，確保每個細節都能精準呈現品牌特色。",
@@ -2141,10 +2191,10 @@
       "detailsCta": "填寫完整資料"
     },
     "quickForm": {
-      "heading": "快速提交品牌",
+      "heading": "快速建立品牌頁",
       "subheading": "填寫基本資訊，我們會自動擷取品牌的其他資料。",
-      "submitButton": "提交品牌",
-      "submittingButton": "提交中…"
+      "submitButton": "建立品牌頁",
+      "submittingButton": "建立中…"
     },
     "submissionWizard": {
       "heading": "填寫品牌資料",
@@ -2153,12 +2203,12 @@
       "stepMedia": "品牌圖片",
       "stepLinks": "連結",
       "stepLocations": "銷售據點",
-      "sidebarTitle": "提交進度",
+      "sidebarTitle": "建立進度",
       "progressText": "步驟 {current} / {total}",
       "continueButton": "繼續",
       "backButton": "上一步",
-      "submitButton": "提交品牌資料",
-      "submittingButton": "提交中…",
+      "submitButton": "送出品牌資料",
+      "submittingButton": "送出中…",
       "basicInfoHeading": "基本資訊",
       "mediaHeading": "品牌圖片",
       "linksHeading": "品牌連結",
@@ -2168,7 +2218,7 @@
       "addLocation": "新增據點"
     },
     "form": {
-      "heading": "提交品牌",
+      "heading": "推薦品牌",
       "subheading": "與社群分享台灣品牌",
       "websiteLabel": "品牌官方網站",
       "websitePlaceholder": "https://yourbrand.com",
@@ -2187,8 +2237,8 @@
       "facebookLabel": "Facebook",
       "pinkoiLabel": "Pinkoi",
       "shopeeLabel": "Shopee",
-      "submitButton": "提交品牌",
-      "submittingButton": "提交中...",
+      "submitButton": "送出推薦",
+      "submittingButton": "送出中...",
       "suggestedName": "建議名稱：",
       "suggestedUrl": "建議網址：",
       "applySuggestion": "套用"
@@ -2197,12 +2247,12 @@
   "gettingStarted": {
     "metadata": {
       "title": "探索 Formoria",
-      "description": "了解如何瀏覽台灣品牌、收藏喜愛的品牌，並透過官方連結進一步認識品牌。"
+      "description": "了解如何使用 Formoria 探索台灣品牌、比較產品特色、收藏品牌，並透過官方連結直接向品牌購買。"
     },
     "hero": {
       "eyebrow": "探索 Formoria",
       "title": "找到下一個喜歡的品牌",
-      "intro": "依分類瀏覽，或用搜尋找到台灣品牌。打開品牌頁查看介紹、照片與官方連結，也可以先收藏，之後再回來。",
+      "intro": "Formoria 是台灣品牌探索與選物平台。依分類或搜尋找到品牌，查看產品特色與購買通路，也可以先收藏，之後再回來。",
       "primaryCta": "瀏覽品牌",
       "secondaryCta": "閱讀常見問題"
     },
@@ -2251,9 +2301,9 @@
     },
     "cta": {
       "heading": "準備探索台灣品牌了嗎？",
-      "body": "瀏覽品牌目錄，找到符合你興趣的品牌，或閱讀常見問題，了解品牌目錄與認領流程如何運作。",
+      "body": "瀏覽品牌目錄，找到符合你興趣的品牌，或了解 Formoria 如何一步步實現這項使命。",
       "browse": "瀏覽品牌",
-      "faq": "閱讀常見問題"
+      "faq": "閱讀使命與願景"
     },
     "ctaFooter": {
       "cta": "到功能許願板登記你的需求"
@@ -2786,6 +2836,10 @@
         "browseAll": {
           "title": "瀏覽所有品牌",
           "description": "探索 Formoria 全部品牌"
+        },
+        "recommendBrand": {
+          "title": "推薦這個品牌",
+          "description": "找不到？把它推薦給 Formoria，我們會盡快審核。"
         }
       },
       "recommendations": "你可能想找",

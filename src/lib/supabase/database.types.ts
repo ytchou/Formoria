@@ -2340,7 +2340,7 @@ export type Database = {
         }
       }
       check_brand_duplicates: {
-        Args: { p_name: string; p_ubn?: string }
+        Args: { p_name: string; p_ubn?: string; p_website_key?: string }
         Returns: Json
       }
       claim_claim_proof_cleanup_jobs: {

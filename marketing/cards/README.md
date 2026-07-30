@@ -1,6 +1,6 @@
 # Formoria 圖卡 (Social Card) Engine
 
-Image-led 1080×1350 social cards for Formoria / 島藏, built on the global `/content-cards` skill. v1 is **ZH-TW only**, **manual posting** (no scheduler / Meta API).
+Image-led 1080×1350 social cards for Formoria, built on the global `/content-cards` skill. v1 is **ZH-TW only**, **manual posting** (no scheduler / Meta API).
 
 ## What's in this directory
 
@@ -43,8 +43,8 @@ Placeholders found across all four templates, grouped by role:
 | `{{LANG}}` | HTML `lang` attribute, e.g. `zh-TW` |
 | `{{FONT_HEADING}}` | Heading font-family string |
 | `{{FONT_BODY}}` | Body font-family string |
-| `{{WORDMARK_ZH}}` | ZH wordmark text — `島藏` |
-| `{{WORDMARK_EN}}` | EN wordmark text — `Formoria` |
+| `{{WORDMARK_ZH}}` | Primary wordmark text — `Formoria` |
+| `{{WORDMARK_EN}}` | Optional secondary wordmark text; empty for the current single-name brand |
 | `{{BG_IMAGE}}` | Background image URL or base64 data URI; hidden when empty |
 | `{{BG_FILL}}` | Solid `background-color` fallback (shown when no image, or beneath image) |
 | `{{SCRIM}}` | CSS gradient string for the scrim overlay (computed from `theme.background.scrim`) |
@@ -118,5 +118,5 @@ Templates and theme are reusable for these future sets — each needs only a new
 
 - **v1 ZH-TW only.** Bilingual support is deferred. Distribution is manual native upload (IG, Threads).
 - **Image sourcing** is a content-time concern. The engine consumes an image path per card; it does not source or generate images.
-- **Logo asset:** `theme.brand.logo` is `null`. The v1 placeholder is the text wordmark 島藏 / Formoria rendered in Noto Sans TC.
+- **Logo asset:** `theme.brand.logo` is `null`. The v1 placeholder is the Formoria text wordmark rendered in Noto Sans TC.
 - **Pending founder sign-off** (see `../items/2026-07-21-intro-carousel/brief.md` TODOs): cover tagline wording, founder quote wording, IG / Threads handles.

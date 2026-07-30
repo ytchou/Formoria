@@ -168,17 +168,31 @@ describe('insertBrandImage', () => {
 
 describe('toImageFields', () => {
   const rows = [
-    { url: 'promo.jpg', status: 'rejected', sort_order: 0 },
-    { url: 'prod.jpg', status: 'active', sort_order: 0 },
-    { url: 'life.jpg', status: 'active', sort_order: 1 },
+    { url: 'https://images.formoria.com/rejected-campaign.webp', status: 'rejected', sort_order: 0 },
+    {
+      url: 'https://images.formoria.com/藺草編織包.webp',
+      status: 'active',
+      sort_order: 0,
+      alt_zh: '職人手工編織的藺草提包',
+      alt_en: 'Handwoven rush-grass tote bag',
+      width: 1600,
+      height: 1200,
+    },
+    { url: 'https://images.formoria.com/workshop.webp', status: 'active', sort_order: 1 },
   ]
 
-  it('maps active rows to the existing domain shape (hero + productPhotos + imageAlts)', () => {
+  it('keeps stored hero metadata aligned with the selected active image', () => {
     expect(toImageFields(rows as never)).toEqual({
-      heroImageUrl: 'prod.jpg',
-      productPhotos: ['life.jpg'],
+      heroImageUrl: 'https://images.formoria.com/藺草編織包.webp',
+      heroImageMetadata: {
+        altZh: '職人手工編織的藺草提包',
+        altEn: 'Handwoven rush-grass tote bag',
+        width: 1600,
+        height: 1200,
+      },
+      productPhotos: ['https://images.formoria.com/workshop.webp'],
       imageAlts: [
-        { altZh: null, altEn: null },
+        { altZh: '職人手工編織的藺草提包', altEn: 'Handwoven rush-grass tote bag' },
         { altZh: null, altEn: null },
       ],
     })

@@ -1,15 +1,16 @@
-import { test, expect } from '../fixtures/auth'
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import { ownerFeaturesDisabled } from '../helpers/owner-features'
+import { test, expect } from "../fixtures/auth";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { ownerFeaturesDisabled } from "../helpers/owner-features";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnySupabaseClient = SupabaseClient<any, any, any>
+type AnySupabaseClient = SupabaseClient<any, any, any>;
 
 /**
  * Static & Compliance Pages + Microsite
  *
  * Journeys:
  *  - /about renders with heading
+ *  - /vision explains the mission, owner-led vision, and feedback paths
  *  - /privacy renders with heading
  *  - /terms renders with heading
  *  - /challenge renders the localized verification heading with Turnstile container
@@ -20,144 +21,204 @@ type AnySupabaseClient = SupabaseClient<any, any, any>
  * Seed: one approved brand with site_content for the microsite test
  * Cleanup: afterAll deletes the brand
  */
-test.describe('Static & compliance pages', () => {
-  let supabase: AnySupabaseClient
-  let micrositeBrandId: string
-  let micrositeSlug: string
-  let micrositeBrandName: string
-  const micrositeTagline = 'E2E test tagline'
+test.describe("Static & compliance pages", () => {
+  let supabase: AnySupabaseClient;
+  let micrositeBrandId: string;
+  let micrositeSlug: string;
+  let micrositeBrandName: string;
+  const micrositeTagline = "E2E test tagline";
 
   test.beforeAll(async ({}, workerInfo) => {
     supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    )
+    );
 
-    const ts = Date.now()
-    const wi = workerInfo.workerIndex
-    micrositeSlug = `e2e-microsite-${ts}-${wi}`
-    micrositeBrandName = `[E2E-TEST] microsite ${ts}`
+    const ts = Date.now();
+    const wi = workerInfo.workerIndex;
+    micrositeSlug = `e2e-microsite-${ts}-${wi}`;
+    micrositeBrandName = `[E2E-TEST] microsite ${ts}`;
 
     const { data: brand, error } = await supabase
-      .from('brands')
+      .from("brands")
       .insert({
         name: micrositeBrandName,
         slug: micrositeSlug,
-        status: 'approved',
-        founding_year: '2020',
+        status: "approved",
+        founding_year: "2020",
         site_content: {
-          template: 'default',
-          tokens: { accent: '#000' },
+          template: "default",
+          tokens: { accent: "#000" },
           tagline: micrositeTagline,
-          story: 'E2E test story',
+          story: "E2E test story",
           products: [],
-          ctaType: 'mailto',
+          ctaType: "mailto",
         },
       })
-      .select('id')
-      .single()
+      .select("id")
+      .single();
 
     if (error || !brand) {
-      throw new Error(`Failed to seed microsite brand: ${error?.message}`)
+      throw new Error(`Failed to seed microsite brand: ${error?.message}`);
     }
-    micrositeBrandId = brand.id
-  })
+    micrositeBrandId = brand.id;
+  });
 
   test.afterAll(async () => {
-    if (!supabase) return
+    if (!supabase) return;
     if (micrositeBrandId) {
-      await supabase.from('brands').delete().eq('id', micrositeBrandId)
+      await supabase.from("brands").delete().eq("id", micrositeBrandId);
     }
-  })
+  });
 
-  test('about page renders', async ({ anonPage }) => {
-    test.setTimeout(30_000)
-    const resp = await anonPage.goto('/about', { timeout: 30_000 })
-    if (resp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return }
-    await expect(anonPage.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 15_000 })
-  })
+  test("about page renders", async ({ anonPage }) => {
+    test.setTimeout(30_000);
+    const resp = await anonPage.goto("/about", { timeout: 30_000 });
+    if (resp?.status() === 503) {
+      test.skip(true, "PREVIEW_MODE active");
+      return;
+    }
+    await expect(anonPage.getByRole("heading", { level: 1 })).toBeVisible({
+      timeout: 15_000,
+    });
+  });
 
-  test('privacy page renders', async ({ anonPage }) => {
-    test.setTimeout(30_000)
-    const resp = await anonPage.goto('/privacy', { timeout: 30_000 })
-    if (resp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return }
+  test("vision page separates the current mission from the owner-led future", async ({
+    anonPage,
+  }) => {
+    test.setTimeout(30_000);
+    const resp = await anonPage.goto("/vision", { timeout: 30_000 });
+    if (resp?.status() === 503) {
+      test.skip(true, "PREVIEW_MODE active");
+      return;
+    }
     await expect(
-      anonPage.getByRole('heading', { name: '隱私權政策' }),
-    ).toBeVisible({ timeout: 15_000 })
-  })
-
-  test('terms page renders', async ({ anonPage }) => {
-    test.setTimeout(30_000)
-    const resp = await anonPage.goto('/terms', { timeout: 30_000 })
-    if (resp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return }
+      anonPage.getByRole("heading", {
+        level: 1,
+        name: "讓台灣品牌更容易被看見、被選擇，也更容易成長",
+      }),
+    ).toBeVisible({ timeout: 15_000 });
     await expect(
-      anonPage.getByRole('heading', { name: '服務條款' }),
-    ).toBeVisible({ timeout: 15_000 })
-  })
+      anonPage.getByRole("heading", {
+        name: "成為一間由品牌自主經營的線上台灣選物店",
+      }),
+    ).toBeVisible();
+    await expect(
+      anonPage.locator('a[href*="/feedback?category=visitor"]'),
+    ).toBeVisible();
+    await expect(
+      anonPage.locator('a[href*="/feedback?category=owner"]'),
+    ).toBeVisible();
+  });
 
-  test('legal page titles are single-suffixed', async ({ anonPage }) => {
+  test("privacy page renders", async ({ anonPage }) => {
+    test.setTimeout(30_000);
+    const resp = await anonPage.goto("/privacy", { timeout: 30_000 });
+    if (resp?.status() === 503) {
+      test.skip(true, "PREVIEW_MODE active");
+      return;
+    }
+    await expect(
+      anonPage.getByRole("heading", { name: "隱私權政策" }),
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("terms page renders", async ({ anonPage }) => {
+    test.setTimeout(30_000);
+    const resp = await anonPage.goto("/terms", { timeout: 30_000 });
+    if (resp?.status() === 503) {
+      test.skip(true, "PREVIEW_MODE active");
+      return;
+    }
+    await expect(
+      anonPage.getByRole("heading", { name: "服務條款" }),
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("legal page titles are single-suffixed", async ({ anonPage }) => {
     const pages = [
-      ['/terms', '服務條款 | Formoria'],
-      ['/privacy', '隱私權政策 | Formoria'],
-      ['/en/terms', 'Terms of Service | Formoria'],
-      ['/en/privacy', 'Privacy Policy | Formoria'],
-    ] as const
+      ["/terms", "服務條款 | Formoria"],
+      ["/privacy", "隱私權政策 | Formoria"],
+      ["/en/terms", "Terms of Service | Formoria"],
+      ["/en/privacy", "Privacy Policy | Formoria"],
+    ] as const;
 
     for (const [path, title] of pages) {
-      await anonPage.goto(path, { timeout: 30_000 })
-      await expect(anonPage).toHaveTitle(title)
+      await anonPage.goto(path, { timeout: 30_000 });
+      await expect(anonPage).toHaveTitle(title);
     }
-  })
+  });
 
-  test('challenge page renders the localized verification heading', async ({ anonPage }) => {
-    test.setTimeout(30_000)
+  test("challenge page renders the localized verification heading", async ({
+    anonPage,
+  }) => {
+    test.setTimeout(30_000);
     // /challenge uses the default zh-TW locale; /en/challenge is the English variant.
-    const resp = await anonPage.goto('/challenge', { timeout: 30_000 })
-    if (resp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return }
+    const resp = await anonPage.goto("/challenge", { timeout: 30_000 });
+    if (resp?.status() === 503) {
+      test.skip(true, "PREVIEW_MODE active");
+      return;
+    }
     await expect(
-      anonPage.getByRole('heading', { name: '快速驗證' }),
-    ).toBeVisible({ timeout: 15_000 })
+      anonPage.getByRole("heading", { name: "快速驗證" }),
+    ).toBeVisible({ timeout: 15_000 });
     // Turnstile container (div rendered by TurnstileWidget, or the "Verifying..." text)
     // The widget may redirect quickly in dev; assert the heading appeared above.
-  })
+  });
 
-  test('submit landing page renders with recommendation and owner CTAs', async ({ anonPage, browser }) => {
-    test.setTimeout(30_000)
-    const resp = await anonPage.goto('/submit', { timeout: 30_000 })
-    if (resp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return }
-    // Heading: "提交你的台灣品牌"
+  test("submit landing page renders with recommendation and owner CTAs", async ({
+    anonPage,
+    browser,
+  }) => {
+    test.setTimeout(30_000);
+    const resp = await anonPage.goto("/submit", { timeout: 30_000 });
+    if (resp?.status() === 503) {
+      test.skip(true, "PREVIEW_MODE active");
+      return;
+    }
+    // Heading: "推薦台灣品牌"
     await expect(
-      anonPage.getByRole('heading', { name: '提交你的台灣品牌' }),
-    ).toBeVisible({ timeout: 15_000 })
-    await expect(anonPage.locator('a[href*="/submit/recommend"]')).toBeVisible({ timeout: 10_000 })
+      anonPage.getByRole("heading", { name: "推薦台灣品牌" }),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(anonPage.locator('a[href*="/submit/recommend"]')).toBeVisible({
+      timeout: 10_000,
+    });
     // The owner fork CTA is gated by `owner_features_enabled` (DEV-1261). Assert
     // both polarities here rather than skipping: the recommendation CTA above is
     // a live consumer journey in either flag state, and the owner CTA's absence
     // while off is exactly what this PR ships.
-    const ownerCta = anonPage.locator('a[href*="/auth/sign-in?next=%2Fsubmit%2Fowner"]')
+    const ownerCta = anonPage.locator(
+      'a[href*="/auth/sign-in?next=%2Fsubmit%2Fowner"]',
+    );
     if (await ownerFeaturesDisabled(browser)) {
-      await expect(ownerCta).toHaveCount(0)
+      await expect(ownerCta).toHaveCount(0);
     } else {
-      await expect(ownerCta).toBeVisible({ timeout: 10_000 })
+      await expect(ownerCta).toBeVisible({ timeout: 10_000 });
     }
-  })
+  });
 
-  test('microsite renders for seeded brand', async ({ anonPage }) => {
-    test.setTimeout(90_000)
-    if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return }
+  test("microsite renders for seeded brand", async ({ anonPage }) => {
+    test.setTimeout(90_000);
+    if (!supabase) {
+      test.skip(true, "PREVIEW_MODE active");
+      return;
+    }
 
     // /site/[slug] is NOT under [locale] — use bare path
     // ISR: allow time for the page to become available after the brand seed.
     await expect(async () => {
-      const resp = await anonPage.goto(`/site/${micrositeSlug}`, { timeout: 15_000 })
-      if (resp?.status() === 503) throw new Error('503')
-      if (resp?.status() === 404) throw new Error('404 — ISR not yet generated')
+      const resp = await anonPage.goto(`/site/${micrositeSlug}`, {
+        timeout: 15_000,
+      });
+      if (resp?.status() === 503) throw new Error("503");
+      if (resp?.status() === 404)
+        throw new Error("404 — ISR not yet generated");
       await expect(
-        anonPage.getByRole('heading', { level: 1, name: micrositeBrandName }),
-      ).toBeVisible({ timeout: 10_000 })
+        anonPage.getByRole("heading", { level: 1, name: micrositeBrandName }),
+      ).toBeVisible({ timeout: 10_000 });
       await expect(
         anonPage.getByText(micrositeTagline, { exact: true }),
-      ).toBeVisible({ timeout: 10_000 })
-    }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 8_000, 13_000] })
-  })
-})
+      ).toBeVisible({ timeout: 10_000 });
+    }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 8_000, 13_000] });
+  });
+});

@@ -41,25 +41,73 @@
     }
   },
   "brand": {
-    "wordmarkZh": "島藏",
-    "wordmarkEn": "Formoria",
+    "wordmarkZh": "Formoria",
+    "wordmarkEn": "",
     "logo": null
   },
   "background": {
     "defaults": { "type": "image" },
     "scrim": {
-      "cover": [[0, 0], [0.30, 0.40], [1, 0.80]],
-      "bullets": [[0, 0.20], [0.35, 0.47], [1, 0.85]],
-      "quote": [[0, 0.33], [0.40, 0.60], [1, 0.90]],
-      "brandHighlight": [[0, 0], [0.45, 0], [1, 0.80]]
+      "cover": [
+        [0, 0],
+        [0.3, 0.4],
+        [1, 0.8]
+      ],
+      "bullets": [
+        [0, 0.2],
+        [0.35, 0.47],
+        [1, 0.85]
+      ],
+      "quote": [
+        [0, 0.33],
+        [0.4, 0.6],
+        [1, 0.9]
+      ],
+      "brandHighlight": [
+        [0, 0],
+        [0.45, 0],
+        [1, 0.8]
+      ]
     }
   },
   "accentRules": {
-    "image": { "tagBorder": "#C4693B", "tagText": "#C4693B", "ruleColor": "#C4693B", "barColor": "#C4693B", "counter": "#C4693B", "strip": "#000000CC", "ctaBtn": { "bg": "#FFFDF8", "text": "#C4693B" } },
-    "dark":  { "tagBorder": "#C4693B", "tagText": "#C4693B", "ruleColor": "#C4693B", "barColor": "#C4693B", "counter": "#C4693B", "strip": "#000000CC", "ctaBtn": { "bg": "#FFFDF8", "text": "#C4693B" } },
+    "image": {
+      "tagBorder": "#C4693B",
+      "tagText": "#C4693B",
+      "ruleColor": "#C4693B",
+      "barColor": "#C4693B",
+      "counter": "#C4693B",
+      "strip": "#000000CC",
+      "ctaBtn": { "bg": "#FFFDF8", "text": "#C4693B" }
+    },
+    "dark": {
+      "tagBorder": "#C4693B",
+      "tagText": "#C4693B",
+      "ruleColor": "#C4693B",
+      "barColor": "#C4693B",
+      "counter": "#C4693B",
+      "strip": "#000000CC",
+      "ctaBtn": { "bg": "#FFFDF8", "text": "#C4693B" }
+    },
     "color": {
-      "#2F5D50": { "tagBorder": "#FFFFFF66", "tagText": "#FFFDF8", "ruleColor": "#FFFDF8AA", "barColor": "#FFFDF8AA", "counter": "#FFFDF8", "strip": "#1D3D34", "ctaBtn": { "bg": "#FFFDF8", "text": "#2F5D50" } },
-      "#C4693B": { "tagBorder": "#FFFFFF40", "tagText": "#FFFDF8", "ruleColor": "#FFFDF8", "barColor": "#FFFFFF40", "counter": "#FFFDF8", "strip": "#A3542A", "ctaBtn": { "bg": "#FFFDF8", "text": "#C4693B" } }
+      "#2F5D50": {
+        "tagBorder": "#FFFFFF66",
+        "tagText": "#FFFDF8",
+        "ruleColor": "#FFFDF8AA",
+        "barColor": "#FFFDF8AA",
+        "counter": "#FFFDF8",
+        "strip": "#1D3D34",
+        "ctaBtn": { "bg": "#FFFDF8", "text": "#2F5D50" }
+      },
+      "#C4693B": {
+        "tagBorder": "#FFFFFF40",
+        "tagText": "#FFFDF8",
+        "ruleColor": "#FFFDF8",
+        "barColor": "#FFFFFF40",
+        "counter": "#FFFDF8",
+        "strip": "#A3542A",
+        "ctaBtn": { "bg": "#FFFDF8", "text": "#C4693B" }
+      }
     }
   },
   "cards": { "templateDir": "marketing/cards/templates" }

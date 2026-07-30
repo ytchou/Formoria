@@ -1,6 +1,6 @@
 ---
 item_id: "formoria/2026-07-21-intro-carousel"
-title: "Formoria 島藏 — ZH-TW intro carousel (8 cards)"
+title: "Formoria — ZH-TW intro carousel (8 cards)"
 status: proposed
 platforms: [ig, threads]
 target_date: "2026-07-21"
@@ -10,9 +10,9 @@ theme: marketing/cards/theme.json
 templateDir: marketing/cards/templates
 ---
 
-# Formoria 島藏 — ZH-TW Intro Carousel Brief
+# Formoria — ZH-TW Intro Carousel Brief
 
-8-card ZH-TW intro carousel for Formoria / 島藏 (a community-curated Made-in-Taiwan brand directory).
+8-card ZH-TW intro carousel for Formoria, a Taiwanese brand discovery and curation platform built on a community-contributed directory.
 Consumed by `/content-cards` with `--config=marketing/cards/theme.json --template-dir=marketing/cards/templates lang=zh`.
 Each card maps to a template (`cover.html` / `text.html` / `cta.html`) + a `background` (`{type, value, scrim-key}`) + a content `mode`.
 Page counter format: `NN / 08`. v1 is ZH-TW only, manual posting.
@@ -28,10 +28,10 @@ template:           cover.html
 background.type:    image
 background.scrim:   cover
 image:              TODO images/cover.jpg (台灣職人 / 風景，暖色 editorial)
-wordmarkZh:         島藏
-wordmarkEn:         Formoria
-headline:           台灣製造，值得被收藏
-subhead:            社群共同策展的台灣製造品牌指南
+wordmarkZh:         Formoria
+wordmarkEn:
+headline:           像逛選物店一樣，發現台灣品牌
+subhead:            台灣品牌探索與選物平台
 footer:             formoria.com
 pageNum:            01 / 08
 ```
@@ -48,9 +48,9 @@ template:           text.html
 mode:               big-statement
 background.type:    color
 background.value:   #2F5D50
-tag:                關於島藏
-headline:           把散落各地的台灣製造，收進同一座島。
-footer:             島藏 Formoria
+tag:                關於 Formoria
+headline:           讓台灣品牌更容易被看見、被選擇，也更容易成長。
+footer:             Formoria
 pageNum:            02 / 08
 ```
 
@@ -65,9 +65,9 @@ mode:               prose
 background.type:    dark
 background.value:   #1C1C1C
 tag:                為什麼
-headline:           為什麼是台灣製造？
-body:               因為這裡有把事情做好的職人，有願意慢慢來的品牌，有值得被更多人看見的設計與用心。台灣製造，不只是產地，而是一種選擇。
-footer:             島藏 Formoria
+headline:           為什麼需要 Formoria？
+body:               台灣有許多值得認識的品牌，但資訊散落在官網、社群、購物平台與實體通路。我們先把這些資料整理清楚，讓正在尋找的人更容易找到它們。
+footer:             Formoria
 pageNum:            03 / 08
 ```
 
@@ -82,13 +82,13 @@ mode:               bullets
 background.type:    image
 background.scrim:   bullets
 image:              TODO images/curation.jpg (工藝 / 材質特寫)
-tag:                策展標準
-headline:           我們怎麼挑選品牌
+tag:                收錄方式
+headline:           目錄收錄哪些品牌
 bullets:
-  - 真正在台灣設計或製造
-  - 對材質與工藝誠實
-  - 由社群推薦、共同把關
-footer:             島藏 Formoria
+  - 在台灣創立、設計或製造
+  - 品牌資料經人工審核後收錄
+  - 製造驗證另外標示，不把收錄當認證
+footer:             Formoria
 pageNum:            04 / 08
 ```
 
@@ -107,7 +107,7 @@ tagAccent:          green
 tag:                創辦人的話
 quote:              在國外的那幾年，我最想念的，是台灣把生活做得很細緻的那份心意。
 attribution:        — Formoria 創辦人
-footer:             島藏 Formoria
+footer:             Formoria
 pageNum:            05 / 08
 ```
 
@@ -126,8 +126,8 @@ background.scrim:   bullets
 image:              TODO images/discover.jpg (品類拼貼 / 多樣產品平拍)
 tag:                怎麼用
 headline:           從你關心的開始逛
-body:               依品類、產地與工藝探索 — 食品、家居、服飾、保養⋯⋯ 找到屬於你的台灣製造。
-footer:             島藏 Formoria
+body:               依品類、特色與購買通路探索食品、家居、服飾、保養等品牌，找到下一個真正適合你的選擇。
+footer:             Formoria
 pageNum:            06 / 08
 ```
 
@@ -142,12 +142,12 @@ mode:               numbered
 background.type:    color
 background.value:   #2F5D50
 tag:                看得見的信任
-headline:           三種信任標記
+headline:           三種信任訊號
 numbered:
   1. MIT 微笑認證 — 比對台灣製造登錄資料
-  2. 社群策展 — 由真實使用者推薦
+  2. 社群共編 — 社群提供資料，Formoria 人工審核
   3. 品牌經營 — 品牌親自認領與維護
-footer:             島藏 Formoria
+footer:             Formoria
 pageNum:            07 / 08
 ```
 
@@ -161,11 +161,11 @@ template:           cta.html
 background.type:    color
 background.value:   #C4693B
 tag:                一起
-headline:           在 formoria.com 探索台灣製造
-ctaLabel:           追蹤島藏
+headline:           在 formoria.com 探索台灣品牌
+ctaLabel:           追蹤 Formoria
 ctaNote (IG):       連結在簡介
 ctaNote (Threads):  formoria.com
-footer:             島藏 Formoria
+footer:             Formoria
 pageNum:            08 / 08
 ```
 
@@ -175,6 +175,6 @@ pageNum:            08 / 08
 
 - [ ] COVER headline/tagline (Card 01)
 - [ ] Founder quote wording (Card 05)
-- [ ] Logo SVG wordmark asset (theme `brand.logo` is null — text wordmark 島藏 / Formoria is the v1 placeholder)
+- [ ] Logo SVG wordmark asset (theme `brand.logo` is null — the Formoria text wordmark is the v1 placeholder)
 - [ ] IG / Threads account handles (for CTA bio link + cross-linking)
 - [ ] Background photos for image-mode cards (01, 04, 05, 06) — founder-supplied or AI-generated, pre-cropped 1080×1350

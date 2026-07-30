@@ -11,7 +11,6 @@ import { useTranslations } from 'next-intl'
 import type { Brand } from '@/lib/types'
 import { SurfaceCard } from '@/components/ui/card'
 import { trackCtaClicked } from '@/lib/analytics'
-import { DirectoryFilterToken } from './directory-filter-token'
 import { BrandCard } from './brand-card'
 
 export type ActiveDirectoryFilter = {
@@ -26,7 +25,6 @@ type SearchEmptyStateProps = {
   query: string
   categoryLabel?: string
   activeFilters: ActiveDirectoryFilter[]
-  clearAllHref: string
   recommendedBrands: Brand[]
   recommendationsHref: string
 }
@@ -35,7 +33,6 @@ export function SearchEmptyState({
   query,
   categoryLabel,
   activeFilters,
-  clearAllHref,
   recommendedBrands,
   recommendationsHref,
 }: SearchEmptyStateProps) {
@@ -53,35 +50,28 @@ export function SearchEmptyState({
 
   return (
     <div data-empty className="space-y-8">
-      {activeFilters.length > 0 ? (
-        <SurfaceCard padding="sm" className="flex flex-wrap items-center gap-2">
-          <span className="mr-1 type-body-emphasis">{t('currentConditions')}</span>
-          {activeFilters.map((filter) => (
-            <DirectoryFilterToken
-              key={filter.id}
-              href={filter.removeHref}
-              label={filter.label}
-              removeLabel={filter.removeLabel}
-              value={filter.value}
-              variant="chip"
-            />
-          ))}
+      <SurfaceCard
+        tone="info"
+        padding="sm"
+        className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <div role="status" className="flex min-w-0 items-start gap-3">
+          <Sparkles className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
+          <p className="type-card-description text-current">{notice}</p>
+        </div>
+        {query ? (
           <Link
-            href={clearAllHref}
-            replace
-            scroll={false}
+            href={`/submit/recommend?name=${encodeURIComponent(query)}`}
             data-ph-no-autocapture
-            onClick={() => trackCtaClicked('clear_all', 'empty_state', clearAllHref, '/brands')}
-            className="ml-auto type-link"
+            onClick={() =>
+              trackCtaClicked('recommend_brand', 'empty_state', '/submit/recommend', '/brands')
+            }
+            className="inline-flex min-h-12 shrink-0 items-center gap-1 self-start type-link sm:self-auto"
           >
-            {t('clearAll')}
+            {t('actions.recommendBrand.title')}
+            <ArrowRight className="size-4" aria-hidden="true" />
           </Link>
-        </SurfaceCard>
-      ) : null}
-
-      <SurfaceCard tone="info" padding="sm" role="status" className="flex items-start gap-3">
-        <Sparkles className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
-        <p className="type-card-description text-current">{notice}</p>
+        ) : null}
       </SurfaceCard>
 
       <section className="flex flex-col items-center py-2 text-center">

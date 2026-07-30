@@ -13,6 +13,7 @@ import type {
   QueryTemplate,
 } from './types'
 import { DEFAULT_QUERY, buildImageQueryVariants, isGoogleUrl, stripTrackingParams } from './search'
+import { fetchHtml } from './fetch-guards'
 
 const SERPER_SERP_ENDPOINT = 'https://google.serper.dev/search'
 const SERPER_IMAGE_ENDPOINT = 'https://google.serper.dev/images'
@@ -395,24 +396,89 @@ export async function batchSearchBrandsWithSnippets(
   return results
 }
 
+// Meta serves an HTML crawler page at these hosts, never image bytes, so a URL
+// here is unusable until it is resolved to the photo the page embeds.
 const IMAGE_BLOCKED_HOSTS = ['lookaside.instagram.com', 'lookaside.fbsbx.com']
 
-function shouldKeepImage(result: NonNullable<SerperImageResponse['images']>[number]): boolean {
+// Each resolution costs an ~800KB HTML fetch and publishability only needs a
+// couple of usable images, so cap how many we spend per brand.
+const MAX_LOOKASIDE_RESOLUTIONS_PER_BRAND = 3
+
+const OG_IMAGE_PATTERN = /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i
+const SCONTENT_JPG_PATTERN = /https:\/\/scontent[^"'\\ )]+\.jpg[^"'\\ )]*/gi
+const INSTAGRAM_MEDIA_FILE_PATTERN = /\/(\d+_\d+_\d+_n\.jpg)/
+// A leading `c123.` crop directive or an `_s640x640` cap both shrink the render.
+const CROPPED_STP_PATTERN = /(^|_)c\d/
+const CAPPED_STP_PATTERN = /_s\d+x\d+/
+
+type LookasideBudget = { remaining: number }
+
+function isLookasideHost(imageUrl: string): boolean {
   try {
-    const host = new URL(result.imageUrl).hostname
-    if (IMAGE_BLOCKED_HOSTS.some((blocked) => host.includes(blocked))) return false
+    const host = new URL(imageUrl).hostname
+    return IMAGE_BLOCKED_HOSTS.some((blocked) => host.includes(blocked))
   } catch {
     // Keep malformed URLs for the existing downstream validator to reject.
+    return false
   }
+}
 
+function passesImageDimensions(result: NonNullable<SerperImageResponse['images']>[number]): boolean {
   const width = result.imageWidth ?? 0
   const height = result.imageHeight ?? 0
   return width === 0 || height === 0 || width >= MIN_IMAGE_DIMENSION || height >= MIN_IMAGE_DIMENSION
 }
 
+function shouldKeepImage(result: NonNullable<SerperImageResponse['images']>[number]): boolean {
+  if (isLookasideHost(result.imageUrl)) return false
+  return passesImageDimensions(result)
+}
+
+function decodeHtmlEntities(value: string): string {
+  return value
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#x2F;/g, '/')
+    .replace(/&#39;/g, "'")
+}
+
+/**
+ * Turns a lookaside crawler URL into a real photo URL.
+ *
+ * The page embeds the same media file twice: `og:image` is a cropped ~480px
+ * render, and an uncropped/uncapped variant of the same file sits alongside it
+ * at roughly 800px. Both carry their own signature, which is why selecting the
+ * uncropped URL works where rewriting og:image's own `stp` parameter returns
+ * 403. Falls back to og:image when no better variant is present, and returns
+ * null when the page cannot be fetched or parsed so the caller drops the
+ * candidate. Never throws: fetchHtml already degrades to null.
+ */
+async function resolveLookasideImage(imageUrl: string): Promise<string | null> {
+  const html = await fetchHtml(imageUrl)
+  if (!html) return null
+
+  const ogMatch = html.match(OG_IMAGE_PATTERN)
+  if (!ogMatch?.[1]) return null
+  const ogImage = decodeHtmlEntities(ogMatch[1])
+
+  const mediaFile = ogImage.match(INSTAGRAM_MEDIA_FILE_PATTERN)?.[1]
+  if (!mediaFile) return ogImage
+
+  const uncropped = [...new Set(html.match(SCONTENT_JPG_PATTERN) ?? [])]
+    .map(decodeHtmlEntities)
+    .find((candidate) => {
+      if (!candidate.includes(mediaFile)) return false
+      const stp = candidate.match(/stp=([^&]+)/)?.[1] ?? ''
+      return !CROPPED_STP_PATTERN.test(stp) && !CAPPED_STP_PATTERN.test(stp)
+    })
+
+  return uncropped ?? ogImage
+}
+
 async function searchBrandImagesForQuery(
   query: string,
   options?: SerperAuditOptions,
+  budget?: LookasideBudget,
 ): Promise<{
   rows: BrandImageSearchResult[]
   call: SerperCallResult<SerperImageResponse>
@@ -432,10 +498,24 @@ async function searchBrandImagesForQuery(
   const rows = new Map<string, BrandImageSearchResult>()
   for (const result of call.data?.images ?? []) {
     if (typeof result.imageUrl !== 'string' || !result.imageUrl) continue
-    if (!shouldKeepImage(result)) continue
-    if (!rows.has(result.imageUrl)) {
-      rows.set(result.imageUrl, {
-        url: result.imageUrl,
+
+    let url = result.imageUrl
+    if (isLookasideHost(url)) {
+      // Cheap checks first — never spend an HTML fetch on a candidate the
+      // dimension filter or the budget would reject anyway.
+      if (!passesImageDimensions(result)) continue
+      if (!budget || budget.remaining <= 0) continue
+      budget.remaining -= 1
+      const resolved = await resolveLookasideImage(url)
+      if (!resolved) continue
+      url = resolved
+    } else if (!shouldKeepImage(result)) {
+      continue
+    }
+
+    if (!rows.has(url)) {
+      rows.set(url, {
+        url,
         query,
         ...(call.auditResultId ? { auditResultId: call.auditResultId } : {}),
       })
@@ -457,6 +537,8 @@ async function searchBrandImages(
   const queries = typeof input === 'string' ? [queryTemplate(brandName)] : buildImageQueryVariants(input)
   const results = new Map<string, BrandImageSearchResult>()
   const baseOptions = resolveAuditOptions(auditResolver, input)
+  // Shared across query variants so the cap is per brand, not per variant.
+  const budget: LookasideBudget = { remaining: MAX_LOOKASIDE_RESOLUTIONS_PER_BRAND }
   // First non-succeeded/non-empty variant status, kept so a provider outage is
   // reportable even though every variant yielded zero rows.
   let firstFailure: Pick<BrandImageSearchOutcome, 'callStatus' | 'httpStatus' | 'error'> | null = null
@@ -472,7 +554,7 @@ async function searchBrandImages(
           },
         }
       : undefined
-    const { rows, call } = await searchBrandImagesForQuery(query, options)
+    const { rows, call } = await searchBrandImagesForQuery(query, options, budget)
     if (call.callStatus !== 'succeeded' && call.callStatus !== 'empty') {
       firstFailure ??= {
         callStatus: call.callStatus,

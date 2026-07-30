@@ -99,6 +99,35 @@ test.describe('Brand detail deep', () => {
     ).toBeInViewport({ timeout: 5_000 });
   });
 
+  test('mobile brand detail keeps the website CTA in the document flow', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/brands/${seeded.slug}`);
+
+    const websiteCta = page.getByRole('link', { name: '前往官網', exact: true });
+    await expect(websiteCta).toHaveCount(1);
+    await expect(page.getByRole('link', { name: '前往品牌官網', exact: true })).toHaveCount(0);
+    await websiteCta.scrollIntoViewIfNeeded();
+    await expect(websiteCta).toBeInViewport();
+
+    await page.getByRole('heading', { name: '地點與販售通路', level: 2 }).scrollIntoViewIfNeeded();
+    await expect(websiteCta).not.toBeInViewport();
+  });
+
+  test('mobile section navigation stays operable above scrolling content', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/brands/${seeded.slug}`);
+
+    const nav = page.getByRole('navigation', { name: '本頁導覽' });
+    await page.locator('#social').evaluate((section) => {
+      window.scrollBy(0, section.getBoundingClientRect().top - 105);
+    });
+
+    await nav.getByRole('link', { name: '產地與販售地點' }).click();
+    await expect(
+      page.getByRole('heading', { name: '地點與販售通路', level: 2 }),
+    ).toBeInViewport({ timeout: 5_000 });
+  });
+
   test('external links have target="_blank" and rel="noopener"', async ({ page }) => {
     await page.goto(brandHref);
     const externalLinks = page.locator('a[href^="http"]:not([href*="localhost"])');

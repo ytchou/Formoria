@@ -187,10 +187,6 @@ export async function checkSoftRateLimit(request: NextRequest): Promise<boolean>
     return false
   }
 
-  if (request.headers.get('Next-Router-Prefetch') === '1') {
-    return false
-  }
-
   if (isLikelyCrawler(request)) {
     return false
   }

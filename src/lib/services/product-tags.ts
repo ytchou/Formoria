@@ -131,14 +131,33 @@ export function normalizeProductTags(
 }
 
 /**
- * ACCEPTED TRADEOFF, not a bug: a novel tag misses the ontology, so the raw
- * (usually Chinese) string is written to `product_tags_en` verbatim and renders
- * untranslated on `/en`. `docs/decisions/2026-07-27-correction-novel-tag-escape-hatch.md`
+ * Derives `product_tags_en` from `product_tags`. `existingEn` is the currently
+ * stored EN array, index-aligned with `tags`, and is only ever a fallback:
+ *
+ * - An ontology hit ALWAYS wins over the stored value. That is what repairs the
+ *   drift DEV-1266 found — `後背包` stored as 'Backpack'/'backpack' becomes the
+ *   canonical 'Backpacks', `面膜` becomes 'Face Masks'.
+ * - A novel tag (ontology miss) keeps its stored EN, Title Cased, so a real
+ *   human/LLM translation ('sling bag') survives as 'Sling Bag' instead of
+ *   being thrown away.
+ *
+ * Called with one argument it behaves exactly as before.
+ *
+ * ACCEPTED TRADEOFF, not a bug: when `existingEn` has nothing for a novel tag,
+ * the raw (usually Chinese) string is written to `product_tags_en` verbatim and
+ * renders untranslated on `/en`. `docs/decisions/2026-07-27-correction-novel-tag-escape-hatch.md`
  * weighs this against the alternatives and takes it deliberately — do not
  * "fix" it by dropping the tag or machine-translating it here.
  */
-export function deriveProductTagsEn(tags: string[]): string[] {
-  return tags.map((tag) => matchSubcategory(tag)?.nameEn ?? toTagTitleCase(tag))
+export function deriveProductTagsEn(
+  tags: string[],
+  existingEn: string[] = [],
+): string[] {
+  return tags.map((tag, index) => {
+    const canonical = matchSubcategory(tag)?.nameEn
+    if (canonical) return canonical
+    return toTagTitleCase(existingEn[index]?.trim() || tag)
+  })
 }
 
 function isStringArray(value: unknown): value is string[] {

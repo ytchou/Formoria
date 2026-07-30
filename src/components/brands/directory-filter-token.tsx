@@ -28,7 +28,7 @@ export function DirectoryFilterToken({
           variant: 'secondary',
           shape: variant === 'chip' ? 'pill' : 'default',
         }),
-        'h-auto min-h-12 justify-between gap-3',
+        'h-auto min-h-12 min-w-0 max-w-full justify-between gap-3',
         variant === 'row' ? 'w-full px-3 text-left' : 'px-4',
       )}
       href={href}

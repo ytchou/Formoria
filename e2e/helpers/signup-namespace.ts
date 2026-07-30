@@ -37,7 +37,9 @@ const LIST_USERS_MAX_PAGES = 25;
  * afterAll/globalTeardown: it never throws, and it sweeps users leaked by a
  * crashed run, not just the ones the current run created.
  */
-export async function deleteSignupTestUsers(): Promise<number> {
+export async function deleteSignupTestUsers(
+  createdBefore?: string,
+): Promise<number> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) {
@@ -64,6 +66,7 @@ export async function deleteSignupTestUsers(): Promise<number> {
 
       for (const user of users) {
         if (!user.email?.startsWith(SIGNUP_TEST_EMAIL_PREFIX)) continue;
+        if (createdBefore && user.created_at >= createdBefore) continue;
         const { error: deleteError } = await supabase.auth.admin.deleteUser(user.id);
         if (deleteError) {
           console.warn(

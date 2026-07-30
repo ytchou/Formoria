@@ -124,6 +124,12 @@ export type Brand = {
   blurb: string | null
   blurbEn: string | null
   heroImageUrl: string | null
+  heroImageMetadata?: {
+    altZh: string | null
+    altEn: string | null
+    width: number | null
+    height: number | null
+  } | null
   status: BrandStatus
   productType?: string | null
   city: string | null

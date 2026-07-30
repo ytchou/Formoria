@@ -1,23 +1,32 @@
-import { createClient } from '@supabase/supabase-js';
-import { test, expect } from '../fixtures/auth';
+import { createClient } from "@supabase/supabase-js";
+import { test, expect } from "../fixtures/auth";
 
-test.describe('Navbar auth journey', () => {
-  test('logged-out visitor sees sign-in link', async ({ anonPage }) => {
-    await anonPage.goto('/');
+test.describe("Navbar auth journey", () => {
+  test("logged-out visitor sees sign-in link", async ({ anonPage }) => {
+    await anonPage.goto("/");
 
-    const signInLink = anonPage.getByRole('link', { name: /sign in|登入/i });
+    const signInLink = anonPage.getByRole("link", { name: /sign in|登入/i });
     await expect(signInLink).toBeVisible({ timeout: 10_000 });
     // href includes ?next=... query param — assert it starts with the sign-in
     // route, which carries an /en prefix on English pages.
-    await expect(signInLink).toHaveAttribute('href', /^(?:\/en)?\/auth\/sign-in/);
+    await expect(signInLink).toHaveAttribute(
+      "href",
+      /^(?:\/en)?\/auth\/sign-in/,
+    );
   });
 
-  test('authenticated user sees account menu, not sign-in link', async ({ userPage }) => {
-    await userPage.goto('/');
+  test("authenticated user sees account menu, not sign-in link", async ({
+    userPage,
+  }) => {
+    await userPage.goto("/");
 
-    const accountTrigger = userPage.getByRole('button', { name: /account|帳號/i });
+    const accountTrigger = userPage.getByRole("button", {
+      name: /account|帳號/i,
+    });
     await expect(accountTrigger).toBeVisible({ timeout: 10_000 });
-    await expect(userPage.getByRole('link', { name: /sign in|登入/i })).toHaveCount(0);
+    await expect(
+      userPage.getByRole("link", { name: /sign in|登入/i }),
+    ).toHaveCount(0);
 
     // "我的品牌" link is conditional on hasOwnedBrand AND ownerFeaturesEnabled — shown
     // only when the user owns a brand and owner features are turned on (DEV-1261).
@@ -30,10 +39,16 @@ test.describe('Navbar auth journey', () => {
     // even when the render prop is a Link/anchor — use getByRole('menuitem').
     const accountMenu = userPage.locator('[data-slot="dropdown-menu-content"]');
     await expect(accountMenu).toBeVisible({ timeout: 10_000 });
-    await expect(accountMenu.getByRole('menuitem', { name: '帳號設定' })).toBeVisible({ timeout: 5_000 });
-    await expect(accountMenu.getByRole('menuitem', { name: '收藏品牌' })).toBeVisible({ timeout: 5_000 });
-    await expect(accountMenu.getByRole('menuitem', { name: '我的貢獻' })).toBeVisible({ timeout: 5_000 });
-    // "我的提交" is deliberately not asserted here: it is gated on
+    await expect(
+      accountMenu.getByRole("menuitem", { name: "帳號設定" }),
+    ).toBeVisible({ timeout: 5_000 });
+    await expect(
+      accountMenu.getByRole("menuitem", { name: "收藏品牌" }),
+    ).toBeVisible({ timeout: 5_000 });
+    await expect(
+      accountMenu.getByRole("menuitem", { name: "我的貢獻" }),
+    ).toBeVisible({ timeout: 5_000 });
+    // "我的推薦" is deliberately not asserted here: it is gated on
     // ownerFeaturesEnabled (DEV-1261), so its presence is flag state, not navbar
     // behaviour. Its absence is owned by owner-features-flag-off.spec.ts.
     const signOutItem = accountMenu.getByText(/sign out|登出/i);
@@ -42,7 +57,9 @@ test.describe('Navbar auth journey', () => {
     await expect(accountMenu.locator('a[href="/dashboard"]')).toHaveCount(0);
   });
 
-  test('sign out from authenticated session returns to logged-out home state', async ({ browser }) => {
+  test("sign out from authenticated session returns to logged-out home state", async ({
+    browser,
+  }) => {
     test.setTimeout(120_000);
 
     // IMPORTANT: Do NOT use the shared userPage fixture here.
@@ -61,13 +78,16 @@ test.describe('Navbar auth journey', () => {
     const disposableEmail = `e2e-signout-${ts}@test.local`;
     const disposablePassword = `Signout${ts}A!`;
 
-    const { data: createData, error: createError } = await supabase.auth.admin.createUser({
-      email: disposableEmail,
-      password: disposablePassword,
-      email_confirm: true,
-    });
+    const { data: createData, error: createError } =
+      await supabase.auth.admin.createUser({
+        email: disposableEmail,
+        password: disposablePassword,
+        email_confirm: true,
+      });
     if (createError || !createData.user) {
-      throw new Error(`Failed to create disposable sign-out user: ${createError?.message}`);
+      throw new Error(
+        `Failed to create disposable sign-out user: ${createError?.message}`,
+      );
     }
     const disposableUserId = createData.user.id;
 
@@ -77,17 +97,23 @@ test.describe('Navbar auth journey', () => {
 
     try {
       // Sign in via the UI as the disposable user
-      await page.goto('/auth/sign-in', { timeout: 60_000 });
-      await expect(page.getByRole('heading', { name: '登入 Formoria' })).toBeVisible({ timeout: 30_000 });
-      await page.getByLabel('電子郵件', { exact: true }).fill(disposableEmail);
-      await page.getByLabel('密碼', { exact: true }).fill(disposablePassword);
-      await page.getByRole('button', { name: '登入', exact: true }).click();
+      await page.goto("/auth/sign-in", { timeout: 60_000 });
+      await expect(
+        page.getByRole("heading", { name: "登入 Formoria" }),
+      ).toBeVisible({ timeout: 30_000 });
+      await page.getByLabel("電子郵件", { exact: true }).fill(disposableEmail);
+      await page.getByLabel("密碼", { exact: true }).fill(disposablePassword);
+      await page.getByRole("button", { name: "登入", exact: true }).click();
       // Wait for any redirect away from the sign-in page (to /dashboard or similar)
-      await page.waitForURL((url) => !url.pathname.includes('/auth/sign-in'), { timeout: 60_000 });
+      await page.waitForURL((url) => !url.pathname.includes("/auth/sign-in"), {
+        timeout: 60_000,
+      });
 
       // Navigate home — verify the account menu is present (user is authenticated)
-      await page.goto('/');
-      const accountTrigger = page.getByRole('button', { name: /account|帳號/i });
+      await page.goto("/");
+      const accountTrigger = page.getByRole("button", {
+        name: /account|帳號/i,
+      });
       await expect(accountTrigger).toBeVisible({ timeout: 15_000 });
       await accountTrigger.click();
 
@@ -100,21 +126,26 @@ test.describe('Navbar auth journey', () => {
       // Wait for the sign-out server action POST to complete before polling.
       // Without this, page.goto('/') inside the toPass loop cancels the in-flight
       // POST and the Set-Cookie headers never arrive, leaving the session active.
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState("networkidle");
 
       // After sign-out, poll-reload home until the navbar reflects the logged-out state
       // (session-cookie clear + navbar re-render can lag the click).
       await expect(async () => {
-        await page.goto('/');
-        await expect(page.getByRole('link', { name: /sign in|登入/i })).toBeVisible();
-        await expect(page.getByRole('button', { name: /account|帳號/i })).toHaveCount(0);
+        await page.goto("/");
+        await expect(
+          page.getByRole("link", { name: /sign in|登入/i }),
+        ).toBeVisible();
+        await expect(
+          page.getByRole("button", { name: /account|帳號/i }),
+        ).toHaveCount(0);
       }).toPass({ timeout: 20_000, intervals: [1_000, 2_000, 3_000, 5_000] });
     } finally {
       await context.close();
       // Always delete the disposable user — resilient to mid-test failures
-      const { error: deleteError } = await supabase.auth.admin.deleteUser(disposableUserId);
+      const { error: deleteError } =
+        await supabase.auth.admin.deleteUser(disposableUserId);
       if (deleteError) {
-        console.warn('[e2e-cleanup] deleteUser error:', deleteError.message);
+        console.warn("[e2e-cleanup] deleteUser error:", deleteError.message);
       }
     }
   });

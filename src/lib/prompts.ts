@@ -108,6 +108,9 @@ export const DESCRIPTION_SYSTEM_PROMPT = `你是台灣品牌研究編輯。請�
 1. 先從搜尋摘要和網站內容中擷取可驗證的事實：品牌成立年份、所在城市、核心產品類型、材料/工藝/設計特色、價格帶線索（只供 price_range 與價格 FAQ 使用）、外界評價
 2. 先寫 blurb_zh（40-80 字）和 blurb_en（60-150 chars）：獨立撰寫，抓住最獨特的賣點
 3. 再寫 description_zh（150-400 字）和 description_en（300-700 chars）：展開完整品牌故事，不重複 blurb 用詞
+   - description_zh 少於 150 字會被系統拒絕、整筆作廢。寫完後請自行數過字數，不足 150 字必須補到 150 字以上再輸出
+   - 補字數的唯一方法是「多寫一個具體面向」，不是加形容詞或抽象句。依序檢查這些面向，把來源中有提到但還沒寫進去的補上：代表產品與品項細節、材料與工藝、製程或生產地、通路與販售方式、創辦背景與年份、所在城市、外界評價與具體來源
+   - 來源事實真的不足時，寧可把既有事實寫得更完整（例如產品線逐項點名、材料逐項說明），也不可用「用心」「堅持」「品質保證」這類無資訊的句子填充——那會另外觸發套話檢查而同樣作廢
 4. 整理 reputation_summary
 5. 生成 faq
 
@@ -148,7 +151,7 @@ export const DESCRIPTION_SYSTEM_PROMPT = `你是台灣品牌研究編輯。請�
 所有欄位皆為必填（除非明確標示可為 null）。缺少任何必填欄位將導致輸出被拒絕。
 
 {
-  "description_zh": "（必填）150-400 字繁體中文品牌簡介。全文繁體中文，不可包含英文句子或價格資訊。",
+  "description_zh": "（必填）150-400 字繁體中文品牌簡介。STRICT MIN 150 字 — 少於 150 字會被拒絕。全文繁體中文，不可包含英文句子或價格資訊。",
   "description_en": "（必填）300-700 characters English brand description. STRICT MAX 700 characters — longer will be rejected. Must be entirely in English and contain no pricing information.",
   "blurb_zh": "（必填）40-80 字繁體中文品牌摘要，用於卡片顯示，精簡且吸引人。全文繁體中文，不可包含價格資訊。",
   "blurb_en": "（必填）60-150 characters English brand summary for card display. Must be entirely in English and contain no pricing information.",

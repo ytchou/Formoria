@@ -6,6 +6,7 @@ import SubmitForm from '@/components/submit/SubmitForm'
 
 type RecommendPageProps = {
   params: Promise<{ locale: string }>
+  searchParams?: Promise<{ name?: string | string[] }>
 }
 
 export async function generateMetadata({
@@ -22,9 +23,17 @@ export async function generateMetadata({
   }
 }
 
-export default async function SubmitRecommendPage({ params }: RecommendPageProps) {
+export default async function SubmitRecommendPage({
+  params,
+  searchParams,
+}: RecommendPageProps) {
   const { locale } = await params
   setRequestLocale(locale)
 
-  return <SubmitForm />
+  // `?name=` comes from the directory's no-results CTA. Capped so a pathological query
+  // string can't be reflected into the form wholesale; the field's own schema still validates.
+  const rawName = (await searchParams)?.name
+  const initialName = typeof rawName === 'string' ? rawName.trim().slice(0, 100) : ''
+
+  return <SubmitForm initialName={initialName} />
 }

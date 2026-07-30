@@ -51,11 +51,18 @@ export async function requestPublicBrandRevalidation(
   // succeed in production. NEXT_PUBLIC_SITE_URL stays the local-dev fallback,
   // where there is no Cloudflare in front. Same pairing the health agent uses
   // (scripts/health-agent/orchestrator.ts).
-  const baseUrl = (
+  // Railway shows the origin without a scheme in its dashboard, so the env var
+  // routinely lands here as a bare host. fetch() rejects that as a relative URL,
+  // which surfaces as "Failed to parse URL" long after the write already landed.
+  // Default a missing scheme to https rather than failing the revalidation.
+  const rawBaseUrl = (
     process.env.FORMORIA_RAILWAY_URL?.trim() ||
     process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
     ''
   ).replace(/\/+$/, '')
+  const baseUrl = rawBaseUrl && !/^https?:\/\//i.test(rawBaseUrl)
+    ? `https://${rawBaseUrl}`
+    : rawBaseUrl
   const originSecret = process.env.ORIGIN_SECRET?.trim()
 
   if (!baseUrl || !originSecret) {

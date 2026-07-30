@@ -31,6 +31,7 @@ export const RESERVED_ROUTES = new Set([
   'feedback',
   'faq',
   'about',
+  'vision',
   'terms',
   'my-submissions',
   'contributions',
@@ -66,6 +67,7 @@ export const PUBLIC_INTL_SEGMENTS = new Set([
   'brands',
   'guides',
   'about',
+  'vision',
   'contact',
   'faq',
   'getting-started',
@@ -256,7 +258,7 @@ export async function proxy(request: NextRequest) {
     if (rateLimitResponse) return rateLimitResponse
   }
 
-  if (!isPlaywrightTest && isSoftLimitPath(pathname)) {
+  if (!isPlaywrightTest && !isRouterRequest && isSoftLimitPath(pathname)) {
     const challengeCookie = request.cookies.get(CHALLENGE_COOKIE_NAME)?.value
     let isVerified = false
     if (challengeCookie) {
@@ -329,7 +331,6 @@ export async function proxy(request: NextRequest) {
       localeResponse.cookies.set(LOCALE_COOKIE, 'en', {
         sameSite: 'lax',
         path: '/',
-        maxAge: 365 * 24 * 60 * 60,
       })
     }
     localeResponse.headers.set('Cache-Control', 'private, no-store')
@@ -351,17 +352,14 @@ export async function proxy(request: NextRequest) {
   // every HTML response makes the response uncacheable at Cloudflare, so the CDN
   // caches nothing and every request falls through to the origin.
   //
-  // Accepted trade-off: because it is not rewritten on every response, the maxAge
-  // never refreshes — the cookie has a 1-year ABSOLUTE horizon rather than a
-  // rolling one. Refreshing it would reintroduce Set-Cookie and defeat the CDN
-  // cacheability this exists for, and an expired or absent cookie self-heals via
-  // resolveInitialLocale.
-  const resolvedLocale = explicitLocale ?? inferredLocale
+  // URL prefixes control only the current request; only an inferred locale is
+  // retained for the browser session. Explicit preferences are persisted by the
+  // switcher, auth, and settings flows instead.
+  const resolvedLocale = inferredLocale
   if (resolvedLocale && resolvedLocale !== cookieLocale && !isRouterRequest) {
     response.cookies.set(LOCALE_COOKIE, resolvedLocale, {
       sameSite: 'lax',
       path: '/',
-      maxAge: 365 * 24 * 60 * 60,
     })
   }
 

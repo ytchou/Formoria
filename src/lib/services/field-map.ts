@@ -155,10 +155,15 @@ export function toBrandRow(input: {
   copyMappedFields(input, row, BRAND_FIELD_MAP)
   row.price_range = input.priceRange ?? null
   row.product_tags = input.productTags ?? []
-  if (input.productTagsEn !== undefined) {
-    row.product_tags_en = input.productTagsEn
-  } else if (input.productTags !== undefined) {
-    row.product_tags_en = deriveProductTagsEn(input.productTags ?? [])
+  // Single normalizer at the write boundary: `product_tags_en` is always a
+  // function of `product_tags`, never a caller-supplied string. The admin
+  // review action validates EN tags only for length, so without this an
+  // unnormalized array reaches the DB and re-opens DEV-1266.
+  if (input.productTagsEn !== undefined || input.productTags !== undefined) {
+    row.product_tags_en = deriveProductTagsEn(
+      input.productTags ?? [],
+      input.productTagsEn ?? [],
+    )
   }
   if (input.isDemo) row.is_demo = input.isDemo
   return row as BrandInsertRow

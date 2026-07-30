@@ -127,6 +127,12 @@ async function approveSubmissionForAdmin(
   if (submission.intent === 'refresh') {
     const refresh = await applyBrandRefresh(submissionId, reviewerId)
     const brand = await getBrandById(refresh.brandId)
+    // Approving is what brings a brand to life: a hidden brand whose refresh we
+    // just accepted has publishable data by definition. Hiding stays a separate
+    // admin action, so this never fights a deliberate re-hide.
+    if (brand.status === 'hidden') {
+      await updateBrand(refresh.brandId, { status: 'approved' })
+    }
     return {
       brandSlug: brand.slug,
       refresh: true,

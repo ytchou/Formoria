@@ -18,8 +18,8 @@ export async function generateMetadata({
   setRequestLocale(locale);
   const t = await getTranslations("auth");
   return {
-    // Not signIn.heading — the zh-TW heading is "登入 Formoria", and the layout
-    // template appends "| Formoria", producing "登入 Formoria | Formoria" (DEV-698).
+    // Do not use signIn.heading: it already contains the brand name, while the
+    // layout template appends it again (DEV-698).
     // metaTitle carries the brand-free form so the template supplies it exactly once.
     title: t("signIn.metaTitle"),
     robots: { index: false, follow: true },

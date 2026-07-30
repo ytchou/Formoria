@@ -123,6 +123,50 @@ describe('runImageSearchPhase', () => {
     expect(result.phaseResult.status).toBe('skipped')
   })
 
+  it('searches anyway when overwrite is set, so a re-run can find better images', async () => {
+    const submission: EnrichBrand = {
+      id: 'submission-1',
+      slug: 'has-two-images',
+      name: 'Has Two Images',
+      hero_image_url: 'https://example.com/hero.webp',
+      overwrite_enrichment: true,
+    }
+
+    await runImageSearchPhase(
+      ctx({
+        chunk: [submission],
+        chunkBrandNames: ['Has Two Images'],
+        targetType: 'submission',
+        supabase: submissionImagesClient(['submission-1', 'submission-1']),
+      }),
+      new Map([['Has Two Images', serp({ urls: ['https://example.com/a'], snippets: ['a'] })]]),
+    )
+
+    expect(searchMocks.batchSearchBrandImages).toHaveBeenCalled()
+  })
+
+  it('still honours the no-SERP-results skip even when overwrite is set', async () => {
+    const submission: EnrichBrand = {
+      id: 'submission-1',
+      slug: 'no-serp',
+      name: 'No Serp',
+      overwrite_enrichment: true,
+    }
+
+    const result = await runImageSearchPhase(
+      ctx({
+        chunk: [submission],
+        chunkBrandNames: ['No Serp'],
+        targetType: 'submission',
+        supabase: submissionImagesClient([]),
+      }),
+      new Map([['No Serp', serp()]]),
+    )
+
+    expect(searchMocks.batchSearchBrandImages).not.toHaveBeenCalled()
+    expect(result.phaseResult.status).toBe('skipped')
+  })
+
 })
 
 function submissionImagesClient(submissionIds: string[]): BatchPhaseContext['supabase'] {

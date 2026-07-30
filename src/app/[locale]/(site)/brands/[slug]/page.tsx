@@ -86,6 +86,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     ...(indexability.en ? (['en'] as const) : []),
   ]
   const heroImageUrl = safeImageSrc(brand.heroImageUrl)
+  const heroImageMetadata = brand.heroImageMetadata
+  const heroImageAlt = (
+    safeLocale === 'en' ? heroImageMetadata?.altEn : heroImageMetadata?.altZh
+  )?.trim() || brand.name
+  const heroImageDimensions =
+    heroImageMetadata?.width && heroImageMetadata.height
+      ? { width: heroImageMetadata.width, height: heroImageMetadata.height }
+      : {}
   const { canonical, languages } = buildAlternates(
     `/brands/${brand.slug}`,
     safeLocale,
@@ -106,9 +114,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     alternates: { canonical, languages },
     robots: indexability[safeLocale] ? undefined : { index: false, follow: true },
     openGraph: {
+      type: 'website',
       title: brand.name,
       description,
-      images: heroImageUrl ? [{ url: heroImageUrl }] : undefined,
+      url: canonical,
+      images: heroImageUrl
+        ? [{ url: heroImageUrl, alt: heroImageAlt, ...heroImageDimensions }]
+        : undefined,
       locale: ogLocale,
       alternateLocale: availableLocales.includes(safeLocale === 'en' ? 'zh-TW' : 'en')
         ? [ogAlternateLocale]
@@ -206,12 +218,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
 
   return (
     <>
-      <main
-        className={cn(
-          'page-gutter mx-auto max-w-screen-xl pt-10 lg:pb-10',
-          visitLink ? 'pb-24' : 'pb-10',
-        )}
-      >
+      <main className="page-gutter mx-auto max-w-screen-xl py-10">
         <BrandViewTracker brandId={displayBrand.id} brandSlug={slug} />
         {/* JSON-LD structured data */}
         <script

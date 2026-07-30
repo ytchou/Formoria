@@ -300,10 +300,13 @@ test.describe.serial('Public brand search edge cases', () => {
     await page.goto(`/brands?search=${encodeURIComponent(missingQuery)}`);
     const emptyState = page.locator('[data-empty]');
     await expect(emptyState).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('共 0 個品牌', { exact: true })).toBeVisible();
+    await expect(page.getByText('本目錄收錄在台灣創立、設計或製造的品牌。', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('找不到品牌', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('目前套用條件', { exact: true })).toHaveCount(0);
     await expect(emptyState.getByRole('heading', { name: '找不到符合的品牌' })).toBeVisible();
     await expect(emptyState.getByRole('status')).toContainText(missingQuery);
     await expect(emptyState.locator('img[src="x"]')).toHaveCount(0);
-    await expect(emptyState.getByRole('link', { name: '清除全部' })).toHaveAttribute('href', '/brands');
     await expect(emptyState.getByRole('heading', { name: '你可能想找' })).toBeVisible();
     await expect(emptyState.getByRole('link', { name: '查看全部' })).toBeVisible();
   });

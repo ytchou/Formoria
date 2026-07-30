@@ -1,89 +1,105 @@
-import type { Metadata } from 'next'
-import Image from 'next/image'
-import { NextIntlClientProvider } from 'next-intl'
-import { getTranslations, setRequestLocale, getMessages } from 'next-intl/server'
-import { Link } from '@/i18n/navigation'
-import { buttonVariants } from '@/components/ui/button'
-import { buildOrganizationJsonLd, buildWebSiteJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
-import HeroSection from '@/components/landing/hero-section'
-import BrandShowcase from '@/components/shared/brand-showcase'
-import SectionBand from '@/components/landing/section-band'
+import type { Metadata } from "next";
+import Image from "next/image";
+import { NextIntlClientProvider } from "next-intl";
+import {
+  getTranslations,
+  setRequestLocale,
+  getMessages,
+} from "next-intl/server";
+import { Link } from "@/i18n/navigation";
+import { buttonVariants } from "@/components/ui/button";
+import {
+  buildOrganizationJsonLd,
+  buildWebSiteJsonLd,
+  safeJsonLdStringify,
+} from "@/lib/json-ld";
+import HeroSection from "@/components/landing/hero-section";
+import BrandShowcase from "@/components/shared/brand-showcase";
+import SectionBand from "@/components/landing/section-band";
 import {
   EXPLORE_BRAND_LIMIT,
   getExploreBrands,
   getNewBrands,
   getRecentBrandCount,
-} from '@/lib/services/brands'
-import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
-import { captureReadFailure, markRenderDegraded } from '@/lib/degraded-render'
-import { buildAlternates } from '@/lib/seo/alternates'
-import type { Locale } from '@/lib/seo/alternates'
-import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
+} from "@/lib/services/brands";
+import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
+import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
+import { buildAlternates } from "@/lib/seo/alternates";
+import type { Locale } from "@/lib/seo/alternates";
+import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 
-export const revalidate = 3600
+export const revalidate = 3600;
 
 type PageProps = {
-  params: Promise<{ locale: string }>
-}
+  params: Promise<{ locale: string }>;
+};
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { locale } = await params
-  setRequestLocale(locale)
-  const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
-  const t = await getTranslations('landing.metadata')
-  const { canonical, languages } = buildAlternates('/', safeLocale)
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
+  const { locale } = await params;
+  setRequestLocale(locale);
+  const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
+  const t = await getTranslations("landing.metadata");
+  const { canonical, languages } = buildAlternates("/", safeLocale);
 
-  const ogLocale = safeLocale === 'zh-TW' ? 'zh_TW' : 'en_US'
-  const ogAlternateLocale = safeLocale === 'zh-TW' ? 'en_US' : 'zh_TW'
+  const ogLocale = safeLocale === "zh-TW" ? "zh_TW" : "en_US";
+  const ogAlternateLocale = safeLocale === "zh-TW" ? "en_US" : "zh_TW";
 
   return {
-    title: { absolute: t('title') },
-    description: t('description'),
+    title: { absolute: t("title") },
+    description: t("description"),
     alternates: { canonical, languages },
     twitter: {
-      card: 'summary_large_image',
-      title: t('title'),
-      description: t('description'),
+      card: "summary_large_image",
+      title: t("title"),
+      description: t("description"),
     },
     openGraph: {
-      title: t('title'),
-      description: t('description'),
+      title: t("title"),
+      description: t("description"),
       locale: ogLocale,
       alternateLocale: [ogAlternateLocale],
     },
-  }
+  };
 }
 
 export default async function LandingPage({ params }: PageProps) {
-  const { locale } = await params
-  setRequestLocale(locale)
-  const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
-  const t = await getTranslations('landing')
-  const jsonLd = buildWebSiteJsonLd(safeLocale)
-  const organizationJsonLd = buildOrganizationJsonLd(safeLocale)
+  const { locale } = await params;
+  setRequestLocale(locale);
+  const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
+  const t = await getTranslations("landing");
+  const jsonLd = buildWebSiteJsonLd(safeLocale);
+  const organizationJsonLd = buildOrganizationJsonLd(safeLocale);
 
-  const [exploreResult, newBrandsResult, recentResult, messages] = await Promise.all([
-    getExploreBrands(EXPLORE_BRAND_LIMIT).catch(captureReadFailure('landing.exploreBrands')),
-    getNewBrands(4).catch(captureReadFailure('landing.newBrands')),
-    getRecentBrandCount().catch(captureReadFailure('landing.recentBrandCount')),
-    getMessages(),
-  ])
+  const [exploreResult, newBrandsResult, recentResult, messages] =
+    await Promise.all([
+      getExploreBrands(EXPLORE_BRAND_LIMIT).catch(
+        captureReadFailure("landing.exploreBrands"),
+      ),
+      getNewBrands(4).catch(captureReadFailure("landing.newBrands")),
+      getRecentBrandCount().catch(
+        captureReadFailure("landing.recentBrandCount"),
+      ),
+      getMessages(),
+    ]);
 
   // Aggregate flag: ANY failed read means this render is degraded, and a degraded
   // render must never be frozen by `revalidate = 3600`.
-  const degraded = exploreResult === null || newBrandsResult === null || recentResult === null
+  const degraded =
+    exploreResult === null || newBrandsResult === null || recentResult === null;
   if (degraded) {
-    await markRenderDegraded('landing')
+    await markRenderDegraded("landing");
   }
 
-  const exploreBrands = exploreResult?.brands ?? []
-  const newBrands = newBrandsResult ?? []
-  const recentBrands = recentResult ?? { count: 0, period: '30d' as const }
+  const exploreBrands = exploreResult?.brands ?? [];
+  const newBrands = newBrandsResult ?? [];
+  const recentBrands = recentResult ?? { count: 0, period: "30d" as const };
   // Suppressed per read, not per page: a failed `getNewBrands` must not hide a
   // total count that `getExploreBrands` returned successfully. `undefined` omits
   // the figure rather than asserting a false zero; a genuinely empty DB still
   // resolves `totalCount: 0` and renders 0.
-  const totalBrandCount = exploreResult?.totalCount
+  const totalBrandCount = exploreResult?.totalCount;
 
   return (
     <>
@@ -93,10 +109,16 @@ export default async function LandingPage({ params }: PageProps) {
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(organizationJsonLd) }}
+        dangerouslySetInnerHTML={{
+          __html: safeJsonLdStringify(organizationJsonLd),
+        }}
       />
       <main>
-        <HeroSection brandCount={totalBrandCount} categoryCount={PRODUCT_TYPE_CATEGORIES.length} recentBrands={recentBrands} />
+        <HeroSection
+          brandCount={totalBrandCount}
+          categoryCount={PRODUCT_TYPE_CATEGORIES.length}
+          recentBrands={recentBrands}
+        />
 
         <SavedBrandsProvider>
           <div className="py-6 md:py-8">
@@ -104,8 +126,8 @@ export default async function LandingPage({ params }: PageProps) {
               <NextIntlClientProvider messages={messages}>
                 <BrandShowcase
                   brands={exploreBrands}
-                  heading={t('showcase.heading')}
-                  linkText={t('showcase.browseAll')}
+                  heading={t("showcase.heading")}
+                  linkText={t("showcase.browseAll")}
                   linkHref="/brands"
                 />
               </NextIntlClientProvider>
@@ -121,14 +143,24 @@ export default async function LandingPage({ params }: PageProps) {
               sizes="100vw"
               className="object-cover"
             />
-            <div className="absolute inset-0 bg-background/70" aria-hidden="true" />
+            <div
+              className="absolute inset-0 bg-background/70"
+              aria-hidden="true"
+            />
             <div className="relative mx-auto max-w-4xl page-gutter text-center">
               <blockquote className="type-page-title-large text-foreground">
-                {t('manifesto.headline')}
+                {t("manifesto.headline")}
               </blockquote>
-              <p className="mt-3 type-body-muted">{t('manifesto.body1')}</p>
-              <Link href="/about" className={buttonVariants({ variant: 'primary', tone: 'cta', className: 'mt-4' })}>
-                {t('manifesto.cta')}
+              <p className="mt-3 type-body-muted">{t("manifesto.body1")}</p>
+              <Link
+                href="/vision"
+                className={buttonVariants({
+                  variant: "primary",
+                  tone: "cta",
+                  className: "mt-4",
+                })}
+              >
+                {t("manifesto.cta")}
               </Link>
             </div>
           </section>
@@ -137,8 +169,8 @@ export default async function LandingPage({ params }: PageProps) {
             <div className="mx-auto max-w-6xl page-gutter">
               <BrandShowcase
                 brands={newBrands}
-                heading={t('newBrands.heading')}
-                linkText={t('newBrands.linkText')}
+                heading={t("newBrands.heading")}
+                linkText={t("newBrands.linkText")}
                 linkHref="/brands"
               />
             </div>
@@ -148,5 +180,5 @@ export default async function LandingPage({ params }: PageProps) {
         <SectionBand />
       </main>
     </>
-  )
+  );
 }
