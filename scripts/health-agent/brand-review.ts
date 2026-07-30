@@ -326,7 +326,7 @@ function checkPurchaseWebsiteShape(brand: RecentBrandEdit): HealthFinding[] {
   return [];
 }
 
-// Source of truth: getBrandVisitHref in src/lib/brands/link-fallback.ts, backed by
+// Source of truth: getBrandVisitLink in src/lib/brands/link-fallback.ts, backed by
 // sanitizeHref/normalizeInstagramHref/normalizeThreadsHref in src/lib/url.ts. This
 // tree imports nothing from src/, so the chain is mirrored here — change both sides
 // together. Do not mirror hasText in src/lib/services/brand-quality.ts: it counts

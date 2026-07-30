@@ -25,6 +25,10 @@ describe('revalidatePublicBrand', () => {
         '/en',
         '/zh-TW/brands',
         '/en/brands',
+        '/zh-TW/stats',
+        '/en/stats',
+        '/zh-TW/about',
+        '/en/about',
         '/sitemap.xml',
       ]),
     )
@@ -36,6 +40,8 @@ describe('revalidatePublicBrand', () => {
     expect(revalidatedPaths()).not.toContain('/brands/niizo')
     expect(revalidatedPaths()).not.toContain('/brands/old-niizo')
     expect(revalidatedPaths()).not.toContain('/brands')
+    expect(revalidatedPaths()).not.toContain('/stats')
+    expect(revalidatedPaths()).not.toContain('/about')
     expect(revalidatedPaths()).not.toContain('/')
   })
 

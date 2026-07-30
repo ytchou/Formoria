@@ -30,6 +30,22 @@ describe('normalizeProductTags', () => {
     expect(result.tagsEn).toEqual(['手工燈籠'])
   })
 
+  it('title-cases a novel tag EN so it matches ontology casing on cards', () => {
+    const result = normalizeProductTags(
+      ['手工燈籠', '雨鞋', '臉部防曬'],
+      ['handmade lantern', 'rain boots', 'facial sunscreen'],
+    )
+    expect(result.tagsEn).toEqual(['Handmade Lantern', 'Rain Boots', 'Facial Sunscreen'])
+  })
+
+  it('leaves an already-capitalized novel tag EN and its inner casing alone', () => {
+    const result = normalizeProductTags(
+      ['手工燈籠', '無線充電盤'],
+      ['Handmade Lantern', 'USB-C charging pad'],
+    )
+    expect(result.tagsEn).toEqual(['Handmade Lantern', 'USB-C Charging Pad'])
+  })
+
   it('drops blocklisted and out-of-band novel tags, recording rejections', () => {
     const result = normalizeProductTags(
       ['藍鵲系列襪子', '超值限定組', '襪'],

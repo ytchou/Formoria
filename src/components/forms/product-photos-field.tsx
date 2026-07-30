@@ -10,6 +10,7 @@ type ProductPhotosFieldProps = {
   label: string
   description?: string
   error?: string
+  uploadPath?: string
 }
 
 export function ProductPhotosField({
@@ -18,6 +19,7 @@ export function ProductPhotosField({
   label,
   description,
   error,
+  uploadPath,
 }: ProductPhotosFieldProps) {
   const handleUpload = useCallback(
     (url: string) => onChange([...value, url]),
@@ -42,7 +44,7 @@ export function ProductPhotosField({
         id="productPhotos-upload"
         mode="multi"
         bucket="brand-images"
-        path="brands/tmp/productPhotos"
+        path={uploadPath ?? 'brands/tmp/productPhotos'}
         value={value}
         maxFiles={6}
         onUpload={handleUpload}

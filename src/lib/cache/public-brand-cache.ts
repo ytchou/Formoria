@@ -32,6 +32,10 @@ export function revalidatePublicBrand({
 
   revalidateLocalizedPath('/')
   revalidateLocalizedPath('/brands')
+  // /stats and /about render a global approved-brand count, so any approve/hide/delete
+  // makes their ISR entries stale even though no brand page changed.
+  revalidateLocalizedPath('/stats')
+  revalidateLocalizedPath('/about')
   // The sitemap is a single unlocalized route, so its cache key is literal.
   revalidatePath('/sitemap.xml')
 }

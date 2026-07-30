@@ -73,6 +73,22 @@ describe('guides service (filesystem-backed)', () => {
       expect(result.guides).toHaveLength(0)
     })
 
+    it('returns no guides for the en locale when the only guide is zh-TW', async () => {
+      vi.mocked(fs.readdirSync).mockReturnValue(['taiwan-skincare-brands.mdx'] as unknown as ReturnType<typeof fs.readdirSync>)
+      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
+      vi.mocked(matter).mockReturnValue({ data: mockFrontmatter, content: 'Content here.' } as unknown as ReturnType<typeof matter>)
+
+      const enResult = await getAllGuides('en')
+      expect(enResult.ok).toBe(true)
+      if (!enResult.ok) throw enResult.error
+      expect(enResult.guides).toHaveLength(0)
+
+      const defaultResult = await getAllGuides()
+      expect(defaultResult.ok).toBe(true)
+      if (!defaultResult.ok) throw defaultResult.error
+      expect(defaultResult.guides).toHaveLength(1)
+    })
+
     it('filters out draft guides', async () => {
       vi.mocked(fs.readdirSync).mockReturnValue(['draft-guide.mdx'] as unknown as ReturnType<typeof fs.readdirSync>)
       vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
@@ -179,6 +195,21 @@ describe('guides service (filesystem-backed)', () => {
       const result = await getPublishedGuideBySlug('taiwan-skincare-brands')
       expect(result).not.toBeNull()
     })
+
+    it('returns null when the requested locale does not match the authored locale', async () => {
+      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
+      vi.mocked(matter).mockReturnValue({
+        data: mockFrontmatter,
+        content: 'Content.',
+      } as unknown as ReturnType<typeof matter>)
+
+      await expect(
+        getPublishedGuideBySlug('taiwan-skincare-brands', 'en'),
+      ).resolves.toBeNull()
+      await expect(
+        getPublishedGuideBySlug('taiwan-skincare-brands', 'zh-TW'),
+      ).resolves.not.toBeNull()
+    })
   })
 
   describe('getGuidesByCategory', () => {
@@ -197,6 +228,20 @@ describe('guides service (filesystem-backed)', () => {
       if (!result.ok) throw result.error
       expect(result.guides).toHaveLength(1)
       expect(result.guides[0].frontmatter.category).toBe('beauty')
+    })
+
+    it('returns no guides for the en locale when the category guides are zh-TW', async () => {
+      vi.mocked(fs.readdirSync).mockReturnValue(['beauty-guide.mdx'] as unknown as ReturnType<typeof fs.readdirSync>)
+      vi.mocked(fs.readFileSync).mockReturnValue(mockRawMdx)
+      vi.mocked(matter).mockReturnValue({
+        data: { ...mockFrontmatter, slug: 'beauty-guide', category: 'beauty' },
+        content: 'content',
+      } as unknown as ReturnType<typeof matter>)
+
+      const result = await getGuidesByCategory('beauty', 'en')
+      expect(result.ok).toBe(true)
+      if (!result.ok) throw result.error
+      expect(result.guides).toHaveLength(0)
     })
   })
 })

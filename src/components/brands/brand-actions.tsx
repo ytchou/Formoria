@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { useTranslations } from 'next-intl'
 import { ExternalLink } from 'lucide-react'
 import { trackExternalLinkClicked } from '@/lib/analytics'
+import type { BrandVisitLinkKind } from '@/lib/brands/link-fallback'
 import { EvidenceDialog } from '@/components/brands/evidence-dialog'
 import { ReportDialog } from '@/components/brands/report-dialog'
 import { buttonVariants } from '@/components/ui/button'
@@ -11,9 +12,19 @@ import { LikeBrandButton } from './like-brand-button'
 import { SaveBrandButton } from './save-brand-button'
 import { ShareDialog } from './share-dialog'
 
+const VISIT_LABEL_KEYS = {
+  website: 'actions.visitWebsite',
+  pinkoi: 'actions.visitPinkoi',
+  shopee: 'actions.visitShopee',
+  instagram: 'actions.visitInstagram',
+  threads: 'actions.visitThreads',
+  facebook: 'actions.visitFacebook',
+} as const satisfies Record<BrandVisitLinkKind, string>
+
 interface BrandActionsProps {
   adminSlot?: ReactNode
   websiteUrl: string | null
+  visitKind?: BrandVisitLinkKind
   brandSlug?: string
   brandId?: string
   brandName: string
@@ -24,6 +35,7 @@ interface BrandActionsProps {
 export function BrandActions({
   adminSlot,
   websiteUrl,
+  visitKind = 'website',
   brandSlug = '',
   brandId,
   brandName,
@@ -31,6 +43,7 @@ export function BrandActions({
   categoryLabel,
 }: BrandActionsProps) {
   const t = useTranslations('brandDetail')
+  const visitLabel = t(VISIT_LABEL_KEYS[visitKind])
   const handleWebsiteClick = () => {
     trackExternalLinkClicked(
       brandSlug,
@@ -54,12 +67,12 @@ export function BrandActions({
             onClick={handleWebsiteClick}
           >
             <ExternalLink className="size-[15px]" />
-            {t('actions.visitWebsite')}
+            {visitLabel}
           </a>
         ) : (
           <span className={buttonVariants({ variant: 'secondary', className: 'w-full cursor-default opacity-50' })} aria-disabled="true">
             <ExternalLink className="size-[15px]" />
-            <span className="line-through">{t('actions.visitWebsite')}</span>
+            <span className="line-through">{visitLabel}</span>
           </span>
         )}
         <div className="flex flex-wrap gap-2">
@@ -86,12 +99,14 @@ export function BrandActions({
             href={websiteUrl}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label={t('actions.visitOfficialWebsiteAria')}
+            aria-label={
+              visitKind === 'website' ? t('actions.visitOfficialWebsiteAria') : undefined
+            }
             data-ph-no-autocapture
             onClick={handleWebsiteClick}
             className={buttonVariants({ variant: 'primary', tone: 'cta', className: 'w-full' })}
           >
-            {t('actions.visitWebsite')} <ExternalLink size={14} />
+            {visitLabel} <ExternalLink size={14} />
           </a>
         </div>
       )}

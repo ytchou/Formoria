@@ -40,13 +40,15 @@ test.describe('Guides hub smoke', () => {
     });
   });
 
-  test('guide detail renders in both locales', async ({ anonPage }) => {
-    for (const locale of ['zh-TW', 'en']) {
-      await anonPage.goto(`/${locale}/guides/taiwan-skincare-brands`);
-      await expect(anonPage.getByRole('heading', { level: 1 })).toBeVisible({
-        timeout: 10_000,
-      });
-    }
+  test('guide detail renders in zh-TW and 404s in en', async ({ anonPage }) => {
+    await anonPage.goto('/zh-TW/guides/taiwan-skincare-brands');
+    await expect(anonPage.getByRole('heading', { level: 1 })).toBeVisible({
+      timeout: 10_000,
+    });
+
+    // The guide is authored in zh-TW only — the English route must not serve it
+    const response = await anonPage.goto('/en/guides/taiwan-skincare-brands');
+    expect(response?.status()).toBe(404);
   });
 
   test('category filter pill updates URL with ?category= and stays on hub', async ({ anonPage }) => {

@@ -51,6 +51,8 @@ Running inventory of e2e-covered user journeys. Updated by `/e2e-author` runs.
 | **Public brand support toggle, evidence sign-in guidance, and admin heading-menu placement** | `e2e/tests/brand-actions.spec.ts` | 2026-07-25 |
 | **Owner welcome card — visible on fresh brand, dismissal persists** (RED: duplicate content tree after dismiss+reload — see e2e/reports/2026-07-23.md) | `e2e/tests/dashboard-welcome-card.spec.ts` | 2026-07-23 |
 | **Public feature request board — anonymous read, sign-in handoff on upvote, submit, vote toggle, category filter, admin duplicate merge** | `e2e/tests/feature-requests.spec.ts` | 2026-07-28 |
+| **Signup form + registration (fails loudly on outage)** | `e2e/tests/auth-signup.spec.ts` | 2026-07-30 |
+| **Signup → email confirmation → onboarding → first value** | `e2e/tests/auth-signup-journey.spec.ts` | 2026-07-30 |
 | _(30+ existing deep specs omitted — see e2e/tests/ for full inventory)_ | | |
 
 ## Mobile (Pixel 5, nightly)

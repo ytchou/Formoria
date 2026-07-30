@@ -10,6 +10,7 @@
  */
 import { createServiceClient } from '@/lib/supabase/server'
 import { applyBrandRefresh } from '@/lib/services/submissions'
+import { requestPublicBrandRevalidation } from '@/lib/cache/revalidate-client'
 
 const DRY_RUN = process.argv.includes('--dry-run')
 
@@ -50,11 +51,13 @@ async function main(): Promise<void> {
   const reviewerId = await resolveReviewerId(adminEmail)
   let applied = 0
   const failures: string[] = []
+  const appliedBrandIds: string[] = []
 
   for (const submission of submissions) {
     try {
       const result = await applyBrandRefresh(submission.id, reviewerId)
       applied += 1
+      if (result.brandId) appliedBrandIds.push(result.brandId)
       if (result.cleanupFailed) {
         console.warn(`[apply-refresh] ${submission.brand_name}: storage cleanup failed`)
       }
@@ -71,6 +74,33 @@ async function main(): Promise<void> {
 
   console.log(`[apply-refresh] applied ${applied}, failed ${failures.length}`)
   for (const failure of failures) console.log(`  ${failure}`)
+
+  await revalidateAppliedBrands(appliedBrandIds)
+}
+
+/**
+ * The refreshes above ran outside a Next request, so nothing invalidated the
+ * public ISR entries. Ask the live site to do it. Never throws — the writes are
+ * already committed and a stale cache is not worth failing the run over.
+ */
+async function revalidateAppliedBrands(brandIds: string[]): Promise<void> {
+  const uniqueIds = [...new Set(brandIds.filter(Boolean))]
+  if (uniqueIds.length === 0) return
+
+  const supabase = createServiceClient()
+  const { data, error } = await supabase.from('brands').select('slug').in('id', uniqueIds)
+  if (error) {
+    console.warn(`[apply-refresh] slug lookup for revalidation failed: ${error.message}`)
+    return
+  }
+
+  const slugs = (data ?? []).map((row) => row.slug).filter(Boolean)
+  const result = await requestPublicBrandRevalidation(slugs)
+  if (result.ok) {
+    console.log(`[apply-refresh] revalidated ${slugs.length} brand(s)`)
+  } else {
+    console.warn(`[apply-refresh] revalidation skipped: ${result.reason ?? 'unknown'}`)
+  }
 }
 
 void main().catch((err) => {

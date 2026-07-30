@@ -283,7 +283,9 @@ export function BrandEditWizard({
               currentSlug={brand.slug}
             />
           ) : (
-            SectionComponent && <SectionComponent form={form} />
+            SectionComponent && (
+              <SectionComponent form={form} brandId={brand.id} />
+            )
           )}
         </DirtyFieldsContext.Provider>
         <WizardFooter

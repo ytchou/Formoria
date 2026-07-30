@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { deleteSignupTestUsers } from './signup-namespace';
 
 export async function cleanupTestData() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -39,6 +40,10 @@ export async function cleanupTestData() {
   if (newsletterErr) console.warn('[e2e-cleanup] newsletter_subscribers cleanup error:', newsletterErr.message);
   if (usersErr) console.warn('[e2e-cleanup] owner_email_preferences user lookup error:', usersErr.message);
   if (ownerPrefsErr) console.warn('[e2e-cleanup] owner_email_preferences cleanup error:', ownerPrefsErr.message);
+
+  // Auth users created by the signup specs. deleteSignupTestUsers never throws,
+  // so a Supabase hiccup here cannot take down the whole teardown.
+  await deleteSignupTestUsers();
 
   console.log('[e2e-cleanup] swept orphaned [E2E-TEST] rows');
 }

@@ -35,17 +35,32 @@ test.describe('Visitor smoke', () => {
 
   test('category filter narrows results', async ({ page }) => {
     await gotoBrandsPage(page);
-    await expect(async () => {
-      await page.getByRole('checkbox').first().click({ force: true });
-      await expect(page).toHaveURL(/category=|filter=/, { timeout: 3_000 });
-    }).toPass({ timeout: 15_000, intervals: [1_000, 2_000, 3_000] });
+
+    // FilterSection renders with defaultOpen=false, so every filter group starts
+    // collapsed behind a `grid-template-rows: 0fr` + overflow-hidden wrapper. The
+    // checkboxes inside still report a 16x16 box but are clipped, so they are not
+    // hit-testable — which is why the old `click({ force: true })` landed on the
+    // section instead and why wrapping it in toPass() could never help. Open the
+    // group first, exactly as a user does.
+    const categoryToggle = page
+      .locator('aside')
+      .getByRole('button', { name: '分類', exact: true });
+    await expect(categoryToggle).toBeVisible({ timeout: 10_000 });
+    if ((await categoryToggle.getAttribute('aria-expanded')) === 'false') {
+      await categoryToggle.click();
+      await expect(categoryToggle).toHaveAttribute('aria-expanded', 'true');
+    }
+
+    const firstCategory = page.locator('aside').getByRole('checkbox').first();
+    await firstCategory.click();
+    await expect(page).toHaveURL(/category=/, { timeout: 10_000 });
     const hasBrands = page.locator('main a[aria-label]').first();
     const isEmpty = page.locator('[data-empty], [aria-label*="no result"], [aria-label*="empty"]').first();
     await expect(hasBrands.or(isEmpty)).toBeVisible({ timeout: 8_000 }).catch(() => {
       // No explicit empty-state element — that's fine, the page just shows fewer results
     });
     // Re-locate the checkbox after React re-render to avoid stale reference on WebKit
-    const toggleOff = page.getByRole('checkbox').first();
+    const toggleOff = page.locator('aside').getByRole('checkbox').first();
     if (await toggleOff.isVisible({ timeout: 2_000 }).catch(() => false)) {
       await toggleOff.click();
       await expect(page).not.toHaveURL(/category=/, { timeout: 10_000 });

@@ -7,6 +7,9 @@ require('dotenv').config({ path: '.env.local' });
 // Disable dev-only widgets (e.g., Agentation) during test runs
 process.env.PLAYWRIGHT_TEST = 'true';
 
+const baseURL = process.env.BASE_URL ?? 'http://localhost:3000';
+const isLocalTarget = ['localhost', '127.0.0.1', '::1'].includes(new URL(baseURL).hostname);
+
 // Ensure the E2E admin account is in ADMIN_EMAILS so isAdmin() passes during tests
 if (process.env.E2E_ADMIN_EMAIL && process.env.ADMIN_EMAILS) {
   const emails = process.env.ADMIN_EMAILS.split(',').map((e) => e.trim().toLowerCase());
@@ -41,7 +44,7 @@ export default defineConfig({
   // strict so a genuine regression still fails there.
   timeout: process.env.CI ? 30_000 : 60_000,
   use: {
-    baseURL: process.env.BASE_URL ?? 'http://localhost:3000',
+    baseURL,
     // Not 'on-first-retry': with retries=1 a fail-then-pass keeps only the
     // passing attempt's trace, which is how flakes became unfixable after
     // the fact. Retain the attempt that actually failed.
@@ -82,7 +85,10 @@ export default defineConfig({
   ],
   globalSetup: './e2e/global-setup.ts',
   globalTeardown: './e2e/global-teardown.ts',
-  webServer: {
+  // A remote BASE_URL means synthetic monitoring against an already-deployed
+  // origin — there is nothing to boot locally, and booting anyway either
+  // computes an empty PORT (https URLs carry no port) or wastes a CI build.
+  webServer: isLocalTarget ? {
     // PLAYWRIGHT_TEST=true must be on EVERY branch, not just CI. `proxy.ts`
     // skips the soft rate limiter only when the server sees it, and
     // SOFT_LIMIT_PREFIXES is ['/brands/'] keyed by client IP — every local
@@ -94,10 +100,10 @@ export default defineConfig({
     command: process.env.CI
       ? 'PLAYWRIGHT_TEST=true pnpm start'
       : process.env.BASE_URL
-        ? `PLAYWRIGHT_TEST=true PORT=${new URL(process.env.BASE_URL).port} pnpm dev`
+        ? `PLAYWRIGHT_TEST=true PORT=${new URL(baseURL).port || '3000'} pnpm dev`
         : 'PLAYWRIGHT_TEST=true pnpm dev',
-    url: process.env.BASE_URL ?? 'http://localhost:3000',
+    url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: process.env.CI ? 60_000 : 120_000,
-  },
+  } : undefined,
 });

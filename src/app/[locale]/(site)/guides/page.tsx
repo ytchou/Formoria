@@ -41,13 +41,16 @@ function formatGuideDate(date: string, locale: string): string {
 export default async function GuidesHubPage({ params, searchParams }: PageProps) {
   const { locale } = await params
   setRequestLocale(locale)
+  const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
   const t = await getTranslations({ locale, namespace: 'guides' })
   const sp = await searchParams
   const category = typeof sp.category === 'string' && sp.category.trim() ? sp.category.trim() : null
   const activeCategory = category && PRODUCT_TYPE_CATEGORIES.some((item) => item.slug === category)
     ? category
     : null
-  const guideResult = activeCategory ? await getGuidesByCategory(activeCategory) : await getAllGuides()
+  const guideResult = activeCategory
+    ? await getGuidesByCategory(activeCategory, safeLocale)
+    : await getAllGuides(safeLocale)
   const guides = guideResult.ok ? guideResult.guides : []
 
   return (

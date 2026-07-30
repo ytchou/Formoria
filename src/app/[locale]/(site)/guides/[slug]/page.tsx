@@ -15,13 +15,16 @@ type PageProps = {
 }
 
 export const revalidate = 3600
-export const dynamic = 'force-static'
 
 // Prebuild every published guide so the first production visit is served from the
 // ISR cache instead of paying on-demand generation. Locale comes from the parent
 // `[locale]` layout's own `generateStaticParams`, so both locales are covered.
 // `getAllGuides()` is the same published set the index and sitemap use; anything
 // outside it (drafts, future non-zh-TW guides) still renders on demand.
+// Deliberately no `dynamic = 'force-static'`: it strips request-scoped state, so
+// next-intl's `getRequestLocale()` returns undefined and `src/i18n/request.ts`
+// silently falls back to zh-TW on on-demand/ISR renders while `params.locale`
+// still says `en`. `revalidate` + `generateStaticParams` gives SSG+ISR without it.
 export async function generateStaticParams() {
   const result = await getAllGuides()
   if (!result.ok) return []
@@ -36,24 +39,22 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const slug = decodeURIComponent(rawSlug)
   setRequestLocale(locale)
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
-  const guide = await getPublishedGuideBySlug(slug)
+  const guide = await getPublishedGuideBySlug(slug, safeLocale)
 
   if (!guide) {
     notFound()
   }
 
-  const authoredLocale: Locale = guide.entry.frontmatter.locale === 'en' ? 'en' : 'zh-TW'
   const { canonical, languages } = buildAlternates(
     `/guides/${guide.entry.frontmatter.slug}`,
     safeLocale,
-    [authoredLocale],
+    [safeLocale],
   )
 
   return {
     title: guide.entry.frontmatter.title,
     description: guide.entry.frontmatter.description,
     alternates: { canonical, languages },
-    robots: safeLocale === authoredLocale ? undefined : { index: false, follow: true },
   }
 }
 
@@ -61,20 +62,20 @@ export default async function GuidePage({ params }: PageProps) {
   const { locale, slug: rawSlug } = await params
   const slug = decodeURIComponent(rawSlug)
   setRequestLocale(locale)
-  const guide = await getPublishedGuideBySlug(slug)
+  const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
+  const guide = await getPublishedGuideBySlug(slug, safeLocale)
 
   if (!guide) {
     notFound()
   }
 
   const t = await getTranslations({ locale, namespace: 'guides' })
-  const authoredLocale: Locale = guide.entry.frontmatter.locale === 'en' ? 'en' : 'zh-TW'
 
   const articleJsonLd = buildArticleJsonLd({
     title: guide.entry.frontmatter.title,
     description: guide.entry.frontmatter.description ?? '',
     path: `/guides/${guide.entry.frontmatter.slug}`,
-    locale: authoredLocale,
+    locale: safeLocale,
   })
 
   return (

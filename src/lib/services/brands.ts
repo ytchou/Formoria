@@ -16,6 +16,7 @@ import {
 } from '@/lib/taxonomy/ontology'
 import { slugifyRomanizedName, withSlugSuffix } from '@/lib/brands/slug'
 import { downloadAndStoreImages } from './image-download'
+import { excludeTestBrands } from './public-brand-filter'
 import {
   resolveWritablePatch,
   type BrandFieldWriteState,
@@ -936,7 +937,7 @@ export async function getBrands(
   }
 
   if (!filters?.includeTestBrands) {
-    query = query.not('name', 'like', '[E2E-TEST]%')
+    query = excludeTestBrands(query)
   }
   if (filters?.status) {
     query = query.eq('status', filters.status)
@@ -986,12 +987,13 @@ export async function getBrands(
 
 export async function getSubcategoryCounts(categorySlug: string): Promise<Map<string, number>> {
   const supabase = createServiceClient()
-  const { data, error } = await supabase
-    .from('brands')
-    .select('product_tags')
-    .eq('status', 'approved')
-    .eq('product_type', categorySlug)
-    .not('name', 'like', '[E2E-TEST]%')
+  const { data, error } = await excludeTestBrands(
+    supabase
+      .from('brands')
+      .select('product_tags')
+      .eq('status', 'approved')
+      .eq('product_type', categorySlug),
+  )
 
   if (error) throw error
 
@@ -1611,11 +1613,13 @@ export async function getRecentBrandCount(): Promise<{ count: number; period: '7
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
 
-  const { count: weekCount, error: weekError } = await supabase
-    .from('brands')
-    .select('*', { count: 'exact', head: true })
-    .eq('status', 'approved')
-    .gte('approved_at', sevenDaysAgo)
+  const { count: weekCount, error: weekError } = await excludeTestBrands(
+    supabase
+      .from('brands')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'approved')
+      .gte('approved_at', sevenDaysAgo),
+  )
 
   if (weekError) throw weekError
 
@@ -1623,11 +1627,13 @@ export async function getRecentBrandCount(): Promise<{ count: number; period: '7
     return { count: weekCount ?? 0, period: '7d' }
   }
 
-  const { count: monthCount, error: monthError } = await supabase
-    .from('brands')
-    .select('*', { count: 'exact', head: true })
-    .eq('status', 'approved')
-    .gte('approved_at', thirtyDaysAgo)
+  const { count: monthCount, error: monthError } = await excludeTestBrands(
+    supabase
+      .from('brands')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'approved')
+      .gte('approved_at', thirtyDaysAgo),
+  )
 
   if (monthError) throw monthError
 
@@ -1637,15 +1643,15 @@ export async function getRecentBrandCount(): Promise<{ count: number; period: '7
 export async function getBrandStats(): Promise<{ brandCount: number; categoryCount: number }> {
   const supabase = createServiceClient()
   const [{ count, error }, { data: categoryRows, error: categoryError }] = await Promise.all([
-    supabase
-      .from('brands')
-      .select(BRAND_COLUMNS as '*', { count: 'exact', head: true })
-      .eq('status', 'approved'),
-    supabase
-      .from('brands')
-      .select('product_type')
-      .eq('status', 'approved')
-      .not('product_type', 'is', null),
+    excludeTestBrands(
+      supabase
+        .from('brands')
+        .select(BRAND_COLUMNS as '*', { count: 'exact', head: true })
+        .eq('status', 'approved'),
+    ),
+    excludeTestBrands(
+      supabase.from('brands').select('product_type').eq('status', 'approved'),
+    ).not('product_type', 'is', null),
   ])
 
   if (error) throw error

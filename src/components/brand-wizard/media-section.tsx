@@ -12,16 +12,29 @@ import { RequiredFieldsHint } from '@/components/forms/required-fields-hint'
 import type { BrandWizardCommonValues } from '@/lib/schemas/brand-wizard'
 
 export function BrandMediaSection({
+  brandId,
   uploadPath,
   heroRequired,
   productPhotosRequired,
 }: {
-  uploadPath: string
+  brandId?: string
+  uploadPath?: string
   heroRequired: boolean
   productPhotosRequired: boolean
 }) {
   const form = useFormContext<BrandWizardCommonValues>()
   const t = useTranslations('dashboard.edit')
+
+  // `brands/tmp/` is only correct for the submission flow: the brand row does not
+  // exist yet, so there is no id to key the storage path on. Once a brand exists
+  // its images must live under `brands/<id>/` — otherwise every edit strands the
+  // uploaded file in the temp prefix forever.
+  const heroPath =
+    uploadPath ??
+    (brandId ? `brands/${brandId}/heroImageUrl` : 'brands/tmp/heroImageUrl')
+  const productPhotosPath = brandId
+    ? `brands/${brandId}/productPhotos`
+    : 'brands/tmp/productPhotos'
 
   return (
     <StandardFormSection id="media" className="scroll-mt-8">
@@ -40,7 +53,7 @@ export function BrandMediaSection({
                 name={field.name}
                 label={t('fieldHeroImage')}
                 description={t('heroImageEditHint')}
-                uploadPath={uploadPath}
+                uploadPath={heroPath}
                 value={field.value ?? ''}
                 onChange={field.onChange}
                 required={heroRequired}
@@ -63,6 +76,7 @@ export function BrandMediaSection({
               onChange={field.onChange}
               label={t('fieldProductPhotos')}
               description={t('productPhotosEditHint')}
+              uploadPath={productPhotosPath}
               error={
                 productPhotosRequired && form.formState.errors.productPhotos
                   ? t('requiredFieldError')

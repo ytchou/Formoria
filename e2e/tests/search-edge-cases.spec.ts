@@ -220,7 +220,7 @@ test.describe.serial('Public brand search edge cases', () => {
 
     await page.goto('/brands?category=crafts&sort=name&page=2');
     const sidebarSearch = page.locator(
-      'main form[aria-label="依品牌名稱篩選"] input[role="searchbox"]',
+      'main form[aria-label="依品牌或產品關鍵字篩選"] input[role="searchbox"]',
     );
     const navSearch = page.locator('header form[role="search"] input[role="searchbox"]:visible');
     await sidebarSearch.fill(exactQuery);
