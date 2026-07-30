@@ -76,6 +76,32 @@ type ApprovalOutcome =
 
 const MAX_BULK_APPROVALS = 100
 
+// Bulk approval processes every submission concurrently, and the whole
+// action only responds once every item has settled. One submission that
+// hangs on a slow DB round trip (e.g. a stale-refresh check contending with
+// other writes) otherwise keeps the client from learning about the other,
+// already-committed approvals in the same batch — bound each item so the
+// response never waits on the single slowest one.
+const APPROVAL_ITEM_TIMEOUT_MS = 20_000
+
+function withApprovalTimeout<T>(promise: Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error('Approval is taking longer than expected — check back shortly'))
+    }, APPROVAL_ITEM_TIMEOUT_MS)
+    promise.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      (err) => {
+        clearTimeout(timer)
+        reject(err)
+      }
+    )
+  })
+}
+
 export async function resendClaimInviteAction(
   brandId: string
 ): Promise<{ resent: true } | { error: string }> {
@@ -260,7 +286,9 @@ export async function approveSubmissionsAction(
           return {
             ok: true,
             submissionId,
-            result: await approveSubmissionForAdmin(submissionId, auth.user.id),
+            result: await withApprovalTimeout(
+              approveSubmissionForAdmin(submissionId, auth.user.id)
+            ),
           }
         } catch (err) {
           console.error('[admin:approveSubmissions]', { submissionId, error: err })
@@ -276,7 +304,13 @@ export async function approveSubmissionsAction(
     const successes = outcomes.flatMap((outcome) =>
       outcome.ok ? [outcome.result] : []
     )
-    if (successes.length > 0) revalidateApprovals(successes)
+    if (successes.length > 0) {
+      try {
+        revalidateApprovals(successes)
+      } catch (err) {
+        console.error('[admin:approveSubmissions] revalidateApprovals failed:', err)
+      }
+    }
 
     const failures = outcomes.flatMap((outcome) =>
       outcome.ok
