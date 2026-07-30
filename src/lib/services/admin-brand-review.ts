@@ -14,6 +14,7 @@ import type {
 
 const MAX_REVIEW_IMAGES = 7;
 const BRAND_IMAGE_PAGE_SIZE = 1_000;
+const SUPABASE_IN_FILTER_CHUNK_SIZE = 200;
 
 type BrandImageRow = {
   id: string;
@@ -40,22 +41,39 @@ export async function getAdminBrandReviewImages(
   if (uniqueBrandIds.length === 0) return {};
 
   const supabase = createServiceClient();
-  const rows: BrandImageRow[] = [];
-  for (let offset = 0; ; offset += BRAND_IMAGE_PAGE_SIZE) {
-    const { data, error } = await supabase
-      .from("brand_images")
-      .select(ADMIN_BRAND_IMAGE_SELECT)
-      .in("brand_id", uniqueBrandIds)
-      .eq("status", "active")
-      .order("brand_id", { ascending: true })
-      .order("sort_order", { ascending: true })
-      .order("id", { ascending: true })
-      .range(offset, offset + BRAND_IMAGE_PAGE_SIZE - 1);
-    if (error) throw error;
-    const page = (data ?? []) as BrandImageRow[];
-    rows.push(...page);
-    if (page.length < BRAND_IMAGE_PAGE_SIZE) break;
+  const chunks: string[][] = [];
+  for (
+    let index = 0;
+    index < uniqueBrandIds.length;
+    index += SUPABASE_IN_FILTER_CHUNK_SIZE
+  ) {
+    chunks.push(
+      uniqueBrandIds.slice(index, index + SUPABASE_IN_FILTER_CHUNK_SIZE),
+    );
   }
+  const rows = (
+    await Promise.all(
+      chunks.map(async (brandIds) => {
+        const chunkRows: BrandImageRow[] = [];
+        for (let offset = 0; ; offset += BRAND_IMAGE_PAGE_SIZE) {
+          const { data, error } = await supabase
+            .from("brand_images")
+            .select(ADMIN_BRAND_IMAGE_SELECT)
+            .in("brand_id", brandIds)
+            .eq("status", "active")
+            .order("brand_id", { ascending: true })
+            .order("sort_order", { ascending: true })
+            .order("id", { ascending: true })
+            .range(offset, offset + BRAND_IMAGE_PAGE_SIZE - 1);
+          if (error) throw error;
+          const page = (data ?? []) as BrandImageRow[];
+          chunkRows.push(...page);
+          if (page.length < BRAND_IMAGE_PAGE_SIZE) break;
+        }
+        return chunkRows;
+      }),
+    )
+  ).flat();
 
   const result: Record<string, SubmissionReviewImage[]> = {};
   for (const row of rows) {
