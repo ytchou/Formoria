@@ -512,12 +512,6 @@ test.describe("Bulk refresh approval", () => {
       .eq("id", jobId);
     if (jobError) throw jobError;
 
-    const { error: staleError } = await supabase
-      .from("brands")
-      .update({ updated_at: new Date(Date.now() + 1_000).toISOString() })
-      .eq("id", staleBrandId);
-    if (staleError) throw staleError;
-
     await adminPage.goto("/admin/submissions?stage=ready");
     await adminPage
       .getByRole("textbox", { name: "Search submissions" })
@@ -528,6 +522,13 @@ test.describe("Bulk refresh approval", () => {
     await expect(staleRow).toBeVisible();
     await validRow.getByRole("checkbox").click();
     await staleRow.getByRole("checkbox").click();
+
+    const { error: staleTargetError } = await supabase
+      .from("curation_job_targets")
+      .update({ status: "failed" })
+      .eq("job_id", jobId)
+      .eq("target_id", staleSubmissionId);
+    if (staleTargetError) throw staleTargetError;
 
     await Promise.all([
       adminPage.waitForEvent("dialog").then((dialog) => dialog.accept()),
