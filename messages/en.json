@@ -2859,11 +2859,20 @@
     "subheading": "Long-form pieces on Taiwanese brands: the people who make them, the places they come from, and how the work actually gets done.",
     "badgeLabel": "Editorial",
     "allCategories": "All",
+    "allTags": "All",
     "comingSoon": "The first stories are on their way.",
     "loadError": "Stories are temporarily unavailable. Please try again later.",
     "breadcrumb": "Stories",
     "breadcrumbAria": "Breadcrumb",
     "categoriesAria": "Story categories",
+    "tagsAria": "Story tags",
+    "tags": {
+      "event": "Events"
+    },
+    "seriesHeading": "In this series",
+    "seriesNavAria": "Stories in this series",
+    "seriesCount": "{count} parts",
+    "brandMissing": "Brand unavailable: {slug}",
     "notFound": {
       "title": "Story not found",
       "description": "The story you're looking for doesn't exist or has been removed.",
