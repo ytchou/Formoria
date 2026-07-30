@@ -154,6 +154,43 @@ const nextConfig: NextConfig = {
         destination: '/brands?category=:category',
         permanent: true,
       },
+      // The editorial surface was renamed /guides -> /stories. `guides` was also
+      // dropped from RESERVED_ROUTES, so without these a bare /guides falls
+      // through to SLUG_PATTERN in src/proxy.ts and 301s to /brands/guides,
+      // which 404s — a live 301-to-404 chain on a URL that is footer-linked and
+      // still listed in the production sitemap.
+      // Slugs are NOT preserved: the two /guides/* documents were placeholder
+      // content that no longer exists, so /stories/:slug would only 404 again.
+      {
+        source: '/guides',
+        destination: '/stories',
+        permanent: true,
+      },
+      {
+        source: '/guides/:slug*',
+        destination: '/stories',
+        permanent: true,
+      },
+      {
+        source: '/en/guides',
+        destination: '/en/stories',
+        permanent: true,
+      },
+      {
+        source: '/en/guides/:slug*',
+        destination: '/en/stories',
+        permanent: true,
+      },
+      {
+        source: '/zh-TW/guides',
+        destination: '/stories',
+        permanent: true,
+      },
+      {
+        source: '/zh-TW/guides/:slug*',
+        destination: '/stories',
+        permanent: true,
+      },
       {
         source: '/zh-TW/auth/:path*',
         destination: '/auth/:path*',

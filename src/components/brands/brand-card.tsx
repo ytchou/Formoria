@@ -20,8 +20,15 @@ interface BrandCardProps {
   brand: Brand
   position?: number
   priority?: boolean
-  variant?: 'directory' | 'recommendation'
+  variant?: 'directory' | 'recommendation' | 'editorial'
   sourceBrandSlug?: string
+  /**
+   * Editorial variant only: the author's line about this brand, shown in place
+   * of the generated blurb so a story's own voice wins over directory copy.
+   */
+  note?: string
+  /** Editorial variant only: short kicker above the brand name. */
+  eyebrow?: string
 }
 
 export function BrandCard({
@@ -30,6 +37,8 @@ export function BrandCard({
   priority = false,
   variant = 'directory',
   sourceBrandSlug,
+  note,
+  eyebrow,
 }: BrandCardProps) {
   const t = useTranslations('brands')
   const tDetail = useTranslations('brandDetail')
@@ -42,6 +51,9 @@ export function BrandCard({
   const showImage = imageSrc !== null && !imgError
 
   const categoryLabel = getBrandCategoryLabel(brand, locale === 'en' ? 'en' : 'zh-TW')
+  // Directory and editorial cards are whole-card click targets with a save
+  // affordance; recommendation cards use an explicit button instead.
+  const isWholeCardLink = variant === 'directory' || variant === 'editorial'
 
   return (
     <article
@@ -66,20 +78,25 @@ export function BrandCard({
         ) : (
           <BrandImageFallback name={brand.name} category={brand.category} size="card" />
         )}
-        {variant === 'directory' ? (
+        {isWholeCardLink ? (
           <SaveBrandButton brandId={brand.id} slug={brand.slug} variant="overlay" />
         ) : null}
       </div>
 
       {/* Content */}
       <div className="p-4">
+        {variant === 'editorial' && eyebrow ? (
+          <Badge variant="secondary" className="mb-2">
+            {eyebrow}
+          </Badge>
+        ) : null}
         <div className="flex min-w-0 items-center gap-1.5">
           <h3 className="min-w-0 truncate type-subsection-title">
             <Link
               href={`/brands/${brand.slug}`}
               className={cn(
                 'focus-visible:outline-none',
-                variant === 'directory' && 'after:absolute after:inset-0',
+                isWholeCardLink && 'after:absolute after:inset-0',
               )}
               onClick={() => {
                 if (variant === 'recommendation') {
@@ -132,6 +149,23 @@ export function BrandCard({
             >
               {t('card.viewBrand')}
             </Link>
+          </>
+        ) : variant === 'editorial' ? (
+          <>
+            {/*
+              Same reserved block as the directory variant below: a fixed
+              minimum height plus a two-line clamp so every card in a
+              `<BrandGrid>` row lands its badge row on the same baseline,
+              whatever length note the author wrote. Rendered unconditionally
+              (with a space) for the same reason — a card without a note must
+              still occupy the block, or it pulls its badges up out of line.
+            */}
+            <p className="mt-1.5 min-h-[2.625rem] type-body line-clamp-2">{note ?? ' '}</p>
+            {categoryLabel ? (
+              <div className="mt-3 flex items-center gap-1.5 overflow-hidden">
+                <Badge variant="secondary">{categoryLabel}</Badge>
+              </div>
+            ) : null}
           </>
         ) : (
           <>

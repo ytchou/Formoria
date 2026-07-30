@@ -49,7 +49,7 @@
     "languageEnglish": "English",
     "about": "About Formoria",
     "myBrands": "My Brand",
-    "guides": "Guides"
+    "stories": "Stories"
   },
   "footer": {
     "about": "About",
@@ -63,7 +63,7 @@
     "directory": "Brand Directory",
     "stats": "Statistics",
     "gettingStarted": "Getting Started",
-    "guides": "Guides",
+    "stories": "Stories",
     "glossary": "Glossary",
     "submit": "Recommend a Brand",
     "companyHeading": "Company",
@@ -1855,7 +1855,7 @@
       "title": "Something went wrong",
       "description": "An unexpected error occurred. Please try again.",
       "brandDescription": "We couldn't load this brand. Please try again.",
-      "guideDescription": "We couldn't load this guide. Please try again.",
+      "storyDescription": "We couldn't load this story. Please try again.",
       "retry": "Try again"
     }
   },
@@ -2852,27 +2852,30 @@
     "exit": "Exit",
     "timeRemaining": "{minutes}m remaining"
   },
-  "guides": {
-    "metaTitle": "Taiwan Brand Guides",
-    "metaDescription": "Explore curated Taiwanese brand guides, from skincare and food to design and everyday goods.",
-    "heading": "Taiwan Brand Guides",
-    "subheading": "Explore Taiwan brands, industries, and purchasing context. From daily skincare to local food, find the guides you are looking for.",
-    "badgeLabel": "Guide Hub",
-    "allCategories": "All",
-    "comingSoon": "Coming soon",
-    "loadError": "Guides are temporarily unavailable. Please try again later.",
-    "breadcrumb": "Guides",
+  "stories": {
+    "metaTitle": "Stories",
+    "metaDescription": "Long-form reporting on Taiwanese brands — the makers, the places, and the work behind what they sell.",
+    "heading": "Stories",
+    "subheading": "Long-form pieces on Taiwanese brands: the people who make them, the places they come from, and how the work actually gets done.",
+    "badgeLabel": "Editorial",
+    "allTags": "All",
+    "comingSoon": "The first stories are on their way.",
+    "loadError": "Stories are temporarily unavailable. Please try again later.",
+    "breadcrumb": "Stories",
     "breadcrumbAria": "Breadcrumb",
-    "categoriesAria": "Guide categories",
+    "tagsAria": "Story tags",
+    "tags": {
+      "event": "Events"
+    },
+    "seriesHeading": "In this series",
+    "seriesNavAria": "Stories in this series",
+    "seriesCount": "{count, plural, one {# part} other {# parts}}",
+    "seriesCountFiltered": "{shown} of {total, plural, one {# part} other {# parts}}",
+    "brandMissing": "Brand unavailable: {slug}",
     "notFound": {
-      "title": "Guide not found",
-      "description": "The guide you're looking for doesn't exist or has been removed.",
-      "browseAll": "Browse all guides"
-    }
-  },
-  "guideDetail": {
-    "metadata": {
-      "notFoundTitle": "Guide Not Found"
+      "title": "Story not found",
+      "description": "The story you're looking for doesn't exist or has been removed.",
+      "browseAll": "Browse all stories"
     }
   },
   "feedback": {

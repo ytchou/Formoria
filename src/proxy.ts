@@ -24,7 +24,7 @@ export const RESERVED_ROUTES = new Set([
   'submit',
   'brands',
   'contact',
-  'guides',
+  'stories',
   'site',
   'dashboard',
   'favorites',
@@ -65,7 +65,7 @@ const NEXT_INTL_LOCALE_HEADER = 'X-NEXT-INTL-LOCALE'
 export const PUBLIC_INTL_SEGMENTS = new Set([
   'auth',
   'brands',
-  'guides',
+  'stories',
   'about',
   'vision',
   'contact',

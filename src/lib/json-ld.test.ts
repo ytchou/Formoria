@@ -6,6 +6,7 @@ import {
   buildCategoryItemListJsonLd,
   buildBrandsItemListJsonLd,
   buildDefinedTermSetJsonLd,
+  buildFaqPageJsonLd,
   buildOrganizationJsonLd,
   buildWebSiteJsonLd,
   safeJsonLdStringify,
@@ -385,6 +386,66 @@ describe("buildDefinedTermSetJsonLd", () => {
     expect(ld["@type"]).toBe("DefinedTermSet");
     expect(ld.hasDefinedTerm[0]["@type"]).toBe("DefinedTerm");
     expect(ld.hasDefinedTerm[0].name).toBe("台灣製造");
+  });
+});
+
+describe("buildFaqPageJsonLd", () => {
+  const storyFaq = [
+    {
+      q: "如何確認品牌真的是台灣製造？",
+      a: "Formoria 的三階段驗證會比對品牌自述、公開資料與製造夥伴的回覆。",
+    },
+    {
+      q: "Where can I buy from these brands directly?",
+      a: "Each brand page lists the official website plus Pinkoi and Shopee storefronts when the brand has them.",
+    },
+  ];
+
+  it("buildFaqPageJsonLd emits a FAQPage with one Question per entry", () => {
+    const ld = buildFaqPageJsonLd(storyFaq, "zh-TW") as JsonLdObject;
+    expect(ld["@context"]).toBe("https://schema.org");
+    expect(ld["@type"]).toBe("FAQPage");
+    expect(ld.inLanguage).toBe("zh-TW");
+    expect(ld.mainEntity).toHaveLength(storyFaq.length);
+    expect(ld.mainEntity.map((entry: JsonLdObject) => entry["@type"])).toEqual([
+      "Question",
+      "Question",
+    ]);
+    expect(ld.mainEntity[0].name).toBe(storyFaq[0].q);
+    expect(ld.mainEntity[1].name).toBe(storyFaq[1].q);
+  });
+
+  it("each Question carries an acceptedAnswer of type Answer", () => {
+    const ld = buildFaqPageJsonLd(storyFaq, "en") as JsonLdObject;
+    for (const [index, question] of ld.mainEntity.entries()) {
+      expect(question.acceptedAnswer).toEqual({
+        "@type": "Answer",
+        text: storyFaq[index].a,
+      });
+    }
+  });
+
+  it("buildFaqPageJsonLd returns null for an empty question list", () => {
+    expect(buildFaqPageJsonLd([], "zh-TW")).toBeNull();
+    expect(buildFaqPageJsonLd(null)).toBeNull();
+    expect(buildFaqPageJsonLd(undefined)).toBeNull();
+  });
+
+  it("escapes values safely via safeJsonLdStringify", () => {
+    const ld = buildFaqPageJsonLd(
+      [
+        {
+          q: "Does </script><script>alert(1)</script> break the page?",
+          a: "No — the payload is escaped before it reaches the document.",
+        },
+      ],
+      "en",
+    ) as JsonLdObject;
+
+    const serialized = safeJsonLdStringify(ld);
+    expect(serialized).not.toContain("</script>");
+    expect(serialized).toContain("\\u003c");
+    expect(JSON.parse(serialized)).toEqual(ld);
   });
 });
 

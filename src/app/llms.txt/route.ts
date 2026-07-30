@@ -7,6 +7,7 @@ export async function GET() {
 
   const links = [
     `- [Brands](${base}/brands)`,
+    `- [Stories](${base}/stories)`,
     `- [About](${base}/about)`,
     `- [Mission and Vision](${base}/vision)`,
     `- [Glossary](${base}/glossary)`,

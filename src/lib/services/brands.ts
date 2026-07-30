@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { pinyin } from 'pinyin-pro'
 import { convertPinyinToWadeGiles } from '@/lib/utils/pinyin-to-wade-giles'
 import type { Brand, BrandFilters, OtherUrl } from '@/lib/types'
@@ -773,6 +774,92 @@ export async function getBrandSlugsBatch(brandIds: string[]): Promise<Map<string
     .in('id', brandIds)
   if (error) throw new Error(`Failed to fetch brand slugs: ${error.message}`)
   return new Map((data ?? []).map(b => [b.id, b.slug]))
+}
+
+/**
+ * Batched slug -> brand lookup for editorial content (story MDX shortcodes).
+ *
+ * Two failure modes, deliberately distinguished:
+ *
+ *  - **Unresolvable slug** — renamed, hidden, or never existed. Absent from the
+ *    returned Map, no throw. Unlike `getBrandBySlug`, a whole story page must
+ *    not 500 because one inline card cannot resolve; callers render a
+ *    placeholder for any slug missing from the Map.
+ *  - **Query failure** — pooler restart, statement timeout, bad credentials.
+ *    Throws. Swallowing it returned an empty Map, which made *every* shortcode
+ *    on the page render the missing-brand placeholder while the render itself
+ *    *succeeded* — so ISR cached that degraded HTML for a full `revalidate`
+ *    window with no error signal anywhere. Throwing fails the regeneration
+ *    instead, which keeps the last good page served and surfaces the error.
+ *
+ * Uses the narrow `BRAND_LIST_SELECT` projection and plain `brandToDomain` —
+ * `brandToDomainWithImages` would fire one extra query per brand. Under this
+ * projection `productPhotos` stays `[]`, so cards fall back to `heroImageUrl`
+ * and then `BrandImageFallback`.
+ *
+ * Cached per request, keyed on a joined slug string rather than the array:
+ * React's `cache()` compares arguments by identity, and every shortcode builds
+ * a fresh array literal, so an array-keyed cache would never hit. The key is
+ * deduped *and sorted*, so `['a','b']` and `['b','a']` share one entry.
+ *
+ * What this does and does not dedupe: two calls with the same slug *set* share
+ * one round trip. Calls with different sets do not — `<BrandCard>` and
+ * `<BrandSpotlight>` each pass a one-element array, so five distinct cards
+ * still issue five queries. Only `<BrandGrid>` is genuinely batched. Collapsing
+ * the singles would need a per-request collector that knows the page's full
+ * slug set before the first card renders, which RSC's streaming render does not
+ * offer without changing this signature.
+ *
+ * Treat the returned Map as read-only — callers with the same slug set share
+ * one instance.
+ */
+/**
+ * The query itself, with the client passed in.
+ *
+ * Split out from the `cache()` wrapper below so tests can drive it with a
+ * query-builder double instead of mocking `@/lib/supabase/server` — that mock
+ * is what `scripts/check-test-boundaries.mjs` forbids. Production has exactly
+ * one caller, immediately below; nothing else should pass a client here.
+ */
+export async function fetchBrandsBySlugKey(
+  supabase: ReturnType<typeof createServiceClient>,
+  slugKey: string
+): Promise<Map<string, Brand>> {
+  const { data, error } = await supabase
+    .from('brands')
+    .select(BRAND_LIST_SELECT)
+    .in('slug', slugKey.split('\n'))
+    .eq('status', 'approved')
+
+  if (error) {
+    // Logged as well as thrown: the throw fails ISR regeneration (which keeps
+    // the last good page served), but without a log line the failed
+    // regeneration leaves no trace anywhere.
+    console.error('getBrandsBySlugKey query error:', error)
+    throw new Error(`Failed to fetch brands by slug: ${error.message}`)
+  }
+
+  return new Map(
+    (data ?? []).map(brandToDomain).map((brand): [string, Brand] => [brand.slug, brand])
+  )
+}
+
+const getBrandsBySlugKey = cache((slugKey: string): Promise<Map<string, Brand>> =>
+  fetchBrandsBySlugKey(createServiceClient(), slugKey)
+)
+
+/**
+ * Slugs are kebab-case, so a newline is a safe separator for the cache key.
+ * Deduped and sorted, so call order cannot fork one lookup into two identical
+ * round trips.
+ */
+export function brandsBySlugsCacheKey(slugs: string[]): string {
+  return [...new Set(slugs)].sort().join('\n')
+}
+
+export async function getBrandsBySlugs(slugs: string[]): Promise<Map<string, Brand>> {
+  if (slugs.length === 0) return new Map()
+  return getBrandsBySlugKey(brandsBySlugsCacheKey(slugs))
 }
 
 type GetBrandsFilters = BrandFilters & {

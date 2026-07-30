@@ -229,11 +229,13 @@ test.describe('i18n English browse', () => {
     await expect(page.getByText('關於 Formoria')).toHaveCount(0);
   });
 
-  // Every guide is authored zh-TW, so /en/guides is an empty hub and
-  // /en/guides/[slug] 404s (covered in e2e/smoke/guides.spec.ts). The hub is the
-  // English guides surface that still has to prove it isn't falling back to zh-TW.
-  test('/en/guides renders English chrome, not the default locale', async ({ page }) => {
-    await page.goto('/en/guides');
+  // Every story is authored zh-TW. /en/stories now falls back to that zh-TW set and
+  // /en/stories/[slug] serves the zh-TW document under a zh-TW canonical (covered in
+  // e2e/smoke/stories.spec.ts and e2e/tests/story-detail.spec.ts) — so story TITLES on
+  // this hub are Chinese by design. The chrome around them is what must be English:
+  // that is the signal that next-intl isn't falling back to the default locale.
+  test('/en/stories renders English chrome, not the default locale', async ({ page }) => {
+    await page.goto('/en/stories');
     await expect(page.getByRole('link', { name: 'About Formoria' })).toBeVisible({
       timeout: 10_000,
     });

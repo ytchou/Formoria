@@ -238,6 +238,22 @@ async function globalSetup() {
           err instanceof Error ? err.message : String(err),
         );
       }
+      // /stories is reached by a client-side nav from the header link, so the first
+      // click has to wait on an on-demand compile of a route nothing has touched yet.
+      // That regularly exceeded the smoke spec's 15s URL assertion and read as "the
+      // nav link does not navigate" rather than "the route was still compiling".
+      try {
+        await page.goto(baseURL + "/stories", {
+          waitUntil: "domcontentloaded",
+          timeout: 60000,
+        });
+        console.log("[global-setup] /stories warm-up complete");
+      } catch (err) {
+        console.warn(
+          "[global-setup] /stories warm-up failed (non-fatal):",
+          err instanceof Error ? err.message : String(err),
+        );
+      }
       // Brand detail is the most-exercised route in the deep suite and carries a
       // heavy client bundle (correction dialog, share dialog, likes). Compiling it
       // on demand while several workers hit it at once pushes first interaction
