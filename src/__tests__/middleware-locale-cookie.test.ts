@@ -93,4 +93,46 @@ describe('locale cookie is only written when it changes', () => {
 
     expect(res.status).not.toBe(307)
   })
+
+  it.each(['/brands', '/en/brands', '/zh-TW/brands'])(
+    'marks the exact %s directory document as edge-cacheable',
+    async (path) => {
+      const res = await proxy(req(path, { cookie: 'zh-TW' }))
+
+      expect(res.headers.get('cache-control')).toBe(
+        'public, s-maxage=3600, stale-while-revalidate=86400',
+      )
+      expect(res.headers.get('set-cookie')).toBeNull()
+    },
+  )
+
+  it.each(['/brands/', '//brands', '/brands/example/extra'])(
+    'does not mark the non-exact %s path as edge-cacheable',
+    async (path) => {
+      const res = await proxy(req(path, { cookie: 'zh-TW' }))
+
+      expect(res.headers.get('cache-control')).not.toBe(
+        'public, s-maxage=3600, stale-while-revalidate=86400',
+      )
+    },
+  )
+
+  it('keeps the first brand directory response private while setting locale', async () => {
+    const res = await proxy(req('/brands', { acceptLanguage: 'zh-TW,zh;q=0.9' }))
+
+    expect(res.cookies.get(LOCALE_COOKIE)?.value).toBe('zh-TW')
+    expect(res.headers.get('cache-control')).not.toBe(
+      'public, s-maxage=3600, stale-while-revalidate=86400',
+    )
+  })
+
+  it('does not mark a brand directory router response as edge-cacheable', async () => {
+    const res = await proxy(
+      req('/brands', { cookie: 'zh-TW', extraHeaders: { RSC: '1' } }),
+    )
+
+    expect(res.headers.get('cache-control')).not.toBe(
+      'public, s-maxage=3600, stale-while-revalidate=86400',
+    )
+  })
 })

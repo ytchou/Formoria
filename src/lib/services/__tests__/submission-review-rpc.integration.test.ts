@@ -2,7 +2,11 @@ import { randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeAll, expect, it } from "vitest";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
-import { approveSubmission, saveSubmissionReview } from "../submissions";
+import {
+  approveSubmission,
+  getSubmissionsForReview,
+  saveSubmissionReview,
+} from "../submissions";
 import { describeWithDb } from "@/test/setup";
 
 const supabase =
@@ -141,6 +145,15 @@ describeWithDb("trusted submission review RPCs", () => {
       .eq("submission_id", submissionId);
     expect(unpromoted).toEqual([
       { url: images.removed.url, status: "rejected" },
+    ]);
+
+    const approvedReview = (
+      await getSubmissionsForReview({ status: "approved" })
+    ).find((submission) => submission.id === submissionId);
+    expect(approvedReview?.reviewImages.map((image) => image.url)).toEqual([
+      images.hero.url,
+      images.detail.url,
+      images.removed.url,
     ]);
   });
 
@@ -555,6 +568,7 @@ describeWithDb("trusted submission review RPCs", () => {
       p_submission_id: submissionId!,
       p_reviewer_id: reviewerId,
     });
+    expect(error?.code).toBe("P0001");
     expect(error?.message).toContain("Refresh is stale");
 
     const { data: submission } = await supabase!

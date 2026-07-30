@@ -1,4 +1,8 @@
-import { matchSubcategory, normalizeTagKey } from '@/lib/taxonomy/ontology'
+import {
+  matchSubcategory,
+  normalizeTagKey,
+  type ProductSubcategory,
+} from '@/lib/taxonomy/ontology'
 
 export type NormalizeProductTagsResult = {
   tags: string[]
@@ -128,6 +132,36 @@ export function normalizeProductTags(
     rejected,
     crossBranch,
   }
+}
+
+export function deriveProductTypeFromTags(
+  tags: string[],
+): ProductSubcategory['category'] | null {
+  const votes = new Map<ProductSubcategory['category'], number>()
+  const seenSubcategories = new Set<string>()
+
+  for (const tag of tags) {
+    const subcategory = matchSubcategory(tag)
+    if (!subcategory || seenSubcategories.has(subcategory.slug)) continue
+    seenSubcategories.add(subcategory.slug)
+    votes.set(subcategory.category, (votes.get(subcategory.category) ?? 0) + 1)
+  }
+
+  let winner: ProductSubcategory['category'] | null = null
+  let winningVotes = 0
+  let tied = false
+
+  for (const [category, count] of votes) {
+    if (count > winningVotes) {
+      winner = category
+      winningVotes = count
+      tied = false
+    } else if (count === winningVotes) {
+      tied = true
+    }
+  }
+
+  return tied ? null : winner
 }
 
 /**

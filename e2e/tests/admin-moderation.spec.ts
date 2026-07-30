@@ -282,14 +282,19 @@ test.describe('Content moderation flow', () => {
     await adminPage.getByPlaceholder('Search brand name...').fill(brandName);
     const brandRow = adminPage.locator('tbody tr').filter({ hasText: brandName });
     await expect(brandRow).toBeVisible({ timeout: 30_000 });
-    await brandRow.getByRole('button', { name: 'Edit' }).click();
+    await brandRow.getByText(brandName, { exact: true }).click();
 
-    await expect(adminPage.getByRole('dialog')).toBeVisible({ timeout: 10_000 });
-    await adminPage
-      .locator('#brand-description')
+    const brandPanel = adminPage.getByRole('dialog', { name: brandName });
+    await expect(brandPanel).toBeVisible({ timeout: 10_000 });
+    const contentSection = brandPanel.locator('section').filter({
+      has: brandPanel.getByRole('heading', { name: 'Content', exact: true }),
+    });
+    await contentSection.getByRole('button', { name: 'Edit' }).click();
+    await contentSection
+      .getByLabel('Description')
       .fill(`${cleanDescription}，管理員電話 0912345678`);
-    await adminPage.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
-    await expect(adminPage.getByRole('dialog')).toContainText(
+    await contentSection.getByRole('button', { name: 'Save' }).click();
+    await expect(brandPanel).toContainText(
       'Phone numbers are not allowed in this field',
       { timeout: 30_000 },
     );

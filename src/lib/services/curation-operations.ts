@@ -22,8 +22,8 @@ import type { DescriptionAttempt } from "./description-rewrite";
 import { SEARCH_DELAY_MS } from "./enrich-phases/scraper/search";
 import {
   insertTriageResult,
-  insertDescriptionResult,
   insertClassificationResult,
+  updateDescriptionAuditResult,
 } from "./ai-results";
 import type {
   BrandOutcome,
@@ -56,7 +56,10 @@ import {
 import type { BrandImageSearchOutcome } from "./enrich-phases/scraper/types";
 import { buildCandidatePool } from "./enrich-phases/candidate-pool";
 import type { EnrichmentTarget } from "./enrichment-target";
-import { MAX_PRODUCT_TAGS } from "./product-tags";
+import {
+  deriveProductTypeFromTags,
+  MAX_PRODUCT_TAGS,
+} from "./product-tags";
 import {
   formatBrandComplete,
   formatJobStart,
@@ -83,6 +86,7 @@ type CurationBrand = {
   description_en?: string | null;
   city?: string | null;
   product_type?: string | null;
+  product_tags?: string[] | null;
   category_attributes?: unknown | null;
   site_content?: SiteContent | null;
   reputation_summary?: unknown | null;
@@ -117,18 +121,16 @@ function errorMessage(error: unknown): string {
   return String(error);
 }
 
-async function logDescriptionAiResult(
-  brandId: string,
+async function attachDescriptionAiResults(
   attempts: DescriptionAttempt[],
-  target?: EnrichmentTarget,
+  target: EnrichmentTarget,
+  jobId?: string,
 ): Promise<void> {
   for (const attempt of attempts) {
-    await insertDescriptionResult({
-      brandId,
+    await updateDescriptionAuditResult({
       target,
-      description: attempt.parsed.description_zh ?? "",
-      priceRange: attempt.parsed.priceRange,
-      productTags: attempt.parsed.productTags,
+      ...(jobId ? { jobId } : {}),
+      attempt,
     });
   }
 }
@@ -1544,6 +1546,36 @@ export async function runEnrich(
             target: { type: targetType, id: brand.id },
             jobId: config.jobId,
           });
+          const effectiveProductType =
+            typeof state.patches.product_type === "string"
+              ? state.patches.product_type
+              : brand.product_type;
+          const effectiveProductTags = Array.isArray(
+            descriptionsResult.patch.product_tags,
+          )
+            ? descriptionsResult.patch.product_tags.filter(
+                (tag): tag is string => typeof tag === "string",
+              )
+            : (brand.product_tags ?? []);
+          if (
+            descriptionsResult.phaseResult.status === "succeeded" &&
+            !effectiveProductType
+          ) {
+            const derivedProductType =
+              deriveProductTypeFromTags(effectiveProductTags);
+            if (derivedProductType) {
+              descriptionsResult.patch.product_type = derivedProductType;
+              descriptionsResult.phaseResult.changedFields = [
+                ...new Set([
+                  ...descriptionsResult.phaseResult.changedFields,
+                  "product_type",
+                ]),
+              ];
+              onProgress(
+                `  [CATEGORY] ${brand.slug}: derived ${derivedProductType} from product tags`,
+              );
+            }
+          }
           state.phaseResults.push(descriptionsResult.phaseResult);
           await logCurrentPhase(descriptionsResult.phaseResult);
           appendPatch(state, descriptionsResult.patch);
@@ -1656,10 +1688,10 @@ export async function runEnrich(
               );
             }
             if (!config.dryRun && descriptionsResult.attempts.length > 0) {
-              await logDescriptionAiResult(
-                brand.id,
+              await attachDescriptionAiResults(
                 descriptionsResult.attempts,
                 { type: targetType, id: brand.id },
+                config.jobId,
               );
             }
             const skippedOutcome: BrandOutcome = {
@@ -1698,10 +1730,10 @@ export async function runEnrich(
               });
             }
             if (descriptionsResult.attempts.length > 0) {
-              await logDescriptionAiResult(
-                brand.id,
+              await attachDescriptionAiResults(
                 descriptionsResult.attempts,
                 { type: targetType, id: brand.id },
+                config.jobId,
               );
             }
             if (classification) {

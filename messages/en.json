@@ -53,7 +53,6 @@
   },
   "footer": {
     "about": "About",
-    "vision": "Mission & Vision",
     "terms": "Terms of Service",
     "privacy": "Privacy Policy",
     "contact": "Contact",
@@ -61,7 +60,6 @@
     "tagline": "Making Taiwanese brands easier to discover, choose, and grow.",
     "discoverHeading": "Discover",
     "directory": "Brand Directory",
-    "stats": "Statistics",
     "gettingStarted": "Getting Started",
     "stories": "Stories",
     "glossary": "Glossary",
@@ -80,7 +78,7 @@
     },
     "hero": {
       "eyebrow": "TAIWANESE BRANDS",
-      "headline": "Discover Taiwanese brands like browsing a select shop",
+      "headline": "Explore more Taiwanese brands",
       "subheadline": "Formoria brings together fragmented brand, product, and purchase-channel information so worthwhile Taiwanese brands are easier to find.",
       "statsBrands": "brands",
       "statsCategories": "categories",
@@ -558,7 +556,9 @@
     },
     "adminMenu": {
       "label": "Admin menu",
-      "viewAsOwner": "Brand view"
+      "viewAsOwner": "Brand view",
+      "editFields": "Edit Fields",
+      "hideBrand": "Hide Brand"
     },
     "breadcrumb": {
       "ariaLabel": "Breadcrumb",
@@ -1068,15 +1068,10 @@
       "recentMonth": "new brands",
       "cta": "Explore brands"
     },
-    "origin": {
-      "heading": "Why Formoria Exists",
-      "body1": "For years abroad, I kept looking for the brands that made home feel close: familiar pantry staples, well-made daily goods, design objects, and small labels I trusted but could never quite explain to friends. So many independent brands already have the quality, the taste, the care — what they lack is a simple way to be found by the people already looking for them.",
-      "body2": "Portuguese sailors who sailed past Taiwan called it Ilha Formosa, the beautiful island. Formoria is the place that brings together the brands of this beautiful island worth treasuring.",
-      "body3": "Formoria includes brands founded, designed, or made in Taiwan. Manufacturing verification appears separately so visitors can understand the available product-level signals."
-    },
     "mission": {
       "heading": "Our Mission",
       "statement": "Make Taiwanese brands easier to discover, choose, and grow.",
+      "context": "Taiwan does not lack brands with quality, taste, and care. The challenge is not the products themselves, but fragmented information that makes those brands difficult for the right people to discover and understand.",
       "promote": {
         "heading": "Start with discovery",
         "body": "Organize information scattered across websites, social channels, marketplaces, and physical shops so the right people can find each brand."
@@ -1088,31 +1083,23 @@
       "platform": {
         "heading": "Make growth easier",
         "body": "Keep brand owners in control while gradually giving them better ways to reach customers, understand demand, and operate efficiently."
-      },
-      "visionCta": "Read our mission and vision →"
-    },
-    "qualifies": {
-      "heading": "What qualifies",
-      "body": "Brands founded, designed, or made in Taiwan."
+      }
     },
     "taiwanStats": {
-      "heading": "Taiwan's economy is built by small brands.",
-      "intro": "Behind every brand in our directory is a small or medium business. In Taiwan, those businesses were never a side act.",
+      "heading": "Why supporting Taiwan's small businesses matters",
+      "intro": "Small and medium enterprises employ nearly 80% of Taiwan's workforce; supporting a local brand means supporting everyday life across the island.",
       "items": {
         "count": {
-          "value": "1.67M+",
-          "label": "small & medium enterprises",
-          "detail": "An all-time high in 2023"
+          "value": "1.67M+ SMEs",
+          "label": "Taiwan is home to"
         },
         "share": {
-          "value": "98%",
-          "label": "of all Taiwan businesses",
-          "detail": "Taiwan's economy is essentially SMEs"
+          "value": "98% of all businesses",
+          "label": "SMEs account for"
         },
         "employment": {
-          "value": "~80%",
-          "label": "of the national workforce",
-          "detail": "Employed by SMEs — over 9.16 million people"
+          "value": "nearly 80% of the workforce",
+          "label": "SMEs employ"
         }
       },
       "note": "Together they generate over NT$28 trillion in annual sales — more than half of all enterprise revenue. Backing one Taiwan brand backs the everyday life of the island.",
@@ -1125,25 +1112,7 @@
     },
     "guide": {
       "heading": "Ready to use Formoria?",
-      "body": "Learn how to browse, save, recommend, and manage brand listings.",
       "cta": "Get started →"
-    },
-    "trust": {
-      "heading": "How We Build Trust",
-      "subtitle": "Listings start as community contributions. When an owner steps forward with proof, they can manage their brand directly.",
-      "tagline": "Community-contributed. Owner-claimed. Proof-reviewed.",
-      "pillar1": {
-        "title": "Community-contributed",
-        "desc": "Brands are discovered and shared by people who care about Taiwanese makers. These are real contributors, not automated bots."
-      },
-      "pillar2": {
-        "title": "Owner-claimed",
-        "desc": "Brand owners submit business proof, such as a domain email, backend access, or official documents, to take ownership of their listing."
-      },
-      "pillar3": {
-        "title": "Proof-reviewed",
-        "desc": "Every claim is reviewed by our team before the brand-managed badge is granted. No self-certification."
-      }
     }
   },
   "vision": {
@@ -1178,7 +1147,7 @@
       }
     },
     "future": {
-      "eyebrow": "OUR VISION",
+      "sectionHeading": "Our Vision",
       "heading": "Become an online Taiwanese select shop led by the brands themselves",
       "body": "In the future, people can discover and order from Taiwanese brands through Formoria. Formoria supports discovery, organization, recommendations, and enabling tools while each brand remains in control of its business.",
       "principleHeading": "Brands stay in control",
@@ -2897,6 +2866,28 @@
       "in_progress": "In progress",
       "shipped": "Shipped",
       "declined": "Declined"
+    },
+    "requests": {
+      "bilingual_brand_content": {
+        "title": "Generate bilingual brand stories and social copy",
+        "body": "Use my existing brand profile and Made-in-Taiwan story to create ready-to-use About-page copy, product stories, and social captions in Traditional Chinese and English."
+      },
+      "marketing_channel_insights": {
+        "title": "Show which marketing channels are working",
+        "body": "Give small brand owners one simple dashboard that combines key channel results and explains what is working, what is not, and what to try next."
+      },
+      "brand_reviews": {
+        "title": "Add reviews and ratings to brand pages",
+        "body": "Let signed-in visitors share their experience with a brand so shoppers can judge customer experience separately from Made-in-Taiwan verification."
+      },
+      "occasion_discovery": {
+        "title": "Browse Taiwanese brands by occasion",
+        "body": "Let visitors discover brands by shopping intent, such as gifts, small-apartment decor, or sustainable essentials, without needing to understand the category structure first."
+      },
+      "nearby_brand_map": {
+        "title": "Show nearby Taiwanese brands on a map",
+        "body": "Let visitors browse brands with physical locations on one map and filter by city, district, and category to find places they can visit nearby."
+      }
     },
     "upvote": {
       "action": "Upvote {title}",

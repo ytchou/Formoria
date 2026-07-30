@@ -665,6 +665,12 @@ export function brandToInsert(data: BrandWriteInput): Record<string, unknown> {
   if (data.reputationSummary !== undefined) {
     row.reputation_summary = data.reputationSummary as typeof row.reputation_summary
   }
+  if (data.mitEvidence !== undefined) {
+    row.mit_evidence = data.mitEvidence
+  }
+  if (data.siteContent !== undefined) {
+    row.site_content = data.siteContent
+  }
   return row
 }
 

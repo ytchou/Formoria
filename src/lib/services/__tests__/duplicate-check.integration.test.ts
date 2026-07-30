@@ -68,4 +68,51 @@ describeWithDb("brand duplicate checks", () => {
     });
     expect(data).toMatchObject({ website_matches: [] });
   });
+
+  it("warns on a likely typo without treating a shared generic word as a similar brand", async () => {
+    const typoBrandId = randomUUID();
+    const genericBrandId = randomUUID();
+    brandIds.push(typoBrandId, genericBrandId);
+    const { error } = await supabase!.from("brands").insert([
+      {
+        id: typoBrandId,
+        name: "AROMASE 艾瑪絲",
+        slug: `aromase-${typoBrandId}`,
+        status: "approved",
+      },
+      {
+        id: genericBrandId,
+        name: "STUDIO M'",
+        slug: `studio-m-${genericBrandId}`,
+        status: "approved",
+      },
+    ]);
+    if (error) throw error;
+
+    const { data, error: rpcError } = await supabase!.rpc(
+      "find_similar_brands",
+      {
+        p_names: ["AROMASE 艾瑪斯", "MASTER PROJECT STUDIO"],
+        p_threshold: 0.6,
+      },
+    );
+
+    expect(rpcError).toBeNull();
+    expect(data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          input_name: "AROMASE 艾瑪斯",
+          brand_slug: `aromase-${typoBrandId}`,
+        }),
+      ]),
+    );
+    expect(data).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          input_name: "MASTER PROJECT STUDIO",
+          brand_slug: `studio-m-${genericBrandId}`,
+        }),
+      ]),
+    );
+  });
 });

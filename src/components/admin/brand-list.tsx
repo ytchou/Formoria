@@ -3,6 +3,7 @@
 import { Fragment, useState, useTransition } from "react";
 import Link from "next/link";
 import {
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   MailCheck,
@@ -10,10 +11,15 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Brand, BrandStatus } from "@/lib/types";
+import type { SubmissionReviewImage } from "@/lib/services/submissions";
 import { surfaceCardStyles } from "@/components/ui/card";
 import { NativeSelect } from "@/components/ui/native-select";
 import { BrandStatusBadge } from "./status-badge";
-import { BrandEditDialog } from "./brand-edit-dialog";
+import { BrandEditDetails } from "./brand-edit-details";
+import {
+  BrandDetailSheet,
+  isInteractiveTableTarget,
+} from "./brand-detail-sheet";
 import { ConfirmDialog } from "./confirm-dialog";
 import {
   hideBrandAction,
@@ -87,18 +93,28 @@ function MitStatusBadge({ status }: { status: MitStatus }) {
 
 export function BrandList({
   brands,
+  reviewImagesByBrandId = {},
   claimInviteBrandIds = [],
+  initialEditingBrandId,
+  initialSearchQuery = "",
+  initialTab = "all",
 }: {
   brands: Brand[];
+  reviewImagesByBrandId?: Record<string, SubmissionReviewImage[]>;
   claimInviteBrandIds?: string[];
+  initialEditingBrandId?: string;
+  initialSearchQuery?: string;
+  initialTab?: TabValue;
 }) {
-  const [activeTab, setActiveTab] = useState<TabValue>("all");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState<TabValue>(initialTab);
+  const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
   const [mitFilter, setMitFilter] = useState<"all" | MitStatus>("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZES)[number]>(10);
-  const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
+  const [selectedBrand, setSelectedBrand] = useState<Brand | null>(
+    brands.find((brand) => brand.id === initialEditingBrandId) ?? null,
+  );
   const [deletingBrand, setDeletingBrand] = useState<Brand | null>(null);
   const [refreshingBrand, setRefreshingBrand] = useState<Brand | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -259,15 +275,25 @@ export function BrandList({
               <TableHead>MIT</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Created</TableHead>
+              <TableHead>Last updated at</TableHead>
               <TableHead className="min-w-[300px] text-right">
                 Actions
+              </TableHead>
+              <TableHead className="w-12">
+                <span className="sr-only">Details</span>
               </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {visible.map((brand) => (
               <Fragment key={brand.id}>
-                <TableRow>
+                <TableRow
+                  className="cursor-pointer hover:bg-secondary"
+                  onClick={(event) => {
+                    if (isInteractiveTableTarget(event.target)) return;
+                    setSelectedBrand(brand);
+                  }}
+                >
                   <TableCell className="max-w-[180px] font-medium">
                     <span className="block truncate">{brand.name}</span>
                     {brand.isDemo && (
@@ -297,15 +323,9 @@ export function BrandList({
                   </TableCell>
                   <TableCell>{brand.category ?? "-"}</TableCell>
                   <TableCell>{formatDate(brand.createdAt)}</TableCell>
+                  <TableCell>{formatDate(brand.updatedAt)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1.5">
-                      <Button
-                        variant="secondary"
-                        size="compact"
-                        onClick={() => setEditingBrand(brand)}
-                      >
-                        Edit
-                      </Button>
                       <Link
                         href={`/${routing.defaultLocale}/dashboard/brands/${brand.slug}`}
                         className={buttonVariants({
@@ -383,13 +403,31 @@ export function BrandList({
                       </Button>
                     </div>
                   </TableCell>
+                  <TableCell>
+                    <Button
+                      shape="pill"
+                      variant="ghost"
+                      className="h-12 w-12 p-0"
+                      onClick={() => setSelectedBrand(brand)}
+                      aria-expanded={selectedBrand?.id === brand.id}
+                      aria-controls={`brand-detail-${brand.id}`}
+                      aria-label={`Open details for ${brand.name}`}
+                    >
+                      <ChevronDown
+                        className={`size-4 transition-transform ${
+                          selectedBrand?.id === brand.id ? "rotate-180" : ""
+                        }`}
+                        aria-hidden="true"
+                      />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               </Fragment>
             ))}
             {visible.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={6}
+                  colSpan={8}
                   className="py-8 text-center text-muted-foreground"
                 >
                   No brands found.
@@ -450,14 +488,28 @@ export function BrandList({
         </div>
       </div>
 
-      <BrandEditDialog
-        key={editingBrand?.id ?? "none"}
-        brand={editingBrand}
-        open={editingBrand !== null}
+      <BrandDetailSheet
+        open={selectedBrand !== null}
         onOpenChange={(open) => {
-          if (!open) setEditingBrand(null);
+          if (!open) setSelectedBrand(null);
         }}
-      />
+        title={selectedBrand?.name ?? ""}
+        metadata={
+          selectedBrand ? (
+            <p className="type-metadata">
+              Created {formatDate(selectedBrand.createdAt)}
+            </p>
+          ) : null
+        }
+      >
+        {selectedBrand && (
+          <BrandEditDetails
+            key={selectedBrand.id}
+            brand={selectedBrand}
+            reviewImages={reviewImagesByBrandId[selectedBrand.id] ?? []}
+          />
+        )}
+      </BrandDetailSheet>
 
       <ConfirmDialog
         open={refreshingBrand !== null}

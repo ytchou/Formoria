@@ -2,12 +2,25 @@ import type { Metadata } from 'next'
 import { getBrands } from '@/lib/services/brands'
 import { getApprovedOwnerSubmissionRecipients } from '@/lib/services/submissions'
 import { BrandList } from '@/components/admin/brand-list'
+import { getAdminBrandReviewImages } from '@/lib/services/admin-brand-review'
 
 export const metadata: Metadata = {
   title: 'Brands | Admin',
 }
 
-export default async function BrandsPage() {
+type BrandsPageProps = {
+  searchParams: Promise<{
+    edit?: string | string[]
+    search?: string | string[]
+    status?: string | string[]
+  }>
+}
+
+function first(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value
+}
+
+export default async function BrandsPage({ searchParams }: BrandsPageProps) {
   // Admin table renders brand.mitEvidence, which the narrow directory
   // projection omits — opt back into the full column list here.
   const { brands } = await getBrands({
@@ -21,6 +34,15 @@ export default async function BrandsPage() {
   const claimInviteRecipients = await getApprovedOwnerSubmissionRecipients(
     resendableBrandIds
   )
+  const reviewImagesByBrandId = await getAdminBrandReviewImages(
+    brands.map((brand) => brand.id)
+  )
+  const query = await searchParams
+  const requestedStatus = first(query.status)
+  const initialTab =
+    requestedStatus === 'approved' || requestedStatus === 'hidden'
+      ? requestedStatus
+      : 'all'
 
   return (
     <div>
@@ -34,7 +56,11 @@ export default async function BrandsPage() {
       <div className="mt-8">
         <BrandList
           brands={brands}
+          reviewImagesByBrandId={reviewImagesByBrandId}
           claimInviteBrandIds={[...claimInviteRecipients.keys()]}
+          initialEditingBrandId={first(query.edit)}
+          initialSearchQuery={first(query.search)}
+          initialTab={initialTab}
         />
       </div>
     </div>

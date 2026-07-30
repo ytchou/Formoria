@@ -10,7 +10,8 @@ type AnySupabaseClient = SupabaseClient<any, any, any>;
  *
  * Journeys:
  *  - /about renders with heading
- *  - /vision explains the mission, owner-led vision, and feedback paths
+ *  - /about contains the mission and owner-led vision
+ *  - /vision redirects to the merged vision section on /about
  *  - /privacy renders with heading
  *  - /terms renders with heading
  *  - /challenge renders the localized verification heading with Turnstile container
@@ -71,7 +72,9 @@ test.describe("Static & compliance pages", () => {
     }
   });
 
-  test("about page renders", async ({ anonPage }) => {
+  test("about page contains the mission and owner-led vision", async ({
+    anonPage,
+  }) => {
     test.setTimeout(30_000);
     const resp = await anonPage.goto("/about", { timeout: 30_000 });
     if (resp?.status() === 503) {
@@ -81,9 +84,14 @@ test.describe("Static & compliance pages", () => {
     await expect(anonPage.getByRole("heading", { level: 1 })).toBeVisible({
       timeout: 15_000,
     });
+    await expect(
+      anonPage.getByRole("heading", {
+        name: "成為一間由品牌自主經營的線上台灣選物店",
+      }),
+    ).toBeVisible();
   });
 
-  test("vision page separates the current mission from the owner-led future", async ({
+  test("vision page redirects to the merged section on about", async ({
     anonPage,
   }) => {
     test.setTimeout(30_000);
@@ -92,23 +100,12 @@ test.describe("Static & compliance pages", () => {
       test.skip(true, "PREVIEW_MODE active");
       return;
     }
-    await expect(
-      anonPage.getByRole("heading", {
-        level: 1,
-        name: "讓台灣品牌更容易被看見、被選擇，也更容易成長",
-      }),
-    ).toBeVisible({ timeout: 15_000 });
+    await expect(anonPage).toHaveURL(/\/about#vision$/);
     await expect(
       anonPage.getByRole("heading", {
         name: "成為一間由品牌自主經營的線上台灣選物店",
       }),
-    ).toBeVisible();
-    await expect(
-      anonPage.locator('a[href*="/feedback?category=visitor"]'),
-    ).toBeVisible();
-    await expect(
-      anonPage.locator('a[href*="/feedback?category=owner"]'),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
   });
 
   test("privacy page renders", async ({ anonPage }) => {

@@ -37,6 +37,28 @@ function row(overrides: Partial<FeatureRequestRow> = {}): FeatureRequestRow {
 }
 
 describe("rowToFeatureRequest", () => {
+  it("derives stable i18n keys for every localized seed request", () => {
+    const seeds = [
+      [
+        "Generate bilingual brand stories and social copy",
+        "bilingual_brand_content",
+      ],
+      [
+        "Show which marketing channels are working",
+        "marketing_channel_insights",
+      ],
+      ["Add reviews and ratings to brand pages", "brand_reviews"],
+      ["Browse Taiwanese brands by occasion", "occasion_discovery"],
+      ["Show nearby Taiwanese brands on a map", "nearby_brand_map"],
+    ] as const;
+
+    for (const [title, i18nKey] of seeds) {
+      expect(
+        rowToFeatureRequest(row({ is_seed: true, title }), 0).i18nKey,
+      ).toBe(i18nKey);
+    }
+  });
+
   it("rowToFeatureRequest omits submitted_by", () => {
     const inputs: FeatureRequestRow[] = [
       row(),

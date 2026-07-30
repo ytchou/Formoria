@@ -68,6 +68,20 @@ type SubmissionRowWithProductTypeNote = Omit<SubmissionRow, "other_urls"> & {
 };
 type SubmissionImageRow =
   Database["public"]["Tables"]["submission_images"]["Row"];
+type BrandImageReviewRow = Pick<
+  Database["public"]["Tables"]["brand_images"]["Row"],
+  | "id"
+  | "brand_id"
+  | "storage_path"
+  | "url"
+  | "source"
+  | "status"
+  | "sort_order"
+  | "alt_zh"
+  | "alt_en"
+  | "width"
+  | "height"
+>;
 export type BrandSubmissionWithProductTypeNote = BrandSubmission & {
   websiteUrl: string | null;
   productTypeNote: string | null;
@@ -468,6 +482,26 @@ function submissionImageToReviewImage(
   };
 }
 
+function brandImageToReviewImage(
+  row: BrandImageReviewRow,
+  submissionId: string,
+): SubmissionReviewImage {
+  return {
+    id: row.id,
+    submissionId,
+    storagePath: row.storage_path,
+    url: row.url,
+    source: row.source,
+    status: imageStatus(row.status),
+    sortOrder: row.sort_order,
+    altZh: row.alt_zh,
+    altEn: row.alt_en,
+    width: row.width,
+    height: row.height,
+    originBrandImageId: row.id,
+  };
+}
+
 export function normalizeSubmissionReviewImages(
   images: SubmissionReviewImage[],
 ): SubmissionReviewImage[] {
@@ -487,6 +521,21 @@ export function normalizeSubmissionReviewImages(
       seenUrls.add(url);
       return true;
     });
+}
+
+export function resolveSubmissionReviewImages(
+  stagingImages: SubmissionReviewImage[],
+  publishedImages: SubmissionReviewImage[],
+): SubmissionReviewImage[] {
+  const normalizedStaging = normalizeSubmissionReviewImages(stagingImages);
+  if (normalizedStaging.some((image) => image.status === "active")) {
+    return normalizedStaging;
+  }
+
+  return normalizeSubmissionReviewImages([
+    ...publishedImages,
+    ...normalizedStaging,
+  ]);
 }
 
 type SubmissionReviewSource = Pick<
@@ -1244,6 +1293,58 @@ export async function getSubmissionsForReview(options?: {
     }
   }
 
+  const approvedRowsMissingActiveImages = rows.filter((row) => {
+    if (row.status !== "approved" || !row.brand_id) return false;
+    return !(reviewImagesBySubmission.get(row.id) ?? []).some(
+      (image) => image.status === "active",
+    );
+  });
+  const publishedImagesByBrand = new Map<string, BrandImageReviewRow[]>();
+  const approvedBrandIds = [
+    ...new Set(
+      approvedRowsMissingActiveImages
+        .map((row) => row.brand_id)
+        .filter((brandId): brandId is string => Boolean(brandId)),
+    ),
+  ];
+  if (approvedBrandIds.length > 0) {
+    const publishedImageChunks = await Promise.all(
+      chunkValues(approvedBrandIds, SUPABASE_IN_FILTER_CHUNK_SIZE).map(
+        async (brandIds) => {
+          const chunkImages: BrandImageReviewRow[] = [];
+          for (let page = 0; ; page += 1) {
+            const { data: imageData, error: imagesError } = await supabase
+              .from("brand_images")
+              .select(
+                "id, brand_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, width, height",
+              )
+              .in("brand_id", brandIds)
+              .eq("status", "active")
+              .order("brand_id", { ascending: true })
+              .order("sort_order", { ascending: true })
+              .order("id", { ascending: true })
+              .range(
+                page * ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE,
+                (page + 1) * ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE - 1,
+              );
+            if (imagesError) throw imagesError;
+
+            const pageImages = (imageData ?? []) as BrandImageReviewRow[];
+            chunkImages.push(...pageImages);
+            if (pageImages.length < ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE) break;
+          }
+          return chunkImages;
+        },
+      ),
+    );
+
+    for (const image of publishedImageChunks.flat()) {
+      const current = publishedImagesByBrand.get(image.brand_id) ?? [];
+      current.push(image);
+      publishedImagesByBrand.set(image.brand_id, current);
+    }
+  }
+
   const locationCandidatesBySubmission = new Map<
     string,
     SubmissionLocationCandidate[]
@@ -1306,8 +1407,15 @@ export async function getSubmissionsForReview(options?: {
     const dispatchStatus = isCurationDispatchStatus(latestJob?.dispatch_status)
       ? latestJob.dispatch_status
       : null;
-    const reviewImages = normalizeSubmissionReviewImages(
-      reviewImagesBySubmission.get(row.id) ?? [],
+    const stagedImages = reviewImagesBySubmission.get(row.id) ?? [];
+    const publishedImages = submission.brandId
+      ? (publishedImagesByBrand.get(submission.brandId) ?? []).map((image) =>
+          brandImageToReviewImage(image, submission.id),
+        )
+      : [];
+    const reviewImages = resolveSubmissionReviewImages(
+      stagedImages,
+      publishedImages,
     );
     const reviewLayers = buildReviewLayers(
       row,

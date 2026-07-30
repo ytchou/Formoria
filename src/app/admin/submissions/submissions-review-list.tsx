@@ -4,12 +4,7 @@ import { Fragment, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import {
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Search,
-} from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { toast } from "sonner";
 import {
   approveSubmissionAction,
@@ -33,11 +28,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  BrandDetailSheet,
+  isInteractiveTableTarget,
+} from "@/components/admin/brand-detail-sheet";
 import {
   Table,
   TableBody,
@@ -114,6 +107,9 @@ export function SubmissionsReviewList({
     "",
   );
   const [error, setError] = useState<string | null>(null);
+  const [pendingSubmissionIds, setPendingSubmissionIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [isPending, startTransition] = useTransition();
   const [isEnriching, startEnrichTransition] = useTransition();
   const showEnrichment = activeTab !== "needs_data";
@@ -142,10 +138,12 @@ export function SubmissionsReviewList({
       ).length,
       ready: displayedSubmissions.filter((item) => item.reviewStage === "ready")
         .length,
-      approved: displayedSubmissions.filter((item) => item.status === "approved")
-        .length,
-      rejected: displayedSubmissions.filter((item) => item.status === "rejected")
-        .length,
+      approved: displayedSubmissions.filter(
+        (item) => item.status === "approved",
+      ).length,
+      rejected: displayedSubmissions.filter(
+        (item) => item.status === "rejected",
+      ).length,
     }),
     [displayedSubmissions],
   );
@@ -187,13 +185,7 @@ export function SubmissionsReviewList({
         submission.reviewData.websiteUrl,
       ].some((value) => value?.toLocaleLowerCase().includes(query));
     });
-  }, [
-    activeTab,
-    enrichmentFilter,
-    search,
-    stageFiltered,
-    submittedRange,
-  ]);
+  }, [activeTab, enrichmentFilter, search, stageFiltered, submittedRange]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, pageCount);
@@ -249,8 +241,9 @@ export function SubmissionsReviewList({
     setExpandedId((current) => (current === id ? null : id));
   }
 
-  function approveOne(id: string) {
-    startTransition(async () => {
+  async function approveOne(id: string) {
+    setPendingSubmissionIds((current) => new Set(current).add(id));
+    try {
       setError(null);
       const result = await approveSubmissionAction(id);
       if (result?.error) setError(result.error);
@@ -260,17 +253,30 @@ export function SubmissionsReviewList({
         }
         router.refresh();
       }
-    });
+    } finally {
+      setPendingSubmissionIds((current) => {
+        const next = new Set(current);
+        next.delete(id);
+        return next;
+      });
+    }
   }
 
-  function rejectOne(id: string) {
+  async function rejectOne(id: string) {
     if (!confirm(t("confirmReject"))) return;
-    startTransition(async () => {
+    setPendingSubmissionIds((current) => new Set(current).add(id));
+    try {
       setError(null);
       const result = await rejectSubmissionAction(id, "admin_reject", "");
       if (result?.error) setError(result.error);
       else router.refresh();
-    });
+    } finally {
+      setPendingSubmissionIds((current) => {
+        const next = new Set(current);
+        next.delete(id);
+        return next;
+      });
+    }
   }
 
   function bulkApprove() {
@@ -635,7 +641,7 @@ export function SubmissionsReviewList({
                   <TableRow
                     className="cursor-pointer hover:bg-secondary"
                     onClick={(event) => {
-                      if (isInteractiveTarget(event.target)) return;
+                      if (isInteractiveTableTarget(event.target)) return;
                       toggleExpanded(submission.id);
                     }}
                   >
@@ -681,7 +687,8 @@ export function SubmissionsReviewList({
                       <TableCell>
                         {showSkipReason ? (
                           <p className="max-w-96 whitespace-normal text-sm text-muted-foreground">
-                            {submission.latestCurationError ?? t("noSkipReason")}
+                            {submission.latestCurationError ??
+                              t("noSkipReason")}
                           </p>
                         ) : (
                           <>
@@ -703,8 +710,8 @@ export function SubmissionsReviewList({
                                 {submission.latestCurationError}
                               </p>
                             )}
-                            {submission.reviewCompleteness.missingFields.length >
-                              0 && (
+                            {submission.reviewCompleteness.missingFields
+                              .length > 0 && (
                               <p className="mt-1 type-caption text-warning">
                                 {`${t("missingRequired")}: ${submission.reviewCompleteness.missingFields
                                   .map((field) => t(`missingFields.${field}`))
@@ -727,9 +734,10 @@ export function SubmissionsReviewList({
                                 {...(submission.reviewKind === "refresh"
                                   ? { "aria-label": t("approveRefresh") }
                                   : {})}
-                                onClick={() => approveOne(submission.id)}
+                                onClick={() => void approveOne(submission.id)}
                                 disabled={
                                   isPending ||
+                                  pendingSubmissionIds.has(submission.id) ||
                                   !submission.reviewCompleteness.complete
                                 }
                               >
@@ -739,8 +747,11 @@ export function SubmissionsReviewList({
                                 size="compact"
                                 className="min-h-12"
                                 variant="destructive"
-                                onClick={() => rejectOne(submission.id)}
-                                disabled={isPending}
+                                onClick={() => void rejectOne(submission.id)}
+                                disabled={
+                                  isPending ||
+                                  pendingSubmissionIds.has(submission.id)
+                                }
                               >
                                 {t("reject")}
                               </Button>
@@ -788,38 +799,32 @@ export function SubmissionsReviewList({
         </Table>
       </div>
 
-      <Sheet
+      <BrandDetailSheet
         open={Boolean(expandedSubmission)}
         onOpenChange={(open) => {
           if (open) return;
           setExpandedId(null);
         }}
+        title={
+          expandedSubmission?.reviewData.name ||
+          expandedSubmission?.brandName ||
+          ""
+        }
+        metadata={
+          expandedSubmission ? (
+            <p className="type-metadata">
+              {formatDate(expandedSubmission.submittedAt)}
+            </p>
+          ) : null
+        }
       >
-        <SheetContent
-          side="right"
-          className="gap-0 p-0 data-[side=right]:w-[calc(100vw-1rem)] data-[side=right]:max-w-none data-[side=right]:sm:w-3/4 data-[side=right]:sm:max-w-6xl"
-        >
-          {expandedSubmission && (
-            <>
-              <SheetHeader className="border-b p-5 pr-16">
-                <SheetTitle>
-                  {expandedSubmission.reviewData.name ||
-                    expandedSubmission.brandName}
-                </SheetTitle>
-                <p className="type-metadata">
-                  {formatDate(expandedSubmission.submittedAt)}
-                </p>
-              </SheetHeader>
-              <div className="flex-1 overflow-y-auto p-5">
-                <SubmissionReviewDetails
-                  key={expandedSubmission.id}
-                  submission={expandedSubmission}
-                />
-              </div>
-            </>
-          )}
-        </SheetContent>
-      </Sheet>
+        {expandedSubmission && (
+          <SubmissionReviewDetails
+            key={expandedSubmission.id}
+            submission={expandedSubmission}
+          />
+        )}
+      </BrandDetailSheet>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <p className="type-card-description">
@@ -936,15 +941,4 @@ function enrichmentLabel(
   return submission.reviewCompleteness.complete
     ? { label: t("enrichmentStatus.complete"), variant: "verified" }
     : { label: t("enrichmentStatus.partial"), variant: "warning" };
-}
-
-function isInteractiveTarget(target: EventTarget | null) {
-  return (
-    target instanceof Element &&
-    Boolean(
-      target.closest(
-        "button, a, input, select, textarea, [role='checkbox'], [role='combobox']",
-      ),
-    )
-  );
 }

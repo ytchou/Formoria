@@ -1,8 +1,11 @@
 'use client'
 
 import { useTransition } from 'react'
-import { Eye, Settings } from 'lucide-react'
+import { Eye, EyeOff, Pencil, Settings } from 'lucide-react'
+import Link from 'next/link'
 import { useTranslations } from 'next-intl'
+import { useRouter as useAdminRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import { useRouter } from '@/i18n/navigation'
 import {
   DropdownMenu,
@@ -11,15 +14,19 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { startImpersonationAction } from '@/lib/actions/impersonation'
+import { hideBrandAction } from '@/app/admin/actions'
 import { useUser } from '@/lib/auth/use-user'
 
 interface AdminBrandMenuProps {
+  brandId: string
+  brandName: string
   brandSlug: string
 }
 
-export function AdminBrandMenu({ brandSlug }: AdminBrandMenuProps) {
+export function AdminBrandMenu({ brandId, brandName, brandSlug }: AdminBrandMenuProps) {
   const t = useTranslations('brandDetail.adminMenu')
   const router = useRouter()
+  const adminRouter = useAdminRouter()
   const [isPending, startTransition] = useTransition()
   const { viewer, viewerLoading, refreshViewer } = useUser()
 
@@ -35,6 +42,19 @@ export function AdminBrandMenu({ brandSlug }: AdminBrandMenuProps) {
     })
   }
 
+  function handleHideBrand() {
+    startTransition(async () => {
+      const result = await hideBrandAction(brandId)
+      if (result?.error) {
+        toast.error(result.error)
+        return
+      }
+
+      const params = new URLSearchParams({ status: 'hidden', search: brandName })
+      adminRouter.push(`/admin/brands?${params}`)
+    })
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -47,6 +67,20 @@ export function AdminBrandMenu({ brandSlug }: AdminBrandMenuProps) {
         <DropdownMenuItem disabled={isPending} onClick={handleViewAsOwner}>
           <Eye className="size-4" />
           {t('viewAsOwner')}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          render={<Link href={`/admin/brands?edit=${encodeURIComponent(brandId)}`} />}
+        >
+          <Pencil className="size-4" />
+          {t('editFields')}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className="text-destructive focus:text-destructive"
+          disabled={isPending}
+          onClick={handleHideBrand}
+        >
+          <EyeOff className="size-4" />
+          {t('hideBrand')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

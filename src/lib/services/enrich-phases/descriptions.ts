@@ -1,5 +1,6 @@
 import { rewriteBrandDescription, type DescriptionAttempt, type DescriptionRewriteResult } from '../description-rewrite'
 import { normalizeProductTags } from '@/lib/services/product-tags'
+import { resolveEnrichedPriceRange } from '@/lib/brands/price-range'
 import { createServiceClient } from '@/lib/supabase/server'
 import type { PhaseResult } from '@/lib/types/curation'
 import type { EnrichScrapedData } from './types'
@@ -225,8 +226,13 @@ export async function runDescriptionsPhase({
         ...(descriptionRewrite.blurb_en && shouldWrite(brand.blurb_en)
           ? { blurb_en: descriptionRewrite.blurb_en }
           : {}),
-        ...(descriptionRewrite.priceRange != null && shouldWrite(brand.price_range)
-          ? { price_range: descriptionRewrite.priceRange }
+        // Unlike every other field here, an absent price range is filled rather
+        // than skipped: `null` fails the review completeness gate, so a brand the
+        // model found no price signal for could never be published. See
+        // `resolveEnrichedPriceRange` for why mid-range and how a defaulted tier
+        // stays traceable.
+        ...(shouldWrite(brand.price_range)
+          ? { price_range: resolveEnrichedPriceRange(descriptionRewrite.priceRange) }
           : {}),
         // `product_tags` and `product_tags_en` are index-aligned by contract, so
         // they have to be written as one unit. Gating them on two independent

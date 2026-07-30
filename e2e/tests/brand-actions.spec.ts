@@ -124,4 +124,68 @@ test.describe("Brand detail actions", () => {
     );
     expect(Math.abs(menuBox!.y - headingBox!.y)).toBeLessThanOrEqual(12);
   });
+
+  test("admin can edit and hide the selected brand from its detail menu", async ({
+    adminPage,
+  }, workerInfo) => {
+    const managedBrand = await seedBrand({
+      name: "admin-menu-actions",
+      status: "approved",
+      workerIndex: workerInfo.workerIndex,
+    });
+    const escapedBrandName = managedBrand.brand.name.replace(
+      /[.*+?^${}()|[\]\\]/g,
+      "\\$&",
+    );
+
+    try {
+      await adminPage.goto(`/brands/${managedBrand.slug}`, {
+        waitUntil: "domcontentloaded",
+      });
+      await adminPage.getByRole("button", { name: "管理選單" }).click();
+      await adminPage.getByRole("menuitem", { name: "編輯欄位" }).click();
+
+      await expect(adminPage).toHaveURL(
+        new RegExp(`/admin/brands\\?edit=${managedBrand.brand.id}$`),
+      );
+      const detailPanel = adminPage.getByRole("dialog", {
+        name: managedBrand.brand.name,
+      });
+      await expect(detailPanel).toBeVisible();
+      const contentSection = detailPanel.locator("section").filter({
+        has: detailPanel.getByRole("heading", { name: "Content", exact: true }),
+      });
+      await contentSection.getByRole("button", { name: "Edit" }).click();
+      await expect(contentSection.getByLabel("Brand name")).toHaveValue(
+        managedBrand.brand.name,
+      );
+      await detailPanel.getByRole("button", { name: "Close dialog" }).click();
+
+      await adminPage.goto(
+        `/admin/brands?search=${encodeURIComponent(managedBrand.brand.name)}`,
+      );
+      const catalogRow = adminPage.getByRole("row", {
+        name: new RegExp(escapedBrandName),
+      });
+      await expect(catalogRow.getByRole("button", { name: "Edit" })).toHaveCount(0);
+      await catalogRow.getByText(managedBrand.brand.name, { exact: true }).click();
+      await expect(
+        adminPage.getByRole("dialog", { name: managedBrand.brand.name }),
+      ).toBeVisible();
+
+      await adminPage.goto(`/brands/${managedBrand.slug}`, {
+        waitUntil: "domcontentloaded",
+      });
+      await adminPage.getByRole("button", { name: "管理選單" }).click();
+      await adminPage.getByRole("menuitem", { name: "隱藏品牌" }).click();
+
+      await expect(adminPage).toHaveURL(/\/admin\/brands\?status=hidden&search=/);
+      const brandRow = adminPage.getByRole("row", {
+        name: new RegExp(escapedBrandName),
+      });
+      await expect(brandRow).toContainText("Hidden");
+    } finally {
+      await managedBrand.cleanup();
+    }
+  });
 });

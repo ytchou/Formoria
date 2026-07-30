@@ -85,6 +85,15 @@ export const PUBLIC_INTL_SEGMENTS = new Set([
   'stats',
 ])
 const SOFT_LIMIT_PREFIXES = ['/brands/']
+const DIRECTORY_EDGE_CACHE_CONTROL = 'public, s-maxage=3600, stale-while-revalidate=86400'
+const DIRECTORY_INDEX_PATHS = new Set([
+  '/brands',
+  ...routing.locales.map((locale) => `/${locale}/brands`),
+])
+
+function isDirectoryIndexPath(pathname: string): boolean {
+  return DIRECTORY_INDEX_PATHS.has(pathname)
+}
 
 function isSoftLimitPath(pathname: string) {
   let normalizedPathname = pathname
@@ -361,6 +370,14 @@ export async function proxy(request: NextRequest) {
       sameSite: 'lax',
       path: '/',
     })
+  }
+
+  if (
+    isDirectoryIndexPath(pathname) &&
+    !isRouterRequest &&
+    !response.headers.has('set-cookie')
+  ) {
+    response.headers.set('Cache-Control', DIRECTORY_EDGE_CACHE_CONTROL)
   }
 
   // Skip Supabase auth refresh for truly public content paths to reduce egress.

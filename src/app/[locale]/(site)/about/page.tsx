@@ -10,11 +10,10 @@ import { buildAlternates } from "@/lib/seo/alternates";
 import type { Locale } from "@/lib/seo/alternates";
 import { Link } from "@/i18n/navigation";
 import AboutHero from "@/components/about/about-hero";
-import OriginStory from "@/components/about/origin-story";
 import TaiwanStats from "@/components/about/taiwan-stats";
 import MissionPillars from "@/components/about/mission-pillars";
+import { AboutCard } from "@/components/about/about-card-grid";
 import { buttonVariants } from "@/components/ui/button";
-import { TrustModel } from "@/components/about/trust-model";
 import { getBrandStats, getRecentBrandCount } from "@/lib/services/brands";
 import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
 
@@ -60,8 +59,11 @@ export default async function AboutPage({ params }: PageProps) {
   const { locale } = await params;
   setRequestLocale(locale);
   const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
-  const t = await getTranslations("about");
-  const metadataT = await getTranslations("about.metadata");
+  const [t, visionT, metadataT] = await Promise.all([
+    getTranslations("about"),
+    getTranslations("vision"),
+    getTranslations("about.metadata"),
+  ]);
   const title = metadataT("title");
   const description = metadataT("description");
   const organizationJsonLd = buildOrganizationJsonLd(safeLocale);
@@ -106,40 +108,10 @@ export default async function AboutPage({ params }: PageProps) {
           recentBrands={recentBrands ?? undefined}
         />
 
-        <OriginStory
-          heading={t("origin.heading")}
-          body1={t("origin.body1")}
-          body2={t("origin.body2")}
-          body3={t("origin.body3")}
-        />
-
-        <TaiwanStats
-          heading={t("taiwanStats.heading")}
-          intro={t("taiwanStats.intro")}
-          items={[
-            {
-              value: t("taiwanStats.items.count.value"),
-              label: t("taiwanStats.items.count.label"),
-              detail: t("taiwanStats.items.count.detail"),
-            },
-            {
-              value: t("taiwanStats.items.share.value"),
-              label: t("taiwanStats.items.share.label"),
-              detail: t("taiwanStats.items.share.detail"),
-            },
-            {
-              value: t("taiwanStats.items.employment.value"),
-              label: t("taiwanStats.items.employment.label"),
-              detail: t("taiwanStats.items.employment.detail"),
-            },
-          ]}
-          sourceLabel={t("taiwanStats.sourceLabel")}
-          sourceName={t("taiwanStats.sourceName")}
-        />
-
         <MissionPillars
           heading={t("mission.heading")}
           statement={t("mission.statement")}
+          context={t("mission.context")}
           pillars={[
             {
               heading: t("mission.promote.heading"),
@@ -154,31 +126,57 @@ export default async function AboutPage({ params }: PageProps) {
               body: t("mission.platform.body"),
             },
           ]}
-          cta={
-            <Link
-              href="/vision"
-              className={buttonVariants({
-                variant: "secondary",
-                size: "large",
-              })}
-            >
-              {t("mission.visionCta")}
-            </Link>
-          }
         />
 
-        <section className="py-12 md:py-16">
+        <section
+          id="vision"
+          className="scroll-mt-32 bg-secondary py-12 md:py-20"
+        >
           <div className="page-gutter mx-auto max-w-6xl">
-            <h2 className="type-section-title-large text-balance">
-              {t("qualifies.heading")}
+            <h2 className="type-page-title-large text-balance">
+              {visionT("future.sectionHeading")}
             </h2>
-            <p className="mt-4 max-w-3xl type-page-subtitle text-pretty">
-              {t("qualifies.body")}
-            </p>
+            <div className="mt-8 grid gap-8 md:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)] md:items-start">
+              <div>
+                <h3 className="type-section-title-large text-balance">
+                  {visionT("future.heading")}
+                </h3>
+                <p className="mt-5 type-page-subtitle text-pretty">
+                  {visionT("future.body")}
+                </p>
+              </div>
+              <AboutCard>
+                <h3 className="type-card-title">
+                  {visionT("future.principleHeading")}
+                </h3>
+                <p className="mt-3 type-page-subtitle text-pretty">
+                  {visionT("future.principleBody")}
+                </p>
+              </AboutCard>
+            </div>
           </div>
         </section>
 
-        <TrustModel />
+        <TaiwanStats
+          heading={t("taiwanStats.heading")}
+          intro={t("taiwanStats.intro")}
+          items={[
+            {
+              value: t("taiwanStats.items.count.value"),
+              label: t("taiwanStats.items.count.label"),
+            },
+            {
+              value: t("taiwanStats.items.share.value"),
+              label: t("taiwanStats.items.share.label"),
+            },
+            {
+              value: t("taiwanStats.items.employment.value"),
+              label: t("taiwanStats.items.employment.label"),
+            },
+          ]}
+          sourceLabel={t("taiwanStats.sourceLabel")}
+          sourceName={t("taiwanStats.sourceName")}
+        />
 
         <section className="relative overflow-hidden py-12 md:py-16">
           <Image
@@ -198,26 +196,13 @@ export default async function AboutPage({ params }: PageProps) {
                 <h2 className="type-page-title-large text-balance">
                   {t("guide.heading")}
                 </h2>
-                <p className="mt-3 max-w-prose type-body-muted text-pretty">
-                  {t("guide.body")}
-                </p>
               </div>
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <Link
-                  href="/brands"
-                  className={buttonVariants({
-                    variant: "primary",
-                    tone: "cta",
-                    size: "large",
-                    className: "min-h-12",
-                  })}
-                >
-                  {t("hero.cta")}
-                </Link>
+              <div>
                 <Link
                   href="/getting-started"
                   className={buttonVariants({
-                    variant: "secondary",
+                    variant: "primary",
+                    tone: "cta",
                     size: "large",
                     className: "min-h-12",
                   })}

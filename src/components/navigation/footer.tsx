@@ -25,15 +25,6 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/stats"
-                  prefetch={false}
-                  className="type-card-description hover:text-foreground transition-colors"
-                >
-                  {t("stats")}
-                </Link>
-              </li>
-              <li>
-                <Link
                   href="/getting-started"
                   prefetch={false}
                   className="type-card-description hover:text-foreground transition-colors"
@@ -73,15 +64,6 @@ export function Footer() {
                   className="type-card-description hover:text-foreground transition-colors"
                 >
                   {t("about")}
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/vision"
-                  prefetch={false}
-                  className="type-card-description hover:text-foreground transition-colors"
-                >
-                  {t("vision")}
                 </Link>
               </li>
               <li>

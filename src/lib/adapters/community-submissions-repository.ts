@@ -5,6 +5,7 @@ import type {
 import { createServiceClient } from "@/lib/supabase/server";
 
 const PAGE_SIZE = 1_000;
+const SIMILARITY_THRESHOLD = 0.6;
 
 type CatalogRow = { name: string; purchase_website: string | null };
 type SubmissionRow = {
@@ -67,7 +68,7 @@ export const communitySubmissionsRepository: CommunitySubmissionRepository = {
         ? Promise.resolve({ data: [], error: null })
         : supabase.rpc("find_similar_brands", {
             p_names: names,
-            p_threshold: 0.3,
+            p_threshold: SIMILARITY_THRESHOLD,
           }),
     ]);
 

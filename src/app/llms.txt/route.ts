@@ -9,7 +9,6 @@ export async function GET() {
     `- [Brands](${base}/brands)`,
     `- [Stories](${base}/stories)`,
     `- [About](${base}/about)`,
-    `- [Mission and Vision](${base}/vision)`,
     `- [Glossary](${base}/glossary)`,
   ];
 
