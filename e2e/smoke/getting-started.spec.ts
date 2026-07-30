@@ -6,7 +6,9 @@ test.describe('Getting Started page smoke', () => {
   });
 
   test('hero section renders', async ({ page }) => {
-    await expect(page.getByText('Explore Formoria')).toBeVisible({ timeout: 10_000 });
+    // Substring match also hits the '<h2>How to explore Formoria</h2>' below the hero
+    // (strict mode violation), so pin it to the eyebrow's exact text.
+    await expect(page.getByText('Explore Formoria', { exact: true })).toBeVisible({ timeout: 10_000 });
     await expect(page.getByRole('heading', { level: 1, name: 'Find your next favorite brand' })).toBeVisible();
   });
 
