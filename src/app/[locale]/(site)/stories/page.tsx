@@ -4,7 +4,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { dateLocale } from '@/i18n/locale-preference'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { buttonVariants } from '@/components/ui/button'
-import { getAllGuides, getGuidesByCategory } from '@/lib/services/guides'
+import { getAllStories, getStoriesByCategory } from '@/lib/services/stories'
 import { categoryLabel, PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
@@ -20,8 +20,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { locale } = await params
   setRequestLocale(locale)
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
-  const t = await getTranslations({ locale, namespace: 'guides' })
-  const { canonical, languages } = buildAlternates('/guides', safeLocale)
+  const t = await getTranslations({ locale, namespace: 'stories' })
+  const { canonical, languages } = buildAlternates('/stories', safeLocale)
 
   return {
     title: t('metaTitle'),
@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 }
 
-function formatGuideDate(date: string, locale: string): string {
+function formatStoryDate(date: string, locale: string): string {
   return new Intl.DateTimeFormat(dateLocale(locale), {
     year: 'numeric',
     month: '2-digit',
@@ -38,20 +38,20 @@ function formatGuideDate(date: string, locale: string): string {
   }).format(new Date(date))
 }
 
-export default async function GuidesHubPage({ params, searchParams }: PageProps) {
+export default async function StoriesHubPage({ params, searchParams }: PageProps) {
   const { locale } = await params
   setRequestLocale(locale)
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
-  const t = await getTranslations({ locale, namespace: 'guides' })
+  const t = await getTranslations({ locale, namespace: 'stories' })
   const sp = await searchParams
   const category = typeof sp.category === 'string' && sp.category.trim() ? sp.category.trim() : null
   const activeCategory = category && PRODUCT_TYPE_CATEGORIES.some((item) => item.slug === category)
     ? category
     : null
-  const guideResult = activeCategory
-    ? await getGuidesByCategory(activeCategory, safeLocale)
-    : await getAllGuides(safeLocale)
-  const guides = guideResult.ok ? guideResult.guides : []
+  const storyResult = activeCategory
+    ? await getStoriesByCategory(activeCategory, safeLocale)
+    : await getAllStories(safeLocale)
+  const stories = storyResult.ok ? storyResult.stories : []
 
   return (
     <main className="page-gutter mx-auto w-full max-w-screen-xl py-10">
@@ -68,7 +68,7 @@ export default async function GuidesHubPage({ params, searchParams }: PageProps)
 
         <nav aria-label={t('categoriesAria')} className="flex flex-wrap gap-2">
           <Link
-            href="/guides"
+            href="/stories"
             className={buttonVariants({ variant: activeCategory === null ? 'primary' : 'secondary', shape: 'pill', size: 'chip' })}
           >
             {t('allCategories')}
@@ -79,7 +79,7 @@ export default async function GuidesHubPage({ params, searchParams }: PageProps)
             return (
               <Link
                 key={item.slug}
-                href={`/guides?category=${encodeURIComponent(item.slug)}`}
+                href={`/stories?category=${encodeURIComponent(item.slug)}`}
                 className={buttonVariants({ variant: isActive ? 'primary' : 'secondary', shape: 'pill', size: 'chip' })}
               >
                 {categoryLabel(item, locale)}
@@ -88,23 +88,23 @@ export default async function GuidesHubPage({ params, searchParams }: PageProps)
           })}
         </nav>
 
-        {!guideResult.ok ? (
+        {!storyResult.ok ? (
           <div
             role="alert"
             className="flex min-h-[40vh] items-center justify-center rounded-2xl border border-border bg-secondary px-6 py-16 text-center"
           >
             <p className="type-empty-title">{t('loadError')}</p>
           </div>
-        ) : guides.length === 0 ? (
+        ) : stories.length === 0 ? (
           <div className="flex min-h-[40vh] items-center justify-center rounded-2xl border border-border bg-secondary px-6 py-16 text-center">
             <p className="type-empty-body">{t('comingSoon')}</p>
           </div>
         ) : (
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {guides.map((guide) => (
+            {stories.map((story) => (
               <Link
-                key={guide.slug}
-                href={`/guides/${guide.slug}`}
+                key={story.slug}
+                href={`/stories/${story.slug}`}
                 className={surfaceCardStyles({
                   className: 'group hover:bg-secondary',
                   interactive: true,
@@ -113,14 +113,14 @@ export default async function GuidesHubPage({ params, searchParams }: PageProps)
                 <div className="space-y-3">
                   <div className="space-y-2">
                     <h2 className="type-card-title group-hover:underline">
-                      {guide.frontmatter.title}
+                      {story.frontmatter.title}
                     </h2>
                     <p className="type-body-muted">
-                      {guide.frontmatter.description}
+                      {story.frontmatter.description}
                     </p>
                   </div>
                   <p className="type-caption">
-                    {formatGuideDate(guide.frontmatter.publishedAt, locale)}
+                    {formatStoryDate(story.frontmatter.publishedAt, locale)}
                   </p>
                 </div>
               </Link>

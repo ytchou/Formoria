@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 import { getBrandSeoEntries } from "@/lib/services/brands";
-import { getAllGuides } from "@/lib/services/guides";
+import { getAllStories } from "@/lib/services/stories";
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { buildAlternates, type Locale } from "@/lib/seo/alternates";
 import { getBrandIndexability } from "@/lib/seo/brand-indexability";
@@ -59,16 +59,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     "/submit",
   ].flatMap((path) => localizedEntries(path));
 
-  // All guide content is zh-TW only, so /en/guides would be a permanently empty
+  // All story content is zh-TW only, so /en/stories would be a permanently empty
   // page — keep it reachable but out of the sitemap.
-  const guideIndexPages = localizedEntries("/guides", ["zh-TW"]);
+  const storyIndexPages = localizedEntries("/stories", ["zh-TW"]);
 
   try {
-    const [brands, guideResult] = await Promise.all([
+    const [brands, storyResult] = await Promise.all([
       getBrandSeoEntries(),
-      getAllGuides(),
+      getAllStories(),
     ]);
-    const guides = guideResult.ok ? guideResult.guides : [];
+    const stories = storyResult.ok ? storyResult.stories : [];
 
     const brandPages = brands.flatMap((brand) => {
       const indexability = getBrandIndexability(brand);
@@ -94,24 +94,24 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       );
     });
 
-    const guidePages = guides.flatMap((guide) => {
-      if (guide.frontmatter.locale === "en") return [];
+    const storyPages = stories.flatMap((story) => {
+      if (story.frontmatter.locale === "en") return [];
       const locale: Locale = "zh-TW";
       return localizedEntries(
-        `/guides/${guide.frontmatter.slug}`,
+        `/stories/${story.frontmatter.slug}`,
         [locale],
-        validDate(guide.frontmatter.updatedAt || guide.frontmatter.publishedAt),
+        validDate(story.frontmatter.updatedAt || story.frontmatter.publishedAt),
       );
     });
 
     return [
       ...staticPages,
-      ...guideIndexPages,
+      ...storyIndexPages,
       ...categoryPages,
       ...brandPages,
-      ...guidePages,
+      ...storyPages,
     ];
   } catch {
-    return [...staticPages, ...guideIndexPages];
+    return [...staticPages, ...storyIndexPages];
   }
 }

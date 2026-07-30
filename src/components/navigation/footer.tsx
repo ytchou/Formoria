@@ -5,9 +5,9 @@ import { LocaleSwitcher } from "@/components/i18n/locale-switcher";
 export function Footer() {
   const t = useTranslations("footer");
   const locale = useLocale();
-  // All guide content is zh-TW only — /en/guides renders a permanently empty
+  // All story content is zh-TW only — /en/stories renders a permanently empty
   // state, so don't advertise it on English pages.
-  const showGuides = locale !== "en";
+  const showStories = locale !== "en";
 
   return (
     <footer role="contentinfo" className="border-t border-border bg-card">
@@ -45,14 +45,14 @@ export function Footer() {
                   {t("gettingStarted")}
                 </Link>
               </li>
-              {showGuides && (
+              {showStories && (
                 <li>
                   <Link
-                    href="/guides"
+                    href="/stories"
                     prefetch={false}
                     className="type-card-description hover:text-foreground transition-colors"
                   >
-                    {t("guides")}
+                    {t("stories")}
                   </Link>
                 </li>
               )}

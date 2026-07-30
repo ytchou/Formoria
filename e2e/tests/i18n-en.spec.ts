@@ -229,11 +229,11 @@ test.describe('i18n English browse', () => {
     await expect(page.getByText('關於 Formoria')).toHaveCount(0);
   });
 
-  // Every guide is authored zh-TW, so /en/guides is an empty hub and
-  // /en/guides/[slug] 404s (covered in e2e/smoke/guides.spec.ts). The hub is the
-  // English guides surface that still has to prove it isn't falling back to zh-TW.
-  test('/en/guides renders English chrome, not the default locale', async ({ page }) => {
-    await page.goto('/en/guides');
+  // Every story is authored zh-TW, so /en/stories is an empty hub and
+  // /en/stories/[slug] 404s (covered in e2e/smoke/stories.spec.ts). The hub is the
+  // English stories surface that still has to prove it isn't falling back to zh-TW.
+  test('/en/stories renders English chrome, not the default locale', async ({ page }) => {
+    await page.goto('/en/stories');
     await expect(page.getByRole('link', { name: 'About Formoria' })).toBeVisible({
       timeout: 10_000,
     });

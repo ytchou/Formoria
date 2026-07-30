@@ -2,9 +2,9 @@
 
 import { RouteError } from '@/components/shared/route-error'
 
-export default function GuideDetailError(props: {
+export default function StoryDetailError(props: {
   error: Error & { digest?: string }
   reset: () => void
 }) {
-  return <RouteError {...props} descriptionKey="boundary.guideDescription" />
+  return <RouteError {...props} descriptionKey="boundary.storyDescription" />
 }

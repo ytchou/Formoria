@@ -3,9 +3,9 @@ import path from 'path'
 
 import matter from 'gray-matter'
 
-const GUIDES_DIR = path.join(process.cwd(), 'content', 'guides')
+const STORIES_DIR = path.join(process.cwd(), 'content', 'stories')
 
-type GuideEntry = {
+type StoryEntry = {
   slug: string;
   frontmatter: {
     title: string;
@@ -21,19 +21,19 @@ type GuideEntry = {
   };
 };
 
-export type GuideLocale = 'zh-TW' | 'en'
+export type StoryLocale = 'zh-TW' | 'en'
 
-export type GuideDetailResult = {
-  entry: GuideEntry;
+export type StoryDetailResult = {
+  entry: StoryEntry;
   content: string;
 };
 
-export type GuideListResult =
-  | { ok: true; guides: GuideEntry[] }
+export type StoryListResult =
+  | { ok: true; stories: StoryEntry[] }
   | { ok: false; error: Error };
 
-function parseGuideFile(slug: string): GuideDetailResult | null {
-  const filePath = path.join(GUIDES_DIR, `${slug}.mdx`)
+function parseStoryFile(slug: string): StoryDetailResult | null {
+  const filePath = path.join(STORIES_DIR, `${slug}.mdx`)
   let raw: string
   try {
     raw = fs.readFileSync(filePath, 'utf8')
@@ -43,7 +43,7 @@ function parseGuideFile(slug: string): GuideDetailResult | null {
 
   const { data, content } = matter(raw)
 
-  const entry: GuideEntry = {
+  const entry: StoryEntry = {
     slug,
     frontmatter: {
       title: data.title ?? '',
@@ -62,68 +62,68 @@ function parseGuideFile(slug: string): GuideDetailResult | null {
   return { entry, content }
 }
 
-function guideListError(scope: string, error: unknown): GuideListResult {
+function storyListError(scope: string, error: unknown): StoryListResult {
   const normalizedError = error instanceof Error ? error : new Error(String(error))
-  console.error(`[guides:${scope}] filesystem read failed`, normalizedError)
+  console.error(`[stories:${scope}] filesystem read failed`, normalizedError)
   return { ok: false, error: normalizedError }
 }
 
-export async function getAllGuides(
-  locale: GuideLocale = 'zh-TW',
-): Promise<GuideListResult> {
+export async function getAllStories(
+  locale: StoryLocale = 'zh-TW',
+): Promise<StoryListResult> {
   try {
-    const files = fs.readdirSync(GUIDES_DIR).filter(f => f.endsWith('.mdx'))
+    const files = fs.readdirSync(STORIES_DIR).filter(f => f.endsWith('.mdx'))
 
-    const guides = files
+    const stories = files
       .map(file => {
         const slug = file.replace(/\.mdx$/, '')
-        const result = parseGuideFile(slug)
+        const result = parseStoryFile(slug)
         return result?.entry ?? null
       })
-      .filter((entry): entry is GuideEntry => entry !== null)
+      .filter((entry): entry is StoryEntry => entry !== null)
       .filter(
         entry => entry.frontmatter.locale === locale && !entry.frontmatter.draft,
       )
 
-    return { ok: true, guides }
+    return { ok: true, stories }
   } catch (error) {
-    return guideListError('getAllGuides', error)
+    return storyListError('getAllStories', error)
   }
 }
 
-export async function getGuideBySlug(slug: string): Promise<GuideDetailResult | null> {
+export async function getStoryBySlug(slug: string): Promise<StoryDetailResult | null> {
   try {
-    return parseGuideFile(slug)
+    return parseStoryFile(slug)
   } catch (error) {
-    console.error(`[guides:getGuideBySlug] filesystem read failed`, error)
+    console.error(`[stories:getStoryBySlug] filesystem read failed`, error)
     return null
   }
 }
 
-export async function getPublishedGuideBySlug(
+export async function getPublishedStoryBySlug(
   slug: string,
-  locale?: GuideLocale,
-): Promise<GuideDetailResult | null> {
-  const guide = await getGuideBySlug(slug)
-  if (!guide || guide.entry.frontmatter.draft) return null
-  if (locale && guide.entry.frontmatter.locale !== locale) return null
-  return guide
+  locale?: StoryLocale,
+): Promise<StoryDetailResult | null> {
+  const story = await getStoryBySlug(slug)
+  if (!story || story.entry.frontmatter.draft) return null
+  if (locale && story.entry.frontmatter.locale !== locale) return null
+  return story
 }
 
-export async function getGuidesByCategory(
+export async function getStoriesByCategory(
   category: string,
-  locale: GuideLocale = 'zh-TW',
-): Promise<GuideListResult> {
+  locale: StoryLocale = 'zh-TW',
+): Promise<StoryListResult> {
   try {
-    const files = fs.readdirSync(GUIDES_DIR).filter(f => f.endsWith('.mdx'))
+    const files = fs.readdirSync(STORIES_DIR).filter(f => f.endsWith('.mdx'))
 
-    const guides = files
+    const stories = files
       .map(file => {
         const slug = file.replace(/\.mdx$/, '')
-        const result = parseGuideFile(slug)
+        const result = parseStoryFile(slug)
         return result?.entry ?? null
       })
-      .filter((entry): entry is GuideEntry => entry !== null)
+      .filter((entry): entry is StoryEntry => entry !== null)
       .filter(
         entry =>
           entry.frontmatter.locale === locale &&
@@ -131,8 +131,8 @@ export async function getGuidesByCategory(
           entry.frontmatter.category === category,
       )
 
-    return { ok: true, guides }
+    return { ok: true, stories }
   } catch (error) {
-    return guideListError('getGuidesByCategory', error)
+    return storyListError('getStoriesByCategory', error)
   }
 }

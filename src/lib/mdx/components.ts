@@ -1,7 +1,7 @@
 import { createElement } from 'react'
 
-import { FaqBlock } from '@/components/guides/faq-block'
-import { StatsCallout } from '@/components/guides/stats-callout'
+import { FaqBlock } from '@/components/stories/faq-block'
+import { StatsCallout } from '@/components/stories/stats-callout'
 
 function BrandCardLink({ slug }: { slug: string }) {
   return createElement(
@@ -15,7 +15,7 @@ function BrandCardLink({ slug }: { slug: string }) {
   )
 }
 
-export const guideComponentMap = {
+export const storyComponentMap = {
   BrandCard: (props: { slug: string }) =>
     createElement(BrandCardLink, { slug: props.slug }),
   StatsCallout: (props: { stat: string; label: string }) =>

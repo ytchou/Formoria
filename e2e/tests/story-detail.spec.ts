@@ -1,0 +1,98 @@
+import { test, expect } from '../fixtures/auth';
+import { NO_PUBLISHED_STORIES, publishedStories } from '../utils/published-stories';
+
+// Editorial content lives in `content/stories/`, which ships empty — every test here
+// needs a real published story, so the whole group gates on content presence and skips
+// cleanly until one is merged. Slug and title are read from the content directory rather
+// than hardcoded, so the first story that lands turns this suite green with no edit.
+const stories = publishedStories('zh-TW');
+const firstStory = stories[0];
+const STORY_URL = firstStory ? `/stories/${firstStory.slug}` : '/stories';
+
+test.describe('Story detail deep', () => {
+  test.beforeEach(() => {
+    test.skip(stories.length === 0, NO_PUBLISHED_STORIES);
+  });
+
+  test('story page renders title and no error boundary', async ({ anonPage }) => {
+    await anonPage.goto(STORY_URL);
+    await expect(anonPage).toHaveTitle(new RegExp(escapeRegExp(firstStory.title)));
+    await expect(
+      anonPage.getByRole('heading', { name: firstStory.title, level: 1 })
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(anonPage.getByText(/something went wrong|發生錯誤/i)).not.toBeVisible();
+  });
+
+  test('BrandCard components render (live card or not-found placeholder)', async ({ anonPage }) => {
+    await anonPage.goto(STORY_URL);
+    // BrandCardMdx renders:
+    //   - brand found  → <a href="/zh-TW/brands/[slug]"> inside a wrapper div
+    //   - brand missing → <div class="... border-dashed ..."> containing the slug text
+    // Skipped when the story embeds no BrandCard at all — that is an authoring choice,
+    // not a regression.
+    const hasBrandCard = await anonPage
+      .locator('main a[href*="/brands/"], main [class*="border-dashed"]')
+      .first()
+      .isVisible({ timeout: 5_000 })
+      .catch(() => false);
+    test.skip(!hasBrandCard, 'story embeds no BrandCard');
+
+    await expect(async () => {
+      await anonPage.reload();
+      const brandElement = anonPage
+        .locator('main a[href*="/brands/"], main [class*="border-dashed"]')
+        .first();
+      await expect(brandElement).toBeVisible({ timeout: 5_000 });
+    }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 10_000] });
+  });
+
+  test('FaqBlock renders and first accordion item expands on click', async ({ anonPage }) => {
+    await anonPage.goto(STORY_URL);
+    // FaqBlock renders as <details>/<summary> accordion elements. `faq` is optional
+    // frontmatter, so a story without one is not a failure.
+    const firstDetails = anonPage.locator('main details').first();
+    const hasFaq = await firstDetails.isVisible({ timeout: 5_000 }).catch(() => false);
+    test.skip(!hasFaq, 'story has no faq frontmatter');
+
+    await firstDetails.locator('summary').click();
+    await expect(firstDetails).toHaveAttribute('open');
+  });
+
+  test('Article JSON-LD is present on story detail page', async ({ anonPage }) => {
+    await anonPage.goto(STORY_URL);
+    const blocks = await anonPage
+      .locator('script[type="application/ld+json"]')
+      .allTextContents();
+    const hasArticle = blocks.some((b) => b.includes('"Article"'));
+    expect(hasArticle).toBe(true);
+  });
+
+  test('authored locale is indexable and only advertises available alternates', async ({
+    anonPage,
+  }) => {
+    await anonPage.goto(STORY_URL);
+
+    await expect(anonPage.locator('meta[name="robots"][content*="noindex" i]')).toHaveCount(0);
+    await expect(anonPage.locator('link[rel="alternate"][hreflang="zh-TW"]')).toHaveCount(1);
+    await expect(anonPage.locator('link[rel="alternate"][hreflang="x-default"]')).toHaveCount(1);
+    await expect(anonPage.locator('link[rel="alternate"][hreflang="en"]')).toHaveCount(0);
+  });
+
+  // Was "stays readable but is not indexable" (200 + noindex). That only ever looked
+  // readable: `dynamic = 'force-static'` stripped request-scoped state, so next-intl
+  // silently fell back to zh-TW and the English route served Chinese body copy under
+  // html lang="en". A locale with no authored story is a missing document, so it 404s.
+  test('unavailable English locale 404s instead of serving zh-TW content', async ({ anonPage }) => {
+    const response = await anonPage.goto(`/en${STORY_URL}`);
+
+    expect(response?.status()).toBe(404);
+    // English not-found chrome, not the zh-TW fallback the old behavior produced
+    await expect(anonPage.getByText('Story not found')).toBeVisible({ timeout: 10_000 });
+    await expect(anonPage.getByText(firstStory.title)).toHaveCount(0);
+  });
+});
+
+/** Story titles come from frontmatter, so escape before building a title matcher. */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
