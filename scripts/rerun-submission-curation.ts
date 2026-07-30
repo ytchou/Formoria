@@ -28,77 +28,87 @@
  *   pnpm rerun-curation --run --limit=25     # cautious first batch
  *   pnpm rerun-curation --run --no-overwrite # gap-fill semantics instead
  */
-import { randomUUID } from 'node:crypto'
+import { randomUUID } from "node:crypto";
 
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from "@/lib/supabase/server";
 import {
   claimCurationJob,
   enqueueAdminCurationJob,
-} from '@/lib/services/curation-jobs'
-import { runJob } from '@/lib/services/job-runner'
+} from "@/lib/services/curation-jobs";
+import { runJob } from "@/lib/services/job-runner";
 
-const RUN = process.argv.includes('--run')
-const OVERWRITE = !process.argv.includes('--no-overwrite')
+const RUN = process.argv.includes("--run");
+const OVERWRITE = !process.argv.includes("--no-overwrite");
 const ONLY = (
-  process.argv.find((arg) => arg.startsWith('--only='))?.slice('--only='.length) ?? ''
+  process.argv
+    .find((arg) => arg.startsWith("--only="))
+    ?.slice("--only=".length) ?? ""
 )
-  .split(',')
+  .split(",")
   .map((id) => id.trim())
-  .filter(Boolean)
+  .filter(Boolean);
 const LIMIT = (() => {
   const raw = process.argv
-    .find((arg) => arg.startsWith('--limit='))
-    ?.slice('--limit='.length)
-  if (!raw) return Number.POSITIVE_INFINITY
-  const parsed = Number.parseInt(raw, 10)
+    .find((arg) => arg.startsWith("--limit="))
+    ?.slice("--limit=".length);
+  if (!raw) return Number.POSITIVE_INFINITY;
+  const parsed = Number.parseInt(raw, 10);
   if (!Number.isFinite(parsed) || parsed <= 0) {
-    throw new Error(`--limit must be a positive integer, got "${raw}"`)
+    throw new Error(`--limit must be a positive integer, got "${raw}"`);
   }
-  return parsed
-})()
+  return parsed;
+})();
 
 async function main(): Promise<void> {
-  const startedAt = Date.now()
-  const supabase = createServiceClient()
+  const startedAt = Date.now();
+  const supabase = createServiceClient();
 
   const { data, error } = await supabase
-    .from('brand_submissions')
-    .select('id, brand_name, intent')
-    .eq('status', 'pending')
-    .order('submitted_at', { ascending: true })
-  if (error) throw error
+    .from("brand_submissions")
+    .select("id, brand_name, intent")
+    .eq("status", "pending")
+    .order("submitted_at", { ascending: true });
+  if (error) throw error;
 
-  const pending = data ?? []
-  const eligible = ONLY.length > 0
-    ? pending.filter((submission) => ONLY.includes(submission.id))
-    : pending
+  const pending = data ?? [];
+  const eligible =
+    ONLY.length > 0
+      ? pending.filter((submission) => ONLY.includes(submission.id))
+      : pending;
   if (ONLY.length > 0 && eligible.length !== ONLY.length) {
-    const matched = new Set(eligible.map((submission) => submission.id))
+    const matched = new Set(eligible.map((submission) => submission.id));
     throw new Error(
       `--only matched ${eligible.length} of ${ONLY.length} ids; unmatched (not pending?): ${ONLY.filter(
         (id) => !matched.has(id),
-      ).join(', ')}`,
-    )
+      ).join(", ")}`,
+    );
   }
-  const selected = eligible.slice(0, LIMIT === Number.POSITIVE_INFINITY ? undefined : LIMIT)
+  const selected = eligible.slice(
+    0,
+    LIMIT === Number.POSITIVE_INFINITY ? undefined : LIMIT,
+  );
 
-  const byIntent = new Map<string, number>()
+  const byIntent = new Map<string, number>();
   for (const row of selected) {
-    byIntent.set(row.intent, (byIntent.get(row.intent) ?? 0) + 1)
+    byIntent.set(row.intent, (byIntent.get(row.intent) ?? 0) + 1);
   }
 
-  console.log(`[rerun-curation] pending submissions: ${pending.length}`)
-  console.log(`[rerun-curation] selected:            ${selected.length}`)
-  console.log(`[rerun-curation] by intent:           ${JSON.stringify(Object.fromEntries(byIntent))}`)
-  console.log(`[rerun-curation] overwrite:           ${OVERWRITE}`)
+  console.log(`[rerun-curation] pending submissions: ${pending.length}`);
+  console.log(`[rerun-curation] selected:            ${selected.length}`);
+  console.log(
+    `[rerun-curation] by intent:           ${JSON.stringify(Object.fromEntries(byIntent))}`,
+  );
+  console.log(`[rerun-curation] overwrite:           ${OVERWRITE}`);
 
   if (selected.length === 0) {
-    console.log('[rerun-curation] nothing to do')
-    return
+    console.log("[rerun-curation] nothing to do");
+    return;
   }
   if (!RUN) {
-    console.log('\n[rerun-curation] PLAN ONLY — pass --run to enqueue and execute')
-    return
+    console.log(
+      "\n[rerun-curation] PLAN ONLY — pass --run to enqueue and execute",
+    );
+    return;
   }
 
   // enqueueAdminCurationJob resolves targets through resolveSubmissionTargets,
@@ -110,21 +120,21 @@ async function main(): Promise<void> {
       overwrite: OVERWRITE,
     },
     dryRun: false,
-    startedBy: 'operator-rerun',
-  })
-  console.log(`[rerun-curation] enqueued job ${job.id}`)
+    startedBy: "operator-rerun",
+  });
+  console.log(`[rerun-curation] enqueued job ${job.id}`);
 
-  const workerToken = randomUUID()
-  const claimed = await claimCurationJob(job.id, workerToken)
-  if (!claimed) throw new Error(`Could not claim job ${job.id}`)
+  const workerToken = randomUUID();
+  const claimed = await claimCurationJob(job.id, workerToken);
+  if (!claimed) throw new Error(`Could not claim job ${job.id}`);
 
-  const summary = await runJob(claimed, workerToken)
-  const minutes = ((Date.now() - startedAt) / 60_000).toFixed(1)
-  console.log(`[rerun-curation] finished in ${minutes}m`)
-  console.log(`[rerun-curation] ${JSON.stringify(summary)}`)
+  const summary = await runJob(claimed, workerToken);
+  const minutes = ((Date.now() - startedAt) / 60_000).toFixed(1);
+  console.log(`[rerun-curation] finished in ${minutes}m`);
+  console.log(`[rerun-curation] ${JSON.stringify(summary)}`);
 }
 
 void main().catch((err) => {
-  console.error('[rerun-curation] fatal:', err)
-  process.exitCode = 1
-})
+  console.error("[rerun-curation] fatal:", err);
+  process.exitCode = 1;
+});
