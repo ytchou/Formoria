@@ -813,8 +813,18 @@ export async function getBrandSlugsBatch(brandIds: string[]): Promise<Map<string
  * Treat the returned Map as read-only — callers with the same slug set share
  * one instance.
  */
-const getBrandsBySlugKey = cache(async (slugKey: string): Promise<Map<string, Brand>> => {
-  const supabase = createServiceClient()
+/**
+ * The query itself, with the client passed in.
+ *
+ * Split out from the `cache()` wrapper below so tests can drive it with a
+ * query-builder double instead of mocking `@/lib/supabase/server` — that mock
+ * is what `scripts/check-test-boundaries.mjs` forbids. Production has exactly
+ * one caller, immediately below; nothing else should pass a client here.
+ */
+export async function fetchBrandsBySlugKey(
+  supabase: ReturnType<typeof createServiceClient>,
+  slugKey: string
+): Promise<Map<string, Brand>> {
   const { data, error } = await supabase
     .from('brands')
     .select(BRAND_LIST_SELECT)
@@ -832,13 +842,24 @@ const getBrandsBySlugKey = cache(async (slugKey: string): Promise<Map<string, Br
   return new Map(
     (data ?? []).map(brandToDomain).map((brand): [string, Brand] => [brand.slug, brand])
   )
-})
+}
+
+const getBrandsBySlugKey = cache((slugKey: string): Promise<Map<string, Brand>> =>
+  fetchBrandsBySlugKey(createServiceClient(), slugKey)
+)
+
+/**
+ * Slugs are kebab-case, so a newline is a safe separator for the cache key.
+ * Deduped and sorted, so call order cannot fork one lookup into two identical
+ * round trips.
+ */
+export function brandsBySlugsCacheKey(slugs: string[]): string {
+  return [...new Set(slugs)].sort().join('\n')
+}
 
 export async function getBrandsBySlugs(slugs: string[]): Promise<Map<string, Brand>> {
   if (slugs.length === 0) return new Map()
-  // Slugs are kebab-case, so a newline is a safe separator for the cache key.
-  // Sorted so call order cannot fork one lookup into two identical round trips.
-  return getBrandsBySlugKey([...new Set(slugs)].sort().join('\n'))
+  return getBrandsBySlugKey(brandsBySlugsCacheKey(slugs))
 }
 
 type GetBrandsFilters = BrandFilters & {

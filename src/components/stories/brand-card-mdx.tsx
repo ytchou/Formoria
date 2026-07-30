@@ -2,6 +2,7 @@ import { getTranslations } from 'next-intl/server'
 
 import { BrandCard } from '@/components/brands/brand-card'
 import { getBrandsBySlugs } from '@/lib/services/brands'
+import type { Brand } from '@/lib/types'
 
 type BrandCardMdxProps = {
   slug: string
@@ -22,6 +23,16 @@ type BrandCardMdxProps = {
    * shortcode take the next index from it.
    */
   position?: number
+} & BrandLoaderSeam
+
+/**
+ * Test seam, not an authoring prop: MDX only ever passes strings, so this stays
+ * `getBrandsBySlugs` in production. It exists so component tests can render
+ * without a database and without mocking `@/lib/services/*`, which
+ * `scripts/check-test-boundaries.mjs` forbids.
+ */
+export type BrandLoaderSeam = {
+  loadBrands?: (slugs: string[]) => Promise<Map<string, Brand>>
 }
 
 /**
@@ -31,8 +42,14 @@ type BrandCardMdxProps = {
  * a slug that was renamed or hidden after publication must degrade to an inline
  * placeholder, not throw and take the story page down.
  */
-export async function BrandCardMdx({ slug, note, eyebrow, position }: BrandCardMdxProps) {
-  const brands = await getBrandsBySlugs([slug])
+export async function BrandCardMdx({
+  slug,
+  note,
+  eyebrow,
+  position,
+  loadBrands = getBrandsBySlugs,
+}: BrandCardMdxProps) {
+  const brands = await loadBrands([slug])
   const brand = brands.get(slug)
 
   if (!brand) {

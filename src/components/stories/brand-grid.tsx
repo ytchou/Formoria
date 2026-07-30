@@ -2,7 +2,7 @@ import { getTranslations } from 'next-intl/server'
 
 import { BrandCard } from '@/components/brands/brand-card'
 import { getBrandsBySlugs } from '@/lib/services/brands'
-import { MissingBrandNotice } from './brand-card-mdx'
+import { MissingBrandNotice, type BrandLoaderSeam } from './brand-card-mdx'
 
 type BrandGridProps = {
   slugs: string[]
@@ -19,7 +19,7 @@ type BrandGridProps = {
    * `position`: a story-scoped counter threaded through `storyComponentMap`.
    */
   startIndex?: number
-}
+} & BrandLoaderSeam
 
 /**
  * `<BrandGrid slugs={[…]} />` inside story MDX.
@@ -27,10 +27,15 @@ type BrandGridProps = {
  * One batched lookup for the whole array — rendering N `<BrandCardMdx>` would
  * be N queries. Two columns is the ceiling: the story column is 720px wide.
  */
-export async function BrandGrid({ slugs, notes, startIndex = 0 }: BrandGridProps) {
+export async function BrandGrid({
+  slugs,
+  notes,
+  startIndex = 0,
+  loadBrands = getBrandsBySlugs,
+}: BrandGridProps) {
   if (slugs.length === 0) return null
 
-  const brands = await getBrandsBySlugs(slugs)
+  const brands = await loadBrands(slugs)
   const t = await getTranslations('stories')
 
   return (

@@ -13,13 +13,12 @@ import type { Brand } from '@/lib/types'
  * instead of throwing, and a grid of N brands costs one query, not N.
  */
 
-const mocks = vi.hoisted(() => ({
-  getBrandsBySlugs: vi.fn(),
-}))
-
-vi.mock('@/lib/services/brands', () => ({
-  getBrandsBySlugs: mocks.getBrandsBySlugs,
-}))
+/**
+ * The brand lookup arrives through each component's `loadBrands` seam rather
+ * than a module mock: `scripts/check-test-boundaries.mjs` forbids mocking
+ * `@/lib/services/*`, and the seam defaults to `getBrandsBySlugs` in production.
+ */
+const loadBrands = vi.fn<(slugs: string[]) => Promise<Map<string, Brand>>>()
 
 /**
  * `getTranslations` delegates to next-intl's own `createTranslator` against the
@@ -130,15 +129,15 @@ function renderWithIntl(ui: ReactNode) {
 
 describe('BrandCardMdx', () => {
   beforeEach(() => {
-    mocks.getBrandsBySlugs.mockReset()
+    loadBrands.mockReset()
   })
 
   it('renders a brand card when the slug resolves', async () => {
-    mocks.getBrandsBySlugs.mockResolvedValue(
+    loadBrands.mockResolvedValue(
       new Map([['molasses', makeBrand('molasses', 'Molasses')]]),
     )
 
-    renderWithIntl(await BrandCardMdx({ slug: 'molasses' }))
+    renderWithIntl(await BrandCardMdx({ slug: 'molasses', loadBrands }))
 
     expect(screen.getByRole('heading', { name: 'Molasses' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Molasses' })).toHaveAttribute(
@@ -148,9 +147,9 @@ describe('BrandCardMdx', () => {
   })
 
   it('renders a dashed placeholder containing the slug when it does not resolve', async () => {
-    mocks.getBrandsBySlugs.mockResolvedValue(new Map())
+    loadBrands.mockResolvedValue(new Map())
 
-    renderWithIntl(await BrandCardMdx({ slug: 'ghost-brand' }))
+    renderWithIntl(await BrandCardMdx({ slug: 'ghost-brand', loadBrands }))
 
     const placeholder = screen.getByText('Brand unavailable: ghost-brand')
     expect(placeholder).toBeInTheDocument()
@@ -161,12 +160,12 @@ describe('BrandCardMdx', () => {
   })
 
   it('renders the editorial note when provided', async () => {
-    mocks.getBrandsBySlugs.mockResolvedValue(
+    loadBrands.mockResolvedValue(
       new Map([['molasses', makeBrand('molasses', 'Molasses')]]),
     )
 
     renderWithIntl(
-      await BrandCardMdx({ slug: 'molasses', note: 'Their kettle sugar is the whole story.' }),
+      await BrandCardMdx({ slug: 'molasses', note: 'Their kettle sugar is the whole story.', loadBrands }),
     )
 
     expect(screen.getByText('Their kettle sugar is the whole story.')).toBeInTheDocument()
@@ -175,11 +174,11 @@ describe('BrandCardMdx', () => {
   })
 
   it('renders the eyebrow when provided', async () => {
-    mocks.getBrandsBySlugs.mockResolvedValue(
+    loadBrands.mockResolvedValue(
       new Map([['molasses', makeBrand('molasses', 'Molasses')]]),
     )
 
-    renderWithIntl(await BrandCardMdx({ slug: 'molasses', eyebrow: 'Field notes' }))
+    renderWithIntl(await BrandCardMdx({ slug: 'molasses', eyebrow: 'Field notes', loadBrands }))
 
     expect(screen.getByText('Field notes')).toBeInTheDocument()
   })
@@ -187,20 +186,20 @@ describe('BrandCardMdx', () => {
 
 describe('BrandGrid', () => {
   beforeEach(() => {
-    mocks.getBrandsBySlugs.mockReset()
+    loadBrands.mockReset()
     vi.mocked(trackBrandCardClicked).mockClear()
   })
 
   it('issues one batched lookup for all slugs', async () => {
     const slugs = ['molasses', 'kiln-studio', 'paper-mill']
-    mocks.getBrandsBySlugs.mockResolvedValue(
+    loadBrands.mockResolvedValue(
       new Map(slugs.map((slug) => [slug, makeBrand(slug, slug)])),
     )
 
-    renderWithIntl(await BrandGrid({ slugs }))
+    renderWithIntl(await BrandGrid({ slugs, loadBrands }))
 
-    expect(mocks.getBrandsBySlugs).toHaveBeenCalledTimes(1)
-    expect(mocks.getBrandsBySlugs).toHaveBeenCalledWith(slugs)
+    expect(loadBrands).toHaveBeenCalledTimes(1)
+    expect(loadBrands).toHaveBeenCalledWith(slugs)
     expect(screen.getAllByRole('heading')).toHaveLength(3)
   })
 
@@ -210,11 +209,11 @@ describe('BrandGrid', () => {
     // them. `startIndex` is the manual escape hatch until a story-scoped counter
     // is threaded through the shortcode map.
     const slugs = ['tainan-soy', 'paper-mill']
-    mocks.getBrandsBySlugs.mockResolvedValue(
+    loadBrands.mockResolvedValue(
       new Map(slugs.map((slug) => [slug, makeBrand(slug, slug)])),
     )
 
-    renderWithIntl(await BrandGrid({ slugs, startIndex: 3 }))
+    renderWithIntl(await BrandGrid({ slugs, startIndex: 3, loadBrands }))
     fireEvent.click(screen.getByRole('link', { name: 'paper-mill' }))
 
     expect(vi.mocked(trackBrandCardClicked)).toHaveBeenCalledWith(

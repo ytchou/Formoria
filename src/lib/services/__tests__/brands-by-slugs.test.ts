@@ -17,18 +17,12 @@ type BrandRowFixture = {
   brand_owners: Array<{ user_id: string }>
 }
 
-const mocks = vi.hoisted(() => ({
-  createServiceClient: vi.fn(),
-}))
-
-vi.mock('@/lib/supabase/server', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/supabase/server')>()),
-  createServiceClient: mocks.createServiceClient,
-}))
-
+import type { createServiceClient } from '@/lib/supabase/server'
 import {
   DIRECTORY_BRAND_COLUMN_LIST,
   DIRECTORY_OMITTED_COLUMNS,
+  brandsBySlugsCacheKey,
+  fetchBrandsBySlugKey,
   getBrandsBySlugs,
 } from '../brands'
 
@@ -102,6 +96,18 @@ function createClientDouble() {
   }
 }
 
+/**
+ * Drives the injectable query the way `getBrandsBySlugs` does — same cache key
+ * derivation, same client-shaped double. Mocking `@/lib/supabase/server` to
+ * reach the same place is what `scripts/check-test-boundaries.mjs` forbids.
+ */
+function lookup(slugs: string[]) {
+  return fetchBrandsBySlugKey(
+    createClientDouble() as unknown as ReturnType<typeof createServiceClient>,
+    brandsBySlugsCacheKey(slugs)
+  )
+}
+
 function brandRow(overrides: Partial<BrandRowFixture> & { slug: string }): BrandRowFixture {
   return {
     id: `id-${overrides.slug}`,
@@ -122,12 +128,10 @@ describe('getBrandsBySlugs', () => {
       brandRow({ slug: 'kiln-studio', name: 'Kiln Studio' }),
       brandRow({ slug: 'hidden-brand', name: 'Hidden Brand', status: 'hidden' }),
     ]
-    mocks.createServiceClient.mockReset()
-    mocks.createServiceClient.mockImplementation(() => createClientDouble())
   })
 
   it('returns a Map keyed by slug for found approved brands', async () => {
-    const result = await getBrandsBySlugs(['molasses', 'kiln-studio'])
+    const result = await lookup(['molasses', 'kiln-studio'])
 
     expect(result.size).toBe(2)
     expect(result.get('molasses')?.name).toBe('Molasses')
@@ -144,7 +148,7 @@ describe('getBrandsBySlugs', () => {
     // — and `draft_data` is unpublished editorial content that must not reach
     // the client at all. Asserted here rather than left to a reviewer's grep,
     // so widening the projection fails a test instead of passing review.
-    await getBrandsBySlugs(['molasses'])
+    await lookup(['molasses'])
 
     const select = queries[0]?.select ?? ''
     const selected = select.split(',').map((column) => column.trim())
@@ -159,7 +163,7 @@ describe('getBrandsBySlugs', () => {
   })
 
   it('omits slugs with no matching brand instead of throwing', async () => {
-    const result = await getBrandsBySlugs(['molasses', 'does-not-exist'])
+    const result = await lookup(['molasses', 'does-not-exist'])
 
     expect(result.size).toBe(1)
     expect(result.has('molasses')).toBe(true)
@@ -167,22 +171,24 @@ describe('getBrandsBySlugs', () => {
   })
 
   it('omits brands whose status is not approved', async () => {
-    const result = await getBrandsBySlugs(['hidden-brand', 'molasses'])
+    const result = await lookup(['hidden-brand', 'molasses'])
 
     expect(result.has('hidden-brand')).toBe(false)
     expect(result.has('molasses')).toBe(true)
   })
 
   it('returns an empty Map for an empty input array without querying', async () => {
+    // The real entry point, not the injectable query: the early return is the
+    // whole point — it never reaches a Supabase client at all, which is why
+    // this one call is safe to make against the unmocked module.
     const result = await getBrandsBySlugs([])
 
     expect(result.size).toBe(0)
-    expect(mocks.createServiceClient).not.toHaveBeenCalled()
     expect(queries).toHaveLength(0)
   })
 
   it('deduplicates repeated slugs in the input', async () => {
-    const result = await getBrandsBySlugs(['molasses', 'molasses', 'kiln-studio'])
+    const result = await lookup(['molasses', 'molasses', 'kiln-studio'])
 
     expect(queries).toHaveLength(1)
     // The cache key sorts its slugs so the same set in a different order is one
@@ -199,7 +205,7 @@ describe('getBrandsBySlugs', () => {
     queryError = { message: 'connection reset' }
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    await expect(getBrandsBySlugs(['molasses'])).rejects.toThrow()
+    await expect(lookup(['molasses'])).rejects.toThrow()
 
     expect(consoleError).toHaveBeenCalled()
     consoleError.mockRestore()
