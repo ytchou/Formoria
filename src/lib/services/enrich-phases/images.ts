@@ -73,7 +73,10 @@ export async function runBrandImagePhase({
     const imageStoredUrls = dryRun
       ? imageCandidates.map((candidate) => typeof candidate === 'string' ? candidate : candidate.url)
       : await downloadAndStoreImages(imageCandidates, target ?? brandTarget(brand.id))
-    const patch = imageStoredUrls.filter(hasLinkValue).length > 0
+    // Automated downloads are stored as candidates. Updating the compatibility
+    // hero cache here would publish an unclassified URL before the classifier
+    // explicitly keeps it; the classify phase owns that projection now.
+    const patch = dryRun && imageStoredUrls.filter(hasLinkValue).length > 0
       ? imagePatchToDbPatch(buildImageEnrichPatch(normalizeImageBrand(brand), imageStoredUrls))
       : {}
 

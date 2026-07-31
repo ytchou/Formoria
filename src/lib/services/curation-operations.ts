@@ -1508,7 +1508,26 @@ export async function runEnrich(
           const candidateImages = buildCandidatePool({
             scraped: linksResult.scrapedImageUrls,
             jsonLdImages: linksResult.jsonLdImageUrls,
-            googleImages: imageSearchUrls,
+            googleImages: (imageSearchOutcomes.get(getDisplayBrandName(brand))?.rows ?? imageSearchUrls).map((row) =>
+              typeof row === 'string'
+                ? row
+                : {
+                    url: row.url,
+                    sourceUrl: row.sourceUrl ?? row.url,
+                    pageUrl: row.pageUrl,
+                    previewUrl: row.previewUrl,
+                    title: row.title,
+                    providerSource: row.source,
+                    domain: row.domain,
+                    position: row.position,
+                    query: row.query,
+                    auditResultId: row.auditResultId,
+                    imageWidth: row.imageWidth,
+                    imageHeight: row.imageHeight,
+                    thumbnailWidth: row.thumbnailWidth,
+                    thumbnailHeight: row.thumbnailHeight,
+                  }
+            ),
           });
           await markCurrentPhase("images");
           const brandImageResult = await runBrandImagePhase({

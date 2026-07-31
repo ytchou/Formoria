@@ -24,9 +24,10 @@ import { listAllObjects } from './brand-storage-maintenance'
 //       null verdicts, which read as junk: status -> 'rejected', storage_path ->
 //       null, and the storage object deleted. Two HTTP 400 `invalid_image_url`
 //       responses destroyed 18 live images that way. Those rows are exactly
-//       `status = 'rejected' AND tags IS NULL` — a genuine junk verdict always
-//       writes a tag, so a null tag means "we never got an answer". This pass
-//       reactivates them, but ONLY the ones whose bytes are still there: the
+//       `status = 'rejected' AND tags IS NULL AND rejection_reasons IS NULL AND
+//       rejected_at IS NULL` — new explicit rejects also have a null tag, so
+//       the lifecycle fields distinguish them from a missing verdict. This
+//       pass reactivates legacy rows, but ONLY the ones whose bytes are still there: the
 //       url is HTTP-probed first, because storage_path is null on every
 //       affected row so the bucket listing cannot decide it. Fail closed —
 //       any non-2xx, network error or timeout leaves the row rejected. A false
@@ -188,6 +189,8 @@ export type RejectedImageRow = {
   storage_path: string | null
   source: string | null
   tags: string[] | null
+  rejection_reasons?: string[] | null
+  rejected_at?: string | null
   brand_id?: string | null
 }
 
@@ -363,7 +366,10 @@ async function loadBrandImages(
 }
 
 /**
- * Pass (d) candidates from one table: `status = 'rejected' AND tags IS NULL`.
+ * Pass (d) candidates from one table: legacy rows rejected without a verdict.
+ * New classifier rejects also have `tags IS NULL`, so rejection_reasons and
+ * rejected_at must both remain NULL or this recovery pass would resurrect
+ * intentional junk.
  * The two branches are spelled out rather than passing `table` to `.from()`
  * because the generated Supabase types make `from(union)` uncallable.
  *
@@ -381,6 +387,8 @@ async function loadNullVerdictRejections(
           .select('*')
           .eq('status', 'rejected')
           .is('tags', null)
+          .is('rejection_reasons', null)
+          .is('rejected_at', null)
           .order('id', { ascending: true })
           .range(from, to)
       : supabase
@@ -388,6 +396,8 @@ async function loadNullVerdictRejections(
           .select('*')
           .eq('status', 'rejected')
           .is('tags', null)
+          .is('rejection_reasons', null)
+          .is('rejected_at', null)
           .order('id', { ascending: true })
           .range(from, to),
   )
@@ -505,8 +515,9 @@ export async function probeUrlReachable(url: string): Promise<boolean> {
  * run share one decision — the preview IS the plan that gets executed.
  *
  * Three gates, all fail-closed:
- *   1. the row must still be `status = 'rejected'` with NULL tags. A non-null
- *      tag is a real junk verdict and is out of scope entirely — reverting it
+ *   1. the row must still be `status = 'rejected'` with NULL tags and no
+ *      lifecycle verdict fields. A non-null tag or rejection timestamp is a
+ *      real classifier verdict and is out of scope entirely — reverting it
  *      would re-publish images a working classifier deliberately rejected.
  *   2. the url must resolve to a key under our brand-images public prefix
  *      (storageKeyFromPublicUrl returns null otherwise). A legacy hotlink to a
@@ -533,12 +544,17 @@ export async function planReactivations(input: {
   async function decide(index: number): Promise<void> {
     const { table, row } = candidates[index]
 
-    if (row.status !== 'rejected' || row.tags !== null) {
+    if (
+      row.status !== 'rejected' ||
+      row.tags !== null ||
+      row.rejection_reasons != null ||
+      row.rejected_at != null
+    ) {
       decisions[index] = {
         table,
         row,
         action: 'skip',
-        reason: 'not a null-verdict rejection (status/tags out of scope)',
+        reason: 'not a legacy null-verdict rejection (status/tags/lifecycle fields out of scope)',
       }
       return
     }
@@ -872,12 +888,16 @@ async function reactivateRows(
             .update({ status: 'active' })
             .eq('status', 'rejected')
             .is('tags', null)
+            .is('rejection_reasons', null)
+            .is('rejected_at', null)
             .in('id', chunk)
         : await supabase
             .from('submission_images')
             .update({ status: 'active' })
             .eq('status', 'rejected')
             .is('tags', null)
+            .is('rejection_reasons', null)
+            .is('rejected_at', null)
             .in('id', chunk)
     if (error) {
       throw new Error(

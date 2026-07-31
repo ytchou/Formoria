@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { JUNK_TAGS, applyClassifications } from '../classify-images'
+import { JUNK_TAGS, applyClassifications, parseClassificationBatch } from '../classify-images'
 
 /**
  * These cover the two policy decisions that ship together:
@@ -57,16 +57,17 @@ describe('applyClassifications ordering', () => {
     expect(ordered.map((image) => image.id)).toEqual(['logo'])
   })
 
-  it('still rejects a text banner and queues its object for deletion', () => {
+  it('rejects a text banner while retaining its object for the retention window', () => {
     const { ordered, rejectedIds, rejectedUpdates, pathsToDelete } =
       applyClassifications([classified('banner', 'text_banner', 70)])
 
     expect(rejectedIds).toEqual(['banner'])
     expect(ordered).toEqual([])
-    expect(pathsToDelete).toEqual(['brands/banner.jpg'])
+    expect(pathsToDelete).toEqual([])
     expect(rejectedUpdates[0]?.row).toEqual({
       status: 'rejected',
-      storage_path: null,
+      storage_path: 'brands/banner.jpg',
+      tags: null,
     })
   })
 
@@ -101,5 +102,63 @@ describe('JUNK_TAGS', () => {
       'promo',
       'text_banner',
     ])
+  })
+})
+
+describe('parseClassificationBatch', () => {
+  it('accepts only an explicit keep tag or a reject reason', () => {
+    const verdicts = parseClassificationBatch(JSON.stringify({
+      classifications: [
+        {
+          id: '1',
+          disposition: 'keep',
+          tag: 'logo',
+          reasons: [],
+          score: 91,
+          alt_zh: '品牌標誌',
+          alt_en: 'Brand logo',
+        },
+        {
+          id: '2',
+          disposition: 'reject',
+          tag: null,
+          reasons: [],
+          score: 80,
+          alt_zh: '',
+          alt_en: '',
+        },
+        {
+          id: '3',
+          disposition: 'reject',
+          tag: null,
+          reasons: ['wrong_brand'],
+          score: 10,
+          alt_zh: '',
+          alt_en: '',
+        },
+      ],
+    }))
+
+    expect(verdicts.get('1')).toMatchObject({ disposition: 'keep', tag: 'logo' })
+    expect(verdicts.has('2')).toBe(false)
+    expect(verdicts.get('3')).toMatchObject({
+      disposition: 'reject',
+      tag: null,
+      reasons: ['wrong_brand'],
+    })
+  })
+
+  it('maps the legacy promo tag to an explicit rejection reason', () => {
+    const verdicts = parseClassificationBatch(JSON.stringify({
+      classifications: [
+        { id: '1', tag: 'promo', score: 40, alt_zh: '', alt_en: '' },
+      ],
+    }))
+
+    expect(verdicts.get('1')).toMatchObject({
+      disposition: 'reject',
+      tag: null,
+      reasons: ['promo_subject'],
+    })
   })
 })

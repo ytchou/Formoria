@@ -4,6 +4,17 @@ export type QueryTemplate = (brandName: string) => string
 
 export type BrandImageSearchResult = {
   url: string
+  sourceUrl?: string
+  pageUrl?: string
+  previewUrl?: string
+  title?: string
+  source?: string
+  domain?: string
+  position?: number
+  imageWidth?: number
+  imageHeight?: number
+  thumbnailWidth?: number
+  thumbnailHeight?: number
   query: string
   auditResultId?: string
 }

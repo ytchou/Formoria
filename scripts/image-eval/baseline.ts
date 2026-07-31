@@ -5,7 +5,7 @@ import {
   parseJson,
   type ChatAuditEvent,
 } from "@/lib/services/openai-client";
-import { IMAGE_CLASSIFY_SYSTEM_PROMPT } from "@/lib/prompts";
+import { LEGACY_IMAGE_CLASSIFY_SYSTEM_PROMPT } from "@/lib/prompts";
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { createImageEvalSignedUrls } from "@/lib/services/image-eval-storage";
 import {
@@ -167,7 +167,7 @@ async function runBaseline(): Promise<void> {
       }
 
       const response = await client.chat({
-        system: IMAGE_CLASSIFY_SYSTEM_PROMPT,
+        system: LEGACY_IMAGE_CLASSIFY_SYSTEM_PROMPT,
         user: `${brandContext(chunk[0])}請分類以下 ${chunk.length} 張品牌圖片，依序編號為 ${ids.join("、")}。回傳 JSON object，包含 classifications 陣列，每個物件的 id 必須是對應圖片的編號字串。無法判斷的圖片請省略，不要猜測。`,
         images: images.filter((url): url is string => Boolean(url)),
         json: true,

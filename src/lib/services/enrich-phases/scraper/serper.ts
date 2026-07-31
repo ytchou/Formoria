@@ -574,6 +574,7 @@ async function searchBrandImagesForQuery(
   for (const result of call.data?.images ?? []) {
     if (typeof result.imageUrl !== 'string' || !result.imageUrl) continue
 
+    const sourceUrl = result.imageUrl
     let url = result.imageUrl
     if (isLookasideHost(url)) {
       // Cheap checks first — never spend an HTML fetch on a candidate the
@@ -591,6 +592,17 @@ async function searchBrandImagesForQuery(
     if (!rows.has(url)) {
       rows.set(url, {
         url,
+        sourceUrl,
+        ...(typeof result.link === 'string' && result.link ? { pageUrl: result.link } : {}),
+        ...(typeof result.thumbnailUrl === 'string' && result.thumbnailUrl ? { previewUrl: result.thumbnailUrl } : {}),
+        ...(typeof result.title === 'string' && result.title ? { title: result.title } : {}),
+        ...(typeof result.source === 'string' && result.source ? { source: result.source } : {}),
+        ...(typeof result.domain === 'string' && result.domain ? { domain: result.domain } : {}),
+        ...(typeof result.position === 'number' ? { position: result.position } : {}),
+        ...(typeof result.imageWidth === 'number' ? { imageWidth: result.imageWidth } : {}),
+        ...(typeof result.imageHeight === 'number' ? { imageHeight: result.imageHeight } : {}),
+        ...(typeof result.thumbnailWidth === 'number' ? { thumbnailWidth: result.thumbnailWidth } : {}),
+        ...(typeof result.thumbnailHeight === 'number' ? { thumbnailHeight: result.thumbnailHeight } : {}),
         query,
         ...(call.auditResultId ? { auditResultId: call.auditResultId } : {}),
       })

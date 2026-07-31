@@ -2,7 +2,7 @@ import sharp from 'sharp'
 
 import { processImage } from '@/lib/security/image-processor'
 import { createServiceClient } from '@/lib/supabase/server'
-import type { CandidateImageSource } from './enrich-phases/candidate-pool'
+import type { CandidateImage, CandidateImageSource } from './enrich-phases/candidate-pool'
 import {
   brandTarget,
   targetImageStorage,
@@ -16,18 +16,20 @@ const SOURCE_MIN_DIMENSION: Partial<Record<CandidateImageSource, number>> = {
   json_ld: 300,
 }
 
-type DownloadImageCandidate = string | {
-  url: string
-  source: CandidateImageSource
-}
+type DownloadImageCandidate = string | CandidateImage
 
 function normalizeCandidate(candidate: DownloadImageCandidate): {
   url: string
   source: CandidateImageSource
+  sourceUrl: string
 } {
   return typeof candidate === 'string'
-    ? { url: candidate, source: 'google_image' }
-    : candidate
+    ? { url: candidate, source: 'google_image', sourceUrl: candidate }
+    : {
+        url: candidate.url,
+        source: candidate.source,
+        sourceUrl: candidate.sourceUrl ?? candidate.url,
+      }
 }
 
 function extractIgCacheKey(url: string): string | null {
@@ -41,6 +43,31 @@ function extractIgCacheKey(url: string): string | null {
   }
 }
 
+export function buildImageProviderMetadata(
+  candidate: DownloadImageCandidate,
+  resolvedFetchUrl: string,
+): Record<string, string | number> {
+  if (typeof candidate === 'string') return { resolvedFetchUrl }
+
+  return Object.fromEntries(
+    Object.entries({
+      resolvedFetchUrl,
+      pageUrl: candidate.pageUrl,
+      previewUrl: candidate.previewUrl,
+      title: candidate.title,
+      source: candidate.providerSource,
+      domain: candidate.domain,
+      position: candidate.position,
+      query: candidate.query,
+      auditResultId: candidate.auditResultId,
+      imageWidth: candidate.imageWidth,
+      imageHeight: candidate.imageHeight,
+      thumbnailWidth: candidate.thumbnailWidth,
+      thumbnailHeight: candidate.thumbnailHeight,
+    }).filter((entry): entry is [string, string | number] => entry[1] !== undefined),
+  )
+}
+
 function deduplicateCandidates(candidates: DownloadImageCandidate[]): DownloadImageCandidate[] {
   const seen = new Set<string>()
   return candidates.filter((candidate) => {
@@ -51,6 +78,36 @@ function deduplicateCandidates(candidates: DownloadImageCandidate[]): DownloadIm
     seen.add(dedupKey)
     return true
   })
+}
+
+type ExistingImageRow = {
+  source_url: string | null
+  status: string
+  storage_path: string | null
+  url: string
+}
+
+async function loadExistingCandidates(
+  supabase: ReturnType<typeof createServiceClient>,
+  target: EnrichmentTarget,
+  candidates: DownloadImageCandidate[],
+): Promise<Map<string, ExistingImageRow>> {
+  const sourceUrls = [...new Set(candidates.map((candidate) => normalizeCandidate(candidate).sourceUrl).filter(Boolean))]
+  if (sourceUrls.length === 0) return new Map()
+
+  const storage = targetImageStorage(target)
+  const { data, error } = await supabase
+    .from(storage.table)
+    .select('source_url, status, storage_path, url')
+    .eq(storage.foreignKey, target.id)
+    .in('source_url', sourceUrls) as { data: ExistingImageRow[] | null; error: { message: string } | null }
+  if (error) throw error
+
+  return new Map(
+    (data ?? [])
+      .filter((row) => typeof row.source_url === 'string')
+      .map((row) => [row.source_url as string, row]),
+  )
 }
 
 const PHASH_HAMMING_THRESHOLD = 5
@@ -119,10 +176,15 @@ export async function downloadAndStoreImages(
     ? brandTarget(targetOrBrandId)
     : targetOrBrandId
   const storage = targetImageStorage(target)
+  const existingBySource = await loadExistingCandidates(supabase, target, dedupedCandidates)
 
   const results = await Promise.allSettled(
     dedupedCandidates.map(async (candidate) => {
-      const { url, source } = normalizeCandidate(candidate)
+      const { url, source, sourceUrl } = normalizeCandidate(candidate)
+      const existing = existingBySource.get(sourceUrl)
+      if (existing?.status === 'rejected') return null
+      if (existing && (existing.status === 'active' || existing.storage_path)) return existing.url
+
       const controller = new AbortController()
       const timeoutId = setTimeout(
         () => controller.abort(),
@@ -223,21 +285,25 @@ export async function downloadAndStoreImages(
 
         const { error: insertError } = await supabase
           .from(storage.table)
-          .upsert({
+          .insert({
             [storage.foreignKey]: target.id,
             url: publicUrl,
             source,
-            source_url: url,
+            source_url: sourceUrl,
             storage_path: filename,
-            status: 'active',
+            status: 'candidate',
+            provider_metadata: buildImageProviderMetadata(candidate, url),
             width: uploadWidth,
             height: uploadHeight,
             dominant_color: dominantColor,
             phash,
-          } as never, { onConflict: `${storage.foreignKey},source_url` })
+          } as never)
 
         if (insertError) {
           await supabase.storage.from('brand-images').remove([filename])
+          if ((insertError as { code?: string }).code === '23505') {
+            return existing?.url ?? null
+          }
           throw insertError
         }
 

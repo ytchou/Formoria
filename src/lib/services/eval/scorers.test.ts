@@ -15,3 +15,12 @@ it('classificationPrecision compares predicted vs labeled image tags', () => {
   const predicted = new Map([['u1', 'promo'], ['u2', 'product']])
   expect(classificationPrecision(labeled, predicted)).toBe(1)
 })
+
+it('treats a clean logo as publishable rather than junk', () => {
+  expect(
+    classificationPrecision(
+      [{ url: 'logo', junk: false }],
+      new Map([['logo', 'logo']]),
+    ),
+  ).toBe(1)
+})

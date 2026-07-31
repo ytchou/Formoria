@@ -229,7 +229,7 @@ function toReviewImage(row: BrandImageRow): SubmissionReviewImage {
     url: row.url,
     source: row.source,
     status:
-      row.status === "draft" || row.status === "rejected"
+      row.status === "candidate" || row.status === "draft" || row.status === "rejected"
         ? row.status
         : "active",
     sortOrder: row.sort_order,

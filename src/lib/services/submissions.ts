@@ -92,7 +92,7 @@ export type SubmissionReviewImage = {
   storagePath: string | null;
   url: string;
   source: string;
-  status: "active" | "draft" | "rejected";
+  status: "active" | "candidate" | "draft" | "rejected";
   sortOrder: number;
   altZh: string | null;
   altEn: string | null;
@@ -459,7 +459,9 @@ function isHttpUrl(value: string | null | undefined): boolean {
 }
 
 function imageStatus(value: string): SubmissionReviewImage["status"] {
-  if (value === "draft" || value === "rejected") return value;
+  if (value === "candidate" || value === "draft" || value === "rejected") {
+    return value;
+  }
   return "active";
 }
 
@@ -505,7 +507,7 @@ function brandImageToReviewImage(
 export function normalizeSubmissionReviewImages(
   images: SubmissionReviewImage[],
 ): SubmissionReviewImage[] {
-  const statusRank = { active: 0, draft: 1, rejected: 2 } as const;
+  const statusRank = { active: 0, draft: 1, candidate: 2, rejected: 3 } as const;
   const seenUrls = new Set<string>();
 
   return images

@@ -711,6 +711,12 @@ describe('planReactivations', () => {
         candidate(
           rejectedRow('r3', `${PUBLIC_PREFIX}${OURS_KEY}`, { status: 'active' }),
         ),
+        candidate(
+          rejectedRow('r4', `${PUBLIC_PREFIX}${OURS_KEY}`, {
+            rejection_reasons: ['promo_subject'],
+            rejected_at: '2026-07-31T00:00:00Z',
+          }),
+        ),
       ],
       probe,
     })
@@ -899,6 +905,8 @@ describe('applyReactivations', () => {
     expect(calls[0]!.filters).toEqual([
       ['status', 'rejected'],
       ['tags', null],
+      ['rejection_reasons', null],
+      ['rejected_at', null],
     ])
   })
 

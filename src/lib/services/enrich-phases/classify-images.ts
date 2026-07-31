@@ -5,7 +5,7 @@ import { buildEnrichmentConfig } from '@/lib/constants/enrichment-config'
 import { parseJson, type OpenAIChatResult } from '../openai-client'
 import { createAuditedOpenAIClient } from '../llm-audit'
 import { syncHeroDenormalized, type BrandImageRow } from '../brand-images'
-import { brandImageRenderUrl, deleteStoredImagePaths } from '../image-upload'
+import { brandImageRenderUrl } from '../image-upload'
 import { localizeToTW } from '../taiwan-localization'
 import { createServiceClient } from '@/lib/supabase/server'
 import type { PhaseResult } from '@/lib/types/curation'
@@ -25,6 +25,17 @@ const IMAGE_TAGS = [
   'logo',
   'promo',
   'text_banner',
+  'irrelevant',
+] as const
+
+const KEEP_TAGS = ['product', 'lifestyle', 'packaging', 'logo'] as const
+const REJECTION_REASONS = [
+  'wrong_brand',
+  'time_sensitive',
+  'promo_subject',
+  'text_dominant',
+  'low_visual_quality',
+  'duplicate',
   'irrelevant',
 ] as const
 
@@ -70,9 +81,13 @@ const CLASSIFY_RENDER_WIDTH = 512
 const MAX_CHUNK_RETRIES = 1
 
 type ImageClassificationTag = (typeof IMAGE_TAGS)[number]
+type KeptImageTag = (typeof KEEP_TAGS)[number]
+type ImageRejectionReason = (typeof REJECTION_REASONS)[number]
 
 type ParsedImageClassification = {
-  tag: ImageClassificationTag
+  disposition: 'keep' | 'reject'
+  tag: KeptImageTag | null
+  reasons: ImageRejectionReason[]
   score: number
   altZh: string
   altEn: string
@@ -83,6 +98,8 @@ type ClassifiedImage = {
   tag: ImageClassificationTag
   score: number
   storage_path?: string | null
+  disposition?: 'keep' | 'reject'
+  rejectionReasons?: ImageRejectionReason[]
 }
 
 function toStrictJsonSchema(shape: z.ZodType): Record<string, unknown> {
@@ -99,7 +116,9 @@ const IMAGE_CLASSIFICATION_SCHEMA = {
       classifications: z.array(
         z.object({
           id: z.string(),
-          tag: z.enum(IMAGE_TAGS),
+          disposition: z.enum(['keep', 'reject']),
+          tag: z.enum(KEEP_TAGS).nullable(),
+          reasons: z.array(z.enum(REJECTION_REASONS)),
           score: z.number(),
           alt_zh: z.string(),
           alt_en: z.string(),
@@ -132,6 +151,7 @@ type BrandImageForClassification = BrandImageRow & {
 type BrandImagesSelectQuery = {
   eq: (column: string, value: string) => BrandImagesSelectQuery
   neq: (column: string, value: string) => BrandImagesSelectQuery
+  in: (column: string, values: string[]) => BrandImagesSelectQuery
   is: (column: string, value: null) => BrandImagesSelectQuery
   order: (
     column: string,
@@ -160,6 +180,14 @@ function isImageClassificationTag(value: unknown): value is ImageClassificationT
   return typeof value === 'string' && VALID_TAGS.has(value)
 }
 
+function isKeptImageTag(value: unknown): value is KeptImageTag {
+  return typeof value === 'string' && KEEP_TAGS.includes(value as KeptImageTag)
+}
+
+function isImageRejectionReason(value: unknown): value is ImageRejectionReason {
+  return typeof value === 'string' && REJECTION_REASONS.includes(value as ImageRejectionReason)
+}
+
 function scoreValue(value: BrandImageRow['score']): number {
   if (typeof value === 'number') return value
   if (typeof value === 'string') return Number(value)
@@ -181,6 +209,10 @@ function classifiedImageFromRow(row: BrandImageForClassification): ClassifiedIma
     tag,
     score: scoreValue(row.score),
     storage_path: row.storage_path,
+    disposition: JUNK_TAGS.has(tag) ? 'reject' : 'keep',
+    ...(tag === 'promo' ? { rejectionReasons: ['promo_subject' as const] } : {}),
+    ...(tag === 'text_banner' ? { rejectionReasons: ['text_dominant' as const] } : {}),
+    ...(tag === 'irrelevant' ? { rejectionReasons: ['irrelevant' as const] } : {}),
   }
 }
 
@@ -201,10 +233,12 @@ function extractArray(raw: unknown): unknown[] | null {
  * Positional zipping is deliberately NOT used: a short or reordered array would
  * otherwise hand every later image the previous image's verdict.
  */
-function parseClassificationBatch(responseText: string): Map<string, ParsedImageClassification> {
+export function parseClassificationBatch(responseText: string): Map<string, ParsedImageClassification> {
   type RawClassification = {
     id?: unknown
+    disposition?: unknown
     tag?: unknown
+    reasons?: unknown
     score?: unknown
     alt_zh?: unknown
     alt_en?: unknown
@@ -225,13 +259,42 @@ function parseClassificationBatch(responseText: string): Map<string, ParsedImage
           ? String(item.id)
           : ''
     if (!id || verdicts.has(id)) continue
-    if (!isImageClassificationTag(item.tag)) continue
-
     const score = typeof item.score === 'number' ? item.score : Number(item.score)
     if (!Number.isFinite(score)) continue
 
+    const disposition = item.disposition === 'keep' || item.disposition === 'reject'
+      ? item.disposition
+      : JUNK_TAGS.has(item.tag as string)
+        ? 'reject'
+        : isKeptImageTag(item.tag)
+          ? 'keep'
+          : null
+    if (!disposition) continue
+
+    const tag = disposition === 'keep'
+      ? isKeptImageTag(item.tag) ? item.tag : null
+      : null
+    if (disposition === 'keep' && !tag) continue
+
+    const parsedReasons = Array.isArray(item.reasons)
+      ? [...new Set(item.reasons.filter(isImageRejectionReason))]
+      : []
+    const legacyReasons: ImageRejectionReason[] = item.tag === 'promo'
+      ? ['promo_subject']
+      : item.tag === 'text_banner'
+        ? ['text_dominant']
+        : item.tag === 'irrelevant'
+          ? ['irrelevant']
+          : []
+
+    const reasons = parsedReasons.length > 0 ? parsedReasons : legacyReasons
+    if (disposition === 'keep' && reasons.length > 0) continue
+    if (disposition === 'reject' && reasons.length === 0) continue
+
     verdicts.set(id, {
-      tag: item.tag,
+      disposition,
+      tag,
+      reasons,
       score: Math.max(0, Math.min(100, Math.round(score))),
       altZh: typeof item.alt_zh === 'string' ? localizeToTW(item.alt_zh).text : '',
       altEn: typeof item.alt_en === 'string' ? item.alt_en : '',
@@ -245,22 +308,30 @@ export function applyClassifications(images: ClassifiedImage[]): {
   rejectedIds: string[]
   rejectedUpdates: Array<{
     id: string
-    row: { status: 'rejected'; storage_path: null }
+    row: {
+      status: 'rejected'
+      storage_path: string | null
+      tags: null
+      rejection_reasons?: ImageRejectionReason[] | null
+    }
   }>
   pathsToDelete: string[]
   ordered: ClassifiedImage[]
 } {
-  const rejected = images.filter((image) => JUNK_TAGS.has(image.tag))
+  const rejected = images.filter((image) => image.disposition === 'reject' || JUNK_TAGS.has(image.tag))
   const rejectedIds = rejected.map((image) => image.id)
   const rejectedUpdates = rejected.map((image) => ({
     id: image.id,
-    row: { status: 'rejected' as const, storage_path: null },
+    row: {
+      status: 'rejected' as const,
+      storage_path: image.storage_path ?? null,
+      tags: null,
+      ...(image.rejectionReasons ? { rejection_reasons: image.rejectionReasons } : {}),
+    },
   }))
-  const pathsToDelete = rejected.flatMap((image) =>
-    image.storage_path ? [image.storage_path] : []
-  )
+  const pathsToDelete: string[] = []
   const ordered = images
-    .filter((image) => !JUNK_TAGS.has(image.tag))
+    .filter((image) => image.disposition !== 'reject' && !JUNK_TAGS.has(image.tag))
     .toSorted(
       (left, right) => TAG_RANK[left.tag] - TAG_RANK[right.tag] || right.score - left.score
     )
@@ -339,7 +410,7 @@ async function getUnclassifiedImages(
     .from(storage.table)
     .select('id, url, source, status, tags, score, sort_order, storage_path')
     .eq(storage.foreignKey, target.id)
-    .eq('status', 'active')
+    .in('status', ['active', 'candidate'])
     .neq('source', 'owner')
     .neq('source', 'admin')
     .is('tags', null)
@@ -387,7 +458,14 @@ async function resetImageTags(
   const storage = targetImageStorage(target)
   const { data, error } = await classifyImagesClient(supabase)
     .from(storage.table)
-    .update({ tags: null, score: null, alt_zh: null, alt_en: null })
+    .update({
+      tags: null,
+      score: null,
+      alt_zh: null,
+      alt_en: null,
+      rejection_reasons: null,
+      rejected_at: null,
+    })
     .eq(storage.foreignKey, target.id)
     .eq('status', 'active')
     .neq('source', 'owner')
@@ -572,10 +650,10 @@ export async function runClassifyImagesPhase({
   })
   const { result, durationMs } = await timePhase(async () => {
     const classifications: ClassifiedImage[] = []
-    const pathsToDelete: string[] = []
     const failedBatches: string[] = []
     let unjudgedCount = 0
     let brokenCount = 0
+    let rejectedCount = 0
 
     const productTypeZh = brand.product_type
       ? PRODUCT_TYPE_CATEGORIES.find((c) => c.slug === brand.product_type)?.nameZh
@@ -590,10 +668,16 @@ export async function runClassifyImagesPhase({
       const brokenIds = new Set(outcome.brokenImageIds)
 
       for (const brokenId of brokenIds) {
-        // Undownloadable or dangling: reject the row but keep the storage object —
-        // scripts/repair-brand-images.ts owns real cleanup.
+        // Undownloadable or dangling: retain the object for the seven-day
+        // classifier retention window so the failure remains inspectable.
         brokenCount += 1
-        await updateImage(supabase, target, brokenId, { status: 'rejected' })
+        rejectedCount += 1
+        await updateImage(supabase, target, brokenId, {
+          status: 'rejected',
+          tags: null,
+          rejection_reasons: ['low_visual_quality'],
+          rejected_at: new Date().toISOString(),
+        })
       }
 
       if (outcome.failure) {
@@ -616,46 +700,43 @@ export async function runClassifyImagesPhase({
           continue
         }
 
-        const classifiedImage = {
+        const classifiedImage: ClassifiedImage = {
           id: image.id,
-          tag: classification.tag,
+          tag: classification.tag ?? 'irrelevant',
           score: classification.score,
           storage_path: image.storage_path,
+          disposition: classification.disposition,
+          rejectionReasons: classification.reasons,
         }
         classifications.push(classifiedImage)
-        const classificationResult = applyClassifications([classifiedImage])
-        const rejectedUpdate = classificationResult.rejectedUpdates.at(0)
-        pathsToDelete.push(...classificationResult.pathsToDelete)
+        const rejected = classification.disposition === 'reject'
+        if (rejected) rejectedCount += 1
         await updateImage(supabase, target, image.id, {
-          tags: [classification.tag],
+          tags: rejected ? null : [classification.tag as KeptImageTag],
           score: classification.score,
           alt_zh: classification.altZh,
           alt_en: classification.altEn,
-          ...(rejectedUpdate?.row ?? { status: 'active' }),
+          status: rejected ? 'rejected' : 'active',
+          rejection_reasons: rejected ? classification.reasons : null,
+          rejected_at: rejected ? new Date().toISOString() : null,
         })
       }
     }
 
     const activeImages = await getActiveImages(supabase, target)
-    const { rejectedIds, rejectedUpdates, pathsToDelete: existingPathsToDelete, ordered } = applyClassifications(
+    const { rejectedIds, rejectedUpdates, ordered } = applyClassifications(
       activeImages
         .map(classifiedImageFromRow)
         .filter((image): image is ClassifiedImage => image !== null)
     )
 
     for (const update of rejectedUpdates) {
-      await updateImage(supabase, target, update.id, update.row)
+      await updateImage(supabase, target, update.id, {
+        ...update.row,
+        rejected_at: new Date().toISOString(),
+      })
     }
-    pathsToDelete.push(...existingPathsToDelete)
-
-    try {
-      await deleteStoredImagePaths(pathsToDelete)
-    } catch (storageError) {
-      console.error(
-        `[CLASSIFY] Failed to delete rejected images for ${target.type} ${target.id}:`,
-        storageError
-      )
-    }
+    rejectedCount += rejectedIds.length
 
     // Reindex every row that is still active — including ones the model never
     // judged. Human-chosen images keep their reserved positions so a
@@ -687,7 +768,7 @@ export async function runClassifyImagesPhase({
 
     return {
       classifiedCount: classifications.length,
-      rejectedCount: rejectedIds.length,
+      rejectedCount,
       unjudgedCount,
       brokenCount,
       failedBatches,
