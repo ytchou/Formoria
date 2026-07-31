@@ -24,6 +24,7 @@
     "backfill-images": "tsx --env-file=.env.local scripts/backfill-brand-images.ts",
     "brand-storage-maintenance": "tsx --env-file=.env.local scripts/brand-storage-maintenance.ts",
     "approve-ready": "tsx --env-file=.env.local scripts/approve-ready-submissions.ts",
+    "seed-events": "tsx --env-file=.env.local scripts/seed-events.ts",
     "rerun-curation": "tsx --env-file=.env.local scripts/rerun-submission-curation.ts",
     "reject-skipped": "tsx --env-file=.env.local scripts/reject-skipped-submissions.ts",
     "default-price-range": "tsx --env-file=.env.local scripts/default-missing-price-range.ts",

@@ -21,6 +21,13 @@ describe('isLocalizedPublicPath', () => {
     expect(isLocalizedPublicPath('/en/auth/sign-in')).toBe(true)
   })
 
+  it('treats /events as localized', () => {
+    // Missing from PUBLIC_INTL_SEGMENTS, the prefix-free (zh-TW) hub loses locale
+    // inference in production only — dev and /en both look fine.
+    expect(isLocalizedPublicPath('/events')).toBe(true)
+    expect(isLocalizedPublicPath('/en/events')).toBe(true)
+  })
+
   it('still excludes non-localized routes', () => {
     expect(isLocalizedPublicPath('/admin')).toBe(false)
   })
