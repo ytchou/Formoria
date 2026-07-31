@@ -71,6 +71,10 @@ export default async function FeatureRequestsPage({ params }: PageProps) {
             {t('title')}
           </Typography>
           <Typography variant="pageSubtitle">{t('description')}</Typography>
+          {/* The board doubles as a public roadmap, and its in-development
+              section reads as a commitment. This line is the whole of that
+              commitment's fine print: order can change, no date is promised. */}
+          <Typography variant="caption">{t('disclaimer')}</Typography>
         </div>
         <SubmitRequestDialog />
       </div>

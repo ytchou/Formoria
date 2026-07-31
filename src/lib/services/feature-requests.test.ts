@@ -144,6 +144,21 @@ describe("buildFeatureRequestBoard", () => {
     expect(board.map((entry) => entry.id)).toEqual(["kept"]);
   });
 
+  // A shipped request is already done, so the public board stops carrying it —
+  // it needs no vote. The admin queue reads through `listAllFeatureRequests`,
+  // which does not go through this filter and still sees the row.
+  it("buildFeatureRequestBoard excludes shipped requests", () => {
+    const board = buildFeatureRequestBoard(
+      [
+        row({ id: "kept", status: "open" }),
+        row({ id: "shipped", status: "shipped" }),
+      ],
+      [],
+    );
+
+    expect(board.map((entry) => entry.id)).toEqual(["kept"]);
+  });
+
   it("buildFeatureRequestBoard sorts by votes desc then created desc", () => {
     const board = buildFeatureRequestBoard(
       [

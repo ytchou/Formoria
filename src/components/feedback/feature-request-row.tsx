@@ -14,12 +14,13 @@ import { UpvoteButton } from './upvote-button'
 type BadgeVariant = NonNullable<ComponentProps<typeof Badge>['variant']>
 
 /**
- * Status -> badge treatment. Two keys are unreachable from the public board:
- * `duplicate` rows carry a `merged_into_id`, and `declined` rows are a decision
- * already made — `buildFeatureRequestBoard` filters out both. They stay in the
- * map because it is exhaustive over the status union, which is what forces a
- * treatment to be chosen for any status added later; the row itself skips the
- * badge for `duplicate`.
+ * Status -> badge treatment. Three keys are unreachable from the public board:
+ * `duplicate` rows carry a `merged_into_id`, `declined` rows are a decision
+ * already made, and `shipped` rows are done — `buildFeatureRequestBoard`
+ * filters out all three. They stay in the map because it is exhaustive over the
+ * status union, which is what forces a treatment to be chosen for any status
+ * added later, and because the admin queue can still set `shipped`; the row
+ * itself skips the badge for `duplicate`.
  */
 const STATUS_BADGE: Record<FeatureRequestStatus, BadgeVariant> = {
   open: 'secondary',

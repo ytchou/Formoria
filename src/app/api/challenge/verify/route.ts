@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { isRelativeUrl } from '@/lib/auth/validations'
-import { signChallengeToken, CHALLENGE_COOKIE_NAME } from '@/lib/security/challenge'
+import {
+  signChallengeToken,
+  CHALLENGE_COOKIE_NAME,
+  CHALLENGE_TTL_SECONDS,
+} from '@/lib/security/challenge'
 import { getClientIp, rateLimit } from '@/lib/security/rate-limiter'
 import { verifyTurnstileToken } from '@/lib/security/turnstile'
 import { getPostHogClient } from '@/lib/posthog-server'
@@ -48,7 +52,9 @@ export async function POST(request: NextRequest) {
 
   response.cookies.set(CHALLENGE_COOKIE_NAME, challengeToken, {
     httpOnly: true,
-    maxAge: 3600,
+    // Must track the JWT lifetime — a shorter cookie silently re-challenges
+    // users while the token inside is still valid.
+    maxAge: CHALLENGE_TTL_SECONDS,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
