@@ -49,12 +49,13 @@ export function MainNav({ categories }: MainNavProps) {
 
         {/* Right actions (desktop) */}
         <div className="hidden items-center gap-4 md:flex">
-          <Link
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- DEV-1280: full-document navigation avoids a stalled RSC request across the locale proxy rewrite. */}
+          <a
             href="/stories"
             className="type-body-emphasis text-foreground/80 transition-colors hover:text-foreground"
           >
             {t('stories')}
-          </Link>
+          </a>
           <Link
             href="/about"
             className="type-body-emphasis text-foreground/80 transition-colors hover:text-foreground"
@@ -105,13 +106,14 @@ export function MainNav({ categories }: MainNavProps) {
                   <NavSearchInput />
                 </div>
 
-                <Link
+                {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- DEV-1280: full-document navigation avoids a stalled RSC request across the locale proxy rewrite. */}
+                <a
                   href="/stories"
                   className="flex min-h-11 items-center px-1 type-body-emphasis"
                   onClick={() => setOpen(false)}
                 >
                   {t('stories')}
-                </Link>
+                </a>
                 <Link
                   href="/about"
                   className="flex min-h-11 items-center px-1 type-body-emphasis"

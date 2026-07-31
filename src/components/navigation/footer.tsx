@@ -33,13 +33,13 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link
+                {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- DEV-1280: full-document navigation avoids a stalled RSC request across the locale proxy rewrite. */}
+                <a
                   href="/stories"
-                  prefetch={false}
                   className="type-card-description hover:text-foreground transition-colors"
                 >
                   {t("stories")}
-                </Link>
+                </a>
               </li>
               <li>
                 <Link

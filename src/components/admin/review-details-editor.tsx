@@ -192,7 +192,6 @@ export function ReviewDetailsEditor({
       purchaseWebsite: draft.websiteUrl,
       images: orderedImages.map((image, index) => ({
         id: image.id,
-        isHero: index === 0,
         sortOrder: index,
       })),
     };

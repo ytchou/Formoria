@@ -107,6 +107,8 @@ type EnrichmentBrandRow = {
 }
 
 type EnrichmentImageRow = {
+  id: string
+  brand_id: string
   sort_order: number | null
   tags: string[] | null
 }
@@ -119,6 +121,8 @@ type EnrichmentAiResultRow = Pick<
 type EnrichmentEqQuery<T> = {
   eq: (column: string, value: string | number) => EnrichmentEqQuery<T>
   not: (column: string, operator: string, value: unknown) => EnrichmentEqQuery<T>
+  order: (column: string, options: { ascending: boolean }) => EnrichmentEqQuery<T>
+  range: (from: number, to: number) => Promise<{ data: T[] | null; error: unknown }>
 } & Promise<{ data: T[] | null; error: unknown }>
 
 type EnrichmentQualityClient = {
@@ -160,6 +164,7 @@ const EMPTY_QUALITY_METRICS: QualityMetrics = {
 
 const ZH_LANGUAGE_PURITY_THRESHOLD = 0.85
 const PROMO_HERO_TAGS = new Set(['promo', 'text_banner', 'irrelevant', 'logo'])
+const ENRICHMENT_IMAGE_PAGE_SIZE = 1_000
 
 export function computeQualityMetrics(input: EnrichmentQualityInput): EnrichmentQualityMetrics {
   const totalBrands = input.brands.length
@@ -182,6 +187,47 @@ export function computeQualityMetrics(input: EnrichmentQualityInput): Enrichment
     descriptionCoveragePct: percentage(brandsWithDescription.length, totalBrands),
     descriptionEnCoveragePct: percentage(brandsWithDescriptionEn.length, totalBrands),
   }
+}
+
+export function firstActiveImagesByBrand<
+  T extends Pick<EnrichmentImageRow, 'brand_id' | 'sort_order'>,
+>(images: readonly T[]): T[] {
+  const firstByBrand = new Map<string, T>()
+  const ordered = images.toSorted(
+    (left, right) =>
+      (left.sort_order ?? Number.MAX_SAFE_INTEGER) -
+      (right.sort_order ?? Number.MAX_SAFE_INTEGER),
+  )
+
+  for (const image of ordered) {
+    if (!firstByBrand.has(image.brand_id)) firstByBrand.set(image.brand_id, image)
+  }
+
+  return [...firstByBrand.values()]
+}
+
+async function getActiveEnrichmentImages(
+  client: EnrichmentQualityClient,
+): Promise<{ data: EnrichmentImageRow[] | null; error: unknown }> {
+  const rows: EnrichmentImageRow[] = []
+
+  for (let offset = 0; ; offset += ENRICHMENT_IMAGE_PAGE_SIZE) {
+    const result = await client
+      .from('brand_images')
+      .select('id, brand_id, sort_order, tags')
+      .eq('status', 'active')
+      .order('brand_id', { ascending: true })
+      .order('sort_order', { ascending: true })
+      .order('id', { ascending: true })
+      .range(offset, offset + ENRICHMENT_IMAGE_PAGE_SIZE - 1)
+    if (result.error) return { data: null, error: result.error }
+
+    const page = result.data ?? []
+    rows.push(...page)
+    if (page.length < ENRICHMENT_IMAGE_PAGE_SIZE) break
+  }
+
+  return { data: rows, error: null }
 }
 
 export async function getQualityMetrics(): Promise<QualityMetrics> {
@@ -325,11 +371,7 @@ async function getEnrichmentQualityMetrics(
   const client = supabase as unknown as EnrichmentQualityClient
   const [brandsResult, imagesResult, aiResultsResult] = await Promise.all([
     client.from('brands').select('description, description_en'),
-    client
-      .from('brand_images')
-      .select('sort_order, tags')
-      .eq('status', 'active')
-      .eq('sort_order', 0),
+    getActiveEnrichmentImages(client),
     client
       .from('brand_ai_results')
       .select('attempt, raw_response')
@@ -346,8 +388,8 @@ async function getEnrichmentQualityMetrics(
         })),
     images: imagesResult.error || !imagesResult.data
       ? []
-      : imagesResult.data.map((image) => ({
-          role: image.sort_order === 0 ? 'hero' : 'other',
+      : firstActiveImagesByBrand(imagesResult.data).map((image) => ({
+          role: 'hero',
           tag: firstImageTag(image.tags),
         })),
     aiRejections: aiResultsResult.error || !aiResultsResult.data

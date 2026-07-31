@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
-import { Link } from '@/i18n/navigation'
 import { ChevronRight } from 'lucide-react'
 import {
   getAllStories,
@@ -125,9 +124,13 @@ export default async function StoryPage({ params }: PageProps) {
       <nav aria-label={t('breadcrumbAria')} className="mb-6">
         <ol className="flex items-center gap-1.5 type-card-description">
           <li>
-            <Link href="/stories" className="hover:text-foreground transition-colors">
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- DEV-1280: full-document navigation avoids a stalled RSC request across the locale proxy rewrite. */}
+            <a
+              href="/stories"
+              className="hover:text-foreground transition-colors"
+            >
               {t('breadcrumb')}
-            </Link>
+            </a>
           </li>
           <li aria-hidden="true">
             <ChevronRight className="size-3.5" />

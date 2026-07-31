@@ -1608,7 +1608,7 @@ export async function syncBrandImages(brandId: string): Promise<{ synced: number
       url: storedUrl,
       source_url: ref.url,
       source: 'admin',
-      sort_order: ref.field === 'hero' ? 0 : (ref.index ?? i) + 1,
+      sort_order: i,
       tags: ref.field === 'hero' ? ['product'] : ['lifestyle'],
     })
   }

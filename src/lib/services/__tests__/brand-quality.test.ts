@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   computeQualityMetrics,
   countDescriptionValidationRetries,
+  firstActiveImagesByBrand,
   type QualityMetrics,
 } from '../brand-quality'
 
@@ -49,6 +50,21 @@ describe('computeQualityMetrics', () => {
     expect(m.promoHeroCount).toBe(1)
     expect(m.heroClassifiedPct).toBe(100)
     expect(m.validationFailures).toBe(3)
+  })
+})
+
+describe('firstActiveImagesByBrand', () => {
+  it('selects each brand first ordered image even when no image occupies slot zero', () => {
+    expect(
+      firstActiveImagesByBrand([
+        { brand_id: 'maria-ceramics', sort_order: 4, tags: ['lifestyle'] },
+        { brand_id: 'maria-ceramics', sort_order: 2, tags: ['product'] },
+        { brand_id: 'woven-studio', sort_order: 7, tags: ['promo'] },
+      ]),
+    ).toEqual([
+      { brand_id: 'maria-ceramics', sort_order: 2, tags: ['product'] },
+      { brand_id: 'woven-studio', sort_order: 7, tags: ['promo'] },
+    ])
   })
 })
 

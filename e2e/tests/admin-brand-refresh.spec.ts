@@ -209,8 +209,7 @@ test.describe("Scheduled brand refresh review", () => {
     // submission_images at sort_order 0 and 1. Drop them first, otherwise the
     // candidates below collide on sort_order and apply_brand_refresh rejects the
     // set ("Refresh must satisfy publishable core before apply"): that gate needs
-    // exactly one active row at sort_order 0 whose url equals hero_image_url, and
-    // unique sort_order values across all active rows.
+    // active rows need unique sort_order values; the first ordered row is the hero.
     const { error: resetImagesError } = await supabase
       .from("submission_images")
       .delete()

@@ -96,7 +96,6 @@ describeWithDb("trusted submission review RPCs", () => {
         product_tags: ["木工"],
         price_range: 2,
         purchase_website: "https://trusted.example.com",
-        hero_image_url: images.hero.url,
       }),
     });
 
@@ -349,8 +348,8 @@ describeWithDb("trusted submission review RPCs", () => {
         p_submission_id: submissionId!,
         p_review_data: {},
         p_images: [
-          { id: selectedHero!.id, is_hero: true, sort_order: 0 },
-          { id: selectedDetail!.id, is_hero: false, sort_order: 1 },
+          { id: selectedHero!.id, sort_order: 3 },
+          { id: selectedDetail!.id, sort_order: 4 },
         ],
       },
     );
@@ -465,8 +464,8 @@ describeWithDb("trusted submission review RPCs", () => {
       p_submission_id: submissionId!,
       p_review_data: {},
       p_images: [
-        { id: ownerReference!.id, is_hero: true, sort_order: 0 },
-        { id: candidateId, is_hero: false, sort_order: 1 },
+        { id: ownerReference!.id, sort_order: 0 },
+        { id: candidateId, sort_order: 1 },
       ],
     });
     expect(saveError).toBeNull();
@@ -829,8 +828,8 @@ describeWithDb("trusted submission review RPCs", () => {
       purchaseShopee: null,
       otherUrls: [],
       images: [
-        { id: images.hero.id, isHero: true, sortOrder: 0 },
-        { id: images.detail.id, isHero: false, sortOrder: 1 },
+        { id: images.hero.id, sortOrder: 0 },
+        { id: images.detail.id, sortOrder: 1 },
       ],
     };
   }

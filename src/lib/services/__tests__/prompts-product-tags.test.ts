@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { DESCRIPTION_SYSTEM_PROMPT } from '@/lib/prompts'
+import { DESCRIPTION_SYSTEM_PROMPT, DETECT_SYSTEM_PROMPT } from '@/lib/prompts'
 
 describe('DESCRIPTION_SYSTEM_PROMPT product_tags vocabulary', () => {
   it('embeds the subcategory tree grouped by L1 category', () => {
@@ -14,5 +14,14 @@ describe('DESCRIPTION_SYSTEM_PROMPT product_tags vocabulary', () => {
   })
   it('no longer forbids broad categories (old instruction removed)', () => {
     expect(DESCRIPTION_SYSTEM_PROMPT).not.toContain('不要用寬泛分類')
+  })
+})
+
+describe('DETECT_SYSTEM_PROMPT illustrator boundary', () => {
+  it('requires a physical product and purchase channel before admitting an illustrator brand', () => {
+    expect(DETECT_SYSTEM_PROMPT).toContain('實體商品')
+    expect(DETECT_SYSTEM_PROMPT).toContain('可驗證的購買管道')
+    expect(DETECT_SYSTEM_PROMPT).toContain('純接案、僅提供圖像授權或僅販售 LINE 貼圖')
+    expect(DETECT_SYSTEM_PROMPT).toContain('缺少任一項，視為非品牌')
   })
 })
