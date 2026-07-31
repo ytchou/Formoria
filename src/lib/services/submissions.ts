@@ -565,7 +565,7 @@ export function buildSubmissionReviewData(
   const activeImages = normalizeSubmissionReviewImages(images).filter(
     (image) => image.status === "active",
   );
-  const imageHero = activeImages.find((image) => image.sortOrder === 0);
+  const imageHero = activeImages.at(0);
   const websiteUrl = preferText(
     enrichedData?.purchaseWebsite,
     submission.purchaseWebsite,
@@ -723,12 +723,10 @@ function buildReviewLayers(
     ? row.review_overrides
     : {};
   const effective = applySubmissionReviewOverrides(baseline, overrides);
-  if (!("hero_image_url" in overrides)) {
-    const selectedHero = normalizeSubmissionReviewImages(images).find(
-      (image) => image.status === "active" && image.sortOrder === 0,
-    );
-    if (selectedHero) effective.heroImageUrl = selectedHero.url;
-  }
+  const selectedHero = normalizeSubmissionReviewImages(images).find(
+    (image) => image.status === "active",
+  );
+  if (selectedHero) effective.heroImageUrl = selectedHero.url;
 
   return {
     baseline,
@@ -749,9 +747,6 @@ export function getSubmissionReviewCompleteness(
   const activeImages = normalizeSubmissionReviewImages(images).filter(
     (image) => image.status === "active",
   );
-  const heroImage = activeImages.find(
-    (image) => image.sortOrder === 0 && image.url === data.heroImageUrl,
-  );
 
   if (!normalizeString(data.description)) missingFields.push("description");
   if (!data.productType || !validProductTypes.has(data.productType)) {
@@ -771,7 +766,7 @@ export function getSubmissionReviewCompleteness(
     isHttpUrl(data.purchasePinkoi) ||
     isHttpUrl(data.purchaseShopee);
   if (!hasAnyLink) missingFields.push("website");
-  if (!heroImage) missingFields.push("heroImage");
+  if (activeImages.length === 0) missingFields.push("heroImage");
   if (latestTargetStatus !== "succeeded") {
     missingFields.push("successfulEnrichment");
   }
@@ -994,7 +989,8 @@ export function buildSubmissionReviewOverrides(
 
   return Object.fromEntries(
     Object.entries(editedRow).filter(
-      ([key, value]) => !jsonValuesEqual(value, baselineRow[key]),
+      ([key, value]) =>
+        key !== "hero_image_url" && !jsonValuesEqual(value, baselineRow[key]),
     ),
   );
 }
@@ -1003,8 +999,11 @@ export function applySubmissionReviewOverrides(
   baseline: SubmissionReviewData,
   overrides: Record<string, unknown>,
 ): SubmissionReviewData {
+  const fieldOverrides = Object.fromEntries(
+    Object.entries(overrides).filter(([key]) => key !== "hero_image_url"),
+  );
   return reviewDataFromDb(
-    { ...submissionReviewDataToDb(baseline), ...overrides },
+    { ...submissionReviewDataToDb(baseline), ...fieldOverrides },
     baseline,
   );
 }
@@ -1655,7 +1654,7 @@ export async function applyBrandRefresh(
 }
 
 export type SaveSubmissionReviewInput = SubmissionReviewData & {
-  images: Array<{ id: string; isHero: boolean; sortOrder: number }>;
+  images: Array<{ id: string; sortOrder: number }>;
 };
 
 export async function saveSubmissionReview(
@@ -1691,7 +1690,6 @@ export async function saveSubmissionReview(
     p_review_data: overrides as Json,
     p_images: input.images.map((image) => ({
       id: image.id,
-      is_hero: image.isHero,
       sort_order: image.sortOrder,
     })) as unknown as Json,
   });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildSubmissionReviewOverrides,
   buildSubmissionReviewData,
   getSubmissionReviewCompleteness,
   normalizeSubmissionReviewImages,
@@ -172,6 +173,24 @@ describe("getSubmissionReviewCompleteness", () => {
     expect(result).toEqual({ complete: true, missingFields: [] });
   });
 
+  it("derives the hero from the first active image without requiring cache agreement or slot zero", () => {
+    const orderedImages = activeImages.map((image, index) => ({
+      ...image,
+      sortOrder: index + 3,
+    }));
+
+    const result = getSubmissionReviewCompleteness(
+      {
+        ...completeData(),
+        heroImageUrl: "https://cdn.example.com/stale-cache.webp",
+      },
+      orderedImages,
+      "succeeded",
+    );
+
+    expect(result).toEqual({ complete: true, missingFields: [] });
+  });
+
   it("still requires a hero image when no active image remains", () => {
     const inactiveImages: SubmissionReviewImage[] = [
       { ...activeImages[0]!, status: "draft" },
@@ -196,6 +215,23 @@ describe("getSubmissionReviewCompleteness", () => {
     );
 
     expect(result.missingFields).toContain("successfulEnrichment");
+  });
+});
+
+describe("buildSubmissionReviewOverrides", () => {
+  it("does not persist the derived hero cache as an admin field override", () => {
+    const baseline = buildSubmissionReviewData(baseSubmission, {
+      productType: "beauty",
+      productTags: ["手工皂"],
+      priceRange: 2,
+    }, activeImages);
+
+    expect(
+      buildSubmissionReviewOverrides(baseline, {
+        ...baseline,
+        heroImageUrl: "https://cdn.example.com/reordered.webp",
+      }),
+    ).not.toHaveProperty("hero_image_url");
   });
 });
 

@@ -6,7 +6,6 @@ const imageSelectionSchema = z
   .array(
     z.object({
       id: reviewEntityIdSchema,
-      isHero: z.boolean(),
       sortOrder: z.number().int().min(0).max(6),
     }),
   )
@@ -19,13 +18,6 @@ const imageSelectionSchema = z
       new Set(images.map((image) => image.sortOrder)).size !== images.length
     ) {
       context.addIssue({ code: "custom", message: "Duplicate image order" });
-    }
-    const heroes = images.filter((image) => image.isHero);
-    if (
-      (images.length === 0 && heroes.length !== 0) ||
-      (images.length > 0 && (heroes.length !== 1 || heroes[0]?.sortOrder !== 0))
-    ) {
-      context.addIssue({ code: "custom", message: "Invalid hero image" });
     }
   });
 
