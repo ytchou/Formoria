@@ -1559,6 +1559,8 @@
       "verifySuccess": "MIT certification verified!",
       "certNotFound": "Certificate number not found in the MIT registry",
       "certExpired": "This MIT certificate has expired",
+      "certMismatch": "This certificate is registered to a different brand",
+      "certAlreadyClaimed": "This certificate is already attached to another brand",
       "reviewNote": "Reviewer note",
       "resubmitCta": "Request verification by email",
       "dismiss": "Dismiss",
@@ -2467,6 +2469,8 @@
     },
     "claimRequests": {
       "adminProofLabel": "Ownership proof",
+      "mitCertApprovalLabel": "MIT cert — approval also attempts MIT verification",
+      "mitRegistryCompanyLabel": "Registry company",
       "domainEmailVerified": "✓ Verified",
       "domainEmailPending": "⏳ Pending verification",
       "ownerAlreadyManagesShort": "Already owns a brand",

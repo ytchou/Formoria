@@ -1559,6 +1559,8 @@
       "verifySuccess": "MIT 微笑標章驗證成功！",
       "certNotFound": "在 MIT 微笑標章資料庫中找不到此標章編號",
       "certExpired": "此 MIT 微笑標章已到期",
+      "certMismatch": "此標章編號登記於其他品牌",
+      "certAlreadyClaimed": "此標章編號已綁定至其他品牌",
       "reviewNote": "審核備註",
       "resubmitCta": "以 Email 申請驗證",
       "dismiss": "關閉",
@@ -2467,6 +2469,8 @@
     },
     "claimRequests": {
       "adminProofLabel": "擁有權證明",
+      "mitCertApprovalLabel": "MIT 標章編號 — 核准後也會嘗試進行 MIT 驗證",
+      "mitRegistryCompanyLabel": "登錄公司",
       "domainEmailVerified": "✓ 已驗證",
       "domainEmailPending": "⏳ 待驗證",
       "ownerAlreadyManagesShort": "已擁有品牌",
