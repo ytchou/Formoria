@@ -14,6 +14,7 @@ Running inventory of e2e-covered user journeys. Updated by `/e2e-author` runs.
 | Getting started | `e2e/smoke/getting-started.spec.ts` | pre-existing |
 | **Screenshot proof — submit, admin approval, private-file deletion, ownership visible** | `e2e/smoke/claim.spec.ts` | 2026-07-23 |
 | **Guide hub browsing + navigation** | `e2e/smoke/guides.spec.ts` | 2026-07-03 |
+| **Events hub — nav link, click-through navigation, empty-state rendering** | `e2e/smoke/events.spec.ts` | 2026-07-31 |
 
 ## Deep (chromium-only, nightly)
 
@@ -53,6 +54,7 @@ Running inventory of e2e-covered user journeys. Updated by `/e2e-author` runs.
 | **Public feature request board — anonymous read, sign-in handoff on upvote, submit, vote toggle, category filter, admin duplicate merge** | `e2e/tests/feature-requests.spec.ts` | 2026-07-28 |
 | **Signup form + registration (fails loudly on outage)** | `e2e/tests/auth-signup.spec.ts` | 2026-07-30 |
 | **Signup → email confirmation → onboarding → first value** | `e2e/tests/auth-signup-journey.spec.ts` | 2026-07-30 |
+| **Event detail — Event JSON-LD with unshifted Taipei dates, client-side area filtering, bilingual canonical/hreflang** (skips until an event is seeded — runtime gate in `e2e/utils/seeded-events.ts`) | `e2e/tests/event-detail.spec.ts` | 2026-07-31 |
 | _(30+ existing deep specs omitted — see e2e/tests/ for full inventory)_ | | |
 
 ## Mobile (Pixel 5, nightly)
