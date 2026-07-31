@@ -69,6 +69,7 @@ type EvidenceErrorCode =
   | 'missing_brand_id'
   | 'missing_brand_slug'
   | 'invalid_stance'
+  | 'missing_product_name'
   | 'invalid_source_type'
   | 'notes_too_long'
   | 'invalid_photo_path'
@@ -431,9 +432,9 @@ export async function submitEvidenceAction(
     if (notes.length > 1000) return { error: 'notes_too_long' }
 
     const productNameRaw = formData.get('productName')
-    const productName = typeof productNameRaw === 'string'
-      ? productNameRaw.trim() || null
-      : null
+    const productName = typeof productNameRaw === 'string' ? productNameRaw.trim() : ''
+    if (!productName) return { error: 'missing_product_name' }
+
     const photoPaths = formData
       .getAll('photoPaths')
       .filter((path): path is string => typeof path === 'string' && path.length > 0)

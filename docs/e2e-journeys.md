@@ -48,7 +48,7 @@ Running inventory of e2e-covered user journeys. Updated by `/e2e-author` runs.
 | **Directory filters, zero-result recovery, and contextual recommendations** | `e2e/tests/directory.spec.ts` | 2026-07-16 |
 | **Public search — API boundaries, ranking, bilingual/fuzzy matching, entry points, async state, filters, and recovery** | `e2e/tests/search-edge-cases.spec.ts` | 2026-07-19 |
 | **FAQ sections (General + For Owners), #for-owners anchor, #claim auto-open** | `e2e/tests/faq.spec.ts` | 2026-07-23 |
-| **Public brand support toggle, evidence sign-in guidance, and admin heading-menu placement** | `e2e/tests/brand-actions.spec.ts` | 2026-07-25 |
+| **Public brand support toggle and admin heading-menu placement** | `e2e/tests/brand-actions.spec.ts` | 2026-07-31 |
 | **Owner welcome card — visible on fresh brand, dismissal persists** (RED: duplicate content tree after dismiss+reload — see e2e/reports/2026-07-23.md) | `e2e/tests/dashboard-welcome-card.spec.ts` | 2026-07-23 |
 | **Public feature request board — anonymous read, sign-in handoff on upvote, submit, vote toggle, category filter, admin duplicate merge** | `e2e/tests/feature-requests.spec.ts` | 2026-07-28 |
 | **Signup form + registration (fails loudly on outage)** | `e2e/tests/auth-signup.spec.ts` | 2026-07-30 |
@@ -67,5 +67,6 @@ Running inventory of e2e-covered user journeys. Updated by `/e2e-author` runs.
 - Error-boundary rendering journey (force a route error, assert localized RouteError copy) — P3; negative assertions exist in brand-detail/guide-detail/cjk-slug/stats/admin specs.
 - Loading-skeleton visibility — P3; transient UI, flaky to assert.
 - Turnstile error/expiration handling in submit form — P3; no Turnstile TEST keys in e2e env.
-- English-locale support/evidence action copy — P3; action coverage currently asserts the default zh-TW locale.
+- English-locale support action copy — P3; action coverage currently asserts the default zh-TW locale.
+- Origin-evidence submission journey — dropped 2026-07-31 with the trigger; the surface is unwired pending guest submission (board: `origin_evidence_reports`). Re-author when it returns.
 - Cross-browser smoke coverage for public brand support — P3; the current journey is deep and database-backed.
