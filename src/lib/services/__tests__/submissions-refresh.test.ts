@@ -89,16 +89,27 @@ describe("refresh review overrides", () => {
     });
   });
 
-  it("retains an admin-selected hero override across repeated saves", () => {
+  // DEV-1278: hero identity is derived from active image ordering, so
+  // hero_image_url is no longer an editable review override. The brands column
+  // survives only as a list-view cache written by the RPCs.
+  it("never persists hero_image_url as a review override", () => {
     const edited = {
       ...baseline,
       heroImageUrl: "https://example.com/admin-hero.webp",
     };
-    const savedOverrides = buildSubmissionReviewOverrides(baseline, edited);
-    const reloaded = applySubmissionReviewOverrides(baseline, savedOverrides);
 
-    expect(buildSubmissionReviewOverrides(baseline, reloaded)).toMatchObject({
-      hero_image_url: "https://example.com/admin-hero.webp",
+    expect(buildSubmissionReviewOverrides(baseline, edited)).toEqual({});
+  });
+
+  it("ignores a legacy stored hero_image_url override", () => {
+    expect(
+      applySubmissionReviewOverrides(baseline, {
+        hero_image_url: "https://example.com/legacy-hero.webp",
+        description: "Admin description",
+      }),
+    ).toMatchObject({
+      description: "Admin description",
+      heroImageUrl: "https://example.com/hero.webp",
     });
   });
 });
