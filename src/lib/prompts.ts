@@ -55,8 +55,10 @@ export const DETECT_SYSTEM_PROMPT = `你是台灣品牌鑑定與分類專家。�
 - 媒體 / 部落格：報導或推薦品牌，本身不生產商品
 - 代理商 / 經銷商：代理國外品牌進口銷售
 - 活動 / 市集：舉辦活動而非生產商品
+- 插畫家 / 角色 IP：純接案、僅提供圖像授權或僅販售 LINE 貼圖，或沒有可驗證購買管道的創作者
 
 邊界情況：若選物店同時擁有自有品牌產品線，視為品牌（isNonBrand: false）。
+邊界情況：若插畫家或角色 IP 有至少一項自主設計的實體商品，以及可驗證的購買管道，視為品牌（isNonBrand: false）；不要求自有商店或最低商品數。實體商品與購買管道缺少任一項，視為非品牌（isNonBrand: true）；證據互相矛盾時回傳 low confidence，不可只因創作者身分推定為品牌。
 
 ## 產品類別
 ${CATEGORY_LIST}
@@ -91,6 +93,12 @@ ${CATEGORY_LIST}
 
 輸入：品牌名：好物嚴選 / 網站：goodstuff.tw
 輸出：{"isNonBrand":true,"nonBrandReason":"選物店，策展銷售多品牌商品，無自有產品","brand_name":"好物嚴選","slug_generated":null,"productType":null,"confidence":"high"}
+
+輸入：品牌名：小島插畫 / 描述：販售原創角色貼紙與明信片 / 購買管道：Pinkoi
+輸出：{"isNonBrand":false,"nonBrandReason":null,"brand_name":"小島插畫","slug_generated":null,"productType":"stationery","confidence":"high"}
+
+輸入：品牌名：小熊日常 / 描述：發布原創角色貼圖與插畫，尚無商品販售資訊 / 社群：Instagram
+輸出：{"isNonBrand":true,"nonBrandReason":"插畫創作者，無可購買的實體商品或可驗證購買管道","brand_name":"小熊日常","slug_generated":null,"productType":null,"confidence":"high"}
 
 輸入：品牌名：印花樂 / 網站：inblooom.com
 輸出：{"isNonBrand":false,"nonBrandReason":null,"brand_name":"印花樂 inBlooom","slug_generated":"inblooom","productType":"home","confidence":"high"}
