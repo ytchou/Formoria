@@ -11,6 +11,7 @@ import {
 } from '@/lib/services/events'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
+import { captureReadFailure, markRenderDegraded } from '@/lib/degraded-render'
 
 type PageProps = {
   params: Promise<{ locale: string }>
@@ -50,9 +51,30 @@ export default async function EventsHubPage({ params }: PageProps) {
   // badging on another could put an event in the upcoming section wearing an
   // "ongoing" pill if the render straddled midnight.
   const today = taipeiToday()
-  const events = await getPublishedEvents()
-  const byPhase = partitionEventsByPhase(events, today)
-  const brandCounts = await getEventBrandCounts(events.map((event) => event.id))
+  // The services throw on query error, but an unreachable database must not take
+  // the build down: CI's Build job is a compile check and points Supabase at
+  // 127.0.0.1 on purpose (`src/lib/degraded-render.ts:38-42`). Degrade to the
+  // empty state, report to Sentry, and let `markRenderDegraded` keep the failed
+  // render out of the ISR cache — same contract as `/about` and `/stats`.
+  const events = await getPublishedEvents().catch(captureReadFailure('events.hub'))
+  const brandCounts = events
+    ? await getEventBrandCounts(events.map((event) => event.id)).catch(
+        captureReadFailure('events.hub.brandCounts'),
+      )
+    : null
+
+  // Aggregate flag: ANY failed read means this render is degraded, and a degraded
+  // render must never be frozen by `revalidate = 3600`.
+  if (events === null || brandCounts === null) {
+    await markRenderDegraded('events.hub')
+  }
+
+  // A degraded read renders the same empty state as a genuinely empty database.
+  // That is deliberate: `markRenderDegraded` already kept it out of the ISR cache
+  // and Sentry already has the exception, so the visitor sees the calm surface
+  // rather than an error boundary.
+  const safeEvents = events ?? []
+  const byPhase = partitionEventsByPhase(safeEvents, today)
 
   // Ongoing and upcoming share one section, and the plain concatenation is
   // already globally ascending by `startsOn`: `partitionEventsByPhase` returns
@@ -66,7 +88,7 @@ export default async function EventsHubPage({ params }: PageProps) {
   const past = byPhase.past
 
   const renderCard = (event: Event) => {
-    const count = brandCounts.get(event.id) ?? 0
+    const count = brandCounts?.get(event.id) ?? 0
     const phase = resolveEventPhase(event, today)
 
     return (
@@ -95,7 +117,7 @@ export default async function EventsHubPage({ params }: PageProps) {
           is a permanent, linkable surface whose content simply has not landed
           yet. Same shape as the stories hub's `comingSoon` block.
         */}
-        {events.length === 0 ? (
+        {safeEvents.length === 0 ? (
           <div className="flex min-h-[40vh] items-center justify-center rounded-2xl border border-border bg-secondary px-6 py-16 text-center">
             <p className="type-empty-body">{t('comingSoon')}</p>
           </div>
