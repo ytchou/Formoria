@@ -44,7 +44,7 @@ export function isInteractiveTableTarget(target: EventTarget | null) {
     target instanceof Element &&
     Boolean(
       target.closest(
-        "button, a, input, select, textarea, [role='checkbox'], [role='combobox']",
+        "button, a, input, select, textarea, [role='checkbox'], [role='combobox'], [role='menuitem'], [data-slot^='dropdown-menu']",
       ),
     )
   );

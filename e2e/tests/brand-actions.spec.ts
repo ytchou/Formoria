@@ -152,9 +152,9 @@ test.describe("Brand detail actions", () => {
         name: managedBrand.brand.name,
       });
       await expect(detailPanel).toBeVisible();
-      const contentSection = detailPanel.locator("section").filter({
-        has: detailPanel.getByRole("heading", { name: "Content", exact: true }),
-      });
+      const contentSection = detailPanel
+        .getByRole("heading", { name: "Content", exact: true })
+        .locator("xpath=ancestor::section[1]");
       await contentSection.getByRole("button", { name: "Edit" }).click();
       await expect(contentSection.getByLabel("Brand name")).toHaveValue(
         managedBrand.brand.name,
