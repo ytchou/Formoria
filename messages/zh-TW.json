@@ -1043,13 +1043,13 @@
         "cta": "寫信給我們"
       },
       "feature": {
-        "title": "功能許願",
-        "body": "希望 Formoria 多做一點什麼？到許願板提出你的想法，也可以為別人的點子投票。",
-        "cta": "前往許願板"
+        "title": "功能建議",
+        "body": "希望 Formoria 多做一點什麼？到功能建議板提出想法，也可以為別人的點子投票。",
+        "cta": "前往功能建議板"
       },
       "brand": {
         "title": "品牌資料有誤",
-        "body": "每個品牌頁都有回報與資料勘誤的功能，直接在該品牌頁提交，會比來信更快進入審核流程。",
+        "body": "在品牌頁上直接回報與勘誤，比來信更快進入審核。",
         "cta": "瀏覽品牌"
       },
       "question": {
@@ -2745,7 +2745,7 @@
       "status": {
         "open": "待評估",
         "planned": "已排入規劃",
-        "in_progress": "進行中",
+        "in_progress": "開發中",
         "shipped": "已上線",
         "declined": "不會做",
         "duplicate": "重複"
@@ -2854,25 +2854,29 @@
     },
     "title": "功能建議",
     "description": "告訴我們什麼功能會讓 Formoria 更好用，也可以為你想看到的建議投票。",
+    "disclaimer": "開發順序會依實際狀況調整，我們不承諾時程。",
     "status": {
       "open": "待評估",
       "planned": "已排入規劃",
-      "in_progress": "進行中",
+      "in_progress": "開發中",
       "shipped": "已上線",
       "declined": "不會做"
     },
     "sections": {
       "inProgress": {
-        "title": "進行中",
-        "description": "這些功能正在開發中。"
+        "title": "開發中",
+        "description": "這些功能正在開發中，敬請期待！",
+        "empty": "目前沒有正在開發的功能。"
+      },
+      "planned": {
+        "title": "已排入規劃",
+        "description": "已經確定要做，還沒開始動工。",
+        "empty": "目前還沒有排入規劃的功能。"
       },
       "open": {
         "title": "待評估",
-        "description": "投票決定我們接下來要做什麼。"
-      },
-      "shipped": {
-        "title": "已上線",
-        "description": "從這裡許願、現在已經上線的功能。"
+        "description": "投票決定我們接下來要做什麼。",
+        "empty": "目前沒有待評估的建議，你可以成為第一個。"
       }
     },
     "requests": {
@@ -2891,6 +2895,14 @@
       "owner_claim_flow": {
         "title": "讓品牌主認領並管理自己的品牌頁",
         "body": "讓品牌經營者驗證身分後，自行維護品牌介紹、連結與購買通路，不必再等我們更新。"
+      },
+      "brand_retail_locations": {
+        "title": "在品牌頁顯示實體銷售據點",
+        "body": "在品牌頁直接列出買得到該品牌的門市、櫃位與寄售點，讓訪客知道能去哪裡親眼看到、當場買到。"
+      },
+      "brand_events": {
+        "title": "串連實體活動與參展品牌",
+        "body": "在品牌頁顯示即將登場的市集、展會與快閃活動（例如文博會），讓訪客可以安排時間到現場認識品牌。"
       }
     },
     "upvote": {
@@ -2898,10 +2910,6 @@
       "remove": "收回對「{title}」的投票",
       "error": "無法記錄你的投票，請再試一次。",
       "rateLimited": "投票次數過多，請稍候再試。"
-    },
-    "empty": {
-      "title": "目前還沒有任何建議",
-      "description": "還沒有人提出建議，成為第一個吧。"
     },
     "submit": {
       "trigger": "提出建議",

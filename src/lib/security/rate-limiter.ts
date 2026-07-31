@@ -115,12 +115,23 @@ export async function rateLimit(
   return rateLimiter.check(key, options.windowMs, options.maxRequests)
 }
 
+/**
+ * Launch-day knobs. Both limits are per-IP, and TW carrier CGNAT puts many
+ * unrelated users behind one egress IP — so these are sized for a NAT crowd,
+ * not a single browser. Overridable via env so they can be retuned from
+ * Railway without a code deploy.
+ */
+function envLimit(name: string, fallback: number): number {
+  const parsed = Number(process.env[name])
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+}
+
 // Rate limit rules per path prefix
 const RATE_LIMIT_RULES: Record<string, { windowMs: number; maxRequests: number }> = {
   '/admin/operations': { windowMs: 60_000, maxRequests: 3 },
   '/api/upload': { windowMs: 60_000, maxRequests: 20 },
   '/api/': { windowMs: 60_000, maxRequests: 60 },
-  '/brands/': { windowMs: 60_000, maxRequests: 40 },
+  '/brands/': { windowMs: 60_000, maxRequests: envLimit('RATE_LIMIT_BRANDS_PER_MIN', 200) },
   '/sitemap.xml': { windowMs: 60_000, maxRequests: 3 },
 }
 
@@ -172,7 +183,10 @@ export function getClientIp(request: Request): string {
   return getClientIpFromHeaders(request.headers)
 }
 
-const SOFT_LIMIT = { windowMs: 60_000, maxRequests: 30 }
+const SOFT_LIMIT = {
+  windowMs: 60_000,
+  maxRequests: envLimit('SOFT_LIMIT_BRANDS_PER_MIN', 150),
+}
 const SOFT_LIMIT_PREFIXES = ['/brands/']
 
 function getSoftRateLimitPathPrefix(pathname: string): string {

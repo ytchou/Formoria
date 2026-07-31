@@ -14,6 +14,8 @@ const FEATURE_REQUEST_I18N_KEYS_BY_TITLE = {
   "Browse Taiwanese brands by occasion": "occasion_discovery",
   "Show nearby Taiwanese brands on a map": "nearby_brand_map",
   "Let brand owners claim and manage their brand page": "owner_claim_flow",
+  "Show a brand's retail locations on its page": "brand_retail_locations",
+  "Link in-person events to the brands taking part": "brand_events",
 } as const;
 
 export type FeatureRequestI18nKey =
@@ -220,20 +222,24 @@ function assembleFeatureRequests(
 
 /**
  * Pure assembly step for the public board: rows + vote rows -> ordered board
- * with two kinds of row dropped.
+ * with three kinds of row dropped.
  *
  *   - merged tombstones, because they redirect to a target that is already on
  *     the board and their votes have moved there,
  *   - `declined` requests, because a decline is a decision that has already
  *     been made: the board exists to collect votes on what is still open, and
- *     keeping a closed decision on it advertises a "no" nobody can act on.
+ *     keeping a closed decision on it advertises a "no" nobody can act on,
+ *   - `shipped` requests, for the same reason from the other end: the board
+ *     exists to collect votes on what is still open, and a shipped request is
+ *     already done, so keeping it on the board spends the reader's attention
+ *     on work that needs no vote.
  *
- * Both filters live here rather than in a component because this function is
- * the single place that owns what reaches the public surface — a component
+ * All three filters live here rather than in a component because this function
+ * is the single place that owns what reaches the public surface — a component
  * filter would be re-implemented by the next component that renders the board.
- * `assembleFeatureRequests` stays unfiltered on purpose so the admin queue can
- * still moderate declined rows. Extracted so the filtering and ordering rules
- * can be tested with no database and no mocks.
+ * `assembleFeatureRequests` stays unfiltered on purpose so the admin queue
+ * (`listAllFeatureRequests`) still sees every row. Extracted so the filtering
+ * and ordering rules can be tested with no database and no mocks.
  */
 export function buildFeatureRequestBoard(
   rows: FeatureRequestRow[],
@@ -241,7 +247,10 @@ export function buildFeatureRequestBoard(
 ): FeatureRequest[] {
   return assembleFeatureRequests(
     rows.filter(
-      (row) => row.merged_into_id === null && row.status !== "declined",
+      (row) =>
+        row.merged_into_id === null &&
+        row.status !== "declined" &&
+        row.status !== "shipped",
     ),
     voteRows,
   );

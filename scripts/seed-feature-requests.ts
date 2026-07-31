@@ -47,6 +47,16 @@ const SEED_REQUESTS: SeedRequest[] = [
     body: "Let a brand's owner verify they represent the brand, then keep its description, links, and purchase channels up to date themselves.",
     status: 'in_progress',
   },
+  {
+    title: "Show a brand's retail locations on its page",
+    body: 'List the physical stores, counters, and stockists that carry a brand directly on its brand page, so visitors can see where to buy it in person.',
+    status: 'in_progress',
+  },
+  {
+    title: 'Link in-person events to the brands taking part',
+    body: 'Show upcoming markets, fairs, and pop-ups such as Creative Expo Taiwan on the brands appearing at them, so visitors can plan to meet a brand in person.',
+    status: 'in_progress',
+  },
 ]
 
 async function main(): Promise<void> {

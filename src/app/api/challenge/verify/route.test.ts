@@ -15,6 +15,7 @@ const {
 
 vi.mock('@/lib/security/challenge', () => ({
   CHALLENGE_COOKIE_NAME: 'fm_verified',
+  CHALLENGE_TTL_SECONDS: 604_800,
   signChallengeToken: mockSignChallengeToken,
 }))
 
