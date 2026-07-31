@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
 import {
-  revalidateLocalizedPath,
   revalidatePublicBrand,
+  revalidatePublicEvent,
 } from "@/lib/cache/public-brand-cache";
 
 export const runtime = "nodejs";
 
+/**
+ * Cap on `revalidatePath` calls per request, applied to `slugs` and `events`
+ * COMBINED — a per-key cap let one request carry 200 of each and do twice the
+ * documented work.
+ */
 const MAX_SLUGS = 200;
 
 function readSlugKey(payload: unknown, key: string): unknown {
@@ -17,7 +22,6 @@ function readSlugKey(payload: unknown, key: string): unknown {
 function isInvalidSlugList(value: unknown): boolean {
   return (
     !Array.isArray(value) ||
-    value.length > MAX_SLUGS ||
     value.some((slug) => typeof slug !== "string" || slug.trim() === "")
   );
 }
@@ -50,16 +54,22 @@ export async function POST(req: Request) {
     const brandSlugs = (slugs ?? []) as string[];
     const eventSlugs = (events ?? []) as string[];
 
+    if (brandSlugs.length + eventSlugs.length > MAX_SLUGS) {
+      return NextResponse.json({ error: "Too many slugs" }, { status: 400 });
+    }
+
     for (const slug of brandSlugs) {
       revalidatePublicBrand({ slug });
     }
 
     if (events !== undefined) {
-      // The hub lists every event, so any event write makes it stale even when
-      // no single detail page was touched.
-      revalidateLocalizedPath("/events");
+      // An empty list still means "events changed": the hub and the sitemap are
+      // stale even when no detail page was named.
+      if (eventSlugs.length === 0) {
+        revalidatePublicEvent();
+      }
       for (const slug of eventSlugs) {
-        revalidateLocalizedPath(`/events/${slug}`);
+        revalidatePublicEvent({ slug });
       }
     }
 

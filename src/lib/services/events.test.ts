@@ -5,7 +5,11 @@ import type { createServiceClient } from "@/lib/supabase/server";
 import {
   composeEventBrands,
   deriveAreaOptions,
+  eventBrandRowToDomain,
   eventRowToDomain,
+  fetchEventBrandCounts,
+  fetchEventBrandLinks,
+  fetchPublishedEventBySlug,
   fetchPublishedEvents,
   resolveEventPhase,
   taipeiToday,
@@ -58,6 +62,41 @@ function link(overrides: Partial<EventBrandLink> & { brandSlug: string }): Event
 }
 
 /**
+ * The lineup fixture carries the embedded `brands` / `events` objects PostgREST
+ * returns for the `!inner` embeds, so the double can apply `events.slug` and
+ * `brands.status` filters the same way the database would.
+ */
+type JoinFixture = {
+  event_id: string;
+  brand_id: string;
+  booth: string | null;
+  area: string | null;
+  area_en: string | null;
+  note: string | null;
+  note_en: string | null;
+  sort_order: number;
+  brands: { slug: string; status: string };
+  events: { slug: string; status: string };
+};
+
+function joinRow(
+  overrides: Partial<JoinFixture> & { brands: { slug: string; status: string } },
+): JoinFixture {
+  return {
+    event_id: "2b0f5a4c-0000-4000-8000-000000000001",
+    brand_id: `brand-${overrides.brands.slug}`,
+    booth: null,
+    area: null,
+    area_en: null,
+    note: null,
+    note_en: null,
+    sort_order: 0,
+    events: { slug: "taipei-craft-market-2026", status: "published" },
+    ...overrides,
+  };
+}
+
+/**
  * Only `slug` and `name` are read by the ordering and composition paths under
  * test; the rest of `Brand` is irrelevant here and inventing it would pin
  * fields these functions never touch.
@@ -77,18 +116,55 @@ function brandMap(...brands: Brand[]): Map<string, Brand> {
 // actually applied to the fixture rows, so `status = 'published'` is exercised
 // rather than merely recorded. Mocking `@/lib/supabase/server` to reach the
 // same place is what scripts/check-test-boundaries.mjs forbids.
+//
+// `.range()` is honoured for real, which is what lets the pagination loops be
+// tested: a page that comes back full has to trigger another round trip.
 // ---------------------------------------------------------------------------
 
 type QueryCall = {
   table: string;
   select: string;
   eqFilters: Array<[string, string]>;
+  inFilters: Array<[string, string[]]>;
   orders: string[];
+  ranges: Array<[number, number]>;
 };
 
 const queries: QueryCall[] = [];
-let table: EventRow[] = [];
+let eventsTable: EventRow[] = [];
+let eventBrandsTable: JoinFixture[] = [];
 let queryError: { message: string } | null = null;
+
+/** Resolves `'events.slug'` against the embedded object, like PostgREST does. */
+function readPath(row: unknown, column: string): unknown {
+  return column
+    .split(".")
+    .reduce<unknown>(
+      (value, key) =>
+        value && typeof value === "object"
+          ? (value as Record<string, unknown>)[key]
+          : undefined,
+      row,
+    );
+}
+
+function resolveRows(call: QueryCall): unknown[] {
+  const source: unknown[] =
+    call.table === "events" ? eventsTable : eventBrandsTable;
+
+  let rows = source.filter(
+    (row) =>
+      call.eqFilters.every(
+        ([column, value]) => String(readPath(row, column)) === value,
+      ) &&
+      call.inFilters.every(([column, values]) =>
+        values.includes(String(readPath(row, column))),
+      ),
+  );
+
+  for (const [from, to] of call.ranges) rows = rows.slice(from, to + 1);
+  return rows;
+}
 
 function createClientDouble() {
   return {
@@ -97,7 +173,9 @@ function createClientDouble() {
         table: tableName,
         select: "",
         eqFilters: [],
+        inFilters: [],
         orders: [],
+        ranges: [],
       };
       queries.push(call);
 
@@ -110,26 +188,39 @@ function createClientDouble() {
           call.eqFilters.push([column, String(value)]);
           return builder;
         },
+        in(column: string, values: unknown[]) {
+          call.inFilters.push([column, values.map(String)]);
+          return builder;
+        },
         order(column: string) {
           call.orders.push(column);
           return builder;
         },
+        range(from: number, to: number) {
+          call.ranges.push([from, to]);
+          return builder;
+        },
+        maybeSingle() {
+          if (queryError) {
+            return Promise.resolve({ data: null, error: queryError });
+          }
+          return Promise.resolve({
+            data: resolveRows(call)[0] ?? null,
+            error: null,
+          });
+        },
         then(
           resolve: (result: {
-            data: EventRow[] | null;
+            data: unknown[] | null;
             error: { message: string } | null;
           }) => unknown,
         ) {
           if (queryError) {
             return Promise.resolve(resolve({ data: null, error: queryError }));
           }
-          const rows = table.filter((row) =>
-            call.eqFilters.every(
-              ([column, value]) =>
-                String(row[column as keyof EventRow]) === value,
-            ),
+          return Promise.resolve(
+            resolve({ data: resolveRows(call), error: null }),
           );
-          return Promise.resolve(resolve({ data: rows, error: null }));
         },
       };
 
@@ -152,7 +243,8 @@ describe("events service", () => {
   beforeEach(() => {
     queries.length = 0;
     queryError = null;
-    table = [];
+    eventsTable = [];
+    eventBrandsTable = [];
   });
 
   it("resolveEventPhase_resolves_five_boundaries", () => {
@@ -249,8 +341,29 @@ describe("events service", () => {
     expect(event.isFree).toBeNull();
   });
 
+  it("eventBrandRowToDomain_accepts_both_embed_shapes", () => {
+    // PostgREST hands a to-one embed back as an object; older stacks and the
+    // array-shaped inference hand back an array. Both have to map.
+    const base = {
+      booth: "A12",
+      area: "A區",
+      area_en: "Hall A",
+      note: null,
+      note_en: null,
+      sort_order: 3,
+    };
+
+    expect(
+      eventBrandRowToDomain({ ...base, brands: { slug: "molasses" } })?.brandSlug,
+    ).toBe("molasses");
+    expect(
+      eventBrandRowToDomain({ ...base, brands: [{ slug: "molasses" }] })?.booth,
+    ).toBe("A12");
+    expect(eventBrandRowToDomain({ ...base, brands: null })).toBeNull();
+  });
+
   it("fetchPublishedEvents_filters_status", async () => {
-    table = [
+    eventsTable = [
       eventRow({ slug: "published-market" }),
       eventRow({
         id: "2b0f5a4c-0000-4000-8000-000000000002",
@@ -282,5 +395,110 @@ describe("events service", () => {
 
     expect(consoleError).toHaveBeenCalled();
     consoleError.mockRestore();
+  });
+
+  it("fetchPublishedEventBySlug_filters_status_and_returns_null_when_absent", async () => {
+    eventsTable = [
+      eventRow({ slug: "published-market" }),
+      eventRow({
+        id: "2b0f5a4c-0000-4000-8000-000000000002",
+        slug: "draft-market",
+        status: "draft",
+      }),
+    ];
+
+    const found = await fetchPublishedEventBySlug(
+      clientDouble(),
+      "published-market",
+    );
+    expect(found?.slug).toBe("published-market");
+
+    // A draft event is not-found, not a 200 with hidden copy.
+    expect(
+      await fetchPublishedEventBySlug(clientDouble(), "draft-market"),
+    ).toBeNull();
+  });
+
+  it("fetchEventBrandLinks_pages_past_the_max_rows_cap", async () => {
+    // PostgREST answers with the first `max_rows` (1000) rows and HTTP 200, so
+    // an unbounded select silently truncates: `error` is null and the
+    // throw-on-error convention never fires.
+    eventBrandsTable = Array.from({ length: 1500 }, (_, index) =>
+      joinRow({
+        brands: { slug: `brand-${index}`, status: "approved" },
+        sort_order: index,
+      }),
+    );
+
+    const links = await fetchEventBrandLinks(
+      clientDouble(),
+      "taipei-craft-market-2026",
+    );
+
+    expect(links).toHaveLength(1500);
+    expect(queries.map((call) => call.ranges[0])).toEqual([
+      [0, 999],
+      [1000, 1999],
+    ]);
+  });
+
+  it("fetchEventBrandCounts_pages_past_the_max_rows_cap", async () => {
+    const eventId = "2b0f5a4c-0000-4000-8000-000000000001";
+    eventBrandsTable = Array.from({ length: 1200 }, (_, index) =>
+      joinRow({
+        event_id: eventId,
+        brands: { slug: `brand-${index}`, status: "approved" },
+      }),
+    );
+
+    const counts = await fetchEventBrandCounts(clientDouble(), [eventId]);
+
+    expect(counts.get(eventId)).toBe(1200);
+    expect(queries).toHaveLength(2);
+  });
+
+  it("fetchEventBrandCounts_counts_only_approved_brands", async () => {
+    // The hub card and the detail grid have to agree: the detail page hydrates
+    // through `getBrandsBySlugs`, which filters `status = 'approved'`, so a
+    // count over raw join rows advertises brands the grid never renders.
+    const eventId = "2b0f5a4c-0000-4000-8000-000000000001";
+    eventBrandsTable = [
+      ...Array.from({ length: 9 }, (_, index) =>
+        joinRow({
+          event_id: eventId,
+          brands: { slug: `approved-${index}`, status: "approved" },
+        }),
+      ),
+      ...Array.from({ length: 3 }, (_, index) =>
+        joinRow({
+          event_id: eventId,
+          brands: { slug: `pending-${index}`, status: "pending" },
+        }),
+      ),
+    ];
+
+    const counts = await fetchEventBrandCounts(clientDouble(), [eventId]);
+
+    expect(counts.get(eventId)).toBe(9);
+    expect(queries[0]?.eqFilters).toContainEqual(["brands.status", "approved"]);
+  });
+
+  it("fetchEventBrandCounts_returns_no_entry_for_an_empty_event", async () => {
+    const withRows = "2b0f5a4c-0000-4000-8000-000000000001";
+    const withoutRows = "2b0f5a4c-0000-4000-8000-000000000002";
+    eventBrandsTable = [
+      joinRow({
+        event_id: withRows,
+        brands: { slug: "molasses", status: "approved" },
+      }),
+    ];
+
+    const counts = await fetchEventBrandCounts(clientDouble(), [
+      withRows,
+      withoutRows,
+    ]);
+
+    expect(counts.get(withRows)).toBe(1);
+    expect(counts.has(withoutRows)).toBe(false);
   });
 });

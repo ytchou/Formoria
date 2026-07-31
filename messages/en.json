@@ -2863,7 +2863,6 @@
     "upcomingHeading": "Upcoming",
     "pastHeading": "Past events",
     "comingSoon": "The first events are on their way.",
-    "loadError": "Events are temporarily unavailable. Please try again later.",
     "noBrands": "The exhibitor list hasn't been announced yet.",
     "breadcrumb": "Events",
     "breadcrumbAria": "Breadcrumb",
@@ -2880,7 +2879,7 @@
     "dates": "Dates",
     "brandsHeading": "Exhibiting brands",
     "brandCount": "{count, plural, one {# brand} other {# brands}}",
-    "areaFilterAria": "Filter events by area",
+    "areaFilterAria": "Filter brands by area",
     "allAreas": "All areas",
     "relatedStories": "Related stories",
     "notFound": {

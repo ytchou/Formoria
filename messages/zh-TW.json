@@ -2863,7 +2863,6 @@
     "upcomingHeading": "即將登場",
     "pastHeading": "展會回顧",
     "comingSoon": "首波展會資訊正在整理中，敬請期待。",
-    "loadError": "展會資訊暫時無法載入，請稍後再試。",
     "noBrands": "參展品牌名單尚未公布。",
     "breadcrumb": "展會",
     "breadcrumbAria": "麵包屑導覽",
@@ -2880,7 +2879,7 @@
     "dates": "展期",
     "brandsHeading": "參展品牌",
     "brandCount": "共 {count} 個品牌",
-    "areaFilterAria": "依區域篩選展會",
+    "areaFilterAria": "依區域篩選品牌",
     "allAreas": "全部區域",
     "relatedStories": "相關專題",
     "notFound": {

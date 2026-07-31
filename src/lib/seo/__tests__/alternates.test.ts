@@ -84,6 +84,12 @@ describe('buildAlternates', () => {
     })
   })
 
+  // Note what the `en` half of this says: `availableLocales` shapes ONLY the
+  // `languages` map. The canonical comes from the `locale` argument alone, so a
+  // page with no English edition is NOT folded onto the zh-TW URL by narrowing
+  // this list — it self-canonicalizes to `/en` while advertising an hreflang
+  // cluster with no self-reference. Call sites that want the fold must pass
+  // 'zh-TW' as the *locale* (see `/stories/[slug]` and `/events/[slug]`).
   it('omits unavailable locales while preserving a self-canonical', () => {
     const zh = buildAlternates('/brands/acme', 'zh-TW', ['zh-TW'])
     const en = buildAlternates('/brands/acme', 'en', ['zh-TW'])

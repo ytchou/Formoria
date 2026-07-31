@@ -287,19 +287,26 @@ export function buildEventJsonLd({
   if (description) jsonLd.description = description;
   if (endDate) jsonLd.endDate = endDate;
 
-  // Conditional blocks are omitted entirely rather than stubbed — an empty
-  // Place or a priceless free Offer is worse for Google than no key at all.
-  if (venueName) {
-    jsonLd.location = {
-      "@type": "Place",
-      name: venueName,
-      address: {
+  // Conditional blocks are omitted entirely rather than stubbed — a wholly
+  // empty Place or a priceless free Offer is worse for Google than no key at
+  // all. But `location` is a REQUIRED property of the Event rich result and
+  // `venue_name` / `venue_address` / `city` are independently nullable, so the
+  // block is gated on any one of them being present, not on the name alone:
+  // schema.org does not require `Place.name`, and a Place carrying only a
+  // PostalAddress is valid. `name` and `address` are each included only when
+  // there is something to put in them.
+  if (venueName || venueAddress || city) {
+    const place: JsonLdObject = { "@type": "Place" };
+    if (venueName) place.name = venueName;
+    if (venueAddress || city) {
+      place.address = {
         "@type": "PostalAddress",
         ...(venueAddress ? { streetAddress: venueAddress } : {}),
         ...(city ? { addressLocality: city } : {}),
         addressCountry: "TW",
-      },
-    };
+      };
+    }
+    jsonLd.location = place;
   }
 
   if (organizerName) {

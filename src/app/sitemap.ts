@@ -73,7 +73,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const [brands, storyResult, events] = await Promise.all([
       getBrandSeoEntries(),
       getAllStories(),
-      getPublishedEvents(),
+      // Degrade to zero event entries instead of taking the sitemap down with
+      // them: the events service throws on any query error, and an unguarded
+      // rejection rejects the whole Promise.all even when brands and stories
+      // already resolved — the catch below would then drop every /brands/<slug>,
+      // every ?category= and every /stories/<slug> URL for the full revalidate
+      // window. Same resilience as `storyResult.ok` on the next line.
+      getPublishedEvents().catch(() => []),
     ]);
     const stories = storyResult.ok ? storyResult.stories : [];
 

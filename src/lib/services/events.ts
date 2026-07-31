@@ -3,8 +3,9 @@ import { cache } from "react";
 import type { AppLocale } from "@/i18n/locale-preference";
 import type { Database } from "@/lib/supabase/database.types";
 import type { Brand } from "@/lib/types";
+import { isoDateInTimeZone } from "@/lib/date-range";
 import { createServiceClient } from "@/lib/supabase/server";
-import { getBrandsBySlugs } from "./brands";
+import { brandsBySlugsCacheKey, getBrandsBySlugs } from "./brands";
 
 // ---------------------------------------------------------------------------
 // Row + domain types
@@ -32,7 +33,8 @@ export type EventBrandJoinRow = {
   brands: { slug: string } | Array<{ slug: string }> | null;
 };
 
-const EVENT_STATUSES = ["draft", "published", "hidden"] as const;
+/** Also the single source for the seed script's status validation. */
+export const EVENT_STATUSES = ["draft", "published", "hidden"] as const;
 
 export type EventStatus = (typeof EVENT_STATUSES)[number];
 
@@ -112,27 +114,35 @@ const EVENT_SELECT =
 const EVENT_BRAND_SELECT =
   "booth, area, area_en, note, note_en, sort_order, brands!inner(slug), events!inner(slug, status)";
 
+/**
+ * The hub count has to agree with what the detail page renders: the detail page
+ * hydrates through `getBrandsBySlugs`, which filters `status = 'approved'`, and
+ * `composeEventBrands` then drops every unresolved slug. Counting raw join rows
+ * advertises "12 brands" on a card whose grid announces 9. The embed is `!inner`
+ * plus an explicit `brands.status` filter, matching `EVENT_BRAND_SELECT`.
+ */
+const EVENT_BRAND_COUNT_SELECT = "event_id, brands!inner(status)";
+
 // ---------------------------------------------------------------------------
 // Dates
 // ---------------------------------------------------------------------------
 
+const TAIPEI_TIME_ZONE = "Asia/Taipei";
+
 /**
+ * Today's Taipei calendar date as `'YYYY-MM-DD'`.
+ *
  * `date` columns come back as `'YYYY-MM-DD'` strings and that is how they stay:
  * parsing one into a `Date` re-interprets a Taipei calendar day as UTC midnight,
  * which renders (and emits as schema.org `startDate`) one day early for every
  * reader west of Taipei. Zero-padded ISO dates also compare correctly with plain
  * `<` / `>`, so no arithmetic is needed anywhere in this module.
+ *
+ * `isoDateInTimeZone` takes a string; `toISOString()` round-trips the same
+ * instant, so the Taipei calendar day is unchanged.
  */
-const TAIPEI_DATE_FORMAT = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "Asia/Taipei",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-});
-
-/** Today's Taipei calendar date as `'YYYY-MM-DD'`. */
 export function taipeiToday(now: Date = new Date()): string {
-  return TAIPEI_DATE_FORMAT.format(now);
+  return isoDateInTimeZone(now.toISOString(), TAIPEI_TIME_ZONE);
 }
 
 /**
@@ -325,6 +335,43 @@ export function deriveAreaOptions(
 
 type ServiceClient = ReturnType<typeof createServiceClient>;
 
+/**
+ * PostgREST caps one response at `max_rows` (1000 — supabase/config.toml, and
+ * the same on the hosted default) and returns the truncated page with HTTP 200:
+ * `error` stays null, so the throw-on-error convention above never fires and the
+ * caller silently sees a short list. Any read here that is not bounded by a
+ * unique key therefore pages explicitly with `.range()`.
+ */
+const PAGE_SIZE = 1000;
+
+type PageResult = { data: unknown; error: { message: string } | null };
+
+/**
+ * Runs `page(from, to)` until a short page comes back, concatenating the rows.
+ * The caller's query must carry a total ordering, or a row can shift between
+ * pages and be counted twice or missed.
+ */
+async function fetchAllPages<Row>(
+  queryName: string,
+  failure: string,
+  page: (from: number, to: number) => PromiseLike<PageResult>,
+): Promise<Row[]> {
+  const collected: Row[] = [];
+
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await page(from, from + PAGE_SIZE - 1);
+
+    if (error) {
+      console.error(`${queryName} query error:`, error);
+      throw new Error(`${failure}: ${error.message}`);
+    }
+
+    const rows = (data ?? []) as unknown as Row[];
+    collected.push(...rows);
+    if (rows.length < PAGE_SIZE) return collected;
+  }
+}
+
 export async function fetchPublishedEvents(
   supabase: ServiceClient,
 ): Promise<Event[]> {
@@ -373,21 +420,26 @@ export async function fetchEventBrandLinks(
   supabase: ServiceClient,
   slug: string,
 ): Promise<EventBrandLink[]> {
-  const { data, error } = await supabase
-    .from("event_brands")
-    .select(EVENT_BRAND_SELECT)
-    .eq("events.slug", slug)
-    .eq("events.status", "published")
-    .order("sort_order");
-
-  if (error) {
-    console.error("fetchEventBrandLinks query error:", error);
-    throw new Error(`Failed to fetch lineup for ${slug}: ${error.message}`);
-  }
+  const rows = await fetchAllPages<EventBrandJoinRow>(
+    "fetchEventBrandLinks",
+    `Failed to fetch lineup for ${slug}`,
+    (from, to) =>
+      supabase
+        .from("event_brands")
+        .select(EVENT_BRAND_SELECT)
+        .eq("events.slug", slug)
+        .eq("events.status", "published")
+        .order("sort_order")
+        // `sort_order` is not unique, so it cannot page on its own: equal rows
+        // could reorder between pages and be duplicated or skipped. `id` is the
+        // tiebreak the `(event_id, sort_order, id)` index already carries.
+        .order("id")
+        .range(from, to),
+  );
 
   // Cast at the boundary: the generated types describe the `event_brands` row,
   // not this embed-shaped projection.
-  return ((data ?? []) as unknown as EventBrandJoinRow[])
+  return rows
     .map(eventBrandRowToDomain)
     .filter((link): link is EventBrandLink => link !== null);
 }
@@ -396,29 +448,32 @@ export async function fetchEventBrandLinks(
  * Brand counts for the hub, as one grouped query over every event on the page
  * rather than one `count` per event — constant in event count.
  *
- * Ceiling: this pulls one row per (event, brand) pair and counts them in
- * memory. Fine at directory scale (a few hundred events x tens of brands);
- * above roughly 5k join rows, move it to an RPC that does `group by event_id`
- * in Postgres and returns one row per event.
+ * Ceiling: this pulls one row per (event, approved brand) pair and counts them
+ * in memory, paging around `max_rows`. Fine at directory scale (a few hundred
+ * events x tens of brands); once the paging costs more than one round trip,
+ * move it to an RPC that does `group by event_id` in Postgres.
  */
 export async function fetchEventBrandCounts(
   supabase: ServiceClient,
-  eventIdKey: string,
+  eventIds: string[],
 ): Promise<Map<string, number>> {
-  const eventIds = eventIdKey.split("\n");
-
-  const { data, error } = await supabase
-    .from("event_brands")
-    .select("event_id")
-    .in("event_id", eventIds);
-
-  if (error) {
-    console.error("fetchEventBrandCounts query error:", error);
-    throw new Error(`Failed to count event brands: ${error.message}`);
-  }
+  const rows = await fetchAllPages<{ event_id: string }>(
+    "fetchEventBrandCounts",
+    "Failed to count event brands",
+    (from, to) =>
+      supabase
+        .from("event_brands")
+        .select(EVENT_BRAND_COUNT_SELECT)
+        .in("event_id", eventIds)
+        .eq("brands.status", "approved")
+        // `id` is the primary key, so ordering on it alone is total — required
+        // for the paging above to neither duplicate nor skip a row.
+        .order("id")
+        .range(from, to),
+  );
 
   const counts = new Map<string, number>();
-  for (const row of (data ?? []) as unknown as Array<{ event_id: string }>) {
+  for (const row of rows) {
     counts.set(row.event_id, (counts.get(row.event_id) ?? 0) + 1);
   }
   return counts;
@@ -461,19 +516,21 @@ export async function getEventBrandEntries(
   return composeEventBrands(links, brands);
 }
 
-/** Deduped and sorted, so call order cannot fork one lookup into two. */
-export function eventBrandCountsCacheKey(eventIds: string[]): string {
-  return [...new Set(eventIds)].sort().join("\n");
-}
-
+/**
+ * `brandsBySlugsCacheKey` is the same dedupe-sort-join on a list of opaque
+ * kebab/uuid strings, so it is reused rather than copied — its contract is the
+ * cache key, not the brand-ness of what it keys.
+ *
+ * The encoding stays inside this wrapper: `fetchEventBrandCounts` takes ids.
+ */
 const getEventBrandCountsByKey = cache(
   (eventIdKey: string): Promise<Map<string, number>> =>
-    fetchEventBrandCounts(createServiceClient(), eventIdKey),
+    fetchEventBrandCounts(createServiceClient(), eventIdKey.split("\n")),
 );
 
 export async function getEventBrandCounts(
   eventIds: string[],
 ): Promise<Map<string, number>> {
   if (eventIds.length === 0) return new Map();
-  return getEventBrandCountsByKey(eventBrandCountsCacheKey(eventIds));
+  return getEventBrandCountsByKey(brandsBySlugsCacheKey(eventIds));
 }

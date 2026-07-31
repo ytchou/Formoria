@@ -28,11 +28,17 @@ type EventBrandGridProps = {
  * whole point of the page, so only the seed sits behind the boundary.
  */
 function AreaParamSeed({
-  allowedKey,
+  areaOptions,
   onSeed,
 }: {
-  /** Newline-joined valid area values — a primitive, so the effect deps are stable. */
-  allowedKey: string
+  /**
+   * Compared by identity in the effect deps, deliberately not flattened into a
+   * joined string first: `areaOptions` is a prop of a server-rendered parent and
+   * `onSeed` is a `useState` setter, so both are already stable. Encoding the
+   * values into one delimited string only made the allowlist lossy — an area
+   * containing the delimiter would split into entries that are not real areas.
+   */
+  areaOptions: EventAreaOption[]
   onSeed: (area: string) => void
 }) {
   const searchParams = useSearchParams()
@@ -43,10 +49,9 @@ function AreaParamSeed({
     // An `?area=` naming an area this event does not have is ignored rather
     // than applied: applying it would render an empty grid for a link that
     // looks legitimate.
-    const allowed = allowedKey ? allowedKey.split('\n') : []
-    if (!allowed.includes(requested)) return
+    if (!areaOptions.some((option) => option.value === requested)) return
     onSeed(requested)
-  }, [allowedKey, onSeed, requested])
+  }, [areaOptions, onSeed, requested])
 
   return null
 }
@@ -60,11 +65,6 @@ export function EventBrandGrid({
   const t = useTranslations('events')
   const [activeArea, setActiveArea] = useState<string | null>(null)
   const isEnglish = locale === 'en'
-
-  const allowedKey = useMemo(
-    () => areaOptions.map((option) => option.value).join('\n'),
-    [areaOptions],
-  )
 
   const applyArea = useCallback((next: string | null) => {
     setActiveArea(next)
@@ -96,7 +96,7 @@ export function EventBrandGrid({
   return (
     <div className="space-y-6">
       <Suspense fallback={null}>
-        <AreaParamSeed allowedKey={allowedKey} onSeed={setActiveArea} />
+        <AreaParamSeed areaOptions={areaOptions} onSeed={setActiveArea} />
       </Suspense>
 
       <div className="space-y-3">

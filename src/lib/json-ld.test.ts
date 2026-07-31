@@ -473,6 +473,48 @@ describe("buildEventJsonLd", () => {
     });
   });
 
+  it("buildEventJsonLd_location_survives_a_missing_venue_name", () => {
+    // `venue_name`, `venue_address` and `city` are independently nullable, so a
+    // curator who fills only the address must still get a `location`: it is a
+    // required property of Google's Event rich result, and schema.org does NOT
+    // require `Place.name`. Gating the whole block on the name silently dropped
+    // both the requirement and the address that was actually entered.
+    const addressOnly = buildEventJsonLd(makeEventInput({ venueName: null }));
+    expect(addressOnly.location).toEqual({
+      "@type": "Place",
+      address: {
+        "@type": "PostalAddress",
+        streetAddress: "光復南路 133 號",
+        addressLocality: "台北市",
+        addressCountry: "TW",
+      },
+    });
+    expect("name" in addressOnly.location).toBe(false);
+
+    // City alone is enough for an `addressLocality`-only Place.
+    const cityOnly = buildEventJsonLd(
+      makeEventInput({ venueName: null, venueAddress: null }),
+    );
+    expect(cityOnly.location).toEqual({
+      "@type": "Place",
+      address: {
+        "@type": "PostalAddress",
+        addressLocality: "台北市",
+        addressCountry: "TW",
+      },
+    });
+  });
+
+  it("buildEventJsonLd_named_venue_without_address_has_no_address_key", () => {
+    // The inverse gap: a name with nothing to put in the PostalAddress emits
+    // the Place alone rather than an address stub carrying only `addressCountry`.
+    const ld = buildEventJsonLd(
+      makeEventInput({ venueAddress: null, city: null }),
+    );
+    expect(ld.location).toEqual({ "@type": "Place", name: "松山文創園區" });
+    expect("address" in ld.location).toBe(false);
+  });
+
   it("omits organizer and image entirely when null", () => {
     const ld = buildEventJsonLd(
       makeEventInput({ organizerName: null, imageUrl: null }),

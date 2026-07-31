@@ -4,7 +4,7 @@
  * The files are JSON, not TS: an event is pure data, a JSON diff is readable in
  * review, and a data file cannot execute anything when the seeder imports it.
  *
- * The run is idempotent and the source of truth is the file:
+ * The run is idempotent and re-running it changes nothing:
  *   1. every file is parsed and validated FIRST — one bad file aborts the run
  *      before anything is written, so a typo can never half-apply;
  *   2. events are upserted on `slug`;
@@ -12,11 +12,20 @@
  *   4. lineup rows are upserted on `(event_id, brand_id)`;
  *   5. lineup rows no longer named by the file are PRUNED.
  *
+ * The file is the source of truth for ONE thing: an event's lineup. It is not
+ * the source of truth for which events exist. Deleting a file does not unpublish
+ * or delete its event — the row simply stops being touched — and an empty
+ * directory exits early having done nothing at all. Unpublishing is a manual
+ * `status` change (set `"status": "hidden"` in the file and re-run, or edit the
+ * row directly).
+ *
  * Step 5 is not optional. Without it, deleting a brand from the JSON leaves it
  * on the page forever and the file stops describing what is live — the way
  * naive seed scripts rot. Its semantics are deliberately asymmetric:
  *   - `"brands": []`  → prune everything (an explicitly empty lineup)
  *   - `brands` absent → prune nothing (an event stub can land before curation)
+ *   - any unresolvable slug in the list → prune nothing for that event, because
+ *     the file's intent is then unknown (see `planEventSeed`)
  *
  * No `status = 'approved'` filter is applied to brand resolution, deliberately:
  * a pending brand can be curated into a lineup in advance and simply will not
@@ -29,6 +38,8 @@
 import { readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { requestEventRevalidation } from '@/lib/cache/revalidate-client'
+import { isSupabaseStorageUrl, isValidSlug } from '@/lib/services/brands'
+import { EVENT_STATUSES, type EventStatus } from '@/lib/services/events'
 import { createServiceClient } from '@/lib/supabase/server'
 
 // ---------------------------------------------------------------------------
@@ -102,10 +113,11 @@ export type ParsedEvent = {
   brands: EventBrandInput[] | null
 }
 
-const EVENT_STATUSES = ['draft', 'published', 'hidden'] as const
-export type EventStatus = (typeof EVENT_STATUSES)[number]
-
-/** Mirrors the `events.slug` check constraint in 20260731090000_events.sql. */
+/**
+ * Mirrors the `events.slug` check constraint in 20260731090000_events.sql. It
+ * applies to the event's OWN slug only — `brands.slug` has no CHECK constraint
+ * and its canonical rule is `isValidSlug`, which allows shorter slugs.
+ */
 const EVENT_SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{2,79}$/
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 /** Mirrors the `summary` check constraint. Caught here so the DB never has to. */
@@ -168,27 +180,6 @@ function optionalUrl(
 }
 
 /**
- * Same rule as `isSupabaseStorageUrl` in src/lib/services/brands.ts: our own
- * Storage origin, or any `*.supabase.co` host serving `/storage/`. Hotlinking a
- * third-party host is what the brand-image repair pass had to undo — an event
- * hero has to be mirrored into our bucket before it is seeded, not linked.
- */
-function isSupabaseStorageUrl(url: string): boolean {
-  const configured = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()
-  if (configured && url.startsWith(`${configured}/storage/`)) return true
-
-  try {
-    const parsed = new URL(url)
-    return (
-      parsed.hostname.toLowerCase().endsWith('.supabase.co') &&
-      parsed.pathname.startsWith('/storage/')
-    )
-  } catch {
-    return false
-  }
-}
-
-/**
  * Rejects `2026-02-31` as well as the wrong shape: the DB would take the shape
  * check but bounce the impossible day, and that error arrives with no file name.
  */
@@ -221,7 +212,11 @@ function parseBrandEntry(
   }
   const input = entry as Record<string, unknown>
   const slug = requiredString(fileName, `brands[${index}].slug`, input.slug)
-  if (!EVENT_SLUG_PATTERN.test(slug)) {
+  // The BRAND rule, not the event one: `brands.slug` has no CHECK constraint and
+  // `isValidSlug` is what the brand service enforces on write. Validating a
+  // brand slug against EVENT_SLUG_PATTERN (min 3 chars) rejected legitimate
+  // 2-character brands and aborted the whole run before any client was created.
+  if (!isValidSlug(slug)) {
     throw fail(
       fileName,
       `brands[${index}].slug is not a valid brand slug: "${slug}"`,
@@ -287,6 +282,9 @@ export function parseEventFile(fileName: string, raw: unknown): ParsedEvent {
   }
 
   const heroImageUrl = optionalUrl(fileName, 'heroImageUrl', input.heroImageUrl)
+  // Hotlinking a third-party host is what the brand-image repair pass had to
+  // undo — an event hero is mirrored into our bucket before it is seeded, not
+  // linked. Same predicate the brand service uses, imported rather than copied.
   if (heroImageUrl && !isSupabaseStorageUrl(heroImageUrl)) {
     throw fail(
       fileName,
@@ -387,7 +385,10 @@ export type EventSeedPlan = {
   eventSlug: string
   eventId: string
   upsertRows: EventBrandRowPayload[]
-  /** Brand ids on the event today that the file no longer names. */
+  /**
+   * Brand ids on the event today that the file no longer names. Always empty
+   * when `unknownBrandSlugs` is non-empty — see `planEventSeed`.
+   */
   deleteBrandIds: string[]
   /** Slugs with no matching brand row — the run warns and exits non-zero. */
   unknownBrandSlugs: string[]
@@ -452,11 +453,19 @@ export function planEventSeed(input: {
     })
   }
 
+  // An unresolvable slug makes the file's intent for this lineup unknown, so
+  // NOTHING is pruned: the brand was very likely renamed (four
+  // brand_slug_redirects migrations say renames are a supported flow), its id
+  // never lands in `keep`, and pruning would delete a still-valid curated row —
+  // booth, area, note and sort_order — on the strength of a stale slug. The
+  // warning plus the non-zero exit are what force the file to be fixed.
+  //
   // Sorted so a dry-run preview and the live run report the same rows in the
   // same order regardless of how Postgres returned the existing lineup.
-  const deleteBrandIds = existingBrandIds
-    .filter((brandId) => !keep.has(brandId))
-    .sort()
+  const deleteBrandIds =
+    unknownBrandSlugs.length > 0
+      ? []
+      : existingBrandIds.filter((brandId) => !keep.has(brandId)).sort()
 
   return {
     eventSlug,
@@ -484,6 +493,42 @@ type JoinRow = { event_id: string; brand_id: string }
  */
 function rows<T>(data: unknown): T[] {
   return (data ?? []) as T[]
+}
+
+/**
+ * supabase-js serializes `.in()` into the GET query string, so a 400-brand
+ * lineup produces a >8KB request URI that the fronting proxy answers with a
+ * bare HTTP 414 — no PostgREST error body, and a failure mode that only appears
+ * once a lineup gets large. Every `.in()` list in this script is chunked.
+ */
+const IN_CHUNK_SIZE = 100
+
+function chunked<T>(values: T[], size = IN_CHUNK_SIZE): T[][] {
+  const chunks: T[][] = []
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size))
+  }
+  return chunks
+}
+
+/**
+ * Runs one `.in()` select per chunk and concatenates the rows, keeping the
+ * `{ data, error }` shape every call site already handles. Stops at the first
+ * failing chunk: a partial read must not be mistaken for the full set.
+ */
+async function selectInChunks<T>(
+  values: string[],
+  select: (chunk: string[]) => PromiseLike<{ data: unknown; error: unknown }>,
+): Promise<{ data: T[]; error: unknown }> {
+  const collected: T[] = []
+
+  for (const chunk of chunked(values)) {
+    const { data, error } = await select(chunk)
+    if (error) return { data: collected, error }
+    collected.push(...rows<T>(data))
+  }
+
+  return { data: collected, error: null }
 }
 
 async function loadEventFiles(directory: string): Promise<ParsedEvent[]> {
@@ -558,6 +603,10 @@ async function main(): Promise<void> {
   const eventIdsBySlug = new Map<string, string>(
     rows<IdSlugRow>(existingEventRows).map((row) => [row.slug, row.id]),
   )
+  // Snapshot before the upsert writes new ids into the map: an event that
+  // already had a row may have been public a minute ago, which is what decides
+  // whether its path still needs revalidating after an unpublish.
+  const preExistingSlugs = new Set(eventIdsBySlug.keys())
   const newEventCount = events.filter(
     (event) => !eventIdsBySlug.has(event.row.slug),
   ).length
@@ -581,8 +630,9 @@ async function main(): Promise<void> {
     }
   }
 
-  // 2. Every brand slug in every file, in ONE query. No per-brand lookups, and
-  //    deliberately no status filter — see the header.
+  // 2. Every brand slug in every file, batched — no per-brand lookups, and
+  //    deliberately no status filter (see the header). `selectInChunks` keeps
+  //    this the only brand-slug `.in(...)` call site in the script.
   const brandSlugs = [
     ...new Set(
       events.flatMap((event) =>
@@ -592,15 +642,15 @@ async function main(): Promise<void> {
   ]
   const brandIdsBySlug = new Map<string, string>()
   if (brandSlugs.length > 0) {
-    const { data: brandRows, error: brandsError } = await supabase
-      .from('brands')
-      .select('id, slug')
-      .in('slug', brandSlugs)
+    const { data: brandRows, error: brandsError } = await selectInChunks<IdSlugRow>(
+      brandSlugs,
+      (chunk) => supabase.from('brands').select('id, slug').in('slug', chunk),
+    )
     if (brandsError) {
       console.error('Failed to resolve brand slugs:', brandsError)
       process.exit(1)
     }
-    for (const row of rows<IdSlugRow>(brandRows)) {
+    for (const row of brandRows) {
       brandIdsBySlug.set(row.slug, row.id)
     }
   }
@@ -611,15 +661,21 @@ async function main(): Promise<void> {
     .filter((id): id is string => Boolean(id))
   const existingBrandIdsByEvent = new Map<string, string[]>()
   if (knownEventIds.length > 0) {
-    const { data: joinRows, error: joinError } = await supabase
-      .from('event_brands')
-      .select('event_id, brand_id')
-      .in('event_id', knownEventIds)
+    // Ceiling: PostgREST caps one response at `max_rows` (1000), so a chunk of
+    // 100 events whose lineups total more than that comes back truncated with
+    // HTTP 200. That under-reports the existing lineup, which only ever means
+    // pruning less than it could — never deleting a row it should have kept.
+    // Shrink IN_CHUNK_SIZE, or page with `.range()`, if lineups get that big.
+    const { data: joinRows, error: joinError } = await selectInChunks<JoinRow>(
+      knownEventIds,
+      (chunk) =>
+        supabase.from('event_brands').select('event_id, brand_id').in('event_id', chunk),
+    )
     if (joinError) {
       console.error('Failed to read existing lineups:', joinError)
       process.exit(1)
     }
-    for (const row of rows<JoinRow>(joinRows)) {
+    for (const row of joinRows) {
       const bucket = existingBrandIdsByEvent.get(row.event_id) ?? []
       bucket.push(row.brand_id)
       existingBrandIdsByEvent.set(row.event_id, bucket)
@@ -686,21 +742,50 @@ async function main(): Promise<void> {
   //    than with a lineup that was deleted and never rewritten.
   for (const plan of plans) {
     if (plan.deleteBrandIds.length === 0) continue
-    const { error: deleteError } = await supabase
-      .from('event_brands')
-      .delete()
-      .eq('event_id', plan.eventId)
-      .in('brand_id', plan.deleteBrandIds)
-    if (deleteError) {
-      console.error(`Failed to prune lineup for ${plan.eventSlug}:`, deleteError)
-      process.exit(1)
+    // Chunked like every other `.in()` here: a long delete list overflows the
+    // request URI just as readily as a long select.
+    for (const chunk of chunked(plan.deleteBrandIds)) {
+      const { error: deleteError } = await supabase
+        .from('event_brands')
+        .delete()
+        .eq('event_id', plan.eventId)
+        .in('brand_id', chunk)
+      if (deleteError) {
+        console.error(
+          `Failed to prune lineup for ${plan.eventSlug}:`,
+          deleteError,
+        )
+        process.exit(1)
+      }
     }
   }
 
   // Out-of-Next ISR trigger: this process has no request context, so
   // revalidatePath does not exist here. Never throws — a misconfigured laptop
   // degrades to a warning and the writes above still stand.
-  await requestEventRevalidation(events.map((event) => event.row.slug))
+  //
+  // A brand-new draft or hidden event is skipped: it has no public page and no
+  // hub entry, so there is nothing cached to refresh. An event that already had
+  // a row is always sent, published or not — publishing is a status flip, and
+  // an unpublish that skipped revalidation would keep serving the live page and
+  // listing it on the hub for the full ISR window.
+  const revalidateSlugs = events
+    .filter(
+      (event) =>
+        event.row.status === 'published' ||
+        preExistingSlugs.has(event.row.slug),
+    )
+    .map((event) => event.row.slug)
+  const revalidation = await requestEventRevalidation(revalidateSlugs)
+  // Reported, not swallowed: the writes landed but the site keeps serving
+  // pre-seed HTML for the full revalidate window, and a clean exit code would
+  // tell CI the run fully succeeded.
+  if (!revalidation.ok) {
+    console.error(
+      `Revalidation failed (${revalidation.reason ?? 'unknown'}): /events pages will serve stale HTML until the next ISR window. Fix the cause and re-run, or revalidate manually.`,
+    )
+    process.exitCode = 1
+  }
 
   console.log('\nDone.')
   if (unknownBrandSlugs.length > 0) {

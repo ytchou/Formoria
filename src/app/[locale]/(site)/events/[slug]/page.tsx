@@ -11,6 +11,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { Link } from '@/i18n/navigation'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
+import { safeDecodeSlug } from '@/lib/url'
 import {
   deriveAreaOptions,
   getEventBrandEntries,
@@ -71,11 +72,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { locale, slug: rawSlug } = await params
   // Event slugs are ASCII kebab-case today, but the route param arrives
   // percent-encoded whenever a link is built with `encodeURIComponent`, and the
-  // DB lookup is on the decoded value.
-  const slug = decodeURIComponent(rawSlug)
+  // DB lookup is on the decoded value. `safeDecodeSlug` rather than a bare
+  // `decodeURIComponent`: the latter throws `URIError` on a malformed escape
+  // (`/events/%zz`), which surfaces as a 500 through the error boundary — and
+  // one error report per crawler probe — instead of the 404 that request
+  // deserves.
+  const slug = safeDecodeSlug(rawSlug)
   setRequestLocale(locale)
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
-  const event = await getPublishedEventBySlug(slug)
+  const event = slug ? await getPublishedEventBySlug(slug) : null
 
   if (!event) {
     notFound()
@@ -87,18 +92,24 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   // An event with no English name has no English edition: `/en/events/<slug>`
   // would serve byte-identical zh-TW copy, and a self-referencing canonical
-  // there enters the index as a duplicate of the prefix-free URL. Pinning the
-  // available locales to zh-TW folds the two into one entry. Events that DO
-  // carry English copy advertise both, unlike `/stories/[slug]`, which is
-  // zh-TW-only across the board.
+  // there enters the index as a duplicate of the prefix-free URL. So that case
+  // pins the canonical to 'zh-TW' on BOTH routes, folding the two into one
+  // entry and matching the sitemap, which lists only the zh-TW URL for such an
+  // event. The pin has to be made through the LOCALE argument: `buildAlternates`
+  // derives the canonical from `locale` alone (`src/lib/seo/alternates.ts`), and
+  // `availableLocales` only shapes the `languages` map — narrowing that list
+  // while passing `safeLocale` would leave `/en` self-canonicalizing with no
+  // self-reference in its own hreflang cluster. Same shape as
+  // `/stories/[slug]`, which is zh-TW-only across the board. Events that DO
+  // carry English copy self-canonicalize per locale and advertise both.
   const { canonical, languages } = buildAlternates(
     `/events/${event.slug}`,
-    safeLocale,
+    event.nameEn ? safeLocale : 'zh-TW',
     event.nameEn ? ['zh-TW', 'en'] : ['zh-TW'],
   )
 
   // Note the absence of a `robots: { index: false }` branch for past events.
-  // Retrospective discovery ("who exhibited at 文博會 2026?") is a first-class
+  // Retrospective discovery ("who exhibited at Creative Expo 2026?") is a first-class
   // reason this surface exists. Google drops finished events from Event rich
   // results on its own; the page itself stays indexable.
   return {
@@ -110,10 +121,16 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function EventDetailPage({ params }: PageProps) {
   const { locale, slug: rawSlug } = await params
-  const slug = decodeURIComponent(rawSlug)
+  // Same guard as `generateMetadata`: a malformed percent-escape is a 404, not
+  // a `URIError` turned into a 500 by the error boundary.
+  const slug = safeDecodeSlug(rawSlug)
   setRequestLocale(locale)
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
   const isEnglish = safeLocale === 'en'
+
+  if (!slug) {
+    notFound()
+  }
 
   // Run together, not serially: `getEventBrandEntries` resolves the event by
   // slug inside its own query (`events!inner`), so it has no dependency on the
@@ -142,7 +159,15 @@ export default async function EventDetailPage({ params }: PageProps) {
 
   // Events and stories join by convention: the event slug IS the story series
   // name. No FK, so a missing series is the normal case, not an error.
-  const seriesResult = await getStorySeries(slug)
+  //
+  // The request locale is passed through, never left to the `'zh-TW'` default:
+  // `getStorySeries` resolves against ONE published set, so an English reader
+  // would otherwise be handed zh-TW story titles while an `en`-authored story
+  // in this series never surfaced on `/en` at all. `/stories/[slug]` makes the
+  // same call for the same reason (it resolves the story's own authored locale;
+  // here the event page has both editions, so the request locale is the set to
+  // ask for).
+  const seriesResult = await getStorySeries(slug, safeLocale)
   const relatedStories = seriesResult.ok ? seriesResult.stories : []
 
   const eventJsonLd = buildEventJsonLd({

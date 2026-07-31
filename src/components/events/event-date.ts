@@ -1,4 +1,4 @@
-import { toStoryDate, toStoryIsoDate } from '@/components/stories/story-date'
+import { toStoryDate } from '@/components/stories/story-date'
 
 /**
  * Event dates share the stories' Invalid-Date guard rather than growing a
@@ -20,29 +20,45 @@ const RANGE_SEPARATOR = '–'
 
 function toCalendarParts(value: string | null | undefined): CalendarParts | null {
   if (!value) return null
-  // The single Invalid-Date gate. Everything below this line is already known
-  // to be a parseable date.
-  if (!toStoryDate(value)) return null
 
   const trimmed = value.trim()
 
-  // The service layer documents these columns as `'YYYY-MM-DD'` and never
-  // parses them into a `Date`, so the common path reads the calendar fields
-  // straight off the string. Going through a `Date` here would re-interpret a
-  // Taipei calendar day as UTC midnight and could shift it by one.
+  // `'YYYY-MM-DD'` is the ONLY accepted shape, and its calendar fields are read
+  // straight off the string. There is deliberately no fallback that normalizes
+  // another shape through a `Date`: `new Date(x).toISOString()` re-anchors the
+  // value to UTC, so `'2026-08-06T00:00:00+08:00'` (Taipei midnight) and a
+  // hand-typed `'2026/08/06'` on a UTC+8 server both come back as 2026-08-05 —
+  // the one-day-early render this module exists to prevent. Anything else is
+  // refused here and degrades to `''` at the call site, which is visibly wrong
+  // rather than silently wrong.
   const direct = ISO_DATE_PATTERN.exec(trimmed)
-  if (direct) {
-    return { year: direct[1], month: direct[2], day: direct[3] }
+  if (!direct) return null
+
+  // The shared Invalid-Date gate, still the single definition of "unusable
+  // date" across stories and events: it rejects the values V8 refuses outright,
+  // such as the month overflow in `'2026-13-01'`.
+  if (!toStoryDate(trimmed)) return null
+
+  // …but it cannot be the whole day check: V8 ROLLS OVER an out-of-range day
+  // instead of failing, so `new Date('2026-02-30')` is a perfectly valid Mar 2
+  // and would have rendered as `2026/02/30`. The round trip below is the only
+  // thing that proves the day exists — same shape as the `calendarDate` helper
+  // in `scripts/seed-events.ts`, mirrored rather than imported because that is
+  // a `tsx` node script and this module ships to the client. Note the integers
+  // come from the already-matched groups: the raw string is never re-parsed.
+  const year = Number(direct[1])
+  const month = Number(direct[2])
+  const day = Number(direct[3])
+  const parsed = new Date(Date.UTC(year, month - 1, day))
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() !== month - 1 ||
+    parsed.getUTCDate() !== day
+  ) {
+    return null
   }
 
-  // Parseable but not ISO-shaped (a full timestamp, a hand-typed `2026/08/06`).
-  // Normalized through the shared ISO serializer rather than re-deriving
-  // calendar fields — one definition of "the ISO form of this date".
-  const iso = toStoryIsoDate(trimmed)
-  const normalized = iso ? ISO_DATE_PATTERN.exec(iso.slice(0, 10)) : null
-  if (!normalized) return null
-
-  return { year: normalized[1], month: normalized[2], day: normalized[3] }
+  return { year: direct[1], month: direct[2], day: direct[3] }
 }
 
 function isSameDay(a: CalendarParts, b: CalendarParts): boolean {

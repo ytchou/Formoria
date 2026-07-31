@@ -54,12 +54,13 @@ export default async function EventsHubPage({ params }: PageProps) {
   const byPhase = partitionEventsByPhase(events, today)
   const brandCounts = await getEventBrandCounts(events.map((event) => event.id))
 
-  // Ongoing and upcoming share one section. Merging then sorting ascending by
-  // `startsOn` needs no second rule to put "happening now" first: an event that
-  // is already running started before one that has not begun.
-  const upcoming: Event[] = [...byPhase.ongoing, ...byPhase.upcoming].sort((a, b) =>
-    a.startsOn < b.startsOn ? -1 : a.startsOn > b.startsOn ? 1 : 0,
-  )
+  // Ongoing and upcoming share one section, and the plain concatenation is
+  // already globally ascending by `startsOn`: `partitionEventsByPhase` returns
+  // both buckets sorted, and an ongoing event started on or before today while
+  // an upcoming one starts after it. Re-sorting here would put a second copy of
+  // the service's comparator in a page component; the ordering rule stays in
+  // `lib/services/events.ts`, where its tests live.
+  const upcoming: Event[] = [...byPhase.ongoing, ...byPhase.upcoming]
   // Already descending by `endsOn` out of `partitionEventsByPhase` — the most
   // recently finished event reads first.
   const past = byPhase.past

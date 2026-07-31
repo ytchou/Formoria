@@ -4,6 +4,7 @@ import {
   normalizeInstagramHref,
   normalizeThreadsHref,
   normalizeToRootUrl,
+  safeDecodeSlug,
   sanitizeHref,
 } from './url'
 
@@ -116,5 +117,24 @@ describe('normalizeThreadsHref', () => {
     expect(normalizeThreadsHref('https://threads.net/@warmwood')).toBe(
       'https://threads.net/@warmwood',
     )
+  })
+})
+
+describe('safeDecodeSlug', () => {
+  it('safeDecodeSlug_decodes_percent_encoded_segments', () => {
+    expect(safeDecodeSlug('creative-expo-2026')).toBe('creative-expo-2026')
+    expect(safeDecodeSlug('%E6%96%87%E5%8D%9A%E6%9C%83')).toBe('文博會')
+    // A literal `+` is NOT a space in a path segment, unlike a query string.
+    expect(safeDecodeSlug('a+b')).toBe('a+b')
+  })
+
+  it('safeDecodeSlug_returns_null_for_malformed_escapes', () => {
+    // Bare `decodeURIComponent` throws `URIError` on each of these. Inside a
+    // route that is a 500 through the error boundary (plus error-reporting
+    // noise on every crawler probe) for what is really a "no such page".
+    for (const bad of ['%zz', '%', '%E0%A4%A', '100%']) {
+      expect(() => decodeURIComponent(bad)).toThrow(URIError)
+      expect(safeDecodeSlug(bad)).toBeNull()
+    }
   })
 })

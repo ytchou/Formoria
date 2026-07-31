@@ -41,4 +41,43 @@ describe('formatEventDateRange', () => {
     // poisoning the whole range.
     expect(formatEventDateRange('2026-08-06', 'not-a-date')).toBe('2026/08/06')
   })
+
+  it('formatEventDateRange_rejects_non_calendar_date_shapes', () => {
+    // Anything that is not a bare `'YYYY-MM-DD'` calendar day is refused rather
+    // than normalized through a `Date`. Routing these through
+    // `new Date(x).toISOString()` is what produced the very Taipei→UTC
+    // day-shift this module exists to prevent: an offset-bearing timestamp at
+    // Taipei midnight, and a slash-separated string parsed in a UTC+8 server
+    // TZ, both serialize back as the PREVIOUS day.
+    for (const shifty of [
+      '2026-08-06T00:00:00+08:00',
+      '2026-08-06T00:00:00.000+08:00',
+      '2026/08/06',
+      '2026-8-6',
+      '  2026-08-06T00:00:00+08:00  ',
+    ]) {
+      const result = formatEventDateRange(shifty, shifty)
+      expect(result).toBe('')
+      // The failure mode is a silent off-by-one, so assert the wrong day is
+      // never rendered — not merely that the result is falsy.
+      expect(result).not.toContain('08/05')
+    }
+  })
+
+  it('formatEventDateRange_rejects_iso_shaped_impossible_days', () => {
+    // The shared `toStoryDate` guard still earns its keep: these match the
+    // `YYYY-MM-DD` pattern but are not real days, and reading the fields
+    // straight off the string would render `2026/02/30`.
+    expect(formatEventDateRange('2026-02-30')).toBe('')
+    expect(formatEventDateRange('2026-13-01')).toBe('')
+
+    // A bad `endsOn` of that shape still degrades to the start date alone.
+    expect(formatEventDateRange('2026-08-06', '2026-02-30')).toBe('2026/08/06')
+  })
+
+  it('formatEventDateRange_tolerates_surrounding_whitespace', () => {
+    expect(formatEventDateRange(' 2026-08-06 ', ' 2026-08-16 ')).toBe(
+      '2026/08/06–08/16',
+    )
+  })
 })
