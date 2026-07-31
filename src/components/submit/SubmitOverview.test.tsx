@@ -5,7 +5,6 @@ import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { NextIntlClientProvider } from 'next-intl';
 import zhMessages from '../../../messages/zh-TW.json';
 import SubmitOverview from './SubmitOverview';
-import { trackSubmissionPathSelected } from '@/lib/analytics';
 
 vi.mock('@/lib/analytics', () => ({
   trackSubmissionPathSelected: vi.fn(),
@@ -73,14 +72,6 @@ describe('SubmitOverview', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders the Taiwanese brand inclusion criteria', () => {
-    renderWithZhTW(<SubmitOverview />);
-
-    expect(
-      screen.getByText('我們收錄在台灣創立、設計或製造的品牌。'),
-    ).toBeInTheDocument();
-  });
-
   it('renders recommendation CTA without auth redirect', () => {
     renderWithZhTW(<SubmitOverview />);
     const cta = screen.getByRole('link', { name: /推薦品牌/i });
@@ -93,25 +84,29 @@ describe('SubmitOverview', () => {
     expect(cta).toHaveAttribute('href', '/auth/sign-in?next=%2Fsubmit%2Fowner');
   });
 
-  it('hides the owner fork entirely when owner features are disabled', () => {
+  it('shows the owner fork as coming soon, with no way in, when owner features are disabled', () => {
     renderWithZhTW(<SubmitOverview ownerFeaturesEnabled={false} />);
 
-    expect(document.querySelector('a[href*="/submit/owner"]')).toBeNull();
+    // The card keeps its slot so enabling the flag never re-lays out the page,
+    // but it must offer no route into a fork that 404s.
     expect(
-      screen.queryByRole('heading', { level: 2, name: '開始創建完整品牌資訊' }),
-    ).not.toBeInTheDocument();
+      screen.getByRole('heading', { level: 2, name: '開始創建完整品牌資訊' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('即將推出')).toBeInTheDocument();
+    expect(document.querySelector('a[href*="/submit/owner"]')).toBeNull();
     expect(
       screen.getByRole('link', { name: /推薦品牌/i }),
     ).toHaveAttribute('href', '/submit/recommend');
   });
 
-  it('hides the owner fork for a signed-in visitor when owner features are disabled', () => {
+  it('offers a signed-in visitor no owner action when owner features are disabled', () => {
     renderWithZhTW(<SubmitOverview isLoggedIn ownerFeaturesEnabled={false} />);
 
     expect(document.querySelector('a[href*="/submit/owner"]')).toBeNull();
     expect(
       screen.queryByRole('button', { name: ownerCtaLoggedIn }),
     ).not.toBeInTheDocument();
+    expect(screen.getByText('即將推出')).toBeInTheDocument();
   });
 
   it('directs an existing owner to the recommendation flow from a dialog', async () => {

@@ -118,7 +118,7 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/feedback"
+                  href="/feature-requests"
                   prefetch={false}
                   className="type-card-description hover:text-foreground transition-colors"
                 >

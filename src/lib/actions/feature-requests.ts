@@ -10,6 +10,7 @@ import {
 } from "@/lib/services/feature-requests";
 import { createClient } from "@/lib/supabase/server";
 
+import { ensureVisitorHash, readVisitorHash } from "./visitor-identity";
 import {
   runGetMyVotedRequestIds,
   runSetFeatureRequestVote,
@@ -37,6 +38,8 @@ const deps: FeatureRequestActionDeps = {
     return user?.id ?? null;
   },
   getClientIp: async () => getClientIpFromHeaders(await headers()),
+  ensureVisitorHash,
+  readVisitorHash,
   checkRateLimit: rateLimit,
   submitFeatureRequest,
   setFeatureRequestVote,

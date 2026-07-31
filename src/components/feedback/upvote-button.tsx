@@ -1,17 +1,13 @@
 'use client'
 
-import { ChevronUp, LockKeyhole } from 'lucide-react'
-import { useRouter } from 'next/navigation'
-import { useLocale, useTranslations } from 'next-intl'
+import { ChevronUp } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import { useFeatureRequestVotes } from '@/hooks/use-feature-request-votes'
-import { usePathname } from '@/i18n/navigation'
-import { localizePath, signInHref } from '@/i18n/locale-preference'
 import { trackFeatureRequestVoted } from '@/lib/analytics'
-import { useUser } from '@/lib/auth/use-user'
 import { cn } from '@/lib/utils'
 
 type UpvoteButtonProps = {
@@ -28,10 +24,6 @@ export function UpvoteButton({
   className,
 }: UpvoteButtonProps) {
   const t = useTranslations('feedback.upvote')
-  const locale = useLocale()
-  const router = useRouter()
-  const pathname = usePathname()
-  const { user, loading: userLoading } = useUser()
   const { votedIds, loading: votesLoading, vote } = useFeatureRequestVotes()
   const [count, setCount] = useState(initialCount)
   const [syncedCount, setSyncedCount] = useState(initialCount)
@@ -48,27 +40,10 @@ export function UpvoteButton({
   }
 
   const voted = votedIds.has(requestId)
-  const signedOut = !userLoading && !user
-  const label = signedOut
-    ? t('signIn', { title })
-    : voted
-      ? t('remove', { title })
-      : t('action', { title })
+  const label = voted ? t('remove', { title }) : t('action', { title })
 
   function handleClick() {
-    if (userLoading || votesLoading || isPending) return
-
-    if (!user) {
-      // Two handoffs, because the two sign-in paths read different things:
-      // the OAuth/email-link callback reads this cookie, while the email +
-      // password form only forwards a return path when `?next=` is present.
-      const localizedPath = localizePath(pathname, locale)
-      document.cookie = `post_auth_next=${encodeURIComponent(
-        localizedPath,
-      )}; path=/; max-age=600; SameSite=Lax`
-      router.push(signInHref(pathname, locale))
-      return
-    }
+    if (votesLoading || isPending) return
 
     const previousCount = count
     const nextVoted = !voted
@@ -99,11 +74,9 @@ export function UpvoteButton({
       // No live region on purpose: the pressed state changes on the control
       // that still holds focus, so the screen reader re-announces it already.
       aria-label={label}
-      // Only the signed-in control is a toggle. Signed out, the click navigates
-      // to sign-in, and a pressed state on a navigation announces a lie.
-      aria-pressed={user ? voted : undefined}
+      aria-pressed={voted}
       aria-busy={isPending}
-      disabled={userLoading || votesLoading || isPending}
+      disabled={votesLoading || isPending}
       onClick={handleClick}
       className={cn(
         // Rest fill is warm surface, not card: a white bordered control on a
@@ -117,15 +90,7 @@ export function UpvoteButton({
       )}
       data-ph-no-autocapture
     >
-      {signedOut ? (
-        <LockKeyhole
-          data-auth-required-indicator
-          className="size-3.5 text-muted-foreground"
-          aria-hidden="true"
-        />
-      ) : (
-        <ChevronUp className="size-4" strokeWidth={voted ? 2.5 : 2} aria-hidden="true" />
-      )}
+      <ChevronUp className="size-4" strokeWidth={voted ? 2.5 : 2} aria-hidden="true" />
       <span className="type-metadata tabular-nums text-current">{count}</span>
     </Button>
   )

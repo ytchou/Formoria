@@ -28,7 +28,9 @@ vi.mock('sonner', () => ({ toast: { error: mocks.toastError } }))
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: mocks.push }) }))
 
-vi.mock('@/i18n/navigation', () => ({ usePathname: () => '/feedback' }))
+vi.mock('@/i18n/navigation', () => ({
+  usePathname: () => '/feature-requests',
+}))
 
 vi.mock('@/lib/auth/use-user', () => ({ useUser: mocks.useUser }))
 
@@ -82,33 +84,55 @@ describe('UpvoteButton', () => {
     expect(mocks.trackVoted).not.toHaveBeenCalled()
   })
 
-  it('renders the locked affordance when signed out', async () => {
+  // The board takes guest votes: a signed-out visitor gets the same toggle, and
+  // clicking it writes rather than sending them to a sign-in wall. Identity for
+  // the write is resolved server-side from the anonymous visitor cookie.
+  it('votes as a signed-out visitor instead of routing to sign-in', async () => {
     mocks.useUser.mockReturnValue({ user: null, loading: false })
-    const { container } = upvoteButton()
+    upvoteButton()
 
     const button = await screen.findByRole('button', {
-      name: `Sign in to upvote ${REQUEST_TITLE}`,
+      name: `Upvote ${REQUEST_TITLE}`,
     })
     expect(button).toHaveTextContent('7')
-    expect(
-      container.querySelector('[data-auth-required-indicator]'),
-    ).not.toBeNull()
+    await waitFor(() => expect(button).toBeEnabled())
+    expect(button).toHaveAttribute('aria-pressed', 'false')
 
-    // `?next=` is what the email + password form forwards; the cookie alone
-    // only covers the OAuth/email-link callback.
     fireEvent.click(button)
-    expect(mocks.push).toHaveBeenCalledWith(
-      `/en/auth/sign-in?next=${encodeURIComponent('/en/feedback')}`,
+
+    await waitFor(() =>
+      expect(mocks.setVote).toHaveBeenCalledWith({
+        requestId: REQUEST_ID,
+        voted: true,
+      }),
     )
-    expect(document.cookie).toContain('post_auth_next')
-    expect(mocks.setVote).not.toHaveBeenCalled()
-    // Not a toggle when signed out: the click navigates.
-    expect(button).not.toHaveAttribute('aria-pressed')
+    expect(mocks.push).not.toHaveBeenCalled()
+    expect(document.cookie).not.toContain('post_auth_next')
+    await waitFor(() => expect(button).toHaveTextContent('8'))
+    await waitFor(() => expect(button).toHaveAttribute('aria-pressed', 'true'))
+  })
+
+  // A guest's votes come back from the same action, so a signed-out board must
+  // still ask for them — short-circuiting on "no user" would render every row
+  // unpressed for a visitor who has already voted.
+  it('fetches votes for a signed-out visitor', async () => {
+    mocks.useUser.mockReturnValue({ user: null, loading: false })
+    mocks.getMyVotedRequestIds.mockResolvedValue({
+      ok: true,
+      requestIds: [REQUEST_ID],
+    })
+    upvoteButton()
+
+    await waitFor(() => expect(mocks.getMyVotedRequestIds).toHaveBeenCalled())
+    const button = await screen.findByRole('button', {
+      name: `Remove your upvote from ${REQUEST_TITLE}`,
+    })
+    await waitFor(() => expect(button).toHaveAttribute('aria-pressed', 'true'))
   })
 
   it('re-syncs the count when a fresher server value arrives', async () => {
-    // Filter chips are soft navigations and rows are keyed by id, so the same
-    // instance survives with a new `count` prop instead of remounting.
+    // A board refresh is a soft navigation and rows are keyed by id, so the
+    // same instance survives with a new `count` prop instead of remounting.
     const { rerender } = upvoteButton()
     const button = await screen.findByRole('button', {
       name: `Upvote ${REQUEST_TITLE}`,

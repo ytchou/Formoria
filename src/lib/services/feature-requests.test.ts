@@ -6,6 +6,7 @@ import type { Database } from "@/lib/supabase/database.types";
 import {
   buildFeatureRequestBoard,
   countVotesByRequest,
+  FEATURE_REQUEST_TITLE_MAX,
   listAllFeatureRequests,
   listFeatureRequests,
   mergeFeatureRequests,
@@ -13,7 +14,6 @@ import {
   setFeatureRequestVote,
   submitErrorCode,
   submitFeatureRequest,
-  type FeatureRequest,
 } from "./feature-requests";
 
 type FeatureRequestRow =
@@ -24,9 +24,9 @@ function row(overrides: Partial<FeatureRequestRow> = {}): FeatureRequestRow {
     id: "request-1",
     title: "Add a dark mode",
     body: "The board is blinding at night.",
-    category: "visitor",
     status: "open",
     submitted_by: "11111111-1111-1111-1111-111111111111",
+    guest_email: null,
     merged_into_id: null,
     is_seed: false,
     admin_note: null,
@@ -39,17 +39,13 @@ function row(overrides: Partial<FeatureRequestRow> = {}): FeatureRequestRow {
 describe("rowToFeatureRequest", () => {
   it("derives stable i18n keys for every localized seed request", () => {
     const seeds = [
-      [
-        "Generate bilingual brand stories and social copy",
-        "bilingual_brand_content",
-      ],
-      [
-        "Show which marketing channels are working",
-        "marketing_channel_insights",
-      ],
       ["Add reviews and ratings to brand pages", "brand_reviews"],
       ["Browse Taiwanese brands by occasion", "occasion_discovery"],
       ["Show nearby Taiwanese brands on a map", "nearby_brand_map"],
+      [
+        "Let brand owners claim and manage their brand page",
+        "owner_claim_flow",
+      ],
     ] as const;
 
     for (const [title, i18nKey] of seeds) {
@@ -67,7 +63,6 @@ describe("rowToFeatureRequest", () => {
         id: "request-3",
         submitted_by: "22222222-2222-2222-2222-222222222222",
         status: "shipped",
-        category: "owner",
         merged_into_id: "request-1",
         is_seed: true,
         admin_note: "shipped in 1.4",
@@ -86,12 +81,63 @@ describe("rowToFeatureRequest", () => {
       expect(projected.voteCount).toBe(3);
     }
   });
+
+  // A guest's reply-to address is internal: the board is a public RSC payload,
+  // so the projection is the boundary that keeps the address out of it.
+  it("rowToFeatureRequest omits guest_email", () => {
+    const guestEmail = "guest@example.com";
+    const inputs: FeatureRequestRow[] = [
+      row({ submitted_by: null, guest_email: guestEmail }),
+      row({ id: "request-2", guest_email: guestEmail }),
+    ];
+
+    for (const input of inputs) {
+      const projected = rowToFeatureRequest(input, 1);
+      const keys = Object.keys(projected);
+
+      expect(keys).not.toContain("guestEmail");
+      expect(keys).not.toContain("guest_email");
+      expect(JSON.stringify(projected)).not.toContain(guestEmail);
+    }
+  });
+
+  // A guest voter's `visitor_hash` is a stable per-browser identifier. It never
+  // belongs in a public RSC payload, so the projection is pinned to hold no
+  // trace of it however the vote data around it is reshaped.
+  it("rowToFeatureRequest omits visitor_hash", () => {
+    const visitorHash = "b".repeat(64);
+    // Widened deliberately: the column lives on the votes table, so this pins
+    // that the projection stays a fixed field list even if a caller ever hands
+    // it a joined row.
+    const input = { ...row({ submitted_by: null }), visitor_hash: visitorHash };
+    const projected = rowToFeatureRequest(input, 2);
+    const keys = Object.keys(projected);
+
+    expect(keys).not.toContain("visitorHash");
+    expect(keys).not.toContain("visitor_hash");
+    expect(JSON.stringify(projected)).not.toContain(visitorHash);
+  });
 });
 
 describe("buildFeatureRequestBoard", () => {
   it("buildFeatureRequestBoard excludes merged requests", () => {
     const board = buildFeatureRequestBoard(
       [row({ id: "kept" }), row({ id: "merged", merged_into_id: "kept" })],
+      [],
+    );
+
+    expect(board.map((entry) => entry.id)).toEqual(["kept"]);
+  });
+
+  // A decline is a decision already made, so the public board stops carrying
+  // it. The admin queue reads through `listAllFeatureRequests`, which does not
+  // go through this filter and still sees the row.
+  it("buildFeatureRequestBoard excludes declined requests", () => {
+    const board = buildFeatureRequestBoard(
+      [
+        row({ id: "kept", status: "open" }),
+        row({ id: "declined", status: "declined" }),
+      ],
       [],
     );
 
@@ -127,26 +173,6 @@ describe("buildFeatureRequestBoard", () => {
     expect(board.map((entry) => entry.voteCount)).toEqual([3, 2, 2, 1]);
   });
 
-  it("buildFeatureRequestBoard filters by category", () => {
-    const board = buildFeatureRequestBoard(
-      [
-        row({ id: "owner-1", category: "owner" }),
-        row({ id: "visitor-1", category: "visitor" }),
-        row({ id: "owner-2", category: "owner" }),
-      ],
-      [],
-      { category: "owner" },
-    );
-
-    expect(board.map((entry) => entry.id).sort()).toEqual([
-      "owner-1",
-      "owner-2",
-    ]);
-    expect(
-      board.every((entry: FeatureRequest) => entry.category === "owner"),
-    ).toBe(true);
-  });
-
   it("counts votes without a query per request", () => {
     const counts = countVotesByRequest([
       { request_id: "a" },
@@ -164,6 +190,31 @@ describe("submitFeatureRequest error mapping", () => {
     expect(submitErrorCode({ code: "23505" })).toBe("already_submitted");
     expect(submitErrorCode({ code: "23503" })).toBe("database_error");
     expect(submitErrorCode(null)).toBe("database_error");
+  });
+});
+
+// These run with no database on purpose: the guard returns before the service
+// client is constructed, so the bounds are pinned without an integration env.
+describe("submitFeatureRequest input guards", () => {
+  const VALID_TITLE = "Export my saved brands";
+  const VALID_BODY = "A CSV export would be enough.";
+
+  it("submitFeatureRequest rejects a body under the minimum", async () => {
+    for (const body of ["", "   ", "too short"]) {
+      await expect(
+        submitFeatureRequest({ title: VALID_TITLE, body, userId: "user-1" }),
+      ).resolves.toEqual({ ok: false, code: "invalid_input" });
+    }
+  });
+
+  it("submitFeatureRequest rejects a title past the maximum", async () => {
+    await expect(
+      submitFeatureRequest({
+        title: "x".repeat(FEATURE_REQUEST_TITLE_MAX + 1),
+        body: VALID_BODY,
+        userId: "user-1",
+      }),
+    ).resolves.toEqual({ ok: false, code: "invalid_input" });
   });
 });
 
@@ -208,7 +259,6 @@ describeWithDb("feature requests service (database)", () => {
       .from("feature_requests")
       .insert({
         title: `Test request ${randomUUID().slice(0, 8)}`,
-        category: "visitor",
         ...overrides,
       })
       .select("id")
@@ -247,8 +297,16 @@ describeWithDb("feature requests service (database)", () => {
   it("setFeatureRequestVote is idempotent", async () => {
     const requestId = await createRequest();
 
-    const first = await setFeatureRequestVote(requestId, voter, true);
-    const second = await setFeatureRequestVote(requestId, voter, true);
+    const first = await setFeatureRequestVote(
+      requestId,
+      { userId: voter },
+      true,
+    );
+    const second = await setFeatureRequestVote(
+      requestId,
+      { userId: voter },
+      true,
+    );
 
     expect(first).toEqual({ ok: true, count: 1, voted: true });
     expect(second).toEqual({ ok: true, count: 1, voted: true });
@@ -258,11 +316,51 @@ describeWithDb("feature requests service (database)", () => {
   it("setFeatureRequestVote removes the vote when voted is false", async () => {
     const requestId = await createRequest();
 
-    await setFeatureRequestVote(requestId, voter, true);
-    const removed = await setFeatureRequestVote(requestId, voter, false);
+    await setFeatureRequestVote(requestId, { userId: voter }, true);
+    const removed = await setFeatureRequestVote(
+      requestId,
+      { userId: voter },
+      false,
+    );
 
     expect(removed).toEqual({ ok: true, count: 0, voted: false });
     expect(await voteCount(requestId)).toBe(0);
+  });
+
+  // The guest path is the reason the unique constraint became two partial
+  // indexes, which is also why the write is now an insert with 23505 swallowed
+  // instead of an upsert — PostgREST cannot infer a partial index from an
+  // `onConflict` list, so only a real database proves this stayed idempotent.
+  it("setFeatureRequestVote dedups a guest vote by visitor hash", async () => {
+    const requestId = await createRequest();
+    const visitorHash = randomUUID().replace(/-/g, "").repeat(2);
+
+    const first = await setFeatureRequestVote(requestId, { visitorHash }, true);
+    const second = await setFeatureRequestVote(requestId, { visitorHash }, true);
+
+    expect(first).toEqual({ ok: true, count: 1, voted: true });
+    expect(second).toEqual({ ok: true, count: 1, voted: true });
+    expect(await voteCount(requestId)).toBe(1);
+
+    const removed = await setFeatureRequestVote(
+      requestId,
+      { visitorHash },
+      false,
+    );
+    expect(removed).toEqual({ ok: true, count: 0, voted: false });
+    expect(await voteCount(requestId)).toBe(0);
+  });
+
+  // An account and a guest voting on the same request are two distinct voters,
+  // and neither partial index may collapse them into one.
+  it("setFeatureRequestVote counts an account and a guest separately", async () => {
+    const requestId = await createRequest();
+    const visitorHash = randomUUID().replace(/-/g, "").repeat(2);
+
+    await setFeatureRequestVote(requestId, { userId: voter }, true);
+    const guest = await setFeatureRequestVote(requestId, { visitorHash }, true);
+
+    expect(guest).toEqual({ ok: true, count: 2, voted: true });
   });
 
   it("setFeatureRequestVote rejects a merged request", async () => {
@@ -272,7 +370,9 @@ describeWithDb("feature requests service (database)", () => {
       status: "duplicate",
     });
 
-    await expect(setFeatureRequestVote(merged, voter, true)).resolves.toEqual({
+    await expect(
+      setFeatureRequestVote(merged, { userId: voter }, true),
+    ).resolves.toEqual({
       ok: false,
       code: "merged",
     });
@@ -282,7 +382,6 @@ describeWithDb("feature requests service (database)", () => {
     const result = await submitFeatureRequest({
       title: "Export my saved brands",
       body: "A CSV would do.",
-      category: "visitor",
       userId: voter,
     });
 
@@ -301,20 +400,17 @@ describeWithDb("feature requests service (database)", () => {
   // The SQL-side clauses live in the query builder, not in the pure assembler
   // above, so they can only be pinned against a real database — mocking
   // `@/lib/supabase/*` is forbidden by scripts/check-test-boundaries.mjs.
-  it("listFeatureRequests applies the merged, category and limit clauses", async () => {
-    const target = await createRequest({ category: "visitor" });
+  it("listFeatureRequests applies the merged and limit clauses", async () => {
+    const target = await createRequest();
     const merged = await createRequest({
-      category: "visitor",
       merged_into_id: target,
       status: "duplicate",
     });
-    const owner = await createRequest({ category: "owner" });
 
-    const visitors = await listFeatureRequests({ category: "visitor" });
-    const visitorIds = visitors.map((entry) => entry.id);
-    expect(visitorIds).toContain(target);
-    expect(visitorIds).not.toContain(merged);
-    expect(visitorIds).not.toContain(owner);
+    const board = await listFeatureRequests();
+    const boardIds = board.map((entry) => entry.id);
+    expect(boardIds).toContain(target);
+    expect(boardIds).not.toContain(merged);
 
     const limited = await listFeatureRequests({ limit: 1 });
     expect(limited).toHaveLength(1);
@@ -338,8 +434,8 @@ describeWithDb("feature requests service (database)", () => {
     const sourceVoter = await createUser();
     const targetVoter = await createUser();
 
-    await setFeatureRequestVote(source, sourceVoter, true);
-    await setFeatureRequestVote(target, targetVoter, true);
+    await setFeatureRequestVote(source, { userId: sourceVoter }, true);
+    await setFeatureRequestVote(target, { userId: targetVoter }, true);
 
     const result = await mergeFeatureRequests(source, target);
 
@@ -356,15 +452,35 @@ describeWithDb("feature requests service (database)", () => {
     expect(data?.status).toBe("duplicate");
   });
 
+  // Guest votes are matched on a different column than account votes, so the
+  // re-point step runs as two statements. Without the second one a merge would
+  // silently delete every guest vote on the source.
+  it("mergeFeatureRequests re-points guest votes", async () => {
+    const source = await createRequest();
+    const target = await createRequest();
+    const movingGuest = randomUUID().replace(/-/g, "").repeat(2);
+    const overlappingGuest = randomUUID().replace(/-/g, "").repeat(2);
+
+    await setFeatureRequestVote(source, { visitorHash: movingGuest }, true);
+    await setFeatureRequestVote(source, { visitorHash: overlappingGuest }, true);
+    await setFeatureRequestVote(target, { visitorHash: overlappingGuest }, true);
+
+    const result = await mergeFeatureRequests(source, target);
+
+    expect(result).toEqual({ ok: true, movedVotes: 1 });
+    expect(await voteCount(target)).toBe(2);
+    expect(await voteCount(source)).toBe(0);
+  });
+
   it("mergeFeatureRequests survives an overlapping voter", async () => {
     const source = await createRequest();
     const target = await createRequest();
     const overlapping = await createUser();
     const sourceOnly = await createUser();
 
-    await setFeatureRequestVote(source, overlapping, true);
-    await setFeatureRequestVote(target, overlapping, true);
-    await setFeatureRequestVote(source, sourceOnly, true);
+    await setFeatureRequestVote(source, { userId: overlapping }, true);
+    await setFeatureRequestVote(target, { userId: overlapping }, true);
+    await setFeatureRequestVote(source, { userId: sourceOnly }, true);
 
     const result = await mergeFeatureRequests(source, target);
 

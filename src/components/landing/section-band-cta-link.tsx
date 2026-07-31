@@ -6,15 +6,16 @@ import { trackCtaClicked } from '@/lib/analytics'
 interface SectionBandCtaLinkProps {
   href: string
   label: string
+  ctaName: string
   className?: string
 }
 
-export function SectionBandCtaLink({ href, label, className }: SectionBandCtaLinkProps) {
+export function SectionBandCtaLink({ href, label, ctaName, className }: SectionBandCtaLinkProps) {
   return (
     <Link
       href={href}
       data-ph-no-autocapture
-      onClick={() => trackCtaClicked('submit_brand', 'section_band', href, '/')}
+      onClick={() => trackCtaClicked(ctaName, 'section_band', href, '/')}
       className={className}
     >
       {label}

@@ -109,7 +109,10 @@ test.describe('Brand detail deep', () => {
     await websiteCta.scrollIntoViewIfNeeded();
     await expect(websiteCta).toBeInViewport();
 
-    await page.getByRole('heading', { name: '地點與販售通路', level: 2 }).scrollIntoViewIfNeeded();
+    // Scrolls to the end of the document rather than to a named section: the
+    // assertion is only that the CTA scrolls away with the page instead of
+    // sticking, so it must not depend on which optional sections are enabled.
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await expect(websiteCta).not.toBeInViewport();
   });
 
@@ -122,9 +125,12 @@ test.describe('Brand detail deep', () => {
       window.scrollBy(0, section.getBoundingClientRect().top - 105);
     });
 
-    await nav.getByRole('link', { name: '產地與販售地點' }).click();
+    // Targets the purchase section, not locations: locations is hidden behind
+    // LOCATIONS_SECTION_ENABLED, so its nav entry no longer renders. The
+    // seeded brand is asserted to have a 購買管道 section by the tests above.
+    await nav.getByRole('link', { name: '購買資訊' }).click();
     await expect(
-      page.getByRole('heading', { name: '地點與販售通路', level: 2 }),
+      page.getByRole('heading', { name: '購買管道', level: 2 }),
     ).toBeInViewport({ timeout: 5_000 });
   });
 
@@ -346,7 +352,12 @@ test.describe('Brand detail — historical slugs', () => {
   });
 });
 
-test.describe('Brand detail — public locations and retail channels', () => {
+// Skipped in lockstep with `LOCATIONS_SECTION_ENABLED` in
+// src/app/[locale]/(site)/brands/[slug]/page.tsx — the section is hidden from
+// the public page while its presentation is reworked, so every assertion here
+// would fail on a missing section rather than on a real regression. Un-skip when
+// that constant flips back to true.
+test.describe.skip('Brand detail — public locations and retail channels', () => {
   let seeded: SeededBrand;
 
   const confirmedStoreName = '[E2E-TEST] Brand direct store';

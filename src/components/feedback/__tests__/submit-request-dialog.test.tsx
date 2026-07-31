@@ -31,13 +31,15 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: mocks.refresh }),
 }))
 
-vi.mock('@/i18n/navigation', () => ({ usePathname: () => '/feedback' }))
-
 vi.mock('@/lib/auth/use-user', () => ({ useUser: mocks.useUser }))
 
 import { SubmitRequestDialog } from '../submit-request-dialog'
 
 const copy = messages.feedback.submit
+
+const VALID_TITLE = 'Let owners schedule a launch date'
+const VALID_BODY = 'Owners want to line the launch up with a campaign.'
+const GUEST_EMAIL = 'guest@example.com'
 
 function renderDialog() {
   return render(
@@ -55,6 +57,19 @@ async function openDialog() {
   return user
 }
 
+// `FormField` appends an `aria-hidden` asterisk to a required field's label, so
+// the accessible name is "<label> *" — substring matching keeps the lookups
+// keyed on the copy without hard-coding that marker.
+function fieldFor(label: string) {
+  return screen.getByLabelText(label, { exact: false })
+}
+
+// Both fields are required now, so every happy-path case fills both.
+async function fillValidRequest(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(fieldFor(copy.titleLabel), VALID_TITLE)
+  await user.type(fieldFor(copy.detailsLabel), VALID_BODY)
+}
+
 describe('SubmitRequestDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -65,18 +80,57 @@ describe('SubmitRequestDialog', () => {
     mocks.submit.mockResolvedValue({ ok: true, id: 'request-id' })
   })
 
-  it('renders a sign-in link instead of submit when signed out', async () => {
+  // The board is in cold start: a guest can post without an account, and is
+  // offered a reply-to address instead of a sign-in wall.
+  it('lets a signed-out visitor submit and offers a contact email', async () => {
     mocks.useUser.mockReturnValue({ user: null, loading: false })
     await openDialog()
 
-    const link = screen.getByRole('link', { name: copy.signInCta })
-    expect(link).toHaveAttribute(
-      'href',
-      // `en` is not the default locale (zh-TW is), so signInHref localizes both
-      // the sign-in page itself and the return path.
-      `/en/auth/sign-in?next=${encodeURIComponent('/en/feedback')}`,
+    expect(
+      screen.getByRole('button', { name: copy.idle }),
+    ).toBeInTheDocument()
+    expect(fieldFor(copy.contactEmailLabel)).toBeInTheDocument()
+  })
+
+  it('sends the guest email with a signed-out submit', async () => {
+    mocks.useUser.mockReturnValue({ user: null, loading: false })
+    const user = await openDialog()
+
+    await fillValidRequest(user)
+    await user.type(fieldFor(copy.contactEmailLabel), GUEST_EMAIL)
+    await user.click(screen.getByRole('button', { name: copy.idle }))
+
+    await waitFor(() =>
+      expect(mocks.submit).toHaveBeenCalledWith(
+        expect.objectContaining({ guestEmail: GUEST_EMAIL }),
+      ),
     )
-    expect(screen.queryByRole('button', { name: copy.idle })).toBeNull()
+  })
+
+  it('blocks a malformed guest email before the action is called', async () => {
+    mocks.useUser.mockReturnValue({ user: null, loading: false })
+    const user = await openDialog()
+
+    await fillValidRequest(user)
+    await user.type(fieldFor(copy.contactEmailLabel), 'not-an')
+    await user.click(screen.getByRole('button', { name: copy.idle }))
+
+    const field = fieldFor(copy.contactEmailLabel)
+    await waitFor(() => expect(field).toHaveAttribute('aria-invalid', 'true'))
+    const errorId = field.getAttribute('aria-describedby')?.split(' ').at(-1)
+    expect(errorId).toBeTruthy()
+    expect(document.getElementById(errorId!)).toHaveTextContent(
+      copy.errors.contactEmail,
+    )
+    expect(mocks.submit).not.toHaveBeenCalled()
+  })
+
+  // A signed-in submitter's address is already on their account, so asking for
+  // one again would be a second, unverified address.
+  it('hides the contact email field when signed in', async () => {
+    await openDialog()
+
+    expect(screen.queryByLabelText(copy.contactEmailLabel)).toBeNull()
   })
 
   it('shows the anonymity disclosure', async () => {
@@ -88,10 +142,10 @@ describe('SubmitRequestDialog', () => {
   it('associates the error with the field', async () => {
     const user = await openDialog()
 
-    await user.type(screen.getByLabelText(copy.titleLabel), 'hi')
+    await user.type(fieldFor(copy.titleLabel), 'hi')
     await user.click(screen.getByRole('button', { name: copy.idle }))
 
-    const field = screen.getByLabelText(copy.titleLabel)
+    const field = fieldFor(copy.titleLabel)
     await waitFor(() => expect(field).toHaveAttribute('aria-invalid', 'true'))
     const errorId = field.getAttribute('aria-describedby')?.split(' ').at(-1)
     expect(errorId).toBeTruthy()
@@ -101,13 +155,29 @@ describe('SubmitRequestDialog', () => {
     expect(mocks.submit).not.toHaveBeenCalled()
   })
 
+  // The details field carries the substance of a request, so a title-only
+  // submit is rejected in the dialog rather than round-tripping to the action.
+  it('associates the error with the details field', async () => {
+    const user = await openDialog()
+
+    await user.type(fieldFor(copy.titleLabel), VALID_TITLE)
+    await user.type(fieldFor(copy.detailsLabel), 'too short')
+    await user.click(screen.getByRole('button', { name: copy.idle }))
+
+    const field = fieldFor(copy.detailsLabel)
+    await waitFor(() => expect(field).toHaveAttribute('aria-invalid', 'true'))
+    const errorId = field.getAttribute('aria-describedby')?.split(' ').at(-1)
+    expect(errorId).toBeTruthy()
+    expect(document.getElementById(errorId!)).toHaveTextContent(
+      copy.errors.details,
+    )
+    expect(mocks.submit).not.toHaveBeenCalled()
+  })
+
   it('refreshes the board after a successful submit', async () => {
     const user = await openDialog()
 
-    await user.type(
-      screen.getByLabelText(copy.titleLabel),
-      'Let owners schedule a launch date',
-    )
+    await fillValidRequest(user)
     await user.click(screen.getByRole('button', { name: copy.idle }))
 
     await waitFor(() =>
@@ -122,10 +192,7 @@ describe('SubmitRequestDialog', () => {
     mocks.submit.mockResolvedValue({ ok: false, error: 'rate_limited' })
     const user = await openDialog()
 
-    await user.type(
-      screen.getByLabelText(copy.titleLabel),
-      'Let owners schedule a launch date',
-    )
+    await fillValidRequest(user)
     await user.click(screen.getByRole('button', { name: copy.idle }))
 
     await waitFor(() =>

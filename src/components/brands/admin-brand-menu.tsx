@@ -2,7 +2,6 @@
 
 import { useTransition } from 'react'
 import { Eye, EyeOff, Pencil, Settings } from 'lucide-react'
-import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { useRouter as useAdminRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -11,6 +10,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLinkItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { startImpersonationAction } from '@/lib/actions/impersonation'
@@ -68,12 +68,12 @@ export function AdminBrandMenu({ brandId, brandName, brandSlug }: AdminBrandMenu
           <Eye className="size-4" />
           {t('viewAsOwner')}
         </DropdownMenuItem>
-        <DropdownMenuItem
-          render={<Link href={`/admin/brands?edit=${encodeURIComponent(brandId)}`} />}
+        <DropdownMenuLinkItem
+          href={`/admin/brands?edit=${encodeURIComponent(brandId)}`}
         >
           <Pencil className="size-4" />
           {t('editFields')}
-        </DropdownMenuItem>
+        </DropdownMenuLinkItem>
         <DropdownMenuItem
           className="text-destructive focus:text-destructive"
           disabled={isPending}

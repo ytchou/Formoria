@@ -69,7 +69,7 @@ export type BrandSubmission = {
   denialReason?: DenialReason | null
 }
 
-type DuplicateCandidate = {
+export type DuplicateCandidate = {
   id: string
   name: string
   slug: string

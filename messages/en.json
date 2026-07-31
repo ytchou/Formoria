@@ -69,7 +69,7 @@
     "support": "Support",
     "legalHeading": "Legal",
     "connectHeading": "Connect",
-    "feedback": "Feedback"
+    "feedback": "Feature requests"
   },
   "landing": {
     "metadata": {
@@ -110,12 +110,17 @@
       "body1": "We first organize fragmented brand, product, and purchase-channel information so worthwhile Taiwanese brands are easier to find.",
       "body2": "Curation can then help people choose, while owner tools support brands as they grow.",
       "body3": "Step by step, we are working toward an online Taiwanese select shop led by the brands themselves.",
-      "cta": "Read Our Mission and Vision"
+      "cta": "Read Our Vision"
     },
     "submitBand": {
       "headline": "Recommend a Taiwanese brand worth discovering",
       "body": "Recommendations are free; approved brands join the Formoria community directory.",
       "cta": "Recommend a Brand"
+    },
+    "featureRequestBand": {
+      "headline": "Tell us what Formoria should build next",
+      "body": "If you have a product suggestion we'd love to hear it — or upvote an idea that's already on the board.",
+      "cta": "Request a Feature"
     },
     "newBrands": {
       "heading": "Newest Brands",
@@ -145,6 +150,7 @@
   },
   "marketingEmailConsent": {
     "newsletterOnlyLabel": "I agree to receive the Formoria newsletter",
+    "newsletterOnlyDescription": "The newsletter requires email confirmation. You can unsubscribe at any time, free of charge. See our <privacyPolicy>Privacy Policy</privacyPolicy> for details.",
     "combinedLabel": "I agree to receive Formoria newsletters and, when relevant, brand-management tips and product guidance (optional)",
     "combinedDescription": "Newsletter delivery starts after email confirmation. You can later disable either category or unsubscribe from all free of charge in Settings. See our <privacyPolicy>Privacy Policy</privacyPolicy>."
   },
@@ -1252,7 +1258,7 @@
     "mySubmissions": "My Recommendations",
     "signOut": "Sign out",
     "settings": "Settings",
-    "feedback": "Feedback"
+    "feedback": "Feature requests"
   },
   "favorites": {
     "heading": "Saved Brands",
@@ -1836,7 +1842,6 @@
     "overview": {
       "heading": "Recommend a Taiwanese Brand",
       "description": "Share a Taiwanese brand with the community — recommend one you love and we will review it for the directory.",
-      "criteria": "We list brands founded, designed, or made in Taiwan.",
       "recommendEyebrow": "Community recommendation",
       "recommendTitle": "Recommend a brand worth discovering",
       "recommendDescription": "Best for shoppers, fans, and friends. Just share the brand name and a URL so we can start reviewing it.",
@@ -1845,6 +1850,7 @@
       "recommendPoint3": "Approved brands are added to Formoria",
       "recommendCta": "Recommend a brand",
       "ownerEyebrow": "Brand owner",
+      "ownerComingSoon": "Coming soon",
       "ownerTitle": "Start your brand management flow",
       "ownerDescription": "Best for founders, operators, and brand teams. After approval, we’ll send the invitation to claim and manage the listing.",
       "ownerPoint1": "Provide core brand details and representative links",
@@ -2087,19 +2093,18 @@
       "heading": "Recommend a Brand",
       "subheading": "Share the brand name and URL so we can review this Taiwanese brand.",
       "websiteLabel": "Official Brand URL",
-      "websiteHint": "Paste the main website, storefront, or social homepage for the brand.",
+      "websiteHint": "Give the brand's official website — a social profile is fine if it doesn't have one.",
       "websitePlaceholder": "https://brand.example",
       "brandNameLabel": "Brand Name",
       "brandNamePlaceholder": "e.g. Warmwood Living",
-      "brandNameHint": "Use the official brand name so we can verify it and avoid duplicates.",
-      "guestEmailLabel": "Your email (optional)",
-      "guestEmailHint": "Leave your email if you’d like review updates for this recommendation.",
+      "brandNameHint": "Use the official brand name so we can check and review it.",
+      "guestEmailLabel": "Your email",
+      "guestEmailHint": "Leave your email if you’d like to be notified of the review result.",
       "guestEmailPlaceholder": "name@example.com",
       "descriptionLabel": "Extra context (optional)",
       "descriptionHint": "If you know the brand story, products, or background, add it here to help us review.",
       "descriptionPlaceholder": "For example: The brand designs in Tainan and works with local workshops in Taiwan.",
       "sourceLabel": "How do you know this brand?",
-      "sourceHint": "This helps us understand the context behind the recommendation.",
       "sourcePlaceholder": "Select how you know this brand",
       "requiredHint": "indicates a required field",
       "submitButton": "Send Recommendation",
@@ -2733,7 +2738,6 @@
       "empty": "No feature requests yet.",
       "table": {
         "request": "Request",
-        "category": "Audience",
         "votes": "Votes",
         "status": "Status",
         "merge": "Merge into"
@@ -2745,10 +2749,6 @@
         "shipped": "Shipped",
         "declined": "Declined",
         "duplicate": "Duplicate"
-      },
-      "category": {
-        "owner": "Brand owners",
-        "visitor": "Visitors"
       },
       "statusLabel": "Status for {title}",
       "noteLabel": "Admin note for {title}",
@@ -2825,7 +2825,7 @@
     "metaTitle": "Stories",
     "metaDescription": "Long-form reporting on Taiwanese brands — the makers, the places, and the work behind what they sell.",
     "heading": "Stories",
-    "subheading": "Long-form pieces on Taiwanese brands: the people who make them, the places they come from, and how the work actually gets done.",
+    "subheading": "Long-form reporting on Taiwanese brands, one brand at a time, told from where the work actually happens and followed through from beginning to end.",
     "badgeLabel": "Editorial",
     "allTags": "All",
     "comingSoon": "The first stories are on their way.",
@@ -2850,16 +2850,10 @@
   "feedback": {
     "metadata": {
       "title": "Feature requests",
-      "description": "Tell us what Formoria should build next, and upvote the ideas you want most."
+      "description": "Tell us what you'd like Formoria to build, and upvote the ideas you want most."
     },
     "title": "Feature requests",
-    "description": "Tell us what Formoria should build next. Upvote an idea to move it up the board.",
-    "filters": {
-      "label": "Filter requests",
-      "all": "All",
-      "owner": "For brand owners",
-      "visitor": "For visitors"
-    },
+    "description": "Tell us what would make Formoria more useful for you, and upvote the ideas you want to see next.",
     "status": {
       "open": "Open",
       "planned": "Planned",
@@ -2867,15 +2861,21 @@
       "shipped": "Shipped",
       "declined": "Declined"
     },
+    "sections": {
+      "inProgress": {
+        "title": "In progress",
+        "description": "These are being built right now."
+      },
+      "open": {
+        "title": "Open",
+        "description": "Upvote to decide what we build next."
+      },
+      "shipped": {
+        "title": "Shipped",
+        "description": "Requested here, now live on the site."
+      }
+    },
     "requests": {
-      "bilingual_brand_content": {
-        "title": "Generate bilingual brand stories and social copy",
-        "body": "Use my existing brand profile and Made-in-Taiwan story to create ready-to-use About-page copy, product stories, and social captions in Traditional Chinese and English."
-      },
-      "marketing_channel_insights": {
-        "title": "Show which marketing channels are working",
-        "body": "Give small brand owners one simple dashboard that combines key channel results and explains what is working, what is not, and what to try next."
-      },
       "brand_reviews": {
         "title": "Add reviews and ratings to brand pages",
         "body": "Let signed-in visitors share their experience with a brand so shoppers can judge customer experience separately from Made-in-Taiwan verification."
@@ -2887,45 +2887,45 @@
       "nearby_brand_map": {
         "title": "Show nearby Taiwanese brands on a map",
         "body": "Let visitors browse brands with physical locations on one map and filter by city, district, and category to find places they can visit nearby."
+      },
+      "owner_claim_flow": {
+        "title": "Let brand owners claim and manage their brand page",
+        "body": "Let a brand's owner verify they represent the brand, then keep its description, links, and purchase channels up to date themselves."
       }
     },
     "upvote": {
       "action": "Upvote {title}",
       "remove": "Remove your upvote from {title}",
-      "signIn": "Sign in to upvote {title}",
-      "locked": "Sign in required",
       "error": "We couldn't record your vote. Please try again.",
       "rateLimited": "That's a lot of voting. Please wait a moment and try again."
     },
     "empty": {
-      "title": "No requests here yet",
-      "description": "Nothing has been requested in this category. Be the first to ask for something."
+      "title": "No requests yet",
+      "description": "Nothing has been requested yet. Be the first to ask for something."
     },
     "submit": {
       "trigger": "Request a feature",
       "title": "Request a feature",
-      "description": "Describe what you want Formoria to do. We read every request.",
+      "description": "Thanks for taking the time to tell us. We read every request — the more specific it is, the further it gets.",
       "titleLabel": "What should we build?",
-      "titleHint": "One sentence, 4 to 120 characters.",
-      "detailsLabel": "Any details? (optional)",
-      "detailsHint": "What are you trying to do, and what gets in the way?",
-      "categoryLabel": "Who is this for?",
-      "categoryOwner": "Brand owners",
-      "categoryVisitor": "Visitors browsing brands",
-      "anonymityDisclosure": "Your request is shown publicly without your name. We store your account so we can follow up with you about it.",
+      "detailsLabel": "Details",
+      "detailsHint": "What are you trying to do, and where does Formoria get in the way? A real example helps.",
+      "contactEmailLabel": "Your email",
+      "contactEmailHint": "Leave your email if you'd like a reply about this request.",
+      "anonymityDisclosure": "Your request is shown publicly without your name or email.",
       "idle": "Send request",
       "submitting": "Sending",
-      "cancel": "Cancel",
-      "success": "Thanks — your request is on the board.",
-      "signInCta": "Sign in to send a request",
+      "success": "Thanks — we've got your request.",
       "errors": {
-        "title": "Give your request a title between 4 and 120 characters so others can find it.",
+        "title": "Give your request a title between 4 and 80 characters so others can find it.",
+        "details": "Add at least 10 characters describing what you're trying to solve.",
+        "contactEmail": "Enter a valid email address, or leave the field empty.",
         "unauthenticated": "Please sign in again, then resend your request.",
-        "invalid_input": "Shorten the title to 120 characters or fewer and try again.",
+        "invalid_input": "Check that the title is 80 characters or fewer and the details are at least 10 characters, then try again.",
         "rate_limited": "You've sent a few requests already. Please try again in an hour.",
-        "not_found": "That request no longer exists. Reload the board and try again.",
-        "merged": "That request was merged into another one. Reload the board to find it.",
-        "already_submitted": "You've already asked for this. Upvote the existing request instead.",
+        "not_found": "That request no longer exists. Reload the page and try again.",
+        "merged": "That request was merged into another one. Reload the page to find it.",
+        "already_submitted": "That request is already on the board. Upvote the existing one instead.",
         "unavailable": "We couldn't send your request. Please try again in a moment."
       }
     }

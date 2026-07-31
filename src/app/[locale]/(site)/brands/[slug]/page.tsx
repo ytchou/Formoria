@@ -45,6 +45,15 @@ import { getBrandGalleryImages } from '@/lib/services/brand-images'
 const brandSectionClassName =
   'scroll-mt-40 border-t border-border pt-8 first:border-t-0 first:pt-0 md:scroll-mt-28'
 
+// Temporary kill switch: the locations & retail-channels section is hidden from
+// the public brand page until its presentation is reworked. Flipping this to
+// true restores the nav entry, the section, and its channel fetch in one go —
+// nothing else is stubbed. The `boolean` annotation is deliberate: without it
+// the literal `false` makes the enabled branches unreachable to TS.
+// Kept in lockstep with the skipped `public locations and retail channels`
+// describe block in e2e/tests/brand-detail.spec.ts.
+const LOCATIONS_SECTION_ENABLED: boolean = false
+
 // 1h ISR: ownership/verified-state changes propagate within ~an hour; route still statically served between regenerations
 export const revalidate = 3600
 
@@ -150,7 +159,10 @@ export default async function BrandDetailPage({ params }: PageProps) {
     tBrandDetail(key, params as never)) as BrandFaqTranslateFn
   const [faqItems, channels] = await Promise.all([
     getBrandFaq(displayBrand.id, displayBrand, tBrandFaq, safeLocale),
-    getChannelsForBrand(displayBrand.id),
+    // Skip the round trip entirely while the section is hidden.
+    LOCATIONS_SECTION_ENABLED
+      ? getChannelsForBrand(displayBrand.id)
+      : Promise.resolve({ confirmed: [], possible: [] }),
   ])
 
   const galleryImages = getBrandGalleryImages(displayBrand)
@@ -189,7 +201,9 @@ export default async function BrandDetailPage({ params }: PageProps) {
     // URL shows as a dimmed chip rather than disappearing.
     { id: 'social', label: tBrandDetail('tabNav.social') },
     { id: 'purchase', label: tBrandDetail('tabNav.purchase') },
-    { id: 'locations', label: tBrandDetail('tabNav.locations') },
+    ...(LOCATIONS_SECTION_ENABLED
+      ? [{ id: 'locations', label: tBrandDetail('tabNav.locations') }]
+      : []),
     ...(faqItems.length > 0
       ? [{ id: 'faq', label: tBrandDetail('tabNav.faq') }]
       : []),
@@ -315,15 +329,17 @@ export default async function BrandDetailPage({ params }: PageProps) {
               sectionClassName={brandSectionClassName}
             />
 
-            <section id="locations" className={brandSectionClassName}>
-              <BrandChannelsSection
-                locale={safeLocale}
-                confirmed={channels.confirmed}
-                possible={channels.possible}
-                brandId={displayBrand.id}
-                brandSlug={displayBrand.slug}
-              />
-            </section>
+            {LOCATIONS_SECTION_ENABLED && (
+              <section id="locations" className={brandSectionClassName}>
+                <BrandChannelsSection
+                  locale={safeLocale}
+                  confirmed={channels.confirmed}
+                  possible={channels.possible}
+                  brandId={displayBrand.id}
+                  brandSlug={displayBrand.slug}
+                />
+              </section>
+            )}
 
             {faqItems.length > 0 && (
               <section id="faq" className={brandSectionClassName}>

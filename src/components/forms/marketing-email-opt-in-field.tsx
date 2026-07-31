@@ -23,15 +23,19 @@ export function MarketingEmailOptInField({
   disabled,
 }: MarketingEmailOptInFieldProps) {
   const t = useTranslations('marketingEmailConsent')
-  const labelKey = variant === 'newsletter-only'
-    ? 'newsletterOnlyLabel'
-    : 'combinedLabel'
+  const isNewsletterOnly = variant === 'newsletter-only'
+  const labelKey = isNewsletterOnly ? 'newsletterOnlyLabel' : 'combinedLabel'
+  const descriptionKey = isNewsletterOnly
+    ? 'newsletterOnlyDescription'
+    : 'combinedDescription'
 
   return (
     <div className="space-y-1">
+      {/* min-h-12 keeps the mobile tap target; on wider screens the label is a
+          single line and the slack would push the description a row away. */}
       <Label
         htmlFor={id}
-        className="flex min-h-12 cursor-pointer items-start gap-3"
+        className="flex min-h-12 cursor-pointer items-start gap-3 sm:min-h-0"
       >
         <Checkbox
           id={id}
@@ -44,22 +48,20 @@ export function MarketingEmailOptInField({
         />
         <span className="type-body font-normal">{t(labelKey)}</span>
       </Label>
-      {variant === 'newsletter-and-lifecycle' ? (
-        <p className="pl-[30px] type-form-hint">
-          {t.rich('combinedDescription', {
-            privacyPolicy: (chunks) => (
-              <Link
-                href="/privacy"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {chunks}
-              </Link>
-            ),
-          })}
-        </p>
-      ) : null}
+      <p className="pl-[30px] type-form-hint">
+        {t.rich(descriptionKey, {
+          privacyPolicy: (chunks) => (
+            <Link
+              href="/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {chunks}
+            </Link>
+          ),
+        })}
+      </p>
     </div>
   )
 }

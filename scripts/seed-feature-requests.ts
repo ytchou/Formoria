@@ -6,6 +6,11 @@
  * Seeded rows carry `is_seed: true`, have no `submitted_by`, and start with
  * genuinely zero upvotes — this script never inserts votes.
  *
+ * Each row also carries an initial `status`, so the board can open with
+ * something visibly in progress rather than a wall of `open`. That status is an
+ * insert-time value only; see the skip logic in `main` for why re-runs never
+ * touch it.
+ *
  * Run: pnpm tsx --env-file=.env.local scripts/seed-feature-requests.ts
  */
 import { createServiceClient } from '@/lib/supabase/server'
@@ -13,34 +18,34 @@ import { createServiceClient } from '@/lib/supabase/server'
 type SeedRequest = {
   title: string
   body: string
-  category: 'owner' | 'visitor'
+  status: 'open' | 'planned' | 'in_progress' | 'shipped'
 }
 
 const SEED_REQUESTS: SeedRequest[] = [
   {
-    title: 'Generate bilingual brand stories and social copy',
-    body: 'Use my existing brand profile and Made-in-Taiwan story to create ready-to-use About-page copy, product stories, and social captions in Traditional Chinese and English.',
-    category: 'owner',
-  },
-  {
-    title: 'Show which marketing channels are working',
-    body: 'Give small brand owners one simple dashboard that combines key channel results and explains what is working, what is not, and what to try next.',
-    category: 'owner',
-  },
-  {
     title: 'Add reviews and ratings to brand pages',
     body: 'Let signed-in visitors share their experience with a brand so shoppers can judge customer experience separately from Made-in-Taiwan verification.',
-    category: 'visitor',
+    status: 'open',
   },
   {
     title: 'Browse Taiwanese brands by occasion',
     body: 'Let visitors discover brands by shopping intent, such as gifts, small-apartment decor, or sustainable essentials, without needing to understand the category structure first.',
-    category: 'visitor',
+    status: 'open',
   },
   {
     title: 'Show nearby Taiwanese brands on a map',
     body: 'Let visitors browse brands with physical locations on one map and filter by city, district, and category to find places they can visit nearby.',
-    category: 'visitor',
+    status: 'in_progress',
+  },
+  {
+    // Title must stay character-for-character identical to the
+    // `FEATURE_REQUEST_I18N_KEYS_BY_TITLE` entry in
+    // `@/lib/services/feature-requests` — that map is what localizes a seed
+    // row, and a drifted title silently falls back to this English string on
+    // the zh-TW board.
+    title: 'Let brand owners claim and manage their brand page',
+    body: "Let a brand's owner verify they represent the brand, then keep its description, links, and purchase channels up to date themselves.",
+    status: 'in_progress',
   },
 ]
 
@@ -61,6 +66,10 @@ async function main(): Promise<void> {
   const existingTitles = new Set(
     (existing ?? []).map((row: { title: string }) => row.title),
   )
+  // Skip, never upsert. `status` is owned by the admin queue the moment a row
+  // exists, so the seeded value is an initial value applied on insert only — a
+  // re-run that rewrote it would silently revert a moderator's decision (an
+  // in_progress row shipped last week would drop back to in_progress).
   const pending = SEED_REQUESTS.filter(
     (request) => !existingTitles.has(request.title),
   )
@@ -74,8 +83,7 @@ async function main(): Promise<void> {
     pending.map((request) => ({
       title: request.title,
       body: request.body,
-      category: request.category,
-      status: 'open',
+      status: request.status,
       is_seed: true,
       submitted_by: null,
     })),

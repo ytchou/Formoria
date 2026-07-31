@@ -2,12 +2,10 @@ import type { Metadata } from 'next'
 import { Link } from '@/i18n/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { surfaceCardStyles } from '@/components/ui/card'
-import { buttonVariants } from '@/components/ui/button'
 import { formatStoryDate } from '@/components/stories/story-date'
 import { getAllStories, getStoriesByTag, groupStoriesBySeries } from '@/lib/services/stories'
 import type { StoryEntry } from '@/lib/services/stories'
-import { categoryLabel, PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
-import { isStoryTag, STORY_TAGS } from '@/lib/taxonomy/story-tags'
+import { isStoryTag } from '@/lib/taxonomy/story-tags'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 
@@ -95,13 +93,6 @@ export default async function StoriesHubPage({ params, searchParams }: PageProps
     ...standalone,
   ]
 
-  // Product-type tags share the brand ontology's labels; editorial tags have no
-  // ontology entry and read their label from the `stories.tags.*` messages.
-  const tagLabel = (tag: string): string => {
-    const productType = PRODUCT_TYPE_CATEGORIES.find(item => item.slug === tag)
-    return productType ? categoryLabel(productType, locale) : t(`tags.${tag}`)
-  }
-
   return (
     <main className="page-gutter mx-auto w-full max-w-screen-xl py-10">
       <div className="space-y-8">
@@ -114,37 +105,6 @@ export default async function StoriesHubPage({ params, searchParams }: PageProps
             {t('subheading')}
           </p>
         </header>
-
-        <nav aria-label={t('tagsAria')} className="flex flex-wrap gap-2">
-          {/*
-            `aria-current` carries the active state, matching the project's
-            canonical filter-chip nav (`components/feedback/feature-request-filters`).
-            The `primary` fill alone is colour-only signalling: invisible to a
-            screen reader and unreliable in forced-colours mode.
-          */}
-          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- DEV-1280: full-document navigation avoids a stalled RSC request across the locale proxy rewrite. */}
-          <a
-            href="/stories"
-            aria-current={activeTag === null ? 'page' : undefined}
-            className={buttonVariants({ variant: activeTag === null ? 'primary' : 'secondary', shape: 'pill', size: 'chip' })}
-          >
-            {t('allTags')}
-          </a>
-          {STORY_TAGS.map((tag) => {
-            const isActive = activeTag === tag
-
-            return (
-              <Link
-                key={tag}
-                href={`/stories?tag=${encodeURIComponent(tag)}`}
-                aria-current={isActive ? 'page' : undefined}
-                className={buttonVariants({ variant: isActive ? 'primary' : 'secondary', shape: 'pill', size: 'chip' })}
-              >
-                {tagLabel(tag)}
-              </Link>
-            )
-          })}
-        </nav>
 
         {!storyResult.ok ? (
           <div

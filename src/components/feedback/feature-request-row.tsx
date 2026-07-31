@@ -14,10 +14,12 @@ import { UpvoteButton } from './upvote-button'
 type BadgeVariant = NonNullable<ComponentProps<typeof Badge>['variant']>
 
 /**
- * Status -> badge treatment. Only `open` through `declined` can reach the
- * public board: `duplicate` rows carry a `merged_into_id`, and the board query
- * filters those out. The key is here only because the map is exhaustive over
- * the status union, and the row skips the badge for it.
+ * Status -> badge treatment. Two keys are unreachable from the public board:
+ * `duplicate` rows carry a `merged_into_id`, and `declined` rows are a decision
+ * already made — `buildFeatureRequestBoard` filters out both. They stay in the
+ * map because it is exhaustive over the status union, which is what forces a
+ * treatment to be chosen for any status added later; the row itself skips the
+ * badge for `duplicate`.
  */
 const STATUS_BADGE: Record<FeatureRequestStatus, BadgeVariant> = {
   open: 'secondary',
@@ -48,7 +50,8 @@ export function FeatureRequestRow({ request }: { request: FeatureRequest }) {
       />
       <div className="min-w-0 flex-1 space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <Typography as="h2" variant="cardTitle" className="min-w-0">
+          {/* h3, not h2: the list renders an h2 per status section above. */}
+          <Typography as="h3" variant="cardTitle" className="min-w-0">
             {title}
           </Typography>
           {request.status !== 'duplicate' && (

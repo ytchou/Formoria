@@ -1,16 +1,15 @@
 'use client'
 
-import NextLink from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useLocale, useTranslations } from 'next-intl'
+import { useTranslations } from 'next-intl'
 import { Lightbulb } from 'lucide-react'
 import { useId, useState, useTransition, type FormEvent } from 'react'
 import { toast } from 'sonner'
 
-import { Button, buttonVariants } from '@/components/ui/button'
+import { FormField } from '@/components/forms/form-field'
+import { buttonVariants } from '@/components/ui/button'
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -19,21 +18,17 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { NativeSelect } from '@/components/ui/native-select'
 import { SubmitButton } from '@/components/ui/submit-button'
 import { Textarea } from '@/components/ui/textarea'
 import { Typography } from '@/components/ui/typography'
-import { signInHref } from '@/i18n/locale-preference'
-import { usePathname } from '@/i18n/navigation'
 import { submitFeatureRequestAction } from '@/lib/actions/feature-requests'
 import { trackFeatureRequestSubmitted } from '@/lib/analytics'
 import { useUser } from '@/lib/auth/use-user'
 import {
   FEATURE_REQUEST_BODY_MAX,
+  FEATURE_REQUEST_BODY_MIN,
   FEATURE_REQUEST_TITLE_MAX,
   FEATURE_REQUEST_TITLE_MIN,
-  type FeatureRequestCategory,
 } from '@/lib/services/feature-requests'
 
 /**
@@ -51,26 +46,32 @@ const FEATURE_REQUEST_ERROR_KEYS = {
   unavailable: 'errors.unavailable',
 } as const
 
+/**
+ * Shape check only — deliverability is the reply attempt's problem. Mirrors the
+ * pattern used by the other client-side email fields so a guest gets the same
+ * verdict here as the server's zod `.email()` would give.
+ */
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 export function SubmitRequestDialog() {
   const t = useTranslations('feedback.submit')
-  const locale = useLocale()
   const router = useRouter()
-  const pathname = usePathname()
   const { user, loading: userLoading } = useUser()
   const baseId = useId()
   const titleId = `${baseId}-title`
-  const titleHintId = `${baseId}-title-hint`
-  const titleErrorId = `${baseId}-title-error`
   const detailsId = `${baseId}-details`
-  const detailsHintId = `${baseId}-details-hint`
-  const categoryId = `${baseId}-category`
+  const contactEmailId = `${baseId}-contact-email`
   const disclosureId = `${baseId}-disclosure`
 
   const [open, setOpen] = useState(false)
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
-  const [category, setCategory] = useState<FeatureRequestCategory>('visitor')
+  const [contactEmail, setContactEmail] = useState('')
   const [titleError, setTitleError] = useState<string | null>(null)
+  const [bodyError, setBodyError] = useState<string | null>(null)
+  const [contactEmailError, setContactEmailError] = useState<string | null>(
+    null,
+  )
   const [isPending, startTransition] = useTransition()
 
   const signedOut = !userLoading && !user
@@ -78,8 +79,10 @@ export function SubmitRequestDialog() {
   function reset() {
     setTitle('')
     setBody('')
-    setCategory('visitor')
+    setContactEmail('')
     setTitleError(null)
+    setBodyError(null)
+    setContactEmailError(null)
   }
 
   function handleOpenChange(next: boolean) {
@@ -102,17 +105,31 @@ export function SubmitRequestDialog() {
     setTitleError(null)
 
     const trimmedBody = body.trim()
+    if (trimmedBody.length < FEATURE_REQUEST_BODY_MIN) {
+      setBodyError(t('errors.details'))
+      return
+    }
+    setBodyError(null)
+
+    // Only guests are asked for one, and it stays optional: an empty field is
+    // a valid submission, a malformed one is not.
+    const trimmedEmail = signedOut ? contactEmail.trim() : ''
+    if (trimmedEmail && !EMAIL_PATTERN.test(trimmedEmail)) {
+      setContactEmailError(t('errors.contactEmail'))
+      return
+    }
+    setContactEmailError(null)
 
     startTransition(async () => {
       try {
         const result = await submitFeatureRequestAction({
           title: trimmedTitle,
-          ...(trimmedBody ? { body: trimmedBody } : {}),
-          category,
+          body: trimmedBody,
+          ...(trimmedEmail ? { guestEmail: trimmedEmail } : {}),
         })
 
         if (result.ok) {
-          trackFeatureRequestSubmitted(result.id, category)
+          trackFeatureRequestSubmitted(result.id)
           toast.success(t('success'))
           handleOpenChange(false)
           // The board is a server component: without this the submitter is
@@ -140,71 +157,81 @@ export function SubmitRequestDialog() {
           <DialogDescription>{t('description')}</DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="space-y-2">
-            <Label htmlFor={titleId}>{t('titleLabel')}</Label>
+        {/* `noValidate`: the title and details fields are `required` and the
+            email field is `type="email"` so guests get the right keyboard and
+            autofill, but native validation would swallow the submit and show
+            an untranslated browser bubble instead of our own error copy. */}
+        <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+          <FormField
+            id={titleId}
+            label={t('titleLabel')}
+            required
+            error={titleError}
+          >
             <Input
               id={titleId}
               name="title"
               value={title}
               maxLength={FEATURE_REQUEST_TITLE_MAX}
-              // Deliberately not `required`: the native bubble would say
-              // "please fill out this field" instead of the length rule the
-              // submitter actually has to satisfy.
-              aria-invalid={titleError ? true : undefined}
-              aria-describedby={
-                titleError ? `${titleHintId} ${titleErrorId}` : titleHintId
-              }
+              // Real `required` so assistive tech gets the constraint —
+              // `FormField`'s asterisk is `aria-hidden`. The form's
+              // `noValidate` is what keeps the native bubble away.
+              required
               onChange={(event) => {
                 setTitle(event.currentTarget.value)
                 if (titleError) setTitleError(null)
               }}
               data-ph-no-autocapture
             />
-            <Typography id={titleHintId} variant="formHint">
-              {t('titleHint')}
-            </Typography>
-            {titleError ? (
-              <Typography id={titleErrorId} variant="error" role="alert">
-                {titleError}
-              </Typography>
-            ) : null}
-          </div>
+          </FormField>
 
-          <div className="space-y-2">
-            <Label htmlFor={detailsId}>{t('detailsLabel')}</Label>
+          <FormField
+            id={detailsId}
+            label={t('detailsLabel')}
+            description={t('detailsHint')}
+            required
+            error={bodyError}
+          >
             <Textarea
               id={detailsId}
               name="body"
               rows={4}
               maxLength={FEATURE_REQUEST_BODY_MAX}
               value={body}
-              aria-describedby={detailsHintId}
-              onChange={(event) => setBody(event.currentTarget.value)}
+              required
+              onChange={(event) => {
+                setBody(event.currentTarget.value)
+                if (bodyError) setBodyError(null)
+              }}
               data-ph-no-autocapture
             />
-            <Typography id={detailsHintId} variant="formHint">
-              {t('detailsHint')}
-            </Typography>
-          </div>
+          </FormField>
 
-          <div className="space-y-2">
-            <Label htmlFor={categoryId}>{t('categoryLabel')}</Label>
-            <NativeSelect
-              id={categoryId}
-              name="category"
-              value={category}
-              onChange={(event) =>
-                setCategory(event.currentTarget.value as FeatureRequestCategory)
-              }
+          {signedOut ? (
+            <FormField
+              id={contactEmailId}
+              label={t('contactEmailLabel')}
+              description={t('contactEmailHint')}
+              error={contactEmailError}
             >
-              <option value="owner">{t('categoryOwner')}</option>
-              <option value="visitor">{t('categoryVisitor')}</option>
-            </NativeSelect>
-          </div>
+              <Input
+                id={contactEmailId}
+                name="guestEmail"
+                type="email"
+                value={contactEmail}
+                onChange={(event) => {
+                  setContactEmail(event.currentTarget.value)
+                  if (contactEmailError) setContactEmailError(null)
+                }}
+                data-ph-no-autocapture
+              />
+            </FormField>
+          ) : null}
 
           {/* Locked requirement, not decoration: the board shows the request
-              without a name, and the account is kept so we can follow up. */}
+              without a name and without the address a guest may leave above.
+              Scoped to what gets published — what we retain internally is the
+              privacy policy's job, not this dialog's. */}
           <Typography
             id={disclosureId}
             variant="caption"
@@ -214,25 +241,16 @@ export function SubmitRequestDialog() {
           </Typography>
 
           <DialogFooter>
-            <DialogClose render={<Button variant="secondary" />}>
-              {t('cancel')}
-            </DialogClose>
-            {signedOut ? (
-              <NextLink
-                href={signInHref(pathname, locale)}
-                className={buttonVariants({ tone: 'cta' })}
-              >
-                {t('signInCta')}
-              </NextLink>
-            ) : (
-              <SubmitButton
-                isSubmitting={isPending}
-                idleLabel={t('idle')}
-                submittingLabel={t('submitting')}
-                disabled={isPending || userLoading}
-                data-ph-no-autocapture
-              />
-            )}
+            <SubmitButton
+              isSubmitting={isPending}
+              idleLabel={t('idle')}
+              submittingLabel={t('submitting')}
+              // Still gated on `userLoading`: which branch renders above
+              // depends on knowing whether there is a user, so submitting
+              // before that resolves could drop a guest's email.
+              disabled={isPending || userLoading}
+              data-ph-no-autocapture
+            />
           </DialogFooter>
         </form>
       </DialogContent>

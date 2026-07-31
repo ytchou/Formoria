@@ -1,7 +1,9 @@
 'use client'
 
 import {
+  Fragment,
   type FormEvent,
+  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -10,7 +12,6 @@ import {
 } from 'react'
 import { useForm, useWatch, Controller, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { ShieldCheck } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Link, useRouter } from '@/i18n/navigation'
 import {
@@ -18,11 +19,11 @@ import {
   type SubmissionFormData,
 } from '@/lib/validations/submission'
 import {
-  inspectRecommendationName,
+  inspectRecommendation,
   submitRecommendation,
 } from '@/app/[locale]/(site)/submit/actions'
 import { SOURCE_ATTRIBUTION_VALUES } from '@/lib/types/submission'
-import type { SourceAttribution } from '@/lib/types/submission'
+import type { DuplicateCandidate, SourceAttribution } from '@/lib/types/submission'
 import { FormField } from '@/components/forms/form-field'
 import { StandardForm } from '@/components/forms/form-layout'
 import { MarketingEmailOptInField } from '@/components/forms/marketing-email-opt-in-field'
@@ -37,6 +38,44 @@ import { TurnstileWidget } from '@/components/submit/TurnstileWidget'
 import { cn } from '@/lib/utils'
 import { trackSubmissionCompleted, trackSubmissionFormErrorShown } from '@/lib/analytics'
 import { useSubmissionAnalytics } from '@/hooks/use-submission-analytics'
+
+/**
+ * A duplicate hit reads as a plain red line, matching every other field error
+ * in the form — the matched brands are inline links so the visitor can check
+ * for themselves. `children` carries the confirm checkbox, which only the
+ * first triggering field renders (see `confirmUnder`).
+ */
+function DuplicateNotice({
+  title,
+  candidates,
+  children,
+}: {
+  title: string
+  candidates: DuplicateCandidate[]
+  children?: ReactNode
+}) {
+  return (
+    <div className="space-y-2">
+      <p className="text-sm text-destructive">
+        {title}
+        {candidates.map((candidate, index) => (
+          <Fragment key={candidate.id}>
+            {index === 0 ? ' ' : ', '}
+            <Link
+              href={`/brands/${candidate.slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {candidate.name}
+            </Link>
+          </Fragment>
+        ))}
+      </p>
+      {children}
+    </div>
+  )
+}
 
 type SubmitFormProps = {
   source?: 'header_cta' | 'hero_cta' | 'footer_link'
@@ -80,6 +119,7 @@ export default function SubmitForm({
     handleSubmit,
     setValue,
     getValues,
+    trigger,
     formState: { errors, isValid },
   } = useForm<SubmissionFormData>({
     resolver,
@@ -89,6 +129,7 @@ export default function SubmitForm({
       description: '',
       guestEmail: '',
       marketingEmailOptIn: false,
+      duplicateConfirmed: false,
       sourceAttribution: undefined,
       pdpaConsent: false,
       turnstileToken: '',
@@ -98,10 +139,60 @@ export default function SubmitForm({
   })
 
   const pdpaConsent = useWatch({ control, name: 'pdpaConsent' })
+  // Opting into the newsletter makes the otherwise-optional email mandatory
+  // (enforced in the schema) — mirror that in the label's required marker.
+  const marketingEmailOptIn = useWatch({ control, name: 'marketingEmailOptIn' })
+  const duplicateConfirmed = useWatch({ control, name: 'duplicateConfirmed' })
   const [nameSuggestion, setNameSuggestion] = useState<string | null>(null)
-  const [nameDuplicate, setNameDuplicate] = useState(false)
+  const [nameMatches, setNameMatches] = useState<DuplicateCandidate[]>([])
+  const [websiteMatches, setWebsiteMatches] = useState<DuplicateCandidate[]>([])
   const [urlSuggestion, setUrlSuggestion] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
+
+  // A confirmation only speaks for the exact name/website pair it was shown
+  // for, so any edit to either field drops both the matches and the tick.
+  const clearDuplicateState = useCallback(() => {
+    setNameMatches([])
+    setWebsiteMatches([])
+    setValue('duplicateConfirmed', false)
+  }, [setValue])
+
+  // The one door for programmatic writes to the two deduped fields. setValue
+  // does not fire the input's onChange, so an apply-suggestion click would
+  // otherwise rewrite the name while leaving the matches — and the user's tick
+  // — standing for a name they never confirmed.
+  const applySuggestion = useCallback(
+    (field: 'name' | 'website', value: string) => {
+      setValue(field, value)
+      nameBlurRequestRef.current += 1
+      clearDuplicateState()
+    },
+    [setValue, clearDuplicateState],
+  )
+
+  // Both fields can match at once, but one tick answers for the whole
+  // submission — so the checkbox is rendered under the first field that hit,
+  // never twice against the same form value.
+  const confirmUnder = nameMatches.length > 0 ? 'name' : 'website'
+  const duplicateConfirmField = (
+    <Controller
+      name="duplicateConfirmed"
+      control={control}
+      render={({ field }) => (
+        <Label className="flex cursor-pointer items-start gap-3">
+          <Checkbox
+            id="submit-duplicate-confirmed"
+            checked={field.value ?? false}
+            onCheckedChange={(checked) => field.onChange(checked)}
+            className="mt-0.5 size-[18px] shrink-0"
+          />
+          <span className="type-body font-normal">
+            {t('fields.nameDuplicateConfirmLabel')}
+          </span>
+        </Label>
+      )}
+    />
+  )
 
   const handleNameBlur = async () => {
     const currentName = getValues('name')
@@ -109,9 +200,13 @@ export default function SubmitForm({
 
     const requestId = ++nameBlurRequestRef.current
     try {
-      const result = await inspectRecommendationName(currentName)
+      const result = await inspectRecommendation(
+        currentName,
+        getValues('website') || undefined,
+      )
       if (requestId !== nameBlurRequestRef.current) return
-      setNameDuplicate(result.hasDuplicate)
+      setNameMatches(result.nameMatches)
+      setWebsiteMatches(result.websiteMatches)
       if (result.changed && result.suggestion) {
         setNameSuggestion(result.suggestion)
       } else {
@@ -120,7 +215,8 @@ export default function SubmitForm({
     } catch {
       if (requestId === nameBlurRequestRef.current) {
         setNameSuggestion(null)
-        setNameDuplicate(false)
+        setNameMatches([])
+        setWebsiteMatches([])
       }
     }
   }
@@ -141,14 +237,30 @@ export default function SubmitForm({
     setValue('turnstileToken', '', { shouldValidate: true })
   }, [setValue])
 
-  function handleWebsiteBlur(value: string) {
+  async function handleWebsiteBlur(value: string) {
     if (!value || !value.includes('?')) {
       setUrlSuggestion(null)
-      return
+    } else {
+      const cleaned = value.split('?')[0]
+      setUrlSuggestion(cleaned !== value && cleaned.length > 0 ? cleaned : null)
     }
 
-    const cleaned = value.split('?')[0]
-    setUrlSuggestion(cleaned !== value && cleaned.length > 0 ? cleaned : null)
+    if (!value) return
+
+    // Shares the name field's request counter so a blur on one field can never
+    // be overwritten by a slower in-flight response from the other.
+    const requestId = ++nameBlurRequestRef.current
+    try {
+      const result = await inspectRecommendation(getValues('name'), value)
+      if (requestId !== nameBlurRequestRef.current) return
+      setNameMatches(result.nameMatches)
+      setWebsiteMatches(result.websiteMatches)
+    } catch {
+      if (requestId === nameBlurRequestRef.current) {
+        setNameMatches([])
+        setWebsiteMatches([])
+      }
+    }
   }
 
   const websiteRegistration = register('website')
@@ -221,10 +333,14 @@ export default function SubmitForm({
   )
 
   const isSubmitDisabled =
-    !isValid || !pdpaConsent || nameDuplicate || isSubmitting
+    !isValid ||
+    !pdpaConsent ||
+    ((nameMatches.length > 0 || websiteMatches.length > 0) &&
+      !duplicateConfirmed) ||
+    isSubmitting
 
   return (
-    <div className="page-gutter mx-auto max-w-3xl py-20">
+    <div className="page-gutter mx-auto max-w-5xl py-20">
       <div className="mb-10">
         <h1 className="text-balance text-center type-page-title-large">
           {tForm('heading')}
@@ -249,10 +365,7 @@ export default function SubmitForm({
               id="submit-name"
               label={tForm('brandNameLabel')}
               description={tForm('brandNameHint')}
-              error={
-                errors.name?.message ??
-                (nameDuplicate ? t('fields.nameDuplicateTitle') : undefined)
-              }
+              error={errors.name?.message}
               required
             >
               <Input
@@ -268,7 +381,7 @@ export default function SubmitForm({
                 onChange={(event) => {
                   nameBlurRequestRef.current += 1
                   setNameSuggestion(null)
-                  setNameDuplicate(false)
+                  clearDuplicateState()
                   setSubmitError(null)
                   nameRegistration.onChange(event)
                 }}
@@ -283,7 +396,7 @@ export default function SubmitForm({
                       type="button"
                       variant="secondary"
                       onClick={() => {
-                        setValue('name', nameSuggestion)
+                        applySuggestion('name', nameSuggestion)
                         setNameSuggestion(null)
                       }}
                     >
@@ -291,6 +404,14 @@ export default function SubmitForm({
                     </Button>
                   </div>
                 </div>
+              ) : null}
+              {nameMatches.length > 0 ? (
+                <DuplicateNotice
+                  title={t('fields.nameDuplicateTitle')}
+                  candidates={nameMatches}
+                >
+                  {confirmUnder === 'name' ? duplicateConfirmField : null}
+                </DuplicateNotice>
               ) : null}
             </FormField>
 
@@ -307,13 +428,15 @@ export default function SubmitForm({
                 autoComplete="off"
                 placeholder={tForm('websitePlaceholder')}
                 {...websiteRegistration}
-                onBlur={(event) => {
+                onBlur={async (event) => {
                   websiteRegistration.onBlur(event)
-                  handleWebsiteBlur(event.target.value)
+                  await handleWebsiteBlur(event.target.value)
                 }}
                 onChange={(event) => {
+                  nameBlurRequestRef.current += 1
                   websiteRegistration.onChange(event)
                   setUrlSuggestion(null)
+                  clearDuplicateState()
                 }}
               />
               {urlSuggestion ? (
@@ -326,7 +449,7 @@ export default function SubmitForm({
                       type="button"
                       variant="secondary"
                       onClick={() => {
-                        setValue('website', urlSuggestion)
+                        applySuggestion('website', urlSuggestion)
                         setUrlSuggestion(null)
                       }}
                     >
@@ -335,13 +458,20 @@ export default function SubmitForm({
                   </div>
                 </div>
               ) : null}
+              {websiteMatches.length > 0 ? (
+                <DuplicateNotice
+                  title={t('fields.websiteDuplicateTitle')}
+                  candidates={websiteMatches}
+                >
+                  {confirmUnder === 'website' ? duplicateConfirmField : null}
+                </DuplicateNotice>
+              ) : null}
             </FormField>
           </div>
 
           <FormField
             id="submit-source"
             label={tForm('sourceLabel')}
-            description={tForm('sourceHint')}
             error={errors.sourceAttribution?.message}
             required
           >
@@ -380,6 +510,7 @@ export default function SubmitForm({
               label={tForm('guestEmailLabel')}
               description={tForm('guestEmailHint')}
               error={errors.guestEmail?.message}
+              required={marketingEmailOptIn}
             >
               <Input
                 id="submit-guest-email"
@@ -389,18 +520,6 @@ export default function SubmitForm({
                 placeholder={tForm('guestEmailPlaceholder')}
                 {...register('guestEmail')}
               />
-              <Controller
-                name="marketingEmailOptIn"
-                control={control}
-                render={({ field }) => (
-                  <MarketingEmailOptInField
-                    id="submit-marketing-email"
-                    variant="newsletter-only"
-                    checked={field.value ?? false}
-                    onCheckedChange={field.onChange}
-                  />
-                )}
-              />
             </FormField>
 
             <FormField
@@ -409,68 +528,83 @@ export default function SubmitForm({
               description={tForm('descriptionHint')}
               error={errors.description?.message}
             >
+              {/* Starts at the input height of the field beside it and grows
+                  with what's typed (field-sizing-content), instead of opening
+                  as a 4-row box that leaves the two-column row lopsided. */}
               <Textarea
                 id="submit-description"
-                rows={4}
+                className="min-h-12"
                 placeholder={tForm('descriptionPlaceholder')}
                 {...register('description')}
               />
             </FormField>
           </div>
 
-          <div
-            data-testid="consent-panel"
-            className="flex items-start gap-4 rounded-lg border border-border bg-muted/50 p-5"
-          >
-            <span
-              data-testid="consent-shield"
-              aria-hidden="true"
-              className="flex size-10 shrink-0 items-center justify-center rounded-full bg-foreground/10 text-foreground"
-            >
-              <ShieldCheck className="size-5" />
-            </span>
-            <div className="space-y-3">
-              <Controller
-                name="pdpaConsent"
-                control={control}
-                render={({ field, fieldState }) => (
-                  <div className="space-y-1">
-                    <Label className="flex min-h-12 cursor-pointer items-start gap-3">
-                      <Checkbox
-                        id="submit-pdpa"
-                        checked={field.value}
-                        onCheckedChange={(checked) => field.onChange(checked)}
-                        className="mt-0.5 size-[18px] shrink-0"
-                        aria-required="true"
-                      />
-                      <span className="type-body font-normal">
-                        {tReview.rich('pdpaConsent', {
-                          privacyPolicy: (chunks) => (
-                            <Link
-                              href="/privacy"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                            >
-                              {chunks}
-                            </Link>
-                          ),
-                        })}
-                        <span aria-hidden="true" className="text-destructive">
-                          {' '}
-                          *
-                        </span>
+          {/* The two consent checkboxes read as one group, so they sit tighter
+              than the form's field gap. Plain rows, no panel — the consent
+              panel's box and shield icon gave the form's only legally required
+              field two competing marks at the start of the row. */}
+          <div className="space-y-2">
+            <Controller
+              name="marketingEmailOptIn"
+              control={control}
+              render={({ field }) => (
+                <MarketingEmailOptInField
+                  id="submit-marketing-email"
+                  variant="newsletter-only"
+                  checked={field.value ?? false}
+                  onCheckedChange={(checked) => {
+                    field.onChange(checked)
+                    // The checkbox sits away from the email input, so surface
+                    // the "email required for newsletter" error right away.
+                    void trigger('guestEmail')
+                  }}
+                />
+              )}
+            />
+
+            <Controller
+              name="pdpaConsent"
+              control={control}
+              render={({ field, fieldState }) => (
+                <div className="space-y-1">
+                  {/* min-h-12 keeps the mobile tap target; on wider screens the
+                      label is a single line and the slack reads as a blank row. */}
+                  <Label className="flex min-h-12 cursor-pointer items-start gap-3 sm:min-h-0">
+                    <Checkbox
+                      id="submit-pdpa"
+                      checked={field.value}
+                      onCheckedChange={(checked) => field.onChange(checked)}
+                      className="mt-0.5 size-[18px] shrink-0"
+                      aria-required="true"
+                    />
+                    <span className="type-body font-normal">
+                      {tReview.rich('pdpaConsent', {
+                        privacyPolicy: (chunks) => (
+                          <Link
+                            href="/privacy"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-foreground underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          >
+                            {chunks}
+                          </Link>
+                        ),
+                      })}
+                      <span aria-hidden="true" className="text-destructive">
+                        {' '}
+                        *
                       </span>
-                    </Label>
-                    {fieldState.error ? (
-                      <p className="text-xs text-destructive">
-                        {fieldState.error.message}
-                      </p>
-                    ) : null}
-                  </div>
-                )}
-              />
-            </div>
+                    </span>
+                  </Label>
+                  {fieldState.error ? (
+                    <p className="text-xs text-destructive">
+                      {fieldState.error.message}
+                    </p>
+                  ) : null}
+                </div>
+              )}
+            />
           </div>
 
           <input

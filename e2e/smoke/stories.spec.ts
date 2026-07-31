@@ -16,19 +16,18 @@ const stories = publishedStories('zh-TW');
 const firstStory = stories[0];
 
 test.describe('Stories hub smoke', () => {
-  test('nav has visible 專題 link pointing to /stories', async ({ anonPage }) => {
+  // The header nav's /stories entry was pulled back out, so the footer link is the
+  // single site-wide 專題 entry point again — no `.first()` disambiguation needed.
+  test('footer has visible 專題 link pointing to /stories', async ({ anonPage }) => {
     await anonPage.goto('/');
-    // 專題 now appears twice on every page — the header nav gained a /stories entry
-    // alongside the footer's. `.first()` is the header one in DOM order; without it
-    // this is a strict-mode violation, not a selector problem.
-    const storiesLink = anonPage.getByRole('link', { name: '專題' }).first();
+    const storiesLink = anonPage.getByRole('link', { name: '專題' });
     await expect(storiesLink).toBeVisible({ timeout: 10_000 });
     await expect(storiesLink).toHaveAttribute('href', '/stories');
   });
 
-  test('clicking 專題 nav link arrives at stories hub', async ({ anonPage }) => {
+  test('clicking 專題 footer link arrives at stories hub', async ({ anonPage }) => {
     await anonPage.goto('/');
-    await anonPage.getByRole('link', { name: '專題' }).first().click();
+    await anonPage.getByRole('link', { name: '專題' }).click();
     // Default zh-TW locale — must land at /stories (no prefix)
     await expect(anonPage).toHaveURL(/\/stories(?:[?#]|$)/, { timeout: 15_000 });
     await expect(
@@ -75,31 +74,24 @@ test.describe('Stories hub smoke', () => {
     expect(response?.status()).toBe(200);
   });
 
-  test('tag filter pill updates URL with ?tag= and stays on hub', async ({ anonPage }) => {
-    await anonPage.goto('/zh-TW/stories');
-    // Accessible name is stories.tagsAria, so it is localized — this route is
-    // zh-TW, so matching the English 'Story tags' can never resolve.
-    const tagNav = anonPage.getByRole('navigation', { name: '專題標籤' });
-    await expect(tagNav).toBeVisible({ timeout: 10_000 });
-    // Scoped to the story tags nav to avoid clicking the brand category bar
-    await tagNav.getByRole('link', { name: '美妝保養' }).click();
+  // The tag-pill nav was removed from the hub; `?tag=` filtering itself still runs
+  // server-side, so the routing regression these tests guard (a ?tag= URL must not
+  // be swallowed by the brand-slug redirect) is asserted by URL instead of by click.
+  test('?tag= URL renders the hub and is not redirected away', async ({ anonPage }) => {
+    await anonPage.goto('/zh-TW/stories?tag=beauty');
     await expect(anonPage).toHaveURL(/[?&]tag=beauty/, { timeout: 10_000 });
-    // Must remain on stories hub — not redirected to /brands
     await expect(
       anonPage.getByRole('heading', { name: '專題', level: 1 })
-    ).toBeVisible({ timeout: 5_000 });
+    ).toBeVisible({ timeout: 10_000 });
   });
 
-  test('All pill clears the tag filter and stays on hub', async ({ anonPage }) => {
-    await anonPage.goto('/zh-TW/stories?tag=beauty');
-    const tagNav = anonPage.getByRole('navigation', { name: '專題標籤' });
-    await expect(tagNav).toBeVisible({ timeout: 10_000 });
-    // stories.allTags, localized: '全部' on zh-TW, 'All' on en
-    await tagNav.getByRole('link', { name: '全部' }).click();
-    await expect(anonPage).not.toHaveURL(/[?&]tag=/, { timeout: 10_000 });
+  test('hub no longer renders a tag filter nav', async ({ anonPage }) => {
+    await anonPage.goto('/zh-TW/stories');
     await expect(
       anonPage.getByRole('heading', { name: '專題', level: 1 })
-    ).toBeVisible({ timeout: 5_000 });
+    ).toBeVisible({ timeout: 10_000 });
+    // Accessible name is stories.tagsAria, localized to 專題標籤 on zh-TW.
+    await expect(anonPage.getByRole('navigation', { name: '專題標籤' })).toHaveCount(0);
   });
 
   test('story card click navigates to /stories/[slug] detail page', async ({ anonPage }) => {

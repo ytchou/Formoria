@@ -7,10 +7,8 @@ vi.mock('next-intl/server', () => ({
 
 import { generateMetadata } from './page'
 
-const searchParams = Promise.resolve({})
-
 function metadataFor(locale: string) {
-  return generateMetadata({ params: Promise.resolve({ locale }), searchParams })
+  return generateMetadata({ params: Promise.resolve({ locale }) })
 }
 
 describe('feedback metadata', () => {
@@ -23,12 +21,17 @@ describe('feedback metadata', () => {
   it('sets canonical and alternates', async () => {
     const [en, zh] = await Promise.all([metadataFor('en'), metadataFor('zh-TW')])
 
-    expect(en.alternates?.canonical).toMatch(/\/en\/feedback$/)
-    expect(zh.alternates?.canonical).toMatch(/\/feedback$/)
+    expect(en.alternates?.canonical).toMatch(/\/en\/feature-requests$/)
+    // Fully anchored: a bare `/feature-requests$` suffix match would also pass
+    // for the /en/ URL, so it could not catch a zh-TW canonical that leaked the
+    // locale prefix.
+    expect(zh.alternates?.canonical).toMatch(
+      /^https?:\/\/[^/]+\/feature-requests$/,
+    )
     expect(en.alternates?.languages).toMatchObject({
-      en: expect.stringMatching(/\/en\/feedback$/),
-      'zh-TW': expect.stringMatching(/\/feedback$/),
-      'x-default': expect.stringMatching(/\/feedback$/),
+      en: expect.stringMatching(/\/en\/feature-requests$/),
+      'zh-TW': expect.stringMatching(/^https?:\/\/[^/]+\/feature-requests$/),
+      'x-default': expect.stringMatching(/^https?:\/\/[^/]+\/feature-requests$/),
     })
     expect(zh.alternates?.languages).toEqual(en.alternates?.languages)
   })

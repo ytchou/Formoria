@@ -11,7 +11,7 @@ export const SIGNUP_TEST_EMAIL_PREFIX = 'e2e-signup-';
 
 // Supabase's public signUp endpoint rejects .local addresses (400 invalid);
 // override per-environment if the project's email validator changes.
-export const SIGNUP_TEST_EMAIL_DOMAIN = process.env.E2E_SIGNUP_EMAIL_DOMAIN ?? 'example.com';
+export const SIGNUP_TEST_EMAIL_DOMAIN = process.env.E2E_SIGNUP_EMAIL_DOMAIN ?? 'test.formoria.com';
 
 export function signupTestEmail(purpose: string, workerIndex: number): string {
   return `${SIGNUP_TEST_EMAIL_PREFIX}${purpose}-${Date.now()}-${workerIndex}@${SIGNUP_TEST_EMAIL_DOMAIN}`;

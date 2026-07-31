@@ -12,11 +12,10 @@ type SeededRequest = {
 
 type SeedOptions = {
   label: string;
-  category: 'owner' | 'visitor';
   body?: string;
 };
 
-const BOARD_PATH = '/feedback';
+const BOARD_PATH = '/feature-requests';
 const ADMIN_PATH = '/admin/feature-requests';
 
 // The board reads through a service-role client and the page is rendered per
@@ -59,7 +58,6 @@ async function seedRequest(
     .insert({
       title,
       body: options.body ?? null,
-      category: options.category,
       status: 'open',
     })
     .select('id')
@@ -168,7 +166,6 @@ test.describe('Public feature request board', () => {
     try {
       const request = await seedRequest(supabase, {
         label: 'Read board',
-        category: 'visitor',
         body: 'Seeded so an anonymous visitor has something to read.',
       });
       created.push(request.id);
@@ -177,7 +174,7 @@ test.describe('Public feature request board', () => {
 
       await gotoAndGuard(anonPage, BOARD_PATH);
       await expect(
-        anonPage.getByRole('heading', { level: 1, name: '功能許願板' }),
+        anonPage.getByRole('heading', { level: 1, name: '功能建議' }),
       ).toBeVisible();
       await waitForBoardRow(anonPage, request.title);
 
@@ -193,7 +190,9 @@ test.describe('Public feature request board', () => {
     }
   });
 
-  test('signed-out upvote routes to sign-in', async ({ anonPage }) => {
+  test('signed-out visitor upvotes without signing in', async ({
+    anonPage,
+  }) => {
     test.setTimeout(120_000);
     const supabase = serviceClient();
     const created: string[] = [];
@@ -201,7 +200,6 @@ test.describe('Public feature request board', () => {
     try {
       const request = await seedRequest(supabase, {
         label: 'Signed-out upvote',
-        category: 'visitor',
       });
       created.push(request.id);
 
@@ -209,21 +207,33 @@ test.describe('Public feature request board', () => {
       await waitForBoardRow(anonPage, request.title);
 
       const button = upvoteButton(anonPage, request.title);
+      // Same toggle as the signed-in control: the board takes guest votes, so
+      // there is no locked affordance and no sign-in detour.
       await expect(button).toHaveAttribute(
         'aria-label',
-        `登入後為「${request.title}」投票`,
+        `為「${request.title}」投票`,
       );
-      // Signed out the control navigates rather than toggles, so it carries no
-      // pressed state — aria-pressed is emitted only on the signed-in toggle.
-      await expect(button).not.toHaveAttribute('aria-pressed', /.*/);
+      await expect(button).toHaveAttribute('aria-pressed', 'false');
+      await expect(button).toHaveText('0');
+      await expect(button).toBeEnabled({ timeout: 30_000 });
+
       await button.click();
 
-      await expect(anonPage).toHaveURL(/\/auth\/sign-in/, { timeout: 30_000 });
-      // The handoff cookie is what returns the visitor to the board after
-      // signing in — without it the vote intent is silently dropped.
-      const cookies = await anonPage.context().cookies();
-      const next = cookies.find((cookie) => cookie.name === 'post_auth_next');
-      expect(decodeURIComponent(next?.value ?? '')).toContain('/feedback');
+      await expect(button).toHaveAttribute('aria-pressed', 'true', {
+        timeout: 30_000,
+      });
+      await expect(button).toHaveText('1');
+      await expect(anonPage).not.toHaveURL(/\/auth\/sign-in/);
+      // The vote is keyed on the signed visitor cookie, so it must survive a
+      // reload — an optimistic-only flip would pass every assertion above.
+      await anonPage.reload();
+      await waitForBoardRow(anonPage, request.title);
+      await expect(upvoteButton(anonPage, request.title)).toHaveText('1');
+      await expect(upvoteButton(anonPage, request.title)).toHaveAttribute(
+        'aria-pressed',
+        'true',
+        { timeout: 30_000 },
+      );
     } finally {
       await cleanupFeatureRequests(supabase, created);
     }
@@ -238,20 +248,19 @@ test.describe('Public feature request board', () => {
 
     try {
       await gotoAndGuard(userPage, BOARD_PATH);
-      await userPage.getByRole('button', { name: '提出許願' }).click();
+      await userPage.getByRole('button', { name: '提出建議' }).click();
 
       const dialog = userPage.getByRole('dialog');
       await expect(dialog).toBeVisible();
       await dialog.getByLabel('你希望我們做什麼？').fill(title);
       await dialog
-        .getByLabel('想補充什麼嗎？')
+        .getByLabel('詳細說明')
         .fill('[E2E-TEST] Details typed through the submit dialog.');
-      await dialog.getByLabel('這是給誰用的？').selectOption('visitor');
-      await dialog.getByRole('button', { name: '送出許願' }).click();
+      await dialog.getByRole('button', { name: '送出建議' }).click();
 
-      await expect(userPage.getByText('謝謝你，許願已經上板了。')).toBeVisible({
-        timeout: 30_000,
-      });
+      await expect(
+        userPage.getByText('謝謝你，我們已經收到你的建議。'),
+      ).toBeVisible({ timeout: 30_000 });
       await expect(dialog).toBeHidden();
 
       await waitForBoardRow(userPage, title);
@@ -270,7 +279,6 @@ test.describe('Public feature request board', () => {
     try {
       const request = await seedRequest(supabase, {
         label: 'Vote toggle',
-        category: 'visitor',
       });
       created.push(request.id);
 
@@ -315,47 +323,6 @@ test.describe('Public feature request board', () => {
     }
   });
 
-  test('category chip narrows the list', async ({ anonPage }) => {
-    test.setTimeout(120_000);
-    const supabase = serviceClient();
-    const created: string[] = [];
-
-    try {
-      const ownerRequest = await seedRequest(supabase, {
-        label: 'Owner only',
-        category: 'owner',
-      });
-      const visitorRequest = await seedRequest(supabase, {
-        label: 'Visitor only',
-        category: 'visitor',
-      });
-      created.push(ownerRequest.id, visitorRequest.id);
-
-      await gotoAndGuard(anonPage, BOARD_PATH);
-      await waitForBoardRow(anonPage, ownerRequest.title);
-      await expect(boardRow(anonPage, visitorRequest.title)).toBeVisible();
-
-      const filters = anonPage.getByRole('navigation', { name: '篩選許願' });
-      await expect(filters.getByRole('link', { name: '全部' })).toHaveAttribute(
-        'aria-current',
-        'page',
-      );
-
-      await filters.getByRole('link', { name: '給瀏覽者' }).click();
-      await expect(anonPage).toHaveURL(/category=visitor/, { timeout: 30_000 });
-      await expect(
-        filters.getByRole('link', { name: '給瀏覽者' }),
-      ).toHaveAttribute('aria-current', 'page');
-
-      await expect(boardRow(anonPage, visitorRequest.title)).toBeVisible({
-        timeout: 30_000,
-      });
-      await expect(boardRow(anonPage, ownerRequest.title)).toHaveCount(0);
-    } finally {
-      await cleanupFeatureRequests(supabase, created);
-    }
-  });
-
   test('admin merges a duplicate', async ({ adminPage, anonPage }) => {
     const adminEmail = process.env.E2E_ADMIN_EMAIL;
     const admins = (process.env.ADMIN_EMAILS ?? '')
@@ -373,11 +340,9 @@ test.describe('Public feature request board', () => {
     try {
       const target = await seedRequest(supabase, {
         label: 'Merge target',
-        category: 'visitor',
       });
       const source = await seedRequest(supabase, {
         label: 'Merge source',
-        category: 'visitor',
       });
       created.push(target.id, source.id);
       // Only the source carries a vote, so the target's post-merge count is

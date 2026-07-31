@@ -68,7 +68,6 @@ export default async function AdminFeatureRequestsPage() {
   const queueItems: FeatureRequestQueueItem[] = requests.map((request) => ({
     id: request.id,
     title: request.title,
-    category: request.category,
     status: request.status,
     voteCount: request.voteCount,
     adminNote: request.adminNote,

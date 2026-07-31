@@ -70,15 +70,11 @@ export function FeatureRequestVotesProvider({
       }
     }
 
+    // Fetched signed in or not: a guest's votes are keyed on the anonymous
+    // visitor cookie, so a signed-out viewer can have votes to highlight. The
+    // wait on `userLoading` above still matters — resolving auth first keeps a
+    // signed-in viewer from being read as a guest on the first pass.
     void (async () => {
-      if (!userId) {
-        if (isMounted) {
-          setVotedIds(new Set())
-          setFetchLoading(false)
-        }
-        return
-      }
-
       setFetchLoading(true)
 
       try {

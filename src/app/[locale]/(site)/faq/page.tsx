@@ -145,7 +145,7 @@ export default async function FaqPage({ params }: PageProps) {
                   {t.rich('items.ownerInterest.answer', {
                     link: (chunks) => (
                       <Link
-                        href="/feedback"
+                        href="/feature-requests"
                         className="underline underline-offset-4"
                       >
                         {chunks}
