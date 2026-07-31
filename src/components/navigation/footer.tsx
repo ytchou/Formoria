@@ -42,6 +42,15 @@ export function Footer() {
                 </a>
               </li>
               <li>
+                {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- DEV-1280: full-document navigation avoids a stalled RSC request across the locale proxy rewrite. */}
+                <a
+                  href="/events"
+                  className="type-card-description hover:text-foreground transition-colors"
+                >
+                  {t("events")}
+                </a>
+              </li>
+              <li>
                 <Link
                   href="/submit"
                   prefetch={false}

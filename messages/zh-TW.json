@@ -49,7 +49,8 @@
     "languageTraditionalChinese": "繁體中文",
     "languageEnglish": "English",
     "about": "關於 Formoria",
-    "stories": "專題"
+    "stories": "專題",
+    "events": "展會"
   },
   "footer": {
     "about": "關於我們",
@@ -62,6 +63,7 @@
     "directory": "品牌目錄",
     "gettingStarted": "開始使用",
     "stories": "專題",
+    "events": "展會",
     "glossary": "名詞解說",
     "submit": "推薦品牌",
     "companyHeading": "關於",
@@ -2851,6 +2853,40 @@
       "title": "找不到專題",
       "description": "您所尋找的專題不存在或已被移除。",
       "browseAll": "瀏覽所有專題"
+    }
+  },
+  "events": {
+    "metaTitle": "展會",
+    "metaDescription": "台灣品牌的展會與市集資訊：展期、地點與參展品牌一次看完。",
+    "heading": "展會",
+    "subheading": "台灣品牌實際會出現的展會與市集，整理成一頁：什麼時候、在哪裡，以及現場能遇到哪些品牌。",
+    "upcomingHeading": "即將登場",
+    "pastHeading": "展會回顧",
+    "comingSoon": "首波展會資訊正在整理中，敬請期待。",
+    "loadError": "展會資訊暫時無法載入，請稍後再試。",
+    "noBrands": "參展品牌名單尚未公布。",
+    "breadcrumb": "展會",
+    "breadcrumbAria": "麵包屑導覽",
+    "phase": {
+      "upcoming": "即將登場",
+      "ongoing": "進行中",
+      "past": "已結束"
+    },
+    "venue": "地點",
+    "organizer": "主辦單位",
+    "officialSite": "官方網站",
+    "tickets": "購票資訊",
+    "free": "免費入場",
+    "dates": "展期",
+    "brandsHeading": "參展品牌",
+    "brandCount": "共 {count} 個品牌",
+    "areaFilterAria": "依區域篩選展會",
+    "allAreas": "全部區域",
+    "relatedStories": "相關專題",
+    "notFound": {
+      "title": "找不到展會",
+      "description": "您所尋找的展會不存在或已被移除。",
+      "browseAll": "瀏覽所有展會"
     }
   },
   "feedback": {

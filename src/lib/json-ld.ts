@@ -224,6 +224,105 @@ export function buildArticleJsonLd({
   };
 }
 
+export type EventJsonLdInput = {
+  name: string;
+  description?: string | null;
+  /** Formoria page path for the event, e.g. `/events/creative-expo-2026`. */
+  path: string;
+  locale?: string;
+  /** Calendar date, `YYYY-MM-DD`. Emitted verbatim — see the note below. */
+  startDate: string;
+  /** Calendar date, `YYYY-MM-DD`. Omitted for single-day events. */
+  endDate?: string | null;
+  venueName?: string | null;
+  venueAddress?: string | null;
+  city?: string | null;
+  organizerName?: string | null;
+  imageUrl?: string | null;
+  /** `null` = ticketing unknown, so no `offers` is emitted at all. */
+  isFree?: boolean | null;
+  ticketUrl?: string | null;
+};
+
+/**
+ * Build Event JSON-LD structured data for an event detail page.
+ *
+ * Dates are passed through verbatim as `YYYY-MM-DD` calendar dates. Do NOT
+ * introduce `new Date(...)` / `.toISOString()` here: parsing a bare date string
+ * yields UTC midnight, so a Taipei (UTC+8) event on 2026-08-06 would serialize
+ * as 2026-08-05T16:00:00Z and Google would index the event a day early — a
+ * failure only visible in Search Console weeks later.
+ */
+export function buildEventJsonLd({
+  name,
+  description,
+  path,
+  locale,
+  startDate,
+  endDate,
+  venueName,
+  venueAddress,
+  city,
+  organizerName,
+  imageUrl,
+  isFree,
+  ticketUrl,
+}: EventJsonLdInput): JsonLdObject {
+  const siteUrl = getSiteUrl();
+  const absoluteUrl = `${siteUrl}${path.startsWith("/") ? path : `/${path}`}`;
+
+  const jsonLd: JsonLdObject = {
+    "@context": "https://schema.org",
+    "@type": "Event",
+    name,
+    inLanguage: toInLanguage(locale),
+    url: absoluteUrl,
+    startDate,
+    eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+    // Constant by design: schema.org has no "finished" state, so a past event
+    // stays EventScheduled. Never derive this from the event's phase.
+    eventStatus: "https://schema.org/EventScheduled",
+  };
+
+  if (description) jsonLd.description = description;
+  if (endDate) jsonLd.endDate = endDate;
+
+  // Conditional blocks are omitted entirely rather than stubbed — an empty
+  // Place or a priceless free Offer is worse for Google than no key at all.
+  if (venueName) {
+    jsonLd.location = {
+      "@type": "Place",
+      name: venueName,
+      address: {
+        "@type": "PostalAddress",
+        ...(venueAddress ? { streetAddress: venueAddress } : {}),
+        ...(city ? { addressLocality: city } : {}),
+        addressCountry: "TW",
+      },
+    };
+  }
+
+  if (organizerName) {
+    jsonLd.organizer = { "@type": "Organization", name: organizerName };
+  }
+
+  if (imageUrl) jsonLd.image = imageUrl;
+
+  if (isFree === true) {
+    jsonLd.offers = {
+      "@type": "Offer",
+      price: "0",
+      priceCurrency: "TWD",
+      ...(ticketUrl ? { url: ticketUrl } : {}),
+    };
+  } else if (isFree === false && ticketUrl) {
+    // Ticket prices are not tracked, so the Offer carries only where to buy.
+    jsonLd.offers = { "@type": "Offer", url: ticketUrl };
+  }
+
+  return jsonLd;
+}
+
 /**
  * Build DefinedTermSet JSON-LD structured data for glossary pages.
  */
