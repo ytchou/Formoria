@@ -16,6 +16,7 @@ const FEATURE_REQUEST_I18N_KEYS_BY_TITLE = {
   "Let brand owners claim and manage their brand page": "owner_claim_flow",
   "Show a brand's retail locations on its page": "brand_retail_locations",
   "Link in-person events to the brands taking part": "brand_events",
+  "Let anyone report origin evidence on a brand page": "origin_evidence_reports",
 } as const;
 
 export type FeatureRequestI18nKey =

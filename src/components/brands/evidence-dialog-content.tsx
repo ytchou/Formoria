@@ -157,7 +157,10 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
 
           <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
             <fieldset className="space-y-3">
-              <legend className="type-subsection-title">{t('stanceLabel')}</legend>
+              <legend className="type-subsection-title">
+                {t('stanceLabel')}
+                <span aria-hidden="true" className="text-destructive"> *</span>
+              </legend>
               <div className="grid gap-2 sm:grid-cols-2">
                 {(['supports', 'contradicts'] as const).map((value) => (
                   <Label
@@ -183,17 +186,29 @@ export function EvidenceDialogContent({ brandId, brandSlug }: EvidenceDialogCont
             </fieldset>
 
             <div className="space-y-2">
-              <Label htmlFor="evidence-product-name">{t('productNameLabel')}</Label>
+              <Label htmlFor="evidence-product-name">
+                {t('productNameLabel')}
+                <span aria-hidden="true" className="text-destructive"> *</span>
+              </Label>
               <Input
                 id="evidence-product-name"
                 name="productName"
+                required
                 placeholder={t('productNamePlaceholder')}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="evidence-source-type">{t('sourceTypeLabel')}</Label>
-              <NativeSelect id="evidence-source-type" name="sourceType" defaultValue="product_label">
+              <Label htmlFor="evidence-source-type">
+                {t('sourceTypeLabel')}
+                <span aria-hidden="true" className="text-destructive"> *</span>
+              </Label>
+              <NativeSelect
+                id="evidence-source-type"
+                name="sourceType"
+                required
+                defaultValue="product_label"
+              >
                 <option value="product_label">{t('sourceTypes.product_label')}</option>
                 <option value="packaging">{t('sourceTypes.packaging')}</option>
                 <option value="official_site">{t('sourceTypes.official_site')}</option>

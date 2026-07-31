@@ -481,7 +481,7 @@
         "supports": "支持台灣製造",
         "contradicts": "不支持台灣製造"
       },
-      "productNameLabel": "產品名稱（選填）",
+      "productNameLabel": "產品名稱",
       "productNamePlaceholder": "例如：產品或系列名稱",
       "sourceTypeLabel": "證據來源",
       "sourceTypes": {
@@ -491,9 +491,9 @@
         "in_store": "實體店面",
         "other": "其他"
       },
-      "notesLabel": "補充說明（選填）",
+      "notesLabel": "補充說明",
       "notesPlaceholder": "請描述你看到的產地資訊",
-      "photoLabel": "照片（選填）",
+      "photoLabel": "照片",
       "photoHint": "上傳產品標籤、包裝或其他產地照片",
       "uploading": "上傳中…",
       "photoUploaded": "照片已上傳",
@@ -505,6 +505,7 @@
         "missing_brand_id": "缺少品牌 ID",
         "missing_brand_slug": "缺少品牌網址名稱",
         "invalid_stance": "請選擇這項證據支持或不支持台灣製造",
+        "missing_product_name": "請填寫產品名稱",
         "invalid_source_type": "請選擇有效的證據來源",
         "notes_too_long": "補充說明不得超過 1000 字",
         "invalid_photo_path": "上傳的照片不屬於目前使用者或品牌",
@@ -2899,6 +2900,10 @@
       "brand_retail_locations": {
         "title": "在品牌頁顯示實體銷售據點",
         "body": "在品牌頁直接列出買得到該品牌的門市、櫃位與寄售點，讓訪客知道能去哪裡親眼看到、當場買到。"
+      },
+      "origin_evidence_reports": {
+        "title": "讓任何人都能在品牌頁回報產地資訊",
+        "body": "讓訪客不必註冊也能提供產地佐證，例如產品標籤、包裝或門市現場照片，讓「台灣製造」的標示能由真正買過的人一起查核。"
       },
       "brand_events": {
         "title": "串連實體活動與參展品牌",

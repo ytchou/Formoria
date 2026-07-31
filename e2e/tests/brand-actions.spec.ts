@@ -5,8 +5,8 @@ import { seedBrand, type SeededBrand } from "../helpers/seed";
  * Public brand actions and admin placement.
  *
  * These journeys exercise the controls that sit beside a brand name on the
- * detail page: anonymous support, evidence sign-in guidance, and the admin
- * menu's position in the heading row.
+ * detail page: anonymous support and the admin menu's position in the heading
+ * row.
  */
 test.describe("Brand detail actions", () => {
   let seeded: SeededBrand;
@@ -63,40 +63,6 @@ test.describe("Brand detail actions", () => {
         name: "支持這個品牌，目前有 0 個支持",
       }),
     ).toHaveAttribute("aria-pressed", "false");
-  });
-
-  test("anonymous visitor sees sign-in guidance before submitting evidence", async ({
-    anonPage,
-  }) => {
-    const response = await anonPage.goto(`/brands/${seeded.slug}`, {
-      waitUntil: "domcontentloaded",
-    });
-    if (response?.status() === 503) {
-      test.skip(true, "PREVIEW_MODE active — skipping.");
-      return;
-    }
-
-    const evidenceTrigger = anonPage.getByRole("button", {
-      name: "回報產地資訊",
-    });
-    await expect(evidenceTrigger).toBeVisible({ timeout: 15_000 });
-    await expect(evidenceTrigger).toHaveAttribute(
-      "title",
-      "請先登入，再提供產地證據。",
-      { timeout: 15_000 },
-    );
-    await evidenceTrigger.click();
-
-    const dialog = anonPage.getByRole("dialog", { name: "提供產地證據" });
-    await expect(dialog).toBeVisible({ timeout: 5_000 });
-    await expect(dialog).toContainText("請先登入，再提供產地證據。");
-    await expect(dialog.getByRole("link", { name: "登入" })).toHaveAttribute(
-      "href",
-      /\/auth\/sign-in\?next=/,
-    );
-
-    await dialog.getByRole("button", { name: "取消" }).click();
-    await expect(dialog).not.toBeVisible();
   });
 
   test("admin menu is aligned to the right of the brand heading", async ({

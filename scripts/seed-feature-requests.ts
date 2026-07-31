@@ -57,6 +57,11 @@ const SEED_REQUESTS: SeedRequest[] = [
     body: 'Show upcoming markets, fairs, and pop-ups such as Creative Expo Taiwan on the brands appearing at them, so visitors can plan to meet a brand in person.',
     status: 'in_progress',
   },
+  {
+    title: 'Let anyone report origin evidence on a brand page',
+    body: "Let visitors share proof of where a brand's products are actually made — a product label, packaging, or an in-store photo — without needing an account, so Made-in-Taiwan claims are checked by the people who bought the product.",
+    status: 'in_progress',
+  },
 ]
 
 async function main(): Promise<void> {
