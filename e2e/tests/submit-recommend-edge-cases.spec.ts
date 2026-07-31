@@ -78,8 +78,11 @@ test.describe('Submit recommendation edge cases', () => {
     })
     await anonPage.locator('#submit-name').press('Tab')
 
+    // Not `exact`: the duplicate hit now renders as one red line that carries
+    // the title and the matched brand links in the same paragraph, so the
+    // element's full text is "發現相似品牌名稱 <brand>".
     await expect(
-      anonPage.getByText('發現相似品牌名稱', { exact: true }),
+      anonPage.getByText('發現相似品牌名稱'),
     ).toBeVisible({ timeout: 15_000 })
 
     const submitButton = anonPage.getByRole('button', { name: '送出推薦' })
@@ -90,7 +93,7 @@ test.describe('Submit recommendation edge cases', () => {
       .fill(`${SUBMISSION_PREFIX} Recovery ${Date.now()}`)
 
     await expect(
-      anonPage.getByText('發現相似品牌名稱', { exact: true }),
+      anonPage.getByText('發現相似品牌名稱'),
     ).toHaveCount(0)
     await expect(submitButton).toBeEnabled({ timeout: 15_000 })
   })
