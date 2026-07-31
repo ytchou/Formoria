@@ -153,7 +153,7 @@ export default async function LandingPage({ params }: PageProps) {
               </blockquote>
               <p className="mt-3 type-body-muted">{t("manifesto.body1")}</p>
               <Link
-                href="/about#vision"
+                href="/about"
                 className={buttonVariants({
                   variant: "primary",
                   tone: "cta",

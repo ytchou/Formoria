@@ -346,7 +346,12 @@ test.describe('Brand detail — historical slugs', () => {
   });
 });
 
-test.describe('Brand detail — public locations and retail channels', () => {
+// Skipped in lockstep with `LOCATIONS_SECTION_ENABLED` in
+// src/app/[locale]/(site)/brands/[slug]/page.tsx — the section is hidden from
+// the public page while its presentation is reworked, so every assertion here
+// would fail on a missing section rather than on a real regression. Un-skip when
+// that constant flips back to true.
+test.describe.skip('Brand detail — public locations and retail channels', () => {
   let seeded: SeededBrand;
 
   const confirmedStoreName = '[E2E-TEST] Brand direct store';

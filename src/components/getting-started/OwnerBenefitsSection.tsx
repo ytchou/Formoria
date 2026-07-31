@@ -45,7 +45,7 @@ export function OwnerBenefitsSection() {
           interest on the feature request board — shown to every visitor, since
           signed-in owners have no dashboard to be sent to either. */}
       <Link
-        href="/feedback"
+        href="/feature-requests"
         className={buttonVariants({ variant: 'primary', tone: 'cta' })}
       >
         {ctaT('cta')}

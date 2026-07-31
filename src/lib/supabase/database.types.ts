@@ -1470,19 +1470,22 @@ export type Database = {
           created_at: string
           id: string
           request_id: string
-          user_id: string
+          user_id: string | null
+          visitor_hash: string | null
         }
         Insert: {
           created_at?: string
           id?: string
           request_id: string
-          user_id: string
+          user_id?: string | null
+          visitor_hash?: string | null
         }
         Update: {
           created_at?: string
           id?: string
           request_id?: string
-          user_id?: string
+          user_id?: string | null
+          visitor_hash?: string | null
         }
         Relationships: [
           {
@@ -1498,8 +1501,8 @@ export type Database = {
         Row: {
           admin_note: string | null
           body: string | null
-          category: string
           created_at: string
+          guest_email: string | null
           id: string
           is_seed: boolean
           merged_into_id: string | null
@@ -1511,8 +1514,8 @@ export type Database = {
         Insert: {
           admin_note?: string | null
           body?: string | null
-          category: string
           created_at?: string
+          guest_email?: string | null
           id?: string
           is_seed?: boolean
           merged_into_id?: string | null
@@ -1524,8 +1527,8 @@ export type Database = {
         Update: {
           admin_note?: string | null
           body?: string | null
-          category?: string
           created_at?: string
+          guest_email?: string | null
           id?: string
           is_seed?: boolean
           merged_into_id?: string | null

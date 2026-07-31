@@ -9,32 +9,29 @@ type FeatureRequestVoteRow =
 export type FeatureRequestStatus =
   "open" | "planned" | "in_progress" | "shipped" | "declined" | "duplicate";
 
-export type FeatureRequestCategory = "owner" | "visitor";
-
 const FEATURE_REQUEST_I18N_KEYS_BY_TITLE = {
-  "Generate bilingual brand stories and social copy":
-    "bilingual_brand_content",
-  "Show which marketing channels are working": "marketing_channel_insights",
   "Add reviews and ratings to brand pages": "brand_reviews",
   "Browse Taiwanese brands by occasion": "occasion_discovery",
   "Show nearby Taiwanese brands on a map": "nearby_brand_map",
+  "Let brand owners claim and manage their brand page": "owner_claim_flow",
 } as const;
 
 export type FeatureRequestI18nKey =
   (typeof FEATURE_REQUEST_I18N_KEYS_BY_TITLE)[keyof typeof FEATURE_REQUEST_I18N_KEYS_BY_TITLE];
 
 /**
- * Public projection of a board entry. `submitted_by` is deliberately absent:
- * the column exists for moderation and abuse tracing only, and this type is the
- * single boundary that keeps the submitter's auth.users id off the wire. Adding
- * a `submittedBy` field here would leak it into the RSC payload of a fully
- * public page — `rowToFeatureRequest omits submitted_by` pins that.
+ * Public projection of a board entry. `submitted_by` and `guest_email` are
+ * deliberately absent: those columns exist for moderation, abuse tracing, and
+ * replying to a guest only, and this type is the single boundary that keeps
+ * submitter identity off the wire. Adding a `submittedBy` or `guestEmail` field
+ * here would leak an auth.users id or a personal email address into the RSC
+ * payload of a fully public page — `rowToFeatureRequest omits submitted_by` and
+ * `rowToFeatureRequest omits guest_email` pin that.
  */
 export type FeatureRequest = {
   id: string;
   title: string;
   body: string | null;
-  category: FeatureRequestCategory;
   status: FeatureRequestStatus;
   voteCount: number;
   isSeed: boolean;
@@ -46,15 +43,24 @@ export type FeatureRequest = {
 };
 
 export type ListFeatureRequestsOptions = {
-  category?: FeatureRequestCategory;
   limit?: number;
 };
 
+/**
+ * Who a vote belongs to. Exactly one identity, mirroring the table's
+ * `num_nonnulls(user_id, visitor_hash) = 1` check: a guest has no auth.users
+ * row to reference, and a signed-in voter must never be deduped by a cookie
+ * that a browser can throw away.
+ */
+export type FeatureRequestVoter =
+  | { userId: string; visitorHash?: never }
+  | { visitorHash: string; userId?: never };
+
 export type SubmitFeatureRequestInput = {
   title: string;
-  body?: string | null;
-  category: FeatureRequestCategory;
-  userId: string;
+  body: string;
+  userId: string | null;
+  guestEmail?: string | null;
 };
 
 export type SubmitFeatureRequestResult =
@@ -93,11 +99,16 @@ const MAX_BOARD_REQUESTS = 200;
  * Length bounds for a submitted request. These are the single source of truth
  * for the dialog, the zod schema in `@/lib/actions/feature-requests-core`, and
  * this module's own guard — they must keep matching the migration's
- * `check (char_length(title) between 4 and 120)` and
+ * `check (char_length(title) between 4 and 80)` and
  * `check (char_length(body) <= 2000)`, so changing one means changing both.
+ *
+ * `FEATURE_REQUEST_BODY_MIN` has no CHECK counterpart on purpose: the column
+ * stays nullable because legacy rows were submitted before the body became
+ * required, so the minimum is enforced app-side only.
  */
 export const FEATURE_REQUEST_TITLE_MIN = 4;
-export const FEATURE_REQUEST_TITLE_MAX = 120;
+export const FEATURE_REQUEST_TITLE_MAX = 80;
+export const FEATURE_REQUEST_BODY_MIN = 10;
 export const FEATURE_REQUEST_BODY_MAX = 2000;
 
 /**
@@ -110,7 +121,7 @@ export const FEATURE_REQUEST_BODY_MAX = 2000;
 const VOTE_ID_BATCH_SIZE = 50;
 
 const FEATURE_REQUEST_COLUMNS =
-  "id, title, body, category, status, merged_into_id, is_seed, admin_note, created_at, updated_at";
+  "id, title, body, status, merged_into_id, is_seed, admin_note, created_at, updated_at";
 
 const FEATURE_REQUEST_STATUSES: readonly FeatureRequestStatus[] = [
   "open",
@@ -121,21 +132,10 @@ const FEATURE_REQUEST_STATUSES: readonly FeatureRequestStatus[] = [
   "duplicate",
 ];
 
-const FEATURE_REQUEST_CATEGORIES: readonly FeatureRequestCategory[] = [
-  "owner",
-  "visitor",
-];
-
 export function isFeatureRequestStatus(
   value: string,
 ): value is FeatureRequestStatus {
   return (FEATURE_REQUEST_STATUSES as readonly string[]).includes(value);
-}
-
-export function isFeatureRequestCategory(
-  value: string,
-): value is FeatureRequestCategory {
-  return (FEATURE_REQUEST_CATEGORIES as readonly string[]).includes(value);
 }
 
 function seedI18nKey(title: string): FeatureRequestI18nKey | null {
@@ -159,7 +159,6 @@ export function rowToFeatureRequest(
     id: row.id,
     title: row.title,
     body: row.body,
-    category: row.category as FeatureRequestCategory,
     status: row.status as FeatureRequestStatus,
     voteCount,
     isSeed: row.is_seed,
@@ -211,30 +210,40 @@ function compareFeatureRequests(a: FeatureRequest, b: FeatureRequest) {
 function assembleFeatureRequests(
   rows: FeatureRequestRow[],
   voteRows: Pick<FeatureRequestVoteRow, "request_id">[],
-  options: ListFeatureRequestsOptions = {},
 ): FeatureRequest[] {
   const counts = countVotesByRequest(voteRows);
 
   return rows
-    .filter((row) => !options.category || row.category === options.category)
     .map((row) => rowToFeatureRequest(row, counts.get(row.id) ?? 0))
     .sort(compareFeatureRequests);
 }
 
 /**
  * Pure assembly step for the public board: rows + vote rows -> ordered board
- * with merged tombstones dropped. Extracted so the filtering and ordering
- * rules can be tested with no database and no mocks.
+ * with two kinds of row dropped.
+ *
+ *   - merged tombstones, because they redirect to a target that is already on
+ *     the board and their votes have moved there,
+ *   - `declined` requests, because a decline is a decision that has already
+ *     been made: the board exists to collect votes on what is still open, and
+ *     keeping a closed decision on it advertises a "no" nobody can act on.
+ *
+ * Both filters live here rather than in a component because this function is
+ * the single place that owns what reaches the public surface — a component
+ * filter would be re-implemented by the next component that renders the board.
+ * `assembleFeatureRequests` stays unfiltered on purpose so the admin queue can
+ * still moderate declined rows. Extracted so the filtering and ordering rules
+ * can be tested with no database and no mocks.
  */
 export function buildFeatureRequestBoard(
   rows: FeatureRequestRow[],
   voteRows: Pick<FeatureRequestVoteRow, "request_id">[],
-  options: ListFeatureRequestsOptions = {},
 ): FeatureRequest[] {
   return assembleFeatureRequests(
-    rows.filter((row) => row.merged_into_id === null),
+    rows.filter(
+      (row) => row.merged_into_id === null && row.status !== "declined",
+    ),
     voteRows,
-    options,
   );
 }
 
@@ -245,7 +254,7 @@ export function buildFeatureRequestBoard(
 async function fetchVoteRows(
   supabase: ReturnType<typeof createServiceClient>,
   requestIds: string[],
-  userId?: string,
+  voter?: FeatureRequestVoter,
 ): Promise<Pick<FeatureRequestVoteRow, "request_id">[]> {
   const batches: string[][] = [];
   for (let index = 0; index < requestIds.length; index += VOTE_ID_BATCH_SIZE) {
@@ -258,7 +267,12 @@ async function fetchVoteRows(
         .from("feature_request_votes")
         .select("request_id")
         .in("request_id", batch);
-      if (userId) query = query.eq("user_id", userId);
+      if (voter) {
+        query =
+          voter.userId !== undefined
+            ? query.eq("user_id", voter.userId)
+            : query.eq("visitor_hash", voter.visitorHash);
+      }
 
       const { data, error } = await query;
       if (error) throw error;
@@ -291,7 +305,6 @@ async function loadFeatureRequests(
     .limit(limit);
 
   if (!includeMerged) query = query.is("merged_into_id", null);
-  if (options.category) query = query.eq("category", options.category);
 
   const { data, error } = await query;
   if (error) throw error;
@@ -306,8 +319,8 @@ async function loadFeatureRequests(
   );
 
   return includeMerged
-    ? assembleFeatureRequests(rows, voteRows, options)
-    : buildFeatureRequestBoard(rows, voteRows, options);
+    ? assembleFeatureRequests(rows, voteRows)
+    : buildFeatureRequestBoard(rows, voteRows);
 }
 
 export async function listFeatureRequests(
@@ -334,7 +347,7 @@ export async function listAllFeatureRequests(): Promise<FeatureRequest[]> {
  * would otherwise drag their whole vote history across the wire.
  */
 export async function getMyVotedRequestIds(
-  userId: string,
+  voter: FeatureRequestVoter,
   requestIds?: string[],
 ): Promise<string[]> {
   const supabase = createServiceClient();
@@ -344,16 +357,20 @@ export async function getMyVotedRequestIds(
     const rows = await fetchVoteRows(
       supabase,
       requestIds.slice(0, MAX_BOARD_REQUESTS),
-      userId,
+      voter,
     );
     return rows.map((row) => row.request_id);
   }
 
-  const { data, error } = await supabase
+  const scoped = supabase
     .from("feature_request_votes")
     .select("request_id")
-    .eq("user_id", userId)
     .limit(MAX_BOARD_REQUESTS);
+
+  const { data, error } =
+    voter.userId !== undefined
+      ? await scoped.eq("user_id", voter.userId)
+      : await scoped.eq("visitor_hash", voter.visitorHash);
 
   if (error) throw error;
   return ((data ?? []) as Pick<FeatureRequestVoteRow, "request_id">[]).map(
@@ -362,9 +379,11 @@ export async function getMyVotedRequestIds(
 }
 
 /**
- * 23505 is the dedup index firing, not an outage — the caller shows "you
- * already asked for this", never a retry prompt. Exported so the mapping is
- * pinned without a database round-trip.
+ * 23505 is `feature_requests_unique_title_idx` firing, not an outage — the
+ * caller shows "that request is already on the board", never a retry prompt.
+ * That index exists only as of the guest-submission migration; before it this
+ * branch was unreachable. Exported so the mapping is pinned without a database
+ * round-trip.
  */
 export function submitErrorCode(
   error: { code?: string } | null,
@@ -376,7 +395,7 @@ export async function submitFeatureRequest(
   input: SubmitFeatureRequestInput,
 ): Promise<SubmitFeatureRequestResult> {
   const title = input.title.trim();
-  const body = input.body?.trim() ?? null;
+  const body = input.body.trim();
 
   if (
     title.length < FEATURE_REQUEST_TITLE_MIN ||
@@ -384,12 +403,17 @@ export async function submitFeatureRequest(
   ) {
     return { ok: false, code: "invalid_input" };
   }
-  if (body !== null && body.length > FEATURE_REQUEST_BODY_MAX) {
+  if (
+    body.length < FEATURE_REQUEST_BODY_MIN ||
+    body.length > FEATURE_REQUEST_BODY_MAX
+  ) {
     return { ok: false, code: "invalid_input" };
   }
-  if (!isFeatureRequestCategory(input.category)) {
-    return { ok: false, code: "invalid_input" };
-  }
+  // A signed-in submitter's address is already on their account, so a
+  // `guestEmail` arriving alongside a `userId` is ignored rather than stored:
+  // it would be an unverified second address attached to a known account.
+  const guestEmail =
+    input.userId === null ? input.guestEmail?.trim() || null : null;
 
   try {
     const supabase = createServiceClient();
@@ -397,10 +421,10 @@ export async function submitFeatureRequest(
       .from("feature_requests")
       .insert({
         title,
-        body: body || null,
-        category: input.category,
+        body,
         status: "open",
         submitted_by: input.userId,
+        guest_email: guestEmail,
       })
       .select("id")
       .single();
@@ -430,7 +454,7 @@ async function countVotes(
 
 export async function setFeatureRequestVote(
   requestId: string,
-  userId: string,
+  voter: FeatureRequestVoter,
   voted: boolean,
 ): Promise<SetFeatureRequestVoteResult> {
   try {
@@ -448,22 +472,34 @@ export async function setFeatureRequestVote(
     // merge. Send the caller to the target instead.
     if (request.merged_into_id) return { ok: false, code: "merged" };
 
+    // One vote row carries exactly one identity, matching the table's
+    // `num_nonnulls(user_id, visitor_hash) = 1` check.
+    const identity =
+      voter.userId !== undefined
+        ? { user_id: voter.userId }
+        : { visitor_hash: voter.visitorHash };
+
     if (voted) {
-      // ignoreDuplicates makes the second click a no-op instead of a 23505 —
-      // vote/unvote is idempotent by design.
+      // Plain insert with 23505 swallowed, not an upsert: dedup now lives in
+      // two PARTIAL unique indexes (one per identity column), and PostgREST
+      // cannot reliably infer a partial index from an `onConflict` column
+      // list. Swallowing the duplicate keeps the original contract — a second
+      // click is a no-op, because vote/unvote is idempotent by design.
       const { error } = await supabase
         .from("feature_request_votes")
-        .upsert(
-          { request_id: requestId, user_id: userId },
-          { onConflict: "request_id,user_id", ignoreDuplicates: true },
-        );
-      if (error) return { ok: false, code: "database_error" };
+        .insert({ request_id: requestId, ...identity });
+      if (error && error.code !== "23505") {
+        return { ok: false, code: "database_error" };
+      }
     } else {
-      const { error } = await supabase
+      const deletion = supabase
         .from("feature_request_votes")
         .delete()
-        .eq("request_id", requestId)
-        .eq("user_id", userId);
+        .eq("request_id", requestId);
+      const { error } =
+        voter.userId !== undefined
+          ? await deletion.eq("user_id", voter.userId)
+          : await deletion.eq("visitor_hash", voter.visitorHash);
       if (error) return { ok: false, code: "database_error" };
     }
 
@@ -503,19 +539,30 @@ export async function setFeatureRequestStatus(
   }
 }
 
-async function readVoterIds(
+type VoteIdentityRow = Pick<FeatureRequestVoteRow, "user_id" | "visitor_hash">;
+
+async function readVoteIdentities(
   supabase: ReturnType<typeof createServiceClient>,
   requestId: string,
-): Promise<string[]> {
+): Promise<VoteIdentityRow[]> {
   const { data, error } = await supabase
     .from("feature_request_votes")
-    .select("user_id")
+    .select("user_id, visitor_hash")
     .eq("request_id", requestId);
 
   if (error) throw error;
-  return ((data ?? []) as Pick<FeatureRequestVoteRow, "user_id">[]).map(
-    (row) => row.user_id,
-  );
+  return (data ?? []) as VoteIdentityRow[];
+}
+
+/**
+ * Comparable key for "the same voter". Prefixed because an account id and a
+ * visitor hash are different namespaces, and an unprefixed compare would let a
+ * collision between them silently drop a vote during a merge.
+ */
+function voteIdentityKey(row: VoteIdentityRow): string {
+  return row.user_id !== null
+    ? `user:${row.user_id}`
+    : `visitor:${row.visitor_hash}`;
 }
 
 /**
@@ -529,7 +576,8 @@ async function readVoterIds(
  *
  * Re-pointing before deleting is what keeps a vote from being lost; excluding
  * the overlapping voters from step 1 is what keeps step 1 from colliding with
- * the `(request_id, user_id)` unique constraint. Marking the source last means
+ * the two partial unique indexes — `(request_id, user_id)` for accounts and
+ * `(request_id, visitor_hash)` for guests. Marking the source last means
  * a crash mid-merge leaves a still-visible source with its votes intact, which
  * is re-runnable — marking it first would hide a request whose votes had not
  * moved yet.
@@ -562,21 +610,39 @@ export async function mergeFeatureRequests(
     if (target.merged_into_id) return { ok: false, code: "invalid_target" };
 
     const [targetVoters, sourceVoters] = await Promise.all([
-      readVoterIds(supabase, targetId),
-      readVoterIds(supabase, sourceId),
+      readVoteIdentities(supabase, targetId),
+      readVoteIdentities(supabase, sourceId),
     ]);
-    const targetVoterSet = new Set(targetVoters);
+    const targetVoterSet = new Set(targetVoters.map(voteIdentityKey));
     const movable = sourceVoters.filter(
-      (userId) => !targetVoterSet.has(userId),
+      (row) => !targetVoterSet.has(voteIdentityKey(row)),
     );
 
-    // Step 1 — re-point the non-overlapping votes.
-    if (movable.length > 0) {
+    // Step 1 — re-point the non-overlapping votes. Two statements, because a
+    // guest vote and an account vote are matched on different columns and a
+    // single `.in()` cannot span both.
+    const movableUserIds = movable
+      .map((row) => row.user_id)
+      .filter((userId): userId is string => userId !== null);
+    const movableVisitorHashes = movable
+      .map((row) => row.visitor_hash)
+      .filter((hash): hash is string => hash !== null);
+
+    if (movableUserIds.length > 0) {
       const { error } = await supabase
         .from("feature_request_votes")
         .update({ request_id: targetId })
         .eq("request_id", sourceId)
-        .in("user_id", movable);
+        .in("user_id", movableUserIds);
+      if (error) return { ok: false, code: "database_error" };
+    }
+
+    if (movableVisitorHashes.length > 0) {
+      const { error } = await supabase
+        .from("feature_request_votes")
+        .update({ request_id: targetId })
+        .eq("request_id", sourceId)
+        .in("visitor_hash", movableVisitorHashes);
       if (error) return { ok: false, code: "database_error" };
     }
 

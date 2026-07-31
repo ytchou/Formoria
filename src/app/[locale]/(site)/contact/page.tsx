@@ -57,7 +57,12 @@ export default async function ContactPage({ params }: PageProps) {
       href: `mailto:${CONTACT_EMAILS.contact}`,
       external: true,
     },
-    { key: 'feature', icon: Lightbulb, href: '/feedback', external: false },
+    {
+      key: 'feature',
+      icon: Lightbulb,
+      href: '/feature-requests',
+      external: false,
+    },
     { key: 'brand', icon: Building2, href: '/brands', external: false },
     { key: 'question', icon: HelpCircle, href: '/faq', external: false },
   ] as const

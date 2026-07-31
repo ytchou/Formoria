@@ -13,7 +13,7 @@ import { cleanBrandName } from '@/lib/services/brand-cleanup'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { verifyTurnstileToken } from '@/lib/security/turnstile'
 import { createInMemoryRateLimiter } from '@/lib/security/rate-limiter'
-import type { SourceAttribution } from '@/lib/types/submission'
+import type { DuplicateCandidate, SourceAttribution } from '@/lib/types/submission'
 import { isOwnerFeaturesEnabled } from '@/lib/services/app-settings'
 import { getUserBrand } from '@/lib/services/brand-owners'
 import {
@@ -71,25 +71,41 @@ export async function suggestCleanName(name: string) {
   return { suggestion: null, changed: false, patterns: [] as string[] }
 }
 
-export async function inspectRecommendationName(name: string) {
+type RecommendationInspection = Awaited<ReturnType<typeof suggestCleanName>> & {
+  nameMatches: DuplicateCandidate[]
+  websiteMatches: DuplicateCandidate[]
+}
+
+export async function inspectRecommendation(
+  name: string,
+  website?: string,
+): Promise<RecommendationInspection> {
   const suggestion = await suggestCleanName(name)
+  const empty = {
+    ...suggestion,
+    nameMatches: [] as DuplicateCandidate[],
+    websiteMatches: [] as DuplicateCandidate[],
+  }
   const parsed = z.string().trim().min(2).max(200).safeParse(name)
 
   if (!parsed.success) {
-    return { ...suggestion, hasDuplicate: false }
+    return empty
   }
 
   const headerStore = await headers()
   const ip = getRequestIp(headerStore)
-  const rateResult = nameInspectionRateLimiter.check(ip, 60_000, 10)
+  // 20/min: this inspection now backs both the name and the website field, so a
+  // visitor editing both would exhaust the previous 10/min budget mid-form.
+  const rateResult = nameInspectionRateLimiter.check(ip, 60_000, 20)
   if (!rateResult.allowed) {
-    return { ...suggestion, hasDuplicate: false }
+    return empty
   }
 
-  const duplicates = await checkBrandDuplicates(parsed.data)
+  const duplicates = await checkBrandDuplicates(parsed.data, website)
   return {
     ...suggestion,
-    hasDuplicate: duplicates.nameMatches.length > 0,
+    nameMatches: duplicates.nameMatches,
+    websiteMatches: duplicates.websiteMatches,
   }
 }
 
@@ -125,11 +141,16 @@ export async function submitRecommendation(
     }
 
     const duplicates = await checkBrandDuplicates(parsed.name, parsed.website)
-    if (duplicates.nameMatches.length > 0) {
-      return { error: tSubmit('fields.nameDuplicateTitle') }
-    }
-    if (duplicates.websiteMatches.length > 0) {
-      return { error: tSubmit('fields.websiteDuplicateTitle') }
+    // Both collisions are advisory once the visitor has ticked the inline "not
+    // a duplicate" confirmation — the submission still lands in the moderation
+    // queue, where a real duplicate gets rejected by a human.
+    if (!parsed.duplicateConfirmed) {
+      if (duplicates.nameMatches.length > 0) {
+        return { error: tSubmit('fields.nameDuplicateTitle') }
+      }
+      if (duplicates.websiteMatches.length > 0) {
+        return { error: tSubmit('fields.websiteDuplicateTitle') }
+      }
     }
 
     await submitBrandForReview({

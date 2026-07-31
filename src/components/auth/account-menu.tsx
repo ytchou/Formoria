@@ -90,7 +90,7 @@ export function AccountMenu() {
           </DropdownMenuItem>
         ) : null}
         <DropdownMenuItem
-          render={<Link href="/feedback" />}
+          render={<Link href="/feature-requests" />}
         >
           {t('account.feedback')}
         </DropdownMenuItem>

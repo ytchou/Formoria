@@ -31,7 +31,6 @@ export type FeatureRequestQueueItem = Pick<
   FeatureRequest,
   | 'id'
   | 'title'
-  | 'category'
   | 'status'
   | 'voteCount'
   | 'adminNote'
@@ -160,7 +159,6 @@ export function FeatureRequestsQueue({
         <TableHeader>
           <TableRow>
             <TableHead>{t('table.request')}</TableHead>
-            <TableHead>{t('table.category')}</TableHead>
             <TableHead>{t('table.votes')}</TableHead>
             <TableHead>{t('table.status')}</TableHead>
             <TableHead>{t('table.merge')}</TableHead>
@@ -185,7 +183,6 @@ export function FeatureRequestsQueue({
                     ) : null}
                   </div>
                 </TableCell>
-                <TableCell>{t(`category.${item.category}`)}</TableCell>
                 <TableCell className="tabular-nums">{item.voteCount}</TableCell>
                 <TableCell className="min-w-64 whitespace-normal">
                   <div className="space-y-2">

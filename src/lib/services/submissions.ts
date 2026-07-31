@@ -1690,6 +1690,8 @@ export async function saveSubmissionReview(
     p_review_data: overrides as Json,
     p_images: input.images.map((image) => ({
       id: image.id,
+      // Keep the payload compatible with linked databases before the hero-order migration.
+      is_hero: image.sortOrder === 0,
       sort_order: image.sortOrder,
     })) as unknown as Json,
   });

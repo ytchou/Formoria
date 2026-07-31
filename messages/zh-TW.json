@@ -69,7 +69,7 @@
     "support": "支持我們",
     "legalHeading": "法律",
     "connectHeading": "聯絡",
-    "feedback": "意見回饋"
+    "feedback": "功能建議"
   },
   "landing": {
     "metadata": {
@@ -110,12 +110,17 @@
       "body1": "我們先整理分散的品牌、產品與購買通路資訊，讓值得被認識的台灣品牌更容易被找到。",
       "body2": "接著以選物內容幫助人們選擇，並用工具支持品牌自主成長。",
       "body3": "一步一步，朝由品牌自主經營的線上台灣選物店前進。",
-      "cta": "了解我們的使命與願景"
+      "cta": "了解我們的願景"
     },
     "submitBand": {
       "headline": "推薦一個值得被看見的台灣品牌",
       "body": "免費推薦，通過審核後加入 Formoria 社群目錄",
       "cta": "推薦品牌"
+    },
+    "featureRequestBand": {
+      "headline": "告訴我們 Formoria 接下來該做什麼",
+      "body": "若您有任何產品建議歡迎提供，也可以為列表上已有的想法投票",
+      "cta": "提出建議"
     },
     "newBrands": {
       "heading": "最新品牌",
@@ -145,6 +150,7 @@
   },
   "marketingEmailConsent": {
     "newsletterOnlyLabel": "我同意接收 Formoria 電子報",
+    "newsletterOnlyDescription": "電子報需完成信箱確認，可隨時免費取消。詳情請見<privacyPolicy>隱私權政策</privacyPolicy>。",
     "combinedLabel": "我同意接收 Formoria 電子報，以及適用於品牌主的經營提醒與功能建議（選填）",
     "combinedDescription": "電子報需完成信箱確認；你之後可在設定中分別關閉任一類別，或全部免費取消。詳情請見<privacyPolicy>隱私權政策</privacyPolicy>。"
   },
@@ -1252,7 +1258,7 @@
     "mySubmissions": "我的推薦",
     "signOut": "登出",
     "settings": "帳號設定",
-    "feedback": "意見回饋"
+    "feedback": "功能建議"
   },
   "favorites": {
     "heading": "收藏品牌",
@@ -1836,7 +1842,6 @@
     "overview": {
       "heading": "推薦台灣品牌",
       "description": "與社群分享你喜歡的台灣品牌，我們會審核後收錄進品牌目錄。",
-      "criteria": "我們收錄在台灣創立、設計或製造的品牌。",
       "recommendEyebrow": "社群推薦",
       "recommendTitle": "推薦一個值得被看見的品牌",
       "recommendDescription": "提供你看到的品牌資訊，通過審核後即可讓更多人看見。",
@@ -1845,6 +1850,7 @@
       "recommendPoint3": "審核通過後會收錄進 Formoria",
       "recommendCta": "推薦品牌",
       "ownerEyebrow": "品牌主",
+      "ownerComingSoon": "即將推出",
       "ownerTitle": "開始創建完整品牌資訊",
       "ownerDescription": "提交審核通過後將直接擁有編輯管理權",
       "ownerPoint1": "提供品牌基本資料與代表性連結",
@@ -2087,19 +2093,18 @@
       "heading": "推薦品牌",
       "subheading": "提供品牌名稱與網址，讓我們開始審核這個台灣品牌。",
       "websiteLabel": "品牌官方網站",
-      "websiteHint": "請貼上品牌最主要的官方網站、商店或社群首頁網址。",
+      "websiteHint": "請提供品牌官方網站，若無官方網站則提供社群網站亦可。",
       "websitePlaceholder": "https://brand.example",
       "brandNameLabel": "品牌名稱",
       "brandNamePlaceholder": "例：暖木家居",
-      "brandNameHint": "請填正式品牌名稱，方便我們後續驗重與查證。",
+      "brandNameHint": "請填正式品牌名稱，方便我們檢驗與審核。",
       "guestEmailLabel": "你的電子郵件",
-      "guestEmailHint": "若想收到這筆品牌推薦的審核進度，請留下電子郵件。",
+      "guestEmailHint": "若您想收到審核結果的通知，請留下電子郵件。",
       "guestEmailPlaceholder": "name@example.com",
       "descriptionLabel": "補充說明",
       "descriptionHint": "如果你知道品牌特色、產品或背景，可以留在這裡，幫助我們審核。",
       "descriptionPlaceholder": "例如：品牌在台南設計，並與台灣在地工坊合作生產。",
       "sourceLabel": "你如何知道這個品牌？",
-      "sourceHint": "幫助我們理解這筆推薦的來源。",
       "sourcePlaceholder": "選擇你認識這品牌的方式",
       "requiredHint": "為必填欄位",
       "submitButton": "送出推薦",
@@ -2733,7 +2738,6 @@
       "empty": "目前沒有任何功能許願。",
       "table": {
         "request": "許願",
-        "category": "對象",
         "votes": "票數",
         "status": "狀態",
         "merge": "併入"
@@ -2745,10 +2749,6 @@
         "shipped": "已上線",
         "declined": "不會做",
         "duplicate": "重複"
-      },
-      "category": {
-        "owner": "品牌方",
-        "visitor": "訪客"
       },
       "statusLabel": "「{title}」的狀態",
       "noteLabel": "「{title}」的管理備註",
@@ -2825,7 +2825,7 @@
     "metaTitle": "專題",
     "metaDescription": "深入報導台灣品牌背後的人、地方與製作現場。",
     "heading": "專題",
-    "subheading": "長篇報導台灣品牌的故事：製作的人、所在的地方，以及一件東西實際是怎麼做出來的。",
+    "subheading": "長篇報導台灣品牌的故事，一次一個品牌，走進他們實際工作的地方，把來龍去脈完整說清楚。",
     "badgeLabel": "編輯室",
     "allTags": "全部",
     "comingSoon": "首批專題正在準備中，敬請期待。",
@@ -2849,17 +2849,11 @@
   },
   "feedback": {
     "metadata": {
-      "title": "功能許願板",
-      "description": "告訴我們 Formoria 接下來該做什麼，並為你最想要的點子投票。"
+      "title": "功能建議",
+      "description": "告訴我們你希望 Formoria 增加什麼功能，也可以為別人的建議投票。"
     },
-    "title": "功能許願板",
-    "description": "告訴我們 Formoria 接下來該做什麼。為點子投票，就能把它往上推。",
-    "filters": {
-      "label": "篩選許願",
-      "all": "全部",
-      "owner": "給品牌方",
-      "visitor": "給瀏覽者"
-    },
+    "title": "功能建議",
+    "description": "告訴我們什麼功能會讓 Formoria 更好用，也可以為你想看到的建議投票。",
     "status": {
       "open": "待評估",
       "planned": "已排入規劃",
@@ -2867,15 +2861,21 @@
       "shipped": "已上線",
       "declined": "不會做"
     },
+    "sections": {
+      "inProgress": {
+        "title": "進行中",
+        "description": "這些功能正在開發中。"
+      },
+      "open": {
+        "title": "待評估",
+        "description": "投票決定我們接下來要做什麼。"
+      },
+      "shipped": {
+        "title": "已上線",
+        "description": "從這裡許願、現在已經上線的功能。"
+      }
+    },
     "requests": {
-      "bilingual_brand_content": {
-        "title": "產生雙語品牌故事與社群文案",
-        "body": "運用既有的品牌檔案與台灣製造故事，產生可直接使用的中英文品牌介紹、產品故事與社群貼文。"
-      },
-      "marketing_channel_insights": {
-        "title": "看懂哪些行銷管道真正有效",
-        "body": "提供一個簡單的儀表板，整合各行銷管道的關鍵成效，說明哪些做法有效、哪些無效，以及下一步可以嘗試什麼。"
-      },
       "brand_reviews": {
         "title": "在品牌頁加入評論與評分",
         "body": "讓登入的訪客分享品牌體驗，幫助消費者分別判斷顧客體驗與台灣製造驗證。"
@@ -2887,46 +2887,46 @@
       "nearby_brand_map": {
         "title": "在地圖上查看附近的台灣品牌",
         "body": "讓訪客在同一張地圖瀏覽有實體據點的品牌，並依縣市、行政區與分類篩選，找到附近可以造訪的地點。"
+      },
+      "owner_claim_flow": {
+        "title": "讓品牌主認領並管理自己的品牌頁",
+        "body": "讓品牌經營者驗證身分後，自行維護品牌介紹、連結與購買通路，不必再等我們更新。"
       }
     },
     "upvote": {
       "action": "為「{title}」投票",
       "remove": "收回對「{title}」的投票",
-      "signIn": "登入後為「{title}」投票",
-      "locked": "需要登入",
       "error": "無法記錄你的投票，請再試一次。",
       "rateLimited": "投票次數過多，請稍候再試。"
     },
     "empty": {
-      "title": "這裡還沒有許願",
-      "description": "這個分類目前沒有任何許願，成為第一個提出的人吧。"
+      "title": "目前還沒有任何建議",
+      "description": "還沒有人提出建議，成為第一個吧。"
     },
     "submit": {
-      "trigger": "提出許願",
-      "title": "提出許願",
-      "description": "描述你希望 Formoria 能做到什麼，我們會讀過每一則許願。",
+      "trigger": "提出建議",
+      "title": "提出建議",
+      "description": "謝謝你願意花時間告訴我們。每一則建議我們都會讀，寫得越具體，越有機會被做出來。",
       "titleLabel": "你希望我們做什麼？",
-      "titleHint": "一句話，4 到 120 個字。",
-      "detailsLabel": "想補充什麼嗎？（選填）",
-      "detailsHint": "你想完成什麼事？目前卡在哪裡？",
-      "categoryLabel": "這是給誰用的？",
-      "categoryOwner": "品牌方",
-      "categoryVisitor": "瀏覽品牌的訪客",
-      "anonymityDisclosure": "你的許願會以不具名的方式公開顯示。我們會保留你的帳號，以便後續與你聯繫。",
-      "idle": "送出許願",
+      "detailsLabel": "詳細說明",
+      "detailsHint": "你想完成什麼事？Formoria 目前哪裡不順？舉一個實際遇到的例子最好。",
+      "contactEmailLabel": "你的電子郵件",
+      "contactEmailHint": "留下電子郵件，我們有回覆時會通知你。",
+      "anonymityDisclosure": "你的建議會以不具名的方式公開顯示，也不會顯示你的電子郵件。",
+      "idle": "送出建議",
       "submitting": "送出中",
-      "cancel": "取消",
-      "success": "謝謝你，許願已經上板了。",
-      "signInCta": "登入後提出許願",
+      "success": "謝謝你，我們已經收到你的建議。",
       "errors": {
-        "title": "請把標題控制在 4 到 120 個字，讓其他人更容易找到。",
+        "title": "請把標題控制在 4 到 80 個字，讓其他人更容易找到。",
+        "details": "請至少寫 10 個字，說明你想解決的問題。",
+        "contactEmail": "請輸入有效的電子郵件地址，或留空。",
         "unauthenticated": "請重新登入後再送出一次。",
-        "invalid_input": "請將標題縮短到 120 個字以內再試一次。",
-        "rate_limited": "你已經送出好幾則許願了，請一小時後再試。",
-        "not_found": "找不到這則許願，請重新整理後再試。",
-        "merged": "這則許願已被合併到另一則，請重新整理後查看。",
-        "already_submitted": "你已經許過這個願了，請直接為既有的那則投票。",
-        "unavailable": "無法送出許願，請稍候再試。"
+        "invalid_input": "請確認標題在 80 個字以內、詳細說明至少 10 個字，再試一次。",
+        "rate_limited": "你已經送出好幾則建議了，請一小時後再試。",
+        "not_found": "找不到這則建議，請重新整理後再試。",
+        "merged": "這則建議已被合併到另一則，請重新整理後查看。",
+        "already_submitted": "這則建議已經在列表上了，請改為支持現有的那則。",
+        "unavailable": "無法送出建議，請稍候再試。"
       }
     }
   }

@@ -27,7 +27,6 @@ const errorCopy = messages.feedback.submit.errors
 const OPEN_REQUEST: FeatureRequestQueueItem = {
   id: '1a2b3c4d-1111-4aaa-8bbb-0123456789ab',
   title: 'Let owners schedule a launch date',
-  category: 'owner',
   status: 'open',
   voteCount: 12,
   adminNote: null,
@@ -37,7 +36,6 @@ const OPEN_REQUEST: FeatureRequestQueueItem = {
 const MERGED_REQUEST: FeatureRequestQueueItem = {
   id: '1a2b3c4d-2222-4aaa-8bbb-0123456789ab',
   title: 'Schedule a launch date',
-  category: 'owner',
   status: 'duplicate',
   voteCount: 0,
   adminNote: null,
@@ -47,7 +45,6 @@ const MERGED_REQUEST: FeatureRequestQueueItem = {
 const OTHER_REQUEST: FeatureRequestQueueItem = {
   id: '1a2b3c4d-3333-4aaa-8bbb-0123456789ab',
   title: 'Let owners pin a founding story',
-  category: 'owner',
   status: 'open',
   voteCount: 3,
   adminNote: null,

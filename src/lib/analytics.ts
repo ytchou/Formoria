@@ -659,10 +659,9 @@ export function trackWebVital(metric: {
   })
 }
 
-export function trackFeatureRequestSubmitted(requestId: string, category: string) {
+export function trackFeatureRequestSubmitted(requestId: string) {
   capturePostHogEvent('feature_request_submitted', {
     request_id: requestId,
-    category,
   })
 }
 

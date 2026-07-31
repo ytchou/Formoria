@@ -1,30 +1,21 @@
 import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 
-import { FeatureRequestFilters } from '@/components/feedback/feature-request-filters'
 import { FeatureRequestList } from '@/components/feedback/feature-request-list'
 import { SubmitRequestDialog } from '@/components/feedback/submit-request-dialog'
 import { Typography } from '@/components/ui/typography'
 import { FeatureRequestVotesProvider } from '@/hooks/use-feature-request-votes'
 import { buildAlternates, type Locale } from '@/lib/seo/alternates'
-import {
-  isFeatureRequestCategory,
-  listFeatureRequests,
-  type FeatureRequestCategory,
-} from '@/lib/services/feature-requests'
+import { listFeatureRequests } from '@/lib/services/feature-requests'
 
 type PageProps = {
   params: Promise<{ locale: string }>
-  searchParams: Promise<Record<string, string | string[] | undefined>>
 }
 
-function readCategory(
-  searchParams: Record<string, string | string[] | undefined>,
-): FeatureRequestCategory | null {
-  const raw = searchParams.category
-  const value = Array.isArray(raw) ? raw[0] : raw
-  return value && isFeatureRequestCategory(value) ? value : null
-}
+// The board's vote counts are user-mutable and must never be baked in at build
+// time. This page used to be dynamic only as a side effect of awaiting
+// `searchParams`; with the category filter gone, the opt-out has to be explicit.
+export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({
   params,
@@ -35,7 +26,10 @@ export async function generateMetadata({
   const t = await getTranslations('feedback.metadata')
   const title = t('title')
   const description = t('description')
-  const { canonical, languages } = buildAlternates('/feedback', safeLocale)
+  const { canonical, languages } = buildAlternates(
+    '/feature-requests',
+    safeLocale,
+  )
   const ogLocale = safeLocale === 'en' ? 'en_US' : 'zh_TW'
   const ogAlternateLocale = safeLocale === 'en' ? 'zh_TW' : 'en_US'
 
@@ -59,19 +53,12 @@ export async function generateMetadata({
   }
 }
 
-export default async function FeedbackPage({
-  params,
-  searchParams,
-}: PageProps) {
-  const [{ locale }, resolvedSearchParams] = await Promise.all([
-    params,
-    searchParams,
-  ])
+export default async function FeatureRequestsPage({ params }: PageProps) {
+  const { locale } = await params
   setRequestLocale(locale)
-  const category = readCategory(resolvedSearchParams)
   const [t, requests] = await Promise.all([
     getTranslations('feedback'),
-    listFeatureRequests(category ? { category } : {}),
+    listFeatureRequests(),
   ])
 
   return (
@@ -86,10 +73,6 @@ export default async function FeedbackPage({
           <Typography variant="pageSubtitle">{t('description')}</Typography>
         </div>
         <SubmitRequestDialog />
-      </div>
-
-      <div className="mt-8">
-        <FeatureRequestFilters active={category} />
       </div>
 
       <div className="mt-6">

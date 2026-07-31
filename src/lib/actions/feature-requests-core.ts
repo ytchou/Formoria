@@ -6,8 +6,10 @@ import type {
 } from "@/lib/security/rate-limiter";
 import {
   FEATURE_REQUEST_BODY_MAX,
+  FEATURE_REQUEST_BODY_MIN,
   FEATURE_REQUEST_TITLE_MAX,
   FEATURE_REQUEST_TITLE_MIN,
+  type FeatureRequestVoter,
   type getMyVotedRequestIds,
   type setFeatureRequestVote,
   type submitFeatureRequest,
@@ -26,6 +28,10 @@ import {
 export type FeatureRequestActionDeps = {
   getUserId: () => Promise<string | null>;
   getClientIp: () => Promise<string>;
+  /** Mints the anonymous-visitor cookie when absent — write paths only. */
+  ensureVisitorHash: () => Promise<string>;
+  /** Read-only companion: never mints, so a read cannot create an identity. */
+  readVisitorHash: () => Promise<string | null>;
   checkRateLimit: (
     identifier: string,
     options: RateLimitOptions,
@@ -36,15 +42,26 @@ export type FeatureRequestActionDeps = {
 };
 
 // Bounds come from the service module so the schema, the service guard, the
-// dialog, and the migration's CHECK constraints cannot drift apart.
+// dialog, and the migration's CHECK constraints cannot drift apart. The body
+// minimum is the one bound with no CHECK counterpart — the column stays
+// nullable for legacy rows, so it is enforced app-side only.
 const submitInputSchema = z.object({
   title: z
     .string()
     .trim()
     .min(FEATURE_REQUEST_TITLE_MIN)
     .max(FEATURE_REQUEST_TITLE_MAX),
-  body: z.string().trim().max(FEATURE_REQUEST_BODY_MAX).optional(),
-  category: z.enum(["owner", "visitor"]),
+  body: z
+    .string()
+    .trim()
+    .min(FEATURE_REQUEST_BODY_MIN)
+    .max(FEATURE_REQUEST_BODY_MAX),
+  // Optional reply-to for a guest. The empty-string branch exists because a
+  // controlled input sends "" for an untouched field, and an untouched optional
+  // field must not fail the whole submission. Shaped like `optionalEmail` in
+  // the brand-submission validations but declared here: that module is another
+  // flow's boundary, and importing across it would couple the two schemas.
+  guestEmail: z.string().email().or(z.literal("")).optional(),
 });
 
 const voteInputSchema = z.object({
@@ -52,9 +69,11 @@ const voteInputSchema = z.object({
   voted: z.boolean(),
 });
 
-// Keyed by user, not IP: the board is authenticated-write-only, so the account
-// is the real identity and an IP key would throttle everyone behind one campus
-// NAT together.
+// Two-tier, because the board now takes guest writes and there is no longer a
+// single identity to key on. Tier one is this budget, keyed by account when
+// there is one and by IP when there is not, so a signed-in submitter is still
+// not throttled by whoever shares their campus NAT. Tier two is
+// `SUBMIT_IP_RATE_LIMIT` below, the per-host ceiling both paths pass through.
 const SUBMIT_RATE_LIMIT = {
   windowMs: 3_600_000,
   maxRequests: 3,
@@ -67,10 +86,30 @@ const VOTE_RATE_LIMIT = {
   prefix: "feature-request-vote",
 } as const;
 
-// Secondary, deliberately loose cap on the one flow that creates rows. The
-// per-user cap is the real gate; this only raises the cost of farming throwaway
-// accounts from one host. Ceiling: a determined abuser on rotating IPs still
-// gets through — add account-age or email-verification gating if that happens.
+// Tier two: a per-host ceiling across every request on the board. Tier one is
+// keyed on identity, and a guest who clears cookies gets a fresh one — this is
+// the budget that a cookie-clearing loop actually has to spend.
+const VOTE_IP_RATE_LIMIT = {
+  windowMs: 3_600_000,
+  maxRequests: 60,
+  prefix: "feature-request-vote-ip",
+} as const;
+
+// Tier three, narrow and slow: one host can only push a single request so far
+// in a day. Applied to added votes only — an unvote must stay free, or a
+// mistaken click would cost a visitor their whole daily budget on that row.
+// Ceiling: rotating IPs still get through; add a challenge if that shows up.
+const VOTE_REQUEST_IP_RATE_LIMIT = {
+  windowMs: 86_400_000,
+  maxRequests: 5,
+  prefix: "feature-request-vote-request-ip",
+} as const;
+
+// Secondary, deliberately loose cap on the one flow that creates rows. Tier one
+// is the real gate; this raises the cost of farming throwaway accounts — or
+// clearing cookies as a guest — from one host. Ceiling: a determined abuser on
+// rotating IPs still gets through, for guests as much as for accounts; add a
+// challenge or email-verification gate on the guest path if that happens.
 const SUBMIT_IP_RATE_LIMIT = {
   windowMs: 3_600_000,
   maxRequests: 10,
@@ -136,25 +175,23 @@ export async function runSubmitFeatureRequest(
   deps: FeatureRequestActionDeps,
   input: SubmitFeatureRequestActionInput,
 ): Promise<SubmitFeatureRequestActionResult> {
-  // Auth first: an unauthenticated caller must not reach the service layer or
-  // consume another account's rate-limit budget.
+  // No auth gate: the board takes guest submissions. The id is still read and
+  // recorded whenever the submitter happens to be signed in.
   const userId = await deps.getUserId();
-  if (!userId) return { ok: false, error: "unauthenticated" };
 
   const parsed = submitInputSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "invalid_input" };
 
   try {
-    const limit = await deps.checkRateLimit(
-      `user:${userId}`,
-      SUBMIT_RATE_LIMIT,
-    );
+    // One resolve, two uses: the guest path keys tier one on the same address
+    // the per-host ceiling below uses.
+    const clientIp = await deps.getClientIp();
+    const identity = userId ? `user:${userId}` : `ip:${clientIp}`;
+
+    const limit = await deps.checkRateLimit(identity, SUBMIT_RATE_LIMIT);
     if (!limit.allowed) return { ok: false, error: "rate_limited" };
 
-    const ipLimit = await deps.checkRateLimit(
-      await deps.getClientIp(),
-      SUBMIT_IP_RATE_LIMIT,
-    );
+    const ipLimit = await deps.checkRateLimit(clientIp, SUBMIT_IP_RATE_LIMIT);
     if (!ipLimit.allowed) return { ok: false, error: "rate_limited" };
 
     const result = await deps.submitFeatureRequest({ ...parsed.data, userId });
@@ -170,19 +207,44 @@ export async function runSetFeatureRequestVote(
   deps: FeatureRequestActionDeps,
   input: SetFeatureRequestVoteActionInput,
 ): Promise<SetFeatureRequestVoteActionResult> {
+  // No auth gate: the board takes guest votes. A signed-in voter keeps their
+  // account identity; everyone else votes as the anonymous browser identity
+  // behind the signed visitor cookie, which is minted here because this is a
+  // write path.
   const userId = await deps.getUserId();
-  if (!userId) return { ok: false, error: "unauthenticated" };
 
   const parsed = voteInputSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "invalid_input" };
 
   try {
-    const limit = await deps.checkRateLimit(`user:${userId}`, VOTE_RATE_LIMIT);
+    const voter: FeatureRequestVoter = userId
+      ? { userId }
+      : { visitorHash: await deps.ensureVisitorHash() };
+    // One resolve, three uses, matching `runSubmitFeatureRequest`.
+    const clientIp = await deps.getClientIp();
+
+    const identity = voter.userId
+      ? `user:${voter.userId}`
+      : `visitor:${voter.visitorHash}`;
+    const limit = await deps.checkRateLimit(identity, VOTE_RATE_LIMIT);
     if (!limit.allowed) return { ok: false, error: "rate_limited" };
+
+    const ipLimit = await deps.checkRateLimit(clientIp, VOTE_IP_RATE_LIMIT);
+    if (!ipLimit.allowed) return { ok: false, error: "rate_limited" };
+
+    // Adds only: an unvote is a correction, and charging it here would let a
+    // mis-click burn a visitor's whole daily budget on this request.
+    if (parsed.data.voted) {
+      const requestLimit = await deps.checkRateLimit(
+        `${clientIp}:${parsed.data.requestId}`,
+        VOTE_REQUEST_IP_RATE_LIMIT,
+      );
+      if (!requestLimit.allowed) return { ok: false, error: "rate_limited" };
+    }
 
     const result = await deps.setFeatureRequestVote(
       parsed.data.requestId,
-      userId,
+      voter,
       parsed.data.voted,
     );
     if (result.ok)
@@ -198,12 +260,21 @@ export async function runGetMyVotedRequestIds(
   deps: FeatureRequestActionDeps,
 ): Promise<GetMyVotedRequestIdsActionResult> {
   const userId = await deps.getUserId();
-  // Signed-out visitors see the board with nothing highlighted, which is not an
-  // error state — but the caller still needs to distinguish it from an outage.
-  if (!userId) return { ok: false, error: "unauthenticated" };
 
   try {
-    return { ok: true, requestIds: await deps.getMyVotedRequestIds(userId) };
+    // Read-only identity resolution: a visitor with no cookie has never voted,
+    // which is an empty result rather than an error — and minting a cookie for
+    // a read would create a tracking identifier out of a page view.
+    let voter: FeatureRequestVoter | null = null;
+    if (userId) {
+      voter = { userId };
+    } else {
+      const visitorHash = await deps.readVisitorHash();
+      if (visitorHash) voter = { visitorHash };
+    }
+    if (!voter) return { ok: true, requestIds: [] };
+
+    return { ok: true, requestIds: await deps.getMyVotedRequestIds(voter) };
   } catch (error) {
     console.error("[feature-requests:my-votes]", error);
     return { ok: false, error: "unavailable" };

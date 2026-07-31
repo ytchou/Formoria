@@ -161,6 +161,7 @@ function recommendationSubmissionObject(t: Translator) {
       sourceAttribution: sourceAttributionEnum,
       guestEmail: optionalEmail(t('validation.emailInvalid')),
       marketingEmailOptIn: z.boolean().default(false),
+      duplicateConfirmed: z.boolean().default(false),
     }),
   )
 }
@@ -232,6 +233,7 @@ export type SubmissionFormData = {
   heroImageUrl?: string | null
   guestEmail?: string
   marketingEmailOptIn?: boolean
+  duplicateConfirmed?: boolean
   sourceAttribution?: z.infer<typeof sourceAttributionEnum>
   city?: CitySlug
   mitSmileCert?: string
