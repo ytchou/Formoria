@@ -122,13 +122,14 @@ export default async function StoriesHubPage({ params, searchParams }: PageProps
             The `primary` fill alone is colour-only signalling: invisible to a
             screen reader and unreliable in forced-colours mode.
           */}
-          <Link
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- DEV-1280: full-document navigation avoids a stalled RSC request across the locale proxy rewrite. */}
+          <a
             href="/stories"
             aria-current={activeTag === null ? 'page' : undefined}
             className={buttonVariants({ variant: activeTag === null ? 'primary' : 'secondary', shape: 'pill', size: 'chip' })}
           >
             {t('allTags')}
-          </Link>
+          </a>
           {STORY_TAGS.map((tag) => {
             const isActive = activeTag === tag
 

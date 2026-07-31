@@ -1,7 +1,6 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
-import { Link } from '@/i18n/navigation'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -12,12 +11,13 @@ export default function StoryNotFound() {
     <main className="page-gutter mx-auto flex max-w-screen-xl flex-col items-center justify-center py-24 text-center">
       <h1 className="type-page-title">{t('notFound.title')}</h1>
       <p className="mt-3 type-card-description">{t('notFound.description')}</p>
-      <Link
+      {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- DEV-1280: full-document navigation avoids a stalled RSC request across the locale proxy rewrite. */}
+      <a
         href="/stories"
         className={cn(buttonVariants({ variant: 'primary', tone: 'cta' }), 'mt-6')}
       >
         {t('notFound.browseAll')}
-      </Link>
+      </a>
     </main>
   )
 }
