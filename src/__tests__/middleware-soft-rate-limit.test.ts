@@ -3,6 +3,12 @@ import { NextRequest } from "next/server";
 import { proxy } from "@/proxy";
 import { checkSoftRateLimit } from "@/lib/security/rate-limiter";
 
+const configuredSoftLimit = Number(process.env.SOFT_LIMIT_BRANDS_PER_MIN);
+const softLimitRequests =
+  Number.isFinite(configuredSoftLimit) && configuredSoftLimit > 0
+    ? configuredSoftLimit
+    : 150;
+
 describe("soft rate limiting for internal router traffic", () => {
   it.each([
     ["a non-document response", { accept: "*/*" }, "198.51.100.42"],
@@ -11,7 +17,11 @@ describe("soft rate limiting for internal router traffic", () => {
     "does not challenge a user when Next.js identifies a prefetch through %s",
     async (_signal, routerHeaders, clientIp) => {
       let reachedLimit = false;
-      for (let requestNumber = 0; requestNumber < 31; requestNumber += 1) {
+      for (
+        let requestNumber = 0;
+        requestNumber <= softLimitRequests;
+        requestNumber += 1
+      ) {
         reachedLimit = await checkSoftRateLimit(
           new NextRequest("https://formoria.com/brands/maison-de-taiwan", {
             headers: { "cf-connecting-ip": clientIp },
