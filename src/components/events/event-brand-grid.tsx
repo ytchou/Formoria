@@ -170,7 +170,7 @@ export function EventBrandGrid({
                   (isEnglish ? (entry.noteEn ?? entry.note) : entry.note) ?? undefined
                 }
                 // Matches `MasonryGrid`'s own four-column above-the-fold row.
-                priority={index < 4}
+                preload={index < 4}
                 position={index}
               />
             )
