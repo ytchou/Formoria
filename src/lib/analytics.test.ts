@@ -54,6 +54,8 @@ import {
   trackCtaClicked,
   trackSubmissionFormErrorShown,
   trackApiErrorShown,
+  trackBrandDetailEngaged,
+  trackSavedBrandRevisited,
 } from './analytics'
 
 beforeEach(() => {
@@ -299,6 +301,107 @@ describe('brand share tracking', () => {
       brand_slug: 'my-brand',
       method: 'threads',
     })
+  })
+})
+
+// These assertions are the regression guard for an irreversible contract: PostHog
+// event names and property types can never be renamed or retyped after first
+// emission. Any change that makes these fail is a breaking analytics change.
+describe('brand engagement tracking', () => {
+  it('trackBrandDetailEngaged sends brand_detail_engaged with the winning trigger', () => {
+    trackBrandDetailEngaged('my-brand', 'gallery', 'brand-uuid')
+
+    expect(mockPostHogCapture).toHaveBeenCalledWith('brand_detail_engaged', {
+      brand_slug: 'my-brand',
+      trigger: 'gallery',
+      brand_id: 'brand-uuid',
+    })
+  })
+
+  it('omits brand_id when it is unknown and never reaches GA', () => {
+    trackBrandDetailEngaged('my-brand', 'scroll_50')
+
+    expect(mockPostHogCapture).toHaveBeenCalledWith('brand_detail_engaged', {
+      brand_slug: 'my-brand',
+      trigger: 'scroll_50',
+    })
+    expect(mockSendGAEvent).not.toHaveBeenCalled()
+  })
+})
+
+describe('saved brand revisit tracking', () => {
+  it('trackSavedBrandRevisited distinguishes card and detail-page surfaces', () => {
+    trackSavedBrandRevisited('my-brand', 'card', 'brand-uuid')
+    trackSavedBrandRevisited('my-brand', 'detail_page', 'brand-uuid')
+
+    expect(mockPostHogCapture).toHaveBeenNthCalledWith(1, 'saved_brand_revisited', {
+      brand_slug: 'my-brand',
+      revisit_surface: 'card',
+      brand_id: 'brand-uuid',
+    })
+    expect(mockPostHogCapture).toHaveBeenNthCalledWith(2, 'saved_brand_revisited', {
+      brand_slug: 'my-brand',
+      revisit_surface: 'detail_page',
+      brand_id: 'brand-uuid',
+    })
+    expect(mockSendGAEvent).not.toHaveBeenCalled()
+  })
+
+  it('omits brand_id when it is unknown', () => {
+    trackSavedBrandRevisited('my-brand', 'card')
+
+    expect(mockPostHogCapture).toHaveBeenCalledWith('saved_brand_revisited', {
+      brand_slug: 'my-brand',
+      revisit_surface: 'card',
+    })
+  })
+})
+
+describe('external link surface attribution', () => {
+  // Regression guard: this MUST be `link_surface`, never `surface`. A top-level
+  // `surface` is unconditionally overwritten with 'public' | 'product' by the
+  // before_send scrubber in posthog-privacy.ts, so the value would never arrive.
+  it('sends link_surface on both PostHog and GA payloads, never bare surface', () => {
+    trackExternalLinkClicked('my-brand', 'website', '/brands/my-brand', 'detail_page', 'brand-uuid')
+
+    expect(mockPostHogCapture).toHaveBeenCalledWith('external_link_clicked', {
+      brand_id: 'brand-uuid',
+      brand_slug: 'my-brand',
+      link_type: 'website',
+      link_surface: 'detail_page',
+    })
+    expect(mockSendGAEvent).toHaveBeenCalledWith('event', 'external_link_clicked', {
+      brand_slug: 'my-brand',
+      link_type: 'website',
+      referrer_page: '/brands/my-brand',
+      link_surface: 'detail_page',
+    })
+  })
+
+  it('never emits a bare `surface` key that the scrubber would overwrite', () => {
+    trackExternalLinkClicked('my-brand', 'website', '/brands/my-brand', 'card', 'brand-uuid')
+    trackSavedBrandRevisited('my-brand', 'card', 'brand-uuid')
+
+    for (const [, properties] of mockPostHogCapture.mock.calls) {
+      expect(properties).not.toHaveProperty('surface')
+    }
+  })
+})
+
+describe('filter result counts', () => {
+  it('trackSubcategoryFilterApplied sends result_count as an integer', () => {
+    trackSubcategoryFilterApplied('tea', 'food-drink', 12)
+
+    expect(mockPostHogCapture).toHaveBeenCalledWith('subcategory_filter_applied', {
+      subcategory: 'tea',
+      parent_category: 'food-drink',
+      result_count: 12,
+    })
+    const [, properties] = mockPostHogCapture.mock.calls[0] as [
+      string,
+      { result_count: number },
+    ]
+    expect(Number.isInteger(properties.result_count)).toBe(true)
   })
 })
 

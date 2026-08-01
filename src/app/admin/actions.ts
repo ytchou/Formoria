@@ -53,7 +53,39 @@ import { adminRemoveChannel } from '@/lib/services/brand-channels'
 import { FEATURE_FLAGS, setAppSetting } from '@/lib/services/app-settings'
 import { DENIAL_REASONS, type DenialReason, type OtherUrl } from '@/lib/types'
 import { getSiteUrl } from '@/lib/site-url'
+import { getPostHogClient } from '@/lib/posthog-server'
+import { ANALYTICS_EVENTS } from '@/lib/analytics/events'
 import { revalidatePublicBrand } from '@/lib/cache/public-brand-cache'
+
+// Analytics runs inside withApprovalTimeout and after the DB commit, so an unbounded
+// flush could exhaust the approval budget and report failure for an approval that
+// actually succeeded. Cap it well under APPROVAL_ITEM_TIMEOUT_MS; a dropped event is
+// always preferable to a false approval failure.
+const SUPPLY_EVENT_FLUSH_TIMEOUT_MS = 2_000
+
+/**
+ * Supply-side events are captured server-side because the admin/owner action that
+ * produces them never reaches the browser analytics sink. Analytics must never fail
+ * the underlying action, so every capture is swallowed and time-bounded.
+ */
+async function captureSupplyEvent(
+  distinctId: string,
+  event: string,
+  properties: Record<string, string | boolean>,
+): Promise<void> {
+  try {
+    const posthog = getPostHogClient()
+    posthog.capture({ distinctId, event, properties })
+    await Promise.race([
+      posthog.flush(),
+      new Promise((resolve) =>
+        setTimeout(resolve, SUPPLY_EVENT_FLUSH_TIMEOUT_MS).unref?.()
+      ),
+    ])
+  } catch (err) {
+    console.error(`[analytics:${event}] capture failed`, err)
+  }
+}
 
 const MODERATION_FLAG_ID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -210,6 +242,16 @@ async function approveSubmissionForAdmin(
       brandSlug: brand.slug,
       siteUrl,
     }))
+  }
+
+  // Attributed to the submitter, not the approving admin. Instrumenting the shared
+  // helper covers both the single and bulk approval actions.
+  if (submitterEmail) {
+    await captureSupplyEvent(submitterEmail, ANALYTICS_EVENTS.BRAND_LISTING_PUBLISHED, {
+      brand_id: brandId,
+      brand_slug: brand.slug,
+      is_brand_owner: isBrandOwner,
+    })
   }
 
   return {
@@ -491,6 +533,16 @@ export async function approveClaimAction(
       }
     } catch (err) {
       console.error('[claim-approved-email] send failed', err)
+    }
+
+    // Attributed to the claiming owner, not the approving admin.
+    const claimantDistinctId = claimRequest.userId || claimRequest.requesterEmail
+    if (claimantDistinctId) {
+      await captureSupplyEvent(claimantDistinctId, ANALYTICS_EVENTS.BRAND_CLAIM_APPROVED, {
+        brand_id: claimRequest.brandId,
+        ...(claimRequest.brandSlug ? { brand_slug: claimRequest.brandSlug } : {}),
+        claim_request_id: claimRequestId,
+      })
     }
 
     return cleanupWarning ? { warning: cleanupWarning } : undefined

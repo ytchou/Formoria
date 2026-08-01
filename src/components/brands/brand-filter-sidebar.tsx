@@ -189,11 +189,12 @@ export function BrandFilterSidebar({
     slug: string,
     checked: boolean,
     parentCategorySlug: string,
+    resultCount: number,
   ) {
     const next = new Set(activeSubcategories);
     if (checked) {
       next.add(slug);
-      trackSubcategoryFilterApplied(slug, parentCategorySlug);
+      trackSubcategoryFilterApplied(slug, parentCategorySlug, resultCount);
     } else {
       next.delete(slug);
       trackFilterCleared("single", "subcategory", slug);
@@ -349,6 +350,7 @@ export function BrandFilterSidebar({
                                 subcategory.slug,
                                 next,
                                 category.slug,
+                                subcategory.count,
                               )
                             }
                             className="min-h-12 active:animate-spring-pop"

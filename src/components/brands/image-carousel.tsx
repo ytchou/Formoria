@@ -9,6 +9,7 @@ import { trackGalleryPhotoView, trackGalleryCompleted } from '@/lib/analytics'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { BrandImageFallback } from './brand-image-fallback'
+import { useBrandEngagement } from './brand-engagement-tracker'
 
 interface ImageCarouselProps {
   images: string[]
@@ -33,6 +34,7 @@ export function ImageCarousel({
 }: ImageCarouselProps) {
   const t = useTranslations('brandDetail')
   const locale = useLocale()
+  const { reportEngagement } = useBrandEngagement()
   const validImages = images.flatMap((image) => {
     const safeSrc = safeImageSrc(image)
     return safeSrc ? [safeSrc] : []
@@ -82,6 +84,7 @@ export function ImageCarousel({
     viewedIndices.current.add(next)
     if (trackingEnabled) {
       trackGalleryPhotoView(brandSlug, next, brandId)
+      reportEngagement('gallery')
       if (!completedFired.current && viewedIndices.current.size >= total) {
         completedFired.current = true
         trackGalleryCompleted(brandId, brandSlug, total)

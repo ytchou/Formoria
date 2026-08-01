@@ -17,8 +17,11 @@ test.describe('Newsletter subscribe flow', () => {
   let testEmail: string;
 
   test.beforeAll(() => {
-    // Unique email per test run — avoids collisions when the suite re-runs
-    testEmail = `${TEST_EMAIL_PREFIX}-${Date.now()}@example.com`;
+    // Unique email per test run — avoids collisions when the suite re-runs.
+    // Domain must accept SMTP: subscribing fires a real Resend confirmation
+    // email in production, and example.com publishes a null MX (RFC 7505), so
+    // every run hard-bounced against the Resend sending reputation.
+    testEmail = `${TEST_EMAIL_PREFIX}-${Date.now()}@formoria.com`;
   });
 
   test.afterAll(async () => {

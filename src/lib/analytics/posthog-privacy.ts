@@ -1,4 +1,5 @@
 import { getContentGroup } from '@/lib/analytics'
+import { isAppLocale } from '@/i18n/locale-preference'
 
 const UTM_KEYS = new Set([
   'utm_source',
@@ -120,6 +121,17 @@ function scrubValue(value: unknown): unknown {
   )
 }
 
+/**
+ * FALLBACK ONLY. The authoritative locale is the `locale` super property
+ * registered from the resolved route locale (see `registerPostHogSuperProperties`);
+ * this inference exists solely for events emitted before that registration lands
+ * — most notably the very first pageview.
+ *
+ * It is deliberately fragile-by-design: routing uses `localePrefix: 'as-needed'`
+ * with `defaultLocale: 'zh-TW'`, so zh-TW is prefix-less and this function
+ * hardcodes the `/en` prefix. Add a locale or change `localePrefix` and every
+ * event silently becomes `zh-TW`. Do not promote it back to primary.
+ */
 function analyticsLocale(pathname: string): 'en' | 'zh-TW' {
   return pathname === '/en' || pathname.startsWith('/en/') ? 'en' : 'zh-TW'
 }
@@ -157,7 +169,13 @@ export function sanitizePostHogEvent<T extends PostHogEvent>(event: T): T | null
   }
   scrubbed.analytics_schema_version = 1
   scrubbed.environment = 'production'
-  scrubbed.locale = analyticsLocale(pathname)
+  // A registered super property lands on the incoming event properties. Prefer
+  // it — this assignment previously overwrote it unconditionally, which silently
+  // destroyed any explicitly registered locale.
+  const explicitLocale = typeof properties.locale === 'string' && isAppLocale(properties.locale)
+    ? properties.locale
+    : null
+  scrubbed.locale = explicitLocale ?? analyticsLocale(pathname)
   scrubbed.content_group = getContentGroup(pathname)
   scrubbed.surface = stripLocale(pathname).startsWith('/dashboard') ? 'product' : 'public'
 

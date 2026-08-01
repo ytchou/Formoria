@@ -144,4 +144,55 @@ describe('PostHog path privacy', () => {
       utm_campaign: 'launch-2026',
     })
   })
+
+  it('preserves an explicitly registered locale on a prefix-less path', () => {
+    const sanitized = sanitizePostHogEvent({
+      event: '$pageview',
+      properties: {
+        $current_url: 'https://formoria.com/brands',
+        locale: 'en',
+      },
+    })
+
+    expect(sanitized?.properties?.locale).toBe('en')
+  })
+
+  it('falls back to pathname inference when the registered locale is unsupported', () => {
+    const sanitized = sanitizePostHogEvent({
+      event: '$pageview',
+      properties: {
+        $current_url: 'https://formoria.com/en/brands',
+        locale: 'klingon',
+      },
+    })
+
+    expect(sanitized?.properties?.locale).toBe('en')
+
+    expect(
+      sanitizePostHogEvent({
+        event: '$pageview',
+        properties: {
+          $current_url: 'https://formoria.com/brands',
+          locale: 42,
+        },
+      })?.properties?.locale,
+    ).toBe('zh-TW')
+  })
+
+  it.each([
+    ['https://formoria.com/en/brands', 'en'],
+    ['https://formoria.com/en', 'en'],
+    ['https://formoria.com/brands', 'zh-TW'],
+    ['https://formoria.com/', 'zh-TW'],
+    ['https://formoria.com/zh-TW/brands', 'zh-TW'],
+  ])('infers the locale from %s when none is registered', (currentUrl, expected) => {
+    // Widened: the generic narrows `properties` to the literal passed in, so a
+    // key the scrubber adds is not on the inferred return type.
+    const sanitized = sanitizePostHogEvent({
+      event: '$pageview',
+      properties: { $current_url: currentUrl } as Record<string, unknown>,
+    })
+
+    expect(sanitized?.properties?.locale).toBe(expected)
+  })
 })
