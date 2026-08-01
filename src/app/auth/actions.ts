@@ -92,7 +92,11 @@ export async function signIn(
   const next = formData.get("next") as string | null;
   const requestedNext = next && isRelativeUrl(next) ? next : null;
   const redirectPath = await resolvePostAuthPath(requestedNext);
-  redirect(localizePath(redirectPath, locale));
+  // Password sign-in never passes through /auth/callback, so it has to stamp
+  // the login marker itself. GaUserSync reads it and strips it client-side.
+  const target = new URL(localizePath(redirectPath, locale), "http://localhost");
+  target.searchParams.set("auth_event", "login");
+  redirect(`${target.pathname}${target.search}${target.hash}`);
 }
 
 export async function signUp(

@@ -9,6 +9,7 @@ import { completeBrandClaim, getBrandById } from "@/lib/services/brands";
 import { getProfileAdmin, updateProfileAdmin } from "@/lib/services/profiles";
 import { enrollInMarketingEmails } from "@/lib/services/marketing-email-consent";
 import { getPostHogClient } from "@/lib/posthog-server";
+import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
 import { isOwnerFeaturesEnabled } from "@/lib/services/app-settings";
 import { routing } from "@/i18n/routing";
 import {
@@ -151,7 +152,7 @@ export async function GET(request: NextRequest) {
       const posthog = getPostHogClient();
       posthog.capture({
         distinctId: userId,
-        event: "brand_claim_completed",
+        event: ANALYTICS_EVENTS.BRAND_CLAIM_COMPLETED,
         properties: {
           brand_id: claim.brandId,
           is_new_user: isNewUser,
@@ -164,6 +165,8 @@ export async function GET(request: NextRequest) {
       );
       if (isNewUser) {
         url.searchParams.set("is_new_user", "1");
+      } else {
+        url.searchParams.set("auth_event", "login");
       }
       return NextResponse.redirect(url);
     } catch (error) {
@@ -184,7 +187,7 @@ export async function GET(request: NextRequest) {
     });
     posthog.capture({
       distinctId: userId,
-      event: "user_authenticated",
+      event: ANALYTICS_EVENTS.USER_AUTHENTICATED,
       properties: {
         is_new_user: isNewUser,
         has_claim_intent: Boolean(claimToken),
@@ -202,6 +205,11 @@ export async function GET(request: NextRequest) {
   const url = new URL(localizePath(redirectTo, locale), origin);
   if (isNewUser) {
     url.searchParams.set("is_new_user", "1");
+  } else if (!redirectTo.startsWith("/auth/reset-password")) {
+    // Recovery links exchange a code here too, but landing on the reset form is
+    // not a login — the password hasn't been set yet. Marking it would inflate
+    // `user_logged_in` with password-reset traffic.
+    url.searchParams.set("auth_event", "login");
   }
   return NextResponse.redirect(url);
 }

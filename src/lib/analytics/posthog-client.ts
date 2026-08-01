@@ -6,6 +6,7 @@ type PostHogClient = {
   init(token: string, config: Record<string, unknown>): unknown
   capture(event: string, properties?: Record<string, unknown>): void
   identify(distinctId: string, setProperties?: Record<string, unknown>): void
+  register(properties: Record<string, unknown>): void
   reset(): void
 }
 
@@ -62,6 +63,29 @@ export function initializePostHog(client: PostHogClient = posthog): boolean {
       ],
     },
     rageclick: false,
+    // Suppress training/scraping crawlers that PostHog's own default blocklist
+    // either misses or catches only by accident:
+    // - `claudebot` is NOT in the default list. Today it is filtered only
+    //   incidentally, because a generic `bot/` substring happens to match
+    //   `ClaudeBot/1.0`. A UA format change would silently restore the traffic,
+    //   so it is named explicitly here.
+    // - The `*-User` assistant agents (`Claude-User`, `Perplexity-User`,
+    //   `MistralAI-User`) are DELIBERATELY EXCLUDED. They represent a human
+    //   asking an assistant to fetch a page, so they must be labelled, not
+    //   suppressed.
+    // Broader bot exclusion happens at query time via `$virt_is_bot = false`,
+    // not here: blocking at capture destroys the very data that query-time
+    // filtering would otherwise operate on.
+    custom_blocked_useragents: [
+      'claudebot',
+      'claude-searchbot',
+      'ccbot',
+      'google-extended',
+      'diffbot',
+      'cohere-ai',
+      'timpibot',
+      'youbot',
+    ],
     before_send: sanitizePostHogEvent,
   })
   registerPostHogProvider(client)

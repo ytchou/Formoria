@@ -4,6 +4,7 @@ import {
   capturePostHogEvent,
   identifyPostHogUser,
   registerPostHogProvider,
+  registerPostHogSuperProperties,
   resetPostHogUser,
 } from './posthog-provider'
 
@@ -11,6 +12,32 @@ afterEach(clearPostHogProviderForTests)
 
 describe('PostHog provider registry', () => {
 
+
+  it('re-applies super properties after a logout reset clears them', () => {
+    // posthog-js `reset()` drops super properties along with the identity, but
+    // locale describes the device, not the user. Without the re-apply, every
+    // post-sign-out event falls back to fragile pathname locale inference.
+    const provider = { capture: vi.fn(), identify: vi.fn(), reset: vi.fn(), register: vi.fn() }
+
+    registerPostHogProvider(provider)
+    registerPostHogSuperProperties({ locale: 'en' })
+    provider.register.mockClear()
+
+    resetPostHogUser()
+
+    expect(provider.reset).toHaveBeenCalledOnce()
+    expect(provider.register).toHaveBeenCalledWith({ locale: 'en' })
+  })
+
+  it('survives a logout reset when the provider has no register method', () => {
+    const provider = { capture: vi.fn(), identify: vi.fn(), reset: vi.fn() }
+
+    registerPostHogProvider(provider)
+    registerPostHogSuperProperties({ locale: 'en' })
+
+    expect(() => resetPostHogUser()).not.toThrow()
+    expect(provider.reset).toHaveBeenCalledOnce()
+  })
 
   it('does not reapply an identity after logout', () => {
     const first = { capture: vi.fn(), identify: vi.fn(), reset: vi.fn() }
@@ -35,5 +62,45 @@ describe('PostHog provider registry', () => {
     expect(provider.reset).toHaveBeenCalledOnce()
     expect(provider.capture).not.toHaveBeenCalled()
     expect(provider.identify).not.toHaveBeenCalled()
+  })
+
+  it('replays super properties registered before a provider exists', () => {
+    const provider = {
+      capture: vi.fn(),
+      identify: vi.fn(),
+      register: vi.fn(),
+      reset: vi.fn(),
+    }
+
+    registerPostHogSuperProperties({ locale: 'en' })
+    registerPostHogProvider(provider)
+
+    expect(provider.register).toHaveBeenCalledWith({ locale: 'en' })
+  })
+
+  it('merges successive super property registrations instead of overwriting', () => {
+    const provider = {
+      capture: vi.fn(),
+      identify: vi.fn(),
+      register: vi.fn(),
+      reset: vi.fn(),
+    }
+
+    registerPostHogSuperProperties({ locale: 'en' })
+    registerPostHogSuperProperties({ surface_variant: 'microsite' })
+    registerPostHogProvider(provider)
+
+    expect(provider.register).toHaveBeenCalledWith({
+      locale: 'en',
+      surface_variant: 'microsite',
+    })
+  })
+
+  it('does not throw when the provider has no register method', () => {
+    const provider = { capture: vi.fn(), identify: vi.fn(), reset: vi.fn() }
+
+    registerPostHogProvider(provider)
+
+    expect(() => registerPostHogSuperProperties({ locale: 'en' })).not.toThrow()
   })
 })

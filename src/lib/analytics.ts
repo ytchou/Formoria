@@ -1,4 +1,5 @@
 import { capturePostHogEvent, resetPostHogUser } from './analytics/posthog-provider'
+import { ANALYTICS_EVENTS } from './analytics/events'
 
 const UTM_KEYS = [
   'utm_source',
@@ -146,7 +147,7 @@ export function trackBrandDetailViewed(
 ) {
   safeGAEvent('event', 'view_item', { item_id: slug, source })
   if (brandId) {
-    capturePostHogEvent('brand_detail_viewed', {
+    capturePostHogEvent(ANALYTICS_EVENTS.BRAND_DETAIL_VIEWED, {
       brand_id: brandId,
       brand_slug: slug,
       source,
@@ -166,7 +167,7 @@ export function trackBrandCardClicked(
     position_in_grid: positionInGrid,
   })
   if (brandId) {
-    capturePostHogEvent('brand_card_clicked', {
+    capturePostHogEvent(ANALYTICS_EVENTS.BRAND_CARD_CLICKED, {
       brand_id: brandId,
       brand_slug: slug,
       category: category ?? null,
@@ -175,29 +176,38 @@ export function trackBrandCardClicked(
   }
 }
 
+export type ExternalLinkSurface = 'detail_page' | 'card' | 'recommendation'
+
 export function trackExternalLinkClicked(
   slug: string,
   linkType: string,
   referrerPage: string,
+  surface: ExternalLinkSurface,
   brandId?: string,
 ) {
+  // NOT `surface`: posthog-privacy.ts's before_send unconditionally overwrites a
+  // top-level `surface` property with 'public' | 'product' on every event, and
+  // posthog-queries.ts filters owner analytics on surface = 'public'. Reusing the
+  // name would silently drop this value and corrupt that filter.
   safeGAEvent('event', 'external_link_clicked', {
     brand_slug: slug,
     link_type: linkType,
     referrer_page: referrerPage,
+    link_surface: surface,
   })
   if (brandId) {
-    capturePostHogEvent('external_link_clicked', {
+    capturePostHogEvent(ANALYTICS_EVENTS.EXTERNAL_LINK_CLICKED, {
       brand_id: brandId,
       brand_slug: slug,
       link_type: linkType,
+      link_surface: surface,
     })
   }
 }
 
 export function trackCategoryFilterApplied(category: string) {
   safeGAEvent('event', 'category_filter_applied', { category })
-  capturePostHogEvent('category_filter_applied', { category })
+  capturePostHogEvent(ANALYTICS_EVENTS.CATEGORY_FILTER_APPLIED, { category })
 }
 
 // Raw query text is deliberately never sent to either destination — the privacy policy
@@ -210,7 +220,7 @@ export function trackSearchExecuted(query: string, resultCount: number) {
     result_count: resultCount,
     has_results: resultCount > 0,
   })
-  capturePostHogEvent('brand_search_executed', {
+  capturePostHogEvent(ANALYTICS_EVENTS.BRAND_SEARCH_EXECUTED, {
     query_length: query.length,
     result_count: resultCount,
     has_results: resultCount > 0,
@@ -228,7 +238,7 @@ export function trackSearchResultClicked(
     position_in_results: positionInResults,
   })
   if (brandId && brandSlug) {
-    capturePostHogEvent('search_result_clicked', {
+    capturePostHogEvent(ANALYTICS_EVENTS.SEARCH_RESULT_CLICKED, {
       query_length: query.length,
       position_in_results: positionInResults,
       brand_id: brandId,
@@ -242,7 +252,7 @@ export function trackSubmissionFormOpened(
   intent: 'recommend' | 'owner_claim' | 'owner' = 'recommend'
 ) {
   safeGAEvent('event', 'submission_form_opened', { source, intent })
-  capturePostHogEvent('submission_form_opened', {
+  capturePostHogEvent(ANALYTICS_EVENTS.SUBMISSION_FORM_OPENED, {
     source,
     intent: intent === 'owner' ? 'owner_claim' : intent,
   })
@@ -250,7 +260,7 @@ export function trackSubmissionFormOpened(
 
 export function trackSubmissionFormStepCompleted(step: string) {
   safeGAEvent('event', 'submission_form_step_completed', { step })
-  capturePostHogEvent('submission_form_step_completed', { step })
+  capturePostHogEvent(ANALYTICS_EVENTS.SUBMISSION_FORM_STEP_COMPLETED, { step })
 }
 
 export function trackSubmissionCompleted(
@@ -273,7 +283,7 @@ export function trackSubmissionCompleted(
     guest_submission: guestSubmission,
     ...utmParams,
   })
-  capturePostHogEvent('submission_completed', {
+  capturePostHogEvent(ANALYTICS_EVENTS.SUBMISSION_COMPLETED, {
     category,
     has_logo: hasLogo,
     time_spent_seconds: timeSpentSeconds,
@@ -291,7 +301,7 @@ export function trackSubmissionFormAbandoned(
     last_step_completed: lastStepCompleted,
     time_spent_seconds: timeSpentSeconds,
   })
-  capturePostHogEvent('submission_form_abandoned', {
+  capturePostHogEvent(ANALYTICS_EVENTS.SUBMISSION_FORM_ABANDONED, {
     last_step_completed: lastStepCompleted,
     time_spent_seconds: timeSpentSeconds,
   })
@@ -313,7 +323,7 @@ export function trackBrandPageShared(
   brandId?: string,
   method?: ShareChannel
 ) {
-  capturePostHogEvent('brand_page_shared', {
+  capturePostHogEvent(ANALYTICS_EVENTS.BRAND_PAGE_SHARED, {
     brand_id: brandId,
     brand_slug: slug,
     method,
@@ -326,7 +336,7 @@ export function trackGalleryPhotoView(slug: string, index: number, brandId?: str
     photo_index: index,
   })
   if (brandId) {
-    capturePostHogEvent('gallery_photo_viewed', {
+    capturePostHogEvent(ANALYTICS_EVENTS.GALLERY_PHOTO_VIEWED, {
       brand_id: brandId,
       brand_slug: slug,
       photo_index: index,
@@ -339,7 +349,7 @@ export function trackSearchSuggestionSelect(slug: string, brandId?: string) {
     brand_slug: slug,
   })
   if (brandId) {
-    capturePostHogEvent('search_suggestion_selected', {
+    capturePostHogEvent(ANALYTICS_EVENTS.SEARCH_SUGGESTION_SELECTED, {
       brand_id: brandId,
       brand_slug: slug,
     })
@@ -348,7 +358,7 @@ export function trackSearchSuggestionSelect(slug: string, brandId?: string) {
 
 export function trackSearchNoResults(searchTerm: string) {
   safeGAEvent('event', 'search_no_results', { query_length: searchTerm.length })
-  capturePostHogEvent('brand_search_empty', { query_length: searchTerm.length })
+  capturePostHogEvent(ANALYTICS_EVENTS.BRAND_SEARCH_EMPTY, { query_length: searchTerm.length })
 }
 
 export function trackSignUp(method: string) {
@@ -359,12 +369,12 @@ export function trackSignUp(method: string) {
     method,
     ...utmParams,
   })
-  capturePostHogEvent('user_signed_up', { method, ...utmParams })
+  capturePostHogEvent(ANALYTICS_EVENTS.USER_SIGNED_UP, { method, ...utmParams })
 }
 
 export function trackLogin(method: string) {
   safeGAEvent('event', 'login', { method })
-  capturePostHogEvent('user_logged_in', { method })
+  capturePostHogEvent(ANALYTICS_EVENTS.USER_LOGGED_IN, { method })
 }
 
 // Routed through the provider shim rather than `posthog-js` directly: the sign-out
@@ -373,7 +383,7 @@ export function trackLogin(method: string) {
 export function trackSignOut() {
   // Emitted through the reset itself: a separate capture beforehand is wiped by the
   // buffer clear when no provider has registered yet.
-  resetPostHogUser({ event: 'user_signed_out' })
+  resetPostHogUser({ event: ANALYTICS_EVENTS.USER_SIGNED_OUT })
 }
 
 export function trackViewItemList(listName: string, itemCount: number) {
@@ -381,18 +391,18 @@ export function trackViewItemList(listName: string, itemCount: number) {
     item_list_name: listName,
     item_count: itemCount,
   })
-  capturePostHogEvent('brand_list_viewed', {
+  capturePostHogEvent(ANALYTICS_EVENTS.BRAND_LIST_VIEWED, {
     list_name: listName,
     item_count: itemCount,
   })
 }
 
 export function trackHeroCategoryClicked(category: string, destinationUrl: string) {
-  capturePostHogEvent('hero_category_clicked', { category, destination_url: destinationUrl })
+  capturePostHogEvent(ANALYTICS_EVENTS.HERO_CATEGORY_CLICKED, { category, destination_url: destinationUrl })
 }
 
 export function trackDirectorySortChanged(sortValue: string, previousSort: string) {
-  capturePostHogEvent('directory_sort_changed', {
+  capturePostHogEvent(ANALYTICS_EVENTS.DIRECTORY_SORT_CHANGED, {
     sort_value: sortValue,
     previous_sort: previousSort,
   })
@@ -403,30 +413,38 @@ export function trackDirectoryPageNavigated(
   direction: string,
   totalPages: number,
 ) {
-  capturePostHogEvent('directory_page_navigated', {
+  capturePostHogEvent(ANALYTICS_EVENTS.DIRECTORY_PAGE_NAVIGATED, {
     page_number: pageNumber,
     direction,
     total_pages: totalPages,
   })
 }
 
-export function trackSubcategoryFilterApplied(subcategory: string, parentCategory: string) {
-  capturePostHogEvent('subcategory_filter_applied', {
+// `result_count` is the facet count already rendered next to the subcategory chip —
+// it is the post-filter brand count and is known at click time, before the filtered
+// page loads. Always an integer; never null.
+export function trackSubcategoryFilterApplied(
+  subcategory: string,
+  parentCategory: string,
+  resultCount: number,
+) {
+  capturePostHogEvent(ANALYTICS_EVENTS.SUBCATEGORY_FILTER_APPLIED, {
     subcategory,
     parent_category: parentCategory,
+    result_count: Math.trunc(resultCount),
   })
 }
 
 export function trackPriceFilterApplied(priceRange: string) {
-  capturePostHogEvent('price_filter_applied', { price_range: priceRange })
+  capturePostHogEvent(ANALYTICS_EVENTS.PRICE_FILTER_APPLIED, { price_range: priceRange })
 }
 
 export function trackVerificationFilterApplied(status: string) {
-  capturePostHogEvent('verification_filter_applied', { status })
+  capturePostHogEvent(ANALYTICS_EVENTS.VERIFICATION_FILTER_APPLIED, { status })
 }
 
 export function trackFilterCleared(clearType: string, filterType?: string, filterValue?: string) {
-  capturePostHogEvent('filter_cleared', {
+  capturePostHogEvent(ANALYTICS_EVENTS.FILTER_CLEARED, {
     clear_type: clearType,
     filter_type: filterType,
     filter_value: filterValue,
@@ -434,7 +452,7 @@ export function trackFilterCleared(clearType: string, filterType?: string, filte
 }
 
 export function trackLanguageSwitched(fromLocale: string, toLocale: string, location: string) {
-  capturePostHogEvent('language_switched', {
+  capturePostHogEvent(ANALYTICS_EVENTS.LANGUAGE_SWITCHED, {
     from_locale: fromLocale,
     to_locale: toLocale,
     location,
@@ -442,15 +460,48 @@ export function trackLanguageSwitched(fromLocale: string, toLocale: string, loca
 }
 
 export function trackBrandSaved(brandId: string, slug: string, location: string) {
-  capturePostHogEvent('brand_saved', {
+  capturePostHogEvent(ANALYTICS_EVENTS.BRAND_SAVED, {
     brand_id: brandId,
     brand_slug: slug,
     location,
   })
 }
 
+/** First qualifying signal that a visitor actually engaged with a brand page. */
+export type EngagementTrigger = 'dwell' | 'gallery' | 'faq' | 'channel' | 'scroll_50'
+
+// PostHog-only, like trackBrandSaved: engagement depth is a product metric, not a
+// GA conversion signal, and GA4 event quota is better spent elsewhere.
+export function trackBrandDetailEngaged(
+  slug: string,
+  trigger: EngagementTrigger,
+  brandId?: string,
+) {
+  capturePostHogEvent(ANALYTICS_EVENTS.BRAND_DETAIL_ENGAGED, {
+    brand_slug: slug,
+    trigger,
+    ...(brandId ? { brand_id: brandId } : {}),
+  })
+}
+
+export type SavedBrandRevisitSurface = 'card' | 'detail_page'
+
+export function trackSavedBrandRevisited(
+  slug: string,
+  surface: SavedBrandRevisitSurface,
+  brandId?: string,
+) {
+  // `revisit_surface`, not `surface` — see trackExternalLinkClicked above: a
+  // top-level `surface` is overwritten by the before_send scrubber.
+  capturePostHogEvent(ANALYTICS_EVENTS.SAVED_BRAND_REVISITED, {
+    brand_slug: slug,
+    revisit_surface: surface,
+    ...(brandId ? { brand_id: brandId } : {}),
+  })
+}
+
 export function trackBrandUnsaved(brandId: string, slug: string, location: string) {
-  capturePostHogEvent('brand_unsaved', {
+  capturePostHogEvent(ANALYTICS_EVENTS.BRAND_UNSAVED, {
     brand_id: brandId,
     brand_slug: slug,
     location,
@@ -458,7 +509,7 @@ export function trackBrandUnsaved(brandId: string, slug: string, location: strin
 }
 
 export function trackBrandLiked(brandId: string, slug: string) {
-  capturePostHogEvent('brand_liked', {
+  capturePostHogEvent(ANALYTICS_EVENTS.BRAND_LIKED, {
     brand_id: brandId,
     brand_slug: slug,
     location: 'brand_detail',
@@ -466,7 +517,7 @@ export function trackBrandLiked(brandId: string, slug: string) {
 }
 
 export function trackBrandUnliked(brandId: string, slug: string) {
-  capturePostHogEvent('brand_unliked', {
+  capturePostHogEvent(ANALYTICS_EVENTS.BRAND_UNLIKED, {
     brand_id: brandId,
     brand_slug: slug,
     location: 'brand_detail',
@@ -479,7 +530,7 @@ export function trackRecommendationBrandClicked(
   sourceBrandSlug: string,
   position: number,
 ) {
-  capturePostHogEvent('recommendation_brand_clicked', {
+  capturePostHogEvent(ANALYTICS_EVENTS.RECOMMENDATION_BRAND_CLICKED, {
     brand_id: brandId,
     brand_slug: slug,
     source_brand_slug: sourceBrandSlug,
@@ -488,14 +539,14 @@ export function trackRecommendationBrandClicked(
 }
 
 export function trackRecommendationSectionViewed(sourceBrandSlug: string, count: number) {
-  capturePostHogEvent('recommendation_section_viewed', {
+  capturePostHogEvent(ANALYTICS_EVENTS.RECOMMENDATION_SECTION_VIEWED, {
     source_brand_slug: sourceBrandSlug,
     recommendation_count: count,
   })
 }
 
 export function trackGalleryCompleted(brandId: string, slug: string, imageCount: number) {
-  capturePostHogEvent('gallery_completed', {
+  capturePostHogEvent(ANALYTICS_EVENTS.GALLERY_COMPLETED, {
     brand_id: brandId,
     brand_slug: slug,
     image_count: imageCount,
@@ -503,7 +554,7 @@ export function trackGalleryCompleted(brandId: string, slug: string, imageCount:
 }
 
 export function trackFaqItemExpanded(brandSlug: string, index: number) {
-  capturePostHogEvent('faq_item_expanded', {
+  capturePostHogEvent(ANALYTICS_EVENTS.FAQ_ITEM_EXPANDED, {
     brand_slug: brandSlug,
     item_index: index,
   })
@@ -513,7 +564,7 @@ export function trackSubmissionPathSelected(path: string, isAuthenticated: boole
   const utmParams =
     typeof window !== 'undefined' ? getUtmParams(window.location.search) : {}
 
-  capturePostHogEvent('submission_path_selected', {
+  capturePostHogEvent(ANALYTICS_EVENTS.SUBMISSION_PATH_SELECTED, {
     path,
     is_authenticated: isAuthenticated,
     ...utmParams,
@@ -524,7 +575,7 @@ export function trackNewsletterSubscribed(interests: string[], hasEmail: boolean
   const utmParams =
     typeof window !== 'undefined' ? getUtmParams(window.location.search) : {}
 
-  capturePostHogEvent('newsletter_subscribed', {
+  capturePostHogEvent(ANALYTICS_EVENTS.NEWSLETTER_SUBSCRIBED, {
     interests,
     has_email: hasEmail,
     ...utmParams,
@@ -536,7 +587,7 @@ export function trackBrandClaimStarted(
   brandSlug: string,
   isAuthenticated: boolean,
 ) {
-  capturePostHogEvent('brand_claim_started', {
+  capturePostHogEvent(ANALYTICS_EVENTS.BRAND_CLAIM_STARTED, {
     brand_id: brandId,
     brand_slug: brandSlug,
     is_authenticated: isAuthenticated,
@@ -548,7 +599,7 @@ export function trackMitDeclared(
   brandSlug: string,
   declaredScope: string,
 ) {
-  capturePostHogEvent('mit_declared', {
+  capturePostHogEvent(ANALYTICS_EVENTS.MIT_DECLARED, {
     brand_id: brandId,
     brand_slug: brandSlug,
     declared_scope: declaredScope,
@@ -560,7 +611,7 @@ export function trackOriginEvidenceSubmitted(
   brandSlug: string,
   stance: string,
 ) {
-  capturePostHogEvent('origin_evidence_submitted', {
+  capturePostHogEvent(ANALYTICS_EVENTS.ORIGIN_EVIDENCE_SUBMITTED, {
     brand_id: brandId,
     brand_slug: brandSlug,
     stance,
@@ -572,7 +623,7 @@ export function trackBrandClaimFormSubmitted(
   brandSlug: string,
   proofTypes: string[],
 ) {
-  capturePostHogEvent('brand_claim_form_submitted', {
+  capturePostHogEvent(ANALYTICS_EVENTS.BRAND_CLAIM_FORM_SUBMITTED, {
     brand_id: brandId,
     brand_slug: brandSlug,
     proof_types: proofTypes,
@@ -580,7 +631,7 @@ export function trackBrandClaimFormSubmitted(
 }
 
 export function trackBrandReported(slug: string, reason: string, reporterRole: string) {
-  capturePostHogEvent('brand_reported', {
+  capturePostHogEvent(ANALYTICS_EVENTS.BRAND_REPORTED, {
     brand_slug: slug,
     reason,
     reporter_role: reporterRole,
@@ -588,7 +639,7 @@ export function trackBrandReported(slug: string, reason: string, reporterRole: s
 }
 
 export function trackCorrectionSubmitted(brandId: string, slug: string, field: string) {
-  capturePostHogEvent('brand_correction_submitted', {
+  capturePostHogEvent(ANALYTICS_EVENTS.BRAND_CORRECTION_SUBMITTED, {
     brand_id: brandId,
     brand_slug: slug,
     field,
@@ -601,7 +652,7 @@ export function trackCtaClicked(
   destinationUrl: string,
   pageUrl: string,
 ) {
-  capturePostHogEvent('cta_clicked', {
+  capturePostHogEvent(ANALYTICS_EVENTS.CTA_CLICKED, {
     cta_name: ctaName,
     cta_location: ctaLocation,
     destination_url: destinationUrl,
@@ -610,7 +661,7 @@ export function trackCtaClicked(
 }
 
 export function trackSubmissionFormErrorShown(field: string, errorType: string, step: string) {
-  capturePostHogEvent('submission_form_error_shown', {
+  capturePostHogEvent(ANALYTICS_EVENTS.SUBMISSION_FORM_ERROR_SHOWN, {
     field,
     error_type: errorType,
     step,
@@ -618,7 +669,7 @@ export function trackSubmissionFormErrorShown(field: string, errorType: string, 
 }
 
 export function trackApiErrorShown(endpoint: string, statusCode: number, userAction: string) {
-  capturePostHogEvent('api_error_shown', {
+  capturePostHogEvent(ANALYTICS_EVENTS.API_ERROR_SHOWN, {
     endpoint,
     status_code: statusCode,
     user_action: userAction,
@@ -642,7 +693,7 @@ export function trackWebVital(metric: {
       ? Math.round(metric.value * 1000) / 1000
       : Math.round(metric.value)
 
-  capturePostHogEvent('web_vital_reported', {
+  capturePostHogEvent(ANALYTICS_EVENTS.WEB_VITAL_REPORTED, {
     metric_name: metric.name,
     metric_value: value,
     metric_rating: metric.rating,
@@ -660,13 +711,13 @@ export function trackWebVital(metric: {
 }
 
 export function trackFeatureRequestSubmitted(requestId: string) {
-  capturePostHogEvent('feature_request_submitted', {
+  capturePostHogEvent(ANALYTICS_EVENTS.FEATURE_REQUEST_SUBMITTED, {
     request_id: requestId,
   })
 }
 
 export function trackFeatureRequestVoted(requestId: string, voted: boolean) {
-  capturePostHogEvent('feature_request_voted', {
+  capturePostHogEvent(ANALYTICS_EVENTS.FEATURE_REQUEST_VOTED, {
     request_id: requestId,
     voted,
   })

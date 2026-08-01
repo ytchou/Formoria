@@ -126,9 +126,22 @@ test.describe('Visitor smoke', () => {
     });
     await gotoBrandsPage(page);
     const searchInput = page.locator('header form[role="search"] input[role="searchbox"]:visible');
-    await searchInput.click();
-    await searchInput.fill('visitor');
-    await expect(page.getByRole('option', { name: /Visitor Search Result/ })).toBeVisible();
+    await expect(searchInput).toBeVisible({ timeout: 10_000 });
+
+    // The searchbox is a controlled React input, so a fill() that lands before the
+    // header hydrates sets the DOM value without ever firing onChange — the
+    // debounced /api/search call never runs and the listbox never opens. Firefox is
+    // the slowest to hydrate here (DEV-1296), which is why only it went red.
+    // pressSequentially drives real key events (same reason as landing.spec.ts) and
+    // the retype is idempotent, so retry it instead of sleeping on a guessed
+    // hydration delay — same pattern as openCategoryDialog in brand-corrections.spec.ts.
+    const option = page.getByRole('option', { name: /Visitor Search Result/ });
+    await expect(async () => {
+      await searchInput.click();
+      await searchInput.fill('');
+      await searchInput.pressSequentially('visitor', { delay: 50 });
+      await expect(option).toBeVisible({ timeout: 3_000 });
+    }).toPass({ timeout: 20_000, intervals: [500, 1_000, 2_000] });
   });
 
   test('FAQ page renders with accordion items', async ({ page }) => {

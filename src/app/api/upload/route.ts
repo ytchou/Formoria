@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import * as Sentry from '@sentry/nextjs'
 import { getPostHogClient } from '@/lib/posthog-server'
+import { ANALYTICS_EVENTS } from '@/lib/analytics/events'
 import { createClient } from '@/lib/supabase/server'
 import { sanitizeErrorResponse } from '@/lib/errors'
 import { processImage } from '@/lib/security/image-processor'
@@ -22,7 +23,7 @@ async function captureAssetUploaded(
   const posthog = getPostHogClient()
   posthog.capture({
     distinctId: userId ?? request.headers.get('x-posthog-distinct-id') ?? crypto.randomUUID(),
-    event: 'asset_uploaded',
+    event: ANALYTICS_EVENTS.ASSET_UPLOADED,
     properties,
   })
   await posthog.flush()

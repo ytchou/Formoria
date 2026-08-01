@@ -48,6 +48,7 @@ export function BrandActions({
       brandSlug,
       'website',
       typeof window !== 'undefined' ? window.location.pathname : '',
+      'detail_page',
       brandId,
     )
 

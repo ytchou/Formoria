@@ -5,7 +5,12 @@ import { Link } from '@/i18n/navigation'
 import Image from 'next/image'
 import { useTranslations, useLocale } from 'next-intl'
 import type { Brand } from '@/lib/types'
-import { trackBrandCardClicked, trackRecommendationBrandClicked } from '@/lib/analytics'
+import {
+  trackBrandCardClicked,
+  trackRecommendationBrandClicked,
+  trackSavedBrandRevisited,
+} from '@/lib/analytics'
+import { useSavedBrands } from '@/hooks/use-saved-brands'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -43,6 +48,8 @@ export function BrandCard({
   const t = useTranslations('brands')
   const tDetail = useTranslations('brandDetail')
   const locale = useLocale()
+  // Safe on surfaces with no SavedBrandsProvider — the hook falls back to an empty set.
+  const { savedIds } = useSavedBrands()
   const [imgError, setImgError] = useState(false)
   const imageSrc =
     [brand.heroImageUrl, ...brand.productPhotos]
@@ -104,6 +111,9 @@ export function BrandCard({
                   trackRecommendationBrandClicked(brand.id, brand.slug, sourceBrandSlug ?? '', position)
                 } else {
                   trackBrandCardClicked(brand.slug, brand.category, position, brand.id)
+                }
+                if (savedIds.has(brand.id)) {
+                  trackSavedBrandRevisited(brand.slug, 'card', brand.id)
                 }
               }}
               data-ph-no-autocapture

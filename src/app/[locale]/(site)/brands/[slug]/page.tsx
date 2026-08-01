@@ -14,6 +14,7 @@ import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import type { Brand } from '@/lib/types'
 import { BrandViewTracker } from '@/components/brands/brand-view-tracker'
+import { BrandEngagementTracker } from '@/components/brands/brand-engagement-tracker'
 import { BrandBreadcrumb } from '@/components/brands/brand-breadcrumb'
 import { ImageCarousel } from '@/components/brands/image-carousel'
 import { BrandHeader } from '@/components/brands/brand-header'
@@ -231,58 +232,62 @@ export default async function BrandDetailPage({ params }: PageProps) {
   ]
 
   return (
-    <>
-      <main className="page-gutter mx-auto max-w-screen-xl py-10">
-        <BrandViewTracker brandId={displayBrand.id} brandSlug={slug} />
-        {/* JSON-LD structured data */}
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: safeJsonLdStringify(buildBrandJsonLd(displayBrand, safeLocale)),
-          }}
-        />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: safeJsonLdStringify(buildBreadcrumbJsonLd(breadcrumbItems, safeLocale)),
-          }}
-        />
-        {/* Breadcrumb */}
-        <BrandBreadcrumb
-          locale={safeLocale}
-          categorySlug={categoryTag?.slug ?? null}
-          categoryLabel={categoryLabel || null}
-          brandName={displayBrand.name}
-        />
+    // The saved-brands and engagement providers wrap the whole page: the view
+    // tracker needs saved state, and the gallery/FAQ/channel sections all report
+    // engagement. Hoisting the saved provider here does not add a fetch — it was
+    // already mounted on this page, only around the actions slot.
+    <SavedBrandsProvider>
+      <BrandEngagementTracker brandId={displayBrand.id} slug={slug}>
+        <main className="page-gutter mx-auto max-w-screen-xl py-10">
+          <BrandViewTracker brandId={displayBrand.id} brandSlug={slug} />
+          {/* JSON-LD structured data */}
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: safeJsonLdStringify(buildBrandJsonLd(displayBrand, safeLocale)),
+            }}
+          />
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: safeJsonLdStringify(buildBreadcrumbJsonLd(breadcrumbItems, safeLocale)),
+            }}
+          />
+          {/* Breadcrumb */}
+          <BrandBreadcrumb
+            locale={safeLocale}
+            categorySlug={categoryTag?.slug ?? null}
+            categoryLabel={categoryLabel || null}
+            brandName={displayBrand.name}
+          />
 
-        {/* Hero */}
-        <div className="flex flex-col gap-10 lg:flex-row lg:gap-12">
-          <div className="w-full lg:w-1/2">
-            <ImageCarousel
-              images={galleryImages}
-              alt={displayBrand.name}
-              brandId={displayBrand.id}
-              brandSlug={displayBrand.slug}
-              category={productTypeSlug}
-              imageAlts={displayBrand.imageAlts}
-            />
-          </div>
+          {/* Hero */}
+          <div className="flex flex-col gap-10 lg:flex-row lg:gap-12">
+            <div className="w-full lg:w-1/2">
+              <ImageCarousel
+                images={galleryImages}
+                alt={displayBrand.name}
+                brandId={displayBrand.id}
+                brandSlug={displayBrand.slug}
+                category={productTypeSlug}
+                imageAlts={displayBrand.imageAlts}
+              />
+            </div>
 
-          <div className="min-w-0 lg:w-1/2">
-            <BrandHeader
-              brand={displayBrand}
-              categoryLabel={categoryLabel || null}
-              cityLabel={displayBrand.city ? tCities(displayBrand.city) : null}
-              locale={safeLocale}
-              adminSlot={
-                <AdminBrandMenu
-                  brandId={displayBrand.id}
-                  brandName={displayBrand.name}
-                  brandSlug={displayBrand.slug}
-                />
-              }
-              actionsSlot={
-                <SavedBrandsProvider>
+            <div className="min-w-0 lg:w-1/2">
+              <BrandHeader
+                brand={displayBrand}
+                categoryLabel={categoryLabel || null}
+                cityLabel={displayBrand.city ? tCities(displayBrand.city) : null}
+                locale={safeLocale}
+                adminSlot={
+                  <AdminBrandMenu
+                    brandId={displayBrand.id}
+                    brandName={displayBrand.name}
+                    brandSlug={displayBrand.slug}
+                  />
+                }
+                actionsSlot={
                   <BrandActions
                     websiteUrl={visitLink?.href ?? null}
                     visitKind={visitLink?.kind}
@@ -292,76 +297,76 @@ export default async function BrandDetailPage({ params }: PageProps) {
                     brandImageUrl={displayBrand.heroImageUrl ?? undefined}
                     categoryLabel={categoryLabel || null}
                   />
-                </SavedBrandsProvider>
-              }
-            />
-            {!displayBrand.isVerified && (
-              <div className="mt-8">
-                <ClaimBrandCta brandId={displayBrand.id} brandSlug={displayBrand.slug} />
-              </div>
-            )}
+                }
+              />
+              {!displayBrand.isVerified && (
+                <div className="mt-8">
+                  <ClaimBrandCta brandId={displayBrand.id} brandSlug={displayBrand.slug} />
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-
-        <div
-          className={cn(
-            'mt-8 border-t border-border pt-8',
-            hasSectionNav && 'grid md:grid-cols-5 md:gap-16',
-          )}
-        >
-          <BrandSectionNav sections={sections} />
 
           <div
             className={cn(
-              'flex min-w-0 flex-col gap-8',
-              hasSectionNav && 'md:col-span-4',
+              'mt-8 border-t border-border pt-8',
+              hasSectionNav && 'grid md:grid-cols-5 md:gap-16',
             )}
           >
-            {description && (
-              <section id="about" className={brandSectionClassName}>
-                <BrandAbout brand={displayBrand} locale={safeLocale} />
-              </section>
-            )}
+            <BrandSectionNav sections={sections} />
 
-            <BrandLinks
-              brand={displayBrand}
-              sectionIds={{ social: 'social', purchase: 'purchase' }}
-              sectionClassName={brandSectionClassName}
-            />
+            <div
+              className={cn(
+                'flex min-w-0 flex-col gap-8',
+                hasSectionNav && 'md:col-span-4',
+              )}
+            >
+              {description && (
+                <section id="about" className={brandSectionClassName}>
+                  <BrandAbout brand={displayBrand} locale={safeLocale} />
+                </section>
+              )}
 
-            {LOCATIONS_SECTION_ENABLED && (
-              <section id="locations" className={brandSectionClassName}>
-                <BrandChannelsSection
-                  locale={safeLocale}
-                  confirmed={channels.confirmed}
-                  possible={channels.possible}
-                  brandId={displayBrand.id}
-                  brandSlug={displayBrand.slug}
-                />
-              </section>
-            )}
+              <BrandLinks
+                brand={displayBrand}
+                sectionIds={{ social: 'social', purchase: 'purchase' }}
+                sectionClassName={brandSectionClassName}
+              />
 
-            {faqItems.length > 0 && (
-              <section id="faq" className={brandSectionClassName}>
-                <BrandFaqAccordion items={faqItems} brandSlug={displayBrand.slug} />
-              </section>
-            )}
+              {LOCATIONS_SECTION_ENABLED && (
+                <section id="locations" className={brandSectionClassName}>
+                  <BrandChannelsSection
+                    locale={safeLocale}
+                    confirmed={channels.confirmed}
+                    possible={channels.possible}
+                    brandId={displayBrand.id}
+                    brandSlug={displayBrand.slug}
+                  />
+                </section>
+              )}
+
+              {faqItems.length > 0 && (
+                <section id="faq" className={brandSectionClassName}>
+                  <BrandFaqAccordion items={faqItems} brandSlug={displayBrand.slug} />
+                </section>
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* Related brands */}
-        {categoryTag && (
-          <RelatedBrands
-            locale={safeLocale}
-            brands={relatedBrands}
-            category={categoryTag.slug}
-            categoryName={categoryLabel || categoryTag.name}
-            categoryLabel={categoryLabel || null}
-            count={categoryCount}
-            currentBrandSlug={displayBrand.slug}
-          />
-        )}
-      </main>
-    </>
+          {/* Related brands */}
+          {categoryTag && (
+            <RelatedBrands
+              locale={safeLocale}
+              brands={relatedBrands}
+              category={categoryTag.slug}
+              categoryName={categoryLabel || categoryTag.name}
+              categoryLabel={categoryLabel || null}
+              count={categoryCount}
+              currentBrandSlug={displayBrand.slug}
+            />
+          )}
+        </main>
+      </BrandEngagementTracker>
+    </SavedBrandsProvider>
   )
 }

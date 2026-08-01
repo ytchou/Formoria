@@ -14,7 +14,7 @@ describe('PostHog client initialization', () => {
     vi.stubEnv('NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN', 'phc_test')
     vi.stubEnv('NEXT_PUBLIC_POSTHOG_HOST', 'https://e.formoria.com')
     vi.stubEnv('NEXT_PUBLIC_POSTHOG_UI_HOST', 'https://us.posthog.com')
-    const client = { init: vi.fn(), capture: vi.fn(), identify: vi.fn(), reset: vi.fn() }
+    const client = { init: vi.fn(), capture: vi.fn(), identify: vi.fn(), register: vi.fn(), reset: vi.fn() }
 
     expect(initializePostHog(client)).toBe(true)
     expect(client.init).toHaveBeenCalledWith(
@@ -40,7 +40,7 @@ describe('PostHog client initialization', () => {
   })
 
   it('does not initialize outside production or without the managed host', () => {
-    const client = { init: vi.fn(), capture: vi.fn(), identify: vi.fn(), reset: vi.fn() }
+    const client = { init: vi.fn(), capture: vi.fn(), identify: vi.fn(), register: vi.fn(), reset: vi.fn() }
     vi.stubEnv('NODE_ENV', 'development')
     vi.stubEnv('NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN', 'phc_test')
     vi.stubEnv('NEXT_PUBLIC_POSTHOG_HOST', 'https://us.i.posthog.com')

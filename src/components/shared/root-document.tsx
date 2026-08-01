@@ -54,7 +54,7 @@ export function RootDocument({
           {skipToContentLabel}
         </a>
         <ViewerProvider>
-          <PostHogUserSync />
+          <PostHogUserSync locale={locale} />
           <GaUserSync />
           <WebVitalsReporter />
           {children}
