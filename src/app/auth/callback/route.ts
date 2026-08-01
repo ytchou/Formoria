@@ -20,9 +20,21 @@ import {
   type AppLocale,
 } from "@/i18n/locale-preference";
 
+function isRecentlyCreated(createdAt: string | undefined): boolean {
+  if (!createdAt) return false;
+  return Date.now() - new Date(createdAt).getTime() < 60_000;
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const code = searchParams.get("code");
+  // E2E-only fallback: Supabase's admin API has no way to mint a PKCE-compatible
+  // confirmation link (generateLink accepts no code_challenge), so the signup
+  // e2e journey can't complete via exchangeCodeForSession like a real emailed
+  // link does. It confirms via verifyOtp's token_hash instead — gated so this
+  // path can never be reached outside Playwright runs.
+  const testTokenHash =
+    process.env.PLAYWRIGHT_TEST === "true" ? searchParams.get("test_token_hash") : null;
   const origin = await getRequestOrigin();
 
   // Post-auth intent is carried via short-lived cookies for the OAuth flow
@@ -52,7 +64,7 @@ export async function GET(request: NextRequest) {
   cookieStore.delete("post_auth_marketing_locale");
   cookieStore.delete("post_auth_locale");
 
-  if (!code && !claimToken) {
+  if (!code && !testTokenHash && !claimToken) {
     return NextResponse.redirect(
       new URL(localizePath("/auth/sign-in?error=missing-code", errorLocale), origin)
     );
@@ -74,15 +86,20 @@ export async function GET(request: NextRequest) {
     }
     userId = data.user?.id;
     userEmail = data.user?.email;
-
-    try {
-      const createdAt = data.user?.created_at;
-      if (createdAt && Date.now() - new Date(createdAt).getTime() < 60_000) {
-        isNewUser = true;
-      }
-    } catch {
-      isNewUser = false;
+    isNewUser = isRecentlyCreated(data.user?.created_at);
+  } else if (testTokenHash) {
+    const { data, error } = await supabase.auth.verifyOtp({
+      token_hash: testTokenHash,
+      type: "signup",
+    });
+    if (error) {
+      return NextResponse.redirect(
+        new URL(localizePath("/auth/sign-in?error=expired-code", errorLocale), origin)
+      );
     }
+    userId = data.user?.id;
+    userEmail = data.user?.email;
+    isNewUser = isRecentlyCreated(data.user?.created_at);
   } else {
     // Sign-in flow (no code) — get existing session
     const { data: { user } } = await supabase.auth.getUser();

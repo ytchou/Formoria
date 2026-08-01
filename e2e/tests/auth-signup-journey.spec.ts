@@ -10,14 +10,25 @@ import {
 //
 // The journey MUST start from the real UI signup, not admin.createUser. signUp()
 // runs through @supabase/ssr, which uses PKCE: it stores a code_verifier cookie in
-// this browser context and a matching challenge server-side. Only then does
-// /auth/v1/verify hand back `?code=…` for /auth/callback to exchange.
+// this browser context and a matching challenge server-side. Shortcutting the setup
+// tests a different code path than the one real users take.
 //
-// An admin-created user has no PKCE challenge, so verify falls back to the implicit
-// flow and returns tokens in the URL *fragment*; /auth/callback only reads `?code=`
-// and dead-ends at /auth/sign-in?error=missing-code. Shortcutting the setup
-// therefore tests a different code path than the one real users take — it was tried
-// and it failed exactly that way.
+// Confirming the account can't go through that same PKCE exchange, though.
+// admin.generateLink() has no code_challenge parameter (see @supabase/auth-js'
+// GenerateLinkOptions) — a link it mints can never satisfy the PKCE flow_state the
+// real signUp() created, so /auth/v1/verify falls back to the implicit flow and
+// hands back tokens in the URL *fragment*, which /auth/callback's `?code=` reader
+// never sees. This was confirmed directly against the project's auth API: signing
+// up for real and then minting a link with generateLink still redirects with
+// `#access_token=…`, never `?code=`. Reading the real confirmation email isn't a
+// fix either — formoria.com is a Cloudflare Email Routing catch-all → Drop, so that
+// mail is discarded, not delivered anywhere retrievable.
+//
+// So confirmation goes through /auth/callback's `test_token_hash` fallback instead
+// (PLAYWRIGHT_TEST-gated, see route.ts): generateLink's `hashed_token` verifies via
+// supabase.auth.verifyOtp(), the same call a real email-OTP confirmation would use.
+// That still exercises the callback's full onboarding handoff — new-user detection,
+// locale, redirect — just via the OTP branch instead of the PKCE code-exchange one.
 //
 // Cost of doing it properly: signUp sends a confirmation email, so this journey is
 // gated by Supabase's PROJECT-WIDE email quota (429). That quota is not per-address,
@@ -90,8 +101,9 @@ test.describe.serial('Auth — signup to first value', () => {
         'the journey must start from an UNCONFIRMED account',
       ).toBeNull();
 
-      // 2. Mint the confirmation link in place of reading an inbox. generateLink
-      //    honours redirectTo and sends no email, so it adds no quota cost.
+      // 2. Mint the confirmation token in place of reading an inbox (dropped by the
+      //    Cloudflare catch-all) or an actual PKCE-compatible link, which
+      //    generateLink cannot produce — see the module comment above.
       const { data: link, error: linkError } = await admin.auth.admin.generateLink({
         type: 'signup',
         email,
@@ -99,23 +111,24 @@ test.describe.serial('Auth — signup to first value', () => {
         options: { redirectTo: callbackUrl },
       });
       expect(linkError?.message ?? null, 'admin.generateLink must succeed').toBeNull();
-      const actionLink = link.properties?.action_link;
-      expect(actionLink, 'generateLink must return an action_link').toBeTruthy();
+      const tokenHash = link.properties?.hashed_token;
+      expect(tokenHash, 'generateLink must return a hashed_token').toBeTruthy();
 
-      // 3. Click the link exactly as the user would: Supabase /auth/v1/verify then
-      //    our /auth/callback?code=… exchange (that route lives outside [locale]).
-      //    Same browser context as step 1, so the PKCE verifier cookie travels with it.
-      await anonPage.goto(actionLink!);
+      // 3. Confirm through /auth/callback's test-only OTP fallback (PLAYWRIGHT_TEST-
+      //    gated, see route.ts) instead of clicking the link. Same browser context
+      //    as step 1; the confirmation itself goes through verifyOtp rather than the
+      //    PKCE exchange, but everything downstream in the callback is identical.
+      await anonPage.goto(`${callbackUrl}?test_token_hash=${encodeURIComponent(tokenHash!)}`);
 
       // 4. Onboarding handoff — callback marks a <60s-old account as new and sends
       //    it to the zh-TW dashboard (bare path, localePrefix: 'as-needed').
-      //    A landing on ?error=missing-code means verify returned implicit-flow
-      //    tokens in the fragment instead of ?code= — say so rather than emitting a
-      //    bare URL-mismatch, because the two failures have different causes.
+      //    A landing on ?error=expired-code means verifyOtp rejected the token — say
+      //    so rather than emitting a bare URL-mismatch, because the two failures
+      //    have different causes.
       if (/[?&]error=/.test(anonPage.url())) {
         expect(
-          `callback rejected the confirmation link: ${anonPage.url().split('#')[0]}`,
-          'confirmation link did not complete the PKCE exchange',
+          `callback rejected the confirmation token: ${anonPage.url()}`,
+          'confirmation token did not complete the OTP verification',
         ).toBe('/dashboard?is_new_user=1');
       }
       await expect(anonPage).toHaveURL(/\/dashboard\?.*is_new_user=1/, { timeout: 30_000 });
