@@ -208,6 +208,7 @@ async function refreshSupabaseSession(request: NextRequest, response: NextRespon
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const isPlaywrightTest = process.env.PLAYWRIGHT_TEST === 'true'
+  const routerRequest = isRouterRequest(request)
 
   const host = request.headers.get('host') ?? ''
   if (host === (process.env.MICROSITE_HOST ?? 'brand.formoria.com')) {
@@ -261,7 +262,7 @@ export async function proxy(request: NextRequest) {
     if (rateLimitResponse) return rateLimitResponse
   }
 
-  if (!isPlaywrightTest && !isRouterRequest(request) && isSoftLimitPath(pathname)) {
+  if (!isPlaywrightTest && !routerRequest && isSoftLimitPath(pathname)) {
     const challengeCookie = request.cookies.get(CHALLENGE_COOKIE_NAME)?.value
     let isVerified = false
     if (challengeCookie) {
@@ -330,7 +331,7 @@ export async function proxy(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = localizePath(pathname, 'en')
     const localeResponse = NextResponse.redirect(url)
-    if (!isRouterRequest) {
+    if (!routerRequest) {
       localeResponse.cookies.set(LOCALE_COOKIE, 'en', {
         sameSite: 'lax',
         path: '/',
@@ -359,7 +360,7 @@ export async function proxy(request: NextRequest) {
   // retained for the browser session. Explicit preferences are persisted by the
   // switcher, auth, and settings flows instead.
   const resolvedLocale = inferredLocale
-  if (resolvedLocale && resolvedLocale !== cookieLocale && !isRouterRequest) {
+  if (resolvedLocale && resolvedLocale !== cookieLocale && !routerRequest) {
     response.cookies.set(LOCALE_COOKIE, resolvedLocale, {
       sameSite: 'lax',
       path: '/',
@@ -368,7 +369,7 @@ export async function proxy(request: NextRequest) {
 
   if (
     isDirectoryIndexPath(pathname) &&
-    !isRouterRequest &&
+    !routerRequest &&
     !response.headers.has('set-cookie')
   ) {
     response.headers.set('Cache-Control', DIRECTORY_EDGE_CACHE_CONTROL)
