@@ -87,26 +87,11 @@ WHERE status = 'rejected'
   AND rejected_at IS NULL
   AND tags && ARRAY['promo', 'text_banner', 'irrelevant']::text[];
 
-DO $$ BEGIN
-  PERFORM cron.unschedule('classifier-image-retention-6h');
-EXCEPTION WHEN others THEN
-  NULL;
-END $$;
-
-SELECT cron.schedule(
-  'classifier-image-retention-6h',
-  '17 */6 * * *',
-  $$
-  SELECT net.http_post(
-    url := (SELECT value FROM public.app_secrets WHERE key = 'site_url')
-      || '/api/cron/purge-classifier-images',
-    headers := jsonb_build_object(
-      'x-origin-verify', (SELECT value FROM public.app_secrets WHERE key = 'origin_secret'),
-      'Content-Type', 'application/json'
-    ),
-    body := jsonb_build_object('triggered_by', 'pg_cron', 'run_at', now()::text)
-  )
-  $$
-);
+-- The retention cron that consumes the columns and indexes above is deliberately
+-- NOT scheduled here. Scheduling it starts irreversible storage deletion, and
+-- DEV-1279 has not yet settled whether rejection should delete at all (see the
+-- decouple-deletion work). The statement is parked at
+-- supabase/deferred/20260801140000_schedule_classifier_retention_cron.sql --
+-- move it into this directory and push when that decision lands.
 
 COMMIT;
