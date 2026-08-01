@@ -27,6 +27,20 @@ const MAX_IMAGE_ASPECT_RATIO = 2.0
 // (keep p50 6.92 vs reject p50 7.03), and every floor above this one loses
 // more good images than it blocks bad ones.
 const MIN_IMAGE_ENTROPY = 0.5
+// Content types that are definitively not an image. Anything else — including
+// application/octet-stream and a missing header — falls through to sharp.
+const NON_IMAGE_CONTENT_TYPE_RE = /^(?:text\/|application\/(?:json|xml|pdf|zip|javascript)|video\/|audio\/)/i
+
+/**
+ * Fast-path reject for responses that cannot be an image. Deliberately
+ * permissive: a CDN serving a real image as application/octet-stream must not
+ * be rejected on the header alone (static.91app.com does exactly this for every
+ * asset). sharp's decode and the processImage format allowlist are the actual
+ * guarantee — this only avoids decoding an obvious HTML error page.
+ */
+export function isNonImageContentType(contentType: string): boolean {
+  return NON_IMAGE_CONTENT_TYPE_RE.test(contentType)
+}
 // Each unit here is an HTTP fetch plus a sharp decode/stats/resize/webp encode
 // plus a storage upload, and this already runs multiplied by the per-brand
 // enrichment concurrency. Bound the fan-out instead of firing every candidate
@@ -218,9 +232,16 @@ export async function downloadAndStoreImages(
           throw new Error(`Failed to fetch image: ${response.status}`)
         }
 
-        const contentType =
-          response.headers.get('content-type') ?? ''
-        if (!contentType.startsWith('image/')) {
+        // content-type is a cheap fast-path reject, NOT the arbiter. Some CDNs
+        // serve perfectly valid images as application/octet-stream —
+        // static.91app.com does it for every asset, and 91app is one of the
+        // three dominant Taiwanese storefront platforms, so trusting the header
+        // silently discarded five usable 1200px images for a single brand in a
+        // spot check. Reject only what is definitively not an image and let
+        // sharp's decode plus the processImage format allowlist below be the
+        // real guarantee.
+        const contentType = response.headers.get('content-type') ?? ''
+        if (isNonImageContentType(contentType)) {
           throw new Error(`Not an image (content-type: ${contentType}), skipping`)
         }
 
