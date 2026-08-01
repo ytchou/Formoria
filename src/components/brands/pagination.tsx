@@ -42,9 +42,9 @@ function buildPageUrl(pathname: string, searchParams: URLSearchParams, page: num
 }
 
 const navLinkClass =
-  'inline-flex min-h-12 items-center justify-center rounded-lg px-3 type-body-emphasis text-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
+  'relative inline-flex min-h-12 items-center justify-center rounded-lg px-3 type-body-emphasis text-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
 const pageLinkClass =
-  'inline-flex min-h-12 min-w-12 items-center justify-center rounded-lg type-body-emphasis text-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
+  'relative inline-flex min-h-12 min-w-12 items-center justify-center rounded-lg type-body-emphasis text-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
 
 function PaginationLinkStatus() {
   const { pending } = useLinkStatus()
@@ -52,7 +52,7 @@ function PaginationLinkStatus() {
   return (
     <Loader2
       aria-hidden="true"
-      className={`size-3 shrink-0 transition-opacity ${pending ? 'animate-spin opacity-100' : 'opacity-0'}`}
+      className={`pointer-events-none absolute right-1 top-1/2 size-3 -translate-y-1/2 transition-opacity ${pending ? 'animate-spin opacity-100' : 'opacity-0'}`}
     />
   )
 }
@@ -86,7 +86,7 @@ export function Pagination({
       {currentPage > 1 ? (
         <Link
           href={buildPageUrl(pathname, searchParams, currentPage - 1)}
-          className={`${navLinkClass} gap-1`}
+          className={navLinkClass}
           aria-label={t('pagination.previousAria')}
           prefetch={false}
           scroll={false}
@@ -135,7 +135,7 @@ export function Pagination({
           <Link
             key={page}
             href={buildPageUrl(pathname, searchParams, page)}
-            className={`${pageLinkClass} gap-1`}
+            className={pageLinkClass}
             prefetch={false}
             scroll={false}
             onClick={() =>
@@ -157,7 +157,7 @@ export function Pagination({
       {currentPage < totalPages ? (
         <Link
           href={buildPageUrl(pathname, searchParams, currentPage + 1)}
-          className={`${navLinkClass} gap-1`}
+          className={navLinkClass}
           aria-label={t('pagination.nextAria')}
           prefetch={false}
           scroll={false}
