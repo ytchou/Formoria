@@ -1010,7 +1010,7 @@
       },
       "ownerInterest": {
         "question": "我是品牌主，現在可以自己管理品牌頁面嗎？",
-        "answer": "目前還不行。認領品牌頁面、自行編輯資料、提交 MIT 品牌聲明等品牌主功能即將推出。在那之前，品牌頁由我們的團隊維護，若資訊有誤或需要更新，歡迎來信告訴我們，我們會盡快處理。如果你希望盡早使用品牌主功能，請到<link>功能許願板</link>登記你的需求，功能開放時我們會通知你。"
+        "answer": "目前尚未開放。認領品牌頁面、自行編輯資料、提交 MIT 品牌聲明等品牌主功能即將推出。在那之前，品牌頁由我們的團隊維護，若資訊有誤或需要更新，歡迎來信告訴我們，我們會盡快處理。如果你希望盡早使用品牌主功能，請到<link>功能許願板</link>登記你的需求，功能開放時我們會通知你。"
       },
       "whatCategories": {
         "question": "Formoria 收錄哪些產品分類？",
@@ -1179,7 +1179,7 @@
     "heading": "我的推薦",
     "subheading": "查看你推薦的所有品牌",
     "empty": {
-      "message": "你還沒有推薦任何品牌。",
+      "message": "你尚未推薦任何品牌。",
       "cta": "推薦品牌"
     },
     "status": {
@@ -1206,7 +1206,7 @@
       "forgotPassword": "忘記密碼？",
       "submit": "登入",
       "submitting": "登入中...",
-      "noAccount": "還沒有帳號？",
+      "noAccount": "尚未註冊？",
       "signUpLink": "註冊",
       "errors": {
         "missingCode": "登入連結不完整，請在下方輸入電子郵件以重新取得。",
@@ -2778,7 +2778,7 @@
     "saveAriaLabel": "收藏這個品牌",
     "unsaveAriaLabel": "取消收藏這個品牌",
     "savedTab": "收藏品牌",
-    "emptyTitle": "還沒有收藏品牌",
+    "emptyTitle": "尚無收藏品牌",
     "emptyDescription": "去探索品牌目錄吧！",
     "exploreBrands": "探索品牌目錄",
     "loginToSave": "登入後即可收藏品牌"
@@ -2885,10 +2885,13 @@
     "brandCountFiltered": "共 {count} 個品牌（篩選自 {total} 個）",
     "areaFilterAria": "依區域篩選品牌",
     "allAreas": "全部區域",
-    "showAllAreas": "顯示全部區域",
+    "categoryFilterAria": "依產品分類篩選品牌",
+    "allCategories": "全部分類",
+    "clearFilters": "顯示全部品牌",
     "filteredEmptyTitle": "這個展區目前沒有本站收錄的品牌",
-    "filteredEmptyBody": "可以先看看其他展區，或回到完整名單。",
+    "filteredEmptyBody": "可改看其他展區，或返回完整名單。",
     "relatedStories": "相關專題",
+    "storiesEmptyTitle": "尚無相關的專題報導",
     "notFound": {
       "title": "找不到展會",
       "description": "您所尋找的展會不存在或已被移除。",
@@ -2918,8 +2921,8 @@
       },
       "planned": {
         "title": "已排入規劃",
-        "description": "已經確定要做，還沒開始動工。",
-        "empty": "目前還沒有排入規劃的功能。"
+        "description": "已確定執行，尚未開始。",
+        "empty": "目前尚無排入規劃的功能。"
       },
       "open": {
         "title": "待評估",

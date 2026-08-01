@@ -10,12 +10,14 @@ import { formatStoryDate } from '@/components/stories/story-date'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { surfaceCardStyles } from '@/components/ui/card'
+import { EmptyState } from '@/components/ui/empty-state'
 import { LinkCard } from '@/components/ui/link-card'
 import { textStyles } from '@/components/ui/text-styles'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { safeDecodeSlug } from '@/lib/url'
 import {
   deriveAreaOptions,
+  deriveCategoryOptions,
   getEventBrandEntries,
   getPublishedEventBySlug,
   getPublishedEvents,
@@ -45,8 +47,9 @@ export const revalidate = 3600
 // `generateStaticParams` gives SSG+ISR without that failure mode.
 //
 // CRITICAL: this route reads no dynamic API — no `cookies()`, no `headers()`,
-// no `searchParams`. That is only safe because the area filter is entirely
-// client-side (`EventBrandGrid` mirrors `?area=` with `history.replaceState`).
+// no `searchParams`. That is only safe because the lineup filters are entirely
+// client-side (`EventBrandGrid` mirrors `?area=` and `?category=` with
+// `history.replaceState`).
 // Reading one here would flip the route to dynamic and this `revalidate` would
 // never produce a static entry.
 
@@ -157,6 +160,7 @@ export default async function EventDetailPage({ params }: PageProps) {
   const phase = resolveEventPhase(event, taipeiToday())
   const dateLabel = formatEventDateRange(event.startsOn, event.endsOn)
   const areaOptions = deriveAreaOptions(entries, safeLocale)
+  const categoryOptions = deriveCategoryOptions(entries, safeLocale)
   const heroSrc = safeImageSrc(event.heroImageUrl)
 
   // Derived, never authored: `EventAreaOption` carries no count, and a count
@@ -381,11 +385,17 @@ export default async function EventDetailPage({ params }: PageProps) {
           Band C — stories sit above the lineup on purpose: below 38 cards they
           were unreachable. Separated by whitespace only, never a tinted band.
         */}
-        {relatedStories.length > 0 ? (
-          <section aria-labelledby="event-related-stories" className="space-y-4">
-            <h2 id="event-related-stories" className="type-section-title">
-              {t('relatedStories')}
-            </h2>
+        <section aria-labelledby="event-related-stories" className="space-y-4">
+          <h2 id="event-related-stories" className="type-section-title">
+            {t('relatedStories')}
+          </h2>
+          {relatedStories.length === 0 ? (
+            // The heading stays even with nothing under it, so the page has the
+            // same shape on every event. Title only — no icon, no action: this
+            // is the common case, not a failure, and it must not outweigh the
+            // lineup directly below it.
+            <EmptyState title={t('storiesEmptyTitle')} />
+          ) : (
             <ul className="grid gap-6 md:grid-cols-2">
               {relatedStories.map((story) => (
                 <li key={story.slug}>
@@ -405,10 +415,10 @@ export default async function EventDetailPage({ params }: PageProps) {
                 </li>
               ))}
             </ul>
-          </section>
-        ) : null}
+          )}
+        </section>
 
-        {/* Band D — full width so `MasonryGrid` keeps its four-column row. */}
+        {/* Band D — full width so `MasonryGrid` keeps its widest column count. */}
         <section aria-labelledby="event-brands" className="space-y-4">
           <h2 id="event-brands" className="type-section-title">
             {t('brandsHeading')}
@@ -425,6 +435,7 @@ export default async function EventDetailPage({ params }: PageProps) {
             <EventBrandGrid
               entries={entries}
               areaOptions={areaOptions}
+              categoryOptions={categoryOptions}
               eventSlug={event.slug}
               locale={safeLocale}
             />

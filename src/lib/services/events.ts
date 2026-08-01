@@ -3,6 +3,7 @@ import { cache } from "react";
 import type { AppLocale } from "@/i18n/locale-preference";
 import type { Database } from "@/lib/supabase/database.types";
 import type { Brand } from "@/lib/types";
+import { getBrandCategoryLabel } from "@/lib/brands/category-label";
 import { isoDateInTimeZone } from "@/lib/date-range";
 import { createServiceClient } from "@/lib/supabase/server";
 import { brandsBySlugsCacheKey, getBrandsBySlugs } from "./brands";
@@ -89,6 +90,8 @@ export type EventBrandEntry = Omit<EventBrandLink, "brandSlug"> & {
  * survives a locale switch; only `label` localizes.
  */
 export type EventAreaOption = { value: string; label: string };
+
+export type EventCategoryOption = { value: string; label: string };
 
 export type EventsByPhase = {
   upcoming: Event[];
@@ -312,6 +315,37 @@ export function deriveAreaOptions(
       value: entry.area,
       label: locale === "en" ? (entry.areaEn ?? entry.area) : entry.area,
     });
+  }
+
+  return [...options.values()].sort((a, b) => compareStrings(a.value, b.value));
+}
+
+/**
+ * Distinct product categories, sorted by their canonical value for the same
+ * reason `deriveAreaOptions` above is: lineup order is keyed on brand name, so
+ * leaving the chips in that order reshuffles them whenever a brand is added.
+ * Brands with no category are excluded rather than bucketed into an "other"
+ * option the filter UI would have to special-case.
+ */
+export function deriveCategoryOptions(
+  entries: EventBrandEntry[],
+  locale: AppLocale,
+): EventCategoryOption[] {
+  const options = new Map<string, EventCategoryOption>();
+
+  for (const entry of entries) {
+    const category = entry.brand.category;
+    if (!category) continue;
+    if (options.has(category)) continue;
+
+    // `getBrandCategoryLabel` returns "" for a category it cannot resolve;
+    // falling back to the raw value keeps the chip readable instead of blank.
+    const label = getBrandCategoryLabel(
+      entry.brand,
+      locale === "en" ? "en" : "zh-TW",
+    );
+
+    options.set(category, { value: category, label: label || category });
   }
 
   return [...options.values()].sort((a, b) => compareStrings(a.value, b.value));

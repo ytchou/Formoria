@@ -5,24 +5,36 @@ import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { SearchX } from 'lucide-react'
 import { BrandCard } from '@/components/brands/brand-card'
-import { MasonryGrid } from '@/components/brands/masonry-grid'
+import {
+  MASONRY_ABOVE_FOLD,
+  MasonryGrid,
+  type MasonryDensity,
+} from '@/components/brands/masonry-grid'
 import { ViewItemListTracker } from '@/components/analytics/view-item-list-tracker'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ToggleChip } from '@/components/ui/toggle-chip'
 import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
-import type { EventAreaOption, EventBrandEntry } from '@/lib/services/events'
+import type {
+  EventAreaOption,
+  EventBrandEntry,
+  EventCategoryOption,
+} from '@/lib/services/events'
+
+const LINEUP_DENSITY: MasonryDensity = 'dense'
 
 type EventBrandGridProps = {
   /** The full lineup. Filtering happens here, never on the server. */
   entries: EventBrandEntry[]
   areaOptions: EventAreaOption[]
+  categoryOptions: EventCategoryOption[]
   eventSlug: string
   locale: string
 }
 
 /**
- * Reads `?area=` once, on mount, and hands it to the parent's state.
+ * Reads `?area=` and `?category=` once, on mount, and hands them to the
+ * parent's state.
  *
  * Isolated into its own `Suspense`-wrapped, render-nothing child on purpose:
  * `useSearchParams` opts its entire subtree into client rendering, and Next
@@ -30,31 +42,45 @@ type EventBrandGridProps = {
  * crawlable, statically rendered lineup for a fallback — the lineup is the
  * whole point of the page, so only the seed sits behind the boundary.
  */
-function AreaParamSeed({
+function FilterParamSeed({
   areaOptions,
-  onSeed,
+  categoryOptions,
+  onSeedArea,
+  onSeedCategory,
 }: {
   /**
    * Compared by identity in the effect deps, deliberately not flattened into a
-   * joined string first: `areaOptions` is a prop of a server-rendered parent and
-   * `onSeed` is a `useState` setter, so both are already stable. Encoding the
-   * values into one delimited string only made the allowlist lossy — an area
-   * containing the delimiter would split into entries that are not real areas.
+   * joined string first: both option lists are props of a server-rendered
+   * parent and the `onSeed*` callbacks are `useState` setters, so all four are
+   * already stable. Encoding the values into one delimited string only made the
+   * allowlist lossy — a value containing the delimiter would split into entries
+   * that are not real options.
    */
   areaOptions: EventAreaOption[]
-  onSeed: (area: string) => void
+  categoryOptions: EventCategoryOption[]
+  onSeedArea: (area: string) => void
+  onSeedCategory: (category: string) => void
 }) {
   const searchParams = useSearchParams()
-  const requested = searchParams.get('area')
+  const requestedArea = searchParams.get('area')
+  const requestedCategory = searchParams.get('category')
 
   useEffect(() => {
-    if (!requested) return
+    if (!requestedArea) return
     // An `?area=` naming an area this event does not have is ignored rather
     // than applied: applying it would render an empty grid for a link that
     // looks legitimate.
-    if (!areaOptions.some((option) => option.value === requested)) return
-    onSeed(requested)
-  }, [areaOptions, onSeed, requested])
+    if (!areaOptions.some((option) => option.value === requestedArea)) return
+    onSeedArea(requestedArea)
+  }, [areaOptions, onSeedArea, requestedArea])
+
+  useEffect(() => {
+    if (!requestedCategory) return
+    // Same allowlist rule as the area param above.
+    if (!categoryOptions.some((option) => option.value === requestedCategory))
+      return
+    onSeedCategory(requestedCategory)
+  }, [categoryOptions, onSeedCategory, requestedCategory])
 
   return null
 }
@@ -62,20 +88,26 @@ function AreaParamSeed({
 export function EventBrandGrid({
   entries,
   areaOptions,
+  categoryOptions,
   eventSlug,
   locale,
 }: EventBrandGridProps) {
   const t = useTranslations('events')
   const [activeArea, setActiveArea] = useState<string | null>(null)
+  const [activeCategory, setActiveCategory] = useState<string | null>(null)
   const isEnglish = locale === 'en'
 
-  const applyArea = useCallback((next: string | null) => {
-    setActiveArea(next)
+  // Takes the whole next pair rather than reading state, because the state
+  // setters are async: writing the URL from `activeArea`/`activeCategory` here
+  // would mirror the previous selection, one press behind.
+  const syncUrl = useCallback((area: string | null, category: string | null) => {
     if (typeof window === 'undefined') return
 
     const url = new URL(window.location.href)
-    if (next) url.searchParams.set('area', next)
+    if (area) url.searchParams.set('area', area)
     else url.searchParams.delete('area')
+    if (category) url.searchParams.set('category', category)
+    else url.searchParams.delete('category')
 
     // `history.replaceState`, deliberately NOT `router.replace`: a router
     // navigation re-invokes the server component and knocks this route off its
@@ -88,22 +120,55 @@ export function EventBrandGrid({
     )
   }, [])
 
+  const applyArea = useCallback(
+    (next: string | null) => {
+      setActiveArea(next)
+      syncUrl(next, activeCategory)
+    },
+    [activeCategory, syncUrl],
+  )
+
+  const applyCategory = useCallback(
+    (next: string | null) => {
+      setActiveCategory(next)
+      syncUrl(activeArea, next)
+    },
+    [activeArea, syncUrl],
+  )
+
+  const clearFilters = useCallback(() => {
+    setActiveArea(null)
+    setActiveCategory(null)
+    syncUrl(null, null)
+  }, [syncUrl])
+
+  // Both axes narrow together (AND): a zone chip plus a category chip means
+  // "this category, in this zone", not the union of the two.
   const visible = useMemo(
     () =>
-      activeArea === null
-        ? entries
-        : entries.filter((entry) => entry.area === activeArea),
-    [activeArea, entries],
+      entries.filter(
+        (entry) =>
+          (activeArea === null || entry.area === activeArea) &&
+          (activeCategory === null || entry.brand.category === activeCategory),
+      ),
+    [activeArea, activeCategory, entries],
   )
+
+  const isFiltered = activeArea !== null || activeCategory !== null
 
   // Filtered-to-zero is its own state, not a variant of "no lineup": the chips
   // and the count line stay, only the grid is replaced.
-  const isFilteredEmpty = visible.length === 0 && activeArea !== null
+  const isFilteredEmpty = visible.length === 0 && isFiltered
 
   return (
     <div className="space-y-6">
       <Suspense fallback={null}>
-        <AreaParamSeed areaOptions={areaOptions} onSeed={setActiveArea} />
+        <FilterParamSeed
+          areaOptions={areaOptions}
+          categoryOptions={categoryOptions}
+          onSeedArea={setActiveArea}
+          onSeedCategory={setActiveCategory}
+        />
       </Suspense>
 
       <div className="space-y-3">
@@ -143,6 +208,38 @@ export function EventBrandGrid({
           </div>
         ) : null}
 
+        {categoryOptions.length > 0 ? (
+          // Same `gap-2` (8px) as the area row above, for the same reason:
+          // chips render at 32px tall, below the 44px touch target, so the
+          // clear space between them is what keeps neighbouring chips from
+          // stealing each other's taps.
+          <div
+            role="group"
+            aria-label={t('categoryFilterAria')}
+            className="flex flex-wrap gap-2"
+          >
+            <ToggleChip
+              size="chip"
+              pressed={activeCategory === null}
+              onPressedChange={() => applyCategory(null)}
+            >
+              {t('allCategories')}
+            </ToggleChip>
+            {categoryOptions.map((option) => (
+              <ToggleChip
+                key={option.value}
+                size="chip"
+                pressed={activeCategory === option.value}
+                onPressedChange={(pressed) =>
+                  applyCategory(pressed ? option.value : null)
+                }
+              >
+                {option.label}
+              </ToggleChip>
+            ))}
+          </div>
+        ) : null}
+
         {/*
           `role="status"` (polite), never `role="alert"`: filtering must announce
           the new result count without interrupting, and focus deliberately
@@ -154,12 +251,12 @@ export function EventBrandGrid({
             reads as "this event has no lineup", which is a different and much
             worse fact than "this one zone has none".
           */}
-          {activeArea === null
-            ? t('brandCount', { count: visible.length })
-            : t('brandCountFiltered', {
+          {isFiltered
+            ? t('brandCountFiltered', {
                 count: visible.length,
                 total: entries.length,
-              })}
+              })
+            : t('brandCount', { count: visible.length })}
         </p>
       </div>
 
@@ -171,26 +268,26 @@ export function EventBrandGrid({
         */}
         <ViewItemListTracker listName={`event:${eventSlug}`} itemCount={entries.length} />
         {isFilteredEmpty ? (
-          // A zone chip that matches nothing used to render an empty grid under
-          // "0 brands", which looks like a broken page rather than a filter
-          // result. The action is the way back — the chips are above the fold
-          // here, but not once the lineup is long.
+          // A chip combination that matches nothing used to render an empty
+          // grid under "0 brands", which looks like a broken page rather than a
+          // filter result. The action is the way back — the chips are above the
+          // fold here, but not once the lineup is long. It clears BOTH axes:
+          // with two filters live, resetting only one can still leave zero.
           <EmptyState
             icon={<SearchX />}
             title={t('filteredEmptyTitle')}
             body={t('filteredEmptyBody')}
             action={
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => applyArea(null)}
-              >
-                {t('showAllAreas')}
+              <Button type="button" variant="secondary" onClick={clearFilters}>
+                {t('clearFilters')}
               </Button>
             }
           />
         ) : (
-          <MasonryGrid>
+          // `dense` because an event lineup is a single un-paginated list of
+          // dozens of cards; the directory's larger `default` cards would push
+          // most of it below several screens of scroll.
+          <MasonryGrid density={LINEUP_DENSITY}>
             {visible.map((entry, index) => {
               const area = isEnglish ? (entry.areaEn ?? entry.area) : entry.area
 
@@ -206,8 +303,10 @@ export function EventBrandGrid({
                   note={
                     (isEnglish ? (entry.noteEn ?? entry.note) : entry.note) ?? undefined
                   }
-                  // Matches `MasonryGrid`'s own four-column above-the-fold row.
-                  preload={index < 4}
+                  // Read from `MasonryGrid` rather than restated, so the
+                  // preloaded cards stay exactly the ones it renders visible on
+                  // the server for this density.
+                  preload={index < MASONRY_ABOVE_FOLD[LINEUP_DENSITY]}
                   position={index}
                 />
               )

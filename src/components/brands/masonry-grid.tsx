@@ -2,26 +2,50 @@
 
 import { Children, type ReactNode } from 'react'
 import { useInView } from '@/hooks/use-in-view'
+import { cn } from '@/lib/utils'
 
-interface MasonryGridProps { children: ReactNode }
+/**
+ * `dense` packs more, smaller cards per row for long single-page lineups (the
+ * event page's 38 cards). `/brands` stays on `default`.
+ */
+export type MasonryDensity = 'default' | 'dense'
 
-// Widest grid variant is `lg:grid-cols-4`, so the first four cards are the
-// above-the-fold row. They render visible on the server: gating them behind the
-// IntersectionObserver would keep the LCP candidate at opacity 0 until client JS
-// hydrates and the observer resolves.
-const ABOVE_FOLD_COUNT = 4
+interface MasonryGridProps {
+  children: ReactNode
+  density?: MasonryDensity
+}
 
-export function MasonryGrid({ children }: MasonryGridProps) {
+const DENSITY_COLUMNS: Record<MasonryDensity, string> = {
+  default: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4',
+  dense: 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5',
+}
+
+/**
+ * The widest column count of each density, which is exactly the number of cards
+ * in the above-the-fold row. Those cards render visible on the server: gating
+ * them behind the IntersectionObserver would keep the LCP candidate at opacity 0
+ * until client JS hydrates and the observer resolves.
+ *
+ * Exported because callers must decide which cards to `preload` using the same
+ * number — a second copy of the literal drifts the moment a density changes.
+ */
+export const MASONRY_ABOVE_FOLD: Record<MasonryDensity, number> = {
+  default: 4,
+  dense: 5,
+}
+
+export function MasonryGrid({ children, density = 'default' }: MasonryGridProps) {
   const { ref, inView } = useInView<HTMLDivElement>()
+  const aboveFoldCount = MASONRY_ABOVE_FOLD[density]
 
   return (
     <div
       ref={ref}
-      className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4"
+      className={cn('grid gap-5', DENSITY_COLUMNS[density])}
       role="list"
     >
       {Children.map(children, (child, i) => {
-        const aboveFold = i < ABOVE_FOLD_COUNT
+        const aboveFold = i < aboveFoldCount
         return (
           <div
             role="listitem"

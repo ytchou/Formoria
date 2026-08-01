@@ -58,6 +58,13 @@ export function BrandCard({
   const showImage = imageSrc !== null && !imgError
 
   const categoryLabel = getBrandCategoryLabel(brand, locale === 'en' ? 'en' : 'zh-TW')
+  // The directory blurb, resolved once: both the directory variant and the
+  // editorial variant (as its fallback when there is no curator note) render it,
+  // and two copies of this chain drift apart the next time it changes.
+  const blurb =
+    locale === 'en'
+      ? (brand.blurbEn ?? brand.descriptionEn ?? brand.blurb ?? brand.description)
+      : (brand.blurb ?? brand.description)
   // Directory and editorial cards are whole-card click targets with a save
   // affordance; recommendation cards use an explicit button instead.
   const isWholeCardLink = variant === 'directory' || variant === 'editorial'
@@ -171,7 +178,14 @@ export function BrandCard({
               (with a space) for the same reason — a card without a note must
               still occupy the block, or it pulls its badges up out of line.
             */}
-            <p className="mt-1.5 min-h-[2.625rem] type-body line-clamp-2">{note ?? ' '}</p>
+            {/*
+              Curator note first, directory blurb second: a lineup card with no
+              note said nothing about the brand at all, and the blurb is the
+              same copy the directory card shows for it.
+            */}
+            <p className="mt-1.5 min-h-[2.625rem] type-body line-clamp-2">
+              {note ?? blurb ?? ' '}
+            </p>
             {categoryLabel ? (
               <div className="mt-3 flex items-center gap-1.5 overflow-hidden">
                 <Badge variant="secondary">{categoryLabel}</Badge>
@@ -181,9 +195,7 @@ export function BrandCard({
         ) : (
           <>
             <p className="mt-1.5 min-h-[2.625rem] type-section-description line-clamp-2">
-              {(locale === 'en'
-                ? (brand.blurbEn ?? brand.descriptionEn ?? brand.blurb ?? brand.description)
-                : (brand.blurb ?? brand.description)) ?? ' '}
+              {blurb ?? ' '}
             </p>
             <div className="mt-3 flex items-center gap-1.5 overflow-hidden">
               {categoryLabel && <Badge variant="secondary">{categoryLabel}</Badge>}
