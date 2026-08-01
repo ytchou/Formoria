@@ -111,9 +111,16 @@ test.describe('Event detail deep', () => {
     const filteredCount = await cards.count();
     expect(filteredCount).toBeGreaterThan(0);
 
-    // events.brandCount live region. Scoped to the lineup region so Next's route
-    // announcer — which is also role=status/alert, at document level — cannot match.
-    await expect(lineup.getByRole('status')).toContainText(String(filteredCount));
+    // events.brandCountFiltered live region. Scoped to the lineup region so Next's
+    // route announcer — which is also role=status/alert, at document level — cannot
+    // match.
+    //
+    // Both numbers, in order: a bare `toContainText(filteredCount)` also passed when
+    // the line rendered the TOTAL, because a single digit matches inside the other
+    // number ("3" is in "38"). The filtered line has to say what it filtered from.
+    await expect(lineup.getByRole('status')).toHaveText(
+      new RegExp(`\\b${filteredCount}\\b[\\s\\S]*\\b${totalCards}\\b`)
+    );
 
     // No navigation: same document, same pathname.
     expect(

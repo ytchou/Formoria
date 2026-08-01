@@ -2,14 +2,16 @@ import type { Metadata } from 'next'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, ExternalLink } from 'lucide-react'
 import { EventBrandGrid } from '@/components/events/event-brand-grid'
 import { eventPhaseBadgeVariant } from '@/components/events/event-card'
 import { formatEventDateRange } from '@/components/events/event-date'
+import { formatStoryDate } from '@/components/stories/story-date'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { surfaceCardStyles } from '@/components/ui/card'
-import { Link } from '@/i18n/navigation'
+import { LinkCard } from '@/components/ui/link-card'
+import { textStyles } from '@/components/ui/text-styles'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { safeDecodeSlug } from '@/lib/url'
 import {
@@ -157,6 +159,16 @@ export default async function EventDetailPage({ params }: PageProps) {
   const areaOptions = deriveAreaOptions(entries, safeLocale)
   const heroSrc = safeImageSrc(event.heroImageUrl)
 
+  // Derived, never authored: `EventAreaOption` carries no count, and a count
+  // typed into the CMS would go stale the moment one exhibitor is added or
+  // removed. Keyed on `option.value` (the zh column) because that is what
+  // `entry.area` holds in both locales.
+  const areaCounts = new Map<string, number>()
+  for (const entry of entries) {
+    if (!entry.area) continue
+    areaCounts.set(entry.area, (areaCounts.get(entry.area) ?? 0) + 1)
+  }
+
   // Events and stories join by convention: the event slug IS the story series
   // name. No FK, so a missing series is the normal case, not an error.
   //
@@ -224,7 +236,8 @@ export default async function EventDetailPage({ params }: PageProps) {
         </ol>
       </nav>
 
-      <article className="space-y-10">
+      <article className="space-y-12">
+        {/* Band A — hero, full width. */}
         <header className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant={eventPhaseBadgeVariant[phase]}>{t(`phase.${phase}`)}</Badge>
@@ -232,80 +245,170 @@ export default async function EventDetailPage({ params }: PageProps) {
           </div>
           <h1 className="type-page-title-large text-balance">{name}</h1>
           <p className="max-w-2xl type-page-subtitle">{summary}</p>
-
-          {heroSrc ? (
-            <div className="relative aspect-[16/9] overflow-hidden rounded-xl bg-muted">
-              {/* Decorative: the event name is the adjacent `<h1>`, so alt text
-                  here would only repeat it to a screen reader. */}
-              <Image
-                src={heroSrc}
-                alt=""
-                fill
-                priority
-                sizes="(max-width: 1280px) 100vw, 1280px"
-                className="object-cover"
-              />
-            </div>
-          ) : null}
-
-          <dl className="grid max-w-2xl gap-x-6 gap-y-3 sm:grid-cols-2">
-            {dateLabel ? (
-              <div className="space-y-1">
-                <dt className="type-caption">{t('dates')}</dt>
-                <dd className="type-metadata">{dateLabel}</dd>
-              </div>
-            ) : null}
-            {venueName ? (
-              <div className="space-y-1">
-                <dt className="type-caption">{t('venue')}</dt>
-                <dd className="type-metadata">
-                  {venueName}
-                  {event.venueAddress ? (
-                    <span className="block type-caption">{event.venueAddress}</span>
-                  ) : null}
-                </dd>
-              </div>
-            ) : null}
-            {event.organizerName ? (
-              <div className="space-y-1">
-                <dt className="type-caption">{t('organizer')}</dt>
-                <dd className="type-metadata">{event.organizerName}</dd>
-              </div>
-            ) : null}
-          </dl>
-
-          {event.officialUrl || event.ticketUrl ? (
-            <div className="flex flex-wrap gap-3">
-              {event.officialUrl ? (
-                <a
-                  href={event.officialUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={buttonVariants({ variant: 'primary', tone: 'cta' })}
-                >
-                  {t('officialSite')}
-                </a>
-              ) : null}
-              {event.ticketUrl ? (
-                <a
-                  href={event.ticketUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={buttonVariants({ variant: 'secondary' })}
-                >
-                  {/* A free event's ticket link books a slot, it does not sell
-                      one — "購票資訊" on free entry reads as a paywall. */}
-                  {t(event.isFree === true ? 'reserve' : 'tickets')}
-                </a>
-              ) : null}
-            </div>
-          ) : null}
         </header>
 
-        {description ? (
-          <p className="max-w-2xl whitespace-pre-wrap type-body">{description}</p>
+        {/*
+          Band B — the two highest-intent things on the page side by side: what
+          the event is (left) and when/where/how to get in (right). The rail is
+          deliberately NOT sticky: this block is only ~80px taller than the rail
+          card itself, so sticky would buy almost no travel while risking an
+          overlap with the band below.
+        */}
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_352px] lg:gap-12">
+          <div className="space-y-6">
+            {heroSrc ? (
+              <div className="relative aspect-[16/9] overflow-hidden rounded-xl bg-muted">
+                {/* Decorative: the event name is the adjacent `<h1>`, so alt text
+                    here would only repeat it to a screen reader. */}
+                {/* `sizes` follows the new column: above `lg` the image no longer
+                    spans the page, it shares the row with the 352px rail. */}
+                <Image
+                  src={heroSrc}
+                  alt=""
+                  fill
+                  priority
+                  sizes="(max-width: 1024px) 100vw, 832px"
+                  className="object-cover"
+                />
+              </div>
+            ) : null}
+
+            {description ? (
+              <p className="max-w-2xl whitespace-pre-wrap type-body">{description}</p>
+            ) : null}
+          </div>
+
+          <aside
+            className={surfaceCardStyles({
+              padding: 'lg',
+              className: 'h-fit space-y-5',
+            })}
+          >
+            <dl className="space-y-3">
+              {dateLabel ? (
+                <div className="space-y-1">
+                  <dt className={textStyles({ variant: 'fieldLabel' })}>{t('dates')}</dt>
+                  <dd className={textStyles({ variant: 'fieldValue' })}>{dateLabel}</dd>
+                </div>
+              ) : null}
+              {venueName ? (
+                <div className="space-y-1">
+                  <dt className={textStyles({ variant: 'fieldLabel' })}>{t('venue')}</dt>
+                  <dd className={textStyles({ variant: 'fieldValue' })}>
+                    {venueName}
+                    {event.venueAddress ? (
+                      <span className="block type-caption">{event.venueAddress}</span>
+                    ) : null}
+                  </dd>
+                </div>
+              ) : null}
+              {event.organizerName ? (
+                <div className="space-y-1">
+                  <dt className={textStyles({ variant: 'fieldLabel' })}>
+                    {t('organizer')}
+                  </dt>
+                  <dd className={textStyles({ variant: 'fieldValue' })}>
+                    {event.organizerName}
+                  </dd>
+                </div>
+              ) : null}
+            </dl>
+
+            {event.officialUrl || event.ticketUrl ? (
+              <div className="space-y-3 border-t border-border pt-5">
+                {event.officialUrl ? (
+                  <a
+                    href={event.officialUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={buttonVariants({
+                      variant: 'primary',
+                      tone: 'cta',
+                      size: 'large',
+                      className: 'w-full',
+                    })}
+                  >
+                    {t('officialSite')}
+                  </a>
+                ) : null}
+                {event.ticketUrl ? (
+                  <>
+                    <a
+                      href={event.ticketUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={buttonVariants({
+                        variant: 'secondary',
+                        size: 'large',
+                        className: 'w-full',
+                      })}
+                    >
+                      {/* A free event's ticket link books a slot, it does not sell
+                          one — "購票資訊" on free entry reads as a paywall. */}
+                      {t(event.isFree === true ? 'reserve' : 'tickets')}
+                      <ExternalLink aria-hidden="true" className="size-4" />
+                    </a>
+                    {/* Only under a ticket link: the note answers "what if
+                        booking is full", a question that only exists once there
+                        is something to book. */}
+                    <p className="type-caption">{t('reserveNote')}</p>
+                  </>
+                ) : null}
+              </div>
+            ) : null}
+
+            {areaOptions.length > 0 ? (
+              <div className="space-y-2 border-t border-border pt-5">
+                <p className={textStyles({ variant: 'fieldLabel' })}>
+                  {t('boothsHeading')}
+                </p>
+                <dl className="space-y-1.5">
+                  {areaOptions.map((option) => (
+                    <div key={option.value} className="flex items-baseline gap-3">
+                      <dt className="min-w-0 flex-1 type-body">{option.label}</dt>
+                      <dd className="type-body tabular-nums">
+                        {areaCounts.get(option.value) ?? 0}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            ) : null}
+          </aside>
+        </div>
+
+        {/*
+          Band C — stories sit above the lineup on purpose: below 38 cards they
+          were unreachable. Separated by whitespace only, never a tinted band.
+        */}
+        {relatedStories.length > 0 ? (
+          <section aria-labelledby="event-related-stories" className="space-y-4">
+            <h2 id="event-related-stories" className="type-section-title">
+              {t('relatedStories')}
+            </h2>
+            <ul className="grid gap-6 md:grid-cols-2">
+              {relatedStories.map((story) => (
+                <li key={story.slug}>
+                  {/*
+                    No eyebrow: story frontmatter carries no field that names a
+                    story's kind, and `tags`/`seriesTitle` would either invent a
+                    taxonomy or repeat this very event's name back at the reader.
+                  */}
+                  <LinkCard
+                    href={`/stories/${story.slug}`}
+                    title={story.frontmatter.title}
+                    description={story.frontmatter.description}
+                    meta={formatStoryDate(story.frontmatter.publishedAt, safeLocale)}
+                    size="wide"
+                    headingLevel={3}
+                  />
+                </li>
+              ))}
+            </ul>
+          </section>
         ) : null}
 
+        {/* Band D — full width so `MasonryGrid` keeps its four-column row. */}
         <section aria-labelledby="event-brands" className="space-y-4">
           <h2 id="event-brands" className="type-section-title">
             {t('brandsHeading')}
@@ -327,36 +430,6 @@ export default async function EventDetailPage({ params }: PageProps) {
             />
           )}
         </section>
-
-        {relatedStories.length > 0 ? (
-          <section aria-labelledby="event-related-stories" className="space-y-4">
-            <h2 id="event-related-stories" className="type-section-title">
-              {t('relatedStories')}
-            </h2>
-            <ul className="grid gap-4 md:grid-cols-2">
-              {relatedStories.map((story) => (
-                <li key={story.slug}>
-                  <Link
-                    href={`/stories/${story.slug}`}
-                    className={surfaceCardStyles({
-                      className: 'group block hover:bg-secondary',
-                      interactive: true,
-                    })}
-                  >
-                    <h3 className="type-card-title group-hover:underline">
-                      {story.frontmatter.title}
-                    </h3>
-                    {story.frontmatter.description ? (
-                      <p className="mt-2 type-body-muted line-clamp-2">
-                        {story.frontmatter.description}
-                      </p>
-                    ) : null}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
       </article>
     </main>
   )

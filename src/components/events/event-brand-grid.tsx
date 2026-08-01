@@ -3,9 +3,12 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
+import { SearchX } from 'lucide-react'
 import { BrandCard } from '@/components/brands/brand-card'
 import { MasonryGrid } from '@/components/brands/masonry-grid'
 import { ViewItemListTracker } from '@/components/analytics/view-item-list-tracker'
+import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/empty-state'
 import { ToggleChip } from '@/components/ui/toggle-chip'
 import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
 import type { EventAreaOption, EventBrandEntry } from '@/lib/services/events'
@@ -93,6 +96,10 @@ export function EventBrandGrid({
     [activeArea, entries],
   )
 
+  // Filtered-to-zero is its own state, not a variant of "no lineup": the chips
+  // and the count line stay, only the grid is replaced.
+  const isFilteredEmpty = visible.length === 0 && activeArea !== null
+
   return (
     <div className="space-y-6">
       <Suspense fallback={null}>
@@ -142,7 +149,17 @@ export function EventBrandGrid({
           stays on the chip the reader just pressed.
         */}
         <p role="status" className="type-caption">
-          {t('brandCount', { count: visible.length })}
+          {/*
+            A filtered view states what it was filtered from: "0 brands" alone
+            reads as "this event has no lineup", which is a different and much
+            worse fact than "this one zone has none".
+          */}
+          {activeArea === null
+            ? t('brandCount', { count: visible.length })
+            : t('brandCountFiltered', {
+                count: visible.length,
+                total: entries.length,
+              })}
         </p>
       </div>
 
@@ -153,29 +170,50 @@ export function EventBrandGrid({
           re-fire it on every chip press.
         */}
         <ViewItemListTracker listName={`event:${eventSlug}`} itemCount={entries.length} />
-        <MasonryGrid>
-          {visible.map((entry, index) => {
-            const area = isEnglish ? (entry.areaEn ?? entry.area) : entry.area
+        {isFilteredEmpty ? (
+          // A zone chip that matches nothing used to render an empty grid under
+          // "0 brands", which looks like a broken page rather than a filter
+          // result. The action is the way back — the chips are above the fold
+          // here, but not once the lineup is long.
+          <EmptyState
+            icon={<SearchX />}
+            title={t('filteredEmptyTitle')}
+            body={t('filteredEmptyBody')}
+            action={
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => applyArea(null)}
+              >
+                {t('showAllAreas')}
+              </Button>
+            }
+          />
+        ) : (
+          <MasonryGrid>
+            {visible.map((entry, index) => {
+              const area = isEnglish ? (entry.areaEn ?? entry.area) : entry.area
 
-            return (
-              <BrandCard
-                key={entry.brand.id}
-                brand={entry.brand}
-                variant="editorial"
-                // Booth number wins over area: it is the more specific
-                // wayfinding fact, and the area is already on a chip above.
-                // Rendered by `BrandCard` as a `<Badge variant="secondary">`.
-                eyebrow={entry.booth ?? area ?? undefined}
-                note={
-                  (isEnglish ? (entry.noteEn ?? entry.note) : entry.note) ?? undefined
-                }
-                // Matches `MasonryGrid`'s own four-column above-the-fold row.
-                preload={index < 4}
-                position={index}
-              />
-            )
-          })}
-        </MasonryGrid>
+              return (
+                <BrandCard
+                  key={entry.brand.id}
+                  brand={entry.brand}
+                  variant="editorial"
+                  // Booth number wins over area: it is the more specific
+                  // wayfinding fact, and the area is already on a chip above.
+                  // Rendered by `BrandCard` as a `<Badge variant="secondary">`.
+                  eyebrow={entry.booth ?? area ?? undefined}
+                  note={
+                    (isEnglish ? (entry.noteEn ?? entry.note) : entry.note) ?? undefined
+                  }
+                  // Matches `MasonryGrid`'s own four-column above-the-fold row.
+                  preload={index < 4}
+                  position={index}
+                />
+              )
+            })}
+          </MasonryGrid>
+        )}
       </SavedBrandsProvider>
     </div>
   )

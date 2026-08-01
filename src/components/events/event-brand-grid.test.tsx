@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import type { ReactNode } from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { NextIntlClientProvider } from 'next-intl'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -156,5 +157,36 @@ describe('EventBrandGrid', () => {
     renderGrid(entries, options)
 
     await waitFor(() => expect(renderedBrandNames()).toEqual(['Warmwood']))
+  })
+
+  it('event_brand_grid_filtered_to_zero_offers_a_way_back', async () => {
+    // An area with no entries used to render an empty grid under "0 brands",
+    // which reads as a broken page rather than a filter result. The count line
+    // must also say what it filtered FROM: "0 brands" alone claims the event
+    // has no lineup, which is a different and much worse fact.
+    const user = userEvent.setup()
+    mocks.useSearchParams.mockReturnValue(new URLSearchParams('area=B'))
+    renderGrid(
+      [makeEntry('Warmwood', 'A'), makeEntry('Kiln', 'A')],
+      [
+        { value: 'A', label: 'Hall A' },
+        { value: 'B', label: 'Hall B' },
+      ],
+    )
+
+    await waitFor(() =>
+      expect(
+        screen.getByText('No brands from our directory in this zone'),
+      ).toBeInTheDocument(),
+    )
+    expect(renderedBrandNames()).toEqual([])
+    expect(screen.getByRole('status')).toHaveTextContent('0 of 2 brands')
+
+    await user.click(screen.getByRole('button', { name: 'Show all zones' }))
+
+    expect(renderedBrandNames()).toEqual(['Warmwood', 'Kiln'])
+    expect(
+      screen.queryByText('No brands from our directory in this zone'),
+    ).not.toBeInTheDocument()
   })
 })
