@@ -127,7 +127,7 @@ document.querySelectorAll('[data-reason]').forEach((input) => input.addEventList
 document.querySelectorAll('[data-observation-tag]').forEach((input) => input.addEventListener('change', () => { state.observationTags = [...document.querySelectorAll('[data-observation-tag]:checked')].map((item) => item.value); }));
 $('#save').addEventListener('click', save);
 document.addEventListener('keydown', (event) => { if (event.target.matches('textarea,input')) return; if (event.key.toLowerCase() === 'k') setDisposition('keep'); if (event.key.toLowerCase() === 'r') setDisposition('reject'); if ('1234'.includes(event.key)) setTag(['product','lifestyle','packaging','logo'][Number(event.key) - 1]); if (event.key === 'ArrowLeft' && index > 0) { index -= 1; render(); } if (event.key === 'ArrowRight' && index < entries.length - 1) { index += 1; render(); } if (event.key === 'Enter') save(); });
-fetch('/api/corpus').then((response) => response.json()).then((payload) => { entries = payload.entries; labels = payload.labels; labelHistory = payload.history || {}; render(); });
+fetch('/api/corpus').then((response) => response.json()).then((payload) => { entries = payload.entries; labels = payload.labels; labelHistory = payload.history || {}; const firstUnlabeled = entries.findIndex((entry) => !labels[entry.id]); index = firstUnlabeled >= 0 ? firstUnlabeled : 0; render(); });
 </script>
 </body></html>`;
 
