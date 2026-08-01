@@ -33,8 +33,8 @@ export const storyComponentMap = {
     createElement(BrandCardMdx, props),
   BrandGrid: (props: { slugs: string[]; notes?: Record<string, string> }) =>
     createElement(BrandGrid, props),
-  BrandSpotlight: (props: { slug: string; children?: ReactNode }) =>
-    createElement(BrandSpotlight, { slug: props.slug }, props.children),
+  BrandSpotlight: (props: { slug: string; meta?: string; children?: ReactNode }) =>
+    createElement(BrandSpotlight, { slug: props.slug, meta: props.meta }, props.children),
   StatsCallout: (props: { stat: string; label: string }) =>
     createElement(StatsCallout, { stat: props.stat, label: props.label }),
   // `emitJsonLd: false` is load-bearing. The detail page already renders a
