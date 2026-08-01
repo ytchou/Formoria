@@ -20,6 +20,16 @@ describe("image-eval capture recovery", () => {
     ]);
   });
 
+  it("adds a website-scoped fallback using the brand's Latin token", () => {
+    expect(
+      buildCaptureQueries({
+        name: "稜光 AURA",
+        productType: "crafts",
+        purchaseWebsite: "https://www.aura-craft.com/shop",
+      }).at(-1),
+    ).toBe("site:aura-craft.com AURA");
+  });
+
   it("deduplicates candidates in provider order and caps the per-brand quota", () => {
     const candidate = (imageUrl: string) => ({ imageUrl });
 

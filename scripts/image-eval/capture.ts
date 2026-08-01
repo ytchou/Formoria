@@ -139,7 +139,11 @@ async function captureSerperCandidates(
   const queriesByName = new Map(
     roster.map((brand) => [
       brand.name,
-      buildCaptureQueries({ name: brand.name, productType: brand.productType }),
+      buildCaptureQueries({
+        name: brand.name,
+        productType: brand.productType,
+        purchaseWebsite: brand.purchaseWebsite,
+      }),
     ]),
   );
   const outcomes = new Map<string, CapturedOutcome>(
@@ -336,6 +340,7 @@ async function capture(): Promise<void> {
         buildCaptureQueries({
           name: brand.name,
           productType: brand.productType,
+          purchaseWebsite: brand.purchaseWebsite,
         })[0] ?? brand.name;
       return outcome.candidates.map((candidate, index) => ({
         brand,
