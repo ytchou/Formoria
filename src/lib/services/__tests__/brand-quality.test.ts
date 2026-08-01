@@ -44,12 +44,26 @@ describe('computeQualityMetrics', () => {
   it('computes quality metrics: purity %, hero-classified %, promo-hero count, validation failures', () => {
     const m = computeQualityMetrics({
       brands: [{ description: '純中文描述'.repeat(20), descriptionEn: null }],
+      // `promo` is a LEGACY tag and only pre-contract rows carry it, but a
+      // promo hero is still the defect this metric exists to count.
       images: [{ role: 'hero', tag: 'promo' }, { role: 'hero', tag: 'product' }],
       aiRejections: 3,
     } as never)
     expect(m.promoHeroCount).toBe(1)
     expect(m.heroClassifiedPct).toBe(100)
     expect(m.validationFailures).toBe(3)
+  })
+
+  it('does not count a logo hero as a promo hero', () => {
+    // Hero ordering is a pure quality sort, so a brand-identity image winning
+    // slot 0 is a legitimate outcome — it used to be flagged as a defect.
+    const m = computeQualityMetrics({
+      brands: [{ description: '純中文描述'.repeat(20), descriptionEn: null }],
+      images: [{ role: 'hero', tag: 'logo' }, { role: 'hero', tag: 'product' }],
+      aiRejections: 0,
+    } as never)
+    expect(m.promoHeroCount).toBe(0)
+    expect(m.heroClassifiedPct).toBe(100)
   })
 })
 

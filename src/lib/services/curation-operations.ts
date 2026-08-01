@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { cleanBrandName } from "./brand-cleanup";
-import { mapWithConcurrency } from "./concurrency";
+import { cleanBrandName, type NameCleanupResult } from "./brand-cleanup";
+import { ENRICH_CHUNK_SIZE, mapWithConcurrency } from "./concurrency";
 import { resolveRefreshEnrichmentPatch } from "./brand-write-policy";
 import type { BrandFlatLinkColumns } from "@/lib/types";
 import type { SiteContent } from "@/lib/types/brand";
@@ -137,8 +137,11 @@ async function attachDescriptionAiResults(
 }
 
 const SCRAPE_DELAY_MS = 1000;
-const ENRICH_CHUNK_SIZE = 20;
+// Composite fan-out: one unit runs the whole phase chain (Serper + OpenAI +
+// Postgres + sharp), so this is not the same knob as ENRICH_CHUNK_SIZE.
 const ENRICH_BRAND_CONCURRENCY = 3;
+// Postgres write amplification for progress rows; shares its value with
+// ENRICH_CHUNK_SIZE by coincidence only.
 const TARGET_PROGRESS_BATCH_SIZE = 20;
 const TARGET_PROGRESS_FLUSH_INTERVAL_MS = 15_000;
 
@@ -148,7 +151,7 @@ function delay(ms: number): Promise<void> {
   });
 }
 
-export { mapWithConcurrency };
+export { ENRICH_CHUNK_SIZE, mapWithConcurrency };
 
 export { ENRICH_PHASES };
 
@@ -165,6 +168,35 @@ type EnrichBrand = CurationBrand &
     productPhotos?: string[] | null;
     overwrite_enrichment?: boolean;
   };
+
+/**
+ * Cleans every brand name in a chunk in place, before any batch phase runs.
+ *
+ * The SERP and Google Images queries are built from the raw brand name, so a
+ * name like `adela愛德拉 ｜守護家人，為愛研發` used to be searched verbatim
+ * (DEV-1279). `cleanBrandName` is pure and synchronous, so it can run ahead of
+ * the batch phases with no extra network cost.
+ *
+ * `getDisplayBrandName(brand)` is the key of every batch result map, so the
+ * mutation MUST happen exactly once, before the first key is derived — a later
+ * rename would turn every `map.get(name)` into a silent miss. The returned map
+ * is keyed by target id (never by name) and carries the cleanup result through
+ * to the `clean` phase, which still owns persisting the new name.
+ */
+export function applyChunkNameCleanup(
+  chunk: EnrichBrand[],
+): Map<string, NameCleanupResult> {
+  const cleanups = new Map<string, NameCleanupResult>();
+
+  for (const brand of chunk) {
+    const cleanup = cleanBrandName(getDisplayBrandName(brand));
+    if (!cleanup.changed) continue;
+    cleanups.set(brand.id, cleanup);
+    brand.name = cleanup.cleanedName;
+  }
+
+  return cleanups;
+}
 
 type EnrichScrapedData = Partial<ScrapedBrandData> &
   Partial<BrandFlatLinkColumns> & {
@@ -1042,6 +1074,16 @@ export async function runEnrich(
       `\n[BATCH ${chunkIndex + 1}/${brandChunks.length}] ${chunk.length} brands — fetching ${activeSteps.join(" + ")}...`,
     );
 
+    // Must stay directly above the first `getDisplayBrandName` call: the batch
+    // queries below are built from these names, and every batch result map is
+    // keyed by them.
+    const nameCleanups = applyChunkNameCleanup(chunk);
+    if (nameCleanups.size > 0) {
+      onProgress(
+        `  [CLEAN] Normalized ${nameCleanups.size} brand name(s) before search`,
+      );
+    }
+
     const chunkBrandNames = chunk.map(getDisplayBrandName);
     const targetType: EnrichmentTarget["type"] =
       target === "submissions" ? "submission" : "brand";
@@ -1461,7 +1503,11 @@ export async function runEnrich(
           }
 
           await markCurrentPhase("clean");
-          const cleanResult = await runCleanPhase(brand, phases);
+          const cleanResult = await runCleanPhase(
+            brand,
+            phases,
+            nameCleanups.get(brand.id),
+          );
           state.phaseResults.push(cleanResult.phaseResult);
           await logCurrentPhase(cleanResult.phaseResult);
           appendPatch(state, cleanResult.patch);

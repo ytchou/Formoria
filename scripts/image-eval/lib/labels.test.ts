@@ -80,8 +80,6 @@ describe("golden labels", () => {
     });
     expect(Object.keys(hydrated.tagDefinitions ?? {})).toEqual([
       "product",
-      "lifestyle",
-      "packaging",
       "logo",
     ]);
     expect(hydrated.history?.[label.imageId]).toEqual([{ revision: 1, label }]);
@@ -91,7 +89,7 @@ describe("golden labels", () => {
     const first = normalizeLabelInput({
       imageId: "image-5",
       disposition: "keep",
-      tag: "lifestyle",
+      tag: "product",
     });
     const second = normalizeLabelInput({
       imageId: "image-5",

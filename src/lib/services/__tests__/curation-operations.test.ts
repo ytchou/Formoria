@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createServiceClient } from '@/lib/supabase/server'
 import {
+  applyChunkNameCleanup,
   processEnrichBrand,
   mapWithConcurrency,
   mergeEnrichPatches,
@@ -13,6 +14,7 @@ import {
   submissionToEnrichBrand,
 } from '../curation-operations'
 import type { CurationConfig } from '../curation-operations'
+import { getDisplayBrandName, runCleanPhase } from '../enrich-phases'
 import { describeWithDb } from '@/test/setup'
 
 vi.mock('../product-type-classifier', async (importOriginal) => {
@@ -265,6 +267,72 @@ describe('processEnrichBrand with cleanup phases', () => {
     const result = processEnrichBrand(cleanBrand, {}, ['clean'])
     expect(result.phases.clean?.changed).toBe(false)
     expect(result.patch).toEqual({})
+  })
+})
+
+describe('applyChunkNameCleanup', () => {
+  const messyBrand = () => ({
+    id: 'brand-1',
+    slug: 'adela',
+    name: 'adela愛德拉 ｜守護家人，為愛研發',
+    status: 'approved',
+    description: null,
+    product_type: null,
+    purchase_website: null,
+  })
+
+  it('cleans the name before the batch queries are built', () => {
+    const chunk = [messyBrand()]
+
+    applyChunkNameCleanup(chunk)
+
+    // chunkBrandNames is what discover/image-search turn into query strings.
+    const chunkBrandNames = chunk.map(getDisplayBrandName)
+    expect(chunkBrandNames).toEqual(['Adela 愛德拉'])
+  })
+
+  it('keeps every batch result map key resolvable after the rename', () => {
+    const chunk = [messyBrand(), { ...messyBrand(), id: 'brand-2', slug: 'clean', name: 'Already Clean' }]
+
+    applyChunkNameCleanup(chunk)
+
+    // Batch phases key their results by the same helper the per-brand loop
+    // later reads with, so a rename between the two would be a silent miss.
+    const chunkBrandNames = chunk.map(getDisplayBrandName)
+    const batchResults = new Map(chunkBrandNames.map((name, index) => [name, index]))
+
+    expect(chunk.map((brand) => batchResults.get(getDisplayBrandName(brand)))).toEqual([0, 1])
+  })
+
+  it('is idempotent — a second pass reports no further change', () => {
+    const chunk = [messyBrand()]
+
+    const first = applyChunkNameCleanup(chunk)
+    const second = applyChunkNameCleanup(chunk)
+
+    expect(first.get('brand-1')?.cleanedName).toBe('Adela 愛德拉')
+    expect(second.size).toBe(0)
+    expect(chunk[0]!.name).toBe('Adela 愛德拉')
+  })
+
+  it('still persists the rename through the clean phase', async () => {
+    const chunk = [messyBrand()]
+    const cleanups = applyChunkNameCleanup(chunk)
+
+    const { phaseResult, patch } = await runCleanPhase(chunk[0]!, ['clean'], cleanups.get('brand-1'))
+
+    expect(phaseResult.changedFields).toEqual(['name'])
+    expect(patch).toEqual({ name: 'Adela 愛德拉' })
+  })
+
+  it('reports no change for a brand that entered already clean', async () => {
+    const brand = { ...messyBrand(), name: 'Already Clean' }
+    const cleanups = applyChunkNameCleanup([brand])
+
+    const { phaseResult, patch } = await runCleanPhase(brand, ['clean'], cleanups.get('brand-1'))
+
+    expect(phaseResult.changedFields).toEqual([])
+    expect(patch).toEqual({})
   })
 })
 

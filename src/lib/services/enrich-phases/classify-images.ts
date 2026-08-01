@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { IMAGE_CLASSIFY_SYSTEM_PROMPT } from '@/lib/prompts'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { buildEnrichmentConfig } from '@/lib/constants/enrichment-config'
+import { MAX_BRAND_ACTIVE_IMAGES } from '@/lib/constants/brand-images'
 import { parseJson, type OpenAIChatResult } from '../openai-client'
 import { createAuditedOpenAIClient } from '../llm-audit'
 import { syncHeroDenormalized, type BrandImageRow } from '../brand-images'
@@ -18,6 +19,12 @@ import { buildPhaseResult, timePhase, type EnrichBrand, type EnrichPhase } from 
 
 const BATCH_SIZE = 20
 
+/**
+ * LEGACY. The seven-value vocabulary rows were written with before the
+ * disposition/reasons contract landed. Kept only so `classifiedImageFromRow` and
+ * `parseClassificationBatch` can still read old rows; the model is never
+ * offered these values (see KEEP_TAGS, which is what feeds the schema).
+ */
 const IMAGE_TAGS = [
   'product',
   'lifestyle',
@@ -28,7 +35,32 @@ const IMAGE_TAGS = [
   'irrelevant',
 ] as const
 
-const KEEP_TAGS = ['product', 'lifestyle', 'packaging', 'logo'] as const
+/**
+ * The only tags the model may return, and the only ones written to new rows.
+ *
+ * Collapsed from four to two: `lifestyle` and `packaging` folded into `product`
+ * because the distinction never changed what we do with the image — all three
+ * are "this picture is about the product" — and a four-way choice cost the model
+ * accuracy on the decision that actually matters (keep vs reject).
+ *   - product: the image is primarily about the product — a direct product shot,
+ *     a model using it, or its packaging.
+ *   - logo: brand identity / brand-story imagery — related to the brand, but not
+ *     directly about the product.
+ * Everything else is a rejection, which the disposition/reasons contract carries.
+ */
+const KEEP_TAGS = ['product', 'logo'] as const
+
+/**
+ * LEGACY tags that are still valid images, mapped onto their modern equivalent.
+ * Rows written before the collapse carry `lifestyle`/`packaging`; without this
+ * map they would fail the narrowed `isKeptImageTag` check, parse as `null`, and
+ * silently drop out of the hero-eligible set.
+ */
+const LEGACY_KEEP_TAG_ALIASES: Record<string, KeptImageTag> = {
+  lifestyle: 'product',
+  packaging: 'product',
+}
+
 const REJECTION_REASONS = [
   'wrong_brand',
   'time_sensitive',
@@ -40,39 +72,42 @@ const REJECTION_REASONS = [
 ] as const
 
 const VALID_TAGS = new Set<string>(IMAGE_TAGS)
+
+/**
+ * LEGACY compat set. These tag values can only come from rows written before the
+ * disposition/reasons contract — the model can no longer produce them. The live
+ * rejection path is `disposition === 'reject'` plus `rejection_reasons`.
+ */
 export const JUNK_TAGS = new Set(['promo', 'text_banner', 'irrelevant'])
 
 /**
- * Hero ordering is rank-major, score-minor — rank MUST beat score.
- * The model scores logos higher than photography (measured p50: logo 90 vs
- * product/lifestyle/packaging 85), so a pure score sort would make a logo the hero
- * on most brand pages and turn the directory into a wall of logos. A logo is a valid
- * image (hence not junk), just a worse hero than a real photo.
+ * Hero ordering is a pure quality sort — the tag no longer participates.
  *
- * Typed as a total Record so adding a tag to `ImageClassificationTag` is a compile
- * error until it is given a rank. Junk tags never reach `ordered` (they are filtered
- * out first); their entries exist only to keep the Record exhaustive.
+ * Tag-major ranking existed to stop high-scoring logos taking every hero slot,
+ * but it also pinned genuinely worse product shots above genuinely better brand
+ * imagery. With the vocabulary down to two tags the ranking signal has to come
+ * from the score itself, corrected for the one shape effect we measured:
+ * 58% of human-rejected images were portrait versus 23% of kept ones.
+ *
+ * PROVISIONAL: 15 points is a judgement call, not a fitted value — enough to
+ * demote a portrait past a comparable landscape, not enough to bury it. Ceiling:
+ * it is one flat number for every brand. Upgrade path: calibrate against the
+ * image-eval golden set once it has enough labelled portrait heroes.
  */
-const TAG_RANK: Record<ImageClassificationTag, number> = {
-  product: 0,
-  lifestyle: 0,
-  packaging: 0,
-  logo: 1,
-  promo: 2,
-  text_banner: 2,
-  irrelevant: 2,
-}
+const PORTRAIT_PENALTY = 15
 
 /** Images a human picked. The classifier must never retag, reorder away, or delete these. */
 const EXEMPT_SOURCES = new Set(['owner', 'admin'])
 
 /**
  * sort_order doubles as the hero designation (position 0) and as the gallery
- * order, and the publishability guards encode that: exactly one active row at
- * 0, no duplicate sort_orders, and `sort_order between 0 and 6` — which is what
- * caps a brand at seven active images.
+ * order. The publishability guards encode that: no duplicate sort_orders among
+ * active rows, and `sort_order between 0 and MAX_BRAND_ACTIVE_SORT_ORDER` —
+ * which is what caps a brand's active images. A brand may legitimately have no
+ * active row at 0 while its images are being staged; the hero is whichever
+ * active row holds the lowest sort_order.
  */
-const MAX_ACTIVE_IMAGES = 7
+const MAX_ACTIVE_IMAGES = MAX_BRAND_ACTIVE_IMAGES
 
 /** Width sent to the vision model — `detail: 'low'` downsamples to 512px anyway. */
 const CLASSIFY_RENDER_WIDTH = 512
@@ -80,6 +115,7 @@ const CLASSIFY_RENDER_WIDTH = 512
 /** One retry per chunk, and only after dropping an image OpenAI could not download. */
 const MAX_CHUNK_RETRIES = 1
 
+/** LEGACY-inclusive union: what a stored row may carry, not what the model may emit. */
 type ImageClassificationTag = (typeof IMAGE_TAGS)[number]
 type KeptImageTag = (typeof KEEP_TAGS)[number]
 type ImageRejectionReason = (typeof REJECTION_REASONS)[number]
@@ -100,6 +136,9 @@ type ClassifiedImage = {
   storage_path?: string | null
   disposition?: 'keep' | 'reject'
   rejectionReasons?: ImageRejectionReason[]
+  /** Only used to detect portrait orientation for the hero ranking. */
+  width?: number | null
+  height?: number | null
 }
 
 function toStrictJsonSchema(shape: z.ZodType): Record<string, unknown> {
@@ -184,6 +223,21 @@ function isKeptImageTag(value: unknown): value is KeptImageTag {
   return typeof value === 'string' && KEEP_TAGS.includes(value as KeptImageTag)
 }
 
+/**
+ * A current keep tag, or the modern equivalent of a legacy one. Returns null for
+ * anything that is not a keepable image.
+ *
+ * This is the single place the four-tag vocabulary is collapsed into two, and it
+ * runs on both read paths (stored rows and model responses) so a pre-collapse
+ * `lifestyle`/`packaging` row keeps parsing as a valid kept image instead of
+ * quietly becoming hero-ineligible.
+ */
+function keptImageTag(value: unknown): KeptImageTag | null {
+  if (isKeptImageTag(value)) return value
+  if (typeof value !== 'string') return null
+  return LEGACY_KEEP_TAG_ALIASES[value] ?? null
+}
+
 function isImageRejectionReason(value: unknown): value is ImageRejectionReason {
   return typeof value === 'string' && REJECTION_REASONS.includes(value as ImageRejectionReason)
 }
@@ -201,18 +255,24 @@ function isExemptSource(source: BrandImageRow['source'] | string | null): boolea
 function classifiedImageFromRow(row: BrandImageForClassification): ClassifiedImage | null {
   if (isExemptSource(row.source)) return null
 
-  const tag = row.tags?.find(isImageClassificationTag)
-  if (!tag) return null
+  const storedTag = row.tags?.find(isImageClassificationTag)
+  if (!storedTag) return null
+
+  // Legacy `lifestyle`/`packaging` rows normalize to `product` here so the rest
+  // of the pipeline only ever sees the current two-tag vocabulary.
+  const tag: ImageClassificationTag = keptImageTag(storedTag) ?? storedTag
 
   return {
     id: row.id,
     tag,
     score: scoreValue(row.score),
     storage_path: row.storage_path,
-    disposition: JUNK_TAGS.has(tag) ? 'reject' : 'keep',
-    ...(tag === 'promo' ? { rejectionReasons: ['promo_subject' as const] } : {}),
-    ...(tag === 'text_banner' ? { rejectionReasons: ['text_dominant' as const] } : {}),
-    ...(tag === 'irrelevant' ? { rejectionReasons: ['irrelevant' as const] } : {}),
+    width: row.width ?? null,
+    height: row.height ?? null,
+    disposition: JUNK_TAGS.has(storedTag) ? 'reject' : 'keep',
+    ...(storedTag === 'promo' ? { rejectionReasons: ['promo_subject' as const] } : {}),
+    ...(storedTag === 'text_banner' ? { rejectionReasons: ['text_dominant' as const] } : {}),
+    ...(storedTag === 'irrelevant' ? { rejectionReasons: ['irrelevant' as const] } : {}),
   }
 }
 
@@ -262,18 +322,20 @@ export function parseClassificationBatch(responseText: string): Map<string, Pars
     const score = typeof item.score === 'number' ? item.score : Number(item.score)
     if (!Number.isFinite(score)) continue
 
+    // Legacy tags (`lifestyle`, `packaging`) normalize onto `product` rather than
+    // failing the narrowed keep check, which would drop the verdict entirely.
+    const normalizedTag = keptImageTag(item.tag)
+
     const disposition = item.disposition === 'keep' || item.disposition === 'reject'
       ? item.disposition
       : JUNK_TAGS.has(item.tag as string)
         ? 'reject'
-        : isKeptImageTag(item.tag)
+        : normalizedTag
           ? 'keep'
           : null
     if (!disposition) continue
 
-    const tag = disposition === 'keep'
-      ? isKeptImageTag(item.tag) ? item.tag : null
-      : null
+    const tag = disposition === 'keep' ? normalizedTag : null
     if (disposition === 'keep' && !tag) continue
 
     const parsedReasons = Array.isArray(item.reasons)
@@ -304,6 +366,26 @@ export function parseClassificationBatch(responseText: string): Map<string, Pars
   return verdicts
 }
 
+/** Taller than wide. Square and unknown-dimension images are not penalised. */
+function isPortrait(image: ClassifiedImage): boolean {
+  const { width, height } = image
+  return typeof width === 'number' && typeof height === 'number' && height > width
+}
+
+/**
+ * The single ranking signal for hero selection: the model's quality score, minus
+ * a fixed penalty for portrait orientation.
+ *
+ * A penalty rather than an exclusion, because portrait images are perfectly good
+ * gallery entries — they just crop badly in the landscape hero frame. At 15 a
+ * portrait must be clearly better than its landscape rivals (the kept-image
+ * score band is roughly 70–95) to take slot 0, but a brand whose only images are
+ * portrait still gets a hero.
+ */
+function heroQuality(image: ClassifiedImage): number {
+  return image.score - (isPortrait(image) ? PORTRAIT_PENALTY : 0)
+}
+
 export function applyClassifications(images: ClassifiedImage[]): {
   rejectedIds: string[]
   rejectedUpdates: Array<{
@@ -315,7 +397,6 @@ export function applyClassifications(images: ClassifiedImage[]): {
       rejection_reasons?: ImageRejectionReason[] | null
     }
   }>
-  pathsToDelete: string[]
   ordered: ClassifiedImage[]
 } {
   const rejected = images.filter((image) => image.disposition === 'reject' || JUNK_TAGS.has(image.tag))
@@ -329,14 +410,11 @@ export function applyClassifications(images: ClassifiedImage[]): {
       ...(image.rejectionReasons ? { rejection_reasons: image.rejectionReasons } : {}),
     },
   }))
-  const pathsToDelete: string[] = []
   const ordered = images
     .filter((image) => image.disposition !== 'reject' && !JUNK_TAGS.has(image.tag))
-    .toSorted(
-      (left, right) => TAG_RANK[left.tag] - TAG_RANK[right.tag] || right.score - left.score
-    )
+    .toSorted((left, right) => heroQuality(right) - heroQuality(left))
 
-  return { rejectedIds, rejectedUpdates, pathsToDelete, ordered }
+  return { rejectedIds, rejectedUpdates, ordered }
 }
 
 export type ActiveImageForOrdering = {
@@ -347,7 +425,7 @@ export type ActiveImageForOrdering = {
 
 /**
  * Decides the final sort_order of every active image, and which ones have to
- * step down to stay inside the seven-slot window.
+ * step down to stay inside the MAX_ACTIVE_IMAGES window.
  *
  * Exists because the reindex used to walk only *judged* images. An image the
  * vision model returned no verdict for is deliberately left active, but it was
@@ -408,7 +486,7 @@ async function getUnclassifiedImages(
   const storage = targetImageStorage(target)
   const { data, error } = await classifyImagesClient(supabase)
     .from(storage.table)
-    .select('id, url, source, status, tags, score, sort_order, storage_path')
+    .select('id, url, source, status, tags, score, sort_order, storage_path, width, height')
     .eq(storage.foreignKey, target.id)
     .in('status', ['active', 'candidate'])
     .neq('source', 'owner')
@@ -427,7 +505,7 @@ async function getActiveImages(
   const storage = targetImageStorage(target)
   const { data, error } = await classifyImagesClient(supabase)
     .from(storage.table)
-    .select('id, url, source, status, tags, score, sort_order, storage_path')
+    .select('id, url, source, status, tags, score, sort_order, storage_path, width, height')
     .eq(storage.foreignKey, target.id)
     .eq('status', 'active')
     .order('sort_order', { ascending: true })
@@ -705,6 +783,8 @@ export async function runClassifyImagesPhase({
           tag: classification.tag ?? 'irrelevant',
           score: classification.score,
           storage_path: image.storage_path,
+          width: image.width ?? null,
+          height: image.height ?? null,
           disposition: classification.disposition,
           rejectionReasons: classification.reasons,
         }
@@ -751,9 +831,9 @@ export async function runClassifyImagesPhase({
       await updateImage(supabase, target, id, { sort_order: sortOrder })
     }
 
-    // Overflow past the seven-slot window steps down to 'rejected', but its
-    // storage object is deliberately kept: these ranked eighth, they are not
-    // junk, and deleting them would be irreversible.
+    // Overflow past the MAX_ACTIVE_IMAGES window steps down to 'rejected', but
+    // its storage object is deliberately kept: these ranked below the cap, they
+    // are not junk, and deleting them would be irreversible.
     for (const id of demotedIds) {
       await updateImage(supabase, target, id, { status: 'rejected' })
     }

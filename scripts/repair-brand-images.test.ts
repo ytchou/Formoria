@@ -175,6 +175,13 @@ function makeRow(
   }
 }
 
+/**
+ * The tags this sweep hunts (`promo`, `text_banner`, `irrelevant`) are LEGACY —
+ * the classifier stopped emitting them when the disposition/reasons contract
+ * landed, and these rows are exactly the pre-contract backlog the sweep exists
+ * to clean up. The keep vocabulary it must never touch is `product`/`logo`,
+ * plus the legacy keep tags `lifestyle`/`packaging` that now fold into product.
+ */
 describe('selectJunkRows', () => {
   it('selects active rows whose tags intersect JUNK_TAGS', () => {
     const { junkRows } = selectJunkRows({
@@ -188,6 +195,18 @@ describe('selectJunkRows', () => {
       includeLogos: false,
     })
     expect(junkRows.map((row) => row.id)).toEqual(['r1', 'r2', 'r3'])
+  })
+
+  it('never sweeps a legacy lifestyle or packaging row', () => {
+    const { junkRows, excludedLogoRows } = selectJunkRows({
+      rows: [
+        makeRow('r1', 'b1', ['lifestyle']),
+        makeRow('r2', 'b1', ['packaging']),
+      ],
+      includeLogos: true,
+    })
+    expect(junkRows).toEqual([])
+    expect(excludedLogoRows).toEqual([])
   })
 
   it('ignores rows that are not active', () => {

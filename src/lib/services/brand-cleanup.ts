@@ -8,7 +8,7 @@ type CleanupPattern =
   | 'tagline-separator'
   | 'decorative-spacing'
 
-interface NameCleanupResult {
+export interface NameCleanupResult {
   originalName: string
   cleanedName: string
   changed: boolean

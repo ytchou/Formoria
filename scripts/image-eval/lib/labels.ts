@@ -31,23 +31,8 @@ const SYSTEM_TAGS: GoldenTagDefinition[] = [
   {
     slug: "product",
     label: "Product",
-    description: "Clear presentation of the brand's product itself.",
-    source: "system",
-    createdAt: "2026-08-01T00:00:00.000Z",
-    createdFromImageId: null,
-  },
-  {
-    slug: "lifestyle",
-    label: "Lifestyle",
-    description: "Product shown in a real use or lifestyle context.",
-    source: "system",
-    createdAt: "2026-08-01T00:00:00.000Z",
-    createdFromImageId: null,
-  },
-  {
-    slug: "packaging",
-    label: "Packaging",
-    description: "Brand packaging, box, tag, or product set packaging.",
+    description:
+      "The image is primarily about the product: a direct product shot, a model using it, or its packaging.",
     source: "system",
     createdAt: "2026-08-01T00:00:00.000Z",
     createdFromImageId: null,
@@ -55,7 +40,8 @@ const SYSTEM_TAGS: GoldenTagDefinition[] = [
   {
     slug: "logo",
     label: "Logo",
-    description: "Clean, recognizable brand logo or identity image.",
+    description:
+      "Brand identity or brand-story imagery: logo, storefront, identity mark. Related to the brand, but not directly about the product.",
     source: "system",
     createdAt: "2026-08-01T00:00:00.000Z",
     createdFromImageId: null,

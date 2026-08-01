@@ -107,11 +107,12 @@ const MAX_BRANDS_HIDDEN = 80
  * treats them as junk.
  *
  * `logo` used to live in JUNK_TAGS, so --include-logos derived its meaning from
- * that membership. The classifier now keeps logos (a clean brand mark reads far
- * better than a letter tile, and logo rows score p50 90), which left this flag
- * inert. Classifier policy and a manual operator sweep are separate decisions,
- * so the sweep carries its own set: purging logos stays available to an operator
- * who explicitly asks for it, and stays off by default.
+ * that membership. The classifier now keeps logos and ranks them purely on
+ * quality — a clean brand mark is a legitimate hero, not a fallback — which left
+ * this flag inert. Classifier policy and a manual operator sweep are separate
+ * decisions, so the sweep carries its own set rather than being deleted:
+ * purging logos stays available to an operator who explicitly asks for it (a
+ * brand whose only images are letter tiles), and stays off by default.
  */
 const OPT_IN_PURGE_TAGS = new Set(['logo'])
 

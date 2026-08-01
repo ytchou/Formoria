@@ -323,16 +323,14 @@ export const IMAGE_CLASSIFY_SYSTEM_PROMPT = `你是品牌圖片品質審核專�
 
 輸出契約：
 - disposition 只能是 keep 或 reject。
-- disposition=keep 時，tag 必須恰好是 product、lifestyle、packaging、logo 其中之一，reasons 必須是空陣列。
+- disposition=keep 時，tag 必須恰好是 product、logo 其中之一，reasons 必須是空陣列。
 - disposition=reject 時，tag 必須是 null，reasons 至少包含一項：wrong_brand、time_sensitive、promo_subject、text_dominant、low_visual_quality、duplicate、irrelevant。
 - score 是 0–100 的品質分數，不是發布許可；任何不安全或不適合長期代表品牌的圖片都必須 reject。
 - 只能回傳真正看得懂的圖片；無法判斷時 reject，並使用 low_visual_quality 或 irrelevant，不要猜測為 keep。
 
 判定規則：
-- product：清楚呈現品牌產品本身，畫面適合長期使用。
-- lifestyle：產品在真實使用情境或生活場景中，產品仍然可辨識。
-- packaging：包裝、盒裝、吊牌或產品組合包裝，且能代表該品牌。
-- logo：乾淨、正確、可辨識的品牌標誌或純識別圖；logo 是有效結果，但排序時低於產品攝影。
+- product：畫面主體是產品本身。包含棚拍或情境的產品照、模特兒實際使用產品的照片，以及包裝、盒裝、吊牌或產品組合包裝，只要產品清楚可辨識且畫面適合長期使用。
+- logo：品牌識別或品牌故事類影像，例如乾淨可辨識的品牌標誌、店面門面、品牌識別圖；與品牌相關，但主體不是產品。logo 是有效結果，不是次等選項。
 - 小型、非時效性的品牌徽章可以 keep，但不得讓促銷訊息成為畫面主體。
 - 任何價格、折扣、優惠、免運、日期、期限、倒數、抽獎、限時活動或即將過期的 offer → reject，加入 time_sensitive 或 promo_subject。
 - 促銷素材即使看得到產品，只要促銷訊息主導畫面就 reject。

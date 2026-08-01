@@ -40,6 +40,14 @@ const MODEL = "gpt-4o-mini";
 const REJECTION_TAGS = ["promo", "text_banner", "irrelevant"];
 const MAX_RATE_LIMIT_RETRIES = 5;
 
+/**
+ * The line of IMAGE_CLASSIFY_SYSTEM_PROMPT the dynamic tag registry replaces.
+ * Must stay byte-identical to `src/lib/prompts.ts`; `buildSystemPrompt` throws
+ * if it drifts rather than silently emitting the unmodified prompt.
+ */
+const KEEP_TAG_PROMPT_ANCHOR =
+  "- disposition=keep 時，tag 必須恰好是 product、logo 其中之一，reasons 必須是空陣列。";
+
 function classificationSchema(
   keptTags: readonly string[],
   prompt: "legacy" | "current",
@@ -182,8 +190,19 @@ function buildSystemPrompt(
       : LEGACY_IMAGE_CLASSIFY_SYSTEM_PROMPT;
   if (prompt === "legacy") return base;
   const tags = Object.keys(tagDefinitions).join("、");
+  // The dynamic tag registry is injected by rewriting this exact line of the
+  // production prompt. A silent no-op here would leave the harness measuring the
+  // production tag list while reporting the registry's, so a missing anchor is a
+  // hard failure: it means the prompt changed and this matcher did not.
+  if (!base.includes(KEEP_TAG_PROMPT_ANCHOR)) {
+    throw new Error(
+      `IMAGE_CLASSIFY_SYSTEM_PROMPT no longer contains the keep-tag anchor line.\n` +
+        `Expected: ${KEEP_TAG_PROMPT_ANCHOR}\n` +
+        `Update KEEP_TAG_PROMPT_ANCHOR in scripts/image-eval/baseline.ts to match the prompt.`,
+    );
+  }
   return `${base.replace(
-    "- disposition=keep 時，tag 必須恰好是 product、lifestyle、packaging、logo 其中之一，reasons 必須是空陣列。",
+    KEEP_TAG_PROMPT_ANCHOR,
     `- disposition=keep 時，tag 必須恰好是 ${tags} 其中之一，reasons 必須是空陣列。`,
   )}\n\n${tagRegistryGuidance(tagDefinitions)}`;
 }
