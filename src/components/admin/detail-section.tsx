@@ -11,6 +11,8 @@ type DetailSectionProps = {
   onSave?: () => void;
   onCancel?: () => void;
   isPending?: boolean;
+  /** Save failure for this section. Rendered next to the actions, not offscreen. */
+  error?: string | null;
   editLabel: string;
   saveLabel: string;
   cancelLabel: string;
@@ -25,6 +27,7 @@ export function DetailSection({
   onSave,
   onCancel,
   isPending = false,
+  error = null,
   editLabel,
   saveLabel,
   cancelLabel,
@@ -49,6 +52,11 @@ export function DetailSection({
         )}
       </div>
       {children}
+      {editing && error && (
+        <p role="alert" className="type-error">
+          {error}
+        </p>
+      )}
       {editing && (
         <div className="flex flex-wrap justify-end gap-2 pt-2">
           <Button

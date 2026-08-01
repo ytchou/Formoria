@@ -11,8 +11,12 @@ import type {
   SaveSubmissionReviewInput,
   SubmissionReviewImage,
 } from "@/lib/services/submissions";
+// Single source of truth with `adminReviewSchema`: if this guard and the schema
+// disagree, one of them rejects a save the other accepted.
+import { MAX_REVIEW_IMAGE_SELECTION } from "@/lib/validation/admin-review";
 
-const MAX_REVIEW_IMAGES = 7;
+// Staged drafts sort past the existing gallery; the real order is assigned on save.
+const STAGED_IMAGE_SORT_ORDER = MAX_REVIEW_IMAGE_SELECTION;
 const BRAND_IMAGE_PAGE_SIZE = 1_000;
 const SUPABASE_IN_FILTER_CHUNK_SIZE = 200;
 
@@ -102,7 +106,7 @@ export async function stageAdminBrandReviewImage(input: {
       source: "admin",
       source_url: input.url,
       status: "draft",
-      sort_order: MAX_REVIEW_IMAGES,
+      sort_order: STAGED_IMAGE_SORT_ORDER,
       width: input.width,
       height: input.height,
     })
@@ -149,7 +153,7 @@ export async function saveAdminBrandReview(
 ): Promise<void> {
   const selectedIds = input.images.map((image) => image.id);
   if (
-    selectedIds.length > MAX_REVIEW_IMAGES ||
+    selectedIds.length > MAX_REVIEW_IMAGE_SELECTION ||
     new Set(selectedIds).size !== selectedIds.length
   ) {
     throw new ValidationError("Invalid brand image selection");
