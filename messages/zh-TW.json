@@ -2888,6 +2888,7 @@
     "categoryFilterAria": "依產品分類篩選品牌",
     "allCategories": "全部分類",
     "clearFilters": "顯示全部品牌",
+    "showAllBrands": "顯示全部 {count} 個品牌",
     "filteredEmptyTitle": "這個展區目前沒有本站收錄的品牌",
     "filteredEmptyBody": "可改看其他展區，或返回完整名單。",
     "relatedStories": "相關專題",

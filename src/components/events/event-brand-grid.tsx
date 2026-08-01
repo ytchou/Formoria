@@ -5,11 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { SearchX } from 'lucide-react'
 import { BrandCard } from '@/components/brands/brand-card'
-import {
-  MASONRY_ABOVE_FOLD,
-  MasonryGrid,
-  type MasonryDensity,
-} from '@/components/brands/masonry-grid'
+import { MASONRY_ABOVE_FOLD, MasonryGrid } from '@/components/brands/masonry-grid'
 import { ViewItemListTracker } from '@/components/analytics/view-item-list-tracker'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -21,7 +17,9 @@ import type {
   EventCategoryOption,
 } from '@/lib/services/events'
 
-const LINEUP_DENSITY: MasonryDensity = 'dense'
+// Four rows of the grid's widest column count — derived, not written as `16`,
+// so it follows the grid if its columns ever change.
+const LINEUP_VISIBLE_CAP = 4 * MASONRY_ABOVE_FOLD
 
 type EventBrandGridProps = {
   /** The full lineup. Filtering happens here, never on the server. */
@@ -95,6 +93,9 @@ export function EventBrandGrid({
   const t = useTranslations('events')
   const [activeArea, setActiveArea] = useState<string | null>(null)
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
+  // Deliberately NOT reset when a chip changes: a reader who asked to see the
+  // whole lineup should not have to ask again after every filter press.
+  const [expanded, setExpanded] = useState(false)
   const isEnglish = locale === 'en'
 
   // Takes the whole next pair rather than reading state, because the state
@@ -159,6 +160,10 @@ export function EventBrandGrid({
   // Filtered-to-zero is its own state, not a variant of "no lineup": the chips
   // and the count line stay, only the grid is replaced.
   const isFilteredEmpty = visible.length === 0 && isFiltered
+
+  // Measured against the FILTERED list, so narrowing to a zone with 12 brands
+  // shows all 12 with no button rather than an unexplained cap.
+  const hiddenCount = expanded ? 0 : Math.max(visible.length - LINEUP_VISIBLE_CAP, 0)
 
   return (
     <div className="space-y-6">
@@ -284,34 +289,54 @@ export function EventBrandGrid({
             }
           />
         ) : (
-          // `dense` because an event lineup is a single un-paginated list of
-          // dozens of cards; the directory's larger `default` cards would push
-          // most of it below several screens of scroll.
-          <MasonryGrid density={LINEUP_DENSITY}>
-            {visible.map((entry, index) => {
-              const area = isEnglish ? (entry.areaEn ?? entry.area) : entry.area
+          <>
+            {/*
+              `visibleCount`, never a `.slice()`: an event lineup is dozens of
+              cards and only the first four rows should occupy the fold, but
+              every brand link stays in the server HTML because the lineup is
+              the crawlable substance of this page.
+            */}
+            <MasonryGrid visibleCount={expanded ? undefined : LINEUP_VISIBLE_CAP}>
+              {visible.map((entry, index) => {
+                const area = isEnglish ? (entry.areaEn ?? entry.area) : entry.area
 
-              return (
-                <BrandCard
-                  key={entry.brand.id}
-                  brand={entry.brand}
-                  variant="editorial"
-                  // Booth number wins over area: it is the more specific
-                  // wayfinding fact, and the area is already on a chip above.
-                  // Rendered by `BrandCard` as a `<Badge variant="secondary">`.
-                  eyebrow={entry.booth ?? area ?? undefined}
-                  note={
-                    (isEnglish ? (entry.noteEn ?? entry.note) : entry.note) ?? undefined
-                  }
-                  // Read from `MasonryGrid` rather than restated, so the
-                  // preloaded cards stay exactly the ones it renders visible on
-                  // the server for this density.
-                  preload={index < MASONRY_ABOVE_FOLD[LINEUP_DENSITY]}
-                  position={index}
-                />
-              )
-            })}
-          </MasonryGrid>
+                return (
+                  <BrandCard
+                    key={entry.brand.id}
+                    brand={entry.brand}
+                    variant="editorial"
+                    // Booth number wins over area: it is the more specific
+                    // wayfinding fact, and the area is already on a chip above.
+                    // Rendered by `BrandCard` as a `<Badge variant="secondary">`.
+                    eyebrow={entry.booth ?? area ?? undefined}
+                    note={
+                      (isEnglish ? (entry.noteEn ?? entry.note) : entry.note) ?? undefined
+                    }
+                    // Read from `MasonryGrid` rather than restated, so the
+                    // preloaded cards stay exactly the ones it renders visible on
+                    // the server.
+                    preload={index < MASONRY_ABOVE_FOLD}
+                    position={index}
+                  />
+                )
+              })}
+            </MasonryGrid>
+
+            {hiddenCount > 0 ? (
+              // The count is the number still hidden, not the total: a button
+              // that names what pressing it reveals is the only way the cap is
+              // legible at all — the hidden cards leave no gap behind them.
+              <div className="flex justify-center">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setExpanded(true)}
+                >
+                  {t('showAllBrands', { count: hiddenCount })}
+                </Button>
+              </div>
+            ) : null}
+          </>
         )}
       </SavedBrandsProvider>
     </div>

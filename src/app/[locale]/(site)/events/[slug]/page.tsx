@@ -15,6 +15,7 @@ import { LinkCard } from '@/components/ui/link-card'
 import { textStyles } from '@/components/ui/text-styles'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { safeDecodeSlug } from '@/lib/url'
+import { shuffle } from '@/lib/utils'
 import {
   deriveAreaOptions,
   deriveCategoryOptions,
@@ -162,6 +163,19 @@ export default async function EventDetailPage({ params }: PageProps) {
   const areaOptions = deriveAreaOptions(entries, safeLocale)
   const categoryOptions = deriveCategoryOptions(entries, safeLocale)
   const heroSrc = safeImageSrc(event.heroImageUrl)
+
+  // Booth order permanently privileges whoever holds the lowest booth number,
+  // and the first row is the only one most readers see. Shuffled HERE, in the
+  // server component: `Math.random()` inside `EventBrandGrid` would order the
+  // server and client renders differently and break hydration, and
+  // `composeEventBrands` owes its callers a stable order.
+  //
+  // The route is SSG+ISR, so this fixes one order per regeneration window
+  // rather than reshuffling per visitor — every brand gets the top row for a
+  // stretch of time, which is the fairness property intended, not a staleness
+  // bug. The chip options above are derived from the UNSHUFFLED list so the
+  // filter bar keeps a stable order across regenerations.
+  const lineup = shuffle(entries)
 
   // Derived, never authored: `EventAreaOption` carries no count, and a count
   // typed into the CMS would go stale the moment one exhibitor is added or
@@ -433,7 +447,7 @@ export default async function EventDetailPage({ params }: PageProps) {
             <p className="type-empty-body">{t('noBrands')}</p>
           ) : (
             <EventBrandGrid
-              entries={entries}
+              entries={lineup}
               areaOptions={areaOptions}
               categoryOptions={categoryOptions}
               eventSlug={event.slug}

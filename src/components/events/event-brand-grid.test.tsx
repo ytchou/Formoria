@@ -34,8 +34,9 @@ vi.mock('@/components/brands/masonry-grid', () => ({
     <div>{children}</div>
   ),
   // The real value, not a stub: the grid is mocked away but the component still
-  // reads this to decide which cards preload, and a missing export would throw.
-  MASONRY_ABOVE_FOLD: { default: 4, dense: 5 },
+  // reads this to decide which cards preload and to size the initial cap, and a
+  // missing export would throw.
+  MASONRY_ABOVE_FOLD: 4,
 }))
 
 vi.mock('@/components/analytics/view-item-list-tracker', () => ({

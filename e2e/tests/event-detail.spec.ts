@@ -77,6 +77,17 @@ test.describe('Event detail deep', () => {
     // filter click cannot be expected to shrink the grid, so there is nothing to assert.
     test.skip(chipCount < 3, 'event lineup has fewer than two areas to filter by');
 
+    // The lineup ships with only its first four rows visible; the rest are in the HTML
+    // but `display: none`, so they are out of the accessibility tree and out of
+    // `count()`. Expanding first makes the counts below the WHOLE lineup, which is what
+    // the `role=status` line reports — otherwise the two disagree by construction.
+    // `\d+` in the name is what separates this from the "顯示全部品牌" filter reset.
+    const showAll = lineup.getByRole('button', { name: /^顯示全部 \d+ 個品牌$/ });
+    if ((await showAll.count()) > 0) {
+      await showAll.click();
+      await expect(showAll).toBeHidden();
+    }
+
     // BrandCard renders each card as an <article>; scoped to the lineup region so the
     // page's own wrapper <article> and any related-stories cards cannot be counted.
     const cards = lineup.getByRole('article');

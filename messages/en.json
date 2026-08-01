@@ -2888,6 +2888,7 @@
     "categoryFilterAria": "Filter brands by product category",
     "allCategories": "All categories",
     "clearFilters": "Show all brands",
+    "showAllBrands": "Show all {count} brands",
     "filteredEmptyTitle": "No brands from our directory in this zone",
     "filteredEmptyBody": "Try another zone, or go back to the full list.",
     "relatedStories": "Related stories",
