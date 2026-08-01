@@ -87,7 +87,7 @@ const REVIEW_HTML = `<!doctype html>
   </aside>
 </main>
 <script>
-let entries = [], labels = {}, history = {}, index = 0, state = { disposition: null, tag: null, observationTags: [], reasons: [], notes: '' };
+let entries = [], labels = {}, labelHistory = {}, index = 0, state = { disposition: null, tag: null, observationTags: [], reasons: [], notes: '' };
 const $ = (selector) => document.querySelector(selector);
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 function current() { return entries[index]; }
@@ -98,7 +98,7 @@ function render(reset = true) {
   if (reset) state = existing ? { disposition: existing.disposition, tag: existing.tag, observationTags: existing.observationTags || [], reasons: existing.reasons || [], notes: existing.notes || '' } : { disposition: null, tag: null, observationTags: [], reasons: [], notes: '' };
   $('#counter').textContent = (index + 1) + ' / ' + entries.length + (existing ? ' · labeled' : ' · unlabeled');
   $('#meta').innerHTML = '<strong>' + esc(entry.brandName) + '</strong> · ' + esc(entry.category) + ' · ' + esc(entry.split) + '<br>Serper position ' + entry.position + ' · ' + esc(entry.domain || '') + '<br>' + esc(entry.title || 'Untitled');
-  const revisions = history[entry.id] || [];
+  const revisions = labelHistory[entry.id] || [];
   $('#history').textContent = revisions.length + ' saved revision' + (revisions.length === 1 ? '' : 's');
   document.querySelectorAll('[data-disposition]').forEach((button) => button.classList.toggle('active', button.dataset.disposition === state.disposition));
   document.querySelectorAll('[data-tag]').forEach((button) => button.classList.toggle('active', button.dataset.tag === state.tag));
@@ -117,7 +117,7 @@ async function save() {
   if (!response.ok) return alert(await response.text());
   const saved = await response.json();
   labels[current().id] = saved.label;
-  history[current().id] = saved.history || [];
+  labelHistory[current().id] = saved.history || [];
   if (index < entries.length - 1) index += 1;
   render();
 }
@@ -127,7 +127,7 @@ document.querySelectorAll('[data-reason]').forEach((input) => input.addEventList
 document.querySelectorAll('[data-observation-tag]').forEach((input) => input.addEventListener('change', () => { state.observationTags = [...document.querySelectorAll('[data-observation-tag]:checked')].map((item) => item.value); }));
 $('#save').addEventListener('click', save);
 document.addEventListener('keydown', (event) => { if (event.target.matches('textarea,input')) return; if (event.key.toLowerCase() === 'k') setDisposition('keep'); if (event.key.toLowerCase() === 'r') setDisposition('reject'); if ('1234'.includes(event.key)) setTag(['product','lifestyle','packaging','logo'][Number(event.key) - 1]); if (event.key === 'ArrowLeft' && index > 0) { index -= 1; render(); } if (event.key === 'ArrowRight' && index < entries.length - 1) { index += 1; render(); } if (event.key === 'Enter') save(); });
-fetch('/api/corpus').then((response) => response.json()).then((payload) => { entries = payload.entries; labels = payload.labels; history = payload.history || {}; render(); });
+fetch('/api/corpus').then((response) => response.json()).then((payload) => { entries = payload.entries; labels = payload.labels; labelHistory = payload.history || {}; render(); });
 </script>
 </body></html>`;
 
