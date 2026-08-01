@@ -33,6 +33,7 @@ import {
 } from "./lib/review";
 
 const DEFAULT_PORT = 4179;
+const DEFAULT_APP_ORIGIN = "http://localhost:3000";
 
 type DraftPredictionsFile = {
   corpusId: string;
@@ -71,6 +72,8 @@ const REVIEW_HTML = `<!doctype html>
     input[type=checkbox] { margin-right: 8px; }
     input[type=text] { width: 100%; box-sizing: border-box; margin: 8px 0; padding: 10px 12px; border: 1px solid #404040; border-radius: 8px; background: #262626; color: inherit; }
     #add-tag-form button { text-align: center; }
+    .brand-link { display: block; box-sizing: border-box; margin-top: 8px; padding: 11px 12px; border: 1px solid #6a9f82; border-radius: 8px; color: #9bd5b0; text-align: center; text-decoration: none; }
+    .brand-link:hover { background: #263c30; }
     textarea { width: 100%; min-height: 70px; box-sizing: border-box; background: #262626; color: inherit; border: 1px solid #404040; border-radius: 8px; padding: 8px; }
     #save { background: #f5f5f5; color: #171717; text-align: center; font-weight: 700; }
     .keys { color: #a3a3a3; font-size: 12px; line-height: 1.6; }
@@ -82,6 +85,7 @@ const REVIEW_HTML = `<!doctype html>
   <aside>
     <h1>DEV-1279 image review</h1>
     <div id="counter"></div><div id="meta"></div><div id="history"></div>
+    <a id="brand-link" class="brand-link" target="_blank" rel="noopener noreferrer" hidden>Open local brand page</a>
     <p class="keys">Queue: 400 images, randomized within split. All dev images come before the 50-image holdout sample.</p>
     <div class="group"><h2>AI draft</h2>
       <div id="draft" class="keys">No AI draft loaded.</div>
@@ -109,7 +113,7 @@ const REVIEW_HTML = `<!doctype html>
   </aside>
 </main>
 <script>
-let entries = [], labels = {}, labelHistory = {}, drafts = {}, draftRunId = null, draftPrompt = null, tagDefinitions = {}, rejectionReasons = [], index = 0, state = { disposition: null, tag: null, reasons: [], notes: '' };
+let entries = [], labels = {}, labelHistory = {}, drafts = {}, draftRunId = null, draftPrompt = null, tagDefinitions = {}, rejectionReasons = [], brandPageOrigin = 'http://localhost:3000', index = 0, state = { disposition: null, tag: null, reasons: [], notes: '' };
 const $ = (selector) => document.querySelector(selector);
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 function current() { return entries[index]; }
@@ -132,6 +136,8 @@ function renderDraft() {
 function render(reset = true) {
   const entry = current(); if (!entry) return;
   $('#image').src = entry.signedUrl || ''; $('#image').alt = entry.brandName + ' ' + entry.category + ' image';
+  const brandLink = $('#brand-link');
+  if (entry.brandSlug) { brandLink.href = brandPageOrigin + '/brands/' + encodeURIComponent(entry.brandSlug); brandLink.hidden = false; } else { brandLink.hidden = true; }
   const existing = labels[entry.id];
   const suggestion = drafts[entry.id];
   if (reset) state = existing ? { disposition: existing.disposition, tag: existing.tag, reasons: existing.reasons || [], notes: existing.notes || '' } : suggestion && !suggestion.error && (suggestion.disposition === 'keep' || suggestion.disposition === 'reject') ? { disposition: suggestion.disposition, tag: suggestion.disposition === 'keep' ? suggestion.tag : null, reasons: suggestion.disposition === 'reject' ? (suggestion.reasons || []) : [], notes: '' } : { disposition: null, tag: null, reasons: [], notes: '' };
@@ -170,7 +176,7 @@ $('#reason-options').addEventListener('change', (event) => { const input = event
 $('#add-tag-form').addEventListener('submit', async (event) => { event.preventDefault(); const response = await fetch('/api/tags', { method: 'POST', headers: {'content-type':'application/json'}, body: JSON.stringify({ slug: $('#new-tag-slug').value, label: $('#new-tag-label').value, description: $('#new-tag-description').value, imageId: current().id }) }); if (!response.ok) return alert(await response.text()); const saved = await response.json(); tagDefinitions = saved.tagDefinitions; $('#new-tag-slug').value = ''; $('#new-tag-label').value = ''; $('#new-tag-description').value = ''; $('#tag-status').textContent = 'Added ' + saved.tag.label + '; selected for this image.'; setTag(saved.tag.slug); });
 $('#save').addEventListener('click', save);
 document.addEventListener('keydown', (event) => { if (event.target.matches('textarea,input')) return; if (event.key.toLowerCase() === 'k') setDisposition('keep'); if (event.key.toLowerCase() === 'r') setDisposition('reject'); if (/^[1-9]$/.test(event.key)) { const option = Object.values(tagDefinitions)[Number(event.key) - 1]; if (option) setTag(option.slug); } if (event.key === 'ArrowLeft' && index > 0) { index -= 1; render(); } if (event.key === 'ArrowRight' && index < entries.length - 1) { index += 1; render(); } if (event.key === 'Enter') save(); });
-fetch('/api/corpus').then((response) => response.json()).then((payload) => { entries = payload.entries; labels = payload.labels; labelHistory = payload.history || {}; drafts = payload.drafts || {}; draftRunId = payload.draftRunId || null; draftPrompt = payload.draftPrompt || null; tagDefinitions = payload.tagDefinitions || {}; rejectionReasons = payload.rejectionReasons || []; const firstUnlabeled = entries.findIndex((entry) => !labels[entry.id]); index = firstUnlabeled >= 0 ? firstUnlabeled : 0; render(); });
+fetch('/api/corpus').then((response) => response.json()).then((payload) => { entries = payload.entries; labels = payload.labels; labelHistory = payload.history || {}; drafts = payload.drafts || {}; draftRunId = payload.draftRunId || null; draftPrompt = payload.draftPrompt || null; tagDefinitions = payload.tagDefinitions || {}; rejectionReasons = payload.rejectionReasons || []; brandPageOrigin = payload.brandPageOrigin || 'http://localhost:3000'; const firstUnlabeled = entries.findIndex((entry) => !labels[entry.id]); index = firstUnlabeled >= 0 ? firstUnlabeled : 0; render(); });
 </script>
 </body></html>`;
 
@@ -200,6 +206,29 @@ function draftRunArg(): string | null {
   if (!/^[A-Za-z0-9_-]+$/.test(value))
     throw new Error("--draft-run must be a safe run id");
   return value;
+}
+
+function appOriginArg(): string {
+  const argument = process.argv.find((value) =>
+    value.startsWith("--app-origin="),
+  );
+  const value =
+    argument?.slice("--app-origin=".length).trim() || DEFAULT_APP_ORIGIN;
+  let origin: URL;
+  try {
+    origin = new URL(value);
+  } catch {
+    throw new Error("--app-origin must be a valid URL");
+  }
+  if (
+    !["http:", "https:"].includes(origin.protocol) ||
+    !["localhost", "127.0.0.1"].includes(origin.hostname) ||
+    origin.pathname !== "/" ||
+    origin.search ||
+    origin.hash
+  )
+    throw new Error("--app-origin must point to localhost or 127.0.0.1");
+  return origin.origin;
 }
 
 async function loadDraft(
@@ -273,6 +302,7 @@ async function startReview(): Promise<void> {
     argument.startsWith("--port="),
   );
   const port = portArg ? Number(portArg.slice("--port=".length)) : DEFAULT_PORT;
+  const appOrigin = appOriginArg();
 
   const server = createServer(async (request, response) => {
     try {
@@ -308,6 +338,7 @@ async function startReview(): Promise<void> {
           history: labelsFile.history ?? {},
           tagDefinitions: labelsFile.tagDefinitions ?? {},
           rejectionReasons: REJECTION_REASON_DEFINITIONS,
+          brandPageOrigin: appOrigin,
           draftRunId: draft.runId,
           draftPrompt: draft.prompt,
           drafts: draft.predictions,
@@ -397,6 +428,7 @@ async function startReview(): Promise<void> {
     console.log(
       `Corpus: ${manifest.corpusId}; ${entries.length} downloadable images`,
     );
+    console.log(`Brand app: ${appOrigin}`);
     console.log(`Draft: ${draft.runId ?? "none"}`);
   });
 }
