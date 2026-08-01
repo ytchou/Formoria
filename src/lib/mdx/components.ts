@@ -2,7 +2,7 @@ import { createElement, type ComponentPropsWithoutRef, type ReactNode } from 're
 
 import { BrandCardMdx } from '@/components/stories/brand-card-mdx'
 import { BrandGrid } from '@/components/stories/brand-grid'
-import { BrandSpotlight } from '@/components/stories/brand-spotlight'
+import { BrandRow } from '@/components/stories/brand-row'
 import { FaqBlock } from '@/components/stories/faq-block'
 import { StatsCallout } from '@/components/stories/stats-callout'
 import { cn } from '@/lib/utils'
@@ -33,8 +33,9 @@ export const storyComponentMap = {
     createElement(BrandCardMdx, props),
   BrandGrid: (props: { slugs: string[]; notes?: Record<string, string> }) =>
     createElement(BrandGrid, props),
-  BrandSpotlight: (props: { slug: string; meta?: string; children?: ReactNode }) =>
-    createElement(BrandSpotlight, { slug: props.slug, meta: props.meta }, props.children),
+  // Children, not a `slugs` array — MDX expression attributes are dropped
+  // (DEV-1302), so the row's cards are authored as nested `<BrandCard>`.
+  BrandRow: (props: { children?: ReactNode }) => createElement(BrandRow, null, props.children),
   StatsCallout: (props: { stat: string; label: string }) =>
     createElement(StatsCallout, { stat: props.stat, label: props.label }),
   // `emitJsonLd: false` is load-bearing. The detail page already renders a

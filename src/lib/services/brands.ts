@@ -811,9 +811,10 @@ export async function getBrandSlugsBatch(brandIds: string[]): Promise<Map<string
  * deduped *and sorted*, so `['a','b']` and `['b','a']` share one entry.
  *
  * What this does and does not dedupe: two calls with the same slug *set* share
- * one round trip. Calls with different sets do not — `<BrandCard>` and
- * `<BrandSpotlight>` each pass a one-element array, so five distinct cards
- * still issue five queries. Only `<BrandGrid>` is genuinely batched. Collapsing
+ * one round trip. Calls with different sets do not — every `<BrandCard>` passes
+ * a one-element array, so five distinct cards (including the three inside a
+ * `<BrandRow>`, which only lays them out) still issue five queries. Only
+ * `<BrandGrid>` is genuinely batched. Collapsing
  * the singles would need a per-request collector that knows the page's full
  * slug set before the first card renders, which RSC's streaming render does not
  * offer without changing this signature.

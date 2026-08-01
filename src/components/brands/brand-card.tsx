@@ -100,12 +100,27 @@ export function BrandCard({
       {/* Content */}
       <div className="p-4">
         {variant === 'editorial' && eyebrow ? (
-          <Badge variant="secondary" className="mb-2">
-            {eyebrow}
-          </Badge>
+          /*
+           * Micro-text, not a `Badge`: three grey pills across a `<BrandRow>`
+           * read as chrome inside prose. `type-eyebrow-muted` is the declared
+           * 11px uppercase tracked utility — never hand-pick the size here.
+           */
+          <p className="mb-2 type-eyebrow-muted">{eyebrow}</p>
         ) : null}
         <div className="flex min-w-0 items-center gap-1.5">
-          <h3 className="min-w-0 truncate type-subsection-title">
+          {/*
+           * Editorial titles get two lines with a reserved two-line height: at
+           * the ~229px card width of a 3-up row `truncate` cut real brand names
+           * mid-word, and an unreserved clamp let a 1-line card ride up out of
+           * line with its neighbours. Every other variant keeps `truncate` —
+           * the directory and recommendation surfaces must not change.
+           */}
+          <h3
+            className={cn(
+              'min-w-0 type-subsection-title',
+              variant === 'editorial' ? 'line-clamp-2 min-h-10' : 'truncate',
+            )}
+          >
             <Link
               href={`/brands/${brand.slug}`}
               prefetch={variant === 'directory' ? false : undefined}

@@ -12,8 +12,8 @@ import { getBrandsBySlugs } from '../brands'
  *
  * Extraction is `extractBrandSlugs` — the same function the story detail page
  * counts its `view_item_list` with. A second copy of the patterns here is what
- * let the two drift apart (this file had no `<BrandSpotlight>` case at all while
- * the page did), so the guard and the page now pass or fail together.
+ * let the two drift apart (this file was missing a shortcode case the page
+ * matched), so the guard and the page now pass or fail together.
  *
  * The real-content scan reads files off disk on purpose — it must never mock
  * `fs`, and it must never compile MDX: raw-text extraction is what lets the
@@ -89,15 +89,16 @@ describe('story content brand slugs (fixture coverage)', () => {
     expect(BRAND_SLUG_PATTERN.test('kiln-studio')).toBe(true)
   })
 
-  it('covers every brand shortcode, including BrandSpotlight and BrandGrid', () => {
+  it('covers every brand shortcode, including cards nested in BrandRow and BrandGrid', () => {
     const source = [
       '<BrandCard slug="molasses" />',
       '',
-      '<BrandSpotlight slug="yingge-kiln">',
+      // A row carries no slugs of its own — its child cards must still count.
+      '<BrandRow>',
       '',
-      'The kiln has run since 1974.',
+      '<BrandCard slug="yingge-kiln" note="The kiln has run since 1974." />',
       '',
-      '</BrandSpotlight>',
+      '</BrandRow>',
       '',
       // `notes` before `slugs`, with a `>` inside a note value: a naive
       // `[^>]*?` prefix stops at that `>` and drops the whole grid.

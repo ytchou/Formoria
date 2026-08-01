@@ -8,12 +8,13 @@
  *
  * It replaces two hand-rolled copies that had already drifted — the detail
  * page's analytics counter and the content guard test — where the guard was
- * missing a `BrandSpotlight` pattern entirely, so a spotlight-only story was
- * counted for analytics but never slug-checked.
+ * missing a shortcode pattern entirely, so a story using only that shortcode
+ * was counted for analytics but never slug-checked.
  */
 
 /**
- * `<BrandCard slug="…">` and `<BrandSpotlight slug="…">`
+ * `<BrandCard slug="…">`, including the cards nested inside a `<BrandRow>`:
+ * a row carries no slugs of its own, so its children match here unchanged.
  *
  * The prop prefix is `[\s\S]*?`, not `[^>]*?`: an earlier prop *value* may
  * legally contain a `>` (`note="a > b"`), and a `>`-excluding prefix makes the
@@ -21,7 +22,7 @@
  * both the CI slug guard and the analytics count. The `\bslug=["']` anchor that
  * follows is what stops the non-greedy prefix from running past the shortcode.
  */
-const SINGLE_SLUG_SHORTCODE = /<(?:BrandCard|BrandSpotlight)\b[\s\S]*?\bslug=["']([^"']*)["']/g
+const SINGLE_SLUG_SHORTCODE = /<BrandCard\b[\s\S]*?\bslug=["']([^"']*)["']/g
 /** `<BrandGrid slugs={[ "…", "…" ]}>` — the array body is captured, then split. */
 const GRID_SLUGS_SHORTCODE = /<BrandGrid\b[\s\S]*?\bslugs=\{\s*\[([\s\S]*?)\]\s*\}/g
 const QUOTED_ENTRY = /["']([^"']*)["']/g
