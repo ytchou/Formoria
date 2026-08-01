@@ -1,4 +1,5 @@
 import { cache } from 'react'
+import { unstable_cache } from 'next/cache'
 import { pinyin } from 'pinyin-pro'
 import { convertPinyinToWadeGiles } from '@/lib/utils/pinyin-to-wade-giles'
 import type { Brand, BrandFilters, OtherUrl } from '@/lib/types'
@@ -18,6 +19,7 @@ import {
 import { slugifyRomanizedName, withSlugSuffix } from '@/lib/brands/slug'
 import { downloadAndStoreImages } from './image-download'
 import { excludeTestBrands } from './public-brand-filter'
+import { PUBLIC_BRAND_DATA_TAG } from '@/lib/cache/public-brand-cache'
 import {
   resolveWritablePatch,
   type BrandFieldWriteState,
@@ -1114,6 +1116,17 @@ export async function getSubcategoryCounts(categorySlug: string): Promise<Map<st
 
 export const EXPLORE_BRAND_LIMIT = 12
 
+const getCachedExploreBrandPool = unstable_cache(
+  () =>
+    getBrands({
+      status: 'approved',
+      sort: 'random',
+      limit: 200,
+    }),
+  ['homepage-explore-brand-pool'],
+  { revalidate: 3600, tags: [PUBLIC_BRAND_DATA_TAG] },
+)
+
 function selectCategoryBalancedBrands(
   brands: Brand[],
   categorySlugs: readonly string[],
@@ -1149,11 +1162,7 @@ function selectCategoryBalancedBrands(
 export async function getExploreBrands(
   limit = EXPLORE_BRAND_LIMIT,
 ): Promise<{ brands: Brand[]; totalCount: number }> {
-  const { brands, totalCount } = await getBrands({
-    status: 'approved',
-    sort: 'random',
-    limit: 200,
-  })
+  const { brands, totalCount } = await getCachedExploreBrandPool()
   const categorySlugs = PRODUCT_TYPE_CATEGORIES.map(({ slug }) => slug)
 
   return {
@@ -1701,37 +1710,45 @@ export async function getNewBrands(limit = 4): Promise<Brand[]> {
   return rows.slice(0, limit).map(brandToDomain)
 }
 
+const getCachedRecentBrandCount = unstable_cache(
+  async (): Promise<{ count: number; period: '7d' | '30d' }> => {
+    const supabase = createServiceClient()
+    const now = new Date()
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
+
+    const { count: weekCount, error: weekError } = await excludeTestBrands(
+      supabase
+        .from('brands')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'approved')
+        .gte('approved_at', sevenDaysAgo),
+    )
+
+    if (weekError) throw weekError
+
+    if ((weekCount ?? 0) > 0) {
+      return { count: weekCount ?? 0, period: '7d' }
+    }
+
+    const { count: monthCount, error: monthError } = await excludeTestBrands(
+      supabase
+        .from('brands')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'approved')
+        .gte('approved_at', thirtyDaysAgo),
+    )
+
+    if (monthError) throw monthError
+
+    return { count: monthCount ?? 0, period: '30d' }
+  },
+  ['recent-brand-count'],
+  { revalidate: 3600, tags: [PUBLIC_BRAND_DATA_TAG] },
+)
+
 export async function getRecentBrandCount(): Promise<{ count: number; period: '7d' | '30d' }> {
-  const supabase = createServiceClient()
-  const now = new Date()
-  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
-  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
-
-  const { count: weekCount, error: weekError } = await excludeTestBrands(
-    supabase
-      .from('brands')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'approved')
-      .gte('approved_at', sevenDaysAgo),
-  )
-
-  if (weekError) throw weekError
-
-  if ((weekCount ?? 0) > 0) {
-    return { count: weekCount ?? 0, period: '7d' }
-  }
-
-  const { count: monthCount, error: monthError } = await excludeTestBrands(
-    supabase
-      .from('brands')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'approved')
-      .gte('approved_at', thirtyDaysAgo),
-  )
-
-  if (monthError) throw monthError
-
-  return { count: monthCount ?? 0, period: '30d' }
+  return getCachedRecentBrandCount()
 }
 
 export async function getBrandStats(): Promise<{ brandCount: number; categoryCount: number }> {

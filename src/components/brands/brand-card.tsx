@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils'
 interface BrandCardProps {
   brand: Brand
   position?: number
-  priority?: boolean
+  preload?: boolean
   variant?: 'directory' | 'recommendation' | 'editorial'
   sourceBrandSlug?: string
   /**
@@ -34,7 +34,7 @@ interface BrandCardProps {
 export function BrandCard({
   brand,
   position = 0,
-  priority = false,
+  preload = false,
   variant = 'directory',
   sourceBrandSlug,
   note,
@@ -70,7 +70,7 @@ export function BrandCard({
             src={imageSrc}
             alt=""
             fill
-            priority={priority}
+            preload={preload}
             className="object-contain transition-transform group-hover:scale-[1.02]"
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
             onError={() => setImgError(true)}
@@ -94,6 +94,7 @@ export function BrandCard({
           <h3 className="min-w-0 truncate type-subsection-title">
             <Link
               href={`/brands/${brand.slug}`}
+              prefetch={variant === 'directory' ? false : undefined}
               className={cn(
                 'focus-visible:outline-none',
                 isWholeCardLink && 'after:absolute after:inset-0',

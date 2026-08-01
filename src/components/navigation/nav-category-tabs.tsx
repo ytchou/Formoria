@@ -119,9 +119,20 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
   )
 }
 
+function NavCategoryTabsFallback() {
+  return (
+    <nav
+      aria-hidden="true"
+      className="page-gutter mx-auto max-w-screen-xl overflow-x-hidden"
+    >
+      <div className="h-11" />
+    </nav>
+  )
+}
+
 export function NavCategoryTabs({ categories }: NavCategoryTabsProps) {
   return (
-    <Suspense>
+    <Suspense fallback={<NavCategoryTabsFallback />}>
       <NavCategoryTabsInner categories={categories} />
     </Suspense>
   )

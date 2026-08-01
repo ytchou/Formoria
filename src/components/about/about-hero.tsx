@@ -25,8 +25,7 @@ export default async function AboutHero({ brandCount, categoryCount, recentBrand
         src="/images/hero-bg.png"
         alt=""
         fill
-        priority
-        loading="eager"
+        preload
         sizes="100vw"
         className="object-cover object-right"
       />

@@ -5,7 +5,13 @@ import { routing } from '@/i18n/routing'
 import { isAppLocale, localizePath, LOCALE_COOKIE, resolveInitialLocale } from '@/i18n/locale-preference'
 import { IMPERSONATE_COOKIE, resolveImpersonationCookie } from '@/lib/auth/impersonation'
 import { verifyChallengeToken, CHALLENGE_COOKIE_NAME } from '@/lib/security/challenge'
-import { checkRateLimit, checkSoftRateLimit, getClientIp, isLikelyCrawler } from "@/lib/security/rate-limiter";
+import {
+  checkRateLimit,
+  checkSoftRateLimit,
+  getClientIp,
+  isLikelyCrawler,
+  isRouterRequest,
+} from "@/lib/security/rate-limiter";
 import { resolveApprovedBrandRedirect } from '@/lib/services/brand-redirects'
 
 /**
@@ -202,18 +208,6 @@ async function refreshSupabaseSession(request: NextRequest, response: NextRespon
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const isPlaywrightTest = process.env.PLAYWRIGHT_TEST === 'true'
-  const isServerAction = request.headers.has('next-action')
-  const isRscOrPrefetch =
-    request.headers.get('RSC') === '1' ||
-    request.headers.get('next-router-prefetch') === '1'
-  // Next 16 consumes RSC/prefetch headers before invoking proxy. The
-  // surviving next-url header identifies some internal router requests. The
-  // remaining router fetches retain only their non-document Accept header.
-  const isRouterRequest =
-    isRscOrPrefetch ||
-    isServerAction ||
-    request.headers.has('next-url') ||
-    request.headers.get('accept') === '*/*'
 
   const host = request.headers.get('host') ?? ''
   if (host === (process.env.MICROSITE_HOST ?? 'brand.formoria.com')) {
@@ -267,7 +261,7 @@ export async function proxy(request: NextRequest) {
     if (rateLimitResponse) return rateLimitResponse
   }
 
-  if (!isPlaywrightTest && !isRouterRequest && isSoftLimitPath(pathname)) {
+  if (!isPlaywrightTest && !isRouterRequest(request) && isSoftLimitPath(pathname)) {
     const challengeCookie = request.cookies.get(CHALLENGE_COOKIE_NAME)?.value
     let isVerified = false
     if (challengeCookie) {

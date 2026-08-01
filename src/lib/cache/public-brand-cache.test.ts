@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { revalidatePath } = vi.hoisted(() => ({
+const { revalidatePath, revalidateTag } = vi.hoisted(() => ({
   revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
 }))
 
-vi.mock('next/cache', () => ({ revalidatePath }))
+vi.mock('next/cache', () => ({ revalidatePath, revalidateTag }))
 
 import { routing } from '@/i18n/routing'
-import { revalidatePublicBrand } from './public-brand-cache'
+import { PUBLIC_BRAND_DATA_TAG, revalidatePublicBrand } from './public-brand-cache'
 
 const revalidatedPaths = () => revalidatePath.mock.calls.map(([path]) => path)
 
@@ -32,6 +33,12 @@ describe('revalidatePublicBrand', () => {
         '/sitemap.xml',
       ]),
     )
+  })
+
+  it('invalidates the shared public brand data cache', () => {
+    revalidatePublicBrand({ slug: 'niizo' })
+
+    expect(revalidateTag).toHaveBeenCalledWith(PUBLIC_BRAND_DATA_TAG, 'max')
   })
 
   it('never emits unprefixed paths — `as-needed` keeps the locale in the ISR cache key', () => {

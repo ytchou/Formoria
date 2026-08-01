@@ -123,7 +123,7 @@ export function ImageCarousel({
             fill
             className="object-contain animate-in fade-in duration-200"
             sizes={variant === 'detail' ? '(max-width: 1024px) 100vw, 580px' : '192px'}
-            priority={current === 0}
+            preload={variant === 'detail' && current === 0}
             onError={() => handleImageError(current)}
           />
         )}

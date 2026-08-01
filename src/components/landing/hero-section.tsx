@@ -22,8 +22,7 @@ export default async function HeroSection({ brandCount, categoryCount, recentBra
         src="/images/hero-bg.png"
         alt=""
         fill
-        priority
-        loading="eager"
+        preload
         sizes="100vw"
         className="object-cover object-right"
       />

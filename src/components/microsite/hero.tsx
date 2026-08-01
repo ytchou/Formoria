@@ -38,7 +38,7 @@ export function Hero({ brand, siteContent }: HeroProps) {
               fill
               className="object-cover"
               sizes="(max-width: 768px) 100vw, 50vw"
-              priority
+              preload
             />
           </div>
         )}

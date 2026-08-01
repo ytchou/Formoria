@@ -1,5 +1,7 @@
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { routing } from '@/i18n/routing'
+
+export const PUBLIC_BRAND_DATA_TAG = 'public-brand-data'
 
 type PublicBrandCacheInput = {
   slug: string
@@ -25,6 +27,7 @@ export function revalidatePublicBrand({
   slug,
   previousSlug,
 }: PublicBrandCacheInput): void {
+  revalidateTag(PUBLIC_BRAND_DATA_TAG, 'max')
   revalidateLocalizedPath(`/brands/${slug}`)
   if (previousSlug && previousSlug !== slug) {
     revalidateLocalizedPath(`/brands/${previousSlug}`)

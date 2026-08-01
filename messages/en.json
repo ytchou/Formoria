@@ -200,7 +200,8 @@
     "search": {
       "aria": "Search brands",
       "placeholder": "Search brands...",
-      "clear": "Clear search"
+      "clear": "Clear search",
+      "loading": "Searching brands..."
     },
     "pagination": {
       "label": "Pagination",

@@ -1,6 +1,7 @@
 'use client'
 
-import Link from 'next/link'
+import Link, { useLinkStatus } from 'next/link'
+import { Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { trackDirectoryPageNavigated } from '@/lib/analytics'
@@ -45,6 +46,17 @@ const navLinkClass =
 const pageLinkClass =
   'inline-flex min-h-12 min-w-12 items-center justify-center rounded-lg type-body-emphasis text-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
 
+function PaginationLinkStatus() {
+  const { pending } = useLinkStatus()
+
+  return (
+    <Loader2
+      aria-hidden="true"
+      className={`size-3 shrink-0 transition-opacity ${pending ? 'animate-spin opacity-100' : 'opacity-0'}`}
+    />
+  )
+}
+
 function getPageDirection(
   targetPage: number,
   currentPage: number,
@@ -74,7 +86,7 @@ export function Pagination({
       {currentPage > 1 ? (
         <Link
           href={buildPageUrl(pathname, searchParams, currentPage - 1)}
-          className={navLinkClass}
+          className={`${navLinkClass} gap-1`}
           aria-label={t('pagination.previousAria')}
           prefetch={false}
           scroll={false}
@@ -84,6 +96,7 @@ export function Pagination({
           data-ph-no-autocapture
         >
           {t('pagination.previous')}
+          <PaginationLinkStatus />
         </Link>
       ) : (
         <span className="inline-flex min-h-12 items-center justify-center rounded-lg px-3 type-body-emphasis text-foreground/20">
@@ -122,7 +135,7 @@ export function Pagination({
           <Link
             key={page}
             href={buildPageUrl(pathname, searchParams, page)}
-            className={pageLinkClass}
+            className={`${pageLinkClass} gap-1`}
             prefetch={false}
             scroll={false}
             onClick={() =>
@@ -135,6 +148,7 @@ export function Pagination({
             data-ph-no-autocapture
           >
             {page}
+            <PaginationLinkStatus />
           </Link>
         )
       })}
@@ -143,7 +157,7 @@ export function Pagination({
       {currentPage < totalPages ? (
         <Link
           href={buildPageUrl(pathname, searchParams, currentPage + 1)}
-          className={navLinkClass}
+          className={`${navLinkClass} gap-1`}
           aria-label={t('pagination.nextAria')}
           prefetch={false}
           scroll={false}
@@ -153,6 +167,7 @@ export function Pagination({
           data-ph-no-autocapture
         >
           {t('pagination.next')}
+          <PaginationLinkStatus />
         </Link>
       ) : (
         <span className="inline-flex min-h-12 items-center justify-center rounded-lg px-3 type-body-emphasis text-foreground/20">
