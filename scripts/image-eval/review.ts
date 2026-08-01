@@ -14,6 +14,7 @@ import {
   defaultTagDefinitions,
   hydrateLabelsFile,
   normalizeLabelInput,
+  REJECTION_REASON_DEFINITIONS,
   registerTagDefinition,
   validateLabel,
 } from "./lib/labels";
@@ -92,7 +93,7 @@ const REVIEW_HTML = `<!doctype html>
       <button data-disposition="keep">Keep — useful and publishable</button>
       <button data-disposition="reject">Reject — worse than no image</button>
     </div>
-    <div class="group"><h2>Primary tag</h2>
+    <div id="tag-group" class="group" hidden><h2>Primary tag</h2>
       <div id="tag-options"></div>
       <form id="add-tag-form">
         <input id="new-tag-slug" type="text" required placeholder="Slug, e.g. workspace">
@@ -102,14 +103,8 @@ const REVIEW_HTML = `<!doctype html>
       </form>
       <div id="tag-status" class="keys"></div>
     </div>
-    <div class="group"><h2>Rejection reasons</h2>
-      <label><input type="checkbox" data-reason value="wrong_brand">Wrong brand</label>
-      <label><input type="checkbox" data-reason value="time_sensitive">Time-sensitive offer</label>
-      <label><input type="checkbox" data-reason value="promo_subject">Promotion is the subject</label>
-      <label><input type="checkbox" data-reason value="text_dominant">Text dominates image</label>
-      <label><input type="checkbox" data-reason value="low_visual_quality">Low visual quality</label>
-      <label><input type="checkbox" data-reason value="duplicate">Duplicate</label>
-      <label><input type="checkbox" data-reason value="irrelevant">Irrelevant</label>
+    <div id="reason-group" class="group" hidden><h2>Rejection reasons</h2>
+      <div id="reason-options"></div>
     </div>
     <div class="group"><h2>Notes</h2><textarea id="notes" placeholder="Optional adjudication note"></textarea></div>
     <button id="save">Save label and next</button>
@@ -117,13 +112,16 @@ const REVIEW_HTML = `<!doctype html>
   </aside>
 </main>
 <script>
-let entries = [], labels = {}, labelHistory = {}, drafts = {}, draftRunId = null, draftPrompt = null, tagDefinitions = {}, index = 0, state = { disposition: null, tag: null, reasons: [], notes: '' };
+let entries = [], labels = {}, labelHistory = {}, drafts = {}, draftRunId = null, draftPrompt = null, tagDefinitions = {}, rejectionReasons = [], index = 0, state = { disposition: null, tag: null, reasons: [], notes: '' };
 const $ = (selector) => document.querySelector(selector);
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 function current() { return entries[index]; }
 function renderTagOptions() {
   const definitions = Object.values(tagDefinitions);
   $('#tag-options').innerHTML = definitions.map((definition, definitionIndex) => '<button data-tag="' + esc(definition.slug) + '" title="' + esc(definition.description) + '">' + (definitionIndex < 9 ? (definitionIndex + 1) + ' · ' : '') + esc(definition.label) + '</button>').join('');
+}
+function renderReasonOptions() {
+  $('#reason-options').innerHTML = rejectionReasons.map((reason) => '<label><input type="checkbox" data-reason value="' + esc(reason.slug) + '">' + esc(reason.label) + '</label>').join('');
 }
 function renderDraft() {
   const suggestion = drafts[current().id];
@@ -138,13 +136,17 @@ function renderDraft() {
 }
 function render(reset = true) {
   const entry = current(); if (!entry) return;
-  $('#image').src = entry.signedUrl || ''; $('#image').alt = entry.title || entry.brandName;
+  $('#image').src = entry.signedUrl || ''; $('#image').alt = entry.brandName + ' ' + entry.category + ' image';
   const existing = labels[entry.id];
-  if (reset) state = existing ? { disposition: existing.disposition, tag: existing.tag, reasons: existing.reasons || [], notes: existing.notes || '' } : { disposition: null, tag: null, reasons: [], notes: '' };
+  const suggestion = drafts[entry.id];
+  if (reset) state = existing ? { disposition: existing.disposition, tag: existing.tag, reasons: existing.reasons || [], notes: existing.notes || '' } : suggestion && !suggestion.error && (suggestion.disposition === 'keep' || suggestion.disposition === 'reject') ? { disposition: suggestion.disposition, tag: suggestion.disposition === 'keep' ? suggestion.tag : null, reasons: suggestion.disposition === 'reject' ? (suggestion.reasons || []) : [], notes: '' } : { disposition: null, tag: null, reasons: [], notes: '' };
   renderTagOptions();
+  renderReasonOptions();
+  $('#tag-group').hidden = state.disposition !== 'keep';
+  $('#reason-group').hidden = state.disposition !== 'reject';
   renderDraft();
   $('#counter').textContent = (index + 1) + ' / ' + entries.length + (existing ? ' · labeled' : ' · unlabeled');
-  $('#meta').innerHTML = '<strong>' + esc(entry.brandName) + '</strong> · ' + esc(entry.category) + ' · ' + esc(entry.split) + '<br>Serper position ' + entry.position + ' · ' + esc(entry.domain || '') + '<br>' + esc(entry.title || 'Untitled');
+  $('#meta').textContent = entry.brandName + ' · ' + entry.category;
   const revisions = labelHistory[entry.id] || [];
   $('#history').textContent = revisions.length + ' saved revision' + (revisions.length === 1 ? '' : 's');
   document.querySelectorAll('[data-disposition]').forEach((button) => button.classList.toggle('active', button.dataset.disposition === state.disposition));
@@ -171,11 +173,11 @@ async function save() {
 document.querySelectorAll('[data-disposition]').forEach((button) => button.addEventListener('click', () => setDisposition(button.dataset.disposition)));
 $('#accept-draft').addEventListener('click', acceptDraft);
 $('#tag-options').addEventListener('click', (event) => { const button = event.target instanceof Element ? event.target.closest('[data-tag]') : null; if (button) setTag(button.dataset.tag); });
+$('#reason-options').addEventListener('change', (event) => { const input = event.target instanceof HTMLInputElement && event.target.matches('[data-reason]') ? event.target : null; if (input) state.reasons = [...document.querySelectorAll('[data-reason]:checked')].map((item) => item.value); });
 $('#add-tag-form').addEventListener('submit', async (event) => { event.preventDefault(); const response = await fetch('/api/tags', { method: 'POST', headers: {'content-type':'application/json'}, body: JSON.stringify({ slug: $('#new-tag-slug').value, label: $('#new-tag-label').value, description: $('#new-tag-description').value, imageId: current().id }) }); if (!response.ok) return alert(await response.text()); const saved = await response.json(); tagDefinitions = saved.tagDefinitions; $('#new-tag-slug').value = ''; $('#new-tag-label').value = ''; $('#new-tag-description').value = ''; $('#tag-status').textContent = 'Added ' + saved.tag.label + '; selected for this image.'; setTag(saved.tag.slug); });
-document.querySelectorAll('[data-reason]').forEach((input) => input.addEventListener('change', () => { state.reasons = [...document.querySelectorAll('[data-reason]:checked')].map((item) => item.value); }));
 $('#save').addEventListener('click', save);
 document.addEventListener('keydown', (event) => { if (event.target.matches('textarea,input')) return; if (event.key.toLowerCase() === 'k') setDisposition('keep'); if (event.key.toLowerCase() === 'r') setDisposition('reject'); if (event.key.toLowerCase() === 'a') acceptDraft(); if (/^[1-9]$/.test(event.key)) { const option = Object.values(tagDefinitions)[Number(event.key) - 1]; if (option) setTag(option.slug); } if (event.key === 'ArrowLeft' && index > 0) { index -= 1; render(); } if (event.key === 'ArrowRight' && index < entries.length - 1) { index += 1; render(); } if (event.key === 'Enter') save(); });
-fetch('/api/corpus').then((response) => response.json()).then((payload) => { entries = payload.entries; labels = payload.labels; labelHistory = payload.history || {}; drafts = payload.drafts || {}; draftRunId = payload.draftRunId || null; draftPrompt = payload.draftPrompt || null; tagDefinitions = payload.tagDefinitions || {}; const firstUnlabeled = entries.findIndex((entry) => !labels[entry.id]); index = firstUnlabeled >= 0 ? firstUnlabeled : 0; render(); });
+fetch('/api/corpus').then((response) => response.json()).then((payload) => { entries = payload.entries; labels = payload.labels; labelHistory = payload.history || {}; drafts = payload.drafts || {}; draftRunId = payload.draftRunId || null; draftPrompt = payload.draftPrompt || null; tagDefinitions = payload.tagDefinitions || {}; rejectionReasons = payload.rejectionReasons || []; const firstUnlabeled = entries.findIndex((entry) => !labels[entry.id]); index = firstUnlabeled >= 0 ? firstUnlabeled : 0; render(); });
 </script>
 </body></html>`;
 
@@ -312,6 +314,7 @@ async function startReview(): Promise<void> {
           labels: labelsFile.labels,
           history: labelsFile.history ?? {},
           tagDefinitions: labelsFile.tagDefinitions ?? {},
+          rejectionReasons: REJECTION_REASON_DEFINITIONS,
           draftRunId: draft.runId,
           draftPrompt: draft.prompt,
           drafts: draft.predictions,

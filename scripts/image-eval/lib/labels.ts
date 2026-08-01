@@ -10,15 +10,21 @@ import type {
   RejectionReason,
 } from "./types";
 
-const REJECTION_REASONS = new Set<RejectionReason>([
-  "wrong_brand",
-  "time_sensitive",
-  "promo_subject",
-  "text_dominant",
-  "low_visual_quality",
-  "duplicate",
-  "irrelevant",
-]);
+export const REJECTION_REASON_DEFINITIONS: ReadonlyArray<{
+  slug: RejectionReason;
+  label: string;
+}> = [
+  { slug: "wrong_brand", label: "Wrong brand" },
+  { slug: "time_sensitive", label: "Time-sensitive offer" },
+  { slug: "promo_subject", label: "Promotion is the subject" },
+  { slug: "text_dominant", label: "Text dominates image" },
+  { slug: "low_visual_quality", label: "Low visual quality" },
+  { slug: "duplicate", label: "Duplicate" },
+  { slug: "irrelevant", label: "Irrelevant" },
+];
+const REJECTION_REASONS = new Set<RejectionReason>(
+  REJECTION_REASON_DEFINITIONS.map((definition) => definition.slug),
+);
 const RESERVED_TAGS = new Set(["promo", "text_banner", "irrelevant"]);
 
 const SYSTEM_TAGS: GoldenTagDefinition[] = [
