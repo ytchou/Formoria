@@ -71,7 +71,6 @@ const REVIEW_HTML = `<!doctype html>
     input[type=checkbox] { margin-right: 8px; }
     input[type=text] { width: 100%; box-sizing: border-box; margin: 8px 0; padding: 10px 12px; border: 1px solid #404040; border-radius: 8px; background: #262626; color: inherit; }
     #add-tag-form button { text-align: center; }
-    #accept-draft { background: #9bd5b0; color: #171717; text-align: center; font-weight: 700; }
     textarea { width: 100%; min-height: 70px; box-sizing: border-box; background: #262626; color: inherit; border: 1px solid #404040; border-radius: 8px; padding: 8px; }
     #save { background: #f5f5f5; color: #171717; text-align: center; font-weight: 700; }
     .keys { color: #a3a3a3; font-size: 12px; line-height: 1.6; }
@@ -86,8 +85,7 @@ const REVIEW_HTML = `<!doctype html>
     <p class="keys">Queue: 400 images, randomized within split. All dev images come before the 50-image holdout sample.</p>
     <div class="group"><h2>AI draft</h2>
       <div id="draft" class="keys">No AI draft loaded.</div>
-      <button id="accept-draft" type="button" hidden>Accept AI suggestion</button>
-      <div class="keys">Accept fills the controls; only Save creates a human-approved revision.</div>
+      <button id="save">Save label and next</button>
     </div>
     <div class="group"><h2>Disposition</h2>
       <button data-disposition="keep">Keep — useful and publishable</button>
@@ -107,8 +105,7 @@ const REVIEW_HTML = `<!doctype html>
       <div id="reason-options"></div>
     </div>
     <div class="group"><h2>Notes</h2><textarea id="notes" placeholder="Optional adjudication note"></textarea></div>
-    <button id="save">Save label and next</button>
-    <p class="keys">Keys: K keep, R reject, 1–9 tag, ←/→ navigate. A reject defaults to low visual quality until you choose a reason.</p>
+    <p class="keys">Keys: K keep, R reject, 1–9 tag, ←/→ navigate. Reject defaults to low visual quality until you choose a reason.</p>
   </aside>
 </main>
 <script>
@@ -125,14 +122,12 @@ function renderReasonOptions() {
 }
 function renderDraft() {
   const suggestion = drafts[current().id];
-  const button = $('#accept-draft');
-  if (!suggestion) { $('#draft').textContent = draftRunId ? 'No suggestion for this image.' : 'No AI draft loaded.'; button.hidden = true; return; }
-  if (suggestion.error) { $('#draft').textContent = 'AI draft unresolved: ' + suggestion.error; button.hidden = true; return; }
+  if (!suggestion) { $('#draft').textContent = draftRunId ? 'No suggestion for this image.' : 'No AI draft loaded.'; return; }
+  if (suggestion.error) { $('#draft').textContent = 'AI draft unresolved: ' + suggestion.error; return; }
   const tag = suggestion.tag ? (tagDefinitions[suggestion.tag]?.label || suggestion.tag) : 'no primary tag';
   const reasons = suggestion.reasons?.length ? ' · ' + suggestion.reasons.join(', ') : '';
   const score = typeof suggestion.score === 'number' ? ' · score ' + suggestion.score : '';
   $('#draft').textContent = (draftRunId ? 'run ' + draftRunId + ' · ' : '') + (draftPrompt ? draftPrompt + ' · ' : '') + suggestion.disposition.toUpperCase() + ' · ' + tag + score + reasons + ' · not saved';
-  button.hidden = false;
 }
 function render(reset = true) {
   const entry = current(); if (!entry) return;
@@ -156,7 +151,6 @@ function render(reset = true) {
 }
 function setDisposition(disposition) { state.disposition = disposition; if (disposition === 'keep') state.reasons = []; if (disposition === 'reject') { state.tag = null; if (!state.reasons.length) state.reasons = ['low_visual_quality']; } render(false); }
 function setTag(tag) { state.disposition = 'keep'; state.tag = tag; state.reasons = []; render(false); }
-function acceptDraft() { const suggestion = drafts[current().id]; if (!suggestion || suggestion.error) return; state.disposition = suggestion.disposition; state.tag = suggestion.disposition === 'keep' ? suggestion.tag : null; state.reasons = suggestion.disposition === 'reject' ? (suggestion.reasons || []) : []; render(false); }
 async function save() {
   if (!state.disposition) return alert('Choose keep or reject first.');
   if (state.disposition === 'keep' && !state.tag) return alert('Choose one primary tag before saving a kept image.');
@@ -171,12 +165,11 @@ async function save() {
   render();
 }
 document.querySelectorAll('[data-disposition]').forEach((button) => button.addEventListener('click', () => setDisposition(button.dataset.disposition)));
-$('#accept-draft').addEventListener('click', acceptDraft);
 $('#tag-options').addEventListener('click', (event) => { const button = event.target instanceof Element ? event.target.closest('[data-tag]') : null; if (button) setTag(button.dataset.tag); });
 $('#reason-options').addEventListener('change', (event) => { const input = event.target instanceof HTMLInputElement && event.target.matches('[data-reason]') ? event.target : null; if (input) state.reasons = [...document.querySelectorAll('[data-reason]:checked')].map((item) => item.value); });
 $('#add-tag-form').addEventListener('submit', async (event) => { event.preventDefault(); const response = await fetch('/api/tags', { method: 'POST', headers: {'content-type':'application/json'}, body: JSON.stringify({ slug: $('#new-tag-slug').value, label: $('#new-tag-label').value, description: $('#new-tag-description').value, imageId: current().id }) }); if (!response.ok) return alert(await response.text()); const saved = await response.json(); tagDefinitions = saved.tagDefinitions; $('#new-tag-slug').value = ''; $('#new-tag-label').value = ''; $('#new-tag-description').value = ''; $('#tag-status').textContent = 'Added ' + saved.tag.label + '; selected for this image.'; setTag(saved.tag.slug); });
 $('#save').addEventListener('click', save);
-document.addEventListener('keydown', (event) => { if (event.target.matches('textarea,input')) return; if (event.key.toLowerCase() === 'k') setDisposition('keep'); if (event.key.toLowerCase() === 'r') setDisposition('reject'); if (event.key.toLowerCase() === 'a') acceptDraft(); if (/^[1-9]$/.test(event.key)) { const option = Object.values(tagDefinitions)[Number(event.key) - 1]; if (option) setTag(option.slug); } if (event.key === 'ArrowLeft' && index > 0) { index -= 1; render(); } if (event.key === 'ArrowRight' && index < entries.length - 1) { index += 1; render(); } if (event.key === 'Enter') save(); });
+document.addEventListener('keydown', (event) => { if (event.target.matches('textarea,input')) return; if (event.key.toLowerCase() === 'k') setDisposition('keep'); if (event.key.toLowerCase() === 'r') setDisposition('reject'); if (/^[1-9]$/.test(event.key)) { const option = Object.values(tagDefinitions)[Number(event.key) - 1]; if (option) setTag(option.slug); } if (event.key === 'ArrowLeft' && index > 0) { index -= 1; render(); } if (event.key === 'ArrowRight' && index < entries.length - 1) { index += 1; render(); } if (event.key === 'Enter') save(); });
 fetch('/api/corpus').then((response) => response.json()).then((payload) => { entries = payload.entries; labels = payload.labels; labelHistory = payload.history || {}; drafts = payload.drafts || {}; draftRunId = payload.draftRunId || null; draftPrompt = payload.draftPrompt || null; tagDefinitions = payload.tagDefinitions || {}; rejectionReasons = payload.rejectionReasons || []; const firstUnlabeled = entries.findIndex((entry) => !labels[entry.id]); index = firstUnlabeled >= 0 ? firstUnlabeled : 0; render(); });
 </script>
 </body></html>`;
