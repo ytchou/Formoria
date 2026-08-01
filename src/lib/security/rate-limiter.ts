@@ -160,6 +160,21 @@ export function isLikelyCrawler(request: NextRequest): boolean {
 }
 
 /**
+ * Next's client router can issue requests that look like document requests to
+ * the edge. They still need middleware processing, but must not consume the
+ * public document budget used to protect direct brand-page loads.
+ */
+export function isRouterRequest(request: Request): boolean {
+  return (
+    request.headers.get('RSC') === '1' ||
+    request.headers.get('next-router-prefetch') === '1' ||
+    request.headers.has('next-action') ||
+    request.headers.has('next-url') ||
+    request.headers.get('accept') === '*/*'
+  )
+}
+
+/**
  * Structural shape shared by `Headers` and Next's `ReadonlyHeaders`, so Server
  * Actions (which have no `Request`) can resolve the client IP the same way
  * route handlers and middleware do.
@@ -224,6 +239,10 @@ export async function checkRateLimit(request: NextRequest): Promise<NextResponse
   if (!ruleKey) return null
 
   const isProtectedRoute = ruleKey.startsWith('/api/') || ruleKey.startsWith('/admin/')
+  if (!isProtectedRoute && isRouterRequest(request)) {
+    return null
+  }
+
   if (!isProtectedRoute && isLikelyCrawler(request)) {
     return null
   }

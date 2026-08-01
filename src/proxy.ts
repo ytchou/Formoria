@@ -5,7 +5,13 @@ import { routing } from '@/i18n/routing'
 import { isAppLocale, localizePath, LOCALE_COOKIE, resolveInitialLocale } from '@/i18n/locale-preference'
 import { IMPERSONATE_COOKIE, resolveImpersonationCookie } from '@/lib/auth/impersonation'
 import { verifyChallengeToken, CHALLENGE_COOKIE_NAME } from '@/lib/security/challenge'
-import { checkRateLimit, checkSoftRateLimit, getClientIp, isLikelyCrawler } from "@/lib/security/rate-limiter";
+import {
+  checkRateLimit,
+  checkSoftRateLimit,
+  getClientIp,
+  isLikelyCrawler,
+  isRouterRequest,
+} from "@/lib/security/rate-limiter";
 import { resolveApprovedBrandRedirect } from '@/lib/services/brand-redirects'
 
 /**
@@ -202,18 +208,7 @@ async function refreshSupabaseSession(request: NextRequest, response: NextRespon
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const isPlaywrightTest = process.env.PLAYWRIGHT_TEST === 'true'
-  const isServerAction = request.headers.has('next-action')
-  const isRscOrPrefetch =
-    request.headers.get('RSC') === '1' ||
-    request.headers.get('next-router-prefetch') === '1'
-  // Next 16 consumes RSC/prefetch headers before invoking proxy. The
-  // surviving next-url header identifies some internal router requests. The
-  // remaining router fetches retain only their non-document Accept header.
-  const isRouterRequest =
-    isRscOrPrefetch ||
-    isServerAction ||
-    request.headers.has('next-url') ||
-    request.headers.get('accept') === '*/*'
+  const routerRequest = isRouterRequest(request)
 
   const host = request.headers.get('host') ?? ''
   if (host === (process.env.MICROSITE_HOST ?? 'brand.formoria.com')) {
@@ -267,7 +262,7 @@ export async function proxy(request: NextRequest) {
     if (rateLimitResponse) return rateLimitResponse
   }
 
-  if (!isPlaywrightTest && !isRouterRequest && isSoftLimitPath(pathname)) {
+  if (!isPlaywrightTest && !routerRequest && isSoftLimitPath(pathname)) {
     const challengeCookie = request.cookies.get(CHALLENGE_COOKIE_NAME)?.value
     let isVerified = false
     if (challengeCookie) {
@@ -336,7 +331,7 @@ export async function proxy(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = localizePath(pathname, 'en')
     const localeResponse = NextResponse.redirect(url)
-    if (!isRouterRequest) {
+    if (!routerRequest) {
       localeResponse.cookies.set(LOCALE_COOKIE, 'en', {
         sameSite: 'lax',
         path: '/',
@@ -365,7 +360,7 @@ export async function proxy(request: NextRequest) {
   // retained for the browser session. Explicit preferences are persisted by the
   // switcher, auth, and settings flows instead.
   const resolvedLocale = inferredLocale
-  if (resolvedLocale && resolvedLocale !== cookieLocale && !isRouterRequest) {
+  if (resolvedLocale && resolvedLocale !== cookieLocale && !routerRequest) {
     response.cookies.set(LOCALE_COOKIE, resolvedLocale, {
       sameSite: 'lax',
       path: '/',
@@ -374,7 +369,7 @@ export async function proxy(request: NextRequest) {
 
   if (
     isDirectoryIndexPath(pathname) &&
-    !isRouterRequest &&
+    !routerRequest &&
     !response.headers.has('set-cookie')
   ) {
     response.headers.set('Cache-Control', DIRECTORY_EDGE_CACHE_CONTROL)

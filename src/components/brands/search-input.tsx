@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Loader2 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
 import { useRouter } from '@/i18n/navigation'
 import { localizePath } from '@/i18n/locale-preference'
@@ -33,12 +34,13 @@ function SearchInput({
 }: SearchInputProps = {}) {
   const t = useTranslations('brands')
   const locale = useLocale()
-  const { filters, setSearch } = useFilterParams()
+  const { filters, isPending, setSearch } = useFilterParams()
   const [value, setValue] = useState(filters.search)
   const [lastUrlSearch, setLastUrlSearch] = useState(filters.search)
   const [suggestions, setSuggestions] = useState<SearchResult[]>([])
   const [selectedIndex, setSelectedIndex] = useState(-1)
   const [showDropdown, setShowDropdown] = useState(false)
+  const [isFetchingSuggestions, setIsFetchingSuggestions] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inputVersionRef = useRef(0)
   const abortRef = useRef<AbortController | null>(null)
@@ -54,6 +56,7 @@ function SearchInput({
     if (!q.trim()) {
       setSuggestions([])
       setShowDropdown(false)
+      setIsFetchingSuggestions(false)
       return
     }
 
@@ -71,6 +74,7 @@ function SearchInput({
         setSuggestions([])
         setShowDropdown(false)
         setSelectedIndex(-1)
+        setIsFetchingSuggestions(false)
         return
       }
 
@@ -80,12 +84,14 @@ function SearchInput({
       setSuggestions(results)
       setShowDropdown(true)
       setSelectedIndex(-1)
+      setIsFetchingSuggestions(false)
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return
       if (inputVersion !== inputVersionRef.current) return
       setSuggestions([])
       setShowDropdown(false)
       setSelectedIndex(-1)
+      setIsFetchingSuggestions(false)
     }
   }, [])
 
@@ -99,13 +105,16 @@ function SearchInput({
       if (!value.trim()) {
         setSuggestions([])
         setShowDropdown(false)
+        setIsFetchingSuggestions(false)
       } else if (showAutocomplete) {
+        setIsFetchingSuggestions(true)
         fetchSuggestions(value)
       } else {
         setSuggestions([])
         setShowDropdown(false)
+        setIsFetchingSuggestions(false)
       }
-    }, 300)
+    }, 200)
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -133,6 +142,7 @@ function SearchInput({
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     inputVersionRef.current += 1
     setValue(e.target.value)
+    setIsFetchingSuggestions(showAutocomplete && e.target.value.trim().length > 0)
   }
 
   function handleClear() {
@@ -144,6 +154,7 @@ function SearchInput({
     }
     setSuggestions([])
     setShowDropdown(false)
+    setIsFetchingSuggestions(false)
   }
 
   function handleSelect(slug: string, index: number) {
@@ -195,31 +206,45 @@ function SearchInput({
     }
   }
 
+  const isBusy = isPending || isFetchingSuggestions
+
   return (
     <form
       ref={containerRef}
       role="search"
       aria-label={formAriaLabel ?? t('search.aria')}
+      aria-busy={isBusy}
       onSubmit={handleSubmit}
       className={cn('relative w-full max-w-md', className)}
       data-ph-no-autocapture
     >
+      <span className="sr-only" role="status" aria-live="polite">
+        {isBusy ? t('search.loading') : ''}
+      </span>
+
       {/* Search icon */}
-      <svg
-        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
-        strokeWidth={2}
-        stroke="currentColor"
-        aria-hidden="true"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"
+      {isBusy ? (
+        <Loader2
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground"
+          aria-hidden="true"
         />
-      </svg>
+      ) : (
+        <svg
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth={2}
+          stroke="currentColor"
+          aria-hidden="true"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"
+          />
+        </svg>
+      )}
 
       <Input
         name="q"

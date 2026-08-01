@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition, type ReactNode } from "react";
-import { ChevronDown, Info, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, Info, Loader2, SlidersHorizontal } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -137,6 +137,7 @@ export function BrandFilterSidebar({
 }: BrandFilterSidebarProps) {
   const locale = useLocale();
   const t = useTranslations("brands.filters");
+  const searchT = useTranslations("brands.search");
   const verificationT = useTranslations("brands.verificationFilter");
   const router = useRouter();
   const pathname = usePathname();
@@ -158,7 +159,7 @@ export function BrandFilterSidebar({
   );
   const activeSubcategories = new Set(activeSubSlugs);
   const useZh = locale === "zh-TW";
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
 
   function categoryLabel(category: CategoryOption) {
     return useZh ? (category.nameZh ?? category.name) : category.name;
@@ -241,7 +242,25 @@ export function BrandFilterSidebar({
   }
 
   return (
-    <SurfaceCard className={cn("overflow-hidden", className)} padding="none">
+    <SurfaceCard
+      aria-busy={isPending}
+      className={cn("relative overflow-hidden", className)}
+      padding="none"
+    >
+      <div
+        className="pointer-events-none absolute right-4 top-4 z-10"
+        aria-hidden="true"
+      >
+        <Loader2
+          className={cn(
+            "size-4 text-muted-foreground transition-opacity",
+            isPending ? "animate-spin opacity-100" : "opacity-0",
+          )}
+        />
+      </div>
+      <span className="sr-only" role="status" aria-live="polite">
+        {isPending ? searchT("loading") : ""}
+      </span>
       {activeFilters.length > 0 ? (
         <section
           aria-label={t("currentConditions")}

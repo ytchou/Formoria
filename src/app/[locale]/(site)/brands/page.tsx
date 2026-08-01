@@ -528,7 +528,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
                       preloading four 100vw images would put three below-fold fetches at
                       fetchpriority=high in front of the real LCP element. */}
                   {displayBrands.map((brand, index) => (
-                    <BrandCard key={brand.id} brand={brand} priority={index < 1} />
+                    <BrandCard key={brand.id} brand={brand} preload={index < 1} />
                   ))}
                 </MasonryGrid>
               )}

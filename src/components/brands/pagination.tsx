@@ -1,6 +1,7 @@
 'use client'
 
-import Link from 'next/link'
+import Link, { useLinkStatus } from 'next/link'
+import { Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { trackDirectoryPageNavigated } from '@/lib/analytics'
@@ -41,9 +42,20 @@ function buildPageUrl(pathname: string, searchParams: URLSearchParams, page: num
 }
 
 const navLinkClass =
-  'inline-flex min-h-12 items-center justify-center rounded-lg px-3 type-body-emphasis text-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
+  'relative inline-flex min-h-12 items-center justify-center rounded-lg px-3 type-body-emphasis text-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
 const pageLinkClass =
-  'inline-flex min-h-12 min-w-12 items-center justify-center rounded-lg type-body-emphasis text-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
+  'relative inline-flex min-h-12 min-w-12 items-center justify-center rounded-lg type-body-emphasis text-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
+
+function PaginationLinkStatus() {
+  const { pending } = useLinkStatus()
+
+  return (
+    <Loader2
+      aria-hidden="true"
+      className={`pointer-events-none absolute right-1 top-1/2 size-3 -translate-y-1/2 transition-opacity ${pending ? 'animate-spin opacity-100' : 'opacity-0'}`}
+    />
+  )
+}
 
 function getPageDirection(
   targetPage: number,
@@ -84,6 +96,7 @@ export function Pagination({
           data-ph-no-autocapture
         >
           {t('pagination.previous')}
+          <PaginationLinkStatus />
         </Link>
       ) : (
         <span className="inline-flex min-h-12 items-center justify-center rounded-lg px-3 type-body-emphasis text-foreground/20">
@@ -135,6 +148,7 @@ export function Pagination({
             data-ph-no-autocapture
           >
             {page}
+            <PaginationLinkStatus />
           </Link>
         )
       })}
@@ -153,6 +167,7 @@ export function Pagination({
           data-ph-no-autocapture
         >
           {t('pagination.next')}
+          <PaginationLinkStatus />
         </Link>
       ) : (
         <span className="inline-flex min-h-12 items-center justify-center rounded-lg px-3 type-body-emphasis text-foreground/20">

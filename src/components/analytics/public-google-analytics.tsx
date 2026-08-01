@@ -78,7 +78,7 @@ export function PublicGoogleAnalytics({ gaId }: PublicGoogleAnalyticsProps) {
       <Script
         id="formoria-ga-script"
         src={`https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(gaId)}`}
-        strategy="afterInteractive"
+        strategy="lazyOnload"
       />
     </>
   )

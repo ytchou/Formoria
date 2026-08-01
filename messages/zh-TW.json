@@ -200,7 +200,8 @@
     "search": {
       "aria": "搜尋品牌",
       "placeholder": "搜尋品牌...",
-      "clear": "清除搜尋"
+      "clear": "清除搜尋",
+      "loading": "正在搜尋品牌…"
     },
     "pagination": {
       "label": "分頁導覽",

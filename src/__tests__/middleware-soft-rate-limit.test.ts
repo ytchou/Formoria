@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 import { proxy } from "@/proxy";
-import { checkSoftRateLimit } from "@/lib/security/rate-limiter";
+import {
+  checkRateLimit,
+  checkSoftRateLimit,
+} from "@/lib/security/rate-limiter";
 
 const configuredSoftLimit = Number(process.env.SOFT_LIMIT_BRANDS_PER_MIN);
 const softLimitRequests =
@@ -44,4 +47,18 @@ describe("soft rate limiting for internal router traffic", () => {
       expect(response.headers.get("location")).toBeNull();
     },
   );
+
+  it("does not consume the hard document budget for router requests", async () => {
+    const request = () =>
+      new NextRequest("https://formoria.com/brands/maison-de-taiwan", {
+        headers: {
+          accept: "*/*",
+          "cf-connecting-ip": "198.51.100.44",
+        },
+      });
+
+    for (let requestNumber = 0; requestNumber < 201; requestNumber += 1) {
+      expect(await checkRateLimit(request())).toBeNull();
+    }
+  });
 });

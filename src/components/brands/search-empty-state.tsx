@@ -106,7 +106,6 @@ export function SearchEmptyState({
                 key={brand.id}
                 brand={brand}
                 position={index}
-                priority={index < 2}
                 variant="recommendation"
               />
             ))}
