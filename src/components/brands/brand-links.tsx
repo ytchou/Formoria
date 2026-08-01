@@ -183,6 +183,7 @@ function LinkSection({
                     brand.slug,
                     slot.linkType,
                     typeof window !== 'undefined' ? window.location.pathname : '',
+                    'detail_page',
                     brand.id,
                   )
                 }}

@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/accordion'
 import { FaqSection } from '@/components/shared/faq-section'
 import { sanitizeHref } from '@/lib/url'
+import { useBrandEngagement } from './brand-engagement-tracker'
 
 const LINK_RE = /(\[[^\]]+\]\([^)]+\))/g
 const LINK_PARTS_RE = /^\[([^\]]+)\]\(([^)]+)\)$/
@@ -48,6 +49,7 @@ interface BrandFaqAccordionProps {
 
 export function BrandFaqAccordion({ items, brandSlug }: BrandFaqAccordionProps) {
   const t = useTranslations('brandDetail.sections')
+  const { reportEngagement } = useBrandEngagement()
   const [openItems, setOpenItems] = useState<string[]>([])
 
   if (items.length === 0) return null
@@ -58,6 +60,7 @@ export function BrandFaqAccordion({ items, brandSlug }: BrandFaqAccordionProps) 
       const index = parseInt(val.replace('faq-', ''), 10)
       if (!isNaN(index)) trackFaqItemExpanded(brandSlug, index)
     }
+    if (newlyOpened.length > 0) reportEngagement('faq')
     setOpenItems(values)
   }
 

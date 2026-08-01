@@ -37,6 +37,8 @@ import {
   type MitDeclarationScope,
 } from '@/lib/services/mit-declaration'
 import { trackMitDeclared } from '@/lib/analytics'
+import { getPostHogClient } from '@/lib/posthog-server'
+import { ANALYTICS_EVENTS } from '@/lib/analytics/events'
 
 type ActionState =
   | {
@@ -316,6 +318,23 @@ export async function publishDraftAction(
         previousSlug: brand.slug,
       })
       revalidatePath('/dashboard')
+    }
+
+    // Server-side: this publish never reaches the browser analytics sink. A PostHog
+    // failure must not fail the publish, so the capture is swallowed.
+    try {
+      const posthog = getPostHogClient()
+      posthog.capture({
+        distinctId: user.id,
+        event: ANALYTICS_EVENTS.BRAND_OWNER_EDIT_PUBLISHED,
+        properties: {
+          brand_id: brand.id,
+          brand_slug: redirectSlug,
+        },
+      })
+      await posthog.flush()
+    } catch (analyticsErr) {
+      console.error('[analytics:brand_owner_edit_published] capture failed', analyticsErr)
     }
   } catch (err) {
     if (err instanceof ConflictError) {

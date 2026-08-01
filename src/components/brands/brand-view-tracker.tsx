@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { trackBrandDetailViewed } from '@/lib/analytics'
+import { trackBrandDetailViewed, trackSavedBrandRevisited } from '@/lib/analytics'
+import { useSavedBrands } from '@/hooks/use-saved-brands'
 
 type BrandViewSource = 'search' | 'category' | 'directory' | 'direct' | 'recommendation'
 
@@ -20,6 +21,8 @@ const BRAND_VIEW_SOURCES = new Set<BrandViewSource>([
 
 export function BrandViewTracker({ brandId, brandSlug }: BrandViewTrackerProps) {
   const trackedRef = useRef<string | null>(null)
+  const revisitTrackedRef = useRef(false)
+  const { savedIds, loading: savedLoading } = useSavedBrands()
 
   useEffect(() => {
     if (trackedRef.current === brandSlug) return
@@ -30,6 +33,15 @@ export function BrandViewTracker({ brandId, brandSlug }: BrandViewTrackerProps) 
       : 'direct'
     trackBrandDetailViewed(brandSlug, source, brandId)
   }, [brandId, brandSlug])
+
+  // Saved state arrives asynchronously, so this cannot ride along with the view
+  // emission above: wait for the fetch to settle, then fire at most once per mount.
+  useEffect(() => {
+    if (savedLoading || revisitTrackedRef.current) return
+    if (!brandId || !savedIds.has(brandId)) return
+    revisitTrackedRef.current = true
+    trackSavedBrandRevisited(brandSlug, 'detail_page', brandId)
+  }, [brandId, brandSlug, savedIds, savedLoading])
 
   return null
 }

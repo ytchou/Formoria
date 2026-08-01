@@ -31,21 +31,31 @@ function getPreferredLocale(pathname: string): string | null {
 export function GaUserSync() {
   const { user } = useUser()
   const pathname = usePathname()
-  const previousUserWasNullRef = useRef<boolean | null>(null)
   const utmInitializedRef = useRef(false)
 
   useEffect(() => {
     const userType = user ? 'authenticated' : 'visitor'
-    const previousUserWasNull = previousUserWasNullRef.current
 
-    if (previousUserWasNull === true && user) {
+    // The post-auth redirect stamps the URL with the auth event that just
+    // happened. A client-side null -> user transition cannot be used here: the
+    // viewer resolves asynchronously, so every full page load looks like one.
+    // `user` is needed for the method, so wait for it before firing; the marker
+    // survives in the URL until then and a later run picks it up.
+    if (user) {
       const params = new URLSearchParams(window.location.search)
       const isNewUser = params.get('is_new_user') === '1'
-      const method = user.provider
+      const isLogin = params.get('auth_event') === 'login'
 
-      if (isNewUser) {
-        trackSignUp(method)
-        params.delete('is_new_user')
+      if (isNewUser || isLogin) {
+        if (isNewUser) {
+          trackSignUp(user.provider)
+          params.delete('is_new_user')
+        } else {
+          trackLogin(user.provider)
+          params.delete('auth_event')
+        }
+        // Stripping in the same run is what stops a re-render or a strict-mode
+        // double invoke from firing the event twice.
         window.history.replaceState(
           {},
           '',
@@ -53,12 +63,8 @@ export function GaUserSync() {
             ? `${window.location.pathname}?${params.toString()}`
             : window.location.pathname,
         )
-      } else {
-        trackLogin(method)
       }
     }
-
-    previousUserWasNullRef.current = user === null
 
     if (isPublicAnalyticsPath(pathname)) {
       safeGtag('set', { user_id: user?.id ?? null })

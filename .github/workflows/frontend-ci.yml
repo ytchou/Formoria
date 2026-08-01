@@ -41,6 +41,7 @@ jobs:
           case "${{ matrix.check }}" in
             lint)
               node scripts/check-favicon-rgba.mjs
+              node scripts/check-event-registry.mjs
               pnpm lint
               ;;
             type-check)

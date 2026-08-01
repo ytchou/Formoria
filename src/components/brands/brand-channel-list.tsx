@@ -29,6 +29,7 @@ import {
 } from '@/lib/brands/channels'
 import type { BrandChannel } from '@/lib/types'
 import { cn } from '@/lib/utils'
+import { useBrandEngagement } from './brand-engagement-tracker'
 
 const MAX_VISIBLE_CHIPS = 6
 /** Below this count the grouping is noise — entries render without headings. */
@@ -410,6 +411,7 @@ export function BrandChannelList({
   const tErrors = useTranslations('brandDetail.channels.errors')
   const tNav = useTranslations('nav')
   const { user, loading } = useUser()
+  const { reportEngagement } = useBrandEngagement()
   const [, startTransition] = useTransition()
   const allChannels = [...confirmed, ...possible]
   const [expandedChipGroups, setExpandedChipGroups] = useState<
@@ -491,6 +493,7 @@ export function BrandChannelList({
 
   function handleConfirm(channel: BrandChannel, context: ChannelActionContext) {
     if (loading) return
+    reportEngagement('channel')
     if (context === 'chip') setLastChipAttemptedChannelId(channel.id)
 
     if (!user) {
