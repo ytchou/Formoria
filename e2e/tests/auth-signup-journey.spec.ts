@@ -5,6 +5,7 @@ import {
   isEmailRateLimitMessage,
   signupTestEmail,
 } from '../helpers/signup-namespace';
+import { ownerFeaturesDisabled, OWNER_FEATURES_OFF_REASON } from '../helpers/owner-features';
 
 // Signup → email confirmation → onboarding → first value.
 //
@@ -37,6 +38,16 @@ import {
 
 test.describe.serial('Auth — signup to first value', () => {
   test.skip(!process.env.SUPABASE_SERVICE_ROLE_KEY, 'requires service role key');
+
+  // Suite-level gate (DEV-1261). The confirmation callback lands new users on
+  // `/` instead of `/dashboard` while the flag is off, so the owner-dashboard
+  // payoff this journey verifies is unreachable. Probes the running app, never
+  // app_settings.
+  test.beforeAll(async ({ browser }) => {
+    if (await ownerFeaturesDisabled(browser)) {
+      test.skip(true, OWNER_FEATURES_OFF_REASON);
+    }
+  });
 
   test('confirms a new account and lands on the owner dashboard empty state', async ({
     anonPage,
