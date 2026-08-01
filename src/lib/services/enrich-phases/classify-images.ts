@@ -17,7 +17,17 @@ import {
 } from '../enrichment-target'
 import { buildPhaseResult, timePhase, type EnrichBrand, type EnrichPhase } from './types'
 
-const BATCH_SIZE = 20
+/**
+ * Small on purpose. A twenty-image batch let one uncertain verdict propagate
+ * across the whole batch — measured once as all ten of a brand's images
+ * flipping to wrong_brand in a single run and back the next. The prompt asks
+ * for per-image independence; a short batch enforces it structurally. Extra
+ * calls cost only the repeated system prompt, which image tokens dwarf.
+ *
+ * Nothing in the contract now spans images — see REJECTION_REASONS — so batch
+ * length is purely a cost and stability knob, not a correctness one.
+ */
+const BATCH_SIZE = 5
 
 /**
  * LEGACY. The seven-value vocabulary rows were written with before the
@@ -61,13 +71,21 @@ const LEGACY_KEEP_TAG_ALIASES: Record<string, KeptImageTag> = {
   packaging: 'product',
 }
 
+/**
+ * No `duplicate`. Deduplication is the download layer's job — exact-URL, then
+ * Instagram-variant, then perceptual dHash — and it runs before an image is
+ * ever stored. Asking the model to do it too was the last cross-image rule in
+ * the prompt, and measurably the last source of instability: over three
+ * identical runs every per-image verdict was reproducible while a brand's
+ * `duplicate` calls flipped, discarding two good product photos in one run and
+ * keeping them in the others. One layer owns dedupe.
+ */
 const REJECTION_REASONS = [
   'wrong_brand',
   'time_sensitive',
   'promo_subject',
   'text_dominant',
   'low_visual_quality',
-  'duplicate',
   'irrelevant',
 ] as const
 
@@ -109,8 +127,27 @@ const EXEMPT_SOURCES = new Set(['owner', 'admin'])
  */
 const MAX_ACTIVE_IMAGES = MAX_BRAND_ACTIVE_IMAGES
 
+/**
+ * `high` tiles the image rather than capping it at 512px, which would sharpen
+ * the blur and text-density judgements. It is not worth it here: gpt-4o-mini
+ * bills image tokens at ~33x the standard tile rate, so a 1024px image costs
+ * ~25k tokens against a 128k window, and our own download gate admits images
+ * at a 480px short edge — high detail would mostly be paying to look closely
+ * at upscaled pixels. Revisit if the floor rises well above 768px.
+ */
+const CLASSIFY_IMAGE_DETAIL = 'low' as const
+
 /** Width sent to the vision model — `detail: 'low'` downsamples to 512px anyway. */
 const CLASSIFY_RENDER_WIDTH = 512
+
+/**
+ * Kept images must score at least this. Deliberately set at the rubric's
+ * "unusable" boundary rather than at "unremarkable": it is the one gate no
+ * human has calibrated yet, and the sharpness and entropy gates it would
+ * otherwise stand in for were both measured net-negative and removed. Raise it
+ * once the 231 labelled images say what it costs in true keeps.
+ */
+const MIN_KEEP_SCORE = 40
 
 /** One retry per chunk, and only after dropping an image OpenAI could not download. */
 const MAX_CHUNK_RETRIES = 1
@@ -353,11 +390,18 @@ export function parseClassificationBatch(responseText: string): Map<string, Pars
     if (disposition === 'keep' && reasons.length > 0) continue
     if (disposition === 'reject' && reasons.length === 0) continue
 
+    // The quality floor lives here rather than in the prompt: the model returns a
+    // score either way, so the threshold can be swept against scores already in
+    // the database without spending a single API call, and moving it is a code
+    // change rather than a prompt revision that invalidates the eval baseline.
+    const clampedScore = Math.max(0, Math.min(100, Math.round(score)))
+    const belowFloor = disposition === 'keep' && clampedScore < MIN_KEEP_SCORE
+
     verdicts.set(id, {
-      disposition,
-      tag,
-      reasons,
-      score: Math.max(0, Math.min(100, Math.round(score))),
+      disposition: belowFloor ? 'reject' : disposition,
+      tag: belowFloor ? null : tag,
+      reasons: belowFloor ? ['low_visual_quality'] : reasons,
+      score: clampedScore,
       altZh: typeof item.alt_zh === 'string' ? localizeToTW(item.alt_zh).text : '',
       altEn: typeof item.alt_en === 'string' ? item.alt_en : '',
     })
@@ -378,9 +422,12 @@ function isPortrait(image: ClassifiedImage): boolean {
  *
  * A penalty rather than an exclusion, because portrait images are perfectly good
  * gallery entries — they just crop badly in the landscape hero frame. At 15 a
- * portrait must be clearly better than its landscape rivals (the kept-image
- * score band is roughly 70–95) to take slot 0, but a brand whose only images are
- * portrait still gets a hero.
+ * portrait must be clearly better than its landscape rivals to take slot 0, but
+ * a brand whose only images are portrait still gets a hero.
+ *
+ * The kept band is MIN_KEEP_SCORE-100. The prompt pushes the model to spread
+ * scores across that range rather than cluster near 85, because this sort is
+ * the only thing deciding which image leads the page.
  */
 function heroQuality(image: ClassifiedImage): number {
   return image.score - (isPortrait(image) ? PORTRAIT_PENALTY : 0)
@@ -615,8 +662,9 @@ async function classifyChunk(
 
     const response = await client.chat({
       system: IMAGE_CLASSIFY_SYSTEM_PROMPT,
-      user: `${brandContext}請分類以下 ${remaining.length} 張品牌圖片，依序編號為 ${ordinals.join('、')}。回傳 JSON object，包含 "classifications" 陣列，每個物件的 "id" 必須是對應圖片的編號字串。無法判斷的圖片請省略，不要猜測。`,
+      user: `${brandContext}Classify the ${remaining.length} brand images that follow, numbered ${ordinals.join(', ')} in order. Return a JSON object with a "classifications" array holding exactly ${remaining.length} objects, whose "id" values are the image numbers as strings. Do not omit any image.`,
       images: sentUrls,
+      imageDetail: CLASSIFY_IMAGE_DETAIL,
       json: true,
       schema: IMAGE_CLASSIFICATION_SCHEMA,
       maxTokens: 250 * remaining.length,
@@ -658,6 +706,48 @@ async function classifyChunk(
   }
 
   return { verdictsByImageId: new Map(), failure: null, brokenImageIds }
+}
+
+/**
+ * Identifying context sent with every classification batch.
+ *
+ * The name alone is not enough to answer "is this the right brand?". Marketplace
+ * listings (Pinkoi, Shopee, momo) carry the seller's storefront rather than a
+ * visible logo, so a model given only a name it does not recognise has nothing
+ * to check against — and measured over three identical runs it resolved that
+ * uncertainty differently each time, once rejecting an entire ten-image batch as
+ * wrong_brand and twice keeping all ten. The official domain gives it something
+ * verifiable.
+ *
+ * English, matching the system prompt — only alt_zh is Chinese, and the prompt
+ * asks for that explicitly. Shared with `scripts/image-eval/baseline.ts` so the
+ * harness measures the context production actually sends; the corpus manifest
+ * carries no website, so it passes `website: null` until the next capture.
+ */
+export function buildBrandContext(brand: {
+  name: string | null
+  productType: string | null
+  website: string | null
+}): string {
+  const parts: string[] = [`Brand: ${brand.name ?? 'unknown'}.`]
+
+  const category = brand.productType
+    ? PRODUCT_TYPE_CATEGORIES.find((c) => c.slug === brand.productType)?.name
+    : undefined
+  if (category) parts.push(`Category: ${category}.`)
+
+  const host = (() => {
+    const raw = brand.website?.trim()
+    if (!raw) return null
+    try {
+      return new URL(raw).hostname.replace(/^www\./, '')
+    } catch {
+      return null
+    }
+  })()
+  if (host) parts.push(`Official site: ${host}.`)
+
+  return `${parts.join(' ')} `
 }
 
 export async function runClassifyImagesPhase({
@@ -717,7 +807,7 @@ export async function runClassifyImagesPhase({
   const config = buildEnrichmentConfig('classify_images', IMAGE_CLASSIFY_SYSTEM_PROMPT, {
     model: 'gpt-4o-mini',
     batchSize: BATCH_SIZE,
-    detail: 'low',
+    detail: CLASSIFY_IMAGE_DETAIL,
     temperature: 0,
   })
   const client = createAuditedOpenAIClient({
@@ -733,12 +823,11 @@ export async function runClassifyImagesPhase({
     let brokenCount = 0
     let rejectedCount = 0
 
-    const productTypeZh = brand.product_type
-      ? PRODUCT_TYPE_CATEGORIES.find((c) => c.slug === brand.product_type)?.nameZh
-      : undefined
-    const brandContext = productTypeZh
-      ? `品牌：${brand.name ?? brand.slug}（${productTypeZh}）。`
-      : `品牌：${brand.name ?? brand.slug}。`
+    const brandContext = buildBrandContext({
+      name: brand.name ?? brand.slug,
+      productType: brand.product_type ?? null,
+      website: brand.purchase_website ?? null,
+    })
 
     for (let i = 0; i < images.length; i += BATCH_SIZE) {
       const chunk = images.slice(i, i + BATCH_SIZE)

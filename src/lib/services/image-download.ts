@@ -166,19 +166,39 @@ function hammingDistance(a: string, b: string): number {
   return dist
 }
 
-async function isDuplicateByHash(
+/**
+ * Perceptual-duplicate guard for one brand's download run.
+ *
+ * Loaded once and held in memory for two reasons. The previous per-candidate
+ * query re-read every stored hash for the brand on every candidate, and — the
+ * real defect — candidates run concurrently, so two copies of the same photo
+ * could both query before either was inserted and both be accepted. `claim`
+ * closes that: it tests and records in a single synchronous step, with no await
+ * in between, so concurrent callers cannot interleave.
+ */
+async function loadPerceptualHashGuard(
   supabase: ReturnType<typeof createServiceClient>,
-  target: EnrichmentTarget,
-  hash: string
-): Promise<boolean> {
+  target: EnrichmentTarget
+): Promise<{ claim: (hash: string) => boolean }> {
   const storage = targetImageStorage(target)
   const { data } = await supabase
     .from(storage.table)
     .select('phash')
     .eq(storage.foreignKey, target.id)
     .not('phash', 'is', null) as { data: Array<{ phash: string }> | null }
-  if (!data) return false
-  return data.some((row) => hammingDistance(row.phash, hash) < PHASH_HAMMING_THRESHOLD)
+
+  const hashes = (data ?? []).map((row) => row.phash)
+
+  return {
+    /** True if `hash` is new and now claimed; false if it duplicates a known one. */
+    claim(hash: string): boolean {
+      if (hashes.some((known) => hammingDistance(known, hash) < PHASH_HAMMING_THRESHOLD)) {
+        return false
+      }
+      hashes.push(hash)
+      return true
+    },
+  }
 }
 
 function channelToHex(value: number): string {
@@ -208,6 +228,7 @@ export async function downloadAndStoreImages(
     : targetOrBrandId
   const storage = targetImageStorage(target)
   const existingBySource = await loadExistingCandidates(supabase, target, dedupedCandidates)
+  const phashGuard = await loadPerceptualHashGuard(supabase, target)
 
   return mapWithConcurrency(
     dedupedCandidates,
@@ -297,7 +318,7 @@ export async function downloadAndStoreImages(
         }
 
         const phash = await computeDHash(buffer)
-        if (await isDuplicateByHash(supabase as never, target, phash)) {
+        if (!phashGuard.claim(phash)) {
           throw new Error(`Perceptual duplicate detected (dHash), skipping`)
         }
 

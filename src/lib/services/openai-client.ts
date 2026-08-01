@@ -23,6 +23,8 @@ type OpenAIChatInput = {
   maxTokens?: number
   temperature?: number
   images?: OpenAIImage[]
+  /** `low` caps every image at 512px; `high` tiles it. Defaults to `low` for cost. */
+  imageDetail?: 'low' | 'high' | 'auto'
   meta?: Record<string, unknown>
   schema?: OpenAIJsonSchema
 }
@@ -130,6 +132,7 @@ export function createOpenAIClient({ apiKey, model = DEFAULT_OPENAI_MODEL, onCha
       maxTokens,
       temperature,
       images,
+      imageDetail = 'low',
       meta,
       schema,
     }: OpenAIChatInput): Promise<OpenAIChatResult> {
@@ -144,7 +147,7 @@ export function createOpenAIClient({ apiKey, model = DEFAULT_OPENAI_MODEL, onCha
               type: 'image_url' as const,
               image_url: {
                 url: typeof image === 'string' ? image : image.url,
-                detail: 'low' as const,
+                detail: imageDetail,
               },
             })),
           ]

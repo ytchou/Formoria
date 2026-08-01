@@ -193,6 +193,41 @@ describe('parseClassificationBatch', () => {
     })
   })
 
+  it('demotes a keep that scores below the quality floor', () => {
+    const verdicts = parseClassificationBatch(JSON.stringify({
+      classifications: [
+        {
+          id: '1',
+          disposition: 'keep',
+          tag: 'product',
+          reasons: [],
+          score: 39,
+          alt_zh: '模糊的產品照',
+          alt_en: 'Blurry product photo',
+        },
+        {
+          id: '2',
+          disposition: 'keep',
+          tag: 'product',
+          reasons: [],
+          score: 40,
+          alt_zh: '產品照',
+          alt_en: 'Product photo',
+        },
+      ],
+    }))
+
+    // The floor is enforced here, not in the prompt, so it can be swept against
+    // stored scores without re-calling the model.
+    expect(verdicts.get('1')).toMatchObject({
+      disposition: 'reject',
+      tag: null,
+      reasons: ['low_visual_quality'],
+      score: 39,
+    })
+    expect(verdicts.get('2')).toMatchObject({ disposition: 'keep', tag: 'product' })
+  })
+
   it.each(['lifestyle', 'packaging'])(
     'still parses a legacy %s row as a kept product image',
     (legacyTag) => {

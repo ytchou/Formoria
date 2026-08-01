@@ -10,6 +10,7 @@ import {
   LEGACY_IMAGE_CLASSIFY_SYSTEM_PROMPT,
 } from "@/lib/prompts";
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { buildBrandContext } from "@/lib/services/enrich-phases/classify-images";
 import { createImageEvalSignedUrls } from "@/lib/services/image-eval-storage";
 import {
   MANIFEST_PATH,
@@ -35,7 +36,8 @@ import type {
   GoldenSplit,
 } from "./lib/types";
 
-const BATCH_SIZE = 20;
+/** Mirrors BATCH_SIZE in classify-images.ts — batch length changes the verdicts. */
+const BATCH_SIZE = 5;
 const MODEL = "gpt-4o-mini";
 const REJECTION_TAGS = ["promo", "text_banner", "irrelevant"];
 const MAX_RATE_LIMIT_RETRIES = 5;
@@ -46,7 +48,7 @@ const MAX_RATE_LIMIT_RETRIES = 5;
  * if it drifts rather than silently emitting the unmodified prompt.
  */
 const KEEP_TAG_PROMPT_ANCHOR =
-  "- disposition=keep 時，tag 必須恰好是 product、logo 其中之一，reasons 必須是空陣列。";
+  '- keep: "tag" is "product" or "logo", and "reasons" is [].';
 
 function classificationSchema(
   keptTags: readonly string[],
@@ -70,7 +72,10 @@ function classificationSchema(
                 "promo_subject",
                 "text_dominant",
                 "low_visual_quality",
-                "duplicate",
+                // No "duplicate" — mirrors REJECTION_REASONS in
+                // classify-images.ts, where dedupe belongs to the download
+                // layer. The human label vocabulary still has it, deliberately:
+                // a reviewer may mark a duplicate the model can no longer emit.
                 "irrelevant",
               ],
             },
@@ -189,7 +194,7 @@ function buildSystemPrompt(
       ? IMAGE_CLASSIFY_SYSTEM_PROMPT
       : LEGACY_IMAGE_CLASSIFY_SYSTEM_PROMPT;
   if (prompt === "legacy") return base;
-  const tags = Object.keys(tagDefinitions).join("、");
+  const tags = Object.keys(tagDefinitions).join(", ");
   // The dynamic tag registry is injected by rewriting this exact line of the
   // production prompt. A silent no-op here would leave the harness measuring the
   // production tag list while reporting the registry's, so a missing anchor is a
@@ -203,14 +208,25 @@ function buildSystemPrompt(
   }
   return `${base.replace(
     KEEP_TAG_PROMPT_ANCHOR,
-    `- disposition=keep 時，tag 必須恰好是 ${tags} 其中之一，reasons 必須是空陣列。`,
+    `- keep: "tag" is one of ${tags}, and "reasons" is [].`,
   )}\n\n${tagRegistryGuidance(tagDefinitions)}`;
 }
 
-function verdictInstruction(prompt: "legacy" | "current"): string {
-  return prompt === "current"
-    ? "每張圖片都必須回傳一個分類物件；無法判斷或品質不足時，請明確回傳 disposition=reject、tag=null 和 low_visual_quality，不要省略圖片。"
-    : "無法判斷的圖片請省略，不要猜測。";
+/**
+ * Must stay in sync with the production user message in
+ * `src/lib/services/enrich-phases/classify-images.ts` — the harness measures
+ * production only if it sends what production sends. The legacy branch keeps
+ * the original Chinese wording it was calibrated against.
+ */
+function classifyInstruction(
+  prompt: "legacy" | "current",
+  count: number,
+  ids: readonly string[],
+): string {
+  if (prompt === "legacy") {
+    return `請分類以下 ${count} 張品牌圖片，依序編號為 ${ids.join("、")}。回傳 JSON object，包含 classifications 陣列，每個物件的 id 必須是對應圖片的編號字串。無法判斷的圖片請省略，不要猜測。`;
+  }
+  return `Classify the ${count} brand images that follow, numbered ${ids.join(", ")} in order. Return a JSON object with a "classifications" array holding exactly ${count} objects, whose "id" values are the image numbers as strings. Do not omit any image.`;
 }
 
 function parseClassifications(content: string): Map<string, RawClassification> {
@@ -279,13 +295,29 @@ function currentPrediction(
   return { disposition: "reject", tag: null };
 }
 
-function brandContext(entry: GoldenImageEntry): string {
-  const category = PRODUCT_TYPE_CATEGORIES.find(
-    (candidate) => candidate.slug === entry.category,
-  )?.nameZh;
-  return category
-    ? `品牌：${entry.brandName}（${category}）。`
-    : `品牌：${entry.brandName}。`;
+/**
+ * The legacy prompt was calibrated against the Chinese context, so it keeps it.
+ * The current prompt shares production's builder verbatim — a private copy here
+ * is how the harness silently stops measuring production. The corpus manifest
+ * carries no website, so that field is null until the next capture.
+ */
+function brandContext(
+  entry: GoldenImageEntry,
+  prompt: "legacy" | "current",
+): string {
+  if (prompt === "legacy") {
+    const category = PRODUCT_TYPE_CATEGORIES.find(
+      (candidate) => candidate.slug === entry.category,
+    )?.nameZh;
+    return category
+      ? `品牌：${entry.brandName}（${category}）。`
+      : `品牌：${entry.brandName}。`;
+  }
+  return buildBrandContext({
+    name: entry.brandName,
+    productType: entry.category,
+    website: null,
+  });
 }
 
 function latestRunId(): string {
@@ -395,8 +427,9 @@ async function runBaseline(): Promise<void> {
 
       const response = await chatWithRateLimitRetry(client, {
         system: systemPrompt,
-        user: `${brandContext(chunk[0])}請分類以下 ${chunk.length} 張品牌圖片，依序編號為 ${ids.join("、")}。回傳 JSON object，包含 classifications 陣列，每個物件的 id 必須是對應圖片的編號字串。${verdictInstruction(prompt)}`,
+        user: `${brandContext(chunk[0], prompt)}${classifyInstruction(prompt, chunk.length, ids)}`,
         images: images.filter((url): url is string => Boolean(url)),
+        imageDetail: "low",
         json: true,
         schema: classificationSchema(keptTags, prompt),
         maxTokens: 250 * chunk.length,
