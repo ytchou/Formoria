@@ -16,6 +16,33 @@ export interface NameCleanupResult {
   confidence: 'high' | 'medium' | 'low'
 }
 
+const SEO_JUNK_KEYWORDS = ['推薦', '必買', '伴手禮', '評價', '優惠', '折扣', '開箱', '比較']
+
+/**
+ * Is `candidate` a plausible replacement for `current`?
+ *
+ * Guards every automated rename: a proposal must be short, free of SEO copy,
+ * and share at least one token with the name it replaces, so a page title that
+ * happens to mention a different company cannot silently rebrand a record.
+ * Lives here rather than in a phase module because both the detect phase (LLM
+ * proposals) and the links phase (scraped page titles) rename from it.
+ */
+export function isValidBrandName(candidate: string, current: string): boolean {
+  if (candidate.length > 40) return false
+  if (SEO_JUNK_KEYWORDS.some((keyword) => candidate.includes(keyword))) return false
+  // Overlap is compared case-insensitively: `ADELA` and `Adela` are the same
+  // token, and cleanBrandName re-cases names, so a case-sensitive check
+  // rejected every rename that only fixed capitalisation.
+  const lowerCurrent = current.toLowerCase()
+  const lowerCandidate = candidate.toLowerCase()
+  const currentWords = lowerCurrent.split(/[\s\-]+/).filter(Boolean)
+  const candidateWords = lowerCandidate.split(/[\s\-]+/).filter(Boolean)
+  return (
+    currentWords.some((word) => lowerCandidate.includes(word)) ||
+    candidateWords.some((word) => lowerCurrent.includes(word))
+  )
+}
+
 const EMOJI_REGEX = /\p{Extended_Pictographic}/gu
 const VARIATION_SELECTOR_REGEX = /\uFE0F/g
 const DECORATIVE_SYMBOL_REGEX = /[◜◌☼✧◆★●•*♡♥❖✦✩✪✫✬✭✮✯✰]+/gu

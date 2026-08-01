@@ -8,6 +8,7 @@ import {
   type DetectResult,
 } from '../product-type-classifier'
 import { generateSlug } from '../brands'
+import { isValidBrandName } from '../brand-cleanup'
 import {
   buildPhaseResult,
   getDisplayBrandName,
@@ -31,17 +32,6 @@ function hasDetectPhases(phases: BatchPhaseContext['phases']): boolean {
   return phases.includes('detect') || phases.includes('slugs') || phases.includes('tags')
 }
 
-const SEO_JUNK_KEYWORDS = ['推薦', '必買', '伴手禮', '評價', '優惠', '折扣', '開箱', '比較']
-
-function isValidBrandName(newName: string, oldName: string): boolean {
-  if (newName.length > 40) return false
-  if (SEO_JUNK_KEYWORDS.some((kw) => newName.includes(kw))) return false
-  const oldWords = oldName.split(/[\s\-]+/).filter(Boolean)
-  const newWords = newName.split(/[\s\-]+/).filter(Boolean)
-  const hasOverlap =
-    oldWords.some((w) => newName.includes(w)) || newWords.some((w) => oldName.includes(w))
-  return hasOverlap
-}
 
 function buildDetectPatch(
   brand: EnrichBrand,

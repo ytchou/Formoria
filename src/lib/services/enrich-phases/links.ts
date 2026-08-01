@@ -2,6 +2,7 @@ import { normalizeToRootUrl } from '@/lib/url'
 import type { Database } from '@/lib/supabase/database.types'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { buildLinkEnrichPatch, extractLinksFromUrls } from '../link-enrichment'
+import { cleanBrandName, isValidBrandName } from '../brand-cleanup'
 import { finishSearchAudit, startSearchAudit } from '../search-results'
 import { scrapeBrandUrls } from './scraper'
 import { classifyByDomain } from './scraper/input-detector'
@@ -85,6 +86,38 @@ function boundedScrapeSnippets(extracted: unknown): string[] {
     .map((value) => value.slice(0, 4_000))
 }
 
+/**
+ * A brand's own site is the most authoritative source for its name, and the
+ * scraper has always extracted it into `scrapedData.brandName` — it was simply
+ * never consumed, so `adela.tw` handed us `adela愛德拉 ｜守護家人，為愛研發` on
+ * every run and we discarded it while the record stayed `ADELA`.
+ *
+ * Only an addition is accepted: the cleaned title must still contain the name
+ * we already hold, so `ADELA` can grow into `Adela 愛德拉` but a page title
+ * naming a different company cannot rebrand the record. `isValidBrandName`
+ * adds the length and SEO-copy guards the detect phase already relies on.
+ *
+ * Note this lands after the batch image-search phase, so the improved name
+ * reaches the DB now and the *next* run's search queries — not this one's.
+ */
+export function deriveScrapedBrandName(
+  brand: Pick<EnrichBrand, 'name'>,
+  scrapedData: Pick<EnrichScrapedData, 'brandName'>
+): string | null {
+  const current = brand.name?.trim()
+  const raw = scrapedData.brandName?.trim()
+  if (!current || !raw) return null
+
+  const cleaned = cleanBrandName(raw).cleanedName.trim()
+  if (!cleaned || cleaned === current) return null
+  if (!isValidBrandName(cleaned, current)) return null
+  // Additive only: the scraped name must still carry the existing one.
+  if (!cleaned.toLowerCase().includes(current.toLowerCase())) return null
+  if (cleaned.length <= current.length) return null
+
+  return cleaned
+}
+
 export async function runLinksPhase({
   brand,
   phases,
@@ -157,7 +190,13 @@ export async function runLinksPhase({
       ...urlExtracted,
       purchaseWebsite: derivedWebsite,
     })
-    const patch = buildLinkEnrichPatch(brand, scrapedData)
+    const linkPatch = buildLinkEnrichPatch(brand, scrapedData)
+    const scrapedName = deriveScrapedBrandName(brand, scrapedData)
+    // buildLinkEnrichPatch is typed to link columns only; widen at this
+    // boundary rather than loosening that type to admit a name.
+    const patch: Record<string, unknown> = scrapedName
+      ? { ...linkPatch, name: scrapedName }
+      : linkPatch
     return {
       patch,
       scrapedData,
