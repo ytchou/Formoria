@@ -4,6 +4,7 @@ import { createImageEvalSignedUrls } from "@/lib/services/image-eval-storage";
 import {
   LABELS_PATH,
   MANIFEST_PATH,
+  runPath,
   ensureEvalDirectories,
   readJson,
   writeJsonAtomic,
@@ -20,6 +21,7 @@ import {
   EVAL_SCHEMA_VERSION,
   type GoldenLabelsFile,
   type GoldenManifest,
+  type EvalPrediction,
   type KeptTag,
   type RejectionReason,
 } from "./lib/types";
@@ -30,6 +32,20 @@ import {
 } from "./lib/review";
 
 const DEFAULT_PORT = 4179;
+
+type DraftPredictionsFile = {
+  corpusId: string;
+  scope?: string;
+  reviewQueueSeed?: string;
+  predictions: EvalPrediction[];
+  prompt?: string;
+};
+
+type LoadedDraft = {
+  runId: string | null;
+  prompt: string | null;
+  predictions: Record<string, EvalPrediction>;
+};
 
 const REVIEW_HTML = `<!doctype html>
 <html lang="en">
@@ -54,6 +70,7 @@ const REVIEW_HTML = `<!doctype html>
     input[type=checkbox] { margin-right: 8px; }
     input[type=text] { width: 100%; box-sizing: border-box; margin: 8px 0; padding: 10px 12px; border: 1px solid #404040; border-radius: 8px; background: #262626; color: inherit; }
     #add-tag-form button { text-align: center; }
+    #accept-draft { background: #9bd5b0; color: #171717; text-align: center; font-weight: 700; }
     textarea { width: 100%; min-height: 70px; box-sizing: border-box; background: #262626; color: inherit; border: 1px solid #404040; border-radius: 8px; padding: 8px; }
     #save { background: #f5f5f5; color: #171717; text-align: center; font-weight: 700; }
     .keys { color: #a3a3a3; font-size: 12px; line-height: 1.6; }
@@ -66,6 +83,11 @@ const REVIEW_HTML = `<!doctype html>
     <h1>DEV-1279 image review</h1>
     <div id="counter"></div><div id="meta"></div><div id="history"></div>
     <p class="keys">Queue: 400 images, randomized within split. All dev images come before the 50-image holdout sample.</p>
+    <div class="group"><h2>AI draft</h2>
+      <div id="draft" class="keys">No AI draft loaded.</div>
+      <button id="accept-draft" type="button" hidden>Accept AI suggestion</button>
+      <div class="keys">Accept fills the controls; only Save creates a human-approved revision.</div>
+    </div>
     <div class="group"><h2>Disposition</h2>
       <button data-disposition="keep">Keep — useful and publishable</button>
       <button data-disposition="reject">Reject — worse than no image</button>
@@ -95,7 +117,7 @@ const REVIEW_HTML = `<!doctype html>
   </aside>
 </main>
 <script>
-let entries = [], labels = {}, labelHistory = {}, tagDefinitions = {}, index = 0, state = { disposition: null, tag: null, reasons: [], notes: '' };
+let entries = [], labels = {}, labelHistory = {}, drafts = {}, draftRunId = null, draftPrompt = null, tagDefinitions = {}, index = 0, state = { disposition: null, tag: null, reasons: [], notes: '' };
 const $ = (selector) => document.querySelector(selector);
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 function current() { return entries[index]; }
@@ -103,12 +125,24 @@ function renderTagOptions() {
   const definitions = Object.values(tagDefinitions);
   $('#tag-options').innerHTML = definitions.map((definition, definitionIndex) => '<button data-tag="' + esc(definition.slug) + '" title="' + esc(definition.description) + '">' + (definitionIndex < 9 ? (definitionIndex + 1) + ' · ' : '') + esc(definition.label) + '</button>').join('');
 }
+function renderDraft() {
+  const suggestion = drafts[current().id];
+  const button = $('#accept-draft');
+  if (!suggestion) { $('#draft').textContent = draftRunId ? 'No suggestion for this image.' : 'No AI draft loaded.'; button.hidden = true; return; }
+  if (suggestion.error) { $('#draft').textContent = 'AI draft unresolved: ' + suggestion.error; button.hidden = true; return; }
+  const tag = suggestion.tag ? (tagDefinitions[suggestion.tag]?.label || suggestion.tag) : 'no primary tag';
+  const reasons = suggestion.reasons?.length ? ' · ' + suggestion.reasons.join(', ') : '';
+  const score = typeof suggestion.score === 'number' ? ' · score ' + suggestion.score : '';
+  $('#draft').textContent = (draftRunId ? 'run ' + draftRunId + ' · ' : '') + (draftPrompt ? draftPrompt + ' · ' : '') + suggestion.disposition.toUpperCase() + ' · ' + tag + score + reasons + ' · not saved';
+  button.hidden = false;
+}
 function render(reset = true) {
   const entry = current(); if (!entry) return;
   $('#image').src = entry.signedUrl || ''; $('#image').alt = entry.title || entry.brandName;
   const existing = labels[entry.id];
   if (reset) state = existing ? { disposition: existing.disposition, tag: existing.tag, reasons: existing.reasons || [], notes: existing.notes || '' } : { disposition: null, tag: null, reasons: [], notes: '' };
   renderTagOptions();
+  renderDraft();
   $('#counter').textContent = (index + 1) + ' / ' + entries.length + (existing ? ' · labeled' : ' · unlabeled');
   $('#meta').innerHTML = '<strong>' + esc(entry.brandName) + '</strong> · ' + esc(entry.category) + ' · ' + esc(entry.split) + '<br>Serper position ' + entry.position + ' · ' + esc(entry.domain || '') + '<br>' + esc(entry.title || 'Untitled');
   const revisions = labelHistory[entry.id] || [];
@@ -120,6 +154,7 @@ function render(reset = true) {
 }
 function setDisposition(disposition) { state.disposition = disposition; if (disposition === 'keep') state.reasons = []; if (disposition === 'reject') { state.tag = null; if (!state.reasons.length) state.reasons = ['low_visual_quality']; } render(false); }
 function setTag(tag) { state.disposition = 'keep'; state.tag = tag; state.reasons = []; render(false); }
+function acceptDraft() { const suggestion = drafts[current().id]; if (!suggestion || suggestion.error) return; state.disposition = suggestion.disposition; state.tag = suggestion.disposition === 'keep' ? suggestion.tag : null; state.reasons = suggestion.disposition === 'reject' ? (suggestion.reasons || []) : []; render(false); }
 async function save() {
   if (!state.disposition) return alert('Choose keep or reject first.');
   if (state.disposition === 'keep' && !state.tag) return alert('Choose one primary tag before saving a kept image.');
@@ -134,12 +169,13 @@ async function save() {
   render();
 }
 document.querySelectorAll('[data-disposition]').forEach((button) => button.addEventListener('click', () => setDisposition(button.dataset.disposition)));
+$('#accept-draft').addEventListener('click', acceptDraft);
 $('#tag-options').addEventListener('click', (event) => { const button = event.target instanceof Element ? event.target.closest('[data-tag]') : null; if (button) setTag(button.dataset.tag); });
 $('#add-tag-form').addEventListener('submit', async (event) => { event.preventDefault(); const response = await fetch('/api/tags', { method: 'POST', headers: {'content-type':'application/json'}, body: JSON.stringify({ slug: $('#new-tag-slug').value, label: $('#new-tag-label').value, description: $('#new-tag-description').value, imageId: current().id }) }); if (!response.ok) return alert(await response.text()); const saved = await response.json(); tagDefinitions = saved.tagDefinitions; $('#new-tag-slug').value = ''; $('#new-tag-label').value = ''; $('#new-tag-description').value = ''; $('#tag-status').textContent = 'Added ' + saved.tag.label + '; selected for this image.'; setTag(saved.tag.slug); });
 document.querySelectorAll('[data-reason]').forEach((input) => input.addEventListener('change', () => { state.reasons = [...document.querySelectorAll('[data-reason]:checked')].map((item) => item.value); }));
 $('#save').addEventListener('click', save);
-document.addEventListener('keydown', (event) => { if (event.target.matches('textarea,input')) return; if (event.key.toLowerCase() === 'k') setDisposition('keep'); if (event.key.toLowerCase() === 'r') setDisposition('reject'); if (/^[1-9]$/.test(event.key)) { const option = Object.values(tagDefinitions)[Number(event.key) - 1]; if (option) setTag(option.slug); } if (event.key === 'ArrowLeft' && index > 0) { index -= 1; render(); } if (event.key === 'ArrowRight' && index < entries.length - 1) { index += 1; render(); } if (event.key === 'Enter') save(); });
-fetch('/api/corpus').then((response) => response.json()).then((payload) => { entries = payload.entries; labels = payload.labels; labelHistory = payload.history || {}; tagDefinitions = payload.tagDefinitions || {}; const firstUnlabeled = entries.findIndex((entry) => !labels[entry.id]); index = firstUnlabeled >= 0 ? firstUnlabeled : 0; render(); });
+document.addEventListener('keydown', (event) => { if (event.target.matches('textarea,input')) return; if (event.key.toLowerCase() === 'k') setDisposition('keep'); if (event.key.toLowerCase() === 'r') setDisposition('reject'); if (event.key.toLowerCase() === 'a') acceptDraft(); if (/^[1-9]$/.test(event.key)) { const option = Object.values(tagDefinitions)[Number(event.key) - 1]; if (option) setTag(option.slug); } if (event.key === 'ArrowLeft' && index > 0) { index -= 1; render(); } if (event.key === 'ArrowRight' && index < entries.length - 1) { index += 1; render(); } if (event.key === 'Enter') save(); });
+fetch('/api/corpus').then((response) => response.json()).then((payload) => { entries = payload.entries; labels = payload.labels; labelHistory = payload.history || {}; drafts = payload.drafts || {}; draftRunId = payload.draftRunId || null; draftPrompt = payload.draftPrompt || null; tagDefinitions = payload.tagDefinitions || {}; const firstUnlabeled = entries.findIndex((entry) => !labels[entry.id]); index = firstUnlabeled >= 0 ? firstUnlabeled : 0; render(); });
 </script>
 </body></html>`;
 
@@ -158,6 +194,52 @@ async function loadLabels(manifest: GoldenManifest): Promise<GoldenLabelsFile> {
       tagDefinitions: defaultTagDefinitions(),
     };
   }
+}
+
+function draftRunArg(): string | null {
+  const argument = process.argv.find((value) =>
+    value.startsWith("--draft-run="),
+  );
+  const value = argument?.slice("--draft-run=".length).trim();
+  if (!value) return null;
+  if (!/^[A-Za-z0-9_-]+$/.test(value))
+    throw new Error("--draft-run must be a safe run id");
+  return value;
+}
+
+async function loadDraft(
+  manifest: GoldenManifest,
+  entries: GoldenManifest["entries"],
+  runId: string | null,
+): Promise<LoadedDraft> {
+  if (!runId) return { runId: null, prompt: null, predictions: {} };
+
+  const file = await readJson<DraftPredictionsFile>(
+    runPath(runId, "predictions.json"),
+  );
+  if (file.corpusId !== manifest.corpusId)
+    throw new Error("draft corpusId does not match manifest");
+  if (file.scope !== "review")
+    throw new Error("draft scope must be review for the reviewer queue");
+  if (file.reviewQueueSeed !== REVIEW_QUEUE_SEED)
+    throw new Error(
+      "draft review queue seed does not match the reviewer queue",
+    );
+  if (!Array.isArray(file.predictions))
+    throw new Error("draft predictions must be an array");
+
+  const allowedIds = new Set(entries.map((entry) => entry.id));
+  const predictions = Object.fromEntries(
+    file.predictions
+      .filter(
+        (prediction) =>
+          prediction &&
+          typeof prediction.imageId === "string" &&
+          allowedIds.has(prediction.imageId),
+      )
+      .map((prediction) => [prediction.imageId, prediction]),
+  );
+  return { runId, prompt: file.prompt ?? null, predictions };
 }
 
 async function readBody(
@@ -191,6 +273,7 @@ async function startReview(): Promise<void> {
   const manifest = await readJson<GoldenManifest>(MANIFEST_PATH);
   const labelsFile = await loadLabels(manifest);
   const entries = reviewQueue(manifest.entries, REVIEW_HOLDOUT_COUNT);
+  const draft = await loadDraft(manifest, entries, draftRunArg());
   const portArg = process.argv.find((argument) =>
     argument.startsWith("--port="),
   );
@@ -229,6 +312,9 @@ async function startReview(): Promise<void> {
           labels: labelsFile.labels,
           history: labelsFile.history ?? {},
           tagDefinitions: labelsFile.tagDefinitions ?? {},
+          draftRunId: draft.runId,
+          draftPrompt: draft.prompt,
+          drafts: draft.predictions,
         });
         return;
       }
@@ -315,6 +401,7 @@ async function startReview(): Promise<void> {
     console.log(
       `Corpus: ${manifest.corpusId}; ${entries.length} downloadable images`,
     );
+    console.log(`Draft: ${draft.runId ?? "none"}`);
   });
 }
 
