@@ -21,16 +21,12 @@ const MIN_IMAGE_SHORT_EDGE_PX = 480
 // anything good. 2.0 keeps square/near-square (55% of good images) and prunes
 // banners and tall portraits (58% of bad images).
 const MAX_IMAGE_ASPECT_RATIO = 2.0
-// PROVISIONAL, pending calibration against the labeled corpus. sharp's
-// `stats().sharpness` is a blur proxy; typical in-focus product photos score
-// well above 1. 1.0 is deliberately conservative so this only catches severe
-// blur — do not tighten it until it has been measured on the labeled set.
-const MIN_IMAGE_SHARPNESS = 1.0
-// PROVISIONAL, pending calibration against the labeled corpus. The previous
-// 0.5 floor only caught solid-colour fills; 2.0 also prunes near-blank and
-// flat gradient/backdrop images while staying well below the 4-7 range of a
-// normal photo. Must be calibrated before it is raised further.
-const MIN_IMAGE_ENTROPY = 2.0
+// Catches degenerate input — solid-colour fills and blank canvases. It is NOT
+// a quality signal and must not be raised as if it were: measured against 231
+// human-labeled images, entropy does not separate good from bad at all
+// (keep p50 6.92 vs reject p50 7.03), and every floor above this one loses
+// more good images than it blocks bad ones.
+const MIN_IMAGE_ENTROPY = 0.5
 // Each unit here is an HTTP fetch plus a sharp decode/stats/resize/webp encode
 // plus a storage upload, and this already runs multiplied by the per-brand
 // enrichment concurrency. Bound the fan-out instead of firing every candidate
@@ -263,16 +259,19 @@ export async function downloadAndStoreImages(
           )
         }
 
+        // Both values are recorded on the row below, but only entropy gates,
+        // and only against degenerate input. Sharpness deliberately does NOT
+        // gate: measured against 231 human-labeled images it runs backwards
+        // (keep p50 2.66 vs reject p50 4.20, and low_visual_quality rejects
+        // p50 3.98). sharp's `sharpness` scores high-frequency content, so
+        // text-dominant promos, screenshots and busy collages — exactly what
+        // we want to reject — out-score a clean product shot on a soft
+        // background. Storing it keeps the door open for a better-labeled
+        // pass; gating on it would discard good images.
         const { entropy, sharpness } = stats
         if (typeof entropy === 'number' && entropy < MIN_IMAGE_ENTROPY) {
           throw new Error(
             `Image entropy too low (${entropy.toFixed(2)}), likely blank/flat, skipping`
-          )
-        }
-
-        if (typeof sharpness === 'number' && sharpness < MIN_IMAGE_SHARPNESS) {
-          throw new Error(
-            `Image sharpness too low (${sharpness.toFixed(2)}), likely blurred, skipping`
           )
         }
 
