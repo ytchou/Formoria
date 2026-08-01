@@ -293,7 +293,9 @@ export default async function EventDetailPage({ params }: PageProps) {
                   rel="noopener noreferrer"
                   className={buttonVariants({ variant: 'secondary' })}
                 >
-                  {t('tickets')}
+                  {/* A free event's ticket link books a slot, it does not sell
+                      one — "購票資訊" on free entry reads as a paywall. */}
+                  {t(event.isFree === true ? 'reserve' : 'tickets')}
                 </a>
               ) : null}
             </div>
