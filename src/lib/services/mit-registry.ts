@@ -90,19 +90,32 @@ function parseMitCsv(csvContent: string): MitRegistryRecord[] {
 }
 
 export async function lookupCertNumber(certNumber: string): Promise<MitRegistryRecord | null> {
+  const records = await lookupCertNumbers([certNumber])
+  return records.get(certNumber.trim()) ?? null
+}
+
+export async function lookupCertNumbers(
+  certNumbers: string[]
+): Promise<Map<string, MitRegistryRecord>> {
+  const normalizedCertNumbers = [...new Set(certNumbers.map((certNumber) => certNumber.trim()))].filter(
+    Boolean
+  )
+  if (normalizedCertNumbers.length === 0) return new Map()
+
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('mit_registry')
     .select('*')
-    .eq('cert_number', certNumber)
-    .single()
+    .in('cert_number', normalizedCertNumbers)
 
-  if (error) {
-    if (error.code === 'PGRST116') return null
-    throw error
-  }
+  if (error) throw error
 
-  return data as MitRegistryRecord
+  return new Map(
+    (data ?? []).map((record) => {
+      const typedRecord = record as MitRegistryRecord
+      return [typedRecord.cert_number, typedRecord]
+    })
+  )
 }
 
 const MIT_ZIP_URL = 'https://keid.nat.gov.tw/mittw/Files/Download/productlist.zip'

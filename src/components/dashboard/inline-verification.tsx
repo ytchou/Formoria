@@ -88,6 +88,8 @@ export function InlineVerification({
         setError(
           result.error === 'cert_not_found' ? t('certNotFound')
           : result.error === 'cert_expired' ? t('certExpired')
+          : result.error === 'cert_mismatch' ? t('certMismatch')
+          : result.error === 'cert_already_claimed' ? t('certAlreadyClaimed')
           : t('certNotFound'),
         )
       } else {
