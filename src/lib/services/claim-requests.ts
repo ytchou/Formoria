@@ -5,6 +5,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { generateVerificationToken, hashToken } from '@/lib/utils/token'
 import { CLAIM_PROOF_TYPES } from './claim-proofs'
 import type { ClaimProofType, ProofEvidence } from './claim-proofs'
+import { lookupCertNumbers } from './mit-registry'
 
 export { CLAIM_PROOF_TYPES } from './claim-proofs'
 export type { ProofEvidence } from './claim-proofs'
@@ -136,6 +137,7 @@ export type ClaimRequest = {
   proofNotes: string | null
   proofEvidence: ProofEvidence[]
   mitSmileCert: string | null
+  mitRegistryCompanyName: string | null
   status: ClaimRequestStatus
   reviewerNotes: string | null
   reviewedAt: string | null
@@ -180,6 +182,7 @@ function rowToClaimRequest(row: ClaimRequestRowWithJoins): ClaimRequest {
     proofNotes: firstProof?.note ?? row.proof_notes ?? null,
     proofEvidence,
     mitSmileCert: row.mit_smile_cert ?? null,
+    mitRegistryCompanyName: null,
     status: row.status as ClaimRequestStatus,
     reviewerNotes: row.reviewer_notes ?? null,
     reviewedAt: row.reviewed_at ?? null,
@@ -420,6 +423,29 @@ async function attachRequesterEmails(rows: ClaimRequestRowWithJoins[]): Promise<
     })
   )
   return attachProofCleanupStatuses(supabase, claims)
+}
+
+async function attachMitRegistryCompanyNames(claims: ClaimRequest[]): Promise<ClaimRequest[]> {
+  const certNumbers = [
+    ...new Set(
+      claims.flatMap((claim) => {
+        const certNumber = claim.mitSmileCert?.trim()
+        return certNumber ? [certNumber] : []
+      })
+    ),
+  ]
+  if (certNumbers.length === 0) return claims
+
+  const registryRecords = await lookupCertNumbers(certNumbers)
+  return claims.map((claim) => {
+    const certNumber = claim.mitSmileCert?.trim()
+    return {
+      ...claim,
+      mitRegistryCompanyName: certNumber
+        ? registryRecords.get(certNumber)?.company_name ?? null
+        : null,
+    }
+  })
 }
 
 export async function attachSignedProofUrls(
@@ -678,7 +704,9 @@ export async function listClaimRequests(
   const { data, error } = await query
 
   if (error) throw error
-  return attachRequesterEmails((data ?? []) as ClaimRequestRowWithJoins[])
+  return attachMitRegistryCompanyNames(
+    await attachRequesterEmails((data ?? []) as ClaimRequestRowWithJoins[])
+  )
 }
 
 export async function getClaimRequest(id: string): Promise<ClaimRequest> {

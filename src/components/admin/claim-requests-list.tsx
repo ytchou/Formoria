@@ -311,10 +311,13 @@ export function ClaimRequestsList({
 
                         {claimRequest.mitSmileCert && (
                           <div>
-                            <p className="type-metadata">
-                              MIT Smile cert
-                            </p>
+                            <p className="type-metadata">{adminClaimT('mitCertApprovalLabel')}</p>
                             <p className="mt-1 text-sm">{claimRequest.mitSmileCert}</p>
+                            {claimRequest.mitRegistryCompanyName && (
+                              <p className="mt-1 type-card-description">
+                                {adminClaimT('mitRegistryCompanyLabel')}: {claimRequest.mitRegistryCompanyName}
+                              </p>
+                            )}
                           </div>
                         )}
 
