@@ -2,9 +2,11 @@ import type {
   Disposition,
   GoldenImageEntry,
   GoldenLabel,
+  GoldenLabelHistoryEntry,
   GoldenLabelsFile,
   GoldenManifest,
   KeptTag,
+  ObservationTag,
   RejectionReason,
 } from "./types";
 
@@ -23,6 +25,7 @@ const REJECTION_REASONS = new Set<RejectionReason>([
   "duplicate",
   "irrelevant",
 ]);
+const OBSERVATION_TAGS = new Set<ObservationTag>(["workspace"]);
 
 export function validateLabel(label: GoldenLabel): string[] {
   const errors: string[] = [];
@@ -50,6 +53,13 @@ export function validateLabel(label: GoldenLabel): string[] {
 
   if (new Set(label.reasons).size !== label.reasons.length)
     errors.push("rejection reasons must be unique");
+  const observationTags = label.observationTags ?? [];
+  for (const tag of observationTags) {
+    if (!OBSERVATION_TAGS.has(tag))
+      errors.push(`unknown observation tag: ${tag}`);
+  }
+  if (new Set(observationTags).size !== observationTags.length)
+    errors.push("observation tags must be unique");
   return errors;
 }
 
@@ -93,6 +103,7 @@ export function normalizeLabelInput(input: {
   imageId: string;
   disposition: Disposition;
   tag?: KeptTag | null;
+  observationTags?: ObservationTag[];
   reasons?: RejectionReason[];
   notes?: string | null;
 }): GoldenLabel {
@@ -100,10 +111,45 @@ export function normalizeLabelInput(input: {
     imageId: input.imageId,
     disposition: input.disposition,
     tag: input.disposition === "keep" ? (input.tag ?? null) : null,
+    observationTags: [...new Set(input.observationTags ?? [])],
     reasons:
       input.disposition === "reject" ? [...new Set(input.reasons ?? [])] : [],
     notes: input.notes?.trim() || null,
     labeledAt: new Date().toISOString(),
+  };
+}
+
+export function hydrateLabelHistory(
+  labelsFile: GoldenLabelsFile,
+): GoldenLabelsFile {
+  const history = { ...(labelsFile.history ?? {}) };
+  for (const [imageId, label] of Object.entries(labelsFile.labels)) {
+    const revisions = history[imageId] ?? [];
+    if (revisions.length === 0) {
+      history[imageId] = [
+        { revision: 1, label } satisfies GoldenLabelHistoryEntry,
+      ];
+    }
+  }
+  return { ...labelsFile, history };
+}
+
+export function appendLabelRevision(
+  labelsFile: GoldenLabelsFile,
+  label: GoldenLabel,
+): GoldenLabelsFile {
+  const hydrated = hydrateLabelHistory(labelsFile);
+  const revisions = hydrated.history?.[label.imageId] ?? [];
+  return {
+    ...hydrated,
+    labels: { ...hydrated.labels, [label.imageId]: label },
+    history: {
+      ...(hydrated.history ?? {}),
+      [label.imageId]: [
+        ...revisions,
+        { revision: revisions.length + 1, label },
+      ],
+    },
   };
 }
 

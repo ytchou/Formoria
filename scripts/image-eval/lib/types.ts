@@ -18,6 +18,7 @@ export type GoldenSplit = "dev" | "holdout";
 export type CaptureStatus = "ready" | "unavailable";
 export type Disposition = "keep" | "reject";
 export type KeptTag = "product" | "lifestyle" | "packaging" | "logo";
+export type ObservationTag = "workspace";
 export type RejectionReason =
   | "wrong_brand"
   | "time_sensitive"
@@ -80,15 +81,22 @@ export type GoldenLabel = {
   imageId: string;
   disposition: Disposition;
   tag: KeptTag | null;
+  observationTags?: ObservationTag[];
   reasons: RejectionReason[];
   notes: string | null;
   labeledAt: string;
+};
+
+export type GoldenLabelHistoryEntry = {
+  revision: number;
+  label: GoldenLabel;
 };
 
 export type GoldenLabelsFile = {
   schemaVersion: typeof EVAL_SCHEMA_VERSION;
   corpusId: string;
   labels: Record<string, GoldenLabel>;
+  history?: Record<string, GoldenLabelHistoryEntry[]>;
 };
 
 export type EvalPrediction = {

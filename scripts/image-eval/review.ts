@@ -8,12 +8,19 @@ import {
   readJson,
   writeJsonAtomic,
 } from "./lib/paths";
-import { normalizeLabelInput, readyEntries, validateLabel } from "./lib/labels";
+import {
+  appendLabelRevision,
+  hydrateLabelHistory,
+  normalizeLabelInput,
+  readyEntries,
+  validateLabel,
+} from "./lib/labels";
 import {
   EVAL_SCHEMA_VERSION,
   type GoldenLabelsFile,
   type GoldenManifest,
   type KeptTag,
+  type ObservationTag,
   type RejectionReason,
 } from "./lib/types";
 
@@ -50,7 +57,7 @@ const REVIEW_HTML = `<!doctype html>
   <section class="stage"><img id="image" alt="Golden dataset image"></section>
   <aside>
     <h1>DEV-1279 image review</h1>
-    <div id="counter"></div><div id="meta"></div>
+    <div id="counter"></div><div id="meta"></div><div id="history"></div>
     <div class="group"><h2>Disposition</h2>
       <button data-disposition="keep">Keep — useful and publishable</button>
       <button data-disposition="reject">Reject — worse than no image</button>
@@ -61,14 +68,18 @@ const REVIEW_HTML = `<!doctype html>
       <button data-tag="packaging">3 · Packaging</button>
       <button data-tag="logo">4 · Logo</button>
     </div>
+    <div class="group"><h2>Observation tags</h2>
+      <label><input type="checkbox" data-observation-tag value="workspace">Workspace / studio</label>
+      <div class="keys">Use this for a brand's workshop, studio, or working environment. It does not change the scored primary tag.</div>
+    </div>
     <div class="group"><h2>Rejection reasons</h2>
-      <label><input type="checkbox" value="wrong_brand">Wrong brand</label>
-      <label><input type="checkbox" value="time_sensitive">Time-sensitive offer</label>
-      <label><input type="checkbox" value="promo_subject">Promotion is the subject</label>
-      <label><input type="checkbox" value="text_dominant">Text dominates image</label>
-      <label><input type="checkbox" value="low_visual_quality">Low visual quality</label>
-      <label><input type="checkbox" value="duplicate">Duplicate</label>
-      <label><input type="checkbox" value="irrelevant">Irrelevant</label>
+      <label><input type="checkbox" data-reason value="wrong_brand">Wrong brand</label>
+      <label><input type="checkbox" data-reason value="time_sensitive">Time-sensitive offer</label>
+      <label><input type="checkbox" data-reason value="promo_subject">Promotion is the subject</label>
+      <label><input type="checkbox" data-reason value="text_dominant">Text dominates image</label>
+      <label><input type="checkbox" data-reason value="low_visual_quality">Low visual quality</label>
+      <label><input type="checkbox" data-reason value="duplicate">Duplicate</label>
+      <label><input type="checkbox" data-reason value="irrelevant">Irrelevant</label>
     </div>
     <div class="group"><h2>Notes</h2><textarea id="notes" placeholder="Optional adjudication note"></textarea></div>
     <button id="save">Save label and next</button>
@@ -76,7 +87,7 @@ const REVIEW_HTML = `<!doctype html>
   </aside>
 </main>
 <script>
-let entries = [], labels = {}, index = 0, state = { disposition: null, tag: null, reasons: [], notes: '' };
+let entries = [], labels = {}, history = {}, index = 0, state = { disposition: null, tag: null, observationTags: [], reasons: [], notes: '' };
 const $ = (selector) => document.querySelector(selector);
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 function current() { return entries[index]; }
@@ -84,32 +95,39 @@ function render(reset = true) {
   const entry = current(); if (!entry) return;
   $('#image').src = entry.signedUrl || ''; $('#image').alt = entry.title || entry.brandName;
   const existing = labels[entry.id];
-  if (reset) state = existing ? { disposition: existing.disposition, tag: existing.tag, reasons: existing.reasons || [], notes: existing.notes || '' } : { disposition: null, tag: null, reasons: [], notes: '' };
+  if (reset) state = existing ? { disposition: existing.disposition, tag: existing.tag, observationTags: existing.observationTags || [], reasons: existing.reasons || [], notes: existing.notes || '' } : { disposition: null, tag: null, observationTags: [], reasons: [], notes: '' };
   $('#counter').textContent = (index + 1) + ' / ' + entries.length + (existing ? ' · labeled' : ' · unlabeled');
   $('#meta').innerHTML = '<strong>' + esc(entry.brandName) + '</strong> · ' + esc(entry.category) + ' · ' + esc(entry.split) + '<br>Serper position ' + entry.position + ' · ' + esc(entry.domain || '') + '<br>' + esc(entry.title || 'Untitled');
+  const revisions = history[entry.id] || [];
+  $('#history').textContent = revisions.length + ' saved revision' + (revisions.length === 1 ? '' : 's');
   document.querySelectorAll('[data-disposition]').forEach((button) => button.classList.toggle('active', button.dataset.disposition === state.disposition));
   document.querySelectorAll('[data-tag]').forEach((button) => button.classList.toggle('active', button.dataset.tag === state.tag));
-  document.querySelectorAll('input[type=checkbox]').forEach((input) => input.checked = state.reasons.includes(input.value));
+  document.querySelectorAll('[data-observation-tag]').forEach((input) => input.checked = state.observationTags.includes(input.value));
+  document.querySelectorAll('[data-reason]').forEach((input) => input.checked = state.reasons.includes(input.value));
   $('#notes').value = state.notes;
 }
 function setDisposition(disposition) { state.disposition = disposition; if (disposition === 'keep') { state.reasons = []; state.tag = state.tag || 'product'; } if (disposition === 'reject' && !state.reasons.length) state.reasons = ['low_visual_quality']; render(false); }
 function setTag(tag) { state.disposition = 'keep'; state.tag = tag; state.reasons = []; render(false); }
 async function save() {
   if (!state.disposition) return alert('Choose keep or reject first.');
-  const reasons = [...document.querySelectorAll('input[type=checkbox]:checked')].map((input) => input.value);
-  const payload = { imageId: current().id, disposition: state.disposition, tag: state.disposition === 'keep' ? state.tag : null, reasons, notes: $('#notes').value };
+  const reasons = [...document.querySelectorAll('[data-reason]:checked')].map((input) => input.value);
+  const observationTags = [...document.querySelectorAll('[data-observation-tag]:checked')].map((input) => input.value);
+  const payload = { imageId: current().id, disposition: state.disposition, tag: state.disposition === 'keep' ? state.tag : null, observationTags, reasons, notes: $('#notes').value };
   const response = await fetch('/api/labels', { method: 'POST', headers: {'content-type':'application/json'}, body: JSON.stringify(payload) });
   if (!response.ok) return alert(await response.text());
-  labels[current().id] = await response.json();
+  const saved = await response.json();
+  labels[current().id] = saved.label;
+  history[current().id] = saved.history || [];
   if (index < entries.length - 1) index += 1;
   render();
 }
 document.querySelectorAll('[data-disposition]').forEach((button) => button.addEventListener('click', () => setDisposition(button.dataset.disposition)));
 document.querySelectorAll('[data-tag]').forEach((button) => button.addEventListener('click', () => setTag(button.dataset.tag)));
-document.querySelectorAll('input[type=checkbox]').forEach((input) => input.addEventListener('change', () => { state.reasons = [...document.querySelectorAll('input[type=checkbox]:checked')].map((item) => item.value); }));
+document.querySelectorAll('[data-reason]').forEach((input) => input.addEventListener('change', () => { state.reasons = [...document.querySelectorAll('[data-reason]:checked')].map((item) => item.value); }));
+document.querySelectorAll('[data-observation-tag]').forEach((input) => input.addEventListener('change', () => { state.observationTags = [...document.querySelectorAll('[data-observation-tag]:checked')].map((item) => item.value); }));
 $('#save').addEventListener('click', save);
 document.addEventListener('keydown', (event) => { if (event.target.matches('textarea,input')) return; if (event.key.toLowerCase() === 'k') setDisposition('keep'); if (event.key.toLowerCase() === 'r') setDisposition('reject'); if ('1234'.includes(event.key)) setTag(['product','lifestyle','packaging','logo'][Number(event.key) - 1]); if (event.key === 'ArrowLeft' && index > 0) { index -= 1; render(); } if (event.key === 'ArrowRight' && index < entries.length - 1) { index += 1; render(); } if (event.key === 'Enter') save(); });
-fetch('/api/corpus').then((response) => response.json()).then((payload) => { entries = payload.entries; labels = payload.labels; render(); });
+fetch('/api/corpus').then((response) => response.json()).then((payload) => { entries = payload.entries; labels = payload.labels; history = payload.history || {}; render(); });
 </script>
 </body></html>`;
 
@@ -118,12 +136,13 @@ async function loadLabels(manifest: GoldenManifest): Promise<GoldenLabelsFile> {
     const labels = await readJson<GoldenLabelsFile>(LABELS_PATH);
     if (labels.corpusId !== manifest.corpusId)
       throw new Error("labels corpusId does not match manifest");
-    return labels;
+    return hydrateLabelHistory(labels);
   } catch {
     return {
       schemaVersion: EVAL_SCHEMA_VERSION,
       corpusId: manifest.corpusId,
       labels: {},
+      history: {},
     };
   }
 }
@@ -199,6 +218,7 @@ async function startReview(): Promise<void> {
               : null,
           })),
           labels: labelsFile.labels,
+          history: labelsFile.history ?? {},
         });
         return;
       }
@@ -210,6 +230,7 @@ async function startReview(): Promise<void> {
           imageId?: unknown;
           disposition?: unknown;
           tag?: unknown;
+          observationTags?: unknown;
           reasons?: unknown;
           notes?: unknown;
         };
@@ -224,6 +245,11 @@ async function startReview(): Promise<void> {
           imageId: entry.id,
           disposition: value.disposition === "keep" ? "keep" : "reject",
           tag: typeof value.tag === "string" ? (value.tag as KeptTag) : null,
+          observationTags: Array.isArray(value.observationTags)
+            ? value.observationTags.filter(
+                (tag): tag is ObservationTag => tag === "workspace",
+              )
+            : [],
           reasons: Array.isArray(value.reasons)
             ? value.reasons.filter(
                 (reason): reason is RejectionReason =>
@@ -235,9 +261,14 @@ async function startReview(): Promise<void> {
         const errors = validateLabel(label);
         if (errors.length > 0)
           return json(response, 400, { error: errors.join("; ") });
-        labelsFile.labels[label.imageId] = label;
+        const updatedLabelsFile = appendLabelRevision(labelsFile, label);
+        labelsFile.labels = updatedLabelsFile.labels;
+        labelsFile.history = updatedLabelsFile.history;
         await writeJsonAtomic(LABELS_PATH, labelsFile);
-        json(response, 200, label);
+        json(response, 200, {
+          label,
+          history: labelsFile.history?.[label.imageId] ?? [],
+        });
         return;
       }
       response.writeHead(404);
