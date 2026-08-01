@@ -209,7 +209,6 @@ describe('audited Serper adapter', () => {
         {
           brandName: 'Littdlework',
           productType: 'home',
-          purchaseWebsite: 'https://littdlework.example',
         },
       ],
       1,

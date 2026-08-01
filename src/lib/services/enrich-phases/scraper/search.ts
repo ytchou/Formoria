@@ -1,9 +1,9 @@
+import { productTypeNameZh } from '@/lib/taxonomy/ontology'
 import type { ImageQueryInput, QueryTemplate } from './types'
 
 export const SEARCH_DELAY_MS = 1500
 
 export const DEFAULT_QUERY: QueryTemplate = (name: string) => `${name} 台灣`
-const IMAGE_NEGATIVE_TERMS = ['-優惠', '-折扣', '-特價', '-coupon']
 
 export function buildImageQueryVariants(input: ImageQueryInput): string[] {
   const brandName = input.brandName.trim()
@@ -11,10 +11,11 @@ export function buildImageQueryVariants(input: ImageQueryInput): string[] {
     return []
   }
 
-  const productType = input.productType?.trim()
-  const productSegment = productType ? `${productType} ` : ''
-  const negatives = IMAGE_NEGATIVE_TERMS.join(' ')
-  return [`"${brandName}" ${productSegment}商品 台灣 品牌 ${negatives}`]
+  // The image endpoint runs with hl=zh-TW, so the product type has to be the
+  // Chinese category name — a raw English slug pulls in off-brand SERPs.
+  const typeZh = productTypeNameZh(input.productType?.trim())
+  const typeSegment = typeZh ? ` ${typeZh}` : ''
+  return [`"${brandName}"${typeSegment} 商品`]
 }
 
 export function stripTrackingParams(url: string): string {

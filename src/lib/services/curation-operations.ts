@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { cleanBrandName } from "./brand-cleanup";
+import { mapWithConcurrency } from "./concurrency";
 import { resolveRefreshEnrichmentPatch } from "./brand-write-policy";
 import type { BrandFlatLinkColumns } from "@/lib/types";
 import type { SiteContent } from "@/lib/types/brand";
@@ -147,31 +148,7 @@ function delay(ms: number): Promise<void> {
   });
 }
 
-export async function mapWithConcurrency<T, R>(
-  items: readonly T[],
-  concurrency: number,
-  callback: (item: T, index: number) => Promise<R>,
-): Promise<R[]> {
-  if (!Number.isSafeInteger(concurrency) || concurrency < 1) {
-    throw new Error("Concurrency must be a positive integer");
-  }
-
-  const results = new Array<R>(items.length);
-  let cursor = 0;
-
-  async function worker(): Promise<void> {
-    while (cursor < items.length) {
-      const index = cursor;
-      cursor += 1;
-      results[index] = await callback(items[index]!, index);
-    }
-  }
-
-  await Promise.all(
-    Array.from({ length: Math.min(concurrency, items.length) }, () => worker()),
-  );
-  return results;
-}
+export { mapWithConcurrency };
 
 export { ENRICH_PHASES };
 

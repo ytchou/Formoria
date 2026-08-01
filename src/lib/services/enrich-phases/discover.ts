@@ -1,7 +1,7 @@
 import type { PhaseResult, PhaseStatus } from '@/lib/types/curation'
 import { batchSearchBrandsWithSnippets, parseBrandSearchEntries } from './scraper/search'
 import { getLatestSearchResults } from '../search-results'
-import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
+import { productTypeNameZh } from '@/lib/taxonomy/ontology'
 import { buildSerpConfig } from '@/lib/constants/enrichment-config'
 import type { EnrichmentTarget } from '../enrichment-target'
 import {
@@ -25,9 +25,7 @@ type DiscoverAttempt = {
 }
 
 function buildSerpQuery(brandName: string, productTypeSlug?: string | null): string {
-  const typeZh = productTypeSlug
-    ? PRODUCT_TYPE_CATEGORIES.find((c) => c.slug === productTypeSlug)?.nameZh
-    : undefined
+  const typeZh = productTypeNameZh(productTypeSlug)
   const typeSegment = typeZh ? ` ${typeZh}` : ''
   return `"${brandName}"${typeSegment} 品牌 介紹 評價 推薦 通路 -徵才 -104 -人力 -site:formoria.com`
 }

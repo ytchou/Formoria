@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { MAX_BRAND_GALLERY_PHOTOS } from '@/lib/constants/brand-images'
 
 const romanizedNameSchema = z
   .string()
@@ -40,7 +41,10 @@ export const brandWizardBasicInfoSchema = z.object({
 
 const brandWizardMediaSchema = z.object({
   heroImageUrl: optionalUrlSchema,
-  productPhotos: z.array(z.string().url()).max(6).optional(),
+  productPhotos: z
+    .array(z.string().url())
+    .max(MAX_BRAND_GALLERY_PHOTOS)
+    .optional(),
 })
 
 const otherUrlSchema = z

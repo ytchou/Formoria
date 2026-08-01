@@ -1,13 +1,54 @@
-import { expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { buildImageQueryVariants } from './search'
+import { passesImageDimensions } from './serper'
 
-it('builds single query with brand name, product type, and negative terms', () => {
-  const variants = buildImageQueryVariants({
-    brandName: '好日子', productType: 'lifestyle', purchaseWebsite: 'https://agooday.com/products',
+describe('buildImageQueryVariants', () => {
+  it('builds a single query from quoted brand name, Chinese product type, and 商品', () => {
+    const variants = buildImageQueryVariants({ brandName: '好日子', productType: 'home' })
+    expect(variants).toEqual(['"好日子" 居家生活 商品'])
   })
-  expect(variants).toHaveLength(1)
-  expect(variants[0]).toContain('"好日子"')
-  expect(variants[0]).toContain('lifestyle')
-  expect(variants[0]).toContain('-優惠')
-  expect(variants[0]).toContain('-coupon')
+
+  it('translates the product-type slug and never leaks the raw English slug', () => {
+    const variants = buildImageQueryVariants({
+      brandName: '瀏海樹 BANGSTREE', productType: 'bags-accessories',
+    })
+    expect(variants[0]).toBe('"瀏海樹 BANGSTREE" 包袋配件 商品')
+    expect(variants[0]).not.toContain('bags-accessories')
+  })
+
+  it('omits the type segment when the product type is missing or unknown', () => {
+    expect(buildImageQueryVariants({ brandName: '好日子' })).toEqual(['"好日子" 商品'])
+    expect(buildImageQueryVariants({ brandName: '好日子', productType: null })).toEqual(['"好日子" 商品'])
+    // 'lifestyle' is not an L1 slug — an unresolvable value drops out cleanly.
+    expect(buildImageQueryVariants({ brandName: '好日子', productType: 'lifestyle' })).toEqual(['"好日子" 商品'])
+  })
+
+  it('carries no negative terms, 台灣, or 品牌', () => {
+    const query = buildImageQueryVariants({ brandName: '好日子', productType: 'home' })[0] ?? ''
+    for (const term of ['-優惠', '-折扣', '-特價', '-coupon', '台灣', '品牌']) {
+      expect(query).not.toContain(term)
+    }
+  })
+
+  it('returns no queries for a blank brand name', () => {
+    expect(buildImageQueryVariants({ brandName: '   ' })).toEqual([])
+  })
+})
+
+describe('passesImageDimensions', () => {
+  it('judges the short edge when both dimensions are present', () => {
+    expect(passesImageDimensions({ imageUrl: 'a', imageWidth: 800, imageHeight: 600 })).toBe(true)
+    expect(passesImageDimensions({ imageUrl: 'a', imageWidth: 480, imageHeight: 480 })).toBe(true)
+    // Banner strip: clears the floor on width alone, rejected on height.
+    expect(passesImageDimensions({ imageUrl: 'a', imageWidth: 1600, imageHeight: 200 })).toBe(false)
+    expect(passesImageDimensions({ imageUrl: 'a', imageWidth: 200, imageHeight: 1600 })).toBe(false)
+    expect(passesImageDimensions({ imageUrl: 'a', imageWidth: 479, imageHeight: 479 })).toBe(false)
+  })
+
+  it('passes through when the provider reports no usable dimensions', () => {
+    expect(passesImageDimensions({ imageUrl: 'a' })).toBe(true)
+    expect(passesImageDimensions({ imageUrl: 'a', imageWidth: 0, imageHeight: 0 })).toBe(true)
+    expect(passesImageDimensions({ imageUrl: 'a', imageWidth: 1600 })).toBe(true)
+    expect(passesImageDimensions({ imageUrl: 'a', imageHeight: 100 })).toBe(true)
+  })
 })

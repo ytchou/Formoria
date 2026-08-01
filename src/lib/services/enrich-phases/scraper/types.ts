@@ -53,7 +53,6 @@ type BrandSearchResult = {
 export type ImageQueryInput = {
   brandName: string
   productType?: string | null
-  purchaseWebsite?: string | null
 }
 
 export type ImageSearchBrandInput = string | ImageQueryInput

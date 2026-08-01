@@ -3,7 +3,11 @@ import type { ScrapedBrandData } from '@/lib/types/scraper'
 import { resolveUrl } from '../fetch-guards'
 
 export const MAX_GALLERY_IMAGES = 5
-const MIN_IMAGE_DIMENSION = 200
+// Shares the 480px short-edge floor used by the download stage so both feeds
+// into the candidate pool agree. This only fires when BOTH the width and
+// height HTML attributes are present, which is often not the case, so the
+// download-stage gate in image-download.ts remains the real guarantee.
+const MIN_IMAGE_DIMENSION = 480
 
 const NON_PRODUCT_IMAGE_PATH_RE =
   /\/(logo|avatar|profile|banner|icon|favicon|placeholder|default|sprite|pixel|shopfront_promotion)/i

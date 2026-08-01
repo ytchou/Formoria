@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { MAX_BRAND_GALLERY_PHOTOS } from '@/lib/constants/brand-images'
 import {
   BRAND_WIZARD_SHARED_SECTION_FIELDS,
   brandWizardBasicInfoSchema,
@@ -38,7 +39,9 @@ export const brandPublishRequirementsSchema = z.object({
     z.literal('3'),
   ]),
   heroImageUrl: z.string().url(),
-  productPhotos: z.array(z.string().url()).min(1).max(6),
+  // Gallery photos are optional: a brand with only a hero image must still be
+  // able to publish and to save unrelated fields in the edit wizard.
+  productPhotos: z.array(z.string().url()).min(0).max(MAX_BRAND_GALLERY_PHOTOS),
   purchaseWebsite: z.string().url(),
 })
 

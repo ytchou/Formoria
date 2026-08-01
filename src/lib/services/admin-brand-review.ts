@@ -1,5 +1,9 @@
 import type { Brand } from "@/lib/types";
 import { ValidationError } from "@/lib/errors";
+import {
+  DRAFT_PARK_SORT_ORDER,
+  MAX_BRAND_ACTIVE_IMAGES,
+} from "@/lib/constants/brand-images";
 import { createServiceClient } from "@/lib/supabase/server";
 import { deleteStoredImagePaths } from "@/lib/services/image-upload";
 import {
@@ -12,7 +16,6 @@ import type {
   SubmissionReviewImage,
 } from "@/lib/services/submissions";
 
-const MAX_REVIEW_IMAGES = 7;
 const BRAND_IMAGE_PAGE_SIZE = 1_000;
 const SUPABASE_IN_FILTER_CHUNK_SIZE = 200;
 
@@ -102,7 +105,10 @@ export async function stageAdminBrandReviewImage(input: {
       source: "admin",
       source_url: input.url,
       status: "draft",
-      sort_order: MAX_REVIEW_IMAGES,
+      // Parked outside the valid active range (0..MAX_BRAND_ACTIVE_IMAGES - 1)
+      // until the reviewer places the image, so it can never collide with a
+      // real gallery position. See DRAFT_PARK_SORT_ORDER for the invariant.
+      sort_order: DRAFT_PARK_SORT_ORDER,
       width: input.width,
       height: input.height,
     })
@@ -149,7 +155,7 @@ export async function saveAdminBrandReview(
 ): Promise<void> {
   const selectedIds = input.images.map((image) => image.id);
   if (
-    selectedIds.length > MAX_REVIEW_IMAGES ||
+    selectedIds.length > MAX_BRAND_ACTIVE_IMAGES ||
     new Set(selectedIds).size !== selectedIds.length
   ) {
     throw new ValidationError("Invalid brand image selection");

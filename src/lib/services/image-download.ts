@@ -2,6 +2,7 @@ import sharp from 'sharp'
 
 import { processImage } from '@/lib/security/image-processor'
 import { createServiceClient } from '@/lib/supabase/server'
+import { mapWithConcurrency } from './concurrency'
 import type { CandidateImage, CandidateImageSource } from './enrich-phases/candidate-pool'
 import {
   brandTarget,
@@ -11,10 +12,30 @@ import {
 
 const IMAGE_FETCH_TIMEOUT_MS = 10_000
 const MIN_IMAGE_SIZE_BYTES = 5_120
-const MIN_IMAGE_DIMENSION_PX = 400
-const SOURCE_MIN_DIMENSION: Partial<Record<CandidateImageSource, number>> = {
-  json_ld: 300,
-}
+// Short-edge floor, applied to every source with no per-source exception.
+// Measured against 231 human-labeled images: the old `max(w,h) >= 400` rule
+// scored 50% precision because it passes banner strips on width alone;
+// `min(w,h) >= 480` scores 65% while keeping more good images.
+const MIN_IMAGE_SHORT_EDGE_PX = 480
+// No labeled good image exceeded 3:1, and the old 4.0 cap never bound on
+// anything good. 2.0 keeps square/near-square (55% of good images) and prunes
+// banners and tall portraits (58% of bad images).
+const MAX_IMAGE_ASPECT_RATIO = 2.0
+// PROVISIONAL, pending calibration against the labeled corpus. sharp's
+// `stats().sharpness` is a blur proxy; typical in-focus product photos score
+// well above 1. 1.0 is deliberately conservative so this only catches severe
+// blur — do not tighten it until it has been measured on the labeled set.
+const MIN_IMAGE_SHARPNESS = 1.0
+// PROVISIONAL, pending calibration against the labeled corpus. The previous
+// 0.5 floor only caught solid-colour fills; 2.0 also prunes near-blank and
+// flat gradient/backdrop images while staying well below the 4-7 range of a
+// normal photo. Must be calibrated before it is raised further.
+const MIN_IMAGE_ENTROPY = 2.0
+// Each unit here is an HTTP fetch plus a sharp decode/stats/resize/webp encode
+// plus a storage upload, and this already runs multiplied by the per-brand
+// enrichment concurrency. Bound the fan-out instead of firing every candidate
+// at once.
+const IMAGE_DOWNLOAD_CONCURRENCY = 4
 
 type DownloadImageCandidate = string | CandidateImage
 
@@ -178,8 +199,10 @@ export async function downloadAndStoreImages(
   const storage = targetImageStorage(target)
   const existingBySource = await loadExistingCandidates(supabase, target, dedupedCandidates)
 
-  const results = await Promise.allSettled(
-    dedupedCandidates.map(async (candidate) => {
+  return mapWithConcurrency(
+    dedupedCandidates,
+    IMAGE_DOWNLOAD_CONCURRENCY,
+    async (candidate): Promise<string | null> => {
       const { url, source, sourceUrl } = normalizeCandidate(candidate)
       const existing = existingBySource.get(sourceUrl)
       if (existing?.status === 'rejected') return null
@@ -213,7 +236,11 @@ export async function downloadAndStoreImages(
         const buffer = Buffer.from(await blob.arrayBuffer())
         const image = sharp(buffer)
         let metadata: { width?: number; height?: number }
-        let stats: { dominant: { r: number; g: number; b: number }; entropy?: number }
+        let stats: {
+          dominant: { r: number; g: number; b: number }
+          entropy?: number
+          sharpness?: number
+        }
         try {
           ;[metadata, stats] = await Promise.all([
             image.metadata(),
@@ -223,26 +250,29 @@ export async function downloadAndStoreImages(
           throw new Error('Corrupt image data, skipping')
         }
         const { width, height } = metadata
-        if (
-          !width ||
-          !height ||
-          Math.max(width, height) < (SOURCE_MIN_DIMENSION[source] ?? MIN_IMAGE_DIMENSION_PX)
-        ) {
+        if (!width || !height || Math.min(width, height) < MIN_IMAGE_SHORT_EDGE_PX) {
           throw new Error(
-            `Image resolution too low (${width ?? 0}x${height ?? 0}), skipping`
+            `Image short edge too small (${width ?? 0}x${height ?? 0}, floor ${MIN_IMAGE_SHORT_EDGE_PX}px), skipping`
           )
         }
 
         const aspectRatio = Math.max(width, height) / Math.min(width, height)
-        if (aspectRatio > 4.0) {
+        if (aspectRatio > MAX_IMAGE_ASPECT_RATIO) {
           throw new Error(
-            `Image aspect ratio too extreme (${aspectRatio.toFixed(1)}:1), skipping`
+            `Image aspect ratio too extreme (${aspectRatio.toFixed(1)}:1, cap ${MAX_IMAGE_ASPECT_RATIO.toFixed(1)}:1), skipping`
           )
         }
 
-        if (typeof stats.entropy === 'number' && stats.entropy < 0.5) {
+        const { entropy, sharpness } = stats
+        if (typeof entropy === 'number' && entropy < MIN_IMAGE_ENTROPY) {
           throw new Error(
-            `Image entropy too low (${stats.entropy.toFixed(2)}), likely blank/solid, skipping`
+            `Image entropy too low (${entropy.toFixed(2)}), likely blank/flat, skipping`
+          )
+        }
+
+        if (typeof sharpness === 'number' && sharpness < MIN_IMAGE_SHARPNESS) {
+          throw new Error(
+            `Image sharpness too low (${sharpness.toFixed(2)}), likely blurred, skipping`
           )
         }
 
@@ -251,9 +281,10 @@ export async function downloadAndStoreImages(
           throw new Error(`Perceptual duplicate detected (dHash), skipping`)
         }
 
-        // Static images only: every candidate must survive processImage
-        // (jpeg/png/webp allowlist — GIFs and other formats throw and the
-        // candidate is dropped).
+        // Static images only: every candidate must survive processImage, which
+        // enforces a jpeg/png/webp format allowlist — GIFs (which sharp would
+        // otherwise silently flatten to their first frame), SVGs and every
+        // other format throw, and the candidate is dropped.
         const processed = await processImage(buffer, {
           maxWidth: 1600,
           maxHeight: 1600,
@@ -297,6 +328,8 @@ export async function downloadAndStoreImages(
             height: uploadHeight,
             dominant_color: dominantColor,
             phash,
+            sharpness: sharpness ?? null,
+            entropy: entropy ?? null,
           } as never)
 
         if (insertError) {
@@ -311,10 +344,10 @@ export async function downloadAndStoreImages(
       } catch (err) {
         clearTimeout(timeoutId)
         console.warn(`Failed to download image ${url}:`, err)
-        throw err
+        // Positional result shape: a rejected candidate is a null slot, never
+        // a thrown error — callers index this array against a parallel array.
+        return null
       }
-    })
+    },
   )
-
-  return results.map((r) => (r.status === 'fulfilled' ? r.value : null))
 }

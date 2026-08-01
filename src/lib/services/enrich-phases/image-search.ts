@@ -112,7 +112,6 @@ export async function runImageSearchPhase(
       brandsNeedingImages.map((brand) => ({
         brandName: getDisplayBrandName(brand),
         productType: brand.product_type,
-        purchaseWebsite: brand.purchaseWebsite ?? brand.purchase_website,
       })),
       5,
       undefined,

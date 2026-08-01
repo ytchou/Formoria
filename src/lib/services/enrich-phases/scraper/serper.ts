@@ -19,7 +19,7 @@ const SERPER_SERP_ENDPOINT = 'https://google.serper.dev/search'
 const SERPER_IMAGE_ENDPOINT = 'https://google.serper.dev/images'
 const SERPER_MAPS_ENDPOINT = 'https://google.serper.dev/maps'
 const SEARCH_TIMEOUT_MS = 60_000
-const MIN_IMAGE_DIMENSION = 400
+const MIN_IMAGE_DIMENSION = 480
 const MAX_ERROR_LENGTH = 1_000
 
 export type SerperAuditOptions = SearchAuditContext & {
@@ -428,7 +428,7 @@ export async function batchSearchBrandsWithSnippets(
   concurrency = 5,
   auditResolver?: AuditResolver<string>,
 ): Promise<Map<string, BrandSearchResult>> {
-  const names = brandNames.slice(0, 20)
+  const names = brandNames
   const results = new Map<string, BrandSearchResult>()
   for (const brandName of names) results.set(brandName, { urls: [], snippets: [] })
   if (names.length === 0) return results
@@ -498,10 +498,17 @@ function isLookasideHost(imageUrl: string): boolean {
   }
 }
 
-function passesImageDimensions(result: NonNullable<SerperImageResponse['images']>[number]): boolean {
+/**
+ * Rejects on the SHORT edge, not the long one: banner strips and sidebar rails
+ * clear a long-edge floor on width alone. When the provider omits either
+ * dimension the candidate passes through and is judged on real pixels at
+ * download time.
+ */
+export function passesImageDimensions(result: NonNullable<SerperImageResponse['images']>[number]): boolean {
   const width = result.imageWidth ?? 0
   const height = result.imageHeight ?? 0
-  return width === 0 || height === 0 || width >= MIN_IMAGE_DIMENSION || height >= MIN_IMAGE_DIMENSION
+  if (width === 0 || height === 0) return true
+  return Math.min(width, height) >= MIN_IMAGE_DIMENSION
 }
 
 function shouldKeepImage(result: NonNullable<SerperImageResponse['images']>[number]): boolean {
@@ -550,6 +557,17 @@ async function resolveLookasideImage(imageUrl: string): Promise<string | null> {
   return uncropped ?? ogImage
 }
 
+/**
+ * Single source of truth for the Google Images request body. Production search
+ * and the offline eval capture MUST send identical parameters, otherwise the
+ * corpus stops reflecting production and before/after measurements are void.
+ * `num` stays at 10 — serper bills 1 credit for <=10 results and 2 above it.
+ * `tbs=isz:lt,islt:vga` asks Google for images larger than 640x480.
+ */
+function buildImageSearchBody(query: string): Record<string, unknown> {
+  return { q: query, num: 10, gl: 'tw', hl: 'zh-TW', tbs: 'isz:lt,islt:vga' }
+}
+
 async function searchBrandImagesForQuery(
   query: string,
   options?: SerperAuditOptions,
@@ -562,7 +580,7 @@ async function searchBrandImagesForQuery(
     SERPER_IMAGE_ENDPOINT,
     'image',
     query,
-    { q: query, num: 10, gl: 'tw', hl: 'zh-TW' },
+    buildImageSearchBody(query),
     isSerperImageResponse,
     (value) => ({
       urls: (value.images ?? []).flatMap((image) => (typeof image.imageUrl === 'string' ? [image.imageUrl] : [])),
@@ -619,7 +637,7 @@ async function captureBrandImagesForQuery(
     SERPER_IMAGE_ENDPOINT,
     'image',
     query,
-    { q: query, num: 10, gl: 'tw', hl: 'zh-TW' },
+    buildImageSearchBody(query),
     isSerperImageResponse,
     (value) => ({
       urls: parseSerperImageCandidates(value).map((candidate) => candidate.imageUrl),
