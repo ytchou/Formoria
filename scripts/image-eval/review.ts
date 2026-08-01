@@ -14,7 +14,6 @@ import {
   hydrateLabelsFile,
   normalizeLabelInput,
   registerTagDefinition,
-  readyEntries,
   validateLabel,
 } from "./lib/labels";
 import {
@@ -24,6 +23,11 @@ import {
   type KeptTag,
   type RejectionReason,
 } from "./lib/types";
+import {
+  REVIEW_HOLDOUT_COUNT,
+  REVIEW_QUEUE_SEED,
+  reviewQueue,
+} from "./lib/review";
 
 const DEFAULT_PORT = 4179;
 
@@ -61,6 +65,7 @@ const REVIEW_HTML = `<!doctype html>
   <aside>
     <h1>DEV-1279 image review</h1>
     <div id="counter"></div><div id="meta"></div><div id="history"></div>
+    <p class="keys">Queue: 400 images, randomized within split. All dev images come before the 50-image holdout sample.</p>
     <div class="group"><h2>Disposition</h2>
       <button data-disposition="keep">Keep — useful and publishable</button>
       <button data-disposition="reject">Reject — worse than no image</button>
@@ -185,13 +190,7 @@ async function startReview(): Promise<void> {
   await ensureEvalDirectories();
   const manifest = await readJson<GoldenManifest>(MANIFEST_PATH);
   const labelsFile = await loadLabels(manifest);
-  const entries = readyEntries(manifest).toSorted(
-    (left, right) =>
-      left.split.localeCompare(right.split) ||
-      left.category.localeCompare(right.category) ||
-      left.brandSlug.localeCompare(right.brandSlug) ||
-      left.position - right.position,
-  );
+  const entries = reviewQueue(manifest.entries, REVIEW_HOLDOUT_COUNT);
   const portArg = process.argv.find((argument) =>
     argument.startsWith("--port="),
   );
@@ -219,6 +218,8 @@ async function startReview(): Promise<void> {
         );
         json(response, 200, {
           corpusId: manifest.corpusId,
+          reviewQueueSeed: REVIEW_QUEUE_SEED,
+          reviewQueueSize: entries.length,
           entries: entries.map((entry) => ({
             ...entry,
             signedUrl: entry.objectPath
