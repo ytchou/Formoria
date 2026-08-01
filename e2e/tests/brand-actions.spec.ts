@@ -145,14 +145,7 @@ test.describe("Brand detail actions", () => {
       await adminPage.getByRole("button", { name: "管理選單" }).click();
       await adminPage.getByRole("menuitem", { name: "隱藏品牌" }).click();
 
-      // handleHideBrand awaits the hideBrandAction server action and only then pushes
-      // to /admin/brands, so this one assertion has to cover a server-action round
-      // trip plus a cold cross-app navigation. The 5s default is under-budgeted for
-      // CI and made this the flakiest assertion in the deep suite (it also went red
-      // on fix/dev-1290-1295-performance, which touched none of this code).
-      await expect(adminPage).toHaveURL(/\/admin\/brands\?status=hidden&search=/, {
-        timeout: 20_000,
-      });
+      await expect(adminPage).toHaveURL(/\/admin\/brands\?status=hidden&search=/);
       const brandRow = adminPage.getByRole("row", {
         name: new RegExp(escapedBrandName),
       });
