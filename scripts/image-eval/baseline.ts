@@ -21,6 +21,11 @@ import {
   writeJsonAtomic,
 } from "./lib/paths";
 import { defaultTagDefinitions, hydrateLabelsFile } from "./lib/labels";
+import {
+  REVIEW_HOLDOUT_COUNT,
+  REVIEW_QUEUE_SEED,
+  reviewQueue,
+} from "./lib/review";
 import { tagFromLegacyTag } from "./lib/scoring";
 import type {
   EvalPrediction,
@@ -33,6 +38,7 @@ import type {
 const BATCH_SIZE = 20;
 const MODEL = "gpt-4o-mini";
 const REJECTION_TAGS = ["promo", "text_banner", "irrelevant"];
+const MAX_RATE_LIMIT_RETRIES = 5;
 
 function classificationSchema(
   keptTags: readonly string[],
@@ -117,6 +123,26 @@ function promptArg(): "legacy" | "current" {
   return value;
 }
 
+function scopeArg(): "manifest" | "review" {
+  const argument = process.argv.find((value) => value.startsWith("--scope="));
+  const value = argument?.slice("--scope=".length) ?? "manifest";
+  if (value !== "manifest" && value !== "review")
+    throw new Error("--scope must be manifest or review");
+  return value;
+}
+
+function hasFlag(name: string): boolean {
+  return process.argv.includes(name);
+}
+
+function paceMsArg(): number {
+  const argument = process.argv.find((value) => value.startsWith("--pace-ms="));
+  const value = argument ? Number(argument.slice("--pace-ms=".length)) : 0;
+  if (!Number.isFinite(value) || value < 0)
+    throw new Error("--pace-ms must be a non-negative number");
+  return value;
+}
+
 async function loadTagDefinitions(): Promise<
   GoldenLabelsFile["tagDefinitions"]
 > {
@@ -125,6 +151,15 @@ async function loadTagDefinitions(): Promise<
     return hydrateLabelsFile(labelsFile).tagDefinitions;
   } catch {
     return defaultTagDefinitions();
+  }
+}
+
+async function loadLabeledImageIds(): Promise<Set<string>> {
+  try {
+    const labelsFile = await readJson<GoldenLabelsFile>(LABELS_PATH);
+    return new Set(Object.keys(labelsFile.labels));
+  } catch {
+    return new Set();
   }
 }
 
@@ -151,6 +186,12 @@ function buildSystemPrompt(
     "- disposition=keep 時，tag 必須恰好是 product、lifestyle、packaging、logo 其中之一，reasons 必須是空陣列。",
     `- disposition=keep 時，tag 必須恰好是 ${tags} 其中之一，reasons 必須是空陣列。`,
   )}\n\n${tagRegistryGuidance(tagDefinitions)}`;
+}
+
+function verdictInstruction(prompt: "legacy" | "current"): string {
+  return prompt === "current"
+    ? "每張圖片都必須回傳一個分類物件；無法判斷或品質不足時，請明確回傳 disposition=reject、tag=null 和 low_visual_quality，不要省略圖片。"
+    : "無法判斷的圖片請省略，不要猜測。";
 }
 
 function parseClassifications(content: string): Map<string, RawClassification> {
@@ -236,19 +277,55 @@ async function auditWriter(path: string, event: ChatAuditEvent): Promise<void> {
   await appendFile(path, `${JSON.stringify(event)}\n`, "utf8");
 }
 
+function retryDelayMs(
+  response: Awaited<ReturnType<ReturnType<typeof createOpenAIClient>["chat"]>>,
+  attempt: number,
+): number {
+  const retryAfter = Number(response.response.headers.get("retry-after"));
+  if (Number.isFinite(retryAfter) && retryAfter >= 0)
+    return Math.min(30_000, retryAfter * 1_000);
+  return Math.min(30_000, 1_000 * 2 ** attempt);
+}
+
+async function chatWithRateLimitRetry(
+  client: ReturnType<typeof createOpenAIClient>,
+  input: Parameters<ReturnType<typeof createOpenAIClient>["chat"]>[0],
+): Promise<Awaited<ReturnType<ReturnType<typeof createOpenAIClient>["chat"]>>> {
+  for (let attempt = 0; ; attempt += 1) {
+    const response = await client.chat(input);
+    if (response.status !== 429 || attempt >= MAX_RATE_LIMIT_RETRIES)
+      return response;
+    const delayMs = retryDelayMs(response, attempt);
+    console.warn(
+      `  [OPENAI] Rate limited; retrying in ${delayMs}ms (attempt ${attempt + 1}/${MAX_RATE_LIMIT_RETRIES})`,
+    );
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+}
+
 async function runBaseline(): Promise<void> {
   await ensureEvalDirectories();
   const manifest = await readJson<GoldenManifest>(MANIFEST_PATH);
   const selectedSplit = splitArg();
   const prompt = promptArg();
+  const scope = scopeArg();
+  const unlabeledOnly = hasFlag("--unlabeled-only");
+  const paceMs = paceMsArg();
   const tagDefinitions =
     (await loadTagDefinitions()) ?? defaultTagDefinitions();
   const keptTags = Object.keys(tagDefinitions);
   const systemPrompt = buildSystemPrompt(prompt, tagDefinitions);
-  const entries = manifest.entries.filter(
+  const labeledImageIds = unlabeledOnly
+    ? await loadLabeledImageIds()
+    : new Set<string>();
+  const scopedEntries =
+    scope === "review"
+      ? reviewQueue(manifest.entries, REVIEW_HOLDOUT_COUNT)
+      : manifest.entries.filter((entry) => entry.captureStatus === "ready");
+  const entries = scopedEntries.filter(
     (entry) =>
-      entry.captureStatus === "ready" &&
-      (selectedSplit === "all" || entry.split === selectedSplit),
+      (selectedSplit === "all" || entry.split === selectedSplit) &&
+      (!unlabeledOnly || !labeledImageIds.has(entry.id)),
   );
   if (entries.length === 0)
     throw new Error(`No ready entries for split ${selectedSplit}`);
@@ -276,6 +353,8 @@ async function runBaseline(): Promise<void> {
   for (const brandEntries of entriesByBrand.values()) {
     for (let offset = 0; offset < brandEntries.length; offset += BATCH_SIZE) {
       const chunk = brandEntries.slice(offset, offset + BATCH_SIZE);
+      if (paceMs > 0 && completed > 0)
+        await new Promise((resolve) => setTimeout(resolve, paceMs));
       const ids = chunk.map((_entry, index) => String(index + 1));
       const images = chunk.map((entry) =>
         entry.objectPath ? signedUrls.get(entry.objectPath) : undefined,
@@ -295,9 +374,9 @@ async function runBaseline(): Promise<void> {
         continue;
       }
 
-      const response = await client.chat({
+      const response = await chatWithRateLimitRetry(client, {
         system: systemPrompt,
-        user: `${brandContext(chunk[0])}請分類以下 ${chunk.length} 張品牌圖片，依序編號為 ${ids.join("、")}。回傳 JSON object，包含 classifications 陣列，每個物件的 id 必須是對應圖片的編號字串。無法判斷的圖片請省略，不要猜測。`,
+        user: `${brandContext(chunk[0])}請分類以下 ${chunk.length} 張品牌圖片，依序編號為 ${ids.join("、")}。回傳 JSON object，包含 classifications 陣列，每個物件的 id 必須是對應圖片的編號字串。${verdictInstruction(prompt)}`,
         images: images.filter((url): url is string => Boolean(url)),
         json: true,
         schema: classificationSchema(keptTags, prompt),
@@ -306,6 +385,9 @@ async function runBaseline(): Promise<void> {
         meta: {
           imageIds: chunk.map((entry) => entry.id),
           split: selectedSplit,
+          scope,
+          unlabeledOnly,
+          paceMs,
           prompt,
           tagRegistry: tagDefinitions,
         },
@@ -362,6 +444,10 @@ async function runBaseline(): Promise<void> {
     corpusId: manifest.corpusId,
     model: MODEL,
     split: selectedSplit,
+    scope,
+    unlabeledOnly,
+    paceMs,
+    reviewQueueSeed: scope === "review" ? REVIEW_QUEUE_SEED : null,
     prompt,
     tagDefinitions,
     createdAt: new Date().toISOString(),
