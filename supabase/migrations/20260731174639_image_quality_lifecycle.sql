@@ -3,9 +3,13 @@ BEGIN;
 ALTER TABLE public.brand_images
   DROP CONSTRAINT IF EXISTS brand_images_status_check;
 
+-- 'draft' must stay: admin brand-catalog uploads stage as draft before publish
+-- (admin-brand-review.ts). 20260801095500 added it to fix a 23514 on every admin
+-- upload, and this migration sorts earlier, so omitting it here re-breaks that
+-- path on the next `db push --include-all`.
 ALTER TABLE public.brand_images
   ADD CONSTRAINT brand_images_status_check
-  CHECK (status IN ('active', 'candidate', 'rejected'));
+  CHECK (status IN ('active', 'candidate', 'draft', 'rejected'));
 
 ALTER TABLE public.submission_images
   DROP CONSTRAINT IF EXISTS submission_images_status_check;

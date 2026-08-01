@@ -1,0 +1,5772 @@
+{
+  "schemaVersion": 1,
+  "corpusId": "dev-1279-serper-capture-2026-08-01T04-14-24-359Z",
+  "labels": {
+    "d6c0b37157b264655928ff0f": {
+      "imageId": "d6c0b37157b264655928ff0f",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T09:37:29.913Z"
+    },
+    "d36442985feccc8730ddb73b": {
+      "imageId": "d36442985feccc8730ddb73b",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:37:47.660Z"
+    },
+    "01b5c6bca60885bda3b1cd64": {
+      "imageId": "01b5c6bca60885bda3b1cd64",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:30:44.167Z"
+    },
+    "19dec66d6841febd9d6c074b": {
+      "imageId": "19dec66d6841febd9d6c074b",
+      "disposition": "keep",
+      "tag": "lifestyle",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:45:07.849Z"
+    },
+    "1c1f69e43ee9a8e42f05a371": {
+      "imageId": "1c1f69e43ee9a8e42f05a371",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:48:00.909Z"
+    },
+    "102d5dccc9b451fdd55a7cbf": {
+      "imageId": "102d5dccc9b451fdd55a7cbf",
+      "disposition": "keep",
+      "tag": "lifestyle",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T04:50:27.302Z"
+    },
+    "5a365af47a198042fc3a37df": {
+      "imageId": "5a365af47a198042fc3a37df",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "low_visual_quality"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:46:44.315Z"
+    },
+    "a052edaccc9923853c6ec986": {
+      "imageId": "a052edaccc9923853c6ec986",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "low_visual_quality",
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T04:50:59.628Z"
+    },
+    "784aa5264f4ec515e0212f7e": {
+      "imageId": "784aa5264f4ec515e0212f7e",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T04:51:07.685Z"
+    },
+    "c9fbffd33262c9af27ae1867": {
+      "imageId": "c9fbffd33262c9af27ae1867",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T04:51:12.137Z"
+    },
+    "8cd34a2c2ec6d23816c937de": {
+      "imageId": "8cd34a2c2ec6d23816c937de",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T04:51:14.755Z"
+    },
+    "a9bee3dc34402aee0d0eabe6": {
+      "imageId": "a9bee3dc34402aee0d0eabe6",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:45:40.651Z"
+    },
+    "824dbb744e46a3a3fe1de332": {
+      "imageId": "824dbb744e46a3a3fe1de332",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "low_visual_quality",
+        "duplicate",
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T04:51:21.513Z"
+    },
+    "c80a30443ac797c56b51a755": {
+      "imageId": "c80a30443ac797c56b51a755",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:44:57.227Z"
+    },
+    "9efe9cf8cdc3d9544ee384d6": {
+      "imageId": "9efe9cf8cdc3d9544ee384d6",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "low_visual_quality",
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:50:04.674Z"
+    },
+    "87334f479c13efbcc6dda832": {
+      "imageId": "87334f479c13efbcc6dda832",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:46:58.374Z"
+    },
+    "9e5b2eb9ef8584b281ae78a4": {
+      "imageId": "9e5b2eb9ef8584b281ae78a4",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T04:52:01.407Z"
+    },
+    "5fe29f99d6cd21985ff20798": {
+      "imageId": "5fe29f99d6cd21985ff20798",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:44:21.209Z"
+    },
+    "fc91ec4089c88139d390dfee": {
+      "imageId": "fc91ec4089c88139d390dfee",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:39:32.975Z"
+    },
+    "2e791e4ce38d2587c719bd6e": {
+      "imageId": "2e791e4ce38d2587c719bd6e",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T04:52:12.770Z"
+    },
+    "13505c47d71b3edd5faa97e1": {
+      "imageId": "13505c47d71b3edd5faa97e1",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T04:52:16.973Z"
+    },
+    "9cdab55ea7ea952943fe954e": {
+      "imageId": "9cdab55ea7ea952943fe954e",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T11:20:26.910Z"
+    },
+    "c9b6b8a80c965444268e8b0d": {
+      "imageId": "c9b6b8a80c965444268e8b0d",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:43:31.937Z"
+    },
+    "6362fe5f591e392438443ba3": {
+      "imageId": "6362fe5f591e392438443ba3",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "time_sensitive"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T04:52:34.523Z"
+    },
+    "fdf556abbfcc78af0482c0b2": {
+      "imageId": "fdf556abbfcc78af0482c0b2",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T04:52:36.905Z"
+    },
+    "353eb985ad8e75ab3f1f72f5": {
+      "imageId": "353eb985ad8e75ab3f1f72f5",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T04:52:39.277Z"
+    },
+    "bd45f511c58981b92e919340": {
+      "imageId": "bd45f511c58981b92e919340",
+      "disposition": "keep",
+      "tag": "workspace",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T11:20:04.830Z"
+    },
+    "bcae9c8a5261c079dec3f11f": {
+      "imageId": "bcae9c8a5261c079dec3f11f",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T09:57:00.723Z"
+    },
+    "5aff6da6c98c886ed51cea95": {
+      "imageId": "5aff6da6c98c886ed51cea95",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:47:03.257Z"
+    },
+    "f8e0011cef48bd78fd6d411a": {
+      "imageId": "f8e0011cef48bd78fd6d411a",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T05:59:12.924Z"
+    },
+    "4cd2eb5f5ef2dd743a8661a3": {
+      "imageId": "4cd2eb5f5ef2dd743a8661a3",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T05:59:27.184Z"
+    },
+    "43bb7c4c59eb8025fc9c31d3": {
+      "imageId": "43bb7c4c59eb8025fc9c31d3",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:48:22.626Z"
+    },
+    "f90d144971444791d556d4ba": {
+      "imageId": "f90d144971444791d556d4ba",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T05:59:59.181Z"
+    },
+    "e8e7496e1dd2c978e8886a4a": {
+      "imageId": "e8e7496e1dd2c978e8886a4a",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "low_visual_quality"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:42:17.524Z"
+    },
+    "1867647834daca0095fef34a": {
+      "imageId": "1867647834daca0095fef34a",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "low_visual_quality"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:47:50.199Z"
+    },
+    "5a9f7509f171e96ac9499b96": {
+      "imageId": "5a9f7509f171e96ac9499b96",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T06:00:09.852Z"
+    },
+    "cec89912ee4137ffc78d5aa8": {
+      "imageId": "cec89912ee4137ffc78d5aa8",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "wrong_brand",
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:30:49.475Z"
+    },
+    "798777b51f8af9c8785ed143": {
+      "imageId": "798777b51f8af9c8785ed143",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:31:58.934Z"
+    },
+    "f82be96f017257c0866b2528": {
+      "imageId": "f82be96f017257c0866b2528",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "low_visual_quality",
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:41:23.381Z"
+    },
+    "e99ce2b7b224e8e01bc3bce4": {
+      "imageId": "e99ce2b7b224e8e01bc3bce4",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "low_visual_quality",
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:39:24.932Z"
+    },
+    "e128ec4b1eee9e8264f7c267": {
+      "imageId": "e128ec4b1eee9e8264f7c267",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "low_visual_quality",
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T06:00:47.484Z"
+    },
+    "13af76b1bad5ce01780a0cca": {
+      "imageId": "13af76b1bad5ce01780a0cca",
+      "disposition": "keep",
+      "tag": "logo",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T06:01:02.962Z"
+    },
+    "87259f18c541b002f939f25e": {
+      "imageId": "87259f18c541b002f939f25e",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T09:37:27.976Z"
+    },
+    "fd82759fe5cffd20fecd0acf": {
+      "imageId": "fd82759fe5cffd20fecd0acf",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T06:15:48.895Z"
+    },
+    "62feaabc3ca09ada65fa3c82": {
+      "imageId": "62feaabc3ca09ada65fa3c82",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T06:15:52.065Z"
+    },
+    "45f59b714071174d608aa6f3": {
+      "imageId": "45f59b714071174d608aa6f3",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T11:20:28.660Z"
+    },
+    "c249760f829713afc73c4439": {
+      "imageId": "c249760f829713afc73c4439",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T06:15:58.541Z"
+    },
+    "2fdf7f9dce4073996ffb500b": {
+      "imageId": "2fdf7f9dce4073996ffb500b",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T09:31:32.601Z"
+    },
+    "321d2629d1907cd4c3441a13": {
+      "imageId": "321d2629d1907cd4c3441a13",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "text_dominant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T09:35:51.501Z"
+    },
+    "8baae054f734141365ce9abc": {
+      "imageId": "8baae054f734141365ce9abc",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T09:36:00.656Z"
+    },
+    "28af158b9f9b0a860cd59435": {
+      "imageId": "28af158b9f9b0a860cd59435",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T09:36:05.846Z"
+    },
+    "dd39497314abb7dbc1435644": {
+      "imageId": "dd39497314abb7dbc1435644",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "text_dominant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T09:36:09.847Z"
+    },
+    "87f2d61b8533404d3e47b5aa": {
+      "imageId": "87f2d61b8533404d3e47b5aa",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "wrong_brand"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T09:36:34.179Z"
+    },
+    "1445cf9f5275dd27e0e52d35": {
+      "imageId": "1445cf9f5275dd27e0e52d35",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "wrong_brand"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T09:36:41.909Z"
+    },
+    "e7d3f8d48a08d19c2f57dfc3": {
+      "imageId": "e7d3f8d48a08d19c2f57dfc3",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T09:37:09.619Z"
+    },
+    "a84cbba6b42eedcf1e9dafa1": {
+      "imageId": "a84cbba6b42eedcf1e9dafa1",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "low_visual_quality",
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T09:37:12.225Z"
+    },
+    "5211cbc89916b6428bb79fd7": {
+      "imageId": "5211cbc89916b6428bb79fd7",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T09:37:19.270Z"
+    },
+    "43f85e73708bceac1cc6a44b": {
+      "imageId": "43f85e73708bceac1cc6a44b",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T09:37:24.943Z"
+    },
+    "a7e39c9c9f603f025bf90d0d": {
+      "imageId": "a7e39c9c9f603f025bf90d0d",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "low_visual_quality"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T09:37:35.651Z"
+    },
+    "de213a7da532f335c82d24e6": {
+      "imageId": "de213a7da532f335c82d24e6",
+      "disposition": "keep",
+      "tag": "logo",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T09:37:41.137Z"
+    },
+    "de0fa01d6db6d311040d85f2": {
+      "imageId": "de0fa01d6db6d311040d85f2",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T09:38:11.316Z"
+    },
+    "583dacfefba294403f2bc4ec": {
+      "imageId": "583dacfefba294403f2bc4ec",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T09:38:31.381Z"
+    },
+    "c5c3b0b62507513d4b1bb364": {
+      "imageId": "c5c3b0b62507513d4b1bb364",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "wrong_brand",
+        "promo_subject"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T09:39:15.198Z"
+    },
+    "cdecc5e29dce6c5c35d529ab": {
+      "imageId": "cdecc5e29dce6c5c35d529ab",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "wrong_brand"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T09:56:19.822Z"
+    },
+    "227732c5574bdfe352ecac46": {
+      "imageId": "227732c5574bdfe352ecac46",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "wrong_brand"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T09:56:51.159Z"
+    },
+    "85f8fe3be26d3b396cf6544e": {
+      "imageId": "85f8fe3be26d3b396cf6544e",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T09:56:54.716Z"
+    },
+    "205b52446caee6199e1e9ccf": {
+      "imageId": "205b52446caee6199e1e9ccf",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "promo_subject"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T09:57:18.724Z"
+    },
+    "aa1fd0b3b88870facdb036bc": {
+      "imageId": "aa1fd0b3b88870facdb036bc",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "promo_subject",
+        "text_dominant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:00:31.484Z"
+    },
+    "58961304783516b04f59425c": {
+      "imageId": "58961304783516b04f59425c",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:04:25.166Z"
+    },
+    "9e2f6a42d4d60b29abbf6553": {
+      "imageId": "9e2f6a42d4d60b29abbf6553",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "low_visual_quality"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:27:49.667Z"
+    },
+    "5c8e41fbb3ada1d4084d18a5": {
+      "imageId": "5c8e41fbb3ada1d4084d18a5",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "text_dominant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:29:26.507Z"
+    },
+    "b32e46cf009d2422248702f2": {
+      "imageId": "b32e46cf009d2422248702f2",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:29:30.533Z"
+    },
+    "30f481bdf186f756db5e8bc2": {
+      "imageId": "30f481bdf186f756db5e8bc2",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:29:39.985Z"
+    },
+    "6c818fa970d62db17f6a6057": {
+      "imageId": "6c818fa970d62db17f6a6057",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "text_dominant",
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:30:09.437Z"
+    },
+    "c152c3148885cd472ebc694f": {
+      "imageId": "c152c3148885cd472ebc694f",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "wrong_brand"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:30:26.474Z"
+    },
+    "7e768609da872a122b056744": {
+      "imageId": "7e768609da872a122b056744",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:30:39.365Z"
+    },
+    "cc4a209406d085c19aa64b7c": {
+      "imageId": "cc4a209406d085c19aa64b7c",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:30:52.120Z"
+    },
+    "c53c9a739cbd3e68ca9ec8a7": {
+      "imageId": "c53c9a739cbd3e68ca9ec8a7",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "text_dominant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:30:56.291Z"
+    },
+    "c8a0d51e929b28f781469c17": {
+      "imageId": "c8a0d51e929b28f781469c17",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:31:00.737Z"
+    },
+    "aebb6de9a24c84b05a880e47": {
+      "imageId": "aebb6de9a24c84b05a880e47",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "wrong_brand"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:31:24.233Z"
+    },
+    "42ea347f96c9c288c1ce3739": {
+      "imageId": "42ea347f96c9c288c1ce3739",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:31:31.110Z"
+    },
+    "fb71f53968a59361d6096e9f": {
+      "imageId": "fb71f53968a59361d6096e9f",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "low_visual_quality",
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:32:23.682Z"
+    },
+    "e1af8891c1a2fb4f6838c62f": {
+      "imageId": "e1af8891c1a2fb4f6838c62f",
+      "disposition": "keep",
+      "tag": "logo",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:37:53.063Z"
+    },
+    "ffa201252c8884e40eca23ef": {
+      "imageId": "ffa201252c8884e40eca23ef",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:39:28.827Z"
+    },
+    "179e4000a6eda319759ea46b": {
+      "imageId": "179e4000a6eda319759ea46b",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:39:37.560Z"
+    },
+    "bf0e57be0883659cacbb80fe": {
+      "imageId": "bf0e57be0883659cacbb80fe",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:41:15.796Z"
+    },
+    "7b0a61dbe6d80ee43e29229d": {
+      "imageId": "7b0a61dbe6d80ee43e29229d",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "wrong_brand"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:41:20.529Z"
+    },
+    "4733ba8bcfca1f24d71b9373": {
+      "imageId": "4733ba8bcfca1f24d71b9373",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:41:25.731Z"
+    },
+    "63dbe4c4da4d446dfe189ca1": {
+      "imageId": "63dbe4c4da4d446dfe189ca1",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "wrong_brand"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:41:29.000Z"
+    },
+    "8caa1d5bf3ebe7c334ee1408": {
+      "imageId": "8caa1d5bf3ebe7c334ee1408",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "low_visual_quality"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:41:31.436Z"
+    },
+    "d48101da9f404de05b8d5dea": {
+      "imageId": "d48101da9f404de05b8d5dea",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:41:33.408Z"
+    },
+    "d8350e42e8ed4362c0538c04": {
+      "imageId": "d8350e42e8ed4362c0538c04",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:41:48.959Z"
+    },
+    "8c6edde6fbed0a3285cffc5a": {
+      "imageId": "8c6edde6fbed0a3285cffc5a",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "promo_subject",
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:41:54.490Z"
+    },
+    "35c3b04026ef3e85ac9195f4": {
+      "imageId": "35c3b04026ef3e85ac9195f4",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:42:08.310Z"
+    },
+    "c2526386b02d0973d6086c6d": {
+      "imageId": "c2526386b02d0973d6086c6d",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "low_visual_quality"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:42:09.635Z"
+    },
+    "f31ab0293f6728c39e97fa81": {
+      "imageId": "f31ab0293f6728c39e97fa81",
+      "disposition": "keep",
+      "tag": "lifestyle",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:42:13.738Z"
+    },
+    "4f6e98ad37b33413bbf6acd6": {
+      "imageId": "4f6e98ad37b33413bbf6acd6",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "wrong_brand",
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:42:24.663Z"
+    },
+    "f5517567b32156377a34e366": {
+      "imageId": "f5517567b32156377a34e366",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:42:28.854Z"
+    },
+    "efe90a95627916c0202e115b": {
+      "imageId": "efe90a95627916c0202e115b",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:42:36.541Z"
+    },
+    "b86525254b46fecc6738dc89": {
+      "imageId": "b86525254b46fecc6738dc89",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:42:49.478Z"
+    },
+    "1ec150a64ffb0fdfe772b53d": {
+      "imageId": "1ec150a64ffb0fdfe772b53d",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:42:59.130Z"
+    },
+    "640dfad63658f50eccbaab9b": {
+      "imageId": "640dfad63658f50eccbaab9b",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:43:07.585Z"
+    },
+    "83d700701d6e5651c53e81d1": {
+      "imageId": "83d700701d6e5651c53e81d1",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:43:09.986Z"
+    },
+    "cef27b63e42d069c2abbb505": {
+      "imageId": "cef27b63e42d069c2abbb505",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "text_dominant",
+        "low_visual_quality",
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:43:14.071Z"
+    },
+    "df1e1b3185051d511d871b1c": {
+      "imageId": "df1e1b3185051d511d871b1c",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:43:16.239Z"
+    },
+    "92e648122ce24228842fd2b2": {
+      "imageId": "92e648122ce24228842fd2b2",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "text_dominant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:43:18.562Z"
+    },
+    "742528422673bcd64eb9c713": {
+      "imageId": "742528422673bcd64eb9c713",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:43:23.349Z"
+    },
+    "b4e034dbee6647a0d734f0a1": {
+      "imageId": "b4e034dbee6647a0d734f0a1",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:43:25.515Z"
+    },
+    "85b1a506b2eadd72dccf9d99": {
+      "imageId": "85b1a506b2eadd72dccf9d99",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "text_dominant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:43:27.584Z"
+    },
+    "fbde0b8c5c2fef2a14dc3b05": {
+      "imageId": "fbde0b8c5c2fef2a14dc3b05",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:43:30.286Z"
+    },
+    "9ae2cf36fe4e3f5264aeb007": {
+      "imageId": "9ae2cf36fe4e3f5264aeb007",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "duplicate"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:43:33.938Z"
+    },
+    "a11e71d22a1113e36b2aac2b": {
+      "imageId": "a11e71d22a1113e36b2aac2b",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "text_dominant",
+        "low_visual_quality"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:43:42.412Z"
+    },
+    "bdb4c3e56f300f84a587ad9b": {
+      "imageId": "bdb4c3e56f300f84a587ad9b",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "promo_subject"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:43:45.166Z"
+    },
+    "741cd14cec30132a3b3e9642": {
+      "imageId": "741cd14cec30132a3b3e9642",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:43:47.349Z"
+    },
+    "9867f91e8002992eba08576f": {
+      "imageId": "9867f91e8002992eba08576f",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "low_visual_quality"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:43:49.752Z"
+    },
+    "34f4cbbf317ed63788080919": {
+      "imageId": "34f4cbbf317ed63788080919",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "promo_subject"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:43:53.154Z"
+    },
+    "ae0b69f92bbfb4504483cf68": {
+      "imageId": "ae0b69f92bbfb4504483cf68",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "low_visual_quality"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:43:57.242Z"
+    },
+    "0e381492738465283fa69651": {
+      "imageId": "0e381492738465283fa69651",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "low_visual_quality"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:44:00.671Z"
+    },
+    "46499ccdd9ec08e06e33e806": {
+      "imageId": "46499ccdd9ec08e06e33e806",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:44:03.749Z"
+    },
+    "d6bc144a95a2c8db6bdfcdc8": {
+      "imageId": "d6bc144a95a2c8db6bdfcdc8",
+      "disposition": "keep",
+      "tag": "logo",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:44:11.285Z"
+    },
+    "c479fd637381150d96ff2941": {
+      "imageId": "c479fd637381150d96ff2941",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:44:16.644Z"
+    },
+    "5cb406230784772efcaec675": {
+      "imageId": "5cb406230784772efcaec675",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "low_visual_quality"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:44:22.913Z"
+    },
+    "5576340b1681a979d7266759": {
+      "imageId": "5576340b1681a979d7266759",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:44:55.276Z"
+    },
+    "6dc4347c7dca5de6eb4f49aa": {
+      "imageId": "6dc4347c7dca5de6eb4f49aa",
+      "disposition": "keep",
+      "tag": "lifestyle",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:45:03.589Z"
+    },
+    "16b642f486506e62f2a4b2a2": {
+      "imageId": "16b642f486506e62f2a4b2a2",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:45:06.230Z"
+    },
+    "2a275d871b99709f4ddec42d": {
+      "imageId": "2a275d871b99709f4ddec42d",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:45:09.969Z"
+    },
+    "f22462183a8b97fb40a8a935": {
+      "imageId": "f22462183a8b97fb40a8a935",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:45:25.735Z"
+    },
+    "0b391e0a278d249ee787b30a": {
+      "imageId": "0b391e0a278d249ee787b30a",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "low_visual_quality",
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:45:33.236Z"
+    },
+    "390c31e23c7bbd702836e0bc": {
+      "imageId": "390c31e23c7bbd702836e0bc",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:45:35.304Z"
+    },
+    "9086230cddab31e4d6ed39dd": {
+      "imageId": "9086230cddab31e4d6ed39dd",
+      "disposition": "keep",
+      "tag": "lifestyle",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:45:46.366Z"
+    },
+    "4351febd2f3d277a5f1f1f95": {
+      "imageId": "4351febd2f3d277a5f1f1f95",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:45:47.851Z"
+    },
+    "7f0c22f273074423784f0502": {
+      "imageId": "7f0c22f273074423784f0502",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "text_dominant",
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:45:55.289Z"
+    },
+    "06b824f3c53b2d96dd3f0559": {
+      "imageId": "06b824f3c53b2d96dd3f0559",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:45:59.208Z"
+    },
+    "95d0eeda253df035623a8322": {
+      "imageId": "95d0eeda253df035623a8322",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:46:03.578Z"
+    },
+    "d6d0586de114aab788add58d": {
+      "imageId": "d6d0586de114aab788add58d",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:46:05.982Z"
+    },
+    "ea1874fc7881ed43ae6afd6a": {
+      "imageId": "ea1874fc7881ed43ae6afd6a",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "low_visual_quality"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:46:07.748Z"
+    },
+    "1dc288870c2b664987d0c29c": {
+      "imageId": "1dc288870c2b664987d0c29c",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "text_dominant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:46:11.418Z"
+    },
+    "430a7e0b8efb780f6597c3bc": {
+      "imageId": "430a7e0b8efb780f6597c3bc",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:46:14.086Z"
+    },
+    "2f5c3fda8e993af41d545fbd": {
+      "imageId": "2f5c3fda8e993af41d545fbd",
+      "disposition": "keep",
+      "tag": "lifestyle",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:46:15.521Z"
+    },
+    "9e7e579954b20bef5747dbda": {
+      "imageId": "9e7e579954b20bef5747dbda",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:46:17.374Z"
+    },
+    "f353ad85eab5e1b4817d2b4c": {
+      "imageId": "f353ad85eab5e1b4817d2b4c",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:46:18.757Z"
+    },
+    "3dc2f2b7b69cc69a469ae384": {
+      "imageId": "3dc2f2b7b69cc69a469ae384",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:46:20.093Z"
+    },
+    "a801704a77e6e45350a1a468": {
+      "imageId": "a801704a77e6e45350a1a468",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:46:22.327Z"
+    },
+    "672a4701f0c1d1941479b674": {
+      "imageId": "672a4701f0c1d1941479b674",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "wrong_brand",
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:46:25.727Z"
+    },
+    "476beb0eb54472f9e7c80c96": {
+      "imageId": "476beb0eb54472f9e7c80c96",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:46:27.481Z"
+    },
+    "3866faa1d0ba1f7db8b8203e": {
+      "imageId": "3866faa1d0ba1f7db8b8203e",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "wrong_brand",
+        "low_visual_quality"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:46:34.238Z"
+    },
+    "c207f7fa447e0b0654710796": {
+      "imageId": "c207f7fa447e0b0654710796",
+      "disposition": "keep",
+      "tag": "logo",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:46:37.291Z"
+    },
+    "5dab25bb4facacf3c651e528": {
+      "imageId": "5dab25bb4facacf3c651e528",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "text_dominant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:46:46.314Z"
+    },
+    "4f23a328095b15861842b0dc": {
+      "imageId": "4f23a328095b15861842b0dc",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:46:48.447Z"
+    },
+    "bd2a5ad160aa253bf44df071": {
+      "imageId": "bd2a5ad160aa253bf44df071",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:46:52.268Z"
+    },
+    "78a1ac3fd33a1a504ff4a357": {
+      "imageId": "78a1ac3fd33a1a504ff4a357",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:46:54.437Z"
+    },
+    "b122be1d19aeb2f61351050c": {
+      "imageId": "b122be1d19aeb2f61351050c",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:46:56.171Z"
+    },
+    "68e4a2035168c2614476a2ea": {
+      "imageId": "68e4a2035168c2614476a2ea",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:47:01.231Z"
+    },
+    "66ff8a9616a8b2e6a3496543": {
+      "imageId": "66ff8a9616a8b2e6a3496543",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "low_visual_quality"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:47:10.886Z"
+    },
+    "576c8f90e78d2f0ea5068d2d": {
+      "imageId": "576c8f90e78d2f0ea5068d2d",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:47:15.824Z"
+    },
+    "d32caa51b6bd77df4088a091": {
+      "imageId": "d32caa51b6bd77df4088a091",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "wrong_brand"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:47:29.370Z"
+    },
+    "6da255aec388a8fb1404c6d2": {
+      "imageId": "6da255aec388a8fb1404c6d2",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:47:34.170Z"
+    },
+    "56494511a1cb3d1672d1ba71": {
+      "imageId": "56494511a1cb3d1672d1ba71",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:47:36.712Z"
+    },
+    "93c134dc65cc7aa9815cd58b": {
+      "imageId": "93c134dc65cc7aa9815cd58b",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:47:38.795Z"
+    },
+    "cb9d213f4dbc39b3d36463ec": {
+      "imageId": "cb9d213f4dbc39b3d36463ec",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:47:43.214Z"
+    },
+    "2c8162b2adab4b819d392b48": {
+      "imageId": "2c8162b2adab4b819d392b48",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:47:48.583Z"
+    },
+    "b394490d8515505d9b2d26d2": {
+      "imageId": "b394490d8515505d9b2d26d2",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "wrong_brand"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:47:51.745Z"
+    },
+    "29d5df3b85931b4ccddc692e": {
+      "imageId": "29d5df3b85931b4ccddc692e",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "wrong_brand",
+        "low_visual_quality"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:47:55.389Z"
+    },
+    "caca9ecf6f4d992752fa17b0": {
+      "imageId": "caca9ecf6f4d992752fa17b0",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:48:06.682Z"
+    },
+    "866244f79ccc3f5865ef54b4": {
+      "imageId": "866244f79ccc3f5865ef54b4",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:48:08.631Z"
+    },
+    "513b20bfb30d7f720b75de40": {
+      "imageId": "513b20bfb30d7f720b75de40",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:48:12.455Z"
+    },
+    "775bda1f3f7f55d3c6d41284": {
+      "imageId": "775bda1f3f7f55d3c6d41284",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "wrong_brand"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:48:14.407Z"
+    },
+    "9bd5cb9fc54c3f9530a75e7c": {
+      "imageId": "9bd5cb9fc54c3f9530a75e7c",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:48:19.077Z"
+    },
+    "323661130e6e2a8555122b79": {
+      "imageId": "323661130e6e2a8555122b79",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "low_visual_quality"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:48:27.117Z"
+    },
+    "329d37b3370798c2a6719920": {
+      "imageId": "329d37b3370798c2a6719920",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "low_visual_quality",
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:48:33.385Z"
+    },
+    "0d17cbdf60c0df8f7b8fc206": {
+      "imageId": "0d17cbdf60c0df8f7b8fc206",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "wrong_brand",
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:48:35.950Z"
+    },
+    "b17104a69ad8799b913a4015": {
+      "imageId": "b17104a69ad8799b913a4015",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "low_visual_quality",
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:48:45.163Z"
+    },
+    "d3c76df7267c678715c7a4a7": {
+      "imageId": "d3c76df7267c678715c7a4a7",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:48:47.047Z"
+    },
+    "a6016d8bb9c1c12b31a89448": {
+      "imageId": "a6016d8bb9c1c12b31a89448",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:48:48.968Z"
+    },
+    "4d5fe1fdbd339d7d981b144c": {
+      "imageId": "4d5fe1fdbd339d7d981b144c",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:48:54.148Z"
+    },
+    "fa23ceb24aff43c0cfa9ce4a": {
+      "imageId": "fa23ceb24aff43c0cfa9ce4a",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:48:56.671Z"
+    },
+    "bf8b88a0f2fc4fb25a00ff31": {
+      "imageId": "bf8b88a0f2fc4fb25a00ff31",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:48:58.189Z"
+    },
+    "97cbdbec0493f47227489ea3": {
+      "imageId": "97cbdbec0493f47227489ea3",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "wrong_brand"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:49:01.644Z"
+    },
+    "1aa19b42c23b1abba1ffe062": {
+      "imageId": "1aa19b42c23b1abba1ffe062",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "text_dominant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:49:03.895Z"
+    },
+    "9df3ad3781c4d216d2b50899": {
+      "imageId": "9df3ad3781c4d216d2b50899",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:49:11.015Z"
+    },
+    "d52e6d4720df849917f8399c": {
+      "imageId": "d52e6d4720df849917f8399c",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "low_visual_quality"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:49:12.602Z"
+    },
+    "efa179ce8b53f5124213cdfe": {
+      "imageId": "efa179ce8b53f5124213cdfe",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:49:14.136Z"
+    },
+    "b114cabb3bc35c6f6dc7c299": {
+      "imageId": "b114cabb3bc35c6f6dc7c299",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:49:16.021Z"
+    },
+    "531e720c29ff236429dcea37": {
+      "imageId": "531e720c29ff236429dcea37",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "text_dominant",
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:49:21.426Z"
+    },
+    "e32aa2d30516c00d74f42508": {
+      "imageId": "e32aa2d30516c00d74f42508",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "wrong_brand",
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:49:26.647Z"
+    },
+    "4c8a7c698ef6b7a43fe2604c": {
+      "imageId": "4c8a7c698ef6b7a43fe2604c",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "promo_subject",
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:49:32.306Z"
+    },
+    "b3c6cca976c51dd19d79c18e": {
+      "imageId": "b3c6cca976c51dd19d79c18e",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "text_dominant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:49:46.117Z"
+    },
+    "9b86e70aa1517f60e9b75942": {
+      "imageId": "9b86e70aa1517f60e9b75942",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "low_visual_quality"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:49:48.465Z"
+    },
+    "a87b6a992d17cd6c6f779236": {
+      "imageId": "a87b6a992d17cd6c6f779236",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:49:51.116Z"
+    },
+    "85add028a1c78ebf45e28c6a": {
+      "imageId": "85add028a1c78ebf45e28c6a",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:49:53.419Z"
+    },
+    "f47a26d65c83213f8aef414d": {
+      "imageId": "f47a26d65c83213f8aef414d",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:49:55.976Z"
+    },
+    "7d0344cc5b373e5b52d80e54": {
+      "imageId": "7d0344cc5b373e5b52d80e54",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "promo_subject"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:49:58.981Z"
+    },
+    "546d6ab8807fb7775f5c12c7": {
+      "imageId": "546d6ab8807fb7775f5c12c7",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "wrong_brand"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:50:07.219Z"
+    },
+    "1d1973574fefd05b5d0e8278": {
+      "imageId": "1d1973574fefd05b5d0e8278",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:50:10.384Z"
+    },
+    "6093a136a1e412491706fbf6": {
+      "imageId": "6093a136a1e412491706fbf6",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "low_visual_quality"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:50:12.031Z"
+    },
+    "bcf55c0604dc4457336682d3": {
+      "imageId": "bcf55c0604dc4457336682d3",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:50:14.447Z"
+    },
+    "d370258db986ea263b749782": {
+      "imageId": "d370258db986ea263b749782",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:50:17.970Z"
+    },
+    "c0b38a830de3f4ec6107f172": {
+      "imageId": "c0b38a830de3f4ec6107f172",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:50:19.764Z"
+    },
+    "5dd1ff7719c906a4d4ef1e36": {
+      "imageId": "5dd1ff7719c906a4d4ef1e36",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:50:21.617Z"
+    },
+    "1e21835029872211410eac65": {
+      "imageId": "1e21835029872211410eac65",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:50:23.582Z"
+    },
+    "8335efa24ed646b4d269decc": {
+      "imageId": "8335efa24ed646b4d269decc",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:52:19.772Z"
+    },
+    "6610e069c72662737fe5ec70": {
+      "imageId": "6610e069c72662737fe5ec70",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "low_visual_quality",
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T10:52:24.255Z"
+    },
+    "9133cbb284d739550fda1880": {
+      "imageId": "9133cbb284d739550fda1880",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "text_dominant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T11:19:28.015Z"
+    },
+    "6262b65660fe0b83d62377dc": {
+      "imageId": "6262b65660fe0b83d62377dc",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T11:19:30.731Z"
+    },
+    "958096b19e1c61cff2f42d45": {
+      "imageId": "958096b19e1c61cff2f42d45",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "text_dominant",
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T11:19:34.703Z"
+    },
+    "3dfd658846333e13e44ae3b8": {
+      "imageId": "3dfd658846333e13e44ae3b8",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T11:19:37.553Z"
+    },
+    "819db01dd02f037c5ebb875a": {
+      "imageId": "819db01dd02f037c5ebb875a",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T11:19:40.338Z"
+    },
+    "c7482e5d2d363285138b7b85": {
+      "imageId": "c7482e5d2d363285138b7b85",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "wrong_brand"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T11:19:43.775Z"
+    },
+    "ba675122c153e9de01483b46": {
+      "imageId": "ba675122c153e9de01483b46",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T11:19:47.577Z"
+    },
+    "5eac1fbb46d5588f5b4fce14": {
+      "imageId": "5eac1fbb46d5588f5b4fce14",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T11:19:49.662Z"
+    },
+    "60bb80bb8ed971e6d0fedc3a": {
+      "imageId": "60bb80bb8ed971e6d0fedc3a",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T11:19:52.417Z"
+    },
+    "e0de420def5bb534eb72a56a": {
+      "imageId": "e0de420def5bb534eb72a56a",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T11:19:59.620Z"
+    },
+    "9c0797d465f196beaddd3842": {
+      "imageId": "9c0797d465f196beaddd3842",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T11:20:09.946Z"
+    },
+    "1538f7e1442fd14e873ca606": {
+      "imageId": "1538f7e1442fd14e873ca606",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T11:20:13.499Z"
+    },
+    "60a239a86a82b0b365a14148": {
+      "imageId": "60a239a86a82b0b365a14148",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T11:20:20.710Z"
+    },
+    "312829ab52786f942b741914": {
+      "imageId": "312829ab52786f942b741914",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T11:20:25.426Z"
+    },
+    "79577e0d4acb850294fa1815": {
+      "imageId": "79577e0d4acb850294fa1815",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "low_visual_quality"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T11:20:31.345Z"
+    },
+    "212367eed45b5237c7261565": {
+      "imageId": "212367eed45b5237c7261565",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "text_dominant",
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T11:20:34.283Z"
+    },
+    "affa98d735c3950cd14b589e": {
+      "imageId": "affa98d735c3950cd14b589e",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T11:20:36.134Z"
+    },
+    "8ca13efc000305906062e19c": {
+      "imageId": "8ca13efc000305906062e19c",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T11:20:39.703Z"
+    },
+    "3b29ee6d3409f2b851e52b89": {
+      "imageId": "3b29ee6d3409f2b851e52b89",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T11:20:41.573Z"
+    },
+    "3d03b58b650d2120dd619dbe": {
+      "imageId": "3d03b58b650d2120dd619dbe",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T11:20:43.511Z"
+    },
+    "e5961b4c42248a3e8b716702": {
+      "imageId": "e5961b4c42248a3e8b716702",
+      "disposition": "keep",
+      "tag": "lifestyle",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T11:20:45.150Z"
+    },
+    "84da2205d1d3fc1d970730f3": {
+      "imageId": "84da2205d1d3fc1d970730f3",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T11:20:46.827Z"
+    },
+    "d01a81006fd5885b6ea268c4": {
+      "imageId": "d01a81006fd5885b6ea268c4",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T11:20:48.693Z"
+    },
+    "80efe965f0b0300019244253": {
+      "imageId": "80efe965f0b0300019244253",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "wrong_brand"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T11:20:55.483Z"
+    },
+    "3fa5e0cd75e6aebfd7e75c14": {
+      "imageId": "3fa5e0cd75e6aebfd7e75c14",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T11:20:57.802Z"
+    },
+    "704f5f23f43b642b9f44b7b3": {
+      "imageId": "704f5f23f43b642b9f44b7b3",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T11:20:59.841Z"
+    },
+    "9f738f63490181c5c99f2ddf": {
+      "imageId": "9f738f63490181c5c99f2ddf",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T11:21:00.921Z"
+    },
+    "7202c5f81c796c420a9ead50": {
+      "imageId": "7202c5f81c796c420a9ead50",
+      "disposition": "keep",
+      "tag": "product",
+      "reasons": [],
+      "notes": null,
+      "labeledAt": "2026-08-01T11:21:02.304Z"
+    },
+    "fd7d3d4701ec526d336c3075": {
+      "imageId": "fd7d3d4701ec526d336c3075",
+      "disposition": "reject",
+      "tag": null,
+      "reasons": [
+        "promo_subject",
+        "irrelevant"
+      ],
+      "notes": null,
+      "labeledAt": "2026-08-01T11:21:06.047Z"
+    }
+  },
+  "tagDefinitions": {
+    "product": {
+      "slug": "product",
+      "label": "Product",
+      "description": "Clear presentation of the brand's product itself.",
+      "source": "system",
+      "createdAt": "2026-08-01T00:00:00.000Z",
+      "createdFromImageId": null
+    },
+    "lifestyle": {
+      "slug": "lifestyle",
+      "label": "Lifestyle",
+      "description": "Product shown in a real use or lifestyle context.",
+      "source": "system",
+      "createdAt": "2026-08-01T00:00:00.000Z",
+      "createdFromImageId": null
+    },
+    "packaging": {
+      "slug": "packaging",
+      "label": "Packaging",
+      "description": "Brand packaging, box, tag, or product set packaging.",
+      "source": "system",
+      "createdAt": "2026-08-01T00:00:00.000Z",
+      "createdFromImageId": null
+    },
+    "logo": {
+      "slug": "logo",
+      "label": "Logo",
+      "description": "Clean, recognizable brand logo or identity image.",
+      "source": "system",
+      "createdAt": "2026-08-01T00:00:00.000Z",
+      "createdFromImageId": null
+    },
+    "workspace": {
+      "slug": "workspace",
+      "label": "Workspace",
+      "description": "Workspace",
+      "source": "manual",
+      "createdAt": "2026-08-01T05:58:49.697Z",
+      "createdFromImageId": "bd45f511c58981b92e919340"
+    }
+  },
+  "history": {
+    "d6c0b37157b264655928ff0f": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "d6c0b37157b264655928ff0f",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T04:49:56.282Z"
+        }
+      },
+      {
+        "revision": 2,
+        "label": {
+          "imageId": "d6c0b37157b264655928ff0f",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T09:37:29.913Z"
+        }
+      }
+    ],
+    "d36442985feccc8730ddb73b": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "d36442985feccc8730ddb73b",
+          "disposition": "keep",
+          "tag": "lifestyle",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T04:50:11.274Z"
+        }
+      },
+      {
+        "revision": 2,
+        "label": {
+          "imageId": "d36442985feccc8730ddb73b",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:37:47.660Z"
+        }
+      }
+    ],
+    "01b5c6bca60885bda3b1cd64": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "01b5c6bca60885bda3b1cd64",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T04:50:16.911Z"
+        }
+      },
+      {
+        "revision": 2,
+        "label": {
+          "imageId": "01b5c6bca60885bda3b1cd64",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:30:44.167Z"
+        }
+      }
+    ],
+    "19dec66d6841febd9d6c074b": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "19dec66d6841febd9d6c074b",
+          "disposition": "keep",
+          "tag": "lifestyle",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T04:50:20.314Z"
+        }
+      },
+      {
+        "revision": 2,
+        "label": {
+          "imageId": "19dec66d6841febd9d6c074b",
+          "disposition": "keep",
+          "tag": "lifestyle",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:45:07.849Z"
+        }
+      }
+    ],
+    "1c1f69e43ee9a8e42f05a371": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "1c1f69e43ee9a8e42f05a371",
+          "disposition": "keep",
+          "tag": "lifestyle",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T04:50:24.399Z"
+        }
+      },
+      {
+        "revision": 2,
+        "label": {
+          "imageId": "1c1f69e43ee9a8e42f05a371",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:48:00.909Z"
+        }
+      }
+    ],
+    "102d5dccc9b451fdd55a7cbf": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "102d5dccc9b451fdd55a7cbf",
+          "disposition": "keep",
+          "tag": "lifestyle",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T04:50:27.302Z"
+        }
+      }
+    ],
+    "5a365af47a198042fc3a37df": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "5a365af47a198042fc3a37df",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T04:50:50.656Z"
+        }
+      },
+      {
+        "revision": 2,
+        "label": {
+          "imageId": "5a365af47a198042fc3a37df",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:46:44.315Z"
+        }
+      }
+    ],
+    "a052edaccc9923853c6ec986": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "a052edaccc9923853c6ec986",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality",
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T04:50:59.628Z"
+        }
+      }
+    ],
+    "784aa5264f4ec515e0212f7e": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "784aa5264f4ec515e0212f7e",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T04:51:07.685Z"
+        }
+      }
+    ],
+    "c9fbffd33262c9af27ae1867": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "c9fbffd33262c9af27ae1867",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T04:51:12.137Z"
+        }
+      }
+    ],
+    "8cd34a2c2ec6d23816c937de": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "8cd34a2c2ec6d23816c937de",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T04:51:14.755Z"
+        }
+      }
+    ],
+    "a9bee3dc34402aee0d0eabe6": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "a9bee3dc34402aee0d0eabe6",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T04:51:17.492Z"
+        }
+      },
+      {
+        "revision": 2,
+        "label": {
+          "imageId": "a9bee3dc34402aee0d0eabe6",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:45:40.651Z"
+        }
+      }
+    ],
+    "824dbb744e46a3a3fe1de332": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "824dbb744e46a3a3fe1de332",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality",
+            "duplicate",
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T04:51:21.513Z"
+        }
+      }
+    ],
+    "c80a30443ac797c56b51a755": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "c80a30443ac797c56b51a755",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T04:51:24.148Z"
+        }
+      },
+      {
+        "revision": 2,
+        "label": {
+          "imageId": "c80a30443ac797c56b51a755",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:44:57.227Z"
+        }
+      }
+    ],
+    "9efe9cf8cdc3d9544ee384d6": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "9efe9cf8cdc3d9544ee384d6",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T04:51:27.050Z"
+        }
+      },
+      {
+        "revision": 2,
+        "label": {
+          "imageId": "9efe9cf8cdc3d9544ee384d6",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality",
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:50:04.674Z"
+        }
+      }
+    ],
+    "87334f479c13efbcc6dda832": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "87334f479c13efbcc6dda832",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T04:51:56.781Z"
+        }
+      },
+      {
+        "revision": 2,
+        "label": {
+          "imageId": "87334f479c13efbcc6dda832",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:46:58.374Z"
+        }
+      }
+    ],
+    "9e5b2eb9ef8584b281ae78a4": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "9e5b2eb9ef8584b281ae78a4",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T04:52:01.407Z"
+        }
+      }
+    ],
+    "5fe29f99d6cd21985ff20798": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "5fe29f99d6cd21985ff20798",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T04:52:07.629Z"
+        }
+      },
+      {
+        "revision": 2,
+        "label": {
+          "imageId": "5fe29f99d6cd21985ff20798",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:44:21.209Z"
+        }
+      }
+    ],
+    "fc91ec4089c88139d390dfee": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "fc91ec4089c88139d390dfee",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T04:52:10.203Z"
+        }
+      },
+      {
+        "revision": 2,
+        "label": {
+          "imageId": "fc91ec4089c88139d390dfee",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:39:32.975Z"
+        }
+      }
+    ],
+    "2e791e4ce38d2587c719bd6e": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "2e791e4ce38d2587c719bd6e",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T04:52:12.770Z"
+        }
+      }
+    ],
+    "13505c47d71b3edd5faa97e1": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "13505c47d71b3edd5faa97e1",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T04:52:16.973Z"
+        }
+      }
+    ],
+    "9cdab55ea7ea952943fe954e": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "9cdab55ea7ea952943fe954e",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T04:52:22.126Z"
+        }
+      },
+      {
+        "revision": 2,
+        "label": {
+          "imageId": "9cdab55ea7ea952943fe954e",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T11:20:26.910Z"
+        }
+      }
+    ],
+    "c9b6b8a80c965444268e8b0d": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "c9b6b8a80c965444268e8b0d",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T04:52:23.928Z"
+        }
+      },
+      {
+        "revision": 2,
+        "label": {
+          "imageId": "c9b6b8a80c965444268e8b0d",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:43:31.937Z"
+        }
+      }
+    ],
+    "6362fe5f591e392438443ba3": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "6362fe5f591e392438443ba3",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "time_sensitive"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T04:52:34.523Z"
+        }
+      }
+    ],
+    "fdf556abbfcc78af0482c0b2": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "fdf556abbfcc78af0482c0b2",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T04:52:36.905Z"
+        }
+      }
+    ],
+    "353eb985ad8e75ab3f1f72f5": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "353eb985ad8e75ab3f1f72f5",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T04:52:39.277Z"
+        }
+      }
+    ],
+    "bd45f511c58981b92e919340": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "bd45f511c58981b92e919340",
+          "disposition": "keep",
+          "tag": "workspace",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T05:58:53.436Z"
+        }
+      },
+      {
+        "revision": 2,
+        "label": {
+          "imageId": "bd45f511c58981b92e919340",
+          "disposition": "keep",
+          "tag": "workspace",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T11:20:04.830Z"
+        }
+      }
+    ],
+    "bcae9c8a5261c079dec3f11f": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "bcae9c8a5261c079dec3f11f",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T05:58:57.827Z"
+        }
+      },
+      {
+        "revision": 2,
+        "label": {
+          "imageId": "bcae9c8a5261c079dec3f11f",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T09:57:00.723Z"
+        }
+      }
+    ],
+    "5aff6da6c98c886ed51cea95": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "5aff6da6c98c886ed51cea95",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T05:59:05.068Z"
+        }
+      },
+      {
+        "revision": 2,
+        "label": {
+          "imageId": "5aff6da6c98c886ed51cea95",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:47:03.257Z"
+        }
+      }
+    ],
+    "f8e0011cef48bd78fd6d411a": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "f8e0011cef48bd78fd6d411a",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T05:59:12.924Z"
+        }
+      }
+    ],
+    "4cd2eb5f5ef2dd743a8661a3": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "4cd2eb5f5ef2dd743a8661a3",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T05:59:27.184Z"
+        }
+      }
+    ],
+    "43bb7c4c59eb8025fc9c31d3": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "43bb7c4c59eb8025fc9c31d3",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T05:59:31.761Z"
+        }
+      },
+      {
+        "revision": 2,
+        "label": {
+          "imageId": "43bb7c4c59eb8025fc9c31d3",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:48:22.626Z"
+        }
+      }
+    ],
+    "f90d144971444791d556d4ba": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "f90d144971444791d556d4ba",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T05:59:59.181Z"
+        }
+      }
+    ],
+    "e8e7496e1dd2c978e8886a4a": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "e8e7496e1dd2c978e8886a4a",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T06:00:03.213Z"
+        }
+      },
+      {
+        "revision": 2,
+        "label": {
+          "imageId": "e8e7496e1dd2c978e8886a4a",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:42:17.524Z"
+        }
+      }
+    ],
+    "1867647834daca0095fef34a": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "1867647834daca0095fef34a",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T06:00:06.598Z"
+        }
+      },
+      {
+        "revision": 2,
+        "label": {
+          "imageId": "1867647834daca0095fef34a",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:47:50.199Z"
+        }
+      }
+    ],
+    "5a9f7509f171e96ac9499b96": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "5a9f7509f171e96ac9499b96",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T06:00:09.852Z"
+        }
+      }
+    ],
+    "cec89912ee4137ffc78d5aa8": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "cec89912ee4137ffc78d5aa8",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T06:00:22.616Z"
+        }
+      },
+      {
+        "revision": 2,
+        "label": {
+          "imageId": "cec89912ee4137ffc78d5aa8",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "wrong_brand",
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:30:49.475Z"
+        }
+      }
+    ],
+    "798777b51f8af9c8785ed143": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "798777b51f8af9c8785ed143",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T06:00:32.272Z"
+        }
+      },
+      {
+        "revision": 2,
+        "label": {
+          "imageId": "798777b51f8af9c8785ed143",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:31:58.934Z"
+        }
+      }
+    ],
+    "f82be96f017257c0866b2528": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "f82be96f017257c0866b2528",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality",
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T06:00:36.488Z"
+        }
+      },
+      {
+        "revision": 2,
+        "label": {
+          "imageId": "f82be96f017257c0866b2528",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality",
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:41:23.381Z"
+        }
+      }
+    ],
+    "e99ce2b7b224e8e01bc3bce4": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "e99ce2b7b224e8e01bc3bce4",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality",
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T06:00:41.593Z"
+        }
+      },
+      {
+        "revision": 2,
+        "label": {
+          "imageId": "e99ce2b7b224e8e01bc3bce4",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality",
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:39:24.932Z"
+        }
+      }
+    ],
+    "e128ec4b1eee9e8264f7c267": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "e128ec4b1eee9e8264f7c267",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality",
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T06:00:47.484Z"
+        }
+      }
+    ],
+    "13af76b1bad5ce01780a0cca": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "13af76b1bad5ce01780a0cca",
+          "disposition": "keep",
+          "tag": "logo",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T06:01:02.962Z"
+        }
+      }
+    ],
+    "87259f18c541b002f939f25e": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "87259f18c541b002f939f25e",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T06:15:45.172Z"
+        }
+      },
+      {
+        "revision": 2,
+        "label": {
+          "imageId": "87259f18c541b002f939f25e",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T09:37:27.976Z"
+        }
+      }
+    ],
+    "fd82759fe5cffd20fecd0acf": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "fd82759fe5cffd20fecd0acf",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T06:15:48.895Z"
+        }
+      }
+    ],
+    "62feaabc3ca09ada65fa3c82": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "62feaabc3ca09ada65fa3c82",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T06:15:52.065Z"
+        }
+      }
+    ],
+    "45f59b714071174d608aa6f3": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "45f59b714071174d608aa6f3",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T06:15:54.969Z"
+        }
+      },
+      {
+        "revision": 2,
+        "label": {
+          "imageId": "45f59b714071174d608aa6f3",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T11:20:28.660Z"
+        }
+      }
+    ],
+    "c249760f829713afc73c4439": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "c249760f829713afc73c4439",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T06:15:58.541Z"
+        }
+      }
+    ],
+    "2fdf7f9dce4073996ffb500b": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "2fdf7f9dce4073996ffb500b",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T09:31:32.601Z"
+        }
+      }
+    ],
+    "321d2629d1907cd4c3441a13": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "321d2629d1907cd4c3441a13",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "text_dominant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T09:35:51.501Z"
+        }
+      }
+    ],
+    "8baae054f734141365ce9abc": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "8baae054f734141365ce9abc",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T09:36:00.656Z"
+        }
+      }
+    ],
+    "28af158b9f9b0a860cd59435": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "28af158b9f9b0a860cd59435",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T09:36:05.846Z"
+        }
+      }
+    ],
+    "dd39497314abb7dbc1435644": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "dd39497314abb7dbc1435644",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "text_dominant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T09:36:09.847Z"
+        }
+      }
+    ],
+    "87f2d61b8533404d3e47b5aa": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "87f2d61b8533404d3e47b5aa",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "wrong_brand"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T09:36:34.179Z"
+        }
+      }
+    ],
+    "1445cf9f5275dd27e0e52d35": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "1445cf9f5275dd27e0e52d35",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "wrong_brand"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T09:36:41.909Z"
+        }
+      }
+    ],
+    "e7d3f8d48a08d19c2f57dfc3": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "e7d3f8d48a08d19c2f57dfc3",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T09:36:51.265Z"
+        }
+      },
+      {
+        "revision": 2,
+        "label": {
+          "imageId": "e7d3f8d48a08d19c2f57dfc3",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T09:37:09.619Z"
+        }
+      }
+    ],
+    "a84cbba6b42eedcf1e9dafa1": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "a84cbba6b42eedcf1e9dafa1",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality",
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T09:37:12.225Z"
+        }
+      }
+    ],
+    "5211cbc89916b6428bb79fd7": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "5211cbc89916b6428bb79fd7",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T09:37:19.270Z"
+        }
+      }
+    ],
+    "43f85e73708bceac1cc6a44b": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "43f85e73708bceac1cc6a44b",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T09:37:24.943Z"
+        }
+      }
+    ],
+    "a7e39c9c9f603f025bf90d0d": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "a7e39c9c9f603f025bf90d0d",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T09:37:35.651Z"
+        }
+      }
+    ],
+    "de213a7da532f335c82d24e6": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "de213a7da532f335c82d24e6",
+          "disposition": "keep",
+          "tag": "logo",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T09:37:41.137Z"
+        }
+      }
+    ],
+    "de0fa01d6db6d311040d85f2": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "de0fa01d6db6d311040d85f2",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T09:38:11.316Z"
+        }
+      }
+    ],
+    "583dacfefba294403f2bc4ec": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "583dacfefba294403f2bc4ec",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T09:38:31.381Z"
+        }
+      }
+    ],
+    "c5c3b0b62507513d4b1bb364": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "c5c3b0b62507513d4b1bb364",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "wrong_brand",
+            "promo_subject"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T09:39:15.198Z"
+        }
+      }
+    ],
+    "cdecc5e29dce6c5c35d529ab": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "cdecc5e29dce6c5c35d529ab",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "wrong_brand"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T09:56:19.822Z"
+        }
+      }
+    ],
+    "227732c5574bdfe352ecac46": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "227732c5574bdfe352ecac46",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "wrong_brand"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T09:56:51.159Z"
+        }
+      }
+    ],
+    "85f8fe3be26d3b396cf6544e": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "85f8fe3be26d3b396cf6544e",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T09:56:54.716Z"
+        }
+      }
+    ],
+    "205b52446caee6199e1e9ccf": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "205b52446caee6199e1e9ccf",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "promo_subject"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T09:57:18.724Z"
+        }
+      }
+    ],
+    "aa1fd0b3b88870facdb036bc": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "aa1fd0b3b88870facdb036bc",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "promo_subject",
+            "text_dominant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:00:31.484Z"
+        }
+      }
+    ],
+    "58961304783516b04f59425c": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "58961304783516b04f59425c",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:04:25.166Z"
+        }
+      }
+    ],
+    "9e2f6a42d4d60b29abbf6553": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "9e2f6a42d4d60b29abbf6553",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:27:49.667Z"
+        }
+      }
+    ],
+    "5c8e41fbb3ada1d4084d18a5": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "5c8e41fbb3ada1d4084d18a5",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "text_dominant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:29:26.507Z"
+        }
+      }
+    ],
+    "b32e46cf009d2422248702f2": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "b32e46cf009d2422248702f2",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:29:30.533Z"
+        }
+      }
+    ],
+    "30f481bdf186f756db5e8bc2": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "30f481bdf186f756db5e8bc2",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:29:39.985Z"
+        }
+      }
+    ],
+    "6c818fa970d62db17f6a6057": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "6c818fa970d62db17f6a6057",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "text_dominant",
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:30:09.437Z"
+        }
+      }
+    ],
+    "c152c3148885cd472ebc694f": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "c152c3148885cd472ebc694f",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "wrong_brand"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:30:26.474Z"
+        }
+      }
+    ],
+    "7e768609da872a122b056744": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "7e768609da872a122b056744",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:30:39.365Z"
+        }
+      }
+    ],
+    "cc4a209406d085c19aa64b7c": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "cc4a209406d085c19aa64b7c",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:30:52.120Z"
+        }
+      }
+    ],
+    "c53c9a739cbd3e68ca9ec8a7": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "c53c9a739cbd3e68ca9ec8a7",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "text_dominant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:30:56.291Z"
+        }
+      }
+    ],
+    "c8a0d51e929b28f781469c17": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "c8a0d51e929b28f781469c17",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:31:00.737Z"
+        }
+      }
+    ],
+    "aebb6de9a24c84b05a880e47": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "aebb6de9a24c84b05a880e47",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "wrong_brand"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:31:24.233Z"
+        }
+      }
+    ],
+    "42ea347f96c9c288c1ce3739": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "42ea347f96c9c288c1ce3739",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:31:31.110Z"
+        }
+      }
+    ],
+    "fb71f53968a59361d6096e9f": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "fb71f53968a59361d6096e9f",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality",
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:32:23.682Z"
+        }
+      }
+    ],
+    "e1af8891c1a2fb4f6838c62f": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "e1af8891c1a2fb4f6838c62f",
+          "disposition": "keep",
+          "tag": "logo",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:37:53.063Z"
+        }
+      }
+    ],
+    "ffa201252c8884e40eca23ef": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "ffa201252c8884e40eca23ef",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:39:28.827Z"
+        }
+      }
+    ],
+    "179e4000a6eda319759ea46b": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "179e4000a6eda319759ea46b",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:39:37.560Z"
+        }
+      }
+    ],
+    "bf0e57be0883659cacbb80fe": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "bf0e57be0883659cacbb80fe",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:41:15.796Z"
+        }
+      }
+    ],
+    "7b0a61dbe6d80ee43e29229d": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "7b0a61dbe6d80ee43e29229d",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "wrong_brand"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:41:20.529Z"
+        }
+      }
+    ],
+    "4733ba8bcfca1f24d71b9373": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "4733ba8bcfca1f24d71b9373",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:41:25.731Z"
+        }
+      }
+    ],
+    "63dbe4c4da4d446dfe189ca1": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "63dbe4c4da4d446dfe189ca1",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "wrong_brand"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:41:29.000Z"
+        }
+      }
+    ],
+    "8caa1d5bf3ebe7c334ee1408": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "8caa1d5bf3ebe7c334ee1408",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:41:31.436Z"
+        }
+      }
+    ],
+    "d48101da9f404de05b8d5dea": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "d48101da9f404de05b8d5dea",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:41:33.408Z"
+        }
+      }
+    ],
+    "d8350e42e8ed4362c0538c04": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "d8350e42e8ed4362c0538c04",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:41:48.959Z"
+        }
+      }
+    ],
+    "8c6edde6fbed0a3285cffc5a": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "8c6edde6fbed0a3285cffc5a",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "promo_subject",
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:41:54.490Z"
+        }
+      }
+    ],
+    "35c3b04026ef3e85ac9195f4": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "35c3b04026ef3e85ac9195f4",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:42:08.310Z"
+        }
+      }
+    ],
+    "c2526386b02d0973d6086c6d": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "c2526386b02d0973d6086c6d",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:42:09.635Z"
+        }
+      }
+    ],
+    "f31ab0293f6728c39e97fa81": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "f31ab0293f6728c39e97fa81",
+          "disposition": "keep",
+          "tag": "lifestyle",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:42:13.738Z"
+        }
+      }
+    ],
+    "4f6e98ad37b33413bbf6acd6": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "4f6e98ad37b33413bbf6acd6",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "wrong_brand",
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:42:24.663Z"
+        }
+      }
+    ],
+    "f5517567b32156377a34e366": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "f5517567b32156377a34e366",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:42:28.854Z"
+        }
+      }
+    ],
+    "efe90a95627916c0202e115b": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "efe90a95627916c0202e115b",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:42:36.541Z"
+        }
+      }
+    ],
+    "b86525254b46fecc6738dc89": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "b86525254b46fecc6738dc89",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:42:49.478Z"
+        }
+      }
+    ],
+    "1ec150a64ffb0fdfe772b53d": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "1ec150a64ffb0fdfe772b53d",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:42:59.130Z"
+        }
+      }
+    ],
+    "640dfad63658f50eccbaab9b": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "640dfad63658f50eccbaab9b",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:43:07.585Z"
+        }
+      }
+    ],
+    "83d700701d6e5651c53e81d1": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "83d700701d6e5651c53e81d1",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:43:09.986Z"
+        }
+      }
+    ],
+    "cef27b63e42d069c2abbb505": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "cef27b63e42d069c2abbb505",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "text_dominant",
+            "low_visual_quality",
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:43:14.071Z"
+        }
+      }
+    ],
+    "df1e1b3185051d511d871b1c": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "df1e1b3185051d511d871b1c",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:43:16.239Z"
+        }
+      }
+    ],
+    "92e648122ce24228842fd2b2": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "92e648122ce24228842fd2b2",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "text_dominant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:43:18.562Z"
+        }
+      }
+    ],
+    "742528422673bcd64eb9c713": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "742528422673bcd64eb9c713",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:43:23.349Z"
+        }
+      }
+    ],
+    "b4e034dbee6647a0d734f0a1": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "b4e034dbee6647a0d734f0a1",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:43:25.515Z"
+        }
+      }
+    ],
+    "85b1a506b2eadd72dccf9d99": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "85b1a506b2eadd72dccf9d99",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "text_dominant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:43:27.584Z"
+        }
+      }
+    ],
+    "fbde0b8c5c2fef2a14dc3b05": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "fbde0b8c5c2fef2a14dc3b05",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:43:30.286Z"
+        }
+      }
+    ],
+    "9ae2cf36fe4e3f5264aeb007": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "9ae2cf36fe4e3f5264aeb007",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "duplicate"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:43:33.938Z"
+        }
+      }
+    ],
+    "a11e71d22a1113e36b2aac2b": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "a11e71d22a1113e36b2aac2b",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "text_dominant",
+            "low_visual_quality"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:43:42.412Z"
+        }
+      }
+    ],
+    "bdb4c3e56f300f84a587ad9b": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "bdb4c3e56f300f84a587ad9b",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "promo_subject"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:43:45.166Z"
+        }
+      }
+    ],
+    "741cd14cec30132a3b3e9642": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "741cd14cec30132a3b3e9642",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:43:47.349Z"
+        }
+      }
+    ],
+    "9867f91e8002992eba08576f": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "9867f91e8002992eba08576f",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:43:49.752Z"
+        }
+      }
+    ],
+    "34f4cbbf317ed63788080919": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "34f4cbbf317ed63788080919",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "promo_subject"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:43:53.154Z"
+        }
+      }
+    ],
+    "ae0b69f92bbfb4504483cf68": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "ae0b69f92bbfb4504483cf68",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:43:57.242Z"
+        }
+      }
+    ],
+    "0e381492738465283fa69651": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "0e381492738465283fa69651",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:44:00.671Z"
+        }
+      }
+    ],
+    "46499ccdd9ec08e06e33e806": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "46499ccdd9ec08e06e33e806",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:44:03.749Z"
+        }
+      }
+    ],
+    "d6bc144a95a2c8db6bdfcdc8": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "d6bc144a95a2c8db6bdfcdc8",
+          "disposition": "keep",
+          "tag": "logo",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:44:11.285Z"
+        }
+      }
+    ],
+    "c479fd637381150d96ff2941": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "c479fd637381150d96ff2941",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:44:16.644Z"
+        }
+      }
+    ],
+    "5cb406230784772efcaec675": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "5cb406230784772efcaec675",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:44:22.913Z"
+        }
+      }
+    ],
+    "5576340b1681a979d7266759": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "5576340b1681a979d7266759",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:44:55.276Z"
+        }
+      }
+    ],
+    "6dc4347c7dca5de6eb4f49aa": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "6dc4347c7dca5de6eb4f49aa",
+          "disposition": "keep",
+          "tag": "lifestyle",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:45:03.589Z"
+        }
+      }
+    ],
+    "16b642f486506e62f2a4b2a2": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "16b642f486506e62f2a4b2a2",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:45:06.230Z"
+        }
+      }
+    ],
+    "2a275d871b99709f4ddec42d": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "2a275d871b99709f4ddec42d",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:45:09.969Z"
+        }
+      }
+    ],
+    "f22462183a8b97fb40a8a935": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "f22462183a8b97fb40a8a935",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:45:25.735Z"
+        }
+      }
+    ],
+    "0b391e0a278d249ee787b30a": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "0b391e0a278d249ee787b30a",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality",
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:45:33.236Z"
+        }
+      }
+    ],
+    "390c31e23c7bbd702836e0bc": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "390c31e23c7bbd702836e0bc",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:45:35.304Z"
+        }
+      }
+    ],
+    "9086230cddab31e4d6ed39dd": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "9086230cddab31e4d6ed39dd",
+          "disposition": "keep",
+          "tag": "lifestyle",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:45:46.366Z"
+        }
+      }
+    ],
+    "4351febd2f3d277a5f1f1f95": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "4351febd2f3d277a5f1f1f95",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:45:47.851Z"
+        }
+      }
+    ],
+    "7f0c22f273074423784f0502": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "7f0c22f273074423784f0502",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "text_dominant",
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:45:55.289Z"
+        }
+      }
+    ],
+    "06b824f3c53b2d96dd3f0559": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "06b824f3c53b2d96dd3f0559",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:45:59.208Z"
+        }
+      }
+    ],
+    "95d0eeda253df035623a8322": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "95d0eeda253df035623a8322",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:46:03.578Z"
+        }
+      }
+    ],
+    "d6d0586de114aab788add58d": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "d6d0586de114aab788add58d",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:46:05.982Z"
+        }
+      }
+    ],
+    "ea1874fc7881ed43ae6afd6a": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "ea1874fc7881ed43ae6afd6a",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:46:07.748Z"
+        }
+      }
+    ],
+    "1dc288870c2b664987d0c29c": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "1dc288870c2b664987d0c29c",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "text_dominant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:46:11.418Z"
+        }
+      }
+    ],
+    "430a7e0b8efb780f6597c3bc": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "430a7e0b8efb780f6597c3bc",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:46:14.086Z"
+        }
+      }
+    ],
+    "2f5c3fda8e993af41d545fbd": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "2f5c3fda8e993af41d545fbd",
+          "disposition": "keep",
+          "tag": "lifestyle",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:46:15.521Z"
+        }
+      }
+    ],
+    "9e7e579954b20bef5747dbda": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "9e7e579954b20bef5747dbda",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:46:17.374Z"
+        }
+      }
+    ],
+    "f353ad85eab5e1b4817d2b4c": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "f353ad85eab5e1b4817d2b4c",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:46:18.757Z"
+        }
+      }
+    ],
+    "3dc2f2b7b69cc69a469ae384": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "3dc2f2b7b69cc69a469ae384",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:46:20.093Z"
+        }
+      }
+    ],
+    "a801704a77e6e45350a1a468": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "a801704a77e6e45350a1a468",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:46:22.327Z"
+        }
+      }
+    ],
+    "672a4701f0c1d1941479b674": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "672a4701f0c1d1941479b674",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "wrong_brand",
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:46:25.727Z"
+        }
+      }
+    ],
+    "476beb0eb54472f9e7c80c96": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "476beb0eb54472f9e7c80c96",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:46:27.481Z"
+        }
+      }
+    ],
+    "3866faa1d0ba1f7db8b8203e": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "3866faa1d0ba1f7db8b8203e",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "wrong_brand",
+            "low_visual_quality"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:46:34.238Z"
+        }
+      }
+    ],
+    "c207f7fa447e0b0654710796": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "c207f7fa447e0b0654710796",
+          "disposition": "keep",
+          "tag": "logo",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:46:37.291Z"
+        }
+      }
+    ],
+    "5dab25bb4facacf3c651e528": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "5dab25bb4facacf3c651e528",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "text_dominant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:46:46.314Z"
+        }
+      }
+    ],
+    "4f23a328095b15861842b0dc": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "4f23a328095b15861842b0dc",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:46:48.447Z"
+        }
+      }
+    ],
+    "bd2a5ad160aa253bf44df071": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "bd2a5ad160aa253bf44df071",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:46:52.268Z"
+        }
+      }
+    ],
+    "78a1ac3fd33a1a504ff4a357": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "78a1ac3fd33a1a504ff4a357",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:46:54.437Z"
+        }
+      }
+    ],
+    "b122be1d19aeb2f61351050c": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "b122be1d19aeb2f61351050c",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:46:56.171Z"
+        }
+      }
+    ],
+    "68e4a2035168c2614476a2ea": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "68e4a2035168c2614476a2ea",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:47:01.231Z"
+        }
+      }
+    ],
+    "66ff8a9616a8b2e6a3496543": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "66ff8a9616a8b2e6a3496543",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:47:10.886Z"
+        }
+      }
+    ],
+    "576c8f90e78d2f0ea5068d2d": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "576c8f90e78d2f0ea5068d2d",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:47:15.824Z"
+        }
+      }
+    ],
+    "d32caa51b6bd77df4088a091": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "d32caa51b6bd77df4088a091",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "wrong_brand"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:47:29.370Z"
+        }
+      }
+    ],
+    "6da255aec388a8fb1404c6d2": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "6da255aec388a8fb1404c6d2",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:47:34.170Z"
+        }
+      }
+    ],
+    "56494511a1cb3d1672d1ba71": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "56494511a1cb3d1672d1ba71",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:47:36.712Z"
+        }
+      }
+    ],
+    "93c134dc65cc7aa9815cd58b": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "93c134dc65cc7aa9815cd58b",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:47:38.795Z"
+        }
+      }
+    ],
+    "cb9d213f4dbc39b3d36463ec": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "cb9d213f4dbc39b3d36463ec",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:47:43.214Z"
+        }
+      }
+    ],
+    "2c8162b2adab4b819d392b48": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "2c8162b2adab4b819d392b48",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:47:48.583Z"
+        }
+      }
+    ],
+    "b394490d8515505d9b2d26d2": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "b394490d8515505d9b2d26d2",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "wrong_brand"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:47:51.745Z"
+        }
+      }
+    ],
+    "29d5df3b85931b4ccddc692e": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "29d5df3b85931b4ccddc692e",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "wrong_brand",
+            "low_visual_quality"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:47:55.389Z"
+        }
+      }
+    ],
+    "caca9ecf6f4d992752fa17b0": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "caca9ecf6f4d992752fa17b0",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:48:06.682Z"
+        }
+      }
+    ],
+    "866244f79ccc3f5865ef54b4": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "866244f79ccc3f5865ef54b4",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:48:08.631Z"
+        }
+      }
+    ],
+    "513b20bfb30d7f720b75de40": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "513b20bfb30d7f720b75de40",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:48:12.455Z"
+        }
+      }
+    ],
+    "775bda1f3f7f55d3c6d41284": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "775bda1f3f7f55d3c6d41284",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "wrong_brand"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:48:14.407Z"
+        }
+      }
+    ],
+    "9bd5cb9fc54c3f9530a75e7c": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "9bd5cb9fc54c3f9530a75e7c",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:48:19.077Z"
+        }
+      }
+    ],
+    "323661130e6e2a8555122b79": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "323661130e6e2a8555122b79",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:48:27.117Z"
+        }
+      }
+    ],
+    "329d37b3370798c2a6719920": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "329d37b3370798c2a6719920",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality",
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:48:33.385Z"
+        }
+      }
+    ],
+    "0d17cbdf60c0df8f7b8fc206": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "0d17cbdf60c0df8f7b8fc206",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "wrong_brand",
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:48:35.950Z"
+        }
+      }
+    ],
+    "b17104a69ad8799b913a4015": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "b17104a69ad8799b913a4015",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality",
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:48:45.163Z"
+        }
+      }
+    ],
+    "d3c76df7267c678715c7a4a7": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "d3c76df7267c678715c7a4a7",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:48:47.047Z"
+        }
+      }
+    ],
+    "a6016d8bb9c1c12b31a89448": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "a6016d8bb9c1c12b31a89448",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:48:48.968Z"
+        }
+      }
+    ],
+    "4d5fe1fdbd339d7d981b144c": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "4d5fe1fdbd339d7d981b144c",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:48:54.148Z"
+        }
+      }
+    ],
+    "fa23ceb24aff43c0cfa9ce4a": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "fa23ceb24aff43c0cfa9ce4a",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:48:56.671Z"
+        }
+      }
+    ],
+    "bf8b88a0f2fc4fb25a00ff31": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "bf8b88a0f2fc4fb25a00ff31",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:48:58.189Z"
+        }
+      }
+    ],
+    "97cbdbec0493f47227489ea3": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "97cbdbec0493f47227489ea3",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "wrong_brand"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:49:01.644Z"
+        }
+      }
+    ],
+    "1aa19b42c23b1abba1ffe062": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "1aa19b42c23b1abba1ffe062",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "text_dominant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:49:03.895Z"
+        }
+      }
+    ],
+    "9df3ad3781c4d216d2b50899": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "9df3ad3781c4d216d2b50899",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:49:11.015Z"
+        }
+      }
+    ],
+    "d52e6d4720df849917f8399c": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "d52e6d4720df849917f8399c",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:49:12.602Z"
+        }
+      }
+    ],
+    "efa179ce8b53f5124213cdfe": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "efa179ce8b53f5124213cdfe",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:49:14.136Z"
+        }
+      }
+    ],
+    "b114cabb3bc35c6f6dc7c299": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "b114cabb3bc35c6f6dc7c299",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:49:16.021Z"
+        }
+      }
+    ],
+    "531e720c29ff236429dcea37": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "531e720c29ff236429dcea37",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "text_dominant",
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:49:21.426Z"
+        }
+      }
+    ],
+    "e32aa2d30516c00d74f42508": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "e32aa2d30516c00d74f42508",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "wrong_brand",
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:49:26.647Z"
+        }
+      }
+    ],
+    "4c8a7c698ef6b7a43fe2604c": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "4c8a7c698ef6b7a43fe2604c",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "promo_subject",
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:49:32.306Z"
+        }
+      }
+    ],
+    "b3c6cca976c51dd19d79c18e": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "b3c6cca976c51dd19d79c18e",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "text_dominant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:49:46.117Z"
+        }
+      }
+    ],
+    "9b86e70aa1517f60e9b75942": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "9b86e70aa1517f60e9b75942",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:49:48.465Z"
+        }
+      }
+    ],
+    "a87b6a992d17cd6c6f779236": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "a87b6a992d17cd6c6f779236",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:49:51.116Z"
+        }
+      }
+    ],
+    "85add028a1c78ebf45e28c6a": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "85add028a1c78ebf45e28c6a",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:49:53.419Z"
+        }
+      }
+    ],
+    "f47a26d65c83213f8aef414d": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "f47a26d65c83213f8aef414d",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:49:55.976Z"
+        }
+      }
+    ],
+    "7d0344cc5b373e5b52d80e54": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "7d0344cc5b373e5b52d80e54",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "promo_subject"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:49:58.981Z"
+        }
+      }
+    ],
+    "546d6ab8807fb7775f5c12c7": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "546d6ab8807fb7775f5c12c7",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "wrong_brand"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:50:07.219Z"
+        }
+      }
+    ],
+    "1d1973574fefd05b5d0e8278": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "1d1973574fefd05b5d0e8278",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:50:10.384Z"
+        }
+      }
+    ],
+    "6093a136a1e412491706fbf6": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "6093a136a1e412491706fbf6",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:50:12.031Z"
+        }
+      }
+    ],
+    "bcf55c0604dc4457336682d3": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "bcf55c0604dc4457336682d3",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:50:14.447Z"
+        }
+      }
+    ],
+    "d370258db986ea263b749782": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "d370258db986ea263b749782",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:50:17.970Z"
+        }
+      }
+    ],
+    "c0b38a830de3f4ec6107f172": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "c0b38a830de3f4ec6107f172",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:50:19.764Z"
+        }
+      }
+    ],
+    "5dd1ff7719c906a4d4ef1e36": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "5dd1ff7719c906a4d4ef1e36",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:50:21.617Z"
+        }
+      }
+    ],
+    "1e21835029872211410eac65": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "1e21835029872211410eac65",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:50:23.582Z"
+        }
+      }
+    ],
+    "8335efa24ed646b4d269decc": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "8335efa24ed646b4d269decc",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:52:19.772Z"
+        }
+      }
+    ],
+    "6610e069c72662737fe5ec70": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "6610e069c72662737fe5ec70",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality",
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T10:52:24.255Z"
+        }
+      }
+    ],
+    "9133cbb284d739550fda1880": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "9133cbb284d739550fda1880",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "text_dominant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T11:19:28.015Z"
+        }
+      }
+    ],
+    "6262b65660fe0b83d62377dc": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "6262b65660fe0b83d62377dc",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T11:19:30.731Z"
+        }
+      }
+    ],
+    "958096b19e1c61cff2f42d45": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "958096b19e1c61cff2f42d45",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "text_dominant",
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T11:19:34.703Z"
+        }
+      }
+    ],
+    "3dfd658846333e13e44ae3b8": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "3dfd658846333e13e44ae3b8",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T11:19:37.553Z"
+        }
+      }
+    ],
+    "819db01dd02f037c5ebb875a": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "819db01dd02f037c5ebb875a",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T11:19:40.338Z"
+        }
+      }
+    ],
+    "c7482e5d2d363285138b7b85": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "c7482e5d2d363285138b7b85",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "wrong_brand"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T11:19:43.775Z"
+        }
+      }
+    ],
+    "ba675122c153e9de01483b46": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "ba675122c153e9de01483b46",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T11:19:47.577Z"
+        }
+      }
+    ],
+    "5eac1fbb46d5588f5b4fce14": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "5eac1fbb46d5588f5b4fce14",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T11:19:49.662Z"
+        }
+      }
+    ],
+    "60bb80bb8ed971e6d0fedc3a": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "60bb80bb8ed971e6d0fedc3a",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T11:19:52.417Z"
+        }
+      }
+    ],
+    "e0de420def5bb534eb72a56a": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "e0de420def5bb534eb72a56a",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T11:19:59.620Z"
+        }
+      }
+    ],
+    "9c0797d465f196beaddd3842": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "9c0797d465f196beaddd3842",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T11:20:09.946Z"
+        }
+      }
+    ],
+    "1538f7e1442fd14e873ca606": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "1538f7e1442fd14e873ca606",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T11:20:13.499Z"
+        }
+      }
+    ],
+    "60a239a86a82b0b365a14148": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "60a239a86a82b0b365a14148",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T11:20:20.710Z"
+        }
+      }
+    ],
+    "312829ab52786f942b741914": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "312829ab52786f942b741914",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T11:20:25.426Z"
+        }
+      }
+    ],
+    "79577e0d4acb850294fa1815": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "79577e0d4acb850294fa1815",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "low_visual_quality"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T11:20:31.345Z"
+        }
+      }
+    ],
+    "212367eed45b5237c7261565": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "212367eed45b5237c7261565",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "text_dominant",
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T11:20:34.283Z"
+        }
+      }
+    ],
+    "affa98d735c3950cd14b589e": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "affa98d735c3950cd14b589e",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T11:20:36.134Z"
+        }
+      }
+    ],
+    "8ca13efc000305906062e19c": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "8ca13efc000305906062e19c",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T11:20:39.703Z"
+        }
+      }
+    ],
+    "3b29ee6d3409f2b851e52b89": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "3b29ee6d3409f2b851e52b89",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T11:20:41.573Z"
+        }
+      }
+    ],
+    "3d03b58b650d2120dd619dbe": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "3d03b58b650d2120dd619dbe",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T11:20:43.511Z"
+        }
+      }
+    ],
+    "e5961b4c42248a3e8b716702": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "e5961b4c42248a3e8b716702",
+          "disposition": "keep",
+          "tag": "lifestyle",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T11:20:45.150Z"
+        }
+      }
+    ],
+    "84da2205d1d3fc1d970730f3": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "84da2205d1d3fc1d970730f3",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T11:20:46.827Z"
+        }
+      }
+    ],
+    "d01a81006fd5885b6ea268c4": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "d01a81006fd5885b6ea268c4",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T11:20:48.693Z"
+        }
+      }
+    ],
+    "80efe965f0b0300019244253": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "80efe965f0b0300019244253",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "wrong_brand"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T11:20:55.483Z"
+        }
+      }
+    ],
+    "3fa5e0cd75e6aebfd7e75c14": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "3fa5e0cd75e6aebfd7e75c14",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T11:20:57.802Z"
+        }
+      }
+    ],
+    "704f5f23f43b642b9f44b7b3": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "704f5f23f43b642b9f44b7b3",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T11:20:59.841Z"
+        }
+      }
+    ],
+    "9f738f63490181c5c99f2ddf": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "9f738f63490181c5c99f2ddf",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T11:21:00.921Z"
+        }
+      }
+    ],
+    "7202c5f81c796c420a9ead50": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "7202c5f81c796c420a9ead50",
+          "disposition": "keep",
+          "tag": "product",
+          "reasons": [],
+          "notes": null,
+          "labeledAt": "2026-08-01T11:21:02.304Z"
+        }
+      }
+    ],
+    "fd7d3d4701ec526d336c3075": [
+      {
+        "revision": 1,
+        "label": {
+          "imageId": "fd7d3d4701ec526d336c3075",
+          "disposition": "reject",
+          "tag": null,
+          "reasons": [
+            "promo_subject",
+            "irrelevant"
+          ],
+          "notes": null,
+          "labeledAt": "2026-08-01T11:21:06.047Z"
+        }
+      }
+    ]
+  }
+}
