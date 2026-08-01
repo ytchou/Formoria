@@ -17,8 +17,7 @@ export type EvalCategory = (typeof EVAL_CATEGORY_SLUGS)[number];
 export type GoldenSplit = "dev" | "holdout";
 export type CaptureStatus = "ready" | "unavailable";
 export type Disposition = "keep" | "reject";
-export type KeptTag = "product" | "lifestyle" | "packaging" | "logo";
-export type ObservationTag = "workspace";
+export type KeptTag = string;
 export type RejectionReason =
   | "wrong_brand"
   | "time_sensitive"
@@ -81,7 +80,6 @@ export type GoldenLabel = {
   imageId: string;
   disposition: Disposition;
   tag: KeptTag | null;
-  observationTags?: ObservationTag[];
   reasons: RejectionReason[];
   notes: string | null;
   labeledAt: string;
@@ -92,11 +90,21 @@ export type GoldenLabelHistoryEntry = {
   label: GoldenLabel;
 };
 
+export type GoldenTagDefinition = {
+  slug: string;
+  label: string;
+  description: string;
+  source: "system" | "manual";
+  createdAt: string;
+  createdFromImageId: string | null;
+};
+
 export type GoldenLabelsFile = {
   schemaVersion: typeof EVAL_SCHEMA_VERSION;
   corpusId: string;
   labels: Record<string, GoldenLabel>;
   history?: Record<string, GoldenLabelHistoryEntry[]>;
+  tagDefinitions?: Record<string, GoldenTagDefinition>;
 };
 
 export type EvalPrediction = {

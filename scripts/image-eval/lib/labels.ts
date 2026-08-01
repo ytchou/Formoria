@@ -5,17 +5,11 @@ import type {
   GoldenLabelHistoryEntry,
   GoldenLabelsFile,
   GoldenManifest,
+  GoldenTagDefinition,
   KeptTag,
-  ObservationTag,
   RejectionReason,
 } from "./types";
 
-const KEPT_TAGS = new Set<KeptTag>([
-  "product",
-  "lifestyle",
-  "packaging",
-  "logo",
-]);
 const REJECTION_REASONS = new Set<RejectionReason>([
   "wrong_brand",
   "time_sensitive",
@@ -25,17 +19,129 @@ const REJECTION_REASONS = new Set<RejectionReason>([
   "duplicate",
   "irrelevant",
 ]);
-const OBSERVATION_TAGS = new Set<ObservationTag>(["workspace"]);
+const RESERVED_TAGS = new Set(["promo", "text_banner", "irrelevant"]);
 
-export function validateLabel(label: GoldenLabel): string[] {
+const SYSTEM_TAGS: GoldenTagDefinition[] = [
+  {
+    slug: "product",
+    label: "Product",
+    description: "Clear presentation of the brand's product itself.",
+    source: "system",
+    createdAt: "2026-08-01T00:00:00.000Z",
+    createdFromImageId: null,
+  },
+  {
+    slug: "lifestyle",
+    label: "Lifestyle",
+    description: "Product shown in a real use or lifestyle context.",
+    source: "system",
+    createdAt: "2026-08-01T00:00:00.000Z",
+    createdFromImageId: null,
+  },
+  {
+    slug: "packaging",
+    label: "Packaging",
+    description: "Brand packaging, box, tag, or product set packaging.",
+    source: "system",
+    createdAt: "2026-08-01T00:00:00.000Z",
+    createdFromImageId: null,
+  },
+  {
+    slug: "logo",
+    label: "Logo",
+    description: "Clean, recognizable brand logo or identity image.",
+    source: "system",
+    createdAt: "2026-08-01T00:00:00.000Z",
+    createdFromImageId: null,
+  },
+];
+
+export function defaultTagDefinitions(): Record<string, GoldenTagDefinition> {
+  return Object.fromEntries(
+    SYSTEM_TAGS.map((definition) => [definition.slug, { ...definition }]),
+  );
+}
+
+export function normalizeTagSlug(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 48);
+}
+
+export function hydrateTagDefinitions(
+  labelsFile: GoldenLabelsFile,
+): GoldenLabelsFile {
+  const tagDefinitions = {
+    ...defaultTagDefinitions(),
+    ...(labelsFile.tagDefinitions ?? {}),
+  };
+  for (const label of Object.values(labelsFile.labels)) {
+    if (!label.tag || tagDefinitions[label.tag]) continue;
+    tagDefinitions[label.tag] = {
+      slug: label.tag,
+      label: label.tag,
+      description: "Legacy tag; define before the final LLM evaluation.",
+      source: "manual",
+      createdAt: label.labeledAt,
+      createdFromImageId: label.imageId,
+    };
+  }
+  return { ...labelsFile, tagDefinitions };
+}
+
+export function registerTagDefinition(
+  labelsFile: GoldenLabelsFile,
+  input: {
+    slug: string;
+    label: string;
+    description: string;
+    createdFromImageId: string | null;
+  },
+): { labelsFile: GoldenLabelsFile; tag: GoldenTagDefinition } {
+  const hydrated = hydrateTagDefinitions(labelsFile);
+  const slug = normalizeTagSlug(input.slug || input.label);
+  const label = input.label.trim();
+  const description = input.description.trim();
+  if (!slug)
+    throw new Error("tag slug must contain at least one letter or number");
+  if (!label) throw new Error("tag label is required");
+  if (!description) throw new Error("tag description is required");
+  if (RESERVED_TAGS.has(slug)) throw new Error(`tag slug is reserved: ${slug}`);
+  if (hydrated.tagDefinitions?.[slug])
+    throw new Error(`tag already exists: ${slug}`);
+
+  const tag: GoldenTagDefinition = {
+    slug,
+    label,
+    description,
+    source: "manual",
+    createdAt: new Date().toISOString(),
+    createdFromImageId: input.createdFromImageId,
+  };
+  return {
+    labelsFile: {
+      ...hydrated,
+      tagDefinitions: { ...(hydrated.tagDefinitions ?? {}), [slug]: tag },
+    },
+    tag,
+  };
+}
+
+export function validateLabel(
+  label: GoldenLabel,
+  tagDefinitions: Record<string, GoldenTagDefinition> = defaultTagDefinitions(),
+): string[] {
   const errors: string[] = [];
   if (!label.imageId.trim()) errors.push("imageId is required");
   if (!["keep", "reject"].includes(label.disposition))
     errors.push("disposition must be keep or reject");
 
   if (label.disposition === "keep") {
-    if (!label.tag || !KEPT_TAGS.has(label.tag))
-      errors.push("kept images require one valid tag");
+    if (!label.tag || !tagDefinitions[label.tag])
+      errors.push("kept images require one registered primary tag");
     if (label.reasons.length > 0)
       errors.push("kept images cannot have rejection reasons");
   }
@@ -53,13 +159,6 @@ export function validateLabel(label: GoldenLabel): string[] {
 
   if (new Set(label.reasons).size !== label.reasons.length)
     errors.push("rejection reasons must be unique");
-  const observationTags = label.observationTags ?? [];
-  for (const tag of observationTags) {
-    if (!OBSERVATION_TAGS.has(tag))
-      errors.push(`unknown observation tag: ${tag}`);
-  }
-  if (new Set(observationTags).size !== observationTags.length)
-    errors.push("observation tags must be unique");
   return errors;
 }
 
@@ -88,7 +187,9 @@ export function validateLabelsForManifest(
       continue;
     }
     errors.push(
-      ...validateLabel(label).map((error) => `${entry.id}: ${error}`),
+      ...validateLabel(label, labelsFile.tagDefinitions).map(
+        (error) => `${entry.id}: ${error}`,
+      ),
     );
   }
 
@@ -103,7 +204,6 @@ export function normalizeLabelInput(input: {
   imageId: string;
   disposition: Disposition;
   tag?: KeptTag | null;
-  observationTags?: ObservationTag[];
   reasons?: RejectionReason[];
   notes?: string | null;
 }): GoldenLabel {
@@ -111,12 +211,17 @@ export function normalizeLabelInput(input: {
     imageId: input.imageId,
     disposition: input.disposition,
     tag: input.disposition === "keep" ? (input.tag ?? null) : null,
-    observationTags: [...new Set(input.observationTags ?? [])],
     reasons:
       input.disposition === "reject" ? [...new Set(input.reasons ?? [])] : [],
     notes: input.notes?.trim() || null,
     labeledAt: new Date().toISOString(),
   };
+}
+
+export function hydrateLabelsFile(
+  labelsFile: GoldenLabelsFile,
+): GoldenLabelsFile {
+  return hydrateLabelHistory(hydrateTagDefinitions(labelsFile));
 }
 
 export function hydrateLabelHistory(

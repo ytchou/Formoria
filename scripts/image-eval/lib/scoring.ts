@@ -4,8 +4,14 @@ import type {
   GoldenLabel,
   GoldenManifest,
   GoldenSplit,
-  KeptTag,
 } from "./types";
+
+const DEFAULT_KEPT_TAGS = new Set([
+  "product",
+  "lifestyle",
+  "packaging",
+  "logo",
+]);
 
 function ratio(numerator: number, denominator: number): number {
   return denominator === 0 ? 0 : Number((numerator / denominator).toFixed(6));
@@ -85,16 +91,14 @@ export function scorePredictions(
   };
 }
 
-export function tagFromLegacyTag(tag: string): {
+export function tagFromLegacyTag(
+  tag: string,
+  keptTags: ReadonlySet<string> = DEFAULT_KEPT_TAGS,
+): {
   disposition: "keep" | "reject";
-  tag: KeptTag | null;
+  tag: string | null;
 } {
-  if (
-    tag === "product" ||
-    tag === "lifestyle" ||
-    tag === "packaging" ||
-    tag === "logo"
-  ) {
+  if (keptTags.has(tag)) {
     return { disposition: "keep", tag };
   }
   return { disposition: "reject", tag: null };

@@ -5,65 +5,101 @@ import {
   parseJson,
   type ChatAuditEvent,
 } from "@/lib/services/openai-client";
-import { LEGACY_IMAGE_CLASSIFY_SYSTEM_PROMPT } from "@/lib/prompts";
+import {
+  IMAGE_CLASSIFY_SYSTEM_PROMPT,
+  LEGACY_IMAGE_CLASSIFY_SYSTEM_PROMPT,
+} from "@/lib/prompts";
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { createImageEvalSignedUrls } from "@/lib/services/image-eval-storage";
 import {
   MANIFEST_PATH,
+  LABELS_PATH,
   RUN_ROOT,
   ensureEvalDirectories,
   readJson,
   runPath,
   writeJsonAtomic,
 } from "./lib/paths";
+import { defaultTagDefinitions, hydrateLabelsFile } from "./lib/labels";
 import { tagFromLegacyTag } from "./lib/scoring";
 import type {
   EvalPrediction,
   GoldenImageEntry,
+  GoldenLabelsFile,
   GoldenManifest,
   GoldenSplit,
 } from "./lib/types";
 
 const BATCH_SIZE = 20;
 const MODEL = "gpt-4o-mini";
-const CLASSIFICATION_SCHEMA = {
-  name: "image_classifications",
-  schema: {
-    type: "object",
-    additionalProperties: false,
-    properties: {
-      classifications: {
-        type: "array",
-        items: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            id: { type: "string" },
-            tag: {
+const REJECTION_TAGS = ["promo", "text_banner", "irrelevant"];
+
+function classificationSchema(
+  keptTags: readonly string[],
+  prompt: "legacy" | "current",
+) {
+  const properties =
+    prompt === "current"
+      ? {
+          id: { type: "string" },
+          disposition: { type: "string", enum: ["keep", "reject"] },
+          tag: {
+            anyOf: [{ type: "string", enum: [...keptTags] }, { type: "null" }],
+          },
+          reasons: {
+            type: "array",
+            items: {
               type: "string",
               enum: [
-                "product",
-                "lifestyle",
-                "packaging",
-                "logo",
-                "promo",
-                "text_banner",
+                "wrong_brand",
+                "time_sensitive",
+                "promo_subject",
+                "text_dominant",
+                "low_visual_quality",
+                "duplicate",
                 "irrelevant",
               ],
             },
-            score: { type: "number" },
-            alt_zh: { type: "string" },
-            alt_en: { type: "string" },
           },
-          required: ["id", "tag", "score", "alt_zh", "alt_en"],
+          score: { type: "number" },
+          alt_zh: { type: "string" },
+          alt_en: { type: "string" },
+        }
+      : {
+          id: { type: "string" },
+          tag: { type: "string", enum: [...keptTags, ...REJECTION_TAGS] },
+          score: { type: "number" },
+          alt_zh: { type: "string" },
+          alt_en: { type: "string" },
+        };
+  return {
+    name: "image_classifications",
+    schema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        classifications: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            properties,
+            required: Object.keys(properties),
+          },
         },
       },
+      required: ["classifications"],
     },
-    required: ["classifications"],
-  },
-} as const;
+  };
+}
 
-type RawClassification = { id?: unknown; tag?: unknown; score?: unknown };
+type RawClassification = {
+  id?: unknown;
+  disposition?: unknown;
+  tag?: unknown;
+  reasons?: unknown;
+  score?: unknown;
+};
 
 function splitArg(): GoldenSplit | "all" {
   const argument = process.argv.find((value) => value.startsWith("--split="));
@@ -71,6 +107,50 @@ function splitArg(): GoldenSplit | "all" {
   if (value !== "dev" && value !== "holdout" && value !== "all")
     throw new Error("--split must be dev, holdout, or all");
   return value;
+}
+
+function promptArg(): "legacy" | "current" {
+  const argument = process.argv.find((value) => value.startsWith("--prompt="));
+  const value = argument?.slice("--prompt=".length) ?? "legacy";
+  if (value !== "legacy" && value !== "current")
+    throw new Error("--prompt must be legacy or current");
+  return value;
+}
+
+async function loadTagDefinitions(): Promise<
+  GoldenLabelsFile["tagDefinitions"]
+> {
+  try {
+    const labelsFile = await readJson<GoldenLabelsFile>(LABELS_PATH);
+    return hydrateLabelsFile(labelsFile).tagDefinitions;
+  } catch {
+    return defaultTagDefinitions();
+  }
+}
+
+function tagRegistryGuidance(
+  tagDefinitions: NonNullable<GoldenLabelsFile["tagDefinitions"]>,
+): string {
+  const lines = Object.values(tagDefinitions).map(
+    (definition) => `- ${definition.slug}: ${definition.description}`,
+  );
+  return `本次評估的 primary keep tag 註冊表如下，請只從這些 tag 選擇可保留圖片：\n${lines.join("\n")}`;
+}
+
+function buildSystemPrompt(
+  prompt: "legacy" | "current",
+  tagDefinitions: NonNullable<GoldenLabelsFile["tagDefinitions"]>,
+): string {
+  const base =
+    prompt === "current"
+      ? IMAGE_CLASSIFY_SYSTEM_PROMPT
+      : LEGACY_IMAGE_CLASSIFY_SYSTEM_PROMPT;
+  if (prompt === "legacy") return base;
+  const tags = Object.keys(tagDefinitions).join("、");
+  return `${base.replace(
+    "- disposition=keep 時，tag 必須恰好是 product、lifestyle、packaging、logo 其中之一，reasons 必須是空陣列。",
+    `- disposition=keep 時，tag 必須恰好是 ${tags} 其中之一，reasons 必須是空陣列。`,
+  )}\n\n${tagRegistryGuidance(tagDefinitions)}`;
 }
 
 function parseClassifications(content: string): Map<string, RawClassification> {
@@ -95,6 +175,50 @@ function rejectionReasons(tag: string): EvalPrediction["reasons"] {
   return ["low_visual_quality"];
 }
 
+const VALID_REJECTION_REASONS: ReadonlySet<EvalPrediction["reasons"][number]> =
+  new Set([
+    "wrong_brand",
+    "time_sensitive",
+    "promo_subject",
+    "text_dominant",
+    "low_visual_quality",
+    "duplicate",
+    "irrelevant",
+  ]);
+
+function parsedRejectionReasons(
+  value: unknown,
+  fallbackTag: string | null,
+): EvalPrediction["reasons"] {
+  const reasons = Array.isArray(value)
+    ? value.filter(
+        (reason): reason is EvalPrediction["reasons"][number] =>
+          typeof reason === "string" &&
+          VALID_REJECTION_REASONS.has(reason as never),
+      )
+    : [];
+  return reasons.length > 0
+    ? [...new Set(reasons)]
+    : rejectionReasons(fallbackTag ?? "");
+}
+
+function currentPrediction(
+  raw: RawClassification | undefined,
+  keptTags: ReadonlySet<string>,
+): { disposition: "keep" | "reject"; tag: string | null } {
+  const tag = typeof raw?.tag === "string" ? raw.tag : null;
+  if (
+    raw?.disposition === "keep" &&
+    tag !== null &&
+    keptTags.has(tag) &&
+    Array.isArray(raw.reasons) &&
+    raw.reasons.length === 0
+  ) {
+    return { disposition: "keep", tag };
+  }
+  return { disposition: "reject", tag: null };
+}
+
 function brandContext(entry: GoldenImageEntry): string {
   const category = PRODUCT_TYPE_CATEGORIES.find(
     (candidate) => candidate.slug === entry.category,
@@ -116,6 +240,11 @@ async function runBaseline(): Promise<void> {
   await ensureEvalDirectories();
   const manifest = await readJson<GoldenManifest>(MANIFEST_PATH);
   const selectedSplit = splitArg();
+  const prompt = promptArg();
+  const tagDefinitions =
+    (await loadTagDefinitions()) ?? defaultTagDefinitions();
+  const keptTags = Object.keys(tagDefinitions);
+  const systemPrompt = buildSystemPrompt(prompt, tagDefinitions);
   const entries = manifest.entries.filter(
     (entry) =>
       entry.captureStatus === "ready" &&
@@ -167,16 +296,18 @@ async function runBaseline(): Promise<void> {
       }
 
       const response = await client.chat({
-        system: LEGACY_IMAGE_CLASSIFY_SYSTEM_PROMPT,
+        system: systemPrompt,
         user: `${brandContext(chunk[0])}請分類以下 ${chunk.length} 張品牌圖片，依序編號為 ${ids.join("、")}。回傳 JSON object，包含 classifications 陣列，每個物件的 id 必須是對應圖片的編號字串。無法判斷的圖片請省略，不要猜測。`,
         images: images.filter((url): url is string => Boolean(url)),
         json: true,
-        schema: CLASSIFICATION_SCHEMA,
+        schema: classificationSchema(keptTags, prompt),
         maxTokens: 250 * chunk.length,
         temperature: 0,
         meta: {
           imageIds: chunk.map((entry) => entry.id),
           split: selectedSplit,
+          prompt,
+          tagRegistry: tagDefinitions,
         },
       });
       const parsed = response.content
@@ -190,7 +321,7 @@ async function runBaseline(): Promise<void> {
           typeof raw?.score === "number" && Number.isFinite(raw.score)
             ? Math.max(0, Math.min(100, Math.round(raw.score)))
             : null;
-        if (!response.ok || !tag) {
+        if (!response.ok || !raw || (prompt === "legacy" && !tag)) {
           predictions.push({
             imageId: entry.id,
             disposition: "reject",
@@ -203,12 +334,20 @@ async function runBaseline(): Promise<void> {
           });
           continue;
         }
-        const mapped = tagFromLegacyTag(tag);
+        const mapped =
+          prompt === "current"
+            ? currentPrediction(raw, new Set(keptTags))
+            : tagFromLegacyTag(tag ?? "", new Set(keptTags));
         predictions.push({
           imageId: entry.id,
           disposition: mapped.disposition,
           tag: mapped.tag,
-          reasons: mapped.disposition === "reject" ? rejectionReasons(tag) : [],
+          reasons:
+            prompt === "current" && mapped.disposition === "reject"
+              ? parsedRejectionReasons(raw?.reasons, tag)
+              : mapped.disposition === "reject"
+                ? rejectionReasons(tag ?? "")
+                : [],
           score,
           error: null,
         });
@@ -223,6 +362,8 @@ async function runBaseline(): Promise<void> {
     corpusId: manifest.corpusId,
     model: MODEL,
     split: selectedSplit,
+    prompt,
+    tagDefinitions,
     createdAt: new Date().toISOString(),
     predictions,
   });

@@ -10,8 +10,10 @@ import {
 } from "./lib/paths";
 import {
   appendLabelRevision,
-  hydrateLabelHistory,
+  defaultTagDefinitions,
+  hydrateLabelsFile,
   normalizeLabelInput,
+  registerTagDefinition,
   readyEntries,
   validateLabel,
 } from "./lib/labels";
@@ -20,7 +22,6 @@ import {
   type GoldenLabelsFile,
   type GoldenManifest,
   type KeptTag,
-  type ObservationTag,
   type RejectionReason,
 } from "./lib/types";
 
@@ -47,6 +48,8 @@ const REVIEW_HTML = `<!doctype html>
     button:hover, label:hover { background: #333; }
     button.active { border-color: #f5f5f5; background: #404040; }
     input[type=checkbox] { margin-right: 8px; }
+    input[type=text] { width: 100%; box-sizing: border-box; margin: 8px 0; padding: 10px 12px; border: 1px solid #404040; border-radius: 8px; background: #262626; color: inherit; }
+    #add-tag-form button { text-align: center; }
     textarea { width: 100%; min-height: 70px; box-sizing: border-box; background: #262626; color: inherit; border: 1px solid #404040; border-radius: 8px; padding: 8px; }
     #save { background: #f5f5f5; color: #171717; text-align: center; font-weight: 700; }
     .keys { color: #a3a3a3; font-size: 12px; line-height: 1.6; }
@@ -62,15 +65,15 @@ const REVIEW_HTML = `<!doctype html>
       <button data-disposition="keep">Keep — useful and publishable</button>
       <button data-disposition="reject">Reject — worse than no image</button>
     </div>
-    <div class="group"><h2>Kept tag</h2>
-      <button data-tag="product">1 · Product</button>
-      <button data-tag="lifestyle">2 · Lifestyle</button>
-      <button data-tag="packaging">3 · Packaging</button>
-      <button data-tag="logo">4 · Logo</button>
-    </div>
-    <div class="group"><h2>Observation tags</h2>
-      <label><input type="checkbox" data-observation-tag value="workspace">Workspace / studio</label>
-      <div class="keys">Use this for a brand's workshop, studio, or working environment. It does not change the scored primary tag.</div>
+    <div class="group"><h2>Primary tag</h2>
+      <div id="tag-options"></div>
+      <form id="add-tag-form">
+        <input id="new-tag-slug" type="text" required placeholder="Slug, e.g. workspace">
+        <input id="new-tag-label" type="text" required placeholder="Display name">
+        <input id="new-tag-description" type="text" required placeholder="Definition for the model">
+        <button type="submit">Add primary tag</button>
+      </form>
+      <div id="tag-status" class="keys"></div>
     </div>
     <div class="group"><h2>Rejection reasons</h2>
       <label><input type="checkbox" data-reason value="wrong_brand">Wrong brand</label>
@@ -83,36 +86,40 @@ const REVIEW_HTML = `<!doctype html>
     </div>
     <div class="group"><h2>Notes</h2><textarea id="notes" placeholder="Optional adjudication note"></textarea></div>
     <button id="save">Save label and next</button>
-    <p class="keys">Keys: K keep, R reject, 1–4 tag, ←/→ navigate. A reject defaults to low visual quality until you choose a reason.</p>
+    <p class="keys">Keys: K keep, R reject, 1–9 tag, ←/→ navigate. A reject defaults to low visual quality until you choose a reason.</p>
   </aside>
 </main>
 <script>
-let entries = [], labels = {}, labelHistory = {}, index = 0, state = { disposition: null, tag: null, observationTags: [], reasons: [], notes: '' };
+let entries = [], labels = {}, labelHistory = {}, tagDefinitions = {}, index = 0, state = { disposition: null, tag: null, reasons: [], notes: '' };
 const $ = (selector) => document.querySelector(selector);
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 function current() { return entries[index]; }
+function renderTagOptions() {
+  const definitions = Object.values(tagDefinitions);
+  $('#tag-options').innerHTML = definitions.map((definition, definitionIndex) => '<button data-tag="' + esc(definition.slug) + '" title="' + esc(definition.description) + '">' + (definitionIndex < 9 ? (definitionIndex + 1) + ' · ' : '') + esc(definition.label) + '</button>').join('');
+}
 function render(reset = true) {
   const entry = current(); if (!entry) return;
   $('#image').src = entry.signedUrl || ''; $('#image').alt = entry.title || entry.brandName;
   const existing = labels[entry.id];
-  if (reset) state = existing ? { disposition: existing.disposition, tag: existing.tag, observationTags: existing.observationTags || [], reasons: existing.reasons || [], notes: existing.notes || '' } : { disposition: null, tag: null, observationTags: [], reasons: [], notes: '' };
+  if (reset) state = existing ? { disposition: existing.disposition, tag: existing.tag, reasons: existing.reasons || [], notes: existing.notes || '' } : { disposition: null, tag: null, reasons: [], notes: '' };
+  renderTagOptions();
   $('#counter').textContent = (index + 1) + ' / ' + entries.length + (existing ? ' · labeled' : ' · unlabeled');
   $('#meta').innerHTML = '<strong>' + esc(entry.brandName) + '</strong> · ' + esc(entry.category) + ' · ' + esc(entry.split) + '<br>Serper position ' + entry.position + ' · ' + esc(entry.domain || '') + '<br>' + esc(entry.title || 'Untitled');
   const revisions = labelHistory[entry.id] || [];
   $('#history').textContent = revisions.length + ' saved revision' + (revisions.length === 1 ? '' : 's');
   document.querySelectorAll('[data-disposition]').forEach((button) => button.classList.toggle('active', button.dataset.disposition === state.disposition));
   document.querySelectorAll('[data-tag]').forEach((button) => button.classList.toggle('active', button.dataset.tag === state.tag));
-  document.querySelectorAll('[data-observation-tag]').forEach((input) => input.checked = state.observationTags.includes(input.value));
   document.querySelectorAll('[data-reason]').forEach((input) => input.checked = state.reasons.includes(input.value));
   $('#notes').value = state.notes;
 }
-function setDisposition(disposition) { state.disposition = disposition; if (disposition === 'keep') { state.reasons = []; state.tag = state.tag || 'product'; } if (disposition === 'reject' && !state.reasons.length) state.reasons = ['low_visual_quality']; render(false); }
+function setDisposition(disposition) { state.disposition = disposition; if (disposition === 'keep') state.reasons = []; if (disposition === 'reject') { state.tag = null; if (!state.reasons.length) state.reasons = ['low_visual_quality']; } render(false); }
 function setTag(tag) { state.disposition = 'keep'; state.tag = tag; state.reasons = []; render(false); }
 async function save() {
   if (!state.disposition) return alert('Choose keep or reject first.');
+  if (state.disposition === 'keep' && !state.tag) return alert('Choose one primary tag before saving a kept image.');
   const reasons = [...document.querySelectorAll('[data-reason]:checked')].map((input) => input.value);
-  const observationTags = [...document.querySelectorAll('[data-observation-tag]:checked')].map((input) => input.value);
-  const payload = { imageId: current().id, disposition: state.disposition, tag: state.disposition === 'keep' ? state.tag : null, observationTags, reasons, notes: $('#notes').value };
+  const payload = { imageId: current().id, disposition: state.disposition, tag: state.disposition === 'keep' ? state.tag : null, reasons, notes: $('#notes').value };
   const response = await fetch('/api/labels', { method: 'POST', headers: {'content-type':'application/json'}, body: JSON.stringify(payload) });
   if (!response.ok) return alert(await response.text());
   const saved = await response.json();
@@ -122,12 +129,12 @@ async function save() {
   render();
 }
 document.querySelectorAll('[data-disposition]').forEach((button) => button.addEventListener('click', () => setDisposition(button.dataset.disposition)));
-document.querySelectorAll('[data-tag]').forEach((button) => button.addEventListener('click', () => setTag(button.dataset.tag)));
+$('#tag-options').addEventListener('click', (event) => { const button = event.target instanceof Element ? event.target.closest('[data-tag]') : null; if (button) setTag(button.dataset.tag); });
+$('#add-tag-form').addEventListener('submit', async (event) => { event.preventDefault(); const response = await fetch('/api/tags', { method: 'POST', headers: {'content-type':'application/json'}, body: JSON.stringify({ slug: $('#new-tag-slug').value, label: $('#new-tag-label').value, description: $('#new-tag-description').value, imageId: current().id }) }); if (!response.ok) return alert(await response.text()); const saved = await response.json(); tagDefinitions = saved.tagDefinitions; $('#new-tag-slug').value = ''; $('#new-tag-label').value = ''; $('#new-tag-description').value = ''; $('#tag-status').textContent = 'Added ' + saved.tag.label + '; selected for this image.'; setTag(saved.tag.slug); });
 document.querySelectorAll('[data-reason]').forEach((input) => input.addEventListener('change', () => { state.reasons = [...document.querySelectorAll('[data-reason]:checked')].map((item) => item.value); }));
-document.querySelectorAll('[data-observation-tag]').forEach((input) => input.addEventListener('change', () => { state.observationTags = [...document.querySelectorAll('[data-observation-tag]:checked')].map((item) => item.value); }));
 $('#save').addEventListener('click', save);
-document.addEventListener('keydown', (event) => { if (event.target.matches('textarea,input')) return; if (event.key.toLowerCase() === 'k') setDisposition('keep'); if (event.key.toLowerCase() === 'r') setDisposition('reject'); if ('1234'.includes(event.key)) setTag(['product','lifestyle','packaging','logo'][Number(event.key) - 1]); if (event.key === 'ArrowLeft' && index > 0) { index -= 1; render(); } if (event.key === 'ArrowRight' && index < entries.length - 1) { index += 1; render(); } if (event.key === 'Enter') save(); });
-fetch('/api/corpus').then((response) => response.json()).then((payload) => { entries = payload.entries; labels = payload.labels; labelHistory = payload.history || {}; const firstUnlabeled = entries.findIndex((entry) => !labels[entry.id]); index = firstUnlabeled >= 0 ? firstUnlabeled : 0; render(); });
+document.addEventListener('keydown', (event) => { if (event.target.matches('textarea,input')) return; if (event.key.toLowerCase() === 'k') setDisposition('keep'); if (event.key.toLowerCase() === 'r') setDisposition('reject'); if (/^[1-9]$/.test(event.key)) { const option = Object.values(tagDefinitions)[Number(event.key) - 1]; if (option) setTag(option.slug); } if (event.key === 'ArrowLeft' && index > 0) { index -= 1; render(); } if (event.key === 'ArrowRight' && index < entries.length - 1) { index += 1; render(); } if (event.key === 'Enter') save(); });
+fetch('/api/corpus').then((response) => response.json()).then((payload) => { entries = payload.entries; labels = payload.labels; labelHistory = payload.history || {}; tagDefinitions = payload.tagDefinitions || {}; const firstUnlabeled = entries.findIndex((entry) => !labels[entry.id]); index = firstUnlabeled >= 0 ? firstUnlabeled : 0; render(); });
 </script>
 </body></html>`;
 
@@ -136,13 +143,14 @@ async function loadLabels(manifest: GoldenManifest): Promise<GoldenLabelsFile> {
     const labels = await readJson<GoldenLabelsFile>(LABELS_PATH);
     if (labels.corpusId !== manifest.corpusId)
       throw new Error("labels corpusId does not match manifest");
-    return hydrateLabelHistory(labels);
+    return hydrateLabelsFile(labels);
   } catch {
     return {
       schemaVersion: EVAL_SCHEMA_VERSION,
       corpusId: manifest.corpusId,
       labels: {},
       history: {},
+      tagDefinitions: defaultTagDefinitions(),
     };
   }
 }
@@ -219,6 +227,33 @@ async function startReview(): Promise<void> {
           })),
           labels: labelsFile.labels,
           history: labelsFile.history ?? {},
+          tagDefinitions: labelsFile.tagDefinitions ?? {},
+        });
+        return;
+      }
+      if (request.method === "POST" && url.pathname === "/api/tags") {
+        const input = await readBody(request);
+        if (!input || typeof input !== "object")
+          return json(response, 400, { error: "invalid tag payload" });
+        const value = input as {
+          slug?: unknown;
+          label?: unknown;
+          description?: unknown;
+          imageId?: unknown;
+        };
+        const registered = registerTagDefinition(labelsFile, {
+          slug: typeof value.slug === "string" ? value.slug : "",
+          label: typeof value.label === "string" ? value.label : "",
+          description:
+            typeof value.description === "string" ? value.description : "",
+          createdFromImageId:
+            typeof value.imageId === "string" ? value.imageId : null,
+        });
+        labelsFile.tagDefinitions = registered.labelsFile.tagDefinitions;
+        await writeJsonAtomic(LABELS_PATH, labelsFile);
+        json(response, 200, {
+          tag: registered.tag,
+          tagDefinitions: labelsFile.tagDefinitions ?? {},
         });
         return;
       }
@@ -230,7 +265,6 @@ async function startReview(): Promise<void> {
           imageId?: unknown;
           disposition?: unknown;
           tag?: unknown;
-          observationTags?: unknown;
           reasons?: unknown;
           notes?: unknown;
         };
@@ -245,11 +279,6 @@ async function startReview(): Promise<void> {
           imageId: entry.id,
           disposition: value.disposition === "keep" ? "keep" : "reject",
           tag: typeof value.tag === "string" ? (value.tag as KeptTag) : null,
-          observationTags: Array.isArray(value.observationTags)
-            ? value.observationTags.filter(
-                (tag): tag is ObservationTag => tag === "workspace",
-              )
-            : [],
           reasons: Array.isArray(value.reasons)
             ? value.reasons.filter(
                 (reason): reason is RejectionReason =>
@@ -258,7 +287,7 @@ async function startReview(): Promise<void> {
             : [],
           notes: typeof value.notes === "string" ? value.notes : null,
         });
-        const errors = validateLabel(label);
+        const errors = validateLabel(label, labelsFile.tagDefinitions);
         if (errors.length > 0)
           return json(response, 400, { error: errors.join("; ") });
         const updatedLabelsFile = appendLabelRevision(labelsFile, label);

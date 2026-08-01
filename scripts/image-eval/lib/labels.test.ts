@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   appendLabelRevision,
+  hydrateLabelsFile,
   normalizeLabelInput,
+  registerTagDefinition,
   validateLabel,
 } from "./labels";
 
@@ -11,7 +13,9 @@ describe("golden labels", () => {
       imageId: "image-1",
       disposition: "keep",
     });
-    expect(validateLabel(label)).toContain("kept images require one valid tag");
+    expect(validateLabel(label)).toContain(
+      "kept images require one registered primary tag",
+    );
   });
 
   it("requires at least one explicit reason for rejected images", () => {
@@ -34,20 +38,53 @@ describe("golden labels", () => {
     expect(label).toMatchObject({
       disposition: "keep",
       tag: "logo",
-      observationTags: [],
       reasons: [],
     });
   });
 
-  it("keeps workspace as a non-scored observation tag", () => {
+  it("registers a dynamic primary tag and validates labels against it", () => {
+    const registered = registerTagDefinition(
+      {
+        schemaVersion: 1,
+        corpusId: "corpus-1",
+        labels: {},
+      },
+      {
+        slug: "[WORKSPACE]",
+        label: "Workspace / studio",
+        description: "Brand workshop, studio, or working environment.",
+        createdFromImageId: "image-4",
+      },
+    );
     const label = normalizeLabelInput({
       imageId: "image-4",
       disposition: "keep",
-      tag: "lifestyle",
-      observationTags: ["workspace", "workspace"],
+      tag: registered.tag.slug,
     });
-    expect(validateLabel(label)).toEqual([]);
-    expect(label.observationTags).toEqual(["workspace"]);
+    expect(registered.tag.slug).toBe("workspace");
+    expect(validateLabel(label, registered.labelsFile.tagDefinitions)).toEqual(
+      [],
+    );
+  });
+
+  it("hydrates legacy labels with system tags and revision-one history", () => {
+    const label = normalizeLabelInput({
+      imageId: "image-legacy",
+      disposition: "keep",
+      tag: "product",
+    });
+    const hydrated = hydrateLabelsFile({
+      schemaVersion: 1,
+      corpusId: "corpus-1",
+      labels: { [label.imageId]: label },
+    });
+    expect(Object.keys(hydrated.tagDefinitions ?? {})).toEqual([
+      "product",
+      "lifestyle",
+      "packaging",
+      "logo",
+    ]);
+    expect(hydrated.history?.[label.imageId]).toEqual([{ revision: 1, label }]);
   });
 
   it("seeds and appends label history without losing the prior revision", () => {
