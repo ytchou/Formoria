@@ -40,6 +40,7 @@ export {
   searchBrandUrls,
   batchSearchBrandsWithSnippets,
   batchSearchBrandImages,
+  batchCaptureBrandImages,
   searchBrandMaps,
   parseBrandSearchEntries,
 } from './serper'
@@ -49,3 +50,4 @@ export type {
   BrandImageSearchOutcome,
   BrandImageSearchResult,
 } from './types'
+export type { SerperRawImageCandidate, SerperRawImageSearchOutcome } from './serper'

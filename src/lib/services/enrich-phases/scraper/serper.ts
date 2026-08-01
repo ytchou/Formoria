@@ -41,13 +41,54 @@ type SerperSerpResponse = {
   }>
 }
 
+type SerperImageResult = {
+  imageUrl: string
+  title?: string
+  link?: string
+  source?: string
+  domain?: string
+  position?: number
+  imageWidth?: number
+  imageHeight?: number
+  thumbnailUrl?: string
+  thumbnailWidth?: number
+  thumbnailHeight?: number
+  googleUrl?: string
+}
+
 type SerperImageResponse = {
-  images?: Array<{
-    imageUrl: string
-    imageWidth?: number
-    imageHeight?: number
-    title?: string
-  }>
+  images?: SerperImageResult[]
+}
+
+/**
+ * Raw image result normalized at the provider boundary. The evaluator keeps
+ * these fields before any quality filter or lookaside resolution runs so a
+ * golden corpus can explain both accepted and discarded candidates.
+ */
+export type SerperRawImageCandidate = {
+  imageUrl: string
+  title: string
+  link?: string
+  source?: string
+  domain?: string
+  position?: number
+  imageWidth?: number
+  imageHeight?: number
+  thumbnailUrl?: string
+  thumbnailWidth?: number
+  thumbnailHeight?: number
+  googleUrl?: string
+}
+
+export type SerperRawImageSearchOutcome = {
+  query: string
+  candidates: SerperRawImageCandidate[]
+  rawResponse: unknown
+  latencyMs: number
+  callStatus: SearchCallStatus
+  httpStatus: number | null
+  error: string | null
+  auditResultId?: string
 }
 
 export type SerperMapPlace = {
@@ -108,6 +149,40 @@ function isSerperImageResponse(value: unknown): value is SerperImageResponse {
     isRecord(value) &&
     isOptionalArrayOf(value.images, (entry) => isRecord(entry) && typeof entry.imageUrl === 'string')
   )
+}
+
+function optionalString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+function optionalNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+export function parseSerperImageCandidates(
+  rawResponse: unknown,
+): SerperRawImageCandidate[] {
+  if (!isSerperImageResponse(rawResponse)) return []
+
+  return (rawResponse.images ?? []).flatMap((entry) => {
+    const imageUrl = optionalString(entry.imageUrl)
+    if (!imageUrl) return []
+
+    return [{
+      imageUrl,
+      title: optionalString(entry.title) ?? '',
+      ...(optionalString(entry.link) ? { link: optionalString(entry.link) } : {}),
+      ...(optionalString(entry.source) ? { source: optionalString(entry.source) } : {}),
+      ...(optionalString(entry.domain) ? { domain: optionalString(entry.domain) } : {}),
+      ...(optionalNumber(entry.position) !== undefined ? { position: optionalNumber(entry.position) } : {}),
+      ...(optionalNumber(entry.imageWidth) !== undefined ? { imageWidth: optionalNumber(entry.imageWidth) } : {}),
+      ...(optionalNumber(entry.imageHeight) !== undefined ? { imageHeight: optionalNumber(entry.imageHeight) } : {}),
+      ...(optionalString(entry.thumbnailUrl) ? { thumbnailUrl: optionalString(entry.thumbnailUrl) } : {}),
+      ...(optionalNumber(entry.thumbnailWidth) !== undefined ? { thumbnailWidth: optionalNumber(entry.thumbnailWidth) } : {}),
+      ...(optionalNumber(entry.thumbnailHeight) !== undefined ? { thumbnailHeight: optionalNumber(entry.thumbnailHeight) } : {}),
+      ...(optionalString(entry.googleUrl) ? { googleUrl: optionalString(entry.googleUrl) } : {}),
+    }]
+  })
 }
 
 function isSerperMapsResponse(value: unknown): value is SerperMapsResponse {
@@ -522,6 +597,72 @@ async function searchBrandImagesForQuery(
     }
   }
   return { rows: [...rows.values()], call }
+}
+
+async function captureBrandImagesForQuery(
+  query: string,
+  options?: SerperAuditOptions,
+): Promise<SerperRawImageSearchOutcome> {
+  const call = await callSerperJson(
+    SERPER_IMAGE_ENDPOINT,
+    'image',
+    query,
+    { q: query, num: 10, gl: 'tw', hl: 'zh-TW' },
+    isSerperImageResponse,
+    (value) => ({
+      urls: parseSerperImageCandidates(value).map((candidate) => candidate.imageUrl),
+      snippets: parseSerperImageCandidates(value)
+        .map((candidate) => candidate.title)
+        .filter(Boolean),
+    }),
+    options,
+  )
+
+  return {
+    query,
+    candidates: call.data ? parseSerperImageCandidates(call.data) : [],
+    rawResponse: call.fullResponse,
+    latencyMs: call.latencyMs,
+    callStatus: call.callStatus,
+    httpStatus: call.httpStatus,
+    error: call.error,
+    ...(call.auditResultId ? { auditResultId: call.auditResultId } : {}),
+  }
+}
+
+/**
+ * Captures one unfiltered Serper image response per input. This is intended
+ * for reproducible evaluation corpora; production enrichment should continue
+ * using batchSearchBrandImages, which applies its bounded lookaside and
+ * dimension filters.
+ */
+export async function batchCaptureBrandImages(
+  brandInputs: ImageSearchBrandInput[],
+  concurrency = 5,
+  queryTemplate: QueryTemplate = DEFAULT_QUERY,
+  auditResolver?: AuditResolver<ImageSearchBrandInput>,
+): Promise<Map<string, SerperRawImageSearchOutcome>> {
+  const results = new Map<string, SerperRawImageSearchOutcome>()
+  if (brandInputs.length === 0) return results
+
+  const workerCount = Math.max(1, Math.min(concurrency, brandInputs.length))
+  let nextIndex = 0
+  async function worker(): Promise<void> {
+    while (nextIndex < brandInputs.length) {
+      const index = nextIndex
+      nextIndex += 1
+      const input = brandInputs[index]
+      const brandName = typeof input === 'string' ? input : input.brandName
+      const query = typeof input === 'string'
+        ? queryTemplate(brandName)
+        : buildImageQueryVariants(input)[0] ?? queryTemplate(brandName)
+      const options = resolveAuditOptions(auditResolver, input)
+      results.set(brandName, await captureBrandImagesForQuery(query, options))
+    }
+  }
+
+  await Promise.all(Array.from({ length: workerCount }, () => worker()))
+  return results
 }
 
 function emptyImageOutcome(): BrandImageSearchOutcome {
