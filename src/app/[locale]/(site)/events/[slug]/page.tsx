@@ -15,7 +15,7 @@ import { LinkCard } from '@/components/ui/link-card'
 import { textStyles } from '@/components/ui/text-styles'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { safeDecodeSlug } from '@/lib/url'
-import { shuffle } from '@/lib/utils'
+import { cn, shuffle } from '@/lib/utils'
 import {
   deriveAreaOptions,
   deriveCategoryOptions,
@@ -410,7 +410,15 @@ export default async function EventDetailPage({ params }: PageProps) {
             // lineup directly below it.
             <EmptyState title={t('storiesEmptyTitle')} />
           ) : (
-            <ul className="grid gap-6 md:grid-cols-2">
+            // Two columns only once there is something to put in both. A lone
+            // story in a two-column grid renders half-width beside an empty
+            // column, which reads as a card that failed to load.
+            <ul
+              className={cn(
+                'grid gap-6',
+                relatedStories.length > 1 && 'md:grid-cols-2',
+              )}
+            >
               {relatedStories.map((story) => (
                 <li key={story.slug}>
                   {/*
