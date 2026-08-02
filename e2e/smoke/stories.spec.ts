@@ -100,7 +100,11 @@ test.describe('Stories hub smoke', () => {
     const firstCard = anonPage.locator('main a[href*="/stories/"]').first();
     await expect(firstCard).toBeVisible({ timeout: 10_000 });
     await firstCard.click();
-    await expect(anonPage).toHaveURL(/\/stories\/[a-z][a-z0-9-]+/, { timeout: 15_000 });
+    // A slug may start with a digit — year-prefixed slugs like
+    // `2026-taiwan-creative-expo-category-guide` are ordinary, and the newest
+    // story is the one this test clicks, so a letter-first class breaks the
+    // moment such a story is published.
+    await expect(anonPage).toHaveURL(/\/stories\/[a-z0-9][a-z0-9-]+/, { timeout: 15_000 });
     // Must not be a 404 — story detail should render its own h1
     await expect(anonPage).not.toHaveTitle(/^404/);
     await expect(anonPage.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 10_000 });
