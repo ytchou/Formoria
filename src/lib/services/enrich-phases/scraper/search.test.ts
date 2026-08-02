@@ -34,17 +34,19 @@ describe('buildImageQueryVariants', () => {
     expect(buildImageQueryVariants({ brandName: '   ' })).toEqual([])
   })
 
-  // site: returned 10/10 brand-owned images on live probes, so it leads; the
-  // companion name query drops 商品, the term that steers Google to marketplace
-  // listing pages.
-  it('anchors on the brand domain when a purchase website is known', () => {
+  // One query, one credit. The name is deliberately UNQUOTED: stored names are
+  // bilingual concatenations, and across twelve degraded-name probes the
+  // unquoted form returned a full ten every time while the quoted form thinned
+  // on a reversed bilingual name. The category is deliberately absent — a third
+  // constraint returned zero images for two of five brands.
+  it('anchors on the brand domain with an unquoted name when a website is known', () => {
     expect(
       buildImageQueryVariants({
         brandName: '好日子',
         productType: 'home',
         purchaseWebsite: 'https://www.gooddays.tw/collections/all',
       })
-    ).toEqual(['site:gooddays.tw', '"好日子" 居家生活'])
+    ).toEqual(['site:gooddays.tw 好日子'])
   })
 
   it('keeps 商品 for a brand with no website, where it is the only commerce signal', () => {
