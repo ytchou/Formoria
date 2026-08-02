@@ -2,6 +2,7 @@ import { normalizeToRootUrl } from '@/lib/url'
 import type { Database } from '@/lib/supabase/database.types'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
+  brandNameTokens,
   buildLinkEnrichPatch,
   canonicalizeThreadsUrl,
   extractLinksFromUrls,
@@ -106,17 +107,35 @@ function domainNameLabels(hostname: string): string {
 }
 
 /**
- * Latin tokens of a brand name, long enough to be a domain fingerprint. CJK
- * characters cannot appear in a registrable domain, so they are dropped rather
- * than transliterated; a purely Han name simply yields no tokens and the caller
- * falls back to first-eligible.
+ * Two-letter TLDs a Taiwanese brand plausibly registers under. `tw` is the home
+ * ccTLD; `co` and `io` are two-letter by accident of the DNS and are used as
+ * generic startup TLDs worldwide, Taiwan included.
  */
-function brandNameTokens(brandName: string | null | undefined): string[] {
-  if (!brandName) return []
-  return brandName
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .filter((token) => token.length >= 3)
+const ALLOWED_TWO_LETTER_TLDS = new Set(['tw', 'co', 'io'])
+
+/**
+ * True for a host under a foreign country's ccTLD.
+ *
+ * This is a Taiwan-only brand directory, and a SERP for a short Latin brand name
+ * routinely surfaces a same-named foreign company: `https://onewood.dk`, a
+ * Danish firm, became the Taiwanese brand "One Wood"'s official website on a
+ * live run, and it passed every guard we had — the host is not a platform, and
+ * the domain does carry the brand's tokens, because the two companies genuinely
+ * share a name. Nationality is the only signal that separates them.
+ *
+ * Only two-letter TLDs are judged: every generic TLD (`.com`, `.shop`,
+ * `.store`, `.design`, `.studio`, …) is registrable from Taiwan and says nothing
+ * about nationality, so those pass untouched. `.com.tw` ends in `tw` and passes.
+ * A malformed URL is not rejected here — unknown, not blocked, matching
+ * `isNonBrandSiteHost`.
+ */
+function isForeignCountryTld(url: string): boolean {
+  try {
+    const tld = new URL(url).hostname.toLowerCase().split('.').at(-1) ?? ''
+    return tld.length === 2 && !ALLOWED_TWO_LETTER_TLDS.has(tld)
+  } catch {
+    return false
+  }
 }
 
 function hostMatchesBrandName(url: string, tokens: string[]): boolean {
@@ -155,13 +174,20 @@ function hostMatchesBrandName(url: string, tokens: string[]): boolean {
  * Exported for its unit tests: the aggregator and Threads cases below guard a
  * production bug where a platform host was adopted as a brand's own site.
  *
+ * Eligibility also excludes foreign ccTLDs (`isForeignCountryTld`), which is
+ * what keeps a same-named company abroad out of a Taiwan-only directory — it
+ * applies to the token-matched and the fallback path alike, since a name match
+ * is exactly what a same-named foreign company produces.
+ *
  * `classifyByDomain` alone is not enough: link aggregators deliberately
  * classify as `null` so the scraper harvests their links (see
  * `LINK_AGGREGATOR_HOSTS`), which also made a linktr.ee URL eligible to become
  * the brand's "official website". `isNonBrandSiteHost` is the wider test.
  */
 export function deriveOfficialWebsite(urls: string[], brandName?: string | null): string | null {
-  const eligible = urls.filter((u) => classifyByDomain(u) === null && !isNonBrandSiteHost(u))
+  const eligible = urls.filter(
+    (u) => classifyByDomain(u) === null && !isNonBrandSiteHost(u) && !isForeignCountryTld(u),
+  )
   const tokens = brandNameTokens(brandName)
   const matched = eligible.find((u) => hostMatchesBrandName(u, tokens))
   const url = matched ?? (tokens.length > 0 ? null : eligible.at(0))
@@ -320,7 +346,9 @@ export async function runLinksPhase({
 
   const { result, durationMs } = await timePhase(async () => {
     const urls = prioritizeScrapeUrls(uniqueUrls([...knownUrls, ...discoveredUrls]))
-    const urlExtracted = extractLinksFromUrls(discoveredUrls)
+    // These URLs are raw SERP results, so the brand name is the only thing
+    // separating this brand's accounts from a same-ranking stranger's.
+    const urlExtracted = extractLinksFromUrls(discoveredUrls, brand.name)
     const scrapeOptions: ScrapeBrandUrlsOptions = {
       onAttempt: async ({ url, classification }) => {
         const auditId = await startSearchAudit({

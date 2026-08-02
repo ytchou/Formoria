@@ -7,10 +7,22 @@ import {
   classifySubmittedUrl,
   extractLinksFromUrls,
   hasLinkValue,
+  isBareRootUrl,
   isMarketplaceSearchUrl,
+  isPinkoiStorefrontUrl,
   LINK_FIELDS,
   linkColumnFor,
+  type LinkField,
 } from '../link-enrichment'
+
+const EMPTY_BRAND = {
+  social_instagram: null,
+  social_threads: null,
+  social_facebook: null,
+  purchase_website: null,
+  purchase_pinkoi: null,
+  purchase_shopee: null,
+}
 
 // A search page renders as a buy link but sends the reader to other sellers'
 // listings. `shopee.tw/search?keyword=女子鞋研究室` reached a live row this way.
@@ -292,6 +304,176 @@ describe('extractLinksFromUrls', () => {
       'https://www.facebook.com/shopee.tw',
     ])
     expect(Object.keys(result)).toHaveLength(0)
+  })
+})
+
+// `https://www.pinkoi.com/` reached a live `purchase_pinkoi` column twice in one
+// refresh run: once over an empty column, once over a real storefront.
+describe('isBareRootUrl / isPinkoiStorefrontUrl', () => {
+  it('treats a platform front door as bare, with or without the trailing slash', () => {
+    expect(isBareRootUrl('https://www.instagram.com/')).toBe(true)
+    expect(isBareRootUrl('https://www.instagram.com')).toBe(true)
+    expect(isBareRootUrl('https://www.instagram.com/?utm_source=ig')).toBe(true)
+    expect(isBareRootUrl('https://www.instagram.com/foo')).toBe(false)
+  })
+
+  it('treats an unparseable value as bare — we never publish what we cannot parse', () => {
+    expect(isBareRootUrl('not a url')).toBe(true)
+    expect(isBareRootUrl('')).toBe(true)
+  })
+
+  it('accepts only a Pinkoi storefront path', () => {
+    expect(isPinkoiStorefrontUrl('https://www.pinkoi.com/store/guaguaforest')).toBe(true)
+    expect(isPinkoiStorefrontUrl('https://www.pinkoi.com/store/guaguaforest/items')).toBe(true)
+    expect(isPinkoiStorefrontUrl('https://www.pinkoi.com/')).toBe(false)
+    expect(isPinkoiStorefrontUrl('https://www.pinkoi.com/product/abc123')).toBe(false)
+    expect(isPinkoiStorefrontUrl('https://www.pinkoi.com/store/')).toBe(false)
+    expect(isPinkoiStorefrontUrl('not a url')).toBe(false)
+  })
+})
+
+describe('buildLinkEnrichPatch — platform roots', () => {
+  it.each([
+    ['socialInstagram', 'social_instagram', 'https://www.instagram.com/'],
+    ['socialInstagram', 'social_instagram', 'https://www.instagram.com'],
+    ['socialThreads', 'social_threads', 'https://www.threads.com/'],
+    ['socialThreads', 'social_threads', 'https://www.threads.com'],
+    ['socialFacebook', 'social_facebook', 'https://www.facebook.com/'],
+    ['socialFacebook', 'social_facebook', 'https://www.facebook.com'],
+    ['purchaseShopee', 'purchase_shopee', 'https://shopee.tw/'],
+    ['purchaseShopee', 'purchase_shopee', 'https://shopee.tw'],
+    ['purchasePinkoi', 'purchase_pinkoi', 'https://www.pinkoi.com/'],
+    ['purchasePinkoi', 'purchase_pinkoi', 'https://www.pinkoi.com'],
+  ] as const)('declines to write the bare root %s -> %s (%s)', (field, column, url) => {
+    const scraped: Partial<Record<LinkField, string>> = { [field]: url }
+    const patch = buildLinkEnrichPatch({ ...EMPTY_BRAND }, scraped)
+    expect(patch[column]).toBeUndefined()
+  })
+
+  it('keeps a handle path on the same platform', () => {
+    const patch = buildLinkEnrichPatch({ ...EMPTY_BRAND }, {
+      socialInstagram: 'https://www.instagram.com/foo',
+    })
+    expect(patch.social_instagram).toBe('https://www.instagram.com/foo')
+  })
+
+  it('rejects a non-storefront Pinkoi path and accepts a storefront', () => {
+    expect(
+      buildLinkEnrichPatch({ ...EMPTY_BRAND }, {
+        purchasePinkoi: 'https://www.pinkoi.com/product/abc123',
+      }).purchase_pinkoi,
+    ).toBeUndefined()
+    expect(
+      buildLinkEnrichPatch({ ...EMPTY_BRAND }, {
+        purchasePinkoi: 'https://www.pinkoi.com/store/guaguaforest',
+      }).purchase_pinkoi,
+    ).toBe('https://www.pinkoi.com/store/guaguaforest')
+  })
+
+  it('does not reject a bare origin for purchase_website — a brand site IS an origin', () => {
+    const patch = buildLinkEnrichPatch({ ...EMPTY_BRAND }, { purchaseWebsite: 'https://brand.com' })
+    expect(patch.purchase_website).toBe('https://brand.com')
+  })
+
+  it('does not throw on malformed scraped values', () => {
+    expect(() =>
+      buildLinkEnrichPatch({ ...EMPTY_BRAND }, {
+        socialInstagram: 'not a url',
+        purchasePinkoi: '://///',
+        purchaseWebsite: 'brand dot com',
+      }),
+    ).not.toThrow()
+  })
+})
+
+// The refresh run that overwrote a correct, human-verified storefront with the
+// platform's front door — its only new information being that Pinkoi exists.
+describe('buildLinkEnrichPatch — no specificity downgrade', () => {
+  it('keeps pinkoi.com/store/guaguaforest rather than taking pinkoi.com/', () => {
+    const patch = buildLinkEnrichPatch(
+      { ...EMPTY_BRAND, purchase_pinkoi: 'https://www.pinkoi.com/store/guaguaforest' },
+      { purchasePinkoi: 'https://www.pinkoi.com/' },
+    )
+    expect(patch.purchase_pinkoi).toBeUndefined()
+  })
+
+  it('keeps the deeper path on the same host', () => {
+    const patch = buildLinkEnrichPatch(
+      { ...EMPTY_BRAND, purchase_pinkoi: 'https://www.pinkoi.com/store/guaguaforest/items' },
+      { purchasePinkoi: 'https://pinkoi.com/store/guaguaforest' },
+    )
+    expect(patch.purchase_pinkoi).toBeUndefined()
+  })
+
+  it('still allows a cross-host replacement — that carries real new information', () => {
+    const patch = buildLinkEnrichPatch(
+      { ...EMPTY_BRAND, purchase_website: 'https://oldbrand.myshopify.com/pages/about' },
+      { purchaseWebsite: 'https://brand.com' },
+    )
+    expect(patch.purchase_website).toBe('https://brand.com')
+  })
+
+  it('still allows an equally specific change on one host — a genuine rename', () => {
+    const patch = buildLinkEnrichPatch(
+      { ...EMPTY_BRAND, purchase_pinkoi: 'https://www.pinkoi.com/store/oldname' },
+      { purchasePinkoi: 'https://www.pinkoi.com/store/newname' },
+    )
+    expect(patch.purchase_pinkoi).toBe('https://www.pinkoi.com/store/newname')
+  })
+
+  it('still allows a deepening change on one host', () => {
+    const patch = buildLinkEnrichPatch(
+      { ...EMPTY_BRAND, social_instagram: 'https://www.instagram.com/brand' },
+      { socialInstagram: 'https://www.instagram.com/brand/profile' },
+    )
+    expect(patch.social_instagram).toBe('https://www.instagram.com/brand/profile')
+  })
+
+  it('leaves the corporate-account branch alone', () => {
+    const patch = buildLinkEnrichPatch(
+      { ...EMPTY_BRAND, social_instagram: 'https://www.instagram.com/ilovepinkoi/deep/path' },
+      { socialInstagram: 'https://www.instagram.com/realbrand' },
+    )
+    expect(patch.social_instagram).toBe('https://www.instagram.com/realbrand')
+  })
+})
+
+// `facebook.com/threebrothersboards/` — a different company — was published as
+// the Taiwanese brand "One Wood"'s Facebook page purely because it ranked.
+describe('extractLinksFromUrls — brand identity gate', () => {
+  it('behaves identically to before when no brand name is passed', () => {
+    expect(extractLinksFromUrls(['https://www.facebook.com/threebrothersboards/'])).toEqual({
+      social_facebook: 'https://www.facebook.com/threebrothersboards/',
+    })
+    expect(extractLinksFromUrls(['https://www.instagram.com/mybrand/'])).toEqual({
+      social_instagram: 'https://www.instagram.com/mybrand/',
+    })
+  })
+
+  it("rejects a stranger's handle and keeps the brand's own", () => {
+    expect(
+      extractLinksFromUrls(['https://www.facebook.com/threebrothersboards/'], 'One Wood'),
+    ).toEqual({})
+    expect(extractLinksFromUrls(['https://www.facebook.com/one.wood.100'], 'One Wood')).toEqual({
+      social_facebook: 'https://www.facebook.com/one.wood.100',
+    })
+  })
+
+  it('matches an abbreviated handle contained by a brand token', () => {
+    expect(extractLinksFromUrls(['https://www.pinkoi.com/store/guagua'], 'GuaGua Forest')).toEqual({
+      purchase_pinkoi: 'https://www.pinkoi.com/store/guagua',
+    })
+  })
+
+  it('accepts everything when the name has no Latin tokens to discriminate with', () => {
+    expect(extractLinksFromUrls(['https://www.instagram.com/chatzutang'], '茶籽堂')).toEqual({
+      social_instagram: 'https://www.instagram.com/chatzutang',
+    })
+  })
+
+  it('does not throw on malformed URLs', () => {
+    expect(() => extractLinksFromUrls(['not a url', ''], 'One Wood')).not.toThrow()
+    expect(extractLinksFromUrls(['not a url'], 'One Wood')).toEqual({})
   })
 })
 

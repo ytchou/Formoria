@@ -1,0 +1,12 @@
+{
+  "name": "recuration-pilot-1",
+  "title": "Re-curation pilot 1 — batch 1 sample",
+  "subtitle": "Five brands drawn from the 234 approved brands with brand_enriched_at IS NULL. These were populated by the expo/CSV import path, not the curation pipeline, so \"never enriched\" means \"never curated\", not \"empty\". Three were picked because their links are visibly wrong (a sibling brand's site, the expo's own page, a bare threads.com); two were picked because they look clean, to test whether a rerun damages good data.",
+  "labels": {
+    "point-chen": "點點陳 Point Chen",
+    "guaguaforest": "呱呱森林 GuaGuaForest",
+    "one-wood": "One Wood",
+    "moonlight": "沐籟 Moonlight",
+    "su3": "Su3"
+  }
+}

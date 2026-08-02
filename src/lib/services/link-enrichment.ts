@@ -184,6 +184,49 @@ export function isMarketplaceSearchUrl(url: string): boolean {
 }
 
 /**
+ * The non-empty path segments of a URL, or null when the value will not parse.
+ * Every path-shape rule below reads this rather than slicing the string: a
+ * trailing slash, a duplicated slash, and a query string are all noise, and the
+ * rules that follow are the last gate before a value is published as a link.
+ */
+export function urlPathSegments(url: string): string[] | null {
+  try {
+    return new URL(url).pathname.split('/').filter(Boolean)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * True when the URL addresses a platform's front door rather than an account on
+ * it — `https://www.instagram.com/` and `https://www.instagram.com` both count,
+ * and a malformed value counts too (we never publish what we cannot parse).
+ *
+ * A curation refresh wrote `https://www.pinkoi.com/` into `purchase_pinkoi` on a
+ * brand that had none, so the brand page grew a "buy on Pinkoi" link that lands
+ * the reader on Pinkoi's homepage. A platform root is never a brand's channel:
+ * it identifies the platform, not the seller.
+ */
+export function isBareRootUrl(url: string): boolean {
+  const segments = urlPathSegments(url)
+  return segments === null || segments.length === 0
+}
+
+/**
+ * True only for a Pinkoi *storefront* — `/store/{seller}` — mirroring the
+ * `purchase_pinkoi` pattern in `URL_TO_LINK_COLUMN` above. Pinkoi's product,
+ * campaign, and browse pages all live under the same host and all render as a
+ * plausible buy link, but none of them is the brand's storefront; the same run
+ * that produced the bare root above also had nothing stopping a non-store path.
+ */
+export function isPinkoiStorefrontUrl(url: string): boolean {
+  const segments = urlPathSegments(url)
+  if (segments === null) return false
+  const storeIndex = segments.indexOf('store')
+  return storeIndex !== -1 && (segments.at(storeIndex + 1) ?? '') !== ''
+}
+
+/**
  * Per-field cleanup applied to a scraped value before it is compared with, and
  * possibly written over, what the row already holds.
  *
@@ -194,29 +237,124 @@ export function isMarketplaceSearchUrl(url: string): boolean {
  * survives untouched; we decline to write, we do not clobber.
  *
  * The two marketplace columns are dropped on the same terms when the URL is a
- * search page rather than a storefront.
+ * search page rather than a storefront, when it is a platform root, and — for
+ * Pinkoi — when the path is not a `/store/{seller}` page at all.
+ *
+ * The social columns reject a platform root for the same reason: a scrape that
+ * only found `https://www.facebook.com/` learned nothing about the brand, and
+ * writing it both publishes a dead link and destroys whatever handle the column
+ * already held.
+ *
+ * `purchaseWebsite` is deliberately exempt from the bare-root rule: a brand's
+ * own site legitimately IS a bare origin — `deriveOfficialWebsite` returns
+ * origins by design — so the only bare roots to reject there are platform ones,
+ * which `isNonBrandSiteHost` already covers on any path.
  */
+const BARE_ROOT_REJECTING_FIELDS: readonly LinkField[] = [
+  'socialInstagram',
+  'socialThreads',
+  'socialFacebook',
+  'purchaseShopee',
+  'purchasePinkoi',
+]
+
 function normalizeScrapedLinkValue(
   field: LinkField,
   value: string | null | undefined
 ): string | null | undefined {
   if (!hasLinkValue(value)) return value
-  if (field === 'socialThreads') return canonicalizeThreadsUrl(value)
-  if (field === 'purchaseWebsite' && isNonBrandSiteHost(value)) return null
+  if (field === 'purchaseWebsite') {
+    return isNonBrandSiteHost(value) ? null : value
+  }
+  if (BARE_ROOT_REJECTING_FIELDS.includes(field) && isBareRootUrl(value)) {
+    return null
+  }
+  if (field === 'purchasePinkoi' && !isPinkoiStorefrontUrl(value)) {
+    return null
+  }
   if (
     (field === 'purchaseShopee' || field === 'purchasePinkoi') &&
     isMarketplaceSearchUrl(value)
   ) {
     return null
   }
+  if (field === 'socialThreads') return canonicalizeThreadsUrl(value)
   return value
 }
 
-export function extractLinksFromUrls(urls: string[]): Partial<BrandFlatLinkColumns> {
+/**
+ * Latin tokens of a brand name, long enough to be an identity fingerprint. CJK
+ * characters cannot appear in a domain or a platform handle, so they are dropped
+ * rather than transliterated; a purely Han name simply yields no tokens and each
+ * caller falls back to its own no-signal behaviour.
+ *
+ * Lives here rather than in `enrich-phases/links.ts` because both that module
+ * and this one need it, and links.ts already imports from here — the reverse
+ * import would be a cycle.
+ */
+export function brandNameTokens(brandName: string | null | undefined): string[] {
+  if (!brandName) return []
+  return brandName
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((token) => token.length >= 3)
+}
+
+/**
+ * The account segment a platform URL identifies: the seller for a Pinkoi
+ * storefront, the handle for everything else, with the Threads `@` stripped.
+ */
+function platformHandleSegment(url: string): string | null {
+  const segments = urlPathSegments(url)
+  if (segments === null || segments.length === 0) return null
+  const storeIndex = segments.indexOf('store')
+  const handle = storeIndex !== -1 ? segments.at(storeIndex + 1) : segments.at(0)
+  if (!handle) return null
+  return handle.replace(/^@/, '').toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
+/**
+ * Whether a platform handle plausibly belongs to this brand.
+ *
+ * Every URL reaching `extractLinksFromUrls` came out of a SERP for the brand's
+ * name, and a SERP answers "what ranks for these words", not "what does this
+ * brand own". `https://www.facebook.com/threebrothersboards/` was adopted as the
+ * Taiwanese brand "One Wood"'s Facebook page on a live run purely because it
+ * ranked — a different company, published on the brand's page with no identity
+ * check anywhere between the search result and the column.
+ *
+ * Containment in either direction, because neither string is authoritative: a
+ * handle padded for uniqueness (`one.wood.100`) contains the token, while a
+ * handle that abbreviates (`su3`) is contained by one. A name with no Latin
+ * tokens gives us nothing to discriminate with, so it accepts — same fallback
+ * `deriveOfficialWebsite` makes for the same reason.
+ */
+function handleMatchesBrand(url: string, tokens: string[]): boolean {
+  if (tokens.length === 0) return true
+  const handle = platformHandleSegment(url)
+  if (!handle) return false
+  return tokens.some((token) => handle.includes(token) || token.includes(handle))
+}
+
+/**
+ * `brandName` is optional and additive: without it the function behaves exactly
+ * as it always has (`classifySubmittedUrl` below depends on that — a URL a human
+ * submitted for a specific brand needs no SERP-identity gate). With it, every
+ * platform URL here must carry a handle that plausibly belongs to the brand.
+ */
+export function extractLinksFromUrls(
+  urls: string[],
+  brandName?: string | null
+): Partial<BrandFlatLinkColumns> {
   const result: Partial<BrandFlatLinkColumns> = {}
+  const tokens = brandName == null ? null : brandNameTokens(brandName)
 
   for (const url of urls) {
     if (isCorporateAccount(url)) {
+      continue
+    }
+
+    if (tokens !== null && !handleMatchesBrand(url, tokens)) {
       continue
     }
 
@@ -261,6 +399,48 @@ export function classifySubmittedUrl(url: string): Partial<Record<LinkField, str
   return { purchaseWebsite: url }
 }
 
+/** Hostname without scheme, case, or a leading `www.` — the identity of a site. */
+function bareHostname(url: string): string | null {
+  try {
+    return new URL(url).hostname.toLowerCase().replace(/^www\./, '')
+  } catch {
+    return null
+  }
+}
+
+/**
+ * True when replacing `existing` with `scraped` would trade a specific page on a
+ * host for a vaguer one on the SAME host.
+ *
+ * A curation refresh overwrote `https://www.pinkoi.com/store/guaguaforest` — a
+ * real storefront, correct, human-verified — with `https://www.pinkoi.com/`,
+ * because the two values merely differed and "differs" was the whole test. The
+ * good link was destroyed by a run whose only new information was that Pinkoi
+ * exists. Path depth is the available proxy for specificity: on one host, more
+ * segments means the URL names something narrower, and a re-scrape that comes
+ * back with less than we already store is a loss, not an update.
+ *
+ * Deliberately scoped to the same host. A genuine cross-host correction (the
+ * brand moved from a Shopify subdomain to its own domain) carries real new
+ * information and must still go through, as must an equally deep change on one
+ * host (`/store/old` -> `/store/new`, a genuine rename).
+ */
+function isSpecificityDowngrade(
+  existingValue: string | null | undefined,
+  scrapedValue: string
+): boolean {
+  if (!hasLinkValue(existingValue)) return false
+  const existingHost = bareHostname(existingValue)
+  const scrapedHost = bareHostname(scrapedValue)
+  if (existingHost === null || scrapedHost === null || existingHost !== scrapedHost) {
+    return false
+  }
+
+  const existingSegments = urlPathSegments(existingValue) ?? []
+  const scrapedSegments = urlPathSegments(scrapedValue) ?? []
+  return existingSegments.length > scrapedSegments.length
+}
+
 export function buildLinkEnrichPatch(
   brand: BrandFlatLinkColumns,
   scraped: LinkEnrichScraped
@@ -287,6 +467,9 @@ export function buildLinkEnrichPatch(
     }
 
     if (!hasLinkValue(existingValue) || existingValue !== scrapedValue) {
+      if (isSpecificityDowngrade(existingValue, scrapedValue)) {
+        continue
+      }
       patch[column] = scrapedValue
     }
   }

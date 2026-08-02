@@ -1600,7 +1600,13 @@ export async function runEnrich(
             state.serpEntries = searchResult.entries ?? [];
           }
 
-          ctx.urlExtracted = extractLinksFromUrls(state.discoveredUrls);
+          // Same SERP-derived path the links phase gates: without the brand
+          // name these are just "first URL matching a platform shape", which is
+          // how One Wood acquired facebook.com/threebrothersboards.
+          ctx.urlExtracted = extractLinksFromUrls(
+            state.discoveredUrls,
+            getDisplayBrandName(brand),
+          );
 
           await markCurrentPhase(ctx, "clean");
           const cleanResult = await runCleanPhase(
