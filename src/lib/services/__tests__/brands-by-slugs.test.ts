@@ -280,6 +280,58 @@ describe('getBrandsBySlugs', () => {
     })
   })
 
+  it('degrades to an empty Map when the query errors during a production build', async () => {
+    // CI builds with no database reachable. The throw below protects ISR, where
+    // a last good page exists to keep serving; during `next build` there is no
+    // such page, so the same throw aborts the export and fails the build for
+    // every story that embeds a brand card.
+    queryError = { message: 'connect ECONNREFUSED 127.0.0.1:54321' }
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const previousPhase = process.env.NEXT_PHASE
+    process.env.NEXT_PHASE = 'phase-production-build'
+
+    try {
+      const result = await lookup(['molasses'])
+
+      expect(result.size).toBe(0)
+      expect(consoleError).toHaveBeenCalled()
+    } finally {
+      if (previousPhase === undefined) delete process.env.NEXT_PHASE
+      else process.env.NEXT_PHASE = previousPhase
+      consoleError.mockRestore()
+    }
+  })
+
+  it('still throws during a build when STRICT_PRERENDER_DATA is set', async () => {
+    // The escape hatch for deploy builds, which do have a database: opting in
+    // turns the degradation back into a hard failure rather than shipping a
+    // page of placeholder cards.
+    queryError = { message: 'connect ECONNREFUSED 127.0.0.1:54321' }
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const previousPhase = process.env.NEXT_PHASE
+    const previousStrict = process.env.STRICT_PRERENDER_DATA
+    process.env.NEXT_PHASE = 'phase-production-build'
+    process.env.STRICT_PRERENDER_DATA = '1'
+    vi.resetModules()
+
+    try {
+      const { fetchBrandsBySlugKey: strictFetch } = await import('../brands')
+      await expect(
+        strictFetch(
+          createClientDouble() as unknown as ReturnType<typeof createServiceClient>,
+          brandsBySlugsCacheKey(['kiln-studio'])
+        )
+      ).rejects.toThrow()
+    } finally {
+      if (previousPhase === undefined) delete process.env.NEXT_PHASE
+      else process.env.NEXT_PHASE = previousPhase
+      if (previousStrict === undefined) delete process.env.STRICT_PRERENDER_DATA
+      else process.env.STRICT_PRERENDER_DATA = previousStrict
+      vi.resetModules()
+      consoleError.mockRestore()
+    }
+  })
+
   it('throws when the query itself errors, so ISR keeps the last good page', async () => {
     // A missing slug and a broken database must not look the same. An absent slug
     // stays absent from the Map (covered above) and the story still renders; a real

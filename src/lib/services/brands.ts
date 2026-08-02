@@ -8,6 +8,7 @@ import type { Database } from '@/lib/supabase/database.types'
 import { toBrandRow as baseToBrandRow } from './field-map'
 import { ConflictError, NotFoundError, ValidationError } from '@/lib/errors'
 import { createServiceClient } from '@/lib/supabase/server'
+import { canDegradeDuringPrerender, captureReadFailure } from '@/lib/degraded-render'
 import { BRAND_SORT_CONFIG, DEFAULT_PAGE_SIZE } from '@/lib/pagination'
 import { isNonImageHost } from '@/lib/images/allowed-image-hosts'
 import { RESERVED_ROUTES } from '@/proxy'
@@ -858,7 +859,36 @@ async function queryApprovedBrandsBySlugs(
   )
 }
 
+/**
+ * The query underneath throws on error, deliberately: during ISR regeneration a
+ * throw keeps the last good page in the cache instead of replacing it with a
+ * page of placeholders. That trade only works when a last good page EXISTS.
+ *
+ * During `next build` it does not, so the same throw aborts the export and
+ * fails the whole build. CI builds this app with Supabase pointed at
+ * 127.0.0.1 on purpose (the Build job is a compile check), so the first story
+ * to embed a brand card turned a standing condition into a blocked deploy.
+ *
+ * Prerender therefore degrades to an empty map, reported through the same
+ * `captureReadFailure` path as every other degraded page read, and gated on the
+ * same `STRICT_PRERENDER_DATA` switch — a deploy build that genuinely expects a
+ * database sets it and gets the hard failure back. Request and revalidation
+ * renders are untouched and keep the throw.
+ */
 export async function fetchBrandsBySlugKey(
+  supabase: ReturnType<typeof createServiceClient>,
+  slugKey: string
+): Promise<Map<string, Brand>> {
+  try {
+    return await resolveBrandsBySlugKey(supabase, slugKey)
+  } catch (error) {
+    if (!canDegradeDuringPrerender()) throw error
+    captureReadFailure('stories.brandCards')(error)
+    return new Map()
+  }
+}
+
+async function resolveBrandsBySlugKey(
   supabase: ReturnType<typeof createServiceClient>,
   slugKey: string
 ): Promise<Map<string, Brand>> {
