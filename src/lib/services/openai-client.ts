@@ -90,10 +90,25 @@ export function parseJson<T>(content: string): T | null {
 }
 
 /**
- * `gpt-5`-family models reject `max_tokens` outright ("Unsupported parameter … Use
- * 'max_completion_tokens' instead") and accept `reasoning_effort`. Verified against
- * `gpt-5.6-luna` on 2026-08-02; `temperature` and `top_p` are still accepted, so
- * only the token-budget field name actually differs.
+ * `gpt-5`-family models differ from the chat models in two ways, both hard 400s:
+ *
+ *   - `max_tokens` is rejected outright — use `max_completion_tokens`.
+ *   - Sampling parameters are only live when internal reasoning is OFF.
+ *     `temperature: 0` alone fails with "does not support 0.0 with this model";
+ *     the same call with `reasoning_effort: 'none'` succeeds. Any other effort
+ *     re-enables reasoning and re-rejects the temperature.
+ *
+ * Probed parameter-by-parameter against `gpt-5.6-luna` on 2026-08-02:
+ *
+ *   temperature 0                          -> 400
+ *   temperature 0 + reasoning_effort none  -> OK
+ *   temperature 0 + reasoning_effort low   -> 400
+ *   reasoning_effort minimal               -> 400 (unsupported value)
+ *
+ * An earlier note here recorded that temperature "passed through on every
+ * model". It does not, and that assumption silently failed every image
+ * classification the moment the default model moved to luna — the phase still
+ * reported success because a failed batch is logged as skipped.
  */
 function isReasoningModel(model: string): boolean {
   return model.startsWith('gpt-5')
@@ -203,8 +218,27 @@ export function createOpenAIClient({ apiKey, model = DEFAULT_OPENAI_MODEL, onCha
         return isReasoningModel(model) ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens }
       }
 
-      function reasoning(): Record<string, unknown> {
-        return reasoningEffort && isReasoningModel(model) ? { reasoning_effort: reasoningEffort } : {}
+      /**
+       * Temperature and reasoning effort are one decision on gpt-5 models, not
+       * two: sampling is only applied when reasoning is off, so a caller asking
+       * for a temperature is implicitly asking for `reasoning_effort: 'none'`.
+       *
+       * A caller that explicitly wants reasoning gets it, and its temperature is
+       * dropped rather than sent — the two cannot both apply, and sending both
+       * is a 400 that would fail the whole call.
+       */
+      function samplingAndReasoning(): Record<string, unknown> {
+        const wantsTemperature = typeof temperature === 'number'
+        if (!isReasoningModel(model)) {
+          return wantsTemperature ? { temperature } : {}
+        }
+        if (reasoningEffort && reasoningEffort !== 'none') {
+          return { reasoning_effort: reasoningEffort }
+        }
+        if (wantsTemperature) {
+          return { temperature, reasoning_effort: 'none' }
+        }
+        return reasoningEffort ? { reasoning_effort: reasoningEffort } : {}
       }
 
       async function attempt(useSchema: boolean): Promise<OpenAIChatResult> {
@@ -224,8 +258,7 @@ export function createOpenAIClient({ apiKey, model = DEFAULT_OPENAI_MODEL, onCha
                 { role: 'user', content: userContent },
               ],
               ...tokenBudget(),
-              ...(typeof temperature === 'number' ? { temperature } : {}),
-              ...reasoning(),
+              ...samplingAndReasoning(),
               ...responseFormat(useSchema),
             }),
             signal: controller.signal,

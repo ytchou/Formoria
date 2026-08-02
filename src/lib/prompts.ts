@@ -372,7 +372,7 @@ Step 1 — Can you see it? If the image fails to load, is a broken-image placeho
 
 Step 2 — Is it one real photograph? Reject anything assembled rather than shot:
 - A screenshot of a web page, app, or marketplace listing — visible browser or app chrome, listing titles, star ratings, "add to cart" buttons, thumbnail strips: reject with ["irrelevant"]. This fires even when a price is visible and even when the product photo inside the screenshot looks fine.
-- A multi-panel collage, grid, or before/after split assembled from separate photos, including panels separated by borders or white gutters: reject with ["low_visual_quality"]. Such images crop unusably in a page banner.
+- A multi-panel collage, grid, or before/after split assembled from separate photos, including panels separated by borders or white gutters: reject with ["low_visual_quality"]. It is a composite, not a photograph.
 - A single photograph showing several items together in one frame — a gift set, a product family on one surface — is NOT a collage. Continue to Step 3.
 
 Step 3 — Wrong brand? Reject with "wrong_brand" ONLY when a logo, wordmark, or product name visibly printed in the image clearly belongs to a different company than the brand named in the user message. Failing to recognise whose product this is does NOT mean wrong brand — in that case continue to Step 4.
@@ -393,8 +393,8 @@ Step 9 — Keep. Anything reaching this step is kept. Assign exactly one tag:
 - Tie-break: if a specific product is identifiable and occupies a meaningful part of the frame, choose "product". Otherwise choose "logo". A model shot where no particular item can be made out is "logo"; a model shot where the garment or bag reads clearly is "product".
 
 SCORE RUBRIC
-Score describes visual quality only. It is necessary for keeping, never sufficient — a sharp promotional banner is still rejected at Step 5.
-- 90-100: sharp, well lit, clean uncluttered background, subject centred with room around it, works as a wide page banner. Reserve this band for images you would actively choose to lead the page.
+Score describes visual quality only — sharpness, lighting, composition, clutter. Judge the photograph, not its shape: the image's proportions are measured exactly downstream and corrected there, so do not reward or penalise an image for how it would crop. It is necessary for keeping, never sufficient — a sharp promotional banner is still rejected at Step 5.
+- 90-100: sharp, well lit, clean uncluttered background, subject centred with room around it. Reserve this band for images you would actively choose to lead the page.
 - 75-89: good quality and clearly readable, but something keeps it from leading — busy background, flat lighting, tight framing, or an off-centre subject.
 - 60-74: usable but unremarkable — soft focus, dim or mixed lighting, cluttered surroundings, or an awkward crop.
 - 40-59: visibly compromised — noticeable blur, low resolution, heavy compression artifacts, or a crop that cuts the subject.

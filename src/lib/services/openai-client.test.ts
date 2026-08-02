@@ -124,6 +124,40 @@ describe('createOpenAIClient', () => {
       expect(body).not.toHaveProperty('max_tokens')
     })
 
+    // The regression that took every image classification down: the classifier
+    // asks for a temperature and nothing else, so if the client does not supply
+    // `reasoning_effort: 'none'` itself, gpt-5 rejects the temperature outright.
+    it('turns reasoning off by itself when a gpt-5 caller asks only for a temperature', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(okResponse())
+      const client = createOpenAIClient({ apiKey: 'k', model: 'gpt-5.6-luna' })
+
+      await client.chat({ system: 's', user: 'u', maxTokens: 250, temperature: 0.1 })
+
+      expect(requestBody(fetchSpy)).toMatchObject({
+        temperature: 0.1,
+        reasoning_effort: 'none',
+      })
+    })
+
+    // Sampling is only live when reasoning is off, so the two cannot both apply.
+    // An explicit effort wins and the temperature is dropped rather than sent,
+    // because sending both is a 400 that fails the entire call.
+    it('drops the temperature when a gpt-5 caller explicitly wants reasoning', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(okResponse())
+      const client = createOpenAIClient({ apiKey: 'k', model: 'gpt-5.6-luna' })
+
+      await client.chat({
+        system: 's',
+        user: 'u',
+        temperature: 0.1,
+        reasoningEffort: 'high',
+      })
+
+      const body = requestBody(fetchSpy)
+      expect(body).toMatchObject({ reasoning_effort: 'high' })
+      expect(body).not.toHaveProperty('temperature')
+    })
+
     it('keeps max_tokens and omits reasoning_effort for non-gpt-5 models', async () => {
       const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(okResponse())
       const client = createOpenAIClient({ apiKey: 'k', model: 'gpt-4o-mini' })

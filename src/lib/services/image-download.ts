@@ -17,10 +17,16 @@ const MIN_IMAGE_SIZE_BYTES = 5_120
 // scored 50% precision because it passes banner strips on width alone;
 // `min(w,h) >= 480` scores 65% while keeping more good images.
 const MIN_IMAGE_SHORT_EDGE_PX = 480
-// No labeled good image exceeded 3:1, and the old 4.0 cap never bound on
-// anything good. 2.0 keeps square/near-square (55% of good images) and prunes
-// banners and tall portraits (58% of bad images).
-const MAX_IMAGE_ASPECT_RATIO = 2.0
+// Set at the boundary the labelled data actually supports: no labelled good
+// image exceeded 3:1. It sat at 2.0 for a while, which contradicted that same
+// evidence and cost real images — a brand's own 1600x670 product banners
+// (2.39:1) were discarded while the genuine junk this gate exists for is far
+// more extreme (750x4050 description strips, 5.4:1).
+//
+// Shape between 2.0 and 3.0 is handled by WIDE_ASPECT_PENALTY at ranking time
+// instead: a wide image crops badly in the landscape hero frame but is a
+// perfectly good gallery entry, which is a ranking question, not a gate.
+const MAX_IMAGE_ASPECT_RATIO = 3.0
 // Catches degenerate input — solid-colour fills and blank canvases. It is NOT
 // a quality signal and must not be raised as if it were: measured against 231
 // human-labeled images, entropy does not separate good from bad at all

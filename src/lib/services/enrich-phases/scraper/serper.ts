@@ -577,22 +577,34 @@ function isSiteScopedQuery(query: string): boolean {
  * generic dictionary words, which is a direct source of the `wrong_brand`
  * rejects in the labelled corpus.
  *
- * The size floor is deliberately branch-dependent. A brand-domain query is
- * already trustworthy, so `islt:xga` (1024x768) keeps its full yield; an open
- * name query needs `islt:2mp` — raising the floor there was what removed
- * marketplace listing thumbnails from live probes.
+ * The size floor matches our OWN download gate and goes no higher. That gate is
+ * `min(w,h) >= 480`, roughly 0.23MP, and `islt:vga` (640x480, ~0.3MP) is the
+ * closest Google offers. Asking for more than we are willing to accept means
+ * discarding images at the source that would have passed every check we apply.
+ *
+ * This was previously `islt:xga` on the domain branch and `islt:2mp` on the
+ * open one — up to 9x our own floor. It was measured removing marketplace
+ * thumbnails from a five-brand probe, but it was also silently excluding real
+ * product photography: a brand's blog-hosted product shots at 772x694 and
+ * 1000x663 are well under 2MP, and Instagram's 640x640 renders never survived
+ * either, so search could only ever return images the scraper already had.
+ *
+ * Marketplace suppression belongs to the `domain` field serper returns, which
+ * is free to filter on and reversible — not to a resolution floor that cannot
+ * tell a listing thumbnail from a good photograph.
  */
 function buildImageSearchBody(
   query: string,
   opts?: { siteScoped?: boolean },
 ): Record<string, unknown> {
+  void opts
   return {
     q: query,
     num: 10,
     gl: 'tw',
     hl: 'zh-TW',
     autocorrect: false,
-    tbs: opts?.siteScoped ? 'isz:lt,islt:xga' : 'isz:lt,islt:2mp',
+    tbs: 'isz:lt,islt:vga',
   }
 }
 

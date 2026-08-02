@@ -421,6 +421,30 @@ function isPortrait(image: ClassifiedImage): boolean {
 }
 
 /**
+ * Wider than this crops badly in the landscape hero frame, but is still a fine
+ * gallery entry — so it is demoted, not excluded. The download gate keeps its
+ * hard cap at 3:1 for genuinely degenerate strips; this covers the band between.
+ */
+const WIDE_ASPECT_THRESHOLD = 2.0
+
+/**
+ * Same shape as PORTRAIT_PENALTY and for the same reason: a wide image must be
+ * clearly better than its rivals to lead the page, but a brand whose images are
+ * all wide still gets a hero.
+ *
+ * PROVISIONAL, like the portrait penalty — a judgement call, not a fitted
+ * value. Calibrate both together against the labelled set (DEV-1305).
+ */
+const WIDE_ASPECT_PENALTY = 10
+
+function isWide(image: ClassifiedImage): boolean {
+  const { width, height } = image
+  if (typeof width !== 'number' || typeof height !== 'number') return false
+  if (width <= 0 || height <= 0) return false
+  return width / height > WIDE_ASPECT_THRESHOLD
+}
+
+/**
  * The single ranking signal for hero selection: the model's quality score, minus
  * a fixed penalty for portrait orientation.
  *
@@ -434,7 +458,12 @@ function isPortrait(image: ClassifiedImage): boolean {
  * the only thing deciding which image leads the page.
  */
 function heroQuality(image: ClassifiedImage): number {
-  return image.score - (isPortrait(image) ? PORTRAIT_PENALTY : 0)
+  const shapePenalty = isPortrait(image)
+    ? PORTRAIT_PENALTY
+    : isWide(image)
+      ? WIDE_ASPECT_PENALTY
+      : 0
+  return image.score - shapePenalty
 }
 
 export function applyClassifications(images: ClassifiedImage[]): {
@@ -672,7 +701,7 @@ async function classifyChunk(
       json: true,
       schema: IMAGE_CLASSIFICATION_SCHEMA,
       maxTokens: 250 * remaining.length,
-      temperature: 0,
+      temperature: 0.1,
       meta: {
         imageIds: remaining.map((image) => image.id),
         imageUrls: sentUrls,
@@ -815,7 +844,7 @@ export async function runClassifyImagesPhase({
     model: 'gpt-5.6-luna',
     batchSize: BATCH_SIZE,
     detail: CLASSIFY_IMAGE_DETAIL,
-    temperature: 0,
+    temperature: 0.1,
   })
   const client = createAuditedOpenAIClient({
     target,

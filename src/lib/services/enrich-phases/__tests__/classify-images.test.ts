@@ -76,6 +76,36 @@ describe('applyClassifications ordering', () => {
     expect(ordered.map((image) => image.id)).toEqual(['b', 'a'])
   })
 
+  it('demotes a wide image below a slightly worse square one', () => {
+    const { ordered } = applyClassifications([
+      { id: 'wide', tag: 'product', score: 88, storage_path: null, width: 1600, height: 670 },
+      classified('square', 'product', 80),
+    ])
+
+    // 2.39:1 clears the 3:1 download gate but crops badly as a hero, so it is
+    // penalised at ranking rather than excluded: 88 - 10 = 78, below 80.
+    expect(ordered.map((image) => image.id)).toEqual(['square', 'wide'])
+  })
+
+  it('lets a clearly better wide image still lead', () => {
+    const { ordered } = applyClassifications([
+      { id: 'wide', tag: 'product', score: 95, storage_path: null, width: 1600, height: 670 },
+      classified('square', 'product', 80),
+    ])
+
+    expect(ordered.map((image) => image.id)).toEqual(['wide', 'square'])
+  })
+
+  it('leaves a normal landscape image unpenalised', () => {
+    const { ordered } = applyClassifications([
+      classified('landscape', 'product', 82),
+      classified('other', 'product', 85),
+    ])
+
+    // 1200x800 is 1.5:1 — under the wide threshold, so no shape correction.
+    expect(ordered.map((image) => image.id)).toEqual(['other', 'landscape'])
+  })
+
   it('does not penalise an image with unknown dimensions', () => {
     const { ordered } = applyClassifications([
       { id: 'unsized', tag: 'product', score: 82, storage_path: null },

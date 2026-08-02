@@ -69,10 +69,28 @@ export async function runBrandImagePhase({
     }
   }
 
+  let downloadFailure: string | null = null
+
   const { result, durationMs } = await timePhase(async () => {
+    /**
+     * Belt and braces. `downloadAndStoreImages` already catches per candidate and
+     * returns a null slot, so a single bad image is meant to cost that image and
+     * nothing else — but a live run still lost an entire brand here when one host
+     * returned oversized response headers and undici's HeadersOverflowError
+     * escaped the per-candidate catch. The inner cause is not understood; what is
+     * certain is that the phase must degrade to "no images" rather than take the
+     * brand down, because every later phase can cope with zero images and none of
+     * them can cope with an exception.
+     */
     const imageStoredUrls = dryRun
       ? imageCandidates.map((candidate) => typeof candidate === 'string' ? candidate : candidate.url)
-      : await downloadAndStoreImages(imageCandidates, target ?? brandTarget(brand.id))
+      : await downloadAndStoreImages(imageCandidates, target ?? brandTarget(brand.id)).catch(
+          (error: unknown) => {
+            downloadFailure = error instanceof Error ? error.message : String(error)
+            console.warn(`  [IMAGES] ${brand.slug}: download batch failed — ${downloadFailure}`)
+            return [] as (string | null)[]
+          }
+        )
     // Automated downloads are stored as candidates. Updating the compatibility
     // hero cache here would publish an unclassified URL before the classifier
     // explicitly keeps it; the classify phase owns that projection now.
@@ -84,6 +102,23 @@ export async function runBrandImagePhase({
   })
 
   const changedFields = Object.keys(result)
+
+  // Surfaced as a phase detail rather than swallowed: the brand survives, but a
+  // run that quietly produced nothing would be indistinguishable from a brand
+  // that genuinely had no candidates.
+  if (downloadFailure) {
+    return {
+      phaseResult: buildPhaseResult(
+        'images',
+        'failed',
+        changedFields,
+        durationMs,
+        undefined,
+        `image download batch failed: ${downloadFailure}`
+      ),
+      patch: result,
+    }
+  }
 
   return {
     phaseResult: buildPhaseResult('images', 'succeeded', changedFields, durationMs),

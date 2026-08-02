@@ -285,7 +285,7 @@ async function classifyProductType(
       // 300, not 100: maxTokens is max_completion_tokens on gpt-5, so any preamble the
       // model emits before the JSON eats the same budget and truncates the answer.
       maxTokens: 300,
-      temperature: 0,
+      temperature: 0.1,
       reasoningEffort: 'none',
     })
 
@@ -334,7 +334,7 @@ async function classifyProductTypeBatchChunk(
       json: true,
       timeoutMs: BATCH_CLASSIFY_TIMEOUT_MS,
       maxTokens: 1500,
-      temperature: 0,
+      temperature: 0.1,
       reasoningEffort: 'none',
     })
 
@@ -405,7 +405,7 @@ async function detectBrand(brand: DetectBatchItem, jobId?: string): Promise<Dete
       json: true,
       timeoutMs: CLASSIFY_TIMEOUT_MS,
       maxTokens: 500,
-      temperature: 0,
+      temperature: 0.1,
       reasoningEffort: 'none',
     })
 
@@ -455,7 +455,7 @@ async function detectBrandsBatchChunk(
       json: true,
       timeoutMs: BATCH_CLASSIFY_TIMEOUT_MS,
       maxTokens: 4000,
-      temperature: 0,
+      temperature: 0.1,
       reasoningEffort: 'none',
     })
 
