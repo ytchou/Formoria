@@ -155,9 +155,27 @@ describe('useImageUpload', () => {
     expect(result.current.metadata).toEqual(stagedImage)
   })
 
-  it('handles upload errors gracefully', async () => {
+  it('surfaces the server error message on a failed upload', async () => {
     vi.spyOn(global, 'fetch').mockResolvedValueOnce(
       new Response(JSON.stringify({ error: 'Bucket not found' }), { status: 500 })
+    )
+
+    const { result } = renderHook(() =>
+      useImageUpload(uploadConfig)
+    )
+    const file = createMockFile('logo.png', 1024, 'image/png')
+
+    await act(async () => {
+      await result.current.upload(file)
+    })
+
+    expect(result.current.status).toBe('error')
+    expect(result.current.error).toBe('Bucket not found')
+  })
+
+  it('falls back to the generic message when the error body is unreadable', async () => {
+    vi.spyOn(global, 'fetch').mockResolvedValueOnce(
+      new Response('<html>502</html>', { status: 502 })
     )
 
     const { result } = renderHook(() =>

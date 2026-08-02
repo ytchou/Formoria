@@ -52,6 +52,10 @@ jobs:
         env:
           BASE_URL: ${{ github.event.inputs.base_url || vars.PRODUCTION_BASE_URL || 'https://formoria.com' }}
           E2E_SIGNUP_EMAIL_DOMAIN: ${{ vars.E2E_SIGNUP_EMAIL_DOMAIN }}
+          # Turns on the delivery assertion in auth-signup.spec.ts. Without it the
+          # spec only proves Supabase accepted the message, not that it was
+          # delivered — the gap that let DEV-1300's bounces run undetected.
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           PLAYWRIGHT_JSON_OUTPUT_NAME: playwright-results.json
         run: |
           pnpm exec playwright test --project=deep --reporter=html,json \

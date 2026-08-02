@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { brandToDomain, brandToInsert } from '../brands'
+import { brandToDomain, brandToInsert, extractLatinRun, generateSlug } from '../brands'
 
 // Minimal row shape matching Supabase SELECT output
 function makeBrandRow(overrides: Record<string, unknown> = {}) {
@@ -54,6 +54,18 @@ describe('brandToDomain — isVerified', () => {
     const row = makeBrandRow({ brand_owners: null })
     const brand = brandToDomain(row)
     expect(brand.isVerified).toBe(false)
+  })
+})
+
+describe('mixed-script brand slugs', () => {
+  it.each([
+    ['郁郁 YùYù', 'yuyu'],
+    ['雱PĀNG', 'pang'],
+    ['Chi-Bee', 'chi-bee'],
+  ])('preserves the full public name for %s', (name, expected) => {
+    const source = extractLatinRun(name) ?? name
+
+    expect(generateSlug(source)).toBe(expected)
   })
 })
 

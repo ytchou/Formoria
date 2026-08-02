@@ -191,7 +191,12 @@ export type SearchBrandAutocompleteResult = {
 // ---------------------------------------------------------------------------
 
 export function extractLatinRun(name: string): string | null {
-  const runs = name.match(/[A-Za-z0-9 ]+/g)?.map((run) => run.trim()).filter(Boolean)
+  const runs = name
+    .match(
+      /[\p{Script=Latin}\p{Number}\p{Mark}]+(?:[\s&.'’\-]*[\p{Script=Latin}\p{Number}\p{Mark}]+)*/gu,
+    )
+    ?.map((run) => run.trim())
+    .filter(Boolean)
 
   if (!runs?.length) {
     return null
