@@ -1526,6 +1526,8 @@ export type Database = {
       }
       events: {
         Row: {
+          admission_note: string | null
+          admission_note_en: string | null
           city: string | null
           created_at: string
           description: string | null
@@ -1534,22 +1536,30 @@ export type Database = {
           hero_image_url: string | null
           id: string
           is_free: boolean | null
+          lineup_note: string | null
+          lineup_note_en: string | null
           name: string
           name_en: string | null
           official_url: string | null
           organizer_name: string | null
+          schedule_note: string | null
+          schedule_note_en: string | null
           slug: string
           starts_on: string
           status: string
           summary: string
           summary_en: string | null
           ticket_url: string | null
+          travel_note: string | null
+          travel_note_en: string | null
           updated_at: string
           venue_address: string | null
           venue_name: string | null
           venue_name_en: string | null
         }
         Insert: {
+          admission_note?: string | null
+          admission_note_en?: string | null
           city?: string | null
           created_at?: string
           description?: string | null
@@ -1558,22 +1568,30 @@ export type Database = {
           hero_image_url?: string | null
           id?: string
           is_free?: boolean | null
+          lineup_note?: string | null
+          lineup_note_en?: string | null
           name: string
           name_en?: string | null
           official_url?: string | null
           organizer_name?: string | null
+          schedule_note?: string | null
+          schedule_note_en?: string | null
           slug: string
           starts_on: string
           status?: string
           summary: string
           summary_en?: string | null
           ticket_url?: string | null
+          travel_note?: string | null
+          travel_note_en?: string | null
           updated_at?: string
           venue_address?: string | null
           venue_name?: string | null
           venue_name_en?: string | null
         }
         Update: {
+          admission_note?: string | null
+          admission_note_en?: string | null
           city?: string | null
           created_at?: string
           description?: string | null
@@ -1582,16 +1600,22 @@ export type Database = {
           hero_image_url?: string | null
           id?: string
           is_free?: boolean | null
+          lineup_note?: string | null
+          lineup_note_en?: string | null
           name?: string
           name_en?: string | null
           official_url?: string | null
           organizer_name?: string | null
+          schedule_note?: string | null
+          schedule_note_en?: string | null
           slug?: string
           starts_on?: string
           status?: string
           summary?: string
           summary_en?: string | null
           ticket_url?: string | null
+          travel_note?: string | null
+          travel_note_en?: string | null
           updated_at?: string
           venue_address?: string | null
           venue_name?: string | null

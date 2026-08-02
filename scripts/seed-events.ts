@@ -74,6 +74,15 @@ export type EventFileInput = {
   venueAddress?: string | null
   city?: string | null
   organizerName?: string | null
+  /** Newline-separated, one line per day band. */
+  scheduleNote?: string | null
+  scheduleNoteEn?: string | null
+  admissionNote?: string | null
+  admissionNoteEn?: string | null
+  travelNote?: string | null
+  travelNoteEn?: string | null
+  lineupNote?: string | null
+  lineupNoteEn?: string | null
   officialUrl?: string | null
   ticketUrl?: string | null
   isFree?: boolean | null
@@ -99,6 +108,14 @@ export type EventRowPayload = {
   venue_address: string | null
   city: string | null
   organizer_name: string | null
+  schedule_note: string | null
+  schedule_note_en: string | null
+  admission_note: string | null
+  admission_note_en: string | null
+  travel_note: string | null
+  travel_note_en: string | null
+  lineup_note: string | null
+  lineup_note_en: string | null
   official_url: string | null
   ticket_url: string | null
   is_free: boolean | null
@@ -354,6 +371,38 @@ export function parseEventFile(fileName: string, raw: unknown): ParsedEvent {
         fileName,
         'organizerName',
         input.organizerName,
+      ),
+      schedule_note: optionalString(
+        fileName,
+        'scheduleNote',
+        input.scheduleNote,
+      ),
+      schedule_note_en: optionalString(
+        fileName,
+        'scheduleNoteEn',
+        input.scheduleNoteEn,
+      ),
+      admission_note: optionalString(
+        fileName,
+        'admissionNote',
+        input.admissionNote,
+      ),
+      admission_note_en: optionalString(
+        fileName,
+        'admissionNoteEn',
+        input.admissionNoteEn,
+      ),
+      travel_note: optionalString(fileName, 'travelNote', input.travelNote),
+      travel_note_en: optionalString(
+        fileName,
+        'travelNoteEn',
+        input.travelNoteEn,
+      ),
+      lineup_note: optionalString(fileName, 'lineupNote', input.lineupNote),
+      lineup_note_en: optionalString(
+        fileName,
+        'lineupNoteEn',
+        input.lineupNoteEn,
       ),
       official_url: optionalUrl(fileName, 'officialUrl', input.officialUrl),
       ticket_url: optionalUrl(fileName, 'ticketUrl', input.ticketUrl),

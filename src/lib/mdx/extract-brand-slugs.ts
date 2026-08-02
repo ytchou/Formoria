@@ -13,8 +13,14 @@
  */
 
 /**
- * `<BrandCard slug="…">`, including the cards nested inside a `<BrandRow>`:
- * a row carries no slugs of its own, so its children match here unchanged.
+ * `<BrandCard slug="…">` and `<BrandLine slug="…">`, including the ones nested
+ * inside a `<BrandRow>` or `<BrandList>`: neither wrapper carries slugs of its
+ * own, so their children match here unchanged.
+ *
+ * `BrandLine` belongs in this alternation for exactly the reason in the file
+ * header — a shortcode missing from this parser is a brand that is invisible to
+ * the CI slug guard, and whose clicks fire `select_item` against a
+ * `view_item_list` that never counted it.
  *
  * The prop prefix is `[\s\S]*?`, not `[^>]*?`: an earlier prop *value* may
  * legally contain a `>` (`note="a > b"`), and a `>`-excluding prefix makes the
@@ -22,7 +28,7 @@
  * both the CI slug guard and the analytics count. The `\bslug=["']` anchor that
  * follows is what stops the non-greedy prefix from running past the shortcode.
  */
-const SINGLE_SLUG_SHORTCODE = /<BrandCard\b[\s\S]*?\bslug=["']([^"']*)["']/g
+const SINGLE_SLUG_SHORTCODE = /<(?:BrandCard|BrandLine)\b[\s\S]*?\bslug=["']([^"']*)["']/g
 /** `<BrandGrid slugs={[ "…", "…" ]}>` — the array body is captured, then split. */
 const GRID_SLUGS_SHORTCODE = /<BrandGrid\b[\s\S]*?\bslugs=\{\s*\[([\s\S]*?)\]\s*\}/g
 const QUOTED_ENTRY = /["']([^"']*)["']/g

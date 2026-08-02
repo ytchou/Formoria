@@ -2,9 +2,12 @@ import { createElement, type ComponentPropsWithoutRef, type ReactNode } from 're
 
 import { BrandCardMdx } from '@/components/stories/brand-card-mdx'
 import { BrandGrid } from '@/components/stories/brand-grid'
+import { BrandLine, BrandList } from '@/components/stories/brand-list'
 import { BrandRow } from '@/components/stories/brand-row'
 import { FaqBlock } from '@/components/stories/faq-block'
+import { PullQuote } from '@/components/stories/pull-quote'
 import { StatsCallout } from '@/components/stories/stats-callout'
+import { StoryFigure } from '@/components/stories/story-figure'
 import { cn } from '@/lib/utils'
 
 /**
@@ -36,8 +39,32 @@ export const storyComponentMap = {
   // Children, not a `slugs` array — MDX expression attributes are dropped
   // (DEV-1302), so the row's cards are authored as nested `<BrandCard>`.
   BrandRow: (props: { children?: ReactNode }) => createElement(BrandRow, null, props.children),
+  // The compact alternative to `BrandRow`: stacked hairline-ruled rows instead
+  // of a 3-up card grid, for sections that list brands rather than feature
+  // them. Children for the same DEV-1302 reason as `BrandRow`.
+  BrandList: (props: { children?: ReactNode }) => createElement(BrandList, null, props.children),
+  // One row of a `BrandList`. All-string props, all optional except `slug` —
+  // anything authored as `prop={…}` would be dropped before it got here.
+  BrandLine: (props: { slug: string; booth?: string; note?: string }) =>
+    createElement(BrandLine, props),
+  // A large statement line that breaks up body copy. Distinct on purpose from
+  // the markdown `>` blockquote styled further down this map: that one quotes
+  // someone else, this one re-states the article's own argument.
+  PullQuote: (props: { children?: ReactNode; attribution?: string }) =>
+    createElement(PullQuote, { attribution: props.attribution }, props.children),
   StatsCallout: (props: { stat: string; label: string }) =>
     createElement(StatsCallout, { stat: props.stat, label: props.label }),
+  // Editorial fine print (image rights, sponsorship status, data caveats).
+  // Muted rather than a `>` blockquote: a blockquote's rule reads as "someone
+  // else said this", which is the opposite of a statement the site is making
+  // about itself.
+  Disclaimer: (props: { children?: ReactNode }) =>
+    createElement('p', { className: 'my-4 type-body-muted' }, props.children),
+  // A credited photo. Literal `<figure>`/`<figcaption>` JSX does NOT resolve
+  // against this map — only markdown-generated elements and capitalized
+  // shortcodes do — so an authored `<figure>` renders unstyled.
+  Figure: (props: { src: string; alt: string; caption?: string }) =>
+    createElement(StoryFigure, props),
   // `emitJsonLd: false` is load-bearing. The detail page already renders a
   // FaqBlock from `frontmatter.faq`, and that render is the single source of
   // FAQPage structured data for the URL. An in-body `<FaqBlock>` emitting its
@@ -99,13 +126,19 @@ export const storyComponentMap = {
   // Markdown images are raw `<img>`, not `next/image`: authors write arbitrary
   // remote URLs and there is no intrinsic size to hand the optimizer. 4:3 with
   // `object-cover` matches every other image surface in the product.
+  //
+  // Capped and centred rather than `w-full`: the story page runs the standard
+  // `max-w-screen-xl` container, and an unbounded 4:3 image in it renders
+  // 1200x900 — taller than the viewport on a laptop, so a single photo became
+  // a full-screen interruption in the middle of a paragraph. `max-w-2xl` keeps
+  // an inline photo at roughly the size it was before the page widened.
   img: (props: ComponentPropsWithoutRef<'img'>) =>
     createElement('img', {
       loading: 'lazy',
       decoding: 'async',
       ...props,
       className: cn(
-        'my-6 aspect-[4/3] w-full rounded-lg border border-border bg-muted object-cover',
+        'mx-auto my-6 aspect-[4/3] w-full max-w-2xl rounded-lg border border-border bg-muted object-cover',
         props.className,
       ),
     }),

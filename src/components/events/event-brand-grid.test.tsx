@@ -55,10 +55,11 @@ function makeEntry(
   name: string,
   area: string,
   category: string | null = null,
+  booth: string | null = null,
 ): EventBrandEntry {
   return {
     brand: { id: name, slug: name, name, category },
-    booth: null,
+    booth,
     area,
     areaEn: area,
     note: null,
@@ -292,5 +293,149 @@ describe('EventBrandGrid', () => {
       'Lantern',
     ])
     expect(screen.getByRole('status')).toHaveTextContent('4 brands')
+  })
+
+  it('event_brand_grid_booth_sort_is_reversible', async () => {
+    // Two things at once, because they are the same bug: the booth order must
+    // be natural (`K1-004` before `K1-011-05`, which a string sort inverts),
+    // and switching back must restore the SERVER order exactly. The server
+    // shuffles once per ISR regeneration for fairness, so a sort that mutated
+    // the incoming array in place would destroy an order nothing can rebuild.
+    const user = userEvent.setup()
+    renderGrid(
+      [
+        makeEntry('Saltmark', 'A', null, 'S-007'),
+        makeEntry('Warmwood', 'A', null, 'K1-011-05'),
+        makeEntry('Lantern', 'A', null, null),
+        makeEntry('Kiln', 'A', null, 'K1-004'),
+      ],
+      [{ value: 'A', label: 'Hall A' }],
+    )
+
+    const serverOrder = ['Saltmark', 'Warmwood', 'Lantern', 'Kiln']
+    expect(renderedBrandNames()).toEqual(serverOrder)
+
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: 'Sort the lineup' }),
+      'booth',
+    )
+    // The boothless entry sorts LAST, never first: burying the walkable list
+    // under entries that cannot be walked to defeats the sort.
+    expect(renderedBrandNames()).toEqual([
+      'Kiln',
+      'Warmwood',
+      'Saltmark',
+      'Lantern',
+    ])
+
+    await user.selectOptions(
+      screen.getByRole('combobox', { name: 'Sort the lineup' }),
+      'recommended',
+    )
+    expect(renderedBrandNames()).toEqual(serverOrder)
+  })
+
+  it('event_brand_grid_search_matches_either_script_or_the_booth', async () => {
+    // Names are stored as one bilingual string, so the same substring test has
+    // to serve a reader typing Chinese and a reader typing the romanization —
+    // and a reader who is only holding a booth sign.
+    const user = userEvent.setup()
+    renderGrid(
+      [
+        makeEntry('織療室 Ziliaoshi', 'A', null, 'K1-004'),
+        makeEntry('這一窯 Huiaio studio', 'A', null, 'K3-019'),
+      ],
+      [{ value: 'A', label: 'Hall A' }],
+    )
+
+    const search = screen.getByRole('searchbox', {
+      name: 'Search the lineup by brand name or booth number',
+    })
+
+    await user.type(search, 'ziliaoshi')
+    expect(renderedBrandNames()).toEqual(['織療室 Ziliaoshi'])
+
+    await user.clear(search)
+    await user.type(search, '這一窯')
+    expect(renderedBrandNames()).toEqual(['這一窯 Huiaio studio'])
+
+    await user.clear(search)
+    await user.type(search, 'K3-019')
+    expect(renderedBrandNames()).toEqual(['這一窯 Huiaio studio'])
+
+    // Whitespace is not a query: it must not filter everything away.
+    await user.clear(search)
+    await user.type(search, '   ')
+    expect(renderedBrandNames()).toEqual([
+      '織療室 Ziliaoshi',
+      '這一窯 Huiaio studio',
+    ])
+  })
+
+  it('event_brand_grid_search_composes_with_chips_and_offers_a_way_back', async () => {
+    const user = userEvent.setup()
+    renderGrid(
+      [
+        makeEntry('Warmwood', 'A', 'apparel', 'K1-004'),
+        makeEntry('Saltmark', 'B', 'apparel', 'K2-010'),
+      ],
+      [
+        { value: 'A', label: 'Hall A' },
+        { value: 'B', label: 'Hall B' },
+      ],
+      [{ value: 'apparel', label: 'Apparel' }],
+    )
+
+    const search = screen.getByRole('searchbox', {
+      name: 'Search the lineup by brand name or booth number',
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Hall A' }))
+    await user.type(search, 'mark')
+    // AND, not OR: Saltmark matches the text but sits in the other hall.
+    expect(renderedBrandNames()).toEqual([])
+    expect(screen.getByRole('status')).toHaveTextContent('0 of 2 brands')
+
+    // A text miss gets its own copy — "no brands in this zone" is the wrong
+    // diagnosis when the reader mistyped a name.
+    expect(
+      screen.getByText('No brands match your search'),
+    ).toBeInTheDocument()
+
+    // The way back clears the query as well as the chips; clearing only the
+    // chips could still leave zero results.
+    await user.click(screen.getByRole('button', { name: 'Show all brands' }))
+    expect(renderedBrandNames()).toEqual(['Warmwood', 'Saltmark'])
+    expect(search).toHaveValue('')
+  })
+
+  it('event_brand_grid_expand_button_counts_the_filtered_set', async () => {
+    // The cap and its button label both measure the FILTERED list: a button
+    // offering the unfiltered 123 while the grid shows a search result is a
+    // promise the press does not keep.
+    const user = userEvent.setup()
+    const entries = Array.from({ length: 20 }, (_, index) =>
+      makeEntry(`Brand ${index}`, 'A', null, `K1-${String(index).padStart(3, '0')}`),
+    )
+    renderGrid(entries, [{ value: 'A', label: 'Hall A' }])
+
+    // 20 entries against a 16-card cap (4 rows x MASONRY_ABOVE_FOLD 4).
+    expect(
+      screen.getByRole('button', { name: 'Show 4 more brands' }),
+    ).toBeInTheDocument()
+
+    await user.type(
+      screen.getByRole('searchbox', {
+        name: 'Search the lineup by brand name or booth number',
+      }),
+      'Brand 1',
+    )
+
+    // "Brand 1" plus "Brand 10".."Brand 19" is 11 — under the cap, so the
+    // button is gone rather than naming a count from the unfiltered list.
+    expect(screen.getByRole('status')).toHaveTextContent('11 of 20 brands')
+    expect(
+      screen.queryByRole('button', { name: /Show \d+ more brands/ }),
+    ).not.toBeInTheDocument()
   })
 })

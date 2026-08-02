@@ -25,7 +25,10 @@ type BrandGridProps = {
  * `<BrandGrid slugs={[…]} />` inside story MDX.
  *
  * One batched lookup for the whole array — rendering N `<BrandCardMdx>` would
- * be N queries. Two columns is the ceiling: the story column is 720px wide.
+ * be N queries. Two columns, not three: the story page now runs the standard
+ * `max-w-screen-xl` container, so width is no longer the constraint — a grid
+ * dropped into prose reads as a break in the argument, and two columns keeps
+ * it closer to the text than to the directory.
  */
 export async function BrandGrid({
   slugs,

@@ -59,6 +59,15 @@ export type Event = {
   venueAddress: string | null;
   city: string | null;
   organizerName: string | null;
+  /** Newline-separated, one line per day band — render with `whitespace-pre-line`. */
+  scheduleNote: string | null;
+  scheduleNoteEn: string | null;
+  admissionNote: string | null;
+  admissionNoteEn: string | null;
+  travelNote: string | null;
+  travelNoteEn: string | null;
+  lineupNote: string | null;
+  lineupNoteEn: string | null;
   officialUrl: string | null;
   ticketUrl: string | null;
   /** Tri-state: `true` free, `false` ticketed, `null` not yet known. */
@@ -102,7 +111,7 @@ export type EventsByPhase = {
 // Kept as one string literal (not a concatenation) so supabase-js can infer the
 // row shape from the generated types instead of falling back to `any`.
 const EVENT_SELECT =
-  "id, slug, name, name_en, summary, summary_en, description, description_en, starts_on, ends_on, venue_name, venue_name_en, venue_address, city, organizer_name, official_url, ticket_url, is_free, hero_image_url, status, created_at, updated_at";
+  "id, slug, name, name_en, summary, summary_en, description, description_en, starts_on, ends_on, venue_name, venue_name_en, venue_address, city, organizer_name, schedule_note, schedule_note_en, admission_note, admission_note_en, travel_note, travel_note_en, lineup_note, lineup_note_en, official_url, ticket_url, is_free, hero_image_url, status, created_at, updated_at";
 
 /**
  * Resolves the event by slug inside the same round trip via an inner embed, so
@@ -211,6 +220,14 @@ export function eventRowToDomain(row: EventRow): Event {
     venueAddress: row.venue_address,
     city: row.city,
     organizerName: row.organizer_name,
+    scheduleNote: row.schedule_note,
+    scheduleNoteEn: row.schedule_note_en,
+    admissionNote: row.admission_note,
+    admissionNoteEn: row.admission_note_en,
+    travelNote: row.travel_note,
+    travelNoteEn: row.travel_note_en,
+    lineupNote: row.lineup_note,
+    lineupNoteEn: row.lineup_note_en,
     officialUrl: row.official_url,
     ticketUrl: row.ticket_url,
     isFree: row.is_free,

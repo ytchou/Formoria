@@ -9,7 +9,6 @@ import { formatEventDateRange } from '@/components/events/event-date'
 import { formatStoryDate } from '@/components/stories/story-date'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
-import { surfaceCardStyles } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 import { LinkCard } from '@/components/ui/link-card'
 import { textStyles } from '@/components/ui/text-styles'
@@ -158,6 +157,17 @@ export default async function EventDetailPage({ params }: PageProps) {
     ? (event.descriptionEn ?? event.description)
     : event.description
   const venueName = isEnglish ? (event.venueNameEn ?? event.venueName) : event.venueName
+  // Visitor-decision fields. All four are null on every event but the Creative
+  // Expo, so each render site below is guarded independently rather than as one
+  // block — an event may carry travel info and no schedule.
+  const scheduleNote = isEnglish
+    ? (event.scheduleNoteEn ?? event.scheduleNote)
+    : event.scheduleNote
+  const travelNote = isEnglish ? (event.travelNoteEn ?? event.travelNote) : event.travelNote
+  const admissionNote = isEnglish
+    ? (event.admissionNoteEn ?? event.admissionNote)
+    : event.admissionNote
+  const lineupNote = isEnglish ? (event.lineupNoteEn ?? event.lineupNote) : event.lineupNote
   const phase = resolveEventPhase(event, taipeiToday())
   const dateLabel = formatEventDateRange(event.startsOn, event.endsOn)
   const areaOptions = deriveAreaOptions(entries, safeLocale)
@@ -177,15 +187,14 @@ export default async function EventDetailPage({ params }: PageProps) {
   // filter bar keeps a stable order across regenerations.
   const lineup = shuffle(entries)
 
-  // Derived, never authored: `EventAreaOption` carries no count, and a count
-  // typed into the CMS would go stale the moment one exhibitor is added or
-  // removed. Keyed on `option.value` (the zh column) because that is what
-  // `entry.area` holds in both locales.
-  const areaCounts = new Map<string, number>()
-  for (const entry of entries) {
-    if (!entry.area) continue
-    areaCounts.set(entry.area, (areaCounts.get(entry.area) ?? 0) + 1)
-  }
+  // Routing handoff, built from the address rather than a stored URL: a map
+  // link that has to be authored per event is a map link that goes stale or
+  // never gets filled in. `?api=1` is Google's documented cross-platform form
+  // and hands off to the native app on mobile.
+  const mapsQuery = [venueName, event.venueAddress].filter(Boolean).join(' ')
+  const mapsUrl = mapsQuery
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}`
+    : null
 
   // Events and stories join by convention: the event slug IS the story series
   // name. No FK, so a missing series is the normal case, not an error.
@@ -266,74 +275,46 @@ export default async function EventDetailPage({ params }: PageProps) {
         </header>
 
         {/*
-          Band B — the two highest-intent things on the page side by side: what
-          the event is (left) and when/where/how to get in (right). The rail is
-          deliberately NOT sticky: this block is only ~80px taller than the rail
-          card itself, so sticky would buy almost no travel while risking an
-          overlap with the band below.
+          Band B — 活動介紹. Was a 352px right rail, then a grid of bordered
+          fact cards; both were more chrome than this content earns. It is now a
+          titled section: the official introduction as prose, then the facts as
+          a plain two-column definition list on hairline rules.
+
+          The facts stay listed rather than folding into the prose because one
+          of them is safety-critical: 8/6–8/7 are trade-buyer days, and a reader
+          scanning for dates must not have to parse a paragraph to learn the
+          first two days are closed to them.
+
+          Actions sit ABOVE the facts: they are what a reader who already knows
+          the event came here to do, and below the list they landed under the
+          page fold on a laptop.
         */}
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_352px] lg:gap-12">
-          <div className="space-y-6">
-            {heroSrc ? (
-              <div className="relative aspect-[16/9] overflow-hidden rounded-xl bg-muted">
-                {/* Decorative: the event name is the adjacent `<h1>`, so alt text
-                    here would only repeat it to a screen reader. */}
-                {/* `sizes` follows the new column: above `lg` the image no longer
-                    spans the page, it shares the row with the 352px rail. */}
-                <Image
-                  src={heroSrc}
-                  alt=""
-                  fill
-                  priority
-                  sizes="(max-width: 1024px) 100vw, 832px"
-                  className="object-cover"
-                />
-              </div>
-            ) : null}
+        <section aria-labelledby="event-about" className="space-y-8">
+          <h2 id="event-about" className="type-section-title">
+            {t('about')}
+          </h2>
+          {heroSrc ? (
+            <div className="relative aspect-[16/9] overflow-hidden rounded-xl bg-muted">
+              {/* Decorative: the event name is the adjacent `<h1>`, so alt text
+                  here would only repeat it to a screen reader. */}
+              <Image
+                src={heroSrc}
+                alt=""
+                fill
+                priority
+                sizes="100vw"
+                className="object-cover"
+              />
+            </div>
+          ) : null}
 
-            {description ? (
-              <p className="max-w-2xl whitespace-pre-wrap type-body">{description}</p>
-            ) : null}
-          </div>
+          {description ? (
+            <p className="whitespace-pre-wrap type-body">{description}</p>
+          ) : null}
 
-          <aside
-            className={surfaceCardStyles({
-              padding: 'lg',
-              className: 'h-fit space-y-5',
-            })}
-          >
-            <dl className="space-y-3">
-              {dateLabel ? (
-                <div className="space-y-1">
-                  <dt className={textStyles({ variant: 'fieldLabel' })}>{t('dates')}</dt>
-                  <dd className={textStyles({ variant: 'fieldValue' })}>{dateLabel}</dd>
-                </div>
-              ) : null}
-              {venueName ? (
-                <div className="space-y-1">
-                  <dt className={textStyles({ variant: 'fieldLabel' })}>{t('venue')}</dt>
-                  <dd className={textStyles({ variant: 'fieldValue' })}>
-                    {venueName}
-                    {event.venueAddress ? (
-                      <span className="block type-caption">{event.venueAddress}</span>
-                    ) : null}
-                  </dd>
-                </div>
-              ) : null}
-              {event.organizerName ? (
-                <div className="space-y-1">
-                  <dt className={textStyles({ variant: 'fieldLabel' })}>
-                    {t('organizer')}
-                  </dt>
-                  <dd className={textStyles({ variant: 'fieldValue' })}>
-                    {event.organizerName}
-                  </dd>
-                </div>
-              ) : null}
-            </dl>
-
-            {event.officialUrl || event.ticketUrl ? (
-              <div className="space-y-3 border-t border-border pt-5">
+          {event.officialUrl || event.ticketUrl || mapsUrl ? (
+            <div className="space-y-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
                 {event.officialUrl ? (
                   <a
                     href={event.officialUrl}
@@ -343,57 +324,118 @@ export default async function EventDetailPage({ params }: PageProps) {
                       variant: 'primary',
                       tone: 'cta',
                       size: 'large',
-                      className: 'w-full',
+                      className: 'w-full sm:w-auto',
                     })}
                   >
                     {t('officialSite')}
                   </a>
                 ) : null}
                 {event.ticketUrl ? (
-                  <>
-                    <a
-                      href={event.ticketUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={buttonVariants({
-                        variant: 'secondary',
-                        size: 'large',
-                        className: 'w-full',
-                      })}
-                    >
-                      {/* A free event's ticket link books a slot, it does not sell
-                          one — "購票資訊" on free entry reads as a paywall. */}
-                      {t(event.isFree === true ? 'reserve' : 'tickets')}
-                      <ExternalLink aria-hidden="true" className="size-4" />
-                    </a>
-                    {/* Only under a ticket link: the note answers "what if
-                        booking is full", a question that only exists once there
-                        is something to book. */}
-                    <p className="type-caption">{t('reserveNote')}</p>
-                  </>
+                  <a
+                    href={event.ticketUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={buttonVariants({
+                      variant: 'secondary',
+                      size: 'large',
+                      className: 'w-full sm:w-auto',
+                    })}
+                  >
+                    {/* A free event's ticket link books a slot, it does not sell
+                        one — "購票資訊" on free entry reads as a paywall. */}
+                    {t(event.isFree === true ? 'reserve' : 'tickets')}
+                    <ExternalLink aria-hidden="true" className="size-4" />
+                  </a>
+                ) : null}
+                {/* Routing, not a rendered map: an embedded map needs an API key
+                    and a CSP frame-src exception, and hands the reader a pane to
+                    pinch on a page that is otherwise all text and cards. The
+                    link opens whichever map app the device already trusts. */}
+                {mapsUrl ? (
+                  <a
+                    href={mapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={buttonVariants({
+                      variant: 'secondary',
+                      size: 'large',
+                      className: 'w-full sm:w-auto',
+                    })}
+                  >
+                    {t('directions')}
+                    <ExternalLink aria-hidden="true" className="size-4" />
+                  </a>
                 ) : null}
               </div>
-            ) : null}
+              {/* Only under a ticket link: the note answers "what if booking
+                  is full", a question that only exists once there is
+                  something to book. */}
+              {event.ticketUrl ? (
+                <p className="type-caption">{t('reserveNote')}</p>
+              ) : null}
+            </div>
+          ) : null}
 
-            {areaOptions.length > 0 ? (
-              <div className="space-y-2 border-t border-border pt-5">
-                <p className={textStyles({ variant: 'fieldLabel' })}>
-                  {t('boothsHeading')}
-                </p>
-                <dl className="space-y-1.5">
-                  {areaOptions.map((option) => (
-                    <div key={option.value} className="flex items-baseline gap-3">
-                      <dt className="min-w-0 flex-1 type-body">{option.label}</dt>
-                      <dd className="type-body tabular-nums">
-                        {areaCounts.get(option.value) ?? 0}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
+          <dl aria-label={t('visitInfo')} className="divide-y divide-border border-t border-border">
+            {dateLabel ? (
+              <div className="grid gap-x-6 gap-y-1 py-3 sm:grid-cols-[10rem_minmax(0,1fr)]">
+                <dt className={textStyles({ variant: 'fieldLabel' })}>{t('dates')}</dt>
+                <dd className={textStyles({ variant: 'fieldValue' })}>{dateLabel}</dd>
               </div>
             ) : null}
-          </aside>
-        </div>
+            {/* Directly after the date range it qualifies: "8/6–8/12" is the
+                claim that sends someone to the door on a trade-buyer-only day,
+                so the correction has to be the next thing read. */}
+            {scheduleNote ? (
+              <div className="grid gap-x-6 gap-y-1 py-3 sm:grid-cols-[10rem_minmax(0,1fr)]">
+                <dt className={textStyles({ variant: 'fieldLabel' })}>{t('schedule')}</dt>
+                {/* Authored as one line per audience — `whitespace-pre-line` is
+                    what keeps those lines from collapsing into a run-on
+                    paragraph. The single-paragraph notes must not have it. */}
+                <dd
+                  className={textStyles({
+                    variant: 'fieldValue',
+                    className: 'whitespace-pre-line',
+                  })}
+                >
+                  {scheduleNote}
+                </dd>
+              </div>
+            ) : null}
+            {venueName ? (
+              <div className="grid gap-x-6 gap-y-1 py-3 sm:grid-cols-[10rem_minmax(0,1fr)]">
+                <dt className={textStyles({ variant: 'fieldLabel' })}>{t('venue')}</dt>
+                <dd className={textStyles({ variant: 'fieldValue' })}>
+                  {venueName}
+                  {event.venueAddress ? (
+                    <span className="block type-caption">{event.venueAddress}</span>
+                  ) : null}
+                </dd>
+              </div>
+            ) : null}
+            {travelNote ? (
+              <div className="grid gap-x-6 gap-y-1 py-3 sm:grid-cols-[10rem_minmax(0,1fr)]">
+                <dt className={textStyles({ variant: 'fieldLabel' })}>{t('travel')}</dt>
+                <dd className={textStyles({ variant: 'fieldValue' })}>{travelNote}</dd>
+              </div>
+            ) : null}
+            {admissionNote ? (
+              <div className="grid gap-x-6 gap-y-1 py-3 sm:grid-cols-[10rem_minmax(0,1fr)]">
+                <dt className={textStyles({ variant: 'fieldLabel' })}>{t('admission')}</dt>
+                <dd className={textStyles({ variant: 'fieldValue' })}>{admissionNote}</dd>
+              </div>
+            ) : null}
+            {event.organizerName ? (
+              <div className="grid gap-x-6 gap-y-1 py-3 sm:grid-cols-[10rem_minmax(0,1fr)]">
+                <dt className={textStyles({ variant: 'fieldLabel' })}>{t('organizer')}</dt>
+                <dd className={textStyles({ variant: 'fieldValue' })}>
+                  {event.organizerName}
+                </dd>
+              </div>
+            ) : null}
+          </dl>
+
+        </section>
 
         {/*
           Band C — stories sit above the lineup on purpose: below 38 cards they
@@ -445,6 +487,14 @@ export default async function EventDetailPage({ params }: PageProps) {
           <h2 id="event-brands" className="type-section-title">
             {t('brandsHeading')}
           </h2>
+          {/*
+            Source attribution plus the "exhibiting is not an endorsement"
+            disclaimer. Deliberately a muted caption and not a callout: it
+            qualifies the list rather than warning about it, and a bordered or
+            tinted box here would outweigh the lineup it introduces. No label
+            key — the heading above already names what is being qualified.
+          */}
+          {lineupNote ? <p className="type-caption">{lineupNote}</p> : null}
           {/*
             A lineup that has not been published yet renders the message and
             nothing else: no filter bar (there is nothing to filter) and no

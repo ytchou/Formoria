@@ -3,12 +3,14 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { SearchX } from 'lucide-react'
+import { Search, SearchX } from 'lucide-react'
 import { BrandCard } from '@/components/brands/brand-card'
 import { MASONRY_ABOVE_FOLD, MasonryGrid } from '@/components/brands/masonry-grid'
 import { ViewItemListTracker } from '@/components/analytics/view-item-list-tracker'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
+import { Input } from '@/components/ui/input'
+import { NativeSelect } from '@/components/ui/native-select'
 import { ToggleChip } from '@/components/ui/toggle-chip'
 import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
 import type {
@@ -16,10 +18,18 @@ import type {
   EventBrandEntry,
   EventCategoryOption,
 } from '@/lib/services/events'
+import { compareBoothNumbers } from './booth-sort'
 
 // Four rows of the grid's widest column count — derived, not written as `16`,
 // so it follows the grid if its columns ever change.
 const LINEUP_VISIBLE_CAP = 4 * MASONRY_ABOVE_FOLD
+
+/**
+ * `'recommended'` is the shuffled order the server sent; `'booth'` is ascending
+ * booth number. Named rather than a boolean so the `<select>` values are the
+ * state and no mapping layer sits between them.
+ */
+type LineupSort = 'recommended' | 'booth'
 
 type EventBrandGridProps = {
   /** The full lineup. Filtering happens here, never on the server. */
@@ -93,6 +103,13 @@ export function EventBrandGrid({
   const t = useTranslations('events')
   const [activeArea, setActiveArea] = useState<string | null>(null)
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
+  // Sort and query are React state only, deliberately NOT mirrored into the URL
+  // like the two chips are. The chips describe a view worth sharing ("the
+  // ceramics in Hall A"); a half-typed booth number and a temporary re-ordering
+  // are wayfinding scratch state, and writing the query to the URL would fire a
+  // `history.replaceState` on every keystroke.
+  const [sort, setSort] = useState<LineupSort>('recommended')
+  const [query, setQuery] = useState('')
   // Deliberately NOT reset when a chip changes: a reader who asked to see the
   // whole lineup should not have to ask again after every filter press.
   const [expanded, setExpanded] = useState(false)
@@ -140,22 +157,64 @@ export function EventBrandGrid({
   const clearFilters = useCallback(() => {
     setActiveArea(null)
     setActiveCategory(null)
+    // Clears the query too: with three filters live, resetting only the chips
+    // can still leave zero results, and the button promises the full list.
+    setQuery('')
     syncUrl(null, null)
   }, [syncUrl])
 
-  // Both axes narrow together (AND): a zone chip plus a category chip means
-  // "this category, in this zone", not the union of the two.
-  const visible = useMemo(
+  // Trimmed once here rather than per entry: a query of only spaces is no
+  // query at all, and re-trimming inside the filter would run 123 times.
+  const normalizedQuery = query.trim().toLowerCase()
+
+  // All three axes narrow together (AND): a zone chip plus a category chip plus
+  // a query means "this category, in this zone, matching this text", not the
+  // union of the three.
+  const matched = useMemo(
     () =>
-      entries.filter(
-        (entry) =>
-          (activeArea === null || entry.area === activeArea) &&
-          (activeCategory === null || entry.brand.category === activeCategory),
-      ),
-    [activeArea, activeCategory, entries],
+      entries.filter((entry) => {
+        if (activeArea !== null && entry.area !== activeArea) return false
+        if (activeCategory !== null && entry.brand.category !== activeCategory)
+          return false
+        if (!normalizedQuery) return true
+
+        // A plain substring test over the whole name is enough for both
+        // scripts: names are stored as one bilingual string ("織療室
+        // Ziliaoshi"), so `織療` and `ziliaoshi` both hit the same field and no
+        // per-script branch is needed. `romanizedName` is folded in only as a
+        // fallback for the brands that do not carry a Latin half in `name`; it
+        // is optional and often null, so nothing may depend on it alone.
+        // The booth is searchable for the reader who is looking at a booth sign
+        // rather than at a brand.
+        const haystack = [
+          entry.brand.name,
+          entry.brand.romanizedName ?? '',
+          entry.booth ?? '',
+        ]
+          .join(' ')
+          .toLowerCase()
+
+        return haystack.includes(normalizedQuery)
+      }),
+    [activeArea, activeCategory, entries, normalizedQuery],
   )
 
-  const isFiltered = activeArea !== null || activeCategory !== null
+  // Sort AFTER filtering, and only ever on a copy. `entries` arrives already
+  // shuffled by the server (one order per ISR regeneration, which is the
+  // fairness property of the page); sorting in place would destroy that order
+  // for good, so switching back to "recommended" could never restore it. Taking
+  // the filter's fresh array and copying it before `.sort()` keeps the server
+  // order intact as the thing we fall back to.
+  const visible = useMemo(() => {
+    if (sort !== 'booth') return matched
+
+    return [...matched].sort((left, right) =>
+      compareBoothNumbers(left.booth, right.booth),
+    )
+  }, [matched, sort])
+
+  const isFiltered =
+    activeArea !== null || activeCategory !== null || normalizedQuery !== ''
 
   // Filtered-to-zero is its own state, not a variant of "no lineup": the chips
   // and the count line stay, only the grid is replaced.
@@ -177,6 +236,54 @@ export function EventBrandGrid({
       </Suspense>
 
       <div className="space-y-3">
+        {/*
+          Search and sort sit ABOVE the chips: on the show floor the booth
+          number or the brand name on the sign is what a visitor has in hand,
+          and the zone chips are the browsing affordance they fall back to.
+        */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/*
+            The shared `Input` wearing the site search's chrome — leading
+            magnifier, `pl-9` — so the two search fields read as the same
+            control. Only the chrome is shared: `components/brands/search-input`
+            itself owns URL filter params and calls `/api/search` for
+            autocomplete, and neither exists for a 123-item client-side list.
+            `type="search"` keeps the platform's own clear affordance, so this
+            needs no second clear button.
+          */}
+          <div className="relative w-full sm:max-w-xs">
+            <Search
+              aria-hidden="true"
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+            />
+            <Input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              aria-label={t('lineupSearchAria')}
+              placeholder={t('lineupSearchPlaceholder')}
+              maxLength={100}
+              className="w-full pl-9"
+            />
+          </div>
+
+          {/*
+            A native `<select>` via `NativeSelect`: two options do not justify a
+            popover, and the native control is keyboard- and screen-reader
+            operable for free, including the platform picker on the phone this
+            page is read on.
+          */}
+          <NativeSelect
+            value={sort}
+            onChange={(event) => setSort(event.target.value as LineupSort)}
+            aria-label={t('lineupSortAria')}
+            className="w-auto"
+          >
+            <option value="recommended">{t('lineupSortRecommended')}</option>
+            <option value="booth">{t('lineupSortBooth')}</option>
+          </NativeSelect>
+        </div>
+
         {areaOptions.length > 0 ? (
           // `gap-2` (8px) rather than the tighter default: chips render at 32px
           // tall, below the 44px touch target, so the clear space between them
@@ -276,12 +383,24 @@ export function EventBrandGrid({
           // A chip combination that matches nothing used to render an empty
           // grid under "0 brands", which looks like a broken page rather than a
           // filter result. The action is the way back — the chips are above the
-          // fold here, but not once the lineup is long. It clears BOTH axes:
-          // with two filters live, resetting only one can still leave zero.
+          // fold here, but not once the lineup is long. It clears ALL axes:
+          // with three filters live, resetting one can still leave zero.
+          //
+          // The copy follows the narrowest live filter: "no brands in this
+          // zone" is simply wrong when the reader mistyped a booth number, and
+          // sending them to another zone would not help.
           <EmptyState
             icon={<SearchX />}
-            title={t('filteredEmptyTitle')}
-            body={t('filteredEmptyBody')}
+            title={
+              normalizedQuery
+                ? t('lineupSearchEmptyTitle')
+                : t('filteredEmptyTitle')
+            }
+            body={
+              normalizedQuery
+                ? t('lineupSearchEmptyBody')
+                : t('filteredEmptyBody')
+            }
             action={
               <Button type="button" variant="secondary" onClick={clearFilters}>
                 {t('clearFilters')}

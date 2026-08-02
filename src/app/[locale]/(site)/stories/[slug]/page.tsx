@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { ChevronRight } from 'lucide-react'
@@ -10,7 +11,7 @@ import {
 } from '@/lib/services/stories'
 import { FaqBlock } from '@/components/stories/faq-block'
 import { SeriesNav } from '@/components/stories/series-nav'
-import { toStoryIsoDate } from '@/components/stories/story-date'
+import { formatStoryDate, toStoryIsoDate } from '@/components/stories/story-date'
 import { ViewItemListTracker } from '@/components/analytics/view-item-list-tracker'
 import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
 import { extractBrandSlugs } from '@/lib/mdx/extract-brand-slugs'
@@ -64,10 +65,49 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     ['zh-TW'],
   )
 
+  // Per-story share card. Every page currently shares the site-wide default
+  // from `src/app/opengraph-image.tsx`, so a story link in a group chat looks
+  // identical to a link to the homepage. When the story declares a hero image,
+  // that image becomes the card on both networks.
+  //
+  // `openGraph` is redeclared in full rather than patched: Next merges metadata
+  // shallowly at the top level, so naming the key here replaces the locale
+  // layout's whole object (siteName, type, locale). `/brands/[slug]` restates
+  // the same fields for the same reason. Both keys are omitted entirely when
+  // there is no hero image, which is what leaves the inherited default intact.
+  const heroImage = story.entry.frontmatter.heroImage
+  const ogLocale = locale === 'en' ? 'en_US' : 'zh_TW'
+
   return {
     title: story.entry.frontmatter.title,
     description: story.entry.frontmatter.description,
     alternates: { canonical, languages },
+    ...(heroImage
+      ? {
+          openGraph: {
+            siteName: 'Formoria',
+            type: 'article' as const,
+            locale: ogLocale,
+            title: story.entry.frontmatter.title,
+            description: story.entry.frontmatter.description,
+            url: canonical,
+            images: [
+              {
+                url: heroImage,
+                // Falls back to the title here, unlike the in-page `<img>`:
+                // an og:image alt is read in a preview card that carries no
+                // other context, so repeating the title beats an empty string.
+                alt: story.entry.frontmatter.heroImageAlt ?? story.entry.frontmatter.title,
+              },
+            ],
+          },
+          twitter: {
+            title: story.entry.frontmatter.title,
+            description: story.entry.frontmatter.description,
+            images: heroImage,
+          },
+        }
+      : {}),
   }
 }
 
@@ -98,12 +138,16 @@ export default async function StoryPage({ params }: PageProps) {
     description: story.entry.frontmatter.description ?? '',
     path: `/stories/${story.entry.frontmatter.slug}`,
     locale: safeLocale,
+    author: story.entry.frontmatter.author ?? t('byline'),
   })
   // Both are omitted rather than emitted raw when the frontmatter date is
   // missing or unparseable: schema.org date properties must be ISO-8601, and an
   // empty (or JS `Date.toString()`) value is reported as invalid by Google.
   const datePublished = toStoryIsoDate(story.entry.frontmatter.publishedAt)
   const dateModified = toStoryIsoDate(story.entry.frontmatter.updatedAt)
+  // Reader-facing date for the byline. Same formatter the series nav and the
+  // event page's story cards use, so one story never shows two date formats.
+  const publishedLabel = formatStoryDate(story.entry.frontmatter.publishedAt, safeLocale)
   // Mirrors the visible breadcrumb below, so the two never disagree. Same
   // builder every other content route uses (`/brands/[slug]`, `/glossary`).
   const breadcrumbJsonLd = buildBreadcrumbJsonLd(
@@ -120,7 +164,11 @@ export default async function StoryPage({ params }: PageProps) {
   const brandCount = extractBrandSlugs(story.content).length
 
   return (
-    <main className="page-gutter mx-auto w-full max-w-[720px] py-12 md:py-16">
+    // `max-w-screen-xl`, the same container as `/events/[slug]` and the
+    // `/stories` hub. It was a bespoke `max-w-[720px]` — the only hard-coded
+    // page width in the app, and the reason a story read narrower than every
+    // surface that links to it, including its own index.
+    <main className="page-gutter mx-auto w-full max-w-screen-xl py-10 md:py-12">
       <nav aria-label={t('breadcrumbAria')} className="mb-6">
         <ol className="flex items-center gap-1.5 type-card-description">
           <li>
@@ -160,9 +208,70 @@ export default async function StoryPage({ params }: PageProps) {
         {brandCount > 0 ? (
           <ViewItemListTracker listName={`story:${slug}`} itemCount={brandCount} />
         ) : null}
+        {/*
+          Lead image, above the title the way a feature opens in print. Full
+          container width and 16:9 rather than the capped 4:3 used by inline
+          `<Figure>`s: this one is not illustrating a paragraph, it is the
+          story's opening frame, and the wide crop keeps it from eating the
+          fold on a laptop.
+        */}
+        {story.entry.frontmatter.heroImage ? (
+          <div className="relative aspect-[16/9] w-full overflow-hidden rounded-xl border border-border bg-muted">
+            {/*
+              Two renderers, chosen by where the asset lives.
+
+              A path (`/images/…`) is a repo asset: `next/image` can resize it,
+              serve WebP, and emit a srcset, which matters because these are
+              committed PNGs — the current one is a 1.9MB file that would
+              otherwise ship whole as this page's LCP element.
+
+              An absolute URL is author-supplied and remote. `next/image` would
+              need the host in `remotePatterns`, and a story author adding an
+              image must not have to edit `next.config.ts` to make it render, so
+              that case stays a plain `<img>` — the same trade `StoryFigure` and
+              the `img` rule in `storyComponentMap` make.
+
+              Both are `priority`/`fetchPriority="high"` and never lazy: this is
+              the story's LCP element, so deferring it defers the metric itself.
+            */}
+            {story.entry.frontmatter.heroImage.startsWith('/') ? (
+              <Image
+                src={story.entry.frontmatter.heroImage}
+                alt={story.entry.frontmatter.heroImageAlt ?? ''}
+                fill
+                priority
+                sizes="(max-width: 1280px) 100vw, 1280px"
+                className="object-cover"
+              />
+            ) : (
+              /* eslint-disable-next-line @next/next/no-img-element -- remote author-supplied URL with no intrinsic size and no `remotePatterns` entry; see the note above. */
+              <img
+                src={story.entry.frontmatter.heroImage}
+                /* Empty alt when the frontmatter omits one: the `<h1>` immediately
+                   below already says what this is, and a screen reader repeating
+                   the title as image text is noise, not description. */
+                alt={story.entry.frontmatter.heroImageAlt ?? ''}
+                decoding="async"
+                fetchPriority="high"
+                className="size-full object-cover"
+              />
+            )}
+          </div>
+        ) : null}
         <header className="space-y-4">
           <h1 className="type-page-title-large">{story.entry.frontmatter.title}</h1>
           <p className="type-page-subtitle">{story.entry.frontmatter.description}</p>
+          {/*
+            Byline. `author` is optional in frontmatter and falls back to the
+            editorial team rather than rendering nothing: an article with no
+            visible author reads as machine output, which is the opposite of
+            what a story is for. The published date sits beside it because a
+            byline without one invites "is this still true?".
+          */}
+          <p className="type-caption">
+            {story.entry.frontmatter.author ?? t('byline')}
+            {publishedLabel ? ` · ${publishedLabel}` : ''}
+          </p>
         </header>
         {/*
           No `prose` classes: the Tailwind typography plugin is not installed,

@@ -106,6 +106,20 @@ describe('story content brand slugs (fixture coverage)', () => {
       '',
       '</BrandRow>',
       '',
+      // `BrandLine` is the compact list row. It links to a brand exactly like a
+      // card does, so it must feed both this guard and the story page's
+      // `view_item_list` count — a shortcode the extractor cannot see is a
+      // brand that silently escapes the CI check and under-reports analytics.
+      '<BrandList>',
+      '',
+      '<BrandLine slug="paper-mill-line" booth="K3-014" note="Booth is a string." />',
+      '',
+      '</BrandList>',
+      '',
+      // Guards the word boundary: a longer tag starting with the same prefix
+      // must NOT match.
+      '<BrandLineFoo slug="not-a-real-shortcode" />',
+      '',
       // `notes` before `slugs`, with a `>` inside a note value: a naive
       // `[^>]*?` prefix stops at that `>` and drops the whole grid.
       '<BrandGrid notes={{ "tainan-soy": "2020 > 2024" }} slugs={["tainan-soy", "paper-mill"]} />',
@@ -114,6 +128,7 @@ describe('story content brand slugs (fixture coverage)', () => {
     expect(extractBrandSlugs(source)).toEqual([
       'molasses',
       'yingge-kiln',
+      'paper-mill-line',
       'tainan-soy',
       'paper-mill',
     ])

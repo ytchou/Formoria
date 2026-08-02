@@ -82,7 +82,7 @@ test.describe('Event detail deep', () => {
     // `count()`. Expanding first makes the counts below the WHOLE lineup, which is what
     // the `role=status` line reports — otherwise the two disagree by construction.
     // `\d+` in the name is what separates this from the "顯示全部品牌" filter reset.
-    const showAll = lineup.getByRole('button', { name: /^顯示全部 \d+ 個品牌$/ });
+    const showAll = lineup.getByRole('button', { name: /^顯示其餘 \d+ 個品牌$/ });
     if ((await showAll.count()) > 0) {
       await showAll.click();
       await expect(showAll).toBeHidden();

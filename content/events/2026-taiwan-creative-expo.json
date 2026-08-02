@@ -2,10 +2,10 @@
   "slug": "2026-taiwan-creative-expo",
   "name": "2026 臺灣文博會 品牌商展",
   "nameEn": "Creative Expo Taiwan 2026 — Creative Brands",
-  "summary": "臺灣最大的文化品牌年度展會，8 月 6 至 12 日在南港展覽館一館登場，逾 870 個品牌參展。免費入場，可線上預約或現場排隊。以下是本站收錄品牌中，確認參展的 123 個攤位。",
-  "summaryEn": "Taiwan's largest annual cultural-brand showcase, 6–12 August at Taipei Nangang Exhibition Center, Hall 1. Free entry by online reservation or walk-in queue. Below are the 123 exhibiting booths held by brands already in our directory.",
-  "description": "臺灣文博會是臺灣規模最大的文化品牌年度展會，2026 年的品牌商展於 8 月 6 日至 12 日在臺北南港展覽館一館一樓舉行，逾 870 個品牌、1,200 個攤位參展。\n\n展場分為三個展區：IP 授權展區、文創品牌展區、新銳品牌展區。本站收錄的 123 個品牌裡，121 個在文創品牌與新銳品牌展區，只有 2 個在 IP 授權展區，該區以角色授權、圖像應用與國際代理為主，與本站收錄的實體商品品牌性質不同。\n\n8 月 6 日至 7 日為專業買家日（10:00–18:00），一般民眾可於 8 月 8 日至 9 日（10:00–20:00）及 8 月 10 日至 12 日（10:00–18:00）入場。免費參觀，今年首度採線上預約與現場排隊雙軌制，未預約者仍可現場排隊入場。\n\n關於下列名單：參展攤位為付費租用，主辦單位僅做資格審查，因此「有參展」不等於本站的推薦或背書。唯一的例外是新銳品牌展區，該區 100 個攤位由評審依市場力、創新力與設計力評選產生，是實質的篩選結果。",
-  "descriptionEn": "Creative Expo Taiwan is the country's largest annual showcase for cultural and creative brands. Its 2026 brand trade show runs 6–12 August at Taipei Nangang Exhibition Center, Hall 1, with over 870 brands across more than 1,200 booths.\n\nThe floor is split into three zones: IP Licensing, Cultural & Creative Brands, and Start-ups. Of the 123 directory brands exhibiting, 121 are in the two brand zones and only 2 are in IP Licensing, which deals in character licensing, illustration rights, and international agency work rather than the physical product brands Formoria lists.\n\n6–7 August are trade-buyer days (10:00–18:00). General admission runs 8–9 August (10:00–20:00) and 10–12 August (10:00–18:00). Entry is free, and for the first time there are two ways in: reserve a time slot online, or queue on the day.\n\nA note on the list below: booths are paid, and the organizer screens for eligibility rather than curating. Exhibiting is therefore not an endorsement from us. The one exception is the Start-ups zone, where all 100 booths are awarded by a jury scoring market strength, innovation, and design.",
+  "summary": "臺灣最大的文化品牌年度展會，8 月 6 至 12 日在南港展覽館一館登場，逾 870 個品牌參展。",
+  "summaryEn": "Taiwan's largest annual cultural-brand showcase, 6–12 August at Taipei Nangang Exhibition Center, Hall 1, with over 870 brands exhibiting.",
+  "description": "2026 臺灣文博會由文化部主辦，國立臺灣工藝研究發展中心與文化內容策進院共同合辦，是台灣規模最大的文化創意內容展示、產業交流與市場媒合平台。今年的年度主題是「第零位元 Bit Zero」，談的是在演算法可以無限複製內容的時代裡，什麼才是無法被取代的原創。\n\n展會分成兩個部分：文化策展在空總臺灣當代文化實驗場的古蹟大樓，品牌商展則在臺北南港展覽館一館。這一頁整理的是品牌商展，逾 870 個品牌、1,200 個攤位，分為 IP 授權展區、文創品牌展區與新銳品牌展區。2025 年的文博會吸引 65 萬人次入場，專業買家超過 2.8 萬人次。\n\n三個展區裡，攤位都是付費租用，主辦單位做的是資格審查而非策展篩選；唯一的例外是新銳品牌展區，該區 100 個攤位由評審依市場力、創新力與設計力評選產生。本站收錄的 123 個品牌中，121 個在文創品牌與新銳品牌展區，只有 2 個在 IP 授權展區。",
+  "descriptionEn": "Creative Expo Taiwan 2026 is organized by the Ministry of Culture with the National Taiwan Craft Research and Development Center and TAICCA, and describes itself as Taiwan's leading platform for showcasing cultural and creative content, industry exchange, and market matchmaking. This year's theme is 「Bit Zero」, asking what counts as irreplaceable originality in an age when algorithms can replicate content without limit.\n\nThe expo runs in two parts: the curated cultural exhibition at the C-LAB heritage building, and the brand trade show at Taipei Nangang Exhibition Center, Hall 1. This page covers the trade show: over 870 brands across more than 1,200 booths, split into IP Licensing, Cultural & Creative Brands, and Start-ups. The 2025 edition drew 650,000 visitors and more than 28,000 professional attendees.\n\nBooths in all three zones are paid rentals and the organizer screens for eligibility rather than curating; the one exception is the Start-ups zone, where all 100 booths are awarded by a jury scoring market strength, innovation, and design. Of the 123 directory brands exhibiting, 121 are in the two brand zones and only 2 are in IP Licensing.",
   "startsOn": "2026-08-06",
   "endsOn": "2026-08-12",
   "venueName": "臺北南港展覽館一館 1 樓",
@@ -40,7 +40,7 @@
       "sortOrder": 2
     },
     {
-      "slug": "y",
+      "slug": "yuyu",
       "booth": "K1-005",
       "area": "文創品牌展區",
       "areaEn": "Cultural & Creative Brands",
@@ -236,7 +236,7 @@
       "sortOrder": 30
     },
     {
-      "slug": "chi",
+      "slug": "chi-bee",
       "booth": "K1-041",
       "area": "文創品牌展區",
       "areaEn": "Cultural & Creative Brands",
@@ -292,14 +292,14 @@
       "sortOrder": 38
     },
     {
-      "slug": "tj",
+      "slug": "tj-co",
       "booth": "K1-064",
       "area": "文創品牌展區",
       "areaEn": "Cultural & Creative Brands",
       "sortOrder": 39
     },
     {
-      "slug": "sci-science-factory",
+      "slug": "mr-sci-science-factory",
       "booth": "K2-001",
       "area": "文創品牌展區",
       "areaEn": "Cultural & Creative Brands",
@@ -467,7 +467,7 @@
       "sortOrder": 63
     },
     {
-      "slug": "j-studio",
+      "slug": "v-j-studio",
       "booth": "K2-037",
       "area": "文創品牌展區",
       "areaEn": "Cultural & Creative Brands",
@@ -509,7 +509,7 @@
       "sortOrder": 69
     },
     {
-      "slug": "essence-design",
+      "slug": "essence-design-craft",
       "booth": "K2-051",
       "area": "文創品牌展區",
       "areaEn": "Cultural & Creative Brands",
@@ -565,14 +565,14 @@
       "sortOrder": 77
     },
     {
-      "slug": "eggplants",
+      "slug": "mr-eggplants",
       "booth": "K3-019",
       "area": "文創品牌展區",
       "areaEn": "Cultural & Creative Brands",
       "sortOrder": 78
     },
     {
-      "slug": "s-studio",
+      "slug": "bulan-s-studio",
       "booth": "K3-025",
       "area": "文創品牌展區",
       "areaEn": "Cultural & Creative Brands",
@@ -649,7 +649,7 @@
       "sortOrder": 89
     },
     {
-      "slug": "ng",
+      "slug": "pang",
       "booth": "S-007",
       "area": "新銳品牌展區",
       "areaEn": "Start-ups",
@@ -691,7 +691,7 @@
       "sortOrder": 95
     },
     {
-      "slug": "nichi",
+      "slug": "tan-nichi",
       "booth": "S-016",
       "area": "新銳品牌展區",
       "areaEn": "Start-ups",
@@ -761,7 +761,7 @@
       "sortOrder": 105
     },
     {
-      "slug": "610-asteroid-b",
+      "slug": "b-610-asteroid-b-610",
       "booth": "S-034",
       "area": "新銳品牌展區",
       "areaEn": "Start-ups",
@@ -824,7 +824,7 @@
       "sortOrder": 114
     },
     {
-      "slug": "s-cat",
+      "slug": "chou-s-cat",
       "booth": "S-083",
       "area": "新銳品牌展區",
       "areaEn": "Start-ups",
@@ -879,5 +879,9 @@
       "areaEn": "IP Licensing",
       "sortOrder": 122
     }
-  ]
+  ],
+  "scheduleNote": "專業買家日：8/6（四）–8/7（五）10:00–18:00，不開放一般民眾\n一般民眾日：8/8（六）–8/9（日）10:00–20:00，8/10（一）–8/12（三）10:00–18:00",
+  "scheduleNoteEn": "Trade buyers only: Thu 6 – Fri 7 Aug, 10:00–18:00\nGeneral admission: Sat 8 – Sun 9 Aug, 10:00–20:00; Mon 10 – Wed 12 Aug, 10:00–18:00",
+  "admissionNote": "免費入場。今年首度採線上預約與現場排隊雙軌制，每時段約 3,000 個名額，一人一日限預約一個場次，不接受當日預約或改期；未預約者仍可現場排隊入場。",
+  "admissionNoteEn": "Free entry. New this year: reserve a time slot online or queue on the day. Roughly 3,000 slots per time block, one slot per person per day, with no same-day booking and no changes. Walk-ups can still queue."
 }

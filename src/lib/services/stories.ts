@@ -21,6 +21,24 @@ export type StoryEntry = {
     series?: string;
     seriesTitle?: string;
     seriesOrder?: number;
+    /** Byline. Defaults to the editorial team when a story omits it. */
+    author?: string;
+    /**
+     * Absolute URL of the story's lead image. Doubles as the page's own
+     * `og:image` / `twitter:image`, replacing the site-wide default card that
+     * every other page shares — a share of a story should look like that
+     * story. Absent means the default stays.
+     *
+     * The host must be on `ALLOWED_IMAGE_HOSTS`
+     * (`src/lib/images/allowed-image-hosts.ts`), which backs the CSP `img-src`
+     * allowlist; anything else is blocked by the browser at render time.
+     */
+    heroImage?: string;
+    /**
+     * Alt text for `heroImage`. Absent renders `alt=""` (decorative) rather
+     * than echoing the `<h1>` a screen reader is about to read anyway.
+     */
+    heroImageAlt?: string;
     sources: string[];
     faq: Array<{ q: string; a: string }>;
   };
@@ -98,6 +116,9 @@ const parseStoryFile = cache((slug: string): StoryDetailResult | null => {
       series: data.series != null ? String(data.series) : undefined,
       seriesTitle: data.seriesTitle != null ? String(data.seriesTitle) : undefined,
       seriesOrder: typeof data.seriesOrder === 'number' ? data.seriesOrder : undefined,
+      author: data.author != null ? String(data.author) : undefined,
+      heroImage: data.heroImage != null ? String(data.heroImage) : undefined,
+      heroImageAlt: data.heroImageAlt != null ? String(data.heroImageAlt) : undefined,
       sources: Array.isArray(data.sources) ? data.sources : [],
       faq: Array.isArray(data.faq) ? data.faq : [],
     },

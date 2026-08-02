@@ -24,8 +24,8 @@ type BrandRowProps = {
  *
  * Mobile is the house scroller idiom (see `brands/image-carousel.tsx`): a
  * snapping horizontal overflow, no arrows, no dots, no JS, no state. At `sm`
- * and up it becomes a 3-column grid and the cards auto-size to ~229px inside
- * the 720px prose column.
+ * and up it becomes a 3-column grid and the cards auto-size to the container —
+ * ~389px each now that the story page runs the standard `max-w-screen-xl`.
  */
 export function BrandRow({ children }: BrandRowProps) {
   return (

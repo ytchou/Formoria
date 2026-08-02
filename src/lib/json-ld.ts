@@ -203,11 +203,14 @@ export function buildArticleJsonLd({
   description,
   path,
   locale,
+  author,
 }: {
   title: string;
   description: string;
   path: string;
   locale?: string;
+  /** Visible byline, when the story names one. Falls back to the publisher. */
+  author?: string;
 }): JsonLdObject {
   const siteUrl = getSiteUrl();
   const absoluteUrl = `${siteUrl}${path.startsWith("/") ? path : `/${path}`}`;
@@ -219,6 +222,12 @@ export function buildArticleJsonLd({
     description,
     inLanguage: toInLanguage(locale),
     mainEntityOfPage: absoluteUrl,
+    // Mirrors the visible byline. An Article with a printed author and no
+    // structured one is the inconsistency Google's own Article guidance calls
+    // out; the fallback matches the page's `stories.byline` default.
+    author: author
+      ? { "@type": "Person", name: author }
+      : buildOrganizationJsonLd(locale),
     publisher: buildOrganizationJsonLd(locale),
     isPartOf: buildWebSiteJsonLd(locale === "zh-TW" ? "zh-TW" : "en"),
   };

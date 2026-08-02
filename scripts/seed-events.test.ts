@@ -104,6 +104,32 @@ describe('parseEventFile', () => {
     expect(parsed.row.status).toBe('draft')
     expect(parsed.brands).toBeNull()
   })
+
+  it('parseEventFile_preserves_schedule_note_newlines: multi-line visitor info survives the mapper', () => {
+    // `scheduleNote` is the one visitor-info field authored as multiple lines
+    // (one per day band), and the detail page renders it with
+    // `whitespace-pre-line`. `optionalString` trims the ends only, so the
+    // interior newlines must come through untouched — collapsing them would
+    // merge the trade-buyer-only band into the general-admission one.
+    const scheduleNote = '8/6-8/7 專業買家日\n8/8-8/9 一般民眾日'
+    const parsed = parseEventFile(
+      'schedule.json',
+      makeFile({
+        scheduleNote: `\n${scheduleNote}\n`,
+        scheduleNoteEn: 'Trade buyers 6-7 Aug\nGeneral admission 8-9 Aug',
+      }),
+    )
+
+    expect(parsed.row.schedule_note).toBe(scheduleNote)
+    expect(parsed.row.schedule_note_en).toBe(
+      'Trade buyers 6-7 Aug\nGeneral admission 8-9 Aug',
+    )
+    // Unset siblings stay null rather than becoming '' — every event other than
+    // the Creative Expo has all four pairs absent.
+    expect(parsed.row.admission_note).toBeNull()
+    expect(parsed.row.travel_note).toBeNull()
+    expect(parsed.row.lineup_note).toBeNull()
+  })
 })
 
 describe('planEventSeed', () => {
