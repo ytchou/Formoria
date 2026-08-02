@@ -24,6 +24,23 @@ describe('deriveOfficialWebsite', () => {
   it('returns null for no URLs', () => {
     expect(deriveOfficialWebsite([])).toBeNull()
   })
+
+  // Aggregators classify as null on purpose (so the scraper harvests them),
+  // which used to make them eligible to become the brand's own website.
+  it('skips a link aggregator in favour of the real brand domain', () => {
+    expect(deriveOfficialWebsite(['https://linktr.ee/brand', 'https://brand.com/about'])).toBe(
+      'https://brand.com',
+    )
+  })
+
+  it('returns null when a link aggregator is the only candidate', () => {
+    expect(deriveOfficialWebsite(['https://lit.link/brand'])).toBeNull()
+  })
+
+  it('never returns a Threads URL, on either host', () => {
+    expect(deriveOfficialWebsite(['https://www.threads.com/@brand'])).toBeNull()
+    expect(deriveOfficialWebsite(['https://www.threads.net/@brand'])).toBeNull()
+  })
 })
 
 describe('deriveScrapedBrandName', () => {

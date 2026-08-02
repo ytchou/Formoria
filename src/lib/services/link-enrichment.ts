@@ -1,5 +1,6 @@
 import type { Brand, BrandFlatLinkColumns } from '@/lib/types'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
+import { isNonBrandSiteHost } from './enrich-phases/scraper/input-detector'
 
 const MAX_PRODUCT_PHOTOS = 5
 
@@ -41,7 +42,7 @@ export function linkColumnFor(field: LinkField): LinkColumn {
 const CORPORATE_ACCOUNT_PATTERNS = [
   /instagram\.com\/ilovepinkoi/i,
   /facebook\.com\/ilovepinkoi/i,
-  /threads\.net\/@ilovepinkoi/i,
+  /threads\.(?:net|com)\/@ilovepinkoi/i,
   /instagram\.com\/shopee_tw/i,
   /facebook\.com\/shopee\.tw/i,
 ]
@@ -83,7 +84,10 @@ const FACEBOOK_PROFILE_URL_PATTERN = new RegExp(
 
 const URL_TO_LINK_COLUMN: Array<{ pattern: RegExp; column: LinkColumn }> = [
   { pattern: /instagram\.com\/[^/?#]+\/?$/i, column: 'social_instagram' },
-  { pattern: /threads\.net\/@[^/?#]+\/?$/i, column: 'social_threads' },
+  // Both Threads hosts: a threads.com URL that matched nothing here fell
+  // through `classifySubmittedUrl` into `purchaseWebsite`, which is how the
+  // platform root ended up standing in for 22 brands' own websites.
+  { pattern: /threads\.(?:net|com)\/@[^/?#]+\/?$/i, column: 'social_threads' },
   { pattern: FACEBOOK_PROFILE_URL_PATTERN, column: 'social_facebook' },
   { pattern: /pinkoi\.com\/store\/[^/?#]+/i, column: 'purchase_pinkoi' },
   { pattern: /shopee\.tw\/[^/?#]+$/i, column: 'purchase_shopee' },
@@ -109,6 +113,56 @@ export function hasLinkValue(value: string | null | undefined): value is string 
 
 function isCorporateAccount(url: string): boolean {
   return CORPORATE_ACCOUNT_PATTERNS.some((pattern) => pattern.test(url))
+}
+
+const THREADS_LEGACY_HOST = 'threads.net'
+
+/**
+ * Rewrites a threads.net hostname to threads.com, preserving path and query.
+ * Meta migrated the platform and threads.net now redirects, so threads.com is
+ * the canonical destination — writing it means stored links stop costing every
+ * reader a redirect hop, and the two hosts stop looking like two distinct
+ * values to change detection.
+ *
+ * Only the host changes: `www.threads.net/@brand?x=1` becomes
+ * `www.threads.com/@brand?x=1`. Anything that is not a threads.net URL —
+ * including a malformed string or a bare handle — is returned unchanged. This
+ * never throws.
+ */
+export function canonicalizeThreadsUrl(url: string): string {
+  try {
+    const parsed = new URL(url)
+    const hostname = parsed.hostname.toLowerCase()
+    if (hostname !== THREADS_LEGACY_HOST && !hostname.endsWith(`.${THREADS_LEGACY_HOST}`)) {
+      return url
+    }
+
+    const subdomain = hostname.slice(0, hostname.length - THREADS_LEGACY_HOST.length)
+    parsed.hostname = `${subdomain}threads.com`
+    return parsed.toString()
+  } catch {
+    return url
+  }
+}
+
+/**
+ * Per-field cleanup applied to a scraped value before it is compared with, and
+ * possibly written over, what the row already holds.
+ *
+ * `purchaseWebsite` is dropped rather than rewritten: a social, marketplace, or
+ * link-aggregator host is not the brand's own site, and once one lands in that
+ * column the image phase issues `site:{platform} {name}` — searching the whole
+ * platform instead of the brand. Returning null here means the existing value
+ * survives untouched; we decline to write, we do not clobber.
+ */
+function normalizeScrapedLinkValue(
+  field: LinkField,
+  value: string | null | undefined
+): string | null | undefined {
+  if (!hasLinkValue(value)) return value
+  if (field === 'socialThreads') return canonicalizeThreadsUrl(value)
+  if (field === 'purchaseWebsite' && isNonBrandSiteHost(value)) return null
+  return value
 }
 
 export function extractLinksFromUrls(urls: string[]): Partial<BrandFlatLinkColumns> {
@@ -149,6 +203,14 @@ export function classifySubmittedUrl(url: string): Partial<Record<LinkField, str
     return {}
   }
 
+  // Last resort is "it must be their own website" — but a platform URL that no
+  // pattern above recognised (a Threads post rather than a profile, a link
+  // aggregator, a marketplace search page) is not one. Claiming it here is what
+  // seeded `purchase_website` with hosts the image phase then searches whole.
+  if (isNonBrandSiteHost(url)) {
+    return {}
+  }
+
   return { purchaseWebsite: url }
 }
 
@@ -161,7 +223,10 @@ export function buildLinkEnrichPatch(
   for (const field of LINK_FIELDS) {
     const column = linkColumnFor(field)
     const existingValue = brand[column]
-    const scrapedValue = getScrapedLinkValue(scraped, field, column)
+    const scrapedValue = normalizeScrapedLinkValue(
+      field,
+      getScrapedLinkValue(scraped, field, column)
+    )
 
     if (hasLinkValue(existingValue) && isCorporateAccount(existingValue)) {
       patch[column] = hasLinkValue(scrapedValue) && !isCorporateAccount(scrapedValue)

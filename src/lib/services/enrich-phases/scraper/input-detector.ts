@@ -5,7 +5,12 @@ import type { InputType } from './strategies/types'
 const SOCIAL_HOSTS = [
   'instagram.com',
   'facebook.com',
+  // Meta moved Threads to threads.com and threads.net now redirects there, so
+  // threads.com is canonical — but both must classify as social. Stored rows
+  // and links in the wild still carry the old host, and a threads.net URL that
+  // fell through here was treated as a brand's own official website.
   'threads.net',
+  'threads.com',
   'tiktok.com',
   'x.com',
   'twitter.com',
@@ -25,8 +30,59 @@ const ECOMMERCE_HOSTS = [
   'shopify.com',
 ]
 
+/**
+ * Link-in-bio aggregators. These are NOT a brand's own site, but they are
+ * deliberately kept out of `SOCIAL_HOSTS` and `ECOMMERCE_HOSTS` — do not "tidy"
+ * them in there.
+ *
+ * Membership in those two arrays makes `classifyByDomain` return non-null,
+ * which routes the URL through `selectStrategy` to `PlatformAdapterStrategy`.
+ * That strategy looks for a matching adapter, finds none for an aggregator, and
+ * returns `emptyResult()` — we would extract ZERO links from exactly the pages
+ * whose only purpose is to list a brand's links. Classifying as `null` instead
+ * routes them to `SinglePageStrategy`, which runs `extractSocialLinks` /
+ * `extractPurchaseLinks` and harvests the real URLs.
+ *
+ * `isNonBrandSiteHost` is therefore the only consumer: it keeps an aggregator
+ * out of `purchase_website` and out of `site:` search filters while leaving the
+ * scrape path untouched.
+ */
+const LINK_AGGREGATOR_HOSTS = [
+  'linktr.ee',
+  'lit.link',
+  'biosites.com',
+  'bio.site',
+  'beacons.ai',
+  'taplink.cc',
+  'potato.link',
+  'carrd.co',
+  'bento.me',
+  'solo.to',
+  'allmylinks.com',
+  'msha.ke',
+]
+
 function hostnameMatches(hostname: string, domain: string): boolean {
   return hostname === domain || hostname.endsWith(`.${domain}`)
+}
+
+/**
+ * True when the URL's host is a platform rather than a brand's own site: a
+ * social network, a marketplace, or a link aggregator.
+ *
+ * The read-side guard for every place a host stands in for the brand — the
+ * `site:` image query and the `purchase_website` column. A malformed URL
+ * returns false: unknown, not blocked.
+ */
+export function isNonBrandSiteHost(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase()
+    return [...SOCIAL_HOSTS, ...ECOMMERCE_HOSTS, ...LINK_AGGREGATOR_HOSTS].some((domain) =>
+      hostnameMatches(hostname, domain)
+    )
+  } catch {
+    return false
+  }
 }
 
 export function classifyByDomain(url: string): InputType | null {

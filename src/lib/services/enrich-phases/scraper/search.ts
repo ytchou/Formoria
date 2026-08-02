@@ -1,4 +1,5 @@
 import { productTypeNameZh } from '@/lib/taxonomy/ontology'
+import { isNonBrandSiteHost } from './input-detector'
 import type { ImageQueryInput, QueryTemplate } from './types'
 
 export const SEARCH_DELAY_MS = 1500
@@ -10,10 +11,19 @@ export const DEFAULT_QUERY: QueryTemplate = (name: string) => `${name} 台灣`
  * URL. A malformed value is treated as "no website" rather than guessed at:
  * a wrong `site:` filter returns nothing at all, which is worse than a
  * name-only query.
+ *
+ * A platform host is rejected for the same reason, and this is the load-bearing
+ * guard for it. 22 approved brands hold `threads.com` in `purchase_website`
+ * today (plus two holding a link aggregator), and there is NO backfill planned
+ * — those rows stay until a full pipeline re-run. `site:threads.com {name}`
+ * searches the entire Threads platform rather than the brand, which is strictly
+ * worse than the name query it would replace. Returning null here drops the
+ * brand into the no-website branch and is what makes the missing backfill safe.
  */
 function imageQueryHostname(website: string | null | undefined): string | null {
   const raw = website?.trim()
   if (!raw) return null
+  if (isNonBrandSiteHost(raw)) return null
   try {
     const hostname = new URL(raw).hostname.toLowerCase().replace(/^www\./, '')
     return hostname || null

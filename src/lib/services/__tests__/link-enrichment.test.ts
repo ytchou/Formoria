@@ -3,12 +3,37 @@ import {
   buildImageEnrichPatch,
   buildLinkEnrichPatch,
   buildTextEnrichPatch,
+  canonicalizeThreadsUrl,
   classifySubmittedUrl,
   extractLinksFromUrls,
   hasLinkValue,
   LINK_FIELDS,
   linkColumnFor,
 } from '../link-enrichment'
+
+describe('canonicalizeThreadsUrl', () => {
+  it('rewrites threads.net to threads.com, preserving path and query', () => {
+    expect(canonicalizeThreadsUrl('https://threads.net/@brand')).toBe('https://threads.com/@brand')
+    expect(canonicalizeThreadsUrl('https://www.threads.net/@brand/post?x=1')).toBe(
+      'https://www.threads.com/@brand/post?x=1'
+    )
+  })
+
+  it('leaves a threads.com URL unchanged', () => {
+    expect(canonicalizeThreadsUrl('https://www.threads.com/@brand')).toBe(
+      'https://www.threads.com/@brand'
+    )
+  })
+
+  it('returns non-Threads and malformed values unchanged, never throwing', () => {
+    expect(canonicalizeThreadsUrl('https://brand.com/threads.net')).toBe(
+      'https://brand.com/threads.net'
+    )
+    expect(canonicalizeThreadsUrl('threads.net/@brand')).toBe('threads.net/@brand')
+    expect(canonicalizeThreadsUrl('@brand')).toBe('@brand')
+    expect(canonicalizeThreadsUrl('')).toBe('')
+  })
+})
 
 describe('hasLinkValue', () => {
   it('returns false for null', () => { expect(hasLinkValue(null)).toBe(false) })
@@ -57,17 +82,67 @@ describe('buildLinkEnrichPatch', () => {
 
   it('returns empty patch when all fields match scraped data', () => {
     const brand = {
-      social_instagram: 'https://instagram.com/x', social_threads: 'https://threads.net/x',
+      // threads.com, not .net: the scraped value is canonicalised before the
+      // comparison, so a stored .net would (correctly) produce a patch.
+      social_instagram: 'https://instagram.com/x', social_threads: 'https://threads.com/x',
       social_facebook: 'https://facebook.com/x', purchase_website: 'https://x.com',
       purchase_pinkoi: 'https://pinkoi.com/x', purchase_shopee: 'https://shopee.tw/x',
     }
     const scraped = {
-      socialInstagram: 'https://instagram.com/x', socialThreads: 'https://threads.net/x',
+      socialInstagram: 'https://instagram.com/x', socialThreads: 'https://threads.com/x',
       socialFacebook: 'https://facebook.com/x', purchaseWebsite: 'https://x.com',
       purchasePinkoi: 'https://pinkoi.com/x', purchaseShopee: 'https://shopee.tw/x',
     }
     const patch = buildLinkEnrichPatch(brand, scraped)
     expect(Object.keys(patch)).toHaveLength(0)
+  })
+
+  it('canonicalises a scraped threads.net URL onto threads.com', () => {
+    const brand = {
+      social_instagram: null, social_threads: null,
+      social_facebook: null, purchase_website: null,
+      purchase_pinkoi: null, purchase_shopee: null,
+    }
+    const scraped = {
+      socialInstagram: null, socialThreads: 'https://www.threads.net/@brand',
+      socialFacebook: null, purchaseWebsite: null,
+      purchasePinkoi: null, purchaseShopee: null,
+    }
+    const patch = buildLinkEnrichPatch(brand, scraped)
+    expect(patch.social_threads).toBe('https://www.threads.com/@brand')
+  })
+
+  // Once a platform host lands in purchase_website the image phase issues
+  // `site:{host} {name}` and searches the whole platform, not the brand.
+  it.each([
+    'https://www.threads.com/@brand',
+    'https://linktr.ee/brand',
+    'https://shopee.tw/brand',
+  ])('refuses to write the platform URL %s into purchase_website', (purchaseWebsite) => {
+    const brand = {
+      social_instagram: null, social_threads: null,
+      social_facebook: null, purchase_website: null,
+      purchase_pinkoi: null, purchase_shopee: null,
+    }
+    const patch = buildLinkEnrichPatch(brand, {
+      socialInstagram: null, socialThreads: null, socialFacebook: null,
+      purchaseWebsite, purchasePinkoi: null, purchaseShopee: null,
+    })
+    expect(patch.purchase_website).toBeUndefined()
+  })
+
+  it('declines rather than clobbers: an existing website survives a platform scrape', () => {
+    const brand = {
+      social_instagram: null, social_threads: null,
+      social_facebook: null, purchase_website: 'https://brand.com',
+      purchase_pinkoi: null, purchase_shopee: null,
+    }
+    const patch = buildLinkEnrichPatch(brand, {
+      socialInstagram: null, socialThreads: null, socialFacebook: null,
+      purchaseWebsite: 'https://www.threads.com/@brand',
+      purchasePinkoi: null, purchaseShopee: null,
+    })
+    expect(patch.purchase_website).toBeUndefined()
   })
 
   it('updates existing fields when scraped data differs', () => {
@@ -216,6 +291,21 @@ describe('classifySubmittedUrl', () => {
   it('discards corporate account URLs (returns empty)', () => {
     const result = classifySubmittedUrl('https://www.instagram.com/ilovepinkoi/')
     expect(result).toEqual({})
+  })
+
+  it('classifies a threads.com profile to socialThreads, not purchaseWebsite', () => {
+    expect(classifySubmittedUrl('https://www.threads.com/@mybrand')).toEqual({
+      socialThreads: 'https://www.threads.com/@mybrand',
+    })
+  })
+
+  // The fallback is "it must be their own website" — a platform URL no profile
+  // pattern matched is not, and claiming it seeded the bad purchase_website rows.
+  it.each([
+    'https://www.threads.com/@brand/post/abc',
+    'https://linktr.ee/brand',
+  ])('does not claim the platform URL %s as a website', (url) => {
+    expect(classifySubmittedUrl(url)).toEqual({})
   })
 })
 

@@ -1,11 +1,16 @@
 import { normalizeToRootUrl } from '@/lib/url'
 import type { Database } from '@/lib/supabase/database.types'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { buildLinkEnrichPatch, extractLinksFromUrls } from '../link-enrichment'
+import {
+  buildLinkEnrichPatch,
+  canonicalizeThreadsUrl,
+  extractLinksFromUrls,
+  hasLinkValue,
+} from '../link-enrichment'
 import { cleanBrandName, isValidBrandName } from '../brand-cleanup'
 import { finishSearchAudit, startSearchAudit } from '../search-results'
 import { MAX_SCRAPE_URLS_PER_BRAND, scrapeBrandUrls, type ScrapeBrandUrlsOptions } from './scraper'
-import { classifyByDomain } from './scraper/input-detector'
+import { classifyByDomain, isNonBrandSiteHost } from './scraper/input-detector'
 import { mergeScrapedData } from './scraper/merge'
 import type { PhaseResult } from '@/lib/types/curation'
 import type { ScrapedBrandData, ScrapedImageSource } from '@/lib/types/scraper'
@@ -87,19 +92,37 @@ function prioritizeScrapeUrls(urls: string[]): string[] {
  * First URL that is neither social nor marketplace, normalised to its root.
  * Also used by the batch image-search phase, which runs before this one and
  * therefore has no stored website for a freshly submitted brand.
+ *
+ * `classifyByDomain` alone is not enough: link aggregators deliberately
+ * classify as `null` so the scraper harvests their links (see
+ * `LINK_AGGREGATOR_HOSTS`), which also made a linktr.ee URL eligible to become
+ * the brand's "official website". `isNonBrandSiteHost` is the wider test.
  */
 export function deriveOfficialWebsite(urls: string[]): string | null {
-  const url = urls.find((u) => classifyByDomain(u) === null)
+  const url = urls.find((u) => classifyByDomain(u) === null && !isNonBrandSiteHost(u))
   return normalizeToRootUrl(url ?? null)
 }
 
 function normalizeScrapedData(scrapedData: EnrichScrapedData): EnrichScrapedData {
+  const socialThreads = scrapedData.social_threads ?? scrapedData.socialThreads
+  const purchaseWebsite = scrapedData.purchase_website ?? scrapedData.purchaseWebsite
+  // threads.net redirects to threads.com; store the destination.
+  const canonicalThreads = hasLinkValue(socialThreads)
+    ? canonicalizeThreadsUrl(socialThreads)
+    : socialThreads
+  // A platform host is not the brand's own site, and downstream phases read
+  // this value as one — the image search turns it into `site:{host} {name}`.
+  const brandWebsite =
+    hasLinkValue(purchaseWebsite) && isNonBrandSiteHost(purchaseWebsite) ? null : purchaseWebsite
+
   return {
     ...scrapedData,
     social_instagram: scrapedData.social_instagram ?? scrapedData.socialInstagram,
-    social_threads: scrapedData.social_threads ?? scrapedData.socialThreads,
+    social_threads: canonicalThreads,
+    socialThreads: canonicalThreads,
     social_facebook: scrapedData.social_facebook ?? scrapedData.socialFacebook,
-    purchase_website: scrapedData.purchase_website ?? scrapedData.purchaseWebsite,
+    purchase_website: brandWebsite,
+    purchaseWebsite: brandWebsite,
     purchase_pinkoi: scrapedData.purchase_pinkoi ?? scrapedData.purchasePinkoi,
     purchase_shopee: scrapedData.purchase_shopee ?? scrapedData.purchaseShopee,
   }

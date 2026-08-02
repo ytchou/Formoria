@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { classifyByDomain, detectInputType } from '../input-detector'
+import { classifyByDomain, detectInputType, isNonBrandSiteHost } from '../input-detector'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -12,6 +12,41 @@ describe('classifyByDomain', () => {
     expect(classifyByDomain('https://www.instagram.com/brand')).toBe('social')
     expect(classifyByDomain('https://pinkoi.com/store/x')).toBe('e-commerce')
     expect(classifyByDomain('https://my-brand.com')).toBeNull()
+  })
+
+  it('treats both Threads hosts as social', () => {
+    expect(classifyByDomain('https://www.threads.net/@brand')).toBe('social')
+    expect(classifyByDomain('https://www.threads.com/@brand')).toBe('social')
+  })
+
+  // Aggregators must stay unclassified so they route to SinglePageStrategy and
+  // get their links harvested — PlatformAdapterStrategy has no adapter for them
+  // and would return an empty result.
+  it('leaves link aggregators unclassified', () => {
+    expect(classifyByDomain('https://linktr.ee/brand')).toBeNull()
+    expect(classifyByDomain('https://bio.site/brand')).toBeNull()
+  })
+})
+
+describe('isNonBrandSiteHost', () => {
+  it.each([
+    'https://www.instagram.com/brand',
+    'https://www.threads.com/@brand',
+    'https://www.threads.net/@brand',
+    'https://shopee.tw/brand',
+    'https://linktr.ee/brand',
+    'https://bio.site/brand',
+  ])('is true for the platform URL %s', (url) => {
+    expect(isNonBrandSiteHost(url)).toBe(true)
+  })
+
+  it('is false for a brand’s own domain', () => {
+    expect(isNonBrandSiteHost('https://www.gooddays.tw/collections/all')).toBe(false)
+  })
+
+  it('is false for a malformed URL — unknown, not blocked', () => {
+    expect(isNonBrandSiteHost('gooddays.tw')).toBe(false)
+    expect(isNonBrandSiteHost('')).toBe(false)
   })
 })
 

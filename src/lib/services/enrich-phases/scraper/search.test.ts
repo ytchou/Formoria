@@ -65,6 +65,24 @@ describe('buildImageQueryVariants', () => {
       buildImageQueryVariants({ brandName: '好日子', productType: 'home', purchaseWebsite: '   ' })
     ).toEqual(['"好日子" 居家生活 商品'])
   })
+
+  // 22 approved brands hold threads.com in purchase_website and no backfill is
+  // planned, so the read path has to refuse it: `site:threads.com 好日子`
+  // searches the whole platform rather than the brand.
+  it.each([
+    'https://www.threads.com/@someone',
+    'https://www.threads.net/@someone',
+    'https://linktr.ee/someone',
+    'https://shopee.tw/someone',
+  ])('ignores the platform URL %s and falls back to the name query', (purchaseWebsite) => {
+    const variants = buildImageQueryVariants({
+      brandName: '好日子',
+      productType: 'home',
+      purchaseWebsite,
+    })
+    expect(variants).toEqual(['"好日子" 居家生活 商品'])
+    expect(variants.some((query) => query.includes('site:'))).toBe(false)
+  })
 })
 
 describe('passesImageDimensions', () => {
