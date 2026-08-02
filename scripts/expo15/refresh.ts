@@ -40,6 +40,21 @@ function hasFlag(flag: string): boolean {
   return process.argv.includes(flag)
 }
 
+function argValue(flag: string): string | undefined {
+  const index = process.argv.indexOf(flag)
+  return index === -1 ? undefined : process.argv.at(index + 1)
+}
+
+/** `--slugs a,b` re-runs a subset; absent means all 15. */
+function targetSlugs(): string[] {
+  const raw = argValue('--slugs')
+  if (!raw) return [...EXPO15_SLUGS]
+  const slugs = raw.split(',').map((s) => s.trim()).filter(Boolean)
+  const unknown = slugs.filter((s) => !EXPO15_SLUGS.includes(s as (typeof EXPO15_SLUGS)[number]))
+  if (unknown.length > 0) throw new Error(`unknown slug(s): ${unknown.join(', ')}`)
+  return slugs
+}
+
 async function main(): Promise<void> {
   const dryRun = hasFlag('--dry-run')
   if (!dryRun && !hasFlag('--confirm')) {
@@ -47,6 +62,9 @@ async function main(): Promise<void> {
       'This rewrites 15 production brands. Re-run with --confirm (or --dry-run to preview).'
     )
   }
+
+  const slugs = targetSlugs()
+  if (slugs.length !== EXPO15_SLUGS.length) console.log(`subset: ${slugs.join(', ')}`)
 
   const adminEmail = (process.env.ADMIN_EMAILS ?? '').split(',')[0]?.trim()
   if (!adminEmail) throw new Error('ADMIN_EMAILS is empty — cannot attribute the refresh')
@@ -73,7 +91,7 @@ async function main(): Promise<void> {
   const { data: brandRows } = await supabase
     .from('brands')
     .select('id, slug')
-    .in('slug', [...EXPO15_SLUGS])
+    .in('slug', slugs)
   const brandIds = (brandRows ?? []).map((b) => (b as { id: string }).id)
   const slugByBrandId = new Map(
     (brandRows ?? []).map((b) => [(b as { id: string }).id, (b as { slug: string }).slug])
@@ -95,7 +113,7 @@ async function main(): Promise<void> {
       (s as { id: string }).id,
     ])
   )
-  const missingSlugs = EXPO15_SLUGS.filter((slug) => !existing.has(slug))
+  const missingSlugs = slugs.filter((slug) => !existing.has(slug))
 
   console.log(
     `\n[1/4] refresh submissions — ${existing.size} reused, ${missingSlugs.length} to create${dryRun ? ' (dry run)' : ''}`
@@ -115,14 +133,14 @@ async function main(): Promise<void> {
     return
   }
 
-  const requested = EXPO15_SLUGS.map((slug) => ({
+  const requested = slugs.map((slug) => ({
     slug,
     submissionId: existing.get(slug) ?? null,
     error: existing.has(slug) ? null : 'no submission',
   }))
   const submissionIds = requested.flatMap((r) => (r.submissionId ? [r.submissionId] : []))
-  if (submissionIds.length !== EXPO15_SLUGS.length) {
-    throw new Error(`only ${submissionIds.length}/${EXPO15_SLUGS.length} refresh submissions available`)
+  if (submissionIds.length !== slugs.length) {
+    throw new Error(`only ${submissionIds.length}/${slugs.length} refresh submissions available`)
   }
   for (const r of requested) console.log(`  ${r.slug.padEnd(18)} ${r.submissionId}`)
 

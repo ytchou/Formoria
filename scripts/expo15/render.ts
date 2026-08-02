@@ -128,9 +128,11 @@ async function main(): Promise<void> {
   const before = JSON.parse(
     await readFile('scripts/expo15/snapshots/before.json', 'utf8')
   ) as Snapshot
-  const after = JSON.parse(
-    await readFile('scripts/expo15/snapshots/after.json', 'utf8')
-  ) as Snapshot
+  const afterIndex = process.argv.indexOf('--after')
+  const afterFile = afterIndex === -1
+    ? 'scripts/expo15/snapshots/after.json'
+    : `scripts/expo15/snapshots/${process.argv.at(afterIndex + 1)}`
+  const after = JSON.parse(await readFile(afterFile, 'utf8')) as Snapshot
 
   const bBrand = new Map(before.brands.map((b) => [b.slug, b]))
   const aBrandById = new Map(after.brands.map((b) => [b.id, b]))
