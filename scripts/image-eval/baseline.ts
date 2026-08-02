@@ -38,7 +38,8 @@ import type {
 
 /** Mirrors BATCH_SIZE in classify-images.ts — batch length changes the verdicts. */
 const BATCH_SIZE = 5;
-const MODEL = "gpt-4o-mini";
+/** Default stays on the incumbent so existing runs and the tracked baseline are unaffected. */
+const DEFAULT_MODEL = "gpt-4o-mini";
 const REJECTION_TAGS = ["promo", "text_banner", "irrelevant"];
 const MAX_RATE_LIMIT_RETRIES = 5;
 
@@ -146,6 +147,14 @@ function scopeArg(): "manifest" | "review" {
 
 function hasFlag(name: string): boolean {
   return process.argv.includes(name);
+}
+
+/** `--model=` exists so one corpus can be scored against two models in the same session. */
+function modelArg(): string {
+  const argument = process.argv.find((value) => value.startsWith("--model="));
+  const value = argument?.slice("--model=".length) ?? DEFAULT_MODEL;
+  if (value.trim().length === 0) throw new Error("--model must not be empty");
+  return value;
 }
 
 function paceMsArg(): number {
@@ -360,6 +369,7 @@ async function runBaseline(): Promise<void> {
   const selectedSplit = splitArg();
   const prompt = promptArg();
   const scope = scopeArg();
+  const model = modelArg();
   const unlabeledOnly = hasFlag("--unlabeled-only");
   const paceMs = paceMsArg();
   const tagDefinitions =
@@ -388,8 +398,9 @@ async function runBaseline(): Promise<void> {
     entries.flatMap((entry) => (entry.objectPath ? [entry.objectPath] : [])),
   );
   const predictions: EvalPrediction[] = [];
+  console.log(`Model: ${model}`);
   const client = createOpenAIClient({
-    model: MODEL,
+    model,
     onChatComplete: (event) => auditWriter(callsPath, event),
   });
 
@@ -434,6 +445,8 @@ async function runBaseline(): Promise<void> {
         schema: classificationSchema(keptTags, prompt),
         maxTokens: 250 * chunk.length,
         temperature: 0,
+        // No-op on non-reasoning models; keeps the luna arm matching production intent.
+        reasoningEffort: "none",
         meta: {
           imageIds: chunk.map((entry) => entry.id),
           split: selectedSplit,
@@ -494,7 +507,7 @@ async function runBaseline(): Promise<void> {
   await writeJsonAtomic(runPath(runId, "predictions.json"), {
     schemaVersion: 1,
     corpusId: manifest.corpusId,
-    model: MODEL,
+    model,
     split: selectedSplit,
     scope,
     unlabeledOnly,
