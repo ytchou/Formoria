@@ -16,7 +16,7 @@
   "officialUrl": "https://creativexpo.tw/zh-TW/creative_brands",
   "ticketUrl": "https://creativexpo-booking.tw/zh-tw",
   "isFree": true,
-  "status": "draft",
+  "status": "published",
   "brands": [
     {
       "slug": "woky",
