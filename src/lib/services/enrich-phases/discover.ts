@@ -1,7 +1,6 @@
 import type { PhaseResult, PhaseStatus } from '@/lib/types/curation'
 import { batchSearchBrandsWithSnippets, parseBrandSearchEntries } from './scraper/search'
 import { getLatestSearchResults } from '../search-results'
-import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { buildSerpConfig } from '@/lib/constants/enrichment-config'
 import type { EnrichmentTarget } from '../enrichment-target'
 import {
@@ -24,12 +23,39 @@ type DiscoverAttempt = {
   providerError: string | null
 }
 
-function buildSerpQuery(brandName: string, productTypeSlug?: string | null): string {
-  const typeZh = productTypeSlug
-    ? PRODUCT_TYPE_CATEGORIES.find((c) => c.slug === productTypeSlug)?.nameZh
-    : undefined
-  const typeSegment = typeZh ? ` ${typeZh}` : ''
-  return `"${brandName}"${typeSegment} 品牌 介紹 評價 推薦 通路 -徵才 -104 -人力 -site:formoria.com`
+/**
+ * The brand's name, and nothing else.
+ *
+ * This phase's job is finding the brand's URLs — its own site, its Instagram,
+ * its marketplace storefronts — which everything downstream depends on. The
+ * query used to carry editorial qualifiers (`品牌 介紹 評價 推薦 通路`) plus
+ * recruitment negatives, added to bias the snippets toward write-ups about the
+ * brand. Measured against a bare-name search, those qualifiers were destroying
+ * the primary job:
+ *
+ *   HANDMADESHIP, bare          HANDMADESHIP, with qualifiers
+ *   instagram.com/handmadeship  instagram.com/p/DQeL94sEv9G   (a post)
+ *   pinkoi.com/store/...        threads.com/@nuomi0213/...    (a stranger)
+ *   handmadeshiphk.com          biggo.com.tw/s/行李牌          (an aggregator)
+ *   facebook.com/...
+ *
+ * The bare query returned the official site, the Instagram profile, the
+ * Facebook profile and the Pinkoi store — every link field we store. The
+ * qualified one returned none of them, and its first result is where the
+ * post-permalink-as-a-profile defect came from.
+ *
+ * Unquoted for the same reason the image query is: stored names are bilingual
+ * concatenations and quoting demands an adjacency the brand's own pages often
+ * do not use.
+ *
+ * `-site:formoria.com` stays. Our own brand pages rank for these names, and
+ * scraping ourselves would feed the pipeline its own previous output.
+ *
+ * No product category either: it is decided downstream now, so reading it here
+ * would mean reading the previous run's answer.
+ */
+function buildSerpQuery(brandName: string): string {
+  return `${brandName} -site:formoria.com`
 }
 
 function errorMessage(error: unknown): string {
@@ -61,10 +87,7 @@ export async function runDiscoverPhase(ctx: BatchPhaseContext): Promise<{
     }
   }
 
-  const brandProductTypes = new Map(
-    ctx.chunk.map((b) => [getDisplayBrandName(b), b.product_type])
-  )
-  const queryTemplate = (name: string) => buildSerpQuery(name, brandProductTypes.get(name))
+  const queryTemplate = (name: string) => buildSerpQuery(name)
 
   const { result, durationMs } = await timePhase(async (): Promise<DiscoverAttempt> => {
     try {

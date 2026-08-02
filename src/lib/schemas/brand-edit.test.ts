@@ -6,6 +6,7 @@ import {
   SECTION_FIELDS,
   areAllWizardStepsComplete,
 } from './brand-edit'
+import { MAX_BRAND_GALLERY_PHOTOS } from '@/lib/constants/brand-images'
 
 describe('basicInfoSchema', () => {
   it('passes with valid minimal data', () => {
@@ -98,6 +99,43 @@ describe('brandPublishSchema', () => {
         purchaseWebsite: 'https://example.com',
       }).success,
     ).toBe(true)
+  })
+
+  const publishBase = {
+    name: 'Brand',
+    productType: 'food',
+    description: 'Story',
+    productTags: ['tea'],
+    priceRange: 2,
+    heroImageUrl: 'https://example.com/hero.webp',
+    purchaseWebsite: 'https://example.com',
+  }
+  const photos = (count: number) =>
+    Array.from(
+      { length: count },
+      (_, index) => `https://example.com/p${index}.webp`,
+    )
+
+  it('accepts a brand with only a hero image and no gallery photos', () => {
+    expect(
+      brandPublishSchema.safeParse({ ...publishBase, productPhotos: [] })
+        .success,
+    ).toBe(true)
+  })
+
+  it('accepts the maximum gallery size and rejects one photo more', () => {
+    expect(
+      brandPublishSchema.safeParse({
+        ...publishBase,
+        productPhotos: photos(MAX_BRAND_GALLERY_PHOTOS),
+      }).success,
+    ).toBe(true)
+    expect(
+      brandPublishSchema.safeParse({
+        ...publishBase,
+        productPhotos: photos(MAX_BRAND_GALLERY_PHOTOS + 1),
+      }).success,
+    ).toBe(false)
   })
 })
 

@@ -2,7 +2,11 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 
 import { createServiceClient } from '@/lib/supabase/server'
-import { ENRICH_PHASES } from '@/lib/constants/enrich-phases'
+import {
+  CURATION_STEP_ORDER,
+  ENRICH_PHASES,
+  type CurationStep,
+} from '@/lib/constants/enrich-phases'
 import {
   type CurationConfig,
   type OperationResult,
@@ -22,6 +26,7 @@ type CurationCommand = (typeof COMMANDS)[number]
 type EnrichPhase = (typeof ENRICH_PHASES)[number]
 type ParsedCurationConfig = CurationConfig & {
   phases?: EnrichPhase[]
+  steps?: CurationStep[]
 }
 
 type ParsedCliArgs = {
@@ -162,6 +167,16 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
           return ENRICH_PHASES.includes(phase as EnrichPhase)
         })
       : [...ENRICH_PHASES]
+
+    // --steps is the operator-facing selection; --phases stays for the
+    // fine-grained reruns that job history and phase_results are written in.
+    const steps = parseCsvFlag(args, 'steps')
+    const parsedSteps = steps?.filter((step): step is CurationStep =>
+      (CURATION_STEP_ORDER as readonly string[]).includes(step)
+    )
+    if (parsedSteps?.length) {
+      config.steps = parsedSteps
+    }
   }
 
   return { command, config }
@@ -183,6 +198,7 @@ function printUsage(): void {
   )
   console.log('  --status=approved')
   console.log('  --limit=10')
+  console.log(`  --steps=${CURATION_STEP_ORDER.join(',')}  enrich only (preferred)`)
   console.log(`  --phases=${ENRICH_PHASES.join(',')}  enrich only`)
   console.log('  --overwrite                                  submission enrichment only')
 }
@@ -457,6 +473,7 @@ async function runCommand({ command, config }: ParsedCliArgs): Promise<Operation
         {
           ...runConfig,
           phases: runConfig.phases ?? [...ENRICH_PHASES],
+          ...(runConfig.steps ? { steps: runConfig.steps } : {}),
         },
         supabase
       )

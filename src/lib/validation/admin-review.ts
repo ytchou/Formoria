@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  MAX_BRAND_ACTIVE_IMAGES,
+  MAX_BRAND_ACTIVE_SORT_ORDER,
+} from "@/lib/constants/brand-images";
 
 const nullableText = z.string().max(10_000).nullable();
 export const reviewEntityIdSchema = z.uuid();
@@ -6,10 +10,10 @@ const imageSelectionSchema = z
   .array(
     z.object({
       id: reviewEntityIdSchema,
-      sortOrder: z.number().int().min(0).max(6),
+      sortOrder: z.number().int().min(0).max(MAX_BRAND_ACTIVE_SORT_ORDER),
     }),
   )
-  .max(7)
+  .max(MAX_BRAND_ACTIVE_IMAGES)
   .superRefine((images, context) => {
     if (new Set(images.map((image) => image.id)).size !== images.length) {
       context.addIssue({ code: "custom", message: "Duplicate images" });
@@ -59,5 +63,5 @@ export const adminReviewSchema = z.object({
 
 export const reviewImageIdsSchema = z
   .array(reviewEntityIdSchema)
-  .max(7)
+  .max(MAX_BRAND_ACTIVE_IMAGES)
   .refine((ids) => new Set(ids).size === ids.length);

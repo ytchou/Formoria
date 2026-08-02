@@ -1,6 +1,6 @@
 import {
   buildMicrositeSpotlightEmail,
-  buildProfileNudgeEmail,
+  // buildProfileNudgeEmail, // paused with the profile_nudge drip — see DRIP_TYPES (DEV-1279)
   buildReEngagementEmail,
   buildWelcomeEmail,
 } from '@/lib/email/templates'
@@ -93,7 +93,14 @@ type DripType = {
 
 export const DRIP_TYPES: DripType[] = [
   { key: 'welcome', daysSinceClaim: 1, builder: buildWelcomeEmail },
-  { key: 'profile_nudge', daysSinceClaim: 3, builder: buildProfileNudgeEmail },
+  // PAUSED (DEV-1279): the stricter image pipeline can leave a brand with a
+  // single image, and `product_photos: images.slice(1)` then yields an empty
+  // productPhotos, which profile completeness scores as a missing REQUIRED
+  // component. That fires this nudge at owners for a deficiency we created.
+  // Temporary — restore once the real images-per-brand distribution after the
+  // image-quality rollout has been measured. Restore = uncomment this line and
+  // the buildProfileNudgeEmail import above.
+  // { key: 'profile_nudge', daysSinceClaim: 3, builder: buildProfileNudgeEmail },
   {
     key: 'microsite_spotlight',
     daysSinceClaim: 1,

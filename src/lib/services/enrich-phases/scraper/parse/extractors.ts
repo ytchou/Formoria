@@ -1,9 +1,34 @@
 import * as cheerio from 'cheerio'
-import type { ScrapedBrandData } from '@/lib/types/scraper'
+import type { ScrapedBrandData, ScrapedImageSource } from '@/lib/types/scraper'
 import { resolveUrl } from '../fetch-guards'
 
+// Default cap for the generic web path. Callers that pull from a source with
+// no per-image cost (platform adapters) pass a larger explicit limit instead.
 export const MAX_GALLERY_IMAGES = 5
-const MIN_IMAGE_DIMENSION = 200
+
+/**
+ * cheerio does not re-export domhandler's node types, so derive the node type
+ * from the querying function rather than depending on domhandler directly
+ * (it is not a hoisted dependency under pnpm).
+ */
+type CheerioNode =
+  ReturnType<cheerio.CheerioAPI> extends cheerio.Cheerio<infer N> ? N : never
+
+export type GalleryImageOptions = {
+  limit?: number
+  /**
+   * Optional per-element veto, used by the Instagram adapter to drop video
+   * poster frames. Returning `false` (or omitting the predicate entirely) keeps
+   * the image, so a caller whose selectors stop matching degrades to today's
+   * behaviour instead of dropping the gallery.
+   */
+  skip?: (el: CheerioNode, $: cheerio.CheerioAPI) => boolean
+}
+// Shares the 480px short-edge floor used by the download stage so both feeds
+// into the candidate pool agree. This only fires when BOTH the width and
+// height HTML attributes are present, which is often not the case, so the
+// download-stage gate in image-download.ts remains the real guarantee.
+const MIN_IMAGE_DIMENSION = 480
 
 const NON_PRODUCT_IMAGE_PATH_RE =
   /\/(logo|avatar|profile|banner|icon|favicon|placeholder|default|sprite|pixel|shopfront_promotion)/i
@@ -110,6 +135,43 @@ export function unique(values: string[]): string[] {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))]
 }
 
+/**
+ * Builds a "this is a PROFILE" matcher for a social host: the host, exactly one
+ * path segment, an optional trailing slash, and nothing else.
+ *
+ * Matching any URL on the platform is not the same thing: a live run captured
+ * `instagram.com/p/DQeL94sEv9G/` — a single post permalink — as a brand's
+ * Instagram, so every visitor would have been sent to one photo instead of the
+ * account. `reservedPaths` drops the platform's own non-profile sections whose
+ * first segment is otherwise shaped exactly like a handle.
+ *
+ * Deliberately the same shape as `URL_TO_LINK_COLUMN` in
+ * `lib/services/link-enrichment.ts`, which classifies URLs arriving from search
+ * rather than from a scraped page. The two modules stay separate, but they must
+ * not disagree about what counts as a profile.
+ */
+function socialProfilePattern(
+  hostPattern: string,
+  { handlePrefix = '', reservedPaths = [] }: { handlePrefix?: string; reservedPaths?: string[] } = {}
+): RegExp {
+  const reserved = reservedPaths.length > 0 ? `(?!(?:${reservedPaths.join('|')})(?:[/?#]|$))` : ''
+  return new RegExp(`${hostPattern}\\/${handlePrefix}${reserved}[^/?#]+\\/?$`, 'i')
+}
+
+const INSTAGRAM_PROFILE_RE = socialProfilePattern('instagram\\.com', {
+  reservedPaths: ['p', 'reel', 'reels', 'stories', 'explore', 'tv', 'share'],
+})
+
+// Meta migrated Threads to threads.com while threads.net links stay in the wild,
+// so both hosts must match — the old `threads.net`-only test silently dropped
+// every threads.com profile. A Threads handle always carries the `@` prefix, and
+// a post URL (`/@handle/post/…`) has more than one segment, so it cannot match.
+const THREADS_PROFILE_RE = socialProfilePattern('threads\\.(?:net|com)', { handlePrefix: '@' })
+
+const FACEBOOK_PROFILE_RE = socialProfilePattern('facebook\\.com', {
+  reservedPaths: ['docs', 'share', 'sharer', 'help', 'policies', 'terms', 'privacy', 'login'],
+})
+
 export function extractSocialLinks($: cheerio.CheerioAPI) {
   let instagram: string | null = null
   let threads: string | null = null
@@ -117,13 +179,13 @@ export function extractSocialLinks($: cheerio.CheerioAPI) {
 
   $('a[href]').each((_, el) => {
     const href = $(el).attr('href') ?? ''
-    if (!instagram && /instagram\.com\//i.test(href)) {
+    if (!instagram && INSTAGRAM_PROFILE_RE.test(href)) {
       instagram = href
     }
-    if (!threads && /threads\.net\//i.test(href)) {
+    if (!threads && THREADS_PROFILE_RE.test(href)) {
       threads = href
     }
-    if (!facebook && /facebook\.com\/[^/?#]+\/?$/i.test(href) && !/developers\.facebook\.com/i.test(href) && !/facebook\.com\/(?:docs|share|sharer|help|policies|terms|privacy|login)\b/i.test(href)) {
+    if (!facebook && FACEBOOK_PROFILE_RE.test(href) && !/developers\.facebook\.com/i.test(href)) {
       facebook = href
     }
   })
@@ -152,14 +214,46 @@ export function extractPurchaseLinks($: cheerio.CheerioAPI): {
   return { purchaseWebsite: null, purchasePinkoi: pinkoi, purchaseShopee: shopee }
 }
 
+/**
+ * Pick the highest-resolution entry from a `srcset`. srcset is authored
+ * smallest-first, so reading entry zero — which this used to do — handed the
+ * downloader the lowest-resolution variant of every image and then failed it on
+ * the short-edge floor.
+ *
+ * Entries without a `w` descriptor (a bare URL, or an `x` density descriptor
+ * whose pixel size we cannot compare) rank below every sized entry and settle
+ * ties by document order, so a single undescribed URL is still returned.
+ */
+export function largestSrcsetUrl(srcset: string): string {
+  let bestUrl = ''
+  let bestWidth = -1
+
+  for (const entry of srcset.split(',')) {
+    const parts = entry.trim().split(/\s+/).filter(Boolean)
+    const url = parts.at(0)
+    if (!url) continue
+
+    const width = Number(parts.at(1)?.match(/^(\d+)w$/)?.at(1) ?? 0)
+    if (width > bestWidth) {
+      bestWidth = width
+      bestUrl = url
+    }
+  }
+
+  return bestUrl
+}
+
 export function extractGalleryImages(
   $: cheerio.CheerioAPI,
-  pageUrl: string
+  pageUrl: string,
+  { limit = MAX_GALLERY_IMAGES, skip }: GalleryImageOptions = {}
 ): string[] {
   const urls: string[] = []
 
   $('img').each((_, el) => {
-    if (urls.length >= MAX_GALLERY_IMAGES) return
+    if (urls.length >= limit) return
+
+    if (skip?.(el, $)) return
 
     // Resolve candidate URL: prefer data-src / data-original (lazy-load), then src
     const rawSrc =
@@ -168,11 +262,10 @@ export function extractGalleryImages(
       $(el).attr('src') ||
       ''
 
-    // Also check srcset — take the first URL from the list
-    const srcset = $(el).attr('srcset') ?? ''
-    const srcsetFirst = srcset.split(',')[0]?.trim().split(/\s+/)[0] ?? ''
+    // Fall back to the widest srcset variant when no direct src is present
+    const srcsetLargest = largestSrcsetUrl($(el).attr('srcset') ?? '')
 
-    const raw = rawSrc || srcsetFirst
+    const raw = rawSrc || srcsetLargest
     if (!raw || raw.startsWith('data:')) return
 
     const resolved = resolveUrl(raw, pageUrl)
@@ -199,11 +292,14 @@ export function extractGalleryImages(
   return urls
 }
 
-export function extractPinkoiProductImages($: cheerio.CheerioAPI): string[] {
+export function extractPinkoiProductImages(
+  $: cheerio.CheerioAPI,
+  limit: number = MAX_GALLERY_IMAGES
+): string[] {
   const urls: string[] = []
 
   $('img').each((_, el) => {
-    if (urls.length >= MAX_GALLERY_IMAGES) return
+    if (urls.length >= limit) return
 
     const candidates = [$(el).attr('data-src'), $(el).attr('src')]
 
@@ -229,11 +325,14 @@ export function extractPinkoiProductImages($: cheerio.CheerioAPI): string[] {
   return urls
 }
 
-export function extractShopeeProductImages($: cheerio.CheerioAPI): string[] {
+export function extractShopeeProductImages(
+  $: cheerio.CheerioAPI,
+  limit: number = MAX_GALLERY_IMAGES
+): string[] {
   const urls: string[] = []
 
   $('img').each((_, el) => {
-    if (urls.length >= MAX_GALLERY_IMAGES) return
+    if (urls.length >= limit) return
 
     const candidates = [$(el).attr('data-src'), $(el).attr('src')]
 
@@ -258,6 +357,18 @@ export function extractShopeeProductImages($: cheerio.CheerioAPI): string[] {
   })
 
   return urls
+}
+
+/**
+ * Tag an already-ordered gallery with the method that produced it, so the
+ * download stage can persist provenance instead of a bare URL.
+ */
+export function toImageSources(
+  urls: string[],
+  method: string,
+  pageUrl: string
+): ScrapedImageSource[] {
+  return urls.map((url, position) => ({ url, method, pageUrl, position }))
 }
 
 export function extractJsonLd($: cheerio.CheerioAPI): Record<string, unknown> | null {

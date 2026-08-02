@@ -15,15 +15,23 @@ import {
   metaContent,
   textContent,
   unique,
-  MAX_GALLERY_IMAGES,
+  toImageSources,
 } from '../../parse/extractors'
 import type { PlatformAdapter } from './types'
+
+// Marketplace adapter images are free — no API credit is spent — and measure
+// higher quality than search results, so a wider pool just gives the ranker
+// more to choose from. MAX_BRAND_ACTIVE_IMAGES downstream is the cap that
+// actually binds; MAX_GALLERY_IMAGES stays the default for the generic path.
+const MARKETPLACE_GALLERY_LIMIT = 20
 
 export interface MarketplaceAdapterConfig {
   host: string
   titleSuffixPatterns: RegExp[]
-  productImageExtractor: ($: cheerio.CheerioAPI) => string[]
+  productImageExtractor: ($: cheerio.CheerioAPI, limit?: number) => string[]
   purchaseKey: 'purchasePinkoi' | 'purchaseShopee'
+  /** Stable provenance slug recorded on every image this adapter yields. */
+  imageMethod: string
   shopNameSelector: string
   shopDescriptionSelector: string
 }
@@ -45,8 +53,13 @@ export function createMarketplaceAdapter(config: MarketplaceAdapterConfig): Plat
       const result = emptyResult(url)
       const rawJsonLd = extractJsonLd($)
       const structuredStore = findStructuredStore(rawJsonLd)
-      const productImageUrls = config.productImageExtractor($)
-      const galleryImageUrls = [...new Set([...productImageUrls, ...extractGalleryImages($, url)])].slice(0, MAX_GALLERY_IMAGES)
+      const productImageUrls = config.productImageExtractor($, MARKETPLACE_GALLERY_LIMIT)
+      const galleryImageUrls = [
+        ...new Set([
+          ...productImageUrls,
+          ...extractGalleryImages($, url, { limit: MARKETPLACE_GALLERY_LIMIT }),
+        ]),
+      ].slice(0, MARKETPLACE_GALLERY_LIMIT)
 
       const brandName = cleanTitle(
         metaContent($, 'meta[property="og:title"]') ||
@@ -78,6 +91,7 @@ export function createMarketplaceAdapter(config: MarketplaceAdapterConfig): Plat
           ? filterHeroImage(heroCandidate, url) ?? galleryImageUrls[0] ?? null
           : galleryImageUrls[0] ?? null,
         galleryImageUrls,
+        imageSources: toImageSources(galleryImageUrls, config.imageMethod, url),
         ...extractSocialLinks($),
         ...extractPurchaseLinks($),
         [config.purchaseKey]: url,

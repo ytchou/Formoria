@@ -81,6 +81,7 @@ type ImageReferenceRow = {
   storage_path: string | null
   url: string | null
   status: string
+  rejected_at: string | null
 }
 
 type BrandImageStorageRow = {
@@ -302,14 +303,14 @@ export async function buildReferenceSet(
       fetchAllRows<ImageReferenceRow>('brand_images', (from, to) =>
         supabase
           .from('brand_images')
-          .select('storage_path, url, status')
+          .select('storage_path, url, status, rejected_at')
           .order('id', { ascending: true })
           .range(from, to),
       ),
       fetchAllRows<ImageReferenceRow>('submission_images', (from, to) =>
         supabase
           .from('submission_images')
-          .select('storage_path, url, status')
+          .select('storage_path, url, status, rejected_at')
           .order('id', { ascending: true })
           .range(from, to),
       ),
@@ -332,13 +333,20 @@ export async function buildReferenceSet(
   const activePaths = new Set<string>()
   const rejectedPaths = new Set<string>()
   const otherReferencedPaths = new Set<string>()
+  const soakProtectedPaths = new Set<string>()
+  const retentionCutoff = Date.now() - SOAK_PROTECTION_MS
 
   for (const row of [...brandImages, ...submissionImages]) {
     const key = storageKeyFromReference(row.storage_path, row.url)
     if (!key) continue
 
     if (row.status === 'active') activePaths.add(key)
-    if (row.status === 'rejected') rejectedPaths.add(key)
+    if (row.status === 'rejected') {
+      rejectedPaths.add(key)
+      if (row.rejected_at && Date.parse(row.rejected_at) > retentionCutoff) {
+        soakProtectedPaths.add(key)
+      }
+    }
   }
 
   for (const brand of brands) {
@@ -365,7 +373,7 @@ export async function buildReferenceSet(
     activePaths,
     rejectedPaths,
     otherReferencedPaths,
-    soakProtectedPaths: new Set(),
+    soakProtectedPaths,
   }
 }
 

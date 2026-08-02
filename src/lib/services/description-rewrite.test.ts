@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { parseDescriptionRewriteResult, rewriteBrandDescription } from './description-rewrite'
-import { createAuditedDeepSeekClient } from './llm-audit'
+import { createAuditedOpenAIClient } from './llm-audit'
 
-vi.mock('./llm-audit', () => ({ createAuditedDeepSeekClient: vi.fn() }))
+vi.mock('./llm-audit', () => ({ createAuditedOpenAIClient: vi.fn() }))
 
 function makeTagFixture(
   product_tags: string[],
@@ -151,8 +151,8 @@ describe('parseDescriptionRewriteResult', () => {
         founding_year: null,
       }),
     })
-    vi.mocked(createAuditedDeepSeekClient).mockReturnValue({ chat } as never)
-    vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
+    vi.mocked(createAuditedOpenAIClient).mockReturnValue({ chat } as never)
+    vi.stubEnv('OPENAI_API_KEY', 'test-key')
 
     const output = await rewriteBrandDescription(
       '信息設計坊',
@@ -175,7 +175,7 @@ describe('parseDescriptionRewriteResult', () => {
     expect(output?.result.description_zh).toContain('品質')
     expect(output?.result.description_zh).toContain('資訊')
     expect(output?.result.blurb_zh?.startsWith('信息設計坊')).toBe(true)
-    expect(createAuditedDeepSeekClient).toHaveBeenCalledWith(
+    expect(createAuditedOpenAIClient).toHaveBeenCalledWith(
       expect.objectContaining({ jobId: 'job-1', phase: 'description', target: { type: 'brand', id: 'brand-1' } }),
       { apiKey: 'test-key' },
     )
@@ -221,8 +221,8 @@ describe('parseDescriptionRewriteResult', () => {
       .mockResolvedValueOnce(
         response(cleanDescriptionZh, cleanDescriptionEn, { priceRange: null }),
       )
-    vi.mocked(createAuditedDeepSeekClient).mockReturnValue({ chat } as never)
-    vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
+    vi.mocked(createAuditedOpenAIClient).mockReturnValue({ chat } as never)
+    vi.stubEnv('OPENAI_API_KEY', 'test-key')
 
     const output = await rewriteBrandDescription(
       'Southgate 南登機口',
@@ -265,8 +265,8 @@ describe('parseDescriptionRewriteResult', () => {
         founding_year: null,
       }),
     })
-    vi.mocked(createAuditedDeepSeekClient).mockReturnValue({ chat } as never)
-    vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
+    vi.mocked(createAuditedOpenAIClient).mockReturnValue({ chat } as never)
+    vi.stubEnv('OPENAI_API_KEY', 'test-key')
 
     const output = await rewriteBrandDescription(
       '集資品牌',
@@ -279,5 +279,119 @@ describe('parseDescriptionRewriteResult', () => {
     expect(chat).toHaveBeenCalledTimes(1)
     expect(output?.result.description_zh).toContain('新台幣5,000,000元')
     expect(output?.result.description_en).toContain('raised NT$5 million')
+  })
+})
+
+describe('parseDescriptionRewriteResult — listing verdict', () => {
+  const withListing = (listing: unknown): string =>
+    JSON.stringify({
+      description_zh: '品牌簡介',
+      description_en: 'Brand description',
+      blurb_zh: '摘要',
+      blurb_en: 'Summary',
+      product_tags: [],
+      product_tags_en: [],
+      city: '台北',
+      founding_year: null,
+      ...(listing === undefined ? {} : { listing }),
+    })
+
+  it('parses a valid listing object', () => {
+    const result = parseDescriptionRewriteResult(
+      withListing({
+        verdict: 'reject',
+        reason: '沒有自有商品，屬於代購',
+        taiwan_connection: 'unclear',
+        has_own_products: false,
+        has_purchase_channel: true,
+      }),
+    )
+
+    expect(result.listing).toEqual({
+      verdict: 'reject',
+      reason: '沒有自有商品，屬於代購',
+      taiwanConnection: 'unclear',
+      hasOwnProducts: false,
+      hasPurchaseChannel: true,
+    })
+  })
+
+  it('leaves the description result fully valid when listing is absent', () => {
+    const result = parseDescriptionRewriteResult(withListing(undefined))
+
+    expect(result.listing).toBeUndefined()
+    // Descriptions are the primary output — a missing secondary field cannot void them.
+    expect(result.description_zh).toBe('品牌簡介')
+    expect(result.description_en).toBe('Brand description')
+    expect(result.blurb_zh).toBe('摘要')
+    expect(result.blurb_en).toBe('Summary')
+    expect(result.city).toBe('taipei')
+  })
+
+  it('degrades an unknown verdict to undefined without throwing', () => {
+    const result = parseDescriptionRewriteResult(
+      withListing({ verdict: 'maybe', reason: 'unsure', taiwan_connection: 'moon' }),
+    )
+
+    expect(result.listing).toBeUndefined()
+    expect(result.description_zh).toBe('品牌簡介')
+  })
+
+  it('degrades a malformed listing value to undefined without throwing', () => {
+    expect(parseDescriptionRewriteResult(withListing('reject')).listing).toBeUndefined()
+    expect(parseDescriptionRewriteResult(withListing(['reject'])).listing).toBeUndefined()
+    expect(parseDescriptionRewriteResult(withListing(null)).listing).toBeUndefined()
+  })
+
+  it('keeps a valid verdict while nulling only the unrecognised sub-fields', () => {
+    const result = parseDescriptionRewriteResult(
+      withListing({ verdict: 'list', taiwan_connection: 'imported', has_own_products: 'yes' }),
+    )
+
+    expect(result.listing).toEqual({
+      verdict: 'list',
+      reason: null,
+      taiwanConnection: null,
+      hasOwnProducts: null,
+      hasPurchaseChannel: null,
+    })
+  })
+})
+
+describe('parseDescriptionRewriteResult — product_type', () => {
+  const withProductType = (productType: unknown): string =>
+    JSON.stringify({
+      description_zh: '品牌簡介',
+      description_en: 'Brand description',
+      blurb_zh: '摘要',
+      blurb_en: 'Summary',
+      product_tags: [],
+      product_tags_en: [],
+      city: '台北',
+      founding_year: null,
+      ...(productType === undefined ? {} : { product_type: productType }),
+    })
+
+  it('parses a valid L1 category slug', () => {
+    expect(parseDescriptionRewriteResult(withProductType('beauty')).productType).toBe('beauty')
+  })
+
+  it('leaves the description result fully valid when product_type is absent', () => {
+    const result = parseDescriptionRewriteResult(withProductType(undefined))
+
+    expect(result.productType).toBeUndefined()
+    expect(result.description_zh).toBe('品牌簡介')
+    expect(result.description_en).toBe('Brand description')
+    expect(result.blurb_zh).toBe('摘要')
+    expect(result.blurb_en).toBe('Summary')
+  })
+
+  it('degrades an unrecognised category to undefined without voiding the description', () => {
+    for (const value of ['skincare', '美妝', '', 42, null, ['beauty']]) {
+      const result = parseDescriptionRewriteResult(withProductType(value))
+      expect(result.productType, `value: ${JSON.stringify(value)}`).toBeUndefined()
+      expect(result.description_zh).toBe('品牌簡介')
+      expect(result.description_en).toBe('Brand description')
+    }
   })
 })

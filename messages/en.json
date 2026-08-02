@@ -986,6 +986,10 @@
         "question": "What counts as a Taiwanese brand?",
         "answer": "A brand qualifies if it was founded, designed, or manufactured in Taiwan — meeting any one of the three is enough. For example, a company headquartered in Taipei qualifies under 'founded'; a studio that designs products in Taiwan but manufactures overseas qualifies under 'designed'; a workshop producing goods in Yingge qualifies under 'manufactured'. We welcome recommendations from brand owners, fans, and community members alike."
       },
+      "notListedBrands": {
+        "question": "What kinds of brands are not listed?",
+        "answer": "Formoria lists brands with their own products, so we do not list proxy buyers, curated or multi-brand shops without a product line of their own, platforms and retail channels, media and review sites, importers or distributors of foreign brands, or personal accounts offering only services or digital goods. A curated shop that makes its own product line, or a creator with their own physical products, does qualify."
+      },
       "whatDoesMitMean": {
         "question": "What do the MIT tiers mean?",
         "answer": "MIT Verified means Formoria matched a product to the official MIT Smile registry. MIT Declared means the brand owner stated whether some, most, or all products are made in Taiwan. Neither tier implies that every product from the brand is made in Taiwan; check the listed scope and evidence."
@@ -1659,7 +1663,7 @@
       "productPhotosOverviewHint": "These images appear after the hero image on your brand detail page.",
       "heroImageEditHint": "One image only. This is the first image on your brand page and the cover used on masonry brand cards. Use a clear 16:9 landscape image.",
       "fieldProductPhotos": "Product photos",
-      "productPhotosEditHint": "Add 1–6 photos showing individual products, details, or products in use. These appear in the product gallery on your brand page.",
+      "productPhotosEditHint": "Add up to 9 photos showing individual products, details, or products in use. These appear in the product gallery on your brand page.",
       "city": "Brand founding city",
       "cityPlaceholder": "Select the brand founding city",
       "fieldOfficialWebsite": "Official Website",
@@ -1955,7 +1959,7 @@
       "logoRequired": "Logo *",
       "logoOptional": "Logo (optional)",
       "logoHint": "Upload your brand logo (max 5MB, will be resized to max 1200px)",
-      "productPhotosHint": "Upload up to 6 photos to showcase your products",
+      "productPhotosHint": "Upload up to 9 photos to showcase your products",
       "brandHighlights": "Brand Highlights",
       "brandHighlightsHint": "What makes your brand special?",
       "brandHighlightsPlaceholder": "e.g. Handcrafted with local Taiwanese cedar...",
@@ -2073,7 +2077,7 @@
       "tagsMax": "You can select up to 5 tags",
       "logoRequired": "Please upload a brand logo",
       "heroImageRequired": "Please upload a brand hero image",
-      "photosMax": "You can upload up to 6 photos",
+      "photosMax": "You can upload up to 9 photos",
       "emailInvalid": "Please enter a valid email address",
       "emailRequiredForNewsletter": "Enter an email address to subscribe to the newsletter",
       "platformRequired": "Please select a platform",
@@ -2536,8 +2540,11 @@
       "fetchData": "Fetch Data",
       "approve": "Approve",
       "approveRefresh": "Approve — updates the live brand",
-      "runImageCuration": "Run image curation again ({count})",
-      "runTextCuration": "Run text curation again ({count})",
+      "runStepCuration": {
+        "context": "Run Context step again ({count})",
+        "image": "Run Image step again ({count})",
+        "detail": "Run Detail step again ({count})"
+      },
       "storageCleanupWarning": "The refresh was applied, but some retired image files still need cleanup.",
       "reject": "Reject",
       "edit": "Edit",

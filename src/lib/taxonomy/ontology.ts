@@ -20,13 +20,22 @@ export function categoryLabel(
   return locale === 'zh-TW' ? (item.nameZh ?? item.name) : item.name
 }
 
+/**
+ * Chinese display name for an L1 product-type slug. Enrichment search queries
+ * run against a zh-TW SERP, so the raw English slug must never leak into a
+ * query string — resolve through here instead of inlining the lookup.
+ */
+export function productTypeNameZh(slug: string | null | undefined): string | null {
+  if (!slug) return null
+  return PRODUCT_TYPE_CATEGORIES.find(c => c.slug === slug)?.nameZh ?? null
+}
+
 export function deriveCategoryFromProductType(
   productType: string,
   productTypeNote?: string | null,
 ): string | null {
   if (productType) {
-    const match = PRODUCT_TYPE_CATEGORIES.find(c => c.slug === productType)
-    return match?.nameZh ?? null
+    return productTypeNameZh(productType)
   }
   if (productTypeNote?.trim()) {
     return productTypeNote.trim()

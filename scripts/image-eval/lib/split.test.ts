@@ -17,7 +17,7 @@ function brands(): Omit<GoldenRosterBrand, "split">[] {
 describe("golden brand split", () => {
   it("creates a deterministic 35/15 split with every category in both partitions", () => {
     const first = splitRoster(brands());
-    const second = splitRoster(brands());
+    const second = splitRoster(brands().toReversed());
     expect(first).toEqual(second);
     expect(countSplits(first)).toEqual({ dev: 35, holdout: 15 });
 

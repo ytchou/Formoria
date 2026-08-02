@@ -4,8 +4,20 @@ import type {
   GoldenLabel,
   GoldenManifest,
   GoldenSplit,
-  KeptTag,
 } from "./types";
+
+const DEFAULT_KEPT_TAGS = new Set(["product", "logo"]);
+
+/**
+ * Legacy keep tags mapped onto the current two-tag vocabulary, mirroring
+ * `LEGACY_KEEP_TAG_ALIASES` in the production classifier. Without this a corpus
+ * captured before the collapse would score every `lifestyle`/`packaging` row as
+ * a rejection.
+ */
+const LEGACY_KEPT_TAG_ALIASES: Record<string, string> = {
+  lifestyle: "product",
+  packaging: "product",
+};
 
 function ratio(numerator: number, denominator: number): number {
   return denominator === 0 ? 0 : Number((numerator / denominator).toFixed(6));
@@ -85,17 +97,19 @@ export function scorePredictions(
   };
 }
 
-export function tagFromLegacyTag(tag: string): {
+export function tagFromLegacyTag(
+  tag: string,
+  keptTags: ReadonlySet<string> = DEFAULT_KEPT_TAGS,
+): {
   disposition: "keep" | "reject";
-  tag: KeptTag | null;
+  tag: string | null;
 } {
-  if (
-    tag === "product" ||
-    tag === "lifestyle" ||
-    tag === "packaging" ||
-    tag === "logo"
-  ) {
+  if (keptTags.has(tag)) {
     return { disposition: "keep", tag };
+  }
+  const alias = LEGACY_KEPT_TAG_ALIASES[tag];
+  if (alias && keptTags.has(alias)) {
+    return { disposition: "keep", tag: alias };
   }
   return { disposition: "reject", tag: null };
 }

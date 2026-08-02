@@ -1,3 +1,20 @@
+/**
+ * DORMANT — retained as a fallback provider, not dead code.
+ *
+ * As of the gpt-5.6-luna migration no production path calls this module; every
+ * text and vision call now goes through `openai-client.ts`. It stays in the
+ * repo (with its test) so a provider outage or a pricing shift can be answered
+ * by re-wiring call sites rather than rewriting a client from scratch.
+ *
+ * To revive it, re-point the five text call sites and flip their env gate back
+ * from `OPENAI_API_KEY` to `DEEPSEEK_API_KEY`:
+ *   - `product-type-classifier.ts` (4 sites)
+ *   - `description-rewrite.ts`
+ *   - `expansion-research.ts`
+ *
+ * `DEEPSEEK_API_KEY` is still provisioned in Railway for exactly this reason —
+ * it is an escape hatch, not a live dependency, so nothing health-checks it.
+ */
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions'
 const DEEPSEEK_BALANCE_API_URL = 'https://api.deepseek.com/user/balance'
 

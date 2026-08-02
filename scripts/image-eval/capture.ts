@@ -1,6 +1,9 @@
 import { isPrivateUrl } from "@/lib/url";
 import { processImage } from "@/lib/security/image-processor";
-import { batchCaptureBrandImages } from "@/lib/services/enrich-phases/scraper/search";
+import {
+  batchCaptureBrandImages,
+  type SerperRawImageCandidate,
+} from "@/lib/services/enrich-phases/scraper/search";
 import { brandTarget } from "@/lib/services/enrichment-target";
 import { createServiceClient } from "@/lib/supabase/server";
 import { mkdir, readFile } from "node:fs/promises";
@@ -19,6 +22,11 @@ import {
 import { sha256, stableImageId } from "./lib/hash";
 import { countSplits, splitRoster } from "./lib/split";
 import {
+  buildCaptureQueries,
+  mergeCaptureCandidates,
+  underfilledCaptureBrands,
+} from "./lib/capture";
+import {
   EVAL_CATEGORY_SLUGS,
   EVAL_SCHEMA_VERSION,
   type GoldenImageEntry,
@@ -28,15 +36,10 @@ import {
 
 const EXPECTED_BRAND_COUNT = 50;
 const EXPECTED_IMAGE_COUNT = 500;
+const MAX_CANDIDATES_PER_BRAND = EXPECTED_IMAGE_COUNT / EXPECTED_BRAND_COUNT;
 const BRANDS_PER_CATEGORY = 5;
 const DOWNLOAD_TIMEOUT_MS = 15_000;
 const MAX_INPUT_BYTES = 20 * 1024 * 1024;
-
-type BrandQueryInput = {
-  brandName: string;
-  productType: string;
-  purchaseWebsite: string | null;
-};
 
 type DatabaseBrand = {
   id: string;
@@ -44,6 +47,14 @@ type DatabaseBrand = {
   name: string;
   product_type: string | null;
   purchase_website: string | null;
+};
+
+type CapturedOutcome = {
+  candidates: SerperRawImageCandidate[];
+  candidateQueries: Map<string, string>;
+  rawResponses: unknown[];
+  callStatuses: string[];
+  errors: string[];
 };
 
 function hasFlag(name: string): boolean {
@@ -119,6 +130,97 @@ function imageDomain(url: string): string | null {
 
 function readableError(error: unknown): string {
   return (error instanceof Error ? error.message : String(error)).slice(0, 500);
+}
+
+async function captureSerperCandidates(
+  roster: GoldenRosterBrand[],
+): Promise<Map<string, CapturedOutcome>> {
+  const byName = new Map(roster.map((brand) => [brand.name, brand]));
+  const queriesByName = new Map(
+    roster.map((brand) => [
+      brand.name,
+      buildCaptureQueries({
+        name: brand.name,
+        productType: brand.productType,
+        purchaseWebsite: brand.purchaseWebsite,
+      }),
+    ]),
+  );
+  const outcomes = new Map<string, CapturedOutcome>(
+    roster.map((brand) => [
+      brand.name,
+      {
+        candidates: [],
+        candidateQueries: new Map(),
+        rawResponses: [],
+        callStatuses: [],
+        errors: [],
+      },
+    ]),
+  );
+  const queryRoundCount = Math.max(
+    ...[...queriesByName.values()].map((queries) => queries.length),
+  );
+
+  for (let round = 0; round < queryRoundCount; round += 1) {
+    const pending = roster.filter(
+      (brand) =>
+        (outcomes.get(brand.name)?.candidates.length ?? 0) <
+        MAX_CANDIDATES_PER_BRAND,
+    );
+    if (pending.length === 0) break;
+
+    console.log(
+      `  image query round ${round + 1}/${queryRoundCount}: ${pending.length} underfilled brands`,
+    );
+    const roundOutcomes = await batchCaptureBrandImages(
+      pending.map((brand) => brand.name),
+      5,
+      (brandName) =>
+        queriesByName.get(brandName)?.[round] ??
+        queriesByName.get(brandName)?.[0] ??
+        brandName,
+      (input) => {
+        const brandName = typeof input === "string" ? input : input.brandName;
+        const brand = byName.get(brandName);
+        if (!brand) throw new Error(`Missing roster brand for ${brandName}`);
+        return {
+          target: brandTarget(brand.id),
+          attempt: round + 1,
+          config: { captureRound: round + 1 },
+        };
+      },
+    );
+
+    for (const [brandName, roundOutcome] of roundOutcomes) {
+      const outcome = outcomes.get(brandName);
+      if (!outcome) continue;
+      outcome.rawResponses.push(roundOutcome.rawResponse);
+      outcome.callStatuses.push(roundOutcome.callStatus);
+      if (roundOutcome.error) outcome.errors.push(roundOutcome.error);
+
+      const existingUrls = new Set(
+        outcome.candidates.map((candidate) => candidate.imageUrl),
+      );
+      outcome.candidates = mergeCaptureCandidates(
+        outcome.candidates,
+        roundOutcome.candidates,
+        MAX_CANDIDATES_PER_BRAND,
+      );
+      for (const candidate of roundOutcome.candidates) {
+        if (existingUrls.has(candidate.imageUrl)) continue;
+        if (
+          outcome.candidates.some(
+            (current) => current.imageUrl === candidate.imageUrl,
+          )
+        ) {
+          outcome.candidateQueries.set(candidate.imageUrl, roundOutcome.query);
+        }
+      }
+    }
+  }
+
+  return outcomes;
 }
 
 async function fetchAndNormalize(urls: string[]): Promise<
@@ -211,78 +313,80 @@ async function capture(): Promise<void> {
   }
 
   const roster = await loadOrCreateRoster(force);
-  const byName = new Map(roster.map((brand) => [brand.name, brand]));
-  const inputs: BrandQueryInput[] = roster.map((brand) => ({
-    brandName: brand.name,
-    productType: brand.productType,
-    purchaseWebsite: brand.purchaseWebsite,
-  }));
   const runId = `capture-${new Date().toISOString().replace(/[:.]/g, "-")}`;
   await mkdir(join(RUN_ROOT, runId), { recursive: true });
 
-  const outcomes = await batchCaptureBrandImages(
-    inputs,
-    5,
-    undefined,
-    (input) => {
-      const brand = byName.get(
-        typeof input === "string" ? input : input.brandName,
-      );
-      if (!brand)
-        throw new Error(
-          `Missing roster brand for ${typeof input === "string" ? input : input.brandName}`,
-        );
-      return { target: brandTarget(brand.id) };
-    },
-  );
+  const outcomes = await captureSerperCandidates(roster);
 
   await writeJsonAtomic(
     runPath(runId, "serper-responses.json"),
     Object.fromEntries(
       [...outcomes.entries()].map(([brandName, outcome]) => [
         brandName,
-        outcome.rawResponse,
+        {
+          responses: outcome.rawResponses,
+          callStatuses: outcome.callStatuses,
+          errors: outcome.errors,
+        },
       ]),
     ),
   );
 
   const rawCandidates = [...outcomes.entries()].flatMap(
     ([brandName, outcome]) => {
-      const brand = byName.get(brandName);
+      const brand = roster.find((candidate) => candidate.name === brandName);
       if (!brand) return [];
+      const firstQuery =
+        buildCaptureQueries({
+          name: brand.name,
+          productType: brand.productType,
+          purchaseWebsite: brand.purchaseWebsite,
+        })[0] ?? brand.name;
       return outcome.candidates.map((candidate, index) => ({
         brand,
-        outcome,
         candidate,
         index,
+        query: outcome.candidateQueries.get(candidate.imageUrl) ?? firstQuery,
       }));
     },
   );
 
   if (rawCandidates.length !== EXPECTED_IMAGE_COUNT) {
+    const underfilledBrands = underfilledCaptureBrands(
+      [...outcomes.entries()].map(([name, outcome]) => ({
+        name,
+        count: outcome.candidates.length,
+      })),
+      MAX_CANDIDATES_PER_BRAND,
+    );
     await writeJsonAtomic(runPath(runId, "capture-report.json"), {
       runId,
       expected: EXPECTED_IMAGE_COUNT,
       received: rawCandidates.length,
+      underfilledBrands,
       statuses: Object.fromEntries(
         [...outcomes.entries()].map(([name, outcome]) => [
           name,
-          outcome.callStatus,
+          {
+            candidateCount: outcome.candidates.length,
+            callStatuses: outcome.callStatuses,
+            errors: outcome.errors,
+          },
         ]),
       ),
     });
     throw new Error(
-      `Expected ${EXPECTED_IMAGE_COUNT} raw Serper image candidates; received ${rawCandidates.length}. See ${runPath(runId, "capture-report.json")}`,
+      `Expected ${EXPECTED_IMAGE_COUNT} raw Serper image candidates; received ${rawCandidates.length}. Underfilled brands: ${underfilledBrands.join(", ") || "none"}. See ${runPath(runId, "capture-report.json")}`,
     );
   }
 
   const entries: GoldenImageEntry[] = [];
   let readyCount = 0;
-  for (const { brand, outcome, candidate, index } of rawCandidates) {
+  for (const { brand, candidate, index, query } of rawCandidates) {
     const sourceUrl = candidate.imageUrl;
     const id = stableImageId({
       brandSlug: brand.slug,
-      query: outcome.query,
+      query,
       position: candidate.position ?? index + 1,
       sourceUrl,
     });
@@ -298,7 +402,7 @@ async function capture(): Promise<void> {
       brandName: brand.name,
       category: brand.productType,
       split: brand.split,
-      query: outcome.query,
+      query,
       position: candidate.position ?? index + 1,
       sourceUrl,
       fetchUrl: "fetchUrl" in normalized ? normalized.fetchUrl : null,

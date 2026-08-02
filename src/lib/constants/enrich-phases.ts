@@ -33,7 +33,7 @@ export const SERP_PHASES = [
  * Phases whose work is LLM inference. These consume SERP output (live or
  * replayed from cache) and never call the search provider themselves.
  *
- * - `detect` / `slugs` / `tags` all read one batched DeepSeek detect call;
+ * - `detect` / `slugs` / `tags` all read one batched OpenAI detect call;
  *   `slugs` is not a local transform because the slug it writes comes from the
  *   model's `slugGenerated` field.
  */
@@ -68,6 +68,51 @@ export const ENRICH_STAGE_GROUPS = {
   enrich: ENRICH_LLM_PHASES,
   local: LOCAL_PHASES,
 } as const satisfies Record<string, readonly EnrichPhaseName[]>
+
+/**
+ * The three steps an operator selects. Everything below this line is the
+ * *execution* vocabulary; this is the *selection* vocabulary.
+ *
+ * Grouped by data dependency, which is why the order is fixed:
+ * - `context` gathers the brand's identity and its links.
+ * - `image` needs context's brand name and resolved links to search and classify.
+ * - `detail` needs context's site text AND image's classified alt text (see
+ *   `descriptions.ts` -> `loadClassifiedImageAlts`), so it runs last.
+ *
+ * `tags` is deliberately in `detail`, not `context`: the product category is a
+ * reasoning task decided by the descriptions phase from site content and image
+ * alt text, not by detect from SERP snippets alone.
+ *
+ * WHY the phase names survive: they are persisted in production —
+ * `curation_jobs.params`, `curation_jobs.current_phase`,
+ * `curation_job_targets.current_phase`, `curation_job_targets.phase_results`
+ * and `brand_ai_results.phase` all store phase strings. Historical rows must
+ * keep rendering, and `phase_results` must keep per-phase granularity so a
+ * failure reads "links failed", not "context failed". Steps are therefore a
+ * selection API that expands into phases, never a replacement for them.
+ */
+export const CURATION_STEPS = {
+  context: ['discover', 'detect', 'slugs', 'clean', 'links'],
+  image: ['images', 'classify_images'],
+  detail: ['descriptions', 'locations', 'expansion', 'tags'],
+} as const satisfies Record<string, readonly EnrichPhaseName[]>
+
+export type CurationStep = keyof typeof CURATION_STEPS
+
+/** Execution order of the steps. `image` depends on `context`, `detail` on both. */
+export const CURATION_STEP_ORDER = ['context', 'image', 'detail'] as const
+
+/**
+ * Expands steps into phases, deduped and re-sorted into ENRICH_PHASES order so
+ * every downstream `phases.includes(...)` check behaves exactly as it does for
+ * a hand-written phase array.
+ */
+export function phasesForSteps(
+  steps: readonly CurationStep[],
+): EnrichPhaseName[] {
+  const requested = new Set<string>(steps.flatMap((step) => CURATION_STEPS[step]))
+  return ENRICH_PHASES.filter((phase) => requested.has(phase))
+}
 
 export const IMAGE_ENRICH_PHASES = [
   'images',

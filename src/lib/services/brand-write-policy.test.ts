@@ -87,6 +87,48 @@ describe('resolveRefreshEnrichmentPatch', () => {
     })
   })
 
+  // A clear is a write: an admin-locked field must leave the cleared list, not
+  // be silently emptied.
+  it('removes an admin-locked field from _cleared_fields', () => {
+    expect(
+      resolveRefreshEnrichmentPatch(
+        { _cleared_fields: ['reputation_summary', 'city'] },
+        { reputation_summary: { text: '舊的' }, city: '台北' },
+        {
+          reputation_summary: { source: 'enriched', adminLocked: true },
+          city: { source: 'enriched' },
+        }
+      )
+    ).toEqual({
+      allowed: { _cleared_fields: ['city'] },
+      skipped: [{ field: 'reputation_summary', reason: 'cleared:protected:admin_locked' }],
+    })
+  })
+
+  it('drops _cleared_fields entirely when every entry is protected', () => {
+    const { allowed, skipped } = resolveRefreshEnrichmentPatch(
+      { _cleared_fields: ['reputation_summary'] },
+      { reputation_summary: { text: '舊的' } },
+      { reputation_summary: { source: 'owner' } }
+    )
+
+    expect(allowed).not.toHaveProperty('_cleared_fields')
+    expect(skipped).toEqual([{ field: 'reputation_summary', reason: 'cleared:protected:owner' }])
+  })
+
+  it('passes an enrichment-owned clear through untouched', () => {
+    expect(
+      resolveRefreshEnrichmentPatch(
+        { city: '台中', _cleared_fields: ['reputation_summary'] },
+        { city: null, reputation_summary: { text: '舊的' } },
+        { reputation_summary: { source: 'enriched' } }
+      )
+    ).toEqual({
+      allowed: { city: '台中', _cleared_fields: ['reputation_summary'] },
+      skipped: [],
+    })
+  })
+
   it('protects owner provenance even when the snapshotted value is empty', () => {
     expect(
       resolveRefreshEnrichmentPatch(

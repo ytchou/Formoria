@@ -26,6 +26,8 @@ const HTML_FULL = `
   <a href="https://www.facebook.com/mybrand">Facebook</a>
   <img src="https://mybrand.com.tw/product1.jpg" width="800" height="600" />
   <img src="https://mybrand.com.tw/product2.jpg" width="400" height="300" />
+  <img src="https://mybrand.com.tw/wide.jpg" width="1200" height="300" />
+  <img src="https://mybrand.com.tw/unsized.jpg" />
   <img src="https://mybrand.com.tw/icon.png" width="32" height="32" />
   <img src="data:image/gif;base64,R0lGODlhAQABAIAAAP" width="1" height="1" />
 </body>
@@ -76,13 +78,23 @@ describe('scrapeBrandUrls', () => {
     expect(result.galleryImageUrls).toContain(
       'https://mybrand.com.tw/product1.jpg'
     )
-    expect(result.galleryImageUrls).toContain(
+    // Dropped: both declared dimensions are under the 480px short-edge floor.
+    expect(result.galleryImageUrls).not.toContain(
       'https://mybrand.com.tw/product2.jpg'
+    )
+    // Kept despite a 300px height: only ONE dimension is under the floor, and
+    // width/height attributes are frequently display sizes rather than the
+    // intrinsic size, so the extractor only drops what is unambiguously small.
+    // image-download.ts judges real pixels and is the actual guarantee.
+    expect(result.galleryImageUrls).toContain('https://mybrand.com.tw/wide.jpg')
+    // Kept: no dimensions declared, so there is nothing to judge here.
+    expect(result.galleryImageUrls).toContain(
+      'https://mybrand.com.tw/unsized.jpg'
     )
     expect(result.galleryImageUrls).not.toContain(
       'https://mybrand.com.tw/icon.png'
     )
-    expect(result.galleryImageUrls).toHaveLength(2)
+    expect(result.galleryImageUrls).toHaveLength(3)
     expect(result.categoryHints).toContain('handmade')
     expect(result.rawJsonLd).toMatchObject({ '@type': 'Organization' })
     expect(result.websiteUrl).toBe('https://mybrand.com.tw')

@@ -4,6 +4,17 @@ export type QueryTemplate = (brandName: string) => string
 
 export type BrandImageSearchResult = {
   url: string
+  sourceUrl?: string
+  pageUrl?: string
+  previewUrl?: string
+  title?: string
+  source?: string
+  domain?: string
+  position?: number
+  imageWidth?: number
+  imageHeight?: number
+  thumbnailWidth?: number
+  thumbnailHeight?: number
   query: string
   auditResultId?: string
 }
@@ -42,6 +53,11 @@ type BrandSearchResult = {
 export type ImageQueryInput = {
   brandName: string
   productType?: string | null
+  /**
+   * The brand's own domain, when we know one. Re-added deliberately after an
+   * earlier removal: it is the only signal that lets the query anchor on brand
+   * identity (`site:`) instead of hoping a name match lands on the right shop.
+   */
   purchaseWebsite?: string | null
 }
 

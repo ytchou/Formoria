@@ -34,8 +34,10 @@ test.describe('FAQ page', () => {
       timeout: 5_000,
     })
 
-    // 11 general + 1 contact + 1 owner interest = 13 total <details> elements
-    await expect(anonPage.locator('details')).toHaveCount(13, { timeout: 5_000 })
+    // 12 general + 1 contact + 1 owner interest = 14 total <details> elements.
+    // The general count tracks `generalItemKeys` in faq/page.tsx — adding an
+    // entry there without updating this number is what turns this spec red.
+    await expect(anonPage.locator('details')).toHaveCount(14, { timeout: 5_000 })
   })
 
   test('#for-owners anchor scrolls the section into viewport', async ({ anonPage }) => {

@@ -1,6 +1,6 @@
 const CJK_ALL_REGEX = /[\u4E00-\u9FFF\u3400-\u4DBF\u3000-\u303F\uFF01-\uFF60\uFE30-\uFE4F]/u
 const LATIN_REGEX = /[A-Za-z]/u
-const JUNK_IMAGE_TAGS = new Set(['promo', 'text_banner', 'irrelevant', 'logo'])
+const JUNK_IMAGE_TAGS = new Set(['promo', 'text_banner', 'irrelevant'])
 
 export type LanguageLocale = 'zh' | 'en'
 export type LengthBand = readonly [min: number, max: number]

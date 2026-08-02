@@ -10,6 +10,7 @@ import {
   extractPurchaseLinks,
   extractSocialLinks,
   filterHeroImage,
+  toImageSources,
 } from '../parse/extractors'
 import type { ScrapeContext, ScrapeStrategy } from './types'
 
@@ -59,6 +60,7 @@ export class SinglePageStrategy implements ScrapeStrategy {
         story: null,
         heroImageUrl,
         galleryImageUrls,
+        imageSources: toImageSources(galleryImageUrls, 'single_page', url),
         socialInstagram,
         socialThreads,
         socialFacebook,

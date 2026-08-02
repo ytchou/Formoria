@@ -6,6 +6,7 @@ export const shopeeAdapter = createMarketplaceAdapter({
   titleSuffixPatterns: [/\s*[|-]\s*Shopee.*$/i, /\s*Shopee$/i],
   productImageExtractor: extractShopeeProductImages,
   purchaseKey: 'purchaseShopee',
+  imageMethod: 'shopee_adapter',
   shopNameSelector: '[class*="shop-name"]',
   shopDescriptionSelector: '[class*="shop-description"]',
 })

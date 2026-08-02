@@ -3,6 +3,7 @@
 import { useCallback } from 'react'
 import { FormField } from '@/components/forms/form-field'
 import { ImageUploader } from '@/components/upload/ImageUploader'
+import { MAX_BRAND_GALLERY_PHOTOS } from '@/lib/constants/brand-images'
 
 type ProductPhotosFieldProps = {
   value: string[]
@@ -46,7 +47,7 @@ export function ProductPhotosField({
         bucket="brand-images"
         path={uploadPath ?? 'brands/tmp/productPhotos'}
         value={value}
-        maxFiles={6}
+        maxFiles={MAX_BRAND_GALLERY_PHOTOS}
         onUpload={handleUpload}
         onRemove={handleRemove}
       />

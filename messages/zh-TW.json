@@ -986,6 +986,10 @@
         "question": "什麼樣的品牌符合收錄資格？",
         "answer": "只要品牌在台灣創立、設計或製造，符合其中任何一項即可。例如：總部設在台北的公司符合「創立」條件；在台灣設計、海外生產的工作室符合「設計」條件；在鶯歌製作產品的工坊符合「製造」條件。歡迎品牌主、品牌愛好者或社群成員推薦。"
       },
+      "notListedBrands": {
+        "question": "哪些類型的品牌不會被收錄？",
+        "answer": "Formoria 收錄擁有自主商品的品牌，因此代購、沒有自有商品線的選物店、平台與零售通路、媒體與評測網站、代理進口國外品牌的經銷商，以及只提供服務或數位商品的個人帳號，都不在收錄範圍內。若選物店有自己的商品線，或創作者有自己的實體商品，則符合收錄資格。"
+      },
       "whatDoesMitMean": {
         "question": "MIT 層級代表什麼？",
         "answer": "「MIT 認證」代表 Formoria 已比對產品與官方 MIT 微笑標章登錄資料；「品牌聲明」則記錄品牌主聲明的製造範圍，可能是部分、多數或全部產品。兩者都不代表該品牌每項產品皆在台灣製造，請查看頁面標示的範圍與佐證。"
@@ -1659,7 +1663,7 @@
       "productPhotosOverviewHint": "這些照片會接在主視覺圖片之後，顯示於品牌詳細頁面。",
       "heroImageEditHint": "僅限 1 張。這是品牌頁面最先顯示的圖片，也會作為瀑布流品牌卡片封面。建議使用清晰的 16:9 橫式圖片。",
       "fieldProductPhotos": "產品照片",
-      "productPhotosEditHint": "可上傳 1–6 張產品單品、細節或使用情境照片，這些圖片會顯示於品牌頁面的產品圖庫。",
+      "productPhotosEditHint": "最多可上傳 9 張產品單品、細節或使用情境照片，這些圖片會顯示於品牌頁面的產品圖庫。",
       "city": "品牌創立城市",
       "cityPlaceholder": "請選擇品牌創立城市",
       "fieldOfficialWebsite": "官方網站",
@@ -1955,7 +1959,7 @@
       "logoRequired": "Logo *",
       "logoOptional": "Logo（選填）",
       "logoHint": "上傳您的品牌 Logo（最大 5MB，將調整至最大 1200px）",
-      "productPhotosHint": "上傳最多 6 張照片展示您的產品",
+      "productPhotosHint": "上傳最多 9 張照片展示您的產品",
       "brandHighlights": "品牌亮點",
       "brandHighlightsHint": "是什麼讓您的品牌與眾不同？",
       "brandHighlightsPlaceholder": "例：以台灣本地檜木手工製作...",
@@ -2073,7 +2077,7 @@
       "tagsMax": "最多可選擇 5 個標籤",
       "logoRequired": "請上傳品牌標誌",
       "heroImageRequired": "請上傳品牌主圖",
-      "photosMax": "最多可上傳 6 張照片",
+      "photosMax": "最多可上傳 9 張照片",
       "emailInvalid": "請輸入有效的電子郵件地址",
       "emailRequiredForNewsletter": "若要訂閱電子報，請填寫電子郵件地址",
       "platformRequired": "請選擇平台",
@@ -2536,8 +2540,11 @@
       "fetchData": "抓取資料",
       "approve": "核准",
       "approveRefresh": "核准 — 將更新線上品牌資料",
-      "runImageCuration": "重新執行圖片擷取（{count}）",
-      "runTextCuration": "重新執行文字擷取（{count}）",
+      "runStepCuration": {
+        "context": "重新執行「基本資料」步驟（{count}）",
+        "image": "重新執行「圖片」步驟（{count}）",
+        "detail": "重新執行「詳細內容」步驟（{count}）"
+      },
       "storageCleanupWarning": "資料已更新，但部分已淘汰的圖片檔案仍需清理。",
       "reject": "拒絕",
       "edit": "編輯",

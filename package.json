@@ -34,6 +34,7 @@
     "image-eval:review": "tsx --env-file=.env.local scripts/image-eval/review.ts",
     "image-eval:baseline": "tsx --env-file=.env.local scripts/image-eval/baseline.ts",
     "image-eval:score": "tsx --env-file=.env.local scripts/image-eval/score.ts",
+    "image-recovery:audit": "tsx --env-file=.env.local scripts/image-recovery-audit.ts",
     "normalize-tags-en": "tsx --env-file=.env.local scripts/normalize-product-tags-en.ts",
     "test:e2e": "playwright test",
     "test:e2e:smoke": "playwright test --project=smoke-chromium --project=smoke-firefox --project=smoke-webkit",

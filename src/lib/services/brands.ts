@@ -1618,7 +1618,9 @@ export async function syncBrandImages(brandId: string): Promise<{ synced: number
       source_url: ref.url,
       source: 'admin',
       sort_order: i,
-      tags: ref.field === 'hero' ? ['product'] : ['lifestyle'],
+      // Both are product imagery under the two-tag vocabulary; only the
+      // sort_order above distinguishes the hero from the rest.
+      tags: ['product'],
     })
   }
 

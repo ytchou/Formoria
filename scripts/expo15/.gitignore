@@ -1,0 +1,5 @@
+# Snapshots hold full production brand rows, images, and the rendered
+# comparison. They are rollback copies and run output, not source — and
+# before.json is the only backup of the pre-refresh state, so it must not be
+# casually overwritten by a checkout either.
+snapshots/

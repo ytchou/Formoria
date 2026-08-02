@@ -3,6 +3,8 @@ import type { GoldenRosterBrand, GoldenSplit } from "./types";
 
 const DEV_BRAND_COUNT = 35;
 const HOLDOUT_BRAND_COUNT = 15;
+const HOLDOUT_PER_CATEGORY = 1;
+const SPLIT_SEED = "dev-1279-brand-split-v1";
 
 export function splitRoster(
   brands: Omit<GoldenRosterBrand, "split">[],
@@ -19,20 +21,24 @@ export function splitRoster(
   }
 
   const holdoutIds = new Set<string>();
-  for (const categoryBrands of byCategory.values()) {
-    const sorted = [...categoryBrands].sort((left, right) =>
-      left.slug.localeCompare(right.slug),
-    );
-    const first = sorted[0];
-    if (first) holdoutIds.add(first.id);
+  for (const [category, categoryBrands] of byCategory.entries()) {
+    const shuffled = [...categoryBrands].toSorted((left, right) => {
+      const hashDifference =
+        stableNumber(`${SPLIT_SEED}:category:${category}:${left.slug}`) -
+        stableNumber(`${SPLIT_SEED}:category:${category}:${right.slug}`);
+      return hashDifference || left.slug.localeCompare(right.slug);
+    });
+    for (const brand of shuffled.slice(0, HOLDOUT_PER_CATEGORY)) {
+      holdoutIds.add(brand.id);
+    }
   }
 
   const additionalHoldout = brands
     .filter((brand) => !holdoutIds.has(brand.id))
     .toSorted((left, right) => {
       const hashDifference =
-        stableNumber(`holdout:${left.slug}`) -
-        stableNumber(`holdout:${right.slug}`);
+        stableNumber(`${SPLIT_SEED}:additional:${left.slug}`) -
+        stableNumber(`${SPLIT_SEED}:additional:${right.slug}`);
       return hashDifference || left.slug.localeCompare(right.slug);
     });
 
