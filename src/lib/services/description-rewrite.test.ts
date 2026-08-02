@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { parseDescriptionRewriteResult, rewriteBrandDescription } from './description-rewrite'
-import { createAuditedDeepSeekClient } from './llm-audit'
+import { createAuditedOpenAIClient } from './llm-audit'
 
-vi.mock('./llm-audit', () => ({ createAuditedDeepSeekClient: vi.fn() }))
+vi.mock('./llm-audit', () => ({ createAuditedOpenAIClient: vi.fn() }))
 
 function makeTagFixture(
   product_tags: string[],
@@ -151,8 +151,8 @@ describe('parseDescriptionRewriteResult', () => {
         founding_year: null,
       }),
     })
-    vi.mocked(createAuditedDeepSeekClient).mockReturnValue({ chat } as never)
-    vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
+    vi.mocked(createAuditedOpenAIClient).mockReturnValue({ chat } as never)
+    vi.stubEnv('OPENAI_API_KEY', 'test-key')
 
     const output = await rewriteBrandDescription(
       '信息設計坊',
@@ -175,7 +175,7 @@ describe('parseDescriptionRewriteResult', () => {
     expect(output?.result.description_zh).toContain('品質')
     expect(output?.result.description_zh).toContain('資訊')
     expect(output?.result.blurb_zh?.startsWith('信息設計坊')).toBe(true)
-    expect(createAuditedDeepSeekClient).toHaveBeenCalledWith(
+    expect(createAuditedOpenAIClient).toHaveBeenCalledWith(
       expect.objectContaining({ jobId: 'job-1', phase: 'description', target: { type: 'brand', id: 'brand-1' } }),
       { apiKey: 'test-key' },
     )
@@ -221,8 +221,8 @@ describe('parseDescriptionRewriteResult', () => {
       .mockResolvedValueOnce(
         response(cleanDescriptionZh, cleanDescriptionEn, { priceRange: null }),
       )
-    vi.mocked(createAuditedDeepSeekClient).mockReturnValue({ chat } as never)
-    vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
+    vi.mocked(createAuditedOpenAIClient).mockReturnValue({ chat } as never)
+    vi.stubEnv('OPENAI_API_KEY', 'test-key')
 
     const output = await rewriteBrandDescription(
       'Southgate 南登機口',
@@ -265,8 +265,8 @@ describe('parseDescriptionRewriteResult', () => {
         founding_year: null,
       }),
     })
-    vi.mocked(createAuditedDeepSeekClient).mockReturnValue({ chat } as never)
-    vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
+    vi.mocked(createAuditedOpenAIClient).mockReturnValue({ chat } as never)
+    vi.stubEnv('OPENAI_API_KEY', 'test-key')
 
     const output = await rewriteBrandDescription(
       '集資品牌',

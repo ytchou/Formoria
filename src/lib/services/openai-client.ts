@@ -1,6 +1,6 @@
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions'
 
-const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini'
+const DEFAULT_OPENAI_MODEL = 'gpt-5.6-luna'
 
 type OpenAIClientOptions = {
   apiKey?: string
@@ -22,6 +22,12 @@ type OpenAIChatInput = {
   timeoutMs?: number
   maxTokens?: number
   temperature?: number
+  /**
+   * Reasoning budget, for `gpt-5`-family models only. Ignored by older snapshots,
+   * which have no reasoning to spend. Every phase here is extraction or closed-set
+   * classification against a fixed rubric, so `none` is the intended production value.
+   */
+  reasoningEffort?: 'none' | 'low' | 'medium' | 'high'
   images?: OpenAIImage[]
   /** `low` caps every image at 512px; `high` tiles it. Defaults to `low` for cost. */
   imageDetail?: 'low' | 'high' | 'auto'
@@ -83,6 +89,30 @@ export function parseJson<T>(content: string): T | null {
   }
 }
 
+/**
+ * `gpt-5`-family models reject `max_tokens` outright ("Unsupported parameter … Use
+ * 'max_completion_tokens' instead") and accept `reasoning_effort`. Verified against
+ * `gpt-5.6-luna` on 2026-08-02; `temperature` and `top_p` are still accepted, so
+ * only the token-budget field name actually differs.
+ */
+function isReasoningModel(model: string): boolean {
+  return model.startsWith('gpt-5')
+}
+
+/** Rate-limit retries per attempt. Beyond this a 429 is returned to the caller as a normal failure. */
+const MAX_RATE_LIMIT_RETRIES = 5
+const MAX_RATE_LIMIT_BACKOFF_MS = 30_000
+
+function rateLimitDelayMs(response: Response, attemptIndex: number): number {
+  const retryAfter = Number(response.headers.get('retry-after'))
+  const delay = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 1000 * 2 ** attemptIndex
+  return Math.min(delay, MAX_RATE_LIMIT_BACKOFF_MS)
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 // Latched so a model snapshot without Structured Outputs warns once per process, not per batch.
 let warnedStructuredOutputsUnsupported = false
 
@@ -131,6 +161,7 @@ export function createOpenAIClient({ apiKey, model = DEFAULT_OPENAI_MODEL, onCha
       timeoutMs = 30_000,
       maxTokens,
       temperature,
+      reasoningEffort,
       images,
       imageDetail = 'low',
       meta,
@@ -138,8 +169,6 @@ export function createOpenAIClient({ apiKey, model = DEFAULT_OPENAI_MODEL, onCha
     }: OpenAIChatInput): Promise<OpenAIChatResult> {
       // Resolved up front so a missing API key still throws instead of being swallowed as a failed attempt.
       const headers = authHeaders()
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), timeoutMs)
       const userContent: string | OpenAIChatContentPart[] = images?.length
         ? [
             { type: 'text', text: user },
@@ -165,8 +194,24 @@ export function createOpenAIClient({ apiKey, model = DEFAULT_OPENAI_MODEL, onCha
         return json || schema ? { response_format: { type: 'json_object' } } : {}
       }
 
+      /**
+       * `max_tokens` is a hard 400 on reasoning models; `temperature` is not, so it
+       * passes through for every model and existing callers keep their values.
+       */
+      function tokenBudget(): Record<string, unknown> {
+        if (typeof maxTokens !== 'number') return {}
+        return isReasoningModel(model) ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens }
+      }
+
+      function reasoning(): Record<string, unknown> {
+        return reasoningEffort && isReasoningModel(model) ? { reasoning_effort: reasoningEffort } : {}
+      }
+
       async function attempt(useSchema: boolean): Promise<OpenAIChatResult> {
         const startedAt = performance.now()
+        // Per-attempt deadline. A shared one let a slow first call abort the retry instantly.
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), timeoutMs)
 
         try {
           const response = await fetch(OPENAI_API_URL, {
@@ -178,18 +223,15 @@ export function createOpenAIClient({ apiKey, model = DEFAULT_OPENAI_MODEL, onCha
                 { role: 'system', content: system },
                 { role: 'user', content: userContent },
               ],
-              ...(typeof maxTokens === 'number' ? { max_tokens: maxTokens } : {}),
+              ...tokenBudget(),
               ...(typeof temperature === 'number' ? { temperature } : {}),
+              ...reasoning(),
               ...responseFormat(useSchema),
             }),
             signal: controller.signal,
           })
 
           if (!response.ok) {
-            if (response.status === 429) {
-              const retryAfter = response.headers.get('retry-after')
-              console.error(`  [OPENAI] Rate limited (429). Retry-After: ${retryAfter ?? 'not provided'}`)
-            }
             const data = (await response.clone().json().catch(() => null)) as unknown
             await emitAudit({
               provider: 'openai',
@@ -261,24 +303,40 @@ export function createOpenAIClient({ apiKey, model = DEFAULT_OPENAI_MODEL, onCha
             finishReason: null,
             refusal: null,
           }
+        } finally {
+          clearTimeout(timeout)
         }
       }
 
-      try {
-        const first = await attempt(Boolean(schema))
-        if (schema && !first.ok && mentionsResponseFormat(first.errorBody)) {
-          if (!warnedStructuredOutputsUnsupported) {
-            warnedStructuredOutputsUnsupported = true
-            console.warn(
-              `  [OPENAI] Model ${model} rejected json_schema response_format; falling back to json_object mode.`
-            )
-          }
-          return await attempt(false)
+      /**
+       * A 429 used to fall straight through to the caller, which for the image
+       * classifier meant a whole batch was dropped for the run. Every attempt is
+       * still audited, so rate limiting stays visible in the run log.
+       */
+      async function attemptWithBackoff(useSchema: boolean): Promise<OpenAIChatResult> {
+        let result = await attempt(useSchema)
+
+        for (let retry = 0; result.status === 429 && retry < MAX_RATE_LIMIT_RETRIES; retry += 1) {
+          const delay = rateLimitDelayMs(result.response, retry)
+          console.error(`  [OPENAI] Rate limited (429). Retry ${retry + 1}/${MAX_RATE_LIMIT_RETRIES} in ${delay}ms`)
+          await sleep(delay)
+          result = await attempt(useSchema)
         }
-        return first
-      } finally {
-        clearTimeout(timeout)
+
+        return result
       }
+
+      const first = await attemptWithBackoff(Boolean(schema))
+      if (schema && !first.ok && mentionsResponseFormat(first.errorBody)) {
+        if (!warnedStructuredOutputsUnsupported) {
+          warnedStructuredOutputsUnsupported = true
+          console.warn(
+            `  [OPENAI] Model ${model} rejected json_schema response_format; falling back to json_object mode.`
+          )
+        }
+        return await attemptWithBackoff(false)
+      }
+      return first
     },
   }
 }

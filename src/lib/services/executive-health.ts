@@ -148,7 +148,6 @@ function defaultChecks(): ExecutiveHealthCheckDefinition[] {
   const upstashUrl = process.env.UPSTASH_REDIS_REST_URL
   const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN
   const serperKey = process.env.SERPER_API_KEY
-  const deepSeekKey = process.env.DEEPSEEK_API_KEY
   const openAiKey = process.env.OPENAI_API_KEY
 
   return [
@@ -236,19 +235,10 @@ function defaultChecks(): ExecutiveHealthCheckDefinition[] {
         ),
       ),
     },
-    {
-      service: 'DeepSeek',
-      tier: 'back-office',
-      request: { endpoint: 'https://api.deepseek.com/user/balance', configured: Boolean(deepSeekKey) },
-      run: configured(deepSeekKey, 'DeepSeek is not configured', async () =>
-        responseResult(
-          await fetch('https://api.deepseek.com/user/balance', {
-            headers: { Authorization: `Bearer ${deepSeekKey}` },
-            signal: AbortSignal.timeout(3_000),
-          }),
-        ),
-      ),
-    },
+    // DeepSeek is deliberately absent since the gpt-5.6-luna migration: no
+    // production path calls it, so its account balance signals nothing about
+    // work we actually do — a lapsed balance on a dormant fallback provider
+    // must not page anyone. See deepseek-client.ts for the revival path.
     {
       service: 'OpenAI',
       tier: 'back-office',

@@ -2,7 +2,9 @@ import { createServiceClient } from '@/lib/supabase/server'
 import type { DescriptionAttempt } from './description-rewrite'
 import { brandTarget, targetForeignKey, type EnrichmentTarget } from './enrichment-target'
 
-const DEEPSEEK_MODEL = 'deepseek-v4-flash'
+// The model behind every text phase. Written verbatim into brand_ai_results.model, so it
+// must track the model the audited client actually calls (openai-client DEFAULT_OPENAI_MODEL).
+const TEXT_MODEL = 'gpt-5.6-luna'
 
 export type AiCallInput = {
   target: EnrichmentTarget
@@ -61,7 +63,7 @@ export async function insertTriageResult(input: AiTriageInput): Promise<void> {
     slug_generated: input.slugGenerated,
     product_type: input.productType,
     confidence: input.confidence,
-    model: DEEPSEEK_MODEL,
+    model: TEXT_MODEL,
   } as never)
   if (error) console.error(`  [AI-RESULTS] insertTriageResult failed:`, error.message)
 }
@@ -123,7 +125,7 @@ export async function insertExpansionResult(input: AiExpansionInput): Promise<vo
   const { error } = await supabase.from('brand_ai_results').insert({
     ...targetForeignKey(input.target ?? brandTarget(input.brandId)),
     phase: 'expansion',
-    model: DEEPSEEK_MODEL,
+    model: TEXT_MODEL,
   } as never)
   if (error) console.error(`  [AI-RESULTS] insertExpansionResult failed:`, error.message)
 }
@@ -142,7 +144,7 @@ export async function insertClassificationResult(input: AiClassificationInput): 
     phase: 'classification',
     product_type: input.productType,
     confidence: input.confidence,
-    model: DEEPSEEK_MODEL,
+    model: TEXT_MODEL,
   } as never)
   if (error) console.error(`  [AI-RESULTS] insertClassificationResult failed:`, error.message)
 }

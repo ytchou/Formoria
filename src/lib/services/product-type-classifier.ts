@@ -1,6 +1,6 @@
 import { CLASSIFY_SYSTEM_PROMPT, DETECT_SYSTEM_PROMPT } from '@/lib/prompts'
-import { createDeepSeekClient } from '@/lib/services/deepseek-client'
-import { createAuditedDeepSeekClient } from '@/lib/services/llm-audit'
+import { createOpenAIClient } from '@/lib/services/openai-client'
+import { createAuditedOpenAIClient } from '@/lib/services/llm-audit'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import type { EnrichmentTarget } from './enrichment-target'
 
@@ -51,9 +51,9 @@ function createClassifierClient(
   target: EnrichmentTarget | undefined,
   jobId?: string,
 ) {
-  if (!target) return createDeepSeekClient({ apiKey })
+  if (!target) return createOpenAIClient({ apiKey })
 
-  return createAuditedDeepSeekClient(
+  return createAuditedOpenAIClient(
     {
       target,
       phase,
@@ -269,7 +269,7 @@ async function classifyProductType(
   brand: BatchClassificationItem,
   jobId?: string,
 ): Promise<ClassificationResult | null> {
-  const token = process.env.DEEPSEEK_API_KEY
+  const token = process.env.OPENAI_API_KEY
   if (!token) return null
 
   const userContent = `品牌名稱：${brand.name}\n描述：${brand.description ?? '無'}`
@@ -282,8 +282,11 @@ async function classifyProductType(
       user: userContent,
       json: true,
       timeoutMs: CLASSIFY_TIMEOUT_MS,
-      maxTokens: 100,
+      // 300, not 100: maxTokens is max_completion_tokens on gpt-5, so any preamble the
+      // model emits before the JSON eats the same budget and truncates the answer.
+      maxTokens: 300,
       temperature: 0,
+      reasoningEffort: 'none',
     })
 
     if (!response.ok) {
@@ -313,7 +316,7 @@ async function classifyProductTypeBatchChunk(
   brands: BatchClassificationItem[],
   jobId?: string,
 ): Promise<Map<string, ClassificationResult> | null> {
-  const token = process.env.DEEPSEEK_API_KEY
+  const token = process.env.OPENAI_API_KEY
   if (!token) return null
 
   const validSlugs = new Set(brands.map(brand => brand.slug))
@@ -332,6 +335,7 @@ async function classifyProductTypeBatchChunk(
       timeoutMs: BATCH_CLASSIFY_TIMEOUT_MS,
       maxTokens: 1500,
       temperature: 0,
+      reasoningEffort: 'none',
     })
 
     if (!response.ok) {
@@ -386,7 +390,7 @@ export async function classifyProductTypeBatch(
 }
 
 async function detectBrand(brand: DetectBatchItem, jobId?: string): Promise<DetectResult | null> {
-  const token = process.env.DEEPSEEK_API_KEY
+  const token = process.env.OPENAI_API_KEY
   if (!token) return null
 
   const snippetLine = brand.snippets?.length ? `\n搜尋摘要：${brand.snippets.slice(0, 10).join('；')}` : ''
@@ -402,6 +406,7 @@ async function detectBrand(brand: DetectBatchItem, jobId?: string): Promise<Dete
       timeoutMs: CLASSIFY_TIMEOUT_MS,
       maxTokens: 500,
       temperature: 0,
+      reasoningEffort: 'none',
     })
 
     if (!response.ok) {
@@ -431,7 +436,7 @@ async function detectBrandsBatchChunk(
   brands: DetectBatchItem[],
   jobId?: string,
 ): Promise<Map<string, DetectResult> | null> {
-  const token = process.env.DEEPSEEK_API_KEY
+  const token = process.env.OPENAI_API_KEY
   if (!token) return null
 
   const list = brands.map((brand, index) => {
@@ -451,6 +456,7 @@ async function detectBrandsBatchChunk(
       timeoutMs: BATCH_CLASSIFY_TIMEOUT_MS,
       maxTokens: 4000,
       temperature: 0,
+      reasoningEffort: 'none',
     })
 
     if (!response.ok) {

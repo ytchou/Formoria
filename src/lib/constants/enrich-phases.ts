@@ -33,7 +33,7 @@ export const SERP_PHASES = [
  * Phases whose work is LLM inference. These consume SERP output (live or
  * replayed from cache) and never call the search provider themselves.
  *
- * - `detect` / `slugs` / `tags` all read one batched DeepSeek detect call;
+ * - `detect` / `slugs` / `tags` all read one batched OpenAI detect call;
  *   `slugs` is not a local transform because the slug it writes comes from the
  *   model's `slugGenerated` field.
  */

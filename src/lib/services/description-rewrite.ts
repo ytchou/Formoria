@@ -1,13 +1,13 @@
 import { DESCRIPTION_SYSTEM_PROMPT } from '@/lib/prompts'
 import { buildEnrichmentConfig } from '@/lib/constants/enrichment-config'
-import { parseDeepSeekJson } from './deepseek-client'
-import { createAuditedDeepSeekClient, type LlmAuditContext } from './llm-audit'
+import { parseJson } from './openai-client'
+import { createAuditedOpenAIClient, type LlmAuditContext } from './llm-audit'
 import { validateLocalizedText, detectAiArtifacts } from './enrich-validators'
 import { localizeToTW, stripAiToolArtifacts } from './taiwan-localization'
 import { parseExtractionResult } from './product-type-classifier'
 import { normalizeProductTags } from '@/lib/services/product-tags'
 
-const DEEPSEEK_TIMEOUT_MS = 30_000
+const DESCRIPTION_TIMEOUT_MS = 30_000
 const ZH_DESCRIPTION_BAND = [150, 400] as const
 const EN_DESCRIPTION_BAND = [300, 700] as const
 const ZH_BLURB_BAND = [40, 80] as const
@@ -130,7 +130,7 @@ type DescriptionRewriteOutput = {
 
 
 export function parseDescriptionRewriteResult(content: string): DescriptionRewriteResult {
-  const parsed = parseDeepSeekJson<Record<string, unknown>>(content)
+  const parsed = parseJson<Record<string, unknown>>(content)
   const extraction = parseExtractionResult(content)
 
   if (!parsed) {
@@ -522,8 +522,8 @@ export function buildDescriptionRetryInstruction(
 }
 
 const DESCRIPTION_CONFIG_PARAMS = {
-  model: 'deepseek-v4-flash',
-  maxTokens: 4500,
+  model: 'gpt-5.6-luna',
+  maxTokens: 6000,
   temperature: 0.1,
   snippetLimit: 10,
   siteContentLimit: 4000,
@@ -541,7 +541,7 @@ export async function rewriteBrandDescription(
   audit: Pick<LlmAuditContext, 'jobId' | 'target'>,
   evidence?: DescriptionEvidence,
 ): Promise<DescriptionRewriteOutput | null> {
-  const token = process.env.DEEPSEEK_API_KEY
+  const token = process.env.OPENAI_API_KEY
   if (!token) return null
   if (snippets.length === 0 && !existingDescription) return null
 
@@ -614,7 +614,7 @@ export async function rewriteBrandDescription(
         attemptIndex === 0 ? '' : buildDescriptionRetryInstruction(lastRejections, lastParsed)
 
       const startAt = Date.now()
-      const client = createAuditedDeepSeekClient(
+      const client = createAuditedOpenAIClient(
         {
           ...audit,
           phase: 'description',
@@ -627,9 +627,13 @@ export async function rewriteBrandDescription(
         system: DESCRIPTION_SYSTEM_PROMPT,
         user: `${userContent}${retryInstruction}`,
         json: true,
-        timeoutMs: DEEPSEEK_TIMEOUT_MS,
-        maxTokens: 4500,
+        timeoutMs: DESCRIPTION_TIMEOUT_MS,
+        // 6000, not 4500: the prompt gained six link lines, a category name and 8 image
+        // alt lines on input, and the output now carries a `listing` object on top of
+        // four description fields. The old budget predates all of it.
+        maxTokens: 6000,
         temperature: 0.1,
+        reasoningEffort: 'none',
       })
       const latencyMs = Date.now() - startAt
 
@@ -643,7 +647,7 @@ export async function rewriteBrandDescription(
         return null
       }
 
-      const parsed = parseDeepSeekJson<Record<string, unknown>>(content)
+      const parsed = parseJson<Record<string, unknown>>(content)
       if (!parsed) {
         attempts.push({
           attempt: attemptIndex + 1,

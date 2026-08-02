@@ -16,7 +16,7 @@ import {
 } from './types'
 
 const EXPANSION_CONFIG_PARAMS = {
-  model: 'deepseek-v4-flash',
+  model: 'gpt-5.6-luna',
   maxTokens: 1200,
   temperature: 0.1,
   snippetLimit: 10,

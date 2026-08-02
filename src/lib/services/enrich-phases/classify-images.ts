@@ -805,7 +805,10 @@ export async function runClassifyImagesPhase({
   }
 
   const config = buildEnrichmentConfig('classify_images', IMAGE_CLASSIFY_SYSTEM_PROMPT, {
-    model: 'gpt-4o-mini',
+    // Duplicates DEFAULT_OPENAI_MODEL in openai-client.ts because this object is the
+    // stored audit contract: if the two drift, every brand_ai_results row for this
+    // phase records a model that never ran. Change both together.
+    model: 'gpt-5.6-luna',
     batchSize: BATCH_SIZE,
     detail: CLASSIFY_IMAGE_DETAIL,
     temperature: 0,

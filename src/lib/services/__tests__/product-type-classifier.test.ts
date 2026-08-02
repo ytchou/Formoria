@@ -13,7 +13,7 @@ describe('detectBrandsBatch', () => {
   beforeEach(() => {
     mockFetch.mockClear()
     vi.stubGlobal('fetch', mockFetch)
-    vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
+    vi.stubEnv('OPENAI_API_KEY', 'test-key')
   })
 
   afterEach(() => {
