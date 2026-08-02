@@ -6,6 +6,7 @@ export const pinkoiAdapter = createMarketplaceAdapter({
   titleSuffixPatterns: [/\s*[|-]\s*Pinkoi.*$/i, /\s*Pinkoi.*$/i],
   productImageExtractor: extractPinkoiProductImages,
   purchaseKey: 'purchasePinkoi',
+  imageMethod: 'pinkoi_adapter',
   shopNameSelector: '[class*="store-name"]',
   shopDescriptionSelector: '[class*="story"]',
 })

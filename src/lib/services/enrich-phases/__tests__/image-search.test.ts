@@ -167,6 +167,41 @@ describe('runImageSearchPhase', () => {
     expect(result.phaseResult.status).toBe('skipped')
   })
 
+  // A newly submitted brand has no stored website yet, and this phase runs
+  // before links — without the derived fallback its `site:` query would only
+  // start firing on a second enrichment run.
+  it('uses the caller-derived website when the stored column is empty', async () => {
+    await runImageSearchPhase(
+      ctx(),
+      new Map([['Test Brand', serp({ urls: ['https://brand.com'], snippets: ['s'] })]]),
+      new Map([['Test Brand', 'https://brand.com']]),
+    )
+
+    const [inputs] = searchMocks.batchSearchBrandImages.mock.calls[0] as [
+      Array<{ brandName: string; purchaseWebsite: string | null }>,
+    ]
+    expect(inputs).toEqual([
+      expect.objectContaining({ brandName: 'Test Brand', purchaseWebsite: 'https://brand.com' }),
+    ])
+  })
+
+  it('prefers the stored purchase_website over the derived one', async () => {
+    await runImageSearchPhase(
+      ctx({
+        chunk: [{ ...brand, purchase_website: 'https://stored.com' }],
+      }),
+      new Map([['Test Brand', serp({ urls: ['https://derived.com'], snippets: ['s'] })]]),
+      new Map([['Test Brand', 'https://derived.com']]),
+    )
+
+    const [inputs] = searchMocks.batchSearchBrandImages.mock.calls[0] as [
+      Array<{ brandName: string; purchaseWebsite: string | null }>,
+    ]
+    expect(inputs).toEqual([
+      expect.objectContaining({ purchaseWebsite: 'https://stored.com' }),
+    ])
+  })
+
 })
 
 function submissionImagesClient(submissionIds: string[]): BatchPhaseContext['supabase'] {

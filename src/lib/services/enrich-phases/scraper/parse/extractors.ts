@@ -1,8 +1,29 @@
 import * as cheerio from 'cheerio'
-import type { ScrapedBrandData } from '@/lib/types/scraper'
+import type { ScrapedBrandData, ScrapedImageSource } from '@/lib/types/scraper'
 import { resolveUrl } from '../fetch-guards'
 
+// Default cap for the generic web path. Callers that pull from a source with
+// no per-image cost (platform adapters) pass a larger explicit limit instead.
 export const MAX_GALLERY_IMAGES = 5
+
+/**
+ * cheerio does not re-export domhandler's node types, so derive the node type
+ * from the querying function rather than depending on domhandler directly
+ * (it is not a hoisted dependency under pnpm).
+ */
+type CheerioNode =
+  ReturnType<cheerio.CheerioAPI> extends cheerio.Cheerio<infer N> ? N : never
+
+export type GalleryImageOptions = {
+  limit?: number
+  /**
+   * Optional per-element veto, used by the Instagram adapter to drop video
+   * poster frames. Returning `false` (or omitting the predicate entirely) keeps
+   * the image, so a caller whose selectors stop matching degrades to today's
+   * behaviour instead of dropping the gallery.
+   */
+  skip?: (el: CheerioNode, $: cheerio.CheerioAPI) => boolean
+}
 // Shares the 480px short-edge floor used by the download stage so both feeds
 // into the candidate pool agree. This only fires when BOTH the width and
 // height HTML attributes are present, which is often not the case, so the
@@ -156,14 +177,46 @@ export function extractPurchaseLinks($: cheerio.CheerioAPI): {
   return { purchaseWebsite: null, purchasePinkoi: pinkoi, purchaseShopee: shopee }
 }
 
+/**
+ * Pick the highest-resolution entry from a `srcset`. srcset is authored
+ * smallest-first, so reading entry zero — which this used to do — handed the
+ * downloader the lowest-resolution variant of every image and then failed it on
+ * the short-edge floor.
+ *
+ * Entries without a `w` descriptor (a bare URL, or an `x` density descriptor
+ * whose pixel size we cannot compare) rank below every sized entry and settle
+ * ties by document order, so a single undescribed URL is still returned.
+ */
+export function largestSrcsetUrl(srcset: string): string {
+  let bestUrl = ''
+  let bestWidth = -1
+
+  for (const entry of srcset.split(',')) {
+    const parts = entry.trim().split(/\s+/).filter(Boolean)
+    const url = parts.at(0)
+    if (!url) continue
+
+    const width = Number(parts.at(1)?.match(/^(\d+)w$/)?.at(1) ?? 0)
+    if (width > bestWidth) {
+      bestWidth = width
+      bestUrl = url
+    }
+  }
+
+  return bestUrl
+}
+
 export function extractGalleryImages(
   $: cheerio.CheerioAPI,
-  pageUrl: string
+  pageUrl: string,
+  { limit = MAX_GALLERY_IMAGES, skip }: GalleryImageOptions = {}
 ): string[] {
   const urls: string[] = []
 
   $('img').each((_, el) => {
-    if (urls.length >= MAX_GALLERY_IMAGES) return
+    if (urls.length >= limit) return
+
+    if (skip?.(el, $)) return
 
     // Resolve candidate URL: prefer data-src / data-original (lazy-load), then src
     const rawSrc =
@@ -172,11 +225,10 @@ export function extractGalleryImages(
       $(el).attr('src') ||
       ''
 
-    // Also check srcset — take the first URL from the list
-    const srcset = $(el).attr('srcset') ?? ''
-    const srcsetFirst = srcset.split(',')[0]?.trim().split(/\s+/)[0] ?? ''
+    // Fall back to the widest srcset variant when no direct src is present
+    const srcsetLargest = largestSrcsetUrl($(el).attr('srcset') ?? '')
 
-    const raw = rawSrc || srcsetFirst
+    const raw = rawSrc || srcsetLargest
     if (!raw || raw.startsWith('data:')) return
 
     const resolved = resolveUrl(raw, pageUrl)
@@ -203,11 +255,14 @@ export function extractGalleryImages(
   return urls
 }
 
-export function extractPinkoiProductImages($: cheerio.CheerioAPI): string[] {
+export function extractPinkoiProductImages(
+  $: cheerio.CheerioAPI,
+  limit: number = MAX_GALLERY_IMAGES
+): string[] {
   const urls: string[] = []
 
   $('img').each((_, el) => {
-    if (urls.length >= MAX_GALLERY_IMAGES) return
+    if (urls.length >= limit) return
 
     const candidates = [$(el).attr('data-src'), $(el).attr('src')]
 
@@ -233,11 +288,14 @@ export function extractPinkoiProductImages($: cheerio.CheerioAPI): string[] {
   return urls
 }
 
-export function extractShopeeProductImages($: cheerio.CheerioAPI): string[] {
+export function extractShopeeProductImages(
+  $: cheerio.CheerioAPI,
+  limit: number = MAX_GALLERY_IMAGES
+): string[] {
   const urls: string[] = []
 
   $('img').each((_, el) => {
-    if (urls.length >= MAX_GALLERY_IMAGES) return
+    if (urls.length >= limit) return
 
     const candidates = [$(el).attr('data-src'), $(el).attr('src')]
 
@@ -262,6 +320,18 @@ export function extractShopeeProductImages($: cheerio.CheerioAPI): string[] {
   })
 
   return urls
+}
+
+/**
+ * Tag an already-ordered gallery with the method that produced it, so the
+ * download stage can persist provenance instead of a bare URL.
+ */
+export function toImageSources(
+  urls: string[],
+  method: string,
+  pageUrl: string
+): ScrapedImageSource[] {
+  return urls.map((url, position) => ({ url, method, pageUrl, position }))
 }
 
 export function extractJsonLd($: cheerio.CheerioAPI): Record<string, unknown> | null {

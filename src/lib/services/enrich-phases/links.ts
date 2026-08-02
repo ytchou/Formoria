@@ -4,9 +4,11 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { buildLinkEnrichPatch, extractLinksFromUrls } from '../link-enrichment'
 import { cleanBrandName, isValidBrandName } from '../brand-cleanup'
 import { finishSearchAudit, startSearchAudit } from '../search-results'
-import { scrapeBrandUrls } from './scraper'
+import { MAX_SCRAPE_URLS_PER_BRAND, scrapeBrandUrls, type ScrapeBrandUrlsOptions } from './scraper'
 import { classifyByDomain } from './scraper/input-detector'
+import { mergeScrapedData } from './scraper/merge'
 import type { PhaseResult } from '@/lib/types/curation'
+import type { ScrapedBrandData, ScrapedImageSource } from '@/lib/types/scraper'
 import type { EnrichScrapedData } from './types'
 import { brandTarget, type EnrichmentTarget } from '../enrichment-target'
 import { buildPhaseResult, hasPatchValues, timePhase, type EnrichBrand, type EnrichPhase } from './types'
@@ -27,6 +29,8 @@ type LinksPhaseOutput = {
   patch: Record<string, unknown>
   scrapedData: EnrichScrapedData | null
   scrapedImageUrls: string[]
+  /** Parallel provenance for `scrapedImageUrls`; empty when the scraper predates it. */
+  scrapedImageSources: ScrapedImageSource[]
   jsonLdImageUrls: string[]
 }
 
@@ -47,6 +51,14 @@ function uniqueUrls(urls: string[]): string[] {
   return unique
 }
 
+/**
+ * Round-robins official / social / marketplace so every kind is represented
+ * before any kind repeats. Each kind runs a different adapter and yields a
+ * different set of images, so within a fixed URL budget breadth beats depth:
+ * the old order (one official, then *all* social, then marketplace) meant a
+ * brand with two social profiles exhausted the budget before its Pinkoi or
+ * Shopee page — the two pages the richest adapters read — was ever fetched.
+ */
 function prioritizeScrapeUrls(urls: string[]): string[] {
   const official: string[] = []
   const social: string[] = []
@@ -57,11 +69,26 @@ function prioritizeScrapeUrls(urls: string[]): string[] {
     else if (classification === 'social') social.push(url)
     else marketplace.push(url)
   }
-  const firstOfficial = official.at(0)
-  return [...(firstOfficial ? [firstOfficial] : []), ...social, ...marketplace, ...official.slice(1)]
+
+  const buckets = [official, social, marketplace]
+  const deepest = Math.max(...buckets.map((bucket) => bucket.length))
+  const ordered: string[] = []
+  for (let index = 0; index < deepest; index += 1) {
+    for (const bucket of buckets) {
+      const url = bucket.at(index)
+      if (url) ordered.push(url)
+    }
+  }
+
+  return ordered
 }
 
-function deriveOfficialWebsite(urls: string[]): string | null {
+/**
+ * First URL that is neither social nor marketplace, normalised to its root.
+ * Also used by the batch image-search phase, which runs before this one and
+ * therefore has no stored website for a freshly submitted brand.
+ */
+export function deriveOfficialWebsite(urls: string[]): string | null {
   const url = urls.find((u) => classifyByDomain(u) === null)
   return normalizeToRootUrl(url ?? null)
 }
@@ -118,6 +145,69 @@ export function deriveScrapedBrandName(
   return cleaned
 }
 
+/**
+ * Bound on the follow-up scrape. Small on purpose: the point is to reach the
+ * one or two profiles the official site just revealed, not to crawl outward.
+ */
+const MAX_SECOND_PASS_URLS = 3
+
+/** Identity for "did we already scrape this?" — scheme, `www.`, and a trailing slash are noise. */
+function scrapeKey(url: string): string {
+  const trimmed = url.trim().toLowerCase()
+  try {
+    const parsed = new URL(trimmed)
+    return `${parsed.hostname.replace(/^www\./, '')}${parsed.pathname.replace(/\/+$/, '')}`
+  } catch {
+    return trimmed.replace(/\/+$/, '')
+  }
+}
+
+/**
+ * Scraping the official site is *how* we learn a brand's Instagram, Facebook,
+ * Pinkoi, and Shopee URLs — but the first pass fixed its URL set before those
+ * existed, so those links were written to the row and then scraped for the
+ * first time only on the *next* enrichment run. That cost a whole cycle before
+ * the free, higher-quality platform-adapter images were reachable, and 119 of
+ * 599 approved brands have Instagram as their only URL.
+ *
+ * Exactly one extra pass, never recursive: this is a plain function that issues
+ * a single `scrapeBrandUrls` call and returns, so a URL discovered by the
+ * second pass waits for the next run rather than expanding the frontier here.
+ * The audit callback is the same one the first pass uses, so these fetches land
+ * in the trail identically.
+ */
+async function scrapeDiscoveredLinks(
+  firstPassData: ScrapedBrandData,
+  firstPassUrls: string[],
+  options: ScrapeBrandUrlsOptions,
+): Promise<ScrapedBrandData> {
+  const alreadyScraped = new Set(
+    firstPassUrls.slice(0, MAX_SCRAPE_URLS_PER_BRAND).map(scrapeKey),
+  )
+  const candidates = uniqueUrls(
+    [
+      firstPassData.socialInstagram,
+      firstPassData.socialFacebook,
+      firstPassData.purchasePinkoi,
+      firstPassData.purchaseShopee,
+      firstPassData.purchaseWebsite,
+    ].filter((url): url is string => typeof url === 'string' && url.trim().length > 0),
+  )
+    .filter((url) => !alreadyScraped.has(scrapeKey(url)))
+    .slice(0, MAX_SECOND_PASS_URLS)
+
+  if (candidates.length === 0) return firstPassData
+
+  const secondPass = await scrapeBrandUrls(candidates, options)
+  // Merged through the same helper the first pass uses, with the first pass at
+  // the highest precedence: a follow-up profile may fill gaps but must never
+  // overwrite what the brand's own site already told us.
+  return mergeScrapedData([
+    { type: 'official-site', data: firstPassData },
+    { type: 'social', data: secondPass.data },
+  ])
+}
+
 export async function runLinksPhase({
   brand,
   phases,
@@ -134,6 +224,7 @@ export async function runLinksPhase({
       patch: {},
       scrapedData: null,
       scrapedImageUrls: [],
+      scrapedImageSources: [],
       jsonLdImageUrls: [],
     }
   }
@@ -141,49 +232,50 @@ export async function runLinksPhase({
   const { result, durationMs } = await timePhase(async () => {
     const urls = prioritizeScrapeUrls(uniqueUrls([...knownUrls, ...discoveredUrls]))
     const urlExtracted = extractLinksFromUrls(discoveredUrls)
-    const { data: scraped } =
-      urls.length > 0
-        ? await scrapeBrandUrls(urls, {
-            onAttempt: async ({ url, classification }) => {
-              const auditId = await startSearchAudit({
-                target: target ?? brandTarget(brand.id),
-                ...(jobId ? { jobId } : {}),
-                supabase,
-                provider: 'scraper',
-                endpoint: url,
-                searchType: 'scrape',
-                query: url,
-                input: { url, classification },
-                config: { phase: 'links', dryRun },
-              })
-              return {
-                finish: async (attempt) => {
-                  await finishSearchAudit(
-                    auditId,
-                    {
-                      callStatus: attempt.callStatus,
-                      httpStatus: attempt.httpStatus,
-                      error: attempt.error,
-                      latencyMs: attempt.latencyMs,
-                      rawResponse: {
-                        url,
-                        classification,
-                        ...(typeof attempt.extracted === 'object' &&
-                        attempt.extracted !== null &&
-                        !Array.isArray(attempt.extracted)
-                          ? attempt.extracted
-                          : { extracted: attempt.extracted }),
-                      },
-                      urls: [url],
-                      snippets: boundedScrapeSnippets(attempt.extracted),
-                    },
-                    supabase,
-                  )
+    const scrapeOptions: ScrapeBrandUrlsOptions = {
+      onAttempt: async ({ url, classification }) => {
+        const auditId = await startSearchAudit({
+          target: target ?? brandTarget(brand.id),
+          ...(jobId ? { jobId } : {}),
+          supabase,
+          provider: 'scraper',
+          endpoint: url,
+          searchType: 'scrape',
+          query: url,
+          input: { url, classification },
+          config: { phase: 'links', dryRun },
+        })
+        return {
+          finish: async (attempt) => {
+            await finishSearchAudit(
+              auditId,
+              {
+                callStatus: attempt.callStatus,
+                httpStatus: attempt.httpStatus,
+                error: attempt.error,
+                latencyMs: attempt.latencyMs,
+                rawResponse: {
+                  url,
+                  classification,
+                  ...(typeof attempt.extracted === 'object' &&
+                  attempt.extracted !== null &&
+                  !Array.isArray(attempt.extracted)
+                    ? attempt.extracted
+                    : { extracted: attempt.extracted }),
                 },
-              }
-            },
-          })
-        : { data: {} as EnrichScrapedData }
+                urls: [url],
+                snippets: boundedScrapeSnippets(attempt.extracted),
+              },
+              supabase,
+            )
+          },
+        }
+      },
+    }
+    const firstPass = urls.length > 0 ? await scrapeBrandUrls(urls, scrapeOptions) : null
+    const scraped: EnrichScrapedData = firstPass
+      ? await scrapeDiscoveredLinks(firstPass.data, urls, scrapeOptions)
+      : ({} as EnrichScrapedData)
     const derivedWebsite = scraped.purchaseWebsite ?? deriveOfficialWebsite(urls)
     const scrapedData = normalizeScrapedData({
       ...scraped,
@@ -201,6 +293,7 @@ export async function runLinksPhase({
       patch,
       scrapedData,
       scrapedImageUrls: scrapedData.galleryImageUrls ?? [],
+      scrapedImageSources: scrapedData.imageSources ?? [],
       jsonLdImageUrls: scrapedData.jsonLdImageUrls ?? [],
     }
   })
@@ -213,6 +306,7 @@ export async function runLinksPhase({
     patch: result.patch,
     scrapedData: result.scrapedData,
     scrapedImageUrls: result.scrapedImageUrls,
+    scrapedImageSources: result.scrapedImageSources,
     jsonLdImageUrls: result.jsonLdImageUrls,
   }
 }

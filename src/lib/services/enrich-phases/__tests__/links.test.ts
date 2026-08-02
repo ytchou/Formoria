@@ -1,6 +1,30 @@
 import { describe, expect, it } from 'vitest'
-import { deriveScrapedBrandName, runLinksPhase } from '../links'
+import { deriveOfficialWebsite, deriveScrapedBrandName, runLinksPhase } from '../links'
 import type { EnrichBrand, EnrichPhase } from '../types'
+
+// Exported because the batch image-search phase runs before links and needs a
+// website for brands whose stored column is still empty.
+describe('deriveOfficialWebsite', () => {
+  it('picks the first non-social, non-marketplace URL and roots it', () => {
+    expect(
+      deriveOfficialWebsite([
+        'https://www.instagram.com/brand',
+        'https://shopee.tw/brand',
+        'https://brand.com/about/story',
+      ]),
+    ).toBe('https://brand.com')
+  })
+
+  it('returns null when every URL is social or marketplace', () => {
+    expect(
+      deriveOfficialWebsite(['https://www.instagram.com/brand', 'https://www.pinkoi.com/store/brand']),
+    ).toBeNull()
+  })
+
+  it('returns null for no URLs', () => {
+    expect(deriveOfficialWebsite([])).toBeNull()
+  })
+})
 
 describe('deriveScrapedBrandName', () => {
   const derive = (name: string, brandName: string | null): string | null =>

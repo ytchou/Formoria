@@ -33,6 +33,36 @@ describe('buildImageQueryVariants', () => {
   it('returns no queries for a blank brand name', () => {
     expect(buildImageQueryVariants({ brandName: '   ' })).toEqual([])
   })
+
+  // site: returned 10/10 brand-owned images on live probes, so it leads; the
+  // companion name query drops 商品, the term that steers Google to marketplace
+  // listing pages.
+  it('anchors on the brand domain when a purchase website is known', () => {
+    expect(
+      buildImageQueryVariants({
+        brandName: '好日子',
+        productType: 'home',
+        purchaseWebsite: 'https://www.gooddays.tw/collections/all',
+      })
+    ).toEqual(['site:gooddays.tw', '"好日子" 居家生活'])
+  })
+
+  it('keeps 商品 for a brand with no website, where it is the only commerce signal', () => {
+    expect(
+      buildImageQueryVariants({ brandName: '好日子', productType: 'home', purchaseWebsite: null })
+    ).toEqual(['"好日子" 居家生活 商品'])
+  })
+
+  it('falls back to the no-website form when the stored URL will not parse', () => {
+    // A wrong site: filter returns nothing at all, so a malformed value must
+    // never be guessed at.
+    expect(
+      buildImageQueryVariants({ brandName: '好日子', productType: 'home', purchaseWebsite: 'gooddays.tw' })
+    ).toEqual(['"好日子" 居家生活 商品'])
+    expect(
+      buildImageQueryVariants({ brandName: '好日子', productType: 'home', purchaseWebsite: '   ' })
+    ).toEqual(['"好日子" 居家生活 商品'])
+  })
 })
 
 describe('passesImageDimensions', () => {

@@ -36,6 +36,7 @@ import type {
 import {
   applyDetectResult,
   buildPhaseResult,
+  deriveOfficialWebsite,
   getDisplayBrandName,
   loadCachedSearchResults,
   runBrandImagePhase,
@@ -1244,10 +1245,28 @@ export async function runEnrich(
       }
     }
 
+    // Image search runs here, ahead of the per-brand links phase, so a newly
+    // submitted brand has no `purchase_website` stored yet and its `site:`
+    // image query would not fire until a second enrichment run. The SERP
+    // results this run just fetched already contain the brand's own domain, so
+    // derive it here (stored column first, it is confirmed data) and hand it
+    // over — no extra API calls, no phase reordering.
+    const derivedWebsites = new Map<string, string | null>();
+    for (const brand of chunk) {
+      const brandName = getDisplayBrandName(brand);
+      const stored = brand.purchase_website ?? brand.purchaseWebsite ?? null;
+      derivedWebsites.set(
+        brandName,
+        stored ??
+          deriveOfficialWebsite(searchResults.get(brandName)?.urls ?? []),
+      );
+    }
+
     if (phases.includes("images")) await emitBatchPhaseProgress("image-search");
     const imageSearchResult = await runImageSearchPhase(
       batchContext,
       searchResults,
+      derivedWebsites,
     );
     const imageSearchResults = imageSearchResult.imageSearchResults;
     // Per-brand provider call outcomes; Gate A consumes these to hard-fail a
@@ -1529,7 +1548,17 @@ export async function runEnrich(
           appendPatch(state, linksResult.patch);
 
           const candidateImages = buildCandidatePool({
-            scraped: linksResult.scrapedImageUrls,
+            // Prefer the provenance-carrying list; fall back to bare URLs so a
+            // scraper result predating `imageSources` still contributes.
+            scraped:
+              linksResult.scrapedImageSources.length > 0
+                ? linksResult.scrapedImageSources.map((image) => ({
+                    url: image.url,
+                    method: image.method,
+                    pageUrl: image.pageUrl,
+                    position: image.position,
+                  }))
+                : linksResult.scrapedImageUrls,
             jsonLdImages: linksResult.jsonLdImageUrls,
             googleImages: (imageSearchOutcomes.get(getDisplayBrandName(brand))?.rows ?? imageSearchUrls).map((row) =>
               typeof row === 'string'

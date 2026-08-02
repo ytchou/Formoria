@@ -6,6 +6,11 @@ export type CandidateImage = {
   sourceUrl?: string
   pageUrl?: string
   previewUrl?: string
+  /**
+   * How this candidate was acquired, e.g. 'instagram_adapter' | 'crawl'.
+   * `source` alone flattens every scraper into 'scrape'.
+   */
+  method?: string
   title?: string
   providerSource?: string
   domain?: string
@@ -18,10 +23,11 @@ export type CandidateImage = {
   thumbnailHeight?: number
 }
 
-type CandidateImageInput = string | Omit<CandidateImage, 'source'>
+export type CandidateImageInput = string | Omit<CandidateImage, 'source'>
 
 type CandidatePoolInput = {
-  scraped: string[]
+  /** Plain URLs are still accepted for callers with no provenance to pass. */
+  scraped: CandidateImageInput[]
   jsonLdImages?: string[]
   googleImages: CandidateImageInput[]
 }

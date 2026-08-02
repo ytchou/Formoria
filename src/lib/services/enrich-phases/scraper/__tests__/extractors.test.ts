@@ -10,6 +10,7 @@ import {
   extractAllJsonLd,
   extractJsonLdImages,
   upgradeEcommerceImageUrl,
+  largestSrcsetUrl,
 } from '../parse/extractors'
 
 describe('filterHeroImage', () => {
@@ -342,5 +343,49 @@ describe('upgradeEcommerceImageUrl', () => {
   it('passes through URLs without dimension patterns', () => {
     const url = 'https://cdn.shopify.com/s/files/1/products/photo.jpg'
     expect(upgradeEcommerceImageUrl(url)).toBe(url)
+  })
+})
+
+describe('largestSrcsetUrl', () => {
+  it('picks the widest variant, not the first', () => {
+    expect(
+      largestSrcsetUrl('https://cdn.site.com/s.jpg 320w, https://cdn.site.com/m.jpg 640w, https://cdn.site.com/l.jpg 1280w')
+    ).toBe('https://cdn.site.com/l.jpg')
+  })
+
+  it('picks the widest variant regardless of declaration order', () => {
+    expect(
+      largestSrcsetUrl('https://cdn.site.com/l.jpg 1280w, https://cdn.site.com/s.jpg 320w')
+    ).toBe('https://cdn.site.com/l.jpg')
+  })
+
+  it('returns an empty string for an empty srcset', () => {
+    expect(largestSrcsetUrl('')).toBe('')
+    expect(largestSrcsetUrl('   ')).toBe('')
+  })
+
+  it('returns the sole URL when no descriptor is present', () => {
+    expect(largestSrcsetUrl('https://cdn.site.com/only.jpg')).toBe('https://cdn.site.com/only.jpg')
+  })
+
+  it('keeps document order among descriptor-less entries', () => {
+    expect(largestSrcsetUrl('https://cdn.site.com/a.jpg, https://cdn.site.com/b.jpg')).toBe(
+      'https://cdn.site.com/a.jpg'
+    )
+  })
+
+  it('prefers a w-descriptor entry over an x-density entry', () => {
+    expect(largestSrcsetUrl('https://cdn.site.com/a.jpg 2x, https://cdn.site.com/b.jpg 800w')).toBe(
+      'https://cdn.site.com/b.jpg'
+    )
+  })
+
+  it('skips malformed entries without dropping valid ones', () => {
+    expect(largestSrcsetUrl(', , https://cdn.site.com/good.jpg 900w, ,')).toBe(
+      'https://cdn.site.com/good.jpg'
+    )
+    expect(largestSrcsetUrl('https://cdn.site.com/x.jpg not-a-descriptor')).toBe(
+      'https://cdn.site.com/x.jpg'
+    )
   })
 })

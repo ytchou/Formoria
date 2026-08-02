@@ -83,6 +83,7 @@ export function buildImageProviderMetadata(
   return Object.fromEntries(
     Object.entries({
       resolvedFetchUrl,
+      method: candidate.method,
       pageUrl: candidate.pageUrl,
       previewUrl: candidate.previewUrl,
       title: candidate.title,

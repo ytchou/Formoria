@@ -5,6 +5,7 @@ import {
   extractCategoryHints,
   extractPurchaseLinks,
   extractSocialLinks,
+  toImageSources,
   MAX_JSON_LD_IMAGES,
 } from '../parse/extractors'
 import { mergePurchaseLinks } from '../merge'
@@ -304,6 +305,9 @@ export class CrawlStrategy implements ScrapeStrategy {
         ...purchaseLinks,
         categoryHints,
         stockistPageText,
+        // The gallery is the landing page's, but this strategy is what produced
+        // it — relabel so provenance names the strategy, not the sub-scrape.
+        imageSources: toImageSources(result.galleryImageUrls, 'crawl', url),
         jsonLdImageUrls: [...jsonLdImageSet].slice(0, MAX_JSON_LD_IMAGES),
       }
     } catch {

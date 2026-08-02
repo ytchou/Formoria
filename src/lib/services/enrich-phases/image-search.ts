@@ -19,6 +19,12 @@ type ImageSearchPhaseOutput = {
 export async function runImageSearchPhase(
   ctx: BatchPhaseContext,
   serpResults?: Map<string, SearchPhaseResult>,
+  /**
+   * Website per brand, keyed by `getDisplayBrandName` like every other map in
+   * this phase. Lets the caller supply a website the stored column does not
+   * have yet; the stored column still wins when it is populated.
+   */
+  derivedWebsites?: Map<string, string | null>,
 ): Promise<ImageSearchPhaseOutput> {
   if (!ctx.phases.includes('images')) {
     return {
@@ -109,10 +115,25 @@ export async function runImageSearchPhase(
 
   const { result, durationMs } = await timePhase(async () => {
     const imageSearchOutcomes = await batchSearchBrandImages(
-      brandsNeedingImages.map((brand) => ({
-        brandName: getDisplayBrandName(brand),
-        productType: brand.product_type,
-      })),
+      // The brand's domain switches the query builder onto its `site:` branch,
+      // which is where the image-quality win lives. This phase is batched ahead
+      // of the per-brand links phase, so a newly submitted brand has no stored
+      // `purchase_website` yet and would have to wait for a second enrichment
+      // run before its own domain could be used. `derivedWebsites` closes that
+      // gap with the website the caller derived from this run's SERP results;
+      // the stored column, being confirmed data, still takes precedence.
+      brandsNeedingImages.map((brand) => {
+        const brandName = getDisplayBrandName(brand)
+        return {
+          brandName,
+          productType: brand.product_type,
+          purchaseWebsite:
+            brand.purchase_website ??
+            brand.purchaseWebsite ??
+            derivedWebsites?.get(brandName) ??
+            null,
+        }
+      }),
       5,
       undefined,
       (input) => {
