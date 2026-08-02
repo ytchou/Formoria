@@ -34,9 +34,13 @@ type QueryCall = {
   eqFilters: Array<[string, string]>
 }
 
+type RedirectRowFixture = { old_slug: string; new_slug: string }
+
 const queries: QueryCall[] = []
 let table: BrandRowFixture[] = []
+let redirectTable: RedirectRowFixture[] = []
 let queryError: { message: string } | null = null
+let redirectError: { message: string } | null = null
 
 /**
  * Minimal Supabase query-builder double that actually applies `.in()` and
@@ -71,10 +75,22 @@ function createClientDouble() {
         },
         then(
           resolve: (result: {
-            data: BrandRowFixture[] | null
+            data: BrandRowFixture[] | RedirectRowFixture[] | null
             error: { message: string } | null
           }) => unknown
         ) {
+          // The redirect table is a different shape and has its own failure
+          // mode, so it gets its own branch rather than being squeezed through
+          // the brand-row filter below.
+          if (call.table === 'brand_slug_redirects') {
+            if (redirectError) {
+              return Promise.resolve(resolve({ data: null, error: redirectError }))
+            }
+            const hops = redirectTable.filter(
+              (row) => call.inColumn === null || call.inValues.includes(row.old_slug)
+            )
+            return Promise.resolve(resolve({ data: hops, error: null }))
+          }
           if (queryError) {
             return Promise.resolve(resolve({ data: null, error: queryError }))
           }
@@ -123,6 +139,8 @@ describe('getBrandsBySlugs', () => {
   beforeEach(() => {
     queries.length = 0
     queryError = null
+    redirectError = null
+    redirectTable = []
     table = [
       brandRow({ slug: 'molasses', name: 'Molasses' }),
       brandRow({ slug: 'kiln-studio', name: 'Kiln Studio' }),
@@ -195,6 +213,123 @@ describe('getBrandsBySlugs', () => {
     // cache entry rather than two identical round trips.
     expect(queries[0]?.inValues).toEqual(['kiln-studio', 'molasses'])
     expect(result.size).toBe(2)
+  })
+
+  /*
+   * Renamed-slug recovery. On 2026-08-02 a batch refresh re-derived twelve
+   * brand slugs from their names; the story MDX and the event lineup manifest
+   * both pin brands by slug, so five cards silently became placeholders. The
+   * redirect table already recorded every rename — these pin that the embedded
+   * lookup now honours it.
+   */
+  describe('renamed slugs', () => {
+    beforeEach(() => {
+      table.push(brandRow({ slug: 'tan-nichi', name: '恬日 Tan.Nichi' }))
+      redirectTable = [{ old_slug: 'nichi', new_slug: 'tan-nichi' }]
+    })
+
+    it('resolves a renamed brand under the slug the caller asked for', async () => {
+      const result = await lookup(['molasses', 'nichi'])
+
+      // Keyed by the authored slug, because that is what the caller holds.
+      expect(result.get('nichi')?.name).toBe('恬日 Tan.Nichi')
+      // ...but the Brand carries its CURRENT slug, so the rendered link points
+      // at the canonical URL rather than bouncing through the redirect.
+      expect(result.get('nichi')?.slug).toBe('tan-nichi')
+      expect(result.get('molasses')?.name).toBe('Molasses')
+    })
+
+    it('costs no extra query when every slug resolves directly', async () => {
+      await lookup(['molasses', 'kiln-studio'])
+
+      // The recovery path must not tax the common case: one query, no redirect
+      // lookup at all.
+      expect(queries).toHaveLength(1)
+      expect(queries.some((call) => call.table === 'brand_slug_redirects')).toBe(false)
+    })
+
+    it('still omits a slug that has no redirect either', async () => {
+      const result = await lookup(['does-not-exist'])
+
+      expect(result.has('does-not-exist')).toBe(false)
+    })
+
+    it('omits a redirect whose target brand is not approved', async () => {
+      table.push(brandRow({ slug: 'now-hidden', name: 'Now Hidden', status: 'hidden' }))
+      redirectTable = [{ old_slug: 'was-visible', new_slug: 'now-hidden' }]
+
+      const result = await lookup(['was-visible'])
+
+      // A rename must not become a back door around the status filter.
+      expect(result.has('was-visible')).toBe(false)
+    })
+
+    it('degrades to a placeholder rather than throwing when the redirect lookup fails', async () => {
+      // Asymmetric with the brand query on purpose: this path only runs for
+      // slugs that already failed to resolve, so failing the whole render would
+      // take down a page whose other cards are fine.
+      redirectError = { message: 'connection reset' }
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      const result = await lookup(['molasses', 'nichi'])
+
+      expect(result.has('nichi')).toBe(false)
+      expect(result.get('molasses')?.name).toBe('Molasses')
+      expect(consoleError).toHaveBeenCalled()
+      consoleError.mockRestore()
+    })
+  })
+
+  it('degrades to an empty Map when the query errors during a production build', async () => {
+    // CI builds with no database reachable. The throw below protects ISR, where
+    // a last good page exists to keep serving; during `next build` there is no
+    // such page, so the same throw aborts the export and fails the build for
+    // every story that embeds a brand card.
+    queryError = { message: 'connect ECONNREFUSED 127.0.0.1:54321' }
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const previousPhase = process.env.NEXT_PHASE
+    process.env.NEXT_PHASE = 'phase-production-build'
+
+    try {
+      const result = await lookup(['molasses'])
+
+      expect(result.size).toBe(0)
+      expect(consoleError).toHaveBeenCalled()
+    } finally {
+      if (previousPhase === undefined) delete process.env.NEXT_PHASE
+      else process.env.NEXT_PHASE = previousPhase
+      consoleError.mockRestore()
+    }
+  })
+
+  it('still throws during a build when STRICT_PRERENDER_DATA is set', async () => {
+    // The escape hatch for deploy builds, which do have a database: opting in
+    // turns the degradation back into a hard failure rather than shipping a
+    // page of placeholder cards.
+    queryError = { message: 'connect ECONNREFUSED 127.0.0.1:54321' }
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const previousPhase = process.env.NEXT_PHASE
+    const previousStrict = process.env.STRICT_PRERENDER_DATA
+    process.env.NEXT_PHASE = 'phase-production-build'
+    process.env.STRICT_PRERENDER_DATA = '1'
+    vi.resetModules()
+
+    try {
+      const { fetchBrandsBySlugKey: strictFetch } = await import('../brands')
+      await expect(
+        strictFetch(
+          createClientDouble() as unknown as ReturnType<typeof createServiceClient>,
+          brandsBySlugsCacheKey(['kiln-studio'])
+        )
+      ).rejects.toThrow()
+    } finally {
+      if (previousPhase === undefined) delete process.env.NEXT_PHASE
+      else process.env.NEXT_PHASE = previousPhase
+      if (previousStrict === undefined) delete process.env.STRICT_PRERENDER_DATA
+      else process.env.STRICT_PRERENDER_DATA = previousStrict
+      vi.resetModules()
+      consoleError.mockRestore()
+    }
   })
 
   it('throws when the query itself errors, so ISR keeps the last good page', async () => {

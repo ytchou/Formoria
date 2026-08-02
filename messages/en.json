@@ -49,7 +49,8 @@
     "languageEnglish": "English",
     "about": "About Formoria",
     "myBrands": "My Brand",
-    "stories": "Stories"
+    "stories": "Stories",
+    "events": "Events"
   },
   "footer": {
     "about": "About",
@@ -62,6 +63,7 @@
     "directory": "Brand Directory",
     "gettingStarted": "Getting Started",
     "stories": "Stories",
+    "events": "Events",
     "glossary": "Glossary",
     "submit": "Recommend a Brand",
     "companyHeading": "Company",
@@ -2845,6 +2847,7 @@
     "loadError": "Stories are temporarily unavailable. Please try again later.",
     "breadcrumb": "Stories",
     "breadcrumbAria": "Breadcrumb",
+    "byline": "Formoria Editorial",
     "tagsAria": "Story tags",
     "tags": {
       "event": "Events"
@@ -2854,10 +2857,67 @@
     "seriesCount": "{count, plural, one {# part} other {# parts}}",
     "seriesCountFiltered": "{shown} of {total, plural, one {# part} other {# parts}}",
     "brandMissing": "Brand unavailable: {slug}",
+    "boothLabel": "Booth",
     "notFound": {
       "title": "Story not found",
       "description": "The story you're looking for doesn't exist or has been removed.",
       "browseAll": "Browse all stories"
+    }
+  },
+  "events": {
+    "metaTitle": "Events",
+    "metaDescription": "Fairs and markets where Taiwanese brands show up in person — dates, venues, and who's exhibiting.",
+    "heading": "Events",
+    "subheading": "Where to meet Taiwanese brands in person: when each fair runs, where it is, and which brands will be on the floor.",
+    "upcomingHeading": "Upcoming",
+    "pastHeading": "Past events",
+    "comingSoon": "The first events are on their way.",
+    "noBrands": "The exhibitor list hasn't been announced yet.",
+    "breadcrumb": "Events",
+    "breadcrumbAria": "Breadcrumb",
+    "phase": {
+      "upcoming": "Upcoming",
+      "ongoing": "Happening now",
+      "past": "Ended"
+    },
+    "venue": "Venue",
+    "organizer": "Organizer",
+    "officialSite": "Official site",
+    "tickets": "Tickets",
+    "reserve": "Reserve a slot",
+    "reserveNote": "Sold-out time slots still admit walk-ins in the on-site queue",
+    "free": "Free entry",
+    "visitInfo": "Visitor information",
+    "about": "About this event",
+    "directions": "Open in Google Maps",
+    "dates": "Dates",
+    "schedule": "Hours",
+    "travel": "Getting there",
+    "admission": "Admission",
+    "brandsHeading": "Exhibiting brands",
+    "brandCount": "{count, plural, one {# brand} other {# brands}}",
+    "brandCountFiltered": "{count} of {total} brands",
+    "areaFilterAria": "Filter brands by area",
+    "allAreas": "All areas",
+    "categoryFilterAria": "Filter brands by product category",
+    "allCategories": "All categories",
+    "clearFilters": "Show all brands",
+    "showAllBrands": "Show {count} more brands",
+    "filteredEmptyTitle": "No brands from our directory in this zone",
+    "filteredEmptyBody": "Try another zone, or go back to the full list.",
+    "lineupSearchAria": "Search the lineup by brand name or booth number",
+    "lineupSearchPlaceholder": "Brand name or booth number",
+    "lineupSortAria": "Sort the lineup",
+    "lineupSortRecommended": "Recommended order",
+    "lineupSortBooth": "Booth number",
+    "lineupSearchEmptyTitle": "No brands match your search",
+    "lineupSearchEmptyBody": "Check the spelling, try part of the name, or go back to the full list.",
+    "relatedStories": "Related stories",
+    "storiesEmptyTitle": "No stories about this event yet",
+    "notFound": {
+      "title": "Event not found",
+      "description": "The event you're looking for doesn't exist or has been removed.",
+      "browseAll": "Browse all events"
     }
   },
   "feedback": {

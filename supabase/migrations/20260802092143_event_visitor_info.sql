@@ -1,8 +1,22 @@
--- Recovered from the remote migration ledger: this was applied directly to the
--- production database on 2026-08-02 and never committed, leaving the repo unable
--- to reproduce the schema. Content is verbatim from
--- supabase_migrations.schema_migrations.statements for version 20260802092143.
+-- Applied directly to production on 2026-08-02 and stamped in
+-- supabase_migrations.schema_migrations as version 20260802092143; the
+-- statements below match that ledger entry verbatim.
+--
+-- Visitor-decision fields for public.events. These four localized pairs carry
+-- the facts a visitor needs BEFORE travelling: which days are open to whom, how
+-- to get in, how to arrive, and where the brand lineup came from. They existed
+-- only as prose inside `description`, where the facts rail could not surface
+-- them — a reader who saw "2026/08/06-08/12" and arrived on 8/6 was turned away
+-- at the door, because 8/6-8/7 are trade-buyer-only days.
+--
+-- All eight are nullable with no default: every event other than the 2026
+-- Creative Expo has them null, so every render path treats absence as normal
+-- rather than as missing data. No check constraint either — these are editorial
+-- prose fields, and a length cap would silently truncate a legitimate schedule.
+
 alter table public.events
+  -- Multi-line (newline-separated): one line per day-band, because opening
+  -- hours differ per day and a single paragraph hides the trade-only band.
   add column schedule_note text,
   add column schedule_note_en text,
   add column admission_note text,

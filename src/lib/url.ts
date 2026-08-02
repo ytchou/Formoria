@@ -71,6 +71,23 @@ export function normalizeInstagramHref(
   return sanitizeHref(`https://instagram.com/${handle}`)
 }
 
+/**
+ * Decode a route path segment, or `null` when it carries a malformed
+ * percent-escape.
+ *
+ * `decodeURIComponent('%zz')` throws `URIError`. Thrown from a route's
+ * `generateMetadata` or page body that becomes a 500 rendered through the
+ * error boundary — plus one error report per crawler probe — for a request
+ * whose honest answer is 404. Call sites turn `null` into `notFound()`.
+ */
+export function safeDecodeSlug(raw: string): string | null {
+  try {
+    return decodeURIComponent(raw)
+  } catch {
+    return null
+  }
+}
+
 export function normalizeThreadsHref(
   value: string | undefined | null,
 ): string | null {

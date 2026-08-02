@@ -112,14 +112,49 @@ export function BrandList({
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<(typeof PAGE_SIZES)[number]>(10);
-  const [selectedBrand, setSelectedBrand] = useState<Brand | null>(
-    brands.find((brand) => brand.id === initialEditingBrandId) ?? null,
+  // Brands are tracked by id, never as a snapshot object: the parent server
+  // component re-sends `brands` after router.refresh(), and a captured object
+  // would keep rendering (and re-saving) pre-edit values.
+  const [selectedBrandId, setSelectedBrandId] = useState<string | null>(
+    initialEditingBrandId ?? null,
   );
-  const [deletingBrand, setDeletingBrand] = useState<Brand | null>(null);
-  const [refreshingBrand, setRefreshingBrand] = useState<Brand | null>(null);
+  const [deletingBrandId, setDeletingBrandId] = useState<string | null>(null);
+  const [refreshingBrandId, setRefreshingBrandId] = useState<string | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const claimInviteBrandIdSet = new Set(claimInviteBrandIds);
+
+  const brandsById = new Map(brands.map((brand) => [brand.id, brand]));
+
+  // A brand can leave `brands` entirely (deleted, or dropped by the server
+  // query). The derived lookups below already close the sheet and dialogs in
+  // that case, so this is purely a *reopen* guard: without it the id would
+  // linger and the sheet would silently spring back open if a later refresh
+  // returned the brand. Adjusting state during render is React's sanctioned
+  // pattern for reacting to a prop change (an effect here trips
+  // react-hooks/set-state-in-effect and costs an extra commit).
+  const [prevBrands, setPrevBrands] = useState(brands);
+  if (prevBrands !== brands) {
+    setPrevBrands(brands);
+    if (selectedBrandId && !brandsById.has(selectedBrandId)) {
+      setSelectedBrandId(null);
+    }
+    if (deletingBrandId && !brandsById.has(deletingBrandId)) {
+      setDeletingBrandId(null);
+    }
+    if (refreshingBrandId && !brandsById.has(refreshingBrandId)) {
+      setRefreshingBrandId(null);
+    }
+  }
+
+  const selectedBrand =
+    (selectedBrandId ? brandsById.get(selectedBrandId) : null) ?? null;
+  const deletingBrand =
+    (deletingBrandId ? brandsById.get(deletingBrandId) : null) ?? null;
+  const refreshingBrand =
+    (refreshingBrandId ? brandsById.get(refreshingBrandId) : null) ?? null;
 
   const categories = Array.from(
     new Set(brands.map((b) => b.category).filter(Boolean) as string[]),
@@ -163,7 +198,7 @@ export function BrandList({
       setError(null);
       const result = await deleteBrandAction(deletingBrand.id);
       if (result?.error) setError(result.error);
-      else setDeletingBrand(null);
+      else setDeletingBrandId(null);
     });
   }
 
@@ -188,7 +223,7 @@ export function BrandList({
         return;
       }
       toast.success("Re-enrichment requested for the next scheduled run");
-      setRefreshingBrand(null);
+      setRefreshingBrandId(null);
     });
   }
 
@@ -291,7 +326,7 @@ export function BrandList({
                   className="cursor-pointer hover:bg-secondary"
                   onClick={(event) => {
                     if (isInteractiveTableTarget(event.target)) return;
-                    setSelectedBrand(brand);
+                    setSelectedBrandId(brand.id);
                   }}
                 >
                   <TableCell className="max-w-[180px] font-medium">
@@ -386,7 +421,7 @@ export function BrandList({
                             <DropdownMenuItem
                               disabled={isPending}
                               className="text-foreground hover:bg-muted focus:bg-muted"
-                              onClick={() => setRefreshingBrand(brand)}
+                              onClick={() => setRefreshingBrandId(brand.id)}
                             >
                               Request re-enrichment
                             </DropdownMenuItem>
@@ -397,7 +432,7 @@ export function BrandList({
                         variant="secondary"
                         size="compact"
                         className="text-destructive hover:text-destructive"
-                        onClick={() => setDeletingBrand(brand)}
+                        onClick={() => setDeletingBrandId(brand.id)}
                       >
                         Delete
                       </Button>
@@ -408,7 +443,7 @@ export function BrandList({
                       shape="pill"
                       variant="ghost"
                       className="h-12 w-12 p-0"
-                      onClick={() => setSelectedBrand(brand)}
+                      onClick={() => setSelectedBrandId(brand.id)}
                       aria-expanded={selectedBrand?.id === brand.id}
                       aria-controls={`brand-detail-${brand.id}`}
                       aria-label={`Open details for ${brand.name}`}
@@ -491,7 +526,7 @@ export function BrandList({
       <BrandDetailSheet
         open={selectedBrand !== null}
         onOpenChange={(open) => {
-          if (!open) setSelectedBrand(null);
+          if (!open) setSelectedBrandId(null);
         }}
         title={selectedBrand?.name ?? ""}
         metadata={
@@ -514,7 +549,7 @@ export function BrandList({
       <ConfirmDialog
         open={refreshingBrand !== null}
         onOpenChange={(open) => {
-          if (!open) setRefreshingBrand(null);
+          if (!open) setRefreshingBrandId(null);
         }}
         title="Request re-enrichment"
         description="A refresh will run on the next six-hour schedule and return to the submissions queue for review. The live brand will not change until the refresh is applied."
@@ -526,7 +561,7 @@ export function BrandList({
       <ConfirmDialog
         open={deletingBrand !== null}
         onOpenChange={(open) => {
-          if (!open) setDeletingBrand(null);
+          if (!open) setDeletingBrandId(null);
         }}
         title="Delete brand"
         description="This action cannot be undone. The brand and all associated data will be permanently deleted."

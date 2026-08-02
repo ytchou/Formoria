@@ -8,7 +8,11 @@ const { revalidatePath, revalidateTag } = vi.hoisted(() => ({
 vi.mock('next/cache', () => ({ revalidatePath, revalidateTag }))
 
 import { routing } from '@/i18n/routing'
-import { PUBLIC_BRAND_DATA_TAG, revalidatePublicBrand } from './public-brand-cache'
+import {
+  PUBLIC_BRAND_DATA_TAG,
+  revalidatePublicBrand,
+  revalidatePublicEvent,
+} from './public-brand-cache'
 
 const revalidatedPaths = () => revalidatePath.mock.calls.map(([path]) => path)
 
@@ -74,5 +78,43 @@ describe('revalidatePublicBrand', () => {
     expect(
       revalidatedPaths().filter((path) => path.endsWith('/brands/niizo')),
     ).toEqual(routing.locales.map((locale) => `/${locale}/brands/niizo`))
+  })
+})
+
+describe('revalidatePublicEvent', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('invalidates the hub, the detail page in every locale, and the sitemap', () => {
+    revalidatePublicEvent({ slug: 'taipei-design-market-2026' })
+
+    // The sitemap now emits /events/<slug> URLs, so skipping it leaves a freshly
+    // seeded event out of the served sitemap.xml for the full revalidate window.
+    expect(revalidatedPaths()).toEqual(
+      expect.arrayContaining([
+        '/zh-TW/events',
+        '/en/events',
+        '/zh-TW/events/taipei-design-market-2026',
+        '/en/events/taipei-design-market-2026',
+        '/sitemap.xml',
+      ]),
+    )
+  })
+
+  it('never emits unprefixed event paths — `as-needed` keeps the locale in the ISR cache key', () => {
+    revalidatePublicEvent({ slug: 'taipei-design-market-2026' })
+
+    expect(revalidatedPaths()).not.toContain('/events')
+    expect(revalidatedPaths()).not.toContain(
+      '/events/taipei-design-market-2026',
+    )
+  })
+
+  it('revalidates the hub and the sitemap when no slug is given', () => {
+    revalidatePublicEvent()
+
+    expect(revalidatedPaths()).toEqual([
+      ...routing.locales.map((locale) => `/${locale}/events`),
+      '/sitemap.xml',
+    ])
   })
 })

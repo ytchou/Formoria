@@ -203,11 +203,14 @@ export function buildArticleJsonLd({
   description,
   path,
   locale,
+  author,
 }: {
   title: string;
   description: string;
   path: string;
   locale?: string;
+  /** Visible byline, when the story names one. Falls back to the publisher. */
+  author?: string;
 }): JsonLdObject {
   const siteUrl = getSiteUrl();
   const absoluteUrl = `${siteUrl}${path.startsWith("/") ? path : `/${path}`}`;
@@ -219,9 +222,121 @@ export function buildArticleJsonLd({
     description,
     inLanguage: toInLanguage(locale),
     mainEntityOfPage: absoluteUrl,
+    // Mirrors the visible byline. An Article with a printed author and no
+    // structured one is the inconsistency Google's own Article guidance calls
+    // out; the fallback matches the page's `stories.byline` default.
+    author: author
+      ? { "@type": "Person", name: author }
+      : buildOrganizationJsonLd(locale),
     publisher: buildOrganizationJsonLd(locale),
     isPartOf: buildWebSiteJsonLd(locale === "zh-TW" ? "zh-TW" : "en"),
   };
+}
+
+export type EventJsonLdInput = {
+  name: string;
+  description?: string | null;
+  /** Formoria page path for the event, e.g. `/events/creative-expo-2026`. */
+  path: string;
+  locale?: string;
+  /** Calendar date, `YYYY-MM-DD`. Emitted verbatim — see the note below. */
+  startDate: string;
+  /** Calendar date, `YYYY-MM-DD`. Omitted for single-day events. */
+  endDate?: string | null;
+  venueName?: string | null;
+  venueAddress?: string | null;
+  city?: string | null;
+  organizerName?: string | null;
+  imageUrl?: string | null;
+  /** `null` = ticketing unknown, so no `offers` is emitted at all. */
+  isFree?: boolean | null;
+  ticketUrl?: string | null;
+};
+
+/**
+ * Build Event JSON-LD structured data for an event detail page.
+ *
+ * Dates are passed through verbatim as `YYYY-MM-DD` calendar dates. Do NOT
+ * introduce `new Date(...)` / `.toISOString()` here: parsing a bare date string
+ * yields UTC midnight, so a Taipei (UTC+8) event on 2026-08-06 would serialize
+ * as 2026-08-05T16:00:00Z and Google would index the event a day early — a
+ * failure only visible in Search Console weeks later.
+ */
+export function buildEventJsonLd({
+  name,
+  description,
+  path,
+  locale,
+  startDate,
+  endDate,
+  venueName,
+  venueAddress,
+  city,
+  organizerName,
+  imageUrl,
+  isFree,
+  ticketUrl,
+}: EventJsonLdInput): JsonLdObject {
+  const siteUrl = getSiteUrl();
+  const absoluteUrl = `${siteUrl}${path.startsWith("/") ? path : `/${path}`}`;
+
+  const jsonLd: JsonLdObject = {
+    "@context": "https://schema.org",
+    "@type": "Event",
+    name,
+    inLanguage: toInLanguage(locale),
+    url: absoluteUrl,
+    startDate,
+    eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+    // Constant by design: schema.org has no "finished" state, so a past event
+    // stays EventScheduled. Never derive this from the event's phase.
+    eventStatus: "https://schema.org/EventScheduled",
+  };
+
+  if (description) jsonLd.description = description;
+  if (endDate) jsonLd.endDate = endDate;
+
+  // Conditional blocks are omitted entirely rather than stubbed — a wholly
+  // empty Place or a priceless free Offer is worse for Google than no key at
+  // all. But `location` is a REQUIRED property of the Event rich result and
+  // `venue_name` / `venue_address` / `city` are independently nullable, so the
+  // block is gated on any one of them being present, not on the name alone:
+  // schema.org does not require `Place.name`, and a Place carrying only a
+  // PostalAddress is valid. `name` and `address` are each included only when
+  // there is something to put in them.
+  if (venueName || venueAddress || city) {
+    const place: JsonLdObject = { "@type": "Place" };
+    if (venueName) place.name = venueName;
+    if (venueAddress || city) {
+      place.address = {
+        "@type": "PostalAddress",
+        ...(venueAddress ? { streetAddress: venueAddress } : {}),
+        ...(city ? { addressLocality: city } : {}),
+        addressCountry: "TW",
+      };
+    }
+    jsonLd.location = place;
+  }
+
+  if (organizerName) {
+    jsonLd.organizer = { "@type": "Organization", name: organizerName };
+  }
+
+  if (imageUrl) jsonLd.image = imageUrl;
+
+  if (isFree === true) {
+    jsonLd.offers = {
+      "@type": "Offer",
+      price: "0",
+      priceCurrency: "TWD",
+      ...(ticketUrl ? { url: ticketUrl } : {}),
+    };
+  } else if (isFree === false && ticketUrl) {
+    // Ticket prices are not tracked, so the Offer carries only where to buy.
+    jsonLd.offers = { "@type": "Offer", url: ticketUrl };
+  }
+
+  return jsonLd;
 }
 
 /**

@@ -5,15 +5,15 @@ import { describe, expect, it } from 'vitest'
 
 import { describeWithDb } from '@/test/setup'
 import { extractBrandSlugs } from '@/lib/mdx/extract-brand-slugs'
-import { getBrandsBySlugs } from '../brands'
+import { getBrandsBySlugs, isValidSlug } from '../brands'
 
 /**
  * Guard on the brand slugs authors embed in story MDX.
  *
  * Extraction is `extractBrandSlugs` — the same function the story detail page
  * counts its `view_item_list` with. A second copy of the patterns here is what
- * let the two drift apart (this file had no `<BrandSpotlight>` case at all while
- * the page did), so the guard and the page now pass or fail together.
+ * let the two drift apart (this file was missing a shortcode case the page
+ * matched), so the guard and the page now pass or fail together.
  *
  * The real-content scan reads files off disk on purpose — it must never mock
  * `fs`, and it must never compile MDX: raw-text extraction is what lets the
@@ -29,8 +29,14 @@ import { getBrandsBySlugs } from '../brands'
 
 const STORIES_DIR = path.join(process.cwd(), 'content', 'stories')
 
-/** Mirrors the shape `brands.slug` is generated in: ASCII kebab-case, 3–80 chars. */
-const BRAND_SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{2,79}$/
+/**
+ * The rule comes from `isValidSlug`, the brand layer's own definition — this
+ * file deliberately does NOT restate it. It used to, as `{2,79}`, which was
+ * stricter than the real rule (`{0,79}`) and rejected legitimate one- and
+ * two-character slugs like `y` (郁郁 YùYù) and `ng` (雱PĀNG). A story should
+ * accept whatever slug the directory holds; slug shape is the brand layer's
+ * concern, not the story's.
+ */
 
 type SlugReference = { file: string; slug: string }
 
@@ -51,11 +57,11 @@ function readStorySlugReferences(): SlugReference[] {
 describe('story content brand slugs', () => {
   // Unconditional: a CJK or otherwise malformed slug must fail CI even with no
   // database credentials present. No round trip is needed to spot one.
-  it('every content slug matches the brand slug pattern', () => {
+  it('every content slug is a valid brand slug', () => {
     for (const { file, slug } of readStorySlugReferences()) {
       expect(
-        BRAND_SLUG_PATTERN.test(slug),
-        `${file}: "${slug}" is not a valid brand slug — expected ASCII kebab-case matching ${String(BRAND_SLUG_PATTERN)}`,
+        isValidSlug(slug),
+        `${file}: "${slug}" is not a valid brand slug — expected ASCII kebab-case, per isValidSlug in @/lib/services/brands`,
       ).toBe(true)
     }
   })
@@ -84,20 +90,35 @@ describe('story content brand slugs (fixture coverage)', () => {
     const slugs = extractBrandSlugs(source)
 
     expect(slugs).toContain('測試品牌')
-    expect(BRAND_SLUG_PATTERN.test('測試品牌')).toBe(false)
+    expect(isValidSlug('測試品牌')).toBe(false)
     // The valid neighbour still passes, so the guard fails on the offender only.
-    expect(BRAND_SLUG_PATTERN.test('kiln-studio')).toBe(true)
+    expect(isValidSlug('kiln-studio')).toBe(true)
   })
 
-  it('covers every brand shortcode, including BrandSpotlight and BrandGrid', () => {
+  it('covers every brand shortcode, including cards nested in BrandRow and BrandGrid', () => {
     const source = [
       '<BrandCard slug="molasses" />',
       '',
-      '<BrandSpotlight slug="yingge-kiln">',
+      // A row carries no slugs of its own — its child cards must still count.
+      '<BrandRow>',
       '',
-      'The kiln has run since 1974.',
+      '<BrandCard slug="yingge-kiln" note="The kiln has run since 1974." />',
       '',
-      '</BrandSpotlight>',
+      '</BrandRow>',
+      '',
+      // `BrandLine` is the compact list row. It links to a brand exactly like a
+      // card does, so it must feed both this guard and the story page's
+      // `view_item_list` count — a shortcode the extractor cannot see is a
+      // brand that silently escapes the CI check and under-reports analytics.
+      '<BrandList>',
+      '',
+      '<BrandLine slug="paper-mill-line" booth="K3-014" note="Booth is a string." />',
+      '',
+      '</BrandList>',
+      '',
+      // Guards the word boundary: a longer tag starting with the same prefix
+      // must NOT match.
+      '<BrandLineFoo slug="not-a-real-shortcode" />',
       '',
       // `notes` before `slugs`, with a `>` inside a note value: a naive
       // `[^>]*?` prefix stops at that `>` and drops the whole grid.
@@ -107,6 +128,7 @@ describe('story content brand slugs (fixture coverage)', () => {
     expect(extractBrandSlugs(source)).toEqual([
       'molasses',
       'yingge-kiln',
+      'paper-mill-line',
       'tainan-soy',
       'paper-mill',
     ])

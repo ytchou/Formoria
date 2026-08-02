@@ -1,19 +1,24 @@
 import { z } from "zod";
-import {
-  MAX_BRAND_ACTIVE_IMAGES,
-  MAX_BRAND_ACTIVE_SORT_ORDER,
-} from "@/lib/constants/brand-images";
+import { MAX_BRAND_IMAGE_SELECTION } from "@/lib/constants/brand-images";
 
 const nullableText = z.string().max(10_000).nullable();
 export const reviewEntityIdSchema = z.uuid();
+
+// Bounded by the submission cap, not the display cap: legacy brands carry more
+// active images than MAX_BRAND_ACTIVE_IMAGES, and the form submits all of them.
+// See MAX_BRAND_IMAGE_SELECTION for why a tighter bound blocks the save.
 const imageSelectionSchema = z
   .array(
     z.object({
       id: reviewEntityIdSchema,
-      sortOrder: z.number().int().min(0).max(MAX_BRAND_ACTIVE_SORT_ORDER),
+      sortOrder: z
+        .number()
+        .int()
+        .min(0)
+        .max(MAX_BRAND_IMAGE_SELECTION - 1),
     }),
   )
-  .max(MAX_BRAND_ACTIVE_IMAGES)
+  .max(MAX_BRAND_IMAGE_SELECTION)
   .superRefine((images, context) => {
     if (new Set(images.map((image) => image.id)).size !== images.length) {
       context.addIssue({ code: "custom", message: "Duplicate images" });
@@ -61,7 +66,9 @@ export const adminReviewSchema = z.object({
   images: imageSelectionSchema,
 });
 
+// Also a payload bound, not a display cap: this carries the draft image ids
+// being cleaned up, which can exceed the number a brand will end up showing.
 export const reviewImageIdsSchema = z
   .array(reviewEntityIdSchema)
-  .max(MAX_BRAND_ACTIVE_IMAGES)
+  .max(MAX_BRAND_IMAGE_SELECTION)
   .refine((ids) => new Set(ids).size === ids.length);

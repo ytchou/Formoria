@@ -8,6 +8,14 @@ type PublicBrandCacheInput = {
   previousSlug?: string
 }
 
+type PublicEventCacheInput = {
+  /**
+   * Omitted when only the hub is known to be stale — an event write that names
+   * no slug still changes what `/events` lists.
+   */
+  slug?: string
+}
+
 /**
  * `localePrefix: 'as-needed'` hides the default locale (`zh-TW`) from the public
  * URL, but the ISR cache key KEEPS the internal prefix: the prerender manifest
@@ -40,5 +48,26 @@ export function revalidatePublicBrand({
   revalidateLocalizedPath('/stats')
   revalidateLocalizedPath('/about')
   // The sitemap is a single unlocalized route, so its cache key is literal.
+  revalidatePath('/sitemap.xml')
+}
+
+/**
+ * The event counterpart of `revalidatePublicBrand`, and the only place event
+ * revalidation paths are built — the API route that receives an event write
+ * calls this instead of assembling paths itself.
+ *
+ * The hub is always included: it lists every event, so any event write makes it
+ * stale even when no single detail page changed. The sitemap is included for
+ * the same reason it is on the brand path — `sitemap.ts` emits `/events/<slug>`
+ * URLs, so without this a freshly seeded event stays missing from the served
+ * sitemap.xml for the full revalidate window.
+ */
+export function revalidatePublicEvent({
+  slug,
+}: PublicEventCacheInput = {}): void {
+  revalidateLocalizedPath('/events')
+  if (slug) {
+    revalidateLocalizedPath(`/events/${slug}`)
+  }
   revalidatePath('/sitemap.xml')
 }

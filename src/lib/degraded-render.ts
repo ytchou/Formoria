@@ -43,6 +43,19 @@ function isPrerendering(): boolean {
  */
 const STRICT_PRERENDER_DATA = process.env.STRICT_PRERENDER_DATA === '1'
 
+/**
+ * True when a data read that failed during `next build` should degrade instead
+ * of propagating. Same knob as `markRenderDegraded` so there is one switch, not
+ * two: `STRICT_PRERENDER_DATA=1` makes both fail the build.
+ *
+ * For reads that throw from inside a component rather than a page, where
+ * `markRenderDegraded`'s `connection()` call is not available — the caller
+ * catches, reports through `captureReadFailure`, and renders without the data.
+ */
+export function canDegradeDuringPrerender(): boolean {
+  return isPrerendering() && !STRICT_PRERENDER_DATA
+}
+
 export async function markRenderDegraded(scope: string): Promise<void> {
   if (isPrerendering()) {
     if (STRICT_PRERENDER_DATA) {

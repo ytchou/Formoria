@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { requestPublicBrandRevalidation } from './revalidate-client'
+import {
+  requestEventRevalidation,
+  requestPublicBrandRevalidation,
+} from './revalidate-client'
 
 const originalFetch = globalThis.fetch
 const originalRailwayUrl = process.env.FORMORIA_RAILWAY_URL
@@ -113,6 +116,63 @@ describe('requestPublicBrandRevalidation', () => {
     fetchMock.mockRejectedValue(new Error('network down'))
 
     const result = await requestPublicBrandRevalidation(['niizo'])
+
+    expect(result.ok).toBe(false)
+    expect(result.reason).toContain('network down')
+  })
+})
+
+describe('requestEventRevalidation', () => {
+  it('reports not-configured without fetching when ORIGIN_SECRET is missing', async () => {
+    delete process.env.ORIGIN_SECRET
+
+    await expect(requestEventRevalidation(['spring-craft-fair'])).resolves.toEqual({
+      ok: false,
+      reason: 'not-configured',
+    })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('posts de-duplicated event slugs under the events key', async () => {
+    await expect(
+      requestEventRevalidation([
+        'spring-craft-fair',
+        ' spring-craft-fair ',
+        'kiln-open-studio',
+        '',
+        '   ',
+      ]),
+    ).resolves.toEqual({ ok: true })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [url, init] = fetchMock.mock.calls[0]!
+    expect(url).toBe('https://formoria.up.railway.app/api/internal/revalidate-brands')
+    expect(init.method).toBe('POST')
+    expect(init.headers['x-origin-verify']).toBe('test-secret')
+    expect(init.headers['content-type']).toBe('application/json')
+    expect(init.cache).toBe('no-store')
+    expect(JSON.parse(init.body)).toEqual({
+      events: ['spring-craft-fair', 'kiln-open-studio'],
+    })
+  })
+
+  it('makes no network call for an empty or whitespace-only slug list', async () => {
+    await expect(requestEventRevalidation([])).resolves.toEqual({
+      ok: true,
+      reason: 'no-slugs',
+    })
+    await expect(requestEventRevalidation(['', '  '])).resolves.toEqual({
+      ok: true,
+      reason: 'no-slugs',
+    })
+
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('resolves ok: false when fetch rejects instead of throwing', async () => {
+    fetchMock.mockRejectedValue(new Error('network down'))
+
+    const result = await requestEventRevalidation(['spring-craft-fair'])
 
     expect(result.ok).toBe(false)
     expect(result.reason).toContain('network down')

@@ -8,6 +8,7 @@ import type { Database } from '@/lib/supabase/database.types'
 import { toBrandRow as baseToBrandRow } from './field-map'
 import { ConflictError, NotFoundError, ValidationError } from '@/lib/errors'
 import { createServiceClient } from '@/lib/supabase/server'
+import { canDegradeDuringPrerender, captureReadFailure } from '@/lib/degraded-render'
 import { BRAND_SORT_CONFIG, DEFAULT_PAGE_SIZE } from '@/lib/pagination'
 import { isNonImageHost } from '@/lib/images/allowed-image-hosts'
 import { RESERVED_ROUTES } from '@/proxy'
@@ -837,9 +838,10 @@ export async function getBrandSlugsBatch(brandIds: string[]): Promise<Map<string
  * deduped *and sorted*, so `['a','b']` and `['b','a']` share one entry.
  *
  * What this does and does not dedupe: two calls with the same slug *set* share
- * one round trip. Calls with different sets do not — `<BrandCard>` and
- * `<BrandSpotlight>` each pass a one-element array, so five distinct cards
- * still issue five queries. Only `<BrandGrid>` is genuinely batched. Collapsing
+ * one round trip. Calls with different sets do not — every `<BrandCard>` passes
+ * a one-element array, so five distinct cards (including the three inside a
+ * `<BrandRow>`, which only lays them out) still issue five queries. Only
+ * `<BrandGrid>` is genuinely batched. Collapsing
  * the singles would need a per-request collector that knows the page's full
  * slug set before the first card renders, which RSC's streaming render does not
  * offer without changing this signature.
@@ -855,14 +857,14 @@ export async function getBrandSlugsBatch(brandIds: string[]): Promise<Map<string
  * is what `scripts/check-test-boundaries.mjs` forbids. Production has exactly
  * one caller, immediately below; nothing else should pass a client here.
  */
-export async function fetchBrandsBySlugKey(
+async function queryApprovedBrandsBySlugs(
   supabase: ReturnType<typeof createServiceClient>,
-  slugKey: string
+  slugs: string[]
 ): Promise<Map<string, Brand>> {
   const { data, error } = await supabase
     .from('brands')
     .select(BRAND_LIST_SELECT)
-    .in('slug', slugKey.split('\n'))
+    .in('slug', slugs)
     .eq('status', 'approved')
 
   if (error) {
@@ -876,6 +878,103 @@ export async function fetchBrandsBySlugKey(
   return new Map(
     (data ?? []).map(brandToDomain).map((brand): [string, Brand] => [brand.slug, brand])
   )
+}
+
+/**
+ * The query underneath throws on error, deliberately: during ISR regeneration a
+ * throw keeps the last good page in the cache instead of replacing it with a
+ * page of placeholders. That trade only works when a last good page EXISTS.
+ *
+ * During `next build` it does not, so the same throw aborts the export and
+ * fails the whole build. CI builds this app with Supabase pointed at
+ * 127.0.0.1 on purpose (the Build job is a compile check), so the first story
+ * to embed a brand card turned a standing condition into a blocked deploy.
+ *
+ * Prerender therefore degrades to an empty map, reported through the same
+ * `captureReadFailure` path as every other degraded page read, and gated on the
+ * same `STRICT_PRERENDER_DATA` switch — a deploy build that genuinely expects a
+ * database sets it and gets the hard failure back. Request and revalidation
+ * renders are untouched and keep the throw.
+ */
+export async function fetchBrandsBySlugKey(
+  supabase: ReturnType<typeof createServiceClient>,
+  slugKey: string
+): Promise<Map<string, Brand>> {
+  try {
+    return await resolveBrandsBySlugKey(supabase, slugKey)
+  } catch (error) {
+    if (!canDegradeDuringPrerender()) throw error
+    captureReadFailure('stories.brandCards')(error)
+    return new Map()
+  }
+}
+
+async function resolveBrandsBySlugKey(
+  supabase: ReturnType<typeof createServiceClient>,
+  slugKey: string
+): Promise<Map<string, Brand>> {
+  const requested = slugKey.split('\n')
+  const bySlug = await queryApprovedBrandsBySlugs(supabase, requested)
+
+  const unresolved = requested.filter((slug) => !bySlug.has(slug))
+  // The overwhelmingly common case: nothing was renamed, so this stays a
+  // single round trip. The two extra queries below are only ever paid on a
+  // page that would otherwise have rendered a placeholder anyway.
+  if (unresolved.length === 0) return bySlug
+
+  /*
+   * Renamed-slug recovery.
+   *
+   * Editorial content (story MDX shortcodes, the event lineup manifest) pins
+   * brands by slug, but a slug is not immutable: a brand refresh re-derives it
+   * from the name, and on 2026-08-02 twelve brands were renamed in one batch,
+   * silently turning five story cards into "找不到品牌" placeholders and
+   * staling twelve event lineup entries.
+   *
+   * `brand_slug_redirects` already records every rename — `proxy.ts` uses it so
+   * /brands/<old> still resolves. This makes the *embedded* lookups honour the
+   * same table, so a rename can no longer break content that links to a brand.
+   *
+   * ONE hop, deliberately: a chain (a→b→c) resolves only its last leg here.
+   * Chains are rare, each rename writes a row pointing at the then-current
+   * slug, and looping would turn an unbounded table into an unbounded query
+   * count on a request path. A stale chain degrades to today's placeholder.
+   */
+  const { data: redirects, error: redirectError } = await supabase
+    .from('brand_slug_redirects')
+    .select('old_slug, new_slug')
+    .in('old_slug', unresolved)
+
+  if (redirectError) {
+    // Deliberately NOT thrown, unlike the brand query above. This path is
+    // best-effort recovery for slugs that already failed to resolve; failing
+    // the whole render would take down a page whose other cards are fine.
+    console.error('brand slug redirect lookup failed:', redirectError)
+    return bySlug
+  }
+
+  const hops = (redirects ?? []).filter(
+    (row): row is { old_slug: string; new_slug: string } =>
+      typeof row?.old_slug === 'string' && typeof row?.new_slug === 'string'
+  )
+  if (hops.length === 0) return bySlug
+
+  const targets = [...new Set(hops.map((row) => row.new_slug))].filter(
+    (slug) => !bySlug.has(slug)
+  )
+  const renamed = targets.length > 0
+    ? await queryApprovedBrandsBySlugs(supabase, targets)
+    : new Map<string, Brand>()
+
+  for (const { old_slug: oldSlug, new_slug: newSlug } of hops) {
+    // Keyed by the slug the CALLER asked for: callers look the brand up by the
+    // slug they authored. The Brand itself still carries its current slug, so
+    // the rendered link points at the canonical URL rather than the redirect.
+    const brand = renamed.get(newSlug) ?? bySlug.get(newSlug)
+    if (brand) bySlug.set(oldSlug, brand)
+  }
+
+  return bySlug
 }
 
 const getBrandsBySlugKey = cache((slugKey: string): Promise<Map<string, Brand>> =>
@@ -1539,7 +1638,12 @@ export async function getBrandById(id: string): Promise<Brand> {
   return brandToDomainWithImages(supabase, data)
 }
 
-function isSupabaseStorageUrl(url: string): boolean {
+/**
+ * Our own Storage origin, or any `*.supabase.co` host serving `/storage/`.
+ * Exported so scripts/seed-events.ts validates hero images against the same
+ * rule instead of keeping its own copy.
+ */
+export function isSupabaseStorageUrl(url: string): boolean {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()
   const storagePrefix = supabaseUrl ? `${supabaseUrl}/storage/` : ''
 

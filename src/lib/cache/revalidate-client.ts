@@ -25,26 +25,24 @@ function scrubError(error: unknown): string {
     .slice(0, 1_000)
 }
 
-/**
- * Asks the running site to revalidate the public ISR entries touched by a brand
- * write. Never throws: the caller has already applied its mutation, so a
- * misconfigured laptop or an unreachable site must degrade to a warning.
- */
-export async function requestPublicBrandRevalidation(
-  slugs: string[],
-): Promise<RevalidationResult> {
-  const uniqueSlugs = [
+function normalizeSlugs(slugs: string[]): string[] {
+  return [
     ...new Set(
       (slugs ?? [])
         .map((slug) => (typeof slug === 'string' ? slug.trim() : ''))
         .filter(Boolean),
     ),
   ]
+}
 
-  if (uniqueSlugs.length === 0) {
-    return { ok: true, reason: 'no-slugs' }
-  }
-
+/**
+ * Posts one revalidation payload to the internal endpoint. Never throws: every
+ * caller has already applied its mutation, so a misconfigured laptop or an
+ * unreachable site must degrade to a warning.
+ */
+async function postRevalidation(
+  body: Record<string, string[]>,
+): Promise<RevalidationResult> {
   // Prefer the Railway origin: the public host is Cloudflare-fronted and answers
   // machine POSTs with a bot challenge (HTTP 403 "Just a moment...") before the
   // request ever reaches the app, so a call to NEXT_PUBLIC_SITE_URL can never
@@ -79,7 +77,7 @@ export async function requestPublicBrandRevalidation(
         'content-type': 'application/json',
         'x-origin-verify': originSecret,
       },
-      body: JSON.stringify({ slugs: uniqueSlugs }),
+      body: JSON.stringify(body),
       cache: 'no-store',
       signal: AbortSignal.timeout(REVALIDATE_TIMEOUT_MS),
     })
@@ -96,4 +94,37 @@ export async function requestPublicBrandRevalidation(
     console.warn(`[revalidate] request failed: ${reason}`)
     return { ok: false, reason }
   }
+}
+
+/**
+ * Asks the running site to revalidate the public ISR entries touched by a brand
+ * write. Never throws — see postRevalidation.
+ */
+export async function requestPublicBrandRevalidation(
+  slugs: string[],
+): Promise<RevalidationResult> {
+  const uniqueSlugs = normalizeSlugs(slugs)
+
+  if (uniqueSlugs.length === 0) {
+    return { ok: true, reason: 'no-slugs' }
+  }
+
+  return postRevalidation({ slugs: uniqueSlugs })
+}
+
+/**
+ * Same contract for event writes: the receiving route revalidates the `/events`
+ * hub plus one `/events/<slug>` path per slug. Never throws — see
+ * postRevalidation.
+ */
+export async function requestEventRevalidation(
+  slugs: string[],
+): Promise<RevalidationResult> {
+  const uniqueSlugs = normalizeSlugs(slugs)
+
+  if (uniqueSlugs.length === 0) {
+    return { ok: true, reason: 'no-slugs' }
+  }
+
+  return postRevalidation({ events: uniqueSlugs })
 }

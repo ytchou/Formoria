@@ -258,8 +258,6 @@ export function ReviewDetailsEditor({
         </TabsList>
       </Tabs>
 
-      {error && <p className="type-error">{error}</p>}
-
       <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(320px,0.65fr)]">
         <div className="space-y-7">
           <InlineEditSection
@@ -270,6 +268,7 @@ export function ReviewDetailsEditor({
             onSave={handleSave}
             onCancel={handleCancel}
             isPending={isPending}
+            error={error}
           >
             {editingSection === "content" ? (
               <ContentEditor draft={draft} onUpdate={update} />
@@ -295,6 +294,7 @@ export function ReviewDetailsEditor({
             onSave={handleSave}
             onCancel={handleCancel}
             isPending={isPending}
+            error={error}
           >
             {editingSection === "reputation" ? (
               <ReputationEditor draft={draft} onUpdate={update} />
@@ -314,6 +314,7 @@ export function ReviewDetailsEditor({
             onSave={handleSave}
             onCancel={handleCancel}
             isPending={isPending}
+            error={error}
           >
             {editingSection === "catalog" ? (
               <CatalogEditor draft={draft} onUpdate={update} />
@@ -360,6 +361,7 @@ export function ReviewDetailsEditor({
             onSave={handleSave}
             onCancel={handleCancel}
             isPending={isPending}
+            error={error}
           >
             {editingSection === "links" ? (
               <LinksEditor draft={draft} onUpdate={update} />
@@ -398,6 +400,7 @@ export function ReviewDetailsEditor({
             onSave={handleSave}
             onCancel={handleCancel}
             isPending={isPending}
+            error={error}
           >
             {editingSection === "evidence" ? (
               <StringListEditor
@@ -418,6 +421,7 @@ export function ReviewDetailsEditor({
           onSave={handleSave}
           onCancel={handleCancel}
           isPending={isPending}
+          error={error}
         >
           {editingSection === "images" ? (
             <div className="space-y-4">
@@ -540,6 +544,7 @@ function InlineEditSection({
   onSave,
   onCancel,
   isPending = false,
+  error = null,
   children,
 }: {
   title: string;
@@ -549,6 +554,7 @@ function InlineEditSection({
   onSave?: () => void;
   onCancel?: () => void;
   isPending?: boolean;
+  error?: string | null;
   children: React.ReactNode;
 }) {
   const t = useTranslations("admin.submissions");
@@ -561,6 +567,7 @@ function InlineEditSection({
       onSave={onSave}
       onCancel={onCancel}
       isPending={isPending}
+      error={error}
       editLabel={t("edit")}
       saveLabel={t("save")}
       cancelLabel={t("cancel")}

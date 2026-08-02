@@ -58,6 +58,13 @@ export function BrandCard({
   const showImage = imageSrc !== null && !imgError
 
   const categoryLabel = getBrandCategoryLabel(brand, locale === 'en' ? 'en' : 'zh-TW')
+  // The directory blurb, resolved once: both the directory variant and the
+  // editorial variant (as its fallback when there is no curator note) render it,
+  // and two copies of this chain drift apart the next time it changes.
+  const blurb =
+    locale === 'en'
+      ? (brand.blurbEn ?? brand.descriptionEn ?? brand.blurb ?? brand.description)
+      : (brand.blurb ?? brand.description)
   // Directory and editorial cards are whole-card click targets with a save
   // affordance; recommendation cards use an explicit button instead.
   const isWholeCardLink = variant === 'directory' || variant === 'editorial'
@@ -93,12 +100,27 @@ export function BrandCard({
       {/* Content */}
       <div className="p-4">
         {variant === 'editorial' && eyebrow ? (
-          <Badge variant="secondary" className="mb-2">
-            {eyebrow}
-          </Badge>
+          /*
+           * Micro-text, not a `Badge`: three grey pills across a `<BrandRow>`
+           * read as chrome inside prose. `type-eyebrow-muted` is the declared
+           * 11px uppercase tracked utility — never hand-pick the size here.
+           */
+          <p className="mb-2 type-eyebrow-muted">{eyebrow}</p>
         ) : null}
         <div className="flex min-w-0 items-center gap-1.5">
-          <h3 className="min-w-0 truncate type-subsection-title">
+          {/*
+           * Editorial titles get two lines with a reserved two-line height: at
+           * the ~229px card width of a 3-up row `truncate` cut real brand names
+           * mid-word, and an unreserved clamp let a 1-line card ride up out of
+           * line with its neighbours. Every other variant keeps `truncate` —
+           * the directory and recommendation surfaces must not change.
+           */}
+          <h3
+            className={cn(
+              'min-w-0 type-subsection-title',
+              variant === 'editorial' ? 'line-clamp-2 min-h-10' : 'truncate',
+            )}
+          >
             <Link
               href={`/brands/${brand.slug}`}
               prefetch={variant === 'directory' ? false : undefined}
@@ -171,7 +193,14 @@ export function BrandCard({
               (with a space) for the same reason — a card without a note must
               still occupy the block, or it pulls its badges up out of line.
             */}
-            <p className="mt-1.5 min-h-[2.625rem] type-body line-clamp-2">{note ?? ' '}</p>
+            {/*
+              Curator note first, directory blurb second: a lineup card with no
+              note said nothing about the brand at all, and the blurb is the
+              same copy the directory card shows for it.
+            */}
+            <p className="mt-1.5 min-h-[2.625rem] type-body line-clamp-2">
+              {note ?? blurb ?? ' '}
+            </p>
             {categoryLabel ? (
               <div className="mt-3 flex items-center gap-1.5 overflow-hidden">
                 <Badge variant="secondary">{categoryLabel}</Badge>
@@ -181,9 +210,7 @@ export function BrandCard({
         ) : (
           <>
             <p className="mt-1.5 min-h-[2.625rem] type-section-description line-clamp-2">
-              {(locale === 'en'
-                ? (brand.blurbEn ?? brand.descriptionEn ?? brand.blurb ?? brand.description)
-                : (brand.blurb ?? brand.description)) ?? ' '}
+              {blurb ?? ' '}
             </p>
             <div className="mt-3 flex items-center gap-1.5 overflow-hidden">
               {categoryLabel && <Badge variant="secondary">{categoryLabel}</Badge>}

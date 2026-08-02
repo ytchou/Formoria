@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { getBrandSeoEntries } from "@/lib/services/brands";
+import { getPublishedEvents } from "@/lib/services/events";
 import { getAllStories } from "@/lib/services/stories";
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { buildAlternates, type Locale } from "@/lib/seo/alternates";
@@ -47,6 +48,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages = [
     "/",
     "/brands",
+    // Deliberately in staticPages, not the try block: the hub is a real page with
+    // zero events, and it must stay listed even when the dynamic block throws.
+    "/events",
     "/stats",
     "/about",
     "/glossary",
@@ -66,9 +70,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const storyIndexPages = localizedEntries("/stories", ["zh-TW"]);
 
   try {
-    const [brands, storyResult] = await Promise.all([
+    const [brands, storyResult, events] = await Promise.all([
       getBrandSeoEntries(),
       getAllStories(),
+      // Degrade to zero event entries instead of taking the sitemap down with
+      // them: the events service throws on any query error, and an unguarded
+      // rejection rejects the whole Promise.all even when brands and stories
+      // already resolved — the catch below would then drop every /brands/<slug>,
+      // every ?category= and every /stories/<slug> URL for the full revalidate
+      // window. Same resilience as `storyResult.ok` on the next line.
+      getPublishedEvents().catch(() => []),
     ]);
     const stories = storyResult.ok ? storyResult.stories : [];
 
@@ -108,12 +119,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       );
     });
 
+    // Unlike stories — whose /en twin serves byte-identical MDX and is therefore
+    // kept out — an event with English copy is genuinely different content per
+    // locale, so it is listed in both. Same per-locale gating as brands above:
+    // an event without English copy lists zh-TW only.
+    const eventPages = events.flatMap((event) =>
+      localizedEntries(
+        `/events/${event.slug}`,
+        event.nameEn ? ALL_LOCALES : (["zh-TW"] as const),
+        validDate(event.updatedAt),
+      ),
+    );
+
     return [
       ...staticPages,
       ...storyIndexPages,
       ...categoryPages,
       ...brandPages,
       ...storyPages,
+      ...eventPages,
     ];
   } catch {
     return [...staticPages, ...storyIndexPages];

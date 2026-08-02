@@ -1474,6 +1474,164 @@ export type Database = {
         }
         Relationships: []
       }
+      // `event_brands` and `events` are hand-written: the migration
+      // supabase/migrations/20260731090000_events.sql has not been applied to the
+      // linked Supabase project yet, so the generator cannot see these tables.
+      // Replace both entries with `npx supabase gen types typescript --linked`
+      // output once the migration is applied.
+      event_brands: {
+        Row: {
+          area: string | null
+          area_en: string | null
+          booth: string | null
+          brand_id: string
+          created_at: string
+          event_id: string
+          id: string
+          note: string | null
+          note_en: string | null
+          sort_order: number
+        }
+        Insert: {
+          area?: string | null
+          area_en?: string | null
+          booth?: string | null
+          brand_id: string
+          created_at?: string
+          event_id: string
+          id?: string
+          note?: string | null
+          note_en?: string | null
+          sort_order?: number
+        }
+        Update: {
+          area?: string | null
+          area_en?: string | null
+          booth?: string | null
+          brand_id?: string
+          created_at?: string
+          event_id?: string
+          id?: string
+          note?: string | null
+          note_en?: string | null
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_brands_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_brands_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      events: {
+        Row: {
+          admission_note: string | null
+          admission_note_en: string | null
+          city: string | null
+          created_at: string
+          description: string | null
+          description_en: string | null
+          ends_on: string
+          hero_image_url: string | null
+          id: string
+          is_free: boolean | null
+          lineup_note: string | null
+          lineup_note_en: string | null
+          name: string
+          name_en: string | null
+          official_url: string | null
+          organizer_name: string | null
+          schedule_note: string | null
+          schedule_note_en: string | null
+          slug: string
+          starts_on: string
+          status: string
+          summary: string
+          summary_en: string | null
+          ticket_url: string | null
+          travel_note: string | null
+          travel_note_en: string | null
+          updated_at: string
+          venue_address: string | null
+          venue_name: string | null
+          venue_name_en: string | null
+        }
+        Insert: {
+          admission_note?: string | null
+          admission_note_en?: string | null
+          city?: string | null
+          created_at?: string
+          description?: string | null
+          description_en?: string | null
+          ends_on: string
+          hero_image_url?: string | null
+          id?: string
+          is_free?: boolean | null
+          lineup_note?: string | null
+          lineup_note_en?: string | null
+          name: string
+          name_en?: string | null
+          official_url?: string | null
+          organizer_name?: string | null
+          schedule_note?: string | null
+          schedule_note_en?: string | null
+          slug: string
+          starts_on: string
+          status?: string
+          summary: string
+          summary_en?: string | null
+          ticket_url?: string | null
+          travel_note?: string | null
+          travel_note_en?: string | null
+          updated_at?: string
+          venue_address?: string | null
+          venue_name?: string | null
+          venue_name_en?: string | null
+        }
+        Update: {
+          admission_note?: string | null
+          admission_note_en?: string | null
+          city?: string | null
+          created_at?: string
+          description?: string | null
+          description_en?: string | null
+          ends_on?: string
+          hero_image_url?: string | null
+          id?: string
+          is_free?: boolean | null
+          lineup_note?: string | null
+          lineup_note_en?: string | null
+          name?: string
+          name_en?: string | null
+          official_url?: string | null
+          organizer_name?: string | null
+          schedule_note?: string | null
+          schedule_note_en?: string | null
+          slug?: string
+          starts_on?: string
+          status?: string
+          summary?: string
+          summary_en?: string | null
+          ticket_url?: string | null
+          travel_note?: string | null
+          travel_note_en?: string | null
+          updated_at?: string
+          venue_address?: string | null
+          venue_name?: string | null
+          venue_name_en?: string | null
+        }
+        Relationships: []
+      }
       feature_request_votes: {
         Row: {
           created_at: string
