@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { JUNK_TAGS, applyClassifications, parseClassificationBatch } from '../classify-images'
+import { JUNK_TAGS, MIN_KEEP_SCORE, applyClassifications, parseClassificationBatch } from '../classify-images'
 
 /**
  * These cover the policy decisions that ship together:
@@ -201,7 +201,7 @@ describe('parseClassificationBatch', () => {
           disposition: 'keep',
           tag: 'product',
           reasons: [],
-          score: 39,
+          score: MIN_KEEP_SCORE - 1,
           alt_zh: '模糊的產品照',
           alt_en: 'Blurry product photo',
         },
@@ -210,7 +210,7 @@ describe('parseClassificationBatch', () => {
           disposition: 'keep',
           tag: 'product',
           reasons: [],
-          score: 40,
+          score: MIN_KEEP_SCORE,
           alt_zh: '產品照',
           alt_en: 'Product photo',
         },
@@ -223,7 +223,7 @@ describe('parseClassificationBatch', () => {
       disposition: 'reject',
       tag: null,
       reasons: ['low_visual_quality'],
-      score: 39,
+      score: MIN_KEEP_SCORE - 1,
     })
     expect(verdicts.get('2')).toMatchObject({ disposition: 'keep', tag: 'product' })
   })

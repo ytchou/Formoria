@@ -141,13 +141,17 @@ const CLASSIFY_IMAGE_DETAIL = 'low' as const
 const CLASSIFY_RENDER_WIDTH = 512
 
 /**
- * Kept images must score at least this. Deliberately set at the rubric's
- * "unusable" boundary rather than at "unremarkable": it is the one gate no
- * human has calibrated yet, and the sharpness and entropy gates it would
- * otherwise stand in for were both measured net-negative and removed. Raise it
- * once the 231 labelled images say what it costs in true keeps.
+ * Kept images must score at least this. The 231 labelled images have now said
+ * what it costs: swept against gpt-5.6-luna predictions, every keep scoring
+ * 40-59 was a human reject, so 60 removes three false positives and loses no
+ * true keeps (precision 72.1% -> 74.1%, TP unchanged at 80). 65 is where it
+ * starts costing real images — five true keeps — so 60 is the last free notch.
+ *
+ * Note this gate was dormant under gpt-4o-mini, whose lowest kept score was 70.
+ * It only becomes load-bearing because luna spreads scores across more of the
+ * scale; re-sweep if the model changes again.
  */
-const MIN_KEEP_SCORE = 40
+export const MIN_KEEP_SCORE = 60
 
 /** One retry per chunk, and only after dropping an image OpenAI could not download. */
 const MAX_CHUNK_RETRIES = 1
