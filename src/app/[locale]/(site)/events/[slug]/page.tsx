@@ -274,44 +274,6 @@ export default async function EventDetailPage({ params }: PageProps) {
           <p className="max-w-2xl type-page-subtitle">{summary}</p>
         </header>
 
-        {/*
-          Band B — the "about this event" section. Was a 352px right rail, then a grid of bordered
-          fact cards; both were more chrome than this content earns. It is now a
-          titled section: the official introduction as prose, then the facts as
-          a plain two-column definition list on hairline rules.
-
-          The facts stay listed rather than folding into the prose because one
-          of them is safety-critical: 8/6–8/7 are trade-buyer days, and a reader
-          scanning for dates must not have to parse a paragraph to learn the
-          first two days are closed to them.
-
-          Actions sit ABOVE the facts: they are what a reader who already knows
-          the event came here to do, and below the list they landed under the
-          page fold on a laptop.
-        */}
-        <section aria-labelledby="event-about" className="space-y-8">
-          <h2 id="event-about" className="type-section-title">
-            {t('about')}
-          </h2>
-          {heroSrc ? (
-            <div className="relative aspect-[16/9] overflow-hidden rounded-xl bg-muted">
-              {/* Decorative: the event name is the adjacent `<h1>`, so alt text
-                  here would only repeat it to a screen reader. */}
-              <Image
-                src={heroSrc}
-                alt=""
-                fill
-                priority
-                sizes="100vw"
-                className="object-cover"
-              />
-            </div>
-          ) : null}
-
-          {description ? (
-            <p className="whitespace-pre-wrap type-body">{description}</p>
-          ) : null}
-
           {event.officialUrl || event.ticketUrl || mapsUrl ? (
             <div className="space-y-3">
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
@@ -376,6 +338,29 @@ export default async function EventDetailPage({ params }: PageProps) {
             </div>
           ) : null}
 
+        {/*
+          Band B — the "about this event" section. Was a 352px right rail, then a
+          grid of bordered fact cards; both were more chrome than this content
+          earns. It is now a titled section: the facts as a plain two-column
+          definition list on hairline rules, then the official introduction as
+          prose.
+
+          The facts lead the section, and the prose follows, because the two
+          serve different readers. Someone who already knows what this event is
+          came for dates, venue, and admission, and those must be answerable
+          without reading a paragraph — one of them is safety-critical: 8/6-8/7
+          are trade-buyer days, so a reader scanning the date range can
+          otherwise turn up on a day that is closed to them.
+
+          Actions sit above the section heading entirely: they are what a reader
+          who already knows the event came here to DO, and anywhere below the
+          fact list they landed under the page fold on a laptop.
+        */}
+        <section aria-labelledby="event-about" className="space-y-8">
+          <h2 id="event-about" className="type-section-title">
+            {t('about')}
+          </h2>
+
           <dl aria-label={t('visitInfo')} className="divide-y divide-border border-t border-border">
             {dateLabel ? (
               <div className="grid gap-x-6 gap-y-1 py-3 sm:grid-cols-[10rem_minmax(0,1fr)]">
@@ -434,6 +419,25 @@ export default async function EventDetailPage({ params }: PageProps) {
               </div>
             ) : null}
           </dl>
+          {heroSrc ? (
+            <div className="relative aspect-[16/9] overflow-hidden rounded-xl bg-muted">
+              {/* Decorative: the event name is the adjacent `<h1>`, so alt text
+                  here would only repeat it to a screen reader. */}
+              <Image
+                src={heroSrc}
+                alt=""
+                fill
+                priority
+                sizes="100vw"
+                className="object-cover"
+              />
+            </div>
+          ) : null}
+
+          {description ? (
+            <p className="whitespace-pre-wrap type-body">{description}</p>
+          ) : null}
+
 
         </section>
 
