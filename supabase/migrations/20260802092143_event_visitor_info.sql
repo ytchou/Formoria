@@ -1,3 +1,7 @@
+-- Applied directly to production on 2026-08-02 and stamped in
+-- supabase_migrations.schema_migrations as version 20260802092143; the
+-- statements below match that ledger entry verbatim.
+--
 -- Visitor-decision fields for public.events. These four localized pairs carry
 -- the facts a visitor needs BEFORE travelling: which days are open to whom, how
 -- to get in, how to arrive, and where the brand lineup came from. They existed

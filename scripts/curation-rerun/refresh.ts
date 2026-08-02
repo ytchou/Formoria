@@ -159,6 +159,13 @@ async function main(): Promise<void> {
   const logPath = resolve(snapshotDir(cohort), `refresh-log-${Date.now()}.json`)
   const dryRun = hasFlag('--dry-run')
   const viaWorker = hasFlag('--via-worker')
+  // Enqueue and stop. The deployed worker's drain loop claims the next pending
+  // job as soon as it finishes its current one (runQueuedJobs -> claimNextCurationJob),
+  // so leaving a job pending IS the queue — no dispatch, no poller, nothing on
+  // this machine to keep alive. The trade is that step 4 never runs for these
+  // jobs: apply is a separate pass (scripts/apply-refresh-submissions.ts) once
+  // the job reaches `completed`.
+  const enqueueOnly = hasFlag('--enqueue-only')
   if (!dryRun && !hasFlag('--confirm')) {
     throw new Error(
       `This rewrites ${cohort.slugs.length} production brands (cohort ${cohort.name}). Re-run with --confirm (or --dry-run to preview).`
@@ -264,6 +271,25 @@ async function main(): Promise<void> {
     startedBy: adminEmail,
   })
   console.log(`  job ${job.id}`)
+
+  if (enqueueOnly) {
+    console.log(
+      `\n[3/4] skipped — job ${job.id} left PENDING for the deployed worker to claim.` +
+        `\n[4/4] skipped — apply separately once the job is completed:` +
+        `\n      pnpm exec tsx --env-file=.env.local scripts/apply-refresh-submissions.ts --dry-run\n`
+    )
+    await mkdir(dirname(logPath), { recursive: true })
+    await writeFile(
+      logPath,
+      JSON.stringify(
+        { ranAt: new Date().toISOString(), mode: 'enqueue-only', jobId: job.id, steps: [...STEPS], requested },
+        null,
+        2
+      )
+    )
+    console.log(`wrote ${logPath}`)
+    return
+  }
 
   console.log(`\n[3/4] running the worker — ${viaWorker ? 'deployed Railway service' : 'in-process (this checkout)'}\n`)
   let summary: RunSummary
