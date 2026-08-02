@@ -94,7 +94,7 @@ const NON_BRAND_PLATFORM_HOSTS = [
   // Convenience-store logistics and hosted checkout. A brand links these as a
   // *shipping option*, never as its own site, but they outrank a small brand's
   // domain often enough to be adopted as one — `https://myship.7-11.com.tw`
-  // stood in as 原形東方茶飲's official website on a live run.
+  // stood in as a tea brand's official website on a live run.
   'myship.7-11.com.tw',
   '7-11.com.tw',
   'ibon.com.tw',

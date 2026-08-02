@@ -149,8 +149,9 @@ export function canonicalizeThreadsUrl(url: string): string {
  * Marketplace paths that are a *query*, not a seller. A brand's own site
  * frequently links its Shopee presence as a keyword search rather than as its
  * storefront, and that URL is indistinguishable from a real store to every
- * pattern that only checks the host — `shopee.tw/search?keyword=女子鞋研究室`
- * was written to Major Pleasure's `purchase_shopee` on a live run. It renders
+ * pattern that only checks the host — a `shopee.tw/search?keyword=…` URL
+ * carrying the brand's name was written to Major Pleasure's `purchase_shopee`
+ * on a live run. It renders
  * as a buy link, sends the reader to a page of other sellers' listings, and
  * breaks the moment Shopee changes its ranking.
  *

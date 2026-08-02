@@ -145,7 +145,8 @@ function hostMatchesBrandName(url: string, tokens: string[]): boolean {
  * When the name DOES yield tokens and no eligible host carries one, the answer
  * is null, not first-eligible. That fallback is how `https://www.nahoku.com` —
  * a Hawaiian jewellery company — became NU Dream Jewelry's official website,
- * and how `https://myship.7-11.com.tw` became 原形東方茶飲's. A brand with no
+ * and how `https://myship.7-11.com.tw`, a convenience-store shipping page,
+ * became a tea brand's. A brand with no
  * site of its own is the common case here; the correct representation of it is
  * an empty column, not the SERP's first non-platform result. Only a name with
  * no Latin tokens at all (a purely Han name, which cannot fingerprint a domain)
