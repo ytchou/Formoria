@@ -3,24 +3,23 @@ import { buildImageQueryVariants } from './search'
 import { passesImageDimensions } from './serper'
 
 describe('buildImageQueryVariants', () => {
-  it('builds a single query from quoted brand name, Chinese product type, and 商品', () => {
+  it('builds a single query from the quoted brand name and 商品', () => {
     const variants = buildImageQueryVariants({ brandName: '好日子', productType: 'home' })
-    expect(variants).toEqual(['"好日子" 居家生活 商品'])
+    expect(variants).toEqual(['"好日子" 商品'])
   })
 
-  it('translates the product-type slug and never leaks the raw English slug', () => {
-    const variants = buildImageQueryVariants({
-      brandName: '瀏海樹 BANGSTREE', productType: 'bags-accessories',
-    })
-    expect(variants[0]).toBe('"瀏海樹 BANGSTREE" 包袋配件 商品')
-    expect(variants[0]).not.toContain('bags-accessories')
-  })
-
-  it('omits the type segment when the product type is missing or unknown', () => {
-    expect(buildImageQueryVariants({ brandName: '好日子' })).toEqual(['"好日子" 商品'])
-    expect(buildImageQueryVariants({ brandName: '好日子', productType: null })).toEqual(['"好日子" 商品'])
-    // 'lifestyle' is not an L1 slug — an unresolvable value drops out cleanly.
-    expect(buildImageQueryVariants({ brandName: '好日子', productType: 'lifestyle' })).toEqual(['"好日子" 商品'])
+  // The category is no longer an input to image acquisition — it is decided
+  // downstream, from the site text and the classified product photographs. A
+  // query carrying it would be reading the previous run's answer, and a wrong
+  // value actively poisons the search.
+  it('never carries the product category, whatever is passed', () => {
+    for (const productType of ['home', 'bags-accessories', 'lifestyle', null, undefined]) {
+      const query = buildImageQueryVariants({ brandName: '好日子', productType })[0] ?? ''
+      expect(query).toBe('"好日子" 商品')
+    }
+    expect(
+      buildImageQueryVariants({ brandName: '瀏海樹 BANGSTREE', productType: 'bags-accessories' })[0]
+    ).toBe('"瀏海樹 BANGSTREE" 商品')
   })
 
   it('carries no negative terms, 台灣, or 品牌', () => {
@@ -52,7 +51,7 @@ describe('buildImageQueryVariants', () => {
   it('keeps 商品 for a brand with no website, where it is the only commerce signal', () => {
     expect(
       buildImageQueryVariants({ brandName: '好日子', productType: 'home', purchaseWebsite: null })
-    ).toEqual(['"好日子" 居家生活 商品'])
+    ).toEqual(['"好日子" 商品'])
   })
 
   it('falls back to the no-website form when the stored URL will not parse', () => {
@@ -60,10 +59,10 @@ describe('buildImageQueryVariants', () => {
     // never be guessed at.
     expect(
       buildImageQueryVariants({ brandName: '好日子', productType: 'home', purchaseWebsite: 'gooddays.tw' })
-    ).toEqual(['"好日子" 居家生活 商品'])
+    ).toEqual(['"好日子" 商品'])
     expect(
       buildImageQueryVariants({ brandName: '好日子', productType: 'home', purchaseWebsite: '   ' })
-    ).toEqual(['"好日子" 居家生活 商品'])
+    ).toEqual(['"好日子" 商品'])
   })
 
   // 22 approved brands hold threads.com in purchase_website and no backfill is
@@ -80,7 +79,7 @@ describe('buildImageQueryVariants', () => {
       productType: 'home',
       purchaseWebsite,
     })
-    expect(variants).toEqual(['"好日子" 居家生活 商品'])
+    expect(variants).toEqual(['"好日子" 商品'])
     expect(variants.some((query) => query.includes('site:'))).toBe(false)
   })
 })

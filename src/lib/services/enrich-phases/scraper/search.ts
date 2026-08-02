@@ -1,4 +1,3 @@
-import { productTypeNameZh } from '@/lib/taxonomy/ontology'
 import { isNonBrandSiteHost } from './input-detector'
 import type { ImageQueryInput, QueryTemplate } from './types'
 
@@ -48,16 +47,20 @@ function imageQueryHostname(website: string | null | undefined): string | null {
  * that is not on the page, and its only downside — matching too loosely — is
  * already bounded by `site:` to the brand's own domain.
  *
- * Do NOT append the product category on top: with a quoted name it returned
- * zero images for two of five brands. Two constraints the page must satisfy is
- * the limit; three is over-specified.
- *
  * Without a domain (119 of 599 approved brands are Instagram-only): the name
  * query, keeping `商品`. On domain-anchored brands that keyword steers Google
  * onto marketplace listing pages, but here it is the only thing steering
  * towards commerce at all — dropping it pushes results onto Instagram lookaside
  * URLs that cost an ~800KB fetch each to resolve. The term that hurts one
  * segment is precisely the term that helps the other.
+ *
+ * NEITHER branch carries the product category. On the domain branch it was
+ * destructive — with a quoted name it returned zero images for two of five
+ * brands. On the open branch it was never justified: the A/B was inconclusive,
+ * coverage of the field is patchy, and a wrong category actively poisons the
+ * search. The category is now assigned downstream instead, where the site text
+ * and the classified product photos are available to decide it — so it stopped
+ * being an input to image acquisition and became an output of it.
  *
  * Either branch is one query, so one serper credit (billing is per request at
  * num<=10).
@@ -68,17 +71,12 @@ export function buildImageQueryVariants(input: ImageQueryInput): string[] {
     return []
   }
 
-  // The image endpoint runs with hl=zh-TW, so the product type has to be the
-  // Chinese category name — a raw English slug pulls in off-brand SERPs.
-  const typeZh = productTypeNameZh(input.productType?.trim())
-  const typeSegment = typeZh ? ` ${typeZh}` : ''
-
   const hostname = imageQueryHostname(input.purchaseWebsite)
   if (hostname) {
     return [`site:${hostname} ${brandName}`]
   }
 
-  return [`"${brandName}"${typeSegment} 商品`]
+  return [`"${brandName}" 商品`]
 }
 
 export function stripTrackingParams(url: string): string {

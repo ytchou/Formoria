@@ -403,6 +403,21 @@ function resolveAuditOptions<T>(resolver: AuditResolver<T> | undefined, input: T
   return typeof resolver === 'function' ? resolver(input) : resolver
 }
 
+/**
+ * Single source of truth for the text-query request body (`/search` and
+ * `/places`). It was three literal copies, and they drifted: the images body
+ * has carried `autocorrect: false` for a while but these had not, so Google was
+ * free to "correct" a Taiwanese brand name into a generic dictionary word and
+ * hand back an entirely different company's URLs — the same wrong-brand failure
+ * `buildImageSearchBody` already documents. One factory so they cannot diverge
+ * again.
+ *
+ * `num` stays at 10: serper bills 1 credit for <=10 results and 2 above it.
+ */
+function buildSerperQueryBody(query: string): Record<string, unknown> {
+  return { q: query, num: 10, gl: 'tw', hl: 'zh-TW', autocorrect: false }
+}
+
 export async function searchBrandUrls(
   brandName: string,
   queryTemplate: QueryTemplate = DEFAULT_QUERY,
@@ -413,7 +428,7 @@ export async function searchBrandUrls(
     SERPER_SERP_ENDPOINT,
     'serp',
     query,
-    { q: query, num: 10, gl: 'tw', hl: 'zh-TW' },
+    buildSerperQueryBody(query),
     isSerperSerpResponse,
     (value) => parseBrandSearchResults(value.organic),
     auditOptions,
@@ -447,7 +462,7 @@ export async function batchSearchBrandsWithSnippets(
         SERPER_SERP_ENDPOINT,
         'serp',
         query,
-        { q: query, num: 10, gl: 'tw', hl: 'zh-TW' },
+        buildSerperQueryBody(query),
         isSerperSerpResponse,
         (value) => parseBrandSearchResults(value.organic),
         options,
@@ -850,7 +865,7 @@ export async function searchBrandMaps(
     SERPER_MAPS_ENDPOINT,
     'maps',
     query,
-    { q: query, num: 10, gl: 'tw', hl: 'zh-TW' },
+    buildSerperQueryBody(query),
     isSerperMapsResponse,
     (value) => ({
       urls: (value.places ?? []).flatMap((place) => {

@@ -62,13 +62,52 @@ const LINK_AGGREGATOR_HOSTS = [
   'msha.ke',
 ]
 
+/**
+ * Delivery apps, review/travel sites, encyclopaedias, blogging platforms, and
+ * site builders' own domains. None of them is ever a brand's own website — a
+ * live run put `https://www.ubereats.com` into a tea brand's `purchase_website`
+ * because the SERP ranked its delivery page first and nothing here rejected it.
+ *
+ * Kept OUT of `SOCIAL_HOSTS` / `ECOMMERCE_HOSTS` for the same reason
+ * `LINK_AGGREGATOR_HOSTS` is: those two drive `classifyByDomain`, so a host in
+ * either one changes how the URL is SCRAPED (`PlatformAdapterStrategy` instead
+ * of the generic page strategy). These hosts must only affect whether a URL may
+ * be ADOPTED as the brand's own site, never the scrape route.
+ *
+ * `youtube.com` is intentionally absent: it is already in `SOCIAL_HOSTS`.
+ */
+const NON_BRAND_PLATFORM_HOSTS = [
+  // Food delivery / ordering
+  'ubereats.com',
+  'foodpanda.com',
+  'foodpanda.com.tw',
+  'deliveroo.com',
+  // Reviews / travel / directories
+  'tripadvisor.com',
+  'tripadvisor.com.tw',
+  'yelp.com',
+  'wikipedia.org',
+  'google.com',
+  'maps.google.com',
+  'goo.gl',
+  'books.com.tw',
+  // Publishing platforms and site builders (their own domain, not a brand's)
+  'medium.com',
+  'pixnet.net',
+  'blogspot.com',
+  'wordpress.com',
+  'wix.com',
+  'weebly.com',
+]
+
 function hostnameMatches(hostname: string, domain: string): boolean {
   return hostname === domain || hostname.endsWith(`.${domain}`)
 }
 
 /**
  * True when the URL's host is a platform rather than a brand's own site: a
- * social network, a marketplace, or a link aggregator.
+ * social network, a marketplace, a link aggregator, or one of the delivery /
+ * directory / publishing platforms in `NON_BRAND_PLATFORM_HOSTS`.
  *
  * The read-side guard for every place a host stands in for the brand — the
  * `site:` image query and the `purchase_website` column. A malformed URL
@@ -77,7 +116,12 @@ function hostnameMatches(hostname: string, domain: string): boolean {
 export function isNonBrandSiteHost(url: string): boolean {
   try {
     const hostname = new URL(url).hostname.toLowerCase()
-    return [...SOCIAL_HOSTS, ...ECOMMERCE_HOSTS, ...LINK_AGGREGATOR_HOSTS].some((domain) =>
+    return [
+      ...SOCIAL_HOSTS,
+      ...ECOMMERCE_HOSTS,
+      ...LINK_AGGREGATOR_HOSTS,
+      ...NON_BRAND_PLATFORM_HOSTS,
+    ].some((domain) =>
       hostnameMatches(hostname, domain)
     )
   } catch {

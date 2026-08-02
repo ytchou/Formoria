@@ -23,7 +23,9 @@ describe("image-eval capture recovery", () => {
       })[0],
     );
     expect(queries).toEqual([
-      '"Aireal Land 年零" 美妝保養 商品',
+      // Production dropped the category from its query; the capture variants
+      // below deliberately keep it, since their job is to widen the corpus.
+      '"Aireal Land 年零" 商品',
       '"Aireal Land 年零" beauty 官方網站 商品',
       '"Aireal Land 年零" beauty 產品 圖片',
       '"Aireal Land 年零" 台灣 品牌 商品',

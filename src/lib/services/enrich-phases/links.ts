@@ -89,10 +89,59 @@ function prioritizeScrapeUrls(urls: string[]): string[] {
 }
 
 /**
- * First URL that is neither social nor marketplace, normalised to its root.
- * This is what puts a brand's own domain into `purchase_website`, and the batch
- * image-search phase — which now runs AFTER this one — reads that value out of
- * this phase's patch to build its `site:` query.
+ * Public-suffix labels we strip before looking for the brand's name in a host,
+ * so a brand token never matches the TLD itself. Not a full PSL — the list only
+ * needs to cover the suffixes Taiwanese brands actually register under.
+ */
+const PUBLIC_SUFFIX_SECOND_LEVELS = new Set(['com', 'co', 'net', 'org', 'gov', 'edu', 'idv'])
+
+/** The name-bearing labels of a host: `www.cha-tzu.com.tw` -> `chatzu`. */
+function domainNameLabels(hostname: string): string {
+  const labels = hostname.replace(/^www\./, '').split('.').filter(Boolean)
+  let end = labels.length - 1
+  if (end > 0 && PUBLIC_SUFFIX_SECOND_LEVELS.has(labels.at(end - 1) ?? '')) {
+    end -= 1
+  }
+  return labels.slice(0, Math.max(end, 1)).join('').replace(/[^a-z0-9]/g, '')
+}
+
+/**
+ * Latin tokens of a brand name, long enough to be a domain fingerprint. CJK
+ * characters cannot appear in a registrable domain, so they are dropped rather
+ * than transliterated; a purely Han name simply yields no tokens and the caller
+ * falls back to first-eligible.
+ */
+function brandNameTokens(brandName: string | null | undefined): string[] {
+  if (!brandName) return []
+  return brandName
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((token) => token.length >= 3)
+}
+
+function hostMatchesBrandName(url: string, tokens: string[]): boolean {
+  if (tokens.length === 0) return false
+  try {
+    const domain = domainNameLabels(new URL(url).hostname.toLowerCase())
+    return tokens.some((token) => domain.includes(token))
+  } catch {
+    return false
+  }
+}
+
+/**
+ * The brand's own site among the SERP URLs, normalised to its root. This is what
+ * puts a brand's domain into `purchase_website`, and the batch image-search
+ * phase — which now runs AFTER this one — reads that value out of this phase's
+ * patch to build its `site:` query.
+ *
+ * Eligibility alone is not enough to identify a brand: "first URL that is not a
+ * platform" made `https://www.ubereats.com` a tea brand's official website,
+ * because its delivery page outranked the brand's own domain. So prefer a host
+ * that plausibly belongs to the brand — one whose registrable domain carries a
+ * Latin token of the brand name — and only fall back to first-eligible when no
+ * candidate does. Pure function; `brandName` is optional so callers without one
+ * keep the original behaviour exactly.
  *
  * Exported for its unit tests: the aggregator and Threads cases below guard a
  * production bug where a platform host was adopted as a brand's own site.
@@ -102,8 +151,10 @@ function prioritizeScrapeUrls(urls: string[]): string[] {
  * `LINK_AGGREGATOR_HOSTS`), which also made a linktr.ee URL eligible to become
  * the brand's "official website". `isNonBrandSiteHost` is the wider test.
  */
-export function deriveOfficialWebsite(urls: string[]): string | null {
-  const url = urls.find((u) => classifyByDomain(u) === null && !isNonBrandSiteHost(u))
+export function deriveOfficialWebsite(urls: string[], brandName?: string | null): string | null {
+  const eligible = urls.filter((u) => classifyByDomain(u) === null && !isNonBrandSiteHost(u))
+  const tokens = brandNameTokens(brandName)
+  const url = eligible.find((u) => hostMatchesBrandName(u, tokens)) ?? eligible.at(0)
   return normalizeToRootUrl(url ?? null)
 }
 
@@ -304,7 +355,7 @@ export async function runLinksPhase({
     const scraped: EnrichScrapedData = firstPass
       ? await scrapeDiscoveredLinks(firstPass.data, urls, scrapeOptions)
       : ({} as EnrichScrapedData)
-    const derivedWebsite = scraped.purchaseWebsite ?? deriveOfficialWebsite(urls)
+    const derivedWebsite = scraped.purchaseWebsite ?? deriveOfficialWebsite(urls, brand.name)
     const scrapedData = normalizeScrapedData({
       ...scraped,
       ...urlExtracted,

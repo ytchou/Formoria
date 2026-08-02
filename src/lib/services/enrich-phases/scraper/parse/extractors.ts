@@ -135,6 +135,43 @@ export function unique(values: string[]): string[] {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))]
 }
 
+/**
+ * Builds a "this is a PROFILE" matcher for a social host: the host, exactly one
+ * path segment, an optional trailing slash, and nothing else.
+ *
+ * Matching any URL on the platform is not the same thing: a live run captured
+ * `instagram.com/p/DQeL94sEv9G/` — a single post permalink — as a brand's
+ * Instagram, so every visitor would have been sent to one photo instead of the
+ * account. `reservedPaths` drops the platform's own non-profile sections whose
+ * first segment is otherwise shaped exactly like a handle.
+ *
+ * Deliberately the same shape as `URL_TO_LINK_COLUMN` in
+ * `lib/services/link-enrichment.ts`, which classifies URLs arriving from search
+ * rather than from a scraped page. The two modules stay separate, but they must
+ * not disagree about what counts as a profile.
+ */
+function socialProfilePattern(
+  hostPattern: string,
+  { handlePrefix = '', reservedPaths = [] }: { handlePrefix?: string; reservedPaths?: string[] } = {}
+): RegExp {
+  const reserved = reservedPaths.length > 0 ? `(?!(?:${reservedPaths.join('|')})(?:[/?#]|$))` : ''
+  return new RegExp(`${hostPattern}\\/${handlePrefix}${reserved}[^/?#]+\\/?$`, 'i')
+}
+
+const INSTAGRAM_PROFILE_RE = socialProfilePattern('instagram\\.com', {
+  reservedPaths: ['p', 'reel', 'reels', 'stories', 'explore', 'tv', 'share'],
+})
+
+// Meta migrated Threads to threads.com while threads.net links stay in the wild,
+// so both hosts must match — the old `threads.net`-only test silently dropped
+// every threads.com profile. A Threads handle always carries the `@` prefix, and
+// a post URL (`/@handle/post/…`) has more than one segment, so it cannot match.
+const THREADS_PROFILE_RE = socialProfilePattern('threads\\.(?:net|com)', { handlePrefix: '@' })
+
+const FACEBOOK_PROFILE_RE = socialProfilePattern('facebook\\.com', {
+  reservedPaths: ['docs', 'share', 'sharer', 'help', 'policies', 'terms', 'privacy', 'login'],
+})
+
 export function extractSocialLinks($: cheerio.CheerioAPI) {
   let instagram: string | null = null
   let threads: string | null = null
@@ -142,13 +179,13 @@ export function extractSocialLinks($: cheerio.CheerioAPI) {
 
   $('a[href]').each((_, el) => {
     const href = $(el).attr('href') ?? ''
-    if (!instagram && /instagram\.com\//i.test(href)) {
+    if (!instagram && INSTAGRAM_PROFILE_RE.test(href)) {
       instagram = href
     }
-    if (!threads && /threads\.net\//i.test(href)) {
+    if (!threads && THREADS_PROFILE_RE.test(href)) {
       threads = href
     }
-    if (!facebook && /facebook\.com\/[^/?#]+\/?$/i.test(href) && !/developers\.facebook\.com/i.test(href) && !/facebook\.com\/(?:docs|share|sharer|help|policies|terms|privacy|login)\b/i.test(href)) {
+    if (!facebook && FACEBOOK_PROFILE_RE.test(href) && !/developers\.facebook\.com/i.test(href)) {
       facebook = href
     }
   })

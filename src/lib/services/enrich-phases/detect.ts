@@ -28,8 +28,15 @@ export function shouldSkipForNonBrand(detectResult: DetectResult | undefined): b
   )
 }
 
+/**
+ * `tags` is deliberately NOT a trigger. The category moved to the descriptions
+ * phase, so detect no longer produces anything a tags run consumes — a
+ * DETAIL-only run was paying for a detect LLM call whose only possible effect
+ * was renaming the brand. Mirrored in `curation-operations.ts`; keep both in
+ * step.
+ */
 function hasDetectPhases(phases: BatchPhaseContext['phases']): boolean {
-  return phases.includes('detect') || phases.includes('slugs') || phases.includes('tags')
+  return phases.includes('detect') || phases.includes('slugs')
 }
 
 
@@ -54,9 +61,9 @@ function buildDetectPatch(
     patch.slug = detectResult.slugGenerated
   }
 
-  if (phases.includes('tags') && detectResult.productType !== null) {
-    patch.product_type = detectResult.productType
-  }
+  // No product_type write here on purpose: the category is a reasoning task the
+  // descriptions phase owns, decided from the brand's own site text and its
+  // classified image alt text. Detect only sees SERP snippets.
 
   if (
     detectResult.brandName &&
@@ -65,7 +72,15 @@ function buildDetectPatch(
     isValidBrandName(detectResult.brandName, brand.name ?? brand.slug)
   ) {
     patch.name = detectResult.brandName
-    if (!patch.slug) {
+    // DETECT_SYSTEM_PROMPT tells the model to return a null slug rather than
+    // transliterate a Han name, and the model obeys — this fallback then did the
+    // exact thing the prompt forbids, because `generateSlug` Wade-Giles
+    // romanises Han characters (`yuan-hsing-tung-fang-cha-yin-pur-sweets` on a
+    // live run). So the fallback only applies to a name we can slug faithfully:
+    // one with no Han at all. A Han name with no model slug keeps its existing
+    // slug untouched. `generateSlug` itself is unchanged — `submissions.ts`
+    // still depends on its current behaviour.
+    if (!patch.slug && !/\p{Script=Han}/u.test(detectResult.brandName)) {
       const nameSlug = generateSlug(detectResult.brandName)
       if (nameSlug && nameSlug !== brand.slug && KEBAB_CASE_RE.test(nameSlug)) {
         patch.slug = nameSlug

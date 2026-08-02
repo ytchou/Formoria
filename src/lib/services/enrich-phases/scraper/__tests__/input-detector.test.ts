@@ -26,6 +26,13 @@ describe('classifyByDomain', () => {
     expect(classifyByDomain('https://linktr.ee/brand')).toBeNull()
     expect(classifyByDomain('https://bio.site/brand')).toBeNull()
   })
+
+  // Same reason: the delivery/directory hosts are an adoption guard only. Putting
+  // them in SOCIAL_HOSTS/ECOMMERCE_HOSTS would change how they are SCRAPED.
+  it('leaves delivery and directory platforms unclassified', () => {
+    expect(classifyByDomain('https://www.ubereats.com/tw/store/brand')).toBeNull()
+    expect(classifyByDomain('https://zh.wikipedia.org/wiki/brand')).toBeNull()
+  })
 })
 
 describe('isNonBrandSiteHost', () => {
@@ -37,6 +44,18 @@ describe('isNonBrandSiteHost', () => {
     'https://linktr.ee/brand',
     'https://bio.site/brand',
   ])('is true for the platform URL %s', (url) => {
+    expect(isNonBrandSiteHost(url)).toBe(true)
+  })
+
+  // A live run adopted `https://www.ubereats.com` as a tea brand's own website
+  // because its delivery page outranked the brand's domain in the SERP.
+  it.each([
+    'https://www.ubereats.com/tw/store/brand',
+    'https://www.foodpanda.com.tw/restaurant/abcd/brand',
+    'https://zh.wikipedia.org/wiki/brand',
+    'https://www.tripadvisor.com.tw/Restaurant_Review-brand.html',
+    'https://brand.pixnet.net/blog',
+  ])('is true for the delivery/directory/publishing platform %s', (url) => {
     expect(isNonBrandSiteHost(url)).toBe(true)
   })
 

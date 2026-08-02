@@ -44,6 +44,15 @@ describe('runDetectPhase', () => {
     expect(result.phaseResult.status).toBe('skipped')
     expect(result.detectResults.size).toBe(0)
   })
+
+  // `tags` belongs to the DETAIL step and detect no longer produces a category,
+  // so a tags-only run must not pay for a detect LLM call.
+  it('does not trigger detect for a tags-only run', async () => {
+    const result = await runDetectPhase(ctx({ phases: ['tags'] as EnrichPhase[] }), new Map())
+
+    expect(result.phaseResult.status).toBe('skipped')
+    expect(result.detectResults.size).toBe(0)
+  })
 })
 
 describe('runStandaloneClassification', () => {
@@ -78,9 +87,40 @@ describe('applyDetectResult', () => {
 
     expect(result.isNonBrand).toBe(false)
     expect(result.phaseResult.status).toBe('succeeded')
-    expect(result.patch).toEqual({
-      slug: 'better-brand',
-      product_type: 'skincare',
-    })
+    expect(result.patch).toEqual({ slug: 'better-brand' })
+  })
+
+  // DETECT_SYSTEM_PROMPT tells the model to return a null slug rather than
+  // transliterate a Han name. The model obeys; the generateSlug fallback then
+  // Wade-Giles romanised it anyway (`yuan-hsing-tung-fang-cha-yin-pur-sweets`).
+  it('leaves the slug untouched for a Han name with no model slug', () => {
+    const result = applyDetectResult(
+      { ...brandDetect, slugGenerated: null, brandName: '茶籽堂 Cha Tzu Tang' },
+      { ...brand, name: '茶籽堂', slug: 'chatzutang' }
+    )
+
+    expect(result.patch.name).toBe('茶籽堂 Cha Tzu Tang')
+    expect(result.patch).not.toHaveProperty('slug')
+  })
+
+  it('still generates a slug for a Latin name with no model slug', () => {
+    const result = applyDetectResult(
+      { ...brandDetect, slugGenerated: null, brandName: 'ADELA Studio' },
+      { ...brand, name: 'Adela', slug: 'adela' }
+    )
+
+    expect(result.patch.slug).toBe('adela-studio')
+  })
+
+  it('never writes product_type, even when tags is requested', () => {
+    // The category moved to the descriptions phase, which sees the brand's own
+    // site text and its classified image alt text. Detect sees SERP snippets.
+    const result = applyDetectResult(
+      { ...brandDetect, productType: 'beauty' },
+      brand,
+      ['detect', 'slugs', 'tags'] as EnrichPhase[]
+    )
+
+    expect(result.patch).not.toHaveProperty('product_type')
   })
 })

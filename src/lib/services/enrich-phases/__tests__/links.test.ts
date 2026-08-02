@@ -42,6 +42,40 @@ describe('deriveOfficialWebsite', () => {
     expect(deriveOfficialWebsite(['https://www.threads.com/@brand'])).toBeNull()
     expect(deriveOfficialWebsite(['https://www.threads.net/@brand'])).toBeNull()
   })
+
+  // A live run made `https://www.ubereats.com` a tea brand's official website.
+  it('skips a delivery platform in favour of the brand domain', () => {
+    expect(
+      deriveOfficialWebsite(
+        ['https://www.ubereats.com/tw/store/cha-tzu-tang', 'https://www.chatzutang.com/products'],
+        'Cha Tzu Tang',
+      ),
+    ).toBe('https://www.chatzutang.com')
+  })
+
+  it('prefers the candidate whose domain carries a brand-name token', () => {
+    expect(
+      deriveOfficialWebsite(
+        ['https://www.taipeifoodguide.com/posts/chatzutang', 'https://www.chatzutang.com/'],
+        'Cha Tzu Tang 茶籽堂',
+      ),
+    ).toBe('https://www.chatzutang.com')
+  })
+
+  it('keeps first-eligible behaviour when no brand name is given', () => {
+    expect(
+      deriveOfficialWebsite([
+        'https://www.taipeifoodguide.com/posts/chatzutang',
+        'https://www.chatzutang.com/',
+      ]),
+    ).toBe('https://www.taipeifoodguide.com')
+  })
+
+  it('falls back to first-eligible when no domain matches the brand name', () => {
+    expect(
+      deriveOfficialWebsite(['https://www.some-shop.tw/about', 'https://www.other.tw/'], '茶籽堂'),
+    ).toBe('https://www.some-shop.tw')
+  })
 })
 
 describe('deriveScrapedBrandName', () => {
