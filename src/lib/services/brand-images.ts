@@ -1,7 +1,8 @@
 import { deleteBrandImages, deleteStoredImagePaths } from './image-upload'
 
-type BrandImageStatus = 'active' | 'rejected'
-type BrandImageSource = 'scrape' | 'google_image' | 'owner' | 'admin' | 'legacy'
+type BrandImageStatus = 'active' | 'candidate' | 'rejected'
+type BrandImageSource = 'scrape' | 'google_image' | 'owner' | 'admin' | 'legacy' | 'json_ld'
+export type BrandImageProviderMetadata = Record<string, string | number | null | undefined>
 
 export type BrandImageRow = {
   id?: string
@@ -14,6 +15,9 @@ export type BrandImageRow = {
   score?: number | string | null
   sort_order?: number
   source_url?: string | null
+  provider_metadata?: BrandImageProviderMetadata | null
+  rejection_reasons?: string[] | null
+  rejected_at?: string | null
   alt_zh?: string | null
   alt_en?: string | null
   width?: number | null
@@ -25,8 +29,11 @@ export type BrandImageInsert = {
   url: string
   source: BrandImageSource
   source_url?: string | null
+  provider_metadata?: BrandImageProviderMetadata | null
   storage_path?: string | null
   status?: BrandImageStatus
+  rejection_reasons?: string[] | null
+  rejected_at?: string | null
   tags?: string[] | null
   score?: number | null
   sort_order?: number

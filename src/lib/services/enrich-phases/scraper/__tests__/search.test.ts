@@ -41,6 +41,9 @@ describe('searchBrandUrls (Serper)', () => {
     expect(body.q).toBe('茶籽堂 台灣')
     expect(body.gl).toBe('tw')
     expect(body.hl).toBe('zh-TW')
+    // Google "corrects" Taiwanese brand names into generic dictionary words,
+    // which returns a different company's URLs entirely.
+    expect(body.autocorrect).toBe(false)
   })
 
   it('filters out google.com URLs', async () => {

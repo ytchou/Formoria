@@ -22,7 +22,13 @@ export type CurationJobParams = Record<string, Json | undefined> & {
   slugs?: string[];
   submissionIds?: string[];
   stopAfter?: number;
+  /**
+   * Execution vocabulary, still accepted and still what historical rows carry.
+   * New jobs from the admin UI send `steps` instead; the runner expands those
+   * into phases so persisted phase-level reporting is unchanged.
+   */
   phases?: string[];
+  steps?: string[];
   overwrite?: boolean;
   status?: string;
   target?: "submissions" | "brands";

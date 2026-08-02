@@ -1,6 +1,6 @@
 import { CLASSIFY_SYSTEM_PROMPT, DETECT_SYSTEM_PROMPT } from '@/lib/prompts'
-import { createDeepSeekClient } from '@/lib/services/deepseek-client'
-import { createAuditedDeepSeekClient } from '@/lib/services/llm-audit'
+import { createOpenAIClient } from '@/lib/services/openai-client'
+import { createAuditedOpenAIClient } from '@/lib/services/llm-audit'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import type { EnrichmentTarget } from './enrichment-target'
 
@@ -25,6 +25,12 @@ export type DetectResult = {
   brandName: string | null
   slug: string
   slugGenerated: string | null
+  /**
+   * Always null for a current DETECT run: the category moved to the descriptions
+   * phase, which judges it from site content and product image alt text instead
+   * of SERP snippets. The field stays so historical `brand_ai_results` rows and
+   * any model that still volunteers the key parse without being discarded.
+   */
   productType: string | null
   confidence: 'high' | 'medium' | 'low'
 }
@@ -51,9 +57,9 @@ function createClassifierClient(
   target: EnrichmentTarget | undefined,
   jobId?: string,
 ) {
-  if (!target) return createDeepSeekClient({ apiKey })
+  if (!target) return createOpenAIClient({ apiKey })
 
-  return createAuditedDeepSeekClient(
+  return createAuditedOpenAIClient(
     {
       target,
       phase,
@@ -201,16 +207,20 @@ function parseTriageEntry(entry: UnknownRecord, slug: string): DetectResult | nu
   const isNonBrand = entry.isNonBrand
   const nonBrandReason = entry.nonBrandReason
   const slugGenerated = entry.slug_generated
-  const productType = entry.productType
   const confidence = entry.confidence
 
   if (typeof isNonBrand !== 'boolean' || !isConfidence(confidence)) {
     return null
   }
 
-  if (productType !== null && (typeof productType !== 'string' || !VALID_PRODUCT_TYPES.has(productType))) {
-    return null
-  }
+  // The detect prompt no longer asks for a category, so the key is normally
+  // absent. An absent or unrecognised value is null, never a discarded triage
+  // result — the non-brand gate and the name/slug are what this call is for.
+  const rawProductType = entry.productType
+  const productType =
+    typeof rawProductType === 'string' && VALID_PRODUCT_TYPES.has(rawProductType)
+      ? rawProductType
+      : null
 
   const brandName = entry.brand_name
 
@@ -269,7 +279,7 @@ async function classifyProductType(
   brand: BatchClassificationItem,
   jobId?: string,
 ): Promise<ClassificationResult | null> {
-  const token = process.env.DEEPSEEK_API_KEY
+  const token = process.env.OPENAI_API_KEY
   if (!token) return null
 
   const userContent = `品牌名稱：${brand.name}\n描述：${brand.description ?? '無'}`
@@ -282,8 +292,11 @@ async function classifyProductType(
       user: userContent,
       json: true,
       timeoutMs: CLASSIFY_TIMEOUT_MS,
-      maxTokens: 100,
-      temperature: 0,
+      // 300, not 100: maxTokens is max_completion_tokens on gpt-5, so any preamble the
+      // model emits before the JSON eats the same budget and truncates the answer.
+      maxTokens: 300,
+      temperature: 0.1,
+      reasoningEffort: 'none',
     })
 
     if (!response.ok) {
@@ -313,7 +326,7 @@ async function classifyProductTypeBatchChunk(
   brands: BatchClassificationItem[],
   jobId?: string,
 ): Promise<Map<string, ClassificationResult> | null> {
-  const token = process.env.DEEPSEEK_API_KEY
+  const token = process.env.OPENAI_API_KEY
   if (!token) return null
 
   const validSlugs = new Set(brands.map(brand => brand.slug))
@@ -331,7 +344,8 @@ async function classifyProductTypeBatchChunk(
       json: true,
       timeoutMs: BATCH_CLASSIFY_TIMEOUT_MS,
       maxTokens: 1500,
-      temperature: 0,
+      temperature: 0.1,
+      reasoningEffort: 'none',
     })
 
     if (!response.ok) {
@@ -386,7 +400,7 @@ export async function classifyProductTypeBatch(
 }
 
 async function detectBrand(brand: DetectBatchItem, jobId?: string): Promise<DetectResult | null> {
-  const token = process.env.DEEPSEEK_API_KEY
+  const token = process.env.OPENAI_API_KEY
   if (!token) return null
 
   const snippetLine = brand.snippets?.length ? `\n搜尋摘要：${brand.snippets.slice(0, 10).join('；')}` : ''
@@ -401,7 +415,8 @@ async function detectBrand(brand: DetectBatchItem, jobId?: string): Promise<Dete
       json: true,
       timeoutMs: CLASSIFY_TIMEOUT_MS,
       maxTokens: 500,
-      temperature: 0,
+      temperature: 0.1,
+      reasoningEffort: 'none',
     })
 
     if (!response.ok) {
@@ -431,7 +446,7 @@ async function detectBrandsBatchChunk(
   brands: DetectBatchItem[],
   jobId?: string,
 ): Promise<Map<string, DetectResult> | null> {
-  const token = process.env.DEEPSEEK_API_KEY
+  const token = process.env.OPENAI_API_KEY
   if (!token) return null
 
   const list = brands.map((brand, index) => {
@@ -439,7 +454,7 @@ async function detectBrandsBatchChunk(
     const snippetStr = brand.snippets?.length ? ` / 搜尋摘要：${brand.snippets.slice(0, 10).join('；')}` : ''
     return base + snippetStr
   }).join('\n')
-  const userContent = `請判斷以下項目是否為實際品牌，並為實際品牌分類：\n${list}`
+  const userContent = `請判斷以下項目是否為實際品牌：\n${list}`
 
   const client = createClassifierClient(token, 'detect', brands.at(0)?.target, jobId)
 
@@ -450,7 +465,8 @@ async function detectBrandsBatchChunk(
       json: true,
       timeoutMs: BATCH_CLASSIFY_TIMEOUT_MS,
       maxTokens: 4000,
-      temperature: 0,
+      temperature: 0.1,
+      reasoningEffort: 'none',
     })
 
     if (!response.ok) {

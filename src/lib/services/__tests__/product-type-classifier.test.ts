@@ -13,7 +13,7 @@ describe('detectBrandsBatch', () => {
   beforeEach(() => {
     mockFetch.mockClear()
     vi.stubGlobal('fetch', mockFetch)
-    vi.stubEnv('DEEPSEEK_API_KEY', 'test-key')
+    vi.stubEnv('OPENAI_API_KEY', 'test-key')
   })
 
   afterEach(() => {
@@ -25,6 +25,31 @@ describe('detectBrandsBatch', () => {
     { slug: 'my-brand', name: 'My Brand', description: 'Handmade soap', website: 'https://mybrand.com' },
     { slug: 'some-reseller', name: '代購小舖', description: null, website: null },
   ]
+
+  it('parses a detect response that omits productType', async () => {
+    // The detect prompt no longer asks for a category, so the key is absent.
+    // The triage result must still carry the non-brand gate and the name/slug.
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        choices: [{
+          message: {
+            content: JSON.stringify([
+              { slug: 'my-brand', isNonBrand: false, nonBrandReason: null, brand_name: 'My Brand', slug_generated: 'my-brand', confidence: 'high' },
+              { slug: 'some-reseller', isNonBrand: true, nonBrandReason: '代購 (reseller)', slug_generated: 'some-reseller', confidence: 'high' },
+            ]),
+          },
+        }],
+      }),
+    })
+
+    const results = await detectBrandsBatch(brands)
+
+    expect(results.size).toBe(2)
+    expect(results.get('my-brand')!.productType).toBeNull()
+    expect(results.get('my-brand')!.brandName).toBe('My Brand')
+    expect(results.get('some-reseller')!.isNonBrand).toBe(true)
+  })
 
   it('returns detect results for each brand in the batch', async () => {
     mockFetch.mockResolvedValueOnce({

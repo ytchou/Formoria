@@ -18,7 +18,7 @@ describe('coerceRunLog', () => {
               actor: 'LLM',
               summary: 'detect batch',
               status: 'ok',
-              model: 'deepseek-v4-flash',
+              model: 'gpt-5.6-luna',
               tokens: { input: 100, output: 40 },
               latencyMs: 812,
             },

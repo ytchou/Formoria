@@ -275,7 +275,7 @@ export default async function EventDetailPage({ params }: PageProps) {
         </header>
 
         {/*
-          Band B — 活動介紹. Was a 352px right rail, then a grid of bordered
+          Band B — the "about this event" section. Was a 352px right rail, then a grid of bordered
           fact cards; both were more chrome than this content earns. It is now a
           titled section: the official introduction as prose, then the facts as
           a plain two-column definition list on hairline rules.
@@ -342,7 +342,7 @@ export default async function EventDetailPage({ params }: PageProps) {
                     })}
                   >
                     {/* A free event's ticket link books a slot, it does not sell
-                        one — "購票資訊" on free entry reads as a paywall. */}
+                        one — a "ticket info" label on free entry reads as a paywall. */}
                     {t(event.isFree === true ? 'reserve' : 'tickets')}
                     <ExternalLink aria-hidden="true" className="size-4" />
                   </a>

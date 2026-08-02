@@ -17,11 +17,46 @@ describe('DESCRIPTION_SYSTEM_PROMPT product_tags vocabulary', () => {
   })
 })
 
-describe('DETECT_SYSTEM_PROMPT illustrator boundary', () => {
-  it('requires a physical product and purchase channel before admitting an illustrator brand', () => {
-    expect(DETECT_SYSTEM_PROMPT).toContain('實體商品')
-    expect(DETECT_SYSTEM_PROMPT).toContain('可驗證的購買管道')
-    expect(DETECT_SYSTEM_PROMPT).toContain('純接案、僅提供圖像授權或僅販售 LINE 貼圖')
-    expect(DETECT_SYSTEM_PROMPT).toContain('缺少任一項，視為非品牌')
+describe('listing criteria are split across the two stages', () => {
+  // DEV-1277 fixed the illustrator boundary: a creator is a brand only with a
+  // real physical product, and only with somewhere to buy it. Both halves still
+  // hold, but they are now enforced in different places — detect runs on search
+  // snippets alone and cannot see purchase channels, so it judges the product
+  // question and defers the channel question to the descriptions call, which
+  // runs after links and images. These assertions pin that split, because
+  // silently losing either half would re-open DEV-1277.
+  it('keeps the illustrator product test in the early triage stage', () => {
+    expect(DETECT_SYSTEM_PROMPT).toContain('commission-only illustrator')
+    expect(DETECT_SYSTEM_PROMPT).toContain('LINE stickers or digital files')
+    expect(DETECT_SYSTEM_PROMPT).toContain('at least one self-designed physical product')
+    expect(DETECT_SYSTEM_PROMPT).toContain('there must be evidence of a physical product')
+  })
+
+  it('defers the purchase-channel test to the descriptions stage', () => {
+    // Detect must NOT gate on a channel it cannot observe.
+    expect(DETECT_SYSTEM_PROMPT).not.toContain('可驗證的購買管道')
+    expect(DETECT_SYSTEM_PROMPT).toContain('a later stage sees all of those')
+    expect(DESCRIPTION_SYSTEM_PROMPT).toContain('可驗證的購買管道')
+    expect(DESCRIPTION_SYSTEM_PROMPT).toContain('自主設計或生產的實體商品')
+  })
+
+  it('never lets the early stage reject on uncertainty', () => {
+    expect(DETECT_SYSTEM_PROMPT).toContain('Uncertainty is never a rejection')
+  })
+})
+
+describe('the product category is decided in the descriptions stage', () => {
+  // Detect judges from SERP snippets alone, before the brand's own site is
+  // scraped and before any product photo is seen. The category is a reasoning
+  // task, so it belongs to the call that has that evidence.
+  it('drops the category from the detect contract', () => {
+    expect(DETECT_SYSTEM_PROMPT).not.toContain('productType')
+    expect(DETECT_SYSTEM_PROMPT).not.toContain('## Category')
+  })
+
+  it('asks the descriptions stage for a single L1 category slug', () => {
+    expect(DESCRIPTION_SYSTEM_PROMPT).toContain('product_type')
+    expect(DESCRIPTION_SYSTEM_PROMPT).toContain('bags-accessories')
+    expect(DESCRIPTION_SYSTEM_PROMPT).toContain('核心產品線')
   })
 })

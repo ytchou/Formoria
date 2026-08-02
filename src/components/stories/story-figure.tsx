@@ -3,7 +3,7 @@ interface StoryFigureProps {
   /** Describes the photo for a screen reader. Never the caption text. */
   alt: string
   /**
-   * Subtext under the image, rendered verbatim. The `圖：` prefix is authored
+   * Subtext under the image, rendered verbatim. Any credit prefix is authored
    * in the MDX, not added here: a caption is not always a credit, and a
    * component that hard-codes one word cannot carry the other kinds.
    */
@@ -11,7 +11,7 @@ interface StoryFigureProps {
 }
 
 /**
- * `<Figure src="…" alt="…" caption="圖：織療室 Ziliaoshi" />` inside story MDX.
+ * `<Figure src="…" alt="…" caption="…" />` inside story MDX.
  *
  * A shortcode rather than literal `<figure>`/`<figcaption>` JSX, because the
  * `storyComponentMap` overrides only reach markdown-generated elements and

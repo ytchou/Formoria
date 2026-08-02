@@ -5,7 +5,12 @@ import type { InputType } from './strategies/types'
 const SOCIAL_HOSTS = [
   'instagram.com',
   'facebook.com',
+  // Meta moved Threads to threads.com and threads.net now redirects there, so
+  // threads.com is canonical — but both must classify as social. Stored rows
+  // and links in the wild still carry the old host, and a threads.net URL that
+  // fell through here was treated as a brand's own official website.
   'threads.net',
+  'threads.com',
   'tiktok.com',
   'x.com',
   'twitter.com',
@@ -25,8 +30,119 @@ const ECOMMERCE_HOSTS = [
   'shopify.com',
 ]
 
+/**
+ * Link-in-bio aggregators. These are NOT a brand's own site, but they are
+ * deliberately kept out of `SOCIAL_HOSTS` and `ECOMMERCE_HOSTS` — do not "tidy"
+ * them in there.
+ *
+ * Membership in those two arrays makes `classifyByDomain` return non-null,
+ * which routes the URL through `selectStrategy` to `PlatformAdapterStrategy`.
+ * That strategy looks for a matching adapter, finds none for an aggregator, and
+ * returns `emptyResult()` — we would extract ZERO links from exactly the pages
+ * whose only purpose is to list a brand's links. Classifying as `null` instead
+ * routes them to `SinglePageStrategy`, which runs `extractSocialLinks` /
+ * `extractPurchaseLinks` and harvests the real URLs.
+ *
+ * `isNonBrandSiteHost` is therefore the only consumer: it keeps an aggregator
+ * out of `purchase_website` and out of `site:` search filters while leaving the
+ * scrape path untouched.
+ */
+const LINK_AGGREGATOR_HOSTS = [
+  'linktr.ee',
+  'lit.link',
+  'biosites.com',
+  'bio.site',
+  'beacons.ai',
+  'taplink.cc',
+  'potato.link',
+  'carrd.co',
+  'bento.me',
+  'solo.to',
+  'allmylinks.com',
+  'msha.ke',
+]
+
+/**
+ * Delivery apps, review/travel sites, encyclopaedias, blogging platforms, and
+ * site builders' own domains. None of them is ever a brand's own website — a
+ * live run put `https://www.ubereats.com` into a tea brand's `purchase_website`
+ * because the SERP ranked its delivery page first and nothing here rejected it.
+ *
+ * Kept OUT of `SOCIAL_HOSTS` / `ECOMMERCE_HOSTS` for the same reason
+ * `LINK_AGGREGATOR_HOSTS` is: those two drive `classifyByDomain`, so a host in
+ * either one changes how the URL is SCRAPED (`PlatformAdapterStrategy` instead
+ * of the generic page strategy). These hosts must only affect whether a URL may
+ * be ADOPTED as the brand's own site, never the scrape route.
+ *
+ * `youtube.com` is intentionally absent: it is already in `SOCIAL_HOSTS`.
+ */
+const NON_BRAND_PLATFORM_HOSTS = [
+  // Food delivery / ordering
+  'ubereats.com',
+  'foodpanda.com',
+  'foodpanda.com.tw',
+  'deliveroo.com',
+  // Reviews / travel / directories
+  'tripadvisor.com',
+  'tripadvisor.com.tw',
+  'yelp.com',
+  'wikipedia.org',
+  'google.com',
+  'maps.google.com',
+  'goo.gl',
+  'books.com.tw',
+  // Trade-show / expo organiser. Every exhibiting brand's SERP carries its expo
+  // listing, so this host recurs across the whole expo import and outranks the
+  // small exhibitors themselves — it is never any of their own sites.
+  'creativexpo.tw',
+  // Convenience-store logistics and hosted checkout. A brand links these as a
+  // *shipping option*, never as its own site, but they outrank a small brand's
+  // domain often enough to be adopted as one — `https://myship.7-11.com.tw`
+  // stood in as a tea brand's official website on a live run.
+  'myship.7-11.com.tw',
+  '7-11.com.tw',
+  'ibon.com.tw',
+  'family.com.tw',
+  'famiport.com.tw',
+  'ecpay.com.tw',
+  'newebpay.com',
+  'payuni.com.tw',
+  // Publishing platforms and site builders (their own domain, not a brand's)
+  'medium.com',
+  'pixnet.net',
+  'blogspot.com',
+  'wordpress.com',
+  'wix.com',
+  'weebly.com',
+]
+
 function hostnameMatches(hostname: string, domain: string): boolean {
   return hostname === domain || hostname.endsWith(`.${domain}`)
+}
+
+/**
+ * True when the URL's host is a platform rather than a brand's own site: a
+ * social network, a marketplace, a link aggregator, or one of the delivery /
+ * directory / publishing platforms in `NON_BRAND_PLATFORM_HOSTS`.
+ *
+ * The read-side guard for every place a host stands in for the brand — the
+ * `site:` image query and the `purchase_website` column. A malformed URL
+ * returns false: unknown, not blocked.
+ */
+export function isNonBrandSiteHost(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase()
+    return [
+      ...SOCIAL_HOSTS,
+      ...ECOMMERCE_HOSTS,
+      ...LINK_AGGREGATOR_HOSTS,
+      ...NON_BRAND_PLATFORM_HOSTS,
+    ].some((domain) =>
+      hostnameMatches(hostname, domain)
+    )
+  } catch {
+    return false
+  }
 }
 
 export function classifyByDomain(url: string): InputType | null {

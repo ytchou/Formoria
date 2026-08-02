@@ -16,6 +16,12 @@ export interface ImageProcessorConfig {
   quality: number
 }
 
+// Static raster formats only. Without this, sharp accepts animated GIFs
+// (silently flattened to their first frame) and SVGs, both of which every
+// caller — owner/admin uploads and enrichment downloads alike — treats as a
+// plain photo.
+const ALLOWED_INPUT_FORMATS = ['jpeg', 'png', 'webp'] as const
+
 export const DEFAULT_CONFIG: ImageProcessorConfig = {
   maxFileSizeBytes: 5 * 1024 * 1024, // 5MB
   maxWidth: 1200,
@@ -36,7 +42,20 @@ export async function processImage(
     )
   }
 
-  // 2. Process: auto-rotate (strips EXIF), resize (fit inside, no upscale), encode to WebP
+  // 2. Enforce the input format allowlist. metadata() itself throws
+  // "unsupported image format" on non-image bytes, so this only has to reject
+  // formats sharp is willing to decode but we do not want (gif, svg, tiff, …).
+  const { format } = await sharp(buffer).metadata()
+  if (
+    !format ||
+    !(ALLOWED_INPUT_FORMATS as readonly string[]).includes(format)
+  ) {
+    throw new Error(
+      `Unsupported image format "${format ?? 'unknown'}"; allowed formats: ${ALLOWED_INPUT_FORMATS.join(', ')}`
+    )
+  }
+
+  // 3. Process: auto-rotate (strips EXIF), resize (fit inside, no upscale), encode to WebP
   const processed = await sharp(buffer)
     .rotate() // auto-rotate based on EXIF orientation, strips EXIF
     .resize({

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { mergePurchaseLinks, mergeScrapedData } from '../merge'
+import { MAX_MERGED_GALLERY_IMAGES, mergePurchaseLinks, mergeScrapedData } from '../merge'
 import { emptyResult } from '../parse/extractors'
 
 describe('mergePurchaseLinks', () => {
@@ -43,6 +43,102 @@ describe('mergeScrapedData', () => {
     const a = { ...emptyResult('https://a.com'), categoryHints: ['x','x','a','b','c','d','e','f'] }
     const merged = mergeScrapedData([{ type: 'official-site', data: a }])
     expect(merged.categoryHints.length).toBeLessThanOrEqual(5)
+  })
+})
+
+describe('mergeScrapedData gallery images', () => {
+  const source = (url: string, method: string, position: number) => ({
+    url,
+    method,
+    pageUrl: `https://${method}.example/page`,
+    position,
+  })
+
+  // Each URL runs a different adapter, so first-wins would let two weak site
+  // thumbnails suppress a whole Instagram gallery.
+  it('concatenates galleries across results, deduping by URL and keeping order', () => {
+    const official = {
+      ...emptyResult('https://brand.com'),
+      galleryImageUrls: ['https://cdn/a.jpg', 'https://cdn/b.jpg'],
+      imageSources: [source('https://cdn/a.jpg', 'single_page', 0), source('https://cdn/b.jpg', 'single_page', 1)],
+    }
+    const social = {
+      ...emptyResult('https://instagram.com/brand'),
+      galleryImageUrls: ['https://cdn/b.jpg', 'https://cdn/c.jpg'],
+      imageSources: [
+        source('https://cdn/b.jpg', 'instagram_adapter', 0),
+        source('https://cdn/c.jpg', 'instagram_adapter', 1),
+      ],
+    }
+
+    const merged = mergeScrapedData([
+      { type: 'official-site', data: official },
+      { type: 'social', data: social },
+    ])
+
+    expect(merged.galleryImageUrls).toEqual([
+      'https://cdn/a.jpg',
+      'https://cdn/b.jpg',
+      'https://cdn/c.jpg',
+    ])
+    // The duplicate's later provenance is dropped with it, so every source
+    // still describes exactly one kept image, in the same order.
+    expect(merged.imageSources?.map((s) => s.url)).toEqual(merged.galleryImageUrls)
+    expect(merged.imageSources?.map((s) => s.method)).toEqual([
+      'single_page',
+      'single_page',
+      'instagram_adapter',
+    ])
+  })
+
+  it('still takes a gallery from a later result when the first has none', () => {
+    const official = { ...emptyResult('https://brand.com'), galleryImageUrls: [] }
+    const social = {
+      ...emptyResult('https://instagram.com/brand'),
+      galleryImageUrls: ['https://cdn/c.jpg'],
+    }
+
+    const merged = mergeScrapedData([
+      { type: 'official-site', data: official },
+      { type: 'social', data: social },
+    ])
+
+    expect(merged.galleryImageUrls).toEqual(['https://cdn/c.jpg'])
+  })
+
+  it('caps the concatenated gallery', () => {
+    const many = (prefix: string) =>
+      Array.from({ length: MAX_MERGED_GALLERY_IMAGES }, (_, i) => `https://cdn/${prefix}${i}.jpg`)
+    const merged = mergeScrapedData([
+      { type: 'official-site', data: { ...emptyResult('https://brand.com'), galleryImageUrls: many('a') } },
+      { type: 'social', data: { ...emptyResult('https://instagram.com/brand'), galleryImageUrls: many('b') } },
+    ])
+
+    expect(merged.galleryImageUrls).toHaveLength(MAX_MERGED_GALLERY_IMAGES)
+  })
+
+  it('leaves other fields on first-non-empty-wins', () => {
+    const official = {
+      ...emptyResult('https://brand.com'),
+      description: 'Official copy',
+      heroImageUrl: 'https://cdn/hero-official.jpg',
+      galleryImageUrls: ['https://cdn/a.jpg'],
+    }
+    const social = {
+      ...emptyResult('https://instagram.com/brand'),
+      description: 'Social copy',
+      heroImageUrl: 'https://cdn/hero-social.jpg',
+      galleryImageUrls: ['https://cdn/b.jpg'],
+    }
+
+    const merged = mergeScrapedData([
+      { type: 'official-site', data: official },
+      { type: 'social', data: social },
+    ])
+
+    expect(merged.description).toBe('Official copy')
+    expect(merged.heroImageUrl).toBe('https://cdn/hero-official.jpg')
+    expect(merged.galleryImageUrls).toEqual(['https://cdn/a.jpg', 'https://cdn/b.jpg'])
   })
 })
 

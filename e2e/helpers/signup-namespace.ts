@@ -11,7 +11,14 @@ export const SIGNUP_TEST_EMAIL_PREFIX = 'e2e-signup-';
 
 // Supabase's public signUp endpoint rejects .local addresses (400 invalid);
 // override per-environment if the project's email validator changes.
-export const SIGNUP_TEST_EMAIL_DOMAIN = process.env.E2E_SIGNUP_EMAIL_DOMAIN ?? 'test.formoria.com';
+//
+// The domain MUST accept SMTP for these addresses. Signup sends a real Supabase
+// confirmation email, and a domain that rejects (or has no MX at all, as
+// test.formoria.com does) turns every run into a hard bounce against the
+// project's sending reputation — Supabase restricts email sending over this.
+// formoria.com is covered by a Cloudflare Email Routing catch-all → Drop, so
+// the mail is accepted and discarded rather than bounced.
+export const SIGNUP_TEST_EMAIL_DOMAIN = process.env.E2E_SIGNUP_EMAIL_DOMAIN ?? 'formoria.com';
 
 export function signupTestEmail(purpose: string, workerIndex: number): string {
   return `${SIGNUP_TEST_EMAIL_PREFIX}${purpose}-${Date.now()}-${workerIndex}@${SIGNUP_TEST_EMAIL_DOMAIN}`;

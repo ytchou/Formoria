@@ -179,9 +179,9 @@ export function EventBrandGrid({
         if (!normalizedQuery) return true
 
         // A plain substring test over the whole name is enough for both
-        // scripts: names are stored as one bilingual string ("織療室
-        // Ziliaoshi"), so `織療` and `ziliaoshi` both hit the same field and no
-        // per-script branch is needed. `romanizedName` is folded in only as a
+        // scripts: names are stored as one bilingual string pairing the Chinese
+        // name with its romanization, so a query in either script hits the same
+        // field and no per-script branch is needed. `romanizedName` is folded in only as a
         // fallback for the brands that do not carry a Latin half in `name`; it
         // is optional and often null, so nothing may depend on it alone.
         // The booth is searchable for the reader who is looking at a booth sign

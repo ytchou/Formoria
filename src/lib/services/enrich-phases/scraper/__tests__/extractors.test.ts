@@ -10,6 +10,7 @@ import {
   extractAllJsonLd,
   extractJsonLdImages,
   upgradeEcommerceImageUrl,
+  largestSrcsetUrl,
 } from '../parse/extractors'
 
 describe('filterHeroImage', () => {
@@ -25,6 +26,54 @@ describe('extractSocialLinks', () => {
     const links = extractSocialLinks($)
     expect(links.socialInstagram).toContain('instagram.com/brand')
     expect(links.socialFacebook).toContain('facebook.com/brand')
+  })
+
+  // A live run stored an Instagram POST permalink as a brand's Instagram, which
+  // would have linked every visitor to a single photo instead of the account.
+  it.each([
+    'https://www.instagram.com/p/DQeL94sEv9G/',
+    'https://www.instagram.com/reel/DQeL94sEv9G/',
+    'https://www.instagram.com/reels/DQeL94sEv9G/',
+    'https://www.instagram.com/stories/brand/123/',
+    'https://www.instagram.com/explore/tags/tea/',
+    'https://www.instagram.com/',
+  ])('rejects the non-profile Instagram URL %s', (href) => {
+    const $ = cheerio.load(`<a href="${href}">ig</a>`)
+    expect(extractSocialLinks($).socialInstagram).toBeNull()
+  })
+
+  it('still accepts a real Instagram profile alongside a post link', () => {
+    const $ = cheerio.load(
+      '<a href="https://www.instagram.com/p/DQeL94sEv9G/">post</a>' +
+        '<a href="https://www.instagram.com/chatzutang/">profile</a>'
+    )
+    expect(extractSocialLinks($).socialInstagram).toBe('https://www.instagram.com/chatzutang/')
+  })
+
+  // Meta migrated Threads to threads.com; the old threads.net-only test dropped
+  // every profile on the new host.
+  it('accepts a threads.com profile and a threads.net profile', () => {
+    const dotCom = cheerio.load('<a href="https://www.threads.com/@brand">threads</a>')
+    expect(extractSocialLinks(dotCom).socialThreads).toBe('https://www.threads.com/@brand')
+
+    const dotNet = cheerio.load('<a href="https://www.threads.net/@brand">threads</a>')
+    expect(extractSocialLinks(dotNet).socialThreads).toBe('https://www.threads.net/@brand')
+  })
+
+  it('rejects a Threads post URL and the bare Threads root', () => {
+    const post = cheerio.load('<a href="https://www.threads.com/@brand/post/ABC123">post</a>')
+    expect(extractSocialLinks(post).socialThreads).toBeNull()
+
+    const root = cheerio.load('<a href="https://www.threads.com/">threads</a>')
+    expect(extractSocialLinks(root).socialThreads).toBeNull()
+  })
+
+  it('still excludes Facebook system paths', () => {
+    const $ = cheerio.load(
+      '<a href="https://www.facebook.com/sharer/">share</a>' +
+        '<a href="https://developers.facebook.com/docs">devs</a>'
+    )
+    expect(extractSocialLinks($).socialFacebook).toBeNull()
   })
 })
 
@@ -342,5 +391,49 @@ describe('upgradeEcommerceImageUrl', () => {
   it('passes through URLs without dimension patterns', () => {
     const url = 'https://cdn.shopify.com/s/files/1/products/photo.jpg'
     expect(upgradeEcommerceImageUrl(url)).toBe(url)
+  })
+})
+
+describe('largestSrcsetUrl', () => {
+  it('picks the widest variant, not the first', () => {
+    expect(
+      largestSrcsetUrl('https://cdn.site.com/s.jpg 320w, https://cdn.site.com/m.jpg 640w, https://cdn.site.com/l.jpg 1280w')
+    ).toBe('https://cdn.site.com/l.jpg')
+  })
+
+  it('picks the widest variant regardless of declaration order', () => {
+    expect(
+      largestSrcsetUrl('https://cdn.site.com/l.jpg 1280w, https://cdn.site.com/s.jpg 320w')
+    ).toBe('https://cdn.site.com/l.jpg')
+  })
+
+  it('returns an empty string for an empty srcset', () => {
+    expect(largestSrcsetUrl('')).toBe('')
+    expect(largestSrcsetUrl('   ')).toBe('')
+  })
+
+  it('returns the sole URL when no descriptor is present', () => {
+    expect(largestSrcsetUrl('https://cdn.site.com/only.jpg')).toBe('https://cdn.site.com/only.jpg')
+  })
+
+  it('keeps document order among descriptor-less entries', () => {
+    expect(largestSrcsetUrl('https://cdn.site.com/a.jpg, https://cdn.site.com/b.jpg')).toBe(
+      'https://cdn.site.com/a.jpg'
+    )
+  })
+
+  it('prefers a w-descriptor entry over an x-density entry', () => {
+    expect(largestSrcsetUrl('https://cdn.site.com/a.jpg 2x, https://cdn.site.com/b.jpg 800w')).toBe(
+      'https://cdn.site.com/b.jpg'
+    )
+  })
+
+  it('skips malformed entries without dropping valid ones', () => {
+    expect(largestSrcsetUrl(', , https://cdn.site.com/good.jpg 900w, ,')).toBe(
+      'https://cdn.site.com/good.jpg'
+    )
+    expect(largestSrcsetUrl('https://cdn.site.com/x.jpg not-a-descriptor')).toBe(
+      'https://cdn.site.com/x.jpg'
+    )
   })
 })

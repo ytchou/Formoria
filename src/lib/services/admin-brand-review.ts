@@ -1,5 +1,9 @@
 import type { Brand } from "@/lib/types";
 import { ValidationError } from "@/lib/errors";
+import {
+  DRAFT_PARK_SORT_ORDER,
+  MAX_BRAND_IMAGE_SELECTION,
+} from "@/lib/constants/brand-images";
 import { createServiceClient } from "@/lib/supabase/server";
 import { deleteStoredImagePaths } from "@/lib/services/image-upload";
 import {
@@ -11,12 +15,7 @@ import type {
   SaveSubmissionReviewInput,
   SubmissionReviewImage,
 } from "@/lib/services/submissions";
-// Single source of truth with `adminReviewSchema`: if this guard and the schema
-// disagree, one of them rejects a save the other accepted.
-import { MAX_REVIEW_IMAGE_SELECTION } from "@/lib/validation/admin-review";
 
-// Staged drafts sort past the existing gallery; the real order is assigned on save.
-const STAGED_IMAGE_SORT_ORDER = MAX_REVIEW_IMAGE_SELECTION;
 const BRAND_IMAGE_PAGE_SIZE = 1_000;
 const SUPABASE_IN_FILTER_CHUNK_SIZE = 200;
 
@@ -106,7 +105,10 @@ export async function stageAdminBrandReviewImage(input: {
       source: "admin",
       source_url: input.url,
       status: "draft",
-      sort_order: STAGED_IMAGE_SORT_ORDER,
+      // Parked above every active row until the reviewer places the image, so
+      // it can never collide with a real gallery position. See
+      // DRAFT_PARK_SORT_ORDER for the invariant.
+      sort_order: DRAFT_PARK_SORT_ORDER,
       width: input.width,
       height: input.height,
     })
@@ -153,7 +155,9 @@ export async function saveAdminBrandReview(
 ): Promise<void> {
   const selectedIds = input.images.map((image) => image.id);
   if (
-    selectedIds.length > MAX_REVIEW_IMAGE_SELECTION ||
+    // Bounded by the submission cap, matching `adminReviewSchema`: if this
+    // guard and the schema disagree, one rejects a save the other accepted.
+    selectedIds.length > MAX_BRAND_IMAGE_SELECTION ||
     new Set(selectedIds).size !== selectedIds.length
   ) {
     throw new ValidationError("Invalid brand image selection");
@@ -233,7 +237,7 @@ function toReviewImage(row: BrandImageRow): SubmissionReviewImage {
     url: row.url,
     source: row.source,
     status:
-      row.status === "draft" || row.status === "rejected"
+      row.status === "candidate" || row.status === "draft" || row.status === "rejected"
         ? row.status
         : "active",
     sortOrder: row.sort_order,

@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
+  CURATION_STEPS,
+  CURATION_STEP_ORDER,
   ENRICH_LLM_PHASES,
   ENRICH_PHASES,
   ENRICH_STAGE_GROUPS,
@@ -7,6 +9,7 @@ import {
   LOCAL_PHASES,
   SERP_PHASES,
   TEXT_ENRICH_PHASES,
+  phasesForSteps,
 } from '../enrich-phases'
 
 describe('scoped enrich phase sets', () => {
@@ -33,6 +36,85 @@ describe('scoped enrich phase sets', () => {
     expect(TEXT_ENRICH_PHASES).toContain('discover')
     expect(TEXT_ENRICH_PHASES).not.toContain('images')
     expect(TEXT_ENRICH_PHASES).not.toContain('classify_images')
+  })
+})
+
+describe('curation steps', () => {
+  const steps = Object.entries(CURATION_STEPS) as [string, readonly string[]][]
+
+  it('assigns every ENRICH_PHASES member to a step', () => {
+    const assigned = new Set<string>(steps.flatMap(([, phases]) => phases))
+    const unassigned = (ENRICH_PHASES as readonly string[]).filter(
+      (phase) => !assigned.has(phase),
+    )
+    expect(
+      unassigned,
+      `phases with no step assignment: ${unassigned.join(', ') || '(none)'} — add each to CURATION_STEPS.context, .image or .detail`,
+    ).toEqual([])
+  })
+
+  it('assigns no phase outside ENRICH_PHASES', () => {
+    const all = new Set<string>(ENRICH_PHASES)
+    for (const [name, phases] of steps) {
+      const unknown = phases.filter((phase) => !all.has(phase))
+      expect(unknown, `${name} contains unknown phases: ${unknown.join(', ')}`).toEqual([])
+    }
+  })
+
+  it('assigns each phase to exactly one step', () => {
+    const seen = new Map<string, string>()
+    const duplicates: string[] = []
+    for (const [name, phases] of steps) {
+      for (const phase of phases) {
+        const owner = seen.get(phase)
+        if (owner) {
+          duplicates.push(`${phase} (in ${owner} and ${name})`)
+        } else {
+          seen.set(phase, name)
+        }
+      }
+    }
+    expect(
+      duplicates,
+      `phases assigned to more than one step: ${duplicates.join(', ')}`,
+    ).toEqual([])
+  })
+
+  it('keeps the product category in detail, never in context', () => {
+    // detect no longer emits productType; the descriptions phase owns the
+    // category, so `tags` must not be pulled forward into the context step.
+    expect(CURATION_STEPS.detail).toContain('tags')
+    expect(CURATION_STEPS.context).not.toContain('tags')
+  })
+
+  it('orders the steps by their data dependencies', () => {
+    expect([...CURATION_STEP_ORDER].sort()).toEqual(Object.keys(CURATION_STEPS).sort())
+    expect(CURATION_STEP_ORDER).toEqual(['context', 'image', 'detail'])
+  })
+})
+
+describe('phasesForSteps', () => {
+  it('expands a step into its phases in ENRICH_PHASES order', () => {
+    expect(phasesForSteps(['image'])).toEqual(['images', 'classify_images'])
+    expect(phasesForSteps(['context'])).toEqual([
+      'clean',
+      'detect',
+      'slugs',
+      'discover',
+      'links',
+    ])
+  })
+
+  it('expands every step to exactly ENRICH_PHASES', () => {
+    expect(phasesForSteps([...CURATION_STEP_ORDER])).toEqual([...ENRICH_PHASES])
+  })
+
+  it('dedupes repeated steps', () => {
+    expect(phasesForSteps(['image', 'image'])).toEqual(['images', 'classify_images'])
+  })
+
+  it('returns an empty list for no steps', () => {
+    expect(phasesForSteps([])).toEqual([])
   })
 })
 

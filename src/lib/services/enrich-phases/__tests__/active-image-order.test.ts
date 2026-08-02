@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { MAX_BRAND_ACTIVE_IMAGES } from "@/lib/constants/brand-images";
 import {
   planActiveImageOrder,
   type ActiveImageForOrdering,
@@ -66,32 +67,46 @@ describe("planActiveImageOrder", () => {
     ]);
   });
 
-  it("caps active images at seven and demotes the lowest ranked overflow", () => {
-    const ids = Array.from({ length: 10 }, (_, i) => `img-${i}`);
+  it("caps active images at the cap and demotes the lowest ranked overflow", () => {
+    const overflow = 3;
+    const ids = Array.from(
+      { length: MAX_BRAND_ACTIVE_IMAGES + overflow },
+      (_, i) => `img-${i}`,
+    );
     const { assignments, demotedIds } = planActiveImageOrder({
       activeImages: ids.map((id) => row(id)),
       rankedJudgedIds: ids,
     });
 
-    expect(assignments).toHaveLength(7);
-    expect(assignments.map((a) => a.sortOrder)).toEqual([0, 1, 2, 3, 4, 5, 6]);
-    expect(demotedIds).toEqual(["img-7", "img-8", "img-9"]);
+    expect(assignments).toHaveLength(MAX_BRAND_ACTIVE_IMAGES);
+    expect(assignments.map((a) => a.sortOrder)).toEqual(
+      Array.from({ length: MAX_BRAND_ACTIVE_IMAGES }, (_, i) => i),
+    );
+    expect(demotedIds).toEqual(ids.slice(MAX_BRAND_ACTIVE_IMAGES));
   });
 
-  it("counts human picks against the seven-slot cap", () => {
+  it("counts human picks against the cap", () => {
+    const reserved = 2;
+    const classifierImages = MAX_BRAND_ACTIVE_IMAGES;
     const { assignments, demotedIds } = planActiveImageOrder({
       activeImages: [
         row("owner-1", { source: "owner", sort_order: 0 }),
         row("owner-2", { source: "owner", sort_order: 1 }),
-        ...Array.from({ length: 8 }, (_, i) => row(`img-${i}`)),
+        ...Array.from({ length: classifierImages }, (_, i) => row(`img-${i}`)),
       ],
-      rankedJudgedIds: Array.from({ length: 8 }, (_, i) => `img-${i}`),
+      rankedJudgedIds: Array.from(
+        { length: classifierImages },
+        (_, i) => `img-${i}`,
+      ),
     });
 
-    // Two reserved slots leave five for the classifier.
-    expect(assignments).toHaveLength(5);
-    expect(assignments.map((a) => a.sortOrder)).toEqual([2, 3, 4, 5, 6]);
-    expect(demotedIds).toHaveLength(3);
+    // Owner picks hold slots 0 and 1, so the classifier gets the rest.
+    const expected = MAX_BRAND_ACTIVE_IMAGES - reserved;
+    expect(assignments).toHaveLength(expected);
+    expect(assignments.map((a) => a.sortOrder)).toEqual(
+      Array.from({ length: expected }, (_, i) => i + reserved),
+    );
+    expect(demotedIds).toHaveLength(classifierImages - expected);
   });
 
   it("handles the all-unjudged case that produced the ten-rows-at-zero bug", () => {

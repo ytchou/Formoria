@@ -236,10 +236,13 @@ describe("SubmissionsReviewList", () => {
       screen.getByRole("button", { name: "Reject 0 selected" }),
     ).toBeDisabled();
     expect(
-      screen.getByRole("button", { name: "Run image curation again (0)" }),
+      screen.getByRole("button", { name: "Run Context step again (0)" }),
     ).toBeDisabled();
     expect(
-      screen.getByRole("button", { name: "Run text curation again (0)" }),
+      screen.getByRole("button", { name: "Run Image step again (0)" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Run Detail step again (0)" }),
     ).toBeDisabled();
     expect(screen.getAllByRole("checkbox")).toHaveLength(2);
     expect(
@@ -283,14 +286,14 @@ describe("SubmissionsReviewList", () => {
       screen.queryByRole("button", { name: /^Reject$/ }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /Run image curation again/ }),
+      screen.queryByRole("button", { name: /Run Image step again/ }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /Run text curation again/ }),
+      screen.queryByRole("button", { name: /Run Detail step again/ }),
     ).not.toBeInTheDocument();
   });
 
-  it("re-runs only the image phases for the selected ready submissions", async () => {
+  it("re-runs only the image step for the selected ready submissions", async () => {
     const user = userEvent.setup();
     renderList(
       [
@@ -304,18 +307,18 @@ describe("SubmissionsReviewList", () => {
       screen.getByRole("checkbox", { name: "Select Ready Brand 2" }),
     );
     await user.click(
-      screen.getByRole("button", { name: "Run image curation again (1)" }),
+      screen.getByRole("button", { name: "Run Image step again (1)" }),
     );
 
     expect(actions.enrich).toHaveBeenCalledTimes(1);
     expect(actions.enrich).toHaveBeenCalledWith(
       "enrich",
-      { submissionIds: ["ready-2"], phases: ["images", "classify_images"] },
+      { submissionIds: ["ready-2"], steps: ["image"] },
       false,
     );
   });
 
-  it("re-runs every non-image phase for the selected ready submissions", async () => {
+  it("re-runs the detail step for the selected ready submissions", async () => {
     const user = userEvent.setup();
     renderList(
       [makeSubmission({ id: "ready-1", brandName: "Ready Brand 1" })],
@@ -326,26 +329,13 @@ describe("SubmissionsReviewList", () => {
       screen.getByRole("checkbox", { name: "Select Ready Brand 1" }),
     );
     await user.click(
-      screen.getByRole("button", { name: "Run text curation again (1)" }),
+      screen.getByRole("button", { name: "Run Detail step again (1)" }),
     );
 
     expect(actions.enrich).toHaveBeenCalledTimes(1);
     expect(actions.enrich).toHaveBeenCalledWith(
       "enrich",
-      {
-        submissionIds: ["ready-1"],
-        phases: [
-          "clean",
-          "detect",
-          "slugs",
-          "tags",
-          "discover",
-          "links",
-          "descriptions",
-          "locations",
-          "expansion",
-        ],
-      },
+      { submissionIds: ["ready-1"], steps: ["detail"] },
       false,
     );
   });

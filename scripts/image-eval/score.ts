@@ -9,7 +9,7 @@ import {
   runPath,
   writeJsonAtomic,
 } from "./lib/paths";
-import { validateLabelsForManifest } from "./lib/labels";
+import { hydrateLabelsFile, validateLabelsForManifest } from "./lib/labels";
 import { scorePredictions } from "./lib/scoring";
 import type {
   EvalPrediction,
@@ -54,7 +54,9 @@ async function latestPredictionPath(): Promise<string> {
 async function score(): Promise<void> {
   await ensureEvalDirectories();
   const manifest = await readJson<GoldenManifest>(MANIFEST_PATH);
-  const labels = await readJson<GoldenLabelsFile>(LABELS_PATH);
+  const labels = hydrateLabelsFile(
+    await readJson<GoldenLabelsFile>(LABELS_PATH),
+  );
   const split = splitArg();
   const validationErrors = validateLabelsForManifest(
     manifest,

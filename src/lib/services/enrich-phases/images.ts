@@ -69,11 +69,34 @@ export async function runBrandImagePhase({
     }
   }
 
+  let downloadFailure: string | null = null
+
   const { result, durationMs } = await timePhase(async () => {
+    /**
+     * `downloadAndStoreImages` catches per candidate and returns a null slot, so
+     * a bad image costs that image and nothing else. This guard is for the work
+     * that happens AROUND the per-candidate loop, which has no such protection —
+     * two live runs were lost to it: an oversized response header escaping as an
+     * undici HeadersOverflowError, and the existing-candidate lookup exceeding
+     * PostgREST's URI limit and throwing a raw Supabase object.
+     *
+     * Both root causes are fixed. The guard stays because the invariant is worth
+     * enforcing independently of any particular bug: every later phase copes
+     * with zero images, and none of them cope with an exception.
+     */
     const imageStoredUrls = dryRun
       ? imageCandidates.map((candidate) => typeof candidate === 'string' ? candidate : candidate.url)
-      : await downloadAndStoreImages(imageCandidates, target ?? brandTarget(brand.id))
-    const patch = imageStoredUrls.filter(hasLinkValue).length > 0
+      : await downloadAndStoreImages(imageCandidates, target ?? brandTarget(brand.id)).catch(
+          (error: unknown) => {
+            downloadFailure = error instanceof Error ? error.message : JSON.stringify(error)
+            console.warn(`  [IMAGES] ${brand.slug}: download batch failed — ${downloadFailure}`)
+            return [] as (string | null)[]
+          }
+        )
+    // Automated downloads are stored as candidates. Updating the compatibility
+    // hero cache here would publish an unclassified URL before the classifier
+    // explicitly keeps it; the classify phase owns that projection now.
+    const patch = dryRun && imageStoredUrls.filter(hasLinkValue).length > 0
       ? imagePatchToDbPatch(buildImageEnrichPatch(normalizeImageBrand(brand), imageStoredUrls))
       : {}
 
@@ -81,6 +104,23 @@ export async function runBrandImagePhase({
   })
 
   const changedFields = Object.keys(result)
+
+  // Surfaced as a phase detail rather than swallowed: the brand survives, but a
+  // run that quietly produced nothing would be indistinguishable from a brand
+  // that genuinely had no candidates.
+  if (downloadFailure) {
+    return {
+      phaseResult: buildPhaseResult(
+        'images',
+        'failed',
+        changedFields,
+        durationMs,
+        undefined,
+        `image download batch failed: ${downloadFailure}`
+      ),
+      patch: result,
+    }
+  }
 
   return {
     phaseResult: buildPhaseResult('images', 'succeeded', changedFields, durationMs),

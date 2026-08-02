@@ -1,19 +1,12 @@
 import { z } from "zod";
+import { MAX_BRAND_IMAGE_SELECTION } from "@/lib/constants/brand-images";
 
 const nullableText = z.string().max(10_000).nullable();
 export const reviewEntityIdSchema = z.uuid();
 
-/**
- * Upper bound on how many images a single review save may submit.
- *
- * This is deliberately wider than the 7-image UI upload ceiling: brands
- * enriched before that ceiling existed carry up to 14 active images, and
- * `saveAdminBrandReview` rejects every active image missing from the payload.
- * A tighter bound here does not trim the gallery — it blocks the save outright
- * (and truncating to fit would permanently reject the surplus images instead).
- */
-export const MAX_REVIEW_IMAGE_SELECTION = 24;
-
+// Bounded by the submission cap, not the display cap: legacy brands carry more
+// active images than MAX_BRAND_ACTIVE_IMAGES, and the form submits all of them.
+// See MAX_BRAND_IMAGE_SELECTION for why a tighter bound blocks the save.
 const imageSelectionSchema = z
   .array(
     z.object({
@@ -22,10 +15,10 @@ const imageSelectionSchema = z
         .number()
         .int()
         .min(0)
-        .max(MAX_REVIEW_IMAGE_SELECTION - 1),
+        .max(MAX_BRAND_IMAGE_SELECTION - 1),
     }),
   )
-  .max(MAX_REVIEW_IMAGE_SELECTION)
+  .max(MAX_BRAND_IMAGE_SELECTION)
   .superRefine((images, context) => {
     if (new Set(images.map((image) => image.id)).size !== images.length) {
       context.addIssue({ code: "custom", message: "Duplicate images" });
@@ -73,7 +66,9 @@ export const adminReviewSchema = z.object({
   images: imageSelectionSchema,
 });
 
+// Also a payload bound, not a display cap: this carries the draft image ids
+// being cleaned up, which can exceed the number a brand will end up showing.
 export const reviewImageIdsSchema = z
   .array(reviewEntityIdSchema)
-  .max(7)
+  .max(MAX_BRAND_IMAGE_SELECTION)
   .refine((ids) => new Set(ids).size === ids.length);

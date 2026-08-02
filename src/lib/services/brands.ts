@@ -191,7 +191,12 @@ export type SearchBrandAutocompleteResult = {
 // ---------------------------------------------------------------------------
 
 export function extractLatinRun(name: string): string | null {
-  const runs = name.match(/[A-Za-z0-9 ]+/g)?.map((run) => run.trim()).filter(Boolean)
+  const runs = name
+    .match(
+      /[\p{Script=Latin}\p{Number}\p{Mark}]+(?:[\s&.'’\-]*[\p{Script=Latin}\p{Number}\p{Mark}]+)*/gu,
+    )
+    ?.map((run) => run.trim())
+    .filter(Boolean)
 
   if (!runs?.length) {
     return null
@@ -1692,7 +1697,9 @@ export async function syncBrandImages(brandId: string): Promise<{ synced: number
       source_url: ref.url,
       source: 'admin',
       sort_order: i,
-      tags: ref.field === 'hero' ? ['product'] : ['lifestyle'],
+      // Both are product imagery under the two-tag vocabulary; only the
+      // sort_order above distinguishes the hero from the rest.
+      tags: ['product'],
     })
   }
 

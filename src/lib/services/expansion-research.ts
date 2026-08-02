@@ -1,8 +1,8 @@
 import { EXPANSION_SYSTEM_PROMPT } from '@/lib/prompts'
-import { createAuditedDeepSeekClient, type LlmAuditContext } from '@/lib/services/llm-audit'
+import { createAuditedOpenAIClient, type LlmAuditContext } from '@/lib/services/llm-audit'
 import type { ReputationSummary } from '@/lib/types/brand'
 
-const DEEPSEEK_TIMEOUT_MS = 60_000
+const EXPANSION_TIMEOUT_MS = 60_000
 
 export type ExpansionResult = {
   reputationSummary: ReputationSummary | null
@@ -62,7 +62,7 @@ export async function runExpansionResearch(
   input: ExpansionInput,
   audit: LlmAuditContext,
 ): Promise<ExpansionResult | null> {
-  const token = process.env.DEEPSEEK_API_KEY
+  const token = process.env.OPENAI_API_KEY
   if (!token) return null
   if (
     input.serpSnippets.length === 0 &&
@@ -83,16 +83,17 @@ export async function runExpansionResearch(
     .filter(Boolean)
     .join('\n\n')
 
-  const client = createAuditedDeepSeekClient(audit, { apiKey: token })
+  const client = createAuditedOpenAIClient(audit, { apiKey: token })
 
   try {
     const { response, content } = await client.chat({
       system: EXPANSION_SYSTEM_PROMPT,
       user: userContent,
       json: true,
-      timeoutMs: DEEPSEEK_TIMEOUT_MS,
+      timeoutMs: EXPANSION_TIMEOUT_MS,
       maxTokens: 1200,
       temperature: 0.1,
+      reasoningEffort: 'none',
     })
     if (!response.ok) return null
 

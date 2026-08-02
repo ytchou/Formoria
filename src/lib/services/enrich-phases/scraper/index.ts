@@ -36,6 +36,15 @@ export type MultiScrapeResult = {
   }>
 }
 
+/**
+ * Scraping is free in API-credit terms — each URL is one render fetch, not a
+ * paid search call — so the cap exists only to bound wall-clock per brand. The
+ * previous 3 was routinely spent on the official site plus two social profiles,
+ * so a brand's Pinkoi/Shopee pages were never reached and the marketplace
+ * adapters (20 images each) never fired at all.
+ */
+export const MAX_SCRAPE_URLS_PER_BRAND = 6
+
 function hasContent(data: ScrapedBrandData): boolean {
   return Boolean(
     data.brandName ||
@@ -77,7 +86,7 @@ export async function scrapeBrandUrls(
 ): Promise<MultiScrapeResult> {
   const render = getRenderProvider()
   const results = await Promise.all(
-    urls.slice(0, 3).map(async (url) => {
+    urls.slice(0, MAX_SCRAPE_URLS_PER_BRAND).map(async (url) => {
       const initialType = classifyByDomain(url) ?? 'official-site'
       const audit = await options.onAttempt?.({
         url,

@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, expect, it, vi } from 'vitest'
 import { describeWithDb } from '@/test/setup'
 import { OWNER_FEATURES_KEY, setAppSetting } from './app-settings'
-import { evaluateDrips } from './drip-processing'
+import { DRIP_TYPES, evaluateDrips } from './drip-processing'
 
 const { sendEmail } = vi.hoisted(() => ({
   sendEmail: vi.fn(async () => ({ success: true })),
@@ -24,7 +24,11 @@ describeWithDb('drip processing — owner features kill switch', () => {
     try {
       // Every drip deep-links to /dashboard, which 404s while owner features are
       // off, so the whole run has to short-circuit before any dispatch.
-      for (const dripType of ['welcome', 'profile_nudge', 're_engagement']) {
+      for (const dripType of [
+        'welcome',
+        'microsite_spotlight',
+        're_engagement',
+      ]) {
         expect(await evaluateDrips(dripType)).toEqual({
           sent: 0,
           skipped: 0,
@@ -46,4 +50,14 @@ describeWithDb('drip processing — owner features kill switch', () => {
     )
     expect(sendEmail).not.toHaveBeenCalled()
   })
+})
+
+// The cron route dispatches exactly DRIP_TYPES, so an entry removed from this
+// list is an entry that never sends.
+it('keeps the profile_nudge drip paused (DEV-1279)', () => {
+  expect(DRIP_TYPES.map((drip) => drip.key)).toEqual([
+    'welcome',
+    'microsite_spotlight',
+    're_engagement',
+  ])
 })

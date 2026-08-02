@@ -1,5 +1,6 @@
 import posthog from 'posthog-js'
-import { registerPostHogProvider } from './posthog-provider'
+import { isAppLocale } from '@/i18n/locale-preference'
+import { registerPostHogProvider, registerPostHogSuperProperties } from './posthog-provider'
 import { sanitizePostHogEvent } from './posthog-privacy'
 
 type PostHogClient = {
@@ -88,6 +89,12 @@ export function initializePostHog(client: PostHogClient = posthog): boolean {
     ],
     before_send: sanitizePostHogEvent,
   })
+  const resolvedLocale = typeof document !== 'undefined'
+    ? document.documentElement.lang
+    : undefined
+  if (isAppLocale(resolvedLocale)) {
+    registerPostHogSuperProperties({ locale: resolvedLocale })
+  }
   registerPostHogProvider(client)
   return true
 }

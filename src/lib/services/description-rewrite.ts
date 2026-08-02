@@ -1,13 +1,14 @@
 import { DESCRIPTION_SYSTEM_PROMPT } from '@/lib/prompts'
 import { buildEnrichmentConfig } from '@/lib/constants/enrichment-config'
-import { parseDeepSeekJson } from './deepseek-client'
-import { createAuditedDeepSeekClient, type LlmAuditContext } from './llm-audit'
+import { parseJson } from './openai-client'
+import { createAuditedOpenAIClient, type LlmAuditContext } from './llm-audit'
 import { validateLocalizedText, detectAiArtifacts } from './enrich-validators'
 import { localizeToTW, stripAiToolArtifacts } from './taiwan-localization'
 import { parseExtractionResult } from './product-type-classifier'
+import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { normalizeProductTags } from '@/lib/services/product-tags'
 
-const DEEPSEEK_TIMEOUT_MS = 30_000
+const DESCRIPTION_TIMEOUT_MS = 30_000
 const ZH_DESCRIPTION_BAND = [150, 400] as const
 const EN_DESCRIPTION_BAND = [300, 700] as const
 const ZH_BLURB_BAND = [40, 80] as const
@@ -24,6 +25,13 @@ export type DescriptionRewriteResult = {
   blurb_zh: string | null
   blurb_en: string | null
   priceRange: 1 | 2 | 3 | null
+  /**
+   * The brand's L1 category, decided here rather than at triage because this is
+   * the first call that sees the brand's own site text and its product images'
+   * alt text. Undefined for an absent or unrecognised value — like `listing`, it
+   * is a secondary output and must never invalidate the descriptions.
+   */
+  productType?: string
   productTags: string[]
   productTagsEn: string[]
   city: string | null
@@ -48,7 +56,76 @@ export type DescriptionRewriteResult = {
   }>
   rejected?: { tag: string; reason: string }[]
   crossBranch?: string[]
+  /**
+   * Stage-2 listing verdict. Optional and always tolerated as absent: descriptions
+   * are the primary output of this call, so a missing or malformed `listing` must
+   * never invalidate them. Never fed into the description validation/retry loop.
+   */
+  listing?: ListingVerdict
   rawResponse?: unknown
+}
+
+const VALID_PRODUCT_TYPES = new Set<string>(
+  PRODUCT_TYPE_CATEGORIES.map((category) => category.slug),
+)
+
+/**
+ * Validates against the real L1 slug list. Anything else — absent, null, a made
+ * up slug, a Chinese category name — is undefined, never a rejection.
+ */
+export function parseDescriptionProductType(raw: unknown): string | undefined {
+  if (typeof raw !== 'string') return undefined
+  const trimmed = raw.trim()
+  return VALID_PRODUCT_TYPES.has(trimmed) ? trimmed : undefined
+}
+
+const LISTING_VERDICTS = ['list', 'reject'] as const
+const TAIWAN_CONNECTIONS = ['created', 'designed', 'manufactured', 'unclear'] as const
+
+export type ListingVerdict = {
+  verdict: 'list' | 'reject'
+  reason: string | null
+  taiwanConnection: (typeof TAIWAN_CONNECTIONS)[number] | null
+  hasOwnProducts: boolean | null
+  hasPurchaseChannel: boolean | null
+}
+
+/**
+ * Returns undefined for anything unrecognised rather than throwing: an unknown
+ * verdict string is a model error, and the correct fallback is "no opinion"
+ * (which the consumer treats as `list`), not a discarded description.
+ */
+export function parseListingVerdict(raw: unknown): ListingVerdict | undefined {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return undefined
+  const listing = raw as Record<string, unknown>
+  const verdict = LISTING_VERDICTS.find((value) => value === listing.verdict)
+  if (!verdict) return undefined
+
+  const taiwanConnection = TAIWAN_CONNECTIONS.find((value) => value === listing.taiwan_connection) ?? null
+  const rawReason = typeof listing.reason === 'string' ? listing.reason.trim() : ''
+
+  return {
+    verdict,
+    reason: rawReason.length > 0 ? localizeZhText(rawReason) : null,
+    taiwanConnection,
+    hasOwnProducts: typeof listing.has_own_products === 'boolean' ? listing.has_own_products : null,
+    hasPurchaseChannel: typeof listing.has_purchase_channel === 'boolean' ? listing.has_purchase_channel : null,
+  }
+}
+
+/** Extra evidence the stage-2 listing decision needs but the description text does not. */
+export type DescriptionEvidence = {
+  links?: {
+    purchaseWebsite?: string | null
+    socialInstagram?: string | null
+    socialThreads?: string | null
+    socialFacebook?: string | null
+    purchasePinkoi?: string | null
+    purchaseShopee?: string | null
+  }
+  productCategoryZh?: string | null
+  /** Alt text of the brand's classified images — direct evidence that physical products exist. */
+  imageAlts?: string[]
 }
 
 type DescriptionAttemptInput = {
@@ -75,7 +152,7 @@ type DescriptionRewriteOutput = {
 
 
 export function parseDescriptionRewriteResult(content: string): DescriptionRewriteResult {
-  const parsed = parseDeepSeekJson<Record<string, unknown>>(content)
+  const parsed = parseJson<Record<string, unknown>>(content)
   const extraction = parseExtractionResult(content)
 
   if (!parsed) {
@@ -209,6 +286,9 @@ export function parseDescriptionRewriteResult(content: string): DescriptionRewri
       })()
     : null
 
+  const listing = parseListingVerdict(parsed.listing)
+  const productType = parseDescriptionProductType(parsed.product_type)
+
   const acceptedTags = normalizedTags.tags.length >= 1 ? normalizedTags.tags : []
   const acceptedTagsEn = normalizedTags.tags.length >= 1 ? normalizedTags.tagsEn : []
 
@@ -219,6 +299,7 @@ export function parseDescriptionRewriteResult(content: string): DescriptionRewri
     blurb_zh: blurbZh,
     blurb_en: blurbEn,
     priceRange: extraction.priceRange,
+    ...(productType ? { productType } : {}),
     productTags: acceptedTags,
     productTagsEn: acceptedTagsEn,
     city: extraction.city,
@@ -230,6 +311,7 @@ export function parseDescriptionRewriteResult(content: string): DescriptionRewri
     validationRejections: [],
     rejected: normalizedTags.rejected,
     crossBranch: normalizedTags.crossBranch,
+    ...(listing ? { listing } : {}),
   }
 }
 
@@ -464,8 +546,8 @@ export function buildDescriptionRetryInstruction(
 }
 
 const DESCRIPTION_CONFIG_PARAMS = {
-  model: 'deepseek-v4-flash',
-  maxTokens: 4500,
+  model: 'gpt-5.6-luna',
+  maxTokens: 6000,
   temperature: 0.1,
   snippetLimit: 10,
   siteContentLimit: 4000,
@@ -481,19 +563,42 @@ export async function rewriteBrandDescription(
   snippets: string[],
   siteContent: string | null,
   audit: Pick<LlmAuditContext, 'jobId' | 'target'>,
+  evidence?: DescriptionEvidence,
 ): Promise<DescriptionRewriteOutput | null> {
-  const token = process.env.DEEPSEEK_API_KEY
+  const token = process.env.OPENAI_API_KEY
   if (!token) return null
   if (snippets.length === 0 && !existingDescription) return null
 
   const sanitizedSnippets = snippets.slice(0, 10).map(stripAiToolArtifacts)
   const sanitizedSiteContent = siteContent ? stripAiToolArtifacts(siteContent) : null
 
+  // Stage-2 listing evidence. Appended, never interleaved: the four fields above
+  // are the description inputs and their labels are what the tuned prompt reads.
+  // Purchase channels and image alt text cannot be inferred from prose, so the
+  // listing verdict is only as good as these lines.
+  const labelledLinks: Array<[string, string | null | undefined]> = [
+    ['官方購買網站', evidence?.links?.purchaseWebsite],
+    ['Instagram', evidence?.links?.socialInstagram],
+    ['Threads', evidence?.links?.socialThreads],
+    ['Facebook', evidence?.links?.socialFacebook],
+    ['Pinkoi', evidence?.links?.purchasePinkoi],
+    ['蝦皮', evidence?.links?.purchaseShopee],
+  ]
+  const linkLines = labelledLinks.flatMap(([label, url]) =>
+    typeof url === 'string' && url.trim().length > 0 ? [`- ${label}：${url.trim()}`] : [],
+  )
+  const imageAlts = (evidence?.imageAlts ?? [])
+    .filter((alt): alt is string => typeof alt === 'string' && alt.trim().length > 0)
+    .map((alt) => `- ${stripAiToolArtifacts(alt.trim())}`)
+
   const userContent = [
     `品牌名稱：${brandName}`,
     existingDescription ? `現有描述：${existingDescription}` : '',
     sanitizedSnippets.length > 0 ? `搜尋摘要：\n${sanitizedSnippets.join('\n')}` : '',
     sanitizedSiteContent ? `網站內容：\n${sanitizedSiteContent}` : '',
+    linkLines.length > 0 ? `品牌連結：\n${linkLines.join('\n')}` : '',
+    evidence?.productCategoryZh ? `商品分類：${evidence.productCategoryZh}` : '',
+    imageAlts.length > 0 ? `商品圖片描述：\n${imageAlts.join('\n')}` : '',
   ].filter(Boolean).join('\n\n')
 
   const attemptInput: DescriptionAttemptInput = {
@@ -514,6 +619,11 @@ export async function rewriteBrandDescription(
   let acceptedBlurbZh: string | null = null
   let acceptedBlurbEn: string | null = null
   let acceptedPriceRange: 1 | 2 | 3 | null = null
+  // First verdict wins, like every other accepted field: attempt 2 only retries the
+  // failing description fields, so its listing evidence is no fresher than attempt 1's.
+  let acceptedListing: ListingVerdict | undefined
+  // Same first-wins rule, same reason: attempt 2 only rewrites failing text fields.
+  let acceptedProductType: string | undefined
   const allValidationRejections: DescriptionRewriteResult['validationRejections'] = []
   const attempts: DescriptionAttempt[] = []
   const localizeAcceptedZh = (value: string | null): string | null =>
@@ -530,7 +640,7 @@ export async function rewriteBrandDescription(
         attemptIndex === 0 ? '' : buildDescriptionRetryInstruction(lastRejections, lastParsed)
 
       const startAt = Date.now()
-      const client = createAuditedDeepSeekClient(
+      const client = createAuditedOpenAIClient(
         {
           ...audit,
           phase: 'description',
@@ -543,9 +653,13 @@ export async function rewriteBrandDescription(
         system: DESCRIPTION_SYSTEM_PROMPT,
         user: `${userContent}${retryInstruction}`,
         json: true,
-        timeoutMs: DEEPSEEK_TIMEOUT_MS,
-        maxTokens: 4500,
+        timeoutMs: DESCRIPTION_TIMEOUT_MS,
+        // 6000, not 4500: the prompt gained six link lines, a category name and 8 image
+        // alt lines on input, and the output now carries a `listing` object on top of
+        // four description fields. The old budget predates all of it.
+        maxTokens: 6000,
         temperature: 0.1,
+        reasoningEffort: 'none',
       })
       const latencyMs = Date.now() - startAt
 
@@ -559,7 +673,7 @@ export async function rewriteBrandDescription(
         return null
       }
 
-      const parsed = parseDeepSeekJson<Record<string, unknown>>(content)
+      const parsed = parseJson<Record<string, unknown>>(content)
       if (!parsed) {
         attempts.push({
           attempt: attemptIndex + 1,
@@ -617,8 +731,12 @@ export async function rewriteBrandDescription(
       acceptedBlurbZh ??= localizeAcceptedZh(validated.blurb_zh)
       acceptedBlurbEn ??= validated.blurb_en
       acceptedPriceRange ??= validated.priceRange
+      acceptedListing ??= validated.listing
+      acceptedProductType ??= validated.productType
       bestResult = {
         ...validated,
+        ...(acceptedListing ? { listing: acceptedListing } : {}),
+        ...(acceptedProductType ? { productType: acceptedProductType } : {}),
         description_zh: acceptedDescriptionZh,
         description_en: acceptedDescriptionEn,
         description: acceptedDescriptionZh,

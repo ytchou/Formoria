@@ -92,8 +92,16 @@ export function useImageUpload(config: UseImageUploadConfig): UseImageUploadRetu
         })
 
         if (!response.ok) {
+          // Surface the server's reason (rejected type, size cap, auth) instead of
+          // a generic failure — otherwise the upload is undiagnosable from the UI.
+          const serverMessage = await response
+            .json()
+            .then((body: { error?: unknown }) =>
+              typeof body?.error === 'string' ? body.error : null,
+            )
+            .catch(() => null)
           setStatus('error')
-          setError(config.uploadFailedMessage)
+          setError(serverMessage ?? config.uploadFailedMessage)
           return null
         }
 

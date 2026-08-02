@@ -19,7 +19,7 @@ const SERPER_SERP_ENDPOINT = 'https://google.serper.dev/search'
 const SERPER_IMAGE_ENDPOINT = 'https://google.serper.dev/images'
 const SERPER_MAPS_ENDPOINT = 'https://google.serper.dev/maps'
 const SEARCH_TIMEOUT_MS = 60_000
-const MIN_IMAGE_DIMENSION = 400
+const MIN_IMAGE_DIMENSION = 480
 const MAX_ERROR_LENGTH = 1_000
 
 export type SerperAuditOptions = SearchAuditContext & {
@@ -403,6 +403,21 @@ function resolveAuditOptions<T>(resolver: AuditResolver<T> | undefined, input: T
   return typeof resolver === 'function' ? resolver(input) : resolver
 }
 
+/**
+ * Single source of truth for the text-query request body (`/search` and
+ * `/places`). It was three literal copies, and they drifted: the images body
+ * has carried `autocorrect: false` for a while but these had not, so Google was
+ * free to "correct" a Taiwanese brand name into a generic dictionary word and
+ * hand back an entirely different company's URLs — the same wrong-brand failure
+ * `buildImageSearchBody` already documents. One factory so they cannot diverge
+ * again.
+ *
+ * `num` stays at 10: serper bills 1 credit for <=10 results and 2 above it.
+ */
+function buildSerperQueryBody(query: string): Record<string, unknown> {
+  return { q: query, num: 10, gl: 'tw', hl: 'zh-TW', autocorrect: false }
+}
+
 export async function searchBrandUrls(
   brandName: string,
   queryTemplate: QueryTemplate = DEFAULT_QUERY,
@@ -413,7 +428,7 @@ export async function searchBrandUrls(
     SERPER_SERP_ENDPOINT,
     'serp',
     query,
-    { q: query, num: 10, gl: 'tw', hl: 'zh-TW' },
+    buildSerperQueryBody(query),
     isSerperSerpResponse,
     (value) => parseBrandSearchResults(value.organic),
     auditOptions,
@@ -428,7 +443,7 @@ export async function batchSearchBrandsWithSnippets(
   concurrency = 5,
   auditResolver?: AuditResolver<string>,
 ): Promise<Map<string, BrandSearchResult>> {
-  const names = brandNames.slice(0, 20)
+  const names = brandNames
   const results = new Map<string, BrandSearchResult>()
   for (const brandName of names) results.set(brandName, { urls: [], snippets: [] })
   if (names.length === 0) return results
@@ -447,7 +462,7 @@ export async function batchSearchBrandsWithSnippets(
         SERPER_SERP_ENDPOINT,
         'serp',
         query,
-        { q: query, num: 10, gl: 'tw', hl: 'zh-TW' },
+        buildSerperQueryBody(query),
         isSerperSerpResponse,
         (value) => parseBrandSearchResults(value.organic),
         options,
@@ -498,10 +513,17 @@ function isLookasideHost(imageUrl: string): boolean {
   }
 }
 
-function passesImageDimensions(result: NonNullable<SerperImageResponse['images']>[number]): boolean {
+/**
+ * Rejects on the SHORT edge, not the long one: banner strips and sidebar rails
+ * clear a long-edge floor on width alone. When the provider omits either
+ * dimension the candidate passes through and is judged on real pixels at
+ * download time.
+ */
+export function passesImageDimensions(result: NonNullable<SerperImageResponse['images']>[number]): boolean {
   const width = result.imageWidth ?? 0
   const height = result.imageHeight ?? 0
-  return width === 0 || height === 0 || width >= MIN_IMAGE_DIMENSION || height >= MIN_IMAGE_DIMENSION
+  if (width === 0 || height === 0) return true
+  return Math.min(width, height) >= MIN_IMAGE_DIMENSION
 }
 
 function shouldKeepImage(result: NonNullable<SerperImageResponse['images']>[number]): boolean {
@@ -550,6 +572,57 @@ async function resolveLookasideImage(imageUrl: string): Promise<string | null> {
   return uncropped ?? ogImage
 }
 
+/**
+ * A `site:`-scoped query is already anchored to the brand's own domain, so it
+ * carries no identity risk — only a size floor. Derived from the query string
+ * itself rather than passed down the call chain, so production search and the
+ * eval capture cannot disagree about which floor a given query got.
+ */
+function isSiteScopedQuery(query: string): boolean {
+  return query.trimStart().toLowerCase().startsWith('site:')
+}
+
+/**
+ * Single source of truth for the Google Images request body. Production search
+ * and the offline eval capture MUST send identical parameters, otherwise the
+ * corpus stops reflecting production and before/after measurements are void.
+ * `num` stays at 10 — serper bills 1 credit for <=10 results and 2 above it.
+ *
+ * `autocorrect: false` because Google "corrects" Taiwanese brand names into
+ * generic dictionary words, which is a direct source of the `wrong_brand`
+ * rejects in the labelled corpus.
+ *
+ * The size floor matches our OWN download gate and goes no higher. That gate is
+ * `min(w,h) >= 480`, roughly 0.23MP, and `islt:vga` (640x480, ~0.3MP) is the
+ * closest Google offers. Asking for more than we are willing to accept means
+ * discarding images at the source that would have passed every check we apply.
+ *
+ * This was previously `islt:xga` on the domain branch and `islt:2mp` on the
+ * open one — up to 9x our own floor. It was measured removing marketplace
+ * thumbnails from a five-brand probe, but it was also silently excluding real
+ * product photography: a brand's blog-hosted product shots at 772x694 and
+ * 1000x663 are well under 2MP, and Instagram's 640x640 renders never survived
+ * either, so search could only ever return images the scraper already had.
+ *
+ * Marketplace suppression belongs to the `domain` field serper returns, which
+ * is free to filter on and reversible — not to a resolution floor that cannot
+ * tell a listing thumbnail from a good photograph.
+ */
+function buildImageSearchBody(
+  query: string,
+  opts?: { siteScoped?: boolean },
+): Record<string, unknown> {
+  void opts
+  return {
+    q: query,
+    num: 10,
+    gl: 'tw',
+    hl: 'zh-TW',
+    autocorrect: false,
+    tbs: 'isz:lt,islt:vga',
+  }
+}
+
 async function searchBrandImagesForQuery(
   query: string,
   options?: SerperAuditOptions,
@@ -562,7 +635,7 @@ async function searchBrandImagesForQuery(
     SERPER_IMAGE_ENDPOINT,
     'image',
     query,
-    { q: query, num: 10, gl: 'tw', hl: 'zh-TW' },
+    buildImageSearchBody(query, { siteScoped: isSiteScopedQuery(query) }),
     isSerperImageResponse,
     (value) => ({
       urls: (value.images ?? []).flatMap((image) => (typeof image.imageUrl === 'string' ? [image.imageUrl] : [])),
@@ -574,6 +647,7 @@ async function searchBrandImagesForQuery(
   for (const result of call.data?.images ?? []) {
     if (typeof result.imageUrl !== 'string' || !result.imageUrl) continue
 
+    const sourceUrl = result.imageUrl
     let url = result.imageUrl
     if (isLookasideHost(url)) {
       // Cheap checks first — never spend an HTML fetch on a candidate the
@@ -591,6 +665,17 @@ async function searchBrandImagesForQuery(
     if (!rows.has(url)) {
       rows.set(url, {
         url,
+        sourceUrl,
+        ...(typeof result.link === 'string' && result.link ? { pageUrl: result.link } : {}),
+        ...(typeof result.thumbnailUrl === 'string' && result.thumbnailUrl ? { previewUrl: result.thumbnailUrl } : {}),
+        ...(typeof result.title === 'string' && result.title ? { title: result.title } : {}),
+        ...(typeof result.source === 'string' && result.source ? { source: result.source } : {}),
+        ...(typeof result.domain === 'string' && result.domain ? { domain: result.domain } : {}),
+        ...(typeof result.position === 'number' ? { position: result.position } : {}),
+        ...(typeof result.imageWidth === 'number' ? { imageWidth: result.imageWidth } : {}),
+        ...(typeof result.imageHeight === 'number' ? { imageHeight: result.imageHeight } : {}),
+        ...(typeof result.thumbnailWidth === 'number' ? { thumbnailWidth: result.thumbnailWidth } : {}),
+        ...(typeof result.thumbnailHeight === 'number' ? { thumbnailHeight: result.thumbnailHeight } : {}),
         query,
         ...(call.auditResultId ? { auditResultId: call.auditResultId } : {}),
       })
@@ -607,7 +692,7 @@ async function captureBrandImagesForQuery(
     SERPER_IMAGE_ENDPOINT,
     'image',
     query,
-    { q: query, num: 10, gl: 'tw', hl: 'zh-TW' },
+    buildImageSearchBody(query, { siteScoped: isSiteScopedQuery(query) }),
     isSerperImageResponse,
     (value) => ({
       urls: parseSerperImageCandidates(value).map((candidate) => candidate.imageUrl),
@@ -780,7 +865,7 @@ export async function searchBrandMaps(
     SERPER_MAPS_ENDPOINT,
     'maps',
     query,
-    { q: query, num: 10, gl: 'tw', hl: 'zh-TW' },
+    buildSerperQueryBody(query),
     isSerperMapsResponse,
     (value) => ({
       urls: (value.places ?? []).flatMap((place) => {

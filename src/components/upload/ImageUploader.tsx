@@ -5,6 +5,7 @@ import { Upload, X, Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useImageUpload } from './useImageUpload'
 import { cn } from '@/lib/utils'
+import { MAX_BRAND_GALLERY_PHOTOS } from '@/lib/constants/brand-images'
 import { Button } from '@/components/ui/button'
 import type { ImageUploadMetadata } from './useImageUpload'
 
@@ -27,7 +28,7 @@ export function ImageUploader({
   value,
   onUpload,
   onRemove,
-  maxFiles = 6,
+  maxFiles = MAX_BRAND_GALLERY_PHOTOS,
   id,
   uploadEndpoint,
 }: ImageUploaderProps) {

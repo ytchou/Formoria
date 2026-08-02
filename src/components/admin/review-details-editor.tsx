@@ -30,9 +30,9 @@ import type {
   SubmissionReviewImage,
 } from "@/lib/services/submissions";
 import { deriveProductTagsEn } from "@/lib/services/product-tags";
+import { MAX_BRAND_ACTIVE_IMAGES } from "@/lib/constants/brand-images";
 
 const EMPTY_SELECT_VALUE = "__none";
-const MAX_REVIEW_IMAGES = 7;
 
 type EditableSection =
   "content" | "reputation" | "catalog" | "links" | "evidence" | "images";
@@ -128,7 +128,7 @@ export function ReviewDetailsEditor({
       setError(t("errors.invalidUploadResponse"));
       return;
     }
-    if (draftImages.length >= MAX_REVIEW_IMAGES) {
+    if (draftImages.length >= MAX_BRAND_ACTIVE_IMAGES) {
       setError(t("errors.imageLimit"));
       return;
     }
@@ -490,13 +490,13 @@ export function ReviewDetailsEditor({
                   </div>
                 ))}
               </div>
-              {draftImages.length < MAX_REVIEW_IMAGES && (
+              {draftImages.length < MAX_BRAND_ACTIVE_IMAGES && (
                 <ImageUploader
                   mode="multi"
                   bucket="brand-images"
                   path={uploadPath}
                   value={[]}
-                  maxFiles={MAX_REVIEW_IMAGES - draftImages.length}
+                  maxFiles={MAX_BRAND_ACTIVE_IMAGES - draftImages.length}
                   uploadEndpoint={uploadEndpoint}
                   onUpload={handleUpload}
                 />

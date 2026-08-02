@@ -163,7 +163,14 @@ const EMPTY_QUALITY_METRICS: QualityMetrics = {
 }
 
 const ZH_LANGUAGE_PURITY_THRESHOLD = 0.85
-const PROMO_HERO_TAGS = new Set(['promo', 'text_banner', 'irrelevant', 'logo'])
+/**
+ * Hero tags that count as a quality defect. These are all LEGACY values — the
+ * classifier can no longer emit them — so this only fires on rows written before
+ * the disposition/reasons contract. `logo` is deliberately absent: hero ordering
+ * is now a pure quality sort, so a brand-identity image winning slot 0 is a
+ * legitimate outcome, not a defect.
+ */
+const PROMO_HERO_TAGS = new Set(['promo', 'text_banner', 'irrelevant'])
 const ENRICHMENT_IMAGE_PAGE_SIZE = 1_000
 
 export function computeQualityMetrics(input: EnrichmentQualityInput): EnrichmentQualityMetrics {

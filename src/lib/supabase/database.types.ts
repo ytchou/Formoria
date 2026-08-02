@@ -505,6 +505,9 @@ export type Database = {
           height: number | null
           id: string
           phash: string | null
+          provider_metadata: Json | null
+          rejection_reasons: string[] | null
+          rejected_at: string | null
           score: number | null
           sort_order: number
           source: string
@@ -524,6 +527,9 @@ export type Database = {
           height?: number | null
           id?: string
           phash?: string | null
+          provider_metadata?: Json | null
+          rejection_reasons?: string[] | null
+          rejected_at?: string | null
           score?: number | null
           sort_order?: number
           source: string
@@ -543,6 +549,9 @@ export type Database = {
           height?: number | null
           id?: string
           phash?: string | null
+          provider_metadata?: Json | null
+          rejection_reasons?: string[] | null
+          rejected_at?: string | null
           score?: number | null
           sort_order?: number
           source?: string
@@ -2289,6 +2298,9 @@ export type Database = {
           id: string
           origin_brand_image_id: string | null
           phash: string | null
+          provider_metadata: Json | null
+          rejection_reasons: string[] | null
+          rejected_at: string | null
           score: number | null
           sort_order: number
           source: string
@@ -2309,6 +2321,9 @@ export type Database = {
           id?: string
           origin_brand_image_id?: string | null
           phash?: string | null
+          provider_metadata?: Json | null
+          rejection_reasons?: string[] | null
+          rejected_at?: string | null
           score?: number | null
           sort_order?: number
           source: string
@@ -2329,6 +2344,9 @@ export type Database = {
           id?: string
           origin_brand_image_id?: string | null
           phash?: string | null
+          provider_metadata?: Json | null
+          rejection_reasons?: string[] | null
+          rejected_at?: string | null
           score?: number | null
           sort_order?: number
           source?: string
