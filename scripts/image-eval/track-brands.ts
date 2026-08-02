@@ -185,9 +185,7 @@ async function main(): Promise<void> {
 
   const { data: brands, error } = await supabase
     .from('brands')
-    .select(
-      'id, slug, name, product_type, product_tags, city, mit_status, purchase_website, social_instagram, social_threads, social_facebook, purchase_pinkoi, purchase_shopee, other_urls'
-    )
+    .select('*')
     .in('slug', TRACKED_SLUGS)
   if (error) throw error
 

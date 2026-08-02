@@ -71,10 +71,26 @@ describe('deriveOfficialWebsite', () => {
     ).toBe('https://www.taipeifoodguide.com')
   })
 
-  it('falls back to first-eligible when no domain matches the brand name', () => {
+  // A purely Han name yields no Latin tokens, so there is nothing to
+  // discriminate with and first-eligible remains the only available answer.
+  it('falls back to first-eligible for a name with no Latin tokens', () => {
     expect(
       deriveOfficialWebsite(['https://www.some-shop.tw/about', 'https://www.other.tw/'], '茶籽堂'),
     ).toBe('https://www.some-shop.tw')
+  })
+
+  // Both from one live run. First-eligible is what adopted another company's
+  // site as the brand's own; with usable tokens, no match means no website.
+  it('returns null when the name has tokens and no domain carries one', () => {
+    expect(
+      deriveOfficialWebsite(['https://www.nahoku.com/collections/rings'], 'NU Dream Jewelry'),
+    ).toBeNull()
+  })
+
+  it('never adopts a convenience-store logistics host as the brand site', () => {
+    expect(
+      deriveOfficialWebsite(['https://myship.7-11.com.tw/general/detail/GM123'], '原形東方茶飲 pur Sweets'),
+    ).toBeNull()
   })
 })
 

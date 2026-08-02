@@ -35,8 +35,12 @@ const TRACKED_SLUGS = [
  */
 const SCRATCH_EMAIL = 'bench+dev1279@formoria.com'
 
-/** The phases under test: everything from SERP through classification. */
-const PHASES = ['discover', 'detect', 'clean', 'links', 'images', 'classify_images']
+/**
+ * All three steps. Selecting steps rather than phases is the point of the new
+ * API — an operator never names a phase, and this benchmark should exercise the
+ * same surface an operator uses.
+ */
+const STEPS = ['context', 'image', 'detail'] as const
 
 type BrandRow = {
   id: string
@@ -98,12 +102,12 @@ async function main(): Promise<void> {
     }
 
     // --- run the real worker ---
-    console.log(`\nrunning runEnrich over ${createdIds.length} submissions — phases: ${PHASES.join(', ')}\n`)
+    console.log(`\nrunning runEnrich over ${createdIds.length} submissions — steps: ${STEPS.join(', ')}\n`)
     const result = await runEnrich(
       {
         target: 'submissions',
         submissionIds: createdIds,
-        phases: PHASES,
+        steps: [...STEPS],
         overwrite: true,
         onProgress: (line: string) => console.log(line),
       } as never,
@@ -121,7 +125,7 @@ async function main(): Promise<void> {
       const { data: sub } = await supabase
         .from('brand_submissions')
         .select(
-          'id, brand_name, product_type_note, purchase_website, social_instagram, social_threads, social_facebook, purchase_pinkoi, purchase_shopee, enriched_data'
+          '*'
         )
         .eq('id', submissionId)
         .single()
@@ -139,31 +143,45 @@ async function main(): Promise<void> {
 
     await writeFile(
       'scripts/image-eval/runs/_track/worker-after.json',
-      JSON.stringify({ ranAt: new Date().toISOString(), phases: PHASES, brands: captured }, null, 2)
+      JSON.stringify({ ranAt: new Date().toISOString(), steps: [...STEPS], brands: captured }, null, 2)
     )
     console.log('\nwrote scripts/image-eval/runs/_track/worker-after.json')
   } finally {
-    // --- cleanup, even if the run threw ---
+    // Cleanup must be loud. A previous run reported "cleaned up" and left all six
+    // rows in production: the deletes returned no error and affected nothing, so
+    // the only signal was a warning nobody would have acted on. Deletes now use
+    // `.select()` to report the rows they actually removed, and a leftover check
+    // throws rather than warns.
     if (createdIds.length > 0) {
-      const { error: imageError } = await supabase
+      const { data: deletedImages, error: imageError } = await supabase
         .from('submission_images')
         .delete()
         .in('submission_id', createdIds)
+        .select('id')
       if (imageError) console.error(`  cleanup: submission_images — ${imageError.message}`)
-      const { error: subError } = await supabase
+      console.log(`  deleted ${(deletedImages ?? []).length} scratch image row(s)`)
+
+      const { data: deletedSubs, error: subError } = await supabase
         .from('brand_submissions')
         .delete()
         .in('id', createdIds)
+        .select('id')
       if (subError) console.error(`  cleanup: brand_submissions — ${subError.message}`)
-      console.log(`cleaned up ${createdIds.length} scratch submission(s)`)
+      console.log(`  deleted ${(deletedSubs ?? []).length} of ${createdIds.length} scratch submission(s)`)
 
       const { data: leftovers } = await supabase
         .from('brand_submissions')
         .select('id')
         .eq('submitter_email', SCRATCH_EMAIL)
-      if ((leftovers ?? []).length > 0) {
-        console.error(`  WARNING: ${(leftovers ?? []).length} scratch row(s) remain — delete by submitter_email ${SCRATCH_EMAIL}`)
+      const remaining = (leftovers ?? []).length
+      if (remaining > 0) {
+        throw new Error(
+          `CLEANUP FAILED: ${remaining} scratch submission(s) still in production. ` +
+            `Remove them with:\n` +
+            `  delete from brand_submissions where submitter_email = '${SCRATCH_EMAIL}';`
+        )
       }
+      console.log('  cleanup verified: no scratch rows remain')
     }
   }
 }

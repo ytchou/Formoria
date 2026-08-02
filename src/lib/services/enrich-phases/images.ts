@@ -73,20 +73,22 @@ export async function runBrandImagePhase({
 
   const { result, durationMs } = await timePhase(async () => {
     /**
-     * Belt and braces. `downloadAndStoreImages` already catches per candidate and
-     * returns a null slot, so a single bad image is meant to cost that image and
-     * nothing else — but a live run still lost an entire brand here when one host
-     * returned oversized response headers and undici's HeadersOverflowError
-     * escaped the per-candidate catch. The inner cause is not understood; what is
-     * certain is that the phase must degrade to "no images" rather than take the
-     * brand down, because every later phase can cope with zero images and none of
-     * them can cope with an exception.
+     * `downloadAndStoreImages` catches per candidate and returns a null slot, so
+     * a bad image costs that image and nothing else. This guard is for the work
+     * that happens AROUND the per-candidate loop, which has no such protection —
+     * two live runs were lost to it: an oversized response header escaping as an
+     * undici HeadersOverflowError, and the existing-candidate lookup exceeding
+     * PostgREST's URI limit and throwing a raw Supabase object.
+     *
+     * Both root causes are fixed. The guard stays because the invariant is worth
+     * enforcing independently of any particular bug: every later phase copes
+     * with zero images, and none of them cope with an exception.
      */
     const imageStoredUrls = dryRun
       ? imageCandidates.map((candidate) => typeof candidate === 'string' ? candidate : candidate.url)
       : await downloadAndStoreImages(imageCandidates, target ?? brandTarget(brand.id)).catch(
           (error: unknown) => {
-            downloadFailure = error instanceof Error ? error.message : String(error)
+            downloadFailure = error instanceof Error ? error.message : JSON.stringify(error)
             console.warn(`  [IMAGES] ${brand.slug}: download batch failed — ${downloadFailure}`)
             return [] as (string | null)[]
           }

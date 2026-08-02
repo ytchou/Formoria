@@ -7,9 +7,36 @@ import {
   classifySubmittedUrl,
   extractLinksFromUrls,
   hasLinkValue,
+  isMarketplaceSearchUrl,
   LINK_FIELDS,
   linkColumnFor,
 } from '../link-enrichment'
+
+// A search page renders as a buy link but sends the reader to other sellers'
+// listings. `shopee.tw/search?keyword=女子鞋研究室` reached a live row this way.
+describe('isMarketplaceSearchUrl', () => {
+  it('rejects a keyword search page', () => {
+    expect(
+      isMarketplaceSearchUrl('https://shopee.tw/search?keyword=%E5%A5%B3%E5%AD%90%E9%9E%8B%E7%A0%94%E7%A9%B6%E5%AE%A4')
+    ).toBe(true)
+  })
+
+  it('rejects a bare host carrying only a search term', () => {
+    expect(isMarketplaceSearchUrl('https://www.pinkoi.com/?q=brand')).toBe(true)
+  })
+
+  it('accepts real storefronts', () => {
+    expect(isMarketplaceSearchUrl('https://shopee.tw/jennytseng1')).toBe(false)
+    expect(isMarketplaceSearchUrl('https://www.pinkoi.com/store/majorpleasure')).toBe(false)
+  })
+
+  // A tracking query string must not smuggle a search page past the gate, and
+  // a malformed value is rejected rather than published.
+  it('matches on pathname, and rejects a malformed URL', () => {
+    expect(isMarketplaceSearchUrl('https://shopee.tw/search/?utm_source=ig')).toBe(true)
+    expect(isMarketplaceSearchUrl('not a url')).toBe(true)
+  })
+})
 
 describe('canonicalizeThreadsUrl', () => {
   it('rewrites threads.net to threads.com, preserving path and query', () => {
@@ -59,6 +86,17 @@ describe('LINK_FIELDS', () => {
 })
 
 describe('buildLinkEnrichPatch', () => {
+  it('declines to write a marketplace search page over an empty column', () => {
+    const patch = buildLinkEnrichPatch(
+      {
+        social_instagram: null, social_threads: null, social_facebook: null,
+        purchase_website: null, purchase_pinkoi: null, purchase_shopee: null,
+      },
+      { purchaseShopee: 'https://shopee.tw/search?keyword=brand' }
+    )
+    expect(patch.purchase_shopee).toBeUndefined()
+  })
+
   it('fills empty link fields from scraped data', () => {
     const brand = {
       social_instagram: null, social_threads: null,

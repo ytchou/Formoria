@@ -91,6 +91,18 @@ const NON_BRAND_PLATFORM_HOSTS = [
   'maps.google.com',
   'goo.gl',
   'books.com.tw',
+  // Convenience-store logistics and hosted checkout. A brand links these as a
+  // *shipping option*, never as its own site, but they outrank a small brand's
+  // domain often enough to be adopted as one — `https://myship.7-11.com.tw`
+  // stood in as 原形東方茶飲's official website on a live run.
+  'myship.7-11.com.tw',
+  '7-11.com.tw',
+  'ibon.com.tw',
+  'family.com.tw',
+  'famiport.com.tw',
+  'ecpay.com.tw',
+  'newebpay.com',
+  'payuni.com.tw',
   // Publishing platforms and site builders (their own domain, not a brand's)
   'medium.com',
   'pixnet.net',

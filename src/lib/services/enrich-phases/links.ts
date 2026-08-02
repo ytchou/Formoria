@@ -139,9 +139,17 @@ function hostMatchesBrandName(url: string, tokens: string[]): boolean {
  * platform" made `https://www.ubereats.com` a tea brand's official website,
  * because its delivery page outranked the brand's own domain. So prefer a host
  * that plausibly belongs to the brand — one whose registrable domain carries a
- * Latin token of the brand name — and only fall back to first-eligible when no
- * candidate does. Pure function; `brandName` is optional so callers without one
- * keep the original behaviour exactly.
+ * Latin token of the brand name. Pure function; `brandName` is optional so
+ * callers without one keep the original behaviour exactly.
+ *
+ * When the name DOES yield tokens and no eligible host carries one, the answer
+ * is null, not first-eligible. That fallback is how `https://www.nahoku.com` —
+ * a Hawaiian jewellery company — became NU Dream Jewelry's official website,
+ * and how `https://myship.7-11.com.tw` became 原形東方茶飲's. A brand with no
+ * site of its own is the common case here; the correct representation of it is
+ * an empty column, not the SERP's first non-platform result. Only a name with
+ * no Latin tokens at all (a purely Han name, which cannot fingerprint a domain)
+ * still falls back, because for those we have nothing to discriminate with.
  *
  * Exported for its unit tests: the aggregator and Threads cases below guard a
  * production bug where a platform host was adopted as a brand's own site.
@@ -154,7 +162,8 @@ function hostMatchesBrandName(url: string, tokens: string[]): boolean {
 export function deriveOfficialWebsite(urls: string[], brandName?: string | null): string | null {
   const eligible = urls.filter((u) => classifyByDomain(u) === null && !isNonBrandSiteHost(u))
   const tokens = brandNameTokens(brandName)
-  const url = eligible.find((u) => hostMatchesBrandName(u, tokens)) ?? eligible.at(0)
+  const matched = eligible.find((u) => hostMatchesBrandName(u, tokens))
+  const url = matched ?? (tokens.length > 0 ? null : eligible.at(0))
   return normalizeToRootUrl(url ?? null)
 }
 

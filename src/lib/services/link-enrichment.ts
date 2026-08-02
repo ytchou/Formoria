@@ -146,6 +146,43 @@ export function canonicalizeThreadsUrl(url: string): string {
 }
 
 /**
+ * Marketplace paths that are a *query*, not a seller. A brand's own site
+ * frequently links its Shopee presence as a keyword search rather than as its
+ * storefront, and that URL is indistinguishable from a real store to every
+ * pattern that only checks the host — `shopee.tw/search?keyword=女子鞋研究室`
+ * was written to Major Pleasure's `purchase_shopee` on a live run. It renders
+ * as a buy link, sends the reader to a page of other sellers' listings, and
+ * breaks the moment Shopee changes its ranking.
+ *
+ * Matched on pathname only, so an added tracking query string cannot slip a
+ * search page past. A malformed URL is rejected: this gate is only ever
+ * consulted for values we are about to publish as purchase links.
+ */
+const MARKETPLACE_SEARCH_PATHS = [
+  '/search',
+  '/find',
+  '/mall/search',
+  '/browse',
+  '/product-search',
+  '/collections/all',
+]
+
+export function isMarketplaceSearchUrl(url: string): boolean {
+  try {
+    const { pathname, searchParams } = new URL(url)
+    const path = pathname.toLowerCase().replace(/\/+$/, '')
+    if (MARKETPLACE_SEARCH_PATHS.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) {
+      return true
+    }
+    // A bare host carrying only a search term is the same page under a
+    // different route (`pinkoi.com/?q=...`).
+    return path === '' && (searchParams.has('keyword') || searchParams.has('q'))
+  } catch {
+    return true
+  }
+}
+
+/**
  * Per-field cleanup applied to a scraped value before it is compared with, and
  * possibly written over, what the row already holds.
  *
@@ -154,6 +191,9 @@ export function canonicalizeThreadsUrl(url: string): string {
  * column the image phase issues `site:{platform} {name}` — searching the whole
  * platform instead of the brand. Returning null here means the existing value
  * survives untouched; we decline to write, we do not clobber.
+ *
+ * The two marketplace columns are dropped on the same terms when the URL is a
+ * search page rather than a storefront.
  */
 function normalizeScrapedLinkValue(
   field: LinkField,
@@ -162,6 +202,12 @@ function normalizeScrapedLinkValue(
   if (!hasLinkValue(value)) return value
   if (field === 'socialThreads') return canonicalizeThreadsUrl(value)
   if (field === 'purchaseWebsite' && isNonBrandSiteHost(value)) return null
+  if (
+    (field === 'purchaseShopee' || field === 'purchasePinkoi') &&
+    isMarketplaceSearchUrl(value)
+  ) {
+    return null
+  }
   return value
 }
 

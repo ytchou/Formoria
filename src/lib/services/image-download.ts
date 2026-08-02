@@ -125,6 +125,37 @@ type ExistingImageRow = {
   url: string
 }
 
+/**
+ * PostgREST sends `.in()` as a GET query string, so the limit is bytes, not
+ * rows. Instagram and Meta CDN URLs carry signed parameters and run past 700
+ * characters each, so a couple of dozen candidates is enough to blow the URI
+ * limit — the request fails, the raw Supabase error object is thrown, and
+ * because it is not an `Error` it used to surface as `[object Object]` after
+ * taking down the whole images phase for that brand. Chunk by cumulative
+ * length rather than by count, since one long URL costs as much as ten short
+ * ones.
+ */
+const IN_FILTER_URL_BUDGET = 2_000
+
+function chunkByLength(values: string[], budget: number): string[][] {
+  const chunks: string[][] = []
+  let current: string[] = []
+  let size = 0
+  for (const value of values) {
+    // A single over-budget URL still has to go somewhere: give it its own chunk
+    // rather than dropping it or wedging it into a full one.
+    if (current.length > 0 && size + value.length > budget) {
+      chunks.push(current)
+      current = []
+      size = 0
+    }
+    current.push(value)
+    size += value.length
+  }
+  if (current.length > 0) chunks.push(current)
+  return chunks
+}
+
 async function loadExistingCandidates(
   supabase: ReturnType<typeof createServiceClient>,
   target: EnrichmentTarget,
@@ -134,15 +165,19 @@ async function loadExistingCandidates(
   if (sourceUrls.length === 0) return new Map()
 
   const storage = targetImageStorage(target)
-  const { data, error } = await supabase
-    .from(storage.table)
-    .select('source_url, status, storage_path, url')
-    .eq(storage.foreignKey, target.id)
-    .in('source_url', sourceUrls) as { data: ExistingImageRow[] | null; error: { message: string } | null }
-  if (error) throw error
+  const rows: ExistingImageRow[] = []
+  for (const chunk of chunkByLength(sourceUrls, IN_FILTER_URL_BUDGET)) {
+    const { data, error } = await supabase
+      .from(storage.table)
+      .select('source_url, status, storage_path, url')
+      .eq(storage.foreignKey, target.id)
+      .in('source_url', chunk) as { data: ExistingImageRow[] | null; error: { message: string } | null }
+    if (error) throw new Error(`loadExistingCandidates failed: ${JSON.stringify(error)}`)
+    rows.push(...(data ?? []))
+  }
 
   return new Map(
-    (data ?? [])
+    (rows)
       .filter((row) => typeof row.source_url === 'string')
       .map((row) => [row.source_url as string, row]),
   )
