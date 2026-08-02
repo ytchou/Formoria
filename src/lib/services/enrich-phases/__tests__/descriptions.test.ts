@@ -1,27 +1,20 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
+import { resolveClearedFields } from '../descriptions'
 import type { DescriptionRewriteResult } from '../../description-rewrite'
 import type { EnrichBrand } from '../types'
 
-const { rewriteBrandDescription } = vi.hoisted(() => ({
-  rewriteBrandDescription: vi.fn(),
-}))
-
-vi.mock('../../description-rewrite', () => ({ rewriteBrandDescription }))
-
-vi.mock('@/lib/supabase/server', () => {
-  // Every read this phase makes ends in `.limit()`; returning no rows keeps the
-  // test on the LLM verdict, which is the thing under test.
-  const query: Record<string, unknown> = {}
-  query.select = () => query
-  query.eq = () => query
-  query.order = () => query
-  query.limit = () => Promise.resolve({ data: [], error: null })
-  return { createServiceClient: () => ({ from: () => query }) }
-})
-
-import { runDescriptionsPhase } from '../descriptions'
-
-const rewriteResult = (over: Partial<DescriptionRewriteResult> = {}): DescriptionRewriteResult =>
+/**
+ * `_cleared_fields` is the difference between "this phase ran and found
+ * nothing" and "this phase never ran". Only the first may empty a live field,
+ * so each case below pins one half of that distinction.
+ *
+ * Tested through the pure resolver rather than by driving the whole phase: the
+ * phase reads Supabase, and this project forbids mocking it — `pnpm lint` runs
+ * `check:test-boundaries`, which fails on a test that mocks
+ * `@/lib/supabase/server`. The resolver is where the entire decision lives, so
+ * nothing is lost by testing it directly.
+ */
+const rewrite = (over: Partial<DescriptionRewriteResult> = {}): DescriptionRewriteResult =>
   ({
     description_zh: null,
     description_en: null,
@@ -41,80 +34,49 @@ const rewriteResult = (over: Partial<DescriptionRewriteResult> = {}): Descriptio
     ...over,
   }) as DescriptionRewriteResult
 
-const brand = (over: Partial<EnrichBrand> = {}): EnrichBrand => ({
-  id: '00000000-0000-4000-8000-000000000001',
-  slug: 'a-brand',
-  name: 'A Brand',
-  description: '既有的品牌描述',
-  ...over,
-})
+const brandWith = (reputation: unknown): EnrichBrand =>
+  ({
+    id: '00000000-0000-4000-8000-000000000001',
+    slug: 'a-brand',
+    name: 'A Brand',
+    description: '既有的品牌描述',
+    reputation_summary: reputation,
+  }) as unknown as EnrichBrand
 
-// A refresh always runs with overwrite on, and only then is a non-empty field
-// eligible to be rewritten — or emptied.
-const run = (brandRow: EnrichBrand) =>
-  runDescriptionsPhase({
-    brand: brandRow,
-    phases: ['descriptions'],
-    serpSnippets: ['某個搜尋摘要'],
-    overwrite: true,
-    dryRun: true,
+const EXISTING = { text: '過時的媒體評價', sources: [] }
+
+/** Stands in for the phase's write policy: writable, or protected. */
+const writable = () => true
+const protectedField = () => false
+
+describe('resolveClearedFields', () => {
+  it('clears reputation_summary when the phase ran, found none, and the brand has one', () => {
+    expect(resolveClearedFields(rewrite(), brandWith(EXISTING), writable)).toEqual([
+      'reputation_summary',
+    ])
   })
 
-describe('runDescriptionsPhase — _cleared_fields', () => {
-  beforeEach(() => {
-    rewriteBrandDescription.mockReset()
+  it('clears nothing when the brand has no reputation to begin with', () => {
+    expect(resolveClearedFields(rewrite(), brandWith(null), writable)).toEqual([])
   })
 
-  it('emits a clear when the rewrite found no reputation and the brand has one', async () => {
-    rewriteBrandDescription.mockResolvedValue({
-      result: rewriteResult({ reputationSummary: null }),
-      attempts: [],
-    })
-
-    const { patch, phaseResult } = await run(
-      brand({ reputation_summary: { text: '過時的媒體評價', sources: [] } }),
-    )
-
-    expect(patch._cleared_fields).toEqual(['reputation_summary'])
-    expect(phaseResult.changedFields).toContain('reputation_summary')
+  // The case that makes the whole mechanism safe: a run without the DETAIL step
+  // produces no rewrite at all. That is silence, not a verdict, and must never
+  // empty a live field.
+  it('clears nothing when the phase produced no rewrite', () => {
+    expect(resolveClearedFields(null, brandWith(EXISTING), writable)).toEqual([])
   })
 
-  it('emits nothing when the brand has no reputation to clear', async () => {
-    rewriteBrandDescription.mockResolvedValue({
-      result: rewriteResult({ reputationSummary: null }),
-      attempts: [],
-    })
-
-    const { patch } = await run(brand({ reputation_summary: null }))
-
-    expect(patch).not.toHaveProperty('_cleared_fields')
+  it('clears nothing when the rewrite actually found a reputation', () => {
+    const found = rewrite({
+      reputationSummary: { text: '新的媒體評價', textEn: null, sources: [] },
+    } as Partial<DescriptionRewriteResult>)
+    expect(resolveClearedFields(found, brandWith(EXISTING), writable)).toEqual([])
   })
 
-  it('emits nothing when the rewrite produced a reputation', async () => {
-    rewriteBrandDescription.mockResolvedValue({
-      result: rewriteResult({
-        reputationSummary: { text: '新的媒體評價', textEn: null, sources: [] },
-      }),
-      attempts: [],
-    })
-
-    const { patch } = await run(
-      brand({ reputation_summary: { text: '過時的媒體評價', sources: [] } }),
-    )
-
-    expect(patch).not.toHaveProperty('_cleared_fields')
-    expect(patch.reputation_summary).toMatchObject({ text: '新的媒體評價' })
-  })
-
-  // Silence, not a verdict: a failed LLM call must never empty a field.
-  it('emits nothing when the phase produced no rewrite at all', async () => {
-    rewriteBrandDescription.mockResolvedValue(null)
-
-    const { patch } = await run(
-      brand({ reputation_summary: { text: '過時的媒體評價', sources: [] } }),
-    )
-
-    expect(patch).not.toHaveProperty('_cleared_fields')
-    expect(patch).toEqual({})
+  // Owner- and admin-owned fields are off limits to the pipeline whether it is
+  // writing a value or removing one.
+  it('clears nothing when the field is protected', () => {
+    expect(resolveClearedFields(rewrite(), brandWith(EXISTING), protectedField)).toEqual([])
   })
 })
