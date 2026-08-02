@@ -986,6 +986,10 @@
         "question": "What counts as a Taiwanese brand?",
         "answer": "A brand qualifies if it was founded, designed, or manufactured in Taiwan — meeting any one of the three is enough. For example, a company headquartered in Taipei qualifies under 'founded'; a studio that designs products in Taiwan but manufactures overseas qualifies under 'designed'; a workshop producing goods in Yingge qualifies under 'manufactured'. We welcome recommendations from brand owners, fans, and community members alike."
       },
+      "notListedBrands": {
+        "question": "What kinds of brands are not listed?",
+        "answer": "Formoria lists brands with their own products, so we do not list proxy buyers, curated or multi-brand shops without a product line of their own, platforms and retail channels, media and review sites, importers or distributors of foreign brands, or personal accounts offering only services or digital goods. A curated shop that makes its own product line, or a creator with their own physical products, does qualify."
+      },
       "whatDoesMitMean": {
         "question": "What do the MIT tiers mean?",
         "answer": "MIT Verified means Formoria matched a product to the official MIT Smile registry. MIT Declared means the brand owner stated whether some, most, or all products are made in Taiwan. Neither tier implies that every product from the brand is made in Taiwan; check the listed scope and evidence."

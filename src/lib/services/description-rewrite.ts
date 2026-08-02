@@ -48,7 +48,62 @@ export type DescriptionRewriteResult = {
   }>
   rejected?: { tag: string; reason: string }[]
   crossBranch?: string[]
+  /**
+   * Stage-2 listing verdict. Optional and always tolerated as absent: descriptions
+   * are the primary output of this call, so a missing or malformed `listing` must
+   * never invalidate them. Never fed into the description validation/retry loop.
+   */
+  listing?: ListingVerdict
   rawResponse?: unknown
+}
+
+const LISTING_VERDICTS = ['list', 'reject'] as const
+const TAIWAN_CONNECTIONS = ['created', 'designed', 'manufactured', 'unclear'] as const
+
+export type ListingVerdict = {
+  verdict: 'list' | 'reject'
+  reason: string | null
+  taiwanConnection: (typeof TAIWAN_CONNECTIONS)[number] | null
+  hasOwnProducts: boolean | null
+  hasPurchaseChannel: boolean | null
+}
+
+/**
+ * Returns undefined for anything unrecognised rather than throwing: an unknown
+ * verdict string is a model error, and the correct fallback is "no opinion"
+ * (which the consumer treats as `list`), not a discarded description.
+ */
+export function parseListingVerdict(raw: unknown): ListingVerdict | undefined {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return undefined
+  const listing = raw as Record<string, unknown>
+  const verdict = LISTING_VERDICTS.find((value) => value === listing.verdict)
+  if (!verdict) return undefined
+
+  const taiwanConnection = TAIWAN_CONNECTIONS.find((value) => value === listing.taiwan_connection) ?? null
+  const rawReason = typeof listing.reason === 'string' ? listing.reason.trim() : ''
+
+  return {
+    verdict,
+    reason: rawReason.length > 0 ? localizeZhText(rawReason) : null,
+    taiwanConnection,
+    hasOwnProducts: typeof listing.has_own_products === 'boolean' ? listing.has_own_products : null,
+    hasPurchaseChannel: typeof listing.has_purchase_channel === 'boolean' ? listing.has_purchase_channel : null,
+  }
+}
+
+/** Extra evidence the stage-2 listing decision needs but the description text does not. */
+export type DescriptionEvidence = {
+  links?: {
+    purchaseWebsite?: string | null
+    socialInstagram?: string | null
+    socialThreads?: string | null
+    socialFacebook?: string | null
+    purchasePinkoi?: string | null
+    purchaseShopee?: string | null
+  }
+  productCategoryZh?: string | null
+  /** Alt text of the brand's classified images — direct evidence that physical products exist. */
+  imageAlts?: string[]
 }
 
 type DescriptionAttemptInput = {
@@ -209,6 +264,8 @@ export function parseDescriptionRewriteResult(content: string): DescriptionRewri
       })()
     : null
 
+  const listing = parseListingVerdict(parsed.listing)
+
   const acceptedTags = normalizedTags.tags.length >= 1 ? normalizedTags.tags : []
   const acceptedTagsEn = normalizedTags.tags.length >= 1 ? normalizedTags.tagsEn : []
 
@@ -230,6 +287,7 @@ export function parseDescriptionRewriteResult(content: string): DescriptionRewri
     validationRejections: [],
     rejected: normalizedTags.rejected,
     crossBranch: normalizedTags.crossBranch,
+    ...(listing ? { listing } : {}),
   }
 }
 
@@ -481,6 +539,7 @@ export async function rewriteBrandDescription(
   snippets: string[],
   siteContent: string | null,
   audit: Pick<LlmAuditContext, 'jobId' | 'target'>,
+  evidence?: DescriptionEvidence,
 ): Promise<DescriptionRewriteOutput | null> {
   const token = process.env.DEEPSEEK_API_KEY
   if (!token) return null
@@ -489,11 +548,33 @@ export async function rewriteBrandDescription(
   const sanitizedSnippets = snippets.slice(0, 10).map(stripAiToolArtifacts)
   const sanitizedSiteContent = siteContent ? stripAiToolArtifacts(siteContent) : null
 
+  // Stage-2 listing evidence. Appended, never interleaved: the four fields above
+  // are the description inputs and their labels are what the tuned prompt reads.
+  // Purchase channels and image alt text cannot be inferred from prose, so the
+  // listing verdict is only as good as these lines.
+  const labelledLinks: Array<[string, string | null | undefined]> = [
+    ['官方購買網站', evidence?.links?.purchaseWebsite],
+    ['Instagram', evidence?.links?.socialInstagram],
+    ['Threads', evidence?.links?.socialThreads],
+    ['Facebook', evidence?.links?.socialFacebook],
+    ['Pinkoi', evidence?.links?.purchasePinkoi],
+    ['蝦皮', evidence?.links?.purchaseShopee],
+  ]
+  const linkLines = labelledLinks.flatMap(([label, url]) =>
+    typeof url === 'string' && url.trim().length > 0 ? [`- ${label}：${url.trim()}`] : [],
+  )
+  const imageAlts = (evidence?.imageAlts ?? [])
+    .filter((alt): alt is string => typeof alt === 'string' && alt.trim().length > 0)
+    .map((alt) => `- ${stripAiToolArtifacts(alt.trim())}`)
+
   const userContent = [
     `品牌名稱：${brandName}`,
     existingDescription ? `現有描述：${existingDescription}` : '',
     sanitizedSnippets.length > 0 ? `搜尋摘要：\n${sanitizedSnippets.join('\n')}` : '',
     sanitizedSiteContent ? `網站內容：\n${sanitizedSiteContent}` : '',
+    linkLines.length > 0 ? `品牌連結：\n${linkLines.join('\n')}` : '',
+    evidence?.productCategoryZh ? `商品分類：${evidence.productCategoryZh}` : '',
+    imageAlts.length > 0 ? `商品圖片描述：\n${imageAlts.join('\n')}` : '',
   ].filter(Boolean).join('\n\n')
 
   const attemptInput: DescriptionAttemptInput = {
@@ -514,6 +595,9 @@ export async function rewriteBrandDescription(
   let acceptedBlurbZh: string | null = null
   let acceptedBlurbEn: string | null = null
   let acceptedPriceRange: 1 | 2 | 3 | null = null
+  // First verdict wins, like every other accepted field: attempt 2 only retries the
+  // failing description fields, so its listing evidence is no fresher than attempt 1's.
+  let acceptedListing: ListingVerdict | undefined
   const allValidationRejections: DescriptionRewriteResult['validationRejections'] = []
   const attempts: DescriptionAttempt[] = []
   const localizeAcceptedZh = (value: string | null): string | null =>
@@ -617,8 +701,10 @@ export async function rewriteBrandDescription(
       acceptedBlurbZh ??= localizeAcceptedZh(validated.blurb_zh)
       acceptedBlurbEn ??= validated.blurb_en
       acceptedPriceRange ??= validated.priceRange
+      acceptedListing ??= validated.listing
       bestResult = {
         ...validated,
+        ...(acceptedListing ? { listing: acceptedListing } : {}),
         description_zh: acceptedDescriptionZh,
         description_en: acceptedDescriptionEn,
         description: acceptedDescriptionZh,

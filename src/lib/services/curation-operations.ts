@@ -1616,6 +1616,7 @@ export async function runEnrich(
             dryRun: config.dryRun,
             target: { type: targetType, id: brand.id },
             jobId: config.jobId,
+            pendingPatch: state.patches,
           });
           const effectiveProductType =
             typeof state.patches.product_type === "string"
@@ -1647,9 +1648,75 @@ export async function runEnrich(
               );
             }
           }
+          // Stage-2 listing gate. Absent or `list` verdicts are a no-op, so a model
+          // that never emitted the field behaves exactly as before.
+          const listingVerdict =
+            descriptionsResult.descriptionRewrite?.listing ?? null;
+          const listingReason =
+            listingVerdict?.reason ??
+            "Listing check rejected this brand (no reason given)";
+          if (listingVerdict?.verdict === "reject") {
+            onProgress(
+              `  [NOT-LISTABLE] ${brand.slug}: ${listingReason} (taiwan_connection=${listingVerdict.taiwanConnection ?? "unknown"}, own_products=${listingVerdict.hasOwnProducts ?? "unknown"}, purchase_channel=${listingVerdict.hasPurchaseChannel ?? "unknown"})`,
+            );
+            // Annotated before the phase is logged so the emitted progress event and
+            // the recorded outcome carry the same detail string.
+            descriptionsResult.phaseResult.detail = [
+              descriptionsResult.phaseResult.detail,
+              `listing verdict: reject — ${listingReason}`,
+            ]
+              .filter(Boolean)
+              .join("; ");
+          }
+
           state.phaseResults.push(descriptionsResult.phaseResult);
           await logCurrentPhase(descriptionsResult.phaseResult);
           appendPatch(state, descriptionsResult.patch);
+
+          if (listingVerdict?.verdict === "reject") {
+            if (target === "submissions") {
+              // A submission is not yet published, so this is a real gate: mirror the
+              // detect non-brand path exactly — triage row, then a skipped outcome.
+              if (!config.dryRun) {
+                await insertTriageResult({
+                  brandId: brand.id,
+                  target: { type: targetType, id: brand.id },
+                  isNonBrand: true,
+                  nonBrandReason: `listing_reject: ${listingReason}`,
+                  slugGenerated: null,
+                  productType: effectiveProductType ?? null,
+                  confidence: "medium",
+                });
+              }
+
+              await recordOutcome({
+                slug: brand.slug,
+                name: getDisplayBrandName(brand),
+                submissionId: brand.id,
+                status: "skipped",
+                changedFields: changedFieldsFromPhaseResults(state.phaseResults),
+                phaseResults: state.phaseResults,
+                error: `Listing check rejected this submission: ${listingReason}`,
+              });
+              result.skipped += 1;
+              onProgress(
+                formatBrandComplete(
+                  brand.slug,
+                  brandIndex,
+                  totalBrands,
+                  Date.now() - brandStartedAt,
+                ),
+              );
+              return;
+            }
+            // An approved brand is already public: record only — the onProgress log
+            // and the phase detail above are the whole action. Nothing is
+            // unpublished or hidden, brands.status is untouched, and the run
+            // continues to the remaining phases. insertTriageResult is deliberately
+            // NOT called here: its row shape is the detect-phase triage schema, and
+            // widening it would be a schema change.
+          }
+
           const reputationAlreadySet =
             descriptionsResult.patch.reputation_summary != null;
 

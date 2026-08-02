@@ -281,3 +281,79 @@ describe('parseDescriptionRewriteResult', () => {
     expect(output?.result.description_en).toContain('raised NT$5 million')
   })
 })
+
+describe('parseDescriptionRewriteResult — listing verdict', () => {
+  const withListing = (listing: unknown): string =>
+    JSON.stringify({
+      description_zh: '品牌簡介',
+      description_en: 'Brand description',
+      blurb_zh: '摘要',
+      blurb_en: 'Summary',
+      product_tags: [],
+      product_tags_en: [],
+      city: '台北',
+      founding_year: null,
+      ...(listing === undefined ? {} : { listing }),
+    })
+
+  it('parses a valid listing object', () => {
+    const result = parseDescriptionRewriteResult(
+      withListing({
+        verdict: 'reject',
+        reason: '沒有自有商品，屬於代購',
+        taiwan_connection: 'unclear',
+        has_own_products: false,
+        has_purchase_channel: true,
+      }),
+    )
+
+    expect(result.listing).toEqual({
+      verdict: 'reject',
+      reason: '沒有自有商品，屬於代購',
+      taiwanConnection: 'unclear',
+      hasOwnProducts: false,
+      hasPurchaseChannel: true,
+    })
+  })
+
+  it('leaves the description result fully valid when listing is absent', () => {
+    const result = parseDescriptionRewriteResult(withListing(undefined))
+
+    expect(result.listing).toBeUndefined()
+    // Descriptions are the primary output — a missing secondary field cannot void them.
+    expect(result.description_zh).toBe('品牌簡介')
+    expect(result.description_en).toBe('Brand description')
+    expect(result.blurb_zh).toBe('摘要')
+    expect(result.blurb_en).toBe('Summary')
+    expect(result.city).toBe('taipei')
+  })
+
+  it('degrades an unknown verdict to undefined without throwing', () => {
+    const result = parseDescriptionRewriteResult(
+      withListing({ verdict: 'maybe', reason: 'unsure', taiwan_connection: 'moon' }),
+    )
+
+    expect(result.listing).toBeUndefined()
+    expect(result.description_zh).toBe('品牌簡介')
+  })
+
+  it('degrades a malformed listing value to undefined without throwing', () => {
+    expect(parseDescriptionRewriteResult(withListing('reject')).listing).toBeUndefined()
+    expect(parseDescriptionRewriteResult(withListing(['reject'])).listing).toBeUndefined()
+    expect(parseDescriptionRewriteResult(withListing(null)).listing).toBeUndefined()
+  })
+
+  it('keeps a valid verdict while nulling only the unrecognised sub-fields', () => {
+    const result = parseDescriptionRewriteResult(
+      withListing({ verdict: 'list', taiwan_connection: 'imported', has_own_products: 'yes' }),
+    )
+
+    expect(result.listing).toEqual({
+      verdict: 'list',
+      reason: null,
+      taiwanConnection: null,
+      hasOwnProducts: null,
+      hasPurchaseChannel: null,
+    })
+  })
+})
