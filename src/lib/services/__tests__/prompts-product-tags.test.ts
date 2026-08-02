@@ -44,3 +44,19 @@ describe('listing criteria are split across the two stages', () => {
     expect(DETECT_SYSTEM_PROMPT).toContain('Uncertainty is never a rejection')
   })
 })
+
+describe('the product category is decided in the descriptions stage', () => {
+  // Detect judges from SERP snippets alone, before the brand's own site is
+  // scraped and before any product photo is seen. The category is a reasoning
+  // task, so it belongs to the call that has that evidence.
+  it('drops the category from the detect contract', () => {
+    expect(DETECT_SYSTEM_PROMPT).not.toContain('productType')
+    expect(DETECT_SYSTEM_PROMPT).not.toContain('## Category')
+  })
+
+  it('asks the descriptions stage for a single L1 category slug', () => {
+    expect(DESCRIPTION_SYSTEM_PROMPT).toContain('product_type')
+    expect(DESCRIPTION_SYSTEM_PROMPT).toContain('bags-accessories')
+    expect(DESCRIPTION_SYSTEM_PROMPT).toContain('核心產品線')
+  })
+})

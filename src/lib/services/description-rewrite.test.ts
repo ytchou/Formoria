@@ -357,3 +357,41 @@ describe('parseDescriptionRewriteResult — listing verdict', () => {
     })
   })
 })
+
+describe('parseDescriptionRewriteResult — product_type', () => {
+  const withProductType = (productType: unknown): string =>
+    JSON.stringify({
+      description_zh: '品牌簡介',
+      description_en: 'Brand description',
+      blurb_zh: '摘要',
+      blurb_en: 'Summary',
+      product_tags: [],
+      product_tags_en: [],
+      city: '台北',
+      founding_year: null,
+      ...(productType === undefined ? {} : { product_type: productType }),
+    })
+
+  it('parses a valid L1 category slug', () => {
+    expect(parseDescriptionRewriteResult(withProductType('beauty')).productType).toBe('beauty')
+  })
+
+  it('leaves the description result fully valid when product_type is absent', () => {
+    const result = parseDescriptionRewriteResult(withProductType(undefined))
+
+    expect(result.productType).toBeUndefined()
+    expect(result.description_zh).toBe('品牌簡介')
+    expect(result.description_en).toBe('Brand description')
+    expect(result.blurb_zh).toBe('摘要')
+    expect(result.blurb_en).toBe('Summary')
+  })
+
+  it('degrades an unrecognised category to undefined without voiding the description', () => {
+    for (const value of ['skincare', '美妝', '', 42, null, ['beauty']]) {
+      const result = parseDescriptionRewriteResult(withProductType(value))
+      expect(result.productType, `value: ${JSON.stringify(value)}`).toBeUndefined()
+      expect(result.description_zh).toBe('品牌簡介')
+      expect(result.description_en).toBe('Brand description')
+    }
+  })
+})

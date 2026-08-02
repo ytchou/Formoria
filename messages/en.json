@@ -2540,8 +2540,11 @@
       "fetchData": "Fetch Data",
       "approve": "Approve",
       "approveRefresh": "Approve — updates the live brand",
-      "runImageCuration": "Run image curation again ({count})",
-      "runTextCuration": "Run text curation again ({count})",
+      "runStepCuration": {
+        "context": "Run Context step again ({count})",
+        "image": "Run Image step again ({count})",
+        "detail": "Run Detail step again ({count})"
+      },
       "storageCleanupWarning": "The refresh was applied, but some retired image files still need cleanup.",
       "reject": "Reject",
       "edit": "Edit",

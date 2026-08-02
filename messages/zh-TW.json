@@ -2540,8 +2540,11 @@
       "fetchData": "抓取資料",
       "approve": "核准",
       "approveRefresh": "核准 — 將更新線上品牌資料",
-      "runImageCuration": "重新執行圖片擷取（{count}）",
-      "runTextCuration": "重新執行文字擷取（{count}）",
+      "runStepCuration": {
+        "context": "重新執行「基本資料」步驟（{count}）",
+        "image": "重新執行「圖片」步驟（{count}）",
+        "detail": "重新執行「詳細內容」步驟（{count}）"
+      },
       "storageCleanupWarning": "資料已更新，但部分已淘汰的圖片檔案仍需清理。",
       "reject": "拒絕",
       "edit": "編輯",

@@ -44,7 +44,7 @@ ${CATEGORY_LIST}
 單一品牌：{"productType":"<類別 slug>","confidence":"high|medium|low"}
 多個品牌：[{"slug":"<品牌 slug>","productType":"<類別 slug>","confidence":"high|medium|low"}]`
 
-export const DETECT_SYSTEM_PROMPT = `You triage submissions to Formoria, a directory of Taiwanese product brands. You do two things: flag entities that are definitionally not a product brand, and normalise the brand's name, slug and category.
+export const DETECT_SYSTEM_PROMPT = `You triage submissions to Formoria, a directory of Taiwanese product brands. You do two things: flag entities that are definitionally not a product brand, and normalise the brand's name and slug.
 
 You are working from a name, sometimes a website, and search-result snippets. You do NOT have the brand's own site, its purchase channels, or its product images — a later stage sees all of those and makes the actual listing decision. Your bar is therefore deliberately high: reject only what is unmistakable from the evidence in front of you, and pass everything else through.
 
@@ -72,11 +72,6 @@ Boundaries:
 - low — thin, conflicting, or possibly about a different entity.
 
 Only a high-confidence rejection stops the pipeline. Use high sparingly.
-
-## Category
-${CATEGORY_LIST}
-
-Pick the category matching the brand's core product line. For a brand spanning categories, pick its primary line. Return null when the evidence does not support a choice.
 
 ## Slug
 
@@ -106,29 +101,29 @@ The input carries a name, sometimes a description and website, and often Google 
 ## Examples
 
 輸入：品牌名：好物嚴選 / 網站：goodstuff.tw
-輸出：{"isNonBrand":true,"nonBrandReason":"選物店，策展銷售多品牌商品，無自有產品","brand_name":"好物嚴選","slug_generated":null,"productType":null,"confidence":"high"}
+輸出：{"isNonBrand":true,"nonBrandReason":"選物店，策展銷售多品牌商品，無自有產品","brand_name":"好物嚴選","slug_generated":null,"confidence":"high"}
 
 輸入：品牌名：小島插畫 / 描述：販售原創角色貼紙與明信片 / 購買管道：Pinkoi
-輸出：{"isNonBrand":false,"nonBrandReason":null,"brand_name":"小島插畫","slug_generated":null,"productType":"stationery","confidence":"high"}
+輸出：{"isNonBrand":false,"nonBrandReason":null,"brand_name":"小島插畫","slug_generated":null,"confidence":"high"}
 
 輸入：品牌名：小熊日常 / 描述：發布原創角色貼圖與插畫，尚無商品販售資訊 / 社群：Instagram
-輸出：{"isNonBrand":true,"nonBrandReason":"插畫創作者，無可購買的實體商品或可驗證購買管道","brand_name":"小熊日常","slug_generated":null,"productType":null,"confidence":"high"}
+輸出：{"isNonBrand":true,"nonBrandReason":"插畫創作者，無可購買的實體商品或可驗證購買管道","brand_name":"小熊日常","slug_generated":null,"confidence":"high"}
 
 輸入：品牌名：Ariel 的設計工作室 / 描述：平面設計接案、品牌識別規劃 / 社群：Instagram
-輸出：{"isNonBrand":true,"nonBrandReason":"個人接案工作室，無自有實體商品","brand_name":"Ariel 的設計工作室","slug_generated":null,"productType":null,"confidence":"high"}
+輸出：{"isNonBrand":true,"nonBrandReason":"個人接案工作室，無自有實體商品","brand_name":"Ariel 的設計工作室","slug_generated":null,"confidence":"high"}
 
 輸入：品牌名：某某工作室 / 描述：搜尋結果稀少，僅有一則社群貼文
-輸出：{"isNonBrand":false,"nonBrandReason":null,"brand_name":"某某工作室","slug_generated":null,"productType":null,"confidence":"low"}
+輸出：{"isNonBrand":false,"nonBrandReason":null,"brand_name":"某某工作室","slug_generated":null,"confidence":"low"}
 
 輸入：品牌名：印花樂 / 網站：inblooom.com
-輸出：{"isNonBrand":false,"nonBrandReason":null,"brand_name":"印花樂 inBlooom","slug_generated":"inblooom","productType":"home","confidence":"high"}
+輸出：{"isNonBrand":false,"nonBrandReason":null,"brand_name":"印花樂 inBlooom","slug_generated":"inblooom","confidence":"high"}
 
 輸入：品牌名：djulis德朱利斯-台東必買伴手禮-紅藜穀物棒-紅藜小米起司棒-紅藜黑芝麻糕
-輸出：{"isNonBrand":false,"nonBrandReason":null,"brand_name":"Djulis 德朱利斯","slug_generated":"djulis","productType":"food-drink","confidence":"high"}
+輸出：{"isNonBrand":false,"nonBrandReason":null,"brand_name":"Djulis 德朱利斯","slug_generated":"djulis","confidence":"high"}
 
 回應格式（嚴格 JSON，不加任何其他文字）：
-單一品牌：{"isNonBrand":true|false,"nonBrandReason":"...或 null","brand_name":"品牌正式名稱","slug_generated":"...","productType":"...或 null","confidence":"high|medium|low"}
-多個品牌：[{"slug":"<原始 slug>","isNonBrand":...,"nonBrandReason":...,"brand_name":"...","slug_generated":"...","productType":...,"confidence":...}]`
+單一品牌：{"isNonBrand":true|false,"nonBrandReason":"...或 null","brand_name":"品牌正式名稱","slug_generated":"...","confidence":"high|medium|low"}
+多個品牌：[{"slug":"<原始 slug>","isNonBrand":...,"nonBrandReason":...,"brand_name":"...","slug_generated":"...","confidence":...}]`
 
 export const DESCRIPTION_SYSTEM_PROMPT = `你是台灣品牌研究編輯。請根據提供的資料，撰寫豐富但客觀的雙語品牌簡介。
 
@@ -199,6 +194,7 @@ listing.taiwan_connection 只能依據來源明確提到的事實填寫，不可
   "blurb_zh": "（必填）40-80 字繁體中文品牌摘要，用於卡片顯示，精簡且吸引人。全文繁體中文，不可包含價格資訊。",
   "blurb_en": "（必填）60-150 characters English brand summary for card display. Must be entirely in English and contain no pricing information.",
   "price_range": 1 | 2 | 3 | null,
+  "product_type": "類別 slug 或 null（只能用下方「品牌分類」清單中的 slug）",
   "product_tags": ["具體商品類型（繁體中文）"],
   "product_tags_en": ["specific product types (English, same count and order as product_tags)"],
   "city": "城市 slug 或 null（只能用以下值：taipei, new_taipei, taoyuan, taichung, tainan, kaohsiung, keelung, hsinchu_city, chiayi_city, hsinchu_county, miaoli, changhua, nantou, yunlin, chiayi_county, pingtung, yilan, hualien, taitung, penghu, kinmen, lienchiang）",
@@ -237,6 +233,11 @@ price_range 分級：
 - 2：中價位，平均商品價格約 NT$1,000-5,000
 - 3：高價／精品，平均商品價格高於 NT$5,000
 - 若價格線索不足，回傳 null
+
+product_type（品牌分類）：
+${CATEGORY_LIST}
+
+選出最符合品牌「核心產品線」的單一類別，只能填上列 slug。判斷依據以網站內容與商品圖片描述為主，搜尋摘要為輔；跨多類別時選主要產品線所屬類別。證據不足以支持任一類別時回傳 null，不可猜測。
 
 product_tags：
 

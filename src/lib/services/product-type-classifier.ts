@@ -25,6 +25,12 @@ export type DetectResult = {
   brandName: string | null
   slug: string
   slugGenerated: string | null
+  /**
+   * Always null for a current DETECT run: the category moved to the descriptions
+   * phase, which judges it from site content and product image alt text instead
+   * of SERP snippets. The field stays so historical `brand_ai_results` rows and
+   * any model that still volunteers the key parse without being discarded.
+   */
   productType: string | null
   confidence: 'high' | 'medium' | 'low'
 }
@@ -201,16 +207,20 @@ function parseTriageEntry(entry: UnknownRecord, slug: string): DetectResult | nu
   const isNonBrand = entry.isNonBrand
   const nonBrandReason = entry.nonBrandReason
   const slugGenerated = entry.slug_generated
-  const productType = entry.productType
   const confidence = entry.confidence
 
   if (typeof isNonBrand !== 'boolean' || !isConfidence(confidence)) {
     return null
   }
 
-  if (productType !== null && (typeof productType !== 'string' || !VALID_PRODUCT_TYPES.has(productType))) {
-    return null
-  }
+  // The detect prompt no longer asks for a category, so the key is normally
+  // absent. An absent or unrecognised value is null, never a discarded triage
+  // result — the non-brand gate and the name/slug are what this call is for.
+  const rawProductType = entry.productType
+  const productType =
+    typeof rawProductType === 'string' && VALID_PRODUCT_TYPES.has(rawProductType)
+      ? rawProductType
+      : null
 
   const brandName = entry.brand_name
 
@@ -444,7 +454,7 @@ async function detectBrandsBatchChunk(
     const snippetStr = brand.snippets?.length ? ` / 搜尋摘要：${brand.snippets.slice(0, 10).join('；')}` : ''
     return base + snippetStr
   }).join('\n')
-  const userContent = `請判斷以下項目是否為實際品牌，並為實際品牌分類：\n${list}`
+  const userContent = `請判斷以下項目是否為實際品牌：\n${list}`
 
   const client = createClassifierClient(token, 'detect', brands.at(0)?.target, jobId)
 

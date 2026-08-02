@@ -8,6 +8,8 @@ import type { ScrapedBrandData } from "@/lib/types/scraper";
 import {
   ENRICH_LLM_PHASES,
   ENRICH_PHASES,
+  phasesForSteps,
+  type CurationStep,
 } from "@/lib/constants/enrich-phases";
 import { normalizeToRootUrl } from "@/lib/url";
 import {
@@ -1011,7 +1013,16 @@ export async function persistEnrichmentResults(
 }
 
 export async function runEnrich(
-  config: CurationConfig & { phases: string[] },
+  config: CurationConfig & {
+    phases: string[];
+    /**
+     * Operator-facing selection. When present it wins over `phases`: the three
+     * steps expand into the full phase list, so everything downstream keeps
+     * working on phase names. Absent means the caller passed phases directly
+     * and nothing about its behaviour changes.
+     */
+    steps?: readonly CurationStep[];
+  },
   supabase: SupabaseLike,
 ): Promise<EnrichOperationResult> {
   const startedAt = Date.now();
@@ -1027,7 +1038,9 @@ export async function runEnrich(
     brandOutcomes: [],
   };
 
-  const phases = config.phases as RunEnrichPhase[];
+  const phases = (
+    config.steps?.length ? phasesForSteps(config.steps) : config.phases
+  ) as RunEnrichPhase[];
   const target =
     config.target ?? (config.slugs?.length ? "brands" : "submissions");
   if (target === "brands") {
@@ -1089,10 +1102,11 @@ export async function runEnrich(
     }
 
     const chunk = brandChunks[chunkIndex];
-    const hasDetectPhases =
-      phases.includes("detect") ||
-      phases.includes("slugs") ||
-      phases.includes("tags");
+    // No "tags" here: the category moved to the descriptions phase, so a tags
+    // run no longer implies a detect call. Mirrors `hasDetectPhases` in
+    // `enrich-phases/detect.ts` — the two must agree or this banner announces a
+    // detect step that never runs.
+    const hasDetectPhases = phases.includes("detect") || phases.includes("slugs");
     const activeSteps = [
       phases.includes("discover") && "SERP",
       phases.includes("images") && "images",
@@ -1780,10 +1794,15 @@ export async function runEnrich(
             jobId: config.jobId,
             pendingPatch: state.patches,
           });
+          // The descriptions phase now assigns the category explicitly, from
+          // site content and image alt text. That value wins: the tag-vote
+          // derivation below is a fallback for when the model returned null.
           const effectiveProductType =
-            typeof state.patches.product_type === "string"
-              ? state.patches.product_type
-              : brand.product_type;
+            typeof descriptionsResult.patch.product_type === "string"
+              ? descriptionsResult.patch.product_type
+              : typeof state.patches.product_type === "string"
+                ? state.patches.product_type
+                : brand.product_type;
           const effectiveProductTags = Array.isArray(
             descriptionsResult.patch.product_tags,
           )

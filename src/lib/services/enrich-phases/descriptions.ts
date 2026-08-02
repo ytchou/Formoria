@@ -65,6 +65,10 @@ function changedFieldsForPatch(patch: Record<string, unknown>): string[] {
     changedFields.push('product_tags')
   }
 
+  if (patch.product_type != null) {
+    changedFields.push('product_type')
+  }
+
   if (patch.city != null) {
     changedFields.push('city')
   }
@@ -345,6 +349,14 @@ export async function runDescriptionsPhase({
         // `deriveProductTagsEn` at the write boundary, not by a half-write here.
         ...(mergedTags.length > 0 && shouldWrite(brand.product_tags)
           ? { product_tags: mergedTags, product_tags_en: mergedTagsEn }
+          : {}),
+        // The category is written whenever the model chose one that differs from
+        // the brand's current value — unlike the text fields it is not gated on
+        // `shouldWrite`, because this phase is now the authority on it (detect no
+        // longer assigns it) and a stale category silently mis-files the brand.
+        ...(descriptionRewrite.productType &&
+        descriptionRewrite.productType !== brand.product_type
+          ? { product_type: descriptionRewrite.productType }
           : {}),
         ...(descriptionRewrite.city && shouldWrite(brand.city) ? { city: descriptionRewrite.city } : {}),
         ...(descriptionRewrite.foundingYear != null && shouldWrite(brand.founding_year)

@@ -41,8 +41,9 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  IMAGE_ENRICH_PHASES,
-  TEXT_ENRICH_PHASES,
+  CURATION_STEPS,
+  CURATION_STEP_ORDER,
+  type CurationStep,
 } from "@/lib/constants/enrich-phases";
 import {
   isoDateInTimeZone,
@@ -375,14 +376,14 @@ export function SubmissionsReviewList({
     });
   }
 
-  function runScopedCuration(phases: readonly string[]) {
+  function runScopedCuration(step: CurationStep) {
     const ids = selectedVisible.map((submission) => submission.id);
     if (ids.length === 0) return;
 
     startEnrichTransition(async () => {
       const result = await startCurationJobAction(
         "enrich",
-        { submissionIds: ids, phases: [...phases] },
+        { submissionIds: ids, steps: [step] },
         false,
       );
       if ("error" in result) {
@@ -509,34 +510,27 @@ export function SubmissionsReviewList({
             </Button>
           ) : (
             <>
-              {activeTab === "ready" && (
-                <>
+              {activeTab === "ready" &&
+                CURATION_STEP_ORDER.map((step) => (
                   <Button
-                    aria-label={t("runImageCuration", {
+                    key={step}
+                    aria-label={t(`runStepCuration.${step}`, {
                       count: selectedVisible.length,
                     })}
+                    // The phases a step covers stay visible to the operator:
+                    // failures and job history are still reported per phase.
+                    title={CURATION_STEPS[step].join(", ")}
                     size="compact"
                     className="min-h-12"
                     variant="secondary"
-                    onClick={() => runScopedCuration(IMAGE_ENRICH_PHASES)}
+                    onClick={() => runScopedCuration(step)}
                     disabled={isEnriching || selectedVisible.length === 0}
                   >
-                    {t("runImageCuration", { count: selectedVisible.length })}
-                  </Button>
-                  <Button
-                    aria-label={t("runTextCuration", {
+                    {t(`runStepCuration.${step}`, {
                       count: selectedVisible.length,
                     })}
-                    size="compact"
-                    className="min-h-12"
-                    variant="secondary"
-                    onClick={() => runScopedCuration(TEXT_ENRICH_PHASES)}
-                    disabled={isEnriching || selectedVisible.length === 0}
-                  >
-                    {t("runTextCuration", { count: selectedVisible.length })}
                   </Button>
-                </>
-              )}
+                ))}
               <Button
                 aria-label={t("approveSelected", {
                   count: approvableSelected.length,

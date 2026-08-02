@@ -5,6 +5,7 @@ import { createAuditedOpenAIClient, type LlmAuditContext } from './llm-audit'
 import { validateLocalizedText, detectAiArtifacts } from './enrich-validators'
 import { localizeToTW, stripAiToolArtifacts } from './taiwan-localization'
 import { parseExtractionResult } from './product-type-classifier'
+import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { normalizeProductTags } from '@/lib/services/product-tags'
 
 const DESCRIPTION_TIMEOUT_MS = 30_000
@@ -24,6 +25,13 @@ export type DescriptionRewriteResult = {
   blurb_zh: string | null
   blurb_en: string | null
   priceRange: 1 | 2 | 3 | null
+  /**
+   * The brand's L1 category, decided here rather than at triage because this is
+   * the first call that sees the brand's own site text and its product images'
+   * alt text. Undefined for an absent or unrecognised value — like `listing`, it
+   * is a secondary output and must never invalidate the descriptions.
+   */
+  productType?: string
   productTags: string[]
   productTagsEn: string[]
   city: string | null
@@ -55,6 +63,20 @@ export type DescriptionRewriteResult = {
    */
   listing?: ListingVerdict
   rawResponse?: unknown
+}
+
+const VALID_PRODUCT_TYPES = new Set<string>(
+  PRODUCT_TYPE_CATEGORIES.map((category) => category.slug),
+)
+
+/**
+ * Validates against the real L1 slug list. Anything else — absent, null, a made
+ * up slug, a Chinese category name — is undefined, never a rejection.
+ */
+export function parseDescriptionProductType(raw: unknown): string | undefined {
+  if (typeof raw !== 'string') return undefined
+  const trimmed = raw.trim()
+  return VALID_PRODUCT_TYPES.has(trimmed) ? trimmed : undefined
 }
 
 const LISTING_VERDICTS = ['list', 'reject'] as const
@@ -265,6 +287,7 @@ export function parseDescriptionRewriteResult(content: string): DescriptionRewri
     : null
 
   const listing = parseListingVerdict(parsed.listing)
+  const productType = parseDescriptionProductType(parsed.product_type)
 
   const acceptedTags = normalizedTags.tags.length >= 1 ? normalizedTags.tags : []
   const acceptedTagsEn = normalizedTags.tags.length >= 1 ? normalizedTags.tagsEn : []
@@ -276,6 +299,7 @@ export function parseDescriptionRewriteResult(content: string): DescriptionRewri
     blurb_zh: blurbZh,
     blurb_en: blurbEn,
     priceRange: extraction.priceRange,
+    ...(productType ? { productType } : {}),
     productTags: acceptedTags,
     productTagsEn: acceptedTagsEn,
     city: extraction.city,
@@ -598,6 +622,8 @@ export async function rewriteBrandDescription(
   // First verdict wins, like every other accepted field: attempt 2 only retries the
   // failing description fields, so its listing evidence is no fresher than attempt 1's.
   let acceptedListing: ListingVerdict | undefined
+  // Same first-wins rule, same reason: attempt 2 only rewrites failing text fields.
+  let acceptedProductType: string | undefined
   const allValidationRejections: DescriptionRewriteResult['validationRejections'] = []
   const attempts: DescriptionAttempt[] = []
   const localizeAcceptedZh = (value: string | null): string | null =>
@@ -706,9 +732,11 @@ export async function rewriteBrandDescription(
       acceptedBlurbEn ??= validated.blurb_en
       acceptedPriceRange ??= validated.priceRange
       acceptedListing ??= validated.listing
+      acceptedProductType ??= validated.productType
       bestResult = {
         ...validated,
         ...(acceptedListing ? { listing: acceptedListing } : {}),
+        ...(acceptedProductType ? { productType: acceptedProductType } : {}),
         description_zh: acceptedDescriptionZh,
         description_en: acceptedDescriptionEn,
         description: acceptedDescriptionZh,
