@@ -52,6 +52,27 @@ function isEmptyValue(value: unknown): boolean {
   return false
 }
 
+/**
+ * Sentinel key on an enrichment patch: fields the enrichment ran on and
+ * affirmatively determined should be EMPTY. It is not a brand column, so it is
+ * routed around the per-field loop and filtered on its entries instead.
+ */
+export const CLEARED_FIELDS_KEY = '_cleared_fields'
+
+/** `null` when a refresh may write this field, otherwise the skip reason. */
+function refreshWriteBlockReason(
+  field: string,
+  baseValues: Record<string, unknown>,
+  fieldState: Record<string, BrandFieldWriteState>
+): string | null {
+  const state = fieldState[field]
+  if (REFRESH_ENRICHMENT_EXCLUDED_FIELDS.has(field)) return 'excluded:identity'
+  if (state?.adminLocked) return 'protected:admin_locked'
+  if (state && ['owner', 'admin', 'submitted'].includes(state.source)) return `protected:${state.source}`
+  if (state?.source === 'enriched' || isEmptyValue(baseValues[field])) return null
+  return `protected:${state?.source ?? 'unclassified'}`
+}
+
 export function resolveRefreshEnrichmentPatch(
   patch: Record<string, unknown>,
   baseValues: Record<string, unknown>,
@@ -61,28 +82,35 @@ export function resolveRefreshEnrichmentPatch(
   const skipped: SkippedBrandField[] = []
 
   for (const [field, value] of Object.entries(patch)) {
-    const state = fieldState[field]
-    if (REFRESH_ENRICHMENT_EXCLUDED_FIELDS.has(field)) {
-      skipped.push({ field, reason: 'excluded:identity' })
+    if (field === CLEARED_FIELDS_KEY) continue
+    const reason = refreshWriteBlockReason(field, baseValues, fieldState)
+    if (reason) {
+      skipped.push({ field, reason })
       continue
     }
-    if (state?.adminLocked) {
-      skipped.push({ field, reason: 'protected:admin_locked' })
-      continue
-    }
-    if (state && ['owner', 'admin', 'submitted'].includes(state.source)) {
-      skipped.push({ field, reason: `protected:${state.source}` })
-      continue
-    }
-    if (state?.source === 'enriched' || isEmptyValue(baseValues[field])) {
-      allowed[field] = value
-      continue
-    }
+    allowed[field] = value
+  }
 
-    skipped.push({
-      field,
-      reason: `protected:${state?.source ?? 'unclassified'}`,
-    })
+  // Clearing a field is a write. A locked field must be dropped from the
+  // cleared list rather than silently emptied, and it goes through the same
+  // `skipped` channel so the `[refresh-enrichment:protected-fields]` log covers
+  // it. The `cleared:` prefix keeps a dropped clear distinguishable from a
+  // dropped value in that log.
+  const clearedFields = patch[CLEARED_FIELDS_KEY]
+  if (Array.isArray(clearedFields)) {
+    const allowedCleared: string[] = []
+    for (const field of clearedFields) {
+      if (typeof field !== 'string') continue
+      const reason = refreshWriteBlockReason(field, baseValues, fieldState)
+      if (reason) {
+        skipped.push({ field, reason: `cleared:${reason}` })
+        continue
+      }
+      allowedCleared.push(field)
+    }
+    if (allowedCleared.length > 0) {
+      allowed[CLEARED_FIELDS_KEY] = allowedCleared
+    }
   }
 
   return { allowed, skipped }

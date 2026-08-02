@@ -46,6 +46,52 @@ type DescriptionsPhaseOutput = {
   attempts: DescriptionAttempt[]
 }
 
+/** Empty for the purposes of "is there anything here worth clearing?". */
+function isEmptyFieldValue(value: unknown): boolean {
+  if (value == null) return true
+  if (typeof value === 'string') return value.trim() === ''
+  if (Array.isArray(value)) return value.length === 0
+  if (typeof value === 'object') return Object.keys(value as object).length === 0
+  return false
+}
+
+/**
+ * Fields this run affirmatively determined should be EMPTY.
+ *
+ * A refresh can add and change a field but has no way to empty one: an omitted
+ * key means "no opinion" all the way down to the apply RPC, so a value the
+ * model has since judged unqualified survives every future run. This is the
+ * explicit verdict that makes a clear possible — see `_cleared_fields` in
+ * `apply_brand_refresh_with_protected_location_gate`.
+ *
+ * The policy is deliberately one field. `reputation_summary`'s prompt contract
+ * makes null an affirmative verdict: it returns null when there is no
+ * third-party evaluation. A null `city`, `founding_year`, `product_type` or
+ * link means "could not determine this run", and clearing those would destroy
+ * correct data whenever a SERP call came back thin.
+ *
+ * Returns nothing when `descriptionRewrite` is null: a phase that did not run,
+ * or whose LLM call failed, is silence, not a verdict.
+ */
+export function resolveClearedFields(
+  descriptionRewrite: DescriptionRewriteResult | null,
+  brand: EnrichBrand,
+  shouldWrite: (existing: unknown) => boolean,
+): string[] {
+  if (!descriptionRewrite) return []
+
+  const cleared: string[] = []
+  if (
+    !descriptionRewrite.reputationSummary &&
+    shouldWrite(brand.reputation_summary) &&
+    !isEmptyFieldValue(brand.reputation_summary)
+  ) {
+    cleared.push('reputation_summary')
+  }
+
+  return cleared
+}
+
 function changedFieldsForPatch(patch: Record<string, unknown>): string[] {
   const changedFields: string[] = []
 
@@ -91,6 +137,16 @@ function changedFieldsForPatch(patch: Record<string, unknown>): string[] {
 
   if (Array.isArray(patch.product_tags_en) && patch.product_tags_en.length > 0) {
     changedFields.push('product_tags_en')
+  }
+
+  // A clear is a change: the run output has to report the field it emptied, the
+  // same way it reports one it rewrote.
+  if (Array.isArray(patch._cleared_fields)) {
+    for (const field of patch._cleared_fields) {
+      if (typeof field === 'string' && !changedFields.includes(field)) {
+        changedFields.push(field)
+      }
+    }
   }
 
   return changedFields
@@ -379,6 +435,15 @@ export async function runDescriptionsPhase({
               },
             }
           : {}),
+      }
+
+      // The complement of the conditional spreads above: every one of them
+      // contributes `{}` when it has nothing to say, which the apply RPC reads
+      // as "leave the current value alone". `_cleared_fields` is how this phase
+      // says "I looked, and this field should now be empty".
+      const clearedFields = resolveClearedFields(descriptionRewrite, brand, shouldWrite)
+      if (clearedFields.length > 0) {
+        descriptionPatch._cleared_fields = clearedFields
       }
 
       if (!dryRun && Array.isArray(descriptionPatch.product_tags) && Array.isArray(descriptionPatch.product_tags_en)) {

@@ -1,7 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { cleanBrandName, type NameCleanupResult } from "./brand-cleanup";
 import { ENRICH_CHUNK_SIZE, mapWithConcurrency } from "./concurrency";
-import { resolveRefreshEnrichmentPatch } from "./brand-write-policy";
+import {
+  CLEARED_FIELDS_KEY,
+  resolveRefreshEnrichmentPatch,
+} from "./brand-write-policy";
 import type { BrandFlatLinkColumns } from "@/lib/types";
 import type { SiteContent } from "@/lib/types/brand";
 import type { ScrapedBrandData } from "@/lib/types/scraper";
@@ -377,6 +380,15 @@ function deepMergeJsonObjects(base: JsonObject, patch: JsonObject): JsonObject {
   return merged;
 }
 
+/** Empty for the purposes of "does this key hold a real value?". */
+function isEmptyJsonValue(value: unknown): boolean {
+  if (value == null) return true;
+  if (typeof value === "string") return value.trim() === "";
+  if (Array.isArray(value)) return value.length === 0;
+  if (isPlainObject(value)) return Object.keys(value).length === 0;
+  return false;
+}
+
 export function mergeSubmissionEnrichedData(
   base: JsonObject,
   patch: JsonObject,
@@ -385,6 +397,24 @@ export function mergeSubmissionEnrichedData(
   if (Object.hasOwn(patch, "channels")) {
     // channels are object arrays; deepMergeJsonObjects unions with Set (no-op on objects).
     merged.channels = patch.channels;
+  }
+  if (Object.hasOwn(patch, CLEARED_FIELDS_KEY)) {
+    // Replace, never union. A later run that finds real evidence has to be able
+    // to un-clear the field; the array-union default would make the first clear
+    // permanent.
+    merged[CLEARED_FIELDS_KEY] = patch[CLEARED_FIELDS_KEY];
+  }
+  const clearedFields = merged[CLEARED_FIELDS_KEY];
+  if (Array.isArray(clearedFields)) {
+    // A field cannot be both set and cleared, and the value wins.
+    const stillCleared = clearedFields.filter(
+      (field) => typeof field === "string" && isEmptyJsonValue(merged[field]),
+    );
+    if (stillCleared.length > 0) {
+      merged[CLEARED_FIELDS_KEY] = stillCleared;
+    } else {
+      delete merged[CLEARED_FIELDS_KEY];
+    }
   }
   return merged;
 }

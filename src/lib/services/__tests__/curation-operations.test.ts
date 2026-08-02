@@ -107,6 +107,47 @@ describe('mergeSubmissionEnrichedData', () => {
     expect(result.product_tags_en).toEqual(['New 1', 'New 2', 'New 3', 'New 4', 'New 5'])
   })
 
+  // A union would make the first clear permanent: the run that finally finds a
+  // real reputation could never take the field back off the cleared list.
+  it('replaces rather than unions _cleared_fields', () => {
+    const result = mergeSubmissionEnrichedData(
+      { _cleared_fields: ['reputation_summary'] },
+      { _cleared_fields: ['city'] }
+    )
+
+    expect(result._cleared_fields).toEqual(['city'])
+  })
+
+  it('drops a cleared field that the same patch gives a value', () => {
+    const result = mergeSubmissionEnrichedData(
+      {},
+      {
+        _cleared_fields: ['reputation_summary'],
+        reputation_summary: { text: '媒體報導' },
+      }
+    )
+
+    expect(result.reputation_summary).toEqual({ text: '媒體報導' })
+    expect(result).not.toHaveProperty('_cleared_fields')
+  })
+
+  it('drops a cleared field that an earlier run already set', () => {
+    const result = mergeSubmissionEnrichedData(
+      { city: '台北' },
+      { _cleared_fields: ['city', 'reputation_summary'] }
+    )
+
+    expect(result._cleared_fields).toEqual(['reputation_summary'])
+  })
+
+  it('keeps a clear when the merged value is empty', () => {
+    const result = mergeSubmissionEnrichedData(
+      { reputation_summary: {} },
+      { _cleared_fields: ['reputation_summary'] }
+    )
+
+    expect(result._cleared_fields).toEqual(['reputation_summary'])
+  })
 })
 
 describe('processEnrichBrand', () => {
