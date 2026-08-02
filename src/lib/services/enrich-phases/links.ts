@@ -116,12 +116,13 @@ function boundedScrapeSnippets(extracted: unknown): string[] {
 /**
  * A brand's own site is the most authoritative source for its name, and the
  * scraper has always extracted it into `scrapedData.brandName` — it was simply
- * never consumed, so `adela.tw` handed us `adela愛德拉 ｜守護家人，為愛研發` on
- * every run and we discarded it while the record stayed `ADELA`.
+ * never consumed, so `adela.tw` handed us its full bilingual page title —
+ * brand name, separator, and marketing tagline — on every run, and we discarded
+ * it while the record stayed the bare uppercase `ADELA`.
  *
  * Only an addition is accepted: the cleaned title must still contain the name
- * we already hold, so `ADELA` can grow into `Adela 愛德拉` but a page title
- * naming a different company cannot rebrand the record. `isValidBrandName`
+ * we already hold, so `ADELA` can grow into its cased bilingual form but a page
+ * title naming a different company cannot rebrand the record. `isValidBrandName`
  * adds the length and SEO-copy guards the detect phase already relies on.
  *
  * Note this lands after the batch image-search phase, so the improved name
