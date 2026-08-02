@@ -495,6 +495,33 @@ export type Database = {
           },
         ]
       }
+      brand_field_state_backup_20260728: {
+        Row: {
+          admin_locked: boolean | null
+          brand_id: string | null
+          field: string | null
+          source: string | null
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          admin_locked?: boolean | null
+          brand_id?: string | null
+          field?: string | null
+          source?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          admin_locked?: boolean | null
+          brand_id?: string | null
+          field?: string | null
+          source?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       brand_images: {
         Row: {
           alt_en: string | null
@@ -502,13 +529,15 @@ export type Database = {
           brand_id: string
           created_at: string
           dominant_color: string | null
+          entropy: number | null
           height: number | null
           id: string
           phash: string | null
           provider_metadata: Json | null
-          rejection_reasons: string[] | null
           rejected_at: string | null
+          rejection_reasons: string[] | null
           score: number | null
+          sharpness: number | null
           sort_order: number
           source: string
           source_url: string | null
@@ -524,13 +553,15 @@ export type Database = {
           brand_id: string
           created_at?: string
           dominant_color?: string | null
+          entropy?: number | null
           height?: number | null
           id?: string
           phash?: string | null
           provider_metadata?: Json | null
-          rejection_reasons?: string[] | null
           rejected_at?: string | null
+          rejection_reasons?: string[] | null
           score?: number | null
+          sharpness?: number | null
           sort_order?: number
           source: string
           source_url?: string | null
@@ -546,13 +577,15 @@ export type Database = {
           brand_id?: string
           created_at?: string
           dominant_color?: string | null
+          entropy?: number | null
           height?: number | null
           id?: string
           phash?: string | null
           provider_metadata?: Json | null
-          rejection_reasons?: string[] | null
           rejected_at?: string | null
+          rejection_reasons?: string[] | null
           score?: number | null
+          sharpness?: number | null
           sort_order?: number
           source?: string
           source_url?: string | null
@@ -891,6 +924,13 @@ export type Database = {
           old_slug?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "brand_slug_redirects_new_slug_fkey"
+            columns: ["new_slug"]
+            isOneToOne: false
+            referencedRelation: "brand_image_provenance"
+            referencedColumns: ["brand_slug"]
+          },
           {
             foreignKeyName: "brand_slug_redirects_new_slug_fkey"
             columns: ["new_slug"]
@@ -1474,11 +1514,6 @@ export type Database = {
         }
         Relationships: []
       }
-      // `event_brands` and `events` are hand-written: the migration
-      // supabase/migrations/20260731090000_events.sql has not been applied to the
-      // linked Supabase project yet, so the generator cannot see these tables.
-      // Replace both entries with `npx supabase gen types typescript --linked`
-      // output once the migration is applied.
       event_brands: {
         Row: {
           area: string | null
@@ -2294,14 +2329,16 @@ export type Database = {
           alt_zh: string | null
           created_at: string
           dominant_color: string | null
+          entropy: number | null
           height: number | null
           id: string
           origin_brand_image_id: string | null
           phash: string | null
           provider_metadata: Json | null
-          rejection_reasons: string[] | null
           rejected_at: string | null
+          rejection_reasons: string[] | null
           score: number | null
+          sharpness: number | null
           sort_order: number
           source: string
           source_url: string | null
@@ -2317,14 +2354,16 @@ export type Database = {
           alt_zh?: string | null
           created_at?: string
           dominant_color?: string | null
+          entropy?: number | null
           height?: number | null
           id?: string
           origin_brand_image_id?: string | null
           phash?: string | null
           provider_metadata?: Json | null
-          rejection_reasons?: string[] | null
           rejected_at?: string | null
+          rejection_reasons?: string[] | null
           score?: number | null
+          sharpness?: number | null
           sort_order?: number
           source: string
           source_url?: string | null
@@ -2340,14 +2379,16 @@ export type Database = {
           alt_zh?: string | null
           created_at?: string
           dominant_color?: string | null
+          entropy?: number | null
           height?: number | null
           id?: string
           origin_brand_image_id?: string | null
           phash?: string | null
           provider_metadata?: Json | null
-          rejection_reasons?: string[] | null
           rejected_at?: string | null
+          rejection_reasons?: string[] | null
           score?: number | null
+          sharpness?: number | null
           sort_order?: number
           source?: string
           source_url?: string | null
@@ -2359,6 +2400,13 @@ export type Database = {
           width?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "submission_images_origin_brand_image_id_fkey"
+            columns: ["origin_brand_image_id"]
+            isOneToOne: false
+            referencedRelation: "brand_image_provenance"
+            referencedColumns: ["image_id"]
+          },
           {
             foreignKeyName: "submission_images_origin_brand_image_id_fkey"
             columns: ["origin_brand_image_id"]
@@ -2377,7 +2425,26 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      brand_image_provenance: {
+        Row: {
+          brand_name: string | null
+          brand_slug: string | null
+          created_at: string | null
+          height: number | null
+          image_id: string | null
+          method: string | null
+          rejection_reasons: string[] | null
+          score: number | null
+          search_query: string | null
+          source: string | null
+          source_page: string | null
+          source_url: string | null
+          status: string | null
+          tags: string[] | null
+          width: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       admin_export_newsletter_subscribers: {
@@ -2586,6 +2653,7 @@ export type Database = {
       }
       claim_health_fixes: {
         Args: {
+          p_fingerprints: string[]
           p_lease_duration?: string
           p_lease_owner: string
           p_merge_policy: string
@@ -2604,6 +2672,7 @@ export type Database = {
           last_error: string | null
           lease_expires_at: string | null
           lease_owner: string | null
+          linear_identifier: string | null
           merge_policy: string
           merge_sha: string | null
           next_attempt_at: string | null
@@ -2614,6 +2683,7 @@ export type Database = {
           sentry_issue_id: string | null
           source: string
           status: string
+          ticketed_at: string | null
           title: string
           updated_at: string
           url: string | null
@@ -2774,6 +2844,19 @@ export type Database = {
         Returns: boolean
       }
       read_health_directory_database_evidence: { Args: never; Returns: Json }
+      reconcile_health_fix_lifecycle: {
+        Args: {
+          p_completed_sources: string[]
+          p_observed_fingerprints: string[]
+        }
+        Returns: {
+          current_status: string
+          fingerprint: string
+          id: string
+          reconciliation: string
+          sentry_issue_id: string
+        }[]
+      }
       record_health_snapshot: {
         Args: { p_metrics: Json; p_snapshot_date: string }
         Returns: {
@@ -2942,6 +3025,7 @@ export type Database = {
           last_error: string | null
           lease_expires_at: string | null
           lease_owner: string | null
+          linear_identifier: string | null
           merge_policy: string
           merge_sha: string | null
           next_attempt_at: string | null
@@ -2952,6 +3036,7 @@ export type Database = {
           sentry_issue_id: string | null
           source: string
           status: string
+          ticketed_at: string | null
           title: string
           updated_at: string
           url: string | null
@@ -2966,6 +3051,45 @@ export type Database = {
       upsert_enriched_brand_channels: {
         Args: { p_brand_id: string; p_candidates: Json }
         Returns: number
+      }
+      verify_health_fix_absence: {
+        Args: { p_expected_status: string; p_id: string }
+        Returns: {
+          attempt_count: number
+          attempted_at: string | null
+          confirmation_data: Json | null
+          created_at: string
+          deployed_at: string | null
+          evidence: Json
+          fingerprint: string
+          fixed_at: string | null
+          id: string
+          key_frames: Json | null
+          last_error: string | null
+          lease_expires_at: string | null
+          lease_owner: string | null
+          linear_identifier: string | null
+          merge_policy: string
+          merge_sha: string | null
+          next_attempt_at: string | null
+          pr_number: number | null
+          pr_url: string | null
+          recommended_action: string | null
+          seer_root_cause: string | null
+          sentry_issue_id: string | null
+          source: string
+          status: string
+          ticketed_at: string | null
+          title: string
+          updated_at: string
+          url: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "health_fix_queue"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
     }
     Enums: {
