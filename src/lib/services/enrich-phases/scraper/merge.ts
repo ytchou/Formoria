@@ -156,7 +156,12 @@ export function mergeScrapedData(results: ScrapeResult[]): ScrapedBrandData {
     if (!hasValue(merged.stockistPageText) && hasValue(data.stockistPageText)) {
       merged.stockistPageText = data.stockistPageText
     }
-    if (data.jsonLdImageUrls.length > 0) {
+    // `hasValue`, not a bare `.length`: every other field here tolerates a
+    // partial result, and this one used to throw on it. That was harmless while
+    // the only caller passed strategy output (always a full `emptyResult`
+    // spread), but the discovered-links second pass merges here too, so the
+    // shapes reaching this loop are no longer all built the same way.
+    if (hasValue(data.jsonLdImageUrls)) {
       const seen = new Set(merged.jsonLdImageUrls)
       for (const url of data.jsonLdImageUrls) {
         if (!seen.has(url)) {

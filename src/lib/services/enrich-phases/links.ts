@@ -90,8 +90,12 @@ function prioritizeScrapeUrls(urls: string[]): string[] {
 
 /**
  * First URL that is neither social nor marketplace, normalised to its root.
- * Also used by the batch image-search phase, which runs before this one and
- * therefore has no stored website for a freshly submitted brand.
+ * This is what puts a brand's own domain into `purchase_website`, and the batch
+ * image-search phase — which now runs AFTER this one — reads that value out of
+ * this phase's patch to build its `site:` query.
+ *
+ * Exported for its unit tests: the aggregator and Threads cases below guard a
+ * production bug where a platform host was adopted as a brand's own site.
  *
  * `classifyByDomain` alone is not enough: link aggregators deliberately
  * classify as `null` so the scraper harvests their links (see
@@ -148,8 +152,8 @@ function boundedScrapeSnippets(extracted: unknown): string[] {
  * title naming a different company cannot rebrand the record. `isValidBrandName`
  * adds the length and SEO-copy guards the detect phase already relies on.
  *
- * Note this lands after the batch image-search phase, so the improved name
- * reaches the DB now and the *next* run's search queries — not this one's.
+ * This phase now runs BEFORE the batch image search, so the improved name is
+ * carried into this run's image query as well as into the DB.
  */
 export function deriveScrapedBrandName(
   brand: Pick<EnrichBrand, 'name'>,

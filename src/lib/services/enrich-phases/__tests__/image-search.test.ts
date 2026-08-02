@@ -99,7 +99,9 @@ describe('runImageSearchPhase', () => {
     }))
 
     expect(searchMocks.batchSearchBrandImages).toHaveBeenCalledOnce()
-    expect(result.imageSearchResults.get('Has One Image')).toEqual([
+    // Keyed by target id, not display name: this phase runs after clean/detect,
+    // which can rewrite a brand's name.
+    expect(result.imageSearchResults.get('submission-1')).toEqual([
       'https://example.com/additional.webp',
     ])
   })
@@ -167,14 +169,14 @@ describe('runImageSearchPhase', () => {
     expect(result.phaseResult.status).toBe('skipped')
   })
 
-  // A newly submitted brand has no stored website yet, and this phase runs
-  // before links — without the derived fallback its `site:` query would only
-  // start firing on a second enrichment run.
-  it('uses the caller-derived website when the stored column is empty', async () => {
+  // A newly submitted brand has no stored website. This phase now runs AFTER
+  // the links phase, so the domain links just discovered reaches the `site:`
+  // query on the target's very first enrichment run.
+  it('uses the website the links phase just discovered when the stored column is empty', async () => {
     await runImageSearchPhase(
       ctx(),
       new Map([['Test Brand', serp({ urls: ['https://brand.com'], snippets: ['s'] })]]),
-      new Map([['Test Brand', 'https://brand.com']]),
+      new Map([['brand-1', { purchase_website: 'https://brand.com' }]]),
     )
 
     const [inputs] = searchMocks.batchSearchBrandImages.mock.calls[0] as [
@@ -185,13 +187,33 @@ describe('runImageSearchPhase', () => {
     ])
   })
 
-  it('prefers the stored purchase_website over the derived one', async () => {
+  // The links patch is what this run just confirmed by scraping, so it wins
+  // over the pre-run snapshot — the same precedence the descriptions phase
+  // applies to its `pendingPatch`.
+  it('prefers the website this run discovered over the pre-run snapshot', async () => {
     await runImageSearchPhase(
       ctx({
         chunk: [{ ...brand, purchase_website: 'https://stored.com' }],
       }),
-      new Map([['Test Brand', serp({ urls: ['https://derived.com'], snippets: ['s'] })]]),
-      new Map([['Test Brand', 'https://derived.com']]),
+      new Map([['Test Brand', serp({ urls: ['https://scraped.com'], snippets: ['s'] })]]),
+      new Map([['brand-1', { purchase_website: 'https://scraped.com' }]]),
+    )
+
+    const [inputs] = searchMocks.batchSearchBrandImages.mock.calls[0] as [
+      Array<{ brandName: string; purchaseWebsite: string | null }>,
+    ]
+    expect(inputs).toEqual([
+      expect.objectContaining({ purchaseWebsite: 'https://scraped.com' }),
+    ])
+  })
+
+  it('falls back to the stored purchase_website when no phase patched one', async () => {
+    await runImageSearchPhase(
+      ctx({
+        chunk: [{ ...brand, purchase_website: 'https://stored.com' }],
+      }),
+      new Map([['Test Brand', serp({ urls: ['https://stored.com'], snippets: ['s'] })]]),
+      new Map(),
     )
 
     const [inputs] = searchMocks.batchSearchBrandImages.mock.calls[0] as [
@@ -202,6 +224,22 @@ describe('runImageSearchPhase', () => {
     ])
   })
 
+  // detect and the scraped page title can both improve a name. Because this
+  // phase now runs after them, the improvement reaches THIS run's query.
+  it('queries with the name an earlier phase corrected, not the pre-run one', async () => {
+    await runImageSearchPhase(
+      ctx(),
+      new Map([['Test Brand', serp({ urls: ['https://brand.com'], snippets: ['s'] })]]),
+      new Map([['brand-1', { name: 'Test Brand 測試品牌' }]]),
+    )
+
+    const [inputs] = searchMocks.batchSearchBrandImages.mock.calls[0] as [
+      Array<{ brandName: string }>,
+    ]
+    expect(inputs).toEqual([
+      expect.objectContaining({ brandName: 'Test Brand 測試品牌' }),
+    ])
+  })
 })
 
 function submissionImagesClient(submissionIds: string[]): BatchPhaseContext['supabase'] {

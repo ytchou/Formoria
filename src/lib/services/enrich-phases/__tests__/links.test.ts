@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { deriveOfficialWebsite, deriveScrapedBrandName, runLinksPhase } from '../links'
 import type { EnrichBrand, EnrichPhase } from '../types'
 
-// Exported because the batch image-search phase runs before links and needs a
-// website for brands whose stored column is still empty.
+// This is what decides a brand's `purchase_website`, which the image-search
+// phase turns into a `site:` filter — a wrong answer here searches a whole
+// platform instead of the brand.
 describe('deriveOfficialWebsite', () => {
   it('picks the first non-social, non-marketplace URL and roots it', () => {
     expect(
