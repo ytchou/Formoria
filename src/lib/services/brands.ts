@@ -778,15 +778,36 @@ const BRAND_LIST_SELECT =
 const VERIFIED_BRAND_LIST_SELECT =
   `${DIRECTORY_BRAND_COLUMNS}, brand_owners!inner(user_id)` as unknown as '*'
 
+/**
+ * PostgREST sends `.in()` filters in the GET query string, so a single call with
+ * a few hundred ids overruns the request-line limit and comes back as a bare
+ * 400 Bad Request. 200 matches the chunk size already used in
+ * `services/submissions.ts`.
+ */
+const SUPABASE_IN_FILTER_CHUNK_SIZE = 200
+
 export async function getBrandSlugsBatch(brandIds: string[]): Promise<Map<string, string>> {
-  if (brandIds.length === 0) return new Map()
+  const uniqueIds = [...new Set(brandIds.filter(Boolean))]
+  if (uniqueIds.length === 0) return new Map()
   const supabase = createServiceClient()
-  const { data, error } = await supabase
-    .from('brands')
-    .select('id, slug')
-    .in('id', brandIds)
-  if (error) throw new Error(`Failed to fetch brand slugs: ${error.message}`)
-  return new Map((data ?? []).map(b => [b.id, b.slug]))
+
+  const chunks: string[][] = []
+  for (let index = 0; index < uniqueIds.length; index += SUPABASE_IN_FILTER_CHUNK_SIZE) {
+    chunks.push(uniqueIds.slice(index, index + SUPABASE_IN_FILTER_CHUNK_SIZE))
+  }
+
+  const results = await Promise.all(
+    chunks.map(async (chunk) => {
+      const { data, error } = await supabase
+        .from('brands')
+        .select('id, slug')
+        .in('id', chunk)
+      if (error) throw new Error(`Failed to fetch brand slugs: ${error.message}`)
+      return data ?? []
+    })
+  )
+
+  return new Map(results.flat().map(b => [b.id, b.slug]))
 }
 
 /**
