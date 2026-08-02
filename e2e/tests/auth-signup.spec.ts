@@ -4,6 +4,7 @@ import {
   isEmailRateLimitMessage,
   signupTestEmail,
 } from '../helpers/signup-namespace';
+import { waitForDelivery } from '../helpers/resend-delivery';
 
 // Post-signup behavior per src/app/auth/actions.ts signUp():
 //   supabase.auth.signUp() → redirect("/auth/sign-in?message=請確認您的電子郵件以完成帳號驗證")
@@ -72,10 +73,15 @@ test.describe('Auth — sign-up flow', () => {
   // that is infrastructure we do not control, not an app defect. It is recorded as
   // a SKIP so the run is visibly incomplete rather than falsely green. Everything
   // else — an invalid-email 400, an empty error, a silent no-op — is a FAIL.
+  //
+  // Reaching the redirect only proves Supabase ACCEPTED the message. When
+  // RESEND_API_KEY is present the test goes further and asserts the message was
+  // actually delivered — see the delivery block below and helpers/resend-delivery.ts.
   test('registers a new user and redirects to sign-in with confirmation message', async ({
     anonPage,
   }) => {
-    test.setTimeout(30_000);
+    // Generous: the signup itself is ~15s, the delivery poll up to 60s more.
+    test.setTimeout(120_000);
 
     signupEmail = signupTestEmail('happy', test.info().workerIndex);
 
@@ -98,6 +104,34 @@ test.describe('Auth — sign-up flow', () => {
       await expect(anonPage.getByText('請確認您的電子郵件以完成帳號驗證')).toBeVisible({
         timeout: 10_000,
       });
+
+      // (1b) …but acceptance is not delivery. Supabase Auth sends through Resend
+      // (custom SMTP), so Resend is the only place the real outcome is visible.
+      // Without the key this assertion is inert — adding RESEND_API_KEY to the
+      // workflow is the deliberate switch that turns it on.
+      const resendApiKey = process.env.RESEND_API_KEY;
+      if (!resendApiKey) return;
+
+      const outcome = await waitForDelivery(signupEmail, { apiKey: resendApiKey });
+
+      if (outcome.status === 'pending') {
+        // Still in flight after the poll window. Genuinely unknown, not a defect —
+        // same treatment as the quota case: visibly incomplete, never falsely green.
+        test.skip(
+          true,
+          `confirmation email to ${signupEmail} still in flight (last_event=${outcome.lastEvent})`,
+        );
+        return;
+      }
+
+      // A bounce here is the DEV-1300 failure mode reproducing: green signup,
+      // dead mailbox, sending reputation quietly burning.
+      expect(
+        outcome.status === 'not_found'
+          ? `no Resend record for ${signupEmail}`
+          : `last_event=${outcome.lastEvent}`,
+        `confirmation email to ${signupEmail} was not delivered`,
+      ).toBe('last_event=delivered');
       return;
     }
 
