@@ -1,0 +1,23 @@
+{
+  "name": "expo15",
+  "title": "Expo 15 — production refresh, before / after",
+  "subtitle": "The 15 brands from the 2026 Taiwan Creative Expo editorial shortlist. Slugs are listed in the Notion doc's own order (category, then rank).",
+  "warning": "Slugs were protected. Three brands carry mangled slugs from the DEV-1301 defect — y for 郁郁 YùYù, ng for 雱 PĀNG, 610-asteroid-b for 小行星 B-610 (diacritics and Han dropped by slug generation, not typos). The refresh flow classifies slug as an identity field and refused every write to it, so no live URL changed and no inbound link broke. Fixing those slugs remains DEV-1301's job, and needs redirects.",
+  "labels": {
+    "ziliaoshi": "織療室 ziliaoshi",
+    "nichi": "恬日 tan.nichi",
+    "taluma": "TALUMA 知返設計",
+    "huiaio-studio": "這一窯 Huiaio Studio",
+    "yuwu-design": "寓物設計",
+    "laoshan-collector": "老3香室",
+    "take-a-snooze": "Take a Snooze 瞇一下",
+    "y": "郁郁 YùYù",
+    "ng": "雱 PĀNG",
+    "mountopia": "Mountopia 山托邦",
+    "tings-aroma": "亭氏香氛 TINGS AROMA",
+    "zenu": "山霧 ZenU",
+    "eggplants": "茄子先生 Mr. Eggplants",
+    "610-asteroid-b": "小行星 B-610",
+    "yarn-ball": "針線球 Yarnball"
+  }
+}

@@ -1,14 +1,26 @@
 /**
- * Renders the expo-15 production before/after from two snapshots.
+ * Renders a cohort's production before/after comparison from two snapshots.
  *
  * Both sides are real `brands` rows, so unlike the submission-based benchmark
  * there is no `enriched_data` indirection — every value on both sides is read
  * straight off the column the site renders from.
  *
- *   pnpm exec tsx --env-file=.env.local scripts/expo15/render.ts
+ *   pnpm exec tsx --env-file=.env.local scripts/curation-rerun/render.ts
+ *   pnpm exec tsx --env-file=.env.local scripts/curation-rerun/render.ts --cohort batch1-never-curated
  */
-import { readFile, writeFile } from 'node:fs/promises'
-import { EXPO15_SLUGS, EXPO15_LABELS } from './brands'
+import { readFile, writeFile, mkdir } from 'node:fs/promises'
+import { dirname, resolve } from 'node:path'
+import { loadCohort, snapshotDir } from './cohort'
+
+const ARTIFACT_ROOT = `${process.env.HOME}/project/.artifact/formoria`
+
+/** review_<cohort>_<YYYY-MM-DD-HHmmss>.html, matching the existing artifact naming. */
+function artifactPath(cohortName: string): string {
+  const t = new Date()
+  const p = (n: number): string => String(n).padStart(2, '0')
+  const stamp = `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}-${p(t.getHours())}${p(t.getMinutes())}${p(t.getSeconds())}`
+  return resolve(ARTIFACT_ROOT, `review_${cohortName}_${stamp}.html`)
+}
 
 type Img = Record<string, unknown> & {
   url: string
@@ -125,13 +137,14 @@ const sortImgs = (imgs: Img[]): Img[] =>
   imgs.slice().sort((l, r) => (l.sort_order ?? 99) - (r.sort_order ?? 99))
 
 async function main(): Promise<void> {
-  const before = JSON.parse(
-    await readFile('scripts/expo15/snapshots/before.json', 'utf8')
-  ) as Snapshot
-  const afterIndex = process.argv.indexOf('--after')
-  const afterFile = afterIndex === -1
-    ? 'scripts/expo15/snapshots/after.json'
-    : `scripts/expo15/snapshots/${process.argv.at(afterIndex + 1)}`
+  const cohort = await loadCohort()
+  const dir = snapshotDir(cohort)
+  const argAfter = process.argv.indexOf('--after')
+  const argBefore = process.argv.indexOf('--before')
+  const beforeFile = resolve(dir, argBefore === -1 ? 'before.json' : String(process.argv.at(argBefore + 1)))
+  const afterFile = resolve(dir, argAfter === -1 ? 'after.json' : String(process.argv.at(argAfter + 1)))
+
+  const before = JSON.parse(await readFile(beforeFile, 'utf8')) as Snapshot
   const after = JSON.parse(await readFile(afterFile, 'utf8')) as Snapshot
 
   const bBrand = new Map(before.brands.map((b) => [b.slug, b]))
@@ -142,7 +155,7 @@ async function main(): Promise<void> {
   // Pair on brand ID, not slug: the slug is one of the fields under comparison,
   // and pairing on a field that can change would silently drop any brand whose
   // slug moved — exactly the case most worth seeing.
-  const pairs = EXPO15_SLUGS.flatMap((slug) => {
+  const pairs = cohort.slugs.flatMap((slug) => {
     const b = bBrand.get(slug)
     if (!b) return []
     const a = aBrandById.get(b.id)
@@ -167,7 +180,7 @@ async function main(): Promise<void> {
       const cls = na === 0 ? 'bad' : delta > 0 ? 'good' : delta < 0 ? 'warn' : ''
       const catChanged = show(b.product_type) !== show(a.product_type)
       return `<tr>
-      <td><a href="#${esc(slug)}"><b>${esc(EXPO15_LABELS[slug] ?? String(b.name))}</b></a></td>
+      <td><a href="#${esc(slug)}"><b>${esc(cohort.labels[slug] ?? String(b.name))}</b></a></td>
       <td${catChanged ? ' class="changed"' : ''}>${esc(show(b.product_type) || '—')} → <b>${esc(show(a.product_type) || '—')}</b></td>
       <td class="num">${nb}</td>
       <td class="num">${total}</td>
@@ -185,7 +198,7 @@ async function main(): Promise<void> {
       const afterRest = afterAll.filter((i) => i.status !== 'active')
 
       return `<section class="brand" id="${esc(slug)}">
-  <h2>${esc(EXPO15_LABELS[slug] ?? String(a.name))} <span class="slug">${esc(slug)}</span>
+  <h2>${esc(cohort.labels[slug] ?? String(a.name))} <span class="slug">${esc(slug)}</span>
     <a class="live" href="https://formoria.com/brands/${esc(String(a.slug))}" target="_blank" rel="noreferrer">view live ↗</a></h2>
 
   <h3>Identity &amp; category</h3>
@@ -215,7 +228,7 @@ async function main(): Promise<void> {
 
   const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Formoria — Expo 15 production refresh, before / after</title>
+<title>Formoria — ${esc(cohort.title)}</title>
 <style>
 :root{--bg:#faf8f5;--surface:#fff;--ink:#1c1a17;--muted:#6b6560;--line:#e5dfd7;--accent:#8a5a2b;--good:#2f6b4f;--warn:#8a6d2b;--bad:#a33a2a;--radius:10px}
 @media(prefers-color-scheme:dark){:root{--bg:#16150f;--surface:#201e18;--ink:#f0ebe3;--muted:#a29a90;--line:#35322a;--accent:#d9a066;--good:#6fb894;--warn:#d0aa5e;--bad:#e08472}}
@@ -275,10 +288,10 @@ details{margin-top:8px}summary{cursor:pointer;font-size:13px;color:var(--muted)}
 .hl span{font-size:12px;color:var(--muted)}
 </style></head><body><div class="wrap">
 <header>
-<h1>Expo 15 — production refresh, before / after</h1>
-<p class="sub">The 15 brands from the 2026 Taiwan Creative Expo editorial shortlist. <b>Before</b> is production as captured ${esc(before.capturedAt.replace('T', ' ').slice(0, 16))} UTC, immediately prior to the refresh. <b>After</b> is production as it stands now, captured ${esc(after.capturedAt.replace('T', ' ').slice(0, 16))} UTC. Both columns are live <code>brands</code> rows — this change is already applied.</p>
+<h1>${esc(cohort.title)}</h1>
+<p class="sub">${esc(cohort.subtitle)} <b>Before</b> is production as captured ${esc(before.capturedAt.replace('T', ' ').slice(0, 16))} UTC, immediately prior to the refresh. <b>After</b> is production as it stands now, captured ${esc(after.capturedAt.replace('T', ' ').slice(0, 16))} UTC. Both columns are live <code>brands</code> rows — this change is already applied.</p>
 </header>
-<nav><a href="#summary">Summary</a>${pairs.map((p) => `<a href="#${esc(p.slug)}">${esc((EXPO15_LABELS[p.slug] ?? String(p.before.name)).split(' ')[0])}</a>`).join('')}</nav>
+<nav><a href="#summary">Summary</a>${pairs.map((p) => `<a href="#${esc(p.slug)}">${esc((cohort.labels[p.slug] ?? String(p.before.name)).split(' ')[0])}</a>`).join('')}</nav>
 
 <div class="hl">
   <div><b>${pairs.length}</b><span>brands refreshed</span></div>
@@ -291,9 +304,7 @@ details{margin-top:8px}summary{cursor:pointer;font-size:13px;color:var(--muted)}
 <b>This ran the real pipeline against production.</b> Each brand was snapshotted into a refresh submission via <code>request_brand_refresh</code>, enriched by a genuine curation job (<code>enqueueAdminCurationJob</code> → <code>runJob</code> → <code>runEnrich</code>, steps <b>context, image, detail</b>), then written back with <code>apply_brand_refresh</code> — the same three RPCs the admin UI uses. Nothing here was hand-written into the database.
 </div>
 
-<div class="callout warn">
-<b>Slugs were protected.</b> Three brands carry mangled slugs from the DEV-1301 defect — <code>y</code> for 郁郁 YùYù, <code>ng</code> for 雱 PĀNG, <code>610-asteroid-b</code> for 小行星 B-610. The refresh flow classifies <code>slug</code> as an identity field and refused every write to it, so no live URL changed and no inbound link broke. Fixing those slugs remains DEV-1301's job, and needs redirects.
-</div>
+${cohort.warning ? `<div class="callout warn">${esc(cohort.warning)}</div>` : ''}
 
 <div class="key">
   <span><i class="sw" style="background:color-mix(in oklab,var(--good) 40%,transparent)"></i> newly filled</span>
@@ -311,8 +322,11 @@ details{margin-top:8px}summary{cursor:pointer;font-size:13px;color:var(--muted)}
 ${sections}
 </div></body></html>`
 
-  await writeFile('scripts/expo15/snapshots/before-after.html', html)
-  console.log('wrote scripts/expo15/snapshots/before-after.html')
+  const out = artifactPath(cohort.name)
+  await mkdir(dirname(out), { recursive: true })
+  await writeFile(out, html)
+  console.log(`wrote ${out}`)
+  console.log(`  file://${out}`)
   console.log(`  ${pairs.length} brands, images ${totalBefore} -> ${totalAfter}`)
 }
 

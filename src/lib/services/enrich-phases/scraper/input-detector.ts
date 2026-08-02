@@ -91,6 +91,10 @@ const NON_BRAND_PLATFORM_HOSTS = [
   'maps.google.com',
   'goo.gl',
   'books.com.tw',
+  // Trade-show / expo organiser. Every exhibiting brand's SERP carries its expo
+  // listing, so this host recurs across the whole expo import and outranks the
+  // small exhibitors themselves — it is never any of their own sites.
+  'creativexpo.tw',
   // Convenience-store logistics and hosted checkout. A brand links these as a
   // *shipping option*, never as its own site, but they outrank a small brand's
   // domain often enough to be adopted as one — `https://myship.7-11.com.tw`

@@ -1,5 +1,6 @@
 /**
- * Runs the REAL curation pipeline end-to-end against 15 live production brands.
+ * Runs the REAL curation pipeline end-to-end against a cohort of live
+ * production brands.
  *
  * This is the production path, not a reimplementation of it. Brand-target
  * enrichment is retired (`runEnrich` throws on `target: 'brands'`), so the only
@@ -18,23 +19,121 @@
  * correctly but records no target row, so all 15 applies fail with "Refresh
  * must have a successful enrichment run before apply". Learned the hard way.
  *
- * THIS MUTATES PRODUCTION. Take `scripts/expo15/snapshot.ts --out before.json`
- * first; that file is the rollback copy.
+ * Step 2 runs IN-PROCESS by default: this checkout claims the job and calls
+ * `runJob` itself, so the pipeline that executes is the code you are looking
+ * at. `--via-worker` instead dispatches the job to the deployed Railway
+ * curation worker and polls until it finishes — that runs whatever SHA the
+ * service happens to have deployed, which is not necessarily this branch. The
+ * curation-worker service has no GitHub source connected (see the DEV-1260
+ * note in `Dockerfile.curation-worker`: builds are pushed manually with
+ * `railway up`, and `RAILWAY_GIT_COMMIT_SHA` is not injected), so "deployed"
+ * cannot be inferred from git. Both paths call the same `runJob`; the only
+ * difference is which copy of it, and whose machine has to stay awake.
  *
- *   pnpm exec tsx --env-file=.env.local scripts/expo15/refresh.ts --dry-run
- *   pnpm exec tsx --env-file=.env.local scripts/expo15/refresh.ts --confirm
+ * THIS MUTATES PRODUCTION. Take
+ * `scripts/curation-rerun/snapshot.ts --out before.json` first; that file is
+ * the rollback copy.
+ *
+ *   pnpm exec tsx --env-file=.env.local scripts/curation-rerun/refresh.ts --dry-run
+ *   pnpm exec tsx --env-file=.env.local scripts/curation-rerun/refresh.ts --confirm
+ *   pnpm exec tsx --env-file=.env.local scripts/curation-rerun/refresh.ts --cohort batch1-never-curated --confirm --via-worker
  */
 import { randomUUID } from 'node:crypto'
 import { writeFile, mkdir } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
-import { createClient } from '@supabase/supabase-js'
+import { setTimeout as sleep } from 'node:timers/promises'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { enqueueAdminCurationJob, claimCurationJob } from '@/lib/services/curation-jobs'
+import { dispatchCurationJob } from '@/lib/services/curation-dispatch'
 import { runJob } from '@/lib/services/job-runner'
 import { requestBrandRefreshesBySlugs, applyBrandRefresh } from '@/lib/services/submissions'
-import { EXPO15_SLUGS } from './brands'
+import { loadCohort, snapshotDir, type Cohort } from './cohort'
 
 const STEPS = ['context', 'image', 'detail'] as const
-const LOG_PATH = resolve('scripts/expo15/snapshots', `refresh-log-${Date.now()}.json`)
+
+/** Terminal job states: anything else means the worker is still working. */
+const TERMINAL_JOB_STATUSES = ['completed', 'failed', 'cancelled'] as const
+
+const POLL_INTERVAL_MS = 15_000
+/**
+ * A 227-brand job takes hours, so the ceiling has to be generous. Hitting it
+ * means "stop waiting", never "the job died" — the worker is a separate
+ * process and keeps going after this script exits.
+ */
+const POLL_TIMEOUT_MS = 6 * 60 * 60 * 1_000
+
+type RunSummary = { success: number; failed: number; skipped: number }
+
+/**
+ * Counts by status via `head: true` count queries rather than fetching rows:
+ * PostgREST caps a row response at `max-rows` (1000) and reports the cap as an
+ * ordinary short result, so counting fetched rows would quietly understate any
+ * cohort past that size.
+ */
+async function countTargets(
+  supabase: SupabaseClient,
+  jobId: string,
+  status?: string
+): Promise<number> {
+  let query = supabase
+    .from('curation_job_targets')
+    .select('id', { count: 'exact', head: true })
+    .eq('job_id', jobId)
+  if (status) query = query.eq('status', status)
+  const { count, error } = await query
+  if (error) throw error
+  return count ?? 0
+}
+
+/**
+ * Dispatches the job to the deployed Railway worker and polls the job row until
+ * it reaches a terminal state. Returns the same shape `runJob` does so the
+ * caller's [4/4] apply step is identical on both paths.
+ */
+async function runViaWorker(supabase: SupabaseClient, jobId: string): Promise<RunSummary> {
+  await dispatchCurationJob(jobId)
+  console.log(`  dispatched to the deployed worker — polling every ${POLL_INTERVAL_MS / 1_000}s`)
+
+  const deadline = Date.now() + POLL_TIMEOUT_MS
+  for (;;) {
+    await sleep(POLL_INTERVAL_MS)
+
+    const { data, error } = await supabase
+      .from('curation_jobs')
+      .select('status')
+      .eq('id', jobId)
+      .single()
+    if (error) throw error
+    const status = String((data as { status: unknown } | null)?.status ?? 'unknown')
+
+    const [total, succeeded, failed, skipped] = await Promise.all([
+      countTargets(supabase, jobId),
+      countTargets(supabase, jobId, 'succeeded'),
+      countTargets(supabase, jobId, 'failed'),
+      countTargets(supabase, jobId, 'skipped'),
+    ])
+    console.log(
+      `  ${new Date().toISOString().slice(11, 19)} job ${status} — ${succeeded} succeeded, ${failed} failed, ${skipped} skipped of ${total} target(s)`
+    )
+
+    if ((TERMINAL_JOB_STATUSES as readonly string[]).includes(status)) {
+      if (status !== 'completed') {
+        throw new Error(
+          `job ${jobId} ended as ${status} — not applying. Inspect curation_job_targets before retrying.`
+        )
+      }
+      return { success: succeeded, failed, skipped }
+    }
+
+    if (Date.now() > deadline) {
+      throw new Error(
+        `timed out after ${POLL_TIMEOUT_MS / 3_600_000}h waiting on job ${jobId} (last status: ${status}). ` +
+          `The job may STILL BE RUNNING on the worker — do not re-enqueue. Check the job row, then re-run this ` +
+          `script with --confirm once it is terminal: the refresh submissions are reused, not duplicated.`
+      )
+    }
+  }
+}
 
 function hasFlag(flag: string): boolean {
   return process.argv.includes(flag)
@@ -45,26 +144,30 @@ function argValue(flag: string): string | undefined {
   return index === -1 ? undefined : process.argv.at(index + 1)
 }
 
-/** `--slugs a,b` re-runs a subset; absent means all 15. */
-function targetSlugs(): string[] {
+/** `--slugs a,b` re-runs a subset of the cohort; absent means the whole cohort. */
+function targetSlugs(cohort: Cohort): string[] {
   const raw = argValue('--slugs')
-  if (!raw) return [...EXPO15_SLUGS]
+  if (!raw) return [...cohort.slugs]
   const slugs = raw.split(',').map((s) => s.trim()).filter(Boolean)
-  const unknown = slugs.filter((s) => !EXPO15_SLUGS.includes(s as (typeof EXPO15_SLUGS)[number]))
-  if (unknown.length > 0) throw new Error(`unknown slug(s): ${unknown.join(', ')}`)
+  const unknown = slugs.filter((s) => !cohort.slugs.includes(s))
+  if (unknown.length > 0) throw new Error(`slug(s) not in cohort ${cohort.name}: ${unknown.join(', ')}`)
   return slugs
 }
 
 async function main(): Promise<void> {
+  const cohort = await loadCohort()
+  const logPath = resolve(snapshotDir(cohort), `refresh-log-${Date.now()}.json`)
   const dryRun = hasFlag('--dry-run')
+  const viaWorker = hasFlag('--via-worker')
   if (!dryRun && !hasFlag('--confirm')) {
     throw new Error(
-      'This rewrites 15 production brands. Re-run with --confirm (or --dry-run to preview).'
+      `This rewrites ${cohort.slugs.length} production brands (cohort ${cohort.name}). Re-run with --confirm (or --dry-run to preview).`
     )
   }
 
-  const slugs = targetSlugs()
-  if (slugs.length !== EXPO15_SLUGS.length) console.log(`subset: ${slugs.join(', ')}`)
+  const slugs = targetSlugs(cohort)
+  console.log(`cohort: ${cohort.name} — ${slugs.length} brand(s)`)
+  if (slugs.length !== cohort.slugs.length) console.log(`subset: ${slugs.join(', ')}`)
 
   const adminEmail = (process.env.ADMIN_EMAILS ?? '').split(',')[0]?.trim()
   if (!adminEmail) throw new Error('ADMIN_EMAILS is empty — cannot attribute the refresh')
@@ -118,9 +221,19 @@ async function main(): Promise<void> {
   console.log(
     `\n[1/4] refresh submissions — ${existing.size} reused, ${missingSlugs.length} to create${dryRun ? ' (dry run)' : ''}`
   )
-  const created = missingSlugs.length > 0
-    ? await requestBrandRefreshesBySlugs(missingSlugs, adminEmail, { dryRun })
-    : []
+  // requestBrandRefreshesBySlugs runs one unbounded Promise.all over its input.
+  // That is fine for a 15-brand cohort and not fine for a 227-brand one: every
+  // slug becomes a concurrent RPC, and the pool is what breaks first. Chunk it
+  // here rather than in the service, so the service keeps its simple contract.
+  const REQUEST_CHUNK = 25
+  const created: Awaited<ReturnType<typeof requestBrandRefreshesBySlugs>> = []
+  for (let i = 0; i < missingSlugs.length; i += REQUEST_CHUNK) {
+    const chunk = missingSlugs.slice(i, i + REQUEST_CHUNK)
+    created.push(...(await requestBrandRefreshesBySlugs(chunk, adminEmail, { dryRun })))
+    if (missingSlugs.length > REQUEST_CHUNK) {
+      console.log(`  requested ${Math.min(i + REQUEST_CHUNK, missingSlugs.length)}/${missingSlugs.length}`)
+    }
+  }
   const failedRequests = created.filter((r) => r.error)
   if (failedRequests.length > 0) {
     for (const r of failedRequests) console.error(`  ${r.slug.padEnd(18)} ERROR ${r.error}`)
@@ -152,11 +265,16 @@ async function main(): Promise<void> {
   })
   console.log(`  job ${job.id}`)
 
-  console.log(`\n[3/4] running the worker\n`)
-  const workerToken = randomUUID()
-  const claimed = await claimCurationJob(job.id, workerToken)
-  if (!claimed) throw new Error(`could not claim job ${job.id} — another worker may hold it`)
-  const summary = await runJob(claimed, workerToken)
+  console.log(`\n[3/4] running the worker — ${viaWorker ? 'deployed Railway service' : 'in-process (this checkout)'}\n`)
+  let summary: RunSummary
+  if (viaWorker) {
+    summary = await runViaWorker(supabase, job.id)
+  } else {
+    const workerToken = randomUUID()
+    const claimed = await claimCurationJob(job.id, workerToken)
+    if (!claimed) throw new Error(`could not claim job ${job.id} — another worker may hold it`)
+    summary = await runJob(claimed, workerToken)
+  }
   console.log(
     `\njob done — success ${summary.success}, failed ${summary.failed}, skipped ${summary.skipped}`
   )
@@ -187,13 +305,13 @@ async function main(): Promise<void> {
     }
   }
 
-  await mkdir(dirname(LOG_PATH), { recursive: true })
+  await mkdir(dirname(logPath), { recursive: true })
   await writeFile(
-    LOG_PATH,
+    logPath,
     JSON.stringify({ ranAt: new Date().toISOString(), steps: [...STEPS], requested, enrich: { processed: enrich.processed, updated: enrich.updated, skipped: enrich.skipped, errors: enrich.errors }, applied }, null, 2)
   )
   const failedApplies = applied.filter((a) => !a.ok)
-  console.log(`\nwrote ${LOG_PATH}`)
+  console.log(`\nwrote ${logPath}`)
   console.log(`applied ${applied.length - failedApplies.length}/${applied.length}`)
   if (failedApplies.length > 0) process.exitCode = 1
 }

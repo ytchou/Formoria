@@ -1,0 +1,9 @@
+{
+  "name": "recuration-pilot-2",
+  "title": "Re-curation pilot 2 — with link guards applied",
+  "subtitle": "Two further brands from the 234 approved brands with brand_enriched_at IS NULL, run AFTER the four link-validation fixes (bare-root rejection, no-downgrade guard, SERP brand-identity gate, foreign ccTLD guard). Both were chosen because their imported links exercise those guards: CELEMENT LAB's Instagram belongs to a different brand, and ICELOLLY's purchase_website is a Taobao marketplace root.",
+  "labels": {
+    "celement-lab": "軟水泥生活實驗室 CELEMENT LAB",
+    "icelolly": "ICELOLLY"
+  }
+}

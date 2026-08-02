@@ -87,6 +87,38 @@ describe('deriveOfficialWebsite', () => {
     ).toBeNull()
   })
 
+  // A Taiwan-only directory. `https://onewood.dk` — a Danish company sharing the
+  // name — became the brand "One Wood"'s official website on a live run, and it
+  // passed the token check precisely because the two companies share a name.
+  it('rejects a foreign ccTLD even when the domain carries the brand tokens', () => {
+    expect(deriveOfficialWebsite(['https://onewood.dk'], 'One Wood')).toBeNull()
+    expect(
+      deriveOfficialWebsite(['https://www.paperdiamond.uk/shop'], 'Paper Diamond'),
+    ).toBeNull()
+  })
+
+  // The fallback path takes first-eligible, so the guard has to sit in the
+  // filter rather than beside the token match.
+  it('rejects a foreign ccTLD on the no-token fallback path too', () => {
+    expect(deriveOfficialWebsite(['https://onewood.dk'], '木一')).toBeNull()
+    expect(deriveOfficialWebsite(['https://onewood.dk'])).toBeNull()
+  })
+
+  it('keeps generic and Taiwanese TLDs', () => {
+    expect(deriveOfficialWebsite(['https://moonlight22.com'], '沐籟 Moonlight')).toBe(
+      'https://moonlight22.com',
+    )
+    expect(deriveOfficialWebsite(['https://su3.bonmipang.com/products'], 'Su3')).toBe(
+      'https://su3.bonmipang.com',
+    )
+    expect(deriveOfficialWebsite(['https://taiwandye.com/about'], 'Taiwan Dye')).toBe(
+      'https://taiwandye.com',
+    )
+    expect(deriveOfficialWebsite(['https://www.chatzutang.com.tw/'], 'Cha Tzu Tang')).toBe(
+      'https://www.chatzutang.com.tw',
+    )
+  })
+
   it('never adopts a convenience-store logistics host as the brand site', () => {
     expect(
       deriveOfficialWebsite(['https://myship.7-11.com.tw/general/detail/GM123'], '原形東方茶飲 pur Sweets'),
