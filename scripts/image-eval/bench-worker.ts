@@ -7,18 +7,29 @@
  * has no such column, so `detect` assigns one exactly as it would for a real
  * submission. That is more faithful than copying the live value across.
  *
- * Live `brands` / `brand_images` are never touched. Six temporary
- * `brand_submissions` rows are created from the tracked brands, the worker runs
- * against those, results land in `submission_images`, and the temporary rows are
- * deleted afterwards in a finally block so an aborted run still cleans up.
+ * Live `brands` / `brand_images` are never touched. One temporary
+ * `brand_submissions` row per brand is created from the tracked brands, the
+ * worker runs against those, results land in `submission_images`, and the
+ * temporary rows are deleted afterwards in a finally block so an aborted run
+ * still cleans up.
  *
+ *   # all tracked brands -> runs/_track/worker-after.json
  *   pnpm exec tsx --env-file=.env.local scripts/image-eval/bench-worker.ts
+ *
+ *   # a subset, to its own file (never overwrite a run you still want)
+ *   pnpm exec tsx --env-file=.env.local scripts/image-eval/bench-worker.ts \
+ *     --slugs venturezac,handmadeship --out runs/_track/worker-after-subset.json
+ *
+ * `--out` is resolved under `scripts/image-eval/` and refuses to clobber an
+ * existing file: a benchmark that silently overwrites its own previous result
+ * destroys the only copy of the comparison you were about to make.
  */
-import { writeFile } from 'node:fs/promises'
+import { writeFile, mkdir, access } from 'node:fs/promises'
+import { dirname, resolve } from 'node:path'
 import { createClient } from '@supabase/supabase-js'
 import { runEnrich } from '@/lib/services/curation-operations'
 
-const TRACKED_SLUGS = [
+const ALL_TRACKED_SLUGS = [
   'jiayun-store',
   'venturezac',
   'handmadeship',
@@ -26,6 +37,37 @@ const TRACKED_SLUGS = [
   'major-pleasure',
   'nu-dream-jewelry',
 ]
+
+const EVAL_ROOT = 'scripts/image-eval'
+const DEFAULT_OUT = 'runs/_track/worker-after.json'
+
+function argValue(flag: string): string | undefined {
+  const index = process.argv.indexOf(flag)
+  return index === -1 ? undefined : process.argv.at(index + 1)
+}
+
+function parseArgs(): { slugs: string[]; outPath: string } {
+  const rawSlugs = argValue('--slugs')
+  const slugs = rawSlugs
+    ? rawSlugs.split(',').map((s) => s.trim()).filter(Boolean)
+    : ALL_TRACKED_SLUGS
+  const unknown = slugs.filter((s) => !ALL_TRACKED_SLUGS.includes(s))
+  if (unknown.length > 0) {
+    throw new Error(
+      `unknown slug(s): ${unknown.join(', ')}\n  tracked: ${ALL_TRACKED_SLUGS.join(', ')}`
+    )
+  }
+  return { slugs, outPath: resolve(EVAL_ROOT, argValue('--out') ?? DEFAULT_OUT) }
+}
+
+async function assertNotClobbering(outPath: string): Promise<void> {
+  try {
+    await access(outPath)
+  } catch {
+    return
+  }
+  throw new Error(`refusing to overwrite existing ${outPath} — pass a different --out`)
+}
 
 /**
  * Cleanup matches on the email, NOT on a name prefix. An earlier version
@@ -57,6 +99,13 @@ type BrandRow = {
 }
 
 async function main(): Promise<void> {
+  const { slugs, outPath } = parseArgs()
+  // Checked before any row is written, so a bad --out fails free rather than
+  // after a full run against live services.
+  await assertNotClobbering(outPath)
+  console.log(`brands: ${slugs.join(', ')}`)
+  console.log(`output: ${outPath}\n`)
+
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -67,9 +116,13 @@ async function main(): Promise<void> {
     .select(
       'id, slug, name, product_type, description, purchase_website, social_instagram, social_threads, social_facebook, purchase_pinkoi, purchase_shopee'
     )
-    .in('slug', TRACKED_SLUGS)
+    .in('slug', slugs)
   if (error) throw error
   const rows = (brands ?? []) as BrandRow[]
+  if (rows.length !== slugs.length) {
+    const found = new Set(rows.map((r) => r.slug))
+    throw new Error(`missing live brand(s): ${slugs.filter((s) => !found.has(s)).join(', ')}`)
+  }
   console.log(`loaded ${rows.length} live brands`)
 
   const createdIds: string[] = []
@@ -141,11 +194,12 @@ async function main(): Promise<void> {
       )
     }
 
+    await mkdir(dirname(outPath), { recursive: true })
     await writeFile(
-      'scripts/image-eval/runs/_track/worker-after.json',
+      outPath,
       JSON.stringify({ ranAt: new Date().toISOString(), steps: [...STEPS], brands: captured }, null, 2)
     )
-    console.log('\nwrote scripts/image-eval/runs/_track/worker-after.json')
+    console.log(`\nwrote ${outPath}`)
   } finally {
     // Cleanup must be loud. A previous run reported "cleaned up" and left all six
     // rows in production: the deletes returned no error and affected nothing, so
