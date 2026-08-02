@@ -6,9 +6,23 @@ import { initializePostHog } from './posthog-client'
 afterEach(() => {
   clearPostHogProviderForTests()
   vi.unstubAllEnvs()
+  document.documentElement.lang = ''
 })
 
 describe('PostHog client initialization', () => {
+  it('registers the resolved route locale before the initial pageview can fire', () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.stubEnv('NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN', 'phc_test')
+    vi.stubEnv('NEXT_PUBLIC_POSTHOG_HOST', 'https://e.formoria.com')
+    vi.stubEnv('NEXT_PUBLIC_POSTHOG_UI_HOST', 'https://us.posthog.com')
+    document.documentElement.lang = 'en'
+    const client = { init: vi.fn(), capture: vi.fn(), identify: vi.fn(), register: vi.fn(), reset: vi.fn() }
+
+    initializePostHog(client)
+
+    expect(client.register).toHaveBeenCalledWith({ locale: 'en' })
+  })
+
   it('uses the managed host and privacy-safe single-pageview configuration', () => {
     vi.stubEnv('NODE_ENV', 'production')
     vi.stubEnv('NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN', 'phc_test')
