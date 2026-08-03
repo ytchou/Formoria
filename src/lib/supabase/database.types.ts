@@ -142,6 +142,7 @@ export type Database = {
           product_type: string | null;
           prompt_tokens: number | null;
           raw_response: Json | null;
+          retry_attempt: number;
           slug_generated: string | null;
           submission_id: string | null;
         };
@@ -168,6 +169,7 @@ export type Database = {
           product_type?: string | null;
           prompt_tokens?: number | null;
           raw_response?: Json | null;
+          retry_attempt?: number;
           slug_generated?: string | null;
           submission_id?: string | null;
         };
@@ -194,6 +196,7 @@ export type Database = {
           product_type?: string | null;
           prompt_tokens?: number | null;
           raw_response?: Json | null;
+          retry_attempt?: number;
           slug_generated?: string | null;
           submission_id?: string | null;
         };
@@ -848,6 +851,7 @@ export type Database = {
           provider: string;
           query: string;
           raw_response: Json | null;
+          retry_attempt: number;
           search_type: string;
           snippets: string[];
           submission_id: string | null;
@@ -869,6 +873,7 @@ export type Database = {
           provider?: string;
           query: string;
           raw_response?: Json | null;
+          retry_attempt?: number;
           search_type: string;
           snippets?: string[];
           submission_id?: string | null;
@@ -890,6 +895,7 @@ export type Database = {
           provider?: string;
           query?: string;
           raw_response?: Json | null;
+          retry_attempt?: number;
           search_type?: string;
           snippets?: string[];
           submission_id?: string | null;
