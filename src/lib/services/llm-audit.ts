@@ -64,6 +64,9 @@ async function persistAuditEvent(
         ...(event.meta ? { meta: event.meta } : {}),
       },
       ...(context.attempt !== undefined ? { attempt: context.attempt } : {}),
+      ...(event.retryAttempt !== undefined
+        ? { retryAttempt: event.retryAttempt }
+        : {}),
       ...(context.config !== undefined ? { config: context.config } : {}),
       latencyMs: event.latencyMs,
     });

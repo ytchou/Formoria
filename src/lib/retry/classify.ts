@@ -113,6 +113,7 @@ type PostgrestErrorLike = { code?: string | null; message?: string };
 export function classifyPostgrestError(
   error: PostgrestErrorLike | null | undefined,
 ): RetryClassification {
+  if (!error) return { retryable: false, reason: "terminal" };
   const code = error?.code ?? undefined;
   if (!code || code.startsWith("08") || TRANSIENT_DATABASE_CODES.has(code)) {
     return { retryable: true, reason: "network" };

@@ -1,5 +1,12 @@
+import { randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
-import { mergeDescriptionAuditResponse, retryAuditWrite } from "./ai-results";
+import { createTestClient, describeWithDb } from "@/test/setup";
+import { brandTarget } from "./enrichment-target";
+import {
+  insertAiCallResult,
+  mergeDescriptionAuditResponse,
+  retryAuditWrite,
+} from "./ai-results";
 
 describe("description audit results", () => {
   it("preserves the model response and adds validation outcomes for a rejected description", () => {
@@ -40,15 +47,106 @@ describe("description audit results", () => {
 describe("audit persistence", () => {
   // This catches a transient Supabase/network failure making a provider failure
   // disappear from the durable audit trail after only one insert attempt.
-  it("retries a transient failed write and returns the successful result", async () => {
+  it("retries a transient error and succeeds", async () => {
     const write = vi
       .fn<() => Promise<{ code?: string; message: string } | null>>()
-      .mockResolvedValueOnce({ message: "fetch failed" })
+      .mockResolvedValueOnce({ code: "40001", message: "serialization failure" })
       .mockResolvedValueOnce(null);
-    const wait = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
+    const wait = vi.fn<(ms: number) => Promise<void>>().mockResolvedValue(undefined);
 
     await expect(retryAuditWrite(write, wait)).resolves.toBeNull();
     expect(write).toHaveBeenCalledTimes(2);
     expect(wait).toHaveBeenCalledTimes(1);
+  });
+
+  it("gives up after three transient attempts and returns the last error", async () => {
+    const error = { code: "40001", message: "serialization failure" };
+    const write = vi
+      .fn<() => Promise<{ code?: string; message: string } | null>>()
+      .mockResolvedValue(error);
+    const wait = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
+
+    await expect(retryAuditWrite(write, wait)).resolves.toBe(error);
+    expect(write).toHaveBeenCalledTimes(3);
+    expect(wait).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry a terminal error", async () => {
+    const write = vi
+      .fn<() => Promise<{ code?: string; message: string } | null>>()
+      .mockResolvedValue({ code: "23514", message: "constraint violation" });
+    const wait = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
+
+    await expect(retryAuditWrite(write, wait)).resolves.toMatchObject({
+      code: "23514",
+    });
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(wait).not.toHaveBeenCalled();
+  });
+
+  it("still accepts an injected wait with the two-argument signature", async () => {
+    const write = vi
+      .fn<() => Promise<{ code?: string; message: string } | null>>()
+      .mockResolvedValueOnce({ code: "40001", message: "temporary" })
+      .mockResolvedValue(null);
+    const wait = vi.fn<(ms: number) => Promise<void>>().mockResolvedValue(undefined);
+
+    await retryAuditWrite(write, wait);
+
+    expect(wait).toHaveBeenCalledTimes(1);
+    const [delay] = wait.mock.calls[0] ?? [];
+    expect(delay).toBeGreaterThanOrEqual(500);
+    expect(delay).toBeLessThan(1_000);
+  });
+
+  it("never throws when a write rejects", async () => {
+    const write = vi
+      .fn<() => Promise<{ code?: string; message: string } | null>>()
+      .mockRejectedValue(new Error("connection dropped"));
+    const wait = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
+
+    await expect(retryAuditWrite(write, wait)).resolves.toMatchObject({
+      message: "connection dropped",
+    });
+    expect(write).toHaveBeenCalledTimes(3);
+  });
+});
+
+describeWithDb("audit retry columns", () => {
+  it("persists retryAttempt as retry_attempt", async () => {
+    const client = createTestClient();
+    const { data: brand, error: brandError } = await client
+      .from("brands")
+      .select("id")
+      .limit(1)
+      .single();
+    expect(brandError).toBeNull();
+    expect(brand).not.toBeNull();
+
+    const marker = `retry-attempt-${randomUUID()}`;
+    await insertAiCallResult({
+      target: brandTarget(brand!.id),
+      phase: "detect",
+      model: "gpt-5.6-luna",
+      rawResponse: { marker },
+      input: { marker },
+      retryAttempt: 2,
+      latencyMs: 0,
+    });
+
+    const { data: rows, error } = await client
+      .from("brand_ai_results")
+      .select("id, retry_attempt, input")
+      .eq("brand_id", brand!.id)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    expect(error).toBeNull();
+    const row = rows?.find(
+      (candidate) =>
+        (candidate.input as { marker?: string } | null)?.marker === marker,
+    );
+    expect(row?.retry_attempt).toBe(2);
+
+    if (row?.id) await client.from("brand_ai_results").delete().eq("id", row.id);
   });
 });

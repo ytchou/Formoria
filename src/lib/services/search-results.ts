@@ -27,6 +27,7 @@ export type StartSearchAuditInput = SearchAuditContext & {
   input: unknown
   config?: unknown
   attempt?: number
+  retryAttempt?: number
 }
 
 export type FinishSearchAuditInput = {
@@ -53,6 +54,7 @@ export type SearchResultRow = {
   httpStatus?: number | null
   error?: string | null
   attempt?: number
+  retryAttempt?: number
   rawResponse?: unknown
   latencyMs?: number | null
 }
@@ -80,6 +82,7 @@ export async function startSearchAudit(input: StartSearchAuditInput): Promise<st
       http_status: null,
       error: null,
       attempt: input.attempt ?? 1,
+      retry_attempt: input.retryAttempt ?? 0,
       job_id: input.jobId ?? null,
       search_type: input.searchType,
       query: input.query,
@@ -132,7 +135,7 @@ export async function getLatestSearchResults(
   const foreignKey = targetType === 'brand' ? 'brand_id' : 'submission_id'
   const { data, error } = await supabase
     .from('brand_search_results')
-    .select(`${foreignKey}, id, search_type, query, urls, snippets, provider, endpoint, input, call_status, http_status, error, attempt, raw_response, latency_ms`)
+    .select(`${foreignKey}, id, search_type, query, urls, snippets, provider, endpoint, input, call_status, http_status, error, attempt, retry_attempt, raw_response, latency_ms`)
     .in(foreignKey, targetIds)
     .eq('search_type', searchType)
     .order('created_at', { ascending: false })
@@ -157,6 +160,7 @@ export async function getLatestSearchResults(
       httpStatus: typeof row.http_status === 'number' ? row.http_status : null,
       error: typeof row.error === 'string' ? row.error : null,
       attempt: typeof row.attempt === 'number' ? row.attempt : undefined,
+      retryAttempt: typeof row.retry_attempt === 'number' ? row.retry_attempt : undefined,
       rawResponse: row.raw_response,
       latencyMs: typeof row.latency_ms === 'number' ? row.latency_ms : null,
     })
