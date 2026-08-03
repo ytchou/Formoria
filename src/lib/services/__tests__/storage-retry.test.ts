@@ -44,6 +44,16 @@ describe("uploadWithRetry", () => {
     expect(result).toBe(failure);
   });
 
+  it("does not retry a non-idempotent operation", async () => {
+    const failure = { data: null, error: { statusCode: 503, message: "busy" } };
+    const upload = vi.fn<() => Promise<StorageResult>>().mockResolvedValue(failure);
+
+    const result = await uploadWithRetry(upload, { idempotent: false });
+
+    expect(upload).toHaveBeenCalledTimes(1);
+    expect(result).toBe(failure);
+  });
+
   it("gives up after three attempts", async () => {
     const failure = { data: null, error: { statusCode: 503, message: "busy" } };
     const upload = vi.fn<() => Promise<StorageResult>>().mockResolvedValue(failure);

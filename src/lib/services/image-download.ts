@@ -383,13 +383,17 @@ export async function downloadAndStoreImages(
         const filename = `${storage.prefix}/${target.id}/${crypto.randomUUID()}.${ext}`
         const dominantColor = dominantColorToHex(stats.dominant)
 
-        const { error: uploadError } = await uploadWithRetry(() =>
-          supabase.storage
-            .from('brand-images')
-            .upload(filename, uploadBuffer, {
-              contentType: uploadContentType,
-              cacheControl: '31536000',
-            }),
+        // The random path is a create-only upload; retrying an ambiguous
+        // response could create a duplicate object.
+        const { error: uploadError } = await uploadWithRetry(
+          () =>
+            supabase.storage
+              .from('brand-images')
+              .upload(filename, uploadBuffer, {
+                contentType: uploadContentType,
+                cacheControl: '31536000',
+              }),
+          { idempotent: false },
         )
 
         if (uploadError) {

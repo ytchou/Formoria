@@ -118,16 +118,20 @@ export async function deleteStoredImagePaths(paths: string[]): Promise<void> {
 
 async function uploadStorageObject(input: UploadImageInput | PrivateUploadFileInput): Promise<string> {
   const supabase = createServiceClient()
-
-  const { data, error: uploadError } = await uploadWithRetry(() =>
+  const upload = () =>
     supabase.storage
       .from(input.bucket)
       .upload(input.path, input.data, {
         cacheControl: '31536000',
         contentType: input.contentType,
         upsert: 'upsert' in input ? input.upsert ?? false : false,
-      }),
-  )
+      })
+
+  // Only explicit upserts are safe to retry; create-only uploads use random
+  // paths and an ambiguous response could otherwise duplicate an object.
+  const { data, error: uploadError } = await uploadWithRetry(upload, {
+    idempotent: 'upsert' in input && input.upsert === true,
+  })
 
   if (uploadError) {
     throw uploadError
