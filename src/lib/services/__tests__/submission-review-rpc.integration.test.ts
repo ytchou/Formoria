@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import {
   approveSubmission,
+  dropNeedsDataSubmissions,
   getSubmissionsForReview,
   saveSubmissionReview,
 } from "../submissions";
@@ -111,6 +112,114 @@ describeWithDb("trusted submission review RPCs", () => {
         { id: images.removed.id, status: "rejected", sort_order: 2 },
       ]),
     );
+  });
+
+  it("drops only Needs Data submissions and preserves curation history", async () => {
+    const needsDataId = await seedSubmission("drop-needs-data");
+    await seedSuccessfulTarget(needsDataId, "drop-needs-data");
+    const { error: failedTargetError } = await supabase!
+      .from("curation_job_targets")
+      .update({ status: "failed", error: "No usable data" })
+      .eq("target_type", "submission")
+      .eq("target_id", needsDataId);
+    expect(failedTargetError).toBeNull();
+
+    const { error: imageError } = await supabase!
+      .from("submission_images")
+      .insert({
+        submission_id: needsDataId,
+        url: "https://cdn.example.com/drop-needs-data.webp",
+        source: "admin",
+        status: "draft",
+        sort_order: 0,
+      });
+    expect(imageError).toBeNull();
+
+    const readyId = await seedSubmission("drop-ready");
+    await seedSuccessfulTarget(readyId, "drop-ready");
+
+    const { count: historyBefore } = await supabase!
+      .from("curation_job_targets")
+      .select("id", { count: "exact", head: true })
+      .eq("target_type", "submission")
+      .eq("target_id", needsDataId);
+    expect(historyBefore).toBe(1);
+
+    const result = await dropNeedsDataSubmissions([needsDataId]);
+    expect(result.deletedCount).toBe(1);
+    expect(result.cleanupFailed).toBe(false);
+
+    const { count: deletedCount } = await supabase!
+      .from("brand_submissions")
+      .select("id", { count: "exact", head: true })
+      .eq("id", needsDataId);
+    expect(deletedCount).toBe(0);
+
+    const { count: cascadedImageCount } = await supabase!
+      .from("submission_images")
+      .select("id", { count: "exact", head: true })
+      .eq("submission_id", needsDataId);
+    expect(cascadedImageCount).toBe(0);
+
+    const { count: historyAfter } = await supabase!
+      .from("curation_job_targets")
+      .select("id", { count: "exact", head: true })
+      .eq("target_type", "submission")
+      .eq("target_id", needsDataId);
+    expect(historyAfter).toBe(historyBefore);
+
+    await expect(dropNeedsDataSubmissions([readyId])).rejects.toThrow(
+      "Needs Data",
+    );
+    const { count: readyCount } = await supabase!
+      .from("brand_submissions")
+      .select("id", { count: "exact", head: true })
+      .eq("id", readyId);
+    expect(readyCount).toBe(1);
+  });
+
+  it("serializes an in-flight curation update against a drop", async () => {
+    const submissionId = await seedSubmission("drop-race");
+    await seedSuccessfulTarget(submissionId, "drop-race");
+    const { error: failedTargetError } = await supabase!
+      .from("curation_job_targets")
+      .update({ status: "failed", error: "No usable data" })
+      .eq("target_type", "submission")
+      .eq("target_id", submissionId);
+    expect(failedTargetError).toBeNull();
+
+    const [dropResult, targetUpdate] = await Promise.all([
+      supabase!.rpc("drop_needs_data_submissions", {
+        p_submission_ids: [submissionId],
+      }),
+      supabase!
+        .from("curation_job_targets")
+        .update({ status: "succeeded", error: null })
+        .eq("target_type", "submission")
+        .eq("target_id", submissionId),
+    ]);
+
+    const { data: target } = await supabase!
+      .from("curation_job_targets")
+      .select("status")
+      .eq("target_type", "submission")
+      .eq("target_id", submissionId)
+      .single();
+    const { count: submissionCount } = await supabase!
+      .from("brand_submissions")
+      .select("id", { count: "exact", head: true })
+      .eq("id", submissionId);
+
+    if (dropResult.error) {
+      expect(dropResult.error.message).toContain("Needs Data");
+      expect(targetUpdate.error).toBeNull();
+      expect(target?.status).toBe("succeeded");
+      expect(submissionCount).toBe(1);
+    } else {
+      expect(targetUpdate.error?.message).toContain("Submission not found");
+      expect(target?.status).toBe("failed");
+      expect(submissionCount).toBe(0);
+    }
   });
 
   it("rejects incomplete approval and promotes active images only", async () => {

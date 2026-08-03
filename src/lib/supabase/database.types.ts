@@ -2634,6 +2634,10 @@ export type Database = {
         Args: { p_name: string; p_ubn?: string; p_website_key?: string };
         Returns: Json;
       };
+      drop_needs_data_submissions: {
+        Args: { p_submission_ids: string[] };
+        Returns: string[];
+      };
       claim_claim_proof_cleanup_jobs: {
         Args: {
           p_claim_request_id?: string;

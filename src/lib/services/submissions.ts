@@ -69,6 +69,21 @@ type SubmissionRowWithProductTypeNote = Omit<SubmissionRow, "other_urls"> & {
 };
 type SubmissionImageRow =
   Database["public"]["Tables"]["submission_images"]["Row"];
+type OwnerRecipientRow = Pick<
+  Database["public"]["Tables"]["brand_submissions"]["Row"],
+  "id" | "brand_id" | "submitter_email" | "submitted_at"
+>;
+type SubmissionLocationCandidateRow = Pick<
+  Database["public"]["Tables"]["brand_location_candidates"]["Row"],
+  | "id"
+  | "submission_id"
+  | "location"
+  | "verification_decision"
+  | "match_reason"
+  | "evidence"
+  | "normalized_address"
+  | "audit_result_ids"
+>;
 type BrandImageReviewRow = Pick<
   Database["public"]["Tables"]["brand_images"]["Row"],
   | "id"
@@ -206,7 +221,9 @@ type BrandInsert = Database["public"]["Tables"]["brands"]["Insert"];
 const GENERATED_GUEST_EMAIL_DOMAIN = "guest.formoria.invalid";
 const ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE = 1_000;
 const CURATION_TARGET_HISTORY_PAGE_SIZE = 1_000;
+const OWNER_RECIPIENTS_PAGE_SIZE = 1_000;
 const SUPABASE_IN_FILTER_CHUNK_SIZE = 200;
+export const MAX_DROPPABLE_SUBMISSIONS = 100;
 const APPROVAL_RPC_ERROR_MESSAGES = new Set([
   "Submission already processed",
   "Submission must have complete enrichment before approval",
@@ -1131,26 +1148,43 @@ export async function getApprovedOwnerSubmissionRecipients(
   const supabase = createServiceClient();
   const chunks = chunkValues(uniqueBrandIds, SUPABASE_IN_FILTER_CHUNK_SIZE);
   const results = await Promise.all(
-    chunks.map((chunk) =>
-      supabase
-        .from("brand_submissions")
-        .select("brand_id, submitter_email, submitted_at")
-        .in("brand_id", chunk)
-        .eq("status", "approved")
-        .eq("is_brand_owner", true)
-        .order("submitted_at", { ascending: false, nullsFirst: false }),
-    ),
+    chunks.map(async (chunk) => {
+      // A brand can accumulate any number of approved owner submissions, so an
+      // unpaged read can stop at PostgREST's row cap and silently lose whole
+      // brands. brand_id leads the sort so page boundaries are deterministic;
+      // submitted_at stays descending so the first row seen per brand is still
+      // the newest one, which is what the dedupe below keeps.
+      const chunkRows: OwnerRecipientRow[] = [];
+      for (let page = 0; ; page += 1) {
+        const { data, error } = await supabase
+          .from("brand_submissions")
+          .select("id, brand_id, submitter_email, submitted_at")
+          .in("brand_id", chunk)
+          .eq("status", "approved")
+          .eq("is_brand_owner", true)
+          .order("brand_id", { ascending: true })
+          .order("submitted_at", { ascending: false, nullsFirst: false })
+          .order("id", { ascending: true })
+          .range(
+            page * OWNER_RECIPIENTS_PAGE_SIZE,
+            (page + 1) * OWNER_RECIPIENTS_PAGE_SIZE - 1,
+          );
+        if (error) throw error;
+
+        const pageRows = (data ?? []) as OwnerRecipientRow[];
+        chunkRows.push(...pageRows);
+        if (pageRows.length < OWNER_RECIPIENTS_PAGE_SIZE) break;
+      }
+      return chunkRows;
+    }),
   );
 
   const recipients = new Map<string, ApprovedOwnerSubmissionRecipient>();
-  for (const { data, error } of results) {
-    if (error) throw error;
-    for (const submission of data ?? []) {
-      if (!submission.brand_id || recipients.has(submission.brand_id)) continue;
-      recipients.set(submission.brand_id, {
-        submitterEmail: submission.submitter_email,
-      });
-    }
+  for (const submission of results.flat()) {
+    if (!submission.brand_id || recipients.has(submission.brand_id)) continue;
+    recipients.set(submission.brand_id, {
+      submitterEmail: submission.submitter_email,
+    });
   }
 
   return recipients;
@@ -1311,16 +1345,33 @@ export async function getSubmissionsForReview(options?: {
     const imageChunks = await Promise.all(
       chunkValues(submissionIds, SUPABASE_IN_FILTER_CHUNK_SIZE).map(
         async (targetIds) => {
-          const { data: imageData, error: imagesError } = await supabase
-            .from("submission_images")
-            .select(
-              "id, submission_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, width, height, origin_brand_image_id",
-            )
-            .in("submission_id", targetIds)
-            .order("sort_order", { ascending: true })
-            .order("created_at", { ascending: true });
-          if (imagesError) throw imagesError;
-          return (imageData ?? []) as SubmissionImageRow[];
+          // A chunk of 200 submissions can hold several thousand images, so an
+          // unpaged read silently stops at PostgREST's row cap. Ordering by
+          // submission_id first keeps every page boundary deterministic; the
+          // consumer re-sorts by sort_order anyway.
+          const chunkImages: SubmissionImageRow[] = [];
+          for (let page = 0; ; page += 1) {
+            const { data: imageData, error: imagesError } = await supabase
+              .from("submission_images")
+              .select(
+                "id, submission_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, width, height, origin_brand_image_id",
+              )
+              .in("submission_id", targetIds)
+              .order("submission_id", { ascending: true })
+              .order("sort_order", { ascending: true })
+              .order("created_at", { ascending: true })
+              .order("id", { ascending: true })
+              .range(
+                page * ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE,
+                (page + 1) * ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE - 1,
+              );
+            if (imagesError) throw imagesError;
+
+            const pageImages = (imageData ?? []) as SubmissionImageRow[];
+            chunkImages.push(...pageImages);
+            if (pageImages.length < ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE) break;
+          }
+          return chunkImages;
         },
       ),
     );
@@ -1392,23 +1443,41 @@ export async function getSubmissionsForReview(options?: {
     const candidateChunks = await Promise.all(
       chunkValues(submissionIds, SUPABASE_IN_FILTER_CHUNK_SIZE).map(
         async (targetIds) => {
-          const { data: candidateData, error: candidatesError } = await supabase
-            .from("brand_location_candidates")
-            .select(
-              "id, submission_id, location, verification_decision, match_reason, evidence, normalized_address, audit_result_ids",
-            )
-            .in("submission_id", targetIds)
-            .order("created_at", { ascending: false });
-          if (candidatesError) {
-            if (candidatesError.code === "PGRST205") {
-              console.warn(
-                `[submissions] brand_location_candidates relationship not found (PGRST205), returning empty for submission ids ${targetIds.join(", ")}`,
-              );
-              return [];
+          // Same row-cap exposure as the image read above: candidates per
+          // submission are unbounded, so page rather than trusting one request.
+          const chunkCandidates: SubmissionLocationCandidateRow[] = [];
+          for (let page = 0; ; page += 1) {
+            const { data: candidateData, error: candidatesError } =
+              await supabase
+                .from("brand_location_candidates")
+                .select(
+                  "id, submission_id, location, verification_decision, match_reason, evidence, normalized_address, audit_result_ids",
+                )
+                .in("submission_id", targetIds)
+                .order("submission_id", { ascending: true })
+                .order("created_at", { ascending: false })
+                .order("id", { ascending: true })
+                .range(
+                  page * ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE,
+                  (page + 1) * ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE - 1,
+                );
+            if (candidatesError) {
+              if (candidatesError.code === "PGRST205") {
+                console.warn(
+                  `[submissions] brand_location_candidates relationship not found (PGRST205), returning empty for submission ids ${targetIds.join(", ")}`,
+                );
+                return [];
+              }
+              throw candidatesError;
             }
-            throw candidatesError;
+
+            const pageCandidates = (candidateData ??
+              []) as SubmissionLocationCandidateRow[];
+            chunkCandidates.push(...pageCandidates);
+            if (pageCandidates.length < ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE)
+              break;
           }
-          return candidateData ?? [];
+          return chunkCandidates;
         },
       ),
     );
@@ -1510,6 +1579,42 @@ export async function getSubmission(id: string): Promise<BrandSubmission> {
   if (error || !data)
     throw new NotFoundError("BrandSubmission", id, { cause: error });
   return submissionToDomain(data);
+}
+
+export type DropNeedsDataSubmissionsResult = {
+  deletedCount: number;
+  cleanupFailed: boolean;
+};
+
+/**
+ * Hard-deletes a bounded batch of submissions whose stage is still Needs Data.
+ * The RPC performs the stage check and deletion in one transaction; storage is
+ * intentionally cleaned up afterwards because it is an external side effect.
+ */
+export async function dropNeedsDataSubmissions(
+  submissionIds: string[],
+): Promise<DropNeedsDataSubmissionsResult> {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase.rpc("drop_needs_data_submissions", {
+    p_submission_ids: submissionIds,
+  });
+  if (error) throw error;
+
+  const storagePaths = (Array.isArray(data) ? data : []).filter(
+    (path): path is string => typeof path === "string",
+  );
+  let cleanupFailed = false;
+  try {
+    await deleteStoredImagePaths(storagePaths);
+  } catch (storageError) {
+    cleanupFailed = true;
+    console.error(
+      `[dropNeedsDataSubmissions] Failed to delete submission images for ${submissionIds.join(",")}:`,
+      storageError,
+    );
+  }
+
+  return { deletedCount: submissionIds.length, cleanupFailed };
 }
 
 /**

@@ -18,26 +18,16 @@ type BrandRowProps = {
  * category section, in place of the retired one-brand `BrandSpotlight`.
  *
  * A layout wrapper and nothing else. It must not clone or inspect its children
- * — they are already-rendered `BrandCard` elements from the MDX map — so the
- * fixed mobile card width is applied with a child selector rather than a
- * per-child wrapper element, which keeps the DOM at one node per card.
+ * — they are already-rendered `BrandCard` elements from the MDX map — so each
+ * card can stretch to the full width of its responsive grid column without an
+ * extra per-child wrapper element.
  *
- * Mobile is the house scroller idiom (see `brands/image-carousel.tsx`): a
- * snapping horizontal overflow, no arrows, no dots, no JS, no state. At `sm`
- * and up it becomes an intrinsic-width centered flex group while retaining the
- * compact 272px card width, keeping the row from taking over the article.
+ * The grid is one column on mobile, two at `sm`, and three at `md`, keeping
+ * brand rows aligned with the story article container at every breakpoint.
  */
 export function BrandRow({ children }: BrandRowProps) {
   return (
-    <div
-      className={[
-        "scrollbar-none my-10 flex snap-x snap-mandatory gap-4 overflow-x-auto",
-        // 272px on mobile leaves the next card visibly breaking the right edge
-        // at 375px, which is what signals the row scrolls at all.
-        "[&>*]:w-[272px] [&>*]:shrink-0 [&>*]:snap-start",
-        "sm:w-fit sm:max-w-full sm:mx-auto sm:snap-none sm:justify-center sm:overflow-visible",
-      ].join(" ")}
-    >
+    <div className="my-10 grid w-full grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
       {children}
     </div>
   );

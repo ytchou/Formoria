@@ -59,7 +59,7 @@ export const storyComponentMap = {
   // else said this", which is the opposite of a statement the site is making
   // about itself.
   Disclaimer: (props: { children?: ReactNode }) =>
-    createElement('p', { className: 'my-4 type-body-muted' }, props.children),
+    createElement('aside', { className: 'my-4 [&>p]:type-body-muted' }, props.children),
   // A credited photo. Literal `<figure>`/`<figcaption>` JSX does NOT resolve
   // against this map — only markdown-generated elements and capitalized
   // shortcodes do — so an authored `<figure>` renders unstyled.
@@ -118,7 +118,7 @@ export const storyComponentMap = {
   blockquote: (props: ComponentPropsWithoutRef<'blockquote'>) =>
     createElement('blockquote', {
       ...props,
-      className: cn('my-6 border-l border-border pl-4 type-body-muted', props.className),
+      className: cn('my-6 border-l-2 border-foreground pl-4 type-body-muted', props.className),
     }),
   hr: (props: ComponentPropsWithoutRef<'hr'>) =>
     createElement('hr', { ...props, className: cn('my-10 h-px border-0 bg-border', props.className) }),

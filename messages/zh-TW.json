@@ -80,8 +80,8 @@
     },
     "hero": {
       "eyebrow": "TAIWANESE BRANDS",
-      "headline": "探索更多台灣品牌",
-      "subheadline": "Formoria 整理分散的品牌、產品與購買通路資訊，讓你更容易找到值得認識的台灣品牌。",
+      "headline": "找到值得帶回生活的台灣品牌",
+      "subheadline": "從服飾、居家、飲食到工藝，Formoria 讓你更快找到符合品味與需求的台灣選物",
       "statsBrands": "品牌",
       "statsCategories": "分類",
       "recentWeek": "新品牌（近 7 天）",
@@ -89,10 +89,11 @@
       "cta": "探索品牌…"
     },
     "showcase": {
-      "heading": "探索品牌",
+      "heading": "從這裡開始探索",
+      "subheading": "跨越不同生活分類，認識那些你可能還沒聽過，卻值得深入了解的台灣品牌",
       "all": "全部",
       "filterLabel": "依分類篩選",
-      "browseAll": "瀏覽全部品牌 →",
+      "browseAll": "探索更多品牌 →",
       "browseAllCategory": "瀏覽全部{category} →",
       "emptyCategory": "目前此分類尚無品牌",
       "showAll": "顯示所有品牌"
@@ -108,25 +109,29 @@
       "heading": "探索分類"
     },
     "manifesto": {
-      "headline": "讓台灣品牌更容易被看見、被選擇，也更容易成長",
-      "body1": "我們先整理分散的品牌、產品與購買通路資訊，讓值得被認識的台灣品牌更容易被找到。",
-      "body2": "接著以選物內容幫助人們選擇，並用工具支持品牌自主成長。",
+      "headline": "讓台灣品牌重新回到大眾目光",
+      "body1": "許多台灣品牌有出色的產品、鮮明的想法與認真的製作方式，卻散落在不同網站、社群與販售通路。",
+      "body2": "Formoria 將品牌故事、產品特色與官方連結整理在一起，讓每一次尋找台灣品牌，都可以更簡單、更有方向。",
       "body3": "一步一步，朝由品牌自主經營的線上台灣選物店前進。",
-      "cta": "了解我們的願景"
+      "cta": "認識 Formoria"
     },
     "submitBand": {
       "headline": "推薦一個值得被看見的台灣品牌",
-      "body": "免費推薦，通過審核後加入 Formoria 社群目錄",
+      "body": "發現了不該被錯過的品牌嗎？歡迎推薦給 Formoria。我們會確認品牌資料，通過審核後收錄於平台",
       "cta": "推薦品牌"
     },
     "featureRequestBand": {
-      "headline": "告訴我們 Formoria 接下來該做什麼",
-      "body": "若您有任何產品建議歡迎提供，也可以為列表上已有的想法投票",
+      "headline": "一起讓 Formoria 更好用",
+      "body": "你希望增加新的分類、篩選方式或探索功能嗎？告訴我們你的想法，或為其他使用者提出的建議投票",
       "cta": "提出建議"
     },
     "newBrands": {
       "heading": "最新品牌",
       "linkText": "瀏覽全部品牌 →"
+    },
+    "latestStories": {
+      "heading": "Formoria 最新專題",
+      "linkText": "瀏覽所有專題 →"
     }
   },
   "newsletter": {
@@ -2532,6 +2537,11 @@
       "viewJob": "查看任務",
       "notFound": "找不到提交記錄。",
       "confirmBulkApprove": "核准已選取的 {count} 筆提交？",
+      "dropTitle": "捨棄已選取的提交？",
+      "dropDescription": "這會永久刪除 {count} 筆待資料處理的提交及其專屬資料，抓取任務紀錄仍會保留。",
+      "dropSelected": "捨棄已選取",
+      "dropSuccess": "已捨棄 {count} 筆提交。",
+      "dropStorageCleanupWarning": "提交已刪除，但部分提交圖片檔案仍需清理。",
       "approveSelected": "核准已選取的 {count} 筆",
       "rejectSelected": "拒絕已選取的 {count} 筆",
       "confirmRejectSelected": "確認拒絕已選取的 {count} 筆",
@@ -2848,7 +2858,7 @@
     "breadcrumbAria": "麵包屑導覽",
     "byline": "Formoria 編輯團隊",
     "authorLabel": "作者",
-    "lastUpdatedLabel": "最後更新日期",
+    "lastUpdatedLabel": "更新日期",
     "tagsAria": "專題標籤",
     "tagsLabel": "標籤",
     "tags": {

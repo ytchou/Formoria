@@ -201,11 +201,9 @@ export default async function StoryPage({ params }: PageProps) {
   const brandCount = extractBrandSlugs(story.content).length;
 
   return (
-    // `max-w-screen-xl`, the same container as `/events/[slug]` and the
-    // `/stories` hub. It was a bespoke `max-w-[720px]` — the only hard-coded
-    // page width in the app, and the reason a story read narrower than every
-    // surface that links to it, including its own index.
-    <main className="page-gutter mx-auto w-full max-w-screen-xl py-10 md:py-12">
+    // One centered, box-sized article container owns every story detail surface:
+    // breadcrumb, hero, metadata, body, figures, cards, FAQ, and series nav.
+    <main className="mx-auto box-border w-full max-w-[920px] px-4 pt-8 pb-16 sm:px-5 md:px-8 md:pt-12 md:pb-24">
       <nav aria-label={t("breadcrumbAria")} className="mb-6">
         <ol className="flex items-center gap-1.5 type-card-description">
           <li>
@@ -307,22 +305,26 @@ export default async function StoryPage({ params }: PageProps) {
           <p className="type-page-subtitle">
             {story.entry.frontmatter.description}
           </p>
-          <dl className="space-y-1 type-caption">
-            <div className="flex gap-3">
-              <dt className="shrink-0 type-metadata">{t("authorLabel")}</dt>
+          <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3 gap-y-1 type-caption">
+            <div className="contents">
+              <dt className="border-r border-border pr-3 type-metadata">
+                {t("authorLabel")}
+              </dt>
               <dd>{story.entry.frontmatter.author ?? t("byline")}</dd>
             </div>
             {updatedLabel ? (
-              <div className="flex gap-3">
-                <dt className="shrink-0 type-metadata">
+              <div className="contents">
+                <dt className="border-r border-border pr-3 type-metadata">
                   {t("lastUpdatedLabel")}
                 </dt>
                 <dd>{updatedLabel}</dd>
               </div>
             ) : null}
             {storyTags.length > 0 ? (
-              <div className="flex gap-3">
-                <dt className="shrink-0 type-metadata">{t("tagsLabel")}</dt>
+              <div className="contents">
+                <dt className="border-r border-border pr-3 type-metadata">
+                  {t("tagsLabel")}
+                </dt>
                 <dd className="min-w-0">
                   <div
                     className="flex flex-wrap items-center gap-2"

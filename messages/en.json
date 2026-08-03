@@ -90,6 +90,7 @@
     },
     "showcase": {
       "heading": "Explore Brands",
+      "subheading": "Explore lifestyle categories and discover Taiwanese brands you may not have heard of yet, but are worth getting to know.",
       "all": "All",
       "filterLabel": "Filter by category",
       "browseAll": "Browse All Brands →",
@@ -127,6 +128,10 @@
     "newBrands": {
       "heading": "Newest Brands",
       "linkText": "Browse All Brands →"
+    },
+    "latestStories": {
+      "heading": "Latest from Formoria",
+      "linkText": "View All Stories →"
     }
   },
   "newsletter": {
@@ -2532,6 +2537,11 @@
       "viewJob": "View job",
       "notFound": "No submissions found.",
       "confirmBulkApprove": "Approve {count} selected submissions?",
+      "dropTitle": "Drop selected submissions?",
+      "dropDescription": "This permanently deletes {count} selected Needs Data submissions and their submission-owned records. Curation history is preserved.",
+      "dropSelected": "Drop selected",
+      "dropSuccess": "Dropped {count} selected submissions.",
+      "dropStorageCleanupWarning": "The submissions were deleted, but some submission image files still need cleanup.",
       "approveSelected": "Approve {count} selected",
       "rejectSelected": "Reject {count} selected",
       "confirmRejectSelected": "Confirm reject {count} selected",
@@ -2848,7 +2858,7 @@
     "breadcrumbAria": "Breadcrumb",
     "byline": "Formoria Editorial",
     "authorLabel": "Author",
-    "lastUpdatedLabel": "Last updated",
+    "lastUpdatedLabel": "Updated",
     "tagsAria": "Story tags",
     "tagsLabel": "Tags",
     "tags": {
