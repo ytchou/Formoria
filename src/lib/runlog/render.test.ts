@@ -23,6 +23,28 @@ describe('renderRunLogHtml', () => {
     expect(html).toContain('&lt;script&gt;')
   })
 
+  it('renders a retry label on an audit event', () => {
+    const html = renderRunLogHtml({
+      run: { id: 'job-retry', workflow: 'enrich', status: 'completed' },
+      phases: [
+        {
+          name: 'discover',
+          status: 'succeeded',
+          events: [
+            {
+              actor: 'HTTP',
+              summary: 'brand search (network_error)',
+              status: 'error',
+              labels: { retry: '2' },
+            },
+          ],
+        },
+      ],
+    })
+
+    expect(html).toContain('retry 2')
+  })
+
   it('never throws on garbage and renders gaps', () => {
     expect(renderRunLogHtml(null)).toContain('Data gaps')
   })
