@@ -246,6 +246,11 @@ test.describe('Admin dashboard deep', () => {
       await expect(confirmDialog).toBeVisible();
       await confirmDialog.getByRole('button', { name: 'Drop selected', exact: true }).click();
 
+      // After the drop the server action revalidates and the row disappears —
+      // wait for that before checking the database directly, otherwise the
+      // poll below races the in-flight server action.
+      await expect(rejectRow).toBeHidden({ timeout: 30_000 });
+
       await expect.poll(async () => {
         const { count, error } = await supabase
           .from('brand_submissions')
