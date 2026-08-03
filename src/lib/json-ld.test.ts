@@ -327,7 +327,7 @@ describe("buildWebSiteJsonLd", () => {
     expect(jsonLd["@context"]).toBe("https://schema.org");
     expect(jsonLd["@type"]).toBe("WebSite");
     expect(jsonLd.name).toBe("Formoria");
-    expect(jsonLd.alternateName).toBeUndefined();
+    expect(jsonLd.alternateName).toBe("Formoria 台灣品牌探索與選物平台");
     expect(jsonLd.url).toBeDefined();
     expect(jsonLd.url).toContain("localhost:3000");
     expect(jsonLd.url).not.toContain("mitmap");
@@ -340,6 +340,13 @@ describe("buildWebSiteJsonLd", () => {
     expect(jsonLd.potentialAction["query-input"]).toContain(
       "search_term_string",
     );
+  });
+
+  it("links WebSite to the Organization node by @id", () => {
+    const jsonLd = buildWebSiteJsonLd();
+    const organization = buildOrganizationJsonLd() as JsonLdObject;
+    expect(jsonLd["@id"]).toMatch(/#website$/);
+    expect(jsonLd.publisher["@id"]).toBe(organization["@id"]);
   });
 
   it("SearchAction targets /brands?search= not /?search=", () => {

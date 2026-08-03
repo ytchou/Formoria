@@ -76,12 +76,13 @@
   "landing": {
     "metadata": {
       "title": "Formoria — 台灣品牌探索與選物平台",
-      "description": "探索更多台灣品牌、產品特色與官方購買通路。"
+      "description": "Formoria 是台灣品牌探索與選物平台，整理台灣品牌的品牌故事、產品特色與官方購買通路，讓值得認識的台灣品牌更容易被看見、被選擇。"
     },
     "hero": {
       "eyebrow": "TAIWANESE BRANDS",
-      "headline": "找到值得帶回生活的台灣品牌",
+      "headline": "找到真正適合你的台灣品牌",
       "subheadline": "從服飾、居家、飲食到工藝，Formoria 讓你更快找到符合品味與需求的台灣選物",
+      "intro": "Formoria 是台灣品牌探索與選物平台，整理品牌故事、產品特色與官方購買通路，讓值得認識的台灣品牌更容易被看見、被選擇。",
       "statsBrands": "品牌",
       "statsCategories": "分類",
       "recentWeek": "新品牌（近 7 天）",

@@ -76,12 +76,13 @@
   "landing": {
     "metadata": {
       "title": "Formoria — Taiwanese Brand Discovery & Curation",
-      "description": "Discover Taiwanese brands, product highlights, and official purchase channels in one curated platform."
+      "description": "Formoria is a Taiwanese brand discovery and curation platform — brand stories, product highlights, and official purchase channels for brands from Taiwan."
     },
     "hero": {
       "eyebrow": "TAIWANESE BRANDS",
       "headline": "Explore more Taiwanese brands",
       "subheadline": "Formoria brings together fragmented brand, product, and purchase-channel information so worthwhile Taiwanese brands are easier to find.",
+      "intro": "Formoria is a Taiwanese brand discovery and curation platform, bringing brand stories, product highlights, and official purchase channels together in one place.",
       "statsBrands": "brands",
       "statsCategories": "categories",
       "recentWeek": "new brands (last 7 days)",

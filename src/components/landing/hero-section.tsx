@@ -30,6 +30,10 @@ export default async function HeroSection({ brandCount, categoryCount, recentBra
       <div className="relative mx-auto max-w-6xl page-gutter">
         <h1 className="type-hero">{t('headline')}</h1>
         <p className="mt-3 type-page-subtitle max-w-2xl">{t('subheadline')}</p>
+        {/* Stable entity sentence, kept as the first prose in the DOM: without it the
+            earliest body text is rotating brand-card copy, which Google was lifting as
+            the homepage snippet (DEV-1320). Mirrors landing.metadata.description. */}
+        <p className="mt-2 type-body-muted max-w-2xl">{t('intro')}</p>
 
         <div className="mt-6 max-w-md rounded-lg bg-background/85">
           <Suspense>
