@@ -31,12 +31,10 @@ export default async function BrandsPage({ searchParams }: BrandsPageProps) {
   const resendableBrandIds = brands
     .filter((brand) => brand.status === 'approved' && !brand.isVerified)
     .map((brand) => brand.id)
-  const claimInviteRecipients = await getApprovedOwnerSubmissionRecipients(
-    resendableBrandIds
-  )
-  const reviewImagesByBrandId = await getAdminBrandReviewImages(
-    brands.map((brand) => brand.id)
-  )
+  const [claimInviteRecipients, reviewImagesByBrandId] = await Promise.all([
+    getApprovedOwnerSubmissionRecipients(resendableBrandIds),
+    getAdminBrandReviewImages(brands.map((brand) => brand.id)),
+  ])
   const query = await searchParams
   const requestedStatus = first(query.status)
   const initialTab =
