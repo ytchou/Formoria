@@ -100,6 +100,12 @@ function errorName(error: unknown): unknown {
     : undefined;
 }
 
+function originalError(error: unknown): unknown {
+  return error && typeof error === "object"
+    ? (error as { originalError?: unknown }).originalError
+    : undefined;
+}
+
 export function classifyThrownError(error: unknown): RetryClassification {
   if (errorName(error) === "AbortError") {
     return { retryable: true, reason: "timeout" };
@@ -152,10 +158,19 @@ export function classifyStorageError(
   if (typeof status === "number" && status >= 500) {
     return { retryable: true, reason: "server" };
   }
-  if (error instanceof TypeError || errorName(error) === "AbortError") {
+  const cause = originalError(error);
+  if (
+    error instanceof TypeError ||
+    errorName(error) === "AbortError" ||
+    cause instanceof TypeError ||
+    errorName(cause) === "AbortError"
+  ) {
     return {
       retryable: true,
-      reason: errorName(error) === "AbortError" ? "timeout" : "network",
+      reason:
+        errorName(error) === "AbortError" || errorName(cause) === "AbortError"
+          ? "timeout"
+          : "network",
     };
   }
   return { retryable: false, reason: "terminal" };

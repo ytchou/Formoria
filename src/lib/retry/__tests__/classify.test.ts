@@ -93,5 +93,14 @@ describe("retry classifiers", () => {
     expect(
       classifyStorageError({ data: null, error: { statusCode: 400, message: "bad payload" } }),
     ).toEqual({ retryable: false, reason: "terminal" });
+    expect(
+      classifyStorageError({
+        data: null,
+        error: {
+          message: "fetch failed",
+          originalError: new TypeError("fetch failed"),
+        },
+      }),
+    ).toEqual({ retryable: true, reason: "network" });
   });
 });

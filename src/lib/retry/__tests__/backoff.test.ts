@@ -1,6 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { computeBackoffDelay } from "../backoff";
 import { IN_PROCESS, JOB_REQUEUE } from "../policy";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("computeBackoffDelay", () => {
   it("grows exponentially from the base", () => {
