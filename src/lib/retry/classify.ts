@@ -10,7 +10,7 @@ export type RetryClassification = {
   reason: RetryReason;
 };
 
-export const TRANSIENT_DATABASE_CODES = new Set([
+const TRANSIENT_DATABASE_CODES = new Set([
   "40001",
   "40P01",
   "53000",

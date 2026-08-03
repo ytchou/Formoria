@@ -5,7 +5,6 @@ export {
   classifyStorageError,
   classifyThrownError,
   isNonRetryableProviderError,
-  TRANSIENT_DATABASE_CODES,
 } from "./classify";
 export { withRetry } from "./with-retry";
 export type {
