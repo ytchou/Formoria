@@ -9,7 +9,6 @@ import {
   IMAGE_CLASSIFY_SYSTEM_PROMPT,
   LEGACY_IMAGE_CLASSIFY_SYSTEM_PROMPT,
 } from "@/lib/prompts";
-import { classifyHttpResponse, IN_PROCESS, withRetry } from "@/lib/retry";
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { buildBrandContext } from "@/lib/services/enrich-phases/classify-images";
 import { createImageEvalSignedUrls } from "@/lib/services/image-eval-storage";
@@ -337,21 +336,6 @@ async function auditWriter(path: string, event: ChatAuditEvent): Promise<void> {
   await appendFile(path, `${JSON.stringify(event)}\n`, "utf8");
 }
 
-async function chatWithRetry(
-  client: ReturnType<typeof createOpenAIClient>,
-  input: Parameters<ReturnType<typeof createOpenAIClient>["chat"]>[0],
-): Promise<Awaited<ReturnType<ReturnType<typeof createOpenAIClient>["chat"]>>> {
-  return withRetry(IN_PROCESS, () => client.chat(input), {
-    classify: classifyHttpResponse,
-    onRetry: ({ attemptIndex, delayMs }) => {
-      console.warn(
-        `  [OPENAI] Retrying in ${delayMs}ms (attempt ${attemptIndex}/${IN_PROCESS.attempts})`,
-      );
-    },
-    service: "image-eval",
-  });
-}
-
 async function runBaseline(): Promise<void> {
   await ensureEvalDirectories();
   const manifest = await readJson<GoldenManifest>(MANIFEST_PATH);
@@ -425,7 +409,7 @@ async function runBaseline(): Promise<void> {
         continue;
       }
 
-      const response = await chatWithRetry(client, {
+      const response = await client.chat({
         system: systemPrompt,
         user: `${brandContext(chunk[0], prompt)}${classifyInstruction(prompt, chunk.length, ids)}`,
         images: images.filter((url): url is string => Boolean(url)),
