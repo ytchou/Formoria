@@ -1,4 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/server";
+import { uploadWithRetry } from "./storage-retry";
 import { randomUUID } from "node:crypto";
 
 const CLAIM_PROOF_BUCKET = "claim-proofs";
@@ -106,9 +107,9 @@ export async function processClaimProofCleanup(
     .map((job) => job.job_id);
 
   if (validJobs.length > 0) {
-    const { error: storageError } = await client.storage
-      .from(CLAIM_PROOF_BUCKET)
-      .remove(validJobs.map((job) => job.path));
+    const { error: storageError } = await uploadWithRetry(() =>
+      client.storage.from(CLAIM_PROOF_BUCKET).remove(validJobs.map((job) => job.path)),
+    );
 
     if (storageError) {
       const failures = [

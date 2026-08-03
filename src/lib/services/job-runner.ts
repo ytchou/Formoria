@@ -180,7 +180,10 @@ async function archiveRunLog(jobId: string): Promise<void> {
     const runlog = await exportJobRunLog(jobId);
     await uploadRunLogSnapshot(jobId, renderRunLogHtml(runlog));
   } catch (error) {
-    console.error("[curation-worker:runlog]", sanitizeJobError(error));
+    console.error("[curation-worker:runlog]", {
+      jobId,
+      error: sanitizeJobError(error),
+    });
   }
 }
 

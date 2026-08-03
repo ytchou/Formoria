@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import type { ImageProcessorConfig } from '@/lib/security/image-processor'
+import { uploadWithRetry } from './storage-retry'
 
 export const ALLOWED_UPLOAD_BUCKETS = [
   'brand-images',
@@ -89,7 +90,9 @@ export async function deleteBrandImages(urls: string[]): Promise<void> {
   }
 
   const supabase = createServiceClient()
-  const { error } = await supabase.storage.from(BRAND_IMAGES_BUCKET).remove(keys)
+  const { error } = await uploadWithRetry(() =>
+    supabase.storage.from(BRAND_IMAGES_BUCKET).remove(keys),
+  )
 
   if (error) {
     throw error
@@ -104,9 +107,11 @@ export async function deleteStoredImagePaths(paths: string[]): Promise<void> {
 
   const supabase = createServiceClient()
   for (let index = 0; index < keys.length; index += 1_000) {
-    const { error } = await supabase.storage
-      .from(BRAND_IMAGES_BUCKET)
-      .remove(keys.slice(index, index + 1_000))
+    const { error } = await uploadWithRetry(() =>
+      supabase.storage
+        .from(BRAND_IMAGES_BUCKET)
+        .remove(keys.slice(index, index + 1_000)),
+    )
     if (error) throw error
   }
 }
@@ -114,13 +119,15 @@ export async function deleteStoredImagePaths(paths: string[]): Promise<void> {
 async function uploadStorageObject(input: UploadImageInput | PrivateUploadFileInput): Promise<string> {
   const supabase = createServiceClient()
 
-  const { data, error: uploadError } = await supabase.storage
-    .from(input.bucket)
-    .upload(input.path, input.data, {
-      cacheControl: '31536000',
-      contentType: input.contentType,
-      upsert: 'upsert' in input ? input.upsert ?? false : false,
-    })
+  const { data, error: uploadError } = await uploadWithRetry(() =>
+    supabase.storage
+      .from(input.bucket)
+      .upload(input.path, input.data, {
+        cacheControl: '31536000',
+        contentType: input.contentType,
+        upsert: 'upsert' in input ? input.upsert ?? false : false,
+      }),
+  )
 
   if (uploadError) {
     throw uploadError
@@ -147,7 +154,9 @@ export async function uploadPublicImage(input: PublicUploadImageInput): Promise<
 
   const {
     data: { publicUrl },
-  } = supabase.storage.from(input.bucket).getPublicUrl(input.path)
+  } = await uploadWithRetry(async () =>
+    supabase.storage.from(input.bucket).getPublicUrl(input.path),
+  )
 
   return {
     url: publicUrl,
