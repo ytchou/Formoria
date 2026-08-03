@@ -8,7 +8,7 @@ import {
   extractLinksFromUrls,
   hasLinkValue,
 } from '../link-enrichment'
-import { cleanBrandName, isValidBrandName } from '../brand-cleanup'
+import { cleanBrandName, isValidBrandName, titleCaseScrapedTitle } from '../brand-cleanup'
 import { finishSearchAudit, startSearchAudit } from '../search-results'
 import { MAX_SCRAPE_URLS_PER_BRAND, scrapeBrandUrls, type ScrapeBrandUrlsOptions } from './scraper'
 import { classifyByDomain, isNonBrandSiteHost } from './scraper/input-detector'
@@ -33,6 +33,13 @@ type LinksPhaseOptions = {
 type LinksPhaseOutput = {
   phaseResult: PhaseResult
   patch: Record<string, unknown>
+  /**
+   * The brand's own page title, cleaned. Emitted as the `scraped` candidate for
+   * the DEV-1321 names phase rather than written to `name` here — a raw page
+   * title is how `首頁 - 小朱甜點` reached a live row, and `name` now has
+   * exactly one writer.
+   */
+  scrapedBrandName: string | null
   scrapedData: EnrichScrapedData | null
   scrapedImageUrls: string[]
   /** Parallel provenance for `scrapedImageUrls`; empty when the scraper predates it. */
@@ -239,8 +246,10 @@ function boundedScrapeSnippets(extracted: unknown): string[] {
  * title naming a different company cannot rebrand the record. `isValidBrandName`
  * adds the length and SEO-copy guards the detect phase already relies on.
  *
- * This phase now runs BEFORE the batch image search, so the improved name is
- * carried into this run's image query as well as into the DB.
+ * The result is no longer written to `name` here: it is the `scraped` candidate
+ * the batched names phase arbitrates (DEV-1321). That phase runs immediately
+ * after this one and before the batch image search, so an accepted name still
+ * reaches this run's image query as well as the DB.
  */
 export function deriveScrapedBrandName(
   brand: Pick<EnrichBrand, 'name'>,
@@ -250,7 +259,7 @@ export function deriveScrapedBrandName(
   const raw = scrapedData.brandName?.trim()
   if (!current || !raw) return null
 
-  const cleaned = cleanBrandName(raw).cleanedName.trim()
+  const cleaned = titleCaseScrapedTitle(cleanBrandName(raw).cleanedName.trim())
   if (!cleaned || cleaned === current) return null
   if (!isValidBrandName(cleaned, current)) return null
   // Additive only: the scraped name must still carry the existing one.
@@ -337,6 +346,7 @@ export async function runLinksPhase({
     return {
       phaseResult: buildPhaseResult('links', 'skipped', [], 0, undefined, 'links phase not requested'),
       patch: {},
+      scrapedBrandName: null,
       scrapedData: null,
       scrapedImageUrls: [],
       scrapedImageSources: [],
@@ -399,15 +409,14 @@ export async function runLinksPhase({
       ...urlExtracted,
       purchaseWebsite: derivedWebsite,
     })
-    const linkPatch = buildLinkEnrichPatch(brand, scrapedData)
-    const scrapedName = deriveScrapedBrandName(brand, scrapedData)
-    // buildLinkEnrichPatch is typed to link columns only; widen at this
-    // boundary rather than loosening that type to admit a name.
-    const patch: Record<string, unknown> = scrapedName
-      ? { ...linkPatch, name: scrapedName }
-      : linkPatch
+    // `buildLinkEnrichPatch` is typed to link columns only, and that is now the
+    // whole patch: the scraped name leaves this phase as a CANDIDATE, never as a
+    // patch key, because `names` is the single writer of `name` (DEV-1321).
+    const patch: Record<string, unknown> = buildLinkEnrichPatch(brand, scrapedData)
+    const scrapedBrandName = deriveScrapedBrandName(brand, scrapedData)
     return {
       patch,
+      scrapedBrandName,
       scrapedData,
       scrapedImageUrls: scrapedData.galleryImageUrls ?? [],
       scrapedImageSources: scrapedData.imageSources ?? [],
@@ -421,6 +430,7 @@ export async function runLinksPhase({
   return {
     phaseResult: buildPhaseResult('links', status, changedFields, durationMs),
     patch: result.patch,
+    scrapedBrandName: result.scrapedBrandName,
     scrapedData: result.scrapedData,
     scrapedImageUrls: result.scrapedImageUrls,
     scrapedImageSources: result.scrapedImageSources,

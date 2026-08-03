@@ -46,6 +46,9 @@ import type {
 } from "@/lib/types/curation";
 import {
   applyDetectResult,
+  applyNamesResult,
+  runNamesPhase,
+  type NameCandidateInput,
   buildPhaseResult,
   getDisplayBrandName,
   loadCachedSearchResults,
@@ -65,6 +68,7 @@ import {
   hasPatchValues,
   isProviderFailure,
 } from "./enrich-phases";
+import type { NameCandidate } from "./name-arbiter";
 import type { BrandImageSearchOutcome } from "./enrich-phases/scraper/types";
 import { buildCandidatePool } from "./enrich-phases/candidate-pool";
 import type { EnrichmentTarget } from "./enrichment-target";
@@ -206,7 +210,13 @@ export { ENRICH_CHUNK_SIZE, mapWithConcurrency };
 export { ENRICH_PHASES };
 
 type EnrichPhase =
-  "clean" | "links" | "images" | "descriptions" | "locations" | "tags";
+  | "clean"
+  | "links"
+  | "names"
+  | "images"
+  | "descriptions"
+  | "locations"
+  | "tags";
 type RunEnrichPhase =
   EnrichPhase | "discover" | "detect" | "slugs" | "reputation";
 
@@ -231,7 +241,8 @@ type EnrichBrand = CurationBrand &
  * mutation MUST happen exactly once, before the first key is derived — a later
  * rename would turn every `map.get(name)` into a silent miss. The returned map
  * is keyed by target id (never by name) and carries the cleanup result through
- * to the `clean` phase, which still owns persisting the new name.
+ * to the `clean` phase, which reports the candidate; the `names` phase owns
+ * persisting the new name.
  */
 export function applyChunkNameCleanup(
   chunk: EnrichBrand[],
@@ -242,6 +253,7 @@ export function applyChunkNameCleanup(
     const cleanup = cleanBrandName(getDisplayBrandName(brand));
     if (!cleanup.changed) continue;
     cleanups.set(brand.id, cleanup);
+    // Keep the mutation: query construction still needs the cleaned name.
     brand.name = cleanup.cleanedName;
   }
 
@@ -312,8 +324,16 @@ type EnrichProcessPhases = {
 };
 
 type EnrichPatches = {
-  clean?: Partial<Pick<CurationBrand, "name">>;
   links?: Partial<BrandFlatLinkColumns>;
+  /**
+   * The single writer of `name` (DEV-1321). `clean` used to own this key and
+   * LOST the `mergeEnrichPatches` spread to `links`, while at runtime
+   * `appendPatch` let the last phase to run win instead — the two precedence
+   * mechanisms disagreed about the same column, and `首頁 - 小朱甜點` is what
+   * that disagreement wrote to a live row. Only one phase can produce a `name`
+   * at all now, so the two paths cannot diverge.
+   */
+  names?: Partial<Pick<CurationBrand, "name">>;
   images?: EnrichImagePatch;
   descriptions?: EnrichDescriptionPatch;
   tags?: Partial<Pick<CurationBrand, "product_type">>;
@@ -739,7 +759,11 @@ export function processEnrichBrand(
       : { changed: false };
 
     if (nameCleanup.changed) {
-      patches.clean = { name: nameCleanup.cleanedName };
+      // This path has no LLM arbiter, so the cleaned value wins by default —
+      // the same order `fallbackName` uses in the names phase (cleaned before
+      // stored, never scraped). It is still written under the `names` key
+      // because that key is the only writer of `name`.
+      patches.names = { name: nameCleanup.cleanedName };
     }
   }
 
@@ -770,8 +794,11 @@ export function processEnrichBrand(
 
 export function mergeEnrichPatches(patches: EnrichPatches): EnrichPatch {
   return {
-    ...patches.clean,
     ...patches.links,
+    // `names` after `links` mirrors the runtime `appendPatch` order exactly: the
+    // batched names phase runs immediately after the links wave. Keep the two in
+    // step — them drifting apart is the DEV-1321 bug.
+    ...patches.names,
     ...patches.images,
     ...patches.descriptions,
     ...patches.tags,
@@ -872,6 +899,7 @@ function buildBrandPhaseOrder(
     hasDetectPhases && "detect",
     "clean",
     "links",
+    "names",
     "images",
     "descriptions",
     "locations",
@@ -1414,6 +1442,11 @@ export async function runEnrich(
     const brandContexts = new Map<string, BrandWaveContext>();
     const isBrandCompleted = (brandId: string): boolean =>
       brandContexts.get(brandId)?.completed === true;
+    // Competing `name` proposals collected during wave A, consumed by the
+    // batched names phase that runs between the waves. Keyed by target id for
+    // the same reason `brandContexts` is: `clean` and `detect` can rewrite a
+    // name, so a name key would be a silent miss.
+    const nameCandidates = new Map<string, NameCandidateInput>();
     const batchPhaseResults = new Map<string, PhaseResult[]>();
     const emitBatchPhaseProgress = async (phase: string): Promise<void> => {
       await emitTargetProgressBatch(
@@ -1846,8 +1879,6 @@ export async function runEnrich(
           );
           state.phaseResults.push(cleanResult.phaseResult);
           await logCurrentPhase(ctx, cleanResult.phaseResult);
-          appendPatch(state, cleanResult.patch);
-
           await markCurrentPhase(ctx, "links");
           const linksResult = await runLinksPhase({
             brand,
@@ -1864,19 +1895,108 @@ export async function runEnrich(
           await logCurrentPhase(ctx, linksResult.phaseResult);
           state.scrapedData = linksResult.scrapedData ?? {};
           appendPatch(state, linksResult.patch);
+
+          // DEV-1321: every proposer that used to write `name` contributes a
+          // CANDIDATE here instead. `stored` is the value the DATABASE holds —
+          // `applyChunkNameCleanup` already mutated `brand.name` to the cleaned
+          // form in memory, so the row's own value only survives in
+          // `nameCleanups`.
+          const candidates: NameCandidate[] = [
+            {
+              source: "stored",
+              value:
+                nameCleanups.get(brand.id)?.originalName ??
+                getDisplayBrandName(brand),
+            },
+          ];
+          const cleanedName =
+            cleanResult.cleanedName ?? nameCleanups.get(brand.id)?.cleanedName;
+          if (cleanedName) {
+            candidates.push({
+              source: "cleaned",
+              value: cleanedName,
+            });
+          }
+          if (detectApplication.brandName) {
+            candidates.push({
+              source: "detected",
+              value: detectApplication.brandName,
+            });
+          }
+          if (linksResult.scrapedBrandName) {
+            candidates.push({
+              source: "scraped",
+              value: linksResult.scrapedBrandName,
+            });
+          }
+          nameCandidates.set(brand.id, {
+            candidates,
+            snippets: state.serpSnippets,
+          });
         } catch (err) {
           await failBrand(ctx, err);
         }
       },
     );
 
-    // ---- Batched image search (between the waves) -----------------------
-    // Still exactly ONE batched serper call for the whole chunk — it is not
-    // inside either per-brand loop. What changed is where it sits: after detect
-    // has rejected non-brands and after links has found each brand's own
-    // domain, so no credit is spent on a rejected entry and the `site:` query
-    // can fire on a target's very first enrichment run.
+    // ---- Batched name arbitration and image search (between the waves) ----
+    // Both calls stay outside the per-brand loops: names arbitrates the complete
+    // candidate set first, then image search can use the accepted name.
     const pendingBrands = chunk.filter((brand) => !isBrandCompleted(brand.id));
+
+    // ---- Batched name arbitration (between the waves) -------------------
+    // Exactly ONE batched LLM call for the whole chunk, and it sits HERE for two
+    // reasons. Upstream: every proposer that can suggest a name — detect's model
+    // name, the regex cleaner, and the scraped page title — has finished by the
+    // end of wave A, so this is the first point at which the arbiter can see the
+    // full candidate set. Downstream: the batched image search below builds its
+    // query from the name in the pending patch, so the arbitrated name has to be
+    // in that patch before the `site:` query fires, or the run searches under a
+    // name we are about to overwrite.
+    //
+    // SINGLE-WRITER INVARIANT (DEV-1321): from here on, `names` is the ONLY
+    // phase in the pipeline that emits `patch.name`. `detect`, `clean` and
+    // `links` each used to write it and clobbered each other by accident of
+    // ordering — that is how the live row `小朱甜點` became `首頁 - 小朱甜點`.
+    // Do not reintroduce a `name` key in any other phase's patch; the same
+    // invariant is spelled out on `EnrichPatches.names` for the other
+    // precedence path.
+    if (phases.includes("names")) await emitBatchPhaseProgress("names");
+    const namesPhaseResult = await runNamesPhase(
+      {
+        ...batchContext,
+        chunk: pendingBrands,
+        chunkBrandNames: pendingBrands.map(getDisplayBrandName),
+      },
+      nameCandidates,
+    );
+    for (const brand of pendingBrands) {
+      const ctx = brandContexts.get(brand.id);
+      if (!ctx || ctx.completed) continue;
+      await markCurrentPhase(ctx, "names");
+      // Runs even on a provider failure: with no verdict the application falls
+      // back to the `cleaned` candidate, so a dead provider still persists the
+      // regex cleanup instead of leaving the dirty row.
+      const application = phases.includes("names")
+        ? applyNamesResult(
+            // Keyed by target id, not display name — clean/detect can rewrite a
+            // name, and this phase runs after both.
+            namesPhaseResult.verdicts.get(brand.id),
+            brand,
+            nameCandidates.get(brand.id)?.candidates ?? [],
+          )
+        : { phaseResult: namesPhaseResult.phaseResult, patch: {} };
+      // Same grafting rule detect uses: when the whole batch died at the
+      // provider, the per-brand entry carries that signal rather than
+      // reporting a clean fallback as success.
+      const namesEntry = namesPhaseResult.providerFailure
+        ? { ...namesPhaseResult.phaseResult, changedFields: [] }
+        : application.phaseResult;
+      ctx.state.phaseResults.push(namesEntry);
+      await logCurrentPhase(ctx, namesEntry);
+      appendPatch(ctx.state, application.patch);
+    }
+
     // `BrandEnrichState["patches"]` deliberately, not the local `EnrichPatch`:
     // this is the phase-layer patch shape the image search reads.
     const pendingPatches = new Map<string, BrandEnrichState["patches"]>();

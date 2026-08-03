@@ -228,6 +228,7 @@ describe("phasesForSteps", () => {
       "slugs",
       "discover",
       "links",
+      "names",
     ]);
   });
 

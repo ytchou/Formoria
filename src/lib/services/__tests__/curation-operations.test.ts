@@ -291,6 +291,8 @@ describe('processEnrichBrand with cleanup phases', () => {
     const result = processEnrichBrand(baseBrand, {}, ['clean'])
     expect(result.phases).toHaveProperty('clean')
     expect(result.phases.clean?.changed).toBe(true)
+    expect(result.patches.names?.name).toBe('My Brand')
+    expect(result.patches).not.toHaveProperty('clean')
     expect(result.patch.name).toBe('My Brand')
   })
 
@@ -328,8 +330,11 @@ describe('applyChunkNameCleanup', () => {
     applyChunkNameCleanup(chunk)
 
     // chunkBrandNames is what discover/image-search turn into query strings.
+    // Lowercase `adela` survives on purpose: `cleanBrandName` no longer
+    // title-cases, because re-casing a name the brand owns is itself a bug
+    // (`一屋 1woof` -> `一屋 1Woof`). Casing decisions belong to the arbiter.
     const chunkBrandNames = chunk.map(getDisplayBrandName)
-    expect(chunkBrandNames).toEqual(['Adela 愛德拉'])
+    expect(chunkBrandNames).toEqual(['adela 愛德拉'])
   })
 
   it('keeps every batch result map key resolvable after the rename', () => {
@@ -351,29 +356,39 @@ describe('applyChunkNameCleanup', () => {
     const first = applyChunkNameCleanup(chunk)
     const second = applyChunkNameCleanup(chunk)
 
-    expect(first.get('brand-1')?.cleanedName).toBe('Adela 愛德拉')
+    expect(first.get('brand-1')?.cleanedName).toBe('adela 愛德拉')
     expect(second.size).toBe(0)
-    expect(chunk[0]!.name).toBe('Adela 愛德拉')
+    expect(chunk[0]!.name).toBe('adela 愛德拉')
   })
 
-  it('still persists the rename through the clean phase', async () => {
+  // The clean phase no longer persists the rename itself (DEV-1321): it emits
+  // the cleaned value as the `cleaned` candidate and the names phase writes it.
+  it('still surfaces the rename as a candidate from the clean phase', async () => {
     const chunk = [messyBrand()]
     const cleanups = applyChunkNameCleanup(chunk)
 
-    const { phaseResult, patch } = await runCleanPhase(chunk[0]!, ['clean'], cleanups.get('brand-1'))
+    const { phaseResult, cleanedName } = await runCleanPhase(
+      chunk[0]!,
+      ['clean'],
+      cleanups.get('brand-1')
+    )
 
     expect(phaseResult.changedFields).toEqual(['name'])
-    expect(patch).toEqual({ name: 'Adela 愛德拉' })
+    expect(cleanedName).toBe('adela 愛德拉')
   })
 
   it('reports no change for a brand that entered already clean', async () => {
     const brand = { ...messyBrand(), name: 'Already Clean' }
     const cleanups = applyChunkNameCleanup([brand])
 
-    const { phaseResult, patch } = await runCleanPhase(brand, ['clean'], cleanups.get('brand-1'))
+    const { phaseResult, cleanedName } = await runCleanPhase(
+      brand,
+      ['clean'],
+      cleanups.get('brand-1')
+    )
 
     expect(phaseResult.changedFields).toEqual([])
-    expect(patch).toEqual({})
+    expect(cleanedName).toBeNull()
   })
 })
 

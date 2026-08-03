@@ -146,6 +146,7 @@ describe("applyDetectResult", () => {
     expect(result.isNonBrand).toBe(true);
     expect(result.phaseResult.status).toBe("skipped");
     expect(result.patch).toEqual({});
+    expect(result.brandName).toBeNull();
   });
 
   it("returns brand result with detect patch for valid brands", () => {
@@ -165,7 +166,10 @@ describe("applyDetectResult", () => {
       { ...brand, name: "茶籽堂", slug: "chatzutang" },
     );
 
-    expect(result.patch.name).toBe("茶籽堂 Cha Tzu Tang");
+    // `name` is no longer written here — DEV-1321 made `names` the single
+    // writer, so detect only exposes the candidate.
+    expect(result.patch).not.toHaveProperty("name");
+    expect(result.brandName).toBe("茶籽堂 Cha Tzu Tang");
     expect(result.patch).not.toHaveProperty("slug");
   });
 
@@ -176,6 +180,8 @@ describe("applyDetectResult", () => {
     );
 
     expect(result.patch.slug).toBe("adela-studio");
+    expect(result.patch).not.toHaveProperty("name");
+    expect(result.brandName).toBe("ADELA Studio");
   });
 
   it("never writes product_type, even when tags is requested", () => {
