@@ -23,8 +23,9 @@ export function computeBackoffDelay(
       ? Math.floor(attemptIndex)
       : 0;
 
-  if (Number.isFinite(retryAfterMs) && retryAfterMs > 0) {
-    return Math.max(0, Math.floor(retryAfterMs + randomUnit() * baseMs));
+  const safeRetryAfterMs = retryAfterMs;
+  if (typeof safeRetryAfterMs === "number" && Number.isFinite(safeRetryAfterMs) && safeRetryAfterMs > 0) {
+    return Math.max(0, Math.floor(safeRetryAfterMs + randomUnit() * baseMs));
   }
 
   const exponential = baseMs * factor ** safeAttemptIndex;

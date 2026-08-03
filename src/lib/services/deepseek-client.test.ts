@@ -1,7 +1,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createDeepSeekClient, parseDeepSeekJson, type ChatAuditEvent, type ChatUsage } from './deepseek-client'
 
-afterEach(() => vi.restoreAllMocks())
+afterEach(() => {
+  vi.restoreAllMocks()
+  vi.useRealTimers()
+})
+
+async function withFakeTimers<T>(run: () => Promise<T>): Promise<T> {
+  vi.useFakeTimers()
+  const promise = run()
+  await vi.runAllTimersAsync()
+  return promise
+}
 
 describe('createDeepSeekClient', () => {
   it('POSTs chat messages to the single base URL with auth + timeout', async () => {
@@ -34,7 +44,7 @@ describe('createDeepSeekClient', () => {
       },
     })
 
-    await client.chat({ system: 'system prompt', user: 'user prompt' })
+    await withFakeTimers(() => client.chat({ system: 'system prompt', user: 'user prompt' }))
 
     expect(events).toHaveLength(1)
     expect(events[0]).toMatchObject({ provider: 'deepseek', ok: true, usage: { total_tokens: 17 } })
@@ -71,9 +81,23 @@ describe('createDeepSeekClient', () => {
       },
     })
 
-    await client.chat({ system: 'system prompt', user: 'user prompt' })
+    await withFakeTimers(() => client.chat({ system: 'system prompt', user: 'user prompt' }))
 
     expect(events[0]?.data).toEqual({ error: { message: 'rate limit exceeded' } })
+  })
+
+  it('retries a 429 twice', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(null, { status: 429 }))
+      .mockResolvedValueOnce(new Response(null, { status: 429 }))
+      .mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: 'recovered' } }] })))
+    const client = createDeepSeekClient({ apiKey: 'k' })
+
+    const result = await withFakeTimers(() => client.chat({ system: 's', user: 'u' }))
+
+    expect(fetchSpy).toHaveBeenCalledTimes(3)
+    expect(result.content).toBe('recovered')
   })
 
   it('does not reject chat when the audit hook throws', async () => {
