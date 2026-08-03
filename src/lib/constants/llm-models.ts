@@ -16,13 +16,13 @@
  * sweep through every call site.
  */
 export const LLM_MODELS = {
-  text: 'gpt-5.6-luna',
-  vision: 'gpt-5.6-luna',
-} as const
+  text: "gpt-5.6-luna",
+  vision: "gpt-5.6-luna",
+} as const;
 
-export type LlmModelKey = keyof typeof LLM_MODELS
+export type LlmModelKey = keyof typeof LLM_MODELS;
 
-export const DEFAULT_OPENAI_MODEL = LLM_MODELS.text
+export const DEFAULT_OPENAI_MODEL = LLM_MODELS.text;
 
 /**
  * Single source of truth for "which model is this process calling".
@@ -34,12 +34,12 @@ export const DEFAULT_OPENAI_MODEL = LLM_MODELS.text
  * audit row must read it from here, or the stored row names a model that never
  * ran.
  */
-export function resolveOpenAIModel(modelKey: LlmModelKey = 'text'): string {
-  const override = process.env.OPENAI_MODEL_OVERRIDE?.trim()
-  return override && override.length > 0 ? override : LLM_MODELS[modelKey]
+export function resolveOpenAIModel(modelKey: LlmModelKey = "text"): string {
+  const override = process.env.OPENAI_MODEL_OVERRIDE?.trim();
+  return override && override.length > 0 ? override : LLM_MODELS[modelKey];
 }
 
-export type LlmReasoningEffort = 'none' | 'low' | 'medium' | 'high'
+export type LlmReasoningEffort = "none" | "low" | "medium" | "high";
 
 /**
  * The request parameters for one phase's LLM call.
@@ -50,15 +50,15 @@ export type LlmReasoningEffort = 'none' | 'low' | 'medium' | 'high'
  * only where the call omits it today — this table is behaviour-preserving.
  */
 export type LlmProfile = {
-  model: LlmModelKey
-  maxTokens?: number
-  temperature: number
-  reasoningEffort?: LlmReasoningEffort
-  timeoutMs?: number
-}
+  model: LlmModelKey;
+  maxTokens?: number;
+  temperature: number;
+  reasoningEffort?: LlmReasoningEffort;
+  timeoutMs?: number;
+};
 
-const CLASSIFY_TIMEOUT_MS = 30_000
-const BATCH_CLASSIFY_TIMEOUT_MS = 60_000
+const CLASSIFY_TIMEOUT_MS = 30_000;
+const BATCH_CLASSIFY_TIMEOUT_MS = 60_000;
 
 /**
  * Every phase is extraction or closed-set classification against a fixed rubric,
@@ -67,10 +67,10 @@ const BATCH_CLASSIFY_TIMEOUT_MS = 60_000
 export const LLM_PROFILES = {
   /** Facts extraction — taxonomy, price, city, year, MIT signals, listing verdict. */
   facts: {
-    model: 'text',
+    model: "text",
     maxTokens: 1500,
     temperature: 0.1,
-    reasoningEffort: 'none',
+    reasoningEffort: "none",
     timeoutMs: 30_000,
   },
   /**
@@ -79,34 +79,34 @@ export const LLM_PROFILES = {
    * facts call, but the FAQ block was always the largest part of this output.
    */
   descriptions: {
-    model: 'text',
+    model: "text",
     maxTokens: 6000,
     temperature: 0.1,
-    reasoningEffort: 'none',
+    reasoningEffort: "none",
     timeoutMs: 30_000,
   },
   /** Reputation research. Longer timeout: the prompt carries full SERP + site text. */
   reputation: {
-    model: 'text',
+    model: "text",
     maxTokens: 1200,
     temperature: 0.1,
-    reasoningEffort: 'none',
+    reasoningEffort: "none",
     timeoutMs: 60_000,
   },
   /** Single-brand triage. */
   detect: {
-    model: 'text',
+    model: "text",
     maxTokens: 500,
     temperature: 0.1,
-    reasoningEffort: 'none',
+    reasoningEffort: "none",
     timeoutMs: CLASSIFY_TIMEOUT_MS,
   },
   /** Batched triage — up to 20 brands per call. */
   detectBatch: {
-    model: 'text',
+    model: "text",
     maxTokens: 4000,
     temperature: 0.1,
-    reasoningEffort: 'none',
+    reasoningEffort: "none",
     timeoutMs: BATCH_CLASSIFY_TIMEOUT_MS,
   },
   /**
@@ -115,18 +115,18 @@ export const LLM_PROFILES = {
    * JSON eats the same budget and truncates the answer.
    */
   classification: {
-    model: 'text',
+    model: "text",
     maxTokens: 300,
     temperature: 0.1,
-    reasoningEffort: 'none',
+    reasoningEffort: "none",
     timeoutMs: CLASSIFY_TIMEOUT_MS,
   },
   /** Batched product-type classification — up to 20 brands per call. */
   classificationBatch: {
-    model: 'text',
+    model: "text",
     maxTokens: 1500,
     temperature: 0.1,
-    reasoningEffort: 'none',
+    reasoningEffort: "none",
     timeoutMs: BATCH_CLASSIFY_TIMEOUT_MS,
   },
   /**
@@ -135,14 +135,14 @@ export const LLM_PROFILES = {
    * either — this call never set them.
    */
   classifyImages: {
-    model: 'vision',
+    model: "vision",
     temperature: 0.1,
   },
-} as const satisfies Record<string, LlmProfile>
+} as const satisfies Record<string, LlmProfile>;
 
-export type LlmProfileKey = keyof typeof LLM_PROFILES
+export type LlmProfileKey = keyof typeof LLM_PROFILES;
 
 /** The model a profile actually calls, `OPENAI_MODEL_OVERRIDE` included. */
 export function resolveProfileModel(profileKey: LlmProfileKey): string {
-  return resolveOpenAIModel(LLM_PROFILES[profileKey].model)
+  return resolveOpenAIModel(LLM_PROFILES[profileKey].model);
 }

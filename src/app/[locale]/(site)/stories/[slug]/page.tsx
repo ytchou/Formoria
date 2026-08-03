@@ -1,32 +1,42 @@
-import type { Metadata } from 'next'
-import Image from 'next/image'
-import { notFound } from 'next/navigation'
-import { getTranslations, setRequestLocale } from 'next-intl/server'
-import { ChevronRight } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
+import type { Metadata } from "next";
+import Image from "next/image";
+import { notFound } from "next/navigation";
+import { getTranslations, setRequestLocale } from "next-intl/server";
+import { ChevronRight } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import {
   getAllStories,
   getPublishedStoryBySlug,
   getStorySeries,
   type StoryLocale,
-} from '@/lib/services/stories'
-import { FaqBlock } from '@/components/stories/faq-block'
-import { SeriesNav } from '@/components/stories/series-nav'
-import { formatStoryDate, toStoryIsoDate } from '@/components/stories/story-date'
-import { ViewItemListTracker } from '@/components/analytics/view-item-list-tracker'
-import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
-import { extractBrandSlugs } from '@/lib/mdx/extract-brand-slugs'
-import { buildAlternates } from '@/lib/seo/alternates'
-import type { Locale } from '@/lib/seo/alternates'
-import { buildArticleJsonLd, buildBreadcrumbJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
-import { categoryLabel, PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
-import { StoryContent } from './story-content'
+} from "@/lib/services/stories";
+import { FaqBlock } from "@/components/stories/faq-block";
+import { SeriesNav } from "@/components/stories/series-nav";
+import {
+  formatStoryDate,
+  toStoryIsoDate,
+} from "@/components/stories/story-date";
+import { ViewItemListTracker } from "@/components/analytics/view-item-list-tracker";
+import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
+import { extractBrandSlugs } from "@/lib/mdx/extract-brand-slugs";
+import { buildAlternates } from "@/lib/seo/alternates";
+import type { Locale } from "@/lib/seo/alternates";
+import {
+  buildArticleJsonLd,
+  buildBreadcrumbJsonLd,
+  safeJsonLdStringify,
+} from "@/lib/json-ld";
+import {
+  categoryLabel,
+  PRODUCT_TYPE_CATEGORIES,
+} from "@/lib/taxonomy/ontology";
+import { StoryContent } from "./story-content";
 
 type PageProps = {
-  params: Promise<{ locale: string; slug: string }>
-}
+  params: Promise<{ locale: string; slug: string }>;
+};
 
-export const revalidate = 3600
+export const revalidate = 3600;
 
 // Prebuild every published story so the first production visit is served from the
 // ISR cache instead of paying on-demand generation. Locale comes from the parent
@@ -38,22 +48,24 @@ export const revalidate = 3600
 // silently falls back to zh-TW on on-demand/ISR renders while `params.locale`
 // still says `en`. `revalidate` + `generateStaticParams` gives SSG+ISR without it.
 export async function generateStaticParams() {
-  const result = await getAllStories()
-  if (!result.ok) return []
+  const result = await getAllStories();
+  if (!result.ok) return [];
   // `story.slug` is the filename stem, which is what the route param resolves against
   // (`getPublishedStoryBySlug` reads `content/stories/<param>.mdx`); `frontmatter.slug`
   // is only used for canonical URLs and may diverge.
-  return result.stories.map((story) => ({ slug: story.slug }))
+  return result.stories.map((story) => ({ slug: story.slug }));
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { locale, slug: rawSlug } = await params
-  const slug = decodeURIComponent(rawSlug)
-  setRequestLocale(locale)
-  const story = await getPublishedStoryBySlug(slug)
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
+  const { locale, slug: rawSlug } = await params;
+  const slug = decodeURIComponent(rawSlug);
+  setRequestLocale(locale);
+  const story = await getPublishedStoryBySlug(slug);
 
   if (!story) {
-    notFound()
+    notFound();
   }
 
   // Canonical is pinned to 'zh-TW' on BOTH routes, deliberately not `safeLocale`:
@@ -63,9 +75,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   // must stay locale-agnostic — the zh-TW-only decision belongs at this call site.
   const { canonical, languages } = buildAlternates(
     `/stories/${story.entry.frontmatter.slug}`,
-    'zh-TW',
-    ['zh-TW'],
-  )
+    "zh-TW",
+    ["zh-TW"],
+  );
 
   // Per-story share card. Every page currently shares the site-wide default
   // from `src/app/opengraph-image.tsx`, so a story link in a group chat looks
@@ -77,8 +89,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   // layout's whole object (siteName, type, locale). `/brands/[slug]` restates
   // the same fields for the same reason. Both keys are omitted entirely when
   // there is no hero image, which is what leaves the inherited default intact.
-  const heroImage = story.entry.frontmatter.heroImage
-  const ogLocale = locale === 'en' ? 'en_US' : 'zh_TW'
+  const heroImage = story.entry.frontmatter.heroImage;
+  const ogLocale = locale === "en" ? "en_US" : "zh_TW";
 
   return {
     title: story.entry.frontmatter.title,
@@ -87,8 +99,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     ...(heroImage
       ? {
           openGraph: {
-            siteName: 'Formoria',
-            type: 'article' as const,
+            siteName: "Formoria",
+            type: "article" as const,
             locale: ogLocale,
             title: story.entry.frontmatter.title,
             description: story.entry.frontmatter.description,
@@ -99,7 +111,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
                 // Falls back to the title here, unlike the in-page `<img>`:
                 // an og:image alt is read in a preview card that carries no
                 // other context, so repeating the title beats an empty string.
-                alt: story.entry.frontmatter.heroImageAlt ?? story.entry.frontmatter.title,
+                alt:
+                  story.entry.frontmatter.heroImageAlt ??
+                  story.entry.frontmatter.title,
               },
             ],
           },
@@ -110,70 +124,81 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
           },
         }
       : {}),
-  }
+  };
 }
 
 export default async function StoryPage({ params }: PageProps) {
-  const { locale, slug: rawSlug } = await params
-  const slug = decodeURIComponent(rawSlug)
-  setRequestLocale(locale)
-  const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
-  const story = await getPublishedStoryBySlug(slug)
+  const { locale, slug: rawSlug } = await params;
+  const slug = decodeURIComponent(rawSlug);
+  setRequestLocale(locale);
+  const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
+  const story = await getPublishedStoryBySlug(slug);
 
   if (!story) {
-    notFound()
+    notFound();
   }
 
-  const t = await getTranslations({ locale, namespace: 'stories' })
+  const t = await getTranslations({ locale, namespace: "stories" });
 
   // Siblings are resolved against the story's OWN authored locale, not the request
   // locale: `/en` serves the zh-TW document, so asking for the (empty) `en` set here
   // would silently drop the series nav on exactly that route.
-  const seriesId = story.entry.frontmatter.series
+  const seriesId = story.entry.frontmatter.series;
   const authoredLocale: StoryLocale =
-    story.entry.frontmatter.locale === 'en' ? 'en' : 'zh-TW'
-  const seriesResult = seriesId ? await getStorySeries(seriesId, authoredLocale) : null
-  const series = seriesResult?.ok ? seriesResult.stories : []
+    story.entry.frontmatter.locale === "en" ? "en" : "zh-TW";
+  const seriesResult = seriesId
+    ? await getStorySeries(seriesId, authoredLocale)
+    : null;
+  const series = seriesResult?.ok ? seriesResult.stories : [];
 
   const articleJsonLd = buildArticleJsonLd({
     title: story.entry.frontmatter.title,
-    description: story.entry.frontmatter.description ?? '',
+    description: story.entry.frontmatter.description ?? "",
     path: `/stories/${story.entry.frontmatter.slug}`,
     locale: safeLocale,
-    author: story.entry.frontmatter.author ?? t('byline'),
-  })
+    author: story.entry.frontmatter.author ?? t("byline"),
+  });
   // Both are omitted rather than emitted raw when the frontmatter date is
   // missing or unparseable: schema.org date properties must be ISO-8601, and an
   // empty (or JS `Date.toString()`) value is reported as invalid by Google.
-  const datePublished = toStoryIsoDate(story.entry.frontmatter.publishedAt)
-  const dateModified = toStoryIsoDate(story.entry.frontmatter.updatedAt)
+  const datePublished = toStoryIsoDate(story.entry.frontmatter.publishedAt);
+  const dateModified = toStoryIsoDate(story.entry.frontmatter.updatedAt);
   // Reader-facing date for the byline. Same formatter the series nav and the
   // event page's story cards use, so one story never shows two date formats.
-  const publishedLabel = formatStoryDate(story.entry.frontmatter.publishedAt, safeLocale)
+  const publishedLabel = formatStoryDate(
+    story.entry.frontmatter.publishedAt,
+    safeLocale,
+  );
   const updatedLabel =
-    formatStoryDate(story.entry.frontmatter.updatedAt, safeLocale) ?? publishedLabel
+    formatStoryDate(story.entry.frontmatter.updatedAt, safeLocale) ??
+    publishedLabel;
   const storyTags = Array.from(new Set(story.entry.frontmatter.tags))
     .map((tag) => {
-      if (tag === 'event') return { key: tag, label: t('tags.event') }
-      if (tag === 'creative-expo') return { key: tag, label: t('tags.creative-expo') }
-      const category = PRODUCT_TYPE_CATEGORIES.find((item) => item.slug === tag)
-      return category ? { key: tag, label: categoryLabel(category, safeLocale) } : null
+      if (tag === "event") return { key: tag, label: t("tags.event") };
+      if (tag === "creative-expo")
+        return { key: tag, label: t("tags.creative-expo") };
+      const category = PRODUCT_TYPE_CATEGORIES.find(
+        (item) => item.slug === tag,
+      );
+      return category
+        ? { key: tag, label: categoryLabel(category, safeLocale) }
+        : null;
     })
-    .filter((tag): tag is { key: string; label: string } => tag !== null)
+    .filter((tag): tag is { key: string; label: string } => tag !== null);
   // Mirrors the visible breadcrumb below, so the two never disagree. Same
   // builder every other content route uses (`/brands/[slug]`, `/glossary`).
   const breadcrumbJsonLd = buildBreadcrumbJsonLd(
     [
-      { label: t('breadcrumb'), href: '/stories' },
+      { label: t("breadcrumb"), href: "/stories" },
       { label: story.entry.frontmatter.title },
     ],
     safeLocale,
-  )
+  );
   // The shortcodes only resolve inside `MDXRemote`, which renders after this
   // component returns, so the list size is read off the raw source with the same
   // extractor the content guard uses. Zero brands means no list at all — an
   // empty `view_item_list` is noise in GA4, not a datapoint.
-  const brandCount = extractBrandSlugs(story.content).length
+  const brandCount = extractBrandSlugs(story.content).length;
 
   return (
     // `max-w-screen-xl`, the same container as `/events/[slug]` and the
@@ -181,7 +206,7 @@ export default async function StoryPage({ params }: PageProps) {
     // page width in the app, and the reason a story read narrower than every
     // surface that links to it, including its own index.
     <main className="page-gutter mx-auto w-full max-w-screen-xl py-10 md:py-12">
-      <nav aria-label={t('breadcrumbAria')} className="mb-6">
+      <nav aria-label={t("breadcrumbAria")} className="mb-6">
         <ol className="flex items-center gap-1.5 type-card-description">
           <li>
             {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- DEV-1280: full-document navigation avoids a stalled RSC request across the locale proxy rewrite. */}
@@ -189,7 +214,7 @@ export default async function StoryPage({ params }: PageProps) {
               href="/stories"
               className="hover:text-foreground transition-colors"
             >
-              {t('breadcrumb')}
+              {t("breadcrumb")}
             </a>
           </li>
           <li aria-hidden="true">
@@ -215,10 +240,15 @@ export default async function StoryPage({ params }: PageProps) {
         />
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(breadcrumbJsonLd) }}
+          dangerouslySetInnerHTML={{
+            __html: safeJsonLdStringify(breadcrumbJsonLd),
+          }}
         />
         {brandCount > 0 ? (
-          <ViewItemListTracker listName={`story:${slug}`} itemCount={brandCount} />
+          <ViewItemListTracker
+            listName={`story:${slug}`}
+            itemCount={brandCount}
+          />
         ) : null}
         {/*
           Lead image, above the title the way a feature opens in print. Full
@@ -246,10 +276,10 @@ export default async function StoryPage({ params }: PageProps) {
               Both are `priority`/`fetchPriority="high"` and never lazy: this is
               the story's LCP element, so deferring it defers the metric itself.
             */}
-            {story.entry.frontmatter.heroImage.startsWith('/') ? (
+            {story.entry.frontmatter.heroImage.startsWith("/") ? (
               <Image
                 src={story.entry.frontmatter.heroImage}
-                alt={story.entry.frontmatter.heroImageAlt ?? ''}
+                alt={story.entry.frontmatter.heroImageAlt ?? ""}
                 fill
                 priority
                 sizes="(max-width: 1280px) 100vw, 1280px"
@@ -262,7 +292,7 @@ export default async function StoryPage({ params }: PageProps) {
                 /* Empty alt when the frontmatter omits one: the `<h1>` immediately
                    below already says what this is, and a screen reader repeating
                    the title as image text is noise, not description. */
-                alt={story.entry.frontmatter.heroImageAlt ?? ''}
+                alt={story.entry.frontmatter.heroImageAlt ?? ""}
                 decoding="async"
                 fetchPriority="high"
                 className="size-full object-cover"
@@ -271,24 +301,33 @@ export default async function StoryPage({ params }: PageProps) {
           </div>
         ) : null}
         <header className="space-y-4">
-          <h1 className="type-page-title-large">{story.entry.frontmatter.title}</h1>
-          <p className="type-page-subtitle">{story.entry.frontmatter.description}</p>
+          <h1 className="type-page-title-large">
+            {story.entry.frontmatter.title}
+          </h1>
+          <p className="type-page-subtitle">
+            {story.entry.frontmatter.description}
+          </p>
           <dl className="space-y-1 type-caption">
             <div className="flex gap-3">
-              <dt className="shrink-0 type-metadata">{t('authorLabel')}</dt>
-              <dd>{story.entry.frontmatter.author ?? t('byline')}</dd>
+              <dt className="shrink-0 type-metadata">{t("authorLabel")}</dt>
+              <dd>{story.entry.frontmatter.author ?? t("byline")}</dd>
             </div>
             {updatedLabel ? (
               <div className="flex gap-3">
-                <dt className="shrink-0 type-metadata">{t('lastUpdatedLabel')}</dt>
+                <dt className="shrink-0 type-metadata">
+                  {t("lastUpdatedLabel")}
+                </dt>
                 <dd>{updatedLabel}</dd>
               </div>
             ) : null}
             {storyTags.length > 0 ? (
               <div className="flex gap-3">
-                <dt className="shrink-0 type-metadata">{t('tagsLabel')}</dt>
+                <dt className="shrink-0 type-metadata">{t("tagsLabel")}</dt>
                 <dd className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2" aria-label={t('tagsAria')}>
+                  <div
+                    className="flex flex-wrap items-center gap-2"
+                    aria-label={t("tagsAria")}
+                  >
                     {storyTags.map((tag) => (
                       <Badge key={tag.key} variant="secondary">
                         {tag.label}
@@ -318,13 +357,18 @@ export default async function StoryPage({ params }: PageProps) {
             <StoryContent source={story.content} />
           </div>
         </SavedBrandsProvider>
-        {story.entry.frontmatter.faq && story.entry.frontmatter.faq.length > 0 && (
-          <FaqBlock questions={story.entry.frontmatter.faq} />
-        )}
+        {story.entry.frontmatter.faq &&
+          story.entry.frontmatter.faq.length > 0 && (
+            <FaqBlock questions={story.entry.frontmatter.faq} />
+          )}
         {seriesId ? (
-          <SeriesNav series={series} currentSlug={story.entry.slug} locale={safeLocale} />
+          <SeriesNav
+            series={series}
+            currentSlug={story.entry.slug}
+            locale={safeLocale}
+          />
         ) : null}
       </article>
     </main>
-  )
+  );
 }

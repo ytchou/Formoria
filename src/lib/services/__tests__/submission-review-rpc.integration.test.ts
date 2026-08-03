@@ -167,11 +167,7 @@ describeWithDb("trusted submission review RPCs", () => {
       socialInstagram: "https://www.instagram.com/maria.garcia.design/",
     });
 
-    const result = await approveSubmission(
-      supabase!,
-      submissionId,
-      reviewerId,
-    );
+    const result = await approveSubmission(supabase!, submissionId, reviewerId);
     brandIds.push(result.brandId);
 
     const { data: brand, error } = await supabase!
@@ -342,17 +338,14 @@ describeWithDb("trusted submission review RPCs", () => {
     const selectedDetail = images?.at(0);
     expect(selectedHero).toBeDefined();
     expect(selectedDetail).toBeDefined();
-    const { error: saveError } = await supabase!.rpc(
-      "save_submission_review",
-      {
-        p_submission_id: submissionId!,
-        p_review_data: {},
-        p_images: [
-          { id: selectedHero!.id, sort_order: 3 },
-          { id: selectedDetail!.id, sort_order: 4 },
-        ],
-      },
-    );
+    const { error: saveError } = await supabase!.rpc("save_submission_review", {
+      p_submission_id: submissionId!,
+      p_review_data: {},
+      p_images: [
+        { id: selectedHero!.id, sort_order: 3 },
+        { id: selectedDetail!.id, sort_order: 4 },
+      ],
+    });
     expect(saveError).toBeNull();
 
     const { error: applyError } = await supabase!.rpc("apply_brand_refresh", {

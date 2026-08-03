@@ -378,15 +378,14 @@ export async function enqueueManualRerun(
     }
   }
 
-  const targets = allTargets.filter(
-    (target) =>
-      isManualRerunTargetEligible({
-        sourceStatus: source.status,
-        targetStatus: target.status,
-        isIncompleteSubmission:
-          target.target_type === "submission" &&
-          incompleteSubmissionIds.has(target.target_id),
-      }),
+  const targets = allTargets.filter((target) =>
+    isManualRerunTargetEligible({
+      sourceStatus: source.status,
+      targetStatus: target.status,
+      isIncompleteSubmission:
+        target.target_type === "submission" &&
+        incompleteSubmissionIds.has(target.target_id),
+    }),
   );
 
   if (targets.length === 0) {
@@ -422,9 +421,7 @@ export function isManualRerunTargetEligible({
     return targetStatus === "failed" || targetStatus === "skipped";
   }
   if (sourceStatus === "failed" || sourceStatus === "cancelled") {
-    return ["pending", "running", "failed", "cancelled"].includes(
-      targetStatus,
-    );
+    return ["pending", "running", "failed", "cancelled"].includes(targetStatus);
   }
   return false;
 }

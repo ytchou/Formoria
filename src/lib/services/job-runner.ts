@@ -389,8 +389,9 @@ function parseCurationSteps(value: unknown): CurationStep[] | undefined {
   }
 
   const known = Object.keys(CURATION_STEPS) as CurationStep[];
-  const steps = value.filter((step): step is CurationStep =>
-    typeof step === "string" && (known as readonly string[]).includes(step),
+  const steps = value.filter(
+    (step): step is CurationStep =>
+      typeof step === "string" && (known as readonly string[]).includes(step),
   );
 
   return steps.length > 0 ? [...new Set(steps)] : undefined;

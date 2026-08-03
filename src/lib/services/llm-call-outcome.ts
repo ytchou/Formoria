@@ -17,13 +17,13 @@
  */
 export type LlmCallCounts = {
   /** Calls actually issued to the provider. Zero means the helper bailed pre-flight. */
-  attempted: number
+  attempted: number;
   /** Subset of `attempted` that failed at the provider (non-2xx or transport error). */
-  providerFailed: number
-}
+  providerFailed: number;
+};
 
 export function noLlmCalls(): LlmCallCounts {
-  return { attempted: 0, providerFailed: 0 }
+  return { attempted: 0, providerFailed: 0 };
 }
 
 /**
@@ -33,12 +33,12 @@ export function noLlmCalls(): LlmCallCounts {
  * reason this is a ratio rather than a flag.
  */
 export function isLlmProviderFailure(calls: LlmCallCounts): boolean {
-  return calls.attempted > 0 && calls.providerFailed === calls.attempted
+  return calls.attempted > 0 && calls.providerFailed === calls.attempted;
 }
 
 export function addLlmCalls(a: LlmCallCounts, b: LlmCallCounts): LlmCallCounts {
   return {
     attempted: a.attempted + b.attempted,
     providerFailed: a.providerFailed + b.providerFailed,
-  }
+  };
 }

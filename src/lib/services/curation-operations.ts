@@ -68,10 +68,7 @@ import {
 import type { BrandImageSearchOutcome } from "./enrich-phases/scraper/types";
 import { buildCandidatePool } from "./enrich-phases/candidate-pool";
 import type { EnrichmentTarget } from "./enrichment-target";
-import {
-  deriveProductTypeFromTags,
-  MAX_PRODUCT_TAGS,
-} from "./product-tags";
+import { deriveProductTypeFromTags, MAX_PRODUCT_TAGS } from "./product-tags";
 import {
   formatBrandComplete,
   formatJobStart,
@@ -628,7 +625,8 @@ export function llmStageFailure(
 ): string | null {
   const attempted = phaseResults.filter(
     (phaseResult) =>
-      LLM_PHASE_NAMES.has(phaseResult.phase) && phaseResult.status !== "skipped",
+      LLM_PHASE_NAMES.has(phaseResult.phase) &&
+      phaseResult.status !== "skipped",
   );
   if (attempted.length === 0) {
     return null;
@@ -1023,9 +1021,15 @@ export async function persistSubmissionEnrichmentResults(
     if (fieldStateError) throw fieldStateError;
 
     const fieldState = Object.fromEntries(
-      (fieldStates ?? []).map((state) => [state.field, { source: state.source }]),
+      (fieldStates ?? []).map((state) => [
+        state.field,
+        { source: state.source },
+      ]),
     );
-    const filtered = resolveRefreshEnrichmentPatch(persistablePatch, fieldState);
+    const filtered = resolveRefreshEnrichmentPatch(
+      persistablePatch,
+      fieldState,
+    );
     persistablePatch = filtered.allowed;
     if (filtered.skipped.length > 0) {
       console.info("[refresh-enrichment:protected-fields]", {
@@ -1297,7 +1301,8 @@ export async function runEnrich(
     // run no longer implies a detect call. Mirrors `hasDetectPhases` in
     // `enrich-phases/detect.ts` — the two must agree or this banner announces a
     // detect step that never runs.
-    const hasDetectPhases = phases.includes("detect") || phases.includes("slugs");
+    const hasDetectPhases =
+      phases.includes("detect") || phases.includes("slugs");
     const activeSteps = [
       phases.includes("discover") && "SERP",
       phases.includes("images") && "images",
@@ -1708,9 +1713,7 @@ export async function runEnrich(
       }
       if (decision.action === "warn") {
         // Kill switch (CURATION_PROVIDER_GATE=off) is engaged.
-        onProgress(
-          `  [LLM-GATE OFF] ${ctx.brand.slug}: ${decision.message}`,
-        );
+        onProgress(`  [LLM-GATE OFF] ${ctx.brand.slug}: ${decision.message}`);
         return;
       }
       throw new Error(decision.message);
@@ -2011,8 +2014,10 @@ export async function runEnrich(
                   }))
                 : (linksResult?.scrapedImageUrls ?? []),
             jsonLdImages: linksResult?.jsonLdImageUrls ?? [],
-            googleImages: (imageSearchOutcomes.get(brand.id)?.rows ?? imageSearchUrls).map((row) =>
-              typeof row === 'string'
+            googleImages: (
+              imageSearchOutcomes.get(brand.id)?.rows ?? imageSearchUrls
+            ).map((row) =>
+              typeof row === "string"
                 ? row
                 : {
                     url: row.url,
@@ -2029,7 +2034,7 @@ export async function runEnrich(
                     imageHeight: row.imageHeight,
                     thumbnailWidth: row.thumbnailWidth,
                     thumbnailHeight: row.thumbnailHeight,
-                  }
+                  },
             ),
           });
           await markCurrentPhase(ctx, "images");
@@ -2151,7 +2156,9 @@ export async function runEnrich(
                 name: getDisplayBrandName(brand),
                 submissionId: brand.id,
                 status: "skipped",
-                changedFields: changedFieldsFromPhaseResults(state.phaseResults),
+                changedFields: changedFieldsFromPhaseResults(
+                  state.phaseResults,
+                ),
                 phaseResults: state.phaseResults,
                 error: `Listing check rejected this submission: ${listingReason}`,
               });

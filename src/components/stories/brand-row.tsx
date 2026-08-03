@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { ReactNode } from "react";
 
 type BrandRowProps = {
   /**
@@ -10,8 +10,8 @@ type BrandRowProps = {
    * `BrandGrid`. Children pass through intact, which is also what let the
    * retired `BrandSpotlight` carry its prose. Do not add an array prop.
    */
-  children?: ReactNode
-}
+  children?: ReactNode;
+};
 
 /**
  * `<BrandRow>…</BrandRow>` inside story MDX: three brand cards for one
@@ -31,14 +31,14 @@ export function BrandRow({ children }: BrandRowProps) {
   return (
     <div
       className={[
-        'scrollbar-none my-10 flex snap-x snap-mandatory gap-4 overflow-x-auto',
+        "scrollbar-none my-10 flex snap-x snap-mandatory gap-4 overflow-x-auto",
         // 272px on mobile leaves the next card visibly breaking the right edge
         // at 375px, which is what signals the row scrolls at all.
-        '[&>*]:w-[272px] [&>*]:shrink-0 [&>*]:snap-start',
-        'sm:w-fit sm:max-w-full sm:mx-auto sm:snap-none sm:justify-center sm:overflow-visible',
-      ].join(' ')}
+        "[&>*]:w-[272px] [&>*]:shrink-0 [&>*]:snap-start",
+        "sm:w-fit sm:max-w-full sm:mx-auto sm:snap-none sm:justify-center sm:overflow-visible",
+      ].join(" ")}
     >
       {children}
     </div>
-  )
+  );
 }

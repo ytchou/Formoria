@@ -1,4 +1,4 @@
-import type { PhaseResult } from '@/lib/types/curation'
+import type { PhaseResult } from "@/lib/types/curation";
 import {
   classifyProductTypeBatch,
   detectBrandsBatch,
@@ -6,10 +6,10 @@ import {
   type ClassificationResult,
   type DetectBatchItem,
   type DetectResult,
-} from '../product-type-classifier'
-import { isLlmProviderFailure } from '../llm-call-outcome'
-import { generateSlug } from '../brands'
-import { isValidBrandName } from '../brand-cleanup'
+} from "../product-type-classifier";
+import { isLlmProviderFailure } from "../llm-call-outcome";
+import { generateSlug } from "../brands";
+import { isValidBrandName } from "../brand-cleanup";
 import {
   buildPhaseResult,
   getDisplayBrandName,
@@ -18,15 +18,16 @@ import {
   type EnrichBrand,
   type EnrichPatch,
   type SearchPhaseResult,
-} from './types'
+} from "./types";
 
-const DETECT_PHASES = ['detect', 'slugs', 'tags'] as const
+const DETECT_PHASES = ["detect", "slugs", "tags"] as const;
 
-export function shouldSkipForNonBrand(detectResult: DetectResult | undefined): boolean {
+export function shouldSkipForNonBrand(
+  detectResult: DetectResult | undefined,
+): boolean {
   return Boolean(
-    detectResult?.isNonBrand === true &&
-    detectResult.confidence === 'high'
-  )
+    detectResult?.isNonBrand === true && detectResult.confidence === "high",
+  );
 }
 
 /**
@@ -36,30 +37,29 @@ export function shouldSkipForNonBrand(detectResult: DetectResult | undefined): b
  * was renaming the brand. Mirrored in `curation-operations.ts`; keep both in
  * step.
  */
-function hasDetectPhases(phases: BatchPhaseContext['phases']): boolean {
-  return phases.includes('detect') || phases.includes('slugs')
+function hasDetectPhases(phases: BatchPhaseContext["phases"]): boolean {
+  return phases.includes("detect") || phases.includes("slugs");
 }
-
 
 function buildDetectPatch(
   brand: EnrichBrand,
   detectResult: DetectResult | undefined,
-  phases: readonly string[] = DETECT_PHASES
+  phases: readonly string[] = DETECT_PHASES,
 ): EnrichPatch {
-  const patch: EnrichPatch = {}
+  const patch: EnrichPatch = {};
 
   if (!detectResult) {
-    return patch
+    return patch;
   }
 
-  const KEBAB_CASE_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/
+  const KEBAB_CASE_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
   if (
-    phases.includes('slugs') &&
+    phases.includes("slugs") &&
     detectResult.slugGenerated &&
     detectResult.slugGenerated !== brand.slug &&
     KEBAB_CASE_RE.test(detectResult.slugGenerated)
   ) {
-    patch.slug = detectResult.slugGenerated
+    patch.slug = detectResult.slugGenerated;
   }
 
   // No product_type write here on purpose: the category is a reasoning task the
@@ -68,11 +68,11 @@ function buildDetectPatch(
 
   if (
     detectResult.brandName &&
-    detectResult.confidence === 'high' &&
+    detectResult.confidence === "high" &&
     detectResult.brandName !== brand.name &&
     isValidBrandName(detectResult.brandName, brand.name ?? brand.slug)
   ) {
-    patch.name = detectResult.brandName
+    patch.name = detectResult.brandName;
     // DETECT_SYSTEM_PROMPT tells the model to return a null slug rather than
     // transliterate a Han name, and the model obeys — this fallback then did the
     // exact thing the prompt forbids, because `generateSlug` Wade-Giles
@@ -82,35 +82,49 @@ function buildDetectPatch(
     // slug untouched. `generateSlug` itself is unchanged — `submissions.ts`
     // still depends on its current behaviour.
     if (!patch.slug && !/\p{Script=Han}/u.test(detectResult.brandName)) {
-      const nameSlug = generateSlug(detectResult.brandName)
+      const nameSlug = generateSlug(detectResult.brandName);
       if (nameSlug && nameSlug !== brand.slug && KEBAB_CASE_RE.test(nameSlug)) {
-        patch.slug = nameSlug
+        patch.slug = nameSlug;
       }
     }
   }
 
-  return patch
+  return patch;
 }
 
 export async function runDetectPhase(
   ctx: BatchPhaseContext,
-  searchResults: Map<string, SearchPhaseResult>
+  searchResults: Map<string, SearchPhaseResult>,
 ): Promise<{
-  phaseResult: PhaseResult
-  detectResults: Map<string, DetectResult>
+  phaseResult: PhaseResult;
+  detectResults: Map<string, DetectResult>;
 }> {
   if (!hasDetectPhases(ctx.phases)) {
     return {
-      phaseResult: buildPhaseResult('detect', 'skipped', [], 0, undefined, 'no detect phases requested'),
+      phaseResult: buildPhaseResult(
+        "detect",
+        "skipped",
+        [],
+        0,
+        undefined,
+        "no detect phases requested",
+      ),
       detectResults: new Map(),
-    }
+    };
   }
 
   if (ctx.chunk.length === 0) {
     return {
-      phaseResult: buildPhaseResult('detect', 'skipped', [], 0, undefined, 'empty batch'),
+      phaseResult: buildPhaseResult(
+        "detect",
+        "skipped",
+        [],
+        0,
+        undefined,
+        "empty batch",
+      ),
       detectResults: new Map(),
-    }
+    };
   }
 
   const { result, durationMs } = await timePhase(async () => {
@@ -120,15 +134,19 @@ export async function runDetectPhase(
       description: brand.description ?? null,
       website: brand.purchase_website ?? null,
       snippets: searchResults.get(ctx.chunkBrandNames[index])?.snippets ?? [],
-      target: { type: ctx.targetType ?? 'brand', id: brand.id },
-    }))
-    const outcome = await detectBrandsBatch(detectItems, ctx.jobId)
-    const detectResults = outcome.results
-    const nonBrandCount = [...detectResults.values()].filter((detectResult) => detectResult.isNonBrand).length
-    ctx.onProgress?.(`  [DETECT] OK — ${detectResults.size} results, ${nonBrandCount} non-brands`)
+      target: { type: ctx.targetType ?? "brand", id: brand.id },
+    }));
+    const outcome = await detectBrandsBatch(detectItems, ctx.jobId);
+    const detectResults = outcome.results;
+    const nonBrandCount = [...detectResults.values()].filter(
+      (detectResult) => detectResult.isNonBrand,
+    ).length;
+    ctx.onProgress?.(
+      `  [DETECT] OK — ${detectResults.size} results, ${nonBrandCount} non-brands`,
+    );
 
-    return { detectResults, nonBrandCount, calls: outcome.calls }
-  })
+    return { detectResults, nonBrandCount, calls: outcome.calls };
+  });
 
   // Every detect call died at the provider: the empty result map says nothing
   // about these brands, so the phase must NOT report success. Reporting
@@ -137,12 +155,12 @@ export async function runDetectPhase(
   if (isLlmProviderFailure(result.calls)) {
     ctx.onProgress?.(
       `  [DETECT] FAILED — every one of ${result.calls.attempted} call(s) failed at the provider`,
-    )
+    );
     return {
       phaseResult: {
         ...buildPhaseResult(
-          'detect',
-          'failed',
+          "detect",
+          "failed",
           [],
           durationMs,
           `LLM provider failed all ${result.calls.attempted} detect call(s)`,
@@ -150,38 +168,44 @@ export async function runDetectPhase(
         providerFailure: true,
       },
       detectResults: result.detectResults,
-    }
+    };
   }
 
   return {
     phaseResult: buildPhaseResult(
-      'detect',
-      'succeeded',
-      result.nonBrandCount > 0 ? ['status'] : [],
-      durationMs
+      "detect",
+      "succeeded",
+      result.nonBrandCount > 0 ? ["status"] : [],
+      durationMs,
     ),
     detectResults: result.detectResults,
-  }
+  };
 }
 
 export async function runStandaloneClassification(
-  ctx: BatchPhaseContext
+  ctx: BatchPhaseContext,
 ): Promise<{
-  phaseResult: PhaseResult
-  batchClassifications: Map<string, ClassificationResult>
+  phaseResult: PhaseResult;
+  batchClassifications: Map<string, ClassificationResult>;
 }> {
-  const shouldRun = (
-    ctx.phases.includes('tags') &&
-    !ctx.phases.includes('descriptions') &&
-    !ctx.phases.includes('detect') &&
-    ctx.chunk.length > 0
-  )
+  const shouldRun =
+    ctx.phases.includes("tags") &&
+    !ctx.phases.includes("descriptions") &&
+    !ctx.phases.includes("detect") &&
+    ctx.chunk.length > 0;
 
   if (!shouldRun) {
     return {
-      phaseResult: buildPhaseResult('tags', 'skipped', [], 0, undefined, 'standalone classification not required'),
+      phaseResult: buildPhaseResult(
+        "tags",
+        "skipped",
+        [],
+        0,
+        undefined,
+        "standalone classification not required",
+      ),
       batchClassifications: new Map(),
-    }
+    };
   }
 
   const { result, durationMs } = await timePhase(async () => {
@@ -189,25 +213,25 @@ export async function runStandaloneClassification(
       slug: brand.slug,
       name: getDisplayBrandName(brand),
       description: brand.description ?? null,
-      target: { type: ctx.targetType ?? 'brand', id: brand.id },
-    }))
-    const outcome = await classifyProductTypeBatch(classifyItems, ctx.jobId)
-    ctx.onProgress?.(`  [TAGS] OK — ${outcome.results.size} classifications`)
+      target: { type: ctx.targetType ?? "brand", id: brand.id },
+    }));
+    const outcome = await classifyProductTypeBatch(classifyItems, ctx.jobId);
+    ctx.onProgress?.(`  [TAGS] OK — ${outcome.results.size} classifications`);
 
-    return outcome
-  })
+    return outcome;
+  });
 
   // Same rule as detect: an empty classification map from a dead account is not
   // "no category applies", it is "we never asked".
   if (isLlmProviderFailure(result.calls)) {
     ctx.onProgress?.(
       `  [TAGS] FAILED — every one of ${result.calls.attempted} call(s) failed at the provider`,
-    )
+    );
     return {
       phaseResult: {
         ...buildPhaseResult(
-          'tags',
-          'failed',
+          "tags",
+          "failed",
           [],
           durationMs,
           `LLM provider failed all ${result.calls.attempted} classification call(s)`,
@@ -215,57 +239,57 @@ export async function runStandaloneClassification(
         providerFailure: true,
       },
       batchClassifications: result.results,
-    }
+    };
   }
 
   return {
     phaseResult: buildPhaseResult(
-      'tags',
-      'succeeded',
-      result.results.size > 0 ? ['product_type'] : [],
-      durationMs
+      "tags",
+      "succeeded",
+      result.results.size > 0 ? ["product_type"] : [],
+      durationMs,
     ),
     batchClassifications: result.results,
-  }
+  };
 }
 
 export function applyDetectResult(
   detectResult: DetectResult | undefined,
   brand: EnrichBrand,
-  phases: readonly string[] = DETECT_PHASES
+  phases: readonly string[] = DETECT_PHASES,
 ): {
-  isNonBrand: boolean
-  phaseResult: PhaseResult
-  patch: EnrichPatch
+  isNonBrand: boolean;
+  phaseResult: PhaseResult;
+  patch: EnrichPatch;
 } {
   if (shouldSkipForNonBrand(detectResult)) {
     return {
       isNonBrand: true,
       phaseResult: buildPhaseResult(
-        'detect',
-        'skipped',
+        "detect",
+        "skipped",
         [],
         0,
         undefined,
-        detectResult?.nonBrandReason ?? 'non-brand'
+        detectResult?.nonBrandReason ?? "non-brand",
       ),
       patch: {},
-    }
+    };
   }
 
-  const patch = buildDetectPatch(brand, detectResult, phases)
-  const changedFields = Object.keys(patch)
+  const patch = buildDetectPatch(brand, detectResult, phases);
+  const changedFields = Object.keys(patch);
 
   return {
     isNonBrand: false,
     phaseResult: buildPhaseResult(
-      'detect',
-      detectResult ? 'succeeded' : 'skipped',
+      "detect",
+      detectResult ? "succeeded" : "skipped",
       changedFields,
       0,
       undefined,
-      detectResult ? undefined : 'no detect result'
+      detectResult ? undefined : "no detect result",
     ),
     patch,
-  }
+  };
 }

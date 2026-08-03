@@ -1,53 +1,54 @@
-import { insertReputationResult } from '../ai-results'
-import { runReputationResearch } from '../reputation-research'
-import { loadPersistedScrapeText } from './descriptions'
-import { buildProfiledEnrichmentConfig } from '../llm-audit'
-import { REPUTATION_SYSTEM_PROMPT } from '@/lib/prompts'
-import { localizeToTW } from '../taiwan-localization'
-import { isLlmProviderFailure, noLlmCalls } from '../llm-call-outcome'
-import type { PhaseResult } from '@/lib/types/curation'
-import type { EnrichScrapedData } from './types'
-import { brandTarget, type EnrichmentTarget } from '../enrichment-target'
+import { insertReputationResult } from "../ai-results";
+import { runReputationResearch } from "../reputation-research";
+import { loadPersistedScrapeText } from "./descriptions";
+import { buildProfiledEnrichmentConfig } from "../llm-audit";
+import { REPUTATION_SYSTEM_PROMPT } from "@/lib/prompts";
+import { localizeToTW } from "../taiwan-localization";
+import { isLlmProviderFailure, noLlmCalls } from "../llm-call-outcome";
+import type { PhaseResult } from "@/lib/types/curation";
+import type { EnrichScrapedData } from "./types";
+import { brandTarget, type EnrichmentTarget } from "../enrichment-target";
 import {
   buildPhaseResult,
   hasPatchValues,
   timePhase,
   type EnrichBrand,
   type EnrichPhase,
-} from './types'
+} from "./types";
 
 /** Prompt-shaping params — stored in the audit contract, not sent as request params. */
 const REPUTATION_PROMPT_PARAMS = {
   snippetLimit: 10,
   siteContentLimit: 4000,
-}
+};
 
 type ReputationPhaseOptions = {
-  brand: EnrichBrand
-  phases: EnrichPhase[]
-  scrapedData: EnrichScrapedData | null
-  serpSnippets: string[]
-  overwrite?: boolean
-  target?: EnrichmentTarget
-  jobId?: string
-}
+  brand: EnrichBrand;
+  phases: EnrichPhase[];
+  scrapedData: EnrichScrapedData | null;
+  serpSnippets: string[];
+  overwrite?: boolean;
+  target?: EnrichmentTarget;
+  jobId?: string;
+};
 
 type ReputationPhaseOutput = {
-  phaseResult: PhaseResult
-  patch: Record<string, unknown>
-}
+  phaseResult: PhaseResult;
+  patch: Record<string, unknown>;
+};
 
 function hasReputationValues(brand: EnrichBrand): boolean {
-  return brand.reputation_summary != null
+  return brand.reputation_summary != null;
 }
 
 /** Empty for the purposes of "is there anything here worth clearing?". */
 function isEmptyFieldValue(value: unknown): boolean {
-  if (value == null) return true
-  if (typeof value === 'string') return value.trim() === ''
-  if (Array.isArray(value)) return value.length === 0
-  if (typeof value === 'object') return Object.keys(value as object).length === 0
-  return false
+  if (value == null) return true;
+  if (typeof value === "string") return value.trim() === "";
+  if (Array.isArray(value)) return value.length === 0;
+  if (typeof value === "object")
+    return Object.keys(value as object).length === 0;
+  return false;
 }
 
 /**
@@ -73,38 +74,38 @@ export function resolveClearedFields(
   brand: EnrichBrand,
   shouldWrite: (existing: unknown) => boolean,
 ): string[] {
-  if (!research) return []
+  if (!research) return [];
 
-  const cleared: string[] = []
+  const cleared: string[] = [];
   if (
     !research.reputationSummary &&
     shouldWrite(brand.reputation_summary) &&
     !isEmptyFieldValue(brand.reputation_summary)
   ) {
-    cleared.push('reputation_summary')
+    cleared.push("reputation_summary");
   }
 
-  return cleared
+  return cleared;
 }
 
 function truncateSiteContent(siteContent: unknown): string | null {
-  if (siteContent == null) return null
+  if (siteContent == null) return null;
   const content =
-    typeof siteContent === 'string'
+    typeof siteContent === "string"
       ? siteContent
-      : typeof siteContent === 'object'
+      : typeof siteContent === "object"
         ? JSON.stringify(siteContent)
-        : String(siteContent)
+        : String(siteContent);
 
-  return content.length > 4000 ? content.slice(0, 4000) : content
+  return content.length > 4000 ? content.slice(0, 4000) : content;
 }
 
 function getBrandSiteContent(brand: EnrichBrand): string | null {
-  return truncateSiteContent(brand.site_content)
+  return truncateSiteContent(brand.site_content);
 }
 
 function getCategory(brand: EnrichBrand): string | null {
-  return brand.product_type ?? null
+  return brand.product_type ?? null;
 }
 
 /**
@@ -123,66 +124,66 @@ export async function runReputationPhase({
   target,
   jobId,
 }: ReputationPhaseOptions): Promise<ReputationPhaseOutput> {
-  if (!phases.includes('reputation')) {
+  if (!phases.includes("reputation")) {
     return {
       phaseResult: buildPhaseResult(
-        'reputation',
-        'skipped',
+        "reputation",
+        "skipped",
         [],
         0,
         undefined,
-        'reputation phase not requested',
+        "reputation phase not requested",
       ),
       patch: {},
-    }
+    };
   }
 
   if (!overwrite && hasReputationValues(brand)) {
     return {
       phaseResult: buildPhaseResult(
-        'reputation',
-        'skipped',
+        "reputation",
+        "skipped",
         [],
         0,
         undefined,
-        'reputation fields already populated',
+        "reputation fields already populated",
       ),
       patch: {},
-    }
+    };
   }
 
   const { result, durationMs } = await timePhase(async () => {
-    const auditTarget = target ?? brandTarget(brand.id)
-    const persistedScrape = await loadPersistedScrapeText(auditTarget)
-    const brandSiteContent = getBrandSiteContent(brand)
+    const auditTarget = target ?? brandTarget(brand.id);
+    const persistedScrape = await loadPersistedScrapeText(auditTarget);
+    const brandSiteContent = getBrandSiteContent(brand);
     const siteContent =
       [brandSiteContent, persistedScrape.siteContent]
         .filter(Boolean)
-        .join('\n\n') || null
+        .join("\n\n") || null;
     const reputationInput = {
-      name: brand.name ?? '',
+      name: brand.name ?? "",
       description: brand.description ?? null,
       category: getCategory(brand),
       serpSnippets: [...serpSnippets, ...persistedScrape.snippets],
       siteContent,
-    }
+    };
     const reputationOutcome = await runReputationResearch(reputationInput, {
       target: auditTarget,
-      phase: 'reputation',
+      phase: "reputation",
       ...(jobId ? { jobId } : {}),
       config: buildProfiledEnrichmentConfig(
-        'reputation',
+        "reputation",
         REPUTATION_SYSTEM_PROMPT,
-        'reputation',
+        "reputation",
         REPUTATION_PROMPT_PARAMS,
       ),
-    })
+    });
 
-    const calls = reputationOutcome?.calls ?? noLlmCalls()
-    const reputationResearch = reputationOutcome?.result ?? null
+    const calls = reputationOutcome?.calls ?? noLlmCalls();
+    const reputationResearch = reputationOutcome?.result ?? null;
 
     if (!reputationResearch) {
-      return { patch: {}, calls }
+      return { patch: {}, calls };
     }
 
     // Same policy the descriptions phase used when it owned this field. In
@@ -191,31 +192,36 @@ export async function runReputationPhase({
     const shouldWrite = (existing: unknown) =>
       overwrite ||
       existing == null ||
-      (typeof existing === 'string' && existing.trim() === '') ||
-      (Array.isArray(existing) && existing.length === 0)
+      (typeof existing === "string" && existing.trim() === "") ||
+      (Array.isArray(existing) && existing.length === 0);
 
     const patch: Record<string, unknown> = {
       ...(reputationResearch.reputationSummary != null
         ? {
             reputation_summary: {
               ...reputationResearch.reputationSummary,
-              text: localizeToTW(reputationResearch.reputationSummary.text).text,
+              text: localizeToTW(reputationResearch.reputationSummary.text)
+                .text,
             },
           }
         : {}),
-    }
+    };
 
     // The complement of the conditional spread above: it contributes `{}` when
     // it has nothing to say, which the apply RPC reads as "leave the current
     // value alone". `_cleared_fields` is how this phase says "I looked, and
     // this field should now be empty".
-    const clearedFields = resolveClearedFields(reputationResearch, brand, shouldWrite)
+    const clearedFields = resolveClearedFields(
+      reputationResearch,
+      brand,
+      shouldWrite,
+    );
     if (clearedFields.length > 0) {
-      patch._cleared_fields = clearedFields
+      patch._cleared_fields = clearedFields;
     }
 
-    return { patch, calls }
-  })
+    return { patch, calls };
+  });
 
   // The single reputation call failed at the provider. Reporting `succeeded`
   // with an empty patch is indistinguishable from "this brand has no
@@ -225,32 +231,32 @@ export async function runReputationPhase({
     return {
       phaseResult: {
         ...buildPhaseResult(
-          'reputation',
-          'failed',
+          "reputation",
+          "failed",
           [],
           durationMs,
-          'LLM provider failed the reputation call',
+          "LLM provider failed the reputation call",
         ),
         providerFailure: true,
       },
       patch: {},
-    }
+    };
   }
 
   if (hasPatchValues(result.patch)) {
     await insertReputationResult({
       brandId: brand.id,
       target: target ?? brandTarget(brand.id),
-    })
+    });
   }
 
   return {
     phaseResult: buildPhaseResult(
-      'reputation',
-      'succeeded',
+      "reputation",
+      "succeeded",
       hasPatchValues(result.patch)
         ? [
-            ...['reputation_summary'].filter((field) => field in result.patch),
+            ...["reputation_summary"].filter((field) => field in result.patch),
             ...(Array.isArray(result.patch._cleared_fields)
               ? (result.patch._cleared_fields as string[])
               : []),
@@ -259,5 +265,5 @@ export async function runReputationPhase({
       durationMs,
     ),
     patch: result.patch,
-  }
+  };
 }

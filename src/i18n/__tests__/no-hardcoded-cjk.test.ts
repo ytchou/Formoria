@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest'
-import { readdirSync, readFileSync, statSync } from 'node:fs'
-import { join, relative, sep } from 'node:path'
-import ts from 'typescript'
+import { describe, it, expect } from "vitest";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join, relative, sep } from "node:path";
+import ts from "typescript";
 
 /**
  * i18n regression guard — Chinese-in-English direction.
@@ -15,175 +15,186 @@ import ts from 'typescript'
  * add its path. Otherwise, move the string into `messages/*.json`.
  */
 
-const SRC = join(process.cwd(), 'src')
+const SRC = join(process.cwd(), "src");
 
 // Han ideographs (main + Ext-A + compatibility). Catches any Chinese string.
-const HAN = /[㐀-鿿豈-﫿]/
-const LATIN = /[A-Za-z]/
-const USER_FACING_ATTRIBUTES = new Set(['alt', 'aria-label', 'placeholder', 'title'])
+const HAN = /[㐀-鿿豈-﫿]/;
+const LATIN = /[A-Za-z]/;
+const USER_FACING_ATTRIBUTES = new Set([
+  "alt",
+  "aria-label",
+  "placeholder",
+  "title",
+]);
 
 const ALLOWLIST = [
   // Admin surface is intentionally single-locale (Chinese-only).
-  'components/admin/',
-  'app/admin/',
+  "components/admin/",
+  "app/admin/",
   // Preview/under-construction gate is zh-only by design.
-  'lib/preview/',
+  "lib/preview/",
   // Email copy lives in-file and is locale-branched inside the template.
-  'lib/email/templates.ts',
+  "lib/email/templates.ts",
   // Language endonyms (中文 / English) — correct in both locales.
-  'components/settings/settings-form.tsx',
+  "components/settings/settings-form.tsx",
   // OG images: rendered to PNG, locale-branched or zh default by design.
-  'app/opengraph-image.tsx',
-  'app/[locale]/brands/[slug]/opengraph-image.tsx',
+  "app/opengraph-image.tsx",
+  "app/[locale]/brands/[slug]/opengraph-image.tsx",
   // Structured data uses locale-aware labels outside React rendering.
-  'lib/json-ld.ts',
+  "lib/json-ld.ts",
   // Owner mailto subject — locale-branched template.
-  'components/dashboard/inline-verification.tsx',
+  "components/dashboard/inline-verification.tsx",
   // Non-display Chinese: a comment and scraper keyword regex.
-  'lib/constants.ts',
-  'lib/services/enrich-phases/scraper/strategies/crawl.ts',
+  "lib/constants.ts",
+  "lib/services/enrich-phases/scraper/strategies/crawl.ts",
   // Scraper search query uses Chinese keywords to find Taiwan brand websites (not UI copy).
-  'lib/services/enrich-phases/scraper/search.ts',
+  "lib/services/enrich-phases/scraper/search.ts",
   // Enrich-phase labels are admin-only display constants (not user-facing i18n copy).
-  'lib/constants/enrich-phases.ts',
+  "lib/constants/enrich-phases.ts",
   // Enrich-phase search queries use Chinese keywords to find Taiwan brand data (not UI copy).
-  'lib/services/enrich-phases/discover.ts',
-  'lib/services/enrich-phases/image-search.ts',
+  "lib/services/enrich-phases/discover.ts",
+  "lib/services/enrich-phases/image-search.ts",
   // Taxonomy ontology: nameZh is structural data (bilingual label in data layer, not UI copy).
-  'lib/taxonomy/ontology.ts',
+  "lib/taxonomy/ontology.ts",
   // Slug generation regex uses CJK character ranges (not UI copy).
-  'lib/services/brands.ts',
+  "lib/services/brands.ts",
   // AI-slop detector uses Chinese regex patterns (not UI copy).
-  'lib/services/enrich-validators.ts',
+  "lib/services/enrich-validators.ts",
   // zh-CN→zh-TW vocabulary and punctuation rules (not UI copy).
-  'lib/services/taiwan-localization.ts',
+  "lib/services/taiwan-localization.ts",
   // Product-tag validator uses Chinese blocklist regex patterns (not UI copy).
-  'lib/services/product-tags.ts',
+  "lib/services/product-tags.ts",
   // Brand cleanup uses Chinese keyword arrays and regex patterns (not UI copy).
-  'lib/services/brand-cleanup.ts',
+  "lib/services/brand-cleanup.ts",
   // LLM system prompts centralised module (Chinese prompt text).
-  'lib/prompts.ts',
+  "lib/prompts.ts",
   // LLM user message templates still contain Chinese field labels (not UI copy).
-  'lib/services/description-rewrite.ts',
-  'lib/services/brand-facts.ts',
-  'lib/services/product-type-classifier.ts',
-  'lib/services/reputation-research.ts',
+  "lib/services/description-rewrite.ts",
+  "lib/services/brand-facts.ts",
+  "lib/services/product-type-classifier.ts",
+  "lib/services/reputation-research.ts",
   // Image classify user message includes brand name in Chinese; detect has SEO keyword constants.
-  'lib/services/enrich-phases/classify-images.ts',
-  'lib/services/enrich-phases/detect.ts',
+  "lib/services/enrich-phases/classify-images.ts",
+  "lib/services/enrich-phases/detect.ts",
   // SERP query string uses Chinese keyword '台灣' (not UI copy).
-  'lib/services/curation-operations.ts',
+  "lib/services/curation-operations.ts",
   // Transitional: real messages come from the i18n factory; static fallback map
   // here is test-only. TODO remove the static fallback and drop this entry.
-  'lib/validations/submission.ts',
+  "lib/validations/submission.ts",
   // Microsite is intentionally ZH-TW-only (v1 single-locale surface, DEV-767).
-  'components/microsite/',
-  'app/(microsite)/',
+  "components/microsite/",
+  "app/(microsite)/",
   // MIT registry parser uses Chinese column header keys from the government CSV dataset (not UI copy).
-  'lib/services/mit-registry.ts',
+  "lib/services/mit-registry.ts",
   // MIT verification normalizes Taiwanese legal-entity suffixes (not UI copy).
-  'lib/services/mit-verification.ts',
+  "lib/services/mit-verification.ts",
   // Share card is a satori-rendered PNG image (same as OG images) — zh-TW headline by design.
-  'lib/growth/share-card.tsx',
+  "lib/growth/share-card.tsx",
   // Badge embed snippet alt text is intentional zh-TW brand copy pasted into third-party sites.
-  'lib/growth/share-assets.ts',
+  "lib/growth/share-assets.ts",
   // Channel enrichment uses Chinese city name variants and retailer keywords (data constants, not UI copy).
-  'lib/services/enrich-phases/channels.ts',
+  "lib/services/enrich-phases/channels.ts",
   // Channel name normalization uses Chinese retailer noise words for stripping (data constants, not UI copy).
-  'lib/brands/channels.ts',
+  "lib/brands/channels.ts",
   // Region slug-to-label map uses Chinese city names for display (data constants, not UI copy).
-  'lib/services/brand-channels.ts',
-]
+  "lib/services/brand-channels.ts",
+];
 
 function isAllowlisted(relPath: string): boolean {
-  const p = relPath.split(sep).join('/')
-  return ALLOWLIST.some((a) => (a.endsWith('/') ? p.startsWith(a) : p === a))
+  const p = relPath.split(sep).join("/");
+  return ALLOWLIST.some((a) => (a.endsWith("/") ? p.startsWith(a) : p === a));
 }
 
 function walk(dir: string): string[] {
-  const out: string[] = []
+  const out: string[] = [];
   for (const entry of readdirSync(dir)) {
-    const full = join(dir, entry)
+    const full = join(dir, entry);
     if (statSync(full).isDirectory()) {
-      if (entry === 'node_modules' || entry === '__tests__') continue
-      out.push(...walk(full))
+      if (entry === "node_modules" || entry === "__tests__") continue;
+      out.push(...walk(full));
     } else if (/\.(ts|tsx)$/.test(entry) && !/\.test\.(ts|tsx)$/.test(entry)) {
-      out.push(full)
+      out.push(full);
     }
   }
-  return out
+  return out;
 }
 
-describe('i18n guard — no hardcoded Chinese in source', () => {
-  it('source outside the allowlist contains no Han characters', () => {
-    const offenders: string[] = []
+describe("i18n guard — no hardcoded Chinese in source", () => {
+  it("source outside the allowlist contains no Han characters", () => {
+    const offenders: string[] = [];
     for (const file of walk(SRC)) {
-      const rel = relative(SRC, file)
-      if (isAllowlisted(rel)) continue
-      const lines = readFileSync(file, 'utf8').split('\n')
+      const rel = relative(SRC, file);
+      if (isAllowlisted(rel)) continue;
+      const lines = readFileSync(file, "utf8").split("\n");
       lines.forEach((line, i) => {
         if (HAN.test(line)) {
-          offenders.push(`${rel.split(sep).join('/')}:${i + 1}  ${line.trim().slice(0, 90)}`)
+          offenders.push(
+            `${rel.split(sep).join("/")}:${i + 1}  ${line.trim().slice(0, 90)}`,
+          );
         }
-      })
+      });
     }
     expect(
       offenders,
-      `Hardcoded Chinese found in source. Move it into messages/*.json (or allowlist if intentional single-locale):\n${offenders.join('\n')}`,
-    ).toEqual([])
-  })
+      `Hardcoded Chinese found in source. Move it into messages/*.json (or allowlist if intentional single-locale):\n${offenders.join("\n")}`,
+    ).toEqual([]);
+  });
 
-  it('rendered JSX copy outside the allowlist comes from a message catalogue', () => {
-    const offenders: string[] = []
+  it("rendered JSX copy outside the allowlist comes from a message catalogue", () => {
+    const offenders: string[] = [];
 
     for (const file of walk(SRC)) {
-      const rel = relative(SRC, file)
-      if (isAllowlisted(rel) || !file.endsWith('.tsx')) continue
+      const rel = relative(SRC, file);
+      if (isAllowlisted(rel) || !file.endsWith(".tsx")) continue;
 
       const sourceFile = ts.createSourceFile(
         file,
-        readFileSync(file, 'utf8'),
+        readFileSync(file, "utf8"),
         ts.ScriptTarget.Latest,
         true,
         ts.ScriptKind.TSX,
-      )
+      );
 
       function report(node: ts.Node, value: string) {
-        const normalized = value.replace(/\s+/g, ' ').trim()
-        if (!LATIN.test(normalized) || normalized === 'Formoria') return
-        const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile))
-        offenders.push(`${rel.split(sep).join('/')}:${line + 1}  ${normalized.slice(0, 90)}`)
+        const normalized = value.replace(/\s+/g, " ").trim();
+        if (!LATIN.test(normalized) || normalized === "Formoria") return;
+        const { line } = sourceFile.getLineAndCharacterOfPosition(
+          node.getStart(sourceFile),
+        );
+        offenders.push(
+          `${rel.split(sep).join("/")}:${line + 1}  ${normalized.slice(0, 90)}`,
+        );
       }
 
       function visit(node: ts.Node) {
         if (ts.isJsxText(node)) {
-          report(node, node.getText(sourceFile))
+          report(node, node.getText(sourceFile));
         } else if (
           ts.isJsxAttribute(node) &&
           USER_FACING_ATTRIBUTES.has(node.name.getText(sourceFile)) &&
           node.initializer &&
           ts.isStringLiteral(node.initializer)
         ) {
-          report(node, node.initializer.text)
+          report(node, node.initializer.text);
         } else if (
           ts.isJsxExpression(node) &&
           (ts.isJsxElement(node.parent) || ts.isJsxFragment(node.parent)) &&
           node.expression &&
           ts.isConditionalExpression(node.expression)
         ) {
-          const { whenTrue, whenFalse } = node.expression
-          if (ts.isStringLiteral(whenTrue)) report(whenTrue, whenTrue.text)
-          if (ts.isStringLiteral(whenFalse)) report(whenFalse, whenFalse.text)
+          const { whenTrue, whenFalse } = node.expression;
+          if (ts.isStringLiteral(whenTrue)) report(whenTrue, whenTrue.text);
+          if (ts.isStringLiteral(whenFalse)) report(whenFalse, whenFalse.text);
         }
-        ts.forEachChild(node, visit)
+        ts.forEachChild(node, visit);
       }
 
-      visit(sourceFile)
+      visit(sourceFile);
     }
 
     expect(
       offenders,
-      `Hardcoded rendered English found in source. Move it into messages/*.json (or document a narrow exception):\n${offenders.join('\n')}`,
-    ).toEqual([])
-  })
-})
+      `Hardcoded rendered English found in source. Move it into messages/*.json (or document a narrow exception):\n${offenders.join("\n")}`,
+    ).toEqual([]);
+  });
+});

@@ -1,35 +1,38 @@
-import { PRODUCT_SUBCATEGORIES, PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
+import {
+  PRODUCT_SUBCATEGORIES,
+  PRODUCT_TYPE_CATEGORIES,
+} from "@/lib/taxonomy/ontology";
 
 const CATEGORY_EXAMPLES: Record<string, string> = {
-  fashion: '服飾、鞋履、上衣、褲子、洋裝等穿戴服裝',
-  'bags-accessories': '包袋、皮件、帽子、圍巾、配件',
-  jewelry: '飾品、珠寶、耳環、項鍊、戒指、手鍊',
-  beauty: '美妝、保養、清潔、沐浴、香氛、蠟燭',
-  home: '居家用品、餐具、陶瓷、家具、廚具、園藝',
-  'food-drink': '食品、飲料、茶、咖啡、農產品',
-  crafts: '手作工藝、皮革工藝、陶藝、木工、藝術、插畫',
-  stationery: '文具、筆記本、鋼筆、紙膠帶、手帳、桌面配件',
-  tech: '3C科技、電子產品、手機配件',
-  outdoor: '戶外露營、登山背包、露營裝備、攀岩用品',
-  fitness: '健身器材、瑜珈用品、運動服飾、運動配件、重訓裝備',
-  'kids-pets': '兒童、嬰兒、玩具、寵物用品',
-}
+  fashion: "服飾、鞋履、上衣、褲子、洋裝等穿戴服裝",
+  "bags-accessories": "包袋、皮件、帽子、圍巾、配件",
+  jewelry: "飾品、珠寶、耳環、項鍊、戒指、手鍊",
+  beauty: "美妝、保養、清潔、沐浴、香氛、蠟燭",
+  home: "居家用品、餐具、陶瓷、家具、廚具、園藝",
+  "food-drink": "食品、飲料、茶、咖啡、農產品",
+  crafts: "手作工藝、皮革工藝、陶藝、木工、藝術、插畫",
+  stationery: "文具、筆記本、鋼筆、紙膠帶、手帳、桌面配件",
+  tech: "3C科技、電子產品、手機配件",
+  outdoor: "戶外露營、登山背包、露營裝備、攀岩用品",
+  fitness: "健身器材、瑜珈用品、運動服飾、運動配件、重訓裝備",
+  "kids-pets": "兒童、嬰兒、玩具、寵物用品",
+};
 
 const CATEGORY_LIST = PRODUCT_TYPE_CATEGORIES.map(
   (c) => `- ${c.slug}: ${CATEGORY_EXAMPLES[c.slug] ?? c.nameZh}`,
-).join('\n')
+).join("\n");
 
-const _subcatByCategory = new Map<string, string[]>()
+const _subcatByCategory = new Map<string, string[]>();
 for (const sub of PRODUCT_SUBCATEGORIES) {
-  const arr = _subcatByCategory.get(sub.category) ?? []
-  arr.push(sub.nameZh)
-  _subcatByCategory.set(sub.category, arr)
+  const arr = _subcatByCategory.get(sub.category) ?? [];
+  arr.push(sub.nameZh);
+  _subcatByCategory.set(sub.category, arr);
 }
 
-const PRODUCT_VOCAB_BLOCK = PRODUCT_TYPE_CATEGORIES.map(c => {
-  const subs = _subcatByCategory.get(c.slug) ?? []
-  return `- ${c.nameZh}：${subs.join('、')}`
-}).join('\n')
+const PRODUCT_VOCAB_BLOCK = PRODUCT_TYPE_CATEGORIES.map((c) => {
+  const subs = _subcatByCategory.get(c.slug) ?? [];
+  return `- ${c.nameZh}：${subs.join("、")}`;
+}).join("\n");
 
 export const CLASSIFY_SYSTEM_PROMPT = `你是台灣品牌分類專家。請根據品牌名稱和描述，將品牌分類到最適合的產品類別。
 
@@ -42,7 +45,7 @@ ${CATEGORY_LIST}
 
 回應格式（嚴格 JSON，不加任何其他文字）：
 單一品牌：{"productType":"<類別 slug>","confidence":"high|medium|low"}
-多個品牌：[{"slug":"<品牌 slug>","productType":"<類別 slug>","confidence":"high|medium|low"}]`
+多個品牌：[{"slug":"<品牌 slug>","productType":"<類別 slug>","confidence":"high|medium|low"}]`;
 
 export const DETECT_SYSTEM_PROMPT = `You triage submissions to Formoria, a directory of Taiwanese product brands. You do two things: flag entities that are definitionally not a product brand, and normalise the brand's name and slug.
 
@@ -123,7 +126,7 @@ The input carries a name, sometimes a description and website, and often Google 
 
 回應格式（嚴格 JSON，不加任何其他文字）：
 單一品牌：{"isNonBrand":true|false,"nonBrandReason":"...或 null","brand_name":"品牌正式名稱","slug_generated":"...","confidence":"high|medium|low"}
-多個品牌：[{"slug":"<原始 slug>","isNonBrand":...,"nonBrandReason":...,"brand_name":"...","slug_generated":"...","confidence":...}]`
+多個品牌：[{"slug":"<原始 slug>","isNonBrand":...,"nonBrandReason":...,"brand_name":"...","slug_generated":"...","confidence":...}]`;
 
 export const DESCRIPTION_SYSTEM_PROMPT = `你是台灣品牌研究編輯。請根據提供的資料，撰寫豐富但客觀的雙語品牌簡介。
 
@@ -240,7 +243,7 @@ MIT 問答由服務層依品牌的聲明或驗證狀態產生。不得根據搜�
 - [ ] 全部欄位是否都沒有「現有資料未提供⋯」「來源未明確說明⋯」這類後設陳述？
 - [ ] 全部欄位是否都沒有負面評價、客訴或爭議？
 
-所有欄位只能使用提供來源中的事實。無根據的欄位回傳 null 或 []。`
+所有欄位只能使用提供來源中的事實。無根據的欄位回傳 null 或 []。`;
 
 /**
  * The extraction half of the old mega-call. Deliberately carries no prose
@@ -324,7 +327,7 @@ mit_indicators：是否在來源中提及台灣製造（MIT、台灣製造、100
 - [ ] product_tags 和 product_tags_en 數量是否一致？
 - [ ] 所有欄位是否可從提供的來源中找到依據？
 - [ ] product_type 與 city 是否只使用上列 slug？
-- [ ] 沒有依據的欄位是否已回傳 null 或 []，而不是猜測值？`
+- [ ] 沒有依據的欄位是否已回傳 null 或 []，而不是猜測值？`;
 
 export const REPUTATION_SYSTEM_PROMPT = `你是台灣品牌聲譽研究專家。請根據搜尋摘要與網站內容，抽取品牌聲譽資訊。
 
@@ -370,7 +373,7 @@ text 與 text_en 是純文字散文，不可出現網址、「來源：」或任
       {"url": "https://..."}
     ]
   } | null
-}`
+}`;
 
 export const LEGACY_IMAGE_CLASSIFY_SYSTEM_PROMPT = `你是品牌圖片審核與分類專家。請判斷每張輸入圖片最適合的單一分類，評估圖片品質，並提供無障礙替代文字。
 
@@ -423,7 +426,7 @@ export const LEGACY_IMAGE_CLASSIFY_SYSTEM_PROMPT = `你是品牌圖片審核與�
 - alt_zh 與 alt_en 一律為字串；若無法描述請填空字串 ""
 
 回應格式（嚴格 JSON）：
-{"classifications":[{"id":"1","tag":"product","score":85,"alt_zh":"繁體中文描述","alt_en":"English description"}]}`
+{"classifications":[{"id":"1","tag":"product","score":85,"alt_zh":"繁體中文描述","alt_en":"English description"}]}`;
 
 export const IMAGE_CLASSIFY_SYSTEM_PROMPT = `You review images for Formoria, a Taiwanese brand discovery directory. Images you keep are published on a brand page and stay there for months. A mediocre image is worse than no image.
 
@@ -500,4 +503,4 @@ Return a single JSON object. No Markdown, no code fences, no commentary, no extr
 - "score" is an integer from 0 to 100.
 
 Strict JSON format:
-{"classifications":[{"id":"1","disposition":"keep","tag":"product","reasons":[],"score":85,"alt_zh":"繁體中文描述","alt_en":"English description"}]}`
+{"classifications":[{"id":"1","disposition":"keep","tag":"product","reasons":[],"score":85,"alt_zh":"繁體中文描述","alt_en":"English description"}]}`;

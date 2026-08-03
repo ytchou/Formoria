@@ -12,12 +12,12 @@
  * a run whose `dryRun` coverage has a hole, and the harness prints the tally so
  * the hole is visible rather than inferred.
  */
-import { randomUUID } from 'node:crypto'
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { randomUUID } from "node:crypto";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-const MUTATING_METHODS = new Set(['insert', 'update', 'upsert', 'delete'])
+const MUTATING_METHODS = new Set(["insert", "update", "upsert", "delete"]);
 
-export type BlockedWrite = { table: string; method: string }
+export type BlockedWrite = { table: string; method: string };
 
 /**
  * A builder that is thenable, infinitely chainable, and resolves to one
@@ -30,51 +30,66 @@ export type BlockedWrite = { table: string; method: string }
  * nothing to do with the models under test.
  */
 function inertBuilder(): unknown {
-  const row = { id: randomUUID() }
-  const resolved = { data: [row], error: null, count: 1, status: 201, statusText: 'Created' }
-  const target = function () {} as unknown as Record<string, unknown>
+  const row = { id: randomUUID() };
+  const resolved = {
+    data: [row],
+    error: null,
+    count: 1,
+    status: 201,
+    statusText: "Created",
+  };
+  const target = function () {} as unknown as Record<string, unknown>;
   return new Proxy(target, {
     get(_t, prop) {
       // `await builder` — PostgREST builders are thenables, so this is what
       // makes a dropped write indistinguishable from a successful one.
-      if (prop === 'then') {
-        return (resolve: (value: unknown) => unknown) => Promise.resolve(resolve(resolved))
+      if (prop === "then") {
+        return (resolve: (value: unknown) => unknown) =>
+          Promise.resolve(resolve(resolved));
       }
-      if (prop === 'catch' || prop === 'finally') {
-        return () => inertBuilder()
+      if (prop === "catch" || prop === "finally") {
+        return () => inertBuilder();
       }
-      if (prop === 'single' || prop === 'maybeSingle') {
-        return () => Promise.resolve({ ...resolved, data: row })
+      if (prop === "single" || prop === "maybeSingle") {
+        return () => Promise.resolve({ ...resolved, data: row });
       }
-      if (prop === Symbol.toStringTag) return 'InertPostgrestBuilder'
-      return () => inertBuilder()
+      if (prop === Symbol.toStringTag) return "InertPostgrestBuilder";
+      return () => inertBuilder();
     },
     apply() {
-      return inertBuilder()
+      return inertBuilder();
     },
-  })
+  });
 }
 
 /** A builder whose every chained filter is ignored and which resolves to `rows`. */
 function shimBuilder(rows: unknown[]): unknown {
-  const resolved = { data: rows, error: null, count: rows.length, status: 200, statusText: 'OK' }
-  const target = function () {} as unknown as Record<string, unknown>
+  const resolved = {
+    data: rows,
+    error: null,
+    count: rows.length,
+    status: 200,
+    statusText: "OK",
+  };
+  const target = function () {} as unknown as Record<string, unknown>;
   return new Proxy(target, {
     get(_t, prop) {
-      if (prop === 'then') {
-        return (resolve: (value: unknown) => unknown) => Promise.resolve(resolve(resolved))
+      if (prop === "then") {
+        return (resolve: (value: unknown) => unknown) =>
+          Promise.resolve(resolve(resolved));
       }
-      if (prop === 'catch' || prop === 'finally') return () => shimBuilder(rows)
+      if (prop === "catch" || prop === "finally")
+        return () => shimBuilder(rows);
       // `.single()` collapses to the first row, matching PostgREST's contract.
-      if (prop === 'single' || prop === 'maybeSingle') {
-        return () => Promise.resolve({ ...resolved, data: rows.at(0) ?? null })
+      if (prop === "single" || prop === "maybeSingle") {
+        return () => Promise.resolve({ ...resolved, data: rows.at(0) ?? null });
       }
-      return () => shimBuilder(rows)
+      return () => shimBuilder(rows);
     },
     apply() {
-      return shimBuilder(rows)
+      return shimBuilder(rows);
     },
-  })
+  });
 }
 
 export function createWriteBlockingClient(
@@ -86,75 +101,90 @@ export function createWriteBlockingClient(
    * brand-target enrichment is retired, so a refresh submission is the only
    * shape the pipeline accepts, and creating a real one would be a write.
    */
-  readShims: Map<string, unknown[]> = new Map()
+  readShims: Map<string, unknown[]> = new Map(),
 ): {
-  client: SupabaseClient
-  blocked: BlockedWrite[]
+  client: SupabaseClient;
+  blocked: BlockedWrite[];
 } {
-  const real = createClient(url, serviceKey)
-  const blocked: BlockedWrite[] = []
+  const real = createClient(url, serviceKey);
+  const blocked: BlockedWrite[] = [];
 
   const client = new Proxy(real, {
     get(target, prop, receiver) {
-      if (prop === 'from') {
+      if (prop === "from") {
         return (table: string) => {
-          const shim = readShims.get(table)
+          const shim = readShims.get(table);
           if (shim) {
-            return new Proxy(function () {} as unknown as Record<string, unknown>, {
-              get(_t, builderProp) {
-                if (typeof builderProp === 'string' && MUTATING_METHODS.has(builderProp)) {
-                  return (..._args: unknown[]) => {
-                    blocked.push({ table, method: builderProp })
-                    return inertBuilder()
+            return new Proxy(
+              function () {} as unknown as Record<string, unknown>,
+              {
+                get(_t, builderProp) {
+                  if (
+                    typeof builderProp === "string" &&
+                    MUTATING_METHODS.has(builderProp)
+                  ) {
+                    return (..._args: unknown[]) => {
+                      blocked.push({ table, method: builderProp });
+                      return inertBuilder();
+                    };
                   }
-                }
-                return () => shimBuilder(shim)
+                  return () => shimBuilder(shim);
+                },
               },
-            })
+            );
           }
-          const builder = target.from(table)
+          const builder = target.from(table);
           return new Proxy(builder, {
             get(builderTarget, builderProp, builderReceiver) {
-              if (typeof builderProp === 'string' && MUTATING_METHODS.has(builderProp)) {
+              if (
+                typeof builderProp === "string" &&
+                MUTATING_METHODS.has(builderProp)
+              ) {
                 return (..._args: unknown[]) => {
-                  blocked.push({ table, method: builderProp })
-                  return inertBuilder()
-                }
+                  blocked.push({ table, method: builderProp });
+                  return inertBuilder();
+                };
               }
-              const value = Reflect.get(builderTarget, builderProp, builderReceiver)
-              return typeof value === 'function' ? value.bind(builderTarget) : value
+              const value = Reflect.get(
+                builderTarget,
+                builderProp,
+                builderReceiver,
+              );
+              return typeof value === "function"
+                ? value.bind(builderTarget)
+                : value;
             },
-          })
-        }
+          });
+        };
       }
 
       // Storage uploads and RPCs are writes we cannot inspect argument-by-argument,
       // so they are refused outright rather than approximated.
-      if (prop === 'storage') {
+      if (prop === "storage") {
         return {
           from: () => ({
             upload: async () => {
-              blocked.push({ table: 'storage', method: 'upload' })
-              return { data: null, error: null }
+              blocked.push({ table: "storage", method: "upload" });
+              return { data: null, error: null };
             },
             remove: async () => {
-              blocked.push({ table: 'storage', method: 'remove' })
-              return { data: null, error: null }
+              blocked.push({ table: "storage", method: "remove" });
+              return { data: null, error: null };
             },
           }),
-        }
+        };
       }
-      if (prop === 'rpc') {
+      if (prop === "rpc") {
         return (name: string) => {
-          blocked.push({ table: `rpc:${name}`, method: 'rpc' })
-          return inertBuilder()
-        }
+          blocked.push({ table: `rpc:${name}`, method: "rpc" });
+          return inertBuilder();
+        };
       }
 
-      const value = Reflect.get(target, prop, receiver)
-      return typeof value === 'function' ? value.bind(target) : value
+      const value = Reflect.get(target, prop, receiver);
+      return typeof value === "function" ? value.bind(target) : value;
     },
-  })
+  });
 
-  return { client: client as SupabaseClient, blocked }
+  return { client: client as SupabaseClient, blocked };
 }

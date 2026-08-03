@@ -99,17 +99,20 @@ describe("planCurationResume", () => {
   });
 
   it("splits failed and cancelled targets into two jobs with different phases", () => {
-    const plans = planCurationResume({ phases: ["discover", "descriptions"] } as Json, [
-      target({
-        targetId: "sub-failed",
-        status: "failed",
-        phaseResults: [
-          phase("discover", "succeeded"),
-          phase("descriptions", "failed"),
-        ],
-      }),
-      target({ targetId: "sub-cancelled", status: "cancelled" }),
-    ]);
+    const plans = planCurationResume(
+      { phases: ["discover", "descriptions"] } as Json,
+      [
+        target({
+          targetId: "sub-failed",
+          status: "failed",
+          phaseResults: [
+            phase("discover", "succeeded"),
+            phase("descriptions", "failed"),
+          ],
+        }),
+        target({ targetId: "sub-cancelled", status: "cancelled" }),
+      ],
+    );
 
     expect(plans.map((plan) => plan.group)).toEqual(["failed", "cancelled"]);
     expect(plans.at(0)?.params.phases).toEqual(["descriptions"]);

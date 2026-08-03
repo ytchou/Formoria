@@ -9,59 +9,84 @@
  * deterministic", which need different fixes.
  */
 const QUERIES = [
-  { label: 'entadar', images: 'site:entadar.com Entadar 海漂計畫', search: 'Entadar 海漂計畫' },
-  { label: 'yates', images: 'site:yatesvacuum.com Yates 亞堤斯', search: 'Yates 亞堤斯' },
-]
-const REPEATS = 3
+  {
+    label: "entadar",
+    images: "site:entadar.com Entadar 海漂計畫",
+    search: "Entadar 海漂計畫",
+  },
+  {
+    label: "yates",
+    images: "site:yatesvacuum.com Yates 亞堤斯",
+    search: "Yates 亞堤斯",
+  },
+];
+const REPEATS = 3;
 
-async function serper(endpoint: 'images' | 'search', q: string, extra: Record<string, unknown> = {}) {
+async function serper(
+  endpoint: "images" | "search",
+  q: string,
+  extra: Record<string, unknown> = {},
+) {
   const res = await fetch(`https://google.serper.dev/${endpoint}`, {
-    method: 'POST',
-    headers: { 'X-API-KEY': process.env.SERPER_API_KEY!, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ q, num: 10, gl: 'tw', hl: 'zh-TW', autocorrect: false, ...extra }),
-  })
-  if (!res.ok) throw new Error(`${endpoint} ${res.status}`)
-  const json = (await res.json()) as Record<string, unknown>
-  if (endpoint === 'images') {
-    return ((json.images ?? []) as Array<{ imageUrl: string }>).map((i) => i.imageUrl)
+    method: "POST",
+    headers: {
+      "X-API-KEY": process.env.SERPER_API_KEY!,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      q,
+      num: 10,
+      gl: "tw",
+      hl: "zh-TW",
+      autocorrect: false,
+      ...extra,
+    }),
+  });
+  if (!res.ok) throw new Error(`${endpoint} ${res.status}`);
+  const json = (await res.json()) as Record<string, unknown>;
+  if (endpoint === "images") {
+    return ((json.images ?? []) as Array<{ imageUrl: string }>).map(
+      (i) => i.imageUrl,
+    );
   }
-  return ((json.organic ?? []) as Array<{ link: string }>).map((o) => o.link)
+  return ((json.organic ?? []) as Array<{ link: string }>).map((o) => o.link);
 }
 
 const jaccard = (a: string[], b: string[]): number => {
-  const sa = new Set(a)
-  const sb = new Set(b)
-  const inter = [...sa].filter((x) => sb.has(x)).length
-  const union = new Set([...sa, ...sb]).size
-  return union === 0 ? 1 : inter / union
-}
+  const sa = new Set(a);
+  const sb = new Set(b);
+  const inter = [...sa].filter((x) => sb.has(x)).length;
+  const union = new Set([...sa, ...sb]).size;
+  return union === 0 ? 1 : inter / union;
+};
 
 async function main(): Promise<void> {
   for (const q of QUERIES) {
-    for (const endpoint of ['images', 'search'] as const) {
-      const query = endpoint === 'images' ? q.images : q.search
+    for (const endpoint of ["images", "search"] as const) {
+      const query = endpoint === "images" ? q.images : q.search;
       // The image call carries the size filter the pipeline actually sends.
-      const extra = endpoint === 'images' ? { tbs: 'isz:lt,islt:vga' } : {}
-      const runs: string[][] = []
-      for (let i = 0; i < REPEATS; i++) runs.push(await serper(endpoint, query, extra))
+      const extra = endpoint === "images" ? { tbs: "isz:lt,islt:vga" } : {};
+      const runs: string[][] = [];
+      for (let i = 0; i < REPEATS; i++)
+        runs.push(await serper(endpoint, query, extra));
 
-      const overlaps: string[] = []
+      const overlaps: string[] = [];
       for (let i = 1; i < runs.length; i++) {
-        overlaps.push(`${(jaccard(runs[0]!, runs[i]!) * 100).toFixed(0)}%`)
+        overlaps.push(`${(jaccard(runs[0]!, runs[i]!) * 100).toFixed(0)}%`);
       }
-      const orderStable = runs.every((r) => r.join('|') === runs[0]!.join('|'))
-      const counts = runs.map((r) => r.length).join('/')
+      const orderStable = runs.every((r) => r.join("|") === runs[0]!.join("|"));
+      const counts = runs.map((r) => r.length).join("/");
       console.log(
         `${q.label.padEnd(10)} ${endpoint.padEnd(7)} n=${counts.padEnd(9)} ` +
-          `overlap vs run1: ${overlaps.join(', ').padEnd(12)} order identical: ${orderStable}`
-      )
+          `overlap vs run1: ${overlaps.join(", ").padEnd(12)} order identical: ${orderStable}`,
+      );
     }
   }
 }
 
 void main().catch((e) => {
-  console.error('FAILED:', e instanceof Error ? e.message : String(e))
-  process.exitCode = 1
-})
+  console.error("FAILED:", e instanceof Error ? e.message : String(e));
+  process.exitCode = 1;
+});
 
-export {}
+export {};

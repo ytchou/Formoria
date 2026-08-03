@@ -1,19 +1,19 @@
-import { describe, expect, it, vi } from 'vitest'
-import type { Brand } from '@/lib/types'
-import { buildBrandFaq } from '@/lib/services/brand-faq'
+import { describe, expect, it, vi } from "vitest";
+import type { Brand } from "@/lib/types";
+import { buildBrandFaq } from "@/lib/services/brand-faq";
 
 function makeBrand(overrides: Partial<Brand> = {}): Brand {
   return {
-    id: 'brand-1',
-    name: 'Test Brand',
-    slug: 'test-brand',
+    id: "brand-1",
+    name: "Test Brand",
+    slug: "test-brand",
     description: null,
     heroImageUrl: null,
-    status: 'approved',
+    status: "approved",
     category: null,
     city: null,
     isVerified: false,
-    mitStatus: 'unverified',
+    mitStatus: "unverified",
     isDemo: false,
     foundingYear: null,
     reputationSummary: null,
@@ -34,170 +34,171 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     blurbEn: null,
     imageAlts: [],
     siteContent: null,
-    submittedAt: '',
+    submittedAt: "",
     approvedAt: null,
-    createdAt: '',
-    updatedAt: '',
+    createdAt: "",
+    updatedAt: "",
     onboardingDismissedAt: null,
     ...overrides,
-  }
+  };
 }
 
 const t = (key: string, params?: Record<string, unknown>) =>
-  `${key}|${JSON.stringify(params ?? {})}`
+  `${key}|${JSON.stringify(params ?? {})}`;
 
-describe('buildBrandFaq', () => {
-  it('returns no FAQ for an empty profile', () => {
-    expect(buildBrandFaq(makeBrand(), t)).toEqual([])
-  })
+describe("buildBrandFaq", () => {
+  it("returns no FAQ for an empty profile", () => {
+    expect(buildBrandFaq(makeBrand(), t)).toEqual([]);
+  });
 
-  it('includes reputation when the summary has meaningful text', () => {
+  it("includes reputation when the summary has meaningful text", () => {
     const faq = buildBrandFaq(
       makeBrand({
         reputationSummary: {
-          text: 'Known for reliable quality.',
-          sources: [{ url: 'https://example.com/review' }],
+          text: "Known for reliable quality.",
+          sources: [{ url: "https://example.com/review" }],
         },
       }),
       t,
-    )
-    expect(faq.some((item) => item.id === 'reputation')).toBe(true)
-  })
+    );
+    expect(faq.some((item) => item.id === "reputation")).toBe(true);
+  });
 
-  it('uses only English product copy and omits untranslated reputation in English', () => {
+  it("uses only English product copy and omits untranslated reputation in English", () => {
     const faq = buildBrandFaq(
       makeBrand({
-        productType: 'crafts',
-        category: '工藝文創',
-        productTags: ['陶瓷', '手作'],
-        productTagsEn: ['ceramics', 'handmade'],
+        productType: "crafts",
+        category: "工藝文創",
+        productTags: ["陶瓷", "手作"],
+        productTagsEn: ["ceramics", "handmade"],
         reputationSummary: {
-          text: '以穩定品質與細膩手工著稱。',
-          sources: [{ url: 'https://example.com/review' }],
+          text: "以穩定品質與細膩手工著稱。",
+          sources: [{ url: "https://example.com/review" }],
         },
       }),
       t,
-      'en',
-    )
-    const products = faq.find((item) => item.id === 'main-products')
+      "en",
+    );
+    const products = faq.find((item) => item.id === "main-products");
 
-    expect(products?.answer).toContain('Crafts & Art')
-    expect(products?.answer).toContain('ceramics')
-    expect(products?.answer).not.toMatch(/工藝文創|陶瓷|手作/)
-    expect(faq.some((item) => item.id === 'reputation')).toBe(false)
-  })
+    expect(products?.answer).toContain("Crafts & Art");
+    expect(products?.answer).toContain("ceramics");
+    expect(products?.answer).not.toMatch(/工藝文創|陶瓷|手作/);
+    expect(faq.some((item) => item.id === "reputation")).toBe(false);
+  });
 
-  it('shows the localized city name in generated product answers', () => {
+  it("shows the localized city name in generated product answers", () => {
     const translate = (key: string, params?: Record<string, unknown>) => {
-      if (key === 'brandFaq.listSeparator') return '、'
-      if (key === 'brandFaq.context.city') return `位於${params?.city}`
-      if (key === 'brandFaq.context.suffix') return ` 這個品牌${params?.details}。`
-      if (key === 'brandFaq.mainProducts.answerWithCategoryAndTags') {
-        return `${params?.brandName} 以${params?.category}為主要領域，代表產品包含${params?.productTags}。${params?.context}`
+      if (key === "brandFaq.listSeparator") return "、";
+      if (key === "brandFaq.context.city") return `位於${params?.city}`;
+      if (key === "brandFaq.context.suffix")
+        return ` 這個品牌${params?.details}。`;
+      if (key === "brandFaq.mainProducts.answerWithCategoryAndTags") {
+        return `${params?.brandName} 以${params?.category}為主要領域，代表產品包含${params?.productTags}。${params?.context}`;
       }
-      return t(key, params)
-    }
+      return t(key, params);
+    };
     const faq = buildBrandFaq(
       makeBrand({
-        name: 'TUTUKAKI 司康小売所',
-        category: '食品飲料',
-        city: 'taipei',
-        productTags: ['甜點・糕點', '飲品'],
+        name: "TUTUKAKI 司康小売所",
+        category: "食品飲料",
+        city: "taipei",
+        productTags: ["甜點・糕點", "飲品"],
       }),
       translate,
-      'zh-TW',
-      '臺北市',
-    )
-    const products = faq.find((item) => item.id === 'main-products')
+      "zh-TW",
+      "臺北市",
+    );
+    const products = faq.find((item) => item.id === "main-products");
 
-    expect(products?.answer).toContain('位於臺北市')
-    expect(products?.answer).not.toContain('taipei')
-  })
+    expect(products?.answer).toContain("位於臺北市");
+    expect(products?.answer).not.toContain("taipei");
+  });
 
-  it('does not expose retired FAQ categories', () => {
+  it("does not expose retired FAQ categories", () => {
     const ids = buildBrandFaq(
       makeBrand({
-        mitStatus: 'verified',
-        purchaseWebsite: 'https://example.com',
-        productTags: ['tea'],
+        mitStatus: "verified",
+        purchaseWebsite: "https://example.com",
+        productTags: ["tea"],
         priceRange: 2,
         foundingYear: 2020,
-        socialInstagram: 'brand',
+        socialInstagram: "brand",
         reputationSummary: {
-          text: 'Known for reliable quality.',
-          sources: [{ url: 'https://example.com/review' }],
+          text: "Known for reliable quality.",
+          sources: [{ url: "https://example.com/review" }],
         },
       }),
       t,
-    ).map((item) => item.id)
+    ).map((item) => item.id);
     expect(ids).not.toEqual(
       expect.arrayContaining([
-        'manufacturing',
-        'certifications',
-        'return-policy',
-        'international-shipping',
+        "manufacturing",
+        "certifications",
+        "return-policy",
+        "international-shipping",
       ]),
-    )
-  })
+    );
+  });
 
-  it('renders no MIT FAQ entry for unverified brands with enrichment signals only', () => {
+  it("renders no MIT FAQ entry for unverified brands with enrichment signals only", () => {
     const faq = buildBrandFaq(
       makeBrand({
-        mitStatus: 'unverified',
-        mitStory: '我們的工廠在台南',
+        mitStatus: "unverified",
+        mitStory: "我們的工廠在台南",
         mitEvidence: {
-          enrichment_signals: ['official_site_claims_mit'],
-        } as unknown as Brand['mitEvidence'],
+          enrichment_signals: ["official_site_claims_mit"],
+        } as unknown as Brand["mitEvidence"],
       }),
       t,
-    )
+    );
 
-    expect(faq.some((item) => item.id === 'made-in-taiwan')).toBe(false)
-  })
+    expect(faq.some((item) => item.id === "made-in-taiwan")).toBe(false);
+  });
 
-  it('renders a declared-scoped answer for declared brands', () => {
-    const translate = vi.fn(t)
+  it("renders a declared-scoped answer for declared brands", () => {
+    const translate = vi.fn(t);
     const faq = buildBrandFaq(
-      makeBrand({ mitStatus: 'declared', mitDeclaredScope: 'most' }),
+      makeBrand({ mitStatus: "declared", mitDeclaredScope: "most" }),
       translate,
-    )
-    const mitEntry = faq.find((item) => item.id === 'made-in-taiwan')
+    );
+    const mitEntry = faq.find((item) => item.id === "made-in-taiwan");
 
     expect(translate).toHaveBeenCalledWith(
-      'brandFaq.isMadeInTaiwan.scopeLabels.most',
-    )
+      "brandFaq.isMadeInTaiwan.scopeLabels.most",
+    );
     expect(translate).toHaveBeenCalledWith(
-      'brandFaq.isMadeInTaiwan.declaredAnswer',
+      "brandFaq.isMadeInTaiwan.declaredAnswer",
       {
-        brandName: 'Test Brand',
-        scope: 'brandFaq.isMadeInTaiwan.scopeLabels.most|{}',
+        brandName: "Test Brand",
+        scope: "brandFaq.isMadeInTaiwan.scopeLabels.most|{}",
       },
-    )
+    );
     expect(translate).not.toHaveBeenCalledWith(
-      'brandFaq.isMadeInTaiwan.answer',
+      "brandFaq.isMadeInTaiwan.answer",
       expect.anything(),
-    )
+    );
     expect(mitEntry?.answer).toContain(
-      'brandFaq.isMadeInTaiwan.declaredAnswer',
-    )
-  })
+      "brandFaq.isMadeInTaiwan.declaredAnswer",
+    );
+  });
 
-  it('includes a declared manufacturing story containing the locale verification marker', () => {
+  it("includes a declared manufacturing story containing the locale verification marker", () => {
     const translate = (key: string, params?: Record<string, unknown>) => {
-      if (key === 'brandFaq.isMadeInTaiwan.verificationMarker') return 'verified'
-      return t(key, params)
-    }
+      if (key === "brandFaq.isMadeInTaiwan.verificationMarker")
+        return "verified";
+      return t(key, params);
+    };
     const faq = buildBrandFaq(
       makeBrand({
-        mitStatus: 'declared',
-        mitStory: 'Products verified by an external registry.',
+        mitStatus: "declared",
+        mitStory: "Products verified by an external registry.",
       }),
       translate,
-      'en',
-    )
-    const mitEntry = faq.find((item) => item.id === 'made-in-taiwan')
+      "en",
+    );
+    const mitEntry = faq.find((item) => item.id === "made-in-taiwan");
 
-    expect(mitEntry?.answer).toContain('Products verified')
-  })
-
-})
+    expect(mitEntry?.answer).toContain("Products verified");
+  });
+});

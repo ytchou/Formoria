@@ -38,17 +38,20 @@ import { ResumeJobButton } from "../resume-job-button";
 
 const phaseDescriptions = {
   clean: "Normalizes the submitted brand name.",
-  detect: "Checks whether the entry is a real brand and validates its identity.",
+  detect:
+    "Checks whether the entry is a real brand and validates its identity.",
   slugs: "Generates a stable URL slug from the validated brand name.",
   tags: "Classifies the brand's product type and tags.",
   discover: "Searches the web for useful official sources and brand context.",
   links: "Extracts and verifies official website and social links.",
   images: "Finds and selects usable brand and product images.",
   classify_images: "Classifies candidate images by their role and quality.",
-  facts: "Extracts the brand's category, tags, price band, city and founding year.",
+  facts:
+    "Extracts the brand's category, tags, price band, city and founding year.",
   descriptions: "Writes the bilingual description, blurb and FAQ.",
   locations: "Finds physical shops and retail channels.",
-  reputation: "Adds third-party reputation context — coverage, awards, ratings.",
+  reputation:
+    "Adds third-party reputation context — coverage, awards, ratings.",
   classification:
     "Classifies the product type on its own, when descriptions did not decide it.",
   "image-search": "Searches for candidate images before image selection.",
@@ -61,7 +64,10 @@ const phaseDescriptions = {
 } satisfies Record<AuditedPhaseName | "expansion", string>;
 
 const phaseDefinitions = [
-  ["Preflight", "Checks whether the target still exists and is eligible to run."],
+  [
+    "Preflight",
+    "Checks whether the target still exists and is eligible to run.",
+  ],
   ...AUDITED_PHASES.map(
     (phase) =>
       [
@@ -69,7 +75,6 @@ const phaseDefinitions = [
         phaseDescriptions[phase],
       ] as const,
   ),
-  ["Persist", "Saves the completed enrichment result."],
 ] as const;
 
 const filters: Array<{ value: "all" | CurationTargetStatus; label: string }> = [
@@ -134,7 +139,8 @@ export function JobDetailView({
   const canResume =
     (job.status === "failed" || job.status === "cancelled") &&
     resumableTargetCount > 0;
-  const canDispatch = job.status === "pending" && job.dispatch_status === "pending";
+  const canDispatch =
+    job.status === "pending" && job.dispatch_status === "pending";
 
   return (
     <div className="space-y-6">
@@ -242,7 +248,10 @@ export function JobDetailView({
           />
           <InfoField label="Created" value={formatJobDate(job.created_at)} />
           <InfoField label="Started" value={formatJobDate(job.started_at)} />
-          <InfoField label="Completed" value={formatJobDate(job.completed_at)} />
+          <InfoField
+            label="Completed"
+            value={formatJobDate(job.completed_at)}
+          />
           <InfoField
             label="Duration"
             value={formatJobDuration(job.started_at, job.completed_at)}
@@ -258,11 +267,12 @@ export function JobDetailView({
             value={
               job.dispatch_status === "failed"
                 ? "Dispatch failed"
-                : job.status === "pending" && job.dispatch_status === "dispatched"
+                : job.status === "pending" &&
+                    job.dispatch_status === "dispatched"
                   ? "Queued"
                   : job.dispatch_status === "dispatched"
-                  ? "Dispatched"
-                  : "Pending dispatch"
+                    ? "Dispatched"
+                    : "Pending dispatch"
             }
           />
           {job.dispatch_error ? (
@@ -319,7 +329,10 @@ export function JobDetailView({
             </dl>
           </details>
         </div>
-        <nav aria-label="Filter brands by status" className="flex flex-wrap gap-2">
+        <nav
+          aria-label="Filter brands by status"
+          className="flex flex-wrap gap-2"
+        >
           {filters.map((filter) => {
             const selected = selectedStatus === filter.value;
             const href =
@@ -466,7 +479,9 @@ function TargetDetail({ target }: { target: CurationJobTarget }) {
         <div className="mt-4 space-y-2">
           <h3 className="type-body-emphasis">Phase log</h3>
           {phases.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No phase records yet.</p>
+            <p className="text-sm text-muted-foreground">
+              No phase records yet.
+            </p>
           ) : (
             <ol className="space-y-2">
               {phases.map((phase, index) => (

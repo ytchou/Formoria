@@ -8,10 +8,7 @@ import type {
 } from "@/lib/types";
 import type { DuplicateCheckResult } from "@/lib/types/submission";
 import type { Database, Json } from "@/lib/supabase/database.types";
-import type {
-  EnrichedData,
-  EnrichedFaqItem,
-} from "@/lib/types/enriched-data";
+import type { EnrichedData, EnrichedFaqItem } from "@/lib/types/enriched-data";
 import { enrichedDataFromDb } from "@/lib/types/enriched-data";
 import type { ChannelCandidate } from "@/lib/types/brand-channel";
 import type {
@@ -543,7 +540,12 @@ function brandImageToReviewImage(
 export function normalizeSubmissionReviewImages(
   images: SubmissionReviewImage[],
 ): SubmissionReviewImage[] {
-  const statusRank = { active: 0, draft: 1, candidate: 2, rejected: 3 } as const;
+  const statusRank = {
+    active: 0,
+    draft: 1,
+    candidate: 2,
+    rejected: 3,
+  } as const;
   const seenUrls = new Set<string>();
 
   return images
