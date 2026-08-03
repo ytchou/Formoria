@@ -87,6 +87,33 @@ describe('buildBrandFaq', () => {
     expect(faq.some((item) => item.id === 'reputation')).toBe(false)
   })
 
+  it('shows the localized city name in generated product answers', () => {
+    const translate = (key: string, params?: Record<string, unknown>) => {
+      if (key === 'brandFaq.listSeparator') return '、'
+      if (key === 'brandFaq.context.city') return `位於${params?.city}`
+      if (key === 'brandFaq.context.suffix') return ` 這個品牌${params?.details}。`
+      if (key === 'brandFaq.mainProducts.answerWithCategoryAndTags') {
+        return `${params?.brandName} 以${params?.category}為主要領域，代表產品包含${params?.productTags}。${params?.context}`
+      }
+      return t(key, params)
+    }
+    const faq = buildBrandFaq(
+      makeBrand({
+        name: 'TUTUKAKI 司康小売所',
+        category: '食品飲料',
+        city: 'taipei',
+        productTags: ['甜點・糕點', '飲品'],
+      }),
+      translate,
+      'zh-TW',
+      '臺北市',
+    )
+    const products = faq.find((item) => item.id === 'main-products')
+
+    expect(products?.answer).toContain('位於臺北市')
+    expect(products?.answer).not.toContain('taipei')
+  })
+
   it('does not expose retired FAQ categories', () => {
     const ids = buildBrandFaq(
       makeBrand({

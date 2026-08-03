@@ -10,7 +10,8 @@
  * from `OPENAI_API_KEY` to `DEEPSEEK_API_KEY`:
  *   - `product-type-classifier.ts` (4 sites)
  *   - `description-rewrite.ts`
- *   - `expansion-research.ts`
+ *   - `brand-facts.ts`
+ *   - `reputation-research.ts`
  *
  * `DEEPSEEK_API_KEY` is still provisioned in Railway for exactly this reason —
  * it is an escape hatch, not a live dependency, so nothing health-checks it.

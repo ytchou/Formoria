@@ -264,25 +264,52 @@ async function main(): Promise<void> {
   }
   for (const r of requested) console.log(`  ${r.slug.padEnd(18)} ${r.submissionId}`)
 
-  console.log(`\n[2/4] enqueueing a curation job — steps: ${STEPS.join(', ')}`)
-  const job = await enqueueAdminCurationJob({
-    params: { target: 'submissions', submissionIds, steps: [...STEPS], overwrite: true },
-    dryRun: false,
-    startedBy: adminEmail,
-  })
-  console.log(`  job ${job.id}`)
+  // One job per chunk. A Railway redeploy restarts the worker, which stops the
+  // heartbeat and lets recoverStaleJobs cancel every unfinished target of the
+  // RUNNING job — that is how a 218-target run lost 82 brands on 2026-08-02.
+  // Chunking bounds that blast radius to the chunk in flight: the rest stay
+  // `pending` and are claimed by the drain loop afterwards. Jobs are claimed in
+  // created_at order, so chunks run in the order enqueued here.
+  const chunkSize = Number.parseInt(argValue('--chunk-size') ?? '', 10)
+  const perJob = Number.isInteger(chunkSize) && chunkSize > 0 ? chunkSize : submissionIds.length
+  // Steps 3 and 4 handle exactly one job. Chunking without --enqueue-only would
+  // run the first chunk and silently strand the rest as pending jobs nobody is
+  // waiting on, with no apply — refuse rather than half-run.
+  if (perJob < submissionIds.length && !enqueueOnly) {
+    throw new Error('--chunk-size requires --enqueue-only (steps 3-4 run a single job)')
+  }
+  const batches: string[][] = []
+  for (let i = 0; i < submissionIds.length; i += perJob) {
+    batches.push(submissionIds.slice(i, i + perJob))
+  }
+
+  console.log(
+    `\n[2/4] enqueueing ${batches.length} curation job(s) — steps: ${STEPS.join(', ')}` +
+      (batches.length > 1 ? ` (chunk size ${perJob})` : '')
+  )
+  const jobIds: string[] = []
+  for (const [index, ids] of batches.entries()) {
+    const job = await enqueueAdminCurationJob({
+      params: { target: 'submissions', submissionIds: ids, steps: [...STEPS], overwrite: true },
+      dryRun: false,
+      startedBy: adminEmail,
+    })
+    jobIds.push(job.id)
+    console.log(`  [${index + 1}/${batches.length}] job ${job.id} — ${ids.length} target(s)`)
+  }
+  const job = { id: jobIds.at(0) ?? '' }
 
   if (enqueueOnly) {
     console.log(
-      `\n[3/4] skipped — job ${job.id} left PENDING for the deployed worker to claim.` +
-        `\n[4/4] skipped — apply separately once the job is completed:` +
+      `\n[3/4] skipped — ${jobIds.length} job(s) left PENDING for the deployed worker to claim.` +
+        `\n[4/4] skipped — apply separately once the jobs are completed:` +
         `\n      pnpm exec tsx --env-file=.env.local scripts/apply-refresh-submissions.ts --dry-run\n`
     )
     await mkdir(dirname(logPath), { recursive: true })
     await writeFile(
       logPath,
       JSON.stringify(
-        { ranAt: new Date().toISOString(), mode: 'enqueue-only', jobId: job.id, steps: [...STEPS], requested },
+        { ranAt: new Date().toISOString(), mode: 'enqueue-only', jobIds, chunkSize: perJob, steps: [...STEPS], requested },
         null,
         2
       )
@@ -334,7 +361,10 @@ async function main(): Promise<void> {
   await mkdir(dirname(logPath), { recursive: true })
   await writeFile(
     logPath,
-    JSON.stringify({ ranAt: new Date().toISOString(), steps: [...STEPS], requested, enrich: { processed: enrich.processed, updated: enrich.updated, skipped: enrich.skipped, errors: enrich.errors }, applied }, null, 2)
+    // `jobIds` is recorded on this path too, not just the enqueue-only one:
+    // `render.ts` bills the run by joining `brand_ai_results` on the job, and
+    // without it the cost column has to guess which job produced these rows.
+    JSON.stringify({ ranAt: new Date().toISOString(), jobIds, steps: [...STEPS], requested, enrich: { processed: enrich.processed, updated: enrich.updated, skipped: enrich.skipped, errors: enrich.errors }, applied }, null, 2)
   )
   const failedApplies = applied.filter((a) => !a.ok)
   console.log(`\nwrote ${logPath}`)

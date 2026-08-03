@@ -24,8 +24,8 @@ type BrandRowProps = {
  *
  * Mobile is the house scroller idiom (see `brands/image-carousel.tsx`): a
  * snapping horizontal overflow, no arrows, no dots, no JS, no state. At `sm`
- * and up it becomes a 3-column grid and the cards auto-size to the container —
- * ~389px each now that the story page runs the standard `max-w-screen-xl`.
+ * and up it becomes an intrinsic-width centered flex group while retaining the
+ * compact 272px card width, keeping the row from taking over the article.
  */
 export function BrandRow({ children }: BrandRowProps) {
   return (
@@ -35,7 +35,7 @@ export function BrandRow({ children }: BrandRowProps) {
         // 272px on mobile leaves the next card visibly breaking the right edge
         // at 375px, which is what signals the row scrolls at all.
         '[&>*]:w-[272px] [&>*]:shrink-0 [&>*]:snap-start',
-        'sm:grid sm:snap-none sm:grid-cols-3 sm:overflow-visible sm:[&>*]:w-auto',
+        'sm:w-fit sm:max-w-full sm:mx-auto sm:snap-none sm:justify-center sm:overflow-visible',
       ].join(' ')}
     >
       {children}

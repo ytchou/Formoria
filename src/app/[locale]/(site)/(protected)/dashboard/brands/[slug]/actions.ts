@@ -183,6 +183,13 @@ export async function publishDraftAction(
     }
     const { user, brand, owner, actingAdmin, configuredAdmin } = editor
 
+    // Provenance follows who is editing, and it is load-bearing: only
+    // `source = 'owner'` survives an enrichment refresh. Before this was
+    // passed, every owner publish landed as `admin` and was overwritable.
+    const publishActor = configuredAdmin
+      ? ({ source: 'admin', userId: user.id } as const)
+      : ({ source: 'owner', userId: user.id } as const)
+
     const snapshot = await getBrandDraft(brand.id)
     if (!snapshot) {
       return { error: t('noDraft') }
@@ -258,7 +265,7 @@ export async function publishDraftAction(
         imageUrlsFromBrand(brand),
         nextImageUrls,
       )
-      const publishedBrand = await publishDraft(brand.id)
+      const publishedBrand = await publishDraft(brand.id, publishActor)
       redirectSlug = publishedBrand.slug
       if (owner) {
         await syncOwnerUploadedImages(
@@ -295,7 +302,7 @@ export async function publishDraftAction(
         imageUrlsFromBrand(brand),
         nextImageUrls,
       )
-      const publishedBrand = await publishDraft(brand.id)
+      const publishedBrand = await publishDraft(brand.id, publishActor)
       redirectSlug = publishedBrand.slug
       if (owner) {
         await syncOwnerUploadedImages(

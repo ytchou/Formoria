@@ -1,9 +1,14 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import {
+  evaluateLlmProviderGate,
   evaluateProviderGate,
   hasNoEnrichmentInputs,
+  isLlmProviderFailureMessage,
+  isProviderFailureMessage,
+  llmStageFailure,
   serpStageFailure,
 } from '../curation-operations'
+import type { PhaseResult } from '@/lib/types/curation'
 import type { SearchPhaseResult } from '../enrich-phases'
 import type { BrandImageSearchOutcome } from '../enrich-phases/scraper/types'
 
@@ -165,5 +170,123 @@ describe('Gate B — hasNoEnrichmentInputs', () => {
     expect(
       hasNoEnrichmentInputs({ ...emptyInputs, knownUrls: ['  ', ''] })
     ).toBe(true)
+  })
+})
+
+/**
+ * Gate C is the LLM counterpart of Gate A and is tested the same way: as the
+ * pure decision helper `runEnrich` branches on. It differs from Gate A in WHEN
+ * it can fire — a search outage is visible in data the pipeline already holds,
+ * an LLM outage is only discoverable by calling — so the helper takes the
+ * brand's accumulated phase results rather than a provider response.
+ */
+function phase(
+  name: string,
+  status: PhaseResult['status'],
+  extra: Partial<PhaseResult> = {}
+): PhaseResult {
+  return { phase: name, status, changedFields: [], durationMs: 0, ...extra }
+}
+
+describe('Gate C — llmStageFailure', () => {
+  it('fails the target when every attempted LLM phase failed at the provider', () => {
+    const decision = evaluateLlmProviderGate([
+      phase('links', 'succeeded'),
+      phase('descriptions', 'failed', { providerFailure: true }),
+      phase('classify_images', 'failed', { providerFailure: true }),
+    ])
+
+    expect(decision?.action).toBe('fail')
+    expect(decision?.message).toContain('LLM provider unavailable')
+    expect(decision?.message).toContain('descriptions')
+    expect(decision?.message).toContain('classify_images')
+  })
+
+  // The regression that matters most: on 2026-08-02 the run went green because
+  // an empty result was indistinguishable from an outage. Over-correcting the
+  // other way — failing every brand the model had nothing to say about — would
+  // be just as wrong, so a healthy phase always clears the gate.
+  it('does not fire when a single LLM phase got through', () => {
+    expect(
+      evaluateLlmProviderGate([
+        phase('descriptions', 'succeeded'),
+        phase('classify_images', 'failed', { providerFailure: true }),
+      ])
+    ).toBeNull()
+  })
+
+  it('does not fire on an LLM failure that was not a provider failure', () => {
+    expect(
+      evaluateLlmProviderGate([
+        phase('descriptions', 'failed', { error: 'persist blew up' }),
+      ])
+    ).toBeNull()
+  })
+
+  it('ignores skipped LLM phases when deciding what was attempted', () => {
+    // Scope-skipped phases are not attempts. A run whose only attempted LLM
+    // phase died still fails; a run where everything was skipped does not.
+    expect(
+      evaluateLlmProviderGate([
+        phase('descriptions', 'skipped'),
+        phase('classify_images', 'failed', { providerFailure: true }),
+      ])?.action
+    ).toBe('fail')
+    expect(
+      evaluateLlmProviderGate([
+        phase('descriptions', 'skipped'),
+        phase('classify_images', 'skipped'),
+      ])
+    ).toBeNull()
+  })
+
+  it('ignores non-LLM phases entirely', () => {
+    // A failed Serper phase is Gate A's business; Gate C must not double-count
+    // it, or a search outage would be reported as an OpenAI outage.
+    expect(
+      evaluateLlmProviderGate([
+        phase('discover', 'failed', { providerFailure: true }),
+        phase('links', 'failed'),
+      ])
+    ).toBeNull()
+    expect(llmStageFailure([])).toBeNull()
+  })
+
+  it('downgrades to a warning when CURATION_PROVIDER_GATE=off', () => {
+    process.env.CURATION_PROVIDER_GATE = 'off'
+
+    expect(
+      evaluateLlmProviderGate([
+        phase('descriptions', 'failed', { providerFailure: true }),
+      ])?.action
+    ).toBe('warn')
+  })
+
+  it('stays active for any value other than off', () => {
+    process.env.CURATION_PROVIDER_GATE = 'on'
+
+    expect(
+      evaluateLlmProviderGate([
+        phase('descriptions', 'failed', { providerFailure: true }),
+      ])?.action
+    ).toBe('fail')
+  })
+})
+
+describe('isProviderFailureMessage', () => {
+  it('accepts both the Serper and the LLM prefix', () => {
+    // One predicate for both gates: the job summary counts them together, and
+    // an operator's response ("stop the run, fix the account") is identical.
+    expect(isProviderFailureMessage('Search provider unavailable — SERP: 400')).toBe(true)
+    expect(
+      isProviderFailureMessage('LLM provider unavailable — every attempted LLM phase failed at the provider: descriptions')
+    ).toBe(true)
+    expect(isProviderFailureMessage('No usable enrichment inputs')).toBe(false)
+    expect(isProviderFailureMessage(null)).toBe(false)
+  })
+
+  it('separates the LLM half for the circuit breaker', () => {
+    expect(isLlmProviderFailureMessage('Search provider unavailable — SERP: 400')).toBe(false)
+    expect(isLlmProviderFailureMessage('LLM provider unavailable — x')).toBe(true)
   })
 })

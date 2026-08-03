@@ -1,53 +1,37 @@
 import { DESCRIPTION_SYSTEM_PROMPT } from '@/lib/prompts'
-import { buildEnrichmentConfig } from '@/lib/constants/enrichment-config'
 import { parseJson } from './openai-client'
-import { createAuditedOpenAIClient, type LlmAuditContext } from './llm-audit'
+import {
+  buildProfiledEnrichmentConfig,
+  createProfiledOpenAIClient,
+  profileChatParams,
+  type LlmAuditContext,
+} from './llm-audit'
 import { validateLocalizedText, detectAiArtifacts } from './enrich-validators'
-import { localizeToTW, stripAiToolArtifacts } from './taiwan-localization'
-import { parseExtractionResult } from './product-type-classifier'
-import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
-import { normalizeProductTags } from '@/lib/services/product-tags'
+import { containsCjk, localizeToTW, stripAiToolArtifacts } from './taiwan-localization'
+import { noLlmCalls, type LlmCallCounts } from './llm-call-outcome'
 
-const DESCRIPTION_TIMEOUT_MS = 30_000
 const ZH_DESCRIPTION_BAND = [150, 400] as const
 const EN_DESCRIPTION_BAND = [300, 700] as const
 const ZH_BLURB_BAND = [40, 80] as const
 const EN_BLURB_BAND = [60, 150] as const
 
 function localizeZhText(text: string): string {
-  return /[一-鿿]/u.test(text) ? localizeToTW(text).text : text
+  return containsCjk(text) ? localizeToTW(text).text : text
 }
 
+/**
+ * Copy only. Every extracted field (category, tags, price, city, year, listing
+ * verdict, MIT signals) moved to `brand-facts.ts` when the mega-call was split:
+ * asking one call for prose AND a 7-field taxonomy diluted both, and a length
+ * miss on one description used to re-bill the extraction too.
+ */
 export type DescriptionRewriteResult = {
   description_zh: string | null
   description_en: string | null
   description: string | null
   blurb_zh: string | null
   blurb_en: string | null
-  priceRange: 1 | 2 | 3 | null
-  /**
-   * The brand's L1 category, decided here rather than at triage because this is
-   * the first call that sees the brand's own site text and its product images'
-   * alt text. Undefined for an absent or unrecognised value — like `listing`, it
-   * is a secondary output and must never invalidate the descriptions.
-   */
-  productType?: string
-  productTags: string[]
-  productTagsEn: string[]
-  city: string | null
-  foundingYear: number | null
-  reputationSummary: { text: string; textEn: string | null; sources: { url: string }[] } | null
   faq: Array<{ category: string; question: string; answer: string }> | null
-  stockists: Array<{
-    name: string
-    city: string | null
-    type: 'chain' | 'independent'
-    address?: string | null
-    venueName?: string | null
-    floorOrCounter?: string | null
-    evidenceRefs?: number[]
-  }> | null
-  mitIndicators: { mentioned: boolean; evidence: string[]; confidence: string } | null
   validationRejections: Array<{
     field: 'description_zh' | 'description_en' | 'blurb_zh' | 'blurb_en'
     reasons: string[]
@@ -56,61 +40,7 @@ export type DescriptionRewriteResult = {
   }>
   rejected?: { tag: string; reason: string }[]
   crossBranch?: string[]
-  /**
-   * Stage-2 listing verdict. Optional and always tolerated as absent: descriptions
-   * are the primary output of this call, so a missing or malformed `listing` must
-   * never invalidate them. Never fed into the description validation/retry loop.
-   */
-  listing?: ListingVerdict
   rawResponse?: unknown
-}
-
-const VALID_PRODUCT_TYPES = new Set<string>(
-  PRODUCT_TYPE_CATEGORIES.map((category) => category.slug),
-)
-
-/**
- * Validates against the real L1 slug list. Anything else — absent, null, a made
- * up slug, a Chinese category name — is undefined, never a rejection.
- */
-export function parseDescriptionProductType(raw: unknown): string | undefined {
-  if (typeof raw !== 'string') return undefined
-  const trimmed = raw.trim()
-  return VALID_PRODUCT_TYPES.has(trimmed) ? trimmed : undefined
-}
-
-const LISTING_VERDICTS = ['list', 'reject'] as const
-const TAIWAN_CONNECTIONS = ['created', 'designed', 'manufactured', 'unclear'] as const
-
-export type ListingVerdict = {
-  verdict: 'list' | 'reject'
-  reason: string | null
-  taiwanConnection: (typeof TAIWAN_CONNECTIONS)[number] | null
-  hasOwnProducts: boolean | null
-  hasPurchaseChannel: boolean | null
-}
-
-/**
- * Returns undefined for anything unrecognised rather than throwing: an unknown
- * verdict string is a model error, and the correct fallback is "no opinion"
- * (which the consumer treats as `list`), not a discarded description.
- */
-export function parseListingVerdict(raw: unknown): ListingVerdict | undefined {
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return undefined
-  const listing = raw as Record<string, unknown>
-  const verdict = LISTING_VERDICTS.find((value) => value === listing.verdict)
-  if (!verdict) return undefined
-
-  const taiwanConnection = TAIWAN_CONNECTIONS.find((value) => value === listing.taiwan_connection) ?? null
-  const rawReason = typeof listing.reason === 'string' ? listing.reason.trim() : ''
-
-  return {
-    verdict,
-    reason: rawReason.length > 0 ? localizeZhText(rawReason) : null,
-    taiwanConnection,
-    hasOwnProducts: typeof listing.has_own_products === 'boolean' ? listing.has_own_products : null,
-    hasPurchaseChannel: typeof listing.has_purchase_channel === 'boolean' ? listing.has_purchase_channel : null,
-  }
 }
 
 /** Extra evidence the stage-2 listing decision needs but the description text does not. */
@@ -126,6 +56,62 @@ export type DescriptionEvidence = {
   productCategoryZh?: string | null
   /** Alt text of the brand's classified images — direct evidence that physical products exist. */
   imageAlts?: string[]
+}
+
+export type EnrichmentUserContent = {
+  userContent: string
+  sanitizedSnippets: string[]
+  sanitizedSiteContent: string | null
+}
+
+/**
+ * The single user message the facts call and the copy call both send.
+ *
+ * Built once per phase and reused verbatim, so the two calls reason over
+ * byte-identical evidence: a listing verdict extracted from one set of snippets
+ * and a description written from another would be a silent inconsistency, and
+ * assembling it twice is also how the sanitisation rules drift apart.
+ */
+export function buildEnrichmentUserContent(
+  brandName: string,
+  existingDescription: string | null,
+  snippets: string[],
+  siteContent: string | null,
+  evidence?: DescriptionEvidence,
+): EnrichmentUserContent {
+  const sanitizedSnippets = snippets.slice(0, 10).map(stripAiToolArtifacts)
+  const sanitizedSiteContent = siteContent ? stripAiToolArtifacts(siteContent) : null
+
+  // Stage-2 listing evidence. Appended, never interleaved: the four fields above
+  // are the description inputs and their labels are what the tuned prompt reads.
+  // Purchase channels and image alt text cannot be inferred from prose, so the
+  // listing verdict is only as good as these lines.
+  const labelledLinks: Array<[string, string | null | undefined]> = [
+    ['官方購買網站', evidence?.links?.purchaseWebsite],
+    ['Instagram', evidence?.links?.socialInstagram],
+    ['Threads', evidence?.links?.socialThreads],
+    ['Facebook', evidence?.links?.socialFacebook],
+    ['Pinkoi', evidence?.links?.purchasePinkoi],
+    ['蝦皮', evidence?.links?.purchaseShopee],
+  ]
+  const linkLines = labelledLinks.flatMap(([label, url]) =>
+    typeof url === 'string' && url.trim().length > 0 ? [`- ${label}：${url.trim()}`] : [],
+  )
+  const imageAlts = (evidence?.imageAlts ?? [])
+    .filter((alt): alt is string => typeof alt === 'string' && alt.trim().length > 0)
+    .map((alt) => `- ${stripAiToolArtifacts(alt.trim())}`)
+
+  const userContent = [
+    `品牌名稱：${brandName}`,
+    existingDescription ? `現有描述：${existingDescription}` : '',
+    sanitizedSnippets.length > 0 ? `搜尋摘要：\n${sanitizedSnippets.join('\n')}` : '',
+    sanitizedSiteContent ? `網站內容：\n${sanitizedSiteContent}` : '',
+    linkLines.length > 0 ? `品牌連結：\n${linkLines.join('\n')}` : '',
+    evidence?.productCategoryZh ? `商品分類：${evidence.productCategoryZh}` : '',
+    imageAlts.length > 0 ? `商品圖片描述：\n${imageAlts.join('\n')}` : '',
+  ].filter(Boolean).join('\n\n')
+
+  return { userContent, sanitizedSnippets, sanitizedSiteContent }
 }
 
 type DescriptionAttemptInput = {
@@ -145,34 +131,34 @@ export type DescriptionAttempt = {
   config: unknown
 }
 
-type DescriptionRewriteOutput = {
-  result: DescriptionRewriteResult
+export type DescriptionRewriteOutput = {
+  /**
+   * Null when no attempt produced a usable payload. Callers must read `calls`
+   * to learn WHY: a provider outage and a model that answered with an empty
+   * body are the same `null` here, and conflating them is what recorded 407
+   * quota-failed targets as `succeeded` on 2026-08-02.
+   */
+  result: DescriptionRewriteResult | null
   attempts: DescriptionAttempt[]
+  calls: LlmCallCounts
 }
 
 
+const EMPTY_DESCRIPTION_RESULT: DescriptionRewriteResult = {
+  description_zh: null,
+  description_en: null,
+  description: null,
+  blurb_zh: null,
+  blurb_en: null,
+  faq: null,
+  validationRejections: [],
+}
+
 export function parseDescriptionRewriteResult(content: string): DescriptionRewriteResult {
   const parsed = parseJson<Record<string, unknown>>(content)
-  const extraction = parseExtractionResult(content)
 
   if (!parsed) {
-    return {
-      description_zh: null,
-      description_en: null,
-      description: null,
-      blurb_zh: null,
-      blurb_en: null,
-      priceRange: null,
-      productTags: [],
-      productTagsEn: [],
-      city: null,
-      foundingYear: null,
-      reputationSummary: null,
-      faq: null,
-      stockists: null,
-      mitIndicators: null,
-      validationRejections: [],
-    }
+    return { ...EMPTY_DESCRIPTION_RESULT }
   }
 
   const rawDescriptionZh = parsed.description_zh ?? parsed.description
@@ -193,30 +179,6 @@ export function parseDescriptionRewriteResult(content: string): DescriptionRewri
     ? rawBlurbEn.trim()
     : null
 
-  const rawProductTagsEn = parsed.product_tags_en
-  const productTagsEnRaw = Array.isArray(rawProductTagsEn)
-    ? rawProductTagsEn.filter((t): t is string => typeof t === 'string' && t.trim().length > 0).map(t => t.trim())
-    : []
-
-  const normalizedTags = normalizeProductTags(extraction.productTags, productTagsEnRaw)
-
-  const rawRep = parsed.reputation_summary
-  const reputationSummary = rawRep && typeof rawRep === 'object' && !Array.isArray(rawRep)
-    ? (() => {
-        const rep = rawRep as Record<string, unknown>
-        const text = typeof rep.text === 'string' && rep.text.trim().length > 0
-          ? localizeToTW(rep.text.trim()).text
-          : null
-        const textEn = typeof rep.text_en === 'string' && rep.text_en.trim().length > 0 ? rep.text_en.trim() : null
-        const sources = Array.isArray(rep.sources)
-          ? rep.sources.filter((s: unknown): s is { url: string } =>
-              typeof s === 'object' && s !== null && typeof (s as Record<string, unknown>).url === 'string'
-            )
-          : []
-        return text && sources.length > 0 ? { text, textEn, sources } : null
-      })()
-    : null
-
   const rawFaq = parsed.faq
   const faq = Array.isArray(rawFaq)
     ? rawFaq
@@ -234,84 +196,14 @@ export function parseDescriptionRewriteResult(content: string): DescriptionRewri
         }))
     : null
 
-  const ONLINE_ONLY_CHANNELS = new Set([
-    'pinkoi', 'shopee', '蝦皮', 'momo', 'pchome', '博客來', 'yahoo',
-    '官網', 'official', '品牌官網', '線上商店', 'online', 'amazon',
-    '樂天', 'rakuten',
-  ])
-  const isOnlineOnly = (name: string) =>
-    ONLINE_ONLY_CHANNELS.has(name.toLowerCase()) ||
-    [...ONLINE_ONLY_CHANNELS].some((kw) => name.toLowerCase().includes(kw))
-
-  const rawStockists = parsed.stockists
-  const stockists = Array.isArray(rawStockists)
-    ? rawStockists
-        .filter((s): s is Record<string, unknown> =>
-          typeof s === 'object' && s !== null && typeof (s as Record<string, unknown>).name === 'string'
-        )
-        .map((s) => ({
-          name: s.name as string,
-          city: typeof s.city === 'string' ? s.city : null,
-          type: (s.type === 'chain' ? 'chain' : 'independent') as 'chain' | 'independent',
-          address: typeof s.address === 'string' ? s.address.trim() || null : null,
-          venueName: typeof s.venue_name === 'string'
-            ? s.venue_name.trim() || null
-            : typeof s.venueName === 'string'
-              ? s.venueName.trim() || null
-              : null,
-          floorOrCounter: typeof s.floor_or_counter === 'string'
-            ? s.floor_or_counter.trim() || null
-            : typeof s.floorOrCounter === 'string'
-              ? s.floorOrCounter.trim() || null
-              : null,
-          evidenceRefs: Array.isArray(s.evidence_refs)
-            ? s.evidence_refs.filter((reference): reference is number => Number.isInteger(reference) && reference > 0)
-            : Array.isArray(s.evidenceRefs)
-              ? s.evidenceRefs.filter((reference): reference is number => Number.isInteger(reference) && reference > 0)
-              : [],
-        }))
-        .filter((s) => !isOnlineOnly(s.name))
-    : null
-
-  const rawMit = parsed.mit_indicators
-  const mitIndicators = rawMit && typeof rawMit === 'object' && !Array.isArray(rawMit)
-    ? (() => {
-        const mit = rawMit as Record<string, unknown>
-        const mentioned = mit.mentioned === true
-        const evidence = Array.isArray(mit.evidence)
-          ? mit.evidence.filter((e): e is string => typeof e === 'string')
-          : []
-        const confidence = typeof mit.confidence === 'string' ? mit.confidence : 'low'
-        return mentioned && evidence.length > 0 ? { mentioned, evidence, confidence } : null
-      })()
-    : null
-
-  const listing = parseListingVerdict(parsed.listing)
-  const productType = parseDescriptionProductType(parsed.product_type)
-
-  const acceptedTags = normalizedTags.tags.length >= 1 ? normalizedTags.tags : []
-  const acceptedTagsEn = normalizedTags.tags.length >= 1 ? normalizedTags.tagsEn : []
-
   return {
     description_zh: descriptionZh,
     description_en: descriptionEn,
     description: descriptionZh,
     blurb_zh: blurbZh,
     blurb_en: blurbEn,
-    priceRange: extraction.priceRange,
-    ...(productType ? { productType } : {}),
-    productTags: acceptedTags,
-    productTagsEn: acceptedTagsEn,
-    city: extraction.city,
-    foundingYear: extraction.foundingYear,
-    reputationSummary,
     faq: faq && faq.length > 0 ? faq : null,
-    stockists: stockists && stockists.length > 0 ? stockists : null,
-    mitIndicators,
     validationRejections: [],
-    rejected: normalizedTags.rejected,
-    crossBranch: normalizedTags.crossBranch,
-    ...(listing ? { listing } : {}),
   }
 }
 
@@ -545,10 +437,8 @@ export function buildDescriptionRetryInstruction(
   ].join('\n')
 }
 
-const DESCRIPTION_CONFIG_PARAMS = {
-  model: 'gpt-5.6-luna',
-  maxTokens: 6000,
-  temperature: 0.1,
+/** Prompt-shaping params — stored in the audit contract, not sent as request params. */
+const DESCRIPTION_PROMPT_PARAMS = {
   snippetLimit: 10,
   siteContentLimit: 4000,
   descZhBand: ZH_DESCRIPTION_BAND,
@@ -569,37 +459,13 @@ export async function rewriteBrandDescription(
   if (!token) return null
   if (snippets.length === 0 && !existingDescription) return null
 
-  const sanitizedSnippets = snippets.slice(0, 10).map(stripAiToolArtifacts)
-  const sanitizedSiteContent = siteContent ? stripAiToolArtifacts(siteContent) : null
-
-  // Stage-2 listing evidence. Appended, never interleaved: the four fields above
-  // are the description inputs and their labels are what the tuned prompt reads.
-  // Purchase channels and image alt text cannot be inferred from prose, so the
-  // listing verdict is only as good as these lines.
-  const labelledLinks: Array<[string, string | null | undefined]> = [
-    ['官方購買網站', evidence?.links?.purchaseWebsite],
-    ['Instagram', evidence?.links?.socialInstagram],
-    ['Threads', evidence?.links?.socialThreads],
-    ['Facebook', evidence?.links?.socialFacebook],
-    ['Pinkoi', evidence?.links?.purchasePinkoi],
-    ['蝦皮', evidence?.links?.purchaseShopee],
-  ]
-  const linkLines = labelledLinks.flatMap(([label, url]) =>
-    typeof url === 'string' && url.trim().length > 0 ? [`- ${label}：${url.trim()}`] : [],
+  const { userContent, sanitizedSnippets, sanitizedSiteContent } = buildEnrichmentUserContent(
+    brandName,
+    existingDescription,
+    snippets,
+    siteContent,
+    evidence,
   )
-  const imageAlts = (evidence?.imageAlts ?? [])
-    .filter((alt): alt is string => typeof alt === 'string' && alt.trim().length > 0)
-    .map((alt) => `- ${stripAiToolArtifacts(alt.trim())}`)
-
-  const userContent = [
-    `品牌名稱：${brandName}`,
-    existingDescription ? `現有描述：${existingDescription}` : '',
-    sanitizedSnippets.length > 0 ? `搜尋摘要：\n${sanitizedSnippets.join('\n')}` : '',
-    sanitizedSiteContent ? `網站內容：\n${sanitizedSiteContent}` : '',
-    linkLines.length > 0 ? `品牌連結：\n${linkLines.join('\n')}` : '',
-    evidence?.productCategoryZh ? `商品分類：${evidence.productCategoryZh}` : '',
-    imageAlts.length > 0 ? `商品圖片描述：\n${imageAlts.join('\n')}` : '',
-  ].filter(Boolean).join('\n\n')
 
   const attemptInput: DescriptionAttemptInput = {
     brandName,
@@ -607,10 +473,11 @@ export async function rewriteBrandDescription(
     snippets: sanitizedSnippets,
     siteContent: sanitizedSiteContent,
   }
-  const attemptConfig = buildEnrichmentConfig(
-    'description',
+  const attemptConfig = buildProfiledEnrichmentConfig(
+    'descriptions',
     DESCRIPTION_SYSTEM_PROMPT,
-    DESCRIPTION_CONFIG_PARAMS as Record<string, unknown>
+    'descriptions',
+    DESCRIPTION_PROMPT_PARAMS
   )
 
   let bestResult: DescriptionRewriteResult | null = null
@@ -618,12 +485,6 @@ export async function rewriteBrandDescription(
   let acceptedDescriptionEn: string | null = null
   let acceptedBlurbZh: string | null = null
   let acceptedBlurbEn: string | null = null
-  let acceptedPriceRange: 1 | 2 | 3 | null = null
-  // First verdict wins, like every other accepted field: attempt 2 only retries the
-  // failing description fields, so its listing evidence is no fresher than attempt 1's.
-  let acceptedListing: ListingVerdict | undefined
-  // Same first-wins rule, same reason: attempt 2 only rewrites failing text fields.
-  let acceptedProductType: string | undefined
   const allValidationRejections: DescriptionRewriteResult['validationRejections'] = []
   const attempts: DescriptionAttempt[] = []
   const localizeAcceptedZh = (value: string | null): string | null =>
@@ -634,16 +495,22 @@ export async function rewriteBrandDescription(
   let lastRejections: DescriptionRewriteResult['validationRejections'] = []
   let lastParsed: DescriptionRewriteResult | null = null
 
+  // Counted across BOTH attempts of the loop below. A first attempt the model
+  // answered and a second that hit a spent account is not an outage — only a
+  // brand whose every call died at the provider may fail its target.
+  const calls = noLlmCalls()
+
   try {
     for (let attemptIndex = 0; attemptIndex < 2; attemptIndex += 1) {
       const retryInstruction =
         attemptIndex === 0 ? '' : buildDescriptionRetryInstruction(lastRejections, lastParsed)
 
       const startAt = Date.now()
-      const client = createAuditedOpenAIClient(
+      const client = createProfiledOpenAIClient(
+        'descriptions',
         {
           ...audit,
-          phase: 'description',
+          phase: 'descriptions',
           attempt: attemptIndex + 1,
           config: attemptConfig,
         },
@@ -653,24 +520,26 @@ export async function rewriteBrandDescription(
         system: DESCRIPTION_SYSTEM_PROMPT,
         user: `${userContent}${retryInstruction}`,
         json: true,
-        timeoutMs: DESCRIPTION_TIMEOUT_MS,
-        // 6000, not 4500: the prompt gained six link lines, a category name and 8 image
-        // alt lines on input, and the output now carries a `listing` object on top of
-        // four description fields. The old budget predates all of it.
-        maxTokens: 6000,
-        temperature: 0.1,
-        reasoningEffort: 'none',
+        ...profileChatParams('descriptions'),
       })
       const latencyMs = Date.now() - startAt
+      calls.attempted += 1
 
+      // The ONLY provider-failure site in this function. A non-2xx means the
+      // call never reached the model; everything below this point is the model
+      // having answered, however uselessly.
       if (!response.ok) {
+        calls.providerFailed += 1
         console.error(`  → description rewrite failed: HTTP ${response.status}`)
-        return null
+        return { result: null, attempts, calls }
       }
 
+      // Provider answered with an empty body. Deliberately NOT counted as a
+      // provider failure: the account is alive and the phase must stay
+      // `succeeded`/`skipped` exactly as it did before Gate C existed.
       if (!content) {
         console.error(`  → description rewrite: empty response, data=${JSON.stringify(data).slice(0, 200)}`)
-        return null
+        return { result: null, attempts, calls }
       }
 
       const parsed = parseJson<Record<string, unknown>>(content)
@@ -690,24 +559,10 @@ export async function rewriteBrandDescription(
         }
 
         const emptyResult: DescriptionRewriteResult = {
-          description_zh: null,
-          description_en: null,
-          description: null,
-          blurb_zh: null,
-          blurb_en: null,
-          priceRange: null,
-          productTags: [],
-          productTagsEn: [],
-          city: null,
-          foundingYear: null,
-          reputationSummary: null,
-          faq: null,
-          stockists: null,
-          mitIndicators: null,
-          validationRejections: [],
+          ...EMPTY_DESCRIPTION_RESULT,
           rawResponse: data,
         }
-        return { result: emptyResult, attempts }
+        return { result: emptyResult, attempts, calls }
       }
 
       const parsedResult = parseDescriptionRewriteResult(content)
@@ -730,19 +585,13 @@ export async function rewriteBrandDescription(
       acceptedDescriptionEn ??= validated.description_en
       acceptedBlurbZh ??= localizeAcceptedZh(validated.blurb_zh)
       acceptedBlurbEn ??= validated.blurb_en
-      acceptedPriceRange ??= validated.priceRange
-      acceptedListing ??= validated.listing
-      acceptedProductType ??= validated.productType
       bestResult = {
         ...validated,
-        ...(acceptedListing ? { listing: acceptedListing } : {}),
-        ...(acceptedProductType ? { productType: acceptedProductType } : {}),
         description_zh: acceptedDescriptionZh,
         description_en: acceptedDescriptionEn,
         description: acceptedDescriptionZh,
         blurb_zh: acceptedBlurbZh,
         blurb_en: acceptedBlurbEn,
-        priceRange: acceptedPriceRange,
         validationRejections: allValidationRejections,
         rawResponse: {
           response: data,
@@ -751,29 +600,17 @@ export async function rewriteBrandDescription(
       }
 
       if (acceptedDescriptionZh && acceptedDescriptionEn && acceptedBlurbZh && acceptedBlurbEn) {
-        return { result: bestResult, attempts }
+        return { result: bestResult, attempts, calls }
       }
     }
 
-    const finalResult = bestResult ?? {
-      description_zh: null,
-      description_en: null,
-      description: null,
-      blurb_zh: null,
-      blurb_en: null,
-      priceRange: null,
-      productTags: [],
-      productTagsEn: [],
-      city: null,
-      foundingYear: null,
-      reputationSummary: null,
-      faq: null,
-      stockists: null,
-      mitIndicators: null,
-      validationRejections: [],
-    }
-    return { result: finalResult, attempts }
+    const finalResult = bestResult ?? { ...EMPTY_DESCRIPTION_RESULT }
+    return { result: finalResult, attempts, calls }
   } catch (err) {
+    // Not a provider signal: every transport error is already converted to an
+    // `ok: false` result inside the client, so anything thrown here is local
+    // (a missing key, a bug in the parsers). Returning null keeps the phase's
+    // pre-Gate-C behaviour rather than attributing a local defect to OpenAI.
     console.error(`  → description rewrite failed: ${err instanceof Error ? err.message : err}`)
     return null
   }

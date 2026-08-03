@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveClearedFields } from '../descriptions'
-import type { DescriptionRewriteResult } from '../../description-rewrite'
+import { resolveClearedFields } from '../reputation'
 import type { EnrichBrand } from '../types'
 
 /**
@@ -8,31 +7,16 @@ import type { EnrichBrand } from '../types'
  * nothing" and "this phase never ran". Only the first may empty a live field,
  * so each case below pins one half of that distinction.
  *
+ * These cases moved here with the field itself: the reputation phase became the
+ * sole owner of `reputation_summary` when the descriptions mega-call was split.
+ *
  * Tested through the pure resolver rather than by driving the whole phase: the
  * phase reads Supabase, and this project forbids mocking it — `pnpm lint` runs
  * `check:test-boundaries`, which fails on a test that mocks
  * `@/lib/supabase/server`. The resolver is where the entire decision lives, so
  * nothing is lost by testing it directly.
  */
-const rewrite = (over: Partial<DescriptionRewriteResult> = {}): DescriptionRewriteResult =>
-  ({
-    description_zh: null,
-    description_en: null,
-    description: null,
-    blurb_zh: null,
-    blurb_en: null,
-    priceRange: null,
-    productTags: [],
-    productTagsEn: [],
-    city: null,
-    foundingYear: null,
-    reputationSummary: null,
-    faq: null,
-    stockists: null,
-    mitIndicators: null,
-    validationRejections: [],
-    ...over,
-  }) as DescriptionRewriteResult
+const research = (reputationSummary: unknown = null) => ({ reputationSummary })
 
 const brandWith = (reputation: unknown): EnrichBrand =>
   ({
@@ -51,32 +35,30 @@ const protectedField = () => false
 
 describe('resolveClearedFields', () => {
   it('clears reputation_summary when the phase ran, found none, and the brand has one', () => {
-    expect(resolveClearedFields(rewrite(), brandWith(EXISTING), writable)).toEqual([
+    expect(resolveClearedFields(research(), brandWith(EXISTING), writable)).toEqual([
       'reputation_summary',
     ])
   })
 
   it('clears nothing when the brand has no reputation to begin with', () => {
-    expect(resolveClearedFields(rewrite(), brandWith(null), writable)).toEqual([])
+    expect(resolveClearedFields(research(), brandWith(null), writable)).toEqual([])
   })
 
   // The case that makes the whole mechanism safe: a run without the DETAIL step
-  // produces no rewrite at all. That is silence, not a verdict, and must never
+  // produces no research at all. That is silence, not a verdict, and must never
   // empty a live field.
-  it('clears nothing when the phase produced no rewrite', () => {
+  it('clears nothing when the phase produced no research', () => {
     expect(resolveClearedFields(null, brandWith(EXISTING), writable)).toEqual([])
   })
 
-  it('clears nothing when the rewrite actually found a reputation', () => {
-    const found = rewrite({
-      reputationSummary: { text: '新的媒體評價', textEn: null, sources: [] },
-    } as Partial<DescriptionRewriteResult>)
+  it('clears nothing when the research actually found a reputation', () => {
+    const found = research({ text: '新的媒體評價', textEn: null, sources: [] })
     expect(resolveClearedFields(found, brandWith(EXISTING), writable)).toEqual([])
   })
 
   // Owner- and admin-owned fields are off limits to the pipeline whether it is
   // writing a value or removing one.
   it('clears nothing when the field is protected', () => {
-    expect(resolveClearedFields(rewrite(), brandWith(EXISTING), protectedField)).toEqual([])
+    expect(resolveClearedFields(research(), brandWith(EXISTING), protectedField)).toEqual([])
   })
 })

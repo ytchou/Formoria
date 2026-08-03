@@ -1,8 +1,7 @@
 import type { Metadata } from 'next'
 import { Link } from '@/i18n/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
-import { surfaceCardStyles } from '@/components/ui/card'
-import { formatStoryDate } from '@/components/stories/story-date'
+import { formatStoryDate, toStoryIsoDate } from '@/components/stories/story-date'
 import { getAllStories, getStoriesByTag, groupStoriesBySeries } from '@/lib/services/stories'
 import type { StoryEntry } from '@/lib/services/stories'
 import { isStoryTag } from '@/lib/taxonomy/story-tags'
@@ -30,7 +29,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 }
 
-function StoryCard({
+function StoryRow({
   story,
   locale,
   headingLevel,
@@ -41,28 +40,31 @@ function StoryCard({
 }) {
   const Heading = headingLevel === 3 ? 'h3' : 'h2'
   // `null` for a story whose frontmatter carries no usable `publishedAt` — the
-  // card drops its date line rather than throwing out of the server component
+  // row drops its date line rather than throwing out of the server component
   // and taking the whole hub with it.
   const publishedLabel = formatStoryDate(story.frontmatter.publishedAt, locale)
+  const publishedIso = toStoryIsoDate(story.frontmatter.publishedAt)
 
   return (
     <Link
       href={`/stories/${story.slug}`}
-      className={surfaceCardStyles({
-        className: 'group hover:bg-secondary',
-        interactive: true,
-      })}
+      className="group flex min-h-12 flex-col gap-3 py-5 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:flex-row md:gap-8 md:py-6"
     >
-      <div className="space-y-3">
-        <div className="space-y-2">
-          <Heading className="type-card-title group-hover:underline">
-            {story.frontmatter.title}
-          </Heading>
-          <p className="type-body-muted">
-            {story.frontmatter.description}
-          </p>
-        </div>
-        {publishedLabel ? <p className="type-caption">{publishedLabel}</p> : null}
+      {publishedLabel ? (
+        <time
+          dateTime={publishedIso ?? undefined}
+          className="tabular-nums type-metadata md:w-36 md:shrink-0"
+        >
+          {publishedLabel}
+        </time>
+      ) : (
+        <span aria-hidden="true" className="md:w-36 md:shrink-0" />
+      )}
+      <div className="min-w-0 flex-1 space-y-2">
+        <Heading className="type-card-title group-hover:underline">
+          {story.frontmatter.title}
+        </Heading>
+        <p className="max-w-3xl type-body-muted">{story.frontmatter.description}</p>
       </div>
     </Link>
   )
@@ -97,9 +99,6 @@ export default async function StoriesHubPage({ params, searchParams }: PageProps
     <main className="page-gutter mx-auto w-full max-w-screen-xl py-10">
       <div className="space-y-8">
         <header className="space-y-3">
-          <p className="type-eyebrow-muted">
-            {t('badgeLabel')}
-          </p>
           <h1 className="type-page-title">{t('heading')}</h1>
           <p className="max-w-2xl type-body-muted">
             {t('subheading')}
@@ -141,9 +140,9 @@ export default async function StoriesHubPage({ params, searchParams }: PageProps
                         : t('seriesCount', { count: group.stories.length })}
                     </p>
                   </div>
-                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  <div className="divide-y divide-border border-y border-border">
                     {group.stories.map((story) => (
-                      <StoryCard
+                      <StoryRow
                         key={story.slug}
                         story={story}
                         locale={locale}
@@ -156,9 +155,9 @@ export default async function StoriesHubPage({ params, searchParams }: PageProps
             })}
 
             {ungrouped.length > 0 && (
-              <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <section className="divide-y divide-border border-y border-border">
                 {ungrouped.map((story) => (
-                  <StoryCard
+                  <StoryRow
                     key={story.slug}
                     story={story}
                     locale={locale}

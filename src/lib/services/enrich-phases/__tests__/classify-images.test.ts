@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { JUNK_TAGS, MIN_KEEP_SCORE, applyClassifications, parseClassificationBatch } from '../classify-images'
+import {
+  JUNK_TAGS,
+  MIN_KEEP_SCORE,
+  applyClassifications,
+  failureReason,
+  parseClassificationBatch,
+} from '../classify-images'
+import type { OpenAIChatResult } from '../../openai-client'
 
 /**
  * These cover the policy decisions that ship together:
@@ -310,5 +317,46 @@ describe('parseClassificationBatch', () => {
       tag: null,
       reasons: ['promo_subject'],
     })
+  })
+})
+
+/**
+ * The provider/content split decides whether a fully-failed classify run fails
+ * its target or stays `succeeded`. Before it existed, a quota-exhausted account
+ * and a model refusing one batch of images were both just "failed batches", and
+ * the phase reported success for both (2026-08-02).
+ */
+describe('failureReason', () => {
+  function response(overrides: Partial<OpenAIChatResult>): OpenAIChatResult {
+    return {
+      response: new Response(null),
+      data: null,
+      content: 'ok',
+      ok: true,
+      status: 200,
+      errorBody: null,
+      finishReason: 'stop',
+      refusal: null,
+      ...overrides,
+    }
+  }
+
+  it('classifies a non-2xx as a provider failure', () => {
+    expect(failureReason(response({ ok: false, status: 429, content: null }))).toEqual({
+      reason: 'request failed (HTTP 429)',
+      kind: 'provider',
+    })
+  })
+
+  it('classifies a refusal, a truncation and an empty body as content failures', () => {
+    // The account is alive in all three: the model answered, unusably. These
+    // must never fail a target.
+    expect(failureReason(response({ refusal: 'no' }))?.kind).toBe('content')
+    expect(failureReason(response({ finishReason: 'length' }))?.kind).toBe('content')
+    expect(failureReason(response({ content: '   ' }))?.kind).toBe('content')
+  })
+
+  it('returns null for a usable response', () => {
+    expect(failureReason(response({}))).toBeNull()
   })
 })

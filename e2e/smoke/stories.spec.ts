@@ -6,7 +6,7 @@ import { NO_PUBLISHED_STORIES, publishedStories } from '../utils/published-stori
 //   bare `/stories` is not swallowed by the brand-slug redirect and resolves to the hub
 //   under the prefix-free zh-TW locale.
 // - Tag filter links on the hub use /stories?tag=… (no locale prefix) and stay on the hub.
-// - The story card href is /stories/<slug> (2-segment path, no brand-slug redirect).
+// - The story row href is /stories/<slug> (2-segment path, no brand-slug redirect).
 //
 // Content gating: editorial content lives in `content/stories/`, which ships empty. The
 // hub itself must render regardless (heading + coming-soon empty state), so those checks
@@ -51,7 +51,7 @@ test.describe('Stories hub smoke', () => {
     }
   });
 
-  test('stories hub renders at least one story card once content exists', async ({ anonPage }) => {
+  test('stories hub renders at least one story row once content exists', async ({ anonPage }) => {
     test.skip(stories.length === 0, NO_PUBLISHED_STORIES);
     await anonPage.goto('/zh-TW/stories');
     await expect(anonPage.locator('main a[href*="/stories/"]').first()).toBeVisible({
@@ -94,12 +94,12 @@ test.describe('Stories hub smoke', () => {
     await expect(anonPage.getByRole('navigation', { name: '專題標籤' })).toHaveCount(0);
   });
 
-  test('story card click navigates to /stories/[slug] detail page', async ({ anonPage }) => {
+  test('story row click navigates to /stories/[slug] detail page', async ({ anonPage }) => {
     test.skip(stories.length === 0, NO_PUBLISHED_STORIES);
     await anonPage.goto('/zh-TW/stories');
-    const firstCard = anonPage.locator('main a[href*="/stories/"]').first();
-    await expect(firstCard).toBeVisible({ timeout: 10_000 });
-    await firstCard.click();
+    const firstRow = anonPage.locator('main a[href*="/stories/"]').first();
+    await expect(firstRow).toBeVisible({ timeout: 10_000 });
+    await firstRow.click();
     // A slug may start with a digit — year-prefixed slugs like
     // `2026-taiwan-creative-expo-category-guide` are ordinary, and the newest
     // story is the one this test clicks, so a letter-first class breaks the

@@ -11,13 +11,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { Json } from "@/lib/supabase/database.types";
-import { ENRICH_PHASES } from "@/lib/constants/enrich-phases";
+import {
+  AUDITED_PHASES,
+  type AuditedPhaseName,
+} from "@/lib/constants/enrich-phases";
 import type {
   CurationJobDetail,
   CurationJobTarget,
   CurationTargetStatus,
 } from "@/lib/services/curation-jobs";
+import { parsePhaseResults } from "@/lib/services/phase-results";
+import type { PhaseResult } from "@/lib/types/curation";
 import { JobAutoRefresh } from "../job-auto-refresh";
 import {
   formatJobDate,
@@ -30,15 +34,7 @@ import {
 import { RerunJobButton } from "./rerun-job-button";
 import { DispatchJobButton } from "../dispatch-job-button";
 import { CancelJobButton } from "../cancel-job-button";
-
-type PhaseResult = {
-  phase: string;
-  status: "succeeded" | "skipped" | "failed";
-  changedFields: string[];
-  durationMs: number;
-  error?: string;
-  detail?: string;
-};
+import { ResumeJobButton } from "../resume-job-button";
 
 const phaseDescriptions = {
   clean: "Normalizes the submitted brand name.",
@@ -49,17 +45,30 @@ const phaseDescriptions = {
   links: "Extracts and verifies official website and social links.",
   images: "Finds and selects usable brand and product images.",
   classify_images: "Classifies candidate images by their role and quality.",
-  descriptions: "Generates descriptions and related structured brand details.",
+  facts: "Extracts the brand's category, tags, price band, city and founding year.",
+  descriptions: "Writes the bilingual description, blurb and FAQ.",
   locations: "Finds physical shops and retail channels.",
+  reputation: "Adds third-party reputation context — coverage, awards, ratings.",
+  classification:
+    "Classifies the product type on its own, when descriptions did not decide it.",
+  "image-search": "Searches for candidate images before image selection.",
+  persist: "Writes the accumulated patch back to the brand record.",
+  // Legacy: `reputation` was called `expansion` until 2026-08-03 and historical
+  // jobs still store that phase string. It is the one entry here with no
+  // constant behind it, because nothing writes it any more — only historical
+  // rows carry it, and dropping it would render `undefined` on those pages.
   expansion: "Adds reputation context when it is not already available.",
-} satisfies Record<(typeof ENRICH_PHASES)[number], string>;
+} satisfies Record<AuditedPhaseName | "expansion", string>;
 
 const phaseDefinitions = [
   ["Preflight", "Checks whether the target still exists and is eligible to run."],
-  ...ENRICH_PHASES.map(
-    (phase) => [phase.replaceAll("_", " "), phaseDescriptions[phase]] as const,
+  ...AUDITED_PHASES.map(
+    (phase) =>
+      [
+        phase.replaceAll("_", " ").replaceAll("-", " "),
+        phaseDescriptions[phase],
+      ] as const,
   ),
-  ["Image search", "Searches for candidate images before image selection."],
   ["Persist", "Saves the completed enrichment result."],
 ] as const;
 
@@ -111,6 +120,20 @@ export function JobDetailView({
         target.status === "failed" ||
         target.status === "cancelled",
     );
+  /**
+   * Resume is the narrow recovery path for a provider outage: it re-enqueues
+   * only the failed/cancelled targets and only the phases that did not finish.
+   * It is offered alongside "Rerun unfinished submissions" rather than instead
+   * of it because rerun repeats the source job's whole phase scope — after the
+   * 2026-08-02 OpenAI quota outage that would have re-paid Serper for 407
+   * brands whose SERP results were already cached and replayable.
+   */
+  const resumableTargetCount = targets.filter(
+    (target) => target.status === "failed" || target.status === "cancelled",
+  ).length;
+  const canResume =
+    (job.status === "failed" || job.status === "cancelled") &&
+    resumableTargetCount > 0;
   const canDispatch = job.status === "pending" && job.dispatch_status === "pending";
 
   return (
@@ -146,6 +169,7 @@ export function JobDetailView({
               label="Rerun unfinished submissions"
             />
           ) : null}
+          {canResume ? <ResumeJobButton jobId={job.id} /> : null}
           <Link
             href={`/admin/jobs/${job.id}/runlog`}
             className={buttonVariants({
@@ -495,32 +519,6 @@ function TargetDetail({ target }: { target: CurationJobTarget }) {
       </div>
     </details>
   );
-}
-
-function parsePhaseResults(value: Json): PhaseResult[] {
-  if (!Array.isArray(value)) return [];
-
-  return value.flatMap((item) => {
-    if (!item || typeof item !== "object" || Array.isArray(item)) return [];
-    if (typeof item.phase !== "string" || typeof item.status !== "string")
-      return [];
-    if (!["succeeded", "skipped", "failed"].includes(item.status)) return [];
-
-    return [
-      {
-        phase: item.phase,
-        status: item.status as PhaseResult["status"],
-        changedFields: Array.isArray(item.changedFields)
-          ? item.changedFields.filter(
-              (field): field is string => typeof field === "string",
-            )
-          : [],
-        durationMs: typeof item.durationMs === "number" ? item.durationMs : 0,
-        ...(typeof item.error === "string" ? { error: item.error } : {}),
-        ...(typeof item.detail === "string" ? { detail: item.detail } : {}),
-      },
-    ];
-  });
 }
 
 function phaseDescription(phase: string): string | null {

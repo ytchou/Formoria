@@ -7,6 +7,7 @@ import {
   type DetectBatchItem,
   type DetectResult,
 } from '../product-type-classifier'
+import { isLlmProviderFailure } from '../llm-call-outcome'
 import { generateSlug } from '../brands'
 import { isValidBrandName } from '../brand-cleanup'
 import {
@@ -121,12 +122,36 @@ export async function runDetectPhase(
       snippets: searchResults.get(ctx.chunkBrandNames[index])?.snippets ?? [],
       target: { type: ctx.targetType ?? 'brand', id: brand.id },
     }))
-    const detectResults = await detectBrandsBatch(detectItems, ctx.jobId)
+    const outcome = await detectBrandsBatch(detectItems, ctx.jobId)
+    const detectResults = outcome.results
     const nonBrandCount = [...detectResults.values()].filter((detectResult) => detectResult.isNonBrand).length
     ctx.onProgress?.(`  [DETECT] OK — ${detectResults.size} results, ${nonBrandCount} non-brands`)
 
-    return { detectResults, nonBrandCount }
+    return { detectResults, nonBrandCount, calls: outcome.calls }
   })
+
+  // Every detect call died at the provider: the empty result map says nothing
+  // about these brands, so the phase must NOT report success. Reporting
+  // `succeeded` here is precisely how 407 quota-blocked targets went green on
+  // 2026-08-02 — an empty map read as "no non-brands found".
+  if (isLlmProviderFailure(result.calls)) {
+    ctx.onProgress?.(
+      `  [DETECT] FAILED — every one of ${result.calls.attempted} call(s) failed at the provider`,
+    )
+    return {
+      phaseResult: {
+        ...buildPhaseResult(
+          'detect',
+          'failed',
+          [],
+          durationMs,
+          `LLM provider failed all ${result.calls.attempted} detect call(s)`,
+        ),
+        providerFailure: true,
+      },
+      detectResults: result.detectResults,
+    }
+  }
 
   return {
     phaseResult: buildPhaseResult(
@@ -166,20 +191,41 @@ export async function runStandaloneClassification(
       description: brand.description ?? null,
       target: { type: ctx.targetType ?? 'brand', id: brand.id },
     }))
-    const batchClassifications = await classifyProductTypeBatch(classifyItems, ctx.jobId)
-    ctx.onProgress?.(`  [TAGS] OK — ${batchClassifications.size} classifications`)
+    const outcome = await classifyProductTypeBatch(classifyItems, ctx.jobId)
+    ctx.onProgress?.(`  [TAGS] OK — ${outcome.results.size} classifications`)
 
-    return batchClassifications
+    return outcome
   })
+
+  // Same rule as detect: an empty classification map from a dead account is not
+  // "no category applies", it is "we never asked".
+  if (isLlmProviderFailure(result.calls)) {
+    ctx.onProgress?.(
+      `  [TAGS] FAILED — every one of ${result.calls.attempted} call(s) failed at the provider`,
+    )
+    return {
+      phaseResult: {
+        ...buildPhaseResult(
+          'tags',
+          'failed',
+          [],
+          durationMs,
+          `LLM provider failed all ${result.calls.attempted} classification call(s)`,
+        ),
+        providerFailure: true,
+      },
+      batchClassifications: result.results,
+    }
+  }
 
   return {
     phaseResult: buildPhaseResult(
       'tags',
       'succeeded',
-      result.size > 0 ? ['product_type'] : [],
+      result.results.size > 0 ? ['product_type'] : [],
       durationMs
     ),
-    batchClassifications: result,
+    batchClassifications: result.results,
   }
 }
 

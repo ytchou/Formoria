@@ -148,6 +148,23 @@ function scrapeResult(data: Record<string, unknown> = {}) {
   }
 }
 
+/**
+ * `detectBrandsBatch` reports call outcomes alongside its results so the phase
+ * can tell a provider outage from an empty answer. A healthy batch is the
+ * default here; the outage cases pass their own counts.
+ */
+function detectBatch(
+  results: Map<string, DetectResult>,
+  calls: { attempted: number; providerFailed: number } = { attempted: 1, providerFailed: 0 },
+) {
+  return { results, calls }
+}
+
+/** Every LLM call in this chunk died at the provider — the 2026-08-02 shape. */
+function detectBatchProviderFailure() {
+  return { results: new Map<string, DetectResult>(), calls: { attempted: 1, providerFailed: 1 } }
+}
+
 function imageQueryInputs(): ImageQueryInput[] {
   const call = mocks.batchSearchBrandImages.mock.calls[0]
   return (call?.[0] ?? []) as ImageQueryInput[]
@@ -177,7 +194,7 @@ describe('runEnrich two-wave ordering', () => {
       social_instagram: 'https://www.instagram.com/realbrand',
     })
     mocks.detectBrandsBatch.mockResolvedValue(
-      new Map([
+      detectBatch(new Map([
         [
           `submission-${rejected.id}`,
           detectResult({
@@ -188,7 +205,7 @@ describe('runEnrich two-wave ordering', () => {
           }),
         ],
         [`submission-${kept.id}`, detectResult({ slug: `submission-${kept.id}` })],
-      ]),
+      ])),
     )
 
     const result = await runEnrich(
@@ -225,7 +242,7 @@ describe('runEnrich two-wave ordering', () => {
       social_instagram: 'https://www.instagram.com/reseller',
     })
     mocks.detectBrandsBatch.mockResolvedValue(
-      new Map([
+      detectBatch(new Map([
         [
           `submission-${rejected.id}`,
           detectResult({
@@ -235,7 +252,7 @@ describe('runEnrich two-wave ordering', () => {
             confidence: 'high',
           }),
         ],
-      ]),
+      ])),
     )
 
     await runEnrich(
@@ -262,7 +279,7 @@ describe('runEnrich two-wave ordering', () => {
       social_instagram: 'https://www.instagram.com/discoveredsite',
     })
     mocks.detectBrandsBatch.mockResolvedValue(
-      new Map([[`submission-${target.id}`, detectResult({ slug: `submission-${target.id}` })]]),
+      detectBatch(new Map([[`submission-${target.id}`, detectResult({ slug: `submission-${target.id}` })]])),
     )
     mocks.scrapeBrandUrls.mockResolvedValue(
       scrapeResult({ purchaseWebsite: 'https://discovered.example.com' }),
@@ -295,7 +312,7 @@ describe('runEnrich two-wave ordering', () => {
       purchase_website: 'https://stored.example.com',
     })
     mocks.detectBrandsBatch.mockResolvedValue(
-      new Map([[`submission-${target.id}`, detectResult({ slug: `submission-${target.id}` })]]),
+      detectBatch(new Map([[`submission-${target.id}`, detectResult({ slug: `submission-${target.id}` })]])),
     )
 
     await runEnrich(
@@ -312,5 +329,161 @@ describe('runEnrich two-wave ordering', () => {
     expect(imageQueryInputs()).toEqual([
       expect.objectContaining({ purchaseWebsite: 'https://stored.example.com' }),
     ])
+  })
+})
+
+/**
+ * Gate C and the circuit breaker, exercised through the real wave-B callback.
+ *
+ * `detect` is used as the failing LLM phase because it is the one LLM phase the
+ * `PHASES` set above already runs, so no extra module has to be mocked. The
+ * behaviour under test is phase-agnostic: Gate C counts LLM phase results, and
+ * detect produces one like any other.
+ */
+describe('Gate C and the LLM circuit breaker', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.getLatestSearchResults.mockResolvedValue(new Map())
+    mocks.batchSearchBrandImages.mockResolvedValue(new Map())
+    mocks.scrapeBrandUrls.mockResolvedValue(scrapeResult())
+  })
+
+  it('fails a target whose every attempted LLM phase died at the provider', async () => {
+    const target = submission({
+      id: 'sub-quota',
+      brand_name: 'Quota Blocked',
+      social_instagram: 'https://www.instagram.com/quotablocked',
+    })
+    mocks.detectBrandsBatch.mockResolvedValue(detectBatchProviderFailure())
+
+    const result = await runEnrich(
+      {
+        target: 'submissions',
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    )
+
+    const outcome = result.brandOutcomes.find((entry) => entry?.submissionId === target.id)
+    // This is the whole incident in one assertion: before Gate C this target
+    // was recorded `succeeded` with an empty patch and was approvable.
+    expect(outcome?.status).toBe('failed')
+    expect(outcome?.error).toContain('LLM provider unavailable')
+    expect(
+      outcome?.phaseResults?.some((phaseResult) => phaseResult.providerFailure === true),
+    ).toBe(true)
+  })
+
+  it('records the provider failure exactly once per target, not twice', async () => {
+    // `applyDetectResult` already writes a per-brand detect entry; grafting the
+    // batch failure on must replace it, not append a second `detect` row.
+    const target = submission({
+      id: 'sub-quota',
+      social_instagram: 'https://www.instagram.com/quotablocked',
+    })
+    mocks.detectBrandsBatch.mockResolvedValue(detectBatchProviderFailure())
+
+    const result = await runEnrich(
+      {
+        target: 'submissions',
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    )
+
+    const detectEntries = (
+      result.brandOutcomes.find((entry) => entry?.submissionId === target.id)?.phaseResults ?? []
+    ).filter((phaseResult) => phaseResult.phase === 'detect')
+    expect(detectEntries).toHaveLength(1)
+  })
+
+  it('trips the breaker after 3 consecutive provider failures and stops the run', async () => {
+    const targets = Array.from({ length: 8 }, (_, index) =>
+      submission({
+        id: `sub-${index}`,
+        brand_name: `Brand ${index}`,
+        social_instagram: `https://www.instagram.com/brand${index}`,
+      }),
+    )
+    mocks.detectBrandsBatch.mockResolvedValue(detectBatchProviderFailure())
+
+    await expect(
+      runEnrich(
+        {
+          target: 'submissions',
+          submissionIds: targets.map((entry) => entry.id),
+          dryRun: true,
+          phases: PHASES,
+          onProgress: () => {},
+        },
+        fakeSupabase(targets),
+      ),
+    ).rejects.toThrow(/circuit breaker tripped/i)
+  })
+
+  it('leaves the un-run targets unrecorded so the job can cancel them', async () => {
+    const targets = Array.from({ length: 8 }, (_, index) =>
+      submission({
+        id: `sub-${index}`,
+        social_instagram: `https://www.instagram.com/brand${index}`,
+      }),
+    )
+    mocks.detectBrandsBatch.mockResolvedValue(detectBatchProviderFailure())
+    const outcomes: string[] = []
+
+    await runEnrich(
+      {
+        target: 'submissions',
+        submissionIds: targets.map((entry) => entry.id),
+        dryRun: true,
+        phases: PHASES,
+        onProgress: () => {},
+        onTargetProgress: (event) => {
+          if (event.status !== 'running') outcomes.push(event.targetId)
+        },
+      },
+      fakeSupabase(targets),
+    ).catch(() => undefined)
+
+    // Concurrency 3 means the trip can overshoot by a target or two, but it
+    // must never run all 8 — that is the 11.5-hour run this prevents.
+    expect(outcomes.length).toBeGreaterThanOrEqual(3)
+    expect(outcomes.length).toBeLessThan(targets.length)
+  })
+
+  // REGRESSION. Over-correcting Gate C to fire on any empty LLM result would
+  // fail every brand the model legitimately had nothing to say about — a far
+  // more common case than an outage.
+  it('keeps a healthy-but-empty LLM result on the non-failed path', async () => {
+    const target = submission({
+      id: 'sub-empty',
+      brand_name: 'Nothing To Say',
+      social_instagram: 'https://www.instagram.com/nothingtosay',
+    })
+    // Provider answered; it simply returned no detect verdicts.
+    mocks.detectBrandsBatch.mockResolvedValue(detectBatch(new Map()))
+
+    const result = await runEnrich(
+      {
+        target: 'submissions',
+        submissionIds: [target.id],
+        dryRun: true,
+        phases: PHASES,
+        onProgress: () => {},
+      },
+      fakeSupabase([target]),
+    )
+
+    const outcome = result.brandOutcomes.find((entry) => entry?.submissionId === target.id)
+    expect(outcome?.status).not.toBe('failed')
+    expect(
+      outcome?.phaseResults?.some((phaseResult) => phaseResult.providerFailure === true),
+    ).toBe(false)
   })
 })

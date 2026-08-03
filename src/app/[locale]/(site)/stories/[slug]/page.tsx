@@ -3,6 +3,7 @@ import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { ChevronRight } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import {
   getAllStories,
   getPublishedStoryBySlug,
@@ -18,6 +19,7 @@ import { extractBrandSlugs } from '@/lib/mdx/extract-brand-slugs'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
 import { buildArticleJsonLd, buildBreadcrumbJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
+import { categoryLabel, PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 import { StoryContent } from './story-content'
 
 type PageProps = {
@@ -148,6 +150,16 @@ export default async function StoryPage({ params }: PageProps) {
   // Reader-facing date for the byline. Same formatter the series nav and the
   // event page's story cards use, so one story never shows two date formats.
   const publishedLabel = formatStoryDate(story.entry.frontmatter.publishedAt, safeLocale)
+  const updatedLabel =
+    formatStoryDate(story.entry.frontmatter.updatedAt, safeLocale) ?? publishedLabel
+  const storyTags = Array.from(new Set(story.entry.frontmatter.tags))
+    .map((tag) => {
+      if (tag === 'event') return { key: tag, label: t('tags.event') }
+      if (tag === 'creative-expo') return { key: tag, label: t('tags.creative-expo') }
+      const category = PRODUCT_TYPE_CATEGORIES.find((item) => item.slug === tag)
+      return category ? { key: tag, label: categoryLabel(category, safeLocale) } : null
+    })
+    .filter((tag): tag is { key: string; label: string } => tag !== null)
   // Mirrors the visible breadcrumb below, so the two never disagree. Same
   // builder every other content route uses (`/brands/[slug]`, `/glossary`).
   const breadcrumbJsonLd = buildBreadcrumbJsonLd(
@@ -261,17 +273,32 @@ export default async function StoryPage({ params }: PageProps) {
         <header className="space-y-4">
           <h1 className="type-page-title-large">{story.entry.frontmatter.title}</h1>
           <p className="type-page-subtitle">{story.entry.frontmatter.description}</p>
-          {/*
-            Byline. `author` is optional in frontmatter and falls back to the
-            editorial team rather than rendering nothing: an article with no
-            visible author reads as machine output, which is the opposite of
-            what a story is for. The published date sits beside it because a
-            byline without one invites "is this still true?".
-          */}
-          <p className="type-caption">
-            {story.entry.frontmatter.author ?? t('byline')}
-            {publishedLabel ? ` · ${publishedLabel}` : ''}
-          </p>
+          <dl className="space-y-1 type-caption">
+            <div className="flex gap-3">
+              <dt className="shrink-0 type-metadata">{t('authorLabel')}</dt>
+              <dd>{story.entry.frontmatter.author ?? t('byline')}</dd>
+            </div>
+            {updatedLabel ? (
+              <div className="flex gap-3">
+                <dt className="shrink-0 type-metadata">{t('lastUpdatedLabel')}</dt>
+                <dd>{updatedLabel}</dd>
+              </div>
+            ) : null}
+            {storyTags.length > 0 ? (
+              <div className="flex gap-3">
+                <dt className="shrink-0 type-metadata">{t('tagsLabel')}</dt>
+                <dd className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2" aria-label={t('tagsAria')}>
+                    {storyTags.map((tag) => (
+                      <Badge key={tag.key} variant="secondary">
+                        {tag.label}
+                      </Badge>
+                    ))}
+                  </div>
+                </dd>
+              </div>
+            ) : null}
+          </dl>
         </header>
         {/*
           No `prose` classes: the Tailwind typography plugin is not installed,

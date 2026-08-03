@@ -8,8 +8,9 @@
  *   pnpm exec tsx --env-file=.env.local scripts/curation-rerun/render.ts
  *   pnpm exec tsx --env-file=.env.local scripts/curation-rerun/render.ts --cohort batch1-never-curated
  */
-import { readFile, writeFile, mkdir } from 'node:fs/promises'
+import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { loadCohort, snapshotDir } from './cohort'
 
 const ARTIFACT_ROOT = `${process.env.HOME}/project/.artifact/formoria`
@@ -123,6 +124,156 @@ function tile(i: Img, published: boolean): string {
   </figure>`
 }
 
+/**
+ * What the run cost, per brand and per phase, read from the audit rows the
+ * pipeline wrote as it went.
+ *
+ * `cost_usd` is denormalised onto `brand_ai_results` at write time from the
+ * provider's own token counts, so this bills the calls that actually happened
+ * rather than re-deriving them from a price list here. A null `cost_usd` means
+ * unmeasured, never free — a failed call has no usage block to price — so nulls
+ * are counted separately as `unpriced` instead of being summed as zero.
+ */
+type PhaseCost = { phase: string; model: string; calls: number; promptTokens: number; cachedTokens: number; completionTokens: number; costUsd: number; unpriced: number }
+type BrandCost = { total: number; unpriced: number; calls: number; phases: PhaseCost[] }
+
+type RefreshLog = { jobIds?: string[]; requested?: Array<{ slug: string; submissionId: string | null }> }
+
+/**
+ * Every `refresh-log-*.json` in the cohort's snapshot dir.
+ *
+ * All of them, not just the newest: a cohort assembled from more than one run —
+ * a second wave of brands, or a re-run of a subset — has one log per job, and
+ * billing only the newest would report the earlier wave's brands as free.
+ */
+async function loadRefreshLogs(dir: string): Promise<RefreshLog[]> {
+  let entries: string[]
+  try {
+    entries = await readdir(dir)
+  } catch {
+    return []
+  }
+  const names = entries.filter((e) => e.startsWith('refresh-log-') && e.endsWith('.json')).sort()
+  const logs: RefreshLog[] = []
+  for (const name of names) {
+    try {
+      logs.push(JSON.parse(await readFile(resolve(dir, name), 'utf8')) as RefreshLog)
+    } catch {
+      // A truncated log costs this run its cost column, never the render.
+    }
+  }
+  return logs
+}
+
+/**
+ * The job(s) to bill.
+ *
+ * The log is the fast path, but logs written before `jobIds` was recorded have
+ * to fall back to the newest job that actually wrote audit rows for these
+ * brands. Without the fallback, re-rendering an earlier run silently bills
+ * nothing, which reads identically to "the run was free".
+ */
+async function resolveJobIds(
+  supabase: SupabaseClient,
+  brandIds: string[],
+  logs: RefreshLog[],
+): Promise<string[]> {
+  const fromLogs = [...new Set(logs.flatMap((l) => l.jobIds ?? []))]
+  if (fromLogs.length > 0) return fromLogs
+  if (brandIds.length === 0) return []
+  const { data } = await supabase
+    .from('brand_ai_results')
+    .select('job_id, created_at')
+    .in('brand_id', brandIds)
+    .not('job_id', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+  const newest = (data ?? []).at(0) as { job_id: string } | undefined
+  return newest ? [newest.job_id] : []
+}
+
+/**
+ * Costs keyed by slug.
+ *
+ * Audit rows carry `brand_id` even when the enrichment target was a refresh
+ * submission — `submission_id` is null on every row — so the join is on the
+ * brand, resolved through the after-snapshot rather than a second query.
+ *
+ * Rows with a null `job_id` are excluded by the job filter, and that is load
+ * bearing: `insertTriageResult` / `insertReputationResult` write result-shaped
+ * rows carrying no usage, and counting them would inflate the call count with
+ * calls that were already billed under their audit row.
+ */
+async function loadCosts(
+  supabase: SupabaseClient,
+  jobIds: string[],
+  slugByBrandId: Map<string, string>,
+): Promise<Map<string, BrandCost>> {
+  const out = new Map<string, BrandCost>()
+  if (jobIds.length === 0) return out
+
+  const { data, error } = await supabase
+    .from('brand_ai_results')
+    .select('brand_id, phase, model, cost_usd, prompt_tokens, cached_prompt_tokens, completion_tokens')
+    .in('job_id', jobIds)
+  if (error) {
+    console.warn(`  cost lookup failed (${error.message}) — rendering without the cost section`)
+    return out
+  }
+
+  type Row = { brand_id: string | null; phase: string; model: string; cost_usd: number | null; prompt_tokens: number | null; cached_prompt_tokens: number | null; completion_tokens: number | null }
+  for (const row of (data ?? []) as Row[]) {
+    const slug = row.brand_id ? slugByBrandId.get(row.brand_id) : undefined
+    if (!slug) continue
+    const brand = out.get(slug) ?? { total: 0, unpriced: 0, calls: 0, phases: [] }
+    const key = `${row.phase}::${row.model}`
+    let phase = brand.phases.find((p) => `${p.phase}::${p.model}` === key)
+    if (!phase) {
+      phase = { phase: row.phase, model: row.model, calls: 0, promptTokens: 0, cachedTokens: 0, completionTokens: 0, costUsd: 0, unpriced: 0 }
+      brand.phases.push(phase)
+    }
+    phase.calls += 1
+    phase.promptTokens += row.prompt_tokens ?? 0
+    phase.cachedTokens += row.cached_prompt_tokens ?? 0
+    phase.completionTokens += row.completion_tokens ?? 0
+    if (row.cost_usd === null) phase.unpriced += 1
+    else phase.costUsd += Number(row.cost_usd)
+    brand.calls += 1
+    brand.total += Number(row.cost_usd ?? 0)
+    brand.unpriced += row.cost_usd === null ? 1 : 0
+    out.set(slug, brand)
+  }
+  for (const brand of out.values()) brand.phases.sort((l, r) => r.costUsd - l.costUsd)
+  return out
+}
+
+/** 4 dp: a single phase can land near $0.0001 and rounding to cents shows $0.00. */
+const usd = (n: number): string => `$${n.toFixed(4)}`
+const num = (n: number): string => n.toLocaleString('en-US')
+
+function costTable(cost: BrandCost | undefined): string {
+  if (!cost || cost.calls === 0) {
+    return '<p class="muted">No audit rows recorded for this brand in the billed job.</p>'
+  }
+  const rows = cost.phases
+    .map(
+      (p) => `<tr>
+      <th>${esc(p.phase)}</th>
+      <td class="same">${esc(p.model)}</td>
+      <td class="num">${p.calls}</td>
+      <td class="num">${num(p.promptTokens)}${p.cachedTokens ? ` <span class="muted">(${num(p.cachedTokens)} cached)</span>` : ''}</td>
+      <td class="num">${num(p.completionTokens)}</td>
+      <td class="num">${usd(p.costUsd)}${p.unpriced ? ` <span class="bad">+${p.unpriced} unpriced</span>` : ''}</td>
+    </tr>`,
+    )
+    .join('')
+  return `<div class="scroll"><table class="cmp">
+    <thead><tr><th>Phase</th><th>Model</th><th class="num">Calls</th><th class="num">Prompt tokens</th><th class="num">Completion tokens</th><th class="num">Cost</th></tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr><th>Total</th><td class="same"></td><td class="num">${cost.calls}</td><td class="num"></td><td class="num"></td><td class="num"><b>${usd(cost.total)}</b></td></tr></tfoot>
+  </table></div>`
+}
+
 const byBrand = (imgs: Img[]): Map<string, Img[]> => {
   const map = new Map<string, Img[]>()
   for (const i of imgs) {
@@ -146,6 +297,21 @@ async function main(): Promise<void> {
 
   const before = JSON.parse(await readFile(beforeFile, 'utf8')) as Snapshot
   const after = JSON.parse(await readFile(afterFile, 'utf8')) as Snapshot
+
+  // Cost is best-effort: a missing log or an unreachable DB degrades to a page
+  // without the cost section rather than failing a render of a run that has
+  // already mutated production.
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  )
+  const logs = await loadRefreshLogs(dir)
+  const slugByBrandId = new Map(after.brands.map((b) => [b.id, b.slug]))
+  const jobIds = await resolveJobIds(supabase, [...slugByBrandId.keys()], logs)
+  const costs = await loadCosts(supabase, jobIds, slugByBrandId)
+  const grandTotal = [...costs.values()].reduce((n, c) => n + c.total, 0)
+  const totalCalls = [...costs.values()].reduce((n, c) => n + c.calls, 0)
+  const totalUnpriced = [...costs.values()].reduce((n, c) => n + c.unpriced, 0)
 
   const bBrand = new Map(before.brands.map((b) => [b.slug, b]))
   const aBrandById = new Map(after.brands.map((b) => [b.id, b]))
@@ -186,6 +352,7 @@ async function main(): Promise<void> {
       <td class="num">${total}</td>
       <td class="num ${cls}">${na}</td>
       <td class="num ${cls}">${delta > 0 ? `+${delta}` : delta}</td>
+      <td class="num">${costs.get(slug) ? usd(costs.get(slug)!.total) : '<span class="muted">—</span>'}</td>
     </tr>`
     })
     .join('')
@@ -215,6 +382,9 @@ async function main(): Promise<void> {
   <div class="scroll"><table class="cmp"><thead><tr><th>Field</th><th>Before — was live</th><th>After — now live</th></tr></thead><tbody>
     ${CONTENT_FIELDS.map(([f, label]) => cmpRow(label, b[f], a[f])).join('')}
   </tbody></table></div>
+
+  <h3>Cost <span class="meta">${costs.get(slug) ? `${usd(costs.get(slug)!.total)} across ${costs.get(slug)!.calls} LLM call(s)` : 'no audit rows'}</span></h3>
+  ${costTable(costs.get(slug))}
 
   <h3>Images <span class="meta">${beforeImgs.length} published → ${afterPub.length} published, from ${afterAll.length} candidates</span></h3>
   <div class="lbl">Before — what was published</div>
@@ -298,6 +468,7 @@ details{margin-top:8px}summary{cursor:pointer;font-size:13px;color:var(--muted)}
   <div><b>${totalBefore} → ${totalAfter}</b><span>published images</span></div>
   <div><b>${pairs.filter((p) => show(p.before.product_type) !== show(p.after.product_type)).length}</b><span>category changes</span></div>
   <div><b>${pairs.filter((p) => p.before.slug !== p.after.slug).length}</b><span>slug changes</span></div>
+  ${totalCalls ? `<div><b>${usd(grandTotal)}</b><span>LLM cost, ${totalCalls} calls${totalUnpriced ? ` · ${totalUnpriced} unpriced` : ''}</span></div>` : ''}
 </div>
 
 <div class="callout">
@@ -315,7 +486,7 @@ ${cohort.warning ? `<div class="callout warn">${esc(cohort.warning)}</div>` : ''
 
 <h2 id="summary">Summary</h2>
 <div class="scroll"><table>
-<thead><tr><th>Brand</th><th>Category before → after</th><th class="num">Published before</th><th class="num">Candidates</th><th class="num">Published now</th><th class="num">Δ</th></tr></thead>
+<thead><tr><th>Brand</th><th>Category before → after</th><th class="num">Published before</th><th class="num">Candidates</th><th class="num">Published now</th><th class="num">Δ</th><th class="num">LLM cost</th></tr></thead>
 <tbody>${summary}</tbody>
 </table></div>
 

@@ -158,8 +158,9 @@ export default async function BrandDetailPage({ params }: PageProps) {
   ])
   const tBrandFaq = ((key: string, params?: Record<string, unknown>) =>
     tBrandDetail(key, params as never)) as BrandFaqTranslateFn
+  const cityLabel = displayBrand.city ? tCities(displayBrand.city) : null
   const [faqItems, channels] = await Promise.all([
-    getBrandFaq(displayBrand.id, displayBrand, tBrandFaq, safeLocale),
+    getBrandFaq(displayBrand.id, displayBrand, tBrandFaq, safeLocale, cityLabel),
     // Skip the round trip entirely while the section is hidden.
     LOCATIONS_SECTION_ENABLED
       ? getChannelsForBrand(displayBrand.id)
@@ -278,7 +279,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
               <BrandHeader
                 brand={displayBrand}
                 categoryLabel={categoryLabel || null}
-                cityLabel={displayBrand.city ? tCities(displayBrand.city) : null}
+                cityLabel={cityLabel}
                 locale={safeLocale}
                 adminSlot={
                   <AdminBrandMenu

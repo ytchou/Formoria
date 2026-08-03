@@ -122,8 +122,11 @@ export type Database = {
         Row: {
           attempt: number | null
           brand_id: string | null
+          cached_prompt_tokens: number | null
+          completion_tokens: number | null
           confidence: string | null
           config: Json | null
+          cost_usd: number | null
           created_at: string
           description: string | null
           id: string
@@ -137,6 +140,7 @@ export type Database = {
           price_range: number | null
           product_tags: string[] | null
           product_type: string | null
+          prompt_tokens: number | null
           raw_response: Json | null
           slug_generated: string | null
           submission_id: string | null
@@ -144,8 +148,11 @@ export type Database = {
         Insert: {
           attempt?: number | null
           brand_id?: string | null
+          cached_prompt_tokens?: number | null
+          completion_tokens?: number | null
           confidence?: string | null
           config?: Json | null
+          cost_usd?: number | null
           created_at?: string
           description?: string | null
           id?: string
@@ -159,6 +166,7 @@ export type Database = {
           price_range?: number | null
           product_tags?: string[] | null
           product_type?: string | null
+          prompt_tokens?: number | null
           raw_response?: Json | null
           slug_generated?: string | null
           submission_id?: string | null
@@ -166,8 +174,11 @@ export type Database = {
         Update: {
           attempt?: number | null
           brand_id?: string | null
+          cached_prompt_tokens?: number | null
+          completion_tokens?: number | null
           confidence?: string | null
           config?: Json | null
+          cost_usd?: number | null
           created_at?: string
           description?: string | null
           id?: string
@@ -181,6 +192,7 @@ export type Database = {
           price_range?: number | null
           product_tags?: string[] | null
           product_type?: string | null
+          prompt_tokens?: number | null
           raw_response?: Json | null
           slug_generated?: string | null
           submission_id?: string | null
@@ -1975,6 +1987,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      llm_model_prices: {
+        Row: {
+          cached_input_per_m: number
+          created_at: string
+          effective_from: string
+          id: string
+          input_per_m: number
+          model: string
+          output_per_m: number
+          source: string | null
+        }
+        Insert: {
+          cached_input_per_m: number
+          created_at?: string
+          effective_from?: string
+          id?: string
+          input_per_m: number
+          model: string
+          output_per_m: number
+          source?: string | null
+        }
+        Update: {
+          cached_input_per_m?: number
+          created_at?: string
+          effective_from?: string
+          id?: string
+          input_per_m?: number
+          model?: string
+          output_per_m?: number
+          source?: string | null
+        }
+        Relationships: []
       }
       mit_registry: {
         Row: {

@@ -7,7 +7,6 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { PhysicalRetailLocation, RetailChainChannel, RetailLocation } from '@/lib/types/brand'
 import type { ChannelCandidate } from '@/lib/types/brand-channel'
 import type { PhaseResult } from '@/lib/types/curation'
-import type { DescriptionRewriteResult } from '../description-rewrite'
 import type { EnrichmentTarget } from '../enrichment-target'
 import {
   searchBrandMaps,
@@ -24,10 +23,8 @@ import {
   type EnrichBrand,
   type EnrichPhase,
   type EnrichScrapedData,
-  type SearchPhaseResult,
 } from './types'
 
-const MAX_EVIDENCE_EXCERPT = 500
 const CITY_NAME_VARIANTS = [
   { slug: 'taipei', names: ['臺北', '台北'] },
   { slug: 'new_taipei', names: ['新北'] },
@@ -103,8 +100,6 @@ type LocationCandidate = {
 export type ChannelsPhaseOptions = {
   brand: EnrichBrand
   phases: EnrichPhase[]
-  descriptionRewrite?: DescriptionRewriteResult | null
-  serpResult?: SearchPhaseResult | null
   scrapedData?: EnrichScrapedData | null
   overwrite?: boolean
   dryRun?: boolean
@@ -215,42 +210,6 @@ function isKnownOfficialUrl(value: unknown, origins: ReadonlySet<string>): boole
   return origin !== null && origins.has(origin)
 }
 
-function isSocialUrl(value: unknown): boolean {
-  return isHttpUrl(value) && classifyByDomain(value) === 'social'
-}
-
-function evidenceExcerpt(value: unknown): string | undefined {
-  const text = optionalText(value)
-  return text ? text.slice(0, MAX_EVIDENCE_EXCERPT) : undefined
-}
-
-function candidateFromDescription(
-  stockist: NonNullable<DescriptionRewriteResult['stockists']>[number],
-  evidence: LocationEvidence[],
-): LocationCandidate | null {
-  const name = optionalText(stockist.name)
-  if (!name || stockist.type === 'chain') return null
-  const location: PhysicalRetailLocation = {
-    kind: 'location',
-    name,
-    relationshipType: 'stockist',
-    ...(optionalText(stockist.address) ? { address: optionalText(stockist.address) } : {}),
-    ...(optionalText(stockist.city) ? { city: optionalText(stockist.city) } : {}),
-    ...(optionalText(stockist.venueName) ? { venueName: optionalText(stockist.venueName) } : {}),
-    ...(optionalText(stockist.floorOrCounter) ? { floorOrCounter: optionalText(stockist.floorOrCounter) } : {}),
-    verificationStatus: 'needs_review',
-    confirmationStatus: 'unconfirmed',
-  }
-  return makeCandidate(
-    location,
-    'Named stockist extracted from description evidence',
-    evidence,
-    'needs_review',
-    [],
-    'description',
-  )
-}
-
 function makeCandidate(
   location: PhysicalRetailLocation,
   matchReason: string,
@@ -277,104 +236,6 @@ function makeCandidate(
     ],
     origin,
   }
-}
-
-function buildKnownEvidence(
-  stockist: NonNullable<DescriptionRewriteResult['stockists']>[number],
-  serpResult: SearchPhaseResult | null | undefined,
-  scrapedData?: EnrichScrapedData | null,
-  knownOfficialOrigins: ReadonlySet<string> = new Set(),
-): LocationEvidence[] {
-  const references = Array.isArray(stockist.evidenceRefs)
-    ? stockist.evidenceRefs.filter((value): value is number => Number.isInteger(value) && value > 0)
-    : []
-  const entries = serpResult?.entries ?? []
-  const evidence: LocationEvidence[] = references.flatMap((reference) => {
-    const entry = entries[reference - 1]
-    if (!entry) return []
-    const source = isSocialUrl(entry.link)
-      ? 'social'
-      : isKnownOfficialUrl(entry.link, knownOfficialOrigins)
-        ? 'official'
-        : 'serp'
-    return [
-      {
-        source,
-        url: entry.link,
-        ...(serpResult?.auditResultId ? { auditResultId: serpResult.auditResultId } : {}),
-        reference,
-        excerpt: evidenceExcerpt(entry.snippet ?? entry.title),
-      } satisfies LocationEvidence,
-    ]
-  })
-
-  if (scrapedData?.stockistPageText) {
-    const sourceUrl = [
-      scrapedData.websiteUrl,
-      scrapedData.purchaseWebsite,
-      scrapedData.purchase_website,
-      scrapedData.socialInstagram,
-      scrapedData.socialThreads,
-      scrapedData.socialFacebook,
-    ].find((url) => isKnownOfficialUrl(url, knownOfficialOrigins) || isSocialUrl(url))
-    const source = isKnownOfficialUrl(sourceUrl, knownOfficialOrigins)
-      ? 'official'
-      : isSocialUrl(sourceUrl)
-        ? 'social'
-        : null
-    if (sourceUrl && source) {
-      evidence.push({
-        source,
-        url: sourceUrl,
-        excerpt: evidenceExcerpt(scrapedData.stockistPageText),
-      })
-    }
-  }
-  return evidence
-}
-
-function hasAddressEvidence(address: string | undefined, evidence: LocationEvidence[]): boolean {
-  const normalizedAddress = normalizeLocationAddress(address)
-  if (!normalizedAddress) return false
-  return evidence.some(
-    (item) =>
-      (item.source === 'official' || item.source === 'social') &&
-      normalizeLocationAddress(item.excerpt).includes(normalizedAddress),
-  )
-}
-
-function getDescriptionCandidates(
-  descriptionRewrite: DescriptionRewriteResult | null | undefined,
-  serpResult: SearchPhaseResult | null | undefined,
-  scrapedData?: EnrichScrapedData | null,
-  knownOfficialOrigins: ReadonlySet<string> = new Set(),
-): LocationCandidate[] {
-  return (descriptionRewrite?.stockists ?? []).flatMap((stockist) => {
-    const evidence = buildKnownEvidence(stockist, serpResult, scrapedData, knownOfficialOrigins)
-    const candidate = candidateFromDescription(stockist, evidence)
-    if (!candidate) return []
-    if (candidate.location.address && hasAddressEvidence(candidate.location.address, evidence)) {
-      return [
-        makeCandidate(
-          candidate.location,
-          'Complete address supplied with official website or official social evidence',
-          evidence,
-          'verified',
-        ),
-      ]
-    }
-    return [candidate]
-  })
-}
-
-function combineLocationCandidates(extracted: LocationCandidate[], existing: LocationCandidate[]): LocationCandidate[] {
-  const combined = [...extracted]
-  for (const candidate of existing) {
-    if (!combined.some((current) => samePhysicalCandidate(current, candidate))) {
-      combined.push(candidate)
-    }
-  }
-  return combined
 }
 
 function isIncompletePhysicalLocation(location: PhysicalRetailLocation): boolean {
@@ -929,15 +790,9 @@ export async function runChannelsPhase(options: ChannelsPhaseOptions): Promise<C
 
   const { result, durationMs } = await timePhase(async () => {
     const knownOfficialOrigins = officialOrigins(options.brand, options.scrapedData)
-    const initialCandidates = combineLocationCandidates(
-      getDescriptionCandidates(
-        options.descriptionRewrite,
-        options.serpResult,
-        options.scrapedData,
-        knownOfficialOrigins,
-      ),
-      await getExistingChannelCandidates(options),
-    )
+    // Location candidates come only from existing channels until DEV-1313
+    // restores description-derived stockist extraction.
+    const initialCandidates = await getExistingChannelCandidates(options)
     const mapsOptions: SerperAuditOptions = {
       target: options.target,
       ...(options.jobId ? { jobId: options.jobId } : {}),

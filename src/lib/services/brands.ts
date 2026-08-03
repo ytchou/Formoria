@@ -114,11 +114,10 @@ type ApplyBrandPatchArgs = {
 type BrandFieldStateRow = {
   field: string
   source: string
-  admin_locked: boolean | null
   updated_at: string
 }
 type BrandFieldStateTable = {
-  select: (columns: 'field, source, admin_locked, updated_at') => {
+  select: (columns: 'field, source, updated_at') => {
     eq: (column: 'brand_id', value: string) => Promise<{
       data: BrandFieldStateRow[] | null
       error: { message?: string } | null
@@ -708,7 +707,7 @@ async function loadBrandFieldState(
   brandId: string
 ): Promise<Record<string, BrandFieldWriteState>> {
   const { data, error } = await brandFieldStateTable(supabase)
-    .select('field, source, admin_locked, updated_at')
+    .select('field, source, updated_at')
     .eq('brand_id', brandId)
 
   if (error) throw error
@@ -718,7 +717,6 @@ async function loadBrandFieldState(
       row.field,
       {
         source: row.source,
-        adminLocked: row.admin_locked ?? false,
         updatedAt: row.updated_at,
       },
     ])
@@ -1239,7 +1237,7 @@ export async function getSubcategoryCounts(categorySlug: string): Promise<Map<st
   return counts
 }
 
-export const EXPLORE_BRAND_LIMIT = 12
+export const EXPLORE_BRAND_LIMIT = 8
 
 const getCachedExploreBrandPool = unstable_cache(
   () =>
@@ -1484,7 +1482,15 @@ export async function getBrandDraft(brandId: string): Promise<Record<string, unk
   return draftDataToSnapshot(data?.draft_data ?? null)
 }
 
-export async function publishDraft(brandId: string): Promise<Brand> {
+/**
+ * `actor` decides the provenance stamped on every published field. It must be
+ * passed: the default is `admin`, and an owner edit recorded as `admin` is not
+ * protected from an enrichment refresh, because only `owner` blocks one.
+ */
+export async function publishDraft(
+  brandId: string,
+  actor: BrandWriteActor
+): Promise<Brand> {
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('brands')
@@ -1517,7 +1523,7 @@ export async function publishDraft(brandId: string): Promise<Brand> {
     }
   }
 
-  const published = await updateBrand(brandId, partial)
+  const published = await updateBrand(brandId, partial, actor)
 
   const { error: clearError, count } = await supabase
     .from('brands')

@@ -1,9 +1,28 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   applyDetectResult,
   runStandaloneClassification,
   runDetectPhase,
 } from '../detect'
+import type { BatchClassificationItem } from '../../product-type-classifier'
+
+/**
+ * The two batch helpers are mocked (rather than spied) because vitest cannot
+ * redefine a live ESM export binding. `importOriginal` keeps every parser in
+ * the module real — only the two network-calling entry points are replaced.
+ */
+const mocks = vi.hoisted(() => ({
+  detectBrandsBatch: vi.fn(),
+  classifyProductTypeBatch: vi.fn(),
+}))
+
+vi.mock('../../product-type-classifier', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../product-type-classifier')>()),
+  detectBrandsBatch: mocks.detectBrandsBatch,
+  classifyProductTypeBatch: mocks.classifyProductTypeBatch,
+}))
+
+void (null as BatchClassificationItem | null)
 import type { BatchPhaseContext, EnrichBrand, EnrichPhase } from '../types'
 import type { DetectResult } from '../../product-type-classifier'
 
@@ -53,6 +72,33 @@ describe('runDetectPhase', () => {
     expect(result.phaseResult.status).toBe('skipped')
     expect(result.detectResults.size).toBe(0)
   })
+
+  it('fails the phase when every detect call died at the provider', async () => {
+    // An empty result map used to read as "no non-brands found" and the phase
+    // reported `succeeded` — the root cause of the 407 falsely-green targets on
+    // 2026-08-02.
+    mocks.detectBrandsBatch.mockResolvedValue({
+      results: new Map(),
+      calls: { attempted: 2, providerFailed: 2 },
+    })
+
+    const result = await runDetectPhase(ctx(), new Map())
+
+    expect(result.phaseResult.status).toBe('failed')
+    expect(result.phaseResult.providerFailure).toBe(true)
+  })
+
+  it('keeps an empty result from a healthy provider on the succeeded path', async () => {
+    mocks.detectBrandsBatch.mockResolvedValue({
+      results: new Map(),
+      calls: { attempted: 1, providerFailed: 0 },
+    })
+
+    const result = await runDetectPhase(ctx(), new Map())
+
+    expect(result.phaseResult.status).toBe('succeeded')
+    expect(result.phaseResult.providerFailure).toBeUndefined()
+  })
 })
 
 describe('runStandaloneClassification', () => {
@@ -63,6 +109,18 @@ describe('runStandaloneClassification', () => {
 
     expect(result.phaseResult.status).toBe('skipped')
     expect(result.batchClassifications.size).toBe(0)
+  })
+
+  it('fails the phase when every classification call died at the provider', async () => {
+    mocks.classifyProductTypeBatch.mockResolvedValue({
+      results: new Map(),
+      calls: { attempted: 1, providerFailed: 1 },
+    })
+
+    const result = await runStandaloneClassification(ctx({ phases: ['tags'] as EnrichPhase[] }))
+
+    expect(result.phaseResult.status).toBe('failed')
+    expect(result.phaseResult.providerFailure).toBe(true)
   })
 })
 

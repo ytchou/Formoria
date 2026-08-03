@@ -26,7 +26,7 @@ describe('parseCliArgs', () => {
       'classify_images',
       'descriptions',
       'locations',
-      'expansion',
+      'reputation',
     ])
   })
 

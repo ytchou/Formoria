@@ -1,0 +1,148 @@
+/**
+ * The single source of truth for "which model does this process call, with what
+ * request parameters".
+ *
+ * Before this file every phase declared its parameters twice — once in a
+ * `*_CONFIG_PARAMS` object persisted as the audit contract in
+ * `brand_ai_results.config`, and again as literal arguments to `client.chat`.
+ * The two copies drifted, and the audit copy hardcoded the model string while
+ * the client resolved its own, so `OPENAI_MODEL_OVERRIDE` made every audit row
+ * name a model that never ran.
+ */
+
+/**
+ * Model registry. `text` and `vision` point at the same snapshot today; they are
+ * kept separate so splitting them later is a one-line change here rather than a
+ * sweep through every call site.
+ */
+export const LLM_MODELS = {
+  text: 'gpt-5.6-luna',
+  vision: 'gpt-5.6-luna',
+} as const
+
+export type LlmModelKey = keyof typeof LLM_MODELS
+
+export const DEFAULT_OPENAI_MODEL = LLM_MODELS.text
+
+/**
+ * Single source of truth for "which model is this process calling".
+ *
+ * `OPENAI_MODEL_OVERRIDE` exists for offline A/B evaluation only — it lets a
+ * harness run the identical pipeline twice against two snapshots without
+ * editing three consts in lockstep. Unset in every deployed environment, where
+ * DEFAULT_OPENAI_MODEL is the answer. Callers that record the model into an
+ * audit row must read it from here, or the stored row names a model that never
+ * ran.
+ */
+export function resolveOpenAIModel(modelKey: LlmModelKey = 'text'): string {
+  const override = process.env.OPENAI_MODEL_OVERRIDE?.trim()
+  return override && override.length > 0 ? override : LLM_MODELS[modelKey]
+}
+
+export type LlmReasoningEffort = 'none' | 'low' | 'medium' | 'high'
+
+/**
+ * The request parameters for one phase's LLM call.
+ *
+ * `maxTokens`, `reasoningEffort` and `timeoutMs` are optional because not every
+ * call site sets them: image classification sizes its budget from the batch
+ * length and leaves the client's own timeout in place. A profile omits a field
+ * only where the call omits it today — this table is behaviour-preserving.
+ */
+export type LlmProfile = {
+  model: LlmModelKey
+  maxTokens?: number
+  temperature: number
+  reasoningEffort?: LlmReasoningEffort
+  timeoutMs?: number
+}
+
+const CLASSIFY_TIMEOUT_MS = 30_000
+const BATCH_CLASSIFY_TIMEOUT_MS = 60_000
+
+/**
+ * Every phase is extraction or closed-set classification against a fixed rubric,
+ * so `none` is the intended production reasoning budget throughout.
+ */
+export const LLM_PROFILES = {
+  /** Facts extraction — taxonomy, price, city, year, MIT signals, listing verdict. */
+  facts: {
+    model: 'text',
+    maxTokens: 1500,
+    temperature: 0.1,
+    reasoningEffort: 'none',
+    timeoutMs: 30_000,
+  },
+  /**
+   * Prose + FAQ. 6000 covers four description fields plus an 8-12 item bilingual
+   * FAQ. Left where the mega-call had it: the extraction fields moved out to the
+   * facts call, but the FAQ block was always the largest part of this output.
+   */
+  descriptions: {
+    model: 'text',
+    maxTokens: 6000,
+    temperature: 0.1,
+    reasoningEffort: 'none',
+    timeoutMs: 30_000,
+  },
+  /** Reputation research. Longer timeout: the prompt carries full SERP + site text. */
+  reputation: {
+    model: 'text',
+    maxTokens: 1200,
+    temperature: 0.1,
+    reasoningEffort: 'none',
+    timeoutMs: 60_000,
+  },
+  /** Single-brand triage. */
+  detect: {
+    model: 'text',
+    maxTokens: 500,
+    temperature: 0.1,
+    reasoningEffort: 'none',
+    timeoutMs: CLASSIFY_TIMEOUT_MS,
+  },
+  /** Batched triage — up to 20 brands per call. */
+  detectBatch: {
+    model: 'text',
+    maxTokens: 4000,
+    temperature: 0.1,
+    reasoningEffort: 'none',
+    timeoutMs: BATCH_CLASSIFY_TIMEOUT_MS,
+  },
+  /**
+   * Single-brand product-type classification. 300, not 100: maxTokens is
+   * max_completion_tokens on gpt-5, so any preamble the model emits before the
+   * JSON eats the same budget and truncates the answer.
+   */
+  classification: {
+    model: 'text',
+    maxTokens: 300,
+    temperature: 0.1,
+    reasoningEffort: 'none',
+    timeoutMs: CLASSIFY_TIMEOUT_MS,
+  },
+  /** Batched product-type classification — up to 20 brands per call. */
+  classificationBatch: {
+    model: 'text',
+    maxTokens: 1500,
+    temperature: 0.1,
+    reasoningEffort: 'none',
+    timeoutMs: BATCH_CLASSIFY_TIMEOUT_MS,
+  },
+  /**
+   * Image classification. No `maxTokens` here: the budget is 250 per image in
+   * the batch, so only the call site knows it. No `timeoutMs`/`reasoningEffort`
+   * either — this call never set them.
+   */
+  classifyImages: {
+    model: 'vision',
+    temperature: 0.1,
+  },
+} as const satisfies Record<string, LlmProfile>
+
+export type LlmProfileKey = keyof typeof LLM_PROFILES
+
+/** The model a profile actually calls, `OPENAI_MODEL_OVERRIDE` included. */
+export function resolveProfileModel(profileKey: LlmProfileKey): string {
+  return resolveOpenAIModel(LLM_PROFILES[profileKey].model)
+}

@@ -1,6 +1,9 @@
 import type { Brand } from '@/lib/types'
+import type { Database } from '@/lib/supabase/database.types'
+import type { EnrichedFaqItem } from '@/lib/types/enriched-data'
 import { createServiceClient } from '@/lib/supabase/server'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
+import { containsCjk } from './taiwan-localization'
 
 type TFn = (key: string, params?: Record<string, unknown>) => string
 
@@ -27,7 +30,8 @@ export async function getBrandFaq(
   brandId: string,
   brand: Brand,
   t: TFn,
-  locale: string = 'zh-TW'
+  locale: string = 'zh-TW',
+  cityLabel: string | null = null,
 ): Promise<FaqItem[]> {
   const supabase = createServiceClient()
   const { data: faqRow } = await supabase
@@ -51,13 +55,166 @@ export async function getBrandFaq(
     }
   }
 
-  const generated = buildBrandFaq(brand, t, locale)
+  const generated = buildBrandFaq(brand, t, locale, cityLabel)
   if (items.length > 0) {
     const mitItem = generated.find((item) => item.id === 'made-in-taiwan')
     return mitItem ? [mitItem, ...items] : items
   }
 
   return generated
+}
+
+// ---------------------------------------------------------------------------
+// Enrichment → brand_faq persistence
+// ---------------------------------------------------------------------------
+
+type BrandFaqColumn = (typeof FAQ_COLUMN_ORDER)[number]
+type BrandFaqInsert = Database['public']['Tables']['brand_faq']['Insert']
+type ServiceClient = ReturnType<typeof createServiceClient>
+
+/** The curation prompt's closed `category` set, minus `custom` (which overflows). */
+const FAQ_CATEGORY_COLUMNS: Record<string, BrandFaqColumn> = {
+  products: 'faq_products',
+  price: 'faq_price',
+  where_to_buy: 'faq_where_to_buy',
+  founded: 'faq_founded',
+  reputation: 'faq_reputation',
+}
+
+const FAQ_CUSTOM_COLUMNS: BrandFaqColumn[] = [
+  'faq_custom_1', 'faq_custom_2', 'faq_custom_3', 'faq_custom_4',
+]
+
+/**
+ * A column counts as filled when either locale is renderable, because that is
+ * exactly what `getBrandFaq` will surface. A half-written entry (zh only) is
+ * still someone's answer, so it blocks the fill-gaps write rather than being
+ * treated as a gap worth completing from a different source.
+ */
+function isFilledFaqEntry(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false
+  const entry = value as BrandFaqEntry
+  return (
+    (hasValue(entry.question_zh) && hasValue(entry.answer_zh)) ||
+    (hasValue(entry.question_en) && hasValue(entry.answer_en))
+  )
+}
+
+/**
+ * Pairs the flat, bilingual item list the `descriptions` phase emits into the
+ * `{ question_zh, answer_zh, question_en, answer_en }` shape `getBrandFaq`
+ * reads. The prompt contract is zh-then-en for the same logical question, so
+ * language is detected per item and the two per-category streams are zipped by
+ * position — that survives a model that skips one side of a pair, which
+ * strict alternation would silently mis-align for every item after it.
+ *
+ * Exported for tests: the pairing rules are where this file's bugs will live,
+ * and they are worth asserting without a database in the loop.
+ */
+export function buildFaqColumnsFromEnrichment(
+  faqItems: EnrichedFaqItem[],
+): Partial<Record<BrandFaqColumn, BrandFaqEntry>> {
+  const zhByCategory = new Map<string, EnrichedFaqItem[]>()
+  const enByCategory = new Map<string, EnrichedFaqItem[]>()
+
+  for (const item of faqItems ?? []) {
+    const category = item?.category
+    // An unknown category has nowhere to land. Dropping it keeps a prompt
+    // change (new category, old code) from failing the whole write.
+    if (!category) continue
+    if (category !== 'custom' && !(category in FAQ_CATEGORY_COLUMNS)) continue
+    if (!hasValue(item.question) || !hasValue(item.answer)) continue
+
+    const bucket = containsCjk(item.question) ? zhByCategory : enByCategory
+    const existing = bucket.get(category)
+    if (existing) existing.push(item)
+    else bucket.set(category, [item])
+  }
+
+  const pairsByCategory = new Map<string, BrandFaqEntry[]>()
+  for (const category of new Set([...zhByCategory.keys(), ...enByCategory.keys()])) {
+    const zh = zhByCategory.get(category) ?? []
+    const en = enByCategory.get(category) ?? []
+    const pairs: BrandFaqEntry[] = []
+    for (let index = 0; index < Math.max(zh.length, en.length); index++) {
+      pairs.push({
+        question_zh: zh[index]?.question ?? null,
+        answer_zh: zh[index]?.answer ?? null,
+        question_en: en[index]?.question ?? null,
+        answer_en: en[index]?.answer ?? null,
+      })
+    }
+    pairsByCategory.set(category, pairs)
+  }
+
+  const columns: Partial<Record<BrandFaqColumn, BrandFaqEntry>> = {}
+  for (const [category, column] of Object.entries(FAQ_CATEGORY_COLUMNS)) {
+    // One column per fixed category: the schema has no room for a second
+    // `price` question, so extra pairs are dropped rather than overflowing
+    // into the custom slots a genuinely custom question needs.
+    const entry = pairsByCategory.get(category)?.[0]
+    if (entry) columns[column] = entry
+  }
+
+  const customPairs = pairsByCategory.get('custom') ?? []
+  FAQ_CUSTOM_COLUMNS.forEach((column, index) => {
+    const entry = customPairs[index]
+    if (entry) columns[column] = entry
+  })
+
+  return columns
+}
+
+/**
+ * Writes the enrichment FAQ into `brand_faq`, filling gaps only.
+ *
+ * FILL-GAPS-ONLY is load-bearing: a populated column may have been hand-edited
+ * by an admin or a brand owner, and this runs on every refresh apply. Blindly
+ * upserting would let a re-run of the model quietly overwrite human copy with
+ * no audit trail and no way back. Correcting bad existing FAQ text is a
+ * separate, deliberate validation pass — never a side effect of enrichment.
+ *
+ * `client` is injectable so the pairing and gap rules can be tested against a
+ * query double (mocking `@/lib/supabase/server` is forbidden by
+ * `scripts/check-test-boundaries.mjs`); production callers omit it.
+ */
+export async function upsertBrandFaqFromEnrichment(
+  brandId: string,
+  faqItems: EnrichedFaqItem[],
+  client?: ServiceClient,
+): Promise<void> {
+  const candidates = buildFaqColumnsFromEnrichment(faqItems ?? [])
+  // Nothing usable in the payload — return before touching the database at all,
+  // so an un-enriched brand costs zero queries on every apply.
+  if (Object.keys(candidates).length === 0) return
+
+  const supabase = client ?? createServiceClient()
+  const { data: existingRow, error: readError } = await supabase
+    .from('brand_faq')
+    .select('*')
+    .eq('brand_id', brandId)
+    .maybeSingle()
+  if (readError) throw readError
+
+  const existing = (existingRow ?? {}) as unknown as Record<string, unknown>
+  const patch: Record<string, BrandFaqEntry> = {}
+  for (const [column, entry] of Object.entries(candidates)) {
+    if (!entry) continue
+    if (isFilledFaqEntry(existing[column])) continue
+    patch[column] = entry
+  }
+  if (Object.keys(patch).length === 0) return
+
+  // `upsert` rather than branching on `existingRow`: it inserts when the row is
+  // absent and updates only the listed columns when it is not, which also
+  // closes the read-then-write race between two concurrent applies.
+  const { error: writeError } = await supabase
+    .from('brand_faq')
+    .upsert(
+      { brand_id: brandId, ...patch } as unknown as BrandFaqInsert,
+      { onConflict: 'brand_id' },
+    )
+  if (writeError) throw writeError
 }
 
 type FaqGenerator = {
@@ -68,6 +225,7 @@ type FaqGenerator = {
     brand: Brand,
     t: TFn,
     locale: string,
+    cityLabel: string | null,
   ) => string
 }
 
@@ -131,7 +289,12 @@ function buildWhereToBuyAnswer(brand: Brand, t: TFn): string {
   })
 }
 
-function buildMainProductsAnswer(brand: Brand, t: TFn, locale: string): string {
+function buildMainProductsAnswer(
+  brand: Brand,
+  t: TFn,
+  locale: string,
+  cityLabel: string | null,
+): string {
   const isEnglish = locale === 'en'
   const category = isEnglish
     ? PRODUCT_TYPE_CATEGORIES.find((item) => item.slug === brand.productType)?.name
@@ -140,7 +303,7 @@ function buildMainProductsAnswer(brand: Brand, t: TFn, locale: string): string {
   const productTags = truncate(
     isEnglish ? (brand.productTagsEn ?? []) : (brand.productTags ?? []),
   ).join(sep)
-  const context = buildBrandContext(brand, t)
+  const context = buildBrandContext(brand, t, cityLabel)
 
   if (category && productTags) {
     return t('brandFaq.mainProducts.answerWithCategoryAndTags', {
@@ -166,11 +329,16 @@ function buildPriceRangeAnswer(brand: Brand, t: TFn): string {
   })
 }
 
-function buildFoundedAnswer(brand: Brand, t: TFn): string {
+function buildFoundedAnswer(
+  brand: Brand,
+  t: TFn,
+  _locale: string,
+  cityLabel: string | null,
+): string {
   return t('brandFaq.whenFounded.answer', {
     brandName: brand.name,
     year: brand.foundingYear,
-    context: buildBrandContext(brand, t),
+    context: buildBrandContext(brand, t, cityLabel),
   })
 }
 
@@ -182,20 +350,25 @@ function buildOfficialAccountsAnswer(brand: Brand, t: TFn): string {
   })
 }
 
-function buildReputationAnswer(brand: Brand, t: TFn, locale: string): string {
+function buildReputationAnswer(
+  brand: Brand,
+  t: TFn,
+  locale: string,
+  cityLabel: string | null,
+): string {
   const summary = locale === 'en'
     ? (brand.reputationSummary?.textEn ?? '')
     : (brand.reputationSummary?.text ?? '')
   return t('brandFaq.reputation.answer', {
     brandName: brand.name,
     summary,
-    context: buildBrandContext(brand, t),
+    context: buildBrandContext(brand, t, cityLabel),
   })
 }
 
-function buildBrandContext(brand: Brand, t: TFn): string {
+function buildBrandContext(brand: Brand, t: TFn, cityLabel: string | null): string {
   const details = compactValues([
-    brand.city ? t('brandFaq.context.city', { city: brand.city }) : null,
+    cityLabel ? t('brandFaq.context.city', { city: cityLabel }) : null,
     brand.foundingYear
       ? t('brandFaq.context.founded', { year: brand.foundingYear })
       : null,
@@ -289,13 +462,18 @@ const FAQ_GENERATORS: FaqGenerator[] = [
   },
 ]
 
-export function buildBrandFaq(brand: Brand, t: TFn, locale: string = 'zh-TW'): FaqItem[] {
+export function buildBrandFaq(
+  brand: Brand,
+  t: TFn,
+  locale: string = 'zh-TW',
+  cityLabel: string | null = null,
+): FaqItem[] {
   return FAQ_GENERATORS.filter((generator) =>
     generator.condition(brand, locale),
   ).map((generator) => ({
       id: generator.id,
       question: t(generator.questionKey, { brandName: brand.name }),
-      answer: generator.buildAnswer(brand, t, locale),
+      answer: generator.buildAnswer(brand, t, locale, cityLabel),
     }),
   )
 }

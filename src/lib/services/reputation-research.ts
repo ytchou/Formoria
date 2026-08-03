@@ -1,14 +1,28 @@
-import { EXPANSION_SYSTEM_PROMPT } from '@/lib/prompts'
-import { createAuditedOpenAIClient, type LlmAuditContext } from '@/lib/services/llm-audit'
+import { REPUTATION_SYSTEM_PROMPT } from '@/lib/prompts'
+import {
+  createProfiledOpenAIClient,
+  profileChatParams,
+  type LlmAuditContext,
+} from '@/lib/services/llm-audit'
 import type { ReputationSummary } from '@/lib/types/brand'
+import type { LlmCallCounts } from '@/lib/services/llm-call-outcome'
 
-const EXPANSION_TIMEOUT_MS = 60_000
-
-export type ExpansionResult = {
+export type ReputationResult = {
   reputationSummary: ReputationSummary | null
 }
 
-type ExpansionInput = {
+/**
+ * One call, so the counts degenerate to 0/1 — but they are carried in the same
+ * shape as every other LLM helper so the phase layer has a single rule for
+ * "the provider was down" (see `llm-call-outcome.ts`). Before this, a quota
+ * outage and a brand with genuinely no reputation evidence were both `null`.
+ */
+export type ReputationResearchOutput = {
+  result: ReputationResult | null
+  calls: LlmCallCounts
+}
+
+type ReputationInput = {
   name: string
   description: string | null
   category?: string | null
@@ -47,7 +61,7 @@ function parseReputationSummary(value: unknown): ReputationSummary | null {
   }
 }
 
-function parseExpansionResult(content: string): ExpansionResult | null {
+function parseReputationResult(content: string): ReputationResult | null {
   try {
     const parsed = JSON.parse(content) as Record<string, unknown>
     return {
@@ -58,10 +72,10 @@ function parseExpansionResult(content: string): ExpansionResult | null {
   }
 }
 
-export async function runExpansionResearch(
-  input: ExpansionInput,
+export async function runReputationResearch(
+  input: ReputationInput,
   audit: LlmAuditContext,
-): Promise<ExpansionResult | null> {
+): Promise<ReputationResearchOutput | null> {
   const token = process.env.OPENAI_API_KEY
   if (!token) return null
   if (
@@ -83,24 +97,29 @@ export async function runExpansionResearch(
     .filter(Boolean)
     .join('\n\n')
 
-  const client = createAuditedOpenAIClient(audit, { apiKey: token })
+  const client = createProfiledOpenAIClient('reputation', audit, { apiKey: token })
 
   try {
     const { response, content } = await client.chat({
-      system: EXPANSION_SYSTEM_PROMPT,
+      system: REPUTATION_SYSTEM_PROMPT,
       user: userContent,
       json: true,
-      timeoutMs: EXPANSION_TIMEOUT_MS,
-      maxTokens: 1200,
-      temperature: 0.1,
-      reasoningEffort: 'none',
+      ...profileChatParams('reputation'),
     })
-    if (!response.ok) return null
+    // The only provider-failure site: a non-2xx never reached the model. An
+    // empty or unparseable body below is the model having answered badly, which
+    // must keep leaving the phase `succeeded` — otherwise Gate C would fail
+    // every brand the model simply had nothing to say about.
+    if (!response.ok) {
+      return { result: null, calls: { attempted: 1, providerFailed: 1 } }
+    }
 
-    if (!content) return null
-    const parsed = parseExpansionResult(content)
-    return parsed
+    if (!content) return { result: null, calls: { attempted: 1, providerFailed: 0 } }
+    const parsed = parseReputationResult(content)
+    return { result: parsed, calls: { attempted: 1, providerFailed: 0 } }
   } catch {
+    // Transport failures are already returned as `ok: false` by the client, so
+    // anything thrown here is local — attributed to neither side's call count.
     return null
   }
 }

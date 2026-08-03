@@ -3,9 +3,10 @@ import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 /**
  * Editorial tags live alongside the product-type vocabulary on the same axis.
  * They describe what a story *is* rather than what it is *about* — an expo
- * report is `event`, and may also carry `crafts` for its subject matter.
+ * report is `event`, with `creative-expo` identifying the specific expo and
+ * product-type tags such as `crafts` describing its subject matter.
  */
-export const STORY_EDITORIAL_TAGS = ['event'] as const
+export const STORY_EDITORIAL_TAGS = ['event', 'creative-expo'] as const
 
 /**
  * The full story tag vocabulary: every L1 product-type slug plus the editorial

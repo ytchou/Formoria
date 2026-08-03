@@ -1,0 +1,11 @@
+{
+  "name": "model-refresh-3b",
+  "title": "Three-brand refresh, wave 2 — BATCH_SIZE 10",
+  "subtitle": "Second wave of the working-tree pipeline run, with image classification batched at ten per call instead of five.",
+  "warning": "Run in-process from the main working tree on 2026-08-03, NOT the deployed Railway worker. Wave 2 additionally carries BATCH_SIZE 10 and MAX_CHUNK_RETRIES 2 in image classification.",
+  "labels": {
+    "robber-925-silver": "Robber 925 Silver",
+    "reshock-coffee": "里響咖啡 RESHOCK COFFEE",
+    "weavism": "WEAVISM 織本主義"
+  }
+}

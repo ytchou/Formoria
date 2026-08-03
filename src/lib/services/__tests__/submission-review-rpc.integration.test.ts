@@ -374,11 +374,13 @@ describeWithDb("trusted submission review RPCs", () => {
     });
   });
 
-  it("continues to reject protected non-location enrichment", async () => {
+  // `source` alone carries the protection now; `admin_locked` is no longer read
+  // by any function, so seeding it would prove nothing.
+  it("continues to reject owner-protected non-location enrichment", async () => {
     const brand = await seedRefreshBrand("protected-description", "approved");
     const { error: stateError } = await untypedSupabase!
       .from("brand_field_state")
-      .update({ source: "owner", admin_locked: true, updated_by: reviewerId })
+      .update({ source: "owner", updated_by: reviewerId })
       .eq("brand_id", brand.id)
       .eq("field", "description");
     expect(stateError).toBeNull();
@@ -406,15 +408,54 @@ describeWithDb("trusted submission review RPCs", () => {
 
     const { data: state } = await untypedSupabase!
       .from("brand_field_state")
-      .select("source, admin_locked, updated_by")
+      .select("source, updated_by")
       .eq("brand_id", brand.id)
       .eq("field", "description")
       .single();
     expect(state).toEqual({
       source: "owner",
-      admin_locked: true,
       updated_by: reviewerId,
     });
+  });
+
+  // The counterpart to the test above: `admin` was applied to 4,150 rows by a
+  // provenance backfill's `else` branch, so it must NOT block a refresh.
+  it("applies enrichment over admin-stamped provenance", async () => {
+    const brand = await seedRefreshBrand("admin-description", "approved");
+    const { error: stateError } = await untypedSupabase!
+      .from("brand_field_state")
+      .update({ source: "admin", updated_by: reviewerId })
+      .eq("brand_id", brand.id)
+      .eq("field", "description");
+    expect(stateError).toBeNull();
+    const { data: submissionId, error: requestError } = await supabase!.rpc(
+      "request_brand_refresh",
+      {
+        p_brand_id: brand.id,
+        p_requested_by: reviewerId,
+        p_requester_email: "admin@formoria.com",
+      },
+    );
+    expect(requestError).toBeNull();
+    submissionIds.push(submissionId!);
+    await supabase!
+      .from("brand_submissions")
+      .update({ enriched_data: { description: "應該覆蓋的介紹" } })
+      .eq("id", submissionId!);
+    await seedSuccessfulTarget(submissionId!, "refresh-admin-description");
+
+    const { error } = await supabase!.rpc("apply_brand_refresh", {
+      p_submission_id: submissionId!,
+      p_reviewer_id: reviewerId,
+    });
+    expect(error).toBeNull();
+
+    const { data: updated } = await supabase!
+      .from("brands")
+      .select("description")
+      .eq("id", brand.id)
+      .single();
+    expect(updated?.description).toBe("應該覆蓋的介紹");
   });
 
   it("retires an enrichment image, preserves the owner image, and promotes a candidate", async () => {

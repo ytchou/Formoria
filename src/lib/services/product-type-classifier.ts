@@ -1,7 +1,9 @@
 import { CLASSIFY_SYSTEM_PROMPT, DETECT_SYSTEM_PROMPT } from '@/lib/prompts'
 import { createOpenAIClient } from '@/lib/services/openai-client'
-import { createAuditedOpenAIClient } from '@/lib/services/llm-audit'
+import { createProfiledOpenAIClient, profileChatParams } from '@/lib/services/llm-audit'
+import { resolveProfileModel, type LlmProfileKey } from '@/lib/constants/llm-models'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
+import { addLlmCalls, isLlmProviderFailure, noLlmCalls, type LlmCallCounts } from './llm-call-outcome'
 import type { EnrichmentTarget } from './enrichment-target'
 
 export type ClassificationResult = { productType: string; confidence: 'high' | 'medium' | 'low' }
@@ -44,22 +46,61 @@ export type ExtractionResult = {
   categoryMismatch: boolean
 }
 
-const CLASSIFY_TIMEOUT_MS = 30_000
-const BATCH_CLASSIFY_TIMEOUT_MS = 60_000
 const VALID_PRODUCT_TYPES = new Set<string>(PRODUCT_TYPE_CATEGORIES.map(category => category.slug))
 
 
 type UnknownRecord = Record<string, unknown>
 
+/**
+ * Result of one LLM call (or one chunk of calls) plus what the provider did.
+ *
+ * Every failure site in this file used to `return null`, which erased the
+ * difference between "OpenAI is down" and "the model answered with something we
+ * could not parse". That is what let a fully quota-blocked run report 407
+ * `succeeded` targets on 2026-08-02, so the two are now distinct: only a
+ * non-2xx response increments `providerFailed`.
+ */
+type LlmCallOutcome<T> = {
+  value: T | null
+  calls: LlmCallCounts
+}
+
+/**
+ * What a whole batch (chunk calls plus any per-brand fallbacks) did. `results`
+ * is always a map — partial results from a partly-healthy run are still usable
+ * — and `calls` is what the phase reads to decide `succeeded` vs `failed`.
+ */
+export type LlmBatchOutcome<T> = {
+  results: T
+  calls: LlmCallCounts
+}
+
+/** No call was issued at all (no API key) — neither success nor provider fault. */
+function notAttempted<T>(): LlmCallOutcome<T> {
+  return { value: null, calls: noLlmCalls() }
+}
+
+/** The call never reached the model: non-2xx. The only thing Gate C acts on. */
+function providerFailed<T>(): LlmCallOutcome<T> {
+  return { value: null, calls: { attempted: 1, providerFailed: 1 } }
+}
+
+/** The provider answered; the payload was empty, unparseable or invalid. */
+function contentFailed<T>(): LlmCallOutcome<T> {
+  return { value: null, calls: { attempted: 1, providerFailed: 0 } }
+}
+
 function createClassifierClient(
   apiKey: string,
   phase: 'classification' | 'detect',
+  profileKey: LlmProfileKey,
   target: EnrichmentTarget | undefined,
   jobId?: string,
 ) {
-  if (!target) return createOpenAIClient({ apiKey })
+  if (!target) return createOpenAIClient({ apiKey, model: resolveProfileModel(profileKey) })
 
-  return createAuditedOpenAIClient(
+  return createProfiledOpenAIClient(
+    profileKey,
     {
       target,
       phase,
@@ -278,56 +319,53 @@ function parseSingleTriageResponse(content: string, slug: string): DetectResult 
 async function classifyProductType(
   brand: BatchClassificationItem,
   jobId?: string,
-): Promise<ClassificationResult | null> {
+): Promise<LlmCallOutcome<ClassificationResult>> {
   const token = process.env.OPENAI_API_KEY
-  if (!token) return null
+  if (!token) return notAttempted()
 
   const userContent = `品牌名稱：${brand.name}\n描述：${brand.description ?? '無'}`
 
-  const client = createClassifierClient(token, 'classification', brand.target, jobId)
+  const client = createClassifierClient(token, 'classification', 'classification', brand.target, jobId)
 
   try {
+    // The 300-token budget and why it is not 100 live with the profile in
+    // `@/lib/constants/llm-models`.
     const { response, data, content } = await client.chat({
       system: CLASSIFY_SYSTEM_PROMPT,
       user: userContent,
       json: true,
-      timeoutMs: CLASSIFY_TIMEOUT_MS,
-      // 300, not 100: maxTokens is max_completion_tokens on gpt-5, so any preamble the
-      // model emits before the JSON eats the same budget and truncates the answer.
-      maxTokens: 300,
-      temperature: 0.1,
-      reasoningEffort: 'none',
+      ...profileChatParams('classification'),
     })
 
     if (!response.ok) {
       console.error(`  → product type classification failed: HTTP ${response.status}`)
-      return null
+      return providerFailed()
     }
 
     if (!content) {
       console.error(`  → product type classification: empty response, data=${JSON.stringify(data).slice(0, 200)}`)
-      return null
+      return contentFailed()
     }
 
     const result = parseClassification(content)
     if (!result) {
       console.error(`  → product type classification: invalid response: ${content.slice(0, 200)}`)
-      return null
+      return contentFailed()
     }
 
-    return result
+    return { value: result, calls: { attempted: 1, providerFailed: 0 } }
   } catch (err) {
     console.error(`  → product type classification failed: ${err instanceof Error ? err.message : err}`)
-    return null
+    return contentFailed()
   }
 }
 
 async function classifyProductTypeBatchChunk(
   brands: BatchClassificationItem[],
   jobId?: string,
-): Promise<Map<string, ClassificationResult> | null> {
+): Promise<LlmCallOutcome<Map<string, ClassificationResult>>> {
   const token = process.env.OPENAI_API_KEY
-  if (!token) return null
+  if (!token) return notAttempted()
 
   const validSlugs = new Set(brands.map(brand => brand.slug))
   const list = brands.map((brand, index) => {
@@ -335,119 +373,128 @@ async function classifyProductTypeBatchChunk(
   }).join('\n')
   const userContent = `請將以下品牌分類：\n${list}`
 
-  const client = createClassifierClient(token, 'classification', brands.at(0)?.target, jobId)
+  const client = createClassifierClient(token, 'classification', 'classificationBatch', brands.at(0)?.target, jobId)
 
   try {
     const { response, data, content } = await client.chat({
       system: CLASSIFY_SYSTEM_PROMPT,
       user: userContent,
       json: true,
-      timeoutMs: BATCH_CLASSIFY_TIMEOUT_MS,
-      maxTokens: 1500,
-      temperature: 0.1,
-      reasoningEffort: 'none',
+      ...profileChatParams('classificationBatch'),
     })
 
     if (!response.ok) {
       console.error(`  → product type batch classification failed: HTTP ${response.status}`)
-      return null
+      return providerFailed()
     }
 
     if (!content) {
       console.error(`  → product type batch classification: empty response, data=${JSON.stringify(data).slice(0, 200)}`)
-      return null
+      return contentFailed()
     }
 
     const results = parseBatchClassification(content, validSlugs)
     if (!results) {
       console.error(`  → product type batch classification: invalid response: ${content.slice(0, 200)}`)
-      return null
+      return contentFailed()
     }
 
-    return results
+    return { value: results, calls: { attempted: 1, providerFailed: 0 } }
   } catch (err) {
     console.error(`  → product type batch classification failed: ${err instanceof Error ? err.message : err}`)
-    return null
+    return contentFailed()
   }
 }
 
 export async function classifyProductTypeBatch(
   brands: BatchClassificationItem[],
   jobId?: string,
-): Promise<Map<string, ClassificationResult>> {
+): Promise<LlmBatchOutcome<Map<string, ClassificationResult>>> {
   const results = new Map<string, ClassificationResult>()
+  let calls = noLlmCalls()
 
   for (let i = 0; i < brands.length; i += 20) {
     const batch = brands.slice(i, i + 20)
-    const batchResults = await classifyProductTypeBatchChunk(batch, jobId)
+    const chunk = await classifyProductTypeBatchChunk(batch, jobId)
+    calls = addLlmCalls(calls, chunk.calls)
 
-    if (batchResults) {
-      for (const [slug, result] of batchResults) {
+    if (chunk.value) {
+      for (const [slug, result] of chunk.value) {
         results.set(slug, result)
       }
       continue
     }
 
+    // The per-brand fallback only makes sense when the model answered and we
+    // could not use the answer. If the chunk call itself never reached the
+    // provider, every single-brand retry will die the same way — on 2026-08-02
+    // that turned one dead batch call into 20 more doomed calls per chunk, each
+    // paying its own retry backoff.
+    if (isLlmProviderFailure(chunk.calls)) {
+      continue
+    }
+
     for (const brand of batch) {
-      const result = await classifyProductType(brand, jobId)
-      if (result) {
-        results.set(brand.slug, result)
+      const single = await classifyProductType(brand, jobId)
+      calls = addLlmCalls(calls, single.calls)
+      if (single.value) {
+        results.set(brand.slug, single.value)
       }
     }
   }
 
-  return results
+  return { results, calls }
 }
 
-async function detectBrand(brand: DetectBatchItem, jobId?: string): Promise<DetectResult | null> {
+async function detectBrand(
+  brand: DetectBatchItem,
+  jobId?: string,
+): Promise<LlmCallOutcome<DetectResult>> {
   const token = process.env.OPENAI_API_KEY
-  if (!token) return null
+  if (!token) return notAttempted()
 
   const snippetLine = brand.snippets?.length ? `\n搜尋摘要：${brand.snippets.slice(0, 10).join('；')}` : ''
   const userContent = `品牌 slug：${brand.slug}\n品牌名稱：${brand.name}\n描述：${brand.description ?? '無'}\n網站：${brand.website ?? '無'}${snippetLine}`
 
-  const client = createClassifierClient(token, 'detect', brand.target, jobId)
+  const client = createClassifierClient(token, 'detect', 'detect', brand.target, jobId)
 
   try {
     const { response, data, content } = await client.chat({
       system: DETECT_SYSTEM_PROMPT,
       user: userContent,
       json: true,
-      timeoutMs: CLASSIFY_TIMEOUT_MS,
-      maxTokens: 500,
-      temperature: 0.1,
-      reasoningEffort: 'none',
+      ...profileChatParams('detect'),
     })
 
     if (!response.ok) {
       console.error(`  → brand triage failed: HTTP ${response.status}`)
-      return null
+      return providerFailed()
     }
 
     if (!content) {
       console.error(`  → brand triage: empty response, data=${JSON.stringify(data).slice(0, 200)}`)
-      return null
+      return contentFailed()
     }
 
     const result = parseSingleTriageResponse(content, brand.slug)
     if (!result) {
       console.error(`  → brand triage: invalid response: ${content.slice(0, 200)}`)
-      return null
+      return contentFailed()
     }
 
-    return result
+    return { value: result, calls: { attempted: 1, providerFailed: 0 } }
   } catch (err) {
     console.error(`  → brand triage failed: ${err instanceof Error ? err.message : err}`)
-    return null
+    return contentFailed()
   }
 }
 
 async function detectBrandsBatchChunk(
   brands: DetectBatchItem[],
   jobId?: string,
-): Promise<Map<string, DetectResult> | null> {
+): Promise<LlmCallOutcome<Map<string, DetectResult>>> {
   const token = process.env.OPENAI_API_KEY
-  if (!token) return null
+  if (!token) return notAttempted()
 
   const list = brands.map((brand, index) => {
     const base = `${index + 1}. [${brand.slug}] 品牌名：${brand.name} / 描述：${brand.description ?? '無'} / 網站：${brand.website ?? '無'}`
@@ -456,66 +503,73 @@ async function detectBrandsBatchChunk(
   }).join('\n')
   const userContent = `請判斷以下項目是否為實際品牌：\n${list}`
 
-  const client = createClassifierClient(token, 'detect', brands.at(0)?.target, jobId)
+  const client = createClassifierClient(token, 'detect', 'detectBatch', brands.at(0)?.target, jobId)
 
   try {
     const { response, data, content } = await client.chat({
       system: DETECT_SYSTEM_PROMPT,
       user: userContent,
       json: true,
-      timeoutMs: BATCH_CLASSIFY_TIMEOUT_MS,
-      maxTokens: 4000,
-      temperature: 0.1,
-      reasoningEffort: 'none',
+      ...profileChatParams('detectBatch'),
     })
 
     if (!response.ok) {
       console.error(`  → brand triage batch failed: HTTP ${response.status}`)
-      return null
+      return providerFailed()
     }
 
     if (!content) {
       console.error(`  → brand triage batch: empty response, data=${JSON.stringify(data).slice(0, 200)}`)
-      return null
+      return contentFailed()
     }
 
     const results = parseTriageResponse(content, brands)
     if (!results) {
       console.error(`  → brand triage batch: invalid response: ${content.slice(0, 200)}`)
-      return null
+      return contentFailed()
     }
 
-    return results
+    return { value: results, calls: { attempted: 1, providerFailed: 0 } }
   } catch (err) {
     console.error(`  → brand triage batch failed: ${err instanceof Error ? err.message : err}`)
-    return null
+    return contentFailed()
   }
 }
 
 export async function detectBrandsBatch(
   brands: DetectBatchItem[],
   jobId?: string,
-): Promise<Map<string, DetectResult>> {
+): Promise<LlmBatchOutcome<Map<string, DetectResult>>> {
   const results = new Map<string, DetectResult>()
+  let calls = noLlmCalls()
 
   for (let i = 0; i < brands.length; i += 20) {
     const batch = brands.slice(i, i + 20)
-    const batchResults = await detectBrandsBatchChunk(batch, jobId)
+    const chunk = await detectBrandsBatchChunk(batch, jobId)
+    calls = addLlmCalls(calls, chunk.calls)
 
-    if (batchResults) {
-      for (const [slug, result] of batchResults) {
+    if (chunk.value) {
+      for (const [slug, result] of chunk.value) {
         results.set(slug, result)
       }
       continue
     }
 
+    // Same rule as the classifier above: a provider-level chunk failure means
+    // the account, not the payload, is the problem — 20 single-brand retries
+    // would only multiply the outage.
+    if (isLlmProviderFailure(chunk.calls)) {
+      continue
+    }
+
     for (const brand of batch) {
-      const result = await detectBrand(brand, jobId)
-      if (result) {
-        results.set(brand.slug, result)
+      const single = await detectBrand(brand, jobId)
+      calls = addLlmCalls(calls, single.calls)
+      if (single.value) {
+        results.set(brand.slug, single.value)
       }
     }
   }
 
-  return results
+  return { results, calls }
 }

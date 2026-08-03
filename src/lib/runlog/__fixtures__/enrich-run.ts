@@ -1,4 +1,5 @@
 import type { RunLog } from '../schema'
+import { LLM_MODELS } from '@/lib/constants/llm-models'
 
 export const enrichRunFixture = {
   schemaVersion: '1.0',
@@ -66,7 +67,7 @@ export const enrichRunFixture = {
           name: 'chat.completion',
           summary: 'Classified brand and product type',
           status: 'ok',
-          model: 'gpt-5.6-luna',
+          model: LLM_MODELS.text,
           tokens: { input: 2_100, output: 410, total: 2_510 },
           latencyMs: 2_430,
           labels: { target: 'acme-taiwan' },
@@ -77,7 +78,7 @@ export const enrichRunFixture = {
           name: 'chat.completion',
           summary: 'Image classification request rejected',
           status: 'error',
-          model: 'gpt-5.6-luna',
+          model: LLM_MODELS.text,
           tokens: { input: 3_840, output: 770, total: 4_610 },
           latencyMs: 3_820,
           labels: { target: 'island-tools' },

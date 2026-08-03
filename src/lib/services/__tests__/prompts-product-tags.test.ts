@@ -1,19 +1,19 @@
 import { describe, it, expect } from 'vitest'
-import { DESCRIPTION_SYSTEM_PROMPT, DETECT_SYSTEM_PROMPT } from '@/lib/prompts'
+import { DETECT_SYSTEM_PROMPT, FACTS_SYSTEM_PROMPT } from '@/lib/prompts'
 
-describe('DESCRIPTION_SYSTEM_PROMPT product_tags vocabulary', () => {
+describe('FACTS_SYSTEM_PROMPT product_tags vocabulary', () => {
   it('embeds the subcategory tree grouped by L1 category', () => {
-    expect(DESCRIPTION_SYSTEM_PROMPT).toContain('包袋配件')
-    expect(DESCRIPTION_SYSTEM_PROMPT).toContain('口金包')
-    expect(DESCRIPTION_SYSTEM_PROMPT).toContain('托特包')
-    expect(DESCRIPTION_SYSTEM_PROMPT).toContain('手工皂')
+    expect(FACTS_SYSTEM_PROMPT).toContain('包袋配件')
+    expect(FACTS_SYSTEM_PROMPT).toContain('口金包')
+    expect(FACTS_SYSTEM_PROMPT).toContain('托特包')
+    expect(FACTS_SYSTEM_PROMPT).toContain('手工皂')
   })
   it('instructs two-step extraction and vocabulary preference', () => {
-    expect(DESCRIPTION_SYSTEM_PROMPT).toMatch(/先.*產品線|先列出/)
-    expect(DESCRIPTION_SYSTEM_PROMPT).toMatch(/優先.*詞彙表|從.*詞彙表.*選/)
+    expect(FACTS_SYSTEM_PROMPT).toMatch(/先.*產品線|先列出/)
+    expect(FACTS_SYSTEM_PROMPT).toMatch(/優先.*詞彙表|從.*詞彙表.*選/)
   })
   it('no longer forbids broad categories (old instruction removed)', () => {
-    expect(DESCRIPTION_SYSTEM_PROMPT).not.toContain('不要用寬泛分類')
+    expect(FACTS_SYSTEM_PROMPT).not.toContain('不要用寬泛分類')
   })
 })
 
@@ -23,8 +23,9 @@ describe('listing criteria are split across the two stages', () => {
   // hold, but they are now enforced in different places — detect runs on search
   // snippets alone and cannot see purchase channels, so it judges the product
   // question and defers the channel question to the descriptions call, which
-  // runs after links and images. These assertions pin that split, because
-  // silently losing either half would re-open DEV-1277.
+  // runs after links and images (its facts half, since the split). These
+  // assertions pin that split, because silently losing either half would
+  // re-open DEV-1277.
   it('keeps the illustrator product test in the early triage stage', () => {
     expect(DETECT_SYSTEM_PROMPT).toContain('commission-only illustrator')
     expect(DETECT_SYSTEM_PROMPT).toContain('LINE stickers or digital files')
@@ -32,12 +33,12 @@ describe('listing criteria are split across the two stages', () => {
     expect(DETECT_SYSTEM_PROMPT).toContain('there must be evidence of a physical product')
   })
 
-  it('defers the purchase-channel test to the descriptions stage', () => {
+  it('defers the purchase-channel test to the facts stage', () => {
     // Detect must NOT gate on a channel it cannot observe.
     expect(DETECT_SYSTEM_PROMPT).not.toContain('可驗證的購買管道')
     expect(DETECT_SYSTEM_PROMPT).toContain('a later stage sees all of those')
-    expect(DESCRIPTION_SYSTEM_PROMPT).toContain('可驗證的購買管道')
-    expect(DESCRIPTION_SYSTEM_PROMPT).toContain('自主設計或生產的實體商品')
+    expect(FACTS_SYSTEM_PROMPT).toContain('可驗證的購買管道')
+    expect(FACTS_SYSTEM_PROMPT).toContain('自主設計或生產的實體商品')
   })
 
   it('never lets the early stage reject on uncertainty', () => {
@@ -45,7 +46,7 @@ describe('listing criteria are split across the two stages', () => {
   })
 })
 
-describe('the product category is decided in the descriptions stage', () => {
+describe('the product category is decided in the facts stage', () => {
   // Detect judges from SERP snippets alone, before the brand's own site is
   // scraped and before any product photo is seen. The category is a reasoning
   // task, so it belongs to the call that has that evidence.
@@ -54,9 +55,9 @@ describe('the product category is decided in the descriptions stage', () => {
     expect(DETECT_SYSTEM_PROMPT).not.toContain('## Category')
   })
 
-  it('asks the descriptions stage for a single L1 category slug', () => {
-    expect(DESCRIPTION_SYSTEM_PROMPT).toContain('product_type')
-    expect(DESCRIPTION_SYSTEM_PROMPT).toContain('bags-accessories')
-    expect(DESCRIPTION_SYSTEM_PROMPT).toContain('核心產品線')
+  it('asks the facts stage for a single L1 category slug', () => {
+    expect(FACTS_SYSTEM_PROMPT).toContain('product_type')
+    expect(FACTS_SYSTEM_PROMPT).toContain('bags-accessories')
+    expect(FACTS_SYSTEM_PROMPT).toContain('核心產品線')
   })
 })

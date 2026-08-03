@@ -1,28 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
 import { parseDescriptionRewriteResult, rewriteBrandDescription } from './description-rewrite'
-import { createAuditedOpenAIClient } from './llm-audit'
+import { createProfiledOpenAIClient } from './llm-audit'
 
-vi.mock('./llm-audit', () => ({ createAuditedOpenAIClient: vi.fn() }))
-
-function makeTagFixture(
-  product_tags: string[],
-  product_tags_en: string[],
-): string {
-  return JSON.stringify({
-    description_zh: '品牌簡介',
-    description_en: 'Brand description',
-    blurb_zh: '摘要',
-    blurb_en: 'Summary',
-    price_range: 1,
-    product_tags,
-    product_tags_en,
-    city: null,
-    founding_year: null,
-    signature_products: [],
-    where_to_buy: null,
-    category_mismatch: false,
-  })
-}
+// Partial mock: the profile helpers (`profileChatParams`,
+// `buildProfiledEnrichmentConfig`) are the real ones, so these tests still
+// exercise the request parameters the descriptions profile actually resolves.
+vi.mock('./llm-audit', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./llm-audit')>()),
+  createProfiledOpenAIClient: vi.fn(),
+}))
 
 describe('parseDescriptionRewriteResult', () => {
   it('returns null description when the LLM response is not valid JSON — never the raw text', () => {
@@ -30,104 +16,20 @@ describe('parseDescriptionRewriteResult', () => {
     expect(result.description).toBeNull()
   })
 
-  it('maps free-text city names to DB slugs', () => {
+  it('localizes zh FAQ fields while preserving English FAQ text', () => {
     const json = JSON.stringify({
       description_zh: '品牌簡介',
       description_en: 'Brand description',
       blurb_zh: '摘要',
       blurb_en: 'Summary',
-      price_range: 1,
-      product_tags: [],
-      product_tags_en: [],
-      city: '台北',
-      founding_year: null,
-      signature_products: [],
-      where_to_buy: null,
-      category_mismatch: false,
-    })
-    const result = parseDescriptionRewriteResult(json)
-    expect(result.city).toBe('taipei')
-  })
-
-  it('returns null city when the value cannot be mapped to a valid slug', () => {
-    const json = JSON.stringify({
-      description_zh: '品牌簡介',
-      description_en: 'Brand description',
-      blurb_zh: '摘要',
-      blurb_en: 'Summary',
-      price_range: 1,
-      product_tags: [],
-      product_tags_en: [],
-      city: 'somewhere unknown',
-      founding_year: null,
-      signature_products: [],
-      where_to_buy: null,
-      category_mismatch: false,
-    })
-    const result = parseDescriptionRewriteResult(json)
-    expect(result.city).toBeNull()
-  })
-
-  it('normalizes product_tags against the vocabulary and collapses variants', () => {
-    const json = makeTagFixture(
-      ['側背包', '口金零錢包', '口金夾'],
-      ['crossbody', 'clasp coin purse', 'clasp wallet'],
-    )
-    const result = parseDescriptionRewriteResult(json)
-    // '側背包' is an alias for crossbody-bags (斜背包); '口金夾' dedupes to same slug as '口金零錢包'
-    expect(result.productTags).toEqual(['斜背包', '口金包'])
-    expect(result.productTagsEn).toEqual(['Crossbody Bags', 'Clasp-Frame Bags'])
-  })
-
-  it('keeps a single normalized tag (min-1 gate)', () => {
-    const json = makeTagFixture(
-      ['口金零錢包', '口金夾'],
-      ['a', 'b'],
-    )
-    const result = parseDescriptionRewriteResult(json)
-    // Both collapse to the same slug → one canonical tag
-    // Old min-2 gate would have dropped it; min-1 gate preserves it
-    expect(result.productTags).toEqual(['口金包'])
-    expect(result.productTagsEn).toEqual(['Clasp-Frame Bags'])
-  })
-
-  it('drops blocklisted novel tags', () => {
-    const json = makeTagFixture(
-      ['藍鵲系列襪子'],
-      ['bluebird series socks'],
-    )
-    const result = parseDescriptionRewriteResult(json)
-    // '系列' matches BLOCKLIST_CONTENT → rejected
-    expect(result.productTags).toEqual([])
-    expect(result.rejected).toEqual(
-      expect.arrayContaining([expect.objectContaining({ tag: '藍鵲系列襪子', reason: 'blocklist' })]),
-    )
-  })
-
-  it('localizes zh reputation and FAQ fields while preserving English FAQ text', () => {
-    const json = JSON.stringify({
-      description_zh: '品牌簡介',
-      description_en: 'Brand description',
-      blurb_zh: '摘要',
-      blurb_en: 'Summary',
-      reputation_summary: {
-        text: '這個品牌的視頻質量受到信息媒體關注',
-        text_en: 'The brand received media attention.',
-        sources: [{ url: 'https://example.com/review' }],
-      },
       faq: [
         { category: 'products', question: '有哪些視頻產品？', answer: '提供高質量信息服務。' },
         { category: 'products', question: 'What products are available?', answer: 'The brand sells products.' },
       ],
-      product_tags: [],
-      product_tags_en: [],
-      city: null,
-      founding_year: null,
     })
 
     const result = parseDescriptionRewriteResult(json)
 
-    expect(result.reputationSummary?.text).toBe('這個品牌的影片品質受到資訊媒體關注')
     expect(result.faq).toEqual([
       { category: 'products', question: '有哪些影片產品？', answer: '提供高品質資訊服務。' },
       { category: 'products', question: 'What products are available?', answer: 'The brand sells products.' },
@@ -145,13 +47,9 @@ describe('parseDescriptionRewriteResult', () => {
         description_en: 'This brand makes durable goods. '.repeat(10),
         blurb_zh: blurbZh,
         blurb_en: 'A durable Taiwanese brand for everyday goods.',
-        product_tags: [],
-        product_tags_en: [],
-        city: null,
-        founding_year: null,
       }),
     })
-    vi.mocked(createAuditedOpenAIClient).mockReturnValue({ chat } as never)
+    vi.mocked(createProfiledOpenAIClient).mockReturnValue({ chat } as never)
     vi.stubEnv('OPENAI_API_KEY', 'test-key')
 
     const output = await rewriteBrandDescription(
@@ -170,13 +68,14 @@ describe('parseDescriptionRewriteResult', () => {
     expect(request?.user).not.toContain('turn0search0')
     expect(request?.user).not.toContain('citeturn0news2')
     expect(request?.user).toContain('https://example.com?ref=1')
-    expect(output?.result.description_zh?.startsWith('信息設計坊')).toBe(true)
-    expect(output?.result.description_zh).toContain('影片')
-    expect(output?.result.description_zh).toContain('品質')
-    expect(output?.result.description_zh).toContain('資訊')
-    expect(output?.result.blurb_zh?.startsWith('信息設計坊')).toBe(true)
-    expect(createAuditedOpenAIClient).toHaveBeenCalledWith(
-      expect.objectContaining({ jobId: 'job-1', phase: 'description', target: { type: 'brand', id: 'brand-1' } }),
+    expect(output?.result?.description_zh?.startsWith('信息設計坊')).toBe(true)
+    expect(output?.result?.description_zh).toContain('影片')
+    expect(output?.result?.description_zh).toContain('品質')
+    expect(output?.result?.description_zh).toContain('資訊')
+    expect(output?.result?.blurb_zh?.startsWith('信息設計坊')).toBe(true)
+    expect(createProfiledOpenAIClient).toHaveBeenCalledWith(
+      'descriptions',
+      expect.objectContaining({ jobId: 'job-1', phase: 'descriptions', target: { type: 'brand', id: 'brand-1' } }),
       { apiKey: 'test-key' },
     )
   })
@@ -189,7 +88,7 @@ describe('parseDescriptionRewriteResult', () => {
     const response = (
       descriptionZh: string,
       descriptionEn: string,
-      options: { blurbZh?: string; blurbEn?: string; priceRange?: 1 | 2 | 3 | null } = {},
+      options: { blurbZh?: string; blurbEn?: string } = {},
     ) => ({
       response: { ok: true, status: 200 },
       data: {},
@@ -198,11 +97,6 @@ describe('parseDescriptionRewriteResult', () => {
         description_en: descriptionEn,
         blurb_zh: options.blurbZh ?? blurbZh,
         blurb_en: options.blurbEn ?? blurbEn,
-        price_range: options.priceRange === undefined ? 2 : options.priceRange,
-        product_tags: [],
-        product_tags_en: [],
-        city: null,
-        founding_year: null,
       }),
     })
     const chat = vi
@@ -214,14 +108,11 @@ describe('parseDescriptionRewriteResult', () => {
           {
             blurbZh: `${blurbZh} 售價約 NT$1,316 起。`,
             blurbEn: `${blurbEn} Priced from NT$1,316.`,
-            priceRange: 2,
           },
         ),
       )
-      .mockResolvedValueOnce(
-        response(cleanDescriptionZh, cleanDescriptionEn, { priceRange: null }),
-      )
-    vi.mocked(createAuditedOpenAIClient).mockReturnValue({ chat } as never)
+      .mockResolvedValueOnce(response(cleanDescriptionZh, cleanDescriptionEn))
+    vi.mocked(createProfiledOpenAIClient).mockReturnValue({ chat } as never)
     vi.stubEnv('OPENAI_API_KEY', 'test-key')
 
     const output = await rewriteBrandDescription(
@@ -242,9 +133,8 @@ describe('parseDescriptionRewriteResult', () => {
         expect.objectContaining({ field: 'blurb_en', reasons: ['pricing_information'] }),
       ]),
     )
-    expect(output?.result.description_zh).toBe(cleanDescriptionZh)
-    expect(output?.result.description_en).toBe(cleanDescriptionEn)
-    expect(output?.result.priceRange).toBe(2)
+    expect(output?.result?.description_zh).toBe(cleanDescriptionZh)
+    expect(output?.result?.description_en).toBe(cleanDescriptionEn)
   })
 
   it('keeps non-pricing financial achievements in descriptions', async () => {
@@ -258,14 +148,9 @@ describe('parseDescriptionRewriteResult', () => {
         description_en: descriptionEn,
         blurb_zh: '以台灣工藝開發日常用品，串連在地供應夥伴建立穩定且可追溯的製作流程，持續改善產品品質。',
         blurb_en: 'Taiwan-made everyday goods developed through a stable, traceable process with local partners.',
-        price_range: null,
-        product_tags: [],
-        product_tags_en: [],
-        city: null,
-        founding_year: null,
       }),
     })
-    vi.mocked(createAuditedOpenAIClient).mockReturnValue({ chat } as never)
+    vi.mocked(createProfiledOpenAIClient).mockReturnValue({ chat } as never)
     vi.stubEnv('OPENAI_API_KEY', 'test-key')
 
     const output = await rewriteBrandDescription(
@@ -277,121 +162,7 @@ describe('parseDescriptionRewriteResult', () => {
     )
 
     expect(chat).toHaveBeenCalledTimes(1)
-    expect(output?.result.description_zh).toContain('新台幣5,000,000元')
-    expect(output?.result.description_en).toContain('raised NT$5 million')
-  })
-})
-
-describe('parseDescriptionRewriteResult — listing verdict', () => {
-  const withListing = (listing: unknown): string =>
-    JSON.stringify({
-      description_zh: '品牌簡介',
-      description_en: 'Brand description',
-      blurb_zh: '摘要',
-      blurb_en: 'Summary',
-      product_tags: [],
-      product_tags_en: [],
-      city: '台北',
-      founding_year: null,
-      ...(listing === undefined ? {} : { listing }),
-    })
-
-  it('parses a valid listing object', () => {
-    const result = parseDescriptionRewriteResult(
-      withListing({
-        verdict: 'reject',
-        reason: '沒有自有商品，屬於代購',
-        taiwan_connection: 'unclear',
-        has_own_products: false,
-        has_purchase_channel: true,
-      }),
-    )
-
-    expect(result.listing).toEqual({
-      verdict: 'reject',
-      reason: '沒有自有商品，屬於代購',
-      taiwanConnection: 'unclear',
-      hasOwnProducts: false,
-      hasPurchaseChannel: true,
-    })
-  })
-
-  it('leaves the description result fully valid when listing is absent', () => {
-    const result = parseDescriptionRewriteResult(withListing(undefined))
-
-    expect(result.listing).toBeUndefined()
-    // Descriptions are the primary output — a missing secondary field cannot void them.
-    expect(result.description_zh).toBe('品牌簡介')
-    expect(result.description_en).toBe('Brand description')
-    expect(result.blurb_zh).toBe('摘要')
-    expect(result.blurb_en).toBe('Summary')
-    expect(result.city).toBe('taipei')
-  })
-
-  it('degrades an unknown verdict to undefined without throwing', () => {
-    const result = parseDescriptionRewriteResult(
-      withListing({ verdict: 'maybe', reason: 'unsure', taiwan_connection: 'moon' }),
-    )
-
-    expect(result.listing).toBeUndefined()
-    expect(result.description_zh).toBe('品牌簡介')
-  })
-
-  it('degrades a malformed listing value to undefined without throwing', () => {
-    expect(parseDescriptionRewriteResult(withListing('reject')).listing).toBeUndefined()
-    expect(parseDescriptionRewriteResult(withListing(['reject'])).listing).toBeUndefined()
-    expect(parseDescriptionRewriteResult(withListing(null)).listing).toBeUndefined()
-  })
-
-  it('keeps a valid verdict while nulling only the unrecognised sub-fields', () => {
-    const result = parseDescriptionRewriteResult(
-      withListing({ verdict: 'list', taiwan_connection: 'imported', has_own_products: 'yes' }),
-    )
-
-    expect(result.listing).toEqual({
-      verdict: 'list',
-      reason: null,
-      taiwanConnection: null,
-      hasOwnProducts: null,
-      hasPurchaseChannel: null,
-    })
-  })
-})
-
-describe('parseDescriptionRewriteResult — product_type', () => {
-  const withProductType = (productType: unknown): string =>
-    JSON.stringify({
-      description_zh: '品牌簡介',
-      description_en: 'Brand description',
-      blurb_zh: '摘要',
-      blurb_en: 'Summary',
-      product_tags: [],
-      product_tags_en: [],
-      city: '台北',
-      founding_year: null,
-      ...(productType === undefined ? {} : { product_type: productType }),
-    })
-
-  it('parses a valid L1 category slug', () => {
-    expect(parseDescriptionRewriteResult(withProductType('beauty')).productType).toBe('beauty')
-  })
-
-  it('leaves the description result fully valid when product_type is absent', () => {
-    const result = parseDescriptionRewriteResult(withProductType(undefined))
-
-    expect(result.productType).toBeUndefined()
-    expect(result.description_zh).toBe('品牌簡介')
-    expect(result.description_en).toBe('Brand description')
-    expect(result.blurb_zh).toBe('摘要')
-    expect(result.blurb_en).toBe('Summary')
-  })
-
-  it('degrades an unrecognised category to undefined without voiding the description', () => {
-    for (const value of ['skincare', '美妝', '', 42, null, ['beauty']]) {
-      const result = parseDescriptionRewriteResult(withProductType(value))
-      expect(result.productType, `value: ${JSON.stringify(value)}`).toBeUndefined()
-      expect(result.description_zh).toBe('品牌簡介')
-      expect(result.description_en).toBe('Brand description')
-    }
+    expect(output?.result?.description_zh).toContain('新台幣5,000,000元')
+    expect(output?.result?.description_en).toContain('raised NT$5 million')
   })
 })

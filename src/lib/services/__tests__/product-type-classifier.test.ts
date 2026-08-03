@@ -43,7 +43,7 @@ describe('detectBrandsBatch', () => {
       }),
     })
 
-    const results = await detectBrandsBatch(brands)
+    const { results } = await detectBrandsBatch(brands)
 
     expect(results.size).toBe(2)
     expect(results.get('my-brand')!.productType).toBeNull()
@@ -66,7 +66,7 @@ describe('detectBrandsBatch', () => {
       }),
     })
 
-    const results = await detectBrandsBatch(brands)
+    const { results } = await detectBrandsBatch(brands)
 
     expect(results.size).toBe(2)
 
@@ -85,9 +85,15 @@ describe('detectBrandsBatch', () => {
     expect(reseller!.slugGenerated).toBe('some-reseller')
   })
 
-  it('falls back to individual calls when batch fails', async () => {
+  // Content failure, not transport failure: a batch the model answered
+  // unusably is still worth retrying one brand at a time. A batch that never
+  // reached the provider is not — see the provider-failure test below.
+  it('falls back to individual calls when the batch response is unusable', async () => {
     mockFetch
-      .mockRejectedValueOnce(new Error('batch failed'))
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ choices: [{ message: { content: '{"not":"an array"}' } }] }),
+      })
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -109,7 +115,7 @@ describe('detectBrandsBatch', () => {
         }),
       })
 
-    const results = await detectBrandsBatch(brands)
+    const { results } = await detectBrandsBatch(brands)
     expect(results.size).toBe(2)
   })
 
@@ -144,9 +150,46 @@ describe('detectBrandsBatch', () => {
       .mockResolvedValueOnce(makeResponse(20))
       .mockResolvedValueOnce(makeResponse(5))
 
-    const results = await detectBrandsBatch(largeBatch)
+    const { results } = await detectBrandsBatch(largeBatch)
     expect(mockFetch).toHaveBeenCalledTimes(2)
     expect(results.size).toBe(25)
+  })
+
+  it('reports a provider failure and skips the per-brand fallback', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    // A spent account answers 429 to the batch call and would answer 429 to
+    // every single-brand retry too. One call, not one plus twenty.
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 429,
+      clone: () => ({ json: async () => ({ error: { code: 'insufficient_quota' } }) }),
+      json: async () => ({ error: { code: 'insufficient_quota' } }),
+      headers: new Headers(),
+    })
+
+    const { results, calls } = await detectBrandsBatch(brands)
+
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+    expect(results.size).toBe(0)
+    expect(calls).toEqual({ attempted: 1, providerFailed: 1 })
+  })
+
+  it('does not report a provider failure when the model answers with junk', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    // Content failure, so the per-brand fallback is still worth paying for:
+    // the account is alive and a smaller prompt may parse.
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: 'not json at all' } }] }),
+    })
+
+    const { results, calls } = await detectBrandsBatch(brands)
+
+    // 1 batch chunk + 1 single retry per brand.
+    expect(mockFetch).toHaveBeenCalledTimes(3)
+    expect(results.size).toBe(0)
+    expect(calls.providerFailed).toBe(0)
+    expect(calls.attempted).toBe(3)
   })
 })
 

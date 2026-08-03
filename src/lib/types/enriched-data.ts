@@ -1,6 +1,29 @@
 import type { Json } from "@/lib/supabase/database.types";
 import type { OtherUrl } from "@/lib/types/brand";
 
+/**
+ * One FAQ entry as the `descriptions` phase emits it. Items arrive flat and
+ * bilingual — zh then en for the same logical question — and are only paired
+ * into `brand_faq` columns at the write boundary (`brand-faq.ts`). Keeping the
+ * pipeline shape flat means a partial model answer (zh with no en counterpart)
+ * survives the round-trip instead of being dropped by a stricter type here.
+ */
+export type EnrichedFaqItem = {
+  category: string;
+  question: string;
+  answer: string;
+};
+
+export function isEnrichedFaqItem(value: unknown): value is EnrichedFaqItem {
+  if (typeof value !== "object" || value === null) return false;
+  const item = value as Partial<EnrichedFaqItem>;
+  return (
+    typeof item.category === "string" &&
+    typeof item.question === "string" &&
+    typeof item.answer === "string"
+  );
+}
+
 export type EnrichedData = {
   description?: string;
   descriptionEn?: string;
@@ -24,6 +47,7 @@ export type EnrichedData = {
   purchasePinkoi?: string;
   purchaseShopee?: string;
   otherUrls?: OtherUrl[];
+  faq?: EnrichedFaqItem[];
   name?: string;
 };
 
@@ -135,6 +159,12 @@ export function enrichedDataFromDb(
           ),
         }
       : {}),
+    // Malformed entries are filtered rather than rejecting the whole payload:
+    // the FAQ is one of several fields on this blob, and a single bad item from
+    // the model must not cost the caller its description or tags.
+    ...(Array.isArray(json.faq)
+      ? { faq: json.faq.filter(isEnrichedFaqItem) }
+      : {}),
   };
 }
 
@@ -174,5 +204,6 @@ export function enrichedDataToDb(data: EnrichedData): Record<string, unknown> {
   if (data.purchaseShopee !== undefined)
     result.purchase_shopee = data.purchaseShopee;
   if (data.otherUrls !== undefined) result.other_urls = data.otherUrls;
+  if (data.faq !== undefined) result.faq = data.faq;
   return result;
 }

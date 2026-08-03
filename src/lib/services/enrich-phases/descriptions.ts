@@ -1,13 +1,21 @@
 import {
+  buildEnrichmentUserContent,
   rewriteBrandDescription,
   type DescriptionAttempt,
   type DescriptionEvidence,
   type DescriptionRewriteResult,
 } from '../description-rewrite'
+import {
+  extractBrandFacts,
+  type BrandFactsAttempt,
+  type BrandFactsResult,
+  type ListingVerdict,
+} from '../brand-facts'
 import { normalizeProductTags } from '@/lib/services/product-tags'
 import { resolveEnrichedPriceRange } from '@/lib/brands/price-range'
 import { createServiceClient } from '@/lib/supabase/server'
 import { productTypeNameZh } from '@/lib/taxonomy/ontology'
+import { addLlmCalls, isLlmProviderFailure, noLlmCalls } from '../llm-call-outcome'
 import type { PhaseResult } from '@/lib/types/curation'
 import type { EnrichScrapedData } from './types'
 import { brandTarget, targetImageStorage, type EnrichmentTarget } from '../enrichment-target'
@@ -43,55 +51,28 @@ type DescriptionsPhaseOutput = {
   phaseResult: PhaseResult
   patch: Record<string, unknown>
   descriptionRewrite: DescriptionRewriteResult | null
+  brandFacts: BrandFactsResult | null
   attempts: DescriptionAttempt[]
-}
-
-/** Empty for the purposes of "is there anything here worth clearing?". */
-function isEmptyFieldValue(value: unknown): boolean {
-  if (value == null) return true
-  if (typeof value === 'string') return value.trim() === ''
-  if (Array.isArray(value)) return value.length === 0
-  if (typeof value === 'object') return Object.keys(value as object).length === 0
-  return false
+  factsAttempts: BrandFactsAttempt[]
+  /**
+   * Typed handoff for the stage-2 listing gate in `curation-operations`.
+   *
+   * Deliberately NOT a patch key: the verdict is a control value, and anything
+   * in the patch is persisted verbatim into `enriched_data` / the brand row. It
+   * would be a permanent, meaningless column on every brand the gate let
+   * through.
+   */
+  listingVerdict: ListingVerdict | null
 }
 
 /**
- * Fields this run affirmatively determined should be EMPTY.
- *
- * A refresh can add and change a field but has no way to empty one: an omitted
- * key means "no opinion" all the way down to the apply RPC, so a value the
- * model has since judged unqualified survives every future run. This is the
- * explicit verdict that makes a clear possible — see `_cleared_fields` in
- * `apply_brand_refresh_with_protected_location_gate`.
- *
- * The policy is deliberately one field. `reputation_summary`'s prompt contract
- * makes null an affirmative verdict: it returns null when there is no
- * third-party evaluation. A null `city`, `founding_year`, `product_type` or
- * link means "could not determine this run", and clearing those would destroy
- * correct data whenever a SERP call came back thin.
- *
- * Returns nothing when `descriptionRewrite` is null: a phase that did not run,
- * or whose LLM call failed, is silence, not a verdict.
+ * `_cleared_fields` — the verdict that a live field should now be EMPTY — is
+ * deliberately absent from this phase. The only field whose null is an
+ * affirmative verdict is `reputation_summary`, and that moved to `reputation.ts`
+ * together with its resolver. A null `city`, `founding_year` or `product_type`
+ * from this phase means "could not determine this run", and clearing those would
+ * destroy correct data whenever a SERP call came back thin.
  */
-export function resolveClearedFields(
-  descriptionRewrite: DescriptionRewriteResult | null,
-  brand: EnrichBrand,
-  shouldWrite: (existing: unknown) => boolean,
-): string[] {
-  if (!descriptionRewrite) return []
-
-  const cleared: string[] = []
-  if (
-    !descriptionRewrite.reputationSummary &&
-    shouldWrite(brand.reputation_summary) &&
-    !isEmptyFieldValue(brand.reputation_summary)
-  ) {
-    cleared.push('reputation_summary')
-  }
-
-  return cleared
-}
-
 function changedFieldsForPatch(patch: Record<string, unknown>): string[] {
   const changedFields: string[] = []
 
@@ -119,10 +100,6 @@ function changedFieldsForPatch(patch: Record<string, unknown>): string[] {
     changedFields.push('city')
   }
 
-  if (patch.reputation_summary != null) {
-    changedFields.push('reputation_summary')
-  }
-
   if (patch.blurb !== undefined) {
     changedFields.push('blurb')
   }
@@ -137,6 +114,13 @@ function changedFieldsForPatch(patch: Record<string, unknown>): string[] {
 
   if (Array.isArray(patch.product_tags_en) && patch.product_tags_en.length > 0) {
     changedFields.push('product_tags_en')
+  }
+
+  // FAQ-only enrichment is a real result: without this, a run that produced
+  // nothing but a new FAQ block reports zero changed fields and reads as a
+  // wasted call in the runlog.
+  if (Array.isArray(patch.faq) && patch.faq.length > 0) {
+    changedFields.push('faq')
   }
 
   // A clear is a change: the run output has to report the field it emptied, the
@@ -317,7 +301,10 @@ export async function runDescriptionsPhase({
       phaseResult: buildPhaseResult('descriptions', 'skipped', [], 0, undefined, 'descriptions phase not requested'),
       patch: {},
       descriptionRewrite: null,
+      brandFacts: null,
       attempts: [],
+      factsAttempts: [],
+      listingVerdict: null,
     }
   }
 
@@ -330,7 +317,10 @@ export async function runDescriptionsPhase({
       phaseResult: buildPhaseResult('descriptions', 'skipped', [], 0, undefined, 'no description data available'),
       patch: {},
       descriptionRewrite: null,
+      brandFacts: null,
       attempts: [],
+      factsAttempts: [],
+      listingVerdict: null,
     }
   }
 
@@ -339,62 +329,66 @@ export async function runDescriptionsPhase({
       effectiveSnippets.length > 0 ? effectiveSnippets : brand.description ? [brand.description] : []
     const truncatedSiteContent = persistedScrape.siteContent?.slice(0, 4000) ?? null
     const imageAlts = rewriteSnippets.length > 0 ? await loadClassifiedImageAlts(effectiveTarget) : []
-    const descriptionRewriteOutput =
+    const displayBrandName = getDisplayBrandName(brand)
+    const evidence = buildDescriptionEvidence(brand, pendingPatch, imageAlts)
+    const auditContext = {
+      target: effectiveTarget,
+      ...(jobId ? { jobId } : {}),
+    }
+
+    // Built once and handed to both calls: the facts call and the copy call must
+    // reason over byte-identical evidence, or a listing verdict and a
+    // description can disagree about the same brand.
+    const sharedUserContent =
       rewriteSnippets.length > 0
-        ? await rewriteBrandDescription(
-            getDisplayBrandName(brand),
+        ? buildEnrichmentUserContent(
+            displayBrandName,
             brand.description ?? null,
             rewriteSnippets,
             truncatedSiteContent,
-            {
-              target: effectiveTarget,
-              ...(jobId ? { jobId } : {}),
-            },
-            buildDescriptionEvidence(brand, pendingPatch, imageAlts),
-          )
+            evidence,
+          ).userContent
         : null
 
-    const descriptionRewrite = descriptionRewriteOutput?.result ?? null
-    const attempts = descriptionRewriteOutput?.attempts ?? []
+    // Facts first, and only then copy: a `reject` verdict aborts the target, so
+    // paying for the (much larger) copy call before knowing it would be spending
+    // on a submission that is about to be skipped.
+    const factsOutput = sharedUserContent
+      ? await extractBrandFacts(displayBrandName, sharedUserContent, auditContext)
+      : null
+    const brandFacts = factsOutput?.result ?? null
+    const factsAttempts = factsOutput?.attempts ?? []
+    const listingVerdict = brandFacts?.listing ?? null
+
+    const shouldWrite = (existing: unknown) =>
+      overwrite ||
+      existing == null ||
+      (typeof existing === 'string' && existing.trim() === '') ||
+      (Array.isArray(existing) && existing.length === 0)
 
     let descriptionPatch: Record<string, unknown> = {}
     let crossBranchTags: string[] = []
-    if (descriptionRewrite) {
+
+    if (brandFacts) {
       const {
         tags: mergedTags,
         tagsEn: mergedTagsEn,
         crossBranch,
       } = normalizeProductTags(
-        descriptionRewrite.productTags,
-        descriptionRewrite.productTagsEn,
+        brandFacts.productTags,
+        brandFacts.productTagsEn,
         brand.product_type ?? undefined,
       )
       crossBranchTags = crossBranch
 
-      const shouldWrite = (existing: unknown) =>
-        overwrite ||
-        existing == null ||
-        (typeof existing === 'string' && existing.trim() === '') ||
-        (Array.isArray(existing) && existing.length === 0)
-
       descriptionPatch = {
-        ...(descriptionRewrite.description_zh && shouldWrite(brand.description)
-          ? { description: descriptionRewrite.description_zh }
-          : {}),
-        ...(descriptionRewrite.description_en && shouldWrite(brand.description_en)
-          ? { description_en: descriptionRewrite.description_en }
-          : {}),
-        ...(descriptionRewrite.blurb_zh && shouldWrite(brand.blurb) ? { blurb: descriptionRewrite.blurb_zh } : {}),
-        ...(descriptionRewrite.blurb_en && shouldWrite(brand.blurb_en)
-          ? { blurb_en: descriptionRewrite.blurb_en }
-          : {}),
         // Unlike every other field here, an absent price range is filled rather
         // than skipped: `null` fails the review completeness gate, so a brand the
         // model found no price signal for could never be published. See
         // `resolveEnrichedPriceRange` for why mid-range and how a defaulted tier
         // stays traceable.
         ...(shouldWrite(brand.price_range)
-          ? { price_range: resolveEnrichedPriceRange(descriptionRewrite.priceRange) }
+          ? { price_range: resolveEnrichedPriceRange(brandFacts.priceRange) }
           : {}),
         // `product_tags` and `product_tags_en` are index-aligned by contract, so
         // they have to be written as one unit. Gating them on two independent
@@ -410,40 +404,21 @@ export async function runDescriptionsPhase({
         // the brand's current value — unlike the text fields it is not gated on
         // `shouldWrite`, because this phase is now the authority on it (detect no
         // longer assigns it) and a stale category silently mis-files the brand.
-        ...(descriptionRewrite.productType &&
-        descriptionRewrite.productType !== brand.product_type
-          ? { product_type: descriptionRewrite.productType }
+        ...(brandFacts.productType && brandFacts.productType !== brand.product_type
+          ? { product_type: brandFacts.productType }
           : {}),
-        ...(descriptionRewrite.city && shouldWrite(brand.city) ? { city: descriptionRewrite.city } : {}),
-        ...(descriptionRewrite.foundingYear != null && shouldWrite(brand.founding_year)
-          ? { founding_year: descriptionRewrite.foundingYear }
+        ...(brandFacts.city && shouldWrite(brand.city) ? { city: brandFacts.city } : {}),
+        ...(brandFacts.foundingYear != null && shouldWrite(brand.founding_year)
+          ? { founding_year: brandFacts.foundingYear }
           : {}),
-        ...(descriptionRewrite.reputationSummary && shouldWrite(brand.reputation_summary)
-          ? {
-              reputation_summary: {
-                text: descriptionRewrite.reputationSummary.text,
-                text_en: descriptionRewrite.reputationSummary.textEn,
-                sources: descriptionRewrite.reputationSummary.sources,
-              },
-            }
-          : {}),
-        ...(descriptionRewrite.mitIndicators && shouldWrite(brand.mit_evidence)
+        ...(brandFacts.mitIndicators && shouldWrite(brand.mit_evidence)
           ? {
               mit_evidence: {
-                enrichment_signals: descriptionRewrite.mitIndicators.evidence,
+                enrichment_signals: brandFacts.mitIndicators.evidence,
                 verified_source: 'enrichment_signal',
               },
             }
           : {}),
-      }
-
-      // The complement of the conditional spreads above: every one of them
-      // contributes `{}` when it has nothing to say, which the apply RPC reads
-      // as "leave the current value alone". `_cleared_fields` is how this phase
-      // says "I looked, and this field should now be empty".
-      const clearedFields = resolveClearedFields(descriptionRewrite, brand, shouldWrite)
-      if (clearedFields.length > 0) {
-        descriptionPatch._cleared_fields = clearedFields
       }
 
       if (!dryRun && Array.isArray(descriptionPatch.product_tags) && Array.isArray(descriptionPatch.product_tags_en)) {
@@ -469,13 +444,98 @@ export async function runDescriptionsPhase({
       }
     }
 
+    // A rejected submission never reaches publication, so the copy call is pure
+    // waste. Returning here is the whole reason facts runs first.
+    if (listingVerdict?.verdict === 'reject') {
+      return {
+        patch: descriptionPatch,
+        descriptionRewrite: null as DescriptionRewriteResult | null,
+        brandFacts,
+        attempts: [] as DescriptionAttempt[],
+        factsAttempts,
+        calls: factsOutput?.calls ?? noLlmCalls(),
+        listingVerdict,
+        crossBranch: crossBranchTags,
+      }
+    }
+
+    const descriptionRewriteOutput = sharedUserContent
+      ? await rewriteBrandDescription(
+          displayBrandName,
+          brand.description ?? null,
+          rewriteSnippets,
+          truncatedSiteContent,
+          auditContext,
+          evidence,
+        )
+      : null
+
+    const descriptionRewrite = descriptionRewriteOutput?.result ?? null
+    const attempts = descriptionRewriteOutput?.attempts ?? []
+    const calls = addLlmCalls(
+      factsOutput?.calls ?? noLlmCalls(),
+      descriptionRewriteOutput?.calls ?? noLlmCalls(),
+    )
+
+    if (descriptionRewrite) {
+      descriptionPatch = {
+        ...descriptionPatch,
+        ...(descriptionRewrite.description_zh && shouldWrite(brand.description)
+          ? { description: descriptionRewrite.description_zh }
+          : {}),
+        ...(descriptionRewrite.description_en && shouldWrite(brand.description_en)
+          ? { description_en: descriptionRewrite.description_en }
+          : {}),
+        ...(descriptionRewrite.blurb_zh && shouldWrite(brand.blurb) ? { blurb: descriptionRewrite.blurb_zh } : {}),
+        ...(descriptionRewrite.blurb_en && shouldWrite(brand.blurb_en)
+          ? { blurb_en: descriptionRewrite.blurb_en }
+          : {}),
+        // No `shouldWrite` gate: the FAQ lands in `enriched_data.faq`, which is
+        // pipeline-owned scratch rather than a published brand column, and the
+        // fill-gaps decision is made later at the `brand_faq` write boundary.
+        ...(descriptionRewrite.faq && descriptionRewrite.faq.length > 0
+          ? { faq: descriptionRewrite.faq }
+          : {}),
+      }
+    }
+
     return {
       patch: descriptionPatch,
       descriptionRewrite,
+      brandFacts,
       attempts,
+      factsAttempts,
+      calls,
+      listingVerdict,
       crossBranch: crossBranchTags,
     }
   })
+
+  // Every call this phase made (facts and copy) died at the provider. An empty
+  // patch here means nothing was learned about the brand, which is not the same
+  // as "the model looked and found nothing to change" — and only the former may
+  // fail the target. A model that answered with an empty body still lands on the
+  // `succeeded` path below, unchanged.
+  if (isLlmProviderFailure(result.calls)) {
+    return {
+      phaseResult: {
+        ...buildPhaseResult(
+          'descriptions',
+          'failed',
+          [],
+          durationMs,
+          `LLM provider failed all ${result.calls.attempted} description call(s)`,
+        ),
+        providerFailure: true,
+      },
+      patch: {},
+      descriptionRewrite: result.descriptionRewrite,
+      brandFacts: result.brandFacts,
+      attempts: result.attempts,
+      factsAttempts: result.factsAttempts,
+      listingVerdict: result.listingVerdict,
+    }
+  }
 
   return {
     phaseResult: buildPhaseResult(
@@ -486,6 +546,9 @@ export async function runDescriptionsPhase({
     ),
     patch: result.patch,
     descriptionRewrite: result.descriptionRewrite,
+    brandFacts: result.brandFacts,
     attempts: result.attempts,
+    factsAttempts: result.factsAttempts,
+    listingVerdict: result.listingVerdict,
   }
 }

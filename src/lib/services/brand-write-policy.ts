@@ -6,7 +6,6 @@ export type BrandWriteActor = {
 
 export type BrandFieldWriteState = {
   source: string
-  adminLocked?: boolean
   updatedAt?: string
 }
 
@@ -45,13 +44,6 @@ const REFRESH_ENRICHMENT_EXCLUDED_FIELDS = new Set([
   'is_demo',
 ])
 
-function isEmptyValue(value: unknown): boolean {
-  if (value == null) return true
-  if (typeof value === 'string') return value.trim() === ''
-  if (Array.isArray(value)) return value.length === 0
-  return false
-}
-
 /**
  * Sentinel key on an enrichment patch: fields the enrichment ran on and
  * affirmatively determined should be EMPTY. It is not a brand column, so it is
@@ -59,23 +51,29 @@ function isEmptyValue(value: unknown): boolean {
  */
 export const CLEARED_FIELDS_KEY = '_cleared_fields'
 
-/** `null` when a refresh may write this field, otherwise the skip reason. */
+/**
+ * `null` when a refresh may write this field, otherwise the skip reason.
+ *
+ * Only `owner` blocks. `admin` and `submitted` are descriptive labels: `admin`
+ * was applied to 4,150 rows by a provenance backfill whose `else` branch caught
+ * every brand without a submission, and `submitted` marks fields enrichment
+ * failed to fill on an anonymous submission that passed a publish check, not a
+ * per-field fact check. A field with no state row is likewise writable — unknown
+ * provenance is not a reason to preserve a value. Overwrites stay recoverable
+ * through `brand_field_events`.
+ */
 function refreshWriteBlockReason(
   field: string,
-  baseValues: Record<string, unknown>,
   fieldState: Record<string, BrandFieldWriteState>
 ): string | null {
   const state = fieldState[field]
   if (REFRESH_ENRICHMENT_EXCLUDED_FIELDS.has(field)) return 'excluded:identity'
-  if (state?.adminLocked) return 'protected:admin_locked'
-  if (state && ['owner', 'admin', 'submitted'].includes(state.source)) return `protected:${state.source}`
-  if (state?.source === 'enriched' || isEmptyValue(baseValues[field])) return null
-  return `protected:${state?.source ?? 'unclassified'}`
+  if (state?.source === 'owner') return 'protected:owner'
+  return null
 }
 
 export function resolveRefreshEnrichmentPatch(
   patch: Record<string, unknown>,
-  baseValues: Record<string, unknown>,
   fieldState: Record<string, BrandFieldWriteState>
 ): WritablePatchResult {
   const allowed: Record<string, unknown> = {}
@@ -83,7 +81,7 @@ export function resolveRefreshEnrichmentPatch(
 
   for (const [field, value] of Object.entries(patch)) {
     if (field === CLEARED_FIELDS_KEY) continue
-    const reason = refreshWriteBlockReason(field, baseValues, fieldState)
+    const reason = refreshWriteBlockReason(field, fieldState)
     if (reason) {
       skipped.push({ field, reason })
       continue
@@ -101,7 +99,7 @@ export function resolveRefreshEnrichmentPatch(
     const allowedCleared: string[] = []
     for (const field of clearedFields) {
       if (typeof field !== 'string') continue
-      const reason = refreshWriteBlockReason(field, baseValues, fieldState)
+      const reason = refreshWriteBlockReason(field, fieldState)
       if (reason) {
         skipped.push({ field, reason: `cleared:${reason}` })
         continue
@@ -138,11 +136,6 @@ export function resolveWritablePatch(
         continue
       }
 
-      if (state?.adminLocked === true) {
-        skipped.push({ field, reason: 'protected:admin_locked' })
-        continue
-      }
-
       allowed[field] = value
       continue
     }
@@ -152,8 +145,11 @@ export function resolveWritablePatch(
       continue
     }
 
-    if (state && state.source !== 'enriched') {
-      skipped.push({ field, reason: `protected:${state.source}` })
+    // Same policy as the refresh path: only an owner-authored value is
+    // preserved. Diverging here would mean a field a refresh may overwrite is
+    // still frozen against direct enrichment, for no stated reason.
+    if (state?.source === 'owner') {
+      skipped.push({ field, reason: 'protected:owner' })
       continue
     }
 

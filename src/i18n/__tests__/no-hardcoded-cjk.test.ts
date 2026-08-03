@@ -65,8 +65,9 @@ const ALLOWLIST = [
   'lib/prompts.ts',
   // LLM user message templates still contain Chinese field labels (not UI copy).
   'lib/services/description-rewrite.ts',
+  'lib/services/brand-facts.ts',
   'lib/services/product-type-classifier.ts',
-  'lib/services/expansion-research.ts',
+  'lib/services/reputation-research.ts',
   // Image classify user message includes brand name in Chinese; detect has SEO keyword constants.
   'lib/services/enrich-phases/classify-images.ts',
   'lib/services/enrich-phases/detect.ts',

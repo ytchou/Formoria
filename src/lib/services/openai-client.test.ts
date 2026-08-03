@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createOpenAIClient, type ChatAuditEvent, type ChatUsage } from './openai-client'
+import {
+  createOpenAIClient,
+  isNonRetryableProviderError,
+  type ChatAuditEvent,
+  type ChatUsage,
+} from './openai-client'
+import { LLM_MODELS } from '@/lib/constants/llm-models'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -103,7 +109,7 @@ describe('createOpenAIClient', () => {
   describe('request body', () => {
     it('sends max_completion_tokens and reasoning_effort for gpt-5 models, never max_tokens', async () => {
       const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(okResponse())
-      const client = createOpenAIClient({ apiKey: 'k', model: 'gpt-5.6-luna' })
+      const client = createOpenAIClient({ apiKey: 'k', model: LLM_MODELS.text })
 
       await client.chat({
         system: 's',
@@ -115,7 +121,7 @@ describe('createOpenAIClient', () => {
 
       const body = requestBody(fetchSpy)
       expect(body).toMatchObject({
-        model: 'gpt-5.6-luna',
+        model: LLM_MODELS.text,
         max_completion_tokens: 250,
         reasoning_effort: 'none',
         temperature: 0,
@@ -129,7 +135,7 @@ describe('createOpenAIClient', () => {
     // `reasoning_effort: 'none'` itself, gpt-5 rejects the temperature outright.
     it('turns reasoning off by itself when a gpt-5 caller asks only for a temperature', async () => {
       const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(okResponse())
-      const client = createOpenAIClient({ apiKey: 'k', model: 'gpt-5.6-luna' })
+      const client = createOpenAIClient({ apiKey: 'k', model: LLM_MODELS.text })
 
       await client.chat({ system: 's', user: 'u', maxTokens: 250, temperature: 0.1 })
 
@@ -144,7 +150,7 @@ describe('createOpenAIClient', () => {
     // because sending both is a 400 that fails the entire call.
     it('drops the temperature when a gpt-5 caller explicitly wants reasoning', async () => {
       const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(okResponse())
-      const client = createOpenAIClient({ apiKey: 'k', model: 'gpt-5.6-luna' })
+      const client = createOpenAIClient({ apiKey: 'k', model: LLM_MODELS.text })
 
       await client.chat({
         system: 's',
@@ -178,7 +184,7 @@ describe('createOpenAIClient', () => {
 
     it('omits reasoning_effort when the caller does not ask for one', async () => {
       const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(okResponse())
-      const client = createOpenAIClient({ apiKey: 'k', model: 'gpt-5.6-luna' })
+      const client = createOpenAIClient({ apiKey: 'k', model: LLM_MODELS.text })
 
       await client.chat({ system: 's', user: 'u' })
 
@@ -187,6 +193,33 @@ describe('createOpenAIClient', () => {
   })
 
   describe('rate limiting', () => {
+    // This catches the production failure where a transient thrown fetch became
+    // HTTP 0 and abandoned an entire image batch without a recovery attempt.
+    it('recovers from a transient network failure and audits both attempts', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => undefined)
+      const fetchSpy = vi
+        .spyOn(globalThis, 'fetch')
+        .mockRejectedValueOnce(new TypeError('fetch failed'))
+        .mockResolvedValue(okResponse('recovered'))
+      const events: ChatAuditEvent[] = []
+      const client = createOpenAIClient({
+        apiKey: 'k',
+        onChatComplete: (event) => {
+          events.push(event)
+        },
+      })
+
+      const result = await withFakeTimers(() => client.chat({ system: 's', user: 'u' }))
+
+      expect(fetchSpy).toHaveBeenCalledTimes(2)
+      expect(result.ok).toBe(true)
+      expect(result.content).toBe('recovered')
+      expect(events.map(({ ok, status, error }) => ({ ok, status, error }))).toEqual([
+        { ok: false, status: 0, error: 'fetch failed' },
+        { ok: true, status: 200, error: undefined },
+      ])
+    })
+
     it('retries a 429 with backoff and returns the eventual success', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => undefined)
       const fetchSpy = vi
@@ -231,6 +264,61 @@ describe('createOpenAIClient', () => {
       expect(fetchSpy).toHaveBeenCalledTimes(6)
       expect(result.ok).toBe(false)
       expect(result.status).toBe(429)
+    })
+
+    it('does not retry a 429 carrying insufficient_quota', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => undefined)
+      // Quota exhaustion wears the same 429 as congestion but never recovers.
+      // On 2026-08-02 that cost 5 doomed retries and ~31s of backoff on every
+      // call of a 400-brand run.
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: { message: 'You exceeded your current quota', code: 'insufficient_quota', type: 'insufficient_quota' },
+          }),
+          { status: 429, headers: { 'content-type': 'application/json' } },
+        ),
+      )
+      const client = createOpenAIClient({ apiKey: 'k' })
+
+      const timerSpy = vi.spyOn(globalThis, 'setTimeout')
+      const result = await client.chat({ system: 's', user: 'u' })
+
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
+      expect(result.ok).toBe(false)
+      expect(result.status).toBe(429)
+      // Exactly one timer: the single attempt's request deadline. A backoff
+      // sleep would add a second one — that is the ~31s this saves per call.
+      expect(timerSpy).toHaveBeenCalledTimes(1)
+    })
+
+    it('still retries a plain 429 that carries no quota code', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => undefined)
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(JSON.stringify({ error: { message: 'Rate limit reached', type: 'rate_limit_error' } }), {
+          status: 429,
+          headers: { 'content-type': 'application/json' },
+        }),
+      )
+      const client = createOpenAIClient({ apiKey: 'k' })
+
+      const result = await withFakeTimers(() => client.chat({ system: 's', user: 'u' }))
+
+      expect(fetchSpy).toHaveBeenCalledTimes(6)
+      expect(result.status).toBe(429)
+    })
+  })
+
+  describe('isNonRetryableProviderError', () => {
+    it('matches insufficient_quota on either code or type', () => {
+      expect(isNonRetryableProviderError({ errorBody: { error: { code: 'insufficient_quota' } } })).toBe(true)
+      expect(isNonRetryableProviderError({ errorBody: { error: { type: 'insufficient_quota' } } })).toBe(true)
+    })
+
+    it('does not match ordinary rate limiting or a missing body', () => {
+      expect(isNonRetryableProviderError({ errorBody: { error: { type: 'rate_limit_error' } } })).toBe(false)
+      expect(isNonRetryableProviderError({ errorBody: null })).toBe(false)
+      expect(isNonRetryableProviderError({ errorBody: 'boom' })).toBe(false)
     })
   })
 

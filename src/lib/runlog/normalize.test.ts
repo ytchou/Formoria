@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { coerceRunLog } from './normalize'
+import { LLM_MODELS } from '@/lib/constants/llm-models'
 
 describe('coerceRunLog', () => {
   it('coerces a valid runlog unchanged in essentials', () => {
@@ -18,7 +19,7 @@ describe('coerceRunLog', () => {
               actor: 'LLM',
               summary: 'detect batch',
               status: 'ok',
-              model: 'gpt-5.6-luna',
+              model: LLM_MODELS.text,
               tokens: { input: 100, output: 40 },
               latencyMs: 812,
             },

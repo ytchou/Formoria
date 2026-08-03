@@ -1,0 +1,53 @@
+import type { Json } from "@/lib/supabase/database.types";
+import type { PhaseResult, PhaseStatus } from "@/lib/types/curation";
+
+const PHASE_STATUSES: readonly string[] = [
+  "succeeded",
+  "skipped",
+  "failed",
+] satisfies readonly PhaseStatus[];
+
+/**
+ * Single reader for `curation_job_targets.phase_results`.
+ *
+ * This used to exist twice with *different* semantics: the admin job view
+ * validated every field, while `job-runner` did `value as PhaseResult[]` on any
+ * array. The blind cast is what made the 2026-08-02 OpenAI outage hard to see
+ * from the worker side — a malformed or partially-written row would have been
+ * counted as a real phase record, and `isProviderFailedTarget` reads this data
+ * to decide whether an outage gets alerted at all. The validating version wins.
+ *
+ * `providerFailure` is deliberately carried through: it is the only per-phase
+ * signal distinguishing "the provider was down" from "this brand genuinely had
+ * no data", and both the job summary (`summaryFromTargets`) and the Resume flow
+ * depend on it surviving the JSON round-trip.
+ *
+ * Unknown/extra fields are dropped rather than passed through, so a stale row
+ * written by an older deploy can never widen the shape callers see.
+ */
+export function parsePhaseResults(value: Json): PhaseResult[] {
+  if (!Array.isArray(value)) return [];
+
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return [];
+    if (typeof item.phase !== "string" || typeof item.status !== "string")
+      return [];
+    if (!PHASE_STATUSES.includes(item.status)) return [];
+
+    return [
+      {
+        phase: item.phase,
+        status: item.status as PhaseStatus,
+        changedFields: Array.isArray(item.changedFields)
+          ? item.changedFields.filter(
+              (field): field is string => typeof field === "string",
+            )
+          : [],
+        durationMs: typeof item.durationMs === "number" ? item.durationMs : 0,
+        ...(typeof item.error === "string" ? { error: item.error } : {}),
+        ...(typeof item.detail === "string" ? { detail: item.detail } : {}),
+        ...(item.providerFailure === true ? { providerFailure: true } : {}),
+      },
+    ];
+  });
+}

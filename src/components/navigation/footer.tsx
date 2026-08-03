@@ -1,6 +1,5 @@
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { LocaleSwitcher } from "@/components/i18n/locale-switcher";
 
 export function Footer() {
   const t = useTranslations("footer");
@@ -24,13 +23,13 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link
-                  href="/getting-started"
-                  prefetch={false}
+                {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- DEV-1280: full-document navigation avoids a stalled RSC request across the locale proxy rewrite. */}
+                <a
+                  href="/events"
                   className="type-card-description hover:text-foreground transition-colors"
                 >
-                  {t("gettingStarted")}
-                </Link>
+                  {t("events")}
+                </a>
               </li>
               <li>
                 {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- DEV-1280: full-document navigation avoids a stalled RSC request across the locale proxy rewrite. */}
@@ -39,15 +38,6 @@ export function Footer() {
                   className="type-card-description hover:text-foreground transition-colors"
                 >
                   {t("stories")}
-                </a>
-              </li>
-              <li>
-                {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- DEV-1280: full-document navigation avoids a stalled RSC request across the locale proxy rewrite. */}
-                <a
-                  href="/events"
-                  className="type-card-description hover:text-foreground transition-colors"
-                >
-                  {t("events")}
                 </a>
               </li>
               <li>
@@ -73,6 +63,15 @@ export function Footer() {
                   className="type-card-description hover:text-foreground transition-colors"
                 >
                   {t("about")}
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/getting-started"
+                  prefetch={false}
+                  className="type-card-description hover:text-foreground transition-colors"
+                >
+                  {t("gettingStarted")}
                 </Link>
               </li>
               <li>
@@ -141,12 +140,9 @@ export function Footer() {
         {/* Bottom bar: tagline + copyright */}
         <div className="mt-10 flex flex-col items-start gap-3 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
           <p className="type-card-description">{t("tagline")}</p>
-          <div className="flex items-center gap-3">
-            <LocaleSwitcher compact />
-            <p className="type-caption">
-              {t("copyright", { year: new Date().getFullYear() })}
-            </p>
-          </div>
+          <p className="type-caption">
+            {t("copyright", { year: new Date().getFullYear() })}
+          </p>
         </div>
       </div>
     </footer>

@@ -1,10 +1,13 @@
 import { z } from 'zod'
 import { IMAGE_CLASSIFY_SYSTEM_PROMPT } from '@/lib/prompts'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
-import { buildEnrichmentConfig } from '@/lib/constants/enrichment-config'
 import { MAX_BRAND_ACTIVE_IMAGES } from '@/lib/constants/brand-images'
 import { parseJson, type OpenAIChatResult } from '../openai-client'
-import { createAuditedOpenAIClient } from '../llm-audit'
+import {
+  buildProfiledEnrichmentConfig,
+  createProfiledOpenAIClient,
+  profileChatParams,
+} from '../llm-audit'
 import { syncHeroDenormalized, type BrandImageRow } from '../brand-images'
 import { brandImageRenderUrl } from '../image-upload'
 import { localizeToTW } from '../taiwan-localization'
@@ -18,16 +21,25 @@ import {
 import { buildPhaseResult, timePhase, type EnrichBrand, type EnrichPhase } from './types'
 
 /**
- * Small on purpose. A twenty-image batch let one uncertain verdict propagate
- * across the whole batch — measured once as all ten of a brand's images
- * flipping to wrong_brand in a single run and back the next. The prompt asks
- * for per-image independence; a short batch enforces it structurally. Extra
- * calls cost only the repeated system prompt, which image tokens dwarf.
+ * A middle setting between the twenty that failed and the five that followed.
  *
- * Nothing in the contract now spans images — see REJECTION_REASONS — so batch
- * length is purely a cost and stability knob, not a correctness one.
+ * Twenty let one uncertain verdict propagate across the whole batch — measured
+ * once as all ten of a brand's images flipping to wrong_brand in a single run
+ * and back the next. Five was the correction. Nothing in the contract spans
+ * images any more (see REJECTION_REASONS) and the prompt's INDEPENDENCE section
+ * states the rule explicitly, so batch length is a cost and stability knob
+ * rather than a correctness one.
+ *
+ * The cost direction was previously recorded here backwards — "extra calls cost
+ * only the repeated system prompt, which image tokens dwarf". Measured on job
+ * a566f716 (2026-08-03) it is the reverse: regressing prompt_tokens on image
+ * count gives ~270 tokens per image against ~2,180 fixed per call, because the
+ * system prompt is ~2,300 tokens. At five per batch a 24-image brand spent 66%
+ * of its classification input re-sending the same prompt. Ten halves that
+ * overhead; going higher trades into the contamination the twenty-image batch
+ * demonstrated, so this stops at ten.
  */
-const BATCH_SIZE = 5
+const BATCH_SIZE = 10
 
 /**
  * LEGACY. The seven-value vocabulary rows were written with before the
@@ -153,8 +165,21 @@ const CLASSIFY_RENDER_WIDTH = 512
  */
 export const MIN_KEEP_SCORE = 60
 
-/** One retry per chunk, and only after dropping an image OpenAI could not download. */
-const MAX_CHUNK_RETRIES = 1
+/**
+ * Retries per chunk, and ONLY after dropping an image OpenAI could not download.
+ *
+ * This is not a general failure retry: `classifyChunk` gives up immediately when
+ * it cannot pin the failure on a specific image URL, however much budget is
+ * left. Raised to 2 alongside BATCH_SIZE 10 because twice the images per chunk
+ * is twice the chance of a second dead URL in the same batch, and one dead URL
+ * previously cost the whole chunk its verdicts.
+ *
+ * A chunk that fails for any other reason still loses every image in it — now
+ * ten rather than five. Splitting a failed chunk and retrying the halves is the
+ * fix for that, and is deliberately not bundled here: it changes the
+ * attemptedBatches/failedBatches accounting that Gate C reads.
+ */
+const MAX_CHUNK_RETRIES = 2
 
 /** LEGACY-inclusive union: what a stored row may carry, not what the model may emit. */
 type ImageClassificationTag = (typeof IMAGE_TAGS)[number]
@@ -189,7 +214,7 @@ function toStrictJsonSchema(shape: z.ZodType): Record<string, unknown> {
   return Object.fromEntries(Object.entries(schema).filter(([key]) => key !== '$schema'))
 }
 
-const IMAGE_CLASSIFICATION_SCHEMA = {
+export const IMAGE_CLASSIFICATION_SCHEMA = {
   name: 'image_classifications',
   schema: toStrictJsonSchema(
     z.object({
@@ -640,11 +665,36 @@ async function resetImageTags(
  * verdicts, because a null verdict used to be indistinguishable from a junk verdict
  * and deleted live images on transient API errors.
  */
-function failureReason(response: OpenAIChatResult): string | null {
-  if (!response.ok) return `request failed (HTTP ${response.status})`
-  if (response.refusal) return `model refused: ${response.refusal}`
-  if (response.finishReason === 'length') return 'response truncated (finish_reason=length)'
-  if (!response.content || response.content.trim().length === 0) return 'empty response content'
+/**
+ * Why the batch is untrustworthy, split by WHO failed.
+ *
+ * `provider` means the call never reached the model, so the absence of verdicts
+ * says nothing about the images. `content` means the model answered and the
+ * answer was unusable — a refusal, a truncation, an empty body. Only the former
+ * may fail a target: before the split, a quota-exhausted account and a model
+ * that refused one batch of images were both just "failed batches", and the
+ * phase reported `succeeded` for both (2026-08-02, 407 falsely-green targets).
+ */
+export type BatchFailureKind = 'provider' | 'content'
+
+export type BatchFailure = {
+  reason: string
+  kind: BatchFailureKind
+}
+
+export function failureReason(response: OpenAIChatResult): BatchFailure | null {
+  if (!response.ok) {
+    return { reason: `request failed (HTTP ${response.status})`, kind: 'provider' }
+  }
+  if (response.refusal) {
+    return { reason: `model refused: ${response.refusal}`, kind: 'content' }
+  }
+  if (response.finishReason === 'length') {
+    return { reason: 'response truncated (finish_reason=length)', kind: 'content' }
+  }
+  if (!response.content || response.content.trim().length === 0) {
+    return { reason: 'empty response content', kind: 'content' }
+  }
   return null
 }
 
@@ -664,13 +714,13 @@ type ChunkOutcome = {
   /** Verdicts keyed by brand_images.id, only for images the model actually judged. */
   verdictsByImageId: Map<string, ParsedImageClassification>
   /** Non-null when the whole batch must be abandoned without touching any row. */
-  failure: string | null
+  failure: BatchFailure | null
   /** Images OpenAI could not download — rejected, but their storage object is kept. */
   brokenImageIds: string[]
 }
 
 async function classifyChunk(
-  client: ReturnType<typeof createAuditedOpenAIClient>,
+  client: ReturnType<typeof createProfiledOpenAIClient>,
   brandContext: string,
   chunk: BrandImageForClassification[]
 ): Promise<ChunkOutcome> {
@@ -700,8 +750,9 @@ async function classifyChunk(
       imageDetail: CLASSIFY_IMAGE_DETAIL,
       json: true,
       schema: IMAGE_CLASSIFICATION_SCHEMA,
-      maxTokens: 250 * remaining.length,
-      temperature: 0.1,
+      // The only per-call token budget in the pipeline: 250 per image in the
+      // batch, so the profile cannot know it statically.
+      ...profileChatParams('classifyImages', { maxTokens: 250 * remaining.length }),
       meta: {
         imageIds: remaining.map((image) => image.id),
         imageUrls: sentUrls,
@@ -837,16 +888,19 @@ export async function runClassifyImagesPhase({
     }
   }
 
-  const config = buildEnrichmentConfig('classify_images', IMAGE_CLASSIFY_SYSTEM_PROMPT, {
-    // Duplicates DEFAULT_OPENAI_MODEL in openai-client.ts because this object is the
-    // stored audit contract: if the two drift, every brand_ai_results row for this
-    // phase records a model that never ran. Change both together.
-    model: 'gpt-5.6-luna',
-    batchSize: BATCH_SIZE,
-    detail: CLASSIFY_IMAGE_DETAIL,
-    temperature: 0.1,
-  })
-  const client = createAuditedOpenAIClient({
+  // The model comes from the shared resolver, never a second literal: this object
+  // is the stored audit contract, and a drifting copy makes every brand_ai_results
+  // row for this phase record a model that never ran.
+  const config = buildProfiledEnrichmentConfig(
+    'classify_images',
+    IMAGE_CLASSIFY_SYSTEM_PROMPT,
+    'classifyImages',
+    {
+      batchSize: BATCH_SIZE,
+      detail: CLASSIFY_IMAGE_DETAIL,
+    },
+  )
+  const client = createProfiledOpenAIClient('classifyImages', {
     target,
     phase: 'classify_images',
     ...(jobId ? { jobId } : {}),
@@ -854,7 +908,10 @@ export async function runClassifyImagesPhase({
   })
   const { result, durationMs } = await timePhase(async () => {
     const classifications: ClassifiedImage[] = []
-    const failedBatches: string[] = []
+    const failedBatches: BatchFailure[] = []
+    // Denominator for the provider-failure verdict: a phase only fails when
+    // EVERY batch it attempted died at the provider.
+    let attemptedBatches = 0
     let unjudgedCount = 0
     let brokenCount = 0
     let rejectedCount = 0
@@ -867,6 +924,7 @@ export async function runClassifyImagesPhase({
 
     for (let i = 0; i < images.length; i += BATCH_SIZE) {
       const chunk = images.slice(i, i + BATCH_SIZE)
+      attemptedBatches += 1
       const outcome = await classifyChunk(client, brandContext, chunk)
       const brokenIds = new Set(outcome.brokenImageIds)
 
@@ -888,7 +946,7 @@ export async function runClassifyImagesPhase({
         // so the next run retries them instead of destroying them.
         failedBatches.push(outcome.failure)
         console.error(
-          `  [CLASSIFY] Batch of ${chunk.length} images skipped for ${target.type} ${target.id}: ${outcome.failure}`
+          `  [CLASSIFY] Batch of ${chunk.length} images skipped for ${target.type} ${target.id}: ${outcome.failure.reason}`
         )
         continue
       }
@@ -977,6 +1035,7 @@ export async function runClassifyImagesPhase({
       unjudgedCount,
       brokenCount,
       failedBatches,
+      attemptedBatches,
       heroImageUrl: finalActiveImages.at(0)?.url ?? null,
     }
   })
@@ -994,9 +1053,39 @@ export async function runClassifyImagesPhase({
     ...(result.unjudgedCount > 0 ? [`${result.unjudgedCount} left unjudged`] : []),
     ...(result.brokenCount > 0 ? [`${result.brokenCount} undownloadable`] : []),
     ...(result.failedBatches.length > 0
-      ? [`${result.failedBatches.length} batch(es) skipped: ${result.failedBatches.join('; ')}`]
+      ? [
+          `${result.failedBatches.length} batch(es) skipped: ${result.failedBatches
+            .map((failure) => failure.reason)
+            .join('; ')}`,
+        ]
       : []),
   ].join(', ')
+
+  // Every batch we sent came back as a provider error, so no image was ever
+  // judged. `succeeded` with zero classifications is what an admin then
+  // approved 103 times on 2026-08-02; the target has to fail instead. A run
+  // where one batch was refused and another classified fine stays `succeeded`.
+  const allBatchesProviderFailed =
+    result.attemptedBatches > 0 &&
+    result.failedBatches.length === result.attemptedBatches &&
+    result.failedBatches.every((failure) => failure.kind === 'provider')
+
+  if (allBatchesProviderFailed) {
+    return {
+      phaseResult: {
+        ...buildPhaseResult(
+          'classify_images',
+          'failed',
+          [],
+          durationMs,
+          `LLM provider failed all ${result.attemptedBatches} image batch(es)`,
+          detail
+        ),
+        providerFailure: true,
+      },
+      patch: {},
+    }
+  }
 
   return {
     phaseResult: buildPhaseResult(

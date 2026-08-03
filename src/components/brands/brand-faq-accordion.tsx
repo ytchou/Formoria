@@ -77,9 +77,7 @@ export function BrandFaqAccordion({ items, brandSlug }: BrandFaqAccordionProps) 
               {item.question}
             </AccordionTrigger>
             <AccordionContent>
-              <p className="max-w-2xl type-body-muted">
-                {renderLinkedText(item.answer)}
-              </p>
+              <p className="type-body-muted">{renderLinkedText(item.answer)}</p>
             </AccordionContent>
           </AccordionItem>
         ))}
