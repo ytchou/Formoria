@@ -155,13 +155,23 @@ export function buildBrandsItemListJsonLd(
  */
 export function buildWebSiteJsonLd(locale: Locale = "zh-TW"): JsonLdObject {
   const siteUrl = getSiteUrl();
+  const inLanguage = toInLanguage(locale);
 
   return {
     "@context": "https://schema.org",
     "@type": "WebSite",
+    // Stable node id so WebSite and Organization resolve as one entity rather
+    // than two unrelated nodes — "Formoria" collides with an unrelated homonym
+    // in search results, so the graph edges are what disambiguate us (DEV-1320).
+    "@id": `${siteUrl}/#website`,
     name: "Formoria",
+    alternateName:
+      inLanguage === "zh-TW"
+        ? "Formoria 台灣品牌探索與選物平台"
+        : "Formoria Taiwanese Brand Discovery & Curation",
     url: siteUrl,
-    inLanguage: toInLanguage(locale),
+    publisher: { "@id": `${siteUrl}/#organization` },
+    inLanguage,
     potentialAction: {
       "@type": "SearchAction",
       target: {
@@ -183,7 +193,12 @@ export function buildOrganizationJsonLd(locale?: string): JsonLdObject {
   return {
     "@context": "https://schema.org",
     "@type": "Organization",
+    "@id": `${siteUrl}/#organization`,
     name: "Formoria",
+    alternateName:
+      inLanguage === "zh-TW"
+        ? "Formoria 台灣品牌探索與選物平台"
+        : "Formoria Taiwanese Brand Discovery & Curation",
     url: siteUrl,
     logo: `${siteUrl}/images/formoria-mark.png`,
     description:
