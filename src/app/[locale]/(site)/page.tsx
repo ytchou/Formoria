@@ -27,6 +27,8 @@ import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
 import { buildAlternates } from "@/lib/seo/alternates";
 import type { Locale } from "@/lib/seo/alternates";
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { getAllStories } from "@/lib/services/stories";
+import { StoryRow } from "@/components/stories/story-row";
 
 export const revalidate = 3600;
 
@@ -72,7 +74,7 @@ export default async function LandingPage({ params }: PageProps) {
   const jsonLd = buildWebSiteJsonLd(safeLocale);
   const organizationJsonLd = buildOrganizationJsonLd(safeLocale);
 
-  const [exploreResult, newBrandsResult, recentResult, messages] =
+  const [exploreResult, newBrandsResult, recentResult, storyResult, messages] =
     await Promise.all([
       getExploreBrands(EXPLORE_BRAND_LIMIT).catch(
         captureReadFailure("landing.exploreBrands"),
@@ -81,6 +83,7 @@ export default async function LandingPage({ params }: PageProps) {
       getRecentBrandCount().catch(
         captureReadFailure("landing.recentBrandCount"),
       ),
+      getAllStories(safeLocale),
       getMessages(),
     ]);
 
@@ -100,6 +103,7 @@ export default async function LandingPage({ params }: PageProps) {
   // the figure rather than asserting a false zero; a genuinely empty DB still
   // resolves `totalCount: 0` and renders 0.
   const totalBrandCount = exploreResult?.totalCount;
+  const latestStories = storyResult.ok ? storyResult.stories.slice(0, 3) : [];
 
   return (
     <>
@@ -127,6 +131,7 @@ export default async function LandingPage({ params }: PageProps) {
                 <BrandShowcase
                   brands={exploreBrands}
                   heading={t("showcase.heading")}
+                  subheading={t("showcase.subheading")}
                   linkText={t("showcase.browseAll")}
                   linkHref="/brands"
                 />
@@ -137,7 +142,7 @@ export default async function LandingPage({ params }: PageProps) {
           {/* Manifesto pull-quote */}
           <section className="relative overflow-hidden py-12 md:py-16">
             <Image
-              src="/images/manifesto-bg.png"
+              src="/images/manifesto-bg.webp"
               alt=""
               fill
               sizes="100vw"
@@ -152,6 +157,7 @@ export default async function LandingPage({ params }: PageProps) {
                 {t("manifesto.headline")}
               </blockquote>
               <p className="mt-3 type-body-muted">{t("manifesto.body1")}</p>
+              <p className="mt-3 type-body-muted">{t("manifesto.body2")}</p>
               <Link
                 href="/about"
                 className={buttonVariants({
@@ -164,6 +170,33 @@ export default async function LandingPage({ params }: PageProps) {
               </Link>
             </div>
           </section>
+
+          {latestStories.length > 0 && (
+            <div className="py-6 md:py-8">
+              <section className="mx-auto max-w-6xl page-gutter">
+                <div className="mb-6">
+                  <h2 className="type-section-title-large">
+                    {t("latestStories.heading")}
+                  </h2>
+                </div>
+                <div className="divide-y divide-border border-y border-border">
+                  {latestStories.map((story) => (
+                    <StoryRow
+                      key={story.slug}
+                      story={story}
+                      locale={safeLocale}
+                      headingLevel={3}
+                    />
+                  ))}
+                </div>
+                <div className="mt-6">
+                  <Link href="/stories" className="font-medium text-primary">
+                    {t("latestStories.linkText")}
+                  </Link>
+                </div>
+              </section>
+            </div>
+          )}
 
           <div className="py-6 md:py-8">
             <div className="mx-auto max-w-6xl page-gutter">

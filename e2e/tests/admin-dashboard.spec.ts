@@ -211,7 +211,7 @@ test.describe('Admin dashboard deep', () => {
     await expect(approveBtn).toBeHidden({ timeout: 30_000 });
   });
 
-  test('needs-data submission only exposes data fetching', async ({ adminPage }) => {
+  test('needs-data submission can be dropped and is removed from the database', async ({ adminPage }) => {
     test.setTimeout(120_000);
 
     // Create a separate submission that remains in the needs-data stage.
@@ -226,16 +226,35 @@ test.describe('Admin dashboard deep', () => {
       })
       .select('id')
       .single();
+    if (!data?.id) throw new Error('Needs-data submission seed failed');
 
-    await adminPage.goto('/admin/submissions?stage=needs_data', { timeout: 60_000 });
-    await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
-    const rejectRow = adminPage.locator('tbody tr').filter({ hasText: rejectBrandName });
-    await expect(rejectRow).toBeVisible({ timeout: 10_000 });
-    await expect(rejectRow.getByRole('button', { name: 'Approve', exact: true })).toHaveCount(0);
-    await expect(rejectRow.getByRole('button', { name: 'Reject', exact: true })).toHaveCount(0);
-    await expect(adminPage.getByRole('button', { name: 'Fetch Data' })).toBeVisible();
+    try {
+      await adminPage.goto('/admin/submissions?stage=needs_data', { timeout: 60_000 });
+      await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
+      const rejectRow = adminPage.locator('tbody tr').filter({ hasText: rejectBrandName });
+      await expect(rejectRow).toBeVisible({ timeout: 10_000 });
+      await expect(rejectRow.getByRole('button', { name: 'Approve', exact: true })).toHaveCount(0);
+      await expect(rejectRow.getByRole('button', { name: 'Reject', exact: true })).toHaveCount(0);
+      await expect(adminPage.getByRole('button', { name: 'Fetch Data' })).toBeVisible();
 
-    if (data?.id) {
+      await rejectRow.getByRole('checkbox').click();
+      const dropButton = adminPage.getByRole('button', { name: 'Drop selected', exact: true });
+      await expect(dropButton).toBeEnabled();
+      await dropButton.click();
+
+      const confirmDialog = adminPage.getByRole('alertdialog');
+      await expect(confirmDialog).toBeVisible();
+      await confirmDialog.getByRole('button', { name: 'Drop selected', exact: true }).click();
+
+      await expect.poll(async () => {
+        const { count, error } = await supabase
+          .from('brand_submissions')
+          .select('id', { count: 'exact', head: true })
+          .eq('id', data.id);
+        expect(error).toBeNull();
+        return count;
+      }).toBe(0);
+    } finally {
       await supabase.from('brand_submissions').delete().eq('id', data.id);
     }
   });

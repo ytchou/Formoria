@@ -403,10 +403,11 @@ export const config = {
      * Match all request paths except:
      * - _next/static (static files)
      * - _next/image (image optimization files)
+     * - _next/webpack-hmr (Webpack dev HMR WebSocket endpoint)
      * - favicon.ico (favicon file)
      * - auth/callback (handles its own session exchange)
      * - Files with extensions (e.g. .png, .svg, .jpg)
      */
-    "/((?!_next/static|_next/image|favicon.ico|auth/callback|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|_next/webpack-hmr|favicon.ico|auth/callback|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

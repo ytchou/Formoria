@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { PUBLIC_INTL_SEGMENTS, RESERVED_ROUTES, SLUG_PATTERN } from '@/proxy'
+import { config, PUBLIC_INTL_SEGMENTS, RESERVED_ROUTES, SLUG_PATTERN } from '@/proxy'
 
 /**
  * Adding a route directory under `src/app` without registering it in `proxy.ts`
@@ -75,6 +75,13 @@ describe('route registration', () => {
     // Guards the guard: a bad glob would make every assertion below vacuous.
     expect(appSegments.length).toBeGreaterThan(5)
     expect(appSegments.map((s) => s.name)).toContain('contact')
+  })
+
+  it('lets Next.js handle its Webpack HMR endpoint while guarding ordinary routes', () => {
+    const matcher = new RegExp(`^${config.matcher[0]}$`)
+
+    expect(matcher.test('/_next/webpack-hmr')).toBe(false)
+    expect(matcher.test('/en/brands')).toBe(true)
   })
 
   it.each(appSegments.filter((s) => SLUG_PATTERN.test(s.name) && isRoutable(s.path)))(

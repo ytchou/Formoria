@@ -22,15 +22,13 @@ interface StoryFigureProps {
  * in this setup (DEV-1302), so a shortcode that needs an object or array is a
  * shortcode that silently receives nothing.
  *
- * Capped at `max-w-md` and centred: the story page runs the standard
- * `max-w-screen-xl` container, where a full-width 4:3 photo renders 1200x900 —
- * taller than a laptop viewport, so one image became a full-screen break in
- * the middle of a paragraph. An inline photo illustrates the paragraph around
- * it; it is not the reason the reader is on the page.
+ * Uses an intermediate reading width so inline photos support the surrounding
+ * content without taking over the full article column. Keeps the existing 4:3
+ * crop and vertical spacing.
  */
 export function StoryFigure({ src, alt, caption }: StoryFigureProps) {
   return (
-    <figure className="mx-auto my-6 w-full max-w-md">
+    <figure className="mx-auto mt-7 mb-6 w-full max-w-2xl">
       {/* Raw `<img>`, matching the `img` rule in `storyComponentMap`: authors
           write arbitrary remote URLs and there is no intrinsic size to hand
           `next/image`'s optimizer. */}

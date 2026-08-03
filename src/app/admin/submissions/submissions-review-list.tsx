@@ -11,8 +11,10 @@ import {
   approveSubmissionsAction,
   rejectSubmissionAction,
 } from "@/app/admin/actions";
+import { dropNeedsDataSubmissionsAction } from "@/app/admin/submissions/actions";
 import { JobAutoRefresh } from "@/app/admin/jobs/job-auto-refresh";
 import { startCurationJobAction } from "@/app/admin/operations/actions";
+import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { SubmissionStatusBadge } from "@/components/admin/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -107,12 +109,14 @@ export function SubmissionsReviewList({
   const [bulkRejectReason, setBulkRejectReason] = useState<DenialReason | "">(
     "",
   );
+  const [dropDialogOpen, setDropDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingSubmissionIds, setPendingSubmissionIds] = useState<Set<string>>(
     new Set(),
   );
   const [isPending, startTransition] = useTransition();
   const [isEnriching, startEnrichTransition] = useTransition();
+  const [isDropping, startDropTransition] = useTransition();
   const showEnrichment = activeTab !== "needs_data";
   const showSkipReason = activeTab === "skipped";
   const displayedSubmissions = useMemo(
@@ -215,6 +219,7 @@ export function SubmissionsReviewList({
     setSelectedIds(new Set());
     setBulkRejecting(false);
     setBulkRejectReason("");
+    setDropDialogOpen(false);
     setError(null);
     setExpandedId(null);
   }
@@ -376,6 +381,29 @@ export function SubmissionsReviewList({
     });
   }
 
+  function dropSelected() {
+    const ids = selectedVisible
+      .filter((submission) => submission.reviewStage === "needs_data")
+      .map((submission) => submission.id);
+    if (ids.length === 0) return;
+
+    startDropTransition(async () => {
+      setError(null);
+      const result = await dropNeedsDataSubmissionsAction(ids);
+      if ("error" in result) {
+        toast.error(result.error);
+        return;
+      }
+      setSelectedIds(new Set());
+      setDropDialogOpen(false);
+      if (result.storageCleanupWarning) {
+        toast.warning(t("dropStorageCleanupWarning"));
+      }
+      toast.success(t("dropSuccess", { count: result.deletedCount }));
+      router.refresh();
+    });
+  }
+
   function runScopedCuration(step: CurationStep) {
     const ids = selectedVisible.map((submission) => submission.id);
     if (ids.length === 0) return;
@@ -500,14 +528,25 @@ export function SubmissionsReviewList({
         />
         <div className="flex flex-wrap justify-end gap-2">
           {activeTab === "needs_data" ? (
-            <Button
-              size="compact"
-              className="min-h-12"
-              onClick={enrichSelected}
-              disabled={selectedVisible.length === 0 || isEnriching}
-            >
-              {isEnriching ? t("fetching") : t("fetchData")}
-            </Button>
+            <>
+              <Button
+                size="compact"
+                className="min-h-12"
+                onClick={enrichSelected}
+                disabled={selectedVisible.length === 0 || isEnriching || isDropping}
+              >
+                {isEnriching ? t("fetching") : t("fetchData")}
+              </Button>
+              <Button
+                size="compact"
+                className="min-h-12"
+                variant="destructive"
+                onClick={() => setDropDialogOpen(true)}
+                disabled={selectedVisible.length === 0 || isEnriching || isDropping}
+              >
+                {t("dropSelected")}
+              </Button>
+            </>
           ) : (
             <>
               {activeTab === "ready" &&
@@ -819,6 +858,21 @@ export function SubmissionsReviewList({
           />
         )}
       </BrandDetailSheet>
+
+      <ConfirmDialog
+        open={dropDialogOpen}
+        onOpenChange={setDropDialogOpen}
+        title={t("dropTitle")}
+        description={t("dropDescription", {
+          count: selectedVisible.filter(
+            (submission) => submission.reviewStage === "needs_data",
+          ).length,
+        })}
+        onConfirm={dropSelected}
+        confirmLabel={t("dropSelected")}
+        variant="destructive"
+        isPending={isDropping}
+      />
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <p className="type-card-description">

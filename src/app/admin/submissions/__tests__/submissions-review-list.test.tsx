@@ -17,6 +17,7 @@ const actions = vi.hoisted(() => ({
   bulkApprove: vi.fn(),
   reject: vi.fn(),
   enrich: vi.fn(),
+  drop: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -30,6 +31,9 @@ vi.mock("@/app/admin/actions", () => ({
 }));
 vi.mock("@/app/admin/operations/actions", () => ({
   startCurationJobAction: actions.enrich,
+}));
+vi.mock("@/app/admin/submissions/actions", () => ({
+  dropNeedsDataSubmissionsAction: actions.drop,
 }));
 vi.mock("../submission-review-details", () => ({
   SubmissionReviewDetails: ({
@@ -55,6 +59,7 @@ beforeEach(() => {
     dispatchStatus: "dispatched",
     message: "Queued 1 submission.",
   });
+  actions.drop.mockResolvedValue({ deletedCount: 1 });
 });
 
 describe("SubmissionsReviewList", () => {
