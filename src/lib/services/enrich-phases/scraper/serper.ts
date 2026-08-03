@@ -14,6 +14,7 @@ import type {
 } from './types'
 import { DEFAULT_QUERY, buildImageQueryVariants, isGoogleUrl, stripTrackingParams } from './search'
 import { fetchHtml } from './fetch-guards'
+import { classifyHttpResponse, IN_PROCESS, withRetry } from '@/lib/retry'
 
 const SERPER_SERP_ENDPOINT = 'https://google.serper.dev/search'
 const SERPER_IMAGE_ENDPOINT = 'https://google.serper.dev/images'
@@ -26,6 +27,7 @@ export type SerperAuditOptions = SearchAuditContext & {
   config?: unknown
   dryRun?: boolean
   attempt?: number
+  retryAttempt?: number
 }
 
 type AuditResolver<T> = SerperAuditOptions | ((input: T) => SerperAuditOptions | undefined)
@@ -113,6 +115,7 @@ type SerperCallResult<T> = {
   callStatus: SearchCallStatus
   httpStatus: number | null
   error: string | null
+  response?: Response
   auditResultId?: string
 }
 
@@ -209,6 +212,7 @@ type FinishResult = {
   data?: unknown
   urls?: string[]
   snippets?: string[]
+  response?: Response
 }
 
 async function callSerperJson<T>(
@@ -221,146 +225,159 @@ async function callSerperJson<T>(
   options?: SerperAuditOptions,
 ): Promise<SerperCallResult<T>> {
   const requestBody = bodyForAudit(body)
-  const auditResultId = options
-    ? await startSearchAudit({
-        ...options,
-        provider: 'serper',
-        endpoint,
-        searchType,
-        query,
-        input: requestBody,
-        config: {
-          ...(isRecord(options.config) ? options.config : {}),
-          ...(options.dryRun !== undefined ? { dryRun: options.dryRun } : {}),
-        },
-        attempt: options.attempt,
-      })
-    : undefined
-
   const apiKey = process.env.SERPER_API_KEY
-  if (!apiKey) {
-    const missingKey = 'SERPER_API_KEY is not set'
-    if (auditResultId) {
-      await finishSearchAudit(
-        auditResultId,
-        {
+  async function attempt(retryAttempt: number): Promise<SerperCallResult<T>> {
+    const auditResultId = options
+      ? await startSearchAudit({
+          ...options,
+          provider: 'serper',
+          endpoint,
+          searchType,
+          query,
+          input: requestBody,
+          config: {
+            ...(isRecord(options.config) ? options.config : {}),
+            ...(options.dryRun !== undefined ? { dryRun: options.dryRun } : {}),
+          },
+          attempt: options.attempt,
+          retryAttempt,
+        })
+      : undefined
+
+    if (!apiKey) {
+      const missingKey = 'SERPER_API_KEY is not set'
+      if (auditResultId) {
+        await finishSearchAudit(
+          auditResultId,
+          {
+            callStatus: 'failed',
+            error: missingKey,
+            latencyMs: 0,
+          },
+          options?.supabase,
+        )
+      }
+      throw new Error(missingKey)
+    }
+
+    const controller = new AbortController()
+    let timedOut = false
+    const timeout = setTimeout(() => {
+      timedOut = true
+      controller.abort()
+    }, SEARCH_TIMEOUT_MS)
+    const startAt = Date.now()
+
+    const finalize = async (result: FinishResult): Promise<SerperCallResult<T>> => {
+      const latencyMs = Date.now() - startAt
+      if (auditResultId) {
+        await finishSearchAudit(
+          auditResultId,
+          {
+            callStatus: result.callStatus,
+            httpStatus: result.httpStatus,
+            error: result.error,
+            rawResponse: result.fullResponse,
+            urls: result.urls,
+            snippets: result.snippets,
+            latencyMs,
+          },
+          options?.supabase,
+        )
+      }
+      return {
+        data: (result.data as T | null | undefined) ?? null,
+        fullResponse: result.fullResponse ?? null,
+        latencyMs,
+        callStatus: result.callStatus,
+        httpStatus: result.httpStatus ?? null,
+        error: result.error ?? null,
+        ...(result.response ? { response: result.response } : {}),
+        ...(auditResultId ? { auditResultId } : {}),
+      }
+    }
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'X-API-KEY': apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      })
+
+      if (!response.ok) {
+        let responseBody: unknown = null
+        try {
+          responseBody = await response.json()
+        } catch {
+          responseBody = null
+        }
+        return await finalize({
           callStatus: 'failed',
-          error: missingKey,
-          latencyMs: 0,
-        },
-        options?.supabase,
-      )
-    }
-    throw new Error(missingKey)
-  }
+          httpStatus: response.status,
+          error: `Serper HTTP ${response.status}`,
+          fullResponse: responseBody,
+          response,
+        })
+      }
 
-  const controller = new AbortController()
-  let timedOut = false
-  const timeout = setTimeout(() => {
-    timedOut = true
-    controller.abort()
-  }, SEARCH_TIMEOUT_MS)
-  const startAt = Date.now()
-
-  const finalize = async (result: FinishResult): Promise<SerperCallResult<T>> => {
-    const latencyMs = Date.now() - startAt
-    if (auditResultId) {
-      await finishSearchAudit(
-        auditResultId,
-        {
-          callStatus: result.callStatus,
-          httpStatus: result.httpStatus,
-          error: result.error,
-          rawResponse: result.fullResponse,
-          urls: result.urls,
-          snippets: result.snippets,
-          latencyMs,
-        },
-        options?.supabase,
-      )
-    }
-    return {
-      data: (result.data as T | null | undefined) ?? null,
-      fullResponse: result.fullResponse ?? null,
-      latencyMs,
-      callStatus: result.callStatus,
-      httpStatus: result.httpStatus ?? null,
-      error: result.error ?? null,
-      ...(auditResultId ? { auditResultId } : {}),
-    }
-  }
-
-  try {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'X-API-KEY': apiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    })
-
-    if (!response.ok) {
-      let responseBody: unknown = null
+      let responseBody: unknown
       try {
         responseBody = await response.json()
-      } catch {
-        responseBody = null
+      } catch (error) {
+        return await finalize({
+          callStatus: 'malformed',
+          httpStatus: response.status,
+          error: `Malformed JSON: ${errorText(error)}`,
+          response,
+        })
       }
-      return await finalize({
-        callStatus: 'failed',
-        httpStatus: response.status,
-        error: `Serper HTTP ${response.status}`,
-        fullResponse: responseBody,
-      })
-    }
 
-    let responseBody: unknown
-    try {
-      responseBody = await response.json()
+      if (!isValidResponse(responseBody)) {
+        return await finalize({
+          callStatus: 'malformed',
+          httpStatus: response.status,
+          error: 'Serper response shape was not recognized',
+          fullResponse: responseBody,
+          response,
+        })
+      }
+
+      const resultCount =
+        searchType === 'serp'
+          ? ((responseBody as SerperSerpResponse).organic?.length ?? 0)
+          : searchType === 'image'
+            ? ((responseBody as SerperImageResponse).images?.length ?? 0)
+            : ((responseBody as SerperMapsResponse).places?.length ?? 0)
+      const normalized = normalizeResponse(responseBody)
+      return await finalize({
+        data: responseBody,
+        fullResponse: responseBody,
+        callStatus: resultCount === 0 ? 'empty' : 'succeeded',
+        httpStatus: response.status,
+        urls: normalized.urls,
+        snippets: normalized.snippets,
+        response,
+      })
     } catch (error) {
+      const callStatus: SearchCallStatus =
+        timedOut || (error instanceof Error && error.name === 'AbortError') ? 'timeout' : 'network_error'
       return await finalize({
-        callStatus: 'malformed',
-        httpStatus: response.status,
-        error: `Malformed JSON: ${errorText(error)}`,
+        callStatus,
+        error: errorText(error),
       })
+    } finally {
+      clearTimeout(timeout)
     }
-
-    if (!isValidResponse(responseBody)) {
-      return await finalize({
-        callStatus: 'malformed',
-        httpStatus: response.status,
-        error: 'Serper response shape was not recognized',
-        fullResponse: responseBody,
-      })
-    }
-
-    const resultCount =
-      searchType === 'serp'
-        ? ((responseBody as SerperSerpResponse).organic?.length ?? 0)
-        : searchType === 'image'
-          ? ((responseBody as SerperImageResponse).images?.length ?? 0)
-          : ((responseBody as SerperMapsResponse).places?.length ?? 0)
-    const normalized = normalizeResponse(responseBody)
-    return await finalize({
-      data: responseBody,
-      fullResponse: responseBody,
-      callStatus: resultCount === 0 ? 'empty' : 'succeeded',
-      httpStatus: response.status,
-      urls: normalized.urls,
-      snippets: normalized.snippets,
-    })
-  } catch (error) {
-    const callStatus: SearchCallStatus =
-      timedOut || (error instanceof Error && error.name === 'AbortError') ? 'timeout' : 'network_error'
-    return await finalize({
-      callStatus,
-      error: errorText(error),
-    })
-  } finally {
-    clearTimeout(timeout)
   }
+
+  return withRetry(IN_PROCESS, attempt, {
+    classify: classifyHttpResponse,
+    service: 'serper',
+  })
 }
 
 function parseBrandSearchResults(

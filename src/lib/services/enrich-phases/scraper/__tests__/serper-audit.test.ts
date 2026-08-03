@@ -41,6 +41,13 @@ const auditOptions = (state: AuditState, overrides: Record<string, unknown> = {}
   ...overrides,
 })
 
+async function withFakeTimers<T>(run: () => Promise<T>): Promise<T> {
+  vi.useFakeTimers()
+  const promise = run()
+  await vi.runAllTimersAsync()
+  return promise
+}
+
 describe('audited Serper adapter', () => {
   beforeEach(() => {
     process.env.SERPER_API_KEY = 'secret-api-key'
@@ -177,6 +184,79 @@ describe('audited Serper adapter', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
+  it('retries a network error and succeeds', async () => {
+    const state: AuditState = { inserts: [], updates: [] }
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError('fetch failed'))
+      .mockResolvedValue(new Response(JSON.stringify({ places: [{ title: 'Recovered' }] }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await withFakeTimers(() => searchBrandMaps('Recovered', auditOptions(state)))
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(result.callStatus).toBe('succeeded')
+  })
+
+  it('retries a timeout instead of returning the first timeout', async () => {
+    const state: AuditState = { inserts: [], updates: [] }
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(Object.assign(new Error('aborted'), { name: 'AbortError' }))
+      .mockResolvedValue(new Response(JSON.stringify({ places: [{ title: 'Recovered' }] }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await withFakeTimers(() => searchBrandMaps('Recovered', auditOptions(state)))
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(result.callStatus).toBe('succeeded')
+  })
+
+  it('retries both rate limits and server errors', async () => {
+    const state: AuditState = { inserts: [], updates: [] }
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(null, { status: 429 }))
+      .mockResolvedValueOnce(new Response(null, { status: 503 }))
+      .mockResolvedValue(new Response(JSON.stringify({ places: [{ title: 'Recovered' }] }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await withFakeTimers(() => searchBrandMaps('Recovered', auditOptions(state)))
+
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(result.callStatus).toBe('succeeded')
+  })
+
+  it('gives up after three attempts and reports the real failure', async () => {
+    const state: AuditState = { inserts: [], updates: [] }
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError('fetch failed'))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await withFakeTimers(() => searchBrandMaps('Unavailable', auditOptions(state)))
+
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(result.callStatus).toBe('network_error')
+  })
+
+  it('writes one audit pair per retry with distinct retry_attempt values', async () => {
+    const state: AuditState = { inserts: [], updates: [] }
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(new Response(null, { status: 429 }))
+        .mockResolvedValueOnce(new Response(null, { status: 429 }))
+        .mockResolvedValue(new Response(JSON.stringify({ places: [{ title: 'Recovered' }] }), { status: 200 })),
+    )
+
+    await withFakeTimers(() => searchBrandMaps('Recovered', auditOptions(state, { attempt: 7 })))
+
+    expect(state.inserts).toHaveLength(3)
+    expect(state.inserts.map((row) => row.retry_attempt)).toEqual([0, 1, 2])
+    expect(state.inserts.map((row) => row.attempt)).toEqual([7, 7, 7])
+    expect(state.updates).toHaveLength(3)
+  })
+
   it('finalizes an aborted request as a timeout', async () => {
     vi.useFakeTimers()
     const state: AuditState = { inserts: [], updates: [] }
@@ -193,7 +273,7 @@ describe('audited Serper adapter', () => {
     )
 
     const pending = searchBrandMaps('test', auditOptions(state))
-    await vi.advanceTimersByTimeAsync(60_000)
+    await vi.runAllTimersAsync()
     const result = await pending
 
     expect(result.callStatus).toBe('timeout')

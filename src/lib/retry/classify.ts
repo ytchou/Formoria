@@ -27,6 +27,7 @@ type ErrorBodyCarrier = { errorBody?: unknown };
 type HttpResponseLike = {
   response?: Response;
   status?: number;
+  httpStatus?: number | null;
   errorBody?: unknown;
   callStatus?: string;
 };
@@ -48,6 +49,7 @@ export function isNonRetryableProviderError(
 function statusFrom(value: Response | HttpResponseLike): number | undefined {
   if (value instanceof Response) return value.status;
   if (typeof value.status === "number") return value.status;
+  if (typeof value.httpStatus === "number") return value.httpStatus;
   return value.response?.status;
 }
 
