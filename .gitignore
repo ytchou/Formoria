@@ -105,6 +105,10 @@ public/admin/content/
 # Eval scripts (local experimentation)
 scripts/eval/
 
+# model-ab run artifacts (54M+ of cached HTTP bodies and per-model output).
+# The harness itself is committed; its outputs are local evidence, not source.
+scripts/model-ab/runs/
+
 # brand-storage-maintenance local manifests (operational artifacts, never committed)
 scripts/.storage-purge-manifest-*.json
 scripts/.reencode-originals-*.json

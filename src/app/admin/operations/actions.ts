@@ -5,6 +5,7 @@ import { requireAdminAction } from "@/lib/auth/require-admin";
 import {
   cancelCurationJob,
   enqueueAdminCurationJob,
+  enqueueCurationResume,
   enqueueManualRerun,
   getCurationJob,
   getCurationJobDetail,
@@ -122,6 +123,54 @@ export async function rerunCurationJobAction(
     );
   } catch (error) {
     console.error("[admin:rerunCurationJobAction]", error);
+    return {
+      error:
+        error instanceof Error ? error.message : "An unexpected error occurred",
+    };
+  }
+}
+
+/**
+ * Re-enqueues only a failed job's unfinished targets, at only the phases they
+ * still owe. The phase list is recomputed from the stored targets on the server
+ * and never read from the request: it decides how many LLM calls get paid for.
+ *
+ * Up to two jobs are created (failed group, cancelled group). Only the first is
+ * dispatched — the worker's drain loop claims the next pending job on its own,
+ * so the second follows without a second HTTP round trip.
+ */
+export async function resumeCurationJobAction(
+  jobId: string,
+): Promise<QueuedJobResult | { error: string }> {
+  try {
+    const auth = await requireAdminAction();
+    if ("error" in auth) return auth;
+
+    const jobs = await enqueueCurationResume(
+      jobId,
+      auth.user.email ?? auth.user.id,
+    );
+    revalidatePath("/admin/jobs");
+    revalidatePath(`/admin/jobs/${jobId}`);
+
+    const firstJob = jobs.at(0);
+    if (!firstJob) return { error: "No targets were eligible to resume" };
+
+    const counts = (group: "failed" | "cancelled") =>
+      jobs
+        .filter((job) => job.resumeGroup === group)
+        .reduce((total, job) => total + job.resumeTargetCount, 0);
+
+    // Dispatch failure is not an error here: both jobs are already committed to
+    // a durable queue and drain on the next cron tick or a manual "Run now".
+    // `dispatchQueuedJob` reports that through `dispatchStatus`, exactly as the
+    // rerun action does.
+    return dispatchQueuedJob(
+      firstJob.id,
+      `Resuming ${counts("failed")} failed and ${counts("cancelled")} cancelled target(s).`,
+    );
+  } catch (error) {
+    console.error("[admin:resumeCurationJobAction]", error);
     return {
       error:
         error instanceof Error ? error.message : "An unexpected error occurred",

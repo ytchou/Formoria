@@ -12,7 +12,24 @@ export interface CurationConfig {
   onTargetProgress?: (
     event: CurationTargetProgressEvent,
   ) => void | Promise<void>;
+  /**
+   * Fires once per target with the fully merged patch, immediately before the
+   * persist branch. Exists for `dryRun` inspection: a dry run computes the
+   * exact same patch and then throws it away, so without this hook the only
+   * observable output is the *names* of the changed fields, never their values.
+   * Never used by the production worker.
+   */
+  onPatch?: (event: CurationPatchEvent) => void | Promise<void>;
   jobId?: string;
+}
+
+export interface CurationPatchEvent {
+  targetId: string;
+  targetType: "submission" | "brand";
+  slug: string;
+  name: string;
+  patch: Record<string, unknown>;
+  phaseResults: PhaseResult[];
 }
 
 export type PhaseStatus = "succeeded" | "skipped" | "failed";

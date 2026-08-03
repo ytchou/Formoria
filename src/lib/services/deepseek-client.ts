@@ -10,78 +10,79 @@
  * from `OPENAI_API_KEY` to `DEEPSEEK_API_KEY`:
  *   - `product-type-classifier.ts` (4 sites)
  *   - `description-rewrite.ts`
- *   - `expansion-research.ts`
+ *   - `brand-facts.ts`
+ *   - `reputation-research.ts`
  *
  * `DEEPSEEK_API_KEY` is still provisioned in Railway for exactly this reason —
  * it is an escape hatch, not a live dependency, so nothing health-checks it.
  */
-const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions'
-const DEEPSEEK_BALANCE_API_URL = 'https://api.deepseek.com/user/balance'
+const DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions";
+const DEEPSEEK_BALANCE_API_URL = "https://api.deepseek.com/user/balance";
 
-const DEFAULT_DEEPSEEK_MODEL = 'deepseek-v4-flash'
+const DEFAULT_DEEPSEEK_MODEL = "deepseek-v4-flash";
 
 type DeepSeekClientOptions = {
-  apiKey?: string
-  model?: string
-  onChatComplete?: (event: ChatAuditEvent) => void | Promise<void>
-}
+  apiKey?: string;
+  model?: string;
+  onChatComplete?: (event: ChatAuditEvent) => void | Promise<void>;
+};
 
-type DeepSeekImage = string | { url: string }
+type DeepSeekImage = string | { url: string };
 
 type DeepSeekChatInput = {
-  system: string
-  user: string
-  json?: boolean
-  timeoutMs?: number
-  maxTokens?: number
-  temperature?: number
-  images?: DeepSeekImage[]
-  meta?: Record<string, unknown>
-}
+  system: string;
+  user: string;
+  json?: boolean;
+  timeoutMs?: number;
+  maxTokens?: number;
+  temperature?: number;
+  images?: DeepSeekImage[];
+  meta?: Record<string, unknown>;
+};
 
 type DeepSeekChatContentPart =
-  | { type: 'text'; text: string }
-  | { type: 'image_url'; image_url: { url: string } }
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
 
 type DeepSeekChatResponse = {
-  choices?: Array<{ message?: { content?: string } }>
-  usage?: ChatUsage
-}
+  choices?: Array<{ message?: { content?: string } }>;
+  usage?: ChatUsage;
+};
 
 export type ChatUsage = {
-  prompt_tokens?: number
-  completion_tokens?: number
-  total_tokens?: number
-}
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
+};
 
 export type ChatAuditEvent = {
-  provider: 'deepseek'
-  model: string
-  ok: boolean
-  status: number
-  data: unknown
-  usage?: ChatUsage
-  latencyMs: number
+  provider: "deepseek";
+  model: string;
+  ok: boolean;
+  status: number;
+  data: unknown;
+  usage?: ChatUsage;
+  latencyMs: number;
   request: {
-    system: string
-    user: string
-    imageCount: number
-  }
-  meta?: Record<string, unknown>
-  error?: string
-}
+    system: string;
+    user: string;
+    imageCount: number;
+  };
+  meta?: Record<string, unknown>;
+  error?: string;
+};
 
 export type DeepSeekChatResult = {
-  response: Response
-  data: DeepSeekChatResponse | null
-  content: string | null
-}
+  response: Response;
+  data: DeepSeekChatResponse | null;
+  content: string | null;
+};
 
 export function parseDeepSeekJson<T>(content: string): T | null {
   try {
-    return JSON.parse(content) as T
+    return JSON.parse(content) as T;
   } catch {
-    return null
+    return null;
   }
 }
 
@@ -90,27 +91,29 @@ export function createDeepSeekClient({
   model = DEFAULT_DEEPSEEK_MODEL,
   onChatComplete,
 }: DeepSeekClientOptions = {}) {
-  const resolvedApiKey = apiKey ?? process.env.DEEPSEEK_API_KEY
+  const resolvedApiKey = apiKey ?? process.env.DEEPSEEK_API_KEY;
 
   async function emitAudit(event: ChatAuditEvent): Promise<void> {
-    if (!onChatComplete) return
+    if (!onChatComplete) return;
 
     try {
-      await onChatComplete(event)
+      await onChatComplete(event);
     } catch (error) {
-      console.error('[deepseek-client:audit]', { error: error instanceof Error ? error.message : String(error) })
+      console.error("[deepseek-client:audit]", {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
   function authHeaders(): Record<string, string> {
     if (!resolvedApiKey) {
-      throw new Error('DEEPSEEK_API_KEY is not configured')
+      throw new Error("DEEPSEEK_API_KEY is not configured");
     }
 
     return {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       Authorization: `Bearer ${resolvedApiKey}`,
-    }
+    };
   }
 
   return {
@@ -124,41 +127,44 @@ export function createDeepSeekClient({
       images,
       meta,
     }: DeepSeekChatInput): Promise<DeepSeekChatResult> {
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), timeoutMs)
-      const startedAt = performance.now()
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+      const startedAt = performance.now();
       const userContent: string | DeepSeekChatContentPart[] = images?.length
         ? [
-            { type: 'text', text: user },
+            { type: "text", text: user },
             ...images.map((image) => ({
-              type: 'image_url' as const,
-              image_url: { url: typeof image === 'string' ? image : image.url },
+              type: "image_url" as const,
+              image_url: { url: typeof image === "string" ? image : image.url },
             })),
           ]
-        : user
+        : user;
 
       try {
         const response = await fetch(DEEPSEEK_API_URL, {
-          method: 'POST',
+          method: "POST",
           headers: authHeaders(),
           body: JSON.stringify({
             model,
             messages: [
-              { role: 'system', content: system },
-              { role: 'user', content: userContent },
+              { role: "system", content: system },
+              { role: "user", content: userContent },
             ],
-            ...(typeof maxTokens === 'number' ? { max_tokens: maxTokens } : {}),
-            ...(typeof temperature === 'number' ? { temperature } : {}),
-            thinking: { type: 'disabled' },
-            ...(json ? { response_format: { type: 'json_object' } } : {}),
+            ...(typeof maxTokens === "number" ? { max_tokens: maxTokens } : {}),
+            ...(typeof temperature === "number" ? { temperature } : {}),
+            thinking: { type: "disabled" },
+            ...(json ? { response_format: { type: "json_object" } } : {}),
           }),
           signal: controller.signal,
-        })
+        });
 
         if (!response.ok) {
-          const data = (await response.clone().json().catch(() => null)) as unknown
+          const data = (await response
+            .clone()
+            .json()
+            .catch(() => null)) as unknown;
           await emitAudit({
-            provider: 'deepseek',
+            provider: "deepseek",
             model,
             ok: false,
             status: response.status,
@@ -166,15 +172,15 @@ export function createDeepSeekClient({
             latencyMs: performance.now() - startedAt,
             request: { system, user, imageCount: images?.length ?? 0 },
             ...(meta ? { meta } : {}),
-          })
-          return { response, data: null, content: null }
+          });
+          return { response, data: null, content: null };
         }
 
-        const data = await response.json() as DeepSeekChatResponse
-        const content = data.choices?.[0]?.message?.content?.trim() ?? null
+        const data = (await response.json()) as DeepSeekChatResponse;
+        const content = data.choices?.[0]?.message?.content?.trim() ?? null;
 
         await emitAudit({
-          provider: 'deepseek',
+          provider: "deepseek",
           model,
           ok: true,
           status: response.status,
@@ -183,12 +189,12 @@ export function createDeepSeekClient({
           latencyMs: performance.now() - startedAt,
           request: { system, user, imageCount: images?.length ?? 0 },
           ...(meta ? { meta } : {}),
-        })
+        });
 
-        return { response, data, content }
+        return { response, data, content };
       } catch (error) {
         await emitAudit({
-          provider: 'deepseek',
+          provider: "deepseek",
           model,
           ok: false,
           status: 0,
@@ -197,10 +203,10 @@ export function createDeepSeekClient({
           request: { system, user, imageCount: images?.length ?? 0 },
           ...(meta ? { meta } : {}),
           error: error instanceof Error ? error.message : String(error),
-        })
-        throw error
+        });
+        throw error;
       } finally {
-        clearTimeout(timeout)
+        clearTimeout(timeout);
       }
     },
 
@@ -208,7 +214,7 @@ export function createDeepSeekClient({
       return fetch(DEEPSEEK_BALANCE_API_URL, {
         headers: authHeaders(),
         signal: AbortSignal.timeout(timeoutMs),
-      })
+      });
     },
-  }
+  };
 }

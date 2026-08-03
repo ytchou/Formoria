@@ -1,18 +1,63 @@
+/**
+ * `reputation` was called `expansion` until 2026-08-03. The rename went all the
+ * way through the stored phase string, so historical rows in
+ * `curation_jobs.params`, `curation_jobs.current_phase`,
+ * `curation_job_targets.current_phase` / `.phase_results` and
+ * `brand_ai_results.phase` still say `expansion`. Every reader normalises the
+ * legacy value rather than rewriting the rows: `job-runner`/`curation-jobs` map
+ * it when parsing job params, `runlog-export` aliases it, and the admin job view
+ * keeps a legacy label entry.
+ */
 export const ENRICH_PHASES = [
-  'clean',
-  'detect',
-  'slugs',
-  'tags',
-  'discover',
-  'links',
-  'images',
-  'classify_images',
-  'descriptions',
-  'locations',
-  'expansion',
-] as const
+  "clean",
+  "detect",
+  "slugs",
+  "tags",
+  "discover",
+  "links",
+  "images",
+  "classify_images",
+  "descriptions",
+  "locations",
+  "reputation",
+] as const;
 
-export type EnrichPhaseName = (typeof ENRICH_PHASES)[number]
+export type EnrichPhaseName = (typeof ENRICH_PHASES)[number];
+
+/**
+ * Phase strings that are audited and reported but are NOT independently
+ * selectable: they have no entry in `CURATION_STEPS`, an operator can never ask
+ * for one, and they cannot be skipped without skipping the phase that owns
+ * them. They still reach the database — `brand_ai_results.phase` and
+ * `curation_job_targets.phase_results` both store them — so they are modelled
+ * here rather than left as bare literals scattered through the services.
+ *
+ * - `facts` runs inside `descriptions`. `runDescriptionsPhase` returns early
+ *   unless `phases.includes('descriptions')`, and `extractBrandFacts` is called
+ *   unconditionally after that gate, so `facts` cannot run alone and cannot be
+ *   skipped while `descriptions` runs.
+ * - `classification` is the standalone product-type classifier that backs
+ *   `tags` when `descriptions` did not already decide the category.
+ * - `image-search` is the batched serper /images call that backs `images`. It
+ *   is batched across a whole chunk, so it is not a per-brand phase.
+ */
+export const SUB_PHASES = [
+  "facts",
+  "classification",
+  "image-search",
+  "persist",
+] as const;
+
+export type SubPhaseName = (typeof SUB_PHASES)[number];
+
+/**
+ * Every phase string the pipeline can write to `brand_ai_results.phase` or to a
+ * `PhaseResult`. Readers that render persisted phase strings (the admin job
+ * view, the run-log export) must cover this set, not just `ENRICH_PHASES`.
+ */
+export const AUDITED_PHASES = [...ENRICH_PHASES, ...SUB_PHASES] as const;
+
+export type AuditedPhaseName = EnrichPhaseName | SubPhaseName;
 
 /**
  * Phases whose work is a serper.dev call. The main pipeline is one-way
@@ -24,10 +69,10 @@ export type EnrichPhaseName = (typeof ENRICH_PHASES)[number]
  * - `locations` -> serper /maps (channels phase)
  */
 export const SERP_PHASES = [
-  'discover',
-  'images',
-  'locations',
-] as const satisfies readonly EnrichPhaseName[]
+  "discover",
+  "images",
+  "locations",
+] as const satisfies readonly EnrichPhaseName[];
 
 /**
  * Phases whose work is LLM inference. These consume SERP output (live or
@@ -38,13 +83,13 @@ export const SERP_PHASES = [
  *   model's `slugGenerated` field.
  */
 export const ENRICH_LLM_PHASES = [
-  'detect',
-  'slugs',
-  'tags',
-  'classify_images',
-  'descriptions',
-  'expansion',
-] as const satisfies readonly EnrichPhaseName[]
+  "detect",
+  "slugs",
+  "tags",
+  "classify_images",
+  "descriptions",
+  "reputation",
+] as const satisfies readonly EnrichPhaseName[];
 
 /**
  * Phases that call neither serper.dev nor an LLM.
@@ -54,9 +99,9 @@ export const ENRICH_LLM_PHASES = [
  *   paid provider and belongs to neither stage.
  */
 export const LOCAL_PHASES = [
-  'clean',
-  'links',
-] as const satisfies readonly EnrichPhaseName[]
+  "clean",
+  "links",
+] as const satisfies readonly EnrichPhaseName[];
 
 /**
  * Every stage group, in the order a run executes them. Kept as one array so the
@@ -67,7 +112,7 @@ export const ENRICH_STAGE_GROUPS = {
   serp: SERP_PHASES,
   enrich: ENRICH_LLM_PHASES,
   local: LOCAL_PHASES,
-} as const satisfies Record<string, readonly EnrichPhaseName[]>
+} as const satisfies Record<string, readonly EnrichPhaseName[]>;
 
 /**
  * The three steps an operator selects. Everything below this line is the
@@ -91,16 +136,42 @@ export const ENRICH_STAGE_GROUPS = {
  * failure reads "links failed", not "context failed". Steps are therefore a
  * selection API that expands into phases, never a replacement for them.
  */
-export const CURATION_STEPS = {
-  context: ['discover', 'detect', 'slugs', 'clean', 'links'],
-  image: ['images', 'classify_images'],
-  detail: ['descriptions', 'locations', 'expansion', 'tags'],
-} as const satisfies Record<string, readonly EnrichPhaseName[]>
+/**
+ * Phases that still exist but are deliberately not run.
+ *
+ * `locations` (serper /maps -> retail channels) is deferred as of 2026-08-03:
+ * the retail-location output was not good enough to publish, so paying for a
+ * /maps call per brand buys nothing. It stays in ENRICH_PHASES because the name
+ * is persisted in `curation_jobs.params`, `curation_job_targets.phase_results`
+ * and `brand_ai_results.phase`, and historical rows must keep rendering.
+ *
+ * Removing a phase from every step is what actually disables it — this list
+ * exists so that absence reads as a decision rather than an oversight, and so
+ * the coverage test can tell the two apart.
+ *
+ * The runner also consults this list directly (`isDeferredPhase`) so a deferred
+ * phase costs neither a `current_phase` write nor a phase function call even
+ * when an explicit `params.phases` array names it.
+ */
+export const DEFERRED_PHASES = [
+  "locations",
+] as const satisfies readonly EnrichPhaseName[];
 
-export type CurationStep = keyof typeof CURATION_STEPS
+/** True when the phase exists but is deliberately not run. See DEFERRED_PHASES. */
+export function isDeferredPhase(phase: string): boolean {
+  return (DEFERRED_PHASES as readonly string[]).includes(phase);
+}
+
+export const CURATION_STEPS = {
+  context: ["discover", "detect", "slugs", "clean", "links"],
+  image: ["images", "classify_images"],
+  detail: ["descriptions", "reputation", "tags"],
+} as const satisfies Record<string, readonly EnrichPhaseName[]>;
+
+export type CurationStep = keyof typeof CURATION_STEPS;
 
 /** Execution order of the steps. `image` depends on `context`, `detail` on both. */
-export const CURATION_STEP_ORDER = ['context', 'image', 'detail'] as const
+export const CURATION_STEP_ORDER = ["context", "image", "detail"] as const;
 
 /**
  * Expands steps into phases, deduped and re-sorted into ENRICH_PHASES order so
@@ -110,15 +181,17 @@ export const CURATION_STEP_ORDER = ['context', 'image', 'detail'] as const
 export function phasesForSteps(
   steps: readonly CurationStep[],
 ): EnrichPhaseName[] {
-  const requested = new Set<string>(steps.flatMap((step) => CURATION_STEPS[step]))
-  return ENRICH_PHASES.filter((phase) => requested.has(phase))
+  const requested = new Set<string>(
+    steps.flatMap((step) => CURATION_STEPS[step]),
+  );
+  return ENRICH_PHASES.filter((phase) => requested.has(phase));
 }
 
 export const IMAGE_ENRICH_PHASES = [
-  'images',
-  'classify_images',
-] as const satisfies readonly EnrichPhaseName[]
+  "images",
+  "classify_images",
+] as const satisfies readonly EnrichPhaseName[];
 
 export const TEXT_ENRICH_PHASES = ENRICH_PHASES.filter(
   (phase) => !(IMAGE_ENRICH_PHASES as readonly string[]).includes(phase),
-)
+);

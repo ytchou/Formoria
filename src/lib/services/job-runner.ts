@@ -1,6 +1,7 @@
 import {
   ENRICH_PHASES,
   createEnrichmentSummary,
+  isLlmCircuitBreakerError,
   isProviderFailureMessage,
   runEnrich,
   type OperationResult as CurationOperationResult,
@@ -34,6 +35,7 @@ import type {
   CurationTargetProgressEvent,
   PhaseResult,
 } from "@/lib/types/curation";
+import { parsePhaseResults } from "@/lib/services/phase-results";
 import { sanitizeJobError } from "@/lib/services/job-errors";
 import { exportJobRunLog } from "@/lib/services/runlog-export";
 import { renderRunLogHtml } from "@/lib/runlog";
@@ -140,6 +142,14 @@ export async function runJob(
     return summary;
   } catch (error) {
     const message = sanitizeJobError(error);
+    // The LLM circuit breaker fired. `runEnrich` only throws this after the
+    // in-flight chunk has fully drained, so nothing is still writing target
+    // rows and a plain update is safe. Cancelling the untouched targets is what
+    // stops the automatic retry below from re-running them against the same
+    // dead account — `enqueueAutomaticRetry` re-runs `pending|running` only.
+    if (isLlmCircuitBreakerError(error)) {
+      await cancelUnstartedTargets(job.id, message);
+    }
     const failed = await finalizeCurationJob(job.id, workerToken, {
       status: "failed",
       completed_at: new Date().toISOString(),
@@ -339,16 +349,31 @@ function parseStatus(value: unknown): BrandStatus | undefined {
     : undefined;
 }
 
+/**
+ * Historical jobs (and automatic retries of them) store `expansion` — the name
+ * the reputation phase had until 2026-08-03. Mapping it BEFORE validation is
+ * what keeps such a job at its original scope: the filter below drops unknown
+ * names, so an unmapped `expansion` would silently shrink the run instead of
+ * failing loudly.
+ */
+export function normalizeLegacyEnrichPhase(phase: string): string {
+  return phase === "expansion" ? "reputation" : phase;
+}
+
 function parseEnrichPhases(value: unknown): EnrichPhase[] | undefined {
   if (!Array.isArray(value)) {
     return undefined;
   }
 
-  const phases = value.filter(
-    (phase): phase is EnrichPhase =>
-      typeof phase === "string" &&
-      (ENRICH_PHASES as readonly string[]).includes(phase),
-  );
+  const phases = value
+    .map((phase) =>
+      typeof phase === "string" ? normalizeLegacyEnrichPhase(phase) : phase,
+    )
+    .filter(
+      (phase): phase is EnrichPhase =>
+        typeof phase === "string" &&
+        (ENRICH_PHASES as readonly string[]).includes(phase),
+    );
 
   return phases.length > 0 ? [...new Set(phases)] : undefined;
 }
@@ -364,8 +389,9 @@ function parseCurationSteps(value: unknown): CurationStep[] | undefined {
   }
 
   const known = Object.keys(CURATION_STEPS) as CurationStep[];
-  const steps = value.filter((step): step is CurationStep =>
-    typeof step === "string" && (known as readonly string[]).includes(step),
+  const steps = value.filter(
+    (step): step is CurationStep =>
+      typeof step === "string" && (known as readonly string[]).includes(step),
   );
 
   return steps.length > 0 ? [...new Set(steps)] : undefined;
@@ -521,6 +547,42 @@ function buildTargetProgressPatch(
       duration_ms: Math.max(0, Math.round(event.durationMs ?? 0)),
     }),
   };
+}
+
+/**
+ * Sweeps every target the breaker prevented from running to `cancelled`.
+ *
+ * A direct service-client update rather than the `cancel_curation_job` RPC on
+ * purpose: that RPC sets the JOB to `cancelled` and nulls `worker_token`, which
+ * would fight the `finalizeCurationJob(status: 'failed')` call immediately
+ * after it and lose the lease. The job must finalize `failed` carrying the
+ * breaker message; only its targets become `cancelled`, which is also what
+ * makes them eligible for a later Resume.
+ *
+ * A sweep failure is logged, never rethrown — losing the job's own `failed`
+ * finalization because the cleanup update failed would be strictly worse.
+ */
+async function cancelUnstartedTargets(
+  jobId: string,
+  reason: string,
+): Promise<void> {
+  try {
+    const supabase = createServiceClient();
+    const { error } = await supabase
+      .from("curation_job_targets")
+      .update({
+        status: "cancelled",
+        current_phase: null,
+        error: reason,
+        completed_at: new Date().toISOString(),
+      })
+      .eq("job_id", jobId)
+      .in("status", ["pending", "running"]);
+
+    if (error) throw error;
+  } catch (error) {
+    console.error("[curation-worker:breaker-sweep]", sanitizeJobError(error));
+  }
 }
 
 async function markUnreportedTargetsSkipped(
@@ -683,7 +745,9 @@ function summaryFromTargets(
  * A failed target counts as a provider failure when the per-brand loop tagged
  * its phase result (`providerFailure`) — or, as a fallback for targets written
  * before that flag existed, when the persisted error still carries the Gate A
- * marker. Both signals live in the `curation_job_targets` row, so this works
+ * or Gate C marker (`isProviderFailureMessage` accepts either prefix, so an
+ * OpenAI outage is counted and alerted exactly like a Serper one).
+ * Both signals live in the `curation_job_targets` row, so this works
  * identically whether the job ran in the Next runtime or the worker container.
  */
 function isProviderFailedTarget(target: CurationJobTarget): boolean {
@@ -696,10 +760,6 @@ function isProviderFailedTarget(target: CurationJobTarget): boolean {
         isProviderFailureMessage(phaseResult.error),
     ) || isProviderFailureMessage(target.error)
   );
-}
-
-function parsePhaseResults(value: Json): PhaseResult[] {
-  return Array.isArray(value) ? (value as unknown as PhaseResult[]) : [];
 }
 
 function sanitizePhaseResults(phaseResults: PhaseResult[]): PhaseResult[] {

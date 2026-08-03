@@ -11,6 +11,7 @@ import type { ScrapedBrandData } from "@/lib/types/scraper";
 import {
   ENRICH_LLM_PHASES,
   ENRICH_PHASES,
+  isDeferredPhase,
   phasesForSteps,
   type CurationStep,
 } from "@/lib/constants/enrich-phases";
@@ -28,11 +29,13 @@ import {
   type DetectResult,
 } from "./product-type-classifier";
 import type { DescriptionAttempt } from "./description-rewrite";
+import type { BrandFactsAttempt } from "./brand-facts";
 import { SEARCH_DELAY_MS } from "./enrich-phases/scraper/search";
 import {
   insertTriageResult,
   insertClassificationResult,
   updateDescriptionAuditResult,
+  updateFactsAuditResult,
 } from "./ai-results";
 import type {
   BrandOutcome,
@@ -50,7 +53,7 @@ import {
   runCleanPhase,
   runDescriptionsPhase,
   runDiscoverPhase,
-  runExpansionPhase,
+  runReputationPhase,
   runClassifyImagesPhase,
   runImageSearchPhase,
   runLinksPhase,
@@ -65,10 +68,7 @@ import {
 import type { BrandImageSearchOutcome } from "./enrich-phases/scraper/types";
 import { buildCandidatePool } from "./enrich-phases/candidate-pool";
 import type { EnrichmentTarget } from "./enrichment-target";
-import {
-  deriveProductTypeFromTags,
-  MAX_PRODUCT_TAGS,
-} from "./product-tags";
+import { deriveProductTypeFromTags, MAX_PRODUCT_TAGS } from "./product-tags";
 import {
   formatBrandComplete,
   formatJobStart,
@@ -144,6 +144,48 @@ async function attachDescriptionAiResults(
   }
 }
 
+/** Same denormalisation pass as the copy call, against the `facts` audit rows. */
+async function attachFactsAiResults(
+  attempts: BrandFactsAttempt[],
+  target: EnrichmentTarget,
+  jobId?: string,
+): Promise<void> {
+  for (const attempt of attempts) {
+    await updateFactsAuditResult({
+      target,
+      ...(jobId ? { jobId } : {}),
+      attempt,
+    });
+  }
+}
+
+/**
+ * Consecutive Gate C failures that stop the whole job.
+ *
+ * Three, because two is inside the noise of a genuinely flaky account and four
+ * is another four brands' worth of doomed calls. "Consecutive" is measured in
+ * completion order, not start order — see the abort flag in `runEnrich`.
+ */
+const LLM_BREAKER_CONSECUTIVE_LIMIT = 3;
+
+/**
+ * Thrown by `runEnrich` after the breaker trips and the in-flight chunk has
+ * drained. `runJob` identifies it to sweep the job's untouched targets to
+ * `cancelled` before finalizing the job as `failed`; nothing else catches it.
+ */
+export class LlmCircuitBreakerError extends Error {
+  constructor(consecutiveFailures: number) {
+    super(
+      `LLM circuit breaker tripped after ${consecutiveFailures} consecutive provider failures — remaining targets were not attempted`,
+    );
+    this.name = "LlmCircuitBreakerError";
+  }
+}
+
+export function isLlmCircuitBreakerError(error: unknown): boolean {
+  return error instanceof Error && error.name === "LlmCircuitBreakerError";
+}
+
 const SCRAPE_DELAY_MS = 1000;
 // Composite fan-out: one unit runs the whole phase chain (Serper + OpenAI +
 // Postgres + sharp), so this is not the same knob as ENRICH_CHUNK_SIZE.
@@ -166,7 +208,7 @@ export { ENRICH_PHASES };
 type EnrichPhase =
   "clean" | "links" | "images" | "descriptions" | "locations" | "tags";
 type RunEnrichPhase =
-  EnrichPhase | "discover" | "detect" | "slugs" | "expansion";
+  EnrichPhase | "discover" | "detect" | "slugs" | "reputation";
 
 type EnrichBrand = CurationBrand &
   Partial<BrandFlatLinkColumns> & {
@@ -238,7 +280,7 @@ export function needsPhase(
     return isEmptyField(brand.hero_image_url ?? brand.heroImageUrl);
   }
 
-  if (phase === "expansion") {
+  if (phase === "reputation") {
     return isEmptyField(brand.reputation_summary ?? brand.reputationSummary);
   }
 
@@ -443,13 +485,45 @@ function uniqueUrls(urls: string[]): string[] {
  */
 const PROVIDER_FAILURE_PREFIX = "Search provider unavailable";
 
-/** True when `message` was produced by {@link describeProviderFailure}. */
+/**
+ * Gate C's marker, the LLM counterpart of {@link PROVIDER_FAILURE_PREFIX}.
+ *
+ * Separate prefix, same job: it is the only thing that survives the throw ->
+ * per-brand catch -> persisted target round trip, so `summary.providerFailed`
+ * and the alerting path can tell an OpenAI outage from a Serper one when
+ * reading a `curation_job_targets` row back days later.
+ */
+const LLM_PROVIDER_FAILURE_PREFIX = "LLM provider unavailable";
+
+/**
+ * True when `message` was produced by {@link describeProviderFailure} (Gate A)
+ * or {@link describeLlmProviderFailure} (Gate C). Both are provider outages for
+ * the purposes of counting and alerting — the operator response ("stop the run,
+ * fix the account") is the same, only the vendor differs.
+ */
 export function isProviderFailureMessage(
   message: string | null | undefined,
 ): boolean {
   return (
-    typeof message === "string" && message.startsWith(PROVIDER_FAILURE_PREFIX)
+    typeof message === "string" &&
+    (message.startsWith(PROVIDER_FAILURE_PREFIX) ||
+      message.startsWith(LLM_PROVIDER_FAILURE_PREFIX))
   );
+}
+
+/** True only for the LLM half, used by the circuit breaker's consecutive count. */
+export function isLlmProviderFailureMessage(
+  message: string | null | undefined,
+): boolean {
+  return (
+    typeof message === "string" &&
+    message.startsWith(LLM_PROVIDER_FAILURE_PREFIX)
+  );
+}
+
+function describeLlmProviderFailure(failedPhases: readonly string[]): string {
+  const phases = failedPhases.length > 0 ? failedPhases.join(", ") : "LLM";
+  return `${LLM_PROVIDER_FAILURE_PREFIX} — every attempted LLM phase failed at the provider: ${phases}`;
 }
 
 function describeProviderFailure(
@@ -518,6 +592,68 @@ export function evaluateProviderGate(input: {
   imageOutcome?: BrandImageSearchOutcome;
 }): ProviderGateDecision | null {
   const message = serpStageFailure(input);
+  if (!message) {
+    return null;
+  }
+
+  return {
+    action: process.env.CURATION_PROVIDER_GATE === "off" ? "warn" : "fail",
+    message,
+  };
+}
+
+const LLM_PHASE_NAMES = new Set<string>(ENRICH_LLM_PHASES);
+
+/**
+ * Gate C: every LLM phase this brand actually attempted failed at the provider.
+ *
+ * Returns the message to throw with, or `null` when at least one LLM call got
+ * through (or none was attempted). This is the LLM analogue of Gate A, and it
+ * necessarily fires AFTER the phases rather than before them: a search-provider
+ * outage is visible in the SERP result the pipeline already holds, but an LLM
+ * outage is only discoverable by calling.
+ *
+ * The counting rule is what protects the healthy case. A phase contributes to
+ * the denominator only when it was attempted (`status !== 'skipped'`), and to
+ * the numerator only when it failed with `providerFailure`. So a brand whose
+ * descriptions phase succeeded with an empty patch is untouched, and a brand
+ * whose every phase was skipped by scope is untouched — only the 2026-08-02
+ * shape (every call 429, nothing learned) trips it.
+ */
+export function llmStageFailure(
+  phaseResults: readonly PhaseResult[],
+): string | null {
+  const attempted = phaseResults.filter(
+    (phaseResult) =>
+      LLM_PHASE_NAMES.has(phaseResult.phase) &&
+      phaseResult.status !== "skipped",
+  );
+  if (attempted.length === 0) {
+    return null;
+  }
+
+  const providerFailed = attempted.filter(
+    (phaseResult) =>
+      phaseResult.status === "failed" && phaseResult.providerFailure === true,
+  );
+  if (providerFailed.length !== attempted.length) {
+    return null;
+  }
+
+  return describeLlmProviderFailure(
+    providerFailed.map((phaseResult) => phaseResult.phase),
+  );
+}
+
+/**
+ * Gate C with its kill switch applied. Shares `CURATION_PROVIDER_GATE=off` with
+ * Gate A deliberately: an operator disabling the provider gates mid-incident
+ * wants both off, and two switches is one more thing to get wrong at 2am.
+ */
+export function evaluateLlmProviderGate(
+  phaseResults: readonly PhaseResult[],
+): ProviderGateDecision | null {
+  const message = llmStageFailure(phaseResults);
   if (!message) {
     return null;
   }
@@ -721,6 +857,13 @@ function logPhaseResult(
   );
 }
 
+/**
+ * The phase labels the per-brand progress log counts through ("[3/7] links").
+ *
+ * Deferred phases are filtered out rather than removed from the literal list:
+ * the order is the one the pipeline would run, and un-deferring a phase should
+ * restore its position without anyone having to remember this function.
+ */
 function buildBrandPhaseOrder(
   phases: RunEnrichPhase[],
   hasDetectPhases: boolean,
@@ -732,9 +875,11 @@ function buildBrandPhaseOrder(
     "images",
     "descriptions",
     "locations",
-    "expansion",
+    "reputation",
     phases.includes("tags") && "tags",
-  ].filter((phase): phase is string => Boolean(phase));
+  ]
+    .filter((phase): phase is string => Boolean(phase))
+    .filter((phase) => !isDeferredPhase(phase));
 }
 
 type LinksPhaseResult = Awaited<ReturnType<typeof runLinksPhase>>;
@@ -745,7 +890,7 @@ type LinksPhaseResult = Awaited<ReturnType<typeof runLinksPhase>>;
  *
  * Wave A runs detect application -> clean -> links. The batched serper image
  * call then runs with the websites and names those phases produced. Wave B
- * resumes from this object for the images, description, location, expansion,
+ * resumes from this object for the images, description, location, reputation,
  * tag and persist phases.
  *
  * `completed` is the single source of truth for "this target already recorded a
@@ -871,19 +1016,18 @@ export async function persistSubmissionEnrichmentResults(
     }
     const { data: fieldStates, error: fieldStateError } = await supabase
       .from("brand_field_state")
-      .select("field, source, admin_locked")
+      .select("field, source")
       .eq("brand_id", row.brand_id);
     if (fieldStateError) throw fieldStateError;
 
     const fieldState = Object.fromEntries(
       (fieldStates ?? []).map((state) => [
         state.field,
-        { source: state.source, adminLocked: state.admin_locked },
+        { source: state.source },
       ]),
     );
     const filtered = resolveRefreshEnrichmentPatch(
       persistablePatch,
-      row.base_brand_data,
       fieldState,
     );
     persistablePatch = filtered.allowed;
@@ -1126,6 +1270,27 @@ export async function runEnrich(
   }
   const brandChunks = chunkItems(allBrands, ENRICH_CHUNK_SIZE);
 
+  /**
+   * Circuit breaker state, job-wide rather than per chunk: a dead OpenAI
+   * account does not recover between chunks, and on 2026-08-02 the run kept
+   * going for 11.5 hours producing 407 falsely-green targets.
+   *
+   * Cooperative abort, NOT a mid-flight throw. `mapWithConcurrency` awaits a
+   * rejecting `Promise.all` with no cancellation, so throwing from inside a
+   * callback would leave up to ENRICH_BRAND_CONCURRENCY - 1 siblings still
+   * writing progress rows while the job is being finalized. Instead the flag is
+   * raised, every not-yet-started callback returns immediately, the in-flight
+   * ones finish normally (their results are legitimate), and `runEnrich` throws
+   * the sentinel only after the chunk has fully drained.
+   *
+   * "Consecutive" is completion order, so with ENRICH_BRAND_CONCURRENCY = 3 the
+   * trip can overshoot to roughly 5 targets before the flag is observed. That
+   * is deliberate: bounding the overshoot would require cancellation the map
+   * does not have, and 5 doomed targets is far cheaper than 407.
+   */
+  let consecutiveLlmProviderFailures = 0;
+  let llmBreakerTripped = false;
+
   for (let chunkIndex = 0; chunkIndex < brandChunks.length; chunkIndex += 1) {
     if (chunkIndex > 0) {
       await delay(enrichDelayMs);
@@ -1136,7 +1301,8 @@ export async function runEnrich(
     // run no longer implies a detect call. Mirrors `hasDetectPhases` in
     // `enrich-phases/detect.ts` — the two must agree or this banner announces a
     // detect step that never runs.
-    const hasDetectPhases = phases.includes("detect") || phases.includes("slugs");
+    const hasDetectPhases =
+      phases.includes("detect") || phases.includes("slugs");
     const activeSteps = [
       phases.includes("discover") && "SERP",
       phases.includes("images") && "images",
@@ -1148,7 +1314,9 @@ export async function runEnrich(
       phases.includes("descriptions") &&
         !phases.includes("tags") &&
         "descriptions",
-      phases.includes("locations") && "locations",
+      phases.includes("locations") &&
+        !isDeferredPhase("locations") &&
+        "locations",
     ].filter(Boolean);
     onProgress(
       `\n[BATCH ${chunkIndex + 1}/${brandChunks.length}] ${chunk.length} brands — fetching ${activeSteps.join(" + ")}...`,
@@ -1351,6 +1519,21 @@ export async function runEnrich(
       await runStandaloneClassification(batchContext);
     const batchClassifications =
       standaloneClassificationResult.batchClassifications;
+    /**
+     * Detect and tags are BATCH-level phases that run before wave B, so their
+     * outcome is not written by `recordBatchPhase` (which serves discover and
+     * image search only). When the batch died at the provider, the signal is
+     * grafted onto each brand's own detect/tags entry at the point the batch
+     * result is applied — one entry per brand, replacing rather than duplicating
+     * the `applyDetectResult` entry, so `phase_results` keeps exactly one
+     * `detect` row per target.
+     */
+    const detectProviderFailure =
+      detectPhaseResult.phaseResult.status === "failed" &&
+      detectPhaseResult.phaseResult.providerFailure === true;
+    const tagsProviderFailure =
+      standaloneClassificationResult.phaseResult.status === "failed" &&
+      standaloneClassificationResult.phaseResult.providerFailure === true;
 
     const chunkStartIndex = chunkIndex * ENRICH_CHUNK_SIZE;
     // Identical for every brand in the chunk, so it is built once rather than
@@ -1417,6 +1600,13 @@ export async function runEnrich(
       outcome: BrandOutcome,
     ): Promise<void> => {
       ctx.completed = true;
+      // Any target that got all the way through is proof the provider is
+      // answering, so the consecutive run resets here rather than only on the
+      // failure side — otherwise three failures spread across a healthy hour
+      // would eventually trip the breaker.
+      if (outcome.status === "succeeded") {
+        consecutiveLlmProviderFailures = 0;
+      }
       result.brandOutcomes[ctx.outcomeIndex] = outcome;
       await emitTargetProgressBatch([
         {
@@ -1450,6 +1640,18 @@ export async function runEnrich(
     ): Promise<void> => {
       const errMsg = errorMessage(err);
       const outcomePhaseResults = ctx.state.phaseResults;
+      if (isLlmProviderFailureMessage(errMsg)) {
+        consecutiveLlmProviderFailures += 1;
+        if (
+          !llmBreakerTripped &&
+          consecutiveLlmProviderFailures >= LLM_BREAKER_CONSECUTIVE_LIMIT
+        ) {
+          llmBreakerTripped = true;
+          onProgress(
+            `[LLM-BREAKER] ${consecutiveLlmProviderFailures} consecutive provider failures — aborting the run; remaining targets will be cancelled`,
+          );
+        }
+      }
       // Tag the recorded phase result so the job summary can tell "the provider
       // was down" apart from "this brand legitimately had no data" — the two
       // must not page the same way.
@@ -1493,6 +1695,28 @@ export async function runEnrich(
       });
       result.skipped += 1;
       finishBrand(ctx);
+    };
+
+    /**
+     * Gate C, invoked immediately before EVERY wave-B exit that would record a
+     * non-failed outcome. One end-of-callback check is not enough: a brand can
+     * leave through the Gate B skip or the empty-patch skip, and a
+     * provider-failed brand recorded `skipped` is invisible to the Resume
+     * feature, which picks up `failed` and `cancelled` targets only. Throwing
+     * hands the brand to `failBrand`, which tags the provider failure and feeds
+     * the circuit breaker.
+     */
+    const enforceLlmProviderGate = (ctx: BrandWaveContext): void => {
+      const decision = evaluateLlmProviderGate(ctx.state.phaseResults);
+      if (!decision) {
+        return;
+      }
+      if (decision.action === "warn") {
+        // Kill switch (CURATION_PROVIDER_GATE=off) is engaged.
+        onProgress(`  [LLM-GATE OFF] ${ctx.brand.slug}: ${decision.message}`);
+        return;
+      }
+      throw new Error(decision.message);
     };
 
     // ---- Wave A: detect application -> clean -> links -------------------
@@ -1539,8 +1763,14 @@ export async function runEnrich(
           );
           if (hasDetectPhases) {
             await markCurrentPhase(ctx, "detect");
-            state.phaseResults.push(detectApplication.phaseResult);
-            await logCurrentPhase(ctx, detectApplication.phaseResult);
+            const detectEntry = detectProviderFailure
+              ? {
+                  ...detectPhaseResult.phaseResult,
+                  changedFields: [],
+                }
+              : detectApplication.phaseResult;
+            state.phaseResults.push(detectEntry);
+            await logCurrentPhase(ctx, detectEntry);
           }
           appendPatch(state, detectApplication.patch);
 
@@ -1683,6 +1913,12 @@ export async function runEnrich(
       pendingBrands,
       ENRICH_BRAND_CONCURRENCY,
       async (brand) => {
+        // Cooperative abort: the breaker tripped while earlier targets in this
+        // chunk were running. Return WITHOUT recording anything — the target
+        // stays `pending`/`running` so `runJob` can sweep it to `cancelled`,
+        // which is what makes it eligible for Resume later.
+        if (llmBreakerTripped) return;
+
         const ctx = brandContexts.get(brand.id);
         // A brand with no context never entered wave A, and one already marked
         // completed recorded its outcome there — neither may be processed (or
@@ -1737,6 +1973,12 @@ export async function runEnrich(
               serpSnippets: state.serpSnippets,
             })
           ) {
+            // Gate C before the skip is recorded: the batch detect phase runs
+            // pre-wave-B, so a brand can arrive here already carrying a
+            // provider-failed LLM phase and would otherwise be filed as
+            // "legitimately empty".
+            enforceLlmProviderGate(ctx);
+
             if (includesDiscover && state.discoveredUrls.length <= 1) {
               weakBrandCount += 1;
               onProgress(
@@ -1772,8 +2014,10 @@ export async function runEnrich(
                   }))
                 : (linksResult?.scrapedImageUrls ?? []),
             jsonLdImages: linksResult?.jsonLdImageUrls ?? [],
-            googleImages: (imageSearchOutcomes.get(brand.id)?.rows ?? imageSearchUrls).map((row) =>
-              typeof row === 'string'
+            googleImages: (
+              imageSearchOutcomes.get(brand.id)?.rows ?? imageSearchUrls
+            ).map((row) =>
+              typeof row === "string"
                 ? row
                 : {
                     url: row.url,
@@ -1790,7 +2034,7 @@ export async function runEnrich(
                     imageHeight: row.imageHeight,
                     thumbnailWidth: row.thumbnailWidth,
                     thumbnailHeight: row.thumbnailHeight,
-                  }
+                  },
             ),
           });
           await markCurrentPhase(ctx, "images");
@@ -1866,9 +2110,10 @@ export async function runEnrich(
             }
           }
           // Stage-2 listing gate. Absent or `list` verdicts are a no-op, so a model
-          // that never emitted the field behaves exactly as before.
-          const listingVerdict =
-            descriptionsResult.descriptionRewrite?.listing ?? null;
+          // that never emitted the field behaves exactly as before. Read from the
+          // typed handoff, never from the patch: the verdict is a control value
+          // and would otherwise be persisted into `enriched_data`.
+          const listingVerdict = descriptionsResult.listingVerdict;
           const listingReason =
             listingVerdict?.reason ??
             "Listing check rejected this brand (no reason given)";
@@ -1911,7 +2156,9 @@ export async function runEnrich(
                 name: getDisplayBrandName(brand),
                 submissionId: brand.id,
                 status: "skipped",
-                changedFields: changedFieldsFromPhaseResults(state.phaseResults),
+                changedFields: changedFieldsFromPhaseResults(
+                  state.phaseResults,
+                ),
                 phaseResults: state.phaseResults,
                 error: `Listing check rejected this submission: ${listingReason}`,
               });
@@ -1927,40 +2174,58 @@ export async function runEnrich(
             // widening it would be a schema change.
           }
 
-          const reputationAlreadySet =
-            descriptionsResult.patch.reputation_summary != null;
+          // A deferred phase is not called at all: no `current_phase` write, no
+          // function call, no serper /maps budget. The `skipped` PhaseResult is
+          // still recorded (in memory — it ships with the target's terminal
+          // progress event, not as its own DB round trip) for two reasons: the
+          // admin timeline must show "locations: skipped — deferred" rather
+          // than a silent gap, and `planCurationResume` treats a phase in scope
+          // with no `phase_results` entry as unfinished work, so omitting it
+          // would make every resume re-owe `locations` forever.
+          const locationsDeferred = isDeferredPhase("locations");
+          if (locationsDeferred || !phases.includes("locations")) {
+            state.phaseResults.push(
+              buildPhaseResult(
+                "locations",
+                "skipped",
+                [],
+                0,
+                undefined,
+                locationsDeferred
+                  ? "locations phase is deferred"
+                  : "locations phase not requested",
+              ),
+            );
+          } else {
+            await markCurrentPhase(ctx, "locations");
+            const channelsResult = await runChannelsPhase({
+              brand,
+              phases,
+              scrapedData: state.scrapedData,
+              overwrite,
+              dryRun: config.dryRun,
+              target: { type: targetType, id: brand.id },
+              jobId: config.jobId,
+              supabase: batchContext.supabase,
+            });
+            state.phaseResults.push(channelsResult.phaseResult);
+            await logCurrentPhase(ctx, channelsResult.phaseResult);
+            appendPatch(state, channelsResult.patch);
+          }
 
-          await markCurrentPhase(ctx, "locations");
-          const channelsResult = await runChannelsPhase({
-            brand,
-            phases,
-            descriptionRewrite: descriptionsResult.descriptionRewrite,
-            serpResult: searchResults.get(getDisplayBrandName(brand)) ?? null,
-            scrapedData: state.scrapedData,
-            overwrite,
-            dryRun: config.dryRun,
-            target: { type: targetType, id: brand.id },
-            jobId: config.jobId,
-            supabase: batchContext.supabase,
-          });
-          state.phaseResults.push(channelsResult.phaseResult);
-          await logCurrentPhase(ctx, channelsResult.phaseResult);
-          appendPatch(state, channelsResult.patch);
-
-          await markCurrentPhase(ctx, "expansion");
-          const expansionResult = await runExpansionPhase({
+          await markCurrentPhase(ctx, "reputation");
+          const reputationResult = await runReputationPhase({
             brand,
             phases,
             serpSnippets: state.serpSnippets,
             scrapedData: state.scrapedData,
             overwrite,
-            reputationAlreadySet,
             target: { type: targetType, id: brand.id },
             jobId: config.jobId,
           });
-          state.phaseResults.push(expansionResult.phaseResult);
-          await logCurrentPhase(ctx, expansionResult.phaseResult);
-          appendPatch(state, expansionResult.patch);
+          state.phaseResults.push(reputationResult.phaseResult);
+          await logCurrentPhase(ctx, reputationResult.phaseResult);
+          appendPatch(state, reputationResult.patch);
 
           let classification: ClassificationResult | null = null;
           let hasCompletedTagClassification = false;
@@ -1971,6 +2236,17 @@ export async function runEnrich(
             phases.includes("tags")
           ) {
             classification = batchClassifications.get(brand.slug) ?? null;
+            // The standalone classification is batched like detect, so its
+            // provider failure has to be grafted onto each brand here or Gate C
+            // would see a tags-only run as having attempted no LLM phase at all.
+            if (!classification && tagsProviderFailure) {
+              const tagsEntry: PhaseResult = {
+                ...standaloneClassificationResult.phaseResult,
+                changedFields: [],
+              };
+              state.phaseResults.push(tagsEntry);
+              await logCurrentPhase(ctx, tagsEntry);
+            }
           }
 
           if (classification) {
@@ -2029,18 +2305,33 @@ export async function runEnrich(
           );
 
           if (!hasPatchValues(patch) && !hasCompletedTagClassification) {
+            // Gate C: "every LLM phase died at the provider" and "every LLM
+            // phase ran and found nothing new" produce the identical empty
+            // patch. Recording the first as `skipped` is the exact shape of the
+            // 2026-08-02 incident, so it has to be checked before the skip.
+            enforceLlmProviderGate(ctx);
+
             if (includesDiscover && state.discoveredUrls.length <= 1) {
               weakBrandCount += 1;
               onProgress(
                 `  [WEAK-BRAND] ${brand.slug}: no useful data found (${state.discoveredUrls.length} search results, no enrichment changes)`,
               );
             }
-            if (!config.dryRun && descriptionsResult.attempts.length > 0) {
-              await attachDescriptionAiResults(
-                descriptionsResult.attempts,
-                { type: targetType, id: brand.id },
-                config.jobId,
-              );
+            if (!config.dryRun) {
+              if (descriptionsResult.attempts.length > 0) {
+                await attachDescriptionAiResults(
+                  descriptionsResult.attempts,
+                  { type: targetType, id: brand.id },
+                  config.jobId,
+                );
+              }
+              if (descriptionsResult.factsAttempts.length > 0) {
+                await attachFactsAiResults(
+                  descriptionsResult.factsAttempts,
+                  { type: targetType, id: brand.id },
+                  config.jobId,
+                );
+              }
             }
             const skippedOutcome: BrandOutcome = {
               slug: brand.slug,
@@ -2058,6 +2349,21 @@ export async function runEnrich(
             return;
           }
 
+          // Gate C on the success path. A patch built entirely by the non-LLM
+          // phases (links, clean, images) is still a real patch, so this brand
+          // would have persisted and reported `succeeded` while every LLM phase
+          // it ran was talking to a dead account.
+          enforceLlmProviderGate(ctx);
+
+          await config.onPatch?.({
+            targetId: brand.id,
+            targetType: targetType as "submission" | "brand",
+            slug: brand.slug,
+            name: getDisplayBrandName(brand),
+            patch: patch as Record<string, unknown>,
+            phaseResults: state.phaseResults,
+          });
+
           if (!config.dryRun) {
             const detectResult = ctx.detectResult;
             if (detectResult) {
@@ -2074,6 +2380,13 @@ export async function runEnrich(
             if (descriptionsResult.attempts.length > 0) {
               await attachDescriptionAiResults(
                 descriptionsResult.attempts,
+                { type: targetType, id: brand.id },
+                config.jobId,
+              );
+            }
+            if (descriptionsResult.factsAttempts.length > 0) {
+              await attachFactsAiResults(
+                descriptionsResult.factsAttempts,
                 { type: targetType, id: brand.id },
                 config.jobId,
               );
@@ -2139,6 +2452,14 @@ export async function runEnrich(
     onProgress(
       `[PROGRESS] ${result.processed}/${totalBrands} processed | ${result.updated} updated | ${result.skipped} skipped | ${result.errors.length} errors`,
     );
+
+    // Safe to throw only here: `mapWithConcurrency` above has resolved, so no
+    // callback is still writing, and the progress batch has been flushed. That
+    // is why `runJob`'s sweep of the remaining targets races nothing and needs
+    // no fencing RPC.
+    if (llmBreakerTripped) {
+      throw new LlmCircuitBreakerError(consecutiveLlmProviderFailures);
+    }
   }
 
   if (weakBrandCount > 0) {

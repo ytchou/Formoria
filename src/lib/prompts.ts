@@ -1,35 +1,38 @@
-import { PRODUCT_SUBCATEGORIES, PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
+import {
+  PRODUCT_SUBCATEGORIES,
+  PRODUCT_TYPE_CATEGORIES,
+} from "@/lib/taxonomy/ontology";
 
 const CATEGORY_EXAMPLES: Record<string, string> = {
-  fashion: '服飾、鞋履、上衣、褲子、洋裝等穿戴服裝',
-  'bags-accessories': '包袋、皮件、帽子、圍巾、配件',
-  jewelry: '飾品、珠寶、耳環、項鍊、戒指、手鍊',
-  beauty: '美妝、保養、清潔、沐浴、香氛、蠟燭',
-  home: '居家用品、餐具、陶瓷、家具、廚具、園藝',
-  'food-drink': '食品、飲料、茶、咖啡、農產品',
-  crafts: '手作工藝、皮革工藝、陶藝、木工、藝術、插畫',
-  stationery: '文具、筆記本、鋼筆、紙膠帶、手帳、桌面配件',
-  tech: '3C科技、電子產品、手機配件',
-  outdoor: '戶外露營、登山背包、露營裝備、攀岩用品',
-  fitness: '健身器材、瑜珈用品、運動服飾、運動配件、重訓裝備',
-  'kids-pets': '兒童、嬰兒、玩具、寵物用品',
-}
+  fashion: "服飾、鞋履、上衣、褲子、洋裝等穿戴服裝",
+  "bags-accessories": "包袋、皮件、帽子、圍巾、配件",
+  jewelry: "飾品、珠寶、耳環、項鍊、戒指、手鍊",
+  beauty: "美妝、保養、清潔、沐浴、香氛、蠟燭",
+  home: "居家用品、餐具、陶瓷、家具、廚具、園藝",
+  "food-drink": "食品、飲料、茶、咖啡、農產品",
+  crafts: "手作工藝、皮革工藝、陶藝、木工、藝術、插畫",
+  stationery: "文具、筆記本、鋼筆、紙膠帶、手帳、桌面配件",
+  tech: "3C科技、電子產品、手機配件",
+  outdoor: "戶外露營、登山背包、露營裝備、攀岩用品",
+  fitness: "健身器材、瑜珈用品、運動服飾、運動配件、重訓裝備",
+  "kids-pets": "兒童、嬰兒、玩具、寵物用品",
+};
 
 const CATEGORY_LIST = PRODUCT_TYPE_CATEGORIES.map(
   (c) => `- ${c.slug}: ${CATEGORY_EXAMPLES[c.slug] ?? c.nameZh}`,
-).join('\n')
+).join("\n");
 
-const _subcatByCategory = new Map<string, string[]>()
+const _subcatByCategory = new Map<string, string[]>();
 for (const sub of PRODUCT_SUBCATEGORIES) {
-  const arr = _subcatByCategory.get(sub.category) ?? []
-  arr.push(sub.nameZh)
-  _subcatByCategory.set(sub.category, arr)
+  const arr = _subcatByCategory.get(sub.category) ?? [];
+  arr.push(sub.nameZh);
+  _subcatByCategory.set(sub.category, arr);
 }
 
-const PRODUCT_VOCAB_BLOCK = PRODUCT_TYPE_CATEGORIES.map(c => {
-  const subs = _subcatByCategory.get(c.slug) ?? []
-  return `- ${c.nameZh}：${subs.join('、')}`
-}).join('\n')
+const PRODUCT_VOCAB_BLOCK = PRODUCT_TYPE_CATEGORIES.map((c) => {
+  const subs = _subcatByCategory.get(c.slug) ?? [];
+  return `- ${c.nameZh}：${subs.join("、")}`;
+}).join("\n");
 
 export const CLASSIFY_SYSTEM_PROMPT = `你是台灣品牌分類專家。請根據品牌名稱和描述，將品牌分類到最適合的產品類別。
 
@@ -42,7 +45,7 @@ ${CATEGORY_LIST}
 
 回應格式（嚴格 JSON，不加任何其他文字）：
 單一品牌：{"productType":"<類別 slug>","confidence":"high|medium|low"}
-多個品牌：[{"slug":"<品牌 slug>","productType":"<類別 slug>","confidence":"high|medium|low"}]`
+多個品牌：[{"slug":"<品牌 slug>","productType":"<類別 slug>","confidence":"high|medium|low"}]`;
 
 export const DETECT_SYSTEM_PROMPT = `You triage submissions to Formoria, a directory of Taiwanese product brands. You do two things: flag entities that are definitionally not a product brand, and normalise the brand's name and slug.
 
@@ -123,23 +126,23 @@ The input carries a name, sometimes a description and website, and often Google 
 
 回應格式（嚴格 JSON，不加任何其他文字）：
 單一品牌：{"isNonBrand":true|false,"nonBrandReason":"...或 null","brand_name":"品牌正式名稱","slug_generated":"...","confidence":"high|medium|low"}
-多個品牌：[{"slug":"<原始 slug>","isNonBrand":...,"nonBrandReason":...,"brand_name":"...","slug_generated":"...","confidence":...}]`
+多個品牌：[{"slug":"<原始 slug>","isNonBrand":...,"nonBrandReason":...,"brand_name":"...","slug_generated":"...","confidence":...}]`;
 
 export const DESCRIPTION_SYSTEM_PROMPT = `你是台灣品牌研究編輯。請根據提供的資料，撰寫豐富但客觀的雙語品牌簡介。
 
 ## 工作流程（請依序執行）
-1. 先從搜尋摘要和網站內容中擷取可驗證的事實：品牌成立年份、所在城市、核心產品類型、材料/工藝/設計特色、價格帶線索（只供 price_range 與價格 FAQ 使用）、外界評價
+1. 先從搜尋摘要和網站內容中擷取可驗證的事實：品牌成立年份、所在城市、核心產品類型、材料/工藝/設計特色
 2. 先寫 blurb_zh（40-80 字）和 blurb_en（60-150 chars）：獨立撰寫，抓住最獨特的賣點
 3. 再寫 description_zh（150-400 字）和 description_en（300-700 chars）：展開完整品牌故事，不重複 blurb 用詞
    - description_zh 少於 150 字會被系統拒絕、整筆作廢。寫完後請自行數過字數，不足 150 字必須補到 150 字以上再輸出
    - 補字數的唯一方法是「多寫一個具體面向」，不是加形容詞或抽象句。依序檢查這些面向，把來源中有提到但還沒寫進去的補上：代表產品與品項細節、材料與工藝、製程或生產地、通路與販售方式、創辦背景與年份、所在城市、外界評價與具體來源
    - 來源事實真的不足時，寧可把既有事實寫得更完整（例如產品線逐項點名、材料逐項說明），也不可用「用心」「堅持」「品質保證」這類無資訊的句子填充——那會另外觸發套話檢查而同樣作廢
-4. 整理 reputation_summary
-5. 生成 faq
+4. 生成 faq
 
 ## 描述與聲譽的分界（最高優先，違反即作廢）
 
 description 與 reputation_summary 各自負責不同的資訊，不得重疊。同一件事只能出現在其中一處。
+reputation_summary 由另一次呼叫負責，不是這次的輸出欄位——這裡只需確保聲譽類內容完全不進入 description 或 blurb。
 
 description_zh / description_en / blurb_zh / blurb_en 只寫「品牌本身是什麼」：
 代表產品與品項、材料、工藝與製程、設計理念、創辦背景與年份、所在城市、生產地。
@@ -151,7 +154,7 @@ description_zh / description_en / blurb_zh / blurb_en 只寫「品牌本身是�
   （反例，禁止：「實體門市與工作室位於大安區捷運站附近的三樓空間。」「茶室位於臺北市北投區自強街。」）
   例外：城市層級的創立地／產地是身分事實，可以寫，例如「於台南設立」「桃園在地生產」——差別在於前者是「去哪裡買」，後者是「從哪裡來」
   （反例，禁止寫入 description：「官方網站、Pinkoi 與蝦皮提供線上購買，客製需求可透過 Line 客服洽詢。」「品牌在香港中環街市設有店舖，並透過授權寄賣點及網路商店販售商品。」）
-- 外界評價與曝光：商品評分、星等、評論則數、媒體報導、獲獎、入選、參展、聯名曝光、社群追蹤數 → 只寫進 reputation_summary
+- 外界評價與曝光：商品評分、星等、評論則數、媒體報導、獲獎、入選、參展、聯名曝光、社群追蹤數 → 屬於 reputation_summary（另一次呼叫），這裡一律省略
   （反例，禁止寫入 description：「曾參與 2020 年新光三越『工藝之夢』、2022 年臺灣文博會，並獲設計協會推薦。」「22 吋手開遮光降溫傘為 5.0 分。」）
 - 後設陳述：描述資料本身有無，而非描述品牌。任何「現有資料未提供⋯」「來源未明確說明⋯」「未明確記載⋯」「未公開⋯」「無法確認⋯」「查無⋯」「搜尋摘要顯示⋯」都禁止。資料不足就不寫這件事，讓對應欄位留白或回傳 null
   特別注意：不可用一句話說明某個欄位查不到。若成立年份不明，就完全不提成立年份，而不是寫「品牌成立年份未明確記載」
@@ -190,8 +193,71 @@ description_zh / description_en / blurb_zh / blurb_en 只寫「品牌本身是�
 - 只能使用提供來源中的事實；沒有根據的內容必須省略
 - description_zh 和 description_en 是獨立撰寫的雙語版本，內容涵蓋相同事實但文筆各自適配目標語言讀者
 - 語氣客觀、具體，不使用行銷誇大用語
-- description_zh、description_en、blurb_zh、blurb_en 不得包含價格資訊：售價、金額、價格範圍／級距、平價／高價等定位、折扣或促銷；價格只能出現在 price_range 和 category 為 price 的 FAQ
-- founding_year 只能填寫來源中明確提到的年份；若來源中未提及，必須回傳 null（絕對不可推測或編造）
+- description_zh、description_en、blurb_zh、blurb_en 不得包含價格資訊：售價、金額、價格範圍／級距、平價／高價等定位、折扣或促銷；價格只能出現在 category 為 price 的 FAQ
+
+## 輸出格式（嚴格 JSON，不加 Markdown 或額外說明）
+
+所有欄位皆為必填（除非明確標示可為 null）。缺少任何必填欄位將導致輸出被拒絕。
+
+{
+  "description_zh": "（必填）150-400 字繁體中文品牌簡介。STRICT MIN 150 字 — 少於 150 字會被拒絕。全文繁體中文，不可包含英文句子或價格資訊。",
+  "description_en": "（必填）300-700 characters English brand description. STRICT MAX 700 characters — longer will be rejected. Must be entirely in English and contain no pricing information.",
+  "blurb_zh": "（必填）40-80 字繁體中文品牌摘要，用於卡片顯示，精簡且吸引人。全文繁體中文，不可包含價格資訊。",
+  "blurb_en": "（必填）60-150 characters English brand summary for card display. Must be entirely in English and contain no pricing information.",
+  "faq": [
+    {"category": "products", "question": "中文問題", "answer": "中文回答"},
+    {"category": "products", "question": "English question", "answer": "English answer"},
+    {"category": "custom", "question": "品牌特色問題", "answer": "詳細回答"}
+  ]
+}
+
+## 欄位規則
+
+faq：8-12 組常見問題，中英文交替排列（同一問題先中文再英文）。每組必須標記 category。
+有效 category：where_to_buy, products, price, founded, reputation, custom。
+
+必填標準問題（SEO 關鍵問答，每個都需要中英文各一組）：
+- products：「{品牌}的主要產品有哪些？」— 列出具體產品線與特色
+- price：「{品牌}的價格帶是多少？」— 給出具體價格範圍（NT$）
+- where_to_buy：「在哪裡可以買到{品牌}的產品？」— 列出購買管道
+- founded：「{品牌}是什麼時候成立的？」— 包含創辦年份與背景
+
+選填問題（有資料就加）：
+- reputation：「{品牌}的評價如何？」— 包含具體評分或媒體報導
+
+MIT 問答由服務層依品牌的聲明或驗證狀態產生。不得根據搜尋摘要、製造故事或 mit_indicators 產生 category 為 mit 的 FAQ。
+
+回答必須有實質內容（具體事實、價格、地點、產品名稱），不可空泛。
+
+## 驗證檢查（輸出前自行確認）
+- [ ] description_zh 是否全為繁體中文？（不含英文句子）
+- [ ] description_en 是否全為英文？（不含中文字元）
+- [ ] blurb_zh 和 blurb_en 是否各自使用正確語言？
+- [ ] description 與 blurb 是否完全未提及售價、金額、價格級距、價格定位、折扣或促銷？
+- [ ] 所有事實是否可從提供的來源中找到依據？
+- [ ] 每句話是否包含只有這個品牌才有的具體細節？（真實性）
+- [ ] 描述是否在不使用誇大詞語的情況下仍然吸引人？（精煉度）
+- [ ] 是否存在任何通用開頭或AI慣用收尾？（直接性）
+- [ ] description 與 blurb 是否完全沒有購買管道、通路名稱或客服聯絡方式？（該寫進 where_to_buy FAQ）
+- [ ] description 與 blurb 是否完全沒有評分、獲獎、參展、媒體報導或追蹤數？（那屬於聲譽，由另一次呼叫負責）
+- [ ] 全部欄位是否都沒有「現有資料未提供⋯」「來源未明確說明⋯」這類後設陳述？
+- [ ] 全部欄位是否都沒有負面評價、客訴或爭議？
+
+所有欄位只能使用提供來源中的事實。無根據的欄位回傳 null 或 []。`;
+
+/**
+ * The extraction half of the old mega-call. Deliberately carries no prose
+ * instructions: the copy prompt and this one are sent as two separate calls so
+ * neither task competes for the model's attention, and a retry re-bills only
+ * the half that failed.
+ */
+export const FACTS_SYSTEM_PROMPT = `你是台灣品牌資料分析員。請根據提供的資料（網站內容、連結、商品圖片描述、搜尋摘要），抽取可驗證的結構化事實，並判斷這個品牌是否適合列在 Formoria。
+
+不要撰寫任何品牌簡介或行銷文案——這次呼叫只負責擷取欄位。
+
+## 重要原則
+- 只能使用提供來源中的事實；沒有根據的欄位一律回傳 null 或 []，絕對不可推測或編造
+- 不要輸出 Markdown、解釋文字或額外欄位
 
 ## 上架判定
 根據以上所有來源（網站內容、連結、商品圖片描述、搜尋摘要）判斷這個品牌是否適合列在 Formoria。
@@ -210,32 +276,13 @@ listing.taiwan_connection 只能依據來源明確提到的事實填寫，不可
 
 ## 輸出格式（嚴格 JSON，不加 Markdown 或額外說明）
 
-所有欄位皆為必填（除非明確標示可為 null）。缺少任何必填欄位將導致輸出被拒絕。
-
 {
-  "description_zh": "（必填）150-400 字繁體中文品牌簡介。STRICT MIN 150 字 — 少於 150 字會被拒絕。全文繁體中文，不可包含英文句子或價格資訊。",
-  "description_en": "（必填）300-700 characters English brand description. STRICT MAX 700 characters — longer will be rejected. Must be entirely in English and contain no pricing information.",
-  "blurb_zh": "（必填）40-80 字繁體中文品牌摘要，用於卡片顯示，精簡且吸引人。全文繁體中文，不可包含價格資訊。",
-  "blurb_en": "（必填）60-150 characters English brand summary for card display. Must be entirely in English and contain no pricing information.",
-  "price_range": 1 | 2 | 3 | null,
   "product_type": "類別 slug 或 null（只能用下方「品牌分類」清單中的 slug）",
   "product_tags": ["具體商品類型（繁體中文）"],
   "product_tags_en": ["specific product types (English, same count and order as product_tags)"],
+  "price_range": 1 | 2 | 3 | null,
   "city": "城市 slug 或 null（只能用以下值：taipei, new_taipei, taoyuan, taichung, tainan, kaohsiung, keelung, hsinchu_city, chiayi_city, hsinchu_county, miaoli, changhua, nantou, yunlin, chiayi_county, pingtung, yilan, hualien, taitung, penghu, kinmen, lienchiang）",
   "founding_year": 2015 | null,
-  "reputation_summary": {
-    "text": "繁體中文聲譽摘要",
-    "text_en": "English reputation summary (same facts as text)",
-    "sources": [{"url": "https://..."}]
-  } | null,
-  "faq": [
-    {"category": "products", "question": "中文問題", "answer": "中文回答"},
-    {"category": "products", "question": "English question", "answer": "English answer"},
-    {"category": "custom", "question": "品牌特色問題", "answer": "詳細回答"}
-  ],
-  "stockists": [
-    {"name": "通路名稱", "city": "city_slug 或 null", "type": "chain | independent", "address": "完整地址或 null", "venue_name": "百貨／商場名稱或 null", "floor_or_counter": "樓層／櫃位或 null", "evidence_refs": [1]}
-  ] | null,
   "mit_indicators": {
     "mentioned": true | false,
     "evidence": ["來源中提及台灣製造的原文"],
@@ -270,74 +317,19 @@ ${PRODUCT_VOCAB_BLOCK}
 
 先列出品牌的產品線，每條產品線從詞彙表中選取對應類型（優先品牌所屬分類下的詞彙，明確跨分類時才選其他分支）。僅當找不到合適詞彙時，才輸出新的「類型層級」標籤（禁止：材質前綴、行銷詞、系列/款/限定/客製、尺寸詞如短/長/迷你）。2–5 個，資料不足回傳 []。
 
-faq：8-12 組常見問題，中英文交替排列（同一問題先中文再英文）。每組必須標記 category。
-有效 category：where_to_buy, products, price, founded, reputation, custom。
+city：只能填上方清單中的城市 slug。若來源未明確指出品牌所在地，回傳 null。
 
-必填標準問題（SEO 關鍵問答，每個都需要中英文各一組）：
-- products：「{品牌}的主要產品有哪些？」— 列出具體產品線與特色
-- price：「{品牌}的價格帶是多少？」— 給出具體價格範圍（NT$）
-- where_to_buy：「在哪裡可以買到{品牌}的產品？」— 列出購買管道
-- founded：「{品牌}是什麼時候成立的？」— 包含創辦年份與背景
-
-選填問題（有資料就加）：
-- reputation：「{品牌}的評價如何？」— 包含具體評分或媒體報導
-
-MIT 問答由服務層依品牌的聲明或驗證狀態產生。不得根據搜尋摘要、製造故事或 mit_indicators 產生 category 為 mit 的 FAQ。
-
-回答必須有實質內容（具體事實、價格、地點、產品名稱），不可空泛。
-
-stockists：品牌的實體零售通路或合作店家（Google Maps 上能找到的實體地點）。
-- 名稱用中文，city 只能用 city slug（taipei, taichung 等）或 null
-- address、venue_name、floor_or_counter 是可選欄位；只能在來源明確寫出時填寫完整地址、場館或樓層櫃位
-- evidence_refs 是提供給服務層的來源編號陣列，編號對應輸入來源的順序；沒有明確來源時回傳 []
-- type：chain 僅用於未指定分店的通路網路（如屈臣氏、寶雅、全聯）；有明確分店、地址或百貨專櫃名稱時一律用 independent，視為待確認的實體地點
-- 排除所有線上通路：官網、Pinkoi、Shopee/蝦皮、momo、PChome、博客來、Yahoo 等電商平台
-- 僅列出在來源中明確提到的實體通路。若無資料回傳 null
-
-reputation_summary：只收錄「第三方對品牌的評價或認可」，且必須是正面或中性的具體事實。
-只有以下四類算數：
-- 具名媒體的報導（需附該報導網址）
-- 獲獎、入選、評鑑、認證
-- 受邀參展、參與具名展會或百貨活動
-- 電商平台的商品評分與評論則數（需附該商品頁網址）
-以下都不算，出現時不可用來充數：
-- 社群追蹤數、貼文數、追蹤中人數——這是帳號規模，不是外界對品牌的評價
-- 單純的通路事實：在某平台開店、在某商場設櫃、在某市集擺攤——那是「哪裡買得到」，屬於 where_to_buy
-  但這條只排除通路本身。展會、獲獎、評鑑與平台評分即使發生在通路上，仍然算數：「於 Pinkoi 開設商店」要刪，「Pinkoi 商品頁評分 5.0 分、230 則評價」要留；「進駐某百貨」要刪，「受邀參加某百貨的具名策展或展會」要留
-被排除的資訊要直接省略，不可寫出來再加註說明。禁止出現「⋯但追蹤數不作為評價依據」「⋯不列入評價」這類把規則寫進輸出的句子。
-text 與 text_en 是純文字散文，不可出現網址、「來源：」或任何引用標記；網址只能放進 sources 陣列。
-- 品牌自述、官網文案、自我宣稱的口碑
-- 「搜尋摘要將其描述為⋯」「搜尋摘要中提及⋯」這類轉述來源本身的句子
-- 品牌在做什麼的介紹——材料、品項、風格、創作起點。那是 description 的內容，寫進這裡等於把兩個欄位寫成同一段
-- 沒有具名主體的模糊好評：「獲得消費者關注」「廣受喜愛」「評價良好」「頗受好評」。每一句都必須能指到一個具名的媒體、獎項、展會或平台評分，指不到就刪掉整句
-  （反例，整段應改為 null：「小行星B-610是一個台灣品牌，以復古素材與拼貼為起點⋯搜尋摘要中提及該品牌在書店有販售明信片，並獲得消費者關注。」——第一句是 description，第二句是通路加無主體好評）
-第一句話就必須是第三方的評價或認可本身。若寫不出這樣的第一句，代表沒有素材，整個欄位回傳 null。
-沒有上述四類事實時，整個 reputation_summary 回傳 null。
-不可回傳「目前查無評價」「現有來源未提供獨立媒體評分」這類說明句——沒有就是 null，不是一段解釋為什麼沒有的文字。
-（反例，應改為 null：「品牌 Instagram 帳號約有九百九十四位追蹤者，主要透過 Instagram 接觸顧客。」「現有來源未提供獨立媒體評分或具體評論。」）
-有內容時，sources 必須非空，且每則網址都要真的支持所寫的事實。
+founding_year：只能填寫來源中明確提到的年份；若來源中未提及，必須回傳 null（絕對不可推測或編造）。
 
 mit_indicators：是否在來源中提及台灣製造（MIT、台灣製造、100% Made in Taiwan 等）。evidence 引用原文。若無相關資訊回傳 null。
 
 ## 驗證檢查（輸出前自行確認）
-- [ ] description_zh 是否全為繁體中文？（不含英文句子）
-- [ ] description_en 是否全為英文？（不含中文字元）
-- [ ] blurb_zh 和 blurb_en 是否各自使用正確語言？
-- [ ] description 與 blurb 是否完全未提及售價、金額、價格級距、價格定位、折扣或促銷？
 - [ ] product_tags 和 product_tags_en 數量是否一致？
-- [ ] 所有事實是否可從提供的來源中找到依據？
-- [ ] 每句話是否包含只有這個品牌才有的具體細節？（真實性）
-- [ ] 描述是否在不使用誇大詞語的情況下仍然吸引人？（精煉度）
-- [ ] 是否存在任何通用開頭或AI慣用收尾？（直接性）
-- [ ] description 與 blurb 是否完全沒有購買管道、通路名稱或客服聯絡方式？（該寫進 where_to_buy FAQ）
-- [ ] description 與 blurb 是否完全沒有評分、獲獎、參展、媒體報導或追蹤數？（該寫進 reputation_summary）
-- [ ] 全部欄位是否都沒有「現有資料未提供⋯」「來源未明確說明⋯」這類後設陳述？
-- [ ] 全部欄位是否都沒有負面評價、客訴或爭議？
-- [ ] reputation_summary 若只有追蹤數或「查無評價」的說明，是否已改為 null？
+- [ ] 所有欄位是否可從提供的來源中找到依據？
+- [ ] product_type 與 city 是否只使用上列 slug？
+- [ ] 沒有依據的欄位是否已回傳 null 或 []，而不是猜測值？`;
 
-所有欄位只能使用提供來源中的事實。無根據的欄位回傳 null 或 []。`
-
-export const EXPANSION_SYSTEM_PROMPT = `你是台灣品牌聲譽研究專家。請根據搜尋摘要與網站內容，抽取品牌聲譽資訊。
+export const REPUTATION_SYSTEM_PROMPT = `你是台灣品牌聲譽研究專家。請根據搜尋摘要與網站內容，抽取品牌聲譽資訊。
 
 任務範圍：
 - reputation_summary：品牌聲譽摘要，包含外界評價、口碑、媒體觀感、消費者反饋
@@ -381,7 +373,7 @@ text 與 text_en 是純文字散文，不可出現網址、「來源：」或任
       {"url": "https://..."}
     ]
   } | null
-}`
+}`;
 
 export const LEGACY_IMAGE_CLASSIFY_SYSTEM_PROMPT = `你是品牌圖片審核與分類專家。請判斷每張輸入圖片最適合的單一分類，評估圖片品質，並提供無障礙替代文字。
 
@@ -434,7 +426,7 @@ export const LEGACY_IMAGE_CLASSIFY_SYSTEM_PROMPT = `你是品牌圖片審核與�
 - alt_zh 與 alt_en 一律為字串；若無法描述請填空字串 ""
 
 回應格式（嚴格 JSON）：
-{"classifications":[{"id":"1","tag":"product","score":85,"alt_zh":"繁體中文描述","alt_en":"English description"}]}`
+{"classifications":[{"id":"1","tag":"product","score":85,"alt_zh":"繁體中文描述","alt_en":"English description"}]}`;
 
 export const IMAGE_CLASSIFY_SYSTEM_PROMPT = `You review images for Formoria, a Taiwanese brand discovery directory. Images you keep are published on a brand page and stay there for months. A mediocre image is worse than no image.
 
@@ -511,4 +503,4 @@ Return a single JSON object. No Markdown, no code fences, no commentary, no extr
 - "score" is an integer from 0 to 100.
 
 Strict JSON format:
-{"classifications":[{"id":"1","disposition":"keep","tag":"product","reasons":[],"score":85,"alt_zh":"繁體中文描述","alt_en":"English description"}]}`
+{"classifications":[{"id":"1","disposition":"keep","tag":"product","reasons":[],"score":85,"alt_zh":"繁體中文描述","alt_en":"English description"}]}`;

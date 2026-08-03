@@ -1,0 +1,14 @@
+{
+  "name": "model-refresh-6",
+  "title": "Six-brand production refresh — post facts/reputation split",
+  "subtitle": "Two waves of the working-tree pipeline run in-process against six live brands: the facts/descriptions split, the expansion→reputation rename, deferred locations, and per-call LLM cost tracking.",
+  "warning": "Run in-process from the main working tree on 2026-08-03, NOT the deployed Railway worker. Wave 1 (Entadar, Heyyou Moment, Littdlework) classified images five per call; wave 2 (Robber 925 Silver, RESHOCK COFFEE, WEAVISM) ran with BATCH_SIZE 10 and MAX_CHUNK_RETRIES 2. Per-brand cost is therefore comparable within a wave, not across the two.",
+  "labels": {
+    "entadar": "Entadar 海漂計畫",
+    "heyyou-moment": "日句時刻所 Heyyou Moment",
+    "littdlework": "繡珍森活 Littdlework",
+    "robber-925-silver": "Robber 925 Silver",
+    "reshock-coffee": "里響咖啡 RESHOCK COFFEE",
+    "weavism": "WEAVISM 織本主義"
+  }
+}

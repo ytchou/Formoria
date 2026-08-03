@@ -1,0 +1,11 @@
+{
+  "name": "model-refresh-3",
+  "title": "Three-brand refresh — post facts/reputation split",
+  "subtitle": "Runs the working-tree pipeline (facts/descriptions split, reputation rename, deferred locations, LLM cost tracking) in-process against three live brands.",
+  "warning": "Run in-process from the main working tree on 2026-08-03, NOT the deployed Railway worker. The pipeline under test includes the facts/descriptions split, the expansion->reputation rename, deferred locations, and per-call cost tracking.",
+  "labels": {
+    "entadar": "Entadar 海漂計畫",
+    "heyyou-moment": "日句時刻所 Heyyou Moment",
+    "littdlework": "繡珍森活 Littdlework"
+  }
+}

@@ -104,7 +104,7 @@ check_env() {
     if grep -q "OPENAI_API_KEY=." .env.local; then
       echo "OK: OPENAI_API_KEY"
     else
-      echo "WARN: OPENAI_API_KEY not set (the entire enrichment pipeline will fail — descriptions, expansion, product-type classification, brand detection, and image classification)"
+      echo "WARN: OPENAI_API_KEY not set (the entire enrichment pipeline will fail — descriptions, reputation, product-type classification, brand detection, and image classification)"
     fi
     if ! grep -q "INDEXNOW_KEY=." .env.local 2>/dev/null; then
       echo "WARN: INDEXNOW_KEY not set (optional — needed for Bing IndexNow submission)"
@@ -113,6 +113,76 @@ check_env() {
     # job name: sync-mit-registry-weekly). Auth uses ORIGIN_SECRET (app.origin_secret).
     # See supabase/migrations/20260702130000_schedule_mit_registry_sync.sql
   fi
+}
+
+# ── brand_ai_results phase CHECK constraint ──────────────────────────────────
+# insertAiCallResult swallows insert errors by design (an audit failure must never
+# fail the enrichment call it records), so a phase CHECK that is behind the code
+# silently drops EVERY audit and cost row. Railway auto-deploys on push to main
+# but Supabase migrations are applied by hand, which makes "code ahead of schema"
+# the normal failure mode rather than an edge case.
+PHASE_CHECK_MIGRATION="supabase/migrations/20260803033000_widen_ai_results_phase_check.sql"
+PHASE_CHECK_REMEDIATION="apply ${PHASE_CHECK_MIGRATION} (supabase db push --linked --include-all) — otherwise ALL audit and cost rows are dropped"
+
+db_url() {
+  local var
+  for var in SUPABASE_DB_URL DATABASE_URL HEALTH_AGENT_READ_DATABASE_URL; do
+    if [ -n "${!var:-}" ]; then
+      echo "${!var}"
+      return 0
+    fi
+    if [ -f ".env.local" ]; then
+      local value
+      value=$(grep -E "^${var}=.+" .env.local 2>/dev/null | head -n1 | cut -d= -f2- | tr -d "\"'")
+      if [ -n "$value" ]; then
+        echo "$value"
+        return 0
+      fi
+    fi
+  done
+  return 1
+}
+
+check_ai_results_phase() {
+  local url
+  if url=$(db_url) && command -v psql &> /dev/null; then
+    local def
+    def=$(psql "$url" -tAc "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'brand_ai_results_phase_check'" 2>/dev/null || true)
+    if [ -z "$def" ]; then
+      echo "ERROR: brand_ai_results_phase_check not found on the live database. ${PHASE_CHECK_REMEDIATION}"
+      ERRORS=$((ERRORS + 1))
+      return
+    fi
+    if [[ "$def" != *"'facts'"* || "$def" != *"'reputation'"* ]]; then
+      echo "ERROR: brand_ai_results phase CHECK rejects 'facts'/'reputation'. ${PHASE_CHECK_REMEDIATION}"
+      ERRORS=$((ERRORS + 1))
+    else
+      echo "OK: brand_ai_results phase CHECK accepts facts + reputation"
+    fi
+    return
+  fi
+
+  # No psql or no connection string: fall back to the migration ledger, which is
+  # the same question one step removed — has that migration reached the remote?
+  if command -v supabase &> /dev/null; then
+    local row
+    row=$(supabase migration list --linked 2>/dev/null | grep "20260803033000" || true)
+    if [ -z "$row" ]; then
+      echo "WARN: could not read the migration ledger — verify by hand that the live brand_ai_results phase CHECK accepts 'facts' and 'reputation' (${PHASE_CHECK_REMEDIATION})"
+      return
+    fi
+    # Ledger rows are "local | remote | time"; a remote-applied row has a version
+    # in the second column.
+    if echo "$row" | awk -F'|' '{ gsub(/ /, "", $2); exit ($2 == "" ? 1 : 0) }'; then
+      echo "OK: brand_ai_results phase CHECK migration applied on the linked project"
+    else
+      echo "ERROR: brand_ai_results phase CHECK migration is not applied on the linked project. ${PHASE_CHECK_REMEDIATION}"
+      ERRORS=$((ERRORS + 1))
+    fi
+    return
+  fi
+
+  echo "WARN: no psql connection string and no supabase CLI — cannot verify the brand_ai_results phase CHECK (${PHASE_CHECK_REMEDIATION})"
 }
 
 # ── e2e env vars (opt-in with --e2e) ─────────────────────────────────────────
@@ -219,6 +289,7 @@ check_node
 check_pnpm
 check_deps
 check_env
+check_ai_results_phase
 check_e2e "$@"
 check_health_vars "$@"
 

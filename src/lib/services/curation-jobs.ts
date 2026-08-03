@@ -1,6 +1,15 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import {
+  CURATION_STEPS,
+  ENRICH_LLM_PHASES,
+  ENRICH_PHASES,
+  phasesForSteps,
+  type CurationStep,
+  type EnrichPhaseName,
+} from "@/lib/constants/enrich-phases";
+import { parsePhaseResults } from "@/lib/services/phase-results";
+import {
   enrichedDataFromDb,
   hasCompleteEnrichment,
 } from "@/lib/types/enriched-data";
@@ -369,15 +378,14 @@ export async function enqueueManualRerun(
     }
   }
 
-  const targets = allTargets.filter(
-    (target) =>
-      isManualRerunTargetEligible({
-        sourceStatus: source.status,
-        targetStatus: target.status,
-        isIncompleteSubmission:
-          target.target_type === "submission" &&
-          incompleteSubmissionIds.has(target.target_id),
-      }),
+  const targets = allTargets.filter((target) =>
+    isManualRerunTargetEligible({
+      sourceStatus: source.status,
+      targetStatus: target.status,
+      isIncompleteSubmission:
+        target.target_type === "submission" &&
+        incompleteSubmissionIds.has(target.target_id),
+    }),
   );
 
   if (targets.length === 0) {
@@ -413,9 +421,7 @@ export function isManualRerunTargetEligible({
     return targetStatus === "failed" || targetStatus === "skipped";
   }
   if (sourceStatus === "failed" || sourceStatus === "cancelled") {
-    return ["pending", "running", "failed", "cancelled"].includes(
-      targetStatus,
-    );
+    return ["pending", "running", "failed", "cancelled"].includes(targetStatus);
   }
   return false;
 }
@@ -810,10 +816,21 @@ function targetToEnqueueInput(target: CurationJobTarget): EnqueueTarget {
   };
 }
 
+/**
+ * Preserves a job's stored params for a retry or rerun, normalising the one
+ * phase name that was renamed in place: `expansion` became `reputation` on
+ * 2026-08-03. Re-enqueuing the legacy value would have it dropped by
+ * `parseEnrichPhases` at run time, quietly narrowing the retry's scope.
+ */
 function parseJobParams(params: Json | null): CurationJobParams {
-  return params && typeof params === "object" && !Array.isArray(params)
-    ? ({ ...params } as CurationJobParams)
-    : {};
+  if (!params || typeof params !== "object" || Array.isArray(params)) return {};
+  const parsed = { ...params } as CurationJobParams;
+  if (Array.isArray(parsed.phases)) {
+    parsed.phases = parsed.phases.map((phase) =>
+      phase === "expansion" ? "reputation" : phase,
+    );
+  }
+  return parsed;
 }
 
 /**
@@ -843,4 +860,292 @@ export function rerunJobParams(
  */
 export function parseOverwriteParam(value: unknown): boolean {
   return value === true || value === "true";
+}
+
+export type CurationResumeGroup = "failed" | "cancelled";
+
+export type CurationResumePlan = {
+  group: CurationResumeGroup;
+  targets: CurationJobTarget[];
+  params: CurationJobParams;
+};
+
+/**
+ * The enqueued job plus the grouping that produced it, so the admin action can
+ * report "N failed and M cancelled" without re-reading the source targets.
+ * Structurally still a `CurationJob`, so every existing consumer is unaffected.
+ */
+export type CurationResumeJob = CurationJob & {
+  resumeGroup: CurationResumeGroup;
+  resumeTargetCount: number;
+};
+
+/**
+ * `reputation` was called `expansion` until 2026-08-03 and historical
+ * `phase_results` rows still carry the old string. Normalising here is what
+ * lets a pre-rename job's recorded phases be matched against the current
+ * `ENRICH_PHASES` scope; without it every such phase would look "never
+ * recorded" and the resume would re-run work that already succeeded.
+ *
+ * `job-runner` exports the same mapping, but importing it here would close an
+ * import cycle (job-runner already imports this module), so the one-line
+ * mapping is repeated rather than shared.
+ */
+function normalizeLegacyPhaseName(phase: string): string {
+  return phase === "expansion" ? "reputation" : phase;
+}
+
+/**
+ * The phase scope a stored job actually ran.
+ *
+ * WHY this is not just `params.phases`: `runEnrich` resolves its scope as
+ * `config.steps?.length ? phasesForSteps(config.steps) : config.phases`
+ * (curation-operations.ts) — `steps` *beats* `phases`. A job enqueued from the
+ * admin UI carries `steps` only, so reading `phases` alone would report an
+ * empty scope for every modern job and the resume would fall back to the full
+ * pipeline. Absent both, the runner defaults to all of `ENRICH_PHASES`.
+ */
+function effectiveRequestedPhases(
+  params: CurationJobParams,
+): EnrichPhaseName[] {
+  const knownSteps = Object.keys(CURATION_STEPS) as CurationStep[];
+  const steps = Array.isArray(params.steps)
+    ? params.steps.filter((step): step is CurationStep =>
+        (knownSteps as readonly string[]).includes(step),
+      )
+    : [];
+  if (steps.length > 0) return phasesForSteps(steps);
+
+  const phases = Array.isArray(params.phases)
+    ? new Set(params.phases.map(normalizeLegacyPhaseName))
+    : null;
+  if (!phases || phases.size === 0) return [...ENRICH_PHASES];
+
+  const known = ENRICH_PHASES.filter((phase) => phases.has(phase));
+  return known.length > 0 ? known : [...ENRICH_PHASES];
+}
+
+/**
+ * The phases a set of failed targets still owes, unioned across the group.
+ *
+ * Two sources, because a crash records nothing after the phase it died in:
+ * 1. `phase_results` entries explicitly marked `failed`.
+ * 2. Phases in the requested scope with no `phase_results` entry at all — the
+ *    target never reached them.
+ *
+ * The union is intersected with the source scope so an images-only job can
+ * never silently expand into the text phases (which would rewrite copy the
+ * admin never asked to touch, and pay for it).
+ *
+ * The empty-union fallback exists for the 2026-08-02 records specifically:
+ * before the truthful-phase-status fix, LLM phases wrote `succeeded` even when
+ * every OpenAI call returned `insufficient_quota`, so those targets have a full
+ * set of green entries and nothing to key off. Re-running the LLM phases in
+ * scope is the correct recovery for them, and it re-pays nothing to Serper
+ * because SERP results replay from cache whenever `discover` is absent.
+ */
+function unfinishedPhasesForTargets(
+  targets: CurationJobTarget[],
+  scope: readonly EnrichPhaseName[],
+): EnrichPhaseName[] {
+  const inScope = new Set<string>(scope);
+  const owed = new Set<string>();
+
+  for (const target of targets) {
+    const results = parsePhaseResults(target.phase_results);
+    const recorded = new Set(
+      results.map((result) => normalizeLegacyPhaseName(result.phase)),
+    );
+    for (const result of results) {
+      if (result.status === "failed") {
+        owed.add(normalizeLegacyPhaseName(result.phase));
+      }
+    }
+    for (const phase of scope) {
+      if (!recorded.has(phase)) owed.add(phase);
+    }
+  }
+
+  const union = ENRICH_PHASES.filter(
+    (phase) => owed.has(phase) && inScope.has(phase),
+  );
+  if (union.length > 0) return union;
+
+  const llmFallback = ENRICH_LLM_PHASES.filter((phase) => inScope.has(phase));
+  // A SERP-only scope has no LLM phase to fall back to; re-running the scope
+  // itself is then the only thing "resume" can mean.
+  return llmFallback.length > 0 ? [...llmFallback] : [...scope];
+}
+
+/**
+ * Builds one job's params from the source job's.
+ *
+ * `steps` MUST be deleted: it wins over `phases` in `runEnrich`, so carrying it
+ * through would make the narrowed phase list computed above completely inert
+ * and resume would re-run the full step group — including `discover`, which
+ * re-pays serper.dev per brand.
+ *
+ * `stopAfter` is dropped for the same reason `rerunJobParams` drops it: the
+ * runner turns it into a SQL LIMIT, and a resume already carries an explicit,
+ * pre-filtered target list that a stale limit would silently truncate.
+ */
+function resumeJobParams(
+  sourceParams: CurationJobParams,
+  targets: CurationJobTarget[],
+  phases: readonly EnrichPhaseName[],
+): CurationJobParams {
+  const params: CurationJobParams = { ...sourceParams };
+  delete params.steps;
+  delete params.stopAfter;
+  delete params.slugs;
+
+  params.target = "submissions";
+  params.submissionIds = targets.map((target) => target.target_id);
+  params.phases = [...phases];
+  params.overwrite = parseOverwriteParam(sourceParams.overwrite);
+
+  return params;
+}
+
+/**
+ * Splits the eligible targets into the (at most) two jobs a resume enqueues.
+ *
+ * Two jobs and not one because `params.phases` is job-wide. Failed targets get
+ * only the phases they still owe; cancelled targets never started, so they need
+ * the source's full scope. Merging the groups would force the union onto both,
+ * which for the 2026-08-02 victims means dragging `discover` back in and
+ * re-paying serper.dev for brands whose SERP snippets are already cached.
+ *
+ * Pure and exported so the phase arithmetic — the part that decides LLM spend —
+ * is testable without a database.
+ */
+export function planCurationResume(
+  sourceParams: Json | null,
+  eligibleTargets: CurationJobTarget[],
+): CurationResumePlan[] {
+  if (eligibleTargets.length === 0) {
+    throw new Error(
+      "This job has no failed or cancelled targets left to resume",
+    );
+  }
+
+  const parsed = parseJobParams(sourceParams);
+  const scope = effectiveRequestedPhases(parsed);
+  const failedTargets = eligibleTargets.filter(
+    (target) => target.status === "failed",
+  );
+  const cancelledTargets = eligibleTargets.filter(
+    (target) => target.status === "cancelled",
+  );
+
+  const plans: CurationResumePlan[] = [];
+  if (failedTargets.length > 0) {
+    plans.push({
+      group: "failed",
+      targets: failedTargets,
+      params: resumeJobParams(
+        parsed,
+        failedTargets,
+        unfinishedPhasesForTargets(failedTargets, scope),
+      ),
+    });
+  }
+  if (cancelledTargets.length > 0) {
+    plans.push({
+      group: "cancelled",
+      targets: cancelledTargets,
+      params: resumeJobParams(parsed, cancelledTargets, scope),
+    });
+  }
+
+  return plans;
+}
+
+/**
+ * Re-enqueues only the unfinished work of a failed job.
+ *
+ * A deliberate sibling of `enqueueManualRerun` rather than an option on it:
+ * `rerunJobParams` documents a "behave like the run it repeats" contract and
+ * preserves the source scope, while resume must do the opposite — rewrite
+ * `submissionIds`, override `phases`, and delete `steps`. Folding the two would
+ * have made that contract conditional, and the failure mode of getting it wrong
+ * is spending money.
+ *
+ * Everything is recomputed server-side from `listCurationJobTargets`. The phase
+ * list controls LLM spend, so it is never accepted from the client.
+ */
+export async function enqueueCurationResume(
+  sourceJobId: string,
+  startedBy: string,
+): Promise<CurationResumeJob[]> {
+  const source = await getCurationJob(sourceJobId);
+  const allTargets = await listCurationJobTargets(source.id);
+  if (allTargets.some((target) => target.target_type === "brand")) {
+    throw new Error(
+      "Brand-target enrichment jobs are retired; request a refresh submission",
+    );
+  }
+
+  const unfinished = allTargets.filter(
+    (target) =>
+      target.target_type === "submission" &&
+      (target.status === "failed" || target.status === "cancelled"),
+  );
+
+  // A target whose submission was approved (or deleted) since the outage has
+  // nothing left to enrich — resuming it would fail preflight in the worker.
+  const pendingSubmissionIds = await filterPendingSubmissionIds(
+    unfinished.map((target) => target.target_id),
+  );
+  const eligible = unfinished.filter((target) =>
+    pendingSubmissionIds.has(target.target_id),
+  );
+
+  const plans = planCurationResume(source.params, eligible);
+  const jobs: CurationResumeJob[] = [];
+  for (const plan of plans) {
+    const job = await enqueueCurationJob({
+      operation: "enrich",
+      params: plan.params,
+      dryRun: source.dry_run,
+      startedBy,
+      trigger: "manual_rerun",
+      targets: plan.targets.map(targetToEnqueueInput),
+      parentJobId: source.id,
+    });
+    jobs.push({
+      ...job,
+      resumeGroup: plan.group,
+      resumeTargetCount: plan.targets.length,
+    });
+  }
+
+  return jobs;
+}
+
+async function filterPendingSubmissionIds(
+  submissionIds: string[],
+): Promise<Set<string>> {
+  if (submissionIds.length === 0) return new Set();
+
+  const supabase = createServiceClient();
+  const pages = await Promise.all(
+    chunkValues(submissionIds, SUPABASE_IN_FILTER_CHUNK_SIZE).map(
+      async (ids) => {
+        const { data, error } = await supabase
+          .from("brand_submissions")
+          .select("id, status")
+          .in("id", ids);
+        if (error) throw error;
+        return data ?? [];
+      },
+    ),
+  );
+
+  return new Set(
+    pages
+      .flat()
+      .filter((submission) => submission.status === "pending")
+      .map((submission) => submission.id),
+  );
 }
