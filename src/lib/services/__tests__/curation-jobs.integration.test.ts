@@ -4,8 +4,11 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { createTestClient, describeWithDb } from '@/test/setup'
 import {
   claimCurationDispatchWork,
+  enqueueAutomaticRetry,
   enqueueManualRerun,
+  ensureAutomaticRetries,
   finalizeCurationJob,
+  getCurationJob,
 } from '../curation-jobs'
 
 const createdJobIds = new Set<string>()
@@ -238,7 +241,50 @@ describeWithDb('durable curation job queue integration', () => {
     expect(error).toBeNull()
     expect(rerun.parent_job_id).toBe(sourceJobId)
     expect(rerun.trigger).toBe('manual_rerun')
+    expect(new Date(rerun.run_after).getTime()).toBeLessThan(Date.now() + 5_000)
     expect(targets).toEqual([{ status: 'pending', target_type: 'submission' }])
+  })
+
+  it('requeues automatic failures with tiered backoff and stops at the cap', async () => {
+    const client = createTestClient()
+    const firstJobId = await enqueue(client)
+    await failJob(client, firstJobId)
+
+    const firstStartedAt = Date.now()
+    const firstRetry = await enqueueAutomaticRetry(await getCurationJob(firstJobId))
+    expect(firstRetry).not.toBeNull()
+    createdJobIds.add(firstRetry!.id)
+    expect(firstRetry!.attempt).toBe(2)
+    const firstDelay = new Date(firstRetry!.run_after).getTime() - firstStartedAt
+    expect(firstDelay).toBeGreaterThanOrEqual(60_000)
+
+    await failJob(client, firstRetry!.id)
+    const secondStartedAt = Date.now()
+    const secondRetry = await enqueueAutomaticRetry(await getCurationJob(firstRetry!.id))
+    expect(secondRetry).not.toBeNull()
+    createdJobIds.add(secondRetry!.id)
+    expect(secondRetry!.attempt).toBe(3)
+    const secondDelay = new Date(secondRetry!.run_after).getTime() - secondStartedAt
+    expect(secondDelay).toBeGreaterThan(firstDelay)
+
+    await failJob(client, secondRetry!.id)
+    await expect(enqueueAutomaticRetry(await getCurationJob(secondRetry!.id))).resolves.toBeNull()
+  })
+
+  it('ensureAutomaticRetries picks up failed jobs below the attempt cap', async () => {
+    const client = createTestClient()
+    const firstJobId = await enqueue(client)
+    await failJob(client, firstJobId)
+    const firstRetry = await enqueueAutomaticRetry(await getCurationJob(firstJobId))
+    expect(firstRetry).not.toBeNull()
+    createdJobIds.add(firstRetry!.id)
+
+    await failJob(client, firstRetry!.id)
+    const retries = await ensureAutomaticRetries()
+
+    expect(retries.some((job) => job.parent_job_id === firstRetry!.id && job.attempt === 3)).toBe(
+      true,
+    )
   })
 })
 
@@ -347,7 +393,7 @@ function enqueueArgs(
   overrides: {
     trigger?: 'admin' | 'cron' | 'automatic_retry'
     parentJobId?: string | null
-    attempt?: 1 | 2
+    attempt?: number
     dedupeKey?: string | null
     runAfter?: string
     targets?: Array<Record<string, string | null>>
@@ -375,4 +421,20 @@ function enqueueArgs(
       },
     ],
   }
+}
+
+async function failJob(
+  client: ReturnType<typeof createTestClient>,
+  jobId: string,
+): Promise<void> {
+  const { error } = await client
+    .from('curation_jobs')
+    .update({
+      status: 'failed',
+      dispatch_status: 'dispatched',
+      completed_at: new Date().toISOString(),
+    })
+    .eq('id', jobId)
+
+  expect(error).toBeNull()
 }
