@@ -1694,6 +1694,30 @@ export async function publishDraft(
   return published;
 }
 
+/**
+ * Builds an actionable message for a trigger-vetoed brand delete. The raw
+ * `P0001` text names neither the brand nor the rows holding it — the admin UI
+ * showed a bare "Refresh snapshot is immutable" with no next step (DEV-1331).
+ */
+async function describeBlockedBrandDelete(
+  supabase: ReturnType<typeof createServiceClient>,
+  id: string,
+  reason: string,
+): Promise<string> {
+  const { data: brand } = await supabase
+    .from("brands")
+    .select("name")
+    .eq("id", id)
+    .maybeSingle();
+  const { count } = await supabase
+    .from("brand_submissions")
+    .select("id", { count: "exact", head: true })
+    .eq("brand_id", id);
+
+  const label = brand?.name ? `"${brand.name}" (${id})` : id;
+  return `Cannot delete brand ${label}: ${reason}. ${count ?? 0} brand_submissions row(s) still reference it.`;
+}
+
 export async function deleteBrand(id: string): Promise<void> {
   const supabase = createServiceClient();
   const { error, count } = await supabase
@@ -1701,7 +1725,16 @@ export async function deleteBrand(id: string): Promise<void> {
     .delete({ count: "exact" })
     .eq("id", id);
 
-  if (error) throw error;
+  if (error) {
+    // P0001 is a `raise exception` from one of the brand_submissions guards.
+    if (error.code === "P0001") {
+      throw new ConflictError(
+        await describeBlockedBrandDelete(supabase, id, error.message),
+        { cause: error },
+      );
+    }
+    throw error;
+  }
   if (count === 0) throw new NotFoundError("Brand", id);
 }
 

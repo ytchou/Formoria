@@ -80,7 +80,10 @@ export function SaveBrandButton({
               variant: 'secondary',
               size: 'icon',
               shape: 'pill',
-              className: 'absolute right-2 top-2 size-8 bg-card shadow-card [&_svg:not([class*=size-])]:size-4',
+              // The pill stays 32px so the card art is unchanged; the
+              // transparent ::before expands the tap area to 44x44.
+              className:
+                "absolute right-2 top-2 size-8 bg-card shadow-card before:absolute before:-inset-1.5 before:content-[''] [&_svg:not([class*=size-])]:size-4",
             })
           : buttonVariants({ variant: 'secondary', className: 'shrink-0' }),
         className

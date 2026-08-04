@@ -27,6 +27,46 @@ describe('category tab targets', () => {
     ).toEqual({ routerPath: '/brands', href: '/brands' })
   })
 
+  it('drops a failed search when switching category', () => {
+    expect(
+      buildCategoryTabTarget({
+        pathname: '/brands',
+        searchParams: 'search=zzzznotabrandxyz&category=old',
+        slug: 'fashion',
+        locale: 'en',
+      }),
+    ).toEqual({
+      routerPath: '/brands?category=fashion',
+      href: '/en/brands?category=fashion',
+    })
+  })
+
+  it('drops every refinement for the all tab so it always escapes', () => {
+    expect(
+      buildCategoryTabTarget({
+        pathname: '/brands',
+        searchParams:
+          'category=fashion&price=1&verification=mit-verified&sub=bags',
+        slug: '',
+        locale: 'zh-TW',
+      }),
+    ).toEqual({ routerPath: '/brands', href: '/brands' })
+  })
+
+  it('drops a stale subcategory when switching category', () => {
+    expect(
+      buildCategoryTabTarget({
+        pathname: '/brands',
+        searchParams: 'category=fashion&sub=bags',
+        slug: 'food',
+        locale: 'en',
+      }),
+    ).toEqual({
+      routerPath: '/brands?category=food',
+      href: '/en/brands?category=food',
+    })
+  })
+
   it('targets the directory from another page', () => {
     expect(
       buildCategoryTabTarget({

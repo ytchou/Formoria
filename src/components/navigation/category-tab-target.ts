@@ -1,3 +1,4 @@
+import { updateDirectoryUrl } from '@/lib/directory-filter-url'
 import { localizePath } from '@/i18n/locale-preference'
 
 export type CategoryTabTargetInput = {
@@ -21,15 +22,16 @@ export function buildCategoryTabTarget({
   let routerPath: string
 
   if (pathname === '/brands') {
-    const params = new URLSearchParams(searchParams)
-    if (slug) {
-      params.set('category', slug)
-    } else {
-      params.delete('category')
-    }
-    params.delete('page')
-    const query = params.toString()
-    routerPath = query ? `/brands?${query}` : '/brands'
+    // The category nav is the global escape hatch out of a zero-result state,
+    // so it clears every refinement rather than carrying a failing filter into
+    // the next category. Non-filter params (e.g. sort) are preserved.
+    routerPath = updateDirectoryUrl('/brands', searchParams, {
+      category: slug || null,
+      search: null,
+      sub: null,
+      price: null,
+      verification: null,
+    })
   } else {
     routerPath = slug
       ? `/brands?category=${encodeURIComponent(slug)}`

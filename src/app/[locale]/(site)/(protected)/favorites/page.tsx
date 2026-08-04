@@ -1,12 +1,11 @@
+import type { Metadata } from 'next'
 import Image from 'next/image'
-import { redirect } from 'next/navigation'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { Heart } from 'lucide-react'
-import { signInHref } from '@/i18n/locale-preference'
 import { Link } from '@/i18n/navigation'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { getUserSavedBrands } from '@/lib/services/saved-brands'
-import { createClient } from '@/lib/supabase/server'
+import { requireUserPage } from '@/lib/auth/require-user'
 import type { SavedBrand } from '@/lib/types/saved-brand'
 import { buttonVariants } from '@/components/ui/button'
 import { surfaceCardStyles } from '@/components/ui/card'
@@ -14,6 +13,16 @@ import { cn } from '@/lib/utils'
 
 type Props = {
   params: Promise<{ locale: string }>
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { locale } = await params
+  setRequestLocale(locale)
+  const t = await getTranslations('favorites')
+  return {
+    title: t('metadata.title'),
+    robots: { index: false, follow: true },
+  }
 }
 
 function BrandImage({ brand }: { brand: SavedBrand }) {
@@ -102,14 +111,7 @@ export default async function FavoritesPage({ params }: Props) {
   setRequestLocale(locale)
 
   const t = await getTranslations('favorites')
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect(signInHref('/favorites', locale))
-  }
+  const user = await requireUserPage('/favorites', locale)
 
   const brands = await getUserSavedBrands(user.id)
 
