@@ -484,7 +484,7 @@ describe("collectSpecRoutes", () => {
 // mechanism replaced was 92% blind while its fixture-based tests were green,
 // so these assert against files that actually exist in the repository.
 describe("selectDerivedSpecs against the repository", () => {
-  const sourceFiles = execFileSync("rg", ["--files", "src", "e2e"], {
+  const sourceFiles = execFileSync("git", ["ls-files", "src", "e2e"], {
     encoding: "utf8",
   })
     .split("\n")

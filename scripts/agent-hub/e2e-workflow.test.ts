@@ -10,7 +10,9 @@ describe("nightly E2E Agent Hub reporting", () => {
       readFile(".github/selfheal/triage-fix.md", "utf8"),
     ]);
 
-    expect(config).toContain("testIgnore: 'e2e/tests/mobile.spec.ts'");
+    expect(config).toMatch(
+      /testIgnore:\s*["']e2e\/tests\/mobile\.spec\.ts["']/,
+    );
     expect(mobileSpec).not.toContain("test.skip(");
     expect(workflow).toContain(
       "TEST_ARGS=(--project=deep --project=mobile --reporter=html,json)",
