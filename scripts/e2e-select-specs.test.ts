@@ -375,9 +375,12 @@ describe('selectDerivedSpecs against the repository', () => {
   })
 
   it('never selects a spec the deep project cannot run', () => {
-    // /getting-started is covered only by e2e/smoke: handing that path to the
-    // selective deep/mobile projects would match no tests and fail the job.
-    expect(select(['src/app/[locale]/(site)/getting-started/page.tsx'])).toEqual([])
+    // A path whose only *dedicated* spec lives in e2e/smoke must never leak a
+    // smoke path into the selective deep/mobile projects — those would match no
+    // tests and fail the job. Deep specs that happen to cover the same route
+    // (seo.spec.ts sweeps every static sitemap URL) are legitimate selections.
+    const gettingStarted = select(['src/app/[locale]/(site)/getting-started/page.tsx'])
+    expect(gettingStarted.every(isSelectableSpec)).toBe(true)
 
     const everySpec = select(['src/components/ui/button.tsx'])
     expect(everySpec.length).toBeGreaterThan(0)
