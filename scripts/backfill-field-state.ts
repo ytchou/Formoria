@@ -1,5 +1,7 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
+import { PURCHASE_COLUMNS } from '@/lib/brands/purchase-channels'
+
 type Source = 'enriched' | 'owner'
 
 type BrandRow = Record<string, unknown> & {
@@ -27,7 +29,7 @@ type FieldStateTable = {
   ) => Promise<{ error: { message?: string } | null }>
 }
 
-const BRAND_FIELDS = [
+const BRAND_FIELDS: readonly string[] = [
   'name',
   'slug',
   'description',
@@ -35,9 +37,7 @@ const BRAND_FIELDS = [
   'product_type',
   'contact_email',
   'city',
-  'purchase_website',
-  'purchase_pinkoi',
-  'purchase_shopee',
+  ...PURCHASE_COLUMNS,
   'social_instagram',
   'social_threads',
   'social_facebook',
@@ -57,7 +57,7 @@ const BRAND_FIELDS = [
   'mit_evidence',
   'source',
   'is_demo',
-] as const
+]
 
 const SELECT_COLUMNS = `id, ${BRAND_FIELDS.join(', ')}, brand_owners(user_id)`
 

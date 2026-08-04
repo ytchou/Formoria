@@ -11,6 +11,10 @@
 import { readFile, writeFile, mkdir, readdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  PURCHASE_COLUMNS,
+  purchaseChannelByKey,
+} from "@/lib/brands/purchase-channels";
 import { loadCohort, snapshotDir } from "./cohort";
 
 const ARTIFACT_ROOT = `${process.env.HOME}/project/.artifact/formoria`;
@@ -76,14 +80,24 @@ function show(value: unknown): string {
   return String(value);
 }
 
-const LINK_FIELDS = [
-  "purchase_website",
+const SOCIAL_FIELDS = [
   "social_instagram",
   "social_threads",
   "social_facebook",
-  "purchase_pinkoi",
-  "purchase_shopee",
 ] as const;
+
+const WEBSITE_COLUMN = purchaseChannelByKey.website.column;
+
+/**
+ * Own-site link first, then socials, then every marketplace channel in registry
+ * order — the historical row order, now derived so a new purchase channel shows
+ * up in the review diff automatically.
+ */
+const LINK_FIELDS: readonly string[] = [
+  WEBSITE_COLUMN,
+  ...SOCIAL_FIELDS,
+  ...PURCHASE_COLUMNS.filter((column) => column !== WEBSITE_COLUMN),
+];
 
 const IDENTITY_FIELDS: ReadonlyArray<readonly [string, string]> = [
   ["name", "Name"],
