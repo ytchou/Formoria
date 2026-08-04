@@ -1,5 +1,10 @@
 import { z } from 'zod'
 import { MAX_BRAND_GALLERY_PHOTOS } from '@/lib/constants/brand-images'
+import {
+  PURCHASE_CAMEL_FIELDS,
+  PURCHASE_CHANNELS,
+  type PurchaseChannelCamelField,
+} from '@/lib/brands/purchase-channels'
 
 const romanizedNameSchema = z
   .string()
@@ -63,13 +68,15 @@ const otherUrlSchema = z
     })
   })
 
+const purchaseUrlSchemas = Object.fromEntries(
+  PURCHASE_CHANNELS.map((channel) => [channel.camel, optionalUrlSchema]),
+) as { [Field in PurchaseChannelCamelField]: typeof optionalUrlSchema }
+
 const brandWizardLinksSchema = z.object({
   socialInstagram: socialHandleOrUrlSchema,
   socialThreads: socialHandleOrUrlSchema,
   socialFacebook: optionalUrlSchema,
-  purchaseWebsite: optionalUrlSchema,
-  purchasePinkoi: optionalUrlSchema,
-  purchaseShopee: optionalUrlSchema,
+  ...purchaseUrlSchemas,
   otherUrls: z.array(otherUrlSchema).optional(),
 })
 
@@ -100,9 +107,7 @@ export const BRAND_WIZARD_SHARED_SECTION_FIELDS: Record<
     'socialInstagram',
     'socialThreads',
     'socialFacebook',
-    'purchaseWebsite',
-    'purchasePinkoi',
-    'purchaseShopee',
+    ...PURCHASE_CAMEL_FIELDS,
     'otherUrls',
   ],
 }

@@ -5,20 +5,43 @@ import { useTranslations } from 'next-intl'
 import { ExternalLink } from 'lucide-react'
 import { trackExternalLinkClicked } from '@/lib/analytics'
 import type { BrandVisitLinkKind } from '@/lib/brands/link-fallback'
+import {
+  purchaseChannelByKey,
+  type PurchaseChannelKey,
+} from '@/lib/brands/purchase-channels'
 import { ReportDialog } from '@/components/brands/report-dialog'
 import { buttonVariants } from '@/components/ui/button'
 import { LikeBrandButton } from './like-brand-button'
 import { SaveBrandButton } from './save-brand-button'
 import { ShareDialog } from './share-dialog'
 
+/**
+ * The channel's visit-label message key, relative to the `brandDetail`
+ * namespace this component translates in.
+ */
+function visitLabelKey(key: PurchaseChannelKey): string {
+  return purchaseChannelByKey[key].messageKeys.brandDetailAction.replace(
+    /^brandDetail\./,
+    ''
+  )
+}
+
+// Spelled out one key per channel on purpose: an `Object.fromEntries` build
+// collapses to `{ [k: string]: string }`, which satisfies the Record below
+// vacuously and lets a new channel through unnoticed. The literal is what makes
+// `satisfies` a real gate — adding a channel to the registry breaks this line.
+const PURCHASE_VISIT_LABEL_KEYS = {
+  website: visitLabelKey('website'),
+  pinkoi: visitLabelKey('pinkoi'),
+  shopee: visitLabelKey('shopee'),
+} satisfies Record<PurchaseChannelKey, string>
+
 const VISIT_LABEL_KEYS = {
-  website: 'actions.visitWebsite',
-  pinkoi: 'actions.visitPinkoi',
-  shopee: 'actions.visitShopee',
+  ...PURCHASE_VISIT_LABEL_KEYS,
   instagram: 'actions.visitInstagram',
   threads: 'actions.visitThreads',
   facebook: 'actions.visitFacebook',
-} as const satisfies Record<BrandVisitLinkKind, string>
+} satisfies Record<BrandVisitLinkKind, string>
 
 interface BrandActionsProps {
   adminSlot?: ReactNode

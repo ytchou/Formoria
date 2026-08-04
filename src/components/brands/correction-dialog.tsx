@@ -16,6 +16,10 @@ import { toast } from "sonner";
 import { submitCorrectionAction } from "@/lib/actions/brand-corrections";
 import { trackCorrectionSubmitted } from "@/lib/analytics";
 import { PRICE_RANGE_TIERS } from "@/lib/brands/price-range";
+import {
+  PURCHASE_CHANNELS,
+  type PurchaseChannelColumn,
+} from "@/lib/brands/purchase-channels";
 import type { CorrectionField } from "@/lib/services/brand-corrections";
 import {
   MAX_PRODUCT_TAGS,
@@ -98,9 +102,7 @@ export type CorrectionDialogProps = {
   productType?: string | null;
   priceRange?: number | null;
   productTags?: string[];
-  purchaseWebsite?: string | null;
-  purchasePinkoi?: string | null;
-  purchaseShopee?: string | null;
+  purchaseLinks?: Record<PurchaseChannelColumn, string | null>;
   socialInstagram?: string | null;
   socialThreads?: string | null;
   socialFacebook?: string | null;
@@ -114,6 +116,10 @@ type SelectionState = {
   // not already offer — kept so the chip stays visible after it is toggled off.
   extras: string[];
 };
+
+function purchaseChannelForField(field: CorrectionField) {
+  return PURCHASE_CHANNELS.find((channel) => channel.column === field);
+}
 
 function buildTagDelta(initialTags: string[], selectedTags: string[]) {
   const initialSet = new Set(initialTags);
@@ -132,9 +138,7 @@ export function CorrectionDialog({
   productType = null,
   priceRange = null,
   productTags = [],
-  purchaseWebsite = null,
-  purchasePinkoi = null,
-  purchaseShopee = null,
+  purchaseLinks = {} as Record<PurchaseChannelColumn, string | null>,
   socialInstagram = null,
   socialThreads = null,
   socialFacebook = null,
@@ -158,9 +162,13 @@ export function CorrectionDialog({
   // Starts empty so the dialog opens on the picker alone — no value control is
   // shown until the contributor says what they are correcting.
   const [field, setField] = useState<CorrectionField | "">("");
+  const purchaseFields = PURCHASE_CHANNELS.map((channel) => channel.column);
+  const purchaseChannel = PURCHASE_CHANNELS.find(
+    (channel) => channel.column === field,
+  );
   const availableFields: CorrectionField[] =
     mode === "purchaseLinks"
-      ? ["purchase_website", "purchase_pinkoi", "purchase_shopee"]
+      ? [...purchaseFields]
       : mode === "socialLinks"
         ? ["social_instagram", "social_threads", "social_facebook"]
         : productType != null
@@ -169,9 +177,7 @@ export function CorrectionDialog({
   // Every link field — purchase and social alike — is edited as a free-text URL
   // rather than a chip, so they share the baseline, diff and body branches.
   const isLinkField =
-    field === "purchase_website" ||
-    field === "purchase_pinkoi" ||
-    field === "purchase_shopee" ||
+    purchaseChannel !== undefined ||
     field === "social_instagram" ||
     field === "social_threads" ||
     field === "social_facebook";
@@ -180,19 +186,15 @@ export function CorrectionDialog({
       ? (productType ?? "")
       : field === "price_range" && priceRange != null
         ? String(priceRange)
-        : field === "purchase_website"
-          ? (purchaseWebsite ?? "")
-          : field === "purchase_pinkoi"
-            ? (purchasePinkoi ?? "")
-            : field === "purchase_shopee"
-              ? (purchaseShopee ?? "")
-              : field === "social_instagram"
-                ? (socialInstagram ?? "")
-                : field === "social_threads"
-                  ? (socialThreads ?? "")
-                  : field === "social_facebook"
-                    ? (socialFacebook ?? "")
-                    : "";
+        : purchaseChannel
+          ? (purchaseLinks[purchaseChannel.column] ?? "")
+          : field === "social_instagram"
+            ? (socialInstagram ?? "")
+            : field === "social_threads"
+              ? (socialThreads ?? "")
+              : field === "social_facebook"
+                ? (socialFacebook ?? "")
+                : "";
   // `brands.product_tags` is a bare text[] with no unique constraint, so a
   // legacy row can carry the same tag twice. De-duplicating once here keeps the
   // counter, the 5-tag cap and the row-1 chips reading the same list.
@@ -271,24 +273,25 @@ export function CorrectionDialog({
     })),
     ...extraTags.map((tag) => ({ key: tag, tag, label: tagLabel(tag) })),
   ];
-  const labelForField = (item: CorrectionField) =>
-    item === "product_type"
+  const labelForField = (item: CorrectionField) => {
+    const channel = purchaseChannelForField(item);
+    if (channel) {
+      return tBrandDetail(
+        channel.messageKeys.brandDetailLink.replace(/^brandDetail\./, ""),
+      );
+    }
+    return item === "product_type"
       ? tBrandDetail("label.category")
       : item === "price_range"
         ? tBrandDetail("label.priceRange")
         : item === "product_tags"
           ? tBrandDetail("label.productCategories")
-          : item === "purchase_website"
-            ? tBrandDetail("links.website")
-            : item === "purchase_pinkoi"
-              ? tBrandDetail("links.pinkoi")
-              : item === "purchase_shopee"
-                ? tBrandDetail("links.shopee")
-                : item === "social_instagram"
-                  ? tBrandDetail("links.instagram")
-                  : item === "social_threads"
-                    ? tBrandDetail("links.threads")
-                    : tBrandDetail("links.facebook");
+          : item === "social_instagram"
+            ? tBrandDetail("links.instagram")
+            : item === "social_threads"
+              ? tBrandDetail("links.threads")
+              : tBrandDetail("links.facebook");
+  };
   // Only read inside the value branches, which never render while field is "".
   const fieldLabel = field === "" ? "" : labelForField(field);
 

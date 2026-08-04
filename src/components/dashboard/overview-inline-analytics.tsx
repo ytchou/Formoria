@@ -6,9 +6,23 @@ import { SurfaceCard } from '@/components/ui/card'
 import { countDelta, percent } from '@/lib/analytics/delta-formatters'
 import type { OwnerAnalyticsSnapshotV1 } from '@/lib/analytics/posthog-types'
 import {
+  purchaseChannelByKey,
+  type PurchaseChannelKey,
+} from '@/lib/brands/purchase-channels'
+import {
   outboundDestinationLabel,
   trafficSourceLabel,
 } from '@/lib/analytics/traffic-source-labels'
+
+/**
+ * The channel's outbound-destination message key, relative to the
+ * `dashboard.analytics` namespace this component translates in.
+ */
+function outboundDestinationKey(key: PurchaseChannelKey): string {
+  return purchaseChannelByKey[
+    key
+  ].messageKeys.analyticsOutboundDestination.replace(/^dashboard\.analytics\./, '')
+}
 
 export async function OverviewInlineAnalytics({
   snapshot,
@@ -48,13 +62,20 @@ export async function OverviewInlineAnalytics({
     direct: tAnalytics('trafficSourceDirect'),
     other: tAnalytics('trafficSourceOther'),
   }
+  // Spelled out one key per channel on purpose: an `Object.fromEntries` build
+  // collapses to `{ [k: string]: string }`, which satisfies the Record below
+  // vacuously and lets a new channel fall through to `labels.other` unnoticed.
+  // The literal is what makes `satisfies` a real gate.
+  const purchaseOutboundDestinationLabels = {
+    website: tAnalytics(outboundDestinationKey('website')),
+    pinkoi: tAnalytics(outboundDestinationKey('pinkoi')),
+    shopee: tAnalytics(outboundDestinationKey('shopee')),
+  } satisfies Record<PurchaseChannelKey, string>
   const outboundDestinationLabels = {
-    website: tAnalytics('outboundDestinationWebsite'),
+    ...purchaseOutboundDestinationLabels,
     instagram: tAnalytics('outboundDestinationInstagram'),
     threads: tAnalytics('outboundDestinationThreads'),
     facebook: tAnalytics('outboundDestinationFacebook'),
-    pinkoi: tAnalytics('outboundDestinationPinkoi'),
-    shopee: tAnalytics('outboundDestinationShopee'),
     other: tAnalytics('outboundDestinationOther'),
   }
   const profileDelta = snapshot.profileSessions

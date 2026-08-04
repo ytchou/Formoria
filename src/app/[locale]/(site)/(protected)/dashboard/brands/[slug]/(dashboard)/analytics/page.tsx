@@ -1,6 +1,10 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import type { OwnerAnalyticsSnapshotV1 } from '@/lib/analytics/posthog-types'
 import {
+  purchaseChannelByKey,
+  type PurchaseChannelKey,
+} from '@/lib/brands/purchase-channels'
+import {
   countDelta,
   percent,
   rateDelta,
@@ -21,6 +25,16 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+
+/**
+ * The channel's outbound-destination message key, relative to the
+ * `dashboard.analytics` namespace this page translates in.
+ */
+function outboundDestinationKey(key: PurchaseChannelKey): string {
+  return purchaseChannelByKey[
+    key
+  ].messageKeys.analyticsOutboundDestination.replace(/^dashboard\.analytics\./, '')
+}
 
 type Props = {
   params: Promise<{ locale: string; slug: string }>
@@ -260,6 +274,15 @@ export default async function AnalyticsPage({ params, searchParams }: Props) {
   const brand = await getBrandBySlug(slug)
 
   const t = await getTranslations({ locale, namespace: 'dashboard.analytics' })
+  // Spelled out one key per channel on purpose: an `Object.fromEntries` build
+  // collapses to `{ [k: string]: string }`, which satisfies the Record below
+  // vacuously and lets a new channel fall through to `labels.other` unnoticed.
+  // The literal is what makes `satisfies` a real gate.
+  const purchaseOutboundDestinationLabels = {
+    website: t(outboundDestinationKey('website')),
+    pinkoi: t(outboundDestinationKey('pinkoi')),
+    shopee: t(outboundDestinationKey('shopee')),
+  } satisfies Record<PurchaseChannelKey, string>
   const copy: OwnerAnalyticsCopy = {
     profileVisits: t('profileVisits'),
     outboundClicks: t('outboundClicks'),
@@ -284,12 +307,10 @@ export default async function AnalyticsPage({ params, searchParams }: Props) {
     trafficSourceDirect: t('trafficSourceDirect'),
     trafficSourceOther: t('trafficSourceOther'),
     outboundDestinationLabels: {
-      website: t('outboundDestinationWebsite'),
+      ...purchaseOutboundDestinationLabels,
       instagram: t('outboundDestinationInstagram'),
       threads: t('outboundDestinationThreads'),
       facebook: t('outboundDestinationFacebook'),
-      pinkoi: t('outboundDestinationPinkoi'),
-      shopee: t('outboundDestinationShopee'),
       other: t('outboundDestinationOther'),
     },
     trafficSourcesEmpty: t('trafficSourcesEmpty'),
