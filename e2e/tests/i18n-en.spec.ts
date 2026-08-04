@@ -277,7 +277,7 @@ test.describe("i18n English browse", () => {
 
   // Every story is authored zh-TW. /en/stories now falls back to that zh-TW set and
   // /en/stories/[slug] serves the zh-TW document under a zh-TW canonical (covered in
-  // e2e/smoke/stories.spec.ts and e2e/tests/story-detail.spec.ts) — so story TITLES on
+  // e2e/tests/stories.spec.ts and e2e/tests/story-detail.spec.ts) — so story TITLES on
   // this hub are Chinese by design. The chrome around them is what must be English:
   // that is the signal that next-intl isn't falling back to the default locale.
   test("/en/stories renders English chrome, not the default locale", async ({

@@ -1,11 +1,11 @@
 import { test, expect } from "@playwright/test";
 
-test.describe("Getting Started page smoke", () => {
+test.describe("Getting Started page deep", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/en/getting-started");
   });
 
-  test("hero section renders", async ({ page }) => {
+  test("@smoke hero section renders", async ({ page }) => {
     // Substring match also hits the '<h2>How to explore Formoria</h2>' below the hero
     // (strict mode violation), so pin it to the eyebrow's exact text.
     await expect(

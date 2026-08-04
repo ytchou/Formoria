@@ -40,8 +40,9 @@
     "image-eval:score": "tsx --env-file=.env.local scripts/image-eval/score.ts",
     "image-recovery:audit": "tsx --env-file=.env.local scripts/image-recovery-audit.ts",
     "normalize-tags-en": "tsx --env-file=.env.local scripts/normalize-product-tags-en.ts",
-    "test:e2e": "playwright test",
-    "test:e2e:smoke": "playwright test --project=smoke-chromium --project=smoke-firefox --project=smoke-webkit",
+    "test:e2e": "playwright test --project=deep --project=mobile",
+    "test:e2e:smoke": "playwright test --project=deep --grep @smoke",
+    "test:e2e:cross-browser": "playwright test --project=cross-browser-chromium --project=cross-browser-firefox --project=cross-browser-webkit --grep @cross-browser e2e/tests/landing-search-cross-browser.spec.ts",
     "test:e2e:deep": "playwright test --project=deep",
     "test:search:load": "node --env-file=.env.local scripts/search-load.mjs"
   },

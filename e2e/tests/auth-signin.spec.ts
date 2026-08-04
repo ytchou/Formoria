@@ -1,53 +1,57 @@
-import { test, expect } from '../fixtures/auth';
-import { load } from 'cheerio';
+import { test, expect } from "../fixtures/auth";
+import { load } from "cheerio";
 
 function signInDocument(html: string) {
   const $ = load(html);
-  const credentialForm = $('form').has('input[name="email"]');
+  const credentialForm = $("form").has('input[name="email"]');
 
   return {
-    lang: $('html').attr('lang'),
-    heading: $('h1, h2').first().text().trim(),
-    submittedLocale: credentialForm.find('input[name="locale"]').attr('value'),
+    lang: $("html").attr("lang"),
+    heading: $("h1, h2").first().text().trim(),
+    submittedLocale: credentialForm.find('input[name="locale"]').attr("value"),
   };
 }
 
-test.describe('Auth — locale intent', () => {
-  test('the English sign-in page submits the English locale', async ({ request }) => {
+test.describe("Auth — locale intent", () => {
+  test("the English sign-in page submits the English locale", async ({
+    request,
+  }) => {
     // Auth pages live under [locale] now, so the English render has its own URL
     // rather than being negotiated onto the prefix-free one.
-    const response = await request.get('/en/auth/sign-in', {
-      headers: { 'accept-language': 'en-US,en;q=0.9' },
+    const response = await request.get("/en/auth/sign-in", {
+      headers: { "accept-language": "en-US,en;q=0.9" },
     });
 
     expect(response.status()).toBe(200);
     const document = signInDocument(await response.text());
     expect(document).toEqual({
-      lang: 'en',
-      heading: 'Sign In',
-      submittedLocale: 'en',
+      lang: "en",
+      heading: "Sign In",
+      submittedLocale: "en",
     });
   });
 
-  test('sign-in HTML honors the locale cookie over browser inference', async ({ request }) => {
-    const response = await request.get('/auth/sign-in', {
+  test("sign-in HTML honors the locale cookie over browser inference", async ({
+    request,
+  }) => {
+    const response = await request.get("/auth/sign-in", {
       headers: {
-        'accept-language': 'en-US,en;q=0.9',
-        cookie: 'NEXT_LOCALE=zh-TW',
+        "accept-language": "en-US,en;q=0.9",
+        cookie: "NEXT_LOCALE=zh-TW",
       },
     });
 
     expect(response.status()).toBe(200);
     const document = signInDocument(await response.text());
     expect(document).toEqual({
-      lang: 'zh-TW',
-      heading: '登入 Formoria',
-      submittedLocale: 'zh-TW',
+      lang: "zh-TW",
+      heading: "登入 Formoria",
+      submittedLocale: "zh-TW",
     });
   });
 });
 
-test.describe('Auth — Google OAuth offline guard', () => {
+test.describe("Auth — Google OAuth offline guard", () => {
   /**
    * Verifies that the Google OAuth entry point is wired correctly without
    * completing the OAuth flow. Clicking the Google button triggers a Server
@@ -57,7 +61,7 @@ test.describe('Auth — Google OAuth offline guard', () => {
    * navigation to *.supabase.co/auth/v1/authorize, abort it, and assert
    * provider=google is present in the URL — no live Google navigation occurs.
    */
-  test('Google sign-in button is present and initiates provider=google authorize request', async ({
+  test("@smoke sign-in page renders the heading and Google entry point", async ({
     anonPage,
   }) => {
     test.setTimeout(120_000);
@@ -65,34 +69,47 @@ test.describe('Auth — Google OAuth offline guard', () => {
     let capturedAuthorizeUrl: string | null = null;
 
     // Intercept the browser navigation to Supabase /auth/v1/authorize and abort it
-    await anonPage.route('**/auth/v1/authorize**', async (route) => {
+    await anonPage.route("**/auth/v1/authorize**", async (route) => {
       capturedAuthorizeUrl = route.request().url();
       await route.abort();
     });
 
-    await anonPage.goto('/auth/sign-in', { timeout: 60_000 });
+    await anonPage.goto("/auth/sign-in", { timeout: 60_000 });
+
+    await expect(
+      anonPage.getByRole("heading", { name: "登入 Formoria", exact: true }),
+    ).toBeVisible({ timeout: 60_000 });
 
     // Button must be visible before any click
-    const googleBtn = anonPage.getByRole('button', { name: '使用 Google 登入', exact: true });
+    const googleBtn = anonPage.getByRole("button", {
+      name: "使用 Google 登入",
+      exact: true,
+    });
     await expect(googleBtn).toBeVisible({ timeout: 60_000 });
 
     // Click — the Server Action fires, and the browser is redirected to Supabase /authorize.
     // The route intercept aborts that navigation; a navigation error is expected — swallow it.
     await Promise.race([
       googleBtn.click(),
-      anonPage.waitForURL('**/auth/v1/authorize**', { timeout: 10_000 }).catch(() => {}),
+      anonPage
+        .waitForURL("**/auth/v1/authorize**", { timeout: 10_000 })
+        .catch(() => {}),
     ]).catch(() => {});
 
-    await expect.poll(() => capturedAuthorizeUrl, { timeout: 10_000 }).toBeTruthy();
+    await expect
+      .poll(() => capturedAuthorizeUrl, { timeout: 10_000 })
+      .toBeTruthy();
 
     // The intercepted URL must include provider=google
     expect(capturedAuthorizeUrl).not.toBeNull();
-    expect(capturedAuthorizeUrl).toContain('provider=google');
+    expect(capturedAuthorizeUrl).toContain("provider=google");
   });
 });
 
-test.describe('Auth — sign-in flow', () => {
-  test('signs in through the UI and leaves the sign-in page authenticated', async ({ anonPage }) => {
+test.describe("Auth — sign-in flow", () => {
+  test("signs in through the UI and leaves the sign-in page authenticated", async ({
+    anonPage,
+  }) => {
     // Supabase signInWithPassword and a cold-compile of the landing page can be
     // slow in dev.
     test.setTimeout(120_000);
@@ -101,30 +118,32 @@ test.describe('Auth — sign-in flow', () => {
     const password = process.env.E2E_USER_PASSWORD;
 
     if (!email || !password) {
-      throw new Error('E2E_USER_EMAIL and E2E_USER_PASSWORD must be set');
+      throw new Error("E2E_USER_EMAIL and E2E_USER_PASSWORD must be set");
     }
 
-    await anonPage.goto('/auth/sign-in', { timeout: 60_000 });
+    await anonPage.goto("/auth/sign-in", { timeout: 60_000 });
 
-    await expect(anonPage.getByRole('heading', { name: '登入 Formoria', exact: true })).toBeVisible({
+    await expect(
+      anonPage.getByRole("heading", { name: "登入 Formoria", exact: true }),
+    ).toBeVisible({
       timeout: 60_000,
     });
     await expect(
-      anonPage.getByRole('button', { name: '使用 Google 登入', exact: true })
+      anonPage.getByRole("button", { name: "使用 Google 登入", exact: true }),
     ).toBeVisible({
       timeout: 60_000,
     });
 
-    await anonPage.getByLabel('電子郵件', { exact: true }).fill(email);
-    await anonPage.getByLabel('密碼', { exact: true }).fill(password);
+    await anonPage.getByLabel("電子郵件", { exact: true }).fill(email);
+    await anonPage.getByLabel("密碼", { exact: true }).fill(password);
 
     await Promise.all([
       // Server Action → Supabase round-trip plus a cold-compile of the landing
       // page can be slow in dev.
-      anonPage.waitForURL((url) => !url.pathname.includes('/auth/sign-in'), {
+      anonPage.waitForURL((url) => !url.pathname.includes("/auth/sign-in"), {
         timeout: 60_000,
       }),
-      anonPage.getByRole('button', { name: '登入', exact: true }).click(),
+      anonPage.getByRole("button", { name: "登入", exact: true }).click(),
     ]);
 
     await expect(anonPage).not.toHaveURL(/\/auth\/sign-in(?:[/?#]|$)/);
@@ -132,7 +151,9 @@ test.describe('Auth — sign-in flow', () => {
     // asserts that the user left the sign-in page authenticated. The flag-off
     // landing (`/`, not `/dashboard`) is owned by owner-features-flag-off.spec.ts.
     // The account menu button in the main nav is always visible when authenticated.
-    await expect(anonPage.getByRole('button', { name: /account|帳號/i })).toBeVisible({
+    await expect(
+      anonPage.getByRole("button", { name: /account|帳號/i }),
+    ).toBeVisible({
       timeout: 10_000,
     });
   });
