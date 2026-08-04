@@ -1,5 +1,6 @@
 import { Link } from "@/i18n/navigation";
 import type { StoryEntry } from "@/lib/services/stories";
+import { NO_SNIPPET } from "@/lib/seo/snippet";
 import { formatStoryDate, toStoryIsoDate } from "./story-date";
 
 export function StoryRow({
@@ -34,7 +35,12 @@ export function StoryRow({
         <Heading className="type-card-title group-hover:underline">
           {story.frontmatter.title}
         </Heading>
-        <p className="max-w-3xl type-body-muted">
+        {/*
+          Repeated list copy, kept out of Google's snippet selection — see
+          NO_SNIPPET. The story's own description still serves snippets from
+          /stories/[slug].
+        */}
+        <p {...NO_SNIPPET} className="max-w-3xl type-body-muted">
           {story.frontmatter.description}
         </p>
       </div>
