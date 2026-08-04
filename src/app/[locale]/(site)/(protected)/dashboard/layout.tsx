@@ -27,7 +27,11 @@ export default async function DashboardLayout({
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) return null
+  // A layout has no pathname, so it cannot build `next` itself. Pass through
+  // instead of returning null: the nested page guards (requireUserPage /
+  // requireBrandEditor) redirect to a sign-in URL that preserves the
+  // destination. Returning null here would blank the page and strand the user.
+  if (!user) return <>{children}</>
 
   // Owner features kill switch. Admins keep access so impersonation /
   // view-as-owner QA still works while the flag is off.

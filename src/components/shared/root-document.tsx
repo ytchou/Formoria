@@ -22,9 +22,15 @@ const bricolage = Bricolage_Grotesque({
 // No webfont for Traditional Chinese: the CJK set is far too large to ship, so
 // CJK deliberately falls through to the platform's own system face (PingFang TC,
 // Microsoft JhengHei, Noto Sans CJK). Do not reintroduce a CJK webfont here.
+// `preload: false` keeps this off the cold-visit critical path. Every public
+// page preloaded it, but `font-mono` is only ever used behind admin, the
+// dashboard, a chart tooltip and the share modal — never above the fold on `/`
+// or `/brands`. It still loads normally once something actually renders with
+// it (DEV-1336).
 const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
   subsets: ['latin'],
+  preload: false,
 })
 
 type RootDocumentProps = {

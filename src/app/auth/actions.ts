@@ -89,9 +89,22 @@ export async function signIn(
     redirect(`/auth/callback?claim=${claimToken}`);
   }
 
-  const next = formData.get("next") as string | null;
-  const requestedNext = next && isRelativeUrl(next) ? next : null;
+  const cookieStore = await cookies();
+  const next = formData.get("next");
+  let requestedNext = typeof next === "string" && isRelativeUrl(next) ? next : null;
+  if (!requestedNext) {
+    const cookieNext = cookieStore.get("post_auth_next")?.value;
+    if (cookieNext) {
+      try {
+        const decodedNext = decodeURIComponent(cookieNext);
+        requestedNext = isRelativeUrl(decodedNext) ? decodedNext : null;
+      } catch {
+        requestedNext = null;
+      }
+    }
+  }
   const redirectPath = await resolvePostAuthPath(requestedNext);
+  cookieStore.delete("post_auth_next");
   // Password sign-in never passes through /auth/callback, so it has to stamp
   // the login marker itself. GaUserSync reads it and strips it client-side.
   const target = new URL(localizePath(redirectPath, locale), "http://localhost");

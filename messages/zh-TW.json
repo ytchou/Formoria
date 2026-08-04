@@ -1276,6 +1276,9 @@
     "feedback": "功能建議"
   },
   "favorites": {
+    "metadata": {
+      "title": "收藏品牌"
+    },
     "heading": "收藏品牌",
     "count": "{count} 個品牌",
     "emptyTitle": "尚無收藏品牌",
@@ -1848,7 +1851,10 @@
       "description": "發生了預期外的錯誤，請再試一次。",
       "brandDescription": "無法載入此品牌，請再試一次。",
       "storyDescription": "無法載入此專題，請再試一次。",
-      "retry": "重試"
+      "retry": "重試",
+      "staleTitle": "這個頁面已經過期",
+      "staleDescription": "這個分頁開啟期間網站已更新，請重新載入以取得最新版本後再試一次。",
+      "staleRetry": "重新載入頁面"
     }
   },
   "submit": {
@@ -2867,6 +2873,7 @@
     "subheading": "長篇報導台灣品牌的故事，一次一個品牌，走進他們實際工作的地方，把來龍去脈完整說清楚。",
     "allTags": "全部",
     "comingSoon": "首批專題正在準備中，敬請期待。",
+    "languageBadge": "中文",
     "loadError": "專題暫時無法載入，請稍後再試。",
     "breadcrumb": "專題",
     "breadcrumbAria": "麵包屑導覽",
