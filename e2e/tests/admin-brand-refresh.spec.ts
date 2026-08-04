@@ -6,6 +6,8 @@ import { expect, test } from "../fixtures/auth";
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
 test.describe("Scheduled brand refresh review", () => {
+  test.describe.configure({ mode: "serial" });
+
   let supabase: AnySupabaseClient;
   let brandId: string;
   let brandName: string;
@@ -316,6 +318,8 @@ test.describe("Scheduled brand refresh review", () => {
 });
 
 test.describe("Bulk refresh approval", () => {
+  test.describe.configure({ mode: "serial" });
+
   let supabase: AnySupabaseClient;
   const brandIds: string[] = [];
   const submissionIds: string[] = [];

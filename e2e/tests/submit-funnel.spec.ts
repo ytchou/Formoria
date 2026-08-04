@@ -23,6 +23,8 @@ const TINY_PNG = Buffer.from(
  * enabled as soon as all other fields are valid.
  */
 test.describe("Submit funnel", () => {
+  test.describe.configure({ mode: "serial" });
+
   test.afterAll(async () => {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

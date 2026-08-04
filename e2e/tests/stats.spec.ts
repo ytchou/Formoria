@@ -27,13 +27,13 @@ test.describe('Stats page', () => {
   });
 
   test('category labels and links follow the page locale', async ({ page }) => {
-    await expect(page.getByRole('link', { name: /食品飲料/ })).toHaveAttribute(
+    await expect(page.getByRole('link', { name: '食品飲料', exact: true })).toHaveAttribute(
       'href',
       '/brands?category=food-drink',
     );
 
     await page.goto('/en/stats');
-    await expect(page.getByRole('link', { name: /Food & Beverage/ })).toHaveAttribute(
+    await expect(page.getByRole('link', { name: 'Food & Beverage', exact: true })).toHaveAttribute(
       'href',
       '/en/brands?category=food-drink',
     );
