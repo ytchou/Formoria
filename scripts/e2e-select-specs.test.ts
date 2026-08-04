@@ -222,13 +222,15 @@ describe("selective E2E workflow project routing", () => {
     expect(workflow).toContain("if: needs.select.outputs.has_work == 'true'");
     expect(workflow).not.toContain("smoke-cross-browser");
 
-    expect(config).toContain("testMatch: 'e2e/tests/**/*.spec.ts'");
-    expect(config).toContain(
-      "testMatch: 'e2e/tests/landing-search-cross-browser.spec.ts'",
+    expect(config).toMatch(
+      /testMatch:\s*["']e2e\/tests\/\*\*\/\*\.spec\.ts["']/,
+    );
+    expect(config).toMatch(
+      /testMatch:\s*["']e2e\/tests\/landing-search-cross-browser\.spec\.ts["']/,
     );
     expect(config).toContain("grep: /@cross-browser/");
-    expect(config).not.toContain(
-      "testMatch: 'e2e/tests/directory-sort.spec.ts'",
+    expect(config).not.toMatch(
+      /testMatch:\s*["']e2e\/tests\/directory-sort\.spec\.ts["']/,
     );
     expect(config).not.toContain("e2e/smoke");
   });
