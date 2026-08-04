@@ -15,6 +15,18 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     "public/admin/content/**",
     "scripts/threads-scraper/**",
+    // Gitignored Playwright artifacts: the MCP server's scratch scripts, and
+    // the HTML report's bundled vendor JS. All generated, never reviewed, and
+    // they trip rules like no-this-alias — 184 errors from `playwright-report/`
+    // alone, purely from having run the e2e suite locally.
+    //
+    // This matters beyond noise: `pnpm lint` is an `&&` chain, so a failure
+    // here silently skips check:frontend-tokens and check:test-boundaries,
+    // making a local run that "fails" and one that never checked the real rules
+    // indistinguishable.
+    ".playwright-mcp/**",
+    "playwright-report/**",
+    "test-results/**",
   ]),
   // UI sourcing rules: raw styled HTML elements must use ui/ primitives.
   {

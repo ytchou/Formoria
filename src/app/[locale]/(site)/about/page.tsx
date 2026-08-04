@@ -8,6 +8,7 @@ import {
 } from "@/lib/json-ld";
 import { buildAlternates } from "@/lib/seo/alternates";
 import type { Locale } from "@/lib/seo/alternates";
+import { buildOpenGraph } from "@/lib/seo/open-graph";
 import { Link } from "@/i18n/navigation";
 import AboutHero from "@/components/about/about-hero";
 import TaiwanStats from "@/components/about/taiwan-stats";
@@ -40,18 +41,14 @@ export async function generateMetadata({
     title,
     description,
     alternates: { canonical, languages },
-    openGraph: {
+    ...buildOpenGraph({
       title,
       description,
+      url: canonical,
       locale: ogLocale,
       alternateLocale: [ogAlternateLocale],
       type: "article",
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-    },
+    }),
   };
 }
 

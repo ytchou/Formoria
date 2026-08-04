@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
+import { buildOpenGraph } from '@/lib/seo/open-graph'
 import { createClient } from '@/lib/supabase/server'
 import SubmitOverview from '@/components/submit/SubmitOverview'
 import { isOwnerFeaturesEnabled } from '@/lib/services/app-settings'
@@ -20,24 +21,21 @@ export async function generateMetadata({
   const t = await getTranslations('submit.metadata')
   const title = t('title')
   const description = t('description')
+  const { canonical, languages } = buildAlternates('/submit', safeLocale)
   const ogLocale = safeLocale === 'en' ? 'en_US' : 'zh_TW'
   const ogAlternateLocale = safeLocale === 'en' ? 'zh_TW' : 'en_US'
 
   return {
     title,
     description,
-    alternates: buildAlternates('/submit', safeLocale),
-    openGraph: {
+    alternates: { canonical, languages },
+    ...buildOpenGraph({
       title,
       description,
+      url: canonical,
       locale: ogLocale,
       alternateLocale: [ogAlternateLocale],
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title,
-      description,
-    },
+    }),
   }
 }
 

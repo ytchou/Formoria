@@ -13,8 +13,15 @@ RUN pnpm install --frozen-lockfile
 ENV NODE_ENV=production
 # Identifies the build in the worker's startup log. Railway injects
 # RAILWAY_GIT_COMMIT_SHA only for repo-connected services, so a manual
-# `railway up` would otherwise log an unidentifiable build:
-#   railway up --service curation-worker  (add: --build-arg GIT_COMMIT_SHA=$(git rev-parse HEAD))
+# `railway up` would otherwise log an unidentifiable build.
+#
+# The Railway CLI dropped `--build-arg` (verified absent in 5.30.4), so the SHA
+# is set as a service variable instead and this ARG is only the fallback for
+# builders that can still pass one:
+#   railway variables --service curation-worker --set "WORKER_BUILD_SHA=$(git rev-parse HEAD)"
+#   railway up --service curation-worker --ci
+# Then confirm the deploy actually rolled:
+#   railway logs --service curation-worker | grep "build sha"
 ARG GIT_COMMIT_SHA=unknown
 ENV WORKER_BUILD_SHA=$GIT_COMMIT_SHA
 EXPOSE 8080

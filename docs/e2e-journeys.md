@@ -2,19 +2,64 @@
 
 Running inventory of e2e-covered user journeys. Updated by `/e2e-author` runs.
 
-## Smoke (cross-browser, blocks merge)
+## Selective PR smoke (Chromium)
+
+Smoke is a tagged subset of the canonical deep suite. The PR selector resolves affected route families and runs only matching `@smoke` cases in Chromium. The scheduled deep workflow still runs every canonical case.
+
+| Journey | Canonical spec | Last updated |
+|---------|----------------|-------------|
+| Landing entry point and directory sort URL state | `e2e/tests/directory-sort.spec.ts` | 2026-08-04 |
+| Claim approval lifecycle and post-claim ownership | `e2e/tests/claim-smoke.spec.ts` | 2026-08-04 |
+| Sign-in Google entry point | `e2e/tests/auth-signin.spec.ts` | 2026-08-04 |
+| Brand detail rendering | `e2e/tests/brand-detail.spec.ts` | 2026-08-04 |
+| Events hub state and navigation | `e2e/tests/events.spec.ts`, `e2e/tests/events-navigation.spec.ts` | 2026-08-04 |
+| FAQ sections and details | `e2e/tests/faq.spec.ts` | 2026-08-04 |
+| Getting-started hero | `e2e/tests/getting-started.spec.ts` | 2026-08-04 |
+| Submission entry points and authenticated redirect | `e2e/tests/community-submit.spec.ts` | 2026-08-04 |
+| Stories hub state and navigation | `e2e/tests/stories.spec.ts`, `e2e/tests/stories-navigation.spec.ts` | 2026-08-04 |
+| Navbar authenticated state | `e2e/tests/navbar-auth.spec.ts` | 2026-08-04 |
+| Public routing, filters, search, and metadata regressions | `e2e/tests/public-routing-regressions.spec.ts` | 2026-08-04 |
+| Persisted locale switching | `e2e/tests/i18n-en.spec.ts` | 2026-08-04 |
+
+## Conditional cross-browser compatibility
+
+Browser-sensitive shared changes run exactly one public, read-only journey in Chromium, Firefox, and WebKit: landing search navigates to the matching directory, then directory sorting preserves coherent URL and rendered state.
 
 | Journey | Spec | Last updated |
 |---------|------|-------------|
-| Homepage + landing | `e2e/smoke/visitor.spec.ts` | pre-existing |
-| Landing hero + search | `e2e/smoke/landing.spec.ts` | pre-existing |
-| Directory sort | `e2e/smoke/directory-sort.spec.ts` | pre-existing |
-| Submit form load | `e2e/smoke/submit.spec.ts` | pre-existing |
-| Navbar auth state | `e2e/smoke/navbar-auth.spec.ts` | pre-existing |
-| Getting started | `e2e/smoke/getting-started.spec.ts` | pre-existing |
-| **Screenshot proof — submit, admin approval, private-file deletion, ownership visible** | `e2e/smoke/claim.spec.ts` | 2026-07-23 |
-| **Guide hub browsing + navigation** | `e2e/smoke/guides.spec.ts` | 2026-07-03 |
-| **Events hub — nav link, click-through navigation, empty-state rendering** | `e2e/smoke/events.spec.ts` | 2026-07-31 |
+| Landing search to sortable matching directory | `e2e/tests/landing-search-cross-browser.spec.ts` | 2026-08-04 |
+
+## User-facing route smoke audit
+
+Audit baseline: **68 route families; 14 mapped; 54 visible migration warnings.** API handlers, metadata endpoints, internal-only endpoints, and authentication callbacks are excluded. A route may be covered by a shared journey; the table records the canonical case that exercises it.
+
+### Mapped routes
+
+| Route family | Core journey | Canonical spec |
+|--------------|--------------|----------------|
+| `/` | Landing entry point | `e2e/tests/directory-sort.spec.ts` |
+| `/admin/claims` | Claim approval lifecycle | `e2e/tests/claim-smoke.spec.ts` |
+| `/auth/sign-in` | Google entry point | `e2e/tests/auth-signin.spec.ts` |
+| `/brands` | A-Z sort URL state | `e2e/tests/directory-sort.spec.ts` |
+| `/brands/[slug]` | Brand detail render | `e2e/tests/brand-detail.spec.ts` |
+| `/dashboard` | Post-claim dashboard ownership | `e2e/tests/claim-smoke.spec.ts` |
+| `/events` | Hub empty/published state | `e2e/tests/events.spec.ts` |
+| `/faq` | FAQ sections/details | `e2e/tests/faq.spec.ts` |
+| `/getting-started` | Hero render | `e2e/tests/getting-started.spec.ts` |
+| `/my-submissions` | Authenticated redirect | `e2e/tests/community-submit.spec.ts` |
+| `/stories` | Hub empty/published state | `e2e/tests/stories.spec.ts` |
+| `/submit/owner` | Owner quick journey | `e2e/tests/community-submit.spec.ts` |
+| `/submit/owner/quick` | Owner quick fields | `e2e/tests/community-submit.spec.ts` |
+| `/submit/recommend` | Recommendation form | `e2e/tests/community-submit.spec.ts` |
+
+### Uncovered route warnings
+
+- Admin: `/admin`, `/admin/brands`, `/admin/catalog`, `/admin/catalog/brands`, `/admin/claim-requests`, `/admin/corrections`, `/admin/evidence`, `/admin/feature-requests`, `/admin/jobs`, `/admin/jobs/[id]`, `/admin/moderation`, `/admin/newsletter`, `/admin/quality`, `/admin/reports`, `/admin/review-queue`, `/admin/review-queue/moderation`, `/admin/review-queue/submissions`, `/admin/scripts`, `/admin/scripts/bulk-community-submissions`, `/admin/settings`, `/admin/signals`, `/admin/signals/reports`, `/admin/submissions`.
+- Authentication/public: `/about`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/sign-up`, `/challenge`, `/contact`, `/contributions`, `/feature-requests`, `/glossary`, `/privacy`, `/stats`, `/terms`, `/vision`.
+- Dashboard: `/dashboard/analytics`, `/dashboard/brands/[slug]`, `/dashboard/brands/[slug]/analytics`, `/dashboard/brands/[slug]/edit`, `/dashboard/brands/[slug]/info`, `/dashboard/brands/[slug]/links`, `/dashboard/brands/[slug]/media`, `/dashboard/brands/[slug]/reputation`, `/dashboard/brands/[slug]/verification`.
+- Other: `/events/[slug]`, `/favorites`, `/settings`, `/site/[slug]`, `/stories/[slug]`, `/submit`, `/submit/confirmation`, `/submit/form`, `/submit/owner/details`.
+
+These are warnings during migration, not evidence that the routes have no deep coverage. Enable the no-new-gap regression gate only after the smoke baseline reaches zero uncovered route families.
 
 ## Deep (chromium-only, nightly)
 

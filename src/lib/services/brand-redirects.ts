@@ -1,5 +1,19 @@
 import { createServiceClient } from '@/lib/supabase/server'
 
+export async function hasApprovedBrandSlug(slug: string): Promise<boolean> {
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from('brands')
+    .select('id')
+    .eq('slug', slug)
+    .eq('status', 'approved')
+    .maybeSingle()
+
+  if (error) throw error
+
+  return data !== null
+}
+
 export async function resolveApprovedBrandRedirect(oldSlug: string): Promise<string | null> {
   const supabase = createServiceClient()
   const { data, error } = await supabase

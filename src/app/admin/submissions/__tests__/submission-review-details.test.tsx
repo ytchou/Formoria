@@ -426,6 +426,7 @@ function makeSubmission(
     intent: "recommend",
     productTypeNote: null,
     reviewKind: "new",
+    duplicateWarning: null,
     baseBrandData: null,
     baseBrandUpdatedAt: null,
     reviewOverrides: {},

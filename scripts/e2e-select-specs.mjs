@@ -3,8 +3,6 @@ import { readFileSync } from 'node:fs'
 import { dirname, join, posix } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const MIN_I18N_STRING_LENGTH = 4
-const MAX_SPECS_PER_I18N_STRING = 5
 const CODE_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx']
 const ROUTE_ENTRYPOINT =
   /^src\/app\/(?:.*\/)?(?:page|layout|route|template|default)\.(?:ts|tsx)$/
@@ -22,6 +20,15 @@ const SUBTREE_ENTRYPOINT =
  * filter every test out and fail the run with "no tests found".
  */
 const SELECTABLE_SPEC = /^e2e\/tests\/.+\.spec\.ts$/
+const SMOKE_SPEC = /^e2e\/smoke\/.+\.spec\.ts$/
+const BROWSER_APP_DIRECTORY = /^src\/app\//
+const BROWSER_SOURCE_DIRECTORY = /^src\/(?:components|hooks|i18n)\//
+const BROWSER_ASSET = /^src\/assets\//
+const BROWSER_PROXY = /^src\/(?:proxy|middleware)\.(?:ts|tsx|js|jsx)$/
+const BROWSER_STYLE = /\.(?:css|scss|sass|less)$/
+const BROWSER_PUBLIC_ASSET = /^public\//
+const BROWSER_MESSAGES = /^messages\/.+\.json$/
+const PLAYWRIGHT_CONFIG = /^playwright\.config\.[cm]?[jt]sx?$/
 
 /** Files that participate in the import graph. */
 export function isCodeFile(file) {
@@ -41,6 +48,25 @@ export function isSubtreeEntrypoint(file) {
 /** A spec the selective PR job is able to run. */
 export function isSelectableSpec(file) {
   return SELECTABLE_SPEC.test(file)
+}
+
+/** A tracked file that can affect browser-visible behavior or the smoke flow. */
+export function isBrowserImpactingFile(file) {
+  return (
+    BROWSER_APP_DIRECTORY.test(file) ||
+    BROWSER_SOURCE_DIRECTORY.test(file) ||
+    BROWSER_ASSET.test(file) ||
+    BROWSER_PROXY.test(file) ||
+    BROWSER_STYLE.test(file) ||
+    BROWSER_PUBLIC_ASSET.test(file) ||
+    BROWSER_MESSAGES.test(file) ||
+    PLAYWRIGHT_CONFIG.test(file) ||
+    SMOKE_SPEC.test(file)
+  )
+}
+
+export function isSmokeSpec(file) {
+  return SMOKE_SPEC.test(file)
 }
 
 export function resolveImport(fromFile, specifier, fileExists) {
@@ -103,6 +129,13 @@ export function collectReachableImporters(startFiles, reverseGraph) {
     }
   }
   return reachable
+}
+
+export function shouldRunSmoke(changedFiles, reverseGraph) {
+  if (changedFiles.some(isBrowserImpactingFile)) return true
+
+  const reachable = collectReachableImporters(changedFiles, reverseGraph)
+  return [...reachable].some(isSmokeSpec)
 }
 
 export function routePatternFor(entrypoint) {
@@ -232,51 +265,11 @@ export function selectChangedSpecs(changedFiles) {
   return changedFiles.filter(isSelectableSpec)
 }
 
-export function parseRemovedI18nStrings(diffText) {
-  const values = new Set()
-  for (const line of diffText.split('\n')) {
-    if (!line.startsWith('-') || line.startsWith('---')) continue
-    const match = line.match(/:\s*"((?:[^"\\]|\\.)*)"\s*,?\s*$/)
-    if (!match) continue
-    try {
-      const value = JSON.parse(`"${match[1]}"`)
-      if (value.length >= MIN_I18N_STRING_LENGTH) values.add(value)
-    } catch {
-      // Not a decodable JSON string — skip rather than widen the selection.
-    }
-  }
-  return [...values]
-}
-
-export function selectSpecsForRemovedStrings(
-  removedStrings,
-  findSpecsContaining,
-) {
-  const specSet = new Set()
-  for (const value of removedStrings) {
-    const matched = findSpecsContaining(value)
-    if (matched.length > MAX_SPECS_PER_I18N_STRING) continue
-    for (const spec of matched) specSet.add(spec)
-  }
-  return [...specSet]
-}
-
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
+  const smokeMode = process.argv.includes('--smoke')
   const git = args =>
     execFileSync('git', args, { encoding: 'utf8', cwd: repoRoot })
-  const findSpecsContaining = value => {
-    try {
-      return execFileSync('grep', ['-rlF', value, 'e2e/tests'], {
-        encoding: 'utf8',
-        cwd: repoRoot,
-      })
-        .split('\n')
-        .filter(Boolean)
-    } catch {
-      return []
-    }
-  }
   const base = process.env.E2E_SELECT_BASE ?? 'origin/main'
 
   let changedFiles = []
@@ -290,6 +283,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       .split('\n')
       .filter(Boolean)
   } catch {
+    if (smokeMode) process.stdout.write('false')
     process.exit(0)
   }
 
@@ -313,22 +307,17 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     file => trackedSet.has(file),
   )
 
-  let removedI18nStrings = []
-  if (changedFiles.some(file => file.startsWith('messages/'))) {
-    try {
-      removedI18nStrings = parseRemovedI18nStrings(
-        git(['diff', '-U0', `${base}...HEAD`, '--', 'messages/']),
-      )
-    } catch {
-      removedI18nStrings = []
-    }
+  if (smokeMode) {
+    process.stdout.write(
+      shouldRunSmoke(changedFiles, selectionIndex.reverseGraph) ? 'true' : 'false',
+    )
+    process.exit(0)
   }
 
   const specs = [
     ...new Set([
       ...selectDerivedSpecs(changedFiles, selectionIndex),
       ...selectChangedSpecs(changedFiles),
-      ...selectSpecsForRemovedStrings(removedI18nStrings, findSpecsContaining),
     ]),
   ].sort()
 

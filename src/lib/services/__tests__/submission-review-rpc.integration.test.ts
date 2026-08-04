@@ -291,6 +291,54 @@ describeWithDb("trusted submission review RPCs", () => {
     });
   });
 
+  it("strips a scraped page title from the name before publishing the brand", async () => {
+    // `噗尼 Mobell` published as `噗尼 Mobell - 網頁不存在` because enrichment wrote
+    // the scraped page title into enriched_data.name and approval copied it
+    // verbatim. The enrich-side name arbiter (DEV-1321) only governs rows
+    // enriched after it shipped, so approval cleans at the boundary too.
+    const submissionId = await seedSubmission("page-title");
+    const images = await seedImages(submissionId);
+    await seedSuccessfulTarget(submissionId, "page-title");
+    await saveSubmissionReview(submissionId, {
+      ...completeReviewInput(images),
+      name: "噗尼 Mobell - 網頁不存在",
+    });
+
+    const result = await approveSubmission(supabase!, submissionId, reviewerId);
+    brandIds.push(result.brandId);
+
+    const { data: brand, error } = await supabase!
+      .from("brands")
+      .select("name")
+      .eq("id", result.brandId)
+      .single();
+    expect(error).toBeNull();
+    expect(brand?.name).toBe("噗尼 Mobell");
+  });
+
+  it("keeps a legitimate name that only looks like page-title noise", async () => {
+    // The guard must not "fix" real brand names: `404 Oligo` is a live brand and
+    // any digit/keyword heuristic that rewrites it is worse than the bug.
+    const submissionId = await seedSubmission("legit-name");
+    const images = await seedImages(submissionId);
+    await seedSuccessfulTarget(submissionId, "legit-name");
+    await saveSubmissionReview(submissionId, {
+      ...completeReviewInput(images),
+      name: "404 Oligo",
+    });
+
+    const result = await approveSubmission(supabase!, submissionId, reviewerId);
+    brandIds.push(result.brandId);
+
+    const { data: brand, error } = await supabase!
+      .from("brands")
+      .select("name")
+      .eq("id", result.brandId)
+      .single();
+    expect(error).toBeNull();
+    expect(brand?.name).toBe("404 Oligo");
+  });
+
   it("persists the owner MIT story on the approved brand", async () => {
     const submissionId = await seedSubmission("mit-story");
     const images = await seedImages(submissionId);

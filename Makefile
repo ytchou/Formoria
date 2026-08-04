@@ -1,9 +1,6 @@
-.PHONY: dev-all doctor seed seed-qa-brand reset-qa-brand eval
+.PHONY: doctor seed seed-qa-brand reset-qa-brand eval
 
 PNPM ?= corepack pnpm
-
-dev-all:
-	ulimit -S -n 32768 && exec $(PNPM) dev
 
 doctor:
 	@bash scripts/doctor.sh

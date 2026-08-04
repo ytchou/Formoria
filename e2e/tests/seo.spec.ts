@@ -125,6 +125,33 @@ test.describe("SEO deep", () => {
     expect(title).not.toBe(homeTitle);
   });
 
+  test("directory page 2 keeps its page query in canonical metadata", async ({
+    page,
+  }) => {
+    for (const path of ["/brands?page=2", "/brands?category=fashion&page=2"]) {
+      await page.goto(path);
+      const canonical = await page
+        .locator('link[rel="canonical"]')
+        .getAttribute("href");
+      const ogUrl = await page
+        .locator('meta[property="og:url"]')
+        .getAttribute("content");
+
+      expect(canonical).toMatch(/\/brands\?.*page=2(?:&|$)/);
+      expect(ogUrl).toBe(canonical);
+    }
+  });
+
+  test("an unknown eligible bare slug returns a direct 404", async ({
+    request,
+  }) => {
+    const unknownSlug = `e2e-unknown-brand-${Date.now()}`;
+    const response = await request.get(`/${unknownSlug}`, { maxRedirects: 0 });
+
+    expect(response.status()).toBe(404);
+    expect(response.headers().location).toBeUndefined();
+  });
+
   // --- i18n: default-locale URL stability ---
 
   test("default zh-TW /brands returns 200 with no redirect", async ({
@@ -224,6 +251,70 @@ test.describe("SEO deep", () => {
     expect(body).not.toContain("/vision");
   });
 
+  test("sitemap static pages expose a resolvable PNG OG image", async ({
+    page,
+    request,
+  }) => {
+    const sitemapResponse = await request.get("/sitemap.xml");
+    expect(sitemapResponse.status()).toBe(200);
+    const sitemap = await sitemapResponse.text();
+    const locations = Array.from(
+      sitemap.matchAll(/<loc>([^<]+)<\/loc>/g),
+      (match) => new URL(match[1]),
+    );
+    const staticPaths = new Set([
+      "/",
+      "/brands",
+      "/events",
+      "/stats",
+      "/about",
+      "/glossary",
+      "/faq",
+      "/contact",
+      "/terms",
+      "/privacy",
+      "/getting-started",
+      "/submit",
+    ]);
+    const staticLocations = locations.filter((url) => {
+      const path = url.pathname === "/en" ? "/" : url.pathname.replace(/^\/en(?=\/)/, "");
+      return (
+        staticPaths.has(path) ||
+        (path === "/brands" && url.searchParams.has("category"))
+      );
+    });
+
+    expect(staticLocations.length).toBeGreaterThan(0);
+    for (const url of staticLocations) {
+      await page.goto(`${url.pathname}${url.search}`);
+      const ogImage = await page
+        .locator('meta[property="og:image"]')
+        .getAttribute("content");
+      expect(ogImage, `${url.pathname}${url.search} → og:image`).toMatch(
+        /^https?:\/\//,
+      );
+
+      const imageUrl = new URL(ogImage!);
+      const localImageUrl = `${new URL(page.url()).origin}${imageUrl.pathname}${imageUrl.search}`;
+      const imageResponse = await request.get(localImageUrl);
+      expect(
+        imageResponse.status(),
+        `${url.pathname}${url.search} → og:image status`,
+      ).toBe(200);
+      expect(
+        imageResponse.headers()["content-type"],
+        `${url.pathname}${url.search} → og:image content-type`,
+      ).toMatch(/^image\/png(?:;|$)/);
+
+      if (url.pathname.replace(/^\/en(?=\/)/, "") === "/brands" && url.searchParams.has("category")) {
+        await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
+          "content",
+          "summary_large_image",
+        );
+      }
+    }
+  });
+
   test("llms.txt is served as text", async ({ request }) => {
     const res = await request.get("/llms.txt");
     expect(res.status()).toBe(200);
@@ -232,6 +323,45 @@ test.describe("SEO deep", () => {
     expect(body).toContain("/glossary");
     expect(body).toContain("/about");
     expect(body).not.toContain("/vision");
+  });
+
+  test("llms.txt lists canonical category and reference links", async ({
+    request,
+  }) => {
+    const body = await (await request.get("/llms.txt")).text();
+    const categorySlugs = [
+      "fashion",
+      "bags-accessories",
+      "jewelry",
+      "beauty",
+      "home",
+      "food-drink",
+      "crafts",
+      "stationery",
+      "tech",
+      "outdoor",
+      "fitness",
+      "kids-pets",
+    ];
+
+    for (const slug of categorySlugs) {
+      expect(body).toContain(`/brands?category=${slug}`);
+    }
+    for (const path of ["/events", "/faq", "/stats"]) {
+      expect(body).toContain(path);
+    }
+  });
+
+  test("challenge page is not indexed or followed", async ({ page }) => {
+    await page.goto("/challenge");
+    await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
+      "content",
+      /noindex/i,
+    );
+    await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
+      "content",
+      /nofollow/i,
+    );
   });
 
   test("/brands (unfiltered) emits ItemList JSON-LD with itemListElement", async ({

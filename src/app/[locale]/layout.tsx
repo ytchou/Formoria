@@ -6,6 +6,7 @@ import { RootDocument } from '@/components/shared/root-document'
 import { routing } from '@/i18n/routing'
 import type { Locale } from '@/lib/seo/alternates'
 import { getSiteUrl } from '@/lib/seo/site-url'
+import { buildOpenGraph } from '@/lib/seo/open-graph'
 import '../globals.css'
 
 export function generateStaticParams() {
@@ -32,15 +33,12 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
       template: '%s | Formoria',
     },
     description: t('description'),
-    openGraph: {
-      siteName: 'Formoria',
-      type: 'website',
+    ...buildOpenGraph({
+      title: t('title'),
+      description: t('description'),
       locale: ogLocale,
       alternateLocale: [ogAlternateLocale],
-    },
-    twitter: {
-      card: 'summary_large_image',
-    },
+    }),
   }
 }
 

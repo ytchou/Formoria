@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { ChevronDown } from 'lucide-react'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
+import { buildOpenGraph } from '@/lib/seo/open-graph'
 import { Link } from '@/i18n/navigation'
 import { FaqSection } from '@/components/shared/faq-section'
 import { OpenTargetDetails } from './open-target-details'
@@ -28,17 +29,13 @@ export async function generateMetadata({
     title,
     description,
     alternates: { canonical, languages },
-    openGraph: {
+    ...buildOpenGraph({
       title,
       description,
+      url: canonical,
       locale: ogLocale,
       alternateLocale: [ogAlternateLocale],
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title,
-      description,
-    },
+    }),
   }
 }
 

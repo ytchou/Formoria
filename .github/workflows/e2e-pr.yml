@@ -9,7 +9,8 @@ on:
       - 'src/**'
       - 'e2e/**'
       - 'messages/**'
-      - 'playwright.config.ts'
+      - 'public/**'
+      - 'playwright.config.*'
       - 'scripts/e2e-select-specs.mjs'
       - '.github/workflows/e2e-pr.yml'
   workflow_dispatch: {}
@@ -25,6 +26,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       specs: ${{ steps.select-specs.outputs.specs }}
+      smoke: ${{ steps.select-specs.outputs.smoke }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -42,11 +44,18 @@ jobs:
         run: |
           SPECS=$(node scripts/e2e-select-specs.mjs)
           echo "specs=$SPECS" >> "$GITHUB_OUTPUT"
+          SMOKE=$(node scripts/e2e-select-specs.mjs --smoke)
+          echo "smoke=$SMOKE" >> "$GITHUB_OUTPUT"
           if [ -z "$SPECS" ]; then
             echo "No specs selected — the e2e job will be skipped." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "Selected specs:" >> "$GITHUB_STEP_SUMMARY"
             for spec in $SPECS; do echo "- \`$spec\`" >> "$GITHUB_STEP_SUMMARY"; done
+          fi
+          if [ "$SMOKE" = "true" ]; then
+            echo "Smoke cross-browser job enabled by browser-impacting changes." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Smoke cross-browser job skipped — no browser-impacting changes." >> "$GITHUB_STEP_SUMMARY"
           fi
 
   e2e-selective:
@@ -127,15 +136,12 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  # The smoke tier ran in NO workflow before DEV-1254 — every CI invocation was
-  # `--project=deep --project=mobile`, and e2e-select-specs.mjs only ever selects
-  # from e2e/tests/. So the tier documented as "blocks merge" blocked nothing and
-  # was only ever exercised on developer laptops, where 3 browser projects racing
-  # one Turbopack dev server produce a different set of failures every run.
-  # It runs here against the production build, unconditionally: smoke is the
-  # cross-browser floor, so gating it on the diff selector would defeat the point.
+  # Smoke runs only when changed files can affect browser-visible behavior or the
+  # smoke flow. It still runs against the production build in all three browsers.
   smoke:
     name: smoke-cross-browser
+    needs: select
+    if: needs.select.outputs.smoke == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:

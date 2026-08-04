@@ -1,0 +1,13 @@
+{
+  "name": "dev-1319-hidden-six",
+  "title": "DEV-1319 — the six brands hidden for bad image sets",
+  "subtitle": "Hidden during the 2026-08-03 re-curation because the image classifier rejected their own catalogue photography as wrong_brand: every one was sent name-only context because it had no purchase_website. Re-run after the grounding fix (Pinkoi store slug + Instagram handle in the brand context, and wrong_brand withheld when no identifier is available). All six now resolve at least one identifier, so none should land on the no-identifier branch. Unlike the 14 affected refreshes, these carry no pending refresh submission, so they need the full request_brand_refresh -> job -> apply flow rather than a submission re-run.",
+  "labels": {
+    "topnutree": "TopNutree 新悠雀",
+    "ian-design": "I.A.N Design",
+    "brainholesky": "新夭 BrainHoleSky",
+    "7th-island": "7th Island",
+    "可可雲手作室內拖鞋": "可可雲手作室內拖鞋",
+    "大i獨角獸-光棲之所": "大I獨角獸 光棲之所"
+  }
+}
