@@ -16,6 +16,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 import { getBrandCategoryLabel } from '@/lib/brands/category-label'
+import { NO_SNIPPET } from '@/lib/seo/snippet'
 import { SaveBrandButton } from './save-brand-button'
 import { BrandImageFallback } from './brand-image-fallback'
 import { MitDeclaredBadge, MitVerifiedBadge, OwnerVerifiedBadge } from './brand-verification-badges'
@@ -198,7 +199,12 @@ export function BrandCard({
               note said nothing about the brand at all, and the blurb is the
               same copy the directory card shows for it.
             */}
-            <p className="mt-1.5 min-h-[2.625rem] type-body line-clamp-2">
+            {/*
+              Repeated card copy, so it is kept out of Google's snippet
+              selection — see NO_SNIPPET. The brand's own description still
+              serves snippets from its detail page.
+            */}
+            <p {...NO_SNIPPET} className="mt-1.5 min-h-[2.625rem] type-body line-clamp-2">
               {note ?? blurb ?? ' '}
             </p>
             {categoryLabel ? (
@@ -209,7 +215,11 @@ export function BrandCard({
           </>
         ) : (
           <>
-            <p className="mt-1.5 min-h-[2.625rem] type-section-description line-clamp-2">
+            {/* Same snippet suppression as the editorial variant above. */}
+            <p
+              {...NO_SNIPPET}
+              className="mt-1.5 min-h-[2.625rem] type-section-description line-clamp-2"
+            >
               {blurb ?? ' '}
             </p>
             <div className="mt-3 flex items-center gap-1.5 overflow-hidden">
