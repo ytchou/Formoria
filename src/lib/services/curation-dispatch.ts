@@ -1,18 +1,9 @@
+import { sanitizeJobError } from "./job-errors";
+
 const DISPATCH_TIMEOUT_MS = 10_000;
 
 export function sanitizeDispatchError(error: unknown): string {
-  const message = error instanceof Error ? error.message : String(error);
-  return message
-    .replace(/Bearer\s+[^\s,;]+/gi, "Bearer [REDACTED]")
-    .replace(
-      /eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g,
-      "[REDACTED_JWT]",
-    )
-    .replace(
-      /((?:api[_-]?key|token|password|secret)\s*[=:]\s*)[^\s,;]+/gi,
-      "$1[REDACTED]",
-    )
-    .slice(0, 1_000);
+  return sanitizeJobError(error, 1_000);
 }
 
 export async function dispatchCurationJob(

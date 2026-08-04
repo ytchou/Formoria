@@ -1,3 +1,5 @@
+import { auditedCall } from '@/lib/audit'
+
 export type PostHogErrorCode =
   | 'posthog_unconfigured'
   | 'posthog_unavailable'
@@ -115,19 +117,45 @@ export function createPostHogQueryClient({
         name,
       }
       const startedAt = performance.now()
+      const auditResponse: Record<string, unknown> = {}
 
       try {
-        const response = await fetchImpl(endpoint, {
-          method: 'POST',
-          headers: {
-            Accept: 'application/json',
-            Authorization: `Bearer ${personalApiKey}`,
-            'Content-Type': 'application/json',
+        const auditedResponse = await auditedCall(
+          { provider: 'posthog', operation: 'run_query', kind: 'external' },
+          async () => {
+            const response = await fetchImpl(endpoint, {
+              method: 'POST',
+              headers: {
+                Accept: 'application/json',
+                Authorization: `Bearer ${personalApiKey}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(payload),
+              signal: AbortSignal.timeout(timeoutMs),
+            })
+            const body: unknown = await response.json().catch(() => null)
+
+            auditResponse.httpStatus = response.status
+            if (!response.ok) {
+              auditResponse.status = 'provider_error'
+              return { response, body, auditStatus: 'failed' as const }
+            }
+
+            if (!validResult(body)) {
+              auditResponse.status = 'malformed'
+              return { response, body, auditStatus: 'malformed' as const }
+            }
+
+            auditResponse.status = 'success'
+            auditResponse.body = sanitizedResultForAudit(body)
+            return { response, body, auditStatus: 'succeeded' as const }
           },
-          body: JSON.stringify(payload),
-          signal: AbortSignal.timeout(timeoutMs),
-        })
-        const body: unknown = await response.json().catch(() => null)
+          {
+            classify: (result) => result.auditStatus,
+            summary: { queryName: name, response: auditResponse },
+          },
+        )
+        const { response, body } = auditedResponse
 
         if (!response.ok) {
           const error = new PostHogQueryError(
@@ -217,19 +245,45 @@ export function createPostHogEndpointClient({
       const endpoint = `${apiHost}/api/projects/${encodeURIComponent(projectId)}/endpoints/${encodeURIComponent(name)}/run`
       const payload = { variables }
       const startedAt = performance.now()
+      const auditResponse: Record<string, unknown> = {}
 
       try {
-        const response = await fetchImpl(endpoint, {
-          method: 'POST',
-          headers: {
-            Accept: 'application/json',
-            Authorization: `Bearer ${personalApiKey}`,
-            'Content-Type': 'application/json',
+        const auditedResponse = await auditedCall(
+          { provider: 'posthog', operation: 'run_query', kind: 'external' },
+          async () => {
+            const response = await fetchImpl(endpoint, {
+              method: 'POST',
+              headers: {
+                Accept: 'application/json',
+                Authorization: `Bearer ${personalApiKey}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(payload),
+              signal: AbortSignal.timeout(timeoutMs),
+            })
+            const body: unknown = await response.json().catch(() => null)
+
+            auditResponse.httpStatus = response.status
+            if (!response.ok) {
+              auditResponse.status = 'provider_error'
+              return { response, body, auditStatus: 'failed' as const }
+            }
+
+            if (!validResult(body)) {
+              auditResponse.status = 'malformed'
+              return { response, body, auditStatus: 'malformed' as const }
+            }
+
+            auditResponse.status = 'success'
+            auditResponse.body = sanitizedResultForAudit(body)
+            return { response, body, auditStatus: 'succeeded' as const }
           },
-          body: JSON.stringify(payload),
-          signal: AbortSignal.timeout(timeoutMs),
-        })
-        const body: unknown = await response.json().catch(() => null)
+          {
+            classify: (result) => result.auditStatus,
+            summary: { queryName: name, response: auditResponse },
+          },
+        )
+        const { response, body } = auditedResponse
 
         if (!response.ok) {
           const error = response.status === 404

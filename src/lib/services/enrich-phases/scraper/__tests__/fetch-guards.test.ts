@@ -1,7 +1,22 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { resetAuditEmitterForTests, setAuditWriteSeam, type AuditRecord } from '@/lib/audit'
 import { isPrivateUrl, fetchHtml, resolveUrl } from '../fetch-guards'
 
-afterEach(() => vi.unstubAllGlobals())
+let writes: AuditRecord[]
+
+beforeEach(() => {
+  writes = []
+  setAuditWriteSeam(async (record) => {
+    writes.push(record)
+    return null
+  })
+})
+
+afterEach(() => {
+  resetAuditEmitterForTests()
+  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
+})
 
 function htmlResponse(body: string) {
   return new Response(body, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } })
@@ -41,5 +56,60 @@ describe('fetchHtml', () => {
     vi.stubGlobal('fetch', spy)
     await expect(fetchHtml('http://127.0.0.1')).resolves.toBeNull()
     expect(spy).not.toHaveBeenCalled()
+  })
+
+  it('fetchHtml writes a span carrying content-type and byte length', async () => {
+    const body = '<html><body>ok</body></html>'
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(htmlResponse(body)))
+
+    await expect(fetchHtml('https://example.com')).resolves.toBe(body)
+
+    const finish = writes.find(
+      (record) => record.operation === 'fetch_html' && record.status === 'succeeded',
+    )
+    expect(finish).toBeDefined()
+    expect(finish?.summary).toMatchObject({
+      contentType: 'text/html; charset=utf-8',
+      byteLength: new TextEncoder().encode(body).byteLength,
+    })
+  })
+
+  it('fetchHtml signature is unchanged for all existing callers', async () => {
+    const fetchWithExpectedSignature: (url: string) => Promise<string | null> = fetchHtml
+    const body = '<html><body>ok</body></html>'
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(htmlResponse(body)))
+
+    await expect(fetchWithExpectedSignature('https://example.com')).resolves.toBe(body)
+  })
+
+  it('an over-cap response is recorded as truncated, not dropped', async () => {
+    const body = 'a'.repeat(5 * 1024 * 1024 + 1)
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(htmlResponse(body)))
+
+    await expect(fetchHtml('https://example.com')).resolves.toBeNull()
+
+    const finish = writes.find(
+      (record) => record.operation === 'fetch_html' && record.status === 'empty',
+    )
+    expect(finish).toBeDefined()
+    expect(finish?.summary).toMatchObject({
+      truncated: true,
+      byteLength: 5 * 1024 * 1024 + 1,
+    })
+  })
+
+  it('a private-URL rejection produces a terminal span, not a retry', async () => {
+    const fetchSpy = vi.fn()
+    vi.stubGlobal('fetch', fetchSpy)
+
+    await expect(fetchHtml('http://127.0.0.1')).resolves.toBeNull()
+
+    const finish = writes.find(
+      (record) => record.operation === 'fetch_html' && record.status !== 'started',
+    )
+    expect(finish?.status).toBe('failed')
+    expect(finish?.status).not.toBe('network_error')
+    expect(finish?.status).not.toBe('timeout')
+    expect(fetchSpy).not.toHaveBeenCalled()
   })
 })

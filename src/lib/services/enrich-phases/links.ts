@@ -360,11 +360,16 @@ export async function runLinksPhase({
     // separating this brand's accounts from a same-ranking stranger's.
     const urlExtracted = extractLinksFromUrls(discoveredUrls, brand.name)
     const scrapeOptions: ScrapeBrandUrlsOptions = {
-      onAttempt: async ({ url, classification }) => {
+      onAttempt: async ({ url, classification, spanId }) => {
         const auditId = await startSearchAudit({
           target: target ?? brandTarget(brand.id),
           ...(jobId ? { jobId } : {}),
           supabase,
+          // Joins this deep-store row to the scraper.scrape_url span wrapping
+          // the same attempt. Without it the span and the row both exist but
+          // cannot be correlated - the state that made the scrape path
+          // invisible to the audit index (34 deep-store writes, 2 spans).
+          auditSpanId: spanId,
           provider: 'scraper',
           endpoint: url,
           searchType: 'scrape',

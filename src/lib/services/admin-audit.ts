@@ -1,6 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server'
 
-type AdminAction =
+export type AdminAction =
   | 'impersonate_start'
   | 'impersonate_end'
   | 'brand_edit'
@@ -13,7 +13,7 @@ type AdminAction =
   | 'newsletter_unsubscribed'
   | 'channel_removed'
 
-type LogAdminActionParams = {
+export type LogAdminActionParams = {
   adminUserId: string
   adminEmail: string
   action: AdminAction

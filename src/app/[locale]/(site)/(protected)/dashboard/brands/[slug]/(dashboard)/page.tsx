@@ -1,4 +1,5 @@
 import { setRequestLocale } from 'next-intl/server'
+import { captureReadFailure } from '@/lib/degraded-render'
 import { getBrandBySlug } from '@/lib/services/brands'
 import { computeProfileCompleteness } from '@/lib/services/profile-completeness'
 import { getPostHogOwnerAnalyticsSnapshot } from '@/lib/services/posthog-owner-analytics'
@@ -23,7 +24,9 @@ export default async function BrandOverviewPage({ params, searchParams }: Props)
   const completeness = computeProfileCompleteness(brand)
 
   const [analytics] = await Promise.all([
-    getPostHogOwnerAnalyticsSnapshot(brand.id, { daysBack: period }).catch(() => null),
+    getPostHogOwnerAnalyticsSnapshot(brand.id, { daysBack: period }).catch(
+      captureReadFailure('dashboard-brand-overview-analytics'),
+    ),
   ])
 
   return (

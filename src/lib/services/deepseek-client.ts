@@ -1,4 +1,7 @@
 import { classifyHttpResponse, IN_PROCESS, withRetry } from '@/lib/retry'
+import type { ChatAuditEvent, ChatUsage } from "@/lib/audit"
+
+export type { ChatAuditEvent, ChatUsage }
 
 /**
  * DORMANT — retained as a fallback provider, not dead code.
@@ -49,30 +52,6 @@ type DeepSeekChatContentPart =
 type DeepSeekChatResponse = {
   choices?: Array<{ message?: { content?: string } }>;
   usage?: ChatUsage;
-};
-
-export type ChatUsage = {
-  prompt_tokens?: number;
-  completion_tokens?: number;
-  total_tokens?: number;
-};
-
-export type ChatAuditEvent = {
-  provider: "deepseek";
-  model: string;
-  ok: boolean;
-  status: number;
-  data: unknown;
-  usage?: ChatUsage;
-  latencyMs: number;
-  request: {
-    system: string;
-    user: string;
-    imageCount: number;
-  };
-  retryAttempt?: number
-  meta?: Record<string, unknown>;
-  error?: string;
 };
 
 export type DeepSeekChatResult = {

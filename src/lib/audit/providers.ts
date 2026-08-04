@@ -8,7 +8,8 @@ export const PROVIDERS = {
   posthog: ["run_query"],
   "mit-registry": ["lookup_cert_number", "lookup_cert_numbers", "sync_registry"],
   playwright: ["fetch_rendered"],
-  http: ["fetch_html", "fetch_html_with_metadata", "download_and_store_images"],
+  scraper: ["scrape_url"],
+  http: ["fetch_html", "fetch_html_with_metadata", "fetch_xml", "download_and_store_images"],
 } as const;
 
 export type ProviderRegistry = typeof PROVIDERS;

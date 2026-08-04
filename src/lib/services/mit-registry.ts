@@ -1,3 +1,4 @@
+import { auditedCall } from '@/lib/audit'
 import { createServiceClient } from '@/lib/supabase/server'
 import AdmZip from 'adm-zip'
 
@@ -89,19 +90,9 @@ function parseMitCsv(csvContent: string): MitRegistryRecord[] {
   return records
 }
 
-export async function lookupCertNumber(certNumber: string): Promise<MitRegistryRecord | null> {
-  const records = await lookupCertNumbers([certNumber])
-  return records.get(certNumber.trim()) ?? null
-}
-
-export async function lookupCertNumbers(
-  certNumbers: string[]
+async function queryCertNumbers(
+  normalizedCertNumbers: string[],
 ): Promise<Map<string, MitRegistryRecord>> {
-  const normalizedCertNumbers = [...new Set(certNumbers.map((certNumber) => certNumber.trim()))].filter(
-    Boolean
-  )
-  if (normalizedCertNumbers.length === 0) return new Map()
-
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('mit_registry')
@@ -118,6 +109,43 @@ export async function lookupCertNumbers(
   )
 }
 
+function classifyRegistryLookup(result: Map<string, MitRegistryRecord>) {
+  return result.size === 0 ? 'empty' as const : 'succeeded' as const
+}
+
+export async function lookupCertNumber(certNumber: string): Promise<MitRegistryRecord | null> {
+  const normalizedCertNumber = certNumber.trim()
+  if (!normalizedCertNumber) return null
+
+  const records = await auditedCall(
+    { provider: 'mit-registry', operation: 'lookup_cert_number', kind: 'external' },
+    () => queryCertNumbers([normalizedCertNumber]),
+    {
+      classify: classifyRegistryLookup,
+      summary: { count: 1, certNumbers: [normalizedCertNumber] },
+    },
+  )
+  return records.get(normalizedCertNumber) ?? null
+}
+
+export async function lookupCertNumbers(
+  certNumbers: string[]
+): Promise<Map<string, MitRegistryRecord>> {
+  const normalizedCertNumbers = [...new Set(certNumbers.map((certNumber) => certNumber.trim()))].filter(
+    Boolean
+  )
+  if (normalizedCertNumbers.length === 0) return new Map()
+
+  return auditedCall(
+    { provider: 'mit-registry', operation: 'lookup_cert_numbers', kind: 'external' },
+    () => queryCertNumbers(normalizedCertNumbers),
+    {
+      classify: classifyRegistryLookup,
+      summary: { count: normalizedCertNumbers.length, certNumbers: normalizedCertNumbers },
+    },
+  )
+}
+
 const MIT_ZIP_URL = 'https://keid.nat.gov.tw/mittw/Files/Download/productlist.zip'
 const CSV_FILENAME = '011.csv'
 const BATCH_SIZE = 500
@@ -125,22 +153,34 @@ const BATCH_SIZE = 500
 export async function syncMitRegistry(): Promise<{ recordCount: number; durationMs: number }> {
   const startMs = Date.now()
 
-  const response = await fetch(MIT_ZIP_URL)
-  if (!response.ok) {
-    throw new Error(`Failed to fetch MIT registry ZIP: ${response.status} ${response.statusText}`)
-  }
+  const syncSummary: Record<string, unknown> = { recordCount: 0 }
+  const { records } = await auditedCall(
+    { provider: 'mit-registry', operation: 'sync_registry', kind: 'external' },
+    async () => {
+      const response = await fetch(MIT_ZIP_URL)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch MIT registry ZIP: ${response.status} ${response.statusText}`)
+      }
 
-  const arrayBuffer = await response.arrayBuffer()
-  const buffer = Buffer.from(arrayBuffer)
+      const arrayBuffer = await response.arrayBuffer()
+      const buffer = Buffer.from(arrayBuffer)
 
-  const zip = new AdmZip(buffer)
-  const entry = zip.getEntry(CSV_FILENAME)
-  if (!entry) {
-    throw new Error(`CSV file "${CSV_FILENAME}" not found in ZIP archive`)
-  }
+      const zip = new AdmZip(buffer)
+      const entry = zip.getEntry(CSV_FILENAME)
+      if (!entry) {
+        throw new Error(`CSV file "${CSV_FILENAME}" not found in ZIP archive`)
+      }
 
-  const csvContent = entry.getData().toString('utf-8')
-  const records = parseMitCsv(csvContent)
+      const csvContent = entry.getData().toString('utf-8')
+      const records = parseMitCsv(csvContent)
+      syncSummary.recordCount = records.length
+      return { records }
+    },
+    {
+      classify: (result) => result.records.length === 0 ? 'empty' : 'succeeded',
+      summary: { result: syncSummary },
+    },
+  )
 
   const supabase = createServiceClient()
   const syncedAt = new Date(startMs).toISOString()

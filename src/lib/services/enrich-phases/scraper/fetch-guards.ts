@@ -1,3 +1,4 @@
+import { auditedCall, type AuditStatus } from '@/lib/audit'
 import { isPrivateUrl } from '@/lib/url'
 
 export { isPrivateUrl } from '@/lib/url'
@@ -6,11 +7,50 @@ const FETCH_TIMEOUT_MS = 10_000
 const MAX_RESPONSE_BYTES = 5 * 1024 * 1024
 const SCRAPER_USER_AGENT = 'Formoria-Bot/1.0'
 
+type FetchOperation = 'fetch_html' | 'fetch_html_with_metadata' | 'fetch_xml'
+type FetchReason =
+  | 'none'
+  | 'private_url'
+  | 'response_too_large'
+  | 'unexpected_content_type'
+  | 'http_error'
+  | 'timeout'
+  | 'network_error'
+
 export type FetchMetadata = {
   text: string | null
   status: number | null
   latencyMs: number
   error: string | null
+}
+
+type FetchOutcome = FetchMetadata & { reason: FetchReason }
+
+function classifyFetchReason(reason: FetchReason): AuditStatus {
+  switch (reason) {
+    case 'none':
+      return 'succeeded'
+    case 'response_too_large':
+      return 'empty'
+    case 'unexpected_content_type':
+      return 'malformed'
+    case 'timeout':
+      return 'timeout'
+    case 'network_error':
+      return 'network_error'
+    case 'private_url':
+    case 'http_error':
+      return 'failed'
+  }
+}
+
+function withoutFetchReason(outcome: FetchOutcome): FetchMetadata {
+  return {
+    text: outcome.text,
+    status: outcome.status,
+    latencyMs: outcome.latencyMs,
+    error: outcome.error,
+  }
 }
 
 export function resolveUrl(rawUrl: string, pageUrl: string): string | null {
@@ -26,86 +66,160 @@ export function resolveUrl(rawUrl: string, pageUrl: string): string | null {
 async function fetchText(
   url: string,
   accept: string,
-  isAllowedContentType: (contentType: string) => boolean
+  isAllowedContentType: (contentType: string) => boolean,
+  operation: FetchOperation,
 ): Promise<string | null> {
-  return (await fetchTextWithMetadata(url, accept, isAllowedContentType)).text
+  return (await fetchTextWithMetadata(url, accept, isAllowedContentType, operation)).text
 }
 
 async function fetchTextWithMetadata(
   url: string,
   accept: string,
   isAllowedContentType: (contentType: string) => boolean,
+  operation: FetchOperation,
 ): Promise<FetchMetadata> {
-  const startedAt = Date.now()
-  try {
-    if (isPrivateUrl(url)) {
-      return { text: null, status: null, latencyMs: Date.now() - startedAt, error: 'private URL' }
-    }
+  const summary: Record<string, unknown> = { url }
+  const result = await auditedCall(
+    { provider: 'http', operation, kind: 'external' },
+    async (): Promise<FetchOutcome> => {
+      const startedAt = Date.now()
+      let timedOut = false
 
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+      // These fields are assigned late deliberately: the finish row is emitted
+      // after fn resolves, so the mutable summary carries the final values.
+      summary.contentType = null
+      summary.byteLength = null
+      summary.truncated = false
 
-    try {
-      const response = await fetch(url, {
-        signal: controller.signal,
-        headers: {
-          'User-Agent': SCRAPER_USER_AGENT,
-          Accept: accept,
-        },
-      })
+      try {
+        if (isPrivateUrl(url)) {
+          return {
+            text: null,
+            status: null,
+            latencyMs: Date.now() - startedAt,
+            error: 'private URL',
+            reason: 'private_url',
+          }
+        }
 
-      if (!response.ok) {
-        return { text: null, status: response.status, latencyMs: Date.now() - startedAt, error: `HTTP ${response.status}` }
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => {
+          timedOut = true
+          controller.abort()
+        }, FETCH_TIMEOUT_MS)
+
+        try {
+          const response = await fetch(url, {
+            signal: controller.signal,
+            headers: {
+              'User-Agent': SCRAPER_USER_AGENT,
+              Accept: accept,
+            },
+          })
+          if (!response.ok) {
+            return {
+              text: null,
+              status: response.status,
+              latencyMs: Date.now() - startedAt,
+              error: `HTTP ${response.status}`,
+              reason: 'http_error',
+            }
+          }
+
+          // Verify content-type before reading body
+          const contentType = response.headers.get('content-type') ?? ''
+          summary.contentType = contentType
+          if (!isAllowedContentType(contentType)) {
+            return {
+              text: null,
+              status: response.status,
+              latencyMs: Date.now() - startedAt,
+              error: 'unexpected content type',
+              reason: 'unexpected_content_type',
+            }
+          }
+
+          // Check content-length before reading body
+          const contentLength = parseInt(
+            response.headers.get('content-length') ?? '0',
+            10
+          )
+          if (contentLength > MAX_RESPONSE_BYTES) {
+            summary.byteLength = contentLength
+            summary.truncated = true
+            return {
+              text: null,
+              status: response.status,
+              latencyMs: Date.now() - startedAt,
+              error: 'response too large',
+              reason: 'response_too_large',
+            }
+          }
+
+          const text = await response.text()
+          const byteLength = new TextEncoder().encode(text).byteLength
+          summary.byteLength = byteLength
+          if (byteLength > MAX_RESPONSE_BYTES) {
+            summary.truncated = true
+            return {
+              text: null,
+              status: response.status,
+              latencyMs: Date.now() - startedAt,
+              error: 'response too large',
+              reason: 'response_too_large',
+            }
+          }
+
+          return {
+            text,
+            status: response.status,
+            latencyMs: Date.now() - startedAt,
+            error: null,
+            reason: 'none',
+          }
+        } finally {
+          clearTimeout(timeoutId)
+        }
+      } catch (error) {
+        return {
+          text: null,
+          status: null,
+          latencyMs: Date.now() - startedAt,
+          error: error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500),
+          reason:
+            timedOut ||
+            (error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError'))
+              ? 'timeout'
+              : 'network_error',
+        }
       }
+    },
+    {
+      classify: (outcome) => classifyFetchReason(outcome.reason),
+      summary,
+    },
+  )
 
-      // Verify content-type before reading body
-      const contentType = response.headers.get('content-type') ?? ''
-      if (!isAllowedContentType(contentType)) {
-        return { text: null, status: response.status, latencyMs: Date.now() - startedAt, error: 'unexpected content type' }
-      }
-
-      // Check content-length before reading body
-      const contentLength = parseInt(
-        response.headers.get('content-length') ?? '0',
-        10
-      )
-      if (contentLength > MAX_RESPONSE_BYTES) {
-        return { text: null, status: response.status, latencyMs: Date.now() - startedAt, error: 'response too large' }
-      }
-
-      const text = await response.text()
-      if (new TextEncoder().encode(text).byteLength > MAX_RESPONSE_BYTES) {
-        return { text: null, status: response.status, latencyMs: Date.now() - startedAt, error: 'response too large' }
-      }
-
-      return { text, status: response.status, latencyMs: Date.now() - startedAt, error: null }
-    } finally {
-      clearTimeout(timeoutId)
-    }
-  } catch (error) {
-    return {
-      text: null,
-      status: null,
-      latencyMs: Date.now() - startedAt,
-      error: error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500),
-    }
-  }
+  return withoutFetchReason(result)
 }
 
 export async function fetchHtml(url: string): Promise<string | null> {
   return fetchText(url, 'text/html', (contentType) =>
-    contentType.includes('text/html')
+    contentType.includes('text/html'),
+    'fetch_html',
   )
 }
 
 export async function fetchHtmlWithMetadata(url: string): Promise<FetchMetadata> {
   return fetchTextWithMetadata(url, 'text/html', (contentType) =>
-    contentType.includes('text/html')
+    contentType.includes('text/html'),
+    'fetch_html_with_metadata',
   )
 }
 
 export async function fetchXml(url: string): Promise<string | null> {
   return fetchText(url, 'application/xml, text/xml', (contentType) =>
-    contentType.includes('application/xml') || contentType.includes('text/xml')
+    contentType.includes('application/xml') || contentType.includes('text/xml'),
+    'fetch_xml',
   )
 }
