@@ -1,3 +1,8 @@
+import {
+  PURCHASE_CAMEL_FIELDS,
+  PURCHASE_CHANNELS,
+  type PurchaseChannel,
+} from "@/lib/brands/purchase-channels";
 import type { Brand } from "@/lib/types";
 import type { Database } from "@/lib/supabase/database.types";
 import type { EnrichedFaqItem } from "@/lib/types/enriched-data";
@@ -260,17 +265,19 @@ function truncate<T>(items: T[], limit = 3): T[] {
   return items.slice(0, limit);
 }
 
+/**
+ * The registry stores message keys as full paths from the message root, but the
+ * `t` handed to this module is already scoped to the `brandDetail` namespace.
+ */
+function faqChannelKey(channel: PurchaseChannel): string {
+  return channel.messageKeys.brandFaqChannel.replace(/^brandDetail\./, "");
+}
+
 function collectPurchaseLinks(brand: Brand, t: TFn): string[] {
-  const links: string[] = [];
-
-  if (hasValue(brand.purchaseWebsite))
-    links.push(`[${t("brandFaq.channels.website")}](${brand.purchaseWebsite})`);
-  if (hasValue(brand.purchasePinkoi))
-    links.push(`[${t("brandFaq.channels.pinkoi")}](${brand.purchasePinkoi})`);
-  if (hasValue(brand.purchaseShopee))
-    links.push(`[${t("brandFaq.channels.shopee")}](${brand.purchaseShopee})`);
-
-  return links;
+  return PURCHASE_CHANNELS.flatMap((channel) => {
+    const url = brand[channel.camel];
+    return hasValue(url) ? [`[${t(faqChannelKey(channel))}](${url})`] : [];
+  });
 }
 
 function collectSocialLinks(brand: Brand): string[] {
@@ -427,9 +434,7 @@ const FAQ_GENERATORS: FaqGenerator[] = [
   {
     id: "where-to-buy",
     condition: (brand) =>
-      [brand.purchaseWebsite, brand.purchasePinkoi, brand.purchaseShopee].some(
-        hasValue,
-      ),
+      PURCHASE_CAMEL_FIELDS.map((field) => brand[field]).some(hasValue),
     questionKey: "brandFaq.whereToBuy.question",
     buildAnswer: buildWhereToBuyAnswer,
   },

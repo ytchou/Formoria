@@ -1,3 +1,9 @@
+import {
+  PURCHASE_CHANNELS,
+  type PurchaseChannel,
+  type PurchaseChannelCamelField,
+  type PurchaseChannelKey,
+} from "@/lib/brands/purchase-channels";
 import { DESCRIPTION_SYSTEM_PROMPT } from "@/lib/prompts";
 import { parseJson } from "./openai-client";
 import {
@@ -18,6 +24,17 @@ const ZH_DESCRIPTION_BAND = [150, 400] as const;
 const EN_DESCRIPTION_BAND = [300, 700] as const;
 const ZH_BLURB_BAND = [40, 80] as const;
 const EN_BLURB_BAND = [60, 150] as const;
+
+/**
+ * Prompt-facing display labels for the purchase channels. The registry supplies
+ * the field list and order; the Han-character labels stay local to this server
+ * module so the project's hardcoded-CJK guard keeps passing on the registry.
+ */
+const PURCHASE_CHANNEL_PROMPT_LABELS: Record<PurchaseChannelKey, string> = {
+  website: "官方購買網站",
+  pinkoi: "Pinkoi",
+  shopee: "蝦皮",
+};
 
 function localizeZhText(text: string): string {
   return containsCjk(text) ? localizeToTW(text).text : text;
@@ -50,13 +67,10 @@ export type DescriptionRewriteResult = {
 /** Extra evidence the stage-2 listing decision needs but the description text does not. */
 export type DescriptionEvidence = {
   links?: {
-    purchaseWebsite?: string | null;
     socialInstagram?: string | null;
     socialThreads?: string | null;
     socialFacebook?: string | null;
-    purchasePinkoi?: string | null;
-    purchaseShopee?: string | null;
-  };
+  } & { [K in PurchaseChannelCamelField]?: string | null };
   productCategoryZh?: string | null;
   /** Alt text of the brand's classified images — direct evidence that physical products exist. */
   imageAlts?: string[];
@@ -92,13 +106,22 @@ export function buildEnrichmentUserContent(
   // are the description inputs and their labels are what the tuned prompt reads.
   // Purchase channels and image alt text cannot be inferred from prose, so the
   // listing verdict is only as good as these lines.
+  const purchaseEntry = (
+    channel: PurchaseChannel,
+  ): [string, string | null | undefined] => [
+    PURCHASE_CHANNEL_PROMPT_LABELS[channel.key],
+    evidence?.links?.[channel.camel],
+  ];
+  // Line order is prompt-visible, so it is preserved verbatim: the brand's own
+  // site leads, socials sit in the middle, marketplaces close. This relies on
+  // the registry's documented order invariant (`website` is always first).
+  const [ownSiteChannel, ...marketplaceChannels] = PURCHASE_CHANNELS;
   const labelledLinks: Array<[string, string | null | undefined]> = [
-    ["官方購買網站", evidence?.links?.purchaseWebsite],
+    purchaseEntry(ownSiteChannel),
     ["Instagram", evidence?.links?.socialInstagram],
     ["Threads", evidence?.links?.socialThreads],
     ["Facebook", evidence?.links?.socialFacebook],
-    ["Pinkoi", evidence?.links?.purchasePinkoi],
-    ["蝦皮", evidence?.links?.purchaseShopee],
+    ...marketplaceChannels.map(purchaseEntry),
   ];
   const linkLines = labelledLinks.flatMap(([label, url]) =>
     typeof url === "string" && url.trim().length > 0

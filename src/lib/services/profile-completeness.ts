@@ -1,3 +1,4 @@
+import { PURCHASE_CAMEL_FIELDS } from '@/lib/brands/purchase-channels'
 import type { Brand } from '@/lib/types/brand'
 
 type ProfileComponentKey =
@@ -132,13 +133,15 @@ export function computeProfileCompleteness(
     },
     {
       key: 'additionalSalesChannel',
+      // A `>= 2 of N` filter, so adding a purchase channel to the registry widens
+      // the signal pool without adding a component — `total` stays at 11. The
+      // weight-bearing `officialWebsite` component above deliberately checks
+      // `purchaseWebsite` ALONE and must never be folded into this loop.
       complete: [
-        hasUrl(brand.purchaseWebsite),
+        ...PURCHASE_CAMEL_FIELDS.map((field) => hasUrl(brand[field])),
         hasText(brand.socialInstagram),
         hasText(brand.socialThreads),
         hasText(brand.socialFacebook),
-        hasUrl(brand.purchasePinkoi),
-        hasUrl(brand.purchaseShopee),
         brand.otherUrls.some((link) => hasUrl(link.url)),
       ].filter(Boolean).length >= 2,
       required: false,
