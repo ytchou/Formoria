@@ -7,6 +7,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { surfaceCardStyles } from "@/components/ui/card";
 import { buildAlternates } from "@/lib/seo/alternates";
 import type { Locale } from "@/lib/seo/alternates";
+import { buildOpenGraph } from "@/lib/seo/open-graph";
 
 export const revalidate = 86400;
 
@@ -34,17 +35,13 @@ export async function generateMetadata({
     title,
     description,
     alternates: { canonical, languages },
-    openGraph: {
+    ...buildOpenGraph({
       title,
       description,
+      url: canonical,
       locale: ogLocale,
       alternateLocale: [ogAlternateLocale],
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-    },
+    }),
   };
 }
 

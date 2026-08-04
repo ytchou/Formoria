@@ -1,26 +1,33 @@
-import { getSiteUrl } from "@/lib/seo/site-url";
+import en from "../../../messages/en.json";
+import zhTW from "../../../messages/zh-TW.json";
+import { buildAlternates } from "@/lib/seo/alternates";
+import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { formatLlmsTxt } from "./llms-content";
 
 export const revalidate = 3600;
 
 export async function GET() {
-  const base = getSiteUrl();
-
+  const canonical = (path: string) => buildAlternates(path, "zh-TW").canonical;
   const links = [
-    `- [Brands](${base}/brands)`,
-    `- [Stories](${base}/stories)`,
-    `- [About](${base}/about)`,
-    `- [Glossary](${base}/glossary)`,
-  ];
+    ["Brands", "/brands"],
+    ["Stories", "/stories"],
+    ["About", "/about"],
+    ["Glossary", "/glossary"],
+    ["Events", "/events"],
+    ["FAQ", "/faq"],
+    ["Stats", "/stats"],
+  ].map(([label, path]) => ({ label, url: canonical(path) }));
 
-  const body = [
-    "# Formoria",
-    "",
-    "Formoria is a Taiwanese brand discovery and curation platform built to make Taiwanese brands easier to discover, choose, and grow. Its searchable, community-built directory is the foundation of that mission.",
-    "",
-    "## Links",
-    ...links,
-    "",
-  ].join("\n");
+  const categories = PRODUCT_TYPE_CATEGORIES.map((category) => ({
+    name: category.name,
+    nameZh: category.nameZh,
+    url: canonical(`/brands?category=${category.slug}`),
+    description:
+      en.categories.descriptions[category.slug] ??
+      zhTW.categories.descriptions[category.slug],
+  }));
+
+  const body = formatLlmsTxt({ links, categories });
 
   return new Response(body, {
     headers: { "Content-Type": "text/plain; charset=utf-8" },

@@ -48,10 +48,12 @@ import { useSubmissionAnalytics } from '@/hooks/use-submission-analytics'
 function DuplicateNotice({
   title,
   candidates,
+  reasonLabels,
   children,
 }: {
   title: string
   candidates: DuplicateCandidate[]
+  reasonLabels?: { cjk: string; latin: string }
   children?: ReactNode
 }) {
   return (
@@ -69,6 +71,10 @@ function DuplicateNotice({
             >
               {candidate.name}
             </Link>
+            {reasonLabels &&
+            (candidate.matchedOn === 'cjk' || candidate.matchedOn === 'latin')
+              ? `\uFF08${reasonLabels[candidate.matchedOn]}\uFF09`
+              : null}
           </Fragment>
         ))}
       </p>
@@ -409,6 +415,10 @@ export default function SubmitForm({
                 <DuplicateNotice
                   title={t('fields.nameDuplicateTitle')}
                   candidates={nameMatches}
+                  reasonLabels={{
+                    cjk: t('fields.duplicateReasonCjk'),
+                    latin: t('fields.duplicateReasonLatin'),
+                  }}
                 >
                   {confirmUnder === 'name' ? duplicateConfirmField : null}
                 </DuplicateNotice>

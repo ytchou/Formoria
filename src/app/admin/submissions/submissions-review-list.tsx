@@ -790,6 +790,23 @@ export function SubmissionsReviewList({
                                   .join(", ")}`}
                               </p>
                             )}
+                            {/* Advisory only — approving is still allowed. The
+                                slug is deduped, so a duplicate approves cleanly
+                                and silently creates a second brand page. */}
+                            {submission.duplicateWarning && (
+                              <p className="mt-1 type-caption text-warning">
+                                {submission.duplicateWarning.liveBrand
+                                  ? t("duplicateWarning.liveBrand", {
+                                      name: submission.duplicateWarning
+                                        .liveBrand.name,
+                                    })
+                                  : t("duplicateWarning.pendingOnly", {
+                                      count:
+                                        submission.duplicateWarning
+                                          .pendingSiblings,
+                                    })}
+                              </p>
+                            )}
                           </>
                         )}
                       </TableCell>

@@ -1,8 +1,10 @@
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
+import { getFooterFullDocumentHref } from "./footer-links";
 
 export function Footer() {
   const t = useTranslations("footer");
+  const locale = useLocale();
 
   return (
     <footer role="contentinfo" className="border-t border-border bg-card">
@@ -23,18 +25,16 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- DEV-1280: full-document navigation avoids a stalled RSC request across the locale proxy rewrite. */}
                 <a
-                  href="/events"
+                  href={getFooterFullDocumentHref("/events", locale)}
                   className="type-card-description hover:text-foreground transition-colors"
                 >
                   {t("events")}
                 </a>
               </li>
               <li>
-                {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- DEV-1280: full-document navigation avoids a stalled RSC request across the locale proxy rewrite. */}
                 <a
-                  href="/stories"
+                  href={getFooterFullDocumentHref("/stories", locale)}
                   className="type-card-description hover:text-foreground transition-colors"
                 >
                   {t("stories")}
@@ -72,6 +72,24 @@ export function Footer() {
                   className="type-card-description hover:text-foreground transition-colors"
                 >
                   {t("gettingStarted")}
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/glossary"
+                  prefetch={false}
+                  className="type-card-description hover:text-foreground transition-colors"
+                >
+                  {t("glossary")}
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/stats"
+                  prefetch={false}
+                  className="type-card-description hover:text-foreground transition-colors"
+                >
+                  {t("stats")}
                 </Link>
               </li>
               <li>

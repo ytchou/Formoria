@@ -74,6 +74,7 @@ export type DuplicateCandidate = {
   name: string
   slug: string
   similarity: number
+  matchedOn: 'name' | 'cjk' | 'latin' | 'website'
 }
 
 export type DuplicateCheckResult = {

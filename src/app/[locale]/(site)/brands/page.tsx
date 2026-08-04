@@ -24,8 +24,9 @@ import { ViewItemListTracker } from '@/components/analytics/view-item-list-track
 import { surfaceCardStyles } from '@/components/ui/card'
 import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
 import { Link } from '@/i18n/navigation'
-import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
+import { buildOpenGraph } from '@/lib/seo/open-graph'
+import { buildDirectoryCanonicals } from '@/lib/seo/directory-canonical'
 import { truncateForMeta } from '@/lib/text/truncate-for-meta'
 import type { Brand, BrandFilters } from '@/lib/types'
 import { localizePath } from '@/i18n/locale-preference'
@@ -77,18 +78,14 @@ function parsePriceRanges(value: string | string[] | undefined): (1 | 2 | 3)[] {
     .filter((price): price is 1 | 2 | 3 => price === 1 || price === 2 || price === 3)
 }
 
-function appendCategoryQuery(url: string, categorySlug: string): string {
-  return `${url}${url.includes('?') ? '&' : '?'}category=${encodeURIComponent(categorySlug)}`
-}
-
 export async function generateMetadata({ params, searchParams }: BrandsPageProps): Promise<Metadata> {
   const { locale } = await params
   setRequestLocale(locale)
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
-  const { canonical, languages } = buildAlternates('/brands', safeLocale)
   const ogLocale = safeLocale === 'zh-TW' ? 'zh_TW' : 'en_US'
   const ogAlternateLocale = safeLocale === 'zh-TW' ? 'en_US' : 'zh_TW'
   const sp = await searchParams
+  const page = parsePageParam(sp.page)
   const categoryFilter = parseCommaParam(sp.category)
   const validCategoryFilter = categoryFilter.filter((slug) => VALID_CATEGORY_SLUGS.has(slug))
   const singleValidCategory = validCategoryFilter.length === 1
@@ -115,13 +112,8 @@ export async function generateMetadata({ params, searchParams }: BrandsPageProps
         : catT.has(`descriptions.${categorySlug}`)
           ? catT(`descriptions.${categorySlug}`)
           : catT('metadata.description', { displayName, name: categoryTag.name }))
-      const categoryCanonical = appendCategoryQuery(canonical, categorySlug)
-      const categoryLanguages = Object.fromEntries(
-        Object.entries(languages).map(([language, url]) => [
-          language,
-          appendCategoryQuery(url, categorySlug),
-        ])
-      )
+      const { canonical: categoryCanonical, languages: categoryLanguages } =
+        buildDirectoryCanonicals({ locale: safeLocale, categorySlug, page })
       const title = activeSubcategory && subName
         ? catT('subMetadata.title', { subName, categoryName: displayName })
         : catT('metadata.title', { displayName })
@@ -130,31 +122,31 @@ export async function generateMetadata({ params, searchParams }: BrandsPageProps
         title,
         description,
         alternates: { canonical: categoryCanonical, languages: categoryLanguages },
-        openGraph: {
+        ...buildOpenGraph({
           title,
           description,
           url: categoryCanonical,
           locale: ogLocale,
           alternateLocale: [ogAlternateLocale],
-        },
-        twitter: {
-          title,
-          description,
-        },
+        }),
       }
     }
   }
 
   const brandsT = await getTranslations('brands')
+  const { canonical, languages } = buildDirectoryCanonicals({ locale: safeLocale, page })
 
   return {
     title: { absolute: brandsT('metadata.title') },
     description: brandsT('metadata.description'),
     alternates: { canonical, languages },
-    openGraph: {
+    ...buildOpenGraph({
+      title: brandsT('metadata.title'),
+      description: brandsT('metadata.description'),
+      url: canonical,
       locale: ogLocale,
       alternateLocale: [ogAlternateLocale],
-    },
+    }),
   }
 }
 

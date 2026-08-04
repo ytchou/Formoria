@@ -1,11 +1,19 @@
 'use client'
 
-import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+} from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useRouter, usePathname } from '@/i18n/navigation'
 import { useLocale, useTranslations } from 'next-intl'
 import { trackCategoryFilterApplied } from '@/lib/analytics'
 import { categoryLabel } from '@/lib/taxonomy/ontology'
+import { buildCategoryTabTarget } from './category-tab-target'
 
 interface NavCategoryTabsProps {
   categories: Array<{ slug: string; name: string; nameZh: string | null }>
@@ -46,60 +54,76 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
     updateIndicator()
   }, [activeCategory, updateIndicator])
 
-  function handleClick(slug: string) {
+  function targetFor(slug: string) {
+    return buildCategoryTabTarget({
+      pathname,
+      searchParams: searchParams.toString(),
+      slug,
+      locale,
+    })
+  }
+
+  function handleClick(event: MouseEvent<HTMLAnchorElement>, slug: string) {
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    ) {
+      return
+    }
+    event.preventDefault()
+    const { routerPath } = targetFor(slug)
+
     if (slug) {
       trackCategoryFilterApplied(slug)
     }
 
     if (isBrandsPage) {
-      const params = new URLSearchParams(searchParams.toString())
-      if (slug) {
-        params.set('category', slug)
-      } else {
-        params.delete('category')
-      }
-      params.delete('page')
-      const qs = params.toString()
-      router.replace(qs ? `/brands?${qs}` : '/brands')
+      router.replace(routerPath)
     } else {
-      router.push(slug ? `/brands?category=${encodeURIComponent(slug)}` : '/brands')
+      router.push(routerPath)
     }
   }
 
   return (
     <nav className="page-gutter mx-auto max-w-screen-xl overflow-x-hidden">
-      <div ref={containerRef} className="relative flex h-11 items-center gap-1 overflow-x-auto scrollbar-none">
-        <button
-          type="button"
+      <div ref={containerRef} className="relative flex min-h-12 items-center gap-1 overflow-x-auto scrollbar-none">
+        <a
+          href={targetFor('').href}
           data-active={isBrandsPage && !activeCategory ? 'true' : 'false'}
+          aria-current={isBrandsPage && !activeCategory ? 'page' : undefined}
           data-ph-no-autocapture
-          onClick={() => handleClick('')}
+          onClick={(event) => handleClick(event, '')}
           className={
             isBrandsPage && !activeCategory
-              ? 'type-body-emphasis whitespace-nowrap px-3 py-2'
-              : 'type-card-description hover:text-foreground whitespace-nowrap px-3 py-2 transition-colors'
+              ? 'type-body-emphasis flex min-h-12 items-center whitespace-nowrap px-3 py-2'
+              : 'type-card-description hover:text-foreground flex min-h-12 items-center whitespace-nowrap px-3 py-2 transition-colors'
           }
         >
           {t('allBrands')}
-        </button>
+        </a>
         {categories.map((cat) => {
           const isActive = activeCategory === cat.slug
           const label = categoryLabel(cat, locale)
+          const target = targetFor(cat.slug)
           return (
-            <button
+            <a
               key={cat.slug}
-              type="button"
+              href={target.href}
               data-active={isActive ? 'true' : 'false'}
+              aria-current={isActive ? 'page' : undefined}
               data-ph-no-autocapture
-              onClick={() => handleClick(cat.slug)}
+              onClick={(event) => handleClick(event, cat.slug)}
               className={
                 isActive
-                  ? 'type-body-emphasis whitespace-nowrap px-3 py-2'
-                  : 'type-card-description hover:text-foreground whitespace-nowrap px-3 py-2 transition-colors'
+                  ? 'type-body-emphasis flex min-h-12 items-center whitespace-nowrap px-3 py-2'
+                  : 'type-card-description hover:text-foreground flex min-h-12 items-center whitespace-nowrap px-3 py-2 transition-colors'
               }
             >
               {label}
-            </button>
+            </a>
           )
         })}
 
@@ -125,7 +149,7 @@ function NavCategoryTabsFallback() {
       aria-hidden="true"
       className="page-gutter mx-auto max-w-screen-xl overflow-x-hidden"
     >
-      <div className="h-11" />
+      <div className="min-h-12" />
     </nav>
   )
 }

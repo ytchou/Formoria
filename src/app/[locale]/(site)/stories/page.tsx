@@ -23,9 +23,12 @@ export async function generateMetadata({
 }: PageProps): Promise<Metadata> {
   const { locale } = await params;
   setRequestLocale(locale);
-  const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
   const t = await getTranslations({ locale, namespace: "stories" });
-  const { canonical, languages } = buildAlternates("/stories", safeLocale);
+  const { canonical, languages } = buildAlternates(
+    "/stories",
+    "zh-TW",
+    ["zh-TW"],
+  );
 
   return {
     title: t("metaTitle"),

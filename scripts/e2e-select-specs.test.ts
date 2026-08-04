@@ -8,17 +8,17 @@ import {
   collectSpecRoutes,
   extractImports,
   extractRoutes,
+  isBrowserImpactingFile,
   isCodeFile,
   isRouteEntrypoint,
   isSelectableSpec,
   isSubtreeEntrypoint,
   matchesRoute,
-  parseRemovedI18nStrings,
   resolveImport,
   routePatternFor,
   selectChangedSpecs,
   selectDerivedSpecs,
-  selectSpecsForRemovedStrings,
+  shouldRunSmoke,
 } from './e2e-select-specs.mjs'
 
 describe('selective E2E workflow project routing', () => {
@@ -29,6 +29,9 @@ describe('selective E2E workflow project routing', () => {
       'playwright test --project=deep --project=mobile $SPECS',
     )
     expect(workflow).not.toContain('playwright test --project=deep $SPECS')
+    expect(workflow).toContain('smoke: ${{ steps.select-specs.outputs.smoke }}')
+    expect(workflow).toContain("if: needs.select.outputs.smoke == 'true'")
+    expect(workflow).not.toContain('unconditionally')
   })
 })
 
@@ -144,6 +147,47 @@ describe('isSelectableSpec', () => {
     // would filter every selected test out and fail the run.
     expect(isSelectableSpec('e2e/smoke/landing.spec.ts')).toBe(false)
     expect(isSelectableSpec('e2e/utils/submit-form.ts')).toBe(false)
+  })
+})
+
+describe('isBrowserImpactingFile', () => {
+  it.each([
+    ['src/app/[locale]/(site)/page.tsx', true],
+    ['src/app/[locale]/layout.tsx', true],
+    ['src/app/actions/newsletter.ts', true],
+    ['src/components/brands/brand-card.tsx', true],
+    ['src/hooks/use-filter-params.ts', true],
+    ['src/i18n/routing.ts', true],
+    ['src/assets/fonts/NotoSansTC-subset.ttf', true],
+    ['src/proxy.ts', true],
+    ['src/middleware.ts', true],
+    ['src/app/globals.css', true],
+    ['messages/en.json', true],
+    ['public/brand-logo.svg', true],
+    ['playwright.config.ts', true],
+    ['e2e/smoke/landing.spec.ts', true],
+    ['scripts/reindex-brands.ts', false],
+    ['docs/e2e-policy.md', false],
+    ['supabase/migrations/20260804_add_index.sql', false],
+    ['backend/providers/search/adapter.py', false],
+    ['src/lib/services/brands.ts', false],
+  ])('classifies %s as %s', (file, expected) => {
+    expect(isBrowserImpactingFile(file)).toBe(expected)
+  })
+})
+
+describe('shouldRunSmoke', () => {
+  it('runs when a changed file is imported by a smoke spec', () => {
+    const reverseGraph = new Map([
+      ['src/lib/format.ts', new Set(['e2e/utils/smoke-data.ts'])],
+      ['e2e/utils/smoke-data.ts', new Set(['e2e/smoke/landing.spec.ts'])],
+    ])
+
+    expect(shouldRunSmoke(['src/lib/format.ts'], reverseGraph)).toBe(true)
+  })
+
+  it('skips unrelated files that are not in the smoke import graph', () => {
+    expect(shouldRunSmoke(['scripts/reindex-brands.ts'], new Map())).toBe(false)
   })
 })
 
@@ -326,10 +370,17 @@ describe('selectDerivedSpecs against the repository', () => {
     expect(select(['src/lib/services/brands.test.ts'])).toEqual([])
   })
 
+  it('does not fan out deep specs for message-only changes', () => {
+    expect(select(['messages/en.json'])).toEqual([])
+  })
+
   it('never selects a spec the deep project cannot run', () => {
-    // /getting-started is covered only by e2e/smoke: handing that path to the
-    // selective deep/mobile projects would match no tests and fail the job.
-    expect(select(['src/app/[locale]/(site)/getting-started/page.tsx'])).toEqual([])
+    // A path whose only *dedicated* spec lives in e2e/smoke must never leak a
+    // smoke path into the selective deep/mobile projects — those would match no
+    // tests and fail the job. Deep specs that happen to cover the same route
+    // (seo.spec.ts sweeps every static sitemap URL) are legitimate selections.
+    const gettingStarted = select(['src/app/[locale]/(site)/getting-started/page.tsx'])
+    expect(gettingStarted.every(isSelectableSpec)).toBe(true)
 
     const everySpec = select(['src/components/ui/button.tsx'])
     expect(everySpec.length).toBeGreaterThan(0)
@@ -374,78 +425,5 @@ describe('selectChangedSpecs', () => {
         'e2e/tests/seo.spec.ts',
       ]),
     ).toEqual(['e2e/tests/seo.spec.ts'])
-  })
-})
-
-describe('parseRemovedI18nStrings', () => {
-  const diff = [
-    '--- a/messages/en.json',
-    '+++ b/messages/en.json',
-    '@@ -12 +12 @@',
-    '-    "title": "Formoria — Discover Taiwanese Brands",',
-    '+    "title": "Brand Directory — Browse Taiwanese Brands | Formoria",',
-  ].join('\n')
-
-  it('captures removed values and ignores added ones', () => {
-    expect(parseRemovedI18nStrings(diff)).toEqual([
-      'Formoria — Discover Taiwanese Brands',
-    ])
-  })
-
-  it('ignores the --- file header line', () => {
-    expect(parseRemovedI18nStrings(diff)).not.toContain('a/messages/en.json')
-  })
-
-  it('skips values shorter than the grep threshold', () => {
-    expect(parseRemovedI18nStrings('-    "close": "關閉",')).toEqual([])
-  })
-
-  it('decodes JSON escapes in removed values', () => {
-    expect(parseRemovedI18nStrings('-    "note": "Line\\nbreak",')).toEqual([
-      'Line\nbreak',
-    ])
-  })
-
-  it('deduplicates a value removed from both locale files', () => {
-    const twoFiles = [
-      '-    "title": "Shared Copy Value",',
-      '-    "heading": "Shared Copy Value",',
-    ].join('\n')
-    expect(parseRemovedI18nStrings(twoFiles)).toEqual(['Shared Copy Value'])
-  })
-})
-
-describe('selectSpecsForRemovedStrings', () => {
-  it('selects every spec referencing a removed string', () => {
-    const index: Record<string, string[]> = {
-      'Old Title': ['e2e/tests/seo.spec.ts', 'e2e/tests/directory.spec.ts'],
-    }
-    expect(
-      selectSpecsForRemovedStrings(['Old Title'], (v: string) => index[v] ?? []),
-    ).toEqual(['e2e/tests/seo.spec.ts', 'e2e/tests/directory.spec.ts'])
-  })
-
-  it('deduplicates specs matched by more than one removed string', () => {
-    const result = selectSpecsForRemovedStrings(
-      ['Old Title', 'Old Subtitle'],
-      () => ['e2e/tests/seo.spec.ts'],
-    )
-    expect(result).toEqual(['e2e/tests/seo.spec.ts'])
-  })
-
-  it('returns empty when no spec references the removed strings', () => {
-    expect(selectSpecsForRemovedStrings(['Old Title'], () => [])).toEqual([])
-  })
-
-  it('drops a generic token that matches more than five specs', () => {
-    const many = Array.from({ length: 6 }, (_, i) => `e2e/tests/s${i}.spec.ts`)
-    expect(selectSpecsForRemovedStrings(['owner'], () => many)).toEqual([])
-  })
-
-  it('keeps a string matching exactly the fan-out limit', () => {
-    const five = Array.from({ length: 5 }, (_, i) => `e2e/tests/s${i}.spec.ts`)
-    expect(selectSpecsForRemovedStrings(['Distinct Copy'], () => five)).toEqual(
-      five,
-    )
   })
 })
