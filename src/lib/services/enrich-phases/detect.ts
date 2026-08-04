@@ -72,7 +72,13 @@ function buildDetectPatch(
     detectResult.brandName !== brand.name &&
     isValidBrandName(detectResult.brandName, brand.name ?? brand.slug)
   ) {
-    patch.name = detectResult.brandName;
+    // No `patch.name` write here any more. The `name` column has exactly one
+    // writer, the `names` phase (DEV-1321) — detect contributes `brandName` as
+    // the `detected` candidate instead, via `applyDetectResult`'s return. This
+    // guard survives because the slug fallback below still depends on it: a slug
+    // may only be derived from a name detect is confident enough to have
+    // proposed.
+    //
     // DETECT_SYSTEM_PROMPT tells the model to return a null slug rather than
     // transliterate a Han name, and the model obeys — this fallback then did the
     // exact thing the prompt forbids, because `generateSlug` Wade-Giles
@@ -261,6 +267,13 @@ export function applyDetectResult(
   isNonBrand: boolean;
   phaseResult: PhaseResult;
   patch: EnrichPatch;
+  /**
+   * Raw `detected` candidate for the DEV-1321 names arbiter. Deliberately
+   * unguarded — the arbiter and `isValidBrandName` are the guard now, and
+   * pre-filtering here would hide a real disagreement from the model. `null`
+   * when detect produced no name at all.
+   */
+  brandName: string | null;
 } {
   if (shouldSkipForNonBrand(detectResult)) {
     return {
@@ -274,6 +287,9 @@ export function applyDetectResult(
         detectResult?.nonBrandReason ?? "non-brand",
       ),
       patch: {},
+      // A rejected entry never reaches the names phase, so it contributes no
+      // candidate.
+      brandName: null,
     };
   }
 
@@ -291,5 +307,6 @@ export function applyDetectResult(
       detectResult ? undefined : "no detect result",
     ),
     patch,
+    brandName: detectResult?.brandName ?? null,
   };
 }

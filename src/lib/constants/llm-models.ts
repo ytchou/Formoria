@@ -61,6 +61,15 @@ const CLASSIFY_TIMEOUT_MS = 30_000;
 const BATCH_CLASSIFY_TIMEOUT_MS = 60_000;
 
 /**
+ * How many brands go into one batched LLM call. Shared by every batch helper —
+ * the detect batch, the classification batch and the name arbiter — because the
+ * per-call token budgets in LLM_PROFILES are all sized against this number.
+ * Was three inlined `20` literals; changing one without the others silently
+ * overflows the matching profile's maxTokens.
+ */
+export const LLM_BATCH_CHUNK_SIZE = 20;
+
+/**
  * Every phase is extraction or closed-set classification against a fixed rubric,
  * so `none` is the intended production reasoning budget throughout.
  */
@@ -105,6 +114,22 @@ export const LLM_PROFILES = {
   detectBatch: {
     model: "text",
     maxTokens: 4000,
+    temperature: 0.1,
+    reasoningEffort: "none",
+    timeoutMs: BATCH_CLASSIFY_TIMEOUT_MS,
+  },
+  /** Single-brand name arbitration — the per-item fallback after a batch content failure. */
+  names: {
+    model: "text",
+    maxTokens: 400,
+    temperature: 0.1,
+    reasoningEffort: "none",
+    timeoutMs: CLASSIFY_TIMEOUT_MS,
+  },
+  /** Batched name arbitration — up to LLM_BATCH_CHUNK_SIZE brands per call. */
+  namesBatch: {
+    model: "text",
+    maxTokens: 2500,
     temperature: 0.1,
     reasoningEffort: "none",
     timeoutMs: BATCH_CLASSIFY_TIMEOUT_MS,

@@ -17,7 +17,7 @@ describe('runCleanPhase', () => {
 
     expect(result.phaseResult.status).toBe('succeeded')
     expect(result.phaseResult.changedFields).toEqual(['name'])
-    expect(result.patch).toEqual({ name: 'Test Brand' })
+    expect(result.cleanedName).toBe('Test Brand')
   })
 
   it('returns skipped when clean is not in requested phases', async () => {
@@ -28,7 +28,7 @@ describe('runCleanPhase', () => {
 
     expect(result.phaseResult.status).toBe('skipped')
     expect(result.phaseResult.changedFields).toEqual([])
-    expect(result.patch).toEqual({})
+    expect(result.cleanedName).toBeNull()
   })
 
   it('returns succeeded with empty changedFields when name needs no cleaning', async () => {
@@ -39,6 +39,6 @@ describe('runCleanPhase', () => {
 
     expect(result.phaseResult.status).toBe('succeeded')
     expect(result.phaseResult.changedFields).toEqual([])
-    expect(result.patch).toEqual({})
+    expect(result.cleanedName).toBeNull()
   })
 })

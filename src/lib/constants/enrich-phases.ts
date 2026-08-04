@@ -15,6 +15,10 @@ export const ENRICH_PHASES = [
   "tags",
   "discover",
   "links",
+  // `names` sits between `links` and `images` because that is where it runs: it
+  // needs every candidate the context phases produce, and the image search
+  // builds its query from the name it decides (DEV-1321).
+  "names",
   "images",
   "classify_images",
   "descriptions",
@@ -89,6 +93,7 @@ export const ENRICH_LLM_PHASES = [
   "classify_images",
   "descriptions",
   "reputation",
+  "names",
 ] as const satisfies readonly EnrichPhaseName[];
 
 /**
@@ -128,6 +133,11 @@ export const ENRICH_STAGE_GROUPS = {
  * reasoning task decided by the descriptions phase from site content and image
  * alt text, not by detect from SERP snippets alone.
  *
+ * `names` is in `context` for the mirror-image reason: it arbitrates the brand's
+ * identity from what the other context phases proposed, so it cannot run before
+ * them — and the `image` step's query is built from the name it decides, so it
+ * cannot run after them either.
+ *
  * WHY the phase names survive: they are persisted in production —
  * `curation_jobs.params`, `curation_jobs.current_phase`,
  * `curation_job_targets.current_phase`, `curation_job_targets.phase_results`
@@ -163,7 +173,7 @@ export function isDeferredPhase(phase: string): boolean {
 }
 
 export const CURATION_STEPS = {
-  context: ["discover", "detect", "slugs", "clean", "links"],
+  context: ["discover", "detect", "slugs", "clean", "links", "names"],
   image: ["images", "classify_images"],
   detail: ["descriptions", "reputation", "tags"],
 } as const satisfies Record<string, readonly EnrichPhaseName[]>;

@@ -80,7 +80,6 @@ describe('cleanBrandName', () => {
   })
 
   it.each([
-    ['品牌工作室', '品牌'],
     ['MOUR客製化', 'MOUR'],
     ['Fartech.com.tw', 'Fartech'],
     ['Handmade限量手作', 'Handmade'],
@@ -92,14 +91,43 @@ describe('cleanBrandName', () => {
   })
 
   it.each([
-    ['ESCURA 自然 X 機能服飾', 'ESCURA'],
-    ['404Oligo  你的好菌優化師', '404Oligo'],
-    ['AROMASE艾瑪絲 頭皮療癒永續品牌', 'AROMASE 艾瑪絲'],
-  ])('removes tagline text from %s', (input, expected) => {
+    ['Change Tone 襪子專賣店┃100%台灣設計製造', 'Change Tone'],
+    ['首頁 - 小朱甜點', '小朱甜點'],
+    ['小朱甜點 | 官方網站', '小朱甜點'],
+  ])('keeps the first non-boilerplate separator segment of %s', (input, expected) => {
     const result = cleanBrandName(input)
 
     expect(result.cleanedName).toBe(expected)
     expect(result.patternsMatched).toContain('tagline-separator')
+  })
+
+  // A Latin head followed by a CJK run is the same string shape whether the run is a tagline
+  // (`BoingBoing 故事鞋與童畫包`) or half the registered name (`UNIGAZE 慢火金工創作室`), and
+  // no regex can tell them apart. Without a separator to go on, the name is left alone for the
+  // downstream `names` arbitration phase rather than guessed at (DEV-1321).
+  it.each([
+    ['UNIGAZE 慢火金工創作室'],
+    ['暮苒甜點工作室'],
+    ['藺草工坊'],
+    ['品牌工作室'],
+    ['02 編織工作室'],
+    ['BoingBoing 故事鞋與童畫包'],
+    ['ESCURA 自然 X 機能服飾'],
+    // Lowercase and mixed casing are brand identity, not junk — never re-cased.
+    ['qn dessert'],
+    ['一屋 1woof'],
+  ])('leaves ambiguous name %s for the arbiter', (input) => {
+    const result = cleanBrandName(input)
+
+    expect(result.cleanedName).toBe(input)
+    expect(result.changed).toBe(false)
+  })
+
+  it.each([
+    ['404Oligo  你的好菌優化師', '404Oligo 你的好菌優化師'],
+    ['AROMASE艾瑪絲 頭皮療癒永續品牌', 'AROMASE 艾瑪絲 頭皮療癒永續品牌'],
+  ])('normalizes spacing without truncating %s', (input, expected) => {
+    expect(cleanBrandName(input).cleanedName).toBe(expected)
   })
 
   it('collapses single-character decorative spacing', () => {
@@ -112,7 +140,6 @@ describe('cleanBrandName', () => {
   it.each([
     ['☼ 椰子派•𝒄𝒐𝒄𝒐𝒏𝒖𝒕 𝒑𝒊𝒆', '椰子派 Coconut Pie'],
     ['*𝓑𝓾𝓲𝓵𝓭.𝓛𝓲𝓰𝓱𝓽 𝓬𝓪𝓷𝓭𝓵𝓮*', 'Build.Light Candle'],
-    ['BoingBoing 故事鞋與童畫包', 'BoingBoing'],
     ['Bonjour女人愛買鞋', 'Bonjour 女人愛買鞋'],
     ['FuSoap 台南手工皂', 'FuSoap 台南手工皂'],
     ['Dasuit大適坐墊', 'Dasuit 大適坐墊'],

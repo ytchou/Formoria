@@ -58,6 +58,7 @@ describe("planCurationResume", () => {
     // so it has no record at all and is owed too.
     expect(plans.at(0)?.params.phases).toEqual([
       "tags",
+      "names",
       "classify_images",
       "descriptions",
       "locations",
@@ -83,6 +84,7 @@ describe("planCurationResume", () => {
       "tags",
       "discover",
       "links",
+      "names",
       "images",
       "classify_images",
       "descriptions",

@@ -8,4 +8,5 @@ export * from "./classify-images";
 export * from "./discover";
 export * from "./image-search";
 export * from "./detect";
+export * from "./names";
 export * from "./types";

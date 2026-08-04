@@ -127,7 +127,21 @@ function compactWhitespace(value: string): string {
   return value.trim().replace(/\s+/gu, ' ')
 }
 
-function titleCaseAllLowercase(value: string): string {
+/**
+ * Title-cases an all-lowercase Latin run. Deliberately NOT part of
+ * `cleanBrandName`: a stored brand name's casing is identity, and re-casing it
+ * turned `qn dessert` into `Qn Dessert` and `一屋 1woof` into `一屋 1Woof` on
+ * live rows (DEV-1321).
+ *
+ * A scraped page title is the opposite case — its lowercasing is usually CSS
+ * or the site's own styling rather than a decision, which is why `adela.tw`
+ * yields `adela愛德拉`. So only the page-title path calls this, and only on a
+ * candidate it is already proposing as an improvement.
+ *
+ * Skips anything already carrying uppercase (the site made a choice) or
+ * Latin-1/extended accents, where naive `charAt(0).toUpperCase()` misfires.
+ */
+export function titleCaseScrapedTitle(value: string): string {
   if (!/[a-z]/u.test(value) || /[A-Z]/u.test(value)) {
     return value
   }
@@ -185,15 +199,65 @@ function normalizeStylizedText(value: string): string {
   })
 }
 
+const SEGMENT_SPLIT_REGEX = /(?:\s*[┃｜|—]\s*|\s+[-–]\s+)/u
+
+/**
+ * Page-title chrome that is never part of a brand name. Matched against a whole
+ * segment, lowercased — a brand genuinely called `Home` survives, because it
+ * would have to be the only segment and a lone segment is never split.
+ */
+const PAGE_TITLE_BOILERPLATE = new Set([
+  '首頁',
+  '官網',
+  '官方網站',
+  '官方網',
+  '線上購物',
+  '購物網',
+  '購物網站',
+  '網路商店',
+  'home',
+  'official site',
+  'official store',
+  'official shop',
+])
+
+/**
+ * Keeps the first segment that is not page-title chrome.
+ *
+ * A separator is the only *evidence* this module gets that its author marked
+ * where the name ends. Everything shape-based was removed: a space-delimited
+ * CJK run may be a tagline (`故事鞋與童畫包`) or half the brand's own name
+ * (`慢火金工創作室`), and nothing but meaning separates the two — so the `names`
+ * arbitration phase decides and no regex guesses here. Guessing is what
+ * truncated `UNIGAZE 慢火金工創作室` to `UNIGAZE` on live rows (DEV-1321).
+ *
+ * `-` and `–` need spaces on both sides so `Bo-Bird` and `LIN,YUAN-MAI` stay
+ * intact; `┃`, `｜`, `|`, and `—` separate wherever they appear.
+ */
+function stripSeparatorSegments(value: string): string {
+  const segments = value
+    .split(SEGMENT_SPLIT_REGEX)
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+
+  if (segments.length <= 1) return value
+
+  return (
+    segments.find((segment) => !PAGE_TITLE_BOILERPLATE.has(segment.toLowerCase())) ??
+    segments[0] ??
+    value
+  )
+}
+
 function removeMarketingSuffixes(value: string): string {
   let result = value
-    .replace(/\s*(?:┃|｜|\||—)\s*.*$/u, '')
     .replace(/\s*台灣(?:獨家)?代理\s*$/u, '')
     .replace(/\s*(?:MIT\s*)?[^A-Za-z\s]{0,4}(?:專賣店|旗艦館|設計館|品牌專區)\s*$/u, '')
 
   // Only strip 品牌$ suffix when the brand part (before the last CJK word) contains no CJK.
-  // If the brand name already contains CJK (bilingual brand label), treat the trailing phrase
-  // as a tagline and let removeTaglines() handle it instead.
+  // If the brand name already contains CJK (bilingual brand label), the trailing phrase is
+  // ambiguous — `AROMASE艾瑪絲 頭皮療癒永續品牌` reads as a tagline, but the same shape can be
+  // the registered name — so it is left intact for the `names` arbitration phase to judge.
   const brandPartWithoutSuffix = result.replace(/\s+\S+品牌$/u, '')
 
   if (!/[\u4E00-\u9FFF\u3400-\u4DBF]/u.test(brandPartWithoutSuffix)) {
@@ -203,35 +267,16 @@ function removeMarketingSuffixes(value: string): string {
   return result
 }
 
+/**
+ * `工作室` and `工坊` are deliberately absent: they read as "studio/workshop"
+ * but are part of the registered name far more often than not — `藺草工坊`,
+ * `謝工作室`, `羊泥工坊`, `暮苒甜點工作室` are all live rows that this list
+ * truncated. What remains describes an offer, never an identity.
+ */
 function removeProductDescriptors(value: string): string {
   return value
     .replace(/\.com(?:\.tw)?$/iu, '')
-    .replace(/\s*(?:可以客製|客製化|工作室|工坊|限量手作)\s*$/u, '')
-}
-
-function removeTaglines(value: string): string {
-  let next = value.replace(/\s*(?:┃|｜|\||—)\s*.*$/u, '')
-
-  // Normalize multiple spaces before CJK to single space (single space is preserved for bilingual guard)
-  next = next.replace(/^([A-Za-z0-9][A-Za-z0-9.'-]*)(?:\s{2,})(?=[\u4E00-\u9FFF\u3400-\u4DBF])/u, '$1 ')
-
-  // Guard: English + single-space + short CJK (1–6 chars, nothing after) is a bilingual brand
-  // name, not a tagline — leave it untouched.
-  if (/^[A-Za-z0-9][A-Za-z0-9.'-]*\s+[\u4E00-\u9FFF\u3400-\u4DBF]{1,6}$/.test(next)) {
-    return next
-  }
-
-  const englishThenChineseBrand = next.match(
-    /^([A-Za-z0-9][A-Za-z0-9.'-]*)([\u4E00-\u9FFF\u3400-\u4DBF]{1,6})\s+[\u4E00-\u9FFF\u3400-\u4DBF\sXx]+$/u
-  )
-
-  if (englishThenChineseBrand) {
-    return `${englishThenChineseBrand[1]} ${englishThenChineseBrand[2]}`
-  }
-
-  return next
-    .replace(/^([A-Za-z0-9][A-Za-z0-9.'-]*)\s+[\u4E00-\u9FFF\u3400-\u4DBF].*$/u, '$1')
-    .replace(/^([A-Za-z0-9][A-Za-z0-9.'-]*)\s{2,}[\u4E00-\u9FFF\u3400-\u4DBF].*$/u, '$1')
+    .replace(/\s*(?:可以客製|客製化|限量手作)\s*$/u, '')
 }
 
 function confidenceFor(patterns: CleanupPattern[]): NameCleanupResult['confidence'] {
@@ -283,6 +328,16 @@ export function cleanBrandName(name: string): NameCleanupResult {
     addPattern(patternsMatched, 'bracket-noise')
   }
 
+  // Runs before the suffix and descriptor strips so those see one segment rather than a whole
+  // page title: `Change Tone 襪子專賣店┃100%台灣設計製造` has to become `Change Tone 襪子專賣店`
+  // before `襪子專賣店` is recognisable as a trailing marketing suffix.
+  const withoutSeparatorSegments = stripSeparatorSegments(cleanedName)
+
+  if (withoutSeparatorSegments !== cleanedName) {
+    cleanedName = withoutSeparatorSegments
+    addPattern(patternsMatched, 'tagline-separator')
+  }
+
   const withoutMarketingSuffix = removeMarketingSuffixes(cleanedName)
 
   if (withoutMarketingSuffix !== cleanedName) {
@@ -297,21 +352,16 @@ export function cleanBrandName(name: string): NameCleanupResult {
     addPattern(patternsMatched, 'product-descriptor')
   }
 
-  const withoutTagline = removeTaglines(cleanedName)
-
-  if (withoutTagline !== cleanedName) {
-    cleanedName = withoutTagline
-    addPattern(patternsMatched, 'tagline-separator')
-  }
-
   if (DECORATIVE_SPACING_REGEX.test(cleanedName)) {
     cleanedName = cleanedName.replace(/\s+/gu, '')
     addPattern(patternsMatched, 'decorative-spacing')
   }
 
   cleanedName = cleanedName.replace(/^[_\s]+|[_\s]+$/gu, '')
+  // No case normalisation: `qn dessert` and `一屋 1woof` are lowercase on purpose, and
+  // re-casing them rewrote brand identity on live rows (DEV-1321). Casing is presentation,
+  // not junk, so only the stylized-text decoder (which has to pick a case) touches it.
   cleanedName = compactWhitespace(ensureEnglishCjkSpacing(cleanedName))
-  cleanedName = titleCaseAllLowercase(cleanedName)
 
   if (cleanedName.length === 0) {
     return {

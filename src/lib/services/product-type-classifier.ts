@@ -5,6 +5,7 @@ import {
   profileChatParams,
 } from "@/lib/services/llm-audit";
 import {
+  LLM_BATCH_CHUNK_SIZE,
   resolveProfileModel,
   type LlmProfileKey,
 } from "@/lib/constants/llm-models";
@@ -542,8 +543,8 @@ export async function classifyProductTypeBatch(
   const results = new Map<string, ClassificationResult>();
   let calls = noLlmCalls();
 
-  for (let i = 0; i < brands.length; i += 20) {
-    const batch = brands.slice(i, i + 20);
+  for (let i = 0; i < brands.length; i += LLM_BATCH_CHUNK_SIZE) {
+    const batch = brands.slice(i, i + LLM_BATCH_CHUNK_SIZE);
     const chunk = await classifyProductTypeBatchChunk(batch, jobId);
     calls = addLlmCalls(calls, chunk.calls);
 
@@ -702,8 +703,8 @@ export async function detectBrandsBatch(
   const results = new Map<string, DetectResult>();
   let calls = noLlmCalls();
 
-  for (let i = 0; i < brands.length; i += 20) {
-    const batch = brands.slice(i, i + 20);
+  for (let i = 0; i < brands.length; i += LLM_BATCH_CHUNK_SIZE) {
+    const batch = brands.slice(i, i + LLM_BATCH_CHUNK_SIZE);
     const chunk = await detectBrandsBatchChunk(batch, jobId);
     calls = addLlmCalls(calls, chunk.calls);
 

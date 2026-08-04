@@ -109,6 +109,10 @@ scripts/eval/
 # The harness itself is committed; its outputs are local evidence, not source.
 scripts/model-ab/runs/
 
+# name-eval run artifacts (DEV-1321 arbiter gate). Same rule as model-ab:
+# the harness is committed, its scored output and LLM audit sink are not.
+scripts/name-eval/runs/
+
 # brand-storage-maintenance local manifests (operational artifacts, never committed)
 scripts/.storage-purge-manifest-*.json
 scripts/.reencode-originals-*.json

@@ -185,6 +185,8 @@ describe('runLinksPhase', () => {
 
     expect(result.phaseResult.status).toBe('skipped')
     expect(result.patch).toEqual({})
+    // The scraped title is a candidate for the names phase, never a patch key.
+    expect(result.scrapedBrandName).toBeNull()
     expect(result.scrapedData).toBeNull()
   })
 

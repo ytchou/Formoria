@@ -52,6 +52,8 @@ const phaseDescriptions = {
   locations: "Finds physical shops and retail channels.",
   reputation:
     "Adds third-party reputation context — coverage, awards, ratings.",
+  names:
+    "Arbitrates the competing brand names the other context phases proposed; the only phase that writes the brand name.",
   classification:
     "Classifies the product type on its own, when descriptions did not decide it.",
   "image-search": "Searches for candidate images before image selection.",
