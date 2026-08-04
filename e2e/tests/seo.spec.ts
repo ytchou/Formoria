@@ -1,5 +1,20 @@
 import { test, expect } from "@playwright/test";
 
+// `property`/`name` and `content` can appear in either order in the rendered
+// tag, so match the whole `<meta ...>` element first and pull `content` out
+// of it rather than assuming attribute order.
+function extractMetaContent(html: string, propertyOrName: string): string | null {
+  const tagMatch = html.match(
+    new RegExp(
+      `<meta[^>]*(?:property|name)=["']${propertyOrName}["'][^>]*>`,
+      "i",
+    ),
+  );
+  if (!tagMatch) return null;
+  const contentMatch = tagMatch[0].match(/content=["']([^"']*)["']/i);
+  return contentMatch ? contentMatch[1] : null;
+}
+
 test.describe("SEO deep", () => {
   test("homepage has canonical URL", async ({ page }) => {
     await page.goto("/");
@@ -252,7 +267,6 @@ test.describe("SEO deep", () => {
   });
 
   test("sitemap static pages expose a resolvable PNG OG image", async ({
-    page,
     request,
   }) => {
     const sitemapResponse = await request.get("/sitemap.xml");
@@ -285,34 +299,45 @@ test.describe("SEO deep", () => {
     });
 
     expect(staticLocations.length).toBeGreaterThan(0);
-    for (const url of staticLocations) {
-      await page.goto(`${url.pathname}${url.search}`);
-      const ogImage = await page
-        .locator('meta[property="og:image"]')
-        .getAttribute("content");
-      expect(ogImage, `${url.pathname}${url.search} → og:image`).toMatch(
-        /^https?:\/\//,
-      );
+    // The prior version drove this through `page.goto` sequentially — a full
+    // browser render (JS, CSS, fonts) per URL — for a set that grows with every
+    // new static page and taxonomy category. With ~48 locations that blew past
+    // the 30s CI test timeout. The og:image/twitter:card tags are present in the
+    // server-rendered HTML, so a concurrent plain-HTTP fetch verifies the exact
+    // same markup without paying for a browser render.
+    await Promise.all(
+      staticLocations.map(async (url) => {
+        const path = `${url.pathname}${url.search}`;
+        const pageResponse = await request.get(path);
+        expect(pageResponse.status(), `${path} → status`).toBe(200);
+        const html = await pageResponse.text();
 
-      const imageUrl = new URL(ogImage!);
-      const localImageUrl = `${new URL(page.url()).origin}${imageUrl.pathname}${imageUrl.search}`;
-      const imageResponse = await request.get(localImageUrl);
-      expect(
-        imageResponse.status(),
-        `${url.pathname}${url.search} → og:image status`,
-      ).toBe(200);
-      expect(
-        imageResponse.headers()["content-type"],
-        `${url.pathname}${url.search} → og:image content-type`,
-      ).toMatch(/^image\/png(?:;|$)/);
+        const ogImage = extractMetaContent(html, "og:image");
+        expect(ogImage, `${path} → og:image`).toMatch(/^https?:\/\//);
 
-      if (url.pathname.replace(/^\/en(?=\/)/, "") === "/brands" && url.searchParams.has("category")) {
-        await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
-          "content",
-          "summary_large_image",
-        );
-      }
-    }
+        const imageUrl = new URL(ogImage!);
+        const localImageUrl = `${url.origin}${imageUrl.pathname}${imageUrl.search}`;
+        const imageResponse = await request.get(localImageUrl);
+        expect(
+          imageResponse.status(),
+          `${path} → og:image status`,
+        ).toBe(200);
+        expect(
+          imageResponse.headers()["content-type"],
+          `${path} → og:image content-type`,
+        ).toMatch(/^image\/png(?:;|$)/);
+
+        if (
+          url.pathname.replace(/^\/en(?=\/)/, "") === "/brands" &&
+          url.searchParams.has("category")
+        ) {
+          expect(
+            extractMetaContent(html, "twitter:card"),
+            `${path} → twitter:card`,
+          ).toBe("summary_large_image");
+        }
+      }),
+    );
   });
 
   test("llms.txt is served as text", async ({ request }) => {
