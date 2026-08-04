@@ -1,14 +1,14 @@
 import { createServiceClient } from "@/lib/supabase/server";
-import type { DescriptionAttempt } from "./description-rewrite";
-import type { BrandFactsAttempt } from "./brand-facts";
+import type { DescriptionAttempt } from "../description-rewrite";
+import type { BrandFactsAttempt } from "../brand-facts";
 import {
   brandTarget,
   targetForeignKey,
   type EnrichmentTarget,
 } from "./enrichment-target";
-import { resolveOpenAIModel } from "./openai-client";
-import { evalSinkPath, writeEvalSinkRecord } from "./eval/llm-usage-sink";
-import { priceUsage, usageFromRawResponse } from "./llm-pricing";
+import { resolveOpenAIModel } from "../openai-client";
+import { evalSinkPath, writeEvalSinkRecord } from "../eval/llm-usage-sink";
+import { priceUsage, usageFromRawResponse } from "../llm-pricing";
 import { captureAlert } from "@/lib/adapters/alerting/sentry";
 import {
   classifyPostgrestError,

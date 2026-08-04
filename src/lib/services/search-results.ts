@@ -1,7 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server'
 import type { Database, Json } from '@/lib/supabase/database.types'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { targetForeignKey, type EnrichmentTarget } from './enrichment-target'
+import { targetForeignKey, type EnrichmentTarget } from './_shared/enrichment-target'
 
 export type SearchType = 'serp' | 'image' | 'maps' | 'scrape'
 export type SearchCallStatus =

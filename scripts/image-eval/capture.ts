@@ -4,7 +4,7 @@ import {
   batchCaptureBrandImages,
   type SerperRawImageCandidate,
 } from "@/lib/services/enrich-phases/scraper/search";
-import { brandTarget } from "@/lib/services/enrichment-target";
+import { brandTarget } from "@/lib/services/_shared/enrichment-target";
 import { createServiceClient } from "@/lib/supabase/server";
 import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";

@@ -12,7 +12,7 @@ import {
   localizeToTW,
   stripAiToolArtifacts,
 } from "./taiwan-localization";
-import { noLlmCalls, type LlmCallCounts } from "./llm-call-outcome";
+import { noLlmCalls, type LlmCallCounts } from "./_shared/llm-call-outcome";
 
 const ZH_DESCRIPTION_BAND = [150, 400] as const;
 const EN_DESCRIPTION_BAND = [300, 700] as const;

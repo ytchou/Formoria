@@ -18,7 +18,7 @@ import type {
 } from "@/lib/types/brand";
 import type { ChannelCandidate } from "@/lib/types/brand-channel";
 import type { PhaseResult } from "@/lib/types/curation";
-import type { EnrichmentTarget } from "../enrichment-target";
+import type { EnrichmentTarget } from "../_shared/enrichment-target";
 import {
   searchBrandMaps,
   type BrandMapsSearchResult,

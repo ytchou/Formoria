@@ -1,13 +1,13 @@
-import { insertReputationResult } from "../ai-results";
+import { insertReputationResult } from "../_shared/ai-results";
 import { runReputationResearch } from "../reputation-research";
 import { loadPersistedScrapeText } from "./descriptions";
 import { buildProfiledEnrichmentConfig } from "../llm-audit";
 import { REPUTATION_SYSTEM_PROMPT } from "@/lib/prompts";
 import { localizeToTW } from "../taiwan-localization";
-import { isLlmProviderFailure, noLlmCalls } from "../llm-call-outcome";
+import { isLlmProviderFailure, noLlmCalls } from "../_shared/llm-call-outcome";
 import type { PhaseResult } from "@/lib/types/curation";
 import type { EnrichScrapedData } from "./types";
-import { brandTarget, type EnrichmentTarget } from "../enrichment-target";
+import { brandTarget, type EnrichmentTarget } from "../_shared/enrichment-target";
 import {
   buildPhaseResult,
   hasPatchValues,

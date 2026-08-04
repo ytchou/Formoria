@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { cleanBrandName, type NameCleanupResult } from "./brand-cleanup";
-import { ENRICH_CHUNK_SIZE, mapWithConcurrency } from "./concurrency";
+import { ENRICH_CHUNK_SIZE, mapWithConcurrency } from "./_shared/concurrency";
 import {
   CLEARED_FIELDS_KEY,
   resolveRefreshEnrichmentPatch,
@@ -36,7 +36,7 @@ import {
   insertClassificationResult,
   updateDescriptionAuditResult,
   updateFactsAuditResult,
-} from "./ai-results";
+} from "./_shared/ai-results";
 import type {
   BrandOutcome,
   CurationConfig,
@@ -71,7 +71,7 @@ import {
 import type { NameCandidate } from "./name-arbiter";
 import type { BrandImageSearchOutcome } from "./enrich-phases/scraper/types";
 import { buildCandidatePool } from "./enrich-phases/candidate-pool";
-import type { EnrichmentTarget } from "./enrichment-target";
+import type { EnrichmentTarget } from "./_shared/enrichment-target";
 import { deriveProductTypeFromTags, MAX_PRODUCT_TAGS } from "./product-tags";
 import {
   formatBrandComplete,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { toBrandRow, toSubmissionRow } from '@/lib/services/field-map'
+import { toBrandRow, toSubmissionRow } from '@/lib/services/_shared/field-map'
 
 const brandInput = {
   name: '森之好物',

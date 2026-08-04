@@ -7,7 +7,7 @@ import {
   type DetectBatchItem,
   type DetectResult,
 } from "../product-type-classifier";
-import { isLlmProviderFailure } from "../llm-call-outcome";
+import { isLlmProviderFailure } from "../_shared/llm-call-outcome";
 import { generateSlug } from "../brands";
 import { isValidBrandName } from "../brand-cleanup";
 import {

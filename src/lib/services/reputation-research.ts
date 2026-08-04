@@ -5,7 +5,7 @@ import {
   type LlmAuditContext,
 } from "@/lib/services/llm-audit";
 import type { ReputationSummary } from "@/lib/types/brand";
-import type { LlmCallCounts } from "@/lib/services/llm-call-outcome";
+import type { LlmCallCounts } from "@/lib/services/_shared/llm-call-outcome";
 
 export type ReputationResult = {
   reputationSummary: ReputationSummary | null;

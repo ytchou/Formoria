@@ -19,14 +19,14 @@ import {
   addLlmCalls,
   isLlmProviderFailure,
   noLlmCalls,
-} from "../llm-call-outcome";
+} from "../_shared/llm-call-outcome";
 import type { PhaseResult } from "@/lib/types/curation";
 import type { EnrichScrapedData } from "./types";
 import {
   brandTarget,
   targetImageStorage,
   type EnrichmentTarget,
-} from "../enrichment-target";
+} from "../_shared/enrichment-target";
 import {
   buildPhaseResult,
   getDisplayBrandName,

@@ -10,7 +10,7 @@ import type {
   SiteTokens,
 } from "@/lib/types/brand";
 import type { Database } from "@/lib/supabase/database.types";
-import { toBrandRow as baseToBrandRow } from "./field-map";
+import { toBrandRow as baseToBrandRow } from "./_shared/field-map";
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { createServiceClient } from "@/lib/supabase/server";
 import {

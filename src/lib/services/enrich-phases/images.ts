@@ -2,7 +2,7 @@ import { downloadAndStoreImages } from '../image-download'
 import { buildImageEnrichPatch, hasLinkValue } from '../link-enrichment'
 import type { PhaseResult } from '@/lib/types/curation'
 import type { CandidateImage } from './candidate-pool'
-import { brandTarget, type EnrichmentTarget } from '../enrichment-target'
+import { brandTarget, type EnrichmentTarget } from '../_shared/enrichment-target'
 import { buildPhaseResult, timePhase, type EnrichBrand, type EnrichPhase } from './types'
 
 type BrandImagePhaseOptions = {

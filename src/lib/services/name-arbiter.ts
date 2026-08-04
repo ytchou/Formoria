@@ -15,8 +15,8 @@ import {
   isLlmProviderFailure,
   noLlmCalls,
   type LlmCallCounts,
-} from "./llm-call-outcome";
-import type { EnrichmentTarget } from "./enrichment-target";
+} from "./_shared/llm-call-outcome";
+import type { EnrichmentTarget } from "./_shared/enrichment-target";
 import type { LlmBatchOutcome } from "./product-type-classifier";
 
 export type NameCandidateSource = "stored" | "cleaned" | "detected" | "scraped";

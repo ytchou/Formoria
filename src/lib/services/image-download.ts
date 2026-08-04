@@ -2,13 +2,13 @@ import sharp from 'sharp'
 
 import { processImage } from '@/lib/security/image-processor'
 import { createServiceClient } from '@/lib/supabase/server'
-import { mapWithConcurrency } from './concurrency'
+import { mapWithConcurrency } from './_shared/concurrency'
 import type { CandidateImage, CandidateImageSource } from './enrich-phases/candidate-pool'
 import {
   brandTarget,
   targetImageStorage,
   type EnrichmentTarget,
-} from './enrichment-target'
+} from './_shared/enrichment-target'
 import { uploadWithRetry } from './storage-retry'
 
 const IMAGE_FETCH_TIMEOUT_MS = 10_000

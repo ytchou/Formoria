@@ -2,7 +2,7 @@ import type { PhaseResult, PhaseStatus } from '@/lib/types/curation'
 import { batchSearchBrandsWithSnippets, parseBrandSearchEntries } from './scraper/search'
 import { getLatestSearchResults } from '../search-results'
 import { buildSerpConfig } from '@/lib/constants/enrichment-config'
-import type { EnrichmentTarget } from '../enrichment-target'
+import type { EnrichmentTarget } from '../_shared/enrichment-target'
 import {
   buildPhaseResult,
   getDisplayBrandName,

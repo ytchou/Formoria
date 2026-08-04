@@ -8,7 +8,7 @@
  * lives in `deriveProductTagsEn`, so this script is deterministic — no LLM, no
  * DeepSeek, no network beyond Supabase.
  *
- * `toBrandRow` in `src/lib/services/field-map.ts` now runs the same normalizer
+ * `toBrandRow` in `src/lib/services/_shared/field-map.ts` now runs the same normalizer
  * on every brand write, so nothing can reintroduce the drift this repairs.
  * After the first run this script should stay a no-op; a non-zero "brands
  * changed" on a later run means a write path bypassed `toBrandRow`.

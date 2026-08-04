@@ -1,9 +1,9 @@
-import { insertAiCallResult } from "./ai-results";
+import { insertAiCallResult } from "./_shared/ai-results";
 import {
   createDeepSeekClient,
   type ChatAuditEvent as DeepSeekAuditEvent,
 } from "./deepseek-client";
-import type { EnrichmentTarget } from "./enrichment-target";
+import type { EnrichmentTarget } from "./_shared/enrichment-target";
 import {
   createOpenAIClient,
   type ChatAuditEvent as OpenAiAuditEvent,

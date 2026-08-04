@@ -1,5 +1,5 @@
 import type { PhaseResult } from "@/lib/types/curation";
-import { isLlmProviderFailure } from "../llm-call-outcome";
+import { isLlmProviderFailure } from "../_shared/llm-call-outcome";
 import { isValidBrandName } from "../brand-cleanup";
 import {
   arbitrateBrandNames,

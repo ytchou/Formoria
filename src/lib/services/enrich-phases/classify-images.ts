@@ -17,7 +17,7 @@ import {
   brandTarget,
   targetImageStorage,
   type EnrichmentTarget,
-} from "../enrichment-target";
+} from "../_shared/enrichment-target";
 import {
   buildPhaseResult,
   timePhase,

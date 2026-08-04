@@ -31,7 +31,7 @@ import {
   isValidSlug,
 } from "@/lib/services/brands";
 import { cleanBrandName } from "@/lib/services/brand-cleanup";
-import { toSubmissionRow } from "./field-map";
+import { toSubmissionRow } from "./_shared/field-map";
 import { deriveProductTagsEn } from "./product-tags";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { deleteStoredImagePaths } from "./image-upload";

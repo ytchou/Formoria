@@ -16,7 +16,7 @@ import { mergeScrapedData } from './scraper/merge'
 import type { PhaseResult } from '@/lib/types/curation'
 import type { ScrapedBrandData, ScrapedImageSource } from '@/lib/types/scraper'
 import type { EnrichScrapedData } from './types'
-import { brandTarget, type EnrichmentTarget } from '../enrichment-target'
+import { brandTarget, type EnrichmentTarget } from '../_shared/enrichment-target'
 import { buildPhaseResult, hasPatchValues, timePhase, type EnrichBrand, type EnrichPhase } from './types'
 
 type LinksPhaseOptions = {

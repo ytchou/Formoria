@@ -10,7 +10,7 @@
  * be set on the command line — setting it from inside this file is too late.
  * It is mandatory here: with it set, `insertAiCallResult` diverts every audit
  * row to that JSONL file and returns *before* it constructs a Supabase client
- * (src/lib/services/ai-results.ts:139-151). Without it, this script would leave
+ * (src/lib/services/_shared/ai-results.ts:139-151). Without it, this script would leave
  * `brand_ai_results` rows behind for a run that scores nothing.
  *
  * Nothing else in this script reads or writes Postgres or Storage: the corpus
