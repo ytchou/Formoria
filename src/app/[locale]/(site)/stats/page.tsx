@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
+import { buildOpenGraph } from '@/lib/seo/open-graph'
 import { dateLocale } from '@/i18n/locale-preference'
 import { getStatsPageData } from '@/lib/services/stats'
 import { markRenderDegraded } from '@/lib/degraded-render'
@@ -37,17 +38,13 @@ export async function generateMetadata({ params }: StatsPageProps): Promise<Meta
     title: t('title'),
     description: t('description'),
     alternates: { canonical, languages },
-    openGraph: {
+    ...buildOpenGraph({
       title: t('title'),
       description: t('description'),
       url: canonical,
       locale: ogLocale,
       alternateLocale: [ogAlternateLocale],
-    },
-    twitter: {
-      title: t('title'),
-      description: t('description'),
-    },
+    }),
   }
 }
 

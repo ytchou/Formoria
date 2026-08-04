@@ -1,11 +1,11 @@
 import { Suspense } from 'react'
-import { Agentation } from 'agentation'
 import { Bricolage_Grotesque, Geist_Mono, Inter } from 'next/font/google'
 import { Toaster } from 'sonner'
 import { PublicGoogleAnalytics } from '@/components/analytics/public-google-analytics'
 import { GaUserSync } from '@/components/analytics/ga-user-sync'
 import { PostHogUserSync } from '@/components/analytics/posthog-user-sync'
 import { WebVitalsReporter } from '@/components/analytics/web-vitals-reporter'
+import { AdminAgentation } from '@/components/shared/admin-agentation'
 import type { AppLocale } from '@/i18n/locale-preference'
 import { ViewerProvider } from '@/lib/auth/use-user'
 
@@ -58,9 +58,10 @@ export function RootDocument({
           <GaUserSync />
           <WebVitalsReporter />
           {children}
-          {process.env.NODE_ENV === 'development' && !process.env.PLAYWRIGHT_TEST && (
-            <Agentation />
-          )}
+          {/* Admin-only, all environments. Gating (including the Playwright
+              suppression) lives inside the component — a server-side env read
+              here would be frozen at build time on every prerendered page. */}
+          <AdminAgentation />
           {process.env.NEXT_PUBLIC_GA_ID && (
             <Suspense fallback={null}>
               <PublicGoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID} />

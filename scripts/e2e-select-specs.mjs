@@ -154,6 +154,25 @@ export function crossBrowserReasons(changedFiles) {
   return [...reasons].sort();
 }
 
+/** A tracked file that can affect browser-visible behavior or the smoke flow. */
+export function isBrowserImpactingFile(file) {
+  return (
+    BROWSER_APP_DIRECTORY.test(file) ||
+    BROWSER_SOURCE_DIRECTORY.test(file) ||
+    BROWSER_ASSET.test(file) ||
+    BROWSER_PROXY.test(file) ||
+    BROWSER_STYLE.test(file) ||
+    BROWSER_PUBLIC_ASSET.test(file) ||
+    BROWSER_MESSAGES.test(file) ||
+    PLAYWRIGHT_CONFIG.test(file) ||
+    SMOKE_SPEC.test(file)
+  )
+}
+
+export function isSmokeSpec(file) {
+  return SMOKE_SPEC.test(file)
+}
+
 export function resolveImport(fromFile, specifier, fileExists) {
   let basePath;
   if (specifier.startsWith("@/")) {
@@ -218,6 +237,13 @@ export function collectReachableImporters(startFiles, reverseGraph) {
     }
   }
   return reachable;
+}
+
+export function shouldRunSmoke(changedFiles, reverseGraph) {
+  if (changedFiles.some(isBrowserImpactingFile)) return true
+
+  const reachable = collectReachableImporters(changedFiles, reverseGraph)
+  return [...reachable].some(isSmokeSpec)
 }
 
 export function routePatternFor(entrypoint) {

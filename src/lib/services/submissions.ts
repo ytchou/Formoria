@@ -6,7 +6,10 @@ import type {
   SubmissionStatus,
   SourceAttribution,
 } from "@/lib/types";
-import type { DuplicateCheckResult } from "@/lib/types/submission";
+import type {
+  DuplicateCandidate,
+  DuplicateCheckResult,
+} from "@/lib/types/submission";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import type { EnrichedData, EnrichedFaqItem } from "@/lib/types/enriched-data";
 import { enrichedDataFromDb } from "@/lib/types/enriched-data";
@@ -27,6 +30,7 @@ import {
   isReservedSlug,
   isValidSlug,
 } from "@/lib/services/brands";
+import { cleanBrandName } from "@/lib/services/brand-cleanup";
 import { toSubmissionRow } from "./field-map";
 import { deriveProductTagsEn } from "./product-tags";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -169,8 +173,27 @@ export type SubmissionReviewCompleteness = {
 };
 export type EnrichmentFilter = "all" | "complete" | "incomplete";
 export type ReviewKindFilter = "all" | "new" | "refresh";
+/**
+ * A new-brand submission whose name already belongs to a live brand, or to
+ * another pending new-brand row in the same queue.
+ *
+ * Advisory only — it must never gate approval. Same-name brands are legal:
+ * `resolveUniqueSlug` dedupes the slug, so approving a duplicate SUCCEEDS and
+ * silently mints a second brand page. `TONELIT 同理` (`tonelit`/`tonelit-2`) and
+ * `NEWSTAR 明日之星` are both live twice from exactly this. Nothing in the system
+ * catches it, so the reviewer is the only backstop and needs to be told.
+ *
+ * `pendingSiblings` covers the case a live-brand check alone misses: two pending
+ * submissions for a brand that does not exist yet (`噗尼 Mobell` had two), where
+ * approving the first is what creates the collision for the second.
+ */
+export type SubmissionDuplicateWarning = {
+  liveBrand: { slug: string; name: string } | null;
+  pendingSiblings: number;
+};
 export type BrandSubmissionForReview = BrandSubmissionWithProductTypeNote & {
   reviewKind: "new" | "refresh";
+  duplicateWarning: SubmissionDuplicateWarning | null;
   baseBrandData: Json | null;
   baseBrandUpdatedAt: string | null;
   reviewOverrides: Json;
@@ -791,6 +814,31 @@ function buildReviewLayers(
     effective,
     overrides,
   };
+}
+
+/**
+ * Mirrors `check_brand_duplicates`' normalisation byte for byte
+ * (`lower(regexp_replace(name, '[[:space:][:punct:]]', '', 'g'))`) so the
+ * advisory warning and that RPC agree on what "the same name" means.
+ *
+ * Exact match on the normalised key, NOT the RPC's `word_similarity > 0.7`:
+ * every duplicate actually observed in production (`TONELIT 同理`,
+ * `NEWSTAR 明日之星`, `噗尼 Mobell`, `慢慢挑`) is identical once normalised, and a
+ * trigram threshold would additionally flag unrelated short CJK names. A
+ * warning nobody trusts is worse than no warning.
+ *
+ * NFC first so a composed and a decomposed spelling of the same name collapse
+ * together — the combining marks in `kué-tsí-li̍t` are the live example.
+ */
+export function normalizeDuplicateNameKey(name: string | null): string | null {
+  if (!name) return null;
+  const key = name
+    .normalize("NFC")
+    .toLocaleLowerCase()
+    // Unicode-aware equivalent of the SQL POSIX classes: CJK names carry
+    // full-width punctuation that [[:punct:]] catches but /\W/ would not.
+    .replace(/[\p{White_Space}\p{P}\p{S}]/gu, "");
+  return key.length > 0 ? key : null;
 }
 
 export function getSubmissionReviewCompleteness(
@@ -1499,6 +1547,46 @@ export async function getSubmissionsForReview(options?: {
     }
   }
 
+  // Advisory duplicate lookup. Only new-brand rows can collide — a refresh
+  // already points at its brand — so the whole block is skipped when the queue
+  // has none. Filtered to `approved`: `hidden` is this project's soft-delete and
+  // `is_demo` rows are seeds, and warning about either would train the reviewer
+  // to ignore the warning.
+  const liveBrandByNameKey = new Map<string, { slug: string; name: string }>();
+  const pendingCountByNameKey = new Map<string, number>();
+  for (const row of rows) {
+    if (row.brand_id) continue;
+    const key = normalizeDuplicateNameKey(row.brand_name);
+    if (key)
+      pendingCountByNameKey.set(key, (pendingCountByNameKey.get(key) ?? 0) + 1);
+  }
+  if (pendingCountByNameKey.size > 0) {
+    for (let page = 0; ; page += 1) {
+      const { data: brandRows, error: brandRowsError } = await supabase
+        .from("brands")
+        .select("name, slug")
+        .eq("status", "approved")
+        .eq("is_demo", false)
+        // `slug` is unique, so it is a stable tiebreaker: ordering by a
+        // non-unique column across pages can skip or repeat rows.
+        .order("slug", { ascending: true })
+        .range(
+          page * ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE,
+          (page + 1) * ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE - 1,
+        );
+      if (brandRowsError) throw brandRowsError;
+
+      const pageRows = brandRows ?? [];
+      for (const brand of pageRows) {
+        const key = normalizeDuplicateNameKey(brand.name);
+        if (key && !liveBrandByNameKey.has(key)) {
+          liveBrandByNameKey.set(key, { slug: brand.slug, name: brand.name });
+        }
+      }
+      if (pageRows.length < ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE) break;
+    }
+  }
+
   return rows.map((row) => {
     const latestTarget = latestTargetBySubmission.get(row.id);
     const latestJob = latestTarget
@@ -1538,9 +1626,25 @@ export async function getSubmissionsForReview(options?: {
       reviewImages,
       targetStatus,
     );
+    const duplicateNameKey = row.brand_id
+      ? null
+      : normalizeDuplicateNameKey(row.brand_name);
+    const liveDuplicate = duplicateNameKey
+      ? (liveBrandByNameKey.get(duplicateNameKey) ?? null)
+      : null;
+    // Minus itself: a row is always in its own pending tally.
+    const pendingSiblings = duplicateNameKey
+      ? (pendingCountByNameKey.get(duplicateNameKey) ?? 1) - 1
+      : 0;
+    const duplicateWarning =
+      liveDuplicate || pendingSiblings > 0
+        ? { liveBrand: liveDuplicate, pendingSiblings }
+        : null;
+
     return {
       ...submission,
       reviewKind: submission.intent === "refresh" ? "refresh" : "new",
+      duplicateWarning,
       baseBrandData: row.base_brand_data ?? null,
       baseBrandUpdatedAt: row.base_brand_updated_at ?? null,
       reviewOverrides: row.review_overrides ?? {},
@@ -2004,10 +2108,22 @@ export async function approveSubmission(
   }
   const slug = await resolveUniqueSlug(supabase, baseSlug);
 
+  // Last gate before a name reaches the public directory. The enrich-side name
+  // arbiter (DEV-1321) is the intended writer, but it only governs rows enriched
+  // after it shipped: `噗尼 Mobell` was enriched earlier, carried the scraped page
+  // title `噗尼 Mobell - 網頁不存在` in enriched_data.name, and published under it
+  // because approval copied that field verbatim. Any submission enriched before
+  // the arbiter — or by a future path that bypasses it — still lands here, so the
+  // clean runs at the boundary rather than trusting upstream.
+  //
+  // `cleanBrandName` returns the original when cleaning would empty the string,
+  // so this can never publish a blank name. The slug is untouched: it derives
+  // from the submission row, not from this field, and was already correct on the
+  // polluted row.
   const brandInsert: BrandInsert = {
     ...submissionToBrandBase(submission),
     ...submissionReviewDataToBrandInsert(reviewData),
-    name: reviewData.name,
+    name: cleanBrandName(reviewData.name).cleanedName,
     slug,
     status: "approved",
   };
@@ -2146,8 +2262,24 @@ export async function checkBrandDuplicates(
     return { nameMatches: [], websiteMatches: [] };
   }
 
+  // The RPC returns snake_case JSON; camelCase is the TS-side convention, so the
+  // rename happens here at the service-layer boundary rather than in the UI.
+  const mapCandidate = (candidate: {
+    id: string;
+    name: string;
+    slug: string;
+    similarity: number;
+    matched_on: DuplicateCandidate["matchedOn"];
+  }): DuplicateCandidate => ({
+    id: candidate.id,
+    name: candidate.name,
+    slug: candidate.slug,
+    similarity: candidate.similarity,
+    matchedOn: candidate.matched_on,
+  });
+
   return {
-    nameMatches: data?.name_matches ?? [],
-    websiteMatches: data?.website_matches ?? [],
+    nameMatches: (data?.name_matches ?? []).map(mapCandidate),
+    websiteMatches: (data?.website_matches ?? []).map(mapCandidate),
   };
 }

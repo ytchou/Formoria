@@ -46,6 +46,13 @@ test.describe("i18n English browse", () => {
     for (const text of ["About Formoria", "Recommend a Brand"]) {
       expect(document.headerText).toContain(text);
     }
+    // Only ontology-stable strings belong here: page chrome and the taxonomy
+    // CATEGORY. Brand-level product tags must never be pinned — curation
+    // rewrites them as a normal outcome, and djulis's tags legitimately moved
+    // from 'Snacks' to 'Cereal Bars'/'Cookies & Rice Crackers' during the
+    // 2026-08-03 re-curation, failing this spec on a data change rather than a
+    // localisation regression. `Food & Beverage` comes from the ontology, so it
+    // covers taxonomy localisation without depending on one brand's data.
     for (const text of [
       "Brands",
       "Visit Website",
@@ -56,7 +63,6 @@ test.describe("i18n English browse", () => {
       "Price",
       "Product categories",
       "Food & Beverage",
-      "Snacks",
     ]) {
       expect(document.mainText).toContain(text);
     }
@@ -70,7 +76,6 @@ test.describe("i18n English browse", () => {
       "價格區間",
       "產品類別",
       "食品飲料",
-      "零食",
     ]) {
       expect(document.mainText).not.toContain(text);
     }
@@ -88,6 +93,7 @@ test.describe("i18n English browse", () => {
     for (const text of ["關於 Formoria", "推薦品牌"]) {
       expect(document.headerText).toContain(text);
     }
+    // Ontology-stable strings only — see the note on the EN case above.
     for (const text of [
       "品牌目錄",
       "前往官網",
@@ -98,7 +104,6 @@ test.describe("i18n English browse", () => {
       "價格區間",
       "產品類別",
       "食品飲料",
-      "零食",
     ]) {
       expect(document.mainText).toContain(text);
     }
@@ -111,7 +116,6 @@ test.describe("i18n English browse", () => {
       "Category",
       "Product categories",
       "Food & Beverage",
-      "Snacks",
     ]) {
       expect(document.mainText).not.toContain(text);
     }

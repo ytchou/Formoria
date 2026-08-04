@@ -54,6 +54,10 @@ const ALLOWLIST = [
   // Enrich-phase search queries use Chinese keywords to find Taiwan brand data (not UI copy).
   "lib/services/enrich-phases/discover.ts",
   "lib/services/enrich-phases/image-search.ts",
+  // Curation name arbitration uses Chinese source examples and LLM field labels, not UI copy.
+  "lib/services/enrich-phases/links.ts",
+  "lib/services/enrich-phases/names.ts",
+  "lib/services/name-arbiter.ts",
   // Taxonomy ontology: nameZh is structural data (bilingual label in data layer, not UI copy).
   "lib/taxonomy/ontology.ts",
   // Slug generation regex uses CJK character ranges (not UI copy).
@@ -78,6 +82,8 @@ const ALLOWLIST = [
   "lib/services/enrich-phases/detect.ts",
   // SERP query string uses Chinese keyword '台灣' (not UI copy).
   "lib/services/curation-operations.ts",
+  // Submission deduplication comments document production names, not rendered copy.
+  "lib/services/submissions.ts",
   // Transitional: real messages come from the i18n factory; static fallback map
   // here is test-only. TODO remove the static fallback and drop this entry.
   "lib/validations/submission.ts",

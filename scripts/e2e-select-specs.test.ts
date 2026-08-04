@@ -545,9 +545,11 @@ describe("selectDerivedSpecs against the repository", () => {
   });
 
   it("selects the canonical getting-started smoke spec in the deep project", () => {
-    expect(
-      select(["src/app/[locale]/(site)/getting-started/page.tsx"]),
-    ).toContain("e2e/tests/getting-started.spec.ts");
+    const gettingStarted = select([
+      "src/app/[locale]/(site)/getting-started/page.tsx",
+    ]);
+    expect(gettingStarted).toContain("e2e/tests/getting-started.spec.ts");
+    expect(gettingStarted.every(isSelectableSpec)).toBe(true);
 
     const everySpec = select(["src/components/ui/button.tsx"]);
     expect(everySpec.length).toBeGreaterThan(0);

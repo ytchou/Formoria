@@ -22,6 +22,131 @@ describeWithDb("brand duplicate checks", () => {
     brandIds.length = 0;
   });
 
+  it("matches a CJK segment inside a mixed-script brand name", async () => {
+    const brandId = randomUUID();
+    brandIds.push(brandId);
+    const { error } = await supabase!.from("brands").insert({
+      id: brandId,
+      name: `O!Terrific 歐特莉菲 ${brandId}`,
+      slug: `o-terrific-${brandId}`,
+      status: "approved",
+    });
+    if (error) throw error;
+
+    const { data, error: rpcError } = await supabase!.rpc(
+      "check_brand_duplicates",
+      { p_name: "歐特莉菲" },
+    );
+
+    expect(rpcError).toBeNull();
+    // arrayContaining, not an exact array: the real corpus holds the live
+    // `O!Terrific 歐特莉菲` this bug was reported against, and it matches too.
+    expect(data).toMatchObject({
+      name_matches: expect.arrayContaining([
+        expect.objectContaining({ id: brandId, matched_on: "cjk" }),
+      ]),
+    });
+  });
+
+  it("does not match short segments by containment", async () => {
+    // `Bonbons` / `Bon Bon Stickers 邦妮插畫` is deliberately absent: the
+    // unchanged whole-name rule scores it 0.857 on `word_similarity` and flags
+    // it today, independent of the segment rules. Asserting no-match there
+    // would be asserting a behaviour change this fix does not make.
+    const cases = [
+      ["Mountopia® 山托邦", "山織 Mount"],
+      ["Landingdream", "Lan（美味茶葉蛋）"],
+      ["PNGL 穿山甲", "雱PĀNG"],
+    ] as const;
+    const seeded = cases.map(([name]) => ({ id: randomUUID(), name }));
+    brandIds.push(...seeded.map(({ id }) => id));
+    // Seeded verbatim, with the uuid confined to the slug: appending it to the
+    // name pads the Latin segment with 32 hex chars, which drags
+    // `similarity('mount', 'mountopia…')` far below the threshold and makes the
+    // containment cases pass for the wrong reason. The assertion is that the
+    // *seeded* id is absent, so a live twin also matching is harmless.
+    const { error } = await supabase!.from("brands").insert(
+      seeded.map(({ id, name }) => ({
+        id,
+        name,
+        slug: `duplicate-check-${id}`,
+        status: "approved" as const,
+      })),
+    );
+    if (error) throw error;
+
+    for (const [index, [, query]] of cases.entries()) {
+      const { data, error: rpcError } = await supabase!.rpc(
+        "check_brand_duplicates",
+        { p_name: query },
+      );
+      expect(rpcError).toBeNull();
+      expect(data).not.toEqual(
+        expect.objectContaining({
+          name_matches: expect.arrayContaining([
+            expect.objectContaining({ id: seeded[index].id }),
+          ]),
+        }),
+      );
+    }
+  });
+
+  it("matches a social profile website when purchase website is null", async () => {
+    const brandId = randomUUID();
+    const instagramPath = `formoria-${brandId}`;
+    brandIds.push(brandId);
+    const { error } = await supabase!.from("brands").insert({
+      id: brandId,
+      name: `Social Brand ${brandId}`,
+      slug: `social-brand-${brandId}`,
+      status: "approved",
+      purchase_website: null,
+      social_instagram: `https://www.instagram.com/${instagramPath}/`,
+    });
+    if (error) throw error;
+
+    const websiteKey = normalizeCommunityWebsite(
+      `https://www.instagram.com/${instagramPath}/`,
+    )?.key;
+    const { data, error: rpcError } = await supabase!.rpc(
+      "check_brand_duplicates",
+      { p_name: "Unrelated Brand", p_website_key: websiteKey },
+    );
+
+    expect(rpcError).toBeNull();
+    expect(data).toMatchObject({
+      website_matches: [
+        expect.objectContaining({ id: brandId, matched_on: "website" }),
+      ],
+    });
+  });
+
+  it("matches mixed-script names regardless of word order", async () => {
+    const brandId = randomUUID();
+    brandIds.push(brandId);
+    const { error } = await supabase!.from("brands").insert({
+      id: brandId,
+      name: `SH Taiwan 植茁 ${brandId}`,
+      slug: `sh-taiwan-${brandId}`,
+      status: "approved",
+    });
+    if (error) throw error;
+
+    const { data, error: rpcError } = await supabase!.rpc(
+      "check_brand_duplicates",
+      { p_name: "植茁 Zhi Grow" },
+    );
+
+    expect(rpcError).toBeNull();
+    // Both `植茁 Zhi Grow` and `SH Taiwan 植茁` are live brands, so the seeded row
+    // is one of several legitimate hits.
+    expect(data).toMatchObject({
+      name_matches: expect.arrayContaining([
+        expect.objectContaining({ id: brandId }),
+      ]),
+    });
+  });
+
   it("finds website variants without collapsing distinct storefront paths", async () => {
     const brandId = randomUUID();
     brandIds.push(brandId);

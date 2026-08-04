@@ -63,6 +63,51 @@ beforeEach(() => {
 });
 
 describe("SubmissionsReviewList", () => {
+  it("warns about a duplicate without blocking approval", () => {
+    // Advisory by design: the slug is deduped, so approving a duplicate
+    // succeeds and silently creates a second brand page. `TONELIT 同理` is live
+    // twice from exactly this, so the reviewer is the only backstop.
+    renderList(
+      [
+        makeSubmission({
+          id: "dupe",
+          brandName: "TONELIT 同理",
+          duplicateWarning: {
+            liveBrand: { slug: "tonelit", name: "TONELIT 同理" },
+            pendingSiblings: 0,
+          },
+        }),
+      ],
+      "ready",
+    );
+
+    expect(screen.getByText(/already exists/i)).toBeInTheDocument();
+    // The row's own Approve button, not the bulk "Approve N selected" one —
+    // that is disabled simply because nothing is checked.
+    const rowApprove = screen
+      .getAllByRole("button", { name: /approve/i })
+      .filter(
+        (button) => !/selected/i.test(button.getAttribute("aria-label") ?? ""),
+      );
+    expect(rowApprove.length).toBeGreaterThan(0);
+    for (const button of rowApprove) expect(button).toBeEnabled();
+  });
+
+  it("warns when only other pending submissions share the name", () => {
+    renderList(
+      [
+        makeSubmission({
+          id: "pending-dupe",
+          brandName: "噗尼 Mobell",
+          duplicateWarning: { liveBrand: null, pendingSiblings: 1 },
+        }),
+      ],
+      "ready",
+    );
+
+    expect(screen.getByText(/pending submission/i)).toBeInTheDocument();
+  });
+
   it("filters by complete or incomplete persisted review state", async () => {
     const user = userEvent.setup();
     renderList(
@@ -499,6 +544,7 @@ function makeSubmission(
     intent: "recommend",
     productTypeNote: null,
     reviewKind: "new",
+    duplicateWarning: null,
     baseBrandData: null,
     baseBrandUpdatedAt: null,
     reviewOverrides: {},

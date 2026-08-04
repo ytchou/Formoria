@@ -12,7 +12,7 @@ import {
   isLikelyCrawler,
   isRouterRequest,
 } from "@/lib/security/rate-limiter";
-import { resolveApprovedBrandRedirect } from '@/lib/services/brand-redirects'
+import { hasApprovedBrandSlug, resolveApprovedBrandRedirect } from '@/lib/services/brand-redirects'
 
 /**
  * Routes that are reserved for static pages and cannot be used as brand slugs.
@@ -60,6 +60,17 @@ export const RESERVED_ROUTES = new Set([
 ])
 
 export const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{2,79}$/
+
+export type BareBrandSlugDecision =
+  | { action: 'redirect'; status: 301; pathname: string }
+  | { action: 'not-found'; status: 404 }
+
+export function decideBareBrandSlug(slug: string, isApproved: boolean): BareBrandSlugDecision {
+  return isApproved
+    ? { action: 'redirect', status: 301, pathname: `/brands/${slug}` }
+    : { action: 'not-found', status: 404 }
+}
+
 const intlMiddleware = createMiddleware(routing)
 const KNOWN_LOCALES = new Set<string>(routing.locales)
 const ADMIN_DEFAULT_LOCALE = 'en'
@@ -311,9 +322,23 @@ export async function proxy(request: NextRequest) {
   if (segments.length === 1) {
     const slug = segments[0]
     if (!KNOWN_LOCALES.has(slug) && !RESERVED_ROUTES.has(slug) && SLUG_PATTERN.test(slug)) {
+      // A failed existence check must retain the old redirect behavior so a
+      // transient Supabase outage cannot make a real brand unavailable.
+      let isApproved = true
+      try {
+        isApproved = await hasApprovedBrandSlug(slug)
+      } catch {
+        isApproved = true
+      }
+
+      const decision = decideBareBrandSlug(slug, isApproved)
+      if (decision.action === 'not-found') {
+        return new NextResponse(null, { status: decision.status })
+      }
+
       const url = request.nextUrl.clone()
-      url.pathname = `/brands/${slug}`
-      return NextResponse.redirect(url, 301)
+      url.pathname = decision.pathname
+      return NextResponse.redirect(url, decision.status)
     }
   }
 

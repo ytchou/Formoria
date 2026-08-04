@@ -3,6 +3,7 @@ import { getTranslations, getMessages, setRequestLocale } from 'next-intl/server
 import { buildDefinedTermSetJsonLd, buildBreadcrumbJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
+import { buildOpenGraph } from '@/lib/seo/open-graph'
 import { Badge } from '@/components/ui/badge'
 import { MitVerifiedBadge, OwnerVerifiedBadge } from '@/components/brands/brand-verification-badges'
 import { GlossaryAnchorNav } from './glossary-anchor-nav'
@@ -28,18 +29,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title,
     description,
     alternates: { canonical, languages },
-    openGraph: {
+    ...buildOpenGraph({
       title,
       description,
+      url: canonical,
       locale: ogLocale,
       alternateLocale: [ogAlternateLocale],
       type: 'article',
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title,
-      description,
-    },
+    }),
   }
 }
 

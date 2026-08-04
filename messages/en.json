@@ -65,6 +65,7 @@
     "stories": "Stories",
     "events": "Events",
     "glossary": "Glossary",
+    "stats": "Stats",
     "submit": "Recommend a Brand",
     "companyHeading": "Company",
     "faq": "FAQ",
@@ -2002,6 +2003,8 @@
       "nameDuplicateTitle": "Similar brand names found",
       "websiteDuplicateTitle": "This website is already listed for a brand",
       "nameDuplicateConfirmLabel": "I confirm this is not a duplicate brand",
+      "duplicateReasonCjk": "similar Chinese name",
+      "duplicateReasonLatin": "similar English name",
       "checking": "Checking",
       "next": "Next",
       "dedup_check_failed": "Unable to check for duplicates. Please try again."
@@ -2636,6 +2639,10 @@
         "website": "Valid official website",
         "heroImage": "Hero image",
         "successfulEnrichment": "Successful latest enrichment"
+      },
+      "duplicateWarning": {
+        "liveBrand": "Possible duplicate — the brand \"{name}\" already exists. Approving creates a second page.",
+        "pendingOnly": "Possible duplicate — {count} other pending submission(s) use this name. Approving both creates two pages."
       },
       "details": {
         "content": "Content",

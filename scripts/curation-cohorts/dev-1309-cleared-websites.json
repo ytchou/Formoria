@@ -1,0 +1,10 @@
+{
+  "name": "dev-1309-cleared-websites",
+  "title": "DEV-1309 — brands whose contaminated purchase_website was cleared",
+  "subtitle": "Three brands whose purchase_website pointed at an unrelated company, which is what the scraper harvested images from: S'MORE (smore.com, a US newsletter tool, and campworld.tw in its snapshot — the brand is baby shoes at instagram.com/smore.baby.shoes), 可可雲手作室內拖鞋 (online.uni-prosperity.com.tw, a food company — its images came back as chocolate, dumplings, and a guitar for a slipper brand), and 大I獨角獸 光棲之所 (h.163.com, NetEase). The links were set to null on 2026-08-04 and the two stale refresh submissions rejected, because base_brand_data is immutable and still carried the bad host. All three keep Pinkoi and/or Instagram, so the image classifier still has an identifier to ground on after the DEV-1319 fix. S'MORE and 可可雲 previously failed the 2-7 image apply gate with zero usable images.",
+  "labels": {
+    "s-more": "S'MORE",
+    "可可雲手作室內拖鞋": "可可雲手作室內拖鞋",
+    "大i獨角獸-光棲之所": "大I獨角獸 光棲之所"
+  }
+}

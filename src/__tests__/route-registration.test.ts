@@ -1,7 +1,13 @@
 import { describe, it, expect } from 'vitest'
 import { readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { config, PUBLIC_INTL_SEGMENTS, RESERVED_ROUTES, SLUG_PATTERN } from '@/proxy'
+import {
+  config,
+  decideBareBrandSlug,
+  PUBLIC_INTL_SEGMENTS,
+  RESERVED_ROUTES,
+  SLUG_PATTERN,
+} from '@/proxy'
 
 /**
  * Adding a route directory under `src/app` without registering it in `proxy.ts`
@@ -82,6 +88,18 @@ describe('route registration', () => {
 
     expect(matcher.test('/_next/webpack-hmr')).toBe(false)
     expect(matcher.test('/en/brands')).toBe(true)
+  })
+
+  it('404s an absent bare slug but redirects an approved one', () => {
+    expect(decideBareBrandSlug('missing-brand', false)).toEqual({
+      action: 'not-found',
+      status: 404,
+    })
+    expect(decideBareBrandSlug('existing-brand', true)).toEqual({
+      action: 'redirect',
+      status: 301,
+      pathname: '/brands/existing-brand',
+    })
   })
 
   it.each(appSegments.filter((s) => SLUG_PATTERN.test(s.name) && isRoutable(s.path)))(

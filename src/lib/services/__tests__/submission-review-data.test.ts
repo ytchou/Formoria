@@ -3,6 +3,7 @@ import {
   buildSubmissionReviewOverrides,
   buildSubmissionReviewData,
   getSubmissionReviewCompleteness,
+  normalizeDuplicateNameKey,
   normalizeSubmissionReviewImages,
   resolveSubmissionReviewImages,
   type SubmissionReviewImage,
@@ -59,20 +60,24 @@ const activeImages: SubmissionReviewImage[] = [
 
 describe("buildSubmissionReviewData", () => {
   it("shows populated enrichment in the normalized review data", () => {
-    const reviewData = buildSubmissionReviewData(baseSubmission, {
-      name: "Enriched Brand",
-      description: "豐富後的中文介紹",
-      descriptionEn: "Enriched English description",
-      productType: "crafts",
-      productTags: ["木工", "家飾"],
-      productTagsEn: ["Woodwork", "Home decor"],
-      priceRange: 2,
-      city: "台中",
-      foundingYear: 2018,
-      purchaseWebsite: "https://enriched.example.com",
-      mitEvidence: { verified_source: "registry" },
-      reputationSummary: { text: "評價良好" },
-    }, activeImages);
+    const reviewData = buildSubmissionReviewData(
+      baseSubmission,
+      {
+        name: "Enriched Brand",
+        description: "豐富後的中文介紹",
+        descriptionEn: "Enriched English description",
+        productType: "crafts",
+        productTags: ["木工", "家飾"],
+        productTagsEn: ["Woodwork", "Home decor"],
+        priceRange: 2,
+        city: "台中",
+        foundingYear: 2018,
+        purchaseWebsite: "https://enriched.example.com",
+        mitEvidence: { verified_source: "registry" },
+        reputationSummary: { text: "評價良好" },
+      },
+      activeImages,
+    );
 
     expect(reviewData).toMatchObject({
       name: "Enriched Brand",
@@ -92,16 +97,20 @@ describe("buildSubmissionReviewData", () => {
   });
 
   it("does not let blank enrichment overwrite populated submission data", () => {
-    const reviewData = buildSubmissionReviewData(baseSubmission, {
-      name: "  ",
-      description: "",
-      heroImageUrl: " ",
-      productType: "",
-      productTags: [],
-      purchaseWebsite: "",
-      socialInstagram: "",
-      otherUrls: [],
-    }, activeImages);
+    const reviewData = buildSubmissionReviewData(
+      baseSubmission,
+      {
+        name: "  ",
+        description: "",
+        heroImageUrl: " ",
+        productType: "",
+        productTags: [],
+        purchaseWebsite: "",
+        socialInstagram: "",
+        otherUrls: [],
+      },
+      activeImages,
+    );
 
     expect(reviewData).toMatchObject({
       name: "Original Brand",
@@ -111,20 +120,22 @@ describe("buildSubmissionReviewData", () => {
       websiteUrl: "https://original.example.com",
       heroImageUrl: "https://cdn.example.com/hero.webp",
       socialInstagram: "https://instagram.com/original",
-      otherUrls: [
-        { label: "Stockist", url: "https://stockist.example.com" },
-      ],
+      otherUrls: [{ label: "Stockist", url: "https://stockist.example.com" }],
     });
   });
 });
 
 describe("getSubmissionReviewCompleteness", () => {
   function completeData() {
-    return buildSubmissionReviewData(baseSubmission, {
-      productType: "beauty",
-      productTags: ["手工皂"],
-      priceRange: 2,
-    }, activeImages);
+    return buildSubmissionReviewData(
+      baseSubmission,
+      {
+        productType: "beauty",
+        productTags: ["手工皂"],
+        priceRange: 2,
+      },
+      activeImages,
+    );
   }
 
   it("accepts a complete persisted review", () => {
@@ -143,7 +154,17 @@ describe("getSubmissionReviewCompleteness", () => {
     ["productTags", { productTags: [] }],
     ["productTags", { productTags: ["一", "二", "三", "四", "五", "六"] }],
     ["priceRange", { priceRange: 4 }],
-    ["website", { websiteUrl: null, socialInstagram: null, socialThreads: null, socialFacebook: null, purchasePinkoi: null, purchaseShopee: null }],
+    [
+      "website",
+      {
+        websiteUrl: null,
+        socialInstagram: null,
+        socialThreads: null,
+        socialFacebook: null,
+        purchasePinkoi: null,
+        purchaseShopee: null,
+      },
+    ],
   ] as const)("reports a missing %s requirement", (missingField, patch) => {
     const result = getSubmissionReviewCompleteness(
       { ...completeData(), ...patch } as ReturnType<typeof completeData>,
@@ -220,11 +241,15 @@ describe("getSubmissionReviewCompleteness", () => {
 
 describe("buildSubmissionReviewOverrides", () => {
   it("does not persist the derived hero cache as an admin field override", () => {
-    const baseline = buildSubmissionReviewData(baseSubmission, {
-      productType: "beauty",
-      productTags: ["手工皂"],
-      priceRange: 2,
-    }, activeImages);
+    const baseline = buildSubmissionReviewData(
+      baseSubmission,
+      {
+        productType: "beauty",
+        productTags: ["手工皂"],
+        priceRange: 2,
+      },
+      activeImages,
+    );
 
     expect(
       buildSubmissionReviewOverrides(baseline, {
@@ -270,5 +295,48 @@ describe("normalizeSubmissionReviewImages", () => {
       "https://cdn.example.com/detail.webp",
       "https://cdn.example.com/rejected.webp",
     ]);
+  });
+});
+
+describe("normalizeDuplicateNameKey", () => {
+  it("collapses the duplicate pairs actually found live", () => {
+    // Both of these are live twice in production with distinct slugs
+    // (tonelit/tonelit-2), which is what the warning exists to prevent.
+    expect(normalizeDuplicateNameKey("TONELIT 同理")).toBe(
+      normalizeDuplicateNameKey("tonelit同理"),
+    );
+    expect(normalizeDuplicateNameKey("噗尼 Mobell")).toBe(
+      normalizeDuplicateNameKey("噗尼Mobell"),
+    );
+  });
+
+  it("matches a composed and a decomposed spelling of the same name", () => {
+    const composed = "菓實日 kué-tsí-li̍t".normalize("NFC");
+    const decomposed = "菓實日 kué-tsí-li̍t".normalize("NFD");
+    expect(composed).not.toBe(decomposed);
+    expect(normalizeDuplicateNameKey(composed)).toBe(
+      normalizeDuplicateNameKey(decomposed),
+    );
+  });
+
+  it("strips full-width CJK punctuation the way the SQL POSIX class does", () => {
+    expect(normalizeDuplicateNameKey("大I獨角獸・光棲之所")).toBe(
+      normalizeDuplicateNameKey("大i獨角獸 光棲之所"),
+    );
+  });
+
+  it("keeps genuinely different brands apart", () => {
+    expect(normalizeDuplicateNameKey("404 Oligo")).not.toBe(
+      normalizeDuplicateNameKey("Oligo"),
+    );
+    expect(normalizeDuplicateNameKey("One Shoe")).not.toBe(
+      normalizeDuplicateNameKey("Two Shoe"),
+    );
+  });
+
+  it("returns null for names that normalise to nothing", () => {
+    expect(normalizeDuplicateNameKey(null)).toBeNull();
+    expect(normalizeDuplicateNameKey("   ")).toBeNull();
+    expect(normalizeDuplicateNameKey("---")).toBeNull();
   });
 });

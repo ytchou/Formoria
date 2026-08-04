@@ -65,6 +65,7 @@
     "stories": "專題",
     "events": "展會",
     "glossary": "名詞解說",
+    "stats": "統計資料",
     "submit": "推薦品牌",
     "companyHeading": "關於",
     "faq": "常見問題",
@@ -2002,6 +2003,8 @@
       "nameDuplicateTitle": "發現相似品牌名稱",
       "websiteDuplicateTitle": "這個網站已經登錄在其他品牌資料中",
       "nameDuplicateConfirmLabel": "我確認這不是重複的品牌",
+      "duplicateReasonCjk": "中文名稱相似",
+      "duplicateReasonLatin": "英文名稱相似",
       "checking": "檢查中",
       "next": "下一步",
       "dedup_check_failed": "無法驗重複，請再試一次。"
@@ -2636,6 +2639,10 @@
         "website": "有效的官方網站",
         "heroImage": "主圖",
         "successfulEnrichment": "最近一次資料抓取成功"
+      },
+      "duplicateWarning": {
+        "liveBrand": "可能重複 — 品牌「{name}」已存在，核准後會再建立一個頁面。",
+        "pendingOnly": "可能重複 — 另有 {count} 筆待審核提交使用相同名稱，兩筆都核准會建立兩個頁面。"
       },
       "details": {
         "content": "內容",

@@ -26,6 +26,7 @@ import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
 import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
 import { buildAlternates } from "@/lib/seo/alternates";
 import type { Locale } from "@/lib/seo/alternates";
+import { buildOpenGraph } from "@/lib/seo/open-graph";
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { getAllStories } from "@/lib/services/stories";
 import { StoryRow } from "@/components/stories/story-row";
@@ -52,17 +53,13 @@ export async function generateMetadata({
     title: { absolute: t("title") },
     description: t("description"),
     alternates: { canonical, languages },
-    twitter: {
-      card: "summary_large_image",
+    ...buildOpenGraph({
       title: t("title"),
       description: t("description"),
-    },
-    openGraph: {
-      title: t("title"),
-      description: t("description"),
+      url: canonical,
       locale: ogLocale,
       alternateLocale: [ogAlternateLocale],
-    },
+    }),
   };
 }
 
