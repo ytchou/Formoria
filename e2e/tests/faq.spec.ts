@@ -16,7 +16,7 @@ import { test, expect } from '../fixtures/auth'
  * Seed: none
  */
 test.describe('FAQ page', () => {
-  test('renders two section headings and exactly 13 details elements', async ({ anonPage }) => {
+  test('@smoke renders two section headings and exactly 13 details elements', async ({ anonPage }) => {
     test.setTimeout(30_000)
 
     // /faq is the zh-TW canonical URL (localePrefix: 'as-needed', defaultLocale: 'zh-TW')

@@ -1,11 +1,10 @@
 import { test, expect } from '../fixtures/auth';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { ownerFeaturesDisabled, OWNER_FEATURES_OFF_REASON } from '../helpers/owner-features';
+import {
+  ownerFeaturesDisabled,
+  OWNER_FEATURES_OFF_REASON,
+} from '../helpers/owner-features';
 
-// Suite-level gate (DEV-1261). Declared at file scope so it runs before the
-// describe's seeding beforeAll: the claim CTA is not rendered and the owner
-// dashboard 404s while the flag is off. Probes the running app, never
-// app_settings.
 test.beforeAll(async ({ browser }) => {
   if (await ownerFeaturesDisabled(browser)) {
     test.skip(true, OWNER_FEATURES_OFF_REASON);
@@ -14,7 +13,7 @@ test.beforeAll(async ({ browser }) => {
 
 const ONE_PIXEL_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
-  'base64'
+  'base64',
 );
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -31,7 +30,7 @@ function claimProofPath(storageKey: string): string {
     : storageKey;
 }
 
-test.describe('Claim smoke', () => {
+test.describe('Claim request smoke', () => {
   let supabaseAdmin: AnySupabaseClient;
   let brandId: string;
   let brandSlug: string;
@@ -43,16 +42,19 @@ test.describe('Claim smoke', () => {
   test.beforeAll(async () => {
     supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
     );
 
-    const { data: usersData, error: usersError } = await supabaseAdmin.auth.admin.listUsers();
+    const { data: usersData, error: usersError } =
+      await supabaseAdmin.auth.admin.listUsers();
     if (usersError) throw new Error(`Failed to list users: ${usersError.message}`);
 
-    const testUser = usersData.users.find((user) => user.email === process.env.E2E_USER_EMAIL);
+    const testUser = usersData.users.find(
+      (user) => user.email === process.env.E2E_USER_EMAIL,
+    );
     if (!testUser) {
       throw new Error(
-        `E2E test user not found: ${process.env.E2E_USER_EMAIL}. Run global-setup first.`
+        `E2E test user not found: ${process.env.E2E_USER_EMAIL}. Run global-setup first.`,
       );
     }
     userId = testUser.id;
@@ -88,7 +90,9 @@ test.describe('Claim smoke', () => {
       .select('id')
       .eq('brand_id', brandId);
     const claimIds = new Set<string>(
-      (remainingClaims ?? []).flatMap((claim: { id?: string }) => claim.id ? [claim.id] : []),
+      (remainingClaims ?? []).flatMap((claim: { id?: string }) =>
+        claim.id ? [claim.id] : [],
+      ),
     );
     if (claimRequestId) claimIds.add(claimRequestId);
     if (claimIds.size > 0) {
@@ -114,7 +118,7 @@ test.describe('Claim smoke', () => {
     await supabaseAdmin.from('brands').delete().eq('id', brandId);
   });
 
-  test('non-owner can claim a community brand and admin can approve it', async ({
+  test('@smoke non-owner can claim a community brand and admin can approve it', async ({
     userPage,
     adminPage,
   }) => {
@@ -127,18 +131,15 @@ test.describe('Claim smoke', () => {
       return;
     }
 
-    await expect(userPage.getByRole('heading', { level: 1, name: brandName })).toBeVisible({
-      timeout: 10_000,
-    });
+    await expect(
+      userPage.getByRole('heading', { level: 1, name: brandName }),
+    ).toBeVisible({ timeout: 10_000 });
     await expect(userPage.getByRole('button', { name: '認領這個品牌' })).toBeVisible({
       timeout: 10_000,
     });
     await expect(userPage.getByTitle('由品牌方經營管理')).toHaveCount(0);
 
-    // Open the claim form
     await userPage.getByRole('button', { name: '認領這個品牌' }).click();
-
-    // Use upload-backed proof. Domain-email claims must be verified before approval.
     await userPage.locator('#claim-proof-backend_screenshot').check();
     await userPage.locator('#claim-backend_screenshot-image').setInputFiles({
       name: 'backend-proof.png',
@@ -146,16 +147,14 @@ test.describe('Claim smoke', () => {
       buffer: ONE_PIXEL_PNG,
     });
 
-    // Submit — button reads "送出認領申請" when idle
     const submitClaimButton = userPage.getByRole('button', { name: '送出認領申請' });
     await expect(submitClaimButton).toBeEnabled({ timeout: 15_000 });
     await submitClaimButton.click();
-
-    // Success state: inline pending section (not a toast)
-    await expect(userPage.getByText('已收到你的認領申請')).toBeVisible({ timeout: 10_000 });
+    await expect(userPage.getByText('已收到你的認領申請')).toBeVisible({
+      timeout: 10_000,
+    });
     await expect(userPage.getByText(/我們會盡快審核/)).toBeVisible({ timeout: 5_000 });
 
-    // DB: claim_request row exists with proof_evidence array of length >= 1
     await expect
       .poll(
         async () => {
@@ -169,7 +168,7 @@ test.describe('Claim smoke', () => {
           if (error) throw error;
           return Array.isArray(data?.proof_evidence) ? data.proof_evidence.length : 0;
         },
-        { timeout: 15_000, intervals: [500, 1_000, 2_000] }
+        { timeout: 15_000, intervals: [500, 1_000, 2_000] },
       )
       .toBeGreaterThanOrEqual(1);
 
@@ -180,7 +179,9 @@ test.describe('Claim smoke', () => {
       .eq('user_id', userId)
       .single<ClaimRow>();
     if (claimRowError || !claimRow) {
-      throw new Error(`Failed to load submitted claim: ${claimRowError?.message ?? 'missing row'}`);
+      throw new Error(
+        `Failed to load submitted claim: ${claimRowError?.message ?? 'missing row'}`,
+      );
     }
     claimRequestId = claimRow.id;
     for (const proof of claimRow.proof_evidence ?? []) {
@@ -188,10 +189,9 @@ test.describe('Claim smoke', () => {
     }
     expect(proofStorageKeys.size).toBeGreaterThanOrEqual(1);
 
-    // Admin: approve the claim
     await adminPage.goto('/admin/claims', { timeout: 60_000 });
     await expect(
-      adminPage.getByRole('heading', { name: /claim requests/i })
+      adminPage.getByRole('heading', { name: /claim requests/i }),
     ).toBeVisible({ timeout: 60_000 });
     await expect(adminPage.getByText(brandName, { exact: true })).toBeVisible({
       timeout: 60_000,
@@ -221,7 +221,7 @@ test.describe('Claim smoke', () => {
           if (error) throw error;
           return data?.status ?? null;
         },
-        { timeout: 15_000, intervals: [500, 1_000, 2_000] }
+        { timeout: 15_000, intervals: [500, 1_000, 2_000] },
       )
       .toBe('completed');
 
@@ -234,12 +234,11 @@ test.describe('Claim smoke', () => {
               .download(claimProofPath(storageKey));
             return data !== null;
           },
-          { timeout: 15_000, intervals: [500, 1_000, 2_000] }
+          { timeout: 15_000, intervals: [500, 1_000, 2_000] },
         )
         .toBe(false);
     }
 
-    // DB: brand_owners row created for this user
     await expect
       .poll(
         async () => {
@@ -253,21 +252,18 @@ test.describe('Claim smoke', () => {
           if (error) throw error;
           return data?.user_id ?? null;
         },
-        { timeout: 15_000, intervals: [500, 1_000, 2_000] }
+        { timeout: 15_000, intervals: [500, 1_000, 2_000] },
       )
       .toBe(userId);
 
-    // The public brand page is ISR-cached, so assert immediate owner visibility through
-    // the uncached authenticated dashboard instead of waiting for the public badge.
     await expect(async () => {
       await userPage.goto('/dashboard');
-      await expect(userPage).toHaveURL(
-        new RegExp(`/dashboard/brands/${brandSlug}$`),
-        { timeout: 5_000 },
-      );
-      await expect(userPage.getByRole('heading', { level: 1, name: brandName })).toBeVisible({
+      await expect(userPage).toHaveURL(new RegExp(`/dashboard/brands/${brandSlug}$`), {
         timeout: 5_000,
       });
+      await expect(
+        userPage.getByRole('heading', { level: 1, name: brandName }),
+      ).toBeVisible({ timeout: 5_000 });
       await expect(userPage.getByRole('link', { name: '編輯品牌' }).first()).toBeVisible({
         timeout: 5_000,
       });

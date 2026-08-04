@@ -57,7 +57,7 @@ test.describe('Auth — Google OAuth offline guard', () => {
    * navigation to *.supabase.co/auth/v1/authorize, abort it, and assert
    * provider=google is present in the URL — no live Google navigation occurs.
    */
-  test('Google sign-in button is present and initiates provider=google authorize request', async ({
+  test('@smoke sign-in page renders the heading and Google entry point', async ({
     anonPage,
   }) => {
     test.setTimeout(120_000);
@@ -71,6 +71,10 @@ test.describe('Auth — Google OAuth offline guard', () => {
     });
 
     await anonPage.goto('/auth/sign-in', { timeout: 60_000 });
+
+    await expect(
+      anonPage.getByRole('heading', { name: '登入 Formoria', exact: true }),
+    ).toBeVisible({ timeout: 60_000 });
 
     // Button must be visible before any click
     const googleBtn = anonPage.getByRole('button', { name: '使用 Google 登入', exact: true });

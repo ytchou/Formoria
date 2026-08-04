@@ -1,13 +1,17 @@
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { describe, it, expect } from 'vitest'
 import {
   buildReverseImportGraph,
   buildSelectionIndex,
+  auditRouteCoverage,
   collectReachableImporters,
   collectSpecRoutes,
   extractImports,
   extractRoutes,
+  countTestTags,
+  hasTestTag,
+  isPageEntrypoint,
   isCodeFile,
   isRouteEntrypoint,
   isSelectableSpec,
@@ -16,19 +20,215 @@ import {
   parseRemovedI18nStrings,
   resolveImport,
   routePatternFor,
+  selectSelection,
   selectChangedSpecs,
   selectDerivedSpecs,
   selectSpecsForRemovedStrings,
 } from './e2e-select-specs.mjs'
 
-describe('selective E2E workflow project routing', () => {
-  it('runs selected deep and mobile specs with their owning projects', () => {
-    const workflow = readFileSync('.github/workflows/e2e-pr.yml', 'utf8')
+function selectionFixture() {
+  const files = [
+    'src/app/[locale]/(site)/page.tsx',
+    'src/app/[locale]/(site)/brands/page.tsx',
+    'src/app/[locale]/(site)/faq/page.tsx',
+    'src/app/[locale]/layout.tsx',
+    'src/components/brands/brand-list.tsx',
+    'src/lib/format.ts',
+    'src/proxy.ts',
+    'e2e/tests/landing.spec.ts',
+    'e2e/tests/directory.spec.ts',
+  ]
+  const sourceByFile = new Map([
+    [
+      'src/app/[locale]/(site)/page.tsx',
+      "import '@/components/brands/brand-list'",
+    ],
+    [
+      'src/app/[locale]/(site)/brands/page.tsx',
+      "import '@/components/brands/brand-list'",
+    ],
+    ['src/app/[locale]/(site)/faq/page.tsx', 'export default function Page() {}'],
+    ['src/app/[locale]/layout.tsx', 'export default function Layout() {}'],
+    [
+      'src/components/brands/brand-list.tsx',
+      "import { format } from '@/lib/format'",
+    ],
+    ['src/lib/format.ts', 'export const format = (value) => value'],
+    ['src/proxy.ts', 'export function proxy() {}'],
+    [
+      'e2e/tests/landing.spec.ts',
+      "import { test } from '@playwright/test'\ntest('@smoke landing renders', async ({ page }) => { await page.goto('/') })",
+    ],
+    [
+      'e2e/tests/directory.spec.ts',
+      "import { test } from '@playwright/test'\ntest('@smoke directory renders', async ({ page }) => { await page.goto('/brands') })",
+    ],
+  ])
+  const fileSet = new Set(files)
+  return buildSelectionIndex(
+    files,
+    sourceByFile,
+    (file: string) => fileSet.has(file),
+  )
+}
 
-    expect(workflow).toContain(
-      'playwright test --project=deep --project=mobile $SPECS',
+describe('targeted PR selection contract', () => {
+  it('recognizes page entrypoints and test tags', () => {
+    expect(isPageEntrypoint('src/app/[locale]/brands/page.tsx')).toBe(true)
+    expect(isPageEntrypoint('src/app/api/search/route.ts')).toBe(false)
+    expect(hasTestTag("test('@smoke renders')", '@smoke')).toBe(true)
+    expect(hasTestTag("test('renders')", '@smoke')).toBe(false)
+    expect(
+      countTestTags(
+        [
+          "test('@smoke first')",
+          "test('unmarked')",
+          "test.serial('@smoke second')",
+          "test.describe('@smoke group', () => {})",
+        ].join('\n'),
+        '@smoke',
+      ),
+    ).toBe(2)
+  })
+
+  it('selects only the mapped smoke spec for a route-local page change', () => {
+    const result = selectSelection(
+      ['src/app/[locale]/(site)/brands/page.tsx'],
+      selectionFixture(),
     )
-    expect(workflow).not.toContain('playwright test --project=deep $SPECS')
+
+    expect(result.affected_routes).toEqual(['/brands'])
+    expect(result.smoke_specs).toEqual(['e2e/tests/directory.spec.ts'])
+    expect(result.smoke_test_count).toBe(1)
+    expect(result.uncovered_routes).toEqual([])
+    expect(result.cross_browser).toBe(false)
+  })
+
+  it('follows a transitive import to the affected route family', () => {
+    const result = selectSelection(['src/lib/format.ts'], selectionFixture())
+
+    expect(result.affected_routes).toContain('/brands')
+    expect(result.smoke_specs).toContain('e2e/tests/directory.spec.ts')
+  })
+
+  it('uses the broad smoke fallback for a shared layout change', () => {
+    const result = selectSelection(
+      ['src/app/[locale]/layout.tsx'],
+      selectionFixture(),
+    )
+
+    expect(result.smoke_specs).toEqual([
+      'e2e/tests/directory.spec.ts',
+      'e2e/tests/landing.spec.ts',
+    ])
+    expect(result.smoke_test_count).toBe(2)
+  })
+
+  it('selects the compatibility journey for browser-sensitive shared changes', () => {
+    const result = selectSelection(['src/proxy.ts'], selectionFixture())
+
+    expect(result.cross_browser).toBe(true)
+    expect(result.cross_browser_reasons).toEqual([
+      'src/proxy.ts: navigation proxy behavior',
+    ])
+  })
+
+  it('does not select cross-browser for an ordinary route change', () => {
+    const result = selectSelection(
+      ['src/app/[locale]/(site)/faq/page.tsx'],
+      selectionFixture(),
+    )
+
+    expect(result.cross_browser).toBe(false)
+  })
+
+  it.each([
+    ['docs/e2e-policy.md'],
+    ['scripts/reindex-brands.ts'],
+    ['backend/providers/search/adapter.py'],
+  ])('selects no E2E work for unrelated %s', (file) => {
+    const result = selectSelection([file], selectionFixture())
+
+    expect(result.smoke_specs).toEqual([])
+    expect(result.smoke_test_count).toBe(0)
+    expect(result.affected_routes).toEqual([])
+    expect(result.cross_browser).toBe(false)
+  })
+
+  it('reports an affected route without smoke coverage', () => {
+    const result = selectSelection(
+      ['src/app/[locale]/(site)/faq/page.tsx'],
+      selectionFixture(),
+    )
+
+    expect(result.uncovered_routes).toEqual(['/faq'])
+    expect(result.smoke_specs).toEqual([])
+  })
+
+  it('keeps added and renamed page routes visible in the coverage audit', () => {
+    const index = selectionFixture()
+    const audit = auditRouteCoverage(index)
+
+    expect(audit.routes).toContain('/')
+    expect(audit.routes).toContain('/brands')
+
+    const addedRouteIndex = buildSelectionIndex(
+      [
+        'src/app/[locale]/(site)/renamed/page.tsx',
+        'e2e/tests/landing.spec.ts',
+      ],
+      new Map([
+        [
+          'src/app/[locale]/(site)/renamed/page.tsx',
+          'export default function Page() {}',
+        ],
+        [
+          'e2e/tests/landing.spec.ts',
+          "test('@smoke landing', async ({ page }) => { await page.goto('/') })",
+        ],
+      ]),
+      (file: string) =>
+        file === 'src/app/[locale]/(site)/renamed/page.tsx' ||
+        file === 'e2e/tests/landing.spec.ts',
+    )
+    expect(auditRouteCoverage(addedRouteIndex).uncovered_routes).toEqual([
+      '/renamed',
+    ])
+  })
+})
+
+describe('selective E2E workflow project routing', () => {
+  it('runs canonical smoke cases in Chromium and the dedicated journey in all three browsers', () => {
+    const workflow = readFileSync('.github/workflows/e2e-pr.yml', 'utf8')
+    const config = readFileSync('playwright.config.ts', 'utf8')
+
+    expect(workflow).toContain("playwright test --project=deep --grep '@smoke'")
+    expect(workflow).toContain(
+      "SMOKE_TEST_COUNT=$(jq -r '.smoke_test_count' <<< \"$SELECTION\")",
+    )
+    expect(workflow).toContain("printf -- '- `%s`\\n' \"$spec\"")
+    expect(workflow).not.toContain('for spec in $SPECS; do echo')
+    expect(workflow).toContain(
+      "printf 'Selected @smoke test count: %s\\n' \"$SMOKE_TEST_COUNT\"",
+    )
+    expect(workflow).not.toContain('Selected smoke spec count:')
+    expect(workflow).toContain('--project=cross-browser-chromium')
+    expect(workflow).toContain(
+      'e2e/tests/landing-search-cross-browser.spec.ts',
+    )
+    expect(workflow).toContain(
+      "cross_browser: ${{ steps.select-specs.outputs.cross_browser }}",
+    )
+    expect(workflow).toContain("if: needs.select.outputs.has_work == 'true'")
+    expect(workflow).not.toContain('smoke-cross-browser')
+
+    expect(config).toContain("testMatch: 'e2e/tests/**/*.spec.ts'")
+    expect(config).toContain(
+      "testMatch: 'e2e/tests/landing-search-cross-browser.spec.ts'",
+    )
+    expect(config).toContain('grep: /@cross-browser/')
+    expect(config).not.toContain("testMatch: 'e2e/tests/directory-sort.spec.ts'")
+    expect(config).not.toContain('e2e/smoke')
   })
 })
 
@@ -272,18 +472,18 @@ describe('collectSpecRoutes', () => {
 // mechanism replaced was 92% blind while its fixture-based tests were green,
 // so these assert against files that actually exist in the repository.
 describe('selectDerivedSpecs against the repository', () => {
-  const trackedFiles = execFileSync('git', ['ls-files', 'src', 'e2e'], {
+  const sourceFiles = execFileSync('rg', ['--files', 'src', 'e2e'], {
     encoding: 'utf8',
   })
     .split('\n')
     .filter(Boolean)
-  const trackedSet = new Set(trackedFiles)
-  const files = trackedFiles.filter(isCodeFile)
+  const sourceSet = new Set(sourceFiles)
+  const files = sourceFiles.filter(file => isCodeFile(file) && existsSync(file))
   const sourceByFile = new Map(
     files.map(file => [file, readFileSync(file, 'utf8')] as const),
   )
   const selectionIndex = buildSelectionIndex(files, sourceByFile, (file: string) =>
-    trackedSet.has(file),
+    sourceSet.has(file),
   )
   const select = (changedFiles: string[]) =>
     selectDerivedSpecs(changedFiles, selectionIndex)
@@ -326,10 +526,10 @@ describe('selectDerivedSpecs against the repository', () => {
     expect(select(['src/lib/services/brands.test.ts'])).toEqual([])
   })
 
-  it('never selects a spec the deep project cannot run', () => {
-    // /getting-started is covered only by e2e/smoke: handing that path to the
-    // selective deep/mobile projects would match no tests and fail the job.
-    expect(select(['src/app/[locale]/(site)/getting-started/page.tsx'])).toEqual([])
+  it('selects the canonical getting-started smoke spec in the deep project', () => {
+    expect(select(['src/app/[locale]/(site)/getting-started/page.tsx'])).toContain(
+      'e2e/tests/getting-started.spec.ts',
+    )
 
     const everySpec = select(['src/components/ui/button.tsx'])
     expect(everySpec.length).toBeGreaterThan(0)

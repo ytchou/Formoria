@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { test, expect } from "../fixtures/auth";
 
 test.describe("Navbar auth journey", () => {
-  test("logged-out visitor sees sign-in link", async ({ anonPage }) => {
+  test("@smoke logged-out visitor sees sign-in link", async ({ anonPage }) => {
     await anonPage.goto("/");
 
     const signInLink = anonPage.getByRole("link", { name: /sign in|登入/i });
@@ -15,7 +15,7 @@ test.describe("Navbar auth journey", () => {
     );
   });
 
-  test("authenticated user sees account menu, not sign-in link", async ({
+  test("@smoke authenticated user sees account menu, not sign-in link", async ({
     userPage,
   }) => {
     await userPage.goto("/");

@@ -39,7 +39,7 @@ test.describe('Brand detail deep', () => {
     await seeded.cleanup();
   });
 
-  test('all sections render without error', async ({ page }) => {
+  test('@smoke all sections render without error', async ({ page }) => {
     await page.goto(brandHref);
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 10_000 });
     // No error boundaries or 404

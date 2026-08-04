@@ -7,14 +7,16 @@ const MIN_I18N_STRING_LENGTH = 4
 const MAX_SPECS_PER_I18N_STRING = 5
 const CODE_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx']
 const ROUTE_ENTRYPOINT =
-  /^src\/app\/(?:.*\/)?(?:page|layout|route|template|default)\.(?:ts|tsx)$/
+  /^src\/app\/(?:.*\/)?(?:page|layout|route|template|default)\.(?:ts|tsx|js|jsx)$/
+const PAGE_ENTRYPOINT =
+  /^src\/app\/(?:.*\/)?page\.(?:ts|tsx|js|jsx)$/
 /**
  * A layout, template, or default wraps its whole subtree, so its route pattern
  * matches every descendant route — not just the one at its own depth. A `page`
  * or `route` owns exactly one route and stays an exact match.
  */
 const SUBTREE_ENTRYPOINT =
-  /^src\/app\/(?:.*\/)?(?:layout|template|default)\.(?:ts|tsx)$/
+  /^src\/app\/(?:.*\/)?(?:layout|template|default)\.(?:ts|tsx|js|jsx)$/
 
 /**
  * Only `e2e/tests/**` is selectable. The workflow runs the `deep` and `mobile`
@@ -22,6 +24,66 @@ const SUBTREE_ENTRYPOINT =
  * filter every test out and fail the run with "no tests found".
  */
 const SELECTABLE_SPEC = /^e2e\/tests\/.+\.spec\.ts$/
+
+const CROSS_BROWSER_SPEC = 'e2e/tests/landing-search-cross-browser.spec.ts'
+const CROSS_BROWSER_PROJECTS = [
+  'cross-browser-chromium',
+  'cross-browser-firefox',
+  'cross-browser-webkit',
+]
+
+const BROAD_SMOKE_FALLBACK = [
+  /^messages\//,
+  /^public\//,
+  /^src\/app\/globals\.(?:css|scss|sass|less)$/,
+  /^src\/app\/layout\.(?:ts|tsx|js|jsx)$/,
+  /^src\/app\/\[locale\]\/layout\.(?:ts|tsx|js|jsx)$/,
+  /^src\/app\/\[locale\]\/\(site\)\/layout\.(?:ts|tsx|js|jsx)$/,
+  /^src\/components\/(?:navigation|shared|ui)\//,
+  /^src\/i18n\//,
+  /^src\/lib\/i18n\//,
+  /^playwright\.config\.[cm]?[jt]sx?$/,
+  /^src\/proxy\.(?:ts|tsx|js|jsx)$/,
+]
+
+const CROSS_BROWSER_TRIGGERS = [
+  {
+    matches: file => /^playwright\.config\.[cm]?[jt]sx?$/.test(file),
+    reason: 'Playwright/browser configuration',
+  },
+  {
+    matches: file => /^src\/proxy\.(?:ts|tsx|js|jsx)$/.test(file),
+    reason: 'navigation proxy behavior',
+  },
+  {
+    matches: file =>
+      /^src\/app\/(?:layout|\[locale\]\/layout|\[locale\]\/\(site\)\/layout)\./.test(
+        file,
+      ),
+    reason: 'shared document/layout behavior',
+  },
+  {
+    matches: file => /^src\/components\/navigation\//.test(file),
+    reason: 'shared navigation interaction',
+  },
+  {
+    matches: file => /^src\/components\/landing\/hero-section\./.test(file),
+    reason: 'landing search interaction',
+  },
+  {
+    matches: file =>
+      /^src\/components\/brands\/(?:search-input|sort-select)\./.test(file),
+    reason: 'directory search/sort interaction',
+  },
+  {
+    matches: file => /^src\/components\/ui\/native-select\./.test(file),
+    reason: 'shared select interaction',
+  },
+  {
+    matches: file => file === CROSS_BROWSER_SPEC,
+    reason: 'compatibility journey implementation',
+  },
+]
 
 /** Files that participate in the import graph. */
 export function isCodeFile(file) {
@@ -33,6 +95,24 @@ export function isRouteEntrypoint(file) {
   return ROUTE_ENTRYPOINT.test(file)
 }
 
+/** A page file that exposes a user-navigable App Router route. */
+export function isPageEntrypoint(file) {
+  return PAGE_ENTRYPOINT.test(file)
+}
+
+/**
+ * User-facing route inventory entries. API handlers, metadata handlers, and
+ * internal endpoints are intentionally not page files, but keep this guard
+ * explicit so a future colocated page cannot silently enter the audit.
+ */
+export function isUserFacingPageEntrypoint(file) {
+  if (!isPageEntrypoint(file)) return false
+  const routePath = file.replace(/^src\/app\//, '')
+  return !routePath.split('/').some(segment =>
+    ['api', 'internal'].includes(segment),
+  )
+}
+
 /** An App Router file whose route pattern covers every descendant route. */
 export function isSubtreeEntrypoint(file) {
   return SUBTREE_ENTRYPOINT.test(file)
@@ -41,6 +121,39 @@ export function isSubtreeEntrypoint(file) {
 /** A spec the selective PR job is able to run. */
 export function isSelectableSpec(file) {
   return SELECTABLE_SPEC.test(file)
+}
+
+/** A Playwright test/describe title carrying an execution-tier tag. */
+export function hasTestTag(sourceText, tag) {
+  const escapedTag = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(
+    `(?:test|describe)(?:\\.serial|\\.only)?\\s*\\([^\\n]*${escapedTag}`,
+  ).test(sourceText)
+}
+
+/**
+ * Count tagged test cases without executing a browser project.
+ */
+export function countTestTags(sourceText, tag) {
+  const testCasePattern =
+    /\btest(?:\.serial|\.only)?\s*\(\s*(['"])([^\n]*)\1/g
+  return [...sourceText.matchAll(testCasePattern)].filter(match =>
+    (match[2] ?? '').includes(tag),
+  ).length
+}
+
+export function isBroadSmokeFallbackFile(file) {
+  return BROAD_SMOKE_FALLBACK.some(pattern => pattern.test(file))
+}
+
+export function crossBrowserReasons(changedFiles) {
+  const reasons = new Set()
+  for (const file of changedFiles) {
+    for (const trigger of CROSS_BROWSER_TRIGGERS) {
+      if (trigger.matches(file)) reasons.add(`${file}: ${trigger.reason}`)
+    }
+  }
+  return [...reasons].sort()
 }
 
 export function resolveImport(fromFile, specifier, fileExists) {
@@ -108,7 +221,10 @@ export function collectReachableImporters(startFiles, reverseGraph) {
 export function routePatternFor(entrypoint) {
   const routePath = entrypoint
     .replace(/^src\/app\//, '')
-    .replace(/(?:^|\/)(?:page|layout|route|template|default)\.(?:ts|tsx)$/, '')
+    .replace(
+      /(?:^|\/)(?:page|layout|route|template|default)\.(?:ts|tsx|js|jsx)$/,
+      '',
+    )
   const segments = routePath
     .split('/')
     .filter(segment => segment && segment !== '[locale]' && !/^\(.+\)$/.test(segment))
@@ -139,10 +255,10 @@ export function matchesRoute(concreteRoute, pattern, { subtree = false } = {}) {
 
   for (let index = 0; index < patternSegments.length; index += 1) {
     const patternSegment = patternSegments[index]
-    if (
-      /^\[\.\.\.[^\]]+\]$/.test(patternSegment) ||
-      /^\[\[\.\.\.[^\]]+\]\]$/.test(patternSegment)
-    ) {
+    if (/^\[\[\.\.\.[^\]]+\]\]$/.test(patternSegment)) {
+      return index <= concreteSegments.length
+    }
+    if (/^\[\.\.\.[^\]]+\]$/.test(patternSegment)) {
       return index < concreteSegments.length
     }
 
@@ -188,15 +304,135 @@ export function collectSpecRoutes(
  */
 export function buildSelectionIndex(files, sourceByFile, fileExists) {
   const reverseGraph = buildReverseImportGraph(files, sourceByFile, fileExists)
+  const specs = files.filter(isSelectableSpec)
+  const smokeSpecs = specs.filter(spec =>
+    hasTestTag(sourceByFile.get(spec) ?? '', '@smoke'),
+  )
+  const smokeTestCountBySpec = new Map(
+    smokeSpecs.map(spec => [
+      spec,
+      countTestTags(sourceByFile.get(spec) ?? '', '@smoke'),
+    ]),
+  )
+  const userRouteEntrypoints = files.filter(
+    file =>
+      isUserFacingPageEntrypoint(file) && sourceByFile.has(file),
+  )
+  const userRoutes = [
+    ...new Set(userRouteEntrypoints.map(routePatternFor)),
+  ].sort()
   return {
     reverseGraph,
     routeEntrypoints: files.filter(isRouteEntrypoint),
+    pageEntrypoints: files.filter(isPageEntrypoint),
+    userRouteEntrypoints,
+    userRoutes,
+    specs,
+    smokeSpecs,
+    smokeTestCountBySpec,
     routesBySpec: collectSpecRoutes(
-      files.filter(isSelectableSpec),
+      specs,
       files.filter(file => file.startsWith('e2e/')),
       sourceByFile,
       reverseGraph,
     ),
+  }
+}
+
+function affectedRoutePatterns(changedFiles, selectionIndex) {
+  const reachable = collectReachableImporters(
+    changedFiles,
+    selectionIndex.reverseGraph,
+  )
+  const affected = new Set()
+
+  for (const entrypoint of selectionIndex.userRouteEntrypoints) {
+    if (reachable.has(entrypoint)) affected.add(routePatternFor(entrypoint))
+  }
+
+  const subtreeEntrypoints = selectionIndex.routeEntrypoints.filter(
+    entrypoint =>
+      isSubtreeEntrypoint(entrypoint) && reachable.has(entrypoint),
+  )
+  for (const entrypoint of subtreeEntrypoints) {
+    const pattern = routePatternFor(entrypoint)
+    for (const route of selectionIndex.userRoutes) {
+      if (matchesRoute(route, pattern, { subtree: true })) affected.add(route)
+    }
+  }
+
+  return [...affected].sort()
+}
+
+function routeObservedBySpec(observedRoute, routePattern) {
+  return matchesRoute(observedRoute, routePattern)
+}
+
+/** Return the complete route-family audit used by both CLI and tests. */
+export function auditRouteCoverage(selectionIndex) {
+  const coverageByRoute = new Map(
+    selectionIndex.userRoutes.map(route => [route, []]),
+  )
+  for (const spec of selectionIndex.smokeSpecs) {
+    const observedRoutes = selectionIndex.routesBySpec.get(spec) ?? new Set()
+    for (const route of selectionIndex.userRoutes) {
+      if (
+        [...observedRoutes].some(observedRoute =>
+          routeObservedBySpec(observedRoute, route),
+        )
+      ) {
+        coverageByRoute.get(route).push(spec)
+      }
+    }
+  }
+
+  const uncoveredRoutes = [...coverageByRoute]
+    .filter(([, specs]) => specs.length === 0)
+    .map(([route]) => route)
+
+  return {
+    routes: [...selectionIndex.userRoutes],
+    coverageByRoute,
+    uncovered_routes: uncoveredRoutes,
+  }
+}
+
+export function selectSelection(changedFiles, selectionIndex) {
+  const derivedSpecs = selectDerivedSpecs(changedFiles, selectionIndex)
+  const selected = new Set(
+    derivedSpecs.filter(spec => selectionIndex.smokeSpecs.includes(spec)),
+  )
+  for (const spec of selectChangedSpecs(changedFiles)) {
+    if (selectionIndex.smokeSpecs.includes(spec)) selected.add(spec)
+  }
+
+  const fallback = changedFiles.some(isBroadSmokeFallbackFile)
+  let affectedRoutes = affectedRoutePatterns(changedFiles, selectionIndex)
+  if (fallback && affectedRoutes.length === 0) {
+    affectedRoutes = [...selectionIndex.userRoutes]
+  }
+  if (fallback) {
+    for (const spec of selectionIndex.smokeSpecs) selected.add(spec)
+  }
+
+  const audit = auditRouteCoverage(selectionIndex)
+  const uncoveredSet = new Set(audit.uncovered_routes)
+  const smokeTestCount = [...selected].reduce(
+    (total, spec) =>
+      total + (selectionIndex.smokeTestCountBySpec.get(spec) ?? 0),
+    0,
+  )
+  return {
+    affected_routes: affectedRoutes,
+    smoke_specs: [...selected].sort(),
+    smoke_test_count: smokeTestCount,
+    uncovered_routes: affectedRoutes.filter(route => uncoveredSet.has(route)),
+    cross_browser: crossBrowserReasons(changedFiles).length > 0,
+    cross_browser_reasons: crossBrowserReasons(changedFiles),
+    cross_browser_spec: CROSS_BROWSER_SPEC,
+    browser_projects: crossBrowserReasons(changedFiles).length > 0
+      ? [...CROSS_BROWSER_PROJECTS]
+      : [],
   }
 }
 
@@ -263,20 +499,9 @@ export function selectSpecsForRemovedStrings(
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
+  const jsonOutput = process.argv.includes('--json')
   const git = args =>
     execFileSync('git', args, { encoding: 'utf8', cwd: repoRoot })
-  const findSpecsContaining = value => {
-    try {
-      return execFileSync('grep', ['-rlF', value, 'e2e/tests'], {
-        encoding: 'utf8',
-        cwd: repoRoot,
-      })
-        .split('\n')
-        .filter(Boolean)
-    } catch {
-      return []
-    }
-  }
   const base = process.env.E2E_SELECT_BASE ?? 'origin/main'
 
   let changedFiles = []
@@ -290,6 +515,20 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       .split('\n')
       .filter(Boolean)
   } catch {
+    if (jsonOutput) {
+      process.stdout.write(
+        JSON.stringify({
+          affected_routes: [],
+          smoke_specs: [],
+          smoke_test_count: 0,
+          uncovered_routes: [],
+          cross_browser: false,
+          cross_browser_reasons: [],
+          cross_browser_spec: CROSS_BROWSER_SPEC,
+          browser_projects: [],
+        }),
+      )
+    }
     process.exit(0)
   }
 
@@ -312,25 +551,11 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     sourceByFile,
     file => trackedSet.has(file),
   )
+  const selection = selectSelection(changedFiles, selectionIndex)
 
-  let removedI18nStrings = []
-  if (changedFiles.some(file => file.startsWith('messages/'))) {
-    try {
-      removedI18nStrings = parseRemovedI18nStrings(
-        git(['diff', '-U0', `${base}...HEAD`, '--', 'messages/']),
-      )
-    } catch {
-      removedI18nStrings = []
-    }
+  if (jsonOutput) {
+    process.stdout.write(JSON.stringify(selection))
+  } else if (selection.smoke_specs.length > 0) {
+    process.stdout.write(selection.smoke_specs.join(' '))
   }
-
-  const specs = [
-    ...new Set([
-      ...selectDerivedSpecs(changedFiles, selectionIndex),
-      ...selectChangedSpecs(changedFiles),
-      ...selectSpecsForRemovedStrings(removedI18nStrings, findSpecsContaining),
-    ]),
-  ].sort()
-
-  if (specs.length > 0) process.stdout.write(specs.join(' '))
 }

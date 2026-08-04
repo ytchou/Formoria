@@ -1,12 +1,21 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Directory sort deep', () => {
-  test('selecting "A-Z" updates URL to ?sort=name', async ({ page }) => {
+  test('@smoke landing page renders the public search entry point', async ({ page }) => {
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('heading').first()).toBeVisible({ timeout: 10_000 });
+    await expect(
+      page.locator('main form[role="search"] input[role="searchbox"]'),
+    ).toBeVisible();
+  });
+
+  test('@smoke selecting "A-Z" updates URL to ?sort=name', async ({ page }) => {
     await page.goto('/brands');
 
     const sortSelect = page.getByRole('combobox', { name: '排序方式' });
     await expect(sortSelect).toBeVisible({ timeout: 10_000 });
     await expect(sortSelect).toHaveValue('random');
+    await expect(page).not.toHaveURL(/sort=/);
 
     await sortSelect.selectOption('name');
 

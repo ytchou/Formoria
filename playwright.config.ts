@@ -52,29 +52,33 @@ export default defineConfig({
     locale: 'zh-TW',
   },
   projects: [
-    // Smoke: all browsers
-    {
-      name: 'smoke-chromium',
-      testMatch: 'e2e/smoke/**/*.spec.ts',
-      use: { ...devices['Desktop Chrome'] },
-    },
-    {
-      name: 'smoke-firefox',
-      testMatch: 'e2e/smoke/**/*.spec.ts',
-      use: { ...devices['Desktop Firefox'] },
-    },
-    {
-      name: 'smoke-webkit',
-      testMatch: 'e2e/smoke/**/*.spec.ts',
-      timeout: 60_000,
-      use: { ...devices['Desktop Safari'], navigationTimeout: 45_000 },
-    },
-    // Deep: Chrome only
+    // Deep: the canonical suite, including smoke-tagged cases, runs in Chrome.
     {
       name: 'deep',
       testMatch: 'e2e/tests/**/*.spec.ts',
       testIgnore: 'e2e/tests/mobile.spec.ts',
       use: { ...devices['Desktop Chrome'] },
+    },
+    // Compatibility: exactly the one tagged journey, selected independently
+    // from the smoke subset so smoke cases cannot multiply across browsers.
+    {
+      name: 'cross-browser-chromium',
+      testMatch: 'e2e/tests/landing-search-cross-browser.spec.ts',
+      grep: /@cross-browser/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'cross-browser-firefox',
+      testMatch: 'e2e/tests/landing-search-cross-browser.spec.ts',
+      grep: /@cross-browser/,
+      use: { ...devices['Desktop Firefox'] },
+    },
+    {
+      name: 'cross-browser-webkit',
+      testMatch: 'e2e/tests/landing-search-cross-browser.spec.ts',
+      grep: /@cross-browser/,
+      timeout: 60_000,
+      use: { ...devices['Desktop Safari'], navigationTimeout: 45_000 },
     },
     // Mobile: Chrome
     {
