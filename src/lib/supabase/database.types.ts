@@ -121,6 +121,7 @@ export type Database = {
       brand_ai_results: {
         Row: {
           attempt: number | null
+          audit_span_id: string | null
           brand_id: string | null
           cached_prompt_tokens: number | null
           completion_tokens: number | null
@@ -148,6 +149,7 @@ export type Database = {
         }
         Insert: {
           attempt?: number | null
+          audit_span_id?: string | null
           brand_id?: string | null
           cached_prompt_tokens?: number | null
           completion_tokens?: number | null
@@ -175,6 +177,7 @@ export type Database = {
         }
         Update: {
           attempt?: number | null
+          audit_span_id?: string | null
           brand_id?: string | null
           cached_prompt_tokens?: number | null
           completion_tokens?: number | null
@@ -837,6 +840,7 @@ export type Database = {
       brand_search_results: {
         Row: {
           attempt: number
+          audit_span_id: string | null
           brand_id: string | null
           call_status: string
           config: Json | null
@@ -859,6 +863,7 @@ export type Database = {
         }
         Insert: {
           attempt?: number
+          audit_span_id?: string | null
           brand_id?: string | null
           call_status?: string
           config?: Json | null
@@ -881,6 +886,7 @@ export type Database = {
         }
         Update: {
           attempt?: number
+          audit_span_id?: string | null
           brand_id?: string | null
           call_status?: string
           config?: Json | null

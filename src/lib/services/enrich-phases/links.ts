@@ -392,8 +392,8 @@ export async function runLinksPhase({
                 },
                 urls: [url],
                 snippets: boundedScrapeSnippets(attempt.extracted),
+                supabase,
               },
-              supabase,
             )
           },
         }

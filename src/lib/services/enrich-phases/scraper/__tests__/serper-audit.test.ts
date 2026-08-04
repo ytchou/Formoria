@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { batchSearchBrandImages, searchBrandMaps } from '../search'
 import { startSearchAudit } from '@/lib/services/search-results'
+import {
+  resetAuditEmitterForTests,
+  setAuditWriteSeam,
+  type AuditRecord,
+} from '@/lib/audit'
+
+vi.mock('@/lib/adapters/alerting/sentry', () => ({ captureAlert: vi.fn(() => true) }))
 
 type AuditState = {
   inserts: Array<Record<string, unknown>>
@@ -10,7 +17,9 @@ type AuditState = {
 function auditClient(state: AuditState, insertError?: Error) {
   return {
     from: (table: string) => {
-      if (table !== 'brand_search_results') throw new Error(`Unexpected table ${table}`)
+      if (table !== 'brand_search_results' && table !== 'external_call_audit') {
+        throw new Error(`Unexpected table ${table}`)
+      }
       return {
         insert: (payload: Record<string, unknown>) => {
           state.inserts.push(payload)
@@ -35,6 +44,8 @@ function auditClient(state: AuditState, insertError?: Error) {
   }
 }
 
+let writes: AuditRecord[]
+
 const auditOptions = (state: AuditState, overrides: Record<string, unknown> = {}) => ({
   target: { type: 'submission' as const, id: 'submission-1' },
   supabase: auditClient(state) as never,
@@ -51,12 +62,18 @@ async function withFakeTimers<T>(run: () => Promise<T>): Promise<T> {
 describe('audited Serper adapter', () => {
   beforeEach(() => {
     process.env.SERPER_API_KEY = 'secret-api-key'
+    writes = []
+    setAuditWriteSeam(async (record) => {
+      writes.push(record)
+      return null
+    })
   })
 
   afterEach(() => {
     delete process.env.SERPER_API_KEY
     vi.unstubAllGlobals()
     vi.useRealTimers()
+    resetAuditEmitterForTests()
   })
 
   it('audits Maps requests and responses without placing credentials in the request input', async () => {
@@ -98,6 +115,85 @@ describe('audited Serper adapter', () => {
       raw_response: expect.objectContaining({ places: expect.any(Array) }),
       urls: ['https://littdlework.example/stores'],
     })
+  })
+
+  it('serper call writes one audit span and one deep-store row sharing a span_id', async () => {
+    const state: AuditState = { inserts: [], updates: [] }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ places: [{ title: 'Recovered' }] }), { status: 200 })))
+
+    await searchBrandMaps('Recovered', auditOptions(state))
+
+    expect(writes).toHaveLength(2)
+    expect(writes[0]?.status).toBe('started')
+    expect(writes[1]?.status).toBe('succeeded')
+    expect(writes[0]?.spanId).toBe(writes[1]?.spanId)
+    expect(state.inserts[0]?.audit_span_id).toBe(writes[0]?.spanId)
+  })
+
+  it('deep-store write still succeeds when the audit write fails', async () => {
+    // A code-bearing, non-transient write error: classifyPostgrestError treats a
+    // codeless error as retryable, which would burn real backoff sleeps here.
+    setAuditWriteSeam(async () => ({ code: '23505', message: 'audit sink unavailable' }))
+    const state: AuditState = { inserts: [], updates: [] }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ places: [{ title: 'Recovered' }] }), { status: 200 })))
+
+    await expect(searchBrandMaps('Recovered', auditOptions(state))).resolves.toMatchObject({ callStatus: 'succeeded' })
+
+    expect(state.inserts).toHaveLength(1)
+    expect(state.updates).toHaveLength(1)
+  })
+
+  it('existing brand_search_results payload shape is unchanged', async () => {
+    const state: AuditState = { inserts: [], updates: [] }
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ places: [] }), { status: 200 })))
+
+    await searchBrandMaps('No results', auditOptions(state))
+
+    expect(Object.keys(state.inserts[0] ?? {}).sort()).toEqual([
+      'audit_span_id',
+      'attempt',
+      'brand_id',
+      'call_status',
+      'config',
+      'endpoint',
+      'error',
+      'http_status',
+      'input',
+      'job_id',
+      'latency_ms',
+      'provider',
+      'query',
+      'raw_response',
+      'retry_attempt',
+      'search_type',
+      'snippets',
+      'submission_id',
+      'urls',
+    ].sort())
+  })
+
+  it("a timeout produces status='timeout' on the finish row", async () => {
+    vi.useFakeTimers()
+    const state: AuditState = { inserts: [], updates: [] }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        (_input: unknown, init: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            init.signal?.addEventListener('abort', () => {
+              reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))
+            })
+          }),
+      ),
+    )
+
+    const pending = searchBrandMaps('Timeout', auditOptions(state))
+    await vi.runAllTimersAsync()
+    const result = await pending
+
+    expect(result.callStatus).toBe('timeout')
+    expect(writes.some((record) => record.status === 'timeout')).toBe(true)
+    expect(state.updates.at(0)).toMatchObject({ call_status: 'timeout' })
   })
 
   it('does not turn blank Maps coordinates into zeroes', async () => {

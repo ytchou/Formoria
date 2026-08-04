@@ -28,6 +28,7 @@ export type StartSearchAuditInput = SearchAuditContext & {
   config?: unknown
   attempt?: number
   retryAttempt?: number
+  auditSpanId?: string
 }
 
 export type FinishSearchAuditInput = {
@@ -71,27 +72,29 @@ function getAuditClient(supabase?: SupabaseClient<Database>) {
 export async function startSearchAudit(input: StartSearchAuditInput): Promise<string> {
   const supabase = getAuditClient(input.supabase)
   const target = targetForeignKey(input.target)
+  const payload = {
+    ...target,
+    provider: input.provider,
+    endpoint: input.endpoint,
+    input: asJson(input.input),
+    call_status: 'started',
+    http_status: null,
+    error: null,
+    attempt: input.attempt ?? 1,
+    retry_attempt: input.retryAttempt ?? 0,
+    job_id: input.jobId ?? null,
+    search_type: input.searchType,
+    query: input.query,
+    urls: [],
+    snippets: [],
+    raw_response: null,
+    config: asJson(input.config),
+    latency_ms: null,
+    audit_span_id: input.auditSpanId ?? null,
+  }
   const { data, error } = await supabase
     .from('brand_search_results')
-    .insert({
-      ...target,
-      provider: input.provider,
-      endpoint: input.endpoint,
-      input: asJson(input.input),
-      call_status: 'started',
-      http_status: null,
-      error: null,
-      attempt: input.attempt ?? 1,
-      retry_attempt: input.retryAttempt ?? 0,
-      job_id: input.jobId ?? null,
-      search_type: input.searchType,
-      query: input.query,
-      urls: [],
-      snippets: [],
-      raw_response: null,
-      config: asJson(input.config),
-      latency_ms: null,
-    })
+    .insert(payload)
     .select('id')
     .single()
 
@@ -104,10 +107,9 @@ export async function startSearchAudit(input: StartSearchAuditInput): Promise<st
 
 export async function finishSearchAudit(
   id: string,
-  input: FinishSearchAuditInput,
-  supabase?: SupabaseClient<Database>,
+  input: FinishSearchAuditInput & { supabase?: SupabaseClient<Database> },
 ): Promise<void> {
-  const { error } = await getAuditClient(supabase)
+  const { error } = await getAuditClient(input.supabase)
     .from('brand_search_results')
     .update({
       call_status: input.callStatus,
