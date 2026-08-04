@@ -168,6 +168,7 @@ export type SubmissionReviewCompleteness = {
   missingFields: SubmissionReviewMissingField[];
 };
 export type EnrichmentFilter = "all" | "complete" | "incomplete";
+export type ReviewKindFilter = "all" | "new" | "refresh";
 export type BrandSubmissionForReview = BrandSubmissionWithProductTypeNote & {
   reviewKind: "new" | "refresh";
   baseBrandData: Json | null;

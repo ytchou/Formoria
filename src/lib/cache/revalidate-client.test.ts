@@ -37,6 +37,80 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+/**
+ * Regression guard for the 2026-08-03 approve-ready run: 415 slugs went out in
+ * one POST, the route rejected the whole batch with http-400 "Too many slugs",
+ * and 415 brands stayed stale on the public site while the run reported
+ * success. MAX_SLUGS in app/api/internal/revalidate-brands/route.ts caps
+ * `slugs` and `events` COMBINED at 200 — if that number ever drops, these tests
+ * must move with it.
+ */
+describe('chunking at the route cap', () => {
+  function slugList(count: number): string[] {
+    return Array.from({ length: count }, (_, index) => `brand-${index}`)
+  }
+
+  function postedSlugs(callIndex: number, key: 'slugs' | 'events'): string[] {
+    const [, init] = fetchMock.mock.calls[callIndex] as [string, RequestInit]
+    return JSON.parse(init.body as string)[key] as string[]
+  }
+
+  it('sends exactly one request at the 200-slug cap', async () => {
+    await expect(
+      requestPublicBrandRevalidation(slugList(200)),
+    ).resolves.toEqual({ ok: true })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(postedSlugs(0, 'slugs')).toHaveLength(200)
+  })
+
+  it('splits 415 slugs into 200/200/15 without dropping or duplicating any', async () => {
+    const slugs = slugList(415)
+
+    await expect(requestPublicBrandRevalidation(slugs)).resolves.toEqual({
+      ok: true,
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    const chunks = [0, 1, 2].map((index) => postedSlugs(index, 'slugs'))
+    expect(chunks.map((chunk) => chunk.length)).toEqual([200, 200, 15])
+    expect(chunks.flat()).toEqual(slugs)
+  })
+
+  it('chunks events on the same cap', async () => {
+    await expect(requestEventRevalidation(slugList(201))).resolves.toEqual({
+      ok: true,
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(postedSlugs(0, 'events')).toHaveLength(200)
+    expect(postedSlugs(1, 'events')).toHaveLength(1)
+  })
+
+  it('attempts every chunk after one fails and reports the first failure', async () => {
+    // Each caller has already committed its write, so abandoning the remaining
+    // chunks would leave strictly more pages stale than finishing the loop.
+    fetchMock.mockReset()
+    fetchMock
+      .mockResolvedValueOnce({ ok: false, status: 500 } as unknown as Response)
+      .mockResolvedValue(okResponse())
+
+    await expect(requestPublicBrandRevalidation(slugList(415))).resolves.toEqual(
+      { ok: false, reason: 'http-500' },
+    )
+
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+
+  it('deduplicates before chunking so the cap counts distinct slugs', async () => {
+    await expect(
+      requestPublicBrandRevalidation([...slugList(200), ...slugList(200)]),
+    ).resolves.toEqual({ ok: true })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('requestPublicBrandRevalidation', () => {
   it('makes no network call for an empty or whitespace-only slug list', async () => {
     await expect(requestPublicBrandRevalidation([])).resolves.toEqual({

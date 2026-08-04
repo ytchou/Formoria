@@ -573,6 +573,11 @@ async function main(): Promise<void> {
           name: nameAfter,
           productType: b.product_type,
           website: websiteAfter,
+          // Must mirror runClassifyImagesPhase exactly: the prompt withholds
+          // the wrong_brand verdict when no identifier is present, so omitting
+          // these would make the harness measure a weaker prompt than prod.
+          pinkoi: b.purchase_pinkoi ?? null,
+          instagram: b.social_instagram ?? null,
         }),
         chunk,
         imageUsage,

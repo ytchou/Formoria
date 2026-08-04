@@ -2616,6 +2616,12 @@
         "complete": "Complete",
         "incomplete": "Incomplete"
       },
+      "reviewKindFilter": {
+        "label": "Filter by submission kind",
+        "all": "All kinds",
+        "new": "New brands",
+        "refresh": "Refreshes"
+      },
       "pagination": {
         "summary": "Showing {from}–{to} of {total}",
         "pageSize": "Rows per page",

@@ -321,6 +321,12 @@ function brandContext(
       ? `品牌：${entry.brandName}（${category}）。`
       : `品牌：${entry.brandName}。`;
   }
+  // KNOWN DIVERGENCE from production, not an oversight: the corpus manifest
+  // carries no website, pinkoi, or instagram, so every entry lands on the
+  // "No verified identifier available for this brand" branch — under which the
+  // prompt withholds the wrong_brand verdict entirely. This baseline therefore
+  // reports a wrong_brand floor, never production's rate. Recapture the
+  // manifest with the link columns before reading that number as production's.
   return buildBrandContext({
     name: entry.brandName,
     productType: entry.category,

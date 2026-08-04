@@ -57,6 +57,7 @@ import { DENIAL_REASONS } from "@/lib/types";
 import type {
   BrandSubmissionForReview,
   EnrichmentFilter,
+  ReviewKindFilter,
 } from "@/lib/services/submissions";
 import { isSubmissionEnrichmentFailure } from "@/lib/services/submission-review-stage";
 import { SubmissionReviewDetails } from "./submission-review-details";
@@ -94,6 +95,8 @@ export function SubmissionsReviewList({
   const [activeTab, setActiveTab] = useState<TabValue>(initialTab);
   const [enrichmentFilter, setEnrichmentFilter] =
     useState<EnrichmentFilter>("all");
+  const [reviewKindFilter, setReviewKindFilter] =
+    useState<ReviewKindFilter>("all");
   const [search, setSearch] = useState("");
   const [submittedRange, setSubmittedRange] = useState<IsoDateRange | null>(
     null,
@@ -179,6 +182,11 @@ export function SubmissionsReviewList({
         submission.reviewCompleteness.complete
       )
         return false;
+      if (
+        reviewKindFilter !== "all" &&
+        submission.reviewKind !== reviewKindFilter
+      )
+        return false;
       if (!isDateInRange(submittedDate, submittedRange)) return false;
       if (!query) return true;
 
@@ -190,7 +198,14 @@ export function SubmissionsReviewList({
         submission.reviewData.websiteUrl,
       ].some((value) => value?.toLocaleLowerCase().includes(query));
     });
-  }, [activeTab, enrichmentFilter, search, stageFiltered, submittedRange]);
+  }, [
+    activeTab,
+    enrichmentFilter,
+    reviewKindFilter,
+    search,
+    stageFiltered,
+    submittedRange,
+  ]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, pageCount);
@@ -511,6 +526,26 @@ export function SubmissionsReviewList({
             </SelectContent>
           </Select>
         )}
+        {/* Not gated on the ready tab: new vs refresh is meaningful at every
+            stage, unlike completeness which only exists after enrichment. */}
+        <Select
+          value={reviewKindFilter}
+          onValueChange={(value) => {
+            setReviewKindFilter(value as ReviewKindFilter);
+            resetView();
+          }}
+        >
+          <SelectTrigger aria-label={t("reviewKindFilter.label")}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t("reviewKindFilter.all")}</SelectItem>
+            <SelectItem value="new">{t("reviewKindFilter.new")}</SelectItem>
+            <SelectItem value="refresh">
+              {t("reviewKindFilter.refresh")}
+            </SelectItem>
+          </SelectContent>
+        </Select>
         <DateRangePicker
           ariaLabel={`${t("submittedDate.from")} / ${t("submittedDate.to")}`}
           value={submittedRange}
@@ -533,7 +568,9 @@ export function SubmissionsReviewList({
                 size="compact"
                 className="min-h-12"
                 onClick={enrichSelected}
-                disabled={selectedVisible.length === 0 || isEnriching || isDropping}
+                disabled={
+                  selectedVisible.length === 0 || isEnriching || isDropping
+                }
               >
                 {isEnriching ? t("fetching") : t("fetchData")}
               </Button>
@@ -542,7 +579,9 @@ export function SubmissionsReviewList({
                 className="min-h-12"
                 variant="destructive"
                 onClick={() => setDropDialogOpen(true)}
-                disabled={selectedVisible.length === 0 || isEnriching || isDropping}
+                disabled={
+                  selectedVisible.length === 0 || isEnriching || isDropping
+                }
               >
                 {t("dropSelected")}
               </Button>

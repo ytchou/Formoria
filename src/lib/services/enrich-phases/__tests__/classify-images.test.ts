@@ -3,6 +3,7 @@ import {
   JUNK_TAGS,
   MIN_KEEP_SCORE,
   applyClassifications,
+  buildBrandContext,
   failureReason,
   parseClassificationBatch,
 } from "../classify-images";
@@ -405,5 +406,76 @@ describe("failureReason", () => {
 
   it("returns null for a usable response", () => {
     expect(failureReason(response({}))).toBeNull();
+  });
+});
+
+/**
+ * DEV-1319. A brand with no `purchase_website` was sent name-only context, and
+ * the model resolved that ungrounded uncertainty as `wrong_brand` on 12.1% of
+ * images against 6.0% for brands with a site — enough to wipe I.A.N Design's
+ * entire catalogue, its own indigo-dyed apparel lookbook, in one run. The
+ * storefront slug and profile handle are grounding the brand already had and
+ * the context simply never passed on.
+ */
+describe("buildBrandContext identifiers", () => {
+  it("uses the Pinkoi store slug when the brand has no website", () => {
+    const context = buildBrandContext({
+      name: "I.A.N Design",
+      productType: null,
+      website: null,
+      pinkoi: "https://hk.pinkoi.com/store/ian-design?ref_posn=20",
+    });
+
+    expect(context).toContain("Pinkoi store: ian-design.");
+    expect(context).not.toContain("No verified identifier");
+  });
+
+  it("uses an Instagram profile handle", () => {
+    const context = buildBrandContext({
+      name: "7th Island",
+      productType: null,
+      website: null,
+      instagram: "https://www.instagram.com/7th_island",
+    });
+
+    expect(context).toContain("Instagram: @7th_island.");
+  });
+
+  it("ignores an Instagram post permalink, which identifies nothing", () => {
+    const context = buildBrandContext({
+      name: "新夭 BrainHoleSky",
+      productType: null,
+      website: null,
+      instagram: "https://www.instagram.com/p/DWd7Jm9k_xS/",
+    });
+
+    // Emitting "@p" would be worse than emitting nothing.
+    expect(context).not.toContain("@p");
+    expect(context).toContain(
+      "No verified identifier available for this brand.",
+    );
+  });
+
+  it("declares the absence so the prompt can withhold wrong_brand", () => {
+    const context = buildBrandContext({
+      name: "Some Brand",
+      productType: null,
+      website: null,
+    });
+
+    expect(context).toContain(
+      "No verified identifier available for this brand.",
+    );
+  });
+
+  it("stays silent about absence when any identifier is present", () => {
+    const context = buildBrandContext({
+      name: "TopNutree",
+      productType: null,
+      website: "https://www.topnutree.com.tw",
+    });
+
+    expect(context).toContain("Official site: topnutree.com.tw.");
+    expect(context).not.toContain("No verified identifier");
   });
 });

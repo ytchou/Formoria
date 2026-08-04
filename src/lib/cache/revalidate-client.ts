@@ -12,6 +12,24 @@ const REVALIDATE_TIMEOUT_MS = 10_000
 
 const REVALIDATE_PATH = '/api/internal/revalidate-brands'
 
+/**
+ * Mirrors MAX_SLUGS in app/api/internal/revalidate-brands/route.ts, which caps
+ * `slugs` and `events` COMBINED. Callers batch their whole run into one call, so
+ * anything over the cap came back as http-400 "Too many slugs" and the write
+ * landed with the public pages left stale — the failure only appears on the
+ * large runs where revalidation matters most. Chunk here rather than in each
+ * caller so no future caller has to remember.
+ */
+const MAX_SLUGS_PER_REQUEST = 200
+
+function chunkSlugs(slugs: string[]): string[][] {
+  const chunks: string[][] = []
+  for (let index = 0; index < slugs.length; index += MAX_SLUGS_PER_REQUEST) {
+    chunks.push(slugs.slice(index, index + MAX_SLUGS_PER_REQUEST))
+  }
+  return chunks
+}
+
 type RevalidationResult = { ok: boolean; reason?: string }
 
 function scrubError(error: unknown): string {
@@ -109,7 +127,26 @@ export async function requestPublicBrandRevalidation(
     return { ok: true, reason: 'no-slugs' }
   }
 
-  return postRevalidation({ slugs: uniqueSlugs })
+  return postChunked(uniqueSlugs, (chunk) => ({ slugs: chunk }))
+}
+
+/**
+ * Posts one request per chunk and reports the first failure. Later chunks are
+ * still attempted: a partial revalidation beats abandoning the rest, since every
+ * caller has already committed its write.
+ */
+async function postChunked(
+  slugs: string[],
+  toBody: (chunk: string[]) => Record<string, string[]>,
+): Promise<RevalidationResult> {
+  let firstFailure: RevalidationResult | null = null
+
+  for (const chunk of chunkSlugs(slugs)) {
+    const result = await postRevalidation(toBody(chunk))
+    if (!result.ok && !firstFailure) firstFailure = result
+  }
+
+  return firstFailure ?? { ok: true }
 }
 
 /**
@@ -126,5 +163,5 @@ export async function requestEventRevalidation(
     return { ok: true, reason: 'no-slugs' }
   }
 
-  return postRevalidation({ events: uniqueSlugs })
+  return postChunked(uniqueSlugs, (chunk) => ({ events: chunk }))
 }
