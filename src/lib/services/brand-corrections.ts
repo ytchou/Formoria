@@ -12,6 +12,13 @@ import {
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { createServiceClient } from "@/lib/supabase/server";
 import {
+  PURCHASE_CHANNELS,
+  PURCHASE_COLUMNS,
+  purchaseChannelByColumn,
+  type PurchaseChannelCamelField,
+  type PurchaseChannelColumn,
+} from "@/lib/brands/purchase-channels";
+import {
   applyTagDelta,
   deriveProductTagsEn,
   isProductTagsDelta,
@@ -23,14 +30,11 @@ import {
 import { updateBrand, type BrandWriteInput } from "./brands";
 
 const CORRECTION_SELECT =
-  "*, brands(name, slug, price_range, product_type, product_tags, purchase_website, purchase_pinkoi, purchase_shopee, social_instagram, social_threads, social_facebook)";
+  `*, brands(name, slug, price_range, product_type, product_tags, ${PURCHASE_COLUMNS.join(
+    ", ",
+  )}, social_instagram, social_threads, social_facebook)`;
 
 const MAX_LINK_URL_LENGTH = 2048;
-const PURCHASE_LINK_FIELDS = [
-  "purchase_website",
-  "purchase_pinkoi",
-  "purchase_shopee",
-] as const;
 const SOCIAL_LINK_FIELDS = [
   "social_instagram",
   "social_threads",
@@ -52,18 +56,21 @@ type BrandCorrectionBrandRow = Pick<
   | "price_range"
   | "product_type"
   | "product_tags"
-  | "purchase_website"
-  | "purchase_pinkoi"
-  | "purchase_shopee"
   | "social_instagram"
   | "social_threads"
   | "social_facebook"
 >;
+type BrandCorrectionBrandPurchaseFields = Pick<
+  Database["public"]["Tables"]["brands"]["Row"],
+  PurchaseChannelColumn
+>;
+type BrandCorrectionBrand = BrandCorrectionBrandRow &
+  BrandCorrectionBrandPurchaseFields;
 type BrandCorrectionRowWithBrand = BrandCorrectionRow & {
-  brands?: BrandCorrectionBrandRow | null;
+  brands?: BrandCorrectionBrand | null;
 };
 
-type PurchaseLinkCorrectionField = (typeof PURCHASE_LINK_FIELDS)[number];
+type PurchaseLinkCorrectionField = PurchaseChannelColumn;
 type SocialLinkCorrectionField = (typeof SOCIAL_LINK_FIELDS)[number];
 type LinkCorrectionField =
   | PurchaseLinkCorrectionField
@@ -144,7 +151,7 @@ export function isCorrectionField(value: string): value is CorrectionField {
     value === "price_range" ||
     value === "product_type" ||
     value === "product_tags" ||
-    PURCHASE_LINK_FIELDS.some((field) => field === value) ||
+    PURCHASE_COLUMNS.some((field) => field === value) ||
     SOCIAL_LINK_FIELDS.some((field) => field === value)
   );
 }
@@ -152,7 +159,7 @@ export function isCorrectionField(value: string): value is CorrectionField {
 function isPurchaseLinkField(
   field: CorrectionField,
 ): field is PurchaseLinkCorrectionField {
-  return PURCHASE_LINK_FIELDS.some((purchaseField) => purchaseField === field);
+  return PURCHASE_COLUMNS.some((purchaseField) => purchaseField === field);
 }
 
 function isSocialLinkField(
@@ -206,13 +213,22 @@ function normalizePurchaseUrl(
   const url = parseLinkUrl(value, sanitizeHref);
   if (!url) return null;
 
-  const isPinkoi = hasHostname(url, "pinkoi.com");
-  const isShopee =
-    hasHostname(url, "shopee.tw") || hasHostname(url, "shopee.com.tw");
+  const channel = purchaseChannelByColumn[field];
+  const matchesExpectedHost = channel.hosts.some((host) =>
+    hasHostname(url, host),
+  );
+  const matchesOtherChannelHost = PURCHASE_CHANNELS.some(
+    (candidate) =>
+      candidate !== channel &&
+      candidate.hosts.some((host) => hasHostname(url, host)),
+  );
 
-  if (field === "purchase_pinkoi" && !isPinkoi) return null;
-  if (field === "purchase_shopee" && !isShopee) return null;
-  if (field === "purchase_website" && (isPinkoi || isShopee)) return null;
+  if (
+    matchesOtherChannelHost ||
+    (channel.hosts.length > 0 && !matchesExpectedHost)
+  ) {
+    return null;
+  }
 
   return url.href;
 }
@@ -384,17 +400,19 @@ export function buildScalarCorrectionPatch(
   field: ScalarCorrectionField,
   proposedValue: number | string,
 ): BrandWriteInput {
+  if (isPurchaseLinkField(field)) {
+    const camelField: PurchaseChannelCamelField =
+      purchaseChannelByColumn[field].camel;
+    const patch: BrandWriteInput = {};
+    patch[camelField] = proposedValue as string;
+    return patch;
+  }
+
   switch (field) {
     case "price_range":
       return { priceRange: proposedValue as number };
     case "product_type":
       return { productType: proposedValue as string };
-    case "purchase_website":
-      return { purchaseWebsite: proposedValue as string };
-    case "purchase_pinkoi":
-      return { purchasePinkoi: proposedValue as string };
-    case "purchase_shopee":
-      return { purchaseShopee: proposedValue as string };
     case "social_instagram":
       return { socialInstagram: proposedValue as string };
     case "social_threads":
@@ -448,9 +466,13 @@ function correctionValuesEqual(
 
 function currentValueForField(
   field: CorrectionField,
-  brand: BrandCorrectionBrandRow | null | undefined,
+  brand: BrandCorrectionBrand | null | undefined,
 ): CurrentBrandValue {
   if (!brand) return null;
+  if (isPurchaseLinkField(field)) {
+    return brand[purchaseChannelByColumn[field].column];
+  }
+
   // Exhaustive by design — no fallthrough default, so a field added to
   // `CorrectionField` without a case here cannot silently read another
   // column's value.
@@ -461,12 +483,6 @@ function currentValueForField(
       return brand.product_type;
     case "product_tags":
       return Array.isArray(brand.product_tags) ? brand.product_tags : [];
-    case "purchase_website":
-      return brand.purchase_website;
-    case "purchase_pinkoi":
-      return brand.purchase_pinkoi;
-    case "purchase_shopee":
-      return brand.purchase_shopee;
     case "social_instagram":
       return brand.social_instagram;
     case "social_threads":
@@ -509,7 +525,7 @@ async function readBrand(
   supabase: ReturnType<typeof createServiceClient>,
   brandId: string,
 ): Promise<{
-  data: BrandCorrectionBrandRow | null;
+  data: BrandCorrectionBrand | null;
   error: { code?: string } | null;
 }> {
   // Scoped to approved like every other public read path. This runs on the
@@ -520,14 +536,16 @@ async function readBrand(
   const { data, error } = await supabase
     .from("brands")
     .select(
-      "id, name, slug, price_range, product_type, product_tags, purchase_website, purchase_pinkoi, purchase_shopee, social_instagram, social_threads, social_facebook",
+      `id, name, slug, price_range, product_type, product_tags, ${PURCHASE_COLUMNS.join(
+        ", ",
+      )}, social_instagram, social_threads, social_facebook`,
     )
     .eq("id", brandId)
     .eq("status", "approved")
     .maybeSingle();
 
   return {
-    data: data as BrandCorrectionBrandRow | null,
+    data: data as BrandCorrectionBrand | null,
     error,
   };
 }
