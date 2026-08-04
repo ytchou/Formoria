@@ -59,6 +59,7 @@ import {
 } from "@/lib/services/openai-client";
 import { runEnrich } from "@/lib/services/curation-operations";
 import type { CurationPatchEvent, PhaseResult } from "@/lib/types/curation";
+import { setAuditWriteSeam, type AuditRecord } from "@/lib/audit";
 import { createWriteBlockingClient } from "./readonly-client";
 import { installHttpCache, httpCacheStats } from "./http-cache";
 
@@ -377,6 +378,18 @@ async function main(): Promise<void> {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     readShims,
   );
+
+  // The audit envelope's DB sink builds its OWN service client rather than
+  // accepting the one threaded through the pipeline, so the write-blocking
+  // wrapper above cannot see it. Measured 2026-08-04: a "zero prod writes" run
+  // wrote 4 real rows to external_call_audit. Installing the seam closes that
+  // hole structurally, the same way createWriteBlockingClient does for tables.
+  const auditRecords: AuditRecord[] = [];
+  setAuditWriteSeam(async (record) => {
+    blocked.push({ table: "external_call_audit", method: "insert" });
+    auditRecords.push(record);
+    return null;
+  });
 
   const { data: brandRows, error } = await supabase
     .from("brands")
@@ -706,6 +719,13 @@ async function main(): Promise<void> {
     blocked.length === 0
       ? "blocked writes: none — the dry run touched no table"
       : `blocked writes: ${blocked.length} (${[...new Set(blocked.map((w) => `${w.table}.${w.method}`))].join(", ")})`,
+  );
+  const auditBytes = auditRecords.reduce(
+    (sum, r) => sum + Buffer.byteLength(JSON.stringify(r)),
+    0,
+  );
+  console.log(
+    `audit spans: ${auditRecords.length} rows, ${auditBytes} bytes serialized (captured at the seam, never written)`,
   );
   const cache = httpCacheStats();
   console.log(
