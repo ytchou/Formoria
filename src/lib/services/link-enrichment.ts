@@ -1,29 +1,36 @@
 import type { Brand, BrandFlatLinkColumns } from '@/lib/types'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
+import {
+  PURCHASE_CAMEL_FIELDS,
+  PURCHASE_CHANNELS,
+  type PurchaseChannelCamelField,
+  type PurchaseChannelColumn,
+} from '@/lib/brands/purchase-channels'
 import { isNonBrandSiteHost } from './enrich-phases/scraper/input-detector'
 
 const MAX_PRODUCT_PHOTOS = 5
 
+// Socials stay listed here — they have no registry. The purchase half is spliced
+// in from `PURCHASE_CHANNELS`, and the order (socials first, then purchase in
+// registry order) is preserved verbatim.
 export const LINK_FIELDS = [
   'socialInstagram',
   'socialThreads',
   'socialFacebook',
-  'purchaseWebsite',
-  'purchasePinkoi',
-  'purchaseShopee',
+  ...PURCHASE_CAMEL_FIELDS,
 ] as const
 
 export type LinkField = (typeof LINK_FIELDS)[number]
 export type LinkColumn = Exclude<keyof BrandFlatLinkColumns, 'other_urls'>
 
-const LINK_FIELD_TO_COLUMN = {
+const LINK_FIELD_TO_COLUMN: Record<LinkField, LinkColumn> = {
   socialInstagram: 'social_instagram',
   socialThreads: 'social_threads',
   socialFacebook: 'social_facebook',
-  purchaseWebsite: 'purchase_website',
-  purchasePinkoi: 'purchase_pinkoi',
-  purchaseShopee: 'purchase_shopee',
-} as const satisfies Record<LinkField, LinkColumn>
+  ...(Object.fromEntries(
+    PURCHASE_CHANNELS.map((channel) => [channel.camel, channel.column])
+  ) as Record<PurchaseChannelCamelField, PurchaseChannelColumn>),
+}
 
 type ImageEnrichBrand = {
   heroImageUrl: string | null
@@ -89,8 +96,12 @@ const URL_TO_LINK_COLUMN: Array<{ pattern: RegExp; column: LinkColumn }> = [
   // platform root ended up standing in for 22 brands' own websites.
   { pattern: /threads\.(?:net|com)\/@[^/?#]+\/?$/i, column: 'social_threads' },
   { pattern: FACEBOOK_PROFILE_URL_PATTERN, column: 'social_facebook' },
-  { pattern: /pinkoi\.com\/store\/[^/?#]+/i, column: 'purchase_pinkoi' },
-  { pattern: /shopee\.tw\/[^/?#]+$/i, column: 'purchase_shopee' },
+  // Purchase patterns come from the registry, in registry order. A channel with
+  // no pattern (`website`) is the fallback bucket, never a match target — see
+  // `classifySubmittedUrl` below.
+  ...PURCHASE_CHANNELS.flatMap((channel) =>
+    channel.urlPattern ? [{ pattern: channel.urlPattern, column: channel.column }] : []
+  ),
 ]
 
 type LinkEnrichScraped =
@@ -254,8 +265,9 @@ const BARE_ROOT_REJECTING_FIELDS: readonly LinkField[] = [
   'socialInstagram',
   'socialThreads',
   'socialFacebook',
-  'purchaseShopee',
-  'purchasePinkoi',
+  ...PURCHASE_CHANNELS.filter((channel) => !channel.allowBareRoot).map(
+    (channel) => channel.camel
+  ),
 ]
 
 function normalizeScrapedLinkValue(

@@ -1,18 +1,24 @@
 import type { TablesInsert } from '@/lib/supabase/database.types'
 import { deriveProductTagsEn } from '@/lib/services/product-tags'
+import {
+  PURCHASE_CHANNELS,
+  type PurchaseChannelCamelField,
+} from '@/lib/brands/purchase-channels'
 
 // product_tags_en exists in the DB but is not yet in the generated types
 type BrandInsertRow = TablesInsert<'brands'> & { product_tags_en?: string[] | null }
 type SubmissionInsertRow = TablesInsert<'brand_submissions'>
 
-type CamelSocialPurchaseFields = {
+/**
+ * The camelCase link fields both write boundaries accept. The purchase half is
+ * derived from the channel registry so a new channel does not have to be
+ * re-typed here (and in the two public input signatures below).
+ */
+export type CamelSocialPurchaseFields = {
   socialInstagram?: string | null
   socialThreads?: string | null
   socialFacebook?: string | null
-  purchaseWebsite?: string | null
-  purchasePinkoi?: string | null
-  purchaseShopee?: string | null
-}
+} & { [Field in PurchaseChannelCamelField]?: string | null }
 
 type FieldMap<Source extends object, Target extends object> = ReadonlyArray<
   readonly [keyof Source, keyof Target]
@@ -35,9 +41,7 @@ const SOCIAL_PURCHASE_FIELD_MAP = [
   ['socialInstagram', 'social_instagram'],
   ['socialThreads', 'social_threads'],
   ['socialFacebook', 'social_facebook'],
-  ['purchaseWebsite', 'purchase_website'],
-  ['purchasePinkoi', 'purchase_pinkoi'],
-  ['purchaseShopee', 'purchase_shopee'],
+  ...PURCHASE_CHANNELS.map((channel) => [channel.camel, channel.column] as const),
 ] as const satisfies FieldMap<
   CamelSocialPurchaseFields,
   BrandInsertRow & SubmissionInsertRow
@@ -108,7 +112,7 @@ const SUBMISSION_FIELD_MAP = [
   SubmissionInsertRow
 >
 
-export function toBrandRow(input: {
+export function toBrandRow(input: CamelSocialPurchaseFields & {
   name?: string
   slug?: string
   romanizedName?: string | null
@@ -121,12 +125,6 @@ export function toBrandRow(input: {
   foundingYear?: number | null
   mitStory?: string | null
   city?: string | null
-  socialInstagram?: string | null
-  socialThreads?: string | null
-  socialFacebook?: string | null
-  purchaseWebsite?: string | null
-  purchasePinkoi?: string | null
-  purchaseShopee?: string | null
   otherUrls?: unknown
   contactEmail?: string | null
   priceRange?: number | null
@@ -169,7 +167,7 @@ export function toBrandRow(input: {
   return row as BrandInsertRow
 }
 
-export function toSubmissionRow(input: {
+export function toSubmissionRow(input: CamelSocialPurchaseFields & {
   brandId?: string | null
   brandName?: string
   romanizedName?: string | null
@@ -180,12 +178,6 @@ export function toSubmissionRow(input: {
   heroImageUrl?: string | null
   intent?: string
   city?: string | null
-  socialInstagram?: string | null
-  socialThreads?: string | null
-  socialFacebook?: string | null
-  purchaseWebsite?: string | null
-  purchasePinkoi?: string | null
-  purchaseShopee?: string | null
   otherUrls?: unknown
   suggestedTags?: unknown
   status?: string
