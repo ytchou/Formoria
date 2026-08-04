@@ -272,6 +272,24 @@ function revalidateApprovals(results: ApprovalResult[]): void {
   }
 }
 
+/**
+ * Supabase rejects with a plain `{ message, code, ... }` object, not an Error,
+ * so `err instanceof Error` misses it and every failure collapsed into
+ * "An unexpected error occurred" — which hid the actual cause. The messages
+ * worth surfacing come from `approve_submission`'s own `raise exception` calls
+ * ("Submission must satisfy publishable core before approval" and friends);
+ * they are already admin-readable, so pass them through verbatim rather than
+ * mapping SQLSTATEs. Admin-only surface, so raw DB text is acceptable here.
+ */
+function describeApprovalError(err: unknown): string {
+  const candidate = err as { code?: string; message?: string } | null
+  if (err instanceof Error && err.message) return err.message
+  if (typeof candidate?.message === 'string' && candidate.message) {
+    return candidate.message
+  }
+  return 'An unexpected error occurred'
+}
+
 export async function approveSubmissionAction(
   submissionId: string
 ): Promise<
@@ -294,9 +312,7 @@ export async function approveSubmissionAction(
     return undefined
   } catch (err) {
     console.error('[admin:approveSubmission]', err)
-    return {
-      error: err instanceof Error ? err.message : 'An unexpected error occurred',
-    }
+    return { error: describeApprovalError(err) }
   }
 }
 
@@ -337,7 +353,7 @@ export async function approveSubmissionsAction(
           return {
             ok: false,
             submissionId,
-            error: err instanceof Error ? err.message : 'An unexpected error occurred',
+            error: describeApprovalError(err),
           }
         }
       })

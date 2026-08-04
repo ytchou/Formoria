@@ -443,6 +443,8 @@ Step 2 — Is it one real photograph? Reject anything assembled rather than shot
 - A single photograph showing several items together in one frame — a gift set, a product family on one surface — is NOT a collage. Continue to Step 3.
 
 Step 3 — Wrong brand? Reject with "wrong_brand" ONLY when a logo, wordmark, or product name visibly printed in the image clearly belongs to a different company than the brand named in the user message. Failing to recognise whose product this is does NOT mean wrong brand — in that case continue to Step 4.
+An image carrying NO visible logo, wordmark, or product name can never be "wrong_brand": an unbranded studio, model, or lifestyle shot is the normal way a brand photographs its own work, so it continues to Step 4.
+When the user message says "No verified identifier available for this brand", you have nothing to check the image against. "wrong_brand" is unavailable for that brand — judge every image on Steps 4-7 alone.
 
 Step 4 — Third-party watermark? If a watermark, wordmark, or repeated logo belonging to a retailer, marketplace, stock-photo agency, reseller, or media outlet is laid over the image: reject with ["low_visual_quality"]. The brand's own small watermark is fine and does not fire this step.
 

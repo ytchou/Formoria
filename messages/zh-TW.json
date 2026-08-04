@@ -2616,6 +2616,12 @@
         "complete": "完整",
         "incomplete": "不完整"
       },
+      "reviewKindFilter": {
+        "label": "依提交類型篩選",
+        "all": "全部類型",
+        "new": "新品牌",
+        "refresh": "更新"
+      },
       "pagination": {
         "summary": "顯示第 {from}–{to} 筆，共 {total} 筆",
         "pageSize": "每頁筆數",

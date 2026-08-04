@@ -875,10 +875,53 @@ async function classifyChunk(
  * harness measures the context production actually sends; the corpus manifest
  * carries no website, so it passes `website: null` until the next capture.
  */
+/**
+ * `pinkoi.com/store/<slug>` — including the hk./cn. locale hosts and Pinkoi's
+ * long tracking query — identifies the seller as precisely as a domain does. A
+ * brand with no site of its own but a storefront was previously sent name-only
+ * context, which is the exact condition the doc comment above describes as
+ * unstable: measured over the 2026-08-03 run, brands with no website drew a
+ * 12.1% wrong_brand rate against 6.0% for brands with one.
+ */
+function pinkoiStoreSlug(url: string | null | undefined): string | null {
+  const raw = url?.trim();
+  if (!raw) return null;
+  try {
+    const parsed = new URL(raw);
+    if (!/(^|\.)pinkoi\.com$/i.test(parsed.hostname)) return null;
+    const match = parsed.pathname.match(/\/store\/([^/]+)/i);
+    return match?.[1] ? decodeURIComponent(match[1]) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Profile handle only. Post and reel permalinks (`/p/<id>`, `/reel/<id>`) carry
+ * no identity — one affected brand had `instagram.com/p/DWd7Jm9k_xS/` stored as
+ * its Instagram, and emitting "@p" would be worse than emitting nothing.
+ */
+function instagramHandle(url: string | null | undefined): string | null {
+  const raw = url?.trim();
+  if (!raw) return null;
+  try {
+    const parsed = new URL(raw);
+    if (!/(^|\.)instagram\.com$/i.test(parsed.hostname)) return null;
+    const segment = parsed.pathname.split("/").filter(Boolean)[0];
+    if (!segment) return null;
+    if (/^(p|reel|reels|explore|stories|tv)$/i.test(segment)) return null;
+    return segment;
+  } catch {
+    return null;
+  }
+}
+
 export function buildBrandContext(brand: {
   name: string | null;
   productType: string | null;
   website: string | null;
+  pinkoi?: string | null;
+  instagram?: string | null;
 }): string {
   const parts: string[] = [`Brand: ${brand.name ?? "unknown"}.`];
 
@@ -897,6 +940,19 @@ export function buildBrandContext(brand: {
     }
   })();
   if (host) parts.push(`Official site: ${host}.`);
+
+  const storeSlug = pinkoiStoreSlug(brand.pinkoi);
+  if (storeSlug) parts.push(`Pinkoi store: ${storeSlug}.`);
+
+  const handle = instagramHandle(brand.instagram);
+  if (handle) parts.push(`Instagram: @${handle}.`);
+
+  // Stated so the model can tell "I was given nothing to check against" apart
+  // from "I checked and it did not match" — the prompt's Step 3 withholds
+  // wrong_brand on the former.
+  if (!host && !storeSlug && !handle) {
+    parts.push("No verified identifier available for this brand.");
+  }
 
   return `${parts.join(" ")} `;
 }
@@ -996,6 +1052,8 @@ export async function runClassifyImagesPhase({
       name: brand.name ?? brand.slug,
       productType: brand.product_type ?? null,
       website: brand.purchase_website ?? null,
+      pinkoi: brand.purchase_pinkoi ?? null,
+      instagram: brand.social_instagram ?? null,
     });
 
     for (let i = 0; i < images.length; i += BATCH_SIZE) {

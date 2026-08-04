@@ -335,7 +335,16 @@ async function main(): Promise<void> {
     for (let i = 0; i < kept.length; i += BATCH_SIZE) {
       const chunk = kept.slice(i, i + BATCH_SIZE)
       const verdicts = await classifyBatch(
-        buildBrandContext({ name: nameAfter, productType: b.product_type, website: websiteAfter }),
+        // pinkoi/instagram must mirror runClassifyImagesPhase: the prompt
+        // withholds wrong_brand when no identifier is present, so omitting them
+        // would make the harness measure a weaker prompt than production.
+        buildBrandContext({
+          name: nameAfter,
+          productType: b.product_type,
+          website: websiteAfter,
+          pinkoi: b.purchase_pinkoi ?? null,
+          instagram: b.social_instagram ?? null,
+        }),
         chunk
       )
       for (const [ord, v] of verdicts) {
