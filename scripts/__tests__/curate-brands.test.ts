@@ -30,6 +30,7 @@ describe("parseCliArgs", () => {
       "tags",
       "discover",
       "links",
+      "names",
       "images",
       "classify_images",
       "descriptions",
