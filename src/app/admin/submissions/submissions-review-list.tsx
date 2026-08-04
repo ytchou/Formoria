@@ -104,6 +104,7 @@ export function SubmissionsReviewList({
   const [completedApprovalIds, setCompletedApprovalIds] = useState<Set<string>>(
     new Set(),
   );
+  const [droppedIds, setDroppedIds] = useState<Set<string>>(new Set());
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [bulkRejecting, setBulkRejecting] = useState(false);
   const [bulkRejectReason, setBulkRejectReason] = useState<DenialReason | "">(
@@ -123,10 +124,11 @@ export function SubmissionsReviewList({
     () =>
       submissions.filter(
         (submission) =>
-          !completedApprovalIds.has(submission.id) ||
-          submission.status !== "pending",
+          (!completedApprovalIds.has(submission.id) ||
+            submission.status !== "pending") &&
+          !droppedIds.has(submission.id),
       ),
-    [completedApprovalIds, submissions],
+    [completedApprovalIds, droppedIds, submissions],
   );
 
   const tabCounts = useMemo(
@@ -394,6 +396,11 @@ export function SubmissionsReviewList({
         toast.error(result.error);
         return;
       }
+      setDroppedIds((current) => {
+        const next = new Set(current);
+        for (const id of ids) next.add(id);
+        return next;
+      });
       setSelectedIds(new Set());
       setDropDialogOpen(false);
       if (result.storageCleanupWarning) {
