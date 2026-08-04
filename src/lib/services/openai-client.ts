@@ -1,4 +1,23 @@
 import { resolveOpenAIModel } from "@/lib/constants/llm-models";
+import {
+  classifyHttpResponse,
+  IN_PROCESS,
+  withRetry,
+} from "@/lib/retry";
+
+/**
+ * A 429 that retrying cannot fix.
+ *
+ * `insufficient_quota` — a spent or unfunded account — is served with the same
+ * HTTP 429 as a genuine rate limit, so the backoff loop below treated a dead
+ * account as congestion: 5 retries and ~31s of sleep per call, multiplied by
+ * every LLM call of a 400-brand run (2026-08-02). Rate limits recover; an empty
+ * balance does not, so this breaks out on the first attempt.
+ *
+ * Matches on `code`/`type` rather than the message string: the message is
+ * prose OpenAI is free to reword, the codes are the documented contract.
+ */
+export { isNonRetryableProviderError } from "@/lib/retry";
 
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 
@@ -75,6 +94,7 @@ export type ChatAuditEvent = {
     user: string;
     imageCount: number;
   };
+  retryAttempt?: number;
   meta?: Record<string, unknown>;
   error?: string;
 };
@@ -123,24 +143,6 @@ function isReasoningModel(model: string): boolean {
   return model.startsWith("gpt-5");
 }
 
-/** Rate-limit retries per attempt. Beyond this a 429 is returned to the caller as a normal failure. */
-const MAX_RATE_LIMIT_RETRIES = 5;
-const MAX_NETWORK_FAILURE_RETRIES = 2;
-const MAX_RATE_LIMIT_BACKOFF_MS = 30_000;
-
-function rateLimitDelayMs(response: Response, attemptIndex: number): number {
-  const retryAfter = Number(response.headers.get("retry-after"));
-  const delay =
-    Number.isFinite(retryAfter) && retryAfter > 0
-      ? retryAfter * 1000
-      : 1000 * 2 ** attemptIndex;
-  return Math.min(delay, MAX_RATE_LIMIT_BACKOFF_MS);
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 // Latched so a model snapshot without Structured Outputs warns once per process, not per batch.
 let warnedStructuredOutputsUnsupported = false;
 
@@ -156,29 +158,6 @@ function mentionsResponseFormat(errorBody: unknown): boolean {
   return (
     haystack.includes("response_format") || haystack.includes("json_schema")
   );
-}
-
-/**
- * A 429 that retrying cannot fix.
- *
- * `insufficient_quota` — a spent or unfunded account — is served with the same
- * HTTP 429 as a genuine rate limit, so the backoff loop below treated a dead
- * account as congestion: 5 retries and ~31s of sleep per call, multiplied by
- * every LLM call of a 400-brand run (2026-08-02). Rate limits recover; an empty
- * balance does not, so this breaks out on the first attempt.
- *
- * Matches on `code`/`type` rather than the message string: the message is
- * prose OpenAI is free to reword, the codes are the documented contract.
- */
-export function isNonRetryableProviderError(
-  result: Pick<OpenAIChatResult, "errorBody">,
-): boolean {
-  const { errorBody } = result;
-  if (!errorBody || typeof errorBody !== "object") return false;
-  const { error } = errorBody as { error?: unknown };
-  if (!error || typeof error !== "object") return false;
-  const { code, type } = error as { code?: unknown; type?: unknown };
-  return code === "insufficient_quota" || type === "insufficient_quota";
 }
 
 function networkFailureResponse(): Response {
@@ -299,7 +278,10 @@ export function createOpenAIClient({
         return reasoningEffort ? { reasoning_effort: reasoningEffort } : {};
       }
 
-      async function attempt(useSchema: boolean): Promise<OpenAIChatResult> {
+      async function attempt(
+        useSchema: boolean,
+        retryAttempt: number,
+      ): Promise<OpenAIChatResult> {
         const startedAt = performance.now();
         // Per-attempt deadline. A shared one let a slow first call abort the retry instantly.
         const controller = new AbortController();
@@ -335,6 +317,7 @@ export function createOpenAIClient({
               data,
               latencyMs: performance.now() - startedAt,
               request: { system, user, imageCount: images?.length ?? 0 },
+              retryAttempt,
               ...(meta ? { meta } : {}),
             });
             return {
@@ -361,6 +344,7 @@ export function createOpenAIClient({
             ...(data.usage ? { usage: data.usage } : {}),
             latencyMs: performance.now() - startedAt,
             request: { system, user, imageCount: images?.length ?? 0 },
+            retryAttempt,
             ...(meta ? { meta } : {}),
           });
 
@@ -385,6 +369,7 @@ export function createOpenAIClient({
             data: null,
             latencyMs: performance.now() - startedAt,
             request: { system, user, imageCount: images?.length ?? 0 },
+            retryAttempt,
             ...(meta ? { meta } : {}),
             error: message,
           });
@@ -404,57 +389,16 @@ export function createOpenAIClient({
       }
 
       /** Provider congestion and thrown fetches are retried here for every production caller. */
-      async function attemptWithBackoff(
+      async function attemptWithRetry(
         useSchema: boolean,
       ): Promise<OpenAIChatResult> {
-        let result = await attempt(useSchema);
-        let rateLimitRetries = 0;
-        let networkRetries = 0;
-
-        while (true) {
-          if (
-            result.status === 0 &&
-            networkRetries < MAX_NETWORK_FAILURE_RETRIES
-          ) {
-            const delay = rateLimitDelayMs(result.response, networkRetries);
-            networkRetries += 1;
-            console.error(
-              `  [OPENAI] Network request failed. Retry ${networkRetries}/${MAX_NETWORK_FAILURE_RETRIES} in ${delay}ms`,
-            );
-            await sleep(delay);
-            result = await attempt(useSchema);
-            continue;
-          }
-
-          if (
-            result.status === 429 &&
-            rateLimitRetries < MAX_RATE_LIMIT_RETRIES
-          ) {
-            // Quota exhaustion wears a 429 but never clears on its own. Returning
-            // it straight to the caller is what turns an outage into a fast,
-            // truthful failure instead of ~31s of doomed backoff per call.
-            if (isNonRetryableProviderError(result)) {
-              console.error(
-                "  [OPENAI] Quota exhausted (insufficient_quota) — not retrying",
-              );
-              return result;
-            }
-
-            const delay = rateLimitDelayMs(result.response, rateLimitRetries);
-            rateLimitRetries += 1;
-            console.error(
-              `  [OPENAI] Rate limited (429). Retry ${rateLimitRetries}/${MAX_RATE_LIMIT_RETRIES} in ${delay}ms`,
-            );
-            await sleep(delay);
-            result = await attempt(useSchema);
-            continue;
-          }
-
-          return result;
-        }
+        return withRetry(IN_PROCESS, (retryAttempt) => attempt(useSchema, retryAttempt), {
+          classify: classifyHttpResponse,
+          service: "openai",
+        });
       }
 
-      const first = await attemptWithBackoff(Boolean(schema));
+      const first = await attemptWithRetry(Boolean(schema));
       if (schema && !first.ok && mentionsResponseFormat(first.errorBody)) {
         if (!warnedStructuredOutputsUnsupported) {
           warnedStructuredOutputsUnsupported = true;
@@ -462,7 +406,7 @@ export function createOpenAIClient({
             `  [OPENAI] Model ${model} rejected json_schema response_format; falling back to json_object mode.`,
           );
         }
-        return await attemptWithBackoff(false);
+        return await attemptWithRetry(false);
       }
       return first;
     },

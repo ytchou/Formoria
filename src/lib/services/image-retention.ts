@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { uploadWithRetry } from './storage-retry'
 
 const BRAND_IMAGES_BUCKET = 'brand-images'
 const RETENTION_MS = 7 * 24 * 60 * 60 * 1_000
@@ -104,7 +105,9 @@ async function deleteStorageObjects(
 
   for (let index = 0; index < paths.length; index += STORAGE_DELETE_BATCH_SIZE) {
     const chunk = paths.slice(index, index + STORAGE_DELETE_BATCH_SIZE)
-    const { error } = await client.storage.from(BRAND_IMAGES_BUCKET).remove(chunk)
+    const { error } = await uploadWithRetry(() =>
+      client.storage.from(BRAND_IMAGES_BUCKET).remove(chunk),
+    )
     if (error) throw error
     chunk.forEach((path) => deleted.add(path))
   }

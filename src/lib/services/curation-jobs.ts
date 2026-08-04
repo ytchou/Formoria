@@ -8,6 +8,11 @@ import {
   type CurationStep,
   type EnrichPhaseName,
 } from "@/lib/constants/enrich-phases";
+import {
+  computeBackoffDelay,
+  JOB_REQUEUE,
+  RETRY_ATTEMPTS,
+} from "@/lib/retry";
 import { parsePhaseResults } from "@/lib/services/phase-results";
 import {
   enrichedDataFromDb,
@@ -81,7 +86,7 @@ type EnqueueCurationJobInput = {
   trigger: CurationJobTrigger;
   targets: EnqueueTarget[];
   parentJobId?: string | null;
-  attempt?: 1 | 2;
+  attempt?: number;
   scheduledFor?: string | null;
   runAfter?: string;
   dedupeKey?: string | null;
@@ -289,7 +294,7 @@ export async function ensureAutomaticRetries(): Promise<CurationJob[]> {
     .select("*")
     .eq("status", "failed")
     .in("dispatch_status", ["dispatched", "failed"])
-    .eq("attempt", 1)
+    .lt("attempt", RETRY_ATTEMPTS)
     .order("completed_at", { ascending: true });
 
   if (error) throw error;
@@ -306,7 +311,7 @@ export async function ensureAutomaticRetries(): Promise<CurationJob[]> {
 export async function enqueueAutomaticRetry(
   job: CurationJob,
 ): Promise<CurationJob | null> {
-  if (job.trigger === "automatic_retry" || job.attempt !== 1) {
+  if (job.attempt >= RETRY_ATTEMPTS) {
     return null;
   }
 
@@ -328,9 +333,11 @@ export async function enqueueAutomaticRetry(
     trigger: "automatic_retry",
     targets: targets.map(targetToEnqueueInput),
     parentJobId: job.id,
-    attempt: 2,
+    attempt: job.attempt + 1,
     scheduledFor: job.scheduled_for,
-    runAfter: new Date().toISOString(),
+    runAfter: new Date(
+      Date.now() + computeBackoffDelay(JOB_REQUEUE, job.attempt - 1),
+    ).toISOString(),
   });
 }
 

@@ -6,6 +6,7 @@ import { generateVerificationToken, hashToken } from '@/lib/utils/token'
 import { CLAIM_PROOF_TYPES } from './claim-proofs'
 import type { ClaimProofType, ProofEvidence } from './claim-proofs'
 import { lookupCertNumbers } from './mit-registry'
+import { uploadWithRetry } from './storage-retry'
 
 export { CLAIM_PROOF_TYPES } from './claim-proofs'
 export type { ProofEvidence } from './claim-proofs'
@@ -465,9 +466,11 @@ export async function attachSignedProofUrls(
 
   const bucketPaths = imageKeys.map(toClaimProofBucketPath)
   const supabase = createServiceClient()
-  const { data, error } = await supabase.storage
-    .from(CLAIM_PROOF_BUCKET)
-    .createSignedUrls(bucketPaths, CLAIM_PROOF_SIGNED_URL_EXPIRES_IN_SECONDS)
+  const { data, error } = await uploadWithRetry(() =>
+    supabase.storage
+      .from(CLAIM_PROOF_BUCKET)
+      .createSignedUrls(bucketPaths, CLAIM_PROOF_SIGNED_URL_EXPIRES_IN_SECONDS),
+  )
 
   if (error) {
     return claims

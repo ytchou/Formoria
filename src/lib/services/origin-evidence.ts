@@ -3,6 +3,7 @@ import { sendEmail } from '@/lib/email/send'
 import type { Database } from '@/lib/supabase/database.types'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { stripDeclaration } from './mit-declaration'
+import { uploadWithRetry } from './storage-retry'
 
 export const MAX_NOTES_LENGTH = 1000
 const MAX_PENDING_EVIDENCE = 3
@@ -125,12 +126,14 @@ async function attachSignedPhotoUrls(evidence: OriginEvidence[]): Promise<Origin
   if (photoPaths.length === 0) return evidence
 
   const supabase = createServiceClient()
-  const { data, error } = await supabase.storage
-    .from(ORIGIN_EVIDENCE_BUCKET)
-    .createSignedUrls(
-      photoPaths.map(toOriginEvidenceBucketPath),
-      ORIGIN_EVIDENCE_SIGNED_URL_EXPIRES_IN_SECONDS,
-    )
+  const { data, error } = await uploadWithRetry(() =>
+    supabase.storage
+      .from(ORIGIN_EVIDENCE_BUCKET)
+      .createSignedUrls(
+        photoPaths.map(toOriginEvidenceBucketPath),
+        ORIGIN_EVIDENCE_SIGNED_URL_EXPIRES_IN_SECONDS,
+      ),
+  )
 
   if (error) return evidence
 

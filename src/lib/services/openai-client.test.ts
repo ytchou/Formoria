@@ -294,6 +294,7 @@ describe("createOpenAIClient", () => {
 
     it("honours Retry-After before retrying", async () => {
       vi.spyOn(console, "error").mockImplementation(() => undefined);
+      vi.spyOn(Math, "random").mockReturnValue(0);
       vi.spyOn(globalThis, "fetch")
         .mockResolvedValueOnce(
           new Response(null, { status: 429, headers: { "retry-after": "2" } }),
@@ -322,10 +323,47 @@ describe("createOpenAIClient", () => {
         client.chat({ system: "s", user: "u" }),
       );
 
-      // 1 initial attempt + MAX_RATE_LIMIT_RETRIES
-      expect(fetchSpy).toHaveBeenCalledTimes(6);
+      expect(fetchSpy).toHaveBeenCalledTimes(3);
       expect(result.ok).toBe(false);
       expect(result.status).toBe(429);
+    });
+
+    it("retries a network failure twice", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockRejectedValueOnce(new TypeError("fetch failed"))
+        .mockRejectedValueOnce(new TypeError("fetch failed"))
+        .mockRejectedValue(new TypeError("fetch failed"));
+      const client = createOpenAIClient({ apiKey: "k" });
+
+      const result = await withFakeTimers(() =>
+        client.chat({ system: "s", user: "u" }),
+      );
+
+      expect(fetchSpy).toHaveBeenCalledTimes(3);
+      expect(result.ok).toBe(false);
+      expect(result.status).toBe(0);
+    });
+
+    it("emits one audit event per attempt", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      vi.spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(new Response(null, { status: 429 }))
+        .mockResolvedValueOnce(new Response(null, { status: 429 }))
+        .mockResolvedValue(okResponse("recovered"));
+      const events: ChatAuditEvent[] = [];
+      const client = createOpenAIClient({
+        apiKey: "k",
+        onChatComplete: (event) => {
+          events.push(event);
+        },
+      });
+
+      await withFakeTimers(() => client.chat({ system: "s", user: "u" }));
+
+      expect(events).toHaveLength(3);
+      expect(events.map((event) => event.retryAttempt)).toEqual([0, 1, 2]);
     });
 
     it("does not retry a 429 carrying insufficient_quota", async () => {
@@ -377,7 +415,7 @@ describe("createOpenAIClient", () => {
         client.chat({ system: "s", user: "u" }),
       );
 
-      expect(fetchSpy).toHaveBeenCalledTimes(6);
+      expect(fetchSpy).toHaveBeenCalledTimes(3);
       expect(result.status).toBe(429);
     });
   });
@@ -462,6 +500,32 @@ describe("createOpenAIClient", () => {
 
       expect(fetchSpy).toHaveBeenCalledTimes(1);
       expect(result.ok).toBe(false);
+    });
+
+    it("re-runs the retry ladder for the schema fallback", async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(new Response(null, { status: 429 }))
+        .mockResolvedValueOnce(new Response(null, { status: 429 }))
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({
+              error: { message: "Invalid response_format", param: "response_format" },
+            }),
+            { status: 400, headers: { "content-type": "application/json" } },
+          ),
+        )
+        .mockResolvedValue(new Response(null, { status: 429 }));
+      const client = createOpenAIClient({ apiKey: "k" });
+
+      const result = await withFakeTimers(() =>
+        client.chat({ system: "s", user: "u", schema }),
+      );
+
+      expect(fetchSpy).toHaveBeenCalledTimes(6);
+      expect(result.status).toBe(429);
     });
   });
 });

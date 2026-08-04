@@ -1,4 +1,5 @@
 import { uploadPrivateFile } from './image-upload'
+import { uploadWithRetry } from './storage-retry'
 import { createServiceClient } from '@/lib/supabase/server'
 
 const RUN_LOGS_BUCKET = 'run-logs'
@@ -20,9 +21,11 @@ export async function uploadRunLogSnapshot(jobId: string, html: string): Promise
 
 export async function getRunLogSnapshotUrl(jobId: string): Promise<string | null> {
   const supabase = createServiceClient()
-  const { data, error } = await supabase.storage
-    .from(RUN_LOGS_BUCKET)
-    .createSignedUrl(snapshotPath(jobId), SIGNED_URL_EXPIRES_IN_SECONDS)
+  const { data, error } = await uploadWithRetry(() =>
+    supabase.storage
+      .from(RUN_LOGS_BUCKET)
+      .createSignedUrl(snapshotPath(jobId), SIGNED_URL_EXPIRES_IN_SECONDS),
+  )
 
   if (error) {
     const statusCode = 'statusCode' in error ? String(error.statusCode) : ''

@@ -1,3 +1,5 @@
+import { classifyHttpResponse, IN_PROCESS, withRetry } from '@/lib/retry'
+
 /**
  * DORMANT — retained as a fallback provider, not dead code.
  *
@@ -68,6 +70,7 @@ export type ChatAuditEvent = {
     user: string;
     imageCount: number;
   };
+  retryAttempt?: number
   meta?: Record<string, unknown>;
   error?: string;
 };
@@ -76,6 +79,8 @@ export type DeepSeekChatResult = {
   response: Response;
   data: DeepSeekChatResponse | null;
   content: string | null;
+  status?: number;
+  errorBody?: unknown;
 };
 
 export function parseDeepSeekJson<T>(content: string): T | null {
@@ -127,9 +132,7 @@ export function createDeepSeekClient({
       images,
       meta,
     }: DeepSeekChatInput): Promise<DeepSeekChatResult> {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), timeoutMs);
-      const startedAt = performance.now();
+      const headers = authHeaders()
       const userContent: string | DeepSeekChatContentPart[] = images?.length
         ? [
             { type: "text", text: user },
@@ -140,74 +143,97 @@ export function createDeepSeekClient({
           ]
         : user;
 
-      try {
-        const response = await fetch(DEEPSEEK_API_URL, {
-          method: "POST",
-          headers: authHeaders(),
-          body: JSON.stringify({
-            model,
-            messages: [
-              { role: "system", content: system },
-              { role: "user", content: userContent },
-            ],
-            ...(typeof maxTokens === "number" ? { max_tokens: maxTokens } : {}),
-            ...(typeof temperature === "number" ? { temperature } : {}),
-            thinking: { type: "disabled" },
-            ...(json ? { response_format: { type: "json_object" } } : {}),
-          }),
-          signal: controller.signal,
-        });
+      const body = {
+        model,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: userContent },
+        ],
+        ...(typeof maxTokens === "number" ? { max_tokens: maxTokens } : {}),
+        ...(typeof temperature === "number" ? { temperature } : {}),
+        thinking: { type: "disabled" },
+        ...(json ? { response_format: { type: "json_object" } } : {}),
+      };
 
-        if (!response.ok) {
-          const data = (await response
-            .clone()
-            .json()
-            .catch(() => null)) as unknown;
+      async function attempt(retryAttempt: number): Promise<DeepSeekChatResult> {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), timeoutMs);
+        const startedAt = performance.now();
+
+        try {
+          const response = await fetch(DEEPSEEK_API_URL, {
+            method: "POST",
+            headers,
+            body: JSON.stringify(body),
+            signal: controller.signal,
+          });
+
+          if (!response.ok) {
+            const data = (await response
+              .clone()
+              .json()
+              .catch(() => null)) as unknown;
+            await emitAudit({
+              provider: "deepseek",
+              model,
+              ok: false,
+              status: response.status,
+              data,
+              latencyMs: performance.now() - startedAt,
+              request: { system, user, imageCount: images?.length ?? 0 },
+              retryAttempt,
+              ...(meta ? { meta } : {}),
+            });
+            return { response, data: null, content: null, status: response.status, errorBody: data };
+          }
+
+          const data = (await response.json()) as DeepSeekChatResponse;
+          const content = data.choices?.[0]?.message?.content?.trim() ?? null;
+
+          await emitAudit({
+            provider: "deepseek",
+            model,
+            ok: true,
+            status: response.status,
+            data,
+            ...(data.usage ? { usage: data.usage } : {}),
+            latencyMs: performance.now() - startedAt,
+            request: { system, user, imageCount: images?.length ?? 0 },
+            retryAttempt,
+            ...(meta ? { meta } : {}),
+          });
+
+          return { response, data, content, status: response.status, errorBody: null };
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
           await emitAudit({
             provider: "deepseek",
             model,
             ok: false,
-            status: response.status,
-            data,
+            status: 0,
+            data: null,
             latencyMs: performance.now() - startedAt,
             request: { system, user, imageCount: images?.length ?? 0 },
+            retryAttempt,
             ...(meta ? { meta } : {}),
+            error: message,
           });
-          return { response, data: null, content: null };
+          return {
+            response: new Response(null, { status: 503, statusText: "deepseek request failed" }),
+            data: null,
+            content: null,
+            status: 0,
+            errorBody: { error: { message } },
+          };
+        } finally {
+          clearTimeout(timeout);
         }
-
-        const data = (await response.json()) as DeepSeekChatResponse;
-        const content = data.choices?.[0]?.message?.content?.trim() ?? null;
-
-        await emitAudit({
-          provider: "deepseek",
-          model,
-          ok: true,
-          status: response.status,
-          data,
-          ...(data.usage ? { usage: data.usage } : {}),
-          latencyMs: performance.now() - startedAt,
-          request: { system, user, imageCount: images?.length ?? 0 },
-          ...(meta ? { meta } : {}),
-        });
-
-        return { response, data, content };
-      } catch (error) {
-        await emitAudit({
-          provider: "deepseek",
-          model,
-          ok: false,
-          status: 0,
-          data: null,
-          latencyMs: performance.now() - startedAt,
-          request: { system, user, imageCount: images?.length ?? 0 },
-          ...(meta ? { meta } : {}),
-          error: error instanceof Error ? error.message : String(error),
-        });
-        throw error;
-      } finally {
-        clearTimeout(timeout);
       }
+
+      return withRetry(IN_PROCESS, attempt, {
+        classify: classifyHttpResponse,
+        service: "deepseek",
+      });
     },
 
     async balance(timeoutMs = 3000): Promise<Response> {

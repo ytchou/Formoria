@@ -41,7 +41,6 @@ const BATCH_SIZE = 5;
 /** Default stays on the incumbent so existing runs and the tracked baseline are unaffected. */
 const DEFAULT_MODEL = "gpt-4o-mini";
 const REJECTION_TAGS = ["promo", "text_banner", "irrelevant"];
-const MAX_RATE_LIMIT_RETRIES = 5;
 
 /**
  * The line of IMAGE_CLASSIFY_SYSTEM_PROMPT the dynamic tag registry replaces.
@@ -337,32 +336,6 @@ async function auditWriter(path: string, event: ChatAuditEvent): Promise<void> {
   await appendFile(path, `${JSON.stringify(event)}\n`, "utf8");
 }
 
-function retryDelayMs(
-  response: Awaited<ReturnType<ReturnType<typeof createOpenAIClient>["chat"]>>,
-  attempt: number,
-): number {
-  const retryAfter = Number(response.response.headers.get("retry-after"));
-  if (Number.isFinite(retryAfter) && retryAfter >= 0)
-    return Math.min(30_000, retryAfter * 1_000);
-  return Math.min(30_000, 1_000 * 2 ** attempt);
-}
-
-async function chatWithRateLimitRetry(
-  client: ReturnType<typeof createOpenAIClient>,
-  input: Parameters<ReturnType<typeof createOpenAIClient>["chat"]>[0],
-): Promise<Awaited<ReturnType<ReturnType<typeof createOpenAIClient>["chat"]>>> {
-  for (let attempt = 0; ; attempt += 1) {
-    const response = await client.chat(input);
-    if (response.status !== 429 || attempt >= MAX_RATE_LIMIT_RETRIES)
-      return response;
-    const delayMs = retryDelayMs(response, attempt);
-    console.warn(
-      `  [OPENAI] Rate limited; retrying in ${delayMs}ms (attempt ${attempt + 1}/${MAX_RATE_LIMIT_RETRIES})`,
-    );
-    await new Promise((resolve) => setTimeout(resolve, delayMs));
-  }
-}
-
 async function runBaseline(): Promise<void> {
   await ensureEvalDirectories();
   const manifest = await readJson<GoldenManifest>(MANIFEST_PATH);
@@ -436,7 +409,7 @@ async function runBaseline(): Promise<void> {
         continue;
       }
 
-      const response = await chatWithRateLimitRetry(client, {
+      const response = await client.chat({
         system: systemPrompt,
         user: `${brandContext(chunk[0], prompt)}${classifyInstruction(prompt, chunk.length, ids)}`,
         images: images.filter((url): url is string => Boolean(url)),

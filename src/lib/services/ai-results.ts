@@ -10,6 +10,11 @@ import { resolveOpenAIModel } from "./openai-client";
 import { evalSinkPath, writeEvalSinkRecord } from "./eval/llm-usage-sink";
 import { priceUsage, usageFromRawResponse } from "./llm-pricing";
 import { captureAlert } from "@/lib/adapters/alerting/sentry";
+import {
+  classifyPostgrestError,
+  IN_PROCESS,
+  withRetry,
+} from "@/lib/retry";
 
 // The model behind every text phase. Written verbatim into brand_ai_results.model, so it
 // must track the model the audited client actually calls — hence the shared resolver
@@ -35,20 +40,6 @@ const PHASE_CHECK_MIGRATION =
   "supabase/migrations/20260803033000_widen_ai_results_phase_check.sql";
 const COST_COLUMNS_MIGRATION =
   "supabase/migrations/20260803023000_llm_cost_tracking.sql";
-const MAX_AUDIT_WRITE_ATTEMPTS = 3;
-const AUDIT_WRITE_RETRY_BASE_MS = 250;
-const TRANSIENT_DATABASE_CODES = new Set([
-  "40001",
-  "40P01",
-  "53000",
-  "53100",
-  "53200",
-  "53300",
-  "PGRST000",
-  "PGRST001",
-  "PGRST002",
-  "PGRST003",
-]);
 
 // One shot per process. This fires on EVERY audit write once the schema is
 // behind, and a per-row log would bury the line it is trying to make unmissable.
@@ -56,37 +47,31 @@ let schemaMismatchReported = false;
 
 type AuditInsertError = { code?: string; message: string };
 
-function isTransientAuditInsertError(error: AuditInsertError): boolean {
-  return (
-    !error.code ||
-    error.code.startsWith("08") ||
-    TRANSIENT_DATABASE_CODES.has(error.code)
-  );
-}
-
 export async function retryAuditWrite(
   write: () => Promise<AuditInsertError | null>,
   wait: (ms: number) => Promise<void> = (ms) =>
     new Promise((resolve) => setTimeout(resolve, ms)),
 ): Promise<AuditInsertError | null> {
-  for (let attempt = 1; attempt <= MAX_AUDIT_WRITE_ATTEMPTS; attempt += 1) {
-    const error = await write();
-    if (!error) return null;
-    if (
-      !isTransientAuditInsertError(error) ||
-      attempt === MAX_AUDIT_WRITE_ATTEMPTS
-    )
-      return error;
-
-    const delay = AUDIT_WRITE_RETRY_BASE_MS * 2 ** (attempt - 1);
-    console.error(
-      `  [AI-RESULTS] transient audit write failed. Retry ${attempt}/${MAX_AUDIT_WRITE_ATTEMPTS - 1} in ${delay}ms:`,
-      error.message,
-    );
-    await wait(delay);
-  }
-
-  return null;
+  return withRetry(
+    IN_PROCESS,
+    async () => {
+      try {
+        return await write();
+      } catch (error) {
+        return {
+          message: error instanceof Error ? error.message : String(error),
+        };
+      }
+    },
+    {
+      classify: (error) =>
+        error
+          ? classifyPostgrestError(error)
+          : { retryable: false, reason: "terminal" },
+      service: "supabase-audit",
+      sleep: wait,
+    },
+  );
 }
 
 /**
@@ -132,6 +117,7 @@ export type AiCallInput = {
   rawResponse: unknown;
   input: unknown;
   attempt?: number;
+  retryAttempt?: number;
   config?: unknown;
   latencyMs: number;
 };
@@ -167,6 +153,7 @@ export async function insertAiCallResult(input: AiCallInput): Promise<void> {
       raw_response: input.rawResponse,
       input: input.input,
       attempt: input.attempt ?? null,
+      retry_attempt: input.retryAttempt ?? 0,
       config: input.config ?? null,
       latency_ms: Math.round(input.latencyMs),
       prompt_tokens: cost?.promptTokens ?? null,

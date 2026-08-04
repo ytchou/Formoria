@@ -58,13 +58,14 @@ function eventMetrics(event: StepEvent): string {
 
 function renderEvent(event: StepEvent): string {
   const target = event.labels?.target ? `<span class="target">${escapeHtml(event.labels.target)}</span>` : ''
+  const retry = event.labels?.retry ? `<span class="retry">retry ${escapeHtml(event.labels.retry)}</span>` : ''
   const model = event.model ? `<span class="model">${escapeHtml(event.model)}</span>` : ''
   const error = event.error ? `<div class="event-error">${escapeHtml(event.error)}</div>` : ''
 
   return `<tr class="event event-${event.status}">
     <td class="time">${escapeHtml(formatTimestamp(event.timestamp))}</td>
     <td><span class="actor actor-${event.actor.toLowerCase()}">${escapeHtml(event.actor)}</span></td>
-    <td><div class="event-summary">${target}<span>${escapeHtml(event.summary)}</span>${model}</div>${error}</td>
+    <td><div class="event-summary">${target}${retry}<span>${escapeHtml(event.summary)}</span>${model}</div>${error}</td>
     <td class="metrics">${escapeHtml(eventMetrics(event))}</td>
   </tr>`
 }

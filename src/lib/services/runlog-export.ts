@@ -62,6 +62,7 @@ type AiAuditRow = {
   latency_ms: number | null;
   created_at: string;
   attempt: number | null;
+  retry_attempt?: number | null;
   usage: unknown;
   response_usage: unknown;
   audit_ok: unknown;
@@ -79,6 +80,7 @@ type SearchAuditRow = {
   created_at: string;
   call_status?: string | null;
   http_status?: number | null;
+  retry_attempt?: number | null;
   error?: string | null;
 };
 
@@ -214,7 +216,7 @@ function targetForRow(
   return id ? targetById.get(id) : undefined;
 }
 
-function aiEvent(
+export function aiEvent(
   row: AiAuditRow,
   targetById: Map<string, CurationJobTarget>,
   gaps: string[],
@@ -231,7 +233,7 @@ function aiEvent(
     timestamp: row.created_at,
     actor: "LLM",
     name: row.phase,
-    summary: `${row.model} ${row.phase} call${row.attempt && row.attempt > 1 ? ` (attempt ${row.attempt})` : ""}`,
+    summary: `${row.model} ${row.phase} call${row.attempt && row.attempt > 1 ? ` (attempt ${row.attempt})` : ""}${row.retry_attempt && row.retry_attempt > 0 ? ` (retry ${row.retry_attempt})` : ""}`,
     status: row.audit_ok === false ? "error" : "ok",
     model: row.model,
     ...(usage ? { tokens: usage } : {}),
@@ -243,7 +245,7 @@ function aiEvent(
   };
 }
 
-function searchEvent(
+export function searchEvent(
   row: SearchAuditRow,
   targetById: Map<string, CurationJobTarget>,
 ): StepEvent {
@@ -259,6 +261,11 @@ function searchEvent(
     ...(targetLabel(target) ? { target: targetLabel(target)! } : {}),
     ...(row.http_status !== null && row.http_status !== undefined
       ? { httpStatus: String(row.http_status) }
+      : {}),
+    ...(row.retry_attempt !== null &&
+    row.retry_attempt !== undefined &&
+    row.retry_attempt > 0
+      ? { retry: String(row.retry_attempt) }
       : {}),
   };
   return {
@@ -390,9 +397,9 @@ async function queryLegacy(
 }
 
 const AI_COLUMNS =
-  "id, brand_id, submission_id, phase, model, latency_ms, created_at, attempt, usage:raw_response->usage, response_usage:raw_response->response->usage, audit_ok:raw_response->ok, audit_error:raw_response->error";
+  "id, brand_id, submission_id, phase, model, latency_ms, created_at, attempt, retry_attempt, usage:raw_response->usage, response_usage:raw_response->response->usage, audit_ok:raw_response->ok, audit_error:raw_response->error";
 const SEARCH_COLUMNS =
-  "id, brand_id, submission_id, search_type, query, urls, latency_ms, created_at, provider, endpoint, input, call_status, http_status, error, attempt";
+  "id, brand_id, submission_id, search_type, query, urls, latency_ms, created_at, provider, endpoint, input, call_status, http_status, error, attempt, retry_attempt";
 
 export async function exportJobRunLog(jobId: string): Promise<RunLog> {
   const [job, targets, aiQuery, searchQuery] = await Promise.all([

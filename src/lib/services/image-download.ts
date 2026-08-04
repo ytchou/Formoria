@@ -9,6 +9,7 @@ import {
   targetImageStorage,
   type EnrichmentTarget,
 } from './enrichment-target'
+import { uploadWithRetry } from './storage-retry'
 
 const IMAGE_FETCH_TIMEOUT_MS = 10_000
 const MIN_IMAGE_SIZE_BYTES = 5_120
@@ -382,12 +383,18 @@ export async function downloadAndStoreImages(
         const filename = `${storage.prefix}/${target.id}/${crypto.randomUUID()}.${ext}`
         const dominantColor = dominantColorToHex(stats.dominant)
 
-        const { error: uploadError } = await supabase.storage
-          .from('brand-images')
-          .upload(filename, uploadBuffer, {
-            contentType: uploadContentType,
-            cacheControl: '31536000',
-          })
+        // The random path is a create-only upload; retrying an ambiguous
+        // response could create a duplicate object.
+        const { error: uploadError } = await uploadWithRetry(
+          () =>
+            supabase.storage
+              .from('brand-images')
+              .upload(filename, uploadBuffer, {
+                contentType: uploadContentType,
+                cacheControl: '31536000',
+              }),
+          { idempotent: false },
+        )
 
         if (uploadError) {
           throw uploadError
@@ -395,7 +402,9 @@ export async function downloadAndStoreImages(
 
         const {
           data: { publicUrl },
-        } = supabase.storage.from('brand-images').getPublicUrl(filename)
+        } = await uploadWithRetry(async () =>
+          supabase.storage.from('brand-images').getPublicUrl(filename),
+        )
 
         const { error: insertError } = await supabase
           .from(storage.table)
@@ -416,7 +425,9 @@ export async function downloadAndStoreImages(
           } as never)
 
         if (insertError) {
-          await supabase.storage.from('brand-images').remove([filename])
+          await uploadWithRetry(() =>
+            supabase.storage.from('brand-images').remove([filename]),
+          )
           if ((insertError as { code?: string }).code === '23505') {
             return existing?.url ?? null
           }
