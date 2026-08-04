@@ -16,7 +16,6 @@ test.describe("Landing search compatibility", () => {
     await expect(page).toHaveURL(/\/brands\?search=coffee/, {
       timeout: 15_000,
     });
-    await page.waitForLoadState("networkidle");
     const matchingResults = page.locator('main a[href^="/brands/"]');
     await expect(matchingResults.first()).toBeVisible({ timeout: 15_000 });
     expect(await matchingResults.count()).toBeGreaterThan(0);
