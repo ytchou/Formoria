@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getAuditContext,
   runWithAuditContext,
-} from "../__spike__/correlation-probe";
+} from "../context";
 
 describe("audit correlation identity", () => {
   it("returns the same correlation id for two nested calls in one scope", async () => {
