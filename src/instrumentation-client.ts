@@ -28,6 +28,17 @@ Sentry.init({
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
   sendDefaultPii: false,
 
+  // Injected by iOS in-app browsers (WKWebView hosts such as LINE, Facebook and
+  // Instagram), not by this app — `sendDataToNative` / `sendPageHideMessage`
+  // appear in no source file here. The host's own bridge script throws when it
+  // reaches for `window.webkit.messageHandlers` on a page it does not own.
+  // Unfixable from our side and it buries real story-page errors (DEV-1340 /
+  // FORMORIA-5F). Kept narrow so a genuine `undefined is not an object` still
+  // reports.
+  ignoreErrors: [
+    "undefined is not an object (evaluating 'window.webkit.messageHandlers')",
+  ],
+
   beforeSend(event) {
     if (event.user) {
       delete event.user.email;

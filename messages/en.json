@@ -1276,6 +1276,9 @@
     "feedback": "Feature requests"
   },
   "favorites": {
+    "metadata": {
+      "title": "Saved Brands"
+    },
     "heading": "Saved Brands",
     "count": "{count} brands",
     "emptyTitle": "No saved brands yet",
@@ -1848,7 +1851,10 @@
       "description": "An unexpected error occurred. Please try again.",
       "brandDescription": "We couldn't load this brand. Please try again.",
       "storyDescription": "We couldn't load this story. Please try again.",
-      "retry": "Try again"
+      "retry": "Try again",
+      "staleTitle": "This page is out of date",
+      "staleDescription": "The site was updated while this tab was open. Reload to get the latest version and try again.",
+      "staleRetry": "Reload the page"
     }
   },
   "submit": {
@@ -2867,6 +2873,7 @@
     "subheading": "Long-form reporting on Taiwanese brands, one brand at a time, told from where the work actually happens and followed through from beginning to end.",
     "allTags": "All",
     "comingSoon": "The first stories are on their way.",
+    "languageBadge": "In Chinese",
     "loadError": "Stories are temporarily unavailable. Please try again later.",
     "breadcrumb": "Stories",
     "breadcrumbAria": "Breadcrumb",

@@ -3,6 +3,23 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { captureReadFailure } from '@/lib/degraded-render'
 import { excludeTestBrands } from './public-brand-filter'
 
+/**
+ * A non-zero verified share must never render as `0%` — "3 of 697 brands are
+ * MIT-verified (0%)" contradicts itself and undercuts the verification ladder,
+ * which is the product's core trust signal. Sub-1% shares keep one decimal;
+ * everything else stays a whole number.
+ *
+ * Floor of 0.1 caps the honest range at ~1 verified brand per 1000. Below that
+ * it overstates; switch to a `<0.1%` display string if the directory ever gets
+ * there.
+ */
+export function formatSharePercentage(part: number, total: number): number {
+  if (total <= 0 || part <= 0) return 0
+  const raw = (part / total) * 100
+  if (raw >= 1) return Math.round(raw)
+  return Math.max(Math.round(raw * 10) / 10, 0.1)
+}
+
 export type StatsPageData = {
   totalBrands: number
   categoryBreakdown: Array<{
@@ -108,7 +125,7 @@ async function getStatsPageDataImpl(): Promise<StatsPageData> {
     .sort((a, b) => b.count - a.count)
 
   const verified = mitResult?.count ?? 0
-  const percentage = totalBrands > 0 ? Math.round((verified / totalBrands) * 100) : 0
+  const percentage = formatSharePercentage(verified, totalBrands)
 
   const currentYear = new Date().getFullYear()
   const decadeCounts = new Map<number, number>()
