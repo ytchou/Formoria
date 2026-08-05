@@ -9,6 +9,9 @@ import {
   hasLinkValue,
   hostMatchesBrandName,
   isForeignCountryTld,
+  linkIdentifiesBrand,
+  LINK_FIELDS,
+  linkColumnFor,
 } from '../link-enrichment'
 import { cleanBrandName, isValidBrandName, titleCaseScrapedTitle } from '../brand-cleanup'
 import { finishSearchAudit, startSearchAudit } from '../search-results'
@@ -34,7 +37,7 @@ type LinksPhaseOptions = {
   supabase?: SupabaseClient<Database>
 }
 
-type LinksPhaseOutput = {
+export type LinksPhaseOutput = {
   phaseResult: PhaseResult
   patch: Record<string, unknown>
   /**
@@ -49,6 +52,18 @@ type LinksPhaseOutput = {
   /** Parallel provenance for `scrapedImageUrls`; empty when the scraper predates it. */
   scrapedImageSources: ScrapedImageSource[]
   jsonLdImageUrls: string[]
+  quarantine: Record<string, QuarantineGroup>
+}
+
+export type QuarantineGroup = {
+  subjectUrl: string
+  subjectKind: 'website' | 'source-page'
+  columns: string[]
+  evidence: {
+    title?: string
+    description?: string
+    story?: string
+  }
 }
 
 function uniqueUrls(urls: string[]): string[] {
@@ -301,6 +316,51 @@ async function scrapeDiscoveredLinks(
   ])
 }
 
+function buildQuarantine(
+  brandName: string | undefined,
+  knownUrls: string[],
+  scrapedData: EnrichScrapedData,
+): Record<string, QuarantineGroup> {
+  const confirmed = new Set(knownUrls.map(scrapeKey))
+  const tokens = brandNameTokens(brandName)
+  const groups: Record<string, QuarantineGroup> = {}
+
+  for (const field of LINK_FIELDS) {
+    const column = linkColumnFor(field)
+    const value = scrapedData[column]
+    if (typeof value !== 'string' || value.trim().length === 0) continue
+
+    const sourceUrl = scrapedData.linkProvenance?.[field]?.sourceUrl ?? value
+    const isConfirmed =
+      confirmed.has(scrapeKey(sourceUrl)) || linkIdentifiesBrand(sourceUrl, tokens)
+    if (isConfirmed) continue
+
+    const subjectUrl = sourceUrl
+    const subjectKind = field === 'purchaseWebsite' ? 'website' : 'source-page'
+    const existing = groups[subjectUrl]
+    const evidence =
+      scrapedData.textSourceUrl && scrapeKey(scrapedData.textSourceUrl) === scrapeKey(sourceUrl)
+        ? {
+            ...(scrapedData.brandName ? { title: scrapedData.brandName } : {}),
+            ...(scrapedData.description ? { description: scrapedData.description } : {}),
+            ...(scrapedData.story ? { story: scrapedData.story } : {}),
+          }
+        : {}
+
+    if (existing) {
+      if (!existing.columns.includes(column)) existing.columns.push(column)
+      if (existing.subjectKind !== 'website' && subjectKind === 'website') {
+        existing.subjectKind = subjectKind
+      }
+      Object.assign(existing.evidence, evidence)
+    } else {
+      groups[subjectUrl] = { subjectUrl, subjectKind, columns: [column], evidence }
+    }
+  }
+
+  return groups
+}
+
 export async function runLinksPhase({
   brand,
   phases,
@@ -320,6 +380,7 @@ export async function runLinksPhase({
       scrapedImageUrls: [],
       scrapedImageSources: [],
       jsonLdImageUrls: [],
+      quarantine: {},
     }
   }
 
@@ -331,7 +392,10 @@ export async function runLinksPhase({
     // These URLs are raw SERP results, so the brand name is the only thing
     // separating this brand's accounts from a same-ranking stranger's.
     const urlExtracted = extractLinksFromUrls(discoveredUrls, brand.name)
+    const confirmedSourceUrls = new Set(knownUrls.map(scrapeKey))
     const scrapeOptions: ScrapeBrandUrlsOptions = {
+      brandName: brand.name,
+      confirmedSourceUrls,
       onAttempt: async ({ url, classification, spanId }) => {
         const auditId = await startSearchAudit({
           target: target ?? brandTarget(brand.id),
@@ -412,6 +476,7 @@ export async function runLinksPhase({
     scrapedImageUrls: result.scrapedImageUrls,
     scrapedImageSources: result.scrapedImageSources,
     jsonLdImageUrls: result.jsonLdImageUrls,
+    quarantine: buildQuarantine(brand.name, knownUrls, result.scrapedData),
   }
     },
     {

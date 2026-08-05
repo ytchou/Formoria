@@ -19,6 +19,20 @@ import {
 } from "../enrich-phases";
 
 describe("scoped enrich phase sets", () => {
+  it("registry exhaustiveness", () => {
+    const assigned = new Set<string>([
+      ...SERP_PHASES,
+      ...ENRICH_LLM_PHASES,
+      ...LOCAL_PHASES,
+    ])
+    expect(assigned.size).toBe(ENRICH_PHASES.length)
+    expect(assigned).toEqual(new Set(ENRICH_PHASES))
+  })
+
+  it("phase order places site_identity before image-search", () => {
+    expect(ENRICH_PHASES.indexOf('site_identity')).toBeLessThan(ENRICH_PHASES.indexOf('images'))
+  })
+
   it("only contains phases that exist in ENRICH_PHASES", () => {
     // parseEnrichPhases drops unknown phase names and then falls back to ALL
     // phases when the result is empty, so a typo would silently run everything.
@@ -229,6 +243,7 @@ describe("phasesForSteps", () => {
       "discover",
       "links",
       "names",
+      "site_identity",
     ]);
   });
 

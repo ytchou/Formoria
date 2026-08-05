@@ -53,6 +53,8 @@ import {
   applyDetectResult,
   applyNamesResult,
   runNamesPhase,
+  runSiteIdentityPhase,
+  type SiteIdentityQuarantine,
   type NameCandidateInput,
   buildPhaseResult,
   getDisplayBrandName,
@@ -220,6 +222,7 @@ type EnrichPhase =
   | "clean"
   | "links"
   | "names"
+  | "site_identity"
   | "images"
   | "descriptions"
   | "locations"
@@ -910,6 +913,7 @@ function buildBrandPhaseOrder(
     "clean",
     "links",
     "names",
+    "site_identity",
     "images",
     "descriptions",
     "locations",
@@ -2033,6 +2037,38 @@ export async function runEnrich(
       ctx.state.phaseResults.push(namesEntry);
       await logCurrentPhase(ctx, namesEntry);
       appendPatch(ctx.state, application.patch);
+    }
+
+    const quarantinesByBrandId = new Map<string, SiteIdentityQuarantine[]>();
+    for (const brand of pendingBrands) {
+      const ctx = brandContexts.get(brand.id);
+      if (!ctx || ctx.completed || !ctx.linksResult) continue;
+      const quarantines = Object.values(ctx.linksResult.quarantine).map((quarantine) => ({
+        ...quarantine,
+        patch: ctx.state.patches,
+        scrapedData: ctx.state.scrapedData,
+        linksResult: ctx.linksResult,
+      }));
+      if (quarantines.length > 0) quarantinesByBrandId.set(brand.id, quarantines);
+    }
+    if (phases.includes("site_identity")) await emitBatchPhaseProgress("site_identity");
+    const siteIdentityPhaseResult = await runSiteIdentityPhase(
+      {
+        ...batchContext,
+        chunk: pendingBrands,
+        chunkBrandNames: pendingBrands.map(getDisplayBrandName),
+      },
+      quarantinesByBrandId,
+    );
+    for (const brand of pendingBrands) {
+      const ctx = brandContexts.get(brand.id);
+      if (!ctx || ctx.completed) continue;
+      await markCurrentPhase(ctx, "site_identity");
+      const application = siteIdentityPhaseResult.applications.get(brand.id);
+      const phaseResult = application?.phaseResult ?? siteIdentityPhaseResult.phaseResult;
+      ctx.state.phaseResults.push(phaseResult);
+      await logCurrentPhase(ctx, phaseResult);
+      if (application) appendPatch(ctx.state, application.patch);
     }
 
     // `BrandEnrichState["patches"]` deliberately, not the local `EnrichPatch`:

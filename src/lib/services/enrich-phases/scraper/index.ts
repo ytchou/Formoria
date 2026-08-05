@@ -23,6 +23,8 @@ export type ScrapeAttemptHandle = {
 }
 
 export type ScrapeBrandUrlsOptions = {
+  brandName?: string | null
+  confirmedSourceUrls?: ReadonlySet<string>
   onAttempt?: (input: { url: string; classification: InputType; spanId: string }) => Promise<ScrapeAttemptHandle | undefined>
 }
 

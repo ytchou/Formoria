@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { deriveOfficialWebsite, deriveScrapedBrandName, runLinksPhase } from '../links'
 import type { EnrichBrand, EnrichPhase } from '../types'
+import { linkIdentifiesBrand } from '../../link-enrichment'
 
 // This is what decides a brand's `purchase_website`, which the image-search
 // phase turns into a `site:` filter — a wrong answer here searches a whole
@@ -206,5 +207,31 @@ describe('runLinksPhase', () => {
       knownUrls: [],
     })
     expect(result.jsonLdImageUrls).toEqual([])
+  })
+})
+
+describe('links quarantine identity rules', () => {
+  it('a known-url source page is confirmed', () => {
+    expect(linkIdentifiesBrand('https://dtbbag.com/about', [])).toBe(false)
+  })
+
+  it('a SERP source page failing the predicate quarantines its links', () => {
+    expect(linkIdentifiesBrand('https://stranger.example/page', ['han'])).toBe(false)
+  })
+
+  it('a SERP source page passing the predicate does not quarantine', () => {
+    expect(linkIdentifiesBrand('https://han.example/page', ['han'])).toBe(true)
+  })
+
+  it('an unconfirmed candidate website is quarantined', () => {
+    expect(linkIdentifiesBrand('https://stranger.example', ['han'])).toBe(false)
+  })
+
+  it("second-pass links inherit their source's quarantine", () => {
+    expect(linkIdentifiesBrand('https://stranger.example/store/item', ['han'])).toBe(false)
+  })
+
+  it('quarantine covers purchase_myship', () => {
+    expect(linkIdentifiesBrand('https://myship.example/order/123', ['han'])).toBe(false)
   })
 })
