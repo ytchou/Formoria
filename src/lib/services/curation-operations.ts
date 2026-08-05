@@ -14,6 +14,7 @@ import {
   isDeferredPhase,
   phasesForSteps,
   type CurationStep,
+  type EnrichPhaseName,
 } from "@/lib/constants/enrich-phases";
 import { normalizeToRootUrl } from "@/lib/url";
 import {
@@ -61,6 +62,7 @@ import {
   runDescriptionsPhase,
   runDiscoverPhase,
   runReputationPhase,
+  runFaqPhase,
   runClassifyImagesPhase,
   runImageSearchPhase,
   runLinksPhase,
@@ -221,8 +223,20 @@ type EnrichPhase =
   | "descriptions"
   | "locations"
   | "tags";
-type RunEnrichPhase =
-  EnrichPhase | "discover" | "detect" | "slugs" | "reputation";
+/**
+ * Every phase `runEnrich` can be asked for. Aliased to the canonical
+ * `EnrichPhaseName` rather than spelled out again: this used to be a
+ * hand-maintained union (`EnrichPhase | "discover" | "detect" | "slugs" |
+ * "reputation"`) and it had already drifted — `classify_images` was missing,
+ * and adding `faq` to `ENRICH_PHASES` turned `needsPhase`'s new `faq` clause
+ * into a branch TypeScript could prove unreachable. A local copy of a list that
+ * lives in the constants module can only drift again, so there is no copy now.
+ *
+ * The narrower `EnrichPhase` above is left alone: it only constrains
+ * `isRequestedPhase`'s argument to the per-brand phases that helper is ever
+ * asked about, and widening it would weaken that check rather than fix drift.
+ */
+type RunEnrichPhase = EnrichPhaseName;
 
 type EnrichBrand = CurationBrand &
   Partial<BrandFlatLinkColumns> & {
@@ -298,6 +312,12 @@ export function needsPhase(
 
   if (phase === "reputation") {
     return isEmptyField(brand.reputation_summary ?? brand.reputationSummary);
+  }
+
+  if (phase === "faq") {
+    // Entry counts are not part of this row; let the phase perform its own
+    // cheap eligibility and provider gates rather than adding an N+1 query.
+    return true;
   }
 
   return true;
@@ -911,6 +931,7 @@ function buildBrandPhaseOrder(
     "descriptions",
     "locations",
     "reputation",
+    "faq",
     phases.includes("tags") && "tags",
   ]
     .filter((phase): phase is string => Boolean(phase))
@@ -2368,6 +2389,22 @@ export async function runEnrich(
           state.phaseResults.push(reputationResult.phaseResult);
           await logCurrentPhase(ctx, reputationResult.phaseResult);
           appendPatch(state, reputationResult.patch);
+
+          await markCurrentPhase(ctx, "faq");
+          const faqResult = await runFaqPhase({
+            brand,
+            phases,
+            serpSnippets: state.serpSnippets,
+            scrapedData: state.scrapedData,
+            overwrite,
+            target: { type: targetType, id: brand.id },
+            jobId: config.jobId,
+            supabase: batchContext.supabase,
+            explicitPhases: config.steps?.length ? [] : config.phases,
+          });
+          state.phaseResults.push(faqResult.phaseResult);
+          await logCurrentPhase(ctx, faqResult.phaseResult);
+          appendPatch(state, faqResult.patch);
 
           let classification: ClassificationResult | null = null;
           let hasCompletedTagClassification = false;

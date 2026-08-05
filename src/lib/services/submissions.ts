@@ -41,7 +41,6 @@ import {
   upsertBrandFaqEntries,
   type BrandFaqEntryInput,
 } from "./brand-faq";
-import { containsCjk } from "./taiwan-localization";
 import { normalizeCommunityWebsite } from "./community-submissions";
 import {
   PURCHASE_CAMEL_FIELDS,
@@ -449,62 +448,27 @@ function faqFromEnrichedData(value: unknown): EnrichedFaqItem[] {
 }
 
 /**
- * The `descriptions` phase still emits FAQ as a flat, unlabelled zh-then-en
- * list keyed by a legacy `category`. Translating it into preset rows is a
- * transitional adapter and lives here, on the legacy call path, rather than in
- * `brand-faq.ts` — the dedicated `faq` phase emits preset-shaped entries
- * directly, and this whole function is deleted with the last `descriptions`
- * FAQ prompt.
+ * `enriched_data.faq` is now already preset-shaped and already paired — the
+ * dedicated `faq` phase emits `{ presetId, question_zh/en, answer_zh/en }` and
+ * Structured Outputs guarantees the pairing — so this is a straight rename to
+ * the write boundary's input type.
  *
- * Language is detected per item because the payload carries no locale field.
- * The row model makes a mis-detection recoverable in a way the column model
- * could not: each locale side is stored in its own column of a row keyed by
- * preset, so a later run fills the side that was missed instead of finding the
- * whole entry "already filled".
- *
- * Ceiling: `where_to_buy` and `founded` items are dropped — those presets are
- * cut from the catalog — and `mit` never appears here because that answer is
- * code-derived at render.
+ * What used to live here was a transitional adapter: a legacy `category` ->
+ * preset map plus a `containsCjk` guess at which locale each flat item was in.
+ * Both went out with the FAQ block in `DESCRIPTION_SYSTEM_PROMPT`, which was
+ * the only producer of that shape.
  */
-const LEGACY_FAQ_PRESET_IDS: Record<string, string> = {
-  products: "main-products",
-  price: "price-positioning",
-  reputation: "reputation",
-  custom: "custom",
-};
-
 function enrichmentFaqToEntries(
   faqItems: EnrichedFaqItem[],
 ): BrandFaqEntryInput[] {
-  const byKey = new Map<string, BrandFaqEntryInput>();
-  const nextPosition = new Map<string, number>();
-
-  for (const item of faqItems ?? []) {
-    const presetId = LEGACY_FAQ_PRESET_IDS[item?.category ?? ""];
-    if (!presetId) continue;
-    if (!item.question?.trim() || !item.answer?.trim()) continue;
-
-    const isZh = containsCjk(item.question);
-    // Customs are a stream: the nth zh custom pairs with the nth en custom.
-    // Fixed presets hold exactly one entry, so both locales land on position 0.
-    const streamKey = `${presetId}:${isZh ? "zh" : "en"}`;
-    const position =
-      presetId === "custom" ? (nextPosition.get(streamKey) ?? 0) : 0;
-    if (presetId === "custom") nextPosition.set(streamKey, position + 1);
-
-    const key = `${presetId} ${position}`;
-    const entry = byKey.get(key) ?? { presetId, position };
-    if (isZh) {
-      entry.questionZh ??= item.question;
-      entry.answerZh ??= item.answer;
-    } else {
-      entry.questionEn ??= item.question;
-      entry.answerEn ??= item.answer;
-    }
-    byKey.set(key, entry);
-  }
-
-  return [...byKey.values()];
+  return (faqItems ?? []).map((item, index) => ({
+    presetId: item.presetId,
+    position: item.position ?? (item.presetId === "custom" ? index : 0),
+    questionZh: item.questionZh,
+    answerZh: item.answerZh,
+    questionEn: item.questionEn,
+    answerEn: item.answerEn,
+  }));
 }
 
 /**

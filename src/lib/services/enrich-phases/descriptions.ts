@@ -127,13 +127,6 @@ function changedFieldsForPatch(patch: Record<string, unknown>): string[] {
     changedFields.push("product_tags_en");
   }
 
-  // FAQ-only enrichment is a real result: without this, a run that produced
-  // nothing but a new FAQ block reports zero changed fields and reads as a
-  // wasted call in the runlog.
-  if (Array.isArray(patch.faq) && patch.faq.length > 0) {
-    changedFields.push("faq");
-  }
-
   // A clear is a change: the run output has to report the field it emptied, the
   // same way it reports one it rewrote.
   if (Array.isArray(patch._cleared_fields)) {
@@ -593,12 +586,6 @@ export async function runDescriptionsPhase({
           : {}),
         ...(descriptionRewrite.blurb_en && shouldWrite(brand.blurb_en)
           ? { blurb_en: descriptionRewrite.blurb_en }
-          : {}),
-        // No `shouldWrite` gate: the FAQ lands in `enriched_data.faq`, which is
-        // pipeline-owned scratch rather than a published brand column, and the
-        // fill-gaps decision is made later at the `brand_faq` write boundary.
-        ...(descriptionRewrite.faq && descriptionRewrite.faq.length > 0
-          ? { faq: descriptionRewrite.faq }
           : {}),
       };
     }

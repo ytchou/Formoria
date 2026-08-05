@@ -41,19 +41,13 @@ function localizeZhText(text: string): string {
   return containsCjk(text) ? localizeToTW(text).text : text;
 }
 
-/**
- * Copy only. Every extracted field (category, tags, price, city, year, listing
- * verdict, MIT signals) moved to `brand-facts.ts` when the mega-call was split:
- * asking one call for prose AND a 7-field taxonomy diluted both, and a length
- * miss on one description used to re-bill the extraction too.
- */
+/** Copy-only output; FAQ is owned by the final dedicated enrichment phase. */
 export type DescriptionRewriteResult = {
   description_zh: string | null;
   description_en: string | null;
   description: string | null;
   blurb_zh: string | null;
   blurb_en: string | null;
-  faq: Array<{ category: string; question: string; answer: string }> | null;
   validationRejections: Array<{
     field: "description_zh" | "description_en" | "blurb_zh" | "blurb_en";
     reasons: string[];
@@ -189,7 +183,6 @@ const EMPTY_DESCRIPTION_RESULT: DescriptionRewriteResult = {
   description: null,
   blurb_zh: null,
   blurb_en: null,
-  faq: null,
   validationRejections: [],
 };
 
@@ -224,33 +217,12 @@ export function parseDescriptionRewriteResult(
       ? rawBlurbEn.trim()
       : null;
 
-  const rawFaq = parsed.faq;
-  const faq = Array.isArray(rawFaq)
-    ? rawFaq
-        .filter(
-          (item): item is Record<string, unknown> =>
-            typeof item === "object" &&
-            item !== null &&
-            typeof (item as Record<string, unknown>).question === "string" &&
-            typeof (item as Record<string, unknown>).answer === "string" &&
-            (item as Record<string, unknown>).question !== "" &&
-            (item as Record<string, unknown>).answer !== "",
-        )
-        .map((item) => ({
-          category:
-            typeof item.category === "string" ? item.category : "custom",
-          question: localizeZhText(item.question as string),
-          answer: localizeZhText(item.answer as string),
-        }))
-    : null;
-
   return {
     description_zh: descriptionZh,
     description_en: descriptionEn,
     description: descriptionZh,
     blurb_zh: blurbZh,
     blurb_en: blurbEn,
-    faq: faq && faq.length > 0 ? faq : null,
     validationRejections: [],
   };
 }

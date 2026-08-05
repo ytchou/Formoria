@@ -48,10 +48,11 @@ const phaseDescriptions = {
   classify_images: "Classifies candidate images by their role and quality.",
   facts:
     "Extracts the brand's category, tags, price band, city and founding year.",
-  descriptions: "Writes the bilingual description, blurb and FAQ.",
+  descriptions: "Writes the bilingual description and blurb.",
   locations: "Finds physical shops and retail channels.",
   reputation:
     "Adds third-party reputation context — coverage, awards, ratings.",
+  faq: "Writes the bilingual FAQ answers the brand's evidence supports.",
   names:
     "Arbitrates the competing brand names the other context phases proposed; the only phase that writes the brand name.",
   classification:

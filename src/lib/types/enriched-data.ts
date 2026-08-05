@@ -2,25 +2,33 @@ import type { Json } from "@/lib/supabase/database.types";
 import type { OtherUrl } from "@/lib/types/brand";
 
 /**
- * One FAQ entry as the `descriptions` phase emits it. Items arrive flat and
- * bilingual — zh then en for the same logical question — and are only paired
- * into `brand_faq` columns at the write boundary (`brand-faq.ts`). Keeping the
- * pipeline shape flat means a partial model answer (zh with no en counterpart)
- * survives the round-trip instead of being dropped by a stricter type here.
+ * One paired FAQ entry emitted by the dedicated `faq` phase. Pairing is
+ * enforced by OpenAI Structured Outputs, not by a CJK heuristic; rows land in
+ * `brand_faq_entries`, not legacy columns.
  */
 export type EnrichedFaqItem = {
-  category: string;
-  question: string;
-  answer: string;
+  presetId: string;
+  position?: number;
+  questionZh: string | null;
+  answerZh: string | null;
+  questionEn: string | null;
+  answerEn: string | null;
 };
 
 export function isEnrichedFaqItem(value: unknown): value is EnrichedFaqItem {
   if (typeof value !== "object" || value === null) return false;
   const item = value as Partial<EnrichedFaqItem>;
+  const renders = (question: unknown, answer: unknown): boolean =>
+    typeof question === "string" &&
+    question.trim() !== "" &&
+    typeof answer === "string" &&
+    answer.trim() !== "";
   return (
-    typeof item.category === "string" &&
-    typeof item.question === "string" &&
-    typeof item.answer === "string"
+    typeof item.presetId === "string" &&
+    item.presetId.trim() !== "" &&
+    (renders(item.questionZh, item.answerZh) ||
+      renders(item.questionEn, item.answerEn)) &&
+    (item.position === undefined || typeof item.position === "number")
   );
 }
 

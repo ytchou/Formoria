@@ -3,6 +3,7 @@ export * from "./links";
 export * from "./descriptions";
 export * from "./channels";
 export * from "./reputation";
+export * from "./faq";
 export * from "./images";
 export * from "./classify-images";
 export * from "./discover";

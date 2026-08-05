@@ -21,42 +21,6 @@ describe("parseDescriptionRewriteResult", () => {
     expect(result.description).toBeNull();
   });
 
-  it("localizes zh FAQ fields while preserving English FAQ text", () => {
-    const json = JSON.stringify({
-      description_zh: "品牌簡介",
-      description_en: "Brand description",
-      blurb_zh: "摘要",
-      blurb_en: "Summary",
-      faq: [
-        {
-          category: "products",
-          question: "有哪些視頻產品？",
-          answer: "提供高質量信息服務。",
-        },
-        {
-          category: "products",
-          question: "What products are available?",
-          answer: "The brand sells products.",
-        },
-      ],
-    });
-
-    const result = parseDescriptionRewriteResult(json);
-
-    expect(result.faq).toEqual([
-      {
-        category: "products",
-        question: "有哪些影片產品？",
-        answer: "提供高品質資訊服務。",
-      },
-      {
-        category: "products",
-        question: "What products are available?",
-        answer: "The brand sells products.",
-      },
-    ]);
-  });
-
   it("sanitizes input artifacts and localizes accepted zh fields", async () => {
     const descriptionZh = `信息設計坊${"這個視頻質量很高，信息豐富。".repeat(20)}`;
     const blurbZh = `信息設計坊${"視頻質量很好。".repeat(8)}`;

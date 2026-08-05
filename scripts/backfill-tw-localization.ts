@@ -1,19 +1,6 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { localizeToTW } from "../src/lib/services/taiwan-localization";
 
-const FAQ_COLUMNS = [
-  "faq_mit",
-  "faq_where_to_buy",
-  "faq_products",
-  "faq_price",
-  "faq_founded",
-  "faq_reputation",
-  "faq_custom_1",
-  "faq_custom_2",
-  "faq_custom_3",
-  "faq_custom_4",
-] as const;
-
 const BATCH_SIZE = 10;
 
 type CliOptions = {
@@ -30,15 +17,16 @@ type BrandRow = {
 
 type FaqRow = {
   brand_id: string;
-  [key: string]: unknown;
+  preset_id: string;
+  position: number;
+  question_zh: string | null;
+  answer_zh: string | null;
 };
 
 type ImageRow = {
   id: string;
   alt_zh: string | null;
 };
-
-type FaqValue = Record<string, unknown>;
 
 type BackfillCounts = {
   updated: number;
@@ -84,26 +72,6 @@ function localizeReputationSummary(
     value: { ...summary, text: localizedText.value },
     changed: true,
   };
-}
-
-function localizeFaqValue(
-  value: unknown,
-  brandName?: string,
-): { value: unknown; changed: boolean } {
-  if (!value || typeof value !== "object" || Array.isArray(value))
-    return { value, changed: false };
-
-  const faq = value as FaqValue;
-  let changed = false;
-  const localized = { ...faq };
-  for (const field of ["question_zh", "answer_zh"]) {
-    const result = localizeString(faq[field], brandName);
-    if (!result) continue;
-    localized[field] = result.value;
-    changed ||= result.changed;
-  }
-
-  return { value: changed ? localized : value, changed };
 }
 
 async function inBatches<T>(
@@ -168,27 +136,37 @@ async function backfillFaq(
   options: CliOptions,
 ): Promise<BackfillCounts> {
   const { data, error } = await supabase
-    .from("brand_faq")
-    .select(`brand_id, ${FAQ_COLUMNS.join(", ")}`);
+    .from("brand_faq_entries")
+    .select("brand_id, preset_id, position, question_zh, answer_zh");
   if (error) throw error;
 
   const updates = ((data ?? []) as unknown as FaqRow[]).flatMap((row) => {
-    const patch: Record<string, unknown> = {};
-    for (const column of FAQ_COLUMNS) {
-      const result = localizeFaqValue(row[column]);
-      if (result.changed) patch[column] = result.value;
-    }
+    const question = localizeString(row.question_zh ?? undefined);
+    const answer = localizeString(row.answer_zh ?? undefined);
+    const patch = {
+      ...(question?.changed ? { question_zh: question.value } : {}),
+      ...(answer?.changed ? { answer_zh: answer.value } : {}),
+    };
     return Object.keys(patch).length > 0
-      ? [{ brandId: row.brand_id, patch }]
+      ? [
+          {
+            brandId: row.brand_id,
+            presetId: row.preset_id,
+            position: row.position,
+            patch,
+          },
+        ]
       : [];
   });
 
   if (!options.dryRun) {
-    await inBatches(updates, async ({ brandId, patch }) => {
+    await inBatches(updates, async ({ brandId, presetId, position, patch }) => {
       const { error: updateError } = await supabase
-        .from("brand_faq")
+        .from("brand_faq_entries")
         .update(patch)
-        .eq("brand_id", brandId);
+        .eq("brand_id", brandId)
+        .eq("preset_id", presetId)
+        .eq("position", position);
       if (updateError) throw updateError;
     });
   }
