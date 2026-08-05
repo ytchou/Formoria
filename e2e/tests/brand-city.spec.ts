@@ -52,8 +52,12 @@ test.describe('Brand city badge', () => {
     await expect(async () => {
       await page.goto(`/brands/${brandSlug}`, { waitUntil: 'domcontentloaded' });
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 10_000 });
-      // City badge: rendered as a <span> containing the next-intl translated city name
-      await expect(page.getByText('臺北市')).toBeVisible({ timeout: 5_000 });
+      // City badge: rendered as a <span data-slot="badge"> containing the next-intl
+      // translated city name. Scope to the badge — the FAQ copy on this page can
+      // also mention the city name in prose (brandFaq.context.city).
+      await expect(
+        page.locator('[data-slot="badge"]', { hasText: '臺北市' }),
+      ).toBeVisible({ timeout: 5_000 });
     }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 10_000] });
   });
 });
