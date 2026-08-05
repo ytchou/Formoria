@@ -251,10 +251,11 @@ test.describe("SEO deep", () => {
     expect(body).not.toContain("/vision");
   });
 
-  test("sitemap static pages expose a resolvable PNG OG image", async ({
-    page,
-    request,
-  }) => {
+  test("sitemap static pages expose a resolvable PNG OG image", async ({ request }) => {
+    // The sitemap includes every locale and category variant; in a full dev
+    // run those route bundles may still compile lazily after the other SEO
+    // journeys have exercised the server. Keep the budget local to this sweep.
+    test.setTimeout(120_000);
     const sitemapResponse = await request.get("/sitemap.xml");
     expect(sitemapResponse.status()).toBe(200);
     const sitemap = await sitemapResponse.text();
@@ -285,17 +286,24 @@ test.describe("SEO deep", () => {
     });
 
     expect(staticLocations.length).toBeGreaterThan(0);
+    const baseOrigin = new URL(process.env.BASE_URL ?? "http://localhost:3000").origin;
     for (const url of staticLocations) {
-      await page.goto(`${url.pathname}${url.search}`);
-      const ogImage = await page
-        .locator('meta[property="og:image"]')
-        .getAttribute("content");
+      const pageResponse = await request.get(`${url.pathname}${url.search}`);
+      expect(pageResponse.status()).toBe(200);
+      const html = await pageResponse.text();
+      const ogImage =
+        html.match(
+          /<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i,
+        )?.[1] ??
+        html.match(
+          /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i,
+        )?.[1];
       expect(ogImage, `${url.pathname}${url.search} → og:image`).toMatch(
         /^https?:\/\//,
       );
 
       const imageUrl = new URL(ogImage!);
-      const localImageUrl = `${new URL(page.url()).origin}${imageUrl.pathname}${imageUrl.search}`;
+      const localImageUrl = `${baseOrigin}${imageUrl.pathname}${imageUrl.search}`;
       const imageResponse = await request.get(localImageUrl);
       expect(
         imageResponse.status(),
@@ -307,10 +315,14 @@ test.describe("SEO deep", () => {
       ).toMatch(/^image\/png(?:;|$)/);
 
       if (url.pathname.replace(/^\/en(?=\/)/, "") === "/brands" && url.searchParams.has("category")) {
-        await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
-          "content",
-          "summary_large_image",
-        );
+        const twitterCard =
+          html.match(
+            /<meta[^>]+name=["']twitter:card["'][^>]+content=["']([^"']+)["']/i,
+          )?.[1] ??
+          html.match(
+            /<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:card["']/i,
+          )?.[1];
+        expect(twitterCard).toBe("summary_large_image");
       }
     }
   });

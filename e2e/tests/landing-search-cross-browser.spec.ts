@@ -4,7 +4,7 @@ test.describe("Landing search compatibility", () => {
   test("@cross-browser landing search reaches sortable matching directory results", async ({
     page,
   }) => {
-    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await page.goto("/");
 
     const searchbox = page.locator(
       'main form[role="search"] input[role="searchbox"]',
@@ -22,6 +22,7 @@ test.describe("Landing search compatibility", () => {
 
     const sortSelect = page.getByRole("combobox", { name: "排序方式" });
     await expect(sortSelect).toBeVisible({ timeout: 10_000 });
+    await expect(sortSelect).toHaveValue("random");
     await sortSelect.selectOption("name");
 
     await expect(page).toHaveURL(/\/brands\?search=coffee&sort=name/, {

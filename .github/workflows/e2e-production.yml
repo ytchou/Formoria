@@ -55,7 +55,7 @@ jobs:
           # Turns on the delivery assertion in auth-signup.spec.ts. Without it the
           # spec only proves Supabase accepted the message, not that it was
           # delivered — the gap that let DEV-1300's bounces run undetected.
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          E2E_RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           PLAYWRIGHT_JSON_OUTPUT_NAME: playwright-results.json
         run: |
           pnpm exec playwright test --project=deep --reporter=html,json \
