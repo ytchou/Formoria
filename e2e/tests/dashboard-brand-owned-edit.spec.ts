@@ -406,7 +406,8 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
     if (linksResp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
     await expect(userPage.locator('#purchase fieldset')).toHaveCount(3);
-    await expect(userPage.locator('#purchase [data-platform-row]')).toHaveCount(6);
+    // 3 social + 4 purchase channels (PURCHASE_CHANNELS). Bump when a channel is added.
+    await expect(userPage.locator('#purchase [data-platform-row]')).toHaveCount(7);
     for (const field of [
       'socialInstagram',
       'socialThreads',

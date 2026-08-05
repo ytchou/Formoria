@@ -250,8 +250,9 @@ test.describe("Submit funnel", () => {
       timeout: 30_000,
     });
     await expect(userPage.locator("#purchase fieldset")).toHaveCount(3);
+    // 3 social + 4 purchase channels (PURCHASE_CHANNELS). Bump when a channel is added.
     await expect(userPage.locator("#purchase [data-platform-row]")).toHaveCount(
-      6,
+      7,
     );
     await userPage.locator("#socialInstagram").fill("@detailed-wizard");
     await userPage.locator("#purchaseWebsite").fill(purchaseWebsite);

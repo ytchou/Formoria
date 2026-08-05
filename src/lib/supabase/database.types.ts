@@ -976,6 +976,7 @@ export type Database = {
           owner_data: Json | null;
           pdpa_consent_at: string | null;
           product_type_note: string | null;
+          purchase_myship: string | null;
           purchase_pinkoi: string | null;
           purchase_shopee: string | null;
           purchase_website: string | null;
@@ -1015,6 +1016,7 @@ export type Database = {
           owner_data?: Json | null;
           pdpa_consent_at?: string | null;
           product_type_note?: string | null;
+          purchase_myship?: string | null;
           purchase_pinkoi?: string | null;
           purchase_shopee?: string | null;
           purchase_website?: string | null;
@@ -1054,6 +1056,7 @@ export type Database = {
           owner_data?: Json | null;
           pdpa_consent_at?: string | null;
           product_type_note?: string | null;
+          purchase_myship?: string | null;
           purchase_pinkoi?: string | null;
           purchase_shopee?: string | null;
           purchase_website?: string | null;
@@ -1118,6 +1121,7 @@ export type Database = {
           product_tags: string[] | null;
           product_tags_en: string[] | null;
           product_type: string | null;
+          purchase_myship: string | null;
           purchase_pinkoi: string | null;
           purchase_shopee: string | null;
           purchase_website: string | null;
@@ -1166,6 +1170,7 @@ export type Database = {
           product_tags?: string[] | null;
           product_tags_en?: string[] | null;
           product_type?: string | null;
+          purchase_myship?: string | null;
           purchase_pinkoi?: string | null;
           purchase_shopee?: string | null;
           purchase_website?: string | null;
@@ -1214,6 +1219,7 @@ export type Database = {
           product_tags?: string[] | null;
           product_tags_en?: string[] | null;
           product_type?: string | null;
+          purchase_myship?: string | null;
           purchase_pinkoi?: string | null;
           purchase_shopee?: string | null;
           purchase_website?: string | null;
@@ -2871,6 +2877,7 @@ export type Database = {
           completeness_poor: number;
           description_count: number;
           hero_image_count: number;
+          purchase_myship_count: number;
           purchase_pinkoi_count: number;
           purchase_shopee_count: number;
           purchase_website_count: number;

@@ -24,6 +24,13 @@ export async function seedBrand(opts: {
   workerIndex: number;
   withLinks?: boolean;
   withOwner?: boolean;
+  /**
+   * Seed a brand whose ONLY purchase channel is 7-ELEVEN 賣貨便 (`purchase_myship`),
+   * with `purchase_website` left NULL. Covers the case a website-centric fixture
+   * cannot: that a non-website channel alone is enough to render the purchase
+   * section. Implies `withLinks` for social accounts.
+   */
+  purchaseChannel?: 'website' | 'myship';
 }): Promise<SeededBrand> {
   const supabase = getServiceClient();
   const ts = Date.now();
@@ -52,7 +59,11 @@ export async function seedBrand(opts: {
   if (opts.withLinks) {
     brandData.social_instagram = 'https://instagram.com/e2e-test';
     brandData.social_facebook = 'https://facebook.com/e2e-test';
-    brandData.purchase_website = 'https://e2e-test.com/shop';
+    if ((opts.purchaseChannel ?? 'website') === 'myship') {
+      brandData.purchase_myship = 'https://myship.7-11.com.tw/general/detail/GM2410161234567';
+    } else {
+      brandData.purchase_website = 'https://e2e-test.com/shop';
+    }
   }
 
   const { data: brand, error } = await supabase
