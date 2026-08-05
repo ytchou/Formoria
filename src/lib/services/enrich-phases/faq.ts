@@ -8,7 +8,7 @@ import {
   type FaqBrandContext,
   type FaqPreset,
 } from "@/lib/brands/faq-presets";
-import zhTW from "../../../../messages/zh-TW.json";
+import { CITY_NAMES_ZH } from "@/lib/constants/taiwan-cities";
 import { getCategoryPeerStats } from "../brand-peer-stats";
 import { getBrandById } from "../brands";
 import {
@@ -127,11 +127,17 @@ function skipped(detail: string): FaqPhaseOutput {
  * (`brands/[slug]/page.tsx` calls `tCities(brand.city)`), so a prompt built on
  * the raw slug (`"taipei"`) would describe the brand differently from the page
  * it is written for. next-intl's `getTranslations` needs a request scope this
- * pipeline does not have — it also runs from CLI scripts — so the message
- * catalog is read directly, the same way `app/llms.txt/route.ts` does. zh-TW is
- * the enrichment prompt's language, so its labels are the correct ones here.
+ * pipeline does not have — it also runs from CLI scripts.
+ *
+ * The labels therefore come from a TS constant, NOT from `messages/zh-TW.json`.
+ * Importing the catalog here crashed the curation worker in production
+ * (`ERR_MODULE_NOT_FOUND: /app/messages/zh-TW.json`): the worker runs `tsx`
+ * directly with no Next.js bundler to inline the import, and its image ships
+ * `src/` and `scripts/` but not `messages/`. Route files like
+ * `app/llms.txt/route.ts` can import the catalog because Next resolves it at
+ * build time; anything reachable from the worker cannot.
  */
-const CITY_LABELS: Record<string, string> = zhTW.cities;
+const CITY_LABELS = CITY_NAMES_ZH;
 
 export function localizedCityLabel(
   city: string | null | undefined,
