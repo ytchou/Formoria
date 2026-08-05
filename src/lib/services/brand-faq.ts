@@ -1,7 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Brand } from "@/lib/types";
 import { createServiceClient } from "@/lib/supabase/server";
-import { FAQ_PRESETS, type FaqBrandContext } from "@/lib/brands/faq-presets";
+import {
+  FAQ_PRESETS,
+  hasValue,
+  type FaqBrandContext,
+} from "@/lib/brands/faq-presets";
 import type { FaqQuestion } from "@/lib/json-ld";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -11,13 +15,6 @@ export type FaqItem = {
   id: string;
   question: string;
   answer: string;
-};
-
-const PRESET_QUESTION_KEYS: Record<string, string> = {
-  "taiwan-origin": "brandFaq.isMadeInTaiwan.question",
-  "main-products": "brandFaq.mainProducts.question",
-  "price-positioning": "brandFaq.priceRange.question",
-  reputation: "brandFaq.reputation.question",
 };
 
 export function faqItemsToQuestions(items: FaqItem[]): FaqQuestion[] {
@@ -34,56 +31,75 @@ export async function getBrandFaq(
 ): Promise<FaqItem[]> {
   const rows = await getBrandFaqEntries(brandId, client);
   const isZh = !locale.startsWith("en");
+  // Peer stats are an enrichment-pipeline concern and are deliberately not
+  // fetched here — a brand page must not run a category-wide aggregate on
+  // every request. `preset.eligible` is the *render* predicate for exactly
+  // that reason; the peer-stats requirement lives on `preset.authorable`.
   const ctx: FaqBrandContext = { brand, cityLabel, peerStats: null };
-  const rowsByPreset = new Map<string, BrandFaqEntryRow[]>();
 
+  // Resolve each row's locale side once, up front. Rows that survive this pass
+  // are renderable by construction, so the selection loop below never has to
+  // re-check for nulls.
+  const rowsByPreset = new Map<string, RenderableRow[]>();
   for (const row of rows) {
     const question = isZh ? row.questionZh : row.questionEn;
     const answer = isZh ? row.answerZh : row.answerEn;
-    if (!sideRenders(question, answer)) continue;
+    if (!hasValue(question) || !hasValue(answer)) continue;
     const presetRows = rowsByPreset.get(row.presetId) ?? [];
-    presetRows.push(row);
+    presetRows.push({ position: row.position, source: row.source, question, answer });
     rowsByPreset.set(row.presetId, presetRows);
   }
 
   const items: FaqItem[] = [];
   for (const preset of FAQ_PRESETS) {
     const stored = rowsByPreset.get(preset.id) ?? [];
+    const isCustom = preset.id === "custom";
+
     if (stored.length > 0) {
-      const ordered = [...stored].sort(
-        (a, b) =>
-          (a.source === "human" ? 0 : 1) - (b.source === "human" ? 0 : 1) ||
-          a.position - b.position,
-      );
-      const selected = preset.id === "custom"
-        ? [...stored].sort((a, b) => a.position - b.position)
-        : [ordered[0]];
-      for (const row of selected) {
-        const question = isZh ? row.questionZh : row.questionEn;
-        const answer = isZh ? row.answerZh : row.answerEn;
-        if (question == null || answer == null) continue;
+      // Custom renders every stored row in position order; every other preset
+      // holds one answer, human copy winning over model copy.
+      const ordered = [...stored].sort(isCustom ? byPosition : byHumanFirst);
+      for (const entry of isCustom ? ordered : ordered.slice(0, 1)) {
         items.push({
-          id: preset.id === "custom" ? `custom-${row.position}` : preset.id,
-          question,
-          answer,
+          id: isCustom ? `custom-${entry.position}` : preset.id,
+          question: entry.question,
+          answer: entry.answer,
         });
       }
       continue;
     }
 
-    // Eligibility gates only the template floor, not stored rows. The request
-    // path has no peer stats, so gating stored category/price answers would
-    // silently hide model-authored answers.
-    const questionKey = PRESET_QUESTION_KEYS[preset.id];
-    if (!preset.eligible(ctx) || preset.templateFloor === null || !questionKey) continue;
+    // Eligibility gates only the template floor, never stored rows: a stored
+    // model answer was written against evidence this path cannot re-check.
+    const render = preset.render;
+    if (render === null || !preset.eligible(ctx, locale)) continue;
     items.push({
       id: preset.id,
-      question: t(questionKey, { brandName: brand.name }),
-      answer: preset.templateFloor(ctx, t, locale),
+      question: t(render.questionKey, { brandName: brand.name }),
+      answer: render.templateFloor(ctx, t, locale),
     });
   }
 
   return items;
+}
+
+/** A stored row with its locale side already resolved to renderable strings. */
+type RenderableRow = {
+  position: number;
+  source: BrandFaqEntrySource;
+  question: string;
+  answer: string;
+};
+
+function byPosition(a: RenderableRow, b: RenderableRow): number {
+  return a.position - b.position;
+}
+
+function byHumanFirst(a: RenderableRow, b: RenderableRow): number {
+  return (
+    (a.source === "human" ? 0 : 1) - (b.source === "human" ? 0 : 1) ||
+    a.position - b.position
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -270,8 +286,42 @@ export async function upsertBrandFaqEntries(
     { onConflict: "brand_id,preset_id,position" },
   );
   if (error) throw error;
+
+  await pruneOrphanedCustomEntries(supabase, brandId, candidates, payload);
 }
 
-function hasValue(value: string | null | undefined): value is string {
-  return value != null && value.trim() !== "";
+/**
+ * Deletes model-authored `custom` rows left behind by a shorter re-authoring.
+ * Customs are quality-bounded, not slot-bounded: a brand re-authored from four
+ * questions down to two would otherwise keep rows 2–3 rendering forever beside
+ * the new copy, because `getBrandFaq` renders every stored custom row.
+ *
+ * Two guards make this safe:
+ *   * `source = 'model'` only — human copy is never deleted, for the same
+ *     reason it is never overwritten;
+ *   * it runs only when this write actually produced custom rows. A fill-gaps
+ *     run that wrote nothing must not delete anything.
+ */
+async function pruneOrphanedCustomEntries(
+  supabase: FaqSupabase,
+  brandId: string,
+  candidates: readonly { presetId: string; position: number }[],
+  payload: readonly FaqEntryInsert[],
+): Promise<void> {
+  if (!payload.some((row) => row.preset_id === "custom")) return;
+
+  const positions = candidates
+    .filter((candidate) => candidate.presetId === "custom")
+    .map((candidate) => candidate.position);
+  if (positions.length === 0) return;
+
+  const cutoff = Math.max(...positions) + 1;
+  const { error } = await supabase
+    .from("brand_faq_entries")
+    .delete()
+    .eq("brand_id", brandId)
+    .eq("preset_id", "custom")
+    .eq("source", "model")
+    .gte("position", cutoff);
+  if (error) throw error;
 }

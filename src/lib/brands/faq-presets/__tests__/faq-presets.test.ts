@@ -121,9 +121,20 @@ function assertPresetShape(preset: FaqPreset): void {
   expect(typeof preset.id).toBe("string");
   expect(typeof preset.eligible).toBe("function");
   expect(Array.isArray(preset.requiredEvidence)).toBe(true);
-  expect(preset.templateFloor === null || typeof preset.templateFloor === "function").toBe(true);
+  // A renderable preset carries its question key and its floor as one field,
+  // so a floor can never ship without the question it renders under.
+  if (preset.render !== null) {
+    expect(typeof preset.render.questionKey).toBe("string");
+    expect(typeof preset.render.templateFloor).toBe("function");
+  }
   expect(preset.promptFragment === null || typeof preset.promptFragment === "function").toBe(true);
   expect(Array.isArray(preset.validators)).toBe(true);
+}
+
+function presetById(id: string): FaqPreset {
+  const found = FAQ_PRESETS.find((candidate) => candidate.id === id);
+  if (!found) throw new Error(`Unknown preset: ${id}`);
+  return found;
 }
 
 describe("FAQ preset catalog", () => {
@@ -142,31 +153,107 @@ describe("FAQ preset catalog", () => {
     FAQ_PRESETS.forEach(assertPresetShape);
   });
 
-  it("eligibility gates on required evidence", () => {
+  it("authoring eligibility gates on required evidence", () => {
     const withoutEvidence = makeContext({
       peerStats: null,
       brand: makeBrand({
         productType: null,
         productTags: [],
+        productTagsEn: [],
         priceRange: null,
         reputationSummary: null,
       }),
     });
     const eligible = eligibleFaqPresets(withoutEvidence).map(
-      (preset) => preset.id,
+      (item) => item.id,
     );
 
     // Every evidence-gated preset drops out. `taiwan-origin` and `custom`
     // carry no `requiredEvidence`, so they are the only survivors.
     expect(eligible).toEqual(["taiwan-origin", "custom"]);
-    for (const preset of FAQ_PRESETS) {
-      if (preset.requiredEvidence.length === 0) continue;
-      expect(preset.eligible(withoutEvidence)).toBe(false);
+    for (const item of FAQ_PRESETS) {
+      if (item.requiredEvidence.length === 0) continue;
+      expect(item.eligible(withoutEvidence)).toBe(false);
     }
+    expect(presetById("category-position").requiredEvidence).toEqual([
+      "productType",
+      "peerStats",
+    ]);
+  });
+
+  // The two predicates answer different questions. Render eligibility asks
+  // whether the floor can be computed from evidence the *page request* has;
+  // authoring eligibility asks whether the model has enough to write from.
+  // Conflating them made the price floor unreachable at render time.
+  it("price-positioning renders on price_range alone but authors only with peer stats", () => {
+    const withoutPeers = makeContext({ peerStats: null });
+    const pricePositioning = presetById("price-positioning");
+
+    expect(pricePositioning.eligible(withoutPeers)).toBe(true);
+    expect(pricePositioning.authorable?.(withoutPeers)).toBe(false);
+    expect(pricePositioning.authorable?.(makeContext())).toBe(true);
     expect(
-      FAQ_PRESETS.find((preset) => preset.id === "category-position")
-        ?.requiredEvidence,
-    ).toEqual(["productType", "peerStats"]);
+      eligibleFaqPresets(withoutPeers).map((item) => item.id),
+    ).not.toContain("price-positioning");
+
+    const noPrice = makeContext({ brand: makeBrand({ priceRange: null }) });
+    expect(pricePositioning.eligible(noPrice)).toBe(false);
+  });
+
+  it("main-products render eligibility is per locale", () => {
+    const mainProducts = presetById("main-products");
+    const zhOnly = makeContext({
+      brand: makeBrand({ productTags: ["陶藝"], productTagsEn: [] }),
+    });
+
+    expect(mainProducts.eligible(zhOnly, "zh-TW")).toBe(true);
+    // An en render would interpolate an empty tag list into the page and the
+    // FAQPage JSON-LD.
+    expect(mainProducts.eligible(zhOnly, "en")).toBe(false);
+    // Authoring still runs: the model writes both sides from the zh evidence.
+    expect(mainProducts.authorable?.(zhOnly)).toBe(true);
+  });
+
+  it("derives groundedIn from requiredEvidence for every preset that declares it", () => {
+    const withoutPeers = makeContext({ peerStats: null });
+
+    for (const item of FAQ_PRESETS) {
+      if (item.requiredEvidence.length === 0) continue;
+      const results = item.validators.map((validate) =>
+        validate("任意內容", { locale: "zh", brand: withoutPeers, siblings: [] }),
+      );
+      if (!item.requiredEvidence.includes("peerStats")) continue;
+      // No hand-written groundedIn call remains in the preset files, so this
+      // failing proves the registry derived one from the declaration.
+      expect(
+        results.some(
+          (result) => !result.ok && /Required evidence/.test(result.reason ?? ""),
+        ),
+      ).toBe(true);
+    }
+  });
+
+  it("every model-authored preset rejects an NT$ figure on pricing grounds", () => {
+    const answer = "入門款約 NT$1,280 起，屬於中價位。";
+
+    for (const item of FAQ_PRESETS) {
+      // A null promptFragment means the copy is code-derived, never authored.
+      if (item.promptFragment === null) continue;
+      const reasons = item.validators
+        .map((validate) => validate(answer, makeValidatorContext("zh")))
+        .filter((result) => !result.ok)
+        .map((result) => result.reason ?? "");
+
+      expect(
+        reasons.some((reason) => /pricing/i.test(reason)),
+        `${item.id} has no pricing validator`,
+      ).toBe(true);
+    }
+  });
+
+  it("the shared preamble states the currency prohibition once for all presets", () => {
+    expect(FAQ_PROMPT_PREAMBLE).toContain("NT$");
+    expect(FAQ_PROMPT_PREAMBLE).toContain("禁止價格數字");
   });
 
   it("taiwan-origin is eligible for a brand with no mit_status", () => {
@@ -182,7 +269,7 @@ describe("FAQ preset catalog", () => {
     const context = makeContext({
       brand: makeBrand({ mitStatus: "unverified" }),
     });
-    const floor = preset.templateFloor?.(context, resolveBrandDetail, "zh");
+    const floor = preset.render?.templateFloor(context, resolveBrandDetail, "zh");
     const contextSuffix = resolveBrandDetail("brandFaq.context.suffix", {
       details: [
         resolveBrandDetail("brandFaq.context.city", { city: "taipei" }),

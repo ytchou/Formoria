@@ -110,13 +110,14 @@ async function getFaq(
   brand: Brand,
   rows: StoredRow[] = [],
   translate = t,
+  locale = "zh-TW",
 ) {
   const client = clientDouble(rows);
   const items = await getBrandFaq(
     brand.id,
     brand,
     translate,
-    "zh-TW",
+    locale,
     null,
     client as unknown as FaqSupabase,
   );
@@ -202,5 +203,86 @@ describe("getBrandFaq", () => {
     const { items } = await getFaq(makeBrand({ productTags: ["陶瓷"] }));
 
     expect(items[0].id).toBe("taiwan-origin");
+  });
+
+  // The regression this whole fix exists for: the request path has no peer
+  // stats, so gating price-positioning's *render* on them made its template
+  // floor unreachable and shrank the FAQ below what the old column-era
+  // generators produced.
+  it("renders the price floor from price_range alone, with no peer stats", async () => {
+    const { items } = await getFaq(makeBrand({ priceRange: 2 }));
+
+    expect(items.map((item) => item.id)).toContain("price-positioning");
+    expect(
+      items.find((item) => item.id === "price-positioning")?.answer,
+    ).toContain("brandFaq.priceRange.answer");
+  });
+
+  it("renders every eligible preset for a typical approved brand", async () => {
+    const { items } = await getFaq(
+      makeBrand({
+        priceRange: 2,
+        productTags: ["陶瓷"],
+        reputationSummary: {
+          text: "被設計媒體報導過的小型工作室。",
+          textEn: "Covered by a named design publication.",
+          sources: [{ url: "https://example.com/feature" }],
+        },
+        mitStatus: "unverified",
+      }),
+    );
+
+    // category-position is prompt-only (no template floor) and correctly
+    // renders nothing; the other four all reach the page.
+    expect(items.map((item) => item.id)).toEqual([
+      "taiwan-origin",
+      "main-products",
+      "price-positioning",
+      "reputation",
+    ]);
+  });
+
+  it("still drops price-positioning when price_range is unset", async () => {
+    const { items } = await getFaq(makeBrand({ priceRange: null }));
+
+    expect(items.map((item) => item.id)).not.toContain("price-positioning");
+  });
+
+  // I10: the floor interpolates the locale's own tag array, so eligibility has
+  // to be judged per locale or an empty string reaches the page and the JSON-LD.
+  it("omits main-products in en when the brand has no English tags", async () => {
+    const brand = makeBrand({ productTags: ["陶瓷"], productTagsEn: [] });
+
+    const zh = await getFaq(brand, [], t, "zh-TW");
+    const en = await getFaq(brand, [], t, "en");
+
+    expect(zh.items.map((item) => item.id)).toContain("main-products");
+    expect(en.items.map((item) => item.id)).not.toContain("main-products");
+  });
+
+  it("renders main-products in en when English tags exist", async () => {
+    const { items } = await getFaq(
+      makeBrand({ productTags: ["陶瓷"], productTagsEn: ["ceramics"] }),
+      [],
+      t,
+      "en",
+    );
+
+    expect(items.map((item) => item.id)).toContain("main-products");
+    expect(
+      items.find((item) => item.id === "main-products")?.answer,
+    ).toContain("ceramics");
+  });
+
+  it("renders every stored custom row in position order", async () => {
+    const { items } = await getFaq(makeBrand(), [
+      row({ preset_id: "custom", position: 1, question_zh: "問二", answer_zh: "答二" }),
+      row({ preset_id: "custom", position: 0, question_zh: "問一", answer_zh: "答一" }),
+    ]);
+
+    expect(items.filter((item) => item.id.startsWith("custom-"))).toEqual([
+      { id: "custom-0", question: "問一", answer: "答一" },
+      { id: "custom-1", question: "問二", answer: "答二" },
+    ]);
   });
 });

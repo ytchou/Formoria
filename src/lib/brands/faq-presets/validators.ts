@@ -124,19 +124,22 @@ export function noKeywordStuffing(maxRepeatRatio = 0.08): FaqValidator {
     for (const token of answerTokens) {
       counts.set(token, (counts.get(token) ?? 0) + 1);
     }
+    // Scoped to the brand name on purpose. The blanket "no token over the
+    // ratio" clause this replaces could not be shipped: it measured *every*
+    // multi-character token, and ordinary English function words exceed 8% on
+    // their own — "the" runs ~14% of a valid 120–180 word answer, so the
+    // clause rejected correct copy rather than stuffed copy. Brand-name
+    // repetition is the unambiguous stuffing signal and is what the preamble
+    // actually forbids; single characters are not filtered out here because a
+    // zh brand name tokenises per Han character and would otherwise be
+    // unenforceable.
     const brandTokens = tokens(ctx.brand.brand.name);
     const repeatedBrandName = brandTokens.some(
       (token) => (counts.get(token) ?? 0) / answerTokens.length > maxRepeatRatio,
     );
-    // Single characters are excluded: zh tokenises per Han character, so
-    // ordinary function words (的、是、在) would otherwise trip every answer.
-    const repeatedToken = [...counts.entries()].some(
-      ([token, count]) =>
-        token.length > 1 && count / answerTokens.length > maxRepeatRatio,
-    );
 
-    return repeatedBrandName || repeatedToken
-      ? fail("A brand name or token is repeated too often.")
+    return repeatedBrandName
+      ? fail("The brand name is repeated too often.")
       : pass();
   };
 }

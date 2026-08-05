@@ -2,9 +2,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceClient } from "@/lib/supabase/server";
 import { excludeTestBrands } from "./public-brand-filter";
 
-export type PriceDistribution = Record<1 | 2 | 3, number>;
+/** Internal shapes of `CategoryPeerStats`; reached through it, never directly. */
+type PriceDistribution = Record<1 | 2 | 3, number>;
 
-export type CityCluster = {
+type CityCluster = {
   city: string;
   count: number;
 };

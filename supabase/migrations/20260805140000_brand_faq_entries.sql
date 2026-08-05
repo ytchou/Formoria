@@ -113,4 +113,22 @@ where mapping.entry is not null
       and nullif(btrim(mapping.entry ->> 'answer_en'), '') is not null
     )
   )
+  -- `price-positioning` forbids currency: its prompt says so and its validator
+  -- list includes `noPricingFigures()`. The legacy `faq_price` copy was
+  -- generated under a prompt that asked for concrete NT$ amounts, and stored
+  -- rows are rendered without ever running validators — so importing those
+  -- answers would publish NT$ figures into the page and its FAQPage JSON-LD.
+  --
+  -- This clause is additive-restrictive and this migration is already recorded
+  -- as applied, so editing it only affects databases built from scratch. The
+  -- rows it would have skipped on production are removed by
+  -- 20260805160000_purge_contaminated_price_faq.sql. The pattern mirrors
+  -- `noPricingFigures()` in src/lib/brands/faq-presets/validators.ts.
+  and not (
+    mapping.preset_id = 'price-positioning'
+    and (
+      coalesce(mapping.entry ->> 'answer_zh', '') ~* '(NT\s*[$＄]|TWD|新台幣|\d[\d,]*(\.\d+)?\s*(元|塊|NT\s*[$＄]|TWD)|[$＄]\s*\d[\d,]*)'
+      or coalesce(mapping.entry ->> 'answer_en', '') ~* '(NT\s*[$＄]|TWD|新台幣|\d[\d,]*(\.\d+)?\s*(元|塊|NT\s*[$＄]|TWD)|[$＄]\s*\d[\d,]*)'
+    )
+  )
 on conflict (brand_id, preset_id, position) do nothing;

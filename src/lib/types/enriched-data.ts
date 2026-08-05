@@ -2,36 +2,10 @@ import type { Json } from "@/lib/supabase/database.types";
 import type { OtherUrl } from "@/lib/types/brand";
 
 /**
- * One paired FAQ entry emitted by the dedicated `faq` phase. Pairing is
- * enforced by OpenAI Structured Outputs, not by a CJK heuristic; rows land in
- * `brand_faq_entries`, not legacy columns.
+ * FAQ deliberately has no field here. The dedicated `faq` phase writes
+ * `brand_faq_entries` directly, behind the preset validators; carrying a copy
+ * on this blob would be a second, unvalidated write door into the same table.
  */
-export type EnrichedFaqItem = {
-  presetId: string;
-  position?: number;
-  questionZh: string | null;
-  answerZh: string | null;
-  questionEn: string | null;
-  answerEn: string | null;
-};
-
-export function isEnrichedFaqItem(value: unknown): value is EnrichedFaqItem {
-  if (typeof value !== "object" || value === null) return false;
-  const item = value as Partial<EnrichedFaqItem>;
-  const renders = (question: unknown, answer: unknown): boolean =>
-    typeof question === "string" &&
-    question.trim() !== "" &&
-    typeof answer === "string" &&
-    answer.trim() !== "";
-  return (
-    typeof item.presetId === "string" &&
-    item.presetId.trim() !== "" &&
-    (renders(item.questionZh, item.answerZh) ||
-      renders(item.questionEn, item.answerEn)) &&
-    (item.position === undefined || typeof item.position === "number")
-  );
-}
-
 export type EnrichedData = {
   description?: string;
   descriptionEn?: string;
@@ -56,7 +30,6 @@ export type EnrichedData = {
   purchaseShopee?: string;
   purchaseMyship?: string;
   otherUrls?: OtherUrl[];
-  faq?: EnrichedFaqItem[];
   name?: string;
 };
 
@@ -171,12 +144,6 @@ export function enrichedDataFromDb(
           ),
         }
       : {}),
-    // Malformed entries are filtered rather than rejecting the whole payload:
-    // the FAQ is one of several fields on this blob, and a single bad item from
-    // the model must not cost the caller its description or tags.
-    ...(Array.isArray(json.faq)
-      ? { faq: json.faq.filter(isEnrichedFaqItem) }
-      : {}),
   };
 }
 
@@ -218,6 +185,5 @@ export function enrichedDataToDb(data: EnrichedData): Record<string, unknown> {
   if (data.purchaseMyship !== undefined)
     result.purchase_myship = data.purchaseMyship;
   if (data.otherUrls !== undefined) result.other_urls = data.otherUrls;
-  if (data.faq !== undefined) result.faq = data.faq;
   return result;
 }

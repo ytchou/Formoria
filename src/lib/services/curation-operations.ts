@@ -2397,6 +2397,7 @@ export async function runEnrich(
             serpSnippets: state.serpSnippets,
             scrapedData: state.scrapedData,
             overwrite,
+            dryRun: config.dryRun,
             target: { type: targetType, id: brand.id },
             jobId: config.jobId,
             supabase: batchContext.supabase,

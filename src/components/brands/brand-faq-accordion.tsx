@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { ChevronDown } from "lucide-react";
 import { trackFaqItemExpanded } from "@/lib/analytics";
 
-import { OpenTargetDetails } from "@/app/[locale]/(site)/faq/open-target-details";
+import { OpenTargetDetails } from "@/components/shared/open-target-details";
 import { FaqSection } from "@/components/shared/faq-section";
 import { sanitizeHref } from "@/lib/url";
 import { useBrandEngagement } from "./brand-engagement-tracker";
@@ -71,14 +71,18 @@ export function BrandFaqAccordion({
           <details
             key={item.id}
             id={`faq-${item.id}`}
-            className="group scroll-mt-24 py-5"
+            className="group scroll-mt-24"
             onToggle={(event) => handleToggle(event, item.id)}
           >
-            <summary className="flex cursor-pointer list-none items-center justify-between type-faq-question focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+            <summary className="flex cursor-pointer list-none items-center justify-between py-5 type-faq-question focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
               {item.question}
               <ChevronDown className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
             </summary>
-            <p className="mt-3 type-body-muted">
+            {/* The row's vertical padding lives on <summary>, the interactive
+                element, so the whole visual row is the hit target (~62px, over
+                the 44px minimum) and the focus ring wraps it. The answer
+                carries the closing padding the <details> used to. */}
+            <p className="pb-5 type-body-muted">
               {renderLinkedText(item.answer)}
             </p>
           </details>

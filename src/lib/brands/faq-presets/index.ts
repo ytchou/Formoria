@@ -11,6 +11,21 @@ import {
   type FaqBrandContext,
   type FaqPreset,
 } from "./types";
+import { groundedIn } from "./validators";
+
+/**
+ * `requiredEvidence` was previously documentation that nothing read, with each
+ * preset separately hand-writing the same list into its own `groundedIn(...)`.
+ * Deriving the validator from the declaration here means the contract a preset
+ * *declares* and the one that is *enforced* cannot drift apart.
+ */
+function withDerivedValidators(preset: FaqPreset): FaqPreset {
+  if (preset.requiredEvidence.length === 0) return preset;
+  return {
+    ...preset,
+    validators: [groundedIn(preset.requiredEvidence), ...preset.validators],
+  };
+}
 
 export const FAQ_PRESETS: readonly FaqPreset[] = [
   taiwanOrigin,
@@ -19,10 +34,25 @@ export const FAQ_PRESETS: readonly FaqPreset[] = [
   pricePositioning,
   reputation,
   custom,
-];
+].map(withDerivedValidators);
 
+/**
+ * Can the model author this preset for this brand? Distinct from
+ * `preset.eligible`, which asks only whether the template floor can render
+ * from request-time evidence. Presets that need nothing extra share one
+ * predicate; `price-positioning` is the case that does not, because its prompt
+ * is comparative and needs peer stats the request path never loads.
+ */
+export function isFaqPresetAuthorable(
+  preset: FaqPreset,
+  ctx: FaqBrandContext,
+): boolean {
+  return preset.authorable ? preset.authorable(ctx) : preset.eligible(ctx);
+}
+
+/** The authorable set — this is the enrichment phase's filter, not the render one. */
 export function eligibleFaqPresets(ctx: FaqBrandContext): FaqPreset[] {
-  return FAQ_PRESETS.filter((preset) => preset.eligible(ctx));
+  return FAQ_PRESETS.filter((preset) => isFaqPresetAuthorable(preset, ctx));
 }
 
 export const FAQ_PROMPT_PREAMBLE = `你是 Formoria 的 FAQ 編輯。請用直接、客觀、具體的回答語氣，先回答使用者問題，再補充最相關的事實；只使用提供的品牌證據，不得推測或編造。
@@ -32,6 +62,9 @@ ${TAIWAN_USAGE_RULES}
 
 ## 長度區間
 zh-TW 回答為 200–320 字；en 回答為 120–180 words。每個回答都必須落在對應語言的區間內。
+
+## 禁止價格數字
+任何回答都不得輸出 NT$、NT、TWD、新台幣、元、塊、任何貨幣符號或具體金額數字。價格只能以相對與序位語言描述（例如入門、中價位、高價位）。標價會變動，寫進回答就會過期，而且回答會一併輸出為結構化資料，等同於對外公告報價。
 
 ## 反關鍵字堆砌
 不要為了搜尋關鍵字重複品牌名、產品名或類別詞；自然回答使用者的問題，資訊不足時省略，不要湊字數。

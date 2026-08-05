@@ -53,6 +53,10 @@ let upsertCalls: Array<{
   onConflict: string | undefined;
   rows: EntryUpsert[];
 }> = [];
+let deleteCalls: Array<{
+  eq: Array<[string, unknown]>;
+  gte: Array<[string, number]>;
+}> = [];
 
 /**
  * Minimal Supabase double that actually stores rows, so the upsert's conflict
@@ -66,6 +70,17 @@ function createClientDouble() {
       }
 
       const eqFilters: Array<[string, unknown]> = [];
+      const gteFilters: Array<[string, number]> = [];
+      let deleting = false;
+      const matches = (candidate: EntryRow) =>
+        eqFilters.every(
+          ([column, value]) => candidate[column as keyof EntryRow] === value,
+        ) &&
+        gteFilters.every(
+          ([column, value]) =>
+            (candidate[column as keyof EntryRow] as number) >= value,
+        );
+
       const builder = {
         select() {
           selectCalls += 1;
@@ -73,6 +88,14 @@ function createClientDouble() {
         },
         eq(column: string, value: unknown) {
           eqFilters.push([column, value]);
+          return builder;
+        },
+        gte(column: string, value: number) {
+          gteFilters.push([column, value]);
+          return builder;
+        },
+        delete() {
+          deleting = true;
           return builder;
         },
         upsert(
@@ -102,13 +125,14 @@ function createClientDouble() {
             error: null;
           }) => unknown,
         ) {
-          const rows = table.filter((candidate) =>
-            eqFilters.every(
-              ([column, value]) =>
-                candidate[column as keyof EntryRow] === value,
-            ),
+          if (deleting) {
+            deleteCalls.push({ eq: [...eqFilters], gte: [...gteFilters] });
+            table = table.filter((candidate) => !matches(candidate));
+            return Promise.resolve(resolve({ data: null, error: null }));
+          }
+          return Promise.resolve(
+            resolve({ data: table.filter(matches), error: null }),
           );
-          return Promise.resolve(resolve({ data: rows, error: null }));
         },
       };
 
@@ -152,7 +176,17 @@ beforeEach(() => {
   table = [];
   selectCalls = 0;
   upsertCalls = [];
+  deleteCalls = [];
 });
+
+function customEntry(position: number, text: string): BrandFaqEntryInput {
+  return {
+    presetId: "custom",
+    position,
+    questionZh: `自訂問題 ${position}`,
+    answerZh: text,
+  };
+}
 
 describe("upsertBrandFaqEntries", () => {
   it("never overwrites a human-authored row", async () => {
@@ -258,6 +292,81 @@ describe("upsertBrandFaqEntries", () => {
     expect(selectCalls).toBe(1);
     expect(upsertCalls).toHaveLength(1);
     expect(table).toHaveLength(3);
+  });
+});
+
+/**
+ * Customs are the only preset that holds more than one row per brand, so they
+ * are the only one that can be orphaned by a shorter re-authoring. Without a
+ * cleanup the old rows keep rendering beside the new copy forever — nothing in
+ * the module deleted anything.
+ */
+describe("upsertBrandFaqEntries — orphaned custom rows", () => {
+  it("deletes model customs beyond the count just written", async () => {
+    table.push(
+      row({ preset_id: "custom", position: 0, question_zh: "一", answer_zh: "舊一" }),
+      row({ preset_id: "custom", position: 1, question_zh: "二", answer_zh: "舊二" }),
+      row({ preset_id: "custom", position: 2, question_zh: "三", answer_zh: "舊三" }),
+      row({ preset_id: "custom", position: 3, question_zh: "四", answer_zh: "舊四" }),
+    );
+
+    await write([customEntry(0, "新一"), customEntry(1, "新二")], {
+      explicitFaqPhase: true,
+    });
+
+    expect(
+      table
+        .filter((entry) => entry.preset_id === "custom")
+        .map((entry) => entry.position)
+        .sort(),
+    ).toEqual([0, 1]);
+    expect(deleteCalls).toHaveLength(1);
+    expect(deleteCalls[0]?.gte).toEqual([["position", 2]]);
+  });
+
+  it("never deletes a human custom row", async () => {
+    table.push(
+      row({ preset_id: "custom", position: 0, question_zh: "一", answer_zh: "舊一" }),
+      row({
+        preset_id: "custom",
+        position: 2,
+        question_zh: "店主自己寫的問題",
+        answer_zh: "店主自己寫的回答",
+        source: "human",
+      }),
+    );
+
+    await write([customEntry(0, "新一")], { explicitFaqPhase: true });
+
+    expect(stored("custom", 2)?.answer_zh).toBe("店主自己寫的回答");
+    expect(deleteCalls[0]?.eq).toContainEqual(["source", "model"]);
+  });
+
+  it("deletes nothing when a fill-gaps run writes no custom row", async () => {
+    table.push(
+      row({ preset_id: "custom", position: 0, question_zh: "一", answer_zh: "舊一" }),
+      row({ preset_id: "custom", position: 1, question_zh: "二", answer_zh: "舊二" }),
+    );
+
+    // Both candidates already have a renderable zh side, so a default
+    // (non-explicit) run writes nothing — and must therefore delete nothing.
+    await write([customEntry(0, "新一")]);
+
+    expect(upsertCalls).toHaveLength(0);
+    expect(deleteCalls).toHaveLength(0);
+    expect(table.filter((entry) => entry.preset_id === "custom")).toHaveLength(2);
+  });
+
+  it("leaves non-custom presets untouched", async () => {
+    table.push(
+      row({ preset_id: "reputation", position: 0, question_zh: "評價？", answer_zh: "舊評價" }),
+      row({ preset_id: "custom", position: 1, question_zh: "二", answer_zh: "舊二" }),
+    );
+
+    await write([customEntry(0, "新一")], { explicitFaqPhase: true });
+
+    expect(stored("reputation")?.answer_zh).toBe("舊評價");
+    expect(table.filter((entry) => entry.preset_id === "custom")).toHaveLength(1);
   });
 });
 

@@ -39,13 +39,40 @@ export type FaqValidator = (
   ctx: FaqValidatorContext,
 ) => FaqValidationResult;
 
+/**
+ * What a preset needs in order to render without a stored answer. The question
+ * key and the floor travel together deliberately: a floor with no question has
+ * nothing to render under, and the pair being one nullable field makes that a
+ * type error rather than a silent skip in the render loop.
+ */
+export type FaqRender = {
+  /** i18n key of the question shown above the template floor. */
+  questionKey: string;
+  templateFloor: (ctx: FaqBrandContext, t: FaqTFn, locale: string) => string;
+};
+
 export type FaqPreset = {
   id: string;
-  eligible: (ctx: FaqBrandContext) => boolean;
+  /**
+   * Render eligibility: can this preset produce a template floor from the
+   * evidence available *in the page request path*? That path has no peer
+   * stats — they are an enrichment-pipeline concern — so anything requiring
+   * them belongs in `authorable`, not here.
+   *
+   * `locale` is passed because a floor can be renderable in one language and
+   * not the other (a brand with zh product tags and no English ones).
+   */
+  eligible: (ctx: FaqBrandContext, locale?: string) => boolean;
+  /**
+   * Authoring eligibility: does the model have enough evidence to write this
+   * answer? Defaults to `eligible` for presets that need nothing beyond the
+   * render evidence. Only presets whose *prompt* leans on evidence the request
+   * path lacks (peer stats) need to override it.
+   */
+  authorable?: (ctx: FaqBrandContext) => boolean;
   requiredEvidence: readonly EvidenceKey[];
-  templateFloor:
-    | ((ctx: FaqBrandContext, t: FaqTFn, locale: string) => string)
-    | null;
+  /** `null` for prompt-only presets, which never render a floor. */
+  render: FaqRender | null;
   promptFragment: ((ctx: FaqBrandContext) => string) | null;
   validators: readonly FaqValidator[];
 };

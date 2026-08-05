@@ -4,10 +4,19 @@ import {
   ENRICH_PHASES,
   ENRICH_STAGE_GROUPS,
 } from "@/lib/constants/enrich-phases";
-import { eligibleFaqPresets } from "@/lib/brands/faq-presets";
+import {
+  CUSTOM_QUESTION_CEILING,
+  eligibleFaqPresets,
+} from "@/lib/brands/faq-presets";
 import type { FaqBrandContext } from "@/lib/brands/faq-presets";
 import type { Brand } from "@/lib/types";
-import { resolveFaqAttempts, validateFaqEntries } from "../faq";
+import type { BrandFaqEntryRow } from "../../brand-faq";
+import {
+  faqCoverageIsComplete,
+  localizedCityLabel,
+  resolveFaqAttempts,
+  validateFaqEntries,
+} from "../faq";
 
 /**
  * Driven through the phase's exported pure pieces rather than through
@@ -71,13 +80,14 @@ function context(
   peerStats: FaqBrandContext["peerStats"] = null,
 ): FaqBrandContext {
   const brand = { ...BRAND, ...overrides } as Brand;
-  return { brand, cityLabel: brand.city, peerStats };
+  return { brand, cityLabel: localizedCityLabel(brand.city), peerStats };
 }
 
 /** The model-authorable eligible set, exactly as the phase computes it. */
 function authorable(ctx: FaqBrandContext) {
   return eligibleFaqPresets(ctx).filter(
-    (preset) => preset.promptFragment !== null,
+    (preset) =>
+      preset.promptFragment !== null && (preset.authorable?.(ctx) ?? true),
   );
 }
 
@@ -90,12 +100,40 @@ function zhAnswer(seed: string): string {
   return seed.padEnd(240, "詳");
 }
 
-/** Same idea for the en 120–180 word band. */
+/**
+ * Same idea for the en 120–180 word band, with two constraints the padding has
+ * to respect or it starts failing checks the test never meant to exercise:
+ * every filler token is distinct (repeating one word trips `noKeywordStuffing`,
+ * whose ceiling is 8% of the answer), and the filler is seeded from the seed
+ * text so two different answers share no filler (a shared filler block would
+ * make every pair of answers read as near-duplicates to `notDuplicateOf`).
+ */
 function enAnswer(seed: string): string {
   const words = seed.split(/\s+/u);
-  while (words.length < 140) words.push("grounded");
+  const tag = Array.from(seed).reduce(
+    (sum, char) => sum + char.charCodeAt(0),
+    0,
+  );
+  let index = 0;
+  while (words.length < 140) {
+    words.push(`detail${tag}n${index}`);
+    index += 1;
+  }
   return words.join(" ");
 }
+
+/**
+ * Four genuinely different zh answers. They have to be different in vocabulary,
+ * not just in wording: `notDuplicateOf` compares token sets, so four rephrasings
+ * of one sentence would reject each other and the test would be measuring the
+ * duplicate check instead of the thing it names.
+ */
+const CUSTOM_SEEDS = [
+  "這個品牌的自訂回答談製作流程，從備料、打樣到成品檢查都由同一組師傅負責。",
+  "關於保養方式，日常擦拭與定期上油可以延長使用年限，避免陽光直射與潮濕環境。",
+  "在包裝上採用可回收紙材，並以最少的印刷面積降低油墨用量，寄送時另附使用說明。",
+  "常見的客製需求包含尺寸微調與刻字，需要提前預約，工期會依季節排程有所不同。",
+];
 
 function modelEntry(
   presetId: string,
@@ -149,7 +187,11 @@ describe("validateFaqEntries", () => {
 
     expect(outcome.entries).toEqual([]);
     expect(outcome.dropped).toBe(1);
-    expect(outcome.failures[0]?.presetId).toBe("main-products");
+    // Reported to the model, but as an *unrepairable* rejection: no repair
+    // instruction can make a preset the model was never allowed to author
+    // become authorable, so this must never be what spends the retry.
+    expect(outcome.unrepairable[0]?.presetId).toBe("main-products");
+    expect(outcome.failures).toEqual([]);
   });
 
   it("drops an answer containing an NT$ figure", () => {
@@ -212,11 +254,152 @@ describe("validateFaqEntries", () => {
     ).toEqual([]);
     expect(outcome.dropped).toBe(2);
   });
+
+  it("keeps one entry per non-custom preset", () => {
+    // Two answers for the same preset would both take `position = 0`, and the
+    // single upsert would then hit `brand_id,preset_id,position` twice —
+    // Postgres 21000, which fails the whole phase.
+    const ctx = context({ priceRange: 2 }, PEER_STATS);
+    const presets = authorable(ctx);
+
+    const outcome = validateFaqEntries(
+      {
+        entries: [
+          modelEntry("price-positioning"),
+          modelEntry("price-positioning", {
+            answerZh: zhAnswer(CUSTOM_SEEDS[1]),
+            answerEn: enAnswer("A second take on the same comparative question."),
+          }),
+        ],
+      },
+      presets,
+      ctx,
+    );
+
+    const priced = outcome.entries.filter(
+      (entry) => entry.presetId === "price-positioning",
+    );
+    expect(priced).toHaveLength(1);
+    expect(priced[0]?.position).toBe(0);
+    expect(outcome.dropped).toBe(1);
+  });
+
+  it("drops an over-ceiling custom before validating it", () => {
+    // The over-ceiling entry carries a currency figure. If the ceiling were
+    // still checked after validation, that figure would show up as a pricing
+    // failure — and a failure is what spends the second LLM attempt.
+    const ctx = context();
+    const presets = authorable(ctx);
+    // The fixture has to be able to fill the ceiling, or the last entry would
+    // be validated for a reason this test is not about.
+    expect(CUSTOM_SEEDS.length).toBeGreaterThanOrEqual(CUSTOM_QUESTION_CEILING);
+
+    const outcome = validateFaqEntries(
+      {
+        entries: [
+          ...CUSTOM_SEEDS.slice(0, CUSTOM_QUESTION_CEILING).map(
+            (seed, index) =>
+              modelEntry("custom", {
+                answerZh: zhAnswer(seed),
+                answerEn: enAnswer(
+                  `Custom answer number ${index} covering a separate topic.`,
+                ),
+              }),
+          ),
+          modelEntry("custom", {
+            answerZh: zhAnswer("這個品項的售價為 NT$ 900，屬於中段。"),
+            answerEn: enAnswer("An extra answer beyond the ceiling."),
+          }),
+        ],
+      },
+      presets,
+      ctx,
+    );
+
+    expect(
+      outcome.entries.filter((entry) => entry.presetId === "custom"),
+    ).toHaveLength(CUSTOM_QUESTION_CEILING);
+    expect(
+      outcome.failures.some((failure) => /pricing/i.test(failure.reason)),
+    ).toBe(false);
+    expect(outcome.dropped).toBe(1);
+  });
+});
+
+describe("localizedCityLabel", () => {
+  it("resolves the slug to the label the brand page renders", () => {
+    // The render path calls `tCities(brand.city)`; a prompt built on the raw
+    // slug would describe the brand differently from its own page.
+    expect(localizedCityLabel("taipei")).toBe("臺北市");
+    expect(localizedCityLabel(null)).toBeNull();
+    // An unmapped value passes through rather than becoming null: losing the
+    // city entirely is worse than an unlocalized one.
+    expect(localizedCityLabel("atlantis")).toBe("atlantis");
+  });
+});
+
+describe("faqCoverageIsComplete", () => {
+  function row(
+    presetId: string,
+    position = 0,
+    overrides: Partial<BrandFaqEntryRow> = {},
+  ): BrandFaqEntryRow {
+    return {
+      presetId,
+      position,
+      questionZh: "問題",
+      answerZh: "回答",
+      questionEn: "Question",
+      answerEn: "Answer",
+      source: "model",
+      ...overrides,
+    };
+  }
+
+  // Peer stats and a price bucket so the set is more than `custom` alone —
+  // a single-preset set would not show the per-preset accounting at all.
+  const presets = authorable(context({ priceRange: 2 }, PEER_STATS));
+
+  it("covers a set wider than custom alone", () => {
+    expect(
+      presets.filter((preset) => preset.id !== "custom").length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("is complete when every authorable preset has a two-locale entry", () => {
+    const rows = presets.flatMap((preset) =>
+      preset.id === "custom"
+        ? Array.from({ length: CUSTOM_QUESTION_CEILING }, (_, index) =>
+            row("custom", index),
+          )
+        : [row(preset.id)],
+    );
+
+    expect(faqCoverageIsComplete(presets, rows)).toBe(true);
+  });
+
+  it("is incomplete when a stored entry renders in only one locale", () => {
+    // The gate exists to skip a call that would write nothing; a zh-only row
+    // still has an English gap the phase can fill, so it must not skip.
+    const rows = presets.flatMap((preset) =>
+      preset.id === "custom"
+        ? Array.from({ length: CUSTOM_QUESTION_CEILING }, (_, index) =>
+            row("custom", index),
+          )
+        : [row(preset.id, 0, { questionEn: null, answerEn: null })],
+    );
+
+    expect(faqCoverageIsComplete(presets, rows)).toBe(false);
+  });
+
+  it("is incomplete when nothing is stored", () => {
+    expect(faqCoverageIsComplete(presets, [])).toBe(false);
+  });
 });
 
 describe("resolveFaqAttempts", () => {
-  it("retries once with a repair instruction on validation failure", async () => {
-    const ctx = context();
+  it("retries once with a repair instruction on a repairable failure", async () => {
+    const ctx = context({ priceRange: 2 }, PEER_STATS);
     const presets = authorable(ctx);
     const send = vi
       .fn<
@@ -225,15 +408,22 @@ describe("resolveFaqAttempts", () => {
           attempt: number,
         ) => Promise<{ ok: boolean; content: string | null }>
       >()
-      // Attempt 1 answers a preset that never entered the prompt.
+      // Attempt 1 puts a currency figure in the comparative answer — a real
+      // repairable rejection, the kind the second call exists for.
       .mockResolvedValueOnce({
         ok: true,
-        content: JSON.stringify({ entries: [modelEntry("main-products")] }),
+        content: JSON.stringify({
+          entries: [
+            modelEntry("price-positioning", {
+              answerZh: zhAnswer("這個品牌的入門品項售價為 NT$ 800，屬於同類品牌的中段位置。"),
+            }),
+          ],
+        }),
       })
-      // Attempt 2 answers an authorable one and clears validation.
+      // Attempt 2 returns the repaired entry and clears validation.
       .mockResolvedValueOnce({
         ok: true,
-        content: JSON.stringify({ entries: [modelEntry("custom")] }),
+        content: JSON.stringify({ entries: [modelEntry("price-positioning")] }),
       });
 
     const outcome = await resolveFaqAttempts(presets, ctx, send);
@@ -241,9 +431,66 @@ describe("resolveFaqAttempts", () => {
     expect(send).toHaveBeenCalledTimes(2);
     expect(send.mock.calls[0]?.[0]).toBe("");
     expect(send.mock.calls[1]?.[0]).toContain("修復上一版 FAQ");
-    expect(send.mock.calls[1]?.[0]).toContain("main-products");
+    expect(send.mock.calls[1]?.[0]).toContain("price-positioning");
     expect(outcome.entries).toHaveLength(1);
     expect(outcome.calls.attempted).toBe(2);
+  });
+
+  it("does not spend the retry on a preset that was never authorable", async () => {
+    // `main-products` never entered the prompt, so "fix this" is an instruction
+    // the model cannot act on — the second call would buy nothing.
+    const ctx = context();
+    const send = vi.fn().mockResolvedValue({
+      ok: true,
+      content: JSON.stringify({ entries: [modelEntry("main-products")] }),
+    });
+
+    const outcome = await resolveFaqAttempts(authorable(ctx), ctx, send);
+
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(outcome.entries).toEqual([]);
+    expect(outcome.unrepairable).toHaveLength(1);
+  });
+
+  it("keeps attempt 1's accepted entries when attempt 2 returns only a repair", async () => {
+    const ctx = context({ priceRange: 2 }, PEER_STATS);
+    const presets = authorable(ctx);
+    const send = vi
+      .fn<
+        (
+          retryInstruction: string,
+          attempt: number,
+        ) => Promise<{ ok: boolean; content: string | null }>
+      >()
+      .mockResolvedValueOnce({
+        ok: true,
+        content: JSON.stringify({
+          entries: [
+            modelEntry("custom"),
+            modelEntry("price-positioning", {
+              answerZh: zhAnswer("這個品牌的入門品項售價為 NT$ 800，屬於同類品牌的中段位置。"),
+            }),
+          ],
+        }),
+      })
+      // The common model response to "fix these": the repaired entry alone.
+      .mockResolvedValueOnce({
+        ok: true,
+        content: JSON.stringify({
+          entries: [
+            modelEntry("price-positioning", {
+              answerZh: zhAnswer("這個品牌在同類品牌中屬於中段序位，用料與工序高於入門選項。"),
+              answerEn: enAnswer("This brand sits mid-pack against its peers."),
+            }),
+          ],
+        }),
+      });
+
+    const outcome = await resolveFaqAttempts(presets, ctx, send);
+
+    expect(send).toHaveBeenCalledTimes(2);
+    const presetIds = outcome.entries.map((entry) => entry.presetId).sort();
+    expect(presetIds).toEqual(["custom", "price-positioning"]);
   });
 
   it("stops at one attempt when the first one validates", async () => {

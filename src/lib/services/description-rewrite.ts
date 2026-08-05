@@ -13,11 +13,7 @@ import {
   type LlmAuditContext,
 } from "./llm-audit";
 import { validateLocalizedText, detectAiArtifacts } from "./enrich-validators";
-import {
-  containsCjk,
-  localizeToTW,
-  stripAiToolArtifacts,
-} from "./taiwan-localization";
+import { localizeToTW, stripAiToolArtifacts } from "./taiwan-localization";
 import { noLlmCalls, type LlmCallCounts } from "./llm-call-outcome";
 
 const ZH_DESCRIPTION_BAND = [150, 400] as const;
@@ -36,10 +32,6 @@ const PURCHASE_CHANNEL_PROMPT_LABELS: Record<PurchaseChannelKey, string> = {
   shopee: "蝦皮",
   myship: "7-ELEVEN 賣貨便",
 };
-
-function localizeZhText(text: string): string {
-  return containsCjk(text) ? localizeToTW(text).text : text;
-}
 
 /** Copy-only output; FAQ is owned by the final dedicated enrichment phase. */
 export type DescriptionRewriteResult = {
