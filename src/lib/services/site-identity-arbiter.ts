@@ -13,9 +13,12 @@ import {
 } from "./llm-audit";
 import {
   addLlmCalls,
+  contentFailed,
   isLlmProviderFailure,
   noLlmCalls,
-  type LlmCallCounts,
+  notAttempted,
+  providerFailed,
+  type LlmCallOutcome,
 } from "./_shared/llm-call-outcome";
 import type { EnrichmentTarget } from "./_shared/enrichment-target";
 import type { LlmBatchOutcome } from "./product-type-classifier";
@@ -61,9 +64,10 @@ export const SITE_IDENTITY_SCHEMA = {
         items: {
           type: "object",
           additionalProperties: false,
-          required: ["slug", "owned", "confidence", "reason"],
+          required: ["slug", "subjectUrl", "owned", "confidence", "reason"],
           properties: {
             slug: { type: "string" },
+            subjectUrl: { type: "string" },
             owned: { type: "boolean" },
             confidence: { type: "string", enum: ["high", "medium", "low"] },
             reason: { type: "string" },
@@ -87,31 +91,6 @@ function toArbiterEntries(parsed: unknown): unknown[] | null {
   if (Array.isArray(wrapped)) return wrapped;
 
   return [parsed];
-}
-
-/**
- * Same local call shape as the classifier's private helper. Keeping the
- * failure boundary here preserves the classifier's batch/fallback contract
- * without making its implementation details a shared runtime dependency.
- */
-type LlmCallOutcome<T> = {
-  value: T | null;
-  calls: LlmCallCounts;
-};
-
-/** No call was issued at all (no API key) — neither success nor provider fault. */
-function notAttempted<T>(): LlmCallOutcome<T> {
-  return { value: null, calls: noLlmCalls() };
-}
-
-/** The call never reached the model: non-2xx. The only thing Gate C acts on. */
-function providerFailed<T>(): LlmCallOutcome<T> {
-  return { value: null, calls: { attempted: 1, providerFailed: 1 } };
-}
-
-/** The provider answered; the payload was empty, unparseable or invalid. */
-function contentFailed<T>(): LlmCallOutcome<T> {
-  return { value: null, calls: { attempted: 1, providerFailed: 0 } };
 }
 
 type SiteIdentityProfileKey = Extract<
@@ -141,6 +120,10 @@ function createSiteIdentityClient(
 }
 
 const SITE_IDENTITY_TEXT_LIMIT = 1200;
+// Caps total evidence per item; raise only with a larger model context budget.
+const SITE_IDENTITY_ITEM_TEXT_BUDGET = 1800;
+// Bounds recovery calls per chunk; raise only after provider-cost telemetry confirms it is safe.
+const SITE_IDENTITY_MAX_FANOUT_PER_CHUNK = 8;
 
 // Deliberately tighter than boundedScrapeSnippets' 4000 in enrich-phases/links.ts:
 // a 20-item batch at 4000 crowds the profile's maxTokens.
@@ -152,6 +135,16 @@ function boundSiteIdentityText(value: string | undefined): string | undefined {
 }
 
 function formatSiteIdentityItem(item: SiteIdentityItem, index: number): string {
+  let remaining = SITE_IDENTITY_ITEM_TEXT_BUDGET;
+  const bounded = (value: string | undefined): string | undefined => {
+    if (!value || remaining <= 0) return undefined;
+    const result = boundSiteIdentityText(value)?.slice(0, remaining);
+    remaining -= result?.length ?? 0;
+    return result;
+  };
+  const title = bounded(item.pageTitle);
+  const description = bounded(item.pageDescription);
+  const story = bounded(item.pageStory);
   const fields = [
     SITE_IDENTITY_LABELS.brandName + "：" + item.brandName,
     item.productType
@@ -159,16 +152,16 @@ function formatSiteIdentityItem(item: SiteIdentityItem, index: number): string {
       : "",
     SITE_IDENTITY_LABELS.subjectKind[item.subjectKind],
     SITE_IDENTITY_LABELS.url + "：" + item.subjectUrl,
-    item.pageTitle
-      ? SITE_IDENTITY_LABELS.title + "：" + boundSiteIdentityText(item.pageTitle)
+    title
+      ? SITE_IDENTITY_LABELS.title + "：" + title
       : "",
-    item.pageDescription
+    description
       ? SITE_IDENTITY_LABELS.description +
         "：" +
-        boundSiteIdentityText(item.pageDescription)
+        description
       : "",
-    item.pageStory
-      ? SITE_IDENTITY_LABELS.story + "：" + boundSiteIdentityText(item.pageStory)
+    story
+      ? SITE_IDENTITY_LABELS.story + "：" + story
       : "",
   ].filter(Boolean);
 
@@ -205,28 +198,54 @@ function parseSiteIdentityVerdict(
   };
 }
 
+/**
+ * Joins one response entry back to the item it answers. The join key is
+ * `slug + subjectUrl`: a brand can escalate both a `website` subject and a
+ * `source-page` subject, so two items share a slug and a slug-only match would
+ * key a "not owned / high" verdict to the wrong subject — revoking the clean
+ * column and releasing the contaminated one.
+ */
 function resolveSiteIdentityItem(
   entry: UnknownRecord,
-  index: number,
   items: SiteIdentityItem[],
 ): SiteIdentityItem | undefined {
   const responseSlug = entry.slug;
-  const positional = items[index];
+  const responseSubjectUrl = entry.subjectUrl;
 
-  if (
-    positional &&
-    typeof responseSlug === "string" &&
-    positional.slug === responseSlug
-  ) {
-    return positional;
+  const normaliseSubjectUrl = (value: string): string => {
+    try {
+      const url = new URL(value.trim());
+      url.hostname = url.hostname.toLowerCase().replace(/^www\./, "");
+      url.hash = "";
+      url.pathname = url.pathname.replace(/\/$/, "");
+      return url.toString();
+    } catch {
+      return value.trim().toLowerCase();
+    }
+  };
+
+  if (typeof responseSubjectUrl === "string" && responseSubjectUrl.trim()) {
+    const matches = items.filter(
+      (item) => normaliseSubjectUrl(item.subjectUrl) === normaliseSubjectUrl(responseSubjectUrl),
+    );
+    if (matches.length === 1 && (typeof responseSlug !== "string" || matches[0].slug === responseSlug)) {
+      return matches[0];
+    }
+    // The echo was unusable (mangled, or the model copied the placeholder from
+    // the prompt's examples). Fall through to the slug rule, which only
+    // resolves when the slug names exactly one item and so cannot mis-key.
   }
 
+  // Positional order is only trustworthy when the slug it carries is
+  // unambiguous, which is exactly the case the slug match above already
+  // resolves — so there is no separate positional fallback.
   if (typeof responseSlug === "string") {
     const matches = items.filter((item) => item.slug === responseSlug);
     if (matches.length === 1) return matches[0];
   }
 
-  return positional;
+  // Dropping an unresolved verdict releases; that is the safe direction.
+  return undefined;
 }
 
 function parseSiteIdentityResponse(
@@ -237,14 +256,10 @@ function parseSiteIdentityResponse(
   if (!entries) return null;
 
   const results = new Map<string, SiteIdentityVerdict>();
-  entries.forEach((entry, index) => {
+  entries.forEach((entry) => {
     if (!entry || typeof entry !== "object") return;
 
-    const resolvedItem = resolveSiteIdentityItem(
-      entry as UnknownRecord,
-      index,
-      items,
-    );
+    const resolvedItem = resolveSiteIdentityItem(entry as UnknownRecord, items);
     if (!resolvedItem) return;
 
     const verdict = parseSiteIdentityVerdict(entry, resolvedItem.slug);
@@ -389,7 +404,6 @@ export async function arbitrateSiteIdentity(
           for (const [key, verdict] of chunk.value) {
             results.set(key, verdict);
           }
-          continue;
         }
 
         // A provider-level chunk failure means the account, not the payload, is
@@ -399,7 +413,14 @@ export async function arbitrateSiteIdentity(
           continue;
         }
 
-        for (const item of batch) {
+        // The bound applies to the UNANSWERED items, not to the first N of the
+        // batch: a chunk that answered items 1-12 and dropped 13-20 would
+        // otherwise spend its whole allowance re-checking answered items and
+        // recover none of the missing ones.
+        const unanswered = batch.filter(
+          (item) => !results.has(siteIdentityKey(item.slug, item.subjectUrl)),
+        );
+        for (const item of unanswered.slice(0, SITE_IDENTITY_MAX_FANOUT_PER_CHUNK)) {
           const single = await arbitrateSiteIdentityItem(item, jobId);
           calls = addLlmCalls(calls, single.calls);
           if (single.value) {

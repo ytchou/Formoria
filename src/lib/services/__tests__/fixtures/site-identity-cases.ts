@@ -1,4 +1,8 @@
 import type { SiteIdentitySubjectKind } from '../../site-identity-arbiter'
+import {
+  SITE_IDENTITY_EVIDENCE,
+  type SiteIdentityCapturedEvidence,
+} from './site-identity-evidence'
 
 /**
  * Ground truth for the DEV-1309 site-identity ladder, read from the live
@@ -7,11 +11,16 @@ import type { SiteIdentitySubjectKind } from '../../site-identity-arbiter'
  *
  * `expected` is the `resolveQuarantine` outcome the ladder must produce:
  * `'revoke'` for a subject the brand does not own, `'keep'` for one it does.
- * No page evidence (`pageTitle`/`pageDescription`/`pageStory`) is carried. The
- * scrape text that produced these rows was not retained anywhere queryable,
- * and inventing plausible page copy would score the fixture author rather than
- * the model. The arbiter therefore sees the same minimum production gives it
- * when a scrape yields no usable text: brand name, subject URL, subject kind.
+ *
+ * Page evidence lives in `./site-identity-evidence`, captured by fetching each
+ * subject URL on 2026-08-05. It is carried because production SKIPS any subject
+ * whose evidence is empty and the system prompt answers `confidence: "low"`
+ * when text is insufficient — which releases. Running the eval without page
+ * text therefore scored the accept arm ~100% and the reject arm ~0% by
+ * construction, and never exercised the plan's riskiest assumption: Han-language
+ * calibration against real Han page copy. Page text is captured, never authored;
+ * a subject whose text could not be fetched is `unscoreable` and the harness
+ * reports it separately rather than counting it as a pass.
  *
  * `kind` splits the corpus so a regression is directional:
  *   - `reject`  the ladder must revoke
@@ -39,6 +48,28 @@ export type SiteIdentityEvalCase = {
   expected: SiteIdentityOutcome
   acceptable?: SiteIdentityOutcome[]
   note: string
+}
+
+/**
+ * The captured page text for a case, or an `unscoreable` marker when the host
+ * refused the capture. A missing key is treated as unscoreable rather than as
+ * empty evidence, so a fixture added without a capture cannot quietly inflate
+ * the score.
+ */
+export function evidenceFor(id: string): SiteIdentityCapturedEvidence {
+  return SITE_IDENTITY_EVIDENCE[id] ?? { unscoreable: 'no capture recorded' }
+}
+
+/**
+ * True when this case carries no page text and so cannot be scored. Production
+ * never sends such a subject to the arbiter at all — the phase skips a
+ * quarantine group whose evidence is empty — so scoring it would measure the
+ * release default, not the model.
+ */
+export function isUnscoreable(testCase: SiteIdentityEvalCase): boolean {
+  const evidence = evidenceFor(testCase.id)
+  if (evidence.unscoreable) return true
+  return !(evidence.title || evidence.description || evidence.story)
 }
 
 export const SITE_IDENTITY_CASES: SiteIdentityEvalCase[] = [

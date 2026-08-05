@@ -13,9 +13,13 @@ import {
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 import {
   addLlmCalls,
+  contentFailed,
   isLlmProviderFailure,
   noLlmCalls,
+  notAttempted,
+  providerFailed,
   type LlmCallCounts,
+  type LlmCallOutcome,
 } from "./_shared/llm-call-outcome";
 import type { EnrichmentTarget } from "./_shared/enrichment-target";
 
@@ -69,20 +73,6 @@ const VALID_PRODUCT_TYPES = new Set<string>(
 type UnknownRecord = Record<string, unknown>;
 
 /**
- * Result of one LLM call (or one chunk of calls) plus what the provider did.
- *
- * Every failure site in this file used to `return null`, which erased the
- * difference between "OpenAI is down" and "the model answered with something we
- * could not parse". That is what let a fully quota-blocked run report 407
- * `succeeded` targets on 2026-08-02, so the two are now distinct: only a
- * non-2xx response increments `providerFailed`.
- */
-type LlmCallOutcome<T> = {
-  value: T | null;
-  calls: LlmCallCounts;
-};
-
-/**
  * What a whole batch (chunk calls plus any per-brand fallbacks) did. `results`
  * is always a map — partial results from a partly-healthy run are still usable
  * — and `calls` is what the phase reads to decide `succeeded` vs `failed`.
@@ -91,21 +81,6 @@ export type LlmBatchOutcome<T> = {
   results: T;
   calls: LlmCallCounts;
 };
-
-/** No call was issued at all (no API key) — neither success nor provider fault. */
-function notAttempted<T>(): LlmCallOutcome<T> {
-  return { value: null, calls: noLlmCalls() };
-}
-
-/** The call never reached the model: non-2xx. The only thing Gate C acts on. */
-function providerFailed<T>(): LlmCallOutcome<T> {
-  return { value: null, calls: { attempted: 1, providerFailed: 1 } };
-}
-
-/** The provider answered; the payload was empty, unparseable or invalid. */
-function contentFailed<T>(): LlmCallOutcome<T> {
-  return { value: null, calls: { attempted: 1, providerFailed: 0 } };
-}
 
 function createClassifierClient(
   apiKey: string,

@@ -59,6 +59,7 @@ describe("planCurationResume", () => {
     expect(plans.at(0)?.params.phases).toEqual([
       "tags",
       "names",
+      "site_identity",
       "classify_images",
       "descriptions",
       "locations",
@@ -85,6 +86,7 @@ describe("planCurationResume", () => {
       "discover",
       "links",
       "names",
+      "site_identity",
       "images",
       "classify_images",
       "descriptions",

@@ -6,6 +6,7 @@ import {
   type SiteIdentityVerdict,
 } from '../site-identity-arbiter'
 import { CLEARED_FIELDS_KEY } from '../brand-write-policy'
+import { isLlmProviderFailure } from '../_shared/llm-call-outcome'
 import type { ScrapedImageSource } from '@/lib/types/scraper'
 import type { PhaseResult } from '@/lib/types/curation'
 import {
@@ -19,13 +20,15 @@ import type { QuarantineGroup, LinksPhaseOutput } from './links'
 
 export type SiteIdentityQuarantine = QuarantineGroup & {
   patch: EnrichPatch
-  scrapedData: EnrichScrapedData
-  fieldStates?: Record<string, { source?: string }>
+  /** Unread; drop once the caller stops populating it. */
+  scrapedData?: EnrichScrapedData
   linksResult?: LinksPhaseOutput | null
 }
 
 export type SiteIdentityApplication = {
   phaseResult: PhaseResult
+  removedColumns: string[]
+  clearedFields: string[]
   patch: EnrichPatch
 }
 
@@ -37,7 +40,6 @@ export type SiteIdentityPhaseOutput = {
 
 export function resolveQuarantine(
   verdict: SiteIdentityVerdict | undefined,
-  quarantine: QuarantineGroup,
 ): { revoked: boolean; reason: string } {
   if (!verdict) return { revoked: false, reason: 'provider-failure' }
   if (verdict.confidence === 'high' && verdict.owned === false) {
@@ -45,9 +47,7 @@ export function resolveQuarantine(
   }
   return {
     revoked: false,
-    reason: verdict.confidence === 'medium' || verdict.confidence === 'low'
-      ? verdict.confidence
-      : 'owned',
+    reason: verdict.confidence === 'high' ? 'owned' : verdict.confidence,
   }
 }
 
@@ -81,46 +81,84 @@ function isStoredValue(value: unknown): boolean {
 function revokeFields(
   quarantine: SiteIdentityQuarantine,
   brand: EnrichBrand,
-): string[] {
+): { removedColumns: string[]; newlyCleared: string[]; clearedFields: string[] } {
   const cleared = new Set<string>(quarantine.patch[CLEARED_FIELDS_KEY] ?? [])
-  const revoked: string[] = []
+  const removedColumns: string[] = []
+  const newlyCleared: string[] = []
+
+  // `columns` are runtime-derived link column names, so the patch is read
+  // through a string-indexable view rather than a `keyof EnrichPatch`.
+  const patchView = quarantine.patch as Record<string, unknown>
 
   for (const column of quarantine.columns) {
-    if (Object.hasOwn(quarantine.patch, column)) {
-      delete (quarantine.patch as Record<string, unknown>)[column]
-      revoked.push(column)
+    // A non-null patch value is a proposal this run made; striking it is a
+    // delete. An explicit `null` is a pending CLEAR the links phase already
+    // wrote — deleting that key would resurrect the stored value it was meant
+    // to remove, so it takes the `_cleared_fields` path instead.
+    if (Object.hasOwn(quarantine.patch, column) && patchView[column] !== null) {
+      delete patchView[column]
+      removedColumns.push(column)
       continue
     }
 
-    const fieldState = quarantine.fieldStates?.[column]
-    if (fieldState?.source === 'owner') continue
-    if (isStoredValue((brand as Record<string, unknown>)[column])) {
+    // Owner protection belongs to brand-write-policy, the downstream write layer.
+    if (patchView[column] === null || isStoredValue((brand as Record<string, unknown>)[column])) {
+      if (!cleared.has(column)) newlyCleared.push(column)
       cleared.add(column)
-      revoked.push(column)
     }
   }
 
   if (cleared.size > 0) {
     quarantine.patch[CLEARED_FIELDS_KEY] = [...cleared]
   }
-  return revoked
+  // `newlyCleared` is what THIS phase struck, and is what `changedFields`
+  // reports; `clearedFields` is the union the patch must carry, which may
+  // include entries an earlier phase put there.
+  return { removedColumns, newlyCleared, clearedFields: [...cleared] }
+}
+
+function normalisePath(pathname: string): string {
+  const path = pathname.toLowerCase().replace(/\/$/, '')
+  return path === '/' ? '' : path
 }
 
 function filterRevokedImages(
   linksResult: LinksPhaseOutput | null | undefined,
   subjectUrl: string,
+  subjectKind: SiteIdentityQuarantine['subjectKind'],
 ): void {
   if (!linksResult) return
   const host = hostOf(subjectUrl)
   if (!host) return
-  const sameHost = (url: string): boolean => hostOf(url) === host
+  const subjectPath = (() => {
+    try {
+      return normalisePath(new URL(subjectUrl).pathname)
+    } catch {
+      return ''
+    }
+  })()
+  const sameHost = (url: string): boolean => {
+    if (hostOf(url) !== host) return false
+    // A website owns its whole domain; a source-page owns only that page subtree.
+    if (subjectKind === 'website' || !subjectPath) return true
+    try {
+      const candidatePath = normalisePath(new URL(url).pathname)
+      return candidatePath === subjectPath || candidatePath.startsWith(subjectPath + '/')
+    } catch {
+      return false
+    }
+  }
+  const revokedUrls = new Set(
+    linksResult.scrapedImageSources
+      .filter((image: ScrapedImageSource) => sameHost(image.pageUrl))
+      .map((image: ScrapedImageSource) => image.url),
+  )
   linksResult.scrapedImageSources = linksResult.scrapedImageSources.filter(
     (image: ScrapedImageSource) => !sameHost(image.pageUrl),
   )
-  linksResult.scrapedImageUrls = linksResult.scrapedImageSources.length > 0
-    ? linksResult.scrapedImageSources.map((image: ScrapedImageSource) => image.url)
-    : linksResult.scrapedImageUrls.filter((url: string) => !sameHost(url))
-  if (sameHost(linksResult.scrapedData?.websiteUrl ?? '')) {
+  // Unprovenanced images remain: releasing is the safe direction.
+  linksResult.scrapedImageUrls = linksResult.scrapedImageUrls.filter((url: string) => !revokedUrls.has(url))
+  if (linksResult.scrapedData?.websiteUrl && sameHost(linksResult.scrapedData.websiteUrl)) {
     linksResult.jsonLdImageUrls = []
   }
 }
@@ -130,20 +168,23 @@ function applyVerdict(
   quarantine: SiteIdentityQuarantine,
   verdict: SiteIdentityVerdict | undefined,
 ): SiteIdentityApplication {
-  const decision = resolveQuarantine(verdict, quarantine)
-  const patch = quarantine.patch
+  const decision = resolveQuarantine(verdict)
   if (!decision.revoked) {
     return {
       phaseResult: buildPhaseResult('site_identity', 'skipped', [], 0, undefined, decision.reason),
+      removedColumns: [],
+      clearedFields: [],
       patch: {},
     }
   }
 
-  const revokedColumns = revokeFields(quarantine, brand)
-  filterRevokedImages(quarantine.linksResult, quarantine.subjectUrl)
+  const { removedColumns, newlyCleared, clearedFields } = revokeFields(quarantine, brand)
+  filterRevokedImages(quarantine.linksResult, quarantine.subjectUrl, quarantine.subjectKind)
   return {
-    phaseResult: buildPhaseResult('site_identity', 'succeeded', revokedColumns, 0, undefined, decision.reason),
-    patch,
+    phaseResult: buildPhaseResult('site_identity', 'succeeded', [...removedColumns, ...newlyCleared], 0, undefined, decision.reason),
+    removedColumns,
+    clearedFields,
+    patch: clearedFields.length > 0 ? { [CLEARED_FIELDS_KEY]: clearedFields } : {},
   }
 }
 
@@ -197,11 +238,23 @@ export async function runSiteIdentityPhase(
         if (verdict) verdicts.set(input.brand.id, verdict)
         const application = applyVerdict(input.brand, input.quarantine, verdict)
         const prior = applications.get(input.brand.id)
+        const changedFields = prior
+          ? [...prior.phaseResult.changedFields, ...application.phaseResult.changedFields]
+          : application.phaseResult.changedFields
+        const removedColumns = prior
+          ? [...new Set([...prior.removedColumns, ...application.removedColumns])]
+          : application.removedColumns
+        const clearedFields = prior
+          ? [...new Set([...prior.clearedFields, ...application.clearedFields])]
+          : application.clearedFields
+        const detailParts = prior?.phaseResult.detail ? prior.phaseResult.detail.split('; ') : []
+        if (application.phaseResult.detail) detailParts.push(application.phaseResult.detail)
+        const detail = [...new Set(detailParts)].join('; ')
         applications.set(input.brand.id, {
-          phaseResult: prior
-            ? buildPhaseResult('site_identity', 'succeeded', [...prior.phaseResult.changedFields, ...application.phaseResult.changedFields], 0)
-            : application.phaseResult,
-          patch: { ...(prior?.patch ?? {}), ...application.patch },
+          phaseResult: buildPhaseResult('site_identity', prior?.phaseResult.status === 'succeeded' || verdict ? 'succeeded' : 'skipped', changedFields, 0, undefined, detail),
+          removedColumns,
+          clearedFields,
+          patch: clearedFields.length > 0 ? { [CLEARED_FIELDS_KEY]: clearedFields } : {},
         })
         reasons[key] = {
           verdict: verdict?.owned,
@@ -213,14 +266,21 @@ export async function runSiteIdentityPhase(
       }
 
       const succeeded = verdicts.size > 0
+      const providerFailure = isLlmProviderFailure(outcome.calls)
+      const detail = providerFailure
+        ? `provider failure (${outcome.calls.providerFailed}/${outcome.calls.attempted} calls)`
+        : `no parsed verdict (${outcome.calls.attempted} call(s))`
       if (ctx.summary) {
         Object.assign(ctx.summary, {
           siteIdentity: reasons,
           siteIdentityRung1Escalations: escalations,
+          siteIdentityCalls: outcome.calls,
+          siteIdentityProviderFailure: providerFailure,
         })
       }
       return {
-        phaseResult: buildPhaseResult('site_identity', succeeded ? 'succeeded' : 'skipped', [], 0, undefined, succeeded ? undefined : 'no parsed verdict'),
+        // This phase deliberately never sets providerFailure: releasing is safe and setting it would dilute Gate C.
+        phaseResult: buildPhaseResult('site_identity', succeeded ? 'succeeded' : 'skipped', [], 0, undefined, succeeded ? undefined : detail),
         verdicts,
         applications,
       }

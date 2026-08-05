@@ -133,12 +133,14 @@ describe("arbitrateSiteIdentity", () => {
         results: [
           {
             slug: "xiao-zhu-dessert",
+            subjectUrl: "https://xiao-zhu.example",
             owned: true,
             confidence: "high",
             reason: "官方網域",
           },
           {
             slug: "xiao-zhu-dessert",
+            subjectUrl: "https://example.com/xiao-zhu",
             owned: false,
             confidence: "high",
             reason: "外部文章",
@@ -161,8 +163,13 @@ describe("arbitrateSiteIdentity", () => {
     ).toBe(false);
   });
 
-  it("falls back to positional index when slug is absent", async () => {
-    mockFetch.mockResolvedValueOnce(
+  // There is no positional fallback: response order is not evidence, and using
+  // it landed an `owned` verdict on the wrong subject URL. Dropping releases the
+  // subject, which is the safe direction.
+  it("drops an entry that cannot be joined", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    // Also answers the per-item fan-out, which re-asks for the dropped items.
+    mockFetch.mockResolvedValue(
       response({
         results: [
           { owned: true, confidence: "high", reason: "官方網域" },
@@ -173,14 +180,8 @@ describe("arbitrateSiteIdentity", () => {
 
     const outcome = await arbitrateSiteIdentity(items);
 
-    expect(
-      outcome.results.get(siteIdentityKey(items[0].slug, items[0].subjectUrl))
-        ?.owned,
-    ).toBe(true);
-    expect(
-      outcome.results.get(siteIdentityKey(items[1].slug, items[1].subjectUrl))
-        ?.owned,
-    ).toBe(false);
+    expect(outcome.results.size).toBe(0);
+    error.mockRestore();
   });
 
   it("provider failure does not fan out", async () => {

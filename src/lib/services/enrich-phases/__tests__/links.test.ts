@@ -1,7 +1,14 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { deriveOfficialWebsite, deriveScrapedBrandName, runLinksPhase } from '../links'
 import type { EnrichBrand, EnrichPhase } from '../types'
-import { linkIdentifiesBrand } from '../../link-enrichment'
+import { emptyResult } from '../scraper/parse/extractors'
+
+const scraperMocks = vi.hoisted(() => ({ scrapeBrandUrls: vi.fn() }))
+
+vi.mock('../scraper', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../scraper')>()),
+  scrapeBrandUrls: scraperMocks.scrapeBrandUrls,
+}))
 
 // This is what decides a brand's `purchase_website`, which the image-search
 // phase turns into a `site:` filter — a wrong answer here searches a whole
@@ -211,27 +218,169 @@ describe('runLinksPhase', () => {
 })
 
 describe('links quarantine identity rules', () => {
+  beforeEach(() => {
+    scraperMocks.scrapeBrandUrls.mockReset()
+  })
+
+  const scrape = (
+    sourceUrl: string,
+    data: Partial<ReturnType<typeof emptyResult>>,
+  ) => ({
+    data: {
+      ...emptyResult(sourceUrl),
+      ...data,
+      linkProvenance: Object.fromEntries(
+        Object.entries(data)
+          .filter(([field, value]) => field !== 'brandName' && typeof value === 'string')
+          .map(([field]) => [field, { sourceUrl }]),
+      ),
+      textProvenance: Object.fromEntries(
+        Object.entries(data)
+          .filter(([field, value]) => ['brandName', 'description', 'story'].includes(field) && typeof value === 'string')
+          .map(([field]) => [field, { sourceUrl }]),
+      ),
+      textSourceUrl: sourceUrl,
+    },
+    statuses: [],
+  })
+
+  const run = async (overrides: Partial<Parameters<typeof runLinksPhase>[0]>) =>
+    runLinksPhase({
+      brand,
+      phases: ['links'] as EnrichPhase[],
+      discoveredUrls: [],
+      knownUrls: [],
+      ...overrides,
+    })
+
   it('a known-url source page is confirmed', () => {
-    expect(linkIdentifiesBrand('https://dtbbag.com/about', [])).toBe(false)
+    scraperMocks.scrapeBrandUrls.mockResolvedValue(
+      scrape('https://dtbbag.com/about', {
+        socialFacebook: 'https://www.facebook.com/stranger',
+      }),
+    )
+
+    return run({ knownUrls: ['https://dtbbag.com/about'] }).then((result) => {
+      expect(result.patch.social_facebook).toBe('https://www.facebook.com/stranger')
+      expect(result.quarantine).toEqual({})
+    })
   })
 
   it('a SERP source page failing the predicate quarantines its links', () => {
-    expect(linkIdentifiesBrand('https://stranger.example/page', ['han'])).toBe(false)
+    scraperMocks.scrapeBrandUrls.mockResolvedValue(
+      scrape('https://stranger.example/page', {
+        socialFacebook: 'https://www.facebook.com/other-company',
+      }),
+    )
+
+    return run({
+      brand: { ...brand, name: 'Han Brand' },
+      discoveredUrls: ['https://stranger.example/page'],
+    }).then((result) => {
+      expect(result.patch.social_facebook).toBe('https://www.facebook.com/other-company')
+      expect(result.quarantine['https://stranger.example/page']).toMatchObject({
+        columns: ['social_facebook'],
+        subjectKind: 'source-page',
+      })
+    })
   })
 
   it('a SERP source page passing the predicate does not quarantine', () => {
-    expect(linkIdentifiesBrand('https://han.example/page', ['han'])).toBe(true)
+    scraperMocks.scrapeBrandUrls.mockResolvedValue(
+      scrape('https://han.example/page', {
+        socialFacebook: 'https://www.facebook.com/han-brand',
+      }),
+    )
+
+    return run({
+      brand: { ...brand, name: 'Han Brand' },
+      discoveredUrls: ['https://han.example/page'],
+    }).then((result) => expect(result.quarantine).toEqual({}))
   })
 
   it('an unconfirmed candidate website is quarantined', () => {
-    expect(linkIdentifiesBrand('https://stranger.example', ['han'])).toBe(false)
+    scraperMocks.scrapeBrandUrls.mockResolvedValue(scrape('https://some-shop.tw', {}))
+
+    return run({
+      brand: { ...brand, name: '茶籽堂' },
+      discoveredUrls: ['https://some-shop.tw/about'],
+    }).then((result) => {
+      expect(result.patch.purchase_website).toBe('https://some-shop.tw')
+      expect(result.quarantine['https://some-shop.tw']).toMatchObject({
+        subjectKind: 'website',
+      })
+    })
   })
 
-  it("second-pass links inherit their source's quarantine", () => {
-    expect(linkIdentifiesBrand('https://stranger.example/store/item', ['han'])).toBe(false)
+  it("second-pass links inherit their source's quarantine", async () => {
+    scraperMocks.scrapeBrandUrls
+      .mockResolvedValueOnce(
+        scrape('https://brand.example', {
+          socialInstagram: 'https://www.instagram.com/stranger',
+        }),
+      )
+      .mockResolvedValueOnce(
+        scrape('https://www.instagram.com/stranger', {
+          socialFacebook: 'https://www.facebook.com/stranger',
+        }),
+      )
+
+    const result = await run({
+      brand: { ...brand, name: 'Han Brand' },
+      discoveredUrls: ['https://brand.example'],
+    })
+
+    expect(result.patch.social_facebook).toBe('https://www.facebook.com/stranger')
+    expect(result.quarantine['https://www.instagram.com/stranger']).toMatchObject({
+      columns: ['social_facebook'],
+    })
   })
 
   it('quarantine covers purchase_myship', () => {
-    expect(linkIdentifiesBrand('https://myship.example/order/123', ['han'])).toBe(false)
+    scraperMocks.scrapeBrandUrls.mockResolvedValue(
+      scrape('https://stranger.example/page', {
+        purchaseMyship: 'https://myship.example/order/123',
+      }),
+    )
+
+    return run({
+      brand: { ...brand, name: 'Han Brand' },
+      discoveredUrls: ['https://stranger.example/page'],
+    }).then((result) => {
+      expect(result.patch.purchase_myship).toBe('https://myship.example/order/123')
+      expect(result.quarantine['https://stranger.example/page'].columns).toContain('purchase_myship')
+    })
+  })
+
+  it('second-pass re-merge preserves provenance and emits evidence', async () => {
+    scraperMocks.scrapeBrandUrls
+      .mockResolvedValueOnce(
+        scrape('https://brand.example', {
+          socialInstagram: 'https://www.instagram.com/stranger',
+        }),
+      )
+      .mockResolvedValueOnce(
+        scrape('https://www.instagram.com/stranger', {
+          brandName: 'Stranger Brand',
+          description: 'Description from the stranger page',
+          socialFacebook: 'https://www.facebook.com/stranger',
+        }),
+      )
+
+    const result = await run({
+      brand: { ...brand, name: 'Han Brand' },
+      discoveredUrls: ['https://brand.example'],
+    })
+
+    expect(result.scrapedData?.linkProvenance?.socialFacebook?.sourceUrl).toBe(
+      'https://www.instagram.com/stranger',
+    )
+    expect(result.scrapedData?.textProvenance?.description?.sourceUrl).toBe(
+      'https://www.instagram.com/stranger',
+    )
+    expect(result.quarantine['https://www.instagram.com/stranger'].evidence).toEqual({
+      title: 'Stranger Brand',
+      description: 'Description from the stranger page',
+    })
   })
 })

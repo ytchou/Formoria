@@ -16,8 +16,18 @@
  *   arbiter             raw verdict, with no confidence gate
  *   arbiter+quarantine  production semantics through `resolveQuarantine`
  *
- * Exit code is always 0. This is a report; the merge gate is the explicit
- * high-confidence false-reject count.
+ * Each item carries the page text captured in `fixtures/site-identity-evidence`,
+ * because production skips a subject whose evidence is empty and the prompt
+ * answers `confidence: "low"` when text is insufficient. Scoring evidence-free
+ * items measured the release default, not the model: the accept arm read ~100%
+ * and the reject arm ~0% by construction. A case whose page text could not be
+ * captured is UNSCOREABLE — excluded from every tally and listed on its own,
+ * never counted as a pass.
+ *
+ * Exit code is 0 for a scored run: this is a report, and the merge gate is the
+ * explicit high-confidence false-reject count. It is 1 only when an arm has no
+ * scoreable case left, because that is a broken gate reporting green rather
+ * than a result.
  */
 import { writeFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
@@ -29,10 +39,11 @@ import {
   type SiteIdentityVerdict,
 } from "@/lib/services/site-identity-arbiter";
 import { resolveQuarantine } from "@/lib/services/enrich-phases/site-identity";
-import type { QuarantineGroup } from "@/lib/services/enrich-phases/links";
 import { resolveProfileModel } from "@/lib/constants/llm-models";
 import {
   SITE_IDENTITY_CASES,
+  evidenceFor,
+  isUnscoreable,
   type SiteIdentityEvalCase,
   type SiteIdentityOutcome,
 } from "@/lib/services/__tests__/fixtures/site-identity-cases";
@@ -41,6 +52,13 @@ const ARMS = ["arbiter", "arbiter+quarantine"] as const;
 type ArmName = (typeof ARMS)[number];
 type Kind = "accept" | "reject";
 type Tally = { correct: number; total: number };
+
+type UnscoreableCase = {
+  id: string;
+  kind: Kind;
+  subjectUrl: string;
+  reason: string;
+};
 
 type CaseScore = {
   id: string;
@@ -125,11 +143,15 @@ function itemFor(testCase: SiteIdentityEvalCase): SiteIdentityItem {
   // A synthetic target keeps the arbiter on its audited client, as production
   // does. This is safe only because the sink diverts the insert; the fresh UUID
   // exists in no table and cannot be joined to a real target.
+  const evidence = evidenceFor(testCase.id);
   return {
     slug: testCase.id,
     brandName: testCase.brandName,
     subjectUrl: testCase.subjectUrl,
     subjectKind: testCase.subjectKind,
+    pageTitle: evidence.title,
+    pageDescription: evidence.description,
+    pageStory: evidence.story,
     target: { type: "brand", id: randomUUID() },
   };
 }
@@ -153,9 +175,26 @@ async function main(): Promise<void> {
     batch: resolveProfileModel("siteIdentityBatch"),
     single: resolveProfileModel("siteIdentity"),
   };
-  const items = SITE_IDENTITY_CASES.map(itemFor);
+  // Unscoreable cases are not sent at all. Production skips a quarantine group
+  // whose evidence is empty, so an evidence-free item would measure the release
+  // default and quietly pad the accept arm.
+  const scoreableCases = SITE_IDENTITY_CASES.filter(
+    (testCase) => !isUnscoreable(testCase),
+  );
+  const unscoreable: UnscoreableCase[] = SITE_IDENTITY_CASES.filter(
+    isUnscoreable,
+  ).map((testCase) => ({
+    id: testCase.id,
+    kind: testCase.kind,
+    subjectUrl: testCase.subjectUrl,
+    reason: evidenceFor(testCase.id).unscoreable ?? "no page text captured",
+  }));
+  const items = scoreableCases.map(itemFor);
   console.log(`model: ${model.batch} (batch) / ${model.single} (per-item fallback)`);
-  console.log(`cases: ${items.length}`);
+  console.log(
+    `cases: ${items.length} scoreable / ${SITE_IDENTITY_CASES.length} total ` +
+      `(${unscoreable.length} unscoreable)`,
+  );
   console.log(`sink:  ${process.env.CURATION_EVAL_SINK}`);
 
   const started = Date.now();
@@ -169,7 +208,7 @@ async function main(): Promise<void> {
     arbiter: [],
     "arbiter+quarantine": [],
   };
-  for (const testCase of SITE_IDENTITY_CASES) {
+  for (const testCase of scoreableCases) {
     const item = items.find(({ slug }) => slug === testCase.id);
     if (!item) throw new Error(`Missing item for ${testCase.id}`);
     const verdict = outcome.results.get(siteIdentityKey(item.slug, item.subjectUrl)) ?? null;
@@ -193,14 +232,8 @@ async function main(): Promise<void> {
       correct: rawAnswer === testCase.expected,
     });
 
-    const quarantine: QuarantineGroup = {
-      subjectUrl: testCase.subjectUrl,
-      subjectKind: testCase.subjectKind,
-      columns: testCase.columns,
-      evidence: {},
-    };
     // Score the production bytes: resolveQuarantine owns the confidence rule.
-    const decision = resolveQuarantine(verdict ?? undefined, quarantine);
+    const decision = resolveQuarantine(verdict ?? undefined);
     const guardedAnswer: SiteIdentityOutcome = decision.revoked ? "revoke" : "keep";
     scores["arbiter+quarantine"].push({
       ...base,
@@ -215,6 +248,27 @@ async function main(): Promise<void> {
   } satisfies Record<ArmName, ArmReport>;
   printTable(reports);
   printDiff(reports["arbiter+quarantine"]);
+
+  if (unscoreable.length > 0) {
+    console.log(`\nunscoreable (excluded from every tally): ${unscoreable.length}`);
+    for (const skipped of unscoreable) {
+      console.log(`  [${skipped.id}] (${skipped.kind})  ${skipped.subjectUrl}  ${skipped.reason}`);
+    }
+  }
+
+  // An arm with nothing left to score is a broken gate, not a green one. The
+  // original corpus carried no page evidence at all, so both arms scored their
+  // release default and the merge gate could never fire — fail loudly instead of
+  // printing 0 false rejects out of 0 cases.
+  const emptyArms = (["accept", "reject"] as const).filter(
+    (kind) => reports["arbiter+quarantine"].byKind[kind].total === 0,
+  );
+  if (emptyArms.length > 0) {
+    console.error(
+      `\nGATE UNUSABLE: no scoreable case in the ${emptyArms.join(" and ")} arm. ` +
+        "Re-capture page evidence in fixtures/site-identity-evidence before trusting this run.",
+    );
+  }
 
   const highConfidenceFalseRejects = reports["arbiter+quarantine"].cases.filter(
     (scored) => scored.kind === "accept" && scored.answer === "revoke",
@@ -246,10 +300,14 @@ async function main(): Promise<void> {
       count: highConfidenceFalseRejects.length,
       caseIds: highConfidenceFalseRejects.map(({ id }) => id),
     },
+    unscoreable: { count: unscoreable.length, cases: unscoreable },
+    gateUnusableArms: emptyArms,
   };
   await mkdir(dirname(outPath), { recursive: true });
   await writeFile(outPath, JSON.stringify(json, null, 2));
   console.log(`\nwrote ${outPath}`);
+
+  if (emptyArms.length > 0) process.exitCode = 1;
 }
 
 void main().catch((error) => {

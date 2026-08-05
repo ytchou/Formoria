@@ -224,7 +224,40 @@ describe('mergeScrapedData provenance', () => {
     expect(merged.textSourceUrl).toBe('https://brand.com')
   })
 
-  it('omits provenance when sourceUrl is absent', () => {
+  it('carries provenance forward when a re-merged entry has no sourceUrl', () => {
+    const carried = {
+      ...emptyResult('https://brand.com'),
+      description: 'Official copy',
+      socialFacebook: 'https://facebook.com/brand',
+      linkProvenance: { socialFacebook: { sourceUrl: 'https://brand.com' } },
+      textSourceUrl: 'https://brand.com',
+      textProvenance: {
+        description: { sourceUrl: 'https://brand.com' },
+      },
+    }
+    const merged = mergeScrapedData([
+      { type: 'official-site', data: carried },
+      {
+        type: 'social',
+        data: {
+          ...emptyResult('https://instagram.com/brand'),
+          description: 'Later copy',
+          socialFacebook: 'https://facebook.com/brand',
+          linkProvenance: { socialFacebook: { sourceUrl: 'https://instagram.com/brand' } },
+          textSourceUrl: 'https://instagram.com/brand',
+          textProvenance: {
+            description: { sourceUrl: 'https://instagram.com/brand' },
+          },
+        },
+      },
+    ])
+
+    expect(merged.linkProvenance?.socialFacebook?.sourceUrl).toBe('https://brand.com')
+    expect(merged.textSourceUrl).toBe('https://brand.com')
+    expect(merged.textProvenance?.description?.sourceUrl).toBe('https://brand.com')
+  })
+
+  it('omits provenance when sourceUrl and carried provenance are absent', () => {
     const merged = mergeScrapedData([
       {
         type: 'official-site',
@@ -243,6 +276,7 @@ describe('mergeScrapedData provenance', () => {
     })
     expect(merged.linkProvenance).toBeUndefined()
     expect(merged.textSourceUrl).toBeUndefined()
+    expect(merged.textProvenance).toBeUndefined()
     expect(merged.description).toBe('Official copy')
     expect(merged.socialFacebook).toBe('https://facebook.com/brand')
   })

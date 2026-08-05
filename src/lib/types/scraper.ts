@@ -1,4 +1,4 @@
-import type { LinkField } from '@/lib/services/link-enrichment'
+import type { LinkField } from '@/lib/types/link-fields'
 
 /**
  * Provenance for one scraped image. `brand_images.source` says only 'scrape'
@@ -26,6 +26,8 @@ export interface ScrapedBrandData {
   linkProvenance?: Partial<Record<LinkField, { sourceUrl: string }>>
   /** The page whose text supplied `description` (and `story`). */
   textSourceUrl?: string
+  /** Which scraped page supplied each winning text field. Additive; consumers may ignore it. */
+  textProvenance?: Partial<Record<'brandName' | 'description' | 'story', { sourceUrl: string }>>
   socialInstagram: string | null
   socialThreads: string | null
   socialFacebook: string | null

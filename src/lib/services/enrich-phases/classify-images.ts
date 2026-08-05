@@ -25,6 +25,8 @@ import {
   type EnrichBrand,
   type EnrichPhase,
 } from "./types";
+import type { EnrichPatch } from "./types";
+import { preferPatched } from "./descriptions";
 
 /**
  * A middle setting between the twenty that failed and the five that followed.
@@ -251,6 +253,7 @@ type ClassifyImagesPhaseOptions = {
   overwrite?: boolean;
   target?: EnrichmentTarget;
   jobId?: string;
+  pendingPatch?: EnrichPatch;
 };
 
 type ClassifyImagesPhaseOutput = {
@@ -965,6 +968,7 @@ export async function runClassifyImagesPhase({
   overwrite = false,
   target: requestedTarget,
   jobId,
+  pendingPatch,
 }: ClassifyImagesPhaseOptions): Promise<ClassifyImagesPhaseOutput> {
   if (!phases.includes("classify_images")) {
     return {
@@ -1055,9 +1059,9 @@ export async function runClassifyImagesPhase({
     const brandContext = buildBrandContext({
       name: brand.name ?? brand.slug,
       productType: brand.product_type ?? null,
-      website: brand.purchase_website ?? null,
-      pinkoi: brand.purchase_pinkoi ?? null,
-      instagram: brand.social_instagram ?? null,
+      website: preferPatched(pendingPatch, brand.purchase_website, "purchase_website"),
+      pinkoi: preferPatched(pendingPatch, brand.purchase_pinkoi, "purchase_pinkoi"),
+      instagram: preferPatched(pendingPatch, brand.social_instagram, "social_instagram"),
     });
 
     for (let i = 0; i < images.length; i += BATCH_SIZE) {

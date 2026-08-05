@@ -105,6 +105,8 @@ function appendGalleryImages(merged: ScrapedBrandData, data: ScrapedBrandData): 
   }
 }
 
+// Retained for the flat-output scraper test and its public helper contract; the
+// main merge path now handles all registered link fields in one provenance loop.
 export function mergeSocialLinks(
   base: SocialLinkFields,
   next: SocialLinkFields
@@ -134,21 +136,29 @@ export function mergeScrapedData(results: ScrapeResult[]): ScrapedBrandData {
   )
   const merged = emptyMergedResult()
   const linkProvenance: Partial<Record<LinkField, { sourceUrl: string }>> = {}
+  const textProvenance: NonNullable<ScrapedBrandData['textProvenance']> = {}
   let descriptionSupplied = false
   let textSourceUrl: string | undefined
 
   for (const { data, sourceUrl } of sortedResults) {
     if (!hasValue(merged.brandName) && hasValue(data.brandName)) {
       merged.brandName = data.brandName
+      const inherited = sourceUrl ?? data.textProvenance?.brandName?.sourceUrl
+      if (inherited) textProvenance.brandName = { sourceUrl: inherited }
     }
     if (!hasValue(merged.description) && hasValue(data.description)) {
       merged.description = data.description
       descriptionSupplied = true
-      textSourceUrl = sourceUrl
+      const inherited =
+        sourceUrl ?? data.textProvenance?.description?.sourceUrl ?? data.textSourceUrl
+      if (inherited) textProvenance.description = { sourceUrl: inherited }
+      textSourceUrl = inherited
     }
     if (!hasValue(merged.story) && hasValue(data.story)) {
       merged.story = data.story
-      if (!descriptionSupplied) textSourceUrl = sourceUrl
+      const inherited = sourceUrl ?? data.textProvenance?.story?.sourceUrl ?? data.textSourceUrl
+      if (inherited) textProvenance.story = { sourceUrl: inherited }
+      if (!descriptionSupplied) textSourceUrl = inherited
     }
     if (!hasValue(merged.heroImageUrl) && hasValue(data.heroImageUrl)) {
       merged.heroImageUrl = data.heroImageUrl
@@ -186,8 +196,9 @@ export function mergeScrapedData(results: ScrapeResult[]): ScrapedBrandData {
     for (const field of LINK_FIELDS) {
       const wasEmpty = merged[field] == null
       merged[field] ??= data[field]
-      if (wasEmpty && hasValue(data[field]) && sourceUrl) {
-        linkProvenance[field] = { sourceUrl }
+      if (wasEmpty && hasValue(data[field])) {
+        const inherited = sourceUrl ?? data.linkProvenance?.[field]?.sourceUrl
+        if (inherited) linkProvenance[field] = { sourceUrl: inherited }
       }
     }
     merged.categoryHints = mergeCategoryHints(
@@ -197,6 +208,7 @@ export function mergeScrapedData(results: ScrapeResult[]): ScrapedBrandData {
   }
 
   if (Object.keys(linkProvenance).length > 0) merged.linkProvenance = linkProvenance
+  if (Object.keys(textProvenance).length > 0) merged.textProvenance = textProvenance
   if (textSourceUrl) merged.textSourceUrl = textSourceUrl
 
   return merged

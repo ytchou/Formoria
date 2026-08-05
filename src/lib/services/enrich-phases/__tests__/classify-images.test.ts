@@ -7,6 +7,8 @@ import {
   failureReason,
   parseClassificationBatch,
 } from "../classify-images";
+import { preferPatched } from "../descriptions";
+import { CLEARED_FIELDS_KEY } from "../../brand-write-policy";
 import type { OpenAIChatResult } from "../../openai-client";
 
 /**
@@ -418,6 +420,22 @@ describe("failureReason", () => {
  * the context simply never passed on.
  */
 describe("buildBrandContext identifiers", () => {
+  it("does not ground on a revoked website", () => {
+    const website = preferPatched(
+      { [CLEARED_FIELDS_KEY]: ["purchase_website"] },
+      "https://impostor.example",
+      "purchase_website",
+    );
+    const context = buildBrandContext({
+      name: "A brand",
+      productType: null,
+      website,
+    });
+
+    expect(context).not.toContain("impostor.example");
+    expect(context).toContain("No verified identifier available for this brand.");
+  });
+
   it("uses the Pinkoi store slug when the brand has no website", () => {
     const context = buildBrandContext({
       name: "I.A.N Design",

@@ -119,6 +119,8 @@ export type BatchPhaseContext = {
   supabase: SupabaseClient<Database>
   targetType?: EnrichmentTarget['type']
   jobId?: string
+  /** Audit call-context summary a batch phase may attach verdict telemetry to. */
+  summary?: Record<string, unknown>
 }
 
 export type BrandEnrichState = {

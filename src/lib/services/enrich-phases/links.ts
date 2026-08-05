@@ -270,6 +270,10 @@ function scrapeKey(url: string): string {
   }
 }
 
+function sameUrl(a: string, b: string): boolean {
+  return scrapeKey(canonicalizeThreadsUrl(a)) === scrapeKey(canonicalizeThreadsUrl(b))
+}
+
 /**
  * Scraping the official site is *how* we learn a brand's Instagram, Facebook,
  * Pinkoi, Shopee, and MyShip URLs — but the first pass fixed its URL set before those
@@ -320,6 +324,7 @@ function buildQuarantine(
   brandName: string | undefined,
   knownUrls: string[],
   scrapedData: EnrichScrapedData,
+  scrapedFromPages: EnrichScrapedData | null,
 ): Record<string, QuarantineGroup> {
   const confirmed = new Set(knownUrls.map(scrapeKey))
   const tokens = brandNameTokens(brandName)
@@ -330,7 +335,14 @@ function buildQuarantine(
     const value = scrapedData[column]
     if (typeof value !== 'string' || value.trim().length === 0) continue
 
-    const sourceUrl = scrapedData.linkProvenance?.[field]?.sourceUrl ?? value
+    // `normalizeScrapedData` can overlay a SERP-derived snake_case value on a
+    // camelCase value from the pages. Only trust page provenance when the page
+    // actually supplied the value being judged; otherwise the SERP URL owns it.
+    const provenanceUrl = scrapedData.linkProvenance?.[field]?.sourceUrl
+    const fromPages = scrapedFromPages?.[field]
+    const provenanceDescribesValue =
+      typeof fromPages === 'string' && sameUrl(fromPages, value)
+    const sourceUrl = provenanceUrl && provenanceDescribesValue ? provenanceUrl : value
     const isConfirmed =
       confirmed.has(scrapeKey(sourceUrl)) || linkIdentifiesBrand(sourceUrl, tokens)
     if (isConfirmed) continue
@@ -338,14 +350,23 @@ function buildQuarantine(
     const subjectUrl = sourceUrl
     const subjectKind = field === 'purchaseWebsite' ? 'website' : 'source-page'
     const existing = groups[subjectUrl]
-    const evidence =
-      scrapedData.textSourceUrl && scrapeKey(scrapedData.textSourceUrl) === scrapeKey(sourceUrl)
-        ? {
-            ...(scrapedData.brandName ? { title: scrapedData.brandName } : {}),
-            ...(scrapedData.description ? { description: scrapedData.description } : {}),
-            ...(scrapedData.story ? { story: scrapedData.story } : {}),
-          }
-        : {}
+    const evidence = {
+      ...(scrapedData.brandName &&
+      scrapedData.textProvenance?.brandName?.sourceUrl &&
+      sameUrl(scrapedData.textProvenance.brandName.sourceUrl, sourceUrl)
+        ? { title: scrapedData.brandName }
+        : {}),
+      ...(scrapedData.description &&
+      scrapedData.textProvenance?.description?.sourceUrl &&
+      sameUrl(scrapedData.textProvenance.description.sourceUrl, sourceUrl)
+        ? { description: scrapedData.description }
+        : {}),
+      ...(scrapedData.story &&
+      scrapedData.textProvenance?.story?.sourceUrl &&
+      sameUrl(scrapedData.textProvenance.story.sourceUrl, sourceUrl)
+        ? { story: scrapedData.story }
+        : {}),
+    }
 
     if (existing) {
       if (!existing.columns.includes(column)) existing.columns.push(column)
@@ -441,12 +462,12 @@ export async function runLinksPhase({
       },
     }
     const firstPass = urls.length > 0 ? await scrapeBrandUrls(urls, scrapeOptions) : null
-    const scraped: EnrichScrapedData = firstPass
+    const scrapedFromPages: EnrichScrapedData = firstPass
       ? await scrapeDiscoveredLinks(firstPass.data, urls, scrapeOptions)
       : ({} as EnrichScrapedData)
-    const derivedWebsite = scraped.purchaseWebsite ?? deriveOfficialWebsite(urls, brand.name)
+    const derivedWebsite = scrapedFromPages.purchaseWebsite ?? deriveOfficialWebsite(urls, brand.name)
     const scrapedData = normalizeScrapedData({
-      ...scraped,
+      ...scrapedFromPages,
       ...urlExtracted,
       purchaseWebsite: derivedWebsite,
     })
@@ -462,6 +483,7 @@ export async function runLinksPhase({
       scrapedImageUrls: scrapedData.galleryImageUrls ?? [],
       scrapedImageSources: scrapedData.imageSources ?? [],
       jsonLdImageUrls: scrapedData.jsonLdImageUrls ?? [],
+      scrapedFromPages,
     }
   })
 
@@ -476,7 +498,12 @@ export async function runLinksPhase({
     scrapedImageUrls: result.scrapedImageUrls,
     scrapedImageSources: result.scrapedImageSources,
     jsonLdImageUrls: result.jsonLdImageUrls,
-    quarantine: buildQuarantine(brand.name, knownUrls, result.scrapedData),
+    quarantine: buildQuarantine(
+      brand.name,
+      knownUrls,
+      result.scrapedData,
+      result.scrapedFromPages,
+    ),
   }
     },
     {
