@@ -7,6 +7,7 @@ import {
   isPhysicalRetailLocation,
   isRetailChainChannel,
 } from "@/lib/brands/locations";
+import { CITY_REGION_LABELS_ZH } from "@/lib/constants/taiwan-cities";
 import { upsertEnrichedChannels } from "@/lib/services/brand-channels";
 import { auditedCall } from "@/lib/audit";
 import type { Json } from "@/lib/supabase/database.types";
@@ -61,30 +62,7 @@ const CITY_NAME_VARIANTS = [
   { slug: "kinmen", names: ["金門"] },
   { slug: "lienchiang", names: ["連江"] },
 ] as const;
-const CITY_REGION_LABELS: Readonly<Record<string, string>> = {
-  taipei: "台北",
-  new_taipei: "新北",
-  taoyuan: "桃園",
-  taichung: "台中",
-  tainan: "台南",
-  kaohsiung: "高雄",
-  keelung: "基隆",
-  hsinchu_city: "新竹",
-  hsinchu_county: "新竹縣",
-  chiayi_city: "嘉義",
-  chiayi_county: "嘉義縣",
-  miaoli: "苗栗",
-  changhua: "彰化",
-  nantou: "南投",
-  yunlin: "雲林",
-  pingtung: "屏東",
-  yilan: "宜蘭",
-  hualien: "花蓮",
-  taitung: "台東",
-  penghu: "澎湖",
-  kinmen: "金門",
-  lienchiang: "連江",
-};
+const CITY_REGION_LABELS = CITY_REGION_LABELS_ZH;
 const CLEARLY_NON_RETAIL_NAMES = [
   "牙醫",
   "牙科",
