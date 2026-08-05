@@ -22,11 +22,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  MAX_COMMUNITY_SUBMISSIONS,
-  type CommunitySubmissionDraft,
-  type CommunitySubmissionPreview,
-  type CommunitySubmissionResult,
+import { MAX_COMMUNITY_SUBMISSIONS } from "@/lib/services/community-submissions.constants";
+import type {
+  CommunitySubmissionDraft,
+  CommunitySubmissionPreview,
+  CommunitySubmissionResult,
 } from "@/lib/services/community-submissions";
 
 type EditableRow = CommunitySubmissionDraft & {

@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { auditedCall } from '@/lib/audit'
 import type { ImageProcessorConfig } from '@/lib/security/image-processor'
 import { uploadWithRetry } from './storage-retry'
 
@@ -83,6 +84,9 @@ export function brandImageRenderUrl(
 }
 
 export async function deleteBrandImages(urls: string[]): Promise<void> {
+  return auditedCall(
+    { provider: 'images', operation: 'deleteBrandImages', kind: 'service' },
+    async () => {
   const keys = (urls ?? []).map(storageKeyFromPublicUrl).filter((key): key is string => Boolean(key))
 
   if (keys.length === 0) {
@@ -97,9 +101,14 @@ export async function deleteBrandImages(urls: string[]): Promise<void> {
   if (error) {
     throw error
   }
+    },
+  )
 }
 
 export async function deleteStoredImagePaths(paths: string[]): Promise<void> {
+  return auditedCall(
+    { provider: 'images', operation: 'deleteStoredImagePaths', kind: 'service' },
+    async () => {
   const keys = [...new Set(paths)].filter(
     (path) => path.startsWith('brands/') || path.startsWith('submissions/')
   )
@@ -114,6 +123,8 @@ export async function deleteStoredImagePaths(paths: string[]): Promise<void> {
     )
     if (error) throw error
   }
+    },
+  )
 }
 
 async function uploadStorageObject(input: UploadImageInput | PrivateUploadFileInput): Promise<string> {
@@ -141,18 +152,31 @@ async function uploadStorageObject(input: UploadImageInput | PrivateUploadFileIn
 }
 
 export async function uploadPrivateImage(input: PrivateUploadImageInput): Promise<{ key: string }> {
+  return auditedCall(
+    { provider: 'images', operation: 'uploadPrivateImage', kind: 'service' },
+    async () => {
   const path = await uploadStorageObject(input)
 
   return { key: `${input.bucket}/${path}` }
+    },
+  )
 }
 
 export async function uploadPrivateFile(input: PrivateUploadFileInput): Promise<{ key: string }> {
+  return auditedCall(
+    { provider: 'images', operation: 'uploadPrivateFile', kind: 'service' },
+    async () => {
   const path = await uploadStorageObject(input)
 
   return { key: `${input.bucket}/${path}` }
+    },
+  )
 }
 
 export async function uploadPublicImage(input: PublicUploadImageInput): Promise<{ url: string }> {
+  return auditedCall(
+    { provider: 'images', operation: 'uploadPublicImage', kind: 'service' },
+    async () => {
   await uploadStorageObject(input)
   const supabase = createServiceClient()
 
@@ -165,4 +189,6 @@ export async function uploadPublicImage(input: PublicUploadImageInput): Promise<
   return {
     url: publicUrl,
   }
+    },
+  )
 }

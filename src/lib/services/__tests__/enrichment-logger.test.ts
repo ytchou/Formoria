@@ -1,13 +1,20 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import {
   formatPhaseProgress,
   formatBrandComplete,
+  formatEnrichError,
+  formatEnrichPatchField,
   formatJobStart,
   formatJobSummary,
   ENRICH_PREFIX,
   SEPARATOR,
+  logEnrichmentProgress,
   type EnrichmentSummary,
 } from '../enrichment-logger'
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 describe('enrichment-logger', () => {
   it('exports the enrichment log prefix', () => {
@@ -65,6 +72,23 @@ describe('enrichment-logger', () => {
     })
   })
 
+  describe('enrichment detail formatters', () => {
+    it('formats an enrichment error with the shared prefix', () => {
+      expect(formatEnrichError('Failed to fetch submissions: timeout')).toBe(
+        '[ENRICH] ERROR: Failed to fetch submissions: timeout',
+      )
+    })
+
+    it('formats an enrichment patch field with compact values', () => {
+      expect(formatEnrichPatchField('productTags', ['handmade', 'local'])).toBe(
+        '  [ENRICH] productTags: [2 items]',
+      )
+      expect(formatEnrichPatchField('description', 'a'.repeat(61))).toBe(
+        `  [ENRICH] description: ${'a'.repeat(60)}…`,
+      )
+    })
+  })
+
   describe('formatJobStart', () => {
     it('returns start banner lines', () => {
       const lines = formatJobStart(10)
@@ -104,6 +128,18 @@ describe('enrichment-logger', () => {
       expect(lines).toContainEqual('[ENRICH] Summary: 5 success, 0 skipped, 0 failed')
       expect(lines.some((l) => l.includes('Failed:'))).toBe(false)
       expect(lines).toContainEqual('[ENRICH] Duration: 10.0s')
+    })
+  })
+
+  it('logs enrichment progress as valid structured JSON', () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    logEnrichmentProgress('[ENRICH] Starting enrichment for 2 brands')
+
+    expect(JSON.parse(String(log.mock.calls[0]?.[0]))).toEqual({
+      event: 'enrich',
+      logTag: '[ENRICH]',
+      message: '[ENRICH] Starting enrichment for 2 brands',
     })
   })
 })

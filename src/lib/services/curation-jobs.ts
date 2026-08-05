@@ -1,4 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/server";
+import { auditedCall } from "@/lib/audit";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import {
   CURATION_STEPS,
@@ -152,47 +153,62 @@ export async function enqueueAdminCurationJob(input: {
   dryRun: boolean;
   startedBy: string;
 }): Promise<CurationJob> {
-  const targets = await resolveTargets(input.params);
+  return auditedCall(
+    { provider: "curation", operation: "enqueueAdminCurationJob", kind: "service" },
+    async () => {
+      const targets = await resolveTargets(input.params);
 
-  return enqueueCurationJob({
-    operation: "enrich",
-    params: input.params,
-    dryRun: input.dryRun,
-    startedBy: input.startedBy,
-    trigger: "admin",
-    targets,
-  });
+      return enqueueCurationJob({
+        operation: "enrich",
+        params: input.params,
+        dryRun: input.dryRun,
+        startedBy: input.startedBy,
+        trigger: "admin",
+        targets,
+      });
+    },
+  );
 }
 
 export async function enqueueScheduledSubmissionJob(
   scheduledFor: Date,
 ): Promise<CurationJob> {
-  const targets = await resolvePendingSubmissionTargets();
-  const scheduledIso = scheduledFor.toISOString();
+  return auditedCall(
+    { provider: "curation", operation: "enqueueScheduledSubmissionJob", kind: "service" },
+    async () => {
+      const targets = await resolvePendingSubmissionTargets();
+      const scheduledIso = scheduledFor.toISOString();
 
-  return enqueueCurationJob({
-    operation: "enrich",
-    params: { target: "submissions" },
-    dryRun: false,
-    startedBy: "railway-cron",
-    trigger: "cron",
-    targets,
-    scheduledFor: scheduledIso,
-    dedupeKey: `submission-enrichment:${scheduledIso}`,
-  });
+      return enqueueCurationJob({
+        operation: "enrich",
+        params: { target: "submissions" },
+        dryRun: false,
+        startedBy: "railway-cron",
+        trigger: "cron",
+        targets,
+        scheduledFor: scheduledIso,
+        dedupeKey: `submission-enrichment:${scheduledIso}`,
+      });
+    },
+  );
 }
 
 export async function claimNextCurationJob(
   workerToken: string,
 ): Promise<CurationJob | null> {
-  const supabase = createServiceClient();
-  const { data, error } = await supabase.rpc("claim_next_curation_job", {
-    p_worker_token: workerToken,
-  });
+  return auditedCall(
+    { provider: "curation", operation: "claimNextCurationJob", kind: "service" },
+    async () => {
+      const supabase = createServiceClient();
+      const { data, error } = await supabase.rpc("claim_next_curation_job", {
+        p_worker_token: workerToken,
+      });
 
-  if (error) throw error;
+      if (error) throw error;
 
-  return data[0] ? (data[0] as CurationJob) : null;
+      return data[0] ? (data[0] as CurationJob) : null;
+    },
+  );
 }
 
 export async function claimCurationDispatchWork(
@@ -202,143 +218,178 @@ export async function claimCurationDispatchWork(
   requestedJob: CurationJob;
   claimedJob: CurationJob | null;
 } | null> {
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("curation_jobs")
-    .select("*")
-    .eq("id", requestedJobId)
-    .maybeSingle();
+  return auditedCall(
+    { provider: "curation", operation: "claimCurationDispatchWork", kind: "service" },
+    async () => {
+      const supabase = createServiceClient();
+      const { data, error } = await supabase
+        .from("curation_jobs")
+        .select("*")
+        .eq("id", requestedJobId)
+        .maybeSingle();
 
-  if (error) throw error;
-  if (!data) return null;
+      if (error) throw error;
+      if (!data) return null;
 
-  const requestedJob = data as CurationJob;
-  if (requestedJob.status !== "pending") {
-    return { requestedJob, claimedJob: null };
-  }
+      const requestedJob = data as CurationJob;
+      if (requestedJob.status !== "pending") {
+        return { requestedJob, claimedJob: null };
+      }
 
-  return {
-    requestedJob,
-    claimedJob: await claimNextCurationJob(workerToken),
-  };
+      return {
+        requestedJob,
+        claimedJob: await claimNextCurationJob(workerToken),
+      };
+    },
+  );
 }
 
 export async function claimCurationJob(
   jobId: string,
   workerToken: string,
 ): Promise<CurationJob | null> {
-  const supabase = createServiceClient();
-  const { data, error } = await supabase.rpc("claim_curation_job", {
-    p_job_id: jobId,
-    p_worker_token: workerToken,
-  });
+  return auditedCall(
+    { provider: "curation", operation: "claimCurationJob", kind: "service" },
+    async () => {
+      const supabase = createServiceClient();
+      const { data, error } = await supabase.rpc("claim_curation_job", {
+        p_job_id: jobId,
+        p_worker_token: workerToken,
+      });
 
-  if (error) throw error;
+      if (error) throw error;
 
-  return data[0] ? (data[0] as CurationJob) : null;
+      return data[0] ? (data[0] as CurationJob) : null;
+    },
+  );
 }
 
 export async function markCurationJobDispatched(jobId: string): Promise<void> {
-  const supabase = createServiceClient();
-  const { error } = await supabase
-    .from("curation_jobs")
-    .update({
-      dispatch_status: "dispatched",
-      dispatch_error: null,
-      dispatched_at: new Date().toISOString(),
-    })
-    .eq("id", jobId)
-    .in("status", ["pending", "running"]);
+  return auditedCall(
+    { provider: "curation", operation: "markCurationJobDispatched", kind: "service" },
+    async () => {
+      const supabase = createServiceClient();
+      const { error } = await supabase
+        .from("curation_jobs")
+        .update({
+          dispatch_status: "dispatched",
+          dispatch_error: null,
+          dispatched_at: new Date().toISOString(),
+        })
+        .eq("id", jobId)
+        .in("status", ["pending", "running"]);
 
-  if (error) throw error;
+      if (error) throw error;
+    },
+  );
 }
 
 export async function recordCurationDispatchFailure(
   jobId: string,
   errorMessage: string,
 ): Promise<void> {
-  const supabase = createServiceClient();
-  const { error } = await supabase
-    .from("curation_jobs")
-    .update({
-      status: "failed",
-      dispatch_status: "failed",
-      dispatch_error: errorMessage,
-      completed_at: new Date().toISOString(),
-      job_error: errorMessage,
-      result: { status: "failed", reason: "dispatch_failed" },
-    })
-    .eq("id", jobId)
-    .eq("status", "pending")
-    .select("id");
+  return auditedCall(
+    { provider: "curation", operation: "recordCurationDispatchFailure", kind: "service" },
+    async () => {
+      const supabase = createServiceClient();
+      const { error } = await supabase
+        .from("curation_jobs")
+        .update({
+          status: "failed",
+          dispatch_status: "failed",
+          dispatch_error: errorMessage,
+          completed_at: new Date().toISOString(),
+          job_error: errorMessage,
+          result: { status: "failed", reason: "dispatch_failed" },
+        })
+        .eq("id", jobId)
+        .eq("status", "pending")
+        .select("id");
 
-  if (error) throw error;
+      if (error) throw error;
+    },
+  );
 }
 
 export async function recoverStaleJobs(): Promise<CurationJob[]> {
-  const supabase = createServiceClient();
-  const staleBefore = new Date(Date.now() - JOB_STALE_AFTER_MS).toISOString();
-  const { data, error } = await supabase.rpc("recover_stale_curation_jobs", {
-    p_stale_before: staleBefore,
-  });
+  return auditedCall(
+    { provider: "curation", operation: "recoverStaleJobs", kind: "service" },
+    async () => {
+      const supabase = createServiceClient();
+      const staleBefore = new Date(Date.now() - JOB_STALE_AFTER_MS).toISOString();
+      const { data, error } = await supabase.rpc("recover_stale_curation_jobs", {
+        p_stale_before: staleBefore,
+      });
 
-  if (error) throw error;
+      if (error) throw error;
 
-  return (data ?? []) as CurationJob[];
+      return (data ?? []) as CurationJob[];
+    },
+  );
 }
 
 export async function ensureAutomaticRetries(): Promise<CurationJob[]> {
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("curation_jobs")
-    .select("*")
-    .eq("status", "failed")
-    .in("dispatch_status", ["dispatched", "failed"])
-    .lt("attempt", RETRY_ATTEMPTS)
-    .order("completed_at", { ascending: true });
+  return auditedCall(
+    { provider: "curation", operation: "ensureAutomaticRetries", kind: "service" },
+    async () => {
+      const supabase = createServiceClient();
+      const { data, error } = await supabase
+        .from("curation_jobs")
+        .select("*")
+        .eq("status", "failed")
+        .in("dispatch_status", ["dispatched", "failed"])
+        .lt("attempt", RETRY_ATTEMPTS)
+        .order("completed_at", { ascending: true });
 
-  if (error) throw error;
+      if (error) throw error;
 
-  const retries: CurationJob[] = [];
-  for (const job of (data ?? []) as CurationJob[]) {
-    const retry = await enqueueAutomaticRetry(job);
-    if (retry) retries.push(retry);
-  }
+      const retries: CurationJob[] = [];
+      for (const job of (data ?? []) as CurationJob[]) {
+        const retry = await enqueueAutomaticRetry(job);
+        if (retry) retries.push(retry);
+      }
 
-  return retries;
+      return retries;
+    },
+  );
 }
 
 export async function enqueueAutomaticRetry(
   job: CurationJob,
 ): Promise<CurationJob | null> {
-  if (job.attempt >= RETRY_ATTEMPTS) {
-    return null;
-  }
+  return auditedCall(
+    { provider: "curation", operation: "enqueueAutomaticRetry", kind: "service" },
+    async () => {
+      if (job.attempt >= RETRY_ATTEMPTS) {
+        return null;
+      }
 
-  const targets = (
-    await listCurationJobTargets(job.id, {
-      excludeSucceeded: true,
-    })
-  ).filter(
-    (target) => target.status === "pending" || target.status === "running",
+      const targets = (
+        await listCurationJobTargets(job.id, {
+          excludeSucceeded: true,
+        })
+      ).filter(
+        (target) => target.status === "pending" || target.status === "running",
+      );
+      if (targets.some((target) => target.target_type === "brand")) return null;
+      if (targets.length === 0) return null;
+
+      return enqueueCurationJob({
+        operation: "enrich",
+        params: parseJobParams(job.params),
+        dryRun: job.dry_run,
+        startedBy: "railway-worker",
+        trigger: "automatic_retry",
+        targets: targets.map(targetToEnqueueInput),
+        parentJobId: job.id,
+        attempt: job.attempt + 1,
+        scheduledFor: job.scheduled_for,
+        runAfter: new Date(
+          Date.now() + computeBackoffDelay(JOB_REQUEUE, job.attempt - 1),
+        ).toISOString(),
+      });
+    },
   );
-  if (targets.some((target) => target.target_type === "brand")) return null;
-  if (targets.length === 0) return null;
-
-  return enqueueCurationJob({
-    operation: "enrich",
-    params: parseJobParams(job.params),
-    dryRun: job.dry_run,
-    startedBy: "railway-worker",
-    trigger: "automatic_retry",
-    targets: targets.map(targetToEnqueueInput),
-    parentJobId: job.id,
-    attempt: job.attempt + 1,
-    scheduledFor: job.scheduled_for,
-    runAfter: new Date(
-      Date.now() + computeBackoffDelay(JOB_REQUEUE, job.attempt - 1),
-    ).toISOString(),
-  });
 }
 
 export async function enqueueManualRerun(
@@ -346,72 +397,77 @@ export async function enqueueManualRerun(
   startedBy: string,
   options?: { overwrite?: boolean },
 ): Promise<CurationJob> {
-  const source = await getCurationJob(sourceJobId);
-  const allTargets = await listCurationJobTargets(source.id);
-  if (allTargets.some((target) => target.target_type === "brand")) {
-    throw new Error(
-      "Brand-target enrichment jobs are retired; request a refresh submission",
-    );
-  }
-  const submissionIds = allTargets
-    .filter((target) => target.target_type === "submission")
-    .map((target) => target.target_id);
-  const incompleteSubmissionIds = new Set<string>();
-
-  if (submissionIds.length > 0) {
-    const supabase = createServiceClient();
-    const { data, error } = await supabase
-      .from("brand_submissions")
-      .select("id, status, brand_id, hero_image_url, enriched_data, owner_data")
-      .in("id", submissionIds);
-
-    if (error) throw error;
-    for (const submission of data ?? []) {
-      const enrichedData =
-        submission.enriched_data &&
-        typeof submission.enriched_data === "object" &&
-        !Array.isArray(submission.enriched_data)
-          ? enrichedDataFromDb(
-              submission.enriched_data as Record<string, unknown>,
-            )
-          : null;
-      if (
-        submission.status === "pending" &&
-        submission.brand_id === null &&
-        !hasCompleteEnrichment(enrichedData, submission.hero_image_url)
-      ) {
-        incompleteSubmissionIds.add(submission.id);
+  return auditedCall(
+    { provider: "curation", operation: "enqueueManualRerun", kind: "service" },
+    async () => {
+      const source = await getCurationJob(sourceJobId);
+      const allTargets = await listCurationJobTargets(source.id);
+      if (allTargets.some((target) => target.target_type === "brand")) {
+        throw new Error(
+          "Brand-target enrichment jobs are retired; request a refresh submission",
+        );
       }
-    }
-  }
+      const submissionIds = allTargets
+        .filter((target) => target.target_type === "submission")
+        .map((target) => target.target_id);
+      const incompleteSubmissionIds = new Set<string>();
 
-  const targets = allTargets.filter((target) =>
-    isManualRerunTargetEligible({
-      sourceStatus: source.status,
-      targetStatus: target.status,
-      isIncompleteSubmission:
-        target.target_type === "submission" &&
-        incompleteSubmissionIds.has(target.target_id),
-    }),
+      if (submissionIds.length > 0) {
+        const supabase = createServiceClient();
+        const { data, error } = await supabase
+          .from("brand_submissions")
+          .select("id, status, brand_id, hero_image_url, enriched_data, owner_data")
+          .in("id", submissionIds);
+
+        if (error) throw error;
+        for (const submission of data ?? []) {
+          const enrichedData =
+            submission.enriched_data &&
+            typeof submission.enriched_data === "object" &&
+            !Array.isArray(submission.enriched_data)
+              ? enrichedDataFromDb(
+                  submission.enriched_data as Record<string, unknown>,
+                )
+              : null;
+          if (
+            submission.status === "pending" &&
+            submission.brand_id === null &&
+            !hasCompleteEnrichment(enrichedData, submission.hero_image_url)
+          ) {
+            incompleteSubmissionIds.add(submission.id);
+          }
+        }
+      }
+
+      const targets = allTargets.filter((target) =>
+        isManualRerunTargetEligible({
+          sourceStatus: source.status,
+          targetStatus: target.status,
+          isIncompleteSubmission:
+            target.target_type === "submission" &&
+            incompleteSubmissionIds.has(target.target_id),
+        }),
+      );
+
+      if (targets.length === 0) {
+        throw new Error(
+          "This job has no failed, skipped, or unfinished targets to rerun",
+        );
+      }
+
+      const params = rerunJobParams(source.params, options);
+
+      return enqueueCurationJob({
+        operation: "enrich",
+        params,
+        dryRun: source.dry_run,
+        startedBy,
+        trigger: "manual_rerun",
+        targets: targets.map(targetToEnqueueInput),
+        parentJobId: source.id,
+      });
+    },
   );
-
-  if (targets.length === 0) {
-    throw new Error(
-      "This job has no failed, skipped, or unfinished targets to rerun",
-    );
-  }
-
-  const params = rerunJobParams(source.params, options);
-
-  return enqueueCurationJob({
-    operation: "enrich",
-    params,
-    dryRun: source.dry_run,
-    startedBy,
-    trigger: "manual_rerun",
-    targets: targets.map(targetToEnqueueInput),
-    parentJobId: source.id,
-  });
 }
 
 export function isManualRerunTargetEligible({
@@ -438,23 +494,28 @@ export async function heartbeatCurationJob(
   workerToken: string,
   current?: { targetId?: string | null; phase?: string | null },
 ): Promise<boolean> {
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("curation_jobs")
-    .update({
-      heartbeat_at: new Date().toISOString(),
-      ...(current && {
-        current_target_id: current.targetId ?? null,
-        current_phase: current.phase ?? null,
-      }),
-    })
-    .eq("id", jobId)
-    .eq("status", "running")
-    .eq("worker_token", workerToken)
-    .select("id");
+  return auditedCall(
+    { provider: "curation", operation: "heartbeatCurationJob", kind: "service" },
+    async () => {
+      const supabase = createServiceClient();
+      const { data, error } = await supabase
+        .from("curation_jobs")
+        .update({
+          heartbeat_at: new Date().toISOString(),
+          ...(current && {
+            current_target_id: current.targetId ?? null,
+            current_phase: current.phase ?? null,
+          }),
+        })
+        .eq("id", jobId)
+        .eq("status", "running")
+        .eq("worker_token", workerToken)
+        .select("id");
 
-  if (error) throw error;
-  return (data?.length ?? 0) === 1;
+      if (error) throw error;
+      return (data?.length ?? 0) === 1;
+    },
+  );
 }
 
 export async function updateCurationJobTarget(
@@ -462,14 +523,19 @@ export async function updateCurationJobTarget(
   targetId: string,
   patch: Database["public"]["Tables"]["curation_job_targets"]["Update"],
 ): Promise<void> {
-  const supabase = createServiceClient();
-  const { error } = await supabase
-    .from("curation_job_targets")
-    .update(patch)
-    .eq("job_id", jobId)
-    .eq("target_id", targetId);
+  return auditedCall(
+    { provider: "curation", operation: "updateCurationJobTarget", kind: "service" },
+    async () => {
+      const supabase = createServiceClient();
+      const { error } = await supabase
+        .from("curation_job_targets")
+        .update(patch)
+        .eq("job_id", jobId)
+        .eq("target_id", targetId);
 
-  if (error) throw error;
+      if (error) throw error;
+    },
+  );
 }
 
 export async function finalizeCurationJob(
@@ -477,23 +543,28 @@ export async function finalizeCurationJob(
   workerToken: string,
   patch: Database["public"]["Tables"]["curation_jobs"]["Update"],
 ): Promise<boolean> {
-  const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("curation_jobs")
-    .update({
-      ...patch,
-      worker_token: null,
-      current_target_id: null,
-      current_phase: null,
-      heartbeat_at: new Date().toISOString(),
-    })
-    .eq("id", jobId)
-    .eq("status", "running")
-    .eq("worker_token", workerToken)
-    .select("id");
+  return auditedCall(
+    { provider: "curation", operation: "finalizeCurationJob", kind: "service" },
+    async () => {
+      const supabase = createServiceClient();
+      const { data, error } = await supabase
+        .from("curation_jobs")
+        .update({
+          ...patch,
+          worker_token: null,
+          current_target_id: null,
+          current_phase: null,
+          heartbeat_at: new Date().toISOString(),
+        })
+        .eq("id", jobId)
+        .eq("status", "running")
+        .eq("worker_token", workerToken)
+        .select("id");
 
-  if (error) throw error;
-  return (data?.length ?? 0) === 1;
+      if (error) throw error;
+      return (data?.length ?? 0) === 1;
+    },
+  );
 }
 
 export async function listCurationJobs(options?: {
@@ -557,15 +628,20 @@ export async function cancelCurationJob(
   jobId: string,
   reason = "Cancelled by admin",
 ): Promise<CurationJob> {
-  const supabase = createServiceClient();
-  const { data, error } = await supabase.rpc("cancel_curation_job", {
-    p_job_id: jobId,
-    p_reason: reason,
-  });
+  return auditedCall(
+    { provider: "curation", operation: "cancelCurationJob", kind: "service" },
+    async () => {
+      const supabase = createServiceClient();
+      const { data, error } = await supabase.rpc("cancel_curation_job", {
+        p_job_id: jobId,
+        p_reason: reason,
+      });
 
-  if (error) throw error;
-  if (!data?.[0]) throw new Error("Job is no longer active");
-  return data[0] as CurationJob;
+      if (error) throw error;
+      if (!data?.[0]) throw new Error("Job is no longer active");
+      return data[0] as CurationJob;
+    },
+  );
 }
 
 function encodeCurationJobCursor(
@@ -1085,49 +1161,54 @@ export async function enqueueCurationResume(
   sourceJobId: string,
   startedBy: string,
 ): Promise<CurationResumeJob[]> {
-  const source = await getCurationJob(sourceJobId);
-  const allTargets = await listCurationJobTargets(source.id);
-  if (allTargets.some((target) => target.target_type === "brand")) {
-    throw new Error(
-      "Brand-target enrichment jobs are retired; request a refresh submission",
-    );
-  }
+  return auditedCall(
+    { provider: "curation", operation: "enqueueCurationResume", kind: "service" },
+    async () => {
+      const source = await getCurationJob(sourceJobId);
+      const allTargets = await listCurationJobTargets(source.id);
+      if (allTargets.some((target) => target.target_type === "brand")) {
+        throw new Error(
+          "Brand-target enrichment jobs are retired; request a refresh submission",
+        );
+      }
 
-  const unfinished = allTargets.filter(
-    (target) =>
-      target.target_type === "submission" &&
-      (target.status === "failed" || target.status === "cancelled"),
+      const unfinished = allTargets.filter(
+        (target) =>
+          target.target_type === "submission" &&
+          (target.status === "failed" || target.status === "cancelled"),
+      );
+
+      // A target whose submission was approved (or deleted) since the outage has
+      // nothing left to enrich — resuming it would fail preflight in the worker.
+      const pendingSubmissionIds = await filterPendingSubmissionIds(
+        unfinished.map((target) => target.target_id),
+      );
+      const eligible = unfinished.filter((target) =>
+        pendingSubmissionIds.has(target.target_id),
+      );
+
+      const plans = planCurationResume(source.params, eligible);
+      const jobs: CurationResumeJob[] = [];
+      for (const plan of plans) {
+        const job = await enqueueCurationJob({
+          operation: "enrich",
+          params: plan.params,
+          dryRun: source.dry_run,
+          startedBy,
+          trigger: "manual_rerun",
+          targets: plan.targets.map(targetToEnqueueInput),
+          parentJobId: source.id,
+        });
+        jobs.push({
+          ...job,
+          resumeGroup: plan.group,
+          resumeTargetCount: plan.targets.length,
+        });
+      }
+
+      return jobs;
+    },
   );
-
-  // A target whose submission was approved (or deleted) since the outage has
-  // nothing left to enrich — resuming it would fail preflight in the worker.
-  const pendingSubmissionIds = await filterPendingSubmissionIds(
-    unfinished.map((target) => target.target_id),
-  );
-  const eligible = unfinished.filter((target) =>
-    pendingSubmissionIds.has(target.target_id),
-  );
-
-  const plans = planCurationResume(source.params, eligible);
-  const jobs: CurationResumeJob[] = [];
-  for (const plan of plans) {
-    const job = await enqueueCurationJob({
-      operation: "enrich",
-      params: plan.params,
-      dryRun: source.dry_run,
-      startedBy,
-      trigger: "manual_rerun",
-      targets: plan.targets.map(targetToEnqueueInput),
-      parentJobId: source.id,
-    });
-    jobs.push({
-      ...job,
-      resumeGroup: plan.group,
-      resumeTargetCount: plan.targets.length,
-    });
-  }
-
-  return jobs;
 }
 
 async function filterPendingSubmissionIds(

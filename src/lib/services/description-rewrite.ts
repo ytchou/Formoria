@@ -1,4 +1,5 @@
 import { DESCRIPTION_SYSTEM_PROMPT } from "@/lib/prompts";
+import { auditedCall } from "@/lib/audit";
 import { parseJson } from "./openai-client";
 import {
   buildProfiledEnrichmentConfig,
@@ -570,6 +571,9 @@ export async function rewriteBrandDescription(
   audit: Pick<LlmAuditContext, "jobId" | "target">,
   evidence?: DescriptionEvidence,
 ): Promise<DescriptionRewriteOutput | null> {
+  return auditedCall(
+    { provider: "enrich", operation: "rewriteBrandDescription", kind: "service" },
+    async () => {
   const token = process.env.OPENAI_API_KEY;
   if (!token) return null;
   if (snippets.length === 0 && !existingDescription) return null;
@@ -755,4 +759,6 @@ export async function rewriteBrandDescription(
     );
     return null;
   }
+    },
+  );
 }

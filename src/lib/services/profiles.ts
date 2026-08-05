@@ -1,3 +1,4 @@
+import { auditedCall } from '@/lib/audit'
 import type { Database } from '@/lib/supabase/database.types'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { normalizeOwnerLocale, type OwnerLocale } from '@/lib/types'
@@ -70,25 +71,37 @@ export async function getOwnerLocale(brandId: string): Promise<OwnerLocale> {
 }
 
 export async function updateProfile(userId: string, update: ProfileUpdate): Promise<void> {
-  const supabase = await createClient()
+  return auditedCall(
+    { provider: 'brands', operation: 'updateProfile', kind: 'service' },
+    async () => {
+      const supabase = await createClient()
 
-  const row: Database['public']['Tables']['profiles']['Update'] = {}
-  if (update.displayName !== undefined) row.display_name = update.displayName
-  if (update.localePreference !== undefined) row.locale_preference = update.localePreference
-  row.updated_at = new Date().toISOString()
+      const row: Database['public']['Tables']['profiles']['Update'] = {}
+      if (update.displayName !== undefined) row.display_name = update.displayName
+      if (update.localePreference !== undefined) row.locale_preference = update.localePreference
+      row.updated_at = new Date().toISOString()
 
-  const { error } = await supabase.from('profiles').update(row).eq('id', userId)
-  if (error) throw error
+      const { error } = await supabase.from('profiles').update(row).eq('id', userId)
+      if (error) throw error
+    },
+    { summary: { userId } },
+  )
 }
 
 export async function updateProfileAdmin(userId: string, update: ProfileUpdate): Promise<void> {
-  const supabase = createServiceClient()
+  return auditedCall(
+    { provider: 'brands', operation: 'updateProfileAdmin', kind: 'service' },
+    async () => {
+      const supabase = createServiceClient()
 
-  const row: Database['public']['Tables']['profiles']['Update'] = {}
-  if (update.displayName !== undefined) row.display_name = update.displayName
-  if (update.localePreference !== undefined) row.locale_preference = update.localePreference
-  row.updated_at = new Date().toISOString()
+      const row: Database['public']['Tables']['profiles']['Update'] = {}
+      if (update.displayName !== undefined) row.display_name = update.displayName
+      if (update.localePreference !== undefined) row.locale_preference = update.localePreference
+      row.updated_at = new Date().toISOString()
 
-  const { error } = await supabase.from('profiles').update(row).eq('id', userId)
-  if (error) throw error
+      const { error } = await supabase.from('profiles').update(row).eq('id', userId)
+      if (error) throw error
+    },
+    { summary: { userId } },
+  )
 }

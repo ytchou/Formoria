@@ -1,4 +1,5 @@
 import sharp from 'sharp'
+import { auditedCall } from '@/lib/audit'
 
 import { processImage } from '@/lib/security/image-processor'
 import { createServiceClient } from '@/lib/supabase/server'
@@ -258,6 +259,9 @@ export async function downloadAndStoreImages(
   candidates: DownloadImageCandidate[],
   targetOrBrandId: EnrichmentTarget | string
 ): Promise<(string | null)[]> {
+  return auditedCall(
+    { provider: 'images', operation: 'downloadAndStoreImages', kind: 'service' },
+    async () => {
   if (candidates.length === 0) return []
 
   const dedupedCandidates = deduplicateCandidates(candidates)
@@ -442,6 +446,8 @@ export async function downloadAndStoreImages(
         // a thrown error — callers index this array against a parallel array.
         return null
       }
+    },
+  )
     },
   )
 }

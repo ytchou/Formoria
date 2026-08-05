@@ -1,3 +1,4 @@
+import { auditedCall } from '@/lib/audit'
 import { createServiceClient } from '@/lib/supabase/server'
 
 export type BrandLikeState = {
@@ -67,25 +68,31 @@ export async function setBrandLike(
   visitorHash: string,
   liked: boolean,
 ): Promise<BrandLikeState> {
-  if (!VISITOR_HASH_PATTERN.test(visitorHash)) throw new Error('Invalid visitor hash')
+  return auditedCall(
+    { provider: 'brands', operation: 'setBrandLike', kind: 'service' },
+    async () => {
+      if (!VISITOR_HASH_PATTERN.test(visitorHash)) throw new Error('Invalid visitor hash')
 
-  const supabase = createServiceClient()
-  await requireApprovedBrand(supabase, brandId)
+      const supabase = createServiceClient()
+      await requireApprovedBrand(supabase, brandId)
 
-  if (liked) {
-    const { error } = await supabase.from('brand_likes').upsert(
-      { brand_id: brandId, visitor_hash: visitorHash },
-      { onConflict: 'brand_id,visitor_hash', ignoreDuplicates: true },
-    )
-    if (error) throw error
-  } else {
-    const { error } = await supabase
-      .from('brand_likes')
-      .delete()
-      .eq('brand_id', brandId)
-      .eq('visitor_hash', visitorHash)
-    if (error) throw error
-  }
+      if (liked) {
+        const { error } = await supabase.from('brand_likes').upsert(
+          { brand_id: brandId, visitor_hash: visitorHash },
+          { onConflict: 'brand_id,visitor_hash', ignoreDuplicates: true },
+        )
+        if (error) throw error
+      } else {
+        const { error } = await supabase
+          .from('brand_likes')
+          .delete()
+          .eq('brand_id', brandId)
+          .eq('visitor_hash', visitorHash)
+        if (error) throw error
+      }
 
-  return { count: await countBrandLikes(supabase, brandId), liked }
+      return { count: await countBrandLikes(supabase, brandId), liked }
+    },
+    { subjectId: brandId, summary: { liked } },
+  )
 }

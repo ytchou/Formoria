@@ -11,6 +11,7 @@ import {
 } from "@/lib/taxonomy/ontology";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { createServiceClient } from "@/lib/supabase/server";
+import { auditedCall } from "@/lib/audit";
 import {
   applyTagDelta,
   deriveProductTagsEn,
@@ -613,6 +614,9 @@ async function supersedePendingTags(
 export async function submitCorrection(
   input: SubmitCorrectionInput,
 ): Promise<SubmitCorrectionResult> {
+  return auditedCall(
+    { provider: "brands", operation: "submitCorrection", kind: "service" },
+    async () => {
   if (!isCorrectionField(input.field))
     return { ok: false, code: "invalid_field" };
 
@@ -672,6 +676,8 @@ export async function submitCorrection(
   } catch {
     return { ok: false, code: "database_error" };
   }
+    },
+  );
 }
 
 export async function listCorrections(
@@ -704,6 +710,9 @@ export async function reviewCorrection(
   notes: string,
   { reviewerId }: { reviewerId: string },
 ): Promise<ReviewCorrectionResult> {
+  return auditedCall(
+    { provider: "brands", operation: "reviewCorrection", kind: "service" },
+    async () => {
   if (decision !== "approved" && decision !== "rejected") {
     return { ok: false, code: "database_error" };
   }
@@ -818,4 +827,6 @@ export async function reviewCorrection(
   } catch {
     return { ok: false, code: "database_error" };
   }
+    },
+  );
 }

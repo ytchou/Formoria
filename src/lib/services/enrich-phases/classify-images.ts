@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { auditedCall } from "@/lib/audit";
 import { IMAGE_CLASSIFY_SYSTEM_PROMPT } from "@/lib/prompts";
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { MAX_BRAND_ACTIVE_IMAGES } from "@/lib/constants/brand-images";
@@ -965,6 +966,9 @@ export async function runClassifyImagesPhase({
   target: requestedTarget,
   jobId,
 }: ClassifyImagesPhaseOptions): Promise<ClassifyImagesPhaseOutput> {
+  return auditedCall(
+    { provider: "enrich", operation: "runClassifyImagesPhase", kind: "service" },
+    async () => {
   const target = requestedTarget ?? brandTarget(brand.id);
   if (!phases.includes("classify_images")) {
     return {
@@ -1237,4 +1241,6 @@ export async function runClassifyImagesPhase({
     ),
     patch,
   };
+    },
+  );
 }

@@ -1,4 +1,5 @@
 import { insertReputationResult } from "../_shared/ai-results";
+import { auditedCall } from "@/lib/audit";
 import { runReputationResearch } from "../reputation-research";
 import { loadPersistedScrapeText } from "./descriptions";
 import { buildProfiledEnrichmentConfig } from "../llm-audit";
@@ -124,6 +125,9 @@ export async function runReputationPhase({
   target,
   jobId,
 }: ReputationPhaseOptions): Promise<ReputationPhaseOutput> {
+  return auditedCall(
+    { provider: "enrich", operation: "runReputationPhase", kind: "service" },
+    async () => {
   if (!phases.includes("reputation")) {
     return {
       phaseResult: buildPhaseResult(
@@ -266,4 +270,6 @@ export async function runReputationPhase({
     ),
     patch: result.patch,
   };
+    },
+  );
 }

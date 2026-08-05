@@ -1,4 +1,5 @@
 import type { PhaseResult } from "@/lib/types/curation";
+import { auditedCall } from "@/lib/audit";
 import { isLlmProviderFailure } from "../_shared/llm-call-outcome";
 import { isValidBrandName } from "../brand-cleanup";
 import {
@@ -168,6 +169,9 @@ export async function runNamesPhase(
   ctx: BatchPhaseContext,
   candidatesByBrandId: Map<string, NameCandidateInput>,
 ): Promise<NamesPhaseOutput> {
+  return auditedCall(
+    { provider: "enrich", operation: "runNamesPhase", kind: "service" },
+    async () => {
   if (!ctx.phases.includes("names")) {
     return skippedBatch("names phase not requested");
   }
@@ -263,6 +267,8 @@ export async function runNamesPhase(
     verdicts,
     providerFailure: false,
   };
+    },
+  );
 }
 
 /**

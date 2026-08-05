@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { auditedCall } from "@/lib/audit";
 import { cleanBrandName, type NameCleanupResult } from "./brand-cleanup";
 import { ENRICH_CHUNK_SIZE, mapWithConcurrency } from "./_shared/concurrency";
 import {
@@ -75,6 +76,8 @@ import type { EnrichmentTarget } from "./_shared/enrichment-target";
 import { deriveProductTypeFromTags, MAX_PRODUCT_TAGS } from "./product-tags";
 import {
   formatBrandComplete,
+  formatEnrichError,
+  formatEnrichPatchField,
   formatJobStart,
   formatJobSummary,
   formatPhaseProgress,
@@ -1017,6 +1020,9 @@ export async function persistSubmissionEnrichmentResults(
   patch: JsonObject,
   jobId?: string,
 ): Promise<void> {
+  return auditedCall(
+    { provider: "enrich", operation: "persistSubmissionEnrichmentResults", kind: "service" },
+    async () => {
   const { data: row, error: selectError } = await supabase
     .from("brand_submissions")
     .select("enriched_data, status, intent, brand_id, base_brand_data")
@@ -1112,6 +1118,8 @@ export async function persistSubmissionEnrichmentResults(
       `Skipping enrichment persistence after pending status changed for submission ${submissionId}`,
     );
   }
+    },
+  );
 }
 
 export function submissionToEnrichBrand(
@@ -1204,13 +1212,18 @@ export async function persistEnrichmentResults(
 export async function persistEnrichmentResults(
   supabase: SupabaseClient,
   brandIdOrPatches: string | EnrichmentPatchInput[],
-  patchOrJobId?: JsonObject | string,
+patchOrJobId?: JsonObject | string,
 ): Promise<void> {
-  void supabase;
-  void brandIdOrPatches;
-  void patchOrJobId;
-  throw new Error(
-    "Direct brand enrichment is retired; create a refresh submission instead",
+  return auditedCall(
+    { provider: "enrich", operation: "persistEnrichmentResults", kind: "service" },
+    async () => {
+      void supabase;
+      void brandIdOrPatches;
+      void patchOrJobId;
+      throw new Error(
+        "Direct brand enrichment is retired; create a refresh submission instead",
+      );
+    },
   );
 }
 
@@ -1227,6 +1240,9 @@ export async function runEnrich(
   },
   supabase: SupabaseLike,
 ): Promise<EnrichOperationResult> {
+  return auditedCall(
+    { provider: "enrich", operation: "runEnrich", kind: "service" },
+    async () => {
   const startedAt = Date.now();
   const onProgress = config.onProgress ?? logEnrichmentProgress;
   const onTargetProgress = config.onTargetProgress;
@@ -1281,7 +1297,7 @@ export async function runEnrich(
   if (error) {
     const message = error.message ?? "Failed to fetch submissions";
     result.errors.push(message);
-    onProgress(`[ENRICH] ERROR: Failed to fetch submissions: ${message}`);
+    onProgress(formatEnrichError(`Failed to fetch submissions: ${message}`));
     throw error;
   }
 
@@ -2411,12 +2427,7 @@ export async function runEnrich(
           if (patchKeys.length > 0) {
             for (const key of patchKeys) {
               const val = (patch as Record<string, unknown>)[key];
-              const display = Array.isArray(val)
-                ? `[${val.length} items]`
-                : typeof val === "string" && val.length > 60
-                  ? `${val.slice(0, 60)}…`
-                  : val;
-              onProgress(`  [ENRICH] ${key}: ${display}`);
+              onProgress(formatEnrichPatchField(key, val));
             }
           }
 
@@ -2589,4 +2600,6 @@ export async function runEnrich(
   }
 
   return finishEnrichResult(result, startedAt, onProgress);
+    },
+  );
 }

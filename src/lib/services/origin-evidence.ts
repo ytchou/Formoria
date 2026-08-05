@@ -1,4 +1,5 @@
 import { buildDeclarationRemovedEmail } from '@/lib/email/templates'
+import { auditedCall } from '@/lib/audit'
 import { sendEmail } from '@/lib/email/send'
 import type { Database } from '@/lib/supabase/database.types'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
@@ -159,6 +160,9 @@ async function attachSignedPhotoUrls(evidence: OriginEvidence[]): Promise<Origin
 }
 
 export async function createEvidence(input: CreateEvidenceInput): Promise<CreateEvidenceResult> {
+  return auditedCall(
+    { provider: 'brands', operation: 'createEvidence', kind: 'service' },
+    async () => {
   if (input.notes.length > MAX_NOTES_LENGTH) {
     return { ok: false, code: 'notes_too_long' }
   }
@@ -194,6 +198,8 @@ export async function createEvidence(input: CreateEvidenceInput): Promise<Create
 
   if (error || !data) return { ok: false, code: 'database_error' }
   return { ok: true, id: data.id }
+    },
+  )
 }
 
 export async function listMyEvidence(userId: string): Promise<OriginEvidence[]> {
@@ -234,6 +240,9 @@ export async function reviewEvidence(
   notes: string,
   opts: ReviewEvidenceOptions,
 ): Promise<ReviewEvidenceResult> {
+  return auditedCall(
+    { provider: 'brands', operation: 'reviewEvidence', kind: 'service' },
+    async () => {
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('origin_evidence')
@@ -294,4 +303,6 @@ export async function reviewEvidence(
   }
 
   return { ok: true }
+    },
+  )
 }

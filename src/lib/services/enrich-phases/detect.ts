@@ -1,4 +1,5 @@
 import type { PhaseResult } from "@/lib/types/curation";
+import { auditedCall } from "@/lib/audit";
 import {
   classifyProductTypeBatch,
   detectBrandsBatch,
@@ -105,6 +106,9 @@ export async function runDetectPhase(
   phaseResult: PhaseResult;
   detectResults: Map<string, DetectResult>;
 }> {
+  return auditedCall(
+    { provider: "enrich", operation: "runDetectPhase", kind: "service" },
+    async () => {
   if (!hasDetectPhases(ctx.phases)) {
     return {
       phaseResult: buildPhaseResult(
@@ -186,6 +190,8 @@ export async function runDetectPhase(
     ),
     detectResults: result.detectResults,
   };
+    },
+  );
 }
 
 export async function runStandaloneClassification(
@@ -194,6 +200,9 @@ export async function runStandaloneClassification(
   phaseResult: PhaseResult;
   batchClassifications: Map<string, ClassificationResult>;
 }> {
+  return auditedCall(
+    { provider: "enrich", operation: "runStandaloneClassification", kind: "service" },
+    async () => {
   const shouldRun =
     ctx.phases.includes("tags") &&
     !ctx.phases.includes("descriptions") &&
@@ -257,6 +266,8 @@ export async function runStandaloneClassification(
     ),
     batchClassifications: result.results,
   };
+    },
+  );
 }
 
 export function applyDetectResult(

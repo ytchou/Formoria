@@ -2,6 +2,7 @@ import {
   groupChannelsForDisplay,
   normalizeChannelName,
 } from '@/lib/brands/channels'
+import { auditedCall } from '@/lib/audit'
 import type {
   BrandChannelInput,
   ChannelCandidate,
@@ -244,6 +245,9 @@ export async function confirmChannel(
   userId: string,
   channelId: string,
 ): Promise<number> {
+  return auditedCall(
+    { provider: 'brands', operation: 'confirmChannel', kind: 'service' },
+    async () => {
   const supabase = createServiceClient()
 
   const { data: channel, error: lookupError } = await supabase
@@ -272,6 +276,8 @@ export async function confirmChannel(
 
   if (error) throw error
   return countConfirmations(channelId)
+    },
+  )
 }
 
 export async function submitChannel(
@@ -279,6 +285,9 @@ export async function submitChannel(
   brandId: string,
   input: BrandChannelInput,
 ): Promise<SubmitChannelResult> {
+  return auditedCall(
+    { provider: 'brands', operation: 'submitChannel', kind: 'service' },
+    async () => {
   const name = input.name.trim()
   if (name.length < 1 || name.length > 80) {
     return { ok: false, code: 'invalid_name' }
@@ -343,6 +352,8 @@ export async function submitChannel(
 
   if (confirmationError) return { ok: false, code: 'database_error' }
   return { ok: true, id: channelId }
+    },
+  )
 }
 
 export async function setOwnerChannelStatus(
@@ -350,6 +361,9 @@ export async function setOwnerChannelStatus(
   channelId: string,
   status: 'confirmed' | 'rejected',
 ): Promise<ChannelActionResult> {
+  return auditedCall(
+    { provider: 'brands', operation: 'setOwnerChannelStatus', kind: 'service' },
+    async () => {
   if (status !== 'confirmed' && status !== 'rejected') {
     return { ok: false, code: 'invalid_status' }
   }
@@ -379,6 +393,8 @@ export async function setOwnerChannelStatus(
 
   if (updateError) return { ok: false, code: 'database_error' }
   return { ok: true }
+    },
+  )
 }
 
 export async function adminRemoveChannel(
@@ -386,6 +402,9 @@ export async function adminRemoveChannel(
   adminId: string,
   adminEmail: string,
 ): Promise<ChannelActionResult> {
+  return auditedCall(
+    { provider: 'brands', operation: 'adminRemoveChannel', kind: 'service' },
+    async () => {
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('brand_channels')
@@ -410,12 +429,17 @@ export async function adminRemoveChannel(
   })
 
   return { ok: true }
+    },
+  )
 }
 
 export async function upsertEnrichedChannels(
   brandId: string,
   candidates: ChannelCandidate[],
 ): Promise<EnrichedChannelsResult> {
+  return auditedCall(
+    { provider: 'brands', operation: 'upsertEnrichedChannels', kind: 'service' },
+    async () => {
   const rows: EnrichedChannelRow[] = []
   let invalidCount = 0
   for (const candidate of candidates) {
@@ -458,4 +482,6 @@ export async function upsertEnrichedChannels(
         ? data.length
         : rows.length
   return { ok: true, count }
+    },
+  )
 }

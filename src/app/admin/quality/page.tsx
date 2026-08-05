@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { unstable_cache } from 'next/cache'
+import { auditedCall } from '@/lib/audit'
 import { DataCard, SurfaceCard } from '@/components/ui/card'
 import { getQualityMetrics } from '@/lib/services/brand-quality'
 
@@ -10,7 +11,12 @@ export const metadata: Metadata = {
 export const revalidate = 0
 
 const getCachedMetrics = unstable_cache(
-  () => getQualityMetrics(),
+  () =>
+    auditedCall(
+      { provider: 'cache', operation: 'getCachedMetrics', kind: 'service' },
+      () => getQualityMetrics(),
+      { summary: { cached: true } },
+    ),
   ['quality-metrics'],
   { tags: ['quality-metrics'] }
 )

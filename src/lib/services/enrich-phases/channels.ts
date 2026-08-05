@@ -8,6 +8,7 @@ import {
   isRetailChainChannel,
 } from "@/lib/brands/locations";
 import { upsertEnrichedChannels } from "@/lib/services/brand-channels";
+import { auditedCall } from "@/lib/audit";
 import type { Json } from "@/lib/supabase/database.types";
 import type { Database } from "@/lib/supabase/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -961,6 +962,9 @@ async function persistChannelCandidates(
 export async function runChannelsPhase(
   options: ChannelsPhaseOptions,
 ): Promise<ChannelsPhaseOutput> {
+  return auditedCall(
+    { provider: "enrich", operation: "runChannelsPhase", kind: "service" },
+    async () => {
   if (!options.phases.includes("locations")) {
     return {
       phaseResult: buildPhaseResult(
@@ -1139,4 +1143,6 @@ export async function runChannelsPhase(
     patch: result.patch,
     candidates: result.candidates,
   };
+    },
+  );
 }

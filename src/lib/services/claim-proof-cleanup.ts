@@ -1,4 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/server";
+import { auditedCall } from "@/lib/audit";
 import { uploadWithRetry } from "./storage-retry";
 import { randomUUID } from "node:crypto";
 
@@ -73,6 +74,9 @@ function claimProofPath(storageKey: string): string | null {
 export async function processClaimProofCleanup(
   options: ProcessClaimProofCleanupOptions = {},
 ): Promise<ClaimProofCleanupSummary> {
+  return auditedCall(
+    { provider: "claims", operation: "processClaimProofCleanup", kind: "service" },
+    async () => {
   const client = cleanupClient();
   const leaseToken = randomUUID();
 
@@ -160,4 +164,6 @@ export async function processClaimProofCleanup(
     completed: validJobs.length,
     failed: invalidIds.length,
   };
+    },
+  );
 }

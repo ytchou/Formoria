@@ -1,4 +1,5 @@
 import type { Database, Json } from '@/lib/supabase/database.types'
+import { auditedCall } from '@/lib/audit'
 import { timingSafeEqual } from 'node:crypto'
 import { NotFoundError, ValidationError } from '@/lib/errors'
 import { createServiceClient } from '@/lib/supabase/server'
@@ -499,6 +500,9 @@ export async function createClaimRequest(input: {
   proofEvidence: ProofEvidence[]
   mitSmileCert?: string | null
 }): Promise<CreateClaimRequestResult> {
+  return auditedCall(
+    { provider: 'claims', operation: 'createClaimRequest', kind: 'service' },
+    async () => {
   const normalizedProofEvidence = normalizeProofEvidence(input.proofEvidence, input.userId)
   const { proofEvidence, emailVerificationTokens } =
     addDomainEmailVerificationTokens(normalizedProofEvidence)
@@ -572,6 +576,8 @@ export async function createClaimRequest(input: {
     ...rowToClaimRequest(data as ClaimRequestRowWithJoins),
     emailVerificationTokens,
   }
+    },
+  )
 }
 
 export async function verifyClaimEmailProof({
@@ -583,6 +589,9 @@ export async function verifyClaimEmailProof({
   proofIndex: number
   token: string
 }): Promise<VerifyClaimEmailProofResult> {
+  return auditedCall(
+    { provider: 'claims', operation: 'verifyClaimEmailProof', kind: 'service' },
+    async () => {
   if (!claimRequestId || !Number.isInteger(proofIndex) || proofIndex < 0 || !token) {
     return { ok: false, locale: 'zh-TW', reason: 'invalid_request' }
   }
@@ -673,6 +682,8 @@ export async function verifyClaimEmailProof({
     brandSlug,
     locale: 'zh-TW',
   }
+    },
+  )
 }
 
 export async function hasPendingClaim(userId: string, brandId: string): Promise<boolean> {
@@ -726,6 +737,9 @@ export async function getClaimRequest(id: string): Promise<ClaimRequest> {
 }
 
 export async function approveClaimRequest(id: string, reviewerId: string): Promise<void> {
+  return auditedCall(
+    { provider: 'claims', operation: 'approveClaimRequest', kind: 'service' },
+    async () => {
   const supabase = createServiceClient()
   const { error } = await claimRequestRpcClient(supabase).rpc('approve_claim_request', {
     p_claim_id: id,
@@ -757,6 +771,8 @@ export async function approveClaimRequest(id: string, reviewerId: string): Promi
   }
 
   throw error
+    },
+  )
 }
 
 export async function rejectClaimRequest(
@@ -764,6 +780,9 @@ export async function rejectClaimRequest(
   reviewerId: string,
   notes: string
 ): Promise<void> {
+  return auditedCall(
+    { provider: 'claims', operation: 'rejectClaimRequest', kind: 'service' },
+    async () => {
   const supabase = createServiceClient()
   const { data, error } = await claimRequestsTable(supabase)
     .update({
@@ -779,4 +798,6 @@ export async function rejectClaimRequest(
 
   if (error) throw error
   if (!data) throw new ValidationError(CLAIM_ALREADY_REVIEWED_ERROR)
+    },
+  )
 }

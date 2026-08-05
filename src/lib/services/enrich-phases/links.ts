@@ -14,6 +14,7 @@ import { MAX_SCRAPE_URLS_PER_BRAND, scrapeBrandUrls, type ScrapeBrandUrlsOptions
 import { classifyByDomain, isNonBrandSiteHost } from './scraper/input-detector'
 import { mergeScrapedData } from './scraper/merge'
 import type { PhaseResult } from '@/lib/types/curation'
+import { auditedCall } from '@/lib/audit'
 import type { ScrapedBrandData, ScrapedImageSource } from '@/lib/types/scraper'
 import type { EnrichScrapedData } from './types'
 import { brandTarget, type EnrichmentTarget } from '../_shared/enrichment-target'
@@ -342,6 +343,9 @@ export async function runLinksPhase({
   jobId,
   supabase,
 }: LinksPhaseOptions): Promise<LinksPhaseOutput> {
+  return auditedCall(
+    { provider: 'enrich', operation: 'runLinksPhase', kind: 'service' },
+    async () => {
   if (!phases.includes('links')) {
     return {
       phaseResult: buildPhaseResult('links', 'skipped', [], 0, undefined, 'links phase not requested'),
@@ -441,4 +445,6 @@ export async function runLinksPhase({
     scrapedImageSources: result.scrapedImageSources,
     jsonLdImageUrls: result.jsonLdImageUrls,
   }
+    },
+  )
 }

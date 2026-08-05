@@ -1,3 +1,4 @@
+import { auditedCall } from '@/lib/audit'
 import { deleteBrandImages, deleteStoredImagePaths } from './image-upload'
 
 type BrandImageStatus = 'active' | 'candidate' | 'rejected'
@@ -162,6 +163,13 @@ export async function insertBrandImage(
   supabase: unknown,
   data: BrandImageInsert,
 ): Promise<void> {
+  return auditedCall(
+    {
+      provider: 'images',
+      operation: 'insertBrandImage',
+      kind: 'service',
+    },
+    async () => {
   const row: BrandImageInsert = {
     status: 'active',
     sort_order: 0,
@@ -201,6 +209,9 @@ export async function insertBrandImage(
     : await brandImagesTable(supabase).insert(row)
 
   if (error && error.code !== '23505') throw error
+    },
+    { subjectId: data.brand_id, summary: { source: data.source } },
+  )
 }
 
 export async function rejectBrandImages(
@@ -208,6 +219,13 @@ export async function rejectBrandImages(
   brandId: string,
   urls: string[],
 ): Promise<void> {
+  return auditedCall(
+    {
+      provider: 'images',
+      operation: 'rejectBrandImages',
+      kind: 'service',
+    },
+    async () => {
   if (urls.length === 0) return
 
   const { data: rows, error: selectError } = await brandImagesTable(supabase)
@@ -235,6 +253,9 @@ export async function rejectBrandImages(
     .eq('brand_id', brandId)
     .in('url', urls)
   if (error) throw error
+    },
+    { subjectId: brandId, summary: { urlCount: urls.length } },
+  )
 }
 
 /**
@@ -252,6 +273,13 @@ export async function releaseBrandImageUrls(
   brandId: string,
   urls: string[],
 ): Promise<void> {
+  return auditedCall(
+    {
+      provider: 'images',
+      operation: 'releaseBrandImageUrls',
+      kind: 'service',
+    },
+    async () => {
   if (urls.length === 0) return
 
   const { data: rows, error } = await brandImagesTable(supabase)
@@ -279,12 +307,22 @@ export async function releaseBrandImageUrls(
       )
     }
   }
+    },
+    { subjectId: brandId, summary: { urlCount: urls.length } },
+  )
 }
 
 export async function syncHeroDenormalized(
   supabase: unknown,
   brandId: string,
 ): Promise<void> {
+  return auditedCall(
+    {
+      provider: 'images',
+      operation: 'syncHeroDenormalized',
+      kind: 'service',
+    },
+    async () => {
   const images = await getBrandImages(supabase, brandId)
   const heroImageUrl = images.at(0)?.url ?? null
 
@@ -294,4 +332,7 @@ export async function syncHeroDenormalized(
     .eq('id', brandId)
 
   if (error) throw error
+    },
+    { subjectId: brandId },
+  )
 }

@@ -29,7 +29,7 @@ import {
   FEATURE_REQUEST_BODY_MIN,
   FEATURE_REQUEST_TITLE_MAX,
   FEATURE_REQUEST_TITLE_MIN,
-} from '@/lib/services/feature-requests'
+} from '@/lib/services/feature-requests.constants'
 
 /**
  * Action error code -> copy key. The action's error vocabulary is a closed

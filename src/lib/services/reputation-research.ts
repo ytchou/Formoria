@@ -1,4 +1,5 @@
 import { REPUTATION_SYSTEM_PROMPT } from "@/lib/prompts";
+import { auditedCall } from "@/lib/audit";
 import {
   createProfiledOpenAIClient,
   profileChatParams,
@@ -76,6 +77,9 @@ export async function runReputationResearch(
   input: ReputationInput,
   audit: LlmAuditContext,
 ): Promise<ReputationResearchOutput | null> {
+  return auditedCall(
+    { provider: "enrich", operation: "runReputationResearch", kind: "service" },
+    async () => {
   const token = process.env.OPENAI_API_KEY;
   if (!token) return null;
   if (
@@ -125,4 +129,6 @@ export async function runReputationResearch(
     // anything thrown here is local — attributed to neither side's call count.
     return null;
   }
+    },
+  );
 }

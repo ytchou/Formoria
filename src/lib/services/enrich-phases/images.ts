@@ -1,4 +1,5 @@
 import { downloadAndStoreImages } from '../image-download'
+import { auditedCall } from '@/lib/audit'
 import { buildImageEnrichPatch, hasLinkValue } from '../link-enrichment'
 import type { PhaseResult } from '@/lib/types/curation'
 import type { CandidateImage } from './candidate-pool'
@@ -53,6 +54,9 @@ export async function runBrandImagePhase({
   dryRun = false,
   target,
 }: BrandImagePhaseOptions): Promise<BrandImagePhaseOutput> {
+  return auditedCall(
+    { provider: 'enrich', operation: 'runBrandImagePhase', kind: 'service' },
+    async () => {
   if (!phases.includes('images')) {
     return {
       phaseResult: buildPhaseResult('images', 'skipped', [], 0, undefined, 'images phase not requested'),
@@ -126,4 +130,6 @@ export async function runBrandImagePhase({
     phaseResult: buildPhaseResult('images', 'succeeded', changedFields, durationMs),
     patch: result,
   }
+    },
+  )
 }

@@ -21,6 +21,7 @@ import {
   noLlmCalls,
 } from "../_shared/llm-call-outcome";
 import type { PhaseResult } from "@/lib/types/curation";
+import { auditedCall } from "@/lib/audit";
 import type { EnrichScrapedData } from "./types";
 import {
   brandTarget,
@@ -352,6 +353,9 @@ export async function runDescriptionsPhase({
   jobId,
   pendingPatch,
 }: DescriptionsPhaseOptions): Promise<DescriptionsPhaseOutput> {
+  return auditedCall(
+    { provider: "enrich", operation: "runDescriptionsPhase", kind: "service" },
+    async () => {
   if (!phases.includes("descriptions")) {
     return {
       phaseResult: buildPhaseResult(
@@ -650,4 +654,6 @@ export async function runDescriptionsPhase({
     factsAttempts: result.factsAttempts,
     listingVerdict: result.listingVerdict,
   };
+    },
+  );
 }

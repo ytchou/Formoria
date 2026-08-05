@@ -1,4 +1,5 @@
 import { NAME_ARBITER_SYSTEM_PROMPT } from "@/lib/prompts";
+import { auditedCall } from "@/lib/audit";
 import {
   LLM_BATCH_CHUNK_SIZE,
   resolveProfileModel,
@@ -338,6 +339,9 @@ export async function arbitrateBrandNames(
   items: NameArbiterItem[],
   jobId?: string,
 ): Promise<LlmBatchOutcome<Map<string, NameVerdict>>> {
+  return auditedCall(
+    { provider: "enrich", operation: "arbitrateBrandNames", kind: "service" },
+    async () => {
   const results = new Map<string, NameVerdict>();
   let calls = noLlmCalls();
 
@@ -371,4 +375,6 @@ export async function arbitrateBrandNames(
   }
 
   return { results, calls };
+    },
+  );
 }

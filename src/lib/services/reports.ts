@@ -1,4 +1,5 @@
 import type { Database } from '@/lib/supabase/database.types'
+import { auditedCall } from '@/lib/audit'
 
 import { buildReviewUpdate, type ReviewStatus, type ReviewDecision } from './review-status'
 
@@ -113,6 +114,9 @@ export async function createReport(input: {
   reportedField?: string | null
   userId?: string
 }): Promise<void> {
+  return auditedCall(
+    { provider: 'brands', operation: 'createReport', kind: 'service' },
+    async () => {
   const { createServiceClient } = await import('@/lib/supabase/server')
   const supabase = createServiceClient()
 
@@ -121,6 +125,8 @@ export async function createReport(input: {
     .insert(buildReportRecord(input))
 
   if (error) throw error
+    },
+  )
 }
 
 export async function getPendingReports(options?: { limit?: number }): Promise<BrandReport[]> {
@@ -188,6 +194,9 @@ export async function updateReportStatus(
   reportId: string,
   decision: ReviewDecision
 ): Promise<void> {
+  return auditedCall(
+    { provider: 'brands', operation: 'updateReportStatus', kind: 'service' },
+    async () => {
   const { createServiceClient } = await import('@/lib/supabase/server')
   const supabase = createServiceClient()
 
@@ -199,4 +208,6 @@ export async function updateReportStatus(
     .eq('id', reportId)
 
   if (error) throw error
+    },
+  )
 }

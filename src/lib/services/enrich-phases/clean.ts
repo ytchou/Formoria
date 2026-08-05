@@ -1,4 +1,5 @@
 import { cleanBrandName, type NameCleanupResult } from '../brand-cleanup'
+import { auditedCall } from '@/lib/audit'
 import type { PhaseResult } from '@/lib/types/curation'
 import { buildPhaseResult, timePhase, type EnrichBrand, type EnrichPhase } from './types'
 
@@ -27,6 +28,9 @@ export async function runCleanPhase(
   phases: EnrichPhase[],
   precomputed?: NameCleanupResult
 ): Promise<CleanPhaseOutput> {
+  return auditedCall(
+    { provider: 'enrich', operation: 'runCleanPhase', kind: 'service' },
+    async () => {
   if (!phases.includes('clean')) {
     return {
       phaseResult: buildPhaseResult('clean', 'skipped', [], 0, undefined, 'clean phase not requested'),
@@ -47,4 +51,6 @@ export async function runCleanPhase(
     phaseResult: buildPhaseResult('clean', 'succeeded', changedFields, durationMs, undefined, detail),
     cleanedName: result.changed ? result.cleanedName : null,
   }
+    },
+  )
 }

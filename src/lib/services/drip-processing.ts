@@ -5,6 +5,7 @@ import {
   buildWelcomeEmail,
 } from '@/lib/email/templates'
 import { sendEmail } from '@/lib/email/send'
+import { auditedCall } from '@/lib/audit'
 import * as supabaseServer from '@/lib/supabase/server'
 import type { EmailMessage } from '@/lib/email/types'
 import { normalizeOwnerLocale, type OwnerLocale } from '@/lib/types'
@@ -112,6 +113,9 @@ export const DRIP_TYPES: DripType[] = [
 export async function evaluateDrips(
   dripType: string,
 ): Promise<{ sent: number; skipped: number; errors: number }> {
+  return auditedCall(
+    { provider: 'email', operation: 'evaluateDrips', kind: 'service' },
+    async () => {
   const drip = DRIP_TYPES.find((type) => type.key === dripType)
   if (!drip) {
     throw new Error(`Unknown drip type: ${dripType}`)
@@ -245,6 +249,8 @@ export async function evaluateDrips(
       results.filter((result) => result === 'skipped').length,
     errors: results.filter((result) => result === 'error').length,
   }
+    },
+  )
 }
 
 async function queryOwnerLocales(

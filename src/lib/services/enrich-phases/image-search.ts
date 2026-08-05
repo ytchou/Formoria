@@ -1,4 +1,5 @@
 import type { PhaseResult } from '@/lib/types/curation'
+import { auditedCall } from '@/lib/audit'
 import { batchSearchBrandImages } from './scraper/search'
 import type { BrandImageSearchOutcome, ImageQueryInput } from './scraper/types'
 import {
@@ -54,6 +55,9 @@ export async function runImageSearchPhase(
    */
   pendingPatches?: Map<string, EnrichPatch>,
 ): Promise<ImageSearchPhaseOutput> {
+  return auditedCall(
+    { provider: 'enrich', operation: 'runImageSearchPhase', kind: 'service' },
+    async () => {
   if (!ctx.phases.includes('images')) {
     return {
       phaseResult: buildPhaseResult('image-search', 'skipped', [], 0, undefined, 'images not requested'),
@@ -231,6 +235,8 @@ export async function runImageSearchPhase(
     imageSearchResults: result.imageSearchResults,
     imageSearchOutcomes: result.imageSearchOutcomes,
   }
+    },
+  )
 }
 
 // 'all brands have images' is only honest when every brand in the chunk was
