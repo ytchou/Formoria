@@ -11,6 +11,7 @@ import {
 import {
   buildBrandJsonLd,
   buildBreadcrumbJsonLd,
+  buildFaqPageJsonLd,
   safeJsonLdStringify,
 } from "@/lib/json-ld";
 import type { BreadcrumbItem } from "@/lib/json-ld";
@@ -35,7 +36,7 @@ import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
 import { getBrandCategoryLabel } from "@/lib/brands/category-label";
 import { getBrandVisitLink } from "@/lib/brands/link-fallback";
-import { getBrandFaq } from "@/lib/services/brand-faq";
+import { faqItemsToQuestions, getBrandFaq } from "@/lib/services/brand-faq";
 import { getChannelsForBrand } from "@/lib/services/brand-channels";
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { cn } from "@/lib/utils";
@@ -193,6 +194,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
       ? getChannelsForBrand(displayBrand.id)
       : Promise.resolve({ confirmed: [], possible: [] }),
   ]);
+  const faqJsonLd = buildFaqPageJsonLd(faqItemsToQuestions(faqItems), safeLocale);
 
   const galleryImages = getBrandGalleryImages(displayBrand);
 
@@ -288,6 +290,12 @@ export default async function BrandDetailPage({ params }: PageProps) {
               ),
             }}
           />
+          {faqJsonLd && (
+            <script
+              type="application/ld+json"
+              dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(faqJsonLd) }}
+            />
+          )}
           {/* Breadcrumb */}
           <BrandBreadcrumb
             locale={safeLocale}

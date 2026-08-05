@@ -719,7 +719,7 @@
         "undeclaredAnswer": "{brandName} has not submitted manufacturing verification to Formoria, so it currently carries no Made-in-Taiwan verification status.{context} Brands listed on Formoria must have a clear connection to Taiwan: founded in Taiwan, designed in Taiwan, or made in Taiwan."
       },
       "isMadeInTaiwan": {
-        "question": "What manufacturing verification does {brandName} have?",
+        "question": "Is {brandName} a Taiwanese brand?",
         "answer": "Formoria matched a product from {brandName} to the MIT Smile registry. This verification applies only to products covered by the registry entry.",
         "registrySource": "Source: MIT Smile registry.",
         "scopeLabels": {
@@ -731,30 +731,14 @@
         "declaredAnswer": "According to the brand declaration, {scope} from {brandName} are made in Taiwan. This information was provided by the brand.",
         "verificationMarker": "verified"
       },
-      "whereToBuy": {
-        "question": "Where can I buy {brandName} products?",
-        "answer": "You can purchase {brandName} products through {channels}."
-      },
-      "hasPhysicalStores": {
-        "question": "Does {brandName} have physical stores?",
-        "answer": "{brandName} has physical locations including {locations}."
-      },
       "mainProducts": {
-        "question": "What products does {brandName} make?",
+        "question": "What are {brandName}'s main products?",
         "answerWithCategoryAndTags": "{brandName} focuses on {category}, with signature products including {productTags}.{context}",
         "answerWithTags": "{brandName} makes {productTags} as signature products.{context}"
       },
       "priceRange": {
-        "question": "What is {brandName}'s price range?",
+        "question": "Which price tier does {brandName} fall into?",
         "answer": "{brandName} products are positioned in the {range} price range."
-      },
-      "whenFounded": {
-        "question": "When was {brandName} founded?",
-        "answer": "{brandName} was founded in {year}."
-      },
-      "officialAccounts": {
-        "question": "Where are {brandName}'s official social media accounts?",
-        "answer": "You can follow {brandName} on {accounts}."
       },
       "reputation": {
         "question": "What is {brandName}'s reputation?",

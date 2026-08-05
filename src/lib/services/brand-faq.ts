@@ -1,40 +1,28 @@
-import {
-  channelMessageKey,
-  PURCHASE_CAMEL_FIELDS,
-  PURCHASE_CHANNELS,
-  type PurchaseChannel,
-} from "@/lib/brands/purchase-channels";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Brand } from "@/lib/types";
 import { createServiceClient } from "@/lib/supabase/server";
-import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
+import { FAQ_PRESETS, type FaqBrandContext } from "@/lib/brands/faq-presets";
+import type { FaqQuestion } from "@/lib/json-ld";
+import type { Database } from "@/lib/supabase/database.types";
 
-type TFn = (key: string, params?: Record<string, unknown>) => string;
+export type TFn = (key: string, params?: Record<string, unknown>) => string;
 
-type FaqItem = {
+export type FaqItem = {
   id: string;
   question: string;
   answer: string;
 };
 
-type BrandFaqEntry = {
-  question_zh?: string | null;
-  answer_zh?: string | null;
-  question_en?: string | null;
-  answer_en?: string | null;
+const PRESET_QUESTION_KEYS: Record<string, string> = {
+  "taiwan-origin": "brandFaq.isMadeInTaiwan.question",
+  "main-products": "brandFaq.mainProducts.question",
+  "price-positioning": "brandFaq.priceRange.question",
+  reputation: "brandFaq.reputation.question",
 };
 
-const FAQ_COLUMN_ORDER = [
-  "faq_products",
-  "faq_price",
-  "faq_where_to_buy",
-  "faq_founded",
-  "faq_reputation",
-  "faq_custom_1",
-  "faq_custom_2",
-  "faq_custom_3",
-  "faq_custom_4",
-] as const;
+export function faqItemsToQuestions(items: FaqItem[]): FaqQuestion[] {
+  return items.map((item) => ({ q: item.question, a: item.answer }));
+}
 
 export async function getBrandFaq(
   brandId: string,
@@ -42,49 +30,68 @@ export async function getBrandFaq(
   t: TFn,
   locale: string = "zh-TW",
   cityLabel: string | null = null,
+  client?: FaqSupabase,
 ): Promise<FaqItem[]> {
-  const supabase = createServiceClient();
-  const { data: faqRow } = await supabase
-    .from("brand_faq")
-    .select("*")
-    .eq("brand_id", brandId)
-    .maybeSingle();
+  const rows = await getBrandFaqEntries(brandId, client);
+  const isZh = !locale.startsWith("en");
+  const ctx: FaqBrandContext = { brand, cityLabel, peerStats: null };
+  const rowsByPreset = new Map<string, BrandFaqEntryRow[]>();
 
-  const isZh = locale.startsWith("zh");
+  for (const row of rows) {
+    const question = isZh ? row.questionZh : row.questionEn;
+    const answer = isZh ? row.answerZh : row.answerEn;
+    if (!sideRenders(question, answer)) continue;
+    const presetRows = rowsByPreset.get(row.presetId) ?? [];
+    presetRows.push(row);
+    rowsByPreset.set(row.presetId, presetRows);
+  }
+
   const items: FaqItem[] = [];
-
-  if (faqRow) {
-    for (const column of FAQ_COLUMN_ORDER) {
-      const entry = faqRow[column] as BrandFaqEntry | null;
-      if (!entry) continue;
-      const question = isZh ? entry.question_zh : entry.question_en;
-      const answer = isZh ? entry.answer_zh : entry.answer_en;
-      if (question && answer) {
-        items.push({ id: column, question, answer });
+  for (const preset of FAQ_PRESETS) {
+    const stored = rowsByPreset.get(preset.id) ?? [];
+    if (stored.length > 0) {
+      const ordered = [...stored].sort(
+        (a, b) =>
+          (a.source === "human" ? 0 : 1) - (b.source === "human" ? 0 : 1) ||
+          a.position - b.position,
+      );
+      const selected = preset.id === "custom"
+        ? [...stored].sort((a, b) => a.position - b.position)
+        : [ordered[0]];
+      for (const row of selected) {
+        const question = isZh ? row.questionZh : row.questionEn;
+        const answer = isZh ? row.answerZh : row.answerEn;
+        if (question == null || answer == null) continue;
+        items.push({
+          id: preset.id === "custom" ? `custom-${row.position}` : preset.id,
+          question,
+          answer,
+        });
       }
+      continue;
     }
+
+    // Eligibility gates only the template floor, not stored rows. The request
+    // path has no peer stats, so gating stored category/price answers would
+    // silently hide model-authored answers.
+    const questionKey = PRESET_QUESTION_KEYS[preset.id];
+    if (!preset.eligible(ctx) || preset.templateFloor === null || !questionKey) continue;
+    items.push({
+      id: preset.id,
+      question: t(questionKey, { brandName: brand.name }),
+      answer: preset.templateFloor(ctx, t, locale),
+    });
   }
 
-  const generated = buildBrandFaq(brand, t, locale, cityLabel);
-  if (items.length > 0) {
-    const mitItem = generated.find((item) => item.id === "made-in-taiwan");
-    return mitItem ? [mitItem, ...items] : items;
-  }
-
-  return generated;
+  return items;
 }
 
 // ---------------------------------------------------------------------------
 // brand_faq_entries — row-based FAQ storage
 // ---------------------------------------------------------------------------
 
-/**
- * `brand_faq_entries` post-dates the generated `Database` types, and
- * regenerating them needs a live database, so the table is reached through the
- * untyped `from` surface with a hand-written row type instead. Same shape as
- * the `SupabaseLike` alias in `curation-operations.ts`.
- */
-type FaqSupabase = Pick<SupabaseClient, "from">;
+/** The table is reached through the untyped `from` surface, with generated DB shapes at the boundary. */
+export type FaqSupabase = Pick<SupabaseClient, "from">;
 
 export type BrandFaqEntrySource = "model" | "human";
 
@@ -113,18 +120,13 @@ export type BrandFaqEntryInput = {
   answerEn?: string | null;
 };
 
-type BrandFaqEntryDbRow = {
-  preset_id: string;
-  // Nullable on the read side only as a defensive transform: the column is
-  // `not null default 0`, but this row type is hand-written rather than
-  // generated, so it does not get to assume the schema.
-  position: number | null;
-  question_zh: string | null;
-  answer_zh: string | null;
-  question_en: string | null;
-  answer_en: string | null;
-  source: BrandFaqEntrySource;
-};
+type FaqEntryTable = Database["public"]["Tables"]["brand_faq_entries"];
+type FaqEntryReadRow = Pick<
+  FaqEntryTable["Row"],
+  "preset_id" | "question_zh" | "answer_zh" | "question_en" | "answer_en"
+> & { position: number | null; source: BrandFaqEntrySource };
+/** `brand_id` is attached at the upsert call site, so the row payload omits it. */
+type FaqEntryInsert = Omit<FaqEntryTable["Insert"], "brand_id">;
 
 function faqClient(client?: FaqSupabase): FaqSupabase {
   return client ?? (createServiceClient() as unknown as FaqSupabase);
@@ -134,7 +136,7 @@ function entryKey(presetId: string, position: number): string {
   return `${presetId}\u0000${position}`;
 }
 
-function toEntry(row: BrandFaqEntryDbRow): BrandFaqEntryRow {
+function toEntry(row: FaqEntryReadRow): BrandFaqEntryRow {
   return {
     presetId: row.preset_id,
     position: row.position ?? 0,
@@ -163,7 +165,7 @@ export async function getBrandFaqEntries(
     .eq("brand_id", brandId);
   if (error) throw error;
 
-  return ((data ?? []) as BrandFaqEntryDbRow[])
+  return ((data ?? []) as FaqEntryReadRow[])
     .map(toEntry)
     .sort(
       (a, b) =>
@@ -232,7 +234,7 @@ export async function upsertBrandFaqEntries(
     existing.map((entry) => [entryKey(entry.presetId, entry.position), entry]),
   );
 
-  const payload: BrandFaqEntryDbRow[] = [];
+  const payload: FaqEntryInsert[] = [];
   for (const candidate of candidates) {
     const current = existingByKey.get(
       entryKey(candidate.presetId, candidate.position),
@@ -270,270 +272,6 @@ export async function upsertBrandFaqEntries(
   if (error) throw error;
 }
 
-type FaqGenerator = {
-  id: string;
-  condition: (brand: Brand, locale: string) => boolean;
-  questionKey: string;
-  buildAnswer: (
-    brand: Brand,
-    t: TFn,
-    locale: string,
-    cityLabel: string | null,
-  ) => string;
-};
-
-const PRICE_RANGE_KEYS: Record<1 | 2 | 3, string> = {
-  1: "brandFaq.priceRanges.budget",
-  2: "brandFaq.priceRanges.midRange",
-  3: "brandFaq.priceRanges.premium",
-};
-
 function hasValue(value: string | null | undefined): value is string {
   return value != null && value.trim() !== "";
-}
-
-function hasMinLength(
-  value: string | null | undefined,
-  minLength: number,
-): value is string {
-  return value != null && value.trim().length >= minLength;
-}
-
-function compactValues(values: Array<string | null | undefined>): string[] {
-  return values.filter(hasValue);
-}
-
-function truncate<T>(items: T[], limit = 3): T[] {
-  return items.slice(0, limit);
-}
-
-/**
- * The registry stores message keys as full paths from the message root, but the
- * `t` handed to this module is already scoped to the `brandDetail` namespace.
- */
-function faqChannelKey(channel: PurchaseChannel): string {
-  return channelMessageKey(channel.messageKeys.brandFaqChannel, "brandDetail");
-}
-
-function collectPurchaseLinks(brand: Brand, t: TFn): string[] {
-  return PURCHASE_CHANNELS.flatMap((channel) => {
-    const url = brand[channel.camel];
-    return hasValue(url) ? [`[${t(faqChannelKey(channel))}](${url})`] : [];
-  });
-}
-
-function collectSocialLinks(brand: Brand): string[] {
-  const links: string[] = [];
-
-  if (hasValue(brand.socialInstagram))
-    links.push(`[Instagram](${brand.socialInstagram})`);
-  if (hasValue(brand.socialThreads))
-    links.push(`[Threads](${brand.socialThreads})`);
-  if (hasValue(brand.socialFacebook))
-    links.push(`[Facebook](${brand.socialFacebook})`);
-
-  return links;
-}
-
-function buildWhereToBuyAnswer(brand: Brand, t: TFn): string {
-  const links = collectPurchaseLinks(brand, t);
-  const sep = t("brandFaq.listSeparator");
-  return t("brandFaq.whereToBuy.answer", {
-    brandName: brand.name,
-    channels: truncate(links).join(sep),
-  });
-}
-
-function buildMainProductsAnswer(
-  brand: Brand,
-  t: TFn,
-  locale: string,
-  cityLabel: string | null,
-): string {
-  const isEnglish = locale === "en";
-  const category = isEnglish
-    ? PRODUCT_TYPE_CATEGORIES.find((item) => item.slug === brand.productType)
-        ?.name
-    : brand.category;
-  const sep = t("brandFaq.listSeparator");
-  const productTags = truncate(
-    isEnglish ? (brand.productTagsEn ?? []) : (brand.productTags ?? []),
-  ).join(sep);
-  const context = buildBrandContext(brand, t, cityLabel);
-
-  if (category && productTags) {
-    return t("brandFaq.mainProducts.answerWithCategoryAndTags", {
-      brandName: brand.name,
-      category,
-      productTags,
-      context,
-    });
-  }
-
-  return t("brandFaq.mainProducts.answerWithTags", {
-    brandName: brand.name,
-    productTags,
-    context,
-  });
-}
-
-function buildPriceRangeAnswer(brand: Brand, t: TFn): string {
-  const rangeKey = brand.priceRange as 1 | 2 | 3;
-  return t("brandFaq.priceRange.answer", {
-    brandName: brand.name,
-    range: t(PRICE_RANGE_KEYS[rangeKey]),
-  });
-}
-
-function buildFoundedAnswer(
-  brand: Brand,
-  t: TFn,
-  _locale: string,
-  cityLabel: string | null,
-): string {
-  return t("brandFaq.whenFounded.answer", {
-    brandName: brand.name,
-    year: brand.foundingYear,
-    context: buildBrandContext(brand, t, cityLabel),
-  });
-}
-
-function buildOfficialAccountsAnswer(brand: Brand, t: TFn): string {
-  const sep = t("brandFaq.listSeparator");
-  return t("brandFaq.officialAccounts.answer", {
-    brandName: brand.name,
-    accounts: collectSocialLinks(brand).join(sep),
-  });
-}
-
-function buildReputationAnswer(
-  brand: Brand,
-  t: TFn,
-  locale: string,
-  cityLabel: string | null,
-): string {
-  const summary =
-    locale === "en"
-      ? (brand.reputationSummary?.textEn ?? "")
-      : (brand.reputationSummary?.text ?? "");
-  return t("brandFaq.reputation.answer", {
-    brandName: brand.name,
-    summary,
-    context: buildBrandContext(brand, t, cityLabel),
-  });
-}
-
-function buildBrandContext(
-  brand: Brand,
-  t: TFn,
-  cityLabel: string | null,
-): string {
-  const details = compactValues([
-    cityLabel ? t("brandFaq.context.city", { city: cityLabel }) : null,
-    brand.foundingYear
-      ? t("brandFaq.context.founded", { year: brand.foundingYear })
-      : null,
-  ]);
-
-  return details.length > 0
-    ? t("brandFaq.context.suffix", {
-        details: details.join(t("brandFaq.listSeparator")),
-      })
-    : "";
-}
-
-function buildMitAnswer(brand: Brand, t: TFn): string {
-  if (brand.mitStatus === "verified") {
-    const verifiedAnswer = t("brandFaq.isMadeInTaiwan.answer", {
-      brandName: brand.name,
-    });
-    const registrySource = t("brandFaq.isMadeInTaiwan.registrySource");
-    return hasValue(brand.mitStory)
-      ? `${brand.mitStory}\n\n${verifiedAnswer} ${registrySource}`
-      : `${verifiedAnswer} ${registrySource}`;
-  }
-
-  const scope = brand.mitDeclaredScope
-    ? t(`brandFaq.isMadeInTaiwan.scopeLabels.${brand.mitDeclaredScope}`)
-    : t("brandFaq.isMadeInTaiwan.scopeLabels.unspecified");
-  const declaration = t("brandFaq.isMadeInTaiwan.declaredAnswer", {
-    brandName: brand.name,
-    scope,
-  });
-  const story = hasValue(brand.mitStory) ? `\n\n${brand.mitStory}` : "";
-
-  return `${declaration}${story}`;
-}
-
-const FAQ_GENERATORS: FaqGenerator[] = [
-  {
-    id: "made-in-taiwan",
-    condition: (brand) =>
-      brand.mitStatus === "declared" || brand.mitStatus === "verified",
-    questionKey: "brandFaq.isMadeInTaiwan.question",
-    buildAnswer: buildMitAnswer,
-  },
-  {
-    id: "where-to-buy",
-    condition: (brand) =>
-      PURCHASE_CAMEL_FIELDS.map((field) => brand[field]).some(hasValue),
-    questionKey: "brandFaq.whereToBuy.question",
-    buildAnswer: buildWhereToBuyAnswer,
-  },
-  {
-    id: "main-products",
-    condition: (brand, locale) =>
-      compactValues(locale === "en" ? brand.productTagsEn : brand.productTags)
-        .length > 0,
-    questionKey: "brandFaq.mainProducts.question",
-    buildAnswer: buildMainProductsAnswer,
-  },
-  {
-    id: "price-range",
-    condition: (brand) => [1, 2, 3].includes(brand.priceRange ?? 0),
-    questionKey: "brandFaq.priceRange.question",
-    buildAnswer: buildPriceRangeAnswer,
-  },
-  {
-    id: "founded",
-    condition: (brand) => Boolean(brand.foundingYear),
-    questionKey: "brandFaq.whenFounded.question",
-    buildAnswer: buildFoundedAnswer,
-  },
-  {
-    id: "official-accounts",
-    condition: (brand) =>
-      [brand.socialInstagram, brand.socialThreads, brand.socialFacebook].some(
-        hasValue,
-      ),
-    questionKey: "brandFaq.officialAccounts.question",
-    buildAnswer: buildOfficialAccountsAnswer,
-  },
-  {
-    id: "reputation",
-    condition: (brand, locale) =>
-      hasMinLength(
-        locale === "en"
-          ? brand.reputationSummary?.textEn
-          : brand.reputationSummary?.text,
-        10,
-      ),
-    questionKey: "brandFaq.reputation.question",
-    buildAnswer: buildReputationAnswer,
-  },
-];
-
-export function buildBrandFaq(
-  brand: Brand,
-  t: TFn,
-  locale: string = "zh-TW",
-  cityLabel: string | null = null,
-): FaqItem[] {
-  return FAQ_GENERATORS.filter((generator) =>
-    generator.condition(brand, locale),
-  ).map((generator) => ({
-    id: generator.id,
-    question: t(generator.questionKey, { brandName: brand.name }),
-    answer: generator.buildAnswer(brand, t, locale, cityLabel),
-  }));
 }
