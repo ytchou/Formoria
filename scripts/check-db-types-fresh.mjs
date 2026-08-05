@@ -1,9 +1,13 @@
 #!/usr/bin/env node
 // CI guard: committed Supabase types must match the linked database.
 //
-// Local runs and CI jobs without Supabase credentials are intentionally skipped.
-// When the linked database is available, drift fails the guard so generated
-// types cannot silently fall behind the schema.
+// Local runs without Supabase credentials are intentionally skipped. Set
+// DB_TYPES_STRICT=1 (CI does) to turn every skip into a failure, so a missing
+// token or an unlinked project is loud instead of a permanently green gate.
+//
+// The committed file is Prettier-formatted and the Supabase CLI emits
+// unformatted output, so the generated types are run through Prettier before
+// the comparison — without that, the guard can never pass.
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, unlinkSync, writeFileSync, readFileSync } from 'node:fs';
@@ -25,12 +29,25 @@ function normalize(source) {
     .concat('\n');
 }
 
+const STRICT = process.env.DB_TYPES_STRICT === '1';
+
 function skip(reason) {
+  if (STRICT) {
+    console.error(`✖ database types guard: cannot verify (${reason})`);
+    console.error('  DB_TYPES_STRICT=1 refuses to pass an unverified guard.');
+    console.error('  CI needs the SUPABASE_ACCESS_TOKEN secret and the SUPABASE_PROJECT_ID variable.');
+    process.exit(1);
+  }
   console.log(`- skipped: ${reason}`);
   process.exit(0);
 }
 
-const result = spawnSync('npx', ['supabase', 'gen', 'types', 'typescript', '--linked'], {
+// `--project-id` needs only an access token, so CI does not have to link the
+// project (linking also wants the database password).
+const projectId = process.env.SUPABASE_PROJECT_ID;
+const target = projectId ? ['--project-id', projectId] : ['--linked'];
+
+const result = spawnSync('npx', ['supabase', 'gen', 'types', 'typescript', ...target], {
   cwd: ROOT,
   encoding: 'utf8',
   timeout: 120000,
@@ -56,8 +73,17 @@ let firstDifferentLine = 0;
 
 try {
   writeFileSync(TEMP_TYPES, stdout);
+  const formatted = spawnSync('npx', ['prettier', '--write', TEMP_TYPES], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 120000,
+  });
+  if (formatted.error || formatted.status !== 0) {
+    skip(`Prettier could not format the generated types (${formatted.error?.message ?? formatted.stderr?.trim()})`);
+  }
+
   const committed = existsSync(COMMITTED_TYPES) ? readFileSync(COMMITTED_TYPES, 'utf8') : '';
-  const generatedNormalized = normalize(stdout);
+  const generatedNormalized = normalize(readFileSync(TEMP_TYPES, 'utf8'));
   const committedNormalized = normalize(committed);
 
   if (generatedNormalized !== committedNormalized) {
