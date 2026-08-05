@@ -91,11 +91,13 @@ export async function auditedCall<T>(
   // catch is empty on purpose: emitAuditRecord already counts the loss and
   // alerts once per process, so there is nothing left to do here but proceed.
   //
-  // KNOWN CEILING (observed, not yet fixed): this AWAITS the emit, so outside a
-  // Next request scope -- where `after()` is unavailable and the write runs
-  // inline -- an unavailable audit DB adds the emitter's full retry backoff to
-  // the latency of the call being audited. Upgrade path: make the non-request
-  // path fire-and-forget behind a bounded queue, or cap the inline retry budget.
+  // KNOWN CEILING (bounded, DEV-1349): this AWAITS the emit, so outside a Next
+  // request scope -- where `after()` is unavailable and the write runs inline --
+  // an unavailable audit DB still adds latency to the call being audited. That
+  // cost is now capped at the emitter's INLINE_BUDGET_MS wall clock rather than
+  // the full retry backoff; past it the record is dropped and counted. Remaining
+  // upgrade path if the loss counter goes sustained non-zero: a bounded
+  // in-process queue that drains asynchronously, with a flush on shutdown.
   try {
     await emitAuditRecord(
       { ...common, status: "started", summary: baseSummary },

@@ -4,6 +4,7 @@ import {
   IN_PROCESS,
   withRetry,
 } from "@/lib/retry";
+import type { RetryPolicy } from "@/lib/retry";
 import type { Json } from "@/lib/supabase/database.types";
 import { redact } from "./redact";
 import type { AuditKind, AuditStatus } from "./types";
@@ -75,12 +76,30 @@ async function defaultAuditWrite(record: AuditRecord): Promise<AuditWriteError |
   return error ? { code: error.code, message: error.message } : null;
 }
 
+/**
+ * DEV-1349. Outside a Next request scope `after()` does not exist, so the write
+ * runs inline on the audited call's own path -- which is where the bulk of the
+ * `auditedCall(` sites (the curation worker and ~20 script entrypoints) actually
+ * execute. An unavailable audit DB would otherwise add the full IN_PROCESS
+ * backoff to every one of those calls. The inline path therefore gets one retry
+ * instead of two and a hard wall-clock budget on top; past the budget the record
+ * is dropped and counted, and the audited call proceeds.
+ *
+ * The write that overran is left to settle on its own rather than cancelled --
+ * it may still land -- which is why a record is reported at most once
+ * (`onceReporter`). Double-counting would poison the very loss signal that
+ * decides whether the bounded-queue upgrade is worth building.
+ */
+const INLINE_POLICY: RetryPolicy = { ...IN_PROCESS, attempts: 2 };
+const INLINE_BUDGET_MS = 2_000;
+
 async function writeWithRetry(
   record: AuditRecord,
   wait: (ms: number) => Promise<void>,
+  policy: RetryPolicy = IN_PROCESS,
 ): Promise<AuditWriteError | null> {
   return withRetry(
-    IN_PROCESS,
+    policy,
     async () => {
       try {
         const error = await (injectedSeam ?? defaultAuditWrite)(record);
@@ -157,21 +176,61 @@ function snapshotRecord(record: AuditRecord): AuditRecord {
   return { ...record, summary };
 }
 
+/** A dropped record must reach the counter exactly once -- see INLINE_POLICY. */
+function onceReporter(): (error: AuditWriteError) => void {
+  let reported = false;
+  return (error) => {
+    if (reported) return;
+    reported = true;
+    reportWriteLoss(error);
+  };
+}
+
+async function runWrite(
+  record: AuditRecord,
+  wait: (ms: number) => Promise<void>,
+  policy: RetryPolicy,
+  report: (error: AuditWriteError) => void,
+): Promise<void> {
+  try {
+    const error = await writeWithRetry(record, wait, policy);
+    if (error) report(error);
+  } catch (error) {
+    report({
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+async function writeInline(
+  record: AuditRecord,
+  wait: (ms: number) => Promise<void>,
+): Promise<void> {
+  const report = onceReporter();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const budget = new Promise<"expired">((resolve) => {
+    timer = setTimeout(() => resolve("expired"), INLINE_BUDGET_MS);
+    // The budget timer must never be the reason a worker or script stays alive.
+    timer.unref?.();
+  });
+
+  const outcome = await Promise.race([
+    runWrite(record, wait, INLINE_POLICY, report).then(() => "settled" as const),
+    budget,
+  ]);
+  clearTimeout(timer);
+
+  if (outcome === "expired") {
+    report({
+      message: `Audit write exceeded the ${INLINE_BUDGET_MS}ms inline budget; record dropped`,
+    });
+  }
+}
+
 async function scheduleWrite(
   record: AuditRecord,
   wait: (ms: number) => Promise<void>,
 ): Promise<void> {
-  const write = async (): Promise<void> => {
-    try {
-      const error = await writeWithRetry(record, wait);
-      if (error) reportWriteLoss(error);
-    } catch (error) {
-      reportWriteLoss({
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
-  };
-
   // LOAD-BEARING lazy import: `next/server` must never appear as a top-level
   // import in this directory (module-purity.test.ts enforces it), because the
   // curation worker loads this module under plain tsx with no Next runtime.
@@ -180,9 +239,11 @@ async function scheduleWrite(
   // that is killed on response completion.
   try {
     const { after } = await import("next/server");
-    after(write);
+    // Deferred past the response, so the full retry budget costs the caller
+    // nothing and needs no cap.
+    after(() => runWrite(record, wait, IN_PROCESS, onceReporter()));
   } catch {
-    await write();
+    await writeInline(record, wait);
   }
 }
 
