@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 
-const ENRICHMENT_CONFIG_VERSION = 'v2.2'
+const ENRICHMENT_CONFIG_VERSION = 'v2.3'
 
 function shortHash(text: string): string {
   return createHash('sha256').update(text).digest('hex').slice(0, 8)

@@ -14,6 +14,9 @@ test.describe("Brand detail deep", () => {
       workerIndex: workerInfo.workerIndex,
       withLinks: true,
       withOwner: true,
+      // The FAQ cases below need brand *evidence*, not links: the presets that
+      // survive gate on mit_status / product_tags / price_range.
+      withFaqEvidence: true,
     });
   });
 
@@ -214,22 +217,75 @@ test.describe("Brand detail deep", () => {
     );
   });
 
-  test("FAQ accordion renders on a data-rich brand", async ({ page }) => {
-    // Seeded with purchase links and social accounts — FAQ conditions are met
-    await page.goto(`/brands/${seeded.slug}`);
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
-      timeout: 10_000,
+  test("FAQ renders on a data-rich brand", async ({ page }) => {
+    test.setTimeout(90_000);
+
+    // Seeded via `withFaqEvidence`: mit_status, product_tags and price_range.
+    // Those — not links — are what the surviving presets gate their template
+    // floors on, so a link-only fixture would render just `taiwan-origin`.
+    await expect(async () => {
+      await page.goto(`/brands/${seeded.slug}`, {
+        waitUntil: "domcontentloaded",
+      });
+      // FAQ section heading (zh-TW default locale — brandDetail.sections.faq)
+      await expect(
+        page.getByRole("heading", { name: "常見問題", level: 2 }),
+      ).toBeVisible({ timeout: 10_000 });
+    }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 10_000] });
+
+    // At least one FAQ question row is present and visible. The rows are native
+    // <details>/<summary> — there is no accordion-trigger slot to select on.
+    const questions = page.locator('details[id^="faq-"] > summary');
+    await expect(questions.first()).toBeVisible();
+
+    // "Data-rich" means more than the always-eligible taiwan-origin question:
+    // each seeded evidence field must pull its own preset onto the page.
+    for (const id of ["taiwan-origin", "main-products", "price-positioning"]) {
+      await expect(page.locator(`details#faq-${id}`)).toHaveCount(1);
+    }
+  });
+
+  test("FAQ answer text is in the DOM while collapsed", async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(90_000);
+
+    // The whole point of DEV-1317: answers must be readable without opening
+    // anything. Nothing here clicks — a test that expands first would pass
+    // just as happily against JS-only, open-gated answer rendering.
+    await expect(async () => {
+      await page.goto(`/brands/${seeded.slug}`, {
+        waitUntil: "domcontentloaded",
+      });
+      await expect(
+        page.getByRole("heading", { name: "常見問題", level: 2 }),
+      ).toBeVisible({ timeout: 10_000 });
+    }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 10_000] });
+
+    const firstItem = page.locator('details[id^="faq-"]').first();
+    // taiwan-origin leads the catalog and is eligible for every approved
+    // brand, so the fixture's declared MIT status decides the answer copy.
+    await expect(firstItem).toHaveAttribute("id", "faq-taiwan-origin");
+    await expect(firstItem.locator("p")).toContainText("此資訊由品牌方提供");
+    expect(
+      await firstItem.evaluate((el) => (el as HTMLDetailsElement).open),
+    ).toBe(false);
+
+    // The literal acceptance criterion — "verifiable by curl". Asserting on the
+    // rendered DOM alone would still pass if a client effect injected the text
+    // after hydration, which is exactly the regression this guards against.
+    const response = await request.get(`/brands/${seeded.slug}`, {
+      headers: { "user-agent": "Googlebot" },
     });
-
-    // FAQ section heading is visible (zh-TW default locale — brandFaq.sectionTitle = '常見問題')
-    await expect(
-      page.getByRole("heading", { name: "常見問題", level: 2 }),
-    ).toBeVisible({ timeout: 10_000 });
-
-    // At least one accordion trigger (FAQ item) is present and visible
-    await expect(
-      page.locator('[data-slot="accordion-trigger"]').first(),
-    ).toBeVisible();
+    expect(response.status()).toBe(200);
+    const html = await response.text();
+    expect(html).toContain("此資訊由品牌方提供");
+    const $ = load(html);
+    const serverItem = $('details[id^="faq-"]').first();
+    expect(serverItem.attr("id")).toBe("faq-taiwan-origin");
+    expect(serverItem.attr("open")).toBeUndefined();
+    expect(serverItem.find("p").text()).toContain("此資訊由品牌方提供");
   });
 });
 

@@ -6,7 +6,7 @@ import type { Locale } from '@/lib/seo/alternates'
 import { buildOpenGraph } from '@/lib/seo/open-graph'
 import { Link } from '@/i18n/navigation'
 import { FaqSection } from '@/components/shared/faq-section'
-import { OpenTargetDetails } from './open-target-details'
+import { OpenTargetDetails } from '@/components/shared/open-target-details'
 
 type PageProps = {
   params: Promise<{ locale: string }>

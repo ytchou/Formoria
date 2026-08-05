@@ -1,15 +1,11 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { type ReactNode, type ToggleEvent } from "react";
 import { useTranslations } from "next-intl";
+import { ChevronDown } from "lucide-react";
 import { trackFaqItemExpanded } from "@/lib/analytics";
 
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+import { OpenTargetDetails } from "@/components/shared/open-target-details";
 import { FaqSection } from "@/components/shared/faq-section";
 import { sanitizeHref } from "@/lib/url";
 import { useBrandEngagement } from "./brand-engagement-tracker";
@@ -43,7 +39,7 @@ function renderLinkedText(text: string): ReactNode {
 }
 
 interface BrandFaqAccordionProps {
-  items: Array<{ question: string; answer: string }>;
+  items: Array<{ id: string; question: string; answer: string }>;
   brandSlug: string;
 }
 
@@ -53,18 +49,14 @@ export function BrandFaqAccordion({
 }: BrandFaqAccordionProps) {
   const t = useTranslations("brandDetail.sections");
   const { reportEngagement } = useBrandEngagement();
-  const [openItems, setOpenItems] = useState<string[]>([]);
 
   if (items.length === 0) return null;
 
-  function handleValueChange(values: string[]) {
-    const newlyOpened = values.filter((v) => !openItems.includes(v));
-    for (const val of newlyOpened) {
-      const index = parseInt(val.replace("faq-", ""), 10);
-      if (!isNaN(index)) trackFaqItemExpanded(brandSlug, index);
-    }
-    if (newlyOpened.length > 0) reportEngagement("faq");
-    setOpenItems(values);
+  function handleToggle(event: ToggleEvent<HTMLDetailsElement>, id: string) {
+    // Native <details> fires toggle on both open and close; only expansion counts.
+    if (!event.currentTarget.open) return;
+    trackFaqItemExpanded(brandSlug, id);
+    reportEngagement("faq");
   }
 
   return (
@@ -73,25 +65,29 @@ export function BrandFaqAccordion({
       headerClassName="mb-4"
       titleClassName="type-section-title-large"
     >
-      <Accordion
-        type="multiple"
-        value={openItems}
-        onValueChange={handleValueChange}
-      >
-        {items.map((item, index) => (
-          <AccordionItem
-            key={`${item.question}-${index}`}
-            value={`faq-${index}`}
+      <OpenTargetDetails />
+      <div className="divide-y divide-border">
+        {items.map((item) => (
+          <details
+            key={item.id}
+            id={`faq-${item.id}`}
+            className="group scroll-mt-24"
+            onToggle={(event) => handleToggle(event, item.id)}
           >
-            <AccordionTrigger className="type-faq-question py-5 hover:no-underline">
+            <summary className="flex cursor-pointer list-none items-center justify-between py-5 type-faq-question focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
               {item.question}
-            </AccordionTrigger>
-            <AccordionContent>
-              <p className="type-body-muted">{renderLinkedText(item.answer)}</p>
-            </AccordionContent>
-          </AccordionItem>
+              <ChevronDown className="size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
+            </summary>
+            {/* The row's vertical padding lives on <summary>, the interactive
+                element, so the whole visual row is the hit target (~62px, over
+                the 44px minimum) and the focus ring wraps it. The answer
+                carries the closing padding the <details> used to. */}
+            <p className="pb-5 type-body-muted">
+              {renderLinkedText(item.answer)}
+            </p>
+          </details>
         ))}
-      </Accordion>
+      </div>
     </FaqSection>
   );
 }

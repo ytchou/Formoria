@@ -15,6 +15,8 @@ import {
   type JsonLdObject,
 } from "@/lib/json-ld";
 import type { Brand } from "@/lib/types";
+import { faqItemsToQuestions, getBrandFaq } from "@/lib/services/brand-faq";
+import type { FaqSupabase } from "@/lib/services/brand-faq";
 
 function makeBrand(overrides: Partial<Brand> = {}): Brand {
   return {
@@ -624,6 +626,39 @@ describe("buildFaqPageJsonLd", () => {
     expect(serialized).not.toContain("</script>");
     expect(serialized).toContain("\\u003c");
     expect(JSON.parse(serialized)).toEqual(ld);
+  });
+
+  it("emits FAQPage JSON-LD matching the rendered items", async () => {
+    const client = {
+      from(table: string) {
+        if (table !== "brand_faq_entries") throw new Error(`unexpected table: ${table}`);
+        const builder = {
+          select: () => builder,
+          eq: () => builder,
+          then: (resolve: (result: { data: never[]; error: null }) => unknown) =>
+            Promise.resolve({ data: [], error: null }).then(resolve),
+        };
+        return builder;
+      },
+    };
+    const translate = (key: string, params?: Record<string, unknown>) =>
+      `${key}|${JSON.stringify(params ?? {})}`;
+    const items = await getBrandFaq(
+      "123",
+      makeBrand({ productTags: ["陶瓷"] }),
+      translate,
+      "zh-TW",
+      null,
+      client as unknown as FaqSupabase,
+    );
+    const ld = buildFaqPageJsonLd(faqItemsToQuestions(items), "zh-TW") as JsonLdObject;
+
+    expect(ld.mainEntity.map((entry: JsonLdObject) => entry.name)).toEqual(
+      items.map((item) => item.question),
+    );
+    expect(
+      ld.mainEntity.map((entry: JsonLdObject) => entry.acceptedAnswer.text),
+    ).toEqual(items.map((item) => item.answer));
   });
 });
 
