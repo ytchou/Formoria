@@ -52,8 +52,9 @@ const OVERWRITE = process.argv.includes("--overwrite");
 
 function flag(name: string): string[] {
   const raw =
-    process.argv.find((arg) => arg.startsWith(`--${name}=`))?.slice(name.length + 3) ??
-    "";
+    process.argv
+      .find((arg) => arg.startsWith(`--${name}=`))
+      ?.slice(name.length + 3) ?? "";
   return raw
     .split(",")
     .map((value) => value.trim())
@@ -78,7 +79,8 @@ async function loadCandidates(): Promise<Candidate[]> {
   if (SLUGS.length > 0) query = query.in("slug", SLUGS);
 
   const { data, error } = await query;
-  if (error) throw new Error(`loading approved brands failed: ${error.message}`);
+  if (error)
+    throw new Error(`loading approved brands failed: ${error.message}`);
 
   const rows = (data ?? []) as Candidate[];
   if (SLUGS.length > 0) {
