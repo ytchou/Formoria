@@ -41,7 +41,7 @@ export const PROVIDERS = {
     "updateProfile",
     "updateProfileAdmin",
     "updateReportStatus",
-    "upsertBrandFaqFromEnrichment",
+    "upsertBrandFaqEntries",
     "upsertEnrichedChannels",
     "verifyMitByCert",
     "withdrawDeclaration",
