@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { formatPriceRange } from "@/lib/brands/price-range";
+import { PURCHASE_COLUMNS } from "@/lib/brands/purchase-channels";
 import type {
   BrandCorrection,
   CorrectionDecision,
@@ -64,9 +65,7 @@ type TagDeltaState = {
  * where prefix matching would silently swallow it.
  */
 const LINK_FIELDS: readonly CorrectionQueueItem["field"][] = [
-  "purchase_website",
-  "purchase_pinkoi",
-  "purchase_shopee",
+  ...PURCHASE_COLUMNS,
   "social_instagram",
   "social_threads",
   "social_facebook",

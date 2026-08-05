@@ -1,3 +1,10 @@
+import {
+  PURCHASE_CHANNELS,
+  PURCHASE_COLUMNS,
+  type PurchaseChannel,
+  type PurchaseChannelCamelField,
+  type PurchaseChannelColumn,
+} from '@/lib/brands/purchase-channels'
 import type { Database } from '@/lib/supabase/database.types'
 import { createServiceClient } from '@/lib/supabase/server'
 import { languagePurity } from './eval/scorers'
@@ -5,6 +12,20 @@ import { languagePurity } from './eval/scorers'
 type LinkMetric = {
   count: number
   percentage: number
+}
+
+/** One `LinkMetric` per purchase channel, keyed by its camelCase `Brand` field. */
+type PurchaseLinkMetrics = { [K in PurchaseChannelCamelField]: LinkMetric }
+
+/** The `<column>_count` aggregate the RPC returns for each purchase channel. */
+type PurchaseCountColumn = `${PurchaseChannelColumn}_count`
+
+function purchaseLinkMetrics(
+  metric: (channel: PurchaseChannel) => LinkMetric,
+): PurchaseLinkMetrics {
+  return Object.fromEntries(
+    PURCHASE_CHANNELS.map((channel) => [channel.camel, metric(channel)]),
+  ) as PurchaseLinkMetrics
 }
 
 export type EnrichmentQualityMetrics = {
@@ -27,10 +48,7 @@ export type QualityMetrics = {
     socialInstagram: LinkMetric
     socialThreads: LinkMetric
     socialFacebook: LinkMetric
-    purchaseWebsite: LinkMetric
-    purchasePinkoi: LinkMetric
-    purchaseShopee: LinkMetric
-  }
+  } & PurchaseLinkMetrics
   description: {
     withCount: number
     withoutCount: number
@@ -63,13 +81,10 @@ type BrandQualityRow = {
   social_instagram: string | null
   social_threads: string | null
   social_facebook: string | null
-  purchase_website: string | null
-  purchase_pinkoi: string | null
-  purchase_shopee: string | null
   description: string | null
   founding_year: number | null
   other_urls: unknown
-}
+} & { [K in PurchaseChannelColumn]: string | null }
 
 type QualityMetricsRpcRow = {
   total_brands?: number | null
@@ -77,16 +92,13 @@ type QualityMetricsRpcRow = {
   social_instagram_count?: number | null
   social_threads_count?: number | null
   social_facebook_count?: number | null
-  purchase_website_count?: number | null
-  purchase_pinkoi_count?: number | null
-  purchase_shopee_count?: number | null
   description_count?: number | null
   avg_description_length?: number | null
   completeness_excellent?: number | null
   completeness_good?: number | null
   completeness_fair?: number | null
   completeness_poor?: number | null
-}
+} & { [K in PurchaseCountColumn]?: number | null }
 
 type QualityMetricsClient = ReturnType<typeof createServiceClient> & {
   rpc: (
@@ -153,14 +165,24 @@ const EMPTY_QUALITY_METRICS: QualityMetrics = {
     socialInstagram: { count: 0, percentage: 0 },
     socialThreads: { count: 0, percentage: 0 },
     socialFacebook: { count: 0, percentage: 0 },
-    purchaseWebsite: { count: 0, percentage: 0 },
-    purchasePinkoi: { count: 0, percentage: 0 },
-    purchaseShopee: { count: 0, percentage: 0 },
+    ...purchaseLinkMetrics(() => ({ count: 0, percentage: 0 })),
   },
   description: { withCount: 0, withoutCount: 0, percentage: 0, avgLength: 0 },
   completeness: { excellent: 0, good: 0, fair: 0, poor: 0 },
   enrichment: EMPTY_ENRICHMENT_QUALITY_METRICS,
 }
+
+/** Column list backing `BrandQualityRow`; purchase channels come from the registry. */
+const BRAND_QUALITY_SELECT = [
+  'hero_image_url',
+  'social_instagram',
+  'social_threads',
+  'social_facebook',
+  ...PURCHASE_COLUMNS,
+  'description',
+  'founding_year',
+  'other_urls',
+].join(', ')
 
 const ZH_LANGUAGE_PURITY_THRESHOLD = 0.85
 /**
@@ -255,18 +277,7 @@ export async function getQualityMetrics(): Promise<QualityMetrics> {
   if (metrics === EMPTY_QUALITY_METRICS) {
     const { data, error } = await (supabase as unknown as BrandQualityClient)
       .from('brands')
-      .select(`
-        hero_image_url,
-        social_instagram,
-        social_threads,
-        social_facebook,
-        purchase_website,
-        purchase_pinkoi,
-        purchase_shopee,
-        description,
-        founding_year,
-        other_urls
-      `)
+      .select(BRAND_QUALITY_SELECT)
 
     if (!error && data) {
       metrics = metricsFromRows(data)
@@ -295,9 +306,9 @@ function metricsFromRpcRow(row: QualityMetricsRpcRow): QualityMetrics {
       socialInstagram: linkMetric(row.social_instagram_count, totalBrands),
       socialThreads: linkMetric(row.social_threads_count, totalBrands),
       socialFacebook: linkMetric(row.social_facebook_count, totalBrands),
-      purchaseWebsite: linkMetric(row.purchase_website_count, totalBrands),
-      purchasePinkoi: linkMetric(row.purchase_pinkoi_count, totalBrands),
-      purchaseShopee: linkMetric(row.purchase_shopee_count, totalBrands),
+      ...purchaseLinkMetrics((channel) =>
+        linkMetric(row[`${channel.column}_count`], totalBrands),
+      ),
     },
     description: {
       withCount: descriptionCount,
@@ -321,9 +332,9 @@ function metricsFromRows(rows: BrandQualityRow[]): QualityMetrics {
   let socialInstagramCount = 0
   let socialThreadsCount = 0
   let socialFacebookCount = 0
-  let purchaseWebsiteCount = 0
-  let purchasePinkoiCount = 0
-  let purchaseShopeeCount = 0
+  const purchaseCounts = new Map<PurchaseChannelColumn, number>(
+    PURCHASE_COLUMNS.map((column) => [column, 0]),
+  )
   let descriptionCount = 0
   let descriptionLengthTotal = 0
   const completeness = { excellent: 0, good: 0, fair: 0, poor: 0 }
@@ -333,9 +344,11 @@ function metricsFromRows(rows: BrandQualityRow[]): QualityMetrics {
     if (hasText(row.social_instagram)) socialInstagramCount += 1
     if (hasText(row.social_threads)) socialThreadsCount += 1
     if (hasText(row.social_facebook)) socialFacebookCount += 1
-    if (hasText(row.purchase_website)) purchaseWebsiteCount += 1
-    if (hasText(row.purchase_pinkoi)) purchasePinkoiCount += 1
-    if (hasText(row.purchase_shopee)) purchaseShopeeCount += 1
+    for (const column of PURCHASE_COLUMNS) {
+      if (hasText(row[column])) {
+        purchaseCounts.set(column, (purchaseCounts.get(column) ?? 0) + 1)
+      }
+    }
 
     const descriptionLength = row.description?.trim().length ?? 0
     if (descriptionLength >= 20) {
@@ -357,9 +370,10 @@ function metricsFromRows(rows: BrandQualityRow[]): QualityMetrics {
       socialInstagram: { count: socialInstagramCount, percentage: percentage(socialInstagramCount, totalBrands) },
       socialThreads: { count: socialThreadsCount, percentage: percentage(socialThreadsCount, totalBrands) },
       socialFacebook: { count: socialFacebookCount, percentage: percentage(socialFacebookCount, totalBrands) },
-      purchaseWebsite: { count: purchaseWebsiteCount, percentage: percentage(purchaseWebsiteCount, totalBrands) },
-      purchasePinkoi: { count: purchasePinkoiCount, percentage: percentage(purchasePinkoiCount, totalBrands) },
-      purchaseShopee: { count: purchaseShopeeCount, percentage: percentage(purchaseShopeeCount, totalBrands) },
+      ...purchaseLinkMetrics((channel) => {
+        const count = purchaseCounts.get(channel.column) ?? 0
+        return { count, percentage: percentage(count, totalBrands) }
+      }),
     },
     description: {
       withCount: descriptionCount,
@@ -428,7 +442,7 @@ function completenessBucket(row: BrandQualityRow): keyof QualityMetrics['complet
   const completed = [
     hasText(row.hero_image_url),
     (row.description?.trim().length ?? 0) >= 20,
-    hasText(row.purchase_website) || hasText(row.purchase_pinkoi) || hasText(row.purchase_shopee) || jsonArrayLength(row.other_urls) > 0,
+    PURCHASE_COLUMNS.some((column) => hasText(row[column])) || jsonArrayLength(row.other_urls) > 0,
     hasText(row.social_instagram) || hasText(row.social_threads) || hasText(row.social_facebook),
     row.founding_year != null,
   ].filter(Boolean).length

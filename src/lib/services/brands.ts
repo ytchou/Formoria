@@ -30,6 +30,16 @@ import { downloadAndStoreImages } from "./image-download";
 import { excludeTestBrands } from "./public-brand-filter";
 import { PUBLIC_BRAND_DATA_TAG } from "@/lib/cache/public-brand-cache";
 import {
+  PURCHASE_CAMEL_FIELDS,
+  PURCHASE_CHANNELS,
+  PURCHASE_COLUMNS,
+  purchaseChannelByKey,
+  purchaseChannelByPlatformSlug,
+  type PurchaseChannelCamelField,
+  type PurchaseChannelColumn,
+  type PurchaseChannelPlatformSlug,
+} from "@/lib/brands/purchase-channels";
+import {
   resolveWritablePatch,
   type BrandFieldWriteState,
   type BrandWriteActor,
@@ -75,10 +85,9 @@ type BrandFlatLinkColumns = {
   social_instagram?: string | null;
   social_threads?: string | null;
   social_facebook?: string | null;
-  purchase_website?: string | null;
-  purchase_pinkoi?: string | null;
-  purchase_shopee?: string | null;
   other_urls?: unknown;
+} & {
+  [Column in PurchaseChannelColumn]?: string | null;
 };
 
 export type CuratedSubmissionInput = {
@@ -105,15 +114,13 @@ type CuratedBrand = Partial<Brand> &
     | "socialInstagram"
     | "socialThreads"
     | "socialFacebook"
-    | "purchaseWebsite"
-    | "purchasePinkoi"
-    | "purchaseShopee"
     | "otherUrls"
     | "status"
     | "heroImageUrl"
     | "contactEmail"
     | "foundingYear"
-  > & { productType: string };
+  > &
+  Pick<Brand, PurchaseChannelCamelField> & { productType: string };
 
 export type BrandWriteInput = Partial<Brand> & { productType?: string | null };
 type BrandWriteResult = Brand & { skipped: SkippedBrandField[] };
@@ -391,26 +398,40 @@ export function parseBrandCSV(
 export function curatedSubmissionToBrand(
   input: CuratedSubmissionInput,
 ): CuratedBrand {
-  const purchaseWebsite =
-    input.socialLinks.website ||
-    input.purchaseLinks.find((link) =>
-      ["website", "official"].includes(link.platform.toLowerCase()),
-    )?.url ||
-    null;
-  const purchasePinkoi =
-    input.purchaseLinks.find((link) => link.platform.toLowerCase() === "pinkoi")
-      ?.url ?? null;
-  const purchaseShopee =
-    input.purchaseLinks.find((link) => link.platform.toLowerCase() === "shopee")
-      ?.url ?? null;
-  const otherUrls = input.purchaseLinks
-    .filter(
-      (link) =>
-        !["website", "official", "pinkoi", "shopee"].includes(
-          link.platform.toLowerCase(),
-        ),
-    )
-    .map((link) => ({ label: link.platform, url: link.url }));
+  const purchaseValues: Partial<
+    Record<PurchaseChannelCamelField, string>
+  > = {};
+  const otherUrls: OtherUrl[] = [];
+  for (const link of input.purchaseLinks) {
+    const platform = link.platform.toLowerCase();
+    const platformSlug =
+      platform === "official"
+        ? purchaseChannelByKey.website.platformSlug
+        : platform;
+    const channel = Object.hasOwn(purchaseChannelByPlatformSlug, platformSlug)
+      ? purchaseChannelByPlatformSlug[
+          platformSlug as PurchaseChannelPlatformSlug
+        ]
+      : undefined;
+
+    if (!channel) {
+      otherUrls.push({ label: link.platform, url: link.url });
+      continue;
+    }
+
+    if (!(channel.camel in purchaseValues)) {
+      purchaseValues[channel.camel] = link.url;
+    }
+  }
+
+  const purchaseFields = Object.fromEntries(
+    PURCHASE_CHANNELS.map((channel) => [
+      channel.camel,
+      channel === purchaseChannelByKey.website
+        ? input.socialLinks.website || purchaseValues[channel.camel] || null
+        : purchaseValues[channel.camel] ?? null,
+    ]),
+  ) as Pick<Brand, PurchaseChannelCamelField>;
 
   return {
     name: input.name,
@@ -424,9 +445,7 @@ export function curatedSubmissionToBrand(
     socialInstagram: input.socialLinks.instagram || null,
     socialThreads: input.socialLinks.threads || null,
     socialFacebook: input.socialLinks.facebook || null,
-    purchaseWebsite,
-    purchasePinkoi,
-    purchaseShopee,
+    ...purchaseFields,
     otherUrls,
     productPhotos: input.productPhotos,
     contactEmail: null,
@@ -450,9 +469,7 @@ const BRAND_DRAFT_EDITABLE_KEYS = [
   "productPhotos",
   "priceRange",
   "productTags",
-  "purchaseWebsite",
-  "purchasePinkoi",
-  "purchaseShopee",
+  ...PURCHASE_CAMEL_FIELDS,
   "mitStory",
   "otherUrls",
   "reputationSummary",
@@ -574,6 +591,17 @@ export function draftSnapshotToDomain(
   for (const key of BRAND_DRAFT_EDITABLE_KEYS) {
     if (!(key in snapshot)) continue;
 
+    if (PURCHASE_CAMEL_FIELDS.includes(key as PurchaseChannelCamelField)) {
+      const purchaseField = key as PurchaseChannelCamelField;
+      (
+        partial as Partial<Pick<Brand, PurchaseChannelCamelField>>
+      )[purchaseField] = snapshot[purchaseField] as Pick<
+        Brand,
+        PurchaseChannelCamelField
+      >[typeof purchaseField];
+      continue;
+    }
+
     switch (key) {
       case "name":
         partial.name = snapshot.name as Brand["name"];
@@ -622,18 +650,6 @@ export function draftSnapshotToDomain(
         partial.productTags =
           (snapshot.productTags as Brand["productTags"]) ?? [];
         break;
-      case "purchaseWebsite":
-        partial.purchaseWebsite =
-          snapshot.purchaseWebsite as Brand["purchaseWebsite"];
-        break;
-      case "purchasePinkoi":
-        partial.purchasePinkoi =
-          snapshot.purchasePinkoi as Brand["purchasePinkoi"];
-        break;
-      case "purchaseShopee":
-        partial.purchaseShopee =
-          snapshot.purchaseShopee as Brand["purchaseShopee"];
-        break;
       case "mitStory":
         partial.mitStory = snapshot.mitStory as string | null;
         break;
@@ -672,6 +688,13 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
       ? [row.brand_owners]
       : [];
 
+  const purchaseFields = Object.fromEntries(
+    PURCHASE_CHANNELS.map((channel) => [
+      channel.camel,
+      row[channel.column] ?? null,
+    ]),
+  ) as Pick<Brand, PurchaseChannelCamelField>;
+
   const brand = {
     id: row.id,
     name: row.name,
@@ -706,9 +729,7 @@ export function brandToDomain(row: BrandRowWithJoins): Brand {
     socialInstagram: row.social_instagram ?? null,
     socialThreads: row.social_threads ?? null,
     socialFacebook: row.social_facebook ?? null,
-    purchaseWebsite: row.purchase_website ?? null,
-    purchasePinkoi: row.purchase_pinkoi ?? null,
-    purchaseShopee: row.purchase_shopee ?? null,
+    ...purchaseFields,
     otherUrls: (row.other_urls as OtherUrl[]) ?? [],
     productPhotos: [],
     imageAlts: [],
@@ -817,9 +838,7 @@ export const BRAND_COLUMN_LIST = [
   "product_type",
   "contact_email",
   "city",
-  "purchase_website",
-  "purchase_pinkoi",
-  "purchase_shopee",
+  ...PURCHASE_COLUMNS,
   "social_instagram",
   "social_threads",
   "social_facebook",

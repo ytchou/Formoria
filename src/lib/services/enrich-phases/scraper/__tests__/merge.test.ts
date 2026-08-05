@@ -4,8 +4,8 @@ import { emptyResult } from '../parse/extractors'
 
 describe('mergePurchaseLinks', () => {
   it('keeps base values and fills gaps from next', () => {
-    const base = { purchaseWebsite: 'https://a.com', purchasePinkoi: 'https://pinkoi.com/a', purchaseShopee: null }
-    const next = { purchaseWebsite: 'https://b.com', purchasePinkoi: null, purchaseShopee: 'https://shopee.tw/b' }
+    const base = { purchaseWebsite: 'https://a.com', purchasePinkoi: 'https://pinkoi.com/a', purchaseShopee: null, purchaseMyship: null }
+    const next = { purchaseWebsite: 'https://b.com', purchasePinkoi: null, purchaseShopee: 'https://shopee.tw/b', purchaseMyship: null }
     const result = mergePurchaseLinks(base, next)
     expect(result.purchaseWebsite).toBe('https://a.com')
     expect(result.purchasePinkoi).toBe('https://pinkoi.com/a')
@@ -13,8 +13,8 @@ describe('mergePurchaseLinks', () => {
   })
 
   it('fills all gaps from next', () => {
-    const base = { purchaseWebsite: null, purchasePinkoi: null, purchaseShopee: null }
-    const next = { purchaseWebsite: 'https://b.com', purchasePinkoi: 'https://pinkoi.com/b', purchaseShopee: null }
+    const base = { purchaseWebsite: null, purchasePinkoi: null, purchaseShopee: null, purchaseMyship: null }
+    const next = { purchaseWebsite: 'https://b.com', purchasePinkoi: 'https://pinkoi.com/b', purchaseShopee: null, purchaseMyship: null }
     const result = mergePurchaseLinks(base, next)
     expect(result.purchaseWebsite).toBe('https://b.com')
     expect(result.purchasePinkoi).toBe('https://pinkoi.com/b')
@@ -22,9 +22,9 @@ describe('mergePurchaseLinks', () => {
   })
 
   it('returns all nulls when both are empty', () => {
-    const empty = { purchaseWebsite: null, purchasePinkoi: null, purchaseShopee: null }
+    const empty = { purchaseWebsite: null, purchasePinkoi: null, purchaseShopee: null, purchaseMyship: null }
     const result = mergePurchaseLinks(empty, empty)
-    expect(result).toEqual({ purchaseWebsite: null, purchasePinkoi: null, purchaseShopee: null })
+    expect(result).toEqual({ purchaseWebsite: null, purchasePinkoi: null, purchaseShopee: null, purchaseMyship: null })
   })
 })
 

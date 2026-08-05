@@ -8,6 +8,7 @@ const emptyLinks = {
   socialFacebook: null,
   purchasePinkoi: null,
   purchaseShopee: null,
+  purchaseMyship: null,
 }
 
 describe('getBrandVisitLink', () => {

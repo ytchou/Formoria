@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { MAX_BRAND_GALLERY_PHOTOS } from '@/lib/constants/brand-images'
+import { purchaseChannelByKey } from '@/lib/brands/purchase-channels'
 import {
   BRAND_WIZARD_SHARED_SECTION_FIELDS,
   brandWizardBasicInfoSchema,
@@ -25,6 +26,10 @@ const reputationSchema = z.object({
 // Composed full schema.
 export const brandEditSchema = brandWizardCommonSchema.merge(reputationSchema)
 
+const publishPurchaseRequirements = {
+  [purchaseChannelByKey.website.camel]: z.string().url(),
+}
+
 export const brandPublishRequirementsSchema = z.object({
   name: z.string().trim().min(1),
   productType: z.string().trim().min(1),
@@ -42,7 +47,7 @@ export const brandPublishRequirementsSchema = z.object({
   // Gallery photos are optional: a brand with only a hero image must still be
   // able to publish and to save unrelated fields in the edit wizard.
   productPhotos: z.array(z.string().url()).min(0).max(MAX_BRAND_GALLERY_PHOTOS),
-  purchaseWebsite: z.string().url(),
+  ...publishPurchaseRequirements,
 })
 
 export const brandPublishSchema = brandEditSchema.and(

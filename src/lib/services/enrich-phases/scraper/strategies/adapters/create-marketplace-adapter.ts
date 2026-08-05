@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio'
+import type { PurchaseChannelCamelField } from '@/lib/brands/purchase-channels'
 import {
   domBreadcrumbs,
   emptyResult,
@@ -29,11 +30,22 @@ export interface MarketplaceAdapterConfig {
   host: string
   titleSuffixPatterns: RegExp[]
   productImageExtractor: ($: cheerio.CheerioAPI, limit?: number) => string[]
-  purchaseKey: 'purchasePinkoi' | 'purchaseShopee'
+  purchaseKey: PurchaseChannelCamelField
   /** Stable provenance slug recorded on every image this adapter yields. */
   imageMethod: string
-  shopNameSelector: string
-  shopDescriptionSelector: string
+  /**
+   * First name fallback, tried after og:title / JSON-LD name / `<h1>`.
+   * Historically the class-based storefront heading selector.
+   */
+  shopNameSelector?: string
+  /** Second name fallback, tried last. Historically the data-testid heading. */
+  fallbackNameSelector?: string
+  fallbackDescriptionSelectors?: string[]
+  /**
+   * Extra predicate ANDed with the host check. Used by MyShip, whose host also
+   * serves landing and help pages that must not be parsed as storefronts.
+   */
+  matchesPath?: (url: string) => boolean
 }
 
 function cleanTitle(title: string | null, titleSuffixPatterns: RegExp[]): string | null {
@@ -47,7 +59,8 @@ function cleanTitle(title: string | null, titleSuffixPatterns: RegExp[]): string
 export function createMarketplaceAdapter(config: MarketplaceAdapterConfig): PlatformAdapter {
   return {
     host: config.host,
-    matches: (url) => hostMatches(url, config.host),
+    matches: (url) =>
+      hostMatches(url, config.host) && (config.matchesPath?.(url) ?? true),
     parse(html, url) {
       const $ = cheerio.load(html)
       const result = emptyResult(url)
@@ -65,17 +78,24 @@ export function createMarketplaceAdapter(config: MarketplaceAdapterConfig): Plat
         metaContent($, 'meta[property="og:title"]') ||
           firstString(structuredStore?.name) ||
           textContent($, 'h1') ||
-          textContent($, config.shopNameSelector) ||
-          textContent($, config.host === 'pinkoi.com' ? '[data-testid*="store"] h1' : '[data-testid*="shop"] h1'),
+          textContent($, config.shopNameSelector ?? '[class*="shop-name"]') ||
+          textContent($, config.fallbackNameSelector ?? '[data-testid*="shop"] h1'),
         config.titleSuffixPatterns
       )
 
+      const fallbackDescription = (
+        config.fallbackDescriptionSelectors ?? [
+          '[class*="shop-description"]',
+          '[class*="description"]',
+        ]
+      )
+        .map((selector) => textContent($, selector))
+        .find((value): value is string => Boolean(value)) ?? null
       const description =
         metaContent($, 'meta[property="og:description"]') ||
         metaContent($, 'meta[name="description"]') ||
         firstString(structuredStore?.description) ||
-        textContent($, config.host === 'pinkoi.com' ? '[class*="description"]' : config.shopDescriptionSelector) ||
-        textContent($, config.host === 'pinkoi.com' ? '[class*="story"]' : '[class*="description"]')
+        fallbackDescription
 
       const heroCandidate =
         metaContent($, 'meta[property="og:image"]') ||
@@ -88,8 +108,8 @@ export function createMarketplaceAdapter(config: MarketplaceAdapterConfig): Plat
         description,
         story: description,
         heroImageUrl: heroCandidate
-          ? filterHeroImage(heroCandidate, url) ?? galleryImageUrls[0] ?? null
-          : galleryImageUrls[0] ?? null,
+          ? filterHeroImage(heroCandidate, url) ?? galleryImageUrls.at(0) ?? null
+          : galleryImageUrls.at(0) ?? null,
         galleryImageUrls,
         imageSources: toImageSources(galleryImageUrls, config.imageMethod, url),
         ...extractSocialLinks($),

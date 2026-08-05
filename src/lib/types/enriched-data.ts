@@ -46,6 +46,7 @@ export type EnrichedData = {
   purchaseWebsite?: string;
   purchasePinkoi?: string;
   purchaseShopee?: string;
+  purchaseMyship?: string;
   otherUrls?: OtherUrl[];
   faq?: EnrichedFaqItem[];
   name?: string;
@@ -148,6 +149,9 @@ export function enrichedDataFromDb(
     ...(typeof json.purchase_shopee === "string"
       ? { purchaseShopee: json.purchase_shopee }
       : {}),
+    ...(typeof json.purchase_myship === "string"
+      ? { purchaseMyship: json.purchase_myship }
+      : {}),
     ...(Array.isArray(json.other_urls)
       ? {
           otherUrls: json.other_urls.filter(
@@ -203,6 +207,8 @@ export function enrichedDataToDb(data: EnrichedData): Record<string, unknown> {
     result.purchase_pinkoi = data.purchasePinkoi;
   if (data.purchaseShopee !== undefined)
     result.purchase_shopee = data.purchaseShopee;
+  if (data.purchaseMyship !== undefined)
+    result.purchase_myship = data.purchaseMyship;
   if (data.otherUrls !== undefined) result.other_urls = data.otherUrls;
   if (data.faq !== undefined) result.faq = data.faq;
   return result;

@@ -31,8 +31,7 @@ import {
   isValidSlug,
 } from "@/lib/services/brands";
 import { cleanBrandName } from "@/lib/services/brand-cleanup";
-import { toSubmissionRow } from "./field-map";
-import { deriveProductTagsEn } from "./product-tags";
+import { toBrandRow, toSubmissionRow } from "./field-map";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { deleteStoredImagePaths } from "./image-upload";
 import { slugifyRomanizedName } from "@/lib/brands/slug";
@@ -40,12 +39,22 @@ import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { upsertEnrichedChannels } from "./brand-channels";
 import { upsertBrandFaqFromEnrichment } from "./brand-faq";
 import { normalizeCommunityWebsite } from "./community-submissions";
+import {
+  PURCHASE_CAMEL_FIELDS,
+  PURCHASE_CHANNELS,
+  PURCHASE_COLUMNS,
+  purchaseChannelByKey,
+  type PurchaseChannelCamelField,
+  type PurchaseChannelColumn,
+} from "@/lib/brands/purchase-channels";
 
 // ---------------------------------------------------------------------------
 // Row types
 // ---------------------------------------------------------------------------
 
-type SubmissionRow = Database["public"]["Tables"]["brand_submissions"]["Row"];
+type SubmissionRow = Database["public"]["Tables"]["brand_submissions"]["Row"] & {
+  [Column in PurchaseChannelColumn]?: string | null;
+};
 type CurationTargetHistoryRow = Pick<
   Database["public"]["Tables"]["curation_job_targets"]["Row"],
   | "id"
@@ -60,16 +69,18 @@ type CurationJobReviewRow = Pick<
   Database["public"]["Tables"]["curation_jobs"]["Row"],
   "id" | "status" | "dispatch_status" | "dispatch_error" | "job_error"
 >;
-type SubmissionRowWithProductTypeNote = Omit<SubmissionRow, "other_urls"> & {
+type SubmissionRowWithProductTypeNote = Omit<
+  SubmissionRow,
+  "other_urls" | PurchaseChannelColumn
+> & {
   hero_image_url?: string | null;
   product_type_note?: string | null;
   social_instagram?: string | null;
   social_threads?: string | null;
   social_facebook?: string | null;
-  purchase_website?: string | null;
-  purchase_pinkoi?: string | null;
-  purchase_shopee?: string | null;
   other_urls?: OtherUrl[] | null;
+} & {
+  [Column in PurchaseChannelColumn]?: string | null;
 };
 type SubmissionImageRow =
   Database["public"]["Tables"]["submission_images"]["Row"];
@@ -151,11 +162,8 @@ export type SubmissionReviewData = {
   socialInstagram: string | null;
   socialThreads: string | null;
   socialFacebook: string | null;
-  purchaseWebsite: string | null;
-  purchasePinkoi: string | null;
-  purchaseShopee: string | null;
   otherUrls: OtherUrl[];
-};
+} & { [Field in PurchaseChannelCamelField]: string | null };
 type EnrichedSubmissionData = EnrichedData & {
   channels?: ChannelCandidate[];
 };
@@ -240,7 +248,9 @@ type SubmissionRowInput = Pick<
 
 type SuggestedTagsInput = string[] | { values?: string[] };
 type ServiceClient = SupabaseClient<Database>;
-type BrandInsert = Database["public"]["Tables"]["brands"]["Insert"];
+type BrandInsert = Database["public"]["Tables"]["brands"]["Insert"] & {
+  [Column in PurchaseChannelColumn]?: string | null;
+};
 
 const GENERATED_GUEST_EMAIL_DOMAIN = "guest.formoria.invalid";
 const ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE = 1_000;
@@ -287,9 +297,6 @@ export type CreateSubmissionInput = {
   socialInstagram?: string | null;
   socialThreads?: string | null;
   socialFacebook?: string | null;
-  purchaseWebsite?: string | null;
-  purchasePinkoi?: string | null;
-  purchaseShopee?: string | null;
   otherUrls?: OtherUrl[];
   suggestedTags?: string[] | { values?: string[] };
   pdpaConsentAt?: string;
@@ -297,32 +304,58 @@ export type CreateSubmissionInput = {
   sourceAttribution?: SourceAttribution | null;
   productTypeNote?: string | null;
   ownerData?: Record<string, unknown>;
-};
+} & Partial<Pick<BrandSubmission, PurchaseChannelCamelField>>;
 
 export function buildSubmissionRecord(
   input: CreateSubmissionInput,
 ): Record<string, unknown> {
-  return {
-    brand_id: input.brandId ?? null,
+  const mapped = toSubmissionRow({
+    brandId: input.brandId ?? null,
     intent: input.intent ?? "recommend",
-    brand_name: input.brandName,
-    submitter_email: input.submitterEmail,
-    submitter_name: input.submitterName ?? null,
+    brandName: input.brandName,
+    submitterEmail: input.submitterEmail,
+    submitterName: input.submitterName ?? null,
     description: input.description ?? null,
-    website_url: input.websiteUrl ?? null,
-    hero_image_url: input.heroImageUrl ?? null,
-    social_instagram: input.socialInstagram ?? null,
-    social_threads: input.socialThreads ?? null,
-    social_facebook: input.socialFacebook ?? null,
-    purchase_website: input.purchaseWebsite ?? null,
-    purchase_pinkoi: input.purchasePinkoi ?? null,
-    purchase_shopee: input.purchaseShopee ?? null,
-    other_urls: input.otherUrls ?? [],
-    suggested_tags: input.suggestedTags ?? [],
-    pdpa_consent_at: input.pdpaConsentAt ?? null,
-    is_brand_owner: input.isOwner ?? false,
-    source_attribution: input.sourceAttribution ?? null,
-    product_type_note: input.productTypeNote ?? null,
+    websiteUrl: input.websiteUrl ?? null,
+    heroImageUrl: input.heroImageUrl ?? null,
+    socialInstagram: input.socialInstagram ?? null,
+    socialThreads: input.socialThreads ?? null,
+    socialFacebook: input.socialFacebook ?? null,
+    ...Object.fromEntries(
+      PURCHASE_CHANNELS.map((channel) => [
+        channel.camel,
+        input[channel.camel] ?? null,
+      ]),
+    ),
+    otherUrls: input.otherUrls ?? [],
+    suggestedTags: input.suggestedTags ?? [],
+    pdpaConsentAt: input.pdpaConsentAt ?? null,
+    isBrandOwner: input.isOwner ?? false,
+    sourceAttribution: input.sourceAttribution ?? null,
+    productTypeNote: input.productTypeNote ?? null,
+  });
+
+  return {
+    brand_id: mapped.brand_id,
+    intent: mapped.intent,
+    brand_name: mapped.brand_name,
+    submitter_email: mapped.submitter_email,
+    submitter_name: mapped.submitter_name,
+    description: mapped.description,
+    website_url: mapped.website_url,
+    hero_image_url: mapped.hero_image_url,
+    social_instagram: mapped.social_instagram,
+    social_threads: mapped.social_threads,
+    social_facebook: mapped.social_facebook,
+    ...Object.fromEntries(
+      PURCHASE_COLUMNS.map((column) => [column, mapped[column]]),
+    ),
+    other_urls: mapped.other_urls,
+    suggested_tags: mapped.suggested_tags,
+    pdpa_consent_at: mapped.pdpa_consent_at,
+    is_brand_owner: mapped.is_brand_owner,
+    source_attribution: mapped.source_attribution,
+    product_type_note: mapped.product_type_note,
     owner_data: input.ownerData ?? null,
   };
 }
@@ -334,6 +367,13 @@ export function buildSubmissionRecord(
 function submissionToDomain(
   row: SubmissionRowInput,
 ): BrandSubmissionWithProductTypeNote {
+  const purchaseFields = Object.fromEntries(
+    PURCHASE_CHANNELS.map((channel) => [
+      channel.camel,
+      row[channel.column] ?? null,
+    ]),
+  ) as Pick<BrandSubmission, PurchaseChannelCamelField>;
+
   return {
     id: row.id,
     brandId: row.brand_id ?? null,
@@ -347,9 +387,7 @@ function submissionToDomain(
     socialInstagram: row.social_instagram ?? null,
     socialThreads: row.social_threads ?? null,
     socialFacebook: row.social_facebook ?? null,
-    purchaseWebsite: row.purchase_website ?? null,
-    purchasePinkoi: row.purchase_pinkoi ?? null,
-    purchaseShopee: row.purchase_shopee ?? null,
+    ...purchaseFields,
     otherUrls: (row.other_urls as OtherUrl[]) ?? [],
     suggestedTags: (row.suggested_tags as string[]) ?? [],
     status: row.status as BrandSubmission["status"],
@@ -628,12 +666,9 @@ type SubmissionReviewSource = Pick<
   | "socialInstagram"
   | "socialThreads"
   | "socialFacebook"
-  | "purchaseWebsite"
-  | "purchasePinkoi"
-  | "purchaseShopee"
   | "otherUrls"
   | "suggestedTags"
->;
+> & Pick<BrandSubmissionWithProductTypeNote, PurchaseChannelCamelField>;
 
 export function buildSubmissionReviewData(
   submission: SubmissionReviewSource,
@@ -646,11 +681,18 @@ export function buildSubmissionReviewData(
   const activeImages = normalizeSubmissionReviewImages(images).filter(
     (image) => image.status === "active",
   );
+  const websiteField = purchaseChannelByKey.website.camel;
   const imageHero = activeImages.at(0);
   const websiteUrl = preferText(
-    enrichedData?.purchaseWebsite,
-    submission.purchaseWebsite,
+    enrichedData?.[websiteField],
+    submission[websiteField],
   );
+  const purchaseFields = Object.fromEntries(
+    PURCHASE_CAMEL_FIELDS.map((field) => [
+      field,
+      preferText(enrichedData?.[field], submission[field]),
+    ]),
+  ) as Pick<SubmissionReviewData, PurchaseChannelCamelField>;
 
   return {
     name:
@@ -691,15 +733,7 @@ export function buildSubmissionReviewData(
       enrichedData?.socialFacebook,
       submission.socialFacebook,
     ),
-    purchaseWebsite: websiteUrl,
-    purchasePinkoi: preferText(
-      enrichedData?.purchasePinkoi,
-      submission.purchasePinkoi,
-    ),
-    purchaseShopee: preferText(
-      enrichedData?.purchaseShopee,
-      submission.purchaseShopee,
-    ),
+    ...purchaseFields,
     otherUrls:
       enrichedOtherUrls.length > 0
         ? enrichedOtherUrls
@@ -716,6 +750,19 @@ function refreshReviewSource(
       ? baseBrandData.product_type
       : null,
   );
+  const websiteColumn = purchaseChannelByKey.website.column;
+  const websiteUrl =
+    typeof baseBrandData[websiteColumn] === "string"
+      ? baseBrandData[websiteColumn]
+      : null;
+  const purchaseFields = Object.fromEntries(
+    PURCHASE_CHANNELS.map((channel) => [
+      channel.camel,
+      typeof baseBrandData[channel.column] === "string"
+        ? baseBrandData[channel.column]
+        : null,
+    ]),
+  ) as Pick<SubmissionReviewSource, PurchaseChannelCamelField>;
 
   return {
     brandName:
@@ -726,10 +773,7 @@ function refreshReviewSource(
       typeof baseBrandData.description === "string"
         ? baseBrandData.description
         : null,
-    websiteUrl:
-      typeof baseBrandData.purchase_website === "string"
-        ? baseBrandData.purchase_website
-        : null,
+    websiteUrl,
     heroImageUrl:
       typeof baseBrandData.hero_image_url === "string"
         ? baseBrandData.hero_image_url
@@ -746,18 +790,7 @@ function refreshReviewSource(
       typeof baseBrandData.social_facebook === "string"
         ? baseBrandData.social_facebook
         : null,
-    purchaseWebsite:
-      typeof baseBrandData.purchase_website === "string"
-        ? baseBrandData.purchase_website
-        : null,
-    purchasePinkoi:
-      typeof baseBrandData.purchase_pinkoi === "string"
-        ? baseBrandData.purchase_pinkoi
-        : null,
-    purchaseShopee:
-      typeof baseBrandData.purchase_shopee === "string"
-        ? baseBrandData.purchase_shopee
-        : null,
+    ...purchaseFields,
     otherUrls: normalizeOtherUrls(baseBrandData.other_urls),
     suggestedTags: {
       values: normalizeStringArray(baseBrandData.product_tags),
@@ -864,13 +897,15 @@ export function getSubmissionReviewCompleteness(
   if (![1, 2, 3].includes(data.priceRange ?? 0)) {
     missingFields.push("priceRange");
   }
+  const purchaseLinkFields = PURCHASE_CAMEL_FIELDS.filter(
+    (field) => field !== purchaseChannelByKey.website.camel,
+  );
   const hasAnyLink =
     isHttpUrl(data.websiteUrl) ||
-    normalizeString(data.socialInstagram) != null ||
-    normalizeString(data.socialThreads) != null ||
-    normalizeString(data.socialFacebook) != null ||
-    isHttpUrl(data.purchasePinkoi) ||
-    isHttpUrl(data.purchaseShopee);
+    [data.socialInstagram, data.socialThreads, data.socialFacebook].some(
+      (value) => normalizeString(value) != null,
+    ) ||
+    purchaseLinkFields.some((field) => isHttpUrl(data[field]));
   if (!hasAnyLink) missingFields.push("website");
   if (activeImages.length === 0) missingFields.push("heroImage");
   if (latestTargetStatus !== "succeeded") {
@@ -884,6 +919,9 @@ function submissionToBrandBase(row: SubmissionRow): BrandInsert {
   const rowWithSubmissionImages = row as SubmissionRow & {
     hero_image_url?: string | null;
   };
+  const purchaseFields = Object.fromEntries(
+    PURCHASE_COLUMNS.map((column) => [column, row[column]]),
+  ) as Pick<BrandInsert, PurchaseChannelColumn>;
 
   return {
     name: row.brand_name,
@@ -898,9 +936,7 @@ function submissionToBrandBase(row: SubmissionRow): BrandInsert {
     social_instagram: row.social_instagram,
     social_threads: row.social_threads,
     social_facebook: row.social_facebook,
-    purchase_website: row.purchase_website,
-    purchase_pinkoi: row.purchase_pinkoi,
-    purchase_shopee: row.purchase_shopee,
+    ...purchaseFields,
     other_urls: normalizeOtherUrls(row.other_urls),
     contact_email: row.submitter_email,
     site_content: null,
@@ -909,46 +945,79 @@ function submissionToBrandBase(row: SubmissionRow): BrandInsert {
   };
 }
 
+function submissionReviewDataPrefix(data: SubmissionReviewData) {
+  const mapped = toBrandRow({
+    name: data.name,
+    description: data.description,
+    descriptionEn: data.descriptionEn,
+    blurb: data.blurb,
+    blurbEn: data.blurbEn,
+    heroImageUrl: data.heroImageUrl,
+    productType: data.productType,
+    foundingYear: data.foundingYear,
+    city: data.city,
+    socialInstagram: data.socialInstagram,
+    socialThreads: data.socialThreads,
+    socialFacebook: data.socialFacebook,
+    ...Object.fromEntries(
+      PURCHASE_CHANNELS.map((channel) => [
+        channel.camel,
+        channel === purchaseChannelByKey.website
+          ? data.websiteUrl
+          : data[channel.camel],
+      ]),
+    ),
+    otherUrls: data.otherUrls,
+    priceRange: data.priceRange,
+    productTags: data.productTags,
+    productTagsEn: data.productTagsEn,
+  });
+  const purchaseFields = Object.fromEntries(
+    PURCHASE_COLUMNS.map((column) => [column, mapped[column]]),
+  ) as Pick<BrandInsert, PurchaseChannelColumn>;
+
+  return { mapped, purchaseFields };
+}
+
 function submissionReviewDataToBrandInsert(
   data: SubmissionReviewData,
 ): Partial<BrandInsert> {
+  const { mapped, purchaseFields } = submissionReviewDataPrefix(data);
+
   return {
-    name: data.name,
-    description: data.description,
-    description_en: data.descriptionEn,
-    blurb: data.blurb,
-    blurb_en: data.blurbEn,
-    city: data.city,
+    name: mapped.name,
+    description: mapped.description,
+    description_en: mapped.description_en,
+    blurb: mapped.blurb,
+    blurb_en: mapped.blurb_en,
+    city: mapped.city,
     category_attributes: data.categoryAttributes,
     reputation_summary: data.reputationSummary,
     mit_evidence: data.mitEvidence,
     site_content: data.siteContent,
-    founding_year: data.foundingYear,
-    hero_image_url: data.heroImageUrl,
-    product_type: data.productType,
-    price_range: data.priceRange,
-    product_tags: data.productTags,
-    // Approval is a brand's first write and does not go through `toBrandRow`,
-    // so the normalizer has to be repeated here — otherwise the EN array the
-    // admin form supplied (validated for length only) lands raw. See DEV-1266.
-    product_tags_en: deriveProductTagsEn(data.productTags, data.productTagsEn),
-    social_instagram: data.socialInstagram,
-    social_threads: data.socialThreads,
-    social_facebook: data.socialFacebook,
-    purchase_website: data.websiteUrl,
-    purchase_pinkoi: data.purchasePinkoi,
-    purchase_shopee: data.purchaseShopee,
-    other_urls: data.otherUrls,
+    founding_year: mapped.founding_year,
+    hero_image_url: mapped.hero_image_url,
+    product_type: mapped.product_type,
+    price_range: mapped.price_range,
+    product_tags: mapped.product_tags,
+    product_tags_en: mapped.product_tags_en,
+    social_instagram: mapped.social_instagram,
+    social_threads: mapped.social_threads,
+    social_facebook: mapped.social_facebook,
+    ...purchaseFields,
+    other_urls: mapped.other_urls,
   };
 }
 
 function submissionReviewDataToDb(
   data: SubmissionReviewData,
 ): Record<string, Json | undefined> {
+  const { mapped, purchaseFields } = submissionReviewDataPrefix(data);
+
   return {
-    name: data.name,
-    description: data.description,
-    description_en: data.descriptionEn,
+    name: mapped.name,
+    description: mapped.description,
+    description_en: mapped.description_en,
     blurb: data.blurb,
     blurb_en: data.blurbEn,
     city: data.city,
@@ -957,21 +1026,17 @@ function submissionReviewDataToDb(
     channels: data.channels as unknown as Json,
     mit_evidence: data.mitEvidence,
     site_content: data.siteContent,
-    founding_year: data.foundingYear,
-    hero_image_url: data.heroImageUrl,
-    product_type: data.productType,
-    price_range: data.priceRange,
-    product_tags: data.productTags,
-    // Normalize in the staging row too, so the queue shows the admin the exact
-    // strings approval will publish rather than a value that changes on insert.
-    product_tags_en: deriveProductTagsEn(data.productTags, data.productTagsEn),
-    social_instagram: data.socialInstagram,
-    social_threads: data.socialThreads,
-    social_facebook: data.socialFacebook,
-    purchase_website: data.websiteUrl,
-    purchase_pinkoi: data.purchasePinkoi,
-    purchase_shopee: data.purchaseShopee,
-    other_urls: data.otherUrls as unknown as Json,
+    founding_year: mapped.founding_year,
+    hero_image_url: mapped.hero_image_url,
+    product_type: mapped.product_type,
+    price_range: mapped.price_range,
+    product_tags: mapped.product_tags,
+    product_tags_en: mapped.product_tags_en,
+    social_instagram: mapped.social_instagram,
+    social_threads: mapped.social_threads,
+    social_facebook: mapped.social_facebook,
+    ...purchaseFields,
+    other_urls: mapped.other_urls as unknown as Json,
   };
 }
 
@@ -979,6 +1044,21 @@ function reviewDataFromDb(
   data: Record<string, unknown>,
   fallback: SubmissionReviewData,
 ): SubmissionReviewData {
+  const websiteColumn = purchaseChannelByKey.website.column;
+  const websiteUrl =
+    data[websiteColumn] === null || typeof data[websiteColumn] === "string"
+      ? (data[websiteColumn] as string | null)
+      : fallback.websiteUrl;
+  const purchaseFields = Object.fromEntries(
+    PURCHASE_CHANNELS.map((channel) => [
+      channel.camel,
+      data[channel.column] === null ||
+      typeof data[channel.column] === "string"
+        ? data[channel.column]
+        : fallback[channel.camel],
+    ]),
+  ) as Pick<SubmissionReviewData, PurchaseChannelCamelField>;
+
   return {
     name: typeof data.name === "string" ? data.name : fallback.name,
     description:
@@ -1045,11 +1125,7 @@ function reviewDataFromDb(
     productTagsEn: Array.isArray(data.product_tags_en)
       ? normalizeStringArray(data.product_tags_en)
       : fallback.productTagsEn,
-    websiteUrl:
-      data.purchase_website === null ||
-      typeof data.purchase_website === "string"
-        ? data.purchase_website
-        : fallback.websiteUrl,
+    websiteUrl,
     socialInstagram:
       data.social_instagram === null ||
       typeof data.social_instagram === "string"
@@ -1063,19 +1139,7 @@ function reviewDataFromDb(
       data.social_facebook === null || typeof data.social_facebook === "string"
         ? data.social_facebook
         : fallback.socialFacebook,
-    purchaseWebsite:
-      data.purchase_website === null ||
-      typeof data.purchase_website === "string"
-        ? data.purchase_website
-        : fallback.purchaseWebsite,
-    purchasePinkoi:
-      data.purchase_pinkoi === null || typeof data.purchase_pinkoi === "string"
-        ? data.purchase_pinkoi
-        : fallback.purchasePinkoi,
-    purchaseShopee:
-      data.purchase_shopee === null || typeof data.purchase_shopee === "string"
-        ? data.purchase_shopee
-        : fallback.purchaseShopee,
+    ...purchaseFields,
     otherUrls: Array.isArray(data.other_urls)
       ? normalizeOtherUrls(data.other_urls)
       : fallback.otherUrls,
@@ -1152,15 +1216,12 @@ export async function createSubmission(
         | "socialInstagram"
         | "socialThreads"
         | "socialFacebook"
-        | "purchaseWebsite"
-        | "purchasePinkoi"
-        | "purchaseShopee"
         | "otherUrls"
         | "pdpaConsentAt"
         | "isBrandOwner"
         | "sourceAttribution"
       >
-    > & {
+    > & Partial<Pick<BrandSubmission, PurchaseChannelCamelField>> & {
       websiteUrl?: string | null;
       romanizedName?: string | null;
       suggestedTags?: SuggestedTagsInput;
@@ -1253,9 +1314,7 @@ const ADMIN_REVIEW_SUBMISSIONS_SELECT = `
   social_instagram,
   social_threads,
   social_facebook,
-  purchase_website,
-  purchase_pinkoi,
-  purchase_shopee,
+  ${PURCHASE_COLUMNS.join(",\n  ")},
   other_urls,
   suggested_tags,
   status,

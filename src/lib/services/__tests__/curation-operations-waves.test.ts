@@ -154,6 +154,7 @@ function scrapeResult(data: Record<string, unknown> = {}) {
       purchaseWebsite: null,
       purchasePinkoi: null,
       purchaseShopee: null,
+      purchaseMyship: null,
       ...data,
     },
     statuses: [],

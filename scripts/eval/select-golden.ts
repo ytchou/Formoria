@@ -1,15 +1,23 @@
+import {
+  PURCHASE_COLUMNS,
+  purchaseChannelByKey,
+  type PurchaseChannelColumn,
+} from '@/lib/brands/purchase-channels'
 import { createServiceClient } from '@/lib/supabase/server'
 
-type BrandRow = {
+/** The brand's own site; every other registry channel counts as a marketplace. */
+const WEBSITE_COLUMN = purchaseChannelByKey.website.column
+const MARKETPLACE_COLUMNS = PURCHASE_COLUMNS.filter(
+  (column) => column !== WEBSITE_COLUMN
+)
+
+type BrandRow = Record<PurchaseChannelColumn, string | null> & {
   id: string
   slug: string
   name: string
   description: string | null
   hero_image_url: string | null
   product_type: string | null
-  purchase_website: string | null
-  purchase_pinkoi: string | null
-  purchase_shopee: string | null
   social_instagram: string | null
 }
 type SearchResultRow = {
@@ -66,11 +74,11 @@ function descriptionSnippet(description: string | null): string {
 }
 
 function dataRichness(brand: BrandRow): string {
-  if (brand.purchase_website) {
+  if (brand[WEBSITE_COLUMN]) {
     return 'official-site'
   }
 
-  if (brand.purchase_pinkoi || brand.purchase_shopee) {
+  if (MARKETPLACE_COLUMNS.some((column) => brand[column])) {
     return 'marketplace-only'
   }
 
@@ -155,7 +163,7 @@ async function main(): Promise<void> {
   const brandsResult = await supabase
     .from('brands')
     .select(
-      'id, slug, name, description, hero_image_url, product_type, purchase_website, purchase_pinkoi, purchase_shopee, social_instagram'
+      `id, slug, name, description, hero_image_url, product_type, ${PURCHASE_COLUMNS.join(', ')}, social_instagram`
     )
     .eq('status', 'approved')
     .order('updated_at', { ascending: false })
@@ -165,7 +173,9 @@ async function main(): Promise<void> {
     throw new Error(brandsResult.error.message)
   }
 
-  const brands = (brandsResult.data ?? []) as BrandRow[]
+  // The select list is built from the channel registry, so supabase-js cannot
+  // infer a row type from the (non-literal) query string.
+  const brands = (brandsResult.data ?? []) as unknown as BrandRow[]
   const brandIds = brands.map((brand) => brand.id)
 
   const [searchResults, aiResults, ownerResults] = await Promise.all([

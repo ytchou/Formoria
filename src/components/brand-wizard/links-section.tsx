@@ -6,6 +6,7 @@ import {
   Camera,
   Globe2,
   Link2,
+  Package,
   Plus,
   Share2,
   ShoppingBag,
@@ -21,15 +22,20 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { fieldTextStyles } from '@/components/ui/text-styles'
 import type { BrandWizardCommonValues } from '@/lib/schemas/brand-wizard'
+import {
+  channelMessageKey,
+  PURCHASE_CHANNELS,
+  purchaseChannelByKey,
+  type PurchaseChannelCamelField,
+  type PurchaseChannelKey,
+} from '@/lib/brands/purchase-channels'
 import { cn } from '@/lib/utils'
 
 type FixedLinkName =
   | 'socialInstagram'
   | 'socialThreads'
   | 'socialFacebook'
-  | 'purchaseWebsite'
-  | 'purchasePinkoi'
-  | 'purchaseShopee'
+  | PurchaseChannelCamelField
 
 type PlatformRow = {
   name: FixedLinkName
@@ -39,6 +45,38 @@ type PlatformRow = {
   iconClassName: string
   inputType?: 'text' | 'url'
 }
+
+type PurchasePresentation = Pick<
+  PlatformRow,
+  'placeholder' | 'icon' | 'iconClassName' | 'inputType'
+>
+
+const PURCHASE_PRESENTATION = {
+  website: {
+    placeholder: 'https://yourbrand.com',
+    icon: Globe2,
+    iconClassName: 'bg-foreground/10 text-foreground',
+    inputType: 'url',
+  },
+  pinkoi: {
+    placeholder: 'https://pinkoi.com/store/yourbrand',
+    icon: Store,
+    iconClassName: 'bg-primary/10 text-primary',
+    inputType: 'url',
+  },
+  shopee: {
+    placeholder: 'https://shopee.tw/yourbrand',
+    icon: ShoppingBag,
+    iconClassName: 'bg-destructive/10 text-destructive',
+    inputType: 'url',
+  },
+  myship: {
+    placeholder: 'https://myship.7-11.com.tw/general/detail/GM123456',
+    icon: Package,
+    iconClassName: 'bg-accent/10 text-accent',
+    inputType: 'url',
+  },
+} satisfies Record<PurchaseChannelKey, PurchasePresentation>
 
 export function BrandLinksSection({
   officialWebsiteRequired,
@@ -80,32 +118,12 @@ export function BrandLinksSection({
       inputType: 'url',
     },
   ]
-  const purchaseRows: PlatformRow[] = [
-    {
-      name: 'purchaseWebsite',
-      label: t('fieldOfficialWebsite'),
-      placeholder: 'https://yourbrand.com',
-      icon: Globe2,
-      iconClassName: 'bg-foreground/10 text-foreground',
-      inputType: 'url',
-    },
-    {
-      name: 'purchasePinkoi',
-      label: 'Pinkoi',
-      placeholder: 'https://pinkoi.com/store/yourbrand',
-      icon: Store,
-      iconClassName: 'bg-primary/10 text-primary',
-      inputType: 'url',
-    },
-    {
-      name: 'purchaseShopee',
-      label: t('fieldShopee'),
-      placeholder: 'https://shopee.tw/yourbrand',
-      icon: ShoppingBag,
-      iconClassName: 'bg-destructive/10 text-destructive',
-      inputType: 'url',
-    },
-  ]
+  const purchaseRows: PlatformRow[] = PURCHASE_CHANNELS.map((channel) => ({
+    name: channel.camel,
+    label: t(channelMessageKey(channel.messageKeys.dashboardEditField, 'dashboard.edit')),
+    ...PURCHASE_PRESENTATION[channel.key],
+  }))
+  const officialWebsiteField = purchaseChannelByKey.website.camel
 
   return (
     <section id="purchase" className="scroll-mt-8 space-y-5">
@@ -133,7 +151,7 @@ export function BrandLinksSection({
           <FixedPlatformRow
             key={row.name}
             row={row}
-            required={row.name === 'purchaseWebsite' && officialWebsiteRequired}
+            required={row.name === officialWebsiteField && officialWebsiteRequired}
           />
         ))}
       </LinkGroup>

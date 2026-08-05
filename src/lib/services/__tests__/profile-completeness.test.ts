@@ -16,6 +16,7 @@ const EMPTY = {
   socialFacebook: null,
   purchasePinkoi: null,
   purchaseShopee: null,
+  purchaseMyship: null,
   otherUrls: [],
   reputationSummary: null,
 } satisfies Pick<
@@ -33,6 +34,7 @@ const EMPTY = {
   | 'socialFacebook'
   | 'purchasePinkoi'
   | 'purchaseShopee'
+  | 'purchaseMyship'
   | 'otherUrls'
   | 'reputationSummary'
 >

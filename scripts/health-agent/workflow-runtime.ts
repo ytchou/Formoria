@@ -4,6 +4,11 @@ import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
 import {
+  PURCHASE_CHANNELS,
+  PURCHASE_COLUMNS,
+  type PurchaseChannelCamelField,
+} from "@/lib/brands/purchase-channels";
+import {
   createAgentHubAdapter,
   createGitHubAdapter,
   createLinearAdapter,
@@ -1013,6 +1018,18 @@ function brandOtherUrls(value: unknown): RecentBrandEdit["otherUrls"] {
   });
 }
 
+/** Every purchase channel's camelCase field, derived from the channel registry. */
+function purchaseChannelFields(
+  row: Record<string, unknown>,
+): Record<PurchaseChannelCamelField, string | null> {
+  return Object.fromEntries(
+    PURCHASE_CHANNELS.map((channel) => [
+      channel.camel,
+      nullableBrandString(row[channel.column]),
+    ]),
+  ) as Record<PurchaseChannelCamelField, string | null>;
+}
+
 function recentBrandEdit(row: Record<string, unknown>): RecentBrandEdit {
   return {
     description: nullableBrandString(row.description),
@@ -1024,9 +1041,7 @@ function recentBrandEdit(row: Record<string, unknown>): RecentBrandEdit {
     mitVerifiedAt: nullableBrandString(row.mit_verified_at),
     name: safeString(row.name, "brand.name"),
     otherUrls: brandOtherUrls(row.other_urls),
-    purchasePinkoi: nullableBrandString(row.purchase_pinkoi),
-    purchaseShopee: nullableBrandString(row.purchase_shopee),
-    purchaseWebsite: nullableBrandString(row.purchase_website),
+    ...purchaseChannelFields(row),
     socialFacebook: nullableBrandString(row.social_facebook),
     socialInstagram: nullableBrandString(row.social_instagram),
     socialThreads: nullableBrandString(row.social_threads),
@@ -1070,7 +1085,7 @@ async function collectBrandReview(
     const rows = await supabaseRows(
       dependencies,
       "brands",
-      "id,name,description,description_en,mit_status,mit_declared_scope,mit_declared_at,mit_verified_at,purchase_website,purchase_pinkoi,purchase_shopee,social_instagram,social_threads,social_facebook,other_urls",
+      `id,name,description,description_en,mit_status,mit_declared_scope,mit_declared_at,mit_verified_at,${PURCHASE_COLUMNS.join(",")},social_instagram,social_threads,social_facebook,other_urls`,
       "brand_review_query",
       { status: "eq.approved", updated_at: `gte.${windowStart}` },
     );

@@ -501,6 +501,7 @@ const baseReviewData = {
   purchaseWebsite: "https://brand.example.com",
   purchasePinkoi: null,
   purchaseShopee: null,
+  purchaseMyship: null,
   otherUrls: [],
 };
 
@@ -528,6 +529,7 @@ function makeSubmission(
     purchaseWebsite: "https://brand.example.com",
     purchasePinkoi: null,
     purchaseShopee: null,
+    purchaseMyship: null,
     otherUrls: [],
     suggestedTags: [],
     status: "pending",

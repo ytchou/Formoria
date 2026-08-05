@@ -11,7 +11,14 @@ describe('classifyByDomain', () => {
   it('maps known hosts', () => {
     expect(classifyByDomain('https://www.instagram.com/brand')).toBe('social')
     expect(classifyByDomain('https://pinkoi.com/store/x')).toBe('e-commerce')
+    expect(classifyByDomain('https://myship.7-11.com.tw/general/detail/GM123456')).toBe('e-commerce')
     expect(classifyByDomain('https://my-brand.com')).toBeNull()
+  })
+
+  it('input-detector classifies myship as e-commerce', () => {
+    expect(
+      classifyByDomain('https://myship.7-11.com.tw/general/detail/GM123456'),
+    ).toBe('e-commerce')
   })
 
   it('treats both Threads hosts as social', () => {
@@ -41,10 +48,17 @@ describe('isNonBrandSiteHost', () => {
     'https://www.threads.com/@brand',
     'https://www.threads.net/@brand',
     'https://shopee.tw/brand',
+    'https://myship.7-11.com.tw/general/detail/GM123456',
     'https://linktr.ee/brand',
     'https://bio.site/brand',
   ])('is true for the platform URL %s', (url) => {
     expect(isNonBrandSiteHost(url)).toBe(true)
+  })
+
+  it('input-detector still treats myship as a non-brand host', () => {
+    expect(
+      isNonBrandSiteHost('https://myship.7-11.com.tw/general/detail/GM123456'),
+    ).toBe(true)
   })
 
   // A live run adopted `https://www.ubereats.com` as a tea brand's own website

@@ -11,6 +11,11 @@ import {
   syncHeroDenormalized,
 } from "@/lib/services/brand-images";
 import { getBrandById, updateBrand } from "@/lib/services/brands";
+import {
+  PURCHASE_CHANNELS,
+  purchaseChannelByKey,
+  type PurchaseChannelCamelField,
+} from "@/lib/brands/purchase-channels";
 import type {
   SaveSubmissionReviewInput,
   SubmissionReviewImage,
@@ -178,6 +183,15 @@ export async function saveAdminBrandReview(
     return { ...row, status: "active", sort_order: image.sortOrder };
   });
 
+  const purchaseFields = Object.fromEntries(
+    PURCHASE_CHANNELS.map((channel) => [
+      channel.camel,
+      channel === purchaseChannelByKey.website
+        ? input.websiteUrl
+        : input[channel.camel],
+    ]),
+  ) as Pick<SaveSubmissionReviewInput, PurchaseChannelCamelField>;
+
   await updateBrand(brandId, {
     name: input.name,
     description: input.description,
@@ -196,9 +210,7 @@ export async function saveAdminBrandReview(
     socialInstagram: input.socialInstagram,
     socialThreads: input.socialThreads,
     socialFacebook: input.socialFacebook,
-    purchaseWebsite: input.websiteUrl,
-    purchasePinkoi: input.purchasePinkoi,
-    purchaseShopee: input.purchaseShopee,
+    ...purchaseFields,
     otherUrls: input.otherUrls,
   });
 
