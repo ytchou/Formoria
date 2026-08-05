@@ -37,7 +37,11 @@ import { deleteStoredImagePaths } from "./image-upload";
 import { slugifyRomanizedName } from "@/lib/brands/slug";
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { upsertEnrichedChannels } from "./brand-channels";
-import { upsertBrandFaqFromEnrichment } from "./brand-faq";
+import {
+  upsertBrandFaqEntries,
+  type BrandFaqEntryInput,
+} from "./brand-faq";
+import { containsCjk } from "./taiwan-localization";
 import { normalizeCommunityWebsite } from "./community-submissions";
 import {
   PURCHASE_CAMEL_FIELDS,
@@ -445,8 +449,67 @@ function faqFromEnrichedData(value: unknown): EnrichedFaqItem[] {
 }
 
 /**
- * Best-effort `brand_faq` write. Both callers reach here after their RPC has
- * already committed the approval or the refresh: throwing would fail an
+ * The `descriptions` phase still emits FAQ as a flat, unlabelled zh-then-en
+ * list keyed by a legacy `category`. Translating it into preset rows is a
+ * transitional adapter and lives here, on the legacy call path, rather than in
+ * `brand-faq.ts` — the dedicated `faq` phase emits preset-shaped entries
+ * directly, and this whole function is deleted with the last `descriptions`
+ * FAQ prompt.
+ *
+ * Language is detected per item because the payload carries no locale field.
+ * The row model makes a mis-detection recoverable in a way the column model
+ * could not: each locale side is stored in its own column of a row keyed by
+ * preset, so a later run fills the side that was missed instead of finding the
+ * whole entry "already filled".
+ *
+ * Ceiling: `where_to_buy` and `founded` items are dropped — those presets are
+ * cut from the catalog — and `mit` never appears here because that answer is
+ * code-derived at render.
+ */
+const LEGACY_FAQ_PRESET_IDS: Record<string, string> = {
+  products: "main-products",
+  price: "price-positioning",
+  reputation: "reputation",
+  custom: "custom",
+};
+
+function enrichmentFaqToEntries(
+  faqItems: EnrichedFaqItem[],
+): BrandFaqEntryInput[] {
+  const byKey = new Map<string, BrandFaqEntryInput>();
+  const nextPosition = new Map<string, number>();
+
+  for (const item of faqItems ?? []) {
+    const presetId = LEGACY_FAQ_PRESET_IDS[item?.category ?? ""];
+    if (!presetId) continue;
+    if (!item.question?.trim() || !item.answer?.trim()) continue;
+
+    const isZh = containsCjk(item.question);
+    // Customs are a stream: the nth zh custom pairs with the nth en custom.
+    // Fixed presets hold exactly one entry, so both locales land on position 0.
+    const streamKey = `${presetId}:${isZh ? "zh" : "en"}`;
+    const position =
+      presetId === "custom" ? (nextPosition.get(streamKey) ?? 0) : 0;
+    if (presetId === "custom") nextPosition.set(streamKey, position + 1);
+
+    const key = `${presetId} ${position}`;
+    const entry = byKey.get(key) ?? { presetId, position };
+    if (isZh) {
+      entry.questionZh ??= item.question;
+      entry.answerZh ??= item.answer;
+    } else {
+      entry.questionEn ??= item.question;
+      entry.answerEn ??= item.answer;
+    }
+    byKey.set(key, entry);
+  }
+
+  return [...byKey.values()];
+}
+
+/**
+ * Best-effort `brand_faq_entries` write. Both callers reach here after their
+ * RPC has already committed the approval or the refresh: throwing would fail an
  * operation that actually succeeded, and the RPCs' already-processed guards
  * make a naive retry impossible (the submission is no longer `pending`). So a
  * failure is logged under one greppable prefix and swallowed — the brand simply
@@ -454,7 +517,7 @@ function faqFromEnrichedData(value: unknown): EnrichedFaqItem[] {
  *
  * Ceiling: no reconciliation path. If `[BRAND-FAQ] upsert failed` is ever seen
  * in practice, add a backfill that replays enrichment FAQs for brands whose
- * `brand_faq` row is missing.
+ * `brand_faq_entries` rows are missing.
  */
 async function persistEnrichmentFaq(
   brandId: string,
@@ -462,7 +525,7 @@ async function persistEnrichmentFaq(
 ): Promise<void> {
   if (faqItems.length === 0) return;
   try {
-    await upsertBrandFaqFromEnrichment(brandId, faqItems);
+    await upsertBrandFaqEntries(brandId, enrichmentFaqToEntries(faqItems));
   } catch (faqError) {
     const message =
       faqError instanceof Error ? faqError.message : String(faqError);

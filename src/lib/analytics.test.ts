@@ -6,6 +6,11 @@ const mockPostHogCapture = vi.fn()
 vi.mock('./analytics/posthog-provider', () => ({
   capturePostHogEvent: (...args: unknown[]) => mockPostHogCapture(...args),
 }))
+// Only the FAQ component below reads translations; analytics itself does not.
+vi.mock('next-intl', () => ({
+  useTranslations: () => (key: string) => key,
+}))
+import { createElement } from 'react'
 import {
   getContentGroup,
   isPublicAnalyticsPath,
@@ -420,5 +425,53 @@ describe('brand like tracking', () => {
       brand_slug: 'my-brand',
       location: 'brand_detail',
     })
+  })
+})
+
+describe('brand faq tracking', () => {
+  it('tracks faq item expanded with preset id', () => {
+    trackFaqItemExpanded('my-brand', 'taiwan-origin')
+
+    expect(mockPostHogCapture).toHaveBeenCalledWith('faq_item_expanded', {
+      brand_slug: 'my-brand',
+      preset_id: 'taiwan-origin',
+    })
+  })
+
+  it('does not emit on collapse', async () => {
+    const { BrandFaqAccordion } = await import(
+      '@/components/brands/brand-faq-accordion'
+    )
+    const { render, act } = await import('@testing-library/react')
+
+    render(
+      createElement(BrandFaqAccordion, {
+        brandSlug: 'my-brand',
+        items: [
+          { id: 'taiwan-origin', question: 'Where is it made?', answer: 'Taiwan.' },
+        ],
+      })
+    )
+
+    const details = document.getElementById(
+      'faq-taiwan-origin'
+    ) as HTMLDetailsElement
+
+    // The answer is in the DOM even while collapsed — the whole point of
+    // rendering native <details> instead of a JS accordion.
+    expect(details.open).toBe(false)
+    expect(details.textContent).toContain('Taiwan.')
+
+    act(() => {
+      details.open = true
+      details.dispatchEvent(new Event('toggle'))
+    })
+    expect(mockPostHogCapture).toHaveBeenCalledTimes(1)
+
+    act(() => {
+      details.open = false
+      details.dispatchEvent(new Event('toggle'))
+    })
+    expect(mockPostHogCapture).toHaveBeenCalledTimes(1)
   })
 })
