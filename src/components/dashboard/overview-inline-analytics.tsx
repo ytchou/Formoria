@@ -70,6 +70,7 @@ export async function OverviewInlineAnalytics({
     website: tAnalytics(outboundDestinationKey('website')),
     pinkoi: tAnalytics(outboundDestinationKey('pinkoi')),
     shopee: tAnalytics(outboundDestinationKey('shopee')),
+    myship: tAnalytics(outboundDestinationKey('myship')),
   } satisfies Record<PurchaseChannelKey, string>
   const outboundDestinationLabels = {
     ...purchaseOutboundDestinationLabels,

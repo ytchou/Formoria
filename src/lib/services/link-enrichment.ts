@@ -281,6 +281,10 @@ function normalizeScrapedLinkValue(
   if (BARE_ROOT_REJECTING_FIELDS.includes(field) && isBareRootUrl(value)) {
     return null
   }
+  const purchaseChannel = PURCHASE_CHANNELS.find((channel) => channel.camel === field)
+  if (purchaseChannel?.urlPattern && !purchaseChannel.urlPattern.test(value)) {
+    return null
+  }
   if (field === 'purchasePinkoi' && !isPinkoiStorefrontUrl(value)) {
     return null
   }

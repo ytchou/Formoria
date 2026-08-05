@@ -282,6 +282,7 @@ export default async function AnalyticsPage({ params, searchParams }: Props) {
     website: t(outboundDestinationKey('website')),
     pinkoi: t(outboundDestinationKey('pinkoi')),
     shopee: t(outboundDestinationKey('shopee')),
+    myship: t(outboundDestinationKey('myship')),
   } satisfies Record<PurchaseChannelKey, string>
   const copy: OwnerAnalyticsCopy = {
     profileVisits: t('profileVisits'),

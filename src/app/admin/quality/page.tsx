@@ -24,6 +24,7 @@ const PURCHASE_LINK_PRESENTATION = {
   website: { label: 'Website' },
   pinkoi: { label: 'Pinkoi' },
   shopee: { label: 'Shopee' },
+  myship: { label: 'MyShip' },
 } satisfies Record<PurchaseChannelKey, { label: string }>
 
 type LinkRow = {

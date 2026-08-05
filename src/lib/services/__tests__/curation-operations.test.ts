@@ -217,6 +217,7 @@ describe('enrichment write guards', () => {
       purchase_website: null,
       purchase_pinkoi: null,
       purchase_shopee: null,
+      purchase_myship: null,
       other_urls: [],
       enriched_data: {
         city: '台北',
@@ -240,6 +241,7 @@ describe('enrichment write guards', () => {
         purchase_website: null,
         purchase_pinkoi: null,
         purchase_shopee: null,
+        purchase_myship: null,
         other_urls: [],
         enriched_data: null,
         owner_data: null,

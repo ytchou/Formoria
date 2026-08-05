@@ -1017,6 +1017,7 @@ describeWithDb("trusted submission review RPCs", () => {
       purchaseWebsite: "https://trusted.example.com",
       purchasePinkoi: null,
       purchaseShopee: null,
+      purchaseMyship: null,
       otherUrls: [],
       images: [
         { id: images.hero.id, sortOrder: 0 },

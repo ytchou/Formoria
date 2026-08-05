@@ -52,7 +52,9 @@ import {
 // Row types
 // ---------------------------------------------------------------------------
 
-type SubmissionRow = Database["public"]["Tables"]["brand_submissions"]["Row"];
+type SubmissionRow = Database["public"]["Tables"]["brand_submissions"]["Row"] & {
+  [Column in PurchaseChannelColumn]?: string | null;
+};
 type CurationTargetHistoryRow = Pick<
   Database["public"]["Tables"]["curation_job_targets"]["Row"],
   | "id"
@@ -246,7 +248,9 @@ type SubmissionRowInput = Pick<
 
 type SuggestedTagsInput = string[] | { values?: string[] };
 type ServiceClient = SupabaseClient<Database>;
-type BrandInsert = Database["public"]["Tables"]["brands"]["Insert"];
+type BrandInsert = Database["public"]["Tables"]["brands"]["Insert"] & {
+  [Column in PurchaseChannelColumn]?: string | null;
+};
 
 const GENERATED_GUEST_EMAIL_DOMAIN = "guest.formoria.invalid";
 const ADMIN_REVIEW_SUBMISSIONS_PAGE_SIZE = 1_000;

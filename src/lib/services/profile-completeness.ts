@@ -1,4 +1,7 @@
-import { PURCHASE_CAMEL_FIELDS } from '@/lib/brands/purchase-channels'
+import {
+  PURCHASE_CAMEL_FIELDS,
+  type PurchaseChannelCamelField,
+} from '@/lib/brands/purchase-channels'
 import type { Brand } from '@/lib/types/brand'
 
 type ProfileComponentKey =
@@ -43,11 +46,9 @@ type ProfileInput = Pick<
   | 'socialInstagram'
   | 'socialThreads'
   | 'socialFacebook'
-  | 'purchasePinkoi'
-  | 'purchaseShopee'
   | 'otherUrls'
   | 'reputationSummary'
->
+> & Pick<Brand, PurchaseChannelCamelField>
 
 const hasText = (value: string | null | undefined) => Boolean(value?.trim())
 const hasUrl = (value: string | null | undefined) => {

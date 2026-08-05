@@ -22,6 +22,7 @@ const EMPTY_BRAND = {
   purchase_website: null,
   purchase_pinkoi: null,
   purchase_shopee: null,
+  purchase_myship: null,
 }
 
 // A search page renders as a buy link but sends the reader to other sellers'
@@ -88,13 +89,14 @@ describe('linkColumnFor', () => {
     ['purchaseWebsite', 'purchase_website'],
     ['purchasePinkoi', 'purchase_pinkoi'],
     ['purchaseShopee', 'purchase_shopee'],
+    ['purchaseMyship', 'purchase_myship'],
   ] as const)('maps %s to %s', (field, column) => {
     expect(linkColumnFor(field)).toBe(column)
   })
 })
 
 describe('LINK_FIELDS', () => {
-  it('contains exactly 6 fields', () => { expect(LINK_FIELDS).toHaveLength(6) })
+  it('LINK_FIELDS contains exactly 7 fields', () => { expect(LINK_FIELDS).toHaveLength(7) })
 })
 
 describe('buildLinkEnrichPatch', () => {
@@ -282,6 +284,22 @@ describe('extractLinksFromUrls', () => {
     expect(result.purchase_shopee).toBe('https://shopee.tw/mybrand')
   })
 
+  it('maps a MyShip detail URL to purchase_myship', () => {
+    const result = extractLinksFromUrls([
+      'https://myship.7-11.com.tw/general/detail/GM123456',
+    ])
+    expect(result.purchase_myship).toBe(
+      'https://myship.7-11.com.tw/general/detail/GM123456',
+    )
+  })
+
+  it.each([
+    'https://myship.7-11.com.tw/store/GM123456',
+    'https://myship.7-11.com.tw/e-tracking/detail/GM123456',
+  ])('ignores a non-detail MyShip URL %s', (url) => {
+    expect(extractLinksFromUrls([url])).toEqual({})
+  })
+
   it('ignores unrecognized URLs', () => {
     const result = extractLinksFromUrls(['https://example.com/page'])
     expect(Object.keys(result)).toHaveLength(0)
@@ -344,6 +362,7 @@ describe('buildLinkEnrichPatch — platform roots', () => {
     ['purchaseShopee', 'purchase_shopee', 'https://shopee.tw'],
     ['purchasePinkoi', 'purchase_pinkoi', 'https://www.pinkoi.com/'],
     ['purchasePinkoi', 'purchase_pinkoi', 'https://www.pinkoi.com'],
+    ['purchaseMyship', 'purchase_myship', 'https://myship.7-11.com.tw/'],
   ] as const)('declines to write the bare root %s -> %s (%s)', (field, column, url) => {
     const scraped: Partial<Record<LinkField, string>> = { [field]: url }
     const patch = buildLinkEnrichPatch({ ...EMPTY_BRAND }, scraped)

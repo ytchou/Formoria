@@ -1,4 +1,7 @@
+import * as cheerio from 'cheerio'
 import { describe, expect, it } from 'vitest'
+import { extractMyshipProductImages } from '../../parse/extractors'
+import { myshipAdapter } from './myship'
 import { pinkoiAdapter } from './pinkoi'
 import { shopeeAdapter } from './shopee'
 
@@ -81,11 +84,32 @@ const pinkoiDescriptionOrderHtml = `
 </html>
 `
 
+const myshipHtml = `
+<html>
+  <head>
+    <meta property="og:title" content="茶日子小舖 | 7-ELEVEN 賣貨便" />
+    <meta property="og:description" content="MyShip shop description" />
+    <meta property="og:image" content="https://cdn.example.com/i/cgdm/GM123/hero.jpg" />
+  </head>
+  <body>
+    <h1>茶日子小舖 | 7-ELEVEN 賣貨便</h1>
+    <img src="https://cdn.example.com/i/cgdm/GM123/product.jpg" />
+    <img src="https://cdn.example.com/assets/site-logo.png" />
+  </body>
+</html>
+`
+
 describe('createMarketplaceAdapter', () => {
   it('matches expected hosts', () => {
     expect(pinkoiAdapter.matches('https://sub.pinkoi.com/store/xiaoqi')).toBe(true)
     expect(shopeeAdapter.matches('https://shop.shopee.tw/shop/123')).toBe(true)
     expect(pinkoiAdapter.matches('https://example.com')).toBe(false)
+  })
+
+  it('myship adapter matches its host', () => {
+    expect(
+      myshipAdapter.matches('https://myship.7-11.com.tw/general/detail/GM123'),
+    ).toBe(true)
   })
 
   it('parses pinkoi fixtures with the current output shape', () => {
@@ -142,5 +166,38 @@ describe('createMarketplaceAdapter', () => {
   it('cleanly strips pinkoi and shopee title suffixes', () => {
     expect(pinkoiAdapter.parse(pinkoiHtml.replace('手工皂 | Pinkoi 設計購物網站', '手工皂 Pinkoi'), 'https://pinkoi.com/store/mybrand').brandName).toBe('手工皂')
     expect(shopeeAdapter.parse(shopeeHtml.replace('茶葉禮盒 | Shopee Taiwan', '茶葉禮盒 Shopee'), 'https://shopee.tw/shop/123').brandName).toBe('茶葉禮盒')
+  })
+
+  it('myship adapter extracts shop name from og:title', () => {
+    expect(
+      myshipAdapter.parse(myshipHtml, 'https://myship.7-11.com.tw/general/detail/GM123').brandName,
+    ).toBe('茶日子小舖')
+  })
+
+  it('myship adapter extracts description and hero from og tags', () => {
+    const result = myshipAdapter.parse(
+      myshipHtml,
+      'https://myship.7-11.com.tw/general/detail/GM123',
+    )
+    expect(result.description).toBe('MyShip shop description')
+    expect(result.story).toBe('MyShip shop description')
+    expect(result.heroImageUrl).toBe('https://cdn.example.com/i/cgdm/GM123/hero.jpg')
+  })
+
+  it('myship adapter sets purchaseMyship to the page URL', () => {
+    const url = 'https://myship.7-11.com.tw/general/detail/GM123'
+    expect(myshipAdapter.parse(myshipHtml, url).purchaseMyship).toBe(url)
+  })
+
+  it('extractMyshipProductImages keeps only /i/cgdm/ product paths', () => {
+    const $ = cheerio.load(`
+      <img src="https://cdn.example.com/i/cgdm/GM123/product.jpg" />
+      <img src="https://cdn.example.com/i/cgdm/GM456/other.jpg" />
+      <img src="https://cdn.example.com/assets/site-logo.png" />
+    `)
+    expect(extractMyshipProductImages($)).toEqual([
+      'https://cdn.example.com/i/cgdm/GM123/product.jpg',
+      'https://cdn.example.com/i/cgdm/GM456/other.jpg',
+    ])
   })
 })

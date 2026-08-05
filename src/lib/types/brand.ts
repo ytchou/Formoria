@@ -1,4 +1,8 @@
 import type { BrandSortOption } from '@/lib/pagination'
+import type {
+  PurchaseChannelCamelField,
+  PurchaseChannelColumn,
+} from '@/lib/brands/purchase-channels'
 
 export type BrandStatus = 'approved' | 'hidden'
 export type SubmissionStatus = 'pending' | 'approved' | 'rejected'
@@ -22,11 +26,8 @@ export type BrandFlatLinkColumns = {
   social_instagram?: string | null
   social_threads?: string | null
   social_facebook?: string | null
-  purchase_website?: string | null
-  purchase_pinkoi?: string | null
-  purchase_shopee?: string | null
   other_urls?: unknown
-}
+} & { [Column in PurchaseChannelColumn]?: string | null }
 
 export type RetailLocationRelationshipType =
   | 'brand_store'
@@ -148,9 +149,6 @@ export type Brand = {
   socialInstagram: string | null
   socialThreads: string | null
   socialFacebook: string | null
-  purchaseWebsite: string | null
-  purchasePinkoi: string | null
-  purchaseShopee: string | null
   otherUrls: OtherUrl[]
   productPhotos: string[]
   imageAlts: Array<{ altZh: string | null; altEn: string | null }>
@@ -164,7 +162,7 @@ export type Brand = {
   createdAt: string
   updatedAt: string
   onboardingDismissedAt: string | null
-}
+} & { [Field in PurchaseChannelCamelField]: string | null }
 
 export type BrandFilters = {
   status?: BrandStatus

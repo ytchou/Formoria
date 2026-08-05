@@ -26,6 +26,7 @@ export interface SubmitBrandForReviewParams {
     facebook?: string
     pinkoi?: string
     shopee?: string
+    myship?: string
   } | null
   purchaseLinks?: Array<{ platform: string; url: string }> | null
   otherUrls?: OtherUrl[] | null

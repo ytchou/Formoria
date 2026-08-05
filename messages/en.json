@@ -395,6 +395,7 @@
       "visitWebsite": "Visit Website",
       "visitPinkoi": "Visit Pinkoi",
       "visitShopee": "Visit Shopee",
+      "visitMyship": "Visit 7-ELEVEN MyShip",
       "visitInstagram": "Visit Instagram",
       "visitThreads": "Visit Threads",
       "visitFacebook": "Visit Facebook",
@@ -426,6 +427,7 @@
       "website": "Official Website",
       "pinkoi": "Pinkoi",
       "shopee": "Shopee",
+      "myship": "7-ELEVEN MyShip",
       "unknown": "No link known yet"
     },
     "notFound": {
@@ -700,7 +702,8 @@
       "channels": {
         "website": "their official website",
         "pinkoi": "Pinkoi",
-        "shopee": "Shopee"
+        "shopee": "Shopee",
+        "myship": "7-ELEVEN MyShip"
       },
       "priceRanges": {
         "budget": "budget-friendly",
@@ -1519,6 +1522,7 @@
       "outboundDestinationFacebook": "Facebook",
       "outboundDestinationPinkoi": "Pinkoi",
       "outboundDestinationShopee": "Shopee",
+      "outboundDestinationMyship": "7-ELEVEN MyShip",
       "outboundDestinationOther": "Other",
       "destinationsUnavailable": "Destinations are temporarily unavailable.",
       "destinationsEmpty": "No outbound sessions in this window.",
@@ -1684,6 +1688,7 @@
       "fieldFacebook": "Facebook",
       "fieldPinkoi": "Pinkoi",
       "fieldShopee": "Shopee",
+      "fieldMyship": "7-ELEVEN MyShip",
       "fieldPurchaseLinks": "Purchase Links",
       "addPurchaseLink": "Add purchase link",
       "fieldPlatformPlaceholder": "Platform",
@@ -2466,6 +2471,7 @@
         "purchase_website": "Official website",
         "purchase_pinkoi": "Pinkoi",
         "purchase_shopee": "Shopee",
+        "purchase_myship": "7-ELEVEN MyShip",
         "social_instagram": "Instagram",
         "social_threads": "Threads",
         "social_facebook": "Facebook"

@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio'
 import { fetchHtml, fetchXml, resolveUrl } from '../fetch-guards'
+import { PURCHASE_CHANNELS, type PurchaseChannelCamelField } from '@/lib/brands/purchase-channels'
 import {
   emptyResult,
   extractCategoryHints,
@@ -17,7 +18,7 @@ type CandidateKind = 'about' | 'products' | 'contact' | 'stockist' | 'other'
 type SocialLinkFields = Pick<ScrapedBrandData, 'socialInstagram' | 'socialThreads' | 'socialFacebook'>
 type PurchaseLinkFields = Pick<
   ScrapedBrandData,
-  'purchaseWebsite' | 'purchasePinkoi' | 'purchaseShopee'
+  PurchaseChannelCamelField
 >
 
 interface CrawlCandidate {
@@ -252,10 +253,10 @@ export class CrawlStrategy implements ScrapeStrategy {
         socialFacebook: result.socialFacebook,
       }
       let purchaseLinks: PurchaseLinkFields = {
-        purchaseWebsite: null,
-        purchasePinkoi: null,
-        purchaseShopee: null,
-      }
+        ...Object.fromEntries(
+          PURCHASE_CHANNELS.map((channel) => [channel.camel, null]),
+        ),
+      } as PurchaseLinkFields
       purchaseLinks = mergePurchaseLinks(purchaseLinks, result)
       let categoryHints = result.categoryHints
       let description = result.description

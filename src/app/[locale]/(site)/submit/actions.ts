@@ -346,6 +346,7 @@ export async function submitOwnerDetailedBrand(
         facebook: parsed.socialFacebook,
         pinkoi: parsed.purchasePinkoi,
         shopee: parsed.purchaseShopee,
+        myship: parsed.purchaseMyship,
       },
       otherUrls: parsed.otherUrls?.flatMap(({ label, url }) => {
         const normalizedLabel = label?.trim()

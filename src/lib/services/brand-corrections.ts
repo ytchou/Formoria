@@ -61,7 +61,9 @@ type BrandCorrectionBrandRow = Pick<
   | "social_facebook"
 >;
 type BrandCorrectionBrandPurchaseFields = Pick<
-  Database["public"]["Tables"]["brands"]["Row"],
+  Database["public"]["Tables"]["brands"]["Row"] & {
+    [Column in PurchaseChannelColumn]?: string | null;
+  },
   PurchaseChannelColumn
 >;
 type BrandCorrectionBrand = BrandCorrectionBrandRow &
@@ -470,7 +472,10 @@ function currentValueForField(
 ): CurrentBrandValue {
   if (!brand) return null;
   if (isPurchaseLinkField(field)) {
-    return brand[purchaseChannelByColumn[field].column];
+    // `?? null` because the purchase columns are optional on the row shape:
+    // a projection that omits one yields undefined, which CurrentBrandValue
+    // does not admit.
+    return brand[purchaseChannelByColumn[field].column] ?? null;
   }
 
   // Exhaustive by design — no fallthrough default, so a field added to

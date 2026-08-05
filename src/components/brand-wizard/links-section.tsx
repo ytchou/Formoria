@@ -6,6 +6,7 @@ import {
   Camera,
   Globe2,
   Link2,
+  Package,
   Plus,
   Share2,
   ShoppingBag,
@@ -65,6 +66,12 @@ const PURCHASE_PRESENTATION = {
     placeholder: 'https://shopee.tw/yourbrand',
     icon: ShoppingBag,
     iconClassName: 'bg-destructive/10 text-destructive',
+    inputType: 'url',
+  },
+  myship: {
+    placeholder: 'https://myship.7-11.com.tw/general/detail/GM123456',
+    icon: Package,
+    iconClassName: 'bg-accent/10 text-accent',
     inputType: 'url',
   },
 } satisfies Record<PurchaseChannelKey, PurchasePresentation>

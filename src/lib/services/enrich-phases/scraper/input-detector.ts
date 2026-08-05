@@ -22,6 +22,7 @@ const SOCIAL_HOSTS = [
 const ECOMMERCE_HOSTS = [
   'pinkoi.com',
   'shopee.tw',
+  'myship.7-11.com.tw',
   'momo.com.tw',
   'rakuten.com.tw',
   'pchome.com.tw',
@@ -99,6 +100,8 @@ const NON_BRAND_PLATFORM_HOSTS = [
   // *shipping option*, never as its own site, but they outrank a small brand's
   // domain often enough to be adopted as one — `https://myship.7-11.com.tw`
   // stood in as a tea brand's official website on a live run.
+  // MyShip is deliberately duplicated in ECOMMERCE_HOSTS: that list selects
+  // its scraper adapter, while this list blocks official-site adoption.
   'myship.7-11.com.tw',
   '7-11.com.tw',
   'ibon.com.tw',

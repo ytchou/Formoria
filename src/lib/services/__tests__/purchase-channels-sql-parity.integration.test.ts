@@ -16,7 +16,7 @@ import { describeWithDb } from "@/test/setup";
  * at approval, refresh, correction, and link-check time.
  *
  * Every assertion below iterates `PURCHASE_COLUMNS` — never a hard-coded list —
- * so the suite passes on today's three channels and starts failing the moment a
+ * so the suite passes on today's four channels and starts failing the moment a
  * registry entry is added without a matching migration.
  *
  * Catalog access goes through `public.purchase_channel_sql_surface()`: PostgREST

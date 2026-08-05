@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio'
+import type { PurchaseChannelCamelField } from '@/lib/brands/purchase-channels'
 import {
   domBreadcrumbs,
   emptyResult,
@@ -29,11 +30,11 @@ export interface MarketplaceAdapterConfig {
   host: string
   titleSuffixPatterns: RegExp[]
   productImageExtractor: ($: cheerio.CheerioAPI, limit?: number) => string[]
-  purchaseKey: 'purchasePinkoi' | 'purchaseShopee'
+  purchaseKey: PurchaseChannelCamelField
   /** Stable provenance slug recorded on every image this adapter yields. */
   imageMethod: string
-  shopNameSelector: string
-  shopDescriptionSelector: string
+  fallbackNameSelector?: string
+  fallbackDescriptionSelectors?: string[]
 }
 
 function cleanTitle(title: string | null, titleSuffixPatterns: RegExp[]): string | null {
@@ -65,17 +66,23 @@ export function createMarketplaceAdapter(config: MarketplaceAdapterConfig): Plat
         metaContent($, 'meta[property="og:title"]') ||
           firstString(structuredStore?.name) ||
           textContent($, 'h1') ||
-          textContent($, config.shopNameSelector) ||
-          textContent($, config.host === 'pinkoi.com' ? '[data-testid*="store"] h1' : '[data-testid*="shop"] h1'),
+          textContent($, config.fallbackNameSelector ?? '[data-testid*="shop"] h1'),
         config.titleSuffixPatterns
       )
 
+      const fallbackDescription = (
+        config.fallbackDescriptionSelectors ?? [
+          '[class*="shop-description"]',
+          '[class*="description"]',
+        ]
+      )
+        .map((selector) => textContent($, selector))
+        .find((value): value is string => Boolean(value)) ?? null
       const description =
         metaContent($, 'meta[property="og:description"]') ||
         metaContent($, 'meta[name="description"]') ||
         firstString(structuredStore?.description) ||
-        textContent($, config.host === 'pinkoi.com' ? '[class*="description"]' : config.shopDescriptionSelector) ||
-        textContent($, config.host === 'pinkoi.com' ? '[class*="story"]' : '[class*="description"]')
+        fallbackDescription
 
       const heroCandidate =
         metaContent($, 'meta[property="og:image"]') ||
@@ -88,8 +95,8 @@ export function createMarketplaceAdapter(config: MarketplaceAdapterConfig): Plat
         description,
         story: description,
         heroImageUrl: heroCandidate
-          ? filterHeroImage(heroCandidate, url) ?? galleryImageUrls[0] ?? null
-          : galleryImageUrls[0] ?? null,
+          ? filterHeroImage(heroCandidate, url) ?? galleryImageUrls.at(0) ?? null
+          : galleryImageUrls.at(0) ?? null,
         galleryImageUrls,
         imageSources: toImageSources(galleryImageUrls, config.imageMethod, url),
         ...extractSocialLinks($),

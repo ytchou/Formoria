@@ -1,4 +1,5 @@
 import type { ScrapedBrandData } from '@/lib/types/scraper'
+import { PURCHASE_CHANNELS, type PurchaseChannelCamelField } from '@/lib/brands/purchase-channels'
 import type { InputType } from './strategies/types'
 
 type ScrapeResult = { type: InputType; data: ScrapedBrandData }
@@ -8,7 +9,7 @@ type SocialLinkFields = Pick<
 >
 type PurchaseLinkFields = Pick<
   ScrapedBrandData,
-  'purchaseWebsite' | 'purchasePinkoi' | 'purchaseShopee'
+  PurchaseChannelCamelField
 >
 
 const MAX_CATEGORY_HINTS = 5
@@ -47,6 +48,7 @@ function emptyMergedResult(): ScrapedBrandData {
     purchaseWebsite: null,
     purchasePinkoi: null,
     purchaseShopee: null,
+    purchaseMyship: null,
     categoryHints: [],
     websiteUrl: '',
     rawJsonLd: null,
@@ -117,11 +119,12 @@ export function mergePurchaseLinks(
   base: PurchaseLinkFields,
   next: PurchaseLinkFields
 ): PurchaseLinkFields {
-  return {
-    purchaseWebsite: base.purchaseWebsite ?? next.purchaseWebsite,
-    purchasePinkoi: base.purchasePinkoi ?? next.purchasePinkoi,
-    purchaseShopee: base.purchaseShopee ?? next.purchaseShopee,
-  }
+  return Object.fromEntries(
+    PURCHASE_CHANNELS.map((channel) => [
+      channel.camel,
+      base[channel.camel] ?? next[channel.camel],
+    ]),
+  ) as PurchaseLinkFields
 }
 
 export function mergeScrapedData(results: ScrapeResult[]): ScrapedBrandData {
@@ -179,6 +182,7 @@ export function mergeScrapedData(results: ScrapeResult[]): ScrapedBrandData {
     merged.purchaseWebsite = purchaseLinks.purchaseWebsite
     merged.purchasePinkoi = purchaseLinks.purchasePinkoi
     merged.purchaseShopee = purchaseLinks.purchaseShopee
+    merged.purchaseMyship = purchaseLinks.purchaseMyship
     merged.categoryHints = mergeCategoryHints(
       merged.categoryHints,
       data.categoryHints

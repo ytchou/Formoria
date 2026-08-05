@@ -54,6 +54,7 @@ const PURCHASE_DISPLAY_LABELS = {
   website: "links.official",
   pinkoi: "Pinkoi",
   shopee: "Shopee",
+  myship: "MyShip",
 } satisfies Record<PurchaseChannelKey, string>;
 
 type EditableSection =

@@ -34,6 +34,7 @@ const PURCHASE_CHANNEL_PROMPT_LABELS: Record<PurchaseChannelKey, string> = {
   website: "官方購買網站",
   pinkoi: "Pinkoi",
   shopee: "蝦皮",
+  myship: "7-ELEVEN 賣貨便",
 };
 
 function localizeZhText(text: string): string {

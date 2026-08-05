@@ -15,6 +15,7 @@ import {
   reviewEntityIdSchema,
   reviewImageIdsSchema,
 } from "@/lib/validation/admin-review";
+import { PURCHASE_CHANNELS } from "@/lib/brands/purchase-channels";
 
 type ActionResult = { error: string } | undefined;
 
@@ -41,8 +42,11 @@ export async function saveAdminBrandReviewAction(
       socialThreads: review.socialThreads ?? undefined,
       socialFacebook: review.socialFacebook ?? undefined,
       purchaseWebsite: review.websiteUrl ?? undefined,
-      purchasePinkoi: review.purchasePinkoi ?? undefined,
-      purchaseShopee: review.purchaseShopee ?? undefined,
+      ...Object.fromEntries(
+        PURCHASE_CHANNELS.filter((channel) => channel.key !== "website").map(
+          (channel) => [channel.camel, review[channel.camel] ?? undefined],
+        ),
+      ),
     });
     if (violations.length > 0) {
       try {

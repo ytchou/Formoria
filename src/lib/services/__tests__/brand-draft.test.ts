@@ -30,6 +30,7 @@ const liveBrand: Brand = {
   purchaseWebsite: 'https://live.tw',
   purchasePinkoi: null,
   purchaseShopee: 'https://shopee.tw/live',
+  purchaseMyship: null,
   otherUrls: [],
   productPhotos: ['https://x.supabase.co/p-live-1.png'],
   contactEmail: 'live@brand.tw',

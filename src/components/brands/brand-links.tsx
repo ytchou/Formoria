@@ -11,6 +11,7 @@ import {
   AtSign,
   Globe,
   Link,
+  Package,
   ShoppingCart,
   Store,
 } from 'lucide-react'
@@ -102,6 +103,10 @@ const PURCHASE_PRESENTATION = {
   shopee: {
     icon: <ShoppingCart className="size-4 text-current" />,
     accentClassName: 'text-[#EE4D2D]',
+  },
+  myship: {
+    icon: <Package className="size-4 text-current" />,
+    accentClassName: 'text-[#FF6600]',
   },
 } satisfies Record<PurchaseChannelKey, { icon: ReactNode; accentClassName: string }>
 

@@ -1,5 +1,6 @@
 import { emptyResult } from '../parse/extractors'
 import { instagramAdapter } from './adapters/instagram'
+import { myshipAdapter } from './adapters/myship'
 import { pinkoiAdapter } from './adapters/pinkoi'
 import { shopeeAdapter } from './adapters/shopee'
 import type { PlatformAdapter } from './adapters/types'
@@ -8,6 +9,7 @@ import type { ScrapeContext, ScrapeStrategy } from './types'
 const adapters: PlatformAdapter[] = [
   pinkoiAdapter,
   shopeeAdapter,
+  myshipAdapter,
   instagramAdapter,
 ]
 
@@ -26,4 +28,3 @@ export class PlatformAdapterStrategy implements ScrapeStrategy {
     }
   }
 }
-

@@ -18,6 +18,7 @@ describe('QualityMetrics type', () => {
         purchaseWebsite: { count: 70, percentage: 70 },
         purchasePinkoi: { count: 40, percentage: 40 },
         purchaseShopee: { count: 35, percentage: 35 },
+        purchaseMyship: { count: 25, percentage: 25 },
       },
       description: {
         withCount: 80, withoutCount: 20, percentage: 80, avgLength: 145,

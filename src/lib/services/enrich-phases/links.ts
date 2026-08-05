@@ -18,6 +18,7 @@ import type { ScrapedBrandData, ScrapedImageSource } from '@/lib/types/scraper'
 import type { EnrichScrapedData } from './types'
 import { brandTarget, type EnrichmentTarget } from '../enrichment-target'
 import { buildPhaseResult, hasPatchValues, timePhase, type EnrichBrand, type EnrichPhase } from './types'
+import { PURCHASE_CHANNELS } from '@/lib/brands/purchase-channels'
 
 type LinksPhaseOptions = {
   brand: EnrichBrand
@@ -223,8 +224,12 @@ function normalizeScrapedData(scrapedData: EnrichScrapedData): EnrichScrapedData
     purchaseWebsite: brandWebsite,
     purchase_pinkoi: scrapedData.purchase_pinkoi ?? scrapedData.purchasePinkoi,
     purchase_shopee: scrapedData.purchase_shopee ?? scrapedData.purchaseShopee,
+    purchase_myship: scrapedData.purchase_myship ?? scrapedData.purchaseMyship,
   }
 }
+
+// MyShip is discovered passively from scraped links; if yield stays low, gate a
+// site:myship.7-11.com.tw Serper upgrade here instead of broadening the query.
 
 function boundedScrapeSnippets(extracted: unknown): string[] {
   if (typeof extracted !== 'object' || extracted === null || Array.isArray(extracted)) return []
@@ -288,7 +293,7 @@ function scrapeKey(url: string): string {
 
 /**
  * Scraping the official site is *how* we learn a brand's Instagram, Facebook,
- * Pinkoi, and Shopee URLs — but the first pass fixed its URL set before those
+ * Pinkoi, Shopee, and MyShip URLs — but the first pass fixed its URL set before those
  * existed, so those links were written to the row and then scraped for the
  * first time only on the *next* enrichment run. That cost a whole cycle before
  * the free, higher-quality platform-adapter images were reachable, and 119 of
@@ -312,8 +317,9 @@ async function scrapeDiscoveredLinks(
     [
       firstPassData.socialInstagram,
       firstPassData.socialFacebook,
-      firstPassData.purchasePinkoi,
-      firstPassData.purchaseShopee,
+      ...PURCHASE_CHANNELS.filter((channel) => channel.key !== 'website').map(
+        (channel) => firstPassData[channel.camel],
+      ),
       firstPassData.purchaseWebsite,
     ].filter((url): url is string => typeof url === 'string' && url.trim().length > 0),
   )

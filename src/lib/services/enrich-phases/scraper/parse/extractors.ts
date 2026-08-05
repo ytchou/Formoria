@@ -1,4 +1,8 @@
 import * as cheerio from 'cheerio'
+import {
+  PURCHASE_CHANNELS,
+  type PurchaseChannelCamelField,
+} from '@/lib/brands/purchase-channels'
 import type { ScrapedBrandData, ScrapedImageSource } from '@/lib/types/scraper'
 import { resolveUrl } from '../fetch-guards'
 
@@ -193,25 +197,30 @@ export function extractSocialLinks($: cheerio.CheerioAPI) {
   return { socialInstagram: instagram, socialThreads: threads, socialFacebook: facebook }
 }
 
-export function extractPurchaseLinks($: cheerio.CheerioAPI): {
-  purchaseWebsite: string | null
-  purchasePinkoi: string | null
-  purchaseShopee: string | null
-} {
-  let pinkoi: string | null = null
-  let shopee: string | null = null
+export function extractPurchaseLinks(
+  $: cheerio.CheerioAPI,
+): Pick<ScrapedBrandData, PurchaseChannelCamelField> {
+  const links = Object.fromEntries(
+    PURCHASE_CHANNELS.map((channel) => [channel.camel, null]),
+  ) as Pick<ScrapedBrandData, PurchaseChannelCamelField>
 
   $('a[href]').each((_, el) => {
     const href = $(el).attr('href') ?? ''
-    if (!pinkoi && /pinkoi\.com\//i.test(href)) {
-      pinkoi = href
-    }
-    if (!shopee && /shopee\.(com\.)?tw\//i.test(href)) {
-      shopee = href
+    for (const channel of PURCHASE_CHANNELS) {
+      const matchesLegacyShopeeHost =
+        channel.key === 'shopee' && /shopee\.com\.tw\/[^/?#]+$/i.test(href)
+      if (
+        links[channel.camel] ||
+        (!channel.urlPattern && !matchesLegacyShopeeHost) ||
+        (channel.urlPattern && !channel.urlPattern.test(href) && !matchesLegacyShopeeHost)
+      ) {
+        continue
+      }
+      links[channel.camel] = href
     }
   })
 
-  return { purchaseWebsite: null, purchasePinkoi: pinkoi, purchaseShopee: shopee }
+  return links
 }
 
 /**
@@ -350,6 +359,37 @@ export function extractShopeeProductImages(
       if (hostname !== 'susercontent.com' && !hostname.endsWith('.susercontent.com')) continue
       if (!parsed.pathname.toLowerCase().startsWith('/file/')) continue
       if (/(avatar|icon|logo|banner)/i.test(raw)) continue
+
+      urls.push(raw)
+      break
+    }
+  })
+
+  return urls
+}
+
+export function extractMyshipProductImages(
+  $: cheerio.CheerioAPI,
+  limit: number = MAX_GALLERY_IMAGES,
+): string[] {
+  const urls: string[] = []
+
+  $('img').each((_, el) => {
+    if (urls.length >= limit) return
+
+    const candidates = [$(el).attr('data-src'), $(el).attr('src')]
+
+    for (const raw of candidates) {
+      if (!raw) continue
+
+      let parsed: URL
+      try {
+        parsed = new URL(raw)
+      } catch {
+        continue
+      }
+
+      if (!/\/i\/cgdm\/GM\d+/i.test(parsed.pathname)) continue
 
       urls.push(raw)
       break
@@ -546,6 +586,7 @@ export function emptyResult(websiteUrl: string): ScrapedBrandData {
     purchaseWebsite: null,
     purchasePinkoi: null,
     purchaseShopee: null,
+    purchaseMyship: null,
     categoryHints: [],
     websiteUrl,
     rawJsonLd: null,

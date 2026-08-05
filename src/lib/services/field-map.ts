@@ -3,11 +3,16 @@ import { deriveProductTagsEn } from '@/lib/services/product-tags'
 import {
   PURCHASE_CHANNELS,
   type PurchaseChannelCamelField,
+  type PurchaseChannelColumn,
 } from '@/lib/brands/purchase-channels'
 
 // product_tags_en exists in the DB but is not yet in the generated types
-type BrandInsertRow = TablesInsert<'brands'> & { product_tags_en?: string[] | null }
-type SubmissionInsertRow = TablesInsert<'brand_submissions'>
+type PurchaseChannelInsertFields = {
+  [Column in PurchaseChannelColumn]?: string | null
+}
+type BrandInsertRow = TablesInsert<'brands'> &
+  PurchaseChannelInsertFields & { product_tags_en?: string[] | null }
+type SubmissionInsertRow = TablesInsert<'brand_submissions'> & PurchaseChannelInsertFields
 
 /**
  * The camelCase link fields both write boundaries accept. The purchase half is

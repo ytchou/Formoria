@@ -31,6 +31,7 @@ const baseline: SubmissionReviewData = {
   purchaseWebsite: "https://example.com",
   purchasePinkoi: null,
   purchaseShopee: null,
+  purchaseMyship: null,
   otherUrls: [],
 };
 

@@ -34,6 +34,7 @@ const PURCHASE_VISIT_LABEL_KEYS = {
   website: visitLabelKey('website'),
   pinkoi: visitLabelKey('pinkoi'),
   shopee: visitLabelKey('shopee'),
+  myship: visitLabelKey('myship'),
 } satisfies Record<PurchaseChannelKey, string>
 
 const VISIT_LABEL_KEYS = {

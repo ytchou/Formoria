@@ -1,7 +1,7 @@
 /**
  * Single source of truth for the brand purchase channels.
  *
- * The three channels are otherwise spelled out as literals across roughly fifty
+ * The channels are otherwise spelled out as literals across roughly fifty
  * files — column names, camelCase field names, host lists, URL patterns, and
  * i18n message keys all restated by hand. Consumers should derive from this
  * registry instead of re-listing.
@@ -18,7 +18,7 @@
  *   - `src/lib/brands/link-fallback.ts` — the visit-link candidate list is
  *     evaluated in this order, so reordering changes which link the brand card
  *     and detail CTA point at.
- * Adding a channel at the end is safe; reordering the existing three is not.
+ * Adding a channel at the end is safe; reordering the existing channels is not.
  *
  * NOTE: this file must contain zero Han characters, including in comments — the
  * project's CJK guard test scans comments. The registry stores i18n message
@@ -35,14 +35,7 @@ export interface PurchaseChannelMessageKeys {
   readonly brandFaqChannel: string
   /** Outbound-destination row label in the owner dashboard analytics. */
   readonly analyticsOutboundDestination: string
-  /**
-   * Field label in the owner brand-edit wizard.
-   *
-   * `pinkoi` has NO such key in `messages/*.json` today — the label is a
-   * hard-coded literal at `src/components/brand-wizard/links-section.tsx:95`.
-   * The intended key name is recorded here so a later task can add the message
-   * and swap the literal; do not assume it resolves yet.
-   */
+  /** Field label in the owner brand-edit wizard. */
   readonly dashboardEditField: string
   /** Field label in the admin corrections queue (keyed by DB column). */
   readonly adminCorrectionField: string
@@ -114,8 +107,6 @@ export const PURCHASE_CHANNELS = [
       brandDetailAction: 'brandDetail.actions.visitPinkoi',
       brandFaqChannel: 'brandDetail.brandFaq.channels.pinkoi',
       analyticsOutboundDestination: 'dashboard.analytics.outboundDestinationPinkoi',
-      // Intended key only — not present in messages/*.json yet. See
-      // PurchaseChannelMessageKeys.dashboardEditField above.
       dashboardEditField: 'dashboard.edit.fieldPinkoi',
       adminCorrectionField: 'admin.corrections.fields.purchase_pinkoi',
     },
@@ -135,6 +126,26 @@ export const PURCHASE_CHANNELS = [
       analyticsOutboundDestination: 'dashboard.analytics.outboundDestinationShopee',
       dashboardEditField: 'dashboard.edit.fieldShopee',
       adminCorrectionField: 'admin.corrections.fields.purchase_shopee',
+    },
+  },
+  // Discovery is passive URL-pattern classification only; no per-brand SERP
+  // probe runs. If passive yield is too low, upgrade behind a gate with a
+  // site:myship.7-11.com.tw Serper probe in enrich-phases/links.ts.
+  {
+    key: 'myship',
+    camel: 'purchaseMyship',
+    column: 'purchase_myship',
+    hosts: ['myship.7-11.com.tw'],
+    urlPattern: /myship\.7-11\.com\.tw\/general\/detail\/GM\d+/i,
+    allowBareRoot: false,
+    platformSlug: 'myship',
+    messageKeys: {
+      brandDetailLink: 'brandDetail.links.myship',
+      brandDetailAction: 'brandDetail.actions.visitMyship',
+      brandFaqChannel: 'brandDetail.brandFaq.channels.myship',
+      analyticsOutboundDestination: 'dashboard.analytics.outboundDestinationMyship',
+      dashboardEditField: 'dashboard.edit.fieldMyship',
+      adminCorrectionField: 'admin.corrections.fields.purchase_myship',
     },
   },
 ] as const satisfies readonly PurchaseChannelDescriptor[]

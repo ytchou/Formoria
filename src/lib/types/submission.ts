@@ -1,4 +1,5 @@
 import type { OtherUrl, SubmissionStatus } from './brand'
+import type { PurchaseChannelCamelField } from '@/lib/brands/purchase-channels'
 
 type ValidationStatus = 'valid' | 'incomplete'
 export type SubmissionIntent = 'recommend' | 'owner_claim' | 'refresh'
@@ -50,9 +51,6 @@ export type BrandSubmission = {
   socialInstagram: string | null
   socialThreads: string | null
   socialFacebook: string | null
-  purchaseWebsite: string | null
-  purchasePinkoi: string | null
-  purchaseShopee: string | null
   otherUrls: OtherUrl[]
   suggestedTags: string[] | { values?: string[]; productType?: string }
   status: SubmissionStatus
@@ -67,7 +65,7 @@ export type BrandSubmission = {
   isBrandOwner: boolean
   sourceAttribution?: SourceAttribution | null
   denialReason?: DenialReason | null
-}
+} & { [Field in PurchaseChannelCamelField]: string | null }
 
 export type DuplicateCandidate = {
   id: string
