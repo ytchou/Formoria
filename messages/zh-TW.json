@@ -395,6 +395,7 @@
       "visitWebsite": "前往官網",
       "visitPinkoi": "前往 Pinkoi",
       "visitShopee": "前往蝦皮購物",
+      "visitMyship": "前往 7-ELEVEN 賣貨便",
       "visitInstagram": "前往 Instagram",
       "visitThreads": "前往 Threads",
       "visitFacebook": "前往 Facebook",
@@ -426,6 +427,7 @@
       "website": "品牌官網",
       "pinkoi": "Pinkoi",
       "shopee": "蝦皮購物",
+      "myship": "7-ELEVEN 賣貨便",
       "unknown": "尚無已知連結"
     },
     "notFound": {
@@ -700,7 +702,8 @@
       "channels": {
         "website": "品牌官網",
         "pinkoi": "Pinkoi",
-        "shopee": "蝦皮購物"
+        "shopee": "蝦皮購物",
+        "myship": "7-ELEVEN 賣貨便"
       },
       "priceRanges": {
         "budget": "平價",
@@ -1519,6 +1522,7 @@
       "outboundDestinationFacebook": "Facebook",
       "outboundDestinationPinkoi": "Pinkoi",
       "outboundDestinationShopee": "蝦皮購物",
+      "outboundDestinationMyship": "7-ELEVEN 賣貨便",
       "outboundDestinationOther": "其他",
       "destinationsUnavailable": "外連目的地明細暫時無法使用。",
       "destinationsEmpty": "此期間沒有外連工作階段。",
@@ -1682,7 +1686,9 @@
       "fieldInstagram": "Instagram",
       "fieldThreads": "Threads",
       "fieldFacebook": "Facebook",
+      "fieldPinkoi": "Pinkoi",
       "fieldShopee": "蝦皮購物",
+      "fieldMyship": "7-ELEVEN 賣貨便",
       "fieldPurchaseLinks": "購買連結",
       "addPurchaseLink": "新增購買連結",
       "fieldPlatformPlaceholder": "平台",
@@ -2465,6 +2471,7 @@
         "purchase_website": "品牌官網",
         "purchase_pinkoi": "Pinkoi",
         "purchase_shopee": "蝦皮購物",
+        "purchase_myship": "7-ELEVEN 賣貨便",
         "social_instagram": "Instagram",
         "social_threads": "Threads",
         "social_facebook": "Facebook"

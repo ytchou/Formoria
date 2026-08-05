@@ -18,6 +18,10 @@ import {
 } from "@/lib/constants/enrich-phases";
 import { normalizeToRootUrl } from "@/lib/url";
 import {
+  PURCHASE_CHANNELS,
+  type PurchaseChannelColumn,
+} from "@/lib/brands/purchase-channels";
+import {
   buildLinkEnrichPatch,
   buildTextEnrichPatch,
   extractLinksFromUrls,
@@ -354,7 +358,7 @@ type ProcessEnrichResult = {
   hasChanges: boolean;
 };
 
-type SubmissionEnrichmentRow = {
+type SubmissionEnrichmentRow = Record<PurchaseChannelColumn, string | null> & {
   id: string;
   brand_id: string | null;
   intent: string;
@@ -366,9 +370,6 @@ type SubmissionEnrichmentRow = {
   social_instagram: string | null;
   social_threads: string | null;
   social_facebook: string | null;
-  purchase_website: string | null;
-  purchase_pinkoi: string | null;
-  purchase_shopee: string | null;
   other_urls: unknown;
   enriched_data: unknown;
   owner_data: unknown;
@@ -404,9 +405,9 @@ export function seedEnrichedDataFromOwnerData(
     ["socialInstagram", "social_instagram"],
     ["socialThreads", "social_threads"],
     ["socialFacebook", "social_facebook"],
-    ["purchaseWebsite", "purchase_website"],
-    ["purchasePinkoi", "purchase_pinkoi"],
-    ["purchaseShopee", "purchase_shopee"],
+    ...PURCHASE_CHANNELS.map(
+      (channel) => [channel.camel, channel.column] as const,
+    ),
   ] as const;
 
   for (const [ownerKey, enrichedKey] of fieldMappings) {
@@ -735,10 +736,16 @@ function normalizeScrapedData(
       scrapedData.social_instagram ?? scrapedData.socialInstagram,
     social_threads: scrapedData.social_threads ?? scrapedData.socialThreads,
     social_facebook: scrapedData.social_facebook ?? scrapedData.socialFacebook,
-    purchase_website:
-      scrapedData.purchase_website ?? scrapedData.purchaseWebsite,
-    purchase_pinkoi: scrapedData.purchase_pinkoi ?? scrapedData.purchasePinkoi,
-    purchase_shopee: scrapedData.purchase_shopee ?? scrapedData.purchaseShopee,
+    // Scrapers emit either the snake_case column or the camelCase field; the
+    // column wins. Derived per channel rather than restated three times.
+    ...(Object.fromEntries(
+      PURCHASE_CHANNELS.map(
+        (channel): [PurchaseChannelColumn, string | null | undefined] => [
+          channel.column,
+          scrapedData[channel.column] ?? scrapedData[channel.camel],
+        ],
+      ),
+    ) as Partial<Record<PurchaseChannelColumn, string | null>>),
   };
 }
 
@@ -1122,6 +1129,32 @@ export async function persistSubmissionEnrichmentResults(
   );
 }
 
+/**
+ * Fill-gaps merge of the purchase columns: whatever enrichment already produced
+ * wins, otherwise the submitted value is used.
+ *
+ * The submitted value is reduced to its origin only for a channel that accepts a
+ * bare root (today: the brand's own website) — that column is meant to hold the
+ * site, not a page on it. A marketplace channel is the opposite: its bare root
+ * is the platform's front door, so the submitted URL is carried through intact.
+ */
+function mergeSubmittedPurchaseColumns(
+  existing: JsonObject,
+  submission: Record<PurchaseChannelColumn, string | null>,
+): Record<PurchaseChannelColumn, string | null> {
+  return Object.fromEntries(
+    PURCHASE_CHANNELS.map((channel): [PurchaseChannelColumn, string | null] => {
+      const enriched = existing[channel.column];
+      if (typeof enriched === "string") return [channel.column, enriched];
+      const submitted = submission[channel.column];
+      return [
+        channel.column,
+        channel.allowBareRoot ? normalizeToRootUrl(submitted) : submitted,
+      ];
+    }),
+  ) as Record<PurchaseChannelColumn, string | null>;
+}
+
 export function submissionToEnrichBrand(
   submission: SubmissionEnrichmentRow,
   options?: { overwrite?: boolean },
@@ -1180,18 +1213,7 @@ export function submissionToEnrichBrand(
       typeof existing.social_facebook === "string"
         ? existing.social_facebook
         : submission.social_facebook,
-    purchase_website:
-      typeof existing.purchase_website === "string"
-        ? existing.purchase_website
-        : normalizeToRootUrl(submission.purchase_website),
-    purchase_pinkoi:
-      typeof existing.purchase_pinkoi === "string"
-        ? existing.purchase_pinkoi
-        : submission.purchase_pinkoi,
-    purchase_shopee:
-      typeof existing.purchase_shopee === "string"
-        ? existing.purchase_shopee
-        : submission.purchase_shopee,
+    ...mergeSubmittedPurchaseColumns(existing, submission),
     hero_image_url:
       typeof existing.hero_image_url === "string"
         ? existing.hero_image_url

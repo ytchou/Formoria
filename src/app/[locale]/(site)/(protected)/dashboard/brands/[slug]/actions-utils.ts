@@ -26,7 +26,8 @@ export function buildModerationPayload(
       website: getString(proposedData.purchaseWebsite),
       purchaseUrl:
         getString(proposedData.purchasePinkoi) ??
-        getString(proposedData.purchaseShopee),
+        getString(proposedData.purchaseShopee) ??
+        getString(proposedData.purchaseMyship),
     },
   }
 }

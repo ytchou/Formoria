@@ -3,6 +3,10 @@ import { auditedCall } from '@/lib/audit'
 import type { SourceAttribution } from '@/lib/types/submission'
 import { createSubmission } from '@/lib/services/submissions'
 import { classifySubmittedUrl } from '@/lib/services/link-enrichment'
+import {
+  PURCHASE_CHANNELS,
+  type PurchaseChannelCamelField,
+} from '@/lib/brands/purchase-channels'
 
 export interface SubmitBrandForReviewParams {
   intent?: SubmissionIntent
@@ -23,6 +27,7 @@ export interface SubmitBrandForReviewParams {
     facebook?: string
     pinkoi?: string
     shopee?: string
+    myship?: string
   } | null
   purchaseLinks?: Array<{ platform: string; url: string }> | null
   otherUrls?: OtherUrl[] | null
@@ -50,27 +55,46 @@ export async function submitBrandForReview(
   let socialThreads = params.socialLinks?.threads || null
   let socialFacebook = params.socialLinks?.facebook || null
 
-  // Map purchase links: known platforms get dedicated columns; others go to otherUrls
+  // Map purchase links: known platforms get dedicated columns; others go to otherUrls.
+  // "Known" means a channel that owns a host in the registry — the brand's own
+  // website owns none, arrives via `params.purchaseWebsite`, and a purchaseLinks
+  // entry naming it has always fallen through to otherUrls. That is preserved.
   const purchaseLinks = params.purchaseLinks ?? []
-  let purchasePinkoi =
-    params.socialLinks?.pinkoi || (purchaseLinks.find((l) => l.platform === 'pinkoi')?.url ?? null)
-  let purchaseShopee =
-    params.socialLinks?.shopee || (purchaseLinks.find((l) => l.platform === 'shopee')?.url ?? null)
+  const platformChannels = PURCHASE_CHANNELS.filter((channel) => channel.hosts.length > 0)
+  const platformSlugs = new Set<string>(platformChannels.map((channel) => channel.platformSlug))
+  const submittedSocialLinks = { ...params.socialLinks } as Record<string, string | undefined>
+
+  const purchaseValues = Object.fromEntries(
+    PURCHASE_CHANNELS.map(
+      (channel): [PurchaseChannelCamelField, string | null] => [channel.camel, null],
+    ),
+  ) as Record<PurchaseChannelCamelField, string | null>
+
+  for (const channel of platformChannels) {
+    purchaseValues[channel.camel] =
+      submittedSocialLinks[channel.key] ||
+      (purchaseLinks.find((l) => l.platform === channel.platformSlug)?.url ?? null)
+  }
+
   const otherPurchaseUrls = purchaseLinks
-    .filter((l) => l.platform !== 'pinkoi' && l.platform !== 'shopee')
+    .filter((l) => !platformSlugs.has(l.platform))
     .map((l) => ({ label: l.platform, url: l.url }))
 
-  let purchaseWebsite = params.purchaseWebsite?.trim() || null
+  for (const channel of PURCHASE_CHANNELS) {
+    if (channel.hosts.length > 0) continue
+    purchaseValues[channel.camel] = params.purchaseWebsite?.trim() || null
+  }
 
   if (params.websiteUrl) {
     const classified = classifySubmittedUrl(params.websiteUrl)
     if (classified.socialInstagram && !socialInstagram) socialInstagram = classified.socialInstagram
     if (classified.socialThreads && !socialThreads) socialThreads = classified.socialThreads
     if (classified.socialFacebook && !socialFacebook) socialFacebook = classified.socialFacebook
-    if (classified.purchasePinkoi && !purchasePinkoi) purchasePinkoi = classified.purchasePinkoi
-    if (classified.purchaseShopee && !purchaseShopee) purchaseShopee = classified.purchaseShopee
-    if (classified.purchaseWebsite && !purchaseWebsite) {
-      purchaseWebsite = classified.purchaseWebsite
+    for (const channel of PURCHASE_CHANNELS) {
+      const classifiedUrl = classified[channel.camel]
+      if (classifiedUrl && !purchaseValues[channel.camel]) {
+        purchaseValues[channel.camel] = classifiedUrl
+      }
     }
   }
 
@@ -93,9 +117,7 @@ export async function submitBrandForReview(
     socialInstagram,
     socialThreads,
     socialFacebook,
-    purchaseWebsite,
-    purchasePinkoi,
-    purchaseShopee,
+    ...purchaseValues,
     otherUrls: [...(params.otherUrls ?? []), ...otherPurchaseUrls],
     suggestedTags,
     isBrandOwner: params.isBrandOwner ?? false,

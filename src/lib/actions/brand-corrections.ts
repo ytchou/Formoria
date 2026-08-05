@@ -6,25 +6,29 @@ import { z } from "zod/v3";
 
 import { ensureVisitorHash } from "@/lib/actions/visitor-identity";
 import { getClientIpFromHeaders, rateLimit } from "@/lib/security/rate-limiter";
+import { PURCHASE_COLUMNS } from "@/lib/brands/purchase-channels";
 import {
   submitCorrection,
+  type CorrectionField,
   type SubmitCorrectionResult,
 } from "@/lib/services/brand-corrections";
 
 const brandIdSchema = z.string().uuid();
+// `PURCHASE_COLUMNS` is a readonly array, not a tuple, so spreading it erases
+// the tuple-ness `z.enum` requires. The assertion restores the tuple shape
+// without widening the member type past `CorrectionField`.
+const correctionFields = [
+  "price_range",
+  "product_type",
+  "product_tags",
+  ...PURCHASE_COLUMNS,
+  "social_instagram",
+  "social_threads",
+  "social_facebook",
+] as unknown as readonly [CorrectionField, ...CorrectionField[]];
 const correctionInputSchema = z.object({
   brandId: brandIdSchema,
-  field: z.enum([
-    "price_range",
-    "product_type",
-    "product_tags",
-    "purchase_website",
-    "purchase_pinkoi",
-    "purchase_shopee",
-    "social_instagram",
-    "social_threads",
-    "social_facebook",
-  ]),
+  field: z.enum(correctionFields),
   proposedValue: z.union([
     z.number(),
     z.string(),

@@ -1,5 +1,10 @@
 import type { Brand } from '@/lib/types'
 import {
+  PURCHASE_CHANNELS,
+  type PurchaseChannelCamelField,
+  type PurchaseChannelKey,
+} from '@/lib/brands/purchase-channels'
+import {
   normalizeInstagramHref,
   normalizeThreadsHref,
   sanitizeHref,
@@ -7,18 +12,14 @@ import {
 
 export type BrandVisitLinkFields = Pick<
   Brand,
-  | 'purchaseWebsite'
+  | PurchaseChannelCamelField
   | 'socialInstagram'
   | 'socialThreads'
   | 'socialFacebook'
-  | 'purchasePinkoi'
-  | 'purchaseShopee'
 >
 
 export type BrandVisitLinkKind =
-  | 'website'
-  | 'pinkoi'
-  | 'shopee'
+  | PurchaseChannelKey
   | 'instagram'
   | 'threads'
   | 'facebook'
@@ -29,10 +30,11 @@ export interface BrandVisitLink {
 }
 
 // Hostnames that override the winning field's own kind, so a marketplace URL
-// stored in purchase_website is still labelled by where it actually goes.
+// stored in a different purchase field is still labelled by where it actually goes.
 const HOST_KINDS: ReadonlyArray<readonly [BrandVisitLinkKind, readonly string[]]> = [
-  ['pinkoi', ['pinkoi.com']],
-  ['shopee', ['shopee.tw', 'shopee.com.tw']],
+  ...PURCHASE_CHANNELS
+    .filter((channel) => channel.hosts.length > 0)
+    .map((channel) => [channel.key, channel.hosts] as const),
   ['instagram', ['instagram.com']],
   ['threads', ['threads.net', 'threads.com']],
   ['facebook', ['facebook.com', 'fb.com']],
@@ -55,9 +57,10 @@ function classifyHref(href: string, fallback: BrandVisitLinkKind): BrandVisitLin
 
 export function getBrandVisitLink(brand: BrandVisitLinkFields): BrandVisitLink | null {
   const candidates: ReadonlyArray<readonly [BrandVisitLinkKind, string | null]> = [
-    ['website', sanitizeHref(brand.purchaseWebsite)],
-    ['pinkoi', sanitizeHref(brand.purchasePinkoi)],
-    ['shopee', sanitizeHref(brand.purchaseShopee)],
+    ...PURCHASE_CHANNELS.map((channel) => [
+      channel.key,
+      sanitizeHref(brand[channel.camel]),
+    ] as const),
     ['instagram', normalizeInstagramHref(brand.socialInstagram)],
     ['threads', normalizeThreadsHref(brand.socialThreads)],
     ['facebook', sanitizeHref(brand.socialFacebook)],

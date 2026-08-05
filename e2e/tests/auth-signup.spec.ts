@@ -75,7 +75,7 @@ test.describe('Auth — sign-up flow', () => {
   // else — an invalid-email 400, an empty error, a silent no-op — is a FAIL.
   //
   // Reaching the redirect only proves Supabase ACCEPTED the message. When
-  // RESEND_API_KEY is present the test goes further and asserts the message was
+  // E2E_RESEND_API_KEY is present the test goes further and asserts the message was
   // actually delivered — see the delivery block below and helpers/resend-delivery.ts.
   test('registers a new user and redirects to sign-in with confirmation message', async ({
     anonPage,
@@ -107,9 +107,9 @@ test.describe('Auth — sign-up flow', () => {
 
       // (1b) …but acceptance is not delivery. Supabase Auth sends through Resend
       // (custom SMTP), so Resend is the only place the real outcome is visible.
-      // Without the key this assertion is inert — adding RESEND_API_KEY to the
+      // Without the key this assertion is inert — adding E2E_RESEND_API_KEY to the
       // workflow is the deliberate switch that turns it on.
-      const resendApiKey = process.env.RESEND_API_KEY;
+      const resendApiKey = process.env.E2E_RESEND_API_KEY;
       if (!resendApiKey) return;
 
       const outcome = await waitForDelivery(signupEmail, { apiKey: resendApiKey });

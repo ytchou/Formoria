@@ -1,4 +1,4 @@
-BEGIN;
+begin;
 
 -- Append-only span index for external and internal service calls. Every call
 -- writes exactly two rows: one `started` row when the call is dispatched and
@@ -38,10 +38,13 @@ comment on table public.external_call_audit is
 
 comment on column public.external_call_audit.span_id is
   'Groups the `started` row with its terminal row. Not unique: exactly two rows share it.';
+
 comment on column public.external_call_audit.causation_id is
   'The span_id of the call that caused this one. Plain uuid by design — no FK, no cascade.';
+
 comment on column public.external_call_audit.subject_id is
   'The domain entity this call was made for (brand, image, …). Plain uuid by design — audit outlives its subjects.';
+
 comment on column public.external_call_audit.latency_ms is
   'Set on terminal rows only; null on `started` rows.';
 
@@ -70,7 +73,9 @@ create unique index external_call_audit_started_span_unique
   where status = 'started';
 
 alter table public.external_call_audit enable row level security;
+
 revoke all on table public.external_call_audit from public, anon, authenticated;
+
 grant all on table public.external_call_audit to service_role;
 
 -- Collapses the two rows of a span into one row so latency, terminal status and
@@ -110,6 +115,7 @@ comment on view public.external_call_audit_spans is
   'One row per call span: the `started` row joined to its terminal row, exposing start time, finish time, terminal status and latency. `terminal_status` is null while a span is still in flight.';
 
 revoke all on table public.external_call_audit_spans from public, anon, authenticated;
+
 grant select on table public.external_call_audit_spans to service_role;
 
-COMMIT;
+commit;

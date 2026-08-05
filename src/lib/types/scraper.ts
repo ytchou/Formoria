@@ -26,6 +26,7 @@ export interface ScrapedBrandData {
   purchaseWebsite: string | null
   purchasePinkoi: string | null
   purchaseShopee: string | null
+  purchaseMyship: string | null
   categoryHints: string[]
   websiteUrl: string
   rawJsonLd: Record<string, unknown> | null

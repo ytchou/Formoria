@@ -38,6 +38,7 @@ const COLUMN_FIXTURE: Record<string, unknown> = {
   purchase_website: 'https://example.com',
   purchase_pinkoi: 'https://pinkoi.com/store/example',
   purchase_shopee: 'https://shopee.tw/example',
+  purchase_myship: 'https://myship.7-11.com.tw/general/detail/GM123456',
   social_instagram: 'https://instagram.com/example',
   social_threads: 'https://threads.net/@example',
   social_facebook: 'https://facebook.com/example',
@@ -124,6 +125,11 @@ describe('brand column projections', () => {
 
   it('never ships draft_data to directory consumers', () => {
     expect(DIRECTORY_BRAND_COLUMN_LIST).not.toContain('draft_data')
+  })
+
+  it('keeps purchase channels in the directory projection', () => {
+    expect(DIRECTORY_BRAND_COLUMN_LIST).toContain('purchase_shopee')
+    expect(DIRECTORY_BRAND_COLUMN_LIST).toContain('purchase_myship')
   })
 })
 

@@ -1,4 +1,8 @@
 import { createServiceClient } from "@/lib/supabase/server";
+import {
+  PURCHASE_COLUMNS,
+  type PurchaseChannelColumn,
+} from "@/lib/brands/purchase-channels";
 
 export type LinkStatus = "ok" | "broken" | "blocked";
 
@@ -34,8 +38,8 @@ export interface LinkHealthSummary {
   severity: "ok" | "warning" | "critical";
 }
 
-type CheckedField =
-  "purchase_website" | "purchase_pinkoi" | "purchase_shopee" | "hero_image_url";
+// `hero_image_url` is not a purchase channel — it is checked alongside them.
+type CheckedField = PurchaseChannelColumn | "hero_image_url";
 
 type BrandRow = { id: string } & Record<CheckedField, string | null>;
 
@@ -86,12 +90,11 @@ export interface LinkHealthDatabaseClient {
   ): QueryResult<LedgerResult | LedgerClaim[] | null>;
 }
 
-const CHECKED_FIELDS: CheckedField[] = [
-  "purchase_website",
-  "purchase_pinkoi",
-  "purchase_shopee",
-  "hero_image_url",
-];
+const CHECKED_FIELDS: CheckedField[] = [...PURCHASE_COLUMNS, "hero_image_url"];
+
+const BRAND_SELECT_COLUMNS = ["id", ...PURCHASE_COLUMNS, "hero_image_url"].join(
+  ", ",
+);
 
 const BROWSER_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
@@ -274,9 +277,7 @@ export async function runLinkHealthCheck(
   try {
     const { data: brands, error: brandsError } = await db
       .from("brands")
-      .select(
-        "id, purchase_website, purchase_pinkoi, purchase_shopee, hero_image_url",
-      )
+      .select(BRAND_SELECT_COLUMNS)
       .eq("status", "approved");
     if (brandsError)
       throw new Error(`Failed to load brands: ${brandsError.message}`);

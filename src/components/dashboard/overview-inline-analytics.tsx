@@ -6,6 +6,11 @@ import { SurfaceCard } from '@/components/ui/card'
 import { countDelta, percent } from '@/lib/analytics/delta-formatters'
 import type { OwnerAnalyticsSnapshotV1 } from '@/lib/analytics/posthog-types'
 import {
+  channelMessageKey,
+  purchaseChannelByKey,
+  type PurchaseChannelKey,
+} from '@/lib/brands/purchase-channels'
+import {
   outboundDestinationLabel,
   trafficSourceLabel,
 } from '@/lib/analytics/traffic-source-labels'
@@ -48,13 +53,41 @@ export async function OverviewInlineAnalytics({
     direct: tAnalytics('trafficSourceDirect'),
     other: tAnalytics('trafficSourceOther'),
   }
+  // Spelled out one key per channel on purpose: an `Object.fromEntries` build
+  // collapses to `{ [k: string]: string }`, which satisfies the Record below
+  // vacuously and lets a new channel fall through to `labels.other` unnoticed.
+  // The literal is what makes `satisfies` a real gate.
+  const purchaseOutboundDestinationLabels = {
+    website: tAnalytics(
+      channelMessageKey(
+        purchaseChannelByKey.website.messageKeys.analyticsOutboundDestination,
+        'dashboard.analytics',
+      ),
+    ),
+    pinkoi: tAnalytics(
+      channelMessageKey(
+        purchaseChannelByKey.pinkoi.messageKeys.analyticsOutboundDestination,
+        'dashboard.analytics',
+      ),
+    ),
+    shopee: tAnalytics(
+      channelMessageKey(
+        purchaseChannelByKey.shopee.messageKeys.analyticsOutboundDestination,
+        'dashboard.analytics',
+      ),
+    ),
+    myship: tAnalytics(
+      channelMessageKey(
+        purchaseChannelByKey.myship.messageKeys.analyticsOutboundDestination,
+        'dashboard.analytics',
+      ),
+    ),
+  } satisfies Record<PurchaseChannelKey, string>
   const outboundDestinationLabels = {
-    website: tAnalytics('outboundDestinationWebsite'),
+    ...purchaseOutboundDestinationLabels,
     instagram: tAnalytics('outboundDestinationInstagram'),
     threads: tAnalytics('outboundDestinationThreads'),
     facebook: tAnalytics('outboundDestinationFacebook'),
-    pinkoi: tAnalytics('outboundDestinationPinkoi'),
-    shopee: tAnalytics('outboundDestinationShopee'),
     other: tAnalytics('outboundDestinationOther'),
   }
   const profileDelta = snapshot.profileSessions

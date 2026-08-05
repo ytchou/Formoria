@@ -33,13 +33,13 @@ export default defineConfig({
   // constraints — see dashboard-brand-owned-edit.spec.ts), so raising this
   // caps out well below 4x.
   //
-  // Locally, Playwright would default to half the cores. Against `pnpm dev` that
-  // oversubscribes one Turbopack process: pages get torn down with RSC fetches
-  // still in flight, and the aborted response (ECONNRESET server-side) reaches
-  // the client as a truncated flight payload, so `JSON.parse` throws and the dev
-  // error overlay replaces the page under test. Cap it — the suite is bound by
-  // the dev server, not by CPU.
-  workers: process.env.CI ? 4 : 3,
+  // Locally, Playwright would default to half the cores. Against `pnpm dev`
+  // concurrent journeys oversubscribe one Turbopack process: pages get torn
+  // down with RSC fetches still in flight, and the aborted response
+  // (ECONNRESET server-side) reaches the client as a truncated flight payload.
+  // Keep local deep runs deterministic; production CI retains its parallel
+  // worker count.
+  workers: process.env.CI ? 4 : 1,
   reporter: "html",
   // CI serves a production build via `pnpm start`, so every route is already
   // compiled and 30s is a real budget. Locally `webServer` runs `pnpm dev`,

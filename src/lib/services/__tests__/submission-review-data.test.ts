@@ -20,6 +20,7 @@ const baseSubmission = {
   purchaseWebsite: "https://original.example.com",
   purchasePinkoi: null,
   purchaseShopee: null,
+  purchaseMyship: null,
   otherUrls: [{ label: "Stockist", url: "https://stockist.example.com" }],
   suggestedTags: {
     values: ["手工皂"],

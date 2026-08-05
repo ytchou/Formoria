@@ -1,3 +1,8 @@
+-- Correlate the enrichment deep stores with their span in external_call_audit.
+--
+-- No index on brand_ai_results: it is read by brand_id, never by span. Only
+-- brand_search_results is looked up span-first during replay.
+
 alter table public.brand_ai_results
   add column if not exists audit_span_id uuid;
 

@@ -11,6 +11,7 @@ import {
   AtSign,
   Globe,
   Link,
+  Package,
   ShoppingCart,
   Store,
 } from 'lucide-react'
@@ -23,6 +24,12 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import type { Brand } from '@/lib/types'
+import {
+  channelMessageKey,
+  PURCHASE_CHANNELS,
+  type PurchaseChannelColumn,
+  type PurchaseChannelKey,
+} from '@/lib/brands/purchase-channels'
 import { cn } from '@/lib/utils'
 import { trackExternalLinkClicked } from '@/lib/analytics'
 import { CorrectionDialog } from './correction-dialog'
@@ -55,12 +62,10 @@ function FacebookIcon({ className }: { className?: string }) {
 }
 
 type LinkDestination =
+  | PurchaseChannelKey
   | 'instagram'
   | 'threads'
   | 'facebook'
-  | 'website'
-  | 'pinkoi'
-  | 'shopee'
 
 type LinkSlot = {
   label: string
@@ -86,6 +91,25 @@ const destinationLinkClassName =
     size: 'compact',
     className: 'min-w-32 max-w-full justify-center gap-2',
   })
+
+const PURCHASE_PRESENTATION = {
+  website: {
+    icon: <Globe className="size-4 text-current" />,
+    accentClassName: 'text-primary',
+  },
+  pinkoi: {
+    icon: <Store className="size-4 text-current" />,
+    accentClassName: 'text-[#E05B6F]',
+  },
+  shopee: {
+    icon: <ShoppingCart className="size-4 text-current" />,
+    accentClassName: 'text-[#EE4D2D]',
+  },
+  myship: {
+    icon: <Package className="size-4 text-current" />,
+    accentClassName: 'text-[#FF6600]',
+  },
+} satisfies Record<PurchaseChannelKey, { icon: ReactNode; accentClassName: string }>
 
 function DestinationLinkButton({
   slot,
@@ -250,29 +274,15 @@ function BrandSocialLinks({ brand, sectionIds, sectionClassName }: BrandLinksPro
 function BrandPurchaseLinks({ brand, sectionIds, sectionClassName }: BrandLinksProps) {
   const t = useTranslations('brandDetail')
 
-  const purchaseSlots: LinkSlot[] = [
-    {
-      label: t('links.website'),
-      url: normalizeDirectUrl(brand.purchaseWebsite),
-      linkType: 'website',
-      icon: <Globe className="size-4 text-current" />,
-      accentClassName: 'text-primary',
-    },
-    {
-      label: t('links.pinkoi'),
-      url: normalizeDirectUrl(brand.purchasePinkoi),
-      linkType: 'pinkoi',
-      icon: <Store className="size-4 text-current" />,
-      accentClassName: 'text-[#E05B6F]',
-    },
-    {
-      label: t('links.shopee'),
-      url: normalizeDirectUrl(brand.purchaseShopee),
-      linkType: 'shopee',
-      icon: <ShoppingCart className="size-4 text-current" />,
-      accentClassName: 'text-[#EE4D2D]',
-    },
-  ]
+  const purchaseSlots: LinkSlot[] = PURCHASE_CHANNELS.map((channel) => ({
+    label: t(channelMessageKey(channel.messageKeys.brandDetailLink, 'brandDetail')),
+    url: normalizeDirectUrl(brand[channel.camel]),
+    linkType: channel.key,
+    ...PURCHASE_PRESENTATION[channel.key],
+  }))
+  const purchaseLinks = Object.fromEntries(
+    PURCHASE_CHANNELS.map((channel) => [channel.column, brand[channel.camel]]),
+  ) as Record<PurchaseChannelColumn, string | null>
 
   return (
     <LinkSection
@@ -286,9 +296,7 @@ function BrandPurchaseLinks({ brand, sectionIds, sectionClassName }: BrandLinksP
           mode="purchaseLinks"
           brandId={brand.id}
           brandSlug={brand.slug}
-          purchaseWebsite={brand.purchaseWebsite}
-          purchasePinkoi={brand.purchasePinkoi}
-          purchaseShopee={brand.purchaseShopee}
+          purchaseLinks={purchaseLinks}
         />
       }
     />

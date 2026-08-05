@@ -24,9 +24,14 @@ export function brandToReviewData(brand: Brand): SubmissionReviewData {
     socialInstagram: brand.socialInstagram,
     socialThreads: brand.socialThreads,
     socialFacebook: brand.socialFacebook,
+    // Spelled out per channel rather than built with Object.fromEntries: the
+    // latter widens to a string index signature, which does not satisfy
+    // SubmissionReviewData's required purchase keys. Listing them keeps tsc as
+    // the gate — adding a channel to PURCHASE_CHANNELS breaks this literal.
     purchaseWebsite: brand.purchaseWebsite,
     purchasePinkoi: brand.purchasePinkoi,
     purchaseShopee: brand.purchaseShopee,
+    purchaseMyship: brand.purchaseMyship,
     otherUrls: brand.otherUrls,
   };
 }

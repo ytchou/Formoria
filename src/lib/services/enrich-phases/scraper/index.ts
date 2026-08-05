@@ -42,7 +42,7 @@ export type MultiScrapeResult = {
  * Scraping is free in API-credit terms — each URL is one render fetch, not a
  * paid search call — so the cap exists only to bound wall-clock per brand. The
  * previous 3 was routinely spent on the official site plus two social profiles,
- * so a brand's Pinkoi/Shopee pages were never reached and the marketplace
+ * so a brand's marketplace pages were never reached and the marketplace
  * adapters (20 images each) never fired at all.
  */
 export const MAX_SCRAPE_URLS_PER_BRAND = 6
@@ -60,6 +60,7 @@ function hasContent(data: ScrapedBrandData): boolean {
     data.purchaseWebsite ||
     data.purchasePinkoi ||
     data.purchaseShopee ||
+    data.purchaseMyship ||
     data.categoryHints.length > 0 ||
     data.jsonLdImageUrls.length > 0 ||
     data.rawJsonLd,
@@ -79,6 +80,7 @@ function boundedExtractedData(data: ScrapedBrandData): Record<string, unknown> {
     purchaseWebsite: data.purchaseWebsite,
     purchasePinkoi: data.purchasePinkoi,
     purchaseShopee: data.purchaseShopee,
+    purchaseMyship: data.purchaseMyship,
   }
 }
 

@@ -52,7 +52,7 @@ export class SinglePageStrategy implements ScrapeStrategy {
         : galleryImageUrls[0] ?? null
 
       const { socialInstagram, socialThreads, socialFacebook } = extractSocialLinks($)
-      const { purchaseWebsite, purchasePinkoi, purchaseShopee } = extractPurchaseLinks($)
+      const purchaseLinks = extractPurchaseLinks($)
 
       return {
         brandName,
@@ -64,9 +64,7 @@ export class SinglePageStrategy implements ScrapeStrategy {
         socialInstagram,
         socialThreads,
         socialFacebook,
-        purchaseWebsite,
-        purchasePinkoi,
-        purchaseShopee,
+        ...purchaseLinks,
         categoryHints: extractCategoryHints($),
         websiteUrl: url,
         rawJsonLd,

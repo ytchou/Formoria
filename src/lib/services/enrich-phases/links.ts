@@ -19,6 +19,7 @@ import type { ScrapedBrandData, ScrapedImageSource } from '@/lib/types/scraper'
 import type { EnrichScrapedData } from './types'
 import { brandTarget, type EnrichmentTarget } from '../_shared/enrichment-target'
 import { buildPhaseResult, hasPatchValues, timePhase, type EnrichBrand, type EnrichPhase } from './types'
+import { PURCHASE_CHANNELS } from '@/lib/brands/purchase-channels'
 
 type LinksPhaseOptions = {
   brand: EnrichBrand
@@ -224,8 +225,12 @@ function normalizeScrapedData(scrapedData: EnrichScrapedData): EnrichScrapedData
     purchaseWebsite: brandWebsite,
     purchase_pinkoi: scrapedData.purchase_pinkoi ?? scrapedData.purchasePinkoi,
     purchase_shopee: scrapedData.purchase_shopee ?? scrapedData.purchaseShopee,
+    purchase_myship: scrapedData.purchase_myship ?? scrapedData.purchaseMyship,
   }
 }
+
+// MyShip is discovered passively from scraped links; if yield stays low, gate a
+// site:myship.7-11.com.tw Serper upgrade here instead of broadening the query.
 
 function boundedScrapeSnippets(extracted: unknown): string[] {
   if (typeof extracted !== 'object' || extracted === null || Array.isArray(extracted)) return []
@@ -276,6 +281,26 @@ export function deriveScrapedBrandName(
  */
 const MAX_SECOND_PASS_URLS = 3
 
+/**
+ * ORDER INVARIANT — `purchaseWebsite` must stay ahead of every marketplace
+ * channel except the two below. The candidate list is truncated at
+ * MAX_SECOND_PASS_URLS, so a channel slotted before the website silently
+ * pushes the brand's own site — the highest-quality evidence source — out of
+ * the pass entirely on exactly the sparse-link brands this pass exists for.
+ * A newly added channel therefore lands in POST_WEBSITE_PURCHASE_CHANNELS by
+ * default; only these two predate the website because they always have.
+ */
+const PRE_WEBSITE_PURCHASE_CHANNEL_KEYS: readonly string[] = ['pinkoi', 'shopee']
+
+const PRE_WEBSITE_PURCHASE_CHANNELS = PURCHASE_CHANNELS.filter((channel) =>
+  PRE_WEBSITE_PURCHASE_CHANNEL_KEYS.includes(channel.key),
+)
+
+const POST_WEBSITE_PURCHASE_CHANNELS = PURCHASE_CHANNELS.filter(
+  (channel) =>
+    channel.key !== 'website' && !PRE_WEBSITE_PURCHASE_CHANNEL_KEYS.includes(channel.key),
+)
+
 /** Identity for "did we already scrape this?" — scheme, `www.`, and a trailing slash are noise. */
 function scrapeKey(url: string): string {
   const trimmed = url.trim().toLowerCase()
@@ -289,7 +314,7 @@ function scrapeKey(url: string): string {
 
 /**
  * Scraping the official site is *how* we learn a brand's Instagram, Facebook,
- * Pinkoi, and Shopee URLs — but the first pass fixed its URL set before those
+ * Pinkoi, Shopee, and MyShip URLs — but the first pass fixed its URL set before those
  * existed, so those links were written to the row and then scraped for the
  * first time only on the *next* enrichment run. That cost a whole cycle before
  * the free, higher-quality platform-adapter images were reachable, and 119 of
@@ -313,9 +338,9 @@ async function scrapeDiscoveredLinks(
     [
       firstPassData.socialInstagram,
       firstPassData.socialFacebook,
-      firstPassData.purchasePinkoi,
-      firstPassData.purchaseShopee,
+      ...PRE_WEBSITE_PURCHASE_CHANNELS.map((channel) => firstPassData[channel.camel]),
       firstPassData.purchaseWebsite,
+      ...POST_WEBSITE_PURCHASE_CHANNELS.map((channel) => firstPassData[channel.camel]),
     ].filter((url): url is string => typeof url === 'string' && url.trim().length > 0),
   )
     .filter((url) => !alreadyScraped.has(scrapeKey(url)))

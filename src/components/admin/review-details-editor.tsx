@@ -31,8 +31,30 @@ import type {
 } from "@/lib/services/submissions";
 import { deriveProductTagsEn } from "@/lib/services/product-tags";
 import { MAX_BRAND_ACTIVE_IMAGES } from "@/lib/constants/brand-images";
+import {
+  PURCHASE_CHANNELS,
+  type PurchaseChannelCamelField,
+  type PurchaseChannelKey,
+} from "@/lib/brands/purchase-channels";
 
 const EMPTY_SELECT_VALUE = "__none";
+
+/**
+ * Admin-only labels for the purchase link editors. Marketplace names are brand
+ * names, so they stay literal; only `website` has a translated label, keyed
+ * under the `admin.review` namespace this component already reads.
+ *
+ * `website` is also the one channel whose value is NOT stored under its camel
+ * field in the review draft: the submission pipeline carries it as
+ * `websiteUrl`, and `purchaseWebsite` is derived from it on save. Every read
+ * and write below therefore special-cases `channel.key === "website"`.
+ */
+const PURCHASE_DISPLAY_LABELS = {
+  website: "links.official",
+  pinkoi: "Pinkoi",
+  shopee: "Shopee",
+  myship: "MyShip",
+} satisfies Record<PurchaseChannelKey, string>;
 
 type EditableSection =
   "content" | "reputation" | "catalog" | "links" | "evidence" | "images";
@@ -86,9 +108,15 @@ export function ReviewDetailsEditor({
 
   const data = reviewData;
   const purchaseLinks = compactLinks([
-    [t("links.official"), data.websiteUrl],
-    ["Pinkoi", data.purchasePinkoi],
-    ["Shopee", data.purchaseShopee],
+    ...PURCHASE_CHANNELS.map(
+      (channel) =>
+        [
+          channel.key === "website"
+            ? t(PURCHASE_DISPLAY_LABELS[channel.key])
+            : PURCHASE_DISPLAY_LABELS[channel.key],
+          channel.key === "website" ? data.websiteUrl : data[channel.camel],
+        ] as [string, string | null],
+    ),
   ]);
   const socialLinks = compactLinks([
     ["Instagram", data.socialInstagram],
@@ -186,10 +214,16 @@ export function ReviewDetailsEditor({
   function handleSave() {
     const orderedImages = reorderImages(draftImages);
     const hero = orderedImages[0] ?? null;
+    const purchaseFields = Object.fromEntries(
+      PURCHASE_CHANNELS.map((channel) => [
+        channel.camel,
+        channel.key === "website" ? draft.websiteUrl : draft[channel.camel],
+      ]),
+    ) as Pick<SubmissionReviewData, PurchaseChannelCamelField>;
     const input: SaveSubmissionReviewInput = {
       ...draft,
       heroImageUrl: hero?.url ?? null,
-      purchaseWebsite: draft.websiteUrl,
+      ...purchaseFields,
       images: orderedImages.map((image, index) => ({
         id: image.id,
         sortOrder: index,
@@ -747,21 +781,23 @@ function LinksEditor({
   return (
     <div className="space-y-4">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <UrlField
-          label={t("links.official")}
-          value={draft.websiteUrl}
-          onChange={(value) => onUpdate("websiteUrl", value)}
-        />
-        <UrlField
-          label="Pinkoi"
-          value={draft.purchasePinkoi}
-          onChange={(value) => onUpdate("purchasePinkoi", value)}
-        />
-        <UrlField
-          label="Shopee"
-          value={draft.purchaseShopee}
-          onChange={(value) => onUpdate("purchaseShopee", value)}
-        />
+        {PURCHASE_CHANNELS.map((channel) => (
+          <UrlField
+            key={channel.camel}
+            label={
+              channel.key === "website"
+                ? t(PURCHASE_DISPLAY_LABELS[channel.key])
+                : PURCHASE_DISPLAY_LABELS[channel.key]
+            }
+            value={
+              channel.key === "website" ? draft.websiteUrl : draft[channel.camel]
+            }
+            onChange={(value) => {
+              if (channel.key === "website") onUpdate("websiteUrl", value);
+              else onUpdate(channel.camel, value);
+            }}
+          />
+        ))}
         <UrlField
           label="Instagram"
           value={draft.socialInstagram}

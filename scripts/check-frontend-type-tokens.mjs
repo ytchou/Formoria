@@ -50,6 +50,8 @@ const allowedMatches = [
       '#E05B6F',
       'text-[#EE4D2D]',
       '#EE4D2D',
+      'text-[#FF6600]',
+      '#FF6600',
     ],
   },
   {

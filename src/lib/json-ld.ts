@@ -1,5 +1,6 @@
 import type { Brand } from "@/lib/types";
 import type { Locale } from "@/lib/seo/alternates";
+import { PURCHASE_CHANNELS } from "@/lib/brands/purchase-channels";
 import { FORMORIA_SOCIALS } from "./constants";
 import { getSiteUrl } from "./seo/site-url";
 
@@ -34,9 +35,7 @@ export function buildBrandJsonLd(
     brand.socialInstagram,
     brand.socialThreads,
     brand.socialFacebook,
-    brand.purchaseWebsite,
-    brand.purchasePinkoi,
-    brand.purchaseShopee,
+    ...PURCHASE_CHANNELS.map((channel) => brand[channel.camel]),
     ...(brand.otherUrls ?? []).map((link) => link.url),
   ].filter(
     (url): url is string => typeof url === "string" && url.trim().length > 0,
@@ -54,10 +53,9 @@ export function buildBrandJsonLd(
   };
 
   const url =
-    brand.purchaseWebsite ??
-    brand.purchasePinkoi ??
-    brand.purchaseShopee ??
-    null;
+    PURCHASE_CHANNELS.map((channel) => brand[channel.camel]).find(
+      (value): value is string => value !== null && value !== undefined,
+    ) ?? null;
   if (url) jsonLd.url = url;
   if (brand.heroImageUrl) jsonLd.logo = brand.heroImageUrl;
   if (brand.foundingYear) jsonLd.foundingDate = String(brand.foundingYear);

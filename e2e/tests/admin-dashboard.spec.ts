@@ -11,6 +11,8 @@ const PNG_1X1 = Buffer.from(
 );
 
 test.describe('Admin dashboard deep', () => {
+  test.describe.configure({ mode: 'serial' });
+
   test.beforeEach(() => {
     const adminEmail = process.env.E2E_ADMIN_EMAIL;
     const list = (process.env.ADMIN_EMAILS ?? '').split(',').map(e => e.trim());

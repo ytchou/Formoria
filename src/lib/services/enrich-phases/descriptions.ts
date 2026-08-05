@@ -335,6 +335,11 @@ function buildDescriptionEvidence(
         brand.purchase_shopee,
         "purchase_shopee",
       ),
+      purchaseMyship: preferPatched(
+        pendingPatch,
+        brand.purchase_myship,
+        "purchase_myship",
+      ),
     },
     productCategoryZh: productTypeNameZh(
       preferPatched(pendingPatch, brand.product_type, "product_type"),

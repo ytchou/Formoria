@@ -641,6 +641,7 @@ export async function updateBrandAction(
     purchaseWebsite?: string | null
     purchasePinkoi?: string | null
     purchaseShopee?: string | null
+    purchaseMyship?: string | null
     otherUrls?: OtherUrl[]
   }
 ): Promise<{ error: string } | undefined> {
@@ -660,6 +661,7 @@ export async function updateBrandAction(
         purchaseWebsite,
         purchasePinkoi,
         purchaseShopee,
+        purchaseMyship,
       } = data
       const moderationFields = {
         name,
@@ -672,6 +674,7 @@ export async function updateBrandAction(
         purchaseWebsite: purchaseWebsite ?? undefined,
         purchasePinkoi: purchasePinkoi ?? undefined,
         purchaseShopee: purchaseShopee ?? undefined,
+        purchaseMyship: purchaseMyship ?? undefined,
       }
       const { violations } = scanContent(name ?? '', moderationFields)
       if (violations.length > 0) {

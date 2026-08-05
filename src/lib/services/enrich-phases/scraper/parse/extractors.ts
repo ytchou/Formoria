@@ -1,4 +1,8 @@
 import * as cheerio from 'cheerio'
+import {
+  PURCHASE_CHANNELS,
+  type PurchaseChannelCamelField,
+} from '@/lib/brands/purchase-channels'
 import type { ScrapedBrandData, ScrapedImageSource } from '@/lib/types/scraper'
 import { resolveUrl } from '../fetch-guards'
 
@@ -193,25 +197,30 @@ export function extractSocialLinks($: cheerio.CheerioAPI) {
   return { socialInstagram: instagram, socialThreads: threads, socialFacebook: facebook }
 }
 
-export function extractPurchaseLinks($: cheerio.CheerioAPI): {
-  purchaseWebsite: string | null
-  purchasePinkoi: string | null
-  purchaseShopee: string | null
-} {
-  let pinkoi: string | null = null
-  let shopee: string | null = null
+export function extractPurchaseLinks(
+  $: cheerio.CheerioAPI,
+): Pick<ScrapedBrandData, PurchaseChannelCamelField> {
+  const links = Object.fromEntries(
+    PURCHASE_CHANNELS.map((channel) => [channel.camel, null]),
+  ) as Pick<ScrapedBrandData, PurchaseChannelCamelField>
 
   $('a[href]').each((_, el) => {
     const href = $(el).attr('href') ?? ''
-    if (!pinkoi && /pinkoi\.com\//i.test(href)) {
-      pinkoi = href
-    }
-    if (!shopee && /shopee\.(com\.)?tw\//i.test(href)) {
-      shopee = href
+    for (const channel of PURCHASE_CHANNELS) {
+      if (links[channel.camel]) continue
+      // Harvesting is deliberately host-level, NOT `channel.urlPattern`. The
+      // registry's `urlPattern` is the STRICT classification matcher used by
+      // `URL_TO_LINK_COLUMN` to decide which column a *submitted* URL belongs
+      // to; reusing it here would silently narrow the harvest and drop
+      // `pinkoi.com/product/…`, `shopee.tw/shop/…` and query-string variants
+      // that this extractor has always kept. `hosts` covers `shopee.com.tw`
+      // too, so no per-channel exception is needed.
+      if (!channel.hosts.some((host) => hostMatches(href, host))) continue
+      links[channel.camel] = href
     }
   })
 
-  return { purchaseWebsite: null, purchasePinkoi: pinkoi, purchaseShopee: shopee }
+  return links
 }
 
 /**
@@ -350,6 +359,46 @@ export function extractShopeeProductImages(
       if (hostname !== 'susercontent.com' && !hostname.endsWith('.susercontent.com')) continue
       if (!parsed.pathname.toLowerCase().startsWith('/file/')) continue
       if (/(avatar|icon|logo|banner)/i.test(raw)) continue
+
+      urls.push(raw)
+      break
+    }
+  })
+
+  return urls
+}
+
+export function extractMyshipProductImages(
+  $: cheerio.CheerioAPI,
+  limit: number = MAX_GALLERY_IMAGES,
+): string[] {
+  const urls: string[] = []
+
+  $('img').each((_, el) => {
+    if (urls.length >= limit) return
+
+    const candidates = [$(el).attr('data-src'), $(el).attr('src')]
+
+    for (const raw of candidates) {
+      if (!raw) continue
+
+      let parsed: URL
+      try {
+        parsed = new URL(raw)
+      } catch {
+        continue
+      }
+
+      // Pin the host the way both siblings do (cdn01.pinkoi.com,
+      // *.susercontent.com). MyShip's image CDN hostname is not documented
+      // anywhere in this repo, so this pins the conservative superset — the
+      // MyShip origin itself plus any 7-11.com.tw subdomain — which still
+      // closes the hole where a third-party asset whose path merely contains
+      // `/i/cgdm/GM…` is ingested as brand gallery content. Narrow to the exact
+      // CDN host once a real MyShip storefront scrape confirms it.
+      const hostname = parsed.hostname.toLowerCase()
+      if (hostname !== '7-11.com.tw' && !hostname.endsWith('.7-11.com.tw')) continue
+      if (!/\/i\/cgdm\/GM\d+/i.test(parsed.pathname)) continue
 
       urls.push(raw)
       break
@@ -546,6 +595,7 @@ export function emptyResult(websiteUrl: string): ScrapedBrandData {
     purchaseWebsite: null,
     purchasePinkoi: null,
     purchaseShopee: null,
+    purchaseMyship: null,
     categoryHints: [],
     websiteUrl,
     rawJsonLd: null,

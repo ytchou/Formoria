@@ -1,7 +1,14 @@
 import { z } from "zod";
 import { MAX_BRAND_IMAGE_SELECTION } from "@/lib/constants/brand-images";
+import {
+  PURCHASE_CAMEL_FIELDS,
+  type PurchaseChannelCamelField,
+} from "@/lib/brands/purchase-channels";
 
 const nullableText = z.string().max(10_000).nullable();
+const purchaseFieldSchemas = Object.fromEntries(
+  PURCHASE_CAMEL_FIELDS.map((field) => [field, nullableText]),
+) as { [Field in PurchaseChannelCamelField]: typeof nullableText };
 export const reviewEntityIdSchema = z.uuid();
 
 // Bounded by the submission cap, not the display cap: legacy brands carry more
@@ -52,9 +59,7 @@ export const adminReviewSchema = z.object({
   socialInstagram: nullableText,
   socialThreads: nullableText,
   socialFacebook: nullableText,
-  purchaseWebsite: nullableText,
-  purchasePinkoi: nullableText,
-  purchaseShopee: nullableText,
+  ...purchaseFieldSchemas,
   otherUrls: z
     .array(
       z.object({

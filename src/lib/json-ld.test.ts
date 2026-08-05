@@ -32,6 +32,7 @@ function makeBrand(overrides: Partial<Brand> = {}): Brand {
     purchaseWebsite: "https://chatzutang.com",
     purchasePinkoi: "https://pinkoi.com/chatzutang",
     purchaseShopee: null,
+    purchaseMyship: null,
     socialInstagram: "https://instagram.com/chatzutang",
     socialThreads: null,
     socialFacebook: "https://facebook.com/chatzutang",

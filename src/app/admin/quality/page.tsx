@@ -2,6 +2,11 @@ import type { Metadata } from 'next'
 import { unstable_cache } from 'next/cache'
 import { auditedCall } from '@/lib/audit'
 import { DataCard, SurfaceCard } from '@/components/ui/card'
+import {
+  PURCHASE_CHANNELS,
+  type PurchaseChannelCamelField,
+  type PurchaseChannelKey,
+} from '@/lib/brands/purchase-channels'
 import { getQualityMetrics } from '@/lib/services/brand-quality'
 
 export const metadata: Metadata = {
@@ -21,14 +26,27 @@ const getCachedMetrics = unstable_cache(
   { tags: ['quality-metrics'] }
 )
 
-const linkRows = [
+const PURCHASE_LINK_PRESENTATION = {
+  website: { label: 'Website' },
+  pinkoi: { label: 'Pinkoi' },
+  shopee: { label: 'Shopee' },
+  myship: { label: 'MyShip' },
+} satisfies Record<PurchaseChannelKey, { label: string }>
+
+type LinkRow = {
+  label: string
+  key: 'socialInstagram' | 'socialThreads' | 'socialFacebook' | PurchaseChannelCamelField
+}
+
+const linkRows: LinkRow[] = [
   { label: 'Instagram', key: 'socialInstagram' },
   { label: 'Threads', key: 'socialThreads' },
   { label: 'Facebook', key: 'socialFacebook' },
-  { label: 'Website', key: 'purchaseWebsite' },
-  { label: 'Pinkoi', key: 'purchasePinkoi' },
-  { label: 'Shopee', key: 'purchaseShopee' },
-] as const
+  ...PURCHASE_CHANNELS.map((channel) => ({
+    ...PURCHASE_LINK_PRESENTATION[channel.key],
+    key: channel.camel,
+  })),
+]
 
 const distributionRows = [
   { label: 'Excellent >=80%', key: 'excellent' },

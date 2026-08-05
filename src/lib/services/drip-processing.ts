@@ -6,6 +6,12 @@ import {
 } from '@/lib/email/templates'
 import { sendEmail } from '@/lib/email/send'
 import { auditedCall } from '@/lib/audit'
+import {
+  PURCHASE_CHANNELS,
+  PURCHASE_COLUMNS,
+  type PurchaseChannelCamelField,
+  type PurchaseChannelColumn,
+} from '@/lib/brands/purchase-channels'
 import * as supabaseServer from '@/lib/supabase/server'
 import type { EmailMessage } from '@/lib/email/types'
 import { normalizeOwnerLocale, type OwnerLocale } from '@/lib/types'
@@ -33,18 +39,39 @@ type OwnerRow = {
   product_photos: string[]
   product_tags: string[]
   price_range?: number
-  purchase_website?: string
   city?: string
   social_instagram?: string
   social_threads?: string
   social_facebook?: string
-  purchase_pinkoi?: string
-  purchase_shopee?: string
   other_urls: { label: string; url: string }[]
   reputation_summary?: { text: string; sources: { url: string }[] }
   founding_year?: number
   site_enabled?: boolean
   locale_preference: OwnerLocale
+} & { [K in PurchaseChannelColumn]?: string }
+
+/** Registry-derived purchase columns off the joined `brands` row. */
+function purchaseColumnValues(
+  brand: Record<string, unknown> | undefined,
+): { [K in PurchaseChannelColumn]?: string } {
+  return Object.fromEntries(
+    PURCHASE_COLUMNS.map((column) => [
+      column,
+      stringValue(brand?.[column]) || undefined,
+    ]),
+  ) as { [K in PurchaseChannelColumn]?: string }
+}
+
+/** The same values keyed by their camelCase `Brand` field, for the profile scorer. */
+function purchaseCamelValues(
+  owner: OwnerRow,
+): Record<PurchaseChannelCamelField, string | null> {
+  return Object.fromEntries(
+    PURCHASE_CHANNELS.map((channel) => [
+      channel.camel,
+      owner[channel.column] ?? null,
+    ]),
+  ) as Record<PurchaseChannelCamelField, string | null>
 }
 
 type QueryResult<T> = {
@@ -302,7 +329,7 @@ function queryEligibleOwners(
   const query = supabase.from<Record<string, unknown>>('brand_owners').select(`
       user_id,
       claimed_at,
-      brands!inner(name, slug, description, hero_image_url, founding_year, product_tags, price_range, purchase_website, city, social_instagram, social_threads, social_facebook, purchase_pinkoi, purchase_shopee, other_urls, reputation_summary, site_content, brand_images(url, status, sort_order)),
+      brands!inner(name, slug, description, hero_image_url, founding_year, product_tags, price_range, ${PURCHASE_COLUMNS.join(', ')}, city, social_instagram, social_threads, social_facebook, other_urls, reputation_summary, site_content, brand_images(url, status, sort_order)),
       owner_email_preferences!inner(unsubscribe_token),
       email:users!brand_owners_user_id_fkey(email)
     `)
@@ -367,13 +394,11 @@ function normalizeOwnerRow(row: Record<string, unknown>): OwnerRow {
       : [],
     price_range:
       typeof brand?.price_range === 'number' ? brand.price_range : undefined,
-    purchase_website: stringValue(brand?.purchase_website) || undefined,
+    ...purchaseColumnValues(brand),
     city: stringValue(brand?.city) || undefined,
     social_instagram: stringValue(brand?.social_instagram) || undefined,
     social_threads: stringValue(brand?.social_threads) || undefined,
     social_facebook: stringValue(brand?.social_facebook) || undefined,
-    purchase_pinkoi: stringValue(brand?.purchase_pinkoi) || undefined,
-    purchase_shopee: stringValue(brand?.purchase_shopee) || undefined,
     other_urls: Array.isArray(brand?.other_urls)
       ? (brand.other_urls as OwnerRow['other_urls'])
       : [],
@@ -399,14 +424,12 @@ function profileCompleteness(owner: OwnerRow): {
     priceRange: owner.price_range ?? null,
     heroImageUrl: owner.hero_image_url ?? null,
     productPhotos: owner.product_photos,
-    purchaseWebsite: owner.purchase_website ?? null,
+    ...purchaseCamelValues(owner),
     city: owner.city ?? null,
     foundingYear: owner.founding_year ?? null,
     socialInstagram: owner.social_instagram ?? null,
     socialThreads: owner.social_threads ?? null,
     socialFacebook: owner.social_facebook ?? null,
-    purchasePinkoi: owner.purchase_pinkoi ?? null,
-    purchaseShopee: owner.purchase_shopee ?? null,
     otherUrls: owner.other_urls,
     reputationSummary: owner.reputation_summary ?? null,
   })

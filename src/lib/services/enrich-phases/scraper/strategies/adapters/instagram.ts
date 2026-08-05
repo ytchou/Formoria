@@ -60,7 +60,7 @@ export const instagramAdapter: PlatformAdapter = {
       skip: skipVideoPosterFrames,
     })
     const { socialThreads, socialFacebook } = extractSocialLinks($)
-    const { purchaseWebsite, purchasePinkoi, purchaseShopee } = extractPurchaseLinks($)
+    const purchaseLinks = extractPurchaseLinks($)
     const heroCandidate =
       metaContent($, 'meta[property="og:image"]') ||
       metaContent($, 'meta[name="twitter:image"]')
@@ -79,9 +79,7 @@ export const instagramAdapter: PlatformAdapter = {
       socialInstagram: url,
       socialThreads,
       socialFacebook,
-      purchaseWebsite,
-      purchasePinkoi,
-      purchaseShopee,
+      ...purchaseLinks,
       rawJsonLd,
     }
   },

@@ -389,6 +389,7 @@ const reviewData = {
   purchaseWebsite: "https://brand.example.com",
   purchasePinkoi: null,
   purchaseShopee: null,
+  purchaseMyship: null,
   otherUrls: [],
 };
 
@@ -410,6 +411,7 @@ function makeSubmission(
     purchaseWebsite: reviewData.purchaseWebsite,
     purchasePinkoi: null,
     purchaseShopee: null,
+    purchaseMyship: null,
     otherUrls: [],
     suggestedTags: [],
     status: "pending",
