@@ -1,8 +1,7 @@
--- Reconstructed 2026-08-05 from supabase_migrations.schema_migrations.
--- This migration was applied to the linked project via MCP apply_migration, which
--- stamps its own version and leaves no local file. The remote-only ledger row blocked
--- `supabase db push`. The statements below are copied verbatim from the ledger, so the
--- local directory and the remote history agree. Already applied remotely — push skips it.
+-- Correlate the enrichment deep stores with their span in external_call_audit.
+--
+-- No index on brand_ai_results: it is read by brand_id, never by span. Only
+-- brand_search_results is looked up span-first during replay.
 
 alter table public.brand_ai_results
   add column if not exists audit_span_id uuid;

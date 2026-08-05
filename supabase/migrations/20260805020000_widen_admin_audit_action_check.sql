@@ -1,7 +1,3 @@
--- Reconstructed 2026-08-05 from supabase_migrations.schema_migrations.
--- Applied to the linked project via MCP apply_migration, which left no local file;
--- the remote-only ledger row blocked `supabase db push`. Statements copied verbatim.
-
 -- Widen admin_audit_log_action_check to cover the full AdminAction union.
 --
 -- This is a BUG FIX, not a schema tidy. The live constraint (verified against
