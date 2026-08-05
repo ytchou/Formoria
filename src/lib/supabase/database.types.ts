@@ -19,6 +19,7 @@ export type Database = {
           action: string;
           admin_email: string;
           admin_user_id: string;
+          correlation_id: string | null;
           created_at: string;
           id: string;
           metadata: Json | null;
@@ -29,6 +30,7 @@ export type Database = {
           action: string;
           admin_email: string;
           admin_user_id: string;
+          correlation_id?: string | null;
           created_at?: string;
           id?: string;
           metadata?: Json | null;
@@ -39,6 +41,7 @@ export type Database = {
           action?: string;
           admin_email?: string;
           admin_user_id?: string;
+          correlation_id?: string | null;
           created_at?: string;
           id?: string;
           metadata?: Json | null;
@@ -319,59 +322,6 @@ export type Database = {
             foreignKeyName: "brand_channels_brand_id_fkey";
             columns: ["brand_id"];
             isOneToOne: false;
-            referencedRelation: "brands";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      brand_faq: {
-        Row: {
-          brand_id: string;
-          faq_custom_1: Json | null;
-          faq_custom_2: Json | null;
-          faq_custom_3: Json | null;
-          faq_custom_4: Json | null;
-          faq_founded: Json | null;
-          faq_mit: Json | null;
-          faq_price: Json | null;
-          faq_products: Json | null;
-          faq_reputation: Json | null;
-          faq_where_to_buy: Json | null;
-          updated_at: string | null;
-        };
-        Insert: {
-          brand_id: string;
-          faq_custom_1?: Json | null;
-          faq_custom_2?: Json | null;
-          faq_custom_3?: Json | null;
-          faq_custom_4?: Json | null;
-          faq_founded?: Json | null;
-          faq_mit?: Json | null;
-          faq_price?: Json | null;
-          faq_products?: Json | null;
-          faq_reputation?: Json | null;
-          faq_where_to_buy?: Json | null;
-          updated_at?: string | null;
-        };
-        Update: {
-          brand_id?: string;
-          faq_custom_1?: Json | null;
-          faq_custom_2?: Json | null;
-          faq_custom_3?: Json | null;
-          faq_custom_4?: Json | null;
-          faq_founded?: Json | null;
-          faq_mit?: Json | null;
-          faq_price?: Json | null;
-          faq_products?: Json | null;
-          faq_reputation?: Json | null;
-          faq_where_to_buy?: Json | null;
-          updated_at?: string | null;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "brand_faq_brand_id_fkey";
-            columns: ["brand_id"];
-            isOneToOne: true;
             referencedRelation: "brands";
             referencedColumns: ["id"];
           },
