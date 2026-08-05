@@ -11,6 +11,7 @@ import {
   type CurationStep,
 } from "@/lib/constants/enrich-phases";
 import {
+  reportCircuitBreakerTrip,
   reportJobFailure,
   reportProviderFailures,
 } from "@/lib/services/job-alerts";
@@ -151,7 +152,8 @@ export async function runJob(
     // rows and a plain update is safe. Cancelling the untouched targets is what
     // stops the automatic retry below from re-running them against the same
     // dead account — `enqueueAutomaticRetry` re-runs `pending|running` only.
-    if (isLlmCircuitBreakerError(error)) {
+    const breakerTripped = isLlmCircuitBreakerError(error);
+    if (breakerTripped) {
       await cancelUnstartedTargets(job.id, message);
     }
     const failed = await finalizeCurationJob(job.id, workerToken, {
@@ -171,9 +173,12 @@ export async function runJob(
       }
     }
 
-    await reportJobFailure(job, message);
+    // A breaker trip is an account-level outage, not a worker crash, so it gets
+    // the alert that names the provider account instead of the log-diving one.
+    if (breakerTripped) await reportCircuitBreakerTrip(job, message);
+    else await reportJobFailure(job, message);
 
-    return failedJobSummary(job, message, Date.now() - startedAt);
+    return failedJobSummary(job, message, Date.now() - startedAt, breakerTripped);
   } finally {
     clearInterval(heartbeat);
   }
@@ -797,6 +802,7 @@ function failedJobSummary(
   job: CurationJob,
   error: string,
   durationMs: number,
+  breakerTripped = false,
 ): EnrichmentSummary {
   return {
     success: 0,
@@ -805,6 +811,7 @@ function failedJobSummary(
     providerFailed: isProviderFailureMessage(error) ? 1 : 0,
     failedBrands: [{ slug: job.id, phase: "job", error }],
     durationMs,
+    ...(breakerTripped ? { breakerTripped: true } : {}),
   };
 }
 

@@ -37,8 +37,19 @@ export async function runScheduledCuration(
       while (true) {
         if (!job) return { processed, scheduledJob };
 
-        await runJob(job, workerToken);
+        const summary = await runJob(job, workerToken);
         processed += 1;
+
+        // The breaker only trips when every LLM call fails at the provider,
+        // which is an account-level fault the next queued job would hit too.
+        // `runJob` has already alerted; claiming another job here would just
+        // burn the queue against a dead provider.
+        if (summary.breakerTripped) {
+          console.error(
+            "[curation-worker] LLM circuit breaker tripped — stopping the scheduled sweep",
+          );
+          return { processed, scheduledJob };
+        }
 
         workerToken = randomUUID();
         job = await claimNextCurationJob(workerToken);

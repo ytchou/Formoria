@@ -2,6 +2,10 @@ import { captureAlert } from "@/lib/adapters/alerting/sentry";
 import { postSlackAlert } from "@/lib/adapters/alerting/slack";
 import { auditedCall } from "@/lib/audit";
 import type { AgentNotification } from "@/lib/adapters/slack/notification";
+import {
+  isLlmProviderFailureMessage,
+  isProviderFailureMessage,
+} from "@/lib/services/curation-operations";
 import type { EnrichmentSummary } from "@/lib/services/enrichment-logger";
 
 /**
@@ -29,6 +33,53 @@ const ALERT_AGENT = "Curation";
 /** True when this job summary describes a provider outage worth paging on. */
 export function hasProviderFailures(summary: EnrichmentSummary): boolean {
   return (summary.providerFailed ?? 0) > 0;
+}
+
+/**
+ * Which vendor actually went down. Both prefixes survive the throw -> per-brand
+ * catch -> persisted target round trip, so the failed-brand errors are the only
+ * place the job summary still remembers whether it was Serper or the LLM
+ * account. The distinction is the whole point of the alert: "Serper is 400ing"
+ * and "the OpenAI balance is zero" need different hands on different consoles.
+ */
+type ProviderBreakdown = { llm: number; search: number };
+
+function providerBreakdown(summary: EnrichmentSummary): ProviderBreakdown {
+  let llm = 0;
+  let search = 0;
+
+  for (const { error } of summary.failedBrands) {
+    if (isLlmProviderFailureMessage(error)) llm += 1;
+    else if (isProviderFailureMessage(error)) search += 1;
+  }
+
+  return { llm, search };
+}
+
+/**
+ * Remediation copy. An all-LLM outage is almost never a code fault -- on
+ * 2026-08-02 it was an exhausted OpenAI balance -- so the copy points at the
+ * account first, which is what the operator has to check to end the outage.
+ */
+function providerAction({ llm, search }: ProviderBreakdown): string {
+  if (llm > 0 && search > 0) {
+    return "Both the LLM provider (OpenAI/DeepSeek) and the search provider (Serper) failed — check each account's quota, balance and API key before rerunning";
+  }
+  if (llm > 0) {
+    return "Check the LLM provider account (OpenAI/DeepSeek): every attempted call failed at the provider, which is usually an exhausted quota/balance or a rejected API key, not a code fault. Verify billing and the key before rerunning";
+  }
+  if (search > 0) {
+    return "Check the search provider (Serper) status and API quota before rerunning";
+  }
+  // The target carried the `providerFailure` flag but no prefixed message.
+  return "A provider failed without naming itself — open the job run log and check the LLM (OpenAI/DeepSeek) and search (Serper) accounts before rerunning";
+}
+
+function providerLabel({ llm, search }: ProviderBreakdown): string {
+  if (llm > 0 && search > 0) return "LLM and search providers";
+  if (llm > 0) return "the LLM provider";
+  if (search > 0) return "the search provider";
+  return "a provider";
 }
 
 function jobDetails(job: AlertJob): string[] {
@@ -87,7 +138,8 @@ export async function reportProviderFailures(
     { provider: "curation", operation: "reportProviderFailures", kind: "service" },
     async () => {
       const providerFailed = summary.providerFailed ?? 0;
-      const message = `Curation job ${job.id}: ${providerFailed} target(s) failed because a search/LLM provider was unavailable`;
+      const breakdown = providerBreakdown(summary);
+      const message = `Curation job ${job.id}: ${providerFailed} target(s) failed because ${providerLabel(breakdown)} was unavailable`;
       const samples = summary.failedBrands
         .slice(0, 5)
         .map(({ slug, phase, error }) => `• ${slug} (${phase}): ${error}`);
@@ -98,21 +150,62 @@ export async function reportProviderFailures(
           status: "failed",
           summary: [
             `• ${providerFailed} provider failure(s) across ${summary.failed} failed target(s)`,
+            `• LLM: ${breakdown.llm} · search: ${breakdown.search}`,
             `• ${summary.success} succeeded · ${summary.skipped} skipped`,
           ],
           details: [...jobDetails(job), ...samples],
-          managerAction:
-            "Check the search provider (Serper) status and API quota before rerunning",
+          managerAction: providerAction(breakdown),
         },
         {
           message,
           context: {
             jobId: job.id,
             providerFailed,
+            llmProviderFailed: breakdown.llm,
+            searchProviderFailed: breakdown.search,
             failed: summary.failed,
             succeeded: summary.success,
             skipped: summary.skipped,
           },
+        },
+      );
+    },
+  );
+}
+
+/**
+ * The LLM circuit breaker tripped: three consecutive targets failed every LLM
+ * call at the provider, so the run was aborted and its untouched targets
+ * cancelled. This is the strongest account-level signal the pipeline can
+ * produce -- it is the event that must never be silent -- so it gets its own
+ * alert rather than sharing `reportJobFailure`'s "inspect the worker logs"
+ * copy, which points at exactly the wrong place for a billing lapse.
+ */
+export async function reportCircuitBreakerTrip(
+  job: AlertJob,
+  message: string,
+): Promise<void> {
+  return auditedCall(
+    { provider: "curation", operation: "reportCircuitBreakerTrip", kind: "service" },
+    async () => {
+      await dispatchAlert(
+        {
+          agent: ALERT_AGENT,
+          status: "failed",
+          summary: [
+            `• LLM circuit breaker tripped — the run was aborted, not completed`,
+            `• ${message}`,
+          ],
+          details: [
+            ...jobDetails(job),
+            "• Remaining targets were cancelled, not attempted",
+          ],
+          managerAction:
+            "Check the LLM provider account NOW (OpenAI/DeepSeek billing balance, quota, API key). The breaker only trips when every LLM call fails at the provider — no further curation will produce usable output until the account is fixed",
+        },
+        {
+          message: `Curation job ${job.id}: LLM circuit breaker tripped — ${message}`,
+          context: { jobId: job.id, circuitBreaker: "llm" },
         },
       );
     },

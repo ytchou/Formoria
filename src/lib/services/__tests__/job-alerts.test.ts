@@ -5,6 +5,7 @@ import { resetAuditEmitterForTests, setAuditWriteSeam, type AuditRecord } from '
 import type { EnrichmentSummary } from '../enrichment-logger'
 import {
   hasProviderFailures,
+  reportCircuitBreakerTrip,
   reportJobFailure,
   reportProviderFailures,
 } from '../job-alerts'
@@ -80,6 +81,68 @@ describe('reportProviderFailures', () => {
     })
   })
 
+  it('names the LLM account, not Serper, when the LLM provider is the one that died', async () => {
+    await reportProviderFailures(
+      job,
+      summary({
+        failed: 2,
+        providerFailed: 2,
+        failedBrands: [
+          {
+            slug: 'brand-a',
+            phase: 'descriptions',
+            error:
+              'LLM provider unavailable — every attempted LLM phase failed at the provider: descriptions',
+          },
+          {
+            slug: 'brand-b',
+            phase: 'tags',
+            error:
+              'LLM provider unavailable — every attempted LLM phase failed at the provider: tags',
+          },
+        ],
+      }),
+    )
+
+    const notification = vi.mocked(postSlackAlert).mock.calls[0]?.[0]
+    expect(notification?.managerAction).toContain('OpenAI/DeepSeek')
+    // The 11.5-hour outage was an exhausted balance; pointing at Serper is what
+    // made the alert useless.
+    expect(notification?.managerAction).not.toContain('Serper')
+    expect(vi.mocked(captureAlert).mock.calls[0]?.[1]).toMatchObject({
+      context: expect.objectContaining({
+        llmProviderFailed: 2,
+        searchProviderFailed: 0,
+      }),
+    })
+  })
+
+  it('names both vendors when the search and LLM providers both failed', async () => {
+    await reportProviderFailures(
+      job,
+      summary({
+        failed: 2,
+        providerFailed: 2,
+        failedBrands: [
+          {
+            slug: 'brand-a',
+            phase: 'discover',
+            error: 'Search provider unavailable — SERP: Serper HTTP 400',
+          },
+          {
+            slug: 'brand-b',
+            phase: 'tags',
+            error: 'LLM provider unavailable — every attempted LLM phase failed at the provider: tags',
+          },
+        ],
+      }),
+    )
+
+    const notification = vi.mocked(postSlackAlert).mock.calls[0]?.[0]
+    expect(notification?.managerAction).toContain('Serper')
+    expect(notification?.managerAction).toContain('OpenAI/DeepSeek')
+  })
+
   it('does NOT alert when targets failed but no provider failed', async () => {
     // Ordinary data gaps fail targets too — paging on those would make the
     // alert worthless within a week.
@@ -103,6 +166,23 @@ describe('reportProviderFailures', () => {
     const legacy = summary()
     delete legacy.providerFailed
     expect(hasProviderFailures(legacy)).toBe(false)
+  })
+})
+
+describe('reportCircuitBreakerTrip', () => {
+  it('pages with account-level remediation rather than "read the logs"', async () => {
+    await reportCircuitBreakerTrip(
+      job,
+      'LLM circuit breaker tripped after 3 consecutive provider failures — remaining targets were not attempted',
+    )
+
+    expect(captureAlert).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(captureAlert).mock.calls[0]?.[1]).toMatchObject({
+      context: expect.objectContaining({ circuitBreaker: 'llm' }),
+    })
+    const notification = vi.mocked(postSlackAlert).mock.calls[0]?.[0]
+    expect(notification?.managerAction).toContain('OpenAI/DeepSeek')
+    expect(notification?.managerAction).not.toContain('worker logs')
   })
 })
 
