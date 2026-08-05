@@ -121,6 +121,7 @@ export type Database = {
       brand_ai_results: {
         Row: {
           attempt: number | null;
+          audit_span_id: string | null;
           brand_id: string | null;
           cached_prompt_tokens: number | null;
           completion_tokens: number | null;
@@ -148,6 +149,7 @@ export type Database = {
         };
         Insert: {
           attempt?: number | null;
+          audit_span_id?: string | null;
           brand_id?: string | null;
           cached_prompt_tokens?: number | null;
           completion_tokens?: number | null;
@@ -175,6 +177,7 @@ export type Database = {
         };
         Update: {
           attempt?: number | null;
+          audit_span_id?: string | null;
           brand_id?: string | null;
           cached_prompt_tokens?: number | null;
           completion_tokens?: number | null;
@@ -369,6 +372,50 @@ export type Database = {
             foreignKeyName: "brand_faq_brand_id_fkey";
             columns: ["brand_id"];
             isOneToOne: true;
+            referencedRelation: "brands";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      brand_faq_entries: {
+        Row: {
+          answer_en: string | null;
+          answer_zh: string | null;
+          brand_id: string;
+          position: number;
+          preset_id: string;
+          question_en: string | null;
+          question_zh: string | null;
+          source: string;
+          updated_at: string;
+        };
+        Insert: {
+          answer_en?: string | null;
+          answer_zh?: string | null;
+          brand_id: string;
+          position?: number;
+          preset_id: string;
+          question_en?: string | null;
+          question_zh?: string | null;
+          source: string;
+          updated_at?: string;
+        };
+        Update: {
+          answer_en?: string | null;
+          answer_zh?: string | null;
+          brand_id?: string;
+          position?: number;
+          preset_id?: string;
+          question_en?: string | null;
+          question_zh?: string | null;
+          source?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "brand_faq_entries_brand_id_fkey";
+            columns: ["brand_id"];
+            isOneToOne: false;
             referencedRelation: "brands";
             referencedColumns: ["id"];
           },
@@ -837,6 +884,7 @@ export type Database = {
       brand_search_results: {
         Row: {
           attempt: number;
+          audit_span_id: string | null;
           brand_id: string | null;
           call_status: string;
           config: Json | null;
@@ -859,6 +907,7 @@ export type Database = {
         };
         Insert: {
           attempt?: number;
+          audit_span_id?: string | null;
           brand_id?: string | null;
           call_status?: string;
           config?: Json | null;
@@ -881,6 +930,7 @@ export type Database = {
         };
         Update: {
           attempt?: number;
+          audit_span_id?: string | null;
           brand_id?: string | null;
           call_status?: string;
           config?: Json | null;
@@ -976,6 +1026,7 @@ export type Database = {
           owner_data: Json | null;
           pdpa_consent_at: string | null;
           product_type_note: string | null;
+          purchase_myship: string | null;
           purchase_pinkoi: string | null;
           purchase_shopee: string | null;
           purchase_website: string | null;
@@ -1015,6 +1066,7 @@ export type Database = {
           owner_data?: Json | null;
           pdpa_consent_at?: string | null;
           product_type_note?: string | null;
+          purchase_myship?: string | null;
           purchase_pinkoi?: string | null;
           purchase_shopee?: string | null;
           purchase_website?: string | null;
@@ -1054,6 +1106,7 @@ export type Database = {
           owner_data?: Json | null;
           pdpa_consent_at?: string | null;
           product_type_note?: string | null;
+          purchase_myship?: string | null;
           purchase_pinkoi?: string | null;
           purchase_shopee?: string | null;
           purchase_website?: string | null;
@@ -1118,6 +1171,7 @@ export type Database = {
           product_tags: string[] | null;
           product_tags_en: string[] | null;
           product_type: string | null;
+          purchase_myship: string | null;
           purchase_pinkoi: string | null;
           purchase_shopee: string | null;
           purchase_website: string | null;
@@ -1166,6 +1220,7 @@ export type Database = {
           product_tags?: string[] | null;
           product_tags_en?: string[] | null;
           product_type?: string | null;
+          purchase_myship?: string | null;
           purchase_pinkoi?: string | null;
           purchase_shopee?: string | null;
           purchase_website?: string | null;
@@ -1214,6 +1269,7 @@ export type Database = {
           product_tags?: string[] | null;
           product_tags_en?: string[] | null;
           product_type?: string | null;
+          purchase_myship?: string | null;
           purchase_pinkoi?: string | null;
           purchase_shopee?: string | null;
           purchase_website?: string | null;
@@ -1684,6 +1740,71 @@ export type Database = {
           venue_name_en?: string | null;
         };
         Relationships: [];
+      };
+      external_call_audit: {
+        Row: {
+          causation_id: string | null;
+          correlation_id: string;
+          created_at: string;
+          error_message: string | null;
+          id: string;
+          job_id: string | null;
+          kind: string;
+          latency_ms: number | null;
+          operation: string;
+          payload_storage_path: string | null;
+          provider: string;
+          retry_attempt: number | null;
+          span_id: string;
+          status: string;
+          subject_id: string | null;
+          summary: Json | null;
+        };
+        Insert: {
+          causation_id?: string | null;
+          correlation_id: string;
+          created_at?: string;
+          error_message?: string | null;
+          id?: string;
+          job_id?: string | null;
+          kind: string;
+          latency_ms?: number | null;
+          operation: string;
+          payload_storage_path?: string | null;
+          provider: string;
+          retry_attempt?: number | null;
+          span_id: string;
+          status: string;
+          subject_id?: string | null;
+          summary?: Json | null;
+        };
+        Update: {
+          causation_id?: string | null;
+          correlation_id?: string;
+          created_at?: string;
+          error_message?: string | null;
+          id?: string;
+          job_id?: string | null;
+          kind?: string;
+          latency_ms?: number | null;
+          operation?: string;
+          payload_storage_path?: string | null;
+          provider?: string;
+          retry_attempt?: number | null;
+          span_id?: string;
+          status?: string;
+          subject_id?: string | null;
+          summary?: Json | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "external_call_audit_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "curation_jobs";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       feature_request_votes: {
         Row: {
@@ -2496,6 +2617,35 @@ export type Database = {
         };
         Relationships: [];
       };
+      external_call_audit_spans: {
+        Row: {
+          causation_id: string | null;
+          correlation_id: string | null;
+          error_message: string | null;
+          finished_at: string | null;
+          job_id: string | null;
+          kind: string | null;
+          latency_ms: number | null;
+          operation: string | null;
+          payload_storage_path: string | null;
+          provider: string | null;
+          retry_attempt: number | null;
+          span_id: string | null;
+          started_at: string | null;
+          subject_id: string | null;
+          summary: Json | null;
+          terminal_status: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "external_call_audit_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "curation_jobs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Functions: {
       admin_export_newsletter_subscribers: {
@@ -2639,10 +2789,6 @@ export type Database = {
       check_brand_duplicates: {
         Args: { p_name: string; p_ubn?: string; p_website_key?: string };
         Returns: Json;
-      };
-      drop_needs_data_submissions: {
-        Args: { p_submission_ids: string[] };
-        Returns: string[];
       };
       claim_claim_proof_cleanup_jobs: {
         Args: {
@@ -2805,6 +2951,10 @@ export type Database = {
         };
         Returns: boolean;
       };
+      drop_needs_data_submissions: {
+        Args: { p_submission_ids: string[] };
+        Returns: string[];
+      };
       enqueue_abandoned_claim_proof_cleanup_jobs: {
         Args: never;
         Returns: number;
@@ -2871,6 +3021,7 @@ export type Database = {
           completeness_poor: number;
           description_count: number;
           hero_image_count: number;
+          purchase_myship_count: number;
           purchase_pinkoi_count: number;
           purchase_shopee_count: number;
           purchase_website_count: number;
@@ -2898,6 +3049,7 @@ export type Database = {
         };
         Returns: boolean;
       };
+      purchase_channel_sql_surface: { Args: never; Returns: Json };
       read_health_directory_database_evidence: { Args: never; Returns: Json };
       reconcile_health_fix_lifecycle: {
         Args: {
