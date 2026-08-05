@@ -124,7 +124,21 @@ export function createAuditedDeepSeekClient(
     },
 
     balance(timeoutMs?: number) {
-      return balanceClient.balance(timeoutMs);
+      return auditedCall(
+        {
+          provider: "deepseek",
+          operation: "balance",
+          kind: "external",
+          ...(context.attempt === undefined ? {} : { attempt: context.attempt }),
+        },
+        () => balanceClient.balance(timeoutMs),
+        {
+          classify: (result) => (result.ok ? "succeeded" : "failed"),
+          summary: { phase: context.phase, targetType: context.target.type },
+          subjectId: context.target.id,
+          jobId: context.jobId ?? null,
+        },
+      );
     },
   };
 }

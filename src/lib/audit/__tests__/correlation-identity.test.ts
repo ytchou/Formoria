@@ -22,6 +22,33 @@ describe("audit correlation identity", () => {
     expect(first.correlationId).not.toBe(second.correlationId);
   });
 
+  it("a nested scope inherits the outer correlation id", () => {
+    const { outer, inner } = runWithAuditContext({}, () => {
+      const outerId = getAuditContext().correlationId;
+      const innerId = runWithAuditContext({}, () => getAuditContext().correlationId);
+      return { outer: outerId, inner: innerId };
+    });
+
+    expect(outer).toEqual(expect.any(String));
+    expect(inner).toBe(outer);
+  });
+
+  it("an explicit seed correlation id still wins over the ambient one", () => {
+    const inner = runWithAuditContext({}, () =>
+      runWithAuditContext({ correlationId: "seeded" }, () => getAuditContext().correlationId),
+    );
+
+    expect(inner).toBe("seeded");
+  });
+
+  it("two sibling scopes still get different correlation ids", () => {
+    const first = runWithAuditContext({}, () => getAuditContext().correlationId);
+    const second = runWithAuditContext({}, () => getAuditContext().correlationId);
+
+    expect(first).toEqual(expect.any(String));
+    expect(second).not.toBe(first);
+  });
+
   it("returns a null-ish context outside any scope", () => {
     expect(getAuditContext()).toEqual({ correlationId: null });
   });

@@ -66,6 +66,21 @@ export async function upload(endpoint: string) {
     expect(analyzeSource('src/lib/services/example.ts', source, REGISTRY)).toEqual([]);
   });
 
+  it('catches global fetch references but skips unrelated member methods', () => {
+    const source = `export async function run() {
+  await globalThis.fetch("https://example.com/global-this");
+  await global.fetch("https://example.com/global");
+  await window.fetch("https://example.com/window");
+  await client.fetch("https://example.com/client");
+}`;
+
+    expect(analyzeSource('src/lib/services/example.ts', source, REGISTRY)).toEqual([
+      expect.objectContaining({ kind: 'unaudited-fetch', line: 2 }),
+      expect.objectContaining({ kind: 'unaudited-fetch', line: 3 }),
+      expect.objectContaining({ kind: 'unaudited-fetch', line: 4 }),
+    ]);
+  });
+
   it('passes on a fetch inside src/lib/audit/', () => {
     expect(isExemptPath('src/lib/audit/envelope.ts')).toBe(true);
   });

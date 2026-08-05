@@ -4,7 +4,7 @@ import {
   setAuditWriteSeam,
   type AuditRecord,
 } from "@/lib/audit";
-import { createAuditedOpenAIClient } from "./llm-audit";
+import { createAuditedDeepSeekClient, createAuditedOpenAIClient } from "./llm-audit";
 import { brandTarget } from "./_shared/enrichment-target";
 
 type InsertedRow = Record<string, unknown>;
@@ -81,5 +81,30 @@ describe("audited LLM clients", () => {
       },
     });
     expect(inserts[0]?.prompt_tokens).toBeNull();
+  });
+
+  it("audits a DeepSeek balance call", async () => {
+    const client = createAuditedDeepSeekClient(
+      {
+        target,
+        phase: "reputation",
+      },
+      { apiKey: "k" },
+    );
+
+    await client.balance();
+
+    expect(writes).toHaveLength(2);
+    expect(writes[0]).toMatchObject({
+      provider: "deepseek",
+      operation: "balance",
+      status: "started",
+      summary: { phase: "reputation", targetType: "brand" },
+    });
+    expect(writes[1]).toMatchObject({
+      provider: "deepseek",
+      operation: "balance",
+      status: "succeeded",
+    });
   });
 });

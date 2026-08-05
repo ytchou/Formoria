@@ -28,9 +28,6 @@ export async function runCleanPhase(
   phases: EnrichPhase[],
   precomputed?: NameCleanupResult
 ): Promise<CleanPhaseOutput> {
-  return auditedCall(
-    { provider: 'enrich', operation: 'runCleanPhase', kind: 'service' },
-    async () => {
   if (!phases.includes('clean')) {
     return {
       phaseResult: buildPhaseResult('clean', 'skipped', [], 0, undefined, 'clean phase not requested'),
@@ -38,6 +35,9 @@ export async function runCleanPhase(
     }
   }
 
+  return auditedCall(
+    { provider: 'enrich', operation: 'runCleanPhase', kind: 'service' },
+    async () => {
   const { result, durationMs } = await timePhase(async () =>
     precomputed ?? cleanBrandName(brand.name ?? '')
   )

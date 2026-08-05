@@ -18,6 +18,10 @@ const MAX_EVENTS_PER_PHASE = 300;
 const LEGACY_QUERY_CHUNK_SIZE = 100;
 const CORRELATION_GAP =
   "Job correlation_id is unavailable; audit rows cannot be correlated until the correlation_id migration is applied";
+const CORRELATION_READ_GAP =
+  "Job correlation_id could not be read; audit rows may be uncorrelated in this export";
+const CORRELATION_AMBIGUOUS_GAP =
+  "Job has multiple correlation_id values; this export cannot identify one correlation";
 
 const PHASE_ORDER = [
   "discover",
@@ -100,6 +104,8 @@ type AuditQuery = PromiseLike<{ data: unknown[] | null; error: unknown }> & {
   in: (column: string, values: string[]) => AuditQuery;
   gte: (column: string, value: string) => AuditQuery;
   lte: (column: string, value: string) => AuditQuery;
+  neq: (column: string, value: unknown) => AuditQuery;
+  limit: (count: number) => AuditQuery;
   order: (column: string, options: { ascending: boolean }) => AuditQuery;
 };
 
@@ -416,7 +422,7 @@ async function queryLegacy(
 
 type JobCorrelationQueryResult = {
   correlationId?: string;
-  correlationUnavailable: boolean;
+  correlationGap?: "missing" | "read" | "ambiguous";
 };
 
 async function queryJobCorrelationId(
@@ -428,11 +434,12 @@ async function queryJobCorrelationId(
       .from("external_call_audit")
       .select("correlation_id")
       .eq("job_id", jobId)
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: true })
+      .limit(1);
     if (error && isMissingCorrelationSource(error)) {
-      return { correlationUnavailable: true };
+      return { correlationGap: "missing" };
     }
-    if (error) return { correlationUnavailable: true };
+    if (error) return { correlationGap: "read" };
 
     const firstCorrelationId = record(data?.[0])?.correlation_id;
     const correlationId =
@@ -440,11 +447,28 @@ async function queryJobCorrelationId(
       firstCorrelationId.trim().length > 0
         ? firstCorrelationId
         : undefined;
-    return correlationId
-      ? { correlationId, correlationUnavailable: false }
-      : { correlationUnavailable: false };
+    if (!correlationId) return {};
+
+    const { data: otherRows, error: otherError } = await client
+      .from("external_call_audit")
+      .select("correlation_id")
+      .eq("job_id", jobId)
+      .neq("correlation_id", correlationId)
+      .limit(1);
+    if (otherError && isMissingCorrelationSource(otherError)) {
+      return { correlationId, correlationGap: "missing" };
+    }
+    if (otherError) return { correlationId, correlationGap: "read" };
+
+    const hasOtherCorrelationId = (otherRows ?? []).some((row) => {
+      const value = record(row)?.correlation_id;
+      return typeof value === "string" && value.trim().length > 0;
+    });
+    return hasOtherCorrelationId
+      ? { correlationId, correlationGap: "ambiguous" }
+      : { correlationId };
   } catch {
-    return { correlationUnavailable: true };
+    return { correlationGap: "read" };
   }
 }
 
@@ -470,7 +494,13 @@ export async function exportJobRunLog(
       queryJobCorrelationId(client, jobId),
     ]);
   const gaps: string[] = [];
-  if (correlationQuery.correlationUnavailable) gaps.push(CORRELATION_GAP);
+  if (correlationQuery.correlationGap === "missing") {
+    gaps.push(CORRELATION_GAP);
+  } else if (correlationQuery.correlationGap === "read") {
+    gaps.push(CORRELATION_READ_GAP);
+  } else if (correlationQuery.correlationGap === "ambiguous") {
+    gaps.push(CORRELATION_AMBIGUOUS_GAP);
+  }
   const directAiRows = aiQuery.rows;
   const directSearchRows = searchQuery.rows;
   if (aiQuery.jobIdColumnMissing || searchQuery.jobIdColumnMissing) {

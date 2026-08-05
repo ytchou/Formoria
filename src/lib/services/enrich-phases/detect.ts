@@ -106,9 +106,6 @@ export async function runDetectPhase(
   phaseResult: PhaseResult;
   detectResults: Map<string, DetectResult>;
 }> {
-  return auditedCall(
-    { provider: "enrich", operation: "runDetectPhase", kind: "service" },
-    async () => {
   if (!hasDetectPhases(ctx.phases)) {
     return {
       phaseResult: buildPhaseResult(
@@ -137,6 +134,9 @@ export async function runDetectPhase(
     };
   }
 
+  return auditedCall(
+    { provider: "enrich", operation: "runDetectPhase", kind: "service" },
+    async () => {
   const { result, durationMs } = await timePhase(async () => {
     const detectItems: DetectBatchItem[] = ctx.chunk.map((brand, index) => ({
       slug: brand.slug,
@@ -191,6 +191,10 @@ export async function runDetectPhase(
     detectResults: result.detectResults,
   };
     },
+    {
+      classify: (result) =>
+        result.phaseResult.status === "failed" ? "failed" : "succeeded",
+    },
   );
 }
 
@@ -200,9 +204,6 @@ export async function runStandaloneClassification(
   phaseResult: PhaseResult;
   batchClassifications: Map<string, ClassificationResult>;
 }> {
-  return auditedCall(
-    { provider: "enrich", operation: "runStandaloneClassification", kind: "service" },
-    async () => {
   const shouldRun =
     ctx.phases.includes("tags") &&
     !ctx.phases.includes("descriptions") &&
@@ -223,6 +224,9 @@ export async function runStandaloneClassification(
     };
   }
 
+  return auditedCall(
+    { provider: "enrich", operation: "runStandaloneClassification", kind: "service" },
+    async () => {
   const { result, durationMs } = await timePhase(async () => {
     const classifyItems: BatchClassificationItem[] = ctx.chunk.map((brand) => ({
       slug: brand.slug,
@@ -266,6 +270,10 @@ export async function runStandaloneClassification(
     ),
     batchClassifications: result.results,
   };
+    },
+    {
+      classify: (result) =>
+        result.phaseResult.status === "failed" ? "failed" : "succeeded",
     },
   );
 }

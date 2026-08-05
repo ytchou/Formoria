@@ -2045,11 +2045,11 @@ export async function cleanupSubmissionDraftImages(
   submissionId: string,
   imageIds: string[],
 ): Promise<void> {
+  if (imageIds.length === 0) return;
+
   return auditedCall(
     { provider: "submissions", operation: "cleanupSubmissionDraftImages", kind: "service" },
     async () => {
-  if (imageIds.length === 0) return;
-
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("submission_images")

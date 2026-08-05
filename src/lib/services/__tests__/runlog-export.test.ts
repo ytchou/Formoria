@@ -126,10 +126,15 @@ type FakeAuditQuery = PromiseLike<AuditResult> & {
   in: (column: string, values: string[]) => FakeAuditQuery
   gte: (column: string, value: string) => FakeAuditQuery
   lte: (column: string, value: string) => FakeAuditQuery
+  neq: (column: string, value: unknown) => FakeAuditQuery
+  limit: (count: number) => FakeAuditQuery
   order: (column: string, options: { ascending: boolean }) => FakeAuditQuery
 }
 
-function fakeAuditClient(correlationResult: AuditResult) {
+function fakeAuditClient(
+  correlationResult: AuditResult,
+  options: { limits?: number[] } = {},
+) {
   return {
     from: (table: string): FakeAuditQuery => {
       const result =
@@ -142,6 +147,11 @@ function fakeAuditClient(correlationResult: AuditResult) {
         in: () => query,
         gte: () => query,
         lte: () => query,
+        neq: () => query,
+        limit: (count) => {
+          options.limits?.push(count)
+          return query
+        },
         order: () => query,
         then<TResult1 = AuditResult, TResult2 = never>(
           onfulfilled?:
@@ -207,6 +217,31 @@ describe('run-log correlation', () => {
     expect(runlog.run.correlationId).toBe(correlationId)
   })
 
+  it('bounds correlation reads and notes ambiguous job correlations', async () => {
+    const limits: number[] = []
+    const firstCorrelationId = '11111111-1111-4111-8111-111111111111'
+    const runlog = await exportJobRunLog('job-1', {
+      client: fakeAuditClient(
+        {
+          data: [
+            { correlation_id: firstCorrelationId },
+            { correlation_id: '22222222-2222-4222-8222-222222222222' },
+          ],
+          error: null,
+        },
+        { limits },
+      ),
+      getJob: async () => runlogJob,
+      listTargets: async () => [],
+    })
+
+    expect(runlog.run.correlationId).toBe(firstCorrelationId)
+    expect(runlog.gaps).toContain(
+      'Job has multiple correlation_id values; this export cannot identify one correlation',
+    )
+    expect(limits).toEqual([1, 1])
+  })
+
   it('export degrades gracefully when correlation_id is absent', async () => {
     const runlog = await exportJobRunLog('job-1', {
       client: fakeAuditClient({
@@ -222,6 +257,25 @@ describe('run-log correlation', () => {
 
     expect(runlog.run.correlationId).toBeUndefined()
     expect(runlog.gaps).toContain(
+      'Job correlation_id is unavailable; audit rows cannot be correlated until the correlation_id migration is applied',
+    )
+  })
+
+  it('uses a generic gap for a transient correlation read error', async () => {
+    const runlog = await exportJobRunLog('job-1', {
+      client: fakeAuditClient({
+        data: null,
+        error: { code: '500', message: 'audit service temporarily unavailable' },
+      }),
+      getJob: async () => runlogJob,
+      listTargets: async () => [],
+    })
+
+    expect(runlog.run.correlationId).toBeUndefined()
+    expect(runlog.gaps).toContain(
+      'Job correlation_id could not be read; audit rows may be uncorrelated in this export',
+    )
+    expect(runlog.gaps).not.toContain(
       'Job correlation_id is unavailable; audit rows cannot be correlated until the correlation_id migration is applied',
     )
   })

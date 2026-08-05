@@ -357,13 +357,11 @@ export async function ensureAutomaticRetries(): Promise<CurationJob[]> {
 export async function enqueueAutomaticRetry(
   job: CurationJob,
 ): Promise<CurationJob | null> {
+  if (job.attempt >= RETRY_ATTEMPTS) return null;
+
   return auditedCall(
     { provider: "curation", operation: "enqueueAutomaticRetry", kind: "service" },
     async () => {
-      if (job.attempt >= RETRY_ATTEMPTS) {
-        return null;
-      }
-
       const targets = (
         await listCurationJobTargets(job.id, {
           excludeSucceeded: true,

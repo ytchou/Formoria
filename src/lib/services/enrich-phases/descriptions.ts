@@ -353,9 +353,6 @@ export async function runDescriptionsPhase({
   jobId,
   pendingPatch,
 }: DescriptionsPhaseOptions): Promise<DescriptionsPhaseOutput> {
-  return auditedCall(
-    { provider: "enrich", operation: "runDescriptionsPhase", kind: "service" },
-    async () => {
   if (!phases.includes("descriptions")) {
     return {
       phaseResult: buildPhaseResult(
@@ -375,6 +372,9 @@ export async function runDescriptionsPhase({
     };
   }
 
+  return auditedCall(
+    { provider: "enrich", operation: "runDescriptionsPhase", kind: "service" },
+    async () => {
   const effectiveTarget = target ?? brandTarget(brand.id);
   const persistedScrape = await loadPersistedScrapeText(effectiveTarget);
   const effectiveSnippets = [...serpSnippets, ...persistedScrape.snippets];
@@ -654,6 +654,14 @@ export async function runDescriptionsPhase({
     factsAttempts: result.factsAttempts,
     listingVerdict: result.listingVerdict,
   };
+    },
+    {
+      classify: (result) =>
+        result.phaseResult.status === "failed"
+          ? "failed"
+          : result.phaseResult.status === "skipped"
+            ? "empty"
+            : "succeeded",
     },
   );
 }

@@ -29,6 +29,10 @@ beforeEach(() => {
 
 afterEach(() => {
   resetAuditEmitterForTests();
+  // `restoreAllMocks` only restores SPIES. The `captureAlert` mock is created by
+  // a `vi.mock` factory, so its call history survives -- and the alert fired by
+  // the write-loss test above then read as an alert fired by the next test.
+  vi.clearAllMocks();
   vi.restoreAllMocks();
 });
 
@@ -41,6 +45,31 @@ describe("emitAuditRecord", () => {
 
     expect(auditWriteLossCount()).toBe(2);
     expect(captureAlert).toHaveBeenCalledTimes(1);
+  });
+
+  it("a unique violation on a retried insert is success, not a dropped record", async () => {
+    setAuditWriteSeam(
+      vi.fn(async () => ({ code: "23505", message: "duplicate key value violates unique constraint" })),
+    );
+
+    await emitAuditRecord(record(), async () => {});
+
+    expect(auditWriteLossCount()).toBe(0);
+    expect(captureAlert).not.toHaveBeenCalled();
+  });
+
+  it("the emitted summary is detached from the caller's object", async () => {
+    const captured: AuditRecord[] = [];
+    setAuditWriteSeam(vi.fn(async (written: AuditRecord) => {
+      captured.push(written);
+      return null;
+    }));
+
+    const summary = { result: { recordCount: 0 } };
+    await emitAuditRecord(record({ summary }), async () => {});
+    summary.result.recordCount = 42;
+
+    expect(captured[0]?.summary).toEqual({ result: { recordCount: 0 } });
   });
 
   it("stdout payload is valid JSON and retains the ENRICH token when present", async () => {

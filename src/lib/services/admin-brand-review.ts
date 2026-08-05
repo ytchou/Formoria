@@ -133,6 +133,8 @@ export async function cleanupAdminBrandReviewImages(
   brandId: string,
   imageIds: string[],
 ): Promise<void> {
+  if (imageIds.length === 0) return;
+
   return auditedCall(
     {
       provider: "brands",
@@ -140,7 +142,6 @@ export async function cleanupAdminBrandReviewImages(
       kind: "service",
     },
     async () => {
-  if (imageIds.length === 0) return;
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("brand_images")

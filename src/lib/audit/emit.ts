@@ -32,6 +32,16 @@ let injectedSeam: AuditWriteSeam | null = null;
 let lossCount = 0;
 let lossAlertReported = false;
 
+/**
+ * The migration carries
+ * `create unique index ... on external_call_audit (span_id) where status = 'started'`.
+ * When the first insert commits but its response is lost, the retry comes back
+ * as 23505 -- which is terminal, so the old code counted a row that is sitting
+ * in the table as a DROPPED record and poisoned the audit-loss signal. A unique
+ * violation on this table means the write succeeded.
+ */
+const UNIQUE_VIOLATION = "23505";
+
 const defaultWait = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -55,7 +65,10 @@ async function defaultAuditWrite(record: AuditRecord): Promise<AuditWriteError |
       retry_attempt: record.retryAttempt ?? null,
       subject_id: record.subjectId ?? null,
       job_id: record.jobId ?? null,
-      summary: redact(record.summary) as Json,
+      // Already redacted and snapshotted by `emitAuditRecord` -- see
+      // `snapshotRecord`. Redacting again here would be a no-op at best and, on
+      // a deferred write, would re-read a summary the caller has since mutated.
+      summary: (record.summary ?? null) as unknown as Json,
       error_message: record.errorMessage ?? null,
     });
 
@@ -70,7 +83,10 @@ async function writeWithRetry(
     IN_PROCESS,
     async () => {
       try {
-        return await (injectedSeam ?? defaultAuditWrite)(record);
+        const error = await (injectedSeam ?? defaultAuditWrite)(record);
+        // See UNIQUE_VIOLATION above: the row is already there, so this is a
+        // success, not a loss.
+        return error && error.code === UNIQUE_VIOLATION ? null : error;
       } catch (error) {
         return {
           message: error instanceof Error ? error.message : String(error),
@@ -110,14 +126,35 @@ function reportWriteLoss(error: AuditWriteError): void {
 
 function writeStdout(record: AuditRecord): void {
   try {
-    console.log(JSON.stringify({
-      event: "audit",
-      ...record,
-      summary: redact(record.summary),
-    }));
+    console.log(JSON.stringify({ event: "audit", ...record }));
   } catch {
     return;
   }
+}
+
+/**
+ * Redaction and DEEP COPY happen here, synchronously, at the moment the row is
+ * emitted -- before any await and before `after()` can defer the insert.
+ *
+ * Both rows of a span used to share one summary object reference, so a caller
+ * that mutated its summary during `fn` (mit-registry does exactly this) got a
+ * `started` row serialized with FINAL values inside a Next request scope and
+ * with initial values outside one: same code, two different persisted rows.
+ * `redact` rebuilds every object and array it walks, so its result is already
+ * detached from the caller's object; that is what makes it a snapshot as well
+ * as a redaction. This also keeps the ordering the audit path depends on --
+ * redact first, then cap -- on every write path.
+ */
+function snapshotRecord(record: AuditRecord): AuditRecord {
+  if (record.summary == null) return { ...record, summary: null };
+
+  const redacted = redact(record.summary);
+  const summary =
+    redacted !== null && typeof redacted === "object" && !Array.isArray(redacted)
+      ? (redacted as Record<string, unknown>)
+      : null;
+
+  return { ...record, summary };
 }
 
 async function scheduleWrite(
@@ -167,6 +204,7 @@ export async function emitAuditRecord(
   record: AuditRecord,
   wait: (ms: number) => Promise<void> = defaultWait,
 ): Promise<void> {
-  writeStdout(record);
-  await scheduleWrite(record, wait);
+  const snapshot = snapshotRecord(record);
+  writeStdout(snapshot);
+  await scheduleWrite(snapshot, wait);
 }

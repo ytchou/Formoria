@@ -72,9 +72,6 @@ export async function runDiscoverPhase(ctx: BatchPhaseContext): Promise<{
   searchResults: Map<string, SearchPhaseResult>
   searchError: string | null
 }> {
-  return auditedCall(
-    { provider: 'enrich', operation: 'runDiscoverPhase', kind: 'service' },
-    async () => {
   if (!ctx.phases.includes('discover')) {
     return {
       phaseResult: buildPhaseResult('discover', 'skipped', [], 0, undefined, 'discover not requested'),
@@ -91,6 +88,9 @@ export async function runDiscoverPhase(ctx: BatchPhaseContext): Promise<{
     }
   }
 
+  return auditedCall(
+    { provider: 'enrich', operation: 'runDiscoverPhase', kind: 'service' },
+    async () => {
   const queryTemplate = (name: string) => buildSerpQuery(name)
 
   const { result, durationMs } = await timePhase(async (): Promise<DiscoverAttempt> => {
@@ -173,6 +173,10 @@ export async function runDiscoverPhase(ctx: BatchPhaseContext): Promise<{
     // it for every brand in the chunk, so per-call failures must not set it.
     searchError: result.searchError,
   }
+    },
+    {
+      classify: (result) =>
+        result.phaseResult.status === 'failed' ? 'failed' : 'succeeded',
     },
   )
 }

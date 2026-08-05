@@ -39,9 +39,9 @@ function isMissingCorrelationIdColumn(error: unknown): boolean {
   const source = error as { code?: unknown; message?: unknown }
   const message = typeof source.message === 'string' ? source.message : ''
   return (
-    source.code === '42703' ||
-    (message.includes('correlation_id') &&
-      /(missing|does not exist|doesn't exist)/i.test(message))
+    source.code === '42703' &&
+    message.includes('correlation_id') &&
+    /(missing|does not exist|doesn't exist)/i.test(message)
   )
 }
 

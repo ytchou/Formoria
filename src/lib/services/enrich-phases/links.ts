@@ -343,9 +343,6 @@ export async function runLinksPhase({
   jobId,
   supabase,
 }: LinksPhaseOptions): Promise<LinksPhaseOutput> {
-  return auditedCall(
-    { provider: 'enrich', operation: 'runLinksPhase', kind: 'service' },
-    async () => {
   if (!phases.includes('links')) {
     return {
       phaseResult: buildPhaseResult('links', 'skipped', [], 0, undefined, 'links phase not requested'),
@@ -358,6 +355,9 @@ export async function runLinksPhase({
     }
   }
 
+  return auditedCall(
+    { provider: 'enrich', operation: 'runLinksPhase', kind: 'service' },
+    async () => {
   const { result, durationMs } = await timePhase(async () => {
     const urls = prioritizeScrapeUrls(uniqueUrls([...knownUrls, ...discoveredUrls]))
     // These URLs are raw SERP results, so the brand name is the only thing
@@ -445,6 +445,10 @@ export async function runLinksPhase({
     scrapedImageSources: result.scrapedImageSources,
     jsonLdImageUrls: result.jsonLdImageUrls,
   }
+    },
+    {
+      classify: (result) =>
+        result.phaseResult.status === 'skipped' ? 'empty' : 'succeeded',
     },
   )
 }

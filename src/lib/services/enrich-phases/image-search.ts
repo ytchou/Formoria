@@ -55,9 +55,6 @@ export async function runImageSearchPhase(
    */
   pendingPatches?: Map<string, EnrichPatch>,
 ): Promise<ImageSearchPhaseOutput> {
-  return auditedCall(
-    { provider: 'enrich', operation: 'runImageSearchPhase', kind: 'service' },
-    async () => {
   if (!ctx.phases.includes('images')) {
     return {
       phaseResult: buildPhaseResult('image-search', 'skipped', [], 0, undefined, 'images not requested'),
@@ -74,6 +71,9 @@ export async function runImageSearchPhase(
     }
   }
 
+  return auditedCall(
+    { provider: 'enrich', operation: 'runImageSearchPhase', kind: 'service' },
+    async () => {
   const activeSubmissionImageCounts = await loadActiveSubmissionImageCounts(ctx)
   const brandsNeedingImages: typeof ctx.chunk = []
   // Brands we could not search because a provider call failed, held by target
@@ -235,6 +235,14 @@ export async function runImageSearchPhase(
     imageSearchResults: result.imageSearchResults,
     imageSearchOutcomes: result.imageSearchOutcomes,
   }
+    },
+    {
+      classify: (result) =>
+        result.phaseResult.status === 'failed'
+          ? 'failed'
+          : result.phaseResult.status === 'skipped'
+            ? 'empty'
+            : 'succeeded',
     },
   )
 }

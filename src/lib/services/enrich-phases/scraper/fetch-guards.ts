@@ -78,18 +78,17 @@ async function fetchTextWithMetadata(
   isAllowedContentType: (contentType: string) => boolean,
   operation: FetchOperation,
 ): Promise<FetchMetadata> {
-  const summary: Record<string, unknown> = { url }
   const result = await auditedCall(
     { provider: 'http', operation, kind: 'external' },
-    async (): Promise<FetchOutcome> => {
+    async (ctx): Promise<FetchOutcome> => {
       const startedAt = Date.now()
       let timedOut = false
 
-      // These fields are assigned late deliberately: the finish row is emitted
-      // after fn resolves, so the mutable summary carries the final values.
-      summary.contentType = null
-      summary.byteLength = null
-      summary.truncated = false
+      // These fields are assigned late deliberately: only ctx.summary carries
+      // values learned while fn runs into the terminal row.
+      ctx.summary.contentType = null
+      ctx.summary.byteLength = null
+      ctx.summary.truncated = false
 
       try {
         if (isPrivateUrl(url)) {
@@ -128,7 +127,7 @@ async function fetchTextWithMetadata(
 
           // Verify content-type before reading body
           const contentType = response.headers.get('content-type') ?? ''
-          summary.contentType = contentType
+          ctx.summary.contentType = contentType
           if (!isAllowedContentType(contentType)) {
             return {
               text: null,
@@ -145,8 +144,8 @@ async function fetchTextWithMetadata(
             10
           )
           if (contentLength > MAX_RESPONSE_BYTES) {
-            summary.byteLength = contentLength
-            summary.truncated = true
+            ctx.summary.byteLength = contentLength
+            ctx.summary.truncated = true
             return {
               text: null,
               status: response.status,
@@ -158,9 +157,9 @@ async function fetchTextWithMetadata(
 
           const text = await response.text()
           const byteLength = new TextEncoder().encode(text).byteLength
-          summary.byteLength = byteLength
+          ctx.summary.byteLength = byteLength
           if (byteLength > MAX_RESPONSE_BYTES) {
-            summary.truncated = true
+            ctx.summary.truncated = true
             return {
               text: null,
               status: response.status,
@@ -196,7 +195,7 @@ async function fetchTextWithMetadata(
     },
     {
       classify: (outcome) => classifyFetchReason(outcome.reason),
-      summary,
+      summary: { url },
     },
   )
 

@@ -962,9 +962,6 @@ async function persistChannelCandidates(
 export async function runChannelsPhase(
   options: ChannelsPhaseOptions,
 ): Promise<ChannelsPhaseOutput> {
-  return auditedCall(
-    { provider: "enrich", operation: "runChannelsPhase", kind: "service" },
-    async () => {
   if (!options.phases.includes("locations")) {
     return {
       phaseResult: buildPhaseResult(
@@ -980,6 +977,9 @@ export async function runChannelsPhase(
     };
   }
 
+  return auditedCall(
+    { provider: "enrich", operation: "runChannelsPhase", kind: "service" },
+    async () => {
   const { result, durationMs } = await timePhase(async () => {
     const knownOfficialOrigins = officialOrigins(
       options.brand,
@@ -1143,6 +1143,10 @@ export async function runChannelsPhase(
     patch: result.patch,
     candidates: result.candidates,
   };
+    },
+    {
+      classify: (result) =>
+        result.phaseResult.status === "skipped" ? "empty" : "succeeded",
     },
   );
 }

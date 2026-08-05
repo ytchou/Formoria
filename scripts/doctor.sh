@@ -87,9 +87,6 @@ check_env() {
     if ! grep -q "RAILWAY_LOGS_URL=." .env.local 2>/dev/null; then
       echo "WARN: RAILWAY_LOGS_URL not set (admin jobs page won't show logs link)"
     fi
-    if ! grep -q "LOG_SAMPLE_RATE=." .env.local 2>/dev/null; then
-      echo "WARN: LOG_SAMPLE_RATE not set (defaults to 1.0 - every structured log line is emitted)"
-    fi
     if ! grep -q "UPSTASH_REDIS_REST_URL=https://" .env.local 2>/dev/null; then
       echo "WARN: UPSTASH_REDIS_REST_URL not set — rate limiter will use in-memory fallback (not distributed)"
     fi

@@ -81,13 +81,11 @@ export async function reportProviderFailures(
   job: AlertJob,
   summary: EnrichmentSummary,
 ): Promise<void> {
+  if (!hasProviderFailures(summary)) return;
+
   return auditedCall(
     { provider: "curation", operation: "reportProviderFailures", kind: "service" },
     async () => {
-      if (!hasProviderFailures(summary)) {
-        return;
-      }
-
       const providerFailed = summary.providerFailed ?? 0;
       const message = `Curation job ${job.id}: ${providerFailed} target(s) failed because a search/LLM provider was unavailable`;
       const samples = summary.failedBrands

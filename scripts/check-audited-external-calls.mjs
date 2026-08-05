@@ -211,7 +211,7 @@ export function analyzeSource(relativePath, source, registry) {
 
   const violations = [];
   const auditedSpans = auditedCallArgumentSpans(source);
-  const fetchCalls = /(?<!\.)\bfetch\s*\(/g;
+  const fetchCalls = /(?<!\.)\bfetch\s*\(|\b(?:globalThis|global|window)\.fetch\s*\(/g;
 
   // Module-level escape hatch. Lexical containment inside auditedCall(...) is the
   // primary signal, but a module often puts the raw fetch in a small helper and

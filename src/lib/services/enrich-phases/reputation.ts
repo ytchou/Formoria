@@ -125,9 +125,6 @@ export async function runReputationPhase({
   target,
   jobId,
 }: ReputationPhaseOptions): Promise<ReputationPhaseOutput> {
-  return auditedCall(
-    { provider: "enrich", operation: "runReputationPhase", kind: "service" },
-    async () => {
   if (!phases.includes("reputation")) {
     return {
       phaseResult: buildPhaseResult(
@@ -156,6 +153,9 @@ export async function runReputationPhase({
     };
   }
 
+  return auditedCall(
+    { provider: "enrich", operation: "runReputationPhase", kind: "service" },
+    async () => {
   const { result, durationMs } = await timePhase(async () => {
     const auditTarget = target ?? brandTarget(brand.id);
     const persistedScrape = await loadPersistedScrapeText(auditTarget);
@@ -270,6 +270,10 @@ export async function runReputationPhase({
     ),
     patch: result.patch,
   };
+    },
+    {
+      classify: (result) =>
+        result.phaseResult.status === "failed" ? "failed" : "succeeded",
     },
   );
 }

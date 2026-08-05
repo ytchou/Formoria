@@ -4,10 +4,9 @@ import type { RenderProvider } from './types'
 export function createLocalPlaywrightProvider(): RenderProvider {
   return {
     async fetchRendered(url: string) {
-      const summary: Record<string, unknown> = { url }
       return auditedCall(
         { provider: 'playwright', operation: 'fetch_rendered', kind: 'external' },
-        async () => {
+        async (ctx) => {
           const { chromium } = await import('@playwright/test')
           const browser = await chromium.launch({ headless: true })
 
@@ -16,8 +15,8 @@ export function createLocalPlaywrightProvider(): RenderProvider {
             await page.goto(url, { waitUntil: 'networkidle' })
             const html = await page.content()
             const finalUrl = page.url()
-            summary.finalUrl = finalUrl
-            summary.htmlLength = html.length
+            ctx.summary.finalUrl = finalUrl
+            ctx.summary.htmlLength = html.length
 
             return {
               html,
@@ -28,7 +27,7 @@ export function createLocalPlaywrightProvider(): RenderProvider {
             await browser.close()
           }
         },
-        { summary },
+        { summary: { url } },
       )
     },
   }

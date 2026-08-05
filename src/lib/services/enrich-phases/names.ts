@@ -169,9 +169,6 @@ export async function runNamesPhase(
   ctx: BatchPhaseContext,
   candidatesByBrandId: Map<string, NameCandidateInput>,
 ): Promise<NamesPhaseOutput> {
-  return auditedCall(
-    { provider: "enrich", operation: "runNamesPhase", kind: "service" },
-    async () => {
   if (!ctx.phases.includes("names")) {
     return skippedBatch("names phase not requested");
   }
@@ -180,6 +177,9 @@ export async function runNamesPhase(
     return skippedBatch("empty batch");
   }
 
+  return auditedCall(
+    { provider: "enrich", operation: "runNamesPhase", kind: "service" },
+    async () => {
   const items: NameArbiterItem[] = [];
   // Built from the same `ctx.chunk` snapshot as the items themselves, so the
   // re-key below cannot drift from the keys the model was asked about.
@@ -267,6 +267,14 @@ export async function runNamesPhase(
     verdicts,
     providerFailure: false,
   };
+    },
+    {
+      classify: (result) =>
+        result.phaseResult.status === "failed"
+          ? "failed"
+          : result.phaseResult.status === "skipped"
+            ? "empty"
+            : "succeeded",
     },
   );
 }

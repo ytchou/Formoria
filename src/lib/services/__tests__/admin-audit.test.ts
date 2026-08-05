@@ -139,4 +139,36 @@ describe('admin audit correlation', () => {
     expect(inserts).toHaveLength(1)
     expect(inserts[0]).not.toHaveProperty('correlation_id')
   })
+
+  it('does not retry an unrelated undefined-column error', async () => {
+    const inserts: Array<Record<string, unknown>> = []
+    const deps: LogAdminActionDeps = {
+      client: {
+        from: () => ({
+          insert: async (values: Record<string, unknown>) => {
+            inserts.push(values)
+            return {
+              error: {
+                code: '42703',
+                message: 'column admin_audit_log.unrelated_field does not exist',
+              },
+            }
+          },
+        }),
+      },
+    }
+
+    await runWithAuditContext({ correlationId: '77777777-7777-4777-8777-777777777777' }, () =>
+      logAdminAction(
+        {
+          adminUserId: '88888888-8888-4888-8888-888888888888',
+          adminEmail: 'admin-correlation@example.com',
+          action: 'brand_edit',
+        },
+        deps,
+      ),
+    )
+
+    expect(inserts).toHaveLength(1)
+  })
 })

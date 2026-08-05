@@ -54,9 +54,6 @@ export async function runBrandImagePhase({
   dryRun = false,
   target,
 }: BrandImagePhaseOptions): Promise<BrandImagePhaseOutput> {
-  return auditedCall(
-    { provider: 'enrich', operation: 'runBrandImagePhase', kind: 'service' },
-    async () => {
   if (!phases.includes('images')) {
     return {
       phaseResult: buildPhaseResult('images', 'skipped', [], 0, undefined, 'images phase not requested'),
@@ -65,7 +62,6 @@ export async function runBrandImagePhase({
   }
 
   const imageCandidates = candidateImages ?? imageSearchUrls
-
   if (imageCandidates.length === 0) {
     return {
       phaseResult: buildPhaseResult('images', 'skipped', [], 0, undefined, 'no image URLs available'),
@@ -73,6 +69,9 @@ export async function runBrandImagePhase({
     }
   }
 
+  return auditedCall(
+    { provider: 'enrich', operation: 'runBrandImagePhase', kind: 'service' },
+    async () => {
   let downloadFailure: string | null = null
 
   const { result, durationMs } = await timePhase(async () => {
@@ -130,6 +129,10 @@ export async function runBrandImagePhase({
     phaseResult: buildPhaseResult('images', 'succeeded', changedFields, durationMs),
     patch: result,
   }
+    },
+    {
+      classify: (result) =>
+        result.phaseResult.status === 'failed' ? 'failed' : 'succeeded',
     },
   )
 }

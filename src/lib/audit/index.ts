@@ -11,7 +11,9 @@ export type { AuditProvider, ProviderRegistry } from "./providers";
 export type { AuditContextSeed } from "./context";
 export { getAuditContext, newCorrelationId, runWithAuditContext } from "./context";
 export { withAuditScope } from "./scope";
+export type { RedactOptions, TruncatedSummary } from "./redact";
 export {
+  CIRCULAR_VALUE,
   DEFAULT_REDACTION_MAX_BYTES,
   REDACTED_VALUE,
   redact,
@@ -24,5 +26,5 @@ export {
   resetAuditEmitterForTests,
   setAuditWriteSeam,
 } from "./emit";
-export type { AuditedCallOptions } from "./envelope";
+export type { AuditCallContext, AuditedCallOptions } from "./envelope";
 export { auditedCall } from "./envelope";

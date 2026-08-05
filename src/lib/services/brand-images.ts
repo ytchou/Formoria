@@ -219,6 +219,8 @@ export async function rejectBrandImages(
   brandId: string,
   urls: string[],
 ): Promise<void> {
+  if (urls.length === 0) return
+
   return auditedCall(
     {
       provider: 'images',
@@ -226,8 +228,6 @@ export async function rejectBrandImages(
       kind: 'service',
     },
     async () => {
-  if (urls.length === 0) return
-
   const { data: rows, error: selectError } = await brandImagesTable(supabase)
     .select('storage_path')
     .eq('brand_id', brandId)
@@ -273,6 +273,8 @@ export async function releaseBrandImageUrls(
   brandId: string,
   urls: string[],
 ): Promise<void> {
+  if (urls.length === 0) return
+
   return auditedCall(
     {
       provider: 'images',
@@ -280,8 +282,6 @@ export async function releaseBrandImageUrls(
       kind: 'service',
     },
     async () => {
-  if (urls.length === 0) return
-
   const { data: rows, error } = await brandImagesTable(supabase)
     .select('url, storage_path')
     .eq('brand_id', brandId)

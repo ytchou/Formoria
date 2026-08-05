@@ -966,10 +966,6 @@ export async function runClassifyImagesPhase({
   target: requestedTarget,
   jobId,
 }: ClassifyImagesPhaseOptions): Promise<ClassifyImagesPhaseOutput> {
-  return auditedCall(
-    { provider: "enrich", operation: "runClassifyImagesPhase", kind: "service" },
-    async () => {
-  const target = requestedTarget ?? brandTarget(brand.id);
   if (!phases.includes("classify_images")) {
     return {
       phaseResult: buildPhaseResult(
@@ -998,6 +994,10 @@ export async function runClassifyImagesPhase({
     };
   }
 
+  return auditedCall(
+    { provider: "enrich", operation: "runClassifyImagesPhase", kind: "service" },
+    async () => {
+  const target = requestedTarget ?? brandTarget(brand.id);
   const supabase = createServiceClient();
 
   if (overwrite) {
@@ -1241,6 +1241,14 @@ export async function runClassifyImagesPhase({
     ),
     patch,
   };
+    },
+    {
+      classify: (result) =>
+        result.phaseResult.status === "failed"
+          ? "failed"
+          : result.phaseResult.status === "skipped"
+            ? "empty"
+            : "succeeded",
     },
   );
 }

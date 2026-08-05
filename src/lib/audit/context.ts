@@ -44,10 +44,19 @@ export function newCorrelationId(): string {
   return randomUUID();
 }
 
+/**
+ * A nested scope INHERITS the ambient correlation id. Minting a fresh id on
+ * every entry fragmented one logical request across several ids as soon as a
+ * scoped server action called anything that opened its own scope -- which is
+ * the whole failure this correlation trail exists to prevent. An explicit
+ * `seed.correlationId` still wins, and two sibling (non-nested) scopes still
+ * get distinct ids because neither sees the other's store.
+ */
 export function runWithAuditContext<T>(seed: AuditContextSeed, fn: () => T): T {
   const context: AuditContext = {
     ...seed,
-    correlationId: seed.correlationId ?? newCorrelationId(),
+    correlationId:
+      seed.correlationId ?? getAuditContext().correlationId ?? newCorrelationId(),
   };
 
   return auditContextStorage.run(context, fn);

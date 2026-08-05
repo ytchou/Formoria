@@ -259,11 +259,11 @@ export async function downloadAndStoreImages(
   candidates: DownloadImageCandidate[],
   targetOrBrandId: EnrichmentTarget | string
 ): Promise<(string | null)[]> {
+  if (candidates.length === 0) return []
+
   return auditedCall(
     { provider: 'images', operation: 'downloadAndStoreImages', kind: 'service' },
     async () => {
-  if (candidates.length === 0) return []
-
   const dedupedCandidates = deduplicateCandidates(candidates)
   if (dedupedCandidates.length < candidates.length) {
     console.log(`  [IMAGE-DEDUP] ${candidates.length} → ${dedupedCandidates.length} candidates (${candidates.length - dedupedCandidates.length} IG dupes removed)`)

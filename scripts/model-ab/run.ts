@@ -386,7 +386,6 @@ async function main(): Promise<void> {
   // hole structurally, the same way createWriteBlockingClient does for tables.
   const auditRecords: AuditRecord[] = [];
   setAuditWriteSeam(async (record) => {
-    blocked.push({ table: "external_call_audit", method: "insert" });
     auditRecords.push(record);
     return null;
   });

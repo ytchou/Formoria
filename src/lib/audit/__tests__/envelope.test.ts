@@ -83,6 +83,55 @@ describe("auditedCall", () => {
     ).resolves.toBe("still works");
   });
 
+  it("fields attached through ctx.summary reach the finish row only", async () => {
+    await auditedCall(
+      spec(),
+      async (ctx) => {
+        ctx.summary.contentType = "text/html";
+        ctx.summary.byteLength = 1024;
+        return "done";
+      },
+      { summary: { url: "https://example.com" }, wait: async () => {} },
+    );
+
+    expect(writes[0]?.summary).toEqual({ url: "https://example.com" });
+    expect(writes[1]?.summary).toEqual({
+      url: "https://example.com",
+      contentType: "text/html",
+      byteLength: 1024,
+    });
+  });
+
+  it("ctx.summary reaches the finish row when fn throws", async () => {
+    await expect(
+      auditedCall(
+        spec(),
+        async (ctx) => {
+          ctx.summary.status = 500;
+          throw new Error("boom");
+        },
+        { wait: async () => {} },
+      ),
+    ).rejects.toThrow("boom");
+
+    expect(writes[1]?.summary).toEqual({ status: 500 });
+  });
+
+  it("the started row is unaffected by a summary the caller mutates during fn", async () => {
+    const summary = { result: { recordCount: 0 } };
+
+    await auditedCall(
+      spec(),
+      async () => {
+        summary.result.recordCount = 42;
+        return "done";
+      },
+      { summary, wait: async () => {} },
+    );
+
+    expect(writes[0]?.summary).toEqual({ result: { recordCount: 0 } });
+  });
+
   it("span_id is generated before the first write", async () => {
     let firstSpanId: string | undefined;
     seam.mockImplementation(async (record: AuditRecord) => {

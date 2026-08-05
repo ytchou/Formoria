@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { resetAuditEmitterForTests, setAuditWriteSeam, type AuditRecord } from '@/lib/audit'
 import { runCleanPhase } from '../clean'
 import type { EnrichBrand, EnrichPhase } from '../types'
 
@@ -6,6 +7,20 @@ const brand = (name: string): EnrichBrand => ({
   id: 'brand-1',
   slug: 'test-brand',
   name,
+})
+
+let writes: AuditRecord[] = []
+
+beforeEach(() => {
+  writes = []
+  setAuditWriteSeam(async (record) => {
+    writes.push(record)
+    return null
+  })
+})
+
+afterEach(() => {
+  resetAuditEmitterForTests()
 })
 
 describe('runCleanPhase', () => {
@@ -40,5 +55,11 @@ describe('runCleanPhase', () => {
     expect(result.phaseResult.status).toBe('succeeded')
     expect(result.phaseResult.changedFields).toEqual([])
     expect(result.cleanedName).toBeNull()
+  })
+
+  it('does not emit an audit span when clean is not requested', async () => {
+    await runCleanPhase(brand('Test Brand'), ['links'] as EnrichPhase[])
+
+    expect(writes).toHaveLength(0)
   })
 })
