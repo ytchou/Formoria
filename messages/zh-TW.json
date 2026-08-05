@@ -715,6 +715,9 @@
         "founded": "{year}年創立",
         "suffix": " 這個品牌{details}。"
       },
+      "taiwanOrigin": {
+        "undeclaredAnswer": "{brandName} 尚未向 Formoria 提交製造驗證，因此目前沒有台灣製造的認證狀態。{context}Formoria 收錄的品牌需與台灣有明確連結：於台灣創立、於台灣設計，或於台灣製造。"
+      },
       "isMadeInTaiwan": {
         "question": "{brandName} 有哪些製造驗證？",
         "answer": "Formoria 已比對到 {brandName} 的產品與 MIT 微笑標章登錄資料；此驗證僅適用於登錄資料涵蓋的產品。",
