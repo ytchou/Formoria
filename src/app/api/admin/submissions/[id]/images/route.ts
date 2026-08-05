@@ -1,3 +1,4 @@
+import { withAuditScope } from "@/lib/audit/scope";
 import { NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 import { z } from "zod";
@@ -12,10 +13,10 @@ import { stageSubmissionReviewImage } from "@/lib/services/submissions";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
-export async function POST(
+export const POST = withAuditScope(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> },
-) {
+) => {
   const auth = await requireAdminAction();
   if ("error" in auth) {
     return NextResponse.json(
@@ -87,4 +88,4 @@ export async function POST(
     Sentry.captureException(error);
     return NextResponse.json(sanitizeErrorResponse(error), { status: 500 });
   }
-}
+});

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import * as supabaseServer from "@/lib/supabase/server";
+import { auditedCall } from "@/lib/audit";
 import { buildReviewUpdate, type ReviewDecision } from "./review-status";
 
 const SUSPICIOUS_TLDS = [".tk", ".ml", ".ga", ".cf", ".gq"];
@@ -275,6 +276,9 @@ export async function saveModerationFlags(
   violations: ContentViolation[],
   status: string = "pending",
 ): Promise<void> {
+  return auditedCall(
+    { provider: "submissions", operation: "saveModerationFlags", kind: "service" },
+    async () => {
   const supabase = createModerationClient();
   const rows: ModerationFlagInsert[] = violations.map((violation) => ({
     brand_id: brandId,
@@ -286,6 +290,8 @@ export async function saveModerationFlags(
   }));
   const { error } = await supabase.from("moderation_flags").insert(rows);
   if (error) throw error;
+    },
+  );
 }
 
 export interface FlaggedContentFilters {
@@ -353,6 +359,9 @@ export async function getFlaggedContent(
 }
 
 export async function markFlagsReviewed(brandId: string): Promise<void> {
+  return auditedCall(
+    { provider: "submissions", operation: "markFlagsReviewed", kind: "service" },
+    async () => {
   const supabase = createModerationClient();
   const { error } = await supabase
     .from("moderation_flags")
@@ -361,12 +370,17 @@ export async function markFlagsReviewed(brandId: string): Promise<void> {
     .eq("status", "pending");
 
   if (error) console.error("[moderation] markFlagsReviewed failed:", error);
+    },
+  );
 }
 
 export async function updateModerationFlagStatus(
   flagId: string,
   decision: ReviewDecision,
 ): Promise<void> {
+  return auditedCall(
+    { provider: "submissions", operation: "updateModerationFlagStatus", kind: "service" },
+    async () => {
   const supabase = createModerationClient();
   const { data, error } = await supabase
     .from("moderation_flags")
@@ -378,4 +392,6 @@ export async function updateModerationFlagStatus(
 
   if (error) throw error;
   if (!data) throw new Error("Moderation flag is no longer pending");
+    },
+  );
 }

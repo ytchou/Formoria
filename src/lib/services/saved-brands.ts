@@ -1,3 +1,4 @@
+import { auditedCall } from '@/lib/audit'
 import { createServiceClient } from '@/lib/supabase/server'
 import type { SavedBrand } from '@/lib/types/saved-brand'
 
@@ -66,30 +67,42 @@ export async function saveBrand(
   userId: string,
   brandId: string
 ): Promise<void> {
-  const supabase = createServiceClient()
-  const { error } = await supabase.from('brand_saves').upsert(
-    {
-      user_id: userId,
-      brand_id: brandId,
-    },
-    { onConflict: 'user_id,brand_id' }
-  )
+  return auditedCall(
+    { provider: 'brands', operation: 'saveBrand', kind: 'service' },
+    async () => {
+      const supabase = createServiceClient()
+      const { error } = await supabase.from('brand_saves').upsert(
+        {
+          user_id: userId,
+          brand_id: brandId,
+        },
+        { onConflict: 'user_id,brand_id' }
+      )
 
-  if (error) throw error
+      if (error) throw error
+    },
+    { subjectId: brandId, summary: { userId } },
+  )
 }
 
 export async function unsaveBrand(
   userId: string,
   brandId: string
 ): Promise<void> {
-  const supabase = createServiceClient()
-  const { error } = await supabase
-    .from('brand_saves')
-    .delete()
-    .eq('user_id', userId)
-    .eq('brand_id', brandId)
+  return auditedCall(
+    { provider: 'brands', operation: 'unsaveBrand', kind: 'service' },
+    async () => {
+      const supabase = createServiceClient()
+      const { error } = await supabase
+        .from('brand_saves')
+        .delete()
+        .eq('user_id', userId)
+        .eq('brand_id', brandId)
 
-  if (error) throw error
+      if (error) throw error
+    },
+    { subjectId: brandId, summary: { userId } },
+  )
 }
 
 export async function isBrandSaved(

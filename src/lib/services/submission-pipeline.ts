@@ -1,4 +1,5 @@
 import type { OtherUrl, SubmissionIntent } from '@/lib/types'
+import { auditedCall } from '@/lib/audit'
 import type { SourceAttribution } from '@/lib/types/submission'
 import { createSubmission } from '@/lib/services/submissions'
 import { classifySubmittedUrl } from '@/lib/services/link-enrichment'
@@ -46,6 +47,9 @@ export async function submitBrandForReview(
   params: SubmitBrandForReviewParams,
   options?: { useServiceRole?: boolean }
 ): Promise<SubmitBrandForReviewResult> {
+  return auditedCall(
+    { provider: 'submissions', operation: 'submitBrandForReview', kind: 'service' },
+    async () => {
   // Map social links
   let socialInstagram = params.socialLinks?.instagram || null
   let socialThreads = params.socialLinks?.threads || null
@@ -124,4 +128,6 @@ export async function submitBrandForReview(
   }, options)
 
   return { submissionId: submission.id }
+    },
+  )
 }

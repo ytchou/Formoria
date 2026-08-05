@@ -1,14 +1,15 @@
 import sharp from 'sharp'
+import { auditedCall } from '@/lib/audit'
 
 import { processImage } from '@/lib/security/image-processor'
 import { createServiceClient } from '@/lib/supabase/server'
-import { mapWithConcurrency } from './concurrency'
+import { mapWithConcurrency } from './_shared/concurrency'
 import type { CandidateImage, CandidateImageSource } from './enrich-phases/candidate-pool'
 import {
   brandTarget,
   targetImageStorage,
   type EnrichmentTarget,
-} from './enrichment-target'
+} from './_shared/enrichment-target'
 import { uploadWithRetry } from './storage-retry'
 
 const IMAGE_FETCH_TIMEOUT_MS = 10_000
@@ -260,6 +261,9 @@ export async function downloadAndStoreImages(
 ): Promise<(string | null)[]> {
   if (candidates.length === 0) return []
 
+  return auditedCall(
+    { provider: 'images', operation: 'downloadAndStoreImages', kind: 'service' },
+    async () => {
   const dedupedCandidates = deduplicateCandidates(candidates)
   if (dedupedCandidates.length < candidates.length) {
     console.log(`  [IMAGE-DEDUP] ${candidates.length} → ${dedupedCandidates.length} candidates (${candidates.length - dedupedCandidates.length} IG dupes removed)`)
@@ -442,6 +446,8 @@ export async function downloadAndStoreImages(
         // a thrown error — callers index this array against a parallel array.
         return null
       }
+    },
+  )
     },
   )
 }

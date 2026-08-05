@@ -1,3 +1,4 @@
+import { withAuditScope } from '@/lib/audit/scope'
 import { NextRequest, NextResponse } from 'next/server'
 import { isRelativeUrl } from '@/lib/auth/validations'
 import {
@@ -19,7 +20,7 @@ function getSafeRedirectPath(returnTo: unknown): string {
   return typeof returnTo === 'string' && isRelativeUrl(returnTo) ? returnTo : '/'
 }
 
-export async function POST(request: NextRequest) {
+export const POST = withAuditScope(async (request: NextRequest) => {
   const ip = getClientIp(request)
   const limit = await rateLimit(ip, {
     windowMs: 60_000,
@@ -72,4 +73,4 @@ export async function POST(request: NextRequest) {
   await posthog.flush()
 
   return response
-}
+})

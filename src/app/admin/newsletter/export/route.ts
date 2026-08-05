@@ -1,3 +1,4 @@
+import { withAuditScope } from "@/lib/audit";
 import { requireAdminAction } from "@/lib/auth/require-admin";
 import { getRequestOrigin } from "@/lib/auth/site-url";
 import { createServiceClient } from "@/lib/supabase/server";
@@ -9,7 +10,7 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export async function GET(request: Request): Promise<Response> {
+export const GET = withAuditScope(async (request: Request): Promise<Response> => {
   const auth = await requireAdminAction();
   if ("error" in auth) {
     if (auth.code === "unauthenticated") {
@@ -37,7 +38,7 @@ export async function GET(request: Request): Promise<Response> {
       "cache-control": "no-store",
     },
   });
-}
+});
 
 export function toNewsletterCsv(subscribers: AdminNewsletterSubscriber[]): string {
   const headers = [

@@ -1,5 +1,6 @@
 import type { PhaseResult } from "@/lib/types/curation";
-import { isLlmProviderFailure } from "../llm-call-outcome";
+import { auditedCall } from "@/lib/audit";
+import { isLlmProviderFailure } from "../_shared/llm-call-outcome";
 import { isValidBrandName } from "../brand-cleanup";
 import {
   arbitrateBrandNames,
@@ -176,6 +177,9 @@ export async function runNamesPhase(
     return skippedBatch("empty batch");
   }
 
+  return auditedCall(
+    { provider: "enrich", operation: "runNamesPhase", kind: "service" },
+    async () => {
   const items: NameArbiterItem[] = [];
   // Built from the same `ctx.chunk` snapshot as the items themselves, so the
   // re-key below cannot drift from the keys the model was asked about.
@@ -263,6 +267,16 @@ export async function runNamesPhase(
     verdicts,
     providerFailure: false,
   };
+    },
+    {
+      classify: (result) =>
+        result.phaseResult.status === "failed"
+          ? "failed"
+          : result.phaseResult.status === "skipped"
+            ? "empty"
+            : "succeeded",
+    },
+  );
 }
 
 /**

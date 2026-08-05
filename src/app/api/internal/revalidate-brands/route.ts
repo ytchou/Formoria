@@ -1,3 +1,4 @@
+import { withAuditScope } from "@/lib/audit/scope";
 import { NextResponse } from "next/server";
 import {
   revalidatePublicBrand,
@@ -26,7 +27,7 @@ function isInvalidSlugList(value: unknown): boolean {
   );
 }
 
-export async function POST(req: Request) {
+export const POST = withAuditScope(async (req: Request) => {
   const originSecret = process.env.ORIGIN_SECRET?.trim();
   // A blank server-side secret must never make every caller authorized.
   if (!originSecret || req.headers.get("x-origin-verify") !== originSecret) {
@@ -80,4 +81,4 @@ export async function POST(req: Request) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });
   }
-}
+});

@@ -14,9 +14,10 @@ import { MAX_SCRAPE_URLS_PER_BRAND, scrapeBrandUrls, type ScrapeBrandUrlsOptions
 import { classifyByDomain, isNonBrandSiteHost } from './scraper/input-detector'
 import { mergeScrapedData } from './scraper/merge'
 import type { PhaseResult } from '@/lib/types/curation'
+import { auditedCall } from '@/lib/audit'
 import type { ScrapedBrandData, ScrapedImageSource } from '@/lib/types/scraper'
 import type { EnrichScrapedData } from './types'
-import { brandTarget, type EnrichmentTarget } from '../enrichment-target'
+import { brandTarget, type EnrichmentTarget } from '../_shared/enrichment-target'
 import { buildPhaseResult, hasPatchValues, timePhase, type EnrichBrand, type EnrichPhase } from './types'
 import { PURCHASE_CHANNELS } from '@/lib/brands/purchase-channels'
 
@@ -379,17 +380,25 @@ export async function runLinksPhase({
     }
   }
 
+  return auditedCall(
+    { provider: 'enrich', operation: 'runLinksPhase', kind: 'service' },
+    async () => {
   const { result, durationMs } = await timePhase(async () => {
     const urls = prioritizeScrapeUrls(uniqueUrls([...knownUrls, ...discoveredUrls]))
     // These URLs are raw SERP results, so the brand name is the only thing
     // separating this brand's accounts from a same-ranking stranger's.
     const urlExtracted = extractLinksFromUrls(discoveredUrls, brand.name)
     const scrapeOptions: ScrapeBrandUrlsOptions = {
-      onAttempt: async ({ url, classification }) => {
+      onAttempt: async ({ url, classification, spanId }) => {
         const auditId = await startSearchAudit({
           target: target ?? brandTarget(brand.id),
           ...(jobId ? { jobId } : {}),
           supabase,
+          // Joins this deep-store row to the scraper.scrape_url span wrapping
+          // the same attempt. Without it the span and the row both exist but
+          // cannot be correlated - the state that made the scrape path
+          // invisible to the audit index (34 deep-store writes, 2 spans).
+          auditSpanId: spanId,
           provider: 'scraper',
           endpoint: url,
           searchType: 'scrape',
@@ -417,8 +426,8 @@ export async function runLinksPhase({
                 },
                 urls: [url],
                 snippets: boundedScrapeSnippets(attempt.extracted),
+                supabase,
               },
-              supabase,
             )
           },
         }
@@ -461,4 +470,10 @@ export async function runLinksPhase({
     scrapedImageSources: result.scrapedImageSources,
     jsonLdImageUrls: result.jsonLdImageUrls,
   }
+    },
+    {
+      classify: (result) =>
+        result.phaseResult.status === 'skipped' ? 'empty' : 'succeeded',
+    },
+  )
 }

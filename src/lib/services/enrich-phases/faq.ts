@@ -26,8 +26,8 @@ import {
   profileChatParams,
 } from "../llm-audit";
 import { parseJson } from "../openai-client";
-import { isLlmProviderFailure, noLlmCalls } from "../llm-call-outcome";
-import { brandTarget, type EnrichmentTarget } from "../enrichment-target";
+import { isLlmProviderFailure, noLlmCalls } from "../_shared/llm-call-outcome";
+import { brandTarget, type EnrichmentTarget } from "../_shared/enrichment-target";
 import type { PhaseResult } from "@/lib/types/curation";
 import {
   buildPhaseResult,

@@ -5,6 +5,7 @@ import {
   type PurchaseChannelKey,
 } from "@/lib/brands/purchase-channels";
 import { DESCRIPTION_SYSTEM_PROMPT } from "@/lib/prompts";
+import { auditedCall } from "@/lib/audit";
 import { parseJson } from "./openai-client";
 import {
   buildProfiledEnrichmentConfig,
@@ -14,7 +15,7 @@ import {
 } from "./llm-audit";
 import { validateLocalizedText, detectAiArtifacts } from "./enrich-validators";
 import { localizeToTW, stripAiToolArtifacts } from "./taiwan-localization";
-import { noLlmCalls, type LlmCallCounts } from "./llm-call-outcome";
+import { noLlmCalls, type LlmCallCounts } from "./_shared/llm-call-outcome";
 
 const ZH_DESCRIPTION_BAND = [150, 400] as const;
 const EN_DESCRIPTION_BAND = [300, 700] as const;
@@ -558,6 +559,9 @@ export async function rewriteBrandDescription(
   audit: Pick<LlmAuditContext, "jobId" | "target">,
   evidence?: DescriptionEvidence,
 ): Promise<DescriptionRewriteOutput | null> {
+  return auditedCall(
+    { provider: "enrich", operation: "rewriteBrandDescription", kind: "service" },
+    async () => {
   const token = process.env.OPENAI_API_KEY;
   if (!token) return null;
   if (snippets.length === 0 && !existingDescription) return null;
@@ -743,4 +747,6 @@ export async function rewriteBrandDescription(
     );
     return null;
   }
+    },
+  );
 }

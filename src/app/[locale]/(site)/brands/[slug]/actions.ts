@@ -1,5 +1,6 @@
 'use server'
 
+import { runWithAuditContext } from '@/lib/audit/context'
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { getTranslations } from 'next-intl/server'
@@ -104,71 +105,77 @@ export async function confirmChannelAction(
   channelId: string,
   brandSlug: string,
 ): Promise<{ confirmationCount: number } | { error: string }> {
-  try {
-    const user = await requireClaimUser()
-    if (!user) return { error: 'not_logged_in' }
+  return runWithAuditContext({}, async () => {
+    try {
+      const user = await requireClaimUser()
+      if (!user) return { error: 'not_logged_in' }
 
-    const confirmationCount = await confirmChannel(user.id, channelId)
-    revalidatePublicBrand({ slug: brandSlug })
-    return { confirmationCount }
-  } catch (error) {
-    console.error('[brands:confirmChannel]', error)
-    return { error: 'unknown' }
-  }
+      const confirmationCount = await confirmChannel(user.id, channelId)
+      revalidatePublicBrand({ slug: brandSlug })
+      return { confirmationCount }
+    } catch (error) {
+      console.error('[brands:confirmChannel]', error)
+      return { error: 'unknown' }
+    }
+  });
 }
 
 export async function getChannelViewerStateAction(
   brandId: string,
 ): Promise<{ isOwner: boolean; confirmedChannelIds: string[] }> {
-  const user = await requireClaimUser()
-  if (!user) return { isOwner: false, confirmedChannelIds: [] }
+  return runWithAuditContext({}, async () => {
+    const user = await requireClaimUser()
+    if (!user) return { isOwner: false, confirmedChannelIds: [] }
 
-  const [channels, isOwner] = await Promise.all([
-    getChannelsForBrand(brandId, user.id),
-    isOwnerOf(user.id, brandId),
-  ])
-  const allChannels = [...channels.confirmed, ...channels.possible]
+    const [channels, isOwner] = await Promise.all([
+      getChannelsForBrand(brandId, user.id),
+      isOwnerOf(user.id, brandId),
+    ])
+    const allChannels = [...channels.confirmed, ...channels.possible]
 
-  return {
-    isOwner,
-    confirmedChannelIds: allChannels
-      .filter((channel) => channel.hasCurrentUserConfirmed === true)
-      .map((channel) => channel.id),
-  }
+    return {
+      isOwner,
+      confirmedChannelIds: allChannels
+        .filter((channel) => channel.hasCurrentUserConfirmed === true)
+        .map((channel) => channel.id),
+    }
+  });
 }
 
 export async function submitChannelInfoAction(
   _prevState: ChannelFormState,
   formData: FormData,
 ): Promise<ChannelFormState> {
-  const t = await getTranslations('brandDetail.channels.errors')
+  return runWithAuditContext({}, async () => {
+    const t = await getTranslations('brandDetail.channels.errors')
 
-  try {
-    const user = await requireClaimUser()
-    if (!user) return { error: 'not_logged_in' }
+    try {
+      const user = await requireClaimUser()
+      if (!user) return { error: 'not_logged_in' }
 
-    const brandId = getFormString(formData, 'brandId')
-    if (!brandId) return { error: t('missing_brand_id') }
+      const brandId = getFormString(formData, 'brandId')
+      if (!brandId) return { error: t('missing_brand_id') }
 
-    const brandSlug = getFormString(formData, 'brandSlug')
-    if (!brandSlug) return { error: t('missing_brand_slug') }
+      const brandSlug = getFormString(formData, 'brandSlug')
+      if (!brandSlug) return { error: t('missing_brand_slug') }
 
-    const result = await submitChannel(user.id, brandId, {
-      name: getFormString(formData, 'name'),
-      channelType: getFormString(formData, 'channelType') as ChannelType,
-      category: getFormString(formData, 'category'),
-      region: getFormString(formData, 'region'),
-      address: getFormString(formData, 'address'),
-      url: getFormString(formData, 'url'),
-    })
-    if (!result.ok) return { error: t(result.code) }
+      const result = await submitChannel(user.id, brandId, {
+        name: getFormString(formData, 'name'),
+        channelType: getFormString(formData, 'channelType') as ChannelType,
+        category: getFormString(formData, 'category'),
+        region: getFormString(formData, 'region'),
+        address: getFormString(formData, 'address'),
+        url: getFormString(formData, 'url'),
+      })
+      if (!result.ok) return { error: t(result.code) }
 
-    revalidatePublicBrand({ slug: brandSlug })
-    return { success: true }
-  } catch (error) {
-    console.error('[brands:submitChannelInfo]', error)
-    return { error: t('unknown') }
-  }
+      revalidatePublicBrand({ slug: brandSlug })
+      return { success: true }
+    } catch (error) {
+      console.error('[brands:submitChannelInfo]', error)
+      return { error: t('unknown') }
+    }
+  });
 }
 
 export async function ownerModerateChannelAction(
@@ -176,28 +183,32 @@ export async function ownerModerateChannelAction(
   brandSlug: string,
   status: 'confirmed' | 'rejected',
 ): Promise<{ success: true } | { error: string }> {
-  try {
-    const user = await requireClaimUser()
-    if (!user) return { error: 'not_logged_in' }
+  return runWithAuditContext({}, async () => {
+    try {
+      const user = await requireClaimUser()
+      if (!user) return { error: 'not_logged_in' }
 
-    const result = await setOwnerChannelStatus(user.id, channelId, status)
-    if (!result.ok) return { error: result.code }
+      const result = await setOwnerChannelStatus(user.id, channelId, status)
+      if (!result.ok) return { error: result.code }
 
-    revalidatePublicBrand({ slug: brandSlug })
-    return { success: true }
-  } catch (error) {
-    console.error('[brands:ownerModerateChannel]', error)
-    return { error: 'unknown' }
-  }
+      revalidatePublicBrand({ slug: brandSlug })
+      return { success: true }
+    } catch (error) {
+      console.error('[brands:ownerModerateChannel]', error)
+      return { error: 'unknown' }
+    }
+  });
 }
 
 export async function getPendingClaimStatusAction(brandId: string): Promise<boolean> {
-  // Owner-features kill switch: no claim can be pending while claiming is off,
-  // so report the same "nothing pending" state as a signed-out visitor.
-  if (!(await isOwnerFeaturesEnabled())) return false
+  return runWithAuditContext({}, async () => {
+    // Owner-features kill switch: no claim can be pending while claiming is off,
+    // so report the same "nothing pending" state as a signed-out visitor.
+    if (!(await isOwnerFeaturesEnabled())) return false
 
-  const user = await requireClaimUser()
-  return user ? hasPendingClaim(user.id, brandId) : false
+    const user = await requireClaimUser()
+    return user ? hasPendingClaim(user.id, brandId) : false
+  });
 }
 
 function buildFieldSchemas(t: Translator) {
@@ -247,221 +258,227 @@ function getSubmitClaimSchema(t: Translator) {
 }
 
 export async function submitClaimAction(input: SubmitClaimInput): Promise<SubmitClaimResult> {
-  const t = await getTranslations('brandDetail.claim.errors')
-  // Owner-features kill switch: refuse before auth so a stale client that still
-  // holds the claim dialog cannot write while the surface is hidden.
-  if (!(await isOwnerFeaturesEnabled())) return { error: t('unknown') }
+  return runWithAuditContext({}, async () => {
+    const t = await getTranslations('brandDetail.claim.errors')
+    // Owner-features kill switch: refuse before auth so a stale client that still
+    // holds the claim dialog cannot write while the surface is hidden.
+    if (!(await isOwnerFeaturesEnabled())) return { error: t('unknown') }
 
-  try {
-    const user = await requireClaimUser()
-    if (!user) return { error: t('notLoggedIn') }
+    try {
+      const user = await requireClaimUser()
+      if (!user) return { error: t('notLoggedIn') }
 
-    const parsed = getSubmitClaimSchema(t).safeParse(input)
-    if (!parsed.success) {
-      return { error: parsed.error.issues[0]?.message ?? t('unknown') }
-    }
-
-    const imageNamespace = `claim-proofs/${user.id}/`
-    const invalidImageKey = parsed.data.proofs.find(
-      (proof) => proof.imageKey && !proof.imageKey.startsWith(imageNamespace)
-    )
-    if (invalidImageKey) {
-      return { error: t('invalidImageKey') }
-    }
-
-    const brand = await getBrandById(parsed.data.brandId)
-
-    const claimRequest = await createClaimRequest({
-      userId: user.id,
-      brandId: parsed.data.brandId,
-      proofEvidence: parsed.data.proofs,
-      mitSmileCert: parsed.data.mitSmileCert || undefined,
-    })
-
-    const locale = parsed.data.locale ?? 'zh-TW'
-    const siteUrl = getSiteUrl().replace(/\/$/, '')
-
-    for (const verification of claimRequest.emailVerificationTokens) {
-      const params = new URLSearchParams({
-        cr: claimRequest.id,
-        i: String(verification.proofIndex),
-        token: verification.token,
-        locale,
-      })
-      const verifyUrl = `${siteUrl}/api/claim/verify-email?${params.toString()}`
-
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('[claim-email-verification]', verifyUrl)
+      const parsed = getSubmitClaimSchema(t).safeParse(input)
+      if (!parsed.success) {
+        return { error: parsed.error.issues[0]?.message ?? t('unknown') }
       }
 
-      await sendEmail(await buildClaimEmailVerificationEmail({
-        recipientEmail: verification.email,
-        brandName: brand.name,
-        verifyUrl,
-        siteUrl,
-        locale,
-      }))
-    }
+      const imageNamespace = `claim-proofs/${user.id}/`
+      const invalidImageKey = parsed.data.proofs.find(
+        (proof) => proof.imageKey && !proof.imageKey.startsWith(imageNamespace)
+      )
+      if (invalidImageKey) {
+        return { error: t('invalidImageKey') }
+      }
 
-    if (parsed.data.marketingEmailOptIn && user.email) {
-      await enrollInMarketingEmails(createServiceClient(), {
-        email: user.email,
+      const brand = await getBrandById(parsed.data.brandId)
+
+      const claimRequest = await createClaimRequest({
         userId: user.id,
-        locale,
-        source: 'brand_claim',
-        newsletter: true,
-        lifecycle: true,
+        brandId: parsed.data.brandId,
+        proofEvidence: parsed.data.proofs,
+        mitSmileCert: parsed.data.mitSmileCert || undefined,
       })
-    }
 
-    revalidatePath('/admin')
-    revalidatePath('/admin/claims')
-    return {
-      ok: true,
-      ...(claimRequest.emailVerificationTokens[0]
-        ? { domainEmailVerificationSentTo: claimRequest.emailVerificationTokens[0].email }
-        : {}),
-    }
-  } catch (err) {
-    console.error('[brands:submitClaim]', err)
+      const locale = parsed.data.locale ?? 'zh-TW'
+      const siteUrl = getSiteUrl().replace(/\/$/, '')
 
-    if ((err as { code?: string }).code === '23505') {
-      return { error: t('duplicate') }
-    }
+      for (const verification of claimRequest.emailVerificationTokens) {
+        const params = new URLSearchParams({
+          cr: claimRequest.id,
+          i: String(verification.proofIndex),
+          token: verification.token,
+          locale,
+        })
+        const verifyUrl = `${siteUrl}/api/claim/verify-email?${params.toString()}`
 
-    return {
-      error: err instanceof Error ? err.message : t('unknown'),
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('[claim-email-verification]', verifyUrl)
+        }
+
+        await sendEmail(await buildClaimEmailVerificationEmail({
+          recipientEmail: verification.email,
+          brandName: brand.name,
+          verifyUrl,
+          siteUrl,
+          locale,
+        }))
+      }
+
+      if (parsed.data.marketingEmailOptIn && user.email) {
+        await enrollInMarketingEmails(createServiceClient(), {
+          email: user.email,
+          userId: user.id,
+          locale,
+          source: 'brand_claim',
+          newsletter: true,
+          lifecycle: true,
+        })
+      }
+
+      revalidatePath('/admin')
+      revalidatePath('/admin/claims')
+      return {
+        ok: true,
+        ...(claimRequest.emailVerificationTokens[0]
+          ? { domainEmailVerificationSentTo: claimRequest.emailVerificationTokens[0].email }
+          : {}),
+      }
+    } catch (err) {
+      console.error('[brands:submitClaim]', err)
+
+      if ((err as { code?: string }).code === '23505') {
+        return { error: t('duplicate') }
+      }
+
+      return {
+        error: err instanceof Error ? err.message : t('unknown'),
+      }
     }
-  }
+  });
 }
 
 export async function submitReportAction(_prevState: ReportState, formData: FormData): Promise<ReportState> {
-  const t = await getTranslations('brandDetail.report.errors')
-  try {
-    const brandId = formData.get('brandId') as string | null
-    if (!brandId) return { error: t('missingBrandId') }
+  return runWithAuditContext({}, async () => {
+    const t = await getTranslations('brandDetail.report.errors')
+    try {
+      const brandId = formData.get('brandId') as string | null
+      if (!brandId) return { error: t('missingBrandId') }
 
-    const reasonRaw = formData.get('reason') as string | null
-    if (!reasonRaw || !REPORT_REASONS.includes(reasonRaw as SubmitReportReason)) {
-      return { error: t('invalidReason') }
-    }
-    const reason = reasonRaw as SubmitReportReason
-
-    let userId: string | undefined
-    if (AUTHENTICATED_REPORT_REASONS.includes(reason)) {
-      const user = await requireClaimUser()
-      if (!user) {
-        const claimT = await getTranslations('brandDetail.claim.errors')
-        return { error: claimT('notLoggedIn') }
+      const reasonRaw = formData.get('reason') as string | null
+      if (!reasonRaw || !REPORT_REASONS.includes(reasonRaw as SubmitReportReason)) {
+        return { error: t('invalidReason') }
       }
-      userId = user.id
+      const reason = reasonRaw as SubmitReportReason
+
+      let userId: string | undefined
+      if (AUTHENTICATED_REPORT_REASONS.includes(reason)) {
+        const user = await requireClaimUser()
+        if (!user) {
+          const claimT = await getTranslations('brandDetail.claim.errors')
+          return { error: claimT('notLoggedIn') }
+        }
+        userId = user.id
+      }
+
+      const notesRaw = formData.get('notes') as string | null
+      const notes = notesRaw?.trim() || null
+      if (notes && notes.length > 1000) {
+        return { error: t('notesTooLong') }
+      }
+
+      const reportedFieldRaw = formData.get('reportedField')
+      const reportedField = typeof reportedFieldRaw === 'string'
+        ? reportedFieldRaw.trim() || undefined
+        : undefined
+
+      const h = await headers()
+      const ip = h.get('cf-connecting-ip') ?? h.get('x-forwarded-for')?.split(',')[0].trim() ?? h.get('x-real-ip') ?? 'unknown'
+
+      const rl = reportRateLimiter.check(`report:${ip}`, 60_000, 3)
+      if (!rl.allowed) {
+        return { error: t('rateLimited') }
+      }
+
+      await createReport({
+        brandId,
+        reason,
+        notes,
+        ...(reportedField ? { reportedField } : {}),
+        ...(userId ? { userId } : {}),
+      })
+      revalidatePath('/admin/reports')
+      revalidatePath('/admin')
+      return { success: true }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : t('unknown')
+      console.error('[brands:submitReport]', err)
+      return { error: message }
     }
-
-    const notesRaw = formData.get('notes') as string | null
-    const notes = notesRaw?.trim() || null
-    if (notes && notes.length > 1000) {
-      return { error: t('notesTooLong') }
-    }
-
-    const reportedFieldRaw = formData.get('reportedField')
-    const reportedField = typeof reportedFieldRaw === 'string'
-      ? reportedFieldRaw.trim() || undefined
-      : undefined
-
-    const h = await headers()
-    const ip = h.get('cf-connecting-ip') ?? h.get('x-forwarded-for')?.split(',')[0].trim() ?? h.get('x-real-ip') ?? 'unknown'
-
-    const rl = reportRateLimiter.check(`report:${ip}`, 60_000, 3)
-    if (!rl.allowed) {
-      return { error: t('rateLimited') }
-    }
-
-    await createReport({
-      brandId,
-      reason,
-      notes,
-      ...(reportedField ? { reportedField } : {}),
-      ...(userId ? { userId } : {}),
-    })
-    revalidatePath('/admin/reports')
-    revalidatePath('/admin')
-    return { success: true }
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : t('unknown')
-    console.error('[brands:submitReport]', err)
-    return { error: message }
-  }
+  });
 }
 
 export async function submitEvidenceAction(
   _prevState: EvidenceState,
   formData: FormData,
 ): Promise<EvidenceState> {
-  try {
-    const user = await requireClaimUser()
-    if (!user) return { error: 'not_logged_in' }
+  return runWithAuditContext({}, async () => {
+    try {
+      const user = await requireClaimUser()
+      if (!user) return { error: 'not_logged_in' }
 
-    const brandId = formData.get('brandId')
-    if (typeof brandId !== 'string' || !brandId.trim()) {
-      return { error: 'missing_brand_id' }
+      const brandId = formData.get('brandId')
+      if (typeof brandId !== 'string' || !brandId.trim()) {
+        return { error: 'missing_brand_id' }
+      }
+
+      const brandSlug = formData.get('brandSlug')
+      if (typeof brandSlug !== 'string' || !brandSlug.trim()) {
+        return { error: 'missing_brand_slug' }
+      }
+
+      const stance = formData.get('stance')
+      if (
+        typeof stance !== 'string' ||
+        !EVIDENCE_STANCES.includes(stance as OriginEvidenceStance)
+      ) {
+        return { error: 'invalid_stance' }
+      }
+
+      const sourceType = formData.get('sourceType')
+      if (
+        typeof sourceType !== 'string' ||
+        !EVIDENCE_SOURCE_TYPES.includes(sourceType as OriginEvidenceSourceType)
+      ) {
+        return { error: 'invalid_source_type' }
+      }
+
+      const notesRaw = formData.get('notes')
+      const notes = typeof notesRaw === 'string' ? notesRaw.trim() : ''
+      if (notes.length > 1000) return { error: 'notes_too_long' }
+
+      const productNameRaw = formData.get('productName')
+      const productName = typeof productNameRaw === 'string' ? productNameRaw.trim() : ''
+      if (!productName) return { error: 'missing_product_name' }
+
+      const photoPaths = formData
+        .getAll('photoPaths')
+        .filter((path): path is string => typeof path === 'string' && path.length > 0)
+      const photoNamespace = `origin-evidence/${user.id}/${brandId.trim()}/`
+      if (photoPaths.some((path) => !path.startsWith(photoNamespace))) {
+        return { error: 'invalid_photo_path' }
+      }
+
+      const result = await createEvidence({
+        userId: user.id,
+        brandId: brandId.trim(),
+        stance: stance as OriginEvidenceStance,
+        productName,
+        sourceType: sourceType as OriginEvidenceSourceType,
+        notes,
+        photoPaths,
+      })
+      if (!result.ok) return { error: result.code }
+
+      trackOriginEvidenceSubmitted(brandId.trim(), brandSlug.trim(), stance)
+      revalidateLocalizedPath(`/brands/${brandSlug.trim()}`)
+      revalidateLocalizedPath('/contributions')
+      // `/admin` lives outside `[locale]`, so its cache key is already literal.
+      revalidatePath('/admin/evidence')
+      return { success: true }
+    } catch (err: unknown) {
+      console.error('[brands:submitEvidence]', err)
+      return { error: 'unknown' }
     }
-
-    const brandSlug = formData.get('brandSlug')
-    if (typeof brandSlug !== 'string' || !brandSlug.trim()) {
-      return { error: 'missing_brand_slug' }
-    }
-
-    const stance = formData.get('stance')
-    if (
-      typeof stance !== 'string' ||
-      !EVIDENCE_STANCES.includes(stance as OriginEvidenceStance)
-    ) {
-      return { error: 'invalid_stance' }
-    }
-
-    const sourceType = formData.get('sourceType')
-    if (
-      typeof sourceType !== 'string' ||
-      !EVIDENCE_SOURCE_TYPES.includes(sourceType as OriginEvidenceSourceType)
-    ) {
-      return { error: 'invalid_source_type' }
-    }
-
-    const notesRaw = formData.get('notes')
-    const notes = typeof notesRaw === 'string' ? notesRaw.trim() : ''
-    if (notes.length > 1000) return { error: 'notes_too_long' }
-
-    const productNameRaw = formData.get('productName')
-    const productName = typeof productNameRaw === 'string' ? productNameRaw.trim() : ''
-    if (!productName) return { error: 'missing_product_name' }
-
-    const photoPaths = formData
-      .getAll('photoPaths')
-      .filter((path): path is string => typeof path === 'string' && path.length > 0)
-    const photoNamespace = `origin-evidence/${user.id}/${brandId.trim()}/`
-    if (photoPaths.some((path) => !path.startsWith(photoNamespace))) {
-      return { error: 'invalid_photo_path' }
-    }
-
-    const result = await createEvidence({
-      userId: user.id,
-      brandId: brandId.trim(),
-      stance: stance as OriginEvidenceStance,
-      productName,
-      sourceType: sourceType as OriginEvidenceSourceType,
-      notes,
-      photoPaths,
-    })
-    if (!result.ok) return { error: result.code }
-
-    trackOriginEvidenceSubmitted(brandId.trim(), brandSlug.trim(), stance)
-    revalidateLocalizedPath(`/brands/${brandSlug.trim()}`)
-    revalidateLocalizedPath('/contributions')
-    // `/admin` lives outside `[locale]`, so its cache key is already literal.
-    revalidatePath('/admin/evidence')
-    return { success: true }
-  } catch (err: unknown) {
-    console.error('[brands:submitEvidence]', err)
-    return { error: 'unknown' }
-  }
+  });
 }

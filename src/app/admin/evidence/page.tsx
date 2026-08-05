@@ -1,3 +1,4 @@
+import { runWithAuditContext } from '@/lib/audit/context'
 import type { Metadata } from 'next'
 import { revalidatePath } from 'next/cache'
 import { getTranslations } from 'next-intl/server'
@@ -23,17 +24,19 @@ async function reviewEvidenceAction(
 ): Promise<{ error?: string } | undefined> {
   'use server'
 
-  const user = await requireAdminPage('/admin/evidence')
-  const result = await reviewEvidence(id, decision, notes, {
-    reviewerId: user.id,
-    ...(tierAction ? { tierAction } : {}),
+  return runWithAuditContext({}, async () => {
+    const user = await requireAdminPage('/admin/evidence')
+    const result = await reviewEvidence(id, decision, notes, {
+      reviewerId: user.id,
+      ...(tierAction ? { tierAction } : {}),
+    })
+
+    if (!result.ok) return { error: result.code }
+
+    revalidatePath('/admin/evidence')
+    revalidatePath('/admin')
+    return undefined
   })
-
-  if (!result.ok) return { error: result.code }
-
-  revalidatePath('/admin/evidence')
-  revalidatePath('/admin')
-  return undefined
 }
 
 export default async function AdminEvidencePage() {

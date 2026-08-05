@@ -7,6 +7,7 @@ import {
   type CurationJob,
 } from "@/lib/services/curation-jobs";
 import { runJob } from "@/lib/services/job-runner";
+import { auditedCall } from "@/lib/audit";
 
 const TAIPEI_OFFSET_MS = 8 * 60 * 60 * 1_000;
 const SCHEDULE_INTERVAL_HOURS = 6;
@@ -19,26 +20,31 @@ export type ScheduledCurationRun = {
 export async function runScheduledCuration(
   now = new Date(),
 ): Promise<ScheduledCurationRun> {
-  await recoverStaleJobs();
-  await ensureAutomaticRetries();
+  return auditedCall(
+    { provider: "curation", operation: "runScheduledCuration", kind: "service" },
+    async () => {
+      await recoverStaleJobs();
+      await ensureAutomaticRetries();
 
-  let scheduledJob: CurationJob | null = null;
-  let processed = 0;
-  scheduledJob = await enqueueScheduledSubmissionJob(
-    getTaipeiScheduleSlot(now),
+      let scheduledJob: CurationJob | null = null;
+      let processed = 0;
+      scheduledJob = await enqueueScheduledSubmissionJob(
+        getTaipeiScheduleSlot(now),
+      );
+      let workerToken = randomUUID();
+      let job = await claimNextCurationJob(workerToken);
+
+      while (true) {
+        if (!job) return { processed, scheduledJob };
+
+        await runJob(job, workerToken);
+        processed += 1;
+
+        workerToken = randomUUID();
+        job = await claimNextCurationJob(workerToken);
+      }
+    },
   );
-  let workerToken = randomUUID();
-  let job = await claimNextCurationJob(workerToken);
-
-  while (true) {
-    if (!job) return { processed, scheduledJob };
-
-    await runJob(job, workerToken);
-    processed += 1;
-
-    workerToken = randomUUID();
-    job = await claimNextCurationJob(workerToken);
-  }
 }
 
 function getTaipeiScheduleSlot(now: Date): Date {

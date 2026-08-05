@@ -1,3 +1,4 @@
+import { runWithAuditContext } from "@/lib/audit/context";
 import type { Metadata } from "next";
 import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
@@ -30,17 +31,19 @@ async function setStatusAction(
 ): Promise<{ error?: string } | undefined> {
   "use server";
 
-  // Re-checked inside the mutation, not just at page load: a Server Action is
-  // its own network entry point and never inherits the page's auth.
-  await requireAdminPage(ADMIN_PATH);
+  return runWithAuditContext({}, async () => {
+    // Re-checked inside the mutation, not just at page load: a Server Action is
+    // its own network entry point and never inherits the page's auth.
+    await requireAdminPage(ADMIN_PATH);
 
-  if (!isFeatureRequestStatus(status)) return { error: "invalid_status" };
+    if (!isFeatureRequestStatus(status)) return { error: "invalid_status" };
 
-  const result = await setFeatureRequestStatus(id, status, adminNote.trim() || null);
-  if (!result.ok) return { error: result.code };
+    const result = await setFeatureRequestStatus(id, status, adminNote.trim() || null);
+    if (!result.ok) return { error: result.code };
 
-  revalidatePath(ADMIN_PATH);
-  return undefined;
+    revalidatePath(ADMIN_PATH);
+    return undefined;
+  });
 }
 
 async function mergeAction(
@@ -49,13 +52,15 @@ async function mergeAction(
 ): Promise<{ error?: string } | undefined> {
   "use server";
 
-  await requireAdminPage(ADMIN_PATH);
+  return runWithAuditContext({}, async () => {
+    await requireAdminPage(ADMIN_PATH);
 
-  const result = await mergeFeatureRequests(sourceId, targetId);
-  if (!result.ok) return { error: result.code };
+    const result = await mergeFeatureRequests(sourceId, targetId);
+    if (!result.ok) return { error: result.code };
 
-  revalidatePath(ADMIN_PATH);
-  return undefined;
+    revalidatePath(ADMIN_PATH);
+    return undefined;
+  });
 }
 
 export default async function AdminFeatureRequestsPage() {

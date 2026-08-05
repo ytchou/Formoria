@@ -1,4 +1,5 @@
 import type { PhaseResult } from "@/lib/types/curation";
+import { auditedCall } from "@/lib/audit";
 import {
   classifyProductTypeBatch,
   detectBrandsBatch,
@@ -7,7 +8,7 @@ import {
   type DetectBatchItem,
   type DetectResult,
 } from "../product-type-classifier";
-import { isLlmProviderFailure } from "../llm-call-outcome";
+import { isLlmProviderFailure } from "../_shared/llm-call-outcome";
 import { generateSlug } from "../brands";
 import { isValidBrandName } from "../brand-cleanup";
 import {
@@ -133,6 +134,9 @@ export async function runDetectPhase(
     };
   }
 
+  return auditedCall(
+    { provider: "enrich", operation: "runDetectPhase", kind: "service" },
+    async () => {
   const { result, durationMs } = await timePhase(async () => {
     const detectItems: DetectBatchItem[] = ctx.chunk.map((brand, index) => ({
       slug: brand.slug,
@@ -186,6 +190,12 @@ export async function runDetectPhase(
     ),
     detectResults: result.detectResults,
   };
+    },
+    {
+      classify: (result) =>
+        result.phaseResult.status === "failed" ? "failed" : "succeeded",
+    },
+  );
 }
 
 export async function runStandaloneClassification(
@@ -214,6 +224,9 @@ export async function runStandaloneClassification(
     };
   }
 
+  return auditedCall(
+    { provider: "enrich", operation: "runStandaloneClassification", kind: "service" },
+    async () => {
   const { result, durationMs } = await timePhase(async () => {
     const classifyItems: BatchClassificationItem[] = ctx.chunk.map((brand) => ({
       slug: brand.slug,
@@ -257,6 +270,12 @@ export async function runStandaloneClassification(
     ),
     batchClassifications: result.results,
   };
+    },
+    {
+      classify: (result) =>
+        result.phaseResult.status === "failed" ? "failed" : "succeeded",
+    },
+  );
 }
 
 export function applyDetectResult(

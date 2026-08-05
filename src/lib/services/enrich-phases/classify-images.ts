@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { auditedCall } from "@/lib/audit";
 import { IMAGE_CLASSIFY_SYSTEM_PROMPT } from "@/lib/prompts";
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { MAX_BRAND_ACTIVE_IMAGES } from "@/lib/constants/brand-images";
@@ -17,7 +18,7 @@ import {
   brandTarget,
   targetImageStorage,
   type EnrichmentTarget,
-} from "../enrichment-target";
+} from "../_shared/enrichment-target";
 import {
   buildPhaseResult,
   timePhase,
@@ -965,7 +966,6 @@ export async function runClassifyImagesPhase({
   target: requestedTarget,
   jobId,
 }: ClassifyImagesPhaseOptions): Promise<ClassifyImagesPhaseOutput> {
-  const target = requestedTarget ?? brandTarget(brand.id);
   if (!phases.includes("classify_images")) {
     return {
       phaseResult: buildPhaseResult(
@@ -994,6 +994,10 @@ export async function runClassifyImagesPhase({
     };
   }
 
+  return auditedCall(
+    { provider: "enrich", operation: "runClassifyImagesPhase", kind: "service" },
+    async () => {
+  const target = requestedTarget ?? brandTarget(brand.id);
   const supabase = createServiceClient();
 
   if (overwrite) {
@@ -1237,4 +1241,14 @@ export async function runClassifyImagesPhase({
     ),
     patch,
   };
+    },
+    {
+      classify: (result) =>
+        result.phaseResult.status === "failed"
+          ? "failed"
+          : result.phaseResult.status === "skipped"
+            ? "empty"
+            : "succeeded",
+    },
+  );
 }

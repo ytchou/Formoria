@@ -8,6 +8,7 @@ import {
 } from "@/lib/brands/faq-presets";
 import type { FaqQuestion } from "@/lib/json-ld";
 import type { Database } from "@/lib/supabase/database.types";
+import { auditedCall } from "@/lib/audit";
 
 export type TFn = (key: string, params?: Record<string, unknown>) => string;
 
@@ -46,7 +47,12 @@ export async function getBrandFaq(
     const answer = isZh ? row.answerZh : row.answerEn;
     if (!hasValue(question) || !hasValue(answer)) continue;
     const presetRows = rowsByPreset.get(row.presetId) ?? [];
-    presetRows.push({ position: row.position, source: row.source, question, answer });
+    presetRows.push({
+      position: row.position,
+      source: row.source,
+      question,
+      answer,
+    });
     rowsByPreset.set(row.presetId, presetRows);
   }
 
@@ -184,8 +190,7 @@ export async function getBrandFaqEntries(
   return ((data ?? []) as FaqEntryReadRow[])
     .map(toEntry)
     .sort(
-      (a, b) =>
-        a.presetId.localeCompare(b.presetId) || a.position - b.position,
+      (a, b) => a.presetId.localeCompare(b.presetId) || a.position - b.position,
     );
 }
 
@@ -223,71 +228,87 @@ export async function upsertBrandFaqEntries(
   entries: BrandFaqEntryInput[],
   options: { explicitFaqPhase?: boolean; client?: FaqSupabase } = {},
 ): Promise<void> {
-  const candidates = (entries ?? [])
-    .map((entry) => ({
-      presetId: entry.presetId,
-      position: entry.position ?? 0,
-      questionZh: normalize(entry.questionZh),
-      answerZh: normalize(entry.answerZh),
-      questionEn: normalize(entry.questionEn),
-      answerEn: normalize(entry.answerEn),
-    }))
-    // An entry with no renderable side has nothing to contribute and would
-    // only create an empty row that then blocks nothing and shows nothing.
-    .filter(
-      (entry) =>
-        hasValue(entry.presetId) &&
-        (sideRenders(entry.questionZh, entry.answerZh) ||
-          sideRenders(entry.questionEn, entry.answerEn)),
-    );
-  // Nothing usable in the payload — return before touching the database at
-  // all, so an un-enriched brand costs zero queries on every apply.
-  if (candidates.length === 0) return;
+  return auditedCall(
+    {
+      provider: "brands",
+      operation: "upsertBrandFaqEntries",
+      kind: "service",
+    },
+    async () => {
+      const candidates = (entries ?? [])
+        .map((entry) => ({
+          presetId: entry.presetId,
+          position: entry.position ?? 0,
+          questionZh: normalize(entry.questionZh),
+          answerZh: normalize(entry.answerZh),
+          questionEn: normalize(entry.questionEn),
+          answerEn: normalize(entry.answerEn),
+        }))
+        // An entry with no renderable side has nothing to contribute and would
+        // only create an empty row that then blocks nothing and shows nothing.
+        .filter(
+          (entry) =>
+            hasValue(entry.presetId) &&
+            (sideRenders(entry.questionZh, entry.answerZh) ||
+              sideRenders(entry.questionEn, entry.answerEn)),
+        );
+      // Nothing usable in the payload — return before touching the database at
+      // all, so an un-enriched brand costs zero queries on every apply.
+      if (candidates.length === 0) return;
 
-  const supabase = faqClient(options.client);
-  const existing = await getBrandFaqEntries(brandId, supabase);
-  const existingByKey = new Map(
-    existing.map((entry) => [entryKey(entry.presetId, entry.position), entry]),
+      const supabase = faqClient(options.client);
+      const existing = await getBrandFaqEntries(brandId, supabase);
+      const existingByKey = new Map(
+        existing.map((entry) => [
+          entryKey(entry.presetId, entry.position),
+          entry,
+        ]),
+      );
+
+      const payload: FaqEntryInsert[] = [];
+      for (const candidate of candidates) {
+        const current = existingByKey.get(
+          entryKey(candidate.presetId, candidate.position),
+        );
+        if (current?.source === "human") continue;
+
+        const overwrite = options.explicitFaqPhase === true;
+        const takeZh =
+          sideRenders(candidate.questionZh, candidate.answerZh) &&
+          (overwrite || !sideRenders(current?.questionZh, current?.answerZh));
+        const takeEn =
+          sideRenders(candidate.questionEn, candidate.answerEn) &&
+          (overwrite || !sideRenders(current?.questionEn, current?.answerEn));
+        if (!takeZh && !takeEn) continue;
+
+        payload.push({
+          preset_id: candidate.presetId,
+          position: candidate.position,
+          question_zh: takeZh
+            ? candidate.questionZh
+            : (current?.questionZh ?? null),
+          answer_zh: takeZh ? candidate.answerZh : (current?.answerZh ?? null),
+          question_en: takeEn
+            ? candidate.questionEn
+            : (current?.questionEn ?? null),
+          answer_en: takeEn ? candidate.answerEn : (current?.answerEn ?? null),
+          source: "model",
+        });
+      }
+      if (payload.length === 0) return;
+
+      // `upsert` rather than branching on `current`: it inserts when the row is
+      // absent and updates the listed columns when it is not, which also closes
+      // the read-then-write race between two concurrent applies.
+      const { error } = await supabase.from("brand_faq_entries").upsert(
+        payload.map((row) => ({ brand_id: brandId, ...row })),
+        { onConflict: "brand_id,preset_id,position" },
+      );
+      if (error) throw error;
+
+      await pruneOrphanedCustomEntries(supabase, brandId, candidates, payload);
+    },
   );
-
-  const payload: FaqEntryInsert[] = [];
-  for (const candidate of candidates) {
-    const current = existingByKey.get(
-      entryKey(candidate.presetId, candidate.position),
-    );
-    if (current?.source === "human") continue;
-
-    const overwrite = options.explicitFaqPhase === true;
-    const takeZh =
-      sideRenders(candidate.questionZh, candidate.answerZh) &&
-      (overwrite || !sideRenders(current?.questionZh, current?.answerZh));
-    const takeEn =
-      sideRenders(candidate.questionEn, candidate.answerEn) &&
-      (overwrite || !sideRenders(current?.questionEn, current?.answerEn));
-    if (!takeZh && !takeEn) continue;
-
-    payload.push({
-      preset_id: candidate.presetId,
-      position: candidate.position,
-      question_zh: takeZh ? candidate.questionZh : (current?.questionZh ?? null),
-      answer_zh: takeZh ? candidate.answerZh : (current?.answerZh ?? null),
-      question_en: takeEn ? candidate.questionEn : (current?.questionEn ?? null),
-      answer_en: takeEn ? candidate.answerEn : (current?.answerEn ?? null),
-      source: "model",
-    });
-  }
-  if (payload.length === 0) return;
-
-  // `upsert` rather than branching on `current`: it inserts when the row is
-  // absent and updates the listed columns when it is not, which also closes
-  // the read-then-write race between two concurrent applies.
-  const { error } = await supabase.from("brand_faq_entries").upsert(
-    payload.map((row) => ({ brand_id: brandId, ...row })),
-    { onConflict: "brand_id,preset_id,position" },
-  );
-  if (error) throw error;
-
-  await pruneOrphanedCustomEntries(supabase, brandId, candidates, payload);
 }
 
 /**

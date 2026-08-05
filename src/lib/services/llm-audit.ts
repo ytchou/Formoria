@@ -1,13 +1,11 @@
-import { insertAiCallResult } from "./ai-results";
-import {
-  createDeepSeekClient,
-  type ChatAuditEvent as DeepSeekAuditEvent,
-} from "./deepseek-client";
-import type { EnrichmentTarget } from "./enrichment-target";
-import {
-  createOpenAIClient,
-  type ChatAuditEvent as OpenAiAuditEvent,
-} from "./openai-client";
+import { randomUUID } from "node:crypto";
+import { auditedCall, type ChatAuditEvent } from "@/lib/audit";
+import type { Database } from "@/lib/supabase/database.types";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { insertAiCallResult } from "./_shared/ai-results";
+import { createDeepSeekClient } from "./deepseek-client";
+import type { EnrichmentTarget } from "./_shared/enrichment-target";
+import { createOpenAIClient } from "./openai-client";
 import { buildEnrichmentConfig } from "@/lib/constants/enrichment-config";
 import {
   LLM_PROFILES,
@@ -24,6 +22,8 @@ export type LlmAuditContext = {
   phase: string;
   attempt?: number;
   config?: unknown;
+  /** Injected Supabase write seam used by tests; omitted to use the service client. */
+  supabase?: SupabaseClient<Database>;
 };
 
 type ClientOptions = {
@@ -31,7 +31,14 @@ type ClientOptions = {
   model?: string;
 };
 
-type AuditEvent = DeepSeekAuditEvent | OpenAiAuditEvent;
+type DeepSeekChatInput = Parameters<
+  ReturnType<typeof createDeepSeekClient>["chat"]
+>[0];
+
+function classifyChatResult(result: { status?: number }): "succeeded" | "failed" {
+  const status = result.status ?? 0;
+  return status >= 200 && status < 300 ? "succeeded" : "failed";
+}
 
 function truncate(value: string): string {
   return value.length <= MAX_PROMPT_LENGTH
@@ -41,7 +48,8 @@ function truncate(value: string): string {
 
 async function persistAuditEvent(
   context: LlmAuditContext,
-  event: AuditEvent,
+  event: ChatAuditEvent,
+  spanId: string,
 ): Promise<void> {
   try {
     await insertAiCallResult({
@@ -69,6 +77,8 @@ async function persistAuditEvent(
         : {}),
       ...(context.config !== undefined ? { config: context.config } : {}),
       latencyMs: event.latencyMs,
+      auditSpanId: spanId,
+      ...(context.supabase ? { supabase: context.supabase } : {}),
     });
   } catch (error) {
     console.error("[llm-audit:persist]", {
@@ -81,20 +91,94 @@ export function createAuditedDeepSeekClient(
   context: LlmAuditContext,
   options: ClientOptions = {},
 ) {
-  return createDeepSeekClient({
-    ...options,
-    onChatComplete: (event) => persistAuditEvent(context, event),
-  });
+  const balanceClient = createDeepSeekClient(options);
+
+  return {
+    async chat(input: DeepSeekChatInput) {
+      const spanId = randomUUID();
+      const client = createDeepSeekClient({
+        ...options,
+        onChatComplete: (event) => persistAuditEvent(context, event, spanId),
+      });
+
+      // The envelope wraps the whole chat call because the client retries
+      // internally, so several brand_ai_results rows can share one span_id.
+      // The hook remains the payload-capture seam (ADR
+      // 2026-07-15-adapter-injected-llm-audit.md), not a replacement for it.
+      return auditedCall(
+        {
+          provider: "deepseek",
+          operation: "chat_completions",
+          kind: "external",
+          spanId,
+          ...(context.attempt === undefined ? {} : { attempt: context.attempt }),
+        },
+        () => client.chat(input),
+        {
+          classify: classifyChatResult,
+          summary: { phase: context.phase, targetType: context.target.type },
+          subjectId: context.target.id,
+          jobId: context.jobId ?? null,
+        },
+      );
+    },
+
+    balance(timeoutMs?: number) {
+      return auditedCall(
+        {
+          provider: "deepseek",
+          operation: "balance",
+          kind: "external",
+          ...(context.attempt === undefined ? {} : { attempt: context.attempt }),
+        },
+        () => balanceClient.balance(timeoutMs),
+        {
+          classify: (result) => (result.ok ? "succeeded" : "failed"),
+          summary: { phase: context.phase, targetType: context.target.type },
+          subjectId: context.target.id,
+          jobId: context.jobId ?? null,
+        },
+      );
+    },
+  };
 }
 
 export function createAuditedOpenAIClient(
   context: LlmAuditContext,
   options: ClientOptions = {},
 ) {
-  return createOpenAIClient({
-    ...options,
-    onChatComplete: (event) => persistAuditEvent(context, event),
-  });
+  return {
+    async chat(
+      input: Parameters<ReturnType<typeof createOpenAIClient>["chat"]>[0],
+    ) {
+      const spanId = randomUUID();
+      const client = createOpenAIClient({
+        ...options,
+        onChatComplete: (event) => persistAuditEvent(context, event, spanId),
+      });
+
+      // The envelope wraps the whole chat call because the client retries
+      // internally, so several brand_ai_results rows can share one span_id.
+      // The hook remains the payload-capture seam (ADR
+      // 2026-07-15-adapter-injected-llm-audit.md), not a replacement for it.
+      return auditedCall(
+        {
+          provider: "openai",
+          operation: "chat_completions",
+          kind: "external",
+          spanId,
+          ...(context.attempt === undefined ? {} : { attempt: context.attempt }),
+        },
+        () => client.chat(input),
+        {
+          classify: (result) => (result.ok ? "succeeded" : "failed"),
+          summary: { phase: context.phase, targetType: context.target.type },
+          subjectId: context.target.id,
+          jobId: context.jobId ?? null,
+        },
+      );
+    },
+  };
 }
 
 /**

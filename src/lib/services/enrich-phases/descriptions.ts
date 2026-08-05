@@ -19,14 +19,15 @@ import {
   addLlmCalls,
   isLlmProviderFailure,
   noLlmCalls,
-} from "../llm-call-outcome";
+} from "../_shared/llm-call-outcome";
 import type { PhaseResult } from "@/lib/types/curation";
+import { auditedCall } from "@/lib/audit";
 import type { EnrichScrapedData } from "./types";
 import {
   brandTarget,
   targetImageStorage,
   type EnrichmentTarget,
-} from "../enrichment-target";
+} from "../_shared/enrichment-target";
 import {
   buildPhaseResult,
   getDisplayBrandName,
@@ -369,6 +370,9 @@ export async function runDescriptionsPhase({
     };
   }
 
+  return auditedCall(
+    { provider: "enrich", operation: "runDescriptionsPhase", kind: "service" },
+    async () => {
   const effectiveTarget = target ?? brandTarget(brand.id);
   const persistedScrape = await loadPersistedScrapeText(effectiveTarget);
   const effectiveSnippets = [...serpSnippets, ...persistedScrape.snippets];
@@ -642,4 +646,14 @@ export async function runDescriptionsPhase({
     factsAttempts: result.factsAttempts,
     listingVerdict: result.listingVerdict,
   };
+    },
+    {
+      classify: (result) =>
+        result.phaseResult.status === "failed"
+          ? "failed"
+          : result.phaseResult.status === "skipped"
+            ? "empty"
+            : "succeeded",
+    },
+  );
 }

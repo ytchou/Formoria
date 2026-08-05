@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { captureAlert } from '@/lib/adapters/alerting/sentry'
 import { postSlackAlert } from '@/lib/adapters/alerting/slack'
+import { resetAuditEmitterForTests, setAuditWriteSeam, type AuditRecord } from '@/lib/audit'
 import type { EnrichmentSummary } from '../enrichment-logger'
 import {
   hasProviderFailures,
@@ -16,6 +17,7 @@ vi.mock('@/lib/adapters/alerting/slack', () => ({
 }))
 
 const job = { id: 'job-1', operation: 'enrich', trigger: 'manual' }
+let writes: AuditRecord[] = []
 
 function summary(overrides: Partial<EnrichmentSummary> = {}): EnrichmentSummary {
   return {
@@ -30,11 +32,17 @@ function summary(overrides: Partial<EnrichmentSummary> = {}): EnrichmentSummary 
 }
 
 beforeEach(() => {
+  writes = []
+  setAuditWriteSeam(async (record) => {
+    writes.push(record)
+    return null
+  })
   vi.mocked(captureAlert).mockReturnValue(true)
   vi.mocked(postSlackAlert).mockResolvedValue(true)
 })
 
 afterEach(() => {
+  resetAuditEmitterForTests()
   vi.clearAllMocks()
 })
 
@@ -88,6 +96,7 @@ describe('reportProviderFailures', () => {
 
     expect(captureAlert).not.toHaveBeenCalled()
     expect(postSlackAlert).not.toHaveBeenCalled()
+    expect(writes).toHaveLength(0)
   })
 
   it('treats a missing providerFailed count as zero', () => {

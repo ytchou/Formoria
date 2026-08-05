@@ -1,3 +1,4 @@
+import { withAuditScope } from '@/lib/audit/scope'
 import { NextResponse } from 'next/server'
 import * as Sentry from '@sentry/nextjs'
 import { getPostHogClient } from '@/lib/posthog-server'
@@ -45,7 +46,7 @@ function isPdf(buffer: Buffer): boolean {
   return buffer.subarray(0, PDF_MAGIC_BYTES.length).toString('utf8') === PDF_MAGIC_BYTES
 }
 
-export async function POST(request: Request) {
+export const POST = withAuditScope(async (request: Request) => {
   try {
     const contentLength = Number(request.headers.get('content-length') ?? 0)
     if (contentLength > MAX_FILE_SIZE) {
@@ -211,4 +212,4 @@ export async function POST(request: Request) {
     Sentry.captureException(error)
     return NextResponse.json(sanitizeErrorResponse(error), { status: 500 })
   }
-}
+})

@@ -1,7 +1,8 @@
+import { withAuditScope } from '@/lib/audit/scope'
 import { NextResponse } from 'next/server'
 import { DRIP_TYPES, evaluateDrips } from '@/lib/services/drip-processing'
 
-export async function POST(req: Request) {
+export const POST = withAuditScope(async (req: Request) => {
   if (req.headers.get('x-origin-verify') !== process.env.ORIGIN_SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -20,4 +21,4 @@ export async function POST(req: Request) {
   }
 
   return NextResponse.json({ sent, skipped, errors, details })
-}
+})

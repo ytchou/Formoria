@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
+import { withAuditScope } from "@/lib/audit";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { isRelativeUrl } from "@/lib/auth/validations";
 import { resolvePostAuthPath } from "@/lib/auth/owner-landing";
@@ -25,7 +26,7 @@ function isRecentlyCreated(createdAt: string | undefined): boolean {
   return Date.now() - new Date(createdAt).getTime() < 60_000;
 }
 
-export async function GET(request: NextRequest) {
+export const GET = withAuditScope(async (request: NextRequest) => {
   const { searchParams } = request.nextUrl;
   const code = searchParams.get("code");
   // E2E-only fallback: Supabase's admin API has no way to mint a PKCE-compatible
@@ -229,4 +230,4 @@ export async function GET(request: NextRequest) {
     url.searchParams.set("auth_event", "login");
   }
   return NextResponse.redirect(url);
-}
+});

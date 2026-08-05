@@ -1,3 +1,4 @@
+import { withAuditScope } from '@/lib/audit/scope'
 import { NextRequest } from 'next/server'
 import { unsubscribeByToken } from '@/lib/services/email-lifecycle'
 import { createServiceClient } from '@/lib/supabase/server'
@@ -48,5 +49,5 @@ async function unsubscribe(request: NextRequest) {
   )
 }
 
-export const GET = unsubscribe
-export const POST = unsubscribe
+export const GET = withAuditScope(unsubscribe)
+export const POST = withAuditScope(unsubscribe)

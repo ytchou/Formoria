@@ -1,4 +1,5 @@
 import type { Brand } from "@/lib/types";
+import { auditedCall } from "@/lib/audit";
 import { ValidationError } from "@/lib/errors";
 import {
   DRAFT_PARK_SORT_ORDER,
@@ -97,6 +98,13 @@ export async function stageAdminBrandReviewImage(input: {
   width: number;
   height: number;
 }): Promise<SubmissionReviewImage> {
+  return auditedCall(
+    {
+      provider: "brands",
+      operation: "stageAdminBrandReviewImage",
+      kind: "service",
+    },
+    async () => {
   await getBrandById(input.brandId);
   const supabase = createServiceClient();
   const id = crypto.randomUUID();
@@ -121,6 +129,9 @@ export async function stageAdminBrandReviewImage(input: {
     .single();
   if (error || !data) throw error ?? new Error("Unable to stage brand image");
   return toReviewImage(data as BrandImageRow);
+    },
+    { subjectId: input.brandId },
+  );
 }
 
 export async function cleanupAdminBrandReviewImages(
@@ -128,6 +139,14 @@ export async function cleanupAdminBrandReviewImages(
   imageIds: string[],
 ): Promise<void> {
   if (imageIds.length === 0) return;
+
+  return auditedCall(
+    {
+      provider: "brands",
+      operation: "cleanupAdminBrandReviewImages",
+      kind: "service",
+    },
+    async () => {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("brand_images")
@@ -152,12 +171,22 @@ export async function cleanupAdminBrandReviewImages(
       );
     if (deleteError) throw deleteError;
   }
+    },
+    { subjectId: brandId, summary: { imageCount: imageIds.length } },
+  );
 }
 
 export async function saveAdminBrandReview(
   brandId: string,
   input: SaveSubmissionReviewInput,
 ): Promise<void> {
+  return auditedCall(
+    {
+      provider: "brands",
+      operation: "saveAdminBrandReview",
+      kind: "service",
+    },
+    async () => {
   const selectedIds = input.images.map((image) => image.id);
   if (
     // Bounded by the submission cap, matching `adminReviewSchema`: if this
@@ -239,6 +268,9 @@ export async function saveAdminBrandReview(
     unusedDrafts.map((row) => row.id),
   );
   await syncHeroDenormalized(supabase, brandId);
+    },
+    { subjectId: brandId, summary: { imageCount: input.images.length } },
+  );
 }
 
 function toReviewImage(row: BrandImageRow): SubmissionReviewImage {

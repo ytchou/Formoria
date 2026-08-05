@@ -1,11 +1,23 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { resetAuditEmitterForTests, setAuditWriteSeam, type AuditRecord } from '@/lib/audit'
 import {
   PostHogQueryError,
   createPostHogEndpointClient,
   createPostHogQueryClient,
 } from './query-api'
 
+let writes: AuditRecord[] = []
+
+beforeEach(() => {
+  writes = []
+  setAuditWriteSeam(async (record) => {
+    writes.push(record)
+    return null
+  })
+})
+
 afterEach(() => {
+  resetAuditEmitterForTests()
   vi.unstubAllEnvs()
   vi.restoreAllMocks()
 })
@@ -97,6 +109,22 @@ describe('PostHog Query API adapter', () => {
     expect(auditJson).toContain('[redacted]')
     expect(auditJson).toContain('[[\"[redacted]\",4]]')
     expect(auditJson).not.toContain('private@example.com')
+  })
+
+  it('posthog query span preserves the existing cell redaction', async () => {
+    configure()
+    const client = createPostHogQueryClient({
+      fetchImpl: vi.fn().mockResolvedValue(Response.json({
+        columns: ['source', 'sessions'],
+        results: [['private@example.com', 4]],
+      })),
+    })
+
+    await client.run('acquisition', 'select source, sessions')
+
+    const spanJson = JSON.stringify(writes)
+    expect(spanJson).toContain('[["[redacted]",4]]')
+    expect(spanJson).not.toContain('private@example.com')
   })
 
   it('rejects structurally invalid provider responses', async () => {

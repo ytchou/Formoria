@@ -1,3 +1,4 @@
+import { withAuditScope } from '@/lib/audit/scope'
 import { NextRequest, NextResponse } from 'next/server'
 import { unsubscribeNewsletter } from '@/lib/services/newsletter'
 import { createServiceClient } from '@/lib/supabase/server'
@@ -46,5 +47,5 @@ async function unsubscribe(request: NextRequest) {
   return htmlResponse('You have been unsubscribed from Formoria newsletter.', 200)
 }
 
-export const GET = unsubscribe
-export const POST = unsubscribe
+export const GET = withAuditScope(unsubscribe)
+export const POST = withAuditScope(unsubscribe)
