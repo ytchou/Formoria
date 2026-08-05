@@ -1,8 +1,9 @@
+import { withAuditScope } from '@/lib/audit/scope'
 import { errorResponse, NO_STORE_HEADERS } from '@/lib/internal/api-response'
 import { isPersonalOsRequestAuthorized } from '@/lib/internal/personal-os-auth'
 import { getExecutiveHealth } from '@/lib/services/executive-health'
 
-export async function GET(request: Request): Promise<Response> {
+export const GET = withAuditScope(async (request: Request): Promise<Response> => {
   if (!isPersonalOsRequestAuthorized(request)) {
     return errorResponse('unauthorized', 'Unauthorized', 401)
   }
@@ -16,4 +17,4 @@ export async function GET(request: Request): Promise<Response> {
       503,
     )
   }
-}
+})

@@ -1,5 +1,6 @@
 "use server";
 
+import { runWithAuditContext } from "@/lib/audit/context";
 import { revalidatePath } from "next/cache";
 import { requireAdminAction } from "@/lib/auth/require-admin";
 import { revalidatePublicBrand } from "@/lib/cache/public-brand-cache";
@@ -22,83 +23,87 @@ export async function saveAdminBrandReviewAction(
   brandId: string,
   input: unknown,
 ): Promise<ActionResult> {
-  const auth = await requireAdminAction();
-  if ("error" in auth) return { error: auth.error };
+  return runWithAuditContext({}, async () => {
+    const auth = await requireAdminAction();
+    if ("error" in auth) return { error: auth.error };
 
-  const idResult = reviewEntityIdSchema.safeParse(brandId);
-  const reviewResult = adminReviewSchema.safeParse(input);
-  if (!idResult.success || !reviewResult.success) {
-    return { error: "Invalid brand review" };
-  }
+    const idResult = reviewEntityIdSchema.safeParse(brandId);
+    const reviewResult = adminReviewSchema.safeParse(input);
+    if (!idResult.success || !reviewResult.success) {
+      return { error: "Invalid brand review" };
+    }
 
-  try {
-    const previous = await getBrandById(idResult.data);
-    const review = reviewResult.data;
-    const { violations } = scanContent(review.name, {
-      name: review.name,
-      description: review.description ?? undefined,
-      socialInstagram: review.socialInstagram ?? undefined,
-      socialThreads: review.socialThreads ?? undefined,
-      socialFacebook: review.socialFacebook ?? undefined,
-      purchaseWebsite: review.websiteUrl ?? undefined,
-      purchasePinkoi: review.purchasePinkoi ?? undefined,
-      purchaseShopee: review.purchaseShopee ?? undefined,
-    });
-    if (violations.length > 0) {
-      try {
-        await saveModerationFlags(
-          idResult.data,
-          auth.user.id,
-          violations,
-          "pending",
-        );
-      } catch (error) {
-        console.error("[admin:saveBrandReview] moderation audit failed", error);
+    try {
+      const previous = await getBrandById(idResult.data);
+      const review = reviewResult.data;
+      const { violations } = scanContent(review.name, {
+        name: review.name,
+        description: review.description ?? undefined,
+        socialInstagram: review.socialInstagram ?? undefined,
+        socialThreads: review.socialThreads ?? undefined,
+        socialFacebook: review.socialFacebook ?? undefined,
+        purchaseWebsite: review.websiteUrl ?? undefined,
+        purchasePinkoi: review.purchasePinkoi ?? undefined,
+        purchaseShopee: review.purchaseShopee ?? undefined,
+      });
+      if (violations.length > 0) {
+        try {
+          await saveModerationFlags(
+            idResult.data,
+            auth.user.id,
+            violations,
+            "pending",
+          );
+        } catch (error) {
+          console.error("[admin:saveBrandReview] moderation audit failed", error);
+        }
+        return {
+          error: violations.map((violation) => violation.userMessage).join(". "),
+        };
       }
+      await saveAdminBrandReview(
+        idResult.data,
+        review as SaveSubmissionReviewInput,
+      );
+      const updated = await getBrandById(idResult.data);
+      revalidatePath("/admin/brands");
+      revalidatePath("/admin");
+      revalidatePublicBrand({
+        slug: updated.slug,
+        previousSlug: previous.slug,
+      });
+      return undefined;
+    } catch (error) {
       return {
-        error: violations.map((violation) => violation.userMessage).join(". "),
+        error:
+          error instanceof Error ? error.message : "Unable to save brand review",
       };
     }
-    await saveAdminBrandReview(
-      idResult.data,
-      review as SaveSubmissionReviewInput,
-    );
-    const updated = await getBrandById(idResult.data);
-    revalidatePath("/admin/brands");
-    revalidatePath("/admin");
-    revalidatePublicBrand({
-      slug: updated.slug,
-      previousSlug: previous.slug,
-    });
-    return undefined;
-  } catch (error) {
-    return {
-      error:
-        error instanceof Error ? error.message : "Unable to save brand review",
-    };
-  }
+  });
 }
 
 export async function cleanupAdminBrandReviewImagesAction(
   brandId: string,
   imageIds: unknown,
 ): Promise<ActionResult> {
-  const auth = await requireAdminAction();
-  if ("error" in auth) return { error: auth.error };
+  return runWithAuditContext({}, async () => {
+    const auth = await requireAdminAction();
+    if ("error" in auth) return { error: auth.error };
 
-  const idResult = reviewEntityIdSchema.safeParse(brandId);
-  const imagesResult = reviewImageIdsSchema.safeParse(imageIds);
-  if (!idResult.success || !imagesResult.success) {
-    return { error: "Invalid draft image cleanup" };
-  }
+    const idResult = reviewEntityIdSchema.safeParse(brandId);
+    const imagesResult = reviewImageIdsSchema.safeParse(imageIds);
+    if (!idResult.success || !imagesResult.success) {
+      return { error: "Invalid draft image cleanup" };
+    }
 
-  try {
-    await cleanupAdminBrandReviewImages(idResult.data, imagesResult.data);
-    return undefined;
-  } catch (error) {
-    return {
-      error:
-        error instanceof Error ? error.message : "Unable to clean up images",
-    };
-  }
+    try {
+      await cleanupAdminBrandReviewImages(idResult.data, imagesResult.data);
+      return undefined;
+    } catch (error) {
+      return {
+        error:
+          error instanceof Error ? error.message : "Unable to clean up images",
+      };
+    }
+  });
 }

@@ -1,3 +1,4 @@
+import { withAuditScope } from '@/lib/audit/scope'
 import { PostHogQueryError } from '@/lib/adapters/posthog/query-api'
 import { errorResponse, NO_STORE_HEADERS } from '@/lib/internal/api-response'
 import { isPersonalOsRequestAuthorized } from '@/lib/internal/personal-os-auth'
@@ -9,7 +10,7 @@ const ERROR_MESSAGES = {
   invalid_provider_response: 'PostHog returned an invalid analytics response.',
 } as const
 
-export async function GET(request: Request): Promise<Response> {
+export const GET = withAuditScope(async (request: Request): Promise<Response> => {
   if (!isPersonalOsRequestAuthorized(request)) {
     return errorResponse('unauthorized', 'Unauthorized', 401)
   }
@@ -30,4 +31,4 @@ export async function GET(request: Request): Promise<Response> {
       503,
     )
   }
-}
+})

@@ -1,10 +1,11 @@
+import { withAuditScope } from '@/lib/audit/scope'
 import { NextResponse } from 'next/server'
 import { purgeExpiredClassifierJunk } from '@/lib/services/image-retention'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
 
-export async function POST(req: Request) {
+export const POST = withAuditScope(async (req: Request) => {
   if (req.headers.get('x-origin-verify') !== process.env.ORIGIN_SECRET) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -21,4 +22,4 @@ export async function POST(req: Request) {
     )
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
-}
+})

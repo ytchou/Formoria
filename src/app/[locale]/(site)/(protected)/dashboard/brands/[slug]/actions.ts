@@ -1,5 +1,6 @@
 "use server";
 
+import { runWithAuditContext } from "@/lib/audit/context";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -63,49 +64,53 @@ export async function declareMitAction(
   brandSlug: string,
   scope: string,
 ): Promise<MitActionState> {
-  const t = await getTranslations("dashboard.mit.errors");
-  if (!(await requireOwnerFeaturesEnabled())) return { error: t("forbidden") };
-  if (!isMitDeclarationScope(scope)) return { error: t("invalidScope") };
+  return runWithAuditContext({}, async () => {
+    const t = await getTranslations("dashboard.mit.errors");
+    if (!(await requireOwnerFeaturesEnabled())) return { error: t("forbidden") };
+    if (!isMitDeclarationScope(scope)) return { error: t("invalidScope") };
 
-  try {
-    const editor = await requireBrandEditor(brandSlug);
-    if ("error" in editor) return { error: t(editor.error) };
+    try {
+      const editor = await requireBrandEditor(brandSlug);
+      if ("error" in editor) return { error: t(editor.error) };
 
-    const result = await declareMit(editor.brand.id, scope, {
-      userId: editor.user.id,
-    });
-    if (!result.ok) return { error: t(result.code) };
+      const result = await declareMit(editor.brand.id, scope, {
+        userId: editor.user.id,
+      });
+      if (!result.ok) return { error: t(result.code) };
 
-    trackMitDeclared(editor.brand.id, editor.brand.slug, scope);
-    revalidatePublicBrand({ slug: editor.brand.slug });
-    return { success: true };
-  } catch (error) {
-    console.error("[brand:declareMitAction]", error);
-    return { error: t("unknown") };
-  }
+      trackMitDeclared(editor.brand.id, editor.brand.slug, scope);
+      revalidatePublicBrand({ slug: editor.brand.slug });
+      return { success: true };
+    } catch (error) {
+      console.error("[brand:declareMitAction]", error);
+      return { error: t("unknown") };
+    }
+  });
 }
 
 export async function withdrawDeclarationAction(
   brandSlug: string,
 ): Promise<MitActionState> {
-  const t = await getTranslations("dashboard.mit.errors");
-  if (!(await requireOwnerFeaturesEnabled())) return { error: t("forbidden") };
+  return runWithAuditContext({}, async () => {
+    const t = await getTranslations("dashboard.mit.errors");
+    if (!(await requireOwnerFeaturesEnabled())) return { error: t("forbidden") };
 
-  try {
-    const editor = await requireBrandEditor(brandSlug);
-    if ("error" in editor) return { error: t(editor.error) };
+    try {
+      const editor = await requireBrandEditor(brandSlug);
+      if ("error" in editor) return { error: t(editor.error) };
 
-    const result = await withdrawDeclaration(editor.brand.id, {
-      userId: editor.user.id,
-    });
-    if (!result.ok) return { error: t(result.code) };
+      const result = await withdrawDeclaration(editor.brand.id, {
+        userId: editor.user.id,
+      });
+      if (!result.ok) return { error: t(result.code) };
 
-    revalidatePublicBrand({ slug: editor.brand.slug });
-    return { success: true };
-  } catch (error) {
-    console.error("[brand:withdrawDeclarationAction]", error);
-    return { error: t("unknown") };
-  }
+      revalidatePublicBrand({ slug: editor.brand.slug });
+      return { success: true };
+    } catch (error) {
+      console.error("[brand:withdrawDeclarationAction]", error);
+      return { error: t("unknown") };
+    }
+  });
 }
 
 function imageUrlsFromBrand(
@@ -159,193 +164,195 @@ export async function publishDraftAction(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const t = await getTranslations("dashboard.edit.errors");
-  if (!(await requireOwnerFeaturesEnabled())) {
-    return { error: t("forbidden") };
-  }
-  const brandSlug = formData.get("brandSlug") as string;
-  if (!brandSlug) {
-    return { error: t("brandNotFound") };
-  }
-  let redirectSlug = brandSlug;
-
-  try {
-    const editor = await requireBrandEditor(brandSlug);
-    if ("error" in editor) {
-      if (editor.error === "notLoggedIn") {
-        return { error: t("notLoggedIn") };
-      }
-      if (editor.error === "forbidden") {
-        return { error: t("forbidden") };
-      }
+  return runWithAuditContext({}, async () => {
+    const t = await getTranslations("dashboard.edit.errors");
+    if (!(await requireOwnerFeaturesEnabled())) {
+      return { error: t("forbidden") };
+    }
+    const brandSlug = formData.get("brandSlug") as string;
+    if (!brandSlug) {
       return { error: t("brandNotFound") };
     }
-    const { user, brand, owner, actingAdmin, configuredAdmin } = editor;
+    let redirectSlug = brandSlug;
 
-    // Provenance follows who is editing, and it is load-bearing: only
-    // `source = 'owner'` survives an enrichment refresh. Before this was
-    // passed, every owner publish landed as `admin` and was overwritable.
-    const publishActor = configuredAdmin
-      ? ({ source: "admin", userId: user.id } as const)
-      : ({ source: "owner", userId: user.id } as const);
-
-    const snapshot = await getBrandDraft(brand.id);
-    if (!snapshot) {
-      return { error: t("noDraft") };
-    }
-
-    const publishCandidate = mergeDraftOverBrand(brand, snapshot);
-    const publishRequirements =
-      brandPublishRequirementsSchema.safeParse(publishCandidate);
-    if (!publishRequirements.success) {
-      return { error: t("requiredFieldsIncomplete") };
-    }
-
-    const draftPartial = snapshot;
-
-    if (!configuredAdmin && detectsSlugChange(brand, draftPartial)) {
-      return { error: t("slugChangeBlocked") };
-    }
-
-    const { brandName: moderationBrandName, fields: moderationFields } =
-      buildModerationPayload(draftPartial, brand.name);
-    const { violations } = scanContent(moderationBrandName, moderationFields);
-    if (violations.length > 0) {
-      try {
-        await saveModerationFlags(brand.id, user.id, violations, "pending");
-      } catch (err) {
-        console.error("[brand:moderation] saveModerationFlags failed:", err);
-      }
-
-      try {
-        const email = await buildViolationAdminNotificationEmail({
-          brandName: brand.name,
-          ownerEmail: user.email ?? "unknown",
-          violations,
-        });
-        await sendEmail(email);
-      } catch (err) {
-        console.error("[brand:moderation] admin notification failed:", err);
-      }
-
-      return { violations };
-    }
-
-    const supabase = createServiceClient();
-
-    if (!configuredAdmin) {
-      const nextImageUrls = imageUrlsFromBrand({
-        heroImageUrl:
-          "heroImageUrl" in snapshot
-            ? typeof snapshot.heroImageUrl === "string"
-              ? snapshot.heroImageUrl
-              : null
-            : brand.heroImageUrl,
-        productPhotos:
-          "productPhotos" in snapshot
-            ? Array.isArray(snapshot.productPhotos)
-              ? snapshot.productPhotos.filter(
-                  (url): url is string => typeof url === "string",
-                )
-              : []
-            : brand.productPhotos,
-      });
-      const orphans = diffRemovedImageUrls(
-        imageUrlsFromBrand(brand),
-        nextImageUrls,
-      );
-      const publishedBrand = await publishDraft(brand.id, publishActor);
-      redirectSlug = publishedBrand.slug;
-      if (owner) {
-        await syncOwnerUploadedImages(
-          brand.id,
-          imageUrlsFromBrand(brand),
-          nextImageUrls,
-        );
-      }
-      await releaseBrandImageUrls(supabase, brand.id, orphans);
-
-      revalidatePublicBrand({
-        slug: publishedBrand.slug,
-        previousSlug: brand.slug,
-      });
-      revalidatePath("/dashboard");
-    } else {
-      const nextImageUrls = imageUrlsFromBrand({
-        heroImageUrl:
-          "heroImageUrl" in snapshot
-            ? typeof snapshot.heroImageUrl === "string"
-              ? snapshot.heroImageUrl
-              : null
-            : brand.heroImageUrl,
-        productPhotos:
-          "productPhotos" in snapshot
-            ? Array.isArray(snapshot.productPhotos)
-              ? snapshot.productPhotos.filter(
-                  (url): url is string => typeof url === "string",
-                )
-              : []
-            : brand.productPhotos,
-      });
-      const orphans = diffRemovedImageUrls(
-        imageUrlsFromBrand(brand),
-        nextImageUrls,
-      );
-      const publishedBrand = await publishDraft(brand.id, publishActor);
-      redirectSlug = publishedBrand.slug;
-      if (owner) {
-        await syncOwnerUploadedImages(
-          brand.id,
-          imageUrlsFromBrand(brand),
-          nextImageUrls,
-        );
-      }
-      await releaseBrandImageUrls(supabase, brand.id, orphans);
-      await logAdminActionIfAdmin(
-        actingAdmin,
-        { id: user.id, email: user.email ?? null },
-        "draft_publish",
-        brandSlug,
-        brand.id,
-      );
-
-      revalidatePublicBrand({
-        slug: publishedBrand.slug,
-        previousSlug: brand.slug,
-      });
-      revalidatePath("/dashboard");
-    }
-
-    // Server-side: this publish never reaches the browser analytics sink. A PostHog
-    // failure must not fail the publish, so the capture is swallowed.
     try {
-      const posthog = getPostHogClient();
-      posthog.capture({
-        distinctId: user.id,
-        event: ANALYTICS_EVENTS.BRAND_OWNER_EDIT_PUBLISHED,
-        properties: {
-          brand_id: brand.id,
-          brand_slug: redirectSlug,
-        },
-      });
-      await posthog.flush();
-    } catch (analyticsErr) {
-      console.error(
-        "[analytics:brand_owner_edit_published] capture failed",
-        analyticsErr,
-      );
-    }
-  } catch (err) {
-    if (err instanceof ConflictError) {
-      return { error: t("draftConflict") };
+      const editor = await requireBrandEditor(brandSlug);
+      if ("error" in editor) {
+        if (editor.error === "notLoggedIn") {
+          return { error: t("notLoggedIn") };
+        }
+        if (editor.error === "forbidden") {
+          return { error: t("forbidden") };
+        }
+        return { error: t("brandNotFound") };
+      }
+      const { user, brand, owner, actingAdmin, configuredAdmin } = editor;
+
+      // Provenance follows who is editing, and it is load-bearing: only
+      // `source = 'owner'` survives an enrichment refresh. Before this was
+      // passed, every owner publish landed as `admin` and was overwritable.
+      const publishActor = configuredAdmin
+        ? ({ source: "admin", userId: user.id } as const)
+        : ({ source: "owner", userId: user.id } as const);
+
+      const snapshot = await getBrandDraft(brand.id);
+      if (!snapshot) {
+        return { error: t("noDraft") };
+      }
+
+      const publishCandidate = mergeDraftOverBrand(brand, snapshot);
+      const publishRequirements =
+        brandPublishRequirementsSchema.safeParse(publishCandidate);
+      if (!publishRequirements.success) {
+        return { error: t("requiredFieldsIncomplete") };
+      }
+
+      const draftPartial = snapshot;
+
+      if (!configuredAdmin && detectsSlugChange(brand, draftPartial)) {
+        return { error: t("slugChangeBlocked") };
+      }
+
+      const { brandName: moderationBrandName, fields: moderationFields } =
+        buildModerationPayload(draftPartial, brand.name);
+      const { violations } = scanContent(moderationBrandName, moderationFields);
+      if (violations.length > 0) {
+        try {
+          await saveModerationFlags(brand.id, user.id, violations, "pending");
+        } catch (err) {
+          console.error("[brand:moderation] saveModerationFlags failed:", err);
+        }
+
+        try {
+          const email = await buildViolationAdminNotificationEmail({
+            brandName: brand.name,
+            ownerEmail: user.email ?? "unknown",
+            violations,
+          });
+          await sendEmail(email);
+        } catch (err) {
+          console.error("[brand:moderation] admin notification failed:", err);
+        }
+
+        return { violations };
+      }
+
+      const supabase = createServiceClient();
+
+      if (!configuredAdmin) {
+        const nextImageUrls = imageUrlsFromBrand({
+          heroImageUrl:
+            "heroImageUrl" in snapshot
+              ? typeof snapshot.heroImageUrl === "string"
+                ? snapshot.heroImageUrl
+                : null
+              : brand.heroImageUrl,
+          productPhotos:
+            "productPhotos" in snapshot
+              ? Array.isArray(snapshot.productPhotos)
+                ? snapshot.productPhotos.filter(
+                    (url): url is string => typeof url === "string",
+                  )
+                : []
+              : brand.productPhotos,
+        });
+        const orphans = diffRemovedImageUrls(
+          imageUrlsFromBrand(brand),
+          nextImageUrls,
+        );
+        const publishedBrand = await publishDraft(brand.id, publishActor);
+        redirectSlug = publishedBrand.slug;
+        if (owner) {
+          await syncOwnerUploadedImages(
+            brand.id,
+            imageUrlsFromBrand(brand),
+            nextImageUrls,
+          );
+        }
+        await releaseBrandImageUrls(supabase, brand.id, orphans);
+
+        revalidatePublicBrand({
+          slug: publishedBrand.slug,
+          previousSlug: brand.slug,
+        });
+        revalidatePath("/dashboard");
+      } else {
+        const nextImageUrls = imageUrlsFromBrand({
+          heroImageUrl:
+            "heroImageUrl" in snapshot
+              ? typeof snapshot.heroImageUrl === "string"
+                ? snapshot.heroImageUrl
+                : null
+              : brand.heroImageUrl,
+          productPhotos:
+            "productPhotos" in snapshot
+              ? Array.isArray(snapshot.productPhotos)
+                ? snapshot.productPhotos.filter(
+                    (url): url is string => typeof url === "string",
+                  )
+                : []
+              : brand.productPhotos,
+        });
+        const orphans = diffRemovedImageUrls(
+          imageUrlsFromBrand(brand),
+          nextImageUrls,
+        );
+        const publishedBrand = await publishDraft(brand.id, publishActor);
+        redirectSlug = publishedBrand.slug;
+        if (owner) {
+          await syncOwnerUploadedImages(
+            brand.id,
+            imageUrlsFromBrand(brand),
+            nextImageUrls,
+          );
+        }
+        await releaseBrandImageUrls(supabase, brand.id, orphans);
+        await logAdminActionIfAdmin(
+          actingAdmin,
+          { id: user.id, email: user.email ?? null },
+          "draft_publish",
+          brandSlug,
+          brand.id,
+        );
+
+        revalidatePublicBrand({
+          slug: publishedBrand.slug,
+          previousSlug: brand.slug,
+        });
+        revalidatePath("/dashboard");
+      }
+
+      // Server-side: this publish never reaches the browser analytics sink. A PostHog
+      // failure must not fail the publish, so the capture is swallowed.
+      try {
+        const posthog = getPostHogClient();
+        posthog.capture({
+          distinctId: user.id,
+          event: ANALYTICS_EVENTS.BRAND_OWNER_EDIT_PUBLISHED,
+          properties: {
+            brand_id: brand.id,
+            brand_slug: redirectSlug,
+          },
+        });
+        await posthog.flush();
+      } catch (analyticsErr) {
+        console.error(
+          "[analytics:brand_owner_edit_published] capture failed",
+          analyticsErr,
+        );
+      }
+    } catch (err) {
+      if (err instanceof ConflictError) {
+        return { error: t("draftConflict") };
+      }
+
+      console.error("[brand:publishDraftAction]", err);
+      return {
+        error: err instanceof Error ? err.message : t("unknown"),
+      };
     }
 
-    console.error("[brand:publishDraftAction]", err);
-    return {
-      error: err instanceof Error ? err.message : t("unknown"),
-    };
-  }
-
-  const locale = await getLocale();
-  redirect(localizePath(`/dashboard/brands/${redirectSlug}`, locale));
+    const locale = await getLocale();
+    redirect(localizePath(`/dashboard/brands/${redirectSlug}`, locale));
+  });
 }

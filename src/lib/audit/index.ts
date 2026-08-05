@@ -10,6 +10,7 @@ export type {
 export type { AuditProvider, ProviderRegistry } from "./providers";
 export type { AuditContextSeed } from "./context";
 export { getAuditContext, newCorrelationId, runWithAuditContext } from "./context";
+export { withAuditScope } from "./scope";
 export {
   DEFAULT_REDACTION_MAX_BYTES,
   REDACTED_VALUE,

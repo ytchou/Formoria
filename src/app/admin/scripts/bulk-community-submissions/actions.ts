@@ -1,5 +1,6 @@
 "use server";
 
+import { runWithAuditContext } from "@/lib/audit/context";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { communitySubmissionsRepository } from "@/lib/adapters/community-submissions-repository";
@@ -31,65 +32,71 @@ type RowsResult<T> = { rows: T[] } | { error: string };
 export async function loadCommunitySubmissionsCsvAction(
   input: unknown,
 ): Promise<RowsResult<CommunitySubmissionDraft>> {
-  const auth = await requireAdminAction();
-  if ("error" in auth) return { error: auth.error };
-  const parsed = z.string().max(1_000_000).safeParse(input);
-  if (!parsed.success) return { error: "Invalid CSV file" };
+  return runWithAuditContext({}, async () => {
+    const auth = await requireAdminAction();
+    if ("error" in auth) return { error: auth.error };
+    const parsed = z.string().max(1_000_000).safeParse(input);
+    if (!parsed.success) return { error: "Invalid CSV file" };
 
-  try {
-    return { rows: parseCommunitySubmissionsCsv(parsed.data) };
-  } catch (error) {
-    return { error: errorMessage(error, "Unable to parse CSV") };
-  }
+    try {
+      return { rows: parseCommunitySubmissionsCsv(parsed.data) };
+    } catch (error) {
+      return { error: errorMessage(error, "Unable to parse CSV") };
+    }
+  });
 }
 
 export async function previewCommunitySubmissionsAction(
   input: unknown,
 ): Promise<RowsResult<CommunitySubmissionPreview>> {
-  const auth = await requireAdminAction();
-  if ("error" in auth) return { error: auth.error };
-  const parsed = draftsSchema.safeParse(input);
-  if (!parsed.success) return { error: "Invalid community submission rows" };
+  return runWithAuditContext({}, async () => {
+    const auth = await requireAdminAction();
+    if ("error" in auth) return { error: auth.error };
+    const parsed = draftsSchema.safeParse(input);
+    if (!parsed.success) return { error: "Invalid community submission rows" };
 
-  try {
-    return {
-      rows: await previewCommunitySubmissions(parsed.data, {
-        repository: communitySubmissionsRepository,
-      }),
-    };
-  } catch (error) {
-    return { error: errorMessage(error, "Unable to preview submissions") };
-  }
+    try {
+      return {
+        rows: await previewCommunitySubmissions(parsed.data, {
+          repository: communitySubmissionsRepository,
+        }),
+      };
+    } catch (error) {
+      return { error: errorMessage(error, "Unable to preview submissions") };
+    }
+  });
 }
 
 export async function executeCommunitySubmissionsAction(
   input: unknown,
 ): Promise<{ results: CommunitySubmissionResult[] } | { error: string }> {
-  const auth = await requireAdminAction();
-  if ("error" in auth) return { error: auth.error };
-  const parsed = draftsSchema.safeParse(input);
-  if (!parsed.success || parsed.data.length === 0) {
-    return { error: "Invalid community submission rows" };
-  }
-
-  try {
-    const results = await executeCommunitySubmissions(parsed.data, {
-      repository: communitySubmissionsRepository,
-      submit: (params) =>
-        submitBrandForReview(params, { useServiceRole: true }),
-      buildSubmitter: () => ({
-        submitterEmail: buildGuestSubmissionEmail(),
-        submitterName: "Admin",
-      }),
-    });
-    if (results.some((result) => result.status === "created")) {
-      revalidatePath("/admin/submissions");
-      revalidatePath("/admin");
+  return runWithAuditContext({}, async () => {
+    const auth = await requireAdminAction();
+    if ("error" in auth) return { error: auth.error };
+    const parsed = draftsSchema.safeParse(input);
+    if (!parsed.success || parsed.data.length === 0) {
+      return { error: "Invalid community submission rows" };
     }
-    return { results };
-  } catch (error) {
-    return { error: errorMessage(error, "Unable to import submissions") };
-  }
+
+    try {
+      const results = await executeCommunitySubmissions(parsed.data, {
+        repository: communitySubmissionsRepository,
+        submit: (params) =>
+          submitBrandForReview(params, { useServiceRole: true }),
+        buildSubmitter: () => ({
+          submitterEmail: buildGuestSubmissionEmail(),
+          submitterName: "Admin",
+        }),
+      });
+      if (results.some((result) => result.status === "created")) {
+        revalidatePath("/admin/submissions");
+        revalidatePath("/admin");
+      }
+      return { results };
+    } catch (error) {
+      return { error: errorMessage(error, "Unable to import submissions") };
+    }
+  });
 }
 
 function errorMessage(error: unknown, fallback: string): string {

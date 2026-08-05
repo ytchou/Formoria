@@ -1,5 +1,6 @@
 "use server";
 
+import { runWithAuditContext } from "@/lib/audit/context";
 import { headers } from "next/headers";
 
 import { getClientIpFromHeaders, rateLimit } from "@/lib/security/rate-limiter";
@@ -49,15 +50,21 @@ const deps: FeatureRequestActionDeps = {
 export async function submitFeatureRequestAction(
   input: SubmitFeatureRequestActionInput,
 ): Promise<SubmitFeatureRequestActionResult> {
-  return runSubmitFeatureRequest(deps, input);
+  return runWithAuditContext({}, async () => {
+    return runSubmitFeatureRequest(deps, input);
+  });
 }
 
 export async function setFeatureRequestVoteAction(
   input: SetFeatureRequestVoteActionInput,
 ): Promise<SetFeatureRequestVoteActionResult> {
-  return runSetFeatureRequestVote(deps, input);
+  return runWithAuditContext({}, async () => {
+    return runSetFeatureRequestVote(deps, input);
+  });
 }
 
 export async function getMyVotedRequestIdsAction(): Promise<GetMyVotedRequestIdsActionResult> {
-  return runGetMyVotedRequestIds(deps);
+  return runWithAuditContext({}, async () => {
+    return runGetMyVotedRequestIds(deps);
+  });
 }

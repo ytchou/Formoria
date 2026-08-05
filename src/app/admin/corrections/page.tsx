@@ -1,3 +1,4 @@
+import { runWithAuditContext } from "@/lib/audit/context";
 import type { Metadata } from "next";
 import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
@@ -25,16 +26,18 @@ async function reviewCorrectionAction(
 ): Promise<{ error?: string } | undefined> {
   "use server";
 
-  const user = await requireAdminPage("/admin/corrections");
-  const result = await reviewCorrection(id, decision, notes, {
-    reviewerId: user.id,
+  return runWithAuditContext({}, async () => {
+    const user = await requireAdminPage("/admin/corrections");
+    const result = await reviewCorrection(id, decision, notes, {
+      reviewerId: user.id,
+    });
+
+    if (!result.ok) return { error: result.code };
+
+    revalidatePath("/admin/corrections");
+    revalidatePath("/admin");
+    return undefined;
   });
-
-  if (!result.ok) return { error: result.code };
-
-  revalidatePath("/admin/corrections");
-  revalidatePath("/admin");
-  return undefined;
 }
 
 export default async function AdminCorrectionsPage() {

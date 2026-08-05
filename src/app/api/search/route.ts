@@ -1,9 +1,10 @@
+import { withAuditScope } from '@/lib/audit/scope'
 import { NextResponse } from 'next/server'
 import { searchBrandsAutocomplete } from '@/lib/services/brands'
 
 const CACHE_CONTROL = 'public, s-maxage=60, stale-while-revalidate=300'
 
-export async function GET(request: Request) {
+export const GET = withAuditScope(async (request: Request) => {
   const { searchParams } = new URL(request.url)
   const query = searchParams.get('q')?.trim() ?? ''
   const limitParam = searchParams.get('limit')
@@ -44,4 +45,4 @@ export async function GET(request: Request) {
       },
     )
   }
-}
+})
