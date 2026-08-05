@@ -1,43 +1,26 @@
-import {
-  channelMessageKey,
-  PURCHASE_CAMEL_FIELDS,
-  PURCHASE_CHANNELS,
-  type PurchaseChannel,
-} from "@/lib/brands/purchase-channels";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Brand } from "@/lib/types";
-import type { Database } from "@/lib/supabase/database.types";
-import type { EnrichedFaqItem } from "@/lib/types/enriched-data";
 import { createServiceClient } from "@/lib/supabase/server";
+import {
+  FAQ_PRESETS,
+  hasValue,
+  type FaqBrandContext,
+} from "@/lib/brands/faq-presets";
+import type { FaqQuestion } from "@/lib/json-ld";
+import type { Database } from "@/lib/supabase/database.types";
 import { auditedCall } from "@/lib/audit";
-import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
-import { containsCjk } from "./taiwan-localization";
 
-type TFn = (key: string, params?: Record<string, unknown>) => string;
+export type TFn = (key: string, params?: Record<string, unknown>) => string;
 
-type FaqItem = {
+export type FaqItem = {
   id: string;
   question: string;
   answer: string;
 };
 
-type BrandFaqEntry = {
-  question_zh?: string | null;
-  answer_zh?: string | null;
-  question_en?: string | null;
-  answer_en?: string | null;
-};
-
-const FAQ_COLUMN_ORDER = [
-  "faq_products",
-  "faq_price",
-  "faq_where_to_buy",
-  "faq_founded",
-  "faq_reputation",
-  "faq_custom_1",
-  "faq_custom_2",
-  "faq_custom_3",
-  "faq_custom_4",
-] as const;
+export function faqItemsToQuestions(items: FaqItem[]): FaqQuestion[] {
+  return items.map((item) => ({ q: item.question, a: item.answer }));
+}
 
 export async function getBrandFaq(
   brandId: string,
@@ -45,464 +28,321 @@ export async function getBrandFaq(
   t: TFn,
   locale: string = "zh-TW",
   cityLabel: string | null = null,
+  client?: FaqSupabase,
 ): Promise<FaqItem[]> {
-  const supabase = createServiceClient();
-  const { data: faqRow } = await supabase
-    .from("brand_faq")
-    .select("*")
-    .eq("brand_id", brandId)
-    .maybeSingle();
+  const rows = await getBrandFaqEntries(brandId, client);
+  const isZh = !locale.startsWith("en");
+  // Peer stats are an enrichment-pipeline concern and are deliberately not
+  // fetched here — a brand page must not run a category-wide aggregate on
+  // every request. `preset.eligible` is the *render* predicate for exactly
+  // that reason; the peer-stats requirement lives on `preset.authorable`.
+  const ctx: FaqBrandContext = { brand, cityLabel, peerStats: null };
 
-  const isZh = locale.startsWith("zh");
+  // Resolve each row's locale side once, up front. Rows that survive this pass
+  // are renderable by construction, so the selection loop below never has to
+  // re-check for nulls.
+  const rowsByPreset = new Map<string, RenderableRow[]>();
+  for (const row of rows) {
+    const question = isZh ? row.questionZh : row.questionEn;
+    const answer = isZh ? row.answerZh : row.answerEn;
+    if (!hasValue(question) || !hasValue(answer)) continue;
+    const presetRows = rowsByPreset.get(row.presetId) ?? [];
+    presetRows.push({
+      position: row.position,
+      source: row.source,
+      question,
+      answer,
+    });
+    rowsByPreset.set(row.presetId, presetRows);
+  }
+
   const items: FaqItem[] = [];
+  for (const preset of FAQ_PRESETS) {
+    const stored = rowsByPreset.get(preset.id) ?? [];
+    const isCustom = preset.id === "custom";
 
-  if (faqRow) {
-    for (const column of FAQ_COLUMN_ORDER) {
-      const entry = faqRow[column] as BrandFaqEntry | null;
-      if (!entry) continue;
-      const question = isZh ? entry.question_zh : entry.question_en;
-      const answer = isZh ? entry.answer_zh : entry.answer_en;
-      if (question && answer) {
-        items.push({ id: column, question, answer });
+    if (stored.length > 0) {
+      // Custom renders every stored row in position order; every other preset
+      // holds one answer, human copy winning over model copy.
+      const ordered = [...stored].sort(isCustom ? byPosition : byHumanFirst);
+      for (const entry of isCustom ? ordered : ordered.slice(0, 1)) {
+        items.push({
+          id: isCustom ? `custom-${entry.position}` : preset.id,
+          question: entry.question,
+          answer: entry.answer,
+        });
       }
+      continue;
     }
+
+    // Eligibility gates only the template floor, never stored rows: a stored
+    // model answer was written against evidence this path cannot re-check.
+    const render = preset.render;
+    if (render === null || !preset.eligible(ctx, locale)) continue;
+    items.push({
+      id: preset.id,
+      question: t(render.questionKey, { brandName: brand.name }),
+      answer: render.templateFloor(ctx, t, locale),
+    });
   }
 
-  const generated = buildBrandFaq(brand, t, locale, cityLabel);
-  if (items.length > 0) {
-    const mitItem = generated.find((item) => item.id === "made-in-taiwan");
-    return mitItem ? [mitItem, ...items] : items;
-  }
-
-  return generated;
+  return items;
 }
 
-// ---------------------------------------------------------------------------
-// Enrichment → brand_faq persistence
-// ---------------------------------------------------------------------------
-
-type BrandFaqColumn = (typeof FAQ_COLUMN_ORDER)[number];
-type BrandFaqInsert = Database["public"]["Tables"]["brand_faq"]["Insert"];
-
-/** The curation prompt's closed `category` set, minus `custom` (which overflows). */
-const FAQ_CATEGORY_COLUMNS: Record<string, BrandFaqColumn> = {
-  products: "faq_products",
-  price: "faq_price",
-  where_to_buy: "faq_where_to_buy",
-  founded: "faq_founded",
-  reputation: "faq_reputation",
+/** A stored row with its locale side already resolved to renderable strings. */
+type RenderableRow = {
+  position: number;
+  source: BrandFaqEntrySource;
+  question: string;
+  answer: string;
 };
 
-const FAQ_CUSTOM_COLUMNS: BrandFaqColumn[] = [
-  "faq_custom_1",
-  "faq_custom_2",
-  "faq_custom_3",
-  "faq_custom_4",
-];
+function byPosition(a: RenderableRow, b: RenderableRow): number {
+  return a.position - b.position;
+}
 
-/**
- * A column counts as filled when either locale is renderable, because that is
- * exactly what `getBrandFaq` will surface. A half-written entry (zh only) is
- * still someone's answer, so it blocks the fill-gaps write rather than being
- * treated as a gap worth completing from a different source.
- */
-function isFilledFaqEntry(value: unknown): boolean {
-  if (typeof value !== "object" || value === null) return false;
-  const entry = value as BrandFaqEntry;
+function byHumanFirst(a: RenderableRow, b: RenderableRow): number {
   return (
-    (hasValue(entry.question_zh) && hasValue(entry.answer_zh)) ||
-    (hasValue(entry.question_en) && hasValue(entry.answer_en))
+    (a.source === "human" ? 0 : 1) - (b.source === "human" ? 0 : 1) ||
+    a.position - b.position
   );
 }
 
+// ---------------------------------------------------------------------------
+// brand_faq_entries — row-based FAQ storage
+// ---------------------------------------------------------------------------
+
+/** The table is reached through the untyped `from` surface, with generated DB shapes at the boundary. */
+export type FaqSupabase = Pick<SupabaseClient, "from">;
+
+export type BrandFaqEntrySource = "model" | "human";
+
+/** A stored row, transformed to camelCase at this service boundary. */
+export type BrandFaqEntryRow = {
+  presetId: string;
+  position: number;
+  questionZh: string | null;
+  answerZh: string | null;
+  questionEn: string | null;
+  answerEn: string | null;
+  source: BrandFaqEntrySource;
+};
+
 /**
- * Pairs the flat, bilingual item list the `descriptions` phase emits into the
- * `{ question_zh, answer_zh, question_en, answer_en }` shape `getBrandFaq`
- * reads. The prompt contract is zh-then-en for the same logical question, so
- * language is detected per item and the two per-category streams are zipped by
- * position — that survives a model that skips one side of a pair, which
- * strict alternation would silently mis-align for every item after it.
- *
- * Exported for tests: the pairing rules are where this file's bugs will live,
- * and they are worth asserting without a database in the loop.
+ * A model-authored candidate. `source` is deliberately absent: every write
+ * through this function is an enrichment write. Human copy is authored
+ * elsewhere and is only ever *protected* here, never produced.
  */
-export function buildFaqColumnsFromEnrichment(
-  faqItems: EnrichedFaqItem[],
-): Partial<Record<BrandFaqColumn, BrandFaqEntry>> {
-  const zhByCategory = new Map<string, EnrichedFaqItem[]>();
-  const enByCategory = new Map<string, EnrichedFaqItem[]>();
+export type BrandFaqEntryInput = {
+  presetId: string;
+  position?: number;
+  questionZh?: string | null;
+  answerZh?: string | null;
+  questionEn?: string | null;
+  answerEn?: string | null;
+};
 
-  for (const item of faqItems ?? []) {
-    const category = item?.category;
-    // An unknown category has nowhere to land. Dropping it keeps a prompt
-    // change (new category, old code) from failing the whole write.
-    if (!category) continue;
-    if (category !== "custom" && !(category in FAQ_CATEGORY_COLUMNS)) continue;
-    if (!hasValue(item.question) || !hasValue(item.answer)) continue;
+type FaqEntryTable = Database["public"]["Tables"]["brand_faq_entries"];
+type FaqEntryReadRow = Pick<
+  FaqEntryTable["Row"],
+  "preset_id" | "question_zh" | "answer_zh" | "question_en" | "answer_en"
+> & { position: number | null; source: BrandFaqEntrySource };
+/** `brand_id` is attached at the upsert call site, so the row payload omits it. */
+type FaqEntryInsert = Omit<FaqEntryTable["Insert"], "brand_id">;
 
-    const bucket = containsCjk(item.question) ? zhByCategory : enByCategory;
-    const existing = bucket.get(category);
-    if (existing) existing.push(item);
-    else bucket.set(category, [item]);
-  }
+function faqClient(client?: FaqSupabase): FaqSupabase {
+  return client ?? (createServiceClient() as unknown as FaqSupabase);
+}
 
-  const pairsByCategory = new Map<string, BrandFaqEntry[]>();
-  for (const category of new Set([
-    ...zhByCategory.keys(),
-    ...enByCategory.keys(),
-  ])) {
-    const zh = zhByCategory.get(category) ?? [];
-    const en = enByCategory.get(category) ?? [];
-    const pairs: BrandFaqEntry[] = [];
-    for (let index = 0; index < Math.max(zh.length, en.length); index++) {
-      pairs.push({
-        question_zh: zh[index]?.question ?? null,
-        answer_zh: zh[index]?.answer ?? null,
-        question_en: en[index]?.question ?? null,
-        answer_en: en[index]?.answer ?? null,
-      });
-    }
-    pairsByCategory.set(category, pairs);
-  }
+function entryKey(presetId: string, position: number): string {
+  return `${presetId}\u0000${position}`;
+}
 
-  const columns: Partial<Record<BrandFaqColumn, BrandFaqEntry>> = {};
-  for (const [category, column] of Object.entries(FAQ_CATEGORY_COLUMNS)) {
-    // One column per fixed category: the schema has no room for a second
-    // `price` question, so extra pairs are dropped rather than overflowing
-    // into the custom slots a genuinely custom question needs.
-    const entry = pairsByCategory.get(category)?.[0];
-    if (entry) columns[column] = entry;
-  }
-
-  const customPairs = pairsByCategory.get("custom") ?? [];
-  FAQ_CUSTOM_COLUMNS.forEach((column, index) => {
-    const entry = customPairs[index];
-    if (entry) columns[column] = entry;
-  });
-
-  return columns;
+function toEntry(row: FaqEntryReadRow): BrandFaqEntryRow {
+  return {
+    presetId: row.preset_id,
+    position: row.position ?? 0,
+    questionZh: row.question_zh ?? null,
+    answerZh: row.answer_zh ?? null,
+    questionEn: row.question_en ?? null,
+    answerEn: row.answer_en ?? null,
+    source: row.source,
+  };
 }
 
 /**
- * Writes the enrichment FAQ into `brand_faq`, filling gaps only.
- *
- * FILL-GAPS-ONLY is load-bearing: a populated column may have been hand-edited
- * by an admin or a brand owner, and this runs on every refresh apply. Blindly
- * upserting would let a re-run of the model quietly overwrite human copy with
- * no audit trail and no way back. Correcting bad existing FAQ text is a
- * separate, deliberate validation pass — never a side effect of enrichment.
- *
+ * Every stored entry for one brand, in catalog-resolution order (preset, then
+ * position). One query — the composite primary key already leads with
+ * `brand_id`, so there is nothing to add per preset.
  */
-export async function upsertBrandFaqFromEnrichment(
+export async function getBrandFaqEntries(
   brandId: string,
-  faqItems: EnrichedFaqItem[],
+  client?: FaqSupabase,
+): Promise<BrandFaqEntryRow[]> {
+  const { data, error } = await faqClient(client)
+    .from("brand_faq_entries")
+    .select(
+      "preset_id, position, question_zh, answer_zh, question_en, answer_en, source",
+    )
+    .eq("brand_id", brandId);
+  if (error) throw error;
+
+  return ((data ?? []) as FaqEntryReadRow[])
+    .map(toEntry)
+    .sort(
+      (a, b) => a.presetId.localeCompare(b.presetId) || a.position - b.position,
+    );
+}
+
+/** A locale side renders only when both its question and its answer exist. */
+function sideRenders(
+  question: string | null | undefined,
+  answer: string | null | undefined,
+): boolean {
+  return hasValue(question) && hasValue(answer);
+}
+
+function normalize(value: string | null | undefined): string | null {
+  return hasValue(value) ? value.trim() : null;
+}
+
+/**
+ * Writes model-authored FAQ entries, one row per `(preset_id, position)`.
+ *
+ * The policy, in precedence order:
+ *
+ *   1. `source = 'human'` rows are never touched, under any option. A brand
+ *      owner's or an admin's own words must survive every re-run of the model,
+ *      and this runs on every refresh apply. That is a real provenance check
+ *      now, replacing the "column looks filled" heuristic the column-era code
+ *      used — which could not tell human copy from model copy at all.
+ *   2. `source = 'model'` rows fill gaps only, per locale side. A zh-only row
+ *      no longer blocks its own English half forever: each side is judged on
+ *      whether *it* renders, not on whether the entry as a whole looks filled.
+ *   3. A job that explicitly requested the `faq` phase may overwrite model
+ *      rows. Re-authoring existing FAQ copy is then a deliberate act with a
+ *      job behind it, never a side effect of an unrelated refresh.
+ */
+export async function upsertBrandFaqEntries(
+  brandId: string,
+  entries: BrandFaqEntryInput[],
+  options: { explicitFaqPhase?: boolean; client?: FaqSupabase } = {},
 ): Promise<void> {
   return auditedCall(
     {
       provider: "brands",
-      operation: "upsertBrandFaqFromEnrichment",
+      operation: "upsertBrandFaqEntries",
       kind: "service",
     },
     async () => {
-  const candidates = buildFaqColumnsFromEnrichment(faqItems ?? []);
-  // Nothing usable in the payload — return before touching the database at all,
-  // so an un-enriched brand costs zero queries on every apply.
-  if (Object.keys(candidates).length === 0) return;
+      const candidates = (entries ?? [])
+        .map((entry) => ({
+          presetId: entry.presetId,
+          position: entry.position ?? 0,
+          questionZh: normalize(entry.questionZh),
+          answerZh: normalize(entry.answerZh),
+          questionEn: normalize(entry.questionEn),
+          answerEn: normalize(entry.answerEn),
+        }))
+        // An entry with no renderable side has nothing to contribute and would
+        // only create an empty row that then blocks nothing and shows nothing.
+        .filter(
+          (entry) =>
+            hasValue(entry.presetId) &&
+            (sideRenders(entry.questionZh, entry.answerZh) ||
+              sideRenders(entry.questionEn, entry.answerEn)),
+        );
+      // Nothing usable in the payload — return before touching the database at
+      // all, so an un-enriched brand costs zero queries on every apply.
+      if (candidates.length === 0) return;
 
-  const supabase = createServiceClient();
-  const { data: existingRow, error: readError } = await supabase
-    .from("brand_faq")
-    .select("*")
-    .eq("brand_id", brandId)
-    .maybeSingle();
-  if (readError) throw readError;
+      const supabase = faqClient(options.client);
+      const existing = await getBrandFaqEntries(brandId, supabase);
+      const existingByKey = new Map(
+        existing.map((entry) => [
+          entryKey(entry.presetId, entry.position),
+          entry,
+        ]),
+      );
 
-  const existing = (existingRow ?? {}) as unknown as Record<string, unknown>;
-  const patch: Record<string, BrandFaqEntry> = {};
-  for (const [column, entry] of Object.entries(candidates)) {
-    if (!entry) continue;
-    if (isFilledFaqEntry(existing[column])) continue;
-    patch[column] = entry;
-  }
-  if (Object.keys(patch).length === 0) return;
+      const payload: FaqEntryInsert[] = [];
+      for (const candidate of candidates) {
+        const current = existingByKey.get(
+          entryKey(candidate.presetId, candidate.position),
+        );
+        if (current?.source === "human") continue;
 
-  // `upsert` rather than branching on `existingRow`: it inserts when the row is
-  // absent and updates only the listed columns when it is not, which also
-  // closes the read-then-write race between two concurrent applies.
-  const { error: writeError } = await supabase
-    .from("brand_faq")
-    .upsert({ brand_id: brandId, ...patch } as unknown as BrandFaqInsert, {
-      onConflict: "brand_id",
-    });
-  if (writeError) throw writeError;
+        const overwrite = options.explicitFaqPhase === true;
+        const takeZh =
+          sideRenders(candidate.questionZh, candidate.answerZh) &&
+          (overwrite || !sideRenders(current?.questionZh, current?.answerZh));
+        const takeEn =
+          sideRenders(candidate.questionEn, candidate.answerEn) &&
+          (overwrite || !sideRenders(current?.questionEn, current?.answerEn));
+        if (!takeZh && !takeEn) continue;
+
+        payload.push({
+          preset_id: candidate.presetId,
+          position: candidate.position,
+          question_zh: takeZh
+            ? candidate.questionZh
+            : (current?.questionZh ?? null),
+          answer_zh: takeZh ? candidate.answerZh : (current?.answerZh ?? null),
+          question_en: takeEn
+            ? candidate.questionEn
+            : (current?.questionEn ?? null),
+          answer_en: takeEn ? candidate.answerEn : (current?.answerEn ?? null),
+          source: "model",
+        });
+      }
+      if (payload.length === 0) return;
+
+      // `upsert` rather than branching on `current`: it inserts when the row is
+      // absent and updates the listed columns when it is not, which also closes
+      // the read-then-write race between two concurrent applies.
+      const { error } = await supabase.from("brand_faq_entries").upsert(
+        payload.map((row) => ({ brand_id: brandId, ...row })),
+        { onConflict: "brand_id,preset_id,position" },
+      );
+      if (error) throw error;
+
+      await pruneOrphanedCustomEntries(supabase, brandId, candidates, payload);
     },
   );
 }
 
-type FaqGenerator = {
-  id: string;
-  condition: (brand: Brand, locale: string) => boolean;
-  questionKey: string;
-  buildAnswer: (
-    brand: Brand,
-    t: TFn,
-    locale: string,
-    cityLabel: string | null,
-  ) => string;
-};
-
-const PRICE_RANGE_KEYS: Record<1 | 2 | 3, string> = {
-  1: "brandFaq.priceRanges.budget",
-  2: "brandFaq.priceRanges.midRange",
-  3: "brandFaq.priceRanges.premium",
-};
-
-function hasValue(value: string | null | undefined): value is string {
-  return value != null && value.trim() !== "";
-}
-
-function hasMinLength(
-  value: string | null | undefined,
-  minLength: number,
-): value is string {
-  return value != null && value.trim().length >= minLength;
-}
-
-function compactValues(values: Array<string | null | undefined>): string[] {
-  return values.filter(hasValue);
-}
-
-function truncate<T>(items: T[], limit = 3): T[] {
-  return items.slice(0, limit);
-}
-
 /**
- * The registry stores message keys as full paths from the message root, but the
- * `t` handed to this module is already scoped to the `brandDetail` namespace.
+ * Deletes model-authored `custom` rows left behind by a shorter re-authoring.
+ * Customs are quality-bounded, not slot-bounded: a brand re-authored from four
+ * questions down to two would otherwise keep rows 2–3 rendering forever beside
+ * the new copy, because `getBrandFaq` renders every stored custom row.
+ *
+ * Two guards make this safe:
+ *   * `source = 'model'` only — human copy is never deleted, for the same
+ *     reason it is never overwritten;
+ *   * it runs only when this write actually produced custom rows. A fill-gaps
+ *     run that wrote nothing must not delete anything.
  */
-function faqChannelKey(channel: PurchaseChannel): string {
-  return channelMessageKey(channel.messageKeys.brandFaqChannel, "brandDetail");
-}
+async function pruneOrphanedCustomEntries(
+  supabase: FaqSupabase,
+  brandId: string,
+  candidates: readonly { presetId: string; position: number }[],
+  payload: readonly FaqEntryInsert[],
+): Promise<void> {
+  if (!payload.some((row) => row.preset_id === "custom")) return;
 
-function collectPurchaseLinks(brand: Brand, t: TFn): string[] {
-  return PURCHASE_CHANNELS.flatMap((channel) => {
-    const url = brand[channel.camel];
-    return hasValue(url) ? [`[${t(faqChannelKey(channel))}](${url})`] : [];
-  });
-}
+  const positions = candidates
+    .filter((candidate) => candidate.presetId === "custom")
+    .map((candidate) => candidate.position);
+  if (positions.length === 0) return;
 
-function collectSocialLinks(brand: Brand): string[] {
-  const links: string[] = [];
-
-  if (hasValue(brand.socialInstagram))
-    links.push(`[Instagram](${brand.socialInstagram})`);
-  if (hasValue(brand.socialThreads))
-    links.push(`[Threads](${brand.socialThreads})`);
-  if (hasValue(brand.socialFacebook))
-    links.push(`[Facebook](${brand.socialFacebook})`);
-
-  return links;
-}
-
-function buildWhereToBuyAnswer(brand: Brand, t: TFn): string {
-  const links = collectPurchaseLinks(brand, t);
-  const sep = t("brandFaq.listSeparator");
-  return t("brandFaq.whereToBuy.answer", {
-    brandName: brand.name,
-    channels: truncate(links).join(sep),
-  });
-}
-
-function buildMainProductsAnswer(
-  brand: Brand,
-  t: TFn,
-  locale: string,
-  cityLabel: string | null,
-): string {
-  const isEnglish = locale === "en";
-  const category = isEnglish
-    ? PRODUCT_TYPE_CATEGORIES.find((item) => item.slug === brand.productType)
-        ?.name
-    : brand.category;
-  const sep = t("brandFaq.listSeparator");
-  const productTags = truncate(
-    isEnglish ? (brand.productTagsEn ?? []) : (brand.productTags ?? []),
-  ).join(sep);
-  const context = buildBrandContext(brand, t, cityLabel);
-
-  if (category && productTags) {
-    return t("brandFaq.mainProducts.answerWithCategoryAndTags", {
-      brandName: brand.name,
-      category,
-      productTags,
-      context,
-    });
-  }
-
-  return t("brandFaq.mainProducts.answerWithTags", {
-    brandName: brand.name,
-    productTags,
-    context,
-  });
-}
-
-function buildPriceRangeAnswer(brand: Brand, t: TFn): string {
-  const rangeKey = brand.priceRange as 1 | 2 | 3;
-  return t("brandFaq.priceRange.answer", {
-    brandName: brand.name,
-    range: t(PRICE_RANGE_KEYS[rangeKey]),
-  });
-}
-
-function buildFoundedAnswer(
-  brand: Brand,
-  t: TFn,
-  _locale: string,
-  cityLabel: string | null,
-): string {
-  return t("brandFaq.whenFounded.answer", {
-    brandName: brand.name,
-    year: brand.foundingYear,
-    context: buildBrandContext(brand, t, cityLabel),
-  });
-}
-
-function buildOfficialAccountsAnswer(brand: Brand, t: TFn): string {
-  const sep = t("brandFaq.listSeparator");
-  return t("brandFaq.officialAccounts.answer", {
-    brandName: brand.name,
-    accounts: collectSocialLinks(brand).join(sep),
-  });
-}
-
-function buildReputationAnswer(
-  brand: Brand,
-  t: TFn,
-  locale: string,
-  cityLabel: string | null,
-): string {
-  const summary =
-    locale === "en"
-      ? (brand.reputationSummary?.textEn ?? "")
-      : (brand.reputationSummary?.text ?? "");
-  return t("brandFaq.reputation.answer", {
-    brandName: brand.name,
-    summary,
-    context: buildBrandContext(brand, t, cityLabel),
-  });
-}
-
-function buildBrandContext(
-  brand: Brand,
-  t: TFn,
-  cityLabel: string | null,
-): string {
-  const details = compactValues([
-    cityLabel ? t("brandFaq.context.city", { city: cityLabel }) : null,
-    brand.foundingYear
-      ? t("brandFaq.context.founded", { year: brand.foundingYear })
-      : null,
-  ]);
-
-  return details.length > 0
-    ? t("brandFaq.context.suffix", {
-        details: details.join(t("brandFaq.listSeparator")),
-      })
-    : "";
-}
-
-function buildMitAnswer(brand: Brand, t: TFn): string {
-  if (brand.mitStatus === "verified") {
-    const verifiedAnswer = t("brandFaq.isMadeInTaiwan.answer", {
-      brandName: brand.name,
-    });
-    const registrySource = t("brandFaq.isMadeInTaiwan.registrySource");
-    return hasValue(brand.mitStory)
-      ? `${brand.mitStory}\n\n${verifiedAnswer} ${registrySource}`
-      : `${verifiedAnswer} ${registrySource}`;
-  }
-
-  const scope = brand.mitDeclaredScope
-    ? t(`brandFaq.isMadeInTaiwan.scopeLabels.${brand.mitDeclaredScope}`)
-    : t("brandFaq.isMadeInTaiwan.scopeLabels.unspecified");
-  const declaration = t("brandFaq.isMadeInTaiwan.declaredAnswer", {
-    brandName: brand.name,
-    scope,
-  });
-  const story = hasValue(brand.mitStory) ? `\n\n${brand.mitStory}` : "";
-
-  return `${declaration}${story}`;
-}
-
-const FAQ_GENERATORS: FaqGenerator[] = [
-  {
-    id: "made-in-taiwan",
-    condition: (brand) =>
-      brand.mitStatus === "declared" || brand.mitStatus === "verified",
-    questionKey: "brandFaq.isMadeInTaiwan.question",
-    buildAnswer: buildMitAnswer,
-  },
-  {
-    id: "where-to-buy",
-    condition: (brand) =>
-      PURCHASE_CAMEL_FIELDS.map((field) => brand[field]).some(hasValue),
-    questionKey: "brandFaq.whereToBuy.question",
-    buildAnswer: buildWhereToBuyAnswer,
-  },
-  {
-    id: "main-products",
-    condition: (brand, locale) =>
-      compactValues(locale === "en" ? brand.productTagsEn : brand.productTags)
-        .length > 0,
-    questionKey: "brandFaq.mainProducts.question",
-    buildAnswer: buildMainProductsAnswer,
-  },
-  {
-    id: "price-range",
-    condition: (brand) => [1, 2, 3].includes(brand.priceRange ?? 0),
-    questionKey: "brandFaq.priceRange.question",
-    buildAnswer: buildPriceRangeAnswer,
-  },
-  {
-    id: "founded",
-    condition: (brand) => Boolean(brand.foundingYear),
-    questionKey: "brandFaq.whenFounded.question",
-    buildAnswer: buildFoundedAnswer,
-  },
-  {
-    id: "official-accounts",
-    condition: (brand) =>
-      [brand.socialInstagram, brand.socialThreads, brand.socialFacebook].some(
-        hasValue,
-      ),
-    questionKey: "brandFaq.officialAccounts.question",
-    buildAnswer: buildOfficialAccountsAnswer,
-  },
-  {
-    id: "reputation",
-    condition: (brand, locale) =>
-      hasMinLength(
-        locale === "en"
-          ? brand.reputationSummary?.textEn
-          : brand.reputationSummary?.text,
-        10,
-      ),
-    questionKey: "brandFaq.reputation.question",
-    buildAnswer: buildReputationAnswer,
-  },
-];
-
-export function buildBrandFaq(
-  brand: Brand,
-  t: TFn,
-  locale: string = "zh-TW",
-  cityLabel: string | null = null,
-): FaqItem[] {
-  return FAQ_GENERATORS.filter((generator) =>
-    generator.condition(brand, locale),
-  ).map((generator) => ({
-    id: generator.id,
-    question: t(generator.questionKey, { brandName: brand.name }),
-    answer: generator.buildAnswer(brand, t, locale, cityLabel),
-  }));
+  const cutoff = Math.max(...positions) + 1;
+  const { error } = await supabase
+    .from("brand_faq_entries")
+    .delete()
+    .eq("brand_id", brandId)
+    .eq("preset_id", "custom")
+    .eq("source", "model")
+    .gte("position", cutoff);
+  if (error) throw error;
 }

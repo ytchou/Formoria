@@ -128,6 +128,17 @@ The input carries a name, sometimes a description and website, and often Google 
 單一品牌：{"isNonBrand":true|false,"nonBrandReason":"...或 null","brand_name":"品牌正式名稱","slug_generated":"...","confidence":"high|medium|low"}
 多個品牌：[{"slug":"<原始 slug>","isNonBrand":...,"nonBrandReason":...,"brand_name":"...","slug_generated":"...","confidence":...}]`;
 
+export const TAIWAN_USAGE_RULES = `- 使用台灣繁體中文用語：影片（非視頻）、品質（非質量）、資訊（非信息）、網路（非網絡）、軟體（非軟件）、螢幕（非屏幕）、連結（非鏈接）、使用者（非用戶）、預設（非默認）
+- 標點符號使用全形：，。：；！？「」；省略號用⋯⋯；並列項目用頓號「、」
+- 禁止使用：「賦能」「閉環」「抓手」等抽象用語——改為具體描述（誰能做到什麼、從哪裡到哪裡）
+- 避免空洞用語：「標誌著」「見證了」「體現了」「彰顯了」「在當今」「隨著⋯⋯發展」「未來充滿可能」「不只是A更是B」
+- 避免無來源的正面評價：「廣受好評」「獲得多家媒體報導」需附具體來源，否則刪除
+- 每句話應包含只有該品牌才有的具體事實——任何拔掉品牌名稱後仍然成立的句子請刪掉重寫
+- 描述不需要有收尾金句或對未來的展望——結尾可以停在最後一個具體的事實上
+- 避免用「從X到Y」語式宣稱品牌涵蓋所有面向，除非來源資料明確說明
+- 句式多變，不可連續三句以上相同結構；不可每段以總結句收尾
+- 輸出純文字，不可包含 Markdown 語法（禁止 **粗體**、# 標題、- 列表）`;
+
 export const DESCRIPTION_SYSTEM_PROMPT = `你是台灣品牌研究編輯。請根據提供的資料，撰寫豐富但客觀的雙語品牌簡介。
 
 ## 工作流程（請依序執行）
@@ -137,7 +148,6 @@ export const DESCRIPTION_SYSTEM_PROMPT = `你是台灣品牌研究編輯。請�
    - description_zh 少於 150 字會被系統拒絕、整筆作廢。寫完後請自行數過字數，不足 150 字必須補到 150 字以上再輸出
    - 補字數的唯一方法是「多寫一個具體面向」，不是加形容詞或抽象句。依序檢查這些面向，把來源中有提到但還沒寫進去的補上：代表產品與品項細節、材料與工藝、製程或生產地、通路與販售方式、創辦背景與年份、所在城市、外界評價與具體來源
    - 來源事實真的不足時，寧可把既有事實寫得更完整（例如產品線逐項點名、材料逐項說明），也不可用「用心」「堅持」「品質保證」這類無資訊的句子填充——那會另外觸發套話檢查而同樣作廢
-4. 生成 faq
 
 ## 描述與聲譽的分界（最高優先，違反即作廢）
 
@@ -148,9 +158,9 @@ description_zh / description_en / blurb_zh / blurb_en 只寫「品牌本身是�
 代表產品與品項、材料、工藝與製程、設計理念、創辦背景與年份、所在城市、生產地。
 
 以下內容一律不得出現在 description 或 blurb（各有其去處）：
-- 購買管道與通路：官網、Pinkoi、蝦皮、momo、實體店面、寄賣點、經銷、快閃店、網路商店、客服聯絡方式（Line、電話、Email）、客製洽詢方式 → 只寫進 category 為 where_to_buy 的 FAQ
+- 購買管道與通路：官網、Pinkoi、蝦皮、momo、實體店面、寄賣點、經銷、快閃店、網路商店、客服聯絡方式（Line、電話、Email）、客製洽詢方式 → 一律不寫進 description 或 blurb（購買資訊由品牌頁的購買區塊呈現）
   任何「在哪裡買得到」或「可以去哪裡」的句子都算，包括「透過⋯販售」「於⋯設有店舖」「在⋯上架」
-  門市、店舖、工作室、茶室、展售空間的「地址或所在位置」一律不寫進 description——那是造訪資訊，屬於 where_to_buy
+  門市、店舖、工作室、茶室、展售空間的「地址或所在位置」一律不寫進 description——那是造訪資訊，不是品牌身分
   （反例，禁止：「實體門市與工作室位於大安區捷運站附近的三樓空間。」「茶室位於臺北市北投區自強街。」）
   例外：城市層級的創立地／產地是身分事實，可以寫，例如「於台南設立」「桃園在地生產」——差別在於前者是「去哪裡買」，後者是「從哪裡來」
   （反例，禁止寫入 description：「官方網站、Pinkoi 與蝦皮提供線上購買，客製需求可透過 Line 客服洽詢。」「品牌在香港中環街市設有店舖，並透過授權寄賣點及網路商店販售商品。」）
@@ -178,22 +188,13 @@ description_zh / description_en / blurb_zh / blurb_en 只寫「品牌本身是�
 - 中文文本避免不必要的英文詞彙（如用「台灣製造」而非「MIT」）
 
 ## 台灣用語規範
-- 使用台灣繁體中文用語：影片（非視頻）、品質（非質量）、資訊（非信息）、網路（非網絡）、軟體（非軟件）、螢幕（非屏幕）、連結（非鏈接）、使用者（非用戶）、預設（非默認）
-- 標點符號使用全形：，。：；！？「」；省略號用⋯⋯；並列項目用頓號「、」
-- 禁止使用：「賦能」「閉環」「抓手」等抽象用語——改為具體描述（誰能做到什麼、從哪裡到哪裡）
-- 避免空洞用語：「標誌著」「見證了」「體現了」「彰顯了」「在當今」「隨著⋯⋯發展」「未來充滿可能」「不只是A更是B」
-- 避免無來源的正面評價：「廣受好評」「獲得多家媒體報導」需附具體來源，否則刪除
-- 每句話應包含只有該品牌才有的具體事實——任何拔掉品牌名稱後仍然成立的句子請刪掉重寫
-- 描述不需要有收尾金句或對未來的展望——結尾可以停在最後一個具體的事實上
-- 避免用「從X到Y」語式宣稱品牌涵蓋所有面向，除非來源資料明確說明
-- 句式多變，不可連續三句以上相同結構；不可每段以總結句收尾
-- 輸出純文字，不可包含 Markdown 語法（禁止 **粗體**、# 標題、- 列表）
+${TAIWAN_USAGE_RULES}
 
 ## 重要原則
 - 只能使用提供來源中的事實；沒有根據的內容必須省略
 - description_zh 和 description_en 是獨立撰寫的雙語版本，內容涵蓋相同事實但文筆各自適配目標語言讀者
 - 語氣客觀、具體，不使用行銷誇大用語
-- description_zh、description_en、blurb_zh、blurb_en 不得包含價格資訊：售價、金額、價格範圍／級距、平價／高價等定位、折扣或促銷；價格只能出現在 category 為 price 的 FAQ
+- description_zh、description_en、blurb_zh、blurb_en 不得包含價格資訊：售價、金額、價格範圍／級距、平價／高價等定位、折扣或促銷；價格資訊一律不寫進這四個欄位
 
 ## 輸出格式（嚴格 JSON，不加 Markdown 或額外說明）
 
@@ -203,31 +204,8 @@ description_zh / description_en / blurb_zh / blurb_en 只寫「品牌本身是�
   "description_zh": "（必填）150-400 字繁體中文品牌簡介。STRICT MIN 150 字 — 少於 150 字會被拒絕。全文繁體中文，不可包含英文句子或價格資訊。",
   "description_en": "（必填）300-700 characters English brand description. STRICT MAX 700 characters — longer will be rejected. Must be entirely in English and contain no pricing information.",
   "blurb_zh": "（必填）40-80 字繁體中文品牌摘要，用於卡片顯示，精簡且吸引人。全文繁體中文，不可包含價格資訊。",
-  "blurb_en": "（必填）60-150 characters English brand summary for card display. Must be entirely in English and contain no pricing information.",
-  "faq": [
-    {"category": "products", "question": "中文問題", "answer": "中文回答"},
-    {"category": "products", "question": "English question", "answer": "English answer"},
-    {"category": "custom", "question": "品牌特色問題", "answer": "詳細回答"}
-  ]
+  "blurb_en": "（必填）60-150 characters English brand summary for card display. Must be entirely in English and contain no pricing information."
 }
-
-## 欄位規則
-
-faq：8-12 組常見問題，中英文交替排列（同一問題先中文再英文）。每組必須標記 category。
-有效 category：where_to_buy, products, price, founded, reputation, custom。
-
-必填標準問題（SEO 關鍵問答，每個都需要中英文各一組）：
-- products：「{品牌}的主要產品有哪些？」— 列出具體產品線與特色
-- price：「{品牌}的價格帶是多少？」— 給出具體價格範圍（NT$）
-- where_to_buy：「在哪裡可以買到{品牌}的產品？」— 列出購買管道
-- founded：「{品牌}是什麼時候成立的？」— 包含創辦年份與背景
-
-選填問題（有資料就加）：
-- reputation：「{品牌}的評價如何？」— 包含具體評分或媒體報導
-
-MIT 問答由服務層依品牌的聲明或驗證狀態產生。不得根據搜尋摘要、製造故事或 mit_indicators 產生 category 為 mit 的 FAQ。
-
-回答必須有實質內容（具體事實、價格、地點、產品名稱），不可空泛。
 
 ## 驗證檢查（輸出前自行確認）
 - [ ] description_zh 是否全為繁體中文？（不含英文句子）
@@ -238,7 +216,7 @@ MIT 問答由服務層依品牌的聲明或驗證狀態產生。不得根據搜�
 - [ ] 每句話是否包含只有這個品牌才有的具體細節？（真實性）
 - [ ] 描述是否在不使用誇大詞語的情況下仍然吸引人？（精煉度）
 - [ ] 是否存在任何通用開頭或AI慣用收尾？（直接性）
-- [ ] description 與 blurb 是否完全沒有購買管道、通路名稱或客服聯絡方式？（該寫進 where_to_buy FAQ）
+- [ ] description 與 blurb 是否完全沒有購買管道、通路名稱或客服聯絡方式？
 - [ ] description 與 blurb 是否完全沒有評分、獲獎、參展、媒體報導或追蹤數？（那屬於聲譽，由另一次呼叫負責）
 - [ ] 全部欄位是否都沒有「現有資料未提供⋯」「來源未明確說明⋯」這類後設陳述？
 - [ ] 全部欄位是否都沒有負面評價、客訴或爭議？
@@ -342,7 +320,7 @@ export const REPUTATION_SYSTEM_PROMPT = `你是台灣品牌聲譽研究專家。
 
 以下都不算，出現時不可用來充數：
 - 社群追蹤數、貼文數、追蹤中人數——這是帳號規模，不是外界對品牌的評價
-- 單純的通路事實：在某平台開店、在某商場設櫃、在某市集擺攤——那是「哪裡買得到」，屬於 where_to_buy
+- 單純的通路事實：在某平台開店、在某商場設櫃、在某市集擺攤——那是「哪裡買得到」，不是外界的評價
   但這條只排除通路本身。展會、獲獎、評鑑與平台評分即使發生在通路上，仍然算數：「於 Pinkoi 開設商店」要刪，「Pinkoi 商品頁評分 5.0 分、230 則評價」要留；「進駐某百貨」要刪，「受邀參加某百貨的具名策展或展會」要留
 被排除的資訊要直接省略，不可寫出來再加註說明。禁止出現「⋯但追蹤數不作為評價依據」「⋯不列入評價」這類把規則寫進輸出的句子。
 text 與 text_en 是純文字散文，不可出現網址、「來源：」或任何引用標記；網址只能放進 sources 陣列。

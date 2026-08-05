@@ -12,7 +12,7 @@ import type {
   DuplicateCheckResult,
 } from "@/lib/types/submission";
 import type { Database, Json } from "@/lib/supabase/database.types";
-import type { EnrichedData, EnrichedFaqItem } from "@/lib/types/enriched-data";
+import type { EnrichedData } from "@/lib/types/enriched-data";
 import { enrichedDataFromDb } from "@/lib/types/enriched-data";
 import type { ChannelCandidate } from "@/lib/types/brand-channel";
 import type {
@@ -38,7 +38,6 @@ import { deleteStoredImagePaths } from "./image-upload";
 import { slugifyRomanizedName } from "@/lib/brands/slug";
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { upsertEnrichedChannels } from "./brand-channels";
-import { upsertBrandFaqFromEnrichment } from "./brand-faq";
 import { normalizeCommunityWebsite } from "./community-submissions";
 import {
   PURCHASE_CAMEL_FIELDS,
@@ -437,38 +436,6 @@ function enrichedDataFromSubmissionDb(
       ? { channels: value.channels as ChannelCandidate[] }
       : {}),
   };
-}
-
-function faqFromEnrichedData(value: unknown): EnrichedFaqItem[] {
-  return isEnrichedData(value)
-    ? (enrichedDataFromSubmissionDb(value as Record<string, unknown>).faq ?? [])
-    : [];
-}
-
-/**
- * Best-effort `brand_faq` write. Both callers reach here after their RPC has
- * already committed the approval or the refresh: throwing would fail an
- * operation that actually succeeded, and the RPCs' already-processed guards
- * make a naive retry impossible (the submission is no longer `pending`). So a
- * failure is logged under one greppable prefix and swallowed — the brand simply
- * falls back to the generated FAQ until the next refresh fills the gap.
- *
- * Ceiling: no reconciliation path. If `[BRAND-FAQ] upsert failed` is ever seen
- * in practice, add a backfill that replays enrichment FAQs for brands whose
- * `brand_faq` row is missing.
- */
-async function persistEnrichmentFaq(
-  brandId: string,
-  faqItems: EnrichedFaqItem[],
-): Promise<void> {
-  if (faqItems.length === 0) return;
-  try {
-    await upsertBrandFaqFromEnrichment(brandId, faqItems);
-  } catch (faqError) {
-    const message =
-      faqError instanceof Error ? faqError.message : String(faqError);
-    console.error(`[BRAND-FAQ] upsert failed for brand ${brandId}: ${message}`);
-  }
 }
 
 function isJsonObject(value: unknown): value is Record<string, unknown> {
@@ -1950,7 +1917,7 @@ export async function applyBrandRefresh(
   const supabase = createServiceClient();
   const { data: submission, error: submissionError } = await supabase
     .from("brand_submissions")
-    .select("brand_id, intent, status, enriched_data")
+    .select("brand_id, intent, status")
     .eq("id", submissionId)
     .single();
   if (submissionError || !submission?.brand_id) {
@@ -1961,11 +1928,6 @@ export async function applyBrandRefresh(
   if (submission.intent !== "refresh" || submission.status !== "pending") {
     throw new Error("Refresh submission already processed");
   }
-
-  // Captured before the RPC on purpose: `apply_brand_refresh` moves the
-  // submission out of `pending` and consumes its enrichment, so reading the FAQ
-  // afterwards is not guaranteed to still reach it.
-  const faqItems = faqFromEnrichedData(submission.enriched_data);
 
   const { data: storagePaths, error } = await supabase.rpc(
     "apply_brand_refresh",
@@ -1981,8 +1943,6 @@ export async function applyBrandRefresh(
     );
   }
   if (error) throw error;
-
-  await persistEnrichmentFaq(submission.brand_id, faqItems);
 
   let cleanupFailed = false;
   try {
@@ -2283,7 +2243,9 @@ export async function approveSubmission(
     }
   }
 
-  await persistEnrichmentFaq(approval.brand_id, enrichedData?.faq ?? []);
+  // No FAQ write here on purpose: `brand_faq_entries` is written only by the
+  // `faq` enrichment phase, behind the preset validators. An approved brand
+  // renders the template floors until that phase runs against it.
 
   return {
     brandId: approval.brand_id,

@@ -82,14 +82,10 @@ export const LLM_PROFILES = {
     reasoningEffort: "none",
     timeoutMs: 30_000,
   },
-  /**
-   * Prose + FAQ. 6000 covers four description fields plus an 8-12 item bilingual
-   * FAQ. Left where the mega-call had it: the extraction fields moved out to the
-   * facts call, but the FAQ block was always the largest part of this output.
-   */
+  /** Prose only; FAQ has its own final phase and token budget. */
   descriptions: {
     model: "text",
-    maxTokens: 6000,
+    maxTokens: 3500,
     temperature: 0.1,
     reasoningEffort: "none",
     timeoutMs: 30_000,
@@ -98,6 +94,14 @@ export const LLM_PROFILES = {
   reputation: {
     model: "text",
     maxTokens: 1200,
+    temperature: 0.1,
+    reasoningEffort: "none",
+    timeoutMs: 60_000,
+  },
+  /** Structured bilingual FAQ generation from the eligible preset registry. */
+  faq: {
+    model: "text",
+    maxTokens: 2500,
     temperature: 0.1,
     reasoningEffort: "none",
     timeoutMs: 60_000,
