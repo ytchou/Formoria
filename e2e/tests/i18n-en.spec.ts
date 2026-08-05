@@ -295,14 +295,17 @@ test.describe("i18n English browse", () => {
   test("switching to EN via the switcher updates chrome + client components without refresh", async ({
     page,
   }) => {
-    await page.goto("/");
+    // The homepage has the largest client tree in this suite. Wait for its
+    // hydration requests to settle before clicking a trigger that is present in
+    // the server HTML but only becomes interactive on the client.
+    await page.goto("/", { waitUntil: "networkidle" });
     const switcherBtn = page
       .getByRole("banner")
       .getByRole("button", { name: "切換語言" });
     await expect(switcherBtn).toBeVisible({ timeout: 10_000 });
     await switcherBtn.click();
     const enItem = page.getByRole("menuitem", { name: "English" });
-    await expect(enItem).toBeVisible({ timeout: 5_000 });
+    await expect(enItem).toBeVisible({ timeout: 10_000 });
     await enItem.click();
     await expect(page).toHaveURL(/\/en/, { timeout: 10_000 });
     // After switching: header submit link should be in English
