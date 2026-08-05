@@ -1,3 +1,4 @@
+import { auditedCall } from '@/lib/audit'
 import { createResendProvider } from './resend-adapter'
 import type { EmailMessage, EmailSendResult } from './types'
 
@@ -10,7 +11,18 @@ export async function sendEmail(message: EmailMessage): Promise<EmailSendResult>
 
   const provider = createResendProvider(apiKey)
   try {
-    const result = await provider.send(message)
+    const result = await auditedCall(
+      { provider: 'resend', operation: 'send_email', kind: 'external' },
+      () => provider.send(message),
+      {
+        classify: (sendResult) => sendResult.success ? 'succeeded' : 'failed',
+        summary: {
+          htmlBytes: Buffer.byteLength(message.html ?? '', 'utf8'),
+          subjectPresent: Boolean(message.subject),
+          recipientCount: message.to ? 1 : 0,
+        },
+      },
+    )
     if (!result.success) {
       console.error('[email]', { error: result.error })
     }

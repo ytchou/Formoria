@@ -46,6 +46,19 @@ export const formatBrandComplete = (
   ms: number,
 ): string => `${ENRICH_PREFIX} [${index}/${total}] ${slug} — complete (${formatDuration(ms)})`
 
+export const formatEnrichError = (message: string): string =>
+  `${ENRICH_PREFIX} ERROR: ${message}`
+
+export const formatEnrichPatchField = (key: string, value: unknown): string => {
+  const display = Array.isArray(value)
+    ? `[${value.length} items]`
+    : typeof value === 'string' && value.length > 60
+      ? `${value.slice(0, 60)}…`
+      : value
+
+  return `  ${ENRICH_PREFIX} ${key}: ${display}`
+}
+
 export const formatJobStart = (total: number): string[] => [
   SEPARATOR,
   `${ENRICH_PREFIX} Starting enrichment for ${total} brands`,
@@ -63,5 +76,9 @@ export const formatJobSummary = (summary: EnrichmentSummary): string[] => [
 ]
 
 export const logEnrichmentProgress = (message: string): void => {
-  console.log(message)
+  console.log(JSON.stringify({
+    event: 'enrich',
+    logTag: ENRICH_PREFIX,
+    message,
+  }))
 }

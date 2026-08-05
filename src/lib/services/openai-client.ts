@@ -1,9 +1,12 @@
 import { resolveOpenAIModel } from "@/lib/constants/llm-models";
+import type { ChatAuditEvent, ChatUsage } from "@/lib/audit";
 import {
   classifyHttpResponse,
   IN_PROCESS,
   withRetry,
 } from "@/lib/retry";
+
+export type { ChatAuditEvent, ChatUsage };
 
 /**
  * A 429 that retrying cannot fix.
@@ -73,30 +76,6 @@ type OpenAIChatResponse = {
     finish_reason?: string | null;
   }>;
   usage?: ChatUsage;
-};
-
-export type ChatUsage = {
-  prompt_tokens?: number;
-  completion_tokens?: number;
-  total_tokens?: number;
-};
-
-export type ChatAuditEvent = {
-  provider: "openai";
-  model: string;
-  ok: boolean;
-  status: number;
-  data: unknown;
-  usage?: ChatUsage;
-  latencyMs: number;
-  request: {
-    system: string;
-    user: string;
-    imageCount: number;
-  };
-  retryAttempt?: number;
-  meta?: Record<string, unknown>;
-  error?: string;
 };
 
 export type OpenAIChatResult = {

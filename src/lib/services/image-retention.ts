@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { auditedCall } from '@/lib/audit'
 import { uploadWithRetry } from './storage-retry'
 
 const BRAND_IMAGES_BUCKET = 'brand-images'
@@ -141,6 +142,9 @@ async function clearRowIfUnchanged(
 export async function purgeExpiredClassifierJunk(
   options: PurgeClassifierJunkOptions = {},
 ): Promise<PurgeClassifierJunkSummary> {
+  return auditedCall(
+    { provider: 'images', operation: 'purgeExpiredClassifierJunk', kind: 'service' },
+    async () => {
   const now = options.now ?? new Date()
   const cutoff = retentionCutoff(now)
   const batchSize = normalizeBatchSize(options.batchSize)
@@ -185,6 +189,8 @@ export async function purgeExpiredClassifierJunk(
   }
 
   return { cutoff, selected, storageDeleted, rowsCleared, failed }
+    },
+  )
 }
 
 export { RETENTION_MS, retentionCutoff }

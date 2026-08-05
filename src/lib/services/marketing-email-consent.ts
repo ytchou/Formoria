@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { auditedCall } from '@/lib/audit'
 import { buildNewsletterConfirmEmail } from '@emails/templates/newsletter-confirm'
 import { sendEmail } from '@/lib/email/send'
 import { setLifecycleEmailPreference } from '@/lib/services/email-lifecycle'
@@ -42,6 +43,9 @@ export async function requestNewsletterSubscription(
     'email' | 'locale' | 'source' | 'interests'
   >,
 ): Promise<'pending' | 'active' | 'failed'> {
+  return auditedCall(
+    { provider: 'email', operation: 'requestNewsletterSubscription', kind: 'service' },
+    async () => {
   const result = await createSubscriber(supabase, {
     email: input.email,
     interests: input.interests,
@@ -69,12 +73,17 @@ export async function requestNewsletterSubscription(
   )
 
   return delivery.success ? 'pending' : 'failed'
+    },
+  )
 }
 
 export async function enrollInMarketingEmails(
   supabase: SupabaseClient,
   input: MarketingEnrollmentInput,
 ): Promise<MarketingEnrollmentResult> {
+  return auditedCall(
+    { provider: 'email', operation: 'enrollInMarketingEmails', kind: 'service' },
+    async () => {
   const newsletterPromise = input.newsletter
     ? requestNewsletterSubscription(supabase, input)
     : Promise.resolve<'not_requested'>('not_requested')
@@ -129,4 +138,6 @@ export async function enrollInMarketingEmails(
       ? lifecycleResult.value
       : 'failed',
   }
+    },
+  )
 }

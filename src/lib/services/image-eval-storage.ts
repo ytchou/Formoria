@@ -1,4 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/server";
+import { auditedCall } from "@/lib/audit";
 
 export const IMAGE_EVAL_BUCKET = "image-eval" as const;
 export const IMAGE_EVAL_SIGNED_URL_SECONDS = 60 * 60;
@@ -7,14 +8,19 @@ export async function uploadImageEvalAsset(
   path: string,
   data: Buffer,
 ): Promise<void> {
-  const { error } = await createServiceClient()
-    .storage.from(IMAGE_EVAL_BUCKET)
-    .upload(path, data, {
-      contentType: "image/webp",
-      cacheControl: "31536000",
-      upsert: true,
-    });
-  if (error) throw error;
+  return auditedCall(
+    { provider: "images", operation: "uploadImageEvalAsset", kind: "service" },
+    async () => {
+      const { error } = await createServiceClient()
+        .storage.from(IMAGE_EVAL_BUCKET)
+        .upload(path, data, {
+          contentType: "image/webp",
+          cacheControl: "31536000",
+          upsert: true,
+        });
+      if (error) throw error;
+    },
+  );
 }
 
 export async function createImageEvalSignedUrls(

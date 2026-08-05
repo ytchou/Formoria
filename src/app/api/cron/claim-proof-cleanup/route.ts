@@ -1,10 +1,11 @@
+import { withAuditScope } from "@/lib/audit/scope";
 import { NextResponse } from "next/server";
 import { processClaimProofCleanup } from "@/lib/services/claim-proof-cleanup";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-export async function POST(req: Request) {
+export const POST = withAuditScope(async (req: Request) => {
   if (req.headers.get("x-origin-verify") !== process.env.ORIGIN_SECRET) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -16,4 +17,4 @@ export async function POST(req: Request) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 500 });
   }
-}
+});

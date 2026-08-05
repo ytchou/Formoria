@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
+import { auditedCall } from "@/lib/audit";
 import { pinyin } from "pinyin-pro";
 import { convertPinyinToWadeGiles } from "@/lib/utils/pinyin-to-wade-giles";
 import type { Brand, BrandFilters, OtherUrl } from "@/lib/types";
@@ -10,7 +11,7 @@ import type {
   SiteTokens,
 } from "@/lib/types/brand";
 import type { Database } from "@/lib/supabase/database.types";
-import { toBrandRow as baseToBrandRow } from "./field-map";
+import { toBrandRow as baseToBrandRow } from "./_shared/field-map";
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { createServiceClient } from "@/lib/supabase/server";
 import {
@@ -1397,11 +1398,20 @@ export const EXPLORE_BRAND_LIMIT = 8;
 
 const getCachedExploreBrandPool = unstable_cache(
   () =>
-    getBrands({
-      status: "approved",
-      sort: "random",
-      limit: 200,
-    }),
+    auditedCall(
+      {
+        provider: "cache",
+        operation: "getCachedExploreBrandPool",
+        kind: "service",
+      },
+      () =>
+        getBrands({
+          status: "approved",
+          sort: "random",
+          limit: 200,
+        }),
+      { summary: { cached: true } },
+    ),
   ["homepage-explore-brand-pool"],
   { revalidate: 3600, tags: [PUBLIC_BRAND_DATA_TAG] },
 );
@@ -1543,6 +1553,9 @@ export async function updateBrand(
   data: BrandWriteInput,
   actor: BrandWriteActor = { source: "admin" },
 ): Promise<BrandWriteResult> {
+  return auditedCall(
+    { provider: "brands", operation: "updateBrand", kind: "service" },
+    async () => {
   const supabase = createServiceClient();
   const normalizedData =
     data.romanizedName === undefined
@@ -1620,12 +1633,17 @@ export async function updateBrand(
     ...brandToDomain(updated),
     skipped,
   };
+    },
+  );
 }
 
 export async function saveDraft(
   brandId: string,
   data: Partial<Brand>,
 ): Promise<void> {
+  return auditedCall(
+    { provider: "brands", operation: "saveDraft", kind: "service" },
+    async () => {
   const supabase = createServiceClient();
   const { error, count } = await supabase
     .from("brands")
@@ -1640,6 +1658,8 @@ export async function saveDraft(
 
   if (error) throw error;
   if (count === 0) throw new NotFoundError("Brand", brandId);
+    },
+  );
 }
 
 export async function getBrandDraft(
@@ -1665,6 +1685,9 @@ export async function publishDraft(
   brandId: string,
   actor: BrandWriteActor,
 ): Promise<Brand> {
+  return auditedCall(
+    { provider: "brands", operation: "publishDraft", kind: "service" },
+    async () => {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("brands")
@@ -1711,6 +1734,8 @@ export async function publishDraft(
   if (count === 0) throw new NotFoundError("Brand", brandId);
 
   return published;
+    },
+  );
 }
 
 /**
@@ -1738,6 +1763,9 @@ async function describeBlockedBrandDelete(
 }
 
 export async function deleteBrand(id: string): Promise<void> {
+  return auditedCall(
+    { provider: "brands", operation: "deleteBrand", kind: "service" },
+    async () => {
   const supabase = createServiceClient();
   const { error, count } = await supabase
     .from("brands")
@@ -1755,6 +1783,8 @@ export async function deleteBrand(id: string): Promise<void> {
     throw error;
   }
   if (count === 0) throw new NotFoundError("Brand", id);
+    },
+  );
 }
 
 export async function getRelatedBrands(
@@ -1930,6 +1960,9 @@ export function buildSyncedImagePatch(
 export async function syncBrandImages(
   brandId: string,
 ): Promise<{ synced: number; failed: number }> {
+  return auditedCall(
+    { provider: "brands", operation: "syncBrandImages", kind: "service" },
+    async () => {
   const supabase = createServiceClient();
   const brand = await getBrandById(brandId);
 
@@ -1979,6 +2012,8 @@ export async function syncBrandImages(
 
   const failed = storedUrls.filter((u) => u == null).length;
   return { synced: storedUrls.length - failed, failed };
+    },
+  );
 }
 
 export async function completeBrandClaim({
@@ -1990,6 +2025,9 @@ export async function completeBrandClaim({
   brandId: string;
   email: string;
 }): Promise<void> {
+  return auditedCall(
+    { provider: "brands", operation: "completeBrandClaim", kind: "service" },
+    async () => {
   const supabase = createServiceClient();
 
   const { data: existingOwnership, error: ownershipError } = await supabase
@@ -2024,6 +2062,8 @@ export async function completeBrandClaim({
     .eq("id", brandId);
 
   if (updateError) throw updateError;
+    },
+  );
 }
 
 export async function getRandomBrands(limit = 4): Promise<Brand[]> {
@@ -2066,7 +2106,13 @@ export async function getNewBrands(limit = 4): Promise<Brand[]> {
 }
 
 const getCachedRecentBrandCount = unstable_cache(
-  async (): Promise<{ count: number; period: "7d" | "30d" }> => {
+  () => auditedCall(
+    {
+      provider: "cache",
+      operation: "getCachedRecentBrandCount",
+      kind: "service",
+    },
+    async (): Promise<{ count: number; period: "7d" | "30d" }> => {
     const supabase = createServiceClient();
     const now = new Date();
     const sevenDaysAgo = new Date(
@@ -2101,7 +2147,9 @@ const getCachedRecentBrandCount = unstable_cache(
     if (monthError) throw monthError;
 
     return { count: monthCount ?? 0, period: "30d" };
-  },
+    },
+    { summary: { cached: true } },
+  ),
   ["recent-brand-count"],
   { revalidate: 3600, tags: [PUBLIC_BRAND_DATA_TAG] },
 );

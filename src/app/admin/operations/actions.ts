@@ -1,5 +1,6 @@
 "use server";
 
+import { runWithAuditContext } from "@/lib/audit/context";
 import { revalidatePath } from "next/cache";
 import { requireAdminAction } from "@/lib/auth/require-admin";
 import {
@@ -38,96 +39,102 @@ export async function startCurationJobAction(
   params: CurationJobParams,
   dryRun: boolean,
 ): Promise<QueuedJobResult | { error: string }> {
-  try {
-    const auth = await requireAdminAction();
-    if ("error" in auth) return auth;
-    if (operation !== "enrich") {
-      return { error: "Operation removed — use enrich instead" };
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction();
+      if ("error" in auth) return auth;
+      if (operation !== "enrich") {
+        return { error: "Operation removed — use enrich instead" };
+      }
+
+      const job = await enqueueAdminCurationJob({
+        params,
+        dryRun,
+        startedBy: auth.user.email ?? auth.user.id,
+      });
+      revalidatePath("/admin/jobs");
+      revalidatePath("/admin/submissions");
+
+      return dispatchQueuedJob(job.id, "Data job created.");
+    } catch (error) {
+      console.error("[admin:startCurationJobAction]", error);
+      return {
+        error:
+          error instanceof Error ? error.message : "An unexpected error occurred",
+      };
     }
-
-    const job = await enqueueAdminCurationJob({
-      params,
-      dryRun,
-      startedBy: auth.user.email ?? auth.user.id,
-    });
-    revalidatePath("/admin/jobs");
-    revalidatePath("/admin/submissions");
-
-    return dispatchQueuedJob(job.id, "Data job created.");
-  } catch (error) {
-    console.error("[admin:startCurationJobAction]", error);
-    return {
-      error:
-        error instanceof Error ? error.message : "An unexpected error occurred",
-    };
-  }
+  });
 }
 
 export async function startNeedsDataSubmissionEnrichmentAction(): Promise<
   QueuedJobResult | { error: string }
 > {
-  try {
-    const auth = await requireAdminAction();
-    if ("error" in auth) return auth;
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction();
+      if ("error" in auth) return auth;
 
-    const submissionIds = (await getSubmissionsForReview({ status: "pending" }))
-      .filter((submission) => submission.reviewStage === "needs_data")
-      .map((submission) => submission.id);
-    if (submissionIds.length === 0) {
-      return { error: "No needs-data submissions are waiting for enrichment" };
+      const submissionIds = (await getSubmissionsForReview({ status: "pending" }))
+        .filter((submission) => submission.reviewStage === "needs_data")
+        .map((submission) => submission.id);
+      if (submissionIds.length === 0) {
+        return { error: "No needs-data submissions are waiting for enrichment" };
+      }
+
+      const job = await enqueueAdminCurationJob({
+        params: { submissionIds },
+        dryRun: false,
+        startedBy: auth.user.email ?? auth.user.id,
+      });
+      revalidatePath("/admin");
+      revalidatePath("/admin/jobs");
+      revalidatePath("/admin/submissions");
+      return dispatchQueuedJob(
+        job.id,
+        `${submissionIds.length} submissions added to enrichment.`,
+      );
+    } catch (error) {
+      console.error("[admin:startNeedsDataSubmissionEnrichmentAction]", error);
+      return {
+        error:
+          error instanceof Error ? error.message : "An unexpected error occurred",
+      };
     }
-
-    const job = await enqueueAdminCurationJob({
-      params: { submissionIds },
-      dryRun: false,
-      startedBy: auth.user.email ?? auth.user.id,
-    });
-    revalidatePath("/admin");
-    revalidatePath("/admin/jobs");
-    revalidatePath("/admin/submissions");
-    return dispatchQueuedJob(
-      job.id,
-      `${submissionIds.length} submissions added to enrichment.`,
-    );
-  } catch (error) {
-    console.error("[admin:startNeedsDataSubmissionEnrichmentAction]", error);
-    return {
-      error:
-        error instanceof Error ? error.message : "An unexpected error occurred",
-    };
-  }
+  });
 }
 
 export async function rerunCurationJobAction(
   jobId: string,
   options?: { overwrite?: boolean },
 ): Promise<QueuedJobResult | { error: string }> {
-  try {
-    const auth = await requireAdminAction();
-    if ("error" in auth) return auth;
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction();
+      if ("error" in auth) return auth;
 
-    const overwrite = options?.overwrite === true;
-    const job = await enqueueManualRerun(
-      jobId,
-      auth.user.email ?? auth.user.id,
-      { overwrite },
-    );
-    revalidatePath("/admin/jobs");
-    revalidatePath(`/admin/jobs/${jobId}`);
+      const overwrite = options?.overwrite === true;
+      const job = await enqueueManualRerun(
+        jobId,
+        auth.user.email ?? auth.user.id,
+        { overwrite },
+      );
+      revalidatePath("/admin/jobs");
+      revalidatePath(`/admin/jobs/${jobId}`);
 
-    return dispatchQueuedJob(
-      job.id,
-      overwrite
-        ? "Rerun job created for failed, skipped, or unfinished submissions. Existing enrichment will be overwritten."
-        : "Rerun job created for failed, skipped, or unfinished submissions.",
-    );
-  } catch (error) {
-    console.error("[admin:rerunCurationJobAction]", error);
-    return {
-      error:
-        error instanceof Error ? error.message : "An unexpected error occurred",
-    };
-  }
+      return dispatchQueuedJob(
+        job.id,
+        overwrite
+          ? "Rerun job created for failed, skipped, or unfinished submissions. Existing enrichment will be overwritten."
+          : "Rerun job created for failed, skipped, or unfinished submissions.",
+      );
+    } catch (error) {
+      console.error("[admin:rerunCurationJobAction]", error);
+      return {
+        error:
+          error instanceof Error ? error.message : "An unexpected error occurred",
+      };
+    }
+  });
 }
 
 /**
@@ -142,40 +149,42 @@ export async function rerunCurationJobAction(
 export async function resumeCurationJobAction(
   jobId: string,
 ): Promise<QueuedJobResult | { error: string }> {
-  try {
-    const auth = await requireAdminAction();
-    if ("error" in auth) return auth;
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction();
+      if ("error" in auth) return auth;
 
-    const jobs = await enqueueCurationResume(
-      jobId,
-      auth.user.email ?? auth.user.id,
-    );
-    revalidatePath("/admin/jobs");
-    revalidatePath(`/admin/jobs/${jobId}`);
+      const jobs = await enqueueCurationResume(
+        jobId,
+        auth.user.email ?? auth.user.id,
+      );
+      revalidatePath("/admin/jobs");
+      revalidatePath(`/admin/jobs/${jobId}`);
 
-    const firstJob = jobs.at(0);
-    if (!firstJob) return { error: "No targets were eligible to resume" };
+      const firstJob = jobs.at(0);
+      if (!firstJob) return { error: "No targets were eligible to resume" };
 
-    const counts = (group: "failed" | "cancelled") =>
-      jobs
-        .filter((job) => job.resumeGroup === group)
-        .reduce((total, job) => total + job.resumeTargetCount, 0);
+      const counts = (group: "failed" | "cancelled") =>
+        jobs
+          .filter((job) => job.resumeGroup === group)
+          .reduce((total, job) => total + job.resumeTargetCount, 0);
 
-    // Dispatch failure is not an error here: both jobs are already committed to
-    // a durable queue and drain on the next cron tick or a manual "Run now".
-    // `dispatchQueuedJob` reports that through `dispatchStatus`, exactly as the
-    // rerun action does.
-    return dispatchQueuedJob(
-      firstJob.id,
-      `Resuming ${counts("failed")} failed and ${counts("cancelled")} cancelled target(s).`,
-    );
-  } catch (error) {
-    console.error("[admin:resumeCurationJobAction]", error);
-    return {
-      error:
-        error instanceof Error ? error.message : "An unexpected error occurred",
-    };
-  }
+      // Dispatch failure is not an error here: both jobs are already committed to
+      // a durable queue and drain on the next cron tick or a manual "Run now".
+      // `dispatchQueuedJob` reports that through `dispatchStatus`, exactly as the
+      // rerun action does.
+      return dispatchQueuedJob(
+        firstJob.id,
+        `Resuming ${counts("failed")} failed and ${counts("cancelled")} cancelled target(s).`,
+      );
+    } catch (error) {
+      console.error("[admin:resumeCurationJobAction]", error);
+      return {
+        error:
+          error instanceof Error ? error.message : "An unexpected error occurred",
+      };
+    }
+  });
 }
 
 export async function listCurationJobsAction(options?: {
@@ -191,97 +200,105 @@ export async function listCurationJobsAction(options?: {
     }
   | { error: string }
 > {
-  try {
-    const auth = await requireAdminAction();
-    if ("error" in auth) return auth;
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction();
+      if ("error" in auth) return auth;
 
-    return await listCurationJobs(options);
-  } catch (error) {
-    console.error("[admin:listCurationJobsAction]", error);
-    return {
-      error:
-        error instanceof Error ? error.message : "An unexpected error occurred",
-    };
-  }
+      return await listCurationJobs(options);
+    } catch (error) {
+      console.error("[admin:listCurationJobsAction]", error);
+      return {
+        error:
+          error instanceof Error ? error.message : "An unexpected error occurred",
+      };
+    }
+  });
 }
 
 export async function dispatchCurationJobAction(
   jobId: string,
 ): Promise<QueuedJobResult | { error: string }> {
-  try {
-    const auth = await requireAdminAction();
-    if ("error" in auth) return auth;
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction();
+      if ("error" in auth) return auth;
 
-    const job = await getCurationJob(jobId);
-    if (job.status !== "pending") {
-      return { error: "Only queued jobs can be dispatched" };
+      const job = await getCurationJob(jobId);
+      if (job.status !== "pending") {
+        return { error: "Only queued jobs can be dispatched" };
+      }
+
+      const result = await dispatchQueuedJob(
+        job.id,
+        "Job dispatch request accepted.",
+      );
+      revalidatePath("/admin/jobs");
+      revalidatePath(`/admin/jobs/${jobId}`);
+      return result;
+    } catch (error) {
+      console.error("[admin:dispatchCurationJobAction]", error);
+      return {
+        error:
+          error instanceof Error ? error.message : "An unexpected error occurred",
+      };
     }
-
-    const result = await dispatchQueuedJob(
-      job.id,
-      "Job dispatch request accepted.",
-    );
-    revalidatePath("/admin/jobs");
-    revalidatePath(`/admin/jobs/${jobId}`);
-    return result;
-  } catch (error) {
-    console.error("[admin:dispatchCurationJobAction]", error);
-    return {
-      error:
-        error instanceof Error ? error.message : "An unexpected error occurred",
-    };
-  }
+  });
 }
 
 export async function cancelCurationJobAction(
   jobId: string,
 ): Promise<{ cancelled: true } | { error: string }> {
-  try {
-    const auth = await requireAdminAction();
-    if ("error" in auth) return auth;
-    if (!isUuid(jobId)) return { error: "Invalid job ID" };
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction();
+      if ("error" in auth) return auth;
+      if (!isUuid(jobId)) return { error: "Invalid job ID" };
 
-    const job = await getCurationJob(jobId);
-    if (job.status !== "pending" && job.status !== "running") {
-      return { error: "Only active jobs can be cancelled" };
+      const job = await getCurationJob(jobId);
+      if (job.status !== "pending" && job.status !== "running") {
+        return { error: "Only active jobs can be cancelled" };
+      }
+
+      await cancelCurationJob(jobId, "Cancelled by admin");
+      void logAdminAction({
+        adminUserId: auth.user.id,
+        adminEmail: auth.user.email ?? auth.user.id,
+        action: "curation_job_cancelled",
+        metadata: { jobId },
+      });
+
+      revalidatePath("/admin");
+      revalidatePath("/admin/jobs");
+      revalidatePath(`/admin/jobs/${jobId}`);
+      return { cancelled: true };
+    } catch (error) {
+      console.error("[admin:cancelCurationJobAction]", error);
+      return {
+        error:
+          error instanceof Error ? error.message : "An unexpected error occurred",
+      };
     }
-
-    await cancelCurationJob(jobId, "Cancelled by admin");
-    void logAdminAction({
-      adminUserId: auth.user.id,
-      adminEmail: auth.user.email ?? auth.user.id,
-      action: "curation_job_cancelled",
-      metadata: { jobId },
-    });
-
-    revalidatePath("/admin");
-    revalidatePath("/admin/jobs");
-    revalidatePath(`/admin/jobs/${jobId}`);
-    return { cancelled: true };
-  } catch (error) {
-    console.error("[admin:cancelCurationJobAction]", error);
-    return {
-      error:
-        error instanceof Error ? error.message : "An unexpected error occurred",
-    };
-  }
+  });
 }
 
 export async function getCurationJobDetailAction(
   jobId: string,
 ): Promise<{ detail: CurationJobDetail } | { error: string }> {
-  try {
-    const auth = await requireAdminAction();
-    if ("error" in auth) return auth;
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction();
+      if ("error" in auth) return auth;
 
-    return { detail: await getCurationJobDetail(jobId) };
-  } catch (error) {
-    console.error("[admin:getCurationJobDetailAction]", error);
-    return {
-      error:
-        error instanceof Error ? error.message : "An unexpected error occurred",
-    };
-  }
+      return { detail: await getCurationJobDetail(jobId) };
+    } catch (error) {
+      console.error("[admin:getCurationJobDetailAction]", error);
+      return {
+        error:
+          error instanceof Error ? error.message : "An unexpected error occurred",
+      };
+    }
+  });
 }
 
 async function dispatchQueuedJob(

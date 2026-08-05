@@ -1,3 +1,4 @@
+import { withAuditScope } from '@/lib/audit/scope'
 import { NextRequest, NextResponse } from 'next/server'
 import { confirmSubscriber } from '@/lib/services/newsletter'
 import { createServiceClient } from '@/lib/supabase/server'
@@ -29,7 +30,7 @@ function htmlResponse(message: string, status: number) {
   )
 }
 
-export async function GET(request: NextRequest) {
+export const GET = withAuditScope(async (request: NextRequest) => {
   const url = new URL(request.url)
   const token = extractToken(url)
 
@@ -48,4 +49,4 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.redirect(buildConfirmRedirectUrl(url.origin))
-}
+})

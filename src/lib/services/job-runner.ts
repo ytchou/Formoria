@@ -40,6 +40,7 @@ import { sanitizeJobError } from "@/lib/services/job-errors";
 import { exportJobRunLog } from "@/lib/services/runlog-export";
 import { renderRunLogHtml } from "@/lib/runlog";
 import { uploadRunLogSnapshot } from "@/lib/services/runlog-storage";
+import { auditedCall } from "@/lib/audit";
 
 export { sanitizeJobError } from "@/lib/services/job-errors";
 
@@ -93,6 +94,9 @@ export async function runJob(
   job: CurationJob,
   workerToken: string,
 ): Promise<EnrichmentSummary> {
+  return auditedCall(
+    { provider: "curation", operation: "runJob", kind: "service" },
+    async () => {
   const startedAt = Date.now();
   let heartbeatInFlight = false;
   let leaseLost = false;
@@ -173,6 +177,8 @@ export async function runJob(
   } finally {
     clearInterval(heartbeat);
   }
+    },
+  );
 }
 
 async function archiveRunLog(jobId: string): Promise<void> {

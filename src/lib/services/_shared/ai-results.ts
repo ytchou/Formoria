@@ -1,14 +1,16 @@
 import { createServiceClient } from "@/lib/supabase/server";
-import type { DescriptionAttempt } from "./description-rewrite";
-import type { BrandFactsAttempt } from "./brand-facts";
+import type { Database } from "@/lib/supabase/database.types";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { DescriptionAttempt } from "../description-rewrite";
+import type { BrandFactsAttempt } from "../brand-facts";
 import {
   brandTarget,
   targetForeignKey,
   type EnrichmentTarget,
 } from "./enrichment-target";
-import { resolveOpenAIModel } from "./openai-client";
-import { evalSinkPath, writeEvalSinkRecord } from "./eval/llm-usage-sink";
-import { priceUsage, usageFromRawResponse } from "./llm-pricing";
+import { resolveOpenAIModel } from "../openai-client";
+import { evalSinkPath, writeEvalSinkRecord } from "../eval/llm-usage-sink";
+import { priceUsage, usageFromRawResponse } from "../llm-pricing";
 import { captureAlert } from "@/lib/adapters/alerting/sentry";
 import {
   classifyPostgrestError,
@@ -120,6 +122,8 @@ export type AiCallInput = {
   retryAttempt?: number;
   config?: unknown;
   latencyMs: number;
+  auditSpanId?: string;
+  supabase?: SupabaseClient<Database>;
 };
 
 export async function insertAiCallResult(input: AiCallInput): Promise<void> {
@@ -144,6 +148,8 @@ export async function insertAiCallResult(input: AiCallInput): Promise<void> {
     // zero would assert the call was free rather than unmeasured.
     const usage = usageFromRawResponse(input.rawResponse);
     const cost = usage ? await priceUsage(input.model, usage) : null;
+    // The injected client is the test seam; see the sibling pattern in search-results.ts.
+    const supabase = input.supabase ?? createServiceClient();
 
     const row = {
       ...targetForeignKey(input.target),
@@ -156,6 +162,7 @@ export async function insertAiCallResult(input: AiCallInput): Promise<void> {
       retry_attempt: input.retryAttempt ?? 0,
       config: input.config ?? null,
       latency_ms: Math.round(input.latencyMs),
+      audit_span_id: input.auditSpanId ?? null,
       prompt_tokens: cost?.promptTokens ?? null,
       cached_prompt_tokens: cost?.cachedPromptTokens ?? null,
       completion_tokens: cost?.completionTokens ?? null,
@@ -163,7 +170,7 @@ export async function insertAiCallResult(input: AiCallInput): Promise<void> {
     };
     const error = await retryAuditWrite(async () => {
       try {
-        const { error: insertError } = await createServiceClient()
+        const { error: insertError } = await supabase
           .from("brand_ai_results")
           .insert(row as never);
         return insertError

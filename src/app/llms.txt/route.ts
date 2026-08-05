@@ -1,12 +1,13 @@
 import en from "../../../messages/en.json";
 import zhTW from "../../../messages/zh-TW.json";
+import { withAuditScope } from "@/lib/audit";
 import { buildAlternates } from "@/lib/seo/alternates";
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { formatLlmsTxt } from "./llms-content";
 
 export const revalidate = 3600;
 
-export async function GET() {
+export const GET = withAuditScope(async () => {
   const canonical = (path: string) => buildAlternates(path, "zh-TW").canonical;
   const links = [
     ["Brands", "/brands"],
@@ -32,4 +33,4 @@ export async function GET() {
   return new Response(body, {
     headers: { "Content-Type": "text/plain; charset=utf-8" },
   });
-}
+});

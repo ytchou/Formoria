@@ -1,3 +1,4 @@
+import { withAuditScope } from "@/lib/audit/scope";
 import { NextResponse } from "next/server";
 import { runLinkHealthCheck } from "@/lib/services/link-health";
 
@@ -95,7 +96,7 @@ async function parseBody(req: Request): Promise<RequestBody | NextResponse> {
   return candidate as RequestBody;
 }
 
-export async function POST(req: Request) {
+export const POST = withAuditScope(async (req: Request) => {
   if (req.headers.get("x-origin-verify") !== process.env.ORIGIN_SECRET) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -122,4 +123,4 @@ export async function POST(req: Request) {
       { status: 500 },
     );
   }
-}
+});

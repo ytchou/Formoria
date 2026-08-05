@@ -9,7 +9,7 @@ import type {
 import type { SiteContent } from '@/lib/types/brand'
 import type { Database } from '@/lib/supabase/database.types'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
-import type { EnrichmentTarget } from '../enrichment-target'
+import type { EnrichmentTarget } from '../_shared/enrichment-target'
 import type { SearchCallStatus } from '../search-results'
 import type { BrandSearchEntry } from './scraper/types'
 

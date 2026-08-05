@@ -1,3 +1,4 @@
+import { withAuditScope } from '@/lib/audit'
 import { requireAdminAction } from '@/lib/auth/require-admin'
 import { getRequestOrigin } from '@/lib/auth/site-url'
 import { renderRunLogHtml } from '@/lib/runlog'
@@ -5,10 +6,10 @@ import { exportJobRunLog } from '@/lib/services/runlog-export'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET(
+export const GET = withAuditScope(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> },
-): Promise<Response> {
+): Promise<Response> => {
   const { id } = await params
   const auth = await requireAdminAction()
   if ('error' in auth) {
@@ -36,4 +37,4 @@ export async function GET(
         : {}),
     },
   })
-}
+})

@@ -1,4 +1,5 @@
 import { cleanBrandName, type NameCleanupResult } from '../brand-cleanup'
+import { auditedCall } from '@/lib/audit'
 import type { PhaseResult } from '@/lib/types/curation'
 import { buildPhaseResult, timePhase, type EnrichBrand, type EnrichPhase } from './types'
 
@@ -34,6 +35,9 @@ export async function runCleanPhase(
     }
   }
 
+  return auditedCall(
+    { provider: 'enrich', operation: 'runCleanPhase', kind: 'service' },
+    async () => {
   const { result, durationMs } = await timePhase(async () =>
     precomputed ?? cleanBrandName(brand.name ?? '')
   )
@@ -47,4 +51,6 @@ export async function runCleanPhase(
     phaseResult: buildPhaseResult('clean', 'succeeded', changedFields, durationMs, undefined, detail),
     cleanedName: result.changed ? result.cleanedName : null,
   }
+    },
+  )
 }

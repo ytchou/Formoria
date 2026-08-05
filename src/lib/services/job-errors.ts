@@ -1,4 +1,4 @@
-export function sanitizeJobError(error: unknown): string {
+export function sanitizeJobError(error: unknown, maxLength = 2_000): string {
   const message = error instanceof Error ? error.message : String(error)
   return message
     .replace(/Bearer\s+[^\s,;]+/gi, 'Bearer [REDACTED]')
@@ -11,5 +11,5 @@ export function sanitizeJobError(error: unknown): string {
       '$1[REDACTED]',
     )
     .replace(/(postgres(?:ql)?:\/\/[^:\s]+:)[^@\s]+@/gi, '$1[REDACTED]@')
-    .slice(0, 2_000)
+    .slice(0, maxLength)
 }

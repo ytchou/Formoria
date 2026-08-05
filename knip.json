@@ -14,7 +14,6 @@
   "ignoreBinaries": ["lsof"],
   "ignore": [
     "src/lib/supabase/database.types.ts",
-    "src/lib/logger.ts",
     "scripts/threads-scraper/.venv/**"
   ],
   "ignoreIssues": {

@@ -1,3 +1,4 @@
+import { withAuditScope } from '@/lib/audit/scope'
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyClaimEmailProof } from '@/lib/services/claim-requests'
 
@@ -9,7 +10,7 @@ function redirectUrl(request: NextRequest, path: string): URL {
   return new URL(path, request.url)
 }
 
-export async function GET(request: NextRequest) {
+export const GET = withAuditScope(async (request: NextRequest) => {
   const { searchParams } = request.nextUrl
   const claimRequestId = searchParams.get('cr') ?? ''
   const proofIndex = Number(searchParams.get('i'))
@@ -36,4 +37,4 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.redirect(redirectUrl(request, '/'))
-}
+})

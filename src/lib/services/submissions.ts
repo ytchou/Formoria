@@ -6,6 +6,7 @@ import type {
   SubmissionStatus,
   SourceAttribution,
 } from "@/lib/types";
+import { auditedCall } from "@/lib/audit";
 import type {
   DuplicateCandidate,
   DuplicateCheckResult,
@@ -31,7 +32,7 @@ import {
   isValidSlug,
 } from "@/lib/services/brands";
 import { cleanBrandName } from "@/lib/services/brand-cleanup";
-import { toBrandRow, toSubmissionRow } from "./field-map";
+import { toBrandRow, toSubmissionRow } from "./_shared/field-map";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { deleteStoredImagePaths } from "./image-upload";
 import { slugifyRomanizedName } from "@/lib/brands/slug";
@@ -1231,6 +1232,9 @@ export async function createSubmission(
     },
   options?: { useServiceRole?: boolean },
 ): Promise<BrandSubmissionWithProductTypeNote> {
+  return auditedCall(
+    { provider: "submissions", operation: "createSubmission", kind: "service" },
+    async () => {
   const supabase = options?.useServiceRole
     ? createServiceClient()
     : await createClient();
@@ -1243,6 +1247,8 @@ export async function createSubmission(
 
   if (error) throw error;
   return submissionToDomain(inserted);
+    },
+  );
 }
 
 export type ApprovedOwnerSubmissionRecipient = {
@@ -1758,6 +1764,9 @@ export type DropNeedsDataSubmissionsResult = {
 export async function dropNeedsDataSubmissions(
   submissionIds: string[],
 ): Promise<DropNeedsDataSubmissionsResult> {
+  return auditedCall(
+    { provider: "submissions", operation: "dropNeedsDataSubmissions", kind: "service" },
+    async () => {
   const supabase = createServiceClient();
   const { data, error } = await supabase.rpc("drop_needs_data_submissions", {
     p_submission_ids: submissionIds,
@@ -1779,6 +1788,8 @@ export async function dropNeedsDataSubmissions(
   }
 
   return { deletedCount: submissionIds.length, cleanupFailed };
+    },
+  );
 }
 
 /**
@@ -1788,6 +1799,9 @@ export async function dropNeedsDataSubmissions(
  * so unwinding one is not a status flip.
  */
 export async function reopenSubmission(id: string): Promise<BrandSubmission> {
+  return auditedCall(
+    { provider: "submissions", operation: "reopenSubmission", kind: "service" },
+    async () => {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("brand_submissions")
@@ -1809,12 +1823,17 @@ export async function reopenSubmission(id: string): Promise<BrandSubmission> {
   }
 
   return submissionToDomain(data);
+    },
+  );
 }
 
 export async function requestBrandRefresh(
   brandId: string,
   requester: { id: string; email: string },
 ): Promise<{ submissionId: string }> {
+  return auditedCall(
+    { provider: "submissions", operation: "requestBrandRefresh", kind: "service" },
+    async () => {
   const supabase = createServiceClient();
   const { data, error } = await supabase.rpc("request_brand_refresh", {
     p_brand_id: brandId,
@@ -1824,6 +1843,8 @@ export async function requestBrandRefresh(
   if (error) throw error;
   if (!data) throw new Error("Refresh request returned no submission ID");
   return { submissionId: data };
+    },
+  );
 }
 
 export type BrandRefreshRequestOutcome = {
@@ -1838,6 +1859,9 @@ export async function requestBrandRefreshesBySlugs(
   requesterEmail: string,
   options?: { dryRun?: boolean },
 ): Promise<BrandRefreshRequestOutcome[]> {
+  return auditedCall(
+    { provider: "submissions", operation: "requestBrandRefreshesBySlugs", kind: "service" },
+    async () => {
   const normalizedSlugs = [
     ...new Set(slugs.map((slug) => slug.trim()).filter(Boolean)),
   ];
@@ -1912,12 +1936,17 @@ export async function requestBrandRefreshesBySlugs(
       };
     }),
   );
+    },
+  );
 }
 
 export async function applyBrandRefresh(
   submissionId: string,
   reviewerId: string,
 ): Promise<{ brandId: string; cleanupFailed: boolean }> {
+  return auditedCall(
+    { provider: "submissions", operation: "applyBrandRefresh", kind: "service" },
+    async () => {
   const supabase = createServiceClient();
   const { data: submission, error: submissionError } = await supabase
     .from("brand_submissions")
@@ -1967,6 +1996,8 @@ export async function applyBrandRefresh(
   }
 
   return { brandId: submission.brand_id, cleanupFailed };
+    },
+  );
 }
 
 export type SaveSubmissionReviewInput = SubmissionReviewData & {
@@ -1977,6 +2008,9 @@ export async function saveSubmissionReview(
   id: string,
   input: SaveSubmissionReviewInput,
 ): Promise<void> {
+  return auditedCall(
+    { provider: "submissions", operation: "saveSubmissionReview", kind: "service" },
+    async () => {
   const supabase = createServiceClient();
   const { data: row, error: submissionError } = await supabase
     .from("brand_submissions")
@@ -2013,6 +2047,8 @@ export async function saveSubmissionReview(
   });
 
   if (error) throw error;
+    },
+  );
 }
 
 export type StageSubmissionReviewImageInput = {
@@ -2026,6 +2062,9 @@ export type StageSubmissionReviewImageInput = {
 export async function stageSubmissionReviewImage(
   input: StageSubmissionReviewImageInput,
 ): Promise<SubmissionReviewImage> {
+  return auditedCall(
+    { provider: "submissions", operation: "stageSubmissionReviewImage", kind: "service" },
+    async () => {
   const supabase = createServiceClient();
   const { data: submission, error: submissionError } = await supabase
     .from("brand_submissions")
@@ -2057,6 +2096,8 @@ export async function stageSubmissionReviewImage(
     .single();
   if (error) throw error;
   return submissionImageToReviewImage(data);
+    },
+  );
 }
 
 export async function cleanupSubmissionDraftImages(
@@ -2065,6 +2106,9 @@ export async function cleanupSubmissionDraftImages(
 ): Promise<void> {
   if (imageIds.length === 0) return;
 
+  return auditedCall(
+    { provider: "submissions", operation: "cleanupSubmissionDraftImages", kind: "service" },
+    async () => {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("submission_images")
@@ -2093,6 +2137,8 @@ export async function cleanupSubmissionDraftImages(
       );
     if (deleteError) throw deleteError;
   }
+    },
+  );
 }
 
 export async function approveSubmission(
@@ -2109,6 +2155,9 @@ export async function approveSubmission(
   second: string,
   third?: string,
 ): Promise<ApproveSubmissionResult> {
+  return auditedCall(
+    { provider: "submissions", operation: "approveSubmission", kind: "service" },
+    async () => {
   const supabase = typeof first === "string" ? createServiceClient() : first;
   const id = typeof first === "string" ? first : second;
   const reviewerId = typeof first === "string" ? second : (third as string);
@@ -2243,6 +2292,8 @@ export async function approveSubmission(
     submitterName: approval.submitter_name ?? null,
     isBrandOwner: approval.is_brand_owner ?? false,
   };
+    },
+  );
 }
 
 function isCurationTargetStatus(
@@ -2270,6 +2321,9 @@ export async function rejectSubmission(
   denialReason: DenialReason,
   notes?: string,
 ): Promise<BrandSubmission> {
+  return auditedCall(
+    { provider: "submissions", operation: "rejectSubmission", kind: "service" },
+    async () => {
   const supabase = createServiceClient();
 
   const { data: storagePaths, error: rejectionError } = await supabase.rpc(
@@ -2302,6 +2356,8 @@ export async function rejectSubmission(
   }
 
   return submissionToDomain(data);
+    },
+  );
 }
 
 export async function checkBrandDuplicates(

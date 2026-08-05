@@ -1,6 +1,5 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
-import { withAxiom } from 'next-axiom'
 import createNextIntlPlugin from 'next-intl/plugin'
 import { ALLOWED_IMAGE_HOSTS } from './src/lib/images/allowed-image-hosts'
 
@@ -68,7 +67,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'",
               `img-src 'self' data: blob: ${imgSrcHosts} ${mapTileImgSrcHosts} ${googleAdsImgSrcHosts}`,
               "font-src 'self'",
-              `connect-src 'self' ${supabaseOrigin} https://e.formoria.com https://*.supabase.co wss://*.supabase.co https://*.sentry.io https://www.google-analytics.com https://analytics.google.com https://www.google.com https://stats.g.doubleclick.net https://challenges.cloudflare.com https://cloudflareinsights.com https://api.axiom.co`,
+              `connect-src 'self' ${supabaseOrigin} https://e.formoria.com https://*.supabase.co wss://*.supabase.co https://*.sentry.io https://www.google-analytics.com https://analytics.google.com https://www.google.com https://stats.g.doubleclick.net https://challenges.cloudflare.com https://cloudflareinsights.com`,
               "worker-src 'self' blob:",
               "frame-src https://challenges.cloudflare.com",
               "frame-ancestors 'none'",
@@ -232,7 +231,7 @@ const nextConfig: NextConfig = {
 
 const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts')
 
-export default withAxiom(withSentryConfig(withNextIntl(nextConfig), {
+export default withSentryConfig(withNextIntl(nextConfig), {
   // For all available options, see:
   // https://www.npmjs.com/package/@sentry/webpack-plugin#options
 
@@ -268,4 +267,4 @@ export default withAxiom(withSentryConfig(withNextIntl(nextConfig), {
       removeDebugLogging: true,
     },
   },
-}));
+});

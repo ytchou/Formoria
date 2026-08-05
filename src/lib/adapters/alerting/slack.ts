@@ -1,3 +1,4 @@
+import { auditedCall } from "@/lib/audit";
 import {
   boundedSlackText,
   renderAgentNotification,
@@ -33,17 +34,28 @@ export async function postSlackAlert(
   }
 
   const text = boundedSlackText(renderAgentNotification(notification));
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ text }),
-  });
+  return auditedCall(
+    { provider: "slack", operation: "post_slack_alert", kind: "external" },
+    async () => {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
 
-  if (!response.ok) {
-    throw new Error(`Slack webhook responded with HTTP ${response.status}`);
-  }
+      if (!response.ok) {
+        throw new Error(`Slack webhook responded with HTTP ${response.status}`);
+      }
 
-  return true;
+      return true;
+    },
+    {
+      summary: {
+        messageLength: text.length,
+        messageKind: notification.status,
+      },
+    },
+  );
 }
 
 /** Test seam: forget the one-shot missing-webhook warning. */

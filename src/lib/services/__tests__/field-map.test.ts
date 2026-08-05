@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { toBrandRow } from '../field-map'
+import { toBrandRow } from '../_shared/field-map'
 
 describe('toBrandRow product_tags_en derivation', () => {
   it('derives product_tags_en when mapping productTags', () => {

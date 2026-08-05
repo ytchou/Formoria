@@ -1,8 +1,9 @@
 import { downloadAndStoreImages } from '../image-download'
+import { auditedCall } from '@/lib/audit'
 import { buildImageEnrichPatch, hasLinkValue } from '../link-enrichment'
 import type { PhaseResult } from '@/lib/types/curation'
 import type { CandidateImage } from './candidate-pool'
-import { brandTarget, type EnrichmentTarget } from '../enrichment-target'
+import { brandTarget, type EnrichmentTarget } from '../_shared/enrichment-target'
 import { buildPhaseResult, timePhase, type EnrichBrand, type EnrichPhase } from './types'
 
 type BrandImagePhaseOptions = {
@@ -61,7 +62,6 @@ export async function runBrandImagePhase({
   }
 
   const imageCandidates = candidateImages ?? imageSearchUrls
-
   if (imageCandidates.length === 0) {
     return {
       phaseResult: buildPhaseResult('images', 'skipped', [], 0, undefined, 'no image URLs available'),
@@ -69,6 +69,9 @@ export async function runBrandImagePhase({
     }
   }
 
+  return auditedCall(
+    { provider: 'enrich', operation: 'runBrandImagePhase', kind: 'service' },
+    async () => {
   let downloadFailure: string | null = null
 
   const { result, durationMs } = await timePhase(async () => {
@@ -126,4 +129,10 @@ export async function runBrandImagePhase({
     phaseResult: buildPhaseResult('images', 'succeeded', changedFields, durationMs),
     patch: result,
   }
+    },
+    {
+      classify: (result) =>
+        result.phaseResult.status === 'failed' ? 'failed' : 'succeeded',
+    },
+  )
 }

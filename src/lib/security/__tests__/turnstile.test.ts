@@ -1,20 +1,27 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { resetAuditEmitterForTests, setAuditWriteSeam, type AuditRecord } from '@/lib/audit'
 import { verifyTurnstileToken } from '../turnstile'
 
 describe('verifyTurnstileToken', () => {
   const originalEnv = process.env.TURNSTILE_SECRET_KEY
   const originalNodeEnv = process.env.NODE_ENV
+  let writes: AuditRecord[]
 
   beforeEach(() => {
     process.env.TURNSTILE_SECRET_KEY = 'test-secret-key'
     vi.stubEnv('NODE_ENV', 'test')
     vi.stubEnv('PLAYWRIGHT_TEST', 'false')
-    vi.spyOn(console, 'info').mockImplementation(() => undefined)
+    writes = []
+    setAuditWriteSeam(async (record) => {
+      writes.push(record)
+      return null
+    })
   })
 
   afterEach(() => {
     process.env.TURNSTILE_SECRET_KEY = originalEnv
     vi.stubEnv('NODE_ENV', originalNodeEnv)
+    resetAuditEmitterForTests()
     vi.restoreAllMocks()
     vi.unstubAllEnvs()
   })
@@ -140,8 +147,7 @@ describe('verifyTurnstileToken', () => {
     expect(body.get('remoteip')).toBe('1.2.3.4')
   })
 
-  it('audits the redacted request, provider response, latency, and status', async () => {
-    const auditSpy = vi.mocked(console.info)
+  it('turnstile span never records the token', async () => {
     vi.spyOn(global, 'fetch').mockResolvedValueOnce(
       new Response(
         JSON.stringify({ success: false, 'error-codes': ['invalid-input-response'] }),
@@ -151,25 +157,12 @@ describe('verifyTurnstileToken', () => {
 
     await verifyTurnstileToken('sensitive-token', '1.2.3.4', 'formoria.com')
 
-    expect(auditSpy).toHaveBeenCalledWith(
-      '[turnstile:audit]',
-      expect.objectContaining({
-        request: {
-          tokenLength: 15,
-          remoteIpProvided: true,
-          requestHost: 'formoria.com',
-        },
-        response: {
-          httpStatus: 200,
-          success: false,
-          errorCodes: ['invalid-input-response'],
-        },
-        latencyMs: expect.any(Number),
-        status: 'rejected',
-      }),
-    )
-    expect(JSON.stringify(auditSpy.mock.calls)).not.toContain('sensitive-token')
-    expect(JSON.stringify(auditSpy.mock.calls)).not.toContain('test-secret-key')
-    expect(JSON.stringify(auditSpy.mock.calls)).not.toContain('1.2.3.4')
+    const auditJson = JSON.stringify(writes)
+    expect(auditJson).toContain('"tokenLength":15')
+    expect(auditJson).toContain('"httpStatus":200')
+    expect(auditJson).toContain('"status":"rejected"')
+    expect(auditJson).not.toContain('sensitive-token')
+    expect(auditJson).not.toContain('test-secret-key')
+    expect(auditJson).not.toContain('1.2.3.4')
   })
 })

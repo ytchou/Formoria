@@ -42,11 +42,6 @@ let priceCache: PriceRow[] | null = null;
 let priceCacheLoadedAt = 0;
 const PRICE_TTL_MS = 15 * 60 * 1000;
 
-export function resetPriceCacheForTests(): void {
-  priceCache = null;
-  priceCacheLoadedAt = 0;
-}
-
 async function loadPrices(): Promise<PriceRow[]> {
   const fresh =
     priceCache !== null && Date.now() - priceCacheLoadedAt < PRICE_TTL_MS;

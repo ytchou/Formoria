@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server'
+import { auditedCall } from '@/lib/audit'
 
 export type MitDeclarationScope = 'all' | 'most' | 'some'
 
@@ -79,6 +80,9 @@ export async function declareMit(
   scope: MitDeclarationScope,
   ctx: MitDeclarationContext,
 ): Promise<MitDeclarationResult> {
+  return auditedCall(
+    { provider: 'brands', operation: 'declareMit', kind: 'service' },
+    async () => {
   const client = getClient(ctx)
   const { data, error } = await client
     .from('brands')
@@ -108,17 +112,25 @@ export async function declareMit(
     return { ok: false, code: 'already_verified' }
   }
   return { ok: false, code: 'invalid_state' }
+    },
+  )
 }
 
 export async function withdrawDeclaration(
   brandId: string,
   ctx: MitDeclarationContext,
 ): Promise<MitDeclarationResult> {
-  return resetDeclaration(brandId, getClient(ctx))
+  return auditedCall(
+    { provider: 'brands', operation: 'withdrawDeclaration', kind: 'service' },
+    () => resetDeclaration(brandId, getClient(ctx)),
+  )
 }
 
 export async function stripDeclaration(
   brandId: string,
 ): Promise<MitDeclarationResult> {
-  return resetDeclaration(brandId, getClient())
+  return auditedCall(
+    { provider: 'brands', operation: 'stripDeclaration', kind: 'service' },
+    () => resetDeclaration(brandId, getClient()),
+  )
 }

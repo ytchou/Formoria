@@ -1,4 +1,5 @@
 import { cache } from 'react'
+import { auditedCall } from '@/lib/audit'
 import type { Database } from '@/lib/supabase/database.types'
 import { createServiceClient } from '@/lib/supabase/server'
 
@@ -113,20 +114,26 @@ export async function revokeOwnership(
   revokedBy: string,
   reason: string
 ): Promise<{ userId: string; email: string }> {
-  const supabase = createServiceClient()
-  const { data, error } = await supabase.rpc('revoke_brand_ownership', {
-    p_brand_id: brandId,
-    p_revoked_by: revokedBy,
-    p_reason: reason,
-  })
+  return auditedCall(
+    { provider: 'claims', operation: 'revokeOwnership', kind: 'service' },
+    async () => {
+      const supabase = createServiceClient()
+      const { data, error } = await supabase.rpc('revoke_brand_ownership', {
+        p_brand_id: brandId,
+        p_revoked_by: revokedBy,
+        p_reason: reason,
+      })
 
-  if (error) throw error
+      if (error) throw error
 
-  const [row] = data ?? []
-  if (!row) throw new Error('Ownership revocation returned no owner')
+      const [row] = data ?? []
+      if (!row) throw new Error('Ownership revocation returned no owner')
 
-  return {
-    userId: row.revoked_user_id,
-    email: row.revoked_user_email,
-  }
+      return {
+        userId: row.revoked_user_id,
+        email: row.revoked_user_email,
+      }
+    },
+    { subjectId: brandId },
+  )
 }

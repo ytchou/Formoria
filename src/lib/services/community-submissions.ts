@@ -2,8 +2,10 @@ import type {
   SubmitBrandForReviewParams,
   SubmitBrandForReviewResult,
 } from "@/lib/services/submission-pipeline";
+import { auditedCall } from "@/lib/audit";
 
-export const MAX_COMMUNITY_SUBMISSIONS = 500;
+export { MAX_COMMUNITY_SUBMISSIONS } from "./community-submissions.constants";
+import { MAX_COMMUNITY_SUBMISSIONS } from "./community-submissions.constants";
 const EXECUTION_CONCURRENCY = 5;
 
 export type CommunitySubmissionDraft = {
@@ -295,6 +297,9 @@ export async function executeCommunitySubmissions(
   drafts: CommunitySubmissionDraft[],
   dependencies: CommunitySubmissionDependencies,
 ): Promise<CommunitySubmissionResult[]> {
+  return auditedCall(
+    { provider: "submissions", operation: "executeCommunitySubmissions", kind: "service" },
+    async () => {
   const preview = await previewCommunitySubmissions(drafts, dependencies);
   const results: Array<CommunitySubmissionResult | undefined> = preview.map(
     (row) => {
@@ -359,6 +364,8 @@ export async function executeCommunitySubmissions(
         status: "failed",
         message: "Submission did not complete",
       },
+  );
+    },
   );
 }
 

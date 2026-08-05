@@ -5,7 +5,11 @@ import {
   type ServerResponse,
 } from "node:http";
 import { config } from "dotenv";
-import type { CurationJob } from "@/lib/services/curation-jobs";
+import {
+  drainJobQueue,
+  runInCronScope,
+  startStaleJobMaintenance,
+} from "./curation-worker-loop";
 
 config({ path: ".env.local", quiet: true });
 
@@ -84,27 +88,19 @@ server.listen(port, "0.0.0.0", () => {
     }`,
   );
   console.log(`[curation-worker] listening on port ${port}`);
-  startStaleJobMaintenance();
+  startStaleJobMaintenance({
+    recoverStaleJobs,
+    onError: (error) => {
+      console.error(
+        "[curation-worker:stale-maintenance]",
+        sanitizeJobError(error),
+      );
+    },
+  });
   if (CRON_SCHEDULE) {
     startCronScheduler(CRON_SCHEDULE);
   }
 });
-
-function startStaleJobMaintenance(): void {
-  let inFlight = false;
-  const interval = setInterval(() => {
-    if (inFlight) return;
-    inFlight = true;
-    void recoverStaleJobs()
-      .catch((error) => {
-        console.error("[curation-worker:stale-maintenance]", sanitizeJobError(error));
-      })
-      .finally(() => {
-        inFlight = false;
-      });
-  }, 60_000);
-  interval.unref();
-}
 
 // ---------------------------------------------------------------------------
 // Cron scheduler — runs runScheduledCuration() at the configured times
@@ -150,7 +146,7 @@ function parseCronHours(schedule: string): number[] {
 async function runCron(): Promise<void> {
   console.log("[curation-cron] starting scheduled run");
   try {
-    const result = await runScheduledCuration();
+    const result = await runInCronScope(() => runScheduledCuration());
     const scheduled = result.scheduledJob
       ? `queued ${result.scheduledJob.id} for ${result.scheduledJob.scheduled_for}; `
       : "";
@@ -240,32 +236,17 @@ async function handleRequest(
     status: claimed.id === jobId ? "started" : "queued",
   });
 
-  void runQueuedJobs(claimed, workerToken).catch(async (error) => {
+  void drainJobQueue({
+    initialJob: claimed,
+    workerToken,
+    runJob,
+    claimNextJob: claimNextCurationJob,
+    onJobClaimed: (job) => activeJobs.add(job.id),
+    onJobSettled: (job) => activeJobs.delete(job.id),
+  }).catch(async (error) => {
     console.error("[curation-worker:run]", sanitizeJobError(error));
     await reportWorkerFailure("runQueuedJobs", error);
   });
-}
-
-async function runQueuedJobs(
-  job: CurationJob,
-  workerToken: string,
-): Promise<void> {
-  let currentJob: CurationJob | null = job;
-  let currentToken = workerToken;
-
-  while (currentJob) {
-    try {
-      await runJob(currentJob, currentToken);
-    } finally {
-      activeJobs.delete(currentJob.id);
-    }
-
-    currentToken = randomUUID();
-    currentJob = await claimNextCurationJob(currentToken);
-    if (currentJob) {
-      activeJobs.add(currentJob.id);
-    }
-  }
 }
 
 // ---------------------------------------------------------------------------

@@ -1,5 +1,6 @@
 import type { Database } from "@/lib/supabase/database.types";
 import { createServiceClient } from "@/lib/supabase/server";
+import { auditedCall } from "@/lib/audit";
 
 type FeatureRequestRow =
   Database["public"]["Tables"]["feature_requests"]["Row"];
@@ -109,10 +110,18 @@ const MAX_BOARD_REQUESTS = 200;
  * stays nullable because legacy rows were submitted before the body became
  * required, so the minimum is enforced app-side only.
  */
-export const FEATURE_REQUEST_TITLE_MIN = 4;
-export const FEATURE_REQUEST_TITLE_MAX = 80;
-export const FEATURE_REQUEST_BODY_MIN = 10;
-export const FEATURE_REQUEST_BODY_MAX = 2000;
+export {
+  FEATURE_REQUEST_TITLE_MIN,
+  FEATURE_REQUEST_TITLE_MAX,
+  FEATURE_REQUEST_BODY_MIN,
+  FEATURE_REQUEST_BODY_MAX,
+} from "./feature-requests.constants";
+import {
+  FEATURE_REQUEST_TITLE_MIN,
+  FEATURE_REQUEST_TITLE_MAX,
+  FEATURE_REQUEST_BODY_MIN,
+  FEATURE_REQUEST_BODY_MAX,
+} from "./feature-requests.constants";
 
 /**
  * `.in()` serialises every id into the GET query string, so an unbounded id
@@ -404,6 +413,9 @@ export function submitErrorCode(
 export async function submitFeatureRequest(
   input: SubmitFeatureRequestInput,
 ): Promise<SubmitFeatureRequestResult> {
+  return auditedCall(
+    { provider: "brands", operation: "submitFeatureRequest", kind: "service" },
+    async () => {
   const title = input.title.trim();
   const body = input.body.trim();
 
@@ -447,6 +459,8 @@ export async function submitFeatureRequest(
   } catch {
     return { ok: false, code: "database_error" };
   }
+    },
+  );
 }
 
 async function countVotes(
@@ -467,6 +481,9 @@ export async function setFeatureRequestVote(
   voter: FeatureRequestVoter,
   voted: boolean,
 ): Promise<SetFeatureRequestVoteResult> {
+  return auditedCall(
+    { provider: "brands", operation: "setFeatureRequestVote", kind: "service" },
+    async () => {
   try {
     const supabase = createServiceClient();
     const { data: request, error: readError } = await supabase
@@ -517,6 +534,8 @@ export async function setFeatureRequestVote(
   } catch {
     return { ok: false, code: "database_error" };
   }
+    },
+  );
 }
 
 export async function setFeatureRequestStatus(
@@ -524,6 +543,9 @@ export async function setFeatureRequestStatus(
   status: FeatureRequestStatus,
   adminNote?: string | null,
 ): Promise<SetFeatureRequestStatusResult> {
+  return auditedCall(
+    { provider: "brands", operation: "setFeatureRequestStatus", kind: "service" },
+    async () => {
   if (!isFeatureRequestStatus(status)) {
     return { ok: false, code: "invalid_status" };
   }
@@ -547,6 +569,8 @@ export async function setFeatureRequestStatus(
   } catch {
     return { ok: false, code: "database_error" };
   }
+    },
+  );
 }
 
 type VoteIdentityRow = Pick<FeatureRequestVoteRow, "user_id" | "visitor_hash">;
@@ -596,6 +620,9 @@ export async function mergeFeatureRequests(
   sourceId: string,
   targetId: string,
 ): Promise<MergeFeatureRequestsResult> {
+  return auditedCall(
+    { provider: "brands", operation: "mergeFeatureRequests", kind: "service" },
+    async () => {
   if (sourceId === targetId) return { ok: false, code: "invalid_target" };
 
   try {
@@ -678,4 +705,6 @@ export async function mergeFeatureRequests(
   } catch {
     return { ok: false, code: "database_error" };
   }
+    },
+  );
 }

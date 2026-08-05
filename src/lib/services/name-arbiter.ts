@@ -1,4 +1,5 @@
 import { NAME_ARBITER_SYSTEM_PROMPT } from "@/lib/prompts";
+import { auditedCall } from "@/lib/audit";
 import {
   LLM_BATCH_CHUNK_SIZE,
   resolveProfileModel,
@@ -15,8 +16,8 @@ import {
   isLlmProviderFailure,
   noLlmCalls,
   type LlmCallCounts,
-} from "./llm-call-outcome";
-import type { EnrichmentTarget } from "./enrichment-target";
+} from "./_shared/llm-call-outcome";
+import type { EnrichmentTarget } from "./_shared/enrichment-target";
 import type { LlmBatchOutcome } from "./product-type-classifier";
 
 export type NameCandidateSource = "stored" | "cleaned" | "detected" | "scraped";
@@ -338,6 +339,9 @@ export async function arbitrateBrandNames(
   items: NameArbiterItem[],
   jobId?: string,
 ): Promise<LlmBatchOutcome<Map<string, NameVerdict>>> {
+  return auditedCall(
+    { provider: "enrich", operation: "arbitrateBrandNames", kind: "service" },
+    async () => {
   const results = new Map<string, NameVerdict>();
   let calls = noLlmCalls();
 
@@ -371,4 +375,6 @@ export async function arbitrateBrandNames(
   }
 
   return { results, calls };
+    },
+  );
 }

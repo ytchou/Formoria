@@ -1,4 +1,5 @@
 import { CLASSIFY_SYSTEM_PROMPT, DETECT_SYSTEM_PROMPT } from "@/lib/prompts";
+import { auditedCall } from "@/lib/audit";
 import { createOpenAIClient } from "@/lib/services/openai-client";
 import {
   createProfiledOpenAIClient,
@@ -15,8 +16,8 @@ import {
   isLlmProviderFailure,
   noLlmCalls,
   type LlmCallCounts,
-} from "./llm-call-outcome";
-import type { EnrichmentTarget } from "./enrichment-target";
+} from "./_shared/llm-call-outcome";
+import type { EnrichmentTarget } from "./_shared/enrichment-target";
 
 export type ClassificationResult = {
   productType: string;
@@ -540,6 +541,9 @@ export async function classifyProductTypeBatch(
   brands: BatchClassificationItem[],
   jobId?: string,
 ): Promise<LlmBatchOutcome<Map<string, ClassificationResult>>> {
+  return auditedCall(
+    { provider: "enrich", operation: "classifyProductTypeBatch", kind: "service" },
+    async () => {
   const results = new Map<string, ClassificationResult>();
   let calls = noLlmCalls();
 
@@ -574,6 +578,8 @@ export async function classifyProductTypeBatch(
   }
 
   return { results, calls };
+    },
+  );
 }
 
 async function detectBrand(
@@ -700,6 +706,9 @@ export async function detectBrandsBatch(
   brands: DetectBatchItem[],
   jobId?: string,
 ): Promise<LlmBatchOutcome<Map<string, DetectResult>>> {
+  return auditedCall(
+    { provider: "enrich", operation: "detectBrandsBatch", kind: "service" },
+    async () => {
   const results = new Map<string, DetectResult>();
   let calls = noLlmCalls();
 
@@ -732,4 +741,6 @@ export async function detectBrandsBatch(
   }
 
   return { results, calls };
+    },
+  );
 }

@@ -1,5 +1,6 @@
 import { captureAlert } from "@/lib/adapters/alerting/sentry";
 import { postSlackAlert } from "@/lib/adapters/alerting/slack";
+import { auditedCall } from "@/lib/audit";
 import type { AgentNotification } from "@/lib/adapters/slack/notification";
 import type { EnrichmentSummary } from "@/lib/services/enrichment-logger";
 
@@ -80,37 +81,40 @@ export async function reportProviderFailures(
   job: AlertJob,
   summary: EnrichmentSummary,
 ): Promise<void> {
-  if (!hasProviderFailures(summary)) {
-    return;
-  }
+  if (!hasProviderFailures(summary)) return;
 
-  const providerFailed = summary.providerFailed ?? 0;
-  const message = `Curation job ${job.id}: ${providerFailed} target(s) failed because a search/LLM provider was unavailable`;
-  const samples = summary.failedBrands
-    .slice(0, 5)
-    .map(({ slug, phase, error }) => `• ${slug} (${phase}): ${error}`);
+  return auditedCall(
+    { provider: "curation", operation: "reportProviderFailures", kind: "service" },
+    async () => {
+      const providerFailed = summary.providerFailed ?? 0;
+      const message = `Curation job ${job.id}: ${providerFailed} target(s) failed because a search/LLM provider was unavailable`;
+      const samples = summary.failedBrands
+        .slice(0, 5)
+        .map(({ slug, phase, error }) => `• ${slug} (${phase}): ${error}`);
 
-  await dispatchAlert(
-    {
-      agent: ALERT_AGENT,
-      status: "failed",
-      summary: [
-        `• ${providerFailed} provider failure(s) across ${summary.failed} failed target(s)`,
-        `• ${summary.success} succeeded · ${summary.skipped} skipped`,
-      ],
-      details: [...jobDetails(job), ...samples],
-      managerAction:
-        "Check the search provider (Serper) status and API quota before rerunning",
-    },
-    {
-      message,
-      context: {
-        jobId: job.id,
-        providerFailed,
-        failed: summary.failed,
-        succeeded: summary.success,
-        skipped: summary.skipped,
-      },
+      await dispatchAlert(
+        {
+          agent: ALERT_AGENT,
+          status: "failed",
+          summary: [
+            `• ${providerFailed} provider failure(s) across ${summary.failed} failed target(s)`,
+            `• ${summary.success} succeeded · ${summary.skipped} skipped`,
+          ],
+          details: [...jobDetails(job), ...samples],
+          managerAction:
+            "Check the search provider (Serper) status and API quota before rerunning",
+        },
+        {
+          message,
+          context: {
+            jobId: job.id,
+            providerFailed,
+            failed: summary.failed,
+            succeeded: summary.success,
+            skipped: summary.skipped,
+          },
+        },
+      );
     },
   );
 }
@@ -123,20 +127,25 @@ export async function reportJobFailure(
   job: AlertJob,
   error: unknown,
 ): Promise<void> {
-  const message = `Curation job ${job.id} failed: ${errorText(error)}`;
+  return auditedCall(
+    { provider: "curation", operation: "reportJobFailure", kind: "service" },
+    async () => {
+      const message = `Curation job ${job.id} failed: ${errorText(error)}`;
 
-  await dispatchAlert(
-    {
-      agent: ALERT_AGENT,
-      status: "failed",
-      summary: [`• ${errorText(error)}`],
-      details: jobDetails(job),
-      managerAction: "Inspect the worker logs and rerun the job once fixed",
-    },
-    {
-      message,
-      context: { jobId: job.id },
-      error,
+      await dispatchAlert(
+        {
+          agent: ALERT_AGENT,
+          status: "failed",
+          summary: [`• ${errorText(error)}`],
+          details: jobDetails(job),
+          managerAction: "Inspect the worker logs and rerun the job once fixed",
+        },
+        {
+          message,
+          context: { jobId: job.id },
+          error,
+        },
+      );
     },
   );
 }
@@ -149,20 +158,25 @@ export async function reportWorkerFailure(
   context: string,
   error: unknown,
 ): Promise<void> {
-  const message = `Curation worker failure (${context}): ${errorText(error)}`;
+  return auditedCall(
+    { provider: "curation", operation: "reportWorkerFailure", kind: "service" },
+    async () => {
+      const message = `Curation worker failure (${context}): ${errorText(error)}`;
 
-  await dispatchAlert(
-    {
-      agent: ALERT_AGENT,
-      status: "failed",
-      summary: [`• ${errorText(error)}`],
-      details: [`• Source: ${context}`],
-      managerAction: "Inspect the curation worker container logs",
-    },
-    {
-      message,
-      context: { source: context },
-      error,
+      await dispatchAlert(
+        {
+          agent: ALERT_AGENT,
+          status: "failed",
+          summary: [`• ${errorText(error)}`],
+          details: [`• Source: ${context}`],
+          managerAction: "Inspect the curation worker container logs",
+        },
+        {
+          message,
+          context: { source: context },
+          error,
+        },
+      );
     },
   );
 }

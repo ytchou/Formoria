@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createOpenAIClient,
@@ -123,6 +125,67 @@ describe("createOpenAIClient", () => {
     await expect(
       client.chat({ system: "system prompt", user: "user prompt" }),
     ).resolves.toBeDefined();
+  });
+
+  it("onChatComplete still fires on success and on failure", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(okResponse("success"))
+      .mockResolvedValue(new Response(null, { status: 500 }));
+    const events: ChatAuditEvent[] = [];
+    const client = createOpenAIClient({
+      apiKey: "k",
+      onChatComplete: (event) => {
+        events.push(event);
+      },
+    });
+
+    await client.chat({ system: "s", user: "u" });
+    await withFakeTimers(() => client.chat({ system: "s", user: "u" }));
+
+    expect(fetchSpy).toHaveBeenCalledTimes(4);
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ ok: true }),
+        expect.objectContaining({ ok: false }),
+      ]),
+    );
+  });
+
+  it("hook errors never fail the LLM call", async () => {
+    const errorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(okResponse());
+    const client = createOpenAIClient({
+      apiKey: "k",
+      onChatComplete: () => {
+        throw new Error("audit unavailable");
+      },
+    });
+
+    const result = await client.chat({ system: "s", user: "u" });
+
+    expect(result.ok).toBe(true);
+    expect(errorSpy).toHaveBeenCalled();
+  });
+
+  it("ChatAuditEvent is imported from the audit module", () => {
+    const openAiSource = readFileSync(
+      resolve(process.cwd(), "src/lib/services/openai-client.ts"),
+      "utf8",
+    );
+    const deepSeekSource = readFileSync(
+      resolve(process.cwd(), "src/lib/services/deepseek-client.ts"),
+      "utf8",
+    );
+    const localDeclaration = `type ChatAudit${"Event"} = {`;
+
+    expect(openAiSource).not.toContain(localDeclaration);
+    expect(deepSeekSource).not.toContain(localDeclaration);
+    expect(openAiSource).toContain('from "@/lib/audit"');
+    expect(deepSeekSource).toContain('from "@/lib/audit"');
   });
 
   describe("request body", () => {

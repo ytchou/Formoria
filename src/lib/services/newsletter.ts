@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { auditedCall } from '@/lib/audit'
 import type { Database } from '@/lib/supabase/database.types'
 import { buildNewsletterConfirmEmail } from '@emails/templates/newsletter-confirm'
 import { sendEmail } from '@/lib/email/send'
@@ -232,6 +233,9 @@ export async function createSubscriber(
     consentVersion,
   }: CreateSubscriberInput
 ): Promise<CreateSubscriberResult> {
+  return auditedCall(
+    { provider: 'email', operation: 'createSubscriber', kind: 'service' },
+    async () => {
   const normalizedEmail = normalizeEmail(email)
 
   if (!validateEmail(normalizedEmail)) {
@@ -348,12 +352,17 @@ export async function createSubscriber(
     isNew: true,
     needsConfirmation: true,
   }
+    },
+  )
 }
 
 export async function confirmSubscriber(
   supabase: SupabaseClient,
   confirmToken: string
 ): Promise<SubscriberActionResult> {
+  return auditedCall(
+    { provider: 'email', operation: 'confirmSubscriber', kind: 'service' },
+    async () => {
   const table = newsletterTable(supabase)
   const { data: existingSubscriber, error: lookupError } = await table
     .select('*')
@@ -385,12 +394,17 @@ export async function confirmSubscriber(
   }
 
   return { success: true, subscriber: data }
+    },
+  )
 }
 
 export async function unsubscribeNewsletter(
   supabase: SupabaseClient,
   unsubscribeToken: string
 ): Promise<SubscriberActionResult> {
+  return auditedCall(
+    { provider: 'email', operation: 'unsubscribeNewsletter', kind: 'service' },
+    async () => {
   const table = newsletterTable(supabase)
   const { data: existingSubscriber, error: lookupError } = await table
     .select('*')
@@ -412,6 +426,8 @@ export async function unsubscribeNewsletter(
   }
 
   return { success: true, subscriber: data }
+    },
+  )
 }
 
 export async function getNewsletterPreferenceByEmail(
@@ -444,6 +460,9 @@ export async function unsubscribeNewsletterByEmail(
   supabase: SupabaseClient,
   email: string,
 ): Promise<void> {
+  return auditedCall(
+    { provider: 'email', operation: 'unsubscribeNewsletterByEmail', kind: 'service' },
+    async () => {
   const normalizedEmail = normalizeEmail(email)
   if (!validateEmail(normalizedEmail)) {
     throw new Error('Invalid email')
@@ -458,6 +477,8 @@ export async function unsubscribeNewsletterByEmail(
     .eq('email', normalizedEmail)
 
   assertNoError(error)
+    },
+  )
 }
 
 export async function getSubscriberStats(supabase: SupabaseClient): Promise<SubscriberStats> {
@@ -575,6 +596,9 @@ export async function resendNewsletterConfirmation(
   supabase: SupabaseClient,
   subscriberId: string,
 ): Promise<void> {
+  return auditedCall(
+    { provider: 'email', operation: 'resendNewsletterConfirmation', kind: 'service' },
+    async () => {
   const { data, error } = await supabase
     .from('newsletter_subscribers')
     .select('email, interests, locale, confirmed_at, unsubscribed_at, confirm_token, unsubscribe_token')
@@ -593,12 +617,17 @@ export async function resendNewsletterConfirmation(
     locale: data.locale,
   }))
   if (!delivery.success) throw new Error(delivery.error ?? 'Confirmation email could not be sent')
+    },
+  )
 }
 
 export async function adminUnsubscribeNewsletterSubscriber(
   supabase: SupabaseClient,
   subscriberId: string,
 ): Promise<void> {
+  return auditedCall(
+    { provider: 'email', operation: 'adminUnsubscribeNewsletterSubscriber', kind: 'service' },
+    async () => {
   const { data: current, error: lookupError } = await supabase
     .from('newsletter_subscribers')
     .select('id, unsubscribed_at')
@@ -621,6 +650,8 @@ export async function adminUnsubscribeNewsletterSubscriber(
     .select('id')
   assertNoError(error)
   if (!data?.length) throw new Error('Subscriber is already unsubscribed')
+    },
+  )
 }
 
 export function parseAdminNewsletterFilters(input: {

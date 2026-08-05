@@ -8,6 +8,7 @@ import type { Brand } from "@/lib/types";
 import type { Database } from "@/lib/supabase/database.types";
 import type { EnrichedFaqItem } from "@/lib/types/enriched-data";
 import { createServiceClient } from "@/lib/supabase/server";
+import { auditedCall } from "@/lib/audit";
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { containsCjk } from "./taiwan-localization";
 
@@ -196,6 +197,13 @@ export async function upsertBrandFaqFromEnrichment(
   brandId: string,
   faqItems: EnrichedFaqItem[],
 ): Promise<void> {
+  return auditedCall(
+    {
+      provider: "brands",
+      operation: "upsertBrandFaqFromEnrichment",
+      kind: "service",
+    },
+    async () => {
   const candidates = buildFaqColumnsFromEnrichment(faqItems ?? []);
   // Nothing usable in the payload — return before touching the database at all,
   // so an un-enriched brand costs zero queries on every apply.
@@ -227,6 +235,8 @@ export async function upsertBrandFaqFromEnrichment(
       onConflict: "brand_id",
     });
   if (writeError) throw writeError;
+    },
+  );
 }
 
 type FaqGenerator = {

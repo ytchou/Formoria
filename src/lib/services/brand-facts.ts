@@ -10,7 +10,7 @@ import { localizeToTW } from "./taiwan-localization";
 import { parseExtractionResult } from "./product-type-classifier";
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { normalizeProductTags } from "@/lib/services/product-tags";
-import { noLlmCalls, type LlmCallCounts } from "./llm-call-outcome";
+import { noLlmCalls, type LlmCallCounts } from "./_shared/llm-call-outcome";
 
 function localizeZhText(text: string): string {
   return /[一-鿿]/u.test(text) ? localizeToTW(text).text : text;

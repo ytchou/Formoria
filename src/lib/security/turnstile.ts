@@ -1,3 +1,5 @@
+import { auditedCall } from '@/lib/audit'
+
 export interface TurnstileResult {
   success: boolean
   errorCodes?: string[]
@@ -41,61 +43,64 @@ export async function verifyTurnstileToken(
     return { success: true }
   }
 
-  const startedAt = Date.now()
   const requestPayload = {
     tokenLength: token.length,
     remoteIpProvided: Boolean(remoteIp),
     requestHost: requestHost ?? null,
   }
+  const responseSummary: Record<string, unknown> = {}
 
   try {
-    const body = new URLSearchParams({
-      secret: secretKey,
-      response: token,
-    })
+    const result = await auditedCall(
+      { provider: 'turnstile', operation: 'siteverify', kind: 'external' },
+      async () => {
+        const body = new URLSearchParams({
+          secret: secretKey,
+          response: token,
+        })
 
-    if (remoteIp) {
-      body.set('remoteip', remoteIp)
-    }
+        if (remoteIp) {
+          body.set('remoteip', remoteIp)
+        }
 
-    const response = await fetch(
-      'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+        const response = await fetch(
+          'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+          {
+            method: 'POST',
+            body,
+            signal: AbortSignal.timeout(TURNSTILE_VERIFY_TIMEOUT_MS),
+          }
+        )
+
+        const data = (await response.json()) as TurnstileApiResponse
+        const success = response.ok && data.success === true
+        const errorCodes = Array.isArray(data['error-codes'])
+          ? data['error-codes'].filter((code): code is string => typeof code === 'string')
+          : undefined
+        Object.assign(responseSummary, {
+          httpStatus: response.status,
+          success,
+          errorCodes: errorCodes ?? [],
+          status: success ? 'success' : response.ok ? 'rejected' : 'provider_error',
+        })
+
+        return {
+          success,
+          errorCodes,
+          auditStatus: success ? 'succeeded' as const : 'failed' as const,
+        }
+      },
       {
-        method: 'POST',
-        body,
-        signal: AbortSignal.timeout(TURNSTILE_VERIFY_TIMEOUT_MS),
-      }
+        classify: (result) => result.auditStatus,
+        summary: { request: requestPayload, response: responseSummary },
+      },
     )
 
-    const data = (await response.json()) as TurnstileApiResponse
-    const success = response.ok && data.success === true
-    const errorCodes = Array.isArray(data['error-codes'])
-      ? data['error-codes'].filter((code): code is string => typeof code === 'string')
-      : undefined
-    console.info('[turnstile:audit]', {
-      request: requestPayload,
-      response: {
-        httpStatus: response.status,
-        success,
-        errorCodes: errorCodes ?? [],
-      },
-      latencyMs: Date.now() - startedAt,
-      status: success ? 'success' : response.ok ? 'rejected' : 'provider_error',
-    })
-
     return {
-      success,
-      errorCodes,
+      success: result.success,
+      errorCodes: result.errorCodes,
     }
-  } catch (error) {
-    console.info('[turnstile:audit]', {
-      request: requestPayload,
-      response: {
-        error: error instanceof Error ? error.name : 'UnknownError',
-      },
-      latencyMs: Date.now() - startedAt,
-      status: 'network_error',
-    })
+  } catch {
     return { success: false, errorCodes: ['network-error'] }
   }
 }

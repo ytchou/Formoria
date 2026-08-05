@@ -1,5 +1,6 @@
 "use server";
 
+import { runWithAuditContext } from "@/lib/audit/context";
 import { headers } from "next/headers";
 import { z } from "zod/v3";
 
@@ -84,28 +85,30 @@ function mapServiceError(
 export async function submitCorrectionAction(
   input: SubmitCorrectionActionInput,
 ): Promise<SubmitCorrectionActionResult> {
-  const parsedBrandId = brandIdSchema.safeParse(getBrandId(input));
-  if (!parsedBrandId.success) return { ok: false, error: "invalid_brand" };
+  return runWithAuditContext({}, async () => {
+    const parsedBrandId = brandIdSchema.safeParse(getBrandId(input));
+    if (!parsedBrandId.success) return { ok: false, error: "invalid_brand" };
 
-  const parsed = correctionInputSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "invalid_value" };
+    const parsed = correctionInputSchema.safeParse(input);
+    if (!parsed.success) return { ok: false, error: "invalid_value" };
 
-  try {
-    const limit = await rateLimit(
-      getClientIpFromHeaders(await headers()),
-      CORRECTION_RATE_LIMIT,
-    );
-    if (!limit.allowed) return { ok: false, error: "rate_limited" };
+    try {
+      const limit = await rateLimit(
+        getClientIpFromHeaders(await headers()),
+        CORRECTION_RATE_LIMIT,
+      );
+      if (!limit.allowed) return { ok: false, error: "rate_limited" };
 
-    const result = await submitCorrection({
-      ...parsed.data,
-      visitorHash: await ensureVisitorHash(),
-    });
+      const result = await submitCorrection({
+        ...parsed.data,
+        visitorHash: await ensureVisitorHash(),
+      });
 
-    if (result.ok) return result;
-    return { ok: false, error: mapServiceError(result.code) };
-  } catch (error) {
-    console.error("[brand-corrections:submit]", error);
-    return { ok: false, error: "unavailable" };
-  }
+      if (result.ok) return result;
+      return { ok: false, error: mapServiceError(result.code) };
+    } catch (error) {
+      console.error("[brand-corrections:submit]", error);
+      return { ok: false, error: "unavailable" };
+    }
+  });
 }

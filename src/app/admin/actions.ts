@@ -1,5 +1,6 @@
 'use server'
 
+import { runWithAuditContext } from '@/lib/audit/context'
 import { revalidatePath } from 'next/cache'
 import { createServiceClient } from '@/lib/supabase/server'
 import { requireAdminAction } from '@/lib/auth/require-admin'
@@ -137,45 +138,47 @@ function withApprovalTimeout<T>(promise: Promise<T>): Promise<T> {
 export async function resendClaimInviteAction(
   brandId: string
 ): Promise<{ resent: true } | { error: string }> {
-  try {
-    const auth = await requireAdminAction()
-    if ('error' in auth) return auth
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction()
+      if ('error' in auth) return auth
 
-    const brand = await getBrandById(brandId)
-    if (brand.status !== 'approved') {
-      return { error: 'Claim invitations can only be resent for approved brands' }
-    }
-    if (brand.isVerified) {
-      return { error: 'This brand already has an owner' }
-    }
+      const brand = await getBrandById(brandId)
+      if (brand.status !== 'approved') {
+        return { error: 'Claim invitations can only be resent for approved brands' }
+      }
+      if (brand.isVerified) {
+        return { error: 'This brand already has an owner' }
+      }
 
-    const recipients = await getApprovedOwnerSubmissionRecipients([brandId])
-    const recipient = recipients.get(brandId)
-    if (!recipient) {
-      return { error: 'No approved owner submission was found for this brand' }
-    }
+      const recipients = await getApprovedOwnerSubmissionRecipients([brandId])
+      const recipient = recipients.get(brandId)
+      if (!recipient) {
+        return { error: 'No approved owner submission was found for this brand' }
+      }
 
-    const siteUrl = getSiteUrl()
-    const token = await generateClaimToken(brandId, recipient.submitterEmail, brand.name)
-    const claimUrl = `${siteUrl}/auth/sign-up?claim=${token}`
-    const delivery = await sendEmail(await buildClaimEmail({
-      submitterEmail: recipient.submitterEmail,
-      brandName: brand.name,
-      claimUrl,
-      siteUrl,
-    }))
-    if (!delivery.success) {
-      throw new Error(delivery.error ?? 'Claim invitation could not be sent')
-    }
+      const siteUrl = getSiteUrl()
+      const token = await generateClaimToken(brandId, recipient.submitterEmail, brand.name)
+      const claimUrl = `${siteUrl}/auth/sign-up?claim=${token}`
+      const delivery = await sendEmail(await buildClaimEmail({
+        submitterEmail: recipient.submitterEmail,
+        brandName: brand.name,
+        claimUrl,
+        siteUrl,
+      }))
+      if (!delivery.success) {
+        throw new Error(delivery.error ?? 'Claim invitation could not be sent')
+      }
 
-    revalidatePath('/admin/brands')
-    return { resent: true }
-  } catch (err) {
-    console.error('[admin:resendClaimInvite]', err)
-    return {
-      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      revalidatePath('/admin/brands')
+      return { resent: true }
+    } catch (err) {
+      console.error('[admin:resendClaimInvite]', err)
+      return {
+        error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      }
     }
-  }
+  });
 }
 async function approveSubmissionForAdmin(
   submissionId: string,
@@ -300,20 +303,22 @@ export async function approveSubmissionAction(
     }
   | undefined
 > {
-  try {
-    const auth = await requireAdminAction()
-    if ('error' in auth) return auth
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction()
+      if ('error' in auth) return auth
 
-    const result = await approveSubmissionForAdmin(submissionId, auth.user.id)
-    revalidateApprovals([result])
+      const result = await approveSubmissionForAdmin(submissionId, auth.user.id)
+      revalidateApprovals([result])
 
-    if (result.imageSyncWarning) return { imageSyncWarning: result.imageSyncWarning }
-    if (result.storageCleanupWarning) return { storageCleanupWarning: true }
-    return undefined
-  } catch (err) {
-    console.error('[admin:approveSubmission]', err)
-    return { error: describeApprovalError(err) }
-  }
+      if (result.imageSyncWarning) return { imageSyncWarning: result.imageSyncWarning }
+      if (result.storageCleanupWarning) return { storageCleanupWarning: true }
+      return undefined
+    } catch (err) {
+      console.error('[admin:approveSubmission]', err)
+      return { error: describeApprovalError(err) }
+    }
+  });
 }
 
 export async function approveSubmissionsAction(
@@ -322,100 +327,104 @@ export async function approveSubmissionsAction(
   | { failures: ApprovalFailure[]; storageCleanupWarning?: true }
   | { error: string }
 > {
-  try {
-    const auth = await requireAdminAction()
-    if ('error' in auth) return auth
-    if (!Array.isArray(submissionIds)) {
-      return { error: 'Invalid bulk approval selection' }
-    }
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction()
+      if ('error' in auth) return auth
+      if (!Array.isArray(submissionIds)) {
+        return { error: 'Invalid bulk approval selection' }
+      }
 
-    const ids = [...new Set(submissionIds)]
-    if (
-      ids.length === 0 ||
-      ids.length > MAX_BULK_APPROVALS ||
-      ids.some((id) => typeof id !== 'string' || id.length === 0 || id.length > 64)
-    ) {
-      return { error: 'Invalid bulk approval selection' }
-    }
+      const ids = [...new Set(submissionIds)]
+      if (
+        ids.length === 0 ||
+        ids.length > MAX_BULK_APPROVALS ||
+        ids.some((id) => typeof id !== 'string' || id.length === 0 || id.length > 64)
+      ) {
+        return { error: 'Invalid bulk approval selection' }
+      }
 
-    const outcomes = await Promise.all(
-      ids.map(async (submissionId): Promise<ApprovalOutcome> => {
+      const outcomes = await Promise.all(
+        ids.map(async (submissionId): Promise<ApprovalOutcome> => {
+          try {
+            return {
+              ok: true,
+              submissionId,
+              result: await withApprovalTimeout(
+                approveSubmissionForAdmin(submissionId, auth.user.id)
+              ),
+            }
+          } catch (err) {
+            console.error('[admin:approveSubmissions]', { submissionId, error: err })
+            return {
+              ok: false,
+              submissionId,
+              error: describeApprovalError(err),
+            }
+          }
+        })
+      )
+
+      const successes = outcomes.flatMap((outcome) =>
+        outcome.ok ? [outcome.result] : []
+      )
+      if (successes.length > 0) {
         try {
-          return {
-            ok: true,
-            submissionId,
-            result: await withApprovalTimeout(
-              approveSubmissionForAdmin(submissionId, auth.user.id)
-            ),
-          }
+          revalidateApprovals(successes)
         } catch (err) {
-          console.error('[admin:approveSubmissions]', { submissionId, error: err })
-          return {
-            ok: false,
-            submissionId,
-            error: describeApprovalError(err),
-          }
+          console.error('[admin:approveSubmissions] revalidateApprovals failed:', err)
         }
-      })
-    )
+      }
 
-    const successes = outcomes.flatMap((outcome) =>
-      outcome.ok ? [outcome.result] : []
-    )
-    if (successes.length > 0) {
-      try {
-        revalidateApprovals(successes)
-      } catch (err) {
-        console.error('[admin:approveSubmissions] revalidateApprovals failed:', err)
+      const failures = outcomes.flatMap((outcome) =>
+        outcome.ok
+          ? []
+          : [{ submissionId: outcome.submissionId, error: outcome.error }]
+      )
+      return {
+        failures,
+        ...(successes.some((result) => result.storageCleanupWarning)
+          ? { storageCleanupWarning: true as const }
+          : {}),
+      }
+    } catch (err) {
+      console.error('[admin:approveSubmissions]', err)
+      return {
+        error: err instanceof Error ? err.message : 'An unexpected error occurred',
       }
     }
-
-    const failures = outcomes.flatMap((outcome) =>
-      outcome.ok
-        ? []
-        : [{ submissionId: outcome.submissionId, error: outcome.error }]
-    )
-    return {
-      failures,
-      ...(successes.some((result) => result.storageCleanupWarning)
-        ? { storageCleanupWarning: true as const }
-        : {}),
-    }
-  } catch (err) {
-    console.error('[admin:approveSubmissions]', err)
-    return {
-      error: err instanceof Error ? err.message : 'An unexpected error occurred',
-    }
-  }
+  });
 }
 
 export async function requestBrandRefreshAction(
   brandId: string
 ): Promise<{ submissionId: string } | { error: string }> {
-  try {
-    const auth = await requireAdminAction()
-    if ('error' in auth) return auth
-    if (
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(brandId)
-    ) {
-      return { error: 'Invalid brand ID' }
-    }
-    if (!auth.user.email) return { error: 'Admin email is required' }
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction()
+      if ('error' in auth) return auth
+      if (
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(brandId)
+      ) {
+        return { error: 'Invalid brand ID' }
+      }
+      if (!auth.user.email) return { error: 'Admin email is required' }
 
-    const result = await requestBrandRefresh(brandId, {
-      id: auth.user.id,
-      email: auth.user.email,
-    })
-    revalidatePath('/admin/brands')
-    revalidatePath('/admin/submissions')
-    revalidatePath('/admin')
-    return result
-  } catch (err) {
-    console.error('[admin:requestBrandRefresh]', err)
-    return {
-      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      const result = await requestBrandRefresh(brandId, {
+        id: auth.user.id,
+        email: auth.user.email,
+      })
+      revalidatePath('/admin/brands')
+      revalidatePath('/admin/submissions')
+      revalidatePath('/admin')
+      return result
+    } catch (err) {
+      console.error('[admin:requestBrandRefresh]', err)
+      return {
+        error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      }
     }
-  }
+  });
 }
 
 export async function rejectSubmissionAction(
@@ -423,62 +432,66 @@ export async function rejectSubmissionAction(
   denialReason: DenialReason,
   notes: string
 ): Promise<{ error: string } | undefined> {
-  try {
-    const auth = await requireAdminAction()
-    if ('error' in auth) return auth
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction()
+      if ('error' in auth) return auth
 
-    if (!DENIAL_REASONS.includes(denialReason)) {
-      return { error: 'Invalid denial reason' }
+      if (!DENIAL_REASONS.includes(denialReason)) {
+        return { error: 'Invalid denial reason' }
+      }
+
+      if (denialReason === 'other' && notes.trim().length === 0) {
+        return { error: 'Notes are required when using "Other" reason' }
+      }
+
+      const submission = await getSubmission(submissionId)
+      await rejectSubmission(submissionId, auth.user.id, denialReason, notes)
+
+      if (
+        submission.intent !== 'refresh' &&
+        !isGeneratedGuestSubmissionEmail(submission.submitterEmail)
+      ) {
+        await sendEmail(await buildRejectionEmail({
+          submitterEmail: submission.submitterEmail,
+          brandName: submission.brandName,
+          denialReason,
+          reviewerNotes: notes,
+        }))
+      }
+
+      revalidatePath('/admin/submissions')
+      revalidatePath('/admin')
+      return undefined
+    } catch (err) {
+      console.error('[admin:rejectSubmission]', err)
+      return {
+        error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      }
     }
-
-    if (denialReason === 'other' && notes.trim().length === 0) {
-      return { error: 'Notes are required when using "Other" reason' }
-    }
-
-    const submission = await getSubmission(submissionId)
-    await rejectSubmission(submissionId, auth.user.id, denialReason, notes)
-
-    if (
-      submission.intent !== 'refresh' &&
-      !isGeneratedGuestSubmissionEmail(submission.submitterEmail)
-    ) {
-      await sendEmail(await buildRejectionEmail({
-        submitterEmail: submission.submitterEmail,
-        brandName: submission.brandName,
-        denialReason,
-        reviewerNotes: notes,
-      }))
-    }
-
-    revalidatePath('/admin/submissions')
-    revalidatePath('/admin')
-    return undefined
-  } catch (err) {
-    console.error('[admin:rejectSubmission]', err)
-    return {
-      error: err instanceof Error ? err.message : 'An unexpected error occurred',
-    }
-  }
+  });
 }
 
 export async function reopenSubmissionAction(
   submissionId: string
 ): Promise<{ error: string } | undefined> {
-  try {
-    const auth = await requireAdminAction()
-    if ('error' in auth) return auth
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction()
+      if ('error' in auth) return auth
 
-    await reopenSubmission(submissionId)
+      await reopenSubmission(submissionId)
 
-    revalidatePath('/admin/submissions')
-    revalidatePath('/admin')
-    return undefined
-  } catch (err) {
-    console.error('[admin:reopenSubmission]', err)
-    return {
-      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      revalidatePath('/admin/submissions')
+      revalidatePath('/admin')
+      return undefined
+    } catch (err) {
+      console.error('[admin:reopenSubmission]', err)
+      return {
+        error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      }
     }
-  }
+  });
 }
 
 const CLAIM_PROOF_CLEANUP_WARNING = 'Proof deletion remains queued for automatic retry.'
@@ -502,110 +515,114 @@ async function processImmediateClaimProofCleanup(
 export async function approveClaimAction(
   claimRequestId: string
 ): Promise<ClaimDecisionActionResult> {
-  try {
-    const auth = await requireAdminAction()
-    if ('error' in auth) return auth
-
-    const claimRequest = await getClaimRequest(claimRequestId)
-    const siteUrl = getSiteUrl()
-    await approveClaimRequest(claimRequestId, auth.user.id)
-    const cleanupWarning = await processImmediateClaimProofCleanup(claimRequestId)
-
+  return runWithAuditContext({}, async () => {
     try {
-      const serviceSupabase = createServiceClient()
-      await createEmailPreferences(serviceSupabase, claimRequest.userId)
-    } catch (err) {
-      console.error('[claim-approved-email-preferences] create failed', err)
-    }
+      const auth = await requireAdminAction()
+      if ('error' in auth) return auth
 
-    if (claimRequest.mitSmileCert) {
+      const claimRequest = await getClaimRequest(claimRequestId)
+      const siteUrl = getSiteUrl()
+      await approveClaimRequest(claimRequestId, auth.user.id)
+      const cleanupWarning = await processImmediateClaimProofCleanup(claimRequestId)
+
       try {
-        const mitResult = await verifyMitByCert(claimRequest.brandId, claimRequest.mitSmileCert)
-        if (mitResult.error) {
-          console.warn('[admin:approveClaimAction] MIT auto-verify skipped:', mitResult.error)
+        const serviceSupabase = createServiceClient()
+        await createEmailPreferences(serviceSupabase, claimRequest.userId)
+      } catch (err) {
+        console.error('[claim-approved-email-preferences] create failed', err)
+      }
+
+      if (claimRequest.mitSmileCert) {
+        try {
+          const mitResult = await verifyMitByCert(claimRequest.brandId, claimRequest.mitSmileCert)
+          if (mitResult.error) {
+            console.warn('[admin:approveClaimAction] MIT auto-verify skipped:', mitResult.error)
+          }
+        } catch (err) {
+          console.warn('[admin:approveClaimAction] MIT auto-verify error:', err)
+        }
+      }
+
+      revalidatePath('/admin/claims')
+      revalidatePath('/admin')
+
+      if (claimRequest.brandSlug) {
+        revalidatePublicBrand({ slug: claimRequest.brandSlug })
+      }
+
+      try {
+        if (claimRequest.requesterEmail && claimRequest.brandName && claimRequest.brandSlug) {
+          const locale = await getOwnerLocale(claimRequest.brandId)
+          await sendEmail(await buildClaimApprovedEmail({
+            ownerEmail: claimRequest.requesterEmail,
+            brandName: claimRequest.brandName,
+            brandSlug: claimRequest.brandSlug,
+            siteUrl,
+            locale,
+          }))
         }
       } catch (err) {
-        console.warn('[admin:approveClaimAction] MIT auto-verify error:', err)
+        console.error('[claim-approved-email] send failed', err)
       }
-    }
 
-    revalidatePath('/admin/claims')
-    revalidatePath('/admin')
-
-    if (claimRequest.brandSlug) {
-      revalidatePublicBrand({ slug: claimRequest.brandSlug })
-    }
-
-    try {
-      if (claimRequest.requesterEmail && claimRequest.brandName && claimRequest.brandSlug) {
-        const locale = await getOwnerLocale(claimRequest.brandId)
-        await sendEmail(await buildClaimApprovedEmail({
-          ownerEmail: claimRequest.requesterEmail,
-          brandName: claimRequest.brandName,
-          brandSlug: claimRequest.brandSlug,
-          siteUrl,
-          locale,
-        }))
+      // Attributed to the claiming owner, not the approving admin.
+      const claimantDistinctId = claimRequest.userId || claimRequest.requesterEmail
+      if (claimantDistinctId) {
+        await captureSupplyEvent(claimantDistinctId, ANALYTICS_EVENTS.BRAND_CLAIM_APPROVED, {
+          brand_id: claimRequest.brandId,
+          ...(claimRequest.brandSlug ? { brand_slug: claimRequest.brandSlug } : {}),
+          claim_request_id: claimRequestId,
+        })
       }
+
+      return cleanupWarning ? { warning: cleanupWarning } : undefined
     } catch (err) {
-      console.error('[claim-approved-email] send failed', err)
+      console.error('[admin:approveClaimAction]', err)
+      return {
+        error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      }
     }
-
-    // Attributed to the claiming owner, not the approving admin.
-    const claimantDistinctId = claimRequest.userId || claimRequest.requesterEmail
-    if (claimantDistinctId) {
-      await captureSupplyEvent(claimantDistinctId, ANALYTICS_EVENTS.BRAND_CLAIM_APPROVED, {
-        brand_id: claimRequest.brandId,
-        ...(claimRequest.brandSlug ? { brand_slug: claimRequest.brandSlug } : {}),
-        claim_request_id: claimRequestId,
-      })
-    }
-
-    return cleanupWarning ? { warning: cleanupWarning } : undefined
-  } catch (err) {
-    console.error('[admin:approveClaimAction]', err)
-    return {
-      error: err instanceof Error ? err.message : 'An unexpected error occurred',
-    }
-  }
+  });
 }
 
 export async function rejectClaimAction(
   claimRequestId: string,
   notes: string
 ): Promise<ClaimDecisionActionResult> {
-  try {
-    const auth = await requireAdminAction()
-    if ('error' in auth) return auth
-
-    const claimRequest = await getClaimRequest(claimRequestId)
-    const siteUrl = getSiteUrl()
-    await rejectClaimRequest(claimRequestId, auth.user.id, notes)
-    const cleanupWarning = await processImmediateClaimProofCleanup(claimRequestId)
-
-    revalidatePath('/admin/claims')
-    revalidatePath('/admin')
-
+  return runWithAuditContext({}, async () => {
     try {
-      if (claimRequest.requesterEmail && claimRequest.brandName) {
-        await sendEmail(await buildClaimRejectedEmail({
-          ownerEmail: claimRequest.requesterEmail,
-          brandName: claimRequest.brandName,
-          reviewerNotes: notes,
-          siteUrl,
-        }))
-      }
-    } catch (err) {
-      console.error('[claim-rejected-email] send failed', err)
-    }
+      const auth = await requireAdminAction()
+      if ('error' in auth) return auth
 
-    return cleanupWarning ? { warning: cleanupWarning } : undefined
-  } catch (err) {
-    console.error('[admin:rejectClaimAction]', err)
-    return {
-      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      const claimRequest = await getClaimRequest(claimRequestId)
+      const siteUrl = getSiteUrl()
+      await rejectClaimRequest(claimRequestId, auth.user.id, notes)
+      const cleanupWarning = await processImmediateClaimProofCleanup(claimRequestId)
+
+      revalidatePath('/admin/claims')
+      revalidatePath('/admin')
+
+      try {
+        if (claimRequest.requesterEmail && claimRequest.brandName) {
+          await sendEmail(await buildClaimRejectedEmail({
+            ownerEmail: claimRequest.requesterEmail,
+            brandName: claimRequest.brandName,
+            reviewerNotes: notes,
+            siteUrl,
+          }))
+        }
+      } catch (err) {
+        console.error('[claim-rejected-email] send failed', err)
+      }
+
+      return cleanupWarning ? { warning: cleanupWarning } : undefined
+    } catch (err) {
+      console.error('[admin:rejectClaimAction]', err)
+      return {
+        error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      }
     }
-  }
+  });
 }
 
 export async function updateBrandAction(
@@ -628,251 +645,269 @@ export async function updateBrandAction(
     otherUrls?: OtherUrl[]
   }
 ): Promise<{ error: string } | undefined> {
-  try {
-    const auth = await requireAdminAction()
-    if ('error' in auth) return auth
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction()
+      if ('error' in auth) return auth
 
-    const {
-      name,
-      description,
-      website,
-      purchaseUrl,
-      socialInstagram,
-      socialThreads,
-      socialFacebook,
-      purchaseWebsite,
-      purchasePinkoi,
-      purchaseShopee,
-      purchaseMyship,
-    } = data
-    const moderationFields = {
-      name,
-      description,
-      website,
-      purchaseUrl,
-      socialInstagram: socialInstagram ?? undefined,
-      socialThreads: socialThreads ?? undefined,
-      socialFacebook: socialFacebook ?? undefined,
-      purchaseWebsite: purchaseWebsite ?? undefined,
-      purchasePinkoi: purchasePinkoi ?? undefined,
-      purchaseShopee: purchaseShopee ?? undefined,
-      purchaseMyship: purchaseMyship ?? undefined,
-    }
-    const { violations } = scanContent(name ?? '', moderationFields)
-    if (violations.length > 0) {
-      try {
-        await saveModerationFlags(brandId, auth.user.id, violations, 'pending')
-      } catch (err) {
-        console.error('[admin] moderation audit failed:', err)
+      const {
+        name,
+        description,
+        website,
+        purchaseUrl,
+        socialInstagram,
+        socialThreads,
+        socialFacebook,
+        purchaseWebsite,
+        purchasePinkoi,
+        purchaseShopee,
+        purchaseMyship,
+      } = data
+      const moderationFields = {
+        name,
+        description,
+        website,
+        purchaseUrl,
+        socialInstagram: socialInstagram ?? undefined,
+        socialThreads: socialThreads ?? undefined,
+        socialFacebook: socialFacebook ?? undefined,
+        purchaseWebsite: purchaseWebsite ?? undefined,
+        purchasePinkoi: purchasePinkoi ?? undefined,
+        purchaseShopee: purchaseShopee ?? undefined,
+        purchaseMyship: purchaseMyship ?? undefined,
+      }
+      const { violations } = scanContent(name ?? '', moderationFields)
+      if (violations.length > 0) {
+        try {
+          await saveModerationFlags(brandId, auth.user.id, violations, 'pending')
+        } catch (err) {
+          console.error('[admin] moderation audit failed:', err)
+        }
+
+        return { error: violations.map((violation) => violation.userMessage).join('. ') }
       }
 
-      return { error: violations.map((violation) => violation.userMessage).join('. ') }
-    }
+      const previousBrand = await getBrandById(brandId)
+      const updatedBrand = await updateBrand(
+        brandId,
+        data as Parameters<typeof updateBrand>[1],
+      )
 
-    const previousBrand = await getBrandById(brandId)
-    const updatedBrand = await updateBrand(
-      brandId,
-      data as Parameters<typeof updateBrand>[1],
-    )
-
-    revalidatePath('/admin/brands')
-    revalidatePath('/admin')
-    revalidatePublicBrand({
-      slug: updatedBrand.slug,
-      previousSlug: previousBrand.slug,
-    })
-    return undefined
-  } catch (err) {
-    console.error('[admin:updateBrand]', err)
-    return {
-      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      revalidatePath('/admin/brands')
+      revalidatePath('/admin')
+      revalidatePublicBrand({
+        slug: updatedBrand.slug,
+        previousSlug: previousBrand.slug,
+      })
+      return undefined
+    } catch (err) {
+      console.error('[admin:updateBrand]', err)
+      return {
+        error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      }
     }
-  }
+  });
 }
 
 export async function hideBrandAction(
   brandId: string
 ): Promise<{ error: string } | undefined> {
-  try {
-    const auth = await requireAdminAction()
-    if ('error' in auth) return auth
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction()
+      if ('error' in auth) return auth
 
-    const brand = await updateBrand(brandId, { status: 'hidden' })
+      const brand = await updateBrand(brandId, { status: 'hidden' })
 
-    revalidatePath('/admin/brands')
-    revalidatePath('/admin')
-    revalidatePublicBrand({ slug: brand.slug })
-    return undefined
-  } catch (err) {
-    console.error('[admin:hideBrand]', err)
-    return {
-      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      revalidatePath('/admin/brands')
+      revalidatePath('/admin')
+      revalidatePublicBrand({ slug: brand.slug })
+      return undefined
+    } catch (err) {
+      console.error('[admin:hideBrand]', err)
+      return {
+        error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      }
     }
-  }
+  });
 }
 
 export async function unhideBrandAction(
   brandId: string
 ): Promise<{ error: string } | undefined> {
-  try {
-    const auth = await requireAdminAction()
-    if ('error' in auth) return auth
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction()
+      if ('error' in auth) return auth
 
-    const brand = await updateBrand(brandId, { status: 'approved' })
+      const brand = await updateBrand(brandId, { status: 'approved' })
 
-    revalidatePath('/admin/brands')
-    revalidatePath('/admin')
-    revalidatePublicBrand({ slug: brand.slug })
-    return undefined
-  } catch (err) {
-    console.error('[admin:unhideBrand]', err)
-    return {
-      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      revalidatePath('/admin/brands')
+      revalidatePath('/admin')
+      revalidatePublicBrand({ slug: brand.slug })
+      return undefined
+    } catch (err) {
+      console.error('[admin:unhideBrand]', err)
+      return {
+        error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      }
     }
-  }
+  });
 }
 
 export async function deleteBrandAction(
   brandId: string
 ): Promise<{ error: string } | undefined> {
-  try {
-    const auth = await requireAdminAction()
-    if ('error' in auth) return auth
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction()
+      if ('error' in auth) return auth
 
-    const brand = await getBrandById(brandId)
-    await deleteBrand(brandId)
+      const brand = await getBrandById(brandId)
+      await deleteBrand(brandId)
 
-    revalidatePath('/admin/brands')
-    revalidatePath('/admin')
-    revalidatePublicBrand({ slug: brand.slug })
-    return undefined
-  } catch (err) {
-    console.error('[admin:deleteBrand]', err)
-    return {
-      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      revalidatePath('/admin/brands')
+      revalidatePath('/admin')
+      revalidatePublicBrand({ slug: brand.slug })
+      return undefined
+    } catch (err) {
+      console.error('[admin:deleteBrand]', err)
+      return {
+        error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      }
     }
-  }
+  });
 }
 
 export async function adminRemoveChannelAction(
   channelId: string,
 ): Promise<{ success: true } | { error: string }> {
-  try {
-    const auth = await requireAdminAction()
-    if ('error' in auth) return auth
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction()
+      if ('error' in auth) return auth
 
-    const result = await adminRemoveChannel(
-      channelId,
-      auth.user.id,
-      auth.user.email ?? auth.user.id,
-    )
-    if (!result.ok) return { error: result.code }
+      const result = await adminRemoveChannel(
+        channelId,
+        auth.user.id,
+        auth.user.email ?? auth.user.id,
+      )
+      if (!result.ok) return { error: result.code }
 
-    return { success: true }
-  } catch (error) {
-    console.error('[admin:removeChannel]', error)
-    return {
-      error: error instanceof Error ? error.message : 'An unexpected error occurred',
+      return { success: true }
+    } catch (error) {
+      console.error('[admin:removeChannel]', error)
+      return {
+        error: error instanceof Error ? error.message : 'An unexpected error occurred',
+      }
     }
-  }
+  });
 }
 
 export async function reviewReportAction(
   reportId: string,
   decision: 'reviewed' | 'dismissed'
 ): Promise<{ error: string } | undefined> {
-  try {
-    const auth = await requireAdminAction()
-    if ('error' in auth) return auth
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction()
+      if ('error' in auth) return auth
 
-    await updateReportStatus(reportId, decision)
+      await updateReportStatus(reportId, decision)
 
-    revalidatePath('/admin/reports')
-    revalidatePath('/admin')
-    return undefined
-  } catch (err) {
-    console.error('[admin:reviewReport]', err)
-    return {
-      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      revalidatePath('/admin/reports')
+      revalidatePath('/admin')
+      return undefined
+    } catch (err) {
+      console.error('[admin:reviewReport]', err)
+      return {
+        error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      }
     }
-  }
+  });
 }
 
 export async function reviewModerationFlagAction(
   flagId: string,
   decision: 'reviewed' | 'dismissed',
 ): Promise<{ error: string } | undefined> {
-  try {
-    const auth = await requireAdminAction()
-    if ('error' in auth) return auth
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction()
+      if ('error' in auth) return auth
 
-    if (!MODERATION_FLAG_ID_REGEX.test(flagId)) {
-      return { error: 'Invalid moderation flag ID' }
-    }
-    if (decision !== 'reviewed' && decision !== 'dismissed') {
-      return { error: 'Invalid moderation decision' }
-    }
+      if (!MODERATION_FLAG_ID_REGEX.test(flagId)) {
+        return { error: 'Invalid moderation flag ID' }
+      }
+      if (decision !== 'reviewed' && decision !== 'dismissed') {
+        return { error: 'Invalid moderation decision' }
+      }
 
-    await updateModerationFlagStatus(flagId, decision)
+      await updateModerationFlagStatus(flagId, decision)
 
-    revalidatePath('/admin/moderation')
-    revalidatePath('/admin')
-    return undefined
-  } catch (err) {
-    console.error('[admin:reviewModerationFlag]', err)
-    return {
-      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      revalidatePath('/admin/moderation')
+      revalidatePath('/admin')
+      return undefined
+    } catch (err) {
+      console.error('[admin:reviewModerationFlag]', err)
+      return {
+        error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      }
     }
-  }
+  });
 }
 
 export async function reviewModerationFlagFormAction(
   flagId: string,
   decision: 'reviewed' | 'dismissed',
 ): Promise<void> {
-  const result = await reviewModerationFlagAction(flagId, decision)
-  if (result?.error) throw new Error(result.error)
+  return runWithAuditContext({}, async () => {
+    const result = await reviewModerationFlagAction(flagId, decision)
+    if (result?.error) throw new Error(result.error)
+  });
 }
 
 export async function revokeOwnershipAction(
   brandId: string,
   reason: string
 ): Promise<{ error: string } | undefined> {
-  try {
-    const auth = await requireAdminAction()
-    if ('error' in auth) return auth
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction()
+      if ('error' in auth) return auth
 
-    const trimmedReason = reason.trim()
-    if (!trimmedReason) return { error: 'Reason is required' }
-    if (!auth.user.email) return { error: 'Admin email is required' }
+      const trimmedReason = reason.trim()
+      if (!trimmedReason) return { error: 'Reason is required' }
+      if (!auth.user.email) return { error: 'Admin email is required' }
 
-    const result = await revokeOwnership(brandId, auth.user.email, trimmedReason)
-    const brand = await getBrandById(brandId)
+      const result = await revokeOwnership(brandId, auth.user.email, trimmedReason)
+      const brand = await getBrandById(brandId)
 
-    await sendEmail(await buildOwnershipRevokedEmail({
-      ownerEmail: result.email,
-      brandName: brand.name,
-      reason: trimmedReason,
-    }))
+      await sendEmail(await buildOwnershipRevokedEmail({
+        ownerEmail: result.email,
+        brandName: brand.name,
+        reason: trimmedReason,
+      }))
 
-    revalidatePath('/admin/reports')
-    revalidatePath('/admin')
-    revalidatePublicBrand({ slug: brand.slug })
-    return undefined
-  } catch (err) {
-    console.error('[admin:revokeOwnership]', err)
-    if (
-      typeof err === 'object'
-      && err !== null
-      && 'message' in err
-      && err.message === 'Brand owner not found'
-    ) {
-      return { error: 'Brand owner not found' }
+      revalidatePath('/admin/reports')
+      revalidatePath('/admin')
+      revalidatePublicBrand({ slug: brand.slug })
+      return undefined
+    } catch (err) {
+      console.error('[admin:revokeOwnership]', err)
+      if (
+        typeof err === 'object'
+        && err !== null
+        && 'message' in err
+        && err.message === 'Brand owner not found'
+      ) {
+        return { error: 'Brand owner not found' }
+      }
+      return {
+        error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      }
     }
-    return {
-      error: err instanceof Error ? err.message : 'An unexpected error occurred',
-    }
-  }
+  });
 }
 
 export async function setFeatureFlagAction(
@@ -882,22 +917,24 @@ export async function setFeatureFlagAction(
   error?: string
   code?: 'unauthenticated' | 'forbidden'
 }> {
-  try {
-    const auth = await requireAdminAction()
-    if ('error' in auth) return auth
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction()
+      if ('error' in auth) return auth
 
-    const flag = FEATURE_FLAGS.find((entry) => entry.key === key)
-    if (!flag) {
-      return { error: 'Unknown feature flag' }
-    }
+      const flag = FEATURE_FLAGS.find((entry) => entry.key === key)
+      if (!flag) {
+        return { error: 'Unknown feature flag' }
+      }
 
-    await setAppSetting(key, enabled)
-    flag.revalidatePaths.forEach((path) => revalidatePath(path))
-    return {}
-  } catch (err) {
-    console.error('[admin:setFeatureFlag]', err)
-    return {
-      error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      await setAppSetting(key, enabled)
+      flag.revalidatePaths.forEach((path) => revalidatePath(path))
+      return {}
+    } catch (err) {
+      console.error('[admin:setFeatureFlag]', err)
+      return {
+        error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      }
     }
-  }
+  });
 }

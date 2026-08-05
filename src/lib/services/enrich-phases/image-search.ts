@@ -1,4 +1,5 @@
 import type { PhaseResult } from '@/lib/types/curation'
+import { auditedCall } from '@/lib/audit'
 import { batchSearchBrandImages } from './scraper/search'
 import type { BrandImageSearchOutcome, ImageQueryInput } from './scraper/types'
 import {
@@ -70,6 +71,9 @@ export async function runImageSearchPhase(
     }
   }
 
+  return auditedCall(
+    { provider: 'enrich', operation: 'runImageSearchPhase', kind: 'service' },
+    async () => {
   const activeSubmissionImageCounts = await loadActiveSubmissionImageCounts(ctx)
   const brandsNeedingImages: typeof ctx.chunk = []
   // Brands we could not search because a provider call failed, held by target
@@ -231,6 +235,16 @@ export async function runImageSearchPhase(
     imageSearchResults: result.imageSearchResults,
     imageSearchOutcomes: result.imageSearchOutcomes,
   }
+    },
+    {
+      classify: (result) =>
+        result.phaseResult.status === 'failed'
+          ? 'failed'
+          : result.phaseResult.status === 'skipped'
+            ? 'empty'
+            : 'succeeded',
+    },
+  )
 }
 
 // 'all brands have images' is only honest when every brand in the chunk was

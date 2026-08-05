@@ -1,5 +1,6 @@
 'use server'
 
+import { runWithAuditContext } from '@/lib/audit/context'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { requireBrandEditor } from '@/lib/auth/require-brand-editor'
@@ -91,62 +92,64 @@ export async function saveSectionDraftAction(
   sectionKeyOrSectionData: string | Record<string, unknown>,
   sectionData?: Record<string, unknown>
 ): Promise<SaveSectionDraftResult> {
-  try {
-    if (!(await requireOwnerFeaturesEnabled())) {
-      return { error: 'Unauthorized' }
+  return runWithAuditContext({}, async () => {
+    try {
+      if (!(await requireOwnerFeaturesEnabled())) {
+        return { error: 'Unauthorized' }
+      }
+
+      if (typeof sectionKeyOrSectionData !== 'string' || !sectionData) {
+        return { error: 'Unauthorized' }
+      }
+
+      const brandSlug = brandSlugOrSectionKey
+      const supabase = await createClient()
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser()
+
+      if (error || !user) {
+        return { error: 'Unauthorized' }
+      }
+
+      const editor = await requireBrandEditor(brandSlug)
+      if ('error' in editor || editor.brand.id !== brandId) {
+        return { error: 'Unauthorized' }
+      }
+
+      const existingDraft = await getBrandDraft(brandId)
+      const existingReputation =
+        existingDraft?.reputationSummary ?? editor.brand.reputationSummary
+      const normalizedSectionData = normalizeSectionData(
+        sectionData,
+        existingReputation,
+      )
+      const stepIndex = WIZARD_STEPS.findIndex(
+        (step) => step.key === sectionKeyOrSectionData,
+      )
+      const completedSteps = getCompletedSteps(existingDraft)
+      const mergedData = {
+        ...(existingDraft ?? {}),
+        ...normalizedSectionData,
+        ...(stepIndex >= 0
+          ? {
+              [BRAND_DRAFT_PROGRESS_KEY]: Array.from(
+                new Set([...completedSteps, stepIndex]),
+              ).sort((left, right) => left - right),
+            }
+          : {}),
+      }
+
+      await saveDraft(brandId, mergedData as Partial<Brand>)
+      revalidatePath(`/dashboard/brands/${brandSlug}`)
+
+      return { success: true }
+    } catch (error) {
+      console.error('[brand-edit-wizard:saveSectionDraftAction]', error)
+      return {
+        error: error instanceof Error ? error.message : 'Failed to save changes',
+      }
     }
-
-    if (typeof sectionKeyOrSectionData !== 'string' || !sectionData) {
-      return { error: 'Unauthorized' }
-    }
-
-    const brandSlug = brandSlugOrSectionKey
-    const supabase = await createClient()
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser()
-
-    if (error || !user) {
-      return { error: 'Unauthorized' }
-    }
-
-    const editor = await requireBrandEditor(brandSlug)
-    if ('error' in editor || editor.brand.id !== brandId) {
-      return { error: 'Unauthorized' }
-    }
-
-    const existingDraft = await getBrandDraft(brandId)
-    const existingReputation =
-      existingDraft?.reputationSummary ?? editor.brand.reputationSummary
-    const normalizedSectionData = normalizeSectionData(
-      sectionData,
-      existingReputation,
-    )
-    const stepIndex = WIZARD_STEPS.findIndex(
-      (step) => step.key === sectionKeyOrSectionData,
-    )
-    const completedSteps = getCompletedSteps(existingDraft)
-    const mergedData = {
-      ...(existingDraft ?? {}),
-      ...normalizedSectionData,
-      ...(stepIndex >= 0
-        ? {
-            [BRAND_DRAFT_PROGRESS_KEY]: Array.from(
-              new Set([...completedSteps, stepIndex]),
-            ).sort((left, right) => left - right),
-          }
-        : {}),
-    }
-
-    await saveDraft(brandId, mergedData as Partial<Brand>)
-    revalidatePath(`/dashboard/brands/${brandSlug}`)
-
-    return { success: true }
-  } catch (error) {
-    console.error('[brand-edit-wizard:saveSectionDraftAction]', error)
-    return {
-      error: error instanceof Error ? error.message : 'Failed to save changes',
-    }
-  }
+  });
 }

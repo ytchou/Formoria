@@ -1,4 +1,5 @@
 import { NotFoundError } from '@/lib/errors'
+import { auditedCall } from '@/lib/audit'
 import { createServiceClient } from '@/lib/supabase/server'
 import { BRAND_SELECT } from './brands'
 import { lookupCertNumber } from '@/lib/services/mit-registry'
@@ -18,6 +19,9 @@ export async function verifyMitByCert(
   brandId: string,
   certNumber: string
 ): Promise<{ data?: unknown; error?: string }> {
+  return auditedCall(
+    { provider: 'brands', operation: 'verifyMitByCert', kind: 'service' },
+    async () => {
   const normalizedCertNumber = certNumber.trim()
   if (!normalizedCertNumber) {
     return { error: 'cert_required' }
@@ -89,4 +93,6 @@ export async function verifyMitByCert(
   }
 
   return { data }
+    },
+  )
 }

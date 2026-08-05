@@ -46,13 +46,17 @@ describe('dispatchCurationJob', () => {
 
   it('returns a sanitized dispatch error for a rejected worker request', async () => {
     vi.mocked(fetch).mockResolvedValue(
-      new Response(JSON.stringify({ error: 'Bearer provider-secret' }), {
+      new Response(JSON.stringify({
+        error: 'Bearer provider-secret; postgresql://worker:db-password@db.example.com/formoria',
+      }), {
         status: 503,
       }),
     )
 
-    await expect(dispatchCurationJob('550e8400-e29b-41d4-a716-446655440000')).rejects.toThrow(
-      'Bearer [REDACTED]',
+    await expect(
+      dispatchCurationJob('550e8400-e29b-41d4-a716-446655440000'),
+    ).rejects.toThrow(
+      'Worker dispatch was rejected: Bearer [REDACTED]; postgresql://worker:[REDACTED]@db.example.com/formoria',
     )
   })
 

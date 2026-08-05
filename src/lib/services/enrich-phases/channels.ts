@@ -8,6 +8,7 @@ import {
   isRetailChainChannel,
 } from "@/lib/brands/locations";
 import { upsertEnrichedChannels } from "@/lib/services/brand-channels";
+import { auditedCall } from "@/lib/audit";
 import type { Json } from "@/lib/supabase/database.types";
 import type { Database } from "@/lib/supabase/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -18,7 +19,7 @@ import type {
 } from "@/lib/types/brand";
 import type { ChannelCandidate } from "@/lib/types/brand-channel";
 import type { PhaseResult } from "@/lib/types/curation";
-import type { EnrichmentTarget } from "../enrichment-target";
+import type { EnrichmentTarget } from "../_shared/enrichment-target";
 import {
   searchBrandMaps,
   type BrandMapsSearchResult,
@@ -976,6 +977,9 @@ export async function runChannelsPhase(
     };
   }
 
+  return auditedCall(
+    { provider: "enrich", operation: "runChannelsPhase", kind: "service" },
+    async () => {
   const { result, durationMs } = await timePhase(async () => {
     const knownOfficialOrigins = officialOrigins(
       options.brand,
@@ -1139,4 +1143,10 @@ export async function runChannelsPhase(
     patch: result.patch,
     candidates: result.candidates,
   };
+    },
+    {
+      classify: (result) =>
+        result.phaseResult.status === "skipped" ? "empty" : "succeeded",
+    },
+  );
 }

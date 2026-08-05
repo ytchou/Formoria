@@ -1,8 +1,9 @@
 import type { PhaseResult, PhaseStatus } from '@/lib/types/curation'
+import { auditedCall } from '@/lib/audit'
 import { batchSearchBrandsWithSnippets, parseBrandSearchEntries } from './scraper/search'
 import { getLatestSearchResults } from '../search-results'
 import { buildSerpConfig } from '@/lib/constants/enrichment-config'
-import type { EnrichmentTarget } from '../enrichment-target'
+import type { EnrichmentTarget } from '../_shared/enrichment-target'
 import {
   buildPhaseResult,
   getDisplayBrandName,
@@ -87,6 +88,9 @@ export async function runDiscoverPhase(ctx: BatchPhaseContext): Promise<{
     }
   }
 
+  return auditedCall(
+    { provider: 'enrich', operation: 'runDiscoverPhase', kind: 'service' },
+    async () => {
   const queryTemplate = (name: string) => buildSerpQuery(name)
 
   const { result, durationMs } = await timePhase(async (): Promise<DiscoverAttempt> => {
@@ -169,6 +173,12 @@ export async function runDiscoverPhase(ctx: BatchPhaseContext): Promise<{
     // it for every brand in the chunk, so per-call failures must not set it.
     searchError: result.searchError,
   }
+    },
+    {
+      classify: (result) =>
+        result.phaseResult.status === 'failed' ? 'failed' : 'succeeded',
+    },
+  )
 }
 
 function summarizeProviderErrors(callFailures: SearchPhaseResult[]): string {

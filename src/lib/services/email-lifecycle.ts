@@ -1,3 +1,5 @@
+import { auditedCall } from '@/lib/audit'
+
 type EmailLifecycleError = {
   code?: string
   message?: string
@@ -49,10 +51,13 @@ function emailLifecycleTable(client: unknown, table: string): EmailLifecycleTabl
 }
 
 export async function createEmailPreferences(supabase: unknown, userId: string) {
-  return emailLifecycleTable(supabase, 'owner_email_preferences')
-    .upsert({ user_id: userId }, { onConflict: 'user_id' })
-    .select()
-    .single()
+  return auditedCall(
+    { provider: 'email', operation: 'createEmailPreferences', kind: 'service' },
+    () => emailLifecycleTable(supabase, 'owner_email_preferences')
+      .upsert({ user_id: userId }, { onConflict: 'user_id' })
+      .select()
+      .single(),
+  )
 }
 
 export type LifecycleEmailPreference = {
@@ -74,6 +79,9 @@ export async function setLifecycleEmailPreference(
   supabase: unknown,
   input: SetLifecycleEmailPreferenceInput,
 ): Promise<void> {
+  return auditedCall(
+    { provider: 'email', operation: 'setLifecycleEmailPreference', kind: 'service' },
+    async () => {
   const now = new Date().toISOString()
 
   const { data: existing } = await emailLifecycleTable(
@@ -113,6 +121,8 @@ export async function setLifecycleEmailPreference(
   if (error) {
     throw new Error(error.message ?? 'Unable to update lifecycle email preference')
   }
+    },
+  )
 }
 
 export async function getLifecycleEmailPreference(
@@ -159,6 +169,9 @@ export async function unsubscribeByToken(
   supabase: unknown,
   token: string
 ): Promise<{ success: boolean; error?: string }> {
+  return auditedCall(
+    { provider: 'email', operation: 'unsubscribeByToken', kind: 'service' },
+    async () => {
   const { data, error } = await emailLifecycleTable(supabase, 'owner_email_preferences')
     .select('*')
     .eq('unsubscribe_token', token)
@@ -187,6 +200,8 @@ export async function unsubscribeByToken(
   }
 
   return { success: true }
+    },
+  )
 }
 
 export async function recordEmailSend(
@@ -194,10 +209,15 @@ export async function recordEmailSend(
   userId: string,
   templateKey: string
 ): Promise<void> {
-  await emailLifecycleTable(supabase, 'email_sends').insert({
-    user_id: userId,
-    template_key: templateKey,
-  })
+  return auditedCall(
+    { provider: 'email', operation: 'recordEmailSend', kind: 'service' },
+    async () => {
+      await emailLifecycleTable(supabase, 'email_sends').insert({
+        user_id: userId,
+        template_key: templateKey,
+      })
+    },
+  )
 }
 
 export async function hasSent(

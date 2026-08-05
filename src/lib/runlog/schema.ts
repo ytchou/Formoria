@@ -78,6 +78,7 @@ export type Provenance = {
 export type Run = {
   id: string
   workflow: string
+  correlationId?: string
   trigger?: string
   actor?: string
   status: RunStatus

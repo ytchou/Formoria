@@ -377,6 +377,50 @@ export type Database = {
           },
         ];
       };
+      brand_faq_entries: {
+        Row: {
+          answer_en: string | null;
+          answer_zh: string | null;
+          brand_id: string;
+          position: number;
+          preset_id: string;
+          question_en: string | null;
+          question_zh: string | null;
+          source: string;
+          updated_at: string;
+        };
+        Insert: {
+          answer_en?: string | null;
+          answer_zh?: string | null;
+          brand_id: string;
+          position?: number;
+          preset_id: string;
+          question_en?: string | null;
+          question_zh?: string | null;
+          source: string;
+          updated_at?: string;
+        };
+        Update: {
+          answer_en?: string | null;
+          answer_zh?: string | null;
+          brand_id?: string;
+          position?: number;
+          preset_id?: string;
+          question_en?: string | null;
+          question_zh?: string | null;
+          source?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "brand_faq_entries_brand_id_fkey";
+            columns: ["brand_id"];
+            isOneToOne: false;
+            referencedRelation: "brands";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       brand_field_corrections: {
         Row: {
           brand_id: string;
