@@ -553,10 +553,10 @@ export function trackGalleryCompleted(brandId: string, slug: string, imageCount:
   })
 }
 
-export function trackFaqItemExpanded(brandSlug: string, index: number) {
+export function trackFaqItemExpanded(brandSlug: string, presetId: string) {
   capturePostHogEvent(ANALYTICS_EVENTS.FAQ_ITEM_EXPANDED, {
     brand_slug: brandSlug,
-    item_index: index,
+    preset_id: presetId,
   })
 }
 

@@ -24,6 +24,9 @@ export const ENRICH_PHASES = [
   "descriptions",
   "locations",
   "reputation",
+  // FAQ must run after `descriptions` (for `facts`) and `reputation` (for
+  // `reputationSummary`); both are hard ordering constraints.
+  "faq",
 ] as const;
 
 export type EnrichPhaseName = (typeof ENRICH_PHASES)[number];
@@ -94,6 +97,7 @@ export const ENRICH_LLM_PHASES = [
   "descriptions",
   "reputation",
   "names",
+  "faq",
 ] as const satisfies readonly EnrichPhaseName[];
 
 /**
@@ -175,7 +179,7 @@ export function isDeferredPhase(phase: string): boolean {
 export const CURATION_STEPS = {
   context: ["discover", "detect", "slugs", "clean", "links", "names"],
   image: ["images", "classify_images"],
-  detail: ["descriptions", "reputation", "tags"],
+  detail: ["descriptions", "reputation", "faq", "tags"],
 } as const satisfies Record<string, readonly EnrichPhaseName[]>;
 
 export type CurationStep = keyof typeof CURATION_STEPS;

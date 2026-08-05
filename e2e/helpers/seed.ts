@@ -31,6 +31,23 @@ export async function seedBrand(opts: {
    * section. Implies `withLinks` for social accounts.
    */
   purchaseChannel?: 'website' | 'myship';
+  /**
+   * Seed the brand evidence the surviving FAQ presets gate their template
+   * floors on, so a fixture renders several FAQ items instead of only the
+   * always-eligible `taiwan-origin` one:
+   *   - `taiwan-origin`  — eligible for every approved brand; `mit_status`
+   *     only decides *which* branch renders (declared vs. "not submitted").
+   *   - `main-products`  — needs `product_tags` (and `product_tags_en` for /en).
+   *   - `price-positioning` — needs `price_range` (smallint ordinal 1/2/3).
+   *   - `reputation`     — needs `reputation_summary.text`; deliberately left
+   *     unseeded, since no e2e journey asserts on it and it is the one field
+   *     whose copy is model-authored rather than template-derived.
+   *   - `custom`         — model-authored only, no template floor to seed for.
+   *
+   * Opt-in and default-off on purpose: many specs share `seedBrand`, and these
+   * columns change the rendered header badge, tags, and price row.
+   */
+  withFaqEvidence?: boolean;
 }): Promise<SeededBrand> {
   const supabase = getServiceClient();
   const ts = Date.now();
@@ -55,6 +72,16 @@ export async function seedBrand(opts: {
     product_type: 'crafts',
     founding_year: '2020',
   };
+
+  if (opts.withFaqEvidence) {
+    // 'declared' (not 'verified'): a self-declaration needs no registry match,
+    // so the fixture stays valid without seeding MIT registry rows.
+    brandData.mit_status = 'declared';
+    brandData.mit_declared_scope = 'all';
+    brandData.product_tags = ['手工陶器', '茶具'];
+    brandData.product_tags_en = ['Handmade ceramics', 'Teaware'];
+    brandData.price_range = 2;
+  }
 
   if (opts.withLinks) {
     brandData.social_instagram = 'https://instagram.com/e2e-test';

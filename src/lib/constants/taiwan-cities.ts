@@ -26,3 +26,78 @@ export const TAIWAN_CITIES = [
 export type CitySlug = typeof TAIWAN_CITIES[number]['slug']
 
 export const CITY_SLUGS = TAIWAN_CITIES.map(c => c.slug) as [CitySlug, ...CitySlug[]]
+
+/**
+ * SHORT zh-TW city labels, keyed by slug — "台北", not "臺北市".
+ *
+ * These are region chips (channel/location grouping), deliberately clipped and
+ * using the 台 variant. For the full names the brand page renders, use
+ * `CITY_NAMES_ZH` below — the two are not interchangeable.
+ *
+ * Lives here rather than in a message catalog because the enrichment pipeline
+ * needs it outside any request scope: the curation worker runs `tsx` against
+ * the repo with no Next.js bundler and no `messages/` directory in its image,
+ * so importing `messages/zh-TW.json` there crashes at module resolution.
+ */
+export const CITY_REGION_LABELS_ZH: Readonly<Record<string, string>> = {
+  taipei: '台北',
+  new_taipei: '新北',
+  taoyuan: '桃園',
+  taichung: '台中',
+  tainan: '台南',
+  kaohsiung: '高雄',
+  keelung: '基隆',
+  hsinchu_city: '新竹',
+  hsinchu_county: '新竹縣',
+  chiayi_city: '嘉義',
+  chiayi_county: '嘉義縣',
+  miaoli: '苗栗',
+  changhua: '彰化',
+  nantou: '南投',
+  yunlin: '雲林',
+  pingtung: '屏東',
+  yilan: '宜蘭',
+  hualien: '花蓮',
+  taitung: '台東',
+  penghu: '澎湖',
+  kinmen: '金門',
+  lienchiang: '連江',
+}
+
+/**
+ * FULL zh-TW city names, keyed by slug — the same strings the brand page
+ * renders via `tCities(brand.city)`.
+ *
+ * This MUST stay identical to the `cities` namespace in `messages/zh-TW.json`;
+ * `taiwan-cities.test.ts` asserts that, so drift fails CI rather than silently
+ * making the enrichment prompt describe a brand differently from its own page.
+ *
+ * It is duplicated here rather than imported from the catalog because the
+ * curation worker runs `tsx` with no bundler and no `messages/` directory in
+ * its image — importing the JSON from anything the worker reaches crashes it at
+ * module resolution. Tests can import the catalog freely; runtime code cannot.
+ */
+export const CITY_NAMES_ZH: Readonly<Record<string, string>> = {
+  taipei: '臺北市',
+  new_taipei: '新北市',
+  taoyuan: '桃園市',
+  taichung: '臺中市',
+  tainan: '臺南市',
+  kaohsiung: '高雄市',
+  keelung: '基隆市',
+  hsinchu_city: '新竹市',
+  chiayi_city: '嘉義市',
+  hsinchu_county: '新竹縣',
+  miaoli: '苗栗縣',
+  changhua: '彰化縣',
+  nantou: '南投縣',
+  yunlin: '雲林縣',
+  chiayi_county: '嘉義縣',
+  pingtung: '屏東縣',
+  yilan: '宜蘭縣',
+  hualien: '花蓮縣',
+  taitung: '臺東縣',
+  penghu: '澎湖縣',
+  kinmen: '金門縣',
+  lienchiang: '連江縣',
+}

@@ -179,9 +179,9 @@ export const ANALYTICS_EVENTS = {
   GALLERY_COMPLETED: 'gallery_completed',
 
   /**
-   * An FAQ accordion item on a brand page was expanded.
+   * An FAQ item on a brand page was expanded.
    * @property brand_slug {string} Brand slug.
-   * @property item_index {number} 0-based index of the expanded item.
+   * @property preset_id {string} Stable preset id of the expanded item.
    */
   FAQ_ITEM_EXPANDED: 'faq_item_expanded',
 
@@ -624,7 +624,7 @@ export interface AnalyticsEventPayloads {
     brand_slug: string
     image_count: number
   }
-  [ANALYTICS_EVENTS.FAQ_ITEM_EXPANDED]: { brand_slug: string; item_index: number }
+  [ANALYTICS_EVENTS.FAQ_ITEM_EXPANDED]: { brand_slug: string; preset_id: string }
   [ANALYTICS_EVENTS.RECOMMENDATION_BRAND_CLICKED]: {
     brand_id: string
     brand_slug: string

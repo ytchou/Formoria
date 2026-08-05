@@ -102,8 +102,19 @@ const ALLOWLIST = [
   "lib/services/enrich-phases/channels.ts",
   // Channel name normalization uses Chinese retailer noise words for stripping (data constants, not UI copy).
   "lib/brands/channels.ts",
+  // FAQ preset LLM prompt fragments are Chinese model instructions, not UI copy.
+  "lib/brands/faq-presets/",
+  // FAQ phase prompt fragments and repair instructions are Chinese model
+  // instructions, not UI copy.
+  "lib/services/enrich-phases/faq.ts",
   // Region slug-to-label map uses Chinese city names for display (data constants, not UI copy).
   "lib/services/brand-channels.ts",
+  // City labels the curation worker needs outside any request scope. They cannot
+  // live in `messages/*.json`: the worker runs `tsx` with no bundler and its
+  // image ships no `messages/` directory, so importing the catalog crashes at
+  // module resolution (#596). The rendering path still reads the catalog via
+  // next-intl — this map is the worker's copy, not the render source.
+  "lib/constants/taiwan-cities.ts",
 ];
 
 function isAllowlisted(relPath: string): boolean {

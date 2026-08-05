@@ -715,8 +715,11 @@
         "founded": "{year}年創立",
         "suffix": " 這個品牌{details}。"
       },
+      "taiwanOrigin": {
+        "undeclaredAnswer": "{brandName} 尚未向 Formoria 提交製造驗證，因此目前沒有台灣製造的認證狀態。{context}Formoria 收錄的品牌需與台灣有明確連結：於台灣創立、於台灣設計，或於台灣製造。"
+      },
       "isMadeInTaiwan": {
-        "question": "{brandName} 有哪些製造驗證？",
+        "question": "{brandName} 是台灣品牌嗎？",
         "answer": "Formoria 已比對到 {brandName} 的產品與 MIT 微笑標章登錄資料；此驗證僅適用於登錄資料涵蓋的產品。",
         "registrySource": "資料來源：MIT Smile 台灣製產品名錄。",
         "scopeLabels": {
@@ -728,33 +731,17 @@
         "declaredAnswer": "依品牌聲明，{brandName} 的{scope}在台灣製造。此資訊由品牌方提供。",
         "verificationMarker": "驗證"
       },
-      "whereToBuy": {
-        "question": "{brandName} 的產品在哪裡買？",
-        "answer": "您可以透過{channels}購買{brandName}的產品。"
-      },
-      "hasPhysicalStores": {
-        "question": "{brandName} 有實體門市嗎？",
-        "answer": "{brandName} 的實體地點包括{locations}。"
-      },
       "mainProducts": {
-        "question": "{brandName} 主打什麼產品？",
+        "question": "{brandName} 的主要產品有哪些？",
         "answerWithCategoryAndTags": "{brandName} 以{category}為主要領域，代表產品包含{productTags}。{context}",
         "answerWithTags": "{brandName} 的代表產品包含{productTags}。{context}"
       },
       "priceRange": {
-        "question": "{brandName} 的價位如何？",
+        "question": "{brandName} 的價位屬於哪個區間？",
         "answer": "{brandName} 的產品定位在{range}價位。"
       },
-      "whenFounded": {
-        "question": "{brandName} 是什麼時候創立的？",
-        "answer": "{brandName} 創立於{year}年。"
-      },
-      "officialAccounts": {
-        "question": "{brandName} 的官方帳號在哪裡？",
-        "answer": "您可以在{accounts}上追蹤{brandName}。"
-      },
       "reputation": {
-        "question": "{brandName}評價如何？",
+        "question": "{brandName} 的評價如何？",
         "answer": "{brandName} 的評價重點包括：{summary}{context}"
       }
     }
