@@ -14,6 +14,13 @@ export type EnrichmentSummary = {
    * valid; every summary the job runner produces sets it.
    */
   providerFailed?: number
+  /**
+   * Set only when the LLM circuit breaker aborted the job. The scheduled sweep
+   * reads it to stop claiming further jobs: on 2026-08-02 the pipeline ran for
+   * 11.5 hours against a dead provider, and continuing to the next queued job
+   * is how a one-job outage becomes an all-day one.
+   */
+  breakerTripped?: boolean
 }
 
 export type BrandPhaseProgress = {

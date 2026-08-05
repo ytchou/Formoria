@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { classifyByDomain, detectInputType, isNonBrandSiteHost } from '../input-detector'
+import {
+  classifyByDomain,
+  detectInputType,
+  isNonBrandSiteHost,
+  isThirdPartyDirectoryHost,
+} from '../input-detector'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -80,6 +85,38 @@ describe('isNonBrandSiteHost', () => {
   it('is false for a malformed URL — unknown, not blocked', () => {
     expect(isNonBrandSiteHost('gooddays.tw')).toBe(false)
     expect(isNonBrandSiteHost('')).toBe(false)
+  })
+})
+
+// DEV-1332: the organiser's own Facebook page, harvested off a creativexpo.tw
+// exhibitor listing, was published as 23 unrelated brands' official account.
+describe('isThirdPartyDirectoryHost', () => {
+  it.each([
+    'https://creativexpo.tw/zh-TW/exhibitor_list/120?brand_main_category_id=3',
+    'https://www.ubereats.com/tw/store/brand',
+    'https://zh.wikipedia.org/wiki/brand',
+    'https://myship.7-11.com.tw/general/detail/GM123456',
+  ])('is true for the third-party page %s', (url) => {
+    expect(isThirdPartyDirectoryHost(url)).toBe(true)
+  })
+
+  // A link-in-bio page exists to list ONE brand's accounts, so its links are the
+  // brand's own and harvesting them is the entire reason we scrape it.
+  it.each(['https://linktr.ee/brand', 'https://bio.site/brand'])(
+    'is false for the link aggregator %s',
+    (url) => {
+      expect(isThirdPartyDirectoryHost(url)).toBe(false)
+    },
+  )
+
+  it('is false for a social or marketplace profile — those are gated elsewhere', () => {
+    expect(isThirdPartyDirectoryHost('https://www.instagram.com/brand')).toBe(false)
+    expect(isThirdPartyDirectoryHost('https://www.pinkoi.com/store/brand')).toBe(false)
+  })
+
+  it('is false for a brand’s own domain and for a malformed URL', () => {
+    expect(isThirdPartyDirectoryHost('https://www.gooddays.tw')).toBe(false)
+    expect(isThirdPartyDirectoryHost('gooddays.tw')).toBe(false)
   })
 })
 

@@ -346,7 +346,7 @@ function platformHandleSegment(url: string): string | null {
  * tokens gives us nothing to discriminate with, so it accepts — same fallback
  * `deriveOfficialWebsite` makes for the same reason.
  */
-function handleMatchesBrand(url: string, tokens: string[]): boolean {
+export function handleMatchesBrand(url: string, tokens: string[]): boolean {
   if (tokens.length === 0) return true
   const handle = platformHandleSegment(url)
   if (!handle) return false
@@ -458,19 +458,62 @@ function isSpecificityDowngrade(
   return existingSegments.length > scrapedSegments.length
 }
 
+/**
+ * Social fields the brand-identity gate below applies to.
+ *
+ * Deliberately socials only. A marketplace storefront is already path-gated
+ * (`/store/{seller}`, no search pages), and marketplace handles are routinely
+ * opaque IDs — `s.shopee.tw/4VHrii96Af` carries no brand token and is still the
+ * brand's own store, so an identity gate there would reject legitimate links.
+ * Socials are where the contamination concentrates and where a handle is
+ * expected to read like the brand.
+ */
+const IDENTITY_GATED_FIELDS: readonly LinkField[] = [
+  'socialInstagram',
+  'socialThreads',
+  'socialFacebook',
+]
+
+/**
+ * `brandName` is optional and additive, mirroring `extractLinksFromUrls`.
+ *
+ * With it, a SCRAPED social handle must plausibly belong to the brand. The SERP
+ * path has been gated since DEV-1309, but the scrape path was not, and it is the
+ * one that actually contaminated the directory: a page the brand does not own —
+ * a trade-show exhibitor listing, a retailer's brand page — carries the SITE
+ * OWNER's social accounts, and the scraper adopted them verbatim. One expo
+ * listing put the same illustrator's Facebook page on 23 unrelated brands, and
+ * @cosme Taiwan's accounts onto five of the brands it stocks (DEV-1332).
+ *
+ * A rejected value is skipped, never written as null: declining to fill is not
+ * the same as erasing what the row already holds.
+ */
 export function buildLinkEnrichPatch(
   brand: BrandFlatLinkColumns,
-  scraped: LinkEnrichScraped
+  scraped: LinkEnrichScraped,
+  brandName?: string | null
 ): Partial<BrandFlatLinkColumns> {
   const patch: Partial<BrandFlatLinkColumns> = {}
+  const tokens = brandName == null ? null : brandNameTokens(brandName)
 
   for (const field of LINK_FIELDS) {
     const column = linkColumnFor(field)
     const existingValue = brand[column]
-    const scrapedValue = normalizeScrapedLinkValue(
+    const normalizedValue = normalizeScrapedLinkValue(
       field,
       getScrapedLinkValue(scraped, field, column)
     )
+    // A handle that fails the identity gate is treated as "we scraped nothing",
+    // not as a value to write. That keeps the corporate-account branch below
+    // intact: an existing corporate handle is still cleared, it just is not
+    // replaced by a second stranger's account.
+    const scrapedValue =
+      tokens !== null &&
+      hasLinkValue(normalizedValue) &&
+      IDENTITY_GATED_FIELDS.includes(field) &&
+      !handleMatchesBrand(normalizedValue, tokens)
+        ? null
+        : normalizedValue
 
     if (hasLinkValue(existingValue) && isCorporateAccount(existingValue)) {
       patch[column] = hasLinkValue(scrapedValue) && !isCorporateAccount(scrapedValue)

@@ -76,6 +76,7 @@ export const PROVIDERS = {
     "markCurationJobDispatched",
     "recordCurationDispatchFailure",
     "recoverStaleJobs",
+    "reportCircuitBreakerTrip",
     "reportJobFailure",
     "reportProviderFailures",
     "reportWorkerFailure",

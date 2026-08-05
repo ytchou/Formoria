@@ -88,6 +88,7 @@ These are warnings during migration, not evidence that the routes have no deep c
 | **Admin newsletter filtering, safe fields, and export scope** | `e2e/tests/admin-newsletter.spec.ts` | 2026-07-18 |
 | **Admin run-log HTML access and anonymous auth gate** | `e2e/tests/admin-runlog.spec.ts` | 2026-07-15 |
 | **Admin submission enrichment lifecycle and approval** | `e2e/tests/admin-submission-enrichment.spec.ts` | 2026-07-15 |
+| **Submission publishable-core link guard — myship-only approves, no-links rejects** | `e2e/tests/admin-submission-publishable-core.spec.ts` | 2026-08-05 |
 | **Scheduled approved-brand refresh request, review, and in-place apply** | `e2e/tests/admin-brand-refresh.spec.ts` | 2026-07-20 |
 | **Localized brand indexability and hidden-brand exclusion** | `e2e/tests/seo.spec.ts`, `e2e/tests/brand-detail.spec.ts` | 2026-07-15 |
 | **Guide locale indexability** | `e2e/tests/guide-detail.spec.ts` | 2026-07-15 |
