@@ -8,6 +8,14 @@
 // The committed file is Prettier-formatted and the Supabase CLI emits
 // unformatted output, so the generated types are run through Prettier before
 // the comparison — without that, the guard can never pass.
+//
+// Two outcomes are NOT failures and must stay distinct from each other:
+//   skip()   — cannot verify (no token, CLI broke). Fails under STRICT.
+//   exempt() — nothing to verify against. Passes even under STRICT.
+// The comparison target is the *remote* database, so a branch that adds a
+// migration is legitimately ahead of it and can never match. That is exempt,
+// not a failure: without this the gate would be red on precisely the PRs it
+// exists to guard, and the standing fix would be to disable it.
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, unlinkSync, writeFileSync, readFileSync } from 'node:fs';
@@ -40,6 +48,41 @@ function skip(reason) {
   }
   console.log(`- skipped: ${reason}`);
   process.exit(0);
+}
+
+function exempt(reason) {
+  console.log(`- not applicable: ${reason}`);
+  process.exit(0);
+}
+
+function git(...args) {
+  const run = spawnSync('git', args, { cwd: ROOT, encoding: 'utf8', timeout: 30000 });
+  if (run.error || run.status !== 0) return null;
+  return (run.stdout ?? '').trim();
+}
+
+// Where this branch left the base. `origin/main` is the honest answer and the
+// only one that works with more than one commit on the branch; CI checks out
+// `refs/pull/N/merge` at fetch-depth 2, where origin/main is unfetched but
+// HEAD~1 *is* the base tip (the same assumption the `unit-changed` leg
+// documents). Neither resolving means no diff to consult — run the guard.
+const base =
+  (git('rev-parse', '--verify', '--quiet', 'origin/main') &&
+    git('merge-base', 'HEAD', 'origin/main')) ||
+  git('rev-parse', '--verify', '--quiet', 'HEAD~1');
+
+if (base) {
+  const pending = git('diff', '--name-only', base, 'HEAD', '--', 'supabase/migrations');
+  if (pending) {
+    const files = pending.split('\n');
+    console.log(
+      `  ${files.length} migration(s) on this branch are not applied to the remote database yet:`,
+    );
+    for (const file of files) console.log(`    ${file}`);
+    exempt(
+      'branch carries unapplied migrations, so the remote schema is behind it by design',
+    );
+  }
 }
 
 // `--project-id` needs only an access token, so CI does not have to link the
