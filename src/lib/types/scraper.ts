@@ -1,3 +1,5 @@
+import type { LinkField } from '@/lib/services/link-enrichment'
+
 /**
  * Provenance for one scraped image. `brand_images.source` says only 'scrape'
  * for Instagram, Pinkoi, Shopee, single-page and crawl alike, which makes
@@ -20,6 +22,10 @@ export interface ScrapedBrandData {
   galleryImageUrls: string[]
   /** Parallel to `galleryImageUrls`; additive, consumers may ignore it. */
   imageSources?: ScrapedImageSource[]
+  /** Which scraped page supplied each winning link value. Additive; consumers may ignore it. */
+  linkProvenance?: Partial<Record<LinkField, { sourceUrl: string }>>
+  /** The page whose text supplied `description` (and `story`). */
+  textSourceUrl?: string
   socialInstagram: string | null
   socialThreads: string | null
   socialFacebook: string | null

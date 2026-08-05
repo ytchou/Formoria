@@ -100,6 +100,7 @@ export const PROVIDERS = {
   ],
   enrich: [
     "arbitrateBrandNames",
+    "arbitrateSiteIdentity",
     "classifyProductTypeBatch",
     "detectBrandsBatch",
     "persistEnrichmentResults",
@@ -118,6 +119,7 @@ export const PROVIDERS = {
     "runNamesPhase",
     "runReputationPhase",
     "runReputationResearch",
+    "runSiteIdentityPhase",
     "runStandaloneClassification",
   ],
   images: [

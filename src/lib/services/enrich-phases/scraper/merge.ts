@@ -1,8 +1,9 @@
 import type { ScrapedBrandData } from '@/lib/types/scraper'
 import { PURCHASE_CHANNELS, type PurchaseChannelCamelField } from '@/lib/brands/purchase-channels'
+import { LINK_FIELDS, type LinkField } from '@/lib/services/link-enrichment'
 import type { InputType } from './strategies/types'
 
-type ScrapeResult = { type: InputType; data: ScrapedBrandData }
+export type ScrapeResult = { type: InputType; data: ScrapedBrandData; sourceUrl?: string }
 type SocialLinkFields = Pick<
   ScrapedBrandData,
   'socialInstagram' | 'socialThreads' | 'socialFacebook'
@@ -132,16 +133,22 @@ export function mergeScrapedData(results: ScrapeResult[]): ScrapedBrandData {
     (a, b) => PRECEDENCE[a.type] - PRECEDENCE[b.type]
   )
   const merged = emptyMergedResult()
+  const linkProvenance: Partial<Record<LinkField, { sourceUrl: string }>> = {}
+  let descriptionSupplied = false
+  let textSourceUrl: string | undefined
 
-  for (const { data } of sortedResults) {
+  for (const { data, sourceUrl } of sortedResults) {
     if (!hasValue(merged.brandName) && hasValue(data.brandName)) {
       merged.brandName = data.brandName
     }
     if (!hasValue(merged.description) && hasValue(data.description)) {
       merged.description = data.description
+      descriptionSupplied = true
+      textSourceUrl = sourceUrl
     }
     if (!hasValue(merged.story) && hasValue(data.story)) {
       merged.story = data.story
+      if (!descriptionSupplied) textSourceUrl = sourceUrl
     }
     if (!hasValue(merged.heroImageUrl) && hasValue(data.heroImageUrl)) {
       merged.heroImageUrl = data.heroImageUrl
@@ -174,20 +181,23 @@ export function mergeScrapedData(results: ScrapeResult[]): ScrapedBrandData {
       }
     }
 
-    const socialLinks = mergeSocialLinks(merged, data)
-    merged.socialInstagram = socialLinks.socialInstagram
-    merged.socialThreads = socialLinks.socialThreads
-    merged.socialFacebook = socialLinks.socialFacebook
-    const purchaseLinks = mergePurchaseLinks(merged, data)
-    merged.purchaseWebsite = purchaseLinks.purchaseWebsite
-    merged.purchasePinkoi = purchaseLinks.purchasePinkoi
-    merged.purchaseShopee = purchaseLinks.purchaseShopee
-    merged.purchaseMyship = purchaseLinks.purchaseMyship
+    // Link provenance records the result page that first supplied each value;
+    // it is bookkeeping only and deliberately makes no identity judgment.
+    for (const field of LINK_FIELDS) {
+      const wasEmpty = merged[field] == null
+      merged[field] ??= data[field]
+      if (wasEmpty && hasValue(data[field]) && sourceUrl) {
+        linkProvenance[field] = { sourceUrl }
+      }
+    }
     merged.categoryHints = mergeCategoryHints(
       merged.categoryHints,
       data.categoryHints
     )
   }
+
+  if (Object.keys(linkProvenance).length > 0) merged.linkProvenance = linkProvenance
+  if (textSourceUrl) merged.textSourceUrl = textSourceUrl
 
   return merged
 }

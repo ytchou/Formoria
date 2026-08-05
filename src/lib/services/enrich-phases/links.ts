@@ -7,6 +7,8 @@ import {
   canonicalizeThreadsUrl,
   extractLinksFromUrls,
   hasLinkValue,
+  hostMatchesBrandName,
+  isForeignCountryTld,
 } from '../link-enrichment'
 import { cleanBrandName, isValidBrandName, titleCaseScrapedTitle } from '../brand-cleanup'
 import { finishSearchAudit, startSearchAudit } from '../search-results'
@@ -96,65 +98,6 @@ function prioritizeScrapeUrls(urls: string[]): string[] {
   }
 
   return ordered
-}
-
-/**
- * Public-suffix labels we strip before looking for the brand's name in a host,
- * so a brand token never matches the TLD itself. Not a full PSL — the list only
- * needs to cover the suffixes Taiwanese brands actually register under.
- */
-const PUBLIC_SUFFIX_SECOND_LEVELS = new Set(['com', 'co', 'net', 'org', 'gov', 'edu', 'idv'])
-
-/** The name-bearing labels of a host: `www.cha-tzu.com.tw` -> `chatzu`. */
-function domainNameLabels(hostname: string): string {
-  const labels = hostname.replace(/^www\./, '').split('.').filter(Boolean)
-  let end = labels.length - 1
-  if (end > 0 && PUBLIC_SUFFIX_SECOND_LEVELS.has(labels.at(end - 1) ?? '')) {
-    end -= 1
-  }
-  return labels.slice(0, Math.max(end, 1)).join('').replace(/[^a-z0-9]/g, '')
-}
-
-/**
- * Two-letter TLDs a Taiwanese brand plausibly registers under. `tw` is the home
- * ccTLD; `co` and `io` are two-letter by accident of the DNS and are used as
- * generic startup TLDs worldwide, Taiwan included.
- */
-const ALLOWED_TWO_LETTER_TLDS = new Set(['tw', 'co', 'io'])
-
-/**
- * True for a host under a foreign country's ccTLD.
- *
- * This is a Taiwan-only brand directory, and a SERP for a short Latin brand name
- * routinely surfaces a same-named foreign company: `https://onewood.dk`, a
- * Danish firm, became the Taiwanese brand "One Wood"'s official website on a
- * live run, and it passed every guard we had — the host is not a platform, and
- * the domain does carry the brand's tokens, because the two companies genuinely
- * share a name. Nationality is the only signal that separates them.
- *
- * Only two-letter TLDs are judged: every generic TLD (`.com`, `.shop`,
- * `.store`, `.design`, `.studio`, …) is registrable from Taiwan and says nothing
- * about nationality, so those pass untouched. `.com.tw` ends in `tw` and passes.
- * A malformed URL is not rejected here — unknown, not blocked, matching
- * `isNonBrandSiteHost`.
- */
-function isForeignCountryTld(url: string): boolean {
-  try {
-    const tld = new URL(url).hostname.toLowerCase().split('.').at(-1) ?? ''
-    return tld.length === 2 && !ALLOWED_TWO_LETTER_TLDS.has(tld)
-  } catch {
-    return false
-  }
-}
-
-function hostMatchesBrandName(url: string, tokens: string[]): boolean {
-  if (tokens.length === 0) return false
-  try {
-    const domain = domainNameLabels(new URL(url).hostname.toLowerCase())
-    return tokens.some((token) => domain.includes(token))
-  } catch {
-    return false
-  }
 }
 
 /**

@@ -134,6 +134,22 @@ export const LLM_PROFILES = {
     reasoningEffort: "none",
     timeoutMs: BATCH_CLASSIFY_TIMEOUT_MS,
   },
+  /** Single-site identity arbitration — the per-item fallback after a batch content failure. */
+  siteIdentity: {
+    model: "text",
+    maxTokens: 400,
+    temperature: 0.1,
+    reasoningEffort: "none",
+    timeoutMs: CLASSIFY_TIMEOUT_MS,
+  },
+  /** Batched site identity arbitration — up to LLM_BATCH_CHUNK_SIZE candidates per call. */
+  siteIdentityBatch: {
+    model: "text",
+    maxTokens: 2500,
+    temperature: 0.1,
+    reasoningEffort: "none",
+    timeoutMs: BATCH_CLASSIFY_TIMEOUT_MS,
+  },
   /**
    * Single-brand product-type classification. 300, not 100: maxTokens is
    * max_completion_tokens on gpt-5, so any preamble the model emits before the

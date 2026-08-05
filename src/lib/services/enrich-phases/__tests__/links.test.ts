@@ -87,6 +87,14 @@ describe('deriveOfficialWebsite', () => {
     ).toBeNull()
   })
 
+  it('deriveOfficialWebsite — unchanged after helper move', () => {
+    expect(deriveOfficialWebsite(['https://onewood.dk'], 'One Wood')).toBeNull()
+    expect(deriveOfficialWebsite(['https://nahoku.com'], 'NU Dream Jewelry')).toBeNull()
+    expect(
+      deriveOfficialWebsite(['https://myship.7-11.com.tw/general/detail/GM123'], '原形東方茶飲 pur Sweets'),
+    ).toBeNull()
+  })
+
   // A Taiwan-only directory. `https://onewood.dk` — a Danish company sharing the
   // name — became the brand "One Wood"'s official website on a live run, and it
   // passed the token check precisely because the two companies share a name.

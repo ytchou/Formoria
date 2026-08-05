@@ -305,9 +305,8 @@ function normalizeScrapedLinkValue(
  * rather than transliterated; a purely Han name simply yields no tokens and each
  * caller falls back to its own no-signal behaviour.
  *
- * Lives here rather than in `enrich-phases/links.ts` because both that module
- * and this one need it, and links.ts already imports from here — the reverse
- * import would be a cycle.
+ * Lives here because both the links phase and this module need it, and the
+ * links phase already imports from here — the reverse import would be a cycle.
  */
 export function brandNameTokens(brandName: string | null | undefined): string[] {
   if (!brandName) return []
@@ -315,6 +314,65 @@ export function brandNameTokens(brandName: string | null | undefined): string[] 
     .toLowerCase()
     .split(/[^a-z0-9]+/)
     .filter((token) => token.length >= 3)
+}
+
+/**
+ * Public-suffix labels we strip before looking for the brand's name in a host,
+ * so a brand token never matches the TLD itself. Not a full PSL — the list only
+ * needs to cover the suffixes Taiwanese brands actually register under.
+ */
+const PUBLIC_SUFFIX_SECOND_LEVELS = new Set(['com', 'co', 'net', 'org', 'gov', 'edu', 'idv'])
+
+/** The name-bearing labels of a host: `www.cha-tzu.com.tw` -> `chatzu`. */
+function domainNameLabels(hostname: string): string {
+  const labels = hostname.replace(/^www\./, '').split('.').filter(Boolean)
+  let end = labels.length - 1
+  if (end > 0 && PUBLIC_SUFFIX_SECOND_LEVELS.has(labels.at(end - 1) ?? '')) {
+    end -= 1
+  }
+  return labels.slice(0, Math.max(end, 1)).join('').replace(/[^a-z0-9]/g, '')
+}
+
+/**
+ * Two-letter TLDs a Taiwanese brand plausibly registers under. `tw` is the home
+ * ccTLD; `co` and `io` are two-letter by accident of the DNS and are used as
+ * generic startup TLDs worldwide, Taiwan included.
+ */
+const ALLOWED_TWO_LETTER_TLDS = new Set(['tw', 'co', 'io'])
+
+/**
+ * True for a host under a foreign country's ccTLD.
+ *
+ * This is a Taiwan-only brand directory, and a SERP for a short Latin brand name
+ * routinely surfaces a same-named foreign company: `https://onewood.dk`, a
+ * Danish firm, became the Taiwanese brand "One Wood"'s official website on a
+ * live run, and it passed every guard we had — the host is not a platform, and
+ * the domain does carry the brand's tokens, because the two companies genuinely
+ * share a name. Nationality is the only signal that separates them.
+ *
+ * Only two-letter TLDs are judged: every generic TLD (`.com`, `.shop`,
+ * `.store`, `.design`, `.studio`, …) is registrable from Taiwan and says nothing
+ * about nationality, so those pass untouched. `.com.tw` ends in `tw` and passes.
+ * A malformed URL is not rejected here — unknown, not blocked, matching
+ * `isNonBrandSiteHost`.
+ */
+export function isForeignCountryTld(url: string): boolean {
+  try {
+    const tld = new URL(url).hostname.toLowerCase().split('.').at(-1) ?? ''
+    return tld.length === 2 && !ALLOWED_TWO_LETTER_TLDS.has(tld)
+  } catch {
+    return false
+  }
+}
+
+export function hostMatchesBrandName(url: string, tokens: string[]): boolean {
+  if (tokens.length === 0) return false
+  try {
+    const domain = domainNameLabels(new URL(url).hostname.toLowerCase())
+    return tokens.some((token) => domain.includes(token))
+  } catch {
+    return false
+  }
 }
 
 /**
@@ -346,11 +404,26 @@ function platformHandleSegment(url: string): string | null {
  * tokens gives us nothing to discriminate with, so it accepts — same fallback
  * `deriveOfficialWebsite` makes for the same reason.
  */
-function handleMatchesBrand(url: string, tokens: string[]): boolean {
+export function handleMatchesBrand(url: string, tokens: string[]): boolean {
   if (tokens.length === 0) return true
   const handle = platformHandleSegment(url)
   if (!handle) return false
   return tokens.some((token) => handle.includes(token) || token.includes(handle))
+}
+
+/**
+ * Confirms a link only when its platform handle or registrable host identifies
+ * the brand. `https://www.facebook.com/NaHoku` — a Hawaiian jewellery company —
+ * was harvested off `nahoku.com`'s footer and written into NU Dream Jewelry's
+ * `social_facebook`, so either side of the link must carry the brand identity.
+ *
+ * This predicate only ever CONFIRMS: zero tokens means "not confirmed", the
+ * deliberate opposite polarity from `handleMatchesBrand`, because a caller
+ * that cannot confirm must escalate (quarantine), never delete.
+ */
+export function linkIdentifiesBrand(url: string, tokens: string[]): boolean {
+  if (tokens.length === 0) return false // NOT confirmed -> caller escalates
+  return handleMatchesBrand(url, tokens) || hostMatchesBrandName(url, tokens)
 }
 
 /**
