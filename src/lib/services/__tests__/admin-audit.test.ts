@@ -3,7 +3,12 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createTestClient, describeWithDb } from '@/test/setup'
-import type { AdminAction } from '../admin-audit'
+import {
+  logAdminAction,
+  type AdminAction,
+  type LogAdminActionDeps,
+} from '../admin-audit'
+import { runWithAuditContext } from '@/lib/audit'
 
 const ALL_ACTIONS: AdminAction[] = [
   'impersonate_start',
@@ -72,5 +77,66 @@ describe('dashboard brand overview', () => {
 
     expect(pageSource).toContain("captureReadFailure('dashboard-brand-overview-analytics')")
     expect(pageSource).not.toContain('catch(() => null)')
+  })
+})
+
+describe('admin audit correlation', () => {
+  it('admin actions record a correlation id when one is in scope', async () => {
+    const correlationId = '22222222-2222-4222-8222-222222222222'
+    const inserts: Array<Record<string, unknown>> = []
+    const deps: LogAdminActionDeps = {
+      client: {
+        from: () => ({
+          insert: async (values: Record<string, unknown>) => {
+            inserts.push(values)
+            return { error: null }
+          },
+        }),
+      },
+    }
+
+    await runWithAuditContext({ correlationId }, () =>
+      logAdminAction(
+        {
+          adminUserId: '33333333-3333-4333-8333-333333333333',
+          adminEmail: 'admin-audit@example.com',
+          action: 'brand_edit',
+          targetBrandSlug: 'example-brand',
+          targetBrandId: '44444444-4444-4444-8444-444444444444',
+        },
+        deps,
+      ),
+    )
+
+    expect(inserts).toHaveLength(1)
+    expect(inserts[0]).toMatchObject({ correlation_id: correlationId })
+  })
+
+  it('admin actions still succeed with no correlation in scope', async () => {
+    const inserts: Array<Record<string, unknown>> = []
+    const deps: LogAdminActionDeps = {
+      client: {
+        from: () => ({
+          insert: async (values: Record<string, unknown>) => {
+            inserts.push(values)
+            return { error: null }
+          },
+        }),
+      },
+    }
+
+    await logAdminAction(
+      {
+        adminUserId: '55555555-5555-4555-8555-555555555555',
+        adminEmail: 'admin-audit@example.com',
+        action: 'draft_save',
+        targetBrandSlug: 'example-brand',
+        targetBrandId: '66666666-6666-4666-8666-666666666666',
+      },
+      deps,
+    )
+
+    expect(inserts).toHaveLength(1)
+    expect(inserts[0]).not.toHaveProperty('correlation_id')
   })
 })

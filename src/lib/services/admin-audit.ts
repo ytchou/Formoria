@@ -1,3 +1,4 @@
+import { getAuditContext } from '@/lib/audit'
 import { createServiceClient } from '@/lib/supabase/server'
 
 export type AdminAction =
@@ -22,6 +23,28 @@ export type LogAdminActionParams = {
   metadata?: Record<string, unknown>
 }
 
+type AdminAuditClient = {
+  from: (table: string) => {
+    insert: (values: Record<string, unknown>) =>
+      PromiseLike<{ error: unknown }>
+  }
+}
+
+export type LogAdminActionDeps = {
+  client?: AdminAuditClient
+}
+
+function isMissingCorrelationIdColumn(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false
+  const source = error as { code?: unknown; message?: unknown }
+  const message = typeof source.message === 'string' ? source.message : ''
+  return (
+    source.code === '42703' ||
+    (message.includes('correlation_id') &&
+      /(missing|does not exist|doesn't exist)/i.test(message))
+  )
+}
+
 export async function logAdminAction({
   adminUserId,
   adminEmail,
@@ -29,19 +52,30 @@ export async function logAdminAction({
   targetBrandSlug,
   targetBrandId,
   metadata,
-}: LogAdminActionParams): Promise<void> {
+}: LogAdminActionParams, deps: LogAdminActionDeps = {}): Promise<void> {
   try {
-    const supabase = createServiceClient()
-    await supabase.from('admin_audit_log').insert({
+    const client =
+      deps.client ?? (createServiceClient() as unknown as AdminAuditClient)
+    const correlationId = getAuditContext().correlationId
+    const baseValues = {
       admin_user_id: adminUserId,
       admin_email: adminEmail,
       action,
       target_brand_slug: targetBrandSlug ?? null,
       target_brand_id: targetBrandId ?? null,
       metadata: metadata ?? {},
-    })
+    }
+    const values = {
+      ...baseValues,
+      ...(correlationId ? { correlation_id: correlationId } : {}),
+    }
+    const { error } = await client.from('admin_audit_log').insert(values)
+    if (correlationId && isMissingCorrelationIdColumn(error)) {
+      // Fallback exists because Railway deployment is not atomic with the migration; delete it once the migration is applied everywhere.
+      await client.from('admin_audit_log').insert(baseValues)
+    }
   } catch {
-    // Fire-and-forget — don't block the action on logging failure
+    // Fire-and-forget - do not block the action on logging failure.
   }
 }
 

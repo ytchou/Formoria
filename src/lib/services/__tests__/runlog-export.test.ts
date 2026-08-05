@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { CurationJobTarget } from '../curation-jobs'
-import { aiEvent, searchEvent } from '../runlog-export'
+import type { CurationJob, CurationJobTarget } from '../curation-jobs'
+import { aiEvent, exportJobRunLog, searchEvent } from '../runlog-export'
 
 const targetById = new Map<string, CurationJobTarget>()
 
@@ -115,5 +115,114 @@ describe('run-log audit events', () => {
     )
 
     expect(event.labels?.retry).toBeUndefined()
+  })
+})
+
+type AuditResult = { data: unknown[] | null; error: unknown }
+
+type FakeAuditQuery = PromiseLike<AuditResult> & {
+  select: (columns: string) => FakeAuditQuery
+  eq: (column: string, value: unknown) => FakeAuditQuery
+  in: (column: string, values: string[]) => FakeAuditQuery
+  gte: (column: string, value: string) => FakeAuditQuery
+  lte: (column: string, value: string) => FakeAuditQuery
+  order: (column: string, options: { ascending: boolean }) => FakeAuditQuery
+}
+
+function fakeAuditClient(correlationResult: AuditResult) {
+  return {
+    from: (table: string): FakeAuditQuery => {
+      const result =
+        table === 'external_call_audit'
+          ? correlationResult
+          : { data: [], error: null }
+      const query: FakeAuditQuery = {
+        select: () => query,
+        eq: () => query,
+        in: () => query,
+        gte: () => query,
+        lte: () => query,
+        order: () => query,
+        then<TResult1 = AuditResult, TResult2 = never>(
+          onfulfilled?:
+            | ((value: AuditResult) => TResult1 | PromiseLike<TResult1>)
+            | null,
+          onrejected?:
+            | ((reason: unknown) => TResult2 | PromiseLike<TResult2>)
+            | null,
+        ): PromiseLike<TResult1 | TResult2> {
+          return Promise.resolve(result).then(onfulfilled, onrejected)
+        },
+      }
+      return query
+    },
+  }
+}
+
+const runlogJob: CurationJob = {
+  attempt: 1,
+  cancelled_count: 0,
+  completed_at: '2026-08-05T03:00:00.000Z',
+  created_at: '2026-08-05T02:00:00.000Z',
+  current_phase: null,
+  current_target_id: null,
+  dedupe_key: null,
+  dispatch_error: null,
+  dispatch_status: 'dispatched',
+  dispatched_at: '2026-08-05T02:00:00.000Z',
+  dry_run: false,
+  failed_count: 0,
+  heartbeat_at: null,
+  id: 'job-1',
+  job_error: null,
+  operation: 'enrich',
+  params: null,
+  parent_job_id: null,
+  progress: null,
+  result: null,
+  run_after: '2026-08-05T02:00:00.000Z',
+  scheduled_for: null,
+  skipped_count: 0,
+  started_at: '2026-08-05T02:00:00.000Z',
+  started_by: 'm.garcia+test@company.co.uk',
+  status: 'completed',
+  succeeded_count: 0,
+  target_total: 0,
+  trigger: 'admin',
+  worker_token: null,
+}
+
+describe('run-log correlation', () => {
+  it('runlog carries the correlation id for its job', async () => {
+    const correlationId = '11111111-1111-4111-8111-111111111111'
+    const runlog = await exportJobRunLog('job-1', {
+      client: fakeAuditClient({
+        data: [{ correlation_id: correlationId }],
+        error: null,
+      }),
+      getJob: async () => runlogJob,
+      listTargets: async () => [],
+    })
+
+    expect(runlog.run.correlationId).toBe(correlationId)
+  })
+
+  it('export degrades gracefully when correlation_id is absent', async () => {
+    const runlog = await exportJobRunLog('job-1', {
+      client: fakeAuditClient({
+        data: null,
+        error: {
+          code: '42703',
+          message: 'column external_call_audit.correlation_id does not exist',
+        },
+      }),
+      getJob: async () => runlogJob,
+      listTargets: async () => [],
+    })
+
+    expect(runlog.run.correlationId).toBeUndefined()
+    expect(runlog.gaps).toContain(
+      'Job correlation_id is unavailable; audit rows cannot be correlated until the correlation_id migration is applied',
+    )
   })
 })
