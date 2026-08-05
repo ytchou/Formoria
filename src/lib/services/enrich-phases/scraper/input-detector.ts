@@ -148,6 +148,28 @@ export function isNonBrandSiteHost(url: string): boolean {
   }
 }
 
+/**
+ * True for a page that belongs to a third party rather than to any brand we
+ * scrape it for — an expo organiser, a directory, a delivery app, a publishing
+ * platform.
+ *
+ * The distinction that matters is with `LINK_AGGREGATOR_HOSTS`: a linktr.ee page
+ * exists to list ONE brand's accounts, so harvesting its links is the whole
+ * point. A `creativexpo.tw` exhibitor listing is the organiser's page — the
+ * social links on it are the ORGANISER's, and adopting them put one illustrator's
+ * Facebook page on 23 unrelated brands (DEV-1332). `NON_BRAND_PLATFORM_HOSTS`
+ * previously only blocked official-website adoption; link harvesting is the
+ * second way a third party's identity reaches a brand row.
+ */
+export function isThirdPartyDirectoryHost(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase()
+    return NON_BRAND_PLATFORM_HOSTS.some((domain) => hostnameMatches(hostname, domain))
+  } catch {
+    return false
+  }
+}
+
 export function classifyByDomain(url: string): InputType | null {
   try {
     const hostname = new URL(url).hostname.toLowerCase()

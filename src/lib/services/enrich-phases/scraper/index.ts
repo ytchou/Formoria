@@ -2,7 +2,8 @@ import { randomUUID } from 'node:crypto'
 import { auditedCall, type AuditStatus } from '@/lib/audit'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
 import { fetchHtmlWithMetadata } from './fetch-guards'
-import { classifyByDomain, detectInputType } from './input-detector'
+import { classifyByDomain, detectInputType, isThirdPartyDirectoryHost } from './input-detector'
+import { PURCHASE_CHANNELS } from '@/lib/brands/purchase-channels'
 import { mergeScrapedData } from './merge'
 import { emptyResult } from './parse/extractors'
 import { getRenderProvider } from './render/index'
@@ -46,6 +47,28 @@ export type MultiScrapeResult = {
  * adapters (20 images each) never fired at all.
  */
 export const MAX_SCRAPE_URLS_PER_BRAND = 6
+
+/**
+ * Drops the link fields harvested from a page the brand does not own.
+ *
+ * The text and images on a third-party page can still describe the brand — an
+ * exhibitor listing carries its blurb and product shots — but the accounts
+ * linked from it belong to whoever runs the page. Those are the fields that
+ * published a stranger's Facebook page as 23 brands' own (DEV-1332), so they are
+ * the only ones dropped. Applied before `hasContent` and before the audit
+ * snapshot, so the trail records what we actually kept.
+ */
+function withoutThirdPartyLinks(url: string, data: ScrapedBrandData): ScrapedBrandData {
+  if (!isThirdPartyDirectoryHost(url)) return data
+
+  return {
+    ...data,
+    socialInstagram: null,
+    socialThreads: null,
+    socialFacebook: null,
+    ...Object.fromEntries(PURCHASE_CHANNELS.map((channel) => [channel.camel, null])),
+  }
+}
 
 function hasContent(data: ScrapedBrandData): boolean {
   return Boolean(
@@ -134,10 +157,13 @@ export async function scrapeBrandUrls(
                 return result
               },
             }
-            const data = await strategy.scrape(url, {
-              render: trackedRender,
-              prefetchedHtml,
-            })
+            const data = withoutThirdPartyLinks(
+              url,
+              await strategy.scrape(url, {
+                render: trackedRender,
+                prefetchedHtml,
+              }),
+            )
             const ok = hasContent(data)
             const callStatus: AuditStatus = ok ? 'succeeded' : error ? 'failed' : 'empty'
             await finishAudit({
