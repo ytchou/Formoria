@@ -5,7 +5,9 @@ test.describe("Stories navigation deep", () => {
     anonPage,
   }) => {
     await anonPage.goto("/");
-    const storiesLink = anonPage.getByRole("link", { name: "專題", exact: true });
+    const storiesLink = anonPage
+      .getByRole("contentinfo")
+      .getByRole("link", { name: "專題", exact: true });
     await expect(storiesLink).toBeVisible({ timeout: 10_000 });
     await expect(storiesLink).toHaveAttribute("href", "/stories");
   });
@@ -14,7 +16,10 @@ test.describe("Stories navigation deep", () => {
     anonPage,
   }) => {
     await anonPage.goto("/");
-    await anonPage.getByRole("link", { name: "專題", exact: true }).click();
+    await anonPage
+      .getByRole("contentinfo")
+      .getByRole("link", { name: "專題", exact: true })
+      .click();
     await expect(anonPage).toHaveURL(/\/stories(?:[?#]|$)/, {
       timeout: 15_000,
     });
