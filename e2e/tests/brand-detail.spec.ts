@@ -291,6 +291,53 @@ test.describe("Brand detail — brand without links", () => {
   });
 });
 
+test.describe("Brand detail — myship-only purchase channel", () => {
+  let seeded: SeededBrand;
+
+  test.beforeAll(async ({}, workerInfo) => {
+    // purchase_myship set, purchase_website NULL — the website-centric fixtures
+    // above cannot tell "the purchase section works" apart from "purchase_website
+    // works". Guards against a new channel being half-wired on the detail page.
+    seeded = await seedBrand({
+      name: "myship-only",
+      status: "approved",
+      workerIndex: workerInfo.workerIndex,
+      withLinks: true,
+      purchaseChannel: "myship",
+    });
+  });
+
+  test.afterAll(async () => {
+    await seeded.cleanup();
+  });
+
+  test("myship renders as a live link while the website chip stays inert", async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+
+    await expect(async () => {
+      await page.goto(`/brands/${seeded.slug}`, {
+        waitUntil: "domcontentloaded",
+      });
+      await expect(page.getByRole("heading", { level: 1 })).toContainText(
+        "myship-only",
+        { timeout: 10_000 },
+      );
+    }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 10_000] });
+
+    await expect(
+      page.getByRole("link", { name: "前往 7-ELEVEN 賣貨便" }),
+    ).toBeVisible();
+
+    const websiteChip = page.getByRole("button", {
+      name: /^品牌官網 — 尚無已知連結$/,
+    });
+    await expect(websiteChip).toBeVisible();
+    await expect(websiteChip).toHaveAttribute("aria-disabled", "true");
+  });
+});
+
 test.describe("Brand detail — hidden brand", () => {
   let seeded: SeededBrand;
 
