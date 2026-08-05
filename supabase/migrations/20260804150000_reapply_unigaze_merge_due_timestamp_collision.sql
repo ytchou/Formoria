@@ -1,5 +1,10 @@
 begin;
 
+-- Renamed from 20260804100000_merge_duplicate_unigaze_brands.sql. That version
+-- was already occupied remotely by the external_call_audit migration, so this
+-- data migration was applied under 20260804150000 instead. The filename now
+-- matches the version that actually ran.
+
 -- DEV-1322 — merge the two duplicate UNIGAZE brand rows into one.
 --
 -- Two brand_submissions for the same studio, both carrying
