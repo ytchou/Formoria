@@ -281,10 +281,11 @@ function normalizeScrapedLinkValue(
   if (BARE_ROOT_REJECTING_FIELDS.includes(field) && isBareRootUrl(value)) {
     return null
   }
-  const purchaseChannel = PURCHASE_CHANNELS.find((channel) => channel.camel === field)
-  if (purchaseChannel?.urlPattern && !purchaseChannel.urlPattern.test(value)) {
-    return null
-  }
+  // Deliberately NOT gated on `channel.urlPattern`: that pattern is the strict
+  // classifier for *submitted* URLs (`URL_TO_LINK_COLUMN`), and applying it to
+  // scraped values drops legitimate storefronts (`shopee.com.tw/mybrand`,
+  // tracking query strings, deeper paths) — and, worse, returns null for a
+  // column the brand already holds, which `buildLinkEnrichPatch` then erases.
   if (field === 'purchasePinkoi' && !isPinkoiStorefrontUrl(value)) {
     return null
   }

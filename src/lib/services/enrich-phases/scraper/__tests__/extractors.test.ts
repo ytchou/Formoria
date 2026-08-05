@@ -117,6 +117,28 @@ describe('extractPurchaseLinks', () => {
     expect(links.purchaseWebsite).toBeNull()
   })
 
+  // Regression guard: harvesting is host-level, not the registry's strict
+  // `urlPattern`. Every URL below was harvested before the registry refactor
+  // and must keep being harvested — `urlPattern` would reject all five.
+  it.each([
+    ['https://pinkoi.com/product/abc', 'purchasePinkoi'],
+    ['https://www.pinkoi.com/zh-TW/store/mybrand', 'purchasePinkoi'],
+    ['https://shopee.tw/shop/12345', 'purchaseShopee'],
+    ['https://shopee.tw/mybrand?smtt=1', 'purchaseShopee'],
+    ['https://shopee.com.tw/shop/123', 'purchaseShopee'],
+    ['https://myship.7-11.com.tw/general/detail/GM123', 'purchaseMyship'],
+  ] as const)('harvests %s into %s', (href, field) => {
+    const $ = cheerio.load(`<a href="${href}">Buy</a>`)
+    expect(extractPurchaseLinks($)[field]).toBe(href)
+  })
+
+  it('does not harvest a lookalike host', () => {
+    const $ = cheerio.load('<a href="https://evil.example.com/shopee.tw/mybrand">Fake</a>')
+    const links = extractPurchaseLinks($)
+    expect(links.purchaseShopee).toBeNull()
+    expect(links.purchasePinkoi).toBeNull()
+  })
+
   it('takes first match when multiple Pinkoi links exist', () => {
     const $ = cheerio.load(
       '<a href="https://www.pinkoi.com/store/first">Pinkoi</a><a href="https://www.pinkoi.com/store/second">Pinkoi</a>'

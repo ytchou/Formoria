@@ -17,7 +17,9 @@ import { submitCorrectionAction } from "@/lib/actions/brand-corrections";
 import { trackCorrectionSubmitted } from "@/lib/analytics";
 import { PRICE_RANGE_TIERS } from "@/lib/brands/price-range";
 import {
-  PURCHASE_CHANNELS,
+  channelMessageKey,
+  PURCHASE_COLUMNS,
+  purchaseChannelByColumn,
   type PurchaseChannelColumn,
 } from "@/lib/brands/purchase-channels";
 import type { CorrectionField } from "@/lib/services/brand-corrections";
@@ -117,10 +119,6 @@ type SelectionState = {
   extras: string[];
 };
 
-function purchaseChannelForField(field: CorrectionField) {
-  return PURCHASE_CHANNELS.find((channel) => channel.column === field);
-}
-
 function buildTagDelta(initialTags: string[], selectedTags: string[]) {
   const initialSet = new Set(initialTags);
   const selectedSet = new Set(selectedTags);
@@ -162,13 +160,12 @@ export function CorrectionDialog({
   // Starts empty so the dialog opens on the picker alone — no value control is
   // shown until the contributor says what they are correcting.
   const [field, setField] = useState<CorrectionField | "">("");
-  const purchaseFields = PURCHASE_CHANNELS.map((channel) => channel.column);
-  const purchaseChannel = PURCHASE_CHANNELS.find(
-    (channel) => channel.column === field,
-  );
+  const purchaseChannel = Object.hasOwn(purchaseChannelByColumn, field)
+    ? purchaseChannelByColumn[field as PurchaseChannelColumn]
+    : undefined;
   const availableFields: CorrectionField[] =
     mode === "purchaseLinks"
-      ? [...purchaseFields]
+      ? [...PURCHASE_COLUMNS]
       : mode === "socialLinks"
         ? ["social_instagram", "social_threads", "social_facebook"]
         : productType != null
@@ -274,10 +271,12 @@ export function CorrectionDialog({
     ...extraTags.map((tag) => ({ key: tag, tag, label: tagLabel(tag) })),
   ];
   const labelForField = (item: CorrectionField) => {
-    const channel = purchaseChannelForField(item);
+    const channel = Object.hasOwn(purchaseChannelByColumn, item)
+      ? purchaseChannelByColumn[item as PurchaseChannelColumn]
+      : undefined;
     if (channel) {
       return tBrandDetail(
-        channel.messageKeys.brandDetailLink.replace(/^brandDetail\./, ""),
+        channelMessageKey(channel.messageKeys.brandDetailLink, "brandDetail"),
       );
     }
     return item === "product_type"

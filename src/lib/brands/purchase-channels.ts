@@ -41,6 +41,16 @@ export interface PurchaseChannelMessageKeys {
   readonly adminCorrectionField: string
 }
 
+/**
+ * A registry message key rendered relative to the namespace a consumer's `t`
+ * is already scoped to. The registry stores full dot paths from the message
+ * root; `useTranslations('brandDetail')` wants the leaf.
+ */
+export function channelMessageKey(fullKey: string, namespace: string): string {
+  const prefix = `${namespace}.`
+  return fullKey.startsWith(prefix) ? fullKey.slice(prefix.length) : fullKey
+}
+
 export interface PurchaseChannelDescriptor {
   /** Stable channel identifier. */
   readonly key: string

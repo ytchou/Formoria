@@ -32,7 +32,6 @@ import type {
 import { deriveProductTagsEn } from "@/lib/services/product-tags";
 import { MAX_BRAND_ACTIVE_IMAGES } from "@/lib/constants/brand-images";
 import {
-  PURCHASE_CAMEL_FIELDS,
   PURCHASE_CHANNELS,
   type PurchaseChannelCamelField,
   type PurchaseChannelKey,
@@ -216,15 +215,10 @@ export function ReviewDetailsEditor({
     const orderedImages = reorderImages(draftImages);
     const hero = orderedImages[0] ?? null;
     const purchaseFields = Object.fromEntries(
-      PURCHASE_CAMEL_FIELDS.map((field) => {
-        const channel = PURCHASE_CHANNELS.find(
-          (candidate) => candidate.camel === field,
-        );
-        return [
-          field,
-          channel?.key === "website" ? draft.websiteUrl : draft[field],
-        ];
-      }),
+      PURCHASE_CHANNELS.map((channel) => [
+        channel.camel,
+        channel.key === "website" ? draft.websiteUrl : draft[channel.camel],
+      ]),
     ) as Pick<SubmissionReviewData, PurchaseChannelCamelField>;
     const input: SaveSubmissionReviewInput = {
       ...draft,
@@ -787,28 +781,23 @@ function LinksEditor({
   return (
     <div className="space-y-4">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {PURCHASE_CAMEL_FIELDS.flatMap((field) => {
-          const channel = PURCHASE_CHANNELS.find(
-            (candidate) => candidate.camel === field,
-          );
-          if (!channel) return [];
-
-          return [
-            <UrlField
-              key={field}
-              label={
-                channel.key === "website"
-                  ? t(PURCHASE_DISPLAY_LABELS[channel.key])
-                  : PURCHASE_DISPLAY_LABELS[channel.key]
-              }
-              value={channel.key === "website" ? draft.websiteUrl : draft[field]}
-              onChange={(value) => {
-                if (channel.key === "website") onUpdate("websiteUrl", value);
-                else onUpdate(field, value);
-              }}
-            />,
-          ];
-        })}
+        {PURCHASE_CHANNELS.map((channel) => (
+          <UrlField
+            key={channel.camel}
+            label={
+              channel.key === "website"
+                ? t(PURCHASE_DISPLAY_LABELS[channel.key])
+                : PURCHASE_DISPLAY_LABELS[channel.key]
+            }
+            value={
+              channel.key === "website" ? draft.websiteUrl : draft[channel.camel]
+            }
+            onChange={(value) => {
+              if (channel.key === "website") onUpdate("websiteUrl", value);
+              else onUpdate(channel.camel, value);
+            }}
+          />
+        ))}
         <UrlField
           label="Instagram"
           value={draft.socialInstagram}

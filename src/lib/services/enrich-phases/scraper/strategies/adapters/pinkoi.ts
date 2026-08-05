@@ -7,6 +7,7 @@ export const pinkoiAdapter = createMarketplaceAdapter({
   productImageExtractor: extractPinkoiProductImages,
   purchaseKey: 'purchasePinkoi',
   imageMethod: 'pinkoi_adapter',
+  shopNameSelector: '[class*="store-name"]',
   fallbackNameSelector: '[data-testid*="store"] h1',
   fallbackDescriptionSelectors: ['[class*="description"]', '[class*="story"]'],
 })

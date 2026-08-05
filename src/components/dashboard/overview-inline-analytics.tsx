@@ -6,6 +6,7 @@ import { SurfaceCard } from '@/components/ui/card'
 import { countDelta, percent } from '@/lib/analytics/delta-formatters'
 import type { OwnerAnalyticsSnapshotV1 } from '@/lib/analytics/posthog-types'
 import {
+  channelMessageKey,
   purchaseChannelByKey,
   type PurchaseChannelKey,
 } from '@/lib/brands/purchase-channels'
@@ -13,16 +14,6 @@ import {
   outboundDestinationLabel,
   trafficSourceLabel,
 } from '@/lib/analytics/traffic-source-labels'
-
-/**
- * The channel's outbound-destination message key, relative to the
- * `dashboard.analytics` namespace this component translates in.
- */
-function outboundDestinationKey(key: PurchaseChannelKey): string {
-  return purchaseChannelByKey[
-    key
-  ].messageKeys.analyticsOutboundDestination.replace(/^dashboard\.analytics\./, '')
-}
 
 export async function OverviewInlineAnalytics({
   snapshot,
@@ -67,10 +58,30 @@ export async function OverviewInlineAnalytics({
   // vacuously and lets a new channel fall through to `labels.other` unnoticed.
   // The literal is what makes `satisfies` a real gate.
   const purchaseOutboundDestinationLabels = {
-    website: tAnalytics(outboundDestinationKey('website')),
-    pinkoi: tAnalytics(outboundDestinationKey('pinkoi')),
-    shopee: tAnalytics(outboundDestinationKey('shopee')),
-    myship: tAnalytics(outboundDestinationKey('myship')),
+    website: tAnalytics(
+      channelMessageKey(
+        purchaseChannelByKey.website.messageKeys.analyticsOutboundDestination,
+        'dashboard.analytics',
+      ),
+    ),
+    pinkoi: tAnalytics(
+      channelMessageKey(
+        purchaseChannelByKey.pinkoi.messageKeys.analyticsOutboundDestination,
+        'dashboard.analytics',
+      ),
+    ),
+    shopee: tAnalytics(
+      channelMessageKey(
+        purchaseChannelByKey.shopee.messageKeys.analyticsOutboundDestination,
+        'dashboard.analytics',
+      ),
+    ),
+    myship: tAnalytics(
+      channelMessageKey(
+        purchaseChannelByKey.myship.messageKeys.analyticsOutboundDestination,
+        'dashboard.analytics',
+      ),
+    ),
   } satisfies Record<PurchaseChannelKey, string>
   const outboundDestinationLabels = {
     ...purchaseOutboundDestinationLabels,

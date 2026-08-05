@@ -840,4 +840,12 @@ as $function$
   FROM brand_scores;
 $function$;
 
+-- `drop function` above discards the function's ACL along with the object, and a
+-- freshly created function is granted EXECUTE to PUBLIC by default — which would
+-- expose this RPC to the anon key through PostgREST. Re-issue the lockdown from
+-- 20260721200000_brand_quality_metrics_rpc.sql verbatim. Required whenever this
+-- function is dropped rather than replaced.
+revoke all on function public.get_brand_quality_metrics() from public;
+grant execute on function public.get_brand_quality_metrics() to service_role;
+
 -- =====================================================================

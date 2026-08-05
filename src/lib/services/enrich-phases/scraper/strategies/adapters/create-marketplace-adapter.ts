@@ -33,8 +33,19 @@ export interface MarketplaceAdapterConfig {
   purchaseKey: PurchaseChannelCamelField
   /** Stable provenance slug recorded on every image this adapter yields. */
   imageMethod: string
+  /**
+   * First name fallback, tried after og:title / JSON-LD name / `<h1>`.
+   * Historically the class-based storefront heading selector.
+   */
+  shopNameSelector?: string
+  /** Second name fallback, tried last. Historically the data-testid heading. */
   fallbackNameSelector?: string
   fallbackDescriptionSelectors?: string[]
+  /**
+   * Extra predicate ANDed with the host check. Used by MyShip, whose host also
+   * serves landing and help pages that must not be parsed as storefronts.
+   */
+  matchesPath?: (url: string) => boolean
 }
 
 function cleanTitle(title: string | null, titleSuffixPatterns: RegExp[]): string | null {
@@ -48,7 +59,8 @@ function cleanTitle(title: string | null, titleSuffixPatterns: RegExp[]): string
 export function createMarketplaceAdapter(config: MarketplaceAdapterConfig): PlatformAdapter {
   return {
     host: config.host,
-    matches: (url) => hostMatches(url, config.host),
+    matches: (url) =>
+      hostMatches(url, config.host) && (config.matchesPath?.(url) ?? true),
     parse(html, url) {
       const $ = cheerio.load(html)
       const result = emptyResult(url)
@@ -66,6 +78,7 @@ export function createMarketplaceAdapter(config: MarketplaceAdapterConfig): Plat
         metaContent($, 'meta[property="og:title"]') ||
           firstString(structuredStore?.name) ||
           textContent($, 'h1') ||
+          textContent($, config.shopNameSelector ?? '[class*="shop-name"]') ||
           textContent($, config.fallbackNameSelector ?? '[data-testid*="shop"] h1'),
         config.titleSuffixPatterns
       )

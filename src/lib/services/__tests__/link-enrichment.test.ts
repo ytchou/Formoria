@@ -111,6 +111,39 @@ describe('buildLinkEnrichPatch', () => {
     expect(patch.purchase_shopee).toBeUndefined()
   })
 
+  // Regression guard: scraped values are NOT gated on the registry's
+  // `urlPattern` (the strict classifier for *submitted* URLs). Gating on it
+  // dropped these legitimate storefronts, and — when the column already held a
+  // value — wrote null over it.
+  it.each([
+    'https://shopee.com.tw/mybrand',
+    'https://shopee.tw/mybrand?af_id=1',
+    'https://shopee.tw/mybrand/',
+    'https://shopee.tw/shop/12345/products',
+  ])('preserves the scraped Shopee storefront %s', (url) => {
+    expect(
+      buildLinkEnrichPatch(
+        {
+          social_instagram: null, social_threads: null, social_facebook: null,
+          purchase_website: null, purchase_pinkoi: null, purchase_shopee: null,
+        },
+        { purchaseShopee: url }
+      ).purchase_shopee
+    ).toBe(url)
+  })
+
+  it('never erases an existing Shopee column with a valid scraped variant', () => {
+    const patch = buildLinkEnrichPatch(
+      {
+        social_instagram: null, social_threads: null, social_facebook: null,
+        purchase_website: null, purchase_pinkoi: null,
+        purchase_shopee: 'https://shopee.tw/mybrand',
+      },
+      { purchaseShopee: 'https://shopee.com.tw/mybrand' }
+    )
+    expect(patch.purchase_shopee).not.toBeNull()
+  })
+
   it('fills empty link fields from scraped data', () => {
     const brand = {
       social_instagram: null, social_threads: null,

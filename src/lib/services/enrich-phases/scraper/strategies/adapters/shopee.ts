@@ -7,6 +7,7 @@ export const shopeeAdapter = createMarketplaceAdapter({
   productImageExtractor: extractShopeeProductImages,
   purchaseKey: 'purchaseShopee',
   imageMethod: 'shopee_adapter',
+  shopNameSelector: '[class*="shop-name"]',
   fallbackNameSelector: '[data-testid*="shop"] h1',
   fallbackDescriptionSelectors: ['[class*="shop-description"]', '[class*="description"]'],
 })

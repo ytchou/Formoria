@@ -6,6 +6,7 @@ import { ExternalLink } from 'lucide-react'
 import { trackExternalLinkClicked } from '@/lib/analytics'
 import type { BrandVisitLinkKind } from '@/lib/brands/link-fallback'
 import {
+  channelMessageKey,
   purchaseChannelByKey,
   type PurchaseChannelKey,
 } from '@/lib/brands/purchase-channels'
@@ -20,9 +21,9 @@ import { ShareDialog } from './share-dialog'
  * namespace this component translates in.
  */
 function visitLabelKey(key: PurchaseChannelKey): string {
-  return purchaseChannelByKey[key].messageKeys.brandDetailAction.replace(
-    /^brandDetail\./,
-    ''
+  return channelMessageKey(
+    purchaseChannelByKey[key].messageKeys.brandDetailAction,
+    'brandDetail'
   )
 }
 

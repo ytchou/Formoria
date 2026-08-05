@@ -1,4 +1,5 @@
 import {
+  channelMessageKey,
   PURCHASE_CAMEL_FIELDS,
   PURCHASE_CHANNELS,
   type PurchaseChannel,
@@ -270,7 +271,7 @@ function truncate<T>(items: T[], limit = 3): T[] {
  * `t` handed to this module is already scoped to the `brandDetail` namespace.
  */
 function faqChannelKey(channel: PurchaseChannel): string {
-  return channel.messageKeys.brandFaqChannel.replace(/^brandDetail\./, "");
+  return channelMessageKey(channel.messageKeys.brandFaqChannel, "brandDetail");
 }
 
 function collectPurchaseLinks(brand: Brand, t: TFn): string[] {

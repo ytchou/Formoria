@@ -280,6 +280,26 @@ export function deriveScrapedBrandName(
  */
 const MAX_SECOND_PASS_URLS = 3
 
+/**
+ * ORDER INVARIANT — `purchaseWebsite` must stay ahead of every marketplace
+ * channel except the two below. The candidate list is truncated at
+ * MAX_SECOND_PASS_URLS, so a channel slotted before the website silently
+ * pushes the brand's own site — the highest-quality evidence source — out of
+ * the pass entirely on exactly the sparse-link brands this pass exists for.
+ * A newly added channel therefore lands in POST_WEBSITE_PURCHASE_CHANNELS by
+ * default; only these two predate the website because they always have.
+ */
+const PRE_WEBSITE_PURCHASE_CHANNEL_KEYS: readonly string[] = ['pinkoi', 'shopee']
+
+const PRE_WEBSITE_PURCHASE_CHANNELS = PURCHASE_CHANNELS.filter((channel) =>
+  PRE_WEBSITE_PURCHASE_CHANNEL_KEYS.includes(channel.key),
+)
+
+const POST_WEBSITE_PURCHASE_CHANNELS = PURCHASE_CHANNELS.filter(
+  (channel) =>
+    channel.key !== 'website' && !PRE_WEBSITE_PURCHASE_CHANNEL_KEYS.includes(channel.key),
+)
+
 /** Identity for "did we already scrape this?" — scheme, `www.`, and a trailing slash are noise. */
 function scrapeKey(url: string): string {
   const trimmed = url.trim().toLowerCase()
@@ -317,10 +337,9 @@ async function scrapeDiscoveredLinks(
     [
       firstPassData.socialInstagram,
       firstPassData.socialFacebook,
-      ...PURCHASE_CHANNELS.filter((channel) => channel.key !== 'website').map(
-        (channel) => firstPassData[channel.camel],
-      ),
+      ...PRE_WEBSITE_PURCHASE_CHANNELS.map((channel) => firstPassData[channel.camel]),
       firstPassData.purchaseWebsite,
+      ...POST_WEBSITE_PURCHASE_CHANNELS.map((channel) => firstPassData[channel.camel]),
     ].filter((url): url is string => typeof url === 'string' && url.trim().length > 0),
   )
     .filter((url) => !alreadyScraped.has(scrapeKey(url)))

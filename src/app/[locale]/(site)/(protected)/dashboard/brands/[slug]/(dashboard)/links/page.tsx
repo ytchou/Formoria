@@ -3,7 +3,10 @@ import { SectionDetailLayout } from '@/components/dashboard/section-detail-layou
 import { EmptyValue, display } from '@/components/dashboard/display-helpers'
 import { InfoField } from '@/components/ui/card'
 import { getBrandBySlug } from '@/lib/services/brands'
-import { PURCHASE_CHANNELS } from '@/lib/brands/purchase-channels'
+import {
+  channelMessageKey,
+  PURCHASE_CHANNELS,
+} from '@/lib/brands/purchase-channels'
 
 type Props = {
   params: Promise<{ locale: string; slug: string }>
@@ -38,14 +41,15 @@ export default async function LinksPage({ params }: Props) {
             label={tEdit('fieldFacebook')}
             value={display(brand.socialFacebook, t('notSet'))}
           />
-          <InfoField
-            label={tEdit('fieldOfficialWebsite')}
-            value={display(brand.purchaseWebsite, t('notSet'))}
-          />
-          {PURCHASE_CHANNELS.filter((channel) => channel.key !== 'website').map((channel) => (
+          {PURCHASE_CHANNELS.map((channel) => (
             <InfoField
               key={channel.key}
-              label={tEdit(channel.messageKeys.dashboardEditField.replace(/^dashboard\.edit\./, ''))}
+              label={tEdit(
+                channelMessageKey(
+                  channel.messageKeys.dashboardEditField,
+                  'dashboard.edit',
+                ),
+              )}
               value={display(brand[channel.camel], t('notSet'))}
             />
           ))}

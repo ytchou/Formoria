@@ -945,9 +945,7 @@ function submissionToBrandBase(row: SubmissionRow): BrandInsert {
   };
 }
 
-function submissionReviewDataToBrandInsert(
-  data: SubmissionReviewData,
-): Partial<BrandInsert> {
+function submissionReviewDataPrefix(data: SubmissionReviewData) {
   const mapped = toBrandRow({
     name: data.name,
     description: data.description,
@@ -978,6 +976,14 @@ function submissionReviewDataToBrandInsert(
     PURCHASE_COLUMNS.map((column) => [column, mapped[column]]),
   ) as Pick<BrandInsert, PurchaseChannelColumn>;
 
+  return { mapped, purchaseFields };
+}
+
+function submissionReviewDataToBrandInsert(
+  data: SubmissionReviewData,
+): Partial<BrandInsert> {
+  const { mapped, purchaseFields } = submissionReviewDataPrefix(data);
+
   return {
     name: mapped.name,
     description: mapped.description,
@@ -1006,35 +1012,7 @@ function submissionReviewDataToBrandInsert(
 function submissionReviewDataToDb(
   data: SubmissionReviewData,
 ): Record<string, Json | undefined> {
-  const mapped = toBrandRow({
-    name: data.name,
-    description: data.description,
-    descriptionEn: data.descriptionEn,
-    blurb: data.blurb,
-    blurbEn: data.blurbEn,
-    heroImageUrl: data.heroImageUrl,
-    productType: data.productType,
-    foundingYear: data.foundingYear,
-    city: data.city,
-    socialInstagram: data.socialInstagram,
-    socialThreads: data.socialThreads,
-    socialFacebook: data.socialFacebook,
-    ...Object.fromEntries(
-      PURCHASE_CHANNELS.map((channel) => [
-        channel.camel,
-        channel === purchaseChannelByKey.website
-          ? data.websiteUrl
-          : data[channel.camel],
-      ]),
-    ),
-    otherUrls: data.otherUrls,
-    priceRange: data.priceRange,
-    productTags: data.productTags,
-    productTagsEn: data.productTagsEn,
-  });
-  const purchaseFields = Object.fromEntries(
-    PURCHASE_COLUMNS.map((column) => [column, mapped[column]]),
-  ) as Pick<Record<string, Json | undefined>, PurchaseChannelColumn>;
+  const { mapped, purchaseFields } = submissionReviewDataPrefix(data);
 
   return {
     name: mapped.name,

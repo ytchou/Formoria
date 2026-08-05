@@ -207,15 +207,15 @@ export function extractPurchaseLinks(
   $('a[href]').each((_, el) => {
     const href = $(el).attr('href') ?? ''
     for (const channel of PURCHASE_CHANNELS) {
-      const matchesLegacyShopeeHost =
-        channel.key === 'shopee' && /shopee\.com\.tw\/[^/?#]+$/i.test(href)
-      if (
-        links[channel.camel] ||
-        (!channel.urlPattern && !matchesLegacyShopeeHost) ||
-        (channel.urlPattern && !channel.urlPattern.test(href) && !matchesLegacyShopeeHost)
-      ) {
-        continue
-      }
+      if (links[channel.camel]) continue
+      // Harvesting is deliberately host-level, NOT `channel.urlPattern`. The
+      // registry's `urlPattern` is the STRICT classification matcher used by
+      // `URL_TO_LINK_COLUMN` to decide which column a *submitted* URL belongs
+      // to; reusing it here would silently narrow the harvest and drop
+      // `pinkoi.com/product/…`, `shopee.tw/shop/…` and query-string variants
+      // that this extractor has always kept. `hosts` covers `shopee.com.tw`
+      // too, so no per-channel exception is needed.
+      if (!channel.hosts.some((host) => hostMatches(href, host))) continue
       links[channel.camel] = href
     }
   })
@@ -389,6 +389,15 @@ export function extractMyshipProductImages(
         continue
       }
 
+      // Pin the host the way both siblings do (cdn01.pinkoi.com,
+      // *.susercontent.com). MyShip's image CDN hostname is not documented
+      // anywhere in this repo, so this pins the conservative superset — the
+      // MyShip origin itself plus any 7-11.com.tw subdomain — which still
+      // closes the hole where a third-party asset whose path merely contains
+      // `/i/cgdm/GM…` is ingested as brand gallery content. Narrow to the exact
+      // CDN host once a real MyShip storefront scrape confirms it.
+      const hostname = parsed.hostname.toLowerCase()
+      if (hostname !== '7-11.com.tw' && !hostname.endsWith('.7-11.com.tw')) continue
       if (!/\/i\/cgdm\/GM\d+/i.test(parsed.pathname)) continue
 
       urls.push(raw)

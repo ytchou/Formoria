@@ -71,6 +71,24 @@ const shopeeDataTestIdFallbackHtml = `
 </html>
 `
 
+// No og:title, no JSON-LD name, no <h1> — only the class-based storefront
+// heading, which is the rung the registry refactor dropped.
+const pinkoiClassNameFallbackHtml = `
+<html>
+  <body>
+    <div class="store-name">品牌名</div>
+  </body>
+</html>
+`
+
+const shopeeClassNameFallbackHtml = `
+<html>
+  <body>
+    <div class="shop-name">品牌名</div>
+  </body>
+</html>
+`
+
 const pinkoiDescriptionOrderHtml = `
 <html>
   <head>
@@ -89,12 +107,12 @@ const myshipHtml = `
   <head>
     <meta property="og:title" content="茶日子小舖 | 7-ELEVEN 賣貨便" />
     <meta property="og:description" content="MyShip shop description" />
-    <meta property="og:image" content="https://cdn.example.com/i/cgdm/GM123/hero.jpg" />
+    <meta property="og:image" content="https://myship.7-11.com.tw/i/cgdm/GM123/hero.jpg" />
   </head>
   <body>
     <h1>茶日子小舖 | 7-ELEVEN 賣貨便</h1>
-    <img src="https://cdn.example.com/i/cgdm/GM123/product.jpg" />
-    <img src="https://cdn.example.com/assets/site-logo.png" />
+    <img src="https://myship.7-11.com.tw/i/cgdm/GM123/product.jpg" />
+    <img src="https://myship.7-11.com.tw/assets/site-logo.png" />
   </body>
 </html>
 `
@@ -181,7 +199,7 @@ describe('createMarketplaceAdapter', () => {
     )
     expect(result.description).toBe('MyShip shop description')
     expect(result.story).toBe('MyShip shop description')
-    expect(result.heroImageUrl).toBe('https://cdn.example.com/i/cgdm/GM123/hero.jpg')
+    expect(result.heroImageUrl).toBe('https://myship.7-11.com.tw/i/cgdm/GM123/hero.jpg')
   })
 
   it('myship adapter sets purchaseMyship to the page URL', () => {
@@ -191,13 +209,36 @@ describe('createMarketplaceAdapter', () => {
 
   it('extractMyshipProductImages keeps only /i/cgdm/ product paths', () => {
     const $ = cheerio.load(`
-      <img src="https://cdn.example.com/i/cgdm/GM123/product.jpg" />
-      <img src="https://cdn.example.com/i/cgdm/GM456/other.jpg" />
-      <img src="https://cdn.example.com/assets/site-logo.png" />
+      <img src="https://myship.7-11.com.tw/i/cgdm/GM123/product.jpg" />
+      <img src="https://myship.7-11.com.tw/i/cgdm/GM456/other.jpg" />
+      <img src="https://myship.7-11.com.tw/assets/site-logo.png" />
     `)
     expect(extractMyshipProductImages($)).toEqual([
-      'https://cdn.example.com/i/cgdm/GM123/product.jpg',
-      'https://cdn.example.com/i/cgdm/GM456/other.jpg',
+      'https://myship.7-11.com.tw/i/cgdm/GM123/product.jpg',
+      'https://myship.7-11.com.tw/i/cgdm/GM456/other.jpg',
     ])
+  })
+
+  it('extractMyshipProductImages rejects a foreign host with a product-shaped path', () => {
+    const $ = cheerio.load(
+      '<img src="https://ads.thirdparty.net/i/cgdm/GM99/banner.jpg" />',
+    )
+    expect(extractMyshipProductImages($)).toEqual([])
+  })
+
+  it('myship adapter matches only storefront detail pages', () => {
+    expect(myshipAdapter.matches('https://myship.7-11.com.tw/general/detail/GM123')).toBe(true)
+    expect(myshipAdapter.matches('https://myship.7-11.com.tw/')).toBe(false)
+    expect(myshipAdapter.matches('https://myship.7-11.com.tw/general/help')).toBe(false)
+  })
+
+  it('extracts brand names from adapter-specific class-name fallbacks', () => {
+    expect(
+      pinkoiAdapter.parse(pinkoiClassNameFallbackHtml, 'https://pinkoi.com/store/mybrand')
+        .brandName,
+    ).toBe('品牌名')
+    expect(
+      shopeeAdapter.parse(shopeeClassNameFallbackHtml, 'https://shopee.tw/shop/123').brandName,
+    ).toBe('品牌名')
   })
 })

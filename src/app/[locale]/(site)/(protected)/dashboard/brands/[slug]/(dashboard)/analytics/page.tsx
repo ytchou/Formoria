@@ -1,6 +1,7 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import type { OwnerAnalyticsSnapshotV1 } from '@/lib/analytics/posthog-types'
 import {
+  channelMessageKey,
   purchaseChannelByKey,
   type PurchaseChannelKey,
 } from '@/lib/brands/purchase-channels'
@@ -25,16 +26,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-
-/**
- * The channel's outbound-destination message key, relative to the
- * `dashboard.analytics` namespace this page translates in.
- */
-function outboundDestinationKey(key: PurchaseChannelKey): string {
-  return purchaseChannelByKey[
-    key
-  ].messageKeys.analyticsOutboundDestination.replace(/^dashboard\.analytics\./, '')
-}
 
 type Props = {
   params: Promise<{ locale: string; slug: string }>
@@ -279,10 +270,30 @@ export default async function AnalyticsPage({ params, searchParams }: Props) {
   // vacuously and lets a new channel fall through to `labels.other` unnoticed.
   // The literal is what makes `satisfies` a real gate.
   const purchaseOutboundDestinationLabels = {
-    website: t(outboundDestinationKey('website')),
-    pinkoi: t(outboundDestinationKey('pinkoi')),
-    shopee: t(outboundDestinationKey('shopee')),
-    myship: t(outboundDestinationKey('myship')),
+    website: t(
+      channelMessageKey(
+        purchaseChannelByKey.website.messageKeys.analyticsOutboundDestination,
+        'dashboard.analytics',
+      ),
+    ),
+    pinkoi: t(
+      channelMessageKey(
+        purchaseChannelByKey.pinkoi.messageKeys.analyticsOutboundDestination,
+        'dashboard.analytics',
+      ),
+    ),
+    shopee: t(
+      channelMessageKey(
+        purchaseChannelByKey.shopee.messageKeys.analyticsOutboundDestination,
+        'dashboard.analytics',
+      ),
+    ),
+    myship: t(
+      channelMessageKey(
+        purchaseChannelByKey.myship.messageKeys.analyticsOutboundDestination,
+        'dashboard.analytics',
+      ),
+    ),
   } satisfies Record<PurchaseChannelKey, string>
   const copy: OwnerAnalyticsCopy = {
     profileVisits: t('profileVisits'),

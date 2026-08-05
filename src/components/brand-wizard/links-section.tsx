@@ -23,7 +23,9 @@ import { Label } from '@/components/ui/label'
 import { fieldTextStyles } from '@/components/ui/text-styles'
 import type { BrandWizardCommonValues } from '@/lib/schemas/brand-wizard'
 import {
+  channelMessageKey,
   PURCHASE_CHANNELS,
+  purchaseChannelByKey,
   type PurchaseChannelCamelField,
   type PurchaseChannelKey,
 } from '@/lib/brands/purchase-channels'
@@ -118,12 +120,10 @@ export function BrandLinksSection({
   ]
   const purchaseRows: PlatformRow[] = PURCHASE_CHANNELS.map((channel) => ({
     name: channel.camel,
-    label: t(channel.messageKeys.dashboardEditField.replace(/^dashboard\.edit\./, '')),
+    label: t(channelMessageKey(channel.messageKeys.dashboardEditField, 'dashboard.edit')),
     ...PURCHASE_PRESENTATION[channel.key],
   }))
-  const officialWebsiteField = PURCHASE_CHANNELS.find(
-    (channel) => channel.key === 'website',
-  )?.camel
+  const officialWebsiteField = purchaseChannelByKey.website.camel
 
   return (
     <section id="purchase" className="scroll-mt-8 space-y-5">

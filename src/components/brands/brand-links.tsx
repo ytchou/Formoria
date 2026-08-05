@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/tooltip'
 import type { Brand } from '@/lib/types'
 import {
+  channelMessageKey,
   PURCHASE_CHANNELS,
   type PurchaseChannelColumn,
   type PurchaseChannelKey,
@@ -274,7 +275,7 @@ function BrandPurchaseLinks({ brand, sectionIds, sectionClassName }: BrandLinksP
   const t = useTranslations('brandDetail')
 
   const purchaseSlots: LinkSlot[] = PURCHASE_CHANNELS.map((channel) => ({
-    label: t(channel.messageKeys.brandDetailLink.replace(/^brandDetail\./, '')),
+    label: t(channelMessageKey(channel.messageKeys.brandDetailLink, 'brandDetail')),
     url: normalizeDirectUrl(brand[channel.camel]),
     linkType: channel.key,
     ...PURCHASE_PRESENTATION[channel.key],
