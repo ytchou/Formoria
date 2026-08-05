@@ -17,7 +17,7 @@
     "check:frontend-tokens": "node scripts/check-frontend-type-tokens.mjs",
     "check:test-boundaries": "node scripts/check-test-boundaries.mjs",
     "check:audited-calls": "node scripts/check-audited-external-calls.mjs",
-    "db:types": "npx supabase gen types typescript --linked > src/lib/supabase/database.types.ts && prettier --write src/lib/supabase/database.types.ts",
+    "db:types": "npx supabase gen types typescript --linked > src/lib/supabase/database.types.ts",
     "check:db-types": "node scripts/check-db-types-fresh.mjs",
     "knip": "knip",
     "prepare": "git config core.hooksPath scripts/hooks 2>/dev/null || true",
