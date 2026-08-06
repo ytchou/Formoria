@@ -812,7 +812,7 @@ export function processEnrichBrand(
   }
 
   if (isRequestedPhase(phases, "links")) {
-    const links = buildLinkEnrichPatch(brand, normalizedScrapedData);
+    const links = buildLinkEnrichPatch(brand, normalizedScrapedData, brand.name);
     if (hasPatchValues(links)) {
       patches.links = links;
     }

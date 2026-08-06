@@ -559,6 +559,90 @@ describe('extractLinksFromUrls — brand identity gate', () => {
   })
 })
 
+// DEV-1332: the SERP path has been identity-gated since DEV-1309, but the
+// SCRAPE path was not — and that is the one that put @cosme Taiwan's Facebook
+// page on five of the brands it stocks, and one illustrator's on 23 brands.
+describe('buildLinkEnrichPatch — scraped social identity gate', () => {
+  it('behaves identically to before when no brand name is passed', () => {
+    expect(
+      buildLinkEnrichPatch({ ...EMPTY_BRAND }, {
+        socialFacebook: 'https://www.facebook.com/atcosmeTW/',
+      }),
+    ).toEqual({ social_facebook: 'https://www.facebook.com/atcosmeTW/' })
+  })
+
+  it("declines a retailer's social account scraped for a brand it stocks", () => {
+    expect(
+      buildLinkEnrichPatch(
+        { ...EMPTY_BRAND },
+        {
+          socialFacebook: 'https://www.facebook.com/atcosmeTW/',
+          socialInstagram: 'https://www.instagram.com/at_cosmetw/',
+        },
+        'Just Herb 香草集',
+      ),
+    ).toEqual({})
+  })
+
+  it("keeps the brand's own handle", () => {
+    expect(
+      buildLinkEnrichPatch(
+        { ...EMPTY_BRAND },
+        { socialInstagram: 'https://www.instagram.com/annluya_official/' },
+        'ANNLUYA 安綠雅',
+      ),
+    ).toEqual({ social_instagram: 'https://www.instagram.com/annluya_official/' })
+  })
+
+  it('leaves an existing correct link untouched rather than nulling it', () => {
+    const brand = {
+      ...EMPTY_BRAND,
+      social_facebook: 'https://www.facebook.com/justherb.tw',
+    }
+    expect(
+      buildLinkEnrichPatch(
+        brand,
+        { socialFacebook: 'https://www.facebook.com/atcosmeTW/' },
+        'Just Herb 香草集',
+      ),
+    ).toEqual({})
+  })
+
+  it('still clears an existing corporate account it cannot replace', () => {
+    const brand = {
+      ...EMPTY_BRAND,
+      social_facebook: 'https://www.facebook.com/ilovepinkoi',
+    }
+    expect(
+      buildLinkEnrichPatch(
+        brand,
+        { socialFacebook: 'https://www.facebook.com/atcosmeTW/' },
+        'Just Herb 香草集',
+      ),
+    ).toEqual({ social_facebook: null })
+  })
+
+  it('does not gate marketplace handles, which are routinely opaque IDs', () => {
+    expect(
+      buildLinkEnrichPatch(
+        { ...EMPTY_BRAND },
+        { purchaseShopee: 'https://s.shopee.tw/4VHrii96Af' },
+        'Miaoisland 喵島',
+      ),
+    ).toEqual({ purchase_shopee: 'https://s.shopee.tw/4VHrii96Af' })
+  })
+
+  it('accepts anything for a name with no Latin tokens to discriminate with', () => {
+    expect(
+      buildLinkEnrichPatch(
+        { ...EMPTY_BRAND },
+        { socialFacebook: 'https://www.facebook.com/Macaoillustrator/' },
+        '羊泥工坊',
+      ),
+    ).toEqual({ social_facebook: 'https://www.facebook.com/Macaoillustrator/' })
+  })
+})
+
 describe('classifySubmittedUrl', () => {
   it('classifies Instagram URL to socialInstagram', () => {
     const result = classifySubmittedUrl('https://www.instagram.com/mybrand/')

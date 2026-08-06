@@ -474,7 +474,7 @@ export async function runLinksPhase({
     // `buildLinkEnrichPatch` is typed to link columns only, and that is now the
     // whole patch: the scraped name leaves this phase as a CANDIDATE, never as a
     // patch key, because `names` is the single writer of `name` (DEV-1321).
-    const patch: Record<string, unknown> = buildLinkEnrichPatch(brand, scrapedData)
+    const patch: Record<string, unknown> = buildLinkEnrichPatch(brand, scrapedData, brand.name)
     const scrapedBrandName = deriveScrapedBrandName(brand, scrapedData)
     return {
       patch,

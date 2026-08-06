@@ -47,6 +47,37 @@ describe("emitAuditRecord", () => {
     expect(captureAlert).toHaveBeenCalledTimes(1);
   });
 
+  it("the inline path spends one retry, not the full IN_PROCESS budget", async () => {
+    const seam = vi.fn(async () => ({ message: "database unavailable" }));
+    setAuditWriteSeam(seam);
+
+    await emitAuditRecord(record(), async () => {});
+
+    // Outside a Next request scope the write is on the caller's own path, so it
+    // gets INLINE_POLICY (2 attempts) rather than IN_PROCESS (3).
+    expect(seam).toHaveBeenCalledTimes(2);
+    expect(auditWriteLossCount()).toBe(1);
+  });
+
+  it("a hung audit write is dropped at the inline budget instead of stalling the caller", async () => {
+    setAuditWriteSeam(vi.fn(() => new Promise<null>(() => {})));
+    vi.useFakeTimers();
+
+    try {
+      const emitted = emitAuditRecord(record(), async () => {});
+      // Let the lazy `next/server` import settle so the budget timer exists.
+      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(2_000);
+      await emitted;
+    } finally {
+      vi.useRealTimers();
+    }
+
+    // Counted once: the abandoned write is left to settle and must not be able
+    // to report the same record a second time.
+    expect(auditWriteLossCount()).toBe(1);
+  });
+
   it("a unique violation on a retried insert is success, not a dropped record", async () => {
     setAuditWriteSeam(
       vi.fn(async () => ({ code: "23505", message: "duplicate key value violates unique constraint" })),

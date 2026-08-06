@@ -1702,7 +1702,6 @@ export type Database = {
           kind: string;
           latency_ms: number | null;
           operation: string;
-          payload_storage_path: string | null;
           provider: string;
           retry_attempt: number | null;
           span_id: string;
@@ -1720,7 +1719,6 @@ export type Database = {
           kind: string;
           latency_ms?: number | null;
           operation: string;
-          payload_storage_path?: string | null;
           provider: string;
           retry_attempt?: number | null;
           span_id: string;
@@ -1738,7 +1736,6 @@ export type Database = {
           kind?: string;
           latency_ms?: number | null;
           operation?: string;
-          payload_storage_path?: string | null;
           provider?: string;
           retry_attempt?: number | null;
           span_id?: string;
@@ -2577,7 +2574,6 @@ export type Database = {
           kind: string | null;
           latency_ms: number | null;
           operation: string | null;
-          payload_storage_path: string | null;
           provider: string | null;
           retry_attempt: number | null;
           span_id: string | null;
