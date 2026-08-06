@@ -364,6 +364,33 @@ describe('links quarantine identity rules', () => {
     })
   })
 
+  it('marks a no-token derived website as unverifiable', async () => {
+    scraperMocks.scrapeBrandUrls.mockResolvedValue(scrape('https://some-shop.tw/about', {}))
+
+    const result = await run({
+      brand: { ...brand, name: '茶籽堂' },
+      discoveredUrls: ['https://some-shop.tw/about'],
+    })
+
+    expect(result.quarantine['https://some-shop.tw']).toMatchObject({
+      subjectKind: 'website',
+      unverifiable: true,
+    })
+  })
+
+  it('does not mark a website supplied by the scraped pages', async () => {
+    scraperMocks.scrapeBrandUrls.mockResolvedValue(
+      scrape('https://some-shop.tw/about', { purchaseWebsite: 'https://brand.example' }),
+    )
+
+    const result = await run({
+      brand: { ...brand, name: '茶籽堂' },
+      discoveredUrls: ['https://some-shop.tw/about'],
+    })
+
+    expect(result.quarantine['https://some-shop.tw/about']).not.toHaveProperty('unverifiable')
+  })
+
   it("second-pass links inherit their source's quarantine", async () => {
     // Carried on `purchasePinkoi` rather than a social: DEV-1332's handle gate
     // would drop a stranger's social handle before the patch, leaving nothing to

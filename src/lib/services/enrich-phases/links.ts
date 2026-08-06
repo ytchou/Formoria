@@ -70,6 +70,8 @@ export type QuarantineGroup = {
     description?: string
     story?: string
   }
+  /** True when no hostname rule can confirm a Han-only fallback website. */
+  unverifiable?: boolean
 }
 
 function uniqueUrls(urls: string[]): string[] {
@@ -413,6 +415,7 @@ function buildQuarantine(
   scrapedData: EnrichScrapedData,
   sources: Map<LinkField, { sourceUrl: string; isConfirmed: boolean }>,
   patch: Record<string, unknown>,
+  unverifiableWebsite: boolean,
 ): Record<string, QuarantineGroup> {
   const groups: Record<string, QuarantineGroup> = {}
 
@@ -474,6 +477,7 @@ function buildQuarantine(
     const subjectKind = field === 'purchaseWebsite' ? 'website' : 'source-page'
     const existing = groups[subjectUrl]
     const evidence: QuarantineGroup['evidence'] = {}
+    const shouldMarkUnverifiable = subjectKind === 'website' && unverifiableWebsite
     const evidenceFields = [
       ['brandName', 'title'],
       ['description', 'description'],
@@ -489,9 +493,16 @@ function buildQuarantine(
       if (existing.subjectKind !== 'website' && subjectKind === 'website') {
         existing.subjectKind = subjectKind
       }
+      if (shouldMarkUnverifiable) existing.unverifiable = true
       Object.assign(existing.evidence, evidence)
     } else {
-      groups[subjectUrl] = { subjectUrl, subjectKind, columns: [column], evidence }
+      groups[subjectUrl] = {
+        subjectUrl,
+        subjectKind,
+        columns: [column],
+        evidence,
+        ...(shouldMarkUnverifiable ? { unverifiable: true } : {}),
+      }
     }
   }
 
@@ -582,6 +593,10 @@ export async function runLinksPhase({
       ? await scrapeDiscoveredLinks(firstPass.data, urls, scrapeOptions, urlExtracted)
       : ({} as EnrichScrapedData)
     const derivedWebsite = scrapedFromPages.purchaseWebsite ?? deriveOfficialWebsite(urls, brand.name)
+    const unverifiableWebsite =
+      brandNameTokens(brand.name).length === 0 &&
+      !hasLinkValue(scrapedFromPages.purchaseWebsite) &&
+      hasLinkValue(derivedWebsite)
     const scrapedData = normalizeScrapedData({
       ...scrapedFromPages,
       ...urlExtracted,
@@ -609,6 +624,7 @@ export async function runLinksPhase({
       jsonLdImageUrls: scrapedData.jsonLdImageUrls ?? [],
       scrapedFromPages,
       fieldSources,
+      unverifiableWebsite,
     }
   })
 
@@ -623,7 +639,12 @@ export async function runLinksPhase({
     scrapedImageUrls: result.scrapedImageUrls,
     scrapedImageSources: result.scrapedImageSources,
     jsonLdImageUrls: result.jsonLdImageUrls,
-    quarantine: buildQuarantine(result.scrapedData, result.fieldSources, result.patch),
+    quarantine: buildQuarantine(
+      result.scrapedData,
+      result.fieldSources,
+      result.patch,
+      result.unverifiableWebsite,
+    ),
   }
     },
     {

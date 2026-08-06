@@ -59,6 +59,28 @@ function skippedBatch(detail: string): SiteIdentityPhaseOutput {
   }
 }
 
+function applyRevocation(
+  brand: EnrichBrand,
+  quarantine: SiteIdentityQuarantine,
+  reason: string,
+): SiteIdentityApplication {
+  const { removedColumns, newlyCleared, clearedFields } = revokeFields(quarantine, brand)
+  filterRevokedImages(quarantine.linksResult, quarantine.subjectUrl, quarantine.subjectKind)
+  return {
+    phaseResult: buildPhaseResult(
+      'site_identity',
+      'succeeded',
+      [...removedColumns, ...newlyCleared],
+      0,
+      undefined,
+      reason,
+    ),
+    removedColumns,
+    clearedFields,
+    patch: clearedFields.length > 0 ? { [CLEARED_FIELDS_KEY]: clearedFields } : {},
+  }
+}
+
 function groupsForBrand(
   source: Map<string, SiteIdentityQuarantine[]> | Record<string, SiteIdentityQuarantine[]>,
   id: string,
@@ -178,20 +200,56 @@ function applyVerdict(
     }
   }
 
-  const { removedColumns, newlyCleared, clearedFields } = revokeFields(quarantine, brand)
-  filterRevokedImages(quarantine.linksResult, quarantine.subjectUrl, quarantine.subjectKind)
-  return {
-    phaseResult: buildPhaseResult('site_identity', 'succeeded', [...removedColumns, ...newlyCleared], 0, undefined, decision.reason),
+  return applyRevocation(brand, quarantine, decision.reason)
+}
+
+function mergeApplication(
+  applications: Map<string, SiteIdentityApplication>,
+  brandId: string,
+  application: SiteIdentityApplication,
+  hasVerdict: boolean,
+): void {
+  const prior = applications.get(brandId)
+  const changedFields = prior
+    ? [...prior.phaseResult.changedFields, ...application.phaseResult.changedFields]
+    : application.phaseResult.changedFields
+  const removedColumns = prior
+    ? [...new Set([...prior.removedColumns, ...application.removedColumns])]
+    : application.removedColumns
+  const clearedFields = prior
+    ? [...new Set([...prior.clearedFields, ...application.clearedFields])]
+    : application.clearedFields
+  const detailParts = prior?.phaseResult.detail ? prior.phaseResult.detail.split('; ') : []
+  if (application.phaseResult.detail) detailParts.push(application.phaseResult.detail)
+  const detail = [...new Set(detailParts)].join('; ')
+  applications.set(brandId, {
+    phaseResult: buildPhaseResult(
+      'site_identity',
+      prior?.phaseResult.status === 'succeeded' || application.phaseResult.status === 'succeeded' || hasVerdict
+        ? 'succeeded'
+        : 'skipped',
+      changedFields,
+      0,
+      undefined,
+      detail,
+    ),
     removedColumns,
     clearedFields,
     patch: clearedFields.length > 0 ? { [CLEARED_FIELDS_KEY]: clearedFields } : {},
-  }
+  })
 }
 
 export async function runSiteIdentityPhase(
   ctx: BatchPhaseContext & { summary?: Record<string, unknown>; completed?: ReadonlySet<string> },
   quarantinesByBrandId: Map<string, SiteIdentityQuarantine[]> | Record<string, SiteIdentityQuarantine[]>,
 ): Promise<SiteIdentityPhaseOutput> {
+  // Union-keyed, not `Record<string, number>`: adding a third subjectKind
+  // without an initializer must be a build failure, otherwise the miss
+  // writes `undefined + 1` = NaN, which serialises to null in the audit row.
+  const noEvidence: Record<SiteIdentityQuarantine['subjectKind'], number> = {
+    website: 0,
+    'source-page': 0,
+  }
   if (!ctx.phases.includes('site_identity')) return skippedBatch('site_identity phase not requested')
   if (ctx.chunk.length === 0) return skippedBatch('empty batch')
 
@@ -200,14 +258,9 @@ export async function runSiteIdentityPhase(
     async () => {
       const items: SiteIdentityItem[] = []
       const itemByKey = new Map<string, { brand: EnrichBrand; quarantine: SiteIdentityQuarantine }>()
+      const verdicts = new Map<string, SiteIdentityVerdict>()
+      const applications = new Map<string, SiteIdentityApplication>()
       let escalations = 0
-      // Union-keyed, not `Record<string, number>`: adding a third subjectKind
-      // without an initializer must be a build failure, otherwise the miss
-      // writes `undefined + 1` = NaN, which serialises to null in the audit row.
-      const noEvidence: Record<SiteIdentityQuarantine['subjectKind'], number> = {
-        website: 0,
-        'source-page': 0,
-      }
 
       for (const brand of ctx.chunk) {
         if (ctx.completed?.has(brand.id)) continue
@@ -215,6 +268,14 @@ export async function runSiteIdentityPhase(
           const evidence = quarantine.evidence
           if (Object.keys(evidence).length === 0) {
             noEvidence[quarantine.subjectKind] += 1
+            if (quarantine.unverifiable && quarantine.subjectKind === 'website') {
+              mergeApplication(
+                applications,
+                brand.id,
+                applyRevocation(brand, quarantine, 'no-evidence'),
+                false,
+              )
+            }
             continue
           }
           escalations += 1
@@ -242,10 +303,24 @@ export async function runSiteIdentityPhase(
       // would arm on a false reading.
       if (ctx.summary) ctx.summary.siteIdentityNoEvidence = noEvidence
 
-      if (items.length === 0) return skippedBatch('no evidence')
+      if (items.length === 0) {
+        const hasRevocations = [...applications.values()].some(
+          (application) => application.phaseResult.status === 'succeeded',
+        )
+        return {
+          phaseResult: buildPhaseResult(
+            'site_identity',
+            hasRevocations ? 'succeeded' : 'skipped',
+            [],
+            0,
+            undefined,
+            hasRevocations ? undefined : 'no evidence',
+          ),
+          verdicts,
+          applications,
+        }
+      }
       const outcome = await arbitrateSiteIdentity(items, ctx.jobId)
-      const verdicts = new Map<string, SiteIdentityVerdict>()
-      const applications = new Map<string, SiteIdentityApplication>()
       const reasons: Record<string, unknown> = {}
 
       for (const item of items) {
@@ -255,25 +330,7 @@ export async function runSiteIdentityPhase(
         if (!input) continue
         if (verdict) verdicts.set(input.brand.id, verdict)
         const application = applyVerdict(input.brand, input.quarantine, verdict)
-        const prior = applications.get(input.brand.id)
-        const changedFields = prior
-          ? [...prior.phaseResult.changedFields, ...application.phaseResult.changedFields]
-          : application.phaseResult.changedFields
-        const removedColumns = prior
-          ? [...new Set([...prior.removedColumns, ...application.removedColumns])]
-          : application.removedColumns
-        const clearedFields = prior
-          ? [...new Set([...prior.clearedFields, ...application.clearedFields])]
-          : application.clearedFields
-        const detailParts = prior?.phaseResult.detail ? prior.phaseResult.detail.split('; ') : []
-        if (application.phaseResult.detail) detailParts.push(application.phaseResult.detail)
-        const detail = [...new Set(detailParts)].join('; ')
-        applications.set(input.brand.id, {
-          phaseResult: buildPhaseResult('site_identity', prior?.phaseResult.status === 'succeeded' || verdict ? 'succeeded' : 'skipped', changedFields, 0, undefined, detail),
-          removedColumns,
-          clearedFields,
-          patch: clearedFields.length > 0 ? { [CLEARED_FIELDS_KEY]: clearedFields } : {},
-        })
+        mergeApplication(applications, input.brand.id, application, Boolean(verdict))
         reasons[key] = {
           verdict: verdict?.owned,
           confidence: verdict?.confidence,
@@ -283,7 +340,11 @@ export async function runSiteIdentityPhase(
         }
       }
 
-      const succeeded = verdicts.size > 0
+      const succeeded =
+        verdicts.size > 0 ||
+        [...applications.values()].some(
+          (application) => application.phaseResult.status === 'succeeded',
+        )
       const providerFailure = isLlmProviderFailure(outcome.calls)
       const detail = providerFailure
         ? `provider failure (${outcome.calls.providerFailed}/${outcome.calls.attempted} calls)`

@@ -107,6 +107,39 @@ describe('site identity quarantine', () => {
     expect(result.applications).toEqual(new Map())
   })
 
+  it('revokes an unverifiable website with no evidence', async () => {
+    const input = group({ subjectKind: 'website', evidence: {}, unverifiable: true })
+
+    const result = await runSiteIdentityPhase(ctx(), new Map([['brand-1', [input]]]))
+
+    expect(input.patch).not.toHaveProperty('purchase_website')
+    expect(result.applications.get('brand-1')?.phaseResult.detail).toBe('no-evidence')
+  })
+
+  it('releases an unverifiable social with no evidence', async () => {
+    const input = group({ evidence: {}, unverifiable: true })
+
+    const result = await runSiteIdentityPhase(ctx(), new Map([['brand-1', [input]]]))
+
+    expect(input.patch.purchase_website).toBe('https://other.example')
+    expect(result.applications).toEqual(new Map())
+  })
+
+  it('revoking a non-null proposal leaves the stored value intact', async () => {
+    const input = group({ patch: { purchase_website: 'https://proposed.example' } })
+    const stored = { ...brand, purchase_website: 'https://stored.example' }
+    arbitrate.mockResolvedValue({
+      results: new Map([[siteIdentityKey(brand.slug, input.subjectUrl), { slug: brand.slug, owned: false, confidence: 'high', reason: 'wrong' }]]),
+      calls: { attempted: 1, providerFailed: 0 },
+    })
+
+    const result = await runSiteIdentityPhase({ ...ctx(), chunk: [stored] }, new Map([['brand-1', [input]]]))
+
+    expect(input.patch).not.toHaveProperty('purchase_website')
+    expect(input.patch).not.toHaveProperty(CLEARED_FIELDS_KEY)
+    expect(result.applications.get('brand-1')?.clearedFields).toEqual([])
+  })
+
   it("revoking this run's own value deletes the patch key", async () => {
     const input = group(); arbitrate.mockResolvedValue({ results: new Map([[siteIdentityKey(brand.slug, input.subjectUrl), { slug: brand.slug, owned: false, confidence: 'high', reason: 'wrong' }]]), calls: { attempted: 1, providerFailed: 0 } })
     const result = await runSiteIdentityPhase(ctx(), new Map([['brand-1', [input]]]))
