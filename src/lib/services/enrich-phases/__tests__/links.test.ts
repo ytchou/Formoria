@@ -237,27 +237,47 @@ describe('links quarantine identity rules', () => {
     scraperMocks.scrapeBrandUrls.mockReset()
   })
 
+  // Mirrors what `scrapeBrandUrls` really returns: its result has already been
+  // through `mergeScrapedData`, whose sourceUrl-present branch populates
+  // `perSourceText` alongside `textProvenance`. Omitting it here made the mock
+  // stand for a payload production never produces.
   const scrape = (
     sourceUrl: string,
     data: Partial<ReturnType<typeof emptyResult>>,
-  ) => ({
-    data: {
-      ...emptyResult(sourceUrl),
-      ...data,
-      linkProvenance: Object.fromEntries(
-        Object.entries(data)
-          .filter(([field, value]) => field !== 'brandName' && typeof value === 'string')
-          .map(([field]) => [field, { sourceUrl }]),
-      ),
-      textProvenance: Object.fromEntries(
-        Object.entries(data)
-          .filter(([field, value]) => ['brandName', 'description', 'story'].includes(field) && typeof value === 'string')
-          .map(([field]) => [field, { sourceUrl }]),
-      ),
-      textSourceUrl: sourceUrl,
-    },
-    statuses: [],
-  })
+    options: { withoutPerSourceText?: boolean } = {},
+  ) => {
+    const text = {
+      ...(typeof data.brandName === 'string' && data.brandName.trim()
+        ? { title: data.brandName }
+        : {}),
+      ...(typeof data.description === 'string' && data.description.trim()
+        ? { description: data.description }
+        : {}),
+      ...(typeof data.story === 'string' && data.story.trim() ? { story: data.story } : {}),
+    }
+
+    return {
+      data: {
+        ...emptyResult(sourceUrl),
+        ...data,
+        linkProvenance: Object.fromEntries(
+          Object.entries(data)
+            .filter(([field, value]) => field !== 'brandName' && typeof value === 'string')
+            .map(([field]) => [field, { sourceUrl }]),
+        ),
+        textProvenance: Object.fromEntries(
+          Object.entries(data)
+            .filter(([field, value]) => ['brandName', 'description', 'story'].includes(field) && typeof value === 'string')
+            .map(([field]) => [field, { sourceUrl }]),
+        ),
+        textSourceUrl: sourceUrl,
+        ...(options.withoutPerSourceText || Object.keys(text).length === 0
+          ? {}
+          : { perSourceText: { [sourceUrl]: text } }),
+      },
+      statuses: [],
+    }
+  }
 
   const run = async (overrides: Partial<Parameters<typeof runLinksPhase>[0]>) =>
     runLinksPhase({
@@ -481,10 +501,15 @@ describe('links quarantine identity rules', () => {
       )
       .mockResolvedValueOnce(scrape('https://www.instagram.com/from-page', {}))
 
+    // `known-one` leads the discovered list so it becomes the extracted
+    // instagram candidate while also sitting in the first pass's six URLs —
+    // the exact overlap the zero-token branch's `alreadyScraped` filter exists
+    // to drop. Without it, the concession would re-scrape a page this run
+    // already paid for.
     await run({
       brand: { ...brand, name: '純漢品牌' },
       knownUrls,
-      discoveredUrls: extractedSocials,
+      discoveredUrls: [knownUrls[0], ...extractedSocials],
     })
 
     expect(scraperMocks.scrapeBrandUrls).toHaveBeenNthCalledWith(
@@ -498,17 +523,22 @@ describe('links quarantine identity rules', () => {
       ],
       expect.anything(),
     )
+    expect(scraperMocks.scrapeBrandUrls.mock.calls[1][0]).not.toContain(knownUrls[0])
   })
 
   // Scraped data from before the per-source map exists in flight and in any
   // stored payload, so `textProvenance` has to keep working on its own.
   it('falls back to textProvenance when perSourceText is absent', async () => {
     scraperMocks.scrapeBrandUrls.mockResolvedValue(
-      scrape('https://stranger.example/page', {
-        brandName: 'Stranger Brand',
-        description: 'Description from the stranger page',
-        purchasePinkoi: 'https://www.pinkoi.com/store/other-company',
-      }),
+      scrape(
+        'https://stranger.example/page',
+        {
+          brandName: 'Stranger Brand',
+          description: 'Description from the stranger page',
+          purchasePinkoi: 'https://www.pinkoi.com/store/other-company',
+        },
+        { withoutPerSourceText: true },
+      ),
     )
 
     const result = await run({
