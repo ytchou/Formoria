@@ -1,0 +1,1843 @@
+{
+  "generatedAt": "2026-08-06T16:19:41.317Z",
+  "network": "not_used",
+  "ledgers": [
+    {
+      "fileName": "content/events/2026-taiwan-creative-expo.exhibitors.json",
+      "eventSlug": "2026-taiwan-creative-expo",
+      "coverage": {
+        "byZone": {
+          "K1": 81,
+          "K2": 57,
+          "K3": 62,
+          "S": 100,
+          "J2": 2
+        },
+        "byOutcome": {
+          "matched_existing": 123,
+          "included_unlinked": 112,
+          "excluded": 0,
+          "needs_review": 0,
+          "out_of_scope": 67
+        },
+        "total": 302
+      },
+      "proposals": [
+        {
+          "sourceKey": "creative-expo:322",
+          "normalizedName": "沃廚woky",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:282",
+          "normalizedName": "思謀研器有限公司studiosmoll",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:326",
+          "normalizedName": "乾唐軒acera",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:70",
+          "normalizedName": "filter017filter017",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:369",
+          "normalizedName": "郁郁yùyùyùyù",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:92",
+          "normalizedName": "安喬欣業25togo",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:187",
+          "normalizedName": "民台科技formosalight",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:256",
+          "normalizedName": "tifilidandfulcrotifilidandfulcro",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:27",
+          "normalizedName": "格洛維斯glowis",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:231",
+          "normalizedName": "umamiumami",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:408",
+          "normalizedName": "iddatiddatselectioniddatiddatselection",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:584",
+          "normalizedName": "居加良品addable",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:596",
+          "normalizedName": "滾雪球文具tsnowstationerydesignstudio",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:597",
+          "normalizedName": "venturezacventurezac",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:590",
+          "normalizedName": "vinxper電子醒酒器vinxperelectricwineaerator",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:583",
+          "normalizedName": "山霧zenu",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:598",
+          "normalizedName": "女姝坊dandanhandmadestudio",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:599",
+          "normalizedName": "台灣染taiwandye",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:581",
+          "normalizedName": "沐籟moonlight",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:582",
+          "normalizedName": "溫紋陶wenwenworks",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:600",
+          "normalizedName": "halohalo",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:65",
+          "normalizedName": "二位工作室awaystudio",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:410",
+          "normalizedName": "hankmaxhankmax",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:261",
+          "normalizedName": "軟水泥生活實驗室celementlab",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:48",
+          "normalizedName": "humorsapienshumorsapiens",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:215",
+          "normalizedName": "林源美百年香店linyuanmaiincenseshop",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:222",
+          "normalizedName": "勇氣雜貨商行fufugrocerystorecoltd",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:6",
+          "normalizedName": "亭氏香氛tingsaroma",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:386",
+          "normalizedName": "手提包公會tba",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:589",
+          "normalizedName": "酷樂村sleepyvillecritters",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:579",
+          "normalizedName": "colorwavecolorwave",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:580",
+          "normalizedName": "長隆實業ip授權evergreeninternational",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:576",
+          "normalizedName": "satanasatana",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:578",
+          "normalizedName": "益裕塑膠工業有限公司yuetravelerandbags",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:577",
+          "normalizedName": "沙伯迪澳sobdeall",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:161",
+          "normalizedName": "老師傅工作室masterprojectstudio",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:199",
+          "normalizedName": "maybesaromamaybesaroma",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:454",
+          "normalizedName": "天然客製皂專門likedo",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:375",
+          "normalizedName": "母栽moodplant",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:435",
+          "normalizedName": "經典眼鏡classico",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:277",
+          "normalizedName": "慶祝今天celebratetoday",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:3",
+          "normalizedName": "多淼設計aplantstudio",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:168",
+          "normalizedName": "曉創意招財揪吉dawncreativeluckytoad",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:361",
+          "normalizedName": "筧燭reminiscandēre",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:4",
+          "normalizedName": "fernonly只有蕨xmarktaiwanfernonlyxmarktaiwan",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:407",
+          "normalizedName": "hereafterstudiohereafterstudio",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:272",
+          "normalizedName": "handmadeshiphandmadeship",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:450",
+          "normalizedName": "scentoryscentory",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:323",
+          "normalizedName": "unmeltunmelt",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:10",
+          "normalizedName": "插畫小農hsiaoyuillustration",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:297",
+          "normalizedName": "floatlivingfloatliving",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:138",
+          "normalizedName": "茉荷miher",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:414",
+          "normalizedName": "眠腦minnao",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:567",
+          "normalizedName": "邦妮插畫工作室bonbonstickers",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:31",
+          "normalizedName": "ninahoillustrationninahoillustration",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:213",
+          "normalizedName": "bethelbethel",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:362",
+          "normalizedName": "chibeechibee",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:426",
+          "normalizedName": "icelollyicelolly",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:166",
+          "normalizedName": "窩窩wuowuowuowuo",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:391",
+          "normalizedName": "墨田時尚sumidamodern",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:24",
+          "normalizedName": "香氛森林scentforest",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:59",
+          "normalizedName": "實驗室香氛laboratoryscent",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:385",
+          "normalizedName": "hibānghibāng",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:405",
+          "normalizedName": "drwilds荒野醫生drwilds荒野醫生",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:154",
+          "normalizedName": "莫克x耶思波moekxjesper",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:259",
+          "normalizedName": "rafac戶外國度mojocampingrafacoutdoornation",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:271",
+          "normalizedName": "鈦造titaniumo",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:78",
+          "normalizedName": "檜山坊台灣檜木香氛領導品牌kuaishanfang",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:498",
+          "normalizedName": "府城三郊營仔脚朝興宮温陵廟温朝興商號tiauhingunlîngtemple",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:171",
+          "normalizedName": "瞇一下takeasnooze",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:245",
+          "normalizedName": "三支筆工作室penpenpenstudio",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:200",
+          "normalizedName": "lsy林三益lsylamsamyick",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:436",
+          "normalizedName": "禪香不二inzense",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:90",
+          "normalizedName": "no30no30",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:144",
+          "normalizedName": "無paperself",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:406",
+          "normalizedName": "sauvenirsauvenir",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:275",
+          "normalizedName": "小陽台sibalcón",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:97",
+          "normalizedName": "瀏海樹bangstree",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:210",
+          "normalizedName": "喜朋sipals",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:311",
+          "normalizedName": "緹家tjandco",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:422",
+          "normalizedName": "inakatainakata",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:141",
+          "normalizedName": "賽先生科學工廠mrscisciencefactory",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:26",
+          "normalizedName": "塗狗togo",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:321",
+          "normalizedName": "倆個glass玻璃工作室oursglass",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:396",
+          "normalizedName": "studiobubeestudiobubee",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:216",
+          "normalizedName": "dodudodu",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:195",
+          "normalizedName": "miaoisland喵島miaoisland",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:76",
+          "normalizedName": "謝工作室tshapeof",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:433",
+          "normalizedName": "老3香室laoshancollector",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:173",
+          "normalizedName": "祝好運buenasuerte",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:340",
+          "normalizedName": "這一窯huiaiostudio",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:358",
+          "normalizedName": "cementproducedesigncementproducedesign",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:225",
+          "normalizedName": "一帆布包yifancanvasbags",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:248",
+          "normalizedName": "獨木設計uniwoodesign",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:229",
+          "normalizedName": "明順玻璃行mingshunglass",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:388",
+          "normalizedName": "ttc火柴人ttcgoods",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:366",
+          "normalizedName": "玖一藝術工作室91artstudio",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:151",
+          "normalizedName": "手手生活hands",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:381",
+          "normalizedName": "小島匠所evakaku",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:180",
+          "normalizedName": "paperdiamondpaperdiamond",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:354",
+          "normalizedName": "以稀創造mufundesign",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:101",
+          "normalizedName": "禾日香氛horiaroma",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:289",
+          "normalizedName": "鉐葉shiye",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:152",
+          "normalizedName": "咖咖kakalazy",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:206",
+          "normalizedName": "去哪裡都行goanywheredesign",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:281",
+          "normalizedName": "美美實驗室suiisuiilab",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:43",
+          "normalizedName": "不歸鹿bugrelu",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:63",
+          "normalizedName": "包手作羊毛氈baoneedlefelt",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:140",
+          "normalizedName": "su3su3",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:219",
+          "normalizedName": "鶯目瓷器yingmulife",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:167",
+          "normalizedName": "羊毛出在羊山上sheepmountain",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:284",
+          "normalizedName": "山令頁shanlingye",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:80",
+          "normalizedName": "東瑭國際有限公司dongtang",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:232",
+          "normalizedName": "和漫聲音hommsound",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:310",
+          "normalizedName": "kitsutakacoltdkitsutakacoltd",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:117",
+          "normalizedName": "白景hakkei",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:345",
+          "normalizedName": "山本口金店yamamotoleather",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:304",
+          "normalizedName": "珄笙工作室vandjstudio",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:339",
+          "normalizedName": "sawframedsawframed",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:99",
+          "normalizedName": "一公分手作1cmhandmake",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:283",
+          "normalizedName": "研石造物x金玉良研x永續材質圖書館hualienstoneworkshop",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:499",
+          "normalizedName": "plaplatootooplaplatootoo",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:327",
+          "normalizedName": "thailandcreativehousethailandcreativehouse",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:223",
+          "normalizedName": "紙間papirlab",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:278",
+          "normalizedName": "02編織工作室02scrochet",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:246",
+          "normalizedName": "tobecrafttobecraft",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:226",
+          "normalizedName": "picupi挑品picupi挑品",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:312",
+          "normalizedName": "木合金wmcraftstudio",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:357",
+          "normalizedName": "重要的小事littlematter",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:350",
+          "normalizedName": "誠十製物所sincerecrafttw",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:421",
+          "normalizedName": "本質創作室essencedesignandcraft",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:274",
+          "normalizedName": "慢火金工創作室unigazemetalartstudio",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:478",
+          "normalizedName": "pahkahmahthailandpahkahmahthailand",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:591",
+          "normalizedName": "wishuladawishulada",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:419",
+          "normalizedName": "kobekobe",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:280",
+          "normalizedName": "baninouebaninoue",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:352",
+          "normalizedName": "安達窯antapottery",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:125",
+          "normalizedName": "城市美文創刺繡dndcitybeauty",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:299",
+          "normalizedName": "小小petitpetit",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:575",
+          "normalizedName": "paperconcretepaperconcrete",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:588",
+          "normalizedName": "slockvacuumcontainerslockvacuumcontainer",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:586",
+          "normalizedName": "lumenalumena",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:585",
+          "normalizedName": "monstargearmonstargear",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:132",
+          "normalizedName": "ddeddded",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:371",
+          "normalizedName": "簡單製造simplymade",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:592",
+          "normalizedName": "ducksafeducksafe",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:574",
+          "normalizedName": "chickeninthelabchickeninthelab",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:573",
+          "normalizedName": "slbsslbs",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:443",
+          "normalizedName": "busandesigncompanyproductsbusandesigncompanyproducts",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:193",
+          "normalizedName": "針線球yarnball",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:135",
+          "normalizedName": "地獄書道kaishodocalligraphykaishodocalligraphy",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:46",
+          "normalizedName": "蒙恬實業iwi",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:16",
+          "normalizedName": "彩虹文創rainbowcreative",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:240",
+          "normalizedName": "茄子先生mreggplants",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:57",
+          "normalizedName": "陳皮製茶chenpitea",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:220",
+          "normalizedName": "hmmhmm",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:453",
+          "normalizedName": "tsesaipeitsesaipei",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:137",
+          "normalizedName": "overloaddanceoverloaddance",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:267",
+          "normalizedName": "koazuma小木屋文創koazuma",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:148",
+          "normalizedName": "布嵐的販賣部bulansstudio",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:205",
+          "normalizedName": "比爾公主沒蓋子billnogates",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:485",
+          "normalizedName": "sakurawaqssakurawaqs",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:565",
+          "normalizedName": "murakamilightingcoltdmurakamilightingcoltd",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:470",
+          "normalizedName": "wintenwinten",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:486",
+          "normalizedName": "asahidokyotokiyomizuwareasahidokyotokiyomizuware",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:487",
+          "normalizedName": "yamaichiyayamaichiya",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:566",
+          "normalizedName": "junintowajunintowa",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:488",
+          "normalizedName": "kyotokarasumarokuhichidokyotokarasumarokuhichido",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:254",
+          "normalizedName": "汲溡宇godsendmedical",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:489",
+          "normalizedName": "okadayalacquerwarecoltdokadayalacquerwarecoltd",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:490",
+          "normalizedName": "hirohiro",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:491",
+          "normalizedName": "niidabussanniidabussan",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:139",
+          "normalizedName": "businessguideshaincbusinessguideshainc",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:493",
+          "normalizedName": "teraichiteraichi",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:494",
+          "normalizedName": "fujiwaradyeingcoltdfujiwaradyeingcoltd",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:495",
+          "normalizedName": "bloomingnakanishiandcompanybloomingnakanishiandcompany",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:105",
+          "normalizedName": "mrnmrsmoonmrnmrsmoon",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:380",
+          "normalizedName": "原木哲學檜木居香氛生活feelosophycypresshouse",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:395",
+          "normalizedName": "lewaleelewalee",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:212",
+          "normalizedName": "山頂洞人實驗室homosapienslab",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:217",
+          "normalizedName": "crafttokyo東京選物crafttokyocoltd",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:269",
+          "normalizedName": "anunnakianunnaki",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:314",
+          "normalizedName": "雄獅文具lionpencil",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:194",
+          "normalizedName": "東億兆實業有限公司nikkohelmets",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:8",
+          "normalizedName": "justfontjustfont",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:198",
+          "normalizedName": "英國if文創ifandbookaroo",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:383",
+          "normalizedName": "沖繩在台辦事處okinawataipeioffice",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:417",
+          "normalizedName": "大象杯elephantcuppa",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:438",
+          "normalizedName": "穩邁文創有限公司stepculturalandcreative",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:334",
+          "normalizedName": "eguchitoyseguchitoys",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:235",
+          "normalizedName": "好玻goodglas",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:288",
+          "normalizedName": "點睛設計dotdesign",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:211",
+          "normalizedName": "艸一田人huangsstudio",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:183",
+          "normalizedName": "日日森活moridaily",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:411",
+          "normalizedName": "大振豐洋傘tcf",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:427",
+          "normalizedName": "polishgraphicdesignfoundationpolishgraphicdesignfoundation",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:593",
+          "normalizedName": "polishillustrationpolishillustration",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:594",
+          "normalizedName": "threedotstypetypefoundrythreedotstypetypefoundry",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:595",
+          "normalizedName": "blankstudioblankstudio",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:587",
+          "normalizedName": "aa",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:337",
+          "normalizedName": "羊泥工坊sheepcraft",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:418",
+          "normalizedName": "洋樓拾憶文創工作室quemoymemorycreativestudio",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:328",
+          "normalizedName": "帕崎工作室pachipachiworkshop",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:355",
+          "normalizedName": "光沐之間wintasy",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:401",
+          "normalizedName": "銅樂tongle",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:290",
+          "normalizedName": "sanaxillusanaxillu",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:260",
+          "normalizedName": "雱pāng雱pāng",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:452",
+          "normalizedName": "吾手wooso",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:182",
+          "normalizedName": "波鳥bobird",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:447",
+          "normalizedName": "璃河glassriver",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:188",
+          "normalizedName": "清嶼tranquilisland",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:192",
+          "normalizedName": "5amjewelry5amjewelry",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:378",
+          "normalizedName": "山桔sunjithomecomingfragrance",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:325",
+          "normalizedName": "wildtypewildtype",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:263",
+          "normalizedName": "玳作dazzlejewelry",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:241",
+          "normalizedName": "恬日tannichi",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:175",
+          "normalizedName": "象往elephantsgogo",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:449",
+          "normalizedName": "寓物設計yuwudesign",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:207",
+          "normalizedName": "雜然設計zarandesign",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:176",
+          "normalizedName": "一屋客製化寵物商品1woof",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:17",
+          "normalizedName": "taluma知返設計taluma",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:53",
+          "normalizedName": "早安妞妞morningnunu",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:189",
+          "normalizedName": "零尚壹osuni",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:319",
+          "normalizedName": "織療室ziliaoshi",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:412",
+          "normalizedName": "諾扉文化nawobject",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:413",
+          "normalizedName": "山托邦mountopia",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:439",
+          "normalizedName": "川衣wearbeing",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:307",
+          "normalizedName": "好悠栽decentplanting",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:7",
+          "normalizedName": "彭璐penglupottery",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:120",
+          "normalizedName": "密密制作memedo",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:346",
+          "normalizedName": "讚讚製造goodgoodgoods",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:86",
+          "normalizedName": "張哲changche",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:329",
+          "normalizedName": "往山裡走inthemountains",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:184",
+          "normalizedName": "小行星b610asteroidb610",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:431",
+          "normalizedName": "山織mount",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:445",
+          "normalizedName": "一米作物immyhandmade",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:441",
+          "normalizedName": "款款飾物工作室kuânkuânstudioandshop",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:115",
+          "normalizedName": "這不是甜甜圈iamnotdonut",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:93",
+          "normalizedName": "簡莘蒂cindychien",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:377",
+          "normalizedName": "藍子mygirlaiko",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:347",
+          "normalizedName": "atwstudioatwstudio",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:432",
+          "normalizedName": "起司貝爾chiizbear",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:208",
+          "normalizedName": "噗尼mobell",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:268",
+          "normalizedName": "兩顆糖製造機2sugarstudio",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:126",
+          "normalizedName": "大幸daikou",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:110",
+          "normalizedName": "其實他是鵝infactitisagoose",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:390",
+          "normalizedName": "新鮮字本freshtypestudio",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:116",
+          "normalizedName": "哥布林村長goblinelder",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:25",
+          "normalizedName": "舒sufeltingsufelting",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:317",
+          "normalizedName": "citypigcitypig",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:343",
+          "normalizedName": "晴晴熱狗tchotdog",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:331",
+          "normalizedName": "魚吃草yueatgreen",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:298",
+          "normalizedName": "獴董dumbradio",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:88",
+          "normalizedName": "哭寶果園qryingbbgarden",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:365",
+          "normalizedName": "兔君bonnielu",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:130",
+          "normalizedName": "部落堂弟製販所tribalcousinmakeranddealer",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:20",
+          "normalizedName": "茶包先生mrteabag",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:442",
+          "normalizedName": "毛絨絨星人fluffystar",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:338",
+          "normalizedName": "軟q兔兔softiebunny",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:202",
+          "normalizedName": "87小兔87rabbit",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:118",
+          "normalizedName": "michillustrubarubamichillustrubaruba",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:131",
+          "normalizedName": "食菇eatmushroom",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:67",
+          "normalizedName": "福米有限公司woooguo",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:134",
+          "normalizedName": "灰黑集白hueiheijibai",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:33",
+          "normalizedName": "嘎嘎雞gagachicken",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:218",
+          "normalizedName": "狗生粉難phenshyshy",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:237",
+          "normalizedName": "acuíacuistudio",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:279",
+          "normalizedName": "駝背人tuobeiren",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:149",
+          "normalizedName": "晨日工作室skycoffeestudio",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:440",
+          "normalizedName": "羊號角piperpiperillu",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:320",
+          "normalizedName": "摘星小宇宙littlesparkles",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:62",
+          "normalizedName": "薯餅薯泥是橘貓shubingcat",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:58",
+          "normalizedName": "阿說不想說ahshuoisland",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:364",
+          "normalizedName": "tabbiltabbil",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:286",
+          "normalizedName": "圓臉人circular",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:133",
+          "normalizedName": "鼠粒控3costudio",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:335",
+          "normalizedName": "點點陳pointchen",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:333",
+          "normalizedName": "里恩太太severuslian",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:79",
+          "normalizedName": "虎嚕吼嚕嚕hooruhoruru",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:416",
+          "normalizedName": "ㄅㄅㄐbobog",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:285",
+          "normalizedName": "早安沒事幹wtfffmorning",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:293",
+          "normalizedName": "吉文考古auspiciouspatternarcheology",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:302",
+          "normalizedName": "周氏喵喵choüscat",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:122",
+          "normalizedName": "吶吉與他的搗蛋怪朋友naginagi",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:91",
+          "normalizedName": "阿翰todayforhan",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:87",
+          "normalizedName": "咕咕嘎嘎kukugaga",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:42",
+          "normalizedName": "spark的行動計畫sparksactionplan",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:374",
+          "normalizedName": "神秘狗是一隻兔子yuyingillustration",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:129",
+          "normalizedName": "波波與小泡芙boboandpuff",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:313",
+          "normalizedName": "日句時刻所heyyoumoment",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:420",
+          "normalizedName": "卡爾與河豚君carlandpufferfish",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:404",
+          "normalizedName": "呱呱森林guaguaforest",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:349",
+          "normalizedName": "泰迪與綿綿狗teddyandfluffy",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:112",
+          "normalizedName": "橘皮oranpeel",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:264",
+          "normalizedName": "新夭brainholesky",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:238",
+          "normalizedName": "魚氏yu",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:178",
+          "normalizedName": "下酒菜製造所drunkfoodsss",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:296",
+          "normalizedName": "煎妮花jennyhua",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:363",
+          "normalizedName": "李冠王真likuanzhen",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:448",
+          "normalizedName": "介毛設計jmofinger",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:394",
+          "normalizedName": "印花樂inblooom",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        },
+        {
+          "sourceKey": "creative-expo:145",
+          "normalizedName": "ginnylambkin居你ginnylambkin居你",
+          "candidates": [],
+          "ambiguity": "unmatched"
+        }
+      ]
+    }
+  ],
+  "invariantErrors": [],
+  "outcomesChanged": false
+}

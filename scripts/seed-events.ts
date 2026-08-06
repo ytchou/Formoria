@@ -41,6 +41,7 @@ import { requestEventRevalidation } from '@/lib/cache/revalidate-client'
 import { isSupabaseStorageUrl, isValidSlug } from '@/lib/services/brands'
 import { EVENT_STATUSES, type EventStatus } from '@/lib/services/events'
 import { createServiceClient } from '@/lib/supabase/service'
+import { runCanonicalExhibitorSeed } from './seed-event-exhibitors'
 
 // ---------------------------------------------------------------------------
 // File shape
@@ -130,6 +131,68 @@ export type ParsedEvent = {
   brands: EventBrandInput[] | null
 }
 
+export const EXHIBITOR_OUTCOMES = [
+  'matched_existing',
+  'included_unlinked',
+  'excluded',
+  'needs_review',
+  'out_of_scope',
+] as const
+
+export type ExhibitorOutcome = (typeof EXHIBITOR_OUTCOMES)[number]
+export type ExhibitorReviewPriority = 'high' | 'medium' | 'low'
+
+export type EventExhibitorInput = {
+  sourceKey: string
+  sourceId?: string | null
+  name: string
+  nameEn?: string | null
+  booth?: string | null
+  area?: string | null
+  areaEn?: string | null
+  zone: string
+  eventCategory: string
+  sourceUrl: string
+  websiteUrl?: string | null
+  verifiedAt: string
+  sortOrder: number
+  reviewPriority: ExhibitorReviewPriority
+  verificationEvidence: {
+    sourceUrl: string
+    detailUrl?: string | null
+    retrievedAt: string
+    basis: string
+  }
+  outcome: ExhibitorOutcome
+  brandSlug?: string | null
+}
+
+export type EventExhibitorLedgerInput = {
+  schemaVersion: number
+  eventSlug: string
+  reportTimeEvidence: {
+    retrievedAt: string
+    sourceUrl: string
+    checkpoint: Record<string, number>
+    notes?: string
+  }
+  outcomes: ExhibitorOutcome[]
+  exhibitors: EventExhibitorInput[]
+}
+
+export type ParsedExhibitorLedger = {
+  fileName: string
+  eventSlug: string
+  exhibitors: EventExhibitorInput[]
+  reportTimeEvidence: EventExhibitorLedgerInput['reportTimeEvidence']
+}
+
+export type ExhibitorCoverage = {
+  byZone: Record<string, number>
+  byOutcome: Record<ExhibitorOutcome, number>
+  total: number
+}
+
 /**
  * Mirrors the `events.slug` check constraint in 20260731090000_events.sql. It
  * applies to the event's OWN slug only — `brands.slug` has no CHECK constraint
@@ -149,11 +212,7 @@ function fail(fileName: string, message: string): Error {
   return new Error(`${fileName}: ${message}`)
 }
 
-function requiredString(
-  fileName: string,
-  key: string,
-  value: unknown,
-): string {
+function requiredString(fileName: string, key: string, value: unknown): string {
   if (typeof value !== 'string' || value.trim() === '') {
     throw fail(fileName, `${key} is required and must be a non-empty string`)
   }
@@ -322,7 +381,10 @@ export function parseEventFile(fileName: string, raw: unknown): ParsedEvent {
 
   const isFree = input.isFree
   if (isFree !== undefined && isFree !== null && typeof isFree !== 'boolean') {
-    throw fail(fileName, `isFree must be a boolean or null, got ${typeof isFree}`)
+    throw fail(
+      fileName,
+      `isFree must be a boolean or null, got ${typeof isFree}`,
+    )
   }
 
   let brands: EventBrandInput[] | null = null
@@ -413,6 +475,377 @@ export function parseEventFile(fileName: string, raw: unknown): ParsedEvent {
       status: (statusRaw as EventStatus | undefined) ?? 'draft',
     },
   }
+}
+
+function requiredExhibitorUrl(
+  fileName: string,
+  key: string,
+  value: unknown,
+): string {
+  const url = optionalUrl(fileName, key, value)
+  if (!url) throw fail(fileName, `${key} is required and must be http(s)`)
+  return url
+}
+
+function parseExhibitorOutcome(
+  fileName: string,
+  value: unknown,
+  index: number,
+): ExhibitorOutcome {
+  if (
+    typeof value !== 'string' ||
+    !(EXHIBITOR_OUTCOMES as readonly string[]).includes(value)
+  ) {
+    throw fail(
+      fileName,
+      `exhibitors[${index}].outcome must be exactly one of ${EXHIBITOR_OUTCOMES.join(', ')}`,
+    )
+  }
+  return value as ExhibitorOutcome
+}
+
+function parseExhibitorEntry(
+  fileName: string,
+  entry: unknown,
+  index: number,
+): EventExhibitorInput {
+  if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
+    throw fail(fileName, `exhibitors[${index}] must be an object`)
+  }
+  const input = entry as Record<string, unknown>
+  const sourceKey = requiredString(
+    fileName,
+    `exhibitors[${index}].sourceKey`,
+    input.sourceKey,
+  )
+  const zone = requiredString(fileName, `exhibitors[${index}].zone`, input.zone)
+  const eventCategory = requiredString(
+    fileName,
+    `exhibitors[${index}].eventCategory`,
+    input.eventCategory,
+  )
+  const outcome = parseExhibitorOutcome(fileName, input.outcome, index)
+  const reviewPriorityRaw = input.reviewPriority
+  if (
+    reviewPriorityRaw !== 'high' &&
+    reviewPriorityRaw !== 'medium' &&
+    reviewPriorityRaw !== 'low'
+  ) {
+    throw fail(
+      fileName,
+      `exhibitors[${index}].reviewPriority must be high, medium, or low`,
+    )
+  }
+
+  const verificationEvidenceRaw = input.verificationEvidence
+  if (
+    typeof verificationEvidenceRaw !== 'object' ||
+    verificationEvidenceRaw === null ||
+    Array.isArray(verificationEvidenceRaw)
+  ) {
+    throw fail(
+      fileName,
+      `exhibitors[${index}].verificationEvidence is required`,
+    )
+  }
+  const evidence = verificationEvidenceRaw as Record<string, unknown>
+  const verificationEvidence = {
+    sourceUrl: requiredExhibitorUrl(
+      fileName,
+      `exhibitors[${index}].verificationEvidence.sourceUrl`,
+      evidence.sourceUrl,
+    ),
+    detailUrl:
+      evidence.detailUrl === undefined || evidence.detailUrl === null
+        ? null
+        : requiredExhibitorUrl(
+            fileName,
+            `exhibitors[${index}].verificationEvidence.detailUrl`,
+            evidence.detailUrl,
+          ),
+    retrievedAt: calendarDate(
+      fileName,
+      `exhibitors[${index}].verificationEvidence.retrievedAt`,
+      evidence.retrievedAt,
+    ),
+    basis: requiredString(
+      fileName,
+      `exhibitors[${index}].verificationEvidence.basis`,
+      evidence.basis,
+    ),
+  }
+
+  const sortOrderRaw = input.sortOrder
+  if (typeof sortOrderRaw !== 'number' || !Number.isInteger(sortOrderRaw)) {
+    throw fail(fileName, `exhibitors[${index}].sortOrder must be an integer`)
+  }
+  if (sortOrderRaw < 0) {
+    throw fail(fileName, `exhibitors[${index}].sortOrder must be non-negative`)
+  }
+
+  const brandSlugRaw = input.brandSlug
+  if (
+    brandSlugRaw !== undefined &&
+    brandSlugRaw !== null &&
+    (typeof brandSlugRaw !== 'string' || !isValidSlug(brandSlugRaw))
+  ) {
+    throw fail(
+      fileName,
+      `exhibitors[${index}].brandSlug must be a valid brand slug when present`,
+    )
+  }
+  const brandSlug =
+    typeof brandSlugRaw === 'string' ? brandSlugRaw.trim() : null
+
+  const row: EventExhibitorInput = {
+    sourceKey,
+    sourceId: optionalString(
+      fileName,
+      `exhibitors[${index}].sourceId`,
+      input.sourceId,
+    ),
+    name: requiredString(fileName, `exhibitors[${index}].name`, input.name),
+    nameEn: optionalString(
+      fileName,
+      `exhibitors[${index}].nameEn`,
+      input.nameEn,
+    ),
+    booth: optionalString(fileName, `exhibitors[${index}].booth`, input.booth),
+    area: optionalString(fileName, `exhibitors[${index}].area`, input.area),
+    areaEn: optionalString(
+      fileName,
+      `exhibitors[${index}].areaEn`,
+      input.areaEn,
+    ),
+    zone,
+    eventCategory,
+    sourceUrl: requiredExhibitorUrl(
+      fileName,
+      `exhibitors[${index}].sourceUrl`,
+      input.sourceUrl,
+    ),
+    websiteUrl:
+      input.websiteUrl === undefined || input.websiteUrl === null
+        ? null
+        : optionalUrl(
+            fileName,
+            `exhibitors[${index}].websiteUrl`,
+            input.websiteUrl,
+          ),
+    verifiedAt: calendarDate(
+      fileName,
+      `exhibitors[${index}].verifiedAt`,
+      input.verifiedAt,
+    ),
+    sortOrder: sortOrderRaw,
+    reviewPriority: reviewPriorityRaw,
+    verificationEvidence,
+    outcome,
+    brandSlug,
+  }
+
+  const hasIncludedMetadata =
+    row.name.trim() !== '' &&
+    row.booth !== null &&
+    row.area !== null &&
+    row.zone.trim() !== '' &&
+    row.eventCategory.trim() !== '' &&
+    row.sourceUrl.trim() !== '' &&
+    row.verifiedAt.trim() !== ''
+  if (
+    (outcome === 'matched_existing' || outcome === 'included_unlinked') &&
+    !hasIncludedMetadata
+  ) {
+    throw fail(
+      fileName,
+      `exhibitors[${index}] ${outcome} requires name, booth, area, zone, eventCategory, sourceUrl, and verifiedAt`,
+    )
+  }
+  if (outcome === 'matched_existing' && !brandSlug) {
+    throw fail(
+      fileName,
+      `exhibitors[${index}] matched_existing requires brandSlug`,
+    )
+  }
+  if (outcome !== 'matched_existing' && brandSlug) {
+    throw fail(
+      fileName,
+      `exhibitors[${index}] ${outcome} cannot carry brandSlug`,
+    )
+  }
+  if (zone.startsWith('K') && !['K1', 'K2', 'K3'].includes(zone)) {
+    throw fail(
+      fileName,
+      `exhibitors[${index}] uses unsupported K-zone state "${zone}"`,
+    )
+  }
+  if (
+    ['K1', 'K2', 'K3'].includes(zone) &&
+    outcome !== 'matched_existing' &&
+    outcome !== 'included_unlinked'
+  ) {
+    throw fail(
+      fileName,
+      `exhibitors[${index}] K1/K2/K3 rows must be matched_existing or included_unlinked`,
+    )
+  }
+  if (
+    zone === 'S' &&
+    outcome !== 'matched_existing' &&
+    outcome !== 'out_of_scope'
+  ) {
+    throw fail(
+      fileName,
+      `exhibitors[${index}] S rows must be matched_existing or out_of_scope`,
+    )
+  }
+  if (zone === 'J2' && outcome !== 'matched_existing') {
+    throw fail(
+      fileName,
+      `exhibitors[${index}] J2 rows must preserve matched_existing links`,
+    )
+  }
+
+  return row
+}
+
+export function exhibitorCoverage(
+  exhibitors: EventExhibitorInput[],
+): ExhibitorCoverage {
+  const byZone: Record<string, number> = {}
+  const byOutcome = Object.fromEntries(
+    EXHIBITOR_OUTCOMES.map((outcome) => [outcome, 0]),
+  ) as Record<ExhibitorOutcome, number>
+  for (const exhibitor of exhibitors) {
+    byZone[exhibitor.zone] = (byZone[exhibitor.zone] ?? 0) + 1
+    byOutcome[exhibitor.outcome] += 1
+  }
+  return { byZone, byOutcome, total: exhibitors.length }
+}
+
+export function parseExhibitorLedger(
+  fileName: string,
+  raw: unknown,
+): ParsedExhibitorLedger {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    throw fail(fileName, 'exhibitor ledger must contain a JSON object')
+  }
+  const input = raw as Record<string, unknown>
+  const eventSlug = requiredString(fileName, 'eventSlug', input.eventSlug)
+  if (!EVENT_SLUG_PATTERN.test(eventSlug)) {
+    throw fail(fileName, `eventSlug "${eventSlug}" is not a valid event slug`)
+  }
+  if (input.schemaVersion !== 1) {
+    throw fail(fileName, 'schemaVersion must be 1')
+  }
+  if (!Array.isArray(input.exhibitors) || input.exhibitors.length === 0) {
+    throw fail(fileName, 'exhibitors must be a non-empty array')
+  }
+  if (!Array.isArray(input.outcomes)) {
+    throw fail(fileName, 'outcomes must be an array')
+  }
+  const outcomes = input.outcomes.map((value, index) =>
+    parseExhibitorOutcome(fileName, value, index),
+  )
+  if (
+    new Set(outcomes).size !== EXHIBITOR_OUTCOMES.length ||
+    !EXHIBITOR_OUTCOMES.every((outcome) => outcomes.includes(outcome))
+  ) {
+    throw fail(
+      fileName,
+      `outcomes must list each terminal outcome exactly once: ${EXHIBITOR_OUTCOMES.join(', ')}`,
+    )
+  }
+
+  const evidenceRaw = input.reportTimeEvidence
+  if (
+    typeof evidenceRaw !== 'object' ||
+    evidenceRaw === null ||
+    Array.isArray(evidenceRaw)
+  ) {
+    throw fail(fileName, 'reportTimeEvidence is required')
+  }
+  const reportTimeEvidenceRaw = evidenceRaw as Record<string, unknown>
+  const checkpointRaw = reportTimeEvidenceRaw.checkpoint
+  if (
+    typeof checkpointRaw !== 'object' ||
+    checkpointRaw === null ||
+    Array.isArray(checkpointRaw)
+  ) {
+    throw fail(fileName, 'reportTimeEvidence.checkpoint is required')
+  }
+  const checkpoint: Record<string, number> = {}
+  for (const [zone, count] of Object.entries(
+    checkpointRaw as Record<string, unknown>,
+  )) {
+    if (typeof count !== 'number' || !Number.isInteger(count) || count < 0) {
+      throw fail(
+        fileName,
+        `checkpoint for ${zone} must be a non-negative integer`,
+      )
+    }
+    checkpoint[zone] = count
+  }
+  const reportTimeEvidence = {
+    retrievedAt: calendarDate(
+      fileName,
+      'reportTimeEvidence.retrievedAt',
+      reportTimeEvidenceRaw.retrievedAt,
+    ),
+    sourceUrl: requiredExhibitorUrl(
+      fileName,
+      'reportTimeEvidence.sourceUrl',
+      reportTimeEvidenceRaw.sourceUrl,
+    ),
+    checkpoint,
+    notes:
+      optionalString(
+        fileName,
+        'reportTimeEvidence.notes',
+        reportTimeEvidenceRaw.notes,
+      ) ?? undefined,
+  }
+
+  const exhibitors = (input.exhibitors as unknown[]).map((entry, index) =>
+    parseExhibitorEntry(fileName, entry, index),
+  )
+  const sourceKeys = new Set<string>()
+  const sortOrders = new Set<number>()
+  const brandSlugs = new Set<string>()
+  for (const exhibitor of exhibitors) {
+    if (sourceKeys.has(exhibitor.sourceKey)) {
+      throw fail(fileName, `duplicate sourceKey "${exhibitor.sourceKey}"`)
+    }
+    sourceKeys.add(exhibitor.sourceKey)
+    if (sortOrders.has(exhibitor.sortOrder)) {
+      throw fail(fileName, `duplicate sortOrder ${exhibitor.sortOrder}`)
+    }
+    sortOrders.add(exhibitor.sortOrder)
+    if (exhibitor.brandSlug) {
+      if (brandSlugs.has(exhibitor.brandSlug)) {
+        throw fail(
+          fileName,
+          `conflicting links: brandSlug "${exhibitor.brandSlug}" appears more than once`,
+        )
+      }
+      brandSlugs.add(exhibitor.brandSlug)
+    }
+  }
+
+  const coverage = exhibitorCoverage(exhibitors)
+  for (const zone of ['K1', 'K2', 'K3', 'S']) {
+    if (coverage.byZone[zone] === undefined) {
+      throw fail(fileName, `required zone ${zone} is incomplete or missing`)
+    }
+    if (checkpoint[zone] !== coverage.byZone[zone]) {
+      throw fail(
+        fileName,
+        `coverage mismatch for ${zone}: report says ${checkpoint[zone] ?? 'missing'}, ledger has ${coverage.byZone[zone]}`,
+      )
+    }
+  }
+
+  return { fileName, eventSlug, exhibitors, reportTimeEvidence }
 }
 
 // ---------------------------------------------------------------------------
@@ -527,6 +960,242 @@ export function planEventSeed(input: {
   }
 }
 
+export type EventExhibitorRowPayload = {
+  event_id: string
+  source_key: string
+  name: string
+  name_en: string | null
+  booth: string | null
+  area: string | null
+  area_en: string | null
+  zone: string | null
+  event_category: string
+  source_url: string
+  website_url: string | null
+  verified_at: string
+  sort_order: number
+}
+
+export type EventExhibitorLinkIntent = {
+  event_id: string
+  source_key: string
+  brand_id: string
+  booth: string | null
+  area: string | null
+  area_en: string | null
+  sort_order: number
+}
+
+export type ExistingEventExhibitorRef = {
+  id: string
+  source_key: string
+}
+
+export type ExistingEventBrandRef = {
+  id: string
+  brand_id: string
+  event_exhibitor_id: string | null
+  booth: string | null
+}
+
+export type EventExhibitorSeedPlan = {
+  eventSlug: string
+  eventId: string
+  exhibitorRows: EventExhibitorRowPayload[]
+  linkIntents: EventExhibitorLinkIntent[]
+  deleteEventBrandIds: string[]
+  deleteExhibitorIds: string[]
+  unknownBrandSlugs: string[]
+  conflictingLinkSourceKeys: string[]
+  safeToPrune: boolean
+  insertCount: number
+  updateCount: number
+  matchedBrandSlugs: string[]
+}
+
+/**
+ * Pure canonical-roster plan. It deliberately returns no prune targets when a
+ * matched brand cannot be resolved: an incomplete identity map is never
+ * interpreted as a deletion request.
+ */
+export function planEventExhibitorSeed(input: {
+  eventSlug: string
+  eventId: string
+  ledger: ParsedExhibitorLedger
+  brandIdsBySlug: Map<string, string>
+  existingExhibitors: ExistingEventExhibitorRef[]
+  existingBrandLinks: ExistingEventBrandRef[]
+}): EventExhibitorSeedPlan {
+  const {
+    eventSlug,
+    eventId,
+    ledger,
+    brandIdsBySlug,
+    existingExhibitors,
+    existingBrandLinks,
+  } = input
+  if (ledger.eventSlug !== eventSlug) {
+    throw new Error(
+      `Exhibitor ledger ${ledger.fileName} belongs to ${ledger.eventSlug}, expected ${eventSlug}`,
+    )
+  }
+
+  const existingBySourceKey = new Map(
+    existingExhibitors.map((row) => [row.source_key, row]),
+  )
+  const exhibitorRows: EventExhibitorRowPayload[] = ledger.exhibitors.map(
+    (exhibitor) => ({
+      event_id: eventId,
+      source_key: exhibitor.sourceKey,
+      name: exhibitor.name,
+      name_en: exhibitor.nameEn ?? null,
+      booth: exhibitor.booth ?? null,
+      area: exhibitor.area ?? null,
+      area_en: exhibitor.areaEn ?? null,
+      zone: exhibitor.zone,
+      event_category: exhibitor.eventCategory,
+      source_url: exhibitor.sourceUrl,
+      website_url: exhibitor.websiteUrl ?? null,
+      verified_at: exhibitor.verifiedAt,
+      sort_order: exhibitor.sortOrder,
+    }),
+  )
+  const unknownBrandSlugs: string[] = []
+  const linkIntents: EventExhibitorLinkIntent[] = []
+  const matchedBrandSlugs: string[] = []
+
+  for (const exhibitor of ledger.exhibitors) {
+    if (exhibitor.outcome !== 'matched_existing' || !exhibitor.brandSlug) {
+      continue
+    }
+    const brandId = brandIdsBySlug.get(exhibitor.brandSlug)
+    if (!brandId) {
+      unknownBrandSlugs.push(exhibitor.brandSlug)
+      continue
+    }
+    matchedBrandSlugs.push(exhibitor.brandSlug)
+    linkIntents.push({
+      event_id: eventId,
+      source_key: exhibitor.sourceKey,
+      brand_id: brandId,
+      booth: exhibitor.booth ?? null,
+      area: exhibitor.area ?? null,
+      area_en: exhibitor.areaEn ?? null,
+      sort_order: exhibitor.sortOrder,
+    })
+  }
+
+  const safeToPrune = unknownBrandSlugs.length === 0
+  const expectedBrandBySourceKey = new Map(
+    linkIntents.map((intent) => [intent.source_key, intent.brand_id]),
+  )
+  const expectedSourceByBrandId = new Map(
+    linkIntents.map((intent) => [intent.brand_id, intent.source_key]),
+  )
+  const sourceKeyByExhibitorId = new Map(
+    existingExhibitors.map((exhibitor) => [exhibitor.id, exhibitor.source_key]),
+  )
+  const conflictingLinkSourceKeys = [
+    ...new Set(
+      existingBrandLinks
+        .map((link) => {
+          const sourceKey = link.event_exhibitor_id
+            ? sourceKeyByExhibitorId.get(link.event_exhibitor_id)
+            : null
+          const expectedBrandId = sourceKey
+            ? expectedBrandBySourceKey.get(sourceKey)
+            : undefined
+          return sourceKey &&
+            expectedBrandId &&
+            expectedBrandId !== link.brand_id
+            ? sourceKey
+            : null
+        })
+        .filter((value): value is string => value !== null),
+    ),
+  ].sort()
+  if (conflictingLinkSourceKeys.length > 0) {
+    return {
+      eventSlug,
+      eventId,
+      exhibitorRows,
+      linkIntents,
+      deleteEventBrandIds: [],
+      deleteExhibitorIds: [],
+      unknownBrandSlugs: [...new Set(unknownBrandSlugs)].sort(),
+      conflictingLinkSourceKeys,
+      safeToPrune: false,
+      insertCount: ledger.exhibitors.filter(
+        (row) => !existingBySourceKey.has(row.sourceKey),
+      ).length,
+      updateCount: ledger.exhibitors.filter((row) =>
+        existingBySourceKey.has(row.sourceKey),
+      ).length,
+      matchedBrandSlugs,
+    }
+  }
+  if (!safeToPrune) {
+    return {
+      eventSlug,
+      eventId,
+      exhibitorRows,
+      linkIntents,
+      deleteEventBrandIds: [],
+      deleteExhibitorIds: [],
+      unknownBrandSlugs: [...new Set(unknownBrandSlugs)].sort(),
+      conflictingLinkSourceKeys: [],
+      safeToPrune: false,
+      insertCount: ledger.exhibitors.filter(
+        (row) => !existingBySourceKey.has(row.sourceKey),
+      ).length,
+      updateCount: ledger.exhibitors.filter((row) =>
+        existingBySourceKey.has(row.sourceKey),
+      ).length,
+      matchedBrandSlugs,
+    }
+  }
+
+  const sourceKeys = new Set(ledger.exhibitors.map((row) => row.sourceKey))
+  const deleteEventBrandIds = existingBrandLinks
+    .filter((row) => {
+      if (!row.event_exhibitor_id) {
+        // A legacy link with no canonical id is retained when its brand is
+        // still intended; the link upsert above will attach the canonical id.
+        return !expectedSourceByBrandId.has(row.brand_id)
+      }
+      const linkedSourceKey = sourceKeyByExhibitorId.get(row.event_exhibitor_id)
+      return (
+        !sourceKeys.has(linkedSourceKey ?? '') ||
+        expectedBrandBySourceKey.get(linkedSourceKey ?? '') !== row.brand_id
+      )
+    })
+    .map((row) => row.id)
+    .sort()
+  const deleteExhibitorIds = existingExhibitors
+    .filter((row) => !sourceKeys.has(row.source_key))
+    .map((row) => row.id)
+    .sort()
+
+  return {
+    eventSlug,
+    eventId,
+    exhibitorRows,
+    linkIntents,
+    deleteEventBrandIds,
+    deleteExhibitorIds,
+    unknownBrandSlugs: [],
+    conflictingLinkSourceKeys: [],
+    safeToPrune: true,
+    insertCount: ledger.exhibitors.filter(
+      (row) => !existingBySourceKey.has(row.sourceKey),
+    ).length,
+    updateCount: ledger.exhibitors.filter((row) =>
+      existingBySourceKey.has(row.sourceKey),
+    ).length,
+    matchedBrandSlugs,
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
@@ -588,7 +1257,13 @@ async function loadEventFiles(directory: string): Promise<ParsedEvent[]> {
     return []
   }
 
-  const fileNames = entries.filter((name) => name.endsWith('.json')).sort()
+  // Exhibitor ledgers are intentionally separate from event metadata. Parsing
+  // one here would let a ledger accidentally create/overwrite event fields.
+  const fileNames = entries
+    .filter(
+      (name) => name.endsWith('.json') && !name.endsWith('.exhibitors.json'),
+    )
+    .sort()
   const parsed: ParsedEvent[] = []
 
   for (const fileName of fileNames) {
@@ -623,14 +1298,71 @@ async function loadEventFiles(directory: string): Promise<ParsedEvent[]> {
   return parsed
 }
 
+async function loadExhibitorLedgers(
+  directory: string,
+): Promise<ParsedExhibitorLedger[]> {
+  let entries: string[]
+  try {
+    entries = await readdir(directory)
+  } catch {
+    return []
+  }
+
+  const fileNames = entries
+    .filter((name) => name.endsWith('.exhibitors.json'))
+    .sort()
+  const parsed: ParsedExhibitorLedger[] = []
+
+  for (const fileName of fileNames) {
+    const filePath = path.join(directory, fileName)
+    const source = await readFile(filePath, 'utf8')
+    let raw: unknown
+    try {
+      raw = JSON.parse(source)
+    } catch (error) {
+      throw new Error(
+        `${filePath}: invalid JSON — ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+    const ledger = parseExhibitorLedger(filePath, raw)
+    const expectedStem = fileName.slice(0, -'.exhibitors.json'.length)
+    if (expectedStem !== ledger.eventSlug) {
+      console.warn(
+        `[warn] ${filePath} declares eventSlug "${ledger.eventSlug}" — rename the file to ${ledger.eventSlug}.exhibitors.json`,
+      )
+    }
+    parsed.push(ledger)
+  }
+
+  const seen = new Set<string>()
+  for (const ledger of parsed) {
+    if (seen.has(ledger.eventSlug)) {
+      throw new Error(
+        `Duplicate exhibitor ledger event slug: "${ledger.eventSlug}"`,
+      )
+    }
+    seen.add(ledger.eventSlug)
+  }
+  return parsed
+}
+
 async function main(): Promise<void> {
   const dryRun = process.argv.includes('--dry-run')
 
   // Every file is parsed before any client is created: a validation failure must
   // abort with zero writes, not halfway through the directory.
   const events = await loadEventFiles(CONTENT_DIR)
+  const ledgers = await loadExhibitorLedgers(CONTENT_DIR)
   if (events.length === 0) {
     console.log(`No event files in ${CONTENT_DIR}/ — nothing to do.`)
+    return
+  }
+  if (ledgers.length > 0) {
+    await runCanonicalExhibitorSeed(
+      events,
+      ledgers,
+      process.argv.includes('--dry-run'),
+    )
     return
   }
   console.log(
@@ -691,10 +1423,10 @@ async function main(): Promise<void> {
   ]
   const brandIdsBySlug = new Map<string, string>()
   if (brandSlugs.length > 0) {
-    const { data: brandRows, error: brandsError } = await selectInChunks<IdSlugRow>(
-      brandSlugs,
-      (chunk) => supabase.from('brands').select('id, slug').in('slug', chunk),
-    )
+    const { data: brandRows, error: brandsError } =
+      await selectInChunks<IdSlugRow>(brandSlugs, (chunk) =>
+        supabase.from('brands').select('id, slug').in('slug', chunk),
+      )
     if (brandsError) {
       console.error('Failed to resolve brand slugs:', brandsError)
       process.exit(1)
@@ -718,7 +1450,10 @@ async function main(): Promise<void> {
     const { data: joinRows, error: joinError } = await selectInChunks<JoinRow>(
       knownEventIds,
       (chunk) =>
-        supabase.from('event_brands').select('event_id, brand_id').in('event_id', chunk),
+        supabase
+          .from('event_brands')
+          .select('event_id, brand_id')
+          .in('event_id', chunk),
     )
     if (joinError) {
       console.error('Failed to read existing lineups:', joinError)

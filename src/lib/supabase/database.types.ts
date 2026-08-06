@@ -1552,6 +1552,7 @@ export type Database = {
           brand_id: string;
           created_at: string;
           event_id: string;
+          event_exhibitor_id: string | null;
           id: string;
           note: string | null;
           note_en: string | null;
@@ -1564,6 +1565,7 @@ export type Database = {
           brand_id: string;
           created_at?: string;
           event_id: string;
+          event_exhibitor_id?: string | null;
           id?: string;
           note?: string | null;
           note_en?: string | null;
@@ -1576,6 +1578,7 @@ export type Database = {
           brand_id?: string;
           created_at?: string;
           event_id?: string;
+          event_exhibitor_id?: string | null;
           id?: string;
           note?: string | null;
           note_en?: string | null;
@@ -1591,6 +1594,78 @@ export type Database = {
           },
           {
             foreignKeyName: "event_brands_event_id_fkey";
+            columns: ["event_id"];
+            isOneToOne: false;
+            referencedRelation: "events";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "event_brands_event_exhibitor_id_fkey";
+            columns: ["event_exhibitor_id"];
+            isOneToOne: false;
+            referencedRelation: "event_exhibitors";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      event_exhibitors: {
+        Row: {
+          area: string | null;
+          area_en: string | null;
+          booth: string | null;
+          created_at: string;
+          event_category: string;
+          event_id: string;
+          id: string;
+          name: string;
+          name_en: string | null;
+          sort_order: number;
+          source_key: string;
+          source_url: string;
+          updated_at: string;
+          verified_at: string;
+          website_url: string | null;
+          zone: string | null;
+        };
+        Insert: {
+          area?: string | null;
+          area_en?: string | null;
+          booth?: string | null;
+          created_at?: string;
+          event_category: string;
+          event_id: string;
+          id?: string;
+          name: string;
+          name_en?: string | null;
+          sort_order?: number;
+          source_key: string;
+          source_url: string;
+          updated_at?: string;
+          verified_at: string;
+          website_url?: string | null;
+          zone?: string | null;
+        };
+        Update: {
+          area?: string | null;
+          area_en?: string | null;
+          booth?: string | null;
+          created_at?: string;
+          event_category?: string;
+          event_id?: string;
+          id?: string;
+          name?: string;
+          name_en?: string | null;
+          sort_order?: number;
+          source_key?: string;
+          source_url?: string;
+          updated_at?: string;
+          verified_at?: string;
+          website_url?: string | null;
+          zone?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "event_exhibitors_event_id_fkey";
             columns: ["event_id"];
             isOneToOne: false;
             referencedRelation: "events";

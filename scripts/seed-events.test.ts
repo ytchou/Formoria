@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  exhibitorCoverage,
+  parseExhibitorLedger,
   parseEventFile,
+  planEventExhibitorSeed,
   planEventSeed,
   type EventBrandInput,
   type EventFileInput,
@@ -38,6 +41,118 @@ function plan(
     ]),
     existingBrandIds,
   })
+}
+
+function ledgerRaw(overrides: Record<string, unknown> = {}) {
+  const base = {
+    schemaVersion: 1,
+    eventSlug: 'taipei-design-market-2026',
+    reportTimeEvidence: {
+      retrievedAt: '2026-08-06',
+      sourceUrl: 'https://creativexpo.tw/zh-TW/exhibitor_list',
+      checkpoint: { K1: 1, K2: 1, K3: 1, S: 1 },
+    },
+    outcomes: [
+      'matched_existing',
+      'included_unlinked',
+      'excluded',
+      'needs_review',
+      'out_of_scope',
+    ],
+    exhibitors: [
+      {
+        sourceKey: 'creative-expo:322',
+        name: '沃廚',
+        nameEn: 'WOKY',
+        booth: 'K1-001',
+        area: '文創品牌展區',
+        areaEn: 'Cultural & Creative Brands',
+        zone: 'K1',
+        eventCategory: 'cultural_creative',
+        sourceUrl: 'https://creativexpo.tw/zh-TW/exhibitor_list/322',
+        websiteUrl: null,
+        verifiedAt: '2026-08-06',
+        sortOrder: 0,
+        reviewPriority: 'high',
+        verificationEvidence: {
+          sourceUrl: 'https://creativexpo.tw/zh-TW/exhibitor_list',
+          detailUrl: 'https://creativexpo.tw/zh-TW/exhibitor_list/322',
+          retrievedAt: '2026-08-06',
+          basis: 'official listing',
+        },
+        outcome: 'matched_existing',
+        brandSlug: 'woky',
+      },
+      {
+        sourceKey: 'creative-expo:323',
+        name: '未連結品牌',
+        nameEn: null,
+        booth: 'K2-001',
+        area: '文創品牌展區',
+        areaEn: 'Cultural & Creative Brands',
+        zone: 'K2',
+        eventCategory: 'cultural_creative',
+        sourceUrl: 'https://creativexpo.tw/zh-TW/exhibitor_list/323',
+        websiteUrl: null,
+        verifiedAt: '2026-08-06',
+        sortOrder: 1,
+        reviewPriority: 'medium',
+        verificationEvidence: {
+          sourceUrl: 'https://creativexpo.tw/zh-TW/exhibitor_list',
+          detailUrl: 'https://creativexpo.tw/zh-TW/exhibitor_list/323',
+          retrievedAt: '2026-08-06',
+          basis: 'official listing',
+        },
+        outcome: 'included_unlinked',
+      },
+      {
+        sourceKey: 'creative-expo:324',
+        name: '待審品牌',
+        nameEn: null,
+        booth: 'K3-001',
+        area: '文創品牌展區',
+        areaEn: 'Cultural & Creative Brands',
+        zone: 'K3',
+        eventCategory: 'cultural_creative',
+        sourceUrl: 'https://creativexpo.tw/zh-TW/exhibitor_list/324',
+        websiteUrl: null,
+        verifiedAt: '2026-08-06',
+        sortOrder: 2,
+        reviewPriority: 'medium',
+        verificationEvidence: {
+          sourceUrl: 'https://creativexpo.tw/zh-TW/exhibitor_list',
+          detailUrl: 'https://creativexpo.tw/zh-TW/exhibitor_list/324',
+          retrievedAt: '2026-08-06',
+          basis: 'official listing',
+        },
+        outcome: 'included_unlinked',
+      },
+      {
+        sourceKey: 'creative-expo:325',
+        name: '延後審查',
+        nameEn: null,
+        booth: 'S-001',
+        area: '新銳品牌展區',
+        areaEn: 'Start-ups',
+        zone: 'S',
+        eventCategory: 'startups',
+        sourceUrl: 'https://creativexpo.tw/zh-TW/exhibitor_list/325',
+        websiteUrl: null,
+        verifiedAt: '2026-08-06',
+        sortOrder: 3,
+        reviewPriority: 'low',
+        verificationEvidence: {
+          sourceUrl: 'https://creativexpo.tw/zh-TW/exhibitor_list',
+          detailUrl: 'https://creativexpo.tw/zh-TW/exhibitor_list/325',
+          retrievedAt: '2026-08-06',
+          basis: 'official listing',
+        },
+        outcome: 'out_of_scope',
+      },
+    ],
+    ...overrides,
+  }
+  return base
 }
 
 describe('parseEventFile', () => {
@@ -96,7 +211,10 @@ describe('parseEventFile', () => {
   })
 
   it('maps camelCase input onto the snake_case row and defaults status to draft', () => {
-    const parsed = parseEventFile('ok.json', makeFile({ nameEn: 'Taipei Design Market 2026' }))
+    const parsed = parseEventFile(
+      'ok.json',
+      makeFile({ nameEn: 'Taipei Design Market 2026' }),
+    )
 
     expect(parsed.row.slug).toBe('taipei-design-market-2026')
     expect(parsed.row.name_en).toBe('Taipei Design Market 2026')
@@ -178,5 +296,110 @@ describe('planEventSeed', () => {
     expect(result.deleteBrandIds).toEqual([])
     // The resolvable half still writes; only the prune is withheld.
     expect(result.upsertRows.map((row) => row.brand_id)).toEqual([BRAND_ID_A])
+  })
+})
+
+describe('event exhibitor ledger', () => {
+  it('requires exactly one terminal outcome and matching report coverage', () => {
+    const parsed = parseExhibitorLedger('ledger.json', ledgerRaw())
+    expect(parsed.exhibitors).toHaveLength(4)
+    expect(parsed.exhibitors[0]?.sourceKey).toBe('creative-expo:322')
+    expect(exhibitorCoverage(parsed.exhibitors)).toMatchObject({
+      byZone: { K1: 1, K2: 1, K3: 1, S: 1 },
+      total: 4,
+    })
+    expect(() =>
+      parseExhibitorLedger('bad-outcome.json', {
+        ...ledgerRaw(),
+        exhibitors: [
+          ...(ledgerRaw().exhibitors as unknown[]).slice(0, 3),
+          {
+            ...((ledgerRaw().exhibitors as unknown[])[3] as Record<
+              string,
+              unknown
+            >),
+            outcome: 'included_unlinked',
+          },
+        ],
+      }),
+    ).toThrow(/S rows must be matched_existing or out_of_scope/)
+  })
+
+  it('disables pruning when a matched brand cannot be resolved', () => {
+    const parsed = parseExhibitorLedger('ledger.json', ledgerRaw())
+    const plan = planEventExhibitorSeed({
+      eventSlug: parsed.eventSlug,
+      eventId: EVENT_ID,
+      ledger: parsed,
+      brandIdsBySlug: new Map(),
+      existingExhibitors: [
+        { id: '6b1c9f2e-0000-4000-8000-0000000000e1', source_key: 'OLD-001' },
+      ],
+      existingBrandLinks: [
+        {
+          id: '6b1c9f2e-0000-4000-8000-0000000000e2',
+          brand_id: BRAND_ID_A,
+          event_exhibitor_id: '6b1c9f2e-0000-4000-8000-0000000000e1',
+          booth: 'OLD-001',
+        },
+      ],
+    })
+
+    expect(plan.safeToPrune).toBe(false)
+    expect(plan.deleteEventBrandIds).toEqual([])
+    expect(plan.deleteExhibitorIds).toEqual([])
+    expect(plan.unknownBrandSlugs).toEqual(['woky'])
+  })
+
+  it('plans the same canonical identities idempotently', () => {
+    const parsed = parseExhibitorLedger('ledger.json', ledgerRaw())
+    const existingExhibitors = parsed.exhibitors.map((row, index) => ({
+      id: `6b1c9f2e-0000-4000-8000-0000000000${index + 1}`,
+      source_key: row.sourceKey,
+    }))
+    const plan = () =>
+      planEventExhibitorSeed({
+        eventSlug: parsed.eventSlug,
+        eventId: EVENT_ID,
+        ledger: parsed,
+        brandIdsBySlug: new Map([['woky', BRAND_ID_A]]),
+        existingExhibitors,
+        existingBrandLinks: [],
+      })
+
+    expect(plan()).toEqual(plan())
+    expect(plan().deleteEventBrandIds).toEqual([])
+    expect(plan().deleteExhibitorIds).toEqual([])
+  })
+
+  it('prunes stale links by exact exhibitor-brand pair', () => {
+    const parsed = parseExhibitorLedger('ledger.json', ledgerRaw())
+    const existingExhibitors = parsed.exhibitors.map((row, index) => ({
+      id: `6b1c9f2e-0000-4000-8000-0000000000${index + 1}`,
+      source_key: row.sourceKey,
+    }))
+    const staleExhibitor = existingExhibitors.find(
+      (row) => row.source_key === 'creative-expo:323',
+    )
+    if (!staleExhibitor) throw new Error('missing stale exhibitor fixture')
+    const plan = planEventExhibitorSeed({
+      eventSlug: parsed.eventSlug,
+      eventId: EVENT_ID,
+      ledger: parsed,
+      brandIdsBySlug: new Map([['woky', BRAND_ID_A]]),
+      existingExhibitors,
+      existingBrandLinks: [
+        {
+          id: '6b1c9f2e-0000-4000-8000-0000000000f1',
+          brand_id: BRAND_ID_A,
+          event_exhibitor_id: staleExhibitor.id,
+          booth: 'K2-001',
+        },
+      ],
+    })
+
+    expect(plan.deleteEventBrandIds).toEqual([
+      '6b1c9f2e-0000-4000-8000-0000000000f1',
+    ])
   })
 })
