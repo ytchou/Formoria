@@ -2,6 +2,7 @@ import { runWithAuditContext } from "@/lib/audit/context";
 import type { Metadata } from "next";
 import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
+import { reviewCorrectionsAction } from "@/app/admin/actions";
 import {
   CorrectionsQueue,
   type CorrectionQueueItem,
@@ -66,6 +67,7 @@ export default async function AdminCorrectionsPage() {
         <CorrectionsQueue
           corrections={queueItems}
           reviewAction={reviewCorrectionAction}
+          bulkReviewAction={reviewCorrectionsAction}
         />
       </div>
     </div>

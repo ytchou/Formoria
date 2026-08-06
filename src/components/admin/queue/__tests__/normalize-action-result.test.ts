@@ -20,12 +20,13 @@ describe("normalizeActionResult", () => {
   });
 
   it("preserves warning alongside success", () => {
-    expect(normalizeActionResult({ warning: "Cleanup is pending" })).toMatchObject(
-      {
-        ok: true,
-        warning: "Cleanup is pending",
-      },
-    );
+    const result = normalizeActionResult({ warning: "Cleanup is pending" });
+
+    expect(result).toMatchObject({
+      ok: true,
+      warning: "Cleanup is pending",
+    });
+    expect(result).not.toHaveProperty("error");
   });
 
   it("extracts failedIds from a failures array", () => {

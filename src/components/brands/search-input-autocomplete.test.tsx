@@ -1,6 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
+import type { ComponentProps } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -29,10 +30,22 @@ global.fetch = mockFetch
 
 const { default: SearchInput } = await import('./search-input')
 
+/**
+ * Typed to what the provider actually needs, NOT to `typeof en`. Inferring the
+ * en catalogue's literal shape would make this helper reject the zh-TW
+ * catalogue, which is deliberately missing the English-pinned `admin`
+ * namespace (see `src/i18n/__tests__/message-parity.test.ts`). This test is
+ * about search autocomplete, not catalogue parity — the provider still
+ * type-checks the messages, so a genuinely malformed catalogue is still caught.
+ */
+type ProviderMessages = ComponentProps<
+  typeof NextIntlClientProvider
+>['messages']
+
 function renderWithProvider(
   ui: React.ReactElement,
   locale = 'en',
-  messages = en,
+  messages: ProviderMessages = en,
 ) {
   return render(
     <NextIntlClientProvider locale={locale} messages={messages}>

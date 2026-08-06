@@ -2321,6 +2321,17 @@
         "featureRequests": "Feature Requests"
       }
     },
+    "queue": {
+      "selectAll": "Select all visible rows",
+      "search": "Search this queue",
+      "searchPlaceholder": "Search by brand, field, or value",
+      "paginationSummary": "Showing {from}-{to} of {total}",
+      "pageSize": "Rows per page",
+      "previousPage": "Previous page",
+      "nextPage": "Next page",
+      "showDetails": "Show details for {name}",
+      "hideDetails": "Hide details for {name}"
+    },
     "dashboard": {
       "description": "Review queues, brand data, and categorization status requiring action.",
       "reviewQueues": "Review Queues",
@@ -2470,6 +2481,9 @@
       "novelTag": "Not in taxonomy",
       "novelTagTitle": "Approving this adds a display-only tag: it matches no ?sub= filter, so it will not appear in directory filtering.",
       "tooManyTags": "Cannot approve: the result would exceed 5 product tags",
+      "bulkApprove": "Approve {count} selected",
+      "bulkReject": "Reject {count} selected",
+      "capBlocker": "{projected} tags after apply — the limit for this brand is {limit}",
       "actions": {
         "approve": "Approve",
         "reject": "Reject"
