@@ -138,7 +138,10 @@ export function aggregateBrandCounts(rows: BrandCountRow[]): BrandCountResult {
   return { product_type_totals, subcategories, thresholds, unmatched }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Wrapped in an async IIFE rather than using top-level await: `tsx` transpiles
+// this file to CJS (the repo has no "type": "module"), and esbuild rejects
+// top-level await under the cjs output format.
+async function main(): Promise<void> {
   try {
     const { data, error } = await createServiceClient()
       .from('brands')
@@ -152,4 +155,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.error(error)
     process.exit(1)
   }
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  void main()
 }
