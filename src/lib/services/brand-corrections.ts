@@ -993,13 +993,9 @@ export async function reviewCorrections(
             reviewerId,
           });
           if (!result.ok) {
-            failures.push({
-              id,
-              code:
-                result.code === "already_reviewed"
-                  ? "already_decided"
-                  : result.code,
-            });
+            // Codes pass through unmapped: bulk and single-item review must
+            // report a conflict by the same name the other four domains use.
+            failures.push({ id, code: result.code });
           }
         } catch {
           // One bad item must not strand the rest of its brand's queue.
