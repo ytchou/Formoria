@@ -3,6 +3,7 @@ import type {
   EventExhibitorEntry,
   LinkedEventExhibitorEntry,
 } from "@/lib/services/events";
+import { resolveProductTypeSlug } from "@/lib/brands/category-label";
 import {
   resolveExpoBoothZone,
   type ExpoZoneCode,
@@ -193,6 +194,25 @@ export type CreativeExpoUrlState = {
   category: string | null;
 };
 
+function resolveAllowedCreativeExpoCategory(
+  value: string | null,
+  allowedCategories: readonly string[],
+): string | null {
+  if (!value) return null;
+
+  const exactMatch = allowedCategories.find((option) => option === value);
+  if (exactMatch) return exactMatch;
+
+  const canonicalSlug = resolveProductTypeSlug(value);
+  if (!canonicalSlug) return null;
+
+  return (
+    allowedCategories.find(
+      (option) => resolveProductTypeSlug(option) === canonicalSlug,
+    ) ?? null
+  );
+}
+
 /** Reads only values present in the event's allowlists; query is transient. */
 export function parseCreativeExpoUrlState(
   params: Pick<URLSearchParams, "get">,
@@ -206,8 +226,7 @@ export function parseCreativeExpoUrlState(
       zone && allowedZones.includes(zone) && isCreativeExpoZone(zone)
         ? zone
         : null,
-    category:
-      category && allowedCategories.includes(category) ? category : null,
+    category: resolveAllowedCreativeExpoCategory(category, allowedCategories),
   };
 }
 
@@ -218,7 +237,10 @@ export function buildCreativeExpoUrl(
 ): URL {
   if (state.zone) url.searchParams.set("zone", state.zone);
   else url.searchParams.delete("zone");
-  if (state.category) url.searchParams.set("category", state.category);
+  const category = state.category
+    ? (resolveProductTypeSlug(state.category) ?? state.category)
+    : null;
+  if (category) url.searchParams.set("category", category);
   else url.searchParams.delete("category");
   return url;
 }

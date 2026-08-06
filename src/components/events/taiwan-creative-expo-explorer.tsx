@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import type { EventCategoryOption } from "@/lib/services/events";
 import {
   CREATIVE_EXPO_ZONE_CODES,
+  buildCreativeExpoUrl,
   deriveCreativeExpoHighlightedZones,
   deriveCreativeExpoZoneCounts,
   filterCreativeExpoEntries,
@@ -91,11 +92,10 @@ export function TaiwanCreativeExpoExplorer({
   const syncUrl = useCallback(
     (zone: CreativeExpoExplorerState["zone"], category: string | null) => {
       if (typeof window === "undefined") return;
-      const url = new URL(window.location.href);
-      if (zone) url.searchParams.set("zone", zone);
-      else url.searchParams.delete("zone");
-      if (category) url.searchParams.set("category", category);
-      else url.searchParams.delete("category");
+      const url = buildCreativeExpoUrl(new URL(window.location.href), {
+        zone,
+        category,
+      });
       window.history.replaceState(
         window.history.state,
         "",

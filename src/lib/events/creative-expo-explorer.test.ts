@@ -237,6 +237,20 @@ describe("Creative Expo explorer state", () => {
     });
   });
 
+  it("hydrates canonical category URLs against legacy stored values", () => {
+    expect(
+      parseCreativeExpoUrlState(
+        new URLSearchParams("zone=K2&category=crafts"),
+        ["K1", "K2"],
+        ["工藝文創", "homeware"],
+      ),
+    ).toEqual({ zone: "K2", category: "工藝文創" });
+
+    const url = new URL("https://formoria.test/en/events/creative");
+    buildCreativeExpoUrl(url, { zone: "K2", category: "工藝文創" });
+    expect(url.search).toBe("?zone=K2&category=crafts");
+  });
+
   it("sorts by natural booth number without changing recommended order", () => {
     const entries = selectLinkedCreativeExpoEntries([
       entry({ id: "late", booth: "K1-011-05", sortOrder: 0 }),
