@@ -2887,6 +2887,7 @@
     "seriesCount": "共 {count} 篇",
     "seriesCountFiltered": "共 {total} 篇中的 {shown} 篇",
     "brandMissing": "找不到品牌：{slug}",
+    "galleryImageAlt": "{brand} 品牌作品",
     "eventDates": "日期",
     "eventHours": "時間",
     "eventVenue": "地點",
