@@ -18,7 +18,10 @@ import {
 } from "@/components/stories/story-date";
 import { ViewItemListTracker } from "@/components/analytics/view-item-list-tracker";
 import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
-import { extractBrandSlugs } from "@/lib/mdx/extract-brand-slugs";
+import {
+  extractLinkedBrandSlugs,
+  hasEventInfoShortcode,
+} from "@/lib/mdx/extract-brand-slugs";
 import { buildAlternates } from "@/lib/seo/alternates";
 import type { Locale } from "@/lib/seo/alternates";
 import {
@@ -185,6 +188,11 @@ export default async function StoryPage({ params }: PageProps) {
         : null;
     })
     .filter((tag): tag is { key: string; label: string } => tag !== null);
+  const seriesTitle =
+    story.entry.frontmatter.seriesTitle ??
+    series.find((entry) => entry.frontmatter.seriesTitle)?.frontmatter
+      .seriesTitle ??
+    t("seriesHeading");
   // Mirrors the visible breadcrumb below, so the two never disagree. Same
   // builder every other content route uses (`/brands/[slug]`, `/glossary`).
   const breadcrumbJsonLd = buildBreadcrumbJsonLd(
@@ -195,10 +203,13 @@ export default async function StoryPage({ params }: PageProps) {
     safeLocale,
   );
   // The shortcodes only resolve inside `MDXRemote`, which renders after this
-  // component returns, so the list size is read off the raw source with the same
-  // extractor the content guard uses. Zero brands means no list at all — an
-  // empty `view_item_list` is noise in GA4, not a datapoint.
-  const brandCount = extractBrandSlugs(story.content).length;
+  // component returns, so the list size is read off the raw source. The *linked*
+  // variant, not the guard's full one: `<BrandGallery>` names a brand but renders
+  // photos with no click path, so its slugs would be impressions that can never
+  // convert. Zero brands means no list at all — an empty `view_item_list` is
+  // noise in GA4, not a datapoint.
+  const brandCount = extractLinkedBrandSlugs(story.content).length;
+  const hasEventInfo = hasEventInfoShortcode(story.content);
 
   return (
     // One centered, box-sized article container owns every story detail surface:
@@ -312,7 +323,31 @@ export default async function StoryPage({ params }: PageProps) {
               </dt>
               <dd>{story.entry.frontmatter.author ?? t("byline")}</dd>
             </div>
-            {updatedLabel ? (
+            {seriesId && series.length >= 2 ? (
+              <div className="contents">
+                <dt className="border-r border-border pr-3 type-metadata">
+                  {t("seriesLabel")}
+                </dt>
+                <dd>
+                  {/* Metadata navigation follows the breadcrumb treatment, not body-prose link styling. */}
+                  <a
+                    href="#series"
+                    className="rounded-sm hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {seriesTitle}
+                  </a>
+                </dd>
+              </div>
+            ) : null}
+            {publishedLabel ? (
+              <div className="contents">
+                <dt className="border-r border-border pr-3 type-metadata">
+                  {t("publishedLabel")}
+                </dt>
+                <dd>{publishedLabel}</dd>
+              </div>
+            ) : null}
+            {updatedLabel && updatedLabel !== publishedLabel ? (
               <div className="contents">
                 <dt className="border-r border-border pr-3 type-metadata">
                   {t("lastUpdatedLabel")}
@@ -356,14 +391,17 @@ export default async function StoryPage({ params }: PageProps) {
         */}
         <SavedBrandsProvider>
           <div>
-            <StoryContent source={story.content} />
+            <StoryContent
+              source={story.content}
+              currentStorySlug={story.entry.slug}
+            />
           </div>
         </SavedBrandsProvider>
         {story.entry.frontmatter.faq &&
           story.entry.frontmatter.faq.length > 0 && (
             <FaqBlock questions={story.entry.frontmatter.faq} />
           )}
-        {seriesId ? (
+        {seriesId && !hasEventInfo ? (
           <SeriesNav
             series={series}
             currentSlug={story.entry.slug}

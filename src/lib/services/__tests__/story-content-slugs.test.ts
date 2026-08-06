@@ -4,7 +4,11 @@ import path from 'path'
 import { describe, expect, it } from 'vitest'
 
 import { describeWithDb } from '@/test/setup'
-import { extractBrandSlugs } from '@/lib/mdx/extract-brand-slugs'
+import {
+  extractBrandSlugs,
+  extractLinkedBrandSlugs,
+  hasEventInfoShortcode,
+} from '@/lib/mdx/extract-brand-slugs'
 import { getBrandsBySlugs, isValidSlug } from '../brands'
 
 /**
@@ -134,6 +138,21 @@ describe('story content brand slugs (fixture coverage)', () => {
     ])
   })
 
+  // `BrandGallery` renders a brand's photos with no link out, so the two
+  // extractors deliberately disagree about it: CI must still validate the slug
+  // (an unresolvable one is a silently imageless section), while the story
+  // page's `view_item_list` must not report an impression no one can click.
+  it('counts BrandGallery for the slug guard but not for the linked-brand count', () => {
+    const source = [
+      '<BrandCard slug="molasses" />',
+      '',
+      '<BrandGallery slug="yingge-kiln" caption="圖：鶯歌窯" />',
+    ].join('\n')
+
+    expect(extractBrandSlugs(source)).toEqual(['molasses', 'yingge-kiln'])
+    expect(extractLinkedBrandSlugs(source)).toEqual(['molasses'])
+  })
+
   it('ignores shortcodes inside fenced code blocks', () => {
     const source = [
       'Authors embed brands like this:',
@@ -149,6 +168,18 @@ describe('story content brand slugs (fixture coverage)', () => {
     // A syntax example is documentation, not a rendered card: counting it would
     // fail the pattern guard on prose and inflate the story's `view_item_list`.
     expect(extractBrandSlugs(source)).toEqual(['molasses'])
+  })
+})
+
+describe('story content event info shortcode', () => {
+  it('detects a rendered EventInfo shortcode', () => {
+    expect(hasEventInfoShortcode('<EventInfo slug="expo" />')).toBe(true)
+  })
+
+  it('ignores EventInfo examples inside fenced code blocks', () => {
+    expect(
+      hasEventInfoShortcode(['```mdx', '<EventInfo slug="not-rendered" />', '```'].join('\n')),
+    ).toBe(false)
   })
 })
 

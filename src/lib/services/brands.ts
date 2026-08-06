@@ -1132,6 +1132,22 @@ export async function getBrandsBySlugs(
   return getBrandsBySlugKey(brandsBySlugsCacheKey(slugs));
 }
 
+export type BrandImageFields = ReturnType<typeof toImageFields>;
+
+/**
+ * The full `brand_images` list for one brand, as domain image fields.
+ *
+ * `getBrandsBySlugs` runs the narrow directory projection, which leaves
+ * `productPhotos` empty — enough for a card that shows one hero, not enough for
+ * a story gallery that wants four photos. Rather than widen that projection for
+ * every card on the directory, gallery callers pay one extra query here.
+ * Cached per request so repeated galleries for the same brand share it.
+ */
+export const getBrandImageFields = cache(
+  async (brandId: string): Promise<BrandImageFields> =>
+    toImageFields(await getBrandImages(createServiceClient(), brandId)),
+);
+
 type GetBrandsFilters = BrandFilters & {
   page?: number;
   subcategoryTags?: string[];

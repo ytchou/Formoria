@@ -35,13 +35,24 @@ type BrandListProps = {
  * MDX map). The hairline rules therefore come from `divide-y` on the container
  * rather than a border on each row, which keeps the DOM at one node per line.
  *
+ * The column track lives here and each row opts into it with `grid-cols-subgrid`,
+ * which is the only way to align columns across rows given that constraint: a
+ * per-row grid sizes itself to its own content, so every note started at a
+ * different x depending on how long that brand's name happened to be. Rules stay
+ * horizontal only — column separators would turn an editorial list into a
+ * spreadsheet.
+ *
  * `<div>`s rather than `<ul>`/`<li>`: an unresolvable slug degrades to
  * `MissingBrandNotice`, which is a `<p>`, and a `<p>` is not a legal child of
  * `<ul>`. Deliberately no card chrome — the list is part of the article, not a
  * module dropped into it.
  */
 export function BrandList({ children }: BrandListProps) {
-  return <div className="my-8 divide-y divide-border border-y border-border">{children}</div>
+  return (
+    <div className="my-8 grid grid-cols-[auto_minmax(0,1fr)] divide-y divide-border border-y border-border sm:grid-cols-[auto_minmax(0,17rem)_minmax(0,1fr)]">
+      {children}
+    </div>
+  )
 }
 
 type BrandLineProps = {
@@ -97,28 +108,36 @@ export async function BrandLine({
   const t = await getTranslations('stories')
 
   if (!brand) {
-    return <MissingBrandNotice label={t('brandMissing', { slug })} />
+    return (
+      <div className="col-span-full py-3">
+        <MissingBrandNotice label={t('brandMissing', { slug })} />
+      </div>
+    )
   }
 
   return (
-    // Wrapping is flex + `gap`, never fixed column widths: at 375px a booth and
-    // a note pinned to fixed columns overlap the moment the note runs long. The
-    // note takes a full row of its own below the name on narrow screens and
-    // shares the line from `sm` up.
-    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-3">
-      {booth ? (
-        // `tabular-nums` so booth numbers form a straight column down the list
-        // instead of ragging with the glyph widths. Secondary weight: the booth
-        // is wayfinding, the brand name is the thing being recommended.
-        <span className="shrink-0 tabular-nums type-metadata">
-          {/* The bare code means nothing read aloud out of context. */}
-          <span className="sr-only">{t('boothLabel')} </span>
-          {booth}
-        </span>
-      ) : null}
+    // Inherits `BrandList`'s column track via `grid-cols-subgrid`, so booths,
+    // names and notes line up down the whole list. Two columns at 375px — the
+    // note drops to a full-width row of its own under the name — and three from
+    // `sm` up, where it shares the line.
+    <div className="col-span-full grid grid-cols-subgrid items-baseline gap-x-4 gap-y-1 py-3">
+      {/* Always rendered, empty when there is no booth: an omitted cell would
+          shift that row's remaining columns left and break the alignment the
+          subgrid exists for. `tabular-nums` so the codes form a straight column
+          instead of ragging with the glyph widths. Secondary weight — the booth
+          is wayfinding, the brand name is the thing being recommended. */}
+      <span className="shrink-0 tabular-nums type-metadata">
+        {booth ? (
+          <>
+            {/* The bare code means nothing read aloud out of context. */}
+            <span className="sr-only">{t('boothLabel')} </span>
+            {booth}
+          </>
+        ) : null}
+      </span>
       <BrandLineLink brand={brand} position={position} />
       {note ? (
-        <span className="w-full min-w-0 type-body-muted sm:w-auto sm:flex-1">{note}</span>
+        <span className="col-span-2 min-w-0 type-body-muted sm:col-span-1">{note}</span>
       ) : null}
     </div>
   )

@@ -1,6 +1,8 @@
 import { createElement, type ComponentPropsWithoutRef, type ReactNode } from 'react'
 
 import { BrandCardMdx } from '@/components/stories/brand-card-mdx'
+import { BrandGallery } from '@/components/stories/brand-gallery'
+import { EventInfo } from '@/components/stories/event-info'
 import { BrandGrid } from '@/components/stories/brand-grid'
 import { BrandLine, BrandList } from '@/components/stories/brand-list'
 import { BrandRow } from '@/components/stories/brand-row'
@@ -31,161 +33,183 @@ import { cn } from '@/lib/utils'
  *
  * `scroll-mt-24` on headings keeps anchor targets clear of the sticky header.
  */
-export const storyComponentMap = {
-  BrandCard: (props: { slug: string; note?: string; eyebrow?: string }) =>
-    createElement(BrandCardMdx, props),
-  BrandGrid: (props: { slugs: string[]; notes?: Record<string, string> }) =>
-    createElement(BrandGrid, props),
-  // Children, not a `slugs` array — MDX expression attributes are dropped
-  // (DEV-1302), so the row's cards are authored as nested `<BrandCard>`.
-  BrandRow: (props: { children?: ReactNode }) => createElement(BrandRow, null, props.children),
-  // The compact alternative to `BrandRow`: stacked hairline-ruled rows instead
-  // of a 3-up card grid, for sections that list brands rather than feature
-  // them. Children for the same DEV-1302 reason as `BrandRow`.
-  BrandList: (props: { children?: ReactNode }) => createElement(BrandList, null, props.children),
-  // One row of a `BrandList`. All-string props, all optional except `slug` —
-  // anything authored as `prop={…}` would be dropped before it got here.
-  BrandLine: (props: { slug: string; booth?: string; note?: string }) =>
-    createElement(BrandLine, props),
-  // A large statement line that breaks up body copy. Distinct on purpose from
-  // the markdown `>` blockquote styled further down this map: that one quotes
-  // someone else, this one re-states the article's own argument.
-  PullQuote: (props: { children?: ReactNode; attribution?: string }) =>
-    createElement(PullQuote, { attribution: props.attribution }, props.children),
-  StatsCallout: (props: { stat: string; label: string }) =>
-    createElement(StatsCallout, { stat: props.stat, label: props.label }),
-  // Editorial fine print (image rights, sponsorship status, data caveats).
-  // Muted rather than a `>` blockquote: a blockquote's rule reads as "someone
-  // else said this", which is the opposite of a statement the site is making
-  // about itself.
-  Disclaimer: (props: { children?: ReactNode }) =>
-    createElement('aside', { className: 'my-4 [&>p]:type-body-muted' }, props.children),
-  // A credited photo. Literal `<figure>`/`<figcaption>` JSX does NOT resolve
-  // against this map — only markdown-generated elements and capitalized
-  // shortcodes do — so an authored `<figure>` renders unstyled.
-  Figure: (props: { src: string; alt: string; caption?: string }) =>
-    createElement(StoryFigure, props),
-  // `emitJsonLd: false` is load-bearing. The detail page already renders a
-  // FaqBlock from `frontmatter.faq`, and that render is the single source of
-  // FAQPage structured data for the URL. An in-body `<FaqBlock>` emitting its
-  // own `ld+json` would put two FAQPage entities on one page, which can
-  // invalidate the rich result outright. In-body blocks are visual only.
-  FaqBlock: (props: { questions: Array<{ q: string; a: string }> }) =>
-    createElement(FaqBlock, { questions: props.questions, emitJsonLd: false }),
+export function createStoryComponentMap({ currentStorySlug }: { currentStorySlug?: string } = {}) {
+  return {
+    BrandCard: (props: { slug: string; note?: string; eyebrow?: string }) =>
+      createElement(BrandCardMdx, props),
+    BrandGrid: (props: { slugs: string[]; notes?: Record<string, string> }) =>
+      createElement(BrandGrid, props),
+    // Images come from the brand listing rather than hard-coded storage URLs,
+    // so the story stays in sync with the directory.
+    BrandGallery: (props: { slug: string; caption?: string }) => createElement(BrandGallery, props),
+    // Event details are DB-sourced so the story's event info and the event page cannot drift.
+    EventInfo: (props: { slug: string }) =>
+      createElement(EventInfo, { ...props, currentStorySlug }),
+    // Children, not a `slugs` array — MDX expression attributes are dropped
+    // (DEV-1302), so the row's cards are authored as nested `<BrandCard>`.
+    BrandRow: (props: { children?: ReactNode }) => createElement(BrandRow, null, props.children),
+    // The compact alternative to `BrandRow`: stacked hairline-ruled rows instead
+    // of a 3-up card grid, for sections that list brands rather than feature
+    // them. Children for the same DEV-1302 reason as `BrandRow`.
+    BrandList: (props: { children?: ReactNode }) => createElement(BrandList, null, props.children),
+    // One row of a `BrandList`. All-string props, all optional except `slug` —
+    // anything authored as `prop={…}` would be dropped before it got here.
+    BrandLine: (props: { slug: string; booth?: string; note?: string }) =>
+      createElement(BrandLine, props),
+    // A large statement line that breaks up body copy. Distinct on purpose from
+    // the markdown `>` blockquote styled further down this map: that one quotes
+    // someone else, this one re-states the article's own argument.
+    PullQuote: (props: { children?: ReactNode; attribution?: string }) =>
+      createElement(PullQuote, { attribution: props.attribution }, props.children),
+    StatsCallout: (props: { stat: string; label: string }) =>
+      createElement(StatsCallout, { stat: props.stat, label: props.label }),
+    // Editorial fine print (image rights, sponsorship status, data caveats).
+    // Muted rather than a `>` blockquote: a blockquote's rule reads as "someone
+    // else said this", which is the opposite of a statement the site is making
+    // about itself.
+    Disclaimer: (props: { children?: ReactNode }) =>
+      createElement('aside', { className: 'my-4 [&>p]:type-body-muted' }, props.children),
+    // A credited photo. Literal `<figure>`/`<figcaption>` JSX does NOT resolve
+    // against this map — only markdown-generated elements and capitalized
+    // shortcodes do — so an authored `<figure>` renders unstyled.
+    Figure: (props: { src: string; alt: string; caption?: string }) =>
+      createElement(StoryFigure, props),
+    // `emitJsonLd: false` is load-bearing. The detail page already renders a
+    // FaqBlock from `frontmatter.faq`, and that render is the single source of
+    // FAQPage structured data for the URL. An in-body `<FaqBlock>` emitting its
+    // own `ld+json` would put two FAQPage entities on one page, which can
+    // invalidate the rich result outright. In-body blocks are visual only.
+    FaqBlock: (props: { questions: Array<{ q: string; a: string }> }) =>
+      createElement(FaqBlock, {
+        questions: props.questions,
+        emitJsonLd: false,
+      }),
 
-  h1: (props: ComponentPropsWithoutRef<'h1'>) =>
-    createElement('h1', {
-      ...props,
-      className: cn('mt-10 mb-4 scroll-mt-24 type-page-title-large', props.className),
-    }),
-  h2: (props: ComponentPropsWithoutRef<'h2'>) =>
-    createElement('h2', {
-      ...props,
-      className: cn('mt-10 mb-3 scroll-mt-24 type-section-title-large', props.className),
-    }),
-  h3: (props: ComponentPropsWithoutRef<'h3'>) =>
-    createElement('h3', {
-      ...props,
-      className: cn('mt-8 mb-2 scroll-mt-24 type-subsection-title', props.className),
-    }),
-  h4: (props: ComponentPropsWithoutRef<'h4'>) =>
-    createElement('h4', {
-      ...props,
-      className: cn('mt-6 mb-2 scroll-mt-24 type-label', props.className),
-    }),
-  p: (props: ComponentPropsWithoutRef<'p'>) =>
-    createElement('p', { ...props, className: cn('my-4 type-body', props.className) }),
-  ul: (props: ComponentPropsWithoutRef<'ul'>) =>
-    createElement('ul', {
-      ...props,
-      className: cn('my-4 list-disc space-y-2 pl-5 type-body', props.className),
-    }),
-  ol: (props: ComponentPropsWithoutRef<'ol'>) =>
-    createElement('ol', {
-      ...props,
-      className: cn('my-4 list-decimal space-y-2 pl-5 type-body', props.className),
-    }),
-  li: (props: ComponentPropsWithoutRef<'li'>) =>
-    createElement('li', { ...props, className: cn('type-body', props.className) }),
-  a: (props: ComponentPropsWithoutRef<'a'>) =>
-    createElement('a', {
-      ...props,
-      className: cn(
-        'rounded-sm break-words text-primary underline underline-offset-4 hover:text-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        props.className,
-      ),
-    }),
-  blockquote: (props: ComponentPropsWithoutRef<'blockquote'>) =>
-    createElement('blockquote', {
-      ...props,
-      className: cn('my-6 border-l-2 border-foreground pl-4 type-body-muted', props.className),
-    }),
-  hr: (props: ComponentPropsWithoutRef<'hr'>) =>
-    createElement('hr', { ...props, className: cn('my-10 h-px border-0 bg-border', props.className) }),
-
-  // Markdown images are raw `<img>`, not `next/image`: authors write arbitrary
-  // remote URLs and there is no intrinsic size to hand the optimizer. 4:3 with
-  // `object-cover` matches every other image surface in the product.
-  //
-  // Capped and centred rather than `w-full`: the story page runs the standard
-  // `max-w-screen-xl` container, and an unbounded 4:3 image in it renders
-  // 1200x900 — taller than the viewport on a laptop, so a single photo became
-  // a full-screen interruption in the middle of a paragraph. `max-w-2xl` keeps
-  // an inline photo at roughly the size it was before the page widened.
-  img: (props: ComponentPropsWithoutRef<'img'>) =>
-    createElement('img', {
-      loading: 'lazy',
-      decoding: 'async',
-      ...props,
-      className: cn(
-        'mx-auto my-6 aspect-[4/3] w-full max-w-2xl rounded-lg border border-border bg-muted object-cover',
-        props.className,
-      ),
-    }),
-
-  // Wrapped so a wide table scrolls inside the column instead of widening the
-  // page on mobile. `border-collapse` plus a border on the table *and* the
-  // cells is what produces real rules — a bare `<table>` has none.
-  table: (props: ComponentPropsWithoutRef<'table'>) =>
-    createElement(
-      'div',
-      { className: 'my-6 w-full overflow-x-auto' },
-      createElement('table', {
+    h1: (props: ComponentPropsWithoutRef<'h1'>) =>
+      createElement('h1', {
+        ...props,
+        className: cn('mt-10 mb-4 scroll-mt-24 type-page-title-large', props.className),
+      }),
+    h2: (props: ComponentPropsWithoutRef<'h2'>) =>
+      createElement('h2', {
+        ...props,
+        className: cn('mt-10 mb-3 scroll-mt-24 type-section-title-large', props.className),
+      }),
+    h3: (props: ComponentPropsWithoutRef<'h3'>) =>
+      createElement('h3', {
+        ...props,
+        className: cn('mt-8 mb-2 scroll-mt-24 type-subsection-title', props.className),
+      }),
+    h4: (props: ComponentPropsWithoutRef<'h4'>) =>
+      createElement('h4', {
+        ...props,
+        className: cn('mt-6 mb-2 scroll-mt-24 type-label', props.className),
+      }),
+    p: (props: ComponentPropsWithoutRef<'p'>) =>
+      createElement('p', {
+        ...props,
+        className: cn('my-4 type-body', props.className),
+      }),
+    ul: (props: ComponentPropsWithoutRef<'ul'>) =>
+      createElement('ul', {
+        ...props,
+        className: cn('my-4 list-disc space-y-2 pl-5 type-body', props.className),
+      }),
+    ol: (props: ComponentPropsWithoutRef<'ol'>) =>
+      createElement('ol', {
+        ...props,
+        className: cn('my-4 list-decimal space-y-2 pl-5 type-body', props.className),
+      }),
+    li: (props: ComponentPropsWithoutRef<'li'>) =>
+      createElement('li', {
+        ...props,
+        className: cn('type-body', props.className),
+      }),
+    a: (props: ComponentPropsWithoutRef<'a'>) =>
+      createElement('a', {
         ...props,
         className: cn(
-          'w-full border-collapse border border-border text-left type-body',
+          'rounded-sm break-words text-primary underline underline-offset-4 hover:text-primary-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
           props.className,
         ),
       }),
-    ),
-  th: (props: ComponentPropsWithoutRef<'th'>) =>
-    createElement('th', {
-      ...props,
-      className: cn('border border-border bg-secondary px-3 py-2 type-label', props.className),
-    }),
-  td: (props: ComponentPropsWithoutRef<'td'>) =>
-    createElement('td', {
-      ...props,
-      className: cn('border border-border px-3 py-2 align-top type-body', props.className),
-    }),
+    blockquote: (props: ComponentPropsWithoutRef<'blockquote'>) =>
+      createElement('blockquote', {
+        ...props,
+        className: cn('my-6 border-l-2 border-foreground pl-4 type-body-muted', props.className),
+      }),
+    hr: (props: ComponentPropsWithoutRef<'hr'>) =>
+      createElement('hr', {
+        ...props,
+        className: cn('my-10 h-px border-0 bg-border', props.className),
+      }),
 
-  // Inline code. Inside a `<pre>` the chrome would double up, so `pre` strips it
-  // back off its direct `code` child rather than this needing to know its parent.
-  code: (props: ComponentPropsWithoutRef<'code'>) =>
-    createElement('code', {
-      ...props,
-      className: cn(
-        'rounded-sm border border-border bg-secondary px-1.5 py-0.5 font-mono text-[0.85em]',
-        props.className,
+    // Markdown images are raw `<img>`, not `next/image`: authors write arbitrary
+    // remote URLs and there is no intrinsic size to hand the optimizer. 4:3 with
+    // `object-cover` matches every other image surface in the product.
+    //
+    // Capped and centred rather than `w-full`: the story page runs the standard
+    // `max-w-screen-xl` container, and an unbounded 4:3 image in it renders
+    // 1200x900 — taller than the viewport on a laptop, so a single photo became
+    // a full-screen interruption in the middle of a paragraph. `max-w-2xl` keeps
+    // an inline photo at roughly the size it was before the page widened.
+    img: (props: ComponentPropsWithoutRef<'img'>) =>
+      createElement('img', {
+        loading: 'lazy',
+        decoding: 'async',
+        ...props,
+        className: cn(
+          'mx-auto my-6 aspect-[4/3] w-full max-w-2xl rounded-lg border border-border bg-muted object-cover',
+          props.className,
+        ),
+      }),
+
+    // Wrapped so a wide table scrolls inside the column instead of widening the
+    // page on mobile. `border-collapse` plus a border on the table *and* the
+    // cells is what produces real rules — a bare `<table>` has none.
+    table: (props: ComponentPropsWithoutRef<'table'>) =>
+      createElement(
+        'div',
+        { className: 'my-6 w-full overflow-x-auto' },
+        createElement('table', {
+          ...props,
+          className: cn(
+            'w-full border-collapse border border-border text-left type-body',
+            props.className,
+          ),
+        }),
       ),
-    }),
-  pre: (props: ComponentPropsWithoutRef<'pre'>) =>
-    createElement('pre', {
-      ...props,
-      className: cn(
-        'my-6 overflow-x-auto rounded-lg border border-border bg-secondary p-4 font-mono text-[0.8125rem] leading-[1.7] text-foreground',
-        '[&>code]:rounded-none [&>code]:border-0 [&>code]:bg-transparent [&>code]:p-0 [&>code]:text-inherit',
-        props.className,
-      ),
-    }),
+    th: (props: ComponentPropsWithoutRef<'th'>) =>
+      createElement('th', {
+        ...props,
+        className: cn('border border-border bg-secondary px-3 py-2 type-label', props.className),
+      }),
+    td: (props: ComponentPropsWithoutRef<'td'>) =>
+      createElement('td', {
+        ...props,
+        className: cn('border border-border px-3 py-2 align-top type-body', props.className),
+      }),
+
+    // Inline code. Inside a `<pre>` the chrome would double up, so `pre` strips it
+    // back off its direct `code` child rather than this needing to know its parent.
+    code: (props: ComponentPropsWithoutRef<'code'>) =>
+      createElement('code', {
+        ...props,
+        className: cn(
+          'rounded-sm border border-border bg-secondary px-1.5 py-0.5 font-mono text-[0.85em]',
+          props.className,
+        ),
+      }),
+    pre: (props: ComponentPropsWithoutRef<'pre'>) =>
+      createElement('pre', {
+        ...props,
+        className: cn(
+          'my-6 overflow-x-auto rounded-lg border border-border bg-secondary p-4 font-mono text-[0.8125rem] leading-[1.7] text-foreground',
+          '[&>code]:rounded-none [&>code]:border-0 [&>code]:bg-transparent [&>code]:p-0 [&>code]:text-inherit',
+          props.className,
+        ),
+      }),
+  }
 }
+
+export const storyComponentMap = createStoryComponentMap()
