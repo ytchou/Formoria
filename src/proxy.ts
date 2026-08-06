@@ -13,6 +13,7 @@ import {
   isRouterRequest,
 } from "@/lib/security/rate-limiter";
 import { hasApprovedBrandSlug, resolveApprovedBrandRedirect } from '@/lib/services/brand-redirects-edge'
+import { recordCrawlerHit } from '@/lib/security/crawler-telemetry'
 
 /**
  * Routes that are reserved for static pages and cannot be used as brand slugs.
@@ -260,6 +261,10 @@ export async function proxy(request: NextRequest) {
 
   if (pathname.startsWith('/admin/content')) {
     return NextResponse.next()
+  }
+
+  if (!isPlaywrightTest) {
+    recordCrawlerHit(request)
   }
 
   const normalizedPathname = normalizePathname(pathname)

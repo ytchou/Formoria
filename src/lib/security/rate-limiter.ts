@@ -1,7 +1,9 @@
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 import { NextRequest, NextResponse } from 'next/server'
-import { CRAWLER_REGISTRY } from './crawler-registry'
+import { CRAWLER_REGISTRY, matchCrawler } from './crawler-registry'
+import { isCrawlerVerificationShadowMode, isVerifiedCrawler } from './verified-crawler'
+import { reportCrawlerChallenged, reportCrawlerRateLimited, reportCrawlerVerificationDisagreement } from './crawler-drift'
 
 export interface RateLimitResult {
   allowed: boolean
@@ -229,7 +231,17 @@ export async function checkSoftRateLimit(request: NextRequest): Promise<boolean>
   const key = `soft:${getSoftRateLimitPathPrefix(normalizedPathname)}:${ip}`
   const result = await rateLimiter.check(key, SOFT_LIMIT.windowMs, SOFT_LIMIT.maxRequests)
 
-  return !result.allowed
+  if (!result.allowed) {
+    // Defense in depth, and deliberately unreachable today: the crawler bypass
+    // above already returns false for every registry match. It exists so that if
+    // that bypass is ever narrowed to verified-only, a challenged crawler --
+    // the exact path that deindexes /brands/* -- alarms instead of going silent.
+    const entry = matchCrawler(request.headers.get('user-agent') ?? '')
+    if (entry) reportCrawlerChallenged({ crawlerName: entry.name, pathname: normalizedPathname })
+    return true
+  }
+
+  return false
 }
 
 export async function checkRateLimit(request: NextRequest): Promise<NextResponse | null> {
@@ -248,8 +260,22 @@ export async function checkRateLimit(request: NextRequest): Promise<NextResponse
     return null
   }
 
-  if (!isProtectedRoute && isLikelyCrawler(request)) {
-    return null
+  if (!isProtectedRoute) {
+    const userAgent = request.headers.get('user-agent') ?? ''
+    const entry = matchCrawler(userAgent)
+    const verified = isVerifiedCrawler(request)
+    const shadow = isCrawlerVerificationShadowMode()
+    // While shadow is ON the header is read and compared but does NOT decide:
+    // `isLikelyCrawler` stays operative, so behavior is unchanged at this revision.
+    reportCrawlerVerificationDisagreement({
+      crawlerName: entry?.name ?? null,
+      userAgentClaimsCrawler: isLikelyCrawler(request),
+      verified,
+    })
+    const exempt = shadow
+      ? isLikelyCrawler(request)
+      : verified || entry?.trustedUnverified === true
+    if (exempt) return null
   }
 
   const rule = RATE_LIMIT_RULES[ruleKey]
@@ -259,6 +285,8 @@ export async function checkRateLimit(request: NextRequest): Promise<NextResponse
   const result = await rateLimiter.check(key, rule.windowMs, rule.maxRequests)
 
   if (!result.allowed) {
+    const entry = matchCrawler(request.headers.get('user-agent') ?? '')
+    if (entry) reportCrawlerRateLimited({ crawlerName: entry.name, pathname: normalizedPathname })
     const retryAfter = Math.ceil((result.resetAt - Date.now()) / 1000)
     const headers = {
       'Retry-After': String(retryAfter),
