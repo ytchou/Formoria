@@ -74,13 +74,14 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
       return
     }
     event.preventDefault()
-    const { routerPath } = targetFor(slug)
+    const target = targetFor(slug)
+    const { routerPath } = target
 
     if (slug) {
       trackCategoryFilterApplied(slug)
     }
 
-    if (isBrandsPage) {
+    if (target.routerPath.split('?')[0] === pathname) {
       router.replace(routerPath)
     } else {
       router.push(routerPath)

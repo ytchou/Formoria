@@ -16,3 +16,19 @@ describe("admin redirects", () => {
     ).toEqual([]);
   });
 });
+
+describe("legacy category redirects", () => {
+  it("uses HTTP 301 for every singular category locale variant", async () => {
+    const redirects = await nextConfig.redirects?.();
+    const legacySources = new Set([
+      "/category/:category",
+      "/en/category/:category",
+      "/zh-TW/category/:category",
+    ]);
+    const legacyRedirects = redirects?.filter(({ source }) => legacySources.has(source));
+
+    expect(legacyRedirects).toHaveLength(3);
+    expect(legacyRedirects?.every((redirect) => redirect.statusCode === 301)).toBe(true);
+    expect(legacyRedirects?.every((redirect) => !('permanent' in redirect))).toBe(true);
+  });
+});

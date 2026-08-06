@@ -1,146 +1,95 @@
-import { cache, Suspense } from 'react'
 import type { Metadata } from 'next'
-import { ChevronRight } from 'lucide-react'
-import { NextIntlClientProvider } from 'next-intl'
-import { getTranslations, setRequestLocale, getMessages } from 'next-intl/server'
-import { getPublicBrandCards, getRandomBrands, getSubcategoryCounts } from '@/lib/services/brands'
-import { getAppSetting, SUBCATEGORY_FILTER_KEY } from '@/lib/services/app-settings'
-import { categoryLabel, PRODUCT_SUBCATEGORIES, PRODUCT_TYPE_CATEGORIES, resolveSubcategorySlugs } from '@/lib/taxonomy/ontology'
-import { buildBreadcrumbJsonLd, buildCategoryItemListJsonLd, buildBrandsItemListJsonLd, buildWebSiteJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
-import { parsePageParam, parseSortParam, DEFAULT_PAGE_SIZE } from '@/lib/pagination'
-import {
-  BrandFilterDrawer,
-  BrandFilterSidebar,
-} from '@/components/brands/brand-filter-sidebar'
-import { MasonryGrid } from '@/components/brands/masonry-grid'
-import { BrandCard } from '@/components/brands/brand-card'
-import { Pagination } from '@/components/brands/pagination'
-import { SortSelect } from '@/components/brands/sort-select'
-import {
-  SearchEmptyState,
-  type ActiveDirectoryFilter,
-} from '@/components/brands/search-empty-state'
-import { ViewItemListTracker } from '@/components/analytics/view-item-list-tracker'
-import { surfaceCardStyles } from '@/components/ui/card'
-import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
-import { Link } from '@/i18n/navigation'
+import { getTranslations, setRequestLocale } from 'next-intl/server'
+import { DirectoryView } from '@/components/brands/directory-view'
+import { PRODUCT_TYPE_CATEGORIES, categoryLabel, resolveSubcategorySlugs } from '@/lib/taxonomy/ontology'
+import { parseDirectoryViewFilters, type DirectorySearchParams } from '@/lib/seo/directory-filters'
 import type { Locale } from '@/lib/seo/alternates'
 import { buildOpenGraph } from '@/lib/seo/open-graph'
-import { buildDirectoryCanonicals } from '@/lib/seo/directory-canonical'
+import { resolveDirectorySeo } from '@/lib/seo/directory-indexation'
 import { truncateForMeta } from '@/lib/text/truncate-for-meta'
-import { toPublicBrandCard, type PublicBrandCard } from '@/lib/brands/contracts'
-import { localizePath } from '@/i18n/locale-preference'
-import { updateDirectoryUrl } from '@/lib/directory-filter-url'
-import type { BrandFilters } from '@/lib/types'
 
 // Both `generateMetadata` and the page body read `searchParams`, which opts this route
-// into dynamic rendering, so this `revalidate` never produces a static ISR entry. It is
-// kept because `revalidatePath('/<locale>/brands')` still targets this segment. Freshness
-// needs no cache layer today: the origin serves this route `no-store` and Cloudflare
-// reports `cf-cache-status: DYNAMIC`, so every request reads live data. Putting it behind
-// the edge cache is DEV-1251 — until that lands, there is no cache header to rely on.
+// into dynamic rendering. Keep this value for path revalidation parity.
 export const revalidate = 3600
 
-const VALID_CATEGORY_SLUGS: Set<string> = new Set(PRODUCT_TYPE_CATEGORIES.map((c) => c.slug))
-const EMPTY_STATE_RECOMMENDATION_LIMIT = 4
-
-// `generateMetadata` and the page body both need this flag. React `cache` collapses
-// them into a single Supabase round trip per request.
-const loadSubcategoryFilterEnabled = cache(
-  async (): Promise<boolean | undefined> => getAppSetting<boolean>(SUBCATEGORY_FILTER_KEY, true)
-)
+const VALID_CATEGORY_SLUGS = new Set(PRODUCT_TYPE_CATEGORIES.map((category) => category.slug))
 
 interface BrandsPageProps {
   params: Promise<{ locale: string }>
-  searchParams: Promise<Record<string, string | string[] | undefined>>
-}
-
-function parseVerificationParam(
-  value: string | string[] | undefined
-): NonNullable<BrandFilters['verificationFilter']> {
-  return value === 'mit-verified' || value === 'mit-declared' || value === 'owned' || value === 'all'
-    ? value
-    : 'all'
-}
-
-function parseCommaParam(value: string | string[] | undefined): string[] {
-  const values = Array.isArray(value) ? value : value ? [value] : []
-  return values.flatMap((item) =>
-    item
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean)
-  )
-}
-
-function parsePriceRanges(value: string | string[] | undefined): (1 | 2 | 3)[] {
-  return parseCommaParam(value)
-    .map(Number)
-    .filter((price): price is 1 | 2 | 3 => price === 1 || price === 2 || price === 3)
+  searchParams: Promise<DirectorySearchParams>
 }
 
 export async function generateMetadata({ params, searchParams }: BrandsPageProps): Promise<Metadata> {
   const { locale } = await params
   setRequestLocale(locale)
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
+  const sp = await searchParams
+  const { filters, page } = parseDirectoryViewFilters(sp, VALID_CATEGORY_SLUGS)
+  const categorySlug = filters.categorySlugs.length === 1 ? filters.categorySlugs[0] ?? null : null
+  const category = categorySlug
+    ? PRODUCT_TYPE_CATEGORIES.find((item) => item.slug === categorySlug)
+    : undefined
+  const subcategory = resolveSubcategorySlugs(categorySlug, filters.subcategorySlugs)
+  const activeSubcategory = subcategory.length === 1 ? subcategory[0] : undefined
   const ogLocale = safeLocale === 'zh-TW' ? 'zh_TW' : 'en_US'
   const ogAlternateLocale = safeLocale === 'zh-TW' ? 'en_US' : 'zh_TW'
-  const sp = await searchParams
-  const page = parsePageParam(sp.page)
-  const categoryFilter = parseCommaParam(sp.category)
-  const validCategoryFilter = categoryFilter.filter((slug) => VALID_CATEGORY_SLUGS.has(slug))
-  const singleValidCategory = validCategoryFilter.length === 1
-    ? validCategoryFilter.at(0) ?? null
-    : null
-  const subcategoryFilterEnabled = await loadSubcategoryFilterEnabled()
-  const resolvedSubs = subcategoryFilterEnabled
-    ? resolveSubcategorySlugs(singleValidCategory, parseCommaParam(sp.sub))
-    : []
+  const seo = resolveDirectorySeo({
+    locale: safeLocale,
+    categorySlug: categorySlug,
+    subcategorySlug: activeSubcategory?.slug,
+    page,
+    facets: {
+      search: sp.search,
+      price: sp.price,
+      verification: sp.verification,
+      sort: typeof sp.sort === 'string' ? sp.sort : undefined,
+      category: sp.category,
+      sub: sp.sub,
+      multiCategory: filters.categorySlugs.length > 1,
+      multiSub: filters.subcategorySlugs.length > 1,
+    },
+  })
 
-  if (singleValidCategory) {
-    const categorySlug = singleValidCategory
-    const categoryTag = PRODUCT_TYPE_CATEGORIES.find((c) => c.slug === categorySlug)
+  if (category) {
+    const catT = await getTranslations({ locale: safeLocale, namespace: 'categories' })
+    const displayName = categoryLabel(category, safeLocale)
+    const subName = activeSubcategory
+      ? safeLocale === 'zh-TW' ? activeSubcategory.nameZh : activeSubcategory.nameEn
+      : undefined
+    const description = truncateForMeta(subName
+      ? catT('subMetadata.description', { subName, categoryName: displayName })
+      : catT.has(`descriptions.${category.slug}`)
+        ? catT(`descriptions.${category.slug}`)
+        : catT('metadata.description', { displayName, name: category.name }))
+    const title = subName
+      ? catT('subMetadata.title', { subName, categoryName: displayName })
+      : catT('metadata.title', { displayName })
+    const canonical = seo.canonical
+    const languages = seo.languages
 
-    if (categoryTag) {
-      const catT = await getTranslations('categories')
-      const displayName = categoryLabel(categoryTag, safeLocale)
-      const activeSubcategory = resolvedSubs.length === 1 ? resolvedSubs.at(0) : undefined
-      const subName = activeSubcategory
-        ? safeLocale === 'zh-TW' ? activeSubcategory.nameZh : activeSubcategory.nameEn
-        : undefined
-      const description = truncateForMeta(activeSubcategory && subName
-        ? catT('subMetadata.description', { subName, categoryName: displayName })
-        : catT.has(`descriptions.${categorySlug}`)
-          ? catT(`descriptions.${categorySlug}`)
-          : catT('metadata.description', { displayName, name: categoryTag.name }))
-      const { canonical: categoryCanonical, languages: categoryLanguages } =
-        buildDirectoryCanonicals({ locale: safeLocale, categorySlug, page })
-      const title = activeSubcategory && subName
-        ? catT('subMetadata.title', { subName, categoryName: displayName })
-        : catT('metadata.title', { displayName })
-
-      return {
+    return {
+      title,
+      description,
+      alternates: { canonical, ...(languages ? { languages } : {}) },
+      ...(seo.robots ? { robots: seo.robots } : {}),
+      ...buildOpenGraph({
         title,
         description,
-        alternates: { canonical: categoryCanonical, languages: categoryLanguages },
-        ...buildOpenGraph({
-          title,
-          description,
-          url: categoryCanonical,
-          locale: ogLocale,
-          alternateLocale: [ogAlternateLocale],
-        }),
-      }
+        url: canonical,
+        locale: ogLocale,
+        alternateLocale: [ogAlternateLocale],
+      }),
     }
   }
 
-  const brandsT = await getTranslations('brands')
-  const { canonical, languages } = buildDirectoryCanonicals({ locale: safeLocale, page })
-
+  const brandsT = await getTranslations({ locale: safeLocale, namespace: 'brands' })
+  const canonical = seo.canonical
+  const languages = seo.languages
   return {
     title: { absolute: brandsT('metadata.title') },
     description: brandsT('metadata.description'),
-    alternates: { canonical, languages },
+    alternates: { canonical, ...(languages ? { languages } : {}) },
+    ...(seo.robots ? { robots: seo.robots } : {}),
     ...buildOpenGraph({
       title: brandsT('metadata.title'),
       description: brandsT('metadata.description'),
@@ -155,387 +104,8 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
   const { locale } = await params
   setRequestLocale(locale)
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
-  const [t, verificationT, messages, subcategoryFilterEnabled] = await Promise.all([
-    getTranslations('brands'),
-    getTranslations('brands.verificationFilter'),
-    getMessages(),
-    loadSubcategoryFilterEnabled(),
-  ])
   const sp = await searchParams
+  const { filters, page, sort } = parseDirectoryViewFilters(sp, VALID_CATEGORY_SLUGS)
 
-  const page = parsePageParam(sp.page as string | undefined)
-  const sort = parseSortParam(sp.sort as string | undefined)
-  const search =
-    typeof sp.search === 'string' ? sp.search.trim() : ''
-  const categoryFilter = parseCommaParam(sp.category)
-  const validCategoryFilter = categoryFilter.filter((slug) => VALID_CATEGORY_SLUGS.has(slug))
-  const singleValidCategory = validCategoryFilter.length === 1
-    ? validCategoryFilter.at(0) ?? null
-    : null
-  const categoryTag = singleValidCategory
-    ? PRODUCT_TYPE_CATEGORIES.find((category) => category.slug === singleValidCategory)
-    : undefined
-  const resolvedSubs = subcategoryFilterEnabled
-    ? resolveSubcategorySlugs(singleValidCategory, parseCommaParam(sp.sub))
-    : []
-  const activeSubcategory = resolvedSubs.length === 1 ? resolvedSubs.at(0) : undefined
-  const pageHeading = categoryTag ? categoryLabel(categoryTag, safeLocale) : t('heading')
-  const priceRanges = parsePriceRanges(sp.price)
-  const verificationFilter = parseVerificationParam(sp.verification)
-
-  const [{ brands, totalCount }, subcategoryCounts] = await Promise.all([
-    getPublicBrandCards({
-      search: search || undefined,
-      category: validCategoryFilter.length > 0 ? validCategoryFilter : undefined,
-      subcategoryTags: resolvedSubs.map((subcategory) => subcategory.nameZh),
-      priceRanges: priceRanges.length > 0 ? priceRanges : undefined,
-      verificationFilter,
-      sort,
-      page,
-    }),
-    subcategoryFilterEnabled && singleValidCategory
-      ? getSubcategoryCounts(singleValidCategory)
-      : Promise.resolve(new Map<string, number>()),
-  ])
-  const subcategoriesWithCounts = singleValidCategory
-    ? PRODUCT_SUBCATEGORIES
-        .filter((subcategory) => subcategory.category === singleValidCategory)
-        .map((subcategory) => ({
-          ...subcategory,
-          count: subcategoryCounts.get(subcategory.nameZh) ?? 0,
-        }))
-        .filter((subcategory) => subcategory.count > 0)
-    : []
-  const subcategoryOptions = subcategoriesWithCounts.map((subcategory) => ({
-    slug: subcategory.slug,
-    label: safeLocale === 'zh-TW' ? subcategory.nameZh : subcategory.nameEn,
-    count: subcategory.count,
-  }))
-  const activeSubSlugs = resolvedSubs.map((subcategory) => subcategory.slug)
-
-  // Clamp page to last valid page if user navigated beyond
-  const totalPages = Math.ceil(totalCount / DEFAULT_PAGE_SIZE)
-  const clampedPage = totalCount > 0 && page > totalPages ? totalPages : page
-
-  // If page was clamped, re-fetch with correct offset
-  let displayBrands = brands
-  if (clampedPage !== page && totalCount > 0) {
-    const refetched = await getPublicBrandCards({
-      search: search || undefined,
-      category: validCategoryFilter.length > 0 ? validCategoryFilter : undefined,
-      subcategoryTags: resolvedSubs.map((subcategory) => subcategory.nameZh),
-      priceRanges: priceRanges.length > 0 ? priceRanges : undefined,
-      verificationFilter,
-      sort,
-      page: clampedPage,
-    })
-    displayBrands = refetched.brands
-  }
-
-  const directoryPath = localizePath('/brands', safeLocale)
-  const normalizedParams = new URLSearchParams()
-  if (search) normalizedParams.set('search', search)
-  if (validCategoryFilter.length > 0) {
-    normalizedParams.set('category', validCategoryFilter.join(','))
-  }
-  if (activeSubSlugs.length > 0) normalizedParams.set('sub', activeSubSlugs.join(','))
-  if (priceRanges.length > 0) normalizedParams.set('price', priceRanges.join(','))
-  if (verificationFilter !== 'all') normalizedParams.set('verification', verificationFilter)
-  if (sort !== 'random') normalizedParams.set('sort', sort)
-
-  const activeFilters: ActiveDirectoryFilter[] = []
-  if (search) {
-    activeFilters.push({
-      id: 'search',
-      label: t('filters.activeSearch'),
-      value: search,
-      removeHref: updateDirectoryUrl(directoryPath, normalizedParams, { search: null }),
-      removeLabel: t('filters.removeFilter', {
-        label: t('filters.activeSearch'),
-        value: search,
-      }),
-    })
-  }
-  for (const slug of validCategoryFilter) {
-    const category = PRODUCT_TYPE_CATEGORIES.find((item) => item.slug === slug)
-    if (!category) continue
-    const value = categoryLabel(category, safeLocale)
-    const remainingCategories = validCategoryFilter.filter((item) => item !== slug)
-    activeFilters.push({
-      id: `category-${slug}`,
-      label: t('filters.activeCategory'),
-      value,
-      removeHref: updateDirectoryUrl(directoryPath, normalizedParams, {
-        category: remainingCategories.length > 0 ? remainingCategories.join(',') : null,
-        sub: null,
-      }),
-      removeLabel: t('filters.removeFilter', {
-        label: t('filters.activeCategory'),
-        value,
-      }),
-    })
-  }
-  for (const subcategory of resolvedSubs) {
-    const value = safeLocale === 'zh-TW' ? subcategory.nameZh : subcategory.nameEn
-    const remainingSubs = resolvedSubs.filter((item) => item.slug !== subcategory.slug)
-    activeFilters.push({
-      id: `subcategory-${subcategory.slug}`,
-      label: t('filters.activeSubcategory'),
-      value,
-      removeHref: updateDirectoryUrl(directoryPath, normalizedParams, {
-        sub: remainingSubs.length > 0
-          ? remainingSubs.map((item) => item.slug).join(',')
-          : null,
-      }),
-      removeLabel: t('filters.removeFilter', {
-        label: t('filters.activeSubcategory'),
-        value,
-      }),
-    })
-  }
-  for (const priceRange of priceRanges) {
-    const value = '$'.repeat(priceRange)
-    const remainingPrices = priceRanges.filter((item) => item !== priceRange)
-    activeFilters.push({
-      id: `price-${priceRange}`,
-      label: t('filters.activePrice'),
-      value,
-      removeHref: updateDirectoryUrl(directoryPath, normalizedParams, {
-        price: remainingPrices.length > 0 ? remainingPrices.join(',') : null,
-      }),
-      removeLabel: t('filters.removeFilter', {
-        label: t('filters.activePrice'),
-        value,
-      }),
-    })
-  }
-  if (verificationFilter !== 'all') {
-    const value = verificationT(verificationFilter)
-    activeFilters.push({
-      id: 'verification',
-      label: t('filters.activeStatus'),
-      value,
-      removeHref: updateDirectoryUrl(directoryPath, normalizedParams, { verification: null }),
-      removeLabel: t('filters.removeFilter', {
-        label: t('filters.activeStatus'),
-        value,
-      }),
-    })
-  }
-
-  let recommendedBrands: PublicBrandCard[] = []
-  let recommendationsHref = directoryPath
-  if (totalCount === 0) {
-    if (validCategoryFilter.length > 0) {
-      const recommendations = await getPublicBrandCards({
-        category: validCategoryFilter,
-        sort: 'random',
-      })
-      recommendedBrands = recommendations.brands.slice(0, EMPTY_STATE_RECOMMENDATION_LIMIT)
-      if (recommendedBrands.length > 0) {
-        recommendationsHref = updateDirectoryUrl(directoryPath, new URLSearchParams(), {
-          category: validCategoryFilter.join(','),
-        })
-      }
-    }
-    if (recommendedBrands.length === 0) {
-      recommendedBrands = (await getRandomBrands(EMPTY_STATE_RECOMMENDATION_LIMIT)).map(
-        toPublicBrandCard,
-      )
-    }
-  }
-
-  let categoryItemListJsonLd = null
-  let categoryBreadcrumbJsonLd = null
-  let brandsItemListJsonLd = null
-  const hasNoCategoryFilter = validCategoryFilter.length === 0
-  const hasNoSearchQuery = !search
-  const hasNoPriceRangeFilter = priceRanges.length === 0
-  const hasNoVerificationFilter = verificationFilter === 'all'
-  if (
-    hasNoCategoryFilter &&
-    hasNoSearchQuery &&
-    hasNoPriceRangeFilter &&
-    hasNoVerificationFilter &&
-    page === 1
-  ) {
-    brandsItemListJsonLd = buildBrandsItemListJsonLd(displayBrands, safeLocale)
-  }
-  if (categoryTag) {
-    const categorySlug = categoryTag.slug
-    const catT = await getTranslations('categories')
-    const categoryName = categoryLabel(categoryTag, safeLocale)
-    const editorialDescription = catT.has(`descriptions.${categorySlug}`)
-      ? catT(`descriptions.${categorySlug}`)
-      : undefined
-    const categoryCanonical = buildDirectoryCanonicals({
-      locale: safeLocale,
-      categorySlug,
-      subcategorySlug: activeSubcategory?.slug,
-      page,
-    }).canonical
-    categoryItemListJsonLd = buildCategoryItemListJsonLd(
-      categoryName,
-      categoryCanonical,
-      displayBrands,
-      safeLocale,
-      editorialDescription
-    )
-    const breadcrumbItems = [
-      { label: t('heading'), href: '/brands' },
-      {
-        label: categoryName,
-        ...(activeSubcategory
-          ? { href: `/brands?category=${encodeURIComponent(categorySlug)}` }
-          : {}),
-      },
-    ]
-    if (activeSubcategory) {
-      breadcrumbItems.push({
-        label: safeLocale === 'zh-TW' ? activeSubcategory.nameZh : activeSubcategory.nameEn,
-      })
-    }
-    categoryBreadcrumbJsonLd = buildBreadcrumbJsonLd(breadcrumbItems, safeLocale)
-  }
-
-  return (
-    <NextIntlClientProvider messages={messages}>
-    <main className="page-gutter mx-auto grid w-full max-w-screen-xl gap-8 py-10 lg:grid-cols-[16rem_minmax(0,1fr)]">
-      {/* JSON-LD structured data */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(buildWebSiteJsonLd(safeLocale)) }}
-      />
-      {brandsItemListJsonLd ? (
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(brandsItemListJsonLd) }}
-        />
-      ) : null}
-      {categoryItemListJsonLd ? (
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(categoryItemListJsonLd) }}
-        />
-      ) : null}
-      {categoryBreadcrumbJsonLd ? (
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(categoryBreadcrumbJsonLd) }}
-        />
-      ) : null}
-      <ViewItemListTracker listName="directory" itemCount={displayBrands.length} />
-
-      <aside className="hidden lg:block" aria-label={t('filters.title')}>
-              <div className="sticky top-(--nav-height)">
-          <BrandFilterSidebar
-            activeFilters={activeFilters}
-            categories={[...PRODUCT_TYPE_CATEGORIES]}
-            subcategories={subcategoryOptions}
-            activeSubSlugs={activeSubSlugs}
-            totalCount={totalCount}
-          />
-        </div>
-      </aside>
-
-      <div className="min-w-0">
-        {activeSubcategory && categoryTag ? (
-          <nav aria-label={t('breadcrumbAria')} className="mb-6">
-            <ol className="flex items-center gap-1.5 type-card-description">
-              <li>
-                <Link href="/brands" className="transition-colors hover:text-foreground">
-                  {t('heading')}
-                </Link>
-              </li>
-              <li aria-hidden="true">
-                <ChevronRight className="size-3.5" />
-              </li>
-              <li>
-                <Link
-                  href={`/brands?category=${encodeURIComponent(categoryTag.slug)}`}
-                  className="transition-colors hover:text-foreground"
-                >
-                  {pageHeading}
-                </Link>
-              </li>
-              <li aria-hidden="true">
-                <ChevronRight className="size-3.5" />
-              </li>
-              <li>
-                <span aria-current="page" className="font-medium text-foreground">
-                  {safeLocale === 'zh-TW' ? activeSubcategory.nameZh : activeSubcategory.nameEn}
-                </span>
-              </li>
-            </ol>
-          </nav>
-        ) : null}
-        <h1 className="mb-6 text-balance type-page-title">{pageHeading}</h1>
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <BrandFilterDrawer
-              activeFilters={activeFilters}
-              categories={[...PRODUCT_TYPE_CATEGORIES]}
-              subcategories={subcategoryOptions}
-              activeSubSlugs={activeSubSlugs}
-              totalCount={totalCount}
-            />
-            <p className="type-card-description" aria-live="polite" aria-atomic="true">
-              {t('count', { count: totalCount })}
-            </p>
-          </div>
-          <Suspense fallback={null}>
-            <SortSelect />
-          </Suspense>
-        </div>
-
-        {/* Masonry brand grid */}
-          <Suspense
-            fallback={
-              <div
-                className="grid grid-cols-1 gap-x-5 gap-y-5 sm:grid-cols-2 lg:grid-cols-4"
-                aria-label={t('loadingAria')}
-              >
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className={surfaceCardStyles({ padding: 'none' })}>
-                    <div className="aspect-[4/3] animate-pulse rounded-t-xl bg-muted" />
-                    <div className="p-4">
-                      <div className="h-4 animate-pulse rounded bg-muted" />
-                      <div className="mt-2 h-3 w-2/3 animate-pulse rounded bg-muted" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            }
-          >
-            <SavedBrandsProvider>
-              {displayBrands.length === 0 ? (
-                <SearchEmptyState
-                  query={search}
-                  categoryLabel={categoryTag ? categoryLabel(categoryTag, safeLocale) : undefined}
-                  activeFilters={activeFilters}
-                  recommendedBrands={recommendedBrands}
-                  recommendationsHref={recommendationsHref}
-                />
-              ) : (
-                <MasonryGrid>
-                  {/* Only the first card preloads: the grid is single-column on mobile, so
-                      preloading four 100vw images would put three below-fold fetches at
-                      fetchpriority=high in front of the real LCP element. */}
-                  {displayBrands.map((brand, index) => (
-                    <BrandCard key={brand.id} brand={brand} preload={index < 1} />
-                  ))}
-                </MasonryGrid>
-              )}
-            </SavedBrandsProvider>
-          </Suspense>
-
-          <Pagination
-            totalCount={totalCount}
-            currentPage={clampedPage}
-            pageSize={DEFAULT_PAGE_SIZE}
-          />
-      </div>
-    </main>
-    </NextIntlClientProvider>
-  )
+  return <DirectoryView locale={safeLocale} filters={filters} page={page} sort={sort} />
 }

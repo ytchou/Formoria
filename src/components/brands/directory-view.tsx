@@ -1,0 +1,371 @@
+import { Suspense } from 'react'
+import { NextIntlClientProvider } from 'next-intl'
+import { getMessages, getTranslations } from 'next-intl/server'
+import { getBrands, getRandomBrands, getSubcategoryCounts } from '@/lib/services/brands'
+import { categoryLabel, PRODUCT_SUBCATEGORIES, PRODUCT_TYPE_CATEGORIES, resolveSubcategorySlugs } from '@/lib/taxonomy/ontology'
+import { buildBreadcrumbJsonLd, buildCategoryItemListJsonLd, buildBrandsItemListJsonLd, buildWebSiteJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
+import { DEFAULT_PAGE_SIZE, type BrandSortOption } from '@/lib/pagination'
+import {
+  BrandFilterDrawer,
+  BrandFilterSidebar,
+} from '@/components/brands/brand-filter-sidebar'
+import { MasonryGrid } from '@/components/brands/masonry-grid'
+import { BrandCard } from '@/components/brands/brand-card'
+import { Pagination } from '@/components/brands/pagination'
+import { SortSelect } from '@/components/brands/sort-select'
+import {
+  SearchEmptyState,
+  type ActiveDirectoryFilter,
+} from '@/components/brands/search-empty-state'
+import { ViewItemListTracker } from '@/components/analytics/view-item-list-tracker'
+import { surfaceCardStyles } from '@/components/ui/card'
+import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
+import type { Locale } from '@/lib/seo/alternates'
+import { buildDirectoryCanonicals } from '@/lib/seo/directory-canonical'
+import type { DirectoryViewFilters } from '@/lib/seo/directory-filters'
+import { localizePath } from '@/i18n/locale-preference'
+import { updateDirectoryUrl } from '@/lib/directory-filter-url'
+import type { Brand } from '@/lib/types'
+import { DirectoryBreadcrumb } from './directory-breadcrumb'
+
+const EMPTY_STATE_RECOMMENDATION_LIMIT = 4
+const VALID_CATEGORY_SLUGS: ReadonlySet<string> = new Set(PRODUCT_TYPE_CATEGORIES.map((category) => category.slug))
+
+export type DirectoryViewProps = {
+  locale: Locale
+  filters: DirectoryViewFilters
+  page: number
+  sort: BrandSortOption
+}
+
+export async function DirectoryView({ locale, filters, page, sort }: DirectoryViewProps) {
+  const safeLocale = locale
+  const [t, verificationT, messages] = await Promise.all([
+    getTranslations({ locale: safeLocale, namespace: 'brands' }),
+    getTranslations({ locale: safeLocale, namespace: 'brands.verificationFilter' }),
+    getMessages({ locale: safeLocale }),
+  ])
+
+  const validCategoryFilter = filters.categorySlugs.filter((slug) => VALID_CATEGORY_SLUGS.has(slug))
+  const singleValidCategory = validCategoryFilter.length === 1
+    ? validCategoryFilter[0] ?? null
+    : null
+  const categoryTag = singleValidCategory
+    ? PRODUCT_TYPE_CATEGORIES.find((category) => category.slug === singleValidCategory)
+    : undefined
+  const resolvedSubs = resolveSubcategorySlugs(categoryTag?.slug ?? null, filters.subcategorySlugs)
+  const activeSubcategory = resolvedSubs.length === 1 ? resolvedSubs[0] : undefined
+  const pageHeading = categoryTag ? categoryLabel(categoryTag, safeLocale) : t('heading')
+  const search = filters.search ?? ''
+  const priceRanges = filters.priceRanges ?? []
+  const verificationFilter = filters.verificationFilter ?? 'all'
+
+  const [{ brands, totalCount }, subcategoryCounts] = await Promise.all([
+    getBrands({
+      status: 'approved',
+      search: search || undefined,
+      category: validCategoryFilter.length > 0 ? validCategoryFilter : undefined,
+      subcategoryTags: resolvedSubs.map((subcategory) => subcategory.slug),
+      priceRanges: priceRanges.length > 0 ? priceRanges : undefined,
+      verificationFilter,
+      sort,
+      limit: DEFAULT_PAGE_SIZE,
+      offset: (page - 1) * DEFAULT_PAGE_SIZE,
+    }),
+    singleValidCategory
+      ? getSubcategoryCounts(singleValidCategory)
+      : Promise.resolve(new Map<string, number>()),
+  ])
+
+  const subcategoriesWithCounts = singleValidCategory
+    ? PRODUCT_SUBCATEGORIES
+        .filter((subcategory) => subcategory.category === singleValidCategory)
+        .map((subcategory) => ({
+          ...subcategory,
+          count: subcategoryCounts.get(subcategory.nameZh) ?? 0,
+        }))
+        .filter((subcategory) => subcategory.count > 0)
+    : []
+  const subcategoryOptions = subcategoriesWithCounts.map((subcategory) => ({
+    slug: subcategory.slug,
+    label: safeLocale === 'zh-TW' ? subcategory.nameZh : subcategory.nameEn,
+    count: subcategory.count,
+  }))
+  const activeSubSlugs = resolvedSubs.map((subcategory) => subcategory.slug)
+
+  const totalPages = Math.ceil(totalCount / DEFAULT_PAGE_SIZE)
+  const clampedPage = totalCount > 0 && page > totalPages ? totalPages : page
+  let displayBrands = brands
+  if (clampedPage !== page && totalCount > 0) {
+    const refetched = await getBrands({
+      status: 'approved',
+      search: search || undefined,
+      category: validCategoryFilter.length > 0 ? validCategoryFilter : undefined,
+      subcategoryTags: resolvedSubs.map((subcategory) => subcategory.slug),
+      priceRanges: priceRanges.length > 0 ? priceRanges : undefined,
+      verificationFilter,
+      sort,
+      limit: DEFAULT_PAGE_SIZE,
+      offset: (clampedPage - 1) * DEFAULT_PAGE_SIZE,
+    })
+    displayBrands = refetched.brands
+  }
+
+  const routePath = categoryTag
+    ? `/categories/${categoryTag.slug}${activeSubcategory ? `/${activeSubcategory.slug}` : ''}`
+    : '/brands'
+  const directoryPath = localizePath(routePath, safeLocale)
+  const normalizedParams = new URLSearchParams()
+  if (search) normalizedParams.set('search', search)
+  if (validCategoryFilter.length > 0 && routePath === '/brands') {
+    normalizedParams.set('category', validCategoryFilter.join(','))
+  }
+  if (activeSubSlugs.length > 0 && routePath === '/brands') normalizedParams.set('sub', activeSubSlugs.join(','))
+  if (priceRanges.length > 0) normalizedParams.set('price', priceRanges.join(','))
+  if (verificationFilter !== 'all') normalizedParams.set('verification', verificationFilter)
+  if (sort !== 'random') normalizedParams.set('sort', sort)
+
+  const activeFilters: ActiveDirectoryFilter[] = []
+  if (search) {
+    activeFilters.push({
+      id: 'search',
+      label: t('filters.activeSearch'),
+      value: search,
+      removeHref: updateDirectoryUrl(directoryPath, normalizedParams, { search: null }),
+      removeLabel: t('filters.removeFilter', { label: t('filters.activeSearch'), value: search }),
+    })
+  }
+  for (const slug of validCategoryFilter) {
+    const category = PRODUCT_TYPE_CATEGORIES.find((item) => item.slug === slug)
+    if (!category) continue
+    const value = categoryLabel(category, safeLocale)
+    const remainingCategories = validCategoryFilter.filter((item) => item !== slug)
+    activeFilters.push({
+      id: `category-${slug}`,
+      label: t('filters.activeCategory'),
+      value,
+      removeHref: updateDirectoryUrl(directoryPath, normalizedParams, {
+        category: remainingCategories.length > 0 ? remainingCategories.join(',') : null,
+        sub: null,
+      }),
+      removeLabel: t('filters.removeFilter', { label: t('filters.activeCategory'), value }),
+    })
+  }
+  for (const subcategory of resolvedSubs) {
+    const value = safeLocale === 'zh-TW' ? subcategory.nameZh : subcategory.nameEn
+    const remainingSubs = resolvedSubs.filter((item) => item.slug !== subcategory.slug)
+    activeFilters.push({
+      id: `subcategory-${subcategory.slug}`,
+      label: t('filters.activeSubcategory'),
+      value,
+      removeHref: updateDirectoryUrl(directoryPath, normalizedParams, {
+        sub: remainingSubs.length > 0 ? remainingSubs.map((item) => item.slug).join(',') : null,
+      }),
+      removeLabel: t('filters.removeFilter', { label: t('filters.activeSubcategory'), value }),
+    })
+  }
+  for (const priceRange of priceRanges) {
+    const value = '$'.repeat(priceRange)
+    const remainingPrices = priceRanges.filter((item) => item !== priceRange)
+    activeFilters.push({
+      id: `price-${priceRange}`,
+      label: t('filters.activePrice'),
+      value,
+      removeHref: updateDirectoryUrl(directoryPath, normalizedParams, {
+        price: remainingPrices.length > 0 ? remainingPrices.join(',') : null,
+      }),
+      removeLabel: t('filters.removeFilter', { label: t('filters.activePrice'), value }),
+    })
+  }
+  if (verificationFilter !== 'all') {
+    const value = verificationT(verificationFilter)
+    activeFilters.push({
+      id: 'verification',
+      label: t('filters.activeStatus'),
+      value,
+      removeHref: updateDirectoryUrl(directoryPath, normalizedParams, { verification: null }),
+      removeLabel: t('filters.removeFilter', { label: t('filters.activeStatus'), value }),
+    })
+  }
+
+  let recommendedBrands: Brand[] = []
+  let recommendationsHref = directoryPath
+  if (totalCount === 0) {
+    if (validCategoryFilter.length > 0) {
+      const recommendations = await getBrands({
+        status: 'approved',
+        category: validCategoryFilter,
+        sort: 'random',
+        limit: EMPTY_STATE_RECOMMENDATION_LIMIT,
+        offset: 0,
+      })
+      recommendedBrands = recommendations.brands
+      if (recommendedBrands.length > 0) {
+        recommendationsHref = updateDirectoryUrl(directoryPath, new URLSearchParams(), {
+          category: validCategoryFilter.join(','),
+        })
+      }
+    }
+    if (recommendedBrands.length === 0) {
+      recommendedBrands = await getRandomBrands(EMPTY_STATE_RECOMMENDATION_LIMIT)
+    }
+  }
+
+  let categoryItemListJsonLd = null
+  let categoryBreadcrumbJsonLd = null
+  let brandsItemListJsonLd = null
+  if (
+    validCategoryFilter.length === 0 &&
+    !search &&
+    priceRanges.length === 0 &&
+    verificationFilter === 'all' &&
+    page === 1
+  ) {
+    brandsItemListJsonLd = buildBrandsItemListJsonLd(displayBrands, safeLocale)
+  }
+  if (categoryTag) {
+    const catT = await getTranslations({ locale: safeLocale, namespace: 'categories' })
+    const categoryName = categoryLabel(categoryTag, safeLocale)
+    const editorialDescription = catT.has(`descriptions.${categoryTag.slug}`)
+      ? catT(`descriptions.${categoryTag.slug}`)
+      : undefined
+    const categoryCanonical = buildDirectoryCanonicals({
+      locale: safeLocale,
+      categorySlug: categoryTag.slug,
+      subcategorySlug: activeSubcategory?.slug,
+      page,
+    }).canonical
+    categoryItemListJsonLd = buildCategoryItemListJsonLd(
+      categoryName,
+      categoryCanonical,
+      displayBrands,
+      safeLocale,
+      editorialDescription,
+      activeSubcategory ? categoryName : undefined,
+    )
+    categoryBreadcrumbJsonLd = buildBreadcrumbJsonLd([
+      { label: t('heading'), href: localizePath('/brands', safeLocale) },
+      {
+        label: categoryName,
+        ...(activeSubcategory
+          ? { href: localizePath(`/categories/${categoryTag.slug}`, safeLocale) }
+          : {}),
+      },
+      ...(activeSubcategory
+        ? [{ label: safeLocale === 'zh-TW' ? activeSubcategory.nameZh : activeSubcategory.nameEn }]
+        : []),
+    ], safeLocale)
+  }
+
+  const categoryBreadcrumb = categoryTag
+    ? {
+        slug: categoryTag.slug,
+        label: categoryLabel(categoryTag, safeLocale),
+      }
+    : null
+  const subcategoryBreadcrumb = activeSubcategory
+    ? {
+        slug: activeSubcategory.slug,
+        label: safeLocale === 'zh-TW' ? activeSubcategory.nameZh : activeSubcategory.nameEn,
+      }
+    : null
+
+  return (
+    <NextIntlClientProvider messages={messages}>
+      <main className="page-gutter mx-auto grid w-full max-w-screen-xl gap-8 py-10 lg:grid-cols-[16rem_minmax(0,1fr)]">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(buildWebSiteJsonLd(safeLocale)) }}
+        />
+        {brandsItemListJsonLd ? (
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(brandsItemListJsonLd) }} />
+        ) : null}
+        {categoryItemListJsonLd ? (
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(categoryItemListJsonLd) }} />
+        ) : null}
+        {categoryBreadcrumbJsonLd ? (
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(categoryBreadcrumbJsonLd) }} />
+        ) : null}
+        <ViewItemListTracker listName="directory" itemCount={displayBrands.length} />
+
+        <aside className="hidden lg:block" aria-label={t('filters.title')}>
+          <div className="sticky top-(--nav-height)">
+            <BrandFilterSidebar
+              activeFilters={activeFilters}
+              categories={[...PRODUCT_TYPE_CATEGORIES]}
+              activeCategorySlugs={validCategoryFilter}
+              subcategories={subcategoryOptions}
+              activeSubSlugs={activeSubSlugs}
+              totalCount={totalCount}
+            />
+          </div>
+        </aside>
+
+        <div className="min-w-0">
+          <DirectoryBreadcrumb
+            ariaLabel={t('breadcrumbAria')}
+            locale={safeLocale}
+            directoryLabel={t('heading')}
+            category={categoryBreadcrumb}
+            subcategory={subcategoryBreadcrumb}
+          />
+          <h1 className="mb-6 text-balance type-page-title">{pageHeading}</h1>
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <BrandFilterDrawer
+                activeFilters={activeFilters}
+                categories={[...PRODUCT_TYPE_CATEGORIES]}
+                activeCategorySlugs={validCategoryFilter}
+                subcategories={subcategoryOptions}
+                activeSubSlugs={activeSubSlugs}
+                totalCount={totalCount}
+              />
+              <p className="type-card-description" aria-live="polite" aria-atomic="true">
+                {t('count', { count: totalCount })}
+              </p>
+            </div>
+            <Suspense fallback={null}>
+              <SortSelect />
+            </Suspense>
+          </div>
+
+          <Suspense
+            fallback={
+              <div className="grid grid-cols-1 gap-x-5 gap-y-5 sm:grid-cols-2 lg:grid-cols-4" aria-label={t('loadingAria')}>
+                {Array.from({ length: 8 }).map((_, index) => (
+                  <div key={index} className={surfaceCardStyles({ padding: 'none' })}>
+                    <div className="aspect-[4/3] animate-pulse rounded-t-xl bg-muted" />
+                    <div className="p-4">
+                      <div className="h-4 animate-pulse rounded bg-muted" />
+                      <div className="mt-2 h-3 w-2/3 animate-pulse rounded bg-muted" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            }
+          >
+            <SavedBrandsProvider>
+              {displayBrands.length === 0 ? (
+                <SearchEmptyState
+                  query={search}
+                  categoryLabel={categoryTag ? categoryLabel(categoryTag, safeLocale) : undefined}
+                  activeFilters={activeFilters}
+                  recommendedBrands={recommendedBrands}
+                  recommendationsHref={recommendationsHref}
+                />
+              ) : (
+                <MasonryGrid>
+                  {displayBrands.map((brand, index) => (
+                    <BrandCard key={brand.id} brand={brand} preload={index < 1} />
+                  ))}
+                </MasonryGrid>
+              )}
+            </SavedBrandsProvider>
+          </Suspense>
+
+          <Pagination totalCount={totalCount} currentPage={clampedPage} pageSize={DEFAULT_PAGE_SIZE} />
+        </div>
+      </main>
+    </NextIntlClientProvider>
+  )
+}

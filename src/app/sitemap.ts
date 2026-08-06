@@ -101,7 +101,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         (brand) => brand.productType === category.slug,
       );
       return localizedEntries(
-        `/brands?category=${category.slug}`,
+        `/categories/${category.slug}`,
         ALL_LOCALES,
         latestBrandDate(categoryBrands),
       );

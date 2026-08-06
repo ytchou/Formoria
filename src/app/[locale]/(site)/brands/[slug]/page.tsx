@@ -257,7 +257,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
       ? [
           {
             label: categoryLabel || categoryTag.name,
-            href: `/brands?category=${categoryTag.slug}`,
+            href: `/categories/${categoryTag.slug}`,
           },
         ]
       : []),
