@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Brand } from "@/lib/types";
+import type { PublicBrandFaqContext } from "@/lib/brands/contracts";
 import { createServiceClient } from "@/lib/supabase/server";
 import {
   FAQ_PRESETS,
@@ -24,7 +24,7 @@ export function faqItemsToQuestions(items: FaqItem[]): FaqQuestion[] {
 
 export async function getBrandFaq(
   brandId: string,
-  brand: Brand,
+  brand: PublicBrandFaqContext,
   t: TFn,
   locale: string = "zh-TW",
   cityLabel: string | null = null,

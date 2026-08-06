@@ -3,7 +3,8 @@ import type { Metadata } from "next";
 import { cache } from "react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import {
-  getApprovedBrandBySlug,
+  getPublicBrandDetailBySlug,
+  getPublicBrandFaqContextById,
   getRelatedBrands,
   getBrandCountByCategory,
   getAllBrandSlugs,
@@ -15,10 +16,9 @@ import {
   safeJsonLdStringify,
 } from "@/lib/json-ld";
 import type { BreadcrumbItem } from "@/lib/json-ld";
-import type { Brand } from "@/lib/types";
 import { buildAlternates } from "@/lib/seo/alternates";
 import type { Locale } from "@/lib/seo/alternates";
-import { toPublicBrandCard, toPublicBrandDetail, type PublicBrandCard, type PublicBrandDetail } from "@/lib/brands/contracts";
+import { toPublicBrandCard, type PublicBrandCard, type PublicBrandDetail } from "@/lib/brands/contracts";
 import { BrandViewTracker } from "@/components/brands/brand-view-tracker";
 import { BrandEngagementTracker } from "@/components/brands/brand-engagement-tracker";
 import { BrandBreadcrumb } from "@/components/brands/brand-breadcrumb";
@@ -82,9 +82,9 @@ type BrandFaqTranslateFn = (
   params?: Record<string, unknown>,
 ) => string;
 
-const loadApprovedBrand = cache(async (slug: string): Promise<Brand> => {
+const loadApprovedBrand = cache(async (slug: string): Promise<PublicBrandDetail> => {
   try {
-    return await getApprovedBrandBySlug(slug);
+    return await getPublicBrandDetailBySlug(slug);
   } catch (error) {
     if (!(error instanceof NotFoundError) || error.cause) throw error;
   }
@@ -172,8 +172,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
   const slug = decodeURIComponent(rawSlug);
   setRequestLocale(locale);
   const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
-  const internalBrand = await loadApprovedBrand(slug);
-  const displayBrand: PublicBrandDetail = toPublicBrandDetail(internalBrand);
+  const displayBrand = await loadApprovedBrand(slug);
 
   const [tBrandDetail, tCities] = await Promise.all([
     getTranslations({ locale: safeLocale, namespace: "brandDetail" }),
@@ -182,10 +181,11 @@ export default async function BrandDetailPage({ params }: PageProps) {
   const tBrandFaq = ((key: string, params?: Record<string, unknown>) =>
     tBrandDetail(key, params as never)) as BrandFaqTranslateFn;
   const cityLabel = displayBrand.city ? tCities(displayBrand.city) : null;
+  const faqContext = await getPublicBrandFaqContextById(displayBrand.id);
   const [faqItems, channels] = await Promise.all([
     getBrandFaq(
       displayBrand.id,
-      internalBrand,
+      faqContext,
       tBrandFaq,
       safeLocale,
       cityLabel,

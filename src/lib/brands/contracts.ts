@@ -95,6 +95,26 @@ export type SearchSuggestion = {
   category: string
 }
 
+/**
+ * Evidence available to render the public FAQ floors. This is intentionally
+ * separate from both the public detail contract and the internal Brand row:
+ * the detail route fetches it with its own projection and never serializes it.
+ */
+export type PublicBrandFaqContext = {
+  name: string
+  category: string | null
+  city: string | null
+  productType?: string | null
+  productTags: string[]
+  productTagsEn: string[]
+  priceRange: number | null
+  foundingYear: number | null
+  reputationSummary?: ReputationSummary | null
+  mitStatus?: 'unverified' | 'declared' | 'verified'
+  mitDeclaredScope?: 'all' | 'most' | 'some' | null
+  mitStory?: string | null
+}
+
 export type OwnerBrandEditor = PublicBrandDetail & {
   romanizedName: string | null
   reputationSummary: ReputationSummary | null
@@ -186,6 +206,23 @@ export function toPublicBrandCard(brand: Brand): PublicBrandCard {
     productPhotos: [...brand.productPhotos],
     imageAlts: brand.imageAlts.map((alt) => ({ altZh: alt.altZh, altEn: alt.altEn })),
     heroImageMetadata: brand.heroImageMetadata ?? null,
+  }
+}
+
+export function toPublicBrandFaqContext(brand: Brand): PublicBrandFaqContext {
+  return {
+    name: brand.name,
+    category: brand.category,
+    city: brand.city,
+    productType: brand.productType ?? null,
+    productTags: Array.isArray(brand.productTags) ? [...brand.productTags] : [],
+    productTagsEn: Array.isArray(brand.productTagsEn) ? [...brand.productTagsEn] : [],
+    priceRange: brand.priceRange,
+    foundingYear: brand.foundingYear,
+    reputationSummary: brand.reputationSummary ?? null,
+    mitStatus: brand.mitStatus ?? 'unverified',
+    mitDeclaredScope: brand.mitDeclaredScope ?? null,
+    mitStory: brand.mitStory ?? null,
   }
 }
 

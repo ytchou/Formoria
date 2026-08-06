@@ -57,11 +57,13 @@ import {
   toOwnerBrandEditor,
   toPublicBrandCard,
   toPublicBrandDetail,
+  toPublicBrandFaqContext,
   toPublicMicrositeBrand,
   type AdminBrandListItem,
   type OwnerBrandEditor,
   type PublicBrandCard,
   type PublicBrandDetail,
+  type PublicBrandFaqContext,
   type PublicMicrositeBrand,
   type SearchSuggestion,
 } from "@/lib/brands/contracts";
@@ -948,12 +950,31 @@ export const PUBLIC_BRAND_DETAIL_COLUMN_LIST = [
   "mit_evidence",
 ] as const;
 
+/** Evidence fields used only to render the public FAQ template floors. */
+export const PUBLIC_BRAND_FAQ_CONTEXT_COLUMN_LIST = [
+  "id",
+  "name",
+  "slug",
+  "status",
+  "city",
+  "product_type",
+  "founding_year",
+  "price_range",
+  "product_tags",
+  "product_tags_en",
+  "reputation_summary",
+  "mit_status",
+  "mit_declared_scope",
+  "mit_story",
+] as const;
+
 /** Microsites only need the configured content and a few display fields. */
 export const PUBLIC_MICROSITE_BRAND_COLUMN_LIST = [
   "id",
   "name",
   "slug",
   "status",
+  "description",
   "hero_image_url",
   "founding_year",
   "mit_status",
@@ -964,6 +985,7 @@ const BRAND_COLUMNS = BRAND_COLUMN_LIST.join(", ");
 const DIRECTORY_BRAND_COLUMNS = DIRECTORY_BRAND_COLUMN_LIST.join(", ");
 const PUBLIC_BRAND_CARD_COLUMNS = PUBLIC_BRAND_CARD_COLUMN_LIST.join(", ");
 const PUBLIC_BRAND_DETAIL_COLUMNS = PUBLIC_BRAND_DETAIL_COLUMN_LIST.join(", ");
+const PUBLIC_BRAND_FAQ_CONTEXT_COLUMNS = PUBLIC_BRAND_FAQ_CONTEXT_COLUMN_LIST.join(", ");
 const PUBLIC_MICROSITE_BRAND_COLUMNS = PUBLIC_MICROSITE_BRAND_COLUMN_LIST.join(", ");
 
 export const BRAND_SELECT =
@@ -981,6 +1003,8 @@ const PUBLIC_VERIFIED_BRAND_CARD_SELECT =
   `${PUBLIC_BRAND_CARD_COLUMNS}, brand_owners!inner(user_id)` as unknown as "*";
 const PUBLIC_BRAND_DETAIL_SELECT =
   `${PUBLIC_BRAND_DETAIL_COLUMNS}, brand_owners(user_id)` as unknown as "*";
+const PUBLIC_BRAND_FAQ_CONTEXT_SELECT =
+  PUBLIC_BRAND_FAQ_CONTEXT_COLUMNS as unknown as "*";
 const PUBLIC_MICROSITE_BRAND_SELECT =
   `${PUBLIC_MICROSITE_BRAND_COLUMNS}, brand_owners(user_id)` as unknown as "*";
 
@@ -1617,6 +1641,23 @@ export async function getPublicBrandDetailBySlug(
 
   if (error || !data) throw new NotFoundError("Brand", slug, { cause: error });
   return toPublicBrandDetail(await brandToDomainWithImages(supabase, data));
+}
+
+/** FAQ rendering context is fetched separately so detail pages never load the
+ * internal evidence/provenance row just to decide which template floors show. */
+export async function getPublicBrandFaqContextById(
+  brandId: string,
+): Promise<PublicBrandFaqContext> {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase
+    .from("brands")
+    .select(PUBLIC_BRAND_FAQ_CONTEXT_SELECT)
+    .eq("id", brandId)
+    .eq("status", "approved")
+    .maybeSingle();
+
+  if (error || !data) throw new NotFoundError("Brand", brandId, { cause: error });
+  return toPublicBrandFaqContext(brandToDomain(data));
 }
 
 /** Public microsite boundary. A missing/empty site_content is not public. */

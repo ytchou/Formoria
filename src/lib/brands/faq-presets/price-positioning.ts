@@ -5,7 +5,7 @@ import {
   pureLanguage,
   withinLengthBand,
 } from "./validators";
-import type { Brand } from "@/lib/types";
+import type { PublicBrandFaqContext } from "@/lib/brands/contracts";
 import type { FaqPreset } from "./types";
 
 const PRICE_RANGE_KEYS: Record<1 | 2 | 3, string> = {
@@ -14,7 +14,7 @@ const PRICE_RANGE_KEYS: Record<1 | 2 | 3, string> = {
   3: "brandFaq.priceRanges.premium",
 };
 
-function priceBucket(brand: Brand): 1 | 2 | 3 | null {
+function priceBucket(brand: PublicBrandFaqContext): 1 | 2 | 3 | null {
   const range = brand.priceRange;
   return range === 1 || range === 2 || range === 3 ? range : null;
 }
