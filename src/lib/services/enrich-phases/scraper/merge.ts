@@ -1,6 +1,6 @@
 import type { ScrapedBrandData } from '@/lib/types/scraper'
 import { PURCHASE_CHANNELS, type PurchaseChannelCamelField } from '@/lib/brands/purchase-channels'
-import { LINK_FIELDS, type LinkField } from '@/lib/services/link-enrichment'
+import { LINK_FIELDS, pageKey, type LinkField } from '@/lib/services/link-enrichment'
 import type { InputType } from './strategies/types'
 
 export type ScrapeResult = { type: InputType; data: ScrapedBrandData; sourceUrl?: string }
@@ -137,10 +137,52 @@ export function mergeScrapedData(results: ScrapeResult[]): ScrapedBrandData {
   const merged = emptyMergedResult()
   const linkProvenance: Partial<Record<LinkField, { sourceUrl: string }>> = {}
   const textProvenance: NonNullable<ScrapedBrandData['textProvenance']> = {}
+  // Normalize keys so alternate spellings of one page share evidence. A Map
+  // keeps externally-derived URL keys (e.g. `__proto__`) out of an object's
+  // prototype chain; it is materialized into a plain object on assignment.
+  const perSourceText = new Map<
+    string,
+    NonNullable<ScrapedBrandData['perSourceText']>[string]
+  >()
   let descriptionSupplied = false
   let textSourceUrl: string | undefined
 
+  const addSourceText = (
+    sourceUrl: string,
+    text: NonNullable<ScrapedBrandData['perSourceText']>[string],
+  ): void => {
+    const key = pageKey(sourceUrl)
+    const existing = perSourceText.get(key) ?? {}
+    for (const field of ['title', 'description', 'story'] as const) {
+      const value = text[field]
+      if (value === undefined) continue
+      if (existing[field] === undefined) {
+        existing[field] = value
+      }
+    }
+    if (Object.keys(existing).length > 0) perSourceText.set(key, existing)
+  }
+
+  const addResultText = (data: ScrapedBrandData, sourceUrl?: string): void => {
+    if (sourceUrl) {
+      const text = {
+        ...(hasValue(data.brandName) ? { title: data.brandName } : {}),
+        ...(hasValue(data.description)
+          ? { description: data.description }
+          : {}),
+        ...(hasValue(data.story) ? { story: data.story } : {}),
+      }
+      if (Object.keys(text).length > 0) addSourceText(sourceUrl, text)
+      return
+    }
+
+    for (const [inheritedUrl, text] of Object.entries(data.perSourceText ?? {})) {
+      addSourceText(inheritedUrl, text)
+    }
+  }
+
   for (const { data, sourceUrl } of sortedResults) {
+    addResultText(data, sourceUrl)
     if (!hasValue(merged.brandName) && hasValue(data.brandName)) {
       merged.brandName = data.brandName
       const inherited = sourceUrl ?? data.textProvenance?.brandName?.sourceUrl
@@ -209,6 +251,9 @@ export function mergeScrapedData(results: ScrapeResult[]): ScrapedBrandData {
 
   if (Object.keys(linkProvenance).length > 0) merged.linkProvenance = linkProvenance
   if (Object.keys(textProvenance).length > 0) merged.textProvenance = textProvenance
+  if (perSourceText.size > 0) {
+    merged.perSourceText = Object.fromEntries(perSourceText)
+  }
   if (textSourceUrl) merged.textSourceUrl = textSourceUrl
 
   return merged
