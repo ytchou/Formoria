@@ -207,11 +207,12 @@ test.describe("Claim request smoke", () => {
     await expect(
       adminPage.getByRole("heading", { name: /claim requests/i }),
     ).toBeVisible({ timeout: 60_000 });
-    await expect(adminPage.getByText(brandName, { exact: true })).toBeVisible({
+    const claimsTable = adminPage.locator('table');
+    await expect(claimsTable.getByText(brandName, { exact: true })).toBeVisible({
       timeout: 60_000,
     });
 
-    await adminPage.getByText(brandName, { exact: true }).click();
+    await claimsTable.getByText(brandName, { exact: true }).click();
     const approveBtn = adminPage.getByRole("button", { name: /^approve$/i });
     await expect(approveBtn).toBeVisible({ timeout: 5_000 });
     await approveBtn.click();
@@ -223,12 +224,18 @@ test.describe("Claim request smoke", () => {
       .filter({ hasText: brandName })
       .first();
     await expect(approvedRow).toBeVisible({ timeout: 15_000 });
-    await expect(approvedRow).toHaveAttribute("aria-expanded", "true");
+    const approvedDisclosure = approvedRow.getByRole("button", {
+      name: `Show details for ${brandName}`,
+    });
+    await expect(approvedDisclosure).toHaveAttribute("aria-expanded", "false");
+    await approvedDisclosure.click();
+    const approvedDrawer = adminPage.getByRole("dialog");
+    await expect(approvedDrawer).toBeVisible();
     await expect(
-      adminPage.getByText(/Proof file cleanup|證明檔案清理狀態/),
+      approvedDrawer.getByText(/Proof file cleanup|證明檔案清理狀態/),
     ).toBeVisible();
     await expect(
-      adminPage.getByText(/Deleted|已刪除/, { exact: true }),
+      approvedDrawer.getByText(/Deleted|已刪除/, { exact: true }),
     ).toBeVisible();
 
     await expect

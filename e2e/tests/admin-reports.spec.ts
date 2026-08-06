@@ -106,9 +106,10 @@ test.describe('Admin reports deep', () => {
 
     await seededRow.click();
 
-    const expandedRow = adminPage.locator('tbody tr', { hasText: seededReportNote! });
-    await expect(expandedRow).toBeVisible({ timeout: 10_000 });
-    await expect(expandedRow.getByRole('button', { name: 'Mark reviewed' })).toBeVisible();
-    await expect(expandedRow.getByRole('button', { name: 'Dismiss' })).toBeVisible();
+    const drawer = adminPage.getByRole('dialog');
+    await expect(drawer).toBeVisible({ timeout: 10_000 });
+    await expect(drawer.getByText(seededReportNote!, { exact: true })).toBeVisible();
+    await expect(drawer.getByRole('button', { name: 'Mark reviewed' })).toBeVisible();
+    await expect(drawer.getByRole('button', { name: 'Dismiss' })).toBeVisible();
   });
 });

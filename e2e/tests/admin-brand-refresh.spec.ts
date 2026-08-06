@@ -271,6 +271,13 @@ test.describe("Scheduled brand refresh review", () => {
       .locator("tbody tr")
       .filter({ hasText: brandName });
     await readyRow
+      // `/admin/submissions` overrides the shell's default disclosure label with
+      // `admin.submissions.expandReview` — "Expand review for {name}".
+      .getByRole("button", { name: `Expand review for ${brandName}` })
+      .click();
+    const reviewDrawer = adminPage.getByRole("dialog");
+    await expect(reviewDrawer).toBeVisible();
+    await reviewDrawer
       .getByRole("button", { name: "Approve — updates the live brand" })
       .click();
 
