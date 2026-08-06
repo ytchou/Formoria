@@ -1,7 +1,12 @@
 import type { Database } from '@/lib/supabase/database.types'
 import { auditedCall } from '@/lib/audit'
 
-import { buildReviewUpdate, type ReviewStatus, type ReviewDecision } from './review-status'
+import {
+  buildReviewUpdate,
+  type ReviewStatus,
+  type ReviewDecision,
+  type ReviewAttribution,
+} from './review-status'
 
 // ---------------------------------------------------------------------------
 // Row types
@@ -25,6 +30,24 @@ type HistoricalReportReason = ReportReason | 'not_mit'
 
 type ReportStatus = ReviewStatus
 
+export type UpdateReportStatusResult =
+  | { ok: true }
+  | { ok: false; code: 'already_reviewed' | 'database_error' }
+
+/**
+ * Injectable claim seam. Mirrors `updateModerationFlagStatus` in `./moderation`:
+ * the claim returns the claimed ROW, not a count. A `count` of `null` from
+ * PostgREST means "no count was returned", which is indistinguishable from "no
+ * pending row matched" — that ambiguity reported successful decisions to the
+ * admin as review conflicts.
+ */
+export type UpdateReportStatusDeps = {
+  claim: (
+    reportId: string,
+    update: Record<string, unknown>,
+  ) => Promise<{ data: { id: string } | null; error: unknown }>
+}
+
 export type BrandReport = {
   id: string
   brandId: string
@@ -37,6 +60,33 @@ export type BrandReport = {
   createdAt: string
   reporterEmail?: string
   brandHasOwner?: boolean
+}
+
+export const defaultUpdateReportStatusDeps: UpdateReportStatusDeps = {
+  async claim(reportId, update) {
+    const { createServiceClient } = await import('@/lib/supabase/server')
+    const supabase = createServiceClient()
+
+    const { data, error } = await supabase
+      .from('brand_reports')
+      .update(update)
+      .eq('id', reportId)
+      // The pending guard makes this write idempotent and lets callers report a
+      // review conflict instead of silently re-deciding a settled report.
+      .eq('status', 'pending')
+      .select('id')
+      .maybeSingle()
+
+    return { data, error }
+  },
+}
+
+function describeError(error: unknown): string {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    return String((error as { message: unknown }).message)
+  }
+  return String(error)
 }
 
 type ReportRowWithReporter = {
@@ -192,22 +242,46 @@ export async function getPendingReports(options?: { limit?: number }): Promise<B
 
 export async function updateReportStatus(
   reportId: string,
-  decision: ReviewDecision
-): Promise<void> {
-  return auditedCall(
+  decision: ReviewDecision,
+  attribution?: ReviewAttribution,
+  deps: UpdateReportStatusDeps = defaultUpdateReportStatusDeps,
+): Promise<UpdateReportStatusResult> {
+  return auditedCall<UpdateReportStatusResult>(
     { provider: 'brands', operation: 'updateReportStatus', kind: 'service' },
-    async () => {
-  const { createServiceClient } = await import('@/lib/supabase/server')
-  const supabase = createServiceClient()
+    async (ctx) => {
+      const updateData = buildReviewUpdate(decision, attribution)
 
-  const updateData = buildReviewUpdate(decision)
+      try {
+        const { data, error } = await deps.claim(reportId, updateData)
 
-  const { error } = await supabase
-    .from('brand_reports')
-    .update(updateData)
-    .eq('id', reportId)
-
-  if (error) throw error
+        if (error) {
+          // The envelope only sees the returned value, so the underlying error
+          // has to be carried out by hand or it is lost entirely.
+          console.error('[reports] updateReportStatus claim failed:', error)
+          ctx.summary.claimError = describeError(error)
+          return { ok: false, code: 'database_error' }
+        }
+        // A returned row is the only proof the pending guard matched. No row
+        // means the report was already decided — a genuine conflict.
+        if (!data) {
+          return { ok: false, code: 'already_reviewed' }
+        }
+        return { ok: true }
+      } catch (error) {
+        console.error('[reports] updateReportStatus threw:', error)
+        ctx.summary.claimError = describeError(error)
+        return { ok: false, code: 'database_error' }
+      }
+    },
+    {
+      // Without this the swallowed failure above is audited as `succeeded` with
+      // normal latency, and nothing about the failed write reaches the trail.
+      // `already_reviewed` is not a fault — it is an honest "no pending row
+      // claimed" — so it maps to `empty` rather than `failed`.
+      classify: (result) => {
+        if (result.ok) return 'succeeded'
+        return result.code === 'already_reviewed' ? 'empty' : 'failed'
+      },
     },
   )
 }

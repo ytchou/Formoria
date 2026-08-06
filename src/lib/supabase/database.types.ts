@@ -767,6 +767,8 @@ export type Database = {
           reason: string;
           reported_field: string | null;
           reviewed_at: string | null;
+          reviewed_by: string | null;
+          reviewer_notes: string | null;
           status: string;
           user_id: string | null;
         };
@@ -778,6 +780,8 @@ export type Database = {
           reason: string;
           reported_field?: string | null;
           reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          reviewer_notes?: string | null;
           status?: string;
           user_id?: string | null;
         };
@@ -789,6 +793,8 @@ export type Database = {
           reason?: string;
           reported_field?: string | null;
           reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          reviewer_notes?: string | null;
           status?: string;
           user_id?: string | null;
         };
@@ -2141,6 +2147,8 @@ export type Database = {
           id: string;
           previous_content: string | null;
           reviewed_at: string | null;
+          reviewed_by: string | null;
+          reviewer_notes: string | null;
           status: string;
           user_id: string;
         };
@@ -2153,6 +2161,8 @@ export type Database = {
           id?: string;
           previous_content?: string | null;
           reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          reviewer_notes?: string | null;
           status?: string;
           user_id: string;
         };
@@ -2165,6 +2175,8 @@ export type Database = {
           id?: string;
           previous_content?: string | null;
           reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          reviewer_notes?: string | null;
           status?: string;
           user_id?: string;
         };

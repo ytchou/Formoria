@@ -2321,6 +2321,17 @@
         "featureRequests": "Feature Requests"
       }
     },
+    "queue": {
+      "selectAll": "Select all visible rows",
+      "search": "Search this queue",
+      "searchPlaceholder": "Search by brand, field, or value",
+      "paginationSummary": "Showing {from}-{to} of {total}",
+      "pageSize": "Rows per page",
+      "previousPage": "Previous page",
+      "nextPage": "Next page",
+      "showDetails": "Show details for {name}",
+      "hideDetails": "Hide details for {name}"
+    },
     "dashboard": {
       "description": "Review queues, brand data, and categorization status requiring action.",
       "reviewQueues": "Review Queues",
@@ -2380,6 +2391,9 @@
       "markReviewed": "Mark reviewed",
       "dismiss": "Dismiss",
       "noBlockedContent": "No blocked content is waiting for review.",
+      "errors": {
+        "generic": "Something went wrong. Please try again."
+      },
       "rules": {
         "suspicious_tld": "Suspicious domain",
         "excessive_urls": "Too many links",
@@ -2430,6 +2444,8 @@
         "approve": "Approve",
         "reject": "Reject"
       },
+      "bulkApprove": "Approve {count} selected",
+      "bulkReject": "Reject {count} selected",
       "reviewerNotesPlaceholder": "Add notes about this decision",
       "stripDeclaration": "Remove declaration",
       "unknownBrand": "Unknown brand",
@@ -2439,6 +2455,50 @@
       "errors": {
         "notesRequired": "Reviewer notes are required when rejecting evidence.",
         "generic": "Unable to review evidence. Please try again."
+      }
+    },
+    "reports": {
+      "title": "Brand Reports",
+      "description": "Review brand issues reported by the community",
+      "table": {
+        "brand": "Brand",
+        "reason": "Reason",
+        "date": "Date",
+        "status": "Status"
+      },
+      "reasons": {
+        "not_mit": "Not a Taiwanese Brand",
+        "incorrect_info": "Incorrect information",
+        "broken_link": "Broken link",
+        "inappropriate": "Inappropriate content",
+        "ownership_dispute": "Ownership dispute",
+        "removal_request": "Removal request"
+      },
+      "statuses": {
+        "pending": "Pending",
+        "reviewed": "Reviewed",
+        "dismissed": "Dismissed"
+      },
+      "actions": {
+        "markReviewed": "Mark reviewed",
+        "dismiss": "Dismiss"
+      },
+      "notes": "Additional notes",
+      "reporterEmail": "Reporter email",
+      "unavailable": "Unavailable",
+      "reviewerNotes": "Reviewer notes",
+      "reviewerNotesPlaceholder": "Add notes about this decision",
+      "revoke": {
+        "reasonLabel": "Revocation reason",
+        "trigger": "Revoke ownership",
+        "confirmTitle": "Revoke ownership?",
+        "confirmDescription": "This removes the current owner from {brand}. The owner will be notified by email.",
+        "confirmLabel": "Confirm revoke"
+      },
+      "unknownBrand": "Unknown brand",
+      "empty": "No pending reports.",
+      "errors": {
+        "generic": "Unable to update this report. Please try again."
       }
     },
     "corrections": {
@@ -2470,6 +2530,9 @@
       "novelTag": "Not in taxonomy",
       "novelTagTitle": "Approving this adds a display-only tag: it matches no ?sub= filter, so it will not appear in directory filtering.",
       "tooManyTags": "Cannot approve: the result would exceed 5 product tags",
+      "bulkApprove": "Approve {count} selected",
+      "bulkReject": "Reject {count} selected",
+      "capBlocker": "{projected} tags after apply — the limit for this brand is {limit}",
       "actions": {
         "approve": "Approve",
         "reject": "Reject"
@@ -2484,6 +2547,30 @@
       }
     },
     "claimRequests": {
+      "tabs": {
+        "all": "All",
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected"
+      },
+      "table": {
+        "brand": "Brand",
+        "requester": "Requester",
+        "proof": "Proof",
+        "date": "Date",
+        "status": "Status"
+      },
+      "actions": {
+        "approve": "Approve",
+        "reject": "Reject",
+        "confirmReject": "Confirm reject"
+      },
+      "reviewerNotes": "Reviewer notes",
+      "proofEvidence": "Proof evidence",
+      "noProofEvidence": "No proof evidence provided.",
+      "unknownBrand": "Unknown brand",
+      "unknownRequester": "Unknown",
+      "empty": "No claim requests found.",
       "adminProofLabel": "Ownership proof",
       "mitCertApprovalLabel": "MIT cert — approval also attempts MIT verification",
       "mitRegistryCompanyLabel": "Registry company",
@@ -2514,6 +2601,7 @@
         "businessDoc": "Business registration document"
       },
       "rejectReasons": {
+        "label": "Common rejection reason",
         "placeholder": "Pick a common reason…",
         "insufficientProof": "The proof provided is insufficient to confirm you operate this brand.",
         "proofMismatch": "The proof provided does not match this brand.",
@@ -2523,6 +2611,12 @@
         "docMismatch": "The business registration document does not match the brand or is illegible.",
         "proofInauthentic": "The proof provided appears to have been edited or is not authentic.",
         "needMoreEvidence": "The current proof is insufficient; please resubmit with additional supporting evidence."
+      },
+      "rejectNotesLabel": "Rejection notes",
+      "rejectNotesPlaceholder": "Why are you rejecting this claim?",
+      "errors": {
+        "rejectNotesRequired": "Rejection notes are required.",
+        "generic": "Something went wrong. Please try again."
       }
     },
     "submissions": {
@@ -2624,12 +2718,6 @@
         "all": "All kinds",
         "new": "New brands",
         "refresh": "Refreshes"
-      },
-      "pagination": {
-        "summary": "Showing {from}–{to} of {total}",
-        "pageSize": "Rows per page",
-        "previous": "Previous page",
-        "next": "Next page"
       },
       "missingFields": {
         "description": "Description",

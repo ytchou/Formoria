@@ -1,22 +1,12 @@
 "use client";
 
-import { Fragment, useState, useTransition, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
+
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
-import { formatPriceRange } from "@/lib/brands/price-range";
-import { PURCHASE_COLUMNS } from "@/lib/brands/purchase-channels";
 import type {
   BrandCorrection,
+  CorrectionBatchFailure,
   CorrectionDecision,
 } from "@/lib/services/brand-corrections";
 import {
@@ -25,11 +15,26 @@ import {
   MAX_PRODUCT_TAGS,
   type ProductTagsDelta,
 } from "@/lib/services/product-tags";
+import { formatPriceRange } from "@/lib/brands/price-range";
+import { PURCHASE_COLUMNS } from "@/lib/brands/purchase-channels";
 import {
   categoryLabel,
   matchSubcategory,
   PRODUCT_TYPE_CATEGORIES,
 } from "@/lib/taxonomy/ontology";
+import {
+  formatReviewDate,
+  ReviewDecisionPanel,
+  ReviewQueueDrawer,
+  ReviewQueuePagination,
+  ReviewQueueTable,
+  ReviewQueueToolbar,
+  type ReviewBulkAction,
+  type ReviewColumn,
+  type ReviewFilter,
+  useQueueAction,
+  useReviewQueue,
+} from "./queue";
 
 /**
  * Exactly the fields this queue renders — the page projects rows down to this
@@ -51,6 +56,12 @@ type ReviewAction = (
   decision: CorrectionDecision,
   notes: string,
 ) => Promise<{ error?: string } | undefined>;
+
+type BulkReviewAction = (
+  ids: string[],
+  decision: CorrectionDecision,
+  notes: string,
+) => Promise<{ failures: CorrectionBatchFailure[] } | { error: string }>;
 
 type TagDeltaState = {
   delta: ProductTagsDelta;
@@ -81,10 +92,6 @@ function stringArray(value: unknown): string[] {
     : [];
 }
 
-function currentValue(correction: CorrectionQueueItem): unknown {
-  return correction.currentValue;
-}
-
 function tagDeltaState(correction: CorrectionQueueItem): TagDeltaState | null {
   if (
     correction.field !== "product_tags" ||
@@ -93,7 +100,7 @@ function tagDeltaState(correction: CorrectionQueueItem): TagDeltaState | null {
     return null;
   }
 
-  const currentTags = stringArray(currentValue(correction));
+  const currentTags = stringArray(correction.currentValue);
   const projectedTags = applyTagDelta(currentTags, correction.proposedValue);
 
   return {
@@ -147,37 +154,55 @@ function scalarValue(
   return unavailableLabel;
 }
 
-function formatDate(date: string, locale: string): string {
-  return new Intl.DateTimeFormat(locale, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    timeZone: "Asia/Taipei",
-  }).format(new Date(date));
-}
-
 export function CorrectionsQueue({
   corrections,
   reviewAction,
+  bulkReviewAction,
 }: {
   corrections: CorrectionQueueItem[];
   reviewAction?: ReviewAction;
+  bulkReviewAction?: BulkReviewAction;
 }) {
   const t = useTranslations("admin.corrections");
+  const queueT = useTranslations("admin.queue");
   const locale = useLocale();
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [reviewerNotes, setReviewerNotes] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const queueAction = useQueueAction();
 
-  function handleRowClick(id: string) {
-    setExpandedId((current) => (current === id ? null : id));
-    setReviewerNotes("");
-    setError(null);
-  }
+  const filters = useMemo<ReviewFilter<CorrectionQueueItem>[]>(
+    () => [
+      {
+        id: "search",
+        kind: "search",
+        label: queueT("search"),
+        placeholder: queueT("searchPlaceholder"),
+        predicate: (item, value) => {
+          const query =
+            typeof value === "string" ? value.trim().toLocaleLowerCase() : "";
+          if (!query) return true;
+
+          return [
+            item.brandName ?? "",
+            t(`fields.${item.field}`),
+          ].some((candidate) =>
+            candidate.toLocaleLowerCase().includes(query),
+          );
+        },
+      },
+    ],
+    [queueT, t],
+  );
+
+  const queue = useReviewQueue({
+    items: corrections,
+    getId: (item) => item.id,
+    filters,
+    // The page pre-filters to pending and the projection carries no status
+    // field, so every projected row is selectable.
+    isSelectable: () => true,
+  });
 
   function renderCurrentValue(item: CorrectionQueueItem): ReactNode {
-    const value = currentValue(item);
+    const value = item.currentValue;
     if (item.field === "product_tags") {
       return tagBadges(stringArray(value), t("notAvailable"));
     }
@@ -234,146 +259,218 @@ export function CorrectionsQueue({
     );
   }
 
-  function handleReview(
+  function getRowName(item: CorrectionQueueItem): string {
+    return item.brandName ?? t("unknownBrand");
+  }
+
+  const columns: ReviewColumn<CorrectionQueueItem>[] = [
+    {
+      id: "brand",
+      header: t("table.brand"),
+      cell: (item) => getRowName(item),
+      cellClassName: "font-medium",
+    },
+    {
+      id: "field",
+      header: t("table.field"),
+      cell: (item) => t(`fields.${item.field}`),
+    },
+    {
+      id: "current",
+      header: t("table.current"),
+      cell: renderCurrentValue,
+    },
+    {
+      id: "proposed",
+      header: t("table.proposed"),
+      cell: (item) => {
+        const delta = tagDeltaState(item);
+
+        return (
+          <div className="space-y-2">
+            {renderProposedValue(item)}
+            <div className="flex flex-wrap gap-2">
+              {item.stale && <Badge variant="secondary">{t("stale")}</Badge>}
+              {delta?.exceedsCap && (
+                <Badge variant="secondary">{t("tooManyTags")}</Badge>
+              )}
+            </div>
+          </div>
+        );
+      },
+      cellClassName: "min-w-64 whitespace-normal",
+    },
+    {
+      id: "date",
+      header: t("table.date"),
+      cell: (item) => formatReviewDate(item.createdAt),
+    },
+  ];
+
+  function runSingle(
     item: CorrectionQueueItem,
     decision: CorrectionDecision,
+    notes: string,
   ) {
-    const notes = reviewerNotes.trim();
-
-    startTransition(async () => {
-      setError(null);
-      try {
-        const result = await reviewAction?.(item.id, decision, notes);
-        if (result?.error) {
-          setError(t("errors.generic"));
-          return;
+    const ids = [item.id];
+    void queueAction.run(
+      ids,
+      async () => {
+        try {
+          const result = await reviewAction?.(item.id, decision, notes);
+          return result?.error ? { error: t("errors.generic") } : undefined;
+        } catch {
+          return { error: t("errors.generic") };
         }
-        setReviewerNotes("");
-      } catch {
-        setError(t("errors.generic"));
-      }
-    });
+      },
+      {
+        onResult: (result) => {
+          if (result.ok) queue.setOpenId(null);
+        },
+      },
+    );
   }
 
-  if (corrections.length === 0) {
-    return <p className="type-empty-body mt-4">{t("empty")}</p>;
+  function runBulk(items: CorrectionQueueItem[], decision: CorrectionDecision) {
+    const ids = items.map((item) => item.id);
+    queueAction.runBulk(
+      ids,
+      async () => {
+        try {
+          const result = await bulkReviewAction?.(ids, decision, "");
+          if (!result) return undefined;
+          if ("error" in result || result.failures.length > 0) {
+            return { error: t("errors.generic") };
+          }
+          return undefined;
+        } catch {
+          return { error: t("errors.generic") };
+        }
+      },
+      {
+        onResult: (result) => {
+          if (result.ok) queue.clearSelection();
+        },
+      },
+    );
   }
+
+  function openItem(item: CorrectionQueueItem) {
+    queueAction.clearError();
+    queue.toggleOpen(item.id);
+  }
+
+  const bulkActions: ReviewBulkAction<CorrectionQueueItem>[] = [
+    {
+      id: "approve",
+      label: (count) => t("bulkApprove", { count }),
+      eligible: (item) => !tagDeltaState(item)?.exceedsCap,
+      pending: queueAction.isPending,
+      onRun: (items) => runBulk(items, "approved"),
+    },
+    {
+      id: "reject",
+      label: (count) => t("bulkReject", { count }),
+      variant: "secondary",
+      pending: queueAction.isPending,
+      onRun: (items) => runBulk(items, "rejected"),
+    },
+  ];
+
+  const openItemValue =
+    corrections.find((item) => item.id === queue.openId) ?? null;
 
   return (
-    <div className="mt-4 overflow-hidden rounded-lg border border-border bg-card">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{t("table.brand")}</TableHead>
-            <TableHead>{t("table.field")}</TableHead>
-            <TableHead>{t("table.current")}</TableHead>
-            <TableHead>{t("table.proposed")}</TableHead>
-            <TableHead>{t("table.date")}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {corrections.map((item) => {
-            const delta = tagDeltaState(item);
-            const expanded = expandedId === item.id;
+    <div className="space-y-4">
+      <ReviewQueueToolbar queue={queue} />
 
-            return (
-              <Fragment key={item.id}>
-                <TableRow
-                  aria-expanded={expanded}
-                  className="cursor-pointer hover:bg-secondary"
-                  onClick={() => handleRowClick(item.id)}
-                >
-                  <TableCell className="font-medium">
-                    {item.brandName ?? t("unknownBrand")}
-                  </TableCell>
-                  <TableCell>{t(`fields.${item.field}`)}</TableCell>
-                  <TableCell>{renderCurrentValue(item)}</TableCell>
-                  <TableCell className="min-w-64 whitespace-normal">
-                    <div className="space-y-2">
-                      {renderProposedValue(item)}
-                      <div className="flex flex-wrap gap-2">
-                        {item.stale && (
-                          <Badge variant="secondary">{t("stale")}</Badge>
-                        )}
-                        {delta?.exceedsCap && (
-                          <Badge variant="secondary">{t("tooManyTags")}</Badge>
-                        )}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>{formatDate(item.createdAt, locale)}</TableCell>
-                </TableRow>
+      <ReviewQueueTable
+        queue={queue}
+        columns={columns}
+        emptyMessage={t("empty")}
+        getRowName={getRowName}
+        selectAllLabel={queueT("selectAll")}
+        bulkActions={bulkActions}
+        onRowActivate={openItem}
+        // The shell hands the ITEM to this predicate; the action hook tracks ids.
+        isRowPending={(item) => queueAction.isRowPending(item.id)}
+        // The drawer's decision panel already renders the action error while it
+        // is open; surfacing it here too would emit two role="alert" nodes.
+        error={openItemValue === null ? queueAction.error : null}
+        disclosureControlsId={(item) => `correction-details-${item.id}`}
+        disclosureLabel={(item, expanded) =>
+          queueT(expanded ? "hideDetails" : "showDetails", {
+            name: getRowName(item),
+          })
+        }
+      />
 
-                {expanded && (
-                  <TableRow>
-                    <TableCell
-                      colSpan={5}
-                      className="whitespace-normal bg-secondary p-6"
-                    >
-                      <div className="space-y-5">
-                        <dl className="grid gap-4 sm:grid-cols-2">
-                          <div>
-                            <dt className="type-metadata">
-                              {t("table.current")}
-                            </dt>
-                            <dd className="mt-1">{renderCurrentValue(item)}</dd>
-                          </div>
-                          <div>
-                            <dt className="type-metadata">
-                              {t("table.proposed")}
-                            </dt>
-                            <dd className="mt-1">
-                              {renderProposedValue(item)}
-                            </dd>
-                          </div>
-                        </dl>
+      <ReviewQueuePagination queue={queue} />
 
-                        {error && (
-                          <p className="type-error" role="alert">
-                            {error}
-                          </p>
-                        )}
+      <ReviewQueueDrawer
+        item={openItemValue}
+        open={openItemValue !== null}
+        onClose={() => queue.setOpenId(null)}
+        title={(item) => getRowName(item)}
+        metadata={(item) => (
+          <p className="type-metadata">
+            {t(`fields.${item.field}`)} · {formatReviewDate(item.createdAt)}
+          </p>
+        )}
+        bodyId={(item) => `correction-details-${item.id}`}
+        footer={(item) => (
+          <div className="pt-5">
+            <ReviewDecisionPanel
+              onApprove={(notes) => runSingle(item, "approved", notes)}
+              onReject={(notes) => runSingle(item, "rejected", notes)}
+              approveLabel={t("actions.approve")}
+              rejectLabel={t("actions.reject")}
+              notesPolicy="optional"
+              notesLabel={t("reviewerNotes")}
+              notesPlaceholder={t("reviewerNotesPlaceholder")}
+              // `blocker` is deliberately NOT passed: the cap message is stated
+              // contextually in the body, right under the projected tag list,
+              // so repeating it down here would duplicate it.
+              eligible={!tagDeltaState(item)?.exceedsCap}
+              isPending={queueAction.isRowPending(item.id)}
+              error={queueAction.error}
+            />
+          </div>
+        )}
+      >
+        {(item) => {
+          const delta = tagDeltaState(item);
+          const exceedsCap = delta?.exceedsCap ?? false;
 
-                        <div
-                          className="max-w-xl space-y-3"
-                          onClick={(event) => event.stopPropagation()}
-                        >
-                          <Textarea
-                            aria-label={t("reviewerNotes")}
-                            placeholder={t("reviewerNotesPlaceholder")}
-                            value={reviewerNotes}
-                            onChange={(event) => {
-                              setReviewerNotes(event.target.value);
-                              setError(null);
-                            }}
-                            disabled={isPending}
-                          />
-
-                          <div className="flex flex-wrap gap-3">
-                            <Button
-                              onClick={() => handleReview(item, "approved")}
-                              disabled={isPending || Boolean(delta?.exceedsCap)}
-                            >
-                              {t("actions.approve")}
-                            </Button>
-                            <Button
-                              variant="secondary"
-                              onClick={() => handleReview(item, "rejected")}
-                              disabled={isPending}
-                            >
-                              {t("actions.reject")}
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </Fragment>
-            );
-          })}
-        </TableBody>
-      </Table>
+          return (
+            <div className="space-y-6">
+              <dl className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <dt className="type-metadata">{t("table.current")}</dt>
+                  <dd className="mt-1">{renderCurrentValue(item)}</dd>
+                </div>
+                <div>
+                  <dt className="type-metadata">{t("table.proposed")}</dt>
+                  <dd className="mt-1 space-y-2">
+                    {renderProposedValue(item)}
+                    {/* Stated contextually, right under the projected result —
+                        the footer panel is deliberately given `eligible` only,
+                        so this message is never duplicated down there. */}
+                    {exceedsCap && delta ? (
+                      <p className="type-error" role="alert">
+                        {t("capBlocker", {
+                          projected: delta.projectedTags.length,
+                          limit: MAX_PRODUCT_TAGS,
+                        })}
+                      </p>
+                    ) : null}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+          );
+        }}
+      </ReviewQueueDrawer>
     </div>
   );
 }

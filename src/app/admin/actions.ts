@@ -39,6 +39,8 @@ import {
   updateModerationFlagStatus,
 } from '@/lib/services/moderation'
 import { sendEmail } from '@/lib/email/send'
+import type { EmailSendResult } from '@/lib/email/types'
+import { validateIdBatch } from '@/lib/validation/id-batch'
 import {
   buildApprovalEmail,
   buildRejectionEmail,
@@ -50,9 +52,26 @@ import {
 import { createEmailPreferences } from '@/lib/services/email-lifecycle'
 import { generateClaimToken } from '@/lib/auth/claim-token'
 import { updateReportStatus } from '@/lib/services/reports'
+import {
+  reviewCorrections,
+  validateCorrectionBatch,
+  type CorrectionBatchFailure,
+  type CorrectionDecision,
+} from '@/lib/services/brand-corrections'
+import {
+  reviewEvidenceBatch,
+  validateEvidenceBatch,
+  type EvidenceBatchFailure,
+  type OriginEvidenceDecision,
+} from '@/lib/services/origin-evidence'
 import { adminRemoveChannel } from '@/lib/services/brand-channels'
 import { FEATURE_FLAGS, setAppSetting } from '@/lib/services/app-settings'
-import { DENIAL_REASONS, type DenialReason, type OtherUrl } from '@/lib/types'
+import {
+  DENIAL_REASONS,
+  type BrandSubmission,
+  type DenialReason,
+  type OtherUrl,
+} from '@/lib/types'
 import { getSiteUrl } from '@/lib/site-url'
 import { getPostHogClient } from '@/lib/posthog-server'
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events'
@@ -107,7 +126,23 @@ type ApprovalOutcome =
   | { ok: true; submissionId: string; result: ApprovalResult }
   | { ok: false; submissionId: string; error: string }
 
+type RejectionFailure = {
+  submissionId: string
+  error: string
+}
+
+type RejectionOutcome =
+  | { ok: true; submissionId: string }
+  | { ok: false; submissionId: string; error: string }
+
 const MAX_BULK_APPROVALS = 100
+const MAX_BULK_REJECTIONS = 100
+const MAX_REJECTION_ID_LENGTH = 64
+const INVALID_REJECTION_BATCH_ERROR = 'Invalid bulk rejection selection'
+
+// The rejection row is already committed by the time the notification runs, so
+// this bounds a hung email provider instead of the decision itself.
+const REJECTION_EMAIL_TIMEOUT_MS = 10_000
 
 // Bulk approval processes every submission concurrently, and the whole
 // action only responds once every item has settled. One submission that
@@ -117,10 +152,13 @@ const MAX_BULK_APPROVALS = 100
 // response never waits on the single slowest one.
 const APPROVAL_ITEM_TIMEOUT_MS = 20_000
 
-function withApprovalTimeout<T>(promise: Promise<T>): Promise<T> {
+function withApprovalTimeout<T>(
+  promise: Promise<T>,
+  message = 'Approval is taking longer than expected — check back shortly'
+): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
-      reject(new Error('Approval is taking longer than expected — check back shortly'))
+      reject(new Error(message))
     }, APPROVAL_ITEM_TIMEOUT_MS)
     promise.then(
       (value) => {
@@ -396,6 +434,81 @@ export async function approveSubmissionsAction(
   });
 }
 
+export async function reviewCorrectionsAction(
+  correctionIds: string[],
+  decision: CorrectionDecision,
+  notes: string
+): Promise<{ failures: CorrectionBatchFailure[] } | { error: string }> {
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction()
+      if ('error' in auth) return auth
+
+      const validated = validateCorrectionBatch(correctionIds)
+      if (!validated.ok) return { error: validated.error }
+
+      if (decision !== 'approved' && decision !== 'rejected') {
+        return { error: 'Invalid correction decision' }
+      }
+
+      const result = await reviewCorrections(
+        validated.ids,
+        decision,
+        notes,
+        { reviewerId: auth.user.id }
+      )
+      if ('error' in result) return result
+
+      // The admin navigation badge reads the pending correction count too.
+      revalidatePath('/admin/corrections')
+      revalidatePath('/admin')
+      return result
+    } catch (err) {
+      console.error('[admin:reviewCorrections]', err)
+      return {
+        error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      }
+    }
+  })
+}
+
+export async function reviewEvidenceBatchAction(
+  evidenceIds: string[],
+  decision: OriginEvidenceDecision,
+  notes: string,
+): Promise<{ failures: EvidenceBatchFailure[] } | { error: string }> {
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction()
+      if ('error' in auth) return auth
+
+      const validated = validateEvidenceBatch(evidenceIds)
+      if (!validated.ok) return { error: validated.error }
+
+      if (decision !== 'approved' && decision !== 'rejected') {
+        return { error: 'Invalid evidence decision' }
+      }
+
+      const result = await reviewEvidenceBatch(
+        validated.ids,
+        decision,
+        notes,
+        { reviewerId: auth.user.id }
+      )
+      if ('error' in result) return result
+
+      revalidatePath('/admin/evidence')
+      revalidatePath('/admin')
+      return result
+    } catch (err) {
+      console.error('[admin:reviewEvidenceBatch]', err)
+      return {
+        error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      }
+    }
+  })
+}
+
 export async function requestBrandRefreshAction(
   brandId: string
 ): Promise<{ submissionId: string } | { error: string }> {
@@ -427,6 +540,107 @@ export async function requestBrandRefreshAction(
   });
 }
 
+/**
+ * The committing half of a rejection: read the submission, then write the
+ * decision. Split from the notification on purpose — this is the only part
+ * whose failure means "the rejection did not happen", so it is the only part
+ * a timeout may report as a failed item.
+ */
+async function commitSubmissionRejection(
+  submissionId: string,
+  reviewerId: string,
+  denialReason: DenialReason,
+  notes: string
+): Promise<BrandSubmission> {
+  const submission = await getSubmission(submissionId)
+  await rejectSubmission(submissionId, reviewerId, denialReason, notes)
+  return submission
+}
+
+/**
+ * The notification half. `sendEmail` NEVER throws — it catches internally and
+ * returns `{ success: false, error }` — so a discarded return value silently
+ * drops the submitter's notification while the caller reports success. Mirrors
+ * the explicit result check in `@/lib/services/origin-evidence`.
+ *
+ * Never throws and never reports a failure upward: the row is already
+ * committed, and turning an undelivered email into a "rejection failed" row
+ * makes the admin retry an id that `reject_submission` will then reject with
+ * P0002 `Submission not found`.
+ */
+async function notifySubmissionRejected(
+  submission: BrandSubmission,
+  denialReason: DenialReason,
+  notes: string
+): Promise<void> {
+  if (
+    submission.intent === 'refresh' ||
+    isGeneratedGuestSubmissionEmail(submission.submitterEmail)
+  ) {
+    return
+  }
+
+  try {
+    const send = async () =>
+      sendEmail(await buildRejectionEmail({
+        submitterEmail: submission.submitterEmail,
+        brandName: submission.brandName,
+        denialReason,
+        reviewerNotes: notes,
+      }))
+    // Bounded so a hung provider cannot hold the bulk response open once every
+    // row is already committed. A dropped notification beats a stuck queue.
+    const sendResult = await Promise.race([
+      send(),
+      new Promise<EmailSendResult>((resolve) =>
+        setTimeout(
+          () => resolve({ success: false, error: 'rejection email timed out' }),
+          REJECTION_EMAIL_TIMEOUT_MS
+        ).unref?.()
+      ),
+    ])
+    if (!sendResult.success) {
+      console.error('[admin:rejectSubmission] rejection email not sent:', {
+        submissionId: submission.id,
+        error: sendResult.error,
+      })
+    }
+  } catch (err) {
+    console.error('[admin:rejectSubmission] rejection email threw:', {
+      submissionId: submission.id,
+      error: err,
+    })
+  }
+}
+
+/**
+ * The single item workflow behind both the per-row and the bulk rejection
+ * action, so single and bulk behavior cannot drift.
+ * `scripts/reject-skipped-submissions.ts` mirrors this by comment, not by
+ * import — it deliberately omits the notification email.
+ */
+async function rejectSubmissionForAdmin(
+  submissionId: string,
+  reviewerId: string,
+  denialReason: DenialReason,
+  notes: string
+): Promise<void> {
+  const submission = await commitSubmissionRejection(
+    submissionId,
+    reviewerId,
+    denialReason,
+    notes
+  )
+  await notifySubmissionRejected(submission, denialReason, notes)
+}
+
+function revalidateRejections(): void {
+  revalidatePath('/admin/submissions')
+  // getAdminNavCounts() drives the nav badges, so the dashboard shell has to be
+  // revalidated alongside the queue page itself.
+  revalidatePath('/admin')
+}
+
 export async function rejectSubmissionAction(
   submissionId: string,
   denialReason: DenialReason,
@@ -445,26 +659,113 @@ export async function rejectSubmissionAction(
         return { error: 'Notes are required when using "Other" reason' }
       }
 
-      const submission = await getSubmission(submissionId)
-      await rejectSubmission(submissionId, auth.user.id, denialReason, notes)
+      await rejectSubmissionForAdmin(
+        submissionId,
+        auth.user.id,
+        denialReason,
+        notes
+      )
 
-      if (
-        submission.intent !== 'refresh' &&
-        !isGeneratedGuestSubmissionEmail(submission.submitterEmail)
-      ) {
-        await sendEmail(await buildRejectionEmail({
-          submitterEmail: submission.submitterEmail,
-          brandName: submission.brandName,
-          denialReason,
-          reviewerNotes: notes,
-        }))
-      }
-
-      revalidatePath('/admin/submissions')
-      revalidatePath('/admin')
+      revalidateRejections()
       return undefined
     } catch (err) {
       console.error('[admin:rejectSubmission]', err)
+      return {
+        error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      }
+    }
+  });
+}
+
+/**
+ * One bulk Server Action per intent (docs/patterns/bulk-server-action-dispatch.md).
+ * Next.js 16 serializes Server Actions dispatched from one client, so the
+ * previous `Promise.all` over the per-item action was a client-to-server
+ * waterfall that got slower in proportion to the selection.
+ *
+ * Concurrency: rejection has NO shared write set. `reject_submission` locks the
+ * one `brand_submissions` row it rejects, deletes only that submission's own
+ * `submission_images`, and never touches `brands`. Two rejections of two
+ * submissions for the same brand therefore cannot contend — unlike
+ * `reviewCorrections`, which has to group per `brand_id` because it writes
+ * through to `brands`. Flat concurrency is safe here for the same reason it is
+ * in `reviewEvidenceBatch`.
+ */
+export async function rejectSubmissionsAction(
+  submissionIds: string[],
+  denialReason: DenialReason
+): Promise<{ failures: RejectionFailure[] } | { error: string }> {
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction()
+      if ('error' in auth) return auth
+      const validated = validateIdBatch(submissionIds, {
+        max: MAX_BULK_REJECTIONS,
+        maxIdLength: MAX_REJECTION_ID_LENGTH,
+        errorMessage: INVALID_REJECTION_BATCH_ERROR,
+      })
+      if (!validated.ok) return { error: validated.error }
+      const ids = validated.ids
+
+      if (!DENIAL_REASONS.includes(denialReason)) {
+        return { error: 'Invalid denial reason' }
+      }
+
+      // The bulk flow carries one reason for the whole selection and no notes,
+      // so "Other" — which requires per-submission notes — is not offered.
+      if (denialReason === 'other') {
+        return { error: 'Notes are required when using "Other" reason' }
+      }
+
+      const outcomes = await Promise.all(
+        ids.map(async (submissionId): Promise<RejectionOutcome> => {
+          try {
+            // The timeout bounds the COMMIT only. Wrapping the notification too
+            // meant a slow email reported an already-committed rejection as a
+            // failure; the admin then retried the id and `reject_submission`
+            // raised P0002 `Submission not found`.
+            const submission = await withApprovalTimeout(
+              commitSubmissionRejection(
+                submissionId,
+                auth.user.id,
+                denialReason,
+                ''
+              ),
+              'Rejection is taking longer than expected — check back shortly'
+            )
+            // Past this point the row is committed, so notification problems are
+            // logged inside the helper and never fail the item.
+            await notifySubmissionRejected(submission, denialReason, '')
+            return { ok: true, submissionId }
+          } catch (err) {
+            console.error('[admin:rejectSubmissions]', { submissionId, error: err })
+            return {
+              ok: false,
+              submissionId,
+              error:
+                err instanceof Error ? err.message : 'An unexpected error occurred',
+            }
+          }
+        })
+      )
+
+      if (outcomes.some((outcome) => outcome.ok)) {
+        try {
+          revalidateRejections()
+        } catch (err) {
+          console.error('[admin:rejectSubmissions] revalidate failed:', err)
+        }
+      }
+
+      return {
+        failures: outcomes.flatMap((outcome) =>
+          outcome.ok
+            ? []
+            : [{ submissionId: outcome.submissionId, error: outcome.error }]
+        ),
+      }
+    } catch (err) {
+      console.error('[admin:rejectSubmissions]', err)
       return {
         error: err instanceof Error ? err.message : 'An unexpected error occurred',
       }
@@ -806,14 +1107,23 @@ export async function adminRemoveChannelAction(
 
 export async function reviewReportAction(
   reportId: string,
-  decision: 'reviewed' | 'dismissed'
+  decision: 'reviewed' | 'dismissed',
+  notes?: string,
 ): Promise<{ error: string } | undefined> {
   return runWithAuditContext({}, async () => {
     try {
       const auth = await requireAdminAction()
       if ('error' in auth) return auth
 
-      await updateReportStatus(reportId, decision)
+      if (decision !== 'reviewed' && decision !== 'dismissed') {
+        return { error: 'Invalid report decision' }
+      }
+
+      const result = await updateReportStatus(reportId, decision, {
+        reviewerId: auth.user.id,
+        ...(notes !== undefined ? { notes } : {}),
+      })
+      if (!result.ok) return { error: result.code }
 
       revalidatePath('/admin/reports')
       revalidatePath('/admin')
@@ -843,27 +1153,21 @@ export async function reviewModerationFlagAction(
         return { error: 'Invalid moderation decision' }
       }
 
-      await updateModerationFlagStatus(flagId, decision)
+      const result = await updateModerationFlagStatus(flagId, decision, {
+        reviewerId: auth.user.id,
+      })
+      // A stable code, never a raw thrown message: the moderation UI renders
+      // this string verbatim, so an internal diagnostic here reaches the admin
+      // untranslated. Matches `reviewReportAction` returning `result.code`.
+      if (!result.ok) return { error: result.code }
 
       revalidatePath('/admin/moderation')
       revalidatePath('/admin')
       return undefined
     } catch (err) {
       console.error('[admin:reviewModerationFlag]', err)
-      return {
-        error: err instanceof Error ? err.message : 'An unexpected error occurred',
-      }
+      return { error: 'database_error' }
     }
-  });
-}
-
-export async function reviewModerationFlagFormAction(
-  flagId: string,
-  decision: 'reviewed' | 'dismissed',
-): Promise<void> {
-  return runWithAuditContext({}, async () => {
-    const result = await reviewModerationFlagAction(flagId, decision)
-    if (result?.error) throw new Error(result.error)
   });
 }
 

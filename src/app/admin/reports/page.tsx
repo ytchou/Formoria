@@ -1,24 +1,36 @@
-import type { Metadata } from 'next'
-import { ReportsTable } from '@/components/admin/reports-table'
-import { getPendingReports } from '@/lib/services/reports'
+import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 
-export const metadata: Metadata = { title: 'Brand Reports | Admin' }
+import { reviewReportAction, revokeOwnershipAction } from "@/app/admin/actions";
+import { ReportsTable } from "@/components/admin/reports-table";
+import { getPendingReports } from "@/lib/services/reports";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("admin.reports");
+
+  return { title: t("title") };
+}
 
 export default async function AdminReportsPage() {
-  let reports: Awaited<ReturnType<typeof getPendingReports>> = []
+  const t = await getTranslations("admin.reports");
+  let reports: Awaited<ReturnType<typeof getPendingReports>> = [];
   try {
-    reports = await getPendingReports()
+    reports = await getPendingReports();
   } catch (err) {
-    console.error('[admin:reports]', err)
+    console.error("[admin:reports]", err);
   }
 
   return (
     <div>
       <div className="mb-6">
         <h1 className="type-section-title-large">Brand Reports</h1>
-        <p className="mt-1 type-body-muted">Review brand issues reported by the community</p>
+        <p className="mt-1 type-body-muted">{t("description")}</p>
       </div>
-      <ReportsTable reports={reports} />
+      <ReportsTable
+        reports={reports}
+        reviewAction={reviewReportAction}
+        revokeAction={revokeOwnershipAction}
+      />
     </div>
-  )
+  );
 }
