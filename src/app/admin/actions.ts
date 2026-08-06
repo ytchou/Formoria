@@ -939,7 +939,7 @@ export async function reviewModerationFlagAction(
         return { error: 'Invalid moderation decision' }
       }
 
-      await updateModerationFlagStatus(flagId, decision)
+      await updateModerationFlagStatus(flagId, decision, { reviewerId: auth.user.id })
 
       revalidatePath('/admin/moderation')
       revalidatePath('/admin')
@@ -950,16 +950,6 @@ export async function reviewModerationFlagAction(
         error: err instanceof Error ? err.message : 'An unexpected error occurred',
       }
     }
-  });
-}
-
-export async function reviewModerationFlagFormAction(
-  flagId: string,
-  decision: 'reviewed' | 'dismissed',
-): Promise<void> {
-  return runWithAuditContext({}, async () => {
-    const result = await reviewModerationFlagAction(flagId, decision)
-    if (result?.error) throw new Error(result.error)
   });
 }
 

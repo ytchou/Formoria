@@ -2391,6 +2391,9 @@
       "markReviewed": "Mark reviewed",
       "dismiss": "Dismiss",
       "noBlockedContent": "No blocked content is waiting for review.",
+      "errors": {
+        "generic": "Something went wrong. Please try again."
+      },
       "rules": {
         "suspicious_tld": "Suspicious domain",
         "excessive_urls": "Too many links",
@@ -2544,6 +2547,30 @@
       }
     },
     "claimRequests": {
+      "tabs": {
+        "all": "All",
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected"
+      },
+      "table": {
+        "brand": "Brand",
+        "requester": "Requester",
+        "proof": "Proof",
+        "date": "Date",
+        "status": "Status"
+      },
+      "actions": {
+        "approve": "Approve",
+        "reject": "Reject",
+        "confirmReject": "Confirm reject"
+      },
+      "reviewerNotes": "Reviewer notes",
+      "proofEvidence": "Proof evidence",
+      "noProofEvidence": "No proof evidence provided.",
+      "unknownBrand": "Unknown brand",
+      "unknownRequester": "Unknown",
+      "empty": "No claim requests found.",
       "adminProofLabel": "Ownership proof",
       "mitCertApprovalLabel": "MIT cert — approval also attempts MIT verification",
       "mitRegistryCompanyLabel": "Registry company",
@@ -2574,6 +2601,7 @@
         "businessDoc": "Business registration document"
       },
       "rejectReasons": {
+        "label": "Common rejection reason",
         "placeholder": "Pick a common reason…",
         "insufficientProof": "The proof provided is insufficient to confirm you operate this brand.",
         "proofMismatch": "The proof provided does not match this brand.",
@@ -2583,6 +2611,12 @@
         "docMismatch": "The business registration document does not match the brand or is illegible.",
         "proofInauthentic": "The proof provided appears to have been edited or is not authentic.",
         "needMoreEvidence": "The current proof is insufficient; please resubmit with additional supporting evidence."
+      },
+      "rejectNotesLabel": "Rejection notes",
+      "rejectNotesPlaceholder": "Why are you rejecting this claim?",
+      "errors": {
+        "rejectNotesRequired": "Rejection notes are required.",
+        "generic": "Something went wrong. Please try again."
       }
     },
     "submissions": {

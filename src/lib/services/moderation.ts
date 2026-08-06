@@ -378,22 +378,48 @@ export async function markFlagsReviewed(brandId: string): Promise<void> {
   );
 }
 
+/**
+ * Injectable claim seam, mirroring `updateReportStatus` in `./reports`. Tests may
+ * not mock `@/lib/services/*` (scripts/check-test-boundaries.mjs), so the write
+ * is reachable only through this parameter.
+ */
+export type UpdateModerationFlagStatusDeps = {
+  claim: (
+    flagId: string,
+    update: Record<string, unknown>,
+  ) => Promise<{ data: { id: string } | null; error: unknown }>;
+};
+
+export const defaultUpdateModerationFlagStatusDeps: UpdateModerationFlagStatusDeps = {
+  async claim(flagId, update) {
+    const supabase = createModerationClient();
+    const { data, error } = await supabase
+      .from("moderation_flags")
+      .update(update as ModerationFlagUpdate)
+      .eq("id", flagId)
+      // The pending guard keeps a re-decided flag from silently overwriting a
+      // settled review.
+      .eq("status", "pending")
+      .select("id")
+      .maybeSingle();
+
+    return { data, error };
+  },
+};
+
 export async function updateModerationFlagStatus(
   flagId: string,
   decision: ReviewDecision,
   attribution?: ReviewAttribution,
+  deps: UpdateModerationFlagStatusDeps = defaultUpdateModerationFlagStatusDeps,
 ): Promise<void> {
   return auditedCall(
     { provider: "submissions", operation: "updateModerationFlagStatus", kind: "service" },
     async () => {
-  const supabase = createModerationClient();
-  const { data, error } = await supabase
-    .from("moderation_flags")
-    .update(buildReviewUpdate(decision, attribution) as ModerationFlagUpdate)
-    .eq("id", flagId)
-    .eq("status", "pending")
-    .select("id")
-    .maybeSingle();
+  const { data, error } = await deps.claim(
+    flagId,
+    buildReviewUpdate(decision, attribution),
+  );
 
   if (error) throw error;
   if (!data) throw new Error("Moderation flag is no longer pending");
