@@ -11,6 +11,10 @@ import type {
 } from "./types";
 
 const DEFAULT_PAGE_SIZE = 10;
+// Module-level so the `?? ` fallbacks below keep a stable identity across
+// renders instead of minting a fresh array/function each time.
+const EMPTY_LIST: never[] = [];
+const NEVER_SELECTABLE = () => false;
 
 export function useReviewQueue<T>(opts: {
   items: T[];
@@ -42,10 +46,23 @@ export function useReviewQueue<T>(opts: {
   /** Fired inside `resetView` (and therefore on tab, filter, and page-size changes). */
   onViewReset?: () => void;
 }): ReviewQueueState<T> {
-  const tabs = opts.tabs ?? [];
-  const filters = opts.filters ?? [];
-  const selectionEnabled = opts.isSelectable !== undefined;
-  const selectablePredicate = opts.isSelectable ?? (() => false);
+  // Destructured so react-hooks/exhaustive-deps can track these as plain
+  // identifiers; it cannot follow member expressions on a parameter, and the
+  // `?? []` fallbacks would otherwise mint a new identity on every render.
+  const { items, getId, releaseHidden, isSelectable } = opts;
+  const tabs = useMemo(
+    () => opts.tabs ?? (EMPTY_LIST as ReviewTab<T>[]),
+    [opts.tabs],
+  );
+  const filters = useMemo(
+    () => opts.filters ?? (EMPTY_LIST as ReviewFilter<T>[]),
+    [opts.filters],
+  );
+  const selectionEnabled = isSelectable !== undefined;
+  const selectablePredicate = useMemo(
+    () => isSelectable ?? NEVER_SELECTABLE,
+    [isSelectable],
+  );
 
   const [activeTab, setActiveTabState] = useState(
     () => opts.initialTab ?? tabs[0]?.value ?? "",
@@ -111,24 +128,23 @@ export function useReviewQueue<T>(opts: {
   // The latch releases itself, derived from the incoming `items` on every
   // render. `hiddenIds` therefore reports only ids that are STILL suppressed —
   // an id whose item has caught up server-side has already dropped out.
-  const releaseHidden = opts.releaseHidden;
   const hiddenIds = useMemo(() => {
     if (hiddenLatch.size === 0) return hiddenLatch;
     if (releaseHidden === undefined) return hiddenLatch;
 
     const released = new Set<string>();
-    for (const item of opts.items) {
-      const id = opts.getId(item);
+    for (const item of items) {
+      const id = getId(item);
       if (hiddenLatch.has(id) && releaseHidden(item)) released.add(id);
     }
     if (released.size === 0) return hiddenLatch;
 
     return new Set([...hiddenLatch].filter((id) => !released.has(id)));
-  }, [hiddenLatch, opts.getId, opts.items, releaseHidden]);
+  }, [hiddenLatch, getId, items, releaseHidden]);
 
   const postHidden = useMemo(
-    () => opts.items.filter((item) => !hiddenIds.has(opts.getId(item))),
-    [hiddenIds, opts.getId, opts.items],
+    () => items.filter((item) => !hiddenIds.has(getId(item))),
+    [hiddenIds, getId, items],
   );
 
   const tabCounts = useMemo(
@@ -187,9 +203,9 @@ export function useReviewQueue<T>(opts: {
   const selectedVisible = useMemo(
     () =>
       selectableVisible.filter((item) =>
-        selectedIds.has(opts.getId(item)),
+        selectedIds.has(getId(item)),
       ),
-    [opts.getId, selectableVisible, selectedIds],
+    [getId, selectableVisible, selectedIds],
   );
   const allSelected =
     selectableVisible.length > 0 &&
@@ -198,7 +214,7 @@ export function useReviewQueue<T>(opts: {
 
   const toggleSelection = useCallback(
     (id: string) => {
-      if (!selectableVisible.some((item) => opts.getId(item) === id)) return;
+      if (!selectableVisible.some((item) => getId(item) === id)) return;
 
       setSelectedIds((current) => {
         const next = new Set(current);
@@ -207,11 +223,11 @@ export function useReviewQueue<T>(opts: {
         return next;
       });
     },
-    [opts.getId, selectableVisible],
+    [getId, selectableVisible],
   );
 
   const toggleSelectAll = useCallback(() => {
-    const visibleIds = selectableVisible.map((item) => opts.getId(item));
+    const visibleIds = selectableVisible.map((item) => getId(item));
 
     setSelectedIds((current) => {
       const next = new Set(current);
@@ -226,7 +242,7 @@ export function useReviewQueue<T>(opts: {
 
       return next;
     });
-  }, [opts.getId, selectableVisible]);
+  }, [getId, selectableVisible]);
 
   const clearSelection = useCallback(() => {
     setSelectedIds(new Set());
@@ -253,8 +269,8 @@ export function useReviewQueue<T>(opts: {
   }, []);
 
   return {
-    items: opts.items,
-    getId: opts.getId,
+    items: items,
+    getId: getId,
     activeTab,
     setActiveTab,
     tabs,

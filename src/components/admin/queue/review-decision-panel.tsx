@@ -40,6 +40,7 @@ export function ReviewDecisionPanel(props: {
     extraActions,
   } = props;
   const notesId = useId();
+  const notesHintId = `${notesId}-hint`;
   const [notes, setNotes] = useState("");
 
   const notesBlank = notes.trim().length === 0;
@@ -49,6 +50,14 @@ export function ReviewDecisionPanel(props: {
     isPending ||
     (notesPolicy === "requiredOnReject" && notesBlank) ||
     (notesPolicy === "required" && notesBlank);
+  // A disabled control with no stated reason is a dead end for a screen reader.
+  // Name the blocker and point the button that it disables at it.
+  const notesRequiredHint =
+    notesBlank && notesPolicy === "required"
+      ? `${notesLabel} are required before deciding.`
+      : notesBlank && notesPolicy === "requiredOnReject"
+        ? `${notesLabel} are required to reject.`
+        : null;
 
   function submit(decision: ReviewDecision) {
     if (decision === "approve") onApprove(notes);
@@ -70,7 +79,15 @@ export function ReviewDecisionPanel(props: {
             aria-required={
               notesPolicy === "required" || notesPolicy === "requiredOnReject"
             }
+            aria-describedby={
+              notesRequiredHint === null ? undefined : notesHintId
+            }
           />
+          {notesRequiredHint === null ? null : (
+            <p className="type-metadata" id={notesHintId}>
+              {notesRequiredHint}
+            </p>
+          )}
         </div>
       ) : null}
 
@@ -87,6 +104,11 @@ export function ReviewDecisionPanel(props: {
             type="button"
             variant="primary"
             disabled={approveDisabled}
+            aria-describedby={
+              approveDisabled && notesPolicy === "required" && notesBlank
+                ? notesHintId
+                : undefined
+            }
             onClick={() => submit("approve")}
           >
             {approveLabel}
@@ -95,6 +117,11 @@ export function ReviewDecisionPanel(props: {
             type="button"
             variant="secondary"
             disabled={rejectDisabled}
+            aria-describedby={
+              rejectDisabled && notesRequiredHint !== null
+                ? notesHintId
+                : undefined
+            }
             onClick={() => submit("reject")}
           >
             {rejectLabel}

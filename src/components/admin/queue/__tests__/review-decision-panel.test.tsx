@@ -32,6 +32,23 @@ describe("ReviewDecisionPanel", () => {
     expect(onReject).not.toHaveBeenCalled();
   });
 
+  it("states why reject is disabled instead of leaving a dead control", () => {
+    renderPanel({ notesPolicy: "requiredOnReject" });
+
+    const reject = screen.getByRole("button", { name: "Reject" });
+    const hintId = reject.getAttribute("aria-describedby");
+    expect(hintId).not.toBeNull();
+    expect(document.getElementById(hintId as string)).toHaveTextContent(
+      "required to reject",
+    );
+
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "Not enough evidence" },
+    });
+    expect(reject).toBeEnabled();
+    expect(reject).not.toHaveAttribute("aria-describedby");
+  });
+
   it("allows approve with empty notes under requiredOnReject", () => {
     const { onApprove } = renderPanel({ notesPolicy: "requiredOnReject" });
 
