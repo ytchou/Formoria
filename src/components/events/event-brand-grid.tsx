@@ -4,25 +4,14 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { Search, SearchX } from 'lucide-react'
-import { BrandCard } from '@/components/brands/brand-card'
-import { MASONRY_ABOVE_FOLD, MasonryGrid } from '@/components/brands/masonry-grid'
-import { ViewItemListTracker } from '@/components/analytics/view-item-list-tracker'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { NativeSelect } from '@/components/ui/native-select'
 import { ToggleChip } from '@/components/ui/toggle-chip'
-import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
-import type {
-  EventAreaOption,
-  EventBrandEntry,
-  EventCategoryOption,
-} from '@/lib/services/events'
+import type { EventAreaOption, EventBrandEntry, EventCategoryOption } from '@/lib/services/events'
 import { compareBoothNumbers } from './booth-sort'
-
-// Four rows of the grid's widest column count — derived, not written as `16`,
-// so it follows the grid if its columns ever change.
-const LINEUP_VISIBLE_CAP = 4 * MASONRY_ABOVE_FOLD
+import { EventBrandResultView, EVENT_LINEUP_VISIBLE_CAP } from './event-brand-result-view'
 
 /**
  * `'recommended'` is the shuffled order the server sent; `'booth'` is ascending
@@ -85,21 +74,14 @@ function FilterParamSeed({
   useEffect(() => {
     if (!requestedCategory) return
     // Same allowlist rule as the area param above.
-    if (!categoryOptions.some((option) => option.value === requestedCategory))
-      return
+    if (!categoryOptions.some((option) => option.value === requestedCategory)) return
     onSeedCategory(requestedCategory)
   }, [categoryOptions, onSeedCategory, requestedCategory])
 
   return null
 }
 
-export function EventBrandGrid({
-  entries,
-  areaOptions,
-  categoryOptions,
-  eventSlug,
-  locale,
-}: EventBrandGridProps) {
+export function EventBrandGrid({ entries, areaOptions, categoryOptions, eventSlug, locale }: EventBrandGridProps) {
   const t = useTranslations('events')
   const [activeArea, setActiveArea] = useState<string | null>(null)
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
@@ -113,7 +95,6 @@ export function EventBrandGrid({
   // Deliberately NOT reset when a chip changes: a reader who asked to see the
   // whole lineup should not have to ask again after every filter press.
   const [expanded, setExpanded] = useState(false)
-  const isEnglish = locale === 'en'
 
   // Takes the whole next pair rather than reading state, because the state
   // setters are async: writing the URL from `activeArea`/`activeCategory` here
@@ -131,11 +112,7 @@ export function EventBrandGrid({
     // navigation re-invokes the server component and knocks this route off its
     // static/ISR path onto a dynamic render for a filter that is entirely
     // client-side. This keeps the URL shareable without touching the server.
-    window.history.replaceState(
-      window.history.state,
-      '',
-      `${url.pathname}${url.search}${url.hash}`,
-    )
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`)
   }, [])
 
   const applyArea = useCallback(
@@ -174,8 +151,7 @@ export function EventBrandGrid({
     () =>
       entries.filter((entry) => {
         if (activeArea !== null && entry.area !== activeArea) return false
-        if (activeCategory !== null && entry.brand.category !== activeCategory)
-          return false
+        if (activeCategory !== null && entry.brand.category !== activeCategory) return false
         if (!normalizedQuery) return true
 
         // A plain substring test over the whole name is enough for both
@@ -186,13 +162,7 @@ export function EventBrandGrid({
         // is optional and often null, so nothing may depend on it alone.
         // The booth is searchable for the reader who is looking at a booth sign
         // rather than at a brand.
-        const haystack = [
-          entry.brand.name,
-          entry.brand.romanizedName ?? '',
-          entry.booth ?? '',
-        ]
-          .join(' ')
-          .toLowerCase()
+        const haystack = [entry.brand.name, entry.brand.romanizedName ?? '', entry.booth ?? ''].join(' ').toLowerCase()
 
         return haystack.includes(normalizedQuery)
       }),
@@ -208,13 +178,10 @@ export function EventBrandGrid({
   const visible = useMemo(() => {
     if (sort !== 'booth') return matched
 
-    return [...matched].sort((left, right) =>
-      compareBoothNumbers(left.booth, right.booth),
-    )
+    return [...matched].sort((left, right) => compareBoothNumbers(left.booth, right.booth))
   }, [matched, sort])
 
-  const isFiltered =
-    activeArea !== null || activeCategory !== null || normalizedQuery !== ''
+  const isFiltered = activeArea !== null || activeCategory !== null || normalizedQuery !== ''
 
   // Filtered-to-zero is its own state, not a variant of "no lineup": the chips
   // and the count line stay, only the grid is replaced.
@@ -222,7 +189,7 @@ export function EventBrandGrid({
 
   // Measured against the FILTERED list, so narrowing to a zone with 12 brands
   // shows all 12 with no button rather than an unexplained cap.
-  const hiddenCount = expanded ? 0 : Math.max(visible.length - LINEUP_VISIBLE_CAP, 0)
+  const hiddenCount = expanded ? 0 : Math.max(visible.length - EVENT_LINEUP_VISIBLE_CAP, 0)
 
   return (
     <div className="space-y-6">
@@ -288,21 +255,13 @@ export function EventBrandGrid({
           // `gap-2` (8px) rather than the tighter default: chips render at 32px
           // tall, below the 44px touch target, so the clear space between them
           // is what keeps neighbouring chips from stealing each other's taps.
-          <div
-            role="group"
-            aria-label={t('areaFilterAria')}
-            className="flex flex-wrap gap-2"
-          >
+          <div role="group" aria-label={t('areaFilterAria')} className="flex flex-wrap gap-2">
             {/*
               `ToggleChip` renders a native `<button>` carrying `aria-pressed`,
               so the selected state is announced rather than signalled by fill
               colour alone.
             */}
-            <ToggleChip
-              size="chip"
-              pressed={activeArea === null}
-              onPressedChange={() => applyArea(null)}
-            >
+            <ToggleChip size="chip" pressed={activeArea === null} onPressedChange={() => applyArea(null)}>
               {t('allAreas')}
             </ToggleChip>
             {areaOptions.map((option) => (
@@ -310,9 +269,7 @@ export function EventBrandGrid({
                 key={option.value}
                 size="chip"
                 pressed={activeArea === option.value}
-                onPressedChange={(pressed) =>
-                  applyArea(pressed ? option.value : null)
-                }
+                onPressedChange={(pressed) => applyArea(pressed ? option.value : null)}
               >
                 {option.label}
               </ToggleChip>
@@ -325,16 +282,8 @@ export function EventBrandGrid({
           // chips render at 32px tall, below the 44px touch target, so the
           // clear space between them is what keeps neighbouring chips from
           // stealing each other's taps.
-          <div
-            role="group"
-            aria-label={t('categoryFilterAria')}
-            className="flex flex-wrap gap-2"
-          >
-            <ToggleChip
-              size="chip"
-              pressed={activeCategory === null}
-              onPressedChange={() => applyCategory(null)}
-            >
+          <div role="group" aria-label={t('categoryFilterAria')} className="flex flex-wrap gap-2">
+            <ToggleChip size="chip" pressed={activeCategory === null} onPressedChange={() => applyCategory(null)}>
               {t('allCategories')}
             </ToggleChip>
             {categoryOptions.map((option) => (
@@ -342,9 +291,7 @@ export function EventBrandGrid({
                 key={option.value}
                 size="chip"
                 pressed={activeCategory === option.value}
-                onPressedChange={(pressed) =>
-                  applyCategory(pressed ? option.value : null)
-                }
+                onPressedChange={(pressed) => applyCategory(pressed ? option.value : null)}
               >
                 {option.label}
               </ToggleChip>
@@ -372,92 +319,50 @@ export function EventBrandGrid({
         </p>
       </div>
 
-      <SavedBrandsProvider>
-        {/*
+      {/*
           Counts the full lineup, not the filtered view: `view_item_list` is a
           once-per-page impression, and keying it to `visible.length` would
           re-fire it on every chip press.
         */}
-        <ViewItemListTracker listName={`event:${eventSlug}`} itemCount={entries.length} />
-        {isFilteredEmpty ? (
-          // A chip combination that matches nothing used to render an empty
-          // grid under "0 brands", which looks like a broken page rather than a
-          // filter result. The action is the way back — the chips are above the
-          // fold here, but not once the lineup is long. It clears ALL axes:
-          // with three filters live, resetting one can still leave zero.
-          //
-          // The copy follows the narrowest live filter: "no brands in this
-          // zone" is simply wrong when the reader mistyped a booth number, and
-          // sending them to another zone would not help.
-          <EmptyState
-            icon={<SearchX />}
-            title={
-              normalizedQuery
-                ? t('lineupSearchEmptyTitle')
-                : t('filteredEmptyTitle')
-            }
-            body={
-              normalizedQuery
-                ? t('lineupSearchEmptyBody')
-                : t('filteredEmptyBody')
-            }
-            action={
-              <Button type="button" variant="secondary" onClick={clearFilters}>
-                {t('clearFilters')}
-              </Button>
-            }
-          />
-        ) : (
-          <>
-            {/*
+      {isFilteredEmpty ? (
+        // A chip combination that matches nothing used to render an empty
+        // grid under "0 brands", which looks like a broken page rather than a
+        // filter result. The action is the way back — the chips are above the
+        // fold here, but not once the lineup is long. It clears ALL axes:
+        // with three filters live, resetting one can still leave zero.
+        //
+        // The copy follows the narrowest live filter: "no brands in this
+        // zone" is simply wrong when the reader mistyped a booth number, and
+        // sending them to another zone would not help.
+        <EmptyState
+          icon={<SearchX />}
+          title={normalizedQuery ? t('lineupSearchEmptyTitle') : t('filteredEmptyTitle')}
+          body={normalizedQuery ? t('lineupSearchEmptyBody') : t('filteredEmptyBody')}
+          action={
+            <Button type="button" variant="secondary" onClick={clearFilters}>
+              {t('clearFilters')}
+            </Button>
+          }
+        />
+      ) : (
+        <>
+          {/*
               `visibleCount`, never a `.slice()`: an event lineup is dozens of
               cards and only the first four rows should occupy the fold, but
               every brand link stays in the server HTML because the lineup is
               the crawlable substance of this page.
             */}
-            <MasonryGrid visibleCount={expanded ? undefined : LINEUP_VISIBLE_CAP}>
-              {visible.map((entry, index) => {
-                const area = isEnglish ? (entry.areaEn ?? entry.area) : entry.area
-
-                return (
-                  <BrandCard
-                    key={entry.brand.id}
-                    brand={entry.brand}
-                    variant="editorial"
-                    // Booth number wins over area: it is the more specific
-                    // wayfinding fact, and the area is already on a chip above.
-                    // Rendered by `BrandCard` as a `<Badge variant="secondary">`.
-                    eyebrow={entry.booth ?? area ?? undefined}
-                    note={
-                      (isEnglish ? (entry.noteEn ?? entry.note) : entry.note) ?? undefined
-                    }
-                    // Read from `MasonryGrid` rather than restated, so the
-                    // preloaded cards stay exactly the ones it renders visible on
-                    // the server.
-                    preload={index < MASONRY_ABOVE_FOLD}
-                    position={index}
-                  />
-                )
-              })}
-            </MasonryGrid>
-
-            {hiddenCount > 0 ? (
-              // The count is the number still hidden, not the total: a button
-              // that names what pressing it reveals is the only way the cap is
-              // legible at all — the hidden cards leave no gap behind them.
-              <div className="flex justify-center">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => setExpanded(true)}
-                >
-                  {t('showAllBrands', { count: hiddenCount })}
-                </Button>
-              </div>
-            ) : null}
-          </>
-        )}
-      </SavedBrandsProvider>
+          <EventBrandResultView
+            entries={visible}
+            eventSlug={eventSlug}
+            locale={locale}
+            expanded={expanded}
+            hiddenCount={hiddenCount}
+            itemCount={entries.length}
+            onExpand={() => setExpanded(true)}
+          />
+        </>
+      )}
     </div>
   )
 }

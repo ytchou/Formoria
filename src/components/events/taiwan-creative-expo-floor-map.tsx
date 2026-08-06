@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useId, useRef, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { ExternalLink, Maximize2, RotateCcw, X } from "lucide-react";
 import {
   Dialog,
@@ -38,37 +39,31 @@ type ZoomLevel = 1 | 2 | 4 | 8;
 
 const ZOOM_LEVELS: readonly ZoomLevel[] = [1, 2, 4, 8];
 
-const COPY = {
-  heading: "Interactive floor map",
-  description:
-    "Choose a zone to focus the exhibitor list. The source map remains available for every other hall and service area.",
-  mapLabel: "Taiwan Creative Expo 2026 floor map with selectable zones",
-  zoneControls: "Interactive zones",
-  selected: "Selected",
-  highlighted: "Highlighted",
-  secondary: "Other zones",
-  reset: "Reset zone",
-  openViewer: "Open full-screen map",
-  viewerTitle: "Full-screen floor map",
-  viewerDescription:
-    "Scroll in either direction to pan. Choose a zoom level or fit the complete map in the viewer.",
-  closeViewer: "Close floor-map viewer",
-  zoom: "Zoom",
-  fit: "Fit",
-  zoomTimes: (value: ZoomLevel) => `${value}×`,
-  mapUnavailable: "The map image could not be loaded.",
-  mapUnavailableHint:
-    "Open the official PDF for the complete floor map and booth directory.",
-  noScript:
-    "Interactive controls require JavaScript. The official PDF still contains the complete map and booth directory.",
-  officialPdf: "Open official map PDF",
-  attribution:
-    "Map source: Taiwan Creative Expo 2026, Ministry of Culture / \u6587\u5316\u90e8",
-  officialSite: "Official Taiwan Creative Expo site",
-  allZones:
-    "All four controls stay available, including zones with zero listed exhibitors.",
-  nonInteractive: "Visible on the source map but not selectable here",
-} as const;
+type FloorMapCopy = {
+  heading: string;
+  description: string;
+  mapLabel: string;
+  zoneControls: string;
+  selected: string;
+  highlighted: string;
+  secondary: string;
+  reset: string;
+  openViewer: string;
+  viewerTitle: string;
+  viewerDescription: string;
+  closeViewer: string;
+  zoom: string;
+  fit: string;
+  zoomTimes: (value: ZoomLevel) => string;
+  mapUnavailable: string;
+  mapUnavailableHint: string;
+  noScript: string;
+  officialPdf: string;
+  attribution: string;
+  officialSite: string;
+  allZones: string;
+  nonInteractive: string;
+};
 
 function stateOpacity(state: ExpoZoneVisualState): number {
   if (state === "selected") return 0.36;
@@ -92,10 +87,12 @@ function ZoneOverlay({
   highlightedZones,
   onZoneSelect,
   onReset,
+  copy,
+  zoneName,
 }: Pick<
   TaiwanCreativeExpoFloorMapProps,
   "selectedZone" | "highlightedZones" | "onZoneSelect" | "onReset"
->) {
+> & { copy: FloorMapCopy; zoneName: (zone: ExpoZoneDefinition) => string }) {
   const titleId = useId();
 
   const activateZone = (zone: ExpoZoneCode) => {
@@ -114,14 +111,14 @@ function ZoneOverlay({
       role="group"
       viewBox={EXPO_FLOOR_MAP_GEOMETRY.viewBox}
     >
-      <title id={titleId}>{COPY.mapLabel}</title>
+      <title id={titleId}>{copy.mapLabel}</title>
       {EXPO_ZONE_DEFINITIONS.map((definition) => {
         const state = resolveExpoZoneVisualState({
           zone: definition.code,
           selectedZone,
           highlightedZones,
         });
-        const label = `${definition.code}: ${definition.names.en}`;
+        const label = `${definition.code}: ${zoneName(definition)}`;
 
         return (
           <polygon
@@ -160,6 +157,8 @@ function MapImage({
   highlightedZones,
   onZoneSelect,
   onReset,
+  copy,
+  zoneName,
 }: {
   imageFailed: boolean;
   onImageError: () => void;
@@ -167,6 +166,8 @@ function MapImage({
   highlightedZones?: readonly ExpoZoneCode[];
   onZoneSelect: (zone: ExpoZoneCode) => void;
   onReset: () => void;
+  copy: FloorMapCopy;
+  zoneName: (zone: ExpoZoneDefinition) => string;
 }) {
   return (
     <div
@@ -183,19 +184,21 @@ function MapImage({
       />
       {!imageFailed ? (
         <ZoneOverlay
+          copy={copy}
           highlightedZones={highlightedZones}
           onReset={onReset}
           onZoneSelect={onZoneSelect}
           selectedZone={selectedZone}
+          zoneName={zoneName}
         />
       ) : (
         <div className="absolute inset-0 grid place-items-center bg-muted/95 p-6 text-center">
           <div className="max-w-md space-y-2">
             <p className={textStyles({ variant: "cardTitle" })}>
-              {COPY.mapUnavailable}
+              {copy.mapUnavailable}
             </p>
             <p className={textStyles({ variant: "cardDescription" })}>
-              {COPY.mapUnavailableHint}
+              {copy.mapUnavailableHint}
             </p>
             <a
               className={textStyles({ variant: "link" })}
@@ -203,7 +206,7 @@ function MapImage({
               rel="noreferrer"
               target="_blank"
             >
-              {COPY.officialPdf}
+              {copy.officialPdf}
               <ExternalLink
                 aria-hidden="true"
                 className="ml-1 inline size-3.5"
@@ -222,6 +225,8 @@ function ZoneControls({
   zoneCounts,
   onZoneSelect,
   onReset,
+  copy,
+  zoneName,
 }: Pick<
   TaiwanCreativeExpoFloorMapProps,
   | "selectedZone"
@@ -229,7 +234,7 @@ function ZoneControls({
   | "zoneCounts"
   | "onZoneSelect"
   | "onReset"
->) {
+> & { copy: FloorMapCopy; zoneName: (zone: ExpoZoneDefinition) => string }) {
   const activateZone = (zone: ExpoZoneCode) => {
     if (zone === selectedZone) {
       onReset();
@@ -239,8 +244,8 @@ function ZoneControls({
   };
 
   return (
-    <div aria-label={COPY.zoneControls} className="space-y-3">
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+    <div aria-label={copy.zoneControls} className="space-y-3 @container">
+      <div className="grid grid-cols-1 gap-2 @min-[30rem]:grid-cols-2 @min-[60rem]:grid-cols-4">
         {EXPO_ZONE_DEFINITIONS.map((definition) => {
           const state = resolveExpoZoneVisualState({
             zone: definition.code,
@@ -269,9 +274,7 @@ function ZoneControls({
                 />
                 <span className="min-w-0 truncate">
                   <span className="font-semibold">{definition.code}</span>{" "}
-                  <span className="type-metadata">
-                    {definition.names.zhTW} · {definition.names.en}
-                  </span>
+                  <span className="type-metadata">{zoneName(definition)}</span>
                 </span>
               </span>
               <Badge variant={state === "selected" ? "default" : "outline"}>
@@ -282,10 +285,10 @@ function ZoneControls({
         })}
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className={textStyles({ variant: "caption" })}>{COPY.allZones}</p>
+        <p className={textStyles({ variant: "caption" })}>{copy.allZones}</p>
         <Button onClick={onReset} size="compact" type="button" variant="ghost">
           <RotateCcw aria-hidden="true" />
-          {COPY.reset}
+          {copy.reset}
         </Button>
       </div>
     </div>
@@ -295,7 +298,13 @@ function ZoneControls({
 function MapLegend({
   selectedZone,
   highlightedZones,
-}: Pick<TaiwanCreativeExpoFloorMapProps, "selectedZone" | "highlightedZones">) {
+  copy,
+}: Pick<
+  TaiwanCreativeExpoFloorMapProps,
+  "selectedZone" | "highlightedZones"
+> & {
+  copy: FloorMapCopy;
+}) {
   const states: ReadonlyArray<{
     color: string;
     label: string;
@@ -303,17 +312,17 @@ function MapLegend({
   }> = [
     {
       color: "var(--color-primary)",
-      label: COPY.selected,
+      label: copy.selected,
       state: "selected",
     },
     {
       color: "var(--color-info)",
-      label: COPY.highlighted,
+      label: copy.highlighted,
       state: "highlighted",
     },
     {
       color: "var(--color-muted-foreground)",
-      label: COPY.secondary,
+      label: copy.secondary,
       state: "secondary",
     },
   ];
@@ -344,7 +353,7 @@ function MapLegend({
           </span>
         );
       })}
-      <span className="type-caption opacity-70">{COPY.nonInteractive}</span>
+      <span className="type-caption opacity-70">{copy.nonInteractive}</span>
     </div>
   );
 }
@@ -433,29 +442,61 @@ export function TaiwanCreativeExpoFloorMap({
   }, [selectedDefinition, viewerOpen, zoom]);
 
   const handleImageError = () => setImageFailed(true);
+  const t = useTranslations("events");
+  const locale = useLocale();
+  const copy: FloorMapCopy = {
+    heading: t("floorMapHeading"),
+    description: t("floorMapDescription"),
+    mapLabel: t("floorMapLabel"),
+    zoneControls: t("floorMapZoneControls"),
+    selected: t("floorMapSelected"),
+    highlighted: t("floorMapHighlighted"),
+    secondary: t("floorMapSecondary"),
+    reset: t("floorMapReset"),
+    openViewer: t("floorMapOpenViewer"),
+    viewerTitle: t("floorMapViewerTitle"),
+    viewerDescription: t("floorMapViewerDescription"),
+    closeViewer: t("floorMapCloseViewer"),
+    zoom: t("floorMapZoom"),
+    fit: t("floorMapFit"),
+    zoomTimes: (value) => t("floorMapZoomTimes", { value }),
+    mapUnavailable: t("floorMapUnavailable"),
+    mapUnavailableHint: t("floorMapUnavailableHint"),
+    noScript: t("floorMapNoScript"),
+    officialPdf: t("floorMapOfficialPdf"),
+    attribution: t("floorMapAttribution"),
+    officialSite: t("floorMapOfficialSite"),
+    allZones: t("floorMapAllZones"),
+    nonInteractive: t("floorMapNonInteractive"),
+  };
+  const zoneName = (definition: ExpoZoneDefinition) =>
+    locale === "en" ? definition.names.en : definition.names.zhTW;
 
   return (
     <section aria-labelledby={headingId} className="space-y-5">
       <header className="space-y-2">
         <h2 className={textStyles({ variant: "sectionTitle" })} id={headingId}>
-          {COPY.heading}
+          {copy.heading}
         </h2>
         <p className={textStyles({ variant: "sectionDescription" })}>
-          {COPY.description}
+          {copy.description}
         </p>
       </header>
 
       <ZoneControls
+        copy={copy}
         highlightedZones={highlightedZones}
         onReset={onReset}
         onZoneSelect={onZoneSelect}
         selectedZone={selectedZone}
         zoneCounts={zoneCounts}
+        zoneName={zoneName}
       />
 
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <MapLegend
+            copy={copy}
             highlightedZones={highlightedZones}
             selectedZone={selectedZone}
           />
@@ -467,7 +508,7 @@ export function TaiwanCreativeExpoFloorMap({
               }
             >
               <Maximize2 aria-hidden="true" />
-              {COPY.openViewer}
+              {copy.openViewer}
             </DialogTrigger>
             <DialogContent
               className="h-[100dvh] w-screen max-w-none gap-0 rounded-none p-0 sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-[min(96vw,1100px)] sm:rounded-xl"
@@ -475,15 +516,15 @@ export function TaiwanCreativeExpoFloorMap({
             >
               <DialogHeader className="flex-row items-start justify-between gap-3 border-b p-4 sm:p-5">
                 <div className="min-w-0 space-y-1">
-                  <DialogTitle>{COPY.viewerTitle}</DialogTitle>
+                  <DialogTitle>{copy.viewerTitle}</DialogTitle>
                   <DialogDescription>
-                    {COPY.viewerDescription}
+                    {copy.viewerDescription}
                   </DialogDescription>
                 </div>
                 <DialogClose
                   render={
                     <Button
-                      aria-label={COPY.closeViewer}
+                      aria-label={copy.closeViewer}
                       className="size-12"
                       size="icon"
                       type="button"
@@ -496,7 +537,7 @@ export function TaiwanCreativeExpoFloorMap({
               </DialogHeader>
 
               <div
-                aria-label={COPY.mapLabel}
+                aria-label={copy.mapLabel}
                 className="min-h-0 flex-1 overflow-auto overscroll-contain bg-muted p-2 touch-pan-x touch-pan-y sm:p-4"
                 ref={viewportRef}
                 role="region"
@@ -507,25 +548,27 @@ export function TaiwanCreativeExpoFloorMap({
                   style={{ width: `${zoom * 100}%` }}
                 >
                   <MapImage
+                    copy={copy}
                     highlightedZones={highlightedZones}
                     imageFailed={imageFailed}
                     onImageError={handleImageError}
                     onReset={onReset}
                     onZoneSelect={onZoneSelect}
                     selectedZone={selectedZone}
+                    zoneName={zoneName}
                   />
                 </div>
               </div>
 
               <div className="flex flex-wrap items-center justify-between gap-3 border-t bg-background p-3 sm:p-4">
                 <span className={textStyles({ variant: "caption" })}>
-                  {COPY.zoom}
+                  {copy.zoom}
                 </span>
                 <div className="flex flex-wrap gap-2">
                   {ZOOM_LEVELS.map((level) => (
                     <Button
                       aria-label={
-                        level === 1 ? COPY.fit : COPY.zoomTimes(level)
+                        level === 1 ? copy.fit : copy.zoomTimes(level)
                       }
                       aria-pressed={zoom === level}
                       className="min-h-12 min-w-12 px-2"
@@ -536,9 +579,9 @@ export function TaiwanCreativeExpoFloorMap({
                       variant={zoom === level ? "primary" : "secondary"}
                     >
                       {level === 1 ? (
-                        COPY.fit
+                        copy.fit
                       ) : (
-                        <span aria-hidden="true">{COPY.zoomTimes(level)}</span>
+                        <span aria-hidden="true">{copy.zoomTimes(level)}</span>
                       )}
                     </Button>
                   ))}
@@ -550,18 +593,20 @@ export function TaiwanCreativeExpoFloorMap({
 
         <div className="rounded-xl border bg-card p-1 shadow-xs">
           <MapImage
+            copy={copy}
             highlightedZones={highlightedZones}
             imageFailed={imageFailed}
             onImageError={handleImageError}
             onReset={onReset}
             onZoneSelect={onZoneSelect}
             selectedZone={selectedZone}
+            zoneName={zoneName}
           />
         </div>
       </div>
 
       <footer className="space-y-2 border-t pt-4">
-        <p className={textStyles({ variant: "caption" })}>{COPY.attribution}</p>
+        <p className={textStyles({ variant: "caption" })}>{copy.attribution}</p>
         <div className="flex flex-wrap gap-x-4 gap-y-2">
           <a
             className={textStyles({ variant: "link" })}
@@ -569,7 +614,7 @@ export function TaiwanCreativeExpoFloorMap({
             rel="noreferrer"
             target="_blank"
           >
-            {COPY.officialPdf}
+            {copy.officialPdf}
             <ExternalLink aria-hidden="true" className="ml-1 inline size-3.5" />
           </a>
           <a
@@ -578,7 +623,7 @@ export function TaiwanCreativeExpoFloorMap({
             rel="noreferrer"
             target="_blank"
           >
-            {COPY.officialSite}
+            {copy.officialSite}
             <ExternalLink aria-hidden="true" className="ml-1 inline size-3.5" />
           </a>
         </div>
@@ -587,13 +632,13 @@ export function TaiwanCreativeExpoFloorMap({
       <noscript>
         <div className="rounded-xl border border-dashed p-4">
           <p className={textStyles({ variant: "cardDescription" })}>
-            {COPY.noScript}
+            {copy.noScript}
           </p>
           <a
             className={textStyles({ variant: "link" })}
             href={EXPO_FLOOR_MAP_ASSET.sourceUrl}
           >
-            {COPY.officialPdf}
+            {copy.officialPdf}
           </a>
         </div>
       </noscript>

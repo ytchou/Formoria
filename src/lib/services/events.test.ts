@@ -13,7 +13,9 @@ import {
   fetchEventBrandLinks,
   fetchPublishedEventBySlug,
   fetchPublishedEvents,
+  projectLinkedEventExhibitorEntries,
   resolveEventPhase,
+  selectLinkedEventExhibitorEntries,
   taipeiToday,
   type EventBrandLink,
   type EventExhibitor,
@@ -322,6 +324,49 @@ describe("events service", () => {
     expect(rows.map((row) => row.sourceKey)).toEqual([
       "creative-expo:322",
       "creative-expo:325",
+    ]);
+  });
+
+  it("selects only linked exhibitors in canonical interactive zones", () => {
+    const rows = composeEventExhibitorEntries(
+      [
+        exhibitor({ sortOrder: 0, zone: "K1" }),
+        exhibitor({
+          id: "2b0f5a4c-0000-4000-8000-0000000000e2",
+          sourceKey: "creative-expo:325",
+          booth: "K2-010",
+          zone: "K2",
+          sortOrder: 1,
+        }),
+        exhibitor({
+          id: "2b0f5a4c-0000-4000-8000-0000000000e3",
+          sourceKey: "creative-expo:401",
+          booth: "H-001",
+          zone: "H",
+          sortOrder: 2,
+        }),
+      ],
+      new Map([
+        ["2b0f5a4c-0000-4000-8000-0000000000e1", "woky"],
+        ["2b0f5a4c-0000-4000-8000-0000000000e2", "kiln-studio"],
+        ["2b0f5a4c-0000-4000-8000-0000000000e3", "hall-brand"],
+      ]),
+      brandMap(
+        brand("woky", "沃廚"),
+        brand("kiln-studio", "Kiln Studio"),
+        brand("hall-brand", "Hall Brand"),
+      ),
+    );
+
+    const selected = selectLinkedEventExhibitorEntries(rows);
+
+    expect(selected.map((row) => [row.sourceKey, row.zone])).toEqual([
+      ["creative-expo:322", "K1"],
+      ["creative-expo:325", "K2"],
+    ]);
+    expect(projectLinkedEventExhibitorEntries(selected)).toMatchObject([
+      { booth: "K1-001", note: null, noteEn: null },
+      { booth: "K2-010", note: null, noteEn: null },
     ]);
   });
 

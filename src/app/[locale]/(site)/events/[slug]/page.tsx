@@ -1,9 +1,11 @@
 import type { Metadata } from 'next'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
+import { Suspense } from 'react'
 import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { ChevronRight, ExternalLink } from 'lucide-react'
 import { EventBrandGrid } from '@/components/events/event-brand-grid'
+import { TaiwanCreativeExpoExplorer } from '@/components/events/taiwan-creative-expo-explorer'
 import { eventPhaseBadgeVariant } from '@/components/events/event-card'
 import { formatEventDateRange } from '@/components/events/event-date'
 import { formatStoryDate } from '@/components/stories/story-date'
@@ -19,19 +21,21 @@ import {
   deriveAreaOptions,
   deriveCategoryOptions,
   getEventBrandEntries,
+  getEventExhibitorEntries,
   getPublishedEventBySlug,
   getPublishedEvents,
   resolveEventPhase,
   taipeiToday,
+  projectLinkedEventExhibitorEntries,
+  selectLinkedEventExhibitorEntries,
+  type EventBrandEntry,
+  type EventExhibitorEntry,
 } from '@/lib/services/events'
+import { captureReadFailure, markRenderDegraded } from '@/lib/degraded-render'
 import { getStorySeries } from '@/lib/services/stories'
 import { buildAlternates } from '@/lib/seo/alternates'
 import type { Locale } from '@/lib/seo/alternates'
-import {
-  buildBreadcrumbJsonLd,
-  buildEventJsonLd,
-  safeJsonLdStringify,
-} from '@/lib/json-ld'
+import { buildBreadcrumbJsonLd, buildEventJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 
 type PageProps = {
   params: Promise<{ locale: string; slug: string }>
@@ -137,36 +141,48 @@ export default async function EventDetailPage({ params }: PageProps) {
     notFound()
   }
 
+  const isCreativeExpo = slug === '2026-taiwan-creative-expo'
   // Run together, not serially: `getEventBrandEntries` resolves the event by
   // slug inside its own query (`events!inner`), so it has no dependency on the
   // lookup beside it.
-  const [event, entries] = await Promise.all([
+  const [event, lineupRead] = await Promise.all([
     getPublishedEventBySlug(slug),
-    getEventBrandEntries(slug),
+    isCreativeExpo
+      ? getEventExhibitorEntries(slug).catch(captureReadFailure('events.creativeExpo.exhibitors'))
+      : getEventBrandEntries(slug),
   ])
 
   if (!event) {
     notFound()
   }
 
+  const rosterFailed = isCreativeExpo && lineupRead === null
+  if (rosterFailed) {
+    // A failed canonical roster must not be frozen by this page's ISR window;
+    // the event copy, map, and logistics remain useful while the next request
+    // retries the read.
+    await markRenderDegraded('events.creativeExpo.exhibitors')
+  }
+
+  const linkedCreativeExpoEntries = isCreativeExpo
+    ? selectLinkedEventExhibitorEntries((lineupRead as EventExhibitorEntry[] | null) ?? [])
+    : []
+  const entries: EventBrandEntry[] = isCreativeExpo
+    ? projectLinkedEventExhibitorEntries(linkedCreativeExpoEntries)
+    : (lineupRead as EventBrandEntry[])
+
   const t = await getTranslations({ locale, namespace: 'events' })
 
   const name = isEnglish ? (event.nameEn ?? event.name) : event.name
   const summary = isEnglish ? (event.summaryEn ?? event.summary) : event.summary
-  const description = isEnglish
-    ? (event.descriptionEn ?? event.description)
-    : event.description
+  const description = isEnglish ? (event.descriptionEn ?? event.description) : event.description
   const venueName = isEnglish ? (event.venueNameEn ?? event.venueName) : event.venueName
   // Visitor-decision fields. All four are null on every event but the Creative
   // Expo, so each render site below is guarded independently rather than as one
   // block — an event may carry travel info and no schedule.
-  const scheduleNote = isEnglish
-    ? (event.scheduleNoteEn ?? event.scheduleNote)
-    : event.scheduleNote
+  const scheduleNote = isEnglish ? (event.scheduleNoteEn ?? event.scheduleNote) : event.scheduleNote
   const travelNote = isEnglish ? (event.travelNoteEn ?? event.travelNote) : event.travelNote
-  const admissionNote = isEnglish
-    ? (event.admissionNoteEn ?? event.admissionNote)
-    : event.admissionNote
+  const admissionNote = isEnglish ? (event.admissionNoteEn ?? event.admissionNote) : event.admissionNote
   const lineupNote = isEnglish ? (event.lineupNoteEn ?? event.lineupNote) : event.lineupNote
   const phase = resolveEventPhase(event, taipeiToday())
   const dateLabel = formatEventDateRange(event.startsOn, event.endsOn)
@@ -185,16 +201,14 @@ export default async function EventDetailPage({ params }: PageProps) {
   // stretch of time, which is the fairness property intended, not a staleness
   // bug. The chip options above are derived from the UNSHUFFLED list so the
   // filter bar keeps a stable order across regenerations.
-  const lineup = shuffle(entries)
+  const lineup = isCreativeExpo ? entries : shuffle(entries)
 
   // Routing handoff, built from the address rather than a stored URL: a map
   // link that has to be authored per event is a map link that goes stale or
   // never gets filled in. `?api=1` is Google's documented cross-platform form
   // and hands off to the native app on mobile.
   const mapsQuery = [venueName, event.venueAddress].filter(Boolean).join(' ')
-  const mapsUrl = mapsQuery
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}`
-    : null
+  const mapsUrl = mapsQuery ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}` : null
 
   // Events and stories join by convention: the event slug IS the story series
   // name. No FK, so a missing series is the normal case, not an error.
@@ -235,13 +249,12 @@ export default async function EventDetailPage({ params }: PageProps) {
 
   return (
     <main className="page-gutter mx-auto w-full max-w-screen-xl py-10 md:py-12">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(eventJsonLd) }} />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(eventJsonLd) }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(breadcrumbJsonLd) }}
+        dangerouslySetInnerHTML={{
+          __html: safeJsonLdStringify(breadcrumbJsonLd),
+        }}
       />
 
       <nav aria-label={t('breadcrumbAria')} className="mb-6">
@@ -274,69 +287,67 @@ export default async function EventDetailPage({ params }: PageProps) {
           <p className="max-w-2xl type-page-subtitle">{summary}</p>
         </header>
 
-          {event.officialUrl || event.ticketUrl || mapsUrl ? (
-            <div className="space-y-3">
-              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-                {event.officialUrl ? (
-                  <a
-                    href={event.officialUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={buttonVariants({
-                      variant: 'primary',
-                      tone: 'cta',
-                      size: 'large',
-                      className: 'w-full sm:w-auto',
-                    })}
-                  >
-                    {t('officialSite')}
-                  </a>
-                ) : null}
-                {event.ticketUrl ? (
-                  <a
-                    href={event.ticketUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={buttonVariants({
-                      variant: 'secondary',
-                      size: 'large',
-                      className: 'w-full sm:w-auto',
-                    })}
-                  >
-                    {/* A free event's ticket link books a slot, it does not sell
+        {event.officialUrl || event.ticketUrl || mapsUrl ? (
+          <div className="space-y-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+              {event.officialUrl ? (
+                <a
+                  href={event.officialUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={buttonVariants({
+                    variant: 'primary',
+                    tone: 'cta',
+                    size: 'large',
+                    className: 'w-full sm:w-auto',
+                  })}
+                >
+                  {t('officialSite')}
+                </a>
+              ) : null}
+              {event.ticketUrl ? (
+                <a
+                  href={event.ticketUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={buttonVariants({
+                    variant: 'secondary',
+                    size: 'large',
+                    className: 'w-full sm:w-auto',
+                  })}
+                >
+                  {/* A free event's ticket link books a slot, it does not sell
                         one — a "ticket info" label on free entry reads as a paywall. */}
-                    {t(event.isFree === true ? 'reserve' : 'tickets')}
-                    <ExternalLink aria-hidden="true" className="size-4" />
-                  </a>
-                ) : null}
-                {/* Routing, not a rendered map: an embedded map needs an API key
+                  {t(event.isFree === true ? 'reserve' : 'tickets')}
+                  <ExternalLink aria-hidden="true" className="size-4" />
+                </a>
+              ) : null}
+              {/* Routing, not a rendered map: an embedded map needs an API key
                     and a CSP frame-src exception, and hands the reader a pane to
                     pinch on a page that is otherwise all text and cards. The
                     link opens whichever map app the device already trusts. */}
-                {mapsUrl ? (
-                  <a
-                    href={mapsUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={buttonVariants({
-                      variant: 'secondary',
-                      size: 'large',
-                      className: 'w-full sm:w-auto',
-                    })}
-                  >
-                    {t('directions')}
-                    <ExternalLink aria-hidden="true" className="size-4" />
-                  </a>
-                ) : null}
-              </div>
-              {/* Only under a ticket link: the note answers "what if booking
-                  is full", a question that only exists once there is
-                  something to book. */}
-              {event.ticketUrl ? (
-                <p className="type-caption">{t('reserveNote')}</p>
+              {mapsUrl ? (
+                <a
+                  href={mapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={buttonVariants({
+                    variant: 'secondary',
+                    size: 'large',
+                    className: 'w-full sm:w-auto',
+                  })}
+                >
+                  {t('directions')}
+                  <ExternalLink aria-hidden="true" className="size-4" />
+                </a>
               ) : null}
             </div>
-          ) : null}
+            {/* Only under a ticket link: the note answers "what if booking
+                  is full", a question that only exists once there is
+                  something to book. */}
+            {event.ticketUrl ? <p className="type-caption">{t('reserveNote')}</p> : null}
+          </div>
+        ) : null}
 
         {/*
           Band B — the "about this event" section. Was a 352px right rail, then a
@@ -392,9 +403,7 @@ export default async function EventDetailPage({ params }: PageProps) {
                 <dt className={textStyles({ variant: 'fieldLabel' })}>{t('venue')}</dt>
                 <dd className={textStyles({ variant: 'fieldValue' })}>
                   {venueName}
-                  {event.venueAddress ? (
-                    <span className="block type-caption">{event.venueAddress}</span>
-                  ) : null}
+                  {event.venueAddress ? <span className="block type-caption">{event.venueAddress}</span> : null}
                 </dd>
               </div>
             ) : null}
@@ -413,9 +422,7 @@ export default async function EventDetailPage({ params }: PageProps) {
             {event.organizerName ? (
               <div className="grid gap-x-6 gap-y-1 py-3 sm:grid-cols-[10rem_minmax(0,1fr)]">
                 <dt className={textStyles({ variant: 'fieldLabel' })}>{t('organizer')}</dt>
-                <dd className={textStyles({ variant: 'fieldValue' })}>
-                  {event.organizerName}
-                </dd>
+                <dd className={textStyles({ variant: 'fieldValue' })}>{event.organizerName}</dd>
               </div>
             ) : null}
           </dl>
@@ -423,22 +430,11 @@ export default async function EventDetailPage({ params }: PageProps) {
             <div className="relative aspect-[16/9] overflow-hidden rounded-xl bg-muted">
               {/* Decorative: the event name is the adjacent `<h1>`, so alt text
                   here would only repeat it to a screen reader. */}
-              <Image
-                src={heroSrc}
-                alt=""
-                fill
-                priority
-                sizes="100vw"
-                className="object-cover"
-              />
+              <Image src={heroSrc} alt="" fill priority sizes="100vw" className="object-cover" />
             </div>
           ) : null}
 
-          {description ? (
-            <p className="whitespace-pre-wrap type-body">{description}</p>
-          ) : null}
-
-
+          {description ? <p className="whitespace-pre-wrap type-body">{description}</p> : null}
         </section>
 
         {/*
@@ -459,12 +455,7 @@ export default async function EventDetailPage({ params }: PageProps) {
             // Two columns only once there is something to put in both. A lone
             // story in a two-column grid renders half-width beside an empty
             // column, which reads as a card that failed to load.
-            <ul
-              className={cn(
-                'grid gap-6',
-                relatedStories.length > 1 && 'md:grid-cols-2',
-              )}
-            >
+            <ul className={cn('grid gap-6', relatedStories.length > 1 && 'md:grid-cols-2')}>
               {relatedStories.map((story) => (
                 <li key={story.slug}>
                   {/*
@@ -505,7 +496,19 @@ export default async function EventDetailPage({ params }: PageProps) {
             `ViewItemListTracker` — an empty `view_item_list` is GA4 noise, not
             a datapoint. `/stories/[slug]` makes the same call.
           */}
-          {entries.length === 0 ? (
+          {isCreativeExpo ? (
+            <Suspense fallback={null}>
+              <TaiwanCreativeExpoExplorer
+                categoryOptions={categoryOptions}
+                entries={linkedCreativeExpoEntries}
+                eventSlug={event.slug}
+                locale={safeLocale}
+                rosterFailed={rosterFailed}
+                sourceUrl={linkedCreativeExpoEntries[0]?.sourceUrl ?? null}
+                verifiedAt={linkedCreativeExpoEntries[0]?.verifiedAt ?? null}
+              />
+            </Suspense>
+          ) : entries.length === 0 ? (
             <p className="type-empty-body">{t('noBrands')}</p>
           ) : (
             <EventBrandGrid

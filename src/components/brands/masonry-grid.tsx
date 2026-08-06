@@ -13,6 +13,11 @@ interface MasonryGridProps {
    * card shows, which is what `/brands` wants.
    */
   visibleCount?: number
+  /**
+   * Uses a compact semantic `<ul>/<li>` wrapper for dense result surfaces.
+   * The default remains the directory's existing role-based `<div>` layout.
+   */
+  compact?: boolean
 }
 
 /**
@@ -26,38 +31,38 @@ interface MasonryGridProps {
  */
 export const MASONRY_ABOVE_FOLD = 4
 
-export function MasonryGrid({ children, visibleCount }: MasonryGridProps) {
-  const { ref, inView } = useInView<HTMLDivElement>()
+export function MasonryGrid({ children, visibleCount, compact = false }: MasonryGridProps) {
+  const { ref: listRef, inView: listInView } = useInView<HTMLUListElement>()
+  const { ref: divRef, inView: divInView } = useInView<HTMLDivElement>()
+  const inView = compact ? listInView : divInView
 
-  return (
-    <div
-      ref={ref}
-      className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
-      role="list"
-    >
-      {Children.map(children, (child, i) => {
-        const aboveFold = i < MASONRY_ABOVE_FOLD
-        const hidden = visibleCount !== undefined && i >= visibleCount
-        // A hidden card is skipped by the reveal entirely — animating it would
-        // burn its one-shot entrance while it is invisible, so it would appear
-        // with no transition the moment the cap lifts.
-        const revealClass = hidden
-          ? 'hidden'
-          : aboveFold
-            ? undefined
-            : inView
-              ? 'animate-reveal-up'
-              : 'opacity-0'
-        return (
-          <div
-            role="listitem"
-            className={revealClass}
-            style={aboveFold || hidden ? undefined : { animationDelay: `${i * 60}ms` }}
-          >
-            {child}
-          </div>
-        )
-      })}
+  const items = Children.map(children, (child, i) => {
+    const aboveFold = i < MASONRY_ABOVE_FOLD
+    const hidden = visibleCount !== undefined && i >= visibleCount
+    // A hidden card is skipped by the reveal entirely — animating it would
+    // burn its one-shot entrance while it is invisible, so it would appear
+    // with no transition the moment the cap lifts.
+    const revealClass = hidden ? 'hidden' : aboveFold ? undefined : inView ? 'animate-reveal-up' : 'opacity-0'
+    const style = aboveFold || hidden ? undefined : { animationDelay: `${i * 60}ms` }
+
+    return compact ? (
+      <li key={i} className={revealClass} style={style}>
+        {child}
+      </li>
+    ) : (
+      <div key={i} role="listitem" className={revealClass} style={style}>
+        {child}
+      </div>
+    )
+  })
+
+  return compact ? (
+    <ul ref={listRef} className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+      {items}
+    </ul>
+  ) : (
+    <div ref={divRef} className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" role="list">
+      {items}
     </div>
   )
 }
