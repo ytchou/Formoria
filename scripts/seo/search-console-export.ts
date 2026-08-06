@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises'
-import { dirname, resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { dirname, isAbsolute, resolve } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { importPKCS8, SignJWT } from 'jose'
 import {
   classifyLandingPage,
@@ -8,14 +8,19 @@ import {
   QUERY_CLUSTERS,
   type LandingPageType,
   type QueryCluster,
-} from '../../src/lib/seo/search-console/segmentation'
+} from '@/lib/seo/search-console/segmentation'
 
+/**
+ * `position` is optional on purpose: Search Console omits it for rows it has no
+ * ranking for. Coercing an absent position to 0 would count the row as a top-3
+ * ranking and drag the impression-weighted average toward zero.
+ */
 export type SearchConsoleQueryRow = {
   query: string
   clicks: number
   impressions: number
   ctr: number
-  position: number
+  position?: number | null
 }
 
 export type SearchConsolePageRow = {
@@ -23,7 +28,7 @@ export type SearchConsolePageRow = {
   clicks: number
   impressions: number
   ctr: number
-  position: number
+  position?: number | null
 }
 
 export type ScorecardMetric = {
@@ -61,9 +66,12 @@ type MetricAccumulator = {
 }
 
 type ClusterAccumulator = MetricAccumulator & {
+  /** Impressions of the rows that actually carry a position — the weighted denominator. */
+  positionedImpressions: number
   weightedPositionTotal: number
   plainPositionTotal: number
-  rowCount: number
+  /** Rows carrying a position, not rows in the cluster. */
+  positionedRowCount: number
 }
 
 type LandingPageTotal = {
@@ -99,6 +107,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function provisionInstructions(): string {
   return 'Provision it by: create a GCP service account, grant it read access to the Search Console property, and paste the JSON key into .env.local.'
+}
+
+const PEM_HEADER = '-----BEGIN PRIVATE KEY-----'
+const PEM_FOOTER = '-----END PRIVATE KEY-----'
+
+/**
+ * Env files and secret managers routinely deliver the key with its newlines
+ * double-escaped (`\\n` survives JSON.parse as the two characters `\` + `n`).
+ * `importPKCS8` then fails deep inside jose with an opaque "Failed to parse the
+ * PEM", which is the one error the preflight exists to prevent — so normalize
+ * here and validate the delimiters while we still own the message.
+ */
+export function normalizePrivateKey(raw: string): string {
+  return raw.replaceAll('\\r\\n', '\n').replaceAll('\\n', '\n').replaceAll('\r\n', '\n').trim()
 }
 
 export function assertSearchConsoleCredentials(
@@ -138,10 +160,17 @@ export function assertSearchConsoleCredentials(
     )
   }
 
+  const private_key = normalizePrivateKey(parsed.private_key)
+  if (!private_key.startsWith(PEM_HEADER) || !private_key.endsWith(PEM_FOOTER)) {
+    throw new MissingSearchConsoleCredentialsError(
+      `Invalid ${SEARCH_CONSOLE_CREDENTIALS_ENV}: private_key must be a PKCS#8 PEM delimited by "${PEM_HEADER}" and "${PEM_FOOTER}". ${provisionInstructions()}`,
+    )
+  }
+
   return {
     credentials: {
       client_email: parsed.client_email,
-      private_key: parsed.private_key,
+      private_key,
       ...(typeof parsed.token_uri === 'string' ? { token_uri: parsed.token_uri } : {}),
     },
     property,
@@ -181,6 +210,17 @@ function positionBucket(position: number): PositionBucket {
   return POSITION_BUCKET_TABLE.find(({ max }) => position <= max)?.label ?? '50+'
 }
 
+/**
+ * An absent position is ABSENT, not 0: position 1 is the best possible ranking,
+ * so 0 is out of range. Rows without one are excluded from the buckets and from
+ * the impression-weighted average rather than being scored as top-3.
+ */
+export function reportedPosition(position: number | null | undefined): number | null {
+  return typeof position === 'number' && Number.isFinite(position) && position > 0
+    ? position
+    : null
+}
+
 function emptyPositionBuckets(): Record<PositionBucket, number> {
   return {
     '1-3': 0,
@@ -195,9 +235,10 @@ function emptyClusterAccumulator(): ClusterAccumulator {
   return {
     impressions: 0,
     clicks: 0,
+    positionedImpressions: 0,
     weightedPositionTotal: 0,
     plainPositionTotal: 0,
-    rowCount: 0,
+    positionedRowCount: 0,
   }
 }
 
@@ -217,25 +258,30 @@ export function buildScorecard(rows: {
     addMetric(totalAccumulator, row)
     const classification = classifyQuery(row.query)
     const cluster = clusters.get(classification.cluster)
+    const position = reportedPosition(row.position)
 
     if (cluster) {
       addMetric(cluster, row)
-      cluster.weightedPositionTotal += row.position * row.impressions
-      cluster.plainPositionTotal += row.position
-      cluster.rowCount += 1
+      if (position !== null) {
+        cluster.positionedImpressions += row.impressions
+        cluster.weightedPositionTotal += position * row.impressions
+        cluster.plainPositionTotal += position
+        cluster.positionedRowCount += 1
+      }
     }
 
     if (classification.cluster === 'branded') addMetric(brandedAccumulator, row)
     else addMetric(nonBrandAccumulator, row)
 
-    const bucket = positionBucket(row.position)
-    positionBuckets[bucket] += 1
+    if (position !== null) positionBuckets[positionBucket(position)] += 1
   }
 
   const pageTotals = new Map<LandingPageType, MetricAccumulator>()
   const landingPageTotals = new Map<string, LandingPageTotal>()
-  const l1PageImpressions = new Map<string, number>()
-  const l2PageImpressions = new Map<string, number>()
+  // One accumulator per page type, keyed by CANONICAL page. `l1Pages`/`l2Pages`
+  // are projections of it, so adding a per-page-type breakdown never means
+  // copying this block again.
+  const canonicalPageImpressions = new Map<LandingPageType, Map<string, number>>()
 
   for (const row of rows.pages) {
     const classification = classifyLandingPage(row.page)
@@ -243,6 +289,9 @@ export function buildScorecard(rows: {
     addMetric(pageTypeTotal, row)
     pageTotals.set(classification.pageType, pageTypeTotal)
 
+    // landingPages stays keyed on the RAW URL: a per-URL listing is what Search
+    // Console actually reports, and collapsing it would hide locale and
+    // parameter variants an operator needs to see.
     const landingPageTotal = landingPageTotals.get(row.page) ?? {
       page: row.page,
       impressions: 0,
@@ -252,28 +301,26 @@ export function buildScorecard(rows: {
     landingPageTotal.clicks += row.clicks
     landingPageTotals.set(row.page, landingPageTotal)
 
-    if (classification.pageType === 'l1-category') {
-      l1PageImpressions.set(
-        row.page,
-        (l1PageImpressions.get(row.page) ?? 0) + row.impressions,
-      )
-    }
-    if (classification.pageType === 'l2-category') {
-      l2PageImpressions.set(
-        row.page,
-        (l2PageImpressions.get(row.page) ?? 0) + row.impressions,
-      )
-    }
+    // L1/L2 group by canonical page: /brands?category=bags,
+    // /en/brands?category=bags and /brands?category=bags&page=2 are one page.
+    const canonicalTotals =
+      canonicalPageImpressions.get(classification.pageType) ?? new Map<string, number>()
+    canonicalTotals.set(
+      classification.canonicalPage,
+      (canonicalTotals.get(classification.canonicalPage) ?? 0) + row.impressions,
+    )
+    canonicalPageImpressions.set(classification.pageType, canonicalTotals)
   }
 
   const clusterScores = QUERY_CLUSTERS.map((cluster): QueryClusterScore => {
     const aggregate = clusters.get(cluster) ?? emptyClusterAccumulator()
-    // Average position is impression-weighted; when all impressions are zero, use a plain mean.
+    // Average position is impression-weighted over the rows that HAVE a
+    // position; when those rows carry no impressions, use a plain mean.
     const averagePosition =
-      aggregate.impressions > 0
-        ? aggregate.weightedPositionTotal / aggregate.impressions
-        : aggregate.rowCount > 0
-          ? aggregate.plainPositionTotal / aggregate.rowCount
+      aggregate.positionedImpressions > 0
+        ? aggregate.weightedPositionTotal / aggregate.positionedImpressions
+        : aggregate.positionedRowCount > 0
+          ? aggregate.plainPositionTotal / aggregate.positionedRowCount
           : 0
 
     return {
@@ -297,8 +344,8 @@ export function buildScorecard(rows: {
         right.impressions - left.impressions || left.page.localeCompare(right.page),
     ),
     pageTypes,
-    l1Pages: Object.fromEntries(l1PageImpressions),
-    l2Pages: Object.fromEntries(l2PageImpressions),
+    l1Pages: Object.fromEntries(canonicalPageImpressions.get('l1-category') ?? []),
+    l2Pages: Object.fromEntries(canonicalPageImpressions.get('l2-category') ?? []),
   }
 }
 
@@ -311,7 +358,24 @@ export type SearchConsoleWindow = {
 // Search Console data can lag by several days; exclude the latest three days as incomplete.
 export const SEARCH_CONSOLE_DATA_LAG_DAYS = 3
 
-function addUtcDays(date: Date, days: number): Date {
+/**
+ * WINDOW TIMEZONE BASIS: Asia/Taipei (UTC+8, no DST).
+ *
+ * `src/lib/date-range.ts` states analytics windows are Taipei-based, and the
+ * PostHog project timezone this scorecard reconciles against is Asia/Taipei. A
+ * UTC calendar day would put every run between 00:00 and 08:00 Taipei on the
+ * PREVIOUS Taipei day, silently offsetting the GSC window from the PostHog one
+ * by a day. `date-range.ts` is not reusable here — `shiftIsoDate` is
+ * module-private and `dateRangeForPastDays` has no data-lag offset — so the
+ * day boundary is recomputed rather than imported.
+ *
+ * The returned anchors are UTC-midnight Dates STANDING FOR a Taipei calendar
+ * day; only their ISO date is ever emitted. (Search Console itself reports in
+ * the property's own timezone — see scorecard-definitions.md.)
+ */
+const TAIPEI_UTC_OFFSET_MINUTES = 8 * 60
+
+function addDays(date: Date, days: number): Date {
   const result = new Date(date)
   result.setUTCDate(result.getUTCDate() + days)
   return result
@@ -321,24 +385,27 @@ function isoDate(date: Date): string {
   return date.toISOString().slice(0, 10)
 }
 
-function utcDay(date: Date): Date {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
+export function taipeiDay(date: Date): Date {
+  const shifted = new Date(date.getTime() + TAIPEI_UTC_OFFSET_MINUTES * 60_000)
+  return new Date(
+    Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate()),
+  )
 }
 
 function makeWindow(label: string, endDate: Date, days: number): SearchConsoleWindow {
   return {
     label,
-    startDate: isoDate(addUtcDays(endDate, -(days - 1))),
+    startDate: isoDate(addDays(endDate, -(days - 1))),
     endDate: isoDate(endDate),
   }
 }
 
 export function resolveWindows(today: Date): SearchConsoleWindow[] {
-  const completeEnd = addUtcDays(utcDay(today), -SEARCH_CONSOLE_DATA_LAG_DAYS)
+  const completeEnd = addDays(taipeiDay(today), -SEARCH_CONSOLE_DATA_LAG_DAYS)
   const current28 = makeWindow('28d', completeEnd, 28)
-  const previous28End = addUtcDays(new Date(`${current28.startDate}T00:00:00.000Z`), -1)
+  const previous28End = addDays(new Date(`${current28.startDate}T00:00:00.000Z`), -1)
   const current90 = makeWindow('90d', completeEnd, 90)
-  const previous90End = addUtcDays(new Date(`${current90.startDate}T00:00:00.000Z`), -1)
+  const previous90End = addDays(new Date(`${current90.startDate}T00:00:00.000Z`), -1)
 
   return [
     current28,
@@ -350,6 +417,18 @@ export function resolveWindows(today: Date): SearchConsoleWindow[] {
 
 export function baselineOutputPath(date: string, window: string): string {
   return `content/seo/baselines/${date}-${window}.json`
+}
+
+/**
+ * Baselines are repo artifacts, so they resolve against the repo root — this
+ * file is `<root>/scripts/seo/`. Resolving against process.cwd() instead let a
+ * run from any other directory quietly `mkdir -p` a parallel
+ * `content/seo/baselines` tree and still print a successful-looking summary.
+ */
+export const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
+
+export function resolveFromRepoRoot(relativePath: string): string {
+  return isAbsolute(relativePath) ? relativePath : resolve(REPO_ROOT, relativePath)
 }
 
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
@@ -455,89 +534,159 @@ function numberOrZero(value: number | undefined): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0
 }
 
-function apiRowToSearchConsoleRow(
-  row: SearchConsoleApiRow,
-  dimension: 'query' | 'page',
-): SearchConsoleQueryRow | SearchConsolePageRow | null {
-  const value = row.keys?.at(0)
-  if (!value) return null
-
-  const common = {
+function commonRowMetrics(row: SearchConsoleApiRow): {
+  clicks: number
+  impressions: number
+  ctr: number
+  position: number | null
+} {
+  return {
     clicks: numberOrZero(row.clicks),
     impressions: numberOrZero(row.impressions),
     ctr: numberOrZero(row.ctr),
-    position: numberOrZero(row.position),
+    position: reportedPosition(row.position),
   }
-  return dimension === 'query' ? { query: value, ...common } : { page: value, ...common }
 }
 
-async function fetchDimensionRows(
-  accessToken: string,
-  property: string,
+/** Search Console signals "there is more" only by returning exactly `rowLimit`. */
+export const SEARCH_CONSOLE_ROW_LIMIT = 25_000
+/** Safety cap so a pathological property can never loop forever. */
+export const SEARCH_CONSOLE_MAX_ROWS = 250_000
+
+export type SearchAnalyticsRequest = {
+  startDate: string
+  endDate: string
+  dimensions: string[]
+  rowLimit: number
+  startRow: number
+  dataState: string
+}
+
+/** Injected so the pagination loop is testable without credentials. */
+export type SearchAnalyticsFetcher = (
+  request: SearchAnalyticsRequest,
+) => Promise<SearchConsoleApiRow[]>
+
+/**
+ * Pages through searchAnalytics with `startRow` until a page comes back short.
+ * Without this a >25k-row 90d window is silently truncated, and the truncated
+ * numbers are then committed as THE baseline every later period-over-period
+ * comparison is measured against.
+ */
+export async function collectApiRows(
+  fetchPage: SearchAnalyticsFetcher,
   window: SearchConsoleWindow,
   dimension: 'query' | 'page',
-): Promise<SearchConsoleQueryRow[] | SearchConsolePageRow[]> {
-  const url = `${SEARCH_ANALYTICS_URL}/${encodeURIComponent(property)}/searchAnalytics/query`
-  const requestPayload = {
-    startDate: window.startDate,
-    endDate: window.endDate,
-    dimensions: [dimension],
-    rowLimit: 25_000,
-    dataState: 'final',
+): Promise<SearchConsoleApiRow[]> {
+  const rows: SearchConsoleApiRow[] = []
+
+  while (rows.length < SEARCH_CONSOLE_MAX_ROWS) {
+    const rowLimit = Math.min(SEARCH_CONSOLE_ROW_LIMIT, SEARCH_CONSOLE_MAX_ROWS - rows.length)
+    const page = await fetchPage({
+      startDate: window.startDate,
+      endDate: window.endDate,
+      dimensions: [dimension],
+      rowLimit,
+      startRow: rows.length,
+      dataState: 'final',
+    })
+
+    rows.push(...page)
+    if (page.length < rowLimit) return rows
   }
-  const startedAt = performance.now()
-  let status: number | null = null
-  let parsed: SearchConsoleApiResponse | null = null
 
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        authorization: `Bearer ${accessToken}`,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify(requestPayload),
-    })
-    status = response.status
-    parsed = (await response.json().catch(() => null)) as SearchConsoleApiResponse | null
+  console.warn(
+    JSON.stringify({
+      event: 'search_console_row_cap_reached',
+      dimension,
+      window: window.label,
+      rowCount: rows.length,
+      cap: SEARCH_CONSOLE_MAX_ROWS,
+    }),
+  )
+  return rows
+}
 
-    if (!response.ok) {
-      throw new Error(
-        `Search Console ${dimension} query failed (${response.status}): ${JSON.stringify(parsed)}`,
-      )
+export async function fetchQueryRows(
+  fetchPage: SearchAnalyticsFetcher,
+  window: SearchConsoleWindow,
+): Promise<SearchConsoleQueryRow[]> {
+  const apiRows = await collectApiRows(fetchPage, window, 'query')
+  return apiRows.flatMap((row) => {
+    const query = row.keys?.at(0)
+    return query ? [{ query, ...commonRowMetrics(row) }] : []
+  })
+}
+
+export async function fetchPageRows(
+  fetchPage: SearchAnalyticsFetcher,
+  window: SearchConsoleWindow,
+): Promise<SearchConsolePageRow[]> {
+  const apiRows = await collectApiRows(fetchPage, window, 'page')
+  return apiRows.flatMap((row) => {
+    const page = row.keys?.at(0)
+    return page ? [{ page, ...commonRowMetrics(row) }] : []
+  })
+}
+
+function createSearchAnalyticsFetcher(
+  accessToken: string,
+  property: string,
+): SearchAnalyticsFetcher {
+  const url = `${SEARCH_ANALYTICS_URL}/${encodeURIComponent(property)}/searchAnalytics/query`
+
+  return async (requestPayload) => {
+    const startedAt = performance.now()
+    let status: number | null = null
+    let parsed: SearchConsoleApiResponse | null = null
+    let apiRows: SearchConsoleApiRow[] = []
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(requestPayload),
+      })
+      status = response.status
+      parsed = (await response.json().catch(() => null)) as SearchConsoleApiResponse | null
+
+      if (!response.ok) {
+        throw new Error(
+          `Search Console ${requestPayload.dimensions.join(',')} query failed (${response.status}): ${JSON.stringify(parsed)}`,
+        )
+      }
+
+      apiRows = Array.isArray(parsed?.rows) ? parsed.rows : []
+      return apiRows
+    } finally {
+      logAudit({
+        operation: `search_analytics_${requestPayload.dimensions.join('_')}`,
+        url,
+        requestPayload,
+        // Row count only: the full response is up to 25k rows per call and the
+        // rows are already persisted to content/seo/baselines/. Dumping them
+        // here buries the run summary and breaks `pnpm seo:gsc-export | jq`.
+        responsePayload: { rowCount: apiRows.length },
+        latencyMs: performance.now() - startedAt,
+        status,
+      })
     }
-
-    const apiRows = Array.isArray(parsed?.rows) ? parsed.rows : []
-    return apiRows.flatMap((row) => {
-      const converted = apiRowToSearchConsoleRow(row, dimension)
-      return converted ? [converted] : []
-    }) as SearchConsoleQueryRow[] | SearchConsolePageRow[]
-  } finally {
-    logAudit({
-      operation: `search_analytics_${dimension}`,
-      url,
-      requestPayload,
-      responsePayload: parsed,
-      latencyMs: performance.now() - startedAt,
-      status,
-    })
   }
 }
 
 async function fetchWindowRows(
-  accessToken: string,
-  property: string,
+  fetchPage: SearchAnalyticsFetcher,
   window: SearchConsoleWindow,
 ): Promise<SearchConsoleRows> {
   const [queries, pages] = await Promise.all([
-    fetchDimensionRows(accessToken, property, window, 'query'),
-    fetchDimensionRows(accessToken, property, window, 'page'),
+    fetchQueryRows(fetchPage, window),
+    fetchPageRows(fetchPage, window),
   ])
 
-  return {
-    queries: queries as SearchConsoleQueryRow[],
-    pages: pages as SearchConsolePageRow[],
-  }
+  return { queries, pages }
 }
 
 async function writeBaseline(
@@ -549,7 +698,7 @@ async function writeBaseline(
     scorecard: Scorecard
   },
 ): Promise<void> {
-  const absolutePath = resolve(process.cwd(), outputPath)
+  const absolutePath = resolveFromRepoRoot(outputPath)
   await mkdir(dirname(absolutePath), { recursive: true })
   await writeFile(absolutePath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8')
 }
@@ -559,9 +708,10 @@ async function main(): Promise<void> {
   const extractedAt = new Date().toISOString()
   const windows = resolveWindows(new Date())
   const accessToken = await createAccessToken(credentials)
+  const fetchPage = createSearchAnalyticsFetcher(accessToken, property)
   const exports = await Promise.all(
     windows.map(async (window) => {
-      const rows = await fetchWindowRows(accessToken, property, window)
+      const rows = await fetchWindowRows(fetchPage, window)
       const scorecard = buildScorecard(rows)
       const outputPath = baselineOutputPath(extractedAt.slice(0, 10), window.label)
       await writeBaseline(outputPath, { extractedAt, property, window, scorecard })

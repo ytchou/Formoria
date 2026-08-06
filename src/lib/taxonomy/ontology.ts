@@ -265,6 +265,17 @@ export function normalizeTagKey(s: string): string {
     .replace(/\s+/g, ' ')
 }
 
+/**
+ * A composite subcategory bundles two concepts behind one label, joined by the
+ * katakana middle dot (U+30FB ・) that `normalizeTagKey` strips. This module owns
+ * the separator, so it owns the predicate too: callers that hand-rolled
+ * `nameZh.includes('・')` drifted into two spellings of the same codepoint across
+ * two files.
+ */
+export function isCompositeSubcategory(subcategory: { nameZh: string }): boolean {
+  return subcategory.nameZh.includes('・')
+}
+
 const _subcategoryMap = new Map<string, ProductSubcategory>()
 for (const sub of PRODUCT_SUBCATEGORIES) {
   for (const key of [sub.nameZh, sub.nameEn, ...sub.aliases]) {

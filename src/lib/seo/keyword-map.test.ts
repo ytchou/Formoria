@@ -80,6 +80,42 @@ describe('keyword ownership registry', () => {
     expect(storyRow.page_type).toBe('story')
   })
 
+  it('rejects a live row with no target_url', () => {
+    // Before this rule, target_status: live with no URL parsed clean and the
+    // one-owner invariant then skipped the row entirely.
+    const { target_url: _omitted, ...withoutUrl } = backpackCluster
+
+    expect(() => keywordClusterSchema.parse(withoutUrl)).toThrow(/target_url/)
+  })
+
+  it('allows a proposed or pending row with no target_url', () => {
+    // All 11 URL-less rows in the committed map are `proposed` (multi-intent
+    // clusters rejected before a URL is ever chosen), so the rule is scoped to
+    // `live` only.
+    const { target_url: _omitted, ...withoutUrl } = backpackCluster
+
+    expect(() =>
+      keywordClusterSchema.parse({ ...withoutUrl, target_status: 'proposed' }),
+    ).not.toThrow()
+    expect(() =>
+      keywordClusterSchema.parse({ ...withoutUrl, target_status: 'pending' }),
+    ).not.toThrow()
+  })
+
+  it('rejects an unknown key rather than silently dropping it', () => {
+    // A dropped 's' is the expected editing error in a 2500-line hand-edited
+    // file. Non-strict parsing turned it into a silent pass: secondary_keyword
+    // became [], and the cannibalization invariant then iterated nothing.
+    const { secondary_keywords: secondary, ...rest } = backpackCluster
+
+    expect(() =>
+      keywordClusterSchema.parse({ ...rest, secondary_keyword: secondary }),
+    ).toThrow(/secondary_keyword/)
+    expect(() =>
+      keywordClusterSchema.parse({ ...backpackCluster, composit: 'multi-intent' }),
+    ).toThrow(/composit/)
+  })
+
   it('rejects an unknown page_type', () => {
     expect(() =>
       keywordClusterSchema.parse({ ...backpackCluster, page_type: 'landing-page' }),

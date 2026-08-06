@@ -9,8 +9,13 @@
 # HOW brand_count WAS PRODUCED
 # ---------------------------------------------------------------------------
 # Every brand_count below comes from `pnpm seo:counts` run against the live
-# Supabase project on 2026-08-06: brands with status = 'approved' and
-# is_demo <> true. Total: 718 brands.
+# Supabase project on 2026-08-06, using the SAME exclusion the public surfaces
+# use: status = 'approved' minus the e2e test-brand name pattern
+# (src/lib/services/public-brand-filter.ts). is_demo is deliberately NOT
+# excluded — no public listing or count filters on it. Total: 718 brands.
+# l2-category counts are scoped to the brand's own product_type, matching
+# getSubcategoryCounts and `/brands?category=…`: a fashion brand tagged 手鍊
+# does not count toward the jewelry subcategory it would never render on.
 # data/formoria-seed.csv (139 rows) is STALE and was NOT used for any count.
 #
 # ---------------------------------------------------------------------------
@@ -523,7 +528,7 @@ clusters:
   target_url: /categories/beauty/bath-and-shower
   target_status: proposed
   ontology_slug: bath-and-shower
-  brand_count: 64
+  brand_count: 54
   data_quality: pass
   intent_fit: 3
   differentiation: 2
@@ -549,7 +554,7 @@ clusters:
   target_url: /categories/home/home-decor
   target_status: proposed
   ontology_slug: home-decor
-  brand_count: 49
+  brand_count: 30
   data_quality: pass
   intent_fit: 3
   differentiation: 3
@@ -575,7 +580,7 @@ clusters:
   target_url: /categories/jewelry/necklaces
   target_status: proposed
   ontology_slug: necklaces
-  brand_count: 40
+  brand_count: 35
   data_quality: pass
   intent_fit: 3
   differentiation: 3
@@ -601,7 +606,7 @@ clusters:
   target_url: /categories/jewelry/earrings
   target_status: proposed
   ontology_slug: earrings
-  brand_count: 39
+  brand_count: 33
   data_quality: pass
   intent_fit: 3
   differentiation: 3
@@ -626,7 +631,7 @@ clusters:
   target_url: /categories/home/storage
   target_status: proposed
   ontology_slug: storage
-  brand_count: 37
+  brand_count: 33
   data_quality: pass
   intent_fit: 2
   differentiation: 2
@@ -652,7 +657,7 @@ clusters:
   target_url: /categories/home/tableware
   target_status: proposed
   ontology_slug: tableware
-  brand_count: 36
+  brand_count: 31
   data_quality: pass
   intent_fit: 3
   differentiation: 3
@@ -678,7 +683,7 @@ clusters:
   target_url: /categories/fashion/casual-shoes
   target_status: proposed
   ontology_slug: casual-shoes
-  brand_count: 33
+  brand_count: 31
   data_quality: pass
   intent_fit: 3
   differentiation: 3
@@ -703,7 +708,7 @@ clusters:
   target_url: /categories/jewelry/rings
   target_status: proposed
   ontology_slug: rings
-  brand_count: 33
+  brand_count: 29
   data_quality: pass
   intent_fit: 3
   differentiation: 3
@@ -729,7 +734,7 @@ clusters:
   target_url: /categories/beauty/skincare
   target_status: proposed
   ontology_slug: skincare
-  brand_count: 33
+  brand_count: 32
   data_quality: pass
   intent_fit: 2
   differentiation: 2
@@ -780,7 +785,7 @@ clusters:
   target_url: /categories/bags-accessories/tote-bags
   target_status: proposed
   ontology_slug: tote-bags
-  brand_count: 29
+  brand_count: 25
   data_quality: pass
   intent_fit: 3
   differentiation: 3
@@ -805,7 +810,7 @@ clusters:
   target_url: /categories/beauty/body-care
   target_status: proposed
   ontology_slug: body-care
-  brand_count: 29
+  brand_count: 25
   data_quality: pass
   intent_fit: 2
   differentiation: 2
@@ -830,11 +835,11 @@ clusters:
   target_url: /categories/stationery/stickers
   target_status: proposed
   ontology_slug: stickers
-  brand_count: 29
+  brand_count: 16
   data_quality: pass
   intent_fit: 3
   differentiation: 3
-  priority: P0
+  priority: P1
   eligibility: launch
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
@@ -856,7 +861,7 @@ clusters:
   target_url: /categories/fashion/pants
   target_status: proposed
   ontology_slug: pants
-  brand_count: 28
+  brand_count: 25
   data_quality: pass
   intent_fit: 3
   differentiation: 2
@@ -882,7 +887,7 @@ clusters:
   target_url: /categories/bags-accessories/backpacks
   target_status: proposed
   ontology_slug: backpacks
-  brand_count: 28
+  brand_count: 25
   data_quality: pass
   intent_fit: 3
   differentiation: 3
@@ -907,7 +912,7 @@ clusters:
   target_url: /categories/bags-accessories/crossbody-bags
   target_status: proposed
   ontology_slug: crossbody-bags
-  brand_count: 28
+  brand_count: 25
   data_quality: pass
   intent_fit: 3
   differentiation: 3
@@ -932,7 +937,7 @@ clusters:
   target_url: /categories/fashion/activewear
   target_status: proposed
   ontology_slug: activewear
-  brand_count: 27
+  brand_count: 18
   data_quality: pass
   intent_fit: 3
   differentiation: 2
@@ -958,7 +963,7 @@ clusters:
   target_url: /categories/fashion/socks
   target_status: proposed
   ontology_slug: socks
-  brand_count: 26
+  brand_count: 23
   data_quality: pass
   intent_fit: 3
   differentiation: 3
@@ -983,7 +988,7 @@ clusters:
   target_url: /categories/food-drink/beverages
   target_status: proposed
   ontology_slug: beverages
-  brand_count: 24
+  brand_count: 23
   data_quality: pass
   intent_fit: 2
   differentiation: 1
@@ -1008,7 +1013,7 @@ clusters:
   target_url: /categories/bags-accessories/handbags
   target_status: proposed
   ontology_slug: handbags
-  brand_count: 23
+  brand_count: 22
   data_quality: pass
   intent_fit: 3
   differentiation: 2
@@ -1034,7 +1039,7 @@ clusters:
   target_url: /categories/fashion/outerwear
   target_status: proposed
   ontology_slug: outerwear
-  brand_count: 22
+  brand_count: 21
   data_quality: pass
   intent_fit: 3
   differentiation: 2
@@ -1059,11 +1064,11 @@ clusters:
   target_url: /categories/beauty/handmade-soap
   target_status: proposed
   ontology_slug: handmade-soap
-  brand_count: 20
+  brand_count: 17
   data_quality: pass
   intent_fit: 3
   differentiation: 3
-  priority: P0
+  priority: P1
   eligibility: launch
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
@@ -1084,7 +1089,7 @@ clusters:
   target_url: /categories/fashion/performance-apparel
   target_status: proposed
   ontology_slug: performance-apparel
-  brand_count: 19
+  brand_count: 16
   data_quality: pass
   intent_fit: 3
   differentiation: 2
@@ -1109,7 +1114,7 @@ clusters:
   target_url: /categories/home/bedding
   target_status: proposed
   ontology_slug: bedding
-  brand_count: 19
+  brand_count: 18
   data_quality: pass
   intent_fit: 2
   differentiation: 2
@@ -1159,7 +1164,7 @@ clusters:
   target_url: /categories/fashion/underwear-and-intimates
   target_status: proposed
   ontology_slug: underwear-and-intimates
-  brand_count: 16
+  brand_count: 13
   data_quality: pass
   intent_fit: 2
   differentiation: 2
@@ -1184,7 +1189,7 @@ clusters:
   target_url: /categories/beauty/fragrance
   target_status: proposed
   ontology_slug: fragrance
-  brand_count: 16
+  brand_count: 15
   data_quality: pass
   intent_fit: 2
   differentiation: 2
@@ -1260,11 +1265,11 @@ clusters:
   target_url: /categories/beauty/supplements
   target_status: proposed
   ontology_slug: supplements
-  brand_count: 15
+  brand_count: 6
   data_quality: pass
   intent_fit: 2
   differentiation: 1
-  priority: P2
+  priority: P3
   eligibility: launch
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
@@ -1285,7 +1290,7 @@ clusters:
   target_url: /categories/outdoor/outdoor-accessories
   target_status: proposed
   ontology_slug: outdoor-accessories
-  brand_count: 15
+  brand_count: 9
   data_quality: pass
   intent_fit: 1
   differentiation: 1
@@ -1312,7 +1317,7 @@ clusters:
   target_url: /categories/fashion/tops-and-tshirts
   target_status: proposed
   ontology_slug: tops-and-tshirts
-  brand_count: 36
+  brand_count: 32
   data_quality: pass
   intent_fit: 3
   differentiation: 2
@@ -1338,7 +1343,7 @@ clusters:
   target_url: /categories/food-drink/desserts-and-pastries
   target_status: proposed
   ontology_slug: desserts-and-pastries
-  brand_count: 32
+  brand_count: 31
   data_quality: pass
   intent_fit: 3
   differentiation: 3
@@ -1364,7 +1369,7 @@ clusters:
   target_url: /categories/crafts/illustration-and-art
   target_status: proposed
   ontology_slug: illustration-and-art
-  brand_count: 28
+  brand_count: 22
   data_quality: pass
   intent_fit: 3
   differentiation: 3
@@ -1415,11 +1420,11 @@ clusters:
   target_url: /categories/stationery/cards-and-postcards
   target_status: proposed
   ontology_slug: cards-and-postcards
-  brand_count: 23
+  brand_count: 13
   data_quality: pass
   intent_fit: 3
   differentiation: 3
-  priority: P0
+  priority: P1
   eligibility: launch
   composite: synonym
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
@@ -1441,11 +1446,11 @@ clusters:
   target_url: /categories/crafts/ceramics
   target_status: proposed
   ontology_slug: ceramics
-  brand_count: 21
+  brand_count: 17
   data_quality: pass
   intent_fit: 3
   differentiation: 3
-  priority: P0
+  priority: P1
   eligibility: launch
   composite: synonym
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
@@ -1467,7 +1472,7 @@ clusters:
   target_url: /categories/fashion/sandals-and-slippers
   target_status: proposed
   ontology_slug: sandals-and-slippers
-  brand_count: 20
+  brand_count: 18
   data_quality: pass
   intent_fit: 3
   differentiation: 2
@@ -1493,11 +1498,11 @@ clusters:
   target_url: /categories/bags-accessories/eco-and-shopping-bags
   target_status: proposed
   ontology_slug: eco-and-shopping-bags
-  brand_count: 16
+  brand_count: 4
   data_quality: pass
   intent_fit: 3
   differentiation: 2
-  priority: P1
+  priority: P2
   eligibility: launch
   composite: synonym
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
@@ -1519,7 +1524,7 @@ clusters:
   target_url: /categories/bags-accessories/wallets
   target_status: proposed
   ontology_slug: wallets
-  brand_count: 15
+  brand_count: 12
   data_quality: pass
   intent_fit: 3
   differentiation: 3
@@ -1544,11 +1549,11 @@ clusters:
   page_type: l2-category
   target_status: proposed
   ontology_slug: home-fragrance-and-candles
-  brand_count: 45
+  brand_count: 12
   data_quality: pass
   intent_fit: 3
   differentiation: 3
-  priority: P0
+  priority: P1
   eligibility: reject-taxonomy
   composite: multi-intent
   content_requirement: None until the ontology split lands (DEV-1361). Do not build a page for this slug.
@@ -1566,11 +1571,11 @@ clusters:
   page_type: l2-category
   target_status: proposed
   ontology_slug: keychains-and-charms
-  brand_count: 35
+  brand_count: 8
   data_quality: pass
   intent_fit: 3
   differentiation: 2
-  priority: P1
+  priority: P2
   eligibility: reject-taxonomy
   composite: multi-intent
   content_requirement: None until the ontology split lands (DEV-1361). Do not build a page for this slug.
@@ -1588,7 +1593,7 @@ clusters:
   page_type: l2-category
   target_status: proposed
   ontology_slug: workshops-and-diy-kits
-  brand_count: 35
+  brand_count: 21
   data_quality: pass
   intent_fit: 3
   differentiation: 3
@@ -1610,7 +1615,7 @@ clusters:
   page_type: l2-category
   target_status: proposed
   ontology_slug: pouches
-  brand_count: 31
+  brand_count: 21
   data_quality: pass
   intent_fit: 3
   differentiation: 2
@@ -1633,7 +1638,7 @@ clusters:
   page_type: l2-category
   target_status: proposed
   ontology_slug: tea-bags-and-drinks
-  brand_count: 29
+  brand_count: 26
   data_quality: pass
   intent_fit: 3
   differentiation: 2
@@ -1655,7 +1660,7 @@ clusters:
   page_type: l2-category
   target_status: proposed
   ontology_slug: bracelets-and-bangles
-  brand_count: 22
+  brand_count: 21
   data_quality: pass
   intent_fit: 3
   differentiation: 3
@@ -1700,7 +1705,7 @@ clusters:
   page_type: l2-category
   target_status: proposed
   ontology_slug: floral-and-plants
-  brand_count: 16
+  brand_count: 9
   data_quality: pass
   intent_fit: 2
   differentiation: 2
@@ -1723,7 +1728,7 @@ clusters:
   page_type: l2-category
   target_status: proposed
   ontology_slug: toys-and-learning
-  brand_count: 16
+  brand_count: 12
   data_quality: pass
   intent_fit: 3
   differentiation: 2
@@ -1745,7 +1750,7 @@ clusters:
   page_type: l2-category
   target_status: proposed
   ontology_slug: phone-bags-and-straps
-  brand_count: 15
+  brand_count: 12
   data_quality: pass
   intent_fit: 3
   differentiation: 2
@@ -1768,7 +1773,7 @@ clusters:
   page_type: l2-category
   target_status: proposed
   ontology_slug: towels-and-textiles
-  brand_count: 15
+  brand_count: 10
   data_quality: pass
   intent_fit: 3
   differentiation: 2
@@ -1888,7 +1893,7 @@ clusters:
   page_type: story
   target_url: /stories/taiwan-gift-boxes
   target_status: proposed
-  brand_count: 74
+  brand_count: 69
   data_quality: pass
   intent_fit: 3
   differentiation: 3
@@ -1913,7 +1918,7 @@ clusters:
   page_type: story
   target_url: /stories/custom-gifts
   target_status: proposed
-  brand_count: 43
+  brand_count: 21
   data_quality: pass
   intent_fit: 3
   differentiation: 3
@@ -2283,13 +2288,13 @@ unmapped_backlog:
   brand_count: 14
   composite: multi-intent
 - slug: sun-care
-  brand_count: 14
+  brand_count: 13
 - slug: tea
   brand_count: 14
 - slug: coin-purses
-  brand_count: 13
+  brand_count: 11
 - slug: journals-and-notebooks
-  brand_count: 13
+  brand_count: 12
   composite: synonym
 - slug: mattresses
   brand_count: 13
@@ -2297,17 +2302,17 @@ unmapped_backlog:
   brand_count: 13
   composite: multi-intent
 - slug: reusable-utensils-and-straws
-  brand_count: 13
+  brand_count: 11
   composite: multi-intent
 - slug: tea-and-coffee-ware
-  brand_count: 13
+  brand_count: 9
   composite: multi-intent
 - slug: dried-fruits
   brand_count: 12
 - slug: lighting
-  brand_count: 12
+  brand_count: 8
 - slug: phone-cases
-  brand_count: 12
+  brand_count: 5
 - slug: tumblers-and-bottles
   brand_count: 12
   composite: multi-intent
@@ -2317,44 +2322,44 @@ unmapped_backlog:
   brand_count: 11
   composite: synonym
 - slug: woodcraft
-  brand_count: 11
+  brand_count: 9
   composite: synonym
 - slug: cleaning
-  brand_count: 10
+  brand_count: 9
 - slug: eyewear
-  brand_count: 10
+  brand_count: 5
   composite: multi-intent
 - slug: hats
-  brand_count: 10
+  brand_count: 2
 - slug: fresh-produce
   brand_count: 9
 - slug: oral-care
-  brand_count: 9
+  brand_count: 8
 - slug: seasonings-and-sauces
-  brand_count: 9
+  brand_count: 8
   composite: multi-intent
 - slug: stamps-and-seals
   brand_count: 9
 - slug: washi-tape
-  brand_count: 9
+  brand_count: 7
 - slug: home-appliances
-  brand_count: 8
+  brand_count: 6
 - slug: paper-goods
-  brand_count: 8
+  brand_count: 4
 - slug: pens-and-writing
-  brand_count: 8
+  brand_count: 5
 - slug: swimwear
-  brand_count: 8
+  brand_count: 6
 - slug: cookware
   brand_count: 7
 - slug: dried-flowers-and-floral-design
-  brand_count: 7
+  brand_count: 5
   composite: multi-intent
 - slug: hiking-and-camping-gear
-  brand_count: 7
+  brand_count: 6
   composite: multi-intent
 - slug: kids-clothing
-  brand_count: 7
+  brand_count: 3
 - slug: skirts
   brand_count: 7
 - slug: snacks
@@ -2363,9 +2368,9 @@ unmapped_backlog:
   brand_count: 7
   composite: synonym
 - slug: yoga-gear
-  brand_count: 7
-- slug: calendars
   brand_count: 6
+- slug: calendars
+  brand_count: 4
   composite: synonym
 - slug: clocks
   brand_count: 6
@@ -2378,14 +2383,14 @@ unmapped_backlog:
   brand_count: 6
   composite: synonym
 - slug: massage-and-recovery
-  brand_count: 6
+  brand_count: 4
   composite: multi-intent
 - slug: metalwork
-  brand_count: 6
+  brand_count: 2
 - slug: parenting-essentials
   brand_count: 6
 - slug: pet-apparel
-  brand_count: 6
+  brand_count: 2
   composite: multi-intent
 - slug: baby-clothing
   brand_count: 5
@@ -2400,17 +2405,17 @@ unmapped_backlog:
   brand_count: 5
   composite: multi-intent
 - slug: pet-food
-  brand_count: 5
+  brand_count: 4
 - slug: pet-supplies
   brand_count: 5
 - slug: protective-sprays
-  brand_count: 5
+  brand_count: 4
   composite: multi-intent
 - slug: wetsuits-and-water-sports
-  brand_count: 5
+  brand_count: 4
   composite: multi-intent
 - slug: baby-bedding
-  brand_count: 4
+  brand_count: 3
 - slug: baby-gift-sets
   brand_count: 4
 - slug: belt-and-sling-bags
@@ -2427,20 +2432,20 @@ unmapped_backlog:
 - slug: embroidery
   brand_count: 4
 - slug: family-matching
-  brand_count: 4
+  brand_count: 1
 - slug: hair-accessories
-  brand_count: 4
+  brand_count: 2
 - slug: pet-grooming
-  brand_count: 4
+  brand_count: 2
   composite: multi-intent
 - slug: play-mats-and-fences
-  brand_count: 4
+  brand_count: 3
   composite: multi-intent
 - slug: rugs-and-mats
   brand_count: 4
   composite: multi-intent
 - slug: scarves-and-shawls
-  brand_count: 4
+  brand_count: 1
   composite: multi-intent
 - slug: alcohol
   brand_count: 3
@@ -2449,7 +2454,7 @@ unmapped_backlog:
 - slug: care-and-mobility-aids
   brand_count: 3
 - slug: clasp-frame-bags
-  brand_count: 3
+  brand_count: 2
 - slug: clutches
   brand_count: 3
 - slug: fitness-equipment
@@ -2457,9 +2462,9 @@ unmapped_backlog:
 - slug: kids-furniture
   brand_count: 3
 - slug: kids-tableware
-  brand_count: 3
+  brand_count: 2
 - slug: loungewear
-  brand_count: 3
+  brand_count: 2
   composite: multi-intent
 - slug: makeup
   brand_count: 3
@@ -2485,12 +2490,12 @@ unmapped_backlog:
   brand_count: 2
   composite: multi-intent
 - slug: desk-mats
-  brand_count: 2
+  brand_count: 1
 - slug: device-sleeves
-  brand_count: 2
+  brand_count: 1
   composite: synonym
 - slug: hand-tools
-  brand_count: 2
+  brand_count: 1
 - slug: helmets
   brand_count: 2
 - slug: laptop-bags
@@ -2505,15 +2510,15 @@ unmapped_backlog:
 - slug: bucket-bags
   brand_count: 1
 - slug: desk-organization
-  brand_count: 1
+  brand_count: 0
 - slug: leather-craft
   brand_count: 1
 - slug: milk-powder
   brand_count: 1
 - slug: picnic-supplies
-  brand_count: 1
+  brand_count: 0
 - slug: protective-gear
-  brand_count: 1
+  brand_count: 0
 - slug: stands-and-mounts
   brand_count: 1
 - slug: storage-devices

@@ -1,39 +1,28 @@
 import { describe, it, expect } from 'vitest'
-import { aggregateBrandCounts } from './brand-counts'
+import { aggregateBrandCounts, isTestBrandName, type BrandCountRow } from './brand-counts'
+
+function brand(
+  product_type: string | null,
+  product_tags: string[],
+  overrides: Partial<BrandCountRow> = {},
+): BrandCountRow {
+  return {
+    name: 'A Brand',
+    product_type,
+    product_tags,
+    status: 'approved',
+    ...overrides,
+  }
+}
 
 describe('aggregateBrandCounts', () => {
   it('aggregates brand counts per L1 product_type', () => {
     const result = aggregateBrandCounts([
-      {
-        product_type: 'fashion',
-        product_tags: ['牛仔褲'],
-        status: 'approved',
-        is_demo: false,
-      },
-      {
-        product_type: 'fashion',
-        product_tags: ['裙裝'],
-        status: 'approved',
-        is_demo: null,
-      },
-      {
-        product_type: 'jewelry',
-        product_tags: ['手鍊'],
-        status: 'approved',
-        is_demo: false,
-      },
-      {
-        product_type: null,
-        product_tags: ['手鍊'],
-        status: 'approved',
-        is_demo: false,
-      },
-      {
-        product_type: 'not-a-category',
-        product_tags: ['手鍊'],
-        status: 'approved',
-        is_demo: false,
-      },
+      brand('fashion', ['牛仔褲']),
+      brand('fashion', ['裙裝']),
+      brand('jewelry', ['手鍊']),
+      brand(null, ['手鍊']),
+      brand('not-a-category', ['手鍊']),
     ])
 
     expect(result.product_type_totals.fashion).toBe(2)
@@ -42,14 +31,10 @@ describe('aggregateBrandCounts', () => {
     expect(result.product_type_totals).not.toHaveProperty('null')
   })
 
-  it('resolves product tags to ontology slugs', () => {
+  it('resolves product tags to ontology slugs within the brand product_type', () => {
     const result = aggregateBrandCounts([
-      {
-        product_type: 'fashion',
-        product_tags: ['牛仔褲', '褲裝', '手鍊', '手鍊手環'],
-        status: 'approved',
-        is_demo: false,
-      },
+      brand('fashion', ['牛仔褲', '褲裝']),
+      brand('jewelry', ['手鍊', '手鍊手環']),
     ])
 
     expect(result.subcategories).toEqual([
@@ -72,20 +57,34 @@ describe('aggregateBrandCounts', () => {
     ])
   })
 
+  it('does not count a tag whose subcategory belongs to another product_type', () => {
+    // `/brands?category=jewelry` filters on product_type, so a fashion brand
+    // tagged 手鍊 never renders on the jewelry subcategory page.
+    const result = aggregateBrandCounts([brand('fashion', ['牛仔褲', '手鍊'])])
+
+    expect(result.subcategories).toEqual([
+      expect.objectContaining({ slug: 'pants', category: 'fashion', brand_count: 1 }),
+    ])
+    expect(result.subcategories.map(({ slug }) => slug)).not.toContain(
+      'bracelets-and-bangles',
+    )
+    // It resolves to a real subcategory, so it is not backlogged as unmatched either.
+    expect(result.unmatched).toEqual([])
+  })
+
+  it('drops cross-category tags on rows with no recognised product_type', () => {
+    const result = aggregateBrandCounts([
+      brand(null, ['手鍊']),
+      brand('not-a-category', ['手鍊']),
+    ])
+
+    expect(result.subcategories).toEqual([])
+  })
+
   it('collects unmatched tags separately', () => {
     const result = aggregateBrandCounts([
-      {
-        product_type: 'fashion',
-        product_tags: ['Custom Gizmo', 'custom gizmo', '未分類'],
-        status: 'approved',
-        is_demo: false,
-      },
-      {
-        product_type: 'fashion',
-        product_tags: ['CUSTOM GIZMO', '其他'],
-        status: 'approved',
-        is_demo: false,
-      },
+      brand('fashion', ['Custom Gizmo', 'custom gizmo', '未分類']),
+      brand('fashion', ['CUSTOM GIZMO', '其他']),
     ])
 
     expect(result.unmatched).toEqual([
@@ -95,66 +94,36 @@ describe('aggregateBrandCounts', () => {
     ])
   })
 
-  it('excludes non-approved and demo brands', () => {
+  it('excludes non-approved brands and e2e test brands, but counts demo brands', () => {
     const result = aggregateBrandCounts([
-      {
-        product_type: 'fashion',
-        product_tags: ['褲裝'],
-        status: 'approved',
-        is_demo: null,
-      },
-      {
-        product_type: 'fashion',
-        product_tags: ['裙裝'],
-        status: 'pending',
-        is_demo: false,
-      },
-      {
-        product_type: 'fashion',
-        product_tags: ['外套'],
-        status: 'approved',
-        is_demo: true,
-      },
-      {
-        product_type: 'jewelry',
-        product_tags: ['手鍊'],
-        status: null,
-        is_demo: false,
-      },
+      brand('fashion', ['褲裝']),
+      brand('fashion', ['裙裝'], { status: 'pending' }),
+      // is_demo is intentionally not an exclusion: no public listing filters on it.
+      brand('fashion', ['外套'], { name: 'Demo Brand' }),
+      brand('jewelry', ['手鍊'], { status: null }),
+      brand('fashion', ['裙裝'], { name: '[E2E-TEST] Seeded Brand' }),
     ])
 
-    expect(result.product_type_totals.fashion).toBe(1)
+    expect(result.product_type_totals.fashion).toBe(2)
     expect(result.product_type_totals.jewelry).toBe(0)
-    expect(result.subcategories.map(({ slug }) => slug)).toEqual(['pants'])
+    expect(result.subcategories.map(({ slug }) => slug)).toEqual(['outerwear', 'pants'])
     expect(result.unmatched).toEqual([])
+  })
+
+  it('matches the public test-brand LIKE pattern', () => {
+    expect(isTestBrandName('[E2E-TEST] Seeded Brand')).toBe(true)
+    expect(isTestBrandName('[E2E-TEST]')).toBe(true)
+    expect(isTestBrandName('Real [E2E-TEST] Brand')).toBe(false)
+    expect(isTestBrandName('E2E-TEST Brand')).toBe(false)
+    expect(isTestBrandName(null)).toBe(false)
   })
 
   it('buckets subcategories at 20, 15, 10 and 5', () => {
     const rows = [
-      ...Array.from({ length: 20 }, () => ({
-        product_type: 'fashion',
-        product_tags: ['褲裝'],
-        status: 'approved',
-        is_demo: false,
-      })),
-      ...Array.from({ length: 15 }, () => ({
-        product_type: 'bags-accessories',
-        product_tags: ['手提包'],
-        status: 'approved',
-        is_demo: false,
-      })),
-      ...Array.from({ length: 10 }, () => ({
-        product_type: 'jewelry',
-        product_tags: ['手鍊'],
-        status: 'approved',
-        is_demo: false,
-      })),
-      ...Array.from({ length: 5 }, () => ({
-        product_type: 'jewelry',
-        product_tags: ['項鍊'],
-        status: 'approved',
-        is_demo: false,
-      })),
+      ...Array.from({ length: 20 }, () => brand('fashion', ['褲裝'])),
+      ...Array.from({ length: 15 }, () => brand('bags-accessories', ['手提包'])),
+      ...Array.from({ length: 10 }, () => brand('jewelry', ['手鍊'])),
+      ...Array.from({ length: 5 }, () => brand('jewelry', ['項鍊'])),
     ]
 
     const result = aggregateBrandCounts(rows)
@@ -167,18 +136,8 @@ describe('aggregateBrandCounts', () => {
 
   it('flags composite subcategory labels', () => {
     const result = aggregateBrandCounts([
-      {
-        product_type: 'jewelry',
-        product_tags: ['手鍊'],
-        status: 'approved',
-        is_demo: false,
-      },
-      {
-        product_type: 'fashion',
-        product_tags: ['牛仔褲'],
-        status: 'approved',
-        is_demo: false,
-      },
+      brand('jewelry', ['手鍊']),
+      brand('fashion', ['牛仔褲']),
     ])
 
     expect(result.subcategories).toEqual([

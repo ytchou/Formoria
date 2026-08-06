@@ -4,8 +4,14 @@
  * Usage: pnpm seo:counts
  */
 
+import { pathToFileURL } from 'node:url'
+import {
+  excludeTestBrands,
+  TEST_BRAND_NAME_PATTERN,
+} from '@/lib/services/public-brand-filter'
 import { createServiceClient } from '@/lib/supabase/server'
 import {
+  isCompositeSubcategory,
   matchSubcategory,
   normalizeTagKey,
   PRODUCT_TYPE_CATEGORIES,
@@ -14,10 +20,26 @@ import {
 } from '@/lib/taxonomy/ontology'
 
 export type BrandCountRow = {
+  name: string | null
   product_type: string | null
   product_tags: string[] | null
   status: string | null
-  is_demo: boolean | null
+}
+
+/**
+ * Mirrors `excludeTestBrands`' SQL `NOT LIKE` in memory so the pure aggregator
+ * applies the exact same exclusion the public surfaces do. Derived from the
+ * exported pattern rather than re-typing the literal: the filter drifting
+ * between surfaces is precisely what this map must not reintroduce.
+ */
+const TEST_BRAND_NAME_REGEXP = new RegExp(
+  `^${TEST_BRAND_NAME_PATTERN.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    .replaceAll('%', '.*')
+    .replaceAll('_', '.')}$`,
+)
+
+export function isTestBrandName(name: string | null): boolean {
+  return name !== null && TEST_BRAND_NAME_REGEXP.test(name)
 }
 
 type ProductTypeSlug = (typeof PRODUCT_TYPE_CATEGORIES)[number]['slug']
@@ -65,7 +87,7 @@ function toSubcategoryBrandCount(
     nameEn: subcategory.nameEn,
     category: subcategory.category,
     brand_count,
-    isComposite: subcategory.nameZh.includes('\u30fb'),
+    isComposite: isCompositeSubcategory(subcategory),
   }
 }
 
@@ -79,7 +101,12 @@ export function aggregateBrandCounts(rows: BrandCountRow[]): BrandCountResult {
   const unmatchedCounts = new Map<string, { tag: string; brand_count: number }>()
 
   for (const row of rows) {
-    if (row.status !== 'approved' || row.is_demo === true) continue
+    // Exclusion is deliberately identical to the public surfaces: approved
+    // status + the test-brand name filter. `is_demo` is NOT excluded — no
+    // public listing or count filters on it (see getSubcategoryCounts and
+    // public-brand-filter.ts), so excluding it here would make this map report
+    // fewer brands than the URL it is measuring.
+    if (row.status !== 'approved' || isTestBrandName(row.name)) continue
 
     const productTypeCategory = PRODUCT_TYPE_CATEGORIES.find(
       ({ slug }) => slug === row.product_type,
@@ -94,6 +121,15 @@ export function aggregateBrandCounts(rows: BrandCountRow[]): BrandCountResult {
     for (const tag of row.product_tags ?? []) {
       const matchedSubcategory = matchSubcategory(tag)
       if (matchedSubcategory) {
+        // Scope the tag to the brand's own L1: `/brands?category=jewelry`
+        // filters on product_type, so a fashion brand tagged 手鍊 never appears
+        // under the jewelry subcategory page. Counting it would inflate every
+        // L2 count above what its URL actually renders (mirrors
+        // getSubcategoryCounts' `subcategory?.category === categorySlug`).
+        // A cross-category tag is not "unmatched" either — it resolves to a
+        // real subcategory, just not one this brand's page belongs to.
+        if (matchedSubcategory.category !== row.product_type) continue
+
         const subcategory = subcategoryBySlug(matchedSubcategory.slug)
         if (!subcategory || seenSubcategorySlugs.has(subcategory.slug)) continue
 
@@ -138,18 +174,39 @@ export function aggregateBrandCounts(rows: BrandCountRow[]): BrandCountResult {
   return { product_type_totals, subcategories, thresholds, unmatched }
 }
 
-// Wrapped in an async IIFE rather than using top-level await: `tsx` transpiles
-// this file to CJS (the repo has no "type": "module"), and esbuild rejects
-// top-level await under the cjs output format.
-async function main(): Promise<void> {
-  try {
-    const { data, error } = await createServiceClient()
-      .from('brands')
-      .select('product_type, product_tags, status, is_demo')
+/** PostgREST caps an unbounded select at 1000 rows; page under that cap. */
+const PAGE_SIZE = 1000
+
+async function fetchAllBrandRows(): Promise<BrandCountRow[]> {
+  const client = createServiceClient()
+  const rows: BrandCountRow[] = []
+
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    // excludeTestBrands must wrap the FILTER builder (`.not` is gone once
+    // `.order`/`.range` narrow it to a transform builder).
+    const { data, error } = await excludeTestBrands(
+      client.from('brands').select('name, product_type, product_tags, status'),
+    )
+      .order('id', { ascending: true })
+      .range(offset, offset + PAGE_SIZE - 1)
 
     if (error) throw error
 
-    const result = aggregateBrandCounts(data ?? [])
+    const page = (data ?? []) as BrandCountRow[]
+    rows.push(...page)
+    if (page.length < PAGE_SIZE) break
+  }
+
+  return rows
+}
+
+// `main()` is a named async function invoked from the entrypoint guard below
+// rather than top-level await: `tsx` transpiles this file to CJS (the repo has
+// no "type": "module"), and esbuild rejects top-level await under the cjs
+// output format.
+async function main(): Promise<void> {
+  try {
+    const result = aggregateBrandCounts(await fetchAllBrandRows())
     console.log(JSON.stringify(result, null, 2))
   } catch (error) {
     console.error(error)
@@ -157,6 +214,9 @@ async function main(): Promise<void> {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// pathToFileURL, not a `file://` template: a repo path containing a space, `#`
+// or non-ASCII character percent-encodes in import.meta.url, and the naive
+// comparison would silently skip main() and exit 0 printing nothing.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   void main()
 }

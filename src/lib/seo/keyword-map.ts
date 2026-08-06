@@ -17,46 +17,38 @@ import { z } from 'zod'
  * registry, not a DB row that gets camelCased at a service boundary.
  */
 
-export const SEARCH_INTENTS = [
-  'navigational',
-  'informational',
-  'commercial',
-  'transactional',
-] as const
+import {
+  COMPOSITES,
+  DATA_QUALITIES,
+  ELIGIBILITIES,
+  INDEXABILITIES,
+  LOCALES,
+  PAGE_TYPES,
+  PRIORITIES,
+  SEARCH_INTENTS,
+  TARGET_STATUSES,
+  type PageType,
+  type Priority,
+} from './keyword-map-constants'
 
-export const PAGE_TYPES = [
-  'homepage',
-  'directory',
-  'l1-category',
-  'l2-category',
-  'topic-hub',
-  'story',
-  'glossary',
-  'stats',
-  'brand-detail',
-] as const
-
-export const TARGET_STATUSES = ['live', 'proposed', 'pending'] as const
-export const DATA_QUALITIES = ['pass', 'thin'] as const
-export const PRIORITIES = ['P0', 'P1', 'P2', 'P3'] as const
-export const ELIGIBILITIES = [
-  'launch',
-  'defer-brands',
-  'defer-data',
-  'defer-overlap',
-  'defer-no-demand',
-  'reject-taxonomy',
-] as const
-export const COMPOSITES = ['none', 'synonym', 'multi-intent'] as const
-export const INDEXABILITIES = ['index', 'noindex'] as const
-export const LOCALES = ['zh-TW', 'en'] as const
+// The enum arrays live in a dependency-free module so pure consumers can import
+// a page-type name without pulling `node:fs`/`yaml`/`zod` in. Re-exported here so
+// `from './keyword-map'` keeps working for every existing import site.
+export * from './keyword-map-constants'
 
 /** Page types whose row must name the ontology slug it is built from. */
 const TAXONOMY_PAGE_TYPES = new Set<PageType>(['l1-category', 'l2-category'])
 
-export type SearchIntent = (typeof SEARCH_INTENTS)[number]
-export type PageType = (typeof PAGE_TYPES)[number]
-export type Priority = (typeof PRIORITIES)[number]
+/**
+ * Target statuses whose row must name the URL it owns. `pending` rows are
+ * research placeholders with no page in view, so they legitimately have none.
+ *
+ * Scoped to `live` only: every one of the 11 URL-less rows in the committed map
+ * is `proposed` (they are the multi-intent clusters that are rejected before a
+ * URL is ever chosen), so requiring a URL for `proposed` would fail the real
+ * artifact. See the code-review note in the return for DEV-1354.
+ */
+const URL_REQUIRED_STATUSES = new Set(['live'])
 
 export type PriorityInput = {
   brand_count: number
@@ -115,7 +107,7 @@ const keywordClusterShape = z.object({
   indexability: z.enum(INDEXABILITIES),
   locale: z.enum(LOCALES),
   notes: z.string().default(''),
-})
+}).strict()
 
 export const keywordClusterSchema = keywordClusterShape.superRefine((row, ctx) => {
   if (TAXONOMY_PAGE_TYPES.has(row.page_type) && !row.ontology_slug) {
@@ -137,6 +129,17 @@ export const keywordClusterSchema = keywordClusterShape.superRefine((row, ctx) =
     })
   }
 
+  // A row that names a status implying a real page must name that page. Without
+  // this, `target_status: live` with no `target_url` parses clean and the
+  // one-owner invariant silently skips the row.
+  if (URL_REQUIRED_STATUSES.has(row.target_status) && !row.target_url) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['target_url'],
+      message: `target_url is required when target_status is "${row.target_status}"`,
+    })
+  }
+
   if (row.priority) {
     const derived = derivePriority(row)
     if (row.priority !== derived) {
@@ -154,7 +157,7 @@ export const unmappedBacklogRowSchema = z.object({
   brand_count: z.number().int().min(0),
   composite: z.enum(COMPOSITES).optional(),
   notes: z.string().optional(),
-})
+}).strict()
 
 export const keywordMapSchema = z.object({
   version: z.union([z.number(), z.string()]).optional(),
@@ -164,7 +167,7 @@ export const keywordMapSchema = z.object({
   notes: z.string().optional(),
   clusters: z.array(keywordClusterSchema).default([]),
   unmapped_backlog: z.array(unmappedBacklogRowSchema).default([]),
-})
+}).strict()
 
 export type KeywordCluster = z.infer<typeof keywordClusterSchema>
 export type UnmappedBacklogRow = z.infer<typeof unmappedBacklogRowSchema>

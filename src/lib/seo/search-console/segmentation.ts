@@ -5,7 +5,11 @@
  * keyword ownership registry and the site's canonical URL shapes.
  */
 
-import { PAGE_TYPES } from '../keyword-map'
+// Imported from the dependency-free constants module, NOT from `../keyword-map`:
+// that module pulls `node:fs`, `node:path`, `yaml` and `zod`, and the plan's
+// performance budget forbids `yaml` reaching the client bundle. These
+// classifiers are pure, so their import graph must stay pure too.
+import { PAGE_TYPES } from '../keyword-map-constants'
 
 export const QUERY_CLUSTERS = [
   'branded',
@@ -22,27 +26,33 @@ export type QueryCluster = (typeof QUERY_CLUSTERS)[number]
 
 /**
  * The one ordered table that drives `classifyQuery`. First match wins, so order
- * is behaviour, not presentation:
+ * is behaviour, not presentation. Two rules govern it:
  *
- * - `branded` is first: a query naming Formoria is branded even when it also
- *   matches a topic cluster.
- * - `design` sits ABOVE `core-taiwan-brand`. Every design literal ends in 品牌,
- *   which the core pattern also matches, so with the ticket's listed order the
- *   design cluster would be unreachable — no query could ever land in it.
- *   Specific-before-general is the only ordering that keeps all seven clusters
- *   addressable.
+ * 1. `branded` is first: a query naming Formoria is branded even when it also
+ *    matches a topic cluster.
+ * 2. Every other row is ordered SPECIFIC BEFORE GENERAL. `core-taiwan-brand` is
+ *    the catch-all — its bare 品牌 alternative matches 台灣文創品牌, 台灣手作品牌
+ *    and 台灣包包品牌 too — so it must sit BELOW every topic cluster it would
+ *    otherwise swallow, or those clusters become unreachable configuration.
+ *
+ * Patterns are defined over NORMALIZED input (see `normalizeQuery`): lowercased,
+ * NFKC-folded, whitespace-collapsed, and 臺 folded to 台. Never test them against
+ * raw Search Console text — 臺灣品牌 will not match.
  */
 export const CLUSTER_PATTERNS = [
   { cluster: 'branded', pattern: /formoria/ },
-  { cluster: 'design', pattern: /(台灣|臺灣).*(設計品牌|原創品牌|獨立品牌)/ },
-  { cluster: 'core-taiwan-brand', pattern: /(台灣|臺灣).*(品牌|目錄|平台|選物)/ },
-  { cluster: 'cultural-creative', pattern: /(台灣|臺灣).*(文創|文化創意)/ },
-  { cluster: 'craft-handmade', pattern: /(台灣|臺灣).*(工藝|手作|手工|職人)/ },
+  { cluster: 'cultural-creative', pattern: /台灣.*(文創|文化創意)/ },
+  { cluster: 'craft-handmade', pattern: /台灣.*(工藝|手作|手工|職人)/ },
+  { cluster: 'design', pattern: /台灣.*(設計品牌|原創品牌|獨立品牌)/ },
   {
     cluster: 'product-category',
-    pattern: /(台灣|臺灣).*(包包|包袋|家具|居家|飾品|文具|服飾|手工皂|陶藝|餐具|寢具|收納)/,
+    pattern: /台灣.*(包包|包袋|家具|居家|飾品|文具|服飾|手工皂|陶藝|餐具|寢具|收納)/,
   },
-  { cluster: 'english', pattern: /taiwanese.*(brand|brands|directory|design|craft|handmade)/ },
+  { cluster: 'core-taiwan-brand', pattern: /台灣.*(品牌|目錄|平台|選物)/ },
+  {
+    cluster: 'english',
+    pattern: /taiwan(ese)?.*(brand|brands|directory|design|craft|handmade)/,
+  },
 ] as const
 
 export type QueryClassification = {
@@ -79,6 +89,51 @@ export type LandingPageClassification = {
   raw: string
   path: string
   pageType: LandingPageType
+  /**
+   * The stable key many raw URLs collapse onto, so performance can be grouped by
+   * logical page rather than by URL string. Built from the locale-stripped,
+   * trailing-slash-normalized path plus ONLY the indexable params, in fixed
+   * order: `?category=<v>` then `&sub=<v>`. Ranking params (`page`, `sort`,
+   * `q`, UTM) never appear.
+   *
+   * `/en/brands?category=bags&page=2` and `/brands?category=bags` therefore both
+   * yield `/brands?category=bags`.
+   */
+  canonicalPage: string
+}
+
+/**
+ * The two query params that identify a distinct indexable page. Everything else
+ * on `/brands` is a ranking or pagination control and is dropped from the
+ * canonical key.
+ *
+ * `sub` — not `subcategory` — is the real L2 param: `brand-filter-sidebar.tsx`
+ * writes `{ sub: ... }`, `directory-filter-url.ts` types the key union with
+ * `'sub'`, and `brands/page.tsx` reads it. `subcategory=` has zero hits in the
+ * repo, so no legacy alias is accepted.
+ */
+const CATEGORY_PARAM = 'category'
+const SUBCATEGORY_PARAM = 'sub'
+
+type ParamValue = { kind: 'none' } | { kind: 'single'; value: string } | { kind: 'multi' }
+
+/**
+ * Both filter params are comma-separated multi-selects the app itself produces
+ * (`join(',')` in the sidebar, `parseCommaParam` on read). A multi-value filter
+ * is a filter VIEW, not a canonical category page — the registry models exactly
+ * one row per ontology slug — so callers classify it as `directory`.
+ */
+function readParam(searchParams: URLSearchParams, key: string): ParamValue {
+  const values = searchParams
+    .getAll(key)
+    .flatMap((value) => value.split(','))
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0)
+
+  if (values.length === 0) return { kind: 'none' }
+  if (values.length > 1) return { kind: 'multi' }
+
+  return { kind: 'single', value: values[0] as string }
 }
 
 const URL_BASE = 'https://formoria.invalid'
@@ -95,10 +150,6 @@ function stripLocale(path: string): string {
   return withoutLocale || '/'
 }
 
-function hasValue(searchParams: URLSearchParams, key: string): boolean {
-  return searchParams.getAll(key).some((value) => value.trim().length > 0)
-}
-
 function parseLandingUrl(raw: string): ParsedLandingUrl {
   try {
     const url = new URL(raw, URL_BASE)
@@ -113,21 +164,49 @@ function isSectionOrDescendant(path: string, section: string): boolean {
   return path === section || path.startsWith(`${section}/`)
 }
 
+/** Segments of `path` below `section`, e.g. ('/categories/home/lamps', '/categories') -> ['home', 'lamps']. */
+function segmentsBelow(path: string, section: string): string[] {
+  if (!isSectionOrDescendant(path, section)) return []
+  return path.slice(section.length).split('/').filter(Boolean)
+}
+
 export function classifyLandingPage(raw: string): LandingPageClassification {
   const { path, searchParams } = parseLandingUrl(raw)
-  const hasCategory = hasValue(searchParams, 'category')
-  const hasSubcategory = hasValue(searchParams, 'subcategory')
+  const category = readParam(searchParams, CATEGORY_PARAM)
+  const subcategory = readParam(searchParams, SUBCATEGORY_PARAM)
+  // Only the filtered-directory branch carries a query in its canonical key;
+  // everywhere else the path alone is the logical page. A canonical L1/L2 key
+  // therefore always carries exactly one value per param — the multi-value forms
+  // classify as `directory` (see `readParam`) and never reach it.
+  let canonicalPage = path
 
   let pageType: LandingPageType
 
   if (path === '/') {
     pageType = 'homepage'
   } else if (path === '/brands') {
-    pageType = hasCategory && hasSubcategory
-      ? 'l2-category'
-      : hasCategory
-        ? 'l1-category'
-        : 'directory'
+    if (category.kind === 'multi' || subcategory.kind === 'multi') {
+      // Multi-select filter view: a `/brands` role, not a category page.
+      pageType = 'directory'
+    } else if (category.kind === 'single') {
+      canonicalPage = `${path}?${CATEGORY_PARAM}=${category.value}`
+      if (subcategory.kind === 'single') {
+        canonicalPage += `&${SUBCATEGORY_PARAM}=${subcategory.value}`
+        pageType = 'l2-category'
+      } else {
+        pageType = 'l1-category'
+      }
+    } else {
+      // A bare `sub` with no category is not a page the app can produce.
+      pageType = 'directory'
+    }
+  } else if (isSectionOrDescendant(path, '/categories')) {
+    // Proposed URL shape for the L1/L2 category pages a later ticket ratifies;
+    // every l1-category and l2-category target_url in the committed map is here.
+    // The path IS the canonical key — no filter params participate.
+    const segments = segmentsBelow(path, '/categories')
+    pageType =
+      segments.length === 1 ? 'l1-category' : segments.length === 2 ? 'l2-category' : 'other/static'
   } else if (path.startsWith('/brands/')) {
     pageType = 'brand-detail'
   } else if (isSectionOrDescendant(path, '/stories')) {
@@ -144,5 +223,5 @@ export function classifyLandingPage(raw: string): LandingPageClassification {
     pageType = 'other/static'
   }
 
-  return { raw, path, pageType }
+  return { raw, path, pageType, canonicalPage }
 }

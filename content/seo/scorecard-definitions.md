@@ -56,17 +56,28 @@ inclusive on the upper end and each valid position belongs to exactly one bucket
 - **21-50**: `20 < p <= 50`
 - **50+**: `p > 50` or another out-of-range value
 
+A row with **no reported position** (Search Console omits the field, or reports a
+non-positive value) is **absent**, not zero: it is excluded from the buckets entirely and from
+the impression-weighted average position, while its impressions and clicks still count toward
+the cluster and the totals. Position 1 is the best possible ranking, so a `0` would otherwise
+be scored as better than every real result.
+
 ### Landing pages and page types
 
 - **landingPages** preserves each raw landing-page URL with summed impressions and clicks and
   sorts the array by impressions descending.
 - **pageTypes** aggregates landing-page impressions, clicks, and CTR by the canonical landing
   page type. Locale prefixes such as `/en` and `/zh-TW` are removed for classification, so
-  `/brands` and `/en/brands` both contribute to `directory`. Only `category` and `subcategory`
+  `/brands` and `/en/brands` both contribute to `directory`. Only the `category` and `sub`
   query parameters affect classification; `page`, `sort`, `q`, UTM parameters, and other
   non-indexable parameters do not.
-- **l1Pages** maps each raw L1-category landing-page URL to its summed impressions.
-- **l2Pages** maps each raw L2-category landing-page URL to its summed impressions.
+- **l1Pages** and **l2Pages** map each **canonical page** to its summed impressions — not the
+  raw URL. The canonical page strips the locale prefix, normalizes the trailing slash, and
+  retains only the indexable parameters in a fixed order (`?category=<value>`, then
+  `&sub=<value>`). `/brands?category=bags`, `/en/brands?category=bags` and
+  `/brands?category=bags&page=2` are therefore one entry, `/brands?category=bags`, rather than
+  three. `landingPages` above continues to list raw URLs exactly as Search Console reports
+  them.
 
 The landing-page types are the keyword map's page types plus the two reporting-only types:
 
@@ -97,8 +108,14 @@ The baseline date is **2026-08-06**.
 GSC clicks and PostHog organic sessions are expected to differ. GSC counts clicks from a
 search-engine-results page, while PostHog counts pageviews that survived the visit and reached
 the instrumented page. Consent gating means PostHog only fires post-consent, so some visits are
-absent from its data. GSC uses Pacific/property time, while the PostHog project timezone is
-Asia/Taipei. A GSC click on a URL that redirects can land in PostHog on a different path.
+absent from its data.
+
+**Window timezone basis.** The exported windows (28d, 90d, and their previous periods) are
+anchored on the **Asia/Taipei** calendar day, matching `src/lib/date-range.ts` and the PostHog
+project timezone, and end `SEARCH_CONSOLE_DATA_LAG_DAYS` (3) days before it. Search Console
+itself buckets each day in the **property's own timezone** (Pacific for most properties), so
+the two systems can still disagree at the edges of a window by up to one day; the export does
+not attempt to reconcile that residual offset. A GSC click on a URL that redirects can land in PostHog on a different path.
 Finally, GSC is a per-click measure, while PostHog sessions use a 30-minute inactivity window
 and can combine multiple pageviews.
 

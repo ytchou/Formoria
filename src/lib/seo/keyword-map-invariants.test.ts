@@ -1,7 +1,11 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { parse as parseYaml } from 'yaml'
 import { describe, expect, it } from 'vitest'
 import {
   PRODUCT_TYPE_CATEGORIES,
   PRODUCT_SUBCATEGORIES,
+  isCompositeSubcategory,
   subcategoryBySlug,
 } from '@/lib/taxonomy/ontology'
 import {
@@ -35,37 +39,51 @@ const REQUIRED_PAGE_ROLES = [
   'brand-detail',
 ] as const
 
+/** The unvalidated shape of a cluster row, for the raw-parse priority check. */
+type RawClusterRow = {
+  id: string
+  primary_keyword: string
+  priority?: string
+  brand_count: number
+  intent_fit: number
+  differentiation: number
+}
+
 function describeCluster(cluster: KeywordCluster): string {
   return `${cluster.id} (${cluster.primary_keyword})`
 }
 
 describe('keyword map invariants', () => {
   it('every cluster parses against the schema', () => {
-    // loadKeywordMap throws on any schema violation, so reaching this line is
-    // already the assertion; the expectations guard against an empty file.
-    expect(() => loadKeywordMap(DEFAULT_KEYWORD_MAP_PATH)).not.toThrow()
+    // loadKeywordMap (module scope, line ~23) throws on any schema violation, so
+    // reaching this line is already the assertion. Re-calling it here would cost
+    // a second full read + parse + 87-row validation and could never fail.
     expect(clusters.length).toBeGreaterThan(0)
     expect(backlog.length).toBeGreaterThan(0)
   })
 
-  it('each P0 and P1 cluster has exactly one target_url owner', () => {
+  it('each target_url has exactly one owning cluster', () => {
     const duplicateIds = clusters
       .map(cluster => cluster.id)
       .filter((id, index, all) => all.indexOf(id) !== index)
     expect(duplicateIds).toEqual([])
 
-    const ownerByUrlAndType = new Map<string, string>()
+    // Keyed on target_url ALONE. Including page_type in the key was the bug:
+    // an l1-category row and a topic-hub row both claiming /topics/craft is a
+    // real cannibalization, and a page_type-scoped key never saw it.
+    const ownerByUrl = new Map<string, KeywordCluster>()
     const conflicts: string[] = []
 
     for (const cluster of clusters) {
       if (!cluster.target_url) continue
-      const key = `${cluster.page_type} ${cluster.target_url}`
-      const existingOwner = ownerByUrlAndType.get(key)
+      const existingOwner = ownerByUrl.get(cluster.target_url)
       if (existingOwner) {
-        conflicts.push(`${key} is owned by both ${existingOwner} and ${cluster.id}`)
+        conflicts.push(
+          `${cluster.target_url} is owned by both ${describeCluster(existingOwner)} [${existingOwner.page_type}] and ${describeCluster(cluster)} [${cluster.page_type}]`,
+        )
         continue
       }
-      ownerByUrlAndType.set(key, cluster.id)
+      ownerByUrl.set(cluster.target_url, cluster)
     }
 
     expect(conflicts).toEqual([])
@@ -77,8 +95,21 @@ describe('keyword map invariants', () => {
     expect(prioritised.length).toBeGreaterThan(0)
     for (const cluster of prioritised) {
       if (!cluster.target_url) continue
-      expect(ownerByUrlAndType.get(`${cluster.page_type} ${cluster.target_url}`)).toBe(cluster.id)
+      expect(ownerByUrl.get(cluster.target_url)?.id).toBe(cluster.id)
     }
+  })
+
+  it('only non-live clusters may omit a target_url', () => {
+    // The old invariant skipped URL-less rows silently, which excused all 11 of
+    // them. Assert the exemption instead of assuming it: with the schema's
+    // required-when-live rule in place, a URL-less row must be proposed/pending.
+    const urlless = clusters.filter(cluster => !cluster.target_url)
+    expect(urlless.length).toBeGreaterThan(0)
+
+    const live = urlless
+      .filter(cluster => cluster.target_status === 'live')
+      .map(cluster => describeCluster(cluster))
+    expect(live).toEqual([])
   })
 
   it('primary keywords are unique across the map', () => {
@@ -113,6 +144,29 @@ describe('keyword map invariants', () => {
     expect(collisions).toEqual([])
   })
 
+  it('no secondary keyword is claimed by two clusters', () => {
+    // Two pages both targeting the same secondary keyword cannibalize each other
+    // exactly as a primary/secondary overlap does.
+    const owner = new Map<string, string>()
+    const collisions: string[] = []
+    let secondaryCount = 0
+
+    for (const cluster of clusters) {
+      for (const secondary of cluster.secondary_keywords) {
+        secondaryCount += 1
+        const existing = owner.get(secondary)
+        if (existing && existing !== cluster.id) {
+          collisions.push(`"${secondary}" is listed by both ${existing} and ${cluster.id}`)
+          continue
+        }
+        owner.set(secondary, cluster.id)
+      }
+    }
+
+    expect(secondaryCount).toBeGreaterThan(0)
+    expect(collisions).toEqual([])
+  })
+
   it('every l1/l2 ontology_slug resolves against ontology.ts', () => {
     const unresolved: string[] = []
 
@@ -136,16 +190,34 @@ describe('keyword map invariants', () => {
   })
 
   it('priority matches its derivation', () => {
+    // Read the YAML RAW rather than through loadKeywordMap. The schema's
+    // superRefine already rejects a mismatched priority at module scope, so
+    // against the validated `clusters` this loop could never fail — a
+    // hand-edited priority surfaced as an opaque import-time Zod error instead
+    // of the per-cluster diff below. Parsing raw is what makes this case able to
+    // fail on its own terms.
+    const rawDocument = parseYaml(
+      readFileSync(resolve(process.cwd(), DEFAULT_KEYWORD_MAP_PATH), 'utf8'),
+    ) as { clusters?: RawClusterRow[] }
+    const rawClusters = rawDocument.clusters ?? []
+    expect(rawClusters).toHaveLength(clusters.length)
+
+    const missing: string[] = []
     const mismatches: string[] = []
 
-    for (const cluster of clusters) {
-      expect(cluster.priority, `${describeCluster(cluster)} has no priority`).toBeTruthy()
-      const derived = derivePriority(cluster)
-      if (cluster.priority !== derived) {
-        mismatches.push(`${describeCluster(cluster)}: stored ${cluster.priority}, derived ${derived}`)
+    for (const row of rawClusters) {
+      const label = `${row.id} (${row.primary_keyword})`
+      if (!row.priority) {
+        missing.push(label)
+        continue
+      }
+      const derived = derivePriority(row)
+      if (row.priority !== derived) {
+        mismatches.push(`${label}: stored ${row.priority}, derived ${derived}`)
       }
     }
 
+    expect(missing).toEqual([])
     expect(mismatches).toEqual([])
   })
 
@@ -197,26 +269,57 @@ describe('keyword map invariants', () => {
     expect(violations).toEqual([])
   })
 
-  it('every composite ontology subcategory is classified', () => {
-    const compositeSubcategories = PRODUCT_SUBCATEGORIES.filter(subcategory =>
-      subcategory.nameZh.includes('・'),
-    )
+  it('every composite ontology subcategory is classified with a definite value', () => {
+    // The separator predicate lives in ontology.ts, which owns U+30FB — two
+    // hand-rolled `includes('・')` spellings across two files was the bug.
+    const compositeSubcategories = PRODUCT_SUBCATEGORIES.filter(isCompositeSubcategory)
     expect(compositeSubcategories.length).toBeGreaterThan(0)
 
-    const classified = new Map<string, string>()
+    // Record WHICH classification, and treat a second, different classification
+    // for one slug as a failure rather than a last-write-wins overwrite: the
+    // synonym/multi-intent distinction drives launch eligibility.
+    const classified = new Map<string, { value: string; source: string }>()
+    const conflicts: string[] = []
+
+    function record(slug: string, value: string, source: string): void {
+      const existing = classified.get(slug)
+      if (existing && existing.value !== value) {
+        conflicts.push(
+          `${slug} is "${existing.value}" per ${existing.source} but "${value}" per ${source}`,
+        )
+        return
+      }
+      classified.set(slug, { value, source })
+    }
+
     for (const cluster of clusters) {
       if (!cluster.ontology_slug || cluster.composite === 'none') continue
-      classified.set(cluster.ontology_slug, cluster.composite)
+      record(cluster.ontology_slug, cluster.composite, cluster.id)
     }
     for (const row of backlog) {
       if (!row.composite || row.composite === 'none') continue
-      classified.set(row.slug, row.composite)
+      record(row.slug, row.composite, `backlog:${row.slug}`)
     }
 
+    expect(conflicts).toEqual([])
+
+    // Assert the recorded VALUE, not mere presence — `.has()` let a slug
+    // recorded as anything at all pass.
     const unclassified = compositeSubcategories
-      .filter(subcategory => !classified.has(subcategory.slug))
+      .filter(subcategory => {
+        const entry = classified.get(subcategory.slug)
+        return !entry || entry.value === 'none'
+      })
       .map(subcategory => `${subcategory.slug} (${subcategory.nameZh})`)
 
     expect(unclassified).toEqual([])
+
+    for (const subcategory of compositeSubcategories) {
+      const entry = classified.get(subcategory.slug)
+      expect(
+        entry?.value,
+        `${subcategory.slug} must be synonym or multi-intent, not "${entry?.value}"`,
+      ).toMatch(/^(synonym|multi-intent)$/)
+    }
   })
 })
