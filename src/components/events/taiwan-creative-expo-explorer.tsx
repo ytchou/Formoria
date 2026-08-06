@@ -287,7 +287,7 @@ export function TaiwanCreativeExpoExplorer({
                 className="w-auto"
               >
                 <option value="recommended">
-                  {t("lineupSortRecommended")}
+                  {t("explorerSortRecommended")}
                 </option>
                 <option value="booth">{t("lineupSortBooth")}</option>
               </NativeSelect>
@@ -379,6 +379,7 @@ export function TaiwanCreativeExpoExplorer({
                   setState((current) => ({ ...current, expanded: true }))
                 }
                 compact
+                creativeExpo
               />
             )}
           </div>

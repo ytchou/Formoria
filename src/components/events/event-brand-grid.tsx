@@ -1,33 +1,40 @@
-'use client'
+"use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
-import { useTranslations } from 'next-intl'
-import { Search, SearchX } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { EmptyState } from '@/components/ui/empty-state'
-import { Input } from '@/components/ui/input'
-import { NativeSelect } from '@/components/ui/native-select'
-import { ToggleChip } from '@/components/ui/toggle-chip'
-import type { EventAreaOption, EventBrandEntry, EventCategoryOption } from '@/lib/services/events'
-import { compareBoothNumbers } from './booth-sort'
-import { EventBrandResultView, EVENT_LINEUP_VISIBLE_CAP } from './event-brand-result-view'
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { Search, SearchX } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
+import { ToggleChip } from "@/components/ui/toggle-chip";
+import type {
+  EventAreaOption,
+  EventBrandEntry,
+  EventCategoryOption,
+} from "@/lib/services/events";
+import { compareBoothNumbers } from "./booth-sort";
+import {
+  EventBrandResultView,
+  EVENT_LINEUP_VISIBLE_CAP,
+} from "./event-brand-result-view";
 
 /**
  * `'recommended'` is the shuffled order the server sent; `'booth'` is ascending
  * booth number. Named rather than a boolean so the `<select>` values are the
  * state and no mapping layer sits between them.
  */
-type LineupSort = 'recommended' | 'booth'
+type LineupSort = "recommended" | "booth";
 
 type EventBrandGridProps = {
   /** The full lineup. Filtering happens here, never on the server. */
-  entries: EventBrandEntry[]
-  areaOptions: EventAreaOption[]
-  categoryOptions: EventCategoryOption[]
-  eventSlug: string
-  locale: string
-}
+  entries: EventBrandEntry[];
+  areaOptions: EventAreaOption[];
+  categoryOptions: EventCategoryOption[];
+  eventSlug: string;
+  locale: string;
+};
 
 /**
  * Reads `?area=` and `?category=` once, on mount, and hands them to the
@@ -53,96 +60,110 @@ function FilterParamSeed({
    * allowlist lossy — a value containing the delimiter would split into entries
    * that are not real options.
    */
-  areaOptions: EventAreaOption[]
-  categoryOptions: EventCategoryOption[]
-  onSeedArea: (area: string) => void
-  onSeedCategory: (category: string) => void
+  areaOptions: EventAreaOption[];
+  categoryOptions: EventCategoryOption[];
+  onSeedArea: (area: string) => void;
+  onSeedCategory: (category: string) => void;
 }) {
-  const searchParams = useSearchParams()
-  const requestedArea = searchParams.get('area')
-  const requestedCategory = searchParams.get('category')
+  const searchParams = useSearchParams();
+  const requestedArea = searchParams.get("area");
+  const requestedCategory = searchParams.get("category");
 
   useEffect(() => {
-    if (!requestedArea) return
+    if (!requestedArea) return;
     // An `?area=` naming an area this event does not have is ignored rather
     // than applied: applying it would render an empty grid for a link that
     // looks legitimate.
-    if (!areaOptions.some((option) => option.value === requestedArea)) return
-    onSeedArea(requestedArea)
-  }, [areaOptions, onSeedArea, requestedArea])
+    if (!areaOptions.some((option) => option.value === requestedArea)) return;
+    onSeedArea(requestedArea);
+  }, [areaOptions, onSeedArea, requestedArea]);
 
   useEffect(() => {
-    if (!requestedCategory) return
+    if (!requestedCategory) return;
     // Same allowlist rule as the area param above.
-    if (!categoryOptions.some((option) => option.value === requestedCategory)) return
-    onSeedCategory(requestedCategory)
-  }, [categoryOptions, onSeedCategory, requestedCategory])
+    if (!categoryOptions.some((option) => option.value === requestedCategory))
+      return;
+    onSeedCategory(requestedCategory);
+  }, [categoryOptions, onSeedCategory, requestedCategory]);
 
-  return null
+  return null;
 }
 
-export function EventBrandGrid({ entries, areaOptions, categoryOptions, eventSlug, locale }: EventBrandGridProps) {
-  const t = useTranslations('events')
-  const [activeArea, setActiveArea] = useState<string | null>(null)
-  const [activeCategory, setActiveCategory] = useState<string | null>(null)
+export function EventBrandGrid({
+  entries,
+  areaOptions,
+  categoryOptions,
+  eventSlug,
+  locale,
+}: EventBrandGridProps) {
+  const t = useTranslations("events");
+  const [activeArea, setActiveArea] = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
   // Sort and query are React state only, deliberately NOT mirrored into the URL
   // like the two chips are. The chips describe a view worth sharing ("the
   // ceramics in Hall A"); a half-typed booth number and a temporary re-ordering
   // are wayfinding scratch state, and writing the query to the URL would fire a
   // `history.replaceState` on every keystroke.
-  const [sort, setSort] = useState<LineupSort>('recommended')
-  const [query, setQuery] = useState('')
+  const [sort, setSort] = useState<LineupSort>("recommended");
+  const [query, setQuery] = useState("");
   // Deliberately NOT reset when a chip changes: a reader who asked to see the
   // whole lineup should not have to ask again after every filter press.
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(false);
 
   // Takes the whole next pair rather than reading state, because the state
   // setters are async: writing the URL from `activeArea`/`activeCategory` here
   // would mirror the previous selection, one press behind.
-  const syncUrl = useCallback((area: string | null, category: string | null) => {
-    if (typeof window === 'undefined') return
+  const syncUrl = useCallback(
+    (area: string | null, category: string | null) => {
+      if (typeof window === "undefined") return;
 
-    const url = new URL(window.location.href)
-    if (area) url.searchParams.set('area', area)
-    else url.searchParams.delete('area')
-    if (category) url.searchParams.set('category', category)
-    else url.searchParams.delete('category')
+      const url = new URL(window.location.href);
+      if (area) url.searchParams.set("area", area);
+      else url.searchParams.delete("area");
+      if (category) url.searchParams.set("category", category);
+      else url.searchParams.delete("category");
 
-    // `history.replaceState`, deliberately NOT `router.replace`: a router
-    // navigation re-invokes the server component and knocks this route off its
-    // static/ISR path onto a dynamic render for a filter that is entirely
-    // client-side. This keeps the URL shareable without touching the server.
-    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`)
-  }, [])
+      // `history.replaceState`, deliberately NOT `router.replace`: a router
+      // navigation re-invokes the server component and knocks this route off its
+      // static/ISR path onto a dynamic render for a filter that is entirely
+      // client-side. This keeps the URL shareable without touching the server.
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `${url.pathname}${url.search}${url.hash}`,
+      );
+    },
+    [],
+  );
 
   const applyArea = useCallback(
     (next: string | null) => {
-      setActiveArea(next)
-      syncUrl(next, activeCategory)
+      setActiveArea(next);
+      syncUrl(next, activeCategory);
     },
     [activeCategory, syncUrl],
-  )
+  );
 
   const applyCategory = useCallback(
     (next: string | null) => {
-      setActiveCategory(next)
-      syncUrl(activeArea, next)
+      setActiveCategory(next);
+      syncUrl(activeArea, next);
     },
     [activeArea, syncUrl],
-  )
+  );
 
   const clearFilters = useCallback(() => {
-    setActiveArea(null)
-    setActiveCategory(null)
+    setActiveArea(null);
+    setActiveCategory(null);
     // Clears the query too: with three filters live, resetting only the chips
     // can still leave zero results, and the button promises the full list.
-    setQuery('')
-    syncUrl(null, null)
-  }, [syncUrl])
+    setQuery("");
+    syncUrl(null, null);
+  }, [syncUrl]);
 
   // Trimmed once here rather than per entry: a query of only spaces is no
   // query at all, and re-trimming inside the filter would run 123 times.
-  const normalizedQuery = query.trim().toLowerCase()
+  const normalizedQuery = query.trim().toLowerCase();
 
   // All three axes narrow together (AND): a zone chip plus a category chip plus
   // a query means "this category, in this zone, matching this text", not the
@@ -150,9 +171,10 @@ export function EventBrandGrid({ entries, areaOptions, categoryOptions, eventSlu
   const matched = useMemo(
     () =>
       entries.filter((entry) => {
-        if (activeArea !== null && entry.area !== activeArea) return false
-        if (activeCategory !== null && entry.brand.category !== activeCategory) return false
-        if (!normalizedQuery) return true
+        if (activeArea !== null && entry.area !== activeArea) return false;
+        if (activeCategory !== null && entry.brand.category !== activeCategory)
+          return false;
+        if (!normalizedQuery) return true;
 
         // A plain substring test over the whole name is enough for both
         // scripts: names are stored as one bilingual string pairing the Chinese
@@ -162,12 +184,18 @@ export function EventBrandGrid({ entries, areaOptions, categoryOptions, eventSlu
         // is optional and often null, so nothing may depend on it alone.
         // The booth is searchable for the reader who is looking at a booth sign
         // rather than at a brand.
-        const haystack = [entry.brand.name, entry.brand.romanizedName ?? '', entry.booth ?? ''].join(' ').toLowerCase()
+        const haystack = [
+          entry.brand.name,
+          entry.brand.romanizedName ?? "",
+          entry.booth ?? "",
+        ]
+          .join(" ")
+          .toLowerCase();
 
-        return haystack.includes(normalizedQuery)
+        return haystack.includes(normalizedQuery);
       }),
     [activeArea, activeCategory, entries, normalizedQuery],
-  )
+  );
 
   // Sort AFTER filtering, and only ever on a copy. `entries` arrives already
   // shuffled by the server (one order per ISR regeneration, which is the
@@ -176,20 +204,25 @@ export function EventBrandGrid({ entries, areaOptions, categoryOptions, eventSlu
   // the filter's fresh array and copying it before `.sort()` keeps the server
   // order intact as the thing we fall back to.
   const visible = useMemo(() => {
-    if (sort !== 'booth') return matched
+    if (sort !== "booth") return matched;
 
-    return [...matched].sort((left, right) => compareBoothNumbers(left.booth, right.booth))
-  }, [matched, sort])
+    return [...matched].sort((left, right) =>
+      compareBoothNumbers(left.booth, right.booth),
+    );
+  }, [matched, sort]);
 
-  const isFiltered = activeArea !== null || activeCategory !== null || normalizedQuery !== ''
+  const isFiltered =
+    activeArea !== null || activeCategory !== null || normalizedQuery !== "";
 
   // Filtered-to-zero is its own state, not a variant of "no lineup": the chips
   // and the count line stay, only the grid is replaced.
-  const isFilteredEmpty = visible.length === 0 && isFiltered
+  const isFilteredEmpty = visible.length === 0 && isFiltered;
 
   // Measured against the FILTERED list, so narrowing to a zone with 12 brands
   // shows all 12 with no button rather than an unexplained cap.
-  const hiddenCount = expanded ? 0 : Math.max(visible.length - EVENT_LINEUP_VISIBLE_CAP, 0)
+  const hiddenCount = expanded
+    ? 0
+    : Math.max(visible.length - EVENT_LINEUP_VISIBLE_CAP, 0);
 
   return (
     <div className="space-y-6">
@@ -227,8 +260,8 @@ export function EventBrandGrid({ entries, areaOptions, categoryOptions, eventSlu
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              aria-label={t('lineupSearchAria')}
-              placeholder={t('lineupSearchPlaceholder')}
+              aria-label={t("lineupSearchAria")}
+              placeholder={t("lineupSearchPlaceholder")}
               maxLength={100}
               className="w-full pl-9"
             />
@@ -243,11 +276,11 @@ export function EventBrandGrid({ entries, areaOptions, categoryOptions, eventSlu
           <NativeSelect
             value={sort}
             onChange={(event) => setSort(event.target.value as LineupSort)}
-            aria-label={t('lineupSortAria')}
+            aria-label={t("lineupSortAria")}
             className="w-auto"
           >
-            <option value="recommended">{t('lineupSortRecommended')}</option>
-            <option value="booth">{t('lineupSortBooth')}</option>
+            <option value="recommended">{t("lineupSortRecommended")}</option>
+            <option value="booth">{t("lineupSortBooth")}</option>
           </NativeSelect>
         </div>
 
@@ -255,21 +288,31 @@ export function EventBrandGrid({ entries, areaOptions, categoryOptions, eventSlu
           // `gap-2` (8px) rather than the tighter default: chips render at 32px
           // tall, below the 44px touch target, so the clear space between them
           // is what keeps neighbouring chips from stealing each other's taps.
-          <div role="group" aria-label={t('areaFilterAria')} className="flex flex-wrap gap-2">
+          <div
+            role="group"
+            aria-label={t("areaFilterAria")}
+            className="flex flex-wrap gap-2"
+          >
             {/*
               `ToggleChip` renders a native `<button>` carrying `aria-pressed`,
               so the selected state is announced rather than signalled by fill
               colour alone.
             */}
-            <ToggleChip size="chip" pressed={activeArea === null} onPressedChange={() => applyArea(null)}>
-              {t('allAreas')}
+            <ToggleChip
+              size="chip"
+              pressed={activeArea === null}
+              onPressedChange={() => applyArea(null)}
+            >
+              {t("allAreas")}
             </ToggleChip>
             {areaOptions.map((option) => (
               <ToggleChip
                 key={option.value}
                 size="chip"
                 pressed={activeArea === option.value}
-                onPressedChange={(pressed) => applyArea(pressed ? option.value : null)}
+                onPressedChange={(pressed) =>
+                  applyArea(pressed ? option.value : null)
+                }
               >
                 {option.label}
               </ToggleChip>
@@ -282,16 +325,26 @@ export function EventBrandGrid({ entries, areaOptions, categoryOptions, eventSlu
           // chips render at 32px tall, below the 44px touch target, so the
           // clear space between them is what keeps neighbouring chips from
           // stealing each other's taps.
-          <div role="group" aria-label={t('categoryFilterAria')} className="flex flex-wrap gap-2">
-            <ToggleChip size="chip" pressed={activeCategory === null} onPressedChange={() => applyCategory(null)}>
-              {t('allCategories')}
+          <div
+            role="group"
+            aria-label={t("categoryFilterAria")}
+            className="flex flex-wrap gap-2"
+          >
+            <ToggleChip
+              size="chip"
+              pressed={activeCategory === null}
+              onPressedChange={() => applyCategory(null)}
+            >
+              {t("allCategories")}
             </ToggleChip>
             {categoryOptions.map((option) => (
               <ToggleChip
                 key={option.value}
                 size="chip"
                 pressed={activeCategory === option.value}
-                onPressedChange={(pressed) => applyCategory(pressed ? option.value : null)}
+                onPressedChange={(pressed) =>
+                  applyCategory(pressed ? option.value : null)
+                }
               >
                 {option.label}
               </ToggleChip>
@@ -311,11 +364,11 @@ export function EventBrandGrid({ entries, areaOptions, categoryOptions, eventSlu
             worse fact than "this one zone has none".
           */}
           {isFiltered
-            ? t('brandCountFiltered', {
+            ? t("brandCountFiltered", {
                 count: visible.length,
                 total: entries.length,
               })
-            : t('brandCount', { count: visible.length })}
+            : t("brandCount", { count: visible.length })}
         </p>
       </div>
 
@@ -336,11 +389,19 @@ export function EventBrandGrid({ entries, areaOptions, categoryOptions, eventSlu
         // sending them to another zone would not help.
         <EmptyState
           icon={<SearchX />}
-          title={normalizedQuery ? t('lineupSearchEmptyTitle') : t('filteredEmptyTitle')}
-          body={normalizedQuery ? t('lineupSearchEmptyBody') : t('filteredEmptyBody')}
+          title={
+            normalizedQuery
+              ? t("lineupSearchEmptyTitle")
+              : t("filteredEmptyTitle")
+          }
+          body={
+            normalizedQuery
+              ? t("lineupSearchEmptyBody")
+              : t("filteredEmptyBody")
+          }
           action={
             <Button type="button" variant="secondary" onClick={clearFilters}>
-              {t('clearFilters')}
+              {t("clearFilters")}
             </Button>
           }
         />
@@ -364,5 +425,5 @@ export function EventBrandGrid({ entries, areaOptions, categoryOptions, eventSlu
         </>
       )}
     </div>
-  )
+  );
 }

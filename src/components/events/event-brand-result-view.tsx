@@ -9,6 +9,7 @@ import {
 import { ViewItemListTracker } from "@/components/analytics/view-item-list-tracker";
 import { Button } from "@/components/ui/button";
 import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
+import type { CreativeExpoBrandEntry } from "@/lib/events/creative-expo-explorer";
 import type { EventBrandEntry } from "@/lib/services/events";
 
 // Four rows of the grid's widest column count. Keeping the cap next to the
@@ -25,6 +26,7 @@ export type EventBrandResultViewProps = {
   onExpand: () => void;
   compact?: boolean;
   itemCount?: number;
+  creativeExpo?: boolean;
 };
 
 /**
@@ -41,6 +43,7 @@ export function EventBrandResultView({
   onExpand,
   compact = false,
   itemCount,
+  creativeExpo = false,
 }: EventBrandResultViewProps) {
   const t = useTranslations("events");
   const isEnglish = locale === "en";
@@ -57,14 +60,22 @@ export function EventBrandResultView({
       >
         {entries.map((entry, index) => {
           const area = isEnglish ? (entry.areaEn ?? entry.area) : entry.area;
+          const creativeEntry =
+            creativeExpo && "zone" in entry
+              ? (entry as CreativeExpoBrandEntry)
+              : null;
+          const boothNote = creativeEntry?.booth
+            ? `${t("boothLabel")}: ${creativeEntry.booth}`
+            : undefined;
 
           return (
             <BrandCard
               key={entry.brand.id}
               brand={entry.brand}
               variant="editorial"
-              eyebrow={entry.booth ?? area ?? undefined}
+              eyebrow={creativeEntry?.zone ?? entry.booth ?? area ?? undefined}
               note={
+                boothNote ??
                 (isEnglish ? (entry.noteEn ?? entry.note) : entry.note) ??
                 undefined
               }

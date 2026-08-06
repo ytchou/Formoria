@@ -18,6 +18,10 @@ type CreativeExpoMobilePanel = "map" | "list";
 
 export type { LinkedEventExhibitorEntry };
 
+/** Card projection that retains canonical roster metadata for the explorer surface. */
+export type CreativeExpoBrandEntry = EventBrandEntry &
+  Pick<LinkedEventExhibitorEntry, "zone" | "eventCategory">;
+
 export type CreativeExpoExplorerState = {
   zone: CreativeExpoZone | null;
   category: string | null;
@@ -61,7 +65,7 @@ export function selectLinkedCreativeExpoEntries(
  */
 export function projectLinkedCreativeExpoEntries(
   entries: readonly LinkedEventExhibitorEntry[],
-): EventBrandEntry[] {
+): CreativeExpoBrandEntry[] {
   return entries.map((entry) => ({
     brand: entry.brand,
     booth: entry.booth,
@@ -70,6 +74,8 @@ export function projectLinkedCreativeExpoEntries(
     note: null,
     noteEn: null,
     sortOrder: entry.sortOrder,
+    zone: entry.zone,
+    eventCategory: entry.eventCategory,
   }));
 }
 

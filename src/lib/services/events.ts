@@ -122,9 +122,9 @@ export type EventExhibitorEntry = EventExhibitor & {
 };
 
 /** Canonical Creative Expo zones surfaced by the interactive explorer. */
-export const CREATIVE_EXPO_ZONE_CODES = ["K1", "K2", "K3", "S"] as const;
+const CREATIVE_EXPO_ZONE_CODES = ["K1", "K2", "K3", "S"] as const;
 
-export type CreativeExpoZone = (typeof CREATIVE_EXPO_ZONE_CODES)[number];
+type CreativeExpoZone = (typeof CREATIVE_EXPO_ZONE_CODES)[number];
 
 /** A canonical exhibitor with a linked, public Formoria brand in a core zone. */
 export type LinkedEventExhibitorEntry = Omit<

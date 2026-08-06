@@ -107,8 +107,20 @@ describe("Creative Expo explorer state", () => {
       "exhibitor-2",
     ]);
     expect(projectLinkedCreativeExpoEntries(selected)).toMatchObject([
-      { brand: { name: "沃廚" }, booth: "K1-001", area: "文創品牌展區" },
-      { brand: { name: "山房" }, booth: "K2-010", area: "文創品牌展區" },
+      {
+        brand: { name: "沃廚" },
+        booth: "K1-001",
+        area: "文創品牌展區",
+        zone: "K1",
+        eventCategory: "cultural_creative",
+      },
+      {
+        brand: { name: "山房" },
+        booth: "K2-010",
+        area: "文創品牌展區",
+        zone: "K2",
+        eventCategory: "cultural_creative",
+      },
     ]);
   });
 

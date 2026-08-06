@@ -1,10 +1,10 @@
-'use client'
+"use client";
 
-import { Children, type ReactNode } from 'react'
-import { useInView } from '@/hooks/use-in-view'
+import { Children, type ReactNode } from "react";
+import { useInView } from "@/hooks/use-in-view";
 
 interface MasonryGridProps {
-  children: ReactNode
+  children: ReactNode;
   /**
    * Caps how many cards are VISIBLE, never how many are rendered: everything
    * past the cap keeps its markup and is hidden with CSS. Slicing the list
@@ -12,12 +12,12 @@ interface MasonryGridProps {
    * lineup that HTML is the crawlable substance of the page. Unset means every
    * card shows, which is what `/brands` wants.
    */
-  visibleCount?: number
+  visibleCount?: number;
   /**
    * Uses a compact semantic `<ul>/<li>` wrapper for dense result surfaces.
    * The default remains the directory's existing role-based `<div>` layout.
    */
-  compact?: boolean
+  compact?: boolean;
 }
 
 /**
@@ -29,21 +29,32 @@ interface MasonryGridProps {
  * Exported because callers must decide which cards to `preload` using the same
  * number — a second copy of the literal drifts the moment the columns change.
  */
-export const MASONRY_ABOVE_FOLD = 4
+export const MASONRY_ABOVE_FOLD = 4;
 
-export function MasonryGrid({ children, visibleCount, compact = false }: MasonryGridProps) {
-  const { ref: listRef, inView: listInView } = useInView<HTMLUListElement>()
-  const { ref: divRef, inView: divInView } = useInView<HTMLDivElement>()
-  const inView = compact ? listInView : divInView
+export function MasonryGrid({
+  children,
+  visibleCount,
+  compact = false,
+}: MasonryGridProps) {
+  const { ref: listRef, inView: listInView } = useInView<HTMLUListElement>();
+  const { ref: divRef, inView: divInView } = useInView<HTMLDivElement>();
+  const inView = compact ? listInView : divInView;
 
   const items = Children.map(children, (child, i) => {
-    const aboveFold = i < MASONRY_ABOVE_FOLD
-    const hidden = visibleCount !== undefined && i >= visibleCount
+    const aboveFold = i < MASONRY_ABOVE_FOLD;
+    const hidden = visibleCount !== undefined && i >= visibleCount;
     // A hidden card is skipped by the reveal entirely — animating it would
     // burn its one-shot entrance while it is invisible, so it would appear
     // with no transition the moment the cap lifts.
-    const revealClass = hidden ? 'hidden' : aboveFold ? undefined : inView ? 'animate-reveal-up' : 'opacity-0'
-    const style = aboveFold || hidden ? undefined : { animationDelay: `${i * 60}ms` }
+    const revealClass = hidden
+      ? "hidden"
+      : aboveFold
+        ? undefined
+        : inView
+          ? "animate-reveal-up"
+          : "opacity-0";
+    const style =
+      aboveFold || hidden ? undefined : { animationDelay: `${i * 60}ms` };
 
     return compact ? (
       <li key={i} className={revealClass} style={style}>
@@ -53,16 +64,23 @@ export function MasonryGrid({ children, visibleCount, compact = false }: Masonry
       <div key={i} role="listitem" className={revealClass} style={style}>
         {child}
       </div>
-    )
-  })
+    );
+  });
 
   return compact ? (
-    <ul ref={listRef} className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+    <ul
+      ref={listRef}
+      className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
+    >
       {items}
     </ul>
   ) : (
-    <div ref={divRef} className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" role="list">
+    <div
+      ref={divRef}
+      className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
+      role="list"
+    >
       {items}
     </div>
-  )
+  );
 }
