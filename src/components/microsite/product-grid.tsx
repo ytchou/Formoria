@@ -1,10 +1,10 @@
 import Image from 'next/image'
 import { surfaceCardStyles } from '@/components/ui/card'
-import type { Brand, SiteProduct } from '@/lib/types/brand'
+import type { PublicMicrositeBrand, PublicSiteProduct } from '@/lib/brands/contracts'
 
 type ProductGridProps = {
-  brand: Brand
-  products: SiteProduct[]
+  brand: PublicMicrositeBrand
+  products: PublicSiteProduct[]
 }
 
 export function ProductGrid({ brand, products }: ProductGridProps) {

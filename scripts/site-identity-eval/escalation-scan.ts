@@ -7,6 +7,12 @@
  * human-approved links is evidence that quarantine is not over-firing, while
  * the absolute count sizes the LLM batch Rung 2 would have to pay for. Above
  * 40% escalating is the pivot trigger: the predicate is too strict.
+ * The population is therefore approved brands only — pending rows carry
+ * unvetted links that have not cleared moderation, and rejected rows are not
+ * a population anything downstream acts on.
+ * The zero-token cohort split sizes that legacy cohort ahead of remediation:
+ * brands whose name yields no Latin token of length >= 3, which the token
+ * check cannot satisfy, so every stored link they hold escalates.
  *
  * This is read-only and pages the brands table beyond PostgREST's default cap.
  * Exit code is always 0: this is a report, not a write operation.
@@ -34,11 +40,29 @@ type ColumnTally = {
   pct: number | null;
 };
 
+type CohortColumnTally = {
+  column: string;
+  held: number;
+};
+
+/**
+ * The predicate is `brandNameTokens(name).length === 0`, which is narrower than
+ * "the name is Han": a null name, or one whose only Latin tokens are shorter
+ * than 3 characters, also lands here. Named for what is measured, not for the
+ * cohort it is a proxy for.
+ */
+type ZeroTokenCohort = {
+  brands: number;
+  withPurchaseWebsite: number;
+  columns: CohortColumnTally[];
+  totalHeld: number;
+};
+
 type ScanReport = {
   ranAt: string;
   columns: ColumnTally[];
   total: ColumnTally;
-  hanOnlyPurchaseWebsite: number;
+  zeroTokenCohort: ZeroTokenCohort;
   rowsScanned: number;
 };
 
@@ -84,7 +108,6 @@ function printReport(report: ScanReport): void {
   for (const tally of report.columns) printTally(tally);
   console.log("-".repeat(54));
   printTally({ ...report.total, column: "TOTAL" });
-  console.log(`\nHan-only rows with purchase_website: ${report.hanOnlyPurchaseWebsite}`);
 
   const totalPct = report.total.pct;
   const share = totalPct === null ? "n/a" : `${totalPct.toFixed(1)}%`;
@@ -92,6 +115,25 @@ function printReport(report: ScanReport): void {
     totalPct !== null && totalPct > 40
       ? `\n${share} of stored approved links escalate. PIVOT TRIGGER: >40% escalating means the predicate is too strict.`
       : `\n${share} of stored approved links escalate. Below the 40% pivot trigger.`,
+  );
+
+  console.log("\nzero-token cohort");
+  console.log("-".repeat(68));
+  console.log(`brands scanned: ${report.zeroTokenCohort.brands}`);
+  console.log(`with purchase_website: ${report.zeroTokenCohort.withPurchaseWebsite}`);
+  // No escalating column here: it would equal `held` for every possible input,
+  // and printing the two side by side invites a vacuous cross-check.
+  console.log("\ncolumn                    held");
+  console.log("-".repeat(54));
+  for (const tally of report.zeroTokenCohort.columns) {
+    console.log(`${tally.column.padEnd(24)}  ${String(tally.held).padStart(4)}`);
+  }
+  console.log("-".repeat(54));
+  console.log(
+    `${"TOTAL".padEnd(24)}  ${String(report.zeroTokenCohort.totalHeld).padStart(4)}`,
+  );
+  console.log(
+    "A zero-token name cannot satisfy the token check, so every stored link in this cohort escalates by construction.",
   );
 }
 
@@ -103,13 +145,21 @@ async function main(): Promise<void> {
   );
   let offset = 0;
   let rowsScanned = 0;
-  let hanOnlyPurchaseWebsite = 0;
+  const zeroTokenTallies = new Map<string, CohortColumnTally>(
+    COLUMNS.map((column) => [column, { column, held: 0 }]),
+  );
+  let zeroTokenBrands = 0;
+  let zeroTokenWithPurchaseWebsite = 0;
   const select = ["slug", "name", ...COLUMNS].join(", ");
 
   while (true) {
     const { data, error } = await supabase
       .from("brands")
       .select(select)
+      // Approved only: pending rows hold unvetted links that would inflate the
+      // escalation rate past its own pivot trigger, and remediation will never
+      // touch rows outside the approved directory.
+      .eq("status", "approved")
       .order("slug", { ascending: true })
       .range(offset, offset + BATCH_SIZE - 1);
     if (error) throw error;
@@ -120,8 +170,10 @@ async function main(): Promise<void> {
 
     for (const row of rows) {
       const tokens = brandNameTokens(row.name);
-      if (tokens.length === 0 && isNonEmptyString(row.purchase_website)) {
-        hanOnlyPurchaseWebsite += 1;
+      const isZeroTokenCohort = tokens.length === 0;
+      if (isZeroTokenCohort) {
+        zeroTokenBrands += 1;
+        if (isNonEmptyString(row.purchase_website)) zeroTokenWithPurchaseWebsite += 1;
       }
       for (const column of COLUMNS) {
         const value = row[column];
@@ -129,7 +181,12 @@ async function main(): Promise<void> {
         const tally = tallies.get(column);
         if (!tally) continue;
         tally.total += 1;
-        if (!linkIdentifiesBrand(value, tokens)) tally.escalating += 1;
+        const escalating = !linkIdentifiesBrand(value, tokens);
+        if (isZeroTokenCohort) {
+          const cohortTally = zeroTokenTallies.get(column);
+          if (cohortTally) cohortTally.held += 1;
+        }
+        if (escalating) tally.escalating += 1;
       }
     }
 
@@ -147,11 +204,20 @@ async function main(): Promise<void> {
     pct: null,
   };
   total.pct = pct(total);
+  const zeroTokenColumns = [...zeroTokenTallies.values()].sort(
+    (left, right) => right.held - left.held,
+  );
+  const zeroTokenCohort: ZeroTokenCohort = {
+    brands: zeroTokenBrands,
+    withPurchaseWebsite: zeroTokenWithPurchaseWebsite,
+    columns: zeroTokenColumns,
+    totalHeld: zeroTokenColumns.reduce((sum, tally) => sum + tally.held, 0),
+  };
   const report: ScanReport = {
     ranAt: new Date().toISOString(),
     columns,
     total,
-    hanOnlyPurchaseWebsite,
+    zeroTokenCohort,
     rowsScanned,
   };
 

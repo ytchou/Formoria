@@ -1,6 +1,6 @@
 "use client";
 
-import type { Brand } from "@/lib/types";
+import type { AdminBrandListItem } from "@/lib/brands/contracts";
 import { ReviewDetailsEditor } from "@/components/admin/review-details-editor";
 import { brandToReviewData } from "@/lib/brands/admin-review-data";
 import type { SubmissionReviewImage } from "@/lib/services/submissions";
@@ -13,7 +13,7 @@ export function BrandEditDetails({
   brand,
   reviewImages,
 }: {
-  brand: Brand;
+  brand: AdminBrandListItem;
   reviewImages: SubmissionReviewImage[];
 }) {
   return (

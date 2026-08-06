@@ -8,7 +8,7 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import type { Brand } from '@/lib/types'
+import type { PublicBrandCard } from '@/lib/brands/contracts'
 import { SurfaceCard } from '@/components/ui/card'
 import { trackCtaClicked } from '@/lib/analytics'
 import { BrandCard } from './brand-card'
@@ -25,7 +25,7 @@ type SearchEmptyStateProps = {
   query: string
   categoryLabel?: string
   activeFilters: ActiveDirectoryFilter[]
-  recommendedBrands: Brand[]
+  recommendedBrands: PublicBrandCard[]
   recommendationsHref: string
 }
 

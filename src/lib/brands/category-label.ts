@@ -1,4 +1,3 @@
-import type { Brand } from '@/lib/types'
 import { PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
 export function getProductTypeLabel(
@@ -14,7 +13,10 @@ export function getProductTypeLabel(
 /**
  * Derives a localized category label from the brand's slug or display-name category value.
  */
-export function getBrandCategoryLabel(brand: Brand, locale: 'zh-TW' | 'en' = 'zh-TW'): string {
+export function getBrandCategoryLabel(
+  brand: { category: string | null },
+  locale: 'zh-TW' | 'en' = 'zh-TW',
+): string {
   if (!brand.category) return ''
   return getProductTypeLabel(brand.category, locale) ?? brand.category
 }

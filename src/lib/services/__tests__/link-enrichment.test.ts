@@ -11,11 +11,30 @@ import {
   isBareRootUrl,
   isMarketplaceSearchUrl,
   isPinkoiStorefrontUrl,
+  isInstitutionalHost,
   linkIdentifiesBrand,
   LINK_FIELDS,
   linkColumnFor,
   type LinkField,
 } from '../link-enrichment'
+
+describe('isInstitutionalHost', () => {
+  it('rejects government and education hosts', () => {
+    expect(isInstitutionalHost('https://beboss.wda.gov.tw')).toBe(true)
+    expect(isInstitutionalHost('https://dict.revised.moe.edu.tw')).toBe(true)
+    expect(isInstitutionalHost('https://qrc.afa.gov.tw')).toBe(true)
+    expect(isInstitutionalHost('https://tyrr.tycg.gov.tw')).toBe(true)
+    expect(isInstitutionalHost('https://example.gov')).toBe(true)
+    expect(isInstitutionalHost('https://example.edu')).toBe(true)
+  })
+
+  it('accepts commercial hosts', () => {
+    expect(isInstitutionalHost('https://www.daughter-tea.com')).toBe(false)
+    expect(isInstitutionalHost('https://yongyu.tw')).toBe(false)
+    expect(isInstitutionalHost('https://www.mzp1991.com')).toBe(false)
+    expect(isInstitutionalHost('https://government-supplies.com.tw')).toBe(false)
+  })
+})
 
 const EMPTY_BRAND = {
   social_instagram: null,
@@ -690,6 +709,8 @@ describe('classifySubmittedUrl', () => {
   it.each([
     'https://www.threads.com/@brand/post/abc',
     'https://linktr.ee/brand',
+    'https://example.gov.tw',
+    'https://example.edu.tw',
   ])('does not claim the platform URL %s as a website', (url) => {
     expect(classifySubmittedUrl(url)).toEqual({})
   })

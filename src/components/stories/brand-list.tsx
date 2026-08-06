@@ -2,7 +2,8 @@ import type { ReactNode } from 'react'
 
 import { getTranslations } from 'next-intl/server'
 
-import { getBrandsBySlugs } from '@/lib/services/brands'
+import { getPublicBrandsBySlugs } from '@/lib/services/brands'
+import { normalizePublicBrandCard } from '@/lib/brands/contracts'
 
 import { MissingBrandNotice, type BrandLoaderSeam } from './brand-card-mdx'
 import { BrandLineLink } from './brand-line-link'
@@ -101,10 +102,11 @@ export async function BrandLine({
   booth,
   note,
   position,
-  loadBrands = getBrandsBySlugs,
+  loadBrands = getPublicBrandsBySlugs,
 }: BrandLineProps) {
   const brands = await loadBrands([slug])
-  const brand = brands.get(slug)
+  const resolvedBrand = brands.get(slug)
+  const brand = resolvedBrand ? normalizePublicBrandCard(resolvedBrand) : undefined
   const t = await getTranslations('stories')
 
   if (!brand) {

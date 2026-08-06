@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { localizePath, signInHref } from '@/i18n/locale-preference'
 import { getTranslations } from 'next-intl/server'
 import { requireBrandEditor } from '@/lib/auth/require-brand-editor'
-import { getBrandDraft } from '@/lib/services/brands'
+import { getBrandDraft, toOwnerEditorContract } from '@/lib/services/brands'
 import { getApprovedProductTagSuggestions } from '@/lib/services/product-tag-suggestions'
 import { BrandEditWizard } from './brand-edit-wizard'
 import {
@@ -42,7 +42,7 @@ export default async function BrandEditPage({ params, searchParams }: Props) {
     )
     return null
   }
-  const { brand } = editor
+  const brand = toOwnerEditorContract(editor.brand)
 
   const [draft, productTagSuggestions] = await Promise.all([
     getBrandDraft(brand.id),

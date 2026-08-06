@@ -6,6 +6,11 @@ import {
   brandToDomain,
   type BrandRowWithJoins,
 } from '../brands'
+import {
+  toPublicBrandCard,
+  toPublicBrandDetail,
+  toPublicMicrositeBrand,
+} from '@/lib/brands/contracts'
 
 /**
  * Guards the narrow directory column projection.
@@ -33,7 +38,7 @@ const COLUMN_FIXTURE: Record<string, unknown> = {
   blurb_en: 'Short blurb (en)',
   hero_image_url: 'https://example.com/hero.jpg',
   product_type: 'bags-accessories',
-  contact_email: 'brand@example.com',
+  contact_email: 'private-contact-canary@example.com',
   city: 'Taipei',
   purchase_website: 'https://example.com',
   purchase_pinkoi: 'https://pinkoi.com/store/example',
@@ -50,7 +55,7 @@ const COLUMN_FIXTURE: Record<string, unknown> = {
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-03T00:00:00Z',
   onboarding_dismissed_at: '2026-01-04T00:00:00Z',
-  draft_data: { name: 'Draft Name' },
+  draft_data: { name: 'PRIVATE_DRAFT_CANARY' },
   draft_updated_at: '2026-01-05T00:00:00Z',
   founding_year: 1998,
   price_range: 2,
@@ -62,8 +67,11 @@ const COLUMN_FIXTURE: Record<string, unknown> = {
   mit_declared_at: '2026-01-06T00:00:00Z',
   mit_verified_at: '2026-01-07T00:00:00Z',
   mit_story: 'Made in Taiwan since 1998',
-  mit_evidence: { mit_smile_cert: 'CERT-123' },
-  source: 'manual',
+  mit_evidence: {
+    mit_smile_cert: 'CERT-123',
+    source: 'PRIVATE_EVIDENCE_CANARY',
+  },
+  source: 'PRIVATE_PROVENANCE_CANARY',
   // `true` on purpose: brandToDomain falls back to `false`, so a `false`
   // fixture could not distinguish "column present" from "column dropped".
   is_demo: true,
@@ -161,5 +169,26 @@ describe('brandToDomain field completeness', () => {
       expect(narrow[field], `${field} missing from the narrow projection`).not.toBeUndefined()
       expect(narrow[field], `${field} nulled out by the narrow projection`).not.toBeNull()
     }
+  })
+})
+
+describe('public brand response contracts', () => {
+  it('keeps private canaries out of card, detail, and microsite payloads', () => {
+    const brand = brandToDomain(buildRow(BRAND_COLUMN_LIST))
+    const payload = JSON.stringify([
+      toPublicBrandCard(brand),
+      toPublicBrandDetail(brand),
+      toPublicMicrositeBrand(brand),
+    ])
+
+    expect(payload).not.toContain('private-contact-canary@example.com')
+    expect(payload).not.toContain('PRIVATE_DRAFT_CANARY')
+    expect(payload).not.toContain('PRIVATE_EVIDENCE_CANARY')
+    expect(payload).not.toContain('PRIVATE_PROVENANCE_CANARY')
+    expect(payload).not.toContain('submittedAt')
+    expect(payload).not.toContain('approvedAt')
+    expect(payload).not.toContain('createdAt')
+    expect(payload).not.toContain('updatedAt')
+    expect(toPublicBrandDetail(brand).mitCertificateNumber).toBe('CERT-123')
   })
 })

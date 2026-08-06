@@ -1,0 +1,12 @@
+{
+  "name": "dev-1309-ladder-dryrun",
+  "title": "DEV-1309 — brand identity ladder, post-merge live dry run",
+  "subtitle": "The four brands named in the PR's post-merge checklist. Three carry a purchase_website the ladder should revoke (S'MORE → smore.com, a US newsletter tool; 可可雲手作室內拖鞋 → beboss.wda.gov.tw, a government portal; 大I獨角獸 光棲之所 → h.163.com, NetEase). NU Dream Jewelry is the control: it has NO purchase_website and three legitimate socials, so its run must leave every stored link intact — that is the 'good stored link survives a run that quarantines something' check.",
+  "warning": "Post-merge verification of the site_identity ladder. Confirm two things in the after-snapshot: (1) the three contaminated purchase_website values are revoked, and (2) NU Dream Jewelry's facebook/instagram/threads links are unchanged. A cleared link on the control brand is a merge-blocking regression.",
+  "labels": {
+    "s-more": "S'MORE",
+    "可可雲手作室內拖鞋": "可可雲手作室內拖鞋",
+    "大i獨角獸-光棲之所": "大I獨角獸 光棲之所",
+    "nu-dream-jewelry": "NU Dream Jewelry"
+  }
+}

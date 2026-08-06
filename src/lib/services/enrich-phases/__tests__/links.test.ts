@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { deriveOfficialWebsite, deriveScrapedBrandName, runLinksPhase } from '../links'
 import type { EnrichBrand, EnrichPhase } from '../types'
 import { emptyResult } from '../scraper/parse/extractors'
+import { mergeScrapedData } from '../scraper/merge'
 
 const scraperMocks = vi.hoisted(() => ({ scrapeBrandUrls: vi.fn() }))
 
@@ -140,6 +141,21 @@ describe('deriveOfficialWebsite', () => {
       deriveOfficialWebsite(['https://myship.7-11.com.tw/general/detail/GM123'], '原形東方茶飲 pur Sweets'),
     ).toBeNull()
   })
+
+  it('excludes institutional hosts from eligible websites', () => {
+    expect(
+      deriveOfficialWebsite(
+        ['https://beboss.wda.gov.tw', 'https://dict.revised.moe.edu.tw'],
+        'Han Brand',
+      ),
+    ).toBeNull()
+  })
+
+  it('skips an institutional host on the no-token fallback path', () => {
+    expect(
+      deriveOfficialWebsite(['https://agency.gov.tw', 'https://shop.example.tw'], '純漢品牌'),
+    ).toBe('https://shop.example.tw')
+  })
 })
 
 describe('deriveScrapedBrandName', () => {
@@ -222,27 +238,39 @@ describe('links quarantine identity rules', () => {
     scraperMocks.scrapeBrandUrls.mockReset()
   })
 
+  // Mirrors what `scrapeBrandUrls` really returns: its result has already been
+  // through `mergeScrapedData`, whose sourceUrl-present branch populates
+  // `perSourceText` alongside `textProvenance`. Omitting it here made the mock
+  // stand for a payload production never produces.
   const scrape = (
     sourceUrl: string,
     data: Partial<ReturnType<typeof emptyResult>>,
-  ) => ({
-    data: {
-      ...emptyResult(sourceUrl),
-      ...data,
-      linkProvenance: Object.fromEntries(
-        Object.entries(data)
-          .filter(([field, value]) => field !== 'brandName' && typeof value === 'string')
-          .map(([field]) => [field, { sourceUrl }]),
-      ),
-      textProvenance: Object.fromEntries(
-        Object.entries(data)
-          .filter(([field, value]) => ['brandName', 'description', 'story'].includes(field) && typeof value === 'string')
-          .map(([field]) => [field, { sourceUrl }]),
-      ),
-      textSourceUrl: sourceUrl,
-    },
-    statuses: [],
-  })
+    options: { withoutPerSourceText?: boolean } = {},
+  ) => {
+    const merged = mergeScrapedData([{ type: 'official-site', sourceUrl, data: { ...emptyResult(sourceUrl), ...data } }])
+
+    return {
+      data: {
+        ...emptyResult(sourceUrl),
+        ...data,
+        linkProvenance: Object.fromEntries(
+          Object.entries(data)
+            .filter(([field, value]) => field !== 'brandName' && typeof value === 'string')
+            .map(([field]) => [field, { sourceUrl }]),
+        ),
+        textProvenance: Object.fromEntries(
+          Object.entries(data)
+            .filter(([field, value]) => ['brandName', 'description', 'story'].includes(field) && typeof value === 'string')
+            .map(([field]) => [field, { sourceUrl }]),
+        ),
+        textSourceUrl: sourceUrl,
+        ...(options.withoutPerSourceText || !merged.perSourceText
+          ? {}
+          : { perSourceText: merged.perSourceText }),
+      },
+      statuses: [],
+    }
+  }
 
   const run = async (overrides: Partial<Parameters<typeof runLinksPhase>[0]>) =>
     runLinksPhase({
@@ -413,5 +441,168 @@ describe('links quarantine identity rules', () => {
       title: 'Stranger Brand',
       description: 'Description from the stranger page',
     })
+  })
+
+  it('uses per-source text evidence when the winning text came from another page', async () => {
+    scraperMocks.scrapeBrandUrls
+      .mockResolvedValueOnce(
+        scrape('https://brand.example', {
+          description: 'Official description',
+          socialInstagram: 'https://www.instagram.com/stranger',
+        }),
+      )
+      .mockResolvedValueOnce(
+        scrape('https://www.instagram.com/stranger/', {
+          description: 'Stranger description',
+          purchasePinkoi: 'https://www.pinkoi.com/store/stranger',
+        }),
+      )
+
+    const result = await run({
+      brand: { ...brand, name: 'Han Brand' },
+      discoveredUrls: ['https://brand.example'],
+    })
+
+    expect(result.scrapedData?.description).toBe('Official description')
+    expect(result.quarantine['https://www.instagram.com/stranger/'].evidence).toEqual({
+      description: 'Stranger description',
+    })
+  })
+
+  // The branch's target cohort: a Han-only name yields no Latin tokens, so
+  // `deriveOfficialWebsite` takes the zero-token fallback and returns the page's
+  // ORIGIN while the page actually scraped — and the only page carrying
+  // `perSourceText` — is a deep URL. A path-sensitive evidence lookup never
+  // matches those two, so the website was escalated with empty evidence and the
+  // arbiter released it unjudged. A website subject owns its whole domain, so
+  // the lookup matches on host.
+  it('uses deep-page evidence for an origin website subject', async () => {
+    scraperMocks.scrapeBrandUrls.mockResolvedValue(
+      scrape('https://mumu.com.tw/pages/about', {
+        brandName: 'Mumu',
+        description: 'Mumu description',
+        story: 'Mumu story',
+      }),
+    )
+
+    const result = await run({
+      brand: { ...brand, name: '純漢品牌' },
+      discoveredUrls: ['https://mumu.com.tw/pages/about'],
+    })
+
+    const group = result.quarantine['https://mumu.com.tw']
+    expect(group.subjectKind).toBe('website')
+    expect(group.columns).toContain('purchase_website')
+    expect(group.evidence).toEqual({
+      title: 'Mumu',
+      description: 'Mumu description',
+      story: 'Mumu story',
+    })
+  })
+
+  const secondPassKnownUrls = [
+    'https://www.instagram.com/known-one',
+    'https://www.instagram.com/known-two',
+    'https://www.instagram.com/known-three',
+    'https://www.instagram.com/known-four',
+    'https://www.instagram.com/known-five',
+    'https://www.instagram.com/known-six',
+  ]
+  const secondPassExtractedSocials = [
+    'https://www.instagram.com/from-page',
+    'https://www.threads.com/@from-serp',
+    'https://www.facebook.com/from-serp',
+  ]
+
+  const configureSecondPassMocks = () => {
+    scraperMocks.scrapeBrandUrls
+      .mockResolvedValueOnce(
+        scrape(secondPassKnownUrls[0], {
+          socialInstagram: secondPassExtractedSocials[0],
+          purchasePinkoi: 'https://www.pinkoi.com/store/from-page',
+          purchaseShopee: 'https://shopee.tw/from-page',
+        }),
+      )
+      .mockResolvedValueOnce(scrape(secondPassExtractedSocials[0], {}))
+  }
+
+  it('adds at most two new extracted socials after the three normal second-pass URLs', async () => {
+    const knownUrls = secondPassKnownUrls
+    const extractedSocials = secondPassExtractedSocials
+
+    configureSecondPassMocks()
+
+    // `known-one` leads the discovered list so it becomes the extracted
+    // instagram candidate while also sitting in the first pass's six URLs —
+    // the exact overlap the zero-token branch's `alreadyScraped` filter exists
+    // to drop. Without it, the concession would re-scrape a page this run
+    // already paid for.
+    await run({
+      brand: { ...brand, name: '純漢品牌' },
+      knownUrls,
+      discoveredUrls: [knownUrls[0], ...extractedSocials],
+    })
+
+    expect(scraperMocks.scrapeBrandUrls).toHaveBeenNthCalledWith(
+      2,
+      [
+        extractedSocials[0],
+        'https://www.pinkoi.com/store/from-page',
+        'https://shopee.tw/from-page',
+        extractedSocials[1],
+        extractedSocials[2],
+      ],
+      expect.anything(),
+    )
+    expect(scraperMocks.scrapeBrandUrls.mock.calls[1][0]).not.toContain(knownUrls[0])
+  })
+
+  // Scraped data from before the per-source map exists in flight and in any
+  // stored payload, so `textProvenance` has to keep working on its own.
+  it('falls back to textProvenance when perSourceText is absent', async () => {
+    scraperMocks.scrapeBrandUrls.mockResolvedValue(
+      scrape(
+        'https://stranger.example/page',
+        {
+          brandName: 'Stranger Brand',
+          description: 'Description from the stranger page',
+          purchasePinkoi: 'https://www.pinkoi.com/store/other-company',
+        },
+        { withoutPerSourceText: true },
+      ),
+    )
+
+    const result = await run({
+      brand: { ...brand, name: 'Han Brand' },
+      discoveredUrls: ['https://stranger.example/page'],
+    })
+
+    expect(result.scrapedData?.perSourceText).toBeUndefined()
+    expect(result.quarantine['https://stranger.example/page'].evidence).toEqual({
+      title: 'Stranger Brand',
+      description: 'Description from the stranger page',
+    })
+  })
+
+  // The extra social candidates are a zero-token-only concession: a brand whose
+  // name carries Latin tokens already has a discriminator, so its second pass
+  // must stay on the plain MAX_SECOND_PASS_URLS budget.
+  it('leaves the second pass unchanged for a brand with Latin tokens', async () => {
+    const knownUrls = secondPassKnownUrls
+    const extractedSocials = secondPassExtractedSocials
+
+    configureSecondPassMocks()
+
+    await run({
+      brand: { ...brand, name: 'Han Brand' },
+      knownUrls,
+      discoveredUrls: extractedSocials,
+    })
+
+    expect(scraperMocks.scrapeBrandUrls).toHaveBeenNthCalledWith(
+      2,
+      [extractedSocials[0], 'https://www.pinkoi.com/store/from-page', 'https://shopee.tw/from-page'],
+      expect.anything(),
+    )
   })
 })

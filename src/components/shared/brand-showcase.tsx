@@ -1,13 +1,13 @@
 'use client'
 
 import { Link } from '@/i18n/navigation'
-import type { Brand } from '@/lib/types'
+import type { PublicBrandCard } from '@/lib/brands/contracts'
 import { BrandCard } from '@/components/brands/brand-card'
 import { trackCtaClicked } from '@/lib/analytics'
 import { useInView } from '@/hooks/use-in-view'
 
 interface BrandShowcaseProps {
-  brands: Brand[]
+  brands: PublicBrandCard[]
   heading: string
   subheading?: string
   linkText: string

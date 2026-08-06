@@ -1,0 +1,13 @@
+{
+  "name": "dev-1309-remediation",
+  "title": "DEV-1309 — brands whose contaminated purchase_website is safe to clear",
+  "subtitle": "The STALE half of the 2026-08-06 exposure scan over status in ('approved','hidden'): five brands whose purchase_website points at something that is not the brand's own site, and which current code can no longer re-derive. Two classes. Platform (2): 博宏 → the bare threads.com front door, and 暖木家居 Warmwood Living → threads.net/@warmwood.living — both rejected by isNonBrandSiteHost, so normalizeScrapedLinkValue will not re-adopt them. Non-brand content (3): Bridgeport → chinajournal.news, 玳作 Dazzle Jewelry → harpersbazaar.com, 山桔 Sunjit → reurl.cc/R20Nnx — all three brands have Latin tokens that match nothing in the host, so post-#568 deriveOfficialWebsite returns null rather than falling through to first-eligible. Clearing these sticks.",
+  "warning": "Two contaminated rows are deliberately EXCLUDED because clearing them would revert on the next curation run. 梨山福果園 → smiletaiwan.cw.com.tw is Han-only, so deriveOfficialWebsite falls through to first-eligible with no identity check; it needs the site_identity ladder to arbitrate it first. 虎嚕吼嚕嚕 HOORU HORURU → portaly.cc/HOORU.HORURU is worse: portaly.cc is absent from LINK_AGGREGATOR_HOSTS (the DEV-1309 ticket asserts it is present — it is not), so nothing rejects the host, and the URL's path carries the brand handle, so linkIdentifiesBrand CONFIRMS it at Rung 1 and the ladder never escalates to Rung 2. Add portaly.cc to LINK_AGGREGATOR_HOSTS before remediating that row.",
+  "labels": {
+    "bridgeport": "Bridgeport",
+    "dazzle-jewelry": "玳作 Dazzle Jewelry",
+    "homecoming-fragrance": "山桔 Sunjit",
+    "warmwood-living": "暖木家居 Warmwood Living",
+    "博宏": "博宏"
+  }
+}

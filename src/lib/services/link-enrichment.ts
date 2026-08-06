@@ -143,6 +143,37 @@ export function canonicalizeThreadsUrl(url: string): string {
   }
 }
 
+/** Identity for "is this the same page?" - scheme, `www.`, and a trailing slash are noise. */
+export function scrapeKey(url: string): string {
+  const trimmed = url.trim().toLowerCase()
+  try {
+    const parsed = new URL(trimmed)
+    return `${parsed.hostname.replace(/^www\./, '')}${parsed.pathname.replace(/\/+$/, '')}`
+  } catch {
+    return trimmed.replace(/\/+$/, '')
+  }
+}
+
+/**
+ * The canonical key for one scraped page. Threads is canonicalized first because
+ * threads.net redirects to threads.com, so the two spellings name one page.
+ * Applying `scrapeKey` to an already-canonical key is idempotent, so a legacy
+ * value that was stored as a full URL and a new value stored as a key both
+ * resolve here to the same string.
+ */
+export function pageKey(url: string): string {
+  return scrapeKey(canonicalizeThreadsUrl(url))
+}
+
+/** The host portion of a `pageKey`, for a subject that owns its whole domain. */
+export function pageKeyHost(url: string): string {
+  return pageKey(url).split('/')[0] ?? ''
+}
+
+export function sameUrl(a: string, b: string): boolean {
+  return pageKey(a) === pageKey(b)
+}
+
 /**
  * Marketplace paths that are a *query*, not a seller. A brand's own site
  * frequently links its Shopee presence as a keyword search rather than as its
@@ -352,6 +383,26 @@ export function isForeignCountryTld(url: string): boolean {
   }
 }
 
+/**
+ * True for government and university hosts. A Han-only-named brand's SERP can
+ * surface government and university pages that mention it, and those pages were
+ * being adopted as the brand's own site or purchase channel. Government and
+ * education domains are blocked because institutional ownership is distinct from
+ * commercial brand ownership. A malformed URL is not rejected here - unknown,
+ * not blocked.
+ */
+export function isInstitutionalHost(url: string): boolean {
+  try {
+    const labels = new URL(url).hostname.toLowerCase().split('.')
+    const last = labels.at(-1)
+    if (last === 'gov' || last === 'edu') return true
+    const secondLevel = labels.at(-2)
+    return last === 'tw' && (secondLevel === 'gov' || secondLevel === 'edu')
+  } catch {
+    return false
+  }
+}
+
 export function hostMatchesBrandName(url: string, tokens: string[]): boolean {
   if (tokens.length === 0) return false
   try {
@@ -469,7 +520,7 @@ export function classifySubmittedUrl(url: string): Partial<Record<LinkField, str
   // pattern above recognised (a Threads post rather than a profile, a link
   // aggregator, a marketplace search page) is not one. Claiming it here is what
   // seeded `purchase_website` with hosts the image phase then searches whole.
-  if (isNonBrandSiteHost(url)) {
+  if (isNonBrandSiteHost(url) || isInstitutionalHost(url)) {
     return {}
   }
 

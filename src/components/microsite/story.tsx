@@ -1,8 +1,8 @@
-import type { Brand, SiteContent } from '@/lib/types/brand'
+import type { PublicMicrositeBrand } from '@/lib/brands/contracts'
 
 type StoryProps = {
-  brand: Brand
-  story?: SiteContent['story']
+  brand: PublicMicrositeBrand
+  story?: PublicMicrositeBrand['siteContent']['story']
 }
 
 export function Story({ brand, story }: StoryProps) {

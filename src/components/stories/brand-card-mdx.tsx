@@ -1,8 +1,9 @@
 import { getTranslations } from 'next-intl/server'
 
 import { BrandCard } from '@/components/brands/brand-card'
-import { getBrandsBySlugs } from '@/lib/services/brands'
-import type { Brand } from '@/lib/types'
+import { getPublicBrandsBySlugs } from '@/lib/services/brands'
+import { normalizePublicBrandCard, type PublicBrandCard } from '@/lib/brands/contracts'
+import type { Brand } from '@/lib/types/brand'
 
 type BrandCardMdxProps = {
   slug: string
@@ -32,7 +33,7 @@ type BrandCardMdxProps = {
  * `scripts/check-test-boundaries.mjs` forbids.
  */
 export type BrandLoaderSeam = {
-  loadBrands?: (slugs: string[]) => Promise<Map<string, Brand>>
+  loadBrands?: (slugs: string[]) => Promise<Map<string, Brand | PublicBrandCard>>
 }
 
 /**
@@ -47,10 +48,11 @@ export async function BrandCardMdx({
   note,
   eyebrow,
   position,
-  loadBrands = getBrandsBySlugs,
+  loadBrands = getPublicBrandsBySlugs,
 }: BrandCardMdxProps) {
   const brands = await loadBrands([slug])
-  const brand = brands.get(slug)
+  const resolvedBrand = brands.get(slug)
+  const brand = resolvedBrand ? normalizePublicBrandCard(resolvedBrand) : undefined
 
   if (!brand) {
     const t = await getTranslations('stories')

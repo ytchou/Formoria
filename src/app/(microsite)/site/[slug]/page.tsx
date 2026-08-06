@@ -1,8 +1,8 @@
 import { cache, createElement } from 'react'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
-import { getBrandBySlug, getMicrositeSlugs } from '@/lib/services/brands'
-import type { Brand } from '@/lib/types'
+import { getPublicMicrositeBrandBySlug, getMicrositeSlugs } from '@/lib/services/brands'
+import type { PublicMicrositeBrand } from '@/lib/brands/contracts'
 import { getTemplate } from '@/components/microsite/templates/registry'
 import { isMicrositeEnabled, micrositeMetadata } from './microsite-helpers'
 
@@ -28,9 +28,9 @@ type PageProps = {
 
 // Memoized per request: `generateMetadata` and the page body both need the brand,
 // and each `getBrandBySlug` costs a `brands` select plus a `brand_images` select.
-const loadMicrositeBrand = cache(async (slug: string): Promise<Brand | null> => {
+const loadMicrositeBrand = cache(async (slug: string): Promise<PublicMicrositeBrand | null> => {
   try {
-    return await getBrandBySlug(slug)
+    return await getPublicMicrositeBrandBySlug(slug)
   } catch {
     return null
   }

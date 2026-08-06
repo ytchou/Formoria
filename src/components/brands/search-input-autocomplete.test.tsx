@@ -120,7 +120,7 @@ describe('SearchInput autocomplete', () => {
     expect(options[0]).toHaveTextContent('Tea House')
     expect(options[1]).toHaveTextContent('Tea Garden')
     expect(mockFetch).toHaveBeenCalledTimes(1)
-    expect(mockFetch).toHaveBeenCalledWith('/api/search?q=tea&limit=5', {
+    expect(mockFetch).toHaveBeenCalledWith('/api/search?q=tea', {
       signal: expect.any(AbortSignal),
     })
   })

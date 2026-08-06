@@ -1,4 +1,3 @@
-import type { Brand } from "@/lib/types";
 import type { Locale } from "@/lib/seo/alternates";
 import { PURCHASE_CHANNELS } from "@/lib/brands/purchase-channels";
 import { FORMORIA_SOCIALS } from "./constants";
@@ -17,6 +16,22 @@ export type BreadcrumbItem = {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type JsonLdObject = Record<string, any>;
 
+export type BrandJsonLdInput = {
+  name: string
+  description: string | null
+  descriptionEn: string | null
+  heroImageUrl: string | null
+  foundingYear: number | null
+  socialInstagram: string | null
+  socialThreads: string | null
+  socialFacebook: string | null
+  purchaseWebsite: string | null
+  purchasePinkoi: string | null
+  purchaseShopee: string | null
+  purchaseMyship: string | null
+  otherUrls: Array<{ label: string; url: string }>
+}
+
 type JsonLdLocale = Locale | string | undefined;
 
 /** Map a next-intl locale to a schema.org inLanguage value. */
@@ -28,7 +43,7 @@ function toInLanguage(locale: JsonLdLocale = "zh-TW"): string {
  * Build Organization JSON-LD structured data for a brand detail page.
  */
 export function buildBrandJsonLd(
-  brand: Brand,
+  brand: BrandJsonLdInput,
   locale: Locale = "zh-TW",
 ): JsonLdObject {
   const allSameAs = [

@@ -7,22 +7,22 @@ const CACHE_CONTROL = 'public, s-maxage=60, stale-while-revalidate=300'
 export const GET = withAuditScope(async (request: Request) => {
   const { searchParams } = new URL(request.url)
   const query = searchParams.get('q')?.trim() ?? ''
-  const limitParam = searchParams.get('limit')
 
-  if (!query || query.length > 100) {
+  if (
+    query.length < 2 ||
+    query.length > 100 ||
+    /^[\s%_*?]+$/.test(query)
+  ) {
     return NextResponse.json(
-      { error: "Query parameter 'q' is required and must be 1-100 characters" },
+      { error: "Query parameter 'q' is required and must be 2-100 characters" },
       { status: 400 },
     )
   }
 
-  const parsedLimit = limitParam ? parseInt(limitParam, 10) || 5 : 5
-  const limit = Math.min(Math.max(parsedLimit, 1), 10)
-
   const t0 = performance.now()
 
   try {
-    const results = await searchBrandsAutocomplete(query, limit)
+    const results = await searchBrandsAutocomplete(query)
 
     return NextResponse.json(
       { results },

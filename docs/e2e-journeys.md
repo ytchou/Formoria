@@ -94,6 +94,8 @@ These are warnings during migration, not evidence that the routes have no deep c
 | **Guide locale indexability** | `e2e/tests/guide-detail.spec.ts` | 2026-07-15 |
 | **Directory filters, zero-result recovery, and contextual recommendations** | `e2e/tests/directory.spec.ts` | 2026-07-16 |
 | **Public search — API boundaries, ranking, bilingual/fuzzy matching, entry points, async state, filters, and recovery** | `e2e/tests/search-edge-cases.spec.ts` | 2026-07-19 |
+| **Public data boundary — private brand canaries absent from HTML, RSC, JSON-LD, and public brand surfaces** | `e2e/tests/public-data-boundary.spec.ts` | 2026-08-06 |
+| **Public search — selected A-Z sort changes rendered matching-result order** | `e2e/tests/search-edge-cases.spec.ts` | 2026-08-06 |
 | **FAQ sections (General + For Owners), #for-owners anchor, #claim auto-open** | `e2e/tests/faq.spec.ts` | 2026-07-23 |
 | **Public brand support toggle and admin heading-menu placement** | `e2e/tests/brand-actions.spec.ts` | 2026-07-31 |
 | **Owner welcome card — visible on fresh brand, dismissal persists** (RED: duplicate content tree after dismiss+reload — see e2e/reports/2026-07-23.md) | `e2e/tests/dashboard-welcome-card.spec.ts` | 2026-07-23 |

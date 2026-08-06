@@ -2,11 +2,11 @@
 
 import type { ReactNode } from 'react'
 import { useLocale, useTranslations } from 'next-intl'
-import type { SearchResult } from '@/lib/services/brands'
+import type { SearchSuggestion } from '@/lib/brands/contracts'
 import { getProductTypeLabel } from '@/lib/brands/category-label'
 
 interface SearchSuggestionsProps {
-  suggestions: SearchResult[]
+  suggestions: SearchSuggestion[]
   selectedIndex: number
   onSelect: (slug: string, index: number) => void
   query: string

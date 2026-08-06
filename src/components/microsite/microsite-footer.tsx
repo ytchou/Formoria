@@ -1,7 +1,7 @@
-import type { Brand } from '@/lib/types/brand'
+import type { PublicMicrositeBrand } from '@/lib/brands/contracts'
 
 type MicrositeFooterProps = {
-  brand: Brand
+  brand: PublicMicrositeBrand
 }
 
 export function MicrositeFooter({ brand }: MicrositeFooterProps) {

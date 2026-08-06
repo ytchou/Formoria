@@ -1,13 +1,12 @@
 import { surfaceCardStyles } from '@/components/ui/card'
-import type { Brand, SiteContent } from '@/lib/types/brand'
+import type { PublicMicrositeBrand } from '@/lib/brands/contracts'
 
 type ContactCtaProps = {
-  brand: Brand
-  siteContent: Pick<SiteContent, 'ctaValue'>
+  siteContent: Pick<PublicMicrositeBrand['siteContent'], 'ctaValue'>
 }
 
-export function ContactCta({ brand, siteContent }: ContactCtaProps) {
-  const email = siteContent.ctaValue ?? brand.contactEmail
+export function ContactCta({ siteContent }: ContactCtaProps) {
+  const email = siteContent.ctaValue
 
   return (
     <section id="contact" className="px-6 py-12 md:px-10 md:py-16" aria-labelledby="contact-title">
