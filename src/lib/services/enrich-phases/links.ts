@@ -70,7 +70,14 @@ export type QuarantineGroup = {
     description?: string
     story?: string
   }
-  /** True when no hostname rule can confirm a Han-only fallback website. */
+  /**
+   * True when the brand name yields zero Latin tokens of length >= 3. This is
+   * broader than "Han-only": short Latin names such as KO and mixed names such
+   * as 9O 玖零 qualify too. The flag arms a revoke, so the website proposal is
+   * deleted rather than released. The cohort is approximately 113 brands.
+   * Narrow or remove this shortcut when a real site-identity signal can confirm
+   * or reject the host, so the decision no longer depends on the name's script.
+   */
   unverifiable?: boolean
 }
 
@@ -159,7 +166,10 @@ function prioritizeScrapeUrls(urls: string[]): string[] {
  * `LINK_AGGREGATOR_HOSTS`), which also made a linktr.ee URL eligible to become
  * the brand's "official website". `isNonBrandSiteHost` is the wider test.
  */
-export function deriveOfficialWebsite(urls: string[], brandName?: string | null): string | null {
+export function resolveOfficialWebsite(
+  urls: string[],
+  brandName?: string | null,
+): { url: string | null; viaZeroTokenFallback: boolean } {
   const eligible = urls.filter(
     (u) =>
       classifyByDomain(u) === null &&
@@ -169,8 +179,23 @@ export function deriveOfficialWebsite(urls: string[], brandName?: string | null)
   )
   const tokens = brandNameTokens(brandName)
   const matched = eligible.find((u) => hostMatchesBrandName(u, tokens))
-  const url = matched ?? (tokens.length > 0 ? null : eligible.at(0))
-  return normalizeToRootUrl(url ?? null)
+  const fallback = tokens.length === 0 ? eligible.at(0) : undefined
+  const url = normalizeToRootUrl(matched ?? fallback ?? null)
+  return {
+    url,
+    viaZeroTokenFallback: matched === undefined && fallback !== undefined && url !== null,
+  }
+}
+
+/**
+ * The url alone, for callers that do not care how it was reached. Callers that
+ * DO care must read `viaZeroTokenFallback` off `resolveOfficialWebsite` rather
+ * than re-deriving the fallback condition from the brand name — one owner of
+ * that fact, so a change to the fallback rule cannot silently disagree with a
+ * copy of it at a call site.
+ */
+export function deriveOfficialWebsite(urls: string[], brandName?: string | null): string | null {
+  return resolveOfficialWebsite(urls, brandName).url
 }
 
 function normalizeScrapedData(scrapedData: EnrichScrapedData): EnrichScrapedData {
@@ -592,11 +617,10 @@ export async function runLinksPhase({
     const scrapedFromPages: EnrichScrapedData = firstPass
       ? await scrapeDiscoveredLinks(firstPass.data, urls, scrapeOptions, urlExtracted)
       : ({} as EnrichScrapedData)
-    const derivedWebsite = scrapedFromPages.purchaseWebsite ?? deriveOfficialWebsite(urls, brand.name)
-    const unverifiableWebsite =
-      brandNameTokens(brand.name).length === 0 &&
-      !hasLinkValue(scrapedFromPages.purchaseWebsite) &&
-      hasLinkValue(derivedWebsite)
+    const { url: resolvedWebsite, viaZeroTokenFallback } = resolveOfficialWebsite(urls, brand.name)
+    const derivedWebsite = scrapedFromPages.purchaseWebsite ?? resolvedWebsite
+    const hasBrandName = typeof brand.name === 'string' && brand.name.trim().length > 0
+    const unverifiableWebsite = hasBrandName && viaZeroTokenFallback
     const scrapedData = normalizeScrapedData({
       ...scrapedFromPages,
       ...urlExtracted,

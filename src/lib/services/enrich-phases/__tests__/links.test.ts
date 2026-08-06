@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { deriveOfficialWebsite, deriveScrapedBrandName, runLinksPhase } from '../links'
+import {
+  deriveOfficialWebsite,
+  deriveScrapedBrandName,
+  resolveOfficialWebsite,
+  runLinksPhase,
+} from '../links'
 import type { EnrichBrand, EnrichPhase } from '../types'
 import { emptyResult } from '../scraper/parse/extractors'
 import { mergeScrapedData } from '../scraper/merge'
@@ -155,6 +160,43 @@ describe('deriveOfficialWebsite', () => {
     expect(
       deriveOfficialWebsite(['https://agency.gov.tw', 'https://shop.example.tw'], '純漢品牌'),
     ).toBe('https://shop.example.tw')
+  })
+})
+
+// `viaZeroTokenFallback` is the single owner of "this website came from the
+// zero-token fallback, not from a name match" — the fact that arms the revoke.
+// It is asserted here rather than only through the phase because a token-bearing
+// brand's derived site is always identity-confirmed (`linkIdentifiesBrand`
+// accepts exactly the hosts `resolveOfficialWebsite` token-matches), so it never
+// produces a quarantine group for the flag to ride on. These are the tests that
+// go red if the fallback condition inside the function is widened or dropped.
+describe('resolveOfficialWebsite provenance', () => {
+  it('reports a name-matched host as not a fallback', () => {
+    expect(resolveOfficialWebsite(['https://adela-shop.tw/about'], 'ADELA')).toEqual({
+      url: 'https://adela-shop.tw',
+      viaZeroTokenFallback: false,
+    })
+  })
+
+  it('reports the first-eligible host of a no-token name as a fallback', () => {
+    expect(resolveOfficialWebsite(['https://some-shop.tw/about'], '茶籽堂')).toEqual({
+      url: 'https://some-shop.tw',
+      viaZeroTokenFallback: true,
+    })
+  })
+
+  it('reports no fallback when a token-bearing name matches nothing', () => {
+    expect(resolveOfficialWebsite(['https://nahoku.com'], 'NU Dream Jewelry')).toEqual({
+      url: null,
+      viaZeroTokenFallback: false,
+    })
+  })
+
+  it('reports no fallback when nothing is eligible at all', () => {
+    expect(resolveOfficialWebsite(['https://www.instagram.com/brand'], '茶籽堂')).toEqual({
+      url: null,
+      viaZeroTokenFallback: false,
+    })
   })
 })
 
@@ -360,35 +402,42 @@ describe('links quarantine identity rules', () => {
       expect(result.patch.purchase_website).toBe('https://some-shop.tw')
       expect(result.quarantine['https://some-shop.tw']).toMatchObject({
         subjectKind: 'website',
+        unverifiable: true,
       })
     })
   })
 
-  it('marks a no-token derived website as unverifiable', async () => {
+  it('does not revoke a token-bearing brand from a derived website', async () => {
+    // The revoke can only reach a brand whose name yields Latin tokens if that
+    // brand's derived site is quarantined at all — and it never is: the only
+    // hosts `resolveOfficialWebsite` returns for a token-bearing name are the
+    // ones `linkIdentifiesBrand` then confirms. So the cohort boundary shows up
+    // here as "no group", and the flag itself is covered by the
+    // `resolveOfficialWebsite provenance` unit tests above.
+    scraperMocks.scrapeBrandUrls.mockResolvedValue(scrape('https://adela-shop.tw/about', {}))
+    const result = await run({
+      brand: { ...brand, name: 'ADELA' },
+      discoveredUrls: ['https://adela-shop.tw/about'],
+    })
+
+    expect(result.patch.purchase_website).toBe('https://adela-shop.tw')
+    expect(result.quarantine['https://adela-shop.tw']).toBeUndefined()
+  })
+
+  it('does not revoke the website of a brand that has no name', async () => {
+    // A nameless row was never checked against anything: zero tokens means the
+    // fallback hands it the SERP's first non-platform host, and revoking that
+    // would delete a proposal no rule ever examined. Quarantine still applies —
+    // the value is unconfirmed — but the deletion must not be armed.
     scraperMocks.scrapeBrandUrls.mockResolvedValue(scrape('https://some-shop.tw/about', {}))
 
     const result = await run({
-      brand: { ...brand, name: '茶籽堂' },
+      brand: { ...brand, name: undefined },
       discoveredUrls: ['https://some-shop.tw/about'],
     })
 
-    expect(result.quarantine['https://some-shop.tw']).toMatchObject({
-      subjectKind: 'website',
-      unverifiable: true,
-    })
-  })
-
-  it('does not mark a website supplied by the scraped pages', async () => {
-    scraperMocks.scrapeBrandUrls.mockResolvedValue(
-      scrape('https://some-shop.tw/about', { purchaseWebsite: 'https://brand.example' }),
-    )
-
-    const result = await run({
-      brand: { ...brand, name: '茶籽堂' },
-      discoveredUrls: ['https://some-shop.tw/about'],
-    })
-
-    expect(result.quarantine['https://some-shop.tw/about']).not.toHaveProperty('unverifiable')
+    expect(result.quarantine['https://some-shop.tw']).toMatchObject({ subjectKind: 'website' })
+    expect(result.quarantine['https://some-shop.tw']?.unverifiable).toBeFalsy()
   })
 
   it("second-pass links inherit their source's quarantine", async () => {

@@ -17,6 +17,7 @@ import {
 } from './types'
 import type { EnrichScrapedData } from './types'
 import type { QuarantineGroup, LinksPhaseOutput } from './links'
+import { linkColumnFor } from '../link-enrichment'
 
 export type SiteIdentityQuarantine = QuarantineGroup & {
   patch: EnrichPatch
@@ -30,6 +31,7 @@ export type SiteIdentityApplication = {
   removedColumns: string[]
   clearedFields: string[]
   patch: EnrichPatch
+  detailParts: string[]
 }
 
 export type SiteIdentityPhaseOutput = {
@@ -51,21 +53,33 @@ export function resolveQuarantine(
   }
 }
 
-function skippedBatch(detail: string): SiteIdentityPhaseOutput {
+function batchOutput(
+  status: PhaseResult['status'],
+  detail: string | undefined,
+  verdicts: Map<string, SiteIdentityVerdict>,
+  applications: Map<string, SiteIdentityApplication>,
+): SiteIdentityPhaseOutput {
   return {
-    phaseResult: buildPhaseResult('site_identity', 'skipped', [], 0, undefined, detail),
-    verdicts: new Map(),
-    applications: new Map(),
+    phaseResult: buildPhaseResult('site_identity', status, [], 0, undefined, detail),
+    verdicts,
+    applications,
   }
+}
+
+function clearedFieldsPatch(clearedFields: string[]): EnrichPatch {
+  return clearedFields.length > 0 ? { [CLEARED_FIELDS_KEY]: clearedFields } : {}
 }
 
 function applyRevocation(
   brand: EnrichBrand,
   quarantine: SiteIdentityQuarantine,
   reason: string,
+  options: { columns?: string[]; filterImages?: boolean } = {},
 ): SiteIdentityApplication {
-  const { removedColumns, newlyCleared, clearedFields } = revokeFields(quarantine, brand)
-  filterRevokedImages(quarantine.linksResult, quarantine.subjectUrl, quarantine.subjectKind)
+  const { removedColumns, newlyCleared, clearedFields } = revokeFields(quarantine, brand, options.columns)
+  if (options.filterImages ?? true) {
+    filterRevokedImages(quarantine.linksResult, quarantine.subjectUrl, quarantine.subjectKind)
+  }
   return {
     phaseResult: buildPhaseResult(
       'site_identity',
@@ -77,7 +91,8 @@ function applyRevocation(
     ),
     removedColumns,
     clearedFields,
-    patch: clearedFields.length > 0 ? { [CLEARED_FIELDS_KEY]: clearedFields } : {},
+    patch: clearedFieldsPatch(clearedFields),
+    detailParts: [reason],
   }
 }
 
@@ -103,6 +118,7 @@ function isStoredValue(value: unknown): boolean {
 function revokeFields(
   quarantine: SiteIdentityQuarantine,
   brand: EnrichBrand,
+  columns: string[] = quarantine.columns,
 ): { removedColumns: string[]; newlyCleared: string[]; clearedFields: string[] } {
   const cleared = new Set<string>(quarantine.patch[CLEARED_FIELDS_KEY] ?? [])
   const removedColumns: string[] = []
@@ -112,7 +128,7 @@ function revokeFields(
   // through a string-indexable view rather than a `keyof EnrichPatch`.
   const patchView = quarantine.patch as Record<string, unknown>
 
-  for (const column of quarantine.columns) {
+  for (const column of columns) {
     // A non-null patch value is a proposal this run made; striking it is a
     // delete. An explicit `null` is a pending CLEAR the links phase already
     // wrote — deleting that key would resurrect the stored value it was meant
@@ -197,6 +213,7 @@ function applyVerdict(
       removedColumns: [],
       clearedFields: [],
       patch: {},
+      detailParts: [decision.reason],
     }
   }
 
@@ -219,9 +236,8 @@ function mergeApplication(
   const clearedFields = prior
     ? [...new Set([...prior.clearedFields, ...application.clearedFields])]
     : application.clearedFields
-  const detailParts = prior?.phaseResult.detail ? prior.phaseResult.detail.split('; ') : []
-  if (application.phaseResult.detail) detailParts.push(application.phaseResult.detail)
-  const detail = [...new Set(detailParts)].join('; ')
+  const detailParts = [...new Set([...(prior?.detailParts ?? []), ...application.detailParts])]
+  const detail = detailParts.join('; ')
   applications.set(brandId, {
     phaseResult: buildPhaseResult(
       'site_identity',
@@ -235,7 +251,8 @@ function mergeApplication(
     ),
     removedColumns,
     clearedFields,
-    patch: clearedFields.length > 0 ? { [CLEARED_FIELDS_KEY]: clearedFields } : {},
+    patch: clearedFieldsPatch(clearedFields),
+    detailParts,
   })
 }
 
@@ -243,15 +260,8 @@ export async function runSiteIdentityPhase(
   ctx: BatchPhaseContext & { summary?: Record<string, unknown>; completed?: ReadonlySet<string> },
   quarantinesByBrandId: Map<string, SiteIdentityQuarantine[]> | Record<string, SiteIdentityQuarantine[]>,
 ): Promise<SiteIdentityPhaseOutput> {
-  // Union-keyed, not `Record<string, number>`: adding a third subjectKind
-  // without an initializer must be a build failure, otherwise the miss
-  // writes `undefined + 1` = NaN, which serialises to null in the audit row.
-  const noEvidence: Record<SiteIdentityQuarantine['subjectKind'], number> = {
-    website: 0,
-    'source-page': 0,
-  }
-  if (!ctx.phases.includes('site_identity')) return skippedBatch('site_identity phase not requested')
-  if (ctx.chunk.length === 0) return skippedBatch('empty batch')
+  if (!ctx.phases.includes('site_identity')) return batchOutput('skipped', 'site_identity phase not requested', new Map(), new Map())
+  if (ctx.chunk.length === 0) return batchOutput('skipped', 'empty batch', new Map(), new Map())
 
   return auditedCall(
     { provider: 'enrich', operation: 'runSiteIdentityPhase', kind: 'service' },
@@ -260,7 +270,34 @@ export async function runSiteIdentityPhase(
       const itemByKey = new Map<string, { brand: EnrichBrand; quarantine: SiteIdentityQuarantine }>()
       const verdicts = new Map<string, SiteIdentityVerdict>()
       const applications = new Map<string, SiteIdentityApplication>()
+      // Union-keyed, not `Record<string, number>`: adding a third subjectKind
+      // without an initializer must be a build failure, otherwise the miss
+      // writes `undefined + 1` = NaN, which serialises to null in the audit row.
+      const noEvidence: Record<SiteIdentityQuarantine['subjectKind'], number> = {
+        website: 0,
+        'source-page': 0,
+      }
+      const revokedNoEvidence: Record<SiteIdentityQuarantine['subjectKind'], number> = {
+        website: 0,
+        'source-page': 0,
+      }
+      const reasons: Record<string, unknown> = {}
       let escalations = 0
+
+      const publishSummary = (
+        calls: { attempted: number; providerFailed: number },
+        providerFailure: boolean,
+      ): void => {
+        if (!ctx.summary) return
+        Object.assign(ctx.summary, {
+          siteIdentity: reasons,
+          siteIdentityNoEvidence: noEvidence,
+          siteIdentityRevokedNoEvidence: revokedNoEvidence,
+          siteIdentityRung1Escalations: escalations,
+          siteIdentityCalls: calls,
+          siteIdentityProviderFailure: providerFailure,
+        })
+      }
 
       for (const brand of ctx.chunk) {
         if (ctx.completed?.has(brand.id)) continue
@@ -269,12 +306,25 @@ export async function runSiteIdentityPhase(
           if (Object.keys(evidence).length === 0) {
             noEvidence[quarantine.subjectKind] += 1
             if (quarantine.unverifiable && quarantine.subjectKind === 'website') {
+              revokedNoEvidence[quarantine.subjectKind] += 1
+              const application = applyRevocation(brand, quarantine, 'no-evidence', {
+                columns: quarantine.columns.filter((column) => column === linkColumnFor('purchaseWebsite')),
+                filterImages: false,
+              })
               mergeApplication(
                 applications,
                 brand.id,
-                applyRevocation(brand, quarantine, 'no-evidence'),
+                application,
                 false,
               )
+              const key = siteIdentityKey(brand.slug, quarantine.subjectUrl)
+              reasons[key] = {
+                verdict: undefined,
+                confidence: undefined,
+                reason: undefined,
+                releaseCause: 'no-evidence',
+                revokedColumns: application.phaseResult.changedFields,
+              }
             }
             continue
           }
@@ -295,33 +345,21 @@ export async function runSiteIdentityPhase(
         }
       }
 
-      // Published BEFORE the early return: a chunk where every group had empty
-      // evidence is exactly the cohort this counter measures, and the summary
-      // write below is unreachable on that path. Without this an operator
-      // cannot tell "nothing was quarantined" from "everything was dropped
-      // unjudged" — and a downstream gate reading a zero it never saw written
-      // would arm on a false reading.
-      if (ctx.summary) ctx.summary.siteIdentityNoEvidence = noEvidence
-
       if (items.length === 0) {
-        const hasRevocations = [...applications.values()].some(
-          (application) => application.phaseResult.status === 'succeeded',
-        )
-        return {
-          phaseResult: buildPhaseResult(
-            'site_identity',
-            hasRevocations ? 'succeeded' : 'skipped',
-            [],
-            0,
-            undefined,
-            hasRevocations ? undefined : 'no evidence',
-          ),
+        const hasRevocations = applications.size > 0
+        publishSummary({ attempted: 0, providerFailed: 0 }, false)
+        return batchOutput(
+          hasRevocations ? 'succeeded' : 'skipped',
+          hasRevocations ? undefined : 'no evidence',
           verdicts,
           applications,
-        }
+        )
       }
+      // Published BEFORE the arbiter call, as on main: auditedCall rethrows, and the
+      // caller's summary object is the live audit row. Losing the tally on an arbiter
+      // throw would blind the production gate exactly when the arbiter fails.
+      publishSummary({ attempted: 0, providerFailed: 0 }, false)
       const outcome = await arbitrateSiteIdentity(items, ctx.jobId)
-      const reasons: Record<string, unknown> = {}
 
       for (const item of items) {
         const key = siteIdentityKey(item.slug, item.subjectUrl)
@@ -348,22 +386,17 @@ export async function runSiteIdentityPhase(
       const providerFailure = isLlmProviderFailure(outcome.calls)
       const detail = providerFailure
         ? `provider failure (${outcome.calls.providerFailed}/${outcome.calls.attempted} calls)`
-        : `no parsed verdict (${outcome.calls.attempted} call(s))`
-      if (ctx.summary) {
-        Object.assign(ctx.summary, {
-          siteIdentity: reasons,
-          siteIdentityRung1Escalations: escalations,
-          // siteIdentityNoEvidence is already published above, on every exit path.
-          siteIdentityCalls: outcome.calls,
-          siteIdentityProviderFailure: providerFailure,
-        })
-      }
-      return {
+        : succeeded
+          ? undefined
+          : `no parsed verdict (${outcome.calls.attempted} call(s))`
+      publishSummary(outcome.calls, providerFailure)
+      return batchOutput(
         // This phase deliberately never sets providerFailure: releasing is safe and setting it would dilute Gate C.
-        phaseResult: buildPhaseResult('site_identity', succeeded ? 'succeeded' : 'skipped', [], 0, undefined, succeeded ? undefined : detail),
+        succeeded ? 'succeeded' : 'skipped',
+        detail,
         verdicts,
         applications,
-      }
+      )
     },
     { classify: (result) => result.phaseResult.status === 'succeeded' ? 'succeeded' : 'empty' },
   )

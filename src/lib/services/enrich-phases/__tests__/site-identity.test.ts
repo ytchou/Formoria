@@ -67,6 +67,20 @@ describe('site identity quarantine', () => {
     expect(summary.siteIdentityNoEvidence).toEqual({ website: 1, 'source-page': 1 })
   })
 
+  it('separates released and revoked no-evidence tallies', async () => {
+    const website = group({ subjectUrl: 'https://website.example', subjectKind: 'website', evidence: {}, unverifiable: true })
+    const sourcePage = group({ subjectUrl: 'https://source-page.example', evidence: {} })
+    const summary: Record<string, unknown> = {}
+
+    await runSiteIdentityPhase(
+      { ...ctx(), summary },
+      new Map([['brand-1', [website, sourcePage]]]),
+    )
+
+    expect(summary.siteIdentityNoEvidence).toEqual({ website: 1, 'source-page': 1 })
+    expect(summary.siteIdentityRevokedNoEvidence).toEqual({ website: 1, 'source-page': 0 })
+  })
+
   // The chunk this counter exists to measure is the one where NOTHING is
   // judgeable, which is also the chunk that takes the `no evidence` early
   // return. Publishing the tally only after that return drops it in exactly
@@ -89,6 +103,25 @@ describe('site identity quarantine', () => {
     expect(summary.siteIdentityNoEvidence).toEqual({ website: 2, 'source-page': 1 })
   })
 
+  // auditedCall rethrows, and the caller hands in the live outer-span summary
+  // object, so a tally published before the arbiter call survives the throw.
+  // Losing it would blind the production gate exactly when the arbiter fails.
+  it('keeps the no-evidence tally when the arbiter throws', async () => {
+    const evidence = group({ subjectUrl: 'https://evidence.example' })
+    const website = group({ subjectUrl: 'https://website.example', subjectKind: 'website', evidence: {} })
+    const summary: Record<string, unknown> = {}
+    // `Once`, not a persistent rejection: a rejecting implementation left on the
+    // shared mock is re-invoked after the test body and surfaces as a stray
+    // failure on this test even though every assertion here passed.
+    arbitrate.mockRejectedValueOnce(new Error('boom'))
+
+    await expect(
+      runSiteIdentityPhase({ ...ctx(), summary }, new Map([['brand-1', [evidence, website]]])),
+    ).rejects.toThrow('boom')
+
+    expect(summary.siteIdentityNoEvidence).toEqual({ website: 1, 'source-page': 0 })
+  })
+
   it('counter is zero when every subject has evidence', async () => {
     const summary: Record<string, unknown> = {}
     arbitrate.mockResolvedValue({ results: new Map(), calls: { attempted: 1, providerFailed: 0 } })
@@ -96,6 +129,7 @@ describe('site identity quarantine', () => {
     await runSiteIdentityPhase({ ...ctx(), summary }, new Map([['brand-1', [group()]]]))
 
     expect(summary).toHaveProperty('siteIdentityNoEvidence', { website: 0, 'source-page': 0 })
+    expect(summary).toHaveProperty('siteIdentityRevokedNoEvidence', { website: 0, 'source-page': 0 })
   })
 
   it('dropping for no evidence still releases the value', async () => {
@@ -113,7 +147,71 @@ describe('site identity quarantine', () => {
     const result = await runSiteIdentityPhase(ctx(), new Map([['brand-1', [input]]]))
 
     expect(input.patch).not.toHaveProperty('purchase_website')
-    expect(result.applications.get('brand-1')?.phaseResult.detail).toBe('no-evidence')
+    const application = result.applications.get('brand-1')
+    expect(application?.phaseResult.status).toBe('succeeded')
+    expect(application?.phaseResult.detail).toBe('no-evidence')
+    expect(application?.phaseResult.changedFields).toEqual(['purchase_website'])
+    expect(result.phaseResult.status).toBe('succeeded')
+    expect(result.phaseResult.detail).toBeUndefined()
+  })
+
+  it('publishes the revocation-only audit summary', async () => {
+    const input = group({ subjectKind: 'website', evidence: {}, unverifiable: true })
+    const summary: Record<string, unknown> = {}
+    const key = siteIdentityKey(brand.slug, input.subjectUrl)
+
+    await runSiteIdentityPhase(
+      { ...ctx(), summary },
+      new Map([['brand-1', [input]]]),
+    )
+
+    expect(summary.siteIdentity).toEqual({
+      [key]: {
+        verdict: undefined,
+        confidence: undefined,
+        reason: undefined,
+        releaseCause: 'no-evidence',
+        revokedColumns: ['purchase_website'],
+      },
+    })
+    expect(summary.siteIdentityRung1Escalations).toBe(0)
+    expect(summary.siteIdentityCalls).toEqual({ attempted: 0, providerFailed: 0 })
+    expect(summary.siteIdentityProviderFailure).toBe(false)
+  })
+
+  it('scopes an unarbitrated website revoke to the website column', async () => {
+    const input = group({
+      subjectKind: 'website',
+      columns: ['purchase_website', 'social_instagram'],
+      patch: {
+        purchase_website: 'https://other.example',
+        social_instagram: 'https://www.instagram.com/real-brand',
+      },
+      evidence: {},
+      unverifiable: true,
+    })
+
+    const result = await runSiteIdentityPhase(ctx(), new Map([['brand-1', [input]]]))
+
+    expect(input.patch).not.toHaveProperty('purchase_website')
+    expect(input.patch.social_instagram).toBe('https://www.instagram.com/real-brand')
+    expect(result.applications.get('brand-1')?.phaseResult.changedFields).toEqual(['purchase_website'])
+  })
+
+  it('keeps images when an unverifiable website is revoked without evidence', async () => {
+    const linksResult = linksOutput()
+    const originalImageUrls = [...linksResult.scrapedImageUrls]
+    const originalImageSources = [...linksResult.scrapedImageSources]
+    const originalJsonLdImageUrls = [...linksResult.jsonLdImageUrls]
+    const input = group({ subjectKind: 'website', evidence: {}, unverifiable: true, linksResult })
+
+    const result = await runSiteIdentityPhase(ctx(), new Map([['brand-1', [input]]]))
+
+    expect(input.linksResult?.scrapedImageUrls).toEqual(originalImageUrls)
+    expect(input.linksResult?.scrapedImageSources).toEqual(originalImageSources)
+    expect(input.linksResult?.jsonLdImageUrls).toEqual(originalJsonLdImageUrls)
+    expect(input.patch).not.toHaveProperty('purchase_website')
+    expect(result.applications.get('brand-1')?.phaseResult.changedFields).toEqual(['purchase_website'])
   })
 
   it('releases an unverifiable social with no evidence', async () => {
@@ -144,6 +242,7 @@ describe('site identity quarantine', () => {
     const input = group(); arbitrate.mockResolvedValue({ results: new Map([[siteIdentityKey(brand.slug, input.subjectUrl), { slug: brand.slug, owned: false, confidence: 'high', reason: 'wrong' }]]), calls: { attempted: 1, providerFailed: 0 } })
     const result = await runSiteIdentityPhase(ctx(), new Map([['brand-1', [input]]]))
     expect(result.applications.get('brand-1')?.patch).not.toHaveProperty('purchase_website')
+    expect(result.applications.get('brand-1')?.phaseResult.changedFields).toEqual(['purchase_website'])
   })
 
   it('revoking a stored value adds it to _cleared_fields', async () => {
@@ -196,6 +295,66 @@ describe('site identity quarantine', () => {
     expect(input.patch.purchase_website).toBe('https://other.example')
   })
 
+  it('keeps provider failure detail when another brand is revoked without evidence', async () => {
+    const secondBrand = { id: 'brand-2', slug: 'second-slug', name: 'Second Tea', product_type: 'tea' }
+    const noEvidence = group({ subjectKind: 'website', evidence: {}, unverifiable: true })
+    const evidence = group({ subjectUrl: 'https://evidence.example' })
+    const summary: Record<string, unknown> = {}
+    arbitrate.mockResolvedValue({ results: new Map(), calls: { attempted: 1, providerFailed: 1 } })
+
+    const result = await runSiteIdentityPhase(
+      {
+        ...ctx(),
+        chunk: [brand, secondBrand],
+        chunkBrandNames: ['Han 茶', 'Second Tea'],
+        summary,
+      },
+      new Map([
+        ['brand-1', [noEvidence]],
+        ['brand-2', [evidence]],
+      ]),
+    )
+
+    expect(result.phaseResult.status).toBe('succeeded')
+    expect(result.phaseResult.detail).toBe('provider failure (1/1 calls)')
+    expect(summary.siteIdentityProviderFailure).toBe(true)
+    expect(result.applications.get('brand-1')?.phaseResult.changedFields).toEqual(['purchase_website'])
+  })
+
+  it('merges an evidence verdict with a no-evidence revocation', async () => {
+    const evidence = group({ subjectUrl: 'https://evidence.example' })
+    const noEvidence = group({ subjectUrl: 'https://website.example', subjectKind: 'website', evidence: {}, unverifiable: true })
+    arbitrate.mockResolvedValue({
+      results: new Map(),
+      calls: { attempted: 1, providerFailed: 0 },
+    })
+
+    const result = await runSiteIdentityPhase(
+      ctx(),
+      new Map([['brand-1', [evidence, noEvidence]]]),
+    )
+
+    expect(result.applications.get('brand-1')?.phaseResult.status).toBe('succeeded')
+    expect(result.applications.get('brand-1')?.phaseResult.detail).toBe('no-evidence; provider-failure')
+    expect(result.phaseResult.status).toBe('succeeded')
+  })
+
+  it('counts total and revoked no-evidence subjects separately', async () => {
+    const revokedOne = group({ subjectUrl: 'https://revoked-one.example', subjectKind: 'website', evidence: {}, unverifiable: true })
+    const revokedTwo = group({ subjectUrl: 'https://revoked-two.example', subjectKind: 'website', evidence: {}, unverifiable: true })
+    const releasedWebsite = group({ subjectUrl: 'https://released.example', subjectKind: 'website', evidence: {} })
+    const releasedSource = group({ subjectUrl: 'https://source.example', subjectKind: 'source-page', evidence: {} })
+    const summary: Record<string, unknown> = {}
+
+    await runSiteIdentityPhase(
+      { ...ctx(), summary },
+      new Map([['brand-1', [revokedOne, revokedTwo, releasedWebsite, releasedSource]]]),
+    )
+
+    expect(summary.siteIdentityNoEvidence).toEqual({ website: 3, 'source-page': 1 })
+    expect(summary.siteIdentityRevokedNoEvidence).toEqual({ website: 2, 'source-page': 0 })
+  })
+
   it('succeeded only on a real parsed verdict', async () => {
     arbitrate.mockResolvedValue({ results: new Map(), calls: { attempted: 1, providerFailed: 0 } })
     const input = group(); expect((await runSiteIdentityPhase(ctx(), new Map([['brand-1', [input]]]))).phaseResult.status).toBe('skipped')
@@ -237,6 +396,41 @@ describe('site identity quarantine', () => {
     expect(application?.phaseResult.detail).toBe('provider-failure')
   })
 
+  it('marks a judged-and-released brand as succeeded', async () => {
+    const input = group()
+    arbitrate.mockResolvedValue({
+      results: new Map([[siteIdentityKey(brand.slug, input.subjectUrl), { slug: brand.slug, owned: true, confidence: 'high', reason: 'owned' }]]),
+      calls: { attempted: 1, providerFailed: 0 },
+    })
+
+    const result = await runSiteIdentityPhase(ctx(), new Map([['brand-1', [input]]]))
+    const application = result.applications.get('brand-1')
+
+    expect(application?.phaseResult.status).toBe('succeeded')
+    expect(application?.phaseResult.changedFields).toEqual([])
+    expect(application?.phaseResult.detail).toBe('owned')
+  })
+
+  it('preserves complete reasons when one reason contains a semicolon', async () => {
+    const first = group({ subjectUrl: 'https://first.example' })
+    const second = group({ subjectUrl: 'https://second.example', columns: ['social_facebook'], patch: { social_facebook: 'https://www.facebook.com/second' } })
+    const verdict = (subjectUrl: string, reason: string) => [
+      siteIdentityKey(brand.slug, subjectUrl),
+      { slug: brand.slug, owned: false, confidence: 'high', reason },
+    ] as const
+    arbitrate.mockResolvedValue({
+      results: new Map([
+        verdict(first.subjectUrl, 'first; second'),
+        verdict(second.subjectUrl, 'second'),
+      ]),
+      calls: { attempted: 1, providerFailed: 0 },
+    })
+
+    const result = await runSiteIdentityPhase(ctx(), new Map([['brand-1', [first, second]]]))
+
+    expect(result.applications.get('brand-1')?.phaseResult.detail).toBe('first; second; second')
+  })
+
   it('a medium-confidence verdict releases and records the confidence as the cause', async () => {
     const input = group()
     arbitrate.mockResolvedValue({
@@ -245,6 +439,7 @@ describe('site identity quarantine', () => {
     })
     const result = await runSiteIdentityPhase(ctx(), new Map([['brand-1', [input]]]))
     expect(result.applications.get('brand-1')?.phaseResult.detail).toBe('medium')
+    expect(result.applications.get('brand-1')?.phaseResult.status).toBe('succeeded')
     expect(input.patch.purchase_website).toBe('https://other.example')
   })
 
