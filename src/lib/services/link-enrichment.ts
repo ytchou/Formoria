@@ -1,36 +1,23 @@
 import type { Brand, BrandFlatLinkColumns } from '@/lib/types'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
+export {
+  LINK_FIELDS,
+  LINK_FIELD_TO_COLUMN,
+  type LinkColumn,
+  type LinkField,
+} from '@/lib/types/link-fields'
 import {
-  PURCHASE_CAMEL_FIELDS,
+  LINK_FIELDS,
+  LINK_FIELD_TO_COLUMN,
+  type LinkColumn,
+  type LinkField,
+} from '@/lib/types/link-fields'
+import {
   PURCHASE_CHANNELS,
-  type PurchaseChannelCamelField,
-  type PurchaseChannelColumn,
 } from '@/lib/brands/purchase-channels'
 import { isNonBrandSiteHost } from './enrich-phases/scraper/input-detector'
 
 const MAX_PRODUCT_PHOTOS = 5
-
-// Socials stay listed here — they have no registry. The purchase half is spliced
-// in from `PURCHASE_CHANNELS`, and the order (socials first, then purchase in
-// registry order) is preserved verbatim.
-export const LINK_FIELDS = [
-  'socialInstagram',
-  'socialThreads',
-  'socialFacebook',
-  ...PURCHASE_CAMEL_FIELDS,
-] as const
-
-export type LinkField = (typeof LINK_FIELDS)[number]
-export type LinkColumn = Exclude<keyof BrandFlatLinkColumns, 'other_urls'>
-
-const LINK_FIELD_TO_COLUMN: Record<LinkField, LinkColumn> = {
-  socialInstagram: 'social_instagram',
-  socialThreads: 'social_threads',
-  socialFacebook: 'social_facebook',
-  ...(Object.fromEntries(
-    PURCHASE_CHANNELS.map((channel) => [channel.camel, channel.column])
-  ) as Record<PurchaseChannelCamelField, PurchaseChannelColumn>),
-}
 
 type ImageEnrichBrand = {
   heroImageUrl: string | null
@@ -305,9 +292,8 @@ function normalizeScrapedLinkValue(
  * rather than transliterated; a purely Han name simply yields no tokens and each
  * caller falls back to its own no-signal behaviour.
  *
- * Lives here rather than in `enrich-phases/links.ts` because both that module
- * and this one need it, and links.ts already imports from here — the reverse
- * import would be a cycle.
+ * Lives here because both the links phase and this module need it, and the
+ * links phase already imports from here — the reverse import would be a cycle.
  */
 export function brandNameTokens(brandName: string | null | undefined): string[] {
   if (!brandName) return []
@@ -315,6 +301,65 @@ export function brandNameTokens(brandName: string | null | undefined): string[] 
     .toLowerCase()
     .split(/[^a-z0-9]+/)
     .filter((token) => token.length >= 3)
+}
+
+/**
+ * Public-suffix labels we strip before looking for the brand's name in a host,
+ * so a brand token never matches the TLD itself. Not a full PSL — the list only
+ * needs to cover the suffixes Taiwanese brands actually register under.
+ */
+const PUBLIC_SUFFIX_SECOND_LEVELS = new Set(['com', 'co', 'net', 'org', 'gov', 'edu', 'idv'])
+
+/** The name-bearing labels of a host: `www.cha-tzu.com.tw` -> `chatzu`. */
+function domainNameLabels(hostname: string): string {
+  const labels = hostname.replace(/^www\./, '').split('.').filter(Boolean)
+  let end = labels.length - 1
+  if (end > 0 && PUBLIC_SUFFIX_SECOND_LEVELS.has(labels.at(end - 1) ?? '')) {
+    end -= 1
+  }
+  return labels.slice(0, Math.max(end, 1)).join('').replace(/[^a-z0-9]/g, '')
+}
+
+/**
+ * Two-letter TLDs a Taiwanese brand plausibly registers under. `tw` is the home
+ * ccTLD; `co` and `io` are two-letter by accident of the DNS and are used as
+ * generic startup TLDs worldwide, Taiwan included.
+ */
+const ALLOWED_TWO_LETTER_TLDS = new Set(['tw', 'co', 'io'])
+
+/**
+ * True for a host under a foreign country's ccTLD.
+ *
+ * This is a Taiwan-only brand directory, and a SERP for a short Latin brand name
+ * routinely surfaces a same-named foreign company: `https://onewood.dk`, a
+ * Danish firm, became the Taiwanese brand "One Wood"'s official website on a
+ * live run, and it passed every guard we had — the host is not a platform, and
+ * the domain does carry the brand's tokens, because the two companies genuinely
+ * share a name. Nationality is the only signal that separates them.
+ *
+ * Only two-letter TLDs are judged: every generic TLD (`.com`, `.shop`,
+ * `.store`, `.design`, `.studio`, …) is registrable from Taiwan and says nothing
+ * about nationality, so those pass untouched. `.com.tw` ends in `tw` and passes.
+ * A malformed URL is not rejected here — unknown, not blocked, matching
+ * `isNonBrandSiteHost`.
+ */
+export function isForeignCountryTld(url: string): boolean {
+  try {
+    const tld = new URL(url).hostname.toLowerCase().split('.').at(-1) ?? ''
+    return tld.length === 2 && !ALLOWED_TWO_LETTER_TLDS.has(tld)
+  } catch {
+    return false
+  }
+}
+
+export function hostMatchesBrandName(url: string, tokens: string[]): boolean {
+  if (tokens.length === 0) return false
+  try {
+    const domain = domainNameLabels(new URL(url).hostname.toLowerCase())
+    return tokens.some((token) => domain.includes(token))
+  } catch {
+    return false
+  }
 }
 
 /**
@@ -351,6 +396,21 @@ export function handleMatchesBrand(url: string, tokens: string[]): boolean {
   const handle = platformHandleSegment(url)
   if (!handle) return false
   return tokens.some((token) => handle.includes(token) || token.includes(handle))
+}
+
+/**
+ * Confirms a link only when its platform handle or registrable host identifies
+ * the brand. `https://www.facebook.com/NaHoku` — a Hawaiian jewellery company —
+ * was harvested off `nahoku.com`'s footer and written into NU Dream Jewelry's
+ * `social_facebook`, so either side of the link must carry the brand identity.
+ *
+ * This predicate only ever CONFIRMS: zero tokens means "not confirmed", the
+ * deliberate opposite polarity from `handleMatchesBrand`, because a caller
+ * that cannot confirm must escalate (quarantine), never delete.
+ */
+export function linkIdentifiesBrand(url: string, tokens: string[]): boolean {
+  if (tokens.length === 0) return false // NOT confirmed -> caller escalates
+  return handleMatchesBrand(url, tokens) || hostMatchesBrandName(url, tokens)
 }
 
 /**
@@ -487,11 +547,23 @@ const IDENTITY_GATED_FIELDS: readonly LinkField[] = [
  *
  * A rejected value is skipped, never written as null: declining to fill is not
  * the same as erasing what the row already holds.
+ *
+ * `identityConfirmedFields` exempts a field whose SOURCE PAGE the caller has
+ * already confirmed belongs to the brand. The handle gate above reads the
+ * handle alone, which is the wrong question for a brand whose own site carries
+ * a handle that abbreviates its name — `74OUNCE` -> `instagram.com/74oz`,
+ * `Darker Than Black Bags` -> `dtbbag.com`. That class measured 51 rows, so
+ * gating it on the handle would decline to fill legitimate socials. The links
+ * phase confirms a source page via `knownUrls` or `linkIdentifiesBrand` and
+ * passes the resulting fields here; everything unconfirmed still faces the
+ * gate, and the site_identity phase arbitrates what neither rule can decide
+ * (DEV-1309 x DEV-1332).
  */
 export function buildLinkEnrichPatch(
   brand: BrandFlatLinkColumns,
   scraped: LinkEnrichScraped,
-  brandName?: string | null
+  brandName?: string | null,
+  identityConfirmedFields?: ReadonlySet<LinkField>
 ): Partial<BrandFlatLinkColumns> {
   const patch: Partial<BrandFlatLinkColumns> = {}
   const tokens = brandName == null ? null : brandNameTokens(brandName)
@@ -511,6 +583,7 @@ export function buildLinkEnrichPatch(
       tokens !== null &&
       hasLinkValue(normalizedValue) &&
       IDENTITY_GATED_FIELDS.includes(field) &&
+      !identityConfirmedFields?.has(field) &&
       !handleMatchesBrand(normalizedValue, tokens)
         ? null
         : normalizedValue

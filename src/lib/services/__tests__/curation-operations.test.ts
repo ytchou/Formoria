@@ -131,13 +131,17 @@ describe('mergeSubmissionEnrichedData', () => {
     expect(result).not.toHaveProperty('_cleared_fields')
   })
 
-  it('drops a cleared field that an earlier run already set', () => {
+  // The sentinel is the only way a run can express "this value is gone", so it
+  // has to beat whatever an earlier run stored — otherwise the revocation is
+  // silently dropped and the stale value keeps being published.
+  it('a clear beats a stale base value', () => {
     const result = mergeSubmissionEnrichedData(
       { city: '台北' },
       { _cleared_fields: ['city', 'reputation_summary'] }
     )
 
-    expect(result._cleared_fields).toEqual(['reputation_summary'])
+    expect(result._cleared_fields).toEqual(['city', 'reputation_summary'])
+    expect(result).not.toHaveProperty('city')
   })
 
   it('keeps a clear when the merged value is empty', () => {
@@ -147,6 +151,20 @@ describe('mergeSubmissionEnrichedData', () => {
     )
 
     expect(result._cleared_fields).toEqual(['reputation_summary'])
+  })
+
+  it('preserves a revocation when a later run clears a stored link', () => {
+    const firstRun = mergeSubmissionEnrichedData(
+      {},
+      { purchase_website: 'https://smore.com' },
+    )
+    const secondRun = mergeSubmissionEnrichedData(
+      firstRun,
+      { _cleared_fields: ['purchase_website'] },
+    )
+
+    expect(secondRun).toEqual({ _cleared_fields: ['purchase_website'] })
+    expect(secondRun.purchase_website).toBeUndefined()
   })
 })
 

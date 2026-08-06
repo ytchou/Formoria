@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { LINK_FIELDS } from '@/lib/services/link-enrichment'
 import { MAX_MERGED_GALLERY_IMAGES, mergePurchaseLinks, mergeScrapedData } from '../merge'
 import { emptyResult } from '../parse/extractors'
 
@@ -182,5 +183,142 @@ describe('mergeScrapedData with purchase fields', () => {
     const result = mergeScrapedData([social, officialSite])
     expect(result.purchaseShopee).toBe('https://shopee.tw/brand')
     expect(result.purchasePinkoi).toBe('https://pinkoi.com/brand')
+  })
+})
+
+describe('mergeScrapedData provenance', () => {
+  it('records the source url for each link field', () => {
+    const merged = mergeScrapedData([
+      {
+        type: 'official-site',
+        sourceUrl: 'https://brand.com',
+        data: {
+          ...emptyResult('https://brand.com'),
+          websiteUrl: 'https://merged.example',
+          socialFacebook: 'https://facebook.com/brand',
+        },
+      },
+    ])
+
+    expect(merged.linkProvenance?.socialFacebook?.sourceUrl).toBe('https://brand.com')
+    expect(merged.linkProvenance?.socialFacebook?.sourceUrl).not.toBe(merged.websiteUrl)
+  })
+
+  it('records textSourceUrl from the result that supplied description', () => {
+    const merged = mergeScrapedData([
+      {
+        type: 'official-site',
+        sourceUrl: 'https://brand.com',
+        data: { ...emptyResult('https://brand.com'), description: 'Official copy' },
+      },
+      {
+        type: 'social',
+        sourceUrl: 'https://instagram.com/brand',
+        data: {
+          ...emptyResult('https://instagram.com/brand'),
+          socialInstagram: 'https://instagram.com/brand',
+        },
+      },
+    ])
+
+    expect(merged.textSourceUrl).toBe('https://brand.com')
+  })
+
+  it('carries provenance forward when a re-merged entry has no sourceUrl', () => {
+    const carried = {
+      ...emptyResult('https://brand.com'),
+      description: 'Official copy',
+      socialFacebook: 'https://facebook.com/brand',
+      linkProvenance: { socialFacebook: { sourceUrl: 'https://brand.com' } },
+      textSourceUrl: 'https://brand.com',
+      textProvenance: {
+        description: { sourceUrl: 'https://brand.com' },
+      },
+    }
+    const merged = mergeScrapedData([
+      { type: 'official-site', data: carried },
+      {
+        type: 'social',
+        data: {
+          ...emptyResult('https://instagram.com/brand'),
+          description: 'Later copy',
+          socialFacebook: 'https://facebook.com/brand',
+          linkProvenance: { socialFacebook: { sourceUrl: 'https://instagram.com/brand' } },
+          textSourceUrl: 'https://instagram.com/brand',
+          textProvenance: {
+            description: { sourceUrl: 'https://instagram.com/brand' },
+          },
+        },
+      },
+    ])
+
+    expect(merged.linkProvenance?.socialFacebook?.sourceUrl).toBe('https://brand.com')
+    expect(merged.textSourceUrl).toBe('https://brand.com')
+    expect(merged.textProvenance?.description?.sourceUrl).toBe('https://brand.com')
+  })
+
+  it('omits provenance when sourceUrl and carried provenance are absent', () => {
+    const merged = mergeScrapedData([
+      {
+        type: 'official-site',
+        data: {
+          ...emptyResult('https://brand.com'),
+          description: 'Official copy',
+          socialFacebook: 'https://facebook.com/brand',
+        },
+      },
+    ])
+
+    expect(merged).toEqual({
+      ...emptyResult('https://brand.com'),
+      description: 'Official copy',
+      socialFacebook: 'https://facebook.com/brand',
+    })
+    expect(merged.linkProvenance).toBeUndefined()
+    expect(merged.textSourceUrl).toBeUndefined()
+    expect(merged.textProvenance).toBeUndefined()
+    expect(merged.description).toBe('Official copy')
+    expect(merged.socialFacebook).toBe('https://facebook.com/brand')
+  })
+
+  it('provenance covers every registry link field', () => {
+    const results = LINK_FIELDS.map((field, index) => ({
+      type: 'official-site' as const,
+      sourceUrl: `https://source-${index}.example`,
+      data: {
+        ...emptyResult(`https://source-${index}.example`),
+        [field]: `https://${field}.example/brand`,
+      },
+    }))
+    const merged = mergeScrapedData(results)
+    const provenanceKeys = Object.keys(merged.linkProvenance ?? {})
+
+    for (const field of LINK_FIELDS) {
+      expect(provenanceKeys).toContain(field)
+    }
+    expect(provenanceKeys).toContain('purchaseMyship')
+  })
+
+  it('existing merge semantics unchanged', () => {
+    const official = {
+      ...emptyResult('https://brand.com'),
+      brandName: 'Official Brand',
+      galleryImageUrls: ['https://cdn/official.jpg'],
+    }
+    const social = {
+      ...emptyResult('https://instagram.com/brand'),
+      brandName: 'Social Brand',
+      galleryImageUrls: ['https://cdn/social.jpg'],
+    }
+    const merged = mergeScrapedData([
+      { type: 'social', data: social },
+      { type: 'official-site', data: official },
+    ])
+
+    expect(merged.brandName).toBe('Official Brand')
+    expect(merged.galleryImageUrls).toEqual([
+      'https://cdn/official.jpg',
+      'https://cdn/social.jpg',
+    ])
   })
 })

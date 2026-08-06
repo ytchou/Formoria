@@ -206,6 +206,17 @@ function phase(
 }
 
 describe("Gate C — llmStageFailure", () => {
+  it("Gate C still fires with site_identity present", () => {
+    expect(llmStageFailure([
+      phase("descriptions", "failed", { providerFailure: true }),
+      phase("site_identity", "skipped"),
+    ])).toContain("descriptions")
+  })
+
+  it("Gate C is not diluted by a skipped site_identity", () => {
+    expect(llmStageFailure([phase("site_identity", "skipped")])).toBeNull()
+  })
+
   it("fails the target when every attempted LLM phase failed at the provider", () => {
     const decision = evaluateLlmProviderGate([
       phase("links", "succeeded"),

@@ -13,9 +13,12 @@ import {
 } from "./llm-audit";
 import {
   addLlmCalls,
+  contentFailed,
   isLlmProviderFailure,
   noLlmCalls,
-  type LlmCallCounts,
+  notAttempted,
+  providerFailed,
+  type LlmCallOutcome,
 } from "./_shared/llm-call-outcome";
 import type { EnrichmentTarget } from "./_shared/enrichment-target";
 import type { LlmBatchOutcome } from "./product-type-classifier";
@@ -90,31 +93,6 @@ function toArbiterEntries(parsed: unknown): unknown[] | null {
   if (Array.isArray(wrapped)) return wrapped;
 
   return [parsed];
-}
-
-/**
- * Same local call shape as the classifier's private helper. Keeping the
- * failure boundary here preserves the classifier's batch/fallback contract
- * without making its implementation details a shared runtime dependency.
- */
-type LlmCallOutcome<T> = {
-  value: T | null;
-  calls: LlmCallCounts;
-};
-
-/** No call was issued at all (no API key) — neither success nor provider fault. */
-function notAttempted<T>(): LlmCallOutcome<T> {
-  return { value: null, calls: noLlmCalls() };
-}
-
-/** The call never reached the model: non-2xx. The only thing Gate C acts on. */
-function providerFailed<T>(): LlmCallOutcome<T> {
-  return { value: null, calls: { attempted: 1, providerFailed: 1 } };
-}
-
-/** The provider answered; the payload was empty, unparseable or invalid. */
-function contentFailed<T>(): LlmCallOutcome<T> {
-  return { value: null, calls: { attempted: 1, providerFailed: 0 } };
 }
 
 type NameArbiterProfileKey = Extract<LlmProfileKey, "names" | "namesBatch">;

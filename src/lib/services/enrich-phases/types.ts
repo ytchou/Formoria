@@ -100,6 +100,14 @@ export type EnrichPatch = Partial<BrandFlatLinkColumns> &
     blurb_en: string | null
     founding_year: number | null
     product_tags_en: string[] | null
+    /**
+     * Sentinel key, not a brand column: the columns this run affirmatively
+     * determined should be EMPTY. `resolveRefreshEnrichmentPatch` routes it
+     * around the per-field loop and filters its entries instead, so it must be
+     * representable on the patch a phase hands back. See `CLEARED_FIELDS_KEY`
+     * in `brand-write-policy`.
+     */
+    _cleared_fields: string[]
   }>
 
 export type BatchPhaseContext = {
@@ -111,6 +119,8 @@ export type BatchPhaseContext = {
   supabase: SupabaseClient<Database>
   targetType?: EnrichmentTarget['type']
   jobId?: string
+  /** Audit call-context summary a batch phase may attach verdict telemetry to. */
+  summary?: Record<string, unknown>
 }
 
 export type BrandEnrichState = {

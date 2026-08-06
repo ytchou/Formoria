@@ -55,6 +55,7 @@ const phaseDescriptions = {
   faq: "Writes the bilingual FAQ answers the brand's evidence supports.",
   names:
     "Arbitrates the competing brand names the other context phases proposed; the only phase that writes the brand name.",
+  site_identity: "Adjudicates quarantined websites and links before they reach downstream enrichment.",
   classification:
     "Classifies the product type on its own, when descriptions did not decide it.",
   "image-search": "Searches for candidate images before image selection.",

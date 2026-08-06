@@ -54,6 +54,8 @@ import {
   applyDetectResult,
   applyNamesResult,
   runNamesPhase,
+  runSiteIdentityPhase,
+  type SiteIdentityQuarantine,
   type NameCandidateInput,
   buildPhaseResult,
   getDisplayBrandName,
@@ -222,6 +224,7 @@ type EnrichPhase =
   | "clean"
   | "links"
   | "names"
+  | "site_identity"
   | "images"
   | "descriptions"
   | "locations"
@@ -489,6 +492,17 @@ export function mergeSubmissionEnrichedData(
     // to un-clear the field; the array-union default would make the first clear
     // permanent.
     merged[CLEARED_FIELDS_KEY] = patch[CLEARED_FIELDS_KEY];
+    // A clear from this run must beat a stale value in the stored base. The
+    // sentinel is the only patch representation that can express deletion,
+    // so remove fields it names before the existing value-wins filter runs.
+    const assertedClears = patch[CLEARED_FIELDS_KEY];
+    if (Array.isArray(assertedClears)) {
+      for (const field of assertedClears) {
+        if (typeof field === "string" && !Object.hasOwn(patch, field)) {
+          delete merged[field];
+        }
+      }
+    }
   }
   const clearedFields = merged[CLEARED_FIELDS_KEY];
   if (Array.isArray(clearedFields)) {
@@ -930,6 +944,7 @@ function buildBrandPhaseOrder(
     "clean",
     "links",
     "names",
+    "site_identity",
     "images",
     "descriptions",
     "locations",
@@ -2056,6 +2071,67 @@ export async function runEnrich(
       appendPatch(ctx.state, application.patch);
     }
 
+    const quarantinesByBrandId = new Map<string, SiteIdentityQuarantine[]>();
+    for (const brand of pendingBrands) {
+      const ctx = brandContexts.get(brand.id);
+      if (!ctx || ctx.completed || !ctx.linksResult) continue;
+      const quarantines = Object.values(ctx.linksResult.quarantine).map((quarantine) => ({
+        ...quarantine,
+        patch: { ...ctx.state.patches },
+        scrapedData: ctx.state.scrapedData,
+        linksResult: ctx.linksResult,
+      }));
+      if (quarantines.length > 0) quarantinesByBrandId.set(brand.id, quarantines);
+    }
+    if (phases.includes("site_identity")) await emitBatchPhaseProgress("site_identity");
+    // The outer span owns the mutable summary: auditedCall snapshots options at
+    // open, so site-identity telemetry must be attached inside this callback.
+    const siteIdentityPhaseResult = await auditedCall(
+      { provider: "enrich", operation: "runSiteIdentityPhase", kind: "service" },
+      async (auditCtx) =>
+        runSiteIdentityPhase(
+          {
+            ...batchContext,
+            chunk: pendingBrands,
+            chunkBrandNames: pendingBrands.map(getDisplayBrandName),
+            summary: auditCtx.summary,
+          },
+          quarantinesByBrandId,
+        ),
+      {
+        jobId: config.jobId ?? null,
+        classify: (result) =>
+          result.phaseResult.status === "succeeded" ? "succeeded" : "empty",
+      },
+    );
+    for (const brand of pendingBrands) {
+      const ctx = brandContexts.get(brand.id);
+      if (!ctx || ctx.completed) continue;
+      await markCurrentPhase(ctx, "site_identity");
+      const application = siteIdentityPhaseResult.applications.get(brand.id);
+      const phaseResult =
+        application?.phaseResult ??
+        buildPhaseResult(
+          "site_identity",
+          "skipped",
+          [],
+          0,
+          undefined,
+          "no escalations for this brand",
+        );
+      ctx.state.phaseResults.push(phaseResult);
+      await logCurrentPhase(ctx, phaseResult);
+      if (application) {
+        // Revoked columns are named in `changedFields`; `appendPatch` is an
+        // Object.assign and cannot express deletion, so drop them first. The
+        // application patch then re-adds `_cleared_fields` after the deletion.
+        for (const column of application.phaseResult.changedFields) {
+          delete (ctx.state.patches as Record<string, unknown>)[column];
+        }
+        appendPatch(ctx.state, application.patch);
+      }
+    }
+
     // `BrandEnrichState["patches"]` deliberately, not the local `EnrichPatch`:
     // this is the phase-layer patch shape the image search reads.
     const pendingPatches = new Map<string, BrandEnrichState["patches"]>();
@@ -2237,6 +2313,7 @@ export async function runEnrich(
             overwrite,
             target: { type: targetType, id: brand.id },
             jobId: config.jobId,
+            pendingPatch: state.patches,
           });
           state.phaseResults.push(classifyImagesResult.phaseResult);
           await logCurrentPhase(ctx, classifyImagesResult.phaseResult);

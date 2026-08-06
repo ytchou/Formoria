@@ -1,13 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { runImageSearchPhase } from '../image-search'
+import { buildImageQueryVariants } from '../scraper/search'
+import { preferPatched, runImageSearchPhase } from '../image-search'
+import { CLEARED_FIELDS_KEY } from '@/lib/services/brand-write-policy'
 import type { BrandImageSearchOutcome } from '../scraper/types'
-import type { BatchPhaseContext, EnrichBrand, EnrichPhase, SearchPhaseResult } from '../types'
+import type { BatchPhaseContext, EnrichBrand, EnrichPatch, EnrichPhase, SearchPhaseResult } from '../types'
 
 const searchMocks = vi.hoisted(() => ({
   batchSearchBrandImages: vi.fn(),
 }))
 
-vi.mock('../scraper/search', () => ({
+vi.mock('../scraper/search', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../scraper/search')>()),
   batchSearchBrandImages: searchMocks.batchSearchBrandImages,
 }))
 
@@ -239,6 +242,39 @@ describe('runImageSearchPhase', () => {
     expect(inputs).toEqual([
       expect.objectContaining({ brandName: 'Test Brand 測試品牌' }),
     ])
+  })
+})
+
+describe('preferPatched', () => {
+  it('a revoked column is not resurrected from the stored value', () => {
+    const storedValue = 'https://smore.com'
+    const clearedPatch = {
+      [CLEARED_FIELDS_KEY]: ['purchase_website'],
+    } as unknown as EnrichPatch
+    const nullPatch = { purchase_website: null } as EnrichPatch
+
+    expect(preferPatched(clearedPatch, storedValue, 'purchase_website')).toBeNull()
+    expect(preferPatched(nullPatch, storedValue, 'purchase_website')).toBeNull()
+  })
+
+  it('an unrevoked absent column still falls back', () => {
+    expect(
+      preferPatched({}, '  https://stored.example  ', 'purchase_website'),
+    ).toBe('https://stored.example')
+  })
+})
+
+describe('image query behaviour', () => {
+  it('the site: query drops to the no-domain branch', () => {
+    const revokedWebsite = preferPatched(
+      { [CLEARED_FIELDS_KEY]: ['purchase_website'] } as unknown as EnrichPatch,
+      'https://smore.com',
+      'purchase_website',
+    )
+
+    expect(
+      buildImageQueryVariants({ brandName: 'Test Brand', purchaseWebsite: revokedWebsite }),
+    ).toEqual(['"Test Brand" 商品'])
   })
 })
 

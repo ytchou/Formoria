@@ -7,9 +7,11 @@ import {
   classifySubmittedUrl,
   extractLinksFromUrls,
   hasLinkValue,
+  handleMatchesBrand,
   isBareRootUrl,
   isMarketplaceSearchUrl,
   isPinkoiStorefrontUrl,
+  linkIdentifiesBrand,
   LINK_FIELDS,
   linkColumnFor,
   type LinkField,
@@ -97,6 +99,34 @@ describe('linkColumnFor', () => {
 
 describe('LINK_FIELDS', () => {
   it('LINK_FIELDS contains exactly 7 fields', () => { expect(LINK_FIELDS).toHaveLength(7) })
+})
+
+describe('linkIdentifiesBrand', () => {
+  it('linkIdentifiesBrand — rejects a stranger handle', () => {
+    expect(linkIdentifiesBrand('https://www.facebook.com/NaHoku', ['dream', 'jewelry'])).toBe(false)
+  })
+
+  it('linkIdentifiesBrand — confirms a padded handle', () => {
+    expect(linkIdentifiesBrand('https://www.facebook.com/venturezac2016', ['venturezac'])).toBe(true)
+  })
+
+  it('linkIdentifiesBrand — zero tokens is NOT confirmation', () => {
+    expect(linkIdentifiesBrand('https://www.facebook.com/anything', [])).toBe(false)
+  })
+
+  it('linkIdentifiesBrand — confirms on handle where host fails', () => {
+    expect(linkIdentifiesBrand('https://instagram.com/nu_dream_jewelry', ['dream', 'jewelry'])).toBe(true)
+  })
+
+  it('linkIdentifiesBrand — confirms on registrable domain', () => {
+    expect(linkIdentifiesBrand('https://chatzu.com.tw', ['chatzu'])).toBe(true)
+  })
+})
+
+describe('handleMatchesBrand', () => {
+  it('handleMatchesBrand — unchanged on zero tokens', () => {
+    expect(handleMatchesBrand('https://www.facebook.com/anything', [])).toBe(true)
+  })
 })
 
 describe('buildLinkEnrichPatch', () => {

@@ -22,6 +22,26 @@ export type LlmCallCounts = {
   providerFailed: number;
 };
 
+export type LlmCallOutcome<T> = {
+  value: T | null;
+  calls: LlmCallCounts;
+};
+
+/** No call was issued at all (no API key) — neither success nor provider fault. */
+export function notAttempted<T>(): LlmCallOutcome<T> {
+  return { value: null, calls: noLlmCalls() };
+}
+
+/** The call never reached the model: non-2xx. The only thing Gate C acts on. */
+export function providerFailed<T>(): LlmCallOutcome<T> {
+  return { value: null, calls: { attempted: 1, providerFailed: 1 } };
+}
+
+/** The provider answered; the payload was empty, unparseable or invalid. */
+export function contentFailed<T>(): LlmCallOutcome<T> {
+  return { value: null, calls: { attempted: 1, providerFailed: 0 } };
+}
+
 export function noLlmCalls(): LlmCallCounts {
   return { attempted: 0, providerFailed: 0 };
 }

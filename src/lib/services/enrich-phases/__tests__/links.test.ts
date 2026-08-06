@@ -1,6 +1,14 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { deriveOfficialWebsite, deriveScrapedBrandName, runLinksPhase } from '../links'
 import type { EnrichBrand, EnrichPhase } from '../types'
+import { emptyResult } from '../scraper/parse/extractors'
+
+const scraperMocks = vi.hoisted(() => ({ scrapeBrandUrls: vi.fn() }))
+
+vi.mock('../scraper', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../scraper')>()),
+  scrapeBrandUrls: scraperMocks.scrapeBrandUrls,
+}))
 
 // This is what decides a brand's `purchase_website`, which the image-search
 // phase turns into a `site:` filter — a wrong answer here searches a whole
@@ -84,6 +92,14 @@ describe('deriveOfficialWebsite', () => {
   it('returns null when the name has tokens and no domain carries one', () => {
     expect(
       deriveOfficialWebsite(['https://www.nahoku.com/collections/rings'], 'NU Dream Jewelry'),
+    ).toBeNull()
+  })
+
+  it('deriveOfficialWebsite — unchanged after helper move', () => {
+    expect(deriveOfficialWebsite(['https://onewood.dk'], 'One Wood')).toBeNull()
+    expect(deriveOfficialWebsite(['https://nahoku.com'], 'NU Dream Jewelry')).toBeNull()
+    expect(
+      deriveOfficialWebsite(['https://myship.7-11.com.tw/general/detail/GM123'], '原形東方茶飲 pur Sweets'),
     ).toBeNull()
   })
 
@@ -198,5 +214,204 @@ describe('runLinksPhase', () => {
       knownUrls: [],
     })
     expect(result.jsonLdImageUrls).toEqual([])
+  })
+})
+
+describe('links quarantine identity rules', () => {
+  beforeEach(() => {
+    scraperMocks.scrapeBrandUrls.mockReset()
+  })
+
+  const scrape = (
+    sourceUrl: string,
+    data: Partial<ReturnType<typeof emptyResult>>,
+  ) => ({
+    data: {
+      ...emptyResult(sourceUrl),
+      ...data,
+      linkProvenance: Object.fromEntries(
+        Object.entries(data)
+          .filter(([field, value]) => field !== 'brandName' && typeof value === 'string')
+          .map(([field]) => [field, { sourceUrl }]),
+      ),
+      textProvenance: Object.fromEntries(
+        Object.entries(data)
+          .filter(([field, value]) => ['brandName', 'description', 'story'].includes(field) && typeof value === 'string')
+          .map(([field]) => [field, { sourceUrl }]),
+      ),
+      textSourceUrl: sourceUrl,
+    },
+    statuses: [],
+  })
+
+  const run = async (overrides: Partial<Parameters<typeof runLinksPhase>[0]>) =>
+    runLinksPhase({
+      brand,
+      phases: ['links'] as EnrichPhase[],
+      discoveredUrls: [],
+      knownUrls: [],
+      ...overrides,
+    })
+
+  it('a known-url source page is confirmed', () => {
+    scraperMocks.scrapeBrandUrls.mockResolvedValue(
+      scrape('https://dtbbag.com/about', {
+        socialFacebook: 'https://www.facebook.com/stranger',
+      }),
+    )
+
+    return run({ knownUrls: ['https://dtbbag.com/about'] }).then((result) => {
+      expect(result.patch.social_facebook).toBe('https://www.facebook.com/stranger')
+      expect(result.quarantine).toEqual({})
+    })
+  })
+
+  it('a SERP source page failing the predicate quarantines its links', () => {
+    // `purchasePinkoi` is deliberately NOT in DEV-1332's IDENTITY_GATED_FIELDS —
+    // marketplace handles are routinely opaque IDs, so a handle test there would
+    // reject legitimate store links. That makes it the field where the ladder's
+    // own source-page rule is the only thing standing between a stranger's page
+    // and the column, which is exactly what this case must cover.
+    scraperMocks.scrapeBrandUrls.mockResolvedValue(
+      scrape('https://stranger.example/page', {
+        purchasePinkoi: 'https://www.pinkoi.com/store/other-company',
+      }),
+    )
+
+    return run({
+      brand: { ...brand, name: 'Han Brand' },
+      discoveredUrls: ['https://stranger.example/page'],
+    }).then((result) => {
+      expect(result.patch.purchase_pinkoi).toBe('https://www.pinkoi.com/store/other-company')
+      expect(result.quarantine['https://stranger.example/page']).toMatchObject({
+        columns: ['purchase_pinkoi'],
+        subjectKind: 'source-page',
+      })
+    })
+  })
+
+  it('a social handle the DEV-1332 gate declined is not quarantined', () => {
+    // The handle gate drops a stranger's social before it reaches the patch. It
+    // must NOT then be escalated: a verdict about a page this run took no value
+    // from could otherwise clear the brand's stored handle via `_cleared_fields`.
+    scraperMocks.scrapeBrandUrls.mockResolvedValue(
+      scrape('https://stranger.example/page', {
+        socialFacebook: 'https://www.facebook.com/other-company',
+      }),
+    )
+
+    return run({
+      brand: { ...brand, name: 'Han Brand' },
+      discoveredUrls: ['https://stranger.example/page'],
+    }).then((result) => {
+      expect(result.patch.social_facebook).toBeUndefined()
+      expect(result.quarantine).toEqual({})
+    })
+  })
+
+  it('a SERP source page passing the predicate does not quarantine', () => {
+    scraperMocks.scrapeBrandUrls.mockResolvedValue(
+      scrape('https://han.example/page', {
+        socialFacebook: 'https://www.facebook.com/han-brand',
+      }),
+    )
+
+    return run({
+      brand: { ...brand, name: 'Han Brand' },
+      discoveredUrls: ['https://han.example/page'],
+    }).then((result) => expect(result.quarantine).toEqual({}))
+  })
+
+  it('an unconfirmed candidate website is quarantined', () => {
+    scraperMocks.scrapeBrandUrls.mockResolvedValue(scrape('https://some-shop.tw', {}))
+
+    return run({
+      brand: { ...brand, name: '茶籽堂' },
+      discoveredUrls: ['https://some-shop.tw/about'],
+    }).then((result) => {
+      expect(result.patch.purchase_website).toBe('https://some-shop.tw')
+      expect(result.quarantine['https://some-shop.tw']).toMatchObject({
+        subjectKind: 'website',
+      })
+    })
+  })
+
+  it("second-pass links inherit their source's quarantine", async () => {
+    // Carried on `purchasePinkoi` rather than a social: DEV-1332's handle gate
+    // would drop a stranger's social handle before the patch, leaving nothing to
+    // inherit and making the case untestable on that field.
+    scraperMocks.scrapeBrandUrls
+      .mockResolvedValueOnce(
+        scrape('https://brand.example', {
+          socialInstagram: 'https://www.instagram.com/stranger',
+        }),
+      )
+      .mockResolvedValueOnce(
+        scrape('https://www.instagram.com/stranger', {
+          purchasePinkoi: 'https://www.pinkoi.com/store/stranger',
+        }),
+      )
+
+    const result = await run({
+      brand: { ...brand, name: 'Han Brand' },
+      discoveredUrls: ['https://brand.example'],
+    })
+
+    expect(result.patch.purchase_pinkoi).toBe('https://www.pinkoi.com/store/stranger')
+    expect(result.quarantine['https://www.instagram.com/stranger']).toMatchObject({
+      columns: ['purchase_pinkoi'],
+    })
+  })
+
+  it('quarantine covers purchase_myship', () => {
+    scraperMocks.scrapeBrandUrls.mockResolvedValue(
+      scrape('https://stranger.example/page', {
+        purchaseMyship: 'https://myship.example/order/123',
+      }),
+    )
+
+    return run({
+      brand: { ...brand, name: 'Han Brand' },
+      discoveredUrls: ['https://stranger.example/page'],
+    }).then((result) => {
+      expect(result.patch.purchase_myship).toBe('https://myship.example/order/123')
+      expect(result.quarantine['https://stranger.example/page'].columns).toContain('purchase_myship')
+    })
+  })
+
+  it('second-pass re-merge preserves provenance and emits evidence', async () => {
+    scraperMocks.scrapeBrandUrls
+      .mockResolvedValueOnce(
+        scrape('https://brand.example', {
+          socialInstagram: 'https://www.instagram.com/stranger',
+        }),
+      )
+      .mockResolvedValueOnce(
+        scrape('https://www.instagram.com/stranger', {
+          brandName: 'Stranger Brand',
+          description: 'Description from the stranger page',
+          purchasePinkoi: 'https://www.pinkoi.com/store/stranger',
+        }),
+      )
+
+    const result = await run({
+      brand: { ...brand, name: 'Han Brand' },
+      discoveredUrls: ['https://brand.example'],
+    })
+
+    // The guard this case exists for: before DEV-1309's re-merge fix, the
+    // second pass rebuilt the merge from scratch and dropped both provenance
+    // maps, so every quarantine got empty evidence and the site_identity phase
+    // skipped every group — the feature was inert while the suite stayed green.
+    expect(result.scrapedData?.linkProvenance?.purchasePinkoi?.sourceUrl).toBe(
+      'https://www.instagram.com/stranger',
+    )
+    expect(result.scrapedData?.textProvenance?.description?.sourceUrl).toBe(
+      'https://www.instagram.com/stranger',
+    )
+    expect(result.quarantine['https://www.instagram.com/stranger'].evidence).toEqual({
+      title: 'Stranger Brand',
+      description: 'Description from the stranger page',
+    })
   })
 })

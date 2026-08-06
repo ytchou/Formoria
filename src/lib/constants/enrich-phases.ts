@@ -19,6 +19,7 @@ export const ENRICH_PHASES = [
   // needs every candidate the context phases produce, and the image search
   // builds its query from the name it decides (DEV-1321).
   "names",
+  "site_identity",
   "images",
   "classify_images",
   "descriptions",
@@ -97,6 +98,7 @@ export const ENRICH_LLM_PHASES = [
   "descriptions",
   "reputation",
   "names",
+  "site_identity",
   "faq",
 ] as const satisfies readonly EnrichPhaseName[];
 
@@ -177,7 +179,7 @@ export function isDeferredPhase(phase: string): boolean {
 }
 
 export const CURATION_STEPS = {
-  context: ["discover", "detect", "slugs", "clean", "links", "names"],
+  context: ["discover", "detect", "slugs", "clean", "links", "names", "site_identity"],
   image: ["images", "classify_images"],
   detail: ["descriptions", "reputation", "faq", "tags"],
 } as const satisfies Record<string, readonly EnrichPhaseName[]>;

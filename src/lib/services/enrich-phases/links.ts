@@ -7,6 +7,12 @@ import {
   canonicalizeThreadsUrl,
   extractLinksFromUrls,
   hasLinkValue,
+  hostMatchesBrandName,
+  isForeignCountryTld,
+  linkIdentifiesBrand,
+  LINK_FIELDS,
+  type LinkField,
+  linkColumnFor,
 } from '../link-enrichment'
 import { cleanBrandName, isValidBrandName, titleCaseScrapedTitle } from '../brand-cleanup'
 import { finishSearchAudit, startSearchAudit } from '../search-results'
@@ -32,7 +38,7 @@ type LinksPhaseOptions = {
   supabase?: SupabaseClient<Database>
 }
 
-type LinksPhaseOutput = {
+export type LinksPhaseOutput = {
   phaseResult: PhaseResult
   patch: Record<string, unknown>
   /**
@@ -47,6 +53,18 @@ type LinksPhaseOutput = {
   /** Parallel provenance for `scrapedImageUrls`; empty when the scraper predates it. */
   scrapedImageSources: ScrapedImageSource[]
   jsonLdImageUrls: string[]
+  quarantine: Record<string, QuarantineGroup>
+}
+
+export type QuarantineGroup = {
+  subjectUrl: string
+  subjectKind: 'website' | 'source-page'
+  columns: string[]
+  evidence: {
+    title?: string
+    description?: string
+    story?: string
+  }
 }
 
 function uniqueUrls(urls: string[]): string[] {
@@ -96,65 +114,6 @@ function prioritizeScrapeUrls(urls: string[]): string[] {
   }
 
   return ordered
-}
-
-/**
- * Public-suffix labels we strip before looking for the brand's name in a host,
- * so a brand token never matches the TLD itself. Not a full PSL — the list only
- * needs to cover the suffixes Taiwanese brands actually register under.
- */
-const PUBLIC_SUFFIX_SECOND_LEVELS = new Set(['com', 'co', 'net', 'org', 'gov', 'edu', 'idv'])
-
-/** The name-bearing labels of a host: `www.cha-tzu.com.tw` -> `chatzu`. */
-function domainNameLabels(hostname: string): string {
-  const labels = hostname.replace(/^www\./, '').split('.').filter(Boolean)
-  let end = labels.length - 1
-  if (end > 0 && PUBLIC_SUFFIX_SECOND_LEVELS.has(labels.at(end - 1) ?? '')) {
-    end -= 1
-  }
-  return labels.slice(0, Math.max(end, 1)).join('').replace(/[^a-z0-9]/g, '')
-}
-
-/**
- * Two-letter TLDs a Taiwanese brand plausibly registers under. `tw` is the home
- * ccTLD; `co` and `io` are two-letter by accident of the DNS and are used as
- * generic startup TLDs worldwide, Taiwan included.
- */
-const ALLOWED_TWO_LETTER_TLDS = new Set(['tw', 'co', 'io'])
-
-/**
- * True for a host under a foreign country's ccTLD.
- *
- * This is a Taiwan-only brand directory, and a SERP for a short Latin brand name
- * routinely surfaces a same-named foreign company: `https://onewood.dk`, a
- * Danish firm, became the Taiwanese brand "One Wood"'s official website on a
- * live run, and it passed every guard we had — the host is not a platform, and
- * the domain does carry the brand's tokens, because the two companies genuinely
- * share a name. Nationality is the only signal that separates them.
- *
- * Only two-letter TLDs are judged: every generic TLD (`.com`, `.shop`,
- * `.store`, `.design`, `.studio`, …) is registrable from Taiwan and says nothing
- * about nationality, so those pass untouched. `.com.tw` ends in `tw` and passes.
- * A malformed URL is not rejected here — unknown, not blocked, matching
- * `isNonBrandSiteHost`.
- */
-function isForeignCountryTld(url: string): boolean {
-  try {
-    const tld = new URL(url).hostname.toLowerCase().split('.').at(-1) ?? ''
-    return tld.length === 2 && !ALLOWED_TWO_LETTER_TLDS.has(tld)
-  } catch {
-    return false
-  }
-}
-
-function hostMatchesBrandName(url: string, tokens: string[]): boolean {
-  if (tokens.length === 0) return false
-  try {
-    const domain = domainNameLabels(new URL(url).hostname.toLowerCase())
-    return tokens.some((token) => domain.includes(token))
-  } catch {
-    return false
-  }
 }
 
 /**
@@ -312,6 +271,10 @@ function scrapeKey(url: string): string {
   }
 }
 
+function sameUrl(a: string, b: string): boolean {
+  return scrapeKey(canonicalizeThreadsUrl(a)) === scrapeKey(canonicalizeThreadsUrl(b))
+}
+
 /**
  * Scraping the official site is *how* we learn a brand's Instagram, Facebook,
  * Pinkoi, Shopee, and MyShip URLs — but the first pass fixed its URL set before those
@@ -358,6 +321,115 @@ async function scrapeDiscoveredLinks(
   ])
 }
 
+/**
+ * Resolve, per link field, which page supplied the surviving value and whether
+ * that page is confirmed to belong to the brand.
+ *
+ * Single-sourced because two callers need the same answer and must not drift:
+ * `buildQuarantine` escalates what is NOT confirmed, and `buildLinkEnrichPatch`
+ * exempts what IS confirmed from the DEV-1332 handle gate. If these disagreed,
+ * a link could be dropped by the gate and simultaneously escalated as though it
+ * had been adopted.
+ */
+function resolveFieldSources(
+  brandName: string | undefined,
+  knownUrls: string[],
+  scrapedData: EnrichScrapedData,
+  scrapedFromPages: EnrichScrapedData | null,
+): Map<LinkField, { sourceUrl: string; isConfirmed: boolean }> {
+  const confirmed = new Set(knownUrls.map(scrapeKey))
+  const tokens = brandNameTokens(brandName)
+  const resolved = new Map<LinkField, { sourceUrl: string; isConfirmed: boolean }>()
+
+  for (const field of LINK_FIELDS) {
+    const column = linkColumnFor(field)
+    const value = scrapedData[column]
+    if (typeof value !== 'string' || value.trim().length === 0) continue
+
+    // `normalizeScrapedData` can overlay a SERP-derived snake_case value on a
+    // camelCase value from the pages. Only trust page provenance when the page
+    // actually supplied the value being judged; otherwise the SERP URL owns it.
+    const provenanceUrl = scrapedData.linkProvenance?.[field]?.sourceUrl
+    const fromPages = scrapedFromPages?.[field]
+    const provenanceDescribesValue =
+      typeof fromPages === 'string' && sameUrl(fromPages, value)
+    const sourceUrl = provenanceUrl && provenanceDescribesValue ? provenanceUrl : value
+
+    resolved.set(field, {
+      sourceUrl,
+      isConfirmed:
+        confirmed.has(scrapeKey(sourceUrl)) || linkIdentifiesBrand(sourceUrl, tokens),
+    })
+  }
+
+  return resolved
+}
+
+/** Fields whose source page is confirmed, for `buildLinkEnrichPatch`'s exemption. */
+function confirmedIdentityFields(
+  sources: Map<LinkField, { sourceUrl: string; isConfirmed: boolean }>,
+): Set<LinkField> {
+  const fields = new Set<LinkField>()
+  for (const [field, source] of sources) {
+    if (source.isConfirmed) fields.add(field)
+  }
+  return fields
+}
+
+function buildQuarantine(
+  scrapedData: EnrichScrapedData,
+  sources: Map<LinkField, { sourceUrl: string; isConfirmed: boolean }>,
+  patch: Record<string, unknown>,
+): Record<string, QuarantineGroup> {
+  const groups: Record<string, QuarantineGroup> = {}
+
+  for (const [field, source] of sources) {
+    const column = linkColumnFor(field)
+    const value = scrapedData[column]
+    if (typeof value !== 'string' || value.trim().length === 0) continue
+    if (source.isConfirmed) continue
+
+    // Only escalate a value this run actually adopted. DEV-1332's handle gate
+    // can decline a scraped social before it reaches the patch; escalating it
+    // anyway would let a verdict about a page we never took a value from clear
+    // the brand's STORED handle via `_cleared_fields`.
+    if (!Object.hasOwn(patch, column)) continue
+
+    const subjectUrl = source.sourceUrl
+    const subjectKind = field === 'purchaseWebsite' ? 'website' : 'source-page'
+    const existing = groups[subjectUrl]
+    const evidence = {
+      ...(scrapedData.brandName &&
+      scrapedData.textProvenance?.brandName?.sourceUrl &&
+      sameUrl(scrapedData.textProvenance.brandName.sourceUrl, subjectUrl)
+        ? { title: scrapedData.brandName }
+        : {}),
+      ...(scrapedData.description &&
+      scrapedData.textProvenance?.description?.sourceUrl &&
+      sameUrl(scrapedData.textProvenance.description.sourceUrl, subjectUrl)
+        ? { description: scrapedData.description }
+        : {}),
+      ...(scrapedData.story &&
+      scrapedData.textProvenance?.story?.sourceUrl &&
+      sameUrl(scrapedData.textProvenance.story.sourceUrl, subjectUrl)
+        ? { story: scrapedData.story }
+        : {}),
+    }
+
+    if (existing) {
+      if (!existing.columns.includes(column)) existing.columns.push(column)
+      if (existing.subjectKind !== 'website' && subjectKind === 'website') {
+        existing.subjectKind = subjectKind
+      }
+      Object.assign(existing.evidence, evidence)
+    } else {
+      groups[subjectUrl] = { subjectUrl, subjectKind, columns: [column], evidence }
+    }
+  }
+
+  return groups
+}
+
 export async function runLinksPhase({
   brand,
   phases,
@@ -377,6 +449,7 @@ export async function runLinksPhase({
       scrapedImageUrls: [],
       scrapedImageSources: [],
       jsonLdImageUrls: [],
+      quarantine: {},
     }
   }
 
@@ -388,7 +461,10 @@ export async function runLinksPhase({
     // These URLs are raw SERP results, so the brand name is the only thing
     // separating this brand's accounts from a same-ranking stranger's.
     const urlExtracted = extractLinksFromUrls(discoveredUrls, brand.name)
+    const confirmedSourceUrls = new Set(knownUrls.map(scrapeKey))
     const scrapeOptions: ScrapeBrandUrlsOptions = {
+      brandName: brand.name,
+      confirmedSourceUrls,
       onAttempt: async ({ url, classification, spanId }) => {
         const auditId = await startSearchAudit({
           target: target ?? brandTarget(brand.id),
@@ -434,19 +510,27 @@ export async function runLinksPhase({
       },
     }
     const firstPass = urls.length > 0 ? await scrapeBrandUrls(urls, scrapeOptions) : null
-    const scraped: EnrichScrapedData = firstPass
+    const scrapedFromPages: EnrichScrapedData = firstPass
       ? await scrapeDiscoveredLinks(firstPass.data, urls, scrapeOptions)
       : ({} as EnrichScrapedData)
-    const derivedWebsite = scraped.purchaseWebsite ?? deriveOfficialWebsite(urls, brand.name)
+    const derivedWebsite = scrapedFromPages.purchaseWebsite ?? deriveOfficialWebsite(urls, brand.name)
     const scrapedData = normalizeScrapedData({
-      ...scraped,
+      ...scrapedFromPages,
       ...urlExtracted,
       purchaseWebsite: derivedWebsite,
     })
+    // Resolved once and shared: the patch gate exempts a confirmed source page
+    // from DEV-1332's handle test, and the quarantine escalates the rest.
+    const fieldSources = resolveFieldSources(brand.name, knownUrls, scrapedData, scrapedFromPages)
     // `buildLinkEnrichPatch` is typed to link columns only, and that is now the
     // whole patch: the scraped name leaves this phase as a CANDIDATE, never as a
     // patch key, because `names` is the single writer of `name` (DEV-1321).
-    const patch: Record<string, unknown> = buildLinkEnrichPatch(brand, scrapedData, brand.name)
+    const patch: Record<string, unknown> = buildLinkEnrichPatch(
+      brand,
+      scrapedData,
+      brand.name,
+      confirmedIdentityFields(fieldSources),
+    )
     const scrapedBrandName = deriveScrapedBrandName(brand, scrapedData)
     return {
       patch,
@@ -455,6 +539,8 @@ export async function runLinksPhase({
       scrapedImageUrls: scrapedData.galleryImageUrls ?? [],
       scrapedImageSources: scrapedData.imageSources ?? [],
       jsonLdImageUrls: scrapedData.jsonLdImageUrls ?? [],
+      scrapedFromPages,
+      fieldSources,
     }
   })
 
@@ -469,6 +555,7 @@ export async function runLinksPhase({
     scrapedImageUrls: result.scrapedImageUrls,
     scrapedImageSources: result.scrapedImageSources,
     jsonLdImageUrls: result.jsonLdImageUrls,
+    quarantine: buildQuarantine(result.scrapedData, result.fieldSources, result.patch),
   }
     },
     {

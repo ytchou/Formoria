@@ -12,6 +12,7 @@ import {
   type ListingVerdict,
 } from "../brand-facts";
 import { normalizeProductTags } from "@/lib/services/product-tags";
+import { CLEARED_FIELDS_KEY } from "@/lib/services/brand-write-policy";
 import { resolveEnrichedPriceRange } from "@/lib/brands/price-range";
 import { createServiceClient } from "@/lib/supabase/server";
 import { productTypeNameZh } from "@/lib/taxonomy/ontology";
@@ -279,8 +280,30 @@ async function loadClassifiedImageAlts(
   }
 }
 
-/** Prefers a value this run just discovered over the pre-run brand snapshot. */
-function preferPatched(
+/**
+ * True when this run affirmatively revoked the column: the site-identity phase
+ * strikes a contaminated value (S'MORE resolved to smore.com, a US newsletter
+ * tool) either by listing the column in the patch's `_cleared_fields` entry or
+ * by writing an explicit null. Both must read back as absent, not as the
+ * stored snapshot, or the revocation is undone by the next consumer.
+ */
+function isRevokedColumn(
+  pendingPatch: EnrichPatch | undefined,
+  column: keyof EnrichPatch,
+): boolean {
+  if (!pendingPatch) return false;
+  const view = pendingPatch as Record<string, unknown>;
+  if (Object.hasOwn(view, column) && view[column] === null) return true;
+  const cleared = view[CLEARED_FIELDS_KEY];
+  return Array.isArray(cleared) && cleared.includes(column);
+}
+
+/**
+ * Prefers a value this run just discovered over the pre-run brand snapshot, and
+ * reads a column this run revoked as absent rather than falling through to the
+ * snapshot value the revocation was meant to remove.
+ */
+export function preferPatched(
   pendingPatch: EnrichPatch | undefined,
   brandValue: string | null | undefined,
   column: keyof EnrichPatch,
@@ -288,10 +311,13 @@ function preferPatched(
   const patched = pendingPatch?.[column];
   if (typeof patched === "string" && patched.trim().length > 0)
     return patched.trim();
-  return stringValue(brandValue);
+  if (isRevokedColumn(pendingPatch, column)) return null;
+  if (typeof brandValue === "string" && brandValue.trim().length > 0)
+    return brandValue.trim();
+  return null;
 }
 
-function buildDescriptionEvidence(
+export function buildDescriptionEvidence(
   brand: EnrichBrand,
   pendingPatch: EnrichPatch | undefined,
   imageAlts: string[],
