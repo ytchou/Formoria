@@ -13,6 +13,7 @@ Smoke is a tagged subset of the canonical deep suite. The PR selector resolves a
 | Sign-in Google entry point | `e2e/tests/auth-signin.spec.ts` | 2026-08-04 |
 | Brand detail rendering | `e2e/tests/brand-detail.spec.ts` | 2026-08-04 |
 | Events hub state and navigation | `e2e/tests/events.spec.ts`, `e2e/tests/events-navigation.spec.ts` | 2026-08-04 |
+| Creative Expo synchronized map, filters, search, reset, URL state, and brand navigation (RED: `category=crafts` is ignored on direct load) | `e2e/tests/event-detail.spec.ts` | 2026-08-07 |
 | FAQ sections and details | `e2e/tests/faq.spec.ts` | 2026-08-04 |
 | Getting-started hero | `e2e/tests/getting-started.spec.ts` | 2026-08-04 |
 | Submission entry points and authenticated redirect | `e2e/tests/community-submit.spec.ts` | 2026-08-04 |
@@ -32,7 +33,7 @@ Browser-sensitive shared changes run exactly one public, read-only journey in Ch
 
 ## User-facing route smoke audit
 
-Audit baseline: **70 route families; 16 mapped; 54 visible migration warnings.** API handlers, metadata endpoints, internal-only endpoints, and authentication callbacks are excluded. A route may be covered by a shared journey; the table records the canonical case that exercises it.
+Audit baseline: **70 route families; 17 mapped; 53 visible migration warnings.** API handlers, metadata endpoints, internal-only endpoints, and authentication callbacks are excluded. A route may be covered by a shared journey; the table records the canonical case that exercises it.
 
 ### Mapped routes
 
@@ -47,6 +48,7 @@ Audit baseline: **70 route families; 16 mapped; 54 visible migration warnings.**
 | `/categories/[category]/[subcategory]` | L2 landing metadata, breadcrumbs, locale alternates, and indexation | `e2e/tests/categories.spec.ts` |
 | `/dashboard` | Post-claim dashboard ownership | `e2e/tests/claim-smoke.spec.ts` |
 | `/events` | Hub empty/published state | `e2e/tests/events.spec.ts` |
+| `/events/[slug]` | Creative Expo synchronized explorer and preserved event contract | `e2e/tests/event-detail.spec.ts` |
 | `/faq` | FAQ sections/details | `e2e/tests/faq.spec.ts` |
 | `/getting-started` | Hero render | `e2e/tests/getting-started.spec.ts` |
 | `/my-submissions` | Authenticated redirect | `e2e/tests/community-submit.spec.ts` |
@@ -60,7 +62,7 @@ Audit baseline: **70 route families; 16 mapped; 54 visible migration warnings.**
 - Admin: `/admin`, `/admin/brands`, `/admin/catalog`, `/admin/catalog/brands`, `/admin/claim-requests`, `/admin/corrections`, `/admin/evidence`, `/admin/feature-requests`, `/admin/jobs`, `/admin/jobs/[id]`, `/admin/moderation`, `/admin/newsletter`, `/admin/quality`, `/admin/reports`, `/admin/review-queue`, `/admin/review-queue/moderation`, `/admin/review-queue/submissions`, `/admin/scripts`, `/admin/scripts/bulk-community-submissions`, `/admin/settings`, `/admin/signals`, `/admin/signals/reports`, `/admin/submissions`.
 - Authentication/public: `/about`, `/auth/forgot-password`, `/auth/reset-password`, `/auth/sign-up`, `/challenge`, `/contact`, `/contributions`, `/feature-requests`, `/glossary`, `/privacy`, `/stats`, `/terms`, `/vision`.
 - Dashboard: `/dashboard/analytics`, `/dashboard/brands/[slug]`, `/dashboard/brands/[slug]/analytics`, `/dashboard/brands/[slug]/edit`, `/dashboard/brands/[slug]/info`, `/dashboard/brands/[slug]/links`, `/dashboard/brands/[slug]/media`, `/dashboard/brands/[slug]/reputation`, `/dashboard/brands/[slug]/verification`.
-- Other: `/events/[slug]`, `/favorites`, `/settings`, `/site/[slug]`, `/stories/[slug]`, `/submit`, `/submit/confirmation`, `/submit/form`, `/submit/owner/details`.
+- Other: `/favorites`, `/settings`, `/site/[slug]`, `/stories/[slug]`, `/submit`, `/submit/confirmation`, `/submit/form`, `/submit/owner/details`.
 
 These are warnings during migration, not evidence that the routes have no deep coverage. Enable the no-new-gap regression gate only after the smoke baseline reaches zero uncovered route families.
 
@@ -107,6 +109,7 @@ These are warnings during migration, not evidence that the routes have no deep c
 | **Signup form + registration (fails loudly on outage)** | `e2e/tests/auth-signup.spec.ts` | 2026-07-30 |
 | **Signup → email confirmation → onboarding → first value** | `e2e/tests/auth-signup-journey.spec.ts` | 2026-07-30 |
 | **Event detail — Event JSON-LD with unshifted Taipei dates, client-side area filtering, bilingual canonical/hreflang** (skips until an event is seeded — runtime gate in `e2e/utils/seeded-events.ts`) | `e2e/tests/event-detail.spec.ts` | 2026-07-31 |
+| **Creative Expo — synchronized map/list filters and counts, official/Romanized/booth search, reset, brand navigation/Back, localized sources, server links, and map-image failure** (RED: direct `category=crafts` does not hydrate) | `e2e/tests/event-detail.spec.ts` | 2026-08-07 |
 | _(30+ existing deep specs omitted — see e2e/tests/ for full inventory)_ | | |
 
 ## Mobile (Pixel 5, nightly)
@@ -115,6 +118,7 @@ These are warnings during migration, not evidence that the routes have no deep c
 |---------|------|-------------|
 | **Responsive overflow on landing, directory, submission, and sign-in pages** | `e2e/tests/mobile.spec.ts` | 2026-07-27 |
 | **Mobile brand-card rendering and navigation access** | `e2e/tests/mobile.spec.ts` | 2026-07-27 |
+| **Creative Expo mobile map/list switching, retained filter/search state, and brand navigation/Back** | `e2e/tests/mobile.spec.ts` | 2026-08-07 |
 
 ## Carried backlog (from 2026-07-11 run)
 
@@ -124,3 +128,5 @@ These are warnings during migration, not evidence that the routes have no deep c
 - English-locale support action copy — P3; action coverage currently asserts the default zh-TW locale.
 - Origin-evidence submission journey — dropped 2026-07-31 with the trigger; the surface is unwired pending guest submission (board: `origin_evidence_reports`). Re-author when it returns.
 - Cross-browser smoke coverage for public brand support — P3; the current journey is deep and database-backed.
+- Creative Expo canonical empty-roster and roster-read-failure states — P2; require a safe fixture or preview mode rather than shared-data mutation or internal-service mocking.
+- Creative Expo automated horizontal-overflow assertion — P2; live Pixel 5 discovery is clean, but this authoring run explicitly prohibited geometry assertions.
