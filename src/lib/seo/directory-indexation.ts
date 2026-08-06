@@ -32,6 +32,8 @@ export type DirectoryFacets = {
 
 export type DirectoryState = {
   locale: Locale
+  /** The URL surface owns the taxonomy path when preserving facet queries. */
+  surface?: 'brands' | 'category'
   categorySlug?: string | null
   subcategorySlug?: string | null
   page: number
@@ -217,8 +219,9 @@ function buildSelfCanonical(state: DirectoryState, preserveFacets = false): Dire
   const hasCategoryFacet =
     hasValue(facets.category) || hasValue(facets.multiCategory)
   const hasSubFacet = hasValue(facets.sub) || hasValue(facets.multiSub)
-  const target =
-    preserveFacets && hasCategoryFacet
+  const target = state.surface === 'category'
+    ? taxonomyTarget(state.categorySlug, state.subcategorySlug)
+    : preserveFacets && hasCategoryFacet
       ? null
       : taxonomyTarget(
           state.categorySlug,

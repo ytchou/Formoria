@@ -91,4 +91,4 @@ function ToggleChip({
   );
 }
 
-export { ToggleChip, taxonomyLinkClasses, toggleChipSelectedClasses };
+export { ToggleChip, taxonomyLinkClasses };

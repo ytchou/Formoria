@@ -3,7 +3,7 @@ import type { Locale } from '@/lib/seo/alternates'
 import { DirectoryBreadcrumb } from './directory-breadcrumb'
 import { CategoryLinkList } from './category-link-list'
 
-export type DirectoryLandingFaq = {
+type DirectoryLandingFaq = {
   question: string
   answer: string
 }

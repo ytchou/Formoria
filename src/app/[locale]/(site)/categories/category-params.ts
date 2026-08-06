@@ -8,7 +8,6 @@ export type CategoryRouteResolution = {
   category: (typeof PRODUCT_TYPE_CATEGORIES)[number]
   subcategory: ProductSubcategory | null
 }
-
 export function resolveCategoryRouteParams({
   categorySlug,
   subcategorySlug,
@@ -25,4 +24,3 @@ export function resolveCategoryRouteParams({
   if (!subcategory || subcategory.category !== category.slug) return null
   return { category, subcategory }
 }
-

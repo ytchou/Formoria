@@ -25,4 +25,3 @@ describe('category route params', () => {
     expect(resolveCategoryRouteParams({ categorySlug: 'home', subcategorySlug: 'unknown' })).toBeNull()
   })
 })
-

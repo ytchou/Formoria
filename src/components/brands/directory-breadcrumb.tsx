@@ -7,7 +7,6 @@ export type DirectoryBreadcrumbItem = {
   href?: string
   current?: boolean
 }
-
 export type DirectoryBreadcrumbInput = {
   locale: AppLocale
   directoryLabel: string
@@ -77,4 +76,3 @@ export function DirectoryBreadcrumb({
     </nav>
   )
 }
-

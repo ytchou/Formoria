@@ -28,6 +28,7 @@ export async function generateMetadata({ params, searchParams }: CategoryPagePro
   const { page, sort } = parseDirectoryViewFilters(sp, new Set(PRODUCT_TYPE_CATEGORIES.map((category) => category.slug)))
   const seo = resolveDirectorySeo({
     locale: safeLocale,
+    surface: 'category',
     categorySlug: resolved.category.slug,
     page,
     facets: {
@@ -81,6 +82,20 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
   const sp = await searchParams
   const parsed = parseDirectoryViewFilters(sp, new Set(PRODUCT_TYPE_CATEGORIES.map((category) => category.slug)))
+  const directorySeo = resolveDirectorySeo({
+    locale: safeLocale,
+    surface: 'category',
+    categorySlug: resolved.category.slug,
+    page: parsed.page,
+    facets: {
+      search: sp.search,
+      price: sp.price,
+      verification: sp.verification,
+      sort: typeof sp.sort === 'string' ? sp.sort : parsed.sort !== 'random' ? parsed.sort : undefined,
+      category: sp.category,
+      sub: sp.sub,
+    },
+  })
   return (
     <DirectoryView
       locale={safeLocale}
@@ -91,6 +106,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
       }}
       page={parsed.page}
       sort={parsed.sort}
+      canonical={directorySeo.canonical}
       isCategoryRoute
     />
   )

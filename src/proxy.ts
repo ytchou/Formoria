@@ -12,13 +12,8 @@ import {
   isLikelyCrawler,
   isRouterRequest,
 } from "@/lib/security/rate-limiter";
-<<<<<<< HEAD
 import { hasApprovedBrandSlug, resolveApprovedBrandRedirect } from '@/lib/services/brand-redirects-edge'
 import { PRODUCT_TYPE_CATEGORIES, subcategoryBySlug } from '@/lib/taxonomy/ontology'
-=======
-import { hasApprovedBrandSlug, resolveApprovedBrandRedirect } from '@/lib/services/brand-redirects'
-import { PRODUCT_TYPE_CATEGORIES, subcategoryBySlug } from '@/lib/taxonomy/ontology'
->>>>>>> 7c8cd930 (feat(seo): add category directory routes)
 
 /**
  * Routes that are reserved for static pages and cannot be used as brand slugs.

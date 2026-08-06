@@ -35,6 +35,7 @@ export async function generateMetadata({ params, searchParams }: BrandsPageProps
   const ogAlternateLocale = safeLocale === 'zh-TW' ? 'en_US' : 'zh_TW'
   const seo = resolveDirectorySeo({
     locale: safeLocale,
+    surface: 'brands',
     categorySlug: categorySlug,
     subcategorySlug: activeSubcategory?.slug,
     page,
@@ -79,7 +80,7 @@ export async function generateMetadata({ params, searchParams }: BrandsPageProps
     const languages = seo.languages
 
     return {
-      title,
+      title: { absolute: title },
       description,
       alternates: { canonical, ...(languages ? { languages } : {}) },
       ...(seo.robots ? { robots: seo.robots } : {}),
@@ -117,6 +118,26 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
   const safeLocale = (locale === 'en' ? 'en' : 'zh-TW') as Locale
   const sp = await searchParams
   const { filters, page, sort } = parseDirectoryViewFilters(sp, VALID_CATEGORY_SLUGS)
+  const categorySlug = filters.categorySlugs.length === 1 ? filters.categorySlugs[0] ?? null : null
+  const resolvedSubcategories = resolveSubcategorySlugs(categorySlug, filters.subcategorySlugs)
+  const activeSubcategory = resolvedSubcategories.length === 1 ? resolvedSubcategories.at(0) : undefined
+  const directorySeo = resolveDirectorySeo({
+    locale: safeLocale,
+    surface: 'brands',
+    categorySlug,
+    subcategorySlug: activeSubcategory?.slug,
+    page,
+    facets: {
+      search: sp.search,
+      price: sp.price,
+      verification: sp.verification,
+      sort: typeof sp.sort === 'string' ? sp.sort : sort !== 'random' ? sort : undefined,
+      category: sp.category,
+      sub: sp.sub,
+      multiCategory: filters.categorySlugs.length > 1,
+      multiSub: filters.subcategorySlugs.length > 1,
+    },
+  })
 
-  return <DirectoryView locale={safeLocale} filters={filters} page={page} sort={sort} />
+  return <DirectoryView locale={safeLocale} filters={filters} page={page} sort={sort} canonical={directorySeo.canonical} />
 }

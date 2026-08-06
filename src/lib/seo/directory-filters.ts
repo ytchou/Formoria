@@ -10,7 +10,6 @@ export type DirectoryViewFilters = Pick<
   categorySlugs: string[]
   subcategorySlugs: string[]
 }
-
 function parseCommaParam(value: string | string[] | undefined): string[] {
   const values = Array.isArray(value) ? value : value ? [value] : []
   return values.flatMap((item) =>
@@ -55,4 +54,3 @@ export function parseDirectoryViewFilters(
     },
   }
 }
-

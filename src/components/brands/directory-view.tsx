@@ -21,11 +21,10 @@ import { ViewItemListTracker } from '@/components/analytics/view-item-list-track
 import { surfaceCardStyles } from '@/components/ui/card'
 import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
 import type { Locale } from '@/lib/seo/alternates'
-import { buildDirectoryCanonicals } from '@/lib/seo/directory-canonical'
 import type { DirectoryViewFilters } from '@/lib/seo/directory-filters'
 import { localizePath } from '@/i18n/locale-preference'
 import { updateDirectoryUrl } from '@/lib/directory-filter-url'
-import type { Brand } from '@/lib/types'
+import { toPublicBrandCard, type PublicBrandCard } from '@/lib/brands/contracts'
 import { DirectoryLandingHead } from './directory-landing-head'
 import { DirectoryLandingTail } from './directory-landing-tail'
 
@@ -37,10 +36,12 @@ export type DirectoryViewProps = {
   filters: DirectoryViewFilters
   page: number
   sort: BrandSortOption
+  /** Canonical resolved by the route's SEO matrix for this exact request. */
+  canonical: string
   isCategoryRoute?: boolean
 }
 
-export async function DirectoryView({ locale, filters, page, sort, isCategoryRoute = false }: DirectoryViewProps) {
+export async function DirectoryView({ locale, filters, page, sort, canonical, isCategoryRoute = false }: DirectoryViewProps) {
   const safeLocale = locale
   const [t, verificationT, messages] = await Promise.all([
     getTranslations({ locale: safeLocale, namespace: 'brands' }),
@@ -63,7 +64,7 @@ export async function DirectoryView({ locale, filters, page, sort, isCategoryRou
   const verificationFilter = filters.verificationFilter ?? 'all'
   const shouldLoadTaxonomySummary = Boolean(singleValidCategory) && !search
 
-  const [{ brands, totalCount }, taxonomySummary] = await Promise.all([
+  const [{ brands: rawBrands, totalCount }, taxonomySummary] = await Promise.all([
     getBrands({
       status: 'approved',
       search: search || undefined,
@@ -79,6 +80,7 @@ export async function DirectoryView({ locale, filters, page, sort, isCategoryRou
       ? getSubcategorySummary(singleValidCategory, activeSubcategory?.slug)
       : Promise.resolve({ counts: new Map<string, number>(), latestUpdatedAt: null }),
   ])
+  const brands = rawBrands.map(toPublicBrandCard)
 
   const subcategoriesWithCounts = singleValidCategory
     ? PRODUCT_SUBCATEGORIES
@@ -111,7 +113,7 @@ export async function DirectoryView({ locale, filters, page, sort, isCategoryRou
       limit: DEFAULT_PAGE_SIZE,
       offset: (clampedPage - 1) * DEFAULT_PAGE_SIZE,
     })
-    displayBrands = refetched.brands
+    displayBrands = refetched.brands.map(toPublicBrandCard)
   }
 
   const latestUpdatedAt = taxonomySummary.latestUpdatedAt
@@ -193,7 +195,7 @@ export async function DirectoryView({ locale, filters, page, sort, isCategoryRou
     })
   }
 
-  let recommendedBrands: Brand[] = []
+  let recommendedBrands: PublicBrandCard[] = []
   let recommendationsHref = directoryPath
   if (totalCount === 0 && !isCategoryRoute) {
     if (validCategoryFilter.length > 0) {
@@ -205,6 +207,8 @@ export async function DirectoryView({ locale, filters, page, sort, isCategoryRou
         offset: 0,
       })
       recommendedBrands = recommendations.brands
+        .slice(0, EMPTY_STATE_RECOMMENDATION_LIMIT)
+        .map(toPublicBrandCard)
       if (recommendedBrands.length > 0) {
         recommendationsHref = updateDirectoryUrl(directoryPath, new URLSearchParams(), {
           category: validCategoryFilter.join(','),
@@ -212,7 +216,9 @@ export async function DirectoryView({ locale, filters, page, sort, isCategoryRou
       }
     }
     if (recommendedBrands.length === 0) {
-      recommendedBrands = await getRandomBrands(EMPTY_STATE_RECOMMENDATION_LIMIT)
+      recommendedBrands = (await getRandomBrands(EMPTY_STATE_RECOMMENDATION_LIMIT)).map(
+        toPublicBrandCard,
+      )
     }
   }
 
@@ -234,15 +240,9 @@ export async function DirectoryView({ locale, filters, page, sort, isCategoryRou
     const editorialDescription = catT.has(`descriptions.${categoryTag.slug}`)
       ? catT(`descriptions.${categoryTag.slug}`)
       : undefined
-    const categoryCanonical = buildDirectoryCanonicals({
-      locale: safeLocale,
-      categorySlug: categoryTag.slug,
-      subcategorySlug: activeSubcategory?.slug,
-      page,
-    }).canonical
     categoryItemListJsonLd = buildCategoryItemListJsonLd(
       categoryName,
-      categoryCanonical,
+      canonical,
       displayBrands,
       safeLocale,
       editorialDescription,

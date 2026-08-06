@@ -1263,7 +1263,12 @@ type GetBrandsFilters = BrandFilters & {
   includeDetailColumns?: boolean;
 };
 
-/** Expand an ontology selection to every stored spelling of the subcategory. */
+/**
+ * Expand a taxonomy selection to every stored spelling for the concept.
+ * Product tags predate the slug ontology, so a brand can carry an alias (for
+ * example `口金夾`) while the filter is selected by its slug or canonical name.
+ * Both the browse query and the search RPC must receive this same list.
+ */
 function expandSubcategoryTags(tags: readonly string[] | undefined): string[] {
   if (!tags || tags.length === 0) return [];
 
@@ -2064,6 +2069,7 @@ export type BrandSeoEntry = {
   slug: string;
   updatedAt: string;
   productType: string | null;
+  productTags: string[];
   description: string | null;
   descriptionEn: string | null;
   blurbEn: string | null;
@@ -2071,11 +2077,13 @@ export type BrandSeoEntry = {
 
 export async function getBrandSeoEntries(): Promise<BrandSeoEntry[]> {
   const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("brands")
-    .select(
-      "slug, updated_at, product_type, description, description_en, blurb_en",
-    )
+  const { data, error } = await excludeTestBrands(
+    supabase
+      .from("brands")
+      .select(
+        "slug, updated_at, product_type, product_tags, description, description_en, blurb_en",
+      ),
+  )
     .eq("status", "approved");
 
   if (error) throw error;
@@ -2083,6 +2091,7 @@ export async function getBrandSeoEntries(): Promise<BrandSeoEntry[]> {
     slug: row.slug,
     updatedAt: row.updated_at,
     productType: row.product_type,
+    productTags: Array.isArray(row.product_tags) ? row.product_tags : [],
     description: row.description,
     descriptionEn: row.description_en,
     blurbEn: row.blurb_en,

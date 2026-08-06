@@ -4,7 +4,7 @@ import { getPublishedEvents } from "@/lib/services/events";
 import { getAllStories } from "@/lib/services/stories";
 import { buildAlternates, type Locale } from "@/lib/seo/alternates";
 import { getBrandIndexability } from "@/lib/seo/brand-indexability";
-import { buildDirectorySitemapEntries } from "@/lib/seo/directory-sitemap";
+import { buildDirectorySitemapSection } from "@/lib/seo/directory-sitemap";
 
 export const revalidate = 3600;
 
@@ -72,9 +72,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     const rawBrandsPromise = getBrandSeoEntries();
     const brandsPromise = rawBrandsPromise.catch(() => []);
-    const directoryPagesPromise = rawBrandsPromise
-      .then((brands) => buildDirectorySitemapEntries(brands))
-      .catch(() => []);
+    const directoryPagesPromise = buildDirectorySitemapSection(rawBrandsPromise);
     const [brands, storyResult, events, categoryPages] = await Promise.all([
       brandsPromise,
       getAllStories(),

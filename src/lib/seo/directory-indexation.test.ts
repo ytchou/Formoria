@@ -75,6 +75,25 @@ describe('resolveDirectorySeo', () => {
     expect(result.languages?.en).toBe(`${base}/en/categories/home?price=2`)
   })
 
+  it('category-route facets preserve the route taxonomy in self-canonicals', () => {
+    const l1 = resolveDirectorySeo(
+      state({ surface: 'category', categorySlug: 'home', facets: { category: 'fashion' } }),
+    )
+    const l2 = resolveDirectorySeo(
+      state({
+        surface: 'category',
+        categorySlug: 'home',
+        subcategorySlug: 'furniture',
+        facets: { sub: 'storage' },
+      }),
+    )
+
+    expect(l1.robots).toEqual({ index: false, follow: true })
+    expect(l1.canonical).toBe(`${base}/categories/home?category=fashion`)
+    expect(l2.robots).toEqual({ index: false, follow: true })
+    expect(l2.canonical).toBe(`${base}/categories/home/furniture?sub=storage`)
+  })
+
   it('facet precedence retains explicit sort and page in every self-canonical', () => {
     const result = resolveDirectorySeo(
       state({
