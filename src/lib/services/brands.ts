@@ -2302,7 +2302,7 @@ export async function completeBrandClaim({
   );
 }
 
-export async function getRandomBrands(limit = 4): Promise<Brand[]> {
+export async function getRandomBrands(limit = 4): Promise<PublicBrandCard[]> {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("brands")
@@ -2321,7 +2321,7 @@ export async function getRandomBrands(limit = 4): Promise<Brand[]> {
     [rows[i], rows[j]] = [rows[j], rows[i]];
   }
 
-  return rows.slice(0, limit).map(brandToDomain);
+  return rows.slice(0, limit).map(brandToDomain).map(toPublicBrandCard);
 }
 
 export async function getNewBrands(limit = 4): Promise<Brand[]> {

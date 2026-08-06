@@ -1,7 +1,7 @@
 import { Suspense } from 'react'
 import { NextIntlClientProvider } from 'next-intl'
 import { getMessages, getTranslations } from 'next-intl/server'
-import { getBrands, getRandomBrands, getSubcategorySummary } from '@/lib/services/brands'
+import { getPublicBrandCards, getRandomBrands, getSubcategorySummary } from '@/lib/services/brands'
 import { categoryLabel, PRODUCT_SUBCATEGORIES, PRODUCT_TYPE_CATEGORIES, resolveSubcategorySlugs } from '@/lib/taxonomy/ontology'
 import { buildBreadcrumbJsonLd, buildCategoryItemListJsonLd, buildBrandsItemListJsonLd, buildWebSiteJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 import { DEFAULT_PAGE_SIZE, type BrandSortOption } from '@/lib/pagination'
@@ -24,7 +24,7 @@ import type { Locale } from '@/lib/seo/alternates'
 import type { DirectoryViewFilters } from '@/lib/seo/directory-filters'
 import { localizePath } from '@/i18n/locale-preference'
 import { updateDirectoryUrl } from '@/lib/directory-filter-url'
-import { toPublicBrandCard, type PublicBrandCard } from '@/lib/brands/contracts'
+import type { PublicBrandCard } from '@/lib/brands/contracts'
 import { DirectoryLandingHead } from './directory-landing-head'
 import { DirectoryLandingTail } from './directory-landing-tail'
 
@@ -64,24 +64,20 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
   const verificationFilter = filters.verificationFilter ?? 'all'
   const shouldLoadTaxonomySummary = Boolean(singleValidCategory) && !search
 
-  const [{ brands: rawBrands, totalCount }, taxonomySummary] = await Promise.all([
-    getBrands({
-      status: 'approved',
+  const [{ brands, totalCount }, taxonomySummary] = await Promise.all([
+    getPublicBrandCards({
       search: search || undefined,
       category: validCategoryFilter.length > 0 ? validCategoryFilter : undefined,
       subcategoryTags: resolvedSubs.map((subcategory) => subcategory.slug),
       priceRanges: priceRanges.length > 0 ? priceRanges : undefined,
       verificationFilter,
       sort,
-      limit: DEFAULT_PAGE_SIZE,
-      offset: (page - 1) * DEFAULT_PAGE_SIZE,
+      page,
     }),
     shouldLoadTaxonomySummary && singleValidCategory
       ? getSubcategorySummary(singleValidCategory, activeSubcategory?.slug)
       : Promise.resolve({ counts: new Map<string, number>(), latestUpdatedAt: null }),
   ])
-  const brands = rawBrands.map(toPublicBrandCard)
-
   const subcategoriesWithCounts = singleValidCategory
     ? PRODUCT_SUBCATEGORIES
         .filter((subcategory) => subcategory.category === singleValidCategory)
@@ -102,18 +98,16 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
   const clampedPage = totalCount > 0 && page > totalPages ? totalPages : page
   let displayBrands = brands
   if (clampedPage !== page && totalCount > 0 && !isCategoryRoute) {
-    const refetched = await getBrands({
-      status: 'approved',
+    const refetched = await getPublicBrandCards({
       search: search || undefined,
       category: validCategoryFilter.length > 0 ? validCategoryFilter : undefined,
       subcategoryTags: resolvedSubs.map((subcategory) => subcategory.slug),
       priceRanges: priceRanges.length > 0 ? priceRanges : undefined,
       verificationFilter,
       sort,
-      limit: DEFAULT_PAGE_SIZE,
-      offset: (clampedPage - 1) * DEFAULT_PAGE_SIZE,
+      page: clampedPage,
     })
-    displayBrands = refetched.brands.map(toPublicBrandCard)
+    displayBrands = refetched.brands
   }
 
   const latestUpdatedAt = taxonomySummary.latestUpdatedAt
@@ -199,16 +193,13 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
   let recommendationsHref = directoryPath
   if (totalCount === 0 && !isCategoryRoute) {
     if (validCategoryFilter.length > 0) {
-      const recommendations = await getBrands({
-        status: 'approved',
+      const recommendations = await getPublicBrandCards({
         category: validCategoryFilter,
         sort: 'random',
-        limit: EMPTY_STATE_RECOMMENDATION_LIMIT,
-        offset: 0,
+        page: 1,
       })
       recommendedBrands = recommendations.brands
         .slice(0, EMPTY_STATE_RECOMMENDATION_LIMIT)
-        .map(toPublicBrandCard)
       if (recommendedBrands.length > 0) {
         recommendationsHref = updateDirectoryUrl(directoryPath, new URLSearchParams(), {
           category: validCategoryFilter.join(','),
@@ -216,9 +207,7 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
       }
     }
     if (recommendedBrands.length === 0) {
-      recommendedBrands = (await getRandomBrands(EMPTY_STATE_RECOMMENDATION_LIMIT)).map(
-        toPublicBrandCard,
-      )
+      recommendedBrands = await getRandomBrands(EMPTY_STATE_RECOMMENDATION_LIMIT)
     }
   }
 

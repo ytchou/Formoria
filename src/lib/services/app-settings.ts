@@ -5,7 +5,6 @@ import { OWNER_FEATURES_KEY } from './app-settings-config'
 export {
   FEATURE_FLAGS,
   OWNER_FEATURES_KEY,
-  SUBCATEGORY_FILTER_KEY,
 } from './app-settings-config'
 
 export async function getAppSetting<T extends Json = Json>(
