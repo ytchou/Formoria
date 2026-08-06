@@ -3021,6 +3021,7 @@
     "schedule": "Hours",
     "travel": "Getting there",
     "admission": "Admission",
+    "boothLabel": "Booth",
     "brandsHeading": "Exhibiting brands",
     "brandCount": "{count, plural, one {# brand} other {# brands}}",
     "brandCountFiltered": "{count} of {total} brands",

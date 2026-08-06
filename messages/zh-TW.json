@@ -2431,6 +2431,7 @@
     "schedule": "參觀時間",
     "travel": "交通",
     "admission": "入場方式",
+    "boothLabel": "攤位",
     "brandsHeading": "參展品牌",
     "brandCount": "共 {count} 個品牌",
     "brandCountFiltered": "共 {count} 個品牌（篩選自 {total} 個）",
