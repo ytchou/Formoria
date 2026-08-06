@@ -50,6 +50,12 @@ import {
 import { createEmailPreferences } from '@/lib/services/email-lifecycle'
 import { generateClaimToken } from '@/lib/auth/claim-token'
 import { updateReportStatus } from '@/lib/services/reports'
+import {
+  reviewCorrections,
+  validateCorrectionBatch,
+  type CorrectionBatchFailure,
+  type CorrectionDecision,
+} from '@/lib/services/brand-corrections'
 import { adminRemoveChannel } from '@/lib/services/brand-channels'
 import { FEATURE_FLAGS, setAppSetting } from '@/lib/services/app-settings'
 import { DENIAL_REASONS, type DenialReason, type OtherUrl } from '@/lib/types'
@@ -394,6 +400,79 @@ export async function approveSubmissionsAction(
       }
     }
   });
+}
+
+export async function reviewCorrectionsAction(
+  ids: string[],
+  decision: CorrectionDecision,
+  notes: string
+): Promise<{ failures: CorrectionBatchFailure[] } | { error: string }> {
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction()
+      if ('error' in auth) return auth
+      if (decision !== 'approved' && decision !== 'rejected') {
+        return { error: 'Invalid correction decision' }
+      }
+
+      // Batch shape (dedupe, size cap, per-id validation) and the per-brand
+      // serialization both live in the service, so the single-item and bulk
+      // paths cannot drift; this action stays HTTP-shaped.
+      const result = await reviewCorrections(ids, decision, notes, {
+        reviewerId: auth.user.id,
+      })
+      if ('error' in result) return result
+
+      revalidatePath('/admin/corrections')
+      // Not redundant: getAdminNavCounts() feeds the pending badge on /admin
+      // and would keep showing the pre-batch count otherwise.
+      revalidatePath('/admin')
+      return result
+    } catch (err) {
+      console.error('[admin:reviewCorrections]', err)
+      return {
+        error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      }
+    }
+  });
+}
+
+export async function reviewCorrectionsAction(
+  correctionIds: string[],
+  decision: CorrectionDecision,
+  notes: string
+): Promise<{ failures: CorrectionBatchFailure[] } | { error: string }> {
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction()
+      if ('error' in auth) return auth
+
+      const validated = validateCorrectionBatch(correctionIds)
+      if (!validated.ok) return { error: validated.error }
+
+      if (decision !== 'approved' && decision !== 'rejected') {
+        return { error: 'Invalid correction decision' }
+      }
+
+      const result = await reviewCorrections(
+        validated.ids,
+        decision,
+        notes,
+        { reviewerId: auth.user.id }
+      )
+      if ('error' in result) return result
+
+      // The admin navigation badge reads the pending correction count too.
+      revalidatePath('/admin/corrections')
+      revalidatePath('/admin')
+      return result
+    } catch (err) {
+      console.error('[admin:reviewCorrections]', err)
+      return {
+        error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      }
+    }
+  })
 }
 
 export async function requestBrandRefreshAction(
