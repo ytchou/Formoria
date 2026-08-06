@@ -13,7 +13,7 @@ Smoke is a tagged subset of the canonical deep suite. The PR selector resolves a
 | Sign-in Google entry point | `e2e/tests/auth-signin.spec.ts` | 2026-08-04 |
 | Brand detail rendering | `e2e/tests/brand-detail.spec.ts` | 2026-08-04 |
 | Events hub state and navigation | `e2e/tests/events.spec.ts`, `e2e/tests/events-navigation.spec.ts` | 2026-08-04 |
-| Creative Expo synchronized map, filters, search, reset, URL state, and brand navigation (RED: `category=crafts` is ignored on direct load) | `e2e/tests/event-detail.spec.ts` | 2026-08-07 |
+| Creative Expo synchronized map, filters, search, reset, canonical URL state, and brand navigation | `e2e/tests/event-detail.spec.ts` | 2026-08-07 |
 | FAQ sections and details | `e2e/tests/faq.spec.ts` | 2026-08-04 |
 | Getting-started hero | `e2e/tests/getting-started.spec.ts` | 2026-08-04 |
 | Submission entry points and authenticated redirect | `e2e/tests/community-submit.spec.ts` | 2026-08-04 |
@@ -109,7 +109,7 @@ These are warnings during migration, not evidence that the routes have no deep c
 | **Signup form + registration (fails loudly on outage)** | `e2e/tests/auth-signup.spec.ts` | 2026-07-30 |
 | **Signup → email confirmation → onboarding → first value** | `e2e/tests/auth-signup-journey.spec.ts` | 2026-07-30 |
 | **Event detail — Event JSON-LD with unshifted Taipei dates, client-side area filtering, bilingual canonical/hreflang** (skips until an event is seeded — runtime gate in `e2e/utils/seeded-events.ts`) | `e2e/tests/event-detail.spec.ts` | 2026-07-31 |
-| **Creative Expo — synchronized map/list filters and counts, official/Romanized/booth search, reset, brand navigation/Back, localized sources, server links, and map-image failure** (RED: direct `category=crafts` does not hydrate) | `e2e/tests/event-detail.spec.ts` | 2026-08-07 |
+| **Creative Expo — synchronized map/list filters and counts, official/Romanized/booth search, reset, canonical category URL hydration, brand navigation/Back, localized sources, server links, and map-image failure** | `e2e/tests/event-detail.spec.ts` | 2026-08-07 |
 | _(30+ existing deep specs omitted — see e2e/tests/ for full inventory)_ | | |
 
 ## Mobile (Pixel 5, nightly)

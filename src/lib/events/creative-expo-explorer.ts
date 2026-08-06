@@ -1,8 +1,4 @@
-import type {
-  EventBrandEntry,
-  EventExhibitorEntry,
-  LinkedEventExhibitorEntry,
-} from "@/lib/services/events";
+import type { LinkedEventExhibitorEntry } from "@/lib/services/events";
 import { resolveProductTypeSlug } from "@/lib/brands/category-label";
 import {
   resolveExpoBoothZone,
@@ -16,12 +12,6 @@ export const CREATIVE_EXPO_ZONE_CODES = ["K1", "K2", "K3", "S"] as const;
 export type CreativeExpoZone = ExpoZoneCode;
 export type CreativeExpoSort = "recommended" | "booth";
 type CreativeExpoMobilePanel = "map" | "list";
-
-export type { LinkedEventExhibitorEntry };
-
-/** Card projection that retains canonical roster metadata for the explorer surface. */
-export type CreativeExpoBrandEntry = EventBrandEntry &
-  Pick<LinkedEventExhibitorEntry, "zone" | "eventCategory">;
 
 export type CreativeExpoExplorerState = {
   zone: CreativeExpoZone | null;
@@ -40,44 +30,6 @@ function isCreativeExpoZone(
     value !== undefined &&
     CREATIVE_EXPO_ZONE_CODES.includes(value as CreativeExpoZone)
   );
-}
-
-/**
- * Selects the interactive subset from the canonical roster. The optional
- * `brand` link is the inclusion boundary; canonical `zone` is placement truth,
- * even if the source booth text later disagrees with it.
- */
-export function selectLinkedCreativeExpoEntries(
-  entries: readonly EventExhibitorEntry[],
-): LinkedEventExhibitorEntry[] {
-  return entries.filter(
-    (entry): entry is LinkedEventExhibitorEntry =>
-      entry.brand !== null &&
-      CREATIVE_EXPO_ZONE_CODES.includes(
-        entry.zone as (typeof CREATIVE_EXPO_ZONE_CODES)[number],
-      ),
-  );
-}
-
-/**
- * Projects canonical linked rows into the existing editorial card contract.
- * The complete canonical rows remain available to the explorer for search and
- * map state; this projection only adapts the shared BrandCard renderer.
- */
-export function projectLinkedCreativeExpoEntries(
-  entries: readonly LinkedEventExhibitorEntry[],
-): CreativeExpoBrandEntry[] {
-  return entries.map((entry) => ({
-    brand: entry.brand,
-    booth: entry.booth,
-    area: entry.area,
-    areaEn: entry.areaEn,
-    note: null,
-    noteEn: null,
-    sortOrder: entry.sortOrder,
-    zone: entry.zone,
-    eventCategory: entry.eventCategory,
-  }));
 }
 
 /**

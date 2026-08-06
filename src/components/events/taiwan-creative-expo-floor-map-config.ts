@@ -48,6 +48,10 @@ export const EXPO_FLOOR_MAP_ASSET = {
   sizeBudgetBytes: 2_500_000,
 } as const;
 
+/** Canonical official roster index; exhibitor detail URLs are not attribution. */
+export const EXPO_ROSTER_SOURCE_URL =
+  "https://creativexpo.tw/zh-TW/exhibitor_list";
+
 const EXPO_ZONE_NAMES = {
   K1: {
     zhTW: "\u98a8\u683c\u751f\u6d3b",

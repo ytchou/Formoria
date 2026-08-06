@@ -9,8 +9,10 @@ import {
 import { ViewItemListTracker } from "@/components/analytics/view-item-list-tracker";
 import { Button } from "@/components/ui/button";
 import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
-import type { CreativeExpoBrandEntry } from "@/lib/events/creative-expo-explorer";
-import type { EventBrandEntry } from "@/lib/services/events";
+import type {
+  EventBrandEntry,
+  LinkedEventExhibitorEntry,
+} from "@/lib/services/events";
 
 // Four rows of the grid's widest column count. Keeping the cap next to the
 // MasonryGrid constant means the server-visible links and preload decisions
@@ -18,7 +20,7 @@ import type { EventBrandEntry } from "@/lib/services/events";
 export const EVENT_LINEUP_VISIBLE_CAP = 4 * MASONRY_ABOVE_FOLD;
 
 export type EventBrandResultViewProps = {
-  entries: readonly EventBrandEntry[];
+  entries: readonly (EventBrandEntry | LinkedEventExhibitorEntry)[];
   eventSlug: string;
   locale: string;
   expanded: boolean;
@@ -60,10 +62,7 @@ export function EventBrandResultView({
       >
         {entries.map((entry, index) => {
           const area = isEnglish ? (entry.areaEn ?? entry.area) : entry.area;
-          const creativeEntry =
-            creativeExpo && "zone" in entry
-              ? (entry as CreativeExpoBrandEntry)
-              : null;
+          const creativeEntry = creativeExpo && "zone" in entry ? entry : null;
           const boothNote = creativeEntry?.booth
             ? `${t("boothLabel")}: ${creativeEntry.booth}`
             : undefined;
@@ -76,8 +75,10 @@ export function EventBrandResultView({
               eyebrow={creativeEntry?.zone ?? entry.booth ?? area ?? undefined}
               note={
                 boothNote ??
-                (isEnglish ? (entry.noteEn ?? entry.note) : entry.note) ??
-                undefined
+                ("note" in entry
+                  ? ((isEnglish ? (entry.noteEn ?? entry.note) : entry.note) ??
+                    undefined)
+                  : undefined)
               }
               preload={index < MASONRY_ABOVE_FOLD}
               position={index}

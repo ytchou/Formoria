@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import type { PublicBrandCard } from "@/lib/brands/contracts";
-import type { EventExhibitorEntry } from "@/lib/services/events";
+import type {
+  EventExhibitorEntry,
+  LinkedEventExhibitorEntry,
+} from "@/lib/services/events";
 import {
   buildCreativeExpoUrl,
   deriveCreativeExpoZoneCounts,
@@ -9,10 +12,8 @@ import {
   filterCreativeExpoEntries,
   getCreativeExpoSearchFields,
   parseCreativeExpoUrlState,
-  projectLinkedCreativeExpoEntries,
   resetCreativeExpoFilters,
   resetCreativeExpoZone,
-  selectLinkedCreativeExpoEntries,
   sortCreativeExpoEntries,
   verifyCreativeExpoPlacement,
   type CreativeExpoExplorerState,
@@ -66,69 +67,19 @@ function entry(
   };
 }
 
-const linked = [
-  entry(),
-  entry({
-    id: "exhibitor-2",
-    sourceKey: "creative-expo:2",
-    name: "山房",
-    nameEn: "Mountain House",
-    booth: "K2-010",
-    zone: "K2",
-    sortOrder: 1,
-    brand: brand("山房", "homeware"),
-  }),
-  entry({
-    id: "exhibitor-3",
-    sourceKey: "creative-expo:3",
-    name: "No card",
-    booth: "K3-003",
-    zone: "K3",
-    sortOrder: 2,
-    brand: null,
-  }),
-  entry({
-    id: "exhibitor-4",
-    sourceKey: "creative-expo:4",
-    name: "IP only",
-    booth: "J2-014",
-    zone: "J2",
-    sortOrder: 3,
-    brand: brand("IP only"),
-  }),
-];
+function linkedEntry(
+  overrides: Partial<LinkedEventExhibitorEntry> = {},
+): LinkedEventExhibitorEntry {
+  return {
+    ...entry(overrides as Partial<EventExhibitorEntry>),
+    ...overrides,
+  } as LinkedEventExhibitorEntry;
+}
 
 describe("Creative Expo explorer state", () => {
-  it("keeps only linked core-zone exhibitors and projects them to cards", () => {
-    const selected = selectLinkedCreativeExpoEntries(linked);
-
-    expect(selected.map((item) => item.id)).toEqual([
-      "exhibitor-1",
-      "exhibitor-2",
-    ]);
-    expect(projectLinkedCreativeExpoEntries(selected)).toMatchObject([
-      {
-        brand: { name: "沃廚" },
-        booth: "K1-001",
-        area: "文創品牌展區",
-        zone: "K1",
-        eventCategory: "cultural_creative",
-      },
-      {
-        brand: { name: "山房" },
-        booth: "K2-010",
-        area: "文創品牌展區",
-        zone: "K2",
-        eventCategory: "cultural_creative",
-      },
-    ]);
-  });
-
   it("treats canonical zone as truth while reporting booth disagreement", () => {
-    const mismatched = entry({ zone: "K2", booth: "K1-099" });
-    const selected = selectLinkedCreativeExpoEntries([mismatched]);
-    expect(selected).toHaveLength(1);
-    expect(verifyCreativeExpoPlacement(selected[0]!)).toEqual({
+    const mismatched = linkedEntry({ zone: "K2", booth: "K1-099" });
+    expect(verifyCreativeExpoPlacement(mismatched)).toEqual({
       canonicalZone: "K2",
       boothZone: "K1",
       consistent: false,
@@ -136,16 +87,16 @@ describe("Creative Expo explorer state", () => {
   });
 
   it("composes zone, category, and expanded search as AND filters", () => {
-    const entries = selectLinkedCreativeExpoEntries([
-      entry(),
-      entry({
+    const entries = [
+      linkedEntry(),
+      linkedEntry({
         id: "exhibitor-2",
         zone: "K2",
         booth: "K2-010",
         nameEn: "Mountain House",
         brand: { ...brand("山房", "homeware"), romanizedName: "Shanfang" },
       }),
-    ]);
+    ];
     const state: CreativeExpoExplorerState = {
       zone: "K2",
       category: "homeware",
@@ -164,11 +115,19 @@ describe("Creative Expo explorer state", () => {
   });
 
   it("derives contextual counts and highlights before selected zone", () => {
-    const entries = selectLinkedCreativeExpoEntries([
-      entry(),
-      entry({ id: "exhibitor-2", zone: "K2", brand: brand("山房", "crafts") }),
-      entry({ id: "exhibitor-3", zone: "S", brand: brand("小店", "homeware") }),
-    ]);
+    const entries = [
+      linkedEntry(),
+      linkedEntry({
+        id: "exhibitor-2",
+        zone: "K2",
+        brand: brand("山房", "crafts"),
+      }),
+      linkedEntry({
+        id: "exhibitor-3",
+        zone: "S",
+        brand: brand("小店", "homeware"),
+      }),
+    ];
     const state: CreativeExpoExplorerState = {
       zone: "K2",
       category: "crafts",
@@ -252,11 +211,11 @@ describe("Creative Expo explorer state", () => {
   });
 
   it("sorts by natural booth number without changing recommended order", () => {
-    const entries = selectLinkedCreativeExpoEntries([
-      entry({ id: "late", booth: "K1-011-05", sortOrder: 0 }),
-      entry({ id: "early", booth: "K1-004", sortOrder: 1 }),
-      entry({ id: "unknown", booth: null, sortOrder: 2 }),
-    ]);
+    const entries = [
+      linkedEntry({ id: "late", booth: "K1-011-05", sortOrder: 0 }),
+      linkedEntry({ id: "early", booth: "K1-004", sortOrder: 1 }),
+      linkedEntry({ id: "unknown", booth: null, sortOrder: 2 }),
+    ];
     expect(
       sortCreativeExpoEntries(entries, "booth").map((item) => item.id),
     ).toEqual(["early", "late", "unknown"]);

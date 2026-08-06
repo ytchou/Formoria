@@ -9,7 +9,10 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { ToggleChip } from "@/components/ui/toggle-chip";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import type { EventCategoryOption } from "@/lib/services/events";
+import type {
+  EventCategoryOption,
+  LinkedEventExhibitorEntry,
+} from "@/lib/services/events";
 import {
   CREATIVE_EXPO_ZONE_CODES,
   buildCreativeExpoUrl,
@@ -17,14 +20,13 @@ import {
   deriveCreativeExpoZoneCounts,
   filterCreativeExpoEntries,
   parseCreativeExpoUrlState,
-  projectLinkedCreativeExpoEntries,
   resetCreativeExpoFilters,
   resetCreativeExpoZone,
   sortCreativeExpoEntries,
   type CreativeExpoExplorerState,
-  type LinkedEventExhibitorEntry,
 } from "@/lib/events/creative-expo-explorer";
 import { TaiwanCreativeExpoFloorMap } from "./taiwan-creative-expo-floor-map";
+import { EXPO_ROSTER_SOURCE_URL } from "./taiwan-creative-expo-floor-map-config";
 import {
   EventBrandResultView,
   EVENT_LINEUP_VISIBLE_CAP,
@@ -37,7 +39,6 @@ type TaiwanCreativeExpoExplorerProps = {
   locale: string;
   rosterFailed?: boolean;
   verifiedAt?: string | null;
-  sourceUrl?: string | null;
 };
 
 function ExplorerUrlSeed({
@@ -77,7 +78,6 @@ export function TaiwanCreativeExpoExplorer({
   locale,
   rosterFailed = false,
   verifiedAt = null,
-  sourceUrl = null,
 }: TaiwanCreativeExpoExplorerProps) {
   const t = useTranslations("events");
   const [state, setState] = useState<CreativeExpoExplorerState>({
@@ -153,10 +153,6 @@ export function TaiwanCreativeExpoExplorer({
     () => sortCreativeExpoEntries(filteredEntries, state.sort),
     [filteredEntries, state.sort],
   );
-  const projectedEntries = useMemo(
-    () => projectLinkedCreativeExpoEntries(sortedEntries),
-    [sortedEntries],
-  );
   const zoneCounts = useMemo(
     () => deriveCreativeExpoZoneCounts(entries, state),
     [entries, state],
@@ -205,13 +201,12 @@ export function TaiwanCreativeExpoExplorer({
 
       <div
         className="flex gap-2 lg:hidden"
-        role="tablist"
+        role="group"
         aria-label={t("explorerMobilePanels")}
       >
         <Button
+          aria-pressed={state.mobilePanel === "map"}
           type="button"
-          role="tab"
-          aria-selected={state.mobilePanel === "map"}
           variant={state.mobilePanel === "map" ? "primary" : "secondary"}
           onClick={() =>
             setState((current) => ({ ...current, mobilePanel: "map" }))
@@ -220,9 +215,8 @@ export function TaiwanCreativeExpoExplorer({
           {t("explorerMapPanel")}
         </Button>
         <Button
+          aria-pressed={state.mobilePanel === "list"}
           type="button"
-          role="tab"
-          aria-selected={state.mobilePanel === "list"}
           variant={state.mobilePanel === "list" ? "primary" : "secondary"}
           onClick={() =>
             setState((current) => ({ ...current, mobilePanel: "list" }))
@@ -300,7 +294,7 @@ export function TaiwanCreativeExpoExplorer({
                 className="flex flex-wrap gap-2"
               >
                 <ToggleChip
-                  size="chip"
+                  size="default"
                   pressed={state.category === null}
                   onPressedChange={() => applyCategory(null)}
                 >
@@ -309,7 +303,7 @@ export function TaiwanCreativeExpoExplorer({
                 {categoryOptions.map((option) => (
                   <ToggleChip
                     key={option.value}
-                    size="chip"
+                    size="default"
                     pressed={state.category === option.value}
                     onPressedChange={(pressed) =>
                       applyCategory(pressed ? option.value : null)
@@ -369,7 +363,7 @@ export function TaiwanCreativeExpoExplorer({
               />
             ) : (
               <EventBrandResultView
-                entries={projectedEntries}
+                entries={sortedEntries}
                 eventSlug={eventSlug}
                 locale={locale}
                 expanded={state.expanded}
@@ -386,23 +380,19 @@ export function TaiwanCreativeExpoExplorer({
         </div>
       </div>
 
-      {verifiedAt || sourceUrl ? (
-        <footer className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t pt-4 type-caption">
-          {verifiedAt ? (
-            <span>{t("explorerVerifiedAt", { date: verifiedAt })}</span>
-          ) : null}
-          {sourceUrl ? (
-            <a
-              className="type-link"
-              href={sourceUrl}
-              rel="noreferrer"
-              target="_blank"
-            >
-              {t("explorerSource")}
-            </a>
-          ) : null}
-        </footer>
-      ) : null}
+      <footer className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t pt-4 type-caption">
+        {verifiedAt ? (
+          <span>{t("explorerVerifiedAt", { date: verifiedAt })}</span>
+        ) : null}
+        <a
+          className="type-link"
+          href={EXPO_ROSTER_SOURCE_URL}
+          rel="noreferrer"
+          target="_blank"
+        >
+          {t("explorerSource")}
+        </a>
+      </footer>
     </section>
   );
 }

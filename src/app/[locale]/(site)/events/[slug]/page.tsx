@@ -31,6 +31,7 @@ import {
   type EventBrandEntry,
   type EventExhibitorEntry,
 } from "@/lib/services/events";
+import { verifyCreativeExpoPlacement } from "@/lib/events/creative-expo-explorer";
 import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
 import { getStorySeries } from "@/lib/services/stories";
 import { buildAlternates } from "@/lib/seo/alternates";
@@ -179,6 +180,28 @@ export default async function EventDetailPage({ params }: PageProps) {
         (lineupRead as EventExhibitorEntry[] | null) ?? [],
       )
     : [];
+  if (isCreativeExpo && lineupRead !== null) {
+    const placementMismatches = linkedCreativeExpoEntries.flatMap((entry) => {
+      const verification = verifyCreativeExpoPlacement(entry);
+      return verification.consistent
+        ? []
+        : [
+            {
+              sourceKey: entry.sourceKey,
+              booth: entry.booth,
+              canonicalZone: verification.canonicalZone,
+              boothZone: verification.boothZone,
+            },
+          ];
+    });
+
+    if (placementMismatches.length > 0) {
+      console.warn(
+        "Creative Expo canonical zone/booth mismatches:",
+        placementMismatches,
+      );
+    }
+  }
   const entries: EventBrandEntry[] = isCreativeExpo
     ? projectLinkedEventExhibitorEntries(linkedCreativeExpoEntries)
     : (lineupRead as EventBrandEntry[]);
@@ -588,8 +611,11 @@ export default async function EventDetailPage({ params }: PageProps) {
                 eventSlug={event.slug}
                 locale={safeLocale}
                 rosterFailed={rosterFailed}
-                sourceUrl={linkedCreativeExpoEntries[0]?.sourceUrl ?? null}
-                verifiedAt={linkedCreativeExpoEntries[0]?.verifiedAt ?? null}
+                verifiedAt={
+                  lineupRead?.at(0)
+                    ? (lineupRead.at(0) as EventExhibitorEntry).verifiedAt
+                    : null
+                }
               />
             </Suspense>
           ) : entries.length === 0 ? (
