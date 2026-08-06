@@ -113,6 +113,11 @@ scripts/model-ab/runs/
 # the harness is committed, its scored output and LLM audit sink are not.
 scripts/name-eval/runs/
 
+# site-identity-eval run artifacts (DEV-1309 ladder gate + exposure scan). Same
+# rule as model-ab and name-eval: the harness is committed, its scored output,
+# exposure report, and LLM audit sink are not.
+scripts/site-identity-eval/runs/
+
 # brand-storage-maintenance local manifests (operational artifacts, never committed)
 scripts/.storage-purge-manifest-*.json
 scripts/.reencode-originals-*.json
