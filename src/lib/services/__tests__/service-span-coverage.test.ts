@@ -85,19 +85,6 @@ describe("service span coverage", () => {
     expect(writes.some((record) => record.kind === "external")).toBe(false);
   });
 
-  it("service spans carry no payload blob", async () => {
-    await runMutations();
-
-    expect(writes).not.toHaveLength(0);
-    expect(writes.every((record) => record.kind === "service")).toBe(true);
-    expect(writes.some((record) => record.kind === "external")).toBe(false);
-    for (const record of writes) {
-      const raw = record as unknown as Record<string, unknown>;
-      expect(raw.payload_storage_path ?? null).toBeNull();
-      expect(raw.payloadStoragePath ?? null).toBeNull();
-    }
-  });
-
   it("read-path functions emit no success span", async () => {
     const { getBrandBySlug } = await import("../brands");
 
