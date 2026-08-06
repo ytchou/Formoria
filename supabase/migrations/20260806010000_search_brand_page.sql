@@ -11,7 +11,8 @@ CREATE OR REPLACE FUNCTION public.search_brand_page(
   filter_tags text[] DEFAULT NULL,
   filter_verification text DEFAULT NULL,
   filter_price_ranges integer[] DEFAULT NULL,
-  page_offset integer DEFAULT 0
+  page_offset integer DEFAULT 0,
+  sort_mode text DEFAULT 'rank'
 )
 RETURNS TABLE(
   id uuid,
@@ -39,6 +40,11 @@ BEGIN
 
   IF page_offset < 0 THEN
     RAISE EXCEPTION 'page_offset must be non-negative'
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF sort_mode NOT IN ('rank', 'name', 'newest', 'year') THEN
+    RAISE EXCEPTION 'unsupported search sort mode'
       USING ERRCODE = '22023';
   END IF;
 
@@ -80,6 +86,9 @@ BEGIN
   WITH base AS (
     SELECT
       b.id,
+      b.name,
+      b.created_at,
+      b.founding_year,
       CASE
         WHEN tsq IS NOT NULL AND b.search_vector @@ tsq
           THEN ts_rank(b.search_vector, tsq)::real
@@ -124,11 +133,13 @@ BEGIN
   ranked AS (
     -- Match the established bilingual ranking: prefer FTS whenever it has at
     -- least one match, otherwise use the trigram fallback for CJK and prose.
-    SELECT base.id, base.fts_rank AS rank_score, 'fts'::text AS search_source
+    SELECT base.id, base.name, base.created_at, base.founding_year,
+      base.fts_rank AS rank_score, 'fts'::text AS search_source
     FROM base
     WHERE base.has_fts
     UNION ALL
-    SELECT base.id, base.trgm_rank AS rank_score, 'trgm'::text AS search_source
+    SELECT base.id, base.name, base.created_at, base.founding_year,
+      base.trgm_rank AS rank_score, 'trgm'::text AS search_source
     FROM base
     WHERE NOT EXISTS (SELECT 1 FROM base AS fts_base WHERE fts_base.has_fts)
       AND base.trgm_rank >= 0.25
@@ -140,7 +151,12 @@ BEGIN
       ranked.search_source,
       count(*) OVER () AS total_count,
       row_number() OVER (
-        ORDER BY ranked.rank_score DESC, ranked.id ASC
+        ORDER BY
+          CASE WHEN sort_mode = 'name' THEN ranked.name END ASC,
+          CASE WHEN sort_mode = 'newest' THEN ranked.created_at END DESC,
+          CASE WHEN sort_mode = 'year' THEN ranked.founding_year END DESC,
+          CASE WHEN sort_mode = 'rank' THEN ranked.rank_score END DESC,
+          ranked.id ASC
       ) AS row_number
     FROM ranked
   )
@@ -152,7 +168,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.search_brand_page(text, text[], text[], text, integer[], integer)
+REVOKE ALL ON FUNCTION public.search_brand_page(text, text[], text[], text, integer[], integer, text)
   FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.search_brand_page(text, text[], text[], text, integer[], integer)
+GRANT EXECUTE ON FUNCTION public.search_brand_page(text, text[], text[], text, integer[], integer, text)
   TO service_role;

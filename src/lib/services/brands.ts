@@ -202,17 +202,6 @@ export type BrandRowWithJoins = Partial<BrandRow> &
     brand_owners?: BrandOwnerRef | BrandOwnerRef[] | null;
   };
 
-export type SearchResult = {
-  id: string;
-  name: string;
-  slug: string;
-  category: string;
-  rankScore: number;
-  searchSource: string;
-  /** @deprecated Use rankScore. Kept for existing autocomplete consumers. */
-  similarity: number;
-};
-
 type SearchBrandsRow = {
   id: string;
   name: string;
@@ -235,7 +224,7 @@ type SearchBrandPageRow = {
   total_count: number;
 };
 
-export function normalizePublicSearchQuery(value: string): string | null {
+function normalizePublicSearchQuery(value: string): string | null {
   const normalized = value.trim();
   if (
     normalized.length < 2 ||
@@ -1339,6 +1328,7 @@ export async function getBrands(
           ? filters.priceRanges
           : null,
         page_offset: offset,
+        sort_mode: filters.sort && filters.sort !== "random" ? filters.sort : "rank",
       },
     )) as { data: SearchBrandPageRow[] | null; error: { code?: string; message?: string } | null };
 
@@ -1366,6 +1356,7 @@ export async function getBrands(
             ? filters.priceRanges
             : null,
           page_offset: 0,
+          sort_mode: filters.sort && filters.sort !== "random" ? filters.sort : "rank",
         },
       )) as { data: SearchBrandPageRow[] | null; error: { code?: string; message?: string } | null };
       if (firstPageError) throw firstPageError;
@@ -1463,9 +1454,21 @@ export async function getBrands(
 
 /** Public directory boundary: only card fields are returned to the caller. */
 export async function getPublicBrandCards(
-  filters?: GetBrandsFilters,
+  filters?: Pick<
+    BrandFilters,
+    "category" | "priceRanges" | "verificationFilter" | "search" | "sort"
+  > & {
+    page?: number;
+    subcategoryTags?: string[];
+  },
 ): Promise<{ brands: PublicBrandCard[]; totalCount: number }> {
-  const result = await getBrands(filters);
+  const page = filters?.page ?? 1;
+  const result = await getBrands({
+    ...filters,
+    status: "approved",
+    limit: DEFAULT_PAGE_SIZE,
+    offset: (page - 1) * DEFAULT_PAGE_SIZE,
+  });
   return {
     brands: result.brands.map(toPublicBrandCard),
     totalCount: result.totalCount,

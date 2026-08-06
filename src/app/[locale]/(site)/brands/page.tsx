@@ -185,15 +185,13 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
 
   const [{ brands, totalCount }, subcategoryCounts] = await Promise.all([
     getPublicBrandCards({
-      status: 'approved',
       search: search || undefined,
       category: validCategoryFilter.length > 0 ? validCategoryFilter : undefined,
       subcategoryTags: resolvedSubs.map((subcategory) => subcategory.nameZh),
       priceRanges: priceRanges.length > 0 ? priceRanges : undefined,
       verificationFilter,
       sort,
-      limit: DEFAULT_PAGE_SIZE,
-      offset: (page - 1) * DEFAULT_PAGE_SIZE,
+      page,
     }),
     subcategoryFilterEnabled && singleValidCategory
       ? getSubcategoryCounts(singleValidCategory)
@@ -223,15 +221,13 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
   let displayBrands = brands
   if (clampedPage !== page && totalCount > 0) {
     const refetched = await getPublicBrandCards({
-      status: 'approved',
       search: search || undefined,
       category: validCategoryFilter.length > 0 ? validCategoryFilter : undefined,
       subcategoryTags: resolvedSubs.map((subcategory) => subcategory.nameZh),
       priceRanges: priceRanges.length > 0 ? priceRanges : undefined,
       verificationFilter,
       sort,
-      limit: DEFAULT_PAGE_SIZE,
-      offset: (clampedPage - 1) * DEFAULT_PAGE_SIZE,
+      page: clampedPage,
     })
     displayBrands = refetched.brands
   }
@@ -332,13 +328,10 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
   if (totalCount === 0) {
     if (validCategoryFilter.length > 0) {
       const recommendations = await getPublicBrandCards({
-        status: 'approved',
         category: validCategoryFilter,
         sort: 'random',
-        limit: EMPTY_STATE_RECOMMENDATION_LIMIT,
-        offset: 0,
       })
-      recommendedBrands = recommendations.brands
+      recommendedBrands = recommendations.brands.slice(0, EMPTY_STATE_RECOMMENDATION_LIMIT)
       if (recommendedBrands.length > 0) {
         recommendationsHref = updateDirectoryUrl(directoryPath, new URLSearchParams(), {
           category: validCategoryFilter.join(','),

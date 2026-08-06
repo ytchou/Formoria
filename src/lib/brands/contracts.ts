@@ -8,7 +8,7 @@ import type {
 } from '@/lib/types/brand'
 
 /** Purchase links are intentionally spelled out at every public boundary. */
-export type PublicPurchaseLinks = {
+type PublicPurchaseLinks = {
   purchaseWebsite: string | null
   purchasePinkoi: string | null
   purchaseShopee: string | null
@@ -53,7 +53,7 @@ export type PublicBrandDetail = PublicBrandCard &
     heroImageMetadata: Brand['heroImageMetadata']
   }
 
-export type PublicSiteTokens = {
+type PublicSiteTokens = {
   accent: string
   accentForeground?: string
 }
@@ -65,7 +65,7 @@ export type PublicSiteProduct = {
   caption?: string
 }
 
-export type PublicSiteContent = {
+type PublicSiteContent = {
   template: string
   tokens: PublicSiteTokens
   tagline?: string
@@ -332,14 +332,3 @@ export function toAdminBrandListItem(brand: Brand): AdminBrandListItem {
     otherUrls: brand.otherUrls.map((link) => ({ label: link.label, url: link.url })),
   }
 }
-
-export type PublicSeoBrand = {
-  slug: string
-  productType: string | null
-  description: string | null
-  descriptionEn: string | null
-  blurbEn: string | null
-  updatedAt: string
-}
-
-export type { SiteContent, SiteProduct, SiteTokens }

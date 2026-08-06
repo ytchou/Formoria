@@ -1,5 +1,4 @@
 import { cache } from 'react'
-import { createClient } from '@supabase/supabase-js'
 import type { Json } from '@/lib/supabase/database.types'
 import { createServiceClient } from '@/lib/supabase/server'
 import { OWNER_FEATURES_KEY } from './app-settings-config'
@@ -7,30 +6,13 @@ export {
   FEATURE_FLAGS,
   OWNER_FEATURES_KEY,
   SUBCATEGORY_FILTER_KEY,
-  type FeatureFlag,
 } from './app-settings-config'
-
-// Reads run on the request hot path (page gates, server actions, viewer
-// context), so reuse one anon client instead of constructing a supabase-js
-// client plus its GoTrue auth client per call. Mirrors `createServiceClient`.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _anonClient: ReturnType<typeof createClient<any>> | null = null
-
-function getAnonClient() {
-  if (!_anonClient) {
-    _anonClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-  }
-  return _anonClient
-}
 
 export async function getAppSetting<T extends Json = Json>(
   key: string,
   defaultValue?: T
 ): Promise<T | undefined> {
-  const supabase = getAnonClient()
+  const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('app_settings')
     .select('value')

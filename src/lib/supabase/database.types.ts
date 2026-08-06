@@ -3156,6 +3156,7 @@ export type Database = {
           filter_verification?: string;
           page_offset?: number;
           search_query: string;
+          sort_mode?: string;
         };
         Returns: {
           id: string;

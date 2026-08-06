@@ -116,7 +116,7 @@ $$;
 -- SECURITY DEFINER function.
 ALTER FUNCTION public.search_brands(text, integer, boolean, text[], text[], text, text, boolean)
   SET search_path = public, pg_temp;
-ALTER FUNCTION public.search_brand_page(text, text[], text[], text, integer[], integer)
+ALTER FUNCTION public.search_brand_page(text, text[], text[], text, integer[], integer, text)
   SET search_path = public, pg_temp;
 
 -- The API schema list intentionally contains only public. This explicit
