@@ -1,6 +1,7 @@
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 import { NextRequest, NextResponse } from 'next/server'
+import { CRAWLER_REGISTRY } from './crawler-registry'
 
 export interface RateLimitResult {
   allowed: boolean
@@ -137,7 +138,10 @@ const RATE_LIMIT_RULES: Record<string, { windowMs: number; maxRequests: number }
 
 const KNOWN_LOCALES = ['en', 'zh-TW']
 
-const CRAWLER_RE = /Googlebot|Bingbot|Applebot|DuckDuckBot|YandexBot|Slurp|facebookexternalhit|LinkedInBot|Twitterbot|GPTBot|ChatGPT-User|PerplexityBot|ClaudeBot/i
+const CRAWLER_RE = new RegExp(
+  CRAWLER_REGISTRY.map(({ uaPattern }) => uaPattern.source).join('|'),
+  'i',
+)
 
 const RATE_LIMIT_HTML = `<!DOCTYPE html><html><head><title>Too Many Requests</title><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="font-family:system-ui;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0"><div style="text-align:center;max-width:400px;padding:2rem"><h1 style="font-size:1.5rem">Too Many Requests</h1><p style="color:#666">You're browsing too fast. Please wait a moment and try again.</p></div></body></html>`
 
@@ -217,6 +221,7 @@ export async function checkSoftRateLimit(request: NextRequest): Promise<boolean>
   }
 
   if (isLikelyCrawler(request)) {
+    // Close the deindexing vector: soft challenge -> 302 to /challenge -> noindex.
     return false
   }
 

@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { createInMemoryRateLimiter, type RateLimitStore } from '../rate-limiter'
+import { NextRequest } from 'next/server'
+import { CRAWLER_REGISTRY } from '../crawler-registry'
+import {
+  checkRateLimit,
+  checkSoftRateLimit,
+  createInMemoryRateLimiter,
+  isLikelyCrawler,
+  type RateLimitStore,
+} from '../rate-limiter'
 
 describe('InMemoryRateLimiter', () => {
   let limiter: RateLimitStore
@@ -60,5 +68,69 @@ describe('InMemoryRateLimiter', () => {
     vi.advanceTimersByTime(21_000)
     const allowed = limiter.check('user-1', 60_000, 3)
     expect(allowed.allowed).toBe(true)
+  })
+})
+
+describe('crawler rate-limit boundaries', () => {
+  let ip = 0
+
+  function request(path: string, userAgent: string): NextRequest {
+    ip += 1
+    return new NextRequest(`https://formoria.com${path}`, {
+      headers: {
+        'user-agent': userAgent,
+        'x-forwarded-for': `198.51.100.${ip}`,
+      },
+    })
+  }
+
+  it('never soft-challenges a request whose UA matches any registry crawler', async () => {
+    const cases = [
+      ['Googlebot', 'Googlebot/2.1'],
+      ['Google-InspectionTool', 'Google-InspectionTool/1.0'],
+      ['AdsBot-Google', 'AdsBot-Google/1.0'],
+      ['LINE', 'Linespider/1.0'],
+      ['Threadsbot', 'Threadsbot/1.0'],
+      ['Meta-ExternalFetcher', 'meta-externalfetcher/1.1 (+https://developers.facebook.com/docs/sharing/webmasters/crawler)'],
+      ['facebookexternalhit', 'facebookexternalhit/1.1'],
+      ['Slackbot', 'Slackbot 1.0'],
+    ] as const
+
+    for (const [, userAgent] of cases) {
+      const crawlerRequest = request('/brands/x', userAgent)
+      for (let i = 0; i < 200; i += 1) {
+        expect(await checkSoftRateLimit(crawlerRequest)).toBe(false)
+      }
+    }
+  })
+
+  it('still soft-challenges a normal browser past the limit', async () => {
+    const browserRequest = request(
+      '/brands/x',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36',
+    )
+
+    let challenged = false
+    for (let i = 0; i < 200; i += 1) {
+      challenged = (await checkSoftRateLimit(browserRequest)) || challenged
+    }
+    expect(challenged).toBe(true)
+  })
+
+  it('isLikelyCrawler matches every registry uaPattern', () => {
+    for (const entry of CRAWLER_REGISTRY) {
+      const userAgent = entry.name === 'LINE' ? 'Linespider/1.0' : `${entry.name}/1.0`
+      expect(isLikelyCrawler(request('/brands/x', userAgent))).toBe(true)
+    }
+  })
+
+  it('hard rate limit still applies to a UA-claimed crawler', async () => {
+    const crawlerRequest = request('/api/data', 'Googlebot/2.1')
+
+    let response: Response | null = null
+    for (let i = 0; i < 61; i += 1) {
+      response = await checkRateLimit(crawlerRequest)
+    }
+    expect(response?.status).toBe(429)
   })
 })

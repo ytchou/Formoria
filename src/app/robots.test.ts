@@ -1,29 +1,45 @@
-import { describe, it, expect } from 'vitest'
-import robots from './robots'
+import { describe, expect, it } from 'vitest'
+import { CRAWLER_REGISTRY } from '@/lib/security/crawler-registry'
+import robots, { CONTENT_SIGNAL } from './robots'
+
+function getRules() {
+  const rules = robots().rules
+  return Array.isArray(rules) ? rules : [rules]
+}
+
+function getRule(userAgent: string) {
+  return getRules().find((rule) => rule.userAgent === userAgent)
+}
 
 describe('robots', () => {
-  it('allows all user agents on /', () => {
-    const result = robots()
-    expect(result.rules).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ userAgent: '*', allow: '/' }),
-      ])
-    )
+  it('wildcard rule is found by userAgent, not by index', () => {
+    expect(getRule('*')).toEqual(expect.objectContaining({ userAgent: '*', allow: '/' }))
   })
 
-  it('disallows admin, api, and auth paths but allows submit', () => {
-    const result = robots()
-    const rule = Array.isArray(result.rules) ? result.rules[0] : result.rules
-    expect(rule.disallow).toContain('/admin')
-    expect(rule.disallow).toContain('/api/')
-    expect(rule.disallow).toContain('/auth/')
-    // Auth pages now live under [locale], so the English copies need their own rule.
-    expect(rule.disallow).toContain('/en/auth/')
-    expect(rule.disallow).not.toContain('/submit')
+  it('wildcard rule still disallows admin, api and auth paths', () => {
+    const rule = getRule('*')
+    expect(rule?.disallow).toEqual(expect.arrayContaining(['/admin', '/api/', '/auth/', '/en/auth/']))
+  })
+
+  it('wildcard rule still allows /submit', () => {
+    expect(getRule('*')?.disallow).not.toContain('/submit')
+  })
+
+  it('disallows /challenge', () => {
+    expect(getRule('*')?.disallow).toContain('/challenge')
+  })
+
+  it('emits a per-agent group for every registry entry', () => {
+    for (const entry of CRAWLER_REGISTRY) {
+      expect(getRule(entry.name)).toEqual({ userAgent: entry.name, allow: '/' })
+    }
+  })
+
+  it('declares ai-train=no while allowing search', () => {
+    expect(CONTENT_SIGNAL).toBe('ai-train=no, search=yes, ai-input=yes')
   })
 
   it('references sitemap.xml', () => {
-    const result = robots()
-    expect(result.sitemap).toMatch(/\/sitemap\.xml$/)
+    expect(robots().sitemap).toMatch(/\/sitemap\.xml$/)
   })
 })
