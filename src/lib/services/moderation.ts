@@ -2,7 +2,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import * as supabaseServer from "@/lib/supabase/server";
 import { auditedCall } from "@/lib/audit";
-import { buildReviewUpdate, type ReviewDecision } from "./review-status";
+import {
+  buildReviewUpdate,
+  type ReviewDecision,
+  type ReviewAttribution,
+} from "./review-status";
 
 const SUSPICIOUS_TLDS = [".tk", ".ml", ".ga", ".cf", ".gq"];
 const MAX_URLS_IN_TEXT = 3;
@@ -377,6 +381,7 @@ export async function markFlagsReviewed(brandId: string): Promise<void> {
 export async function updateModerationFlagStatus(
   flagId: string,
   decision: ReviewDecision,
+  attribution?: ReviewAttribution,
 ): Promise<void> {
   return auditedCall(
     { provider: "submissions", operation: "updateModerationFlagStatus", kind: "service" },
@@ -384,7 +389,7 @@ export async function updateModerationFlagStatus(
   const supabase = createModerationClient();
   const { data, error } = await supabase
     .from("moderation_flags")
-    .update(buildReviewUpdate(decision) as ModerationFlagUpdate)
+    .update(buildReviewUpdate(decision, attribution) as ModerationFlagUpdate)
     .eq("id", flagId)
     .eq("status", "pending")
     .select("id")
