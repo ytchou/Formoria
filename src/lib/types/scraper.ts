@@ -28,6 +28,8 @@ export interface ScrapedBrandData {
   textSourceUrl?: string
   /** Which scraped page supplied each winning text field. Additive; consumers may ignore it. */
   textProvenance?: Partial<Record<'brandName' | 'description' | 'story', { sourceUrl: string }>>
+  /** Text retained per source so later identity checks can use non-winning evidence. */
+  perSourceText?: Record<string, { title?: string; description?: string; story?: string }>
   socialInstagram: string | null
   socialThreads: string | null
   socialFacebook: string | null

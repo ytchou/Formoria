@@ -8,6 +8,7 @@ import {
   extractLinksFromUrls,
   hasLinkValue,
   hostMatchesBrandName,
+  isInstitutionalHost,
   isForeignCountryTld,
   linkIdentifiesBrand,
   LINK_FIELDS,
@@ -154,7 +155,11 @@ function prioritizeScrapeUrls(urls: string[]): string[] {
  */
 export function deriveOfficialWebsite(urls: string[], brandName?: string | null): string | null {
   const eligible = urls.filter(
-    (u) => classifyByDomain(u) === null && !isNonBrandSiteHost(u) && !isForeignCountryTld(u),
+    (u) =>
+      classifyByDomain(u) === null &&
+      !isNonBrandSiteHost(u) &&
+      !isForeignCountryTld(u) &&
+      !isInstitutionalHost(u),
   )
   const tokens = brandNameTokens(brandName)
   const matched = eligible.find((u) => hostMatchesBrandName(u, tokens))
@@ -239,6 +244,7 @@ export function deriveScrapedBrandName(
  * one or two profiles the official site just revealed, not to crawl outward.
  */
 const MAX_SECOND_PASS_URLS = 3
+const MAX_ZERO_TOKEN_SOCIAL_URLS = 2
 
 /**
  * ORDER INVARIANT — `purchaseWebsite` must stay ahead of every marketplace
@@ -293,6 +299,7 @@ async function scrapeDiscoveredLinks(
   firstPassData: ScrapedBrandData,
   firstPassUrls: string[],
   options: ScrapeBrandUrlsOptions,
+  urlExtracted: ReturnType<typeof extractLinksFromUrls>,
 ): Promise<ScrapedBrandData> {
   const alreadyScraped = new Set(
     firstPassUrls.slice(0, MAX_SCRAPE_URLS_PER_BRAND).map(scrapeKey),
@@ -308,6 +315,21 @@ async function scrapeDiscoveredLinks(
   )
     .filter((url) => !alreadyScraped.has(scrapeKey(url)))
     .slice(0, MAX_SECOND_PASS_URLS)
+
+  const zeroTokenSocials =
+    brandNameTokens(options.brandName).length === 0
+      ? uniqueUrls(
+          [
+            urlExtracted.social_instagram,
+            urlExtracted.social_threads,
+            urlExtracted.social_facebook,
+          ].filter((url): url is string => typeof url === 'string' && url.trim().length > 0),
+        )
+          .filter((url) => !alreadyScraped.has(scrapeKey(url)) && !candidates.includes(url))
+          .slice(0, MAX_ZERO_TOKEN_SOCIAL_URLS)
+      : []
+
+  candidates.push(...zeroTokenSocials)
 
   if (candidates.length === 0) return firstPassData
 
@@ -383,6 +405,28 @@ function buildQuarantine(
 ): Record<string, QuarantineGroup> {
   const groups: Record<string, QuarantineGroup> = {}
 
+  // Per-source text first: a page that lost the first-wins merge race still has
+  // its own title/description/story recorded, and that is the only evidence the
+  // arbiter can judge it on. `textProvenance` stays as the fallback for scraped
+  // data predating the per-source map — without evidence the arbiter releases.
+  const textForSubject = (
+    field: 'brandName' | 'description' | 'story',
+    subjectUrl: string,
+  ): string | undefined => {
+    const sourceText = Object.entries(scrapedData.perSourceText ?? {}).find(([sourceUrl]) =>
+      sameUrl(sourceUrl, subjectUrl),
+    )?.[1]?.[field === 'brandName' ? 'title' : field]
+    if (typeof sourceText === 'string' && sourceText.trim().length > 0) return sourceText
+
+    const provenanceUrl = scrapedData.textProvenance?.[field]?.sourceUrl
+    if (provenanceUrl && sameUrl(provenanceUrl, subjectUrl)) {
+      const winningText = scrapedData[field]
+      if (typeof winningText === 'string' && winningText.trim().length > 0) return winningText
+    }
+
+    return undefined
+  }
+
   for (const [field, source] of sources) {
     const column = linkColumnFor(field)
     const value = scrapedData[column]
@@ -399,21 +443,11 @@ function buildQuarantine(
     const subjectKind = field === 'purchaseWebsite' ? 'website' : 'source-page'
     const existing = groups[subjectUrl]
     const evidence = {
-      ...(scrapedData.brandName &&
-      scrapedData.textProvenance?.brandName?.sourceUrl &&
-      sameUrl(scrapedData.textProvenance.brandName.sourceUrl, subjectUrl)
-        ? { title: scrapedData.brandName }
+      ...(textForSubject('brandName', subjectUrl) ? { title: textForSubject('brandName', subjectUrl) } : {}),
+      ...(textForSubject('description', subjectUrl)
+        ? { description: textForSubject('description', subjectUrl) }
         : {}),
-      ...(scrapedData.description &&
-      scrapedData.textProvenance?.description?.sourceUrl &&
-      sameUrl(scrapedData.textProvenance.description.sourceUrl, subjectUrl)
-        ? { description: scrapedData.description }
-        : {}),
-      ...(scrapedData.story &&
-      scrapedData.textProvenance?.story?.sourceUrl &&
-      sameUrl(scrapedData.textProvenance.story.sourceUrl, subjectUrl)
-        ? { story: scrapedData.story }
-        : {}),
+      ...(textForSubject('story', subjectUrl) ? { story: textForSubject('story', subjectUrl) } : {}),
     }
 
     if (existing) {
@@ -511,7 +545,7 @@ export async function runLinksPhase({
     }
     const firstPass = urls.length > 0 ? await scrapeBrandUrls(urls, scrapeOptions) : null
     const scrapedFromPages: EnrichScrapedData = firstPass
-      ? await scrapeDiscoveredLinks(firstPass.data, urls, scrapeOptions)
+      ? await scrapeDiscoveredLinks(firstPass.data, urls, scrapeOptions, urlExtracted)
       : ({} as EnrichScrapedData)
     const derivedWebsite = scrapedFromPages.purchaseWebsite ?? deriveOfficialWebsite(urls, brand.name)
     const scrapedData = normalizeScrapedData({

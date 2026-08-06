@@ -352,6 +352,21 @@ export function isForeignCountryTld(url: string): boolean {
   }
 }
 
+export function isInstitutionalHost(url: string): boolean {
+  try {
+    const labels = new URL(url).hostname.toLowerCase().split('.')
+    const last = labels.at(-1)
+    if (last === 'gov' || last === 'edu') return true
+    return (
+      labels.length >= 2 &&
+      ((labels.at(-2) === 'gov' && last === 'tw') ||
+        (labels.at(-2) === 'edu' && last === 'tw'))
+    )
+  } catch {
+    return false
+  }
+}
+
 export function hostMatchesBrandName(url: string, tokens: string[]): boolean {
   if (tokens.length === 0) return false
   try {

@@ -201,12 +201,16 @@ export async function runSiteIdentityPhase(
       const items: SiteIdentityItem[] = []
       const itemByKey = new Map<string, { brand: EnrichBrand; quarantine: SiteIdentityQuarantine }>()
       let escalations = 0
+      const noEvidence: Record<string, number> = { website: 0, 'source-page': 0 }
 
       for (const brand of ctx.chunk) {
         if (ctx.completed?.has(brand.id)) continue
         for (const quarantine of groupsForBrand(quarantinesByBrandId, brand.id)) {
           const evidence = quarantine.evidence
-          if (Object.keys(evidence).length === 0) continue
+          if (Object.keys(evidence).length === 0) {
+            noEvidence[quarantine.subjectKind] += 1
+            continue
+          }
           escalations += 1
           const item: SiteIdentityItem = {
             slug: brand.slug,
@@ -274,6 +278,7 @@ export async function runSiteIdentityPhase(
         Object.assign(ctx.summary, {
           siteIdentity: reasons,
           siteIdentityRung1Escalations: escalations,
+          siteIdentityNoEvidence: noEvidence,
           siteIdentityCalls: outcome.calls,
           siteIdentityProviderFailure: providerFailure,
         })

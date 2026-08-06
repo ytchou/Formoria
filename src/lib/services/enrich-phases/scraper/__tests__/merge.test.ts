@@ -322,3 +322,106 @@ describe('mergeScrapedData provenance', () => {
     ])
   })
 })
+
+describe('mergeScrapedData per-source text', () => {
+  it('records per-source text for every scraped page', () => {
+    const merged = mergeScrapedData([
+      {
+        type: 'official-site',
+        sourceUrl: 'https://brand.example',
+        data: {
+          ...emptyResult('https://brand.example'),
+          brandName: 'Official Brand',
+          description: 'Official description',
+        },
+      },
+      {
+        type: 'social',
+        sourceUrl: 'https://instagram.com/brand',
+        data: {
+          ...emptyResult('https://instagram.com/brand'),
+          description: 'Social description',
+          story: 'Social story',
+        },
+      },
+    ])
+
+    expect(merged.perSourceText).toEqual({
+      'https://brand.example': {
+        title: 'Official Brand',
+        description: 'Official description',
+      },
+      'https://instagram.com/brand': {
+        description: 'Social description',
+        story: 'Social story',
+      },
+    })
+  })
+
+  // `scrapeDiscoveredLinks` re-merges two already-merged blobs with no
+  // `sourceUrl`. If this union is dropped, every second-pass subject silently
+  // carries empty evidence and the arbiter releases it unjudged.
+  it('preserves inner perSourceText when merging without sourceUrl', () => {
+    const firstPass = {
+      ...emptyResult('https://brand.example'),
+      perSourceText: {
+        'https://brand.example': {
+          title: 'Brand',
+          story: 'Stored story',
+        },
+      },
+    }
+    const secondPass = {
+      ...emptyResult('https://instagram.com/brand'),
+      perSourceText: {
+        'https://instagram.com/brand': {
+          description: 'Second-pass description',
+        },
+      },
+    }
+
+    const merged = mergeScrapedData([
+      { type: 'official-site', data: firstPass },
+      { type: 'social', data: secondPass },
+    ])
+
+    expect(merged.perSourceText).toEqual({
+      'https://brand.example': {
+        title: 'Brand',
+        story: 'Stored story',
+      },
+      'https://instagram.com/brand': {
+        description: 'Second-pass description',
+      },
+    })
+  })
+
+  it('leaves first-wins merge semantics unchanged', () => {
+    const official = {
+      ...emptyResult('https://brand.example'),
+      brandName: 'Official Brand',
+      description: 'Official description',
+      story: 'Official story',
+    }
+    const social = {
+      ...emptyResult('https://social.example'),
+      brandName: 'Social Brand',
+      description: 'Social description',
+      story: 'Social story',
+    }
+
+    const merged = mergeScrapedData([
+      { type: 'official-site', sourceUrl: 'https://brand.example', data: official },
+      { type: 'social', sourceUrl: 'https://social.example', data: social },
+    ])
+
+    expect(merged.brandName).toBe('Official Brand')
+    expect(merged.description).toBe('Official description')
+    expect(merged.story).toBe('Official story')
+    expect(merged.textProvenance).toEqual({
+      brandName: { sourceUrl: 'https://brand.example' },
+      description: { sourceUrl: 'https://brand.example' },
+      story: { sourceUrl: 'https://brand.example' },
+    })
+  })
+})

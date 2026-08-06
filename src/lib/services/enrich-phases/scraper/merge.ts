@@ -137,10 +137,45 @@ export function mergeScrapedData(results: ScrapeResult[]): ScrapedBrandData {
   const merged = emptyMergedResult()
   const linkProvenance: Partial<Record<LinkField, { sourceUrl: string }>> = {}
   const textProvenance: NonNullable<ScrapedBrandData['textProvenance']> = {}
+  const perSourceText: NonNullable<ScrapedBrandData['perSourceText']> = {}
   let descriptionSupplied = false
   let textSourceUrl: string | undefined
 
+  const addSourceText = (
+    sourceUrl: string,
+    text: NonNullable<ScrapedBrandData['perSourceText']>[string],
+  ): void => {
+    const existing = perSourceText[sourceUrl] ?? {}
+    for (const field of ['title', 'description', 'story'] as const) {
+      const value = text[field]
+      if (value === undefined) continue
+      if (existing[field] === undefined) {
+        existing[field] = value
+      }
+    }
+    if (Object.keys(existing).length > 0) perSourceText[sourceUrl] = existing
+  }
+
+  const addResultText = (data: ScrapedBrandData, sourceUrl?: string): void => {
+    if (sourceUrl) {
+      const text = {
+        ...(typeof data.brandName === 'string' && data.brandName.trim() ? { title: data.brandName } : {}),
+        ...(typeof data.description === 'string' && data.description.trim()
+          ? { description: data.description }
+          : {}),
+        ...(typeof data.story === 'string' && data.story.trim() ? { story: data.story } : {}),
+      }
+      if (Object.keys(text).length > 0) addSourceText(sourceUrl, text)
+      return
+    }
+
+    for (const [inheritedUrl, text] of Object.entries(data.perSourceText ?? {})) {
+      addSourceText(inheritedUrl, text)
+    }
+  }
+
   for (const { data, sourceUrl } of sortedResults) {
+    addResultText(data, sourceUrl)
     if (!hasValue(merged.brandName) && hasValue(data.brandName)) {
       merged.brandName = data.brandName
       const inherited = sourceUrl ?? data.textProvenance?.brandName?.sourceUrl
@@ -209,6 +244,7 @@ export function mergeScrapedData(results: ScrapeResult[]): ScrapedBrandData {
 
   if (Object.keys(linkProvenance).length > 0) merged.linkProvenance = linkProvenance
   if (Object.keys(textProvenance).length > 0) merged.textProvenance = textProvenance
+  if (Object.keys(perSourceText).length > 0) merged.perSourceText = perSourceText
   if (textSourceUrl) merged.textSourceUrl = textSourceUrl
 
   return merged

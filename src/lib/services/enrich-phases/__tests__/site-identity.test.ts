@@ -55,6 +55,36 @@ describe('site identity quarantine', () => {
     expect(result.phaseResult.status).toBe('skipped')
   })
 
+  it('counts quarantines dropped for empty evidence by subject kind', async () => {
+    const evidence = group({ subjectUrl: 'https://evidence.example' })
+    const website = group({ subjectUrl: 'https://website.example', subjectKind: 'website', evidence: {} })
+    const sourcePage = group({ subjectUrl: 'https://source-page.example', evidence: {} })
+    const summary: Record<string, unknown> = {}
+    arbitrate.mockResolvedValue({ results: new Map(), calls: { attempted: 1, providerFailed: 0 } })
+
+    await runSiteIdentityPhase({ ...ctx(), summary }, new Map([['brand-1', [evidence, website, sourcePage]]]))
+
+    expect(summary.siteIdentityNoEvidence).toEqual({ website: 1, 'source-page': 1 })
+  })
+
+  it('counter is zero when every subject has evidence', async () => {
+    const summary: Record<string, unknown> = {}
+    arbitrate.mockResolvedValue({ results: new Map(), calls: { attempted: 1, providerFailed: 0 } })
+
+    await runSiteIdentityPhase({ ...ctx(), summary }, new Map([['brand-1', [group()]]]))
+
+    expect(summary).toHaveProperty('siteIdentityNoEvidence', { website: 0, 'source-page': 0 })
+  })
+
+  it('dropping for no evidence still releases the value', async () => {
+    const input = group({ evidence: {} })
+
+    const result = await runSiteIdentityPhase(ctx(), new Map([['brand-1', [input]]]))
+
+    expect(input.patch.purchase_website).toBe('https://other.example')
+    expect(result.applications).toEqual(new Map())
+  })
+
   it("revoking this run's own value deletes the patch key", async () => {
     const input = group(); arbitrate.mockResolvedValue({ results: new Map([[siteIdentityKey(brand.slug, input.subjectUrl), { slug: brand.slug, owned: false, confidence: 'high', reason: 'wrong' }]]), calls: { attempted: 1, providerFailed: 0 } })
     const result = await runSiteIdentityPhase(ctx(), new Map([['brand-1', [input]]]))
