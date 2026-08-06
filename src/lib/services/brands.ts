@@ -25,6 +25,7 @@ import {
   deriveCategoryFromProductType,
   matchSubcategory,
   PRODUCT_TYPE_CATEGORIES,
+  subcategoryBySlug,
 } from "@/lib/taxonomy/ontology";
 import { slugifyRomanizedName, withSlugSuffix } from "@/lib/brands/slug";
 import { downloadAndStoreImages } from "./image-download";
@@ -1262,6 +1263,25 @@ type GetBrandsFilters = BrandFilters & {
   includeDetailColumns?: boolean;
 };
 
+/** Expand an ontology selection to every stored spelling of the subcategory. */
+function expandSubcategoryTags(tags: readonly string[] | undefined): string[] {
+  if (!tags || tags.length === 0) return [];
+
+  const expanded = new Set<string>();
+  for (const tag of tags) {
+    const trimmed = tag.trim();
+    if (!trimmed) continue;
+    const subcategory = subcategoryBySlug(trimmed) ?? matchSubcategory(trimmed);
+    if (!subcategory) {
+      expanded.add(trimmed);
+      continue;
+    }
+    expanded.add(subcategory.nameZh);
+    for (const alias of subcategory.aliases) expanded.add(alias);
+  }
+  return [...expanded];
+}
+
 function getBrandsSelect(filters: GetBrandsFilters | undefined): "*" {
   const owned = filters?.verificationFilter === "owned";
   if (filters?.includeDetailColumns) {
@@ -1297,6 +1317,7 @@ export async function getBrands(
   filters?: GetBrandsFilters,
 ): Promise<{ brands: Brand[]; totalCount: number }> {
   const supabase = createServiceClient();
+  const expandedSubcategoryTags = expandSubcategoryTags(filters?.subcategoryTags);
 
   // Search filtering is handled in the bounded, service-only page RPC; this
   // branch only hydrates the returned IDs with the card projection.
@@ -1320,8 +1341,8 @@ export async function getBrands(
       {
         search_query: trimmed,
         filter_categories: filters.category?.length ? filters.category : null,
-        filter_tags: filters.subcategoryTags?.length
-          ? filters.subcategoryTags
+        filter_tags: expandedSubcategoryTags.length
+          ? expandedSubcategoryTags
           : null,
         filter_verification: verificationFilter,
         filter_price_ranges: filters.priceRanges?.length
@@ -1348,8 +1369,8 @@ export async function getBrands(
         {
           search_query: trimmed,
           filter_categories: filters.category?.length ? filters.category : null,
-          filter_tags: filters.subcategoryTags?.length
-            ? filters.subcategoryTags
+          filter_tags: expandedSubcategoryTags.length
+            ? expandedSubcategoryTags
             : null,
           filter_verification: verificationFilter,
           filter_price_ranges: filters.priceRanges?.length
@@ -1414,8 +1435,8 @@ export async function getBrands(
   if (filters?.priceRanges && filters.priceRanges.length > 0) {
     query = query.in("price_range", filters.priceRanges);
   }
-  if (filters?.subcategoryTags && filters.subcategoryTags.length > 0) {
-    query = query.overlaps("product_tags", filters.subcategoryTags);
+  if (expandedSubcategoryTags.length > 0) {
+    query = query.overlaps("product_tags", expandedSubcategoryTags);
   }
 
   // Sorting

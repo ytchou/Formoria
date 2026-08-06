@@ -368,9 +368,15 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
     const editorialDescription = catT.has(`descriptions.${categorySlug}`)
       ? catT(`descriptions.${categorySlug}`)
       : undefined
+    const categoryCanonical = buildDirectoryCanonicals({
+      locale: safeLocale,
+      categorySlug,
+      subcategorySlug: activeSubcategory?.slug,
+      page,
+    }).canonical
     categoryItemListJsonLd = buildCategoryItemListJsonLd(
       categoryName,
-      categorySlug,
+      categoryCanonical,
       displayBrands,
       safeLocale,
       editorialDescription

@@ -1,0 +1,154 @@
+import { describe, expect, it } from 'vitest'
+import { getSiteUrl } from './site-url'
+import {
+  isIndexableTarget,
+  listIndexableTargets,
+  resolveDirectorySeo,
+  type DirectoryState,
+} from './directory-indexation'
+
+const base = getSiteUrl()
+
+function state(overrides: Partial<DirectoryState> = {}): DirectoryState {
+  return {
+    locale: 'zh-TW',
+    page: 1,
+    facets: {},
+    ...overrides,
+  }
+}
+
+describe('resolveDirectorySeo', () => {
+  it('bare directory indexes with a self-canonical', () => {
+    const result = resolveDirectorySeo(state())
+
+    expect(result.robots).toBeUndefined()
+    expect(result.canonical).toBe(`${base}/brands`)
+    expect(result.languages?.en).toBe(`${base}/en/brands`)
+  })
+
+  it('launch-eligible L1 and L2 index with self-canonicals', () => {
+    const l1 = resolveDirectorySeo(state({ categorySlug: 'home' }))
+    const l2 = resolveDirectorySeo(
+      state({ categorySlug: 'home', subcategorySlug: 'furniture' }),
+    )
+
+    expect(l1.robots).toBeUndefined()
+    expect(l1.canonical).toBe(`${base}/categories/home`)
+    expect(l2.robots).toBeUndefined()
+    expect(l2.canonical).toBe(`${base}/categories/home/furniture`)
+  })
+
+  it.each([
+    ['search', { search: '椅子' }, '?search=%E6%A4%85%E5%AD%90'],
+    ['price', { price: ['2'] }, '?price=2'],
+    ['verification', { verification: 'mit-verified' }, '?verification=mit-verified'],
+    ['multi-category', { multiCategory: 'home,fashion' }, '?category=home%2Cfashion'],
+    ['multi-sub', { multiSub: 'furniture,storage' }, '?sub=furniture%2Cstorage'],
+  ] as const)('each %s facet flips noindex-follow with a self-canonical', (_name, facet, query) => {
+    const result = resolveDirectorySeo(
+      state({ categorySlug: 'home', facets: facet }),
+    )
+
+    expect(result.robots).toEqual({ index: false, follow: true })
+    const expectedPath = _name === 'multi-category' ? '/brands' : '/categories/home'
+    expect(result.canonical).toBe(`${base}${expectedPath}${query}`)
+  })
+
+  it('treats a sub without a valid category as a noindex self-canonical', () => {
+    const result = resolveDirectorySeo(
+      state({ subcategorySlug: 'furniture', facets: {} }),
+    )
+
+    expect(result.robots).toEqual({ index: false, follow: true })
+    expect(result.canonical).toBe(`${base}/brands?sub=furniture`)
+    expect(result.languages?.en).toBe(`${base}/en/brands?sub=furniture`)
+  })
+
+  it('category price facet self-canonicalizes with the recognized facet retained', () => {
+    const result = resolveDirectorySeo(
+      state({ categorySlug: 'home', facets: { price: ['2'] } }),
+    )
+
+    expect(result.robots).toEqual({ index: false, follow: true })
+    expect(result.canonical).toBe(`${base}/categories/home?price=2`)
+    expect(result.languages?.en).toBe(`${base}/en/categories/home?price=2`)
+  })
+
+  it('facet precedence retains explicit sort and page in every self-canonical', () => {
+    const result = resolveDirectorySeo(
+      state({
+        categorySlug: 'home',
+        page: 2,
+        facets: { price: ['2'], sort: 'name' },
+      }),
+    )
+
+    expect(result.robots).toEqual({ index: false, follow: true })
+    expect(result.canonical).toBe(`${base}/categories/home?price=2&sort=name&page=2`)
+    expect(result.languages?.en).toBe(
+      `${base}/en/categories/home?price=2&sort=name&page=2`,
+    )
+  })
+
+  it('sort canonicalizes to the unsorted state without noindex', () => {
+    const result = resolveDirectorySeo(
+      state({ categorySlug: 'home', facets: { sort: 'name' } }),
+    )
+
+    expect(result.robots).toBeUndefined()
+    expect(result.canonical).toBe(`${base}/categories/home`)
+  })
+
+  it('page 2 self-canonicalizes retaining page', () => {
+    const result = resolveDirectorySeo(state({ categorySlug: 'home', page: 2 }))
+
+    expect(result.robots).toBeUndefined()
+    expect(result.canonical).toBe(`${base}/categories/home?page=2`)
+  })
+
+  it('non-launch target is noindex-follow, canonicals to parent, and omits languages', () => {
+    const l1 = resolveDirectorySeo(state({ categorySlug: 'tech' }))
+    const l2 = resolveDirectorySeo(
+      state({ categorySlug: 'outdoor', subcategorySlug: 'outdoor-accessories' }),
+    )
+
+    expect(l1.robots).toEqual({ index: false, follow: true })
+    expect(l1.canonical).toBe(`${base}/brands`)
+    expect(l1.languages).toBeUndefined()
+    expect(l2.robots).toEqual({ index: false, follow: true })
+    expect(l2.canonical).toBe(`${base}/categories/outdoor`)
+    expect(l2.languages).toBeUndefined()
+  })
+
+  it('unrecognized params are stripped, not treated as facets', () => {
+    const result = resolveDirectorySeo(state({ facets: { utm_source: 'x' } }))
+
+    expect(result.robots).toBeUndefined()
+    expect(result.canonical).toBe(`${base}/brands`)
+  })
+})
+
+describe('directory indexable targets', () => {
+  it('listIndexableTargets returns only launch-eligible L1/L2 rows', () => {
+    const targets = listIndexableTargets()
+
+    expect(targets.length).toBeGreaterThan(0)
+    expect(targets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ categorySlug: 'home' }),
+        expect.objectContaining({
+          categorySlug: 'home',
+          subcategorySlug: 'furniture',
+        }),
+      ]),
+    )
+    expect(targets.some((target) => target.categorySlug === 'tech')).toBe(false)
+    expect(
+      targets.some((target) => target.subcategorySlug === 'outdoor-accessories'),
+    ).toBe(false)
+    for (const target of targets) {
+      expect(isIndexableTarget(target.categorySlug, target.subcategorySlug)).toBe(true)
+    }
+  })
+})
