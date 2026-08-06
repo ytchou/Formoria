@@ -119,7 +119,17 @@ type ApprovalOutcome =
   | { ok: true; submissionId: string; result: ApprovalResult }
   | { ok: false; submissionId: string; error: string }
 
+type RejectionFailure = {
+  submissionId: string
+  error: string
+}
+
+type RejectionOutcome =
+  | { ok: true; submissionId: string }
+  | { ok: false; submissionId: string; error: string }
+
 const MAX_BULK_APPROVALS = 100
+const MAX_BULK_REJECTIONS = 100
 
 // Bulk approval processes every submission concurrently, and the whole
 // action only responds once every item has settled. One submission that
@@ -129,10 +139,13 @@ const MAX_BULK_APPROVALS = 100
 // response never waits on the single slowest one.
 const APPROVAL_ITEM_TIMEOUT_MS = 20_000
 
-function withApprovalTimeout<T>(promise: Promise<T>): Promise<T> {
+function withApprovalTimeout<T>(
+  promise: Promise<T>,
+  message = 'Approval is taking longer than expected — check back shortly'
+): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
-      reject(new Error('Approval is taking longer than expected — check back shortly'))
+      reject(new Error(message))
     }, APPROVAL_ITEM_TIMEOUT_MS)
     promise.then(
       (value) => {
@@ -514,6 +527,41 @@ export async function requestBrandRefreshAction(
   });
 }
 
+/**
+ * The single item workflow behind both the per-row and the bulk rejection
+ * action, so single and bulk behavior cannot drift.
+ * `scripts/reject-skipped-submissions.ts` mirrors this by comment, not by
+ * import — it deliberately omits the notification email.
+ */
+async function rejectSubmissionForAdmin(
+  submissionId: string,
+  reviewerId: string,
+  denialReason: DenialReason,
+  notes: string
+): Promise<void> {
+  const submission = await getSubmission(submissionId)
+  await rejectSubmission(submissionId, reviewerId, denialReason, notes)
+
+  if (
+    submission.intent !== 'refresh' &&
+    !isGeneratedGuestSubmissionEmail(submission.submitterEmail)
+  ) {
+    await sendEmail(await buildRejectionEmail({
+      submitterEmail: submission.submitterEmail,
+      brandName: submission.brandName,
+      denialReason,
+      reviewerNotes: notes,
+    }))
+  }
+}
+
+function revalidateRejections(): void {
+  revalidatePath('/admin/submissions')
+  // getAdminNavCounts() drives the nav badges, so the dashboard shell has to be
+  // revalidated alongside the queue page itself.
+  revalidatePath('/admin')
+}
+
 export async function rejectSubmissionAction(
   submissionId: string,
   denialReason: DenialReason,
@@ -532,26 +580,111 @@ export async function rejectSubmissionAction(
         return { error: 'Notes are required when using "Other" reason' }
       }
 
-      const submission = await getSubmission(submissionId)
-      await rejectSubmission(submissionId, auth.user.id, denialReason, notes)
+      await rejectSubmissionForAdmin(
+        submissionId,
+        auth.user.id,
+        denialReason,
+        notes
+      )
 
-      if (
-        submission.intent !== 'refresh' &&
-        !isGeneratedGuestSubmissionEmail(submission.submitterEmail)
-      ) {
-        await sendEmail(await buildRejectionEmail({
-          submitterEmail: submission.submitterEmail,
-          brandName: submission.brandName,
-          denialReason,
-          reviewerNotes: notes,
-        }))
-      }
-
-      revalidatePath('/admin/submissions')
-      revalidatePath('/admin')
+      revalidateRejections()
       return undefined
     } catch (err) {
       console.error('[admin:rejectSubmission]', err)
+      return {
+        error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      }
+    }
+  });
+}
+
+/**
+ * One bulk Server Action per intent (docs/patterns/bulk-server-action-dispatch.md).
+ * Next.js 16 serializes Server Actions dispatched from one client, so the
+ * previous `Promise.all` over the per-item action was a client-to-server
+ * waterfall that got slower in proportion to the selection.
+ *
+ * Concurrency: rejection has NO shared write set. `reject_submission` locks the
+ * one `brand_submissions` row it rejects, deletes only that submission's own
+ * `submission_images`, and never touches `brands`. Two rejections of two
+ * submissions for the same brand therefore cannot contend — unlike
+ * `reviewCorrections`, which has to group per `brand_id` because it writes
+ * through to `brands`. Flat concurrency is safe here for the same reason it is
+ * in `reviewEvidenceBatch`.
+ */
+export async function rejectSubmissionsAction(
+  submissionIds: string[],
+  denialReason: DenialReason
+): Promise<{ failures: RejectionFailure[] } | { error: string }> {
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction()
+      if ('error' in auth) return auth
+      if (!Array.isArray(submissionIds)) {
+        return { error: 'Invalid bulk rejection selection' }
+      }
+
+      const ids = [...new Set(submissionIds)]
+      if (
+        ids.length === 0 ||
+        ids.length > MAX_BULK_REJECTIONS ||
+        ids.some((id) => typeof id !== 'string' || id.length === 0 || id.length > 64)
+      ) {
+        return { error: 'Invalid bulk rejection selection' }
+      }
+
+      if (!DENIAL_REASONS.includes(denialReason)) {
+        return { error: 'Invalid denial reason' }
+      }
+
+      // The bulk flow carries one reason for the whole selection and no notes,
+      // so "Other" — which requires per-submission notes — is not offered.
+      if (denialReason === 'other') {
+        return { error: 'Notes are required when using "Other" reason' }
+      }
+
+      const outcomes = await Promise.all(
+        ids.map(async (submissionId): Promise<RejectionOutcome> => {
+          try {
+            await withApprovalTimeout(
+              rejectSubmissionForAdmin(
+                submissionId,
+                auth.user.id,
+                denialReason,
+                ''
+              ),
+              'Rejection is taking longer than expected — check back shortly'
+            )
+            return { ok: true, submissionId }
+          } catch (err) {
+            console.error('[admin:rejectSubmissions]', { submissionId, error: err })
+            return {
+              ok: false,
+              submissionId,
+              error:
+                err instanceof Error ? err.message : 'An unexpected error occurred',
+            }
+          }
+        })
+      )
+
+      if (outcomes.some((outcome) => outcome.ok)) {
+        try {
+          revalidateRejections()
+        } catch (err) {
+          console.error('[admin:rejectSubmissions] revalidate failed:', err)
+        }
+      }
+
+      return {
+        failures: outcomes.flatMap((outcome) =>
+          outcome.ok
+            ? []
+            : [{ submissionId: outcome.submissionId, error: outcome.error }]
+        ),
+      }
+    } catch (err) {
+      console.error('[admin:rejectSubmissions]', err)
       return {
         error: err instanceof Error ? err.message : 'An unexpected error occurred',
       }
