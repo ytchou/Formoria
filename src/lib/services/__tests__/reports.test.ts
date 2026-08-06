@@ -1,5 +1,10 @@
-import { describe, it, expect } from 'vitest'
-import { buildReportRecord, enrichReporterRows } from '@/lib/services/reports'
+import { describe, it, expect, vi } from 'vitest'
+import {
+  buildReportRecord,
+  enrichReporterRows,
+  updateReportStatus,
+  type UpdateReportStatusDeps,
+} from '@/lib/services/reports'
 
 describe('buildReportRecord', () => {
   it('maps all fields to snake_case', () => {
@@ -75,5 +80,37 @@ describe('enrichReporterRows', () => {
     expect(enriched[1]).toMatchObject({ reporterEmail: 'owner@example.com' })
     expect(enriched[1].brandHasOwner).toBeUndefined()
     expect(enriched[2].reporterEmail).toBeUndefined()
+  })
+})
+
+describe('updateReportStatus', () => {
+  it('updateReportStatus refuses an already-decided report', async () => {
+    const claim = vi.fn(async () => ({ count: 0, error: null }))
+    const deps: UpdateReportStatusDeps = { claim }
+
+    const result = await updateReportStatus(
+      '4f2a9d31-8b67-4c05-ae19-7d3f6b2c1a80',
+      'reviewed',
+      undefined,
+      deps,
+    )
+
+    expect(result).toEqual({ ok: false, code: 'already_reviewed' })
+    expect(result).not.toEqual({ ok: true })
+    expect(claim).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns success when the pending report is claimed', async () => {
+    const claim = vi.fn(async () => ({ count: 1, error: null }))
+    const deps: UpdateReportStatusDeps = { claim }
+
+    const result = await updateReportStatus(
+      '5a3b8e42-9c78-4d16-bf20-8e4a7c3d2b91',
+      'dismissed',
+      { reviewerId: '6b4c9f53-ad89-4e27-c031-9f5b8d4e3c02' },
+      deps,
+    )
+
+    expect(result).toEqual({ ok: true })
   })
 })

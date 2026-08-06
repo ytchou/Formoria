@@ -56,6 +56,12 @@ import {
   type CorrectionBatchFailure,
   type CorrectionDecision,
 } from '@/lib/services/brand-corrections'
+import {
+  reviewEvidenceBatch,
+  validateEvidenceBatch,
+  type EvidenceBatchFailure,
+  type OriginEvidenceDecision,
+} from '@/lib/services/origin-evidence'
 import { adminRemoveChannel } from '@/lib/services/brand-channels'
 import { FEATURE_FLAGS, setAppSetting } from '@/lib/services/app-settings'
 import { DENIAL_REASONS, type DenialReason, type OtherUrl } from '@/lib/types'
@@ -433,6 +439,43 @@ export async function reviewCorrectionsAction(
       return result
     } catch (err) {
       console.error('[admin:reviewCorrections]', err)
+      return {
+        error: err instanceof Error ? err.message : 'An unexpected error occurred',
+      }
+    }
+  })
+}
+
+export async function reviewEvidenceBatchAction(
+  evidenceIds: string[],
+  decision: OriginEvidenceDecision,
+  notes: string,
+): Promise<{ failures: EvidenceBatchFailure[] } | { error: string }> {
+  return runWithAuditContext({}, async () => {
+    try {
+      const auth = await requireAdminAction()
+      if ('error' in auth) return auth
+
+      const validated = validateEvidenceBatch(evidenceIds)
+      if (!validated.ok) return { error: validated.error }
+
+      if (decision !== 'approved' && decision !== 'rejected') {
+        return { error: 'Invalid evidence decision' }
+      }
+
+      const result = await reviewEvidenceBatch(
+        validated.ids,
+        decision,
+        notes,
+        { reviewerId: auth.user.id }
+      )
+      if ('error' in result) return result
+
+      revalidatePath('/admin/evidence')
+      revalidatePath('/admin')
+      return result
+    } catch (err) {
+      console.error('[admin:reviewEvidenceBatch]', err)
       return {
         error: err instanceof Error ? err.message : 'An unexpected error occurred',
       }
@@ -850,14 +893,23 @@ export async function adminRemoveChannelAction(
 
 export async function reviewReportAction(
   reportId: string,
-  decision: 'reviewed' | 'dismissed'
+  decision: 'reviewed' | 'dismissed',
+  notes?: string,
 ): Promise<{ error: string } | undefined> {
   return runWithAuditContext({}, async () => {
     try {
       const auth = await requireAdminAction()
       if ('error' in auth) return auth
 
-      await updateReportStatus(reportId, decision)
+      if (decision !== 'reviewed' && decision !== 'dismissed') {
+        return { error: 'Invalid report decision' }
+      }
+
+      const result = await updateReportStatus(reportId, decision, {
+        reviewerId: auth.user.id,
+        ...(notes !== undefined ? { notes } : {}),
+      })
+      if (!result.ok) return { error: result.code }
 
       revalidatePath('/admin/reports')
       revalidatePath('/admin')

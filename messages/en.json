@@ -2441,6 +2441,8 @@
         "approve": "Approve",
         "reject": "Reject"
       },
+      "bulkApprove": "Approve {count} selected",
+      "bulkReject": "Reject {count} selected",
       "reviewerNotesPlaceholder": "Add notes about this decision",
       "stripDeclaration": "Remove declaration",
       "unknownBrand": "Unknown brand",
@@ -2450,6 +2452,50 @@
       "errors": {
         "notesRequired": "Reviewer notes are required when rejecting evidence.",
         "generic": "Unable to review evidence. Please try again."
+      }
+    },
+    "reports": {
+      "title": "Brand Reports",
+      "description": "Review brand issues reported by the community",
+      "table": {
+        "brand": "Brand",
+        "reason": "Reason",
+        "date": "Date",
+        "status": "Status"
+      },
+      "reasons": {
+        "not_mit": "Not a Taiwanese Brand",
+        "incorrect_info": "Incorrect information",
+        "broken_link": "Broken link",
+        "inappropriate": "Inappropriate content",
+        "ownership_dispute": "Ownership dispute",
+        "removal_request": "Removal request"
+      },
+      "statuses": {
+        "pending": "Pending",
+        "reviewed": "Reviewed",
+        "dismissed": "Dismissed"
+      },
+      "actions": {
+        "markReviewed": "Mark reviewed",
+        "dismiss": "Dismiss"
+      },
+      "notes": "Additional notes",
+      "reporterEmail": "Reporter email",
+      "unavailable": "Unavailable",
+      "reviewerNotes": "Reviewer notes",
+      "reviewerNotesPlaceholder": "Add notes about this decision",
+      "revoke": {
+        "reasonLabel": "Revocation reason",
+        "trigger": "Revoke ownership",
+        "confirmTitle": "Revoke ownership?",
+        "confirmDescription": "This removes the current owner from {brand}. The owner will be notified by email.",
+        "confirmLabel": "Confirm revoke"
+      },
+      "unknownBrand": "Unknown brand",
+      "empty": "No pending reports.",
+      "errors": {
+        "generic": "Unable to update this report. Please try again."
       }
     },
     "corrections": {

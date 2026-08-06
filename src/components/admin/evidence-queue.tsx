@@ -1,299 +1,396 @@
-'use client'
+"use client";
 
-import { Fragment, useState, useTransition } from 'react'
-import { useLocale, useTranslations } from 'next-intl'
-import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Label } from '@/components/ui/label'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Textarea } from '@/components/ui/textarea'
+import { useMemo, useState, type ReactNode } from "react";
+import { useLocale, useTranslations } from "next-intl";
+
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import type {
   OriginEvidence,
+  EvidenceBatchFailure,
   OriginEvidenceDecision,
   OriginEvidenceStatus,
-} from '@/lib/services/origin-evidence'
-import { cn } from '@/lib/utils'
+} from "@/lib/services/origin-evidence";
+import {
+  ReviewDecisionPanel,
+  ReviewQueueDrawer,
+  ReviewQueuePagination,
+  ReviewQueueTable,
+  ReviewQueueToolbar,
+  reviewStatusVariant,
+  type ReviewBulkAction,
+  type ReviewColumn,
+  type ReviewFilter,
+  type ReviewTab,
+  useQueueAction,
+  useReviewQueue,
+} from "./queue";
 
-type TabValue = 'all' | OriginEvidenceStatus
+type TabValue = "all" | OriginEvidenceStatus;
+
 type ReviewAction = (
   id: string,
   decision: OriginEvidenceDecision,
   notes: string,
-  tierAction?: 'strip_declaration',
-) => Promise<{ error?: string } | undefined>
+  tierAction?: "strip_declaration",
+) => Promise<{ error?: string } | undefined>;
 
-const TAB_VALUES: TabValue[] = ['all', 'pending', 'approved', 'rejected']
+type BulkReviewAction = (
+  ids: string[],
+  decision: OriginEvidenceDecision,
+  notes: string,
+) => Promise<{ failures: EvidenceBatchFailure[] } | { error: string }>;
 
-const STATUS_CLASSES: Record<OriginEvidenceStatus, string> = {
-  pending: 'bg-muted text-muted-foreground',
-  approved: 'bg-verified-green-bg text-verified-green',
-  rejected: 'bg-cta/10 text-destructive',
+const TAB_VALUES: TabValue[] = ["all", "pending", "approved", "rejected"];
+
+function formatDate(date: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    timeZone: "Asia/Taipei",
+  }).format(new Date(date));
 }
 
 export function EvidenceQueue({
   evidence,
   reviewAction,
+  bulkReviewAction,
 }: {
-  evidence: OriginEvidence[]
-  reviewAction?: ReviewAction
+  evidence: OriginEvidence[];
+  reviewAction?: ReviewAction;
+  bulkReviewAction?: BulkReviewAction;
 }) {
-  const t = useTranslations('admin.evidence')
-  const locale = useLocale()
-  const [activeTab, setActiveTab] = useState<TabValue>('pending')
-  const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [reviewerNotes, setReviewerNotes] = useState('')
-  const [stripDeclaration, setStripDeclaration] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
+  const t = useTranslations("admin.evidence");
+  const queueT = useTranslations("admin.queue");
+  const locale = useLocale();
+  const queueAction = useQueueAction();
+  const [stripDeclaration, setStripDeclaration] = useState(false);
 
-  const filtered = activeTab === 'all'
-    ? evidence
-    : evidence.filter((item) => item.status === activeTab)
+  const tabs = useMemo<ReviewTab<OriginEvidence>[]>(
+    () =>
+      TAB_VALUES.map((value) => ({
+        value,
+        label: t(`tabs.${value}`),
+        match: (item) => value === "all" || item.status === value,
+      })),
+    [t],
+  );
 
-  const tabCounts: Record<TabValue, number> = {
-    all: evidence.length,
-    pending: evidence.filter((item) => item.status === 'pending').length,
-    approved: evidence.filter((item) => item.status === 'approved').length,
-    rejected: evidence.filter((item) => item.status === 'rejected').length,
+  const filters = useMemo<ReviewFilter<OriginEvidence>[]>(
+    () => [
+      {
+        id: "search",
+        kind: "search",
+        label: queueT("search"),
+        placeholder: queueT("searchPlaceholder"),
+        predicate: (item, value) => {
+          const query =
+            typeof value === "string" ? value.trim().toLocaleLowerCase() : "";
+          if (!query) return true;
+
+          return [item.brandName ?? "", item.productName ?? ""].some(
+            (candidate) => candidate.toLocaleLowerCase().includes(query),
+          );
+        },
+      },
+    ],
+    [queueT],
+  );
+
+  const queue = useReviewQueue({
+    items: evidence,
+    getId: (item) => item.id,
+    tabs,
+    filters,
+    initialTab: "pending",
+    isSelectable: (item) => item.status === "pending",
+  });
+
+  function getRowName(item: OriginEvidence): string {
+    return item.brandName ?? t("unknownBrand");
   }
 
-  function handleRowClick(id: string) {
-    setExpandedId((current) => (current === id ? null : id))
-    setReviewerNotes('')
-    setStripDeclaration(false)
-    setError(null)
+  function canStripDeclaration(item: OriginEvidence): boolean {
+    return item.brandMitStatus === "declared" && item.stance === "contradicts";
   }
 
-  function handleReview(item: OriginEvidence, decision: OriginEvidenceDecision) {
-    const notes = reviewerNotes.trim()
-    if (decision === 'rejected' && !notes) {
-      setError(t('errors.notesRequired'))
-      return
-    }
-    if (decision === 'approved' && stripDeclaration && !notes) {
-      setError(t('errors.notesRequired'))
-      return
+  function renderPhotos(item: OriginEvidence): ReactNode {
+    if (!item.photos.some((photo) => photo.signedUrl)) return null;
+
+    return (
+      <div>
+        <p className="type-metadata">{t("fields.photos")}</p>
+        <div className="mt-2 flex flex-wrap gap-3">
+          {item.photos.map((photo, index) =>
+            photo.signedUrl ? (
+              <a
+                key={photo.path}
+                href={photo.signedUrl}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element -- Private signed evidence URLs are short-lived review thumbnails. */}
+                <img
+                  src={photo.signedUrl}
+                  alt={t("photoAlt", { index: index + 1 })}
+                  className="h-20 w-20 rounded-md border border-border object-cover"
+                />
+              </a>
+            ) : null,
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  const columns: ReviewColumn<OriginEvidence>[] = [
+    {
+      id: "brand",
+      header: t("table.brand"),
+      cell: (item) => getRowName(item),
+      cellClassName: "font-medium",
+    },
+    {
+      id: "stance",
+      header: t("table.stance"),
+      cell: (item) => t(`stances.${item.stance}`),
+      cellClassName: "min-w-56 whitespace-normal",
+    },
+    {
+      id: "product",
+      header: t("table.product"),
+      cell: (item) => item.productName ?? t("notProvided"),
+    },
+    {
+      id: "date",
+      header: t("table.date"),
+      cell: (item) => formatDate(item.createdAt, locale),
+    },
+    {
+      id: "status",
+      header: t("table.status"),
+      cell: (item) => (
+        <Badge variant={reviewStatusVariant(item.status)}>
+          {t(`tabs.${item.status}`)}
+        </Badge>
+      ),
+    },
+  ];
+
+  function runSingle(
+    item: OriginEvidence,
+    decision: OriginEvidenceDecision,
+    notes: string,
+  ) {
+    if (decision === "approved" && stripDeclaration && !notes.trim()) {
+      queueAction.setError(t("errors.notesRequired"));
+      return;
     }
 
-    startTransition(async () => {
-      setError(null)
-      try {
-        const tierAction = decision === 'approved' &&
-          item.brandMitStatus === 'declared' &&
-          stripDeclaration
-          ? 'strip_declaration'
-          : undefined
-        const result = await reviewAction?.(item.id, decision, notes, tierAction)
-        if (result?.error) {
-          setError(t('errors.generic'))
-          return
+    const tierAction =
+      decision === "approved" &&
+      item.brandMitStatus === "declared" &&
+      item.stance === "contradicts" &&
+      stripDeclaration
+        ? "strip_declaration"
+        : undefined;
+
+    void queueAction.run(
+      [item.id],
+      async () => {
+        try {
+          const result = await reviewAction?.(
+            item.id,
+            decision,
+            notes,
+            tierAction,
+          );
+          return result?.error ? { error: t("errors.generic") } : undefined;
+        } catch {
+          return { error: t("errors.generic") };
         }
-        setReviewerNotes('')
-        setStripDeclaration(false)
-      } catch {
-        setError(t('errors.generic'))
-      }
-    })
+      },
+      {
+        onResult: (result) => {
+          if (result.ok) {
+            queue.setOpenId(null);
+          }
+        },
+      },
+    );
   }
 
-  function formatDate(date: string) {
-    return new Intl.DateTimeFormat(locale, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    }).format(new Date(date))
+  function runBulk(items: OriginEvidence[], decision: OriginEvidenceDecision) {
+    const ids = items.map((item) => item.id);
+    queueAction.runBulk(
+      ids,
+      async () => {
+        try {
+          const result = await bulkReviewAction?.(ids, decision, "");
+          if (!result) return undefined;
+          if ("error" in result || result.failures.length > 0) {
+            return { error: t("errors.generic") };
+          }
+          return undefined;
+        } catch {
+          return { error: t("errors.generic") };
+        }
+      },
+      {
+        onResult: (result) => {
+          if (result.ok) queue.clearSelection();
+        },
+      },
+    );
   }
+
+  function openItem(item: OriginEvidence) {
+    queueAction.clearError();
+    setStripDeclaration(false);
+    queue.toggleOpen(item.id);
+  }
+
+  const bulkActions: ReviewBulkAction<OriginEvidence>[] = [
+    {
+      id: "approve",
+      label: (count) => t("bulkApprove", { count }),
+      pending: queueAction.isPending,
+      onRun: (items) => runBulk(items, "approved"),
+    },
+    {
+      id: "reject",
+      label: (count) => t("bulkReject", { count }),
+      variant: "secondary",
+      pending: queueAction.isPending,
+      onRun: (items) => runBulk(items, "rejected"),
+    },
+  ];
+
+  const openItemValue =
+    evidence.find((item) => item.id === queue.openId) ?? null;
 
   return (
-    <div>
-      <Tabs
-        value={activeTab}
-        onValueChange={(value) => setActiveTab(value as TabValue)}
+    <div className="space-y-4">
+      <ReviewQueueToolbar queue={queue} />
+
+      <ReviewQueueTable
+        queue={queue}
+        columns={columns}
+        emptyMessage={t("noEvidence")}
+        getRowName={getRowName}
+        selectAllLabel={queueT("selectAll")}
+        bulkActions={bulkActions}
+        onRowActivate={openItem}
+        isRowPending={(item) => queueAction.isRowPending(item.id)}
+        // The drawer's decision panel already renders the action error while it
+        // is open; surfacing it here too would emit two role="alert" nodes.
+        error={openItemValue === null ? queueAction.error : null}
+        disclosureControlsId={(item) => `evidence-details-${item.id}`}
+        disclosureLabel={(item, expanded) =>
+          queueT(expanded ? "hideDetails" : "showDetails", {
+            name: getRowName(item),
+          })
+        }
+      />
+
+      <ReviewQueuePagination
+        queue={queue}
+        labels={{
+          summary: ({ from, to, total }) =>
+            queueT("paginationSummary", { from, to, total }),
+          pageSize: queueT("pageSize"),
+          previous: queueT("previousPage"),
+          next: queueT("nextPage"),
+        }}
+      />
+
+      <ReviewQueueDrawer
+        item={openItemValue}
+        open={openItemValue !== null}
+        onClose={() => {
+          queue.setOpenId(null);
+          setStripDeclaration(false);
+        }}
+        title={(item) => getRowName(item)}
+        metadata={(item) => (
+          <p className="type-metadata">
+            {t(`stances.${item.stance}`)} · {formatDate(item.createdAt, locale)}
+          </p>
+        )}
+        bodyId={(item) => `evidence-details-${item.id}`}
+        footer={
+          openItemValue?.status === "pending"
+            ? (item) => (
+                <div className="space-y-4 pt-5">
+                  {canStripDeclaration(item) ? (
+                    <Label className="min-h-12 cursor-pointer gap-3 text-sm">
+                      <Checkbox
+                        checked={stripDeclaration}
+                        onCheckedChange={setStripDeclaration}
+                        disabled={queueAction.isPending}
+                      />
+                      <span>{t("stripDeclaration")}</span>
+                    </Label>
+                  ) : null}
+                  <ReviewDecisionPanel
+                    onApprove={(notes) => runSingle(item, "approved", notes)}
+                    onReject={(notes) => runSingle(item, "rejected", notes)}
+                    approveLabel={t("actions.approve")}
+                    rejectLabel={t("actions.reject")}
+                    notesPolicy="requiredOnReject"
+                    notesLabel={t("fields.reviewerNotes")}
+                    notesPlaceholder={t("reviewerNotesPlaceholder")}
+                    isPending={queueAction.isPending}
+                    error={queueAction.error}
+                  />
+                </div>
+              )
+            : undefined
+        }
       >
-        <TabsList>
-          {TAB_VALUES.map((tab) => (
-            <TabsTrigger key={tab} value={tab}>
-              {t(`tabs.${tab}`)} ({tabCounts[tab]})
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
+        {(item) => (
+          <div className="space-y-6">
+            <dl className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <dt className="type-metadata">{t("fields.stance")}</dt>
+                <dd className="mt-1 text-sm">{t(`stances.${item.stance}`)}</dd>
+              </div>
+              <div>
+                <dt className="type-metadata">{t("fields.product")}</dt>
+                <dd className="mt-1 text-sm">
+                  {item.productName ?? t("notProvided")}
+                </dd>
+              </div>
+              <div>
+                <dt className="type-metadata">{t("fields.sourceType")}</dt>
+                <dd className="mt-1 text-sm">
+                  {t(`sourceTypes.${item.sourceType}`)}
+                </dd>
+              </div>
+              <div className="sm:col-span-2">
+                <dt className="type-metadata">{t("fields.notes")}</dt>
+                <dd className="mt-1 whitespace-pre-wrap text-sm">
+                  {item.notes}
+                </dd>
+              </div>
+            </dl>
 
-      <div className="mt-4 rounded-lg border bg-background">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('table.brand')}</TableHead>
-              <TableHead>{t('table.stance')}</TableHead>
-              <TableHead>{t('table.product')}</TableHead>
-              <TableHead>{t('table.date')}</TableHead>
-              <TableHead>{t('table.status')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.map((item) => (
-              <Fragment key={item.id}>
-                <TableRow
-                  aria-expanded={expandedId === item.id}
-                  className="cursor-pointer hover:bg-secondary"
-                  onClick={() => handleRowClick(item.id)}
-                >
-                  <TableCell className="font-medium">
-                    {item.brandName ?? t('unknownBrand')}
-                  </TableCell>
-                  <TableCell>
-                    {expandedId === item.id ? null : t(`stances.${item.stance}`)}
-                  </TableCell>
-                  <TableCell>{item.productName ?? t('notProvided')}</TableCell>
-                  <TableCell>{formatDate(item.createdAt)}</TableCell>
-                  <TableCell>
-                    <span
-                      className={cn(
-                        'inline-flex items-center rounded-full px-2.5 py-0.5 type-field-label',
-                        STATUS_CLASSES[item.status],
-                      )}
-                    >
-                      {t(`tabs.${item.status}`)}
-                    </span>
-                  </TableCell>
-                </TableRow>
+            {renderPhotos(item)}
 
-                {expandedId === item.id && (
-                  <TableRow>
-                    <TableCell colSpan={5} className="bg-background p-6 whitespace-normal">
-                      <div className="space-y-5">
-                        <dl className="grid gap-4 sm:grid-cols-2">
-                          <div>
-                            <dt className="type-metadata">{t('fields.stance')}</dt>
-                            <dd className="mt-1 text-sm">{t(`stances.${item.stance}`)}</dd>
-                          </div>
-                          <div>
-                            <dt className="type-metadata">{t('fields.product')}</dt>
-                            <dd className="mt-1 text-sm">
-                              {item.productName ?? t('notProvided')}
-                            </dd>
-                          </div>
-                          <div>
-                            <dt className="type-metadata">{t('fields.sourceType')}</dt>
-                            <dd className="mt-1 text-sm">
-                              {t(`sourceTypes.${item.sourceType}`)}
-                            </dd>
-                          </div>
-                          <div className="sm:col-span-2">
-                            <dt className="type-metadata">{t('fields.notes')}</dt>
-                            <dd className="mt-1 whitespace-pre-wrap text-sm">{item.notes}</dd>
-                          </div>
-                        </dl>
-
-                        {item.photos.some((photo) => photo.signedUrl) && (
-                          <div>
-                            <p className="type-metadata">{t('fields.photos')}</p>
-                            <div className="mt-2 flex flex-wrap gap-3">
-                              {item.photos.map((photo, index) => photo.signedUrl ? (
-                                <a
-                                  key={photo.path}
-                                  href={photo.signedUrl}
-                                  target="_blank"
-                                  rel="noreferrer noopener"
-                                  className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                  onClick={(event) => event.stopPropagation()}
-                                >
-                                  {/* eslint-disable-next-line @next/next/no-img-element -- Private signed evidence URLs are short-lived review thumbnails. */}
-                                  <img
-                                    src={photo.signedUrl}
-                                    alt={t('photoAlt', { index: index + 1 })}
-                                    className="h-20 w-20 rounded-md border border-border object-cover"
-                                  />
-                                </a>
-                              ) : null)}
-                            </div>
-                          </div>
-                        )}
-
-                        {item.reviewerNotes && (
-                          <div>
-                            <p className="type-metadata">{t('fields.reviewerNotes')}</p>
-                            <p className="mt-1 whitespace-pre-wrap text-sm">
-                              {item.reviewerNotes}
-                            </p>
-                          </div>
-                        )}
-
-                        {error && (
-                          <p className="text-sm text-destructive" role="alert">
-                            {error}
-                          </p>
-                        )}
-
-                        {item.status === 'pending' && (
-                          <div
-                            className="max-w-xl space-y-3"
-                            onClick={(event) => event.stopPropagation()}
-                          >
-                            <Textarea
-                              aria-label={t('fields.reviewerNotes')}
-                              placeholder={t('reviewerNotesPlaceholder')}
-                              value={reviewerNotes}
-                              onChange={(event) => {
-                                setReviewerNotes(event.target.value)
-                                setError(null)
-                              }}
-                              disabled={isPending}
-                            />
-
-                            {item.brandMitStatus === 'declared' && item.stance === 'contradicts' && (
-                              <Label className="min-h-12 cursor-pointer gap-3 text-sm">
-                                <Checkbox
-                                  checked={stripDeclaration}
-                                  onCheckedChange={setStripDeclaration}
-                                  disabled={isPending}
-                                />
-                                <span>{t('stripDeclaration')}</span>
-                              </Label>
-                            )}
-
-                            <div className="flex flex-wrap gap-3">
-                              <Button
-                                onClick={() => handleReview(item, 'approved')}
-                                disabled={isPending}
-                              >
-                                {t('actions.approve')}
-                              </Button>
-                              <Button
-                                variant="destructive"
-                                onClick={() => handleReview(item, 'rejected')}
-                                disabled={isPending}
-                              >
-                                {t('actions.reject')}
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </Fragment>
-            ))}
-
-            {filtered.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
-                  {t('noEvidence')}
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+            {item.reviewerNotes ? (
+              <div>
+                <p className="type-metadata">{t("fields.reviewerNotes")}</p>
+                <p className="mt-1 whitespace-pre-wrap text-sm">
+                  {item.reviewerNotes}
+                </p>
+              </div>
+            ) : null}
+          </div>
+        )}
+      </ReviewQueueDrawer>
     </div>
-  )
+  );
 }

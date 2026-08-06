@@ -82,6 +82,12 @@ function rowFor(brandName: string): HTMLElement {
   return screen.getByRole("row", { name: new RegExp(brandName) });
 }
 
+function proposedCellFor(row: HTMLElement, text: string): HTMLElement {
+  const cell = within(row).getByText(text).closest("td");
+  if (!cell) throw new Error(`No cell renders "${text}"`);
+  return cell as HTMLElement;
+}
+
 function disclosureName(brandName: string, expanded = false): string {
   const template = expanded
     ? messages.admin.queue.hideDetails
@@ -260,11 +266,14 @@ describe("CorrectionsQueue", () => {
     renderQueue([social]);
 
     const row = rowFor(social.brandName ?? "");
-    expect(within(row).getByText(INSTAGRAM_URL)).toBeInTheDocument();
     expect(
       within(row).getByText(messages.admin.corrections.fields.social_instagram),
     ).toBeInTheDocument();
-    expect(within(row).queryByText(NOT_AVAILABLE)).toBeNull();
+    // Scoped to the Proposed cell: Current legitimately reads "Not available"
+    // for a link field whose currentValue is null.
+    const proposed = proposedCellFor(row, INSTAGRAM_URL);
+    expect(within(proposed).getByText(INSTAGRAM_URL)).toBeInTheDocument();
+    expect(within(proposed).queryByText(NOT_AVAILABLE)).toBeNull();
   });
 
   it("renders a proposed purchase link as its raw URL", () => {
@@ -277,13 +286,14 @@ describe("CorrectionsQueue", () => {
     renderQueue([purchase]);
 
     const row = rowFor(purchase.brandName ?? "");
-    expect(within(row).getByText(WEBSITE_URL)).toBeInTheDocument();
     expect(
       within(row).getByText(
         messages.admin.corrections.fields.purchase_website,
       ),
     ).toBeInTheDocument();
-    expect(within(row).queryByText(NOT_AVAILABLE)).toBeNull();
+    const proposed = proposedCellFor(row, WEBSITE_URL);
+    expect(within(proposed).getByText(WEBSITE_URL)).toBeInTheDocument();
+    expect(within(proposed).queryByText(NOT_AVAILABLE)).toBeNull();
   });
 
   it("renders a remove badge for a tag-delta correction", () => {
@@ -294,6 +304,14 @@ describe("CorrectionsQueue", () => {
       { name: new RegExp(`−${REMOVED_TAG}`) },
     );
     expect(within(cell).getByText(`−${REMOVED_TAG}`)).toBeInTheDocument();
-    expect(within(cell).queryByText(NOVEL_MARKER)).toBeNull();
+    // The novel marker belongs to the added novel tag's group, not to the
+    // removal — the whole Proposed cell holds exactly one.
+    const novelGroup = within(cell).getByText(`+${NOVEL_TAG}`)
+      .parentElement as HTMLElement;
+    expect(within(novelGroup).getByText(NOVEL_MARKER)).toBeInTheDocument();
+    const canonicalGroup = within(cell).getByText(`+${CANONICAL_TAG}`)
+      .parentElement as HTMLElement;
+    expect(within(canonicalGroup).queryByText(NOVEL_MARKER)).toBeNull();
+    expect(within(cell).getAllByText(NOVEL_MARKER)).toHaveLength(1);
   });
 });

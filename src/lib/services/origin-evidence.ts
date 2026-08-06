@@ -85,11 +85,61 @@ export type ReviewEvidenceResult =
   | { ok: true }
   | { ok: false; code: string }
 
+export type EvidenceBatchFailure = { id: string; code: string }
+
+export type ReviewEvidenceBatchResult =
+  | { failures: EvidenceBatchFailure[] }
+  | { error: string }
+
+/**
+ * Injection seam for `reviewEvidenceBatch`. The production default delegates
+ * to the single-item service, while tests can exercise batch behavior without
+ * mocking service or provider modules.
+ */
+export type ReviewEvidenceBatchDeps = {
+  reviewOne: (
+    id: string,
+    decision: OriginEvidenceDecision,
+    notes: string,
+    opts: ReviewEvidenceOptions,
+  ) => Promise<ReviewEvidenceResult>
+}
+
+export const MAX_BULK_EVIDENCE = 100
+const MAX_EVIDENCE_ID_LENGTH = 64
+const INVALID_EVIDENCE_BATCH_ERROR = 'Invalid bulk evidence selection'
+
+type ValidateEvidenceBatchResult =
+  | { ok: true; ids: string[] }
+  | { ok: false; error: string }
+
 export type ListPendingEvidenceOptions = {
   page?: number
   pageSize?: number
   limit?: number
   offset?: number
+}
+
+export function validateEvidenceBatch(
+  ids: unknown,
+): ValidateEvidenceBatchResult {
+  if (!Array.isArray(ids)) return { ok: false, error: INVALID_EVIDENCE_BATCH_ERROR }
+
+  const unique = [...new Set(ids)]
+  if (
+    unique.length === 0 ||
+    unique.length > MAX_BULK_EVIDENCE ||
+    unique.some(
+      (id) =>
+        typeof id !== 'string' ||
+        id.length === 0 ||
+        id.length > MAX_EVIDENCE_ID_LENGTH,
+    )
+  ) {
+    return { ok: false, error: INVALID_EVIDENCE_BATCH_ERROR }
+  }
+
+  return { ok: true, ids: unique as string[] }
 }
 
 function rowToEvidence(row: OriginEvidenceRowWithBrand): OriginEvidence {
@@ -305,4 +355,57 @@ export async function reviewEvidence(
   return { ok: true }
     },
   )
+}
+
+export const defaultReviewEvidenceBatchDeps: ReviewEvidenceBatchDeps = {
+  reviewOne: (id, decision, notes, ctx) =>
+    reviewEvidence(id, decision, notes, ctx),
+}
+
+/**
+ * Bulk review, delegating every item to the single-item `reviewEvidence` so the two paths cannot
+ * drift on claim-then-write semantics. Each delegated call carries its own `auditedCall` span, so
+ * a batch of N decisions leaves N audit entries rather than one.
+ *
+ * Concurrency is deliberately FLAT — unlike `reviewCorrections`, which serializes per brand_id.
+ * The reason is the write set, not the row count: `reviewEvidence` touches only its own
+ * `origin_evidence` row (a claim-then-write guarded by `.eq('status','pending')`), and touches the
+ * shared `brands` row ONLY on the `tierAction: 'strip_declaration'` path. Bulk NEVER passes
+ * `tierAction` — stripping a declaration is a per-item drawer decision that also sends the owner a
+ * notification email, and is deliberately not offered as a batch operation. With no shared row in
+ * the write set there is no read-modify-write to lose, so items are free to overlap.
+ *
+ * CEILING: if bulk ever gains a strip-declaration option, this must become grouped-per-`brand_id`
+ * exactly like `reviewCorrections`, because `stripDeclaration()` is a read-modify-write on
+ * `brands`.
+ */
+export async function reviewEvidenceBatch(
+  ids: string[],
+  decision: OriginEvidenceDecision,
+  notes: string,
+  { reviewerId }: { reviewerId: string },
+  deps: ReviewEvidenceBatchDeps = defaultReviewEvidenceBatchDeps,
+): Promise<ReviewEvidenceBatchResult> {
+  const validated = validateEvidenceBatch(ids)
+  if (!validated.ok) return { error: validated.error }
+  if (decision !== 'approved' && decision !== 'rejected') {
+    return { error: 'Invalid evidence decision' }
+  }
+
+  const results = await Promise.all(
+    validated.ids.map(async (id): Promise<EvidenceBatchFailure | null> => {
+      try {
+        const result = await deps.reviewOne(id, decision, notes, { reviewerId })
+        return result.ok ? null : { id, code: result.code }
+      } catch {
+        return { id, code: 'database_error' }
+      }
+    }),
+  )
+
+  return {
+    failures: results.filter(
+      (result): result is EvidenceBatchFailure => result !== null,
+    ),
+  }
 }

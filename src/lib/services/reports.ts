@@ -30,6 +30,17 @@ type HistoricalReportReason = ReportReason | 'not_mit'
 
 type ReportStatus = ReviewStatus
 
+export type UpdateReportStatusResult =
+  | { ok: true }
+  | { ok: false; code: 'already_reviewed' | 'database_error' }
+
+export type UpdateReportStatusDeps = {
+  claim: (
+    reportId: string,
+    update: Record<string, unknown>,
+  ) => Promise<{ count: number | null; error: unknown }>
+}
+
 export type BrandReport = {
   id: string
   brandId: string
@@ -42,6 +53,23 @@ export type BrandReport = {
   createdAt: string
   reporterEmail?: string
   brandHasOwner?: boolean
+}
+
+export const defaultUpdateReportStatusDeps: UpdateReportStatusDeps = {
+  async claim(reportId, update) {
+    const { createServiceClient } = await import('@/lib/supabase/server')
+    const supabase = createServiceClient()
+
+    const { error, count } = await supabase
+      .from('brand_reports')
+      .update(update, { count: 'exact' })
+      .eq('id', reportId)
+      // The pending guard makes this write idempotent and lets callers report a
+      // review conflict instead of silently re-deciding a settled report.
+      .eq('status', 'pending')
+
+    return { error, count }
+  },
 }
 
 type ReportRowWithReporter = {
@@ -198,22 +226,25 @@ export async function getPendingReports(options?: { limit?: number }): Promise<B
 export async function updateReportStatus(
   reportId: string,
   decision: ReviewDecision,
-  attribution?: ReviewAttribution
-): Promise<void> {
+  attribution?: ReviewAttribution,
+  deps: UpdateReportStatusDeps = defaultUpdateReportStatusDeps,
+): Promise<UpdateReportStatusResult> {
   return auditedCall(
     { provider: 'brands', operation: 'updateReportStatus', kind: 'service' },
     async () => {
-  const { createServiceClient } = await import('@/lib/supabase/server')
-  const supabase = createServiceClient()
+      const updateData = buildReviewUpdate(decision, attribution)
 
-  const updateData = buildReviewUpdate(decision, attribution)
+      try {
+        const { error, count } = await deps.claim(reportId, updateData)
 
-  const { error } = await supabase
-    .from('brand_reports')
-    .update(updateData)
-    .eq('id', reportId)
-
-  if (error) throw error
+        if (error) return { ok: false, code: 'database_error' }
+        if (count === null || count === 0) {
+          return { ok: false, code: 'already_reviewed' }
+        }
+        return { ok: true }
+      } catch {
+        return { ok: false, code: 'database_error' }
+      }
     },
   )
 }
