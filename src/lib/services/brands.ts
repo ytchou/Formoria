@@ -1496,14 +1496,20 @@ export async function getPublicBrandCards(
   };
 }
 
-export async function getSubcategoryCounts(
+export type SubcategorySummary = {
+  counts: Map<string, number>
+  latestUpdatedAt: string | null
+}
+
+export async function getSubcategorySummary(
   categorySlug: string,
-): Promise<Map<string, number>> {
+  subcategorySlug?: string,
+): Promise<SubcategorySummary> {
   const supabase = createServiceClient();
   const { data, error } = await excludeTestBrands(
     supabase
       .from("brands")
-      .select("product_tags")
+      .select("product_tags, updated_at")
       .eq("status", "approved")
       .eq("product_type", categorySlug),
   );
@@ -1512,8 +1518,10 @@ export async function getSubcategoryCounts(
 
   const brands = (data ?? []).map((row) => ({
     productTags: Array.isArray(row.product_tags) ? row.product_tags : [],
+    updatedAt: row.updated_at,
   }));
   const counts = new Map<string, number>();
+  let latestUpdatedAt: string | null = null;
 
   for (const brand of brands) {
     const canonicalTags = new Set<string>();
@@ -1526,9 +1534,30 @@ export async function getSubcategoryCounts(
     for (const tag of canonicalTags) {
       counts.set(tag, (counts.get(tag) ?? 0) + 1);
     }
+
+    const updatedAtTimestamp = Date.parse(brand.updatedAt);
+    const latestTimestamp = latestUpdatedAt ? Date.parse(latestUpdatedAt) : Number.NaN;
+    const isInScope = !subcategorySlug || canonicalTagsHasSlug(brand.productTags, subcategorySlug);
+    if (
+      isInScope &&
+      !Number.isNaN(updatedAtTimestamp) &&
+      (Number.isNaN(latestTimestamp) || updatedAtTimestamp > latestTimestamp)
+    ) {
+      latestUpdatedAt = brand.updatedAt;
+    }
   }
 
-  return counts;
+  return { counts, latestUpdatedAt };
+}
+
+function canonicalTagsHasSlug(tags: string[], subcategorySlug: string): boolean {
+  return tags.some((tag) => matchSubcategory(tag)?.slug === subcategorySlug);
+}
+
+export async function getSubcategoryCounts(
+  categorySlug: string,
+): Promise<Map<string, number>> {
+  return (await getSubcategorySummary(categorySlug)).counts;
 }
 
 export const EXPLORE_BRAND_LIMIT = 8;

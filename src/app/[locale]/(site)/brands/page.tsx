@@ -56,14 +56,25 @@ export async function generateMetadata({ params, searchParams }: BrandsPageProps
     const subName = activeSubcategory
       ? safeLocale === 'zh-TW' ? activeSubcategory.nameZh : activeSubcategory.nameEn
       : undefined
+    const landingKey = activeSubcategory
+      ? `l2.${activeSubcategory.slug}`
+      : `l1.${category.slug}`
     const description = truncateForMeta(subName
-      ? catT('subMetadata.description', { subName, categoryName: displayName })
-      : catT.has(`descriptions.${category.slug}`)
-        ? catT(`descriptions.${category.slug}`)
-        : catT('metadata.description', { displayName, name: category.name }))
+      ? catT.has(`${landingKey}.description`)
+        ? catT(`${landingKey}.description`)
+        : catT('subMetadata.description', { subName, categoryName: displayName })
+      : catT.has(`${landingKey}.description`)
+        ? catT(`${landingKey}.description`)
+        : catT.has(`descriptions.${category.slug}`)
+          ? catT(`descriptions.${category.slug}`)
+          : catT('metadata.description', { displayName, name: category.name }))
     const title = subName
-      ? catT('subMetadata.title', { subName, categoryName: displayName })
-      : catT('metadata.title', { displayName })
+      ? catT.has(`${landingKey}.title`)
+        ? catT(`${landingKey}.title`)
+        : catT('subMetadata.title', { subName, categoryName: displayName })
+      : catT.has(`${landingKey}.title`)
+        ? catT(`${landingKey}.title`)
+        : catT('metadata.title', { displayName })
     const canonical = seo.canonical
     const languages = seo.languages
 

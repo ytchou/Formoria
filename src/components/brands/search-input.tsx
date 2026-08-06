@@ -23,6 +23,7 @@ interface SearchInputProps {
   className?: string
   formAriaLabel?: string
   showAutocomplete?: boolean
+  announceLoading?: boolean
 }
 
 function SearchInput({
@@ -31,6 +32,7 @@ function SearchInput({
   className,
   formAriaLabel,
   showAutocomplete = true,
+  announceLoading = true,
 }: SearchInputProps = {}) {
   const t = useTranslations('brands')
   const locale = useLocale()
@@ -218,9 +220,11 @@ function SearchInput({
       className={cn('relative w-full max-w-md', className)}
       data-ph-no-autocapture
     >
-      <span className="sr-only" role="status" aria-live="polite">
-        {isBusy ? t('search.loading') : ''}
-      </span>
+      {announceLoading ? (
+        <span className="sr-only" role="status" aria-live="polite">
+          {isBusy ? t('search.loading') : ''}
+        </span>
+      ) : null}
 
       {/* Search icon */}
       {isBusy ? (

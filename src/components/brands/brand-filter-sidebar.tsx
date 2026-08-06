@@ -59,6 +59,7 @@ type BrandFilterSidebarProps = {
   subcategories?: SubcategoryOption[];
   activeSubSlugs?: string[];
   className?: string;
+  announceSearchLoading?: boolean;
   totalCount: number;
 };
 
@@ -138,11 +139,11 @@ export function BrandFilterSidebar({
   subcategories = [],
   activeSubSlugs = [],
   className,
+  announceSearchLoading = true,
   totalCount,
 }: BrandFilterSidebarProps) {
   const locale = useLocale();
   const t = useTranslations("brands.filters");
-  const searchT = useTranslations("brands.search");
   const verificationT = useTranslations("brands.verificationFilter");
   const router = useRouter();
   const pathname = usePathname();
@@ -241,9 +242,6 @@ export function BrandFilterSidebar({
           )}
         />
       </div>
-      <span className="sr-only" role="status" aria-live="polite">
-        {isPending ? searchT("loading") : ""}
-      </span>
       {activeFilters.length > 0 ? (
         <section
           aria-label={t("currentConditions")}
@@ -281,6 +279,7 @@ export function BrandFilterSidebar({
             className="max-w-none"
             formAriaLabel={t("brandSearchLandmark")}
             showAutocomplete={false}
+            announceLoading={announceSearchLoading}
           />
           <p className="type-caption">{t("brandSearchHelp")}</p>
         </section>
@@ -461,6 +460,7 @@ export function BrandFilterDrawer({
   activeCategorySlugs = [],
   subcategories = [],
   activeSubSlugs = [],
+  announceSearchLoading = true,
   totalCount,
 }: BrandFilterDrawerProps) {
   const [open, setOpen] = useState(false);
@@ -491,6 +491,7 @@ export function BrandFilterDrawer({
             activeCategorySlugs={activeCategorySlugs}
             subcategories={subcategories}
             activeSubSlugs={activeSubSlugs}
+            announceSearchLoading={announceSearchLoading}
             totalCount={totalCount}
           />
         </div>

@@ -45,8 +45,15 @@ export async function generateMetadata({ params, searchParams }: SubcategoryPage
   const subName = safeLocale === 'zh-TW'
     ? resolved.subcategory?.nameZh ?? ''
     : resolved.subcategory?.nameEn ?? ''
-  const title = catT('subMetadata.title', { subName, categoryName })
-  const description = truncateForMeta(catT('subMetadata.description', { subName, categoryName }))
+  const landingKey = resolved.subcategory ? `l2.${resolved.subcategory.slug}` : null
+  const title = landingKey && catT.has(`${landingKey}.title`)
+    ? catT(`${landingKey}.title`)
+    : catT('subMetadata.title', { subName, categoryName })
+  const description = truncateForMeta(
+    landingKey && catT.has(`${landingKey}.description`)
+      ? catT(`${landingKey}.description`)
+      : catT('subMetadata.description', { subName, categoryName }),
+  )
   const canonical = seo.canonical || buildDirectoryCanonicals({
     locale: safeLocale,
     categorySlug: resolved.category.slug,
@@ -86,7 +93,7 @@ export default async function SubcategoryPage({ params, searchParams }: Subcateg
       }}
       page={parsed.page}
       sort={parsed.sort}
+      isCategoryRoute
     />
   )
 }
-

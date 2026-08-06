@@ -1,7 +1,7 @@
 import { Suspense } from 'react'
 import { NextIntlClientProvider } from 'next-intl'
 import { getMessages, getTranslations } from 'next-intl/server'
-import { getBrands, getRandomBrands, getSubcategoryCounts } from '@/lib/services/brands'
+import { getBrands, getRandomBrands, getSubcategorySummary } from '@/lib/services/brands'
 import { categoryLabel, PRODUCT_SUBCATEGORIES, PRODUCT_TYPE_CATEGORIES, resolveSubcategorySlugs } from '@/lib/taxonomy/ontology'
 import { buildBreadcrumbJsonLd, buildCategoryItemListJsonLd, buildBrandsItemListJsonLd, buildWebSiteJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
 import { DEFAULT_PAGE_SIZE, type BrandSortOption } from '@/lib/pagination'
@@ -26,7 +26,8 @@ import type { DirectoryViewFilters } from '@/lib/seo/directory-filters'
 import { localizePath } from '@/i18n/locale-preference'
 import { updateDirectoryUrl } from '@/lib/directory-filter-url'
 import type { Brand } from '@/lib/types'
-import { DirectoryBreadcrumb } from './directory-breadcrumb'
+import { DirectoryLandingHead } from './directory-landing-head'
+import { DirectoryLandingTail } from './directory-landing-tail'
 
 const EMPTY_STATE_RECOMMENDATION_LIMIT = 4
 const VALID_CATEGORY_SLUGS: ReadonlySet<string> = new Set(PRODUCT_TYPE_CATEGORIES.map((category) => category.slug))
@@ -36,9 +37,10 @@ export type DirectoryViewProps = {
   filters: DirectoryViewFilters
   page: number
   sort: BrandSortOption
+  isCategoryRoute?: boolean
 }
 
-export async function DirectoryView({ locale, filters, page, sort }: DirectoryViewProps) {
+export async function DirectoryView({ locale, filters, page, sort, isCategoryRoute = false }: DirectoryViewProps) {
   const safeLocale = locale
   const [t, verificationT, messages] = await Promise.all([
     getTranslations({ locale: safeLocale, namespace: 'brands' }),
@@ -59,8 +61,9 @@ export async function DirectoryView({ locale, filters, page, sort }: DirectoryVi
   const search = filters.search ?? ''
   const priceRanges = filters.priceRanges ?? []
   const verificationFilter = filters.verificationFilter ?? 'all'
+  const shouldLoadTaxonomySummary = Boolean(singleValidCategory) && !search
 
-  const [{ brands, totalCount }, subcategoryCounts] = await Promise.all([
+  const [{ brands, totalCount }, taxonomySummary] = await Promise.all([
     getBrands({
       status: 'approved',
       search: search || undefined,
@@ -72,9 +75,9 @@ export async function DirectoryView({ locale, filters, page, sort }: DirectoryVi
       limit: DEFAULT_PAGE_SIZE,
       offset: (page - 1) * DEFAULT_PAGE_SIZE,
     }),
-    singleValidCategory
-      ? getSubcategoryCounts(singleValidCategory)
-      : Promise.resolve(new Map<string, number>()),
+    shouldLoadTaxonomySummary && singleValidCategory
+      ? getSubcategorySummary(singleValidCategory, activeSubcategory?.slug)
+      : Promise.resolve({ counts: new Map<string, number>(), latestUpdatedAt: null }),
   ])
 
   const subcategoriesWithCounts = singleValidCategory
@@ -82,7 +85,7 @@ export async function DirectoryView({ locale, filters, page, sort }: DirectoryVi
         .filter((subcategory) => subcategory.category === singleValidCategory)
         .map((subcategory) => ({
           ...subcategory,
-          count: subcategoryCounts.get(subcategory.nameZh) ?? 0,
+          count: taxonomySummary.counts.get(subcategory.nameZh) ?? 0,
         }))
         .filter((subcategory) => subcategory.count > 0)
     : []
@@ -96,7 +99,7 @@ export async function DirectoryView({ locale, filters, page, sort }: DirectoryVi
   const totalPages = Math.ceil(totalCount / DEFAULT_PAGE_SIZE)
   const clampedPage = totalCount > 0 && page > totalPages ? totalPages : page
   let displayBrands = brands
-  if (clampedPage !== page && totalCount > 0) {
+  if (clampedPage !== page && totalCount > 0 && !isCategoryRoute) {
     const refetched = await getBrands({
       status: 'approved',
       search: search || undefined,
@@ -110,6 +113,8 @@ export async function DirectoryView({ locale, filters, page, sort }: DirectoryVi
     })
     displayBrands = refetched.brands
   }
+
+  const latestUpdatedAt = taxonomySummary.latestUpdatedAt
 
   const routePath = categoryTag
     ? `/categories/${categoryTag.slug}${activeSubcategory ? `/${activeSubcategory.slug}` : ''}`
@@ -190,7 +195,7 @@ export async function DirectoryView({ locale, filters, page, sort }: DirectoryVi
 
   let recommendedBrands: Brand[] = []
   let recommendationsHref = directoryPath
-  if (totalCount === 0) {
+  if (totalCount === 0 && !isCategoryRoute) {
     if (validCategoryFilter.length > 0) {
       const recommendations = await getBrands({
         status: 'approved',
@@ -296,20 +301,24 @@ export async function DirectoryView({ locale, filters, page, sort }: DirectoryVi
               activeCategorySlugs={validCategoryFilter}
               subcategories={subcategoryOptions}
               activeSubSlugs={activeSubSlugs}
+              announceSearchLoading={!isCategoryRoute}
               totalCount={totalCount}
             />
           </div>
         </aside>
 
         <div className="min-w-0">
-          <DirectoryBreadcrumb
-            ariaLabel={t('breadcrumbAria')}
+          <DirectoryLandingHead
             locale={safeLocale}
             directoryLabel={t('heading')}
             category={categoryBreadcrumb}
             subcategory={subcategoryBreadcrumb}
+            breadcrumbAria={t('breadcrumbAria')}
+            pageHeading={pageHeading}
+            totalCount={totalCount}
+            latestUpdatedAt={latestUpdatedAt}
+            announceLiveRegion={isCategoryRoute}
           />
-          <h1 className="mb-6 text-balance type-page-title">{pageHeading}</h1>
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <BrandFilterDrawer
@@ -318,11 +327,9 @@ export async function DirectoryView({ locale, filters, page, sort }: DirectoryVi
                 activeCategorySlugs={validCategoryFilter}
                 subcategories={subcategoryOptions}
                 activeSubSlugs={activeSubSlugs}
+                announceSearchLoading={!isCategoryRoute}
                 totalCount={totalCount}
               />
-              <p className="type-card-description" aria-live="polite" aria-atomic="true">
-                {t('count', { count: totalCount })}
-              </p>
             </div>
             <Suspense fallback={null}>
               <SortSelect />
@@ -364,6 +371,11 @@ export async function DirectoryView({ locale, filters, page, sort }: DirectoryVi
           </Suspense>
 
           <Pagination totalCount={totalCount} currentPage={clampedPage} pageSize={DEFAULT_PAGE_SIZE} />
+          <DirectoryLandingTail
+            locale={safeLocale}
+            category={categoryBreadcrumb}
+            subcategory={subcategoryBreadcrumb}
+          />
         </div>
       </main>
     </NextIntlClientProvider>

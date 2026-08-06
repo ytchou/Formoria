@@ -2,15 +2,15 @@ import type { MetadataRoute } from "next";
 import { getBrandSeoEntries } from "@/lib/services/brands";
 import { getPublishedEvents } from "@/lib/services/events";
 import { getAllStories } from "@/lib/services/stories";
-import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { buildAlternates, type Locale } from "@/lib/seo/alternates";
 import { getBrandIndexability } from "@/lib/seo/brand-indexability";
+import { buildDirectorySitemapEntries } from "@/lib/seo/directory-sitemap";
 
 export const revalidate = 3600;
 
 const ALL_LOCALES: readonly Locale[] = ["zh-TW", "en"];
 
-function localizedEntries(
+export function localizedEntries(
   path: string,
   availableLocales: readonly Locale[] = ALL_LOCALES,
   lastModified?: Date,
@@ -35,8 +35,8 @@ function validDate(value: string | undefined): Date | undefined {
   return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
-function latestBrandDate(
-  entries: Array<{ updatedAt: string }>,
+export function latestBrandDate(
+  entries: ReadonlyArray<{ updatedAt: string }>,
 ): Date | undefined {
   const timestamps = entries
     .map((entry) => validDate(entry.updatedAt)?.getTime())
@@ -70,8 +70,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const storyIndexPages = localizedEntries("/stories", ["zh-TW"]);
 
   try {
-    const [brands, storyResult, events] = await Promise.all([
-      getBrandSeoEntries(),
+    const rawBrandsPromise = getBrandSeoEntries();
+    const brandsPromise = rawBrandsPromise.catch(() => []);
+    const directoryPagesPromise = rawBrandsPromise
+      .then((brands) => buildDirectorySitemapEntries(brands))
+      .catch(() => []);
+    const [brands, storyResult, events, categoryPages] = await Promise.all([
+      brandsPromise,
       getAllStories(),
       // Degrade to zero event entries instead of taking the sitemap down with
       // them: the events service throws on any query error, and an unguarded
@@ -80,6 +85,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       // every ?category= and every /stories/<slug> URL for the full revalidate
       // window. Same resilience as `storyResult.ok` on the next line.
       getPublishedEvents().catch(() => []),
+      directoryPagesPromise,
     ]);
     const stories = storyResult.ok ? storyResult.stories : [];
 
@@ -93,17 +99,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         `/brands/${brand.slug}`,
         availableLocales,
         validDate(brand.updatedAt),
-      );
-    });
-
-    const categoryPages = PRODUCT_TYPE_CATEGORIES.flatMap((category) => {
-      const categoryBrands = brands.filter(
-        (brand) => brand.productType === category.slug,
-      );
-      return localizedEntries(
-        `/categories/${category.slug}`,
-        ALL_LOCALES,
-        latestBrandDate(categoryBrands),
       );
     });
 

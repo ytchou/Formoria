@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
 import { describeWithDb } from '@/test/setup'
-import { getBrandSeoEntries, getBrands } from '../brands'
+import { getBrandSeoEntries, getBrands, getSubcategorySummary } from '../brands'
 
 describeWithDb('getBrands subcategory alias filtering', () => {
   it('subcategory filter matches alias tags, not just the canonical name', async () => {
@@ -49,5 +49,12 @@ describeWithDb('getBrands subcategory alias filtering', () => {
     const entries = await getBrandSeoEntries()
     expect(entries.length).toBeGreaterThan(0)
     expect(entries.some((entry) => Array.isArray(entry.productTags))).toBe(true)
+  })
+
+  it('taxonomy summary returns counts and a scoped latest update date', async () => {
+    const summary = await getSubcategorySummary('home', 'furniture')
+
+    expect(summary.counts).toBeInstanceOf(Map)
+    expect(summary.latestUpdatedAt === null || !Number.isNaN(Date.parse(summary.latestUpdatedAt))).toBe(true)
   })
 })

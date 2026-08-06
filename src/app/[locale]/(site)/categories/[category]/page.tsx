@@ -41,11 +41,16 @@ export async function generateMetadata({ params, searchParams }: CategoryPagePro
   })
   const catT = await getTranslations({ locale: safeLocale, namespace: 'categories' })
   const displayName = categoryLabel(resolved.category, safeLocale)
-  const title = catT('metadata.title', { displayName })
+  const landingKey = `l1.${resolved.category.slug}`
+  const title = catT.has(`${landingKey}.title`)
+    ? catT(`${landingKey}.title`)
+    : catT('metadata.title', { displayName })
   const description = truncateForMeta(
-    catT.has(`descriptions.${resolved.category.slug}`)
-      ? catT(`descriptions.${resolved.category.slug}`)
-      : catT('metadata.description', { displayName, name: resolved.category.name }),
+    catT.has(`${landingKey}.description`)
+      ? catT(`${landingKey}.description`)
+      : catT.has(`descriptions.${resolved.category.slug}`)
+        ? catT(`descriptions.${resolved.category.slug}`)
+        : catT('metadata.description', { displayName, name: resolved.category.name }),
   )
   const canonical = seo.canonical || buildDirectoryCanonicals({
     locale: safeLocale,
@@ -86,7 +91,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
       }}
       page={parsed.page}
       sort={parsed.sort}
+      isCategoryRoute
     />
   )
 }
-

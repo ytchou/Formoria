@@ -13,6 +13,8 @@ import { useRouter, usePathname } from '@/i18n/navigation'
 import { useLocale, useTranslations } from 'next-intl'
 import { trackCategoryFilterApplied } from '@/lib/analytics'
 import { categoryLabel } from '@/lib/taxonomy/ontology'
+import { taxonomyLinkClasses } from '@/components/ui/toggle-chip'
+import { cn } from '@/lib/utils'
 import { buildCategoryTabTarget } from './category-tab-target'
 
 interface NavCategoryTabsProps {
@@ -97,11 +99,10 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
           aria-current={isBrandsPage && !activeCategory ? 'page' : undefined}
           data-ph-no-autocapture
           onClick={(event) => handleClick(event, '')}
-          className={
-            isBrandsPage && !activeCategory
-              ? 'type-body-emphasis flex min-h-12 items-center whitespace-nowrap px-3 py-2'
-              : 'type-card-description hover:text-foreground flex min-h-12 items-center whitespace-nowrap px-3 py-2 transition-colors'
-          }
+          className={cn(
+            taxonomyLinkClasses({ active: isBrandsPage && !activeCategory }),
+            'min-h-12',
+          )}
         >
           {t('allBrands')}
         </a>
@@ -117,11 +118,10 @@ function NavCategoryTabsInner({ categories }: NavCategoryTabsProps) {
               aria-current={isActive ? 'page' : undefined}
               data-ph-no-autocapture
               onClick={(event) => handleClick(event, cat.slug)}
-              className={
-                isActive
-                  ? 'type-body-emphasis flex min-h-12 items-center whitespace-nowrap px-3 py-2'
-                  : 'type-card-description hover:text-foreground flex min-h-12 items-center whitespace-nowrap px-3 py-2 transition-colors'
-              }
+              className={cn(
+                taxonomyLinkClasses({ active: isActive }),
+                'min-h-12',
+              )}
             >
               {label}
             </a>
