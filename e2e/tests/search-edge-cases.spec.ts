@@ -31,6 +31,9 @@ test.describe.serial('Public brand search edge cases', () => {
   let bilingualSlug: string;
   let hiddenSlug: string;
   let englishToken: string;
+  let sortQuery: string;
+  let sortFirstName: string;
+  let sortLastName: string;
 
   async function apiSearch(
     request: APIRequestContext,
@@ -60,6 +63,9 @@ test.describe.serial('Public brand search edge cases', () => {
     supabase = createClient(supabaseUrl, serviceRoleKey);
     const suffix = randomUUID().replaceAll('-', '').slice(0, 10);
     englishToken = `prismora${suffix}`;
+    sortQuery = `sortprobe${suffix}`;
+    sortFirstName = `[E2E-TEST] Aster ${sortQuery}`;
+    sortLastName = `[E2E-TEST] Zenith ${sortQuery}`;
     exactQuery = `棱 鏡茶坊 ${suffix}`;
     exactName = `[E2E-TEST] ${exactQuery}`;
     exactSlug = `e2e-search-exact-${suffix}`;
@@ -112,10 +118,28 @@ test.describe.serial('Public brand search edge cases', () => {
           retail_locations: [],
           is_demo: false,
         },
+        {
+          name: sortLastName,
+          slug: `e2e-search-sort-last-${suffix}`,
+          status: 'approved',
+          product_type: 'crafts',
+          description: `[E2E-TEST] A-Z search sort probe ${sortQuery}.`,
+          retail_locations: [],
+          is_demo: false,
+        },
+        {
+          name: sortFirstName,
+          slug: `e2e-search-sort-first-${suffix}`,
+          status: 'approved',
+          product_type: 'crafts',
+          description: `[E2E-TEST] A-Z search sort probe ${sortQuery}.`,
+          retail_locations: [],
+          is_demo: false,
+        },
       ])
       .select('id');
 
-    if (error || !data || data.length !== 4) {
+    if (error || !data || data.length !== 6) {
       throw new Error(`Search E2E seed failed: ${error?.message ?? 'unexpected row count'}`);
     }
     seededIds = data.map((row) => row.id as string);
@@ -241,6 +265,22 @@ test.describe.serial('Public brand search edge cases', () => {
       && url.searchParams.get('sort') === 'name',
     );
     await expect(navSearch).toHaveValue('');
+  });
+
+  test('selecting A-Z orders the matching cards by their rendered brand names', async ({ page }) => {
+    if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return; }
+
+    await page.goto(`/brands?search=${encodeURIComponent(sortQuery)}`);
+    const sortSelect = page.getByRole('combobox', { name: '排序方式' });
+    await sortSelect.selectOption('name');
+    await expect(page).toHaveURL((url) =>
+      url.pathname === '/brands'
+      && url.searchParams.get('search') === sortQuery
+      && url.searchParams.get('sort') === 'name',
+    );
+
+    const names = await page.locator('main [role="list"] [role="listitem"] h3').allTextContents();
+    expect(names).toEqual([sortFirstName, sortLastName]);
   });
 
   test('an out-of-order autocomplete response cannot replace the latest dropdown', async ({ page }) => {
