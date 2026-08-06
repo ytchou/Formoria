@@ -4,7 +4,9 @@ import type { Brand } from "@/lib/types";
 import type { createServiceClient } from "@/lib/supabase/service";
 import {
   composeEventBrands,
+  composeEventExhibitorEntries,
   deriveAreaOptions,
+  eventExhibitorRowToDomain,
   eventBrandRowToDomain,
   eventRowToDomain,
   fetchEventBrandCounts,
@@ -14,6 +16,8 @@ import {
   resolveEventPhase,
   taipeiToday,
   type EventBrandLink,
+  type EventExhibitor,
+  type EventExhibitorJoinRow,
   type EventRow,
 } from "./events";
 
@@ -57,7 +61,9 @@ function eventRow(overrides: Partial<EventRow> = {}): EventRow {
   };
 }
 
-function link(overrides: Partial<EventBrandLink> & { brandSlug: string }): EventBrandLink {
+function link(
+  overrides: Partial<EventBrandLink> & { brandSlug: string },
+): EventBrandLink {
   return {
     booth: null,
     area: null,
@@ -88,7 +94,9 @@ type JoinFixture = {
 };
 
 function joinRow(
-  overrides: Partial<JoinFixture> & { brands: { slug: string; status: string } },
+  overrides: Partial<JoinFixture> & {
+    brands: { slug: string; status: string };
+  },
 ): JoinFixture {
   return {
     event_id: "2b0f5a4c-0000-4000-8000-000000000001",
@@ -115,6 +123,26 @@ function brand(slug: string, name: string): Brand {
 
 function brandMap(...brands: Brand[]): Map<string, Brand> {
   return new Map(brands.map((entry) => [entry.slug, entry]));
+}
+
+function exhibitor(overrides: Partial<EventExhibitor> = {}): EventExhibitor {
+  return {
+    id: "2b0f5a4c-0000-4000-8000-0000000000e1",
+    eventId: "2b0f5a4c-0000-4000-8000-000000000001",
+    sourceKey: "creative-expo:322",
+    name: "沃廚",
+    nameEn: "WOKY",
+    booth: "K1-001",
+    area: "文創品牌展區",
+    areaEn: "Cultural & Creative Brands",
+    zone: "K1",
+    eventCategory: "cultural_creative",
+    sourceUrl: "https://creativexpo.tw/zh-TW/exhibitor_list/322",
+    websiteUrl: null,
+    verifiedAt: "2026-08-06",
+    sortOrder: 0,
+    ...overrides,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -268,6 +296,66 @@ describe("events service", () => {
     expect(resolveEventPhase(event, "2026-08-10")).toBe("past");
   });
 
+  it("keeps an official exhibitor when its linked brand is hidden", () => {
+    // The canonical roster is event truth; a hidden/deleted brand should only
+    // clear the optional public card, never make the exhibitor disappear.
+    const rows = composeEventExhibitorEntries(
+      [
+        exhibitor(),
+        exhibitor({
+          id: "2b0f5a4c-0000-4000-8000-0000000000e2",
+          sourceKey: "creative-expo:325",
+          booth: "S-001",
+          sortOrder: 1,
+        }),
+      ],
+      new Map([
+        ["2b0f5a4c-0000-4000-8000-0000000000e1", "woky"],
+        ["2b0f5a4c-0000-4000-8000-0000000000e2", "hidden-brand"],
+      ]),
+      brandMap(brand("woky", "WOKY")),
+    );
+
+    expect(rows).toHaveLength(2);
+    expect(rows[0]?.brand?.slug).toBe("woky");
+    expect(rows[1]?.brand).toBeNull();
+    expect(rows.map((row) => row.sourceKey)).toEqual([
+      "creative-expo:322",
+      "creative-expo:325",
+    ]);
+  });
+
+  it("maps only a published event exhibitor embed", () => {
+    const row: EventExhibitorJoinRow = {
+      id: "2b0f5a4c-0000-4000-8000-0000000000e1",
+      event_id: "2b0f5a4c-0000-4000-8000-000000000001",
+      source_key: "creative-expo:322",
+      name: "沃廚",
+      name_en: "WOKY",
+      booth: "K1-001",
+      area: "文創品牌展區",
+      area_en: "Cultural & Creative Brands",
+      zone: "K1",
+      event_category: "cultural_creative",
+      source_url: "https://creativexpo.tw/zh-TW/exhibitor_list/322",
+      website_url: null,
+      verified_at: "2026-08-06",
+      sort_order: 0,
+      events: { slug: "2026-taiwan-creative-expo", status: "published" },
+    };
+
+    expect(eventExhibitorRowToDomain(row)).toMatchObject({
+      sourceKey: "creative-expo:322",
+      eventCategory: "cultural_creative",
+    });
+    expect(
+      eventExhibitorRowToDomain({
+        ...row,
+        events: { slug: "2026-taiwan-creative-expo", status: "hidden" },
+      }),
+    ).toBeNull();
+  });
+
   it("taipeiToday_crosses_utc_boundary", () => {
     // 23:30 UTC is already 07:30 the next morning in Taipei. Anything deriving
     // "today" from UTC would call an 8/7 event upcoming for eight more hours.
@@ -303,8 +391,15 @@ describe("events service", () => {
     );
 
     const first = composeEventBrands(links, brands).map((e) => e.brand.slug);
-    const shuffled = [links[3], links[0], links[2], links[1]] as EventBrandLink[];
-    const second = composeEventBrands(shuffled, brands).map((e) => e.brand.slug);
+    const shuffled = [
+      links[3],
+      links[0],
+      links[2],
+      links[1],
+    ] as EventBrandLink[];
+    const second = composeEventBrands(shuffled, brands).map(
+      (e) => e.brand.slug,
+    );
 
     expect(first).toEqual(["molasses", "tide", "arbor", "kiln-studio"]);
     expect(second).toEqual(first);
@@ -362,7 +457,8 @@ describe("events service", () => {
     };
 
     expect(
-      eventBrandRowToDomain({ ...base, brands: { slug: "molasses" } })?.brandSlug,
+      eventBrandRowToDomain({ ...base, brands: { slug: "molasses" } })
+        ?.brandSlug,
     ).toBe("molasses");
     expect(
       eventBrandRowToDomain({ ...base, brands: [{ slug: "molasses" }] })?.booth,
@@ -397,7 +493,9 @@ describe("events service", () => {
     // be cached for the full ISR window and look exactly like "no events yet",
     // with no signal anywhere that the database ever failed.
     queryError = { message: "connection reset" };
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
 
     await expect(fetchPublishedEvents(clientDouble())).rejects.toThrow();
 
