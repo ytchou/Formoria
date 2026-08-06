@@ -21,6 +21,9 @@ const CORRECTION_TWO = "22a7f3d9-4c81-4be2-9d06-7e15a840cb32";
 const CORRECTION_THREE = "33b8e5c2-1f60-4a93-b48d-9c02f6e71da5";
 const CORRECTION_UNSELECTED = "44d1a7b6-3e29-4c05-8a71-b6f3c9e2408d";
 
+const UUID_SHAPE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 type PendingRow = { id: string; brand_id: string };
 
 function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
@@ -117,6 +120,32 @@ describe("reviewCorrections", () => {
     gates.get(CORRECTION_ONE)!.resolve({ ok: true });
     gates.get(CORRECTION_TWO)!.resolve({ ok: true });
     await expect(pending).resolves.toEqual({ failures: [] });
+  });
+
+  it("reports a failed lookup per item instead of aborting the batch", async () => {
+    const reviewOne = vi.fn(
+      async (): Promise<ReviewCorrectionResult> => ({ ok: true }),
+    );
+    const fetchPendingBrandIds = vi.fn(async (): Promise<PendingRow[]> => {
+      throw new Error("connection reset");
+    });
+
+    const result = await reviewCorrections(
+      [CORRECTION_ONE, CORRECTION_TWO],
+      APPROVED,
+      "",
+      { reviewerId: REVIEWER_ID },
+      { fetchPendingBrandIds, reviewOne },
+    );
+
+    // Every selected id gets its own outcome — never one batch-level error.
+    expect(result).toEqual({
+      failures: [
+        { id: CORRECTION_ONE, code: "database_error" },
+        { id: CORRECTION_TWO, code: "database_error" },
+      ],
+    });
+    expect(reviewOne).not.toHaveBeenCalled();
   });
 
   it("leaves unselected ids untouched", async () => {
@@ -255,6 +284,43 @@ describe("reviewCorrections", () => {
     ).toHaveLength(1);
     expect(result).toEqual({
       failures: [{ id: CORRECTION_ONE, code: "already_reviewed" }],
+    });
+  });
+
+  it("decides the valid ids when the selection carries a non-uuid id", async () => {
+    const reviewOne = vi.fn<ReviewCorrectionsDeps["reviewOne"]>(async () => ({
+      ok: true,
+    }));
+    // `.in('id', ids)` casts every element to uuid, so a malformed id used to
+    // fail the whole lookup with Postgres 22P02 and strand the valid items.
+    const fetchPendingBrandIds = vi.fn(async (ids: string[]) => {
+      if (ids.some((id) => !UUID_SHAPE.test(id))) {
+        throw new Error('invalid input syntax for type uuid: "not-a-uuid"');
+      }
+      return [
+        { id: CORRECTION_ONE, brand_id: BRAND_KILN },
+        { id: CORRECTION_TWO, brand_id: BRAND_LOOM },
+      ];
+    });
+
+    const result = await reviewCorrections(
+      [CORRECTION_ONE, "not-a-uuid", CORRECTION_TWO],
+      APPROVED,
+      "",
+      { reviewerId: REVIEWER_ID },
+      { fetchPendingBrandIds, reviewOne },
+    );
+
+    expect(fetchPendingBrandIds).toHaveBeenCalledWith([
+      CORRECTION_ONE,
+      CORRECTION_TWO,
+    ]);
+    expect(reviewOne.mock.calls.map(([id]) => id).sort()).toEqual(
+      [CORRECTION_ONE, CORRECTION_TWO].sort(),
+    );
+    // Every selected id still gets an individual outcome.
+    expect(result).toEqual({
+      failures: [{ id: "not-a-uuid", code: "invalid_id" }],
     });
   });
 });

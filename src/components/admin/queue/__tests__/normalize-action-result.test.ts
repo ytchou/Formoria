@@ -29,7 +29,7 @@ describe("normalizeActionResult", () => {
     expect(result).not.toHaveProperty("error");
   });
 
-  it("extracts failedIds from a failures array", () => {
+  it("classifies a non-empty failures array as a failure", () => {
     expect(
       normalizeActionResult({
         failures: [
@@ -40,7 +40,18 @@ describe("normalizeActionResult", () => {
     ).toMatchObject({
       ok: false,
       error: "Rejected",
-      failedIds: ["submission-a", "submission-b"],
+    });
+  });
+
+  it("falls back to a generic message when failures carry no error string", () => {
+    // The two newer bulk services report `{ id, code }`, not `{ error }`.
+    expect(
+      normalizeActionResult({
+        failures: [{ id: "item-a", code: "already_reviewed" }],
+      }),
+    ).toMatchObject({
+      ok: false,
+      error: "Action failed",
     });
   });
 
@@ -69,7 +80,6 @@ describe("normalizeActionResult", () => {
     ).toMatchObject({
       ok: false,
       error: "Stale",
-      failedIds: ["submission-a"],
       warningKey: "storageCleanupWarning",
     });
   });

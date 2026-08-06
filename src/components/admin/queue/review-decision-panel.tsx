@@ -92,12 +92,14 @@ export function ReviewDecisionPanel(props: {
       ) : null}
 
       <div className="space-y-3">
-        {blocker === undefined || blocker === null ? (
-          error ? (
-            <p className="type-error" role="alert">
-              {error}
-            </p>
-          ) : null
+        {/* The blocker (why this row cannot be decided) and the action error
+            (why the last decision failed) are independent: gating the error on
+            an absent blocker meant any consumer using the `blocker` slot lost
+            EVERY action failure message. */}
+        {error ? (
+          <p className="type-error" role="alert">
+            {error}
+          </p>
         ) : null}
         <div className="flex flex-wrap items-center gap-2">
           <Button

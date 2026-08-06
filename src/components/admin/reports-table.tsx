@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import type { BrandReport } from "@/lib/services/reports";
 import {
+  formatReviewDate,
   ReviewDecisionPanel,
   ReviewQueueDrawer,
   ReviewQueuePagination,
@@ -76,14 +77,6 @@ export function ReportsTable({
     getId: (item) => item.id,
     filters,
   });
-
-  function formatDate(date: string): string {
-    return new Intl.DateTimeFormat("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    }).format(new Date(date));
-  }
 
   function getRowName(item: BrandReport): string {
     return item.brandName ?? t("unknownBrand");
@@ -167,7 +160,7 @@ export function ReportsTable({
     {
       id: "date",
       header: t("table.date"),
-      cell: (item) => formatDate(item.createdAt),
+      cell: (item) => formatReviewDate(item.createdAt),
     },
     {
       id: "status",
@@ -204,16 +197,7 @@ export function ReportsTable({
         }
       />
 
-      <ReviewQueuePagination
-        queue={queue}
-        labels={{
-          summary: ({ from, to, total }) =>
-            queueT("paginationSummary", { from, to, total }),
-          pageSize: queueT("pageSize"),
-          previous: queueT("previousPage"),
-          next: queueT("nextPage"),
-        }}
-      />
+      <ReviewQueuePagination queue={queue} />
 
       <ReviewQueueDrawer
         item={openItemValue}
@@ -226,7 +210,7 @@ export function ReportsTable({
         title={(item) => getRowName(item)}
         metadata={(item) => (
           <p className="type-metadata">
-            {t(`reasons.${item.reason}`)} · {formatDate(item.createdAt)}
+            {t(`reasons.${item.reason}`)} · {formatReviewDate(item.createdAt)}
           </p>
         )}
         bodyId={(item) => `report-details-${item.id}`}
@@ -241,7 +225,11 @@ export function ReportsTable({
               notesPolicy="optional"
               notesLabel={t("reviewerNotes")}
               notesPlaceholder={t("reviewerNotesPlaceholder")}
-              isPending={queueAction.isPending}
+              // Row-scoped, not the bulk transition flag: `run` only touches
+              // the pending-id set, so `isPending` never flips for a
+              // single-row decision and a double-click fired a second review
+              // of the same id.
+              isPending={queueAction.isRowPending(item.id)}
               error={queueAction.error}
             />
 
@@ -262,7 +250,9 @@ export function ReportsTable({
                   <Button
                     type="button"
                     variant="destructive"
-                    disabled={!revokeReason.trim() || queueAction.isPending}
+                    disabled={
+                      !revokeReason.trim() || queueAction.isRowPending(item.id)
+                    }
                     onClick={() => setIsRevokeDialogOpen(true)}
                   >
                     {t("revoke.trigger")}
@@ -277,7 +267,7 @@ export function ReportsTable({
                   })}
                   confirmLabel={t("revoke.confirmLabel")}
                   variant="destructive"
-                  isPending={queueAction.isPending}
+                  isPending={queueAction.isRowPending(item.id)}
                   onConfirm={() => runRevoke(item)}
                 />
               </>

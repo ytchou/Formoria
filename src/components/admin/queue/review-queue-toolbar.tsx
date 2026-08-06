@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Button } from "@/components/ui/button";
@@ -113,6 +114,12 @@ export function ReviewQueueToolbar<T>(props: {
   );
 }
 
+/**
+ * Reads its own chrome copy from `admin.queue.*`. Every consumer used to pass a
+ * character-for-character identical `labels` block (and submissions a duplicate
+ * of it under a second namespace), which is the exact duplication this shared
+ * shell exists to collapse. `labels` survives only as a per-consumer override.
+ */
 export function ReviewQueuePagination<T>(props: {
   queue: ReviewQueueState<T>;
   pageSizeOptions?: number[];
@@ -124,6 +131,7 @@ export function ReviewQueuePagination<T>(props: {
   };
 }): React.JSX.Element | null {
   const { queue, labels } = props;
+  const t = useTranslations("admin.queue");
   const pageSize = queue.pageSize;
   if (pageSize === null) return null;
 
@@ -132,10 +140,10 @@ export function ReviewQueuePagination<T>(props: {
   const to = Math.min(queue.page * pageSize, queue.total);
   const summary =
     labels?.summary?.({ from, to, total: queue.total }) ??
-    `Showing ${from}-${to} of ${queue.total}`;
-  const pageSizeLabel = labels?.pageSize ?? "Rows per page";
-  const previousLabel = labels?.previous ?? "Previous page";
-  const nextLabel = labels?.next ?? "Next page";
+    t("paginationSummary", { from, to, total: queue.total });
+  const pageSizeLabel = labels?.pageSize ?? t("pageSize");
+  const previousLabel = labels?.previous ?? t("previousPage");
+  const nextLabel = labels?.next ?? t("nextPage");
 
   return (
     <div className="mt-4 flex flex-wrap items-center justify-between gap-3">

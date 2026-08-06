@@ -3,6 +3,7 @@ import { auditedCall } from '@/lib/audit'
 import { sendEmail } from '@/lib/email/send'
 import type { Database } from '@/lib/supabase/database.types'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { validateIdBatch } from '@/lib/validation/id-batch'
 import { stripDeclaration } from './mit-declaration'
 import { uploadWithRetry } from './storage-retry'
 
@@ -123,23 +124,11 @@ export type ListPendingEvidenceOptions = {
 export function validateEvidenceBatch(
   ids: unknown,
 ): ValidateEvidenceBatchResult {
-  if (!Array.isArray(ids)) return { ok: false, error: INVALID_EVIDENCE_BATCH_ERROR }
-
-  const unique = [...new Set(ids)]
-  if (
-    unique.length === 0 ||
-    unique.length > MAX_BULK_EVIDENCE ||
-    unique.some(
-      (id) =>
-        typeof id !== 'string' ||
-        id.length === 0 ||
-        id.length > MAX_EVIDENCE_ID_LENGTH,
-    )
-  ) {
-    return { ok: false, error: INVALID_EVIDENCE_BATCH_ERROR }
-  }
-
-  return { ok: true, ids: unique as string[] }
+  return validateIdBatch(ids, {
+    max: MAX_BULK_EVIDENCE,
+    maxIdLength: MAX_EVIDENCE_ID_LENGTH,
+    errorMessage: INVALID_EVIDENCE_BATCH_ERROR,
+  })
 }
 
 function rowToEvidence(row: OriginEvidenceRowWithBrand): OriginEvidence {

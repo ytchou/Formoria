@@ -87,8 +87,11 @@ describe("ModerationQueue", () => {
       id: "33b8e5c2-1f60-4a93-b48d-9c02f6e71da5",
       brandName: "Formoria Failed Review",
     });
-    const error = "Moderation flag is no longer pending";
-    const decideAction = vi.fn<ReviewAction>().mockResolvedValue({ error });
+    // The action returns a machine-readable code; the queue must map it rather
+    // than render it, so an internal string never reaches an operator.
+    const decideAction = vi
+      .fn<ReviewAction>()
+      .mockResolvedValue({ error: "already_reviewed" });
     renderQueue([item], decideAction);
 
     await user.click(
@@ -98,8 +101,11 @@ describe("ModerationQueue", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole("alert")).toHaveTextContent(error);
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        messages.admin.moderation.errors.generic,
+      );
     });
+    expect(screen.queryByText("already_reviewed")).toBeNull();
   });
 
   it("moderation records reviewer attribution", async () => {

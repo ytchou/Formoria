@@ -15,6 +15,7 @@ import { JobAutoRefresh } from "@/app/admin/jobs/job-auto-refresh";
 import { startCurationJobAction } from "@/app/admin/operations/actions";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import {
+  formatReviewDate,
   ReviewDecisionPanel,
   ReviewQueueDrawer,
   ReviewQueuePagination,
@@ -233,7 +234,7 @@ export function SubmissionsReviewList({
     {
       id: "date",
       header: t("table.date"),
-      cell: (submission) => formatDate(submission.submittedAt),
+      cell: (submission) => formatReviewDate(submission.submittedAt),
     },
     {
       id: "reason",
@@ -534,16 +535,7 @@ export function SubmissionsReviewList({
         />
       </div>
 
-      <ReviewQueuePagination
-        queue={queue}
-        labels={{
-          summary: ({ from, to, total }) =>
-            t("pagination.summary", { from, to, total }),
-          pageSize: t("pagination.pageSize"),
-          previous: t("pagination.previous"),
-          next: t("pagination.next"),
-        }}
-      />
+      <ReviewQueuePagination queue={queue} />
 
       <ReviewQueueDrawer
         item={openSubmission}
@@ -553,7 +545,7 @@ export function SubmissionsReviewList({
           submission.reviewData.name || submission.brandName || ""
         }
         metadata={(submission) => (
-          <p className="type-metadata">{formatDate(submission.submittedAt)}</p>
+          <p className="type-metadata">{formatReviewDate(submission.submittedAt)}</p>
         )}
         footer={(submission) =>
           submission.status === "pending" &&
@@ -569,7 +561,11 @@ export function SubmissionsReviewList({
                 }
                 rejectLabel={t("reject")}
                 notesPolicy="none"
-                // Submissions confirms rejection but NOT approval, and
+                // Asymmetric on purpose: rejection is gated by a native
+                // `confirm()` in `rejectOne` because it is the destructive,
+                // hard-to-undo direction, while approval has no confirm — the
+                // completeness gate below already blocks the mistake worth
+                // catching, and approving is recoverable via a refresh.
                 eligible={submission.reviewCompleteness.complete}
                 isPending={queueAction.isRowPending(submission.id)}
                 error={queueAction.error}
@@ -618,13 +614,4 @@ function tabKey(tab: TabValue) {
 
 function getSubmitterLabel(email: string, fallback: string) {
   return email.endsWith(GENERATED_GUEST_EMAIL_SUFFIX) ? fallback : email;
-}
-
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    timeZone: "Asia/Taipei",
-  });
 }

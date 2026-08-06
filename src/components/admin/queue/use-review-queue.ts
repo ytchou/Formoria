@@ -142,6 +142,20 @@ export function useReviewQueue<T>(opts: {
     return new Set([...hiddenLatch].filter((id) => !released.has(id)));
   }, [hiddenLatch, getId, items, releaseHidden]);
 
+  // A release must be PERMANENT. Deriving `hiddenIds` alone left the latch
+  // itself growing forever, so a row that had already been released got
+  // re-hidden the moment it legitimately returned to the un-released state —
+  // e.g. reject X (latched), props catch up (released), an admin reopens X to
+  // `pending`, and X vanishes from the table AND from every `tabCounts` entry
+  // with no way back short of a reload. Pruning it out of the latch closes that.
+  //
+  // Adjusted during render on a detected transition, deliberately not in an
+  // effect: a prop-mirroring effect keeps a client copy of server state and goes
+  // blind to `router.refresh()` (admin/brands, 2026-08-01). `hiddenIds` is
+  // memoized, so after this assignment the next pass returns `hiddenLatch`
+  // by identity and the adjustment does not repeat.
+  if (hiddenIds !== hiddenLatch) setHiddenLatch(hiddenIds);
+
   const postHidden = useMemo(
     () => items.filter((item) => !hiddenIds.has(getId(item))),
     [hiddenIds, getId, items],

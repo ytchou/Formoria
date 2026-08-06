@@ -12,6 +12,7 @@ import {
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { createServiceClient } from "@/lib/supabase/server";
 import { auditedCall } from "@/lib/audit";
+import { isUuid, validateIdBatch } from "@/lib/validation/id-batch";
 import {
   PURCHASE_CHANNELS,
   PURCHASE_COLUMNS,
@@ -894,23 +895,11 @@ export async function reviewCorrection(
 export function validateCorrectionBatch(
   ids: unknown,
 ): ValidateCorrectionBatchResult {
-  if (!Array.isArray(ids)) return { ok: false, error: INVALID_BATCH_ERROR };
-
-  const unique = [...new Set(ids)];
-  if (
-    unique.length === 0 ||
-    unique.length > MAX_BULK_CORRECTIONS ||
-    unique.some(
-      (id) =>
-        typeof id !== "string" ||
-        id.length === 0 ||
-        id.length > MAX_CORRECTION_ID_LENGTH,
-    )
-  ) {
-    return { ok: false, error: INVALID_BATCH_ERROR };
-  }
-
-  return { ok: true, ids: unique as string[] };
+  return validateIdBatch(ids, {
+    max: MAX_BULK_CORRECTIONS,
+    maxIdLength: MAX_CORRECTION_ID_LENGTH,
+    errorMessage: INVALID_BATCH_ERROR,
+  });
 }
 
 export const defaultReviewCorrectionsDeps: ReviewCorrectionsDeps = {
@@ -960,18 +949,35 @@ export async function reviewCorrections(
     return { error: "Invalid correction decision" };
   }
 
+  const failuresById = new Map<string, CorrectionBatchFailure>();
+
+  // `brand_field_corrections.id` is a uuid, but the batch guard above only
+  // bounds length. A single malformed id in a 100-item selection would fail the
+  // `.in('id', ids)` uuid cast (Postgres 22P02) and strand every other item, so
+  // it is demoted to a per-item failure here instead of aborting the batch.
+  const lookupIds = validated.ids.filter((id) => {
+    if (isUuid(id)) return true;
+    failuresById.set(id, { id, code: "invalid_id" });
+    return false;
+  });
+
   let rows: Array<{ id: string; brand_id: string }>;
   try {
-    rows = await deps.fetchPendingBrandIds(validated.ids);
+    rows = lookupIds.length > 0 ? await deps.fetchPendingBrandIds(lookupIds) : [];
   } catch {
-    return { error: "database_error" };
+    // Every selected id is owed an individual outcome, so a failed lookup is
+    // reported per item rather than collapsed into one batch-level error —
+    // the same contract the per-item loop below keeps.
+    for (const id of lookupIds) {
+      failuresById.set(id, { id, code: "database_error" });
+    }
+    return { failures: [...failuresById.values()] };
   }
 
   const brandById = new Map(rows.map((row) => [row.id, row.brand_id]));
-  const failuresById = new Map<string, CorrectionBatchFailure>();
   const groups = new Map<string, string[]>();
 
-  for (const id of validated.ids) {
+  for (const id of lookupIds) {
     const brandId = brandById.get(id);
     // An id that no longer resolves to a pending row is reported, never
     // dropped: the reviewer selected it and is owed an outcome for it.

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -13,6 +13,7 @@ import type {
   OriginEvidenceStatus,
 } from "@/lib/services/origin-evidence";
 import {
+  formatReviewDate,
   ReviewDecisionPanel,
   ReviewQueueDrawer,
   ReviewQueuePagination,
@@ -44,15 +45,6 @@ type BulkReviewAction = (
 
 const TAB_VALUES: TabValue[] = ["all", "pending", "approved", "rejected"];
 
-function formatDate(date: string, locale: string): string {
-  return new Intl.DateTimeFormat(locale, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    timeZone: "Asia/Taipei",
-  }).format(new Date(date));
-}
-
 export function EvidenceQueue({
   evidence,
   reviewAction,
@@ -64,7 +56,6 @@ export function EvidenceQueue({
 }) {
   const t = useTranslations("admin.evidence");
   const queueT = useTranslations("admin.queue");
-  const locale = useLocale();
   const queueAction = useQueueAction();
   const [stripDeclaration, setStripDeclaration] = useState(false);
 
@@ -167,7 +158,7 @@ export function EvidenceQueue({
     {
       id: "date",
       header: t("table.date"),
-      cell: (item) => formatDate(item.createdAt, locale),
+      cell: (item) => formatReviewDate(item.createdAt),
     },
     {
       id: "status",
@@ -296,16 +287,7 @@ export function EvidenceQueue({
         }
       />
 
-      <ReviewQueuePagination
-        queue={queue}
-        labels={{
-          summary: ({ from, to, total }) =>
-            queueT("paginationSummary", { from, to, total }),
-          pageSize: queueT("pageSize"),
-          previous: queueT("previousPage"),
-          next: queueT("nextPage"),
-        }}
-      />
+      <ReviewQueuePagination queue={queue} />
 
       <ReviewQueueDrawer
         item={openItemValue}
@@ -317,7 +299,7 @@ export function EvidenceQueue({
         title={(item) => getRowName(item)}
         metadata={(item) => (
           <p className="type-metadata">
-            {t(`stances.${item.stance}`)} · {formatDate(item.createdAt, locale)}
+            {t(`stances.${item.stance}`)} · {formatReviewDate(item.createdAt)}
           </p>
         )}
         bodyId={(item) => `evidence-details-${item.id}`}
@@ -330,7 +312,7 @@ export function EvidenceQueue({
                       <Checkbox
                         checked={stripDeclaration}
                         onCheckedChange={setStripDeclaration}
-                        disabled={queueAction.isPending}
+                        disabled={queueAction.isRowPending(item.id)}
                       />
                       <span>{t("stripDeclaration")}</span>
                     </Label>
@@ -343,7 +325,7 @@ export function EvidenceQueue({
                     notesPolicy="requiredOnReject"
                     notesLabel={t("fields.reviewerNotes")}
                     notesPlaceholder={t("reviewerNotesPlaceholder")}
-                    isPending={queueAction.isPending}
+                    isPending={queueAction.isRowPending(item.id)}
                     error={queueAction.error}
                   />
                 </div>

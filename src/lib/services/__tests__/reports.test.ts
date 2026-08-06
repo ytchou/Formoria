@@ -85,7 +85,7 @@ describe('enrichReporterRows', () => {
 
 describe('updateReportStatus', () => {
   it('updateReportStatus refuses an already-decided report', async () => {
-    const claim = vi.fn(async () => ({ count: 0, error: null }))
+    const claim = vi.fn(async () => ({ data: null, error: null }))
     const deps: UpdateReportStatusDeps = { claim }
 
     const result = await updateReportStatus(
@@ -101,7 +101,10 @@ describe('updateReportStatus', () => {
   })
 
   it('returns success when the pending report is claimed', async () => {
-    const claim = vi.fn(async () => ({ count: 1, error: null }))
+    const claim = vi.fn(async () => ({
+      data: { id: '5a3b8e42-9c78-4d16-bf20-8e4a7c3d2b91' },
+      error: null,
+    }))
     const deps: UpdateReportStatusDeps = { claim }
 
     const result = await updateReportStatus(
@@ -112,5 +115,26 @@ describe('updateReportStatus', () => {
     )
 
     expect(result).toEqual({ ok: true })
+  })
+
+  it('reports a database error rather than a review conflict', async () => {
+    const claim = vi.fn(async () => ({
+      data: null,
+      error: { code: '22P02', message: 'invalid input syntax for type uuid' },
+    }))
+    const deps: UpdateReportStatusDeps = { claim }
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const result = await updateReportStatus(
+      '7c5d0a64-be9a-4f38-9142-a06c9e5f4d13',
+      'reviewed',
+      undefined,
+      deps,
+    )
+
+    expect(result).toEqual({ ok: false, code: 'database_error' })
+    // The underlying error must not be discarded — that was the whole defect.
+    expect(consoleError).toHaveBeenCalled()
+    consoleError.mockRestore()
   })
 })

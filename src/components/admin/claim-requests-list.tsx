@@ -11,6 +11,7 @@ import {
 } from "@/lib/services/claim-proofs";
 import type { ClaimRequest } from "@/lib/services/claim-requests";
 import {
+  formatReviewDate,
   ReviewDecisionPanel,
   ReviewQueueDrawer,
   ReviewQueuePagination,
@@ -63,13 +64,6 @@ function isClickableProofUrl(url: string) {
     return false;
   }
 }
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
 
 export function ClaimRequestsList({
   claimRequests,
@@ -86,7 +80,6 @@ export function ClaimRequestsList({
   const queueAction = useQueueAction();
   const [rejectArmedId, setRejectArmedId] = useState<string | null>(null);
   const [rejectNotes, setRejectNotes] = useState("");
-  const [rejectReasonPreset, setRejectReasonPreset] = useState("");
   const [warning, setWarning] = useState<string | null>(null);
   const tabs = useMemo<ReviewTab<ClaimRequestWithSignedProof>[]>(
     () =>
@@ -110,7 +103,6 @@ export function ClaimRequestsList({
   function resetReject() {
     setRejectArmedId(null);
     setRejectNotes("");
-    setRejectReasonPreset("");
   }
   function onResult(result: { ok: boolean; warning?: string }) {
     if (result.ok) {
@@ -141,7 +133,6 @@ export function ClaimRequestsList({
     if (rejectArmedId !== item.id) {
       setRejectArmedId(item.id);
       setRejectNotes("");
-      setRejectReasonPreset("");
       queueAction.clearError();
       return;
     }
@@ -201,7 +192,7 @@ export function ClaimRequestsList({
     {
       id: "date",
       header: t("table.date"),
-      cell: (item) => formatDate(item.createdAt),
+      cell: (item) => formatReviewDate(item.createdAt),
     },
     {
       id: "status",
@@ -365,16 +356,7 @@ export function ClaimRequestsList({
           })
         }
       />
-      <ReviewQueuePagination
-        queue={queue}
-        labels={{
-          summary: ({ from, to, total }) =>
-            queueT("paginationSummary", { from, to, total }),
-          pageSize: queueT("pageSize"),
-          previous: queueT("previousPage"),
-          next: queueT("nextPage"),
-        }}
-      />
+      <ReviewQueuePagination queue={queue} />
       <ReviewQueueDrawer
         item={openItemValue}
         open={openItemValue !== null}
@@ -388,11 +370,12 @@ export function ClaimRequestsList({
                 <div className="space-y-2">
                   <NativeSelect
                     aria-label={t("rejectReasons.label")}
-                    value={rejectReasonPreset}
+                    // Pinned to the placeholder: this select is a one-shot
+                    // template picker that writes into the notes textarea, not
+                    // a field with a value of its own.
+                    value=""
                     onChange={(e) => {
-                      const value = e.currentTarget.value;
-                      setRejectNotes(t(`rejectReasons.${value}`));
-                      setRejectReasonPreset("");
+                      setRejectNotes(t(`rejectReasons.${e.currentTarget.value}`));
                     }}
                   >
                     <option value="" disabled>
@@ -424,7 +407,7 @@ export function ClaimRequestsList({
                     : t("actions.reject")
                 }
                 eligible={!item.existingOwnedBrand}
-                isPending={queueAction.isPending}
+                isPending={queueAction.isRowPending(item.id)}
                 error={queueAction.error}
               />
             </div>

@@ -23,6 +23,7 @@ import {
   PRODUCT_TYPE_CATEGORIES,
 } from "@/lib/taxonomy/ontology";
 import {
+  formatReviewDate,
   ReviewDecisionPanel,
   ReviewQueueDrawer,
   ReviewQueuePagination,
@@ -91,10 +92,6 @@ function stringArray(value: unknown): string[] {
     : [];
 }
 
-function currentValue(correction: CorrectionQueueItem): unknown {
-  return correction.currentValue;
-}
-
 function tagDeltaState(correction: CorrectionQueueItem): TagDeltaState | null {
   if (
     correction.field !== "product_tags" ||
@@ -103,7 +100,7 @@ function tagDeltaState(correction: CorrectionQueueItem): TagDeltaState | null {
     return null;
   }
 
-  const currentTags = stringArray(currentValue(correction));
+  const currentTags = stringArray(correction.currentValue);
   const projectedTags = applyTagDelta(currentTags, correction.proposedValue);
 
   return {
@@ -157,15 +154,6 @@ function scalarValue(
   return unavailableLabel;
 }
 
-function formatDate(date: string, locale: string): string {
-  return new Intl.DateTimeFormat(locale, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    timeZone: "Asia/Taipei",
-  }).format(new Date(date));
-}
-
 export function CorrectionsQueue({
   corrections,
   reviewAction,
@@ -214,7 +202,7 @@ export function CorrectionsQueue({
   });
 
   function renderCurrentValue(item: CorrectionQueueItem): ReactNode {
-    const value = currentValue(item);
+    const value = item.currentValue;
     if (item.field === "product_tags") {
       return tagBadges(stringArray(value), t("notAvailable"));
     }
@@ -315,7 +303,7 @@ export function CorrectionsQueue({
     {
       id: "date",
       header: t("table.date"),
-      cell: (item) => formatDate(item.createdAt, locale),
+      cell: (item) => formatReviewDate(item.createdAt),
     },
   ];
 
@@ -417,16 +405,7 @@ export function CorrectionsQueue({
         }
       />
 
-      <ReviewQueuePagination
-        queue={queue}
-        labels={{
-          summary: ({ from, to, total }) =>
-            queueT("paginationSummary", { from, to, total }),
-          pageSize: queueT("pageSize"),
-          previous: queueT("previousPage"),
-          next: queueT("nextPage"),
-        }}
-      />
+      <ReviewQueuePagination queue={queue} />
 
       <ReviewQueueDrawer
         item={openItemValue}
@@ -435,7 +414,7 @@ export function CorrectionsQueue({
         title={(item) => getRowName(item)}
         metadata={(item) => (
           <p className="type-metadata">
-            {t(`fields.${item.field}`)} · {formatDate(item.createdAt, locale)}
+            {t(`fields.${item.field}`)} · {formatReviewDate(item.createdAt)}
           </p>
         )}
         bodyId={(item) => `correction-details-${item.id}`}
@@ -450,10 +429,10 @@ export function CorrectionsQueue({
               notesLabel={t("reviewerNotes")}
               notesPlaceholder={t("reviewerNotesPlaceholder")}
               // `blocker` is deliberately NOT passed: the cap message is stated
-              // contextually in the body, and passing it here would both
-              // duplicate it and suppress the panel's real action error.
+              // contextually in the body, right under the projected tag list,
+              // so repeating it down here would duplicate it.
               eligible={!tagDeltaState(item)?.exceedsCap}
-              isPending={queueAction.isPending}
+              isPending={queueAction.isRowPending(item.id)}
               error={queueAction.error}
             />
           </div>

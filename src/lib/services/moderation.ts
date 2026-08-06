@@ -57,6 +57,14 @@ function createViolation(
   };
 }
 
+function describeError(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object" && error !== null && "message" in error) {
+    return String((error as { message: unknown }).message);
+  }
+  return String(error);
+}
+
 function extractUrls(value: string): string[] {
   return value.match(URL_REGEX) ?? [];
 }
@@ -407,22 +415,57 @@ export const defaultUpdateModerationFlagStatusDeps: UpdateModerationFlagStatusDe
   },
 };
 
+/**
+ * Mirrors `UpdateReportStatusResult` in `./reports`. The decision is reported as
+ * a machine-readable code rather than a thrown message so the action layer has
+ * something stable to translate — a raw `Error.message` reached the admin UI
+ * verbatim, untranslated, and carried PostgREST diagnostics with it.
+ */
+export type UpdateModerationFlagStatusResult =
+  | { ok: true }
+  | { ok: false; code: "already_reviewed" | "database_error" };
+
 export async function updateModerationFlagStatus(
   flagId: string,
   decision: ReviewDecision,
   attribution?: ReviewAttribution,
   deps: UpdateModerationFlagStatusDeps = defaultUpdateModerationFlagStatusDeps,
-): Promise<void> {
-  return auditedCall(
+): Promise<UpdateModerationFlagStatusResult> {
+  return auditedCall<UpdateModerationFlagStatusResult>(
     { provider: "submissions", operation: "updateModerationFlagStatus", kind: "service" },
-    async () => {
-  const { data, error } = await deps.claim(
-    flagId,
-    buildReviewUpdate(decision, attribution),
-  );
+    async (ctx) => {
+      try {
+        const { data, error } = await deps.claim(
+          flagId,
+          buildReviewUpdate(decision, attribution),
+        );
 
-  if (error) throw error;
-  if (!data) throw new Error("Moderation flag is no longer pending");
+        if (error) {
+          // The envelope classifies on the RETURNED value, so the underlying
+          // error has to be carried out by hand or it is lost entirely.
+          console.error(
+            "[moderation] updateModerationFlagStatus claim failed:",
+            error,
+          );
+          ctx.summary.claimError = describeError(error);
+          return { ok: false, code: "database_error" };
+        }
+        // A returned row is the only proof the pending guard matched.
+        if (!data) return { ok: false, code: "already_reviewed" };
+        return { ok: true };
+      } catch (error) {
+        console.error("[moderation] updateModerationFlagStatus threw:", error);
+        ctx.summary.claimError = describeError(error);
+        return { ok: false, code: "database_error" };
+      }
+    },
+    {
+      // Without this a swallowed failure is audited as `succeeded` with normal
+      // latency. `already_reviewed` is not a fault — no row was claimed.
+      classify: (result) => {
+        if (result.ok) return "succeeded";
+        return result.code === "already_reviewed" ? "empty" : "failed";
+      },
     },
   );
 }

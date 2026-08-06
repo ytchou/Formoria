@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
+  formatReviewDate,
   ReviewQueueDrawer,
   ReviewQueueTable,
   ReviewQueueToolbar,
@@ -16,15 +17,6 @@ export type DecideAction = (
   id: string,
   decision: "reviewed" | "dismissed",
 ) => Promise<{ error?: string } | undefined>;
-
-function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString("zh-TW", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    timeZone: "Asia/Taipei",
-  });
-}
 
 export function ModerationQueue({
   items,
@@ -54,10 +46,12 @@ export function ModerationQueue({
   ) {
     void queueAction.run([item.id], async () => {
       try {
+        // The action returns a machine-readable code, never prose — map it
+        // rather than rendering it, the same way reports-table.tsx does.
         const result = await decideAction?.(item.id, decision);
-        return result?.error ? { error: result.error } : undefined;
-      } catch (e) {
-        return { error: e instanceof Error ? e.message : t("errors.generic") };
+        return result?.error ? { error: t("errors.generic") } : undefined;
+      } catch {
+        return { error: t("errors.generic") };
       }
     });
   }
@@ -89,7 +83,7 @@ export function ModerationQueue({
     {
       id: "detected",
       header: t("columnDetected"),
-      cell: (item) => formatDate(item.createdAt),
+      cell: (item) => formatReviewDate(item.createdAt),
     },
     {
       id: "actions",
@@ -132,6 +126,9 @@ export function ModerationQueue({
         getRowName={(item) => item.brandName}
         onRowActivate={openItem}
         isRowPending={(item) => queueAction.isRowPending(item.id)}
+        // Exactly one error surface at a time: the drawer body renders it while
+        // open (moderation is the only queue whose drawer has no decision panel
+        // to carry it), the table renders it while closed.
         error={openItemValue === null ? queueAction.error : null}
         disclosureControlsId={(item) => `moderation-details-${item.id}`}
         disclosureLabel={(item, expanded) =>
@@ -148,13 +145,22 @@ export function ModerationQueue({
         title={(item) => item.brandName}
         metadata={(item) => (
           <p className="type-metadata">
-            {item.fieldName} · {formatDate(item.createdAt)}
+            {item.fieldName} · {formatReviewDate(item.createdAt)}
           </p>
         )}
         bodyId={(item) => `moderation-details-${item.id}`}
       >
         {(item) => (
           <div className="space-y-4">
+            {/* A decision can be fired from the row and the drawer opened
+                before it resolves, so the drawer needs its own error surface —
+                otherwise a failed decision is silently swallowed and the
+                operator just clicks again. */}
+            {queueAction.error ? (
+              <p className="type-error" role="alert">
+                {queueAction.error}
+              </p>
+            ) : null}
             <div>
               <p className="type-metadata">{t("columnField")}</p>
               <p>{item.fieldName}</p>

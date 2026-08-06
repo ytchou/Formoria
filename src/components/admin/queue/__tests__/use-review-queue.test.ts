@@ -186,6 +186,59 @@ describe("useReviewQueue", () => {
     expect(result.current.tabCounts.approved).toBe(1);
   });
 
+  it("never re-hides a released id when it returns to the un-released state", () => {
+    // Regression: the latch only ever grew, so a release was not permanent.
+    // Reject item-1 (latched) → props catch up (released) → an admin reopens
+    // item-1 back to `pending`, and it vanished from the table AND from every
+    // tab count with no way back short of a full reload.
+    const pendingItems: QueueItem[] = [
+      { id: "item-1", status: "pending", stage: "ready" },
+      { id: "item-2", status: "pending", stage: "ready" },
+    ];
+    const { result, rerender } = renderHook(
+      (props: { items: QueueItem[] }) =>
+        useReviewQueue({
+          items: props.items,
+          getId: (item) => item.id,
+          releaseHidden: (item) => item.status !== "pending",
+          tabs: [
+            { value: "all", label: "All", match: () => true },
+            {
+              value: "pending",
+              label: "Pending",
+              match: (item) => item.status === "pending",
+            },
+          ],
+          initialTab: "all",
+          pageSize: null,
+        }),
+      { initialProps: { items: pendingItems } },
+    );
+
+    act(() => result.current.hideIds(["item-1"]));
+    expect(result.current.visible.map((item) => item.id)).toEqual(["item-2"]);
+
+    // The server catches up: item-1 is rejected, so the latch releases it.
+    rerender({
+      items: [
+        { id: "item-1", status: "rejected", stage: "ready" },
+        { id: "item-2", status: "pending", stage: "ready" },
+      ],
+    });
+    expect(result.current.hiddenIds.has("item-1")).toBe(false);
+
+    // The admin reopens item-1, so `releaseHidden` is false for it again. A
+    // released id must stay released.
+    rerender({ items: [...pendingItems] });
+
+    expect(result.current.hiddenIds.has("item-1")).toBe(false);
+    expect(result.current.visible.map((item) => item.id)).toEqual([
+      "item-1",
+      "item-2",
+    ]);
+    expect(result.current.tabCounts.pending).toBe(2);
+  });
+
   it("keeps a row hidden while releaseHidden is still unsatisfied", () => {
     const pendingItems: QueueItem[] = [
       { id: "item-1", status: "pending", stage: "ready" },

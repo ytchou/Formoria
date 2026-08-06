@@ -8,13 +8,11 @@ import {
 } from "./normalize-action-result";
 
 type QueueActionOptions = {
-  getFailureId?: (failure: Record<string, unknown>) => string | undefined;
   onResult?: (result: QueueActionResult) => void;
 };
 
 export function useQueueAction(): {
   isPending: boolean;
-  pendingIds: Set<string>;
   isRowPending: (id: string) => boolean;
   error: string | null;
   setError: (message: string | null) => void;
@@ -31,7 +29,15 @@ export function useQueueAction(): {
   ) => void;
 } {
   const [isPending, startTransition] = useTransition();
-  const [pendingIds, setPendingIds] = useState<Set<string>>(() => new Set());
+  // Occupancy count, not a membership Set: two overlapping runs touching the
+  // same id used to have the FIRST one to settle clear the flag, so
+  // `isRowPending` went false, `aria-busy` dropped, and the decision buttons
+  // re-enabled while a request was still in flight — reopening the very
+  // double-submit the flag exists to prevent. A row stays pending until every
+  // run holding it has settled.
+  const [pendingCounts, setPendingCounts] = useState<Map<string, number>>(
+    () => new Map(),
+  );
   const [error, setError] = useState<string | null>(null);
 
   const run = useCallback(
@@ -40,9 +46,13 @@ export function useQueueAction(): {
       fn: () => Promise<unknown>,
       opts?: QueueActionOptions,
     ): Promise<QueueActionResult> => {
-      setPendingIds((current) => {
-        const next = new Set(current);
-        for (const id of ids) next.add(id);
+      // De-duped so acquire and release stay symmetric even if a caller passes
+      // the same id twice in one batch.
+      const heldIds = [...new Set(ids)];
+
+      setPendingCounts((current) => {
+        const next = new Map(current);
+        for (const id of heldIds) next.set(id, (next.get(id) ?? 0) + 1);
         return next;
       });
       setError(null);
@@ -50,9 +60,7 @@ export function useQueueAction(): {
       try {
         let result: QueueActionResult;
         try {
-          result = normalizeActionResult(await fn(), {
-            getFailureId: opts?.getFailureId,
-          });
+          result = normalizeActionResult(await fn());
         } catch (caught) {
           result = {
             ok: false,
@@ -70,9 +78,13 @@ export function useQueueAction(): {
         opts?.onResult?.(result);
         return result;
       } finally {
-        setPendingIds((current) => {
-          const next = new Set(current);
-          for (const id of ids) next.delete(id);
+        setPendingCounts((current) => {
+          const next = new Map(current);
+          for (const id of heldIds) {
+            const remaining = (next.get(id) ?? 0) - 1;
+            if (remaining > 0) next.set(id, remaining);
+            else next.delete(id);
+          }
           return next;
         });
       }
@@ -90,14 +102,13 @@ export function useQueueAction(): {
   );
 
   const isRowPending = useCallback(
-    (id: string) => pendingIds.has(id),
-    [pendingIds],
+    (id: string) => pendingCounts.has(id),
+    [pendingCounts],
   );
   const clearError = useCallback(() => setError(null), []);
 
   return {
     isPending,
-    pendingIds,
     isRowPending,
     error,
     setError,
