@@ -76,6 +76,8 @@ next-env.d.ts
 !marketing/strategy/**/*.md
 !.github/selfheal/*.md
 !scripts/zh-check/*.md
+# SEO measurement artifacts are shipped content, not internal strategy docs.
+!content/seo/**/*.md
 docs/
 *.pen
 

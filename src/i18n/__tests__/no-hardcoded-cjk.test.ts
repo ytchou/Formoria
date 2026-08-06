@@ -49,6 +49,9 @@ const ALLOWLIST = [
   "lib/services/enrich-phases/scraper/strategies/crawl.ts",
   // Scraper search query uses Chinese keywords to find Taiwan brand websites (not UI copy).
   "lib/services/enrich-phases/scraper/search.ts",
+  // Search Console query clustering uses Chinese regex patterns to classify search
+  // queries (not UI copy).
+  "lib/seo/search-console/segmentation.ts",
   // Enrich-phase labels are admin-only display constants (not user-facing i18n copy).
   "lib/constants/enrich-phases.ts",
   // Enrich-phase search queries use Chinese keywords to find Taiwan brand data (not UI copy).
