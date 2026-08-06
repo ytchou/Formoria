@@ -29,6 +29,15 @@
  * follows is what stops the non-greedy prefix from running past the shortcode.
  */
 const SINGLE_SLUG_SHORTCODE = /<(?:BrandCard|BrandLine)\b[\s\S]*?\bslug=["']([^"']*)["']/g
+/**
+ * `<BrandGallery slug="…">` — slug-bearing like the two above, but deliberately
+ * kept out of `SINGLE_SLUG_SHORTCODE` because it renders photographs, not links.
+ * It must be slug-checked by CI (an unresolvable slug there is a silently
+ * imageless section), yet it can never produce a `select_item`, so counting it
+ * toward `view_item_list` would report impressions for items no one can click.
+ * Hence the split: `extractBrandSlugs` sees it, `extractLinkedBrandSlugs` does not.
+ */
+const GALLERY_SLUG_SHORTCODE = /<BrandGallery\b[\s\S]*?\bslug=["']([^"']*)["']/g
 /** `<BrandGrid slugs={[ "…", "…" ]}>` — the array body is captured, then split. */
 const GRID_SLUGS_SHORTCODE = /<BrandGrid\b[\s\S]*?\bslugs=\{\s*\[([\s\S]*?)\]\s*\}/g
 const QUOTED_ENTRY = /["']([^"']*)["']/g
@@ -45,7 +54,7 @@ const FENCE_LINE = /^ {0,3}(`{3,}|~{3,})/
  * swallows the rest of the file, which is the safe direction — an unterminated
  * block is malformed content, and under-counting beats inventing references.
  */
-function stripFencedCodeBlocks(source: string): string {
+export function stripFencedCodeBlocks(source: string): string {
   const kept: string[] = []
   let openFence: string | null = null
 
@@ -68,16 +77,54 @@ function stripFencedCodeBlocks(source: string): string {
 }
 
 /**
+ * Whether the body already renders `<EventInfo>`, which carries its own series
+ * list. The story page reads this to suppress the bottom `<SeriesNav>` — the
+ * shortcode only resolves inside `MDXRemote`, long after the page component has
+ * decided what to render, so the raw source is the only thing available.
+ *
+ * It lives here, beside the brand extractor, for the fenced-code guard: this is
+ * the one module that knows how to ignore a story *documenting* the syntax, and
+ * a second copy of that scanner is exactly the drift this file was created to
+ * end. The prop prefix is `[\s\S]*?` for the same reason the brand patterns use
+ * it — a `>` inside an earlier prop value must not end the match early.
+ */
+export function hasEventInfoShortcode(source: string): boolean {
+  return /<EventInfo\b[\s\S]*?\bslug=["'][^"']+["']/.test(stripFencedCodeBlocks(source))
+}
+
+/**
  * Every brand slug the source references, in document order, duplicates
- * included — callers that want a unique set build one, and the analytics
- * counter genuinely wants the raw reference count.
+ * included — callers that want a unique set build one.
+ *
+ * This is the CI slug guard's view: it must cover every shortcode that names a
+ * brand, linked or not. For the analytics-facing subset use
+ * `extractLinkedBrandSlugs`.
  */
 export function extractBrandSlugs(source: string): string[] {
+  return collectBrandSlugs(source, true)
+}
+
+/**
+ * Only the slugs a reader can actually click through to a brand page. This is
+ * what the detail page's `view_item_list` count is built from — an impression
+ * for an item with no `select_item` path is noise in GA4, not a datapoint.
+ */
+export function extractLinkedBrandSlugs(source: string): string[] {
+  return collectBrandSlugs(source, false)
+}
+
+function collectBrandSlugs(source: string, includeGallery: boolean): string[] {
   const body = stripFencedCodeBlocks(source)
   const found: Array<{ index: number; slug: string }> = []
 
   for (const match of body.matchAll(SINGLE_SLUG_SHORTCODE)) {
     found.push({ index: match.index ?? 0, slug: match[1] })
+  }
+
+  if (includeGallery) {
+    for (const match of body.matchAll(GALLERY_SLUG_SHORTCODE)) {
+      found.push({ index: match.index ?? 0, slug: match[1] })
+    }
   }
 
   for (const grid of body.matchAll(GRID_SLUGS_SHORTCODE)) {
