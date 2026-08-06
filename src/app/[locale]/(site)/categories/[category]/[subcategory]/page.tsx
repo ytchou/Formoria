@@ -61,7 +61,7 @@ export async function generateMetadata({ params, searchParams }: SubcategoryPage
     page,
   }).canonical
   return {
-    title,
+    title: { absolute: title },
     description,
     alternates: { canonical, ...(seo.languages ? { languages: seo.languages } : {}) },
     ...(seo.robots ? { robots: seo.robots } : {}),

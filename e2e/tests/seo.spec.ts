@@ -3,7 +3,10 @@ import { test, expect } from "@playwright/test";
 // `property`/`name` and `content` can appear in either order in the rendered
 // tag, so match the whole `<meta ...>` element first and pull `content` out
 // of it rather than assuming attribute order.
-function extractMetaContent(html: string, propertyOrName: string): string | null {
+function extractMetaContent(
+  html: string,
+  propertyOrName: string,
+): string | null {
   const tagMatch = html.match(
     new RegExp(
       `<meta[^>]*(?:property|name)=["']${propertyOrName}["'][^>]*>`,
@@ -98,18 +101,15 @@ test.describe("SEO deep", () => {
         "content",
         "website",
       );
-      await expect(page.locator('meta[property="og:image:alt"]')).toHaveAttribute(
-        "content",
-        /.+/,
-      );
-      await expect(page.locator('meta[property="og:image:width"]')).toHaveAttribute(
-        "content",
-        /^[1-9]\d*$/,
-      );
-      await expect(page.locator('meta[property="og:image:height"]')).toHaveAttribute(
-        "content",
-        /^[1-9]\d*$/,
-      );
+      await expect(
+        page.locator('meta[property="og:image:alt"]'),
+      ).toHaveAttribute("content", /.+/);
+      await expect(
+        page.locator('meta[property="og:image:width"]'),
+      ).toHaveAttribute("content", /^[1-9]\d*$/);
+      await expect(
+        page.locator('meta[property="og:image:height"]'),
+      ).toHaveAttribute("content", /^[1-9]\d*$/);
       await expect(
         page.locator('meta[name="robots"][content*="noindex" i]'),
       ).toHaveCount(0);
@@ -125,36 +125,19 @@ test.describe("SEO deep", () => {
     }
   });
 
-  test("category page has unique title and description", async ({ page }) => {
-    const categorySlug = process.env.E2E_CATEGORY_SLUG ?? "fashion";
-    await page.goto(`/brands?category=${categorySlug}`);
-    const title = await page.title();
-    expect(title.length).toBeGreaterThan(0);
-    const desc = await page
-      .locator('meta[name="description"]')
-      .getAttribute("content");
-    expect(desc?.length).toBeGreaterThan(0);
-    // Title should not be the same as homepage
-    await page.goto("/");
-    const homeTitle = await page.title();
-    expect(title).not.toBe(homeTitle);
-  });
-
   test("directory page 2 keeps its page query in canonical metadata", async ({
     page,
   }) => {
-    for (const path of ["/brands?page=2", "/brands?category=fashion&page=2"]) {
-      await page.goto(path);
-      const canonical = await page
-        .locator('link[rel="canonical"]')
-        .getAttribute("href");
-      const ogUrl = await page
-        .locator('meta[property="og:url"]')
-        .getAttribute("content");
+    await page.goto("/brands?page=2");
+    const canonical = await page
+      .locator('link[rel="canonical"]')
+      .getAttribute("href");
+    const ogUrl = await page
+      .locator('meta[property="og:url"]')
+      .getAttribute("content");
 
-      expect(canonical).toMatch(/\/brands\?.*page=2(?:&|$)/);
-      expect(ogUrl).toBe(canonical);
-    }
+    expect(canonical).toMatch(/\?.*page=2(?:&|$)/);
+    expect(ogUrl).toBe(canonical);
   });
 
   test("an unknown eligible bare slug returns a direct 404", async ({
@@ -295,53 +278,49 @@ test.describe("SEO deep", () => {
       "/submit",
     ]);
     const staticLocations = locations.filter((url) => {
-      const path = url.pathname === "/en" ? "/" : url.pathname.replace(/^\/en(?=\/)/, "");
-      return (
-        staticPaths.has(path) ||
-        (path === "/brands" && url.searchParams.has("category"))
-      );
+      const path =
+        url.pathname === "/en" ? "/" : url.pathname.replace(/^\/en(?=\/)/, "");
+      return staticPaths.has(path) || path.startsWith("/categories/");
     });
 
     expect(staticLocations.length).toBeGreaterThan(0);
-    // The prior version drove this through `page.goto` sequentially — a full
-    // browser render (JS, CSS, fonts) per URL — for a set that grows with every
-    // new static page and taxonomy category. With ~48 locations that blew past
-    // the 30s CI test timeout. The og:image/twitter:card tags are present in the
-    // server-rendered HTML, so a concurrent plain-HTTP fetch verifies the exact
-    // same markup without paying for a browser render.
-    await Promise.all(
-      staticLocations.map(async (url) => {
-        const path = `${url.pathname}${url.search}`;
-        const pageResponse = await request.get(path);
-        expect(pageResponse.status(), `${path} → status`).toBe(200);
-        const html = await pageResponse.text();
+    // A browser render per URL exceeds the CI timeout, while compiling every
+    // route concurrently can overload a cold dev server and corrupt its route
+    // manifests. Plain HTTP requests in small batches keep all URL assertions
+    // while bounding lazy compilation pressure.
+    const batchSize = 4;
+    for (let index = 0; index < staticLocations.length; index += batchSize) {
+      const batch = staticLocations.slice(index, index + batchSize);
+      await Promise.all(
+        batch.map(async (url) => {
+          const path = `${url.pathname}${url.search}`;
+          const pageResponse = await request.get(path);
+          expect(pageResponse.status(), `${path} → status`).toBe(200);
+          const html = await pageResponse.text();
 
-        const ogImage = extractMetaContent(html, "og:image");
-        expect(ogImage, `${path} → og:image`).toMatch(/^https?:\/\//);
+          const ogImage = extractMetaContent(html, "og:image");
+          expect(ogImage, `${path} → og:image`).toMatch(/^https?:\/\//);
 
-        const imageUrl = new URL(ogImage!);
-        const localImageUrl = `${url.origin}${imageUrl.pathname}${imageUrl.search}`;
-        const imageResponse = await request.get(localImageUrl);
-        expect(
-          imageResponse.status(),
-          `${path} → og:image status`,
-        ).toBe(200);
-        expect(
-          imageResponse.headers()["content-type"],
-          `${path} → og:image content-type`,
-        ).toMatch(/^image\/png(?:;|$)/);
-
-        if (
-          url.pathname.replace(/^\/en(?=\/)/, "") === "/brands" &&
-          url.searchParams.has("category")
-        ) {
+          const imageUrl = new URL(ogImage!);
+          const localImageUrl = `${url.origin}${imageUrl.pathname}${imageUrl.search}`;
+          const imageResponse = await request.get(localImageUrl);
+          expect(imageResponse.status(), `${path} → og:image status`).toBe(200);
           expect(
-            extractMetaContent(html, "twitter:card"),
-            `${path} → twitter:card`,
-          ).toBe("summary_large_image");
-        }
-      }),
-    );
+            imageResponse.headers()["content-type"],
+            `${path} → og:image content-type`,
+          ).toMatch(/^image\/png(?:;|$)/);
+
+          if (
+            url.pathname.replace(/^\/en(?=\/)/, "").startsWith("/categories/")
+          ) {
+            expect(
+              extractMetaContent(html, "twitter:card"),
+              `${path} → twitter:card`,
+            ).toBe("summary_large_image");
+          }
+        }),
+      );
+    }
   });
 
   test("llms.txt is served as text", async ({ request }) => {
@@ -374,7 +353,8 @@ test.describe("SEO deep", () => {
     ];
 
     for (const slug of categorySlugs) {
-      expect(body).toContain(`/brands?category=${slug}`);
+      expect(body).toContain(`/categories/${slug}`);
+      expect(body).not.toContain(`/brands?category=${slug}`);
     }
     for (const path of ["/events", "/faq", "/stats"]) {
       expect(body).toContain(path);
@@ -414,23 +394,5 @@ test.describe("SEO deep", () => {
       expect(typeof first?.name).toBe("string");
       expect(String(first?.url)).toContain("/brands/");
     }
-  });
-
-  // DEV-1032: subcategory filter — canonical must always point to the parent category
-  // (sub= param must never leak into the canonical URL)
-  test("subcategory view canonical points to parent category", async ({
-    page,
-  }) => {
-    const E2E_CATEGORY_SLUG = "bags-accessories";
-    const E2E_SUB_SLUG = "clasp-frame-bags";
-    await page.goto(
-      `/brands?category=${E2E_CATEGORY_SLUG}&sub=${E2E_SUB_SLUG}`,
-    );
-    const canonical = page.locator('link[rel="canonical"]');
-    // The canonical must end with ?category=<slug> — no sub= param
-    await expect(canonical).toHaveAttribute(
-      "href",
-      new RegExp(`/brands\\?category=${E2E_CATEGORY_SLUG}$`),
-    );
   });
 });

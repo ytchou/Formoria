@@ -1,19 +1,40 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Public routing regressions deep", () => {
-  test("@smoke legacy locale category URLs redirect to the localized directory", async ({
+  test("@smoke legacy category query URLs redirect once to their landing page", async ({
     request,
   }) => {
     const redirects = [
-      ["/en/category/food-drink", "/en/brands?category=food-drink"],
-      ["/zh-TW/category/home", "/brands?category=home"],
-      ["/en/categories", "/en/brands"],
-      ["/zh-TW/categories", "/brands"],
+      ["/brands?category=home", "/categories/home"],
+      ["/brands?category=home&sub=furniture", "/categories/home/furniture"],
     ] as const;
 
     for (const [source, destination] of redirects) {
       const response = await request.get(source, { maxRedirects: 0 });
-      expect(response.status()).toBe(308);
+      expect(response.status()).toBe(301);
+      expect(response.headers().location).toBe(destination);
+
+      const destinationResponse = await request.get(destination, {
+        maxRedirects: 0,
+      });
+      expect(destinationResponse.status()).toBe(200);
+      expect(destinationResponse.headers().location).toBeUndefined();
+    }
+  });
+
+  test("legacy locale category aliases target the new localized route family", async ({
+    request,
+  }) => {
+    const redirects = [
+      ["/en/category/food-drink", 301, "/en/categories/food-drink"],
+      ["/zh-TW/category/home", 301, "/categories/home"],
+      ["/en/categories", 308, "/en/brands"],
+      ["/zh-TW/categories", 308, "/brands"],
+    ] as const;
+
+    for (const [source, status, destination] of redirects) {
+      const response = await request.get(source, { maxRedirects: 0 });
+      expect(response.status()).toBe(status);
       expect(response.headers().location).toBe(destination);
     }
   });

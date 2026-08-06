@@ -59,7 +59,7 @@ export async function generateMetadata({ params, searchParams }: CategoryPagePro
   }).canonical
   const languages = seo.languages
   return {
-    title,
+    title: { absolute: title },
     description,
     alternates: { canonical, ...(languages ? { languages } : {}) },
     ...(seo.robots ? { robots: seo.robots } : {}),
