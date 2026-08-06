@@ -1,13 +1,10 @@
 import { createServiceClient } from '@/lib/supabase/server'
-import {
-  hasApprovedBrandSlug as lookupApprovedBrandSlug,
-  resolveApprovedBrandRedirect as lookupApprovedBrandRedirect,
-} from './brand-redirects-core'
+import { createBrandRedirectRepository } from '@/lib/adapters/brand-redirects-repository'
 
 export async function hasApprovedBrandSlug(slug: string): Promise<boolean> {
-  return lookupApprovedBrandSlug(slug, createServiceClient())
+  return createBrandRedirectRepository(createServiceClient()).hasApprovedBrandSlug(slug)
 }
 
 export async function resolveApprovedBrandRedirect(oldSlug: string): Promise<string | null> {
-  return lookupApprovedBrandRedirect(oldSlug, createServiceClient())
+  return createBrandRedirectRepository(createServiceClient()).resolveApprovedBrandRedirect(oldSlug)
 }

@@ -1,13 +1,10 @@
 import { createEdgeServiceClient } from '@/lib/supabase/edge'
-import {
-  hasApprovedBrandSlug as lookupApprovedBrandSlug,
-  resolveApprovedBrandRedirect as lookupApprovedBrandRedirect,
-} from './brand-redirects-core'
+import { createBrandRedirectRepository } from '@/lib/adapters/brand-redirects-repository'
 
 export function hasApprovedBrandSlug(slug: string): Promise<boolean> {
-  return lookupApprovedBrandSlug(slug, createEdgeServiceClient())
+  return createBrandRedirectRepository(createEdgeServiceClient()).hasApprovedBrandSlug(slug)
 }
 
 export function resolveApprovedBrandRedirect(oldSlug: string): Promise<string | null> {
-  return lookupApprovedBrandRedirect(oldSlug, createEdgeServiceClient())
+  return createBrandRedirectRepository(createEdgeServiceClient()).resolveApprovedBrandRedirect(oldSlug)
 }
