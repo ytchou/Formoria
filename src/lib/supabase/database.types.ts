@@ -3139,6 +3139,23 @@ export type Database = {
         Args: { p_images: Json; p_review_data: Json; p_submission_id: string };
         Returns: undefined;
       };
+      search_brand_page: {
+        Args: {
+          filter_categories?: string[];
+          filter_price_ranges?: number[];
+          filter_tags?: string[];
+          filter_verification?: string;
+          page_offset?: number;
+          search_query: string;
+          sort_mode?: string;
+        };
+        Returns: {
+          id: string;
+          rank_score: number;
+          search_source: string;
+          total_count: number;
+        }[];
+      };
       search_brands: {
         Args: {
           filter_categories?: string[];
@@ -3158,23 +3175,6 @@ export type Database = {
           rank_score: number;
           search_source: string;
           slug: string;
-        }[];
-      };
-      search_brand_page: {
-        Args: {
-          filter_categories?: string[];
-          filter_price_ranges?: number[];
-          filter_tags?: string[];
-          filter_verification?: string;
-          page_offset?: number;
-          search_query: string;
-          sort_mode?: string;
-        };
-        Returns: {
-          id: string;
-          rank_score: number;
-          search_source: string;
-          total_count: number;
         }[];
       };
       show_limit: { Args: never; Returns: number };
