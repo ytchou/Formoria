@@ -32,9 +32,9 @@ export async function BrandGallery({
 }: BrandGalleryProps) {
   const brands = await loadBrands([slug])
   const brand = brands.get(slug)
+  const t = await getTranslations('stories')
 
   if (!brand) {
-    const t = await getTranslations('stories')
     return <MissingBrandNotice label={t('brandMissing', { slug })} />
   }
 
@@ -66,7 +66,7 @@ export async function BrandGallery({
         metadataPreferredAlt ||
         otherAlt ||
         metadataOtherAlt ||
-        (isEnglish ? `${brand.name} product photo` : `${brand.name} 品牌作品`)
+        t('galleryImageAlt', { brand: brand.name })
 
       return { url, alt }
     })
