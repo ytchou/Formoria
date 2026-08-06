@@ -124,23 +124,23 @@ BEGIN
   ranked AS (
     -- Match the established bilingual ranking: prefer FTS whenever it has at
     -- least one match, otherwise use the trigram fallback for CJK and prose.
-    SELECT id, fts_rank AS rank_score, 'fts'::text AS search_source
+    SELECT base.id, base.fts_rank AS rank_score, 'fts'::text AS search_source
     FROM base
-    WHERE has_fts
+    WHERE base.has_fts
     UNION ALL
-    SELECT id, trgm_rank AS rank_score, 'trgm'::text AS search_source
+    SELECT base.id, base.trgm_rank AS rank_score, 'trgm'::text AS search_source
     FROM base
-    WHERE NOT EXISTS (SELECT 1 FROM base WHERE has_fts)
-      AND trgm_rank >= 0.25
+    WHERE NOT EXISTS (SELECT 1 FROM base AS fts_base WHERE fts_base.has_fts)
+      AND base.trgm_rank >= 0.25
   ),
   numbered AS (
     SELECT
-      id,
-      rank_score,
-      search_source,
+      ranked.id,
+      ranked.rank_score,
+      ranked.search_source,
       count(*) OVER () AS total_count,
       row_number() OVER (
-        ORDER BY rank_score DESC, id ASC
+        ORDER BY ranked.rank_score DESC, ranked.id ASC
       ) AS row_number
     FROM ranked
   )
