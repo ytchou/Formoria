@@ -20,6 +20,7 @@ Smoke is a tagged subset of the canonical deep suite. The PR selector resolves a
 | Navbar authenticated state | `e2e/tests/navbar-auth.spec.ts` | 2026-08-04 |
 | Public routing, filters, search, and metadata regressions | `e2e/tests/public-routing-regressions.spec.ts` | 2026-08-04 |
 | Persisted locale switching | `e2e/tests/i18n-en.spec.ts` | 2026-08-04 |
+| Category landing metadata, indexation, and legacy URL handoff | `e2e/tests/categories.spec.ts`, `e2e/tests/public-routing-regressions.spec.ts` | 2026-08-07 |
 
 ## Conditional cross-browser compatibility
 
@@ -31,7 +32,7 @@ Browser-sensitive shared changes run exactly one public, read-only journey in Ch
 
 ## User-facing route smoke audit
 
-Audit baseline: **68 route families; 14 mapped; 54 visible migration warnings.** API handlers, metadata endpoints, internal-only endpoints, and authentication callbacks are excluded. A route may be covered by a shared journey; the table records the canonical case that exercises it.
+Audit baseline: **70 route families; 16 mapped; 54 visible migration warnings.** API handlers, metadata endpoints, internal-only endpoints, and authentication callbacks are excluded. A route may be covered by a shared journey; the table records the canonical case that exercises it.
 
 ### Mapped routes
 
@@ -42,6 +43,8 @@ Audit baseline: **68 route families; 14 mapped; 54 visible migration warnings.**
 | `/auth/sign-in` | Google entry point | `e2e/tests/auth-signin.spec.ts` |
 | `/brands` | A-Z sort URL state | `e2e/tests/directory-sort.spec.ts` |
 | `/brands/[slug]` | Brand detail render | `e2e/tests/brand-detail.spec.ts` |
+| `/categories/[category]` | L1 landing metadata, child links, filters, and indexation | `e2e/tests/categories.spec.ts` |
+| `/categories/[category]/[subcategory]` | L2 landing metadata, breadcrumbs, locale alternates, and indexation | `e2e/tests/categories.spec.ts` |
 | `/dashboard` | Post-claim dashboard ownership | `e2e/tests/claim-smoke.spec.ts` |
 | `/events` | Hub empty/published state | `e2e/tests/events.spec.ts` |
 | `/faq` | FAQ sections/details | `e2e/tests/faq.spec.ts` |
@@ -93,6 +96,7 @@ These are warnings during migration, not evidence that the routes have no deep c
 | **Localized brand indexability and hidden-brand exclusion** | `e2e/tests/seo.spec.ts`, `e2e/tests/brand-detail.spec.ts` | 2026-07-15 |
 | **Guide locale indexability** | `e2e/tests/guide-detail.spec.ts` | 2026-07-15 |
 | **Directory filters, zero-result recovery, and contextual recommendations** | `e2e/tests/directory.spec.ts` | 2026-07-16 |
+| **Category landing URLs — L1/L2 metadata, server-rendered content, indexation states, direct 404s, and query edge states** | `e2e/tests/categories.spec.ts` | 2026-08-07 |
 | **Public search — API boundaries, ranking, bilingual/fuzzy matching, entry points, async state, filters, and recovery** | `e2e/tests/search-edge-cases.spec.ts` | 2026-07-19 |
 | **Public data boundary — private brand canaries absent from HTML, RSC, JSON-LD, and public brand surfaces** | `e2e/tests/public-data-boundary.spec.ts` | 2026-08-06 |
 | **Public search — selected A-Z sort changes rendered matching-result order** | `e2e/tests/search-edge-cases.spec.ts` | 2026-08-06 |
