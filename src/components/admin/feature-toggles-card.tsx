@@ -5,7 +5,7 @@ import { setFeatureFlagAction } from '@/app/admin/actions'
 import { SurfaceCard } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { FEATURE_FLAGS } from '@/lib/services/app-settings'
+import { FEATURE_FLAGS } from '@/lib/services/app-settings-config'
 
 export function FeatureTogglesCard({
   initialValues,

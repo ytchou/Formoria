@@ -6,6 +6,7 @@ import { DashboardTabNav } from '@/components/dashboard/dashboard-tab-nav'
 import { localizePath, signInHref } from '@/i18n/locale-preference'
 import { requireBrandEditor } from '@/lib/auth/require-brand-editor'
 import { computeProfileCompleteness } from '@/lib/services/profile-completeness'
+import { toOwnerEditorContract } from '@/lib/services/brands'
 
 type DashboardBrandLayoutProps = {
   children: ReactNode
@@ -28,13 +29,14 @@ export default async function DashboardBrandLayout({
     )
   }
 
-  const completeness = computeProfileCompleteness(editor.brand)
+  const brand = toOwnerEditorContract(editor.brand)
+  const completeness = computeProfileCompleteness(brand)
 
   return (
     <div className="min-h-screen">
       <div className="mx-auto max-w-7xl px-6 md:px-8">
-        <DashboardHeroCard brand={editor.brand} completeness={completeness} />
-        <DashboardTabNav brandSlug={editor.brand.slug} />
+        <DashboardHeroCard brand={brand} completeness={completeness} />
+        <DashboardTabNav brandSlug={brand.slug} />
       </div>
       <main className="mx-auto max-w-7xl p-6 md:p-8">{children}</main>
     </div>

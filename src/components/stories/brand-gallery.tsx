@@ -3,9 +3,10 @@ import { getLocale, getTranslations } from 'next-intl/server'
 import { MissingBrandNotice, type BrandLoaderSeam } from './brand-card-mdx'
 import {
   getBrandImageFields,
-  getBrandsBySlugs,
+  getPublicBrandsBySlugs,
   type BrandImageFields,
 } from '@/lib/services/brands'
+import { normalizePublicBrandCard } from '@/lib/brands/contracts'
 import { getBrandGalleryImages } from '@/lib/services/brand-images'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
 
@@ -27,11 +28,12 @@ type BrandGalleryProps = {
 export async function BrandGallery({
   slug,
   caption,
-  loadBrands = getBrandsBySlugs,
+  loadBrands = getPublicBrandsBySlugs,
   loadImages = getBrandImageFields,
 }: BrandGalleryProps) {
   const brands = await loadBrands([slug])
-  const brand = brands.get(slug)
+  const resolvedBrand = brands.get(slug)
+  const brand = resolvedBrand ? normalizePublicBrandCard(resolvedBrand) : undefined
   const t = await getTranslations('stories')
 
   if (!brand) {

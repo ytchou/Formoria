@@ -52,6 +52,21 @@ import {
   syncHeroDenormalized,
   toImageFields,
 } from "./brand-images";
+import {
+  toAdminBrandListItem,
+  toOwnerBrandEditor,
+  toPublicBrandCard,
+  toPublicBrandDetail,
+  toPublicBrandFaqContext,
+  toPublicMicrositeBrand,
+  type AdminBrandListItem,
+  type OwnerBrandEditor,
+  type PublicBrandCard,
+  type PublicBrandDetail,
+  type PublicBrandFaqContext,
+  type PublicMicrositeBrand,
+  type SearchSuggestion,
+} from "@/lib/brands/contracts";
 
 function mulberry32(seed: number): () => number {
   return () => {
@@ -187,17 +202,6 @@ export type BrandRowWithJoins = Partial<BrandRow> &
     brand_owners?: BrandOwnerRef | BrandOwnerRef[] | null;
   };
 
-export type SearchResult = {
-  id: string;
-  name: string;
-  slug: string;
-  category: string;
-  rankScore: number;
-  searchSource: string;
-  /** @deprecated Use rankScore. Kept for existing autocomplete consumers. */
-  similarity: number;
-};
-
 type SearchBrandsRow = {
   id: string;
   name: string;
@@ -213,12 +217,26 @@ type SearchBrandsResult = {
   error: { code?: string; message?: string } | null;
 };
 
-export type SearchBrandAutocompleteResult = {
+type SearchBrandPageRow = {
   id: string;
-  slug: string;
-  name: string;
-  category: string;
+  rank_score: number;
+  search_source: string;
+  total_count: number;
 };
+
+function normalizePublicSearchQuery(value: string): string | null {
+  const normalized = value.trim();
+  if (
+    normalized.length < 2 ||
+    normalized.length > 100 ||
+    /^[\s%_*?]+$/.test(normalized)
+  ) {
+    return null;
+  }
+  return normalized;
+}
+
+export type SearchBrandAutocompleteResult = SearchSuggestion;
 
 // ---------------------------------------------------------------------------
 // Slug generation
@@ -888,8 +906,76 @@ export const DIRECTORY_BRAND_COLUMN_LIST = BRAND_COLUMN_LIST.filter(
     !(DIRECTORY_OMITTED_COLUMNS as readonly string[]).includes(column),
 );
 
+/** Columns allowed to cross the public card boundary. */
+export const PUBLIC_BRAND_CARD_COLUMN_LIST = [
+  "id",
+  "name",
+  "slug",
+  "romanized_name",
+  "description",
+  "description_en",
+  "blurb",
+  "blurb_en",
+  "hero_image_url",
+  "product_type",
+  "status",
+  "founding_year",
+  "price_range",
+  "product_tags",
+  "product_tags_en",
+  "mit_status",
+] as const;
+
+/** Columns allowed to cross the public detail boundary. */
+export const PUBLIC_BRAND_DETAIL_COLUMN_LIST = [
+  ...PUBLIC_BRAND_CARD_COLUMN_LIST,
+  "city",
+  ...PURCHASE_COLUMNS,
+  "social_instagram",
+  "social_threads",
+  "social_facebook",
+  "other_urls",
+  "mit_story",
+  "mit_evidence",
+] as const;
+
+/** Evidence fields used only to render the public FAQ template floors. */
+export const PUBLIC_BRAND_FAQ_CONTEXT_COLUMN_LIST = [
+  "id",
+  "name",
+  "slug",
+  "status",
+  "city",
+  "product_type",
+  "founding_year",
+  "price_range",
+  "product_tags",
+  "product_tags_en",
+  "reputation_summary",
+  "mit_status",
+  "mit_declared_scope",
+  "mit_story",
+] as const;
+
+/** Microsites only need the configured content and a few display fields. */
+export const PUBLIC_MICROSITE_BRAND_COLUMN_LIST = [
+  "id",
+  "name",
+  "slug",
+  "status",
+  "description",
+  "hero_image_url",
+  "founding_year",
+  "mit_status",
+  "site_content",
+] as const;
+
 const BRAND_COLUMNS = BRAND_COLUMN_LIST.join(", ");
 const DIRECTORY_BRAND_COLUMNS = DIRECTORY_BRAND_COLUMN_LIST.join(", ");
+const PUBLIC_BRAND_CARD_COLUMNS = PUBLIC_BRAND_CARD_COLUMN_LIST.join(", ");
+const PUBLIC_BRAND_DETAIL_COLUMNS = PUBLIC_BRAND_DETAIL_COLUMN_LIST.join(", ");
+const PUBLIC_BRAND_FAQ_CONTEXT_COLUMNS = PUBLIC_BRAND_FAQ_CONTEXT_COLUMN_LIST.join(", ");
+const PUBLIC_MICROSITE_BRAND_COLUMNS = PUBLIC_MICROSITE_BRAND_COLUMN_LIST.join(", ");
 
 export const BRAND_SELECT =
   `${BRAND_COLUMNS}, brand_owners(user_id)` as unknown as "*";
@@ -900,8 +986,16 @@ const VERIFIED_BRAND_SELECT =
 /** Narrow projection for directory/card queries. */
 const BRAND_LIST_SELECT =
   `${DIRECTORY_BRAND_COLUMNS}, brand_owners(user_id)` as unknown as "*";
-const VERIFIED_BRAND_LIST_SELECT =
-  `${DIRECTORY_BRAND_COLUMNS}, brand_owners!inner(user_id)` as unknown as "*";
+const PUBLIC_BRAND_CARD_SELECT =
+  `${PUBLIC_BRAND_CARD_COLUMNS}, brand_owners(user_id)` as unknown as "*";
+const PUBLIC_VERIFIED_BRAND_CARD_SELECT =
+  `${PUBLIC_BRAND_CARD_COLUMNS}, brand_owners!inner(user_id)` as unknown as "*";
+const PUBLIC_BRAND_DETAIL_SELECT =
+  `${PUBLIC_BRAND_DETAIL_COLUMNS}, brand_owners(user_id)` as unknown as "*";
+const PUBLIC_BRAND_FAQ_CONTEXT_SELECT =
+  PUBLIC_BRAND_FAQ_CONTEXT_COLUMNS as unknown as "*";
+const PUBLIC_MICROSITE_BRAND_SELECT =
+  `${PUBLIC_MICROSITE_BRAND_COLUMNS}, brand_owners(user_id)` as unknown as "*";
 
 /**
  * PostgREST sends `.in()` filters in the GET query string, so a single call with
@@ -1132,6 +1226,15 @@ export async function getBrandsBySlugs(
   return getBrandsBySlugKey(brandsBySlugsCacheKey(slugs));
 }
 
+export async function getPublicBrandsBySlugs(
+  slugs: string[],
+): Promise<Map<string, PublicBrandCard>> {
+  const brands = await getBrandsBySlugs(slugs);
+  return new Map(
+    [...brands.entries()].map(([slug, brand]) => [slug, toPublicBrandCard(brand)]),
+  );
+}
+
 export type BrandImageFields = ReturnType<typeof toImageFields>;
 
 /**
@@ -1164,7 +1267,7 @@ function getBrandsSelect(filters: GetBrandsFilters | undefined): "*" {
   if (filters?.includeDetailColumns) {
     return owned ? VERIFIED_BRAND_SELECT : BRAND_SELECT;
   }
-  return owned ? VERIFIED_BRAND_LIST_SELECT : BRAND_LIST_SELECT;
+  return owned ? PUBLIC_VERIFIED_BRAND_CARD_SELECT : PUBLIC_BRAND_CARD_SELECT;
 }
 
 function getSearchPagination(filters: GetBrandsFilters): {
@@ -1195,10 +1298,10 @@ export async function getBrands(
 ): Promise<{ brands: Brand[]; totalCount: number }> {
   const supabase = createServiceClient();
 
-  // Search filtering is handled in search_brands; this branch only hydrates the matched IDs.
-  // Use typeof check so empty string '' still enters this branch and returns early (not fallthrough to browse).
+  // Search filtering is handled in the bounded, service-only page RPC; this
+  // branch only hydrates the returned IDs with the card projection.
   if (typeof filters?.search === "string") {
-    const trimmed = filters.search.trim().slice(0, 100);
+    const trimmed = normalizePublicSearchQuery(filters.search);
     if (!trimmed) {
       return { brands: [], totalCount: 0 };
     }
@@ -1208,62 +1311,64 @@ export async function getBrands(
         ? filters.verificationFilter
         : null;
 
+    const { offset, limit: pageLimit } = getSearchPagination({
+      ...filters,
+      limit: DEFAULT_PAGE_SIZE,
+    });
     const { data: rpcData, error: rpcError } = (await supabase.rpc(
-      "search_brands",
+      "search_brand_page",
       {
         search_query: trimmed,
-        result_limit: null,
-        prefix_mode: false,
         filter_categories: filters.category?.length ? filters.category : null,
         filter_tags: filters.subcategoryTags?.length
           ? filters.subcategoryTags
           : null,
         filter_verification: verificationFilter,
-        filter_status: filters.status || "approved",
-        include_test_brands: filters.includeTestBrands ?? false,
+        filter_price_ranges: filters.priceRanges?.length
+          ? filters.priceRanges
+          : null,
+        page_offset: offset,
+        sort_mode: filters.sort && filters.sort !== "random" ? filters.sort : "rank",
       },
-    )) as SearchBrandsResult;
+    )) as { data: SearchBrandPageRow[] | null; error: { code?: string; message?: string } | null };
 
     if (rpcError) {
-      console.error("getBrands search_brands RPC error:", rpcError);
+      console.error("getBrands search_brand_page RPC error:", rpcError);
       return { brands: [], totalCount: 0 };
     }
 
-    let matchedRows = rpcData ?? [];
-    if (filters.priceRanges?.length && matchedRows.length > 0) {
-      const { data: priceMatches, error: priceError } = await supabase
-        .from("brands")
-        .select("id")
-        .in(
-          "id",
-          matchedRows.map((row) => row.id),
-        )
-        .in("price_range", filters.priceRanges);
+    const matchedRows = rpcData ?? [];
+    let totalCount = matchedRows[0]?.total_count ?? 0;
 
-      if (priceError) throw priceError;
-      const matchingIds = new Set((priceMatches ?? []).map((row) => row.id));
-      matchedRows = matchedRows.filter((row) => matchingIds.has(row.id));
+    // An out-of-range page has no row carrying the window count. Probe the
+    // first page once so numbered pagination can still clamp/render correctly.
+    if (matchedRows.length === 0 && offset > 0) {
+      const { data: firstPage, error: firstPageError } = (await supabase.rpc(
+        "search_brand_page",
+        {
+          search_query: trimmed,
+          filter_categories: filters.category?.length ? filters.category : null,
+          filter_tags: filters.subcategoryTags?.length
+            ? filters.subcategoryTags
+            : null,
+          filter_verification: verificationFilter,
+          filter_price_ranges: filters.priceRanges?.length
+            ? filters.priceRanges
+            : null,
+          page_offset: 0,
+          sort_mode: filters.sort && filters.sort !== "random" ? filters.sort : "rank",
+        },
+      )) as { data: SearchBrandPageRow[] | null; error: { code?: string; message?: string } | null };
+      if (firstPageError) throw firstPageError;
+      totalCount = firstPage?.[0]?.total_count ?? 0;
     }
 
-    const searchResults: SearchResult[] = matchedRows.map((row) => ({
-      id: row.id,
-      name: row.name,
-      slug: row.slug,
-      category: row.primary_category_name ?? "",
-      rankScore: row.rank_score,
-      searchSource: row.search_source,
-      similarity: row.rank_score,
-    }));
-    const allIds = searchResults.map((result) => result.id);
-    const totalCount = allIds.length;
+    const allIds = matchedRows.map((result) => result.id);
     if (totalCount === 0) {
       return { brands: [], totalCount: 0 };
     }
 
     const selectClause = getBrandsSelect(filters);
-    const { offset, limit: pageLimit } = getSearchPagination(filters);
-    const pageEnd = pageLimit === undefined ? undefined : offset + pageLimit;
-
     async function hydrateByIds(ids: string[]): Promise<Brand[]> {
       if (ids.length === 0) return [];
 
@@ -1277,41 +1382,13 @@ export async function getBrands(
       return (data ?? []).map(brandToDomain);
     }
 
-    const sortKey = filters.sort;
-
-    if (!sortKey || sortKey === "random") {
-      const pageIds = allIds.slice(offset, pageEnd);
-      const rankById = new Map(pageIds.map((id, index) => [id, index]));
-      const brands = (await hydrateByIds(pageIds)).sort(
-        (left, right) =>
-          (rankById.get(left.id) ?? 0) - (rankById.get(right.id) ?? 0),
-      );
-      return { brands, totalCount };
-    }
-
-    const sortConfig = BRAND_SORT_CONFIG[sortKey];
-    // Sort and paginate in Postgres: hydrating every matched row only to slice
-    // 12 of them in JS meant a broad search read ~400 full rows per page.
-    // The id tiebreaker makes the order total — without it, rows tied on the
-    // sort column can repeat or disappear between .range() windows.
-    const rangeEnd =
-      pageLimit === undefined ? totalCount - 1 : offset + pageLimit - 1;
-    if (offset > rangeEnd) return { brands: [], totalCount };
-
-    const { data, error } = await supabase
-      .from("brands")
-      .select(selectClause)
-      .in("id", allIds)
-      .order(sortConfig.column, { ascending: sortConfig.ascending })
-      .order("id", { ascending: true })
-      .range(offset, rangeEnd);
-
-    if (error) {
-      if (error.code === "PGRST103") return { brands: [], totalCount };
-      throw error;
-    }
-
-    return { brands: (data ?? []).map(brandToDomain), totalCount };
+    const pageIds = allIds.slice(0, pageLimit === undefined ? undefined : pageLimit);
+    const rankById = new Map(matchedRows.map((row, index) => [row.id, index]));
+    const brands = (await hydrateByIds(pageIds)).sort(
+      (left, right) =>
+        (rankById.get(left.id) ?? 0) - (rankById.get(right.id) ?? 0),
+    );
+    return { brands, totalCount };
   }
 
   const verificationFilter = filters?.verificationFilter;
@@ -1373,6 +1450,29 @@ export async function getBrands(
   const brands = (data ?? []).map(brandToDomain);
   if (sortKey === "random") shuffleArray(brands, getDailySeed());
   return { brands, totalCount: count ?? 0 };
+}
+
+/** Public directory boundary: only card fields are returned to the caller. */
+export async function getPublicBrandCards(
+  filters?: Pick<
+    BrandFilters,
+    "category" | "priceRanges" | "verificationFilter" | "search" | "sort"
+  > & {
+    page?: number;
+    subcategoryTags?: string[];
+  },
+): Promise<{ brands: PublicBrandCard[]; totalCount: number }> {
+  const page = filters?.page ?? 1;
+  const result = await getBrands({
+    ...filters,
+    status: "approved",
+    limit: DEFAULT_PAGE_SIZE,
+    offset: (page - 1) * DEFAULT_PAGE_SIZE,
+  });
+  return {
+    brands: result.brands.map(toPublicBrandCard),
+    totalCount: result.totalCount,
+  };
 }
 
 export async function getSubcategoryCounts(
@@ -1480,13 +1580,15 @@ export async function getExploreBrands(
 
 export async function searchBrandsAutocomplete(
   query: string,
-  limit?: number,
 ): Promise<SearchBrandAutocompleteResult[]> {
+  const normalized = normalizePublicSearchQuery(query);
+  if (!normalized) return [];
+
   const supabase = createServiceClient();
   const { data, error } = (await supabase.rpc("search_brands", {
-    search_query: query,
+    search_query: normalized,
     prefix_mode: true,
-    result_limit: limit ?? 5,
+    result_limit: 5,
   })) as SearchBrandsResult;
 
   if (error) {
@@ -1526,6 +1628,65 @@ export async function getBrandBySlug(
 
   if (error || !data) throw new NotFoundError("Brand", slug, { cause: error });
   return brandToDomainWithImages(supabase, data);
+}
+
+/** Public detail boundary with an explicit projection and response mapper. */
+export async function getPublicBrandDetailBySlug(
+  slug: string,
+): Promise<PublicBrandDetail> {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase
+    .from("brands")
+    .select(PUBLIC_BRAND_DETAIL_SELECT)
+    .eq("slug", slug)
+    .eq("status", "approved")
+    .maybeSingle();
+
+  if (error || !data) throw new NotFoundError("Brand", slug, { cause: error });
+  return toPublicBrandDetail(await brandToDomainWithImages(supabase, data));
+}
+
+/** FAQ rendering context is fetched separately so detail pages never load the
+ * internal evidence/provenance row just to decide which template floors show. */
+export async function getPublicBrandFaqContextById(
+  brandId: string,
+): Promise<PublicBrandFaqContext> {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase
+    .from("brands")
+    .select(PUBLIC_BRAND_FAQ_CONTEXT_SELECT)
+    .eq("id", brandId)
+    .eq("status", "approved")
+    .maybeSingle();
+
+  if (error || !data) throw new NotFoundError("Brand", brandId, { cause: error });
+  return toPublicBrandFaqContext(brandToDomain(data));
+}
+
+/** Public microsite boundary. A missing/empty site_content is not public. */
+export async function getPublicMicrositeBrandBySlug(
+  slug: string,
+): Promise<PublicMicrositeBrand | null> {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase
+    .from("brands")
+    .select(PUBLIC_MICROSITE_BRAND_SELECT)
+    .eq("slug", slug)
+    .eq("status", "approved")
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return null;
+  return toPublicMicrositeBrand(brandToDomain(data));
+}
+
+/** Owner/admin callers receive a contract rather than a raw database row. */
+export function toOwnerEditorContract(brand: Brand): OwnerBrandEditor {
+  return toOwnerBrandEditor(brand);
+}
+
+export function toAdminListContract(brand: Brand): AdminBrandListItem {
+  return toAdminBrandListItem(brand);
 }
 
 /**

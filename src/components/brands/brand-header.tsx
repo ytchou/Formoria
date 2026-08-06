@@ -1,6 +1,6 @@
 import { useTranslations } from 'next-intl'
 import type { ReactNode } from 'react'
-import type { Brand } from '@/lib/types'
+import type { PublicBrandDetail } from '@/lib/brands/contracts'
 import { Badge } from '@/components/ui/badge'
 import { InfoField } from '@/components/ui/card'
 import { Typography } from '@/components/ui/typography'
@@ -12,7 +12,7 @@ const infoLabelClassName =
   'type-field-label uppercase tracking-[0.08em]'
 
 interface BrandHeaderProps {
-  brand: Brand
+  brand: PublicBrandDetail
   categoryLabel?: string | null
   cityLabel?: string | null
   locale?: string
@@ -33,7 +33,7 @@ export function BrandHeader({
   const hasMitVerifiedBadge = brand.mitStatus === 'verified'
   const hasOwnerVerifiedBadge = brand.isVerified
   const hasVerification = hasMitDeclaredBadge || hasMitVerifiedBadge || hasOwnerVerifiedBadge
-  const mitSmileCert = hasMitVerifiedBadge ? brand.mitEvidence?.mit_smile_cert : undefined
+  const mitSmileCert = hasMitVerifiedBadge ? brand.mitCertificateNumber : undefined
   const priceRangeLabel = brand.priceRange != null ? '$'.repeat(brand.priceRange) : null
   const resolvedCategory = categoryLabel ?? brand.category
   const resolvedTags =

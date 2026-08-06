@@ -30,6 +30,11 @@ describe('parsePageParam', () => {
   it('returns 1 for array input', () => {
     expect(parsePageParam(['1', '2'])).toBe(1)
   })
+
+  it('rejects fractional and oversized pages before deriving a database offset', () => {
+    expect(parsePageParam('2.5')).toBe(1)
+    expect(parsePageParam('178956972')).toBe(1)
+  })
 })
 
 describe('parseSortParam', () => {

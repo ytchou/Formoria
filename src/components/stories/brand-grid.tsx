@@ -1,7 +1,8 @@
 import { getTranslations } from 'next-intl/server'
 
 import { BrandCard } from '@/components/brands/brand-card'
-import { getBrandsBySlugs } from '@/lib/services/brands'
+import { getPublicBrandsBySlugs } from '@/lib/services/brands'
+import { normalizePublicBrandCard } from '@/lib/brands/contracts'
 import { MissingBrandNotice, type BrandLoaderSeam } from './brand-card-mdx'
 
 type BrandGridProps = {
@@ -34,7 +35,7 @@ export async function BrandGrid({
   slugs,
   notes,
   startIndex = 0,
-  loadBrands = getBrandsBySlugs,
+  loadBrands = getPublicBrandsBySlugs,
 }: BrandGridProps) {
   if (slugs.length === 0) return null
 
@@ -44,7 +45,8 @@ export async function BrandGrid({
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {slugs.map((slug, index) => {
-        const brand = brands.get(slug)
+        const resolvedBrand = brands.get(slug)
+        const brand = resolvedBrand ? normalizePublicBrandCard(resolvedBrand) : undefined
         const key = `${slug}-${index}`
 
         if (!brand) {

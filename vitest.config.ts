@@ -37,6 +37,7 @@ const resolve = {
       "./node_modules/next/navigation.js"
     ),
     "next/headers": path.resolve(__dirname, "./node_modules/next/headers.js"),
+    "server-only": path.resolve(__dirname, "./src/test/server-only.ts"),
   },
 };
 

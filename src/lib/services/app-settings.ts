@@ -1,68 +1,18 @@
 import { cache } from 'react'
-import { createClient } from '@supabase/supabase-js'
-import { routing } from '@/i18n/routing'
 import type { Json } from '@/lib/supabase/database.types'
 import { createServiceClient } from '@/lib/supabase/server'
-
-export type FeatureFlag = {
-  key: string
-  label: string
-  description: string
-  defaultValue: boolean
-  revalidatePaths: string[]
-}
-
-// Flag keys are declared before the registry so each key has exactly one
-// source of truth: helpers resolve by key, never by position in the array.
-export const SUBCATEGORY_FILTER_KEY = 'subcategory_filter_enabled'
-
-export const OWNER_FEATURES_KEY = 'owner_features_enabled'
-
-export const FEATURE_FLAGS: FeatureFlag[] = [
-  {
-    key: SUBCATEGORY_FILTER_KEY,
-    label: 'Subcategory filter on /brands',
-    description: 'Shows product-type chips in the directory filter sidebar',
-    defaultValue: true,
-    // The ISR cache key keeps the locale prefix even where the URL hides it,
-    // so a bare `/brands` matches nothing. See `revalidateLocalizedPath`.
-    revalidatePaths: [
-      ...routing.locales.map((locale) => `/${locale}/brands`),
-      '/admin/settings',
-    ],
-  },
-  {
-    key: OWNER_FEATURES_KEY,
-    label: 'Owner features',
-    description:
-      'Enables brand claiming and the owner dashboard; off hides both surfaces',
-    defaultValue: false,
-    // Owner surfaces are gated per-request, so only the toggle page needs busting.
-    revalidatePaths: ['/admin/settings'],
-  },
-]
-
-// Reads run on the request hot path (page gates, server actions, viewer
-// context), so reuse one anon client instead of constructing a supabase-js
-// client plus its GoTrue auth client per call. Mirrors `createServiceClient`.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _anonClient: ReturnType<typeof createClient<any>> | null = null
-
-function getAnonClient() {
-  if (!_anonClient) {
-    _anonClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-  }
-  return _anonClient
-}
+import { OWNER_FEATURES_KEY } from './app-settings-config'
+export {
+  FEATURE_FLAGS,
+  OWNER_FEATURES_KEY,
+  SUBCATEGORY_FILTER_KEY,
+} from './app-settings-config'
 
 export async function getAppSetting<T extends Json = Json>(
   key: string,
   defaultValue?: T
 ): Promise<T | undefined> {
-  const supabase = getAnonClient()
+  const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('app_settings')
     .select('value')

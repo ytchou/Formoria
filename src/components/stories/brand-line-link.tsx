@@ -3,11 +3,11 @@
 import { Link } from '@/i18n/navigation'
 
 import { trackBrandCardClicked } from '@/lib/analytics'
-import type { Brand } from '@/lib/types'
+import type { PublicBrandCard } from '@/lib/brands/contracts'
 
 type BrandLineLinkProps = {
   /** Already resolved by the server parent — this component never fetches. */
-  brand: Brand
+  brand: PublicBrandCard
   /** Rank inside the story's `view_item_list`; see `BrandLine`. */
   position?: number
 }

@@ -30,6 +30,7 @@ import { buildOpenGraph } from "@/lib/seo/open-graph";
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { getAllStories } from "@/lib/services/stories";
 import { StoryRow } from "@/components/stories/story-row";
+import { toPublicBrandCard } from "@/lib/brands/contracts";
 
 export const revalidate = 3600;
 
@@ -92,8 +93,8 @@ export default async function LandingPage({ params }: PageProps) {
     await markRenderDegraded("landing");
   }
 
-  const exploreBrands = exploreResult?.brands ?? [];
-  const newBrands = newBrandsResult ?? [];
+  const exploreBrands = (exploreResult?.brands ?? []).map(toPublicBrandCard);
+  const newBrands = (newBrandsResult ?? []).map(toPublicBrandCard);
   const recentBrands = recentResult ?? { count: 0, period: "30d" as const };
   // Suppressed per read, not per page: a failed `getNewBrands` must not hide a
   // total count that `getExploreBrands` returned successfully. `undefined` omits

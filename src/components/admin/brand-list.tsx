@@ -10,7 +10,8 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
-import type { Brand, BrandStatus } from "@/lib/types";
+import type { BrandStatus } from "@/lib/types";
+import type { AdminBrandListItem } from "@/lib/brands/contracts";
 import type { SubmissionReviewImage } from "@/lib/services/submissions";
 import { surfaceCardStyles } from "@/components/ui/card";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -50,7 +51,7 @@ import { routing } from "@/i18n/routing";
 import { cn } from "@/lib/utils";
 
 type TabValue = "all" | BrandStatus;
-type MitStatus = NonNullable<Brand["mitStatus"]>;
+type MitStatus = NonNullable<AdminBrandListItem["mitStatus"]>;
 const PAGE_SIZES = [10, 25, 50] as const;
 
 const MIT_STATUS_CONFIG: Record<
@@ -71,7 +72,7 @@ const MIT_STATUS_CONFIG: Record<
   },
 };
 
-function getMitStatus(brand: Brand): MitStatus {
+function getMitStatus(brand: AdminBrandListItem): MitStatus {
   if (brand.mitStatus) return brand.mitStatus;
   return brand.mitVerified ? "verified" : "unverified";
 }
@@ -99,7 +100,7 @@ export function BrandList({
   initialSearchQuery = "",
   initialTab = "all",
 }: {
-  brands: Brand[];
+  brands: AdminBrandListItem[];
   reviewImagesByBrandId?: Record<string, SubmissionReviewImage[]>;
   claimInviteBrandIds?: string[];
   initialEditingBrandId?: string;
@@ -176,7 +177,7 @@ export function BrandList({
     currentPage * pageSize,
   );
 
-  function handleHide(brand: Brand) {
+  function handleHide(brand: AdminBrandListItem) {
     startTransition(async () => {
       setError(null);
       const result = await hideBrandAction(brand.id);
@@ -184,7 +185,7 @@ export function BrandList({
     });
   }
 
-  function handleUnhide(brand: Brand) {
+  function handleUnhide(brand: AdminBrandListItem) {
     startTransition(async () => {
       setError(null);
       const result = await unhideBrandAction(brand.id);
@@ -202,7 +203,7 @@ export function BrandList({
     });
   }
 
-  function handleResendClaimInvite(brand: Brand) {
+  function handleResendClaimInvite(brand: AdminBrandListItem) {
     startTransition(async () => {
       const result = await resendClaimInviteAction(brand.id);
       if ("error" in result) {

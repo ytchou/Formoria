@@ -8,6 +8,8 @@ enabled = true
 port = 54321
 # Schemas to expose in your API. Tables, views and stored procedures in this schema will get API
 # endpoints. `public` is always included.
+# GraphQL is intentionally not exposed; only the application public schema is
+# served by PostgREST. Auth and Storage keep their independent service APIs.
 schemas = ["public"]
 extra_search_path = ["public", "extensions"]
 # The maximum number of rows returned from a view, table, or stored procedure. Limits payload size

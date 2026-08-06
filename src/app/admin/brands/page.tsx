@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { getBrands } from '@/lib/services/brands'
+import { getBrands, toAdminListContract } from '@/lib/services/brands'
 import { getApprovedOwnerSubmissionRecipients } from '@/lib/services/submissions'
 import { BrandList } from '@/components/admin/brand-list'
 import { getAdminBrandReviewImages } from '@/lib/services/admin-brand-review'
@@ -23,11 +23,12 @@ function first(value: string | string[] | undefined): string | undefined {
 export default async function BrandsPage({ searchParams }: BrandsPageProps) {
   // Admin table renders brand.mitEvidence, which the narrow directory
   // projection omits — opt back into the full column list here.
-  const { brands } = await getBrands({
+  const { brands: internalBrands } = await getBrands({
     includeTestBrands: true,
     sort: 'newest',
     includeDetailColumns: true,
   })
+  const brands = internalBrands.map(toAdminListContract)
   const resendableBrandIds = brands
     .filter((brand) => brand.status === 'approved' && !brand.isVerified)
     .map((brand) => brand.id)

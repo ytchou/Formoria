@@ -12,7 +12,7 @@ import {
   isLikelyCrawler,
   isRouterRequest,
 } from "@/lib/security/rate-limiter";
-import { hasApprovedBrandSlug, resolveApprovedBrandRedirect } from '@/lib/services/brand-redirects'
+import { hasApprovedBrandSlug, resolveApprovedBrandRedirect } from '@/lib/services/brand-redirects-edge'
 
 /**
  * Routes that are reserved for static pages and cannot be used as brand slugs.

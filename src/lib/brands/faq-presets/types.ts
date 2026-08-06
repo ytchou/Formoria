@@ -1,5 +1,5 @@
 import type { CategoryPeerStats } from "@/lib/services/brand-peer-stats";
-import type { Brand } from "@/lib/types";
+import type { PublicBrandFaqContext } from "@/lib/brands/contracts";
 
 export type EvidenceKey =
   | "mitStatus"
@@ -18,7 +18,7 @@ export type FaqTFn = (
 ) => string;
 
 export type FaqBrandContext = {
-  brand: Brand;
+  brand: PublicBrandFaqContext;
   cityLabel?: string | null;
   peerStats?: CategoryPeerStats | null;
 };

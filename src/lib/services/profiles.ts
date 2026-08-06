@@ -1,6 +1,6 @@
 import { auditedCall } from '@/lib/audit'
 import type { Database } from '@/lib/supabase/database.types'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { normalizeOwnerLocale, type OwnerLocale } from '@/lib/types'
 
 type ProfileRow = Database['public']['Tables']['profiles']['Row']
@@ -23,7 +23,7 @@ function toProfile(row: ProfileRow): Profile {
 }
 
 export async function getProfile(userId: string): Promise<Profile | null> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const { data } = await supabase
     .from('profiles')
     .select('display_name, locale_preference')
@@ -74,7 +74,7 @@ export async function updateProfile(userId: string, update: ProfileUpdate): Prom
   return auditedCall(
     { provider: 'brands', operation: 'updateProfile', kind: 'service' },
     async () => {
-      const supabase = await createClient()
+      const supabase = createServiceClient()
 
       const row: Database['public']['Tables']['profiles']['Update'] = {}
       if (update.displayName !== undefined) row.display_name = update.displayName

@@ -1,4 +1,6 @@
 export const DEFAULT_PAGE_SIZE = 12
+const MAX_POSTGRES_INTEGER = 2_147_483_647
+const MAX_PUBLIC_PAGE = Math.floor(MAX_POSTGRES_INTEGER / DEFAULT_PAGE_SIZE) + 1
 
 export type BrandSortOption = 'random' | 'name' | 'newest' | 'year'
 
@@ -17,8 +19,8 @@ export function parsePageParam(
 ): number {
   if (raw === undefined || Array.isArray(raw)) return 1
   const parsed = Number(raw)
-  if (!Number.isFinite(parsed) || parsed < 1) return 1
-  return Math.floor(parsed)
+  if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > MAX_PUBLIC_PAGE) return 1
+  return parsed
 }
 
 export function parseSortParam(

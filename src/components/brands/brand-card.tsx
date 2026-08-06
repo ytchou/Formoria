@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Link } from '@/i18n/navigation'
 import Image from 'next/image'
 import { useTranslations, useLocale } from 'next-intl'
-import type { Brand } from '@/lib/types'
+import type { PublicBrandCard } from '@/lib/brands/contracts'
 import {
   trackBrandCardClicked,
   trackRecommendationBrandClicked,
@@ -23,7 +23,7 @@ import { MitDeclaredBadge, MitVerifiedBadge, OwnerVerifiedBadge } from './brand-
 import { cn } from '@/lib/utils'
 
 interface BrandCardProps {
-  brand: Brand
+  brand: PublicBrandCard
   position?: number
   preload?: boolean
   variant?: 'directory' | 'recommendation' | 'editorial'
