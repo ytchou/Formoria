@@ -11,6 +11,7 @@ import {
   isForeignCountryTld,
   linkIdentifiesBrand,
   LINK_FIELDS,
+  type LinkField,
   linkColumnFor,
 } from '../link-enrichment'
 import { cleanBrandName, isValidBrandName, titleCaseScrapedTitle } from '../brand-cleanup'
@@ -320,15 +321,25 @@ async function scrapeDiscoveredLinks(
   ])
 }
 
-function buildQuarantine(
+/**
+ * Resolve, per link field, which page supplied the surviving value and whether
+ * that page is confirmed to belong to the brand.
+ *
+ * Single-sourced because two callers need the same answer and must not drift:
+ * `buildQuarantine` escalates what is NOT confirmed, and `buildLinkEnrichPatch`
+ * exempts what IS confirmed from the DEV-1332 handle gate. If these disagreed,
+ * a link could be dropped by the gate and simultaneously escalated as though it
+ * had been adopted.
+ */
+function resolveFieldSources(
   brandName: string | undefined,
   knownUrls: string[],
   scrapedData: EnrichScrapedData,
   scrapedFromPages: EnrichScrapedData | null,
-): Record<string, QuarantineGroup> {
+): Map<LinkField, { sourceUrl: string; isConfirmed: boolean }> {
   const confirmed = new Set(knownUrls.map(scrapeKey))
   const tokens = brandNameTokens(brandName)
-  const groups: Record<string, QuarantineGroup> = {}
+  const resolved = new Map<LinkField, { sourceUrl: string; isConfirmed: boolean }>()
 
   for (const field of LINK_FIELDS) {
     const column = linkColumnFor(field)
@@ -343,27 +354,64 @@ function buildQuarantine(
     const provenanceDescribesValue =
       typeof fromPages === 'string' && sameUrl(fromPages, value)
     const sourceUrl = provenanceUrl && provenanceDescribesValue ? provenanceUrl : value
-    const isConfirmed =
-      confirmed.has(scrapeKey(sourceUrl)) || linkIdentifiesBrand(sourceUrl, tokens)
-    if (isConfirmed) continue
 
-    const subjectUrl = sourceUrl
+    resolved.set(field, {
+      sourceUrl,
+      isConfirmed:
+        confirmed.has(scrapeKey(sourceUrl)) || linkIdentifiesBrand(sourceUrl, tokens),
+    })
+  }
+
+  return resolved
+}
+
+/** Fields whose source page is confirmed, for `buildLinkEnrichPatch`'s exemption. */
+function confirmedIdentityFields(
+  sources: Map<LinkField, { sourceUrl: string; isConfirmed: boolean }>,
+): Set<LinkField> {
+  const fields = new Set<LinkField>()
+  for (const [field, source] of sources) {
+    if (source.isConfirmed) fields.add(field)
+  }
+  return fields
+}
+
+function buildQuarantine(
+  scrapedData: EnrichScrapedData,
+  sources: Map<LinkField, { sourceUrl: string; isConfirmed: boolean }>,
+  patch: Record<string, unknown>,
+): Record<string, QuarantineGroup> {
+  const groups: Record<string, QuarantineGroup> = {}
+
+  for (const [field, source] of sources) {
+    const column = linkColumnFor(field)
+    const value = scrapedData[column]
+    if (typeof value !== 'string' || value.trim().length === 0) continue
+    if (source.isConfirmed) continue
+
+    // Only escalate a value this run actually adopted. DEV-1332's handle gate
+    // can decline a scraped social before it reaches the patch; escalating it
+    // anyway would let a verdict about a page we never took a value from clear
+    // the brand's STORED handle via `_cleared_fields`.
+    if (!Object.hasOwn(patch, column)) continue
+
+    const subjectUrl = source.sourceUrl
     const subjectKind = field === 'purchaseWebsite' ? 'website' : 'source-page'
     const existing = groups[subjectUrl]
     const evidence = {
       ...(scrapedData.brandName &&
       scrapedData.textProvenance?.brandName?.sourceUrl &&
-      sameUrl(scrapedData.textProvenance.brandName.sourceUrl, sourceUrl)
+      sameUrl(scrapedData.textProvenance.brandName.sourceUrl, subjectUrl)
         ? { title: scrapedData.brandName }
         : {}),
       ...(scrapedData.description &&
       scrapedData.textProvenance?.description?.sourceUrl &&
-      sameUrl(scrapedData.textProvenance.description.sourceUrl, sourceUrl)
+      sameUrl(scrapedData.textProvenance.description.sourceUrl, subjectUrl)
         ? { description: scrapedData.description }
         : {}),
       ...(scrapedData.story &&
       scrapedData.textProvenance?.story?.sourceUrl &&
-      sameUrl(scrapedData.textProvenance.story.sourceUrl, sourceUrl)
+      sameUrl(scrapedData.textProvenance.story.sourceUrl, subjectUrl)
         ? { story: scrapedData.story }
         : {}),
     }
@@ -471,10 +519,18 @@ export async function runLinksPhase({
       ...urlExtracted,
       purchaseWebsite: derivedWebsite,
     })
+    // Resolved once and shared: the patch gate exempts a confirmed source page
+    // from DEV-1332's handle test, and the quarantine escalates the rest.
+    const fieldSources = resolveFieldSources(brand.name, knownUrls, scrapedData, scrapedFromPages)
     // `buildLinkEnrichPatch` is typed to link columns only, and that is now the
     // whole patch: the scraped name leaves this phase as a CANDIDATE, never as a
     // patch key, because `names` is the single writer of `name` (DEV-1321).
-    const patch: Record<string, unknown> = buildLinkEnrichPatch(brand, scrapedData, brand.name)
+    const patch: Record<string, unknown> = buildLinkEnrichPatch(
+      brand,
+      scrapedData,
+      brand.name,
+      confirmedIdentityFields(fieldSources),
+    )
     const scrapedBrandName = deriveScrapedBrandName(brand, scrapedData)
     return {
       patch,
@@ -484,6 +540,7 @@ export async function runLinksPhase({
       scrapedImageSources: scrapedData.imageSources ?? [],
       jsonLdImageUrls: scrapedData.jsonLdImageUrls ?? [],
       scrapedFromPages,
+      fieldSources,
     }
   })
 
@@ -498,12 +555,7 @@ export async function runLinksPhase({
     scrapedImageUrls: result.scrapedImageUrls,
     scrapedImageSources: result.scrapedImageSources,
     jsonLdImageUrls: result.jsonLdImageUrls,
-    quarantine: buildQuarantine(
-      brand.name,
-      knownUrls,
-      result.scrapedData,
-      result.scrapedFromPages,
-    ),
+    quarantine: buildQuarantine(result.scrapedData, result.fieldSources, result.patch),
   }
     },
     {

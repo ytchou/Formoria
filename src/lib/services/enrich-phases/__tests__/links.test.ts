@@ -267,6 +267,33 @@ describe('links quarantine identity rules', () => {
   })
 
   it('a SERP source page failing the predicate quarantines its links', () => {
+    // `purchasePinkoi` is deliberately NOT in DEV-1332's IDENTITY_GATED_FIELDS —
+    // marketplace handles are routinely opaque IDs, so a handle test there would
+    // reject legitimate store links. That makes it the field where the ladder's
+    // own source-page rule is the only thing standing between a stranger's page
+    // and the column, which is exactly what this case must cover.
+    scraperMocks.scrapeBrandUrls.mockResolvedValue(
+      scrape('https://stranger.example/page', {
+        purchasePinkoi: 'https://www.pinkoi.com/store/other-company',
+      }),
+    )
+
+    return run({
+      brand: { ...brand, name: 'Han Brand' },
+      discoveredUrls: ['https://stranger.example/page'],
+    }).then((result) => {
+      expect(result.patch.purchase_pinkoi).toBe('https://www.pinkoi.com/store/other-company')
+      expect(result.quarantine['https://stranger.example/page']).toMatchObject({
+        columns: ['purchase_pinkoi'],
+        subjectKind: 'source-page',
+      })
+    })
+  })
+
+  it('a social handle the DEV-1332 gate declined is not quarantined', () => {
+    // The handle gate drops a stranger's social before it reaches the patch. It
+    // must NOT then be escalated: a verdict about a page this run took no value
+    // from could otherwise clear the brand's stored handle via `_cleared_fields`.
     scraperMocks.scrapeBrandUrls.mockResolvedValue(
       scrape('https://stranger.example/page', {
         socialFacebook: 'https://www.facebook.com/other-company',
@@ -277,11 +304,8 @@ describe('links quarantine identity rules', () => {
       brand: { ...brand, name: 'Han Brand' },
       discoveredUrls: ['https://stranger.example/page'],
     }).then((result) => {
-      expect(result.patch.social_facebook).toBe('https://www.facebook.com/other-company')
-      expect(result.quarantine['https://stranger.example/page']).toMatchObject({
-        columns: ['social_facebook'],
-        subjectKind: 'source-page',
-      })
+      expect(result.patch.social_facebook).toBeUndefined()
+      expect(result.quarantine).toEqual({})
     })
   })
 
@@ -313,6 +337,9 @@ describe('links quarantine identity rules', () => {
   })
 
   it("second-pass links inherit their source's quarantine", async () => {
+    // Carried on `purchasePinkoi` rather than a social: DEV-1332's handle gate
+    // would drop a stranger's social handle before the patch, leaving nothing to
+    // inherit and making the case untestable on that field.
     scraperMocks.scrapeBrandUrls
       .mockResolvedValueOnce(
         scrape('https://brand.example', {
@@ -321,7 +348,7 @@ describe('links quarantine identity rules', () => {
       )
       .mockResolvedValueOnce(
         scrape('https://www.instagram.com/stranger', {
-          socialFacebook: 'https://www.facebook.com/stranger',
+          purchasePinkoi: 'https://www.pinkoi.com/store/stranger',
         }),
       )
 
@@ -330,9 +357,9 @@ describe('links quarantine identity rules', () => {
       discoveredUrls: ['https://brand.example'],
     })
 
-    expect(result.patch.social_facebook).toBe('https://www.facebook.com/stranger')
+    expect(result.patch.purchase_pinkoi).toBe('https://www.pinkoi.com/store/stranger')
     expect(result.quarantine['https://www.instagram.com/stranger']).toMatchObject({
-      columns: ['social_facebook'],
+      columns: ['purchase_pinkoi'],
     })
   })
 
@@ -363,7 +390,7 @@ describe('links quarantine identity rules', () => {
         scrape('https://www.instagram.com/stranger', {
           brandName: 'Stranger Brand',
           description: 'Description from the stranger page',
-          socialFacebook: 'https://www.facebook.com/stranger',
+          purchasePinkoi: 'https://www.pinkoi.com/store/stranger',
         }),
       )
 
@@ -372,7 +399,11 @@ describe('links quarantine identity rules', () => {
       discoveredUrls: ['https://brand.example'],
     })
 
-    expect(result.scrapedData?.linkProvenance?.socialFacebook?.sourceUrl).toBe(
+    // The guard this case exists for: before DEV-1309's re-merge fix, the
+    // second pass rebuilt the merge from scratch and dropped both provenance
+    // maps, so every quarantine got empty evidence and the site_identity phase
+    // skipped every group — the feature was inert while the suite stayed green.
+    expect(result.scrapedData?.linkProvenance?.purchasePinkoi?.sourceUrl).toBe(
       'https://www.instagram.com/stranger',
     )
     expect(result.scrapedData?.textProvenance?.description?.sourceUrl).toBe(

@@ -547,11 +547,23 @@ const IDENTITY_GATED_FIELDS: readonly LinkField[] = [
  *
  * A rejected value is skipped, never written as null: declining to fill is not
  * the same as erasing what the row already holds.
+ *
+ * `identityConfirmedFields` exempts a field whose SOURCE PAGE the caller has
+ * already confirmed belongs to the brand. The handle gate above reads the
+ * handle alone, which is the wrong question for a brand whose own site carries
+ * a handle that abbreviates its name — `74OUNCE` -> `instagram.com/74oz`,
+ * `Darker Than Black Bags` -> `dtbbag.com`. That class measured 51 rows, so
+ * gating it on the handle would decline to fill legitimate socials. The links
+ * phase confirms a source page via `knownUrls` or `linkIdentifiesBrand` and
+ * passes the resulting fields here; everything unconfirmed still faces the
+ * gate, and the site_identity phase arbitrates what neither rule can decide
+ * (DEV-1309 x DEV-1332).
  */
 export function buildLinkEnrichPatch(
   brand: BrandFlatLinkColumns,
   scraped: LinkEnrichScraped,
-  brandName?: string | null
+  brandName?: string | null,
+  identityConfirmedFields?: ReadonlySet<LinkField>
 ): Partial<BrandFlatLinkColumns> {
   const patch: Partial<BrandFlatLinkColumns> = {}
   const tokens = brandName == null ? null : brandNameTokens(brandName)
@@ -571,6 +583,7 @@ export function buildLinkEnrichPatch(
       tokens !== null &&
       hasLinkValue(normalizedValue) &&
       IDENTITY_GATED_FIELDS.includes(field) &&
+      !identityConfirmedFields?.has(field) &&
       !handleMatchesBrand(normalizedValue, tokens)
         ? null
         : normalizedValue
