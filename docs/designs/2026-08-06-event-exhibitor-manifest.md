@@ -38,8 +38,9 @@ remain unchanged in this wave.
    links, dual-populating placement columns from canonical exhibitor data.
 5. Prune stale compatibility links only after all writes and full validation;
    never prune a row when the plan is incomplete or ambiguous.
-6. Re-read exact source keys, links, and counts and fail non-zero unless the
-   database matches the ledger. Repeated runs produce no logical changes.
+6. Re-read exact included exhibitor metadata, links, placement fields,
+   cardinality, and counts and fail non-zero unless the database matches the
+   included ledger rows. Repeated runs produce no logical changes.
 
 ## Service and security
 

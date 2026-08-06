@@ -20,7 +20,9 @@ create table public.event_exhibitors (
   sort_order integer not null default 0 check (sort_order >= 0),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  unique (event_id, source_key)
+  unique (event_id, source_key),
+  -- Required by the composite event-scoped compatibility-link foreign key.
+  unique (event_id, id)
 );
 
 alter table public.event_brands
@@ -28,8 +30,15 @@ alter table public.event_brands
 
 -- A canonical exhibitor can point to zero or one Formoria brands in one event.
 create unique index event_brands_event_exhibitor_unique_idx
-  on public.event_brands (event_id, event_exhibitor_id)
+  on public.event_brands (event_exhibitor_id)
   where event_exhibitor_id is not null;
+
+-- Keep the nullable legacy link, but make a non-null link event-scoped as well:
+-- an event cannot point at an exhibitor belonging to another event.
+alter table public.event_brands
+  add constraint event_brands_event_exhibitor_event_fkey
+  foreign key (event_id, event_exhibitor_id)
+  references public.event_exhibitors (event_id, id);
 
 create index event_exhibitors_event_sort_idx
   on public.event_exhibitors (event_id, sort_order, id);

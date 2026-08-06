@@ -40,9 +40,11 @@ Event metadata remains in `content/events/<slug>.json`. The authoritative
 exhibitor ledger is a separate `*.exhibitors.json` file and is never parsed as
 event metadata. Each ledger row records review priority, source evidence, and
 exactly one terminal outcome (`matched_existing`, `included_unlinked`,
-`excluded`, `needs_review`, or `out_of_scope`). Official checkpoint counts are
-report-time evidence, not constants: K1 81, K2 57, K3 62, and S 100. Existing
-J2 links are preserved as the only J2 entries.
+`excluded`, `needs_review`, or `out_of_scope`). Only the first two outcomes are
+persisted in `event_exhibitors`; the ledger/report retains every terminal row so
+exclusions remain auditable. Official checkpoint counts are report-time
+evidence, not constants: K1 81, K2 57, K3 62, and S 100. Existing J2 links are
+preserved as the only J2 entries.
 
 The no-network audit command may suggest normalized-name/domain matches,
 ambiguities, ledger invariant failures, and a coverage report, but it never

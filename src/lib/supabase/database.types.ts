@@ -1606,6 +1606,13 @@ export type Database = {
             referencedRelation: "event_exhibitors";
             referencedColumns: ["id"];
           },
+          {
+            foreignKeyName: "event_brands_event_exhibitor_event_fkey";
+            columns: ["event_id", "event_exhibitor_id"];
+            isOneToOne: false;
+            referencedRelation: "event_exhibitors";
+            referencedColumns: ["event_id", "id"];
+          },
         ];
       };
       event_exhibitors: {

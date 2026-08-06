@@ -12,7 +12,9 @@ Status: Approved; implementation on `feat/dev-1370-exhibitor-manifest`
 3. Add a no-network audit command that proposes matches and writes a report
    without changing ledger outcomes.
 4. Extend `seed-events` with exhibitor preflight, upserts, safe brand-link
-   reconciliation, prune-last behavior, and exact post-write validation.
+   reconciliation, prune-last behavior, and exact post-write validation. Only
+   `matched_existing` and `included_unlinked` rows enter the canonical table;
+   all terminal outcomes remain in the ledger/report.
 5. Add `EventExhibitorEntry` and `getEventExhibitorEntries(slug)` while keeping
    existing event brand-entry/count interfaces unchanged.
 6. Add pure tests for ledger/coverage/safe-plan invariants and service tests for
