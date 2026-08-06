@@ -1,6 +1,6 @@
 import type { ScrapedBrandData } from '@/lib/types/scraper'
 import { PURCHASE_CHANNELS, type PurchaseChannelCamelField } from '@/lib/brands/purchase-channels'
-import { LINK_FIELDS, type LinkField } from '@/lib/services/link-enrichment'
+import { LINK_FIELDS, pageKey, type LinkField } from '@/lib/services/link-enrichment'
 import type { InputType } from './strategies/types'
 
 export type ScrapeResult = { type: InputType; data: ScrapedBrandData; sourceUrl?: string }
@@ -137,7 +137,13 @@ export function mergeScrapedData(results: ScrapeResult[]): ScrapedBrandData {
   const merged = emptyMergedResult()
   const linkProvenance: Partial<Record<LinkField, { sourceUrl: string }>> = {}
   const textProvenance: NonNullable<ScrapedBrandData['textProvenance']> = {}
-  const perSourceText: NonNullable<ScrapedBrandData['perSourceText']> = {}
+  // Normalize keys so alternate spellings of one page share evidence. A Map
+  // keeps externally-derived URL keys (e.g. `__proto__`) out of an object's
+  // prototype chain; it is materialized into a plain object on assignment.
+  const perSourceText = new Map<
+    string,
+    NonNullable<ScrapedBrandData['perSourceText']>[string]
+  >()
   let descriptionSupplied = false
   let textSourceUrl: string | undefined
 
@@ -145,7 +151,8 @@ export function mergeScrapedData(results: ScrapeResult[]): ScrapedBrandData {
     sourceUrl: string,
     text: NonNullable<ScrapedBrandData['perSourceText']>[string],
   ): void => {
-    const existing = perSourceText[sourceUrl] ?? {}
+    const key = pageKey(sourceUrl)
+    const existing = perSourceText.get(key) ?? {}
     for (const field of ['title', 'description', 'story'] as const) {
       const value = text[field]
       if (value === undefined) continue
@@ -153,17 +160,17 @@ export function mergeScrapedData(results: ScrapeResult[]): ScrapedBrandData {
         existing[field] = value
       }
     }
-    if (Object.keys(existing).length > 0) perSourceText[sourceUrl] = existing
+    if (Object.keys(existing).length > 0) perSourceText.set(key, existing)
   }
 
   const addResultText = (data: ScrapedBrandData, sourceUrl?: string): void => {
     if (sourceUrl) {
       const text = {
-        ...(typeof data.brandName === 'string' && data.brandName.trim() ? { title: data.brandName } : {}),
-        ...(typeof data.description === 'string' && data.description.trim()
+        ...(hasValue(data.brandName) ? { title: data.brandName } : {}),
+        ...(hasValue(data.description)
           ? { description: data.description }
           : {}),
-        ...(typeof data.story === 'string' && data.story.trim() ? { story: data.story } : {}),
+        ...(hasValue(data.story) ? { story: data.story } : {}),
       }
       if (Object.keys(text).length > 0) addSourceText(sourceUrl, text)
       return
@@ -244,7 +251,9 @@ export function mergeScrapedData(results: ScrapeResult[]): ScrapedBrandData {
 
   if (Object.keys(linkProvenance).length > 0) merged.linkProvenance = linkProvenance
   if (Object.keys(textProvenance).length > 0) merged.textProvenance = textProvenance
-  if (Object.keys(perSourceText).length > 0) merged.perSourceText = perSourceText
+  if (perSourceText.size > 0) {
+    merged.perSourceText = Object.fromEntries(perSourceText)
+  }
   if (textSourceUrl) merged.textSourceUrl = textSourceUrl
 
   return merged

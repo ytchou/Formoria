@@ -347,11 +347,11 @@ describe('mergeScrapedData per-source text', () => {
     ])
 
     expect(merged.perSourceText).toEqual({
-      'https://brand.example': {
+      'brand.example': {
         title: 'Official Brand',
         description: 'Official description',
       },
-      'https://instagram.com/brand': {
+      'instagram.com/brand': {
         description: 'Social description',
         story: 'Social story',
       },
@@ -386,11 +386,11 @@ describe('mergeScrapedData per-source text', () => {
     ])
 
     expect(merged.perSourceText).toEqual({
-      'https://brand.example': {
+      'brand.example': {
         title: 'Brand',
         story: 'Stored story',
       },
-      'https://instagram.com/brand': {
+      'instagram.com/brand': {
         description: 'Second-pass description',
       },
     })
@@ -423,5 +423,52 @@ describe('mergeScrapedData per-source text', () => {
       description: { sourceUrl: 'https://brand.example' },
       story: { sourceUrl: 'https://brand.example' },
     })
+  })
+
+  it('collapses alternate spellings of one page into one evidence entry', () => {
+    const merged = mergeScrapedData([
+      {
+        type: 'official-site',
+        sourceUrl: 'https://www.mumu.tw/',
+        data: { ...emptyResult('https://www.mumu.tw/'), brandName: 'Mumu' },
+      },
+      {
+        type: 'deep-multi-page',
+        sourceUrl: 'https://mumu.tw',
+        data: {
+          ...emptyResult('https://mumu.tw'),
+          description: 'Mumu description',
+          story: 'Mumu story',
+        },
+      },
+    ])
+
+    expect(merged.perSourceText).toEqual({
+      'mumu.tw': {
+        title: 'Mumu',
+        description: 'Mumu description',
+        story: 'Mumu story',
+      },
+    })
+  })
+
+  it('keeps a __proto__ page key as an own entry without polluting the prototype', () => {
+    const merged = mergeScrapedData([
+      {
+        type: 'official-site',
+        sourceUrl: 'https://__proto__/',
+        data: {
+          ...emptyResult('https://__proto__/'),
+          brandName: 'polluted',
+        },
+      },
+    ])
+
+    const perSourceText = merged.perSourceText ?? {}
+    expect(Object.keys(perSourceText)).toEqual(['__proto__'])
+    expect(Object.getOwnPropertyDescriptor(perSourceText, '__proto__')?.value).toEqual({
+      title: 'polluted',
+    })
+    expect(({} as Record<string, unknown>).title).toBeUndefined()
   })
 })

@@ -14,6 +14,10 @@ import {
   LINK_FIELDS,
   type LinkField,
   linkColumnFor,
+  pageKey,
+  pageKeyHost,
+  sameUrl,
+  scrapeKey,
 } from '../link-enrichment'
 import { cleanBrandName, isValidBrandName, titleCaseScrapedTitle } from '../brand-cleanup'
 import { finishSearchAudit, startSearchAudit } from '../search-results'
@@ -242,9 +246,25 @@ export function deriveScrapedBrandName(
 /**
  * Bound on the follow-up scrape. Small on purpose: the point is to reach the
  * one or two profiles the official site just revealed, not to crawl outward.
+ * This is the base tier: zero-token brands can add up to
+ * MAX_ZERO_TOKEN_SOCIAL_URLS extras. The combined two-tier budget must stay
+ * within MAX_SCRAPE_URLS_PER_BRAND or scrapeBrandUrls truncates silently.
  */
 const MAX_SECOND_PASS_URLS = 3
+
+/**
+ * Extra social candidates for Han-only names, capped by
+ * MAX_SCRAPE_URLS_PER_BRAND. Raise that budget if recall proves insufficient,
+ * together with the guard below.
+ */
 const MAX_ZERO_TOKEN_SOCIAL_URLS = 2
+
+const MAX_SECOND_PASS_CANDIDATES = MAX_SECOND_PASS_URLS + MAX_ZERO_TOKEN_SOCIAL_URLS
+if (MAX_SECOND_PASS_CANDIDATES > MAX_SCRAPE_URLS_PER_BRAND) {
+  throw new Error(
+    `second-pass budget ${MAX_SECOND_PASS_CANDIDATES} exceeds MAX_SCRAPE_URLS_PER_BRAND ${MAX_SCRAPE_URLS_PER_BRAND}; scrapeBrandUrls would silently drop candidates`,
+  )
+}
 
 /**
  * ORDER INVARIANT — `purchaseWebsite` must stay ahead of every marketplace
@@ -254,6 +274,9 @@ const MAX_ZERO_TOKEN_SOCIAL_URLS = 2
  * the pass entirely on exactly the sparse-link brands this pass exists for.
  * A newly added channel therefore lands in POST_WEBSITE_PURCHASE_CHANNELS by
  * default; only these two predate the website because they always have.
+ * The budget is two-tier: MAX_SECOND_PASS_URLS base candidates plus up to
+ * MAX_ZERO_TOKEN_SOCIAL_URLS extras for a zero-token brand. Their combined
+ * total must stay within MAX_SCRAPE_URLS_PER_BRAND or scrapeBrandUrls truncates silently.
  */
 const PRE_WEBSITE_PURCHASE_CHANNEL_KEYS: readonly string[] = ['pinkoi', 'shopee']
 
@@ -265,21 +288,6 @@ const POST_WEBSITE_PURCHASE_CHANNELS = PURCHASE_CHANNELS.filter(
   (channel) =>
     channel.key !== 'website' && !PRE_WEBSITE_PURCHASE_CHANNEL_KEYS.includes(channel.key),
 )
-
-/** Identity for "did we already scrape this?" — scheme, `www.`, and a trailing slash are noise. */
-function scrapeKey(url: string): string {
-  const trimmed = url.trim().toLowerCase()
-  try {
-    const parsed = new URL(trimmed)
-    return `${parsed.hostname.replace(/^www\./, '')}${parsed.pathname.replace(/\/+$/, '')}`
-  } catch {
-    return trimmed.replace(/\/+$/, '')
-  }
-}
-
-function sameUrl(a: string, b: string): boolean {
-  return scrapeKey(canonicalizeThreadsUrl(a)) === scrapeKey(canonicalizeThreadsUrl(b))
-}
 
 /**
  * Scraping the official site is *how* we learn a brand's Instagram, Facebook,
@@ -302,7 +310,7 @@ async function scrapeDiscoveredLinks(
   urlExtracted: ReturnType<typeof extractLinksFromUrls>,
 ): Promise<ScrapedBrandData> {
   const alreadyScraped = new Set(
-    firstPassUrls.slice(0, MAX_SCRAPE_URLS_PER_BRAND).map(scrapeKey),
+    firstPassUrls.slice(0, MAX_SCRAPE_URLS_PER_BRAND).map(pageKey),
   )
   const candidates = uniqueUrls(
     [
@@ -311,11 +319,14 @@ async function scrapeDiscoveredLinks(
       ...PRE_WEBSITE_PURCHASE_CHANNELS.map((channel) => firstPassData[channel.camel]),
       firstPassData.purchaseWebsite,
       ...POST_WEBSITE_PURCHASE_CHANNELS.map((channel) => firstPassData[channel.camel]),
-    ].filter((url): url is string => typeof url === 'string' && url.trim().length > 0),
+    ].filter(hasLinkValue),
   )
-    .filter((url) => !alreadyScraped.has(scrapeKey(url)))
+    .filter((url) => !alreadyScraped.has(pageKey(url)))
     .slice(0, MAX_SECOND_PASS_URLS)
 
+  // Deduped against the base candidates BEFORE the slice: these two slots exist
+  // to buy NEW evidence, so a URL already queued must not consume one.
+  const candidateKeys = new Set(candidates.map(pageKey))
   const zeroTokenSocials =
     brandNameTokens(options.brandName).length === 0
       ? uniqueUrls(
@@ -323,9 +334,9 @@ async function scrapeDiscoveredLinks(
             urlExtracted.social_instagram,
             urlExtracted.social_threads,
             urlExtracted.social_facebook,
-          ].filter((url): url is string => typeof url === 'string' && url.trim().length > 0),
+          ].filter(hasLinkValue),
         )
-          .filter((url) => !alreadyScraped.has(scrapeKey(url)) && !candidates.includes(url))
+          .filter((url) => !alreadyScraped.has(pageKey(url)) && !candidateKeys.has(pageKey(url)))
           .slice(0, MAX_ZERO_TOKEN_SOCIAL_URLS)
       : []
 
@@ -409,17 +420,37 @@ function buildQuarantine(
   // its own title/description/story recorded, and that is the only evidence the
   // arbiter can judge it on. `textProvenance` stays as the fallback for scraped
   // data predating the per-source map — without evidence the arbiter releases.
+  const byKey = new Map<string, NonNullable<ScrapedBrandData['perSourceText']>[string]>()
+  const byHost = new Map<string, NonNullable<ScrapedBrandData['perSourceText']>[string]>()
+  for (const [sourceUrl, text] of Object.entries(scrapedData.perSourceText ?? {})) {
+    byKey.set(pageKey(sourceUrl), text)
+    const host = pageKeyHost(sourceUrl)
+    const existing = byHost.get(host) ?? {}
+    for (const field of ['title', 'description', 'story'] as const) {
+      const value = text[field]
+      if (existing[field] === undefined && typeof value === 'string' && value.trim().length > 0) {
+        existing[field] = value
+      }
+    }
+    byHost.set(host, existing)
+  }
+
   const textForSubject = (
     field: 'brandName' | 'description' | 'story',
     subjectUrl: string,
+    subjectKind: 'website' | 'source-page',
   ): string | undefined => {
-    const sourceText = Object.entries(scrapedData.perSourceText ?? {}).find(([sourceUrl]) =>
-      sameUrl(sourceUrl, subjectUrl),
-    )?.[1]?.[field === 'brandName' ? 'title' : field]
+    const text = subjectKind === 'website'
+      ? byHost.get(pageKeyHost(subjectUrl))
+      : byKey.get(pageKey(subjectUrl))
+    const sourceText = text?.[field === 'brandName' ? 'title' : field]
     if (typeof sourceText === 'string' && sourceText.trim().length > 0) return sourceText
 
     const provenanceUrl = scrapedData.textProvenance?.[field]?.sourceUrl
-    if (provenanceUrl && sameUrl(provenanceUrl, subjectUrl)) {
+    const provenanceMatches = provenanceUrl && (subjectKind === 'website'
+      ? pageKeyHost(provenanceUrl) === pageKeyHost(subjectUrl)
+      : sameUrl(provenanceUrl, subjectUrl))
+    if (provenanceMatches) {
       const winningText = scrapedData[field]
       if (typeof winningText === 'string' && winningText.trim().length > 0) return winningText
     }
@@ -442,12 +473,15 @@ function buildQuarantine(
     const subjectUrl = source.sourceUrl
     const subjectKind = field === 'purchaseWebsite' ? 'website' : 'source-page'
     const existing = groups[subjectUrl]
-    const evidence = {
-      ...(textForSubject('brandName', subjectUrl) ? { title: textForSubject('brandName', subjectUrl) } : {}),
-      ...(textForSubject('description', subjectUrl)
-        ? { description: textForSubject('description', subjectUrl) }
-        : {}),
-      ...(textForSubject('story', subjectUrl) ? { story: textForSubject('story', subjectUrl) } : {}),
+    const evidence: QuarantineGroup['evidence'] = {}
+    const evidenceFields = [
+      ['brandName', 'title'],
+      ['description', 'description'],
+      ['story', 'story'],
+    ] as const
+    for (const [fieldName, evidenceName] of evidenceFields) {
+      const value = textForSubject(fieldName, subjectUrl, subjectKind)
+      if (value) evidence[evidenceName] = value
     }
 
     if (existing) {

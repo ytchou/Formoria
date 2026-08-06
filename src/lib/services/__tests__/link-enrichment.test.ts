@@ -709,6 +709,8 @@ describe('classifySubmittedUrl', () => {
   it.each([
     'https://www.threads.com/@brand/post/abc',
     'https://linktr.ee/brand',
+    'https://example.gov.tw',
+    'https://example.edu.tw',
   ])('does not claim the platform URL %s as a website', (url) => {
     expect(classifySubmittedUrl(url)).toEqual({})
   })

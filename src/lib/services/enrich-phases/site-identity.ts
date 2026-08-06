@@ -201,7 +201,13 @@ export async function runSiteIdentityPhase(
       const items: SiteIdentityItem[] = []
       const itemByKey = new Map<string, { brand: EnrichBrand; quarantine: SiteIdentityQuarantine }>()
       let escalations = 0
-      const noEvidence: Record<string, number> = { website: 0, 'source-page': 0 }
+      // Union-keyed, not `Record<string, number>`: adding a third subjectKind
+      // without an initializer must be a build failure, otherwise the miss
+      // writes `undefined + 1` = NaN, which serialises to null in the audit row.
+      const noEvidence: Record<SiteIdentityQuarantine['subjectKind'], number> = {
+        website: 0,
+        'source-page': 0,
+      }
 
       for (const brand of ctx.chunk) {
         if (ctx.completed?.has(brand.id)) continue
@@ -227,6 +233,14 @@ export async function runSiteIdentityPhase(
           itemByKey.set(siteIdentityKey(item.slug, item.subjectUrl), { brand, quarantine })
         }
       }
+
+      // Published BEFORE the early return: a chunk where every group had empty
+      // evidence is exactly the cohort this counter measures, and the summary
+      // write below is unreachable on that path. Without this an operator
+      // cannot tell "nothing was quarantined" from "everything was dropped
+      // unjudged" — and a downstream gate reading a zero it never saw written
+      // would arm on a false reading.
+      if (ctx.summary) ctx.summary.siteIdentityNoEvidence = noEvidence
 
       if (items.length === 0) return skippedBatch('no evidence')
       const outcome = await arbitrateSiteIdentity(items, ctx.jobId)
@@ -278,7 +292,7 @@ export async function runSiteIdentityPhase(
         Object.assign(ctx.summary, {
           siteIdentity: reasons,
           siteIdentityRung1Escalations: escalations,
-          siteIdentityNoEvidence: noEvidence,
+          // siteIdentityNoEvidence is already published above, on every exit path.
           siteIdentityCalls: outcome.calls,
           siteIdentityProviderFailure: providerFailure,
         })
