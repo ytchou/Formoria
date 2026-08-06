@@ -20,8 +20,8 @@ test.describe('Stats page', () => {
   test('category breakdown section renders with at least one category link', async ({ page }) => {
     // h2 "類別分布" is always present
     await expect(page.getByRole('heading', { level: 2, name: '類別分布' })).toBeVisible();
-    // Category rows are <a> links pointing to /brands?category=...
-    const categoryLinks = page.locator('main a[href*="category"]');
+    // Category rows are real landing-page anchors under /categories/.
+    const categoryLinks = page.locator('main a[href^="/categories/"]');
     const linkCount = await categoryLinks.count();
     expect(linkCount).toBeGreaterThan(0);
   });
@@ -29,13 +29,13 @@ test.describe('Stats page', () => {
   test('category labels and links follow the page locale', async ({ page }) => {
     await expect(page.getByRole('link', { name: '食品飲料', exact: true })).toHaveAttribute(
       'href',
-      '/brands?category=food-drink',
+      '/categories/food-drink',
     );
 
     await page.goto('/en/stats');
     await expect(page.getByRole('link', { name: 'Food & Beverage', exact: true })).toHaveAttribute(
       'href',
-      '/en/brands?category=food-drink',
+      '/en/categories/food-drink',
     );
   });
 

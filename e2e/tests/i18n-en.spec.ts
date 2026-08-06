@@ -221,8 +221,7 @@ test.describe("i18n English browse", () => {
 
     await expect(page).toHaveURL(
       (url) =>
-        url.pathname === "/en/brands" &&
-        url.searchParams.get("category") === "food-drink" &&
+        url.pathname === "/en/categories/food-drink" &&
         url.searchParams.getAll("tag").join("|") === "rice/grains|gift boxes",
       { timeout: 10_000 },
     );

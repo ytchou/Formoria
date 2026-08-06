@@ -242,27 +242,32 @@ test.describe.serial('Public brand search edge cases', () => {
   test('directory sidebar and nav stay synchronized while unrelated filters survive', async ({ page }) => {
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
-    await page.goto('/brands?category=crafts&sort=name&page=2');
+    await page.goto('/categories/crafts?sort=name&page=2');
     const sidebarSearch = page.locator(
       'main form[aria-label="依品牌或產品關鍵字篩選"] input[role="searchbox"]',
     );
     const navSearch = page.locator('header form[role="search"] input[role="searchbox"]:visible');
     await sidebarSearch.fill(exactQuery);
 
-    await expect(page).toHaveURL((url) =>
-      url.searchParams.get('search') === exactQuery
-      && url.searchParams.get('category') === 'crafts'
-      && url.searchParams.get('sort') === 'name'
-      && !url.searchParams.has('page'),
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === '/categories/crafts' &&
+        url.searchParams.get('search') === exactQuery &&
+        url.searchParams.get('sort') === 'name' &&
+        !url.searchParams.has('page'),
     );
     await expect(navSearch).toHaveValue(exactQuery);
     await expect(sidebarSearch).toHaveValue(exactQuery);
 
-    await sidebarSearch.locator('..').getByRole('button', { name: '清除搜尋' }).click();
-    await expect(page).toHaveURL((url) =>
-      !url.searchParams.has('search')
-      && url.searchParams.get('category') === 'crafts'
-      && url.searchParams.get('sort') === 'name',
+    await sidebarSearch
+      .locator('..')
+      .getByRole('button', { name: '清除搜尋' })
+      .click();
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === '/categories/crafts' &&
+        !url.searchParams.has('search') &&
+        url.searchParams.get('sort') === 'name',
     );
     await expect(navSearch).toHaveValue('');
   });

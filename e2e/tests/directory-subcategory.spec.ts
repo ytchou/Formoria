@@ -10,8 +10,8 @@ test.describe("Subcategory navigation deep", () => {
     await page.goto(CATEGORY_PATH);
 
     const furnitureLink = page
-      .locator("aside")
-      .getByRole("link", { name: /^家具 \d+$/ });
+      .getByRole("navigation", { name: "探索此分類的子分類" })
+      .getByRole("link", { name: "居家生活・家具" });
     await expect(furnitureLink).toHaveAttribute("href", SUBCATEGORY_PATH);
     await furnitureLink.click();
     await expect(page).toHaveURL(new RegExp(`${SUBCATEGORY_PATH}$`));
@@ -20,8 +20,8 @@ test.describe("Subcategory navigation deep", () => {
     );
 
     const clearFurnitureLink = page
-      .locator("aside")
-      .getByRole("link", { name: /^家具 \d+$/ });
+      .getByRole("navigation", { name: "麵包屑導覽" })
+      .getByRole("link", { name: "居家生活" });
     await expect(clearFurnitureLink).toHaveAttribute("href", CATEGORY_PATH);
     await clearFurnitureLink.click();
     await expect(page).toHaveURL(new RegExp(`${CATEGORY_PATH}$`));
