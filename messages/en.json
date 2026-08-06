@@ -2981,6 +2981,7 @@
     "seriesCount": "{count, plural, one {# part} other {# parts}}",
     "seriesCountFiltered": "{shown} of {total, plural, one {# part} other {# parts}}",
     "brandMissing": "Brand unavailable: {slug}",
+    "galleryImageAlt": "{brand} product photo",
     "eventDates": "Dates",
     "eventHours": "Hours",
     "eventVenue": "Venue",
