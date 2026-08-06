@@ -417,7 +417,6 @@ export function ClaimRequestsList({
                 onApprove={() => runApprove(item)}
                 onReject={() => runReject(item)}
                 notesPolicy="none"
-                confirmMode="none"
                 approveLabel={t("actions.approve")}
                 rejectLabel={
                   rejectArmedId === item.id

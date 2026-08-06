@@ -40,38 +40,6 @@ describe("ReviewDecisionPanel", () => {
     expect(onApprove).toHaveBeenCalledWith("");
   });
 
-  it("inline-two-step requires a second click to submit", () => {
-    const { onApprove } = renderPanel({ confirmMode: "inline-two-step" });
-
-    fireEvent.click(screen.getByRole("button", { name: "Approve" }));
-    expect(onApprove).not.toHaveBeenCalled();
-
-    const confirm = screen.getByRole("button", { name: "Confirm Approve" });
-    fireEvent.click(confirm);
-
-    expect(onApprove).toHaveBeenCalledWith("");
-  });
-
-  it("dialog confirm routes through ConfirmDialog", () => {
-    const { onReject } = renderPanel({
-      confirmMode: "dialog",
-      confirm: {
-        title: "Reject review",
-        description: "This will reject the review.",
-        rejectLabel: "Confirm rejection",
-      },
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "Reject" }));
-    expect(screen.getByText("Reject review")).toBeInTheDocument();
-
-    fireEvent.click(
-      screen.getByRole("button", { name: "Confirm rejection" }),
-    );
-
-    expect(onReject).toHaveBeenCalledWith("");
-  });
-
   it("renders no notes control when policy is none", () => {
     renderPanel({ notesPolicy: "none" });
 

@@ -124,9 +124,7 @@ export function SubmissionsReviewList({
             submission.submitterName,
             submission.submitterEmail,
             submission.reviewData.websiteUrl,
-          ].some((candidate) =>
-            candidate?.toLocaleLowerCase().includes(query),
-          );
+          ].some((candidate) => candidate?.toLocaleLowerCase().includes(query));
         },
       },
       {
@@ -367,10 +365,7 @@ export function SubmissionsReviewList({
     );
   }
 
-  function startCuration(
-    items: ReviewSubmission[],
-    steps?: [CurationStep],
-  ) {
+  function startCuration(items: ReviewSubmission[], steps?: [CurationStep]) {
     const ids = items.map(getSubmissionId);
     if (ids.length === 0) return;
 
@@ -575,8 +570,6 @@ export function SubmissionsReviewList({
                 rejectLabel={t("reject")}
                 notesPolicy="none"
                 // Submissions confirms rejection but NOT approval, and
-                // `inline-two-step` arms both buttons uniformly.
-                confirmMode="none"
                 eligible={submission.reviewCompleteness.complete}
                 isPending={queueAction.isRowPending(submission.id)}
                 error={queueAction.error}
@@ -586,7 +579,10 @@ export function SubmissionsReviewList({
         }
       >
         {(submission) => (
-          <SubmissionReviewDetails key={submission.id} submission={submission} />
+          <SubmissionReviewDetails
+            key={submission.id}
+            submission={submission}
+          />
         )}
       </ReviewQueueDrawer>
 

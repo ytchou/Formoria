@@ -2,17 +2,12 @@
 
 import { useId, useState, type ReactNode } from "react";
 
-import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 export type ReviewNotesPolicy =
-  | "none"
-  | "optional"
-  | "requiredOnReject"
-  | "required";
-export type ReviewConfirmMode = "none" | "inline-two-step" | "dialog";
+  "none" | "optional" | "requiredOnReject" | "required";
 
 type ReviewDecision = "approve" | "reject";
 
@@ -24,15 +19,6 @@ export function ReviewDecisionPanel(props: {
   notesPolicy?: ReviewNotesPolicy;
   notesLabel?: string;
   notesPlaceholder?: string;
-  confirmMode?: ReviewConfirmMode;
-  confirm?: {
-    title: string;
-    description: string;
-    approveLabel?: string;
-    rejectLabel?: string;
-    confirmText?: string;
-  };
-  inlineConfirmLabel?: (decision: ReviewDecision) => string;
   eligible?: boolean;
   blocker?: ReactNode;
   isPending?: boolean;
@@ -47,9 +33,6 @@ export function ReviewDecisionPanel(props: {
     notesPolicy = "optional",
     notesLabel = "Review notes",
     notesPlaceholder,
-    confirmMode = "none",
-    confirm,
-    inlineConfirmLabel,
     eligible = true,
     blocker,
     isPending = false,
@@ -58,10 +41,6 @@ export function ReviewDecisionPanel(props: {
   } = props;
   const notesId = useId();
   const [notes, setNotes] = useState("");
-  const [armedDecision, setArmedDecision] =
-    useState<ReviewDecision | null>(null);
-  const [dialogDecision, setDialogDecision] =
-    useState<ReviewDecision | null>(null);
 
   const notesBlank = notes.trim().length === 0;
   const approveDisabled =
@@ -71,71 +50,14 @@ export function ReviewDecisionPanel(props: {
     (notesPolicy === "requiredOnReject" && notesBlank) ||
     (notesPolicy === "required" && notesBlank);
 
-  // Disarm the inline two-step once a submission settles. Adjusting state during
-  // render on a detected prop transition is React's documented alternative to a
-  // synchronous setState in an effect: it resolves before the browser paints
-  // instead of scheduling a second render pass, which matters here because six
-  // admin queues mount this panel.
-  const [wasPending, setWasPending] = useState(isPending);
-  if (wasPending !== isPending) {
-    setWasPending(isPending);
-    if (!isPending) setArmedDecision(null);
-  }
-
   function submit(decision: ReviewDecision) {
     if (decision === "approve") onApprove(notes);
     else onReject(notes);
   }
 
-  function handleDecisionClick(decision: ReviewDecision) {
-    if (confirmMode === "none") {
-      submit(decision);
-      return;
-    }
-
-    if (confirmMode === "inline-two-step") {
-      if (armedDecision === decision) {
-        setArmedDecision(null);
-        submit(decision);
-      } else if (armedDecision !== null) {
-        setArmedDecision(null);
-      } else {
-        setArmedDecision(decision);
-      }
-      return;
-    }
-
-    setDialogDecision(decision);
-  }
-
-  function buttonLabel(decision: ReviewDecision) {
-    const label = decision === "approve" ? approveLabel : rejectLabel;
-    if (confirmMode !== "inline-two-step" || armedDecision !== decision) {
-      return label;
-    }
-    return inlineConfirmLabel?.(decision) ?? `Confirm ${label}`;
-  }
-
-  function confirmDialog() {
-    if (dialogDecision === null) return;
-    const decision = dialogDecision;
-    setDialogDecision(null);
-    submit(decision);
-  }
-
-  const dialogTitle = confirm?.title ?? "Confirm review decision";
-  const dialogDescription =
-    confirm?.description ?? "Please confirm this review decision.";
-  const dialogConfirmLabel =
-    dialogDecision === "approve"
-      ? confirm?.approveLabel ?? approveLabel
-      : confirm?.rejectLabel ?? rejectLabel;
-
   return (
     <div className="space-y-4">
-      {blocker !== undefined && blocker !== null ? (
-        <div>{blocker}</div>
-      ) : null}
+      {blocker !== undefined && blocker !== null ? <div>{blocker}</div> : null}
 
       {notesPolicy !== "none" ? (
         <div className="space-y-2">
@@ -146,8 +68,7 @@ export function ReviewDecisionPanel(props: {
             onChange={(event) => setNotes(event.target.value)}
             placeholder={notesPlaceholder}
             aria-required={
-              notesPolicy === "required" ||
-              notesPolicy === "requiredOnReject"
+              notesPolicy === "required" || notesPolicy === "requiredOnReject"
             }
           />
         </div>
@@ -166,37 +87,21 @@ export function ReviewDecisionPanel(props: {
             type="button"
             variant="primary"
             disabled={approveDisabled}
-            onClick={() => handleDecisionClick("approve")}
+            onClick={() => submit("approve")}
           >
-            {buttonLabel("approve")}
+            {approveLabel}
           </Button>
           <Button
             type="button"
             variant="secondary"
             disabled={rejectDisabled}
-            onClick={() => handleDecisionClick("reject")}
+            onClick={() => submit("reject")}
           >
-            {buttonLabel("reject")}
+            {rejectLabel}
           </Button>
           {extraActions}
         </div>
       </div>
-
-      {dialogDecision !== null ? (
-        <ConfirmDialog
-          open
-          onOpenChange={(open) => {
-            if (!open) setDialogDecision(null);
-          }}
-          title={dialogTitle}
-          description={dialogDescription}
-          onConfirm={confirmDialog}
-          confirmLabel={dialogConfirmLabel}
-          confirmText={confirm?.confirmText}
-          variant={dialogDecision === "reject" ? "destructive" : "primary"}
-          isPending={isPending}
-        />
-      ) : null}
     </div>
   );
 }
