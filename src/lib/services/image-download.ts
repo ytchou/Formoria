@@ -2,7 +2,7 @@ import sharp from 'sharp'
 import { auditedCall } from '@/lib/audit'
 
 import { processImage } from '@/lib/security/image-processor'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { mapWithConcurrency } from './_shared/concurrency'
 import type { CandidateImage, CandidateImageSource } from './enrich-phases/candidate-pool'
 import {

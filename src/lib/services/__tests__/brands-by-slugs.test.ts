@@ -17,7 +17,7 @@ type BrandRowFixture = {
   brand_owners: Array<{ user_id: string }>
 }
 
-import type { createServiceClient } from '@/lib/supabase/server'
+import type { createServiceClient } from '@/lib/supabase/service'
 import {
   DIRECTORY_BRAND_COLUMN_LIST,
   DIRECTORY_OMITTED_COLUMNS,
@@ -114,7 +114,7 @@ function createClientDouble() {
 
 /**
  * Drives the injectable query the way `getBrandsBySlugs` does — same cache key
- * derivation, same client-shaped double. Mocking `@/lib/supabase/server` to
+ * derivation, same client-shaped double. Mocking `@/lib/supabase/service` to
  * reach the same place is what `scripts/check-test-boundaries.mjs` forbids.
  */
 function lookup(slugs: string[]) {

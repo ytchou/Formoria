@@ -8,7 +8,7 @@
  *
  * Delete once the hidden-brand re-enrichment backfill is done.
  */
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { applyBrandRefresh } from '@/lib/services/submissions'
 import { requestPublicBrandRevalidation } from '@/lib/cache/revalidate-client'
 

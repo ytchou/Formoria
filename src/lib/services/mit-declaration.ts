@@ -1,4 +1,4 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { auditedCall } from '@/lib/audit'
 
 export type MitDeclarationScope = 'all' | 'most' | 'some'

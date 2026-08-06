@@ -21,7 +21,7 @@
  */
 import { randomUUID } from 'node:crypto'
 
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { claimCurationJob, getCurationJob } from '@/lib/services/curation-jobs'
 import { runJob } from '@/lib/services/job-runner'
 

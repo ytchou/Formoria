@@ -1,5 +1,5 @@
 import { setRequestLocale, getTranslations } from "next-intl/server";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { getProfile } from "@/lib/services/profiles";
 import { getNewsletterPreferenceByEmail } from "@/lib/services/newsletter";
 import { getLifecycleEmailPreference } from "@/lib/services/email-lifecycle";

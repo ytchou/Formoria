@@ -1,5 +1,5 @@
 import { auditedCall } from '@/lib/audit'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import type { SavedBrand } from '@/lib/types/saved-brand'
 
 type BrandSaveRow = {

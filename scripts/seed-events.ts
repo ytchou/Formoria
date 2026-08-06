@@ -40,7 +40,7 @@ import path from 'node:path'
 import { requestEventRevalidation } from '@/lib/cache/revalidate-client'
 import { isSupabaseStorageUrl, isValidSlug } from '@/lib/services/brands'
 import { EVENT_STATUSES, type EventStatus } from '@/lib/services/events'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
 // ---------------------------------------------------------------------------
 // File shape

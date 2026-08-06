@@ -35,7 +35,7 @@ import {
   rejectSubmission,
   isGeneratedGuestSubmissionEmail,
 } from "@/lib/services/submissions";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 
 const APPLY = process.argv.includes("--apply");
 const ONLY = (

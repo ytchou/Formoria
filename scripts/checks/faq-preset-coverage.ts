@@ -25,7 +25,7 @@
  * Usage:
  *   tsx --env-file=.env.local scripts/checks/faq-preset-coverage.ts
  */
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { excludeTestBrands } from "@/lib/services/public-brand-filter";
 
 type CoverageRow = {

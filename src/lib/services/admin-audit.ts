@@ -1,5 +1,5 @@
 import { getAuditContext } from '@/lib/audit'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
 export type AdminAction =
   | 'impersonate_start'

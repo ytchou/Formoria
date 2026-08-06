@@ -42,7 +42,7 @@ import { runFaqPhase } from "@/lib/services/enrich-phases/faq";
 import { getBrandFaqEntries } from "@/lib/services/brand-faq";
 import { mapWithConcurrency } from "@/lib/services/_shared/concurrency";
 import { excludeTestBrands } from "@/lib/services/public-brand-filter";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 
 /** Matches ENRICH_BRAND_CONCURRENCY in curation-operations. */
 const CONCURRENCY = 3;

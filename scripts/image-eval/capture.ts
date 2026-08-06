@@ -5,7 +5,7 @@ import {
   type SerperRawImageCandidate,
 } from "@/lib/services/enrich-phases/scraper/search";
 import { brandTarget } from "@/lib/services/_shared/enrichment-target";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { uploadImageEvalAsset } from "@/lib/services/image-eval-storage";

@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { withAuditScope } from "@/lib/audit";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { isRelativeUrl } from "@/lib/auth/validations";
 import { resolvePostAuthPath } from "@/lib/auth/owner-landing";
 import { verifyClaimToken } from "@/lib/auth/claim-token";

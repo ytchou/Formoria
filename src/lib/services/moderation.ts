@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
-import * as supabaseServer from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { auditedCall } from "@/lib/audit";
 import {
   buildReviewUpdate,
@@ -29,10 +29,6 @@ export interface ContentViolation {
 export interface ScanResult {
   violations: ContentViolation[];
 }
-
-type SupabaseServerModule = typeof supabaseServer & {
-  createServerClient?: () => SupabaseClient<Database>;
-};
 
 type ModerationFlagInsert =
   Database["public"]["Tables"]["moderation_flags"]["Insert"];
@@ -70,10 +66,7 @@ function extractUrls(value: string): string[] {
 }
 
 function createModerationClient(): SupabaseClient<Database> {
-  const serverModule = supabaseServer as SupabaseServerModule;
-  return (
-    serverModule.createServerClient?.() ?? supabaseServer.createServiceClient()
-  );
+  return createServiceClient() as SupabaseClient<Database>;
 }
 
 function checkSuspiciousTlds(

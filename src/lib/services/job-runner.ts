@@ -30,7 +30,7 @@ import {
   type CurationJob,
   type CurationJobTarget,
 } from "@/lib/services/curation-jobs";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import type { Json } from "@/lib/supabase/database.types";
 import type {
   CurationTargetProgressEvent,

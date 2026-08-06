@@ -1,4 +1,4 @@
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import type { Database } from "@/lib/supabase/database.types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DescriptionAttempt } from "../description-rewrite";

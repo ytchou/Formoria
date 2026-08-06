@@ -1,6 +1,6 @@
 import { NotFoundError } from '@/lib/errors'
 import { auditedCall } from '@/lib/audit'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { BRAND_SELECT } from './brands'
 import { lookupCertNumber } from '@/lib/services/mit-registry'
 

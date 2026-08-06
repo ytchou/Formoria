@@ -9,7 +9,7 @@ import {
 } from "@/lib/brands/contracts";
 import { getBrandCategoryLabel } from "@/lib/brands/category-label";
 import { isoDateInTimeZone } from "@/lib/date-range";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { brandsBySlugsCacheKey, getPublicBrandsBySlugs } from "./brands";
 
 // ---------------------------------------------------------------------------
@@ -379,7 +379,7 @@ export function deriveCategoryOptions(
 // Every query takes its client as the first argument and is exported on its
 // own; `createServiceClient()` appears only inside the `cache()` wrappers at the
 // bottom. That split is what lets the tests drive these with a query-builder
-// double instead of mocking `@/lib/supabase/server`, which
+// double instead of mocking `@/lib/supabase/service`, which
 // scripts/check-test-boundaries.mjs forbids.
 //
 // Error convention (matches brands.ts, deliberately not stories.ts): a query

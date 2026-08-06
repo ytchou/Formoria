@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { syncHeroDenormalized } from '@/lib/services/brand-images'
 import { storageKeyFromPublicUrl } from '@/lib/services/image-upload'
 import { JUNK_TAGS } from '@/lib/services/enrich-phases/classify-images'

@@ -1,5 +1,5 @@
 import { auditedCall } from '@/lib/audit'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
 export type BrandLikeState = {
   count: number

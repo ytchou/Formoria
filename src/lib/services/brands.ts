@@ -13,7 +13,7 @@ import type {
 import type { Database } from "@/lib/supabase/database.types";
 import { toBrandRow as baseToBrandRow } from "./_shared/field-map";
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import {
   canDegradeDuringPrerender,
   captureReadFailure,
@@ -1078,7 +1078,7 @@ export async function getBrandSlugsBatch(
  * The query itself, with the client passed in.
  *
  * Split out from the `cache()` wrapper below so tests can drive it with a
- * query-builder double instead of mocking `@/lib/supabase/server` — that mock
+ * query-builder double instead of mocking `@/lib/supabase/service` — that mock
  * is what `scripts/check-test-boundaries.mjs` forbids. Production has exactly
  * one caller, immediately below; nothing else should pass a client here.
  */

@@ -1,7 +1,7 @@
 import { withAuditScope } from '@/lib/audit/scope'
 import { NextRequest } from 'next/server'
 import { unsubscribeByToken } from '@/lib/services/email-lifecycle'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
 const htmlHeaders = {
   'Content-Type': 'text/html; charset=utf-8',

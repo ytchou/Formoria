@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PublicBrandFaqContext } from "@/lib/brands/contracts";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import {
   FAQ_PRESETS,
   hasValue,

@@ -30,7 +30,7 @@
  */
 import { randomUUID } from "node:crypto";
 
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import {
   claimCurationJob,
   enqueueAdminCurationJob,

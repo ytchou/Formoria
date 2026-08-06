@@ -1,5 +1,5 @@
 import { cache } from 'react'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { captureReadFailure } from '@/lib/degraded-render'
 import { excludeTestBrands } from './public-brand-filter'
 

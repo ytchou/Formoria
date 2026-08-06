@@ -1,6 +1,6 @@
 import { auditedCall } from '@/lib/audit'
 import type { Database } from '@/lib/supabase/database.types'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { normalizeOwnerLocale, type OwnerLocale } from '@/lib/types'
 
 type ProfileRow = Database['public']['Tables']['profiles']['Row']

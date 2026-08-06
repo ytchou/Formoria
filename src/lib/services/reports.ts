@@ -64,7 +64,7 @@ export type BrandReport = {
 
 export const defaultUpdateReportStatusDeps: UpdateReportStatusDeps = {
   async claim(reportId, update) {
-    const { createServiceClient } = await import('@/lib/supabase/server')
+    const { createServiceClient } = await import('@/lib/supabase/service')
     const supabase = createServiceClient()
 
     const { data, error } = await supabase
@@ -167,7 +167,7 @@ export async function createReport(input: {
   return auditedCall(
     { provider: 'brands', operation: 'createReport', kind: 'service' },
     async () => {
-  const { createServiceClient } = await import('@/lib/supabase/server')
+  const { createServiceClient } = await import('@/lib/supabase/service')
   const supabase = createServiceClient()
 
   const { error } = await supabase
@@ -180,7 +180,7 @@ export async function createReport(input: {
 }
 
 export async function getPendingReports(options?: { limit?: number }): Promise<BrandReport[]> {
-  const { createServiceClient } = await import('@/lib/supabase/server')
+  const { createServiceClient } = await import('@/lib/supabase/service')
   const supabase = createServiceClient()
 
   let query = supabase

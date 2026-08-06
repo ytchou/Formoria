@@ -5,7 +5,7 @@ import {
   DRAFT_PARK_SORT_ORDER,
   MAX_BRAND_IMAGE_SELECTION,
 } from "@/lib/constants/brand-images";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { deleteStoredImagePaths } from "@/lib/services/image-upload";
 import {
   rejectBrandImages,

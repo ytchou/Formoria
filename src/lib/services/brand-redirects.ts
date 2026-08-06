@@ -1,4 +1,4 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { createBrandRedirectRepository } from '@/lib/adapters/brand-redirects-repository'
 
 export async function hasApprovedBrandSlug(slug: string): Promise<boolean> {

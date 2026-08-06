@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { listCurationJobs, type CurationJob } from "@/lib/services/curation-jobs";
 import { getSubmissionsForReview } from "@/lib/services/submissions";
 
