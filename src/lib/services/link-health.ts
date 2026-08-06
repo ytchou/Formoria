@@ -1,4 +1,4 @@
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import {
   PURCHASE_COLUMNS,
   type PurchaseChannelColumn,

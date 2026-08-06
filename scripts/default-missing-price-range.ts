@@ -32,7 +32,7 @@
  */
 import { getSubmissionsForReview } from "@/lib/services/submissions";
 import { persistSubmissionEnrichmentResults } from "@/lib/services/curation-operations";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { DEFAULT_PRICE_RANGE } from "@/lib/brands/price-range";
 
 const APPLY = process.argv.includes("--apply");

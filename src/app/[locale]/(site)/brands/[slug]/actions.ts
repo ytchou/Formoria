@@ -37,7 +37,7 @@ import {
 } from '@/lib/cache/public-brand-cache'
 import { isOwnerOf } from '@/lib/services/brand-owners'
 import type { ChannelType } from '@/lib/types/brand-channel'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { trackOriginEvidenceSubmitted } from '@/lib/analytics'
 
 const REPORT_REASONS = [

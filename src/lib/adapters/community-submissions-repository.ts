@@ -2,7 +2,7 @@ import type {
   CommunitySubmissionRepository,
   ExistingCommunitySubmissionRecords,
 } from "@/lib/services/community-submissions";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 
 const PAGE_SIZE = 1_000;
 const SIMILARITY_THRESHOLD = 0.6;

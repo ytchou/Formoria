@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { excludeTestBrands } from "./public-brand-filter";
 
 /** Internal shapes of `CategoryPeerStats`; reached through it, never directly. */

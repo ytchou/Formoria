@@ -1,6 +1,6 @@
 import { uploadPrivateFile } from './image-upload'
 import { uploadWithRetry } from './storage-retry'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
 const RUN_LOGS_BUCKET = 'run-logs'
 const SIGNED_URL_EXPIRES_IN_SECONDS = 60 * 60

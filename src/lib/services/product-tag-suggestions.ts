@@ -1,4 +1,4 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
 const MAX_BRAND_ROWS = 500
 const DEFAULT_SUGGESTION_LIMIT = 200

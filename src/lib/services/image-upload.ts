@@ -1,4 +1,4 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { auditedCall } from '@/lib/audit'
 import type { ImageProcessorConfig } from '@/lib/security/image-processor'
 import { uploadWithRetry } from './storage-retry'

@@ -9,7 +9,7 @@ import {
   excludeTestBrands,
   TEST_BRAND_NAME_PATTERN,
 } from '@/lib/services/public-brand-filter'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import {
   isCompositeSubcategory,
   matchSubcategory,

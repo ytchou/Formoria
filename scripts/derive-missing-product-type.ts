@@ -23,7 +23,7 @@
 import { getSubmissionsForReview } from "@/lib/services/submissions";
 import { persistSubmissionEnrichmentResults } from "@/lib/services/curation-operations";
 import { deriveProductTypeFromTags } from "@/lib/services/product-tags";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 
 const APPLY = process.argv.includes("--apply");
 const ONLY = (

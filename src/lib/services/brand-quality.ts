@@ -6,7 +6,7 @@ import {
   type PurchaseChannelColumn,
 } from '@/lib/brands/purchase-channels'
 import type { Database } from '@/lib/supabase/database.types'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { languagePurity } from './eval/scorers'
 
 type LinkMetric = {

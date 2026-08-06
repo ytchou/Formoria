@@ -32,7 +32,7 @@ import {
   applyBrandRefresh,
   isGeneratedGuestSubmissionEmail,
 } from "@/lib/services/submissions";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import {
   getBrandById,
   syncBrandImages,

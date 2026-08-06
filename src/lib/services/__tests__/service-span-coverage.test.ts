@@ -98,7 +98,7 @@ describe("service span coverage", () => {
   it("a failing mutation writes a failed span and rethrows", async () => {
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "");
     vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "");
-    const { createServiceClient } = await import("@/lib/supabase/server");
+    const { createServiceClient } = await import("@/lib/supabase/service");
     let expectedMessage = "";
     try {
       createServiceClient();

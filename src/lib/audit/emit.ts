@@ -51,7 +51,7 @@ async function defaultAuditWrite(record: AuditRecord): Promise<AuditWriteError |
     return { message: "Audit record is missing correlationId" };
   }
 
-  const { createServiceClient } = await import("@/lib/supabase/server");
+  const { createServiceClient } = await import("@/lib/supabase/service");
   const { error } = await createServiceClient()
     .from("external_call_audit")
     .insert({

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Brand } from "@/lib/types";
-import type { createServiceClient } from "@/lib/supabase/server";
+import type { createServiceClient } from "@/lib/supabase/service";
 import {
   composeEventBrands,
   deriveAreaOptions,
@@ -122,7 +122,7 @@ function brandMap(...brands: Brand[]): Map<string, Brand> {
 //
 // Mirrors src/lib/services/__tests__/brands-by-slugs.test.ts: the filters are
 // actually applied to the fixture rows, so `status = 'published'` is exercised
-// rather than merely recorded. Mocking `@/lib/supabase/server` to reach the
+// rather than merely recorded. Mocking `@/lib/supabase/service` to reach the
 // same place is what scripts/check-test-boundaries.mjs forbids.
 //
 // `.range()` is honoured for real, which is what lets the pagination loops be

@@ -1,4 +1,4 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { requestPublicBrandRevalidation } from '@/lib/cache/revalidate-client'
 
 const UUID_PATTERN =

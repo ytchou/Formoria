@@ -2,7 +2,7 @@
 
 import { runWithAuditContext } from '@/lib/audit/context'
 import { revalidatePath } from 'next/cache'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { requireAdminAction } from '@/lib/auth/require-admin'
 import {
   getSubmission,

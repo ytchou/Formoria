@@ -10,7 +10,7 @@ import {
   PRODUCT_TYPE_CATEGORIES,
 } from "@/lib/taxonomy/ontology";
 import type { Database, Json } from "@/lib/supabase/database.types";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { auditedCall } from "@/lib/audit";
 import { isUuid, validateIdBatch } from "@/lib/validation/id-batch";
 import {

@@ -4,7 +4,8 @@ import { runWithAuditContext } from "@/lib/audit/context";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { updateProfile } from "@/lib/services/profiles";
 import { getProfileSchema } from "@/lib/validations/profile";
 import {

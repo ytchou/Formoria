@@ -23,7 +23,7 @@ import {
   mergeDraftOverBrand,
   publishDraft,
 } from "@/lib/services/brands";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { requireOwnerFeaturesEnabled } from "@/lib/auth/require-owner-features";
 import { ConflictError } from "@/lib/errors";
 import { storageKeyFromPublicUrl } from "@/lib/services/image-upload";

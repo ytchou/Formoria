@@ -24,7 +24,7 @@ import {
   type SubmissionReviewStage,
 } from "./submission-review-stage";
 import { ConflictError, NotFoundError } from "@/lib/errors";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import {
   extractLatinRun,
   generateSlug,

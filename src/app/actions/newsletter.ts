@@ -8,7 +8,7 @@ import {
 } from '@/lib/services/newsletter'
 import { requestNewsletterSubscription } from '@/lib/services/marketing-email-consent'
 import { rateLimit } from '@/lib/security/rate-limiter'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { isHoneypotFilled, parseSubscribeForm } from './newsletter-helpers'
 
 const RATE_LIMIT_WINDOW_MS = 60_000

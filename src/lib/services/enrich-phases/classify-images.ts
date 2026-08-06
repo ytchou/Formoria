@@ -12,7 +12,7 @@ import {
 import { syncHeroDenormalized, type BrandImageRow } from "../brand-images";
 import { brandImageRenderUrl } from "../image-upload";
 import { localizeToTW } from "../taiwan-localization";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import type { PhaseResult } from "@/lib/types/curation";
 import {
   brandTarget,

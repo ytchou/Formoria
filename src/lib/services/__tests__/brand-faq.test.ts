@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it } from "vitest";
  * explicitly asked for the `faq` phase may overwrite a model answer.
  *
  * These run against an in-memory query-builder double rather than a mocked
- * `@/lib/supabase/server` — `scripts/check-test-boundaries.mjs` forbids the
+ * `@/lib/supabase/service` — `scripts/check-test-boundaries.mjs` forbids the
  * latter, so the service takes an injectable client instead.
  */
 import {
