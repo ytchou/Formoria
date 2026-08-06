@@ -223,5 +223,49 @@ describeWithDb("event exhibitor manifest integration", () => {
         sort_order: 9,
       });
     expect(cardinalityError).not.toBeNull();
+
+    const secondEventId = randomUUID();
+    eventIds.push(secondEventId);
+    const { error: secondEventError } = await supabase.from("events").insert({
+      id: secondEventId,
+      slug: `event-exhibitor-cross-event-${secondEventId.slice(0, 8)}`,
+      name: "Cross-event scope fixture",
+      summary: "Integration fixture",
+      starts_on: "2026-08-06",
+      ends_on: "2026-08-09",
+      status: "published",
+    });
+    expect(secondEventError).toBeNull();
+    const { data: secondExhibitor, error: secondExhibitorError } =
+      await supabase
+        .from("event_exhibitors")
+        .insert({
+          event_id: secondEventId,
+          source_key: "creative-expo:test-cross-event",
+          name: "Cross-event exhibitor",
+          booth: "K3-001",
+          area: "文創品牌展區",
+          area_en: "Cultural & Creative Brands",
+          zone: "K3",
+          event_category: "cultural_creative",
+          source_url: "https://example.com/cross-event",
+          verified_at: "2026-08-06",
+          sort_order: 0,
+        })
+        .select("id")
+        .single();
+    expect(secondExhibitorError).toBeNull();
+    expect(secondExhibitor).toBeTruthy();
+
+    const { error: crossEventError } = await supabase
+      .from("event_brands")
+      .insert({
+        event_id: eventId,
+        brand_id: secondBrandId,
+        event_exhibitor_id: secondExhibitor?.id,
+        booth: "K3-001",
+        sort_order: 10,
+      });
+    expect(crossEventError).not.toBeNull();
   });
 });
