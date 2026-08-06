@@ -3148,6 +3148,22 @@ export type Database = {
           slug: string;
         }[];
       };
+      search_brand_page: {
+        Args: {
+          filter_categories?: string[];
+          filter_price_ranges?: number[];
+          filter_tags?: string[];
+          filter_verification?: string;
+          page_offset?: number;
+          search_query: string;
+        };
+        Returns: {
+          id: string;
+          rank_score: number;
+          search_source: string;
+          total_count: number;
+        }[];
+      };
       show_limit: { Args: never; Returns: number };
       show_trgm: { Args: { "": string }; Returns: string[] };
       transition_health_fix: {
