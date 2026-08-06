@@ -1,9 +1,9 @@
 import Image from 'next/image'
-import type { Brand, SiteContent } from '@/lib/types/brand'
+import type { PublicMicrositeBrand } from '@/lib/brands/contracts'
 
 type HeroProps = {
-  brand: Brand
-  siteContent: Pick<SiteContent, 'tagline'>
+  brand: PublicMicrositeBrand
+  siteContent: Pick<PublicMicrositeBrand['siteContent'], 'tagline'>
 }
 
 export function Hero({ brand, siteContent }: HeroProps) {

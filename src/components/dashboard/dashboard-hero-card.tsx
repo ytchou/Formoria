@@ -12,18 +12,18 @@ import {
   computeProfileCompleteness,
   type ProfileCompleteness,
 } from '@/lib/services/profile-completeness'
-import type { Brand } from '@/lib/types'
+import type { OwnerBrandEditor } from '@/lib/brands/contracts'
 
 const infoLabelClassName = 'type-field-label uppercase tracking-[0.08em]'
 
 type DashboardHeroCardProps =
   | {
-      brand: Brand
+      brand: OwnerBrandEditor
       completeness: ProfileCompleteness
       completenessScore?: never
     }
   | {
-      brand: Brand
+      brand: OwnerBrandEditor
       completeness?: never
       completenessScore: number
     }

@@ -3,10 +3,14 @@ import { cache } from "react";
 import type { AppLocale } from "@/i18n/locale-preference";
 import type { Database } from "@/lib/supabase/database.types";
 import type { Brand } from "@/lib/types";
+import {
+  normalizePublicBrandCard,
+  type PublicBrandCard,
+} from "@/lib/brands/contracts";
 import { getBrandCategoryLabel } from "@/lib/brands/category-label";
 import { isoDateInTimeZone } from "@/lib/date-range";
 import { createServiceClient } from "@/lib/supabase/server";
-import { brandsBySlugsCacheKey, getBrandsBySlugs } from "./brands";
+import { brandsBySlugsCacheKey, getPublicBrandsBySlugs } from "./brands";
 
 // ---------------------------------------------------------------------------
 // Row + domain types
@@ -91,7 +95,7 @@ export type EventBrandLink = {
 
 /** A lineup row with its brand resolved through the shared brand projection. */
 export type EventBrandEntry = Omit<EventBrandLink, "brandSlug"> & {
-  brand: Brand;
+  brand: PublicBrandCard;
 };
 
 /**
@@ -284,13 +288,14 @@ function compareStrings(a: string, b: string): number {
  */
 export function composeEventBrands(
   links: EventBrandLink[],
-  brandsBySlug: Map<string, Brand>,
+  brandsBySlug: Map<string, Brand | PublicBrandCard>,
 ): EventBrandEntry[] {
   const entries: EventBrandEntry[] = [];
 
   for (const link of links) {
-    const brand = brandsBySlug.get(link.brandSlug);
-    if (!brand) continue;
+    const resolvedBrand = brandsBySlug.get(link.brandSlug);
+    if (!resolvedBrand) continue;
+    const brand = normalizePublicBrandCard(resolvedBrand);
 
     entries.push({
       brand,
@@ -563,7 +568,7 @@ export async function getEventBrandEntries(
   const links = await getEventBrandLinks(slug);
   if (links.length === 0) return [];
 
-  const brands = await getBrandsBySlugs(links.map((link) => link.brandSlug));
+  const brands = await getPublicBrandsBySlugs(links.map((link) => link.brandSlug));
   return composeEventBrands(links, brands);
 }
 

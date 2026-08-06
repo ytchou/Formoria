@@ -14,7 +14,7 @@ import {
   trackSearchResultClicked,
   trackSearchSuggestionSelect,
 } from '@/lib/analytics'
-import type { SearchResult } from '@/lib/services/brands'
+import type { SearchSuggestion } from '@/lib/brands/contracts'
 import { SearchSuggestions, SEARCH_SUGGESTIONS_ID } from './search-suggestions'
 
 interface SearchInputProps {
@@ -37,7 +37,7 @@ function SearchInput({
   const { filters, isPending, setSearch } = useFilterParams()
   const [value, setValue] = useState(filters.search)
   const [lastUrlSearch, setLastUrlSearch] = useState(filters.search)
-  const [suggestions, setSuggestions] = useState<SearchResult[]>([])
+  const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([])
   const [selectedIndex, setSelectedIndex] = useState(-1)
   const [showDropdown, setShowDropdown] = useState(false)
   const [isFetchingSuggestions, setIsFetchingSuggestions] = useState(false)
@@ -53,7 +53,7 @@ function SearchInput({
   }
 
   const fetchSuggestions = useCallback(async (q: string) => {
-    if (!q.trim()) {
+    if (q.trim().length < 2) {
       setSuggestions([])
       setShowDropdown(false)
       setIsFetchingSuggestions(false)
@@ -66,7 +66,7 @@ function SearchInput({
       abortRef.current?.abort()
       const controller = new AbortController()
       abortRef.current = controller
-      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&limit=5`, {
+      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, {
         signal: controller.signal,
       })
       if (inputVersion !== inputVersionRef.current) return
@@ -102,7 +102,7 @@ function SearchInput({
       if (!redirectTo) {
         setSearch(value)
       }
-      if (!value.trim()) {
+      if (value.trim().length < 2) {
         setSuggestions([])
         setShowDropdown(false)
         setIsFetchingSuggestions(false)
@@ -142,7 +142,7 @@ function SearchInput({
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     inputVersionRef.current += 1
     setValue(e.target.value)
-    setIsFetchingSuggestions(showAutocomplete && e.target.value.trim().length > 0)
+    setIsFetchingSuggestions(showAutocomplete && e.target.value.trim().length >= 2)
   }
 
   function handleClear() {

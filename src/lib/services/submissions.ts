@@ -24,7 +24,7 @@ import {
   type SubmissionReviewStage,
 } from "./submission-review-stage";
 import { ConflictError, NotFoundError } from "@/lib/errors";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 import {
   extractLatinRun,
   generateSlug,
@@ -1197,14 +1197,15 @@ export async function createSubmission(
       intent?: SubmissionIntent;
       ownerData?: Record<string, unknown>;
     },
-  options?: { useServiceRole?: boolean },
+  _options?: { useServiceRole?: boolean },
 ): Promise<BrandSubmissionWithProductTypeNote> {
   return auditedCall(
     { provider: "submissions", operation: "createSubmission", kind: "service" },
     async () => {
-  const supabase = options?.useServiceRole
-    ? createServiceClient()
-    : await createClient();
+  // Authorization and abuse checks happen at the action boundary. The data
+  // write itself always uses the service role so the public submission journey
+  // remains available after application-role table grants are revoked.
+  const supabase = createServiceClient();
   const row = submissionToInsert(data);
   const { data: inserted, error } = await supabase
     .from("brand_submissions")
@@ -2326,7 +2327,7 @@ export async function checkBrandDuplicates(
   name: string,
   website?: string,
 ): Promise<DuplicateCheckResult> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
   const websiteKey = normalizeCommunityWebsite(website)?.key;
 
   const { data, error } = await supabase.rpc("check_brand_duplicates", {

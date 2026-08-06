@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import { ChevronRight } from 'lucide-react'
 import { NextIntlClientProvider } from 'next-intl'
 import { getTranslations, setRequestLocale, getMessages } from 'next-intl/server'
-import { getBrands, getRandomBrands, getSubcategoryCounts } from '@/lib/services/brands'
+import { getPublicBrandCards, getRandomBrands, getSubcategoryCounts } from '@/lib/services/brands'
 import { getAppSetting, SUBCATEGORY_FILTER_KEY } from '@/lib/services/app-settings'
 import { categoryLabel, PRODUCT_SUBCATEGORIES, PRODUCT_TYPE_CATEGORIES, resolveSubcategorySlugs } from '@/lib/taxonomy/ontology'
 import { buildBreadcrumbJsonLd, buildCategoryItemListJsonLd, buildBrandsItemListJsonLd, buildWebSiteJsonLd, safeJsonLdStringify } from '@/lib/json-ld'
@@ -28,9 +28,10 @@ import type { Locale } from '@/lib/seo/alternates'
 import { buildOpenGraph } from '@/lib/seo/open-graph'
 import { buildDirectoryCanonicals } from '@/lib/seo/directory-canonical'
 import { truncateForMeta } from '@/lib/text/truncate-for-meta'
-import type { Brand, BrandFilters } from '@/lib/types'
+import { toPublicBrandCard, type PublicBrandCard } from '@/lib/brands/contracts'
 import { localizePath } from '@/i18n/locale-preference'
 import { updateDirectoryUrl } from '@/lib/directory-filter-url'
+import type { BrandFilters } from '@/lib/types'
 
 // Both `generateMetadata` and the page body read `searchParams`, which opts this route
 // into dynamic rendering, so this `revalidate` never produces a static ISR entry. It is
@@ -183,7 +184,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
   const verificationFilter = parseVerificationParam(sp.verification)
 
   const [{ brands, totalCount }, subcategoryCounts] = await Promise.all([
-    getBrands({
+    getPublicBrandCards({
       status: 'approved',
       search: search || undefined,
       category: validCategoryFilter.length > 0 ? validCategoryFilter : undefined,
@@ -221,7 +222,7 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
   // If page was clamped, re-fetch with correct offset
   let displayBrands = brands
   if (clampedPage !== page && totalCount > 0) {
-    const refetched = await getBrands({
+    const refetched = await getPublicBrandCards({
       status: 'approved',
       search: search || undefined,
       category: validCategoryFilter.length > 0 ? validCategoryFilter : undefined,
@@ -326,11 +327,11 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
     })
   }
 
-  let recommendedBrands: Brand[] = []
+  let recommendedBrands: PublicBrandCard[] = []
   let recommendationsHref = directoryPath
   if (totalCount === 0) {
     if (validCategoryFilter.length > 0) {
-      const recommendations = await getBrands({
+      const recommendations = await getPublicBrandCards({
         status: 'approved',
         category: validCategoryFilter,
         sort: 'random',
@@ -345,7 +346,9 @@ export default async function BrandsPage({ params, searchParams }: BrandsPagePro
       }
     }
     if (recommendedBrands.length === 0) {
-      recommendedBrands = await getRandomBrands(EMPTY_STATE_RECOMMENDATION_LIMIT)
+      recommendedBrands = (await getRandomBrands(EMPTY_STATE_RECOMMENDATION_LIMIT)).map(
+        toPublicBrandCard,
+      )
     }
   }
 

@@ -1,37 +1,37 @@
 import type { Json } from "@/lib/supabase/database.types";
-import type { Brand } from "@/lib/types";
+import type { AdminBrandListItem } from "@/lib/brands/contracts";
 import type { SubmissionReviewData } from "@/lib/services/submissions";
 
-export function brandToReviewData(brand: Brand): SubmissionReviewData {
+export function brandToReviewData(brand: AdminBrandListItem): SubmissionReviewData {
   return {
     name: brand.name,
-    description: brand.description,
-    descriptionEn: brand.descriptionEn,
-    blurb: brand.blurb,
-    blurbEn: brand.blurbEn,
-    city: brand.city,
+    description: brand.description ?? null,
+    descriptionEn: brand.descriptionEn ?? null,
+    blurb: brand.blurb ?? null,
+    blurbEn: brand.blurbEn ?? null,
+    city: brand.city ?? null,
     categoryAttributes: null,
-    reputationSummary: brand.reputationSummary as unknown as Json,
-    mitEvidence: brand.mitEvidence as unknown as Json,
-    siteContent: brand.siteContent as unknown as Json,
-    foundingYear: brand.foundingYear,
-    heroImageUrl: brand.heroImageUrl,
+    reputationSummary: (brand.reputationSummary ?? null) as unknown as Json,
+    mitEvidence: (brand.mitEvidence ?? null) as unknown as Json,
+    siteContent: (brand.siteContent ?? null) as unknown as Json,
+    foundingYear: brand.foundingYear ?? null,
+    heroImageUrl: brand.heroImageUrl ?? null,
     productType: brand.productType ?? null,
-    priceRange: brand.priceRange,
-    productTags: brand.productTags,
-    productTagsEn: brand.productTagsEn,
-    websiteUrl: brand.purchaseWebsite,
-    socialInstagram: brand.socialInstagram,
-    socialThreads: brand.socialThreads,
-    socialFacebook: brand.socialFacebook,
+    priceRange: brand.priceRange ?? null,
+    productTags: brand.productTags ?? [],
+    productTagsEn: brand.productTagsEn ?? [],
+    websiteUrl: brand.purchaseWebsite ?? null,
+    socialInstagram: brand.socialInstagram ?? null,
+    socialThreads: brand.socialThreads ?? null,
+    socialFacebook: brand.socialFacebook ?? null,
     // Spelled out per channel rather than built with Object.fromEntries: the
     // latter widens to a string index signature, which does not satisfy
     // SubmissionReviewData's required purchase keys. Listing them keeps tsc as
     // the gate — adding a channel to PURCHASE_CHANNELS breaks this literal.
-    purchaseWebsite: brand.purchaseWebsite,
-    purchasePinkoi: brand.purchasePinkoi,
-    purchaseShopee: brand.purchaseShopee,
-    purchaseMyship: brand.purchaseMyship,
-    otherUrls: brand.otherUrls,
+    purchaseWebsite: brand.purchaseWebsite ?? null,
+    purchasePinkoi: brand.purchasePinkoi ?? null,
+    purchaseShopee: brand.purchaseShopee ?? null,
+    purchaseMyship: brand.purchaseMyship ?? null,
+    otherUrls: brand.otherUrls ?? [],
   };
 }

@@ -20,7 +20,7 @@ import { publishDraftAction } from '@/app/[locale]/(site)/(protected)/dashboard/
 import { useWizardController } from '@/components/brand-wizard/use-wizard-controller'
 import { useRouter } from '@/i18n/navigation'
 import type { ContentViolation } from '@/lib/services/moderation'
-import type { Brand } from '@/lib/types'
+import type { OwnerBrandEditor } from '@/lib/brands/contracts'
 
 import { DirtyFieldsContext } from '@/components/brand-wizard/dirty-fields-context'
 
@@ -31,7 +31,7 @@ import { LinksSection } from './sections/links-section'
 import { ReputationSection } from './sections/reputation-section'
 
 interface BrandEditWizardProps {
-  brand: Brand
+  brand: Pick<OwnerBrandEditor, 'id' | 'slug'>
   defaultValues: Partial<BrandEditFormValues>
   initialCompletedSteps?: number[]
   initialStep?: number

@@ -1,9 +1,9 @@
 import { getTranslations } from 'next-intl/server'
 import type { AppLocale } from '@/i18n/locale-preference'
-import type { Brand } from '@/lib/types'
+import type { PublicBrandDetail } from '@/lib/brands/contracts'
 
 interface BrandAboutProps {
-  brand: Brand
+  brand: PublicBrandDetail
   locale: AppLocale
 }
 

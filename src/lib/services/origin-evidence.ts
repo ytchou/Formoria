@@ -2,7 +2,7 @@ import { buildDeclarationRemovedEmail } from '@/lib/email/templates'
 import { auditedCall } from '@/lib/audit'
 import { sendEmail } from '@/lib/email/send'
 import type { Database } from '@/lib/supabase/database.types'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { stripDeclaration } from './mit-declaration'
 import { uploadWithRetry } from './storage-retry'
 
@@ -167,7 +167,7 @@ export async function createEvidence(input: CreateEvidenceInput): Promise<Create
     return { ok: false, code: 'notes_too_long' }
   }
 
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const { count, error: countError } = await supabase
     .from('origin_evidence')
     .select('id', { count: 'exact', head: true })
@@ -203,7 +203,7 @@ export async function createEvidence(input: CreateEvidenceInput): Promise<Create
 }
 
 export async function listMyEvidence(userId: string): Promise<OriginEvidence[]> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('origin_evidence')
     .select('*, brands(name, slug)')

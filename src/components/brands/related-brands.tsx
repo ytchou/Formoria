@@ -2,13 +2,13 @@ import { getTranslations } from 'next-intl/server'
 import { ChevronRight } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
 import type { AppLocale } from '@/i18n/locale-preference'
-import type { Brand } from '@/lib/types'
+import type { PublicBrandCard } from '@/lib/brands/contracts'
 import { BrandCard } from './brand-card'
 import { RelatedBrandsTracker } from './related-brands-tracker'
 
 interface RelatedBrandsProps {
   locale: AppLocale
-  brands: Brand[]
+  brands: PublicBrandCard[]
   category: string | null
   categoryName: string
   categoryLabel?: string | null

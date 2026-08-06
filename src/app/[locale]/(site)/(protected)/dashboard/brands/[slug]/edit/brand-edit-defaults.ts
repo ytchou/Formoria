@@ -1,6 +1,5 @@
 import { SECTION_FIELDS, type BrandEditFormValues } from '@/lib/schemas/brand-edit'
 import { BRAND_DRAFT_PROGRESS_KEY } from '@/lib/services/brands'
-import type { Brand } from '@/lib/types'
 
 const BRAND_EDIT_FIELD_KEYS = new Set(
   Object.values(SECTION_FIELDS).flat() as (keyof BrandEditFormValues)[],
@@ -46,7 +45,7 @@ export function getInitialWizardStep(
 }
 
 export function buildBrandEditDefaultValues(
-  brand: Brand,
+  brand: object,
   draftData?: unknown,
 ): Partial<BrandEditFormValues> {
   const safeDraft =

@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import type { Brand, SiteContent } from '@/lib/types/brand'
+import type { PublicMicrositeBrand } from '@/lib/brands/contracts'
 import { ContactCta } from '../contact-cta'
 import { Hero } from '../hero'
 import { MicrositeFooter } from '../microsite-footer'
@@ -8,8 +8,8 @@ import { Story } from '../story'
 import { siteTokensToCssVars } from '../tokens'
 
 type DefaultTemplateProps = {
-  brand: Brand
-  siteContent: SiteContent
+  brand: PublicMicrositeBrand
+  siteContent: PublicMicrositeBrand['siteContent']
 }
 
 export function DefaultTemplate({ brand, siteContent }: DefaultTemplateProps) {
@@ -21,7 +21,7 @@ export function DefaultTemplate({ brand, siteContent }: DefaultTemplateProps) {
       <Hero brand={brand} siteContent={siteContent} />
       <Story brand={brand} story={siteContent.story} />
       <ProductGrid brand={brand} products={siteContent.products} />
-      <ContactCta brand={brand} siteContent={siteContent} />
+      <ContactCta siteContent={siteContent} />
       <MicrositeFooter brand={brand} />
     </div>
   )

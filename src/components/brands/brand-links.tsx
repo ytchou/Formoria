@@ -23,7 +23,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import type { Brand } from '@/lib/types'
+import type { PublicBrandDetail } from '@/lib/brands/contracts'
 import {
   channelMessageKey,
   PURCHASE_CHANNELS,
@@ -35,7 +35,7 @@ import { trackExternalLinkClicked } from '@/lib/analytics'
 import { CorrectionDialog } from './correction-dialog'
 
 interface BrandLinksProps {
-  brand: Brand
+  brand: PublicBrandDetail
   sectionIds?: {
     social?: string
     purchase?: string
@@ -79,7 +79,7 @@ type LinkSectionProps = {
   id?: string
   label: string
   slots: LinkSlot[]
-  brand: Brand
+  brand: PublicBrandDetail
   className?: string
   headerAction?: ReactNode
 }
