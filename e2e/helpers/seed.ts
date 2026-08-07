@@ -69,6 +69,7 @@ export async function seedBrand(opts: {
     name: fullName,
     slug,
     status,
+    ...(status === 'approved' ? { approved_at: new Date().toISOString() } : {}),
     product_type: 'crafts',
     founding_year: '2020',
   };

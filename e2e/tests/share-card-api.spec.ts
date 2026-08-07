@@ -45,6 +45,7 @@ test.describe('Share card API', () => {
         name: `[E2E-TEST] 台灣品牌 Share Card ${ts}`,
         slug: approvedBrandSlug,
         status: 'approved',
+        approved_at: new Date().toISOString(),
         product_type: 'crafts',
         description: '[E2E-TEST] share card API approved brand',
         retail_locations: [],

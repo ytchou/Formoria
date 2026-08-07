@@ -83,6 +83,30 @@ describe('normalizeProductTags', () => {
     expect(result.tagsEn).toEqual(['Desserts & Pastries'])
   })
 
+  it('rejects retired split composites after canonical synonym matching', () => {
+    const result = normalizeProductTags(['香氛・蠟燭', '香氛蠟燭'], [])
+
+    expect(result.tags).toEqual([])
+    expect(result.rejected).toEqual([
+      { tag: '香氛・蠟燭', reason: 'retired-composite' },
+      { tag: '香氛蠟燭', reason: 'retired-composite' },
+    ])
+    expect(resolveProductTagInput('香氛・蠟燭')).toEqual({
+      ok: false,
+      reason: 'retired-composite',
+    })
+    expect(resolveProductTagInput('卡片・明信片')).toEqual({
+      ok: true,
+      tag: '卡片・明信片',
+      canonical: true,
+    })
+    expect(resolveProductTagInput('手機吊飾')).toEqual({
+      ok: true,
+      tag: '手機背帶',
+      canonical: true,
+    })
+  })
+
   it('drops an unmatched composite when neither half resolves', () => {
     const result = normalizeProductTags(['地板・地板材料'], [])
 
@@ -184,6 +208,11 @@ describe('resolveProductTagInput', () => {
 describe('novelTagRejection', () => {
   it('novelTagRejection returns null for an acceptable novel tag', () => {
     expect(novelTagRejection('手工燈籠')).toBeNull()
+  })
+
+  it('rejects retired composite spellings before the novel-tag escape hatch', () => {
+    expect(novelTagRejection('香氛・蠟燭')).toBe('retired-composite')
+    expect(novelTagRejection('香氛蠟燭')).toBe('retired-composite')
   })
 
   it('agrees with the heuristics it replaced', () => {
