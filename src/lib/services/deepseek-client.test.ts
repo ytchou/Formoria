@@ -92,12 +92,24 @@ describe('createDeepSeekClient', () => {
       .mockResolvedValueOnce(new Response(null, { status: 429 }))
       .mockResolvedValueOnce(new Response(null, { status: 429 }))
       .mockResolvedValue(new Response(JSON.stringify({ choices: [{ message: { content: 'recovered' } }] })))
-    const client = createDeepSeekClient({ apiKey: 'k' })
+    const events: ChatAuditEvent[] = []
+    const client = createDeepSeekClient({
+      apiKey: 'k',
+      onChatComplete: (event) => {
+        events.push(event)
+      },
+    })
 
     const result = await withFakeTimers(() => client.chat({ system: 's', user: 'u' }))
 
     expect(fetchSpy).toHaveBeenCalledTimes(3)
     expect(result.content).toBe('recovered')
+    expect(events.map((event) => [event.ok, event.retryAttempt])).toEqual([
+      [false, 0],
+      [false, 1],
+      [true, 2],
+    ])
+    expect(events.every((event) => event.usage)).toBe(true)
   })
 
   it('does not reject chat when the audit hook throws', async () => {
