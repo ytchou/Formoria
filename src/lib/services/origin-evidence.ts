@@ -1,6 +1,7 @@
 import { buildDeclarationRemovedEmail } from '@/lib/email/templates'
 import { auditedCall } from '@/lib/audit'
 import { sendEmail } from '@/lib/email/send'
+import { describeError } from '@/lib/errors'
 import type { Database } from '@/lib/supabase/database.types'
 import { createServiceClient } from '@/lib/supabase/service'
 import { validateIdBatch } from '@/lib/validation/id-batch'
@@ -279,9 +280,9 @@ export async function reviewEvidence(
   notes: string,
   opts: ReviewEvidenceOptions,
 ): Promise<ReviewEvidenceResult> {
-  return auditedCall(
+  return auditedCall<ReviewEvidenceResult>(
     { provider: 'brands', operation: 'reviewEvidence', kind: 'service' },
-    async () => {
+    async (ctx) => {
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('origin_evidence')
@@ -296,7 +297,13 @@ export async function reviewEvidence(
     .select('id, brand_id, brands(name)')
     .maybeSingle()
 
-  if (error) return { ok: false, code: 'database_error' }
+  if (error) {
+    // The envelope classifies on the RETURNED value, so the underlying error
+    // has to be carried out by hand or it is lost entirely.
+    console.error('[origin-evidence] reviewEvidence claim failed:', error)
+    ctx.summary.claimError = describeError(error)
+    return { ok: false, code: 'database_error' }
+  }
   if (!data) return { ok: false, code: 'already_reviewed_or_not_found' }
   if (opts.tierAction !== 'strip_declaration') return { ok: true }
 
@@ -342,6 +349,16 @@ export async function reviewEvidence(
   }
 
   return { ok: true }
+    },
+    {
+      // Without this a swallowed failure is audited as `succeeded` with normal
+      // latency. `already_reviewed_or_not_found` is not a fault — no pending
+      // row was claimed — so it maps to `empty`. Everything else, including a
+      // failed `stripDeclaration`, is a genuine write failure.
+      classify: (result) => {
+        if (result.ok) return 'succeeded'
+        return result.code === 'already_reviewed_or_not_found' ? 'empty' : 'failed'
+      },
     },
   )
 }
