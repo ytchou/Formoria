@@ -101,6 +101,12 @@ const BROWSER_UA =
 const TIMEOUT_MS = 10_000;
 const CONCURRENCY = 5;
 const RETRY_ON = new Set([405, 501]);
+/**
+ * Max ids per PostgREST `.in()` filter. Mirrors the constant of the same name in
+ * brands.ts — the values live in the query string, so one filter carrying the
+ * whole approved corpus overflows the URL.
+ */
+const SUPABASE_IN_FILTER_CHUNK_SIZE = 200;
 const SAFE_RUN_IDENTITY = /^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,127}$/;
 const MAX_WORKFLOW_ATTEMPT = 1_000_000;
 
@@ -294,13 +300,26 @@ export async function runLinkHealthCheck(
     }
 
     const existingRows: ExistingRow[] = [];
-    if (brandIds.length > 0) {
+    // Chunked because PostgREST puts `.in()` values in the query string, and one
+    // filter carrying every approved brand id overflows it. Measured against
+    // production on 2026-08-07: 300 ids ok, 500 ids "TypeError: fetch failed",
+    // 718 ids "Bad Request". This is a scale bug, not a config one — it began
+    // failing silently once the approved corpus crossed the threshold, and the
+    // route surfaced it only as a generic HTTP 500 (DEV-1381).
+    // Same 200 as SUPABASE_IN_FILTER_CHUNK_SIZE in brands.ts, which already
+    // solved this for brand-slug lookups.
+    for (
+      let index = 0;
+      index < brandIds.length;
+      index += SUPABASE_IN_FILTER_CHUNK_SIZE
+    ) {
+      const chunk = brandIds.slice(index, index + SUPABASE_IN_FILTER_CHUNK_SIZE);
       const { data, error } = await db
         .from("link_check_results")
         .select(
           "id, brand_id, field, url, consecutive_failures, failure_dates, last_ok_at, auto_nulled_at, cleanup_required_at",
         )
-        .in("brand_id", brandIds);
+        .in("brand_id", chunk);
       if (error)
         throw new Error(`Failed to load link_check_results: ${error.message}`);
       existingRows.push(...(data ?? []));
