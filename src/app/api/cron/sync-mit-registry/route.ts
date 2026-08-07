@@ -4,7 +4,10 @@ import { isAuthorizedMachineCaller } from '@/lib/security/machine-caller'
 import { syncMitRegistry } from '@/lib/services/mit-registry'
 
 export const runtime = 'nodejs'
-export const maxDuration = 60
+// 300s, matching the other cron routes. The old 60s had to cover the ZIP
+// download, parse and ~60 sequential upsert batches for a 29k-row dataset —
+// the tightest budget in the codebase, for the largest job.
+export const maxDuration = 300
 
 export const POST = withAuditScope(async (req: Request) => {
   if (!isAuthorizedMachineCaller(req)) {
@@ -12,8 +15,8 @@ export const POST = withAuditScope(async (req: Request) => {
   }
 
   try {
-    const { recordCount, durationMs } = await syncMitRegistry()
-    return NextResponse.json({ recordCount, durationMs })
+    const { recordCount, durationMs, sweptStale } = await syncMitRegistry()
+    return NextResponse.json({ recordCount, durationMs, sweptStale })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     return NextResponse.json({ error: message }, { status: 500 })

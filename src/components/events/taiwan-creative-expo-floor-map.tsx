@@ -3,16 +3,7 @@
 import Image from "next/image";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { ExternalLink, Maximize2, RotateCcw, X } from "lucide-react";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { RotateCcw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { textStyles } from "@/components/ui/text-styles";
@@ -51,10 +42,6 @@ export type TaiwanCreativeExpoFloorMapProps = {
   onBoothHover: (booth: string | null) => void;
   onReset: () => void;
 };
-
-type ZoomLevel = 1 | 2 | 4 | 8;
-
-const ZOOM_LEVELS: readonly ZoomLevel[] = [1, 2, 4, 8];
 
 /** Fraction of the framed viewport the focused zone occupies, leaving a margin. */
 const FRAME_FILL = 0.92;
@@ -177,19 +164,8 @@ type FloorMapCopy = {
   popoverTitle: string;
   viewBrand: string;
   multiBrand: string;
-  openViewer: string;
-  viewerTitle: string;
-  viewerDescription: string;
-  closeViewer: string;
-  zoom: string;
-  fit: string;
-  zoomTimes: (value: ZoomLevel) => string;
-  mapUnavailable: string;
-  mapUnavailableHint: string;
   noScript: string;
   officialPdf: string;
-  attribution: string;
-  officialSite: string;
 };
 
 function ZoneControls({
@@ -335,57 +311,6 @@ function MapLegend({
   );
 }
 
-/** The 797KB raster now renders only here, behind the fullscreen viewer. */
-function OfficialMapImage({
-  imageFailed,
-  onImageError,
-  copy,
-}: {
-  imageFailed: boolean;
-  onImageError: () => void;
-  copy: FloorMapCopy;
-}) {
-  return (
-    <div
-      className="relative aspect-[3200/2450] w-full overflow-hidden bg-muted"
-      data-map-image={EXPO_FLOOR_MAP_GEOMETRY.viewBox}
-    >
-      <Image
-        alt={EXPO_FLOOR_MAP_ASSET.alt}
-        className={cn("object-fill", imageFailed && "invisible")}
-        fill
-        onError={onImageError}
-        sizes="(max-width: 640px) 100vw, 1200px"
-        src={EXPO_FLOOR_MAP_ASSET.src}
-      />
-      {imageFailed ? (
-        <div className="absolute inset-0 grid place-items-center bg-muted/95 p-6 text-center">
-          <div className="max-w-md space-y-2">
-            <p className={textStyles({ variant: "cardTitle" })}>
-              {copy.mapUnavailable}
-            </p>
-            <p className={textStyles({ variant: "cardDescription" })}>
-              {copy.mapUnavailableHint}
-            </p>
-            <a
-              className={textStyles({ variant: "link" })}
-              href={EXPO_FLOOR_MAP_ASSET.sourceUrl}
-              rel="noreferrer"
-              target="_blank"
-            >
-              {copy.officialPdf}
-              <ExternalLink
-                aria-hidden="true"
-                className="ml-1 inline size-3.5"
-              />
-            </a>
-          </div>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 export function TaiwanCreativeExpoFloorMap({
   selectedZone,
   selectedBooth,
@@ -401,14 +326,8 @@ export function TaiwanCreativeExpoFloorMap({
 }: TaiwanCreativeExpoFloorMapProps) {
   const t = useTranslations("events");
   const locale = useLocale();
-  const [imageFailed, setImageFailed] = useState(false);
-  const [viewerOpen, setViewerOpen] = useState(false);
-  const [zoom, setZoom] = useState<ZoomLevel>(1);
   const [dismissedBooth, setDismissedBooth] = useState<string | null>(null);
   const blockRefs = useRef<Array<SVGRectElement | null>>([]);
-  const viewportRef = useRef<HTMLDivElement>(null);
-  const previousFocusRef = useRef<HTMLElement | null>(null);
-  const headingId = useId();
   const titleId = useId();
 
   const copy: FloorMapCopy = {
@@ -428,19 +347,8 @@ export function TaiwanCreativeExpoFloorMap({
     popoverTitle: t("floorMapPopoverTitle"),
     viewBrand: t("floorMapViewBrand"),
     multiBrand: t("floorMapMultiBrand"),
-    openViewer: t("floorMapOpenViewer"),
-    viewerTitle: t("floorMapViewerTitle"),
-    viewerDescription: t("floorMapViewerDescription"),
-    closeViewer: t("floorMapCloseViewer"),
-    zoom: t("floorMapZoom"),
-    fit: t("floorMapFit"),
-    zoomTimes: (value) => t("floorMapZoomTimes", { value }),
-    mapUnavailable: t("floorMapUnavailable"),
-    mapUnavailableHint: t("floorMapUnavailableHint"),
     noScript: t("floorMapNoScript"),
     officialPdf: t("floorMapOfficialPdf"),
-    attribution: t("floorMapAttribution"),
-    officialSite: t("floorMapOfficialSite"),
   };
 
   const zoneName = (definition: ExpoZoneDefinition) =>
@@ -617,77 +525,14 @@ export function TaiwanCreativeExpoFloorMap({
     top: `${(((block.y + block.height) * frame.scale + frame.ty - view.y) / view.height) * 100}%`,
   });
 
-  const rememberTriggerFocus = () => {
-    if (
-      typeof document !== "undefined" &&
-      document.activeElement instanceof HTMLElement
-    ) {
-      previousFocusRef.current = document.activeElement;
-    }
-  };
-
-  const handleViewerOpenChange = (nextOpen: boolean) => {
-    setViewerOpen(nextOpen);
-    if (nextOpen) {
-      setZoom(selectedZone ? 2 : 1);
-      return;
-    }
-
-    const previousFocus = previousFocusRef.current;
-    if (previousFocus && typeof window !== "undefined") {
-      window.requestAnimationFrame(() => previousFocus.focus());
-    }
-  };
-
-  // Opening the viewer on a selected zone scrolls the raster to that zone.
-  useEffect(() => {
-    if (!viewerOpen) return;
-
-    const focus = selectedDefinition?.focus;
-    const frameId = window.requestAnimationFrame(() => {
-      const viewport = viewportRef.current;
-      if (!viewport) return;
-
-      if (!focus) {
-        viewport.scrollTo({ top: 0, left: 0, behavior: "auto" });
-        return;
-      }
-
-      const targetX =
-        ((focus.x + focus.width / 2) / EXPO_FLOOR_MAP_GEOMETRY.width) *
-        viewport.scrollWidth;
-      const targetY =
-        ((focus.y + focus.height / 2) / EXPO_FLOOR_MAP_GEOMETRY.height) *
-        viewport.scrollHeight;
-      const maxLeft = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
-      const maxTop = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
-      const reducedMotion =
-        window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ===
-        true;
-
-      viewport.scrollTo({
-        behavior: reducedMotion ? "auto" : "smooth",
-        left: Math.min(
-          maxLeft,
-          Math.max(0, targetX - viewport.clientWidth / 2),
-        ),
-        top: Math.min(maxTop, Math.max(0, targetY - viewport.clientHeight / 2)),
-      });
-    });
-
-    return () => window.cancelAnimationFrame(frameId);
-  }, [selectedDefinition, viewerOpen, zoom]);
-
+  // Labelled, not headed: the visible "interactive floor map" title was
+  // redundant under the explorer's own heading, so the region keeps the same
+  // accessible name through `aria-label`.
   return (
-    <section aria-labelledby={headingId} className="space-y-5">
-      <header className="space-y-2">
-        <h2 className={textStyles({ variant: "sectionTitle" })} id={headingId}>
-          {copy.heading}
-        </h2>
-        <p className={textStyles({ variant: "sectionDescription" })}>
-          {copy.description}
-        </p>
-      </header>
+    <section aria-label={copy.heading} className="space-y-5">
+      <p className={textStyles({ variant: "sectionDescription" })}>
+        {copy.description}
+      </p>
 
       <ZoneControls
         copy={copy}
@@ -700,97 +545,11 @@ export function TaiwanCreativeExpoFloorMap({
       />
 
       <div className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <MapLegend
-            copy={copy}
-            highlightedZones={highlightedZones}
-            selectedZone={selectedZone}
-          />
-          <Dialog open={viewerOpen} onOpenChange={handleViewerOpenChange}>
-            <DialogTrigger
-              onClick={rememberTriggerFocus}
-              render={
-                <Button size="compact" type="button" variant="secondary" />
-              }
-            >
-              <Maximize2 aria-hidden="true" />
-              {copy.openViewer}
-            </DialogTrigger>
-            <DialogContent
-              className="h-[100dvh] w-screen max-w-none gap-0 rounded-none p-0 sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-[min(96vw,1100px)] sm:rounded-xl"
-              showCloseButton={false}
-            >
-              <DialogHeader className="flex-row items-start justify-between gap-3 border-b p-4 sm:p-5">
-                <div className="min-w-0 space-y-1">
-                  <DialogTitle>{copy.viewerTitle}</DialogTitle>
-                  <DialogDescription>
-                    {copy.viewerDescription}
-                  </DialogDescription>
-                </div>
-                <DialogClose
-                  render={
-                    <Button
-                      aria-label={copy.closeViewer}
-                      className="size-12"
-                      size="icon"
-                      type="button"
-                      variant="ghost"
-                    />
-                  }
-                >
-                  <X aria-hidden="true" />
-                </DialogClose>
-              </DialogHeader>
-
-              <div
-                aria-label={copy.mapLabel}
-                className="min-h-0 flex-1 overflow-auto overscroll-contain bg-muted p-2 touch-pan-x touch-pan-y sm:p-4"
-                ref={viewportRef}
-                role="region"
-                tabIndex={0}
-              >
-                <div
-                  className="relative min-w-full"
-                  style={{ width: `${zoom * 100}%` }}
-                >
-                  <OfficialMapImage
-                    copy={copy}
-                    imageFailed={imageFailed}
-                    onImageError={() => setImageFailed(true)}
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t bg-background p-3 sm:p-4">
-                <span className={textStyles({ variant: "caption" })}>
-                  {copy.zoom}
-                </span>
-                <div className="flex flex-wrap gap-2">
-                  {ZOOM_LEVELS.map((level) => (
-                    <Button
-                      aria-label={
-                        level === 1 ? copy.fit : copy.zoomTimes(level)
-                      }
-                      aria-pressed={zoom === level}
-                      className="min-h-12 min-w-12 px-2"
-                      key={level}
-                      onClick={() => setZoom(level)}
-                      size="default"
-                      type="button"
-                      variant={zoom === level ? "primary" : "secondary"}
-                    >
-                      {level === 1 ? (
-                        copy.fit
-                      ) : (
-                        <span aria-hidden="true">{copy.zoomTimes(level)}</span>
-                      )}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
+        <MapLegend
+          copy={copy}
+          highlightedZones={highlightedZones}
+          selectedZone={selectedZone}
+        />
 
         {/* Outer box reserves a constant height at the widest aspect. */}
         <div className="aspect-[16/9] w-full">
@@ -995,30 +754,11 @@ export function TaiwanCreativeExpoFloorMap({
         <p className="type-caption">{copy.hint}</p>
       </div>
 
-      <footer className="space-y-2 border-t pt-4">
-        <p className={textStyles({ variant: "caption" })}>{copy.attribution}</p>
-        <div className="flex flex-wrap gap-x-4 gap-y-2">
-          <a
-            className={textStyles({ variant: "link" })}
-            href={EXPO_FLOOR_MAP_ASSET.sourceUrl}
-            rel="noreferrer"
-            target="_blank"
-          >
-            {copy.officialPdf}
-            <ExternalLink aria-hidden="true" className="ml-1 inline size-3.5" />
-          </a>
-          <a
-            className={textStyles({ variant: "link" })}
-            href="https://creativexpo.tw/"
-            rel="noreferrer"
-            target="_blank"
-          >
-            {copy.officialSite}
-            <ExternalLink aria-hidden="true" className="ml-1 inline size-3.5" />
-          </a>
-        </div>
-      </footer>
-
+      {/*
+        Map provenance and the fullscreen raster viewer live in the event's
+        "about" section instead (`TaiwanCreativeExpoOfficialMap`): they describe
+        the venue, and nothing in them filters the roster this map filters.
+      */}
       <noscript>
         <div className="rounded-xl border border-dashed p-4">
           <p className={textStyles({ variant: "cardDescription" })}>

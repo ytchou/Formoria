@@ -23,6 +23,7 @@ export interface ExpectedCronJob {
 export const EXPECTED_CRON_JOBS: readonly ExpectedCronJob[] = [
   { jobName: "claim-proof-cleanup-hourly", maxAgeHours: 3 }, // hourly + 2 missed ticks
   { jobName: "sync-mit-registry-weekly", maxAgeHours: 192 }, // weekly + 24h grace
+  { jobName: "classifier-image-retention-6h", maxAgeHours: 18 }, // 6h + 2 missed ticks
 ] as const;
 
 /**

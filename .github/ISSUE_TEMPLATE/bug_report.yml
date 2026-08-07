@@ -1,0 +1,56 @@
+name: Bug report
+description: Something in the app is broken or behaves unexpectedly
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For incorrect information about a specific brand, use the **Brand
+        correction** template instead.
+
+        Found something with security impact? Do not file it here — report it
+        privately via
+        [security advisories](https://github.com/ytchou/Formoria/security/advisories/new).
+
+  - type: input
+    id: url
+    attributes:
+      label: Where did it happen?
+      placeholder: https://formoria.com/...
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A screenshot or short screen recording helps more than a paragraph.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to ...
+        2. Click ...
+        3. See ...
+    validations:
+      required: false
+
+  - type: input
+    id: environment
+    attributes:
+      label: Browser and device
+      placeholder: e.g. Safari 18 on iPhone 15, Chrome 130 on macOS
+    validations:
+      required: false

@@ -6,6 +6,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { ChevronRight, ExternalLink } from "lucide-react";
 import { EventBrandGrid } from "@/components/events/event-brand-grid";
 import { TaiwanCreativeExpoExplorer } from "@/components/events/taiwan-creative-expo-explorer";
+import { TaiwanCreativeExpoOfficialMap } from "@/components/events/taiwan-creative-expo-official-map";
 import { eventPhaseBadgeVariant } from "@/components/events/event-card";
 import { formatEventDateRange } from "@/components/events/event-date";
 import { StoryRow } from "@/components/stories/story-row";
@@ -236,6 +237,12 @@ export default async function EventDetailPage({ params }: PageProps) {
   const lineupNote = isEnglish
     ? (event.lineupNoteEn ?? event.lineupNote)
     : event.lineupNote;
+  // One roster-wide verification date, read off the first row: the exhibitor
+  // sync stamps every row in the same pass, so any row answers for all of them.
+  // Rendered next to the floor plan, with the rest of the event's sources.
+  const creativeExpoVerifiedAt = lineupRead?.at(0)
+    ? (lineupRead.at(0) as EventExhibitorEntry).verifiedAt
+    : null;
   const phase = resolveEventPhase(event, taipeiToday());
   const dateLabel = formatEventDateRange(event.startsOn, event.endsOn);
   const areaOptions = deriveAreaOptions(entries, safeLocale);
@@ -348,7 +355,10 @@ export default async function EventDetailPage({ params }: PageProps) {
             ) : null}
           </div>
           <h1 className="type-page-title-large text-balance">{name}</h1>
-          <p className="max-w-2xl type-page-subtitle">{summary}</p>
+          {/* Full measure, not `max-w-2xl`: the summary is one or two lines of
+              scene-setting, not body copy, and a half-width block under a
+              full-width `h1` read as an unfinished column. */}
+          <p className="type-page-subtitle">{summary}</p>
         </header>
 
         {event.officialUrl || event.ticketUrl || mapsUrl ? (
@@ -537,44 +547,30 @@ export default async function EventDetailPage({ params }: PageProps) {
           {description ? (
             <p className="whitespace-pre-wrap type-body">{description}</p>
           ) : null}
+
+          {/*
+            The organizer's floor plan closes the venue facts rather than
+            sitting in the brand explorer: it is reference material about the
+            hall, and unlike every control in the explorer it filters nothing.
+          */}
+          {isCreativeExpo ? (
+            <TaiwanCreativeExpoOfficialMap verifiedAt={creativeExpoVerifiedAt} />
+          ) : null}
         </section>
 
         {/*
-          Band C — stories sit above the lineup on purpose: below 38 cards they
-          were unreachable. Separated by whitespace only, never a tinted band.
-        */}
-        <section aria-labelledby="event-related-stories" className="space-y-4">
-          <h2 id="event-related-stories" className="type-section-title">
-            {t("relatedStories")}
-          </h2>
-          {relatedStories.length === 0 ? (
-            // The heading stays even with nothing under it, so the page has the
-            // same shape on every event. Title only — no icon, no action: this
-            // is the common case, not a failure, and it must not outweigh the
-            // lineup directly below it.
-            <EmptyState title={t("storiesEmptyTitle")} />
-          ) : (
-            // Same `StoryRow` list as the homepage and /stories: one story
-            // presentation across the site, and a date-led row reads at any
-            // count, unlike a grid that had to drop to one column below two.
-            <div className="divide-y divide-border border-y border-border">
-              {relatedStories.map((story) => (
-                <StoryRow
-                  key={story.slug}
-                  story={story}
-                  locale={safeLocale}
-                  headingLevel={3}
-                />
-              ))}
-            </div>
-          )}
-        </section>
+          Band C — full width so `MasonryGrid` keeps its widest column count.
 
-        {/* Band D — full width so `MasonryGrid` keeps its widest column count. */}
-        <section aria-labelledby="event-brands" className="space-y-4">
-          <h2 id="event-brands" className="type-section-title">
-            {t("brandsHeading")}
-          </h2>
+          The region is named by `aria-label` rather than by its heading,
+          because the heading is not always rendered: the Creative Expo
+          explorer carries its own, so a title above it announced the same
+          thing twice. Every other event keeps the visible one — its grid has
+          no heading of its own.
+        */}
+        <section aria-label={t("brandsHeading")} className="space-y-4">
+          {isCreativeExpo ? null : (
+            <h2 className="type-section-title">{t("brandsHeading")}</h2>
+          )}
           {/*
             Source attribution plus the "exhibiting is not an endorsement"
             disclaimer. Deliberately a muted caption and not a callout: it
@@ -597,11 +593,6 @@ export default async function EventDetailPage({ params }: PageProps) {
                 eventSlug={event.slug}
                 locale={safeLocale}
                 rosterFailed={rosterFailed}
-                verifiedAt={
-                  lineupRead?.at(0)
-                    ? (lineupRead.at(0) as EventExhibitorEntry).verifiedAt
-                    : null
-                }
               />
             </Suspense>
           ) : entries.length === 0 ? (
@@ -614,6 +605,37 @@ export default async function EventDetailPage({ params }: PageProps) {
               eventSlug={event.slug}
               locale={safeLocale}
             />
+          )}
+        </section>
+
+        {/*
+          Band D — stories close the page, below the lineup: a reader who has
+          worked through the brands is the one with an appetite for the longer
+          reads. Separated by whitespace only, never a tinted band.
+        */}
+        <section aria-labelledby="event-related-stories" className="space-y-4">
+          <h2 id="event-related-stories" className="type-section-title">
+            {t("relatedStories")}
+          </h2>
+          {relatedStories.length === 0 ? (
+            // The heading stays even with nothing under it, so the page has the
+            // same shape on every event. Title only — no icon, no action: this
+            // is the common case, not a failure.
+            <EmptyState title={t("storiesEmptyTitle")} />
+          ) : (
+            // Same `StoryRow` list as the homepage and /stories: one story
+            // presentation across the site, and a date-led row reads at any
+            // count, unlike a grid that had to drop to one column below two.
+            <div className="divide-y divide-border border-y border-border">
+              {relatedStories.map((story) => (
+                <StoryRow
+                  key={story.slug}
+                  story={story}
+                  locale={safeLocale}
+                  headingLevel={3}
+                />
+              ))}
+            </div>
           )}
         </section>
       </article>

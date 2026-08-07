@@ -77,8 +77,11 @@ export function EventCard({
         so the card splits into a prose column that takes the slack and a fixed
         metadata rail. Below `md` the rail drops under the prose, separated by a
         rule instead of a column border.
+
+        No `md:items-start`: the rail must stretch to the card's height or its
+        `md:border-l` stops partway down the card and reads as a stray tick.
       */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-8">
+      <div className="flex flex-col gap-4 md:flex-row md:gap-8">
         <div className="min-w-0 flex-1 space-y-3">
           <Badge variant={eventPhaseBadgeVariant[phase]}>{phaseLabel}</Badge>
           <div className="space-y-2">

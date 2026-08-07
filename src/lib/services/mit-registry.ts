@@ -150,7 +150,33 @@ const MIT_ZIP_URL = 'https://keid.nat.gov.tw/mittw/Files/Download/productlist.zi
 const CSV_FILENAME = '011.csv'
 const BATCH_SIZE = 500
 
-export async function syncMitRegistry(): Promise<{ recordCount: number; durationMs: number }> {
+/**
+ * Fraction of the existing registry a sync must re-supply before its
+ * mark-and-sweep is allowed to delete the rows it did not touch.
+ *
+ * The upstream dataset is a full weekly republish, so a healthy sync always
+ * carries ~100% of the current rows. A payload that carries materially less is
+ * a truncated download or a changed file layout, not 20% of Taiwan's MIT
+ * certifications being revoked in one week. Sweeping on that input would wipe
+ * the registry and silently downgrade every auto-verified brand.
+ */
+export const MIN_SWEEP_COVERAGE_RATIO = 0.8
+
+/**
+ * Decide whether this sync's payload is complete enough to delete the rows it
+ * did not re-supply. An empty table has nothing to protect, so the first
+ * populating sync always sweeps.
+ */
+export function shouldSweepStaleRecords(parsedCount: number, existingCount: number): boolean {
+  if (existingCount === 0) return true
+  return parsedCount >= existingCount * MIN_SWEEP_COVERAGE_RATIO
+}
+
+export async function syncMitRegistry(): Promise<{
+  recordCount: number
+  durationMs: number
+  sweptStale: boolean
+}> {
   const startMs = Date.now()
 
   const syncSummary: Record<string, unknown> = { recordCount: 0 }
@@ -185,6 +211,14 @@ export async function syncMitRegistry(): Promise<{ recordCount: number; duration
   const supabase = createServiceClient()
   const syncedAt = new Date(startMs).toISOString()
 
+  // Read the pre-sync size before upserting — afterwards the count includes
+  // this payload's own rows and the coverage check compares against itself.
+  const { count: existingCount, error: countError } = await supabase
+    .from('mit_registry')
+    .select('cert_number', { count: 'exact', head: true })
+
+  if (countError) throw countError
+
   for (let i = 0; i < records.length; i += BATCH_SIZE) {
     const batch = records.slice(i, i + BATCH_SIZE).map((r) => ({
       ...r,
@@ -199,17 +233,24 @@ export async function syncMitRegistry(): Promise<{ recordCount: number; duration
   }
 
   // Remove records that were not part of this sync — they have been revoked
-  // or are no longer in the official dataset.
-  const { error: cleanupError } = await supabase
-    .from('mit_registry')
-    .delete()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .lt('synced_at' as any, syncedAt)
+  // or are no longer in the official dataset. Skipped when the payload is too
+  // small to be a full republish: the upserts above are still kept (they are
+  // additive and safe), only the destructive half is withheld.
+  const sweptStale = shouldSweepStaleRecords(records.length, existingCount ?? 0)
 
-  if (cleanupError) throw cleanupError
+  if (sweptStale) {
+    const { error: cleanupError } = await supabase
+      .from('mit_registry')
+      .delete()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .lt('synced_at' as any, syncedAt)
+
+    if (cleanupError) throw cleanupError
+  }
 
   return {
     recordCount: records.length,
     durationMs: Date.now() - startMs,
+    sweptStale,
   }
 }

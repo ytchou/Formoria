@@ -1,11 +1,29 @@
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 const activePromptPath = "docs/routines/formoria-health-prompt.md";
 const archivePath =
   "docs/routines/archive/formoria-health-prompt-claude-routine.md";
+const configurationPath = "docs/routines/cloud-routine-configuration.md";
 
-describe("Formoria health-agent retirement contract", () => {
+/**
+ * DEV-1389 untracked all of `docs/`. These three fixtures are deliberately
+ * local-only — they are internal ops content, and publishing them is precisely
+ * what that ticket removed. They exist in a working checkout and are absent in
+ * CI, so the contract below can only be enforced where the prompts live.
+ *
+ * Do NOT "fix" this by re-tracking the files, and do not swap the skip for a
+ * silent empty-input guard. An ungated `readFile` here passed locally forever
+ * and would have gone red only on a fresh clone — `skipIf` reports "not
+ * checked" out loud instead of reporting a pass it did not earn.
+ */
+const hasRoutineFixtures =
+  existsSync(activePromptPath) &&
+  existsSync(archivePath) &&
+  existsSync(configurationPath);
+
+describe.skipIf(!hasRoutineFixtures)("Formoria health-agent retirement contract (local docs/routines fixtures)", () => {
   it("keeps a no-op tombstone and a complete historical archive", async () => {
     const [tombstone, archive] = await Promise.all([
       readFile(activePromptPath, "utf8"),
@@ -47,10 +65,7 @@ describe("Formoria health-agent retirement contract", () => {
   });
 
   it("treats legacy instructions as archive-only", async () => {
-    const configuration = await readFile(
-      "docs/routines/cloud-routine-configuration.md",
-      "utf8",
-    );
+    const configuration = await readFile(configurationPath, "utf8");
 
     expect(configuration).toContain("There is no active Claude Routine");
     expect(configuration).toContain("Preflight");
@@ -58,7 +73,12 @@ describe("Formoria health-agent retirement contract", () => {
     expect(configuration).toContain("Rollback gate");
     expect(configuration).not.toContain("Daily 07:10");
   });
+});
 
+// Ungated on purpose: `.env.example` and `scripts/doctor.sh` are both tracked,
+// so this half of the contract is enforceable everywhere and must keep running
+// in CI even when the docs/routines fixtures above are absent.
+describe("Formoria health-agent credential contract", () => {
   it("declares health credentials as empty names and keeps checks opt-in", async () => {
     const [exampleEnv, doctor] = await Promise.all([
       readFile(".env.example", "utf8"),

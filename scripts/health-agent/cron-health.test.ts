@@ -32,22 +32,21 @@ function row(
   };
 }
 
-/** Both expected jobs succeeding well inside their staleness budgets. */
+/**
+ * Every expected job succeeding well inside its staleness budget. Derived from
+ * EXPECTED_CRON_JOBS rather than listed, so adding a job to that list does not
+ * turn every test in this file red for the wrong reason. One hour is inside the
+ * tightest budget (3h) and therefore inside all of them.
+ */
 function healthyRows(): CronHttpLogRow[] {
-  return [
+  return EXPECTED_CRON_JOBS.map((job, index) =>
     row({
-      job_name: HOURLY,
-      request_id: 1,
-      status_code: 204,
+      job_name: job.jobName,
+      request_id: index + 1,
+      status_code: index === 0 ? 204 : 200,
       created: hoursBefore(1),
     }),
-    row({
-      job_name: WEEKLY,
-      request_id: 2,
-      status_code: 200,
-      created: hoursBefore(10),
-    }),
-  ];
+  );
 }
 
 function fingerprints(findings: readonly { fingerprint: string }[]): string[] {
@@ -144,17 +143,12 @@ describe("evaluateCronHealth", () => {
 
   it("flags a job whose newest success is older than its maxAgeHours as stale", () => {
     const rows = [
+      ...healthyRows().filter((logged) => logged.job_name !== HOURLY),
       row({
         job_name: HOURLY,
         request_id: 1,
         status_code: 200,
         created: hoursBefore(5),
-      }),
-      row({
-        job_name: WEEKLY,
-        request_id: 2,
-        status_code: 200,
-        created: hoursBefore(10),
       }),
     ];
     const findings = evaluateCronHealth(rows, now);
@@ -206,12 +200,15 @@ describe("evaluateCronHealth", () => {
       ],
       new Date(now.getTime() + 60 * 60 * 1000),
     );
+    // Only HOURLY appears in the log at all, and only as failures — so every
+    // expected job is stale, HOURLY additionally failed.
     expect(fingerprints(first)).toEqual(fingerprints(second));
-    expect(fingerprints(first)).toEqual([
-      `cron:failed:${HOURLY}`,
-      `cron:stale:${HOURLY}`,
-      `cron:stale:${WEEKLY}`,
-    ]);
+    expect(fingerprints(first)).toEqual(
+      [
+        `cron:failed:${HOURLY}`,
+        ...EXPECTED_CRON_JOBS.map((job) => `cron:stale:${job.jobName}`),
+      ].sort(),
+    );
   });
 });
 
@@ -223,10 +220,16 @@ describe("cron health collector", () => {
     );
 
     expect(result).toMatchObject({
-      evidence: { lookbackHours: CRON_HEALTH_LOOKBACK_HOURS, rowCount: 2 },
+      evidence: {
+        lookbackHours: CRON_HEALTH_LOOKBACK_HOURS,
+        rowCount: EXPECTED_CRON_JOBS.length,
+      },
       failures: [],
       findings: [],
-      snapshot: { lookbackHours: CRON_HEALTH_LOOKBACK_HOURS, rowCount: 2 },
+      snapshot: {
+        lookbackHours: CRON_HEALTH_LOOKBACK_HOURS,
+        rowCount: EXPECTED_CRON_JOBS.length,
+      },
       status: "success",
     });
   });

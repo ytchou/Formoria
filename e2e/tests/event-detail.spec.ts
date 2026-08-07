@@ -380,18 +380,20 @@ test.describe("Creative Expo synchronized explorer", () => {
     await expect(
       zhExplorer.getByRole("heading", { name: "探索 Formoria 收錄的參展品牌" }),
     ).toBeVisible();
-    await expect(zhExplorer).toContainText("不是主辦單位的完整參展名單");
-    await expect(zhExplorer).toContainText("平面圖來源：2026 臺灣文博會");
-    // The disclosure links out to the full roster, not just the footer.
+    // Map provenance lives with the venue facts, not in the explorer: the
+    // official plan describes the hall and filters nothing.
+    const zhAbout = anonPage.getByRole("region", { name: "活動介紹" });
     await expect(
-      zhExplorer.getByRole("link", { name: "官方參展名單", exact: true }),
-    ).toHaveAttribute("href", "https://creativexpo.tw/zh-TW/exhibitor_list");
+      zhAbout.getByRole("heading", { name: "展場平面圖" }),
+    ).toBeVisible();
+    await expect(zhAbout).toContainText("平面圖來源：2026 臺灣文博會");
     await expect(
-      zhExplorer.getByRole("link", { name: "開啟官方平面圖 PDF" }),
+      zhAbout.getByRole("link", { name: "開啟官方平面圖 PDF" }),
     ).toHaveAttribute("href", /creativexpo\.tw\/uploads\/download\/file/);
+    // Roster provenance sits with the map's, not at the foot of the explorer.
     // Catches attribution drifting to an arbitrary linked exhibitor detail page.
     await expect(
-      zhExplorer.getByRole("link", { name: "開啟官方參展名單" }),
+      zhAbout.getByRole("link", { name: "開啟官方參展名單" }),
     ).toHaveAttribute("href", "https://creativexpo.tw/zh-TW/exhibitor_list");
 
     await anonPage.goto(`/en/events/${CREATIVE_EXPO_SLUG}`);
@@ -401,30 +403,20 @@ test.describe("Creative Expo synchronized explorer", () => {
     await expect(
       enExplorer.getByRole("heading", { name: "Explore Formoria exhibitors" }),
     ).toBeVisible();
-    await expect(enExplorer).toContainText(
-      "not the complete official exhibitor roster",
-    );
-    await expect(enExplorer).toContainText(
-      "Map source: Taiwan Creative Expo 2026",
-    );
     await expect(
-      // `exact` separates it from the footer's "Open official exhibitor list".
-      enExplorer.getByRole("link", {
-        name: "official exhibitor list",
-        exact: true,
-      }),
-    ).toHaveAttribute("href", "https://creativexpo.tw/zh-TW/exhibitor_list");
+      anonPage.getByRole("region", { name: "About this event" }),
+    ).toContainText("Map source: Taiwan Creative Expo 2026");
   });
 
   test("a failed floor-map image leaves the booth map, search, and navigation usable", async ({
     anonPage,
   }) => {
-    // The official raster now loads only inside the full-screen viewer -- the
-    // inline map is SVG built from committed booth geometry. So the guarantee
-    // this test protects got stronger, not weaker: a dead image used to blank
-    // the whole map, and now it cannot reach the map at all. Both halves are
-    // asserted here, because "the fallback renders" and "the rest of the page
-    // still works" are what actually matter to a reader on a bad connection.
+    // The official raster is rendered twice -- inline in the venue facts and
+    // again in the full-screen viewer -- while the booth map beside the roster
+    // is SVG built from committed booth geometry and never touches the raster
+    // at all. So a dead image must degrade to the fallback in BOTH raster
+    // surfaces and leave the booth map, search, and navigation untouched;
+    // that whole guarantee is what this test holds.
     let mapImageFailed = false;
     await anonPage.route("**/_next/image**", async (route) => {
       const source = new URL(route.request().url()).searchParams.get("url");
@@ -446,19 +438,31 @@ test.describe("Creative Expo synchronized explorer", () => {
         name: "K2: Craftsmanship & Cultural Sustainability",
       }),
     ).toBeVisible();
-    expect(mapImageFailed).toBe(false);
 
-    await map.getByRole("button", { name: "Open full-screen map" }).click();
+    // The raster and its trigger live with the venue facts, not inside the
+    // booth map. It is lazily loaded, so the request only fires once the
+    // section is scrolled into view.
+    const about = anonPage.getByRole("region", { name: "About this event" });
+    await about.scrollIntoViewIfNeeded();
+    await expect(
+      about.getByText("The map image could not be loaded."),
+    ).toBeVisible();
+    await expect.poll(() => mapImageFailed).toBe(true);
+
+    await about.getByRole("button", { name: "Open full-screen map" }).click();
     const viewer = anonPage.getByRole("dialog");
     await expect(viewer).toBeVisible();
 
-    await expect.poll(() => mapImageFailed).toBe(true);
-    await expect(viewer.getByText("The map image could not be loaded.")).toBeVisible();
+    await expect(
+      viewer.getByText("The map image could not be loaded."),
+    ).toBeVisible();
     await expect(
       viewer.getByRole("link", { name: "Open official map PDF" }).first(),
     ).toHaveAttribute("href", /creativexpo\.tw\/uploads\/download/);
 
-    await viewer.getByRole("button", { name: "Close floor-map viewer" }).click();
+    await viewer
+      .getByRole("button", { name: "Close floor-map viewer" })
+      .click();
     await expect(viewer).toBeHidden();
 
     await lineup
