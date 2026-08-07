@@ -31,7 +31,13 @@ export type DeliveryOutcome =
   | { status: 'delivered'; lastEvent: string }
   | { status: 'failed'; lastEvent: string }
   | { status: 'pending'; lastEvent: string }
-  | { status: 'not_found' };
+  | { status: 'not_found' }
+  // Resend refused the credential, so delivery could not be OBSERVED. That is
+  // never evidence that delivery failed, and the caller must not treat it as a
+  // bounce. Same class as the Supabase 429 quota case the spec already tolerates:
+  // infrastructure we do not control, recorded as a visible skip rather than a
+  // red suite or a false green (DEV-1380).
+  | { status: 'unobservable'; httpStatus: number };
 
 interface ResendEmailRecord {
   id: string;
@@ -48,13 +54,19 @@ function recipients(record: ResendEmailRecord): string[] {
 async function findByRecipient(
   apiKey: string,
   recipient: string,
-): Promise<ResendEmailRecord | null> {
+): Promise<ResendEmailRecord | { unobservable: number } | null> {
   const response = await fetch(RESEND_EMAILS_ENDPOINT, {
     headers: { Authorization: `Bearer ${apiKey}` },
   });
 
+  if (response.status === 401 || response.status === 403) {
+    // Credential refused: the check cannot run. Distinct from every other
+    // non-OK status, which still means "Resend is broken" and stays a throw.
+    return { unobservable: response.status };
+  }
+
   if (!response.ok) {
-    // A bad key or a Resend outage must not read as 'delivered' — surface it.
+    // A Resend outage must not read as 'delivered' — surface it.
     throw new Error(
       `Resend list-emails failed: HTTP ${response.status} ${response.statusText}`,
     );
@@ -72,8 +84,10 @@ async function findByRecipient(
  * Polls Resend until the message to `recipient` reaches a terminal state.
  *
  * Never throws on a non-delivery — returns the outcome so the caller decides
- * whether it is a failure. Throws only when Resend itself is unreachable or
- * rejects the key, which is a different problem from a bounce.
+ * whether it is a failure. A refused credential returns `unobservable` rather
+ * than throwing: it means the check could not run, which is not the same claim
+ * as "the message bounced" and must not fail the suite on the app's behalf.
+ * Throws only when Resend itself is unreachable or erroring.
  */
 export async function waitForDelivery(
   recipient: string,
@@ -84,7 +98,12 @@ export async function waitForDelivery(
   let last: ResendEmailRecord | null = null;
 
   while (Date.now() < deadline) {
-    last = await findByRecipient(apiKey, recipient);
+    const result = await findByRecipient(apiKey, recipient);
+
+    if (result && 'unobservable' in result) {
+      return { status: 'unobservable', httpStatus: result.unobservable };
+    }
+    last = result;
 
     if (last) {
       const event = last.last_event ?? 'unknown';
