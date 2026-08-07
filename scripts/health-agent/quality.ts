@@ -259,6 +259,20 @@ function parseVitestReport(
 
 function knipSymbol(value: unknown, fallback: string): string | undefined {
   if (typeof value === "string" && value.trim()) return value.trim();
+  // `duplicates` is the one KNIP_KINDS entry knip reports as an array of
+  // arrays: each element is a duplicate *group*, i.e. the list of symbols that
+  // share a definition. Every other kind is a flat list of strings or symbol
+  // records. Without this branch isRecord() rejects the group (it excludes
+  // arrays), knipSymbol returns undefined, and parseKnipReport bails to null —
+  // which surfaces as `dead-code:malformed_output`, fails the whole quality
+  // group, and takes the nightly health run down with it (DEV-1381). Name the
+  // group by its members so the finding is still actionable.
+  if (Array.isArray(value)) {
+    const members = value
+      .map((member, index) => knipSymbol(member, String(index + 1)))
+      .filter((member): member is string => Boolean(member));
+    return members.length > 0 ? members.join(", ") : fallback;
+  }
   if (!isRecord(value)) return undefined;
   for (const key of ["name", "file", "path", "symbol"] as const) {
     const candidate = value[key];

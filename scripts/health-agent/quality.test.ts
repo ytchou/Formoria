@@ -99,6 +99,50 @@ describe("repository health", () => {
     });
   });
 
+  it("parses knip `duplicates`, which knip reports as an array of symbol groups", () => {
+    // Regression for DEV-1381: `duplicates` is the one kind knip nests — each
+    // element is the group of symbols sharing a definition, not a single
+    // symbol. isRecord() excludes arrays, so before the fix this whole report
+    // parsed as null, surfaced as `dead-code:malformed_output`, and failed the
+    // nightly health run. Shape copied from a real `pnpm knip --reporter json`.
+    const result = evaluateQualityReports({
+      knipExitCode: 1,
+      knipReport: {
+        issues: [
+          {
+            duplicates: [
+              [
+                { col: 14, line: 29, name: "MAX_BRAND_IMAGE_SELECTION", pos: 1555 },
+                { col: 14, line: 39, name: "DRAFT_PARK_SORT_ORDER", pos: 2111 },
+              ],
+            ],
+            file: "src/lib/services/submissions.ts",
+          },
+        ],
+      },
+      repoRoot: "/repo",
+      trackedFiles,
+      vitestExitCode: 0,
+      vitestReport: {
+        numFailedTestSuites: 0,
+        numFailedTests: 0,
+        numTotalTestSuites: 1,
+        numTotalTests: 1,
+        success: true,
+        testResults: [],
+      },
+    });
+
+    expect(result.failures).not.toContain("dead-code:malformed_output");
+    const duplicate = result.findings.find((finding) =>
+      finding.fingerprint.startsWith("quality:dead-code:"),
+    );
+    expect(duplicate).toBeDefined();
+    // Both members name the group, so the finding stays actionable.
+    expect(JSON.stringify(duplicate)).toContain("MAX_BRAND_IMAGE_SELECTION");
+    expect(JSON.stringify(duplicate)).toContain("DRAFT_PARK_SORT_ORDER");
+  });
+
   it("keeps long human-readable test names within the queue identity limit", () => {
     const result = evaluateQualityReports({
       knipExitCode: 0,
