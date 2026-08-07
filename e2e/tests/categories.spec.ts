@@ -88,16 +88,39 @@ test.describe("Category landing pages deep", () => {
     expect(await current.evaluate((element) => element.tagName)).toBe("SPAN");
   });
 
-  // The L1 child-link row is hidden while the L2 taxonomy is cleaned up
-  // (DEV-1376). Its coverage — eligibility filtering and descriptive naming —
-  // is asserted here and should be restored alongside the row.
-  test("L1 server HTML does not yet expose the child-link row", async ({
+  test("L1 server HTML contains only eligible, descriptively named child links", async ({
     request,
   }) => {
     const response = await request.get("/categories/home");
     expect(response.status()).toBe(200);
     const $ = load(await response.text());
-    expect($('nav[aria-label="探索此分類的子分類"]')).toHaveLength(0);
+    const links = $('nav[aria-label="探索此分類的子分類"] a');
+
+    expect(links).toHaveLength(3);
+    expect(links.map((_, link) => $(link).attr("href")).get()).toEqual([
+      "/categories/home/storage",
+      "/categories/home/tableware",
+      "/categories/home/furniture",
+    ]);
+    expect(links.map((_, link) => $(link).text().trim()).get()).toEqual([
+      "收納用品",
+      "餐具",
+      "家具",
+    ]);
+    expect(
+      links
+        .map((_, link) => $(link).attr("href"))
+        .get()
+        .some((href) => href?.endsWith("/bedding")),
+    ).toBe(false);
+    expect(
+      links
+        .map((_, link) => $(link).text().trim())
+        .get()
+        .some((label) =>
+          ["查看全部", "更多", "看更多", "全部"].includes(label),
+        ),
+    ).toBe(false);
   });
 
   test("landing facts are server-rendered once and keep the first card above the fold", async ({
@@ -106,7 +129,9 @@ test.describe("Category landing pages deep", () => {
   }) => {
     const response = await request.get("/categories/home");
     const html = await response.text();
-    expect(html).toContain("本分類聚焦讓居家生活更美好，涵蓋家具、收納、照明、餐桌器皿與日常布置。");
+    expect(html).toContain(
+      "本分類聚焦讓居家生活更美好，涵蓋家具、收納、照明、餐桌器皿與日常布置。",
+    );
     expect(html).toMatch(/共 \d+ 個品牌/);
     expect(html).toMatch(/更新於 \d{4}年\d{1,2}月\d{1,2}日/);
 

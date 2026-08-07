@@ -1,5 +1,6 @@
 import { getTranslations } from 'next-intl/server'
 import type { Locale } from '@/lib/seo/alternates'
+import { CategoryLinkList } from './category-link-list'
 import { DirectoryBreadcrumb } from './directory-breadcrumb'
 
 export type DirectoryLandingCopy = {
@@ -142,12 +143,11 @@ export async function DirectoryLandingHead({
       {intro ? (
         <p className="mt-3 type-body-muted">{intro}</p>
       ) : null}
-      {/*
-        The L2 sibling row (`CategoryLinkList`) is deliberately not rendered
-        while the L2 taxonomy is being cleaned up — the labels it generates are
-        not yet good enough to show. Restore it here once DEV-1376 lands; the
-        component and its `landing.categoryLinksAria` string are kept for that.
-      */}
+      <CategoryLinkList
+        locale={locale}
+        category={category}
+        ariaLabel={categoryT('landing.categoryLinksAria')}
+      />
     </header>
   )
 }
