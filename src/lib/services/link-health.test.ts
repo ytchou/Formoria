@@ -141,3 +141,59 @@ describe("link health cleanup recovery", () => {
     });
   });
 });
+
+describe("link_check_results lookup batching", () => {
+  // DEV-1381: PostgREST carries `.in()` values in the query string, so one
+  // filter holding every approved brand id overflows the URL. Measured against
+  // production 2026-08-07: 300 ids ok, 500 ids "TypeError: fetch failed", 718
+  // ids "Bad Request". The health agent's nightly run had been failing on this
+  // for weeks, surfacing only as an opaque HTTP 500 from /api/cron/link-health.
+  // It is a scale bug — it began the moment the approved corpus grew past the
+  // threshold, so a test that uses a handful of brands can never catch it.
+  it("splits the brand-id filter into bounded chunks", async () => {
+    const brandCount = 718;
+    const brands = Array.from({ length: brandCount }, (_, index) => ({
+      id: `brand-${index}`,
+      purchase_website: null,
+      purchase_pinkoi: null,
+      purchase_shopee: null,
+      purchase_myship: null,
+      hero_image_url: null,
+    }));
+    const inCallSizes: number[] = [];
+
+    const client = {
+      from(table: string) {
+        if (table === "brands") {
+          return {
+            select: () => ({ eq: async () => ({ data: brands, error: null }) }),
+          };
+        }
+        return {
+          select: () => ({
+            in: async (_column: string, values: string[]) => {
+              inCallSizes.push(values.length);
+              return { data: [], error: null };
+            },
+          }),
+          upsert: async () => ({ data: null, error: null }),
+        };
+      },
+      rpc: async () => ({ data: true, error: null }),
+    } as unknown as LinkHealthDatabaseClient;
+
+    await runLinkHealthCheck({
+      dryRun: true,
+      client,
+      fetchFn: (async () =>
+        new Response("", { status: 200 })) as unknown as typeof fetch,
+    });
+
+    expect(inCallSizes.length).toBeGreaterThan(1);
+    // Every chunk must stay under the URL ceiling; 300 was the largest size
+    // observed working against production.
+    expect(Math.max(...inCallSizes)).toBeLessThanOrEqual(300);
+    // No id may be dropped by the batching.
+    expect(inCallSizes.reduce((sum, size) => sum + size, 0)).toBe(brandCount);
+  });
+});
