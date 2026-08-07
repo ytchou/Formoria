@@ -73,6 +73,10 @@ export const revalidate = 3600;
  * build. The service throws on query errors by design.
  */
 export async function generateStaticParams() {
+  // Targeted E2E builds exercise selected routes at runtime; unrelated DB-backed
+  // prerenders must not prevent the browser journey from starting.
+  if (process.env.PLAYWRIGHT_TEST === "true") return [];
+
   try {
     const events = await getPublishedEvents();
     return events.map((event) => ({ slug: event.slug }));
