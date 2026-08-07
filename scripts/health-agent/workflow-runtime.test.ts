@@ -2683,3 +2683,56 @@ describe("link collection failure reporting", () => {
     await rm(dir, { force: true, recursive: true });
   });
 });
+
+describe("link collection audit trail", () => {
+  // DEV-1381: executeLinkHealthRequest writes a failure audit carrying the HTTP
+  // status, but collectLinkArtifact was the one caller that never passed an
+  // audit logger — so emitAudit was a no-op and the workflow's `--audit` file
+  // came back empty. That is why an HTTP 401 here looked identical to a
+  // malformed response for six consecutive nights.
+  it("records the HTTP status when the link-health request is rejected", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "link-audit-"));
+    const auditRecords: Parameters<typeof Array.prototype.push>[0][] = [];
+
+    const fetchImplementation = vi.fn(
+      async () =>
+        new Response("nope", { status: 401, statusText: "Unauthorized" }),
+    ) as unknown as typeof fetch;
+
+    const dependencies = createWorkflowRuntimeDependencies({
+      auditRecords: auditRecords as never[],
+      env: {
+        FORMORIA_LINK_HEALTH_URL: "https://origin.example/api/cron/link-health",
+        FORMORIA_LINK_HEALTH_ORIGIN_SECRET: "secret-value",
+      },
+      fetchImplementation,
+    });
+
+    const artifact = await collectLinkArtifact(
+      {
+        mode: "preflight",
+        outputPath: join(dir, "link-checker.json"),
+        runAt: "2026-08-07T00:00:00.000Z",
+        workflowAttempt: 1,
+        workflowRunId: "test-run",
+      },
+      dependencies,
+    );
+
+    expect(artifact.status).toBe("failed");
+    expect(fetchImplementation).toHaveBeenCalledTimes(1);
+
+    const linkRecord = (auditRecords as Array<Record<string, unknown>>).find(
+      (record) => record.adapter === "link-health",
+    );
+    expect(linkRecord, "link-health audit record must be emitted").toBeDefined();
+    expect(linkRecord?.status).toBe("failure");
+    expect(
+      (linkRecord?.response as Record<string, unknown> | undefined)?.httpStatus,
+    ).toBe(401);
+    // The credential must never reach the audit trail.
+    expect(JSON.stringify(linkRecord)).not.toContain("secret-value");
+
+    await rm(dir, { force: true, recursive: true });
+  });
+});

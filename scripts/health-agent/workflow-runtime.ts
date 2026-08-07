@@ -1912,6 +1912,15 @@ export async function collectLinkArtifact(
             workflowRunId: input.workflowRunId,
           }),
           {
+            // Without this the link collector is the one caller that never
+            // supplies an audit logger, so `emitAudit` inside
+            // executeLinkHealthRequest is a no-op — including the failure record
+            // that carries the HTTP status. The workflow passes `--audit` for
+            // this collector and got an empty file, which is why six nights of
+            // failures could not be told apart and why an HTTP 401 here was
+            // indistinguishable from a malformed response (DEV-1381). Every
+            // other collector already threads it the same way.
+            audit: auditFor(dependencies),
             fetchImplementation: fetchFor(dependencies),
             originSecret: optionalEnvironment(
               environmentFor(dependencies),
