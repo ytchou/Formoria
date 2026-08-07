@@ -173,6 +173,67 @@ describe("DEV-1361 split planner", () => {
     expect(row.after.productTags).not.toContain("茶包・茶飲");
   });
 
+  it("removes an evidence-backed false-positive composite without changing other tag pairs", () => {
+    const current = brand({
+      product_tags: ["卡片・明信片", "香氛・蠟燭", "茶葉"],
+      product_tags_en: ["Cards & Postcards", "Home Fragrance & Candles", "Tea"],
+    });
+    const row = buildSplitRow(current, "call-neither", [
+      {
+        sourceLabel: "香氛・蠟燭",
+        decision: "neither",
+        targetSlugs: [],
+        rationale:
+          "The brand sells cards and tea only; the composite label is a false positive.",
+      },
+    ]);
+
+    expect(row.after.productTags).toEqual(["卡片・明信片", "茶葉"]);
+    expect(row.after.productTagsEn).toEqual(["Cards & Postcards", "Tea"]);
+    expect(row.overflowReview.status).toBe("none");
+
+    const artifact = artifactForRow(row);
+    artifact.review = {
+      status: "approved",
+      reviewer: "taxonomy-reviewer",
+      reviewedAt: "2026-08-08T01:00:00.000Z",
+    };
+    expect(artifact.summary.sourceDecisions).toMatchObject({
+      one: 0,
+      both: 0,
+      neither: 1,
+      "needs-review": 0,
+    });
+    expect(artifact.summary.targetAssignments).toEqual({});
+    expect(
+      parseRunArtifact(artifact, { requireApproval: true }).rows[0]?.after,
+    ).toMatchObject({
+      productTags: ["卡片・明信片", "茶葉"],
+      productTagsEn: ["Cards & Postcards", "Tea"],
+    });
+  });
+
+  it("blocks a neither decision that would leave a brand with zero tags", () => {
+    const row = buildSplitRow(
+      brand({
+        product_tags: ["香氛・蠟燭"],
+        product_tags_en: ["Home Fragrance & Candles"],
+      }),
+      "call-neither-zero",
+      [
+        {
+          sourceLabel: "香氛・蠟燭",
+          decision: "neither",
+          targetSlugs: [],
+          rationale: "No product evidence supports either atomic target.",
+        },
+      ],
+    );
+    expect(row.after.productTags).toEqual([]);
+    expect(row.overflowReview.status).toBe("none");
+    expect(() => artifactForRow(row)).toThrow(/zero tags/i);
+  });
+
   it("keeps an ambiguous source visible but marks it needs-review", () => {
     const row = buildSplitRow(
       brand({
@@ -258,6 +319,53 @@ describe("DEV-1361 split planner", () => {
         ["香氛・蠟燭"],
       )[0],
     ).toMatchObject({ decision: "needs-review", targetSlugs: [] });
+
+    expect(
+      parseClassifierAssignments(
+        JSON.stringify({
+          assignments: {
+            "香氛・蠟燭": {
+              decision: "neither",
+              targetSlugs: ["home-fragrance"],
+              rationale: "Malformed false-positive response.",
+            },
+          },
+        }),
+        ["香氛・蠟燭"],
+      )[0],
+    ).toMatchObject({ decision: "needs-review", targetSlugs: [] });
+    expect(
+      parseClassifierAssignments(
+        JSON.stringify({
+          assignments: {
+            "香氛・蠟燭": {
+              decision: "neither",
+              targetSlugs: [],
+            },
+          },
+        }),
+        ["香氛・蠟燭"],
+      )[0],
+    ).toMatchObject({ decision: "needs-review", targetSlugs: [] });
+    expect(
+      parseClassifierAssignments(
+        JSON.stringify({
+          assignments: {
+            "香氛・蠟燭": {
+              decision: "neither",
+              targetSlugs: [],
+              rationale: "The evidence shows no candles or room fragrance.",
+            },
+          },
+        }),
+        ["香氛・蠟燭"],
+      )[0],
+    ).toEqual({
+      sourceLabel: "香氛・蠟燭",
+      decision: "neither",
+      targetSlugs: [],
+      rationale: "The evidence shows no candles or room fragrance.",
+    });
   });
 
   it("rejects inconsistent reviewed assignment semantics in an artifact", () => {
@@ -292,6 +400,8 @@ describe("DEV-1361 split planner", () => {
     expect(prompt.user).toContain("Maria García Studio");
     expect(prompt.user).toContain("擴香");
     expect(prompt.user).toContain("香氛・蠟燭");
+    expect(prompt.system).toContain("neither");
+    expect(prompt.user).toContain("For neither, targetSlugs must be []");
     expect(digestRequest(prompt.system, prompt.user)).toMatch(/^[a-f0-9]{64}$/);
   });
 
@@ -418,6 +528,46 @@ describe("DEV-1361 split planner", () => {
     expect(() => parseRunArtifact(tampered, { requireApproval: true })).toThrow(
       /correlated|unknown/i,
     );
+  });
+
+  it("rejects tampered neither after-state and rollback values", () => {
+    const row = buildSplitRow(
+      brand({
+        product_tags: ["香氛・蠟燭", "卡片・明信片"],
+        product_tags_en: ["Home Fragrance & Candles", "Cards & Postcards"],
+      }),
+      "call-neither-integrity",
+      [
+        {
+          sourceLabel: "香氛・蠟燭",
+          decision: "neither",
+          targetSlugs: [],
+          rationale:
+            "The evidence confirms the composite was a false positive.",
+        },
+      ],
+    );
+    const artifact = artifactForRow(row);
+    artifact.review = {
+      status: "approved",
+      reviewer: "taxonomy-reviewer",
+      reviewedAt: "2026-08-08T01:00:00.000Z",
+    };
+
+    const tamperedAfter = structuredClone(artifact);
+    tamperedAfter.rows[0]!.after = {
+      productTags: ["居家香氛", "卡片・明信片"],
+      productTagsEn: ["Home Fragrance", "Cards & Postcards"],
+      pairs: [
+        { zh: "居家香氛", en: "Home Fragrance" },
+        { zh: "卡片・明信片", en: "Cards & Postcards" },
+      ],
+    };
+    expect(() => parseRunArtifact(tamperedAfter)).toThrow(/after tags/i);
+
+    const tamperedRollback = structuredClone(artifact);
+    tamperedRollback.rollback.rows[0]!.productTags = ["卡片・明信片"];
+    expect(() => parseRunArtifact(tamperedRollback)).toThrow(/rollback/i);
   });
 
   it("requires one deterministic call and complete DeepSeek audit evidence per row", () => {
@@ -734,6 +884,52 @@ describe("DEV-1361 split planner", () => {
     });
     expect(revalidated).toEqual([current.slug]);
     expect(state.product_tags).toEqual(["居家香氛"]);
+  });
+
+  it("applies a reviewed neither decision without replacement or overflow", async () => {
+    const current = brand({
+      product_tags: ["香氛・蠟燭", "卡片・明信片"],
+      product_tags_en: ["Home Fragrance & Candles", "Cards & Postcards"],
+    });
+    const row = buildSplitRow(current, "call-apply-neither", [
+      {
+        sourceLabel: "香氛・蠟燭",
+        decision: "neither",
+        targetSlugs: [],
+        rationale:
+          "The legacy composite is not supported by this brand's evidence.",
+      },
+    ]);
+    const artifact = artifactForRow(row);
+    artifact.review = {
+      status: "approved",
+      reviewer: "taxonomy-reviewer",
+      reviewedAt: "2026-08-08T01:00:00.000Z",
+    };
+    let state = structuredClone(current);
+    const { applyRunArtifact } = await import("./split-composite-product-tags");
+    const result = await applyRunArtifact({} as never, artifact, {
+      loadScope: async () => [structuredClone(state)],
+      loadSnapshot: async () => structuredClone(state),
+      update: async (_id, data) => {
+        state = {
+          ...state,
+          product_tags: data.productTags,
+          product_tags_en: data.productTagsEn,
+        };
+        return {
+          productTags: data.productTags,
+          productTagsEn: data.productTagsEn,
+          productType: state.product_type,
+          skipped: [],
+        };
+      },
+      revalidate: async () => undefined,
+    });
+
+    expect(result.writeCount).toBe(1);
+    expect(state.product_tags).toEqual(["卡片・明信片"]);
+    expect(state.product_tags_en).toEqual(["Cards & Postcards"]);
   });
 
   it("blocks revalidation when final reread detects a product-type or tag drift", async () => {
