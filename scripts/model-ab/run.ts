@@ -28,6 +28,7 @@ import { writeFile, mkdir, readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { dirname } from "node:path";
 import sharp from "sharp";
+import { visionDataUri } from "@/lib/services/vision-image";
 import { buildImageQueryVariants } from "@/lib/services/enrich-phases/scraper/search";
 import {
   scrapeBrandUrls,
@@ -69,7 +70,11 @@ const MAX_ASPECT = 3.0;
 const MIN_ENTROPY = 0.5;
 const ALLOWED_FORMATS = new Set(["jpeg", "png", "webp"]);
 const PHASH_HAMMING_THRESHOLD = 5;
-/** Mirrors BATCH_SIZE in classify-images.ts. */
+/**
+ * Deliberately smaller than production's BATCH_SIZE (10 in classify-images.ts).
+ * The harness trades the per-call system-prompt overhead for shorter, cheaper
+ * failed calls while sweeping models; it is not a mirror of the prod value.
+ */
 const BATCH_SIZE = 5;
 /** Mirrors MAX_BRAND_ACTIVE_IMAGES. */
 const PUBLISH_CAP = 10;
@@ -195,14 +200,12 @@ async function gateCandidate(
     }
     claimed.push(phash);
 
-    const webp = await sharp(buffer)
-      .resize({ width: 512, withoutEnlargement: true })
-      .webp({ quality: 80 })
-      .toBuffer();
     return {
       ...sized,
       gate: "kept",
-      dataUri: `data:image/webp;base64,${webp.toString("base64")}`,
+      // Shared with production (classify-images.ts) so the harness and the real
+      // pipeline hand the model byte-identical images.
+      dataUri: await visionDataUri(buffer),
     };
   } catch {
     return { ...base, gate: "fetch failed" };

@@ -76,10 +76,27 @@ jobs:
             exit 1
           fi
 
+      # `secrets.GITHUB_TOKEN` cannot open a PR: the repo has "Allow GitHub
+      # Actions to create and approve pull requests" disabled, and the job-level
+      # `permissions: pull-requests: write` above cannot override that setting —
+      # gh fails with "GitHub Actions is not permitted to create or approve pull
+      # requests" after the branch has already been pushed, leaving an orphan
+      # branch behind (DEV-1382). Mint an App token instead, the same way
+      # health-agent.yml does for its automated PRs.
+      - name: app-token
+        id: app-token
+        if: steps.fetch.outputs.has_items == 'true'
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.0.0
+        with:
+          app-id: ${{ secrets.HEALTH_AGENT_GITHUB_APP_ID }}
+          private-key: ${{ secrets.HEALTH_AGENT_GITHUB_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
       - name: create-pr
         if: steps.fetch.outputs.has_items == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           BRANCH="content/produce-$(date +%Y%m%d)"
           git checkout -b "$BRANCH"
@@ -91,10 +108,35 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git commit -m "content(produce): produce approved items $(date +%Y-%m-%d)"
-          git push -u origin "$BRANCH"
-          PR_URL=$(gh pr create --title "Content produce: $(date +%Y-%m-%d)" \
-            --body "Auto-produced content from approved items." \
-            --label "content")
+          # The branch name is derived from the date, so a same-day rerun (or a
+          # retry after a later step failed) collides with the branch the previous
+          # attempt already pushed and is rejected non-fast-forward. This is what
+          # kept the workflow red even after the token fix landed — 13 orphan
+          # content/produce-* branches had accumulated since 07-21.
+          #
+          # Plain push first: on the common path the branch is new and that is all
+          # that runs. Only on rejection do we fetch the ref (so --force-with-lease
+          # has a lease to check) and replace it. Ordering it this way keeps the
+          # first-push path off --force-with-lease entirely, which refuses with
+          # "stale info" when there is no remote-tracking ref. These branches are
+          # regenerated wholesale each run and nothing else writes to them, so
+          # replacing is correct; the lease still guards a concurrent write.
+          git push -u origin "$BRANCH" || {
+            git fetch origin "$BRANCH"
+            git push --force-with-lease -u origin "$BRANCH"
+          }
+          # Reuse the existing PR on a same-day rerun. The branch is dated, so once
+          # a PR exists for it `gh pr create` fails with "a pull request for branch
+          # ... already exists" — which would leave the step red having done all
+          # the real work, the same shape of bug as the push collision above.
+          if PR_URL=$(gh pr view "$BRANCH" --json url --jq .url 2>/dev/null) \
+             && [ -n "$PR_URL" ]; then
+            echo "Reusing existing PR: $PR_URL"
+          else
+            PR_URL=$(gh pr create --title "Content produce: $(date +%Y-%m-%d)" \
+              --body "Auto-produced content from approved items." \
+              --label "content")
+          fi
 
           # Flip each produced item to status='review'
           while IFS= read -r ITEM_ID; do

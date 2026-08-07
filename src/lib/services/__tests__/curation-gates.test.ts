@@ -2,11 +2,13 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   evaluateLlmProviderGate,
   evaluateProviderGate,
+  evaluateStorageGate,
   hasNoEnrichmentInputs,
   isLlmProviderFailureMessage,
   isProviderFailureMessage,
   llmStageFailure,
   serpStageFailure,
+  storageStageFailure,
 } from "../curation-operations";
 import type { PhaseResult } from "@/lib/types/curation";
 import type { SearchPhaseResult } from "../enrich-phases";
@@ -298,6 +300,61 @@ describe("Gate C — llmStageFailure", () => {
         phase("descriptions", "failed", { providerFailure: true }),
       ])?.action,
     ).toBe("fail");
+  });
+});
+
+/**
+ * DEV-1374. A Supabase Storage outage stops the vision phase reading its own
+ * inputs. Reported as a provider failure it would set `providerFailure`, which
+ * Gate C counts and the LLM circuit breaker consumes — and three consecutive
+ * trips (with ENRICH_BRAND_CONCURRENCY at 3, one wave) cancel every unstarted
+ * target in the job and page the operator about an OpenAI account that was
+ * healthy the whole time. The target still fails; only the attribution moves.
+ */
+describe("Gate C-storage — storageStageFailure", () => {
+  const storageFailure = phase("classify_images", "failed", {
+    error:
+      "Storage unavailable — could not read the images for any of 2 batch(es) out of Storage",
+  });
+
+  it("fails the target when a phase could not read its inputs", () => {
+    const decision = evaluateStorageGate([
+      phase("descriptions", "succeeded"),
+      storageFailure,
+    ]);
+
+    expect(decision?.action).toBe("fail");
+    expect(decision?.message).toContain("classify_images");
+  });
+
+  it("never reads as a provider failure, so the breaker is not fed", () => {
+    const message = storageStageFailure([storageFailure]);
+
+    expect(message).not.toBeNull();
+    expect(isProviderFailureMessage(message)).toBe(false);
+    expect(isLlmProviderFailureMessage(message)).toBe(false);
+  });
+
+  it("leaves Gate C untouched — a storage failure is not an LLM outage", () => {
+    // The whole point: same phase, same failed status, no `providerFailure`, so
+    // Gate C sees an attempted LLM phase that did not fail at the provider.
+    expect(llmStageFailure([storageFailure])).toBeNull();
+  });
+
+  it("ignores failures that are not ours and succeeded phases", () => {
+    expect(
+      evaluateStorageGate([
+        phase("classify_images", "failed", { providerFailure: true }),
+        phase("descriptions", "succeeded"),
+      ]),
+    ).toBeNull();
+    expect(storageStageFailure([])).toBeNull();
+  });
+
+  it("shares the CURATION_PROVIDER_GATE kill switch", () => {
+    process.env.CURATION_PROVIDER_GATE = "off";
+
+    expect(evaluateStorageGate([storageFailure])?.action).toBe("warn");
   });
 });
 

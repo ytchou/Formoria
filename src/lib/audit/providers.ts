@@ -128,6 +128,7 @@ export const PROVIDERS = {
     "deleteStoredImagePaths",
     "downloadAndStoreImages",
     "insertBrandImage",
+    "loadVisionImage",
     "purgeExpiredClassifierJunk",
     "rejectBrandImages",
     "releaseBrandImageUrls",
