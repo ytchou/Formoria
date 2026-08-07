@@ -1,9 +1,10 @@
 import { withAuditScope } from '@/lib/audit/scope'
 import { NextResponse } from 'next/server'
+import { isAuthorizedMachineCaller } from '@/lib/security/machine-caller'
 import { DRIP_TYPES, evaluateDrips } from '@/lib/services/drip-processing'
 
 export const POST = withAuditScope(async (req: Request) => {
-  if (req.headers.get('x-origin-verify') !== process.env.ORIGIN_SECRET) {
+  if (!isAuthorizedMachineCaller(req)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

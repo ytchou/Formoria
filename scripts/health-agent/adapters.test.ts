@@ -164,6 +164,11 @@ describe("Slack adapter", () => {
             severities: { critical: 0, high: 0, low: 0, medium: 0 },
             status: "success",
           },
+          cron: {
+            findingCount: 0,
+            severities: { critical: 0, high: 0, low: 0, medium: 0 },
+            status: "success",
+          },
           sentry: {
             findingCount: 10,
             severities: { critical: 2, high: 8, low: 0, medium: 0 },
@@ -226,6 +231,11 @@ describe("Slack adapter", () => {
             status: "success",
           },
           quality: {
+            findingCount: 0,
+            severities: { critical: 0, high: 0, low: 0, medium: 0 },
+            status: "success",
+          },
+          cron: {
             findingCount: 0,
             severities: { critical: 0, high: 0, low: 0, medium: 0 },
             status: "success",
@@ -494,7 +504,9 @@ describe("Linear adapter", () => {
     const createInput = (
       bodyAt(fetchImpl, 1).variables as Record<string, unknown>
     ).input as Record<string, unknown>;
-    expect(createInput.title).toBe("Health Agent — 2 new findings (2026-07-29)");
+    expect(createInput.title).toBe(
+      "Health Agent — 2 new findings (2026-07-29)",
+    );
     expect(createInput.description).not.toContain("This rolling ticket");
   });
 

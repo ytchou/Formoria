@@ -191,7 +191,11 @@ function aggregateArtifact(findings: readonly unknown[]) {
 function terminalAggregate() {
   const artifact = (
     routine:
-      "directory-health" | "link-checker" | "quality-health" | "sentry-triage",
+      | "directory-health"
+      | "link-checker"
+      | "quality-health"
+      | "sentry-triage"
+      | "cron-health",
     findings: readonly unknown[],
   ) => ({
     collectedAt: now,
@@ -229,6 +233,7 @@ function terminalAggregate() {
         },
       ]),
       "quality-health": artifact("quality-health", []),
+      "cron-health": artifact("cron-health", []),
       "sentry-triage": artifact("sentry-triage", [
         {
           evidence: {},
@@ -325,6 +330,7 @@ describe("terminal health report", () => {
         checks: {
           directory: { finding_count: 1, severities: { high: 1 } },
           link: { finding_count: 1, severities: { medium: 1 } },
+          cron: { finding_count: 0, severities: {} },
           sentry: { finding_count: 1, severities: { critical: 1 } },
         },
         overall_status: "needs_attention",
@@ -460,9 +466,7 @@ describe("terminal health report", () => {
     );
 
     expect(
-      linear.mock.calls[0]?.[0].findings.map(
-        ({ fingerprint }) => fingerprint,
-      ),
+      linear.mock.calls[0]?.[0].findings.map(({ fingerprint }) => fingerprint),
     ).toEqual(["directory:one"]);
     expect(markFingerprintsTicketed).toHaveBeenCalledWith(
       ["directory:one"],
@@ -517,9 +521,7 @@ describe("terminal health report", () => {
 
     expect(linear).not.toHaveBeenCalled();
     expect(markFingerprintsTicketed).not.toHaveBeenCalled();
-    expect(slack.mock.calls[0]?.[0]).not.toHaveProperty(
-      "healthSummary.ticket",
-    );
+    expect(slack.mock.calls[0]?.[0]).not.toHaveProperty("healthSummary.ticket");
   });
 
   it("records a failure without throwing when the ticket ledger PATCH fails", async () => {
@@ -1296,6 +1298,7 @@ describe("aggregate-and-deliver runtime", () => {
       "directory-health",
       "quality-health",
       "sentry-triage",
+      "cron-health",
     ]) {
       contents.set(
         `${routine}.json`,
@@ -1732,7 +1735,7 @@ describe("stale branch cleanup runtime", () => {
 
     expect(reconcileFingerprintLifecycle).toHaveBeenCalledWith(
       ["directory:one", "link:one", "sentry:one"],
-      ["directory", "link", "quality", "sentry"],
+      ["cron", "directory", "link", "quality", "sentry"],
     );
     expect(result.verifiedFixedFingerprints).toEqual(["directory:resolved"]);
   });
@@ -1772,7 +1775,7 @@ describe("stale branch cleanup runtime", () => {
 
     expect(reconcileFingerprintLifecycle).toHaveBeenCalledWith(
       ["directory:one", "link:one", "sentry:one"],
-      ["directory", "link", "sentry"],
+      ["cron", "directory", "link", "sentry"],
     );
   });
 
@@ -2063,7 +2066,9 @@ describe("scoped writer RPC", () => {
     const [url, init] = fetchImplementation.mock.calls[0] ?? [];
     expect(String(url)).toContain("ticketed_at=is.null");
     expect(init?.method).toBe("PATCH");
-    expect(init?.headers).toMatchObject({ Authorization: "Bearer writer-token" });
+    expect(init?.headers).toMatchObject({
+      Authorization: "Bearer writer-token",
+    });
     const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
     expect(body.linear_identifier).toBe("DEV-1400");
     expect(String(body.ticketed_at)).toMatch(

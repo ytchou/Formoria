@@ -399,7 +399,7 @@ function renderHealthSummary(
   return renderAgentNotification({
     agent: "Health Agent",
     details: [
-      `• Links ${summary.checks.link.findingCount} · Directory ${summary.checks.directory.findingCount} · Sentry ${summary.checks.sentry.findingCount} · Repository ${summary.checks.quality.findingCount}`,
+      `• Links ${summary.checks.link.findingCount} · Directory ${summary.checks.directory.findingCount} · Sentry ${summary.checks.sentry.findingCount} · Cron ${summary.checks.cron.findingCount} · Repository ${summary.checks.quality.findingCount}`,
       `• Pipeline: ${pipeline}`,
     ],
     managerAction: operationalManagerAction(summary, pipeline),
@@ -712,11 +712,12 @@ function groupedLinearDescription(
   findings: readonly HealthFinding[],
   summary?: LinearSyncSummary,
 ): string {
-  const sources = (["sentry", "directory", "link", "quality"] as const)
+  const sources = (["sentry", "directory", "link", "cron", "quality"] as const)
     .map((source) => {
       const matches = findings.filter((finding) => finding.source === source);
       if (matches.length === 0) return undefined;
       const label = {
+        cron: "Cron",
         directory: "Directory",
         link: "Link",
         quality: "Repository",

@@ -1,5 +1,6 @@
 import { withAuditScope } from "@/lib/audit/scope";
 import { NextResponse } from "next/server";
+import { isAuthorizedMachineCaller } from "@/lib/security/machine-caller";
 import {
   revalidatePublicBrand,
   revalidatePublicEvent,
@@ -28,9 +29,7 @@ function isInvalidSlugList(value: unknown): boolean {
 }
 
 export const POST = withAuditScope(async (req: Request) => {
-  const originSecret = process.env.ORIGIN_SECRET?.trim();
-  // A blank server-side secret must never make every caller authorized.
-  if (!originSecret || req.headers.get("x-origin-verify") !== originSecret) {
+  if (!isAuthorizedMachineCaller(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

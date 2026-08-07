@@ -27,6 +27,7 @@ import {
   type RepairSnapshot,
 } from "./repair";
 import {
+  HEALTH_SOURCES,
   stableFingerprint,
   type AuditLogger,
   type HealthFinding,
@@ -59,6 +60,7 @@ export const HEALTH_ROUTINES = [
   "directory-health",
   "sentry-triage",
   "quality-health",
+  "cron-health",
 ] as const;
 export type HealthRoutine = (typeof HEALTH_ROUTINES)[number];
 
@@ -103,7 +105,11 @@ const healthFindingSchema = z
     mergePolicy: z.enum(["automatic", "human"]),
     sentryIssueId: z.string().trim().min(1).max(500).optional(),
     severity: z.enum(["low", "medium", "high", "critical"]),
-    source: z.enum(["link", "directory", "sentry", "quality"]),
+    // Derived from HEALTH_SOURCES so adding a routine is a compile error here
+    // rather than a silently rejected finding at runtime.
+    source: z.enum(
+      HEALTH_SOURCES as unknown as [HealthSource, ...HealthSource[]],
+    ),
     title: z.string().trim().min(1).max(MAX_TEXT_LENGTH),
   })
   .strict();
@@ -1352,6 +1358,7 @@ function resolveDelivery(
 
 function pathForRoutine(
   paths: Partial<Record<HealthRoutine, string>> & {
+    cron?: string;
     directory?: string;
     link?: string;
     quality?: string;
@@ -1367,7 +1374,9 @@ function pathForRoutine(
         ? paths.directory
         : routine === "quality-health"
           ? paths.quality
-          : paths.sentry)
+          : routine === "sentry-triage"
+            ? paths.sentry
+            : paths.cron)
   );
 }
 
@@ -1431,6 +1440,7 @@ async function loadAggregateArtifacts(
       input.linkArtifactPath ?? pathForRoutine(paths, "link-checker"),
     "quality-health":
       input.qualityArtifactPath ?? pathForRoutine(paths, "quality-health"),
+    "cron-health": pathForRoutine(paths, "cron-health"),
     "sentry-triage":
       input.sentryArtifactPath ?? pathForRoutine(paths, "sentry-triage"),
   };

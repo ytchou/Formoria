@@ -117,6 +117,16 @@ jobs:
           --run-at "${{ steps.setup.outputs.run_at }}"
           --attempt "$GITHUB_RUN_ATTEMPT" --run-id "$GITHUB_RUN_ID"
           --audit "$HEALTH_ARTIFACT_DIR/brand-audit.json"
+      - name: "Stage 2 · Product health — cron health"
+        id: cron
+        continue-on-error: true
+        env:
+          HEALTH_AGENT_READER_TOKEN: ${{ secrets.HEALTH_AGENT_READER_TOKEN }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+        run: >-
+          pnpm exec tsx scripts/health-agent/workflow-runtime.ts collect-cron-health
+          --output "$HEALTH_ARTIFACT_DIR/cron-health.json"
+          --run-at "${{ steps.setup.outputs.run_at }}"
       - name: "Stage 2 · Product health — Directory evidence"
         id: directory-evidence
         continue-on-error: true
@@ -260,6 +270,7 @@ jobs:
           --directory-artifact "$HEALTH_ARTIFACT_DIR/directory-health.json"
           --sentry-artifact "$HEALTH_ARTIFACT_DIR/sentry-triage.json"
           --quality-artifact "$HEALTH_ARTIFACT_DIR/quality-health.json"
+          --cron-artifact "$HEALTH_ARTIFACT_DIR/cron-health.json"
           --defer-delivery true --run-at "${{ steps.setup.outputs.run_at }}"
           --attempt "$GITHUB_RUN_ATTEMPT" --run-id "$GITHUB_RUN_ID"
           --workflow-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
@@ -498,7 +509,7 @@ jobs:
           for file in aggregate.json queue.json manager-pr-result.json final-report.json; do
             test -f "$HEALTH_ARTIFACT_DIR/$file" || printf '{}\n' > "$HEALTH_ARTIFACT_DIR/$file"
           done
-          jq -n --slurpfile aggregate "$HEALTH_ARTIFACT_DIR/aggregate.json" --slurpfile queue "$HEALTH_ARTIFACT_DIR/queue.json" --slurpfile repair "$HEALTH_ARTIFACT_DIR/manager-pr-result.json" --slurpfile report "$HEALTH_ARTIFACT_DIR/final-report.json" --arg run_id "$GITHUB_RUN_ID" --arg attempt "$GITHUB_RUN_ATTEMPT" --arg mode "${{ steps.setup.outputs.mode }}" --arg expected_at "${{ steps.setup.outputs.expected_at }}" --arg started_at "${{ steps.setup.outputs.run_at }}" --argjson scheduling_delay_seconds "${{ steps.setup.outputs.delay_seconds || '0' }}" '{version:1, runId:$run_id, attempt:($attempt|tonumber), mode:$mode, schedule:{expectedAt:$expected_at,startedAt:$started_at,delaySeconds:$scheduling_delay_seconds}, groups:{product:{status:(if $aggregate[0].artifacts["link-checker"].status == "success" and $aggregate[0].artifacts["directory-health"].status == "success" then "success" else "failed" end),link:($aggregate[0].artifacts["link-checker"] // {status:"failed",failures:["missing_output"],findings:[]}),directory:($aggregate[0].artifacts["directory-health"] // {status:"failed",failures:["missing_output"],findings:[]})},runtime:($aggregate[0].artifacts["sentry-triage"] // {status:"failed",failures:["missing_output"],findings:[]}),repository:($aggregate[0].artifacts["quality-health"] // {status:"failed",failures:["missing_output"],findings:[]})},canonicalFindings:([$aggregate[0].artifacts[]?.findings[]?]|unique_by(.fingerprint)),lifecycle:($queue[0].lifecycle // null),repair:(if ($repair[0] | length) == 0 then null else $repair[0] end),managerReport:(if ($report[0] | length) == 0 then null else $report[0] end)}' > "$HEALTH_ARTIFACT_DIR/health-run.json"
+          jq -n --slurpfile aggregate "$HEALTH_ARTIFACT_DIR/aggregate.json" --slurpfile queue "$HEALTH_ARTIFACT_DIR/queue.json" --slurpfile repair "$HEALTH_ARTIFACT_DIR/manager-pr-result.json" --slurpfile report "$HEALTH_ARTIFACT_DIR/final-report.json" --arg run_id "$GITHUB_RUN_ID" --arg attempt "$GITHUB_RUN_ATTEMPT" --arg mode "${{ steps.setup.outputs.mode }}" --arg expected_at "${{ steps.setup.outputs.expected_at }}" --arg started_at "${{ steps.setup.outputs.run_at }}" --argjson scheduling_delay_seconds "${{ steps.setup.outputs.delay_seconds || '0' }}" '{version:1, runId:$run_id, attempt:($attempt|tonumber), mode:$mode, schedule:{expectedAt:$expected_at,startedAt:$started_at,delaySeconds:$scheduling_delay_seconds}, groups:{product:{status:(if $aggregate[0].artifacts["link-checker"].status == "success" and $aggregate[0].artifacts["directory-health"].status == "success" then "success" else "failed" end),link:($aggregate[0].artifacts["link-checker"] // {status:"failed",failures:["missing_output"],findings:[]}),directory:($aggregate[0].artifacts["directory-health"] // {status:"failed",failures:["missing_output"],findings:[]})},runtime:($aggregate[0].artifacts["sentry-triage"] // {status:"failed",failures:["missing_output"],findings:[]}),repository:($aggregate[0].artifacts["quality-health"] // {status:"failed",failures:["missing_output"],findings:[]}),cron:($aggregate[0].artifacts["cron-health"] // {status:"failed",failures:["missing_output"],findings:[]})},canonicalFindings:([$aggregate[0].artifacts[]?.findings[]?]|unique_by(.fingerprint)),lifecycle:($queue[0].lifecycle // null),repair:(if ($repair[0] | length) == 0 then null else $repair[0] end),managerReport:(if ($report[0] | length) == 0 then null else $report[0] end)}' > "$HEALTH_ARTIFACT_DIR/health-run.json"
           : > "$HEALTH_ARTIFACT_DIR/audit.jsonl"
           for file in "$HEALTH_ARTIFACT_DIR"/*-audit.json; do
             [[ -f "$file" ]] || continue
