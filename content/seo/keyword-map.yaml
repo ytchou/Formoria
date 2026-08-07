@@ -72,16 +72,16 @@
 # ---------------------------------------------------------------------------
 # SYNONYM vs MULTI-INTENT (the `composite` field)
 # ---------------------------------------------------------------------------
-# 57 of the 160 ontology subcategories have a middle-dot (・) name.
+# 56 of the 156 ontology subcategories have a middle-dot (・) name.
 # Each is classified exactly once, here or in unmapped_backlog:
 #
-#   composite: synonym       (19 rows)
+#   composite: synonym       (21 rows)
 #     The two terms name ONE intent — one is a subset, an alias, or a rewording
 #     of the other, and a searcher using either would accept the same brand set.
 #     Example: 皮夾・錢包, 陶瓷・陶藝, 涼鞋・拖鞋, 甜點・糕點.
 #     Eligible like any other row; one page legitimately owns both terms.
 #
-#   composite: multi-intent  (38 rows)
+#   composite: multi-intent  (35 rows)
 #     The two terms name genuinely DIFFERENT products that happen to share a
 #     slug. Example: 香氛・蠟燭, 鑰匙圈・吊飾, 體驗課程・DIY材料, 茶包・茶飲.
 #     These carry eligibility: reject-taxonomy and NO target_url. The schema
@@ -95,7 +95,7 @@
 # ---------------------------------------------------------------------------
 # l1-category and l2-category rows key off `ontology_slug` (kebab-case ASCII,
 # resolvable via subcategoryBySlug / PRODUCT_TYPE_CATEGORIES) — NEVER off a raw
-# product_tags string. 445 distinct tags are in use against 160 ontology
+# product_tags string. 445 distinct tags are in use against 156 ontology
 # entries, so a tag-keyed URL space would be uncontrolled. Raw tags may appear
 # only as secondary_keywords.
 #
@@ -948,10 +948,11 @@ clusters:
     grid, and CollectionPage + ItemList JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
-    B. Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete
-    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
-    shape ships.'
+  notes: 'Activewear is the sole page owner for the overlapping 機能服飾/運動服飾 intent; performance-apparel
+    remains ontology-compatible but non-owning. target_status is proposed: the /categories/[l1]/[l2] URL
+    shape is not ratified until Ticket B. Cannibalization risk 3: today the ?sub= filter views fold into
+    this L1 page, so L1 and L2 compete for the same query. Ticket B must reposition ?sub= (canonical or
+    redirect) before the /categories/[l1]/[l2] shape ships.'
 - id: l2-socks
   primary_keyword: 台灣襪子品牌
   secondary_keywords:
@@ -1086,7 +1087,6 @@ clusters:
   - MIT 機能布料
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/fashion/performance-apparel
   target_status: proposed
   ontology_slug: performance-apparel
   brand_count: 16
@@ -1094,16 +1094,16 @@ clusters:
   intent_fit: 3
   differentiation: 2
   priority: P1
-  eligibility: defer-no-demand
+  eligibility: reject-taxonomy
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
-  indexability: index
+  indexability: noindex
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
-    B. Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete
-    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
-    shape ships.'
+  notes: 'Non-owning collision with activewear: no stable shopper boundary exists between 機能服飾 and 運動服飾,
+    so keywords consolidate into activewear. Keep this slug for ontology matching, but reject taxonomy and
+    noindex it; target_status remains proposed with no target_url. Ticket B must reposition ?sub= (canonical
+    or redirect) before the /categories/[l1]/[l2] shape ships.'
 - id: l2-bedding
   primary_keyword: 台灣寢具品牌
   secondary_keywords:
@@ -1262,7 +1262,7 @@ clusters:
   - MIT 保健食品
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/beauty/supplements
+  target_url: /categories/food-drink/supplements
   target_status: proposed
   ontology_slug: supplements
   brand_count: 6
@@ -1584,28 +1584,6 @@ clusters:
   notes: 'Rejected on taxonomy, not on demand: 鑰匙圈・吊飾 bundles two genuinely distinct products behind one
     slug, so a single page cannot satisfy either query. No target_url until the ontology split lands —
     follow-up ticket DEV-1361.'
-- id: l2-workshops-and-diy-kits
-  primary_keyword: 台灣體驗課程 DIY 品牌
-  secondary_keywords:
-  - 台灣手作課程
-  - 台灣 DIY 材料包
-  search_intent: commercial
-  page_type: l2-category
-  target_status: proposed
-  ontology_slug: workshops-and-diy-kits
-  brand_count: 21
-  data_quality: pass
-  intent_fit: 3
-  differentiation: 3
-  priority: P0
-  eligibility: reject-taxonomy
-  composite: multi-intent
-  content_requirement: None until the ontology split lands (DEV-1361). Do not build a page for this slug.
-  indexability: noindex
-  locale: zh-TW
-  notes: 'Rejected on taxonomy, not on demand: 體驗課程・DIY材料 bundles two genuinely distinct products behind
-    one slug, so a single page cannot satisfy either query. No target_url until the ontology split lands
-    — follow-up ticket DEV-1361.'
 - id: l2-pouches
   primary_keyword: 台灣收納包化妝包品牌
   secondary_keywords:
@@ -1658,6 +1636,7 @@ clusters:
   - 台灣手環品牌
   search_intent: commercial
   page_type: l2-category
+  target_url: /categories/jewelry/bracelets-and-bangles
   target_status: proposed
   ontology_slug: bracelets-and-bangles
   brand_count: 21
@@ -1665,14 +1644,17 @@ clusters:
   intent_fit: 3
   differentiation: 3
   priority: P0
-  eligibility: reject-taxonomy
-  composite: multi-intent
-  content_requirement: None until the ontology split lands (DEV-1361). Do not build a page for this slug.
-  indexability: noindex
+  eligibility: defer-no-demand
+  composite: synonym
+  content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
+    grid, and CollectionPage + ItemList JSON-LD.
+  indexability: index
   locale: zh-TW
-  notes: 'Rejected on taxonomy, not on demand: 手鍊・手環 bundles two genuinely distinct products behind one
-    slug, so a single page cannot satisfy either query. No target_url until the ontology split lands —
-    follow-up ticket DEV-1361.'
+  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket B.
+    composite synonym: 手鍊・手環 are two names for the same jewelry shelf and buyer intent, so one page
+    legitimately owns both. Cannibalization risk 3: today the ?sub= filter views fold into this L1 page,
+    so L1 and L2 compete for the same query. Ticket B must reposition ?sub= (canonical or redirect) before
+    the /categories/[l1]/[l2] shape ships.'
 - id: l2-essential-oils-and-hydrosols
   primary_keyword: 台灣精油純露品牌
   secondary_keywords:
@@ -1680,6 +1662,7 @@ clusters:
   - 台灣純露品牌
   search_intent: commercial
   page_type: l2-category
+  target_url: /categories/beauty/essential-oils-and-hydrosols
   target_status: proposed
   ontology_slug: essential-oils-and-hydrosols
   brand_count: 22
@@ -1687,14 +1670,17 @@ clusters:
   intent_fit: 3
   differentiation: 2
   priority: P1
-  eligibility: reject-taxonomy
-  composite: multi-intent
-  content_requirement: None until the ontology split lands (DEV-1361). Do not build a page for this slug.
-  indexability: noindex
+  eligibility: defer-no-demand
+  composite: synonym
+  content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
+    grid, and CollectionPage + ItemList JSON-LD.
+  indexability: index
   locale: zh-TW
-  notes: 'Rejected on taxonomy, not on demand: 精油・純露 bundles two genuinely distinct products behind one
-    slug, so a single page cannot satisfy either query. No target_url until the ontology split lands —
-    follow-up ticket DEV-1361.'
+  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket B.
+    composite synonym: 精油・純露 share the same shelf and buyer intent because hydrosol is the distillation
+    byproduct sold alongside essential oil, so one page legitimately owns both. Cannibalization risk 3:
+    today the ?sub= filter views fold into this L1 page, so L1 and L2 compete for the same query. Ticket B
+    must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2] shape ships.'
 - id: l2-floral-and-plants
   primary_keyword: 台灣花藝植栽品牌
   secondary_keywords:
@@ -2284,12 +2270,6 @@ clusters:
     so shipping an English target today would publish a noindex or canonicalized-away page. Ownership
     is recorded now so English work has a starting map.'
 unmapped_backlog:
-- slug: gift-boxes
-  brand_count: 69
-  notes: Non-taxonomic packaging/occasion label; tracked by DEV-1384.
-- slug: custom-gifts
-  brand_count: 21
-  notes: Non-taxonomic customization/occasion label; tracked by DEV-1384.
 - slug: hair-care
   brand_count: 14
   composite: multi-intent
@@ -2422,8 +2402,6 @@ unmapped_backlog:
   composite: multi-intent
 - slug: baby-bedding
   brand_count: 3
-- slug: baby-gift-sets
-  brand_count: 4
 - slug: belt-and-sling-bags
   brand_count: 4
   composite: multi-intent
@@ -2517,14 +2495,17 @@ unmapped_backlog:
   brand_count: 1
 - slug: desk-organization
   brand_count: 0
+  notes: Kept as a legitimate stationery product kind; supply controls rendering, not ontology structure.
 - slug: leather-craft
   brand_count: 1
 - slug: milk-powder
   brand_count: 1
 - slug: picnic-supplies
   brand_count: 0
+  notes: Kept as a legitimate outdoor product kind; supply controls rendering, not ontology structure.
 - slug: protective-gear
   brand_count: 0
+  notes: Kept as a legitimate fitness product kind; supply controls rendering, not ontology structure.
 - slug: stands-and-mounts
   brand_count: 1
 - slug: storage-devices
@@ -2536,8 +2517,11 @@ unmapped_backlog:
   composite: multi-intent
 - slug: earphones-and-headphones
   brand_count: 0
+  notes: Kept as a legitimate tech product kind; supply controls rendering, not ontology structure.
 - slug: natural-dyeing
   brand_count: 0
   composite: synonym
+  notes: Kept as a signature Taiwanese craft product kind; supply controls rendering, not ontology structure.
 - slug: speakers
   brand_count: 0
+  notes: Kept as a legitimate tech product kind; supply controls rendering, not ontology structure.

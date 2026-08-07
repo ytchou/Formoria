@@ -29,6 +29,19 @@ const { clusters, unmapped_backlog: backlog } = map
 
 const L1_SLUGS = new Set<string>(PRODUCT_TYPE_CATEGORIES.map(category => category.slug))
 const TAXONOMY_PAGE_TYPES = new Set(['l1-category', 'l2-category'])
+const RECLASSIFIED_SYNONYM_SLUGS = new Set([
+  'essential-oils-and-hydrosols',
+  'bracelets-and-bangles',
+])
+const REPARENTED_OR_RETIRED_SLUGS = new Set([
+  'supplements',
+  'hand-tools',
+  'care-and-mobility-aids',
+  'gift-boxes',
+  'custom-gifts',
+  'workshops-and-diy-kits',
+  'baby-gift-sets',
+])
 const REQUIRED_PAGE_ROLES = [
   'homepage',
   'directory',
@@ -153,8 +166,21 @@ describe('keyword map invariants', () => {
 
   it('no reject-taxonomy row is marked live', () => {
     const rejected = clusters.filter(cluster => cluster.eligibility === 'reject-taxonomy')
-    expect(rejected).toHaveLength(11)
+    expect(rejected).toHaveLength(9)
     expect(rejected.every(cluster => cluster.target_status === 'proposed' && !cluster.target_url)).toBe(true)
+  })
+
+  it('no live target_url points at a reparented or retired slug', () => {
+    const live = clusters
+      .filter(
+        cluster =>
+          cluster.target_status === 'live' &&
+          cluster.ontology_slug &&
+          REPARENTED_OR_RETIRED_SLUGS.has(cluster.ontology_slug),
+      )
+      .map(cluster => describeCluster(cluster))
+
+    expect(live).toEqual([])
   })
 
   it('the zh-TW L2 launch set stays between five and ten rows', () => {
@@ -177,10 +203,11 @@ describe('keyword map invariants', () => {
         cluster.page_type === 'l2-category' &&
         cluster.brand_count >= 15 &&
         cluster.composite !== 'multi-intent' &&
-        cluster.eligibility !== 'launch',
+        cluster.eligibility !== 'launch' &&
+        cluster.eligibility !== 'reject-taxonomy',
     )
 
-    expect(deferredQualifying).toHaveLength(24)
+    expect(deferredQualifying).toHaveLength(25)
     expect(
       deferredQualifying.every(
         cluster => cluster.eligibility === 'defer-no-demand' && cluster.target_status === 'proposed',
@@ -387,6 +414,67 @@ describe('keyword map invariants', () => {
     }
 
     expect(violations).toEqual([])
+  })
+
+  it('reclassified rows are no longer reject-taxonomy', () => {
+    const missing: string[] = []
+    const violations: string[] = []
+
+    for (const slug of RECLASSIFIED_SYNONYM_SLUGS) {
+      const cluster = clusters.find(row => row.ontology_slug === slug)
+      if (!cluster) {
+        missing.push(slug)
+        continue
+      }
+      if (cluster.composite !== 'synonym') violations.push(`${slug} is ${cluster.composite}`)
+      if (cluster.eligibility === 'reject-taxonomy') {
+        violations.push(`${slug} remains reject-taxonomy`)
+      }
+      if (!cluster.target_url) violations.push(`${slug} is missing target_url`)
+      if (cluster.indexability !== 'index') violations.push(`${slug} is ${cluster.indexability}`)
+      if (cluster.eligibility !== 'defer-no-demand') {
+        violations.push(`${slug} has eligibility ${cluster.eligibility}`)
+      }
+      if (!cluster.content_requirement || cluster.content_requirement.startsWith('None')) {
+        violations.push(`${slug} is missing indexable-page content requirement`)
+      }
+      if (!/same (shelf|jewelry shelf)|buyer intent/i.test(cluster.notes)) {
+        violations.push(`${slug} is missing same-shelf/buyer-intent rationale`)
+      }
+    }
+
+    expect(missing, `missing reclassified rows: ${missing.join(', ')}`).toEqual([])
+    expect(violations).toEqual([])
+  })
+
+  it('no two live rows compete for the same primary keyword', () => {
+    const owners = new Map<string, string>()
+    const conflicts: string[] = []
+
+    for (const cluster of clusters.filter(cluster => cluster.target_status === 'live')) {
+      const existing = owners.get(cluster.primary_keyword)
+      if (existing) conflicts.push(`${cluster.primary_keyword}: ${existing} and ${cluster.id}`)
+      owners.set(cluster.primary_keyword, cluster.id)
+    }
+
+    expect(conflicts).toEqual([])
+  })
+
+  it('activewear owns the performance-apparel intent', () => {
+    const activewear = clusters.find(cluster => cluster.ontology_slug === 'activewear')
+    const performanceApparel = clusters.find(cluster => cluster.ontology_slug === 'performance-apparel')
+
+    expect(activewear, 'activewear map row is missing').toBeDefined()
+    expect(activewear?.target_status).toBe('proposed')
+    expect(activewear?.target_url).toBe('/categories/fashion/activewear')
+    expect(activewear?.eligibility).not.toBe('reject-taxonomy')
+    expect(activewear?.indexability).toBe('index')
+
+    expect(performanceApparel, 'performance-apparel map row is missing').toBeDefined()
+    expect(performanceApparel?.target_status).toBe('proposed')
+    expect(performanceApparel?.eligibility).toBe('reject-taxonomy')
+    expect(performanceApparel?.indexability).toBe('noindex')
+    expect(performanceApparel?.target_url).toBeUndefined()
   })
 
   it('every composite ontology subcategory is classified with a definite value', () => {
