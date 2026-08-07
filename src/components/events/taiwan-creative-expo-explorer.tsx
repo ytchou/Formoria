@@ -36,7 +36,6 @@ import {
 import { trackBoothSelected } from "@/lib/analytics";
 import geometry from "../../../content/events/2026-taiwan-creative-expo.block-geometry.json";
 import { TaiwanCreativeExpoFloorMap } from "./taiwan-creative-expo-floor-map";
-import { EXPO_ROSTER_SOURCE_URL } from "./taiwan-creative-expo-floor-map-config";
 import {
   EventBrandResultView,
   EVENT_LINEUP_VISIBLE_CAP,
@@ -48,7 +47,6 @@ type TaiwanCreativeExpoExplorerProps = {
   eventSlug: string;
   locale: string;
   rosterFailed?: boolean;
-  verifiedAt?: string | null;
 };
 
 function ExplorerUrlSeed({
@@ -103,7 +101,6 @@ export function TaiwanCreativeExpoExplorer({
   eventSlug,
   locale,
   rosterFailed = false,
-  verifiedAt = null,
 }: TaiwanCreativeExpoExplorerProps) {
   const t = useTranslations("events");
   const [state, setState] = useState<CreativeExpoExplorerState>({
@@ -274,33 +271,10 @@ export function TaiwanCreativeExpoExplorer({
         />
       </Suspense>
 
-      <header className="space-y-2">
+      <header>
         <h2 id="creative-expo-explorer" className="type-section-title">
           {t("explorerHeading")}
         </h2>
-        <p className="max-w-3xl type-section-description">
-          {t("explorerDescription")}
-        </p>
-        {/*
-          The way out to the full roster lives in the sentence that admits the
-          list is partial, not in a callout of its own: the reader forms the
-          question here, and the footer link is ~1200px below the fold. Same
-          destination as that footer link, deliberately duplicated.
-        */}
-        <p className="type-caption">
-          {t.rich("explorerDisclosure", {
-            roster: (chunks) => (
-              <a
-                className="type-link"
-                href={EXPO_ROSTER_SOURCE_URL}
-                rel="noreferrer"
-                target="_blank"
-              >
-                {chunks}
-              </a>
-            ),
-          })}
-        </p>
       </header>
 
       {rosterFailed ? (
@@ -509,19 +483,13 @@ export function TaiwanCreativeExpoExplorer({
         </div>
       </div>
 
-      <footer className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t pt-4 type-caption">
-        {verifiedAt ? (
-          <span>{t("explorerVerifiedAt", { date: verifiedAt })}</span>
-        ) : null}
-        <a
-          className="type-link"
-          href={EXPO_ROSTER_SOURCE_URL}
-          rel="noreferrer"
-          target="_blank"
-        >
-          {t("explorerSource")}
-        </a>
-      </footer>
+      {/*
+        No provenance footer. The roster's verification date and the official
+        exhibitor list moved up to `TaiwanCreativeExpoOfficialMap`, where they
+        sit beside the map's own sources: both answer "where did this come
+        from", and at the bottom of a 123-brand roster they were 4,800px down
+        the page, which is nowhere.
+      */}
     </section>
   );
 }

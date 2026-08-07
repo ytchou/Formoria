@@ -121,6 +121,9 @@ async function globalSetup() {
       name: "[E2E-TEST] Preflight Probe",
       slug: `e2e-preflight-probe-${Date.now()}`,
       status: "approved",
+      // `brands_approved_requires_timestamp` (#643): an approved row without
+      // this column is rejected outright.
+      approved_at: new Date().toISOString(),
     })
     .select("id")
     .single();
