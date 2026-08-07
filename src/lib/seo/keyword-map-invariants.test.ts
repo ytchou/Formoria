@@ -166,8 +166,68 @@ describe('keyword map invariants', () => {
 
   it('no reject-taxonomy row is marked live', () => {
     const rejected = clusters.filter(cluster => cluster.eligibility === 'reject-taxonomy')
-    expect(rejected).toHaveLength(9)
+    expect(rejected).toHaveLength(1)
     expect(rejected.every(cluster => cluster.target_status === 'proposed' && !cluster.target_url)).toBe(true)
+  })
+
+  it('DEV-1361 replacements are exact deferred noindex owners', () => {
+    const replacements = [
+      'home-fragrance',
+      'candles',
+      'keychains',
+      'charms',
+      'storage-pouches',
+      'cosmetic-bags',
+      'tea-bags',
+      'tea-drinks',
+      'toys',
+      'learning-aids',
+      'floral-arrangements',
+      'plants',
+      'towels',
+      'home-textiles',
+      'phone-bags',
+      'phone-straps',
+    ]
+    const rows = replacements.map(slug => clusters.find(cluster => cluster.ontology_slug === slug))
+
+    expect(rows.every(Boolean)).toBe(true)
+    for (const row of rows) {
+      expect(row).toMatchObject({
+        target_status: 'proposed',
+        brand_count: 0,
+        data_quality: 'thin',
+        eligibility: 'defer-data',
+        composite: 'none',
+        indexability: 'noindex',
+      })
+      expect(row?.target_url).toBeUndefined()
+    }
+
+    for (const retired of [
+      'home-fragrance-and-candles',
+      'keychains-and-charms',
+      'pouches',
+      'tea-bags-and-drinks',
+      'floral-and-plants',
+      'toys-and-learning',
+      'phone-bags-and-straps',
+      'towels-and-textiles',
+    ]) {
+      expect(clusters.some(cluster => cluster.ontology_slug === retired)).toBe(false)
+    }
+
+    const phoneStraps = clusters.find(cluster => cluster.ontology_slug === 'phone-straps')
+    const charms = clusters.find(cluster => cluster.ontology_slug === 'charms')
+    expect(phoneStraps?.secondary_keywords).toContain('台灣手機吊飾品牌')
+    expect(charms?.primary_keyword).toBe('台灣吊飾品牌')
+    expect(
+      clusters.filter(cluster =>
+        [cluster.primary_keyword, ...cluster.secondary_keywords].some(keyword =>
+          keyword === '台灣手機吊飾品牌',
+        ),
+      ),
+    ).toHaveLength(1)
   })
 
   it('no live target_url points at a reparented or retired slug', () => {
@@ -401,7 +461,10 @@ describe('keyword map invariants', () => {
 
   it('no multi-intent composite is eligible to launch', () => {
     const multiIntent = clusters.filter(cluster => cluster.composite === 'multi-intent')
-    expect(multiIntent.length).toBeGreaterThan(0)
+    // DEV-1361 removes the final taxonomy-rejected cluster rows. Remaining
+    // multi-intent research signals stay in the unmapped backlog until their
+    // own ontology work lands.
+    expect(multiIntent).toEqual([])
 
     const violations: string[] = []
     for (const cluster of multiIntent) {

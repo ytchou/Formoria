@@ -54,6 +54,28 @@ type DeepSeekChatResponse = {
   usage?: ChatUsage;
 };
 
+function completeChatUsage(value: unknown): ChatUsage {
+  const record =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : null;
+  const usage =
+    record?.usage &&
+    typeof record.usage === "object" &&
+    !Array.isArray(record.usage)
+      ? (record.usage as Record<string, unknown>)
+      : null;
+  const count = (field: unknown): number =>
+    typeof field === "number" && Number.isInteger(field) && field >= 0
+      ? field
+      : 0;
+  return {
+    prompt_tokens: count(usage?.prompt_tokens),
+    completion_tokens: count(usage?.completion_tokens),
+    total_tokens: count(usage?.total_tokens),
+  };
+}
+
 export type DeepSeekChatResult = {
   response: Response;
   data: DeepSeekChatResponse | null;
@@ -158,6 +180,7 @@ export function createDeepSeekClient({
               ok: false,
               status: response.status,
               data,
+              usage: completeChatUsage(data),
               latencyMs: performance.now() - startedAt,
               request: { system, user, imageCount: images?.length ?? 0 },
               retryAttempt,
@@ -175,7 +198,7 @@ export function createDeepSeekClient({
             ok: true,
             status: response.status,
             data,
-            ...(data.usage ? { usage: data.usage } : {}),
+            usage: completeChatUsage(data),
             latencyMs: performance.now() - startedAt,
             request: { system, user, imageCount: images?.length ?? 0 },
             retryAttempt,
@@ -191,6 +214,7 @@ export function createDeepSeekClient({
             ok: false,
             status: 0,
             data: null,
+            usage: completeChatUsage(null),
             latencyMs: performance.now() - startedAt,
             request: { system, user, imageCount: images?.length ?? 0 },
             retryAttempt,

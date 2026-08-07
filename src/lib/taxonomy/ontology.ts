@@ -102,7 +102,8 @@ export const PRODUCT_SUBCATEGORIES: readonly ProductSubcategory[] = [
   { slug: 'wallets', nameZh: '皮夾・錢包', nameEn: 'Wallets', category: 'bags-accessories', aliases: ['皮夾錢包', '皮夾', '錢包', '長夾', '短夾', '中夾'] },
   { slug: 'coin-purses', nameZh: '零錢包', nameEn: 'Coin Purses', category: 'bags-accessories', aliases: [] },
   { slug: 'card-holders', nameZh: '卡夾・證件套', nameEn: 'Card Holders', category: 'bags-accessories', aliases: ['卡夾證件套', '卡夾', '證件套'] },
-  { slug: 'pouches', nameZh: '收納包・化妝包', nameEn: 'Pouches', category: 'bags-accessories', aliases: ['收納包化妝包', '收納包', '化妝包', '旅行收納包'] },
+  { slug: 'storage-pouches', nameZh: '收納包', nameEn: 'Storage Pouches', category: 'bags-accessories', aliases: ['旅行收納包'] },
+  { slug: 'cosmetic-bags', nameZh: '化妝包', nameEn: 'Cosmetic Bags', category: 'bags-accessories', aliases: [] },
   { slug: 'laptop-bags', nameZh: '筆電包', nameEn: 'Laptop Bags', category: 'bags-accessories', aliases: [] },
   { slug: 'camera-bags', nameZh: '相機包', nameEn: 'Camera Bags', category: 'bags-accessories', aliases: [] },
   { slug: 'luggage-and-travel', nameZh: '行李箱・旅行袋', nameEn: 'Luggage & Travel', category: 'bags-accessories', aliases: ['行李箱旅行袋', '行李箱', '旅行袋'] },
@@ -110,8 +111,10 @@ export const PRODUCT_SUBCATEGORIES: readonly ProductSubcategory[] = [
   { slug: 'scarves-and-shawls', nameZh: '圍巾・披肩', nameEn: 'Scarves & Shawls', category: 'bags-accessories', aliases: ['圍巾披肩', '圍巾', '披肩'] },
   { slug: 'eyewear', nameZh: '眼鏡・太陽眼鏡', nameEn: 'Eyewear', category: 'bags-accessories', aliases: ['眼鏡太陽眼鏡', '眼鏡', '太陽眼鏡', '偏光', '運動太陽眼鏡'] },
   { slug: 'watches', nameZh: '手錶', nameEn: 'Watches', category: 'bags-accessories', aliases: [] },
-  { slug: 'keychains-and-charms', nameZh: '鑰匙圈・吊飾', nameEn: 'Keychains & Charms', category: 'bags-accessories', aliases: ['鑰匙圈吊飾', '鑰匙圈', '吊飾'] },
-  { slug: 'phone-bags-and-straps', nameZh: '手機袋・手機背帶', nameEn: 'Phone Bags & Straps', category: 'bags-accessories', aliases: ['手機袋手機背帶', '手機袋', '手機背帶'] },
+  { slug: 'keychains', nameZh: '鑰匙圈', nameEn: 'Keychains', category: 'bags-accessories', aliases: [] },
+  { slug: 'charms', nameZh: '吊飾', nameEn: 'Charms', category: 'bags-accessories', aliases: [] },
+  { slug: 'phone-bags', nameZh: '手機袋', nameEn: 'Phone Bags', category: 'bags-accessories', aliases: [] },
+  { slug: 'phone-straps', nameZh: '手機背帶', nameEn: 'Phone Straps', category: 'bags-accessories', aliases: ['手機掛繩', '手機吊飾'] },
 
   // jewelry (7)
   { slug: 'earrings', nameZh: '耳環', nameEn: 'Earrings', category: 'jewelry', aliases: ['耳夾'] },
@@ -144,7 +147,8 @@ export const PRODUCT_SUBCATEGORIES: readonly ProductSubcategory[] = [
   { slug: 'lighting', nameZh: '燈飾', nameEn: 'Lighting', category: 'home', aliases: ['桌燈', '夜燈'] },
   { slug: 'clocks', nameZh: '時鐘', nameEn: 'Clocks', category: 'home', aliases: ['掛鐘', '桌鐘'] },
   { slug: 'home-decor', nameZh: '居家擺飾', nameEn: 'Home Décor', category: 'home', aliases: ['壁飾', '裝飾畫', '擴香石'] },
-  { slug: 'towels-and-textiles', nameZh: '毛巾・生活織品', nameEn: 'Towels & Textiles', category: 'home', aliases: ['毛巾生活織品', '毛巾', '生活織品', '浴巾', '抱枕', '毯'] },
+  { slug: 'towels', nameZh: '毛巾', nameEn: 'Towels', category: 'home', aliases: ['浴巾'] },
+  { slug: 'home-textiles', nameZh: '居家織品', nameEn: 'Home Textiles', category: 'home', aliases: ['抱枕', '毯'] },
   { slug: 'rugs-and-mats', nameZh: '地墊・地毯', nameEn: 'Rugs & Mats', category: 'home', aliases: ['地墊地毯', '地墊', '地毯'] },
   { slug: 'tableware', nameZh: '餐具', nameEn: 'Tableware', category: 'home', aliases: ['筷子', '碗盤'] },
   { slug: 'tea-and-coffee-ware', nameZh: '茶具・咖啡器具', nameEn: 'Tea & Coffee Ware', category: 'home', aliases: ['茶具咖啡器具', '茶具', '咖啡器具', '品茗杯'] },
@@ -154,15 +158,18 @@ export const PRODUCT_SUBCATEGORIES: readonly ProductSubcategory[] = [
   { slug: 'storage', nameZh: '收納用品', nameEn: 'Storage', category: 'home', aliases: ['收納盒', '置物架', '衣架'] },
   { slug: 'cleaning', nameZh: '清潔用品', nameEn: 'Cleaning', category: 'home', aliases: ['抹布', '清潔液'] },
   { slug: 'home-appliances', nameZh: '生活家電', nameEn: 'Home Appliances', category: 'home', aliases: ['吸塵器', '吊扇', '空氣清淨機'] },
-  { slug: 'home-fragrance-and-candles', nameZh: '香氛・蠟燭', nameEn: 'Home Fragrance & Candles', category: 'home', aliases: ['香氛蠟燭', '香氛', '蠟燭', '線香', '擴香', '香氛袋'] },
-  { slug: 'floral-and-plants', nameZh: '花藝・植栽', nameEn: 'Floral & Plants', category: 'home', aliases: ['花藝植栽', '花藝', '植栽', '花器', '盆栽'] },
+  { slug: 'home-fragrance', nameZh: '居家香氛', nameEn: 'Home Fragrance', category: 'home', aliases: ['線香', '擴香', '香氛袋'] },
+  { slug: 'candles', nameZh: '蠟燭', nameEn: 'Candles', category: 'home', aliases: [] },
+  { slug: 'floral-arrangements', nameZh: '花藝', nameEn: 'Floral Arrangements', category: 'home', aliases: [] },
+  { slug: 'plants', nameZh: '植栽', nameEn: 'Plants', category: 'home', aliases: ['盆栽'] },
   { slug: 'curtains', nameZh: '窗簾', nameEn: 'Curtains', category: 'home', aliases: [] },
   { slug: 'bath-accessories', nameZh: '衛浴用品', nameEn: 'Bath Accessories', category: 'home', aliases: [] },
   { slug: 'hand-tools', nameZh: '手工具', nameEn: 'Hand Tools', category: 'home', aliases: ['起子', '扳手'] },
 
   // food-drink (19)
   { slug: 'tea', nameZh: '茶葉', nameEn: 'Tea', category: 'food-drink', aliases: ['烏龍茶', '紅茶', '高山茶'] },
-  { slug: 'tea-bags-and-drinks', nameZh: '茶包・茶飲', nameEn: 'Tea Bags & Drinks', category: 'food-drink', aliases: ['茶包茶飲', '茶包', '茶飲', '冷泡茶', '花草茶'] },
+  { slug: 'tea-bags', nameZh: '茶包', nameEn: 'Tea Bags', category: 'food-drink', aliases: [] },
+  { slug: 'tea-drinks', nameZh: '茶飲', nameEn: 'Tea Drinks', category: 'food-drink', aliases: ['冷泡茶'] },
   { slug: 'coffee', nameZh: '咖啡', nameEn: 'Coffee', category: 'food-drink', aliases: ['咖啡豆', '濾掛'] },
   { slug: 'chocolate-and-cacao', nameZh: '巧克力・可可', nameEn: 'Chocolate & Cacao', category: 'food-drink', aliases: ['巧克力可可', '巧克力', '可可'] },
   { slug: 'honey', nameZh: '蜂蜜', nameEn: 'Honey', category: 'food-drink', aliases: [] },
@@ -240,7 +247,8 @@ export const PRODUCT_SUBCATEGORIES: readonly ProductSubcategory[] = [
   { slug: 'baby-bedding', nameZh: '嬰幼兒寢具', nameEn: 'Baby Bedding', category: 'kids-pets', aliases: ['防踢被', '洞洞毯'] },
   { slug: 'bibs-and-muslin', nameZh: '圍兜・紗布巾', nameEn: 'Bibs & Muslin', category: 'kids-pets', aliases: ['圍兜紗布巾', '圍兜', '紗布巾', '口水巾', '安撫巾'] },
   { slug: 'kids-tableware', nameZh: '兒童餐具', nameEn: "Kids' Tableware", category: 'kids-pets', aliases: ['學習湯匙', '吸盤碗'] },
-  { slug: 'toys-and-learning', nameZh: '玩具・教具', nameEn: 'Toys & Learning', category: 'kids-pets', aliases: ['玩具教具', '玩具', '教具', '布偶', '益智玩具'] },
+  { slug: 'toys', nameZh: '玩具', nameEn: 'Toys', category: 'kids-pets', aliases: ['布偶', '益智玩具'] },
+  { slug: 'learning-aids', nameZh: '教具', nameEn: 'Learning Aids', category: 'kids-pets', aliases: [] },
   { slug: 'play-mats-and-fences', nameZh: '遊戲地墊・圍欄', nameEn: 'Play Mats & Fences', category: 'kids-pets', aliases: ['遊戲地墊圍欄', '遊戲地墊', '圍欄'] },
   { slug: 'parenting-essentials', nameZh: '育兒用品', nameEn: 'Parenting Essentials', category: 'kids-pets', aliases: ['濕紙巾'] },
   { slug: 'pet-food', nameZh: '寵物食品', nameEn: 'Pet Food', category: 'kids-pets', aliases: ['鮮食', '主食罐', '飼料'] },
@@ -266,6 +274,30 @@ export function normalizeTagKey(s: string): string {
     .trim()
     .toLowerCase()
     .replace(/\s+/g, ' ')
+}
+
+/**
+ * Labels retired by the DEV-1361 split. They remain explicit deny-list values
+ * rather than aliases: an old middle-dot or compact spelling must not come
+ * back as a novel tag after the atomic replacements are installed.
+ */
+export const RETIRED_COMPOSITE_LABELS = [
+  '香氛・蠟燭',
+  '鑰匙圈・吊飾',
+  '收納包・化妝包',
+  '茶包・茶飲',
+  '玩具・教具',
+  '花藝・植栽',
+  '毛巾・生活織品',
+  '手機袋・手機背帶',
+] as const
+
+const RETIRED_COMPOSITE_KEYS = new Set(
+  RETIRED_COMPOSITE_LABELS.map((label) => normalizeTagKey(label)),
+)
+
+export function isRetiredCompositeLabel(input: string): boolean {
+  return RETIRED_COMPOSITE_KEYS.has(normalizeTagKey(input))
 }
 
 /**
