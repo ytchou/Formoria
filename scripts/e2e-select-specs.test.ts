@@ -196,13 +196,20 @@ describe("targeted PR selection contract", () => {
 });
 
 describe("selective E2E workflow project routing", () => {
-  it("runs canonical smoke cases in Chromium and the dedicated journey in all three browsers", () => {
+  it("runs every case in affected specs while keeping cross-browser filtering scoped", () => {
     const workflow = readFileSync(".github/workflows/e2e-pr.yml", "utf8");
     const config = readFileSync("playwright.config.ts", "utf8");
 
-    expect(workflow).toContain(
-      "playwright test --project=deep --grep '@smoke'",
+    const selectedChromiumCommand = workflow
+      .split("\n")
+      .find((line) =>
+        line.includes("pnpm exec playwright test --project=deep"),
+      );
+    expect(selectedChromiumCommand).toBe(
+      '          pnpm exec playwright test --project=deep "${SPEC_PATHS[@]}"',
     );
+    expect(selectedChromiumCommand).not.toContain("--grep");
+    expect(workflow).toContain("--grep '@cross-browser'");
     expect(workflow).toContain(
       "SMOKE_TEST_COUNT=$(jq -r '.smoke_test_count' <<< \"$SELECTION\")",
     );
