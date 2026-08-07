@@ -19,6 +19,17 @@
 -- `net.http_post` returns. That is what `public.cron_http_dispatch` is for; the
 -- companion migration snapshots the join into a durable log before pg_net's
 -- 6-hour TTL prunes the responses.
+--
+-- SCOPE: of the four broken HTTP jobs, only two are rescheduled here. The other
+-- two are removed rather than repaired, because neither was doing work:
+--
+--   * `link-health-daily` duplicated what the GitHub Actions health agent
+--     already does, and its body was rejected by the route regardless.
+--   * `process-drips-daily` short-circuits on a feature flag that is off, and
+--     has never sent an email. DEV-1388 restores it when that flips.
+--
+-- `nightly-vacuum-analyze` is dropped too (autovacuum covers it). Neither of the
+-- two audit-purge jobs is touched -- they are pure SQL and were never affected.
 
 BEGIN;
 
@@ -33,6 +44,19 @@ BEGIN;
 -- caller: the health agent keeps it, pg_cron drops it.
 DO $$ BEGIN
   PERFORM cron.unschedule('link-health-daily');
+EXCEPTION WHEN others THEN
+  NULL;
+END $$;
+
+-- ---------------------------------------------------------------------------
+-- 1b. Retire the nightly VACUUM (ANALYZE).
+-- ---------------------------------------------------------------------------
+-- Postgres autovacuum already covers this, and Supabase ships it enabled. An
+-- unconditional nightly VACUUM (ANALYZE) over every table buys nothing on a
+-- database this size and takes locks for the privilege. If a specific table ever
+-- needs it, schedule that table -- not the whole database.
+DO $$ BEGIN
+  PERFORM cron.unschedule('nightly-vacuum-analyze');
 EXCEPTION WHEN others THEN
   NULL;
 END $$;
@@ -89,7 +113,7 @@ ALTER TABLE public.cron_http_dispatch ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.cron_http_dispatch FROM anon, authenticated;
 
 -- ---------------------------------------------------------------------------
--- 4. Reschedule the three surviving jobs.
+-- 4. Reschedule the two surviving jobs.
 -- ---------------------------------------------------------------------------
 -- Schedules are unchanged. Three things change in each command:
 --   * `cron_base_url` instead of `site_url`
@@ -131,39 +155,21 @@ SELECT cron.schedule(
   $job$
 );
 
+-- Drips are unscheduled, not rescheduled. `app_settings.owner_features_enabled`
+-- is false, so evaluateDrips returns { sent: 0 } before touching the queue or
+-- the mailer (src/lib/services/drip-processing.ts:149) -- with 1 brand_owner and
+-- 0 rows in email_sends, this job had never sent an email. It was a daily HTTP
+-- call whose only possible outcome was a no-op.
+--
+-- The route and service are untouched and still work; only the schedule is gone.
+-- DEV-1388 tracks re-scheduling it when owner features are re-enabled, and
+-- records the first-run blast radius (up to 3 emails per opted-in owner in one
+-- run, no rate limiter) that needs checking before the flag flips.
 DO $$ BEGIN
   PERFORM cron.unschedule('process-drips-daily');
 EXCEPTION WHEN others THEN
   NULL;
 END $$;
-
--- timeout 120000ms. src/app/api/cron/process-drips/route.ts exports no
--- maxDuration, so there is no declared ceiling to copy. The route loops over
--- every DRIP_TYPE and sends email per match, so its runtime scales with the
--- backlog: 5s would time out on any non-trivial day, and matching
--- claim-proof-cleanup's 300s would leave a genuinely wedged job hidden for five
--- minutes. Two minutes is the compromise -- raise it here and add an explicit
--- maxDuration to the route together if drip volume ever needs more.
-SELECT cron.schedule(
-  'process-drips-daily',
-  '0 3 * * *',
-  $job$
-  INSERT INTO public.cron_http_dispatch (request_id, job_name)
-  VALUES (
-    (SELECT net.http_post(
-       url := (SELECT value FROM public.app_secrets WHERE key = 'cron_base_url')
-         || '/api/cron/process-drips',
-       headers := jsonb_build_object(
-         'x-origin-verify', (SELECT value FROM public.app_secrets WHERE key = 'origin_secret'),
-         'Content-Type', 'application/json'
-       ),
-       body := jsonb_build_object('triggered_by', 'pg_cron', 'run_at', now()::text),
-       timeout_milliseconds := 120000
-     )),
-    'process-drips-daily'
-  );
-  $job$
-);
 
 DO $$ BEGIN
   PERFORM cron.unschedule('claim-proof-cleanup-hourly');
