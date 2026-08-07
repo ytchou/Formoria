@@ -121,6 +121,20 @@ export type EventExhibitorEntry = EventExhibitor & {
   brand: PublicBrandCard | null;
 };
 
+/** Canonical Creative Expo zones surfaced by the interactive explorer. */
+const CREATIVE_EXPO_ZONE_CODES = ["K1", "K2", "K3", "S"] as const;
+
+type CreativeExpoZone = (typeof CREATIVE_EXPO_ZONE_CODES)[number];
+
+/** A canonical exhibitor with a linked, public Formoria brand in a core zone. */
+export type LinkedEventExhibitorEntry = Omit<
+  EventExhibitorEntry,
+  "brand" | "zone"
+> & {
+  brand: PublicBrandCard;
+  zone: CreativeExpoZone;
+};
+
 /**
  * `value` stays the zh area string in every locale so an `?area=` filter link
  * survives a locale switch; only `label` localizes.
@@ -432,6 +446,39 @@ export function composeEventExhibitorEntries(
       (a, b) =>
         a.sortOrder - b.sortOrder || compareStrings(a.sourceKey, b.sourceKey),
     );
+}
+
+/**
+ * Narrows the canonical roster to linked Formoria brands in the four
+ * interactive Creative Expo zones. `zone` is copied from the canonical row;
+ * booth-prefix parsing belongs to the floor-map consistency check and never
+ * changes this placement truth.
+ */
+export function selectLinkedEventExhibitorEntries(
+  entries: readonly EventExhibitorEntry[],
+): LinkedEventExhibitorEntry[] {
+  return entries.filter(
+    (entry): entry is LinkedEventExhibitorEntry =>
+      entry.brand !== null &&
+      (CREATIVE_EXPO_ZONE_CODES as readonly string[]).includes(
+        entry.zone ?? "",
+      ),
+  );
+}
+
+/** Adapts linked canonical rows to the existing shared BrandCard entry shape. */
+export function projectLinkedEventExhibitorEntries(
+  entries: readonly LinkedEventExhibitorEntry[],
+): EventBrandEntry[] {
+  return entries.map((entry) => ({
+    brand: entry.brand,
+    booth: entry.booth,
+    area: entry.area,
+    areaEn: entry.areaEn,
+    note: null,
+    noteEn: null,
+    sortOrder: entry.sortOrder,
+  }));
 }
 
 /**
