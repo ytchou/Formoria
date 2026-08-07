@@ -64,6 +64,29 @@ export const RESERVED_ROUTES = new Set([
 
 export const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{2,79}$/
 
+/**
+ * Paths that bypass the Cloudflare origin guard below. Machine callers reach
+ * these straight at the Railway origin with no edge credential.
+ *
+ * The match mode per entry is load-bearing: `/api/internal/revalidate-brands` is
+ * EXACT, because a prefix match there would exempt the whole of
+ * `/api/internal/`, which is deliberately guarded.
+ */
+export const ORIGIN_GUARD_EXEMPT_PATHS = [
+  // Railway probes this from inside its own private network, with no edge
+  // header. A 403 here fails every deploy's health check forever — including
+  // the deploy that would fix it.
+  { pathname: '/api/health', match: 'prefix' },
+  { pathname: '/api/cron/', match: 'prefix' },
+  { pathname: '/api/internal/revalidate-brands', match: 'exact' },
+] as const satisfies ReadonlyArray<{ pathname: string; match: 'prefix' | 'exact' }>
+
+export function isOriginGuardExempt(pathname: string): boolean {
+  return ORIGIN_GUARD_EXEMPT_PATHS.some((entry) =>
+    entry.match === 'prefix' ? pathname.startsWith(entry.pathname) : pathname === entry.pathname,
+  )
+}
+
 export type BareBrandSlugDecision =
   | { action: 'redirect'; status: 301; pathname: string }
   | { action: 'not-found'; status: 404 }
@@ -253,9 +276,18 @@ function getBrandDetailSlug(segments: string[]): string | null {
 async function refreshSupabaseSession(request: NextRequest, response: NextResponse) {
   const supabaseResponse = response
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  // No credentials configured means there is no session to refresh. Production
+  // always has both, so this only short-circuits environments that run without
+  // Supabase (unit tests, credential-less previews); the outcome — an
+  // unauthenticated request carrying the untouched response — is the same one
+  // the `getUser()` catch below already produces.
+  if (!supabaseUrl || !supabaseAnonKey) return supabaseResponse
+
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseAnonKey,
     {
       cookies: {
         getAll() {
@@ -332,19 +364,31 @@ export async function proxy(request: NextRequest) {
 
   const cfOriginSecret = process.env.CF_ORIGIN_SECRET
   if (process.env.NODE_ENV === 'production' && cfOriginSecret) {
-    const cfSecret = request.headers.get('x-origin-verify')
+    // Two different credentials, one header each:
+    //   x-formoria-edge → CF_ORIGIN_SECRET, asserted by Cloudflare. A PATH
+    //     assertion: "this request came through our edge." That is what this
+    //     guard checks.
+    //   x-origin-verify → ORIGIN_SECRET, asserted by a machine caller. A CALLER
+    //     assertion, verified inside the handler, not here.
+    // They used to share x-origin-verify, and a zone-wide Cloudflare transform
+    // rule overwrote it on every request — clobbering the caller credential and
+    // silently breaking every pg_cron job.
+    //
+    // TEMPORARY: x-origin-verify is still accepted as a fallback because the
+    // Cloudflare rule that injects x-formoria-edge does not exist yet. Remove
+    // the fallback once that rule has soaked. When the new header IS present it
+    // decides on its own — falling back after a wrong new header would let the
+    // legacy header override it and defeat the migration.
+    //
     // Exempt paths are called machine-to-machine straight at the Railway origin
     // (the public host is Cloudflare-fronted and bot-challenges those POSTs), so
-    // they carry ORIGIN_SECRET — not CF_ORIGIN_SECRET — in this header and
-    // authenticate themselves inside their own handler. /api/internal/revalidate-brands
-    // follows the same contract as /api/cron/; the rest of /api/internal/ keeps
-    // this guard as a second layer and is deliberately not exempt.
-    if (
-      cfSecret !== cfOriginSecret &&
-      !request.nextUrl.pathname.startsWith('/api/health') &&
-      !request.nextUrl.pathname.startsWith('/api/cron/') &&
-      request.nextUrl.pathname !== '/api/internal/revalidate-brands'
-    ) {
+    // they carry no edge credential and authenticate themselves inside their own
+    // handler. /api/internal/revalidate-brands follows the same contract as
+    // /api/cron/; the rest of /api/internal/ keeps this guard as a second layer
+    // and is deliberately not exempt.
+    const edgeHeader = request.headers.get('x-formoria-edge')
+    const edgeSecret = edgeHeader ?? request.headers.get('x-origin-verify')
+    if (edgeSecret !== cfOriginSecret && !isOriginGuardExempt(request.nextUrl.pathname)) {
       return new NextResponse('Forbidden', { status: 403 })
     }
   }
