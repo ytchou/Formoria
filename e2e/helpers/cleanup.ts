@@ -93,8 +93,12 @@ export async function cleanupTestData({ createdSince }: CleanupOptions = {}) {
 
   console.log(`[e2e-cleanup] swept [E2E-TEST] rows created since ${createdSince}`);
 
-  // Teardown must fail loudly: a silently warned error here is what let residue
-  // accumulate while the sweep reported success.
+  // Throw rather than warn: global-teardown's catch turns this into a
+  // console.error, which is the loudest signal available without failing the
+  // run. Ceiling: the run still exits 0, so a persistently failing sweep is
+  // visible only to someone reading the log. Upgrade path — set
+  // `process.exitCode = 1` in global-teardown once cleanup is reliable enough
+  // that a failure means a real leak rather than a transient Supabase error.
   if (failures.length > 0) {
     throw new Error(`[e2e-cleanup] run-scoped sweep failed — ${failures.join('; ')}`);
   }
