@@ -108,7 +108,15 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git commit -m "content(produce): produce approved items $(date +%Y-%m-%d)"
-          git push -u origin "$BRANCH"
+          # The branch name is derived from the date, so a same-day rerun (or a
+          # retry after a later step failed) collides with the branch the previous
+          # attempt already pushed and is rejected non-fast-forward. Fetch the ref
+          # so --force-with-lease has a lease to check, then replace it: these
+          # branches are regenerated wholesale each run and nothing else writes to
+          # them. This is what kept the workflow red after the token fix landed —
+          # 13 orphan content/produce-* branches had accumulated since 07-21.
+          git fetch origin "$BRANCH" || true
+          git push --force-with-lease -u origin "$BRANCH"
           PR_URL=$(gh pr create --title "Content produce: $(date +%Y-%m-%d)" \
             --body "Auto-produced content from approved items." \
             --label "content")
