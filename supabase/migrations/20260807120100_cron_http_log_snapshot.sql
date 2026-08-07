@@ -35,8 +35,10 @@ BEGIN;
 CREATE TABLE IF NOT EXISTS public.cron_http_log (
   request_id bigint PRIMARY KEY,
   job_name   text NOT NULL,
-  -- NULL means pg_net has no status: either the request errored/timed out, or
-  -- it was never answered at all (see the silence marker below).
+  -- NULL means pg_net recorded no status: the request errored or timed out.
+  -- A dispatch that was never answered at all has no row here at all --
+  -- absence is detected downstream from an expected-job list with a per-job
+  -- max age, not synthesized into this table.
   status_code int,
   -- Distinct from a non-2xx on purpose. pg_net gave up waiting; the route may
   -- have completed successfully on the other side.
@@ -54,23 +56,54 @@ COMMENT ON TABLE public.cron_http_log IS
 COMMENT ON COLUMN public.cron_http_log.timed_out IS
   'pg_net stopped waiting for a response. NOT the same as a failed job -- the route may have completed. Alert on it separately from a non-2xx status_code.';
 
-CREATE INDEX IF NOT EXISTS cron_http_log_created_desc_idx
-  ON public.cron_http_log (created DESC);
-CREATE INDEX IF NOT EXISTS cron_http_log_job_name_idx
-  ON public.cron_http_log (job_name);
+-- Every real query filters on logged_at: the collector reads
+-- `logged_at=gte.<cutoff>` and retention deletes `WHERE logged_at < ...`.
+-- Nothing filters on `created` (which is NULL whenever no response was
+-- recorded) or on `job_name` -- grouping by job happens in TypeScript after the
+-- rows are fetched. One index, on the only column with a predicate.
+CREATE INDEX IF NOT EXISTS cron_http_log_logged_at_idx
+  ON public.cron_http_log (logged_at);
 
--- No policies, deliberately. service_role bypasses RLS; nothing else may read
--- operational cron records.
+DROP INDEX IF EXISTS public.cron_http_log_created_desc_idx;
+DROP INDEX IF EXISTS public.cron_http_log_job_name_idx;
+
+-- RLS on, with one narrow exception: health_agent_reader is the role the
+-- GitHub Actions health-agent collector authenticates as over PostgREST, and
+-- this table is its input. Both halves are required -- the GRANT alone is
+-- denied by RLS, the policy alone is denied by the missing table privilege.
+-- service_role bypasses RLS; anon/authenticated get nothing.
 ALTER TABLE public.cron_http_log ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.cron_http_log FROM anon, authenticated;
+
+-- Mirrors the sibling grants in
+-- 20260722200000_github_health_agent_foundations.sql. Guarded on role existence
+-- because health_agent_reader is provisioned manually in production and does
+-- not exist in local/CI Supabase.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'health_agent_reader') THEN
+    GRANT SELECT ON TABLE public.cron_http_log TO health_agent_reader;
+
+    DROP POLICY IF EXISTS health_agent_reader_cron_http_log ON public.cron_http_log;
+    CREATE POLICY health_agent_reader_cron_http_log
+      ON public.cron_http_log FOR SELECT TO health_agent_reader
+      USING (true);
+  END IF;
+END;
+$$;
 
 -- ---------------------------------------------------------------------------
 -- 2. The snapshot job -- pure SQL, every 15 minutes.
 -- ---------------------------------------------------------------------------
 -- 15 minutes comfortably beats the 6-hour TTL: a response would have to be
 -- pruned within a quarter-hour of being written to escape this, which cannot
--- happen. It also bounds how long a dispatch sits unresolved before the silence
--- marker fires.
+-- happen.
+--
+-- This job does ONE thing: snapshot outcomes. Retention is a separate job
+-- (below) on purpose -- bundling them puts both in one transaction, so a
+-- failing INSERT would roll back the DELETEs and leave the monitor blind AND
+-- both tables growing unbounded, with the only evidence in cron.job_run_details
+-- (the surface nobody watches, which is why this ticket exists).
 DO $$ BEGIN
   PERFORM cron.unschedule('cron-http-snapshot');
 EXCEPTION WHEN others THEN
@@ -81,9 +114,9 @@ SELECT cron.schedule(
   'cron-http-snapshot',
   '*/15 * * * *',
   $job$
-  -- (a) Answered dispatches. Upsert, not insert: a dispatch can be snapshotted
-  -- while pg_net still has it pending (or already marked silent below) and
-  -- resolve afterwards, so the later run must be able to correct the row.
+  -- Answered dispatches. Upsert, not insert: a dispatch can be snapshotted
+  -- while pg_net still has it pending and resolve afterwards, so the later run
+  -- must be able to correct the row.
   INSERT INTO public.cron_http_log (request_id, job_name, status_code, timed_out, error_msg, created)
   SELECT
     dispatch.request_id,
@@ -100,35 +133,30 @@ SELECT cron.schedule(
     error_msg   = excluded.error_msg,
     created     = excluded.created,
     logged_at   = now();
+  $job$
+);
 
-  -- (b) Silence. A dispatch with no response row at all is a real failure mode
-  -- -- pg_net's worker never recorded a result -- and it is invisible if
-  -- represented by absence, because the dispatch row is itself deleted at 30
-  -- days. Record it explicitly instead: status_code NULL with this exact
-  -- error_msg prefix is the marker a downstream collector matches on.
-  --
-  -- 30 minutes is the threshold: the longest configured timeout is 300s, so
-  -- anything unanswered after half an hour is never going to be answered.
-  -- DO NOTHING, so a silence marker can never overwrite a real outcome that (a)
-  -- already wrote -- while (a)'s DO UPDATE can still correct a silence marker.
-  INSERT INTO public.cron_http_log (request_id, job_name, status_code, timed_out, error_msg, created)
-  SELECT
-    dispatch.request_id,
-    dispatch.job_name,
-    NULL,
-    false,
-    'cron_http_no_response: pg_net recorded no response within 30 minutes of dispatch',
-    NULL
-  FROM public.cron_http_dispatch AS dispatch
-  WHERE dispatch.dispatched_at < now() - interval '30 minutes'
-    AND NOT EXISTS (
-      SELECT 1 FROM net._http_response AS response WHERE response.id = dispatch.request_id
-    )
-  ON CONFLICT (request_id) DO NOTHING;
+-- ---------------------------------------------------------------------------
+-- 3. Retention -- its own job, deliberately.
+-- ---------------------------------------------------------------------------
+-- 30 days on both tables. The dispatch ledger only exists to survive pg_net's
+-- 6-hour TTL window; once a row is snapshotted it is dead weight, and 30 days
+-- is far more slack than that needs.
+--
+-- Separate from the snapshot job so the two failure modes stay independent: a
+-- broken snapshot must not also stop retention, and a broken retention sweep
+-- must not also blind the monitor. Pure SQL, daily -- neither table accumulates
+-- fast enough to need more.
+DO $$ BEGIN
+  PERFORM cron.unschedule('cron-http-retention');
+EXCEPTION WHEN others THEN
+  NULL;
+END $$;
 
-  -- (c) Retention, 30 days on both tables. The dispatch ledger only exists to
-  -- survive the 6-hour TTL window; once a row is snapshotted it is dead weight,
-  -- and 30 days is far more slack than that needs.
+SELECT cron.schedule(
+  'cron-http-retention',
+  '40 3 * * *',
+  $job$
   DELETE FROM public.cron_http_log WHERE logged_at < now() - interval '30 days';
   DELETE FROM public.cron_http_dispatch WHERE dispatched_at < now() - interval '30 days';
   $job$

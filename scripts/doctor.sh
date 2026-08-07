@@ -99,12 +99,27 @@ check_env() {
     # cron jobs and internal clients straight at the Railway origin). Making them
     # equal collapses two trust domains into one and hands the edge credential to
     # every machine caller. See docs/runbooks/cloudflare-edge.md and DEV-1377.
-    __origin_secret=$(grep -m1 '^ORIGIN_SECRET=' .env.local 2>/dev/null | cut -d= -f2-)
-    __cf_origin_secret=$(grep -m1 '^CF_ORIGIN_SECRET=' .env.local 2>/dev/null | cut -d= -f2-)
+    #
+    # Normalise before comparing: ORIGIN_SECRET="abc" and CF_ORIGIN_SECRET=abc
+    # are the SAME secret, and a trailing space or CRLF would likewise make two
+    # identical values compare unequal. A security check that fails open is
+    # worse than no check, so strip quoting and trailing whitespace first.
+    __strip_env_value() {
+      printf '%s' "$1" \
+        | tr -d '\r' \
+        | sed -e 's/[[:space:]]*$//' \
+              -e 's/^"\(.*\)"$/\1/' \
+              -e "s/^'\(.*\)'$/\1/" \
+              -e 's/[[:space:]]*$//'
+    }
+    __origin_secret=$(__strip_env_value "$(grep -m1 '^ORIGIN_SECRET=' .env.local 2>/dev/null | cut -d= -f2-)")
+    __cf_origin_secret=$(__strip_env_value "$(grep -m1 '^CF_ORIGIN_SECRET=' .env.local 2>/dev/null | cut -d= -f2-)")
     if [ -n "$__origin_secret" ] && [ "$__origin_secret" = "$__cf_origin_secret" ]; then
-      echo "FAIL: ORIGIN_SECRET equals CF_ORIGIN_SECRET — these are two different trust domains and must never share a value"
+      echo "ERROR: ORIGIN_SECRET equals CF_ORIGIN_SECRET — these are two different trust domains and must never share a value"
+      ERRORS=$((ERRORS + 1))
     fi
     unset __origin_secret __cf_origin_secret
+    unset -f __strip_env_value
     if ! grep -q "CHALLENGE_SECRET=." .env.local; then
       echo "WARN: CHALLENGE_SECRET not set — progressive CAPTCHA challenge will fail in production"
     fi

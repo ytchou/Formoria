@@ -27,6 +27,7 @@ import {
   type RepairSnapshot,
 } from "./repair";
 import {
+  HEALTH_SOURCES,
   stableFingerprint,
   type AuditLogger,
   type HealthFinding,
@@ -104,7 +105,11 @@ const healthFindingSchema = z
     mergePolicy: z.enum(["automatic", "human"]),
     sentryIssueId: z.string().trim().min(1).max(500).optional(),
     severity: z.enum(["low", "medium", "high", "critical"]),
-    source: z.enum(["link", "directory", "sentry", "quality", "cron"]),
+    // Derived from HEALTH_SOURCES so adding a routine is a compile error here
+    // rather than a silently rejected finding at runtime.
+    source: z.enum(
+      HEALTH_SOURCES as unknown as [HealthSource, ...HealthSource[]],
+    ),
     title: z.string().trim().min(1).max(MAX_TEXT_LENGTH),
   })
   .strict();

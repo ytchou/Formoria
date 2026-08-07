@@ -73,19 +73,30 @@ END $$;
 -- Production value is already the Railway origin
 -- (https://mitmap-production.up.railway.app), applied as containment before this
 -- migration. This copies whatever is live rather than hardcoding a host.
+-- DO UPDATE, not DO NOTHING: if a stale `cron_base_url` already exists, DO
+-- NOTHING would discard the live `site_url` value -- and the unconditional
+-- DELETE below would then destroy it with no trace. `site_url` is the value the
+-- running system was actually configured with, so it wins whenever both exist.
 INSERT INTO public.app_secrets (key, value)
 SELECT 'cron_base_url', value FROM public.app_secrets WHERE key = 'site_url'
-ON CONFLICT (key) DO NOTHING;
+ON CONFLICT (key) DO UPDATE SET value = excluded.value;
 
 DELETE FROM public.app_secrets WHERE key = 'site_url';
 
 -- Re-running after the rename is a no-op (the SELECT finds nothing and
 -- cron_base_url is left alone). But a database that had neither key would leave
--- the jobs building `NULL || '/api/cron/...'` -- warn loudly instead of
--- scheduling jobs that silently post nowhere.
+-- the jobs building `NULL || '/api/cron/...'`: net.http_post raises on a NULL
+-- url, the enclosing INSERT aborts, and no dispatch row lands -- so the monitor
+-- added by the companion migration cannot even see the misconfiguration. Fail
+-- the migration instead of shipping jobs that provably cannot work.
+-- app_secrets is created empty and never seeded, so a fresh local/CI/branch
+-- database MUST insert cron_base_url before this migration runs.
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM public.app_secrets WHERE key = 'cron_base_url') THEN
-    RAISE WARNING 'app_secrets.cron_base_url is not set -- pg_cron HTTP jobs will post to a NULL url until it is inserted (must be the Railway origin, NOT the Cloudflare-fronted public host)';
+  IF NOT EXISTS (
+    SELECT 1 FROM public.app_secrets
+    WHERE key = 'cron_base_url' AND value IS NOT NULL AND value <> ''
+  ) THEN
+    RAISE EXCEPTION 'app_secrets.cron_base_url is not set -- pg_cron HTTP jobs would post to a NULL url. Insert it first (must be the Railway origin, NOT the Cloudflare-fronted public host).';
   END IF;
 END $$;
 
@@ -126,6 +137,16 @@ REVOKE ALL ON TABLE public.cron_http_dispatch FROM anon, authenticated;
 --
 -- Every table reference is schema-qualified -- cron runs with its own
 -- search_path and will not find bare `app_secrets`.
+--
+-- DELIBERATE COUPLING, do not "fix" this: net.http_post is called INSIDE the
+-- INSERT INTO public.cron_http_dispatch, so a failure to record the dispatch
+-- rolls back the HTTP request and the job does nothing. That is the intended
+-- failure direction. An unobservable cron job is the exact failure this ticket
+-- exists to prevent -- seven weeks of 401s behind a green scheduler -- so
+-- refusing to dispatch when the dispatch cannot be recorded is strictly better
+-- than dispatching blind. The consequence is real and accepted: anything that
+-- breaks public.cron_http_dispatch (dropped table, revoked write, full disk)
+-- stops both jobs. Decoupling them would restore the silent-failure mode.
 
 DO $$ BEGIN
   PERFORM cron.unschedule('sync-mit-registry-weekly');

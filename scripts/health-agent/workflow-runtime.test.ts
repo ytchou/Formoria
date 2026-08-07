@@ -463,9 +463,7 @@ describe("terminal health report", () => {
     );
 
     expect(
-      linear.mock.calls[0]?.[0].findings.map(
-        ({ fingerprint }) => fingerprint,
-      ),
+      linear.mock.calls[0]?.[0].findings.map(({ fingerprint }) => fingerprint),
     ).toEqual(["directory:one"]);
     expect(markFingerprintsTicketed).toHaveBeenCalledWith(
       ["directory:one"],
@@ -520,9 +518,7 @@ describe("terminal health report", () => {
 
     expect(linear).not.toHaveBeenCalled();
     expect(markFingerprintsTicketed).not.toHaveBeenCalled();
-    expect(slack.mock.calls[0]?.[0]).not.toHaveProperty(
-      "healthSummary.ticket",
-    );
+    expect(slack.mock.calls[0]?.[0]).not.toHaveProperty("healthSummary.ticket");
   });
 
   it("records a failure without throwing when the ticket ledger PATCH fails", async () => {
@@ -2067,7 +2063,9 @@ describe("scoped writer RPC", () => {
     const [url, init] = fetchImplementation.mock.calls[0] ?? [];
     expect(String(url)).toContain("ticketed_at=is.null");
     expect(init?.method).toBe("PATCH");
-    expect(init?.headers).toMatchObject({ Authorization: "Bearer writer-token" });
+    expect(init?.headers).toMatchObject({
+      Authorization: "Bearer writer-token",
+    });
     const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
     expect(body.linear_identifier).toBe("DEV-1400");
     expect(String(body.ticketed_at)).toMatch(

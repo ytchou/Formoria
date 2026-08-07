@@ -44,9 +44,7 @@ export interface HealthFindingLifecycle {
 }
 
 export interface HealthSummary {
-  checks: Readonly<
-      Record<"directory" | "link" | "quality" | "sentry" | "cron", HealthSummaryCheck>
-  >;
+  checks: Readonly<Record<HealthSource, HealthSummaryCheck>>;
   overallStatus: "failed" | "healthy" | "needs_attention";
   lifecycle?: HealthFindingLifecycle;
   phases: Readonly<

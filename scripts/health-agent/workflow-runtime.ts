@@ -2291,18 +2291,37 @@ export interface CronHealthInput {
 }
 
 function cronHttpLogRow(value: Record<string, unknown>): CronHttpLogRow {
+  const {
+    created,
+    error_msg: errorMsg,
+    job_name: jobName,
+    logged_at: loggedAt,
+    request_id: requestId,
+    status_code: statusCode,
+    timed_out: timedOut,
+  } = value;
   if (
-    typeof value.request_id !== "number" ||
-    typeof value.job_name !== "string" ||
-    (value.status_code !== null && typeof value.status_code !== "number") ||
-    typeof value.timed_out !== "boolean" ||
-    (value.error_msg !== null && typeof value.error_msg !== "string") ||
-    (value.created !== null && typeof value.created !== "string") ||
-    typeof value.logged_at !== "string"
+    typeof requestId !== "number" ||
+    typeof jobName !== "string" ||
+    (statusCode !== null && typeof statusCode !== "number") ||
+    typeof timedOut !== "boolean" ||
+    (errorMsg !== null && typeof errorMsg !== "string") ||
+    (created !== null && typeof created !== "string") ||
+    typeof loggedAt !== "string"
   ) {
     throw new Error("cron_http_log_row_invalid");
   }
-  return value as unknown as CronHttpLogRow;
+  // Rebuilt field by field from the narrowed locals: a field added to
+  // CronHttpLogRow later fails to compile here instead of being cast away.
+  return {
+    created,
+    error_msg: errorMsg,
+    job_name: jobName,
+    logged_at: loggedAt,
+    request_id: requestId,
+    status_code: statusCode,
+    timed_out: timedOut,
+  };
 }
 
 export async function collectCronHealthArtifact(
@@ -2326,17 +2345,22 @@ export async function collectCronHealthArtifact(
       { logged_at: `gte.${cutoff}` },
       "request_id",
     );
-    if (values.length === 0) throw new Error("cron_http_log_empty");
+    // An empty read is a normal input: evaluateCronHealth reports every
+    // expected job as stale. Only a failed read reaches the catch below.
     const rows = values.map(cronHttpLogRow);
-    const findings = evaluateCronHealth(rows);
+    const findings = evaluateCronHealth(rows, new Date(runAtMs));
+    const summary = {
+      lookbackHours: CRON_HEALTH_LOOKBACK_HOURS,
+      rowCount: rows.length,
+    };
     const artifact: HealthCollectorArtifact = {
       collectedAt: runAt,
-      evidence: { lookbackHours: CRON_HEALTH_LOOKBACK_HOURS, rowCount: rows.length },
+      evidence: summary,
       failures: [],
       findings,
       routine: "cron-health",
       skippedActions: [],
-      snapshot: { lookbackHours: CRON_HEALTH_LOOKBACK_HOURS, rowCount: rows.length },
+      snapshot: summary,
       status: "success",
       version: 1,
     };
@@ -2344,18 +2368,11 @@ export async function collectCronHealthArtifact(
     return artifact;
   } catch (error) {
     const reason = safeRuntimeFailure(error);
-    const artifact: HealthCollectorArtifact = {
-      collectedAt: runAt,
-      evidence: { lookbackHours: CRON_HEALTH_LOOKBACK_HOURS },
-      failure: reason,
-      failures: [`cron_http_log_read_failed:${reason}`],
-      findings: [],
-      routine: "cron-health",
-      skippedActions: [],
-      snapshot: {},
-      status: "failed",
-      version: 1,
-    };
+    const artifact = failedCollectorArtifact(
+      "cron-health",
+      runAt,
+      `cron_http_log_read_failed:${reason}`,
+    );
     await writeRedactedJson(input.outputPath, artifact, filesFor(dependencies));
     return artifact;
   }

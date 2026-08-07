@@ -15,7 +15,7 @@
  * header).
  */
 export function isAuthorizedMachineCaller(req: Request): boolean {
-  const secret = process.env.ORIGIN_SECRET?.trim()
+  const secret = process.env.ORIGIN_SECRET?.trim();
   // A blank server-side secret must never make every caller authorized.
-  return Boolean(secret) && req.headers.get('x-origin-verify') === secret
+  return Boolean(secret) && req.headers.get("x-origin-verify") === secret;
 }

@@ -504,7 +504,9 @@ describe("Linear adapter", () => {
     const createInput = (
       bodyAt(fetchImpl, 1).variables as Record<string, unknown>
     ).input as Record<string, unknown>;
-    expect(createInput.title).toBe("Health Agent — 2 new findings (2026-07-29)");
+    expect(createInput.title).toBe(
+      "Health Agent — 2 new findings (2026-07-29)",
+    );
     expect(createInput.description).not.toContain("This rolling ticket");
   });
 
