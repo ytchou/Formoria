@@ -1,4 +1,3 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
 import { createEdgeServiceClient } from '@/lib/supabase/edge'
 
 export interface CrawlerHitRow {
@@ -29,19 +28,12 @@ function toRecords(rows: CrawlerHitRow[]): CrawlerHitRecord[] {
  * tests inject a stub through the seam instead of mocking `@/lib/supabase/edge`,
  * which the test-boundary check forbids.
  */
-export type CrawlerHitsClient = Pick<SupabaseClient, 'rpc'>
+// Derived from the factory's return type rather than a bare SupabaseClient, so
+// the seam carries the generated Database types and a renamed column or RPC
+// fails `tsc` instead of surfacing as a swallowed runtime warning.
+export type CrawlerHitsClient = Pick<ReturnType<typeof createEdgeServiceClient>, 'rpc'>
 
-// Ceiling: `crawler_hits` is absent from database.types.ts because its
-// migration is deliberately unapplied, so the generated Database type has no
-// entry for this RPC and the call has to be made through an untyped client --
-// renaming a column or the function keeps `tsc` green. The repository-adapter
-// pattern used by brand-redirects-edge.ts does not remove this: an adapter
-// would need the same cast, just one file further away.
-// Upgrade path: once the migration is applied and database.types.ts is
-// regenerated, drop the cast and let `client.rpc` type-check the payload,
-// then delete this comment.
-const defaultClientFactory = (): CrawlerHitsClient =>
-  createEdgeServiceClient() as unknown as SupabaseClient
+const defaultClientFactory = (): CrawlerHitsClient => createEdgeServiceClient()
 
 let clientFactory: () => CrawlerHitsClient = defaultClientFactory
 
