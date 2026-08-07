@@ -1738,6 +1738,9 @@ export async function applyRunArtifact(
     loadScope?: (batchSize: number) => Promise<BrandRow[]>;
     loadSnapshot?: (id: string) => Promise<BrandRow>;
     update?: ApplyBrandUpdater;
+    revalidateBatch?: (
+      slugs: string[],
+    ) => Promise<{ ok: boolean; reason?: string }>;
   } = {},
 ): Promise<{ writeCount: number; revalidatedSlugs: string[] }> {
   const reviewed = parseRunArtifact(artifact, { requireApproval: true });
@@ -1806,17 +1809,27 @@ export async function applyRunArtifact(
     finalSnapshots.push(await loadSnapshot(row.id));
   validateFinalSnapshots(reviewed.rows, finalSnapshots);
 
-  const revalidate =
-    options.revalidate ??
-    (async ({ slug }: { slug: string }) => {
-      const { revalidatePublicBrand } =
-        await import("@/lib/cache/public-brand-cache");
-      revalidatePublicBrand({ slug });
-    });
   const revalidatedSlugs: string[] = [];
+  if (options.revalidateBatch || !options.revalidate) {
+    const revalidateBatch =
+      options.revalidateBatch ??
+      (async (slugs: string[]) => {
+        const { requestPublicBrandRevalidation } =
+          await import("@/lib/cache/revalidate-client");
+        return requestPublicBrandRevalidation(slugs);
+      });
+    const result = await revalidateBatch(changedSlugs);
+    if (!result.ok)
+      throw new Error(
+        `ABORT: batch revalidation failed: ${result.reason ?? "unknown error"}`,
+      );
+    revalidatedSlugs.push(...changedSlugs);
+    return { writeCount, revalidatedSlugs };
+  }
+
   for (const slug of changedSlugs) {
     try {
-      await revalidate({ slug });
+      await options.revalidate({ slug });
     } catch (error) {
       throw new Error(
         `ABORT: revalidation failed for "${slug}": ${error instanceof Error ? error.message : String(error)}`,

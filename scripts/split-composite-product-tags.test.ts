@@ -834,7 +834,7 @@ describe("DEV-1361 split planner", () => {
     );
   });
 
-  it("writes first, validates every final snapshot, then revalidates each changed slug once", async () => {
+  it("writes first, validates every final snapshot, then batches CLI revalidation", async () => {
     const current = brand({
       product_tags: ["香氛・蠟燭"],
       product_tags_en: ["Home Fragrance & Candles"],
@@ -854,7 +854,7 @@ describe("DEV-1361 split planner", () => {
       reviewedAt: "2026-08-08T01:00:00.000Z",
     };
     let state = structuredClone(current);
-    const revalidated: string[] = [];
+    const revalidationBatches: string[][] = [];
     const actors: Array<{ source: "enriched" }> = [];
     const result = await import("./split-composite-product-tags").then(
       ({ applyRunArtifact }) =>
@@ -875,8 +875,9 @@ describe("DEV-1361 split planner", () => {
               skipped: [],
             };
           },
-          revalidate: async ({ slug }) => {
-            revalidated.push(slug);
+          revalidateBatch: async (slugs) => {
+            revalidationBatches.push(slugs);
+            return { ok: true };
           },
         }),
     );
@@ -884,7 +885,7 @@ describe("DEV-1361 split planner", () => {
       writeCount: 1,
       revalidatedSlugs: [current.slug],
     });
-    expect(revalidated).toEqual([current.slug]);
+    expect(revalidationBatches).toEqual([[current.slug]]);
     expect(actors).toEqual([{ source: "enriched" }]);
     expect(state.product_tags).toEqual(["居家香氛"]);
   });
