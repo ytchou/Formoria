@@ -26,7 +26,6 @@ import { localizePath } from '@/i18n/locale-preference'
 import { updateDirectoryUrl } from '@/lib/directory-filter-url'
 import type { PublicBrandCard } from '@/lib/brands/contracts'
 import { DirectoryLandingHead } from './directory-landing-head'
-import { DirectoryLandingTail } from './directory-landing-tail'
 
 const EMPTY_STATE_RECOMMENDATION_LIMIT = 4
 const VALID_CATEGORY_SLUGS: ReadonlySet<string> = new Set(PRODUCT_TYPE_CATEGORIES.map((category) => category.slug))
@@ -360,11 +359,6 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
           </Suspense>
 
           <Pagination totalCount={totalCount} currentPage={clampedPage} pageSize={DEFAULT_PAGE_SIZE} />
-          <DirectoryLandingTail
-            locale={safeLocale}
-            category={categoryBreadcrumb}
-            subcategory={subcategoryBreadcrumb}
-          />
         </div>
       </main>
     </NextIntlClientProvider>

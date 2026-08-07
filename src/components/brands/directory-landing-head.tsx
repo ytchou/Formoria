@@ -3,18 +3,12 @@ import type { Locale } from '@/lib/seo/alternates'
 import { DirectoryBreadcrumb } from './directory-breadcrumb'
 import { CategoryLinkList } from './category-link-list'
 
-type DirectoryLandingFaq = {
-  question: string
-  answer: string
-}
-
 export type DirectoryLandingCopy = {
   title?: string
   description?: string
   h1?: string
   intro?: string
   definition?: string
-  faq: DirectoryLandingFaq[]
 }
 
 type TranslationShape = {
@@ -28,15 +22,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function nonEmptyString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim().length > 0 ? value : undefined
-}
-
-function readFaq(value: unknown): DirectoryLandingFaq[] {
-  if (!Array.isArray(value)) return []
-  return value.filter(isRecord).flatMap((item) => {
-    const question = nonEmptyString(item.question)
-    const answer = nonEmptyString(item.answer)
-    return question && answer ? [{ question, answer }] : []
-  })
 }
 
 export function readDirectoryLandingCopy(
@@ -60,7 +45,6 @@ export function readDirectoryLandingCopy(
     h1: nonEmptyString(value.h1),
     intro: nonEmptyString(value.intro),
     definition: nonEmptyString(value.definition),
-    faq: readFaq(value.faq),
   }
 }
 
@@ -108,11 +92,12 @@ export async function DirectoryLandingHead({
     category?.slug,
     subcategory?.slug,
   )
-  const intro = copy?.intro ?? copy?.description ?? (
+  const summary = copy?.intro ?? copy?.description ?? (
     category && categoryT.has(`descriptions.${category.slug}`)
       ? categoryT(`descriptions.${category.slug}`)
       : null
   )
+  const intro = [summary, copy?.definition].filter(Boolean).join(' ')
   const updatedDate = formatDate(latestUpdatedAt, locale)
   const heading = copy?.h1 ?? pageHeading
 
@@ -127,7 +112,7 @@ export async function DirectoryLandingHead({
       />
       <h1 className="text-balance type-page-title">{heading}</h1>
       {intro ? (
-        <p className="mt-3 max-w-[42rem] type-body-muted">{intro}</p>
+        <p className="mt-3 type-body-muted">{intro}</p>
       ) : null}
       <div
         {...(announceLiveRegion

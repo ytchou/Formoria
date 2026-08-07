@@ -130,6 +130,17 @@ test.describe("Category landing pages deep", () => {
 
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto("/categories/home");
+    await expect(
+      page.getByText("本分類聚焦讓居住空間更好使用的物件，而不只限於裝飾品。", {
+        exact: false,
+      }),
+    ).toHaveCount(1);
+    await expect(page.getByRole("heading", { name: "分類說明" })).toHaveCount(
+      0,
+    );
+    await expect(page.getByRole("heading", { name: "常見問題" })).toHaveCount(
+      0,
+    );
     const liveRegion = page.locator('main [aria-live="polite"]');
     await expect(liveRegion).toHaveCount(1);
     await expect(liveRegion).toContainText(/共 \d+ 個品牌/);
