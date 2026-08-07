@@ -706,14 +706,21 @@ function parseExhibitorEntry(
       `exhibitors[${index}] K1/K2/K3 rows must be matched_existing or included_unlinked`,
     );
   }
+  // `included_unlinked` is legal here for the same reason it is in K1/K2/K3: an
+  // S-zone stand we have not catalogued is still a stand on the floor, and the
+  // event page now lists every exhibitor rather than only the linked ones. Rows
+  // genuinely outside the surface (a different hall, a service counter) stay
+  // `out_of_scope`, which is still the only outcome that keeps a row out of
+  // `event_exhibitors`.
   if (
     zone === "S" &&
     outcome !== "matched_existing" &&
+    outcome !== "included_unlinked" &&
     outcome !== "out_of_scope"
   ) {
     throw fail(
       fileName,
-      `exhibitors[${index}] S rows must be matched_existing or out_of_scope`,
+      `exhibitors[${index}] S rows must be matched_existing, included_unlinked, or out_of_scope`,
     );
   }
   if (zone === "J2" && outcome !== "matched_existing") {

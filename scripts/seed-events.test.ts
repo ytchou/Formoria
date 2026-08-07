@@ -318,11 +318,15 @@ describe("event exhibitor ledger", () => {
               string,
               unknown
             >),
-            outcome: "included_unlinked",
+            // `included_unlinked` is legal for S now; `needs_review` is the
+            // outcome that still has no place on a rendered zone.
+            outcome: "needs_review",
           },
         ],
       }),
-    ).toThrow(/S rows must be matched_existing or out_of_scope/);
+    ).toThrow(
+      /S rows must be matched_existing, included_unlinked, or out_of_scope/,
+    );
   });
 
   it("rejects an unrecognized terminal outcome", () => {
@@ -368,6 +372,37 @@ describe("event exhibitor ledger", () => {
         ],
       }),
     ).toThrow(/K1\/K2\/K3 rows must be matched_existing or included_unlinked/);
+  });
+
+  it("persists S-zone rows we have not linked to a brand", () => {
+    // The event page lists every exhibitor, not only the linked ones, so an
+    // uncatalogued S stand has to reach `event_exhibitors` like its K-zone
+    // equivalent. `out_of_scope` stays reserved for rows that belong to no
+    // surface at all.
+    const raw = ledgerRaw();
+    const rows = raw.exhibitors as Record<string, unknown>[];
+    const sZone = rows.at(-1);
+    if (!sZone) throw new Error("missing ledger fixture");
+
+    const parsed = parseExhibitorLedger("s-zone-included.json", {
+      ...raw,
+      exhibitors: [
+        ...rows.slice(0, -1),
+        { ...sZone, outcome: "included_unlinked" },
+      ],
+    });
+    const plan = planEventExhibitorSeed({
+      eventSlug: parsed.eventSlug,
+      eventId: EVENT_ID,
+      ledger: parsed,
+      brandIdsBySlug: new Map([["woky", BRAND_ID_A]]),
+      existingExhibitors: [],
+      existingBrandLinks: [],
+    });
+
+    expect(plan.exhibitorRows.map((row) => row.source_key)).toContain(
+      "creative-expo:325",
+    );
   });
 
   it("rejects report checkpoints that drift from ledger coverage", () => {
