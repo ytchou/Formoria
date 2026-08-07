@@ -99,6 +99,16 @@ export function normalizeProductTags(
   const crossBranch: string[] = []
   const seenSlugs = new Set<string>()
 
+  const addCanonicalSubcategory = (sub: ProductSubcategory): void => {
+    // Vocab match — dedupe by slug, first occurrence wins
+    if (seenSlugs.has(sub.slug)) return
+    seenSlugs.add(sub.slug)
+    pairs.push({ zh: sub.nameZh, en: sub.nameEn })
+    if (brandCategory !== undefined && sub.category !== brandCategory) {
+      crossBranch.push(sub.nameZh)
+    }
+  }
+
   for (let i = 0; i < tags.length; i++) {
     const rawZh = tags[i]
     const rawEn = tagsEn[i] ?? ''
@@ -107,14 +117,19 @@ export function normalizeProductTags(
 
     const sub = matchSubcategory(zh)
     if (sub) {
-      // Vocab match — dedupe by slug, first occurrence wins
-      if (seenSlugs.has(sub.slug)) continue
-      seenSlugs.add(sub.slug)
-      pairs.push({ zh: sub.nameZh, en: sub.nameEn })
-      if (brandCategory !== undefined && sub.category !== brandCategory) {
-        crossBranch.push(sub.nameZh)
-      }
+      addCanonicalSubcategory(sub)
     } else {
+      // An unmatched composite is not a product kind by itself. Keep only
+      // halves that resolve to canonical ontology tags; unresolved halves and
+      // the original composite must not become novel tags.
+      if (zh.includes('・')) {
+        for (const half of zh.split('・')) {
+          const halfSub = matchSubcategory(half.trim())
+          if (halfSub) addCanonicalSubcategory(halfSub)
+        }
+        continue
+      }
+
       // Novel tag heuristics
       const rejection = novelTagRejection(zh)
       if (rejection) {

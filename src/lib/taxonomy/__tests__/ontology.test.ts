@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   PRODUCT_TYPE_CATEGORIES,
   PRODUCT_SUBCATEGORIES,
+  isCompositeSubcategory,
   matchSubcategory,
   resolveSubcategorySlugs,
   subcategoryBySlug,
@@ -115,6 +116,10 @@ describe('PRODUCT_SUBCATEGORIES', () => {
   it('has entries for every L1 category', () => {
     const covered = new Set(PRODUCT_SUBCATEGORIES.map((s) => s.category))
     expect(covered.size).toBe(PRODUCT_TYPE_CATEGORIES.length)
+  })
+
+  it('no new composite subcategories are added', () => {
+    expect(PRODUCT_SUBCATEGORIES.filter(isCompositeSubcategory).length).toBeLessThanOrEqual(57)
   })
 })
 
