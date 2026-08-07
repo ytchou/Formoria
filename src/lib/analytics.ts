@@ -176,20 +176,31 @@ export function trackBrandCardClicked(
   }
 }
 
-export function trackBoothSelected(
-  booth: string,
-  zone: string,
-  brandCount: number,
+// `trackBoothSelected` was removed with the interactive floor map that was its only
+// caller. ANALYTICS_EVENTS.BOOTH_SELECTED stays in the registry on purpose: registry
+// entries are permanent, so the historical series keeps its documented shape.
+
+/**
+ * An exhibitor's own site, opened from the event exhibitor list.
+ *
+ * Deliberately not `trackExternalLinkClicked`: that one is keyed on a brand slug and
+ * gates the PostHog call on `brandId`, so it would silently drop every exhibitor we
+ * do not list — the majority of a hall.
+ */
+export function trackExhibitorSiteClicked(
+  sourceKey: string,
   eventSlug: string,
+  booth: string | null,
+  brandSlug: string | null,
 ) {
   const properties = {
-    booth,
-    zone,
-    brand_count: brandCount,
+    source_key: sourceKey,
     event_slug: eventSlug,
+    booth,
+    brand_slug: brandSlug,
   }
-  safeGAEvent('event', 'booth_selected', properties)
-  capturePostHogEvent(ANALYTICS_EVENTS.BOOTH_SELECTED, properties)
+  safeGAEvent('event', 'exhibitor_site_clicked', properties)
+  capturePostHogEvent(ANALYTICS_EVENTS.EXHIBITOR_SITE_CLICKED, properties)
 }
 
 export type ExternalLinkSurface = 'detail_page' | 'card' | 'recommendation'

@@ -62,11 +62,11 @@ function MapUnavailable() {
  * The organizer's raster floor plan, rendered inline with a fullscreen viewer
  * beside it for reading booth numbers.
  *
- * Deliberately NOT part of `TaiwanCreativeExpoFloorMap`: that component is the
- * interactive booth map, and every control in it filters the roster below it.
- * This one filters nothing — it is reference material about the venue, so it
- * sits with the rest of the venue facts at the end of the event's "about"
- * section, and it is the only place the 797KB raster is ever requested.
+ * Deliberately not a filter control. The interactive booth map that once sat
+ * above the roster is retired; this one filters nothing — it is reference
+ * material about the venue, so it sits with the rest of the venue facts at the
+ * end of the event's "about" section, and it is the only place the 797KB raster
+ * is ever requested.
  *
  * The inline render is lazy (no `priority`): it is well below the fold, and the
  * hero above it already holds the one eager image this page is allowed.

@@ -283,6 +283,20 @@ async function globalSetup() {
             .first()
             .waitFor({ state: "visible", timeout: 120_000 });
           console.log("[global-setup] /brands/[slug] warm-up complete");
+          // The unprefixed URL above redirects to the default locale (zh-TW),
+          // so the `en` render of this route is still cold. Specs navigate to
+          // /en/brands/[slug] client-side, where the first on-demand compile
+          // was measured at 4.4-8.4s — well past Playwright's 5s default
+          // `expect` budget, which reads as "the link does not navigate".
+          await page.goto(`${baseURL}/en/brands/${warmBrand.slug}`, {
+            waitUntil: "domcontentloaded",
+            timeout: 60000,
+          });
+          await page
+            .getByRole("heading", { level: 1 })
+            .first()
+            .waitFor({ state: "visible", timeout: 120_000 });
+          console.log("[global-setup] /en/brands/[slug] warm-up complete");
         }
       } catch (err) {
         console.warn(

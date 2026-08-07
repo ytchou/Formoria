@@ -1,19 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import type { PublicBrandCard } from "@/lib/brands/contracts";
-import type {
-  EventExhibitorEntry,
-  LinkedEventExhibitorEntry,
-} from "@/lib/services/events";
+import type { CreativeExpoEntry } from "@/lib/services/events";
 import {
   buildCreativeExpoUrl,
   deriveCreativeExpoZoneCounts,
-  deriveCreativeExpoHighlightedZones,
   filterCreativeExpoEntries,
   getCreativeExpoSearchFields,
+  paginateCreativeExpoEntries,
   parseCreativeExpoUrlState,
   resetCreativeExpoFilters,
-  resetCreativeExpoZone,
   sortCreativeExpoEntries,
   verifyCreativeExpoPlacement,
   type CreativeExpoExplorerState,
@@ -44,9 +40,7 @@ function brand(name: string, category = "crafts"): PublicBrandCard {
   };
 }
 
-function entry(
-  overrides: Partial<EventExhibitorEntry> = {},
-): EventExhibitorEntry {
+function entry(overrides: Partial<CreativeExpoEntry> = {}): CreativeExpoEntry {
   return {
     id: "exhibitor-1",
     eventId: "event-1",
@@ -67,18 +61,9 @@ function entry(
   };
 }
 
-function linkedEntry(
-  overrides: Partial<LinkedEventExhibitorEntry> = {},
-): LinkedEventExhibitorEntry {
-  return {
-    ...entry(overrides as Partial<EventExhibitorEntry>),
-    ...overrides,
-  } as LinkedEventExhibitorEntry;
-}
-
 describe("Creative Expo explorer state", () => {
   it("treats canonical zone as truth while reporting booth disagreement", () => {
-    const mismatched = linkedEntry({ zone: "K2", booth: "K1-099" });
+    const mismatched = entry({ zone: "K2", booth: "K1-099" });
     expect(verifyCreativeExpoPlacement(mismatched)).toEqual({
       canonicalZone: "K2",
       boothZone: "K1",
@@ -86,180 +71,164 @@ describe("Creative Expo explorer state", () => {
     });
   });
 
-  it("composes zone, category, and expanded search as AND filters", () => {
+  it("composes zone and search as AND filters across unlisted exhibitors", () => {
     const entries = [
-      linkedEntry(),
-      linkedEntry({
+      entry(),
+      entry({
         id: "exhibitor-2",
         zone: "K2",
         booth: "K2-010",
+        name: "山房",
         nameEn: "Mountain House",
-        brand: { ...brand("山房", "homeware"), romanizedName: "Shanfang" },
+        brand: null,
+      }),
+      entry({
+        id: "exhibitor-3",
+        zone: "K3",
+        booth: "K3-010",
+        name: "山房",
+        nameEn: "Mountain House",
+        brand: null,
       }),
     ];
-    const state: CreativeExpoExplorerState = {
-      zone: "K2",
-      booth: null,
-      category: "homeware",
-      query: "shanfang",
-      sort: "recommended",
-      expanded: false,
-      mobilePanel: "list",
-    };
+    const base: CreativeExpoExplorerState = { zone: "K2", query: "", page: 1 };
 
+    // An unlinked row is searchable on all three exhibitor fields.
+    for (const query of ["山房", "mountain", "K2-010"]) {
+      expect(
+        filterCreativeExpoEntries(entries, { ...base, query }).map(
+          (item) => item.id,
+        ),
+      ).toEqual(["exhibitor-2"]);
+    }
+
+    expect(getCreativeExpoSearchFields(entries[1]!)).toEqual([
+      "山房",
+      "Mountain House",
+      "K2-010",
+    ]);
     expect(
-      filterCreativeExpoEntries(entries, state).map((item) => item.id),
-    ).toEqual(["exhibitor-2"]);
-    expect(getCreativeExpoSearchFields(entries[1]!)).toEqual(
-      expect.arrayContaining(["山房", "Shanfang", "Mountain House", "K2-010"]),
-    );
+      getCreativeExpoSearchFields(
+        entry({ brand: { ...brand("山房"), romanizedName: "Shanfang" } }),
+      ),
+    ).toEqual(expect.arrayContaining(["Shanfang", "山房", "沃廚", "K1-001"]));
   });
 
-  it("derives contextual counts and highlights before selected zone", () => {
+  it("derives contextual counts before selected zone", () => {
     const entries = [
-      linkedEntry(),
-      linkedEntry({
-        id: "exhibitor-2",
-        zone: "K2",
-        brand: brand("山房", "crafts"),
-      }),
-      linkedEntry({
-        id: "exhibitor-3",
-        zone: "S",
-        brand: brand("小店", "homeware"),
-      }),
+      entry(),
+      entry({ id: "exhibitor-2", zone: "K2", brand: null }),
+      entry({ id: "exhibitor-3", zone: "S", brand: brand("小店", "homeware") }),
     ];
-    const state: CreativeExpoExplorerState = {
-      zone: "K2",
-      booth: null,
-      category: "crafts",
-      query: "",
-      sort: "recommended",
-      expanded: false,
-      mobilePanel: "map",
-    };
+    const state: CreativeExpoExplorerState = { zone: "K2", query: "", page: 1 };
 
     expect(deriveCreativeExpoZoneCounts(entries, state)).toEqual({
       K1: 1,
       K2: 1,
       K3: 0,
-      S: 0,
+      S: 1,
     });
-    expect(
-      deriveCreativeExpoHighlightedZones(entries, { ...state, zone: null }),
-    ).toEqual(["K1", "K2"]);
-    expect(deriveCreativeExpoHighlightedZones(entries, state)).toEqual([]);
   });
 
-  it("allowlists URL zone and category values and resets all filters", () => {
+  it("allowlists URL zone values and resets all filters", () => {
     expect(
       parseCreativeExpoUrlState(
-        new URLSearchParams("zone=K2&category=homeware&query=ignored"),
+        new URLSearchParams("zone=K2&query=ignored"),
         ["K1", "K2"],
-        ["crafts", "homeware"],
       ),
-    ).toEqual({ zone: "K2", booth: null, category: "homeware" });
+    ).toEqual({ zone: "K2", query: null, page: 1 });
     expect(
-      parseCreativeExpoUrlState(
-        new URLSearchParams("zone=J2&category=unknown"),
-        ["K1", "K2"],
-        ["crafts", "homeware"],
-      ),
-    ).toEqual({ zone: null, booth: null, category: null });
+      parseCreativeExpoUrlState(new URLSearchParams("zone=J2"), ["K1", "K2"]),
+    ).toEqual({ zone: null, query: null, page: 1 });
 
     const url = new URL(
       "https://formoria.test/en/events/creative?ref=story#explore",
     );
-    buildCreativeExpoUrl(url, {
-      zone: "K1",
-      category: "crafts",
-      booth: "K1-001",
-    });
+    buildCreativeExpoUrl(url, { zone: "K1", page: 3 });
     expect(url.toString()).toBe(
-      "https://formoria.test/en/events/creative?ref=story&zone=K1&category=crafts&booth=K1-001#explore",
+      "https://formoria.test/en/events/creative?ref=story&zone=K1&page=3#explore",
     );
-    buildCreativeExpoUrl(url, { zone: null, category: null, booth: null });
+    buildCreativeExpoUrl(url, { zone: null, page: 1 });
     expect(url.toString()).toBe(
       "https://formoria.test/en/events/creative?ref=story#explore",
     );
 
     const state: CreativeExpoExplorerState = {
       zone: "K2",
-      booth: "K2-010",
-      category: "crafts",
       query: "ceramic",
-      sort: "booth",
-      expanded: true,
-      mobilePanel: "list",
+      page: 4,
     };
-    expect(resetCreativeExpoFilters(state)).toMatchObject({
+    expect(resetCreativeExpoFilters(state)).toEqual({
       zone: null,
-      booth: null,
-      category: null,
       query: "",
-    });
-    expect(resetCreativeExpoZone(state)).toMatchObject({
-      zone: null,
-      booth: null,
-      category: "crafts",
+      page: 1,
     });
   });
 
-  it("hydrates canonical category URLs against legacy stored values", () => {
+  it("seeds a legacy booth link into the query and strips retired params", () => {
     expect(
-      parseCreativeExpoUrlState(
-        new URLSearchParams("zone=K2&category=crafts"),
-        ["K1", "K2"],
-        ["工藝文創", "homeware"],
-      ),
-    ).toEqual({ zone: "K2", booth: null, category: "工藝文創" });
+      parseCreativeExpoUrlState(new URLSearchParams("booth=K2-022"), ["K2"]),
+    ).toMatchObject({ query: "K2-022" });
+    expect(
+      parseCreativeExpoUrlState(new URLSearchParams("booth=nonsense"), ["K2"]),
+    ).toMatchObject({ query: null });
 
-    const url = new URL("https://formoria.test/en/events/creative");
-    buildCreativeExpoUrl(url, {
-      zone: "K2",
-      category: "工藝文創",
-      booth: null,
-    });
-    expect(url.search).toBe("?zone=K2&category=crafts");
-  });
-
-  it("filters by booth together with the other filters and round-trips booth URLs", () => {
-    const entries = [
-      linkedEntry({ id: "selected", booth: "K1-011-01", zone: "K1" }),
-      linkedEntry({ id: "other", booth: "K1-011-02", zone: "K1" }),
-    ];
-    expect(
-      filterCreativeExpoEntries(entries, {
-        zone: "K1",
-        booth: "K1-011-01",
-        category: null,
-        query: "",
-      }).map((item) => item.id),
-    ).toEqual(["selected"]);
-    expect(
-      parseCreativeExpoUrlState(
-        new URLSearchParams("booth=K1-011-01"),
-        ["K1"],
-        [],
-        ["K1-011-01"],
-      ),
-    ).toEqual({ zone: null, booth: "K1-011-01", category: null });
     const url = new URL(
-      "https://formoria.test/en/events/creative?zone=K1&category=crafts",
+      "https://formoria.test/en/events/creative?booth=K2-022&category=crafts&ref=story",
     );
-    buildCreativeExpoUrl(url, {
-      zone: "K1",
-      category: "crafts",
-      booth: "K1-011-01",
+    buildCreativeExpoUrl(url, { zone: null, page: 1 });
+    expect(url.search).toBe("?ref=story");
+  });
+
+  it("round-trips and clamps the page param", () => {
+    expect(
+      parseCreativeExpoUrlState(new URLSearchParams("page=5"), []),
+    ).toMatchObject({ page: 5 });
+    for (const search of ["page=0", "page=-3", "page=abc", ""]) {
+      expect(
+        parseCreativeExpoUrlState(new URLSearchParams(search), []),
+      ).toMatchObject({ page: 1 });
+    }
+  });
+
+  it("paginates by index window, clamping out-of-range pages", () => {
+    const entries = Array.from({ length: 45 }, (_, index) =>
+      entry({ id: `exhibitor-${index}` }),
+    );
+
+    expect(paginateCreativeExpoEntries(entries, 1, 20)).toEqual({
+      pageCount: 3,
+      startIndex: 0,
+      endIndex: 20,
     });
-    expect(url.search).toBe("?zone=K1&category=crafts&booth=K1-011-01");
+    // Last page is partial: endIndex is the list length, not startIndex + size.
+    expect(paginateCreativeExpoEntries(entries, 3, 20)).toEqual({
+      pageCount: 3,
+      startIndex: 40,
+      endIndex: 45,
+    });
+    expect(paginateCreativeExpoEntries(entries, 9, 20)).toEqual({
+      pageCount: 3,
+      startIndex: 40,
+      endIndex: 45,
+    });
+    expect(paginateCreativeExpoEntries(entries, 0, 20)).toEqual({
+      pageCount: 3,
+      startIndex: 0,
+      endIndex: 20,
+    });
+    expect(paginateCreativeExpoEntries([], 1, 20)).toEqual({
+      pageCount: 1,
+      startIndex: 0,
+      endIndex: 0,
+    });
   });
 
   it("sorts by natural booth number without changing recommended order", () => {
     const entries = [
-      linkedEntry({ id: "late", booth: "K1-011-05", sortOrder: 0 }),
-      linkedEntry({ id: "early", booth: "K1-004", sortOrder: 1 }),
-      linkedEntry({ id: "unknown", booth: null, sortOrder: 2 }),
+      entry({ id: "late", booth: "K1-011-05", sortOrder: 0 }),
+      entry({ id: "early", booth: "K1-004", sortOrder: 1 }),
+      entry({ id: "unknown", booth: null, sortOrder: 2 }),
     ];
     expect(
       sortCreativeExpoEntries(entries, "booth").map((item) => item.id),

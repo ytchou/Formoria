@@ -124,7 +124,16 @@ export type EventExhibitorEntry = EventExhibitor & {
 /** Canonical Creative Expo zones surfaced by the interactive explorer. */
 const CREATIVE_EXPO_ZONE_CODES = ["K1", "K2", "K3", "S"] as const;
 
-type CreativeExpoZone = (typeof CREATIVE_EXPO_ZONE_CODES)[number];
+export type CreativeExpoZone = (typeof CREATIVE_EXPO_ZONE_CODES)[number];
+
+/**
+ * A canonical exhibitor in a core zone, linked or not. The exhibitor list
+ * renders the whole hall, so `brand` stays nullable here; only `zone` is
+ * narrowed, because the zone allowlist is what defines "the hall".
+ */
+export type CreativeExpoEntry = Omit<EventExhibitorEntry, "zone"> & {
+  zone: CreativeExpoZone;
+};
 
 /** A canonical exhibitor with a linked, public Formoria brand in a core zone. */
 export type LinkedEventExhibitorEntry = Omit<
@@ -463,6 +472,21 @@ export function selectLinkedEventExhibitorEntries(
       (CREATIVE_EXPO_ZONE_CODES as readonly string[]).includes(
         entry.zone ?? "",
       ),
+  );
+}
+
+/**
+ * Narrows the canonical roster to the four Creative Expo zones without
+ * requiring a Formoria brand link. Deliberately a sibling of
+ * `selectLinkedEventExhibitorEntries` rather than a generalization of it: the
+ * shared `EventBrandGrid` path still needs the linked-only projection, and the
+ * two selections diverge on exactly the `brand !== null` clause.
+ */
+export function selectCreativeExpoEntries(
+  entries: readonly EventExhibitorEntry[],
+): CreativeExpoEntry[] {
+  return entries.filter((entry): entry is CreativeExpoEntry =>
+    (CREATIVE_EXPO_ZONE_CODES as readonly string[]).includes(entry.zone ?? ""),
   );
 }
 

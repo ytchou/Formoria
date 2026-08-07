@@ -252,8 +252,11 @@ test.describe("Event detail deep", () => {
 
 const CREATIVE_EXPO_SLUG = "2026-taiwan-creative-expo";
 
-test.describe("Creative Expo synchronized explorer", () => {
-  test("@smoke map, filters, search, reset, and brand navigation stay synchronized", async ({
+/** Mirrors `EXHIBITOR_PAGE_SIZE` in `taiwan-creative-expo-explorer.tsx`. */
+const EXHIBITOR_PAGE_SIZE = 20;
+
+test.describe("Creative Expo exhibitor list", () => {
+  test("@smoke zone chips, search, pagination, and brand navigation stay synchronized", async ({
     anonPage,
   }) => {
     const response = await anonPage.goto(`/en/events/${CREATIVE_EXPO_SLUG}`);
@@ -265,82 +268,102 @@ test.describe("Creative Expo synchronized explorer", () => {
     }
     expect(response?.status()).toBe(200);
 
-    const lineup = anonPage.getByRole("region", { name: "Exhibiting brands" });
-    const map = lineup.getByRole("region", { name: "Interactive floor map" });
-    const status = lineup.getByRole("status");
-    const search = lineup.getByRole("searchbox", {
-      name: "Search official or Formoria brand names, romanization, or booth number",
+    const explorer = anonPage.getByRole("region", { name: "All exhibitors" });
+    const status = explorer.getByRole("status");
+    const search = explorer.getByRole("searchbox", {
+      name: "Search exhibitor names, romanization, or booth number",
     });
     const total = statusCount(await status.innerText());
-    expect(total).toBeGreaterThan(0);
+    expect(total).toBeGreaterThan(EXHIBITOR_PAGE_SIZE);
 
-    const k2MapZone = map.getByRole("button", {
-      name: "K2: Craftsmanship & Cultural Sustainability",
-    });
-    const k2Filter = map.getByRole("button", {
-      name: /^K2 Craftsmanship & Cultural Sustainability \d+$/,
-    });
-    const allK2Count = trailingCount(await k2Filter.innerText());
+    // The load-bearing property of this list: every exhibitor is in the DOM and
+    // only a page-sized window is visible. A slice here would hide most of the
+    // hall from crawlers, which is the whole reason the rows are CSS-hidden.
+    await expect(explorer.locator("li")).toHaveCount(total);
+    await expect(explorer.locator("li:visible")).toHaveCount(
+      EXHIBITOR_PAGE_SIZE,
+    );
 
-    await k2MapZone.click();
-    await expect(k2MapZone).toHaveAttribute("aria-pressed", "true");
-    await expect(k2Filter).toHaveAttribute("aria-pressed", "true");
+    const k2Chip = explorer.getByRole("button", {
+      name: /^Craftsmanship & Cultural Sustainability \d+$/,
+    });
+    const allK2Count = trailingCount(await k2Chip.innerText());
+
+    await k2Chip.click();
+    await expect(k2Chip).toHaveAttribute("aria-pressed", "true");
+    // The `?zone=` round trip is the one URL contract that survived the map's
+    // retirement; shared zone links must keep working.
     await expect(anonPage).toHaveURL(/\?zone=K2$/);
-    await expect(status).toHaveText(`${allK2Count} of ${total} brands`);
+    await expect(status).toHaveText(`${allK2Count} of ${total} exhibitors`);
+    await expect(explorer.locator("li")).toHaveCount(allK2Count);
 
-    const crafts = lineup.getByRole("button", {
-      name: "Crafts & Art",
-      exact: true,
-    });
-    await crafts.click();
-    await expect(crafts).toHaveAttribute("aria-pressed", "true");
-    const filteredK2Count = trailingCount(await k2Filter.innerText());
-    await expect(status).toHaveText(`${filteredK2Count} of ${total} brands`);
-    expect(filteredK2Count).toBeLessThan(allK2Count);
-    await expect(anonPage).toHaveURL(/zone=K2/);
-    await expect(anonPage).toHaveURL(/category=/);
-
-    await lineup
-      .getByRole("button", { name: "Show all brands" })
-      .first()
-      .click();
-    await expect(status).toHaveText(`${total} brands`);
+    const showAll = explorer.getByRole("button", { name: "Show all brands" });
+    await showAll.click();
+    await expect(status).toHaveText(`${total} exhibitors`);
+    await expect(anonPage).toHaveURL(`/en/events/${CREATIVE_EXPO_SLUG}`);
 
     await search.fill("思謀研器有限公司");
-    await expect(status).toHaveText(`1 of ${total} brands`);
-    const studioSmoll = lineup.getByRole("link", {
+    await expect(status).toHaveText(`1 of ${total} exhibitors`);
+    // `exact` matters on every brand-name link lookup in this file: a listed row
+    // carries two links, and the outbound one is named "<brand> official link
+    // (opens in a new tab)", so a substring match resolves to both and trips
+    // strict mode.
+    const studioSmoll = explorer.getByRole("link", {
       name: "思謀研器 Studio Smoll",
+      exact: true,
     });
     await expect(studioSmoll).toBeVisible();
-    await expect(
-      studioSmoll.locator("xpath=ancestor::article[1]"),
-    ).toContainText("Booth: K1-002");
+    await expect(studioSmoll.locator("xpath=ancestor::li[1]")).toContainText(
+      "K1-002",
+    );
 
     await search.fill("Studio Smoll");
     await expect(studioSmoll).toBeVisible();
-    await expect(status).toHaveText(`1 of ${total} brands`);
+    await expect(status).toHaveText(`1 of ${total} exhibitors`);
 
     await search.fill("K2-022");
-    const shiye = lineup.getByRole("link", { name: "鉐葉 SHIYE" });
+    const shiye = explorer.getByRole("link", {
+      name: "鉐葉 SHIYE",
+      exact: true,
+    });
     await expect(shiye).toBeVisible();
-    await expect(shiye.locator("xpath=ancestor::article[1]")).toContainText(
-      "Booth: K2-022",
+    await expect(shiye.locator("xpath=ancestor::li[1]")).toContainText(
+      "K2-022",
     );
-    await expect(status).toHaveText(`1 of ${total} brands`);
+    await expect(status).toHaveText(`1 of ${total} exhibitors`);
 
-    await lineup
-      .getByRole("button", { name: "Show all brands" })
-      .first()
-      .click();
+    await showAll.click();
     await expect(search).toHaveValue("");
-    await expect(
-      lineup.getByRole("button", { name: "All categories" }),
-    ).toHaveAttribute("aria-pressed", "true");
-    await expect(k2MapZone).toHaveAttribute("aria-pressed", "false");
-    await expect(status).toHaveText(`${total} brands`);
-    await expect(anonPage).toHaveURL(`/en/events/${CREATIVE_EXPO_SLUG}`);
+    await expect(status).toHaveText(`${total} exhibitors`);
 
+    const position = explorer.getByText(/^Page \d+ of \d+$/);
+    const pageCount = pagePositionCount(await position.innerText());
+    expect(pageCount).toBeGreaterThan(1);
+
+    const pagination = explorer.getByRole("navigation", {
+      name: "Exhibitor list pagination",
+    });
+    await pagination.getByRole("button", { name: "Go to next page" }).click();
+    await expect(position).toHaveText(`Page 2 of ${pageCount}`);
+    await expect(anonPage).toHaveURL(/\?page=2$/);
+    await expect(explorer.locator("li:visible")).toHaveCount(
+      EXHIBITOR_PAGE_SIZE,
+    );
+
+    // A filter change must force page 1. Page 2 of the full hall usually does
+    // not exist inside a single zone, and landing on an empty-but-filtered page
+    // is exactly the failure this guards.
+    await k2Chip.click();
+    await expect(anonPage).toHaveURL(/\?zone=K2$/);
+    await expect(position).toHaveText(new RegExp(`^Page 1 of \\d+$`));
+
+    await showAll.click();
     await search.fill("K2-022");
+    // Wait for the filtered list to settle before clicking. Every row stays in
+    // the DOM and pagination only toggles `hidden`, so this row is present but
+    // display:none until the search narrows the set onto page 1 — clicking
+    // straight after `fill` races that re-render.
+    await expect(shiye).toBeVisible();
     await shiye.click();
     await expect(anonPage).toHaveURL(/\/en\/brands\/shiye$/);
     await expect(anonPage.getByRole("heading", { level: 1 })).toContainText(
@@ -352,14 +375,40 @@ test.describe("Creative Expo synchronized explorer", () => {
     await search.fill("K2-022");
     await expect(shiye).toBeVisible();
 
-    await anonPage.goto(
-      `/en/events/${CREATIVE_EXPO_SLUG}?zone=K2&category=crafts`,
-    );
-    await expect(k2MapZone).toHaveAttribute("aria-pressed", "true");
-    await expect(crafts).toHaveAttribute("aria-pressed", "true");
+    await anonPage.goto(`/en/events/${CREATIVE_EXPO_SLUG}?zone=K2`);
+    await expect(k2Chip).toHaveAttribute("aria-pressed", "true");
     await expect(status).toHaveText(
-      `${trailingCount(await k2Filter.innerText())} of ${total} brands`,
+      `${trailingCount(await k2Chip.innerText())} of ${total} exhibitors`,
     );
+  });
+
+  test("search narrows the roster and the brand name opens the brand page", async ({
+    anonPage,
+  }) => {
+    // The user-facing journey in isolation: type a booth number, click the one
+    // remaining brand, land on its page. It was previously only covered inside
+    // the long @smoke test, where a failure here is easy to misread.
+    await anonPage.goto(`/en/events/${CREATIVE_EXPO_SLUG}`);
+    const explorer = anonPage.getByRole("region", { name: "All exhibitors" });
+    await explorer
+      .getByRole("searchbox", {
+        name: "Search exhibitor names, romanization, or booth number",
+      })
+      .fill("K2-022");
+    const shiye = explorer.getByRole("link", {
+      name: "鉐葉 SHIYE",
+      exact: true,
+    });
+    await expect(shiye).toBeVisible();
+    await shiye.click();
+    // Explicit budget: locally the first navigation to /en/brands/[slug] pays
+    // Turbopack's on-demand compile (measured 4.4-8.4s) and would blow the 5s
+    // default. global-setup warms that route, but the warm-up is deliberately
+    // non-fatal — this keeps a silent warm-up failure from looking like a
+    // navigation bug in the product.
+    await expect(anonPage).toHaveURL(/\/en\/brands\/shiye$/, {
+      timeout: 30_000,
+    });
   });
 
   test("localized source context and server-rendered brand links preserve the event contract", async ({
@@ -378,7 +427,7 @@ test.describe("Creative Expo synchronized explorer", () => {
       exact: true,
     });
     await expect(
-      zhExplorer.getByRole("heading", { name: "探索 Formoria 收錄的參展品牌" }),
+      zhExplorer.getByRole("heading", { name: "全部參展單位" }),
     ).toBeVisible();
     // Map provenance lives with the venue facts, not in the explorer: the
     // official plan describes the hall and filters nothing.
@@ -397,26 +446,78 @@ test.describe("Creative Expo synchronized explorer", () => {
     ).toHaveAttribute("href", "https://creativexpo.tw/zh-TW/exhibitor_list");
 
     await anonPage.goto(`/en/events/${CREATIVE_EXPO_SLUG}`);
-    const enExplorer = anonPage.getByRole("region", {
+    const enLineup = anonPage.getByRole("region", {
       name: "Exhibiting brands",
     });
     await expect(
-      enExplorer.getByRole("heading", { name: "Explore Formoria exhibitors" }),
+      enLineup.getByRole("heading", { name: "All exhibitors" }),
     ).toBeVisible();
     await expect(
       anonPage.getByRole("region", { name: "About this event" }),
     ).toContainText("Map source: Taiwan Creative Expo 2026");
+
+    // Pagination hides rows with CSS and never slices them, so every exhibitor
+    // — including the ones on the last page and the ones we do not list — has
+    // to be in the server HTML. That is the crawler-visibility guarantee the
+    // 20-row window is allowed to trade nothing away for.
+    const explorer = anonPage.getByRole("region", { name: "All exhibitors" });
+    const brandHrefs = await explorer
+      .locator('a[href^="/en/brands/"]')
+      .evaluateAll((links) =>
+        links.map((link) => link.getAttribute("href") ?? ""),
+      );
+    expect(brandHrefs.length).toBeGreaterThan(EXHIBITOR_PAGE_SIZE);
+    expect(
+      brandHrefs.filter((href) => !serverHtml.includes(`href="${href}"`)),
+    ).toEqual([]);
+
+    // An exhibitor we do not list has no brand page, so its name and its own
+    // site are the only things a crawler can see for that booth.
+    const unlistedOutbound = explorer
+      .locator("li")
+      .filter({ hasText: "Not yet in our directory" })
+      .locator('a[href^="http"]')
+      .first();
+    await expect(unlistedOutbound).toHaveCount(1);
+    const outboundHref = await unlistedOutbound.getAttribute("href");
+    // The accessible name is `{name} official link (opens in a new tab)`, which
+    // makes it the one place the row's resolved name is readable as a string.
+    const outboundLabel = await unlistedOutbound.getAttribute("aria-label");
+    const unlistedName = (outboundLabel ?? "").replace(
+      / official link \(opens in a new tab\)$/,
+      "",
+    );
+    expect(unlistedName.length).toBeGreaterThan(0);
+    expect(serverHtml).toContain(`href="${outboundHref}"`);
+    expect(serverHtml).toContain(unlistedName);
+
+    // The last page is the strictest case: its rows are never visible on first
+    // load, so a slicing regression would remove them from the HTML entirely.
+    const position = explorer.getByText(/^Page \d+ of \d+$/);
+    const pageCount = pagePositionCount(await position.innerText());
+    await explorer
+      .getByRole("navigation", { name: "Exhibitor list pagination" })
+      .getByRole("button", { name: `Page ${pageCount}` })
+      .click();
+    await expect(position).toHaveText(`Page ${pageCount} of ${pageCount}`);
+    const lastPageHrefs = await explorer
+      .locator("li:visible a[href]")
+      .evaluateAll((links) =>
+        links.map((link) => link.getAttribute("href") ?? ""),
+      );
+    expect(lastPageHrefs.length).toBeGreaterThan(0);
+    expect(
+      lastPageHrefs.filter((href) => !serverHtml.includes(`href="${href}"`)),
+    ).toEqual([]);
   });
 
-  test("a failed floor-map image leaves the booth map, search, and navigation usable", async ({
+  test("a failed floor-map image leaves the exhibitor list, search, and navigation usable", async ({
     anonPage,
   }) => {
     // The official raster is rendered twice -- inline in the venue facts and
-    // again in the full-screen viewer -- while the booth map beside the roster
-    // is SVG built from committed booth geometry and never touches the raster
-    // at all. So a dead image must degrade to the fallback in BOTH raster
-    // surfaces and leave the booth map, search, and navigation untouched;
-    // that whole guarantee is what this test holds.
+    // again in the full-screen viewer. A dead image must degrade to the
+    // fallback in BOTH surfaces and leave the exhibitor list, its search and
+    // brand navigation untouched; that whole guarantee is what this test holds.
     let mapImageFailed = false;
     await anonPage.route("**/_next/image**", async (route) => {
       const source = new URL(route.request().url()).searchParams.get("url");
@@ -429,18 +530,10 @@ test.describe("Creative Expo synchronized explorer", () => {
     });
     await anonPage.goto(`/en/events/${CREATIVE_EXPO_SLUG}`);
 
-    const lineup = anonPage.getByRole("region", { name: "Exhibiting brands" });
-    const map = lineup.getByRole("region", { name: "Interactive floor map" });
-
-    // The booth map is independent of the raster, so it must survive untouched.
-    await expect(
-      map.getByRole("button", {
-        name: "K2: Craftsmanship & Cultural Sustainability",
-      }),
-    ).toBeVisible();
+    const explorer = anonPage.getByRole("region", { name: "All exhibitors" });
 
     // The raster and its trigger live with the venue facts, not inside the
-    // booth map. It is lazily loaded, so the request only fires once the
+    // exhibitor list. It is lazily loaded, so the request only fires once the
     // section is scrolled into view.
     const about = anonPage.getByRole("region", { name: "About this event" });
     await about.scrollIntoViewIfNeeded();
@@ -465,12 +558,15 @@ test.describe("Creative Expo synchronized explorer", () => {
       .click();
     await expect(viewer).toBeHidden();
 
-    await lineup
+    await explorer
       .getByRole("searchbox", {
-        name: "Search official or Formoria brand names, romanization, or booth number",
+        name: "Search exhibitor names, romanization, or booth number",
       })
       .fill("K2-022");
-    const brand = lineup.getByRole("link", { name: "鉐葉 SHIYE" });
+    const brand = explorer.getByRole("link", {
+      name: "鉐葉 SHIYE",
+      exact: true,
+    });
     await expect(brand).toBeVisible();
     await brand.click();
     await expect(anonPage).toHaveURL(/\/en\/brands\/shiye$/);
@@ -500,5 +596,12 @@ function statusCount(value: string): number {
 function trailingCount(value: string): number {
   const match = value.match(/(\d+)\s*$/);
   if (!match) throw new Error(`Zone control has no count: "${value}"`);
+  return Number(match[1]);
+}
+
+/** "Page 3 of 16" -> 16. */
+function pagePositionCount(value: string): number {
+  const match = value.match(/of\s+(\d+)\s*$/);
+  if (!match) throw new Error(`Page position has no page count: "${value}"`);
   return Number(match[1]);
 }
