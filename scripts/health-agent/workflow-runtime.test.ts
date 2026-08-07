@@ -1736,7 +1736,7 @@ describe("stale branch cleanup runtime", () => {
 
     expect(reconcileFingerprintLifecycle).toHaveBeenCalledWith(
       ["directory:one", "link:one", "sentry:one"],
-      ["directory", "link", "quality", "sentry", "cron"],
+      ["cron", "directory", "link", "quality", "sentry"],
     );
     expect(result.verifiedFixedFingerprints).toEqual(["directory:resolved"]);
   });
@@ -1776,7 +1776,7 @@ describe("stale branch cleanup runtime", () => {
 
     expect(reconcileFingerprintLifecycle).toHaveBeenCalledWith(
       ["directory:one", "link:one", "sentry:one"],
-      ["directory", "link", "sentry"],
+      ["cron", "directory", "link", "sentry"],
     );
   });
 

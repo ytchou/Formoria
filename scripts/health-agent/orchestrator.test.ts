@@ -86,6 +86,7 @@ function artifact(
 
 function fixtures(overrides: Record<string, unknown> = {}) {
   return files({
+    cron: artifact("cron-health"),
     directory: artifact("directory-health"),
     link: artifact("link-checker"),
     quality: artifact("quality-health"),
@@ -95,6 +96,7 @@ function fixtures(overrides: Record<string, unknown> = {}) {
 }
 
 const paths = {
+  "cron-health": "cron",
   "directory-health": "directory",
   "link-checker": "link",
   "quality-health": "quality",
@@ -353,7 +355,7 @@ describe("aggregate and deliver", () => {
       enabled,
     );
 
-    expect(agentHub).toHaveBeenCalledTimes(4);
+    expect(agentHub).toHaveBeenCalledTimes(HEALTH_ROUTINES.length);
     expect(agentHub.mock.calls.map(([value]) => value.routine)).toEqual(
       HEALTH_ROUTINES,
     );
@@ -383,7 +385,7 @@ describe("aggregate and deliver", () => {
       enabled,
     );
 
-    expect(agentHub).toHaveBeenCalledTimes(4);
+    expect(agentHub).toHaveBeenCalledTimes(HEALTH_ROUTINES.length);
     expect(slack).toHaveBeenCalledTimes(1);
     expect(result.deliveryErrors).toEqual({
       agentHub: [...HEALTH_ROUTINES],
@@ -415,7 +417,7 @@ describe("aggregate and deliver", () => {
       enabled,
     );
 
-    expect(result.envelopes).toHaveLength(4);
+    expect(result.envelopes).toHaveLength(HEALTH_ROUTINES.length);
     expect(slack).toHaveBeenCalledWith(
       expect.objectContaining({
         failures: expect.arrayContaining([
