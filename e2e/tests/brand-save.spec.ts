@@ -74,6 +74,7 @@ test.describe.serial('Brand save/unsave — card overlay', () => {
         name: brandName,
         slug: brandSlug,
         status: 'approved',
+        approved_at: new Date().toISOString(),
         product_type: 'crafts',
         description: '[E2E-TEST] Save-brand journey test brand.',
         retail_locations: [],
@@ -121,7 +122,7 @@ test.describe.serial('Brand save/unsave — card overlay', () => {
 
     const { error: brandStatusError } = await supabase
       .from('brands')
-      .update({ status: 'approved' })
+      .update({ status: 'approved', approved_at: new Date().toISOString() })
       .eq('id', brandId);
     if (brandStatusError) {
       throw new Error(`Failed to mark brand approved: ${brandStatusError.message}`);
@@ -317,6 +318,7 @@ test.describe('Brand save — card overlay on directory', () => {
         name: brandName,
         slug: brandSlug,
         status: 'approved',
+        approved_at: new Date().toISOString(),
         product_type: 'crafts',
         description: '[E2E-TEST] Save-overlay journey test brand.',
         retail_locations: [],

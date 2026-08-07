@@ -273,6 +273,7 @@ test.describe("Submission publishable-core link guard", () => {
             name: seeded.brandName,
             slug: seeded.slug,
             status: "approved",
+            approved_at: new Date().toISOString(),
             description: "台灣本地手工木器，以榫接工法製作日常餐廚用品。",
             product_type: "crafts",
             product_tags: ["手工木器"],

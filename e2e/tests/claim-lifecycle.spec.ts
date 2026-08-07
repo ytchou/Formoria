@@ -85,6 +85,7 @@ async function seedBrand(supabase: AnySupabaseClient, suffix: string): Promise<S
       name,
       slug,
       status: 'approved',
+      approved_at: new Date().toISOString(),
       product_type: 'crafts',
       description: `Disposable ${suffix} claim lifecycle brand.`,
       retail_locations: [],

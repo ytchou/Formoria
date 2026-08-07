@@ -46,6 +46,7 @@ test.describe("Static & compliance pages", () => {
         name: micrositeBrandName,
         slug: micrositeSlug,
         status: "approved",
+        approved_at: new Date().toISOString(),
         founding_year: "2020",
         site_content: {
           template: "default",

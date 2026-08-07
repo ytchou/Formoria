@@ -68,6 +68,7 @@ test.beforeAll(async ({ isolatedUser }) => {
       name: brandName,
       slug: brandSlug,
       status: 'approved',
+      approved_at: new Date().toISOString(),
       product_type: 'crafts',
       description: '[E2E-TEST] Quick actions fixture.',
       retail_locations: [],
