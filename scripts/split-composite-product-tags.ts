@@ -1726,7 +1726,7 @@ type ApplyBrandWriteResult = {
 type ApplyBrandUpdater = (
   id: string,
   data: { productTags: string[]; productTagsEn: string[] | null },
-  actor: { source: "enriched"; jobId: string },
+  actor: { source: "enriched" },
 ) => Promise<ApplyBrandWriteResult>;
 
 export async function applyRunArtifact(
@@ -1786,7 +1786,7 @@ export async function applyRunArtifact(
         productTags: row.after.productTags,
         productTagsEn: row.after.productTagsEn,
       },
-      { source: "enriched", jobId: `dev-1361:${reviewed.createdAt}` },
+      { source: "enriched" },
     );
     if (written.skipped.length > 0)
       throw new Error(
