@@ -93,6 +93,18 @@ check_env() {
     if ! grep -q "CF_ORIGIN_SECRET=." .env.local; then
       echo "⚠ CF_ORIGIN_SECRET not set (optional — needed for Cloudflare origin protection)"
     fi
+    # The two secrets answer different questions and MUST differ. CF_ORIGIN_SECRET
+    # is a path assertion ("came through our edge", injected by Cloudflare);
+    # ORIGIN_SECRET is a caller assertion ("authorised internal client", sent by
+    # cron jobs and internal clients straight at the Railway origin). Making them
+    # equal collapses two trust domains into one and hands the edge credential to
+    # every machine caller. See docs/runbooks/cloudflare-edge.md and DEV-1377.
+    __origin_secret=$(grep -m1 '^ORIGIN_SECRET=' .env.local 2>/dev/null | cut -d= -f2-)
+    __cf_origin_secret=$(grep -m1 '^CF_ORIGIN_SECRET=' .env.local 2>/dev/null | cut -d= -f2-)
+    if [ -n "$__origin_secret" ] && [ "$__origin_secret" = "$__cf_origin_secret" ]; then
+      echo "FAIL: ORIGIN_SECRET equals CF_ORIGIN_SECRET — these are two different trust domains and must never share a value"
+    fi
+    unset __origin_secret __cf_origin_secret
     if ! grep -q "CHALLENGE_SECRET=." .env.local; then
       echo "WARN: CHALLENGE_SECRET not set — progressive CAPTCHA challenge will fail in production"
     fi
@@ -110,8 +122,14 @@ check_env() {
       echo "WARN: INDEXNOW_KEY not set (optional — needed for Bing IndexNow submission)"
     fi
     # NOTE: MIT registry sync is scheduled via pg_cron (Sundays 2 AM UTC,
-    # job name: sync-mit-registry-weekly). Auth uses ORIGIN_SECRET (app.origin_secret).
-    # See supabase/migrations/20260702130000_schedule_mit_registry_sync.sql
+    # job name: sync-mit-registry-weekly). Auth uses ORIGIN_SECRET, read from
+    # public.app_secrets.origin_secret, and the target host comes from
+    # app_secrets.cron_base_url — which MUST be the Railway origin, not the
+    # Cloudflare-fronted public host. Pointing it at formoria.com makes every
+    # cron job 401 silently (DEV-1377): Cloudflare's transform rule overwrites
+    # the x-origin-verify header, and cron.job_run_details still says "succeeded"
+    # because net.http_post only enqueues. Ground truth is public.cron_http_log.
+    # See supabase/migrations/20260807120000_cron_http_dispatch_capture.sql
   fi
 }
 
