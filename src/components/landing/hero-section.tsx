@@ -10,10 +10,9 @@ interface HeroSectionProps {
   /** Omitted when the brand count could not be read — renders no figure rather than a false zero. */
   brandCount?: number
   categoryCount: number
-  recentBrands: { count: number; period: '7d' | '30d' }
 }
 
-export default async function HeroSection({ brandCount, categoryCount, recentBrands }: HeroSectionProps) {
+export default async function HeroSection({ brandCount, categoryCount }: HeroSectionProps) {
   const [t, locale] = await Promise.all([getTranslations('landing.hero'), getLocale()])
 
   return (
@@ -29,11 +28,11 @@ export default async function HeroSection({ brandCount, categoryCount, recentBra
       <div className="absolute inset-0 bg-background/70 md:bg-background/45" aria-hidden="true" />
       <div className="relative mx-auto max-w-6xl page-gutter">
         <h1 className="type-hero">{t('headline')}</h1>
+        {/* Opens with the stable entity sentence and stays the first prose in the DOM:
+            without it the earliest body text is rotating brand-card copy, which Google
+            was lifting as the homepage snippet (DEV-1320). Mirrors
+            landing.metadata.description. */}
         <p className="mt-3 type-page-subtitle max-w-2xl">{t('subheadline')}</p>
-        {/* Stable entity sentence, kept as the first prose in the DOM: without it the
-            earliest body text is rotating brand-card copy, which Google was lifting as
-            the homepage snippet (DEV-1320). Mirrors landing.metadata.description. */}
-        <p className="mt-2 type-body-muted max-w-2xl">{t('intro')}</p>
 
         <div className="mt-6 max-w-md rounded-lg bg-background/85">
           <Suspense>
@@ -55,8 +54,6 @@ export default async function HeroSection({ brandCount, categoryCount, recentBra
           brandLabel={t('statsBrands')}
           categoryCount={categoryCount}
           categoryLabel={t('statsCategories')}
-          recentCount={recentBrands.count > 0 ? recentBrands.count : undefined}
-          recentLabel={recentBrands.count > 0 ? t(recentBrands.period === '7d' ? 'recentWeek' : 'recentMonth') : undefined}
         />
       </div>
     </section>

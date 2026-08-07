@@ -15,6 +15,7 @@ type CreativeExpoMobilePanel = "map" | "list";
 
 export type CreativeExpoExplorerState = {
   zone: CreativeExpoZone | null;
+  booth: string | null;
   category: string | null;
   query: string;
   sort: CreativeExpoSort;
@@ -73,12 +74,21 @@ function normalizeQuery(query: string): string {
 /** Applies category, query, and zone filters with AND semantics. */
 export function filterCreativeExpoEntries(
   entries: readonly LinkedEventExhibitorEntry[],
-  state: Pick<CreativeExpoExplorerState, "zone" | "category" | "query">,
+  state: Pick<
+    CreativeExpoExplorerState,
+    "zone" | "booth" | "category" | "query"
+  >,
 ): LinkedEventExhibitorEntry[] {
   const query = normalizeQuery(state.query);
 
   return entries.filter((entry) => {
     if (state.zone !== null && entry.zone !== state.zone) return false;
+    if (
+      state.booth !== null &&
+      entry.booth !== state.booth &&
+      !(entry.booth?.startsWith(`${state.booth}-`) ?? false)
+    )
+      return false;
     if (state.category !== null && entry.brand.category !== state.category)
       return false;
     if (!query) return true;
@@ -120,7 +130,11 @@ export function deriveCreativeExpoZoneCounts(
   const counts = Object.fromEntries(
     CREATIVE_EXPO_ZONE_CODES.map((zone) => [zone, 0]),
   ) as Record<CreativeExpoZone, number>;
-  const filtered = filterCreativeExpoEntries(entries, { ...state, zone: null });
+  const filtered = filterCreativeExpoEntries(entries, {
+    ...state,
+    zone: null,
+    booth: null,
+  });
 
   for (const entry of filtered) counts[entry.zone] += 1;
   return counts;
@@ -134,15 +148,18 @@ export function deriveCreativeExpoHighlightedZones(
   if (state.zone !== null) return [];
 
   const represented = new Set(
-    filterCreativeExpoEntries(entries, { ...state, zone: null }).map(
-      (entry) => entry.zone,
-    ),
+    filterCreativeExpoEntries(entries, {
+      ...state,
+      zone: null,
+      booth: null,
+    }).map((entry) => entry.zone),
   );
   return CREATIVE_EXPO_ZONE_CODES.filter((zone) => represented.has(zone));
 }
 
 export type CreativeExpoUrlState = {
   zone: CreativeExpoZone | null;
+  booth: string | null;
   category: string | null;
 };
 
@@ -170,13 +187,21 @@ export function parseCreativeExpoUrlState(
   params: Pick<URLSearchParams, "get">,
   allowedZones: readonly string[],
   allowedCategories: readonly string[],
+  allowedBooths: readonly string[] = [],
 ): CreativeExpoUrlState {
   const zone = params.get("zone");
+  const booth = params.get("booth");
   const category = params.get("category");
   return {
     zone:
       zone && allowedZones.includes(zone) && isCreativeExpoZone(zone)
         ? zone
+        : null,
+    booth:
+      booth &&
+      /^(K1|K2|K3|S)-\d+(-\d+)?$/.test(booth) &&
+      allowedBooths.includes(booth)
+        ? booth
         : null,
     category: resolveAllowedCreativeExpoCategory(category, allowedCategories),
   };
@@ -185,7 +210,7 @@ export function parseCreativeExpoUrlState(
 /** Mutates and returns a URL for `history.replaceState`; unrelated params/hash survive. */
 export function buildCreativeExpoUrl(
   url: URL,
-  state: Pick<CreativeExpoUrlState, "zone" | "category">,
+  state: Pick<CreativeExpoUrlState, "zone" | "booth" | "category">,
 ): URL {
   if (state.zone) url.searchParams.set("zone", state.zone);
   else url.searchParams.delete("zone");
@@ -194,18 +219,20 @@ export function buildCreativeExpoUrl(
     : null;
   if (category) url.searchParams.set("category", category);
   else url.searchParams.delete("category");
+  if (state.booth) url.searchParams.set("booth", state.booth);
+  else url.searchParams.delete("booth");
   return url;
 }
 
 export function resetCreativeExpoFilters(
   state: CreativeExpoExplorerState,
 ): CreativeExpoExplorerState {
-  return { ...state, zone: null, category: null, query: "" };
+  return { ...state, zone: null, booth: null, category: null, query: "" };
 }
 
 /** Map reset is intentionally narrower than global clear. */
 export function resetCreativeExpoZone(
   state: CreativeExpoExplorerState,
 ): CreativeExpoExplorerState {
-  return { ...state, zone: null };
+  return { ...state, zone: null, booth: null };
 }

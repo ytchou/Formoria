@@ -1,6 +1,13 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Search, SearchX } from "lucide-react";
@@ -9,6 +16,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { ToggleChip } from "@/components/ui/toggle-chip";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ViewItemListTracker } from "@/components/analytics/view-item-list-tracker";
 import type {
   EventCategoryOption,
   LinkedEventExhibitorEntry,
@@ -25,6 +33,8 @@ import {
   sortCreativeExpoEntries,
   type CreativeExpoExplorerState,
 } from "@/lib/events/creative-expo-explorer";
+import { trackBoothSelected } from "@/lib/analytics";
+import geometry from "../../../content/events/2026-taiwan-creative-expo.block-geometry.json";
 import { TaiwanCreativeExpoFloorMap } from "./taiwan-creative-expo-floor-map";
 import { EXPO_ROSTER_SOURCE_URL } from "./taiwan-creative-expo-floor-map-config";
 import {
@@ -43,30 +53,46 @@ type TaiwanCreativeExpoExplorerProps = {
 
 function ExplorerUrlSeed({
   categoryOptions,
+  allowedBooths,
   onSeed,
 }: {
   categoryOptions: readonly EventCategoryOption[];
+  allowedBooths: readonly string[];
   onSeed: (value: {
     zone: CreativeExpoExplorerState["zone"];
+    booth: string | null;
     category: string | null;
   }) => void;
 }) {
   const params = useSearchParams();
   const requestedZone = params.get("zone");
   const requestedCategory = params.get("category");
+  const requestedBooth = params.get("booth");
 
   useEffect(() => {
     onSeed(
       parseCreativeExpoUrlState(
         {
           get: (key: string) =>
-            key === "zone" ? requestedZone : requestedCategory,
+            key === "zone"
+              ? requestedZone
+              : key === "booth"
+                ? requestedBooth
+                : requestedCategory,
         },
         CREATIVE_EXPO_ZONE_CODES,
         categoryOptions.map((option) => option.value),
+        allowedBooths,
       ),
     );
-  }, [categoryOptions, onSeed, requestedCategory, requestedZone]);
+  }, [
+    allowedBooths,
+    categoryOptions,
+    onSeed,
+    requestedBooth,
+    requestedCategory,
+    requestedZone,
+  ]);
 
   return null;
 }
@@ -82,18 +108,35 @@ export function TaiwanCreativeExpoExplorer({
   const t = useTranslations("events");
   const [state, setState] = useState<CreativeExpoExplorerState>({
     zone: null,
+    booth: null,
     category: null,
     query: "",
     sort: "recommended",
     expanded: false,
     mobilePanel: "map",
   });
+  const [hoveredBooth, setHoveredBooth] = useState<string | null>(null);
+  const rosterRef = useRef<HTMLDivElement>(null);
+  const boothAllowlist = useMemo(
+    () => [
+      ...entries
+        .map((entry) => entry.booth)
+        .filter((booth): booth is string => Boolean(booth)),
+      ...geometry.blocks.map((block) => block.block),
+    ],
+    [entries],
+  );
 
   const syncUrl = useCallback(
-    (zone: CreativeExpoExplorerState["zone"], category: string | null) => {
+    (
+      zone: CreativeExpoExplorerState["zone"],
+      category: string | null,
+      booth: string | null,
+    ) => {
       if (typeof window === "undefined") return;
       const url = buildCreativeExpoUrl(new URL(window.location.href), {
         zone,
+        booth,
         category,
       });
       window.history.replaceState(
@@ -108,12 +151,20 @@ export function TaiwanCreativeExpoExplorer({
   const seedUrlState = useCallback(
     (value: {
       zone: CreativeExpoExplorerState["zone"];
+      booth: string | null;
       category: string | null;
     }) => {
       setState((current) =>
-        current.zone === value.zone && current.category === value.category
+        current.zone === value.zone &&
+        current.booth === value.booth &&
+        current.category === value.category
           ? current
-          : { ...current, zone: value.zone, category: value.category },
+          : {
+              ...current,
+              zone: value.zone,
+              booth: value.booth,
+              category: value.category,
+            },
       );
     },
     [],
@@ -122,28 +173,58 @@ export function TaiwanCreativeExpoExplorer({
   const applyZone = useCallback(
     (zone: CreativeExpoExplorerState["zone"]) => {
       setState((current) => ({ ...current, zone }));
-      syncUrl(zone, state.category);
+      syncUrl(zone, state.category, state.booth);
     },
-    [state.category, syncUrl],
+    [state.booth, state.category, syncUrl],
   );
 
   const applyCategory = useCallback(
     (category: string | null) => {
       setState((current) => ({ ...current, category }));
-      syncUrl(state.zone, category);
+      syncUrl(state.zone, category, state.booth);
     },
-    [state.zone, syncUrl],
+    [state.booth, state.zone, syncUrl],
   );
 
   const clearFilters = useCallback(() => {
     setState((current) => resetCreativeExpoFilters(current));
-    syncUrl(null, null);
+    syncUrl(null, null, null);
   }, [syncUrl]);
 
   const resetMap = useCallback(() => {
     setState((current) => resetCreativeExpoZone(current));
-    syncUrl(null, state.category);
+    syncUrl(null, state.category, null);
   }, [state.category, syncUrl]);
+
+  const applyBooth = useCallback(
+    (
+      booth: string,
+      zone: CreativeExpoExplorerState["zone"],
+      brandCount: number,
+    ) => {
+      // `mobilePanel` also flips to the roster: below `lg` the two panels are
+      // exclusive, so scrolling to a `hidden` roster would be a no-op and the
+      // booth selection would look like it did nothing. Desktop ignores it.
+      setState((current) => ({
+        ...current,
+        booth,
+        zone,
+        mobilePanel: "list",
+      }));
+      syncUrl(zone, state.category, booth);
+      trackBoothSelected(booth, zone ?? "", brandCount, eventSlug);
+      const reducedMotion =
+        window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ===
+        true;
+      window.requestAnimationFrame(() =>
+        rosterRef.current?.scrollIntoView({
+          behavior: reducedMotion ? "auto" : "smooth",
+          block: "start",
+        }),
+      );
+    },
+    [eventSlug, state.category, syncUrl],
+  );
 
   const filteredEntries = useMemo(
     () => filterCreativeExpoEntries(entries, state),
@@ -161,8 +242,23 @@ export function TaiwanCreativeExpoExplorer({
     () => deriveCreativeExpoHighlightedZones(entries, state),
     [entries, state],
   );
+  /**
+   * Drives block dimming, so it deliberately ignores the booth filter: derived
+   * from `filteredEntries` a booth selection would dim all 112 other blocks,
+   * which reads as "no brands here" rather than "not the one you picked".
+   */
+  const visibleBooths = useMemo(
+    () =>
+      filterCreativeExpoEntries(entries, { ...state, booth: null })
+        .map((entry) => entry.booth)
+        .filter((booth): booth is string => Boolean(booth)),
+    [entries, state],
+  );
   const isFiltered =
-    state.zone !== null || state.category !== null || state.query.trim() !== "";
+    state.zone !== null ||
+    state.booth !== null ||
+    state.category !== null ||
+    state.query.trim() !== "";
   const isFilteredEmpty = sortedEntries.length === 0 && isFiltered;
   const hiddenCount = state.expanded
     ? 0
@@ -172,6 +268,7 @@ export function TaiwanCreativeExpoExplorer({
     <section aria-labelledby="creative-expo-explorer" className="space-y-6">
       <Suspense fallback={null}>
         <ExplorerUrlSeed
+          allowedBooths={boothAllowlist}
           categoryOptions={categoryOptions}
           onSeed={seedUrlState}
         />
@@ -184,7 +281,26 @@ export function TaiwanCreativeExpoExplorer({
         <p className="max-w-3xl type-section-description">
           {t("explorerDescription")}
         </p>
-        <p className="type-caption">{t("explorerDisclosure")}</p>
+        {/*
+          The way out to the full roster lives in the sentence that admits the
+          list is partial, not in a callout of its own: the reader forms the
+          question here, and the footer link is ~1200px below the fold. Same
+          destination as that footer link, deliberately duplicated.
+        */}
+        <p className="type-caption">
+          {t.rich("explorerDisclosure", {
+            roster: (chunks) => (
+              <a
+                className="type-link"
+                href={EXPO_ROSTER_SOURCE_URL}
+                rel="noreferrer"
+                target="_blank"
+              >
+                {chunks}
+              </a>
+            ),
+          })}
+        </p>
       </header>
 
       {rosterFailed ? (
@@ -226,24 +342,31 @@ export function TaiwanCreativeExpoExplorer({
         </Button>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
+      {/*
+        Stacked, not side by side: the map reads first at the container's full
+        width and the roster it filters follows underneath.
+      */}
+      <div className="space-y-8">
         <div
-          className={
-            state.mobilePanel === "map"
-              ? "block lg:sticky lg:top-6 lg:self-start"
-              : "hidden lg:sticky lg:top-6 lg:block lg:self-start"
-          }
+          className={state.mobilePanel === "map" ? "block" : "hidden lg:block"}
         >
           <TaiwanCreativeExpoFloorMap
             highlightedZones={highlightedZones}
             onReset={resetMap}
             onZoneSelect={applyZone}
             selectedZone={state.zone}
+            selectedBooth={state.booth}
+            hoveredBooth={hoveredBooth}
+            entries={entries}
+            visibleBooths={visibleBooths}
+            onBoothSelect={applyBooth}
+            onBoothHover={setHoveredBooth}
             zoneCounts={zoneCounts}
           />
         </div>
 
         <div
+          ref={rosterRef}
           className={state.mobilePanel === "list" ? "block" : "hidden lg:block"}
         >
           <div className="space-y-4">
@@ -331,7 +454,7 @@ export function TaiwanCreativeExpoExplorer({
                   size="compact"
                   onClick={clearFilters}
                 >
-                  {t("clearFilters")}
+                  {state.booth ? t("clearBoothFilter") : t("clearFilters")}
                 </Button>
               ) : null}
             </div>
@@ -357,7 +480,7 @@ export function TaiwanCreativeExpoExplorer({
                     variant="secondary"
                     onClick={clearFilters}
                   >
-                    {t("clearFilters")}
+                    {state.booth ? t("clearBoothFilter") : t("clearFilters")}
                   </Button>
                 }
               />
@@ -374,8 +497,14 @@ export function TaiwanCreativeExpoExplorer({
                 }
                 compact
                 creativeExpo
+                renderTracker={false}
+                onBoothHover={setHoveredBooth}
               />
             )}
+            <ViewItemListTracker
+              listName={`event:${eventSlug}`}
+              itemCount={entries.length}
+            />
           </div>
         </div>
       </div>

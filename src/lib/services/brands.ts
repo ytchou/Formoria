@@ -1326,6 +1326,14 @@ export async function getBrands(
 
   // Search filtering is handled in the bounded, service-only page RPC; this
   // branch only hydrates the returned IDs with the card projection.
+  //
+  // Deliberately NOT wrapped in excludeTestBrands: search-edge-cases.spec.ts and
+  // public-data-boundary.spec.ts drive the real UI and assert that a seeded
+  // `[E2E-TEST]` brand IS searchable and clickable through to detail — that is
+  // how the public search path stays covered at all. Test brands are excluded
+  // from every browse surface instead (listing, homepage rail, empty-state
+  // recommendations, static params, counts), so reaching one requires typing its
+  // exact name. Do not "fix" this without replacing the coverage it carries.
   if (typeof filters?.search === "string") {
     const trimmed = normalizePublicSearchQuery(filters.search);
     if (!trimmed) {
@@ -2043,9 +2051,9 @@ export async function getBrandCountByCategory(
   if (!categorySlug) return 0;
 
   const supabase = createServiceClient();
-  const { count, error } = await supabase
-    .from("brands")
-    .select("*", { count: "exact", head: true })
+  const { count, error } = await excludeTestBrands(
+    supabase.from("brands").select("*", { count: "exact", head: true }),
+  )
     .eq("status", "approved")
     .eq("product_type", categorySlug)
     .neq("slug", excludeSlug);
@@ -2056,10 +2064,9 @@ export async function getBrandCountByCategory(
 
 export async function getAllBrandSlugs(): Promise<string[]> {
   const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("brands")
-    .select("slug")
-    .eq("status", "approved");
+  const { data, error } = await excludeTestBrands(
+    supabase.from("brands").select("slug"),
+  ).eq("status", "approved");
 
   if (error) throw error;
   return (data ?? []).map((row) => row.slug);
@@ -2100,9 +2107,9 @@ export async function getBrandSeoEntries(): Promise<BrandSeoEntry[]> {
 
 export async function getMicrositeSlugs(): Promise<string[]> {
   const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("brands")
-    .select("slug")
+  const { data, error } = await excludeTestBrands(
+    supabase.from("brands").select("slug"),
+  )
     .eq("status", "approved")
     .not("site_content", "is", null);
 
@@ -2304,9 +2311,9 @@ export async function completeBrandClaim({
 
 export async function getRandomBrands(limit = 4): Promise<PublicBrandCard[]> {
   const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("brands")
-    .select(BRAND_LIST_SELECT)
+  const { data, error } = await excludeTestBrands(
+    supabase.from("brands").select(BRAND_LIST_SELECT),
+  )
     .eq("status", "approved")
     .limit(limit * 3);
 
@@ -2327,9 +2334,9 @@ export async function getRandomBrands(limit = 4): Promise<PublicBrandCard[]> {
 export async function getNewBrands(limit = 4): Promise<Brand[]> {
   const newBrandPoolSize = 20;
   const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("brands")
-    .select(BRAND_LIST_SELECT)
+  const { data, error } = await excludeTestBrands(
+    supabase.from("brands").select(BRAND_LIST_SELECT),
+  )
     .eq("status", "approved")
     .not("approved_at", "is", null)
     .order("approved_at", { ascending: false })

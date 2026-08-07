@@ -72,17 +72,24 @@ export function EventCard({
         interactive: true,
       })}
     >
-      <div className="space-y-3">
-        <Badge variant={eventPhaseBadgeVariant[phase]}>{phaseLabel}</Badge>
-        <div className="space-y-2">
-          <Heading className="type-card-title group-hover:underline">{name}</Heading>
-          <p className="type-body-muted line-clamp-2">{summary}</p>
+      {/*
+        Full-width row rather than a grid cell: the hub lists these one per row,
+        so the card splits into a prose column that takes the slack and a fixed
+        metadata rail. Below `md` the rail drops under the prose, separated by a
+        rule instead of a column border.
+      */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-8">
+        <div className="min-w-0 flex-1 space-y-3">
+          <Badge variant={eventPhaseBadgeVariant[phase]}>{phaseLabel}</Badge>
+          <div className="space-y-2">
+            <Heading className="type-card-title group-hover:underline">{name}</Heading>
+            <p className="type-body-muted line-clamp-3">{summary}</p>
+          </div>
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1 border-t border-border pt-4 md:w-56 md:shrink-0 md:border-t-0 md:border-l md:pt-0 md:pl-8">
           {dateLabel ? <p className="type-metadata">{dateLabel}</p> : null}
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 type-caption">
+          <div className="flex flex-col gap-1 type-caption">
             {venue ? <span>{venue}</span> : null}
-            {venue && brandCountLabel ? <span aria-hidden="true">·</span> : null}
             {brandCountLabel ? <span>{brandCountLabel}</span> : null}
           </div>
         </div>

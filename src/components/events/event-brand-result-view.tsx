@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import { useTranslations } from "next-intl";
 import { BrandCard } from "@/components/brands/brand-card";
 import {
@@ -29,6 +30,8 @@ export type EventBrandResultViewProps = {
   compact?: boolean;
   itemCount?: number;
   creativeExpo?: boolean;
+  renderTracker?: boolean;
+  onBoothHover?: (booth: string | null) => void;
 };
 
 /**
@@ -46,16 +49,20 @@ export function EventBrandResultView({
   compact = false,
   itemCount,
   creativeExpo = false,
+  renderTracker = true,
+  onBoothHover,
 }: EventBrandResultViewProps) {
   const t = useTranslations("events");
   const isEnglish = locale === "en";
 
   return (
     <SavedBrandsProvider>
-      <ViewItemListTracker
-        listName={`event:${eventSlug}`}
-        itemCount={itemCount ?? entries.length}
-      />
+      {renderTracker ? (
+        <ViewItemListTracker
+          listName={`event:${eventSlug}`}
+          itemCount={itemCount ?? entries.length}
+        />
+      ) : null}
       <MasonryGrid
         compact={compact}
         visibleCount={expanded ? undefined : EVENT_LINEUP_VISIBLE_CAP}
@@ -67,9 +74,8 @@ export function EventBrandResultView({
             ? `${t("boothLabel")}: ${creativeEntry.booth}`
             : undefined;
 
-          return (
+          const card = (
             <BrandCard
-              key={entry.brand.id}
               brand={entry.brand}
               variant="editorial"
               eyebrow={creativeEntry?.zone ?? entry.booth ?? area ?? undefined}
@@ -83,6 +89,24 @@ export function EventBrandResultView({
               preload={index < MASONRY_ABOVE_FOLD}
               position={index}
             />
+          );
+          // The wrapper exists only to report booth hover back to the floor
+          // map. `BrandCard` and `MasonryGrid` are shared with /brands, so the
+          // legacy lineup keeps its exact DOM by skipping the wrapper entirely.
+          if (!onBoothHover || !creativeEntry) {
+            return <Fragment key={entry.brand.id}>{card}</Fragment>;
+          }
+
+          return (
+            <div
+              key={entry.brand.id}
+              onBlur={() => onBoothHover(null)}
+              onFocus={() => onBoothHover(creativeEntry.booth)}
+              onMouseEnter={() => onBoothHover(creativeEntry.booth)}
+              onMouseLeave={() => onBoothHover(null)}
+            >
+              {card}
+            </div>
           );
         })}
       </MasonryGrid>
