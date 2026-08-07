@@ -1288,13 +1288,12 @@ async function loadEventFiles(directory: string): Promise<ParsedEvent[]> {
     return [];
   }
 
-  // Exhibitor ledgers are intentionally separate from event metadata. Parsing
-  // one here would let a ledger accidentally create/overwrite event fields.
-  const fileNames = entries
-    .filter(
-      (name) => name.endsWith(".json") && !name.endsWith(".exhibitors.json"),
-    )
-    .sort();
+  // Event metadata lives in `<slug>.json`; every other artifact for an event is
+  // a dotted sidecar (`<slug>.exhibitors.json`, `<slug>.block-geometry.json`).
+  // This is an allowlist rather than a denylist of known sidecars on purpose --
+  // parsing a sidecar here would let it create or overwrite event fields, and a
+  // denylist silently stops covering the next sidecar someone adds.
+  const fileNames = entries.filter((name) => /^[^.]+\.json$/.test(name)).sort();
   const parsed: ParsedEvent[] = [];
 
   for (const fileName of fileNames) {

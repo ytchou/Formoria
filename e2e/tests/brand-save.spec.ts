@@ -293,9 +293,10 @@ test.describe('Brand save — card overlay on directory', () => {
     );
 
     const ts = Date.now();
-    // Directory queries intentionally exclude names prefixed with [E2E-TEST],
-    // so this seed uses a cleanup-safe slug without that filtered name prefix.
-    brandName = `E2E Save Overlay ${ts}`;
+    // Prefixed so the orphan sweep can reach it if this run dies before
+    // afterAll. Safe despite the directory filter: this journey only visits
+    // /brands/<slug>, and detail-by-slug applies no test-brand exclusion.
+    brandName = `[E2E-TEST] Save Overlay ${ts}`;
     brandSlug = `e2e-save-overlay-${ts}`;
 
     const { data: stale } = await supabase

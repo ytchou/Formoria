@@ -8,15 +8,14 @@ import { EventBrandGrid } from "@/components/events/event-brand-grid";
 import { TaiwanCreativeExpoExplorer } from "@/components/events/taiwan-creative-expo-explorer";
 import { eventPhaseBadgeVariant } from "@/components/events/event-card";
 import { formatEventDateRange } from "@/components/events/event-date";
-import { formatStoryDate } from "@/components/stories/story-date";
+import { StoryRow } from "@/components/stories/story-row";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { LinkCard } from "@/components/ui/link-card";
 import { textStyles } from "@/components/ui/text-styles";
 import { safeImageSrc } from "@/lib/images/allowed-image-hosts";
 import { safeDecodeSlug } from "@/lib/url";
-import { cn, shuffle } from "@/lib/utils";
+import { shuffle } from "@/lib/utils";
 import {
   deriveAreaOptions,
   deriveCategoryOptions,
@@ -555,36 +554,19 @@ export default async function EventDetailPage({ params }: PageProps) {
             // lineup directly below it.
             <EmptyState title={t("storiesEmptyTitle")} />
           ) : (
-            // Two columns only once there is something to put in both. A lone
-            // story in a two-column grid renders half-width beside an empty
-            // column, which reads as a card that failed to load.
-            <ul
-              className={cn(
-                "grid gap-6",
-                relatedStories.length > 1 && "md:grid-cols-2",
-              )}
-            >
+            // Same `StoryRow` list as the homepage and /stories: one story
+            // presentation across the site, and a date-led row reads at any
+            // count, unlike a grid that had to drop to one column below two.
+            <div className="divide-y divide-border border-y border-border">
               {relatedStories.map((story) => (
-                <li key={story.slug}>
-                  {/*
-                    No eyebrow: story frontmatter carries no field that names a
-                    story's kind, and `tags`/`seriesTitle` would either invent a
-                    taxonomy or repeat this very event's name back at the reader.
-                  */}
-                  <LinkCard
-                    href={`/stories/${story.slug}`}
-                    title={story.frontmatter.title}
-                    description={story.frontmatter.description}
-                    meta={formatStoryDate(
-                      story.frontmatter.publishedAt,
-                      safeLocale,
-                    )}
-                    size="wide"
-                    headingLevel={3}
-                  />
-                </li>
+                <StoryRow
+                  key={story.slug}
+                  story={story}
+                  locale={safeLocale}
+                  headingLevel={3}
+                />
               ))}
-            </ul>
+            </div>
           )}
         </section>
 

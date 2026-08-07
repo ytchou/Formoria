@@ -99,6 +99,7 @@ describe("Creative Expo explorer state", () => {
     ];
     const state: CreativeExpoExplorerState = {
       zone: "K2",
+      booth: null,
       category: "homeware",
       query: "shanfang",
       sort: "recommended",
@@ -130,6 +131,7 @@ describe("Creative Expo explorer state", () => {
     ];
     const state: CreativeExpoExplorerState = {
       zone: "K2",
+      booth: null,
       category: "crafts",
       query: "",
       sort: "recommended",
@@ -156,29 +158,34 @@ describe("Creative Expo explorer state", () => {
         ["K1", "K2"],
         ["crafts", "homeware"],
       ),
-    ).toEqual({ zone: "K2", category: "homeware" });
+    ).toEqual({ zone: "K2", booth: null, category: "homeware" });
     expect(
       parseCreativeExpoUrlState(
         new URLSearchParams("zone=J2&category=unknown"),
         ["K1", "K2"],
         ["crafts", "homeware"],
       ),
-    ).toEqual({ zone: null, category: null });
+    ).toEqual({ zone: null, booth: null, category: null });
 
     const url = new URL(
       "https://formoria.test/en/events/creative?ref=story#explore",
     );
-    buildCreativeExpoUrl(url, { zone: "K1", category: "crafts" });
+    buildCreativeExpoUrl(url, {
+      zone: "K1",
+      category: "crafts",
+      booth: "K1-001",
+    });
     expect(url.toString()).toBe(
-      "https://formoria.test/en/events/creative?ref=story&zone=K1&category=crafts#explore",
+      "https://formoria.test/en/events/creative?ref=story&zone=K1&category=crafts&booth=K1-001#explore",
     );
-    buildCreativeExpoUrl(url, { zone: null, category: null });
+    buildCreativeExpoUrl(url, { zone: null, category: null, booth: null });
     expect(url.toString()).toBe(
       "https://formoria.test/en/events/creative?ref=story#explore",
     );
 
     const state: CreativeExpoExplorerState = {
       zone: "K2",
+      booth: "K2-010",
       category: "crafts",
       query: "ceramic",
       sort: "booth",
@@ -187,11 +194,13 @@ describe("Creative Expo explorer state", () => {
     };
     expect(resetCreativeExpoFilters(state)).toMatchObject({
       zone: null,
+      booth: null,
       category: null,
       query: "",
     });
     expect(resetCreativeExpoZone(state)).toMatchObject({
       zone: null,
+      booth: null,
       category: "crafts",
     });
   });
@@ -203,11 +212,47 @@ describe("Creative Expo explorer state", () => {
         ["K1", "K2"],
         ["工藝文創", "homeware"],
       ),
-    ).toEqual({ zone: "K2", category: "工藝文創" });
+    ).toEqual({ zone: "K2", booth: null, category: "工藝文創" });
 
     const url = new URL("https://formoria.test/en/events/creative");
-    buildCreativeExpoUrl(url, { zone: "K2", category: "工藝文創" });
+    buildCreativeExpoUrl(url, {
+      zone: "K2",
+      category: "工藝文創",
+      booth: null,
+    });
     expect(url.search).toBe("?zone=K2&category=crafts");
+  });
+
+  it("filters by booth together with the other filters and round-trips booth URLs", () => {
+    const entries = [
+      linkedEntry({ id: "selected", booth: "K1-011-01", zone: "K1" }),
+      linkedEntry({ id: "other", booth: "K1-011-02", zone: "K1" }),
+    ];
+    expect(
+      filterCreativeExpoEntries(entries, {
+        zone: "K1",
+        booth: "K1-011-01",
+        category: null,
+        query: "",
+      }).map((item) => item.id),
+    ).toEqual(["selected"]);
+    expect(
+      parseCreativeExpoUrlState(
+        new URLSearchParams("booth=K1-011-01"),
+        ["K1"],
+        [],
+        ["K1-011-01"],
+      ),
+    ).toEqual({ zone: null, booth: "K1-011-01", category: null });
+    const url = new URL(
+      "https://formoria.test/en/events/creative?zone=K1&category=crafts",
+    );
+    buildCreativeExpoUrl(url, {
+      zone: "K1",
+      category: "crafts",
+      booth: "K1-011-01",
+    });
+    expect(url.search).toBe("?zone=K1&category=crafts&booth=K1-011-01");
   });
 
   it("sorts by natural booth number without changing recommended order", () => {

@@ -86,7 +86,11 @@ async function globalSetup() {
     }
   }
 
-  // Sweep orphaned test data from previous runs (runs once, globally)
+  // Sweep orphaned test data from previous runs (runs once, globally). The 6h
+  // window is deliberate here — a tighter one would delete a concurrently
+  // running suite's live fixtures. Teardown sweeps THIS run's rows instead,
+  // using the timestamp recorded below (setup and teardown share a process).
+  process.env.E2E_RUN_STARTED_AT = new Date().toISOString();
   await cleanupTestData();
 
   const requiredVars = [

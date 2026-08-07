@@ -130,7 +130,7 @@ export default async function EventsHubPage({ params }: PageProps) {
                 <h2 id="events-upcoming" className="type-section-title">
                   {t('upcomingHeading')}
                 </h2>
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <div className="flex flex-col gap-4">
                   {upcoming.map(renderCard)}
                 </div>
               </section>
@@ -141,7 +141,7 @@ export default async function EventsHubPage({ params }: PageProps) {
                 <h2 id="events-past" className="type-section-title">
                   {t('pastHeading')}
                 </h2>
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <div className="flex flex-col gap-4">
                   {past.map(renderCard)}
                 </div>
               </section>

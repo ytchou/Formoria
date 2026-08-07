@@ -176,6 +176,22 @@ export function trackBrandCardClicked(
   }
 }
 
+export function trackBoothSelected(
+  booth: string,
+  zone: string,
+  brandCount: number,
+  eventSlug: string,
+) {
+  const properties = {
+    booth,
+    zone,
+    brand_count: brandCount,
+    event_slug: eventSlug,
+  }
+  safeGAEvent('event', 'booth_selected', properties)
+  capturePostHogEvent(ANALYTICS_EVENTS.BOOTH_SELECTED, properties)
+}
+
 export type ExternalLinkSurface = 'detail_page' | 'card' | 'recommendation'
 
 export function trackExternalLinkClicked(

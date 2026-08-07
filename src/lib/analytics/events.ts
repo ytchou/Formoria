@@ -55,6 +55,15 @@ export const ANALYTICS_EVENTS = {
   BRAND_CARD_CLICKED: 'brand_card_clicked',
 
   /**
+   * A booth block was selected in the Creative Expo floor map.
+   * @property booth {string} Canonical booth code.
+   * @property zone {string} Expo zone containing the booth.
+   * @property brand_count {number} Linked brands represented by the booth.
+   * @property event_slug {string} Event owning the floor map.
+   */
+  BOOTH_SELECTED: 'booth_selected',
+
+  /**
    * A category tile in the homepage hero was clicked.
    * @property category {string} Category key.
    * @property destination_url {string} Resolved href the tile navigates to.
@@ -564,6 +573,12 @@ export interface AnalyticsEventPayloads {
     brand_slug: string
     category: string | null
     position_in_grid: number
+  }
+  [ANALYTICS_EVENTS.BOOTH_SELECTED]: {
+    booth: string
+    zone: string
+    brand_count: number
+    event_slug: string
   }
   [ANALYTICS_EVENTS.HERO_CATEGORY_CLICKED]: { category: string; destination_url: string }
   [ANALYTICS_EVENTS.DIRECTORY_SORT_CHANGED]: { sort_value: string; previous_sort: string }
