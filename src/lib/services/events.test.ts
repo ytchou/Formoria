@@ -15,6 +15,7 @@ import {
   fetchPublishedEvents,
   projectLinkedEventExhibitorEntries,
   resolveEventPhase,
+  selectCreativeExpoEntries,
   selectLinkedEventExhibitorEntries,
   taipeiToday,
   type EventBrandLink,
@@ -367,6 +368,43 @@ describe("events service", () => {
     expect(projectLinkedEventExhibitorEntries(selected)).toMatchObject([
       { booth: "K1-001", note: null, noteEn: null },
       { booth: "K2-010", note: null, noteEn: null },
+    ]);
+  });
+
+  it("keeps unlinked exhibitors when selecting the whole expo hall", () => {
+    const rows = composeEventExhibitorEntries(
+      [
+        exhibitor({ sortOrder: 0, zone: "K1" }),
+        exhibitor({
+          id: "2b0f5a4c-0000-4000-8000-0000000000e2",
+          sourceKey: "creative-expo:325",
+          booth: "S-010",
+          zone: "S",
+          sortOrder: 1,
+        }),
+        exhibitor({
+          id: "2b0f5a4c-0000-4000-8000-0000000000e3",
+          sourceKey: "creative-expo:401",
+          booth: "H-001",
+          zone: "H",
+          sortOrder: 2,
+        }),
+      ],
+      new Map([["2b0f5a4c-0000-4000-8000-0000000000e1", "woky"]]),
+      brandMap(brand("woky", "沃廚")),
+    );
+
+    // The S row has no brand link and the H row is outside the allowlist:
+    // only the zone gate applies here, unlike the linked-only selection.
+    expect(
+      selectCreativeExpoEntries(rows).map((row) => [
+        row.sourceKey,
+        row.zone,
+        row.brand?.slug ?? null,
+      ]),
+    ).toEqual([
+      ["creative-expo:322", "K1", "woky"],
+      ["creative-expo:325", "S", null],
     ]);
   });
 

@@ -27,6 +27,7 @@ import {
   resolveEventPhase,
   taipeiToday,
   projectLinkedEventExhibitorEntries,
+  selectCreativeExpoEntries,
   selectLinkedEventExhibitorEntries,
   type EventBrandEntry,
   type EventExhibitorEntry,
@@ -179,13 +180,22 @@ export default async function EventDetailPage({ params }: PageProps) {
     await markRenderDegraded("events.creativeExpo.exhibitors");
   }
 
+  // The explorer renders the whole hall; the linked-only projection stays for
+  // the shared `EventBrandGrid` entry shape below.
+  const creativeExpoEntries = isCreativeExpo
+    ? selectCreativeExpoEntries(
+        (lineupRead as EventExhibitorEntry[] | null) ?? [],
+      )
+    : [];
   const linkedCreativeExpoEntries = isCreativeExpo
     ? selectLinkedEventExhibitorEntries(
         (lineupRead as EventExhibitorEntry[] | null) ?? [],
       )
     : [];
   if (isCreativeExpo && lineupRead !== null) {
-    const placementMismatches = linkedCreativeExpoEntries.flatMap((entry) => {
+    // Placement is a property of the roster row, not of the brand link, so the
+    // integrity warn runs over every exhibitor rather than the linked subset.
+    const placementMismatches = creativeExpoEntries.flatMap((entry) => {
       const verification = verifyCreativeExpoPlacement(entry);
       return verification.consistent
         ? []
@@ -588,8 +598,7 @@ export default async function EventDetailPage({ params }: PageProps) {
           {isCreativeExpo ? (
             <Suspense fallback={null}>
               <TaiwanCreativeExpoExplorer
-                categoryOptions={categoryOptions}
-                entries={linkedCreativeExpoEntries}
+                entries={creativeExpoEntries}
                 eventSlug={event.slug}
                 locale={safeLocale}
                 rosterFailed={rosterFailed}

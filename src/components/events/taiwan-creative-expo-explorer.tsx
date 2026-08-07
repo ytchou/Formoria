@@ -12,60 +12,46 @@ import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Search, SearchX } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { NativeSelect } from "@/components/ui/native-select";
 import { ToggleChip } from "@/components/ui/toggle-chip";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ViewItemListTracker } from "@/components/analytics/view-item-list-tracker";
-import type {
-  EventCategoryOption,
-  LinkedEventExhibitorEntry,
-} from "@/lib/services/events";
+import type { CreativeExpoEntry } from "@/lib/services/events";
 import {
   CREATIVE_EXPO_ZONE_CODES,
   buildCreativeExpoUrl,
-  deriveCreativeExpoHighlightedZones,
   deriveCreativeExpoZoneCounts,
   filterCreativeExpoEntries,
+  paginateCreativeExpoEntries,
   parseCreativeExpoUrlState,
   resetCreativeExpoFilters,
-  resetCreativeExpoZone,
   sortCreativeExpoEntries,
   type CreativeExpoExplorerState,
+  type CreativeExpoUrlState,
 } from "@/lib/events/creative-expo-explorer";
-import { trackBoothSelected } from "@/lib/analytics";
-import geometry from "../../../content/events/2026-taiwan-creative-expo.block-geometry.json";
-import { TaiwanCreativeExpoFloorMap } from "./taiwan-creative-expo-floor-map";
-import {
-  EventBrandResultView,
-  EVENT_LINEUP_VISIBLE_CAP,
-} from "./event-brand-result-view";
+import { EXPO_ZONE_DEFINITIONS } from "./taiwan-creative-expo-floor-map-config";
+import { EventExhibitorList } from "./event-exhibitor-list";
+import { EventExhibitorPagination } from "./event-exhibitor-pagination";
+
+/** Rows per page. Every row still renders; the rest are hidden with CSS. */
+const EXHIBITOR_PAGE_SIZE = 20;
 
 type TaiwanCreativeExpoExplorerProps = {
-  entries: readonly LinkedEventExhibitorEntry[];
-  categoryOptions: readonly EventCategoryOption[];
+  entries: readonly CreativeExpoEntry[];
   eventSlug: string;
   locale: string;
   rosterFailed?: boolean;
 };
 
 function ExplorerUrlSeed({
-  categoryOptions,
-  allowedBooths,
   onSeed,
 }: {
-  categoryOptions: readonly EventCategoryOption[];
-  allowedBooths: readonly string[];
-  onSeed: (value: {
-    zone: CreativeExpoExplorerState["zone"];
-    booth: string | null;
-    category: string | null;
-  }) => void;
+  onSeed: (value: CreativeExpoUrlState) => void;
 }) {
   const params = useSearchParams();
   const requestedZone = params.get("zone");
-  const requestedCategory = params.get("category");
   const requestedBooth = params.get("booth");
+  const requestedPage = params.get("page");
 
   useEffect(() => {
     onSeed(
@@ -76,199 +62,156 @@ function ExplorerUrlSeed({
               ? requestedZone
               : key === "booth"
                 ? requestedBooth
-                : requestedCategory,
+                : key === "page"
+                  ? requestedPage
+                  : null,
         },
         CREATIVE_EXPO_ZONE_CODES,
-        categoryOptions.map((option) => option.value),
-        allowedBooths,
       ),
     );
-  }, [
-    allowedBooths,
-    categoryOptions,
-    onSeed,
-    requestedBooth,
-    requestedCategory,
-    requestedZone,
-  ]);
+  }, [onSeed, requestedBooth, requestedPage, requestedZone]);
 
   return null;
 }
 
 export function TaiwanCreativeExpoExplorer({
   entries,
-  categoryOptions,
   eventSlug,
   locale,
   rosterFailed = false,
 }: TaiwanCreativeExpoExplorerProps) {
   const t = useTranslations("events");
+  const isEnglish = locale === "en";
   const [state, setState] = useState<CreativeExpoExplorerState>({
     zone: null,
-    booth: null,
-    category: null,
     query: "",
-    sort: "recommended",
-    expanded: false,
-    mobilePanel: "map",
+    page: 1,
   });
-  const [hoveredBooth, setHoveredBooth] = useState<string | null>(null);
-  const rosterRef = useRef<HTMLDivElement>(null);
-  const boothAllowlist = useMemo(
-    () => [
-      ...entries
-        .map((entry) => entry.booth)
-        .filter((booth): booth is string => Boolean(booth)),
-      ...geometry.blocks.map((block) => block.block),
-    ],
-    [entries],
-  );
+  const listRef = useRef<HTMLUListElement>(null);
+  const filterBarRef = useRef<HTMLDivElement>(null);
 
-  const syncUrl = useCallback(
-    (
-      zone: CreativeExpoExplorerState["zone"],
-      category: string | null,
-      booth: string | null,
-    ) => {
-      if (typeof window === "undefined") return;
-      const url = buildCreativeExpoUrl(new URL(window.location.href), {
-        zone,
-        booth,
-        category,
-      });
-      window.history.replaceState(
-        window.history.state,
-        "",
-        `${url.pathname}${url.search}${url.hash}`,
-      );
-    },
-    [],
-  );
+  const syncUrl = useCallback((next: CreativeExpoExplorerState) => {
+    if (typeof window === "undefined") return;
+    const url = buildCreativeExpoUrl(new URL(window.location.href), next);
+    const target = `${url.pathname}${url.search}${url.hash}`;
+    // Only write when the URL actually changes. `query` is deliberately not
+    // persisted, so on a page opened without any params every keystroke would
+    // otherwise `replaceState` a byte-identical URL. Skip those: there is no
+    // reason to rewrite the URL when nothing about it would change.
+    if (
+      target ===
+      `${window.location.pathname}${window.location.search}${window.location.hash}`
+    ) {
+      return;
+    }
+    window.history.replaceState(window.history.state, "", target);
+  }, []);
 
-  const seedUrlState = useCallback(
-    (value: {
-      zone: CreativeExpoExplorerState["zone"];
-      booth: string | null;
-      category: string | null;
-    }) => {
-      setState((current) =>
-        current.zone === value.zone &&
-        current.booth === value.booth &&
-        current.category === value.category
-          ? current
-          : {
-              ...current,
-              zone: value.zone,
-              booth: value.booth,
-              category: value.category,
-            },
-      );
-    },
-    [],
-  );
+  const seedUrlState = useCallback((value: CreativeExpoUrlState) => {
+    setState((current) =>
+      current.zone === value.zone &&
+      current.page === value.page &&
+      (value.query === null || current.query === value.query)
+        ? current
+        : {
+            zone: value.zone,
+            // `query` is only ever seeded from a legacy `?booth=` link; a null
+            // means the URL said nothing about it, so the typed query stands.
+            query: value.query ?? current.query,
+            page: value.page,
+          },
+    );
+  }, []);
 
-  const applyZone = useCallback(
-    (zone: CreativeExpoExplorerState["zone"]) => {
-      setState((current) => ({ ...current, zone }));
-      syncUrl(zone, state.category, state.booth);
+  /**
+   * The single funnel for every filter change. Force-setting `page: 1` here is
+   * what guarantees a zone chip or a keystroke can never leave the reader on a
+   * page number the new result set does not have.
+   */
+  const applyState = useCallback(
+    (patch: Partial<Pick<CreativeExpoExplorerState, "zone" | "query">>) => {
+      const next = { ...state, ...patch, page: 1 };
+      setState(next);
+      syncUrl(next);
     },
-    [state.booth, state.category, syncUrl],
-  );
-
-  const applyCategory = useCallback(
-    (category: string | null) => {
-      setState((current) => ({ ...current, category }));
-      syncUrl(state.zone, category, state.booth);
-    },
-    [state.booth, state.zone, syncUrl],
+    [state, syncUrl],
   );
 
   const clearFilters = useCallback(() => {
-    setState((current) => resetCreativeExpoFilters(current));
-    syncUrl(null, null, null);
-  }, [syncUrl]);
+    const next = resetCreativeExpoFilters(state);
+    setState(next);
+    syncUrl(next);
+  }, [state, syncUrl]);
 
-  const resetMap = useCallback(() => {
-    setState((current) => resetCreativeExpoZone(current));
-    syncUrl(null, state.category, null);
-  }, [state.category, syncUrl]);
-
-  const applyBooth = useCallback(
-    (
-      booth: string,
-      zone: CreativeExpoExplorerState["zone"],
-      brandCount: number,
-    ) => {
-      // `mobilePanel` also flips to the roster: below `lg` the two panels are
-      // exclusive, so scrolling to a `hidden` roster would be a no-op and the
-      // booth selection would look like it did nothing. Desktop ignores it.
-      setState((current) => ({
-        ...current,
-        booth,
-        zone,
-        mobilePanel: "list",
-      }));
-      syncUrl(zone, state.category, booth);
-      trackBoothSelected(booth, zone ?? "", brandCount, eventSlug);
+  const applyPage = useCallback(
+    (page: number) => {
+      const next = { ...state, page };
+      setState(next);
+      syncUrl(next);
+      // Focus the list, never the clicked control: at either end that control
+      // becomes a plain `<span>` and focus would be lost to `<body>`.
+      listRef.current?.focus({ preventScroll: true });
       const reducedMotion =
         window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ===
         true;
       window.requestAnimationFrame(() =>
-        rosterRef.current?.scrollIntoView({
+        filterBarRef.current?.scrollIntoView({
           behavior: reducedMotion ? "auto" : "smooth",
           block: "start",
         }),
       );
     },
-    [eventSlug, state.category, syncUrl],
+    [state, syncUrl],
   );
 
-  const filteredEntries = useMemo(
-    () => filterCreativeExpoEntries(entries, state),
-    [entries, state],
-  );
   const sortedEntries = useMemo(
-    () => sortCreativeExpoEntries(filteredEntries, state.sort),
-    [filteredEntries, state.sort],
-  );
-  const zoneCounts = useMemo(
-    () => deriveCreativeExpoZoneCounts(entries, state),
-    [entries, state],
-  );
-  const highlightedZones = useMemo(
-    () => deriveCreativeExpoHighlightedZones(entries, state),
-    [entries, state],
-  );
-  /**
-   * Drives block dimming, so it deliberately ignores the booth filter: derived
-   * from `filteredEntries` a booth selection would dim all 112 other blocks,
-   * which reads as "no brands here" rather than "not the one you picked".
-   */
-  const visibleBooths = useMemo(
     () =>
-      filterCreativeExpoEntries(entries, { ...state, booth: null })
-        .map((entry) => entry.booth)
-        .filter((booth): booth is string => Boolean(booth)),
-    [entries, state],
+      sortCreativeExpoEntries(
+        filterCreativeExpoEntries(entries, {
+          zone: state.zone,
+          query: state.query,
+        }),
+        "booth",
+      ),
+    [entries, state.query, state.zone],
   );
-  const isFiltered =
-    state.zone !== null ||
-    state.booth !== null ||
-    state.category !== null ||
-    state.query.trim() !== "";
+  const { pageCount, startIndex, endIndex } = useMemo(
+    () =>
+      paginateCreativeExpoEntries(
+        sortedEntries,
+        state.page,
+        EXHIBITOR_PAGE_SIZE,
+      ),
+    [sortedEntries, state.page],
+  );
+  // Same clamp `paginateCreativeExpoEntries` applies internally, so the control
+  // and the window it drives can never disagree.
+  const currentPage = Math.min(Math.max(state.page, 1), pageCount);
+
+  const zoneCounts = useMemo(
+    () => deriveCreativeExpoZoneCounts(entries, { query: state.query }),
+    [entries, state.query],
+  );
+  // Only zones actually present in the roster get a chip: the hall's zone list
+  // is data, not configuration, and an always-zero chip is a dead end.
+  const zoneOptions = useMemo(
+    () =>
+      EXPO_ZONE_DEFINITIONS.filter((definition) =>
+        entries.some((entry) => entry.zone === definition.code),
+      ).map((definition) => ({
+        code: definition.code,
+        label: isEnglish ? definition.names.en : definition.names.zhTW,
+      })),
+    [entries, isEnglish],
+  );
+
+  const isFiltered = state.zone !== null || state.query.trim() !== "";
   const isFilteredEmpty = sortedEntries.length === 0 && isFiltered;
-  const hiddenCount = state.expanded
-    ? 0
-    : Math.max(sortedEntries.length - EVENT_LINEUP_VISIBLE_CAP, 0);
 
   return (
     <section aria-labelledby="creative-expo-explorer" className="space-y-6">
       <Suspense fallback={null}>
-        <ExplorerUrlSeed
-          allowedBooths={boothAllowlist}
-          categoryOptions={categoryOptions}
-          onSeed={seedUrlState}
-        />
+        <ExplorerUrlSeed onSeed={seedUrlState} />
       </Suspense>
 
       <header>
@@ -289,206 +232,127 @@ export function TaiwanCreativeExpoExplorer({
         </div>
       ) : null}
 
-      <div
-        className="flex gap-2 lg:hidden"
-        role="group"
-        aria-label={t("explorerMobilePanels")}
-      >
-        <Button
-          aria-pressed={state.mobilePanel === "map"}
-          type="button"
-          variant={state.mobilePanel === "map" ? "primary" : "secondary"}
-          onClick={() =>
-            setState((current) => ({ ...current, mobilePanel: "map" }))
-          }
-        >
-          {t("explorerMapPanel")}
-        </Button>
-        <Button
-          aria-pressed={state.mobilePanel === "list"}
-          type="button"
-          variant={state.mobilePanel === "list" ? "primary" : "secondary"}
-          onClick={() =>
-            setState((current) => ({ ...current, mobilePanel: "list" }))
-          }
-        >
-          {t("explorerListPanel")}
-        </Button>
-      </div>
-
-      {/*
-        Stacked, not side by side: the map reads first at the container's full
-        width and the roster it filters follows underneath.
-      */}
-      <div className="space-y-8">
-        <div
-          className={state.mobilePanel === "map" ? "block" : "hidden lg:block"}
-        >
-          <TaiwanCreativeExpoFloorMap
-            highlightedZones={highlightedZones}
-            onReset={resetMap}
-            onZoneSelect={applyZone}
-            selectedZone={state.zone}
-            selectedBooth={state.booth}
-            hoveredBooth={hoveredBooth}
-            entries={entries}
-            visibleBooths={visibleBooths}
-            onBoothSelect={applyBooth}
-            onBoothHover={setHoveredBooth}
-            zoneCounts={zoneCounts}
-          />
-        </div>
-
-        <div
-          ref={rosterRef}
-          className={state.mobilePanel === "list" ? "block" : "hidden lg:block"}
-        >
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="relative w-full sm:max-w-xs">
-                <Search
-                  aria-hidden="true"
-                  className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-                />
-                <Input
-                  type="search"
-                  value={state.query}
-                  onChange={(event) =>
-                    setState((current) => ({
-                      ...current,
-                      query: event.target.value,
-                    }))
-                  }
-                  aria-label={t("explorerSearchAria")}
-                  placeholder={t("explorerSearchPlaceholder")}
-                  maxLength={100}
-                  className="w-full pl-9"
-                />
-              </div>
-              <NativeSelect
-                value={state.sort}
-                onChange={(event) =>
-                  setState((current) => ({
-                    ...current,
-                    sort: event.target
-                      .value as CreativeExpoExplorerState["sort"],
-                  }))
-                }
-                aria-label={t("explorerSortAria")}
-                className="w-auto"
-              >
-                <option value="recommended">
-                  {t("explorerSortRecommended")}
-                </option>
-                <option value="booth">{t("lineupSortBooth")}</option>
-              </NativeSelect>
-            </div>
-
-            {categoryOptions.length > 0 ? (
-              <div
-                role="group"
-                aria-label={t("categoryFilterAria")}
-                className="flex flex-wrap gap-2"
-              >
-                <ToggleChip
-                  size="default"
-                  pressed={state.category === null}
-                  onPressedChange={() => applyCategory(null)}
-                >
-                  {t("allCategories")}
-                </ToggleChip>
-                {categoryOptions.map((option) => (
-                  <ToggleChip
-                    key={option.value}
-                    size="default"
-                    pressed={state.category === option.value}
-                    onPressedChange={(pressed) =>
-                      applyCategory(pressed ? option.value : null)
-                    }
-                  >
-                    {option.label}
-                  </ToggleChip>
-                ))}
-              </div>
-            ) : null}
-
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p role="status" className="type-caption">
-                {isFiltered
-                  ? t("brandCountFiltered", {
-                      count: sortedEntries.length,
-                      total: entries.length,
-                    })
-                  : t("brandCount", { count: sortedEntries.length })}
-              </p>
-              {isFiltered ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="compact"
-                  onClick={clearFilters}
-                >
-                  {state.booth ? t("clearBoothFilter") : t("clearFilters")}
-                </Button>
-              ) : null}
-            </div>
-
-            {rosterFailed ? null : entries.length === 0 ? (
-              <p className="type-empty-body">{t("explorerRosterEmpty")}</p>
-            ) : isFilteredEmpty ? (
-              <EmptyState
-                icon={<SearchX />}
-                title={
-                  state.query.trim()
-                    ? t("lineupSearchEmptyTitle")
-                    : t("filteredEmptyTitle")
-                }
-                body={
-                  state.query.trim()
-                    ? t("lineupSearchEmptyBody")
-                    : t("filteredEmptyBody")
-                }
-                action={
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={clearFilters}
-                  >
-                    {state.booth ? t("clearBoothFilter") : t("clearFilters")}
-                  </Button>
-                }
-              />
-            ) : (
-              <EventBrandResultView
-                entries={sortedEntries}
-                eventSlug={eventSlug}
-                locale={locale}
-                expanded={state.expanded}
-                hiddenCount={hiddenCount}
-                itemCount={entries.length}
-                onExpand={() =>
-                  setState((current) => ({ ...current, expanded: true }))
-                }
-                compact
-                creativeExpo
-                renderTracker={false}
-                onBoothHover={setHoveredBooth}
-              />
-            )}
-            <ViewItemListTracker
-              listName={`event:${eventSlug}`}
-              itemCount={entries.length}
+      <div className="space-y-4">
+        <div ref={filterBarRef} className="space-y-4">
+          <div className="relative w-full sm:max-w-xs">
+            <Search
+              aria-hidden="true"
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+            />
+            <Input
+              type="search"
+              value={state.query}
+              onChange={(event) => applyState({ query: event.target.value })}
+              aria-label={t("explorerSearchAria")}
+              placeholder={t("explorerSearchPlaceholder")}
+              maxLength={100}
+              className="w-full pl-9"
             />
           </div>
+
+          {zoneOptions.length > 0 ? (
+            <div
+              role="group"
+              aria-label={t("zoneFilterAria")}
+              className="flex flex-wrap gap-2"
+            >
+              <ToggleChip
+                size="default"
+                pressed={state.zone === null}
+                onPressedChange={() => applyState({ zone: null })}
+              >
+                {t("allZones")}
+              </ToggleChip>
+              {zoneOptions.map((option) => (
+                <ToggleChip
+                  key={option.code}
+                  size="default"
+                  pressed={state.zone === option.code}
+                  onPressedChange={(pressed) =>
+                    applyState({ zone: pressed ? option.code : null })
+                  }
+                >
+                  {option.label}
+                  <span className="tabular-nums opacity-70">
+                    {zoneCounts[option.code]}
+                  </span>
+                </ToggleChip>
+              ))}
+            </div>
+          ) : null}
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p role="status" className="type-caption">
+              {isFiltered
+                ? t("exhibitorCountFiltered", {
+                    count: sortedEntries.length,
+                    total: entries.length,
+                  })
+                : t("exhibitorCount", { count: sortedEntries.length })}
+            </p>
+            {isFiltered ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="compact"
+                onClick={clearFilters}
+              >
+                {t("clearFilters")}
+              </Button>
+            ) : null}
+          </div>
         </div>
+
+        {rosterFailed ? null : entries.length === 0 ? (
+          <p className="type-empty-body">{t("explorerRosterEmpty")}</p>
+        ) : isFilteredEmpty ? (
+          <EmptyState
+            icon={<SearchX />}
+            title={t("exhibitorEmptyTitle")}
+            body={t("exhibitorEmptyBody")}
+            action={
+              <Button type="button" variant="secondary" onClick={clearFilters}>
+                {t("clearFilters")}
+              </Button>
+            }
+          />
+        ) : (
+          <>
+            <EventExhibitorList
+              entries={sortedEntries}
+              eventSlug={eventSlug}
+              startIndex={startIndex}
+              endIndex={endIndex}
+              listRef={listRef}
+            />
+            {/*
+              Deliberately outside the `role="status"` count line above: folding
+              the page position into that live region would re-announce it on
+              every keystroke.
+            */}
+            {pageCount > 1 ? (
+              <p className="mt-3 type-caption">
+                {t("paginationPosition", { page: currentPage, pageCount })}
+              </p>
+            ) : null}
+            <EventExhibitorPagination
+              currentPage={currentPage}
+              pageCount={pageCount}
+              onPageChange={applyPage}
+            />
+          </>
+        )}
+
+        <ViewItemListTracker
+          listName={`event:${eventSlug}`}
+          itemCount={entries.length}
+        />
       </div>
 
       {/*
         No provenance footer. The roster's verification date and the official
-        exhibitor list moved up to `TaiwanCreativeExpoOfficialMap`, where they
-        sit beside the map's own sources: both answer "where did this come
-        from", and at the bottom of a 123-brand roster they were 4,800px down
-        the page, which is nowhere.
+        exhibitor list live on `TaiwanCreativeExpoOfficialMap`, where they sit
+        beside the map's own sources.
       */}
     </section>
   );

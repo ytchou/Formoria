@@ -1,6 +1,5 @@
 "use client";
 
-import { Fragment } from "react";
 import { useTranslations } from "next-intl";
 import { BrandCard } from "@/components/brands/brand-card";
 import {
@@ -10,10 +9,7 @@ import {
 import { ViewItemListTracker } from "@/components/analytics/view-item-list-tracker";
 import { Button } from "@/components/ui/button";
 import { SavedBrandsProvider } from "@/hooks/use-saved-brands";
-import type {
-  EventBrandEntry,
-  LinkedEventExhibitorEntry,
-} from "@/lib/services/events";
+import type { EventBrandEntry } from "@/lib/services/events";
 
 // Four rows of the grid's widest column count. Keeping the cap next to the
 // MasonryGrid constant means the server-visible links and preload decisions
@@ -21,23 +17,25 @@ import type {
 export const EVENT_LINEUP_VISIBLE_CAP = 4 * MASONRY_ABOVE_FOLD;
 
 export type EventBrandResultViewProps = {
-  entries: readonly (EventBrandEntry | LinkedEventExhibitorEntry)[];
+  entries: readonly EventBrandEntry[];
   eventSlug: string;
   locale: string;
   expanded: boolean;
   hiddenCount: number;
   onExpand: () => void;
-  compact?: boolean;
   itemCount?: number;
-  creativeExpo?: boolean;
-  renderTracker?: boolean;
-  onBoothHover?: (booth: string | null) => void;
 };
 
 /**
- * Controlled result rendering shared by legacy event lineups and the Creative
- * Expo explorer. Filtering and state stay with each surface; cards, tracking,
- * reveal behavior, and the server-rendered links stay identical.
+ * Controlled result rendering for event lineups. Filtering and state stay with
+ * `EventBrandGrid`; cards, tracking, reveal behavior, and the server-rendered
+ * links stay here.
+ *
+ * The Creative Expo used to share this component; it now renders the whole hall
+ * through `EventExhibitorList`, which is a dense list of possibly-unlisted
+ * exhibitors rather than a grid of brand cards. The props that existed only for
+ * that surface (`compact`, `creativeExpo`, `renderTracker`, `onBoothHover`) are
+ * gone with it.
  */
 export function EventBrandResultView({
   entries,
@@ -46,67 +44,36 @@ export function EventBrandResultView({
   expanded,
   hiddenCount,
   onExpand,
-  compact = false,
   itemCount,
-  creativeExpo = false,
-  renderTracker = true,
-  onBoothHover,
 }: EventBrandResultViewProps) {
   const t = useTranslations("events");
   const isEnglish = locale === "en";
 
   return (
     <SavedBrandsProvider>
-      {renderTracker ? (
-        <ViewItemListTracker
-          listName={`event:${eventSlug}`}
-          itemCount={itemCount ?? entries.length}
-        />
-      ) : null}
+      <ViewItemListTracker
+        listName={`event:${eventSlug}`}
+        itemCount={itemCount ?? entries.length}
+      />
       <MasonryGrid
-        compact={compact}
         visibleCount={expanded ? undefined : EVENT_LINEUP_VISIBLE_CAP}
       >
         {entries.map((entry, index) => {
           const area = isEnglish ? (entry.areaEn ?? entry.area) : entry.area;
-          const creativeEntry = creativeExpo && "zone" in entry ? entry : null;
-          const boothNote = creativeEntry?.booth
-            ? `${t("boothLabel")}: ${creativeEntry.booth}`
-            : undefined;
 
-          const card = (
+          return (
             <BrandCard
+              key={entry.brand.id}
               brand={entry.brand}
               variant="editorial"
-              eyebrow={creativeEntry?.zone ?? entry.booth ?? area ?? undefined}
+              eyebrow={entry.booth ?? area ?? undefined}
               note={
-                boothNote ??
-                ("note" in entry
-                  ? ((isEnglish ? (entry.noteEn ?? entry.note) : entry.note) ??
-                    undefined)
-                  : undefined)
+                (isEnglish ? (entry.noteEn ?? entry.note) : entry.note) ??
+                undefined
               }
               preload={index < MASONRY_ABOVE_FOLD}
               position={index}
             />
-          );
-          // The wrapper exists only to report booth hover back to the floor
-          // map. `BrandCard` and `MasonryGrid` are shared with /brands, so the
-          // legacy lineup keeps its exact DOM by skipping the wrapper entirely.
-          if (!onBoothHover || !creativeEntry) {
-            return <Fragment key={entry.brand.id}>{card}</Fragment>;
-          }
-
-          return (
-            <div
-              key={entry.brand.id}
-              onBlur={() => onBoothHover(null)}
-              onFocus={() => onBoothHover(creativeEntry.booth)}
-              onMouseEnter={() => onBoothHover(creativeEntry.booth)}
-              onMouseLeave={() => onBoothHover(null)}
-            >
-              {card}
-            </div>
           );
         })}
       </MasonryGrid>
