@@ -1,7 +1,9 @@
 import { expect, test } from "@playwright/test";
 import { load } from "cheerio";
 
-const ORIGIN = "https://formoria.com";
+const CANONICAL_ORIGIN = new URL(
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://formoria.com",
+).origin;
 
 function metadataFrom(html: string) {
   const $ = load(html);
@@ -52,17 +54,17 @@ test.describe("Category landing pages deep", () => {
 
         await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
           "href",
-          `${ORIGIN}${localizedRoute}`,
+          `${CANONICAL_ORIGIN}${localizedRoute}`,
         );
         await expect(
           page.locator('link[rel="alternate"][hreflang="zh-TW"]'),
-        ).toHaveAttribute("href", `${ORIGIN}${route}`);
+        ).toHaveAttribute("href", `${CANONICAL_ORIGIN}${route}`);
         await expect(
           page.locator('link[rel="alternate"][hreflang="en"]'),
-        ).toHaveAttribute("href", `${ORIGIN}/en${route}`);
+        ).toHaveAttribute("href", `${CANONICAL_ORIGIN}/en${route}`);
         await expect(
           page.locator('link[rel="alternate"][hreflang="x-default"]'),
-        ).toHaveAttribute("href", `${ORIGIN}${route}`);
+        ).toHaveAttribute("href", `${CANONICAL_ORIGIN}${route}`);
       }
     }
   });
@@ -175,7 +177,7 @@ test.describe("Category landing pages deep", () => {
     await page.goto("/categories/home?page=2");
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
       "href",
-      `${ORIGIN}/categories/home?page=2`,
+      `${CANONICAL_ORIGIN}/categories/home?page=2`,
     );
   });
 
