@@ -121,6 +121,7 @@ async function globalSetup() {
       name: "[E2E-TEST] Preflight Probe",
       slug: `e2e-preflight-probe-${Date.now()}`,
       status: "approved",
+      approved_at: new Date().toISOString(),
     })
     .select("id")
     .single();

@@ -75,6 +75,7 @@ test.describe.serial("Public brand data boundary", () => {
         name: brandName,
         slug: brandSlug,
         status: "approved",
+        approved_at: new Date().toISOString(),
         product_type: "crafts",
         description: "A public description for the data-boundary journey.",
         contact_email: privateContact,

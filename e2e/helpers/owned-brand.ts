@@ -37,6 +37,7 @@ export async function ensureOwnedBrand(
       name: brandName,
       slug: `e2e-dashboard-brand-${suffix}`,
       status: 'approved',
+      approved_at: new Date().toISOString(),
       product_type: 'crafts',
       description: 'Shared E2E dashboard fixture.',
       retail_locations: [],
