@@ -90,7 +90,16 @@ describe('categoryTint', () => {
 })
 
 describe('PRODUCT_SUBCATEGORIES', () => {
-  it('every subcategory has a valid L1 parent', () => {
+  it('no subcategory names an occasion, packaging format, fulfilment mode or service', () => {
+    const disqualifyingTokens = ['禮盒', '伴手禮', '彌月', '客製化', '體驗課程', '課程', '服務']
+    const offenders = PRODUCT_SUBCATEGORIES.filter(subcategory =>
+      disqualifyingTokens.some(token => subcategory.nameZh.includes(token)),
+    ).map(subcategory => `${subcategory.slug} (${subcategory.nameZh})`)
+
+    expect(offenders, `non-taxonomic L2s: ${offenders.join(', ')}`).toEqual([])
+  })
+
+  it("every subcategory's parent L1 exists", () => {
     const l1 = new Set(PRODUCT_TYPE_CATEGORIES.map((c) => c.slug))
     for (const sub of PRODUCT_SUBCATEGORIES) {
       expect(l1.has(sub.category), `${sub.slug} parent ${sub.category}`).toBe(true)
@@ -148,6 +157,19 @@ describe('matchSubcategory', () => {
   it('returns null on no match', () => {
     expect(matchSubcategory('口金短夾')).toBeNull()
     expect(matchSubcategory('')).toBeNull()
+  })
+
+  it('retired non-taxonomic labels no longer resolve', () => {
+    for (const label of ['食品禮盒', '客製化禮品', '體驗課程・DIY材料', '彌月禮盒']) {
+      expect(matchSubcategory(label), `${label} should be retired`).toBeNull()
+    }
+  })
+
+  it('reparented subcategories resolve under their new L1', () => {
+    expect(matchSubcategory('保健食品')?.category).toBe('food-drink')
+    expect(matchSubcategory('手工具')?.category).toBe('home')
+    expect(matchSubcategory('照護輔具')?.category).toBe('fitness')
+    expect(matchSubcategory('按摩・放鬆')?.category).toBe('fitness')
   })
 })
 
