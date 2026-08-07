@@ -198,15 +198,57 @@ check_ai_results_phase() {
   # No psql or no connection string: fall back to the migration ledger, which is
   # the same question one step removed — has that migration reached the remote?
   if command -v supabase &> /dev/null; then
-    local row
-    row=$(supabase migration list --linked 2>/dev/null | grep "20260803033000" || true)
-    if [ -z "$row" ]; then
+    local ledger
+    ledger=$(supabase migration list --linked 2>/dev/null || true)
+    if [ -z "$ledger" ]; then
       echo "WARN: could not read the migration ledger — verify by hand that the live brand_ai_results phase CHECK accepts 'facts' and 'reputation' (${PHASE_CHECK_REMEDIATION})"
+      return
+    fi
+
+    # Supabase CLI v2 emits JSON by default; older versions emit a pipe-delimited
+    # table. Keep both formats working so a healthy remote ledger is not reported
+    # as missing merely because the CLI was upgraded.
+    if printf '%s\n' "$ledger" | grep -Eq '^[[:space:]]*\{'; then
+      local json_status
+      json_status=$(printf '%s\n' "$ledger" | node -e '
+        let input = "";
+        process.stdin.setEncoding("utf8");
+        process.stdin.on("data", (chunk) => { input += chunk; });
+        process.stdin.on("end", () => {
+          try {
+            const payload = JSON.parse(input);
+            const migration = Array.isArray(payload.migrations)
+              ? payload.migrations.find((row) => row?.local === "20260803033000")
+              : null;
+            process.stdout.write(
+              typeof migration?.remote === "string" && migration.remote.trim()
+                ? "found"
+                : "missing",
+            );
+          } catch {
+            process.stdout.write("invalid");
+          }
+        });
+      ' 2>/dev/null || true)
+      if [ "$json_status" = "found" ]; then
+        echo "OK: brand_ai_results phase CHECK migration applied on the linked project"
+      else
+        echo "ERROR: brand_ai_results phase CHECK migration is not applied on the linked project. ${PHASE_CHECK_REMEDIATION}"
+        ERRORS=$((ERRORS + 1))
+      fi
+      return
+    fi
+
+    local row
+    row=$(printf '%s\n' "$ledger" | grep "20260803033000" || true)
+    if [ -z "$row" ]; then
+      echo "ERROR: brand_ai_results phase CHECK migration is not applied on the linked project. ${PHASE_CHECK_REMEDIATION}"
+      ERRORS=$((ERRORS + 1))
       return
     fi
     # Ledger rows are "local | remote | time"; a remote-applied row has a version
     # in the second column.
-    if echo "$row" | awk -F'|' '{ gsub(/ /, "", $2); exit ($2 == "" ? 1 : 0) }'; then
+    if echo "$row" | awk -F'|' '{ gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); exit ($2 == "" ? 1 : 0) }'; then
       echo "OK: brand_ai_results phase CHECK migration applied on the linked project"
     else
       echo "ERROR: brand_ai_results phase CHECK migration is not applied on the linked project. ${PHASE_CHECK_REMEDIATION}"

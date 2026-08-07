@@ -21,6 +21,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import type { ChatAuditEvent } from "@/lib/audit";
 import {
   createDeepSeekClient,
   parseDeepSeekJson,
@@ -41,7 +42,7 @@ import {
 
 export const MAX_TAGS = 5;
 export const DISTINCT_AFTER_THRESHOLD = 350;
-export const RUN_ARTIFACT_VERSION = 1;
+export const RUN_ARTIFACT_VERSION = 2;
 export const PRESERVED_TAGS = [
   "食品禮盒",
   "客製化禮品",
@@ -51,6 +52,7 @@ export const PRESERVED_TAGS = [
 
 const PRESERVED_TAG_SET = new Set<string>(PRESERVED_TAGS);
 const ARTIFACT_KIND = "normalize-product-tags" as const;
+export const PLANNING_OPERATION = "normalize-product-tags.map-tags" as const;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -111,6 +113,11 @@ export type RunSummary = {
   productTypeTotals: Record<string, number>;
 };
 
+export type PlanningCall = {
+  category: string;
+  operation: typeof PLANNING_OPERATION;
+};
+
 type ArtifactReview = {
   status: "pending" | "approved";
   reviewer: string | null;
@@ -144,6 +151,8 @@ export type RunArtifact = {
   version: typeof RUN_ARTIFACT_VERSION;
   kind: typeof ARTIFACT_KIND;
   createdAt: string;
+  planningCalls: PlanningCall[];
+  auditEvents: ChatAuditEvent[];
   review: ArtifactReview;
   summary: RunSummary;
   rows: ArtifactRow[];
@@ -312,7 +321,52 @@ function assertCurrentMatchesArtifact(
 // LLM mapping boundary
 // ---------------------------------------------------------------------------
 
-async function mapTagsWithLlm(
+export function createPlanningDeepSeekClient(
+  auditEvents: ChatAuditEvent[],
+): ReturnType<typeof createDeepSeekClient> {
+  return createDeepSeekClient({
+    onChatComplete: (event) => {
+      auditEvents.push(event);
+    },
+  });
+}
+
+function collectPlanningCategories(
+  entries: Array<{ category: string; unmatched: string[] }>,
+): Map<string, Set<string>> {
+  const categoryUnmatched = new Map<string, Set<string>>();
+  for (const { category, unmatched } of entries) {
+    const tags = categoryUnmatched.get(category) ?? new Set<string>();
+    for (const tag of unmatched) {
+      if (!PRESERVED_TAG_SET.has(tag)) tags.add(tag);
+    }
+    categoryUnmatched.set(category, tags);
+  }
+  return categoryUnmatched;
+}
+
+function planningCallsForCategories(
+  categoryUnmatched: Map<string, Set<string>>,
+): PlanningCall[] {
+  return [...categoryUnmatched].flatMap(([category, tags]) =>
+    tags.size > 0 ? [{ category, operation: PLANNING_OPERATION }] : [],
+  );
+}
+
+function expectedPlanningCallsForResults(
+  results: BrandResult[],
+): PlanningCall[] {
+  return planningCallsForCategories(
+    collectPlanningCategories(
+      results.map((result) => ({
+        category: result.brand.product_type ?? "unknown",
+        unmatched: planTagBackfill(result.beforeZh).unmatched,
+      })),
+    ),
+  );
+}
+
+export async function mapTagsWithLlm(
   client: ReturnType<typeof createDeepSeekClient>,
   category: string,
   tags: string[],
@@ -335,6 +389,7 @@ async function mapTagsWithLlm(
     user,
     json: true,
     timeoutMs: 30_000,
+    meta: { category, operation: PLANNING_OPERATION },
   });
 
   if (!result.content) {
@@ -632,6 +687,8 @@ function artifactRowFromResult(result: BrandResult): ArtifactRow {
 export function createRunArtifact(
   results: BrandResult[],
   createdAt = new Date().toISOString(),
+  auditEvents: ChatAuditEvent[] = [],
+  planningCalls?: PlanningCall[],
 ): RunArtifact {
   const summary = validateResults(results);
   const rows = results.map(artifactRowFromResult);
@@ -639,6 +696,8 @@ export function createRunArtifact(
     version: RUN_ARTIFACT_VERSION,
     kind: ARTIFACT_KIND,
     createdAt,
+    planningCalls: planningCalls ?? expectedPlanningCallsForResults(results),
+    auditEvents,
     review: {
       status: "pending",
       reviewer: null,
@@ -695,6 +754,176 @@ function tagPairs(value: unknown, pathLabel: string): TagPair[] {
     }
     return { zh: pair.zh, en: pair.en as string | null };
   });
+}
+
+function auditEvents(value: unknown): ChatAuditEvent[] {
+  if (!Array.isArray(value)) {
+    throw new Error("Malformed artifact: auditEvents must be an array");
+  }
+
+  return value.map((rawEvent, index) => {
+    if (!isRecord(rawEvent)) {
+      throw new Error(`Malformed artifact: auditEvents[${index}] is invalid`);
+    }
+    if (
+      (rawEvent.provider !== "deepseek" && rawEvent.provider !== "openai") ||
+      typeof rawEvent.model !== "string" ||
+      typeof rawEvent.ok !== "boolean" ||
+      typeof rawEvent.status !== "number" ||
+      !Number.isInteger(rawEvent.status) ||
+      rawEvent.status < 0 ||
+      typeof rawEvent.latencyMs !== "number" ||
+      !Number.isFinite(rawEvent.latencyMs) ||
+      rawEvent.latencyMs < 0 ||
+      !Object.hasOwn(rawEvent, "data") ||
+      rawEvent.data === undefined ||
+      !isRecord(rawEvent.request) ||
+      typeof rawEvent.request.system !== "string" ||
+      typeof rawEvent.request.user !== "string" ||
+      typeof rawEvent.request.imageCount !== "number" ||
+      !Number.isInteger(rawEvent.request.imageCount) ||
+      rawEvent.request.imageCount < 0
+    ) {
+      throw new Error(`Malformed artifact: auditEvents[${index}] is invalid`);
+    }
+    const retryAttempt = rawEvent.retryAttempt;
+    if (
+      typeof retryAttempt !== "number" ||
+      !Number.isInteger(retryAttempt) ||
+      retryAttempt < 0
+    ) {
+      throw new Error(
+        `Malformed artifact: auditEvents[${index}].retryAttempt is invalid`,
+      );
+    }
+    if (rawEvent.usage !== undefined && !isRecord(rawEvent.usage)) {
+      throw new Error(
+        `Malformed artifact: auditEvents[${index}].usage is invalid`,
+      );
+    }
+    if (rawEvent.ok) {
+      const usage = rawEvent.usage;
+      if (
+        !isRecord(usage) ||
+        !["prompt_tokens", "completion_tokens", "total_tokens"].every(
+          (key) =>
+            typeof usage[key] === "number" &&
+            Number.isFinite(usage[key]) &&
+            usage[key] >= 0,
+        )
+      ) {
+        throw new Error(
+          `Malformed artifact: auditEvents[${index}].usage is required for successful calls`,
+        );
+      }
+    } else {
+      const error = rawEvent.error;
+      const hasError = typeof error === "string" && error.trim().length > 0;
+      const hasFailureStatus = rawEvent.status < 200 || rawEvent.status >= 300;
+      if (!hasError && !hasFailureStatus) {
+        throw new Error(
+          `Malformed artifact: auditEvents[${index}] failure lacks error/status evidence`,
+        );
+      }
+    }
+    if (rawEvent.meta !== undefined && !isRecord(rawEvent.meta)) {
+      throw new Error(
+        `Malformed artifact: auditEvents[${index}].meta is invalid`,
+      );
+    }
+    if (rawEvent.error !== undefined && typeof rawEvent.error !== "string") {
+      throw new Error(
+        `Malformed artifact: auditEvents[${index}].error is invalid`,
+      );
+    }
+
+    return rawEvent as ChatAuditEvent;
+  });
+}
+
+function parsePlanningCalls(value: unknown): PlanningCall[] {
+  if (!Array.isArray(value)) {
+    throw new Error("Malformed artifact: planningCalls must be an array");
+  }
+
+  return value.map((rawCall, index) => {
+    if (
+      !isRecord(rawCall) ||
+      typeof rawCall.category !== "string" ||
+      !rawCall.category.trim() ||
+      rawCall.operation !== PLANNING_OPERATION
+    ) {
+      throw new Error(`Malformed artifact: planningCalls[${index}] is invalid`);
+    }
+    return {
+      category: rawCall.category,
+      operation: PLANNING_OPERATION,
+    };
+  });
+}
+
+function planningCallKey(call: PlanningCall): string {
+  return `${call.category}\u0000${call.operation}`;
+}
+
+function assertPlanningCallManifest(
+  rows: ArtifactRow[],
+  actual: PlanningCall[],
+): void {
+  const expected = expectedPlanningCallsForRows(rows);
+  const expectedKeys = new Set(expected.map(planningCallKey));
+  const actualKeys = new Set(actual.map(planningCallKey));
+  const missing = expected
+    .filter((call) => !actualKeys.has(planningCallKey(call)))
+    .map((call) => call.category);
+  const extra = actual
+    .filter((call) => !expectedKeys.has(planningCallKey(call)))
+    .map((call) => call.category);
+  const duplicateCount = actual.length - actualKeys.size;
+
+  if (missing.length > 0 || extra.length > 0 || duplicateCount > 0) {
+    const details = [
+      ...(missing.length > 0 ? [`missing: ${missing.join(", ")}`] : []),
+      ...(extra.length > 0 ? [`extra: ${extra.join(", ")}`] : []),
+      ...(duplicateCount > 0 ? [`duplicates: ${duplicateCount}`] : []),
+    ].join("; ");
+    throw new Error(
+      `Malformed artifact: planningCalls must exactly match model-assisted categories (${details})`,
+    );
+  }
+}
+
+function expectedPlanningCallsForRows(rows: ArtifactRow[]): PlanningCall[] {
+  return planningCallsForCategories(
+    collectPlanningCategories(
+      rows.map((row) => ({
+        category: row.productType ?? "unknown",
+        unmatched: planTagBackfill(row.before.productTags).unmatched,
+      })),
+    ),
+  );
+}
+
+function assertPlanningAuditCoverage(
+  expectedCalls: PlanningCall[],
+  events: ChatAuditEvent[],
+): void {
+  const missing = expectedCalls.filter(
+    (expected) =>
+      !events.some(
+        (event) =>
+          event.provider === "deepseek" &&
+          event.meta?.category === expected.category &&
+          event.meta?.operation === expected.operation,
+      ),
+  );
+  if (missing.length > 0) {
+    throw new Error(
+      `ABORT: apply requires correlated audit evidence for planning call(s): ${missing
+        .map((call) => `${call.category}/${call.operation}`)
+        .join(", ")}`,
+    );
+  }
 }
 
 function assertPairedValues(value: ArtifactValue, pathLabel: string): void {
@@ -954,10 +1183,15 @@ export function parseRunArtifact(
     }
   }
 
+  const parsedPlanningCalls = parsePlanningCalls(value.planningCalls);
+  assertPlanningCallManifest(rows, parsedPlanningCalls);
+
   const artifact = {
     version: RUN_ARTIFACT_VERSION,
     kind: ARTIFACT_KIND,
     createdAt: value.createdAt,
+    planningCalls: parsedPlanningCalls,
+    auditEvents: auditEvents(value.auditEvents),
     review: {
       status: review.status,
       reviewer: review.reviewer,
@@ -970,6 +1204,9 @@ export function parseRunArtifact(
       rows: rollbackRows,
     },
   } satisfies RunArtifact;
+  if (options.requireApproval) {
+    assertPlanningAuditCoverage(artifact.planningCalls, artifact.auditEvents);
+  }
   assertArtifactSummary(artifact);
   return artifact;
 }
@@ -1075,7 +1312,8 @@ export async function applyRunArtifact(
 
 async function planAndWrite(options: CliOptions): Promise<void> {
   const supabase = createServiceClient();
-  const deepseek = createDeepSeekClient();
+  const auditEvents: ChatAuditEvent[] = [];
+  const deepseek = createPlanningDeepSeekClient(auditEvents);
   const brands = await loadApprovedBrands(supabase, options.batchSize);
   console.log(`Loaded ${brands.length} brand(s) with product_tags`);
 
@@ -1083,15 +1321,13 @@ async function planAndWrite(options: CliOptions): Promise<void> {
     brand,
     plan: planTagBackfill(brand.product_tags ?? []),
   }));
-  const categoryUnmatched = new Map<string, Set<string>>();
-  for (const { brand, plan } of brandPlans) {
-    const category = brand.product_type ?? "unknown";
-    const tags = categoryUnmatched.get(category) ?? new Set<string>();
-    for (const tag of plan.unmatched) {
-      if (!PRESERVED_TAG_SET.has(tag)) tags.add(tag);
-    }
-    categoryUnmatched.set(category, tags);
-  }
+  const categoryUnmatched = collectPlanningCategories(
+    brandPlans.map(({ brand, plan }) => ({
+      category: brand.product_type ?? "unknown",
+      unmatched: plan.unmatched,
+    })),
+  );
+  const planningCalls = planningCallsForCategories(categoryUnmatched);
 
   const globalLlmMapping = new Map<string, Map<string, string | null>>();
   for (const [category, tags] of categoryUnmatched) {
@@ -1110,7 +1346,12 @@ async function planAndWrite(options: CliOptions): Promise<void> {
       globalLlmMapping.get(brand.product_type ?? "unknown") ?? new Map(),
     ),
   );
-  const artifact = createRunArtifact(results);
+  const artifact = createRunArtifact(
+    results,
+    undefined,
+    auditEvents,
+    planningCalls,
+  );
   const outputPath = await writeRunArtifact(artifact);
   console.log(`Run artifact written to ${outputPath}`);
   console.log(
