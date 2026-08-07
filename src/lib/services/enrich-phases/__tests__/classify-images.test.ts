@@ -6,6 +6,7 @@ import {
   buildBrandContext,
   failureReason,
   parseClassificationBatch,
+  partitionLoadedImages,
 } from "../classify-images";
 import { preferPatched } from "../descriptions";
 import { CLEARED_FIELDS_KEY } from "../../brand-write-policy";
@@ -408,6 +409,70 @@ describe("failureReason", () => {
 
   it("returns null for a usable response", () => {
     expect(failureReason(response({}))).toBeNull();
+  });
+});
+
+/**
+ * DEV-1374. Our own storage failing to hand over an image's bytes must never be
+ * written to the row as a verdict — that is exactly what DEV-1255 did (a fetch
+ * failure stored as `low_visual_quality`), and because `getUnclassifiedImages`
+ * only selects `tags IS NULL`, the mislabelled row was never reconsidered while
+ * image retention deleted the object seven days later.
+ */
+describe("partitionLoadedImages", () => {
+  function image(id: string) {
+    return {
+      id,
+      url: `https://example.supabase.co/storage/v1/object/public/brand-images/brands/${id}.jpg`,
+      storage_path: `brands/${id}.jpg`,
+    };
+  }
+
+  it("drops only the image that failed to load and still sends the rest", () => {
+    const chunk = [image("a"), image("b"), image("c")];
+
+    const result = partitionLoadedImages(chunk, [
+      "data:image/webp;base64,AAA",
+      null,
+      "data:image/webp;base64,CCC",
+    ]);
+
+    expect(result.failure).toBeNull();
+    expect(result.unavailableIds).toEqual(["b"]);
+    expect(result.sendable.map((entry) => entry.image.id)).toEqual(["a", "c"]);
+  });
+
+  it("fails the batch as a provider failure when nothing loaded", () => {
+    // The request never reaches the model, so a zero-classification run must
+    // fail the target rather than report a green pass.
+    const result = partitionLoadedImages([image("a"), image("b")], [null, null]);
+
+    expect(result.failure?.kind).toBe("provider");
+    expect(result.sendable).toEqual([]);
+    expect(result.unavailableIds).toEqual(["a", "b"]);
+  });
+
+  it("reports nothing unavailable when every image loaded", () => {
+    const result = partitionLoadedImages(
+      [image("a"), image("b")],
+      ["data:image/webp;base64,AAA", "data:image/webp;base64,BBB"],
+    );
+
+    expect(result.failure).toBeNull();
+    expect(result.unavailableIds).toEqual([]);
+    expect(result.sendable).toHaveLength(2);
+  });
+
+  it("carries no rejection payload for an unloadable image", () => {
+    // Regression guard for the deleted `brokenImageIds` path, whose only
+    // consumer wrote status:'rejected' + rejection_reasons:['low_visual_quality'].
+    // The partition may only ever report an id; anything shaped like a verdict
+    // here would put us back where DEV-1255 started.
+    const result = partitionLoadedImages([image("a")], [null]);
+
+    expect(JSON.stringify(result)).not.toContain("low_visual_quality");
+    expect(JSON.stringify(result)).not.toContain("rejection_reasons");
+    expect(result).not.toHaveProperty("brokenImageIds");
   });
 });
 

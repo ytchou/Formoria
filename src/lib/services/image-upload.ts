@@ -58,31 +58,6 @@ export function storageKeyFromPublicUrl(url: string): string | null {
   return key
 }
 
-/**
- * Public render-endpoint URL for a stored brand image, width-capped so vision calls
- * fetch a small derivative instead of the full-size original (a 1.04 MB jpg comes back
- * as ~38 KB at width 512). Returns the input URL unchanged for external/legacy
- * hotlinks or when the Supabase base URL is not configured.
- *
- * Never persist this URL — the `url` column must stay the canonical object URL that
- * `storageKeyFromPublicUrl` and the site both depend on.
- */
-export function brandImageRenderUrl(
-  input: { storagePath?: string | null; url: string },
-  opts?: { width?: number; quality?: number }
-): string {
-  const base = process.env.NEXT_PUBLIC_SUPABASE_URL
-  if (!base) return input.url
-
-  const key = input.storagePath?.trim() || storageKeyFromPublicUrl(input.url)
-  if (!key) return input.url
-
-  const width = opts?.width ?? 512
-  const quality = opts?.quality ?? 70
-
-  return `${base}/storage/v1/render/image/public/${BRAND_IMAGES_BUCKET}/${key}?width=${width}&quality=${quality}`
-}
-
 export async function deleteBrandImages(urls: string[]): Promise<void> {
   return auditedCall(
     { provider: 'images', operation: 'deleteBrandImages', kind: 'service' },

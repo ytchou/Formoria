@@ -10,7 +10,8 @@ import {
   profileChatParams,
 } from "../llm-audit";
 import { syncHeroDenormalized, type BrandImageRow } from "../brand-images";
-import { brandImageRenderUrl } from "../image-upload";
+import { loadVisionDataUri } from "../vision-image";
+import { mapWithConcurrency } from "../_shared/concurrency";
 import { localizeToTW } from "../taiwan-localization";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { PhaseResult } from "@/lib/types/curation";
@@ -154,11 +155,13 @@ const MAX_ACTIVE_IMAGES = MAX_BRAND_ACTIVE_IMAGES;
  * ~25k tokens against a 128k window, and our own download gate admits images
  * at a 480px short edge — high detail would mostly be paying to look closely
  * at upscaled pixels. Revisit if the floor rises well above 768px.
+ *
+ * Since DEV-1374 the 512 cap is also ours rather than the render endpoint's:
+ * `visionDataUri` encodes at VISION_IMAGE_WIDTH before the bytes leave us, so
+ * raising this to `high` would need that width raised too or it would only tile
+ * an image we already downscaled.
  */
 const CLASSIFY_IMAGE_DETAIL = "low" as const;
-
-/** Width sent to the vision model — `detail: 'low'` downsamples to 512px anyway. */
-const CLASSIFY_RENDER_WIDTH = 512;
 
 /**
  * Kept images must score at least this. The 231 labelled images have now said
@@ -174,20 +177,13 @@ const CLASSIFY_RENDER_WIDTH = 512;
 export const MIN_KEEP_SCORE = 60;
 
 /**
- * Retries per chunk, and ONLY after dropping an image OpenAI could not download.
+ * Bounded fan-out for reading each chunk's bytes out of Storage before the call.
  *
- * This is not a general failure retry: `classifyChunk` gives up immediately when
- * it cannot pin the failure on a specific image URL, however much budget is
- * left. Raised to 2 alongside BATCH_SIZE 10 because twice the images per chunk
- * is twice the chance of a second dead URL in the same batch, and one dead URL
- * previously cost the whole chunk its verdicts.
- *
- * A chunk that fails for any other reason still loses every image in it — now
- * ten rather than five. Splitting a failed chunk and retrying the halves is the
- * fix for that, and is deliberately not bundled here: it changes the
- * attemptedBatches/failedBatches accounting that Gate C reads.
+ * 4 mirrors `IMAGE_DOWNLOAD_CONCURRENCY` (image-download.ts:57) — the same
+ * shape of work (storage read plus a sharp decode/resize/encode), already
+ * multiplied by the per-brand enrichment concurrency above it.
  */
-const MAX_CHUNK_RETRIES = 2;
+const VISION_LOAD_CONCURRENCY = 4;
 
 /** LEGACY-inclusive union: what a stored row may carry, not what the model may emit. */
 type ImageClassificationTag = (typeof IMAGE_TAGS)[number];
@@ -729,11 +725,13 @@ async function resetImageTags(
  * Why the batch is untrustworthy, split by WHO failed.
  *
  * `provider` means the call never reached the model, so the absence of verdicts
- * says nothing about the images. `content` means the model answered and the
- * answer was unusable — a refusal, a truncation, an empty body. Only the former
- * may fail a target: before the split, a quota-exhausted account and a model
- * that refused one batch of images were both just "failed batches", and the
- * phase reported `succeeded` for both (2026-08-02, 407 falsely-green targets).
+ * says nothing about the images — including when it never left OUR side,
+ * because Storage would not give up the bytes (DEV-1374). `content` means the
+ * model answered and the answer was unusable — a refusal, a truncation, an
+ * empty body. Only the former may fail a target: before the split, a
+ * quota-exhausted account and a model that refused one batch of images were
+ * both just "failed batches", and the phase reported `succeeded` for both
+ * (2026-08-02, 407 falsely-green targets).
  */
 export type BatchFailureKind = "provider" | "content";
 
@@ -764,103 +762,146 @@ export function failureReason(response: OpenAIChatResult): BatchFailure | null {
   return null;
 }
 
-function invalidImageUrlFromError(errorBody: unknown): string | null {
-  if (!errorBody || typeof errorBody !== "object") return null;
-  const { error } = errorBody as { error?: unknown };
-  if (!error || typeof error !== "object") return null;
-
-  const { code, message } = error as { code?: unknown; message?: unknown };
-  if (code !== "invalid_image_url" || typeof message !== "string") return null;
-
-  const match = message.match(/https?:\/\/[^\s"']{1,2048}/);
-  return match?.[0] ?? null;
-}
-
 type ChunkOutcome = {
   /** Verdicts keyed by brand_images.id, only for images the model actually judged. */
   verdictsByImageId: Map<string, ParsedImageClassification>;
   /** Non-null when the whole batch must be abandoned without touching any row. */
   failure: BatchFailure | null;
-  /** Images OpenAI could not download — rejected, but their storage object is kept. */
-  brokenImageIds: string[];
+  /** Images whose bytes Storage would not give up — counted, never written to. */
+  unavailableIds: string[];
 };
+
+export type LoadedVisionImage = {
+  image: BrandImageForClassification;
+  dataUri: string;
+};
+
+export type PartitionedLoadedImages = {
+  /** Images whose bytes we hold, in the order they will be numbered for the model. */
+  sendable: LoadedVisionImage[];
+  unavailableIds: string[];
+  /** Non-null when nothing is left to send, so the call must not be made at all. */
+  failure: BatchFailure | null;
+};
+
+/**
+ * Split a chunk by whether we managed to read its bytes.
+ *
+ * One image we cannot load must not cost the chunk its verdicts — the property
+ * the old drop-and-retry loop existed to protect, now enforced before the call
+ * rather than by re-issuing it. The unavailable rows are simply left alone:
+ * `tags` stays null and `status` stays active/candidate, which is exactly what
+ * `getUnclassifiedImages` selects, so the next run re-queues them.
+ *
+ * When NOTHING loaded the failure is `provider`, not `content`: the request
+ * never reached the model, so the absence of verdicts says nothing about the
+ * images, and `allBatchesProviderFailed` must fail the target rather than
+ * report a green run that classified zero images.
+ *
+ * Exported for test: this is the invariant "our own infrastructure failing must
+ * never write a permanent verdict", which is what DEV-1255 got wrong.
+ */
+export function partitionLoadedImages(
+  chunk: readonly BrandImageForClassification[],
+  loaded: readonly (string | null)[],
+): PartitionedLoadedImages {
+  const sendable: LoadedVisionImage[] = [];
+  const unavailableIds: string[] = [];
+
+  chunk.forEach((image, index) => {
+    const dataUri = loaded[index];
+    if (dataUri) {
+      sendable.push({ image, dataUri });
+    } else {
+      unavailableIds.push(image.id);
+    }
+  });
+
+  if (sendable.length === 0 && chunk.length > 0) {
+    return {
+      sendable,
+      unavailableIds,
+      failure: {
+        reason: `could not load any of ${chunk.length} image(s) from storage`,
+        kind: "provider",
+      },
+    };
+  }
+
+  return { sendable, unavailableIds, failure: null };
+}
 
 async function classifyChunk(
   client: ReturnType<typeof createProfiledOpenAIClient>,
   brandContext: string,
   chunk: BrandImageForClassification[],
 ): Promise<ChunkOutcome> {
-  const brokenImageIds: string[] = [];
-  let remaining = chunk;
-  let retries = 0;
+  const loaded = await mapWithConcurrency(
+    chunk,
+    VISION_LOAD_CONCURRENCY,
+    (image) => loadVisionDataUri(image),
+  );
+  const { sendable, unavailableIds, failure: loadFailure } =
+    partitionLoadedImages(chunk, loaded);
 
-  while (remaining.length > 0) {
-    const imageByOrdinal = new Map(
-      remaining.map((image, index): [string, BrandImageForClassification] => [
-        String(index + 1),
-        image,
-      ]),
-    );
-    const imageBySentUrl = new Map<string, BrandImageForClassification>();
-    const sentUrls = remaining.map((image) => {
-      const url = brandImageRenderUrl(
-        { storagePath: image.storage_path, url: image.url },
-        { width: CLASSIFY_RENDER_WIDTH },
-      );
-      imageBySentUrl.set(url, image);
-      return url;
-    });
-    const ordinals = [...imageByOrdinal.keys()];
-
-    const response = await client.chat({
-      system: IMAGE_CLASSIFY_SYSTEM_PROMPT,
-      user: `${brandContext}Classify the ${remaining.length} brand images that follow, numbered ${ordinals.join(", ")} in order. Return a JSON object with a "classifications" array holding exactly ${remaining.length} objects, whose "id" values are the image numbers as strings. Do not omit any image.`,
-      images: sentUrls,
-      imageDetail: CLASSIFY_IMAGE_DETAIL,
-      json: true,
-      schema: IMAGE_CLASSIFICATION_SCHEMA,
-      // The only per-call token budget in the pipeline: 250 per image in the
-      // batch, so the profile cannot know it statically.
-      ...profileChatParams("classifyImages", {
-        maxTokens: 250 * remaining.length,
-      }),
-      meta: {
-        imageIds: remaining.map((image) => image.id),
-        imageUrls: sentUrls,
-      },
-    });
-
-    const failure = failureReason(response);
-    if (!failure) {
-      const parsed = parseClassificationBatch(response.content ?? "");
-      const verdictsByImageId = new Map<string, ParsedImageClassification>();
-      for (const [ordinal, image] of imageByOrdinal) {
-        const verdict = parsed.get(ordinal);
-        if (verdict) verdictsByImageId.set(image.id, verdict);
-      }
-      return { verdictsByImageId, failure: null, brokenImageIds };
-    }
-
-    if (retries >= MAX_CHUNK_RETRIES) {
-      return { verdictsByImageId: new Map(), failure, brokenImageIds };
-    }
-
-    const candidate = invalidImageUrlFromError(response.errorBody);
-    // The message may append punctuation, so match on the URL we actually sent.
-    const brokenUrl = candidate
-      ? sentUrls.find((url) => candidate === url || candidate.startsWith(url))
-      : undefined;
-    const broken = brokenUrl ? imageBySentUrl.get(brokenUrl) : undefined;
-    if (!broken) {
-      return { verdictsByImageId: new Map(), failure, brokenImageIds };
-    }
-
-    brokenImageIds.push(broken.id);
-    remaining = remaining.filter((image) => image.id !== broken.id);
-    retries += 1;
+  if (loadFailure) {
+    return {
+      verdictsByImageId: new Map(),
+      failure: loadFailure,
+      unavailableIds,
+    };
   }
 
-  return { verdictsByImageId: new Map(), failure: null, brokenImageIds };
+  const imageByOrdinal = new Map(
+    sendable.map(({ image }, index): [string, BrandImageForClassification] => [
+      String(index + 1),
+      image,
+    ]),
+  );
+  const ordinals = [...imageByOrdinal.keys()];
+
+  const response = await client.chat({
+    system: IMAGE_CLASSIFY_SYSTEM_PROMPT,
+    user: `${brandContext}Classify the ${sendable.length} brand images that follow, numbered ${ordinals.join(", ")} in order. Return a JSON object with a "classifications" array holding exactly ${sendable.length} objects, whose "id" values are the image numbers as strings. Do not omit any image.`,
+    images: sendable.map(({ dataUri }) => dataUri),
+    imageDetail: CLASSIFY_IMAGE_DETAIL,
+    json: true,
+    schema: IMAGE_CLASSIFICATION_SCHEMA,
+    // The only per-call token budget in the pipeline: 250 per image in the
+    // batch, so the profile cannot know it statically.
+    ...profileChatParams("classifyImages", {
+      maxTokens: 250 * sendable.length,
+      // Call-site, deliberately NOT in the llm-models profile: the profile is
+      // also read by `buildProfiledEnrichmentConfig`, which persists it as the
+      // audit contract in brand_ai_results.config, and a transport timeout is
+      // not part of that contract. The 30s default was sized for a ~1KB body of
+      // URLs that OpenAI then fetched itself; inlined base64 makes the body
+      // ~400-500KB, which we have to finish uploading before the clock helps.
+      timeoutMs: 120_000,
+    }),
+    meta: {
+      imageIds: sendable.map(({ image }) => image.id),
+      // INVARIANT: canonical brand_images.url, never the data URIs we actually
+      // sent. `scripts/curate-brands.ts` zips this by index against the
+      // classifications to key golden-set labels by URL, and base64 here would
+      // also dump megabytes into every audit row.
+      imageUrls: sendable.map(({ image }) => image.url),
+    },
+  });
+
+  const failure = failureReason(response);
+  if (failure) {
+    return { verdictsByImageId: new Map(), failure, unavailableIds };
+  }
+
+  const parsed = parseClassificationBatch(response.content ?? "");
+  const verdictsByImageId = new Map<string, ParsedImageClassification>();
+  for (const [ordinal, image] of imageByOrdinal) {
+    const verdict = parsed.get(ordinal);
+    if (verdict) verdictsByImageId.set(image.id, verdict);
+  }
+
+  return { verdictsByImageId, failure: null, unavailableIds };
 }
 
 /**
@@ -1053,7 +1094,7 @@ export async function runClassifyImagesPhase({
     // EVERY batch it attempted died at the provider.
     let attemptedBatches = 0;
     let unjudgedCount = 0;
-    let brokenCount = 0;
+    let unavailableCount = 0;
     let rejectedCount = 0;
 
     const brandContext = buildBrandContext({
@@ -1068,20 +1109,12 @@ export async function runClassifyImagesPhase({
       const chunk = images.slice(i, i + BATCH_SIZE);
       attemptedBatches += 1;
       const outcome = await classifyChunk(client, brandContext, chunk);
-      const brokenIds = new Set(outcome.brokenImageIds);
-
-      for (const brokenId of brokenIds) {
-        // Undownloadable or dangling: retain the object for the seven-day
-        // classifier retention window so the failure remains inspectable.
-        brokenCount += 1;
-        rejectedCount += 1;
-        await updateImage(supabase, target, brokenId, {
-          status: "rejected",
-          tags: null,
-          rejection_reasons: ["low_visual_quality"],
-          rejected_at: new Date().toISOString(),
-        });
-      }
+      // Images we could not read out of Storage. Deliberately NO row write:
+      // tags stay null and status stays active/candidate, which is the
+      // predicate getUnclassifiedImages selects, so the next run retries them.
+      // Writing a verdict here is what destroyed 18 images in DEV-1255.
+      const unavailableIds = new Set(outcome.unavailableIds);
+      unavailableCount += unavailableIds.size;
 
       if (outcome.failure) {
         // Leave every remaining row untouched (tags stay null, status stays active)
@@ -1094,7 +1127,7 @@ export async function runClassifyImagesPhase({
       }
 
       for (const image of chunk) {
-        if (brokenIds.has(image.id)) continue;
+        if (unavailableIds.has(image.id)) continue;
 
         const classification = outcome.verdictsByImageId.get(image.id);
         if (!classification) {
@@ -1176,7 +1209,7 @@ export async function runClassifyImagesPhase({
       classifiedCount: classifications.length,
       rejectedCount,
       unjudgedCount,
-      brokenCount,
+      unavailableCount,
       failedBatches,
       attemptedBatches,
       heroImageUrl: finalActiveImages.at(0)?.url ?? null,
@@ -1198,7 +1231,9 @@ export async function runClassifyImagesPhase({
     ...(result.unjudgedCount > 0
       ? [`${result.unjudgedCount} left unjudged`]
       : []),
-    ...(result.brokenCount > 0 ? [`${result.brokenCount} undownloadable`] : []),
+    ...(result.unavailableCount > 0
+      ? [`${result.unavailableCount} unavailable`]
+      : []),
     ...(result.failedBatches.length > 0
       ? [
           `${result.failedBatches.length} batch(es) skipped: ${result.failedBatches
