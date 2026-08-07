@@ -15,6 +15,7 @@ import {
   type JsonLdObject,
 } from "@/lib/json-ld";
 import type { Brand } from "@/lib/types";
+import { getSiteUrl } from "@/lib/site-url";
 import { faqItemsToQuestions, getBrandFaq } from "@/lib/services/brand-faq";
 import type { FaqSupabase } from "@/lib/services/brand-faq";
 
@@ -187,16 +188,26 @@ describe("buildCategoryItemListJsonLd", () => {
   ];
 
   it("returns valid ItemList JSON-LD", () => {
-    const result = buildCategoryItemListJsonLd("美妝", "beauty", mockBrands);
+    const canonical = "https://formoria.com/categories/beauty";
+    const result = buildCategoryItemListJsonLd(
+      "美妝",
+      canonical,
+      mockBrands,
+    );
 
     expect(result["@context"]).toBe("https://schema.org");
     expect(result["@type"]).toBe("ItemList");
+    expect(result.url).toBe(canonical);
     expect(result.name).toContain("美妝");
     expect(result.numberOfItems).toBe(3);
   });
 
   it("generates ListItem entries with correct positions", () => {
-    const result = buildCategoryItemListJsonLd("美妝", "beauty", mockBrands);
+    const result = buildCategoryItemListJsonLd(
+      "美妝",
+      "https://formoria.com/categories/beauty",
+      mockBrands,
+    );
     const items = result.itemListElement;
 
     expect(items).toHaveLength(3);
@@ -210,16 +221,22 @@ describe("buildCategoryItemListJsonLd", () => {
   });
 
   it("handles empty brands array", () => {
-    const result = buildCategoryItemListJsonLd("食品", "food", []);
+    const result = buildCategoryItemListJsonLd(
+      "食品",
+      "https://formoria.com/categories/food",
+      [],
+    );
 
     expect(result.numberOfItems).toBe(0);
     expect(result.itemListElement).toEqual([]);
   });
 
   it("uses /brands/:slug for brand item URLs", () => {
-    const result = buildCategoryItemListJsonLd("美妝", "beauty", [
-      { name: "Test", slug: "test-brand" },
-    ]);
+    const result = buildCategoryItemListJsonLd(
+      "美妝",
+      "https://formoria.com/categories/beauty",
+      [{ name: "Test", slug: "test-brand" }],
+    );
     expect(result.itemListElement[0].url).toContain("/brands/test-brand");
     expect(result.itemListElement[0].url).not.toMatch(
       /^https?:\/\/[^/]+\/test-brand$/,
@@ -231,7 +248,7 @@ describe("buildCategoryItemListJsonLd parentGroup", () => {
   it("adds an about Thing when a parent group is provided", () => {
     const result = buildCategoryItemListJsonLd(
       "服飾",
-      "clothing",
+      "https://formoria.com/categories/fashion/tops-and-tshirts",
       [{ name: "oqLiq", slug: "oqliq" }],
       "zh-TW",
       "Taiwan clothing brands",
@@ -244,7 +261,7 @@ describe("buildCategoryItemListJsonLd parentGroup", () => {
   it("omits about when no parent group is provided", () => {
     const result = buildCategoryItemListJsonLd(
       "服飾",
-      "clothing",
+      "https://formoria.com/categories/fashion/tops-and-tshirts",
       [{ name: "oqLiq", slug: "oqliq" }],
       "zh-TW",
       "Taiwan clothing brands",
@@ -256,6 +273,17 @@ describe("buildCategoryItemListJsonLd parentGroup", () => {
 });
 
 describe("buildBreadcrumbJsonLd", () => {
+  it("breadcrumb item URLs carry the locale prefix", () => {
+    const jsonLd = buildBreadcrumbJsonLd(
+      [{ label: "Brands", href: "/brands" }, { label: "Brand Name" }],
+      "en",
+    );
+
+    expect(jsonLd.itemListElement[0].item).toBe(
+      `${getSiteUrl()}/en/brands`,
+    );
+  });
+
   it("builds BreadcrumbList with correct positions", () => {
     const items = [
       { label: "Brands", href: "/" },

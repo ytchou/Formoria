@@ -29,15 +29,22 @@ test.describe("Directory sort deep", () => {
     });
   });
 
-  test('selecting "最新" updates URL to ?sort=newest', async ({ page }) => {
-    await page.goto("/brands");
+  test('selecting "最新" preserves the category landing path', async ({
+    page,
+  }) => {
+    await page.goto("/categories/home");
 
     const sortSelect = page.getByRole("combobox", { name: "排序方式" });
     await expect(sortSelect).toBeVisible({ timeout: 10_000 });
 
     await sortSelect.selectOption("newest");
 
-    await expect(page).toHaveURL(/sort=newest/, { timeout: 10_000 });
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === "/categories/home" &&
+        url.searchParams.get("sort") === "newest",
+      { timeout: 10_000 },
+    );
     await expect(page.locator("main a[aria-label]").first()).toBeVisible({
       timeout: 10_000,
     });

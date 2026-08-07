@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/seo/alternates";
+import { buildAlternates } from "@/lib/seo/alternates";
 import { PURCHASE_CHANNELS } from "@/lib/brands/purchase-channels";
 import { FORMORIA_SOCIALS } from "./constants";
 import { getSiteUrl } from "./seo/site-url";
@@ -84,9 +85,13 @@ export function buildBrandJsonLd(
  */
 export function buildBreadcrumbJsonLd(
   items: BreadcrumbItem[],
-  locale: Locale = "zh-TW",
+  localeOrCanonical: Locale | string = "zh-TW",
 ): JsonLdObject {
   const siteUrl = getSiteUrl();
+  const locale: Locale =
+    localeOrCanonical === "en" || localeOrCanonical === "zh-TW"
+      ? localeOrCanonical
+      : "zh-TW";
 
   return {
     "@context": "https://schema.org",
@@ -99,7 +104,16 @@ export function buildBreadcrumbJsonLd(
         name: item.label,
       };
       if (item.href) {
-        element.item = `${siteUrl}${item.href}`;
+        // Callers that already resolved a canonical URL pass it through
+        // untouched. Legacy callers still pass a path; use the shared
+        // alternates builder so locale prefixing remains one-source-of-truth.
+        if (/^https?:\/\//.test(item.href)) {
+          element.item = item.href;
+        } else if (item.href === "/en" || item.href.startsWith("/en/")) {
+          element.item = `${siteUrl}${item.href}`;
+        } else {
+          element.item = buildAlternates(item.href, locale).canonical;
+        }
       }
       return element;
     }),
@@ -111,7 +125,7 @@ export function buildBreadcrumbJsonLd(
  */
 export function buildCategoryItemListJsonLd(
   categoryName: string,
-  categorySlug: string,
+  canonicalUrl: string,
   brands: Array<{ name: string; slug: string }>,
   locale: Locale = "zh-TW",
   description?: string,
@@ -124,14 +138,14 @@ export function buildCategoryItemListJsonLd(
     "@context": "https://schema.org",
     "@type": "ItemList",
     name: `${categoryName} — Taiwanese Brands`,
-    url: `${siteUrl}/brands?category=${categorySlug}`,
+    url: canonicalUrl,
     inLanguage: toInLanguage(locale),
     numberOfItems: brands.length,
     itemListElement: brands.map((brand, index) => ({
       "@type": "ListItem",
       position: index + 1,
       name: brand.name,
-      url: `${siteUrl}/brands/${brand.slug}`,
+      url: `${siteUrl}${locale === "en" ? "/en" : ""}/brands/${brand.slug}`,
     })),
     ...(parentGroupName
       ? { about: { "@type": "Thing", name: parentGroupName } }

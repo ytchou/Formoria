@@ -159,10 +159,10 @@ test.describe("i18n English browse", () => {
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
   });
 
-  test("LocaleSwitcher persists Traditional Chinese and returns to the equivalent route", async ({
+  test("LocaleSwitcher persists Traditional Chinese on the equivalent category route", async ({
     page,
   }) => {
-    await page.goto("/en/brands");
+    await page.goto("/en/categories/home/furniture");
 
     const switcherBtn = page
       .getByRole("banner")
@@ -174,7 +174,9 @@ test.describe("i18n English browse", () => {
     await expect(zhItem).toBeVisible({ timeout: 5_000 });
     await zhItem.click();
 
-    await expect(page).toHaveURL(/\/brands$/, { timeout: 10_000 });
+    await expect(page).toHaveURL(/\/categories\/home\/furniture$/, {
+      timeout: 10_000,
+    });
     await expect(page.locator("html")).toHaveAttribute("lang", "zh-TW");
     await expect
       .poll(
@@ -219,8 +221,7 @@ test.describe("i18n English browse", () => {
 
     await expect(page).toHaveURL(
       (url) =>
-        url.pathname === "/en/brands" &&
-        url.searchParams.get("category") === "food-drink" &&
+        url.pathname === "/en/categories/food-drink" &&
         url.searchParams.getAll("tag").join("|") === "rice/grains|gift boxes",
       { timeout: 10_000 },
     );

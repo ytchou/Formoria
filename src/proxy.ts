@@ -13,6 +13,7 @@ import {
   isRouterRequest,
 } from "@/lib/security/rate-limiter";
 import { hasApprovedBrandSlug, resolveApprovedBrandRedirect } from '@/lib/services/brand-redirects-edge'
+import { PRODUCT_TYPE_CATEGORIES, subcategoryBySlug } from '@/lib/taxonomy/ontology'
 import { recordCrawlerHit } from '@/lib/security/crawler-telemetry'
 
 /**
@@ -30,6 +31,7 @@ export const RESERVED_ROUTES = new Set([
   'challenge',
   'submit',
   'brands',
+  'categories',
   'contact',
   'stories',
   'events',
@@ -84,6 +86,7 @@ const NEXT_INTL_LOCALE_HEADER = 'X-NEXT-INTL-LOCALE'
 export const PUBLIC_INTL_SEGMENTS = new Set([
   'auth',
   'brands',
+  'categories',
   'stories',
   'events',
   'about',
@@ -111,8 +114,82 @@ const DIRECTORY_INDEX_PATHS = new Set([
   ...routing.locales.map((locale) => `/${locale}/brands`),
 ])
 
-function isDirectoryIndexPath(pathname: string): boolean {
-  return DIRECTORY_INDEX_PATHS.has(pathname)
+function parseDirectoryPath(pathname: string): { locale: string; path: string } {
+  for (const locale of KNOWN_LOCALES) {
+    if (pathname === `/${locale}`) return { locale, path: '/' }
+    if (pathname.startsWith(`/${locale}/`)) {
+      return { locale, path: pathname.slice(locale.length + 1) || '/' }
+    }
+  }
+  return { locale: 'zh-TW', path: pathname }
+}
+
+export function isDirectoryIndexPath(pathname: string, search = ''): boolean {
+  if (search) return false
+  if (DIRECTORY_INDEX_PATHS.has(pathname)) return true
+
+  const { path } = parseDirectoryPath(pathname)
+  const segments = path.split('/').filter(Boolean)
+  if (segments[0] !== 'categories' || (segments.length !== 2 && segments.length !== 3)) {
+    return false
+  }
+  const category = PRODUCT_TYPE_CATEGORIES.find((item) => item.slug === segments[1])
+  if (!category) return false
+  if (segments.length === 2) return true
+  return subcategoryBySlug(segments[2] ?? '')?.category === category.slug
+}
+
+export type DirectoryTaxonomyRedirect =
+  | { action: 'redirect'; status: 301; pathname: string }
+  | { action: 'none' }
+
+function singleQueryValue(searchParams: URLSearchParams, key: string): string | null | undefined {
+  const values = searchParams.getAll(key)
+  if (values.length !== 1) return undefined
+  const parts = values[0]?.split(',').map((value) => value.trim()).filter(Boolean) ?? []
+  return parts.length === 1 ? parts[0] ?? null : undefined
+}
+
+export function decideDirectoryTaxonomyRedirect(
+  pathname: string,
+  searchParams: URLSearchParams | string,
+): DirectoryTaxonomyRedirect {
+  const params = typeof searchParams === 'string' ? new URLSearchParams(searchParams) : searchParams
+  const { locale, path } = parseDirectoryPath(pathname)
+  if (path !== '/brands') return { action: 'none' }
+
+  for (const facet of ['search', 'price', 'verification', 'sort']) {
+    if (params.get(facet)?.trim()) return { action: 'none' }
+  }
+
+  const categorySlug = singleQueryValue(params, 'category')
+  if (!categorySlug || !PRODUCT_TYPE_CATEGORIES.some((category) => category.slug === categorySlug)) {
+    return { action: 'none' }
+  }
+
+  const subValues = params.getAll('sub')
+  let subcategorySlug: string | null = null
+  if (subValues.length > 1) return { action: 'none' }
+  if (subValues.length === 1) {
+    const parts = subValues[0]?.split(',').map((value) => value.trim()).filter(Boolean) ?? []
+    if (parts.length > 1) return { action: 'none' }
+    const candidate = parts[0]
+    if (candidate && subcategoryBySlug(candidate)?.category === categorySlug) {
+      subcategorySlug = candidate
+    }
+  }
+
+  const destinationPath = `/categories/${categorySlug}${subcategorySlug ? `/${subcategorySlug}` : ''}`
+  const destination = new URLSearchParams(params.toString())
+  destination.delete('category')
+  destination.delete('sub')
+  const query = destination.toString()
+  const localizedPath = localizePath(destinationPath, locale)
+  return {
+    action: 'redirect',
+    status: 301,
+    pathname: query ? `${localizedPath}?${query}` : localizedPath,
+  }
 }
 
 function isSoftLimitPath(pathname: string) {
@@ -283,8 +360,18 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url, 301)
   }
 
-  // Below the 301: a crawler that requests a non-canonical path would otherwise
-  // be counted once for the redirect and again when it follows it.
+  const taxonomyRedirect = decideDirectoryTaxonomyRedirect(pathname, request.nextUrl.searchParams)
+  if (taxonomyRedirect.action === 'redirect') {
+    const url = request.nextUrl.clone()
+    const destination = new URL(taxonomyRedirect.pathname, request.url)
+    url.pathname = destination.pathname
+    url.search = destination.search
+    return NextResponse.redirect(url, taxonomyRedirect.status)
+  }
+
+  // Below BOTH 301s — the pathname normalization above and the taxonomy
+  // redirect. A crawler that requests a non-canonical path would otherwise be
+  // counted once for the redirect and again when it follows it.
   if (crawlerHit) {
     recordCrawlerHit(request)
   }
@@ -415,7 +502,7 @@ export async function proxy(request: NextRequest) {
   }
 
   if (
-    isDirectoryIndexPath(pathname) &&
+    isDirectoryIndexPath(pathname, request.nextUrl.search) &&
     !routerRequest &&
     !response.headers.has('set-cookie')
   ) {

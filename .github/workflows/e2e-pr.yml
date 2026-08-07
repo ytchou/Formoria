@@ -137,7 +137,12 @@ jobs:
             ${{ runner.os }}-nextjs-
 
       - name: Build Next.js (production)
-        run: pnpm build
+        run: |
+          if ! pnpm build; then
+            echo "Initial build failed; clearing the generated output and retrying once."
+            rm -rf .next
+            pnpm build
+          fi
 
       - name: Install all desktop Playwright browsers
         if: needs.select.outputs.cross_browser == 'true'

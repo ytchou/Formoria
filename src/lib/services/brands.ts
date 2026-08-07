@@ -25,6 +25,7 @@ import {
   deriveCategoryFromProductType,
   matchSubcategory,
   PRODUCT_TYPE_CATEGORIES,
+  subcategoryBySlug,
 } from "@/lib/taxonomy/ontology";
 import { slugifyRomanizedName, withSlugSuffix } from "@/lib/brands/slug";
 import { downloadAndStoreImages } from "./image-download";
@@ -1262,6 +1263,30 @@ type GetBrandsFilters = BrandFilters & {
   includeDetailColumns?: boolean;
 };
 
+/**
+ * Expand a taxonomy selection to every stored spelling for the concept.
+ * Product tags predate the slug ontology, so a brand can carry an alias (for
+ * example `口金夾`) while the filter is selected by its slug or canonical name.
+ * Both the browse query and the search RPC must receive this same list.
+ */
+function expandSubcategoryTags(tags: readonly string[] | undefined): string[] {
+  if (!tags || tags.length === 0) return [];
+
+  const expanded = new Set<string>();
+  for (const tag of tags) {
+    const trimmed = tag.trim();
+    if (!trimmed) continue;
+    const subcategory = subcategoryBySlug(trimmed) ?? matchSubcategory(trimmed);
+    if (!subcategory) {
+      expanded.add(trimmed);
+      continue;
+    }
+    expanded.add(subcategory.nameZh);
+    for (const alias of subcategory.aliases) expanded.add(alias);
+  }
+  return [...expanded];
+}
+
 function getBrandsSelect(filters: GetBrandsFilters | undefined): "*" {
   const owned = filters?.verificationFilter === "owned";
   if (filters?.includeDetailColumns) {
@@ -1297,6 +1322,7 @@ export async function getBrands(
   filters?: GetBrandsFilters,
 ): Promise<{ brands: Brand[]; totalCount: number }> {
   const supabase = createServiceClient();
+  const expandedSubcategoryTags = expandSubcategoryTags(filters?.subcategoryTags);
 
   // Search filtering is handled in the bounded, service-only page RPC; this
   // branch only hydrates the returned IDs with the card projection.
@@ -1320,8 +1346,8 @@ export async function getBrands(
       {
         search_query: trimmed,
         filter_categories: filters.category?.length ? filters.category : null,
-        filter_tags: filters.subcategoryTags?.length
-          ? filters.subcategoryTags
+        filter_tags: expandedSubcategoryTags.length
+          ? expandedSubcategoryTags
           : null,
         filter_verification: verificationFilter,
         filter_price_ranges: filters.priceRanges?.length
@@ -1348,8 +1374,8 @@ export async function getBrands(
         {
           search_query: trimmed,
           filter_categories: filters.category?.length ? filters.category : null,
-          filter_tags: filters.subcategoryTags?.length
-            ? filters.subcategoryTags
+          filter_tags: expandedSubcategoryTags.length
+            ? expandedSubcategoryTags
             : null,
           filter_verification: verificationFilter,
           filter_price_ranges: filters.priceRanges?.length
@@ -1414,8 +1440,8 @@ export async function getBrands(
   if (filters?.priceRanges && filters.priceRanges.length > 0) {
     query = query.in("price_range", filters.priceRanges);
   }
-  if (filters?.subcategoryTags && filters.subcategoryTags.length > 0) {
-    query = query.overlaps("product_tags", filters.subcategoryTags);
+  if (expandedSubcategoryTags.length > 0) {
+    query = query.overlaps("product_tags", expandedSubcategoryTags);
   }
 
   // Sorting
@@ -1475,14 +1501,20 @@ export async function getPublicBrandCards(
   };
 }
 
-export async function getSubcategoryCounts(
+export type SubcategorySummary = {
+  counts: Map<string, number>
+  latestUpdatedAt: string | null
+}
+
+export async function getSubcategorySummary(
   categorySlug: string,
-): Promise<Map<string, number>> {
+  subcategorySlug?: string,
+): Promise<SubcategorySummary> {
   const supabase = createServiceClient();
   const { data, error } = await excludeTestBrands(
     supabase
       .from("brands")
-      .select("product_tags")
+      .select("product_tags, updated_at")
       .eq("status", "approved")
       .eq("product_type", categorySlug),
   );
@@ -1491,8 +1523,10 @@ export async function getSubcategoryCounts(
 
   const brands = (data ?? []).map((row) => ({
     productTags: Array.isArray(row.product_tags) ? row.product_tags : [],
+    updatedAt: row.updated_at,
   }));
   const counts = new Map<string, number>();
+  let latestUpdatedAt: string | null = null;
 
   for (const brand of brands) {
     const canonicalTags = new Set<string>();
@@ -1505,9 +1539,30 @@ export async function getSubcategoryCounts(
     for (const tag of canonicalTags) {
       counts.set(tag, (counts.get(tag) ?? 0) + 1);
     }
+
+    const updatedAtTimestamp = Date.parse(brand.updatedAt);
+    const latestTimestamp = latestUpdatedAt ? Date.parse(latestUpdatedAt) : Number.NaN;
+    const isInScope = !subcategorySlug || canonicalTagsHasSlug(brand.productTags, subcategorySlug);
+    if (
+      isInScope &&
+      !Number.isNaN(updatedAtTimestamp) &&
+      (Number.isNaN(latestTimestamp) || updatedAtTimestamp > latestTimestamp)
+    ) {
+      latestUpdatedAt = brand.updatedAt;
+    }
   }
 
-  return counts;
+  return { counts, latestUpdatedAt };
+}
+
+function canonicalTagsHasSlug(tags: string[], subcategorySlug: string): boolean {
+  return tags.some((tag) => matchSubcategory(tag)?.slug === subcategorySlug);
+}
+
+export async function getSubcategoryCounts(
+  categorySlug: string,
+): Promise<Map<string, number>> {
+  return (await getSubcategorySummary(categorySlug)).counts;
 }
 
 export const EXPLORE_BRAND_LIMIT = 8;
@@ -2014,6 +2069,7 @@ export type BrandSeoEntry = {
   slug: string;
   updatedAt: string;
   productType: string | null;
+  productTags: string[];
   description: string | null;
   descriptionEn: string | null;
   blurbEn: string | null;
@@ -2021,11 +2077,13 @@ export type BrandSeoEntry = {
 
 export async function getBrandSeoEntries(): Promise<BrandSeoEntry[]> {
   const supabase = createServiceClient();
-  const { data, error } = await supabase
-    .from("brands")
-    .select(
-      "slug, updated_at, product_type, description, description_en, blurb_en",
-    )
+  const { data, error } = await excludeTestBrands(
+    supabase
+      .from("brands")
+      .select(
+        "slug, updated_at, product_type, product_tags, description, description_en, blurb_en",
+      ),
+  )
     .eq("status", "approved");
 
   if (error) throw error;
@@ -2033,6 +2091,7 @@ export async function getBrandSeoEntries(): Promise<BrandSeoEntry[]> {
     slug: row.slug,
     updatedAt: row.updated_at,
     productType: row.product_type,
+    productTags: Array.isArray(row.product_tags) ? row.product_tags : [],
     description: row.description,
     descriptionEn: row.description_en,
     blurbEn: row.blurb_en,
@@ -2243,7 +2302,7 @@ export async function completeBrandClaim({
   );
 }
 
-export async function getRandomBrands(limit = 4): Promise<Brand[]> {
+export async function getRandomBrands(limit = 4): Promise<PublicBrandCard[]> {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("brands")
@@ -2262,7 +2321,7 @@ export async function getRandomBrands(limit = 4): Promise<Brand[]> {
     [rows[i], rows[j]] = [rows[j], rows[i]];
   }
 
-  return rows.slice(0, limit).map(brandToDomain);
+  return rows.slice(0, limit).map(brandToDomain).map(toPublicBrandCard);
 }
 
 export async function getNewBrands(limit = 4): Promise<Brand[]> {

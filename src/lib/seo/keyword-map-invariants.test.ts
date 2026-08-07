@@ -112,6 +112,99 @@ describe('keyword map invariants', () => {
     expect(live).toEqual([])
   })
 
+  it('every live row has a target_url', () => {
+    const missing = clusters
+      .filter(cluster => cluster.target_status === 'live' && !cluster.target_url)
+      .map(cluster => describeCluster(cluster))
+
+    expect(missing).toEqual([])
+  })
+
+  it('every live L1/L2 target_url resolves to a real route', () => {
+    const invalid: string[] = []
+
+    for (const cluster of clusters) {
+      if (cluster.target_status !== 'live' || !TAXONOMY_PAGE_TYPES.has(cluster.page_type)) {
+        continue
+      }
+
+      const slug = cluster.ontology_slug
+      if (!slug || !cluster.target_url) {
+        invalid.push(`${describeCluster(cluster)} is missing route data`)
+        continue
+      }
+
+      if (cluster.page_type === 'l1-category') {
+        if (!L1_SLUGS.has(slug) || cluster.target_url !== `/categories/${slug}`) {
+          invalid.push(`${describeCluster(cluster)} -> ${cluster.target_url}`)
+        }
+        continue
+      }
+
+      const subcategory = subcategoryBySlug(slug)
+      const expectedUrl = subcategory ? `/categories/${subcategory.category}/${slug}` : null
+      if (!subcategory || cluster.target_url !== expectedUrl) {
+        invalid.push(`${describeCluster(cluster)} -> ${cluster.target_url}`)
+      }
+    }
+
+    expect(invalid).toEqual([])
+  })
+
+  it('no reject-taxonomy row is marked live', () => {
+    const rejected = clusters.filter(cluster => cluster.eligibility === 'reject-taxonomy')
+    expect(rejected).toHaveLength(11)
+    expect(rejected.every(cluster => cluster.target_status === 'proposed' && !cluster.target_url)).toBe(true)
+  })
+
+  it('the zh-TW L2 launch set stays between five and ten rows', () => {
+    const launch = clusters.filter(
+      cluster =>
+        cluster.locale === 'zh-TW' &&
+        cluster.page_type === 'l2-category' &&
+        cluster.eligibility === 'launch',
+    )
+
+    expect(launch.length).toBeGreaterThanOrEqual(5)
+    expect(launch.length).toBeLessThanOrEqual(10)
+    expect(launch).toHaveLength(10)
+  })
+
+  it('every deferred L2 row that clears the 15-brand bar is defer-no-demand', () => {
+    const deferredQualifying = clusters.filter(
+      cluster =>
+        cluster.locale === 'zh-TW' &&
+        cluster.page_type === 'l2-category' &&
+        cluster.brand_count >= 15 &&
+        cluster.composite !== 'multi-intent' &&
+        cluster.eligibility !== 'launch',
+    )
+
+    expect(deferredQualifying).toHaveLength(24)
+    expect(
+      deferredQualifying.every(
+        cluster => cluster.eligibility === 'defer-no-demand' && cluster.target_status === 'proposed',
+      ),
+    ).toBe(true)
+  })
+
+  it('every launched L2 has bespoke zh-TW copy', () => {
+    const messages = JSON.parse(
+      readFileSync(resolve(process.cwd(), 'messages/zh-TW.json'), 'utf8'),
+    ) as { categories?: { l2?: Record<string, unknown> } }
+    const missing = clusters
+      .filter(
+        cluster =>
+          cluster.locale === 'zh-TW' &&
+          cluster.page_type === 'l2-category' &&
+          cluster.eligibility === 'launch',
+      )
+      .filter(cluster => !cluster.ontology_slug || !messages.categories?.l2?.[cluster.ontology_slug])
+      .map(cluster => describeCluster(cluster))
+
+    expect(missing).toEqual([])
+  })
+
   it('primary keywords are unique across the map', () => {
     const seen = new Map<string, string>()
     const duplicates: string[] = []

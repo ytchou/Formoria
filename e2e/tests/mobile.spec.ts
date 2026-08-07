@@ -8,7 +8,7 @@ test.describe("Mobile responsive", () => {
     test(`${url} has no horizontal overflow at 375px`, async ({ page }) => {
       await page.goto(url);
       await page.waitForLoadState("domcontentloaded");
-      await expect(page.locator("header")).toBeVisible();
+      await expect(page.getByRole('banner')).toBeVisible();
       const bodyWidth = await page.evaluate(() => document.body.scrollWidth);
       const viewportWidth = page.viewportSize()?.width ?? 375;
       expect(bodyWidth).toBeLessThanOrEqual(viewportWidth + 5); // 5px tolerance
@@ -35,7 +35,7 @@ test.describe("Mobile responsive", () => {
       name: "Open menu",
       exact: true,
     });
-    const nav = page.locator("header nav:visible");
+    const nav = page.getByRole('banner').getByRole('navigation');
     if (await hamburger.isVisible().catch(() => false)) {
       await expect(hamburger).toBeVisible({ timeout: 5_000 });
       return;

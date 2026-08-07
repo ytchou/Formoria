@@ -70,4 +70,22 @@ describe('message catalogue parity', () => {
     expect(exempted.length).toBeGreaterThan(0)
     expect(exempted.every((key) => key.startsWith(EN_ONLY_PREFIX))).toBe(true)
   })
+
+  it('categories.l1 has the same launch-copy keys in both locales', () => {
+    expect(Object.keys(zhTW.categories.l1).sort()).toEqual(
+      Object.keys(en.categories.l1).sort(),
+    )
+    expect(Object.keys(zhTW.categories.l1)).toHaveLength(10)
+  })
+
+  it('keeps the subMetadata fallback for non-indexable subcategories', () => {
+    expect(zhTW.categories.subMetadata).toMatchObject({
+      title: expect.any(String),
+      description: expect.any(String),
+    })
+    expect(en.categories.subMetadata).toMatchObject({
+      title: expect.any(String),
+      description: expect.any(String),
+    })
+  })
 })

@@ -98,7 +98,7 @@ These are warnings during migration, not evidence that the routes have no deep c
 | **Localized brand indexability and hidden-brand exclusion** | `e2e/tests/seo.spec.ts`, `e2e/tests/brand-detail.spec.ts` | 2026-07-15 |
 | **Guide locale indexability** | `e2e/tests/guide-detail.spec.ts` | 2026-07-15 |
 | **Directory filters, zero-result recovery, and contextual recommendations** | `e2e/tests/directory.spec.ts` | 2026-07-16 |
-| **Category landing URLs — L1/L2 metadata, server-rendered content, indexation states, direct 404s, and query edge states** | `e2e/tests/categories.spec.ts` | 2026-08-07 |
+| **Category landing URLs — L1/L2 metadata, concise server-rendered context, indexation states, direct 404s, and query edge states** | `e2e/tests/categories.spec.ts` | 2026-08-07 |
 | **Public search — API boundaries, ranking, bilingual/fuzzy matching, entry points, async state, filters, and recovery** | `e2e/tests/search-edge-cases.spec.ts` | 2026-07-19 |
 | **Public data boundary — private brand canaries absent from HTML, RSC, JSON-LD, and public brand surfaces** | `e2e/tests/public-data-boundary.spec.ts` | 2026-08-06 |
 | **Public search — selected A-Z sort changes rendered matching-result order** | `e2e/tests/search-edge-cases.spec.ts` | 2026-08-06 |

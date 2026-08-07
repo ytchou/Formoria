@@ -1,5 +1,6 @@
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { routing } from '@/i18n/routing'
+import { PRODUCT_SUBCATEGORIES, PRODUCT_TYPE_CATEGORIES } from '@/lib/taxonomy/ontology'
 
 export const PUBLIC_BRAND_DATA_TAG = 'public-brand-data'
 
@@ -43,6 +44,12 @@ export function revalidatePublicBrand({
 
   revalidateLocalizedPath('/')
   revalidateLocalizedPath('/brands')
+  for (const category of PRODUCT_TYPE_CATEGORIES) {
+    revalidateLocalizedPath(`/categories/${category.slug}`)
+  }
+  for (const subcategory of PRODUCT_SUBCATEGORIES) {
+    revalidateLocalizedPath(`/categories/${subcategory.category}/${subcategory.slug}`)
+  }
   // /stats and /about render a global approved-brand count, so any approve/hide/delete
   // makes their ISR entries stale even though no brand page changed.
   revalidateLocalizedPath('/stats')

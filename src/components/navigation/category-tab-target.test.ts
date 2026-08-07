@@ -36,8 +36,8 @@ describe('category tab targets', () => {
         locale: 'en',
       }),
     ).toEqual({
-      routerPath: '/brands?category=fashion',
-      href: '/en/brands?category=fashion',
+      routerPath: '/brands?search=zzzznotabrandxyz&category=fashion',
+      href: '/en/brands?search=zzzznotabrandxyz&category=fashion',
     })
   })
 
@@ -58,12 +58,12 @@ describe('category tab targets', () => {
       buildCategoryTabTarget({
         pathname: '/brands',
         searchParams: 'category=fashion&sub=bags',
-        slug: 'food',
+        slug: 'food-drink',
         locale: 'en',
       }),
     ).toEqual({
-      routerPath: '/brands?category=food',
-      href: '/en/brands?category=food',
+      routerPath: '/categories/food-drink',
+      href: '/en/categories/food-drink',
     })
   })
 
@@ -76,8 +76,31 @@ describe('category tab targets', () => {
         locale: 'en',
       }),
     ).toEqual({
-      routerPath: '/brands?category=jewelry',
-      href: '/en/brands?category=jewelry',
+      routerPath: '/categories/jewelry',
+      href: '/en/categories/jewelry',
     })
+  })
+
+  it('targets a nested route for one subcategory', () => {
+    expect(buildCategoryTabTarget({
+      pathname: '/brands',
+      searchParams: '',
+      slug: 'home',
+      subSlug: 'furniture',
+      locale: 'zh-TW',
+    })).toEqual({
+      routerPath: '/categories/home/furniture',
+      href: '/categories/home/furniture',
+    })
+  })
+
+  it('falls back to brands for multi-select taxonomy', () => {
+    expect(buildCategoryTabTarget({
+      pathname: '/brands',
+      searchParams: 'search=chairs',
+      slug: 'home',
+      categorySlugs: ['fashion', 'home'],
+      locale: 'zh-TW',
+    }).routerPath).toBe('/brands?search=chairs&category=fashion%2Chome')
   })
 })

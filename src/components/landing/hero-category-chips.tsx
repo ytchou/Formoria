@@ -15,9 +15,9 @@ export function HeroCategoryChips({ categories }: HeroCategoryChipsProps) {
       {categories.map((cat) => (
         <Link
           key={cat.slug}
-          href={`/brands?category=${cat.slug}`}
+          href={`/categories/${cat.slug}`}
           data-ph-no-autocapture
-          onClick={() => trackHeroCategoryClicked(cat.slug, `/brands?category=${cat.slug}`)}
+          onClick={() => trackHeroCategoryClicked(cat.slug, `/categories/${cat.slug}`)}
           // ui-exception: translucent hover border on hero, not in secondary variant; single site
           className={cn(
             buttonVariants({ variant: 'secondary', shape: 'pill', size: 'chip' }),

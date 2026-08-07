@@ -51,6 +51,10 @@ export const revalidate = 3600;
 // silently falls back to zh-TW on on-demand/ISR renders while `params.locale`
 // still says `en`. `revalidate` + `generateStaticParams` gives SSG+ISR without it.
 export async function generateStaticParams() {
+  // Story shortcodes can read the DB while rendering; defer them in E2E builds
+  // so an unrelated prerender cannot prevent the selected journey from starting.
+  if (process.env.PLAYWRIGHT_TEST === "true") return [];
+
   const result = await getAllStories();
   if (!result.ok) return [];
   // `story.slug` is the filename stem, which is what the route param resolves against

@@ -101,7 +101,7 @@ export default async function StatsPage({ params }: StatsPageProps) {
                 return (
                   <Link
                     key={item.slug}
-                    href={`/brands?category=${encodeURIComponent(item.slug)}`}
+                    href={`/categories/${encodeURIComponent(item.slug)}`}
                     className="flex items-center justify-between gap-4 rounded-lg border border-border px-3 py-3 transition-colors hover:bg-secondary"
                   >
                     <span className="type-body-emphasis">{label}</span>

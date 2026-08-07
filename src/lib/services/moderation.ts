@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import { createServiceClient } from "@/lib/supabase/service";
 import { auditedCall } from "@/lib/audit";
+import { describeError } from "@/lib/errors";
 import {
   buildReviewUpdate,
   type ReviewDecision,
@@ -51,14 +52,6 @@ function createViolation(
     rule,
     userMessage,
   };
-}
-
-function describeError(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "object" && error !== null && "message" in error) {
-    return String((error as { message: unknown }).message);
-  }
-  return String(error);
 }
 
 function extractUrls(value: string): string[] {
