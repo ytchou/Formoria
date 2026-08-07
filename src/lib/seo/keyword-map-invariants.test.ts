@@ -282,6 +282,33 @@ describe('keyword map invariants', () => {
     expect(unresolved).toEqual([])
   })
 
+  it('every ontology L2 slug appears in the keyword map exactly once', () => {
+    const rowsBySlug = new Map<string, string[]>()
+
+    for (const cluster of clusters) {
+      if (!cluster.ontology_slug) continue
+      const rows = rowsBySlug.get(cluster.ontology_slug) ?? []
+      rows.push(`cluster:${cluster.id}`)
+      rowsBySlug.set(cluster.ontology_slug, rows)
+    }
+    for (const row of backlog) {
+      const rows = rowsBySlug.get(row.slug) ?? []
+      rows.push(`backlog:${row.slug}`)
+      rowsBySlug.set(row.slug, rows)
+    }
+
+    const missing: string[] = []
+    const duplicate: string[] = []
+    for (const subcategory of PRODUCT_SUBCATEGORIES) {
+      const rows = rowsBySlug.get(subcategory.slug) ?? []
+      if (rows.length === 0) missing.push(subcategory.slug)
+      if (rows.length > 1) duplicate.push(`${subcategory.slug}: ${rows.join(', ')}`)
+    }
+
+    expect(missing, `missing ontology slugs: ${missing.join(', ')}`).toEqual([])
+    expect(duplicate, `duplicate ontology slugs: ${duplicate.join('; ')}`).toEqual([])
+  })
+
   it('priority matches its derivation', () => {
     // Read the YAML RAW rather than through loadKeywordMap. The schema's
     // superRefine already rejects a mismatched priority at module scope, so

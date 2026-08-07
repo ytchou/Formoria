@@ -67,6 +67,34 @@ describe('normalizeProductTags', () => {
     const result = normalizeProductTags(['手工皂'], [], 'fashion')
     expect(result.crossBranch).toEqual(['手工皂'])
   })
+
+  it('splits an unmatched composite tag and keeps the halves that resolve', () => {
+    const result = normalizeProductTags(['糖果・糕點'], [])
+
+    expect(result.tags).toEqual(['甜點・糕點'])
+    expect(result.tagsEn).toEqual(['Desserts & Pastries'])
+    expect(result.tags).not.toContain('糖果・糕點')
+  })
+
+  it('keeps a canonical composite tag untouched', () => {
+    const result = normalizeProductTags(['甜點・糕點'], [])
+
+    expect(result.tags).toEqual(['甜點・糕點'])
+    expect(result.tagsEn).toEqual(['Desserts & Pastries'])
+  })
+
+  it('drops an unmatched composite when neither half resolves', () => {
+    const result = normalizeProductTags(['地板・地板材料'], [])
+
+    expect(result.tags).not.toContain('地板・地板材料')
+    expect(result.tags).toEqual([])
+  })
+
+  it('preserves a non-composite novel tag', () => {
+    const result = normalizeProductTags(['雨傘'], [])
+
+    expect(result.tags).toEqual(['雨傘'])
+  })
 })
 
 describe('deriveProductTypeFromTags', () => {

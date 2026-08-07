@@ -15,6 +15,21 @@ describe("FACTS_SYSTEM_PROMPT product_tags vocabulary", () => {
   it("no longer forbids broad categories (old instruction removed)", () => {
     expect(FACTS_SYSTEM_PROMPT).not.toContain("不要用寬泛分類");
   });
+
+  it("the product_tags rule forbids the middle dot in novel tags", () => {
+    expect(FACTS_SYSTEM_PROMPT).toContain("不含「・」");
+  });
+
+  it("the product_tags rule forbids occasion, service and material tags", () => {
+    expect(FACTS_SYSTEM_PROMPT).toContain(
+      "4. 不得是場合、收件對象、包裝形式、履約方式、服務或材質（例如送禮、彌月、禮盒、伴手禮、體驗課程、服務、原料）。",
+    );
+  });
+
+  it("the output self-check list covers tag kind and the separator", () => {
+    expect(FACTS_SYSTEM_PROMPT).toContain("是否命名具體產品種類");
+    expect(FACTS_SYSTEM_PROMPT).toContain("是否不含「・」");
+  });
 });
 
 describe("listing criteria are split across the two stages", () => {

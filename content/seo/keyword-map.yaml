@@ -2284,6 +2284,12 @@ clusters:
     so shipping an English target today would publish a noindex or canonicalized-away page. Ownership
     is recorded now so English work has a starting map.'
 unmapped_backlog:
+- slug: gift-boxes
+  brand_count: 69
+  notes: Non-taxonomic packaging/occasion label; tracked by DEV-1384.
+- slug: custom-gifts
+  brand_count: 21
+  notes: Non-taxonomic customization/occasion label; tracked by DEV-1384.
 - slug: hair-care
   brand_count: 14
   composite: multi-intent
