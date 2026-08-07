@@ -6,21 +6,19 @@ import {
   isOwnerFeaturesEnabled,
   OWNER_FEATURES_KEY,
   setAppSetting,
-  SUBCATEGORY_FILTER_KEY,
 } from './app-settings'
 
 describeWithDb('app-settings service', () => {
   afterAll(async () => {
-    await setAppSetting('subcategory_filter_enabled', true)
     await setAppSetting(OWNER_FEATURES_KEY, false)
   })
 
 
   it('round-trips a write', async () => {
-    await setAppSetting('subcategory_filter_enabled', false)
-    expect(await getAppSetting('subcategory_filter_enabled')).toBe(false)
-    await setAppSetting('subcategory_filter_enabled', true)
-    expect(await getAppSetting('subcategory_filter_enabled')).toBe(true)
+    await setAppSetting('test_setting', false)
+    expect(await getAppSetting('test_setting')).toBe(false)
+    await setAppSetting('test_setting', true)
+    expect(await getAppSetting('test_setting')).toBe(true)
   })
 
   it('fails open: unknown key returns the provided default', async () => {
@@ -64,13 +62,6 @@ describe('feature flag registry', () => {
       expect(flag.revalidatePaths).toBeInstanceOf(Array)
       expect(flag.revalidatePaths.length).toBeGreaterThan(0)
     }
-  })
-
-  it('SUBCATEGORY_FILTER_KEY is derived from the registry', () => {
-    expect(SUBCATEGORY_FILTER_KEY).toBe('subcategory_filter_enabled')
-    expect(FEATURE_FLAGS.some((f) => f.key === SUBCATEGORY_FILTER_KEY)).toBe(
-      true
-    )
   })
 
   it('registers owner_features_enabled as an off-by-default flag', () => {

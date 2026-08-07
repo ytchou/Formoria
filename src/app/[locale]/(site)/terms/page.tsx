@@ -36,10 +36,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 const sectionKeys = [
   'contentOwnership',
   'dataUse',
+  'automatedAccess',
   'reviewProcess',
   'disclaimer',
   'changes',
 ] as const
+
+/**
+ * Sections that carry a second paragraph under `<key>.bodyDetail`. Listing them
+ * explicitly (rather than probing the catalogue) keeps the loop total: a section
+ * without an entry here renders exactly one paragraph, as all nine others do,
+ * and a missing key can never surface as a raw message path in the page.
+ */
+const sectionKeysWithDetail = new Set<(typeof sectionKeys)[number]>(['automatedAccess'])
 
 export default async function TermsPage({ params }: PageProps) {
   const { locale } = await params
@@ -63,6 +72,11 @@ export default async function TermsPage({ params }: PageProps) {
               <p className="type-body-muted">
                 {t(`${key}.body`)}
               </p>
+              {sectionKeysWithDetail.has(key) && (
+                <p className="type-body-muted">
+                  {t(`${key}.bodyDetail`)}
+                </p>
+              )}
             </section>
           ))}
         </div>

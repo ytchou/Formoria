@@ -107,11 +107,11 @@ const nextConfig: NextConfig = {
         destination: '/',
         permanent: true,
       },
-      // Legacy category routes consolidate into the brands directory filter.
+      // Legacy singular category routes now point at the taxonomy landing surface.
       {
         source: '/category/:category',
-        destination: '/brands?category=:category',
-        permanent: true,
+        destination: '/categories/:category',
+        statusCode: 301,
       },
       {
         source: '/categories',
@@ -119,19 +119,14 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
-        source: '/categories/:category',
-        destination: '/brands?category=:category',
-        permanent: true,
-      },
-      {
         source: '/en/category/:category',
-        destination: '/en/brands?category=:category',
-        permanent: true,
+        destination: '/en/categories/:category',
+        statusCode: 301,
       },
       {
         source: '/zh-TW/category/:category',
-        destination: '/brands?category=:category',
-        permanent: true,
+        destination: '/categories/:category',
+        statusCode: 301,
       },
       {
         source: '/en/categories',
@@ -141,16 +136,6 @@ const nextConfig: NextConfig = {
       {
         source: '/zh-TW/categories',
         destination: '/brands',
-        permanent: true,
-      },
-      {
-        source: '/en/categories/:category',
-        destination: '/en/brands?category=:category',
-        permanent: true,
-      },
-      {
-        source: '/zh-TW/categories/:category',
-        destination: '/brands?category=:category',
         permanent: true,
       },
       // The editorial surface was renamed /guides -> /stories. `guides` was also

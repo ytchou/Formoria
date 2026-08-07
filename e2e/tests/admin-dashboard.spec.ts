@@ -206,11 +206,15 @@ test.describe('Admin dashboard deep', () => {
     // Wait for the page to be interactive before looking for the seeded row.
     await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
     const readyRow = adminPage.locator('tbody tr').filter({ hasText: testBrandName }).first();
-    const approveBtn = readyRow.getByRole('button', { name: 'Approve' });
+    await expect(readyRow).toBeVisible({ timeout: 10_000 });
+    // Approve now lives in the row's drawer rather than inline in the table row.
+    await readyRow.getByText(testBrandName, { exact: true }).click();
+    const reviewDrawer = adminPage.getByRole('dialog');
+    const approveBtn = reviewDrawer.getByRole('button', { name: 'Approve', exact: true });
     await expect(approveBtn).toBeVisible({ timeout: 10_000 });
     await approveBtn.click();
-    // After approval the server action revalidates and the button disappears
-    await expect(approveBtn).toBeHidden({ timeout: 30_000 });
+    // After approval the server action revalidates and the drawer closes
+    await expect(reviewDrawer).toBeHidden({ timeout: 30_000 });
   });
 
   test('needs-data submission can be dropped and is removed from the database', async ({ adminPage }) => {

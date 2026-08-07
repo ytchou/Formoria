@@ -209,9 +209,16 @@ test.describe("Submission publishable-core link guard", () => {
         .filter({ hasText: seeded.brandName });
       await expect(readyRow).toBeVisible({ timeout: 30_000 });
 
+      await readyRow
+        .getByRole("button", { name: `Expand review for ${seeded.brandName}` })
+        .click();
+      // Approve lives in the drawer FOOTER, which is a sibling of the
+      // `#submission-review-…` body node — scope it to the dialog, not to the
+      // table row.
+      const reviewDrawer = adminPage.getByRole("dialog");
       // Enabled only when the client completeness mirror also counts myship as a
       // link; a regression there disables the button before the SQL guard runs.
-      const approve = readyRow.getByRole("button", { name: "Approve", exact: true });
+      const approve = reviewDrawer.getByRole("button", { name: "Approve", exact: true });
       await expect(approve).toBeEnabled();
       await approve.click();
       // The row leaves the `ready` filter only after the server action has

@@ -11,7 +11,8 @@ import {
 } from "@/lib/taxonomy/ontology";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { createServiceClient } from "@/lib/supabase/service";
-import { auditedCall } from "@/lib/audit";
+import { auditedCall, type AuditCallContext } from "@/lib/audit";
+import { describeError } from "@/lib/errors";
 import { isUuid, validateIdBatch } from "@/lib/validation/id-batch";
 import {
   PURCHASE_CHANNELS,
@@ -602,6 +603,7 @@ async function markReviewed(
   notes: string,
   reviewerId: string,
   reviewedAt: string,
+  ctx?: AuditCallContext,
 ): Promise<
   { ok: true } | { ok: false; code: "database_error" | "already_reviewed" }
 > {
@@ -619,7 +621,13 @@ async function markReviewed(
     .eq("id", id)
     .eq("status", "pending");
 
-  if (error) return { ok: false, code: "database_error" };
+  if (error) {
+    // The envelope classifies on the RETURNED value, so the underlying error
+    // has to be carried out by hand or it is lost entirely.
+    console.error("[brand-corrections] markReviewed claim failed:", error);
+    if (ctx) ctx.summary.claimError = describeError(error);
+    return { ok: false, code: "database_error" };
+  }
   if (count === 0) return { ok: false, code: "already_reviewed" };
   return { ok: true };
 }
@@ -650,6 +658,7 @@ async function supersedePendingTags(
   brandId: string,
   reviewerId: string,
   reviewedAt: string,
+  ctx?: AuditCallContext,
 ): Promise<{ ok: true } | { ok: false; code: "database_error" }> {
   const { error } = await supabase
     .from("brand_field_corrections")
@@ -663,7 +672,11 @@ async function supersedePendingTags(
     .eq("field", "product_tags")
     .eq("status", "pending");
 
-  if (error) return { ok: false, code: "database_error" };
+  if (error) {
+    console.error("[brand-corrections] supersedePendingTags failed:", error);
+    if (ctx) ctx.summary.supersedeError = describeError(error);
+    return { ok: false, code: "database_error" };
+  }
   return { ok: true };
 }
 
@@ -766,9 +779,9 @@ export async function reviewCorrection(
   notes: string,
   { reviewerId }: { reviewerId: string },
 ): Promise<ReviewCorrectionResult> {
-  return auditedCall(
+  return auditedCall<ReviewCorrectionResult>(
     { provider: "brands", operation: "reviewCorrection", kind: "service" },
-    async () => {
+    async (ctx) => {
   if (decision !== "approved" && decision !== "rejected") {
     return { ok: false, code: "database_error" };
   }
@@ -782,7 +795,11 @@ export async function reviewCorrection(
       .eq("status", "pending")
       .maybeSingle();
 
-    if (error) return { ok: false, code: "database_error" };
+    if (error) {
+      console.error("[brand-corrections] reviewCorrection read failed:", error);
+      ctx.summary.readError = describeError(error);
+      return { ok: false, code: "database_error" };
+    }
     if (!data) return { ok: false, code: "not_found" };
 
     const row = data as unknown as BrandCorrectionRowWithBrand;
@@ -805,6 +822,7 @@ export async function reviewCorrection(
         notes,
         reviewerId,
         reviewedAt,
+        ctx,
       );
     }
 
@@ -849,6 +867,7 @@ export async function reviewCorrection(
       notes,
       reviewerId,
       reviewedAt,
+      ctx,
     );
     if (!claimed.ok) return claimed;
 
@@ -871,6 +890,7 @@ export async function reviewCorrection(
             row.brand_id,
             reviewerId,
             reviewedAt,
+            ctx,
           )
         : { ok: true as const };
 
@@ -880,9 +900,28 @@ export async function reviewCorrection(
     revalidatePublicBrand({ slug: row.brands.slug });
     if (!superseded.ok) return superseded;
     return { ok: true };
-  } catch {
+  } catch (error) {
+    // Includes the rethrown `updateBrand` failure above, whose claim has
+    // already been released — without this the brand write that actually
+    // failed left no trace at all.
+    console.error("[brand-corrections] reviewCorrection threw:", error);
+    ctx.summary.reviewError = describeError(error);
     return { ok: false, code: "database_error" };
   }
+    },
+    {
+      // Without this every branch above is audited as `succeeded` with normal
+      // latency. `not_found` and `already_reviewed` are not faults — they are
+      // an honest "no pending row claimed" — so they map to `empty`. A stored
+      // value that no longer passes validation is `malformed`, not a system
+      // failure; only a real database/write error is `failed`.
+      classify: (result) => {
+        if (result.ok) return "succeeded";
+        if (result.code === "not_found" || result.code === "already_reviewed") {
+          return "empty";
+        }
+        return result.code === "database_error" ? "failed" : "malformed";
+      },
     },
   );
 }
