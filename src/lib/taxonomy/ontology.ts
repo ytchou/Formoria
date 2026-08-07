@@ -133,7 +133,6 @@ export const PRODUCT_SUBCATEGORIES: readonly ProductSubcategory[] = [
   { slug: 'sun-care', nameZh: '防曬', nameEn: 'Sun Care', category: 'beauty', aliases: [] },
   { slug: 'fragrance', nameZh: '香水', nameEn: 'Fragrance', category: 'beauty', aliases: [] },
   { slug: 'essential-oils-and-hydrosols', nameZh: '精油・純露', nameEn: 'Essential Oils & Hydrosols', category: 'beauty', aliases: ['精油純露', '精油', '純露'] },
-  { slug: 'supplements', nameZh: '保健食品', nameEn: 'Supplements', category: 'food-drink', aliases: ['益生菌', '膠囊', '機能食品'] },
   { slug: 'oral-care', nameZh: '口腔護理', nameEn: 'Oral Care', category: 'beauty', aliases: ['牙刷', '牙膏', '牙線', '漱口水'] },
   { slug: 'protective-sprays', nameZh: '防蚊・止汗噴霧', nameEn: 'Protective Sprays', category: 'beauty', aliases: ['防蚊止汗噴霧', '防蚊', '止汗噴霧'] },
 
@@ -159,7 +158,7 @@ export const PRODUCT_SUBCATEGORIES: readonly ProductSubcategory[] = [
   { slug: 'floral-and-plants', nameZh: '花藝・植栽', nameEn: 'Floral & Plants', category: 'home', aliases: ['花藝植栽', '花藝', '植栽', '花器', '盆栽'] },
   { slug: 'curtains', nameZh: '窗簾', nameEn: 'Curtains', category: 'home', aliases: [] },
   { slug: 'bath-accessories', nameZh: '衛浴用品', nameEn: 'Bath Accessories', category: 'home', aliases: [] },
-  { slug: 'care-and-mobility-aids', nameZh: '照護輔具', nameEn: 'Care & Mobility Aids', category: 'fitness', aliases: ['輪椅', '助行器', '電動床'] },
+  { slug: 'hand-tools', nameZh: '手工具', nameEn: 'Hand Tools', category: 'home', aliases: ['起子', '扳手'] },
 
   // food-drink (19)
   { slug: 'tea', nameZh: '茶葉', nameEn: 'Tea', category: 'food-drink', aliases: ['烏龍茶', '紅茶', '高山茶'] },
@@ -180,6 +179,7 @@ export const PRODUCT_SUBCATEGORIES: readonly ProductSubcategory[] = [
   { slug: 'beverages', nameZh: '飲品', nameEn: 'Beverages', category: 'food-drink', aliases: ['果汁', '康普茶'] },
   { slug: 'seasonings-and-sauces', nameZh: '調味料・醬料', nameEn: 'Seasonings & Sauces', category: 'food-drink', aliases: ['調味料醬料', '調味料', '醬料', '味噌', '醋'] },
   { slug: 'ready-meals', nameZh: '料理包・加工食品', nameEn: 'Ready Meals', category: 'food-drink', aliases: ['料理包加工食品', '料理包', '加工食品'] },
+  { slug: 'supplements', nameZh: '保健食品', nameEn: 'Supplements', category: 'food-drink', aliases: ['益生菌', '膠囊', '機能食品'] },
 
   // crafts (12)
   { slug: 'ceramics', nameZh: '陶瓷・陶藝', nameEn: 'Ceramics', category: 'crafts', aliases: ['陶瓷陶藝', '陶瓷', '陶藝'] },
@@ -217,7 +217,6 @@ export const PRODUCT_SUBCATEGORIES: readonly ProductSubcategory[] = [
   { slug: 'speakers', nameZh: '藍牙喇叭', nameEn: 'Speakers', category: 'tech', aliases: [] },
   { slug: 'stands-and-mounts', nameZh: '支架', nameEn: 'Stands & Mounts', category: 'tech', aliases: [] },
   { slug: 'storage-devices', nameZh: '儲存裝置', nameEn: 'Storage Devices', category: 'tech', aliases: ['隨身碟', '記憶卡'] },
-  { slug: 'hand-tools', nameZh: '手工具', nameEn: 'Hand Tools', category: 'home', aliases: ['起子', '扳手'] },
 
   // outdoor (6)
   { slug: 'hiking-and-camping-gear', nameZh: '登山・露營用品', nameEn: 'Hiking & Camping Gear', category: 'outdoor', aliases: ['登山露營用品', '登山', '露營用品', '露營燈'] },
@@ -232,6 +231,7 @@ export const PRODUCT_SUBCATEGORIES: readonly ProductSubcategory[] = [
   { slug: 'fitness-equipment', nameZh: '健身器材', nameEn: 'Fitness Equipment', category: 'fitness', aliases: ['彈力帶', '筋膜球', '超慢跑墊'] },
   { slug: 'massage-and-recovery', nameZh: '按摩・放鬆', nameEn: 'Massage & Recovery', category: 'fitness', aliases: ['按摩放鬆', '按摩', '放鬆', '按摩槍', '滾筒'] },
   { slug: 'protective-gear', nameZh: '護具', nameEn: 'Protective Gear', category: 'fitness', aliases: [] },
+  { slug: 'care-and-mobility-aids', nameZh: '照護輔具', nameEn: 'Care & Mobility Aids', category: 'fitness', aliases: ['輪椅', '助行器', '電動床'] },
 
   // kids-pets (16)
   { slug: 'kids-clothing', nameZh: '童裝', nameEn: "Kids' Clothing", category: 'kids-pets', aliases: ['童鞋'] },
