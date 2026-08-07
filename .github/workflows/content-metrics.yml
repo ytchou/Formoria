@@ -15,6 +15,7 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: write
+      pull-requests: write
     env:
       AGENT_HUB_SUPABASE_URL: ${{ secrets.AGENT_HUB_SUPABASE_URL }}
       AGENT_HUB_SUPABASE_SERVICE_KEY: ${{ secrets.AGENT_HUB_SUPABASE_SERVICE_KEY }}
@@ -34,14 +35,36 @@ jobs:
         run: |
           npx @anthropic-ai/claude-code --print --dangerously-skip-permissions "$CLAUDE_PROMPT"
 
+      # This step used to `git push` straight to main, which branch protection
+      # rejects with GH006 — and which contradicts the project's own rule that
+      # every change lands via a PR. Route the report through a branch and a PR
+      # with the same App identity the other content workflows use, rather than
+      # granting a protection bypass that would restore the direct-to-main path
+      # (DEV-1383).
+      - name: app-token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.0.0
+        with:
+          app-id: ${{ secrets.HEALTH_AGENT_GITHUB_APP_ID }}
+          private-key: ${{ secrets.HEALTH_AGENT_GITHUB_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
       - name: commit-report
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           git add marketing/strategy/sense-report.md
           if git diff --cached --quiet; then
             echo "No report changes"
             exit 0
           fi
+          BRANCH="content/metrics-$(date +%Y%m%d)"
+          git checkout -b "$BRANCH"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git commit -m "content(metrics): weekly report $(date +%Y-%m-%d)"
-          git push
+          git push -u origin "$BRANCH"
+          gh pr create --title "Content metrics: $(date +%Y-%m-%d)" \
+            --body "Auto-generated weekly metrics report." \
+            --label "content"

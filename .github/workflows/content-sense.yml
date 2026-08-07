@@ -39,9 +39,22 @@ jobs:
         run: |
           npx @anthropic-ai/claude-code --print --dangerously-skip-permissions "$CLAUDE_PROMPT"
 
+      # `secrets.GITHUB_TOKEN` cannot open a PR while the repo has "Allow GitHub
+      # Actions to create and approve pull requests" disabled — gh fails after
+      # the branch is already pushed, leaving an orphan behind. Same cause and
+      # same fix as content-produce.yml (DEV-1382/DEV-1383).
+      - name: app-token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.0.0
+        with:
+          app-id: ${{ secrets.HEALTH_AGENT_GITHUB_APP_ID }}
+          private-key: ${{ secrets.HEALTH_AGENT_GITHUB_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
       - name: create-pr
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           BRANCH="content/sense-$(date +%Y%m%d)"
           git checkout -b "$BRANCH"
