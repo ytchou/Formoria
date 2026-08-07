@@ -104,7 +104,7 @@ export type BrandRow = {
   product_tags_en: string[] | null;
 };
 
-export type SplitDecision = "one" | "both" | "needs-review";
+export type SplitDecision = "one" | "both" | "neither" | "needs-review";
 
 export type SplitAssignment = {
   sourceLabel: string;
@@ -285,7 +285,7 @@ function canonicalTargetSlugs(
   decision: SplitDecision,
   targetSlugs: string[],
 ): string[] {
-  if (decision === "needs-review") return [];
+  if (decision === "needs-review" || decision === "neither") return [];
   const expected = [...definition.targetSlugs];
   if (decision === "one") {
     if (targetSlugs.length !== 1) return [];
@@ -348,6 +348,7 @@ function buildPredictedPairs(
       appendUniquePair(pairs, { zh: rawTag, en: beforeEn?.[index] ?? rawTag });
       continue;
     }
+    if (assignment.decision === "neither") continue;
 
     const targetSlugs = canonicalTargetSlugs(
       definition,
@@ -390,8 +391,9 @@ function buildOverflowReview(
 
 /**
  * Build one before/after row from a reviewed set of per-source decisions. A
- * needs-review decision leaves the source value in `after` so the pending
- * artifact remains inspectable, but apply validation refuses it.
+ * needs-review leaves the source value in `after` so the pending artifact
+ * remains inspectable, while neither removes the false-positive source pair
+ * without adding a replacement.
  */
 export function buildSplitRow(
   brand: BrandRow,
@@ -518,6 +520,19 @@ export function validateSplitRow(
       if (assignment.targetSlugs.length !== 0) {
         throw new Error(
           `ABORT: needs-review decision for "${assignment.sourceLabel}" must not carry replacement slugs`,
+        );
+      }
+      continue;
+    }
+    if (assignment.decision === "neither") {
+      if (assignment.targetSlugs.length !== 0) {
+        throw new Error(
+          `ABORT: neither decision for "${assignment.sourceLabel}" must not carry replacement slugs`,
+        );
+      }
+      if (!assignment.rationale?.trim()) {
+        throw new Error(
+          `ABORT: neither decision for "${assignment.sourceLabel}" requires an evidence rationale`,
         );
       }
       continue;
@@ -698,13 +713,14 @@ export function buildClassifierPrompt(
   const system =
     "You classify Taiwanese brand product evidence for a reviewed ontology migration. Return JSON only. " +
     "Do not infer from the source label alone: use the brand name, descriptions, existing tags, and site evidence. " +
-    "Choose one replacement, both replacements, or needs-review when evidence is ambiguous.";
+    "Choose one replacement, both replacements, neither when the legacy composite is a false positive, or needs-review when evidence is ambiguous.";
   const user = [
     "Retired source labels and their only allowed replacement slugs:",
     ...sourceDetails,
     "",
-    'Return {"assignments":{"source label":{"decision":"one|both|needs-review","targetSlugs":["slug"],"rationale":"short evidence-based reason"}}}.',
+    'Return {"assignments":{"source label":{"decision":"one|both|neither|needs-review","targetSlugs":["slug"],"rationale":"short evidence-based reason"}}}.',
     "For needs-review, targetSlugs must be []. Never emit a slug outside the listed pair.",
+    "For neither, targetSlugs must be [] and rationale must explain the evidence showing the retired composite is a false positive.",
     "",
     `Brand evidence:\n${JSON.stringify(evidence, null, 2)}`,
   ].join("\n");
@@ -768,6 +784,7 @@ export function parseClassifierAssignments(
     if (
       decision !== "one" &&
       decision !== "both" &&
+      decision !== "neither" &&
       decision !== "needs-review"
     ) {
       return {
@@ -792,6 +809,25 @@ export function parseClassifierAssignments(
       };
     if (decision === "needs-review")
       return { sourceLabel, decision, targetSlugs: [], rationale };
+    if (decision === "neither") {
+      if (!Array.isArray(raw.targetSlugs) || raw.targetSlugs.length !== 0) {
+        return {
+          sourceLabel,
+          decision: "needs-review",
+          targetSlugs: [],
+          rationale: "Neither decision requires an exact empty target list",
+        };
+      }
+      if (!rationale) {
+        return {
+          sourceLabel,
+          decision: "needs-review",
+          targetSlugs: [],
+          rationale: "Neither decision requires an evidence rationale",
+        };
+      }
+      return { sourceLabel, decision, targetSlugs: [], rationale };
+    }
     const normalizedTargets = canonicalTargetSlugs(
       definition,
       decision,
@@ -883,6 +919,7 @@ function summaryForRows(rows: SplitRow[]): RunSummary {
   const sourceDecisions: Record<SplitDecision, number> = {
     one: 0,
     both: 0,
+    neither: 0,
     "needs-review": 0,
   };
   const targetAssignments: Record<string, number> = {};
@@ -1357,7 +1394,9 @@ export function parseRunArtifact(
         if (
           !isRecord(item) ||
           typeof item.sourceLabel !== "string" ||
-          !["one", "both", "needs-review"].includes(String(item.decision)) ||
+          !["one", "both", "neither", "needs-review"].includes(
+            String(item.decision),
+          ) ||
           !Array.isArray(item.targetSlugs) ||
           !item.targetSlugs.every((slug) => typeof slug === "string") ||
           (item.rationale !== null && typeof item.rationale !== "string")
