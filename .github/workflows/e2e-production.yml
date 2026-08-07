@@ -55,7 +55,14 @@ jobs:
           # Turns on the delivery assertion in auth-signup.spec.ts. Without it the
           # spec only proves Supabase accepted the message, not that it was
           # delivered — the gap that let DEV-1300's bounces run undetected.
-          E2E_RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          #
+          # A dedicated key, not the app's `RESEND_API_KEY`. Listing sent mail
+          # (GET /emails) needs Resend "Full access"; sending does not. Reusing the
+          # send key meant this check 401'd from 2026-08-06 while email itself kept
+          # working — the failure looked like a delivery fault and was not one.
+          # Keeping them separate leaves the app's runtime key sending-only, so the
+          # broader credential exists solely in CI (DEV-1380).
+          E2E_RESEND_API_KEY: ${{ secrets.E2E_RESEND_READ_KEY }}
           PLAYWRIGHT_JSON_OUTPUT_NAME: playwright-results.json
         run: |
           pnpm exec playwright test --project=deep --reporter=html,json \
