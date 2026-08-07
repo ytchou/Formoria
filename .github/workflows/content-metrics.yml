@@ -74,6 +74,13 @@ jobs:
             git fetch origin "$BRANCH"
             git push --force-with-lease -u origin "$BRANCH"
           }
-          gh pr create --title "Content metrics: $(date +%Y-%m-%d)" \
-            --body "Auto-generated weekly metrics report." \
-            --label "content"
+          # Reuse the existing PR on a same-day rerun: the branch is dated, so once
+          # a PR exists for it `gh pr create` fails with "already exists" and would
+          # leave the step red having done all the real work.
+          if gh pr view "$BRANCH" --json url --jq .url 2>/dev/null; then
+            echo "Reusing existing PR for $BRANCH"
+          else
+            gh pr create --title "Content metrics: $(date +%Y-%m-%d)" \
+              --body "Auto-generated weekly metrics report." \
+              --label "content"
+          fi

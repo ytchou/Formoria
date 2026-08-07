@@ -125,9 +125,18 @@ jobs:
             git fetch origin "$BRANCH"
             git push --force-with-lease -u origin "$BRANCH"
           }
-          PR_URL=$(gh pr create --title "Content produce: $(date +%Y-%m-%d)" \
-            --body "Auto-produced content from approved items." \
-            --label "content")
+          # Reuse the existing PR on a same-day rerun. The branch is dated, so once
+          # a PR exists for it `gh pr create` fails with "a pull request for branch
+          # ... already exists" — which would leave the step red having done all
+          # the real work, the same shape of bug as the push collision above.
+          if PR_URL=$(gh pr view "$BRANCH" --json url --jq .url 2>/dev/null) \
+             && [ -n "$PR_URL" ]; then
+            echo "Reusing existing PR: $PR_URL"
+          else
+            PR_URL=$(gh pr create --title "Content produce: $(date +%Y-%m-%d)" \
+              --body "Auto-produced content from approved items." \
+              --label "content")
+          fi
 
           # Flip each produced item to status='review'
           while IFS= read -r ITEM_ID; do
