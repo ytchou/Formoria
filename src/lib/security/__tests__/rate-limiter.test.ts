@@ -11,7 +11,7 @@ import {
   setRateLimitStoreForTests,
   type RateLimitStore,
 } from '../rate-limiter'
-import { resetCrawlerDriftForTests } from '../crawler-drift'
+import { getCrawlerDisagreementCount, resetCrawlerDriftForTests } from '../crawler-drift'
 import { resetVerifiedCrawlerStateForTests } from '../verified-crawler'
 import { captureAlert } from '@/lib/adapters/alerting/sentry'
 
@@ -242,5 +242,40 @@ describe('crawler alarm reachability', () => {
     for (let i = 0; i < 400; i += 1) evaluateCrawlerChallengeAlarm('Googlebot/2.1', '/brands/example')
     // One per alarm per 60s window, not one per request.
     expect(captureAlert).toHaveBeenCalledTimes(2)
+  })
+
+  /*
+   * The disagreement counter is the metric the VERIFIED_CRAWLER_SHADOW flip is
+   * judged on: a step change in it is the only signal that the Cloudflare
+   * transform rule has silently stopped matching. Every other test reaches the
+   * counter by calling the reporter directly, which would keep passing even if
+   * checkRateLimit stopped calling it at all. This one drives the real limiter.
+   */
+  it('counts a verification disagreement through the real limiter on /brands/', async () => {
+    expect(getCrawlerDisagreementCount('Googlebot')).toBe(0)
+
+    await checkRateLimit(request('/brands/example', 'Googlebot/2.1'))
+
+    expect(getCrawlerDisagreementCount('Googlebot')).toBe(1)
+  })
+
+  it('counts no disagreement when the crawler presents the verified header', async () => {
+    const verified = new NextRequest('https://formoria.com/brands/example', {
+      headers: {
+        'user-agent': 'Googlebot/2.1',
+        'x-forwarded-for': '192.0.2.240',
+        'x-formoria-verified-bot': '1',
+      },
+    })
+
+    await checkRateLimit(verified)
+
+    expect(getCrawlerDisagreementCount('Googlebot')).toBe(0)
+  })
+
+  it('counts no disagreement for a browser UA', async () => {
+    await checkRateLimit(request('/brands/example', 'Mozilla/5.0 (Macintosh) Chrome/131.0.0.0'))
+
+    expect(getCrawlerDisagreementCount('Googlebot')).toBe(0)
   })
 })
