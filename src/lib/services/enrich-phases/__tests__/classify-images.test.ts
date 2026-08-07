@@ -7,6 +7,7 @@ import {
   failureReason,
   parseClassificationBatch,
   partitionLoadedImages,
+  planChunkImageWrites,
 } from "../classify-images";
 import { preferPatched } from "../descriptions";
 import { CLEARED_FIELDS_KEY } from "../../brand-write-policy";
@@ -442,12 +443,15 @@ describe("partitionLoadedImages", () => {
     expect(result.sendable.map((entry) => entry.image.id)).toEqual(["a", "c"]);
   });
 
-  it("fails the batch as a provider failure when nothing loaded", () => {
+  it("blames storage, not the provider, when nothing loaded", () => {
     // The request never reaches the model, so a zero-classification run must
-    // fail the target rather than report a green pass.
+    // fail the target rather than report a green pass — but as OUR failure.
+    // `provider` is the kind that sets providerFailure, which feeds Gate C and
+    // the LLM circuit breaker; three of those cancel every unstarted target in
+    // the job and page for an OpenAI outage that never happened.
     const result = partitionLoadedImages([image("a"), image("b")], [null, null]);
 
-    expect(result.failure?.kind).toBe("provider");
+    expect(result.failure?.kind).toBe("storage");
     expect(result.sendable).toEqual([]);
     expect(result.unavailableIds).toEqual(["a", "b"]);
   });
@@ -468,11 +472,148 @@ describe("partitionLoadedImages", () => {
     // consumer wrote status:'rejected' + rejection_reasons:['low_visual_quality'].
     // The partition may only ever report an id; anything shaped like a verdict
     // here would put us back where DEV-1255 started.
+    //
+    // Necessary but nowhere near sufficient: this function holds no supabase
+    // client, so it could not write a row however wrong it got. The write path
+    // itself is covered by `planChunkImageWrites` below.
     const result = partitionLoadedImages([image("a")], [null]);
 
     expect(JSON.stringify(result)).not.toContain("low_visual_quality");
     expect(JSON.stringify(result)).not.toContain("rejection_reasons");
     expect(result).not.toHaveProperty("brokenImageIds");
+  });
+});
+
+/**
+ * DEV-1255, at the layer that actually decides. `partitionLoadedImages` cannot
+ * write a row; this is the function whose output IS the set of writes the phase
+ * loop performs, so "an image we could not load is never written to" is a
+ * property that can fail here rather than a comment nobody can test.
+ *
+ * The destructive write these guard against was `status:'rejected'` +
+ * `rejection_reasons:['low_visual_quality']` on an image OpenAI could not fetch.
+ * Because `getUnclassifiedImages` selects `tags IS NULL`, the mislabelled row
+ * was never reconsidered, and image retention deleted the object seven days
+ * later — 18 brand images, unrecoverable.
+ */
+describe("planChunkImageWrites", () => {
+  function image(id: string) {
+    return {
+      id,
+      url: `https://example.supabase.co/storage/v1/object/public/brand-images/brands/${id}.jpg`,
+      storage_path: `brands/${id}.jpg`,
+      width: 1200,
+      height: 800,
+    };
+  }
+
+  /** A real keep verdict, built through the parser the phase actually uses. */
+  function verdict(disposition: "keep" | "reject") {
+    const parsed = parseClassificationBatch(
+      JSON.stringify({
+        classifications: [
+          disposition === "keep"
+            ? {
+                id: "1",
+                disposition: "keep",
+                tag: "product",
+                reasons: [],
+                score: 88,
+                alt_zh: "產品照",
+                alt_en: "Product photo",
+              }
+            : {
+                id: "1",
+                disposition: "reject",
+                tag: null,
+                reasons: ["wrong_brand"],
+                score: 12,
+                alt_zh: "",
+                alt_en: "",
+              },
+        ],
+      }),
+    );
+    return parsed.get("1")!;
+  }
+
+  const now = "2026-08-07T00:00:00.000Z";
+
+  it("plans no write at all for an image whose bytes we never got", () => {
+    // The strong form: not "writes a gentler row", not "writes a null tag" —
+    // zero writes. A verdict is supplied for the unavailable image too, so the
+    // test still fails if the unavailability check is dropped in favour of
+    // trusting whatever the model happened to say about a slot it never saw.
+    const chunk = [image("loaded"), image("unloadable")];
+    const plan = planChunkImageWrites({
+      chunk,
+      verdictsByImageId: new Map([
+        ["loaded", verdict("keep")],
+        ["unloadable", verdict("reject")],
+      ]),
+      unavailableIds: ["unloadable"],
+      now,
+    });
+
+    expect(plan.writes.map((write) => write.id)).toEqual(["loaded"]);
+    expect(JSON.stringify(plan)).not.toContain("unloadable");
+  });
+
+  it("plans no write for an image the model returned no verdict for", () => {
+    // Same invariant, different cause: a short or reordered response must leave
+    // the row alone rather than inherit a neighbour's verdict.
+    const plan = planChunkImageWrites({
+      chunk: [image("a")],
+      verdictsByImageId: new Map(),
+      unavailableIds: [],
+      now,
+    });
+
+    expect(plan.writes).toEqual([]);
+    expect(plan.classifications).toEqual([]);
+    expect(plan.unjudgedCount).toBe(1);
+  });
+
+  it("writes exactly one row for a judged image, and rejects only on a verdict", () => {
+    // The counterweight: the guards above must not be satisfiable by writing
+    // nothing at all.
+    const plan = planChunkImageWrites({
+      chunk: [image("keep"), image("reject")],
+      verdictsByImageId: new Map([
+        ["keep", verdict("keep")],
+        ["reject", verdict("reject")],
+      ]),
+      unavailableIds: [],
+      now,
+    });
+
+    expect(plan.rejectedCount).toBe(1);
+    expect(plan.writes).toEqual([
+      {
+        id: "keep",
+        row: {
+          tags: ["product"],
+          score: 88,
+          alt_zh: "產品照",
+          alt_en: "Product photo",
+          status: "active",
+          rejection_reasons: null,
+          rejected_at: null,
+        },
+      },
+      {
+        id: "reject",
+        row: {
+          tags: null,
+          score: 12,
+          alt_zh: "",
+          alt_en: "",
+          status: "rejected",
+          rejection_reasons: ["wrong_brand"],
+          rejected_at: now,
+        },
+      },
+    ]);
   });
 });
 

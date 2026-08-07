@@ -11,6 +11,7 @@ import {
 } from "../llm-audit";
 import { syncHeroDenormalized, type BrandImageRow } from "../brand-images";
 import { loadVisionDataUri } from "../vision-image";
+import { IMAGE_DOWNLOAD_CONCURRENCY } from "../image-download";
 import { mapWithConcurrency } from "../_shared/concurrency";
 import { localizeToTW } from "../taiwan-localization";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -179,11 +180,12 @@ export const MIN_KEEP_SCORE = 60;
 /**
  * Bounded fan-out for reading each chunk's bytes out of Storage before the call.
  *
- * 4 mirrors `IMAGE_DOWNLOAD_CONCURRENCY` (image-download.ts:57) — the same
- * shape of work (storage read plus a sharp decode/resize/encode), already
- * multiplied by the per-brand enrichment concurrency above it.
+ * Imported rather than restated: this is the same shape of work as the download
+ * path (a storage read plus a sharp decode/resize/encode), already multiplied by
+ * the per-brand enrichment concurrency above it, so the two must move together
+ * and a copied literal drifts silently.
  */
-const VISION_LOAD_CONCURRENCY = 4;
+const VISION_LOAD_CONCURRENCY = IMAGE_DOWNLOAD_CONCURRENCY;
 
 /** LEGACY-inclusive union: what a stored row may carry, not what the model may emit. */
 type ImageClassificationTag = (typeof IMAGE_TAGS)[number];
@@ -724,21 +726,41 @@ async function resetImageTags(
 /**
  * Why the batch is untrustworthy, split by WHO failed.
  *
- * `provider` means the call never reached the model, so the absence of verdicts
- * says nothing about the images — including when it never left OUR side,
- * because Storage would not give up the bytes (DEV-1374). `content` means the
- * model answered and the answer was unusable — a refusal, a truncation, an
- * empty body. Only the former may fail a target: before the split, a
- * quota-exhausted account and a model that refused one batch of images were
- * both just "failed batches", and the phase reported `succeeded` for both
- * (2026-08-02, 407 falsely-green targets).
+ * `provider` means the call reached OpenAI and OpenAI failed it. `storage` means
+ * it never left our side, because Supabase Storage would not hand over the bytes
+ * (DEV-1374). `content` means the model answered and the answer was unusable — a
+ * refusal, a truncation, an empty body.
+ *
+ * `content` may not fail a target at all: before the split, a quota-exhausted
+ * account and a model that refused one batch of images were both just "failed
+ * batches", and the phase reported `succeeded` for both (2026-08-02, 407 falsely
+ * -green targets). `provider` and `storage` both fail it, but they must never be
+ * conflated: `provider` sets `providerFailure`, which feeds Gate C and the LLM
+ * circuit breaker — three consecutive trips cancel every unstarted target in the
+ * job and page the operator for an OpenAI outage. Storage was briefly reported
+ * as `provider`, so one Supabase incident would have cancelled a whole run under
+ * a diagnosis that named the wrong vendor.
  */
-export type BatchFailureKind = "provider" | "content";
+export type BatchFailureKind = "provider" | "storage" | "content";
 
 export type BatchFailure = {
   reason: string;
   kind: BatchFailureKind;
 };
+
+/**
+ * Marks a phase failure as OURS, so the readers deciding who to page can tell it
+ * apart from a vendor outage. Deliberately a message prefix, matching Gate A's
+ * `PROVIDER_FAILURE_PREFIX` and Gate C's `LLM_PROVIDER_FAILURE_PREFIX`:
+ * `curation_job_targets.phase_results` round-trips `error` through the database
+ * already, so the attribution survives the worker/Next split and is still
+ * readable on a row pulled up days later.
+ *
+ * Neither `isProviderFailureMessage` nor `isLlmProviderFailureMessage` matches
+ * this prefix, which is the point — a storage outage must not be counted as a
+ * provider failure nor fed to the LLM circuit breaker.
+ */
+export const STORAGE_FAILURE_PREFIX = "Storage unavailable";
 
 export function failureReason(response: OpenAIChatResult): BatchFailure | null {
   if (!response.ok) {
@@ -793,10 +815,12 @@ export type PartitionedLoadedImages = {
  * `tags` stays null and `status` stays active/candidate, which is exactly what
  * `getUnclassifiedImages` selects, so the next run re-queues them.
  *
- * When NOTHING loaded the failure is `provider`, not `content`: the request
- * never reached the model, so the absence of verdicts says nothing about the
- * images, and `allBatchesProviderFailed` must fail the target rather than
- * report a green run that classified zero images.
+ * When NOTHING loaded the failure is `storage`, not `content`: the request never
+ * reached the model, so the absence of verdicts says nothing about the images,
+ * and the phase must fail the target rather than report a green run that
+ * classified zero images. Not `provider` either — that kind is what feeds the
+ * LLM circuit breaker, and a Supabase outage must not cancel a job's remaining
+ * targets under an OpenAI diagnosis.
  *
  * Exported for test: this is the invariant "our own infrastructure failing must
  * never write a permanent verdict", which is what DEV-1255 got wrong.
@@ -823,7 +847,7 @@ export function partitionLoadedImages(
       unavailableIds,
       failure: {
         reason: `could not load any of ${chunk.length} image(s) from storage`,
-        kind: "provider",
+        kind: "storage",
       },
     };
   }
@@ -902,6 +926,89 @@ async function classifyChunk(
   }
 
   return { verdictsByImageId, failure: null, unavailableIds };
+}
+
+export type ChunkImageWrite = {
+  id: string;
+  row: Record<string, unknown>;
+};
+
+export type ChunkWritePlan = {
+  /** Every row write this chunk is allowed to perform, and no other. */
+  writes: ChunkImageWrite[];
+  classifications: ClassifiedImage[];
+  rejectedCount: number;
+  unjudgedCount: number;
+};
+
+/**
+ * Turn one chunk's outcome into the exact set of row writes it may perform.
+ *
+ * A seam, not decoration. The write decision used to sit inline in the phase
+ * loop, where the only thing between an image we could not load and a permanent
+ * `status:'rejected'` + `rejection_reasons:['low_visual_quality']` was a bare
+ * `continue` — untestable without a live supabase client, which the repo's
+ * test-boundary rule forbids mocking. DEV-1255 destroyed 18 brand images through
+ * exactly that write, and the 7-day retention purge made it irreversible.
+ *
+ * Pure, so a test can assert the property that actually matters: for an image
+ * whose bytes we never got, the returned plan contains NO write at all — not a
+ * softer one. Unjudged images get the same treatment for the same reason.
+ */
+export function planChunkImageWrites(input: {
+  chunk: readonly BrandImageForClassification[];
+  verdictsByImageId: ReadonlyMap<string, ParsedImageClassification>;
+  unavailableIds: readonly string[];
+  /** Passed in rather than read from the clock so the plan stays reproducible. */
+  now: string;
+}): ChunkWritePlan {
+  const unavailable = new Set(input.unavailableIds);
+  const writes: ChunkImageWrite[] = [];
+  const classifications: ClassifiedImage[] = [];
+  let rejectedCount = 0;
+  let unjudgedCount = 0;
+
+  for (const image of input.chunk) {
+    // Images we could not read out of Storage. Deliberately NO row write: tags
+    // stay null and status stays active/candidate, which is the predicate
+    // getUnclassifiedImages selects, so the next run simply retries them.
+    if (unavailable.has(image.id)) continue;
+
+    const classification = input.verdictsByImageId.get(image.id);
+    if (!classification) {
+      // No verdict echoed for this image — leave the row alone, never reject it.
+      unjudgedCount += 1;
+      continue;
+    }
+
+    classifications.push({
+      id: image.id,
+      tag: classification.tag ?? "irrelevant",
+      score: classification.score,
+      storage_path: image.storage_path,
+      width: image.width ?? null,
+      height: image.height ?? null,
+      disposition: classification.disposition,
+      rejectionReasons: classification.reasons,
+    });
+
+    const rejected = classification.disposition === "reject";
+    if (rejected) rejectedCount += 1;
+    writes.push({
+      id: image.id,
+      row: {
+        tags: rejected ? null : [classification.tag as KeptImageTag],
+        score: classification.score,
+        alt_zh: classification.altZh,
+        alt_en: classification.altEn,
+        status: rejected ? "rejected" : "active",
+        rejection_reasons: rejected ? classification.reasons : null,
+        rejected_at: rejected ? input.now : null,
+      },
+    });
+  }
+
+  return { writes, classifications, rejectedCount, unjudgedCount };
 }
 
 /**
@@ -1109,12 +1216,7 @@ export async function runClassifyImagesPhase({
       const chunk = images.slice(i, i + BATCH_SIZE);
       attemptedBatches += 1;
       const outcome = await classifyChunk(client, brandContext, chunk);
-      // Images we could not read out of Storage. Deliberately NO row write:
-      // tags stay null and status stays active/candidate, which is the
-      // predicate getUnclassifiedImages selects, so the next run retries them.
-      // Writing a verdict here is what destroyed 18 images in DEV-1255.
-      const unavailableIds = new Set(outcome.unavailableIds);
-      unavailableCount += unavailableIds.size;
+      unavailableCount += new Set(outcome.unavailableIds).size;
 
       if (outcome.failure) {
         // Leave every remaining row untouched (tags stay null, status stays active)
@@ -1126,38 +1228,21 @@ export async function runClassifyImagesPhase({
         continue;
       }
 
-      for (const image of chunk) {
-        if (unavailableIds.has(image.id)) continue;
+      // Which rows may be written is decided in one pure place, so the
+      // "unloadable image is never written to" invariant is testable rather
+      // than resting on a `continue` inside an un-mockable loop (DEV-1255).
+      const plan = planChunkImageWrites({
+        chunk,
+        verdictsByImageId: outcome.verdictsByImageId,
+        unavailableIds: outcome.unavailableIds,
+        now: new Date().toISOString(),
+      });
+      classifications.push(...plan.classifications);
+      rejectedCount += plan.rejectedCount;
+      unjudgedCount += plan.unjudgedCount;
 
-        const classification = outcome.verdictsByImageId.get(image.id);
-        if (!classification) {
-          // No verdict echoed for this image — leave the row alone, never reject it.
-          unjudgedCount += 1;
-          continue;
-        }
-
-        const classifiedImage: ClassifiedImage = {
-          id: image.id,
-          tag: classification.tag ?? "irrelevant",
-          score: classification.score,
-          storage_path: image.storage_path,
-          width: image.width ?? null,
-          height: image.height ?? null,
-          disposition: classification.disposition,
-          rejectionReasons: classification.reasons,
-        };
-        classifications.push(classifiedImage);
-        const rejected = classification.disposition === "reject";
-        if (rejected) rejectedCount += 1;
-        await updateImage(supabase, target, image.id, {
-          tags: rejected ? null : [classification.tag as KeptImageTag],
-          score: classification.score,
-          alt_zh: classification.altZh,
-          alt_en: classification.altEn,
-          status: rejected ? "rejected" : "active",
-          rejection_reasons: rejected ? classification.reasons : null,
-          rejected_at: rejected ? new Date().toISOString() : null,
-        });
+      for (const write of plan.writes) {
+        await updateImage(supabase, target, write.id, write.row);
       }
     }
 
@@ -1243,14 +1328,45 @@ export async function runClassifyImagesPhase({
       : []),
   ].join(", ");
 
-  // Every batch we sent came back as a provider error, so no image was ever
-  // judged. `succeeded` with zero classifications is what an admin then
-  // approved 103 times on 2026-08-02; the target has to fail instead. A run
-  // where one batch was refused and another classified fine stays `succeeded`.
-  const allBatchesProviderFailed =
+  // Nothing was judged: every batch we attempted died. `succeeded` with zero
+  // classifications is what an admin then approved 103 times on 2026-08-02, so
+  // the target has to fail — but only when the whole phase died. A run where one
+  // batch was refused and another classified fine stays `succeeded`.
+  const allBatchesFailed =
     result.attemptedBatches > 0 &&
-    result.failedBatches.length === result.attemptedBatches &&
+    result.failedBatches.length === result.attemptedBatches;
+
+  const allBatchesProviderFailed =
+    allBatchesFailed &&
     result.failedBatches.every((failure) => failure.kind === "provider");
+
+  // Same outcome, different culprit, and the difference is expensive: only
+  // `providerFailure` feeds Gate C and the LLM circuit breaker, whose trip
+  // cancels every unstarted target in the job and pages for an OpenAI outage. A
+  // batch set that includes one of OUR storage failures is not evidence about
+  // OpenAI, so it fails the target under its own name instead. Mixed with a
+  // `content` failure it stays out of both branches, as before — the model
+  // answered for at least one batch, so the phase is not wholly untrusted.
+  const allBatchesStorageFailed =
+    allBatchesFailed &&
+    !allBatchesProviderFailed &&
+    result.failedBatches.every(
+      (failure) => failure.kind === "storage" || failure.kind === "provider",
+    );
+
+  if (allBatchesStorageFailed) {
+    return {
+      phaseResult: buildPhaseResult(
+        "classify_images",
+        "failed",
+        [],
+        durationMs,
+        `${STORAGE_FAILURE_PREFIX} — could not read the images for any of ${result.attemptedBatches} batch(es) out of Storage`,
+        detail,
+      ),
+      patch: {},
+    };
+  }
 
   if (allBatchesProviderFailed) {
     return {

@@ -8,7 +8,7 @@
 // process (src/lib/services/vision-image.ts), so any new use of the metered
 // endpoint is a regression, not a trade-off.
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
-import { join, relative } from 'node:path'
+import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 export const storageTransformRoots = ['src', 'scripts', 'supabase/functions']
@@ -29,8 +29,23 @@ export const storageTransformChecks = [
   {
     // supabase-js hits the same metered endpoint without any URL literal
     // appearing in source, so a URL-only regex would miss it entirely.
+    // `download` belongs here as much as the URL builders do: supabase-js routes
+    // a transform option on it through the same /render/image endpoint, and the
+    // vision path this guard exists to protect is itself a `download` caller —
+    // so that is the most likely site of the next regression.
+    //
+    // The window between the call and `transform:` excludes `)`, `}` and `;`,
+    // which keeps the match inside the call's own argument list. Scanning a flat
+    // 400 characters instead flagged `getPublicUrl(key)` followed by an
+    // unrelated CSS `{ transform: 'rotate(1deg)' }`, i.e. it failed lint on a
+    // file that touches no metered endpoint.
+    //
+    // KNOWN LIMIT: options passed by reference (`.download(key, opts)` with
+    // `transform` set on `opts` elsewhere) are invisible to any regex. Static
+    // shapes are what a guard can hold; the runbook is the backstop for the rest.
     name: 'transform option on a storage URL call',
-    pattern: /\.(?:getPublicUrl|createSignedUrl)\(\s*[\s\S]{0,400}?\btransform\s*:/g,
+    pattern:
+      /\.(?:getPublicUrl|createSignedUrls?|download)\s*\(\s*[^)};]{0,200}?\btransform\s*:/g,
   },
 ]
 
@@ -56,7 +71,10 @@ function collectSourceFiles(cwd, root) {
         continue
       }
 
-      if (entry.isFile() && /\.(ts|tsx|mjs)$/.test(entry.name)) {
+      // Every JS/TS extension we can execute, not just the three the repo
+      // happens to use today: a guard that stops at `.mjs` invites the
+      // regression to land in a `.js` build script and pass.
+      if (entry.isFile() && /\.[cm]?[jt]sx?$/.test(entry.name)) {
         files.push(child)
       }
     }
@@ -81,7 +99,7 @@ export function collectStorageTransformFailures({
     for (const check of storageTransformChecks) {
       for (const match of source.matchAll(check.pattern)) {
         failures.push({
-          file: relative(cwd, join(cwd, file)).replaceAll('\\', '/'),
+          file: normalized,
           line: source.slice(0, match.index).split('\n').length,
           name: check.name,
           value: match[0].replace(/\s+/g, ' ').slice(0, 80),

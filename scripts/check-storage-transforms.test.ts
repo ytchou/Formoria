@@ -51,6 +51,69 @@ describe('check-storage-transforms', () => {
     ).toBe(true)
   })
 
+  it('flags a transform option on download, which the vision path itself calls', () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'storage-transforms-'))
+
+    writeFixture(
+      cwd,
+      'src/lib/services/vision.ts',
+      "const { data } = await supabase.storage.from('b').download(key, { transform: { width: 512 } })",
+    )
+
+    expect(
+      collectStorageTransformFailures({ cwd }).map((f) => f.name),
+    ).toContain('transform option on a storage URL call')
+  })
+
+  it('flags the plural createSignedUrls', () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'storage-transforms-'))
+
+    writeFixture(
+      cwd,
+      'src/lib/services/batch.ts',
+      "await supabase.storage.from('b').createSignedUrls(keys, 60, { transform: { width: 512 } })",
+    )
+
+    expect(
+      collectStorageTransformFailures({ cwd }).map((f) => f.name),
+    ).toContain('transform option on a storage URL call')
+  })
+
+  it('does not flag a CSS transform sitting near an untransformed public URL', () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'storage-transforms-'))
+
+    // The 400-character window this replaced failed lint on exactly this file:
+    // a plain getPublicUrl and an unrelated style object, no metered endpoint.
+    writeFixture(
+      cwd,
+      'src/components/Hero.tsx',
+      [
+        "const { data } = supabase.storage.from('brand-images').getPublicUrl(key)",
+        'const style = { transform: `rotate(1deg)` }',
+        'const other = { transform: "translateY(-2px)" }',
+      ].join('\n'),
+    )
+
+    expect(collectStorageTransformFailures({ cwd })).toEqual([])
+  })
+
+  it('scans plain .js and .jsx sources too', () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'storage-transforms-'))
+
+    writeFixture(cwd, 'scripts/thumb.js', "const u = '/storage/v1/render/image'")
+    writeFixture(
+      cwd,
+      'src/components/Legacy.jsx',
+      "const u = '/storage/v1/render/image'",
+    )
+
+    expect(
+      collectStorageTransformFailures({ cwd })
+        .map((f) => f.file)
+        .sort(),
+    ).toEqual(['scripts/thumb.js', 'src/components/Legacy.jsx'])
+  })
+
   it('scans scripts and edge functions, not just src', () => {
     const cwd = mkdtempSync(join(tmpdir(), 'storage-transforms-'))
 
