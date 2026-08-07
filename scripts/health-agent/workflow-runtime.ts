@@ -55,6 +55,7 @@ import {
   loadCollectorArtifact,
   readBoundedJson,
   redactForAudit,
+  safeErrorCode,
   taipeiDate,
   validateCollectorArtifact,
   writeRedactedJson,
@@ -1924,11 +1925,19 @@ export async function collectLinkArtifact(
       runAt,
       input.mode,
     );
-  } catch {
+  } catch (error) {
+    // Keep the error's class in the reason. A bare `catch {}` here reported every
+    // cause as the same opaque `link_collection_failed`, which is why a run that
+    // had already failed for six nights still could not be diagnosed from the
+    // uploaded artifact — a network fault, a timeout, and an invalid summary were
+    // indistinguishable (DEV-1381). `safeErrorCode` returns only `error.name`,
+    // never the message, and `failedCollectorArtifact` redacts on top, so no URL
+    // or credential can reach the artifact. Matches how the sentry collector and
+    // `invalid_link_artifact` already report their failures.
     artifact = failedCollectorArtifact(
       "link-checker",
       runAt,
-      "link_collection_failed",
+      `${safeErrorCode(error)}:link_collection_failed`,
     );
   }
   await writeRedactedJson(input.outputPath, artifact, files);
