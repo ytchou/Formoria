@@ -39,9 +39,6 @@ export function CategoryLinkList({
             },
             locale,
           )
-          const linkLabel = locale === 'zh-TW'
-            ? `${category.label}・${subcategoryLabel}`
-            : `${category.label}: ${subcategoryLabel}`
 
           return (
             <li key={target.subcategorySlug}>
@@ -49,7 +46,7 @@ export function CategoryLinkList({
                 href={localizePath(`/categories/${category.slug}/${subcategory.slug}`, locale)}
                 className={taxonomyLinkClasses()}
               >
-                {linkLabel}
+                {subcategoryLabel}
               </a>
             </li>
           )

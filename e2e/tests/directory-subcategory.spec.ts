@@ -11,7 +11,7 @@ test.describe("Subcategory navigation deep", () => {
 
     const furnitureLink = page
       .getByRole("navigation", { name: "探索此分類的子分類" })
-      .getByRole("link", { name: "居家生活・家具" });
+      .getByRole("link", { name: "家具" });
     await expect(furnitureLink).toHaveAttribute("href", SUBCATEGORY_PATH);
     await furnitureLink.click();
     await expect(page).toHaveURL(new RegExp(`${SUBCATEGORY_PATH}$`));
