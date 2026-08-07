@@ -81,6 +81,11 @@ import {
   type HealthSummary,
   type JsonValue,
 } from "./contracts";
+import {
+  CRON_HEALTH_LOOKBACK_HOURS,
+  evaluateCronHealth,
+  type CronHttpLogRow,
+} from "./cron-health";
 
 const MAX_RUNTIME_FINDINGS = 10_000;
 const FINGERPRINT_STATE_BATCH_SIZE = 40;
@@ -112,6 +117,7 @@ type RuntimeFiles = JsonFileStore | ArtifactFileSystem;
 type JsonObject = Record<string, JsonValue>;
 
 export const WORKFLOW_RUNTIME_COMMANDS = [
+  "collect-cron-health",
   "collect-link",
   "collect-brand-review",
   "collect-directory-evidence",
@@ -234,6 +240,7 @@ export interface DirectoryEvidenceCollectInput {
 export interface AggregateWorkflowInput {
   auditPath?: string;
   brandReviewArtifactPath?: string;
+  cronArtifactPath?: string;
   deferDelivery?: boolean;
   directoryArtifactPath: string;
   exhaustedAutomationFingerprints?: readonly string[];
@@ -966,8 +973,9 @@ async function supabaseRows(
   select: string,
   operation: string,
   filters: Readonly<Record<string, string>> = {},
+  order = "id",
 ): Promise<Record<string, unknown>[]> {
-  const query = new URLSearchParams({ order: "id", select, ...filters });
+  const query = new URLSearchParams({ order, select, ...filters });
   return recordRows(
     await supabaseRequest(
       dependencies,
@@ -2277,6 +2285,82 @@ export async function evaluateDirectoryArtifact(
   return artifact;
 }
 
+export interface CronHealthInput {
+  outputPath: string;
+  runAt: string;
+}
+
+function cronHttpLogRow(value: Record<string, unknown>): CronHttpLogRow {
+  if (
+    typeof value.request_id !== "number" ||
+    typeof value.job_name !== "string" ||
+    (value.status_code !== null && typeof value.status_code !== "number") ||
+    typeof value.timed_out !== "boolean" ||
+    (value.error_msg !== null && typeof value.error_msg !== "string") ||
+    (value.created !== null && typeof value.created !== "string") ||
+    typeof value.logged_at !== "string"
+  ) {
+    throw new Error("cron_http_log_row_invalid");
+  }
+  return value as unknown as CronHttpLogRow;
+}
+
+export async function collectCronHealthArtifact(
+  input: CronHealthInput,
+  dependencies: WorkflowRuntimeDependencies = createWorkflowRuntimeDependencies(),
+): Promise<HealthCollectorArtifact> {
+  const runAt = input.runAt;
+  const runAtMs = Date.parse(runAt);
+  // A malformed --run-at would otherwise reach toISOString() as NaN and throw a
+  // bare RangeError; name it instead, so the failure reads as config, not a bug.
+  if (!Number.isFinite(runAtMs)) throw new Error("cron_health_run_at_invalid");
+  const cutoff = new Date(
+    runAtMs - CRON_HEALTH_LOOKBACK_HOURS * 60 * 60 * 1000,
+  ).toISOString();
+  try {
+    const values = await supabaseRows(
+      dependencies,
+      "cron_http_log",
+      "request_id,job_name,status_code,timed_out,error_msg,created,logged_at",
+      "read_cron_http_log",
+      { logged_at: `gte.${cutoff}` },
+      "request_id",
+    );
+    if (values.length === 0) throw new Error("cron_http_log_empty");
+    const rows = values.map(cronHttpLogRow);
+    const findings = evaluateCronHealth(rows);
+    const artifact: HealthCollectorArtifact = {
+      collectedAt: runAt,
+      evidence: { lookbackHours: CRON_HEALTH_LOOKBACK_HOURS, rowCount: rows.length },
+      failures: [],
+      findings,
+      routine: "cron-health",
+      skippedActions: [],
+      snapshot: { lookbackHours: CRON_HEALTH_LOOKBACK_HOURS, rowCount: rows.length },
+      status: "success",
+      version: 1,
+    };
+    await writeRedactedJson(input.outputPath, artifact, filesFor(dependencies));
+    return artifact;
+  } catch (error) {
+    const reason = safeRuntimeFailure(error);
+    const artifact: HealthCollectorArtifact = {
+      collectedAt: runAt,
+      evidence: { lookbackHours: CRON_HEALTH_LOOKBACK_HOURS },
+      failure: reason,
+      failures: [`cron_http_log_read_failed:${reason}`],
+      findings: [],
+      routine: "cron-health",
+      skippedActions: [],
+      snapshot: {},
+      status: "failed",
+      version: 1,
+    };
+    await writeRedactedJson(input.outputPath, artifact, filesFor(dependencies));
+    return artifact;
+  }
+}
+
 export async function runAggregateAndDeliver(
   input: AggregateWorkflowInput,
   dependencies: WorkflowRuntimeDependencies = createWorkflowRuntimeDependencies(),
@@ -2284,6 +2368,7 @@ export async function runAggregateAndDeliver(
   const result = await aggregateAndDeliver(
     {
       artifactPaths: {
+        "cron-health": input.cronArtifactPath,
         "directory-health": input.directoryArtifactPath,
         "link-checker": input.linkArtifactPath,
         "quality-health": input.qualityArtifactPath,
@@ -2545,6 +2630,7 @@ export async function deliverFinalHealthReport(
     link: terminalCheck(aggregate, "link-checker"),
     quality: terminalCheck(aggregate, "quality-health"),
     sentry: terminalCheck(aggregate, "sentry-triage"),
+    cron: terminalCheck(aggregate, "cron-health"),
   };
   const findingCount = Object.values(checks).reduce(
     (total, check) => total + check.findingCount,
@@ -2771,6 +2857,17 @@ export async function deliverFinalHealthReport(
           },
           severities: checks.sentry.severities,
           status: checks.sentry.status,
+        },
+        cron: {
+          finding_count: checks.cron.findingCount,
+          urgency: {
+            follow_up:
+              checks.cron.severities.medium + checks.cron.severities.low,
+            urgent:
+              checks.cron.severities.critical + checks.cron.severities.high,
+          },
+          severities: checks.cron.severities,
+          status: checks.cron.status,
         },
       },
       failures,
@@ -3109,6 +3206,7 @@ function completedDetectorSources(value: unknown): HealthSource[] {
   if (!isRecord(value) || !isRecord(value.artifacts)) return [];
   const artifacts = value.artifacts;
   const routines = [
+    ["cron-health", "cron"],
     ["directory-health", "directory"],
     ["link-checker", "link"],
     ["quality-health", "quality"],
@@ -3725,6 +3823,14 @@ export async function runWorkflowCommand(
   dependencies: WorkflowRuntimeDependencies = createWorkflowRuntimeDependencies(),
 ): Promise<unknown> {
   switch (canonicalCommand(command)) {
+    case "collect-cron-health":
+      return collectCronHealthArtifact(
+        {
+          outputPath: safeString(input.outputPath, "outputPath"),
+          runAt: safeString(input.runAt, "runAt"),
+        },
+        dependencies,
+      );
     case "collect-link":
       return collectLinkArtifact(
         {
@@ -3820,6 +3926,10 @@ export async function runWorkflowCommand(
           brandReviewArtifactPath:
             typeof input.brandReviewArtifactPath === "string"
               ? input.brandReviewArtifactPath
+              : undefined,
+          cronArtifactPath:
+            typeof input.cronArtifactPath === "string"
+              ? input.cronArtifactPath
               : undefined,
           deferDelivery: input.deferDelivery === true,
           directoryArtifactPath: safeString(
@@ -4057,6 +4167,7 @@ export async function main(
     auditPath: optionalArgument(argv, "--audit"),
     batchKind: optionalArgument(argv, "--batch"),
     brandReviewArtifactPath: optionalArgument(argv, "--brand-review-artifact"),
+    cronArtifactPath: optionalArgument(argv, "--cron-artifact"),
     canaryFingerprints: optionalArgument(argv, "--canary-fingerprints")
       ?.split(",")
       .filter(Boolean),

@@ -130,6 +130,7 @@ describe("artifact and envelope contracts", () => {
       "directory-health",
       "sentry-triage",
       "quality-health",
+      "cron-health",
     ]);
     expect(HEALTH_AGENT_COMMANDS.join(" ")).not.toMatch(
       /growth|posthog|traffic/i,

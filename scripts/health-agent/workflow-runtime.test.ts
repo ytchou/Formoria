@@ -188,7 +188,11 @@ function aggregateArtifact(findings: readonly unknown[]) {
 function terminalAggregate() {
   const artifact = (
     routine:
-      "directory-health" | "link-checker" | "quality-health" | "sentry-triage",
+      | "directory-health"
+      | "link-checker"
+      | "quality-health"
+      | "sentry-triage"
+      | "cron-health",
     findings: readonly unknown[],
   ) => ({
     collectedAt: now,
@@ -226,6 +230,7 @@ function terminalAggregate() {
         },
       ]),
       "quality-health": artifact("quality-health", []),
+      "cron-health": artifact("cron-health", []),
       "sentry-triage": artifact("sentry-triage", [
         {
           evidence: {},
@@ -322,6 +327,7 @@ describe("terminal health report", () => {
         checks: {
           directory: { finding_count: 1, severities: { high: 1 } },
           link: { finding_count: 1, severities: { medium: 1 } },
+          cron: { finding_count: 0, severities: {} },
           sentry: { finding_count: 1, severities: { critical: 1 } },
         },
         overall_status: "needs_attention",
@@ -1293,6 +1299,7 @@ describe("aggregate-and-deliver runtime", () => {
       "directory-health",
       "quality-health",
       "sentry-triage",
+      "cron-health",
     ]) {
       contents.set(
         `${routine}.json`,
@@ -1729,7 +1736,7 @@ describe("stale branch cleanup runtime", () => {
 
     expect(reconcileFingerprintLifecycle).toHaveBeenCalledWith(
       ["directory:one", "link:one", "sentry:one"],
-      ["directory", "link", "quality", "sentry"],
+      ["directory", "link", "quality", "sentry", "cron"],
     );
     expect(result.verifiedFixedFingerprints).toEqual(["directory:resolved"]);
   });

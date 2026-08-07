@@ -117,6 +117,17 @@ jobs:
           --run-at "${{ steps.setup.outputs.run_at }}"
           --attempt "$GITHUB_RUN_ATTEMPT" --run-id "$GITHUB_RUN_ID"
           --audit "$HEALTH_ARTIFACT_DIR/brand-audit.json"
+      - name: "Stage 2 · Product health — cron health"
+        id: cron
+        continue-on-error: true
+        env:
+          HEALTH_AGENT_READER_TOKEN: ${{ secrets.HEALTH_AGENT_READER_TOKEN }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+        run: >-
+          pnpm exec tsx scripts/health-agent/workflow-runtime.ts collect-cron-health
+          --output "$HEALTH_ARTIFACT_DIR/cron-health.json"
+          --run-at "${{ steps.setup.outputs.run_at }}"
+          --audit "$HEALTH_ARTIFACT_DIR/cron-audit.json"
       - name: "Stage 2 · Product health — Directory evidence"
         id: directory-evidence
         continue-on-error: true
@@ -260,6 +271,7 @@ jobs:
           --directory-artifact "$HEALTH_ARTIFACT_DIR/directory-health.json"
           --sentry-artifact "$HEALTH_ARTIFACT_DIR/sentry-triage.json"
           --quality-artifact "$HEALTH_ARTIFACT_DIR/quality-health.json"
+          --cron-artifact "$HEALTH_ARTIFACT_DIR/cron-health.json"
           --defer-delivery true --run-at "${{ steps.setup.outputs.run_at }}"
           --attempt "$GITHUB_RUN_ATTEMPT" --run-id "$GITHUB_RUN_ID"
           --workflow-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

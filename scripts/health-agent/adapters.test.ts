@@ -164,6 +164,11 @@ describe("Slack adapter", () => {
             severities: { critical: 0, high: 0, low: 0, medium: 0 },
             status: "success",
           },
+          cron: {
+            findingCount: 0,
+            severities: { critical: 0, high: 0, low: 0, medium: 0 },
+            status: "success",
+          },
           sentry: {
             findingCount: 10,
             severities: { critical: 2, high: 8, low: 0, medium: 0 },
@@ -226,6 +231,11 @@ describe("Slack adapter", () => {
             status: "success",
           },
           quality: {
+            findingCount: 0,
+            severities: { critical: 0, high: 0, low: 0, medium: 0 },
+            status: "success",
+          },
+          cron: {
             findingCount: 0,
             severities: { critical: 0, high: 0, low: 0, medium: 0 },
             status: "success",

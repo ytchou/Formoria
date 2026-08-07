@@ -3,6 +3,7 @@ export const HEALTH_SOURCES = [
   "directory",
   "sentry",
   "quality",
+  "cron",
 ] as const;
 export type HealthSource = (typeof HEALTH_SOURCES)[number];
 
@@ -44,7 +45,7 @@ export interface HealthFindingLifecycle {
 
 export interface HealthSummary {
   checks: Readonly<
-    Record<"directory" | "link" | "quality" | "sentry", HealthSummaryCheck>
+      Record<"directory" | "link" | "quality" | "sentry" | "cron", HealthSummaryCheck>
   >;
   overallStatus: "failed" | "healthy" | "needs_attention";
   lifecycle?: HealthFindingLifecycle;
