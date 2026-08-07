@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { CRAWLER_REGISTRY } from "@/lib/security/crawler-registry";
+import {
+  CRAWLER_REGISTRY,
+  robotsTokenFor,
+} from "@/lib/security/crawler-registry";
 import { CONTENT_SIGNAL } from "./robots-content";
 import { GET } from "./route";
 
@@ -73,12 +76,19 @@ describe("GET /robots.txt", () => {
     expect(groups.get("*")?.disallow).toContain("/challenge");
   });
 
-  it("emits a per-agent group for every registry entry", async () => {
+  // RFC 9309 section 2.2.1: a crawler obeys only its most specific matching group
+  // and never merges it with the wildcard group, so each per-agent group has to
+  // repeat the wildcard disallow list verbatim.
+  it("emits a per-agent group carrying the full wildcard disallow list", async () => {
     const groups = parseGroups(await getBody());
+    const wildcardDisallow = groups.get("*")?.disallow ?? [];
+    expect(wildcardDisallow).toContain("/challenge");
+
     for (const entry of CRAWLER_REGISTRY) {
-      expect(groups.get(entry.name)).toEqual({
+      expect(groups.get(robotsTokenFor(entry))).toEqual({
         allow: ["/"],
-        disallow: [],
+        disallow: wildcardDisallow,
+        contentSignal: CONTENT_SIGNAL,
       });
     }
   });
@@ -87,6 +97,22 @@ describe("GET /robots.txt", () => {
     expect(CONTENT_SIGNAL).toBe("ai-train=no, search=yes, ai-input=yes");
     const groups = parseGroups(await getBody());
     expect(groups.get("*")?.contentSignal).toBe(CONTENT_SIGNAL);
+  });
+
+  // The published Terms cite /robots.txt as the authority for declining AI
+  // training, so the signal has to reach the AI-training crawlers' own groups --
+  // a wildcard-only directive would leave that claim unbacked.
+  it("attaches Content-Signal to every ai-training group, GPTBot included", async () => {
+    const groups = parseGroups(await getBody());
+    expect(groups.get("GPTBot")?.contentSignal).toBe(CONTENT_SIGNAL);
+
+    for (const entry of CRAWLER_REGISTRY.filter(
+      ({ purpose }) => purpose === "ai-training",
+    )) {
+      expect(groups.get(robotsTokenFor(entry))?.contentSignal).toBe(
+        CONTENT_SIGNAL,
+      );
+    }
   });
 
   it("emits the Content-Signal directive in the body", async () => {

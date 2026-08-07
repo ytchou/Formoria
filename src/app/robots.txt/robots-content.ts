@@ -1,4 +1,7 @@
-import { CRAWLER_REGISTRY } from "@/lib/security/crawler-registry";
+import {
+  CRAWLER_REGISTRY,
+  robotsTokenFor,
+} from "@/lib/security/crawler-registry";
 
 /**
  * Declares that AI training is disallowed while search indexing and answer-time
@@ -23,7 +26,7 @@ const WILDCARD_DISALLOW = [
   "/challenge",
 ] as const;
 
-export interface RobotsRule {
+interface RobotsRule {
   userAgent: string;
   allow: string;
   disallow?: readonly string[];
@@ -48,9 +51,18 @@ export function buildRobotsDocument(siteUrl: string): RobotsDocument {
       // One declarative group per registry entry so the allow/block matrix in
       // crawler-registry.ts stays the single source of truth for both the
       // runtime edge policy and the published robots.txt.
+      //
+      // Per RFC 9309 section 2.2.1 a crawler obeys only the single most specific
+      // matching group and never merges it with `User-Agent: *`, so each group has
+      // to repeat the wildcard disallow list and the Content-Signal directive in
+      // full. Omitting either would let every registry crawler reach /admin and the
+      // noindex /challenge page, and would hide `ai-train=no` from the AI-training
+      // crawlers it addresses.
       ...CRAWLER_REGISTRY.map((entry) => ({
-        userAgent: entry.name,
+        userAgent: robotsTokenFor(entry),
+        contentSignal: CONTENT_SIGNAL,
         allow: "/",
+        disallow: WILDCARD_DISALLOW,
       })),
     ],
     host: siteUrl,

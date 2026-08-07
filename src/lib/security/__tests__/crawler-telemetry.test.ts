@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 import { flushCrawlerHits, recordCrawlerHit, resetCrawlerTelemetryForTests, setCrawlerHitWriterForTests, type CrawlerHitRow } from '../crawler-telemetry'
 
 let rows: CrawlerHitRow[] = []
+let writeCount = 0
 const request = (path: string, userAgent = 'Googlebot/2.1') => new NextRequest(`https://formoria.com${path}`, { headers: { 'user-agent': userAgent } })
 
 // Hand-picked so every UA matches exactly one registry entry and every path maps
@@ -13,7 +14,8 @@ const PATHS = ['/brands/example', '/brands', '/stories', '/events', '/sitemap.xm
 
 beforeEach(() => {
   rows = []
-  setCrawlerHitWriterForTests(async (nextRows) => { rows.push(...nextRows) })
+  writeCount = 0
+  setCrawlerHitWriterForTests(async (nextRows) => { writeCount += 1; rows.push(...nextRows) })
 })
 
 afterEach(() => {
@@ -41,15 +43,43 @@ describe('crawler telemetry', () => {
     expect(rows).toHaveLength(50)
   })
 
-  it('flushes when the buffer exceeds its age threshold', async () => {
+  it('drains on its own with no subsequent hit', async () => {
     vi.useFakeTimers()
     recordCrawlerHit(request('/brands/example'))
     expect(rows).toHaveLength(0)
-    vi.advanceTimersByTime(60_001)
-    // The next hit observes the stale buffer and drains it — no manual flush.
+    // Nothing else touches the module: the armed timer is the only thing that
+    // can drain a burst followed by silence.
+    await vi.advanceTimersByTimeAsync(60_001)
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.count).toBe(1)
+  })
+
+  it('re-arms the timer for the next buffering window', async () => {
+    vi.useFakeTimers()
+    recordCrawlerHit(request('/brands/example'))
+    await vi.advanceTimersByTimeAsync(60_001)
+    expect(rows).toHaveLength(1)
+
     recordCrawlerHit(request('/stories'))
-    await Promise.resolve()
+    await vi.advanceTimersByTimeAsync(60_001)
     expect(rows).toHaveLength(2)
+  })
+
+  it('does not register a redundant flush per request during a burst', async () => {
+    vi.useFakeTimers()
+    recordCrawlerHit(request('/brands/example'))
+    await vi.advanceTimersByTimeAsync(60_001)
+    expect(writeCount).toBe(1)
+
+    // A burst inside one buffering window is a single write, not one per request.
+    for (let i = 0; i < 40; i += 1) recordCrawlerHit(request('/stories'))
+    await Promise.resolve()
+    expect(writeCount).toBe(1)
+
+    await vi.advanceTimersByTimeAsync(60_001)
+    expect(writeCount).toBe(2)
+    expect(rows).toHaveLength(2)
+    expect(rows[1]?.count).toBe(40)
   })
 
   it('aggregates repeat hits into a single counted row', async () => {
@@ -58,6 +88,21 @@ describe('crawler telemetry', () => {
     await flushCrawlerHits()
     expect(rows).toHaveLength(1)
     expect(rows[0]?.count).toBe(2)
+  })
+
+  it('buckets the microsite rewrite path into its own class', async () => {
+    recordCrawlerHit({ headers: { get: () => 'Googlebot/2.1' }, nextUrl: { pathname: '/site/example-brand' } })
+    await flushCrawlerHits()
+    expect(rows[0]?.pathClass).toBe('microsite')
+  })
+
+  it('buckets the day in Asia/Taipei, not UTC', async () => {
+    vi.useFakeTimers()
+    // 2026-08-07T17:30Z is already 2026-08-08 in Taipei.
+    vi.setSystemTime(new Date('2026-08-07T17:30:00Z'))
+    recordCrawlerHit(request('/brands/example'))
+    await flushCrawlerHits()
+    expect(rows[0]?.day).toBe('2026-08-08')
   })
 
   it('a flush failure does not throw into the request path', async () => {

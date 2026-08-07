@@ -1,10 +1,16 @@
 // Every crawler is allowed at this revision; the allow/block matrix is deliberately deferred pending referral data.
 
-export type CrawlerPurpose = 'search' | 'social' | 'ai-search' | 'ai-training' | 'seo' | 'agent' | 'monitoring'
-export type CrawlerPolicy = 'allow' | 'block' | 'behavioral'
+type CrawlerPurpose = 'search' | 'social' | 'ai-search' | 'ai-training' | 'seo' | 'agent' | 'monitoring'
+type CrawlerPolicy = 'allow' | 'block' | 'behavioral'
 
 export interface CrawlerEntry {
+  // Human label and the telemetry `crawler_name` column value. NOT the published
+  // robots.txt product token -- use robotsTokenFor() for that.
   name: string
+  // The literal product token published on the `User-Agent:` line of robots.txt.
+  // RFC 9309 matches groups by product token, so this must be a substring the
+  // crawler actually sends; it defaults to `name` wherever the two agree.
+  robotsToken?: string
   uaPattern: RegExp
   purpose: CrawlerPurpose
   policy: CrawlerPolicy
@@ -148,6 +154,9 @@ export const CRAWLER_REGISTRY: readonly CrawlerEntry[] = [
   },
   {
     name: 'LINE',
+    // LINE's crawler sends `Linespider`, so a `User-Agent: LINE` group would never
+    // be selected under RFC 9309 product-token matching.
+    robotsToken: 'Linespider',
     uaPattern: /linespider/i,
     purpose: 'social',
     policy: 'allow',
@@ -299,6 +308,11 @@ export const CRAWLER_REGISTRY: readonly CrawlerEntry[] = [
     owner: OWNER,
   },
 ]
+
+/** The product token published on this entry's robots.txt `User-Agent:` line. */
+export function robotsTokenFor(entry: CrawlerEntry): string {
+  return entry.robotsToken ?? entry.name
+}
 
 export function matchCrawler(ua: string): CrawlerEntry | null {
   return CRAWLER_REGISTRY.find(({ uaPattern }) => uaPattern.test(ua)) ?? null

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CRAWLER_REGISTRY, matchCrawler } from '../crawler-registry'
+import { CRAWLER_REGISTRY, matchCrawler, robotsTokenFor } from '../crawler-registry'
 
 describe('crawler registry', () => {
   it('every entry has a purpose, policy, reviewDate and owner', () => {
@@ -42,9 +42,18 @@ describe('crawler registry', () => {
 
   it('no two entries match the same UA string', () => {
     for (const entry of CRAWLER_REGISTRY) {
-      const probe = entry.name === 'LINE' ? 'Linespider/1.0' : `${entry.name}/1.0`
+      const probe = `${robotsTokenFor(entry)}/1.0`
       const matches = CRAWLER_REGISTRY.filter(({ uaPattern }) => uaPattern.test(probe))
       expect(matches.map(({ name }) => name)).toEqual([entry.name])
+    }
+  })
+
+  // A published robots group is selected by product token, so a token its own
+  // uaPattern rejects is a dead group (LINE published `LINE` while its crawler
+  // sends `Linespider`). Assert the two can never drift apart silently.
+  it('every published robots token is matched by its own uaPattern', () => {
+    for (const entry of CRAWLER_REGISTRY) {
+      expect(entry.uaPattern.test(robotsTokenFor(entry))).toBe(true)
     }
   })
 

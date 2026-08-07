@@ -5,9 +5,17 @@ import {
   checkRateLimit,
   checkSoftRateLimit,
   createInMemoryRateLimiter,
+  evaluateCrawlerChallengeAlarm,
+  evaluateCrawlerRateLimitAlarm,
   isLikelyCrawler,
+  setRateLimitStoreForTests,
   type RateLimitStore,
 } from '../rate-limiter'
+import { resetCrawlerDriftForTests } from '../crawler-drift'
+import { resetVerifiedCrawlerStateForTests } from '../verified-crawler'
+import { captureAlert } from '@/lib/adapters/alerting/sentry'
+
+vi.mock('@/lib/adapters/alerting/sentry', () => ({ captureAlert: vi.fn(() => true) }))
 
 describe('InMemoryRateLimiter', () => {
   let limiter: RateLimitStore
@@ -74,6 +82,22 @@ describe('InMemoryRateLimiter', () => {
 describe('crawler rate-limit boundaries', () => {
   let ip = 0
 
+  beforeEach(() => {
+    // Pin the backing store: the module-level limiter is otherwise selected at
+    // import time from ambient UPSTASH_REDIS_REST_URL/TOKEN, which makes every
+    // assertion below depend on the environment the suite happens to run in.
+    setRateLimitStoreForTests(createInMemoryRateLimiter())
+    resetCrawlerDriftForTests()
+    resetVerifiedCrawlerStateForTests()
+    vi.mocked(captureAlert).mockClear()
+  })
+
+  afterEach(() => {
+    setRateLimitStoreForTests(null)
+    resetCrawlerDriftForTests()
+    resetVerifiedCrawlerStateForTests()
+  })
+
   function request(path: string, userAgent: string): NextRequest {
     ip += 1
     return new NextRequest(`https://formoria.com${path}`, {
@@ -132,5 +156,91 @@ describe('crawler rate-limit boundaries', () => {
       response = await checkRateLimit(crawlerRequest)
     }
     expect(response?.status).toBe(429)
+  })
+
+  it('rate-limits a spoofed crawler UA on /sitemap.xml — the 3/min budget is not exemptible', async () => {
+    // CCBot is one of the tokens this branch added to the registry. The sitemap
+    // budget exists to stop sitemap scraping, so the crawler exemption must not
+    // reach it however the UA header is set.
+    const crawlerRequest = request('/sitemap.xml', 'CCBot/2.0 (https://commoncrawl.org/faq/)')
+
+    let response: Response | null = null
+    for (let i = 0; i < 4; i += 1) {
+      response = await checkRateLimit(crawlerRequest)
+    }
+    expect(response?.status).toBe(429)
+  })
+})
+
+/**
+ * The plan hard-gates the shadow flip on observing both alarms fire. Each test
+ * here drives the alarm's real stated condition, not a path that only passes
+ * because it is dead.
+ */
+describe('crawler alarm reachability', () => {
+  let ip = 0
+
+  function request(path: string, userAgent: string): NextRequest {
+    ip += 1
+    return new NextRequest(`https://formoria.com${path}`, {
+      headers: { 'user-agent': userAgent, 'x-forwarded-for': `192.0.2.${ip}` },
+    })
+  }
+
+  beforeEach(() => {
+    setRateLimitStoreForTests(createInMemoryRateLimiter())
+    resetCrawlerDriftForTests()
+    resetVerifiedCrawlerStateForTests()
+    vi.mocked(captureAlert).mockClear()
+  })
+
+  afterEach(() => {
+    setRateLimitStoreForTests(null)
+    resetCrawlerDriftForTests()
+    resetVerifiedCrawlerStateForTests()
+  })
+
+  it('fires the rate-limit alarm through the real limiter when a registry crawler gets a 429', async () => {
+    const crawlerRequest = request('/api/data', 'Googlebot/2.1')
+    for (let i = 0; i < 61; i += 1) await checkRateLimit(crawlerRequest)
+
+    expect(captureAlert).toHaveBeenCalledWith(
+      'Registry crawler received a rate-limit response',
+      expect.objectContaining({
+        level: 'error',
+        context: expect.objectContaining({ crawlerName: 'Googlebot', pathname: '/api/data' }),
+      }),
+    )
+  })
+
+  it('does not fire the rate-limit alarm for a non-registry UA', async () => {
+    const browserRequest = request('/api/data', 'Mozilla/5.0 (Macintosh) Chrome/131.0.0.0 Safari/537.36')
+    for (let i = 0; i < 61; i += 1) await checkRateLimit(browserRequest)
+    expect(captureAlert).not.toHaveBeenCalled()
+  })
+
+  it('fires the challenge alarm when a registry crawler would be challenged', () => {
+    expect(evaluateCrawlerChallengeAlarm('Googlebot/2.1', '/brands/example')).toBe(true)
+    expect(captureAlert).toHaveBeenCalledWith(
+      'Registry crawler was challenged',
+      expect.objectContaining({
+        level: 'error',
+        context: expect.objectContaining({ crawlerName: 'Googlebot', pathname: '/brands/example' }),
+      }),
+    )
+  })
+
+  it('both alarms stay silent for a UA no registry entry matches', () => {
+    expect(evaluateCrawlerChallengeAlarm('Mozilla/5.0 Chrome/131.0.0.0', '/brands/example')).toBe(false)
+    expect(evaluateCrawlerRateLimitAlarm('Mozilla/5.0 Chrome/131.0.0.0', '/brands/example')).toBe(false)
+    expect(captureAlert).not.toHaveBeenCalled()
+  })
+
+  it('a spoofing client cannot turn either alarm into one Sentry event per request', async () => {
+    const spoofed = request('/api/data', 'Googlebot/2.1')
+    for (let i = 0; i < 400; i += 1) await checkRateLimit(spoofed)
+    for (let i = 0; i < 400; i += 1) evaluateCrawlerChallengeAlarm('Googlebot/2.1', '/brands/example')
+    // One per alarm per 60s window, not one per request.
+    expect(captureAlert).toHaveBeenCalledTimes(2)
   })
 })
