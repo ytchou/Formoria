@@ -124,7 +124,7 @@ test.describe("Category landing pages deep", () => {
   }) => {
     const response = await request.get("/categories/home");
     const html = await response.text();
-    expect(html).toContain("居家生活涵蓋家具、收納、照明、餐桌器皿與日常布置");
+    expect(html).toContain("本分類聚焦讓居家生活更美好，涵蓋家具、收納、照明、餐桌器皿與日常布置。");
     expect(html).toMatch(/共 \d+ 個品牌/);
     expect(html).toMatch(/更新於 \d{4}年\d{1,2}月\d{1,2}日/);
 
