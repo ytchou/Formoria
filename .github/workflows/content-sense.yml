@@ -66,14 +66,16 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git commit -m "content(sense): propose new items $(date +%Y-%m-%d)"
-          # The branch name is derived from the date, so a same-day rerun (or a
-          # retry after a later step failed) collides with the branch the previous
-          # attempt already pushed and is rejected non-fast-forward. Fetch the ref
-          # so --force-with-lease has a lease to check, then replace it: these
-          # branches are regenerated wholesale each run and nothing else writes to
-          # them. Without this the workflow stays red even once it can open a PR.
-          git fetch origin "$BRANCH" || true
-          git push --force-with-lease -u origin "$BRANCH"
+          # The branch name is derived from the date, so a same-day rerun collides
+          # with the branch the previous attempt pushed and is rejected
+          # non-fast-forward. Plain push first (the common path, where the branch is
+          # new); only on rejection fetch the ref so --force-with-lease has a lease
+          # to check, then replace it. Ordering it this way keeps the first push off
+          # --force-with-lease, which refuses when there is no remote-tracking ref.
+          git push -u origin "$BRANCH" || {
+            git fetch origin "$BRANCH"
+            git push --force-with-lease -u origin "$BRANCH"
+          }
           gh pr create --title "Content sense: $(date +%Y-%m-%d)" \
             --body "Auto-generated content proposals from weekly sensing." \
             --label "content"

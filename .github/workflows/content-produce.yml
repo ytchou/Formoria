@@ -110,13 +110,21 @@ jobs:
           git commit -m "content(produce): produce approved items $(date +%Y-%m-%d)"
           # The branch name is derived from the date, so a same-day rerun (or a
           # retry after a later step failed) collides with the branch the previous
-          # attempt already pushed and is rejected non-fast-forward. Fetch the ref
-          # so --force-with-lease has a lease to check, then replace it: these
-          # branches are regenerated wholesale each run and nothing else writes to
-          # them. This is what kept the workflow red after the token fix landed —
-          # 13 orphan content/produce-* branches had accumulated since 07-21.
-          git fetch origin "$BRANCH" || true
-          git push --force-with-lease -u origin "$BRANCH"
+          # attempt already pushed and is rejected non-fast-forward. This is what
+          # kept the workflow red even after the token fix landed — 13 orphan
+          # content/produce-* branches had accumulated since 07-21.
+          #
+          # Plain push first: on the common path the branch is new and that is all
+          # that runs. Only on rejection do we fetch the ref (so --force-with-lease
+          # has a lease to check) and replace it. Ordering it this way keeps the
+          # first-push path off --force-with-lease entirely, which refuses with
+          # "stale info" when there is no remote-tracking ref. These branches are
+          # regenerated wholesale each run and nothing else writes to them, so
+          # replacing is correct; the lease still guards a concurrent write.
+          git push -u origin "$BRANCH" || {
+            git fetch origin "$BRANCH"
+            git push --force-with-lease -u origin "$BRANCH"
+          }
           PR_URL=$(gh pr create --title "Content produce: $(date +%Y-%m-%d)" \
             --body "Auto-produced content from approved items." \
             --label "content")
