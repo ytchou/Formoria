@@ -13,6 +13,7 @@ import {
   isRouterRequest,
 } from "@/lib/security/rate-limiter";
 import { hasApprovedBrandSlug, resolveApprovedBrandRedirect } from '@/lib/services/brand-redirects-edge'
+import { recordCrawlerHit } from '@/lib/security/crawler-telemetry'
 
 /**
  * Routes that are reserved for static pages and cannot be used as brand slugs.
@@ -223,9 +224,22 @@ export async function proxy(request: NextRequest) {
   const isPlaywrightTest = process.env.PLAYWRIGHT_TEST === 'true'
   const routerRequest = isRouterRequest(request)
 
+  // `isLikelyCrawler` is one precompiled union regex; `recordCrawlerHit` re-scans
+  // the registry entry by entry. Gating on it keeps the human-traffic common
+  // case at a single test.
+  const crawlerHit = !isPlaywrightTest && isLikelyCrawler(request)
+
   const host = request.headers.get('host') ?? ''
   if (host === (process.env.MICROSITE_HOST ?? 'brand.formoria.com')) {
     const segments = pathname.split('/').filter(Boolean)
+
+    // Microsite traffic is recorded under the post-rewrite path so it lands in
+    // the `microsite` path_class instead of being silently absent from the
+    // telemetry. Recorded before the branch returns because both exits below
+    // are terminal.
+    if (crawlerHit) {
+      recordCrawlerHit({ headers: request.headers, nextUrl: { pathname: `/site${pathname}` } })
+    }
 
     if (segments.length === 1) {
       const slug = segments[0]
@@ -267,6 +281,12 @@ export async function proxy(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = normalizedPathname
     return NextResponse.redirect(url, 301)
+  }
+
+  // Below the 301: a crawler that requests a non-canonical path would otherwise
+  // be counted once for the redirect and again when it follows it.
+  if (crawlerHit) {
+    recordCrawlerHit(request)
   }
 
   // Check rate limit before regular request processing

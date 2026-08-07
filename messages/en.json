@@ -896,7 +896,7 @@
       },
       "title": "Terms of Service",
       "intro": "Thank you for using Formoria. By using this platform, you agree to the following terms. Please read carefully before providing brand information.",
-      "lastUpdated": "Last updated: July 2026",
+      "lastUpdated": "Last updated: August 2026",
       "contentOwnership": {
         "heading": "Content Ownership",
         "body": "Brand information you provide to Formoria (including name, description, images, links, etc.) must be content you legally own or have the right to use. By providing it, you grant Formoria a non-exclusive, royalty-free license to display and promote the content on this platform for the purpose of showcasing Taiwanese brands."
@@ -904,6 +904,11 @@
       "dataUse": {
         "heading": "Data Usage",
         "body": "Brand data collected by Formoria is used to build and maintain the directory, provide discovery and curation features, improve data quality, support brand owners in maintaining their pages, and showcase Taiwanese brands. We do not sell your personal information or brand data to third parties. Data use is governed by these terms and our privacy policy."
+      },
+      "automatedAccess": {
+        "heading": "Automated Access and Data Extraction",
+        "body": "Ordinary browsing, approved search-engine indexing, and citation that attributes Formoria and links back to the source page all remain permitted. Beyond that, and without our prior written permission, you may not use automated means to extract the directory in bulk, replicate or redistribute all or a substantial part of our dataset, clone the directory into a competing or commercial service, republish our editorial brand descriptions at scale, use our content to train or fine-tune AI models, circumvent rate limits, access controls, or bot challenges, or use source images beyond the license their owners granted to Formoria.",
+        "bodyDetail": "Automated clients must respect the machine-readable signals we publish at /robots.txt, which permit search indexing and answer-time citation while declining AI training. For research collaborations, licensing, or bulk dataset access, contact hello@formoria.com — we review these requests case by case."
       },
       "reviewProcess": {
         "heading": "Brand Review Process",
