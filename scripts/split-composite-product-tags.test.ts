@@ -855,12 +855,14 @@ describe("DEV-1361 split planner", () => {
     };
     let state = structuredClone(current);
     const revalidated: string[] = [];
+    const actors: Array<{ source: "enriched" }> = [];
     const result = await import("./split-composite-product-tags").then(
       ({ applyRunArtifact }) =>
         applyRunArtifact({} as never, artifact, {
           loadScope: async () => [structuredClone(state)],
           loadSnapshot: async () => structuredClone(state),
-          update: async (_id, data) => {
+          update: async (_id, data, actor) => {
+            actors.push(actor);
             state = {
               ...state,
               product_tags: data.productTags,
@@ -883,6 +885,7 @@ describe("DEV-1361 split planner", () => {
       revalidatedSlugs: [current.slug],
     });
     expect(revalidated).toEqual([current.slug]);
+    expect(actors).toEqual([{ source: "enriched" }]);
     expect(state.product_tags).toEqual(["居家香氛"]);
   });
 
