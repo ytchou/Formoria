@@ -53,7 +53,9 @@ export function isNonImageContentType(contentType: string): boolean {
 // plus a storage upload, and this already runs multiplied by the per-brand
 // enrichment concurrency. Bound the fan-out instead of firing every candidate
 // at once.
-const IMAGE_DOWNLOAD_CONCURRENCY = 4
+// Exported because the vision loader mirrors it deliberately (classify-images.ts):
+// same work, same multiplier above it, so a copied literal is drift waiting to happen.
+export const IMAGE_DOWNLOAD_CONCURRENCY = 4
 
 type DownloadImageCandidate = string | CandidateImage
 

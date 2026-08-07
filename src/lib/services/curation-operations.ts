@@ -67,6 +67,7 @@ import {
   runReputationPhase,
   runFaqPhase,
   runClassifyImagesPhase,
+  STORAGE_FAILURE_PREFIX,
   runImageSearchPhase,
   runLinksPhase,
   runChannelsPhase,
@@ -712,6 +713,58 @@ export function evaluateLlmProviderGate(
   phaseResults: readonly PhaseResult[],
 ): ProviderGateDecision | null {
   const message = llmStageFailure(phaseResults);
+  if (!message) {
+    return null;
+  }
+
+  return {
+    action: process.env.CURATION_PROVIDER_GATE === "off" ? "warn" : "fail",
+    message,
+  };
+}
+
+/**
+ * Gate C's sibling: a phase died on OUR infrastructure, not a vendor's.
+ *
+ * The phase reports this by prefixing its `error` (see STORAGE_FAILURE_PREFIX),
+ * the same mechanism Gates A and C use, so the attribution survives the round
+ * trip through `curation_job_targets.phase_results`.
+ *
+ * It has to be a separate gate rather than a fourth `providerFailure` producer.
+ * `providerFailure` is what Gate C counts and what feeds the LLM circuit
+ * breaker, and the breaker's trip cancels every unstarted target in the job and
+ * pages the operator for a provider outage. A Supabase Storage outage would then
+ * take a whole run down under a diagnosis naming the wrong vendor — while the
+ * account it accused was healthy. This path fails the affected target (so Resume
+ * picks it up) and stops there.
+ *
+ * Unlike Gate C it does not require EVERY attempted phase to have failed: one
+ * phase that could not read its own inputs already means this target's work is
+ * incomplete, and the phase only emits this at all when every one of its batches
+ * died.
+ */
+export function storageStageFailure(
+  phaseResults: readonly PhaseResult[],
+): string | null {
+  const failed = phaseResults.filter(
+    (phaseResult) =>
+      phaseResult.status === "failed" &&
+      phaseResult.error?.startsWith(STORAGE_FAILURE_PREFIX) === true,
+  );
+  if (failed.length === 0) {
+    return null;
+  }
+
+  return `${STORAGE_FAILURE_PREFIX} — ${failed
+    .map((phaseResult) => phaseResult.phase)
+    .join(", ")} could not read its inputs out of Supabase Storage`;
+}
+
+/** Same kill switch as Gates A and C, for the same 2am reason. */
+export function evaluateStorageGate(
+  phaseResults: readonly PhaseResult[],
+): ProviderGateDecision | null {
+  const message = storageStageFailure(phaseResults);
   if (!message) {
     return null;
   }
@@ -1805,16 +1858,23 @@ export async function runEnrich(
     };
 
     /**
-     * Gate C, invoked immediately before EVERY wave-B exit that would record a
-     * non-failed outcome. One end-of-callback check is not enough: a brand can
-     * leave through the Gate B skip or the empty-patch skip, and a
-     * provider-failed brand recorded `skipped` is invisible to the Resume
-     * feature, which picks up `failed` and `cancelled` targets only. Throwing
-     * hands the brand to `failBrand`, which tags the provider failure and feeds
-     * the circuit breaker.
+     * Gate C and its storage sibling, invoked immediately before EVERY wave-B
+     * exit that would record a non-failed outcome. One end-of-callback check is
+     * not enough: a brand can leave through the Gate B skip or the empty-patch
+     * skip, and a provider-failed brand recorded `skipped` is invisible to the
+     * Resume feature, which picks up `failed` and `cancelled` targets only.
+     * Throwing hands the brand to `failBrand`.
+     *
+     * Gate C is evaluated first so a genuine LLM outage keeps its message and
+     * its circuit-breaker contribution. The storage message deliberately carries
+     * neither: `failBrand` recognises the provider prefixes only, so a Supabase
+     * outage fails its target without feeding the breaker that would cancel the
+     * rest of the job.
      */
-    const enforceLlmProviderGate = (ctx: BrandWaveContext): void => {
-      const decision = evaluateLlmProviderGate(ctx.state.phaseResults);
+    const enforcePostPhaseGates = (ctx: BrandWaveContext): void => {
+      const decision =
+        evaluateLlmProviderGate(ctx.state.phaseResults) ??
+        evaluateStorageGate(ctx.state.phaseResults);
       if (!decision) {
         return;
       }
@@ -2232,7 +2292,7 @@ export async function runEnrich(
             // pre-wave-B, so a brand can arrive here already carrying a
             // provider-failed LLM phase and would otherwise be filed as
             // "legitimately empty".
-            enforceLlmProviderGate(ctx);
+            enforcePostPhaseGates(ctx);
 
             if (includesDiscover && state.discoveredUrls.length <= 1) {
               weakBrandCount += 1;
@@ -2577,7 +2637,7 @@ export async function runEnrich(
             // phase ran and found nothing new" produce the identical empty
             // patch. Recording the first as `skipped` is the exact shape of the
             // 2026-08-02 incident, so it has to be checked before the skip.
-            enforceLlmProviderGate(ctx);
+            enforcePostPhaseGates(ctx);
 
             if (includesDiscover && state.discoveredUrls.length <= 1) {
               weakBrandCount += 1;
@@ -2621,7 +2681,7 @@ export async function runEnrich(
           // phases (links, clean, images) is still a real patch, so this brand
           // would have persisted and reported `succeeded` while every LLM phase
           // it ran was talking to a dead account.
-          enforceLlmProviderGate(ctx);
+          enforcePostPhaseGates(ctx);
 
           await config.onPatch?.({
             targetId: brand.id,
