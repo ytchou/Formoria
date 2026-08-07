@@ -25,7 +25,7 @@ import type { DirectoryViewFilters } from '@/lib/seo/directory-filters'
 import { localizePath } from '@/i18n/locale-preference'
 import { updateDirectoryUrl } from '@/lib/directory-filter-url'
 import type { PublicBrandCard } from '@/lib/brands/contracts'
-import { DirectoryLandingHead } from './directory-landing-head'
+import { DirectoryLandingHead, DirectoryResultStatus } from './directory-landing-head'
 
 const EMPTY_STATE_RECOMMENDATION_LIMIT = 4
 const VALID_CATEGORY_SLUGS: ReadonlySet<string> = new Set(PRODUCT_TYPE_CATEGORIES.map((category) => category.slug))
@@ -303,9 +303,6 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
             subcategory={subcategoryBreadcrumb}
             breadcrumbAria={t('breadcrumbAria')}
             pageHeading={pageHeading}
-            totalCount={totalCount}
-            latestUpdatedAt={latestUpdatedAt}
-            announceLiveRegion={isCategoryRoute}
           />
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -317,6 +314,12 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
                 activeSubSlugs={activeSubSlugs}
                 announceSearchLoading={!isCategoryRoute}
                 totalCount={totalCount}
+              />
+              <DirectoryResultStatus
+                locale={safeLocale}
+                totalCount={totalCount}
+                latestUpdatedAt={latestUpdatedAt}
+                announceLiveRegion={isCategoryRoute}
               />
             </div>
             <Suspense fallback={null}>

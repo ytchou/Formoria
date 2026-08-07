@@ -1,7 +1,6 @@
 import { getTranslations } from 'next-intl/server'
 import type { Locale } from '@/lib/seo/alternates'
 import { DirectoryBreadcrumb } from './directory-breadcrumb'
-import { CategoryLinkList } from './category-link-list'
 
 export type DirectoryLandingCopy = {
   title?: string
@@ -55,6 +54,10 @@ type DirectoryLandingHeadProps = {
   directoryLabel: string
   breadcrumbAria: string
   pageHeading: string
+}
+
+type DirectoryResultStatusProps = {
+  locale: Locale
   totalCount: number
   latestUpdatedAt: string | null
   announceLiveRegion: boolean
@@ -72,21 +75,47 @@ function formatDate(value: string | null, locale: Locale): string | null {
   }).format(date)
 }
 
-export async function DirectoryLandingHead({
-  breadcrumbAria,
-  category,
-  directoryLabel,
+/**
+ * The count/freshness pair. Lives beside the sort control rather than in the
+ * header so the result facts and the control that reorders them read as one
+ * row; it stays a server component so the counts are in the server HTML.
+ */
+export async function DirectoryResultStatus({
+  announceLiveRegion,
   latestUpdatedAt,
   locale,
-  pageHeading,
-  subcategory,
   totalCount,
-  announceLiveRegion,
-}: DirectoryLandingHeadProps) {
+}: DirectoryResultStatusProps) {
   const [categoryT, brandsT] = await Promise.all([
     getTranslations({ locale, namespace: 'categories' }),
     getTranslations({ locale, namespace: 'brands' }),
   ])
+  const updatedDate = formatDate(latestUpdatedAt, locale)
+
+  return (
+    <div
+      {...(announceLiveRegion
+        ? { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' }
+        : {})}
+      className="flex flex-wrap gap-x-3 gap-y-1 tabular-nums type-card-description"
+    >
+      <span>{brandsT('count', { count: totalCount })}</span>
+      {updatedDate ? (
+        <span>{categoryT('landing.updated', { date: updatedDate })}</span>
+      ) : null}
+    </div>
+  )
+}
+
+export async function DirectoryLandingHead({
+  breadcrumbAria,
+  category,
+  directoryLabel,
+  locale,
+  pageHeading,
+  subcategory,
+}: DirectoryLandingHeadProps) {
+  const categoryT = await getTranslations({ locale, namespace: 'categories' })
   const copy = readDirectoryLandingCopy(
     categoryT,
     category?.slug,
@@ -98,7 +127,6 @@ export async function DirectoryLandingHead({
       : null
   )
   const intro = [summary, copy?.definition].filter(Boolean).join(' ')
-  const updatedDate = formatDate(latestUpdatedAt, locale)
   const heading = copy?.h1 ?? pageHeading
 
   return (
@@ -114,22 +142,12 @@ export async function DirectoryLandingHead({
       {intro ? (
         <p className="mt-3 type-body-muted">{intro}</p>
       ) : null}
-      <div
-        {...(announceLiveRegion
-          ? { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true' }
-          : {})}
-        className="mt-3 flex flex-wrap gap-x-3 gap-y-1 tabular-nums type-card-description"
-      >
-        <span>{brandsT('count', { count: totalCount })}</span>
-        {updatedDate ? (
-          <span>{categoryT('landing.updated', { date: updatedDate })}</span>
-        ) : null}
-      </div>
-      <CategoryLinkList
-        locale={locale}
-        category={category}
-        ariaLabel={categoryT('landing.categoryLinksAria')}
-      />
+      {/*
+        The L2 sibling row (`CategoryLinkList`) is deliberately not rendered
+        while the L2 taxonomy is being cleaned up — the labels it generates are
+        not yet good enough to show. Restore it here once DEV-1376 lands; the
+        component and its `landing.categoryLinksAria` string are kept for that.
+      */}
     </header>
   )
 }
