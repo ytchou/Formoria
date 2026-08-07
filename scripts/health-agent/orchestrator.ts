@@ -224,7 +224,7 @@ function redactedRecord(value: unknown): JsonObject {
     : {};
 }
 
-function safeErrorCode(error: unknown): string {
+export function safeErrorCode(error: unknown): string {
   return error instanceof Error && error.name.trim()
     ? error.name
     : "operation_failed";

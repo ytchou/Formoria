@@ -1,4 +1,6 @@
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { describe, expect, it, vi } from "vitest";
 
@@ -6,6 +8,7 @@ import type { DirectoryHealthInput } from "./directory";
 import {
   cleanupStaleBranches,
   collectDirectoryEvidence,
+  collectLinkArtifact,
   createRpcClient,
   createWorkflowRuntimeDependencies,
   deliverRepairFailure,
@@ -2646,5 +2649,37 @@ describe("default runtime dependencies", () => {
     expect(dependencies.queue?.markFingerprintsTicketed).toEqual(
       expect.any(Function),
     );
+  });
+});
+
+describe("link collection failure reporting", () => {
+  // DEV-1381: a bare `catch {}` reported every cause as the same opaque
+  // `link_collection_failed`, so six nights of failures could not be told apart
+  // from the uploaded artifact — a network fault, a timeout and an invalid
+  // summary all looked identical. The error's class must survive.
+  it("keeps the error class in the failure reason", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "link-collect-"));
+    const outputPath = join(dir, "link-checker.json");
+
+    const artifact = await collectLinkArtifact({
+      inputPath: join(dir, "definitely-missing.json"),
+      mode: "preflight",
+      outputPath,
+      runAt: "2026-08-07T00:00:00.000Z",
+      workflowAttempt: 1,
+      workflowRunId: "test-run",
+    });
+
+    expect(artifact.status).toBe("failed");
+    expect(artifact.routine).toBe("link-checker");
+    // Prefixed with the error class rather than the bare sentinel.
+    expect(artifact.failure).toMatch(/^\w+:link_collection_failed$/);
+    expect(artifact.failure).not.toBe("link_collection_failed");
+    // The reason must never carry a message, path or credential — safeErrorCode
+    // returns only `error.name`, and failedCollectorArtifact redacts on top.
+    expect(artifact.failure).not.toContain(dir);
+    expect(artifact.failure).not.toContain("/");
+
+    await rm(dir, { force: true, recursive: true });
   });
 });
