@@ -21,9 +21,9 @@ describe("FACTS_SYSTEM_PROMPT product_tags vocabulary", () => {
   });
 
   it("the product_tags rule forbids occasion, service and material tags", () => {
-    expect(FACTS_SYSTEM_PROMPT).toContain("禮盒");
-    expect(FACTS_SYSTEM_PROMPT).toContain("體驗課程");
-    expect(FACTS_SYSTEM_PROMPT).toContain("原料");
+    expect(FACTS_SYSTEM_PROMPT).toContain(
+      "4. 不得是場合、收件對象、包裝形式、履約方式、服務或材質（例如送禮、彌月、禮盒、伴手禮、體驗課程、服務、原料）。",
+    );
   });
 
   it("the output self-check list covers tag kind and the separator", () => {
