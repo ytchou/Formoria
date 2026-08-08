@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
 import type { DirectoryHealthInput } from "./directory";
+import type { AuditRecord } from "./contracts";
 import {
   cleanupStaleBranches,
   collectDirectoryEvidence,
@@ -291,6 +292,8 @@ describe("terminal health report", () => {
     const listUnticketedFingerprints = vi.fn(
       async (fingerprints: readonly string[]) => fingerprints,
     );
+    const reserveTicketCandidates = vi.fn(async () => undefined);
+    const finalizeTicketReservation = vi.fn(async () => undefined);
     const markFingerprintsTicketed = vi.fn(async () => undefined);
 
     const result = await deliverFinalHealthReport(
@@ -314,7 +317,12 @@ describe("terminal health report", () => {
           "https://github.com/ytchou/Formoria/actions/runs/987654321",
       },
       {
-        database: { listUnticketedFingerprints, markFingerprintsTicketed },
+        database: {
+          finalizeTicketReservation,
+          listUnticketedFingerprints,
+          markFingerprintsTicketed,
+          reserveTicketCandidates,
+        },
         delivery: { agentHub, slack },
         files: {
           read: async (path) => contents.get(path) ?? "",
@@ -396,8 +404,13 @@ describe("terminal health report", () => {
       "directory:one",
       "link:one",
     ]);
-    expect(markFingerprintsTicketed).toHaveBeenCalledWith(
+    expect(reserveTicketCandidates).toHaveBeenCalledWith(
       ["directory:one", "link:one"],
+      expect.stringContaining("health-agent-reservation:"),
+    );
+    expect(finalizeTicketReservation).toHaveBeenCalledWith(
+      ["directory:one", "link:one"],
+      expect.stringContaining("health-agent-reservation:"),
       "DEV-1400",
     );
     expect(result).toMatchObject({
@@ -418,7 +431,10 @@ describe("terminal health report", () => {
       ],
     ]);
     const agentHub = vi.fn(async () => undefined);
-    const slack = vi.fn(async () => undefined);
+    const slack = vi.fn(async (report: unknown) => {
+      void report;
+      return undefined;
+    });
     const linear = vi.fn(
       async (input: { findings: readonly { fingerprint: string }[] }) => {
         void input;
@@ -435,6 +451,8 @@ describe("terminal health report", () => {
     );
     // "link:one" already carries a ticketed_at stamp from an earlier run.
     const listUnticketedFingerprints = vi.fn(async () => ["directory:one"]);
+    const reserveTicketCandidates = vi.fn(async () => undefined);
+    const finalizeTicketReservation = vi.fn(async () => undefined);
     const markFingerprintsTicketed = vi.fn(async () => undefined);
 
     await deliverFinalHealthReport(
@@ -455,7 +473,12 @@ describe("terminal health report", () => {
         workflowRunId: "987654321",
       },
       {
-        database: { listUnticketedFingerprints, markFingerprintsTicketed },
+        database: {
+          finalizeTicketReservation,
+          listUnticketedFingerprints,
+          markFingerprintsTicketed,
+          reserveTicketCandidates,
+        },
         delivery: { agentHub, slack },
         files: {
           read: async (path) => contents.get(path) ?? "",
@@ -468,10 +491,118 @@ describe("terminal health report", () => {
     expect(
       linear.mock.calls[0]?.[0].findings.map(({ fingerprint }) => fingerprint),
     ).toEqual(["directory:one"]);
-    expect(markFingerprintsTicketed).toHaveBeenCalledWith(
+    expect(reserveTicketCandidates).toHaveBeenCalledWith(
       ["directory:one"],
+      expect.stringContaining("health-agent-reservation:"),
+    );
+    expect(finalizeTicketReservation).toHaveBeenCalledWith(
+      ["directory:one"],
+      expect.stringContaining("health-agent-reservation:"),
       "DEV-1401",
     );
+  });
+
+  it("reserves fingerprints before Linear creation and keeps them ineligible after ledger finalization fails", async () => {
+    const contents = new Map<string, string>([
+      ["aggregate.json", JSON.stringify(terminalAggregate())],
+      [
+        "queue.json",
+        JSON.stringify({
+          human: { findings: [] },
+          lifecycle: { new: 2, ongoing: 0, regressed: 0 },
+        }),
+      ],
+    ]);
+    const events: string[] = [];
+    let reserved = false;
+    const listUnticketedFingerprints = vi.fn(
+      async (fingerprints: readonly string[]) => (reserved ? [] : fingerprints),
+    );
+    const reserveTicketCandidates = vi.fn(async () => {
+      events.push("reserve");
+      reserved = true;
+    });
+    const finalizeTicketReservation = vi.fn(async () => {
+      events.push("finalize");
+      throw new Error("ledger_finalize_failed");
+    });
+    const releaseTicketReservation = vi.fn(async () => {
+      events.push("release");
+      throw new Error("ledger_release_failed");
+    });
+    const linear = vi.fn(async () => {
+      events.push("linear");
+      return {
+        outcomes: [
+          {
+            action: "created",
+            fingerprint: "health-agent:summary:v2",
+            identifier: "DEV-1406",
+          },
+        ],
+      };
+    });
+    const dependencies = {
+      database: {
+        finalizeTicketReservation,
+        listUnticketedFingerprints,
+        releaseTicketReservation,
+        reserveTicketCandidates,
+      },
+      delivery: {
+        agentHub: vi.fn(async () => undefined),
+        slack: vi.fn(async () => undefined),
+      },
+      files: {
+        read: async (path: string) => contents.get(path) ?? "",
+        write: async (path: string, value: string) =>
+          void contents.set(path, value),
+      },
+      linear,
+    };
+
+    await deliverFinalHealthReport(
+      {
+        aggregateArtifactPath: "aggregate.json",
+        mode: "live",
+        outputPath: "first-final.json",
+        phases: {
+          analyze: "success",
+          collect: "success",
+          deliver: "success",
+          publish: "success",
+          repair: "success",
+        },
+        queueArtifactPath: "queue.json",
+        runAt: now,
+        workflowAttempt: 1,
+        workflowRunId: "987654321",
+      },
+      dependencies,
+    );
+    await deliverFinalHealthReport(
+      {
+        aggregateArtifactPath: "aggregate.json",
+        mode: "live",
+        outputPath: "second-final.json",
+        phases: {
+          analyze: "success",
+          collect: "success",
+          deliver: "success",
+          publish: "success",
+          repair: "success",
+        },
+        queueArtifactPath: "queue.json",
+        runAt: now,
+        workflowAttempt: 2,
+        workflowRunId: "987654321",
+      },
+      dependencies,
+    );
+
+    expect(events).toEqual(["reserve", "linear", "finalize"]);
+    expect(linear).toHaveBeenCalledOnce();
+    expect(releaseTicketReservation).not.toHaveBeenCalled();
   });
 
   it("skips the Linear write entirely when every candidate is already ticketed", async () => {
@@ -486,7 +617,10 @@ describe("terminal health report", () => {
       ],
     ]);
     const agentHub = vi.fn(async () => undefined);
-    const slack = vi.fn(async (_report: unknown) => undefined);
+    const slack = vi.fn(async (report: unknown) => {
+      void report;
+      return undefined;
+    });
     const linear = vi.fn(async () => ({ outcomes: [] }));
     const listUnticketedFingerprints = vi.fn(async () => []);
     const markFingerprintsTicketed = vi.fn(async () => undefined);
@@ -524,7 +658,7 @@ describe("terminal health report", () => {
     expect(slack.mock.calls[0]?.[0]).not.toHaveProperty("healthSummary.ticket");
   });
 
-  it("records a failure without throwing when the ticket ledger PATCH fails", async () => {
+  it("records an optional warning without throwing when the ticket ledger PATCH fails", async () => {
     const contents = new Map<string, string>([
       ["aggregate.json", JSON.stringify(terminalAggregate())],
       [
@@ -567,10 +701,11 @@ describe("terminal health report", () => {
         },
         {
           database: {
-            listUnticketedFingerprints: async (fingerprints) => fingerprints,
-            markFingerprintsTicketed: async () => {
+            finalizeTicketReservation: async () => {
               throw new Error("patch_failed");
             },
+            listUnticketedFingerprints: async (fingerprints) => fingerprints,
+            reserveTicketCandidates: async () => undefined,
           },
           delivery: { agentHub, slack },
           files: {
@@ -582,9 +717,165 @@ describe("terminal health report", () => {
       ),
     ).resolves.toMatchObject({ agent_hub: "fulfilled" });
 
-    expect(JSON.stringify(agentHub.mock.calls[0]?.[0])).toContain(
-      "linear_ticket_ledger:failed",
+    expect(agentHub.mock.calls[0]?.[0]).toMatchObject({
+      data: {
+        delivery_warnings: [
+          expect.objectContaining({
+            code: "linear_ticket_ledger_failed",
+            operation: "finalize_health_fingerprint_tickets",
+          }),
+        ],
+        overall_status: "needs_attention",
+      },
+      status: "success",
+    });
+  });
+
+  it("keeps a ticket-ledger lookup failure optional and preserves its diagnostic warning", async () => {
+    const contents = new Map<string, string>([
+      ["aggregate.json", JSON.stringify(terminalAggregate())],
+      [
+        "queue.json",
+        JSON.stringify({
+          human: { findings: [] },
+          lifecycle: { new: 2, ongoing: 0, regressed: 0 },
+        }),
+      ],
+    ]);
+    const agentHub = vi.fn(async (envelope: unknown) => void envelope);
+    const slack = vi.fn(async (report: unknown) => void report);
+    const linear = vi.fn(async () => ({ outcomes: [] }));
+
+    const result = await deliverFinalHealthReport(
+      {
+        aggregateArtifactPath: "aggregate.json",
+        mode: "live",
+        outputPath: "final.json",
+        phases: {
+          analyze: "success",
+          collect: "success",
+          deliver: "success",
+          publish: "success",
+          repair: "success",
+        },
+        queueArtifactPath: "queue.json",
+        runAt: now,
+        workflowAttempt: 1,
+        workflowRunId: "987654321",
+      },
+      {
+        database: {
+          listUnticketedFingerprints: async () => {
+            throw new Error("ledger_reader_unavailable");
+          },
+          markFingerprintsTicketed: vi.fn(async () => undefined),
+        },
+        delivery: { agentHub, slack },
+        files: {
+          read: async (path) => contents.get(path) ?? "",
+          write: async (path, value) => void contents.set(path, value),
+        },
+        linear,
+      },
     );
+
+    const envelope = agentHub.mock.calls[0]?.[0] as {
+      data?: Record<string, unknown>;
+      status?: string;
+    };
+    expect(result).toMatchObject({
+      agent_hub: "fulfilled",
+      slack: "fulfilled",
+    });
+    expect(envelope).toMatchObject({
+      data: {
+        delivery_warnings: [
+          expect.objectContaining({
+            code: "linear_ticket_candidates_failed",
+            operation: "list_unticketed_health_fingerprints",
+          }),
+        ],
+        overall_status: "needs_attention",
+      },
+      status: "success",
+    });
+    expect(envelope.data?.failures ?? []).not.toContain(
+      "linear_ticket_candidates:failed",
+    );
+    expect(slack.mock.calls[0]?.[0]).toMatchObject({
+      healthSummary: expect.objectContaining({
+        deliveryWarnings: [
+          expect.objectContaining({
+            code: "linear_ticket_candidates_failed",
+          }),
+        ],
+        overallStatus: "needs_attention",
+      }),
+    });
+    expect(linear).not.toHaveBeenCalled();
+    expect(JSON.parse(contents.get("final.json") ?? "{}")).toMatchObject({
+      envelope: expect.objectContaining({
+        data: expect.objectContaining({
+          delivery_warnings: expect.arrayContaining([
+            expect.objectContaining({
+              operation: "list_unticketed_health_fingerprints",
+            }),
+          ]),
+        }),
+      }),
+    });
+  });
+
+  it("persists required delivery failures separately from the detector verdict", async () => {
+    const contents = new Map<string, string>([
+      ["aggregate.json", JSON.stringify(terminalAggregate())],
+    ]);
+    const agentHub = vi.fn(async () => {
+      throw new Error("agent_hub_unavailable");
+    });
+    const slack = vi.fn(async () => undefined);
+
+    await expect(
+      deliverFinalHealthReport(
+        {
+          aggregateArtifactPath: "aggregate.json",
+          mode: "preflight",
+          outputPath: "final.json",
+          phases: {
+            analyze: "success",
+            collect: "success",
+            deliver: "success",
+            publish: "success",
+            repair: "success",
+          },
+          runAt: now,
+          workflowAttempt: 1,
+          workflowRunId: "987654321",
+        },
+        {
+          delivery: { agentHub, slack },
+          files: {
+            read: async (path) => contents.get(path) ?? "",
+            write: async (path, value) => void contents.set(path, value),
+          },
+        },
+      ),
+    ).rejects.toThrow("final_report_delivery_failed");
+
+    expect(JSON.parse(contents.get("final.json") ?? "{}")).toMatchObject({
+      envelope: {
+        data: { overall_status: "needs_attention" },
+        status: "success",
+      },
+      infrastructure_failures: [
+        expect.objectContaining({
+          category: "infrastructure",
+          code: "agent_hub_delivery_failed",
+          operation: "deliver_envelope",
+        }),
+      ],
+      terminal: true,
+    });
   });
 
   it("delivers an upstream failure without failing the terminal command", async () => {
@@ -713,6 +1004,13 @@ describe("terminal health report", () => {
         workflowRunId: "987654321",
       },
       {
+        database: {
+          finalizeTicketReservation: vi.fn(async () => undefined),
+          listUnticketedFingerprints: vi.fn(
+            async (fingerprints) => fingerprints,
+          ),
+          reserveTicketCandidates: vi.fn(async () => undefined),
+        },
         delivery: { agentHub, slack },
         files: {
           read: async (path) => contents.get(path) ?? "",
@@ -958,6 +1256,358 @@ describe("workflow runtime artifacts", () => {
   });
 });
 
+describe("health-agent admission", () => {
+  it("reuses one ledger identity when a workflow attempt reclaims a run", async () => {
+    const contents = new Map<string, string>([
+      ["final-report.json", JSON.stringify({ terminal: true })],
+    ]);
+    const fetchImplementation = vi.fn<typeof fetch>(async (request, init) => {
+      const url = String(request);
+      if (url.endsWith("/rest/v1/rpc/claim_health_agent_run")) {
+        return new Response(JSON.stringify({ claimed: true, replay: false }), {
+          status: 200,
+        });
+      }
+      if (url.endsWith("/rest/v1/rpc/complete_health_agent_run")) {
+        return new Response("true", { status: 200 });
+      }
+      throw new Error(`unexpected request: ${url}`);
+    });
+    const files = {
+      read: async (path: string) => contents.get(path) ?? "",
+      write: async (path: string, value: string) => {
+        contents.set(path, value);
+      },
+    };
+
+    await runWorkflowCommand(
+      "admit-run",
+      {
+        mode: "live",
+        outputPath: "admission-1.json",
+        runAt: now,
+        workflowAttempt: 1,
+        workflowRunId: "123",
+      },
+      {
+        env: {
+          HEALTH_AGENT_WRITER_TOKEN: "writer-token",
+          NEXT_PUBLIC_SUPABASE_URL: "https://db.example",
+        },
+        fetchImplementation,
+        files,
+      },
+    );
+    await runWorkflowCommand(
+      "admit-run",
+      {
+        mode: "live",
+        outputPath: "admission-2.json",
+        runAt: now,
+        workflowAttempt: 2,
+        workflowRunId: "123",
+      },
+      {
+        env: {
+          HEALTH_AGENT_WRITER_TOKEN: "writer-token",
+          NEXT_PUBLIC_SUPABASE_URL: "https://db.example",
+        },
+        fetchImplementation,
+        files,
+      },
+    );
+    await runWorkflowCommand(
+      "finalize-run",
+      {
+        mode: "live",
+        outputPath: "finalize-2.json",
+        resultPath: "final-report.json",
+        runAt: now,
+        status: "success",
+        workflowAttempt: 2,
+        workflowRunId: "123",
+      },
+      {
+        env: {
+          HEALTH_AGENT_WRITER_TOKEN: "writer-token",
+          NEXT_PUBLIC_SUPABASE_URL: "https://db.example",
+        },
+        fetchImplementation,
+        files,
+      },
+    );
+
+    const rpcBodies = fetchImplementation.mock.calls.map(
+      ([, init]) => JSON.parse(String(init?.body)) as Record<string, unknown>,
+    );
+    expect(rpcBodies.slice(0, 2)).toEqual([
+      expect.objectContaining({
+        p_requested_run_id: "gha:123",
+        p_workflow_attempt: 1,
+      }),
+      expect.objectContaining({
+        p_requested_run_id: "gha:123",
+        p_workflow_attempt: 2,
+      }),
+    ]);
+    expect(rpcBodies[2]).toEqual(
+      expect.objectContaining({
+        p_requested_run_id: "gha:123",
+        p_workflow_attempt: 2,
+      }),
+    );
+
+    const migration = await readFile(
+      "supabase/migrations/20260722200000_github_health_agent_foundations.sql",
+      "utf8",
+    );
+    expect(migration).toContain(
+      "ledger.requested_run_id = EXCLUDED.requested_run_id",
+    );
+    expect(migration).toContain(
+      "ledger.workflow_attempt < EXCLUDED.workflow_attempt",
+    );
+  });
+
+  it("writes a successful duplicate terminal artifact without admitting collectors", async () => {
+    const contents = new Map<string, string>();
+    const files = {
+      read: async (path: string) => contents.get(path) ?? "",
+      write: async (path: string, value: string) => {
+        contents.set(path, value);
+      },
+    };
+    const fetchImplementation = vi.fn<typeof fetch>(
+      async () =>
+        new Response(JSON.stringify({ claimed: false, replay: true }), {
+          status: 200,
+        }),
+    );
+
+    const result = await runWorkflowCommand(
+      "admit-run",
+      {
+        mode: "live",
+        outputPath: "admission.json",
+        runAt: now,
+        terminalOutputPath: "final-report.json",
+        workflowAttempt: 1,
+        workflowRunId: "123",
+      },
+      {
+        env: {
+          HEALTH_AGENT_WRITER_TOKEN: "writer-token",
+          NEXT_PUBLIC_SUPABASE_URL: "https://db.example",
+        },
+        fetchImplementation,
+        files,
+      },
+    );
+
+    expect(result).toMatchObject({
+      claimed: false,
+      replay: true,
+      status: "duplicate",
+      terminal: true,
+    });
+    expect(fetchImplementation).toHaveBeenCalledOnce();
+    expect(JSON.parse(contents.get("final-report.json") ?? "{}")).toMatchObject(
+      {
+        envelope: { status: "success" },
+        terminal: true,
+      },
+    );
+  });
+
+  it("finalizes a claimed live run through the existing ledger RPC", async () => {
+    const contents = new Map<string, string>([
+      ["final-report.json", JSON.stringify({ terminal: true })],
+    ]);
+    const fetchImplementation = vi.fn<typeof fetch>(
+      async () => new Response("true", { status: 200 }),
+    );
+
+    const result = await runWorkflowCommand(
+      "finalize-run",
+      {
+        mode: "live",
+        outputPath: "finalize.json",
+        resultPath: "final-report.json",
+        runAt: now,
+        status: "success",
+        workflowAttempt: 1,
+        workflowRunId: "123",
+      },
+      {
+        env: {
+          HEALTH_AGENT_WRITER_TOKEN: "writer-token",
+          NEXT_PUBLIC_SUPABASE_URL: "https://db.example",
+        },
+        fetchImplementation,
+        files: {
+          read: async (path) => contents.get(path) ?? "",
+          write: async (path, value) => void contents.set(path, value),
+        },
+      },
+    );
+
+    expect(result).toMatchObject({
+      finalized: true,
+      routine: "health-agent",
+      status: "success",
+    });
+    expect(String(fetchImplementation.mock.calls[0]?.[0])).toContain(
+      "/rest/v1/rpc/complete_health_agent_run",
+    );
+    expect(
+      JSON.parse(String(fetchImplementation.mock.calls[0]?.[1]?.body)),
+    ).toMatchObject({
+      p_logical_date: "2026-07-22",
+      p_requested_run_id: "gha:123",
+      p_routine: "health-agent",
+      p_workflow_attempt: 1,
+    });
+  });
+
+  it("fails the live ledger without reading a missing final report", async () => {
+    const contents = new Map<string, string>();
+    const fetchImplementation = vi.fn<typeof fetch>(
+      async () => new Response("true", { status: 200 }),
+    );
+
+    const result = await runWorkflowCommand(
+      "finalize-run",
+      {
+        mode: "live",
+        outputPath: "finalize.json",
+        resultPath: "missing-final-report.json",
+        runAt: now,
+        status: "failed",
+        workflowAttempt: 1,
+        workflowRunId: "123",
+      },
+      {
+        env: {
+          HEALTH_AGENT_WRITER_TOKEN: "writer-token",
+          NEXT_PUBLIC_SUPABASE_URL: "https://db.example",
+        },
+        fetchImplementation,
+        files: {
+          read: async (path) => contents.get(path) ?? "",
+          write: async (path, value) => void contents.set(path, value),
+        },
+      },
+    );
+
+    expect(result).toMatchObject({
+      finalized: true,
+      routine: "health-agent",
+      status: "failed",
+    });
+    expect(String(fetchImplementation.mock.calls[0]?.[0])).toContain(
+      "/rest/v1/rpc/fail_health_agent_run",
+    );
+    expect(
+      JSON.parse(String(fetchImplementation.mock.calls[0]?.[1]?.body)),
+    ).toMatchObject({
+      p_error: "health_agent_terminal_delivery_failed",
+      p_result: expect.objectContaining({
+        error: "health_agent_terminal_delivery_failed",
+        terminal: true,
+      }),
+    });
+  });
+
+  it("downgrades a successful finalize request when the final report is corrupt", async () => {
+    const contents = new Map<string, string>([
+      ["final-report.json", "not-json"],
+    ]);
+    const fetchImplementation = vi.fn<typeof fetch>(
+      async () => new Response("true", { status: 200 }),
+    );
+
+    const result = await runWorkflowCommand(
+      "finalize-run",
+      {
+        mode: "live",
+        outputPath: "finalize.json",
+        resultPath: "final-report.json",
+        runAt: now,
+        status: "success",
+        workflowAttempt: 1,
+        workflowRunId: "123",
+      },
+      {
+        env: {
+          HEALTH_AGENT_WRITER_TOKEN: "writer-token",
+          NEXT_PUBLIC_SUPABASE_URL: "https://db.example",
+        },
+        fetchImplementation,
+        files: {
+          read: async (path) => contents.get(path) ?? "",
+          write: async (path, value) => void contents.set(path, value),
+        },
+      },
+    );
+
+    expect(result).toMatchObject({ status: "failed" });
+    expect(String(fetchImplementation.mock.calls[0]?.[0])).toContain(
+      "/rest/v1/rpc/fail_health_agent_run",
+    );
+  });
+});
+
+describe("health-agent artifact delivery", () => {
+  it("records artifact upload failure as an infrastructure outcome", async () => {
+    const contents = new Map<string, string>([
+      [
+        "health-run.json",
+        JSON.stringify({
+          groups: { product: { status: "success" } },
+          version: 1,
+        }),
+      ],
+    ]);
+
+    const result = await runWorkflowCommand(
+      "record-artifact-upload",
+      {
+        inputPath: "health-run.json",
+        outputPath: "health-run.json",
+        reason: "upload action failed",
+        status: "failed",
+      },
+      {
+        files: {
+          read: async (path) => contents.get(path) ?? "",
+          write: async (path, value) => void contents.set(path, value),
+        },
+      },
+    );
+
+    expect(result).toMatchObject({
+      artifact_delivery: {
+        status: "failed",
+      },
+      infrastructure_failures: [
+        expect.objectContaining({
+          category: "infrastructure",
+          code: "health_run_artifact_upload_failed",
+          operation: "upload_artifact",
+        }),
+      ],
+    });
+    expect(JSON.parse(contents.get("health-run.json") ?? "{}")).toMatchObject({
+      artifact_delivery: { status: "failed" },
+      infrastructure_failures: [
+        expect.objectContaining({
+          code: "health_run_artifact_upload_failed",
+        }),
+      ],
+    });
+  });
+});
+
 describe("collect-brand-review", () => {
   const input = {
     mode: "dry-run",
@@ -1110,13 +1760,13 @@ describe("collect-brand-review", () => {
     ]);
     expect(JSON.parse(String(rpcCalls[0]?.[1]?.body))).toEqual({
       p_logical_date: "2026-07-22",
-      p_requested_run_id: "gha:123/1",
+      p_requested_run_id: "gha:123",
       p_routine: "brand-review",
       p_workflow_attempt: 1,
     });
     expect(JSON.parse(String(rpcCalls[1]?.[1]?.body))).toEqual({
       p_logical_date: "2026-07-22",
-      p_requested_run_id: "gha:123/1",
+      p_requested_run_id: "gha:123",
       p_routine: "brand-review",
       p_result: {
         finding_count: 0,
@@ -2409,6 +3059,50 @@ describe("health-agent migration contract", () => {
       "GRANT EXECUTE ON FUNCTION read_health_directory_database_evidence() TO health_agent_reader, service_role;",
     );
   });
+
+  it("selects completed ledger finalization only when required delivery succeeds", async () => {
+    const contents = new Map<string, string>();
+    const files = {
+      read: async (path: string) => contents.get(path) ?? "",
+      write: async (path: string, value: string) => {
+        contents.set(path, value);
+      },
+    };
+
+    const successful = await runWorkflowCommand(
+      "terminal-status",
+      {
+        artifactStatus: "success",
+        finalReportStatus: "success",
+        outputPath: "terminal-success.json",
+        uploadClassifierStatus: "success",
+        uploadRetryStatus: "skipped",
+        uploadStatus: "success",
+      },
+      { files },
+    );
+    const failedUploads = await runWorkflowCommand(
+      "terminal-status",
+      {
+        artifactStatus: "success",
+        finalReportStatus: "success",
+        outputPath: "terminal-failed-upload.json",
+        uploadClassifierStatus: "success",
+        uploadRetryStatus: "failure",
+        uploadStatus: "failure",
+      },
+      { files },
+    );
+
+    expect(successful).toMatchObject({ status: "success" });
+    expect(failedUploads).toMatchObject({ status: "failed" });
+    expect(
+      JSON.parse(contents.get("terminal-success.json") ?? "{}"),
+    ).toMatchObject({ status: "success" });
+    expect(
+      JSON.parse(contents.get("terminal-failed-upload.json") ?? "{}"),
+    ).toMatchObject({ status: "failed" });
+  });
 });
 
 describe("default runtime dependencies", () => {
@@ -2655,6 +3349,49 @@ describe("default runtime dependencies", () => {
       expect.any(Function),
     );
   });
+
+  it("audits ticket-ledger reads and writes at the Supabase boundary", async () => {
+    const auditRecords: AuditRecord[] = [];
+    const fetchImplementation = vi.fn<typeof fetch>(
+      async (_request, init) =>
+        new Response(
+          init?.method === "PATCH"
+            ? JSON.stringify([])
+            : JSON.stringify([
+                {
+                  fingerprint: "directory:one",
+                  status: "pending",
+                  ticketed_at: null,
+                },
+              ]),
+          { status: 200 },
+        ),
+    );
+    const dependencies = createWorkflowRuntimeDependencies({
+      auditRecords,
+      env: {
+        HEALTH_AGENT_READER_TOKEN: "reader-secret",
+        HEALTH_AGENT_WRITER_TOKEN: "writer-secret",
+        NEXT_PUBLIC_SUPABASE_URL: "https://db.example",
+      },
+      fetchImplementation,
+    });
+
+    await dependencies.queue?.listUnticketedFingerprints?.(["directory:one"]);
+    await dependencies.queue?.markFingerprintsTicketed?.(
+      ["directory:one"],
+      "DEV-1404",
+    );
+
+    expect(
+      auditRecords.map(({ operation, status }) => ({ operation, status })),
+    ).toEqual([
+      { operation: "list_unticketed_health_fingerprints", status: "success" },
+      { operation: "mark_health_fingerprints_ticketed", status: "success" },
+    ]);
+    expect(JSON.stringify(auditRecords)).not.toContain("reader-secret");
+    expect(JSON.stringify(auditRecords)).not.toContain("writer-secret");
+  });
 });
 
 describe("link collection failure reporting", () => {
@@ -2697,7 +3434,7 @@ describe("link collection audit trail", () => {
   // malformed response for six consecutive nights.
   it("records the HTTP status when the link-health request is rejected", async () => {
     const dir = await mkdtemp(join(tmpdir(), "link-audit-"));
-    const auditRecords: Parameters<typeof Array.prototype.push>[0][] = [];
+    const auditRecords: AuditRecord[] = [];
 
     const fetchImplementation = vi.fn(
       async () =>
@@ -2705,7 +3442,7 @@ describe("link collection audit trail", () => {
     ) as unknown as typeof fetch;
 
     const dependencies = createWorkflowRuntimeDependencies({
-      auditRecords: auditRecords as never[],
+      auditRecords,
       env: {
         FORMORIA_LINK_HEALTH_URL: "https://origin.example/api/cron/link-health",
         FORMORIA_LINK_HEALTH_ORIGIN_SECRET: "secret-value",
@@ -2727,10 +3464,13 @@ describe("link collection audit trail", () => {
     expect(artifact.status).toBe("failed");
     expect(fetchImplementation).toHaveBeenCalledTimes(1);
 
-    const linkRecord = (auditRecords as Array<Record<string, unknown>>).find(
+    const linkRecord = auditRecords.find(
       (record) => record.adapter === "link-health",
     );
-    expect(linkRecord, "link-health audit record must be emitted").toBeDefined();
+    expect(
+      linkRecord,
+      "link-health audit record must be emitted",
+    ).toBeDefined();
     expect(linkRecord?.status).toBe("failure");
     expect(
       (linkRecord?.response as Record<string, unknown> | undefined)?.httpStatus,

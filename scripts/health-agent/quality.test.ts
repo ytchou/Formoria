@@ -1,5 +1,12 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
+import {
+  KNIP_KNOWN_NOISE,
+  KNIP_VERSION,
+  isKnownKnipNoise,
+} from "./knip-known-noise";
 import { evaluateQualityReports } from "./quality";
 
 const trackedFiles = new Set([
@@ -10,6 +17,28 @@ const trackedFiles = new Set([
 ]);
 
 describe("repository health", () => {
+  it("suppresses only the versioned Knip fixtures and keeps nearby signatures visible", () => {
+    const config = readFileSync("knip.json", "utf8");
+    expect(KNIP_VERSION).toBe("6.23.0");
+    expect(KNIP_KNOWN_NOISE).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "files",
+          signature: "src/test/server-only.ts",
+        }),
+        expect.objectContaining({ kind: "binaries", signature: "tesseract" }),
+      ]),
+    );
+    expect(isKnownKnipNoise("files", "src/test/server-only.ts")).toBe(true);
+    expect(isKnownKnipNoise("binaries", "tesseract")).toBe(true);
+    expect(config).toContain('"src/test/server-only.ts": ["files"]');
+    expect(config).toContain('"ignoreBinaries": ["lsof", "tesseract"]');
+    expect(isKnownKnipNoise("files", "src/test/server-only.test.ts")).toBe(
+      false,
+    );
+    expect(isKnownKnipNoise("binaries", "imagemagick")).toBe(false);
+  });
+
   it("turns valid Vitest and Knip failures into one complete quality result", () => {
     const result = evaluateQualityReports({
       knipExitCode: 1,
@@ -112,7 +141,12 @@ describe("repository health", () => {
           {
             duplicates: [
               [
-                { col: 14, line: 29, name: "MAX_BRAND_IMAGE_SELECTION", pos: 1555 },
+                {
+                  col: 14,
+                  line: 29,
+                  name: "MAX_BRAND_IMAGE_SELECTION",
+                  pos: 1555,
+                },
                 { col: 14, line: 39, name: "DRAFT_PARK_SORT_ORDER", pos: 2111 },
               ],
             ],
