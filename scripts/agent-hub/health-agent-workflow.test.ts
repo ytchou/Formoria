@@ -2,6 +2,7 @@ import { access, readFile } from "node:fs/promises";
 
 import * as prettier from "prettier";
 import { describe, expect, it } from "vitest";
+import { parse as parseYaml } from "yaml";
 
 const workflowPath = ".github/workflows/health-agent.yml";
 const retiredPaths = [
@@ -141,6 +142,31 @@ describe("unified health-agent workflow contract", () => {
     expect(workflow).toContain("health-run.json");
     expect(workflow).toContain("audit.jsonl");
     expect(workflow).not.toContain("actions/download-artifact@");
+  });
+
+  it("keeps final-report runtime arguments in one folded shell command", async () => {
+    const workflow = parseYaml(await readFile(workflowPath, "utf8")) as {
+      jobs: {
+        "nightly-health": {
+          steps: Array<{ id?: string; run?: string }>;
+        };
+      };
+    };
+    const finalReport = workflow.jobs["nightly-health"].steps.find(
+      (step) => step.id === "final-report",
+    );
+
+    expect(finalReport?.run).toBeDefined();
+    expect(finalReport?.run).not.toContain("\n");
+    for (const argument of [
+      "--run-at",
+      "--attempt",
+      "--workflow-url",
+      "--output",
+      "--audit",
+    ]) {
+      expect(finalReport?.run).toContain(argument);
+    }
   });
 
   it("classifies failed artifact uploads and gates terminal success on both attempts", async () => {
