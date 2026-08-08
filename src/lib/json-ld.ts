@@ -18,20 +18,20 @@ export type BreadcrumbItem = {
 export type JsonLdObject = Record<string, any>;
 
 export type BrandJsonLdInput = {
-  name: string
-  description: string | null
-  descriptionEn: string | null
-  heroImageUrl: string | null
-  foundingYear: number | null
-  socialInstagram: string | null
-  socialThreads: string | null
-  socialFacebook: string | null
-  purchaseWebsite: string | null
-  purchasePinkoi: string | null
-  purchaseShopee: string | null
-  purchaseMyship: string | null
-  otherUrls: Array<{ label: string; url: string }>
-}
+  name: string;
+  description: string | null;
+  descriptionEn: string | null;
+  heroImageUrl: string | null;
+  foundingYear: number | null;
+  socialInstagram: string | null;
+  socialThreads: string | null;
+  socialFacebook: string | null;
+  purchaseWebsite: string | null;
+  purchasePinkoi: string | null;
+  purchaseShopee: string | null;
+  purchaseMyship: string | null;
+  otherUrls: Array<{ label: string; url: string }>;
+};
 
 type JsonLdLocale = Locale | string | undefined;
 
@@ -42,10 +42,22 @@ function toInLanguage(locale: JsonLdLocale = "zh-TW"): string {
 
 /**
  * Build Organization JSON-LD structured data for a brand detail page.
+ *
+ * `canonicalUrl` is what separates the zh-TW and /en editions as DOCUMENTS.
+ * Without it both locales emit an Organization carrying the same name, the same
+ * external `url` and the same `sameAs` set, with nothing stating which page
+ * describes it — two indistinguishable descriptions of one entity, which is a
+ * consolidation signal on a pair Search Console already reports as
+ * "Duplicate, Google chose different canonical than user".
+ *
+ * `@id` is locale-scoped and `mainEntityOfPage` names this page specifically;
+ * the shared external `url` stays put, because both editions really are about
+ * the same company.
  */
 export function buildBrandJsonLd(
   brand: BrandJsonLdInput,
   locale: Locale = "zh-TW",
+  canonicalUrl?: string,
 ): JsonLdObject {
   const allSameAs = [
     brand.socialInstagram,
@@ -60,12 +72,14 @@ export function buildBrandJsonLd(
   const jsonLd: JsonLdObject = {
     "@context": "https://schema.org",
     "@type": "Organization",
+    ...(canonicalUrl ? { "@id": `${canonicalUrl}#organization` } : {}),
     name: brand.name,
     description:
       (locale === "en"
         ? (brand.descriptionEn ?? brand.description)
         : brand.description) ?? undefined,
     inLanguage: toInLanguage(locale),
+    ...(canonicalUrl ? { mainEntityOfPage: canonicalUrl } : {}),
   };
 
   const url =
@@ -394,6 +408,7 @@ export type FaqQuestion = {
 export function buildFaqPageJsonLd(
   questions: FaqQuestion[] | null | undefined,
   locale?: string,
+  canonicalUrl?: string,
 ): JsonLdObject | null {
   const entries = questions ?? [];
   if (entries.length === 0) return null;
@@ -401,7 +416,11 @@ export function buildFaqPageJsonLd(
   return {
     "@context": "https://schema.org",
     "@type": "FAQPage",
+    // Same reasoning as buildBrandJsonLd: a locale-scoped @id keeps the two
+    // editions of one brand's FAQ from reading as a single node.
+    ...(canonicalUrl ? { "@id": `${canonicalUrl}#faq` } : {}),
     inLanguage: toInLanguage(locale),
+    ...(canonicalUrl ? { mainEntityOfPage: canonicalUrl } : {}),
     mainEntity: entries.map((entry) => ({
       "@type": "Question",
       name: entry.q,

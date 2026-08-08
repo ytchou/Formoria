@@ -177,6 +177,44 @@ describe("buildBrandJsonLd", () => {
     expect(jsonLd.foundingDate).toBeUndefined();
     expect(jsonLd.sameAs).toBeUndefined();
   });
+
+  describe("page-scoped identity", () => {
+    const canonicalZh = `${getSiteUrl()}/brands/chatzutang`;
+    const canonicalEn = `${getSiteUrl()}/en/brands/chatzutang`;
+
+    it("scopes @id and mainEntityOfPage to the page's own canonical", () => {
+      const jsonLd = buildBrandJsonLd(makeBrand(), "en", canonicalEn);
+
+      expect(jsonLd["@id"]).toBe(`${canonicalEn}#organization`);
+      expect(jsonLd.mainEntityOfPage).toBe(canonicalEn);
+    });
+
+    // The whole point of the field: without it the two editions are
+    // indistinguishable descriptions of one entity, which is a canonical
+    // consolidation signal on a pair Search Console already flags.
+    it("gives the two locale editions different identities", () => {
+      const zh = buildBrandJsonLd(makeBrand(), "zh-TW", canonicalZh);
+      const en = buildBrandJsonLd(makeBrand(), "en", canonicalEn);
+
+      expect(zh["@id"]).not.toBe(en["@id"]);
+      expect(zh.mainEntityOfPage).not.toBe(en.mainEntityOfPage);
+    });
+
+    // Both editions describe the same real company; only the documents differ.
+    it("keeps the shared external url on both editions", () => {
+      const zh = buildBrandJsonLd(makeBrand(), "zh-TW", canonicalZh);
+      const en = buildBrandJsonLd(makeBrand(), "en", canonicalEn);
+
+      expect(en.url).toBe(zh.url);
+    });
+
+    it("emits neither field when no canonical is supplied", () => {
+      const jsonLd = buildBrandJsonLd(makeBrand(), "en");
+
+      expect(jsonLd["@id"]).toBeUndefined();
+      expect(jsonLd.mainEntityOfPage).toBeUndefined();
+    });
+  });
 });
 
 describe("buildCategoryItemListJsonLd", () => {
@@ -188,11 +226,7 @@ describe("buildCategoryItemListJsonLd", () => {
 
   it("returns valid ItemList JSON-LD", () => {
     const canonical = "https://formoria.com/categories/beauty";
-    const result = buildCategoryItemListJsonLd(
-      "美妝",
-      canonical,
-      mockBrands,
-    );
+    const result = buildCategoryItemListJsonLd("美妝", canonical, mockBrands);
 
     expect(result["@context"]).toBe("https://schema.org");
     expect(result["@type"]).toBe("ItemList");
@@ -278,9 +312,7 @@ describe("buildBreadcrumbJsonLd", () => {
       "en",
     );
 
-    expect(jsonLd.itemListElement[0].item).toBe(
-      `${getSiteUrl()}/en/brands`,
-    );
+    expect(jsonLd.itemListElement[0].item).toBe(`${getSiteUrl()}/en/brands`);
   });
 
   it("builds BreadcrumbList with correct positions", () => {
@@ -626,6 +658,21 @@ describe("buildFaqPageJsonLd", () => {
     expect(buildFaqPageJsonLd(undefined)).toBeNull();
   });
 
+  it("scopes @id and mainEntityOfPage to the supplied canonical", () => {
+    const canonical = `${getSiteUrl()}/en/brands/chatzutang`;
+    const ld = buildFaqPageJsonLd(storyFaq, "en", canonical) as JsonLdObject;
+
+    expect(ld["@id"]).toBe(`${canonical}#faq`);
+    expect(ld.mainEntityOfPage).toBe(canonical);
+  });
+
+  it("stays unidentified when callers omit the canonical", () => {
+    const ld = buildFaqPageJsonLd(storyFaq, "en") as JsonLdObject;
+
+    expect(ld["@id"]).toBeUndefined();
+    expect(ld.mainEntityOfPage).toBeUndefined();
+  });
+
   it("escapes values safely via safeJsonLdStringify", () => {
     const ld = buildFaqPageJsonLd(
       [
@@ -646,12 +693,14 @@ describe("buildFaqPageJsonLd", () => {
   it("emits FAQPage JSON-LD matching the rendered items", async () => {
     const client = {
       from(table: string) {
-        if (table !== "brand_faq_entries") throw new Error(`unexpected table: ${table}`);
+        if (table !== "brand_faq_entries")
+          throw new Error(`unexpected table: ${table}`);
         const builder = {
           select: () => builder,
           eq: () => builder,
-          then: (resolve: (result: { data: never[]; error: null }) => unknown) =>
-            Promise.resolve({ data: [], error: null }).then(resolve),
+          then: (
+            resolve: (result: { data: never[]; error: null }) => unknown,
+          ) => Promise.resolve({ data: [], error: null }).then(resolve),
         };
         return builder;
       },
@@ -666,7 +715,10 @@ describe("buildFaqPageJsonLd", () => {
       null,
       client as unknown as FaqSupabase,
     );
-    const ld = buildFaqPageJsonLd(faqItemsToQuestions(items), "zh-TW") as JsonLdObject;
+    const ld = buildFaqPageJsonLd(
+      faqItemsToQuestions(items),
+      "zh-TW",
+    ) as JsonLdObject;
 
     expect(ld.mainEntity.map((entry: JsonLdObject) => entry.name)).toEqual(
       items.map((item) => item.question),

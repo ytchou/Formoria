@@ -135,7 +135,8 @@ export function EventExhibitorRow({
               `StoryRow` makes with its `<time>`. */}
           {/*
             Both states carry a label, not just the negative one. With only
-            "尚未收錄" rendered, a listed row was identified by the absence of a
+            the not-yet-listed label rendered, a listed row was identified by
+            the absence of a
             note — which reads as "no data" rather than "we cover this brand".
             The positive case gets the badge because it is the actionable one:
             it is the row whose name opens a Formoria page.

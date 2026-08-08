@@ -1462,6 +1462,16 @@ export async function getBrands(
     query = query.order(sortConfig.column, { ascending: sortConfig.ascending });
     query = query.order("id", { ascending: true });
   } else {
+    // DEV-1405: promoted brands fill the first pages. Internal links are what
+    // actually drive crawl priority — sitemap membership is the weaker signal —
+    // and `random` is the default on /brands and every /categories/* page, so
+    // this is the canonical crawl path. Applied only here: prefixing an explicit
+    // sort=name|newest|year with a hidden quality key would make those views
+    // incoherent for the user who chose them.
+    //
+    // seo_promoted is NOT NULL by construction, which matters: DESC implies
+    // NULLS FIRST, so a nullable flag would float unknown rows onto page 1.
+    query = query.order("seo_promoted", { ascending: false });
     // Postgres gives no stable row order without ORDER BY, so .range() below
     // could repeat or drop rows across pages. Paginate over a deterministic
     // id sequence; the daily shuffle then reorders within each returned page.
@@ -2080,6 +2090,8 @@ export type BrandSeoEntry = {
   description: string | null;
   descriptionEn: string | null;
   blurbEn: string | null;
+  /** `brands.seo_promoted` generated column — the DEV-1405 content-depth bar. */
+  seoPromoted: boolean;
 };
 
 export async function getBrandSeoEntries(): Promise<BrandSeoEntry[]> {
@@ -2088,7 +2100,7 @@ export async function getBrandSeoEntries(): Promise<BrandSeoEntry[]> {
     supabase
       .from("brands")
       .select(
-        "slug, updated_at, product_type, product_tags, description, description_en, blurb_en",
+        "slug, updated_at, product_type, product_tags, description, description_en, blurb_en, seo_promoted",
       ),
   )
     .eq("status", "approved");
@@ -2102,6 +2114,7 @@ export async function getBrandSeoEntries(): Promise<BrandSeoEntry[]> {
     description: row.description,
     descriptionEn: row.description_en,
     blurbEn: row.blurb_en,
+    seoPromoted: row.seo_promoted === true,
   }));
 }
 

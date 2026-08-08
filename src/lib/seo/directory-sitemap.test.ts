@@ -15,6 +15,7 @@ function brand(overrides: Partial<BrandSeoEntry> = {}): BrandSeoEntry {
     description: null,
     descriptionEn: null,
     blurbEn: null,
+    seoPromoted: false,
     ...overrides,
   }
 }
