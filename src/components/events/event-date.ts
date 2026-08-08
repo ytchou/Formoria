@@ -18,7 +18,8 @@ const ISO_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/
 /**
  * En dash, the typographic range separator — not a hyphen. Padded with a
  * space on both sides so the range reads with the same rhythm as the authored
- * schedule note beside it (`8/6（四） – 8/7（五） 10:00 – 18:00`); an unspaced
+ * schedule note beside it (`8/6(weekday) – 8/7(weekday) 10:00 – 18:00`, with
+ * the weekday written in Han); an unspaced
  * dash between two slash-heavy dates ran the two ends together.
  */
 const RANGE_SEPARATOR = ' – '
