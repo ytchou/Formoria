@@ -265,7 +265,7 @@ jobs:
             $directory + {
               findings: ([$directory.findings[], $brand.findings[]] | unique_by(.fingerprint)),
               failures: ([$directory.failures[], $brand.failures[]] | unique),
-              status: (if $directory.status == "success" and $brand.status == "success" then "success" else "failed" end)
+              status: (if $directory.status == "success" and ($brand.status == "success" or $brand.status == "skipped") then "success" else "failed" end)
             }' "$HEALTH_ARTIFACT_DIR/directory-health.json" "$HEALTH_ARTIFACT_DIR/brand-review.json" > "$HEALTH_ARTIFACT_DIR/product-health.json"
           mv "$HEALTH_ARTIFACT_DIR/product-health.json" "$HEALTH_ARTIFACT_DIR/directory-health.json"
       - name: "Stage 3 · Consolidate — validate, deduplicate, Linear"
