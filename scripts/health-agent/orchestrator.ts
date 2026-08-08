@@ -30,8 +30,10 @@ import {
   HEALTH_SOURCES,
   stableFingerprint,
   type AuditLogger,
+  type HealthDeliveryWarning,
   type HealthFinding,
   type HealthFindingLifecycle,
+  type HealthInfrastructureFailure,
   type HealthSummary,
   type HealthSource,
   type JsonValue,
@@ -1189,8 +1191,10 @@ export function createRoutineEnvelope(input: {
 
 export interface SlackDigestInput {
   actionableFindings?: readonly HealthFinding[];
+  deliveryWarnings?: readonly HealthDeliveryWarning[];
   failures?: readonly JsonValue[];
   healthSummary?: HealthSummary;
+  infrastructureFailures?: readonly HealthInfrastructureFailure[];
   linearOutcomes?: readonly JsonValue[];
   prOutcomes?: readonly JsonValue[];
   skippedActions?: readonly JsonValue[];
@@ -1270,6 +1274,19 @@ export interface HealthAgentDatabase {
   listUnticketedFingerprints?: (
     fingerprints: readonly string[],
   ) => Promise<readonly string[]>;
+  reserveTicketCandidates?: (
+    fingerprints: readonly string[],
+    reservationIdentifier: string,
+  ) => Promise<unknown>;
+  finalizeTicketReservation?: (
+    fingerprints: readonly string[],
+    reservationIdentifier: string,
+    linearIdentifier: string,
+  ) => Promise<unknown>;
+  releaseTicketReservation?: (
+    fingerprints: readonly string[],
+    reservationIdentifier: string,
+  ) => Promise<unknown>;
   markFingerprintsTicketed?: (
     fingerprints: readonly string[],
     linearIdentifier: string,
@@ -1314,6 +1331,19 @@ export interface QueueDependencies {
   listUnticketedFingerprints?: (
     fingerprints: readonly string[],
   ) => Promise<readonly string[]>;
+  reserveTicketCandidates?: (
+    fingerprints: readonly string[],
+    reservationIdentifier: string,
+  ) => Promise<unknown>;
+  finalizeTicketReservation?: (
+    fingerprints: readonly string[],
+    reservationIdentifier: string,
+    linearIdentifier: string,
+  ) => Promise<unknown>;
+  releaseTicketReservation?: (
+    fingerprints: readonly string[],
+    reservationIdentifier: string,
+  ) => Promise<unknown>;
   markFingerprintsTicketed?: (
     fingerprints: readonly string[],
     linearIdentifier: string,

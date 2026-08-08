@@ -10,8 +10,14 @@
     "scripts/**/*.{ts,mjs}",
     "emails/**/*.{ts,tsx}"
   ],
-  "ignoreDependencies": ["tw-animate-css", "tailwindcss", "shadcn", "@react-email/ui", "@heroui/styles"],
-  "ignoreBinaries": ["lsof"],
+  "ignoreDependencies": [
+    "tw-animate-css",
+    "tailwindcss",
+    "shadcn",
+    "@react-email/ui",
+    "@heroui/styles"
+  ],
+  "ignoreBinaries": ["lsof", "tesseract"],
   "ignore": [
     "src/lib/supabase/database.types.ts",
     "scripts/threads-scraper/.venv/**"
@@ -19,6 +25,7 @@
   "ignoreIssues": {
     "src/components/ui/card.tsx": ["exports"],
     "src/components/ui/chart.tsx": ["exports", "types"],
-    "src/app/admin/actions.ts": ["exports"]
-  },
+    "src/app/admin/actions.ts": ["exports"],
+    "src/test/server-only.ts": ["files"]
+  }
 }

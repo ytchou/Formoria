@@ -31,6 +31,20 @@ export interface HealthFinding {
 
 export type HealthSummaryStatus = "failed" | "skipped" | "success";
 
+export interface HealthDeliveryWarning {
+  category: "optional_delivery";
+  code: string;
+  operation: string;
+  reason: string;
+}
+
+export interface HealthInfrastructureFailure {
+  category: "infrastructure";
+  code: string;
+  operation: string;
+  reason: string;
+}
+
 export interface HealthSummaryCheck {
   findingCount: number;
   severities: Readonly<Record<HealthSeverity, number>>;
@@ -45,6 +59,8 @@ export interface HealthFindingLifecycle {
 
 export interface HealthSummary {
   checks: Readonly<Record<HealthSource, HealthSummaryCheck>>;
+  deliveryWarnings?: readonly HealthDeliveryWarning[];
+  infrastructureFailures?: readonly HealthInfrastructureFailure[];
   overallStatus: "failed" | "healthy" | "needs_attention";
   lifecycle?: HealthFindingLifecycle;
   phases: Readonly<

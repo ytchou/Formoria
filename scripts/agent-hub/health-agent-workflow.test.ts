@@ -17,6 +17,19 @@ const retiredPaths = [
 ];
 
 describe("unified health-agent workflow contract", () => {
+  it("admits before collection and gates duplicate replays without workflow-wide cancellation", async () => {
+    const workflow = await readFile(workflowPath, "utf8");
+    expect(workflow).not.toContain("concurrency:");
+    const admission = workflow.indexOf("id: admission");
+    const firstCollector = workflow.indexOf("id: link");
+    expect(admission).toBeGreaterThan(-1);
+    expect(admission).toBeLessThan(firstCollector);
+    expect(workflow).toContain("workflow-runtime.ts admit-run");
+    expect(workflow).toContain("--terminal-output");
+    expect(workflow).toContain("if: steps.admission.outputs.claimed == 'true'");
+    expect(workflow).toContain("id: duplicate-terminal");
+  });
+
   it("keeps the scheduled and manual control plane in one job with five visible stages", async () => {
     const workflow = await readFile(workflowPath, "utf8");
     await expect(
@@ -121,13 +134,66 @@ describe("unified health-agent workflow contract", () => {
     expect(workflow.match(/workflow-runtime\.ts final-report/g)).toHaveLength(
       1,
     );
-    expect(workflow.match(/actions\/upload-artifact@/g)).toHaveLength(1);
+    expect(workflow.match(/actions\/upload-artifact@/g)).toHaveLength(2);
     expect(workflow).toContain(
       "health-run-${{ github.run_id }}-${{ github.run_attempt }}",
     );
     expect(workflow).toContain("health-run.json");
     expect(workflow).toContain("audit.jsonl");
     expect(workflow).not.toContain("actions/download-artifact@");
+  });
+
+  it("classifies failed artifact uploads and gates terminal success on both attempts", async () => {
+    const workflow = await readFile(workflowPath, "utf8");
+
+    expect(workflow).toMatch(
+      /name: "Stage 5 · Upload health run"[\s\S]*?id: upload/,
+    );
+    expect(workflow).toContain("id: upload-retry");
+    expect(workflow).toContain("record-artifact-upload");
+    expect(workflow).toContain("steps.upload.outcome != 'success'");
+    expect(workflow).toContain(
+      '"${{ steps.upload-retry.outcome }}" == success',
+    );
+    expect(workflow).toContain(
+      'test "${{ steps.upload.outcome }}" = success || test "${{ steps.upload-retry.outcome }}" = success',
+    );
+  });
+
+  it("finalizes the claimed ledger only after required terminal delivery", async () => {
+    const workflow = await readFile(workflowPath, "utf8");
+    const finalize = workflow.indexOf("id: finalize\n");
+    const uploadStatus = workflow.indexOf("id: upload-status\n");
+    const surface = workflow.indexOf(
+      'name: "Stage 5 · Surface infrastructure failures"',
+    );
+
+    expect(finalize).toBeGreaterThan(uploadStatus);
+    expect(surface).toBeGreaterThan(finalize);
+    const finalization = workflow.slice(finalize, surface);
+    expect(finalization).toContain(
+      "if: always() && steps.admission.outputs.claimed == 'true'",
+    );
+    for (const outcome of [
+      "steps.final-report.outcome",
+      "steps.artifact.outcome",
+      "steps.upload.outcome",
+      "steps.upload-retry.outcome",
+      "steps.upload-status.outcome",
+    ]) {
+      expect(finalization).toContain(outcome);
+    }
+    expect(finalization).toContain('--status "$terminal_status"');
+    expect(workflow).toContain("terminal-status");
+    expect(workflow).toContain("terminal_status=failed");
+    expect(workflow).toContain('"$terminal_status" == success');
+
+    const duplicateTerminal = workflow.indexOf("id: duplicate-terminal\n");
+    expect(duplicateTerminal).toBeGreaterThan(-1);
+    expect(finalize).toBeGreaterThan(duplicateTerminal);
+    expect(workflow.slice(duplicateTerminal, finalize)).not.toContain(
+      "id: finalize\n",
+    );
   });
 
   it("caps repair at two cycles, publishes at most one human-reviewed PR, and never merges", async () => {

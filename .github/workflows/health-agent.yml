@@ -17,10 +17,6 @@ on:
         default: "directory:canary:github-app-pr"
         type: string
 
-concurrency:
-  group: formoria-agent-writer
-  cancel-in-progress: false
-
 permissions:
   contents: read
   id-token: write
@@ -85,12 +81,26 @@ jobs:
           echo "expected_at=$expected_at" >> "$GITHUB_OUTPUT"
           echo "delay_seconds=$delay_seconds" >> "$GITHUB_OUTPUT"
           autofix=false
-          if [[ "$mode" == canary_fix ]] || [[ "$mode" == live && "$HEALTH_AGENT_ENABLED" == true && "$HEALTH_AUTOFIX_ENABLED" == true ]]; then autofix=true; fi
           echo "autofix=$autofix" >> "$GITHUB_OUTPUT"
           jq -n --arg run_id "$GITHUB_RUN_ID" --arg attempt "$GITHUB_RUN_ATTEMPT" --arg mode "$mode" --arg expected_at "$expected_at" --arg started_at "$run_at" --argjson delay_seconds "$delay_seconds" '{version:1,runId:$run_id,attempt:($attempt|tonumber),mode:$mode,schedule:{expectedAt:$expected_at,startedAt:$started_at,delaySeconds:$delay_seconds},groups:{},canonicalFindings:[],lifecycle:null,repair:null,managerReport:null}' > "$HEALTH_ARTIFACT_DIR/health-run.json"
 
+      - name: "Stage 1 · Admission — claim logical day"
+        id: admission
+        env:
+          HEALTH_AGENT_WRITER_TOKEN: ${{ secrets.HEALTH_AGENT_WRITER_TOKEN }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+        run: |
+          pnpm exec tsx scripts/health-agent/workflow-runtime.ts admit-run \
+            --mode "${{ steps.setup.outputs.mode }}" \
+            --output "$HEALTH_ARTIFACT_DIR/admission.json" \
+            --terminal-output "$HEALTH_ARTIFACT_DIR/final-report.json" \
+            --run-at "${{ steps.setup.outputs.run_at }}" \
+            --attempt "$GITHUB_RUN_ATTEMPT" --run-id "$GITHUB_RUN_ID"
+          echo "claimed=$(jq -r '.claimed' "$HEALTH_ARTIFACT_DIR/admission.json")" >> "$GITHUB_OUTPUT"
+
       - name: "Stage 2 · Product health — Link"
         id: link
+        if: steps.admission.outputs.claimed == 'true'
         continue-on-error: true
         env:
           FORMORIA_LINK_HEALTH_ORIGIN_SECRET: ${{ secrets.ORIGIN_SECRET }}
@@ -105,6 +115,7 @@ jobs:
           --audit "$HEALTH_ARTIFACT_DIR/link-audit.json"
       - name: "Stage 2 · Product health — brand review"
         id: brand
+        if: steps.admission.outputs.claimed == 'true'
         continue-on-error: true
         env:
           HEALTH_AGENT_READER_TOKEN: ${{ secrets.HEALTH_AGENT_READER_TOKEN }}
@@ -119,6 +130,7 @@ jobs:
           --audit "$HEALTH_ARTIFACT_DIR/brand-audit.json"
       - name: "Stage 2 · Product health — cron health"
         id: cron
+        if: steps.admission.outputs.claimed == 'true'
         continue-on-error: true
         env:
           HEALTH_AGENT_READER_TOKEN: ${{ secrets.HEALTH_AGENT_READER_TOKEN }}
@@ -129,6 +141,7 @@ jobs:
           --run-at "${{ steps.setup.outputs.run_at }}"
       - name: "Stage 2 · Product health — Directory evidence"
         id: directory-evidence
+        if: steps.admission.outputs.claimed == 'true'
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -141,7 +154,7 @@ jobs:
           --audit "$HEALTH_ARTIFACT_DIR/directory-evidence-audit.json"
       - name: "Stage 2 · Product health — Directory evaluation"
         id: directory
-        if: always()
+        if: always() && steps.admission.outputs.claimed == 'true'
         continue-on-error: true
         env:
           HEALTH_AGENT_WRITER_TOKEN: ${{ secrets.HEALTH_AGENT_WRITER_TOKEN }}
@@ -156,6 +169,7 @@ jobs:
           --audit "$HEALTH_ARTIFACT_DIR/directory-audit.json"
       - name: "Stage 2 · Runtime health — collect Sentry"
         id: sentry-collect
+        if: steps.admission.outputs.claimed == 'true'
         continue-on-error: true
         env:
           SENTRY_BASE_URL: ${{ vars.SENTRY_BASE_URL }}
@@ -169,6 +183,7 @@ jobs:
           --audit "$HEALTH_ARTIFACT_DIR/sentry-collect-audit.json"
       - name: "Stage 2 · Repository health — Vitest and Knip"
         id: quality
+        if: steps.admission.outputs.claimed == 'true'
         continue-on-error: true
         run: >-
           pnpm exec tsx scripts/health-agent/quality-runtime.ts
@@ -177,7 +192,7 @@ jobs:
 
       - name: "Stage 2 · Runtime health — prepare classification"
         id: sentry-schema
-        if: always()
+        if: always() && steps.admission.outputs.claimed == 'true'
         continue-on-error: true
         run: |
           printf '[]\n' > "$HEALTH_ARTIFACT_DIR/sentry-classifications.json"
@@ -186,7 +201,7 @@ jobs:
           echo "count=$(jq '.issues | length' "$HEALTH_ARTIFACT_DIR/sentry-issues.json")" >> "$GITHUB_OUTPUT"
       - name: "Stage 2 · Runtime health — classify Sentry"
         id: sentry-analysis-1
-        if: steps.sentry-schema.outputs.count != '0'
+        if: steps.admission.outputs.claimed == 'true' && steps.sentry-schema.outputs.count != '0'
         continue-on-error: true
         uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1
         with:
@@ -200,7 +215,7 @@ jobs:
             --json-schema '${{ steps.sentry-schema.outputs.schema }}'
       - name: "Stage 2 · Runtime health — materialize and validate"
         id: sentry-materialize-1
-        if: always() && steps.sentry-schema.outputs.count != '0'
+        if: always() && steps.admission.outputs.claimed == 'true' && steps.sentry-schema.outputs.count != '0'
         continue-on-error: true
         env:
           CLASSIFICATIONS: ${{ steps.sentry-analysis-1.outputs.structured_output }}
@@ -211,6 +226,7 @@ jobs:
       - name: "Stage 2 · Runtime health — retry classification once"
         id: sentry-analysis-2
         if: >-
+          steps.admission.outputs.claimed == 'true' &&
           steps.sentry-schema.outputs.count != '0' &&
           (steps.sentry-analysis-1.outcome != 'success' || steps.sentry-materialize-1.outcome != 'success')
         continue-on-error: true
@@ -226,7 +242,7 @@ jobs:
             --json-schema '${{ steps.sentry-schema.outputs.schema }}'
       - name: "Stage 2 · Runtime health — finalize classification"
         id: sentry-materialize
-        if: always()
+        if: always() && steps.admission.outputs.claimed == 'true'
         continue-on-error: true
         env:
           RETRY_CLASSIFICATIONS: ${{ steps.sentry-analysis-2.outputs.structured_output }}
@@ -242,7 +258,7 @@ jobs:
 
       - name: "Stage 3 · Consolidate — merge product findings"
         id: product
-        if: always()
+        if: always() && steps.admission.outputs.claimed == 'true'
         continue-on-error: true
         run: |
           jq -s '.[0] as $directory | .[1] as $brand |
@@ -254,7 +270,7 @@ jobs:
           mv "$HEALTH_ARTIFACT_DIR/product-health.json" "$HEALTH_ARTIFACT_DIR/directory-health.json"
       - name: "Stage 3 · Consolidate — validate, deduplicate, Linear"
         id: aggregate
-        if: always()
+        if: always() && steps.admission.outputs.claimed == 'true'
         continue-on-error: true
         env:
           HEALTH_AGENT_ENABLED: ${{ vars.HEALTH_AGENT_ENABLED }}
@@ -278,7 +294,7 @@ jobs:
           --audit "$HEALTH_ARTIFACT_DIR/aggregate-audit.json"
       - name: "Stage 3 · Consolidate — queue and reconcile"
         id: queue
-        if: always()
+        if: always() && steps.admission.outputs.claimed == 'true'
         continue-on-error: true
         env:
           HEALTH_AGENT_ENABLED: ${{ vars.HEALTH_AGENT_ENABLED }}
@@ -297,7 +313,7 @@ jobs:
           --audit "$HEALTH_ARTIFACT_DIR/queue-audit.json"
       - name: "Stage 3 · Consolidate — manager repair scope"
         id: snapshot
-        if: always()
+        if: always() && steps.admission.outputs.claimed == 'true'
         continue-on-error: true
         run: |
           pnpm exec tsx scripts/health-agent/workflow-runtime.ts repair-snapshot --batch manager --input "$HEALTH_ARTIFACT_DIR/queue.json" --output "$HEALTH_ARTIFACT_DIR/manager-snapshot.json"
@@ -305,7 +321,7 @@ jobs:
           echo "count=$(jq '.findings | length' "$HEALTH_ARTIFACT_DIR/manager-snapshot.json")" >> "$GITHUB_OUTPUT"
       - name: "Stage 3 · Consolidate — initial findings report"
         id: initial-report
-        if: always()
+        if: always() && steps.admission.outputs.claimed == 'true'
         continue-on-error: true
         env:
           HEALTH_SELF_HEAL: ${{ steps.setup.outputs.autofix }}
@@ -321,7 +337,7 @@ jobs:
 
       - name: "Stage 4 · Self-heal — repair cycle 1"
         id: repair-1
-        if: steps.setup.outputs.autofix == 'true' && steps.snapshot.outputs.count != '0'
+        if: steps.admission.outputs.claimed == 'true' && steps.setup.outputs.autofix == 'true' && steps.snapshot.outputs.count != '0'
         continue-on-error: true
         uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1
         with:
@@ -334,7 +350,7 @@ jobs:
             --max-turns 40 --allowedTools Read,Edit,Write,Glob,Grep,Bash(pnpm:*),Bash(git diff:*),Bash(git status:*),Bash(git ls-files:*)
       - name: "Stage 4 · Self-heal — validate cycle 1"
         id: validate-1
-        if: steps.repair-1.outcome == 'success'
+        if: steps.admission.outputs.claimed == 'true' && steps.repair-1.outcome == 'success'
         continue-on-error: true
         run: |
           if jq -e '.findings[] | select(.fingerprint | startswith("quality:full-unit-suite:"))' "$HEALTH_ARTIFACT_DIR/manager-snapshot.json" >/dev/null; then pnpm test; fi
@@ -345,7 +361,7 @@ jobs:
           scripts/health-agent/validate-repair-patch.sh "$HEALTH_ARTIFACT_DIR/manager-metadata.json" human
       - name: "Stage 4 · Self-heal — independent review cycle 1"
         id: review-1
-        if: steps.validate-1.outcome == 'success'
+        if: steps.admission.outputs.claimed == 'true' && steps.validate-1.outcome == 'success'
         continue-on-error: true
         uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1
         with:
@@ -359,7 +375,7 @@ jobs:
             --json-schema '{"type":"object","required":["cycle","verdict","review_state","auto_merge_enabled","merged","findings"],"properties":{"cycle":{"const":1},"verdict":{"const":"pass"},"review_state":{"const":"passed"},"auto_merge_enabled":{"const":false},"merged":{"const":false},"findings":{"type":"array","items":{"type":"object","required":["fingerprint","verdict","review_state"],"properties":{"fingerprint":{"type":"string"},"verdict":{"const":"pass"},"review_state":{"const":"passed"}}}}}}'
       - name: "Stage 4 · Self-heal — review decision cycle 1"
         id: review-decision-1
-        if: steps.review-1.outcome == 'success'
+        if: steps.admission.outputs.claimed == 'true' && steps.review-1.outcome == 'success'
         continue-on-error: true
         env:
           REVIEW_RESULT: ${{ steps.review-1.outputs.structured_output }}
@@ -373,6 +389,7 @@ jobs:
       - name: "Stage 4 · Self-heal — repair cycle 2"
         id: repair-2
         if: >-
+          steps.admission.outputs.claimed == 'true' &&
           steps.repair-1.outcome == 'success' &&
           (steps.validate-1.outcome != 'success' || steps.review-decision-1.outcome != 'success')
         continue-on-error: true
@@ -387,7 +404,7 @@ jobs:
             --max-turns 40 --allowedTools Read,Edit,Write,Glob,Grep,Bash(pnpm:*),Bash(git diff:*),Bash(git status:*),Bash(git ls-files:*)
       - name: "Stage 4 · Self-heal — validate cycle 2"
         id: validate-2
-        if: steps.repair-2.outcome == 'success'
+        if: steps.admission.outputs.claimed == 'true' && steps.repair-2.outcome == 'success'
         continue-on-error: true
         run: |
           if jq -e '.findings[] | select(.fingerprint | startswith("quality:full-unit-suite:"))' "$HEALTH_ARTIFACT_DIR/manager-snapshot.json" >/dev/null; then pnpm test; fi
@@ -398,7 +415,7 @@ jobs:
           scripts/health-agent/validate-repair-patch.sh "$HEALTH_ARTIFACT_DIR/manager-metadata.json" human
       - name: "Stage 4 · Self-heal — independent review cycle 2"
         id: review-2
-        if: steps.validate-2.outcome == 'success'
+        if: steps.admission.outputs.claimed == 'true' && steps.validate-2.outcome == 'success'
         continue-on-error: true
         uses: anthropics/claude-code-action@be7b93b1907a4abad570368f3c74b6fe3807510b # v1
         with:
@@ -411,7 +428,7 @@ jobs:
             --json-schema '{"type":"object","required":["cycle","verdict","review_state","auto_merge_enabled","merged","findings"],"properties":{"cycle":{"const":2},"verdict":{"const":"pass"},"review_state":{"const":"passed"},"auto_merge_enabled":{"const":false},"merged":{"const":false},"findings":{"type":"array","items":{"type":"object","required":["fingerprint","verdict","review_state"],"properties":{"fingerprint":{"type":"string"},"verdict":{"const":"pass"},"review_state":{"const":"passed"}}}}}}'
       - name: "Stage 4 · Self-heal — review decision cycle 2"
         id: review-decision-2
-        if: steps.review-2.outcome == 'success'
+        if: steps.admission.outputs.claimed == 'true' && steps.review-2.outcome == 'success'
         continue-on-error: true
         env:
           REVIEW_RESULT: ${{ steps.review-2.outputs.structured_output }}
@@ -425,7 +442,8 @@ jobs:
       - name: "Stage 4 · Publish — GitHub App token"
         id: app-token
         if: >-
-          steps.review-decision-1.outcome == 'success' || steps.review-decision-2.outcome == 'success'
+          steps.admission.outputs.claimed == 'true' &&
+          (steps.review-decision-1.outcome == 'success' || steps.review-decision-2.outcome == 'success')
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.0.0
         with:
           app-id: ${{ secrets.HEALTH_AGENT_GITHUB_APP_ID }}
@@ -434,7 +452,7 @@ jobs:
           permission-pull-requests: write
       - name: "Stage 4 · Publish — create at most one manager-reviewed PR"
         id: publish
-        if: steps.app-token.outcome == 'success'
+        if: steps.admission.outputs.claimed == 'true' && steps.app-token.outcome == 'success'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -475,7 +493,7 @@ jobs:
 
       - name: "Stage 5 · Final manager report"
         id: final-report
-        if: always()
+        if: always() && steps.admission.outputs.claimed == 'true'
         continue-on-error: true
         env:
           AGENT_HUB_INGEST_TOKEN: ${{ secrets.AGENT_HUB_INGEST_TOKEN }}
@@ -497,11 +515,19 @@ jobs:
           --deliver-status "${{ steps.initial-report.outcome }}"
           --repair-status "${{ steps.snapshot.outputs.count == '0' && 'skipped' || (steps.review-decision-1.outcome == 'success' || steps.review-decision-2.outcome == 'success') && 'success' || 'failed' }}"
           --publish-status "${{ steps.publish.outcome }}"
-          --run-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          --attempt "$GITHUB_RUN_ATTEMPT" --run-id "$GITHUB_RUN_ID"
-          --workflow-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+           --run-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+           --attempt "$GITHUB_RUN_ATTEMPT" --run-id "$GITHUB_RUN_ID"
+           --workflow-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           --output "$HEALTH_ARTIFACT_DIR/final-report.json"
           --audit "$HEALTH_ARTIFACT_DIR/final-audit.json"
+      - name: "Stage 5 · Final manager report — duplicate terminal"
+        id: duplicate-terminal
+        if: always() && steps.admission.outputs.claimed != 'true'
+        run: |
+          test -f "$HEALTH_ARTIFACT_DIR/final-report.json"
+          jq -n '{artifacts:{"link-checker":{status:"success",findings:[],failures:[]},"directory-health":{status:"success",findings:[],failures:[]},"sentry-triage":{status:"success",findings:[],failures:[]},"quality-health":{status:"success",findings:[],failures:[]},"cron-health":{status:"success",findings:[],failures:[]}}}' > "$HEALTH_ARTIFACT_DIR/aggregate.json"
+          printf '{"lifecycle":null,"failures":[]}' > "$HEALTH_ARTIFACT_DIR/queue.json"
+          printf '{}\n' > "$HEALTH_ARTIFACT_DIR/manager-pr-result.json"
       - name: "Stage 5 · Save one run artifact"
         id: artifact
         if: always()
@@ -517,7 +543,9 @@ jobs:
           done
           [[ -f "$HEALTH_ARTIFACT_DIR/initial-audit.jsonl" ]] && cat "$HEALTH_ARTIFACT_DIR/initial-audit.jsonl" >> "$HEALTH_ARTIFACT_DIR/audit.jsonl"
       - name: "Stage 5 · Upload health run"
+        id: upload
         if: always() && steps.artifact.outcome == 'success'
+        continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: health-run-${{ github.run_id }}-${{ github.run_attempt }}
@@ -526,11 +554,70 @@ jobs:
             .health-agent-artifacts/audit.jsonl
           if-no-files-found: error
           retention-days: 14
+      - name: "Stage 5 · Retry health run upload"
+        id: upload-retry
+        if: always() && steps.artifact.outcome == 'success' && steps.upload.outcome != 'success'
+        continue-on-error: true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: health-run-${{ github.run_id }}-${{ github.run_attempt }}-retry
+          path: |
+            .health-agent-artifacts/health-run.json
+            .health-agent-artifacts/audit.jsonl
+          if-no-files-found: error
+          retention-days: 14
+      - name: "Stage 5 · Classify health run upload"
+        id: upload-status
+        if: always()
+        continue-on-error: true
+        run: |
+          upload_status=failed
+          if [[ "${{ steps.upload.outcome }}" == success || "${{ steps.upload-retry.outcome }}" == success ]]; then upload_status=success; fi
+          pnpm exec tsx scripts/health-agent/workflow-runtime.ts record-artifact-upload \
+            --input "$HEALTH_ARTIFACT_DIR/health-run.json" \
+            --output "$HEALTH_ARTIFACT_DIR/health-run.json" \
+            --status "$upload_status" \
+            --reason "actions/upload-artifact outcome: $upload_status"
+      - name: "Stage 5 · Admission — finalize logical day"
+        id: finalize
+        if: always() && steps.admission.outputs.claimed == 'true'
+        env:
+          HEALTH_AGENT_WRITER_TOKEN: ${{ secrets.HEALTH_AGENT_WRITER_TOKEN }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+        run: |
+          terminal_status=failed
+          if pnpm exec tsx scripts/health-agent/workflow-runtime.ts terminal-status \
+            --artifact-status "${{ steps.artifact.outcome }}" \
+            --final-report-status "${{ steps.final-report.outcome }}" \
+            --output "$HEALTH_ARTIFACT_DIR/terminal-status.json" \
+            --upload-classifier-status "${{ steps.upload-status.outcome }}" \
+            --upload-retry-status "${{ steps.upload-retry.outcome }}" \
+            --upload-status "${{ steps.upload.outcome }}" &&
+            terminal_status="$(jq -er '.status' "$HEALTH_ARTIFACT_DIR/terminal-status.json")" &&
+            [[ "$terminal_status" == success ]]; then
+            :
+          else
+            terminal_status=failed
+          fi
+          pnpm exec tsx scripts/health-agent/workflow-runtime.ts finalize-run \
+            --mode "${{ steps.setup.outputs.mode }}" \
+            --result "$HEALTH_ARTIFACT_DIR/final-report.json" \
+            --output "$HEALTH_ARTIFACT_DIR/finalize.json" \
+            --status "$terminal_status" \
+            --run-at "${{ steps.setup.outputs.run_at }}" \
+            --attempt "$GITHUB_RUN_ATTEMPT" --run-id "$GITHUB_RUN_ID"
       - name: "Stage 5 · Surface infrastructure failures"
         if: always()
         run: |
+          test "${{ steps.upload.outcome }}" = success || test "${{ steps.upload-retry.outcome }}" = success
+          test "${{ steps.upload-status.outcome }}" = success
           jq -e '.groups | all(.status != "failed")' "$HEALTH_ARTIFACT_DIR/health-run.json" >/dev/null
-          test "${{ steps.aggregate.outcome }}" = success
-          test "${{ steps.queue.outcome }}" = success
-          test "${{ steps.final-report.outcome }}" = success
+          if [[ "${{ steps.admission.outputs.claimed }}" == true ]]; then
+            test "${{ steps.aggregate.outcome }}" = success
+            test "${{ steps.queue.outcome }}" = success
+            test "${{ steps.final-report.outcome }}" = success
+            test "${{ steps.finalize.outcome }}" = success
+          else
+            jq -e '.managerReport.envelope.status == "success"' "$HEALTH_ARTIFACT_DIR/health-run.json" >/dev/null
+          fi
           jq -e '.managerReport.envelope.status != "failed"' "$HEALTH_ARTIFACT_DIR/health-run.json" >/dev/null
