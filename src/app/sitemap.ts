@@ -3,23 +3,33 @@ import { getBrandSeoEntries } from "@/lib/services/brands";
 import { getPublishedEvents } from "@/lib/services/events";
 import { getAllStories } from "@/lib/services/stories";
 import { buildAlternates, type Locale } from "@/lib/seo/alternates";
-import { getBrandIndexability } from "@/lib/seo/brand-indexability";
+import { buildBrandSitemapEntries } from "@/lib/seo/brand-sitemap";
 import { buildDirectorySitemapSection } from "@/lib/seo/directory-sitemap";
 
 export const revalidate = 3600;
 
 const ALL_LOCALES: readonly Locale[] = ["zh-TW", "en"];
 
+/**
+ * `alternateLocales` defaults to the emitted set, which is right for every
+ * surface whose "should we list it" and "which translations exist" answers are
+ * the same question. Brands are the exception: DEV-1405 gates *membership* on
+ * the raised promotion bar while hreflang still has to describe which
+ * translations exist, and the brand detail page derives its own alternates from
+ * the unchanged indexability bar. Narrowing `languages` to the promoted set
+ * would put the sitemap and the page in direct disagreement.
+ */
 export function localizedEntries(
   path: string,
   availableLocales: readonly Locale[] = ALL_LOCALES,
   lastModified?: Date,
+  alternateLocales: readonly Locale[] = availableLocales,
 ): MetadataRoute.Sitemap {
   return availableLocales.map((locale) => {
     const { canonical, languages } = buildAlternates(
       path,
       locale,
-      availableLocales,
+      alternateLocales,
     );
     return {
       url: canonical,
@@ -85,18 +95,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ]);
     const stories = storyResult.ok ? storyResult.stories : [];
 
-    const brandPages = brands.flatMap((brand) => {
-      const indexability = getBrandIndexability(brand);
-      const availableLocales: Locale[] = [
-        ...(indexability["zh-TW"] ? (["zh-TW"] as const) : []),
-        ...(indexability.en ? (["en"] as const) : []),
-      ];
-      return localizedEntries(
-        `/brands/${brand.slug}`,
-        availableLocales,
-        validDate(brand.updatedAt),
-      );
-    });
+    const brandPages = buildBrandSitemapEntries(brands);
 
     const storyPages = stories.flatMap((story) => {
       if (story.frontmatter.locale === "en") return [];

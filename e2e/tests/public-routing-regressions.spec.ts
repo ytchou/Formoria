@@ -39,6 +39,38 @@ test.describe("Public routing regressions deep", () => {
     }
   });
 
+  test("retired L1 taxonomy slugs redirect to the category that absorbed them", async ({
+    request,
+  }) => {
+    // These 404'd in production for long enough that Search Console reported
+    // every one of them. The destination assertion is the point: redirecting a
+    // dead category onto another dead alias just moves the 404 one hop out.
+    const redirects = [
+      ["/categories/accessories", "/categories/bags-accessories"],
+      ["/categories/bags", "/categories/bags-accessories"],
+      ["/categories/baby-kids", "/categories/kids-pets"],
+      ["/categories/pets", "/categories/kids-pets"],
+      ["/categories/food", "/categories/food-drink"],
+      ["/categories/beverages", "/categories/food-drink"],
+      ["/en/categories/clothing", "/en/categories/fashion"],
+      ["/categories/others", "/brands"],
+      ["/about-us", "/about"],
+    ] as const;
+
+    for (const [source, destination] of redirects) {
+      const response = await request.get(source, { maxRedirects: 0 });
+      expect(response.status(), `${source} should redirect`).toBe(308);
+      expect(response.headers().location, `${source} target`).toBe(destination);
+
+      const destinationResponse = await request.get(destination, {
+        maxRedirects: 0,
+      });
+      expect(destinationResponse.status(), `${destination} should render`).toBe(
+        200,
+      );
+    }
+  });
+
   test("@smoke default-locale auth aliases redirect once and preserve query parameters", async ({
     request,
   }) => {
