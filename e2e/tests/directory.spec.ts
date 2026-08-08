@@ -13,6 +13,13 @@ test.describe("Directory deep", () => {
     const filters = page.getByRole("checkbox");
     const count = await filters.count();
     for (let i = 1; i < Math.min(count, 4); i++) {
+      // Selecting a category navigates to its dedicated taxonomy URL, and
+      // deselecting navigates back to the plain directory — both are full
+      // route changes that remount the sidebar and collapse this section.
+      if ((await categoryToggle.getAttribute("aria-expanded")) !== "true") {
+        await categoryToggle.click();
+        await expect(categoryToggle).toHaveAttribute("aria-expanded", "true");
+      }
       await filters.nth(i).click();
       await expect(
         page
