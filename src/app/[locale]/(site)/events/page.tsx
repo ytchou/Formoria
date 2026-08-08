@@ -55,7 +55,7 @@ export default async function EventsHubPage({ params }: PageProps) {
   // the build down: CI's Build job is a compile check and points Supabase at
   // 127.0.0.1 on purpose (`src/lib/degraded-render.ts:38-42`). Degrade to the
   // empty state, report to Sentry, and let `markRenderDegraded` keep the failed
-  // render out of the ISR cache — same contract as `/about` and `/stats`.
+  // render out of the ISR cache — same contract as `/about`.
   const events = await getPublishedEvents().catch(captureReadFailure('events.hub'))
   const brandCounts = events
     ? await getEventBrandCounts(events.map((event) => event.id)).catch(

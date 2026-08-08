@@ -34,7 +34,7 @@ import {
 } from "@/lib/services/events";
 import { verifyCreativeExpoPlacement } from "@/lib/events/creative-expo-explorer";
 import { captureReadFailure, markRenderDegraded } from "@/lib/degraded-render";
-import { getStorySeries } from "@/lib/services/stories";
+import { getStorySeriesByRecency } from "@/lib/services/stories";
 import { buildAlternates } from "@/lib/seo/alternates";
 import type { Locale } from "@/lib/seo/alternates";
 import {
@@ -226,9 +226,6 @@ export default async function EventDetailPage({ params }: PageProps) {
   const summary = isEnglish
     ? (event.summaryEn ?? event.summary)
     : event.summary;
-  const description = isEnglish
-    ? (event.descriptionEn ?? event.description)
-    : event.description;
   const venueName = isEnglish
     ? (event.venueNameEn ?? event.venueName)
     : event.venueName;
@@ -247,12 +244,6 @@ export default async function EventDetailPage({ params }: PageProps) {
   const lineupNote = isEnglish
     ? (event.lineupNoteEn ?? event.lineupNote)
     : event.lineupNote;
-  // One roster-wide verification date, read off the first row: the exhibitor
-  // sync stamps every row in the same pass, so any row answers for all of them.
-  // Rendered next to the floor plan, with the rest of the event's sources.
-  const creativeExpoVerifiedAt = lineupRead?.at(0)
-    ? (lineupRead.at(0) as EventExhibitorEntry).verifiedAt
-    : null;
   const phase = resolveEventPhase(event, taipeiToday());
   const dateLabel = formatEventDateRange(event.startsOn, event.endsOn);
   const areaOptions = deriveAreaOptions(entries, safeLocale);
@@ -284,14 +275,19 @@ export default async function EventDetailPage({ params }: PageProps) {
   // Events and stories join by convention: the event slug IS the story series
   // name. No FK, so a missing series is the normal case, not an error.
   //
+  // Ordered by recency, not by `seriesOrder`: this list answers "what is newest
+  // about this event", so a part 1 revised yesterday belongs above a part 4
+  // published last month. `/stories/[slug]`'s series nav keeps authored order —
+  // that one answers "what is part 3", which is a different question.
+  //
   // The request locale is passed through, never left to the `'zh-TW'` default:
-  // `getStorySeries` resolves against ONE published set, so an English reader
+  // the service resolves against ONE published set, so an English reader
   // would otherwise be handed zh-TW story titles while an `en`-authored story
   // in this series never surfaced on `/en` at all. `/stories/[slug]` makes the
   // same call for the same reason (it resolves the story's own authored locale;
   // here the event page has both editions, so the request locale is the set to
   // ask for).
-  const seriesResult = await getStorySeries(slug, safeLocale);
+  const seriesResult = await getStorySeriesByRecency(slug, safeLocale);
   const relatedStories = seriesResult.ok ? seriesResult.stories : [];
 
   const eventJsonLd = buildEventJsonLd({
@@ -371,6 +367,21 @@ export default async function EventDetailPage({ params }: PageProps) {
           <p className="type-page-subtitle">{summary}</p>
         </header>
 
+        {heroSrc ? (
+          <div className="relative aspect-[16/9] overflow-hidden rounded-xl bg-muted">
+            {/* Decorative: the event name is the adjacent `<h1>`, so alt text
+                here would only repeat it to a screen reader. */}
+            <Image
+              src={heroSrc}
+              alt=""
+              fill
+              priority
+              sizes="100vw"
+              className="object-cover"
+            />
+          </div>
+        ) : null}
+
         {event.officialUrl || event.ticketUrl || mapsUrl ? (
           <div className="space-y-3">
             <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
@@ -403,7 +414,6 @@ export default async function EventDetailPage({ params }: PageProps) {
                   {/* A free event's ticket link books a slot, it does not sell
                         one — a "ticket info" label on free entry reads as a paywall. */}
                   {t(event.isFree === true ? "reserve" : "tickets")}
-                  <ExternalLink aria-hidden="true" className="size-4" />
                 </a>
               ) : null}
               {/* Routing, not a rendered map: an embedded map needs an API key
@@ -539,33 +549,12 @@ export default async function EventDetailPage({ params }: PageProps) {
               </div>
             ) : null}
           </dl>
-          {heroSrc ? (
-            <div className="relative aspect-[16/9] overflow-hidden rounded-xl bg-muted">
-              {/* Decorative: the event name is the adjacent `<h1>`, so alt text
-                  here would only repeat it to a screen reader. */}
-              <Image
-                src={heroSrc}
-                alt=""
-                fill
-                priority
-                sizes="100vw"
-                className="object-cover"
-              />
-            </div>
-          ) : null}
-
-          {description ? (
-            <p className="whitespace-pre-wrap type-body">{description}</p>
-          ) : null}
-
           {/*
             The organizer's floor plan closes the venue facts rather than
             sitting in the brand explorer: it is reference material about the
             hall, and unlike every control in the explorer it filters nothing.
           */}
-          {isCreativeExpo ? (
-            <TaiwanCreativeExpoOfficialMap verifiedAt={creativeExpoVerifiedAt} />
-          ) : null}
+          {isCreativeExpo ? <TaiwanCreativeExpoOfficialMap /> : null}
         </section>
 
         {/*

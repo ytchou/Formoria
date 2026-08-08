@@ -24,11 +24,11 @@ describe("GET /llms.txt", () => {
       expect(body).toContain(category.nameZh);
     }
 
-    for (const path of ["/events", "/faq", "/stats"]) {
+    for (const path of ["/events", "/faq"]) {
       expect(body).toContain(buildAlternates(path, "zh-TW").canonical);
     }
 
-    for (const path of ["/brands", "/stories", "/about", "/glossary"]) {
+    for (const path of ["/brands", "/stories", "/about"]) {
       expect(body).toContain(buildAlternates(path, "zh-TW").canonical);
     }
   });

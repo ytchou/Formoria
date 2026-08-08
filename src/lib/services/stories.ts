@@ -176,6 +176,34 @@ function compareBySeriesOrder(a: StoryEntry, b: StoryEntry): number {
 }
 
 /**
+ * `updatedAt` is optional frontmatter — a story that has never been revised
+ * only carries `publishedAt`, and falling back to it is what keeps a fresh
+ * never-revised story ahead of an old one. An entry with neither parseable
+ * date sinks to the end rather than landing wherever `readdirSync` put it.
+ */
+function updatedTimestamp(entry: StoryEntry): number {
+  const parsed = Date.parse(
+    entry.frontmatter.updatedAt || entry.frontmatter.publishedAt,
+  )
+  return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed
+}
+
+/**
+ * Most-recently-touched first, with the same slug tie-break as
+ * `compareByPublishedAtDesc` so the order is fully deterministic between
+ * builds. The `at !== bt` guard is load-bearing for the same reason it is
+ * there: subtracting two -Infinity values yields NaN, which `sort` treats as
+ * an arbitrary result.
+ */
+function compareByUpdatedAtDesc(a: StoryEntry, b: StoryEntry): number {
+  const at = updatedTimestamp(a)
+  const bt = updatedTimestamp(b)
+  if (at !== bt) return bt - at
+  if (a.slug === b.slug) return 0
+  return a.slug < b.slug ? -1 : 1
+}
+
+/**
  * Reads + parses every file in the stories directory, once per request.
  * Throws on filesystem failure so the list wrappers can report `ok: false`.
  */
@@ -278,6 +306,32 @@ export async function getStorySeries(
     return { ok: true, stories }
   } catch (error) {
     return storyListError('getStorySeries', error)
+  }
+}
+
+/**
+ * The same series as `getStorySeries`, ordered most-recently-updated first
+ * rather than in authored order.
+ *
+ * Two callers, two questions. `/stories/[slug]`'s series navigation asks "what
+ * is part 3 of this series", so it must stay in `seriesOrder`. The event page
+ * asks "what is newest about this event", where a part 1 revised yesterday
+ * outranks a part 4 published last month. Separate function rather than a flag
+ * on `getStorySeries`, so neither caller can silently acquire the other's
+ * ordering.
+ */
+export async function getStorySeriesByRecency(
+  seriesId: string,
+  locale: StoryLocale = 'zh-TW',
+): Promise<StoryListResult> {
+  try {
+    const stories = resolvePublishedEntries(locale)
+      .filter(entry => entry.frontmatter.series === seriesId)
+      .sort(compareByUpdatedAtDesc)
+
+    return { ok: true, stories }
+  } catch (error) {
+    return storyListError('getStorySeriesByRecency', error)
   }
 }
 

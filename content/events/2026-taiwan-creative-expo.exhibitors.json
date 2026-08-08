@@ -84,7 +84,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "acera"
     },
     {
       "sourceKey": "creative-expo:70",
@@ -155,7 +156,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "25togo"
     },
     {
       "sourceKey": "creative-expo:187",
@@ -224,7 +226,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "glowis"
     },
     {
       "sourceKey": "creative-expo:231",
@@ -861,7 +864,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "master-project-studio"
     },
     {
       "sourceKey": "creative-expo:199",
@@ -1003,7 +1007,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "a-plant-studio"
     },
     {
       "sourceKey": "creative-expo:168",
@@ -1049,7 +1054,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "reminis-candere"
     },
     {
       "sourceKey": "creative-expo:4",
@@ -1072,7 +1078,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "x-mark-taiwan-fern-only-x-mark-taiwan"
     },
     {
       "sourceKey": "creative-expo:407",
@@ -1287,7 +1294,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "bon-bon-stickers"
     },
     {
       "sourceKey": "creative-expo:31",
@@ -1452,7 +1460,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "scent-forest"
     },
     {
       "sourceKey": "creative-expo:59",
@@ -1475,7 +1484,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "laboratory-scent"
     },
     {
       "sourceKey": "creative-expo:385",
@@ -1498,7 +1508,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "hibang"
     },
     {
       "sourceKey": "creative-expo:405",
@@ -1521,7 +1532,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "dr-wilds"
     },
     {
       "sourceKey": "creative-expo:154",
@@ -1544,7 +1556,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "moek-x-jesper"
     },
     {
       "sourceKey": "creative-expo:259",
@@ -1590,7 +1603,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "titaniumo"
     },
     {
       "sourceKey": "creative-expo:78",
@@ -1613,7 +1627,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "kuai-shan-fang"
     },
     {
       "sourceKey": "creative-expo:498",
@@ -1683,7 +1698,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "penpenpen-studio"
     },
     {
       "sourceKey": "creative-expo:200",
@@ -1706,7 +1722,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "lsy-lamsamyick"
     },
     {
       "sourceKey": "creative-expo:436",
@@ -1729,7 +1746,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "inzense"
     },
     {
       "sourceKey": "creative-expo:90",
@@ -1752,7 +1770,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "no-30"
     },
     {
       "sourceKey": "creative-expo:144",
@@ -1965,7 +1984,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "togo"
     },
     {
       "sourceKey": "creative-expo:321",
@@ -2275,7 +2295,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "ttc-goods"
     },
     {
       "sourceKey": "creative-expo:366",
@@ -2345,7 +2366,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "evakaku"
     },
     {
       "sourceKey": "creative-expo:180",
@@ -2392,7 +2414,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "mufun-design"
     },
     {
       "sourceKey": "creative-expo:101",
@@ -2748,7 +2771,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "hakkei"
     },
     {
       "sourceKey": "creative-expo:345",
@@ -3331,7 +3355,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "petit-petit"
     },
     {
       "sourceKey": "creative-expo-booth:K3-002",
@@ -3771,7 +3796,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "chen-pi-tea"
     },
     {
       "sourceKey": "creative-expo:220",
@@ -3794,7 +3820,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "hmm"
     },
     {
       "sourceKey": "creative-expo:453",
@@ -4302,7 +4329,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "cypress-house"
     },
     {
       "sourceKey": "creative-expo:395",
@@ -4394,7 +4422,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "anunnaki"
     },
     {
       "sourceKey": "creative-expo:314",
@@ -4558,7 +4587,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "step-cultural-and-creative"
     },
     {
       "sourceKey": "creative-expo:334",
@@ -5221,7 +5251,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "elephantsgogo"
     },
     {
       "sourceKey": "creative-expo:449",
@@ -5340,7 +5371,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "morning-nunu"
     },
     {
       "sourceKey": "creative-expo:189",
@@ -5507,7 +5539,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "peng-lu-pottery"
     },
     {
       "sourceKey": "creative-expo:120",
@@ -5578,7 +5611,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "chang-che"
     },
     {
       "sourceKey": "creative-expo:329",
@@ -5743,7 +5777,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "cindy-chien"
     },
     {
       "sourceKey": "creative-expo:377",
@@ -5766,7 +5801,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "my-girl-aiko"
     },
     {
       "sourceKey": "creative-expo:347",
@@ -5931,7 +5967,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "fresh-type-studio"
     },
     {
       "sourceKey": "creative-expo:116",
@@ -5954,7 +5991,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "goblin-elder"
     },
     {
       "sourceKey": "creative-expo:25",
@@ -5977,7 +6015,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "su-felting"
     },
     {
       "sourceKey": "creative-expo:317",
@@ -6023,7 +6062,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "tc-hotdog"
     },
     {
       "sourceKey": "creative-expo:331",
@@ -6046,7 +6086,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "yueatgreen"
     },
     {
       "sourceKey": "creative-expo:298",
@@ -6069,7 +6110,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "dumbradio"
     },
     {
       "sourceKey": "creative-expo:88",
@@ -6092,7 +6134,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "qrying-bb-garden"
     },
     {
       "sourceKey": "creative-expo:365",
@@ -6115,7 +6158,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "bonnie-lu"
     },
     {
       "sourceKey": "creative-expo:130",
@@ -6138,7 +6182,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "tribal-cousin-maker-dealer"
     },
     {
       "sourceKey": "creative-expo:20",
@@ -6184,7 +6229,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "fluffystar"
     },
     {
       "sourceKey": "creative-expo:338",
@@ -6207,7 +6253,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "softie-bunny"
     },
     {
       "sourceKey": "creative-expo:202",
@@ -6230,7 +6277,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "87rabbit"
     },
     {
       "sourceKey": "creative-expo:118",
@@ -6299,7 +6347,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "woooguo"
     },
     {
       "sourceKey": "creative-expo:134",
@@ -6346,7 +6395,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "gaga-chicken"
     },
     {
       "sourceKey": "creative-expo:218",
@@ -6369,7 +6419,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "phenshyshy"
     },
     {
       "sourceKey": "creative-expo:237",
@@ -6392,7 +6443,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "acui-a-cui-studio"
     },
     {
       "sourceKey": "creative-expo:279",
@@ -6415,7 +6467,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "tuobeiren"
     },
     {
       "sourceKey": "creative-expo:149",
@@ -6438,7 +6491,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "skycoffee-studio"
     },
     {
       "sourceKey": "creative-expo:440",
@@ -6461,7 +6515,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "piper-piper-illu"
     },
     {
       "sourceKey": "creative-expo:320",
@@ -6484,7 +6539,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "little-sparkles"
     },
     {
       "sourceKey": "creative-expo:62",
@@ -6507,7 +6563,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "shubingcat"
     },
     {
       "sourceKey": "creative-expo:58",
@@ -6553,7 +6610,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "tabbi-l"
     },
     {
       "sourceKey": "creative-expo:286",
@@ -6576,7 +6634,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "circular"
     },
     {
       "sourceKey": "creative-expo:133",
@@ -6837,7 +6896,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "kukugaga"
     },
     {
       "sourceKey": "creative-expo:42",
@@ -6860,7 +6920,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "spark-s-action-plan"
     },
     {
       "sourceKey": "creative-expo:374",
@@ -6883,7 +6944,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "yuying-illustration"
     },
     {
       "sourceKey": "creative-expo:129",
@@ -6954,7 +7016,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "carl-pufferfish"
     },
     {
       "sourceKey": "creative-expo:404",
@@ -7025,7 +7088,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "oranpeel"
     },
     {
       "sourceKey": "creative-expo:264",
@@ -7096,7 +7160,8 @@
         "retrievedAt": "2026-08-06",
         "basis": "Official 2026 Creative Expo Taiwan exhibitor listing; booth and names transcribed from the rendered listing. Official website URLs added 2026-08-08 from a separate link-research pass (scripts/seeds/2026-cet-*.csv); the listing itself does not publish them."
       },
-      "outcome": "included_unlinked"
+      "outcome": "matched_existing",
+      "brandSlug": "drunkfoodsss"
     },
     {
       "sourceKey": "creative-expo:296",

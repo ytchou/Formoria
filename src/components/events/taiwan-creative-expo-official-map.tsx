@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { textStyles } from "@/components/ui/text-styles";
 import { cn } from "@/lib/utils";
 import {
@@ -75,12 +75,7 @@ function MapUnavailable() {
  * zone the reader had selected downpage, because it no longer knows about that
  * selection. It always opens fit-to-width.
  */
-export function TaiwanCreativeExpoOfficialMap({
-  verifiedAt = null,
-}: {
-  /** Date the exhibitor roster was last checked against the official list. */
-  verifiedAt?: string | null;
-}) {
+export function TaiwanCreativeExpoOfficialMap() {
   const t = useTranslations("events");
   const [open, setOpen] = useState(false);
   const [zoom, setZoom] = useState<ZoomLevel>(1);
@@ -135,13 +130,136 @@ export function TaiwanCreativeExpoOfficialMap({
       </div>
 
       {/*
+        Both ways out of this section, side by side above the plan: enlarge it,
+        or leave for the organizer's roster. As a text link the roster read as
+        a footnote to the description rather than a peer of the viewer.
+      */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Dialog open={open} onOpenChange={handleOpenChange}>
+          <DialogTrigger
+            onClick={rememberTriggerFocus}
+            render={<Button size="compact" type="button" variant="secondary" />}
+          >
+            <Maximize2 aria-hidden="true" />
+            {t("floorMapOpenViewer")}
+          </DialogTrigger>
+          <DialogContent
+            className="h-[100dvh] w-screen max-w-none gap-0 rounded-none p-0 sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-[min(96vw,1100px)] sm:rounded-xl"
+            showCloseButton={false}
+          >
+            <DialogHeader className="flex-row items-start justify-between gap-3 border-b p-4 sm:p-5">
+              <div className="min-w-0 space-y-1">
+                <DialogTitle>{t("floorMapViewerTitle")}</DialogTitle>
+                <DialogDescription>
+                  {t("floorMapViewerDescription")}
+                </DialogDescription>
+              </div>
+              <DialogClose
+                render={
+                  <Button
+                    aria-label={t("floorMapCloseViewer")}
+                    className="size-12"
+                    size="icon"
+                    type="button"
+                    variant="ghost"
+                  />
+                }
+              >
+                <X aria-hidden="true" />
+              </DialogClose>
+            </DialogHeader>
+
+            <div
+              aria-label={t("floorMapLabel")}
+              className="min-h-0 flex-1 overflow-auto overscroll-contain bg-muted p-2 touch-pan-x touch-pan-y sm:p-4"
+              ref={viewportRef}
+              role="region"
+              tabIndex={0}
+            >
+              <div
+                className="relative min-w-full"
+                style={{ width: `${zoom * 100}%` }}
+              >
+                <div
+                  className="relative aspect-[3200/2450] w-full overflow-hidden bg-muted"
+                  data-map-image={EXPO_FLOOR_MAP_GEOMETRY.viewBox}
+                >
+                  <Image
+                    alt={EXPO_FLOOR_MAP_ASSET.alt}
+                    className={cn("object-fill", imageFailed && "invisible")}
+                    fill
+                    onError={() => setImageFailed(true)}
+                    sizes="(max-width: 640px) 100vw, 1200px"
+                    src={EXPO_FLOOR_MAP_ASSET.src}
+                  />
+                  {imageFailed ? <MapUnavailable /> : null}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t bg-background p-3 sm:p-4">
+              <span className={textStyles({ variant: "caption" })}>
+                {t("floorMapZoom")}
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {ZOOM_LEVELS.map((level) => (
+                  <Button
+                    aria-label={
+                      level === 1
+                        ? t("floorMapFit")
+                        : t("floorMapZoomTimes", { value: level })
+                    }
+                    aria-pressed={zoom === level}
+                    className="min-h-12 min-w-12 px-2"
+                    key={level}
+                    onClick={() => setZoom(level)}
+                    size="default"
+                    type="button"
+                    variant={zoom === level ? "primary" : "secondary"}
+                  >
+                    {level === 1 ? (
+                      t("floorMapFit")
+                    ) : (
+                      <span aria-hidden="true">
+                        {t("floorMapZoomTimes", { value: level })}
+                      </span>
+                    )}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <a
+          className={buttonVariants({ size: "compact", variant: "secondary" })}
+          href={EXPO_ROSTER_SOURCE_URL}
+          rel="noreferrer"
+          target="_blank"
+        >
+          {t("explorerSource")}
+          <ExternalLink aria-hidden="true" />
+        </a>
+
+        <a
+          className={buttonVariants({ size: "compact", variant: "secondary" })}
+          href={EXPO_FLOOR_MAP_ASSET.sourceUrl}
+          rel="noreferrer"
+          target="_blank"
+        >
+          {t("floorMapOfficialPdf")}
+          <ExternalLink aria-hidden="true" />
+        </a>
+      </div>
+
+      {/*
         Rendered here rather than only inside the viewer: the plan is the
         answer to "where is this hall", and a reader should not have to open a
-        dialog to get it. The viewer below stays, because at page width the
+        dialog to get it. The viewer above stays, because at page width the
         booth numbers on a 3200px plan are not legible.
       */}
       <div
-        className="relative aspect-[3200/2450] w-full overflow-hidden rounded-xl border border-border bg-muted"
+        className="relative mx-auto aspect-[3200/2450] w-full max-w-4xl overflow-hidden rounded-xl border border-border bg-muted"
         data-map-image={EXPO_FLOOR_MAP_GEOMETRY.viewBox}
       >
         <Image
@@ -149,155 +267,20 @@ export function TaiwanCreativeExpoOfficialMap({
           className={cn("object-contain", imageFailed && "invisible")}
           fill
           onError={() => setImageFailed(true)}
-          sizes="(max-width: 640px) 100vw, 1200px"
+          sizes="(max-width: 640px) 100vw, 896px"
           src={EXPO_FLOOR_MAP_ASSET.src}
         />
         {imageFailed ? <MapUnavailable /> : null}
       </div>
 
-      <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogTrigger
-          onClick={rememberTriggerFocus}
-          render={<Button size="compact" type="button" variant="secondary" />}
-        >
-          <Maximize2 aria-hidden="true" />
-          {t("floorMapOpenViewer")}
-        </DialogTrigger>
-        <DialogContent
-          className="h-[100dvh] w-screen max-w-none gap-0 rounded-none p-0 sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-[min(96vw,1100px)] sm:rounded-xl"
-          showCloseButton={false}
-        >
-          <DialogHeader className="flex-row items-start justify-between gap-3 border-b p-4 sm:p-5">
-            <div className="min-w-0 space-y-1">
-              <DialogTitle>{t("floorMapViewerTitle")}</DialogTitle>
-              <DialogDescription>
-                {t("floorMapViewerDescription")}
-              </DialogDescription>
-            </div>
-            <DialogClose
-              render={
-                <Button
-                  aria-label={t("floorMapCloseViewer")}
-                  className="size-12"
-                  size="icon"
-                  type="button"
-                  variant="ghost"
-                />
-              }
-            >
-              <X aria-hidden="true" />
-            </DialogClose>
-          </DialogHeader>
-
-          <div
-            aria-label={t("floorMapLabel")}
-            className="min-h-0 flex-1 overflow-auto overscroll-contain bg-muted p-2 touch-pan-x touch-pan-y sm:p-4"
-            ref={viewportRef}
-            role="region"
-            tabIndex={0}
-          >
-            <div
-              className="relative min-w-full"
-              style={{ width: `${zoom * 100}%` }}
-            >
-              <div
-                className="relative aspect-[3200/2450] w-full overflow-hidden bg-muted"
-                data-map-image={EXPO_FLOOR_MAP_GEOMETRY.viewBox}
-              >
-                <Image
-                  alt={EXPO_FLOOR_MAP_ASSET.alt}
-                  className={cn("object-fill", imageFailed && "invisible")}
-                  fill
-                  onError={() => setImageFailed(true)}
-                  sizes="(max-width: 640px) 100vw, 1200px"
-                  src={EXPO_FLOOR_MAP_ASSET.src}
-                />
-                {imageFailed ? <MapUnavailable /> : null}
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t bg-background p-3 sm:p-4">
-            <span className={textStyles({ variant: "caption" })}>
-              {t("floorMapZoom")}
-            </span>
-            <div className="flex flex-wrap gap-2">
-              {ZOOM_LEVELS.map((level) => (
-                <Button
-                  aria-label={
-                    level === 1
-                      ? t("floorMapFit")
-                      : t("floorMapZoomTimes", { value: level })
-                  }
-                  aria-pressed={zoom === level}
-                  className="min-h-12 min-w-12 px-2"
-                  key={level}
-                  onClick={() => setZoom(level)}
-                  size="default"
-                  type="button"
-                  variant={zoom === level ? "primary" : "secondary"}
-                >
-                  {level === 1 ? (
-                    t("floorMapFit")
-                  ) : (
-                    <span aria-hidden="true">
-                      {t("floorMapZoomTimes", { value: level })}
-                    </span>
-                  )}
-                </Button>
-              ))}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
       {/*
-        Every "where did this come from" answer for the event, in one place:
-        the plan's source above, the roster's below. The roster pair used to
-        close the explorer, ~4,800px down the page behind 123 brands — far
-        enough that nobody checking a booth number would ever find it.
+        Attribution only. The PDF link moved up to the button row, where it sits
+        with the other two ways out of this section instead of trailing the
+        credit line as an afterthought.
       */}
-      <div className="space-y-1">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          <span className={textStyles({ variant: "caption" })}>
-            {t("floorMapAttribution")}
-          </span>
-          <a
-            className={textStyles({ variant: "link" })}
-            href={EXPO_FLOOR_MAP_ASSET.sourceUrl}
-            rel="noreferrer"
-            target="_blank"
-          >
-            {t("floorMapOfficialPdf")}
-            <ExternalLink aria-hidden="true" className="ml-1 inline size-3.5" />
-          </a>
-          <a
-            className={textStyles({ variant: "link" })}
-            href="https://creativexpo.tw/"
-            rel="noreferrer"
-            target="_blank"
-          >
-            {t("floorMapOfficialSite")}
-            <ExternalLink aria-hidden="true" className="ml-1 inline size-3.5" />
-          </a>
-        </div>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          {verifiedAt ? (
-            <span className={textStyles({ variant: "caption" })}>
-              {t("explorerVerifiedAt", { date: verifiedAt })}
-            </span>
-          ) : null}
-          <a
-            className={textStyles({ variant: "link" })}
-            href={EXPO_ROSTER_SOURCE_URL}
-            rel="noreferrer"
-            target="_blank"
-          >
-            {t("explorerSource")}
-            <ExternalLink aria-hidden="true" className="ml-1 inline size-3.5" />
-          </a>
-        </div>
-      </div>
+      <p className={textStyles({ variant: "caption" })}>
+        {t("floorMapAttribution")}
+      </p>
     </div>
   );
 }

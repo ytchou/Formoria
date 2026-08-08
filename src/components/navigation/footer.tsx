@@ -76,24 +76,6 @@ export function Footer() {
               </li>
               <li>
                 <Link
-                  href="/glossary"
-                  prefetch={false}
-                  className="type-card-description hover:text-foreground transition-colors"
-                >
-                  {t("glossary")}
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/stats"
-                  prefetch={false}
-                  className="type-card-description hover:text-foreground transition-colors"
-                >
-                  {t("stats")}
-                </Link>
-              </li>
-              <li>
-                <Link
                   href="/faq"
                   prefetch={false}
                   className="type-card-description hover:text-foreground transition-colors"

@@ -1404,6 +1404,54 @@ export type Database = {
         }
         Relationships: []
       }
+      cron_http_dispatch: {
+        Row: {
+          dispatched_at: string
+          job_name: string
+          request_id: number
+        }
+        Insert: {
+          dispatched_at?: string
+          job_name: string
+          request_id: number
+        }
+        Update: {
+          dispatched_at?: string
+          job_name?: string
+          request_id?: number
+        }
+        Relationships: []
+      }
+      cron_http_log: {
+        Row: {
+          created: string | null
+          error_msg: string | null
+          job_name: string
+          logged_at: string
+          request_id: number
+          status_code: number | null
+          timed_out: boolean
+        }
+        Insert: {
+          created?: string | null
+          error_msg?: string | null
+          job_name: string
+          logged_at?: string
+          request_id: number
+          status_code?: number | null
+          timed_out?: boolean
+        }
+        Update: {
+          created?: string | null
+          error_msg?: string | null
+          job_name?: string
+          logged_at?: string
+          request_id?: number
+          status_code?: number | null
+          timed_out?: boolean
+        }
+        Relationships: []
+      }
       curation_job_targets: {
         Row: {
           brand_name: string
@@ -1670,15 +1718,24 @@ export type Database = {
           area: string | null
           area_en: string | null
           booth: string | null
+          content_source: string | null
+          content_submission_id: string | null
+          content_verified_at: string | null
           created_at: string
           event_category: string
           event_id: string
           id: string
+          image_alt_en: string | null
+          image_alt_zh: string | null
+          image_storage_path: string | null
+          image_url: string | null
           name: string
           name_en: string | null
           sort_order: number
           source_key: string
           source_url: string
+          summary_en: string | null
+          summary_zh: string | null
           updated_at: string
           verified_at: string
           website_url: string | null
@@ -1688,15 +1745,24 @@ export type Database = {
           area?: string | null
           area_en?: string | null
           booth?: string | null
+          content_source?: string | null
+          content_submission_id?: string | null
+          content_verified_at?: string | null
           created_at?: string
           event_category: string
           event_id: string
           id?: string
+          image_alt_en?: string | null
+          image_alt_zh?: string | null
+          image_storage_path?: string | null
+          image_url?: string | null
           name: string
           name_en?: string | null
           sort_order?: number
           source_key: string
           source_url: string
+          summary_en?: string | null
+          summary_zh?: string | null
           updated_at?: string
           verified_at: string
           website_url?: string | null
@@ -1706,21 +1772,37 @@ export type Database = {
           area?: string | null
           area_en?: string | null
           booth?: string | null
+          content_source?: string | null
+          content_submission_id?: string | null
+          content_verified_at?: string | null
           created_at?: string
           event_category?: string
           event_id?: string
           id?: string
+          image_alt_en?: string | null
+          image_alt_zh?: string | null
+          image_storage_path?: string | null
+          image_url?: string | null
           name?: string
           name_en?: string | null
           sort_order?: number
           source_key?: string
           source_url?: string
+          summary_en?: string | null
+          summary_zh?: string | null
           updated_at?: string
           verified_at?: string
           website_url?: string | null
           zone?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "event_exhibitors_content_submission_id_fkey"
+            columns: ["content_submission_id"]
+            isOneToOne: false
+            referencedRelation: "brand_submissions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "event_exhibitors_event_id_fkey"
             columns: ["event_id"]

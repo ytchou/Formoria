@@ -9,11 +9,20 @@ import { compareBoothNumbers } from "@/components/events/booth-sort";
 export const CREATIVE_EXPO_ZONE_CODES = ["K1", "K2", "K3", "S"] as const;
 
 export type CreativeExpoZone = ExpoZoneCode;
-export type CreativeExpoSort = "recommended" | "booth";
+/**
+ * `'random'` is the server's incoming order, which `/events/[slug]` shuffles
+ * once per ISR window. No UI selects it today — the explorer is fixed to
+ * `'booth'`, because booth order is what a reader holding the floor plan
+ * walks. Kept as a parameter rather than inlined so the ordering decision
+ * stays one named argument at the call site.
+ */
+export type CreativeExpoSort = "booth" | "random";
 
 export type CreativeExpoExplorerState = {
   zone: CreativeExpoZone | null;
   query: string;
+  /** When true, hide exhibitors with no Formoria brand page. */
+  listedOnly: boolean;
   page: number;
 };
 
@@ -69,15 +78,17 @@ function normalizeQuery(query: string): string {
   return query.trim().toLocaleLowerCase();
 }
 
-/** Applies query and zone filters with AND semantics. */
+/** Applies query, zone, and listed-only filters with AND semantics. */
 export function filterCreativeExpoEntries(
   entries: readonly CreativeExpoEntry[],
-  state: Pick<CreativeExpoExplorerState, "zone" | "query">,
+  state: Pick<CreativeExpoExplorerState, "zone" | "query"> &
+    Partial<Pick<CreativeExpoExplorerState, "listedOnly">>,
 ): CreativeExpoEntry[] {
   const query = normalizeQuery(state.query);
 
   return entries.filter((entry) => {
     if (state.zone !== null && entry.zone !== state.zone) return false;
+    if (state.listedOnly === true && entry.brand === null) return false;
     if (!query) return true;
 
     return getCreativeExpoSearchFields(entry).some((value) =>
@@ -88,14 +99,15 @@ export function filterCreativeExpoEntries(
 
 /**
  * Sorts a filtered result without mutating the canonical/server order. The
- * recommended branch returns the original array so its identity stays useful
- * to memoized callers.
+ * random branch returns the original array so its identity stays useful to
+ * memoized callers — and so the shuffle is stable for the whole visit rather
+ * than re-rolling on every keystroke.
  */
 export function sortCreativeExpoEntries(
   entries: readonly CreativeExpoEntry[],
   sort: CreativeExpoSort,
 ): CreativeExpoEntry[] {
-  if (sort === "recommended") return entries as CreativeExpoEntry[];
+  if (sort === "random") return entries as CreativeExpoEntry[];
   return [...entries].sort((left, right) =>
     compareBoothNumbers(left.booth, right.booth),
   );
@@ -126,16 +138,22 @@ export function paginateCreativeExpoEntries(
   };
 }
 
-/** Counts each zone after query filtering and before selected-zone filtering. */
+/**
+ * Counts each zone after query and listed-only filtering, and before
+ * selected-zone filtering. Both non-zone filters are applied so a chip's
+ * number always equals what clicking it yields.
+ */
 export function deriveCreativeExpoZoneCounts(
   entries: readonly CreativeExpoEntry[],
-  state: Pick<CreativeExpoExplorerState, "query">,
+  state: Pick<CreativeExpoExplorerState, "query"> &
+    Partial<Pick<CreativeExpoExplorerState, "listedOnly">>,
 ): Record<CreativeExpoZone, number> {
   const counts = Object.fromEntries(
     CREATIVE_EXPO_ZONE_CODES.map((zone) => [zone, 0]),
   ) as Record<CreativeExpoZone, number>;
   const filtered = filterCreativeExpoEntries(entries, {
     query: state.query,
+    listedOnly: state.listedOnly,
     zone: null,
   });
 
@@ -143,9 +161,22 @@ export function deriveCreativeExpoZoneCounts(
   return counts;
 }
 
+/** Exhibitors carrying a Formoria brand page, after query and zone filtering. */
+export function countCreativeExpoListed(
+  entries: readonly CreativeExpoEntry[],
+  state: Pick<CreativeExpoExplorerState, "zone" | "query">,
+): number {
+  return filterCreativeExpoEntries(entries, {
+    zone: state.zone,
+    query: state.query,
+    listedOnly: true,
+  }).length;
+}
+
 export type CreativeExpoUrlState = {
   zone: CreativeExpoZone | null;
   query: string | null;
+  listedOnly: boolean;
   page: number;
 };
 
@@ -167,11 +198,11 @@ export function parseCreativeExpoUrlState(
       zone && allowedZones.includes(zone) && isCreativeExpoZone(zone)
         ? zone
         : null,
+    listedOnly: params.get("listed") === "1",
     // The interactive booth map is retired, but links shared from it are not.
     // A well-formed `?booth=` seeds the search box so those URLs still land on
     // the booth they named; `buildCreativeExpoUrl` then strips the param.
-    query:
-      booth && /^(K1|K2|K3|S)-\d+(-\d+)?$/.test(booth) ? booth : null,
+    query: booth && /^(K1|K2|K3|S)-\d+(-\d+)?$/.test(booth) ? booth : null,
     page: parseCreativeExpoPage(params.get("page")),
   };
 }
@@ -184,10 +215,14 @@ export function parseCreativeExpoUrlState(
  */
 export function buildCreativeExpoUrl(
   url: URL,
-  state: Pick<CreativeExpoExplorerState, "zone" | "page">,
+  state: Pick<CreativeExpoExplorerState, "zone" | "listedOnly" | "page">,
 ): URL {
   if (state.zone) url.searchParams.set("zone", state.zone);
   else url.searchParams.delete("zone");
+  // Defaults are written as absence, so an untouched page keeps a clean URL and
+  // the canonical stays the bare event path.
+  if (state.listedOnly) url.searchParams.set("listed", "1");
+  else url.searchParams.delete("listed");
   const page = Math.max(1, Math.floor(state.page) || 1);
   if (page > 1) url.searchParams.set("page", String(page));
   else url.searchParams.delete("page");
@@ -199,5 +234,5 @@ export function buildCreativeExpoUrl(
 export function resetCreativeExpoFilters(
   state: CreativeExpoExplorerState,
 ): CreativeExpoExplorerState {
-  return { ...state, zone: null, query: "", page: 1 };
+  return { ...state, zone: null, query: "", listedOnly: false, page: 1 };
 }

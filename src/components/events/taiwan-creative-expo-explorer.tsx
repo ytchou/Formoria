@@ -20,6 +20,7 @@ import type { CreativeExpoEntry } from "@/lib/services/events";
 import {
   CREATIVE_EXPO_ZONE_CODES,
   buildCreativeExpoUrl,
+  countCreativeExpoListed,
   deriveCreativeExpoZoneCounts,
   filterCreativeExpoEntries,
   paginateCreativeExpoEntries,
@@ -34,7 +35,7 @@ import { EventExhibitorList } from "./event-exhibitor-list";
 import { EventExhibitorPagination } from "./event-exhibitor-pagination";
 
 /** Rows per page. Every row still renders; the rest are hidden with CSS. */
-const EXHIBITOR_PAGE_SIZE = 20;
+const EXHIBITOR_PAGE_SIZE = 10;
 
 type TaiwanCreativeExpoExplorerProps = {
   entries: readonly CreativeExpoEntry[];
@@ -52,24 +53,22 @@ function ExplorerUrlSeed({
   const requestedZone = params.get("zone");
   const requestedBooth = params.get("booth");
   const requestedPage = params.get("page");
+  const requestedListed = params.get("listed");
 
   useEffect(() => {
+    const values: Record<string, string | null> = {
+      zone: requestedZone,
+      booth: requestedBooth,
+      page: requestedPage,
+      listed: requestedListed,
+    };
     onSeed(
       parseCreativeExpoUrlState(
-        {
-          get: (key: string) =>
-            key === "zone"
-              ? requestedZone
-              : key === "booth"
-                ? requestedBooth
-                : key === "page"
-                  ? requestedPage
-                  : null,
-        },
+        { get: (key: string) => values[key] ?? null },
         CREATIVE_EXPO_ZONE_CODES,
       ),
     );
-  }, [onSeed, requestedBooth, requestedPage, requestedZone]);
+  }, [onSeed, requestedBooth, requestedListed, requestedPage, requestedZone]);
 
   return null;
 }
@@ -85,6 +84,7 @@ export function TaiwanCreativeExpoExplorer({
   const [state, setState] = useState<CreativeExpoExplorerState>({
     zone: null,
     query: "",
+    listedOnly: false,
     page: 1,
   });
   const listRef = useRef<HTMLUListElement>(null);
@@ -111,6 +111,7 @@ export function TaiwanCreativeExpoExplorer({
     setState((current) =>
       current.zone === value.zone &&
       current.page === value.page &&
+      current.listedOnly === value.listedOnly &&
       (value.query === null || current.query === value.query)
         ? current
         : {
@@ -118,6 +119,7 @@ export function TaiwanCreativeExpoExplorer({
             // `query` is only ever seeded from a legacy `?booth=` link; a null
             // means the URL said nothing about it, so the typed query stands.
             query: value.query ?? current.query,
+            listedOnly: value.listedOnly,
             page: value.page,
           },
     );
@@ -125,11 +127,15 @@ export function TaiwanCreativeExpoExplorer({
 
   /**
    * The single funnel for every filter change. Force-setting `page: 1` here is
-   * what guarantees a zone chip or a keystroke can never leave the reader on a
-   * page number the new result set does not have.
+   * what guarantees a zone chip, a keystroke, or the listed toggle can never
+   * leave the reader on a page number the new result set does not have.
    */
   const applyState = useCallback(
-    (patch: Partial<Pick<CreativeExpoExplorerState, "zone" | "query">>) => {
+    (
+      patch: Partial<
+        Pick<CreativeExpoExplorerState, "zone" | "query" | "listedOnly">
+      >,
+    ) => {
       const next = { ...state, ...patch, page: 1 };
       setState(next);
       syncUrl(next);
@@ -170,10 +176,11 @@ export function TaiwanCreativeExpoExplorer({
         filterCreativeExpoEntries(entries, {
           zone: state.zone,
           query: state.query,
+          listedOnly: state.listedOnly,
         }),
         "booth",
       ),
-    [entries, state.query, state.zone],
+    [entries, state.listedOnly, state.query, state.zone],
   );
   const { pageCount, startIndex, endIndex } = useMemo(
     () =>
@@ -189,8 +196,22 @@ export function TaiwanCreativeExpoExplorer({
   const currentPage = Math.min(Math.max(state.page, 1), pageCount);
 
   const zoneCounts = useMemo(
-    () => deriveCreativeExpoZoneCounts(entries, { query: state.query }),
-    [entries, state.query],
+    () =>
+      deriveCreativeExpoZoneCounts(entries, {
+        query: state.query,
+        listedOnly: state.listedOnly,
+      }),
+    [entries, state.listedOnly, state.query],
+  );
+  // Counted with the listed filter OFF so the chip advertises what turning it
+  // on would leave, rather than restating its own result once pressed.
+  const listedCount = useMemo(
+    () =>
+      countCreativeExpoListed(entries, {
+        zone: state.zone,
+        query: state.query,
+      }),
+    [entries, state.query, state.zone],
   );
   // Only zones actually present in the roster get a chip: the hall's zone list
   // is data, not configuration, and an always-zero chip is a dead end.
@@ -205,7 +226,8 @@ export function TaiwanCreativeExpoExplorer({
     [entries, isEnglish],
   );
 
-  const isFiltered = state.zone !== null || state.query.trim() !== "";
+  const isFiltered =
+    state.zone !== null || state.listedOnly || state.query.trim() !== "";
   const isFilteredEmpty = sortedEntries.length === 0 && isFiltered;
 
   return (
@@ -234,20 +256,37 @@ export function TaiwanCreativeExpoExplorer({
 
       <div className="space-y-4">
         <div ref={filterBarRef} className="space-y-4">
-          <div className="relative w-full sm:max-w-xs">
-            <Search
-              aria-hidden="true"
-              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-            />
-            <Input
-              type="search"
-              value={state.query}
-              onChange={(event) => applyState({ query: event.target.value })}
-              aria-label={t("explorerSearchAria")}
-              placeholder={t("explorerSearchPlaceholder")}
-              maxLength={100}
-              className="w-full pl-9"
-            />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="relative w-full sm:max-w-xs">
+              <Search
+                aria-hidden="true"
+                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              />
+              <Input
+                type="search"
+                value={state.query}
+                onChange={(event) => applyState({ query: event.target.value })}
+                aria-label={t("explorerSearchAria")}
+                placeholder={t("explorerSearchPlaceholder")}
+                maxLength={100}
+                className="w-full pl-9"
+              />
+            </div>
+
+            {/*
+              Beside the search rather than in a row of its own: it cuts across
+              every zone, so it belongs with the controls that do the same, not
+              above the zone group where it would read as a fifth zone.
+            */}
+            <ToggleChip
+              className="self-start sm:self-auto"
+              size="default"
+              pressed={state.listedOnly}
+              onPressedChange={(pressed) => applyState({ listedOnly: pressed })}
+            >
+              {t("explorerListedOnly")}
+              <span className="tabular-nums opacity-70">{listedCount}</span>
+            </ToggleChip>
           </div>
 
           {zoneOptions.length > 0 ? (
@@ -272,6 +311,13 @@ export function TaiwanCreativeExpoExplorer({
                     applyState({ zone: pressed ? option.code : null })
                   }
                 >
+                  {/*
+                    The zone code leads the name: the booth numbers on the
+                    floor plan and in every row read `K1-004`, so the code is
+                    what ties a chip to the hall. Without it the four names
+                    read as arbitrary themes rather than as the venue's zones.
+                  */}
+                  <span className="font-semibold">{option.code}</span>
                   {option.label}
                   <span className="tabular-nums opacity-70">
                     {zoneCounts[option.code]}
@@ -281,26 +327,21 @@ export function TaiwanCreativeExpoExplorer({
             </div>
           ) : null}
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p role="status" className="type-caption">
-              {isFiltered
-                ? t("exhibitorCountFiltered", {
-                    count: sortedEntries.length,
-                    total: entries.length,
-                  })
-                : t("exhibitorCount", { count: sortedEntries.length })}
-            </p>
-            {isFiltered ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="compact"
-                onClick={clearFilters}
-              >
-                {t("clearFilters")}
-              </Button>
-            ) : null}
-          </div>
+          {/*
+            No reset button beside the count: the "All zones" chip above already
+            clears the only filter a reader can land on from a shared `?zone=`
+            link, and a second control for it read as clutter. The empty state
+            below keeps its reset — that is the one case with no visible chip to
+            return to.
+          */}
+          <p role="status" className="type-caption">
+            {isFiltered
+              ? t("exhibitorCountFiltered", {
+                  count: sortedEntries.length,
+                  total: entries.length,
+                })
+              : t("exhibitorCount", { count: sortedEntries.length })}
+          </p>
         </div>
 
         {rosterFailed ? null : entries.length === 0 ? (

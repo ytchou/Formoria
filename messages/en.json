@@ -64,8 +64,6 @@
     "gettingStarted": "Getting Started",
     "stories": "Stories",
     "events": "Events",
-    "glossary": "Glossary",
-    "stats": "Stats",
     "submit": "Recommend a Brand",
     "companyHeading": "Company",
     "faq": "FAQ",
@@ -127,6 +125,10 @@
     "newBrands": {
       "heading": "Newest Brands",
       "linkText": "Browse All Brands →"
+    },
+    "events": {
+      "heading": "Events",
+      "linkText": "View All Events →"
     },
     "latestStories": {
       "heading": "Latest from Formoria",
@@ -299,36 +301,6 @@
     "description": "Please complete the check to continue browsing.",
     "verifying": "Verifying…",
     "error": "Verification failed. Please try again."
-  },
-  "stats": {
-    "metadata": {
-      "title": "Taiwan Brand Statistics",
-      "description": "Live statistics on Taiwan's brand ecosystem — total brands, category breakdown, MIT-verified share, and founding decade distribution."
-    },
-    "hero": {
-      "title": "Taiwan Brand Statistics",
-      "subtitle": "Live data from the Formoria directory",
-      "totalBrands": "{count} brands tracked",
-      "asOf": "Data as of {date}"
-    },
-    "categories": {
-      "title": "Category Breakdown",
-      "description": "{count} brands across all categories",
-      "brandCount": "{count} brands"
-    },
-    "mitVerified": {
-      "title": "MIT Verified",
-      "description": "{verified} of {total} brands are MIT-verified ({percentage}%)"
-    },
-    "geographicDistribution": "Geographic Distribution",
-    "geographicDistributionDesc": "Brand distribution across Taiwan's cities and counties (of brands with location data)",
-    "mapAria": "Taiwan brand distribution map",
-    "noCityData": "No city data available yet",
-    "foundingDecade": {
-      "title": "Founding Decade Distribution",
-      "description": "When Taiwan's brands were established (of brands with founding year data)",
-      "label": "{decade}s"
-    }
   },
   "cities": {
     "taipei": "Taipei City",
@@ -1114,124 +1086,6 @@
             "answer": "No. The directory is a discovery entry point. Use packaging, storage, allergen, and official-channel information when deciding what to buy."
           }
         ]
-      }
-    }
-  },
-  "glossary": {
-    "metadata": {
-      "title": "Glossary",
-      "description": "Definitions for terms used across Formoria — from what Made in Taiwan means to how trust badges work and how we organise the directory."
-    },
-    "eyebrow": "Reference",
-    "heading": "Glossary",
-    "lede": "Terms and definitions used across Formoria — from what 'Made in Taiwan' means to how trust badges work and how we organise the directory.",
-    "breadcrumbHome": "Home",
-    "sectionsLabel": "SECTIONS",
-    "sectionsAria": "Glossary sections",
-    "verifiedBadgeLabel": "MIT Verified",
-    "verifiedBadgeTitle": "Verified MIT Smile Mark registration",
-    "ownerBadgeLabel": "Brand-managed",
-    "ownerBadgeTitle": "Managed by the brand owner",
-    "sections": {
-      "core": {
-        "title": "Core",
-        "terms": {
-          "madeInTaiwan": {
-            "zh": "Taiwan-made",
-            "en": "Made in Taiwan",
-            "definition": "Primary design, manufacturing, or founding rooted in Taiwan — a commitment to craft, not just an origin label."
-          },
-          "communityCurated": {
-            "zh": "Community contributed",
-            "en": "Community-contributed",
-            "definition": "Brand information comes from the community and is reviewed by Formoria before listing. This is distinct from an editorial Formoria selection."
-          }
-        }
-      },
-      "verification": {
-        "title": "Verification",
-        "terms": {
-          "mitVerified": {
-            "zh": "MIT Smile Mark",
-            "en": "Verified",
-            "definition": "Registry-confirmed against the MIT Smile Mark — independently cross-checked, not self-reported.",
-            "badge": "verified"
-          },
-          "ownerClaimed": {
-            "zh": "Owner managed",
-            "en": "Owner-claimed",
-            "definition": "The brand owner has claimed and actively manages this listing — a live, maintained presence.",
-            "badge": "owner"
-          },
-          "communityLabel": {
-            "zh": "Community label",
-            "en": "Community label",
-            "definition": "Community-maintained with no owner claim and no registry check — always welcome to claim."
-          }
-        }
-      },
-      "materials": {
-        "title": "Materials",
-        "terms": {
-          "leather": {
-            "zh": "Leather",
-            "en": "Leather",
-            "definition": "Full- or top-grain, vegetable-tanned leather — not synthetics."
-          },
-          "ceramic": {
-            "zh": "Ceramic",
-            "en": "Ceramic",
-            "definition": "Clay, porcelain, and stoneware, with strong roots in Yingge heritage."
-          },
-          "naturalFibre": {
-            "zh": "Natural fibre",
-            "en": "Natural Fibre",
-            "definition": "Cotton, linen, wool, silk, or bamboo — plant- or animal-sourced only."
-          }
-        }
-      },
-      "priceRange": {
-        "title": "Price Range",
-        "terms": {
-          "accessible": {
-            "zh": "Accessible",
-            "en": "Accessible",
-            "definition": "Everyday pricing below NT$1,000.",
-            "range": "Under NT$1,000"
-          },
-          "midRange": {
-            "zh": "Mid-range",
-            "en": "Mid-range",
-            "definition": "Considered purchases, from NT$1,000 to NT$5,000.",
-            "range": "NT$1,000 – NT$5,000"
-          },
-          "premium": {
-            "zh": "Premium",
-            "en": "Premium",
-            "definition": "Premium craft above NT$5,000.",
-            "range": "Over NT$5,000"
-          }
-        }
-      },
-      "values": {
-        "title": "Values",
-        "terms": {
-          "slowMade": {
-            "zh": "Slow-made",
-            "en": "Slow-made",
-            "definition": "Small-batch and handmade — a curatorial signal, not a certification."
-          },
-          "ecoConscious": {
-            "zh": "Eco-conscious",
-            "en": "Eco-conscious",
-            "definition": "A material commitment to environmental responsibility in sourcing, packaging, and waste."
-          },
-          "familyRun": {
-            "zh": "Family-run",
-            "en": "Family-run",
-            "definition": "Family-owned and operated, often across multiple generations."
-          }
-        }
       }
     }
   },
@@ -3399,13 +3253,15 @@
     "explorerRosterUnavailableBody": "The event information and floor map are still available. Please try the exhibitor explorer again later.",
     "explorerRosterEmpty": "There are no exhibitors to show yet.",
     "explorerSearchAria": "Search exhibitor names, romanization, or booth number",
-    "explorerSearchPlaceholder": "Name, romanization, or booth",
+    "explorerSearchPlaceholder": "Search brands...",
+    "explorerListedOnly": "Formoria brands only",
     "zoneFilterAria": "Filter exhibitors by zone",
     "allZones": "All zones",
     "exhibitorCount": "{count, plural, one {# exhibitor} other {# exhibitors}}",
     "exhibitorCountFiltered": "{count} of {total} exhibitors",
     "exhibitorEmptyTitle": "No exhibitors match your search",
     "exhibitorEmptyBody": "Check the spelling, try part of the name, or look at another zone.",
+    "exhibitorListed": "In our directory",
     "exhibitorNotListed": "Not yet in our directory",
     "exhibitorOfficialSite": "Official link",
     "exhibitorOfficialSiteAria": "{name} official link (opens in a new tab)",
@@ -3416,12 +3272,11 @@
     "paginationNextAria": "Go to next page",
     "paginationPageAria": "Page {page}",
     "paginationPosition": "Page {page} of {pageCount}",
-    "explorerVerifiedAt": "Roster verified {date}",
-    "explorerSource": "Open official exhibitor list",
+    "explorerSource": "Official exhibitor list",
     "officialMapHeading": "Floor plan",
     "officialMapDescription": "The organizer's complete floor plan, including the other halls and service areas.",
     "floorMapLabel": "Taiwan Creative Expo 2026 floor map with selectable zones",
-    "floorMapOpenViewer": "Open full-screen map",
+    "floorMapOpenViewer": "Full-screen map",
     "floorMapViewerTitle": "Full-screen floor map",
     "floorMapViewerDescription": "Scroll in either direction to pan. Choose a zoom level or fit the complete map in the viewer.",
     "floorMapCloseViewer": "Close floor-map viewer",
@@ -3430,9 +3285,8 @@
     "floorMapZoomTimes": "{value}×",
     "floorMapUnavailable": "The map image could not be loaded.",
     "floorMapUnavailableHint": "Open the official PDF for the complete floor map and booth directory.",
-    "floorMapOfficialPdf": "Open official map PDF",
+    "floorMapOfficialPdf": "Official map PDF",
     "floorMapAttribution": "Map source: Taiwan Creative Expo 2026",
-    "floorMapOfficialSite": "Official Taiwan Creative Expo site",
     "notFound": {
       "title": "Event not found",
       "description": "The event you're looking for doesn't exist or has been removed.",

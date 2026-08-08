@@ -16,7 +16,15 @@ const DELETE_CHUNK_SIZE = 100
 const DAY_MS = 24 * 60 * 60 * 1_000
 const SOAK_PROTECTION_MS = 7 * DAY_MS
 const WEBP_SKIP_BYTES = 150 * 1024
-const STORAGE_KEY_PREFIXES = ['brands/', 'submissions/'] as const
+// `event-exhibitors/` holds roster-owned COPIES referenced only by
+// `event_exhibitors.image_storage_path`. Without this prefix the sweep cannot
+// resolve those keys at all, so every one of them falls through to `untracked`
+// and gets purged. See buildReferenceSet below for the matching read.
+const STORAGE_KEY_PREFIXES = [
+  'brands/',
+  'submissions/',
+  'event-exhibitors/',
+] as const
 const ACTIVE_REENCODE_MANIFEST_PATTERN =
   /^\.reencode-originals-(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})(?:-(\d{3}))?Z?\.json$/
 const DEFAULT_PURGE_OPTIONS = {
@@ -97,6 +105,10 @@ type BrandReferenceRow = {
 type SubmissionReferenceRow = {
   hero_image_url: string | null
   enriched_data: unknown
+}
+
+type EventExhibitorReferenceRow = {
+  image_storage_path: string | null
 }
 
 type BrandReencodeRow = {
@@ -298,7 +310,7 @@ export async function listAllObjects(
 export async function buildReferenceSet(
   supabase: ReturnType<typeof createServiceClient>,
 ): Promise<StorageReferences> {
-  const [brandImages, submissionImages, brands, submissions] =
+  const [brandImages, submissionImages, brands, submissions, eventExhibitors] =
     await Promise.all([
       fetchAllRows<ImageReferenceRow>('brand_images', (from, to) =>
         supabase
@@ -325,6 +337,17 @@ export async function buildReferenceSet(
         supabase
           .from('brand_submissions')
           .select('hero_image_url, enriched_data')
+          .order('id', { ascending: true })
+          .range(from, to),
+      ),
+      // Roster-owned exhibitor thumbnails (DEV-1396). These objects live under
+      // `event-exhibitors/` and are referenced by no image table, so they are
+      // invisible to every other read above.
+      fetchAllRows<EventExhibitorReferenceRow>('event_exhibitors', (from, to) =>
+        supabase
+          .from('event_exhibitors')
+          .select('image_storage_path')
+          .not('image_storage_path', 'is', null)
           .order('id', { ascending: true })
           .range(from, to),
       ),
@@ -367,6 +390,14 @@ export async function buildReferenceSet(
     for (const key of storageKeysFromJson(submission.enriched_data)) {
       otherReferencedPaths.add(key)
     }
+  }
+
+  // `otherReferencedPaths` (not `activePaths`) is deliberate: it makes
+  // categorizeObjects classify these as `protected`, so they can never land in
+  // `rejected` or `untracked` — the only two categories planPurge deletes.
+  for (const exhibitor of eventExhibitors) {
+    const key = storageKeyFromReference(exhibitor.image_storage_path, null)
+    if (key) otherReferencedPaths.add(key)
   }
 
   return {

@@ -198,7 +198,7 @@ export default async function StoryPage({ params }: PageProps) {
       .seriesTitle ??
     t("seriesHeading");
   // Mirrors the visible breadcrumb below, so the two never disagree. Same
-  // builder every other content route uses (`/brands/[slug]`, `/glossary`).
+  // builder every other content route uses (`/brands/[slug]`, `/events`).
   const breadcrumbJsonLd = buildBreadcrumbJsonLd(
     [
       { label: t("breadcrumb"), href: "/stories" },

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { ExternalLink } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
+import { Badge } from "@/components/ui/badge";
 import type { CreativeExpoEntry } from "@/lib/services/events";
 import {
   trackBrandCardClicked,
@@ -63,8 +64,9 @@ export function EventExhibitorRow({
       ? (entry.nameEn ?? entry.name)
       : entry.name;
   // The exact ladder `BrandCard` uses (brand-card.tsx) — the zh branch
-  // deliberately has no English fallback. Unlisted rows have no blurb at all,
-  // so they fall back to the exhibitor's own area label to keep row rhythm.
+  // deliberately has no English fallback. Unlisted rows have no brand blurb, so
+  // they use the roster's own enriched summary and fall back to the area label
+  // when that exhibitor has not been enriched yet.
   const summary = brand
     ? isEnglish
       ? (brand.blurbEn ??
@@ -73,11 +75,22 @@ export function EventExhibitorRow({
         brand.description)
       : (brand.blurb ?? brand.description)
     : isEnglish
-      ? (entry.areaEn ?? entry.area)
-      : entry.area;
+      ? (entry.summaryEn ?? entry.summaryZh ?? entry.areaEn ?? entry.area)
+      : (entry.summaryZh ?? entry.area);
 
-  const imageSrc = safeImageSrc(brand?.heroImageUrl);
+  // A matched brand's hero image wins; the roster image is what an unlisted
+  // exhibitor renders instead of the neutral monogram.
+  const imageSrc = safeImageSrc(brand?.heroImageUrl ?? entry.imageUrl);
   const showImage = imageSrc !== null && !imgError;
+  // A listed row's thumbnail stays decorative: the brand name sits beside it and
+  // the whole row already links to the brand page. A roster-owned image is the
+  // only description of that exhibitor we have, so it carries its curated alt —
+  // same locale ladder as the summary, empty string when there is none.
+  const imageAlt = brand
+    ? ""
+    : ((isEnglish
+        ? (entry.imageAltEn ?? entry.imageAltZh)
+        : entry.imageAltZh) ?? "");
   const monogram = [...name][0] ?? "";
   const websiteUrl = entry.websiteUrl;
   const isRowLink = brand !== null || websiteUrl !== null;
@@ -94,7 +107,7 @@ export function EventExhibitorRow({
           {showImage ? (
             <Image
               src={imageSrc}
-              alt=""
+              alt={imageAlt}
               fill
               // Fixed, not viewport-relative: every row on the page renders a
               // thumbnail at this one size, and a `100vw` hint would have Next
@@ -120,11 +133,22 @@ export function EventExhibitorRow({
         <div className="flex min-w-0 flex-1 flex-col gap-1 md:flex-row md:gap-4">
           {/* Own line below `md`, its own column above — the responsive move
               `StoryRow` makes with its `<time>`. */}
-          <p className="flex flex-wrap items-center gap-x-2 type-metadata md:w-24 md:shrink-0">
+          {/*
+            Both states carry a label, not just the negative one. With only
+            "尚未收錄" rendered, a listed row was identified by the absence of a
+            note — which reads as "no data" rather than "we cover this brand".
+            The positive case gets the badge because it is the actionable one:
+            it is the row whose name opens a Formoria page.
+          */}
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 type-metadata md:w-24 md:shrink-0">
             {entry.booth ? (
               <span className="tabular-nums">{entry.booth}</span>
             ) : null}
-            {brand === null ? <span>{t("exhibitorNotListed")}</span> : null}
+            {brand ? (
+              <Badge variant="success">{t("exhibitorListed")}</Badge>
+            ) : (
+              <span>{t("exhibitorNotListed")}</span>
+            )}
           </p>
 
           <div className="min-w-0 flex-1 space-y-1">
