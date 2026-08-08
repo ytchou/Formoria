@@ -51,6 +51,17 @@ export function normalizeToRootUrl(url: string | null | undefined): string | nul
   }
 }
 
+/**
+ * Drops the query string a copied link carries (`utm_*`, share ids, session
+ * tokens). Shared by the brand submission flow and the correction dialog so a
+ * pasted URL reaches the queue in the same cleaned shape from either entry
+ * point.
+ */
+export function stripUrlQuery(value: string): string {
+  const [base = ''] = value.split('?')
+  return base
+}
+
 export function sanitizeHref(value: string | undefined | null): string | null {
   if (!value) return null
   const trimmed = value.trim()

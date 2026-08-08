@@ -35,6 +35,7 @@
     "seed-events": "tsx --env-file=.env.local scripts/seed-events.ts",
     "audit:event-exhibitors": "tsx scripts/audit-event-exhibitors.ts",
     "rerun-curation": "tsx --env-file=.env.local scripts/rerun-submission-curation.ts",
+    "seed-expo-content": "tsx --env-file=.env.local scripts/seed-expo-exhibitor-content.ts",
     "reject-skipped": "tsx --env-file=.env.local scripts/reject-skipped-submissions.ts",
     "default-price-range": "tsx --env-file=.env.local scripts/default-missing-price-range.ts",
     "derive-product-type": "tsx --env-file=.env.local scripts/derive-missing-product-type.ts",

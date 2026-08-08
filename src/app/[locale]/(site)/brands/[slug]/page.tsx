@@ -364,7 +364,12 @@ export default async function BrandDetailPage({ params }: PageProps) {
             <div
               className={cn(
                 "flex min-w-0 flex-col gap-8",
-                hasSectionNav && "md:col-span-4",
+                // Mobile only: the nav is a full-width sticky strip directly
+                // above this column, and the first section carries `first:pt-0`,
+                // so its heading would otherwise sit flush against the strip's
+                // bottom rule. On md+ the nav is a left rail beside this column,
+                // not above it, and the offset would be dead space.
+                hasSectionNav && "pt-6 md:col-span-4 md:pt-0",
               )}
             >
               {description && (

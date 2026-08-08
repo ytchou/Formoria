@@ -5,7 +5,6 @@ import {
   buildBreadcrumbJsonLd,
   buildCategoryItemListJsonLd,
   buildBrandsItemListJsonLd,
-  buildDefinedTermSetJsonLd,
   buildEventJsonLd,
   buildFaqPageJsonLd,
   buildOrganizationJsonLd,
@@ -414,18 +413,6 @@ describe("buildArticleJsonLd", () => {
     expect(ld["@type"]).toBe("Article");
     expect(ld.headline).toBe("About");
     expect(ld.publisher["@type"]).toBe("Organization");
-  });
-});
-
-describe("buildDefinedTermSetJsonLd", () => {
-  it("emits a DefinedTermSet with DefinedTerm members", () => {
-    const ld = buildDefinedTermSetJsonLd(
-      [{ name: "台灣製造", description: "Made in Taiwan" }],
-      "zh-TW",
-    ) as JsonLdObject;
-    expect(ld["@type"]).toBe("DefinedTermSet");
-    expect(ld.hasDefinedTerm[0]["@type"]).toBe("DefinedTerm");
-    expect(ld.hasDefinedTerm[0].name).toBe("台灣製造");
   });
 });
 

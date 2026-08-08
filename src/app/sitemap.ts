@@ -51,9 +51,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Deliberately in staticPages, not the try block: the hub is a real page with
     // zero events, and it must stay listed even when the dynamic block throws.
     "/events",
-    "/stats",
     "/about",
-    "/glossary",
     "/faq",
     "/contact",
     "/terms",

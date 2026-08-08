@@ -244,7 +244,6 @@ test.describe("SEO deep", () => {
 
   test("sitemap includes the public editorial pages", async ({ request }) => {
     const body = await (await request.get("/sitemap.xml")).text();
-    expect(body).toContain("/glossary");
     expect(body).toContain("/about");
     expect(body).not.toContain("/vision");
   });
@@ -267,9 +266,7 @@ test.describe("SEO deep", () => {
       "/",
       "/brands",
       "/events",
-      "/stats",
       "/about",
-      "/glossary",
       "/faq",
       "/contact",
       "/terms",
@@ -328,7 +325,6 @@ test.describe("SEO deep", () => {
     expect(res.status()).toBe(200);
     expect(res.headers()["content-type"]).toContain("text/plain");
     const body = await res.text();
-    expect(body).toContain("/glossary");
     expect(body).toContain("/about");
     expect(body).not.toContain("/vision");
   });
@@ -356,7 +352,7 @@ test.describe("SEO deep", () => {
       expect(body).toContain(`/categories/${slug}`);
       expect(body).not.toContain(`/brands?category=${slug}`);
     }
-    for (const path of ["/events", "/faq", "/stats"]) {
+    for (const path of ["/events", "/faq"]) {
       expect(body).toContain(path);
     }
   });

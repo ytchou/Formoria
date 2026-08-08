@@ -35,7 +35,7 @@ import {
   PRODUCT_TYPE_CATEGORIES,
   subcategoryLabel,
 } from "@/lib/taxonomy/ontology";
-import { sanitizeHref } from "@/lib/url";
+import { sanitizeHref, stripUrlQuery } from "@/lib/url";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -806,6 +806,20 @@ export function CorrectionDialog({
                         ...base,
                         key: selectionKey,
                         value: event.target.value,
+                      }));
+                    }}
+                    onBlur={() => {
+                      // Same cleaning the submission flow offers on the website
+                      // field — applied rather than suggested, so only the
+                      // cleaned URL can reach the correction queue. Guarded on a
+                      // non-empty result so a value that is nothing but a query
+                      // string is left alone for validation to reject.
+                      const cleaned = stripUrlQuery(selection);
+                      if (cleaned === selection || cleaned === "") return;
+                      updateSelection((base) => ({
+                        ...base,
+                        key: selectionKey,
+                        value: cleaned,
                       }));
                     }}
                     autoComplete="url"

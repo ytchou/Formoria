@@ -29,7 +29,22 @@ import { buildOpenGraph } from "@/lib/seo/open-graph";
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { getAllStories } from "@/lib/services/stories";
 import { StoryRow } from "@/components/stories/story-row";
+import { EventCard } from "@/components/events/event-card";
+import {
+  getEventBrandCounts,
+  getPublishedEvents,
+  partitionEventsByPhase,
+  resolveEventPhase,
+  taipeiToday,
+} from "@/lib/services/events";
 import { toPublicBrandCard } from "@/lib/brands/contracts";
+
+/**
+ * Ongoing and upcoming events promoted on the landing page. Two, not the whole
+ * hub: this is a pointer to `/events`, and a third card starts competing with
+ * the brand showcase directly under it.
+ */
+const LANDING_EVENT_LIMIT = 2;
 
 export const revalidate = 3600;
 
@@ -68,25 +83,49 @@ export default async function LandingPage({ params }: PageProps) {
   setRequestLocale(locale);
   const safeLocale = (locale === "en" ? "en" : "zh-TW") as Locale;
   const t = await getTranslations("landing");
+  const tEvents = await getTranslations("events");
   const jsonLd = buildWebSiteJsonLd(safeLocale);
   const organizationJsonLd = buildOrganizationJsonLd(safeLocale);
 
-  const [exploreResult, newBrandsResult, storyResult, messages] =
+  const [exploreResult, newBrandsResult, storyResult, eventResult, messages] =
     await Promise.all([
       getExploreBrands(EXPLORE_BRAND_LIMIT).catch(
         captureReadFailure("landing.exploreBrands"),
       ),
       getNewBrands(4).catch(captureReadFailure("landing.newBrands")),
       getAllStories(safeLocale),
+      getPublishedEvents().catch(captureReadFailure("landing.events")),
       getMessages(),
     ]);
 
   // Aggregate flag: ANY failed read means this render is degraded, and a degraded
   // render must never be frozen by `revalidate = 3600`.
-  const degraded = exploreResult === null || newBrandsResult === null;
+  const degraded =
+    exploreResult === null || newBrandsResult === null || eventResult === null;
   if (degraded) {
     await markRenderDegraded("landing");
   }
+
+  // One Taipei "today" for the whole render: partitioning on one value and
+  // badging on another could put an event in the promoted row wearing a phase
+  // pill from the other side of midnight. Same rule as the events hub.
+  const today = taipeiToday();
+  // Ongoing before upcoming, each already ascending by `startsOn` out of the
+  // service — the concatenation is what the hub renders too, so the row and the
+  // page it links to can never disagree about what comes first.
+  const eventsByPhase = partitionEventsByPhase(eventResult ?? [], today);
+  const promotedEvents = [
+    ...eventsByPhase.ongoing,
+    ...eventsByPhase.upcoming,
+  ].slice(0, LANDING_EVENT_LIMIT);
+  // Counted only for what is actually rendered, so a hub-sized query never runs
+  // for a row that shows at most two cards — and not at all when there are none.
+  const eventBrandCounts =
+    promotedEvents.length > 0
+      ? await getEventBrandCounts(
+          promotedEvents.map((event) => event.id),
+        ).catch(captureReadFailure("landing.events.brandCounts"))
+      : null;
 
   const exploreBrands = (exploreResult?.brands ?? []).map(toPublicBrandCard);
   const newBrands = (newBrandsResult ?? []).map(toPublicBrandCard);
@@ -130,7 +169,84 @@ export default async function LandingPage({ params }: PageProps) {
             </div>
           </div>
 
-          {/* Manifesto pull-quote */}
+          {/*
+            After the explore showcase, not before it: browsing brands is what
+            this page is for, and an event row above the fold pushed that past
+            it. Still ahead of the stories and the manifesto, because an event
+            is the one block here that expires. The whole row disappears once
+            nothing is ongoing or upcoming — no heading over an empty grid.
+          */}
+          {promotedEvents.length > 0 && (
+            <div className="py-6 md:py-8">
+              <section
+                aria-labelledby="landing-events"
+                className="mx-auto max-w-6xl page-gutter space-y-4"
+              >
+                <h2 id="landing-events" className="type-section-title-large">
+                  {t("events.heading")}
+                </h2>
+                <div className="flex flex-col gap-4">
+                  {promotedEvents.map((event) => {
+                    const count = eventBrandCounts?.get(event.id) ?? 0;
+                    const phase = resolveEventPhase(event, today);
+
+                    return (
+                      <EventCard
+                        key={event.id}
+                        event={event}
+                        phase={phase}
+                        phaseLabel={tEvents(`phase.${phase}`)}
+                        brandCountLabel={
+                          count > 0 ? tEvents("brandCount", { count }) : null
+                        }
+                        locale={locale}
+                        headingLevel={3}
+                      />
+                    );
+                  })}
+                </div>
+                <div>
+                  <Link href="/events" className="font-medium text-primary">
+                    {t("events.linkText")}
+                  </Link>
+                </div>
+              </section>
+            </div>
+          )}
+
+          {latestStories.length > 0 && (
+            <div className="py-6 md:py-8">
+              <section className="mx-auto max-w-6xl page-gutter">
+                <div className="mb-6">
+                  <h2 className="type-section-title-large">
+                    {t("latestStories.heading")}
+                  </h2>
+                </div>
+                <div className="divide-y divide-border border-y border-border">
+                  {latestStories.map((story) => (
+                    <StoryRow
+                      key={story.slug}
+                      story={story}
+                      locale={safeLocale}
+                      headingLevel={3}
+                    />
+                  ))}
+                </div>
+                <div className="mt-6">
+                  <Link href="/stories" className="font-medium text-primary">
+                    {t("latestStories.linkText")}
+                  </Link>
+                </div>
+              </section>
+            </div>
+          )}
+
+          {/*
+            Manifesto pull-quote, deliberately after the stories rather than
+            before them: the two showcases and the story list are what a first
+            visit came for, and the "why we exist" band reads better as a beat
+            between them and the new-brands row than as a wall in front of both.
+          */}
           <section className="relative overflow-hidden py-12 md:py-16">
             <Image
               src="/images/manifesto-bg.webp"
@@ -161,33 +277,6 @@ export default async function LandingPage({ params }: PageProps) {
               </Link>
             </div>
           </section>
-
-          {latestStories.length > 0 && (
-            <div className="py-6 md:py-8">
-              <section className="mx-auto max-w-6xl page-gutter">
-                <div className="mb-6">
-                  <h2 className="type-section-title-large">
-                    {t("latestStories.heading")}
-                  </h2>
-                </div>
-                <div className="divide-y divide-border border-y border-border">
-                  {latestStories.map((story) => (
-                    <StoryRow
-                      key={story.slug}
-                      story={story}
-                      locale={safeLocale}
-                      headingLevel={3}
-                    />
-                  ))}
-                </div>
-                <div className="mt-6">
-                  <Link href="/stories" className="font-medium text-primary">
-                    {t("latestStories.linkText")}
-                  </Link>
-                </div>
-              </section>
-            </div>
-          )}
 
           <div className="py-6 md:py-8">
             <div className="mx-auto max-w-6xl page-gutter">

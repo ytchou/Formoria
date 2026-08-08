@@ -25,6 +25,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Link, useRouter } from '@/i18n/navigation'
 import { trackSubmissionCompleted } from '@/lib/analytics'
+import { stripUrlQuery } from '@/lib/url'
 import { useSubmissionAnalytics } from '@/hooks/use-submission-analytics'
 
 type Translator = (key: string) => string
@@ -137,7 +138,7 @@ export default function SubmitQuickForm() {
       return
     }
 
-    const cleaned = value.split('?')[0]
+    const cleaned = stripUrlQuery(value)
     setUrlSuggestion(cleaned !== value && cleaned.length > 0 ? cleaned : null)
   }
 

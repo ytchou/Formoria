@@ -114,6 +114,18 @@ export type EventExhibitor = {
   websiteUrl: string | null;
   verifiedAt: string;
   sortOrder: number;
+  /**
+   * Roster-owned content for exhibitors Formoria has no brand row for. The
+   * roster is the source of truth: enrichment output is copied onto these
+   * columns, and nothing on the render path reads through a submission.
+   */
+  imageUrl: string | null;
+  imageAltZh: string | null;
+  imageAltEn: string | null;
+  summaryZh: string | null;
+  summaryEn: string | null;
+  contentSource: string | null;
+  contentVerifiedAt: string | null;
 };
 
 /** Every included exhibitor is returned; an unavailable brand is `null`. */
@@ -189,9 +201,18 @@ const EVENT_BRAND_COUNT_SELECT = "event_id, brands!inner(status)";
  * Canonical roster projection. The inner event embed applies the same
  * published-event guard as the legacy lineup query without changing that
  * query's contract.
+ *
+ * `EventExhibitorJoinRow` is hand-written rather than derived from this string,
+ * so a content column added to the type but not here still compiles and comes
+ * back `undefined` at runtime. `fetchEventExhibitors` is covered by a read-path
+ * test that projects its fixture through this exact string for that reason.
+ *
+ * `image_storage_path` and `content_submission_id` are deliberately absent:
+ * they are write-side provenance for the offline enrichment vehicle, and the
+ * render path must not be able to reach a submission through the roster.
  */
 const EVENT_EXHIBITOR_SELECT =
-  "id, event_id, source_key, name, name_en, booth, area, area_en, zone, event_category, source_url, website_url, verified_at, sort_order, events!inner(slug, status)";
+  "id, event_id, source_key, name, name_en, booth, area, area_en, zone, event_category, source_url, website_url, verified_at, sort_order, image_url, image_alt_zh, image_alt_en, summary_zh, summary_en, content_source, content_verified_at, events!inner(slug, status)";
 
 const EVENT_EXHIBITOR_BRAND_SELECT = "event_exhibitor_id, brands!inner(slug)";
 
@@ -335,6 +356,13 @@ export type EventExhibitorJoinRow = {
   website_url: string | null;
   verified_at: string;
   sort_order: number;
+  image_url: string | null;
+  image_alt_zh: string | null;
+  image_alt_en: string | null;
+  summary_zh: string | null;
+  summary_en: string | null;
+  content_source: string | null;
+  content_verified_at: string | null;
   events:
     | { slug: string; status: string }
     | Array<{ slug: string; status: string }>
@@ -362,6 +390,13 @@ export function eventExhibitorRowToDomain(
     websiteUrl: row.website_url,
     verifiedAt: row.verified_at,
     sortOrder: row.sort_order,
+    imageUrl: row.image_url,
+    imageAltZh: row.image_alt_zh,
+    imageAltEn: row.image_alt_en,
+    summaryZh: row.summary_zh,
+    summaryEn: row.summary_en,
+    contentSource: row.content_source,
+    contentVerifiedAt: row.content_verified_at,
   };
 }
 

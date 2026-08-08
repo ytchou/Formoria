@@ -64,8 +64,6 @@
     "gettingStarted": "開始使用",
     "stories": "專題",
     "events": "展會",
-    "glossary": "名詞解說",
-    "stats": "統計資料",
     "submit": "推薦品牌",
     "companyHeading": "關於",
     "faq": "常見問題",
@@ -82,7 +80,7 @@
     "hero": {
       "eyebrow": "TAIWANESE BRANDS",
       "headline": "找到真正適合你的台灣品牌",
-      "subheadline": "Formoria 是台灣品牌探索與選物平台，整理品牌故事、產品特色與官方購買通路。從服飾、居家、飲食到工藝，讓你更快找到符合品味與需求的台灣選物。",
+      "subheadline": "Formoria 是台灣品牌的探索平台。從服飾、居家、飲食到工藝，讓你更快找到符合品味與需求的台灣選物。",
       "statsBrands": "品牌",
       "statsCategories": "分類",
       "cta": "探索品牌…"
@@ -116,17 +114,21 @@
     },
     "submitBand": {
       "headline": "推薦一個值得被看見的台灣品牌",
-      "body": "發現了不該被錯過的品牌嗎？歡迎推薦給 Formoria。我們會確認品牌資料，通過審核後收錄於平台",
+      "body": "發現了不該被錯過的品牌嗎？歡迎推薦給 Formoria。通過審核後收錄於平台",
       "cta": "推薦品牌"
     },
     "featureRequestBand": {
       "headline": "一起讓 Formoria 更好用",
-      "body": "你希望增加新的分類、篩選方式或探索功能嗎？告訴我們你的想法，或為其他使用者提出的建議投票",
+      "body": "你希望增加新的分類、篩選方式或探索功能嗎？告訴我們你的想法",
       "cta": "提出建議"
     },
     "newBrands": {
       "heading": "最新品牌",
       "linkText": "瀏覽全部品牌 →"
+    },
+    "events": {
+      "heading": "展會資訊",
+      "linkText": "瀏覽所有展會 →"
     },
     "latestStories": {
       "heading": "Formoria 最新專題",
@@ -299,36 +301,6 @@
     "description": "請完成驗證以繼續瀏覽。",
     "verifying": "驗證中…",
     "error": "驗證失敗，請再試一次。"
-  },
-  "stats": {
-    "metadata": {
-      "title": "台灣品牌數據",
-      "description": "台灣品牌生態系即時數據——品牌總數、類別分布、MIT 認證比例、創立年代分布。"
-    },
-    "hero": {
-      "title": "台灣品牌數據",
-      "subtitle": "來自 Formoria 目錄的即時數據",
-      "totalBrands": "追蹤 {count} 個品牌",
-      "asOf": "資料更新至 {date}"
-    },
-    "categories": {
-      "title": "類別分布",
-      "description": "共 {count} 個品牌橫跨所有類別",
-      "brandCount": "{count} 個品牌"
-    },
-    "mitVerified": {
-      "title": "MIT 認證",
-      "description": "{total} 個品牌中有 {verified} 個通過 MIT 認證（{percentage}%）"
-    },
-    "geographicDistribution": "地理分布",
-    "geographicDistributionDesc": "台灣各縣市品牌數量分布（僅含有地點資料的品牌）",
-    "mapAria": "台灣品牌分布地圖",
-    "noCityData": "尚無城市資料",
-    "foundingDecade": {
-      "title": "創立年代分布",
-      "description": "台灣品牌的創立時間（僅含有創立年份資料的品牌）",
-      "label": "{decade} 年代"
-    }
   },
   "cities": {
     "taipei": "臺北市",
@@ -1114,124 +1086,6 @@
             "answer": "不行。目錄提供品牌探索入口，請以產品包裝、保存方式、過敏原與官方通路資訊做購買判斷。"
           }
         ]
-      }
-    }
-  },
-  "glossary": {
-    "metadata": {
-      "title": "名詞解說",
-      "description": "Formoria 名詞解說——台灣製造定義、信任標章說明，以及目錄分類標籤總覽。"
-    },
-    "eyebrow": "參考",
-    "heading": "名詞解說",
-    "lede": "Formoria 上使用的名詞與定義——從「台灣製造」的意義、信任標章的運作，到我們如何組織整個目錄。",
-    "breadcrumbHome": "首頁",
-    "sectionsLabel": "分類",
-    "sectionsAria": "名詞解說分類",
-    "verifiedBadgeLabel": "MIT 微笑認證",
-    "verifiedBadgeTitle": "已通過 MIT 微笑標章登錄驗證",
-    "ownerBadgeLabel": "品牌經營",
-    "ownerBadgeTitle": "由品牌方經營管理",
-    "sections": {
-      "core": {
-        "title": "核心概念",
-        "terms": {
-          "madeInTaiwan": {
-            "zh": "台灣製造",
-            "en": "Made in Taiwan",
-            "definition": "主要設計、製造或創立根植於台灣——是對工藝的承諾，而非僅是產地標籤。"
-          },
-          "communityCurated": {
-            "zh": "社群共編",
-            "en": "Community-contributed",
-            "definition": "品牌資料由社群提供，經 Formoria 人工審核後收錄；這與編輯主動挑選的「Formoria 精選」不同。"
-          }
-        }
-      },
-      "verification": {
-        "title": "驗證標章",
-        "terms": {
-          "mitVerified": {
-            "zh": "MIT 微笑標章",
-            "en": "Verified",
-            "definition": "比對微笑產品標章登錄資料確認——經獨立查核，而非自行申報。",
-            "badge": "verified"
-          },
-          "ownerClaimed": {
-            "zh": "品牌經營",
-            "en": "Owner-claimed",
-            "definition": "品牌經營者已認領並主動維護此頁面——是持續維護的真實存在。",
-            "badge": "owner"
-          },
-          "communityLabel": {
-            "zh": "社群標記",
-            "en": "Community label",
-            "definition": "由社群維護，尚無經營者認領、也未經登錄查核——隨時歡迎認領。"
-          }
-        }
-      },
-      "materials": {
-        "title": "材質",
-        "terms": {
-          "leather": {
-            "zh": "皮革",
-            "en": "Leather",
-            "definition": "全粒面或頭層、植鞣皮革——非合成材質。"
-          },
-          "ceramic": {
-            "zh": "陶瓷",
-            "en": "Ceramic",
-            "definition": "陶土、瓷器與炻器，深植鶯歌工藝傳統。"
-          },
-          "naturalFibre": {
-            "zh": "天然纖維",
-            "en": "Natural Fibre",
-            "definition": "棉、麻、羊毛、絲或竹——僅限植物或動物來源。"
-          }
-        }
-      },
-      "priceRange": {
-        "title": "價格區間",
-        "terms": {
-          "accessible": {
-            "zh": "親民",
-            "en": "Accessible",
-            "definition": "日常價位，低於 NT$1,000。",
-            "range": "低於 NT$1,000"
-          },
-          "midRange": {
-            "zh": "中價位",
-            "en": "Mid-range",
-            "definition": "進階選擇，NT$1,000 至 NT$5,000。",
-            "range": "NT$1,000 – NT$5,000"
-          },
-          "premium": {
-            "zh": "精品",
-            "en": "Premium",
-            "definition": "精品工藝，高於 NT$5,000。",
-            "range": "高於 NT$5,000"
-          }
-        }
-      },
-      "values": {
-        "title": "價值理念",
-        "terms": {
-          "slowMade": {
-            "zh": "慢工出細活",
-            "en": "Slow-made",
-            "definition": "小批量、手工製作——是策展訊號，而非認證。"
-          },
-          "ecoConscious": {
-            "zh": "永續意識",
-            "en": "Eco-conscious",
-            "definition": "在選料、包裝與廢棄物上，對環境責任的實質承諾。"
-          },
-          "familyRun": {
-            "zh": "家族傳承",
-            "en": "Family-run",
-            "definition": "家族擁有並經營，往往跨越數代傳承。"
-          }
-        }
       }
     }
   },
@@ -2802,20 +2656,22 @@
     "lineupSortBooth": "攤位編號",
     "lineupSearchEmptyTitle": "沒有符合的品牌",
     "lineupSearchEmptyBody": "可以檢查拼字、只輸入名稱的一部分，或返回完整名單。",
-    "relatedStories": "相關專題",
+    "relatedStories": "文博會相關專題",
     "storiesEmptyTitle": "尚無相關的專題報導",
     "explorerHeading": "全部參展單位",
     "explorerRosterUnavailable": "參展名單暫時無法取得",
     "explorerRosterUnavailableBody": "活動資訊與平面圖仍可查看，請稍後再試參展品牌探索器。",
     "explorerRosterEmpty": "目前沒有可顯示的參展單位。",
     "explorerSearchAria": "搜尋參展單位名稱、羅馬拼音或攤位編號",
-    "explorerSearchPlaceholder": "名稱、拼音或攤位",
+    "explorerSearchPlaceholder": "搜尋品牌…",
+    "explorerListedOnly": "只看 Formoria 收錄品牌",
     "zoneFilterAria": "依展區篩選參展單位",
     "allZones": "全部展區",
     "exhibitorCount": "共 {count} 個參展單位",
     "exhibitorCountFiltered": "共 {count} 個參展單位（篩選自 {total} 個）",
     "exhibitorEmptyTitle": "沒有符合的參展單位",
     "exhibitorEmptyBody": "可以檢查拼字、只輸入名稱的一部分，或改看其他展區。",
+    "exhibitorListed": "Formoria 收錄",
     "exhibitorNotListed": "尚未收錄",
     "exhibitorOfficialSite": "官方連結",
     "exhibitorOfficialSiteAria": "{name} 的官方連結（另開新視窗）",
@@ -2826,12 +2682,11 @@
     "paginationNextAria": "前往下一頁",
     "paginationPageAria": "第 {page} 頁",
     "paginationPosition": "第 {page} 頁，共 {pageCount} 頁",
-    "explorerVerifiedAt": "名單核對日期：{date}",
-    "explorerSource": "開啟官方參展名單",
+    "explorerSource": "官方參展名單",
     "officialMapHeading": "展場平面圖",
     "officialMapDescription": "主辦單位公布的完整平面圖，含其他展館與服務區域。",
     "floorMapLabel": "可選擇展區的 2026 臺灣文博會平面圖",
-    "floorMapOpenViewer": "開啟全螢幕平面圖",
+    "floorMapOpenViewer": "全螢幕平面圖",
     "floorMapViewerTitle": "全螢幕平面圖",
     "floorMapViewerDescription": "可上下左右捲動平移，選擇縮放比例或查看完整平面圖。",
     "floorMapCloseViewer": "關閉平面圖檢視器",
@@ -2840,9 +2695,8 @@
     "floorMapZoomTimes": "{value} 倍",
     "floorMapUnavailable": "平面圖圖片目前無法載入。",
     "floorMapUnavailableHint": "可開啟官方 PDF 查看完整平面圖與攤位名單。",
-    "floorMapOfficialPdf": "開啟官方平面圖 PDF",
+    "floorMapOfficialPdf": "官方平面圖 PDF",
     "floorMapAttribution": "平面圖來源：2026 臺灣文博會",
-    "floorMapOfficialSite": "臺灣文博會官方網站",
     "notFound": {
       "title": "找不到展會",
       "description": "您所尋找的展會不存在或已被移除。",

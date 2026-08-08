@@ -75,7 +75,7 @@ describe('EventInfo', () => {
       screen.getByRole('heading', { level: 2, name: 'Taiwan Creative Expo' }),
     ).toBeInTheDocument()
     expect(screen.getByText('Dates')).toBeInTheDocument()
-    expect(screen.getByText('2026/08/06–08/12')).toBeInTheDocument()
+    expect(screen.getByText('2026/08/06 – 08/12')).toBeInTheDocument()
     expect(screen.getByText('TaiNEX 1')).toBeInTheDocument()
     // The street address belongs on the event page, not in an in-story summary.
     expect(screen.queryByText('Taipei')).toBeNull()

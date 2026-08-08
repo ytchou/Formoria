@@ -253,7 +253,7 @@ test.describe("Event detail deep", () => {
 const CREATIVE_EXPO_SLUG = "2026-taiwan-creative-expo";
 
 /** Mirrors `EXHIBITOR_PAGE_SIZE` in `taiwan-creative-expo-explorer.tsx`. */
-const EXHIBITOR_PAGE_SIZE = 20;
+const EXHIBITOR_PAGE_SIZE = 10;
 
 test.describe("Creative Expo exhibitor list", () => {
   test("@smoke zone chips, search, pagination, and brand navigation stay synchronized", async ({
@@ -284,8 +284,10 @@ test.describe("Creative Expo exhibitor list", () => {
       EXHIBITOR_PAGE_SIZE,
     );
 
+    // The zone code leads the accessible name — it is what ties the chip to
+    // the `K2-###` booth numbers on the floor plan and in every row.
     const k2Chip = explorer.getByRole("button", {
-      name: /^Craftsmanship & Cultural Sustainability \d+$/,
+      name: /^K2 Craftsmanship & Cultural Sustainability \d+$/,
     });
     const allK2Count = trailingCount(await k2Chip.innerText());
 
@@ -297,8 +299,10 @@ test.describe("Creative Expo exhibitor list", () => {
     await expect(status).toHaveText(`${allK2Count} of ${total} exhibitors`);
     await expect(explorer.locator("li")).toHaveCount(allK2Count);
 
-    const showAll = explorer.getByRole("button", { name: "Show all brands" });
-    await showAll.click();
+    // "All zones" is the only zone reset now — the redundant button beside the
+    // count line is gone, so this chip carries the `?zone=` clearing contract.
+    const allZones = explorer.getByRole("button", { name: "All zones" });
+    await allZones.click();
     await expect(status).toHaveText(`${total} exhibitors`);
     await expect(anonPage).toHaveURL(`/en/events/${CREATIVE_EXPO_SLUG}`);
 
@@ -332,7 +336,8 @@ test.describe("Creative Expo exhibitor list", () => {
     );
     await expect(status).toHaveText(`1 of ${total} exhibitors`);
 
-    await showAll.click();
+    // Clearing the query is the search field's own job — no button resets it.
+    await search.fill("");
     await expect(search).toHaveValue("");
     await expect(status).toHaveText(`${total} exhibitors`);
 
@@ -357,7 +362,7 @@ test.describe("Creative Expo exhibitor list", () => {
     await expect(anonPage).toHaveURL(/\?zone=K2$/);
     await expect(position).toHaveText(new RegExp(`^Page 1 of \\d+$`));
 
-    await showAll.click();
+    await allZones.click();
     await search.fill("K2-022");
     // Wait for the filtered list to settle before clicking. Every row stays in
     // the DOM and pagination only toggles `hidden`, so this row is present but
@@ -437,12 +442,12 @@ test.describe("Creative Expo exhibitor list", () => {
     ).toBeVisible();
     await expect(zhAbout).toContainText("平面圖來源：2026 臺灣文博會");
     await expect(
-      zhAbout.getByRole("link", { name: "開啟官方平面圖 PDF" }),
+      zhAbout.getByRole("link", { name: "官方平面圖 PDF" }),
     ).toHaveAttribute("href", /creativexpo\.tw\/uploads\/download\/file/);
     // Roster provenance sits with the map's, not at the foot of the explorer.
     // Catches attribution drifting to an arbitrary linked exhibitor detail page.
     await expect(
-      zhAbout.getByRole("link", { name: "開啟官方參展名單" }),
+      zhAbout.getByRole("link", { name: "官方參展名單" }),
     ).toHaveAttribute("href", "https://creativexpo.tw/zh-TW/exhibitor_list");
 
     await anonPage.goto(`/en/events/${CREATIVE_EXPO_SLUG}`);
@@ -542,7 +547,7 @@ test.describe("Creative Expo exhibitor list", () => {
     ).toBeVisible();
     await expect.poll(() => mapImageFailed).toBe(true);
 
-    await about.getByRole("button", { name: "Open full-screen map" }).click();
+    await about.getByRole("button", { name: "Full-screen map" }).click();
     const viewer = anonPage.getByRole("dialog");
     await expect(viewer).toBeVisible();
 
@@ -550,7 +555,7 @@ test.describe("Creative Expo exhibitor list", () => {
       viewer.getByText("The map image could not be loaded."),
     ).toBeVisible();
     await expect(
-      viewer.getByRole("link", { name: "Open official map PDF" }).first(),
+      viewer.getByRole("link", { name: "Official map PDF" }).first(),
     ).toHaveAttribute("href", /creativexpo\.tw\/uploads\/download/);
 
     await viewer

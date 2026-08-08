@@ -66,9 +66,13 @@ export function BrandSectionNav({ sections }: BrandSectionNavProps) {
   // (en "Locations & Channels" is 177px vs zh 130px). Shrinking to the grid track lets
   // the inner overflow-x-auto do the scrolling it was already there to do.
   return (
+    // `border-b` only, never `border-y`: on mobile this strip is the first child
+    // of a wrapper that already draws its own `border-t` 32px above, and the two
+    // rules read as one doubled divider. The bottom rule stays — it is what
+    // separates the sticky strip from the content sliding under it.
     <nav
       aria-label={t('tabNav.overview')}
-      className="sticky top-(--nav-height) z-40 min-w-0 border-y border-border bg-background md:self-start md:border-y-0 md:border-l md:pl-3"
+      className="sticky top-(--nav-height) z-40 min-w-0 border-b border-border bg-background md:self-start md:border-b-0 md:border-l md:pl-3"
     >
       <div className="flex items-stretch md:flex-col">
         <div className="scrollbar-none flex min-w-0 flex-1 overflow-x-auto md:flex-col md:overflow-visible">

@@ -20,6 +20,7 @@ import {
   getStoryBySlug,
   getStoriesByTag,
   getStorySeries,
+  getStorySeriesByRecency,
   getPublishedStoryBySlug,
 } from './stories'
 
@@ -505,6 +506,89 @@ describe('stories service (filesystem-backed)', () => {
 
       // Two `series: undefined` stories must never be grouped together.
       expect(result.stories.map(story => story.slug)).toEqual(['part-one'])
+    })
+  })
+
+  describe('getStorySeriesByRecency', () => {
+    it('orders by updatedAt descending, ignoring seriesOrder', async () => {
+      const member = (
+        slug: string,
+        seriesOrder: number,
+        updatedAt: string | undefined,
+        publishedAt: string,
+      ) =>
+        storyFile({
+          ...baseFields,
+          slug,
+          series: 'expo-2026',
+          seriesOrder,
+          publishedAt,
+          updatedAt,
+        })
+
+      mockStoryFiles({
+        // Authored first, revised most recently — must lead despite seriesOrder 1.
+        'part-one.mdx': member(
+          'part-one',
+          1,
+          '2026-08-07T00:00:00.000Z',
+          '2026-06-01T00:00:00.000Z',
+        ),
+        // Never revised: falls back to its own publishedAt.
+        'part-two.mdx': member(
+          'part-two',
+          2,
+          undefined,
+          '2026-08-01T00:00:00.000Z',
+        ),
+        'part-three.mdx': member(
+          'part-three',
+          3,
+          '2026-07-02T00:00:00.000Z',
+          '2026-07-01T00:00:00.000Z',
+        ),
+      })
+
+      const result = await getStorySeriesByRecency('expo-2026')
+      expect(result.ok).toBe(true)
+      if (!result.ok) throw result.error
+
+      expect(result.stories.map(story => story.slug)).toEqual([
+        'part-one',
+        'part-two',
+        'part-three',
+      ])
+    })
+
+    it('leaves the authored order of getStorySeries untouched', async () => {
+      const files = {
+        'part-one.mdx': storyFile({
+          ...baseFields,
+          slug: 'part-one',
+          series: 'expo-2026',
+          seriesOrder: 1,
+          updatedAt: '2026-08-07T00:00:00.000Z',
+        }),
+        'part-two.mdx': storyFile({
+          ...baseFields,
+          slug: 'part-two',
+          series: 'expo-2026',
+          seriesOrder: 2,
+          updatedAt: '2026-08-09T00:00:00.000Z',
+        }),
+      }
+
+      mockStoryFiles(files)
+      const authored = await getStorySeries('expo-2026')
+      mockStoryFiles(files)
+      const recent = await getStorySeriesByRecency('expo-2026')
+
+      expect(authored.ok && recent.ok).toBe(true)
+      if (!authored.ok || !recent.ok) throw new Error('series read failed')
+
+      // The two callers must disagree here — that disagreement is the point.
+      expect(authored.stories.map(s => s.slug)).toEqual(['part-one', 'part-two'])
+      expect(recent.stories.map(s => s.slug)).toEqual(['part-two', 'part-one'])
     })
   })
 })

@@ -50,9 +50,8 @@ export function revalidatePublicBrand({
   for (const subcategory of PRODUCT_SUBCATEGORIES) {
     revalidateLocalizedPath(`/categories/${subcategory.category}/${subcategory.slug}`)
   }
-  // /stats and /about render a global approved-brand count, so any approve/hide/delete
-  // makes their ISR entries stale even though no brand page changed.
-  revalidateLocalizedPath('/stats')
+  // /about renders a global approved-brand count, so any approve/hide/delete
+  // makes its ISR entry stale even though no brand page changed.
   revalidateLocalizedPath('/about')
   // The sitemap is a single unlocalized route, so its cache key is literal.
   revalidatePath('/sitemap.xml')

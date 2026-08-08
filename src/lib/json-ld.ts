@@ -381,28 +381,6 @@ export function buildEventJsonLd({
   return jsonLd;
 }
 
-/**
- * Build DefinedTermSet JSON-LD structured data for glossary pages.
- */
-export function buildDefinedTermSetJsonLd(
-  terms: Array<{ name: string; description: string }>,
-  locale?: string,
-): JsonLdObject {
-  const inLanguage = toInLanguage(locale);
-
-  return {
-    "@context": "https://schema.org",
-    "@type": "DefinedTermSet",
-    name: inLanguage === "zh-TW" ? "Formoria 詞彙表" : "Formoria Glossary",
-    inLanguage,
-    hasDefinedTerm: terms.map((term) => ({
-      "@type": "DefinedTerm",
-      name: term.name,
-      description: term.description,
-    })),
-  };
-}
-
 export type FaqQuestion = {
   q: string;
   a: string;

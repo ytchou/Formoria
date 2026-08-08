@@ -64,10 +64,8 @@ export const RESERVED_ROUTES = new Set([
   "contributions",
   "settings",
   "getting-started",
-  "glossary",
   "global-error",
   "privacy",
-  "stats",
   "sitemap.xml",
   "robots.txt",
   "favicon.ico",
@@ -151,9 +149,7 @@ export const PUBLIC_INTL_SEGMENTS = new Set([
   "settings",
   "favorites",
   "feature-requests",
-  "glossary",
   "privacy",
-  "stats",
 ]);
 const SOFT_LIMIT_PREFIXES = ["/brands/"];
 const DIRECTORY_EDGE_CACHE_CONTROL =

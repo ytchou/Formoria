@@ -99,7 +99,16 @@ export function BrandActions({
           <span className="line-through">{visitLabel}</span>
         </span>
       )}
-      <div className="flex flex-wrap gap-2">
+      {/*
+        One row at every width. At the default button size these four overflow a
+        390px viewport and wrap to a second line, so below `sm` they take the
+        `compact` size's height and internal gap. The horizontal padding goes
+        one step tighter than compact on purpose: at `px-3` the row still
+        overflowed by 3px on a 390px screen, and the extra 16px reclaimed here
+        is the headroom for a like count that grows past a single digit.
+        `flex-nowrap` holds the line rather than silently wrapping again.
+      */}
+      <div className="flex flex-nowrap gap-2 max-sm:gap-1 max-sm:[&_button]:h-10 max-sm:[&_button]:gap-1 max-sm:[&_button]:px-2.5">
         <ShareDialog
           brandSlug={brandSlug}
           brandName={brandName}
