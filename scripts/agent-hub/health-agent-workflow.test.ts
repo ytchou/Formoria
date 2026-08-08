@@ -1,10 +1,16 @@
-import { access, readFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { promisify } from "node:util";
 
 import * as prettier from "prettier";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
 
+const execFileAsync = promisify(execFile);
 const workflowPath = ".github/workflows/health-agent.yml";
+const temporaryDirectories: string[] = [];
 const retiredPaths = [
   ".github/workflows/health-agent-collect.yml",
   ".github/workflows/health-agent-analyze.yml",
@@ -16,6 +22,69 @@ const retiredPaths = [
   ".github/selfheal/quality-review.md",
   "scripts/notifications/quality-slack.ts",
 ];
+
+afterEach(async () => {
+  await Promise.all(
+    temporaryDirectories
+      .splice(0)
+      .map((directory) => rm(directory, { force: true, recursive: true })),
+  );
+});
+
+type ArtifactStatus = "failed" | "skipped" | "success";
+
+async function runProductMerge(
+  directoryStatus: ArtifactStatus,
+  brandStatus?: ArtifactStatus,
+): Promise<Record<string, unknown>> {
+  const artifactRoot = await mkdtemp(
+    path.join(tmpdir(), "formoria-product-merge-"),
+  );
+  temporaryDirectories.push(artifactRoot);
+
+  const workflow = parseYaml(await readFile(workflowPath, "utf8")) as {
+    jobs: {
+      "nightly-health": {
+        steps: Array<{ id?: string; run?: string }>;
+      };
+    };
+  };
+  const mergeStep = workflow.jobs["nightly-health"].steps.find(
+    (step) => step.id === "product",
+  );
+  if (!mergeStep?.run) {
+    throw new Error("product merge command is missing from workflow");
+  }
+
+  const artifact = (routine: string, status: ArtifactStatus) => ({
+    collectedAt: "2026-08-08T10:00:00.000Z",
+    evidence: { mode: "preflight" },
+    failures: [],
+    findings: [],
+    routine,
+    skippedActions: status === "skipped" ? [`${routine}_collection`] : [],
+    status,
+    version: 1,
+  });
+  await writeFile(
+    path.join(artifactRoot, "directory-health.json"),
+    `${JSON.stringify(artifact("directory-health", directoryStatus))}\n`,
+  );
+  if (brandStatus) {
+    await writeFile(
+      path.join(artifactRoot, "brand-review.json"),
+      `${JSON.stringify(artifact("brand-review", brandStatus))}\n`,
+    );
+  }
+
+  await execFileAsync("bash", ["-euo", "pipefail", "-c", mergeStep.run], {
+    cwd: process.cwd(),
+    env: { ...process.env, HEALTH_ARTIFACT_DIR: artifactRoot },
+  });
+  return JSON.parse(
+    await readFile(path.join(artifactRoot, "directory-health.json"), "utf8"),
+  ) as Record<string, unknown>;
+}
 
 describe("unified health-agent workflow contract", () => {
   it("admits before collection and gates duplicate replays without workflow-wide cancellation", async () => {
@@ -167,6 +236,28 @@ describe("unified health-agent workflow contract", () => {
     ]) {
       expect(finalReport?.run).toContain(argument);
     }
+  });
+
+  it.each([
+    ["success", "success", "success"],
+    ["success", "skipped", "success"],
+    ["success", "failed", "failed"],
+    ["failed", "skipped", "failed"],
+  ] as const)(
+    "merges directory %s and brand %s artifacts as %s",
+    async (directoryStatus, brandStatus, expectedStatus) => {
+      const merged = await runProductMerge(directoryStatus, brandStatus);
+
+      expect(merged).toMatchObject({
+        failures: [],
+        findings: [],
+        status: expectedStatus,
+      });
+    },
+  );
+
+  it("fails closed when the brand review artifact is missing", async () => {
+    await expect(runProductMerge("success")).rejects.toThrow();
   });
 
   it("classifies failed artifact uploads and gates terminal success on both attempts", async () => {
