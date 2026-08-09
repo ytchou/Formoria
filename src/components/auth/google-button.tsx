@@ -4,9 +4,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 
 type GoogleButtonProps = {
-  action?: () => void | Promise<void>;
-  actionUrl?: string;
-  fields?: Record<string, string | undefined>;
+  action: () => void | Promise<void>;
 };
 
 function GoogleGlyph() {
@@ -36,7 +34,7 @@ function GoogleGlyph() {
   );
 }
 
-export function GoogleButton({ action, actionUrl, fields }: GoogleButtonProps) {
+export function GoogleButton({ action }: GoogleButtonProps) {
   const t = useTranslations("auth");
 
   return (
@@ -50,12 +48,7 @@ export function GoogleButton({ action, actionUrl, fields }: GoogleButtonProps) {
         </div>
       </div>
 
-      <form action={actionUrl ?? action} method={actionUrl ? 'post' : undefined}>
-        {fields
-          ? Object.entries(fields).map(([name, value]) => value
-              ? <input key={name} type="hidden" name={name} value={value} />
-              : null)
-          : null}
+      <form action={action}>
         <Button
           type="submit"
           variant="secondary"

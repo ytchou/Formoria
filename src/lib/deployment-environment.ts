@@ -49,7 +49,7 @@ export function isAllowedStagingRequest(
   if (method !== "POST") return false;
 
   return (
-    normalizedPath === "/auth/sign-in/password" ||
+    normalizedPath === "/auth/sign-in" ||
     normalizedPath === "/auth/sign-out"
   );
 }

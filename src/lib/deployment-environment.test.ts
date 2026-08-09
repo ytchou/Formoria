@@ -21,12 +21,14 @@ describe("staging deployment safety policy", () => {
 
   it("allows reads and existing-user auth but denies application mutations", () => {
     expect(isAllowedStagingRequest("GET", "/brands")).toBe(true);
-    expect(isAllowedStagingRequest("POST", "/en/auth/sign-in/password")).toBe(
+    expect(isAllowedStagingRequest("POST", "/en/auth/sign-in")).toBe(
       true,
+    );
+    expect(isAllowedStagingRequest("POST", "/auth/sign-in/password")).toBe(
+      false,
     );
     expect(isAllowedStagingRequest("POST", "/auth/sign-in/google")).toBe(false);
     expect(isAllowedStagingRequest("POST", "/auth/sign-out")).toBe(true);
-    expect(isAllowedStagingRequest("POST", "/auth/sign-in")).toBe(false);
     expect(isAllowedStagingRequest("POST", "/submit")).toBe(false);
     expect(isAllowedStagingRequest("DELETE", "/api/admin/brands/123")).toBe(
       false,
