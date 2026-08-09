@@ -24,6 +24,14 @@ vi.mock('@/i18n/navigation', () => ({
   useRouter: () => ({ push: mockPush }),
 }))
 
+// Mock analytics — the search event is the assertion, not a side effect
+const mockTrackSearchExecuted = vi.fn()
+vi.mock('@/lib/analytics', () => ({
+  trackSearchExecuted: (...args: unknown[]) => mockTrackSearchExecuted(...args),
+  trackSearchResultClicked: vi.fn(),
+  trackSearchSuggestionSelect: vi.fn(),
+}))
+
 // Mock fetch for autocomplete API
 const mockFetch = vi.fn()
 global.fetch = mockFetch
@@ -304,6 +312,34 @@ describe('SearchInput autocomplete', () => {
 
     expect(abortSpy).toHaveBeenCalled()
     abortSpy.mockRestore()
+  })
+
+  // Without `redirectTo` this box rewrites the URL as you type, so the results page
+  // mounts SearchResultsTracker and already counts the search with the true total.
+  // Counting it here too would report one search twice, with two different counts.
+  it('leaves the search event to the results page when it drives the URL', async () => {
+    const user = userEvent.setup()
+    renderWithProvider(<SearchInput />)
+
+    await user.type(screen.getByRole('searchbox'), 'tea')
+    await screen.findByRole('listbox')
+    await user.click(screen.getAllByRole('option')[0])
+
+    expect(mockPush).toHaveBeenCalledWith('/brands/tea-house')
+    expect(mockTrackSearchExecuted).not.toHaveBeenCalled()
+  })
+
+  // With `redirectTo` the query never reaches a results page — the visitor jumps
+  // straight to the brand — so this is the only chance to count the search.
+  it('counts the search itself when picking a suggestion skips the results page', async () => {
+    const user = userEvent.setup()
+    renderWithProvider(<SearchInput redirectTo="/brands" />)
+
+    await user.type(screen.getByRole('searchbox'), 'tea')
+    await screen.findByRole('listbox')
+    await user.click(screen.getAllByRole('option')[0])
+
+    expect(mockTrackSearchExecuted).toHaveBeenCalledExactlyOnceWith('tea', 2)
   })
 
   it('does not surface AbortError as an error state', async () => {

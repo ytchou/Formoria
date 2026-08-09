@@ -61,7 +61,8 @@
     "test:e2e:smoke": "playwright test --project=deep --grep @smoke",
     "test:e2e:cross-browser": "playwright test --project=cross-browser-chromium --project=cross-browser-firefox --project=cross-browser-webkit --grep @cross-browser e2e/tests/landing-search-cross-browser.spec.ts",
     "test:e2e:deep": "playwright test --project=deep",
-    "test:search:load": "node --env-file=.env.local scripts/search-load.mjs"
+    "test:search:load": "node --env-file=.env.local scripts/search-load.mjs",
+    "search:eval": "tsx --env-file=.env.local scripts/search-eval/run.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

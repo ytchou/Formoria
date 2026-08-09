@@ -2935,6 +2935,35 @@ export type Database = {
           suggested_tags: Json
         }[]
       }
+      brand_search_tsquery: {
+        Args: { input: string; prefix_mode?: boolean }
+        Returns: unknown
+      }
+      brand_trgm_rank: {
+        Args: {
+          p_blurb_en: string
+          p_description: string
+          p_name: string
+          p_product_tags: string[]
+          p_product_tags_en: string[]
+          p_product_type: string
+          p_query: string
+          p_slug: string
+        }
+        Returns: number
+      }
+      brands_search_document: {
+        Args: {
+          p_blurb_en: string
+          p_description: string
+          p_name: string
+          p_product_tags: string[]
+          p_product_tags_en: string[]
+          p_product_type: string
+          p_slug: string
+        }
+        Returns: unknown
+      }
       cancel_curation_job: {
         Args: { p_job_id: string; p_reason: string }
         Returns: {
@@ -2980,6 +3009,8 @@ export type Database = {
         Args: { p_name: string; p_ubn?: string; p_website_key?: string }
         Returns: Json
       }
+      cjk_bigrams: { Args: { input: string }; Returns: string }
+      cjk_bigrams_bridged: { Args: { input: string }; Returns: string }
       claim_claim_proof_cleanup_jobs: {
         Args: {
           p_claim_request_id?: string
