@@ -286,7 +286,7 @@ export function BrandFilterSidebar({
 
         <Separator />
 
-        <FilterSection title={t("category")}>
+        <FilterSection title={t("category")} defaultOpen={activeCategories.size > 0}>
           <div className="space-y-1">
             {categories.map((category) => {
               const checked = activeCategories.has(category.slug);
