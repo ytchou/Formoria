@@ -117,10 +117,21 @@ describe("ImageCarousel", () => {
 
     const [hero] = images();
     expect(hero).toHaveAttribute("alt", "gallery.photoAltWithBrand");
-    expect(hero).toHaveClass("object-cover");
+    // Contained, not covered, even though this is a photo rather than a logo:
+    // the carousel hero shows one product large with nothing beside it, so a
+    // crop would remove product to solve a raggedness problem that only exists
+    // in a grid (DEV-1407). No `p-6` — that inset is logo-only.
+    expect(hero).toHaveClass("object-contain");
+    expect(hero).not.toHaveClass("p-6");
   });
 
-  it("applies focal positioning to normal images but not logos", () => {
+  /*
+   * Focal positioning belongs to whatever COVERS, and in this component that is
+   * the thumbnail strip, not the hero. The hero contains (DEV-1407), and a
+   * contained image has no crop window to anchor — `object-position` would only
+   * slide it around inside its own letterbox.
+   */
+  it("applies focal positioning to covering thumbnails but never to the contained hero", () => {
     render(
       <ImageCarousel
         images={[`${ALLOWED_HOST}/logo.jpg`, `${ALLOWED_HOST}/photo.jpg`]}
@@ -133,11 +144,25 @@ describe("ImageCarousel", () => {
         ]}
       />,
     );
-    const [logoHero] = images();
 
+    const [logoHero, logoThumb, photoThumb] = images();
+
+    // Hero: contained, so no anchoring regardless of what was measured.
+    expect(logoHero).toHaveClass("object-contain");
     expect(logoHero).not.toHaveStyle({ objectPosition: "10% 20%" });
+
+    // Thumbnails: the logo is still contained and unanchored, the photo covers
+    // and carries its measured point.
+    expect(logoThumb).toHaveClass("object-contain", "p-1.5");
+    expect(logoThumb).not.toHaveStyle({ objectPosition: "10% 20%" });
+    expect(photoThumb).toHaveClass("object-cover");
+    expect(photoThumb).toHaveStyle({ objectPosition: "25% 75%" });
+
+    // Advancing to the photo keeps the hero contained and unanchored — the
+    // regression this guards is a future "just use cover everywhere" change.
     fireEvent.click(screen.getByRole("button", { name: "gallery.next" }));
-    const [normalHero] = images();
-    expect(normalHero).toHaveStyle({ objectPosition: "25% 75%" });
+    const [photoHero] = images();
+    expect(photoHero).toHaveClass("object-contain");
+    expect(photoHero).not.toHaveStyle({ objectPosition: "25% 75%" });
   });
 });

@@ -54,6 +54,25 @@ export type BrandImageFillOptions = {
    * no such container and pass it here.
    */
   logoPlate?: string
+  /**
+   * How a NON-logo image fills its box. Defaults to `cover`.
+   *
+   * This is a per-surface decision, not a global one, and the two answers come
+   * from what the surface is for:
+   *
+   * - `cover` where brands are compared side by side (directory grid, cards,
+   *   favorites, microsite hero). Mismatched aspect ratios letterbox to
+   *   different widths, and a row of unequal grey strips is what made the grid
+   *   read as ragged — the defect DEV-1406 set out to fix.
+   * - `contain` where a single product is shown large (detail carousel hero,
+   *   dashboard hero card). Nothing neighbours it, so there is no raggedness to
+   *   fix, and cropping only removes product. 54.7% of active product photos
+   *   are exactly square and lose a quarter of their height to a 4/3 cover
+   *   crop — DEV-1407.
+   *
+   * A logo ignores this and is always contained.
+   */
+  fit?: 'cover' | 'contain'
 }
 
 /**
@@ -82,9 +101,19 @@ export function brandImageFill(
   meta: BrandImageFraming | null | undefined,
   options: BrandImageFillOptions = {},
 ): { className: string; style: { objectPosition: string } | undefined } {
-  if (meta?.isLogo) {
+  const isLogo = Boolean(meta?.isLogo)
+
+  if (isLogo || options.fit === 'contain') {
     return {
-      className: [options.logoPlate, 'object-contain', options.inset]
+      // `logoPlate` and `inset` are logo-only. A contained PHOTO wants neither:
+      // the plate is there to make a floating mark look deliberate, and the
+      // inset would shrink a product shot away from the frame it is meant to
+      // fill as fully as its aspect ratio allows.
+      className: [
+        isLogo ? options.logoPlate : undefined,
+        'object-contain',
+        isLogo ? options.inset : undefined,
+      ]
         .filter(Boolean)
         .join(' '),
       // A contained image is never cropped, so there is no window to anchor and
