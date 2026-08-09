@@ -30,7 +30,7 @@ test.describe("FAQ page", () => {
 
     // Both section-level h2 headings must be present
     await expect(
-      anonPage.getByRole("heading", { name: "常見問題", level: 2 }),
+      anonPage.getByRole("heading", { name: "一般問題", level: 2 }),
     ).toBeVisible({
       timeout: 15_000,
     });
