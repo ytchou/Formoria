@@ -10,6 +10,20 @@ const stories = publishedStories('zh-TW');
 const firstStory = stories[0];
 const STORY_URL = firstStory ? `/stories/${firstStory.slug}` : '/stories';
 
+/**
+ * Explicit fixtures for the two component-specific tests below. Both used to run
+ * against `stories[0]` and skip themselves when it did not happen to embed the
+ * thing they assert on — so the component was covered or not depending on
+ * `readdirSync` ordering, and the report said "passed" either way (DEV-1414).
+ *
+ * Selection is by content, not by position: the first published story whose body
+ * embeds a `<BrandCard`, and the first with `faq` frontmatter. When no story
+ * qualifies the test skips with that as its stated reason, which is a genuine
+ * content gate — the same class as NO_PUBLISHED_STORIES.
+ */
+const BRAND_CARD_STORY = stories.find((story) => story.body.includes('<BrandCard'));
+const FAQ_STORY = stories.find((story) => story.hasFaq);
+
 test.describe('Story detail deep', () => {
   test.beforeEach(() => {
     test.skip(stories.length === 0, NO_PUBLISHED_STORIES);
@@ -25,18 +39,28 @@ test.describe('Story detail deep', () => {
   });
 
   test('BrandCard components render (live card or not-found placeholder)', async ({ anonPage }) => {
-    await anonPage.goto(STORY_URL);
+    // Pinned to a story that actually embeds BrandCards, rather than to whichever
+    // story `readdirSync` returns first. The old shape was a triple conditional —
+    // skip if no stories, skip if the first story has no BrandCard, then branch on
+    // `isVisible()` — so the one regression this test names (DEV-930's bare-slug
+    // stub) was covered only when the directory listing happened to cooperate
+    // (DEV-1414).
+    test.skip(
+      BRAND_CARD_STORY === undefined,
+      'no published story embeds a BrandCard',
+    );
+    await anonPage.goto(`/stories/${BRAND_CARD_STORY!.slug}`);
+
     // BrandCardMdx renders:
     //   - brand found  → <a href="/zh-TW/brands/[slug]"> inside a wrapper div
     //   - brand missing → <div class="... border-dashed ..."> containing the slug text
-    // Skipped when the story embeds no BrandCard at all — that is an authoring choice,
-    // not a regression.
-    const hasBrandCard = await anonPage
-      .locator('main a[href*="/brands/"], main [class*="border-dashed"]')
-      .first()
-      .isVisible({ timeout: BUDGET.RENDERED })
-      .catch(() => false);
-    test.skip(!hasBrandCard, 'story embeds no BrandCard');
+    // Asserted, not guarded: the story is known to embed one, so nothing rendering
+    // is a failure rather than a reason to stop.
+    await expect(
+      anonPage
+        .locator('main a[href*="/brands/"], main [class*="border-dashed"]')
+        .first(),
+    ).toBeVisible({ timeout: BUDGET.RENDERED });
 
     await expect(async () => {
       await anonPage.reload();
@@ -63,12 +87,16 @@ test.describe('Story detail deep', () => {
   });
 
   test('FaqBlock renders and first accordion item expands on click', async ({ anonPage }) => {
-    await anonPage.goto(STORY_URL);
-    // FaqBlock renders as <details>/<summary> accordion elements. `faq` is optional
-    // frontmatter, so a story without one is not a failure.
+    // `faq` is optional frontmatter, so "no story has one" is a content state, not a
+    // failure — but it is now read off the frontmatter rather than inferred from
+    // whether a <details> happened to be visible on an arbitrary story.
+    test.skip(FAQ_STORY === undefined, 'no published story has faq frontmatter');
+    await anonPage.goto(`/stories/${FAQ_STORY!.slug}`);
+
+    // FaqBlock renders as <details>/<summary> accordion elements. The story is known
+    // to declare one, so its absence is a rendering regression.
     const firstDetails = anonPage.locator('main details').first();
-    const hasFaq = await firstDetails.isVisible({ timeout: BUDGET.RENDERED }).catch(() => false);
-    test.skip(!hasFaq, 'story has no faq frontmatter');
+    await expect(firstDetails).toBeVisible({ timeout: BUDGET.RENDERED });
 
     await firstDetails.locator('summary').click();
     await expect(firstDetails).toHaveAttribute('open');

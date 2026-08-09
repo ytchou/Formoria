@@ -321,16 +321,30 @@ test.describe('Content moderation flow', () => {
     adminBlockedFlagId = adminFlag?.id ?? '';
 
     await adminPage.goto('/admin/moderation');
+    // One queue table on this page, asserted rather than assumed: every row
+    // locator below hangs off it, and a second table appearing would silently
+    // double every count instead of failing.
+    const queueTable = adminPage.locator('table');
+    await expect(queueTable).toHaveCount(1, { timeout: BUDGET.GATED_UI });
+    // No explicit budget: the count assertion above already absorbed the
+    // gated-render wait, so by here the table is on screen.
     await expect(
-      adminPage.locator('table').getByRole('columnheader', { name: 'Brand' }),
-    ).toBeVisible({ timeout: BUDGET.GATED_UI });
+      queueTable.getByRole('columnheader', { name: 'Brand' }),
+    ).toBeVisible();
     await expect(
-      adminPage.locator('table').getByRole('columnheader', { name: 'Actions' }),
+      queueTable.getByRole('columnheader', { name: 'Actions' }),
     ).toBeVisible();
     await expect(adminPage.getByText('Filter by risk')).toHaveCount(0);
     await expect(adminPage.getByText('Filter by tier')).toHaveCount(0);
 
-    const pendingRows = adminPage.locator('tbody tr').filter({ hasText: brandName });
+    // Scoped to the queue table, not to the document. `tbody tr` alone also
+    // matched any row the drawer or a future panel renders, and the countdown
+    // below (2 -> 1 -> 0) reads as correct only because the seeded brand name
+    // carries a timestamp — the scoping is what makes it correct by
+    // construction rather than by luck (DEV-1414).
+    const pendingRows = queueTable
+      .locator('tbody tr')
+      .filter({ hasText: brandName });
     await expect(pendingRows).toHaveCount(2, { timeout: BUDGET.GATED_UI });
     await expect(pendingRows.first()).toContainText('Phone number');
     await expect(pendingRows.first().getByRole('button', { name: 'Mark reviewed' })).toBeVisible();

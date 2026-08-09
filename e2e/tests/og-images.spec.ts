@@ -14,6 +14,8 @@
 
 import { test, expect, type APIRequestContext } from '@playwright/test';
 
+import { seedBrand, type SeededBrand } from '../helpers/seed';
+
 /** 5 KB floor — a blank or erroring satori render would fall below this. */
 const MIN_PNG_BYTES = 5_120;
 
@@ -26,24 +28,30 @@ async function assertPngRoute(request: APIRequestContext, path: string) {
 }
 
 test.describe('OG / twitter image routes', () => {
-  let brandSlug: string | null = null;
+  let seeded: SeededBrand;
 
-  test.beforeAll(async ({ browser }) => {
-    // Resolve a brand slug from the live directory — no DB seed required.
-    // Mirrors the slug-discovery pattern used in brand-share.spec.ts.
-    const page = await browser.newPage();
-    await page.goto('/brands');
-    const href = await page
-      .locator('main a[href^="/brands/"]')
-      .first()
-      .getAttribute('href')
-      .catch(() => null);
-    await page.close();
+  /**
+   * The subject used to be "whatever brand `/brands` happens to render first",
+   * resolved through a `.catch(() => null)` that turned any failure into a silent
+   * skip of the only two brand-scoped tests in this file. Two independent flake
+   * sources in one helper: the directory sorts randomly, so a different brand was
+   * exercised every run and a render that crashes on one brand's data passes on
+   * the next; and the two tests below could report green while asserting nothing
+   * at all (DEV-1414).
+   *
+   * A seeded brand fixes both. It is the same fixture every run, and it fails
+   * here rather than skipping there.
+   */
+  test.beforeAll(async () => {
+    seeded = await seedBrand({
+      name: 'og-image',
+      workerIndex: test.info().workerIndex,
+      withLinks: true,
+    });
+  });
 
-    if (href) {
-      const m = href.match(/^\/brands\/(.+)$/);
-      brandSlug = m ? m[1] : null;
-    }
+  test.afterAll(async () => {
+    await seeded?.cleanup();
   });
 
   // --- Root routes ---
@@ -67,19 +75,11 @@ test.describe('OG / twitter image routes', () => {
   // --- Brand detail routes ---
 
   test('/brands/<slug>/opengraph-image returns 200 PNG > 5 KB', async ({ request }) => {
-    if (!brandSlug) {
-      test.skip(true, 'No approved brand found in /brands — skipping brand OG image test.');
-      return;
-    }
-    await assertPngRoute(request, `/brands/${brandSlug}/opengraph-image`);
+    await assertPngRoute(request, `/brands/${seeded.slug}/opengraph-image`);
   });
 
   test('/brands/<slug>/twitter-image returns 200 PNG > 5 KB', async ({ request }) => {
-    if (!brandSlug) {
-      test.skip(true, 'No approved brand found in /brands — skipping brand twitter-image test.');
-      return;
-    }
-    await assertPngRoute(request, `/brands/${brandSlug}/twitter-image`);
+    await assertPngRoute(request, `/brands/${seeded.slug}/twitter-image`);
   });
 
   // --- Locale trust OG routes ---

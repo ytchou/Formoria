@@ -412,10 +412,8 @@ test.describe("Creative Expo exhibitor list", () => {
     await search.fill(subject.name);
     await expect(subjectLink).toBeVisible();
 
-    if (subject.nameEn) {
-      await search.fill(subject.nameEn);
-      await expect(subjectLink).toBeVisible();
-    }
+    await search.fill(subject.nameEn!);
+    await expect(subjectLink).toBeVisible();
 
     // Clearing the query is the search field's own job — no button resets it.
     await search.fill("");

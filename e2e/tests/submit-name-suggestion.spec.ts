@@ -28,14 +28,22 @@ test.describe('Submit name suggestion', () => {
     // Blur via Tab key (more reliable than .blur() for triggering React onBlur)
     await nameInput.press('Tab');
 
-    // Suggestion alert must appear — locate by unique content rather than
-    // bare role="alert" (avoids collision with route announcer / other alerts)
+    // Suggestion row must appear — located by unique content rather than bare
+    // role="alert" (avoids collision with the route announcer / other alerts).
+    //
+    // Two ancestor divs also contain this string, so the locator is only
+    // single-match because Playwright's text engine resolves to the SMALLEST
+    // element containing it. Stated because the identical locator written
+    // against a role would need explicit scoping, and because the flagged
+    // strict-mode risk here turned out to be that rule, not a real defect
+    // (DEV-1414).
     const suggestionAlert = userPage.getByText('建議名稱：');
     await expect(suggestionAlert).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
 
-    // Alert body contains the cleaned name
-    const alertContainer = suggestionAlert.locator('..');
-    await expect(alertContainer).toContainText('TestBrand');
+    // The cleaned name is the payload, and it lives in the row's <strong> —
+    // asserting on the parent also passed when the suggestion rendered empty
+    // and the surrounding text alone carried the match.
+    await expect(suggestionAlert.locator('strong')).toHaveText('TestBrand');
 
     // Apply button is present
     const applyBtn = userPage.getByRole('button', {

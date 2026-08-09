@@ -14,11 +14,14 @@ test.describe("Stories hub deep", () => {
     const response = await anonPage.goto("/stories");
     expect(response?.status()).toBe(200);
     await expect(
-      anonPage.getByRole("heading", { name: "專題", level: 1 }),
+      anonPage.getByRole("heading", { name: "專題", level: 1, exact: true }),
     ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
 
     if (stories.length === 0) {
-      await expect(anonPage.getByText("敬請期待")).toBeVisible({
+      // The empty-state copy is 首波專題正在整理中，敬請期待。 — a bare substring
+      // match on the tail also resolves to any other "敬請期待" the page grows,
+      // so it is scoped to main and taken as the first match explicitly.
+      await expect(anonPage.locator("main").getByText("敬請期待").first()).toBeVisible({
         timeout: BUDGET.INTERACTIVE,
       });
       await expect(anonPage.locator('main a[href*="/stories/"]')).toHaveCount(

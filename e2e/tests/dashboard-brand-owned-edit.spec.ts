@@ -312,7 +312,13 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
     await expect(
       userPage.locator('aside nav button').first(),
     ).toHaveAttribute('aria-current', 'step', { timeout: BUDGET.RENDERED });
-    await expect(userPage.getByText('為必填欄位')).toBeVisible();
+    // `為必填欄位` is the tail of the required-fields legend, and RequiredFieldsHint
+    // is rendered once per mounted step panel — so an unscoped match resolves to
+    // several nodes as soon as the wizard mounts more than one. Scoped to the
+    // active panel, which is the only one a reader can see (DEV-1414).
+    await expect(
+      userPage.locator('#basic-info').getByText('為必填欄位'),
+    ).toBeVisible();
     await expect(userPage.locator('#description')).toHaveAttribute('aria-required', 'true');
     await expect(userPage.locator('#priceRange')).toHaveAttribute('aria-required', 'true');
   });

@@ -80,12 +80,17 @@ export const LINKED_EXHIBITORS = RENDERED_EXHIBITORS.filter(
 
 /**
  * A stable, deterministic subject for the search-and-navigate journey: the linked
- * exhibitor whose booth number sorts first. Picking by sort rather than by index
- * keeps the choice stable when rows are appended to the ledger.
+ * exhibitor with a romanization whose booth number sorts first. Picking by sort
+ * rather than by index keeps the choice stable when rows are appended to the ledger.
+ *
+ * The romanization requirement is what lets the spec assert all three search index
+ * paths — booth, Chinese name, romanization — unconditionally. Guarding the third
+ * on `if (subject.nameEn)` would make the coverage depend on which row the sort
+ * happened to pick, which is the same drift the fixture exists to remove.
  */
-export const SEARCH_SUBJECT = [...LINKED_EXHIBITORS].sort((a, b) =>
-  a.booth.localeCompare(b.booth),
-)[0]!;
+export const SEARCH_SUBJECT = [...LINKED_EXHIBITORS]
+  .filter((exhibitor) => exhibitor.nameEn !== null)
+  .sort((a, b) => a.booth.localeCompare(b.booth))[0]!;
 
 /** Zone codes present in the rendered roster, with their exhibitor counts. */
 export const ZONE_COUNTS: Record<string, number> = RENDERED_EXHIBITORS.reduce<

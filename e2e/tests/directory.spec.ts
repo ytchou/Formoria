@@ -1,20 +1,43 @@
+import { PRODUCT_TYPE_CATEGORIES } from "../../src/lib/taxonomy/ontology";
 import zhTW from "../../messages/zh-TW.json";
 import { BUDGET } from "../budgets";
 import { test, expect } from "@playwright/test";
+
+/**
+ * Three named L1 categories, resolved from the taxonomy the sidebar itself renders.
+ *
+ * This loop used to walk `getByRole("checkbox").nth(i)` for i in 1..3, which meant
+ * the subject of every iteration was "whatever the taxonomy happens to put third" —
+ * while the L2 taxonomy cleanup program is actively reshaping that list. A reorder
+ * silently changed what was covered, and an L2 chip appearing among the checkboxes
+ * changed it again (DEV-1414).
+ */
+const FILTER_SUBJECTS = ["fashion", "home", "crafts"].map((slug) => {
+  const category = PRODUCT_TYPE_CATEGORIES.find((item) => item.slug === slug);
+  if (!category) {
+    // A renamed or removed L1 slug must break this loudly. Falling back to a
+    // positional pick is how the drift went unnoticed in the first place.
+    throw new Error(`directory spec pins a category that no longer exists: ${slug}`);
+  }
+  return category;
+});
 
 test.describe("Directory deep", () => {
   test("all filter combinations return results or empty state", async ({
     page,
   }) => {
     await page.goto("/brands");
-    const categoryToggle = page
-      .locator("aside")
-      .getByRole("button", { name: /分類|Category/ });
+    // The sidebar is the one named `filters.title`; `page.locator("aside")`
+    // alone also matched the mobile filter sheet's aside once it existed.
+    const sidebar = page.getByRole("complementary", { name: zhTW.brands.filters.title });
+    const categoryToggle = sidebar.getByRole("button", {
+      name: zhTW.brands.filters.category,
+      exact: true,
+    });
     await categoryToggle.click();
     await expect(categoryToggle).toHaveAttribute("aria-expanded", "true");
-    const filters = page.getByRole("checkbox");
-    const count = await filters.count();
-    for (let i = 1; i < Math.min(count, 4); i++) {
+
+    for (const category of FILTER_SUBJECTS) {
       // Selecting a category navigates to its dedicated taxonomy URL, and
       // deselecting navigates back to the plain directory — both are full
       // route changes that remount the sidebar and collapse this section.
@@ -22,14 +45,20 @@ test.describe("Directory deep", () => {
         await categoryToggle.click();
         await expect(categoryToggle).toHaveAttribute("aria-expanded", "true");
       }
-      await filters.nth(i).click();
+      // Each checkbox carries `aria-label={categoryLabel(category)}`, so the
+      // zh-TW name is its accessible name on the prefix-free directory.
+      const filter = sidebar.getByRole("checkbox", {
+        name: category.nameZh,
+        exact: true,
+      });
+      await filter.click();
       await expect(
         page
           .locator('main [role="list"] [role="listitem"]')
           .first()
           .or(page.locator("[data-empty]").first()),
       ).toBeVisible({ timeout: BUDGET.RENDERED });
-      await filters.nth(i).click(); // deselect
+      await filter.click(); // deselect
     }
   });
 
