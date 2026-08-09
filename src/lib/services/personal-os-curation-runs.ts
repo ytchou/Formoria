@@ -1,6 +1,6 @@
 import { listCurationJobs, type CurationJob } from "@/lib/services/curation-jobs";
 
-export const PERSONAL_OS_CURATION_RUNS_SCHEMA_VERSION = 1 as const;
+const PERSONAL_OS_CURATION_RUNS_SCHEMA_VERSION = 1 as const;
 export const PERSONAL_OS_CURATION_RUNS_DEFAULT_LIMIT = 50;
 export const PERSONAL_OS_CURATION_RUNS_MAX_LIMIT = 50;
 

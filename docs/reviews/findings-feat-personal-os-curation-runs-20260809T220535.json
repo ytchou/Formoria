@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "severity": "Minor",
+      "file": "src/lib/services/personal-os-curation-runs.ts",
+      "line": "3",
+      "description": "The endpoint schema-version constant is exported even though it has no consumer outside its module.",
+      "failure_scenario": "The unnecessary public export expands the service API and is reported as newly introduced dead surface by the repository's knip check.",
+      "flagged_by": "Dead Code",
+      "status": "valid"
+    }
+  ],
+  "active_lenses": [
+    "Angle A",
+    "Angle B",
+    "Angle C",
+    "Angle D",
+    "Angle E",
+    "Cleanup",
+    "Altitude",
+    "Conventions",
+    "Test Quality",
+    "Dead Code"
+  ]
+}
