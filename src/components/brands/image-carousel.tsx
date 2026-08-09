@@ -133,11 +133,20 @@ export function ImageCarousel({
   const currentImage = validImages[current]
   const previousImage =
     previous !== null && !brokenImages.has(previous) ? validImages[previous] : undefined
-  const currentFill = brandImageFill(metaFor(current), { inset: heroInset })
-  const previousFill = brandImageFill(
-    previous === null ? undefined : metaFor(previous),
-    { inset: heroInset },
-  )
+  // The hero CONTAINS rather than covers: both consumers of this carousel show
+  // one product large (brand detail, dashboard hero card), so nothing neighbours
+  // the image and there is no ragged-strip problem to solve — cropping would
+  // only remove product. The thumbnails below still cover; they are small
+  // indicative tiles where a uniform strip reads better than a row of
+  // letterboxes. See DEV-1407.
+  const currentFill = brandImageFill(metaFor(current), {
+    inset: heroInset,
+    fit: 'contain',
+  })
+  const previousFill = brandImageFill(previous === null ? undefined : metaFor(previous), {
+    inset: heroInset,
+    fit: 'contain',
+  })
 
   return (
     <div className={cn(variant === 'detail' && 'space-y-3')}>

@@ -70,4 +70,48 @@ describe('brandImageFill', () => {
       brandImageFill({ isLogo: true, focalX: null, focalY: null }, { inset: 'p-6' }).className,
     ).toBe('object-contain p-6')
   })
+
+  describe('fit', () => {
+    it('covers by default, because most surfaces compare brands side by side', () => {
+      expect(brandImageFill({ isLogo: false, focalX: 0.25, focalY: 0.75 }).className).toBe(
+        'object-cover',
+      )
+    })
+
+    it('contains a photo when the surface asks, and drops the anchor with it', () => {
+      // The detail hero shows one product with nothing beside it (DEV-1407).
+      // A contained image is never cropped, so there is no window to anchor —
+      // returning a focal point here would move the image inside its own
+      // letterbox for no reason.
+      const fill = brandImageFill({ isLogo: false, focalX: 0.25, focalY: 0.75 }, {
+        fit: 'contain',
+      })
+      expect(fill.className).toBe('object-contain')
+      expect(fill.style).toBeUndefined()
+    })
+
+    it('does not give a contained PHOTO the logo plate or inset', () => {
+      // Both are logo affordances: the plate makes a floating mark look
+      // deliberate, and the inset keeps it off the frame edge. A product shot
+      // wants neither — it should fill as much of the box as its aspect ratio
+      // allows. The carousel passes `inset` for the logo case in the same call,
+      // so this asymmetry is load-bearing rather than theoretical.
+      expect(
+        brandImageFill({ isLogo: false, focalX: null, focalY: null }, {
+          fit: 'contain',
+          inset: 'p-6',
+          logoPlate: 'bg-muted',
+        }).className,
+      ).toBe('object-contain')
+    })
+
+    it('still contains a logo when the surface asks for cover', () => {
+      expect(
+        brandImageFill({ isLogo: true, focalX: null, focalY: null }, {
+          fit: 'cover',
+          inset: 'p-6',
+        }).className,
+      ).toBe('object-contain p-6')
+    })
+  })
 })
