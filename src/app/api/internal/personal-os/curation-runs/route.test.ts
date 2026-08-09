@@ -9,10 +9,17 @@ describe("Personal OS curation runs endpoint", () => {
   it("rejects requests without the Personal OS bearer token", async () => {
     process.env.PERSONAL_OS_INTERNAL_TOKEN = "internal-secret";
 
-    const response = await GET(new Request("https://formoria.test/api/internal/personal-os/curation-runs"));
+    const response = await GET(
+      new Request(
+        "https://formoria.test/api/internal/personal-os/curation-runs",
+      ),
+    );
 
     expect(response.status).toBe(401);
     expect(response.headers.get("cache-control")).toBe("no-store");
-    await expect(response.json()).resolves.toEqual({ code: "unauthorized", message: "Unauthorized" });
+    await expect(response.json()).resolves.toEqual({
+      code: "unauthorized",
+      message: "Unauthorized",
+    });
   });
 });
