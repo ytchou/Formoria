@@ -291,6 +291,18 @@ export default function SubmitForm({
       setSubmitError(null)
       setIsSubmitting(true)
 
+      // Released only on the paths that leave the visitor on this form. A
+      // successful submission is terminal for this form instance: the redirect
+      // below is a router.push that takes real time to resolve, and the lock
+      // used to be released in a `finally` before it — so a second activation
+      // arriving during that window submitted again and created a duplicate row
+      // (DEV-1415). The old test slept 1s and counted once, which is exactly
+      // inside the window, so it never saw it.
+      const unlock = () => {
+        submitLockRef.current = false
+        setIsSubmitting(false)
+      }
+
       try {
         const result:
           | { error?: string; ownershipAdjusted?: boolean }
@@ -298,6 +310,7 @@ export default function SubmitForm({
 
         if (result?.error) {
           setSubmitError(result.error)
+          unlock()
           return
         }
 
@@ -317,9 +330,9 @@ export default function SubmitForm({
           'recommend',
           !data.guestEmail,
         )
-      } finally {
-        submitLockRef.current = false
-        setIsSubmitting(false)
+      } catch (error) {
+        unlock()
+        throw error
       }
     },
     [complete],
