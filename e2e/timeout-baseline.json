@@ -4,10 +4,32 @@
     {
       "file": "e2e/budgets.ts",
       "line": 81,
+      "kind": "ladder",
+      "intervals": [
+        3000,
+        5000,
+        10000
+      ],
+      "measured": false
+    },
+    {
+      "file": "e2e/budgets.ts",
+      "line": 81,
       "kind": "timeout",
       "measured": false,
       "ms": 60000,
       "literal": true
+    },
+    {
+      "file": "e2e/budgets.ts",
+      "line": 83,
+      "kind": "ladder",
+      "intervals": [
+        500,
+        1000,
+        2000
+      ],
+      "measured": false
     },
     {
       "file": "e2e/budgets.ts",
@@ -20,10 +42,33 @@
     {
       "file": "e2e/budgets.ts",
       "line": 85,
+      "kind": "ladder",
+      "intervals": [
+        1000,
+        2000,
+        5000
+      ],
+      "measured": false
+    },
+    {
+      "file": "e2e/budgets.ts",
+      "line": 85,
       "kind": "timeout",
       "measured": false,
       "ms": 30000,
       "literal": true
+    },
+    {
+      "file": "e2e/budgets.ts",
+      "line": 87,
+      "kind": "ladder",
+      "intervals": [
+        2000,
+        3000,
+        5000,
+        10000
+      ],
+      "measured": false
     },
     {
       "file": "e2e/budgets.ts",
@@ -204,6 +249,17 @@
     {
       "file": "e2e/tests/admin-brand-refresh.spec.ts",
       "line": 317,
+      "kind": "ladder",
+      "intervals": [
+        1000,
+        2000,
+        5000
+      ],
+      "measured": false
+    },
+    {
+      "file": "e2e/tests/admin-brand-refresh.spec.ts",
+      "line": 317,
       "kind": "timeout",
       "measured": false,
       "ms": 30000,
@@ -216,6 +272,17 @@
       "measured": false,
       "ms": 90000,
       "literal": false
+    },
+    {
+      "file": "e2e/tests/admin-brand-refresh.spec.ts",
+      "line": 564,
+      "kind": "ladder",
+      "intervals": [
+        1000,
+        2000,
+        5000
+      ],
+      "measured": false
     },
     {
       "file": "e2e/tests/admin-brand-refresh.spec.ts",
@@ -428,6 +495,17 @@
     {
       "file": "e2e/tests/admin-jobs.spec.ts",
       "line": 221,
+      "kind": "ladder",
+      "intervals": [
+        3000,
+        5000,
+        10000
+      ],
+      "measured": false
+    },
+    {
+      "file": "e2e/tests/admin-jobs.spec.ts",
+      "line": 221,
       "kind": "timeout",
       "measured": false,
       "ms": 60000,
@@ -452,10 +530,33 @@
     {
       "file": "e2e/tests/admin-jobs.spec.ts",
       "line": 259,
+      "kind": "ladder",
+      "intervals": [
+        500,
+        1000,
+        2000,
+        5000
+      ],
+      "measured": false
+    },
+    {
+      "file": "e2e/tests/admin-jobs.spec.ts",
+      "line": 259,
       "kind": "timeout",
       "measured": false,
       "ms": 60000,
       "literal": true
+    },
+    {
+      "file": "e2e/tests/admin-jobs.spec.ts",
+      "line": 282,
+      "kind": "ladder",
+      "intervals": [
+        3000,
+        5000,
+        10000
+      ],
+      "measured": false
     },
     {
       "file": "e2e/tests/admin-jobs.spec.ts",
@@ -508,6 +609,17 @@
     {
       "file": "e2e/tests/admin-moderation.spec.ts",
       "line": 170,
+      "kind": "ladder",
+      "intervals": [
+        500,
+        1000,
+        2000
+      ],
+      "measured": false
+    },
+    {
+      "file": "e2e/tests/admin-moderation.spec.ts",
+      "line": 170,
       "kind": "timeout",
       "measured": false,
       "ms": 30000,
@@ -528,6 +640,17 @@
       "measured": false,
       "ms": 120000,
       "literal": false
+    },
+    {
+      "file": "e2e/tests/admin-moderation.spec.ts",
+      "line": 204,
+      "kind": "ladder",
+      "intervals": [
+        500,
+        1000,
+        2000
+      ],
+      "measured": false
     },
     {
       "file": "e2e/tests/admin-moderation.spec.ts",
@@ -724,6 +847,17 @@
     {
       "file": "e2e/tests/admin-submission-enrichment.spec.ts",
       "line": 253,
+      "kind": "ladder",
+      "intervals": [
+        1000,
+        2000,
+        5000
+      ],
+      "measured": false
+    },
+    {
+      "file": "e2e/tests/admin-submission-enrichment.spec.ts",
+      "line": 253,
       "kind": "timeout",
       "measured": false,
       "ms": 30000,
@@ -752,6 +886,17 @@
       "measured": false,
       "ms": 60000,
       "literal": true
+    },
+    {
+      "file": "e2e/tests/admin-submission-publishable-core.spec.ts",
+      "line": 240,
+      "kind": "ladder",
+      "intervals": [
+        1000,
+        2000,
+        5000
+      ],
+      "measured": false
     },
     {
       "file": "e2e/tests/admin-submission-publishable-core.spec.ts",
@@ -1164,6 +1309,17 @@
     {
       "file": "e2e/tests/brand-city.spec.ts",
       "line": 62,
+      "kind": "ladder",
+      "intervals": [
+        3000,
+        5000,
+        10000
+      ],
+      "measured": false
+    },
+    {
+      "file": "e2e/tests/brand-city.spec.ts",
+      "line": 62,
       "kind": "timeout",
       "measured": false,
       "ms": 60000,
@@ -1188,6 +1344,17 @@
     {
       "file": "e2e/tests/brand-corrections.spec.ts",
       "line": 96,
+      "kind": "ladder",
+      "intervals": [
+        3000,
+        5000,
+        10000
+      ],
+      "measured": false
+    },
+    {
+      "file": "e2e/tests/brand-corrections.spec.ts",
+      "line": 96,
       "kind": "timeout",
       "measured": false,
       "ms": 60000,
@@ -1200,6 +1367,17 @@
       "measured": false,
       "ms": 2000,
       "literal": true
+    },
+    {
+      "file": "e2e/tests/brand-corrections.spec.ts",
+      "line": 132,
+      "kind": "ladder",
+      "intervals": [
+        500,
+        1000,
+        2000
+      ],
+      "measured": false
     },
     {
       "file": "e2e/tests/brand-corrections.spec.ts",
@@ -1332,6 +1510,17 @@
     {
       "file": "e2e/tests/brand-detail.spec.ts",
       "line": 234,
+      "kind": "ladder",
+      "intervals": [
+        3000,
+        5000,
+        10000
+      ],
+      "measured": false
+    },
+    {
+      "file": "e2e/tests/brand-detail.spec.ts",
+      "line": 234,
       "kind": "timeout",
       "measured": false,
       "ms": 60000,
@@ -1352,6 +1541,17 @@
       "measured": false,
       "ms": 10000,
       "literal": true
+    },
+    {
+      "file": "e2e/tests/brand-detail.spec.ts",
+      "line": 263,
+      "kind": "ladder",
+      "intervals": [
+        3000,
+        5000,
+        10000
+      ],
+      "measured": false
     },
     {
       "file": "e2e/tests/brand-detail.spec.ts",
@@ -1380,6 +1580,17 @@
     {
       "file": "e2e/tests/brand-detail.spec.ts",
       "line": 322,
+      "kind": "ladder",
+      "intervals": [
+        3000,
+        5000,
+        10000
+      ],
+      "measured": false
+    },
+    {
+      "file": "e2e/tests/brand-detail.spec.ts",
+      "line": 322,
       "kind": "timeout",
       "measured": false,
       "ms": 60000,
@@ -1400,6 +1611,17 @@
       "measured": false,
       "ms": 10000,
       "literal": true
+    },
+    {
+      "file": "e2e/tests/brand-detail.spec.ts",
+      "line": 380,
+      "kind": "ladder",
+      "intervals": [
+        3000,
+        5000,
+        10000
+      ],
+      "measured": false
     },
     {
       "file": "e2e/tests/brand-detail.spec.ts",
@@ -1428,6 +1650,17 @@
     {
       "file": "e2e/tests/brand-detail.spec.ts",
       "line": 692,
+      "kind": "ladder",
+      "intervals": [
+        3000,
+        5000,
+        10000
+      ],
+      "measured": false
+    },
+    {
+      "file": "e2e/tests/brand-detail.spec.ts",
+      "line": 692,
       "kind": "timeout",
       "measured": false,
       "ms": 60000,
@@ -1448,6 +1681,17 @@
       "measured": false,
       "ms": 15000,
       "literal": true
+    },
+    {
+      "file": "e2e/tests/brand-detail.spec.ts",
+      "line": 793,
+      "kind": "ladder",
+      "intervals": [
+        3000,
+        5000,
+        10000
+      ],
+      "measured": false
     },
     {
       "file": "e2e/tests/brand-detail.spec.ts",
@@ -1476,6 +1720,17 @@
     {
       "file": "e2e/tests/brand-detail.spec.ts",
       "line": 822,
+      "kind": "ladder",
+      "intervals": [
+        500,
+        1000,
+        2000
+      ],
+      "measured": false
+    },
+    {
+      "file": "e2e/tests/brand-detail.spec.ts",
+      "line": 822,
       "kind": "timeout",
       "measured": false,
       "ms": 20000,
@@ -1488,6 +1743,17 @@
       "measured": false,
       "ms": 30000,
       "literal": true
+    },
+    {
+      "file": "e2e/tests/brand-detail.spec.ts",
+      "line": 856,
+      "kind": "ladder",
+      "intervals": [
+        3000,
+        5000,
+        10000
+      ],
+      "measured": false
     },
     {
       "file": "e2e/tests/brand-detail.spec.ts",
@@ -1532,6 +1798,17 @@
     {
       "file": "e2e/tests/brand-save.spec.ts",
       "line": 169,
+      "kind": "ladder",
+      "intervals": [
+        500,
+        1000,
+        2000
+      ],
+      "measured": false
+    },
+    {
+      "file": "e2e/tests/brand-save.spec.ts",
+      "line": 169,
       "kind": "timeout",
       "measured": false,
       "ms": 60000,
@@ -1552,6 +1829,17 @@
       "measured": false,
       "ms": 5000,
       "literal": true
+    },
+    {
+      "file": "e2e/tests/brand-save.spec.ts",
+      "line": 184,
+      "kind": "ladder",
+      "intervals": [
+        3000,
+        5000,
+        10000
+      ],
+      "measured": false
     },
     {
       "file": "e2e/tests/brand-save.spec.ts",
@@ -1592,6 +1880,16 @@
       "measured": false,
       "ms": 120000,
       "literal": false
+    },
+    {
+      "file": "e2e/tests/brand-save.spec.ts",
+      "line": 232,
+      "kind": "ladder",
+      "intervals": [
+        500,
+        1000
+      ],
+      "measured": false
     },
     {
       "file": "e2e/tests/brand-save.spec.ts",
@@ -1680,6 +1978,17 @@
       "measured": false,
       "ms": 2000,
       "literal": true
+    },
+    {
+      "file": "e2e/tests/brand-share.spec.ts",
+      "line": 36,
+      "kind": "ladder",
+      "intervals": [
+        500,
+        1000,
+        2000
+      ],
+      "measured": false
     },
     {
       "file": "e2e/tests/brand-share.spec.ts",
@@ -1795,6 +2104,17 @@
     },
     {
       "file": "e2e/tests/claim-lifecycle.spec.ts",
+      "line": 196,
+      "kind": "ladder",
+      "intervals": [
+        500,
+        1000,
+        2000
+      ],
+      "measured": false
+    },
+    {
+      "file": "e2e/tests/claim-lifecycle.spec.ts",
       "line": 265,
       "kind": "timeout",
       "measured": false,
@@ -1828,6 +2148,18 @@
     {
       "file": "e2e/tests/claim-lifecycle.spec.ts",
       "line": 297,
+      "kind": "ladder",
+      "intervals": [
+        2000,
+        3000,
+        5000,
+        10000
+      ],
+      "measured": false
+    },
+    {
+      "file": "e2e/tests/claim-lifecycle.spec.ts",
+      "line": 297,
       "kind": "timeout",
       "measured": false,
       "ms": 120000,
@@ -1856,6 +2188,17 @@
       "measured": false,
       "ms": 15000,
       "literal": true
+    },
+    {
+      "file": "e2e/tests/claim-lifecycle.spec.ts",
+      "line": 339,
+      "kind": "ladder",
+      "intervals": [
+        500,
+        1000,
+        2000
+      ],
+      "measured": false
     },
     {
       "file": "e2e/tests/claim-lifecycle.spec.ts",
@@ -1924,6 +2267,17 @@
     {
       "file": "e2e/tests/claim-smoke.spec.ts",
       "line": 186,
+      "kind": "ladder",
+      "intervals": [
+        500,
+        1000,
+        2000
+      ],
+      "measured": false
+    },
+    {
+      "file": "e2e/tests/claim-smoke.spec.ts",
+      "line": 186,
       "kind": "timeout",
       "measured": false,
       "ms": 15000,
@@ -1972,6 +2326,17 @@
     {
       "file": "e2e/tests/claim-smoke.spec.ts",
       "line": 253,
+      "kind": "ladder",
+      "intervals": [
+        500,
+        1000,
+        2000
+      ],
+      "measured": false
+    },
+    {
+      "file": "e2e/tests/claim-smoke.spec.ts",
+      "line": 253,
       "kind": "timeout",
       "measured": false,
       "ms": 15000,
@@ -1980,10 +2345,32 @@
     {
       "file": "e2e/tests/claim-smoke.spec.ts",
       "line": 266,
+      "kind": "ladder",
+      "intervals": [
+        500,
+        1000,
+        2000
+      ],
+      "measured": false
+    },
+    {
+      "file": "e2e/tests/claim-smoke.spec.ts",
+      "line": 266,
       "kind": "timeout",
       "measured": false,
       "ms": 15000,
       "literal": true
+    },
+    {
+      "file": "e2e/tests/claim-smoke.spec.ts",
+      "line": 284,
+      "kind": "ladder",
+      "intervals": [
+        500,
+        1000,
+        2000
+      ],
+      "measured": false
     },
     {
       "file": "e2e/tests/claim-smoke.spec.ts",
@@ -2016,6 +2403,18 @@
       "measured": false,
       "ms": 5000,
       "literal": true
+    },
+    {
+      "file": "e2e/tests/claim-smoke.spec.ts",
+      "line": 304,
+      "kind": "ladder",
+      "intervals": [
+        2000,
+        3000,
+        5000,
+        10000
+      ],
+      "measured": false
     },
     {
       "file": "e2e/tests/claim-smoke.spec.ts",
@@ -2332,6 +2731,17 @@
     {
       "file": "e2e/tests/dashboard-brand-owned-edit.spec.ts",
       "line": 367,
+      "kind": "ladder",
+      "intervals": [
+        500,
+        1000,
+        2000
+      ],
+      "measured": false
+    },
+    {
+      "file": "e2e/tests/dashboard-brand-owned-edit.spec.ts",
+      "line": 367,
       "kind": "timeout",
       "measured": false,
       "ms": 15000,
@@ -2536,6 +2946,17 @@
       "measured": false,
       "ms": 15000,
       "literal": true
+    },
+    {
+      "file": "e2e/tests/dashboard-brand-owned-edit.spec.ts",
+      "line": 602,
+      "kind": "ladder",
+      "intervals": [
+        500,
+        1000,
+        2000
+      ],
+      "measured": false
     },
     {
       "file": "e2e/tests/dashboard-brand-owned-edit.spec.ts",
@@ -2960,6 +3381,18 @@
       "measured": false,
       "ms": 60000,
       "literal": true
+    },
+    {
+      "file": "e2e/tests/feature-requests.spec.ts",
+      "line": 28,
+      "kind": "ladder",
+      "intervals": [
+        1000,
+        2000,
+        3000,
+        5000
+      ],
+      "measured": false
     },
     {
       "file": "e2e/tests/feature-requests.spec.ts",
@@ -3572,6 +4005,18 @@
     {
       "file": "e2e/tests/navbar-auth.spec.ts",
       "line": 139,
+      "kind": "ladder",
+      "intervals": [
+        1000,
+        2000,
+        3000,
+        5000
+      ],
+      "measured": false
+    },
+    {
+      "file": "e2e/tests/navbar-auth.spec.ts",
+      "line": 139,
       "kind": "timeout",
       "measured": false,
       "ms": 20000,
@@ -3744,6 +4189,17 @@
       "measured": false,
       "ms": 10000,
       "literal": true
+    },
+    {
+      "file": "e2e/tests/public-data-boundary.spec.ts",
+      "line": 245,
+      "kind": "ladder",
+      "intervals": [
+        3000,
+        5000,
+        10000
+      ],
+      "measured": false
     },
     {
       "file": "e2e/tests/public-data-boundary.spec.ts",
@@ -4076,6 +4532,18 @@
     {
       "file": "e2e/tests/static-pages.spec.ts",
       "line": 215,
+      "kind": "ladder",
+      "intervals": [
+        3000,
+        5000,
+        8000,
+        13000
+      ],
+      "measured": false
+    },
+    {
+      "file": "e2e/tests/static-pages.spec.ts",
+      "line": 215,
       "kind": "timeout",
       "measured": false,
       "ms": 60000,
@@ -4220,6 +4688,17 @@
     {
       "file": "e2e/tests/story-detail.spec.ts",
       "line": 61,
+      "kind": "ladder",
+      "intervals": [
+        3000,
+        5000,
+        10000
+      ],
+      "measured": false
+    },
+    {
+      "file": "e2e/tests/story-detail.spec.ts",
+      "line": 61,
       "kind": "timeout",
       "measured": false,
       "ms": 60000,
@@ -4288,6 +4767,18 @@
       "measured": false,
       "ms": 15000,
       "literal": true
+    },
+    {
+      "file": "e2e/tests/submit-funnel.spec.ts",
+      "line": 166,
+      "kind": "ladder",
+      "intervals": [
+        500,
+        1000,
+        2000,
+        5000
+      ],
+      "measured": false
     },
     {
       "file": "e2e/tests/submit-funnel.spec.ts",
@@ -4392,6 +4883,17 @@
       "measured": false,
       "ms": 3000,
       "literal": true
+    },
+    {
+      "file": "e2e/tests/submit-name-suggestion.spec.ts",
+      "line": 53,
+      "kind": "ladder",
+      "intervals": [
+        500,
+        1000,
+        2000
+      ],
+      "measured": false
     },
     {
       "file": "e2e/tests/submit-name-suggestion.spec.ts",
@@ -4555,11 +5057,33 @@
     },
     {
       "file": "e2e/utils/submit-form.ts",
+      "line": 22,
+      "kind": "ladder",
+      "intervals": [
+        2000,
+        4000,
+        8000
+      ],
+      "measured": false
+    },
+    {
+      "file": "e2e/utils/submit-form.ts",
       "line": 42,
       "kind": "timeout",
       "measured": false,
       "ms": 5000,
       "literal": true
+    },
+    {
+      "file": "e2e/utils/submit-form.ts",
+      "line": 43,
+      "kind": "ladder",
+      "intervals": [
+        2000,
+        4000,
+        8000
+      ],
+      "measured": false
     }
   ]
 }

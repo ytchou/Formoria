@@ -134,6 +134,20 @@ function scan(budgets) {
         sites.push({ file: rel, line: lineNo, kind, measured, ...resolved, ...extra })
       }
 
+      // Inline poll ladders, e.g. `{ timeout: 60_000, intervals: [3_000, ...] }`.
+      // Recorded even though they are not a `POLL.*` reference: the ladder is the
+      // silent-flake vector, and a census that only saw named ladders would have
+      // left every inline one unprotected — which is exactly the hole that let a
+      // fold-to-POLL report as a ladder change when nothing had changed.
+      const inlineLadder = line.match(/intervals:\s*\[([\d_,\s]+)\]/)
+      if (inlineLadder) {
+        const intervals = inlineLadder[1]
+          .split(',')
+          .map((value) => Number(value.trim().replace(/_/g, '')))
+          .filter((value) => !Number.isNaN(value))
+        sites.push({ file: rel, line: lineNo, kind: 'ladder', intervals, measured })
+      }
+
       for (const match of line.matchAll(/\btimeout:\s*([A-Za-z0-9_.]+)/g)) {
         record('timeout', match[1])
       }
