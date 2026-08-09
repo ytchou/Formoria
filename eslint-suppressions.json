@@ -1,0 +1,256 @@
+{
+  "e2e/tests/admin-brand-refresh.spec.ts": {
+    "playwright/no-conditional-in-test": {
+      "count": 15
+    }
+  },
+  "e2e/tests/admin-corrections.spec.ts": {
+    "playwright/no-conditional-expect": {
+      "count": 4
+    },
+    "playwright/no-conditional-in-test": {
+      "count": 2
+    }
+  },
+  "e2e/tests/admin-dashboard.spec.ts": {
+    "playwright/no-conditional-expect": {
+      "count": 2
+    },
+    "playwright/no-conditional-in-test": {
+      "count": 3
+    },
+    "playwright/no-skipped-test": {
+      "count": 1
+    }
+  },
+  "e2e/tests/admin-jobs.spec.ts": {
+    "playwright/no-conditional-in-test": {
+      "count": 2
+    },
+    "playwright/no-skipped-test": {
+      "count": 1
+    }
+  },
+  "e2e/tests/admin-reports.spec.ts": {
+    "playwright/no-conditional-expect": {
+      "count": 4
+    },
+    "playwright/no-conditional-in-test": {
+      "count": 1
+    }
+  },
+  "e2e/tests/admin-submission-enrichment.spec.ts": {
+    "playwright/no-conditional-in-test": {
+      "count": 5
+    }
+  },
+  "e2e/tests/api-contracts.spec.ts": {
+    "playwright/no-conditional-expect": {
+      "count": 4
+    },
+    "playwright/no-conditional-in-test": {
+      "count": 9
+    }
+  },
+  "e2e/tests/auth-signin.spec.ts": {
+    "playwright/no-conditional-in-test": {
+      "count": 1
+    }
+  },
+  "e2e/tests/auth-signup-journey.spec.ts": {
+    "playwright/no-conditional-expect": {
+      "count": 2
+    },
+    "playwright/no-conditional-in-test": {
+      "count": 5
+    }
+  },
+  "e2e/tests/auth-signup.spec.ts": {
+    "playwright/no-conditional-expect": {
+      "count": 2
+    },
+    "playwright/no-conditional-in-test": {
+      "count": 5
+    }
+  },
+  "e2e/tests/brand-actions.spec.ts": {
+    "playwright/no-conditional-in-test": {
+      "count": 2
+    }
+  },
+  "e2e/tests/brand-detail.spec.ts": {
+    "playwright/no-skipped-test": {
+      "count": 1
+    }
+  },
+  "e2e/tests/brand-save.spec.ts": {
+    "playwright/no-conditional-in-test": {
+      "count": 11
+    }
+  },
+  "e2e/tests/brand-share.spec.ts": {
+    "playwright/no-conditional-in-test": {
+      "count": 4
+    }
+  },
+  "e2e/tests/claim-lifecycle.spec.ts": {
+    "playwright/no-conditional-in-test": {
+      "count": 9
+    }
+  },
+  "e2e/tests/claim-smoke.spec.ts": {
+    "playwright/no-conditional-in-test": {
+      "count": 3
+    }
+  },
+  "e2e/tests/community-submit.spec.ts": {
+    "playwright/no-conditional-in-test": {
+      "count": 1
+    }
+  },
+  "e2e/tests/dashboard-analytics.spec.ts": {
+    "playwright/no-conditional-expect": {
+      "count": 7
+    },
+    "playwright/no-conditional-in-test": {
+      "count": 2
+    }
+  },
+  "e2e/tests/dashboard-brand-owned-edit.spec.ts": {
+    "playwright/no-conditional-in-test": {
+      "count": 9
+    }
+  },
+  "e2e/tests/dashboard-tabs.spec.ts": {
+    "playwright/no-conditional-in-test": {
+      "count": 3
+    }
+  },
+  "e2e/tests/dashboard-welcome-card.spec.ts": {
+    "playwright/no-conditional-in-test": {
+      "count": 1
+    }
+  },
+  "e2e/tests/directory.spec.ts": {
+    "playwright/no-conditional-expect": {
+      "count": 1
+    },
+    "playwright/no-conditional-in-test": {
+      "count": 2
+    }
+  },
+  "e2e/tests/event-detail.spec.ts": {
+    "playwright/no-conditional-expect": {
+      "count": 9
+    },
+    "playwright/no-conditional-in-test": {
+      "count": 5
+    }
+  },
+  "e2e/tests/events.spec.ts": {
+    "playwright/no-conditional-expect": {
+      "count": 3
+    },
+    "playwright/no-conditional-in-test": {
+      "count": 1
+    }
+  },
+  "e2e/tests/faq.spec.ts": {
+    "playwright/no-conditional-in-test": {
+      "count": 3
+    }
+  },
+  "e2e/tests/i18n-en.spec.ts": {
+    "playwright/no-conditional-in-test": {
+      "count": 2
+    }
+  },
+  "e2e/tests/mit-verification.spec.ts": {
+    "playwright/no-conditional-in-test": {
+      "count": 2
+    }
+  },
+  "e2e/tests/mobile.spec.ts": {
+    "playwright/no-conditional-expect": {
+      "count": 1
+    },
+    "playwright/no-conditional-in-test": {
+      "count": 3
+    }
+  },
+  "e2e/tests/navbar-auth.spec.ts": {
+    "playwright/no-conditional-in-test": {
+      "count": 2
+    }
+  },
+  "e2e/tests/og-images.spec.ts": {
+    "playwright/expect-expect": {
+      "count": 7
+    },
+    "playwright/no-conditional-in-test": {
+      "count": 2
+    }
+  },
+  "e2e/tests/owner-features-flag-off.spec.ts": {
+    "playwright/no-conditional-in-test": {
+      "count": 3
+    }
+  },
+  "e2e/tests/public-data-boundary.spec.ts": {
+    "playwright/no-conditional-expect": {
+      "count": 4
+    },
+    "playwright/no-conditional-in-test": {
+      "count": 2
+    }
+  },
+  "e2e/tests/search-edge-cases.spec.ts": {
+    "playwright/no-conditional-in-test": {
+      "count": 7
+    }
+  },
+  "e2e/tests/seo.spec.ts": {
+    "playwright/no-conditional-expect": {
+      "count": 4
+    },
+    "playwright/no-conditional-in-test": {
+      "count": 1
+    }
+  },
+  "e2e/tests/settings.spec.ts": {
+    "playwright/no-conditional-in-test": {
+      "count": 1
+    }
+  },
+  "e2e/tests/share-card-api.spec.ts": {
+    "playwright/no-conditional-in-test": {
+      "count": 4
+    }
+  },
+  "e2e/tests/static-pages.spec.ts": {
+    "playwright/no-conditional-expect": {
+      "count": 2
+    },
+    "playwright/no-conditional-in-test": {
+      "count": 8
+    }
+  },
+  "e2e/tests/stories.spec.ts": {
+    "playwright/no-conditional-expect": {
+      "count": 3
+    },
+    "playwright/no-conditional-in-test": {
+      "count": 1
+    }
+  },
+  "e2e/tests/story-detail.spec.ts": {
+    "playwright/no-conditional-expect": {
+      "count": 3
+    }
+  },
+  "e2e/tests/submit-funnel.spec.ts": {
+    "playwright/no-conditional-in-test": {
+      "count": 4
+    }
+  }
+}
