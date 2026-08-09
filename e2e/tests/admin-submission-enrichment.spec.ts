@@ -96,6 +96,9 @@ test.describe("Admin submission enrichment lifecycle", () => {
     test.setTimeout(120_000);
 
     await adminPage.goto("/admin/submissions?stage=needs_data");
+    await adminPage
+      .getByPlaceholder("Search brand, submitter, email, or website")
+      .fill(brandName);
     await expect(adminPage.getByText(brandName, { exact: true })).toBeVisible();
     await expectBrandCount(0);
 
@@ -130,6 +133,9 @@ test.describe("Admin submission enrichment lifecycle", () => {
     jobId = queuedJobId;
 
     await adminPage.goto("/admin/submissions?stage=enriching");
+    await adminPage
+      .getByPlaceholder("Search brand, submitter, email, or website")
+      .fill(brandName);
     await expect(adminPage.getByText(brandName, { exact: true })).toBeVisible();
     await expectBrandCount(0);
 
@@ -188,6 +194,9 @@ test.describe("Admin submission enrichment lifecycle", () => {
     if (jobError) throw new Error(`job completion failed: ${jobError.message}`);
 
     await adminPage.goto("/admin/submissions?stage=ready");
+    await adminPage
+      .getByPlaceholder("Search brand, submitter, email, or website")
+      .fill(brandName);
     const readyRow = adminPage
       .locator("tbody tr")
       .filter({ hasText: brandName });
