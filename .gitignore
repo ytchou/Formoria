@@ -49,6 +49,9 @@ Thumbs.db
 scripts/.backfill-backup-*.json
 scripts/.quality-purge-backup-*.json
 scripts/backup/
+scripts/resort-heroes/preview.json
+scripts/resort-heroes/manifests/
+scripts/resort-heroes/completed.jsonl
 
 # local scratch / generated image output
 /images/

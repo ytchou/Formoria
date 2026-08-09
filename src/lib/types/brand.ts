@@ -115,6 +115,29 @@ export type SiteContent = {
   ctaValue?: string
 }
 
+/**
+ * Per-image metadata, index-aligned with `[heroImageUrl, ...productPhotos]`.
+ *
+ * `isLogo` exists because fill mode is not a per-surface constant: a logo
+ * carries its whitespace padding inside the asset, so `object-cover` crops the
+ * mark itself, while a product photo letterboxed by `object-contain` is what
+ * makes a grid of mixed aspect ratios read as ragged. The renderer cannot infer
+ * this from the URL, so the classifier's tag has to travel with the image.
+ *
+ * `focalX`/`focalY` are the same idea one step further: `object-cover` crops
+ * from the centre, which can cut the subject out of frame, so the measured
+ * subject position travels with the image and becomes `object-position`. Both
+ * are `null` for every image that has not been measured, which renders as the
+ * centre — i.e. today's behavior.
+ */
+export type BrandImageMeta = {
+  altZh: string | null
+  altEn: string | null
+  isLogo: boolean
+  focalX: number | null
+  focalY: number | null
+}
+
 export type Brand = {
   id: string
   name: string
@@ -151,7 +174,7 @@ export type Brand = {
   socialFacebook: string | null
   otherUrls: OtherUrl[]
   productPhotos: string[]
-  imageAlts: Array<{ altZh: string | null; altEn: string | null }>
+  imageAlts: BrandImageMeta[]
   contactEmail: string | null
   priceRange: number | null
   productTags: string[]

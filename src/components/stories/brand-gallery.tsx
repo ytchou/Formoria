@@ -9,6 +9,7 @@ import {
 import { normalizePublicBrandCard } from '@/lib/brands/contracts'
 import { getBrandGalleryImages } from '@/lib/services/brand-images'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
+import { objectPositionStyle } from '@/lib/images/focal'
 
 type BrandGalleryProps = {
   slug: string
@@ -70,13 +71,28 @@ export async function BrandGallery({
         metadataOtherAlt ||
         t('galleryImageAlt', { brand: brand.name })
 
-      return { url, alt }
+      return {
+        url,
+        alt,
+        isLogo: imageAlt?.isLogo ?? false,
+        focalX: imageAlt?.focalX ?? null,
+        focalY: imageAlt?.focalY ?? null,
+      }
     })
-    .map(({ url, alt }) => {
+    .map(({ url, alt, isLogo, focalX, focalY }) => {
       const src = safeImageSrc(url)
-      return src ? { src, alt } : null
+      return src ? { src, alt, isLogo, focalX, focalY } : null
     })
-    .filter((image): image is { src: string; alt: string } => image !== null)
+    .filter(
+      (image): image is {
+        src: string
+        alt: string
+        isLogo: boolean
+        focalX: number | null
+        focalY: number | null
+      } =>
+        image !== null,
+    )
     .slice(0, 4)
 
   if (images.length === 0) return null
@@ -84,7 +100,7 @@ export async function BrandGallery({
   return (
     <figure className="mx-auto mt-7 mb-6 w-full max-w-2xl">
       <div className="grid grid-cols-2 gap-2">
-        {images.map(({ src, alt }, index) => (
+        {images.map(({ src, alt, isLogo, focalX, focalY }, index) => (
           // eslint-disable-next-line @next/next/no-img-element -- remote listing URL with no intrinsic size; raw img keeps arbitrary allowed hosts working without next/image configuration.
           <img
             key={`${index}-${src}`}
@@ -92,7 +108,8 @@ export async function BrandGallery({
             alt={alt}
             loading="lazy"
             decoding="async"
-            className="aspect-[4/3] w-full rounded-lg border border-border bg-muted object-cover"
+            className={`aspect-[4/3] w-full rounded-lg border border-border bg-muted ${isLogo ? 'object-contain p-6' : 'object-cover'}`}
+            style={isLogo ? undefined : { ...objectPositionStyle({ focalX, focalY }) }}
           />
         ))}
       </div>

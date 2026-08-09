@@ -1,6 +1,7 @@
 import { auditedCall } from '@/lib/audit'
 import { createServiceClient } from '@/lib/supabase/service'
 import type { SavedBrand } from '@/lib/types/saved-brand'
+import { hydrateCardImageMeta } from '@/lib/services/brands'
 
 type BrandSaveRow = {
   brand_id: string
@@ -52,15 +53,44 @@ export async function getUserSavedBrands(
   }
 
   const rows = (data ?? []) as unknown as BrandSaveWithBrandRow[]
-  return rows
-    .filter((row) => row.brands?.status === 'approved')
-    .map((row) => ({
-      brandId: row.brand_id,
-      brandName: row.brands!.name,
-      brandSlug: row.brands!.slug,
-      heroImageUrl: row.brands!.hero_image_url ?? null,
-      savedAt: row.created_at,
-    }))
+  const approvedRows = rows.filter((row) => row.brands?.status === 'approved')
+
+  // This query reads `brands` directly rather than going through `getBrands`,
+  // so it needs the hero's `brand_images` metadata hydrated on its own to know
+  // which saved cards render a logo. Only `id` and `heroImageUrl` are required.
+  const hydrated = await hydrateCardImageMeta(
+    supabase,
+    approvedRows.map((row) => ({
+      id: row.brands!.id,
+      heroImageUrl: row.brands!.hero_image_url,
+    })),
+  )
+  const isLogoByBrandId = new Map(
+    hydrated.map((brand) => [brand.id, brand.imageAlts.at(0)?.isLogo ?? false]),
+  )
+  const focalByBrandId = new Map(
+    hydrated.map((brand) => {
+      const heroMeta = brand.imageAlts.at(0)
+      return [
+        brand.id,
+        {
+          focalX: heroMeta?.focalX ?? null,
+          focalY: heroMeta?.focalY ?? null,
+        },
+      ]
+    }),
+  )
+
+  return approvedRows.map((row) => ({
+    brandId: row.brand_id,
+    brandName: row.brands!.name,
+    brandSlug: row.brands!.slug,
+    heroImageUrl: row.brands!.hero_image_url ?? null,
+    savedAt: row.created_at,
+    isLogo: isLogoByBrandId.get(row.brands!.id) ?? false,
+    focalX: focalByBrandId.get(row.brands!.id)?.focalX ?? null,
+    focalY: focalByBrandId.get(row.brands!.id)?.focalY ?? null,
+  }))
 }
 
 export async function saveBrand(

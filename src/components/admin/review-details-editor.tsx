@@ -30,6 +30,7 @@ import type {
   SubmissionReviewImage,
 } from "@/lib/services/submissions";
 import { deriveProductTagsEn } from "@/lib/services/product-tags";
+import { cn } from "@/lib/utils";
 import { MAX_BRAND_ACTIVE_IMAGES } from "@/lib/constants/brand-images";
 import {
   PURCHASE_CHANNELS,
@@ -470,7 +471,14 @@ export function ReviewDetailsEditor({
                       <img
                         src={image.url}
                         alt={image.altZh ?? t("imageAlt", { n: index + 1 })}
-                        className="aspect-[4/3] w-full object-cover"
+                        className={cn(
+                          "aspect-[4/3] w-full",
+                          // Same carve-out as the brand card: moderators need
+                          // to judge the mark, not a crop of it.
+                          image.isLogo
+                            ? "bg-muted object-contain p-6"
+                            : "object-cover",
+                        )}
                       />
                       <Button
                         shape="pill"
@@ -549,7 +557,12 @@ export function ReviewDetailsEditor({
                       <img
                         src={image.url}
                         alt={image.altZh ?? t("imageAlt", { n: index + 1 })}
-                        className="aspect-[4/3] w-full rounded-md border object-cover"
+                        className={cn(
+                          "aspect-[4/3] w-full rounded-md border",
+                          image.isLogo
+                            ? "bg-muted object-contain p-6"
+                            : "object-cover",
+                        )}
                       />
                       {index === 0 && (
                         <figcaption className="mt-1 type-caption">

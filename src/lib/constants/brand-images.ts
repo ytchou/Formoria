@@ -37,3 +37,12 @@ export const MAX_BRAND_IMAGE_SELECTION = 24
 // 13, so parking at the display cap lands *inside* the occupied range for
 // exactly the brands most likely to be re-edited.
 export const DRAFT_PARK_SORT_ORDER = MAX_BRAND_IMAGE_SELECTION
+
+// Aspect ratio of the box brand images render into — the `aspect-[4/3]` card
+// and detail frames, which use `object-cover` and therefore crop anything that
+// is not already this shape. Kept here so ranking scores the crop an image will
+// really receive against the same number the layout enforces; if the frames ever
+// change ratio, this constant must move with them or ranking silently optimises
+// for a box that no longer exists.
+export const HERO_TARGET_RATIO = 4 / 3
+

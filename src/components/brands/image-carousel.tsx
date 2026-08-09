@@ -5,6 +5,8 @@ import Image from 'next/image'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
+import { objectPositionStyle } from '@/lib/images/focal'
+import type { BrandImageMeta } from '@/lib/types/brand'
 import { trackGalleryPhotoView, trackGalleryCompleted } from '@/lib/analytics'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -17,7 +19,7 @@ interface ImageCarouselProps {
   brandId: string
   brandSlug: string
   category?: string | null
-  imageAlts?: Array<{ altZh: string | null; altEn: string | null }>
+  imageAlts?: BrandImageMeta[]
   variant?: 'detail' | 'compact'
   trackingEnabled?: boolean
 }
@@ -35,9 +37,13 @@ export function ImageCarousel({
   const t = useTranslations('brandDetail')
   const locale = useLocale()
   const { reportEngagement } = useBrandEngagement()
-  const validImages = images.flatMap((image) => {
+  // The source index rides along because `imageAlts` is index-aligned with the
+  // unfiltered `images` prop: dropping an unsafe URL shifts every later
+  // position, which silently handed the wrong alt (and now the wrong fill mode)
+  // to every image after it.
+  const validImages = images.flatMap((image, sourceIndex) => {
     const safeSrc = safeImageSrc(image)
-    return safeSrc ? [safeSrc] : []
+    return safeSrc ? [{ src: safeSrc, sourceIndex }] : []
   })
   const [current, setCurrent] = useState(0)
   const [previous, setPrevious] = useState<number | null>(null)
@@ -62,14 +68,37 @@ export function ImageCarousel({
     )
   }
 
+  function metaFor(index: number) {
+    return imageAlts?.[validImages[index]?.sourceIndex ?? index]
+  }
+
   function getAlt(index: number): string {
-    if (imageAlts?.[index]) {
-      const a = imageAlts[index]
+    const a = metaFor(index)
+    if (a) {
       const localeAlt = locale === 'en' ? (a.altEn ?? a.altZh) : (a.altZh ?? a.altEn)
       if (localeAlt) return localeAlt
     }
     return t('gallery.photoAltWithBrand', { brand: alt, n: index + 1 })
   }
+
+  /**
+   * Same carve-out as the brand card: a logo is contained on the container's
+   * `bg-muted` plate because its padding is part of the mark; everything else
+   * covers so mixed aspect ratios stop letterboxing.
+   *
+   * The inset is per-surface because it is absolute, not proportional — the
+   * card's `p-6` on a 64px thumbnail would leave a 16px mark.
+   */
+  function fillClass(index: number, inset: string): string {
+    return metaFor(index)?.isLogo ? `object-contain ${inset}` : 'object-cover'
+  }
+
+  function positionStyle(index: number): { objectPosition: string } | undefined {
+    const meta = metaFor(index)
+    return meta?.isLogo ? undefined : objectPositionStyle(meta)
+  }
+
+  const heroInset = variant === 'detail' ? 'p-6' : 'p-3'
 
   function handleImageError(index: number) {
     setBrokenImages((prev) => new Set(prev).add(index))
@@ -106,11 +135,17 @@ export function ImageCarousel({
       >
         {previous !== null && !brokenImages.has(previous) && (
           <Image
-            src={validImages[previous]}
+            src={validImages[previous].src}
             alt=""
             fill
-            className="object-contain transition-opacity duration-200 opacity-0"
-            style={{ transitionTimingFunction: 'var(--ease-settle)' }}
+            className={cn(
+              'transition-opacity duration-200 opacity-0',
+              fillClass(previous, heroInset),
+            )}
+            style={{
+              ...positionStyle(previous),
+              transitionTimingFunction: 'var(--ease-settle)',
+            }}
             sizes={variant === 'detail' ? '(max-width: 1024px) 100vw, 580px' : '192px'}
             aria-hidden
           />
@@ -121,10 +156,11 @@ export function ImageCarousel({
         ) : (
           <Image
             key={current}
-            src={validImages[current]}
+            src={validImages[current].src}
             alt={getAlt(current)}
             fill
-            className="object-contain animate-in fade-in duration-200"
+            className={cn('animate-in fade-in duration-200', fillClass(current, heroInset))}
+            style={{ ...positionStyle(current) }}
             sizes={variant === 'detail' ? '(max-width: 1024px) 100vw, 580px' : '192px'}
             preload={variant === 'detail' && current === 0}
             onError={() => handleImageError(current)}
@@ -183,7 +219,7 @@ export function ImageCarousel({
       {/* Thumbnail grid */}
       {total > 1 && variant === 'detail' && (
         <div className="scrollbar-none flex gap-2 overflow-x-auto">
-          {validImages.map((src, i) => (
+          {validImages.map(({ src }, i) => (
             <Button
               key={i}
               type="button"
@@ -208,7 +244,8 @@ export function ImageCarousel({
                   src={src}
                   alt={getAlt(i)}
                   fill
-                  className="object-cover"
+                  className={fillClass(i, 'p-1.5')}
+                  style={{ ...positionStyle(i) }}
                   sizes="64px"
                   onError={() => handleImageError(i)}
                 />

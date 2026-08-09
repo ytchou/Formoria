@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import type { PublicMicrositeBrand } from '@/lib/brands/contracts'
+import { objectPositionStyle } from '@/lib/images/focal'
 
 type HeroProps = {
   brand: PublicMicrositeBrand
@@ -36,7 +37,10 @@ export function Hero({ brand, siteContent }: HeroProps) {
               src={brand.heroImageUrl}
               alt={brand.name}
               fill
-              className="object-cover"
+              // Same carve-out as the brand card: a logo's whitespace is part
+              // of the mark, so contain it rather than cover-cropping it.
+              className={brand.isLogo ? 'object-contain p-6' : 'object-cover'}
+              style={brand.isLogo ? undefined : { ...objectPositionStyle(brand) }}
               sizes="(max-width: 768px) 100vw, 50vw"
               preload
             />

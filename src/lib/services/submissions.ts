@@ -110,6 +110,7 @@ type BrandImageReviewRow = Pick<
   | "sort_order"
   | "alt_zh"
   | "alt_en"
+  | "tags"
   | "width"
   | "height"
 >;
@@ -127,6 +128,7 @@ export type SubmissionReviewImage = {
   sortOrder: number;
   altZh: string | null;
   altEn: string | null;
+  isLogo: boolean;
   width: number | null;
   height: number | null;
   originBrandImageId: string | null;
@@ -558,6 +560,7 @@ function submissionImageToReviewImage(
     sortOrder: row.sort_order,
     altZh: row.alt_zh,
     altEn: row.alt_en,
+    isLogo: row.tags?.includes("logo") ?? false,
     width: row.width,
     height: row.height,
     originBrandImageId: row.origin_brand_image_id,
@@ -578,6 +581,7 @@ function brandImageToReviewImage(
     sortOrder: row.sort_order,
     altZh: row.alt_zh,
     altEn: row.alt_en,
+    isLogo: row.tags?.includes("logo") ?? false,
     width: row.width,
     height: row.height,
     originBrandImageId: row.id,
@@ -1436,7 +1440,7 @@ export async function getSubmissionsForReview(options?: {
             const { data: imageData, error: imagesError } = await supabase
               .from("submission_images")
               .select(
-                "id, submission_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, width, height, origin_brand_image_id",
+                "id, submission_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, tags, width, height, origin_brand_image_id",
               )
               .in("submission_id", targetIds)
               .order("submission_id", { ascending: true })
@@ -2148,7 +2152,7 @@ export async function approveSubmission(
   const { data: imageRows, error: imageError } = await supabase
     .from("submission_images")
     .select(
-      "id, submission_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, width, height, origin_brand_image_id",
+      "id, submission_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, tags, width, height, origin_brand_image_id",
     )
     .eq("submission_id", id)
     .order("sort_order", { ascending: true });

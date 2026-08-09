@@ -1,4 +1,5 @@
 import { auditedCall } from '@/lib/audit'
+import type { BrandImageMeta } from '@/lib/types/brand'
 import { deleteBrandImages, deleteStoredImagePaths } from './image-upload'
 
 type BrandImageStatus = 'active' | 'candidate' | 'rejected'
@@ -23,6 +24,8 @@ export type BrandImageRow = {
   alt_en?: string | null
   width?: number | null
   height?: number | null
+  focal_x?: number | null
+  focal_y?: number | null
 }
 
 export type BrandImageInsert = {
@@ -38,6 +41,8 @@ export type BrandImageInsert = {
   tags?: string[] | null
   score?: number | null
   sort_order?: number
+  focal_x?: number | null
+  focal_y?: number | null
 }
 
 type QueryError = { code?: string; message?: string }
@@ -119,7 +124,7 @@ export function toImageFields(rows: BrandImageRow[]): {
     height: number | null
   } | null
   productPhotos: string[]
-  imageAlts: Array<{ altZh: string | null; altEn: string | null }>
+  imageAlts: BrandImageMeta[]
 } {
   const active = rows
     .filter((row) => row.status === 'active')
@@ -138,7 +143,13 @@ export function toImageFields(rows: BrandImageRow[]): {
         }
       : null,
     productPhotos: active.slice(1).map((row) => row.url),
-    imageAlts: active.map((row) => ({ altZh: row.alt_zh ?? null, altEn: row.alt_en ?? null })),
+    imageAlts: active.map((row) => ({
+      altZh: row.alt_zh ?? null,
+      altEn: row.alt_en ?? null,
+      isLogo: (row.tags ?? []).includes('logo'),
+      focalX: row.focal_x ?? null,
+      focalY: row.focal_y ?? null,
+    })),
   }
 }
 
@@ -147,7 +158,7 @@ export async function getBrandImages(
   brandId: string,
 ): Promise<BrandImageRow[]> {
   const { data, error } = await brandImagesTable(supabase)
-    .select('url, status, tags, score, sort_order, source_url, alt_zh, alt_en, width, height')
+    .select('url, status, tags, score, sort_order, source_url, alt_zh, alt_en, width, height, focal_x, focal_y')
     .eq('brand_id', brandId)
     .eq('status', 'active')
     .order('sort_order', { ascending: true })

@@ -1,5 +1,6 @@
 import type {
   Brand,
+  BrandImageMeta,
   OtherUrl,
   ReputationSummary,
   SiteContent,
@@ -34,7 +35,7 @@ export type PublicBrandCard = {
   productTagsEn: string[]
   foundingYear: number | null
   productPhotos: string[]
-  imageAlts: Array<{ altZh: string | null; altEn: string | null }>
+  imageAlts: BrandImageMeta[]
   heroImageMetadata: Brand['heroImageMetadata']
 }
 
@@ -48,7 +49,7 @@ export type PublicBrandDetail = PublicBrandCard &
     mitStory: string | null
     /** The certificate number is public; the evidence object is not. */
     mitCertificateNumber: string | null
-    imageAlts: Array<{ altZh: string | null; altEn: string | null }>
+    imageAlts: BrandImageMeta[]
     heroImageMetadata: Brand['heroImageMetadata']
   }
 
@@ -82,6 +83,9 @@ export type PublicMicrositeBrand = {
   status: 'approved' | 'hidden'
   description: string | null
   heroImageUrl: string | null
+  isLogo: boolean
+  focalX: number | null
+  focalY: number | null
   foundingYear: number | null
   mitVerified: boolean
   siteContent: PublicSiteContent
@@ -119,7 +123,7 @@ export type OwnerBrandEditor = PublicBrandDetail & {
   reputationSummary: ReputationSummary | null
   mitEvidence: NonNullable<Brand['mitEvidence']> | null
   siteContent: SiteContent | null
-  imageAlts: Array<{ altZh: string | null; altEn: string | null }>
+  imageAlts: BrandImageMeta[]
 }
 
 export type AdminBrandListItem = {
@@ -203,7 +207,13 @@ export function toPublicBrandCard(brand: Brand): PublicBrandCard {
     productTagsEn: [...brand.productTagsEn],
     foundingYear: brand.foundingYear,
     productPhotos: [...brand.productPhotos],
-    imageAlts: brand.imageAlts.map((alt) => ({ altZh: alt.altZh, altEn: alt.altEn })),
+    imageAlts: brand.imageAlts.map((alt) => ({
+      altZh: alt.altZh,
+      altEn: alt.altEn,
+      isLogo: alt.isLogo,
+      focalX: alt.focalX,
+      focalY: alt.focalY,
+    })),
     heroImageMetadata: brand.heroImageMetadata ?? null,
   }
 }
@@ -243,7 +253,15 @@ export function normalizePublicBrandCard(
     productTags: Array.isArray(brand.productTags) ? [...brand.productTags] : [],
     productTagsEn: Array.isArray(brand.productTagsEn) ? [...brand.productTagsEn] : [],
     productPhotos: Array.isArray(brand.productPhotos) ? [...brand.productPhotos] : [],
-    imageAlts: Array.isArray(brand.imageAlts) ? [...brand.imageAlts] : [],
+    imageAlts: Array.isArray(brand.imageAlts)
+      ? brand.imageAlts.map((alt) => ({
+          altZh: alt.altZh,
+          altEn: alt.altEn,
+          isLogo: alt.isLogo,
+          focalX: alt.focalX,
+          focalY: alt.focalY,
+        }))
+      : [],
     heroImageMetadata: brand.heroImageMetadata ?? null,
   }
 }
@@ -262,7 +280,13 @@ export function toPublicBrandDetail(brand: Brand): PublicBrandDetail {
     otherUrls: brand.otherUrls.map((link) => ({ label: link.label, url: link.url })),
     mitStory: brand.mitStory ?? null,
     mitCertificateNumber: brand.mitEvidence?.mit_smile_cert ?? null,
-    imageAlts: brand.imageAlts.map((alt) => ({ altZh: alt.altZh, altEn: alt.altEn })),
+    imageAlts: brand.imageAlts.map((alt) => ({
+      altZh: alt.altZh,
+      altEn: alt.altEn,
+      isLogo: alt.isLogo,
+      focalX: alt.focalX,
+      focalY: alt.focalY,
+    })),
     heroImageMetadata: brand.heroImageMetadata ?? null,
   }
 }
@@ -276,6 +300,9 @@ export function toPublicMicrositeBrand(brand: Brand): PublicMicrositeBrand | nul
     slug: brand.slug,
     status: brand.status,
     heroImageUrl: brand.heroImageUrl,
+    isLogo: brand.imageAlts.at(0)?.isLogo ?? false,
+    focalX: brand.imageAlts.at(0)?.focalX ?? null,
+    focalY: brand.imageAlts.at(0)?.focalY ?? null,
     description: brand.description,
     foundingYear: brand.foundingYear,
     mitVerified: brand.mitStatus === 'verified' || brand.mitVerified === true,

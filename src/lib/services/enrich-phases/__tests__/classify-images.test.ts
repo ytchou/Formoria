@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  CROP_DAMAGE_WEIGHT,
   JUNK_TAGS,
   MIN_KEEP_SCORE,
+  PORTRAIT_QUALITY_PRIOR,
   applyClassifications,
   buildBrandContext,
   failureReason,
@@ -18,9 +20,24 @@ import type { OpenAIChatResult } from "../../openai-client";
  *   1. `logo` is not junk — a clean brand mark represents the brand.
  *   2. Hero ordering is a PURE quality sort. The tag no longer participates:
  *      a higher-scoring logo outranks a lower-scoring product photo.
- *   3. The only shape correction is PORTRAIT_PENALTY (15 points), because 58%
- *      of human-rejected images were portrait versus 23% of kept ones. It is a
- *      penalty, not an exclusion — a portrait must still be usable.
+ *   3. Shape is corrected in two independent terms, not one flat penalty:
+ *        heroQuality = score - cropDamagePenalty - portraitQualityPrior
+ *      `cropDamagePenalty` computes how much of the image the 4/3 hero frame
+ *      actually destroys, scaled across damage 0.10-0.50 to CROP_DAMAGE_WEIGHT
+ *      points, and reads the stored focal point because the renderers now
+ *      position `object-cover` from it. Logos take zero crop damage — they
+ *      render `object-contain` and are never cut.
+ *      `PORTRAIT_QUALITY_PRIOR` is the residual QUALITY effect that survives
+ *      conditioning on crop damage (portraits skew toward Instagram crops and
+ *      screenshots), which is why it survived the rewrite and the old flat
+ *      wide-aspect penalty did not.
+ *   4. Both are corrections, never exclusions — a portrait-only brand still gets
+ *      a hero.
+ *
+ * The reference corrections these tests are derived from:
+ *   1200x900 (exact 4/3)  -> 0.0    1000x1000 (square) -> 4.5
+ *   1600x670 (2.39:1)     -> 10.3   900x1200 (3:4)     -> 16.1
+ *   800x1200 (2:3)        -> 18.0   (12.0 crop cap + 6 portrait prior)
  */
 
 type Classified = Parameters<typeof applyClassifications>[0][number];
@@ -31,19 +48,32 @@ function classified(
   score: number,
   storagePath: string | null = `brands/${id}.jpg`,
 ): Classified {
-  // Landscape by default so orientation only matters where a test sets it.
+  // Exactly 4/3, so the default image takes ZERO shape correction and
+  // orientation only matters where a test sets it. This used to be 1200x800,
+  // which is 1.5:1 — harmless under the old threshold-based penalties, but under
+  // computed crop damage it loses 11% of its area and quietly costs 0.3 points.
   return {
     id,
     tag,
     score,
     storage_path: storagePath,
     width: 1200,
-    height: 800,
+    height: 900,
   };
 }
 
 function portrait(image: Classified): Classified {
   return { ...image, width: 800, height: 1200 };
+}
+
+/** 1000x1000 — damage 0.25, the shape the deleted flat penalties charged nothing. */
+function square(image: Classified): Classified {
+  return { ...image, width: 1000, height: 1000 };
+}
+
+/** 1600x670 (2.39:1) — clears the 3:1 download gate, crops badly as a hero. */
+function wide(image: Classified): Classified {
+  return { ...image, width: 1600, height: 670 };
 }
 
 describe("applyClassifications ordering", () => {
@@ -69,20 +99,25 @@ describe("applyClassifications ordering", () => {
   it("demotes a portrait image below a slightly worse landscape one", () => {
     const { ordered } = applyClassifications([
       portrait(classified("tall", "product", 90)),
-      classified("wide", "product", 80),
+      classified("flat", "product", 80),
     ]);
 
-    // 90 - 15 = 75, so the 80-point landscape takes the hero slot.
-    expect(ordered.map((image) => image.id)).toEqual(["wide", "tall"]);
+    // 800x1200 takes the full 12-point crop cap plus the 6-point portrait prior:
+    // 90 - 18 = 72, against an untouched 80. (Under the old flat penalty this
+    // was 90 - 15 = 75 vs 80 — same outcome, wider margin.)
+    expect(ordered.map((image) => image.id)).toEqual(["flat", "tall"]);
   });
 
   it("lets a clearly better portrait image still win the hero slot", () => {
     const { ordered } = applyClassifications([
       portrait(classified("tall", "product", 95)),
-      classified("wide", "product", 70),
+      classified("flat", "product", 70),
     ]);
 
-    expect(ordered.map((image) => image.id)).toEqual(["tall", "wide"]);
+    // 95 - 18 = 77 vs 70. The headroom shrank from 10 points to 7 when the
+    // portrait correction rose from 15 to 18, but a 25-point quality gap still
+    // carries the portrait.
+    expect(ordered.map((image) => image.id)).toEqual(["tall", "flat"]);
   });
 
   it("keeps a portrait-only brand orderable rather than dropping it", () => {
@@ -97,55 +132,134 @@ describe("applyClassifications ordering", () => {
 
   it("demotes a wide image below a slightly worse square one", () => {
     const { ordered } = applyClassifications([
-      {
-        id: "wide",
-        tag: "product",
-        score: 88,
-        storage_path: null,
-        width: 1600,
-        height: 670,
-      },
-      classified("square", "product", 80),
+      wide(classified("banner", "product", 85)),
+      square(classified("boxy", "product", 80)),
     ]);
 
-    // 2.39:1 clears the 3:1 download gate but crops badly as a hero, so it is
-    // penalised at ranking rather than excluded: 88 - 10 = 78, below 80.
-    expect(ordered.map((image) => image.id)).toEqual(["square", "wide"]);
+    // Both shapes are now charged, which is the point — the old version of this
+    // test compared against a 1200x800 "square" that was really 1.5:1 and paid
+    // nothing, so it survived by coincidence rather than by asserting the model.
+    // 2.39:1 clears the 3:1 download gate but crops badly as a hero: 85 - 10.3 =
+    // 74.7, below the square's 80 - 4.5 = 75.5. Demoted at ranking, not excluded.
+    expect(ordered.map((image) => image.id)).toEqual(["boxy", "banner"]);
   });
 
   it("lets a clearly better wide image still lead", () => {
     const { ordered } = applyClassifications([
-      {
-        id: "wide",
-        tag: "product",
-        score: 95,
-        storage_path: null,
-        width: 1600,
-        height: 670,
-      },
-      classified("square", "product", 80),
+      wide(classified("banner", "product", 95)),
+      square(classified("boxy", "product", 80)),
     ]);
 
-    expect(ordered.map((image) => image.id)).toEqual(["wide", "square"]);
+    // 95 - 10.3 = 84.7 vs 80 - 4.5 = 75.5.
+    expect(ordered.map((image) => image.id)).toEqual(["banner", "boxy"]);
   });
 
-  it("leaves a normal landscape image unpenalised", () => {
+  it("leaves an exactly-4/3 landscape image unpenalised", () => {
     const { ordered } = applyClassifications([
       classified("landscape", "product", 82),
       classified("other", "product", 85),
     ]);
 
-    // 1200x800 is 1.5:1 — under the wide threshold, so no shape correction.
+    // 1200x900 fills the hero box exactly, so nothing is cut and the sort is
+    // the raw score: 85 then 82.
     expect(ordered.map((image) => image.id)).toEqual(["other", "landscape"]);
+  });
+
+  it("prefers an exactly-framed landscape over a square of equal quality", () => {
+    // The discrimination the computed term buys and the flat penalties could
+    // not express: a square scored nothing under a 2:1 wide threshold and was
+    // not portrait either, so it used to tie. It loses a quarter of its area to
+    // the 4/3 crop: 85 - 4.5 = 80.5 against an untouched 85.
+    const { ordered } = applyClassifications([
+      square(classified("boxy", "product", 85)),
+      classified("framed", "product", 85),
+    ]);
+
+    expect(ordered.map((image) => image.id)).toEqual(["framed", "boxy"]);
+  });
+
+  it("prefers the portrait whose subject sits where the crop can reach it", () => {
+    // Proves the stored focal point reaches ranking, not just rendering. Both
+    // are 900x1200 with identical scores; the crop window slides to follow the
+    // subject, so a centred subject survives (10.1 crop + 6 prior = 16.1) while
+    // one pinned to the top edge cannot be framed at all and takes the full cap
+    // (12 + 6 = 18).
+    const { ordered } = applyClassifications([
+      {
+        ...classified("edge", "product", 84),
+        width: 900,
+        height: 1200,
+        focalX: 0.5,
+        focalY: 0,
+      },
+      {
+        ...classified("centred", "product", 84),
+        width: 900,
+        height: 1200,
+        focalX: 0.5,
+        focalY: 0.5,
+      },
+    ]);
+
+    expect(ordered.map((image) => image.id)).toEqual(["centred", "edge"]);
+  });
+
+  it("never crops a logo, however far from 4/3 it is", () => {
+    // Logos render `object-contain` and are letterboxed rather than cut, so the
+    // crop term must be exactly zero for them. Same shape, same score as the
+    // product photo beside it: the logo keeps 90 - 6 (the portrait prior, which
+    // is a provenance signal and does apply) while the photo pays 18.
+    const { ordered } = applyClassifications([
+      portrait(classified("photo", "product", 90)),
+      portrait(classified("mark", "logo", 90)),
+    ]);
+
+    expect(ordered.map((image) => image.id)).toEqual(["mark", "photo"]);
+  });
+
+  it("does not let a shape correction promote junk over a well-framed image", () => {
+    // Written against the exported constants, not literals: the corrections may
+    // only ever reorder images whose quality scores are within their combined
+    // reach. Raising either weight without re-deriving this bound must fail CI
+    // rather than quietly seating a worse image in the hero slot.
+    const framedScore = 70;
+    const junkScore =
+      framedScore + CROP_DAMAGE_WEIGHT + PORTRAIT_QUALITY_PRIOR + 1;
+
+    const { ordered } = applyClassifications([
+      classified("framed", "product", framedScore),
+      portrait(classified("junk", "product", junkScore)),
+    ]);
+
+    expect(ordered.map((image) => image.id)).toEqual(["junk", "framed"]);
+  });
+
+  it("keeps equally-corrected images in their input order", () => {
+    // The re-sort preview and the apply must agree byte for byte, so ties have
+    // to resolve deterministically. Corrections are quantised to a tenth of a
+    // point precisely so float noise cannot break a tie one way in one run and
+    // the other way in the next; the sort's stability does the rest.
+    const { ordered } = applyClassifications([
+      classified("first", "product", 88),
+      square(classified("second", "product", 92.5)),
+      classified("third", "product", 88),
+    ]);
+
+    // 92.5 - 4.5 = 88 for all three.
+    expect(ordered.map((image) => image.id)).toEqual([
+      "first",
+      "second",
+      "third",
+    ]);
   });
 
   it("does not penalise an image with unknown dimensions", () => {
     const { ordered } = applyClassifications([
       { id: "unsized", tag: "product", score: 82, storage_path: null },
-      classified("wide", "product", 80),
+      classified("sized", "product", 80),
     ]);
 
-    expect(ordered.map((image) => image.id)).toEqual(["unsized", "wide"]);
+    expect(ordered.map((image) => image.id)).toEqual(["unsized", "sized"]);
   });
 
   it("keeps a logo out of the rejected set", () => {

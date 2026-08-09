@@ -35,13 +35,14 @@ type BrandImageRow = {
   sort_order: number;
   alt_zh: string | null;
   alt_en: string | null;
+  tags: string[] | null;
   width: number | null;
   height: number | null;
   source_url: string | null;
 };
 
 const ADMIN_BRAND_IMAGE_SELECT =
-  "id, brand_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, width, height, source_url";
+  "id, brand_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, tags, width, height, source_url";
 
 export async function getAdminBrandReviewImages(
   brandIds: string[],
@@ -287,6 +288,7 @@ function toReviewImage(row: BrandImageRow): SubmissionReviewImage {
     sortOrder: row.sort_order,
     altZh: row.alt_zh,
     altEn: row.alt_en,
+    isLogo: row.tags?.includes("logo") ?? false,
     width: row.width,
     height: row.height,
     originBrandImageId: row.status === "draft" ? null : row.id,

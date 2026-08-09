@@ -674,6 +674,7 @@ function image(id: string, url: string, sortOrder: number) {
     altEn: null,
     width: 1200,
     height: 900,
+    isLogo: false,
     originBrandImageId: null,
   };
 }

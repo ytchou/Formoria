@@ -5,7 +5,6 @@ import {
   insertBrandImage,
   rejectBrandImages,
   releaseBrandImageUrls,
-  syncHeroDenormalized,
   toImageFields,
 } from './brand-images'
 
@@ -18,20 +17,6 @@ vi.mock('./image-upload', () => ({
   deleteStoredImagePaths: storageRemoveMock,
   deleteBrandImages: deleteBrandImagesMock,
 }))
-
-function createSyncClient(images: unknown[]) {
-  const order = vi.fn().mockResolvedValue({ data: images, error: null })
-  const statusEq = vi.fn(() => ({ order }))
-  const brandIdEq = vi.fn(() => ({ eq: statusEq }))
-  const select = vi.fn(() => ({ eq: brandIdEq }))
-  const updateEq = vi.fn().mockResolvedValue({ error: null })
-  const update = vi.fn(() => ({ eq: updateEq }))
-  const from = vi.fn((table: string) => (
-    table === 'brand_images' ? { select } : { update }
-  ))
-
-  return { client: { from }, update, updateEq }
-}
 
 function createRejectClient(images: unknown[]) {
   const selectIn = vi.fn().mockResolvedValue({ data: images, error: null })
@@ -177,6 +162,8 @@ describe('toImageFields', () => {
       alt_en: 'Handwoven rush-grass tote bag',
       width: 1600,
       height: 1200,
+      focal_x: 0.25,
+      focal_y: 0.75,
     },
     { url: 'https://images.formoria.com/workshop.webp', status: 'active', sort_order: 1 },
   ]
@@ -192,10 +179,40 @@ describe('toImageFields', () => {
       },
       productPhotos: ['https://images.formoria.com/workshop.webp'],
       imageAlts: [
-        { altZh: '職人手工編織的藺草提包', altEn: 'Handwoven rush-grass tote bag' },
-        { altZh: null, altEn: null },
+        {
+          altZh: '職人手工編織的藺草提包',
+          altEn: 'Handwoven rush-grass tote bag',
+          isLogo: false,
+          focalX: 0.25,
+          focalY: 0.75,
+        },
+        { altZh: null, altEn: null, isLogo: false, focalX: null, focalY: null },
       ],
     })
+  })
+
+  it('flags logo-tagged images so the renderer can contain rather than crop them', () => {
+    const tagged = [
+      {
+        url: 'https://images.formoria.com/mark.webp',
+        status: 'active',
+        sort_order: 0,
+        tags: ['logo'],
+      },
+      {
+        url: 'https://images.formoria.com/tote.webp',
+        status: 'active',
+        sort_order: 1,
+        tags: ['product'],
+      },
+      { url: 'https://images.formoria.com/untagged.webp', status: 'active', sort_order: 2 },
+    ]
+
+    expect(toImageFields(tagged as never).imageAlts.map((meta) => meta.isLogo)).toEqual([
+      true,
+      false,
+      false,
+    ])
   })
 })
 
