@@ -8,8 +8,9 @@ import { trackSearchExecuted, trackSearchNoResults } from '@/lib/analytics'
  * How long a query must stay put before it counts as a search.
  *
  * The directory search box rewrites the URL as you type, so the server re-renders
- * this tracker once per prefix. Without a settle window, typing 香氛 would report
- * two searches — and one of them a zero-result one for 香.
+ * this tracker once per prefix. Without a settle window, typing a two-ideograph
+ * Chinese query would report two searches — and one of them a zero-result one for
+ * the lone first character.
  */
 export const SEARCH_SETTLE_MS = 800
 
