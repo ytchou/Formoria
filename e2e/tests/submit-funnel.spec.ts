@@ -1,6 +1,34 @@
 import { test, expect } from "../fixtures/auth";
+import type { Locator, Page } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
+import { BUDGET } from "../budgets";
 import { OWNER_FEATURES_OFF_REASON } from "../helpers/owner-features";
+
+/**
+ * Turnstile is normally solved by the addInitScript mock. When that has not
+ * fired, post the synthetic Cloudflare success message as a last resort.
+ *
+ * Lives outside the test body on purpose: branching on page state inside a test
+ * means some assertions never run on some paths, so the caller asserts the
+ * outcome unconditionally instead and this helper only nudges.
+ */
+async function ensureTurnstileSolved(page: Page, submitBtn: Locator) {
+  if (await submitBtn.isEnabled()) return;
+
+  // Harmless when the mock is merely slow: the suite runs against dummy
+  // Turnstile keys, so any token validates. The caller does the waiting.
+  await page.evaluate(() => {
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: JSON.stringify({
+          event: "turnstile-callback",
+          token: "e2e-fallback-token",
+        }),
+        origin: "https://challenges.cloudflare.com",
+      }),
+    );
+  });
+}
 
 const TINY_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
@@ -91,26 +119,14 @@ test.describe("Submit funnel", () => {
     // PDPA consent
     await anonPage.locator("#submit-pdpa").check();
 
-    // Wait for submit button to be enabled (Turnstile fires via addInitScript mock).
-    // Fallback: if not enabled within 15s, post a synthetic Cloudflare postMessage.
     const submitBtn = anonPage.getByRole("button", { name: "送出推薦" });
-    try {
-      await expect(submitBtn).toBeEnabled({ timeout: 15_000 });
-    } catch {
-      await anonPage.evaluate(() => {
-        // Synthetic Cloudflare Turnstile success message (last-resort fallback)
-        window.dispatchEvent(
-          new MessageEvent("message", {
-            data: JSON.stringify({
-              event: "turnstile-callback",
-              token: "e2e-fallback-token",
-            }),
-            origin: "https://challenges.cloudflare.com",
-          }),
-        );
-      });
-      await anonPage.waitForTimeout(500);
-    }
+    await ensureTurnstileSolved(anonPage, submitBtn);
+    // The single assertion that decides whether the widget was solved. It used
+    // to sit inside the fallback's catch block, and the fallback ended in a
+    // fixed 500ms sleep that passed whether or not the token was ever accepted —
+    // so a dropped message surfaced 20 lines later as a confirmation-URL
+    // timeout, looking like a slow submit (DEV-1414).
+    await expect(submitBtn).toBeEnabled({ timeout: BUDGET.INTERACTIVE });
 
     await submitBtn.click();
 

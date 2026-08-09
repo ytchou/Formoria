@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { Page } from '@playwright/test'
 import { test, expect } from '../fixtures/auth'
+import { POLL } from '../budgets'
 import { seedBrand } from '../helpers/seed'
 import { gotoSubmitRecommend } from '../utils/submit-form'
 
@@ -128,13 +129,22 @@ test.describe('Submit recommendation edge cases', () => {
       }),
     ).toBeVisible({ timeout: 15_000 })
 
-    await anonPage.waitForTimeout(1_000)
-    const { count, error } = await supabaseAdmin
-      .from('brand_submissions')
-      .select('id', { count: 'exact', head: true })
-      .eq('brand_name', brandName)
-
-    expect(error).toBeNull()
-    expect(count).toBe(1)
+    // Poll the count instead of sleeping for a second and hoping the write has
+    // landed. This also strengthens the assertion: a duplicate arriving *after*
+    // the old fixed wait would have been missed entirely, and a duplicate is
+    // precisely what this test exists to catch.
+    await expect
+      .poll(
+        async () => {
+          const { count, error } = await supabaseAdmin
+            .from('brand_submissions')
+            .select('id', { count: 'exact', head: true })
+            .eq('brand_name', brandName)
+          expect(error).toBeNull()
+          return count
+        },
+        { timeout: POLL.UI.timeout, intervals: [...POLL.UI.intervals] },
+      )
+      .toBe(1)
   })
 })

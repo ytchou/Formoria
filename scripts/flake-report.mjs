@@ -179,6 +179,6 @@ if (ranked.length === 0) {
   }
 }
 console.log(
-  '\n  A ranking to investigate, not a verdict — see docs/testing/e2e-triage.md.' +
+  '\n  A ranking to investigate, not a verdict — see e2e/TRIAGE.md.' +
     '\n  Fix or delete. Do not quarantine by flake history.\n',
 )

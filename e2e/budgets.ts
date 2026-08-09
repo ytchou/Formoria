@@ -7,7 +7,7 @@
  *
  * Raising any value here requires a measurement (a CI run URL) in the commit
  * message; `scripts/check-e2e-timeouts.mjs` enforces that. See
- * `docs/testing/e2e-triage.md` for when a raise is legitimate at all.
+ * `e2e/TRIAGE.md` for when a raise is legitimate at all.
  *
  * This module is imported by `playwright.config.ts`, so it must stay free of
  * runtime dependencies — flat `as const` literals only. `check-e2e-timeouts.mjs`
