@@ -17,6 +17,10 @@ on:
         description: "Artifact containing the previous round's failure bundle"
         type: string
         default: "playwright-report-nightly"
+      source_failure_state:
+        description: "JSON fallback with prior failed-spec count and entries when context is unavailable"
+        type: string
+        default: ""
       root_source_run_id:
         description: "Original failing run ID propagated between repair rounds"
         type: string
@@ -52,6 +56,9 @@ jobs:
     if: inputs.selfheal_only != true
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      failed: ${{ steps.nightly_report.outputs.failed }}
+      failed_specs: ${{ steps.nightly_report.outputs.failed_specs }}
     permissions:
       actions: read
       contents: read
@@ -188,6 +195,9 @@ jobs:
                 stats: {duration: 0, expected: 0, skipped: 0, unexpected: 1, flaky: 0}
               }' > "$REPORT_DIR/playwright-results.json"
           fi
+          if [ ! -s playwright-results.json ]; then
+            cp "$REPORT_DIR/playwright-results.json" playwright-results.json
+          fi
           if [ -s playwright-last-run.json ]; then
             cp playwright-last-run.json "$REPORT_DIR/playwright-last-run.json"
           fi
@@ -220,6 +230,8 @@ jobs:
                clusters: ($failures | sort_by([.project, (.file // "")]) | group_by([.project, (.file // "")]) | map({project: .[0].project, file: .[0].file, failures: .}))
              }' "$REPORT_DIR/playwright-results.json" > "$REPORT_DIR/selfheal-context.json"
           printf '[]\n' > "$REPORT_DIR/repair-ledger.json"
+          echo "failed=$(jq '.failures | length' "$REPORT_DIR/selfheal-context.json")" >> "$GITHUB_OUTPUT"
+          echo "failed_specs=$(jq -c '[.failures[]? | {file: (.file // null), title, project: (.project // null)}]' "$REPORT_DIR/selfheal-context.json")" >> "$GITHUB_OUTPUT"
           echo "report_dir=$REPORT_DIR" >> "$GITHUB_OUTPUT"
 
       - name: Upload nightly failure report
@@ -272,7 +284,7 @@ jobs:
             '{version: 1, source: "github_actions", source_run_id: $source_run_id, routine: "e2e-nightly",
               project: "formoria", status: $status, run_at: $run_at, date: $date,
               verdict_severity: $verdict_severity, verdict_text: $verdict_text, tickets_created: [],
-              log_url: $workflow_url, data: {phase: "test", root_source_run_id: env.GITHUB_RUN_ID,
+              log_url: $workflow_url, data: {notification_owner: "github_actions", phase: "test", root_source_run_id: env.GITHUB_RUN_ID,
               repair_cycle: 0, terminal: ($status == "success"), outcome: (if $status == "success" then "ready" else "failed" end),
               targeted_attempts: 0, model_usage: {cost_usd: null, turns: null, duration_ms: null}, total_specs: $total_specs, passed: $passed,
               failed: $failed, skipped: $skipped, duration_seconds: $duration_seconds,
@@ -345,8 +357,10 @@ jobs:
       blocked_reason: ${{ steps.terminal_state.outputs.blocked_reason }}
       continuation_dispatched: ${{ steps.terminal_state.outputs.continuation_dispatched }}
       failed: ${{ steps.terminal_state.outputs.failed }}
+      failed_specs: ${{ steps.terminal_state.outputs.failed_specs }}
       passed: ${{ steps.terminal_state.outputs.passed }}
       pr_url: ${{ steps.pr.outputs.pr_url || steps.blocked_pr.outputs.pr_url }}
+      report_available: ${{ steps.terminal_state.outputs.report_available }}
       skipped: ${{ steps.terminal_state.outputs.skipped }}
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -712,13 +726,18 @@ jobs:
           REPAIR_BASE: ${{ steps.guard.outputs.repair_base }}
           REPAIR_BRANCH: ${{ steps.branch.outputs.branch }}
           ROOT_SOURCE_RUN_ID: ${{ inputs.root_source_run_id || inputs.source_run_id || github.run_id }}
+          SOURCE_FAILED_SPECS: ${{ steps.context.outputs.failed_specs || '[]' }}
           STATE_AFTER: ${{ steps.checkpoint.outputs.state_after }}
           WORKFLOW_DISPATCH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
+          SOURCE_FAILURE_STATE=$(jq -cn --argjson specs "$SOURCE_FAILED_SPECS" \
+            '{count: ($specs | length), specs: $specs}')
           GH_TOKEN="$WORKFLOW_DISPATCH_TOKEN" gh workflow run e2e-nightly.yml \
             --repo "$GITHUB_REPOSITORY" --ref "$REPAIR_BASE" \
             --field selfheal_only=true --field source_run_id="$GITHUB_RUN_ID" \
             --field source_artifact_name=playwright-report-selfheal \
+            --field source_failure_state="$SOURCE_FAILURE_STATE" \
             --field root_source_run_id="$ROOT_SOURCE_RUN_ID" \
             --field repair_branch="$REPAIR_BRANCH" --field repair_base="$REPAIR_BASE" \
             --field previous_state="$STATE_AFTER" --field repair_cycle=2 --field e2e_grep="$E2E_GREP"
@@ -820,9 +839,11 @@ jobs:
              ] as $failures |
              {version: 1, source_run_id: $source_run_id, source_workflow_url: $source_workflow_url,
               source_sha: $source_sha, repair_base: $repair_base, e2e_grep: $e2e_grep,
-              failures: $failures,
-              clusters: ($failures | sort_by([.project, (.file // "")]) | group_by([.project, (.file // "")]) | map({project: .[0].project, file: .[0].file, failures: .}))}' \
+             failures: $failures,
+             clusters: ($failures | sort_by([.project, (.file // "")]) | group_by([.project, (.file // "")]) | map({project: .[0].project, file: .[0].file, failures: .}))}' \
             "$REPORT_DIR/playwright-results.json" > "$REPORT_DIR/selfheal-context.json"
+          FAILED_SPECS=$(jq -c '[.failures[]? | {file: (.file // null), title, project: (.project // null)}]' "$REPORT_DIR/selfheal-context.json")
+          echo "failed_specs=$FAILED_SPECS" >> "$GITHUB_OUTPUT"
           echo "available=true" >> "$GITHUB_OUTPUT"
       - name: Upload self-heal report for next round
         if: always() && steps.next_report.outputs.available == 'true'
@@ -847,14 +868,18 @@ jobs:
           REPAIR_BASE: ${{ steps.guard.outputs.repair_base }}
           REPAIR_BRANCH: ${{ steps.branch.outputs.branch }}
           ROOT_SOURCE_RUN_ID: ${{ inputs.root_source_run_id || inputs.source_run_id || github.run_id }}
+          SOURCE_FAILED_SPECS: ${{ steps.next_report.outputs.failed_specs || steps.context.outputs.failed_specs || '[]' }}
           STATE_AFTER: ${{ steps.checkpoint.outputs.state_after }}
           WORKFLOW_DISPATCH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          SOURCE_FAILURE_STATE=$(jq -cn --argjson specs "$SOURCE_FAILED_SPECS" \
+            '{count: ($specs | length), specs: $specs}')
           GH_TOKEN="$WORKFLOW_DISPATCH_TOKEN" gh workflow run e2e-nightly.yml \
             --repo "$GITHUB_REPOSITORY" --ref "$REPAIR_BASE" \
             --field selfheal_only=true --field source_run_id="$GITHUB_RUN_ID" \
             --field source_artifact_name=playwright-report-selfheal \
+            --field source_failure_state="$SOURCE_FAILURE_STATE" \
             --field root_source_run_id="$ROOT_SOURCE_RUN_ID" \
             --field repair_branch="$REPAIR_BRANCH" --field repair_base="$REPAIR_BASE" \
             --field previous_state="$STATE_AFTER" --field repair_cycle=2 --field e2e_grep="$E2E_GREP"
@@ -976,6 +1001,9 @@ jobs:
           PR_URL: ${{ steps.pr.outputs.pr_url }}
           BLOCKED_PR_URL: ${{ steps.blocked_pr.outputs.pr_url }}
           REVIEW_GATE_OUTCOME: ${{ steps.review_gate.outcome }}
+          SOURCE_FAILED_COUNT: ${{ needs.e2e-deep.outputs.failed }}
+          SOURCE_FAILED_SPECS: ${{ needs.e2e-deep.outputs.failed_specs }}
+          SOURCE_FAILURE_STATE: ${{ inputs.source_failure_state }}
           VALIDATION_OUTCOME: ${{ steps.validation.outcome }}
         run: |
           if [[ "$CONTINUE_INCOMPLETE" == "true" || "$CONTINUE_RED" == "true" ]]; then
@@ -997,15 +1025,30 @@ jobs:
             REASON="the self-heal job ended before a review-ready PR was created"
           fi
           echo "blocked_reason=$REASON" >> "$GITHUB_OUTPUT"
-          if [ -f playwright-results-validation.json ]; then
+          if [ -s playwright-results-validation.json ] && jq -e . playwright-results-validation.json >/dev/null 2>&1; then
             echo "passed=$(jq '(.stats.expected // 0) + (.stats.flaky // 0)' playwright-results-validation.json)" >> "$GITHUB_OUTPUT"
             echo "failed=$(jq '.stats.unexpected // 0' playwright-results-validation.json)" >> "$GITHUB_OUTPUT"
             echo "skipped=$(jq '.stats.skipped // 0' playwright-results-validation.json)" >> "$GITHUB_OUTPUT"
+            FAILED_SPECS=$(jq -c '[.suites[]? | recurse(.suites[]?) as $suite | $suite.specs[]? as $spec | select($spec.ok == false) | {file: ($suite.file // null), title: $spec.title, project: ([$spec.tests[]?.projectName // empty] | unique | .[0] // null)}]' playwright-results-validation.json)
+            echo "report_available=true" >> "$GITHUB_OUTPUT"
+          elif [ -s /tmp/playwright-report/selfheal-context.json ]; then
+            echo "passed=0" >> "$GITHUB_OUTPUT"
+            echo "failed=$(jq '.failures | length' /tmp/playwright-report/selfheal-context.json)" >> "$GITHUB_OUTPUT"
+            echo "skipped=0" >> "$GITHUB_OUTPUT"
+            FAILED_SPECS=$(jq -c '[.failures[]? | {file: (.file // null), title, project: (.project // null)}]' /tmp/playwright-report/selfheal-context.json 2>/dev/null || printf '[]')
+            echo "report_available=false" >> "$GITHUB_OUTPUT"
           else
             echo "passed=0" >> "$GITHUB_OUTPUT"
-            echo "failed=0" >> "$GITHUB_OUTPUT"
+            if [ -n "$SOURCE_FAILURE_STATE" ] && jq -e . >/dev/null 2>&1 <<<"$SOURCE_FAILURE_STATE"; then
+              SOURCE_FAILED_COUNT=$(jq -r '.count // empty' <<<"$SOURCE_FAILURE_STATE")
+              SOURCE_FAILED_SPECS=$(jq -c '.specs // []' <<<"$SOURCE_FAILURE_STATE")
+            fi
+            echo "failed=$SOURCE_FAILED_COUNT" >> "$GITHUB_OUTPUT"
             echo "skipped=0" >> "$GITHUB_OUTPUT"
+            FAILED_SPECS=$(printf '%s' "${SOURCE_FAILED_SPECS:-[]}" | jq -c . 2>/dev/null || printf '[]')
+            echo "report_available=false" >> "$GITHUB_OUTPUT"
           fi
+          echo "failed_specs=$FAILED_SPECS" >> "$GITHUB_OUTPUT"
 
       - name: Report to Agent Hub
         if: always() && steps.guard.outputs.skip != 'true'
@@ -1014,7 +1057,9 @@ jobs:
           AGENT_HUB_INGEST_URL: ${{ secrets.AGENT_HUB_INGEST_URL }}
           AGENT_HUB_INGEST_TOKEN: ${{ secrets.AGENT_HUB_INGEST_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          FAILED_SPECS_FOR_REPORT: ${{ steps.context.outputs.failed_specs || '[]' }}
+          BLOCKED_REASON_FOR_REPORT: ${{ steps.terminal_state.outputs.blocked_reason }}
+          FAILED_SPECS_FOR_REPORT: ${{ steps.terminal_state.outputs.failed_specs || '[]' }}
+          REPORT_AVAILABLE_FOR_REPORT: ${{ steps.terminal_state.outputs.report_available || 'false' }}
           PR_URL_FOR_REPORT: ${{ steps.pr.outputs.pr_url || steps.blocked_pr.outputs.pr_url || '' }}
           CONTINUATION_DISPATCHED: ${{ steps.terminal_state.outputs.continuation_dispatched }}
           MODEL_USAGE: ${{ steps.usage.outputs.model_usage || '{"cost_usd":null,"turns":null,"duration_ms":null}' }}
@@ -1023,25 +1068,15 @@ jobs:
           if [[ "$CONTINUATION_DISPATCHED" == "true" ]]; then
             STATUS="failed"; SEVERITY="warning"; VERDICT="Self-heal is continuing in another workflow round"
             TERMINAL=false; OUTCOME=repairing
-          elif [[ -n "${{ steps.blocked_pr.outputs.pr_url }}" ]]; then
-            STATUS="failed"; SEVERITY="critical"; VERDICT="Self-heal stopped at cycle 2 with a blocked draft PR"
+          elif [[ -n "$BLOCKED_REASON_FOR_REPORT" ]]; then
+            STATUS="failed"; SEVERITY="critical"; VERDICT="Self-heal is blocked: $BLOCKED_REASON_FOR_REPORT"
             TERMINAL=true; OUTCOME=blocked
-          elif [[ -n "$PR_URL_FOR_REPORT" ]]; then
+          else
             STATUS="success"; SEVERITY="ok"; VERDICT="Self-heal PR is ready for manual review"
             TERMINAL=true; OUTCOME=ready
-          elif [[ "${{ steps.checkpoint.outputs.no_progress }}" == "true" ]]; then
-            STATUS="failed"; SEVERITY="critical"; VERDICT="Self-heal stopped because the repair state did not change"
-            TERMINAL=true; OUTCOME=failed
-          else
-            STATUS="failed"; SEVERITY="critical"; VERDICT="Self-heal stopped before a review-ready PR"
-            TERMINAL=true; OUTCOME=failed
           fi
-          if [ -f playwright-results-validation.json ]; then
-            VAL_PASSED=$(jq '(.stats.expected // 0) + (.stats.flaky // 0)' playwright-results-validation.json)
-            VAL_FAILED=$(jq '.stats.unexpected // 0' playwright-results-validation.json)
-          else
-            VAL_PASSED=0; VAL_FAILED=0
-          fi
+          VAL_PASSED="${{ steps.terminal_state.outputs.passed }}"
+          VAL_FAILED="${{ steps.terminal_state.outputs.failed }}"
           workflow_started_at=$(curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" | jq -r '.run_started_at')
@@ -1056,12 +1091,14 @@ jobs:
             --arg root_source_run_id "${{ inputs.root_source_run_id || inputs.source_run_id || github.run_id }}" \
             --argjson repair_cycle "${{ inputs.repair_cycle || '1' }}" --argjson targeted_attempts "$TARGETED_ATTEMPTS" \
             --argjson terminal "$TERMINAL" --arg outcome "$OUTCOME" \
-            --argjson model_usage "$MODEL_USAGE" --argjson val_passed "$VAL_PASSED" --argjson val_failed "$VAL_FAILED" --arg workflow_url "$WORKFLOW_URL" \
+            --argjson model_usage "$MODEL_USAGE" --argjson report_available "${REPORT_AVAILABLE_FOR_REPORT:-false}" \
+            --argjson val_passed "$VAL_PASSED" --argjson val_failed "$VAL_FAILED" --arg workflow_url "$WORKFLOW_URL" \
             '{version: 1, source: "github_actions", source_run_id: $source_run_id, routine: "e2e-nightly",
               project: "formoria", status: $status, run_at: $run_at, date: $date,
               verdict_severity: $verdict_severity, verdict_text: $verdict_text, tickets_created: [],
-              log_url: $workflow_url, data: {phase: "selfheal", root_source_run_id: $root_source_run_id,
+              log_url: $workflow_url, data: {notification_owner: "github_actions", phase: "selfheal", root_source_run_id: $root_source_run_id,
               repair_cycle: $repair_cycle, terminal: $terminal, outcome: $outcome,
+              report_available: $report_available,
               targeted_attempts: $targeted_attempts, model_usage: $model_usage, failed_specs: $failed_specs,
               pr_url: $pr_url, auto_merge_enabled: false,
               validation: {passed: $val_passed, failed: $val_failed}, workflow_url: $workflow_url}}')
@@ -1088,11 +1125,13 @@ jobs:
       - name: Install notification dependencies
         run: pnpm install --frozen-lockfile
       - name: Notify Slack that the self-heal PR is ready
-        if: needs.selfheal.outputs.pr_url != ''
+        if: needs.selfheal.outputs.blocked_reason == '' && needs.selfheal.outputs.pr_url != ''
         env:
+          E2E_FAILED_SPECS: ${{ needs.selfheal.outputs.failed_specs || '[]' }}
           E2E_FAILED: ${{ needs.selfheal.outputs.failed || '0' }}
           E2E_PASSED: ${{ needs.selfheal.outputs.passed || '0' }}
           E2E_SKIPPED: ${{ needs.selfheal.outputs.skipped || '0' }}
+          E2E_REPORT_AVAILABLE: ${{ needs.selfheal.outputs.report_available || 'false' }}
           E2E_SLACK_PHASE: ready
           GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
           GITHUB_RUN_ID: ${{ github.run_id }}
@@ -1102,16 +1141,19 @@ jobs:
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: pnpm exec tsx scripts/notifications/e2e-slack.ts
       - name: Notify Slack that self-heal is blocked
-        if: needs.selfheal.outputs.pr_url == ''
+        if: needs.selfheal.outputs.blocked_reason != ''
         env:
           BLOCKED_REASON: ${{ needs.selfheal.outputs.blocked_reason || 'the self-heal job ended unexpectedly' }}
+          E2E_FAILED_SPECS: ${{ needs.selfheal.outputs.failed_specs || '[]' }}
           E2E_FAILED: ${{ needs.selfheal.outputs.failed || '0' }}
           E2E_PASSED: ${{ needs.selfheal.outputs.passed || '0' }}
           E2E_SKIPPED: ${{ needs.selfheal.outputs.skipped || '0' }}
+          E2E_REPORT_AVAILABLE: ${{ needs.selfheal.outputs.report_available || 'false' }}
           E2E_SLACK_PHASE: blocked
           GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
           GITHUB_RUN_ID: ${{ github.run_id }}
           JOB_STATUS: ${{ needs.selfheal.result }}
+          PR_URL: ${{ needs.selfheal.outputs.pr_url || '' }}
           SLACK_FORMORIA_WEBHOOK_URL: ${{ secrets.SLACK_FORMORIA_WEBHOOK_URL }}
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: pnpm exec tsx scripts/notifications/e2e-slack.ts

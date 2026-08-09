@@ -11,6 +11,7 @@ const baseURL = process.env.BASE_URL ?? "http://localhost:3000";
 const isLocalTarget = ["localhost", "127.0.0.1", "::1"].includes(
   new URL(baseURL).hostname,
 );
+const isTargetedSelfheal = process.env.SELFHEAL_TARGETED === "true";
 
 // Ensure the E2E admin account is in ADMIN_EMAILS so isAdmin() passes during tests
 if (process.env.E2E_ADMIN_EMAIL && process.env.ADMIN_EMAILS) {
@@ -39,14 +40,14 @@ export default defineConfig({
   // (ECONNRESET server-side) reaches the client as a truncated flight payload.
   // Keep local deep runs deterministic; production CI retains its parallel
   // worker count.
-  workers: process.env.CI ? 4 : 1,
+  workers: process.env.CI && !isTargetedSelfheal ? 4 : 1,
   reporter: "html",
   // CI serves a production build via `pnpm start`, so every route is already
   // compiled and 30s is a real budget. Locally `webServer` runs `pnpm dev`,
   // which compiles each route on demand while parallel workers race the same
   // cold compile — that alone can push a first `page.goto` past 30s. Keep CI
   // strict so a genuine regression still fails there.
-  timeout: process.env.CI ? 30_000 : 60_000,
+  timeout: process.env.CI && !isTargetedSelfheal ? 30_000 : 60_000,
   use: {
     baseURL,
     // Not 'on-first-retry': with retries=1 a fail-then-pass keeps only the
@@ -106,14 +107,15 @@ export default defineConfig({
         // /challenge. Specs then poll a "快速驗證" interstitial until they time out,
         // and which specs get hit shifts run to run. Setting it in this file's
         // process is not enough to reach the dev server's proxy runtime.
-        command: process.env.CI
-          ? "PLAYWRIGHT_TEST=true pnpm start"
-          : process.env.BASE_URL
-            ? `PLAYWRIGHT_TEST=true PORT=${new URL(baseURL).port || "3000"} pnpm dev`
-            : "PLAYWRIGHT_TEST=true pnpm dev",
+        command:
+          process.env.CI && !isTargetedSelfheal
+            ? "PLAYWRIGHT_TEST=true pnpm start"
+            : process.env.BASE_URL
+              ? `PLAYWRIGHT_TEST=true PORT=${new URL(baseURL).port || "3000"} pnpm dev`
+              : "PLAYWRIGHT_TEST=true pnpm dev",
         url: baseURL,
         reuseExistingServer: !process.env.CI,
-        timeout: process.env.CI ? 60_000 : 120_000,
+        timeout: process.env.CI && !isTargetedSelfheal ? 60_000 : 120_000,
       }
     : undefined,
 });
