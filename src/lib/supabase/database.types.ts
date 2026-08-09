@@ -2935,6 +2935,18 @@ export type Database = {
           suggested_tags: Json
         }[]
       }
+      brands_search_document: {
+        Args: {
+          p_blurb_en: string
+          p_description: string
+          p_name: string
+          p_product_tags: string[]
+          p_product_tags_en: string[]
+          p_product_type: string
+          p_slug: string
+        }
+        Returns: unknown
+      }
       cancel_curation_job: {
         Args: { p_job_id: string; p_reason: string }
         Returns: {
@@ -2980,6 +2992,8 @@ export type Database = {
         Args: { p_name: string; p_ubn?: string; p_website_key?: string }
         Returns: Json
       }
+      cjk_bigrams: { Args: { input: string }; Returns: string }
+      cjk_tsquery: { Args: { input: string }; Returns: unknown }
       claim_claim_proof_cleanup_jobs: {
         Args: {
           p_claim_request_id?: string
@@ -3416,6 +3430,7 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      strip_cjk_runs: { Args: { input: string }; Returns: string }
       transition_health_fix: {
         Args: {
           p_confirmation_data?: Json

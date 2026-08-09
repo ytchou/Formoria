@@ -1,0 +1,83 @@
+{
+  "note": "Hand-labelled relevance fixture for the public directory search RPC (DEV-1413). Assertions are invariants, not exact result sets: the catalog grows, so 'these must be found' and 'these must never be found' stay true where a frozen expected-set would rot. Slugs were reviewed by hand against name and product_tags, not generated from whatever search returned.",
+  "cases": [
+    {
+      "q": "香氛",
+      "note": "Fragrance. The headline false negative: five approved brands carry 香氛 in their own name, and mid-name ones are invisible to whole-run tokenization.",
+      "mustInclude": [
+        "scent-forest",
+        "laboratory-scent",
+        "hori-aroma",
+        "tings-aroma",
+        "cypress-house"
+      ],
+      "minResults": 5
+    },
+    {
+      "q": "小提琴",
+      "note": "Violin. The catalog has no violin brands, so the only correct answer is nothing. Every slug below shares only the leading 小 and scored exactly 0.2500 against an inclusive trigram threshold.",
+      "expectEmpty": true,
+      "mustExclude": [
+        "farfarawayvillage",
+        "my-beast",
+        "87rabbit",
+        "evakaku",
+        "petit-petit",
+        "si-balcon",
+        "b-610-asteroid-b-610",
+        "butter-in-whisper",
+        "hsiao-chu-tien-tien"
+      ]
+    },
+    {
+      "q": "保養",
+      "note": "Skincare, as it is actually tagged (臉部保養 / 身體保養). Exercises the product_tags path at weight C.",
+      "mustInclude": ["lynndyn", "furlab-skincare", "purifycare"],
+      "minResults": 20
+    },
+    {
+      "q": "保養品",
+      "note": "The three-character form. Bigrams are ANDed (保養 & 養品), so this matches only brands whose text literally contains 保養品 — brands tagged 保養 alone are correctly excluded, exactly as websearch_to_tsquery would AND two English terms. The first fixture run mislabelled this case with 保養's brands; the search was right and the label was wrong.",
+      "mustInclude": ["furlab-skincare"],
+      "mustExclude": ["lynndyn", "purifycare"],
+      "minResults": 5
+    },
+    {
+      "q": "皮革",
+      "note": "Leather. Only three brands carry it in name or tags; the rest describe it. Recall here comes almost entirely from descriptions.",
+      "mustInclude": ["handmadeship", "trista-handmade", "moonlight"],
+      "minResults": 3
+    },
+    {
+      "q": "咖啡",
+      "note": "Coffee. Mid-name occurrence (里響咖啡) is the whole-run blind spot in miniature.",
+      "mustInclude": ["reshock-coffee"],
+      "minResults": 5
+    },
+    {
+      "q": "陶瓷",
+      "note": "Ceramics. Already partly working today because 陶瓷 is its own product tag — a guard that the tag path does not regress.",
+      "minResults": 20
+    },
+    {
+      "q": "coffee",
+      "note": "Latin regression guard. Must not move: this query never touches the CJK path.",
+      "minResults": 1
+    },
+    {
+      "q": "ceramic",
+      "note": "Second Latin guard, on a term that also exists in Chinese — proves the two paths stay independent.",
+      "minResults": 1
+    },
+    {
+      "q": "zzzzqqqq nonexistent",
+      "note": "Precision canary. If broader CJK recall ever makes this non-empty, the change matched everything rather than the right things.",
+      "expectEmpty": true
+    },
+    {
+      "q": "台灣 手工",
+      "note": "Two CJK runs separated by a space. Both are bigram-expanded and ANDed, so a brand must satisfy both — not either.",
+      "minResults": 1
+    }
+  ]
+}
