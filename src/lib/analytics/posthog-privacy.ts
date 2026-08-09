@@ -11,6 +11,15 @@ const UTM_KEYS = new Set([
 const POSTHOG_UTM_KEYS = new Set(Array.from(UTM_KEYS).flatMap((key) => [key, `$${key}`]))
 const SAFE_CAMPAIGN_VALUE = /^[\p{L}\p{N}][\p{L}\p{N}._~-]{0,99}$/u
 
+// Any property whose key appears here is deleted before send, at every nesting level.
+// The deletion is silent by design, which makes this list the first place to look when a
+// property mysteriously never arrives in PostHog.
+//
+// `search_term` was removed from this list in DEV-1408: search text is now captured
+// deliberately, because "what did visitors fail to find" is the catalog-gap signal a
+// directory runs on. The published privacy policy was updated in the same change.
+// `query` and `text` stay listed — they are generic keys that autocapture and third-party
+// payloads also use, so they carry no such guarantee about their contents.
 const SENSITIVE_PROPERTY_KEYS = new Set([
   '$el_text',
   'access_token',
@@ -38,7 +47,6 @@ const SENSITIVE_PROPERTY_KEYS = new Set([
   'phone_number',
   'query',
   'refresh_token',
-  'search_term',
   'text',
   'token',
   'user_email',

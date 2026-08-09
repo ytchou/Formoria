@@ -28,8 +28,14 @@ export function PostHogUserSync({ locale }: { locale: AppLocale }) {
       resetPostHogUser()
     }
     if (nextUserId && previousUserId.current !== nextUserId) {
+      // Both keys, deliberately. `is_internal` is ours and all historical data carries it;
+      // `$internal_or_test_user` is the key PostHog's own "filter out internal and test
+      // users" setting reads, and setting only the former is why that setting excluded
+      // nobody for the project's first three weeks (DEV-1408).
+      const internal = isInternalUserEmail(user?.email)
       identifyPostHogUser(nextUserId, {
-        is_internal: isInternalUserEmail(user?.email),
+        is_internal: internal,
+        $internal_or_test_user: internal,
       })
     }
 

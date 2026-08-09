@@ -237,10 +237,31 @@ export function trackCategoryFilterApplied(category: string) {
   capturePostHogEvent(ANALYTICS_EVENTS.CATEGORY_FILTER_APPLIED, { category })
 }
 
-// Raw query text is deliberately never sent to either destination — the privacy policy
-// promises search text is excluded from analytics events. `query_length` preserves the
-// useful signal (are people typing long/short queries, and do they find anything) without
-// the text itself. This drops GA4's built-in site-search term report by design.
+const SEARCH_TERM_MAX_LENGTH = 100
+const EMAIL_LIKE = /@/
+const LONG_DIGIT_RUN = /\d{7,}/
+
+/**
+ * Search text IS sent to analytics as of DEV-1408 — a deliberate reversal. Knowing that a
+ * search failed is far less useful than knowing what it was looking for, and unmet demand
+ * is the signal a directory adds inventory from. The privacy policy was updated in the
+ * same change; `search_term` was carved out of the `before_send` scrubber's deny list.
+ *
+ * Two guards remain, because a free-text box is a free-text box: anything resembling an
+ * email address or a long digit run (phone, order number, ID) is dropped rather than
+ * truncated, and everything else is capped at 100 characters. Dropping loses one data
+ * point; sending loses the guarantee.
+ */
+function searchTermProperty(query: string): { search_term?: string } {
+  const trimmed = query.trim()
+  if (!trimmed) return {}
+  if (EMAIL_LIKE.test(trimmed) || LONG_DIGIT_RUN.test(trimmed)) return {}
+  // Spread rather than `search_term: undefined` — an explicitly undefined key still
+  // serializes as a present property, which reads downstream as "we captured nothing"
+  // instead of "we chose not to capture".
+  return { search_term: trimmed.slice(0, SEARCH_TERM_MAX_LENGTH) }
+}
+
 export function trackSearchExecuted(query: string, resultCount: number) {
   safeGAEvent('event', 'search', {
     query_length: query.length,
@@ -251,6 +272,7 @@ export function trackSearchExecuted(query: string, resultCount: number) {
     query_length: query.length,
     result_count: resultCount,
     has_results: resultCount > 0,
+    ...searchTermProperty(query),
   })
 }
 
@@ -385,7 +407,12 @@ export function trackSearchSuggestionSelect(slug: string, brandId?: string) {
 
 export function trackSearchNoResults(searchTerm: string) {
   safeGAEvent('event', 'search_no_results', { query_length: searchTerm.length })
-  capturePostHogEvent(ANALYTICS_EVENTS.BRAND_SEARCH_EMPTY, { query_length: searchTerm.length })
+  // The highest-value row in the whole event stream: a visitor told us what they wanted
+  // and the catalog did not have it.
+  capturePostHogEvent(ANALYTICS_EVENTS.BRAND_SEARCH_EMPTY, {
+    query_length: searchTerm.length,
+    ...searchTermProperty(searchTerm),
+  })
 }
 
 export function trackSignUp(method: string) {

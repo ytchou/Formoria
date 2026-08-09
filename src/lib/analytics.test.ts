@@ -240,21 +240,41 @@ describe('analytics', () => {
     expect(JSON.stringify(mockPostHogCapture.mock.calls)).not.toContain('private query')
   })
 
-  it('never sends raw search text or proposed brand names to PostHog', () => {
-    trackSearchExecuted('private query', 4)
-    trackSearchNoResults('another private query')
+  // DEV-1408 reversed the search-text exclusion: knowing a search failed is far less
+  // useful than knowing what it wanted. Proposed brand names stay excluded.
+  it('sends search text but never proposed brand names to PostHog', () => {
+    trackSearchExecuted('ceramic mugs', 4)
+    trackSearchNoResults('handmade linen apron')
     trackSubmissionCompleted('Secret proposed brand', 'fashion', true, 120)
 
     expect(mockPostHogCapture).toHaveBeenNthCalledWith(1, 'brand_search_executed', {
-      query_length: 13,
+      query_length: 12,
       result_count: 4,
       has_results: true,
+      search_term: 'ceramic mugs',
     })
     expect(mockPostHogCapture).toHaveBeenNthCalledWith(2, 'brand_search_empty', {
-      query_length: 21,
+      query_length: 20,
+      search_term: 'handmade linen apron',
     })
-    expect(JSON.stringify(mockPostHogCapture.mock.calls)).not.toContain('private query')
     expect(JSON.stringify(mockPostHogCapture.mock.calls)).not.toContain('Secret proposed brand')
+  })
+
+  it('drops search text that looks like contact details, and caps the rest', () => {
+    trackSearchExecuted('person@example.com', 0)
+    trackSearchNoResults('0912345678')
+    trackSearchExecuted('  spaced  ', 1)
+    trackSearchExecuted('x'.repeat(150), 1)
+
+    // Absent rather than empty — an omitted property is unambiguous downstream.
+    expect(mockPostHogCapture.mock.calls[0]?.[1]).not.toHaveProperty('search_term')
+    expect(mockPostHogCapture.mock.calls[1]?.[1]).not.toHaveProperty('search_term')
+    expect(mockPostHogCapture.mock.calls[2]?.[1]).toMatchObject({ search_term: 'spaced' })
+    expect(mockPostHogCapture.mock.calls[3]?.[1]).toMatchObject({
+      search_term: 'x'.repeat(100),
+    })
+    expect(JSON.stringify(mockPostHogCapture.mock.calls)).not.toContain('person@example.com')
+    expect(JSON.stringify(mockPostHogCapture.mock.calls)).not.toContain('0912345678')
   })
 
 
