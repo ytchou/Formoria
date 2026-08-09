@@ -1,3 +1,4 @@
+import { BUDGET } from "../budgets";
 import { test, expect } from "../fixtures/auth";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -126,8 +127,7 @@ test.describe("Claim request smoke", () => {
     userPage,
     adminPage,
   }) => {
-    test.setTimeout(180_000);
-
+    test.setTimeout(BUDGET.TEST.CLAIM);
     const brandPath = `/brands/${brandSlug}`;
     const brandResponse = await userPage.goto(brandPath);
     if (brandResponse?.status() === 503) {

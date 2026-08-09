@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { load } from "cheerio";
 import { seedBrand, SeededBrand } from "../helpers/seed";
 
+import { BUDGET } from "../budgets";
 test.describe("Brand detail deep", () => {
   let brandHref: string;
   let seeded: SeededBrand;
@@ -218,8 +219,7 @@ test.describe("Brand detail deep", () => {
   });
 
   test("FAQ renders on a data-rich brand", async ({ page }) => {
-    test.setTimeout(90_000);
-
+    test.setTimeout(BUDGET.TEST.MUTATION);
     // Seeded via `withFaqEvidence`: mit_status, product_tags and price_range.
     // Those — not links — are what the surviving presets gate their template
     // floors on, so a link-only fixture would render just `taiwan-origin`.
@@ -249,8 +249,7 @@ test.describe("Brand detail deep", () => {
     page,
     request,
   }) => {
-    test.setTimeout(90_000);
-
+    test.setTimeout(BUDGET.TEST.MUTATION);
     // The whole point of DEV-1317: answers must be readable without opening
     // anything. Nothing here clicks — a test that expands first would pass
     // just as happily against JS-only, open-gated answer rendering.
@@ -308,8 +307,7 @@ test.describe("Brand detail — brand without links", () => {
   test("social section is hidden and purchase section shows its empty prompt when brand has no links", async ({
     page,
   }) => {
-    test.setTimeout(90_000);
-
+    test.setTimeout(BUDGET.TEST.MUTATION);
     // ISR pages may serve a stale cache — poll-reload until the seeded brand page renders
     await expect(async () => {
       await page.goto(`/brands/${seeded.slug}`, {
@@ -370,8 +368,7 @@ test.describe("Brand detail — myship-only purchase channel", () => {
   test("myship renders as a live link while the website chip stays inert", async ({
     page,
   }) => {
-    test.setTimeout(90_000);
-
+    test.setTimeout(BUDGET.TEST.MUTATION);
     await expect(async () => {
       await page.goto(`/brands/${seeded.slug}`, {
         waitUntil: "domcontentloaded",
@@ -674,8 +671,7 @@ test.describe
   });
 
   test("group headings render with correct counts", async ({ page }) => {
-    test.setTimeout(90_000);
-
+    test.setTimeout(BUDGET.TEST.MUTATION);
     await expect(async () => {
       await page.goto(`/brands/${seeded.slug}`, {
         waitUntil: "domcontentloaded",
@@ -756,7 +752,7 @@ test.describe
   test("signed-in confirm increments the confirmation count", async ({
     userPage,
   }) => {
-    test.setTimeout(90_000);
+    test.setTimeout(BUDGET.TEST.MUTATION);
     await userPage.goto(`/brands/${seeded.slug}`, {
       waitUntil: "domcontentloaded",
     });
@@ -800,7 +796,7 @@ test.describe
   test("submitted channel appears in the online group", async ({
     userPage,
   }) => {
-    test.setTimeout(90_000);
+    test.setTimeout(BUDGET.TEST.MUTATION);
     await userPage.goto(`/brands/${seeded.slug}`, {
       waitUntil: "domcontentloaded",
     });

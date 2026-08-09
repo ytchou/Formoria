@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { test, expect } from '../fixtures/auth';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
+import { BUDGET } from '../budgets';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
@@ -153,7 +154,7 @@ test.describe('Admin dashboard deep', () => {
   });
 
   test('admin dashboard shows accurate stats', async ({ adminPage }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(BUDGET.TEST.ADMIN);
     await adminPage.setViewportSize({ width: 1512, height: 828 });
     await adminPage.goto('/admin');
     await expect(adminPage.getByRole('heading', { name: /^Admin$/ })).toBeVisible({ timeout: 60_000 });
@@ -183,7 +184,7 @@ test.describe('Admin dashboard deep', () => {
   test('admin nav links all work', async ({ adminPage }) => {
     // DEV-762: admin sub-routes also cold-compile in CI dev mode; bump per-link
     // <main> wait to 15s and add a 60s test budget.
-    test.setTimeout(120_000);
+    test.setTimeout(BUDGET.TEST.ADMIN);
     await adminPage.goto('/admin');
     const navLinks = adminPage.locator('nav a, [data-testid="admin-nav"] a');
     const count = await navLinks.count();
@@ -200,7 +201,7 @@ test.describe('Admin dashboard deep', () => {
   test('approve submission makes brand visible in directory', async ({ adminPage }) => {
     // DEV-762: /admin/submissions cold-compiles in CI; give the page and the
     // approve action generous budgets.
-    test.setTimeout(120_000);
+    test.setTimeout(BUDGET.TEST.ADMIN);
     if (!testSubmissionId) test.skip();
     await adminPage.goto('/admin/submissions?stage=ready');
     // Wait for the page to be interactive before looking for the seeded row.
@@ -218,8 +219,7 @@ test.describe('Admin dashboard deep', () => {
   });
 
   test('needs-data submission can be dropped and is removed from the database', async ({ adminPage }) => {
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     // Create a separate submission that remains in the needs-data stage.
     const rejectBrandName = `[E2E-TEST] Rejected Brand ${Date.now()}`;
     const { data } = await supabase

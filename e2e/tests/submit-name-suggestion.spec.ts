@@ -1,6 +1,7 @@
 import { test, expect } from '../fixtures/auth';
 import { gotoSubmitRecommend } from '../utils/submit-form';
 
+import { BUDGET } from '../budgets';
 // ---------------------------------------------------------------------------
 // Journey: Name cleanup suggestion
 // When the user enters a dirty brand name and blurs the field, a suggestion
@@ -14,8 +15,7 @@ test.describe('Submit name suggestion', () => {
   test('dirty name with emoji shows suggestion alert; Apply updates field and dismisses alert', async ({
     userPage,
   }) => {
-    test.setTimeout(60_000);
-
+    test.setTimeout(BUDGET.TEST.JOURNEY);
     await gotoSubmitRecommend(userPage);
 
     // Name field is immediately visible on the flat single-screen form
@@ -62,8 +62,7 @@ test.describe('Submit name suggestion', () => {
   test('editing the name after suggestion dismisses the alert', async ({
     userPage,
   }) => {
-    test.setTimeout(60_000);
-
+    test.setTimeout(BUDGET.TEST.JOURNEY);
     await gotoSubmitRecommend(userPage);
 
     // Name field is immediately visible — no skip step needed

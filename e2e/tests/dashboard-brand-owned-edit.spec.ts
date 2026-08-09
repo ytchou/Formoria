@@ -5,6 +5,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { writeAuthStorageStateForCredentials } from '../helpers/auth-session';
 import { ownerFeaturesDisabled, OWNER_FEATURES_OFF_REASON } from '../helpers/owner-features';
 
+import { BUDGET } from '../budgets';
 const test = baseTest.extend<{ userPage: Page }>({
   userPage: async ({ browser, isolatedUser }, provideFixture, testInfo) => {
     const storagePath = path.join(testInfo.outputDir, 'isolated-owner.json');
@@ -238,7 +239,7 @@ test.afterAll(async () => {
 
 test.describe('Dashboard brand edit', () => {
   test('edit form has city select with placeholder and city options', async ({ userPage }) => {
-    test.setTimeout(60_000);
+    test.setTimeout(BUDGET.TEST.JOURNEY);
     await userPage.goto(`/dashboard/brands/${descriptionBrandSlug}/edit`);
     await expect(
       userPage.getByRole('heading', { name: /^編輯 / }),
@@ -252,8 +253,7 @@ test.describe('Dashboard brand edit', () => {
   });
 
   test('owner can edit description and change persists', async ({ userPage }) => {
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     await userPage.goto(`/dashboard/brands/${descriptionBrandSlug}/edit`);
     await expect(
       userPage.getByRole('heading', { name: /^編輯 / }),
@@ -298,8 +298,7 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
   });
 
   test('wizard loads at step 0 (Basic Info) by default', async ({ userPage }) => {
-    test.setTimeout(60_000);
-
+    test.setTimeout(BUDGET.TEST.JOURNEY);
     const resp = await userPage.goto(`/dashboard/brands/${wizardBrandSlug}/edit`);
     if (resp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
@@ -319,8 +318,7 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
   });
 
   test('sidebar shows all five step labels', async ({ userPage }) => {
-    test.setTimeout(60_000);
-
+    test.setTimeout(BUDGET.TEST.JOURNEY);
     const resp = await userPage.goto(`/dashboard/brands/${wizardBrandSlug}/edit`);
     if (resp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
@@ -338,7 +336,7 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
   });
 
   test('Save & Continue saves progress, survives reload, and advances to step 1 (Brand images)', async ({ userPage }) => {
-    test.setTimeout(90_000);
+    test.setTimeout(BUDGET.TEST.MUTATION);
     const nextName = `Reload Check ${Date.now()}`;
 
     const resp = await userPage.goto(`/dashboard/brands/${wizardBrandSlug}/edit`);
@@ -383,8 +381,7 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
   });
 
   test('shared URL preview and link rows match the dashboard persistence flow', async ({ userPage }) => {
-    test.setTimeout(90_000);
-
+    test.setTimeout(BUDGET.TEST.MUTATION);
     const basicResp = await userPage.goto(
       `/dashboard/brands/${wizardBrandSlug}/edit?step=0`,
     );
@@ -430,8 +427,7 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
   });
 
   test('sidebar click jumps non-linearly to Reputation (step 4)', async ({ userPage }) => {
-    test.setTimeout(60_000);
-
+    test.setTimeout(BUDGET.TEST.JOURNEY);
     const resp = await userPage.goto(
       `/dashboard/brands/${wizardBrandSlug}/edit?step=0`,
     );
@@ -477,8 +473,7 @@ test.describe('Dashboard — brand image upload', () => {
   });
 
   test('owner can upload hero and product images and persist both in a draft', async ({ userPage }) => {
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     const editPath = `/dashboard/brands/${imageUploadBrandSlug}/edit?step=1`;
     const editResp = await userPage.goto(editPath);
     if (editResp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return; }
@@ -563,8 +558,7 @@ test.describe('Dashboard — governed field integrity', () => {
   });
 
   test('non-manager navigating to edit page is redirected to /dashboard', async ({ userPage }) => {
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     // userPage owns governedBrand (layout renders children).
     // adminBrand is owned by adminUser — userPage is neither admin nor owner → redirect.
     const resp = await userPage.goto(`/dashboard/brands/${adminBrandSlug}/edit`);
@@ -580,8 +574,7 @@ test.describe('Dashboard — governed field integrity', () => {
   });
 
   test('owner save does not mutate governed columns (mit_status, status)', async ({ userPage }) => {
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     const editPath = `/dashboard/brands/${governedBrandSlug}/edit`;
     const editResp = await userPage.goto(editPath);
     if (editResp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return; }

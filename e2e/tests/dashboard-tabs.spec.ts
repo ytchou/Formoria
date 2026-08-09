@@ -6,6 +6,7 @@ import { ensureOwnedBrand } from '../helpers/owned-brand';
 import { writeAuthStorageStateForCredentials } from '../helpers/auth-session';
 import { ownerFeaturesDisabled, OWNER_FEATURES_OFF_REASON } from '../helpers/owner-features';
 
+import { BUDGET } from '../budgets';
 const test = baseTest.extend<{ userPage: Page }>({
   userPage: async ({ browser, isolatedUser }, provideFixture, testInfo) => {
     const storagePath = path.join(testInfo.outputDir, 'dashboard-tabs-owner.json');
@@ -72,8 +73,7 @@ test.describe('Dashboard — tab navigation', () => {
   // (cleanupTestData) handles removal.
 
   test('default dashboard landing shows the single brand with owner actions', async ({ userPage }) => {
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     const resp = await userPage.goto('/dashboard');
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping.');
@@ -102,8 +102,7 @@ test.describe('Dashboard — tab navigation', () => {
   });
 
   test('a stale brand query cannot switch away from the account owner brand', async ({ userPage }) => {
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     const resp = await userPage.goto('/dashboard?brand=totally-bogus-brand-that-does-not-exist');
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping.');
@@ -138,8 +137,7 @@ test.describe('Dashboard — legacy brand route redirect', () => {
   });
 
   test('navigating to /dashboard/brands/<slug> renders the brand overview directly', async ({ userPage }) => {
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     // Resolve the current brand slug by letting /dashboard redirect
     await userPage.goto('/dashboard');
     await expect(userPage).toHaveURL(/\/dashboard\/brands\/[^/]+$/, { timeout: 60_000 });

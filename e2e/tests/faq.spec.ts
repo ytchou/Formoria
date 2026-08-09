@@ -19,8 +19,6 @@ test.describe("FAQ page", () => {
   test("@smoke renders two section headings and exactly 13 details elements", async ({
     anonPage,
   }) => {
-    test.setTimeout(30_000);
-
     // /faq is the zh-TW canonical URL (localePrefix: 'as-needed', defaultLocale: 'zh-TW')
     const resp = await anonPage.goto("/faq", { timeout: 30_000 });
     if (resp?.status() === 503) {
@@ -51,8 +49,6 @@ test.describe("FAQ page", () => {
   test("#for-owners anchor scrolls the section into viewport", async ({
     anonPage,
   }) => {
-    test.setTimeout(30_000);
-
     const resp = await anonPage.goto("/faq#for-owners", { timeout: 30_000 });
     if (resp?.status() === 503) {
       test.skip(true, "PREVIEW_MODE active — skipping");
@@ -68,8 +64,6 @@ test.describe("FAQ page", () => {
   test("#claim details auto-opens via OpenTargetDetails on hash navigation", async ({
     anonPage,
   }) => {
-    test.setTimeout(30_000);
-
     const resp = await anonPage.goto("/faq#claim", { timeout: 30_000 });
     if (resp?.status() === 503) {
       test.skip(true, "PREVIEW_MODE active — skipping");

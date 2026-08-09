@@ -2,6 +2,7 @@ import { test, expect } from "../fixtures/auth";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { ownerFeaturesDisabled } from "../helpers/owner-features";
 
+import { BUDGET } from "../budgets";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
@@ -76,7 +77,6 @@ test.describe("Static & compliance pages", () => {
   test("about page contains the mission and owner-led vision", async ({
     anonPage,
   }) => {
-    test.setTimeout(30_000);
     const resp = await anonPage.goto("/about", { timeout: 30_000 });
     if (resp?.status() === 503) {
       test.skip(true, "PREVIEW_MODE active");
@@ -95,7 +95,6 @@ test.describe("Static & compliance pages", () => {
   test("vision page redirects to the merged section on about", async ({
     anonPage,
   }) => {
-    test.setTimeout(30_000);
     const resp = await anonPage.goto("/vision", { timeout: 30_000 });
     if (resp?.status() === 503) {
       test.skip(true, "PREVIEW_MODE active");
@@ -110,7 +109,6 @@ test.describe("Static & compliance pages", () => {
   });
 
   test("privacy page renders", async ({ anonPage }) => {
-    test.setTimeout(30_000);
     const resp = await anonPage.goto("/privacy", { timeout: 30_000 });
     if (resp?.status() === 503) {
       test.skip(true, "PREVIEW_MODE active");
@@ -122,7 +120,6 @@ test.describe("Static & compliance pages", () => {
   });
 
   test("terms page renders", async ({ anonPage }) => {
-    test.setTimeout(30_000);
     const resp = await anonPage.goto("/terms", { timeout: 30_000 });
     if (resp?.status() === 503) {
       test.skip(true, "PREVIEW_MODE active");
@@ -150,7 +147,6 @@ test.describe("Static & compliance pages", () => {
   test("challenge page renders the localized verification heading", async ({
     anonPage,
   }) => {
-    test.setTimeout(30_000);
     // /challenge uses the default zh-TW locale; /en/challenge is the English variant.
     const resp = await anonPage.goto("/challenge", { timeout: 30_000 });
     if (resp?.status() === 503) {
@@ -168,7 +164,6 @@ test.describe("Static & compliance pages", () => {
     anonPage,
     browser,
   }) => {
-    test.setTimeout(30_000);
     const resp = await anonPage.goto("/submit", { timeout: 30_000 });
     if (resp?.status() === 503) {
       test.skip(true, "PREVIEW_MODE active");
@@ -196,7 +191,7 @@ test.describe("Static & compliance pages", () => {
   });
 
   test("microsite renders for seeded brand", async ({ anonPage }) => {
-    test.setTimeout(90_000);
+    test.setTimeout(BUDGET.TEST.MUTATION);
     if (!supabase) {
       test.skip(true, "PREVIEW_MODE active");
       return;

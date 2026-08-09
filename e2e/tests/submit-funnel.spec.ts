@@ -67,8 +67,7 @@ test.describe("Submit funnel", () => {
   test("submits brand and reaches confirmation page", async ({
     anonPage,
   }, workerInfo) => {
-    test.setTimeout(60_000);
-
+    test.setTimeout(BUDGET.TEST.JOURNEY);
     const ts = Date.now();
     const wi = workerInfo.workerIndex;
     const brandName = `[E2E-TEST] Submit Funnel ${ts}-${wi}`;
@@ -180,7 +179,7 @@ test.describe("Submit funnel", () => {
   test("detailed owner wizard writes only on final submit and preserves shared links", async ({
     userPage,
   }, workerInfo) => {
-    test.setTimeout(120_000);
+    test.setTimeout(BUDGET.TEST.ADMIN);
     const ts = Date.now();
     const brandName = `[E2E-TEST] Submit Funnel Detailed ${ts}-${workerInfo.workerIndex}`;
     const sourceWebsite = `https://detailed-${ts}.example.com`;

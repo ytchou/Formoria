@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { gotoSubmitOwner, gotoSubmitRecommend } from "../utils/submit-form";
 import { OWNER_FEATURES_OFF_REASON } from "../helpers/owner-features";
 
+import { BUDGET } from "../budgets";
 test.describe("Community submit flow", () => {
   test.afterAll(async () => {
     const supabase = createClient(
@@ -18,7 +19,7 @@ test.describe("Community submit flow", () => {
   test("@smoke recommendation flow is available without owner-only controls", async ({
     userPage,
   }) => {
-    test.setTimeout(60_000);
+    test.setTimeout(BUDGET.TEST.JOURNEY);
     await gotoSubmitRecommend(userPage);
     await expect(userPage.locator("#submit-source")).toBeVisible({
       timeout: 5_000,
@@ -32,7 +33,7 @@ test.describe("Community submit flow", () => {
   test("source attribution select is visible on the recommendation form", async ({
     userPage,
   }) => {
-    test.setTimeout(60_000);
+    test.setTimeout(BUDGET.TEST.JOURNEY);
     await gotoSubmitRecommend(userPage);
     await expect(userPage.locator("#submit-source")).toBeVisible({
       timeout: 5_000,
@@ -42,7 +43,7 @@ test.describe("Community submit flow", () => {
   test("recommendation required fields are visible immediately", async ({
     userPage,
   }) => {
-    test.setTimeout(60_000);
+    test.setTimeout(BUDGET.TEST.JOURNEY);
     await gotoSubmitRecommend(userPage);
     await expect(userPage.locator("#submit-website")).toBeVisible({
       timeout: 5_000,
@@ -59,7 +60,7 @@ test.describe("Community submit flow", () => {
   test("@smoke owner quick form shows its core fields when owner features are enabled", async ({
     userPage,
   }) => {
-    test.setTimeout(60_000);
+    test.setTimeout(BUDGET.TEST.JOURNEY);
     const probe = await userPage.goto("/submit/owner/quick");
     if (probe?.status() === 404) {
       test.skip(true, OWNER_FEATURES_OFF_REASON);
@@ -84,7 +85,7 @@ test.describe("Community submit flow", () => {
   test("@smoke my-submissions redirects authenticated users to the home page", async ({
     userPage,
   }) => {
-    test.setTimeout(60_000);
+    test.setTimeout(BUDGET.TEST.JOURNEY);
     await userPage.goto("/my-submissions");
     await userPage.waitForURL((url) => isHomePath(url.pathname), {
       timeout: 15_000,
@@ -98,7 +99,7 @@ test.describe("Community submit flow", () => {
   test("my-submissions /en redirects to the home page", async ({
     userPage,
   }) => {
-    test.setTimeout(60_000);
+    test.setTimeout(BUDGET.TEST.JOURNEY);
     const res = await userPage.goto("/en/my-submissions");
     expect(res?.status()).toBeLessThan(400);
     await userPage.waitForURL((url) => isHomePath(url.pathname), {

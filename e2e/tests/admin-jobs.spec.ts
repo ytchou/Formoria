@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { test, expect } from '../fixtures/auth';
 
+import { BUDGET } from '../budgets';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
@@ -188,7 +189,7 @@ test.describe('Admin curation jobs deep', () => {
   });
 
   test('admin sees one job log and cancels active work', async ({ adminPage }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(BUDGET.TEST.ADMIN);
     if (!cancellableJobId) test.skip();
     await adminPage.goto('/admin/jobs');
     await expect(adminPage.getByRole('navigation', { name: 'Filter data jobs' })).toHaveCount(0);
@@ -205,8 +206,7 @@ test.describe('Admin curation jobs deep', () => {
   });
 
   test('admin reviews a failed curation target and manually reruns it', async ({ adminPage }) => {
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     await adminPage.goto('/admin/jobs');
     await expect(adminPage.getByRole('heading', { name: 'Data Jobs' })).toBeVisible({ timeout: 60_000 });
 

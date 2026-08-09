@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { expect, test } from "../fixtures/auth";
 
+import { BUDGET } from "../budgets";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
@@ -93,8 +94,7 @@ test.describe("Admin submission enrichment lifecycle", () => {
   test("moves from needs data to enriching to ready, then creates the brand on approval", async ({
     adminPage,
   }) => {
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     await adminPage.goto("/admin/submissions?stage=needs_data");
     await adminPage
       .getByPlaceholder("Search brand, submitter, email, or website")

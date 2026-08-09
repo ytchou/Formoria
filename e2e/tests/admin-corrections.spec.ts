@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { test, expect } from "../fixtures/auth";
 import { seedBrand, type SeededBrand } from "../helpers/seed";
 
+import { BUDGET } from "../budgets";
 test.describe("Admin brand corrections", () => {
   test.describe.configure({ mode: "serial" });
 
@@ -34,7 +35,7 @@ test.describe("Admin brand corrections", () => {
   test("renders the corrections heading and either a queue table or the empty state", async ({
     adminPage,
   }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(BUDGET.TEST.ADMIN);
     await adminPage.goto("/admin/corrections");
     await expect(adminPage.getByRole("heading", { name: "Brand Corrections" })).toBeVisible({
       timeout: 60_000,
@@ -63,7 +64,7 @@ test.describe("Admin brand corrections", () => {
   });
 
   test("opens correction details and approves only the selected rows", async ({ adminPage }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(BUDGET.TEST.ADMIN);
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
     test.skip(!url || !key, "Supabase service-role credentials are required for correction seeding.");

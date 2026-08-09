@@ -1,6 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures/auth';
 import { seedBrand, SeededBrand } from '../helpers/seed';
+import { BUDGET } from '../budgets';
 // DEV-1261 note: deliberately NOT gated on `owner_features_enabled`. This is an
 // anonymous crowd-QA journey that touches no owner surface, and it is live at
 // launch — pausing it would take consumer coverage dark for no reason. Verified
@@ -184,7 +185,7 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
   test(
     'anonymous visitor can submit a category correction',
     async ({ anonPage }, testInfo) => {
-      test.setTimeout(90_000);
+      test.setTimeout(BUDGET.TEST.MUTATION);
       await isolateVisitorIp(anonPage, testInfo.workerIndex);
       await openSeededBrand(anonPage, seeded);
 
@@ -218,7 +219,7 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
   );
 
   test('submit stays disabled until the value changes', async ({ anonPage }, testInfo) => {
-    test.setTimeout(90_000);
+    test.setTimeout(BUDGET.TEST.MUTATION);
     await isolateVisitorIp(anonPage, testInfo.workerIndex);
     await openSeededBrand(anonPage, seeded);
 
@@ -251,7 +252,7 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
   test(
     'page still shows the original value after submitting',
     async ({ anonPage }, testInfo) => {
-      test.setTimeout(90_000);
+      test.setTimeout(BUDGET.TEST.MUTATION);
       await isolateVisitorIp(anonPage, testInfo.workerIndex);
       await openSeededBrand(anonPage, seeded);
 
@@ -272,7 +273,7 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
   );
 
   test('a second submission for the same field is rejected', async ({ anonPage }, testInfo) => {
-    test.setTimeout(120_000);
+    test.setTimeout(BUDGET.TEST.ADMIN);
     await isolateVisitorIp(anonPage, testInfo.workerIndex);
     await openSeededBrand(anonPage, seeded);
 
@@ -291,7 +292,7 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
   test(
     'a visitor can propose a tag the taxonomy does not offer',
     async ({ anonPage }, testInfo) => {
-      test.setTimeout(90_000);
+      test.setTimeout(BUDGET.TEST.MUTATION);
       await isolateVisitorIp(anonPage, testInfo.workerIndex);
       await openSeededBrand(anonPage, seeded);
 

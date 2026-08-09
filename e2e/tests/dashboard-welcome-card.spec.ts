@@ -6,6 +6,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { writeAuthStorageStateForCredentials } from '../helpers/auth-session'
 import { ownerFeaturesDisabled, OWNER_FEATURES_OFF_REASON } from '../helpers/owner-features'
 
+import { BUDGET } from '../budgets'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>
 
@@ -95,8 +96,7 @@ test.afterAll(async () => {
 
 test.describe('Dashboard — quick actions', () => {
   test('quick actions section visible with 4 action links', async ({ userPage }) => {
-    test.setTimeout(120_000)
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     const resp = await userPage.goto(`/dashboard/brands/${brandSlug}`)
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping')

@@ -1,5 +1,6 @@
 import { test, expect } from '../fixtures/auth'
 
+import { BUDGET } from '../budgets'
 /**
  * User Settings
  *
@@ -11,8 +12,7 @@ import { test, expect } from '../fixtures/auth'
  */
 test.describe('Settings page', () => {
   test('renders settings form with user data', async ({ userPage }) => {
-    test.setTimeout(60_000)
-
+    test.setTimeout(BUDGET.TEST.JOURNEY);
     const resp = await userPage.goto('/settings')
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping')

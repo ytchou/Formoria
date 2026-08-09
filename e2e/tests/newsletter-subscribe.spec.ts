@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
 
+import { BUDGET } from '../budgets';
 /**
  * Newsletter subscribe flow — anonymous visitor journey
  *
@@ -36,8 +37,7 @@ test.describe('Newsletter subscribe flow', () => {
   });
 
   test('anonymous visitor can subscribe from the homepage', async ({ page }) => {
-    test.setTimeout(60_000);
-
+    test.setTimeout(BUDGET.TEST.JOURNEY);
     await page.goto('/');
 
     // --- Newsletter section heading ---

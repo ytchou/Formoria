@@ -1,5 +1,6 @@
 import { test, expect } from '../fixtures/auth';
 
+import { BUDGET } from '../budgets';
 // zh-TW copy from messages/zh-TW.json (auth.forgotPassword.* / auth.resetPassword.*)
 const GENERIC_SUCCESS = '若此電子郵件已註冊帳號，我們已寄出密碼重設連結';
 const SESSION_EXPIRED = '重設連結已過期，請重新申請';
@@ -7,8 +8,7 @@ const SESSION_EXPIRED = '重設連結已過期，請重新申請';
 test.describe('Auth — forgot password request', () => {
   test('sign-in page links to the forgot-password form', async ({ anonPage }) => {
     // Auth pages can cold-compile slowly in dev.
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     await anonPage.goto('/auth/sign-in');
 
     const forgotLink = anonPage.getByRole('link', { name: '忘記密碼？', exact: true });
@@ -31,8 +31,7 @@ test.describe('Auth — forgot password request', () => {
   test('empty or malformed email is blocked by validation — no success message', async ({
     anonPage,
   }) => {
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     await anonPage.goto('/auth/forgot-password');
 
     const emailInput = anonPage.getByLabel('電子郵件', { exact: true });
@@ -62,8 +61,7 @@ test.describe('Auth — forgot password request', () => {
     anonPage,
   }) => {
     // Server Action → Supabase round-trip can be slow in dev.
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     await anonPage.goto('/auth/forgot-password');
 
     const emailInput = anonPage.getByLabel('電子郵件', { exact: true });
@@ -91,8 +89,7 @@ test.describe('Auth — reset password page guard', () => {
   test('reset page without a recovery session fails gracefully with session-expired error', async ({
     anonPage,
   }) => {
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     // Direct visit with no recovery session — the form must still render
     await anonPage.goto('/auth/reset-password');
 
@@ -126,8 +123,7 @@ test.describe('Auth — reset password page guard', () => {
   test('authenticated user is NOT bounced off the reset page (recovery session flow)', async ({
     userPage,
   }) => {
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     // Regression: the auth layout used to redirect any authenticated user to
     // /dashboard, breaking the recovery flow (callback authenticates, then
     // sends the user here). The guard now lives on sign-in/sign-up/forgot-password
@@ -145,8 +141,7 @@ test.describe('Auth — reset password page guard', () => {
   test('authenticated user visiting sign-in is still redirected away', async ({
     userPage,
   }) => {
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     // Inverse sanity: moving the guard out of the layout must not drop it
     // from the sign-in page. The destination depends on the owner-features flag
     // (DEV-1261) — `/` while owner features are off — so assert only that the

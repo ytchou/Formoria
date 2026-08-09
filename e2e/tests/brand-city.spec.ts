@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
+import { BUDGET } from '../budgets';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
@@ -47,8 +48,7 @@ test.describe('Brand city badge', () => {
   });
 
   test('brand with city=taipei shows 臺北市 badge on detail page', async ({ page }) => {
-    test.setTimeout(90_000);
-
+    test.setTimeout(BUDGET.TEST.MUTATION);
     // ISR pages may serve a stale cache — poll-reload until the seeded brand's city badge appears
     await expect(async () => {
       await page.goto(`/brands/${brandSlug}`, { waitUntil: 'domcontentloaded' });

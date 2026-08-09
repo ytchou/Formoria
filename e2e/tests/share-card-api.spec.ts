@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
+import { BUDGET } from '../budgets';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
@@ -81,7 +82,7 @@ test.describe('Share card API', () => {
 
   test('GET /api/share-card/<approved-slug> returns 200 PNG with correct headers and 1080×1350 dimensions', async ({ request }) => {
     // Allow generous timeout — cold satori + NotoSansTC font compile can take >10s in dev
-    test.setTimeout(60_000);
+    test.setTimeout(BUDGET.TEST.JOURNEY);
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
     const resp = await request.get(`/api/share-card/${approvedBrandSlug}`, { timeout: 45_000 });
@@ -112,7 +113,7 @@ test.describe('Share card API', () => {
   });
 
   test('GET /api/share-card/<approved-slug>?download=1 returns content-disposition attachment with filename', async ({ request }) => {
-    test.setTimeout(60_000);
+    test.setTimeout(BUDGET.TEST.JOURNEY);
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
     const resp = await request.get(`/api/share-card/${approvedBrandSlug}?download=1`, { timeout: 45_000 });

@@ -2,6 +2,7 @@ import { test, expect } from '../fixtures/auth'
 import { seedBrand } from '../helpers/seed'
 import { ownerFeaturesDisabled, OWNER_FEATURES_OFF_REASON } from '../helpers/owner-features'
 
+import { BUDGET } from '../budgets'
 // Suite-level gate (DEV-1261). Declared at file scope so it runs before the
 // describe's seeding beforeAll: the owner analytics tab is unreachable while
 // the flag is off. Probes the running app, never app_settings.
@@ -41,8 +42,7 @@ test.describe('Dashboard — analytics', () => {
   })
 
   test('renders authorized analytics with an explicit provider state', async ({ userPage }) => {
-    test.setTimeout(60_000)
-
+    test.setTimeout(BUDGET.TEST.JOURNEY);
     const resp = await userPage.goto(
       `/dashboard/brands/${brandSlug}/analytics`,
       {

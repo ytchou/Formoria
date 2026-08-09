@@ -4,6 +4,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { test, expect } from '../fixtures/auth';
 import { ownerFeaturesDisabled, OWNER_FEATURES_OFF_REASON } from '../helpers/owner-features';
 
+import { BUDGET } from '../budgets';
 // Suite-level gate (DEV-1261). The claim CTA is not rendered and the owner
 // dashboard 404s while the flag is off, so the whole lifecycle is unreachable.
 // Probes the running app, never app_settings.
@@ -166,7 +167,7 @@ test.describe('Claim request lifecycle', () => {
     isolatedUser,
     adminPage,
   }) => {
-    test.setTimeout(180_000);
+    test.setTimeout(BUDGET.TEST.CLAIM);
     const supabase = serviceClient();
     let brand: SeededBrand | undefined;
     let claimId: string | undefined;
@@ -305,7 +306,7 @@ test.describe('Claim request lifecycle', () => {
     adminPage,
     anonPage,
   }) => {
-    test.setTimeout(180_000);
+    test.setTimeout(BUDGET.TEST.CLAIM);
     const supabase = serviceClient();
     let brand: SeededBrand | undefined;
     let claimId: string | undefined;

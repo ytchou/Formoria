@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { test, expect } from "../fixtures/auth";
 
+import { BUDGET } from "../budgets";
 test.describe("Navbar auth journey", () => {
   test("@smoke logged-out visitor sees sign-in link", async ({ anonPage }) => {
     await anonPage.goto("/");
@@ -60,8 +61,7 @@ test.describe("Navbar auth journey", () => {
   test("sign out from authenticated session returns to logged-out home state", async ({
     browser,
   }) => {
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     // IMPORTANT: Do NOT use the shared userPage fixture here.
     //
     // Supabase signOut defaults to scope:'global', revoking ALL refresh tokens for

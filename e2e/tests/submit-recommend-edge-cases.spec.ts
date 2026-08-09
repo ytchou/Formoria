@@ -5,6 +5,7 @@ import { POLL } from '../budgets'
 import { seedBrand } from '../helpers/seed'
 import { gotoSubmitRecommend } from '../utils/submit-form'
 
+import { BUDGET } from '../budgets'
 const SUBMISSION_PREFIX = '[E2E-TEST] Submit Recommend Edge'
 
 async function installTurnstileStub(page: Page) {
@@ -69,7 +70,7 @@ test.describe('Submit recommendation edge cases', () => {
   test('blocks a duplicate name and recovers after the visitor edits it', async ({
     anonPage,
   }) => {
-    test.setTimeout(90_000)
+    test.setTimeout(BUDGET.TEST.MUTATION);
     await installTurnstileStub(anonPage)
     await gotoSubmitRecommend(anonPage)
 
@@ -102,7 +103,7 @@ test.describe('Submit recommendation edge cases', () => {
   test('rapid repeat activation creates exactly one submission', async ({
     anonPage,
   }, workerInfo) => {
-    test.setTimeout(90_000)
+    test.setTimeout(BUDGET.TEST.MUTATION);
     const suffix = `${Date.now()}-${workerInfo.workerIndex}`
     const brandName = `${SUBMISSION_PREFIX} ${suffix}`
 

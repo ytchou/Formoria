@@ -7,6 +7,7 @@ import {
 } from '../helpers/signup-namespace';
 import { ownerFeaturesDisabled, OWNER_FEATURES_OFF_REASON } from '../helpers/owner-features';
 
+import { BUDGET } from '../budgets';
 // Signup → email confirmation → onboarding → first value.
 //
 // The journey MUST start from the real UI signup, not admin.createUser. signUp()
@@ -53,8 +54,7 @@ test.describe.serial('Auth — signup to first value', () => {
     anonPage,
     baseURL,
   }, testInfo) => {
-    test.setTimeout(60_000);
-
+    test.setTimeout(BUDGET.TEST.JOURNEY);
     const admin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,

@@ -6,6 +6,7 @@ import {
 } from '../helpers/signup-namespace';
 import { waitForDelivery } from '../helpers/resend-delivery';
 
+import { BUDGET } from '../budgets';
 // Post-signup behavior per src/app/auth/actions.ts signUp():
 //   supabase.auth.signUp() → redirect("/auth/sign-in?message=請確認您的電子郵件以完成帳號驗證")
 // The user is created in an unconfirmed state in Supabase; the UI shows a
@@ -81,8 +82,7 @@ test.describe('Auth — sign-up flow', () => {
     anonPage,
   }) => {
     // Generous: the signup itself is ~15s, the delivery poll up to 60s more.
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     signupEmail = signupTestEmail('happy', test.info().workerIndex);
 
     await anonPage.goto('/auth/sign-up');

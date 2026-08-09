@@ -6,6 +6,7 @@ import {
 } from "../helpers/owner-features";
 import { waitForViewerReady } from "../helpers/viewer-ready";
 
+import { BUDGET } from "../budgets";
 /**
  * Owner features gated off (DEV-1261).
  *
@@ -52,8 +53,7 @@ test.describe("Owner features gated off", () => {
   test("a signed-in visitor is offered no claim CTA on a brand page", async ({
     userPage,
   }) => {
-    test.setTimeout(90_000);
-
+    test.setTimeout(BUDGET.TEST.MUTATION);
     const resp = await userPage.goto(`/brands/${brandSlug}`);
     if (resp?.status() === 503) {
       test.skip(
@@ -87,8 +87,7 @@ test.describe("Owner features gated off", () => {
   test("the owner dashboard and owner submit fork are unreachable for a signed-in non-admin", async ({
     userPage,
   }) => {
-    test.setTimeout(90_000);
-
+    test.setTimeout(BUDGET.TEST.MUTATION);
     // Signed in, so the (protected) layout's auth check passes and the flag gate
     // below it answers notFound() — a 404, not the signed-out sign-in redirect.
     const dashboard = await userPage.goto("/dashboard");
@@ -119,8 +118,7 @@ test.describe("Owner features gated off", () => {
   test("signing in lands on the home page, not the dashboard", async ({
     anonPage,
   }) => {
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     const email = process.env.E2E_USER_EMAIL;
     const password = process.env.E2E_USER_PASSWORD;
     test.skip(
@@ -149,8 +147,7 @@ test.describe("Owner features gated off", () => {
   test("nav offers the recommendation CTA and the account menu has no my-submissions entry", async ({
     userPage,
   }) => {
-    test.setTimeout(90_000);
-
+    test.setTimeout(BUDGET.TEST.MUTATION);
     const resp = await userPage.goto("/");
     if (resp?.status() === 503) {
       test.skip(

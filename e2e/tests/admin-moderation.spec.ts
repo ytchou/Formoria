@@ -5,6 +5,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { writeAuthStorageStateForCredentials } from '../helpers/auth-session';
 import { ownerFeaturesDisabled, OWNER_FEATURES_OFF_REASON } from '../helpers/owner-features';
 
+import { BUDGET } from '../budgets';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
@@ -180,7 +181,7 @@ test.describe('Content moderation flow', () => {
   }
 
   test('clean owner edit publishes immediately', async ({ ownerPage }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(BUDGET.TEST.ADMIN);
     const updatedDescription = `${cleanDescription}，新增耐用設計說明`;
 
     await saveBasicInfoDraft(ownerPage, updatedDescription);
@@ -220,7 +221,7 @@ test.describe('Content moderation flow', () => {
   test('blocked owner edit shows localized guidance and stays unpublished', async ({
     ownerPage,
   }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(BUDGET.TEST.ADMIN);
     const blockedDescription = `${cleanDescription}，聯絡電話 0912345678`;
 
     await saveBasicInfoDraft(ownerPage, blockedDescription);
@@ -272,8 +273,7 @@ test.describe('Content moderation flow', () => {
   test('admin cannot bypass the block and can review the resulting queue rows', async ({
     adminPage,
   }) => {
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     await adminPage.goto('/admin/brands');
     await adminPage.getByPlaceholder('Search brand name...').fill(brandName);
     const brandRow = adminPage.locator('tbody tr').filter({ hasText: brandName });

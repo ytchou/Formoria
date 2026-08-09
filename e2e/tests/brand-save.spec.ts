@@ -1,6 +1,7 @@
 import { test, expect } from '../fixtures/auth';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
+import { BUDGET } from '../budgets';
 // DEV-1261 note: deliberately NOT gated on `owner_features_enabled`. Save/unsave
 // and favorites are consumer journeys that touch no owner surface, and they are
 // live at launch — pausing them would take consumer coverage dark for no reason.
@@ -118,8 +119,7 @@ test.describe.serial('Brand save/unsave — card overlay', () => {
   });
 
   test('Journey 2: saved brand appears in dashboard "收藏品牌" tab', async ({ userPage }) => {
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     const { error: brandStatusError } = await supabase
       .from('brands')
       .update({ status: 'approved', approved_at: new Date().toISOString() })
@@ -213,8 +213,7 @@ test.describe.serial('Brand save/unsave — card overlay', () => {
   });
 
   test('Journey 4: dashboard "收藏品牌" tab shows empty state when no saves', async ({ userPage }) => {
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     // Delete saves and immediately navigate — retry the cycle because a parallel
     // worker (second describe block) may race-insert a brand_save for the same
     // user between the delete and the server-side render.

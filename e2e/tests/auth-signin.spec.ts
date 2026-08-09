@@ -1,6 +1,7 @@
 import { test, expect } from "../fixtures/auth";
 import { load } from "cheerio";
 
+import { BUDGET } from "../budgets";
 function signInDocument(html: string) {
   const $ = load(html);
   const credentialForm = $("form").has('input[name="email"]');
@@ -64,8 +65,7 @@ test.describe("Auth — Google OAuth offline guard", () => {
   test("@smoke sign-in page renders the heading and Google entry point", async ({
     anonPage,
   }) => {
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     let capturedAuthorizeUrl: string | null = null;
 
     // Intercept the browser navigation to Supabase /auth/v1/authorize and abort it
@@ -112,8 +112,7 @@ test.describe("Auth — sign-in flow", () => {
   }) => {
     // Supabase signInWithPassword and a cold-compile of the landing page can be
     // slow in dev.
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     const email = process.env.E2E_USER_EMAIL;
     const password = process.env.E2E_USER_PASSWORD;
 

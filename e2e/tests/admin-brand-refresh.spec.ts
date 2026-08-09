@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { expect, test } from "../fixtures/auth";
 
+import { BUDGET } from "../budgets";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
@@ -134,8 +135,7 @@ test.describe("Scheduled brand refresh review", () => {
   test("requests, stages, and applies a refresh to the existing brand", async ({
     adminPage,
   }) => {
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     await adminPage.goto("/admin/brands");
     await adminPage.getByPlaceholder("Search brand name...").fill(brandName);
     const brandRow = adminPage
@@ -370,7 +370,7 @@ test.describe("Bulk refresh approval", () => {
   test("keeps a failed refresh selected while removing successful approvals", async ({
     adminPage,
   }) => {
-    test.setTimeout(90_000);
+    test.setTimeout(BUDGET.TEST.MUTATION);
     supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { expect, test } from "../fixtures/auth";
 
+import { BUDGET } from "../budgets";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
@@ -194,7 +195,7 @@ test.describe("Submission publishable-core link guard", () => {
   test("a myship-only submission is approvable and publishes the channel", async ({
     adminPage,
   }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(BUDGET.TEST.ADMIN);
     let seeded: SeededSubmission | undefined;
     let approvedBrandId: string | undefined;
 
@@ -253,7 +254,7 @@ test.describe("Submission publishable-core link guard", () => {
   });
 
   test("a submission with no purchase link and no social account is rejected", async () => {
-    test.setTimeout(120_000);
+    test.setTimeout(BUDGET.TEST.ADMIN);
     let seeded: SeededSubmission | undefined;
 
     try {

@@ -2,6 +2,7 @@ import type { Locator, Page } from '@playwright/test';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { test, expect } from '../fixtures/auth';
 
+import { BUDGET } from '../budgets';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
@@ -159,7 +160,7 @@ async function waitForBoardRowGone(page: Page, title: string): Promise<void> {
 
 test.describe('Public feature request board', () => {
   test('anonymous visitor reads the board', async ({ anonPage }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(BUDGET.TEST.ADMIN);
     const supabase = serviceClient();
     const created: string[] = [];
 
@@ -193,7 +194,7 @@ test.describe('Public feature request board', () => {
   test('signed-out visitor upvotes without signing in', async ({
     anonPage,
   }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(BUDGET.TEST.ADMIN);
     const supabase = serviceClient();
     const created: string[] = [];
 
@@ -240,7 +241,7 @@ test.describe('Public feature request board', () => {
   });
 
   test('signed-in user submits a request', async ({ userPage }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(BUDGET.TEST.ADMIN);
     const supabase = serviceClient();
     // The submit action allows 3 requests per user per hour; this is the only
     // case in the file that spends that budget.
@@ -272,7 +273,7 @@ test.describe('Public feature request board', () => {
   });
 
   test('signed-in user upvotes and un-upvotes', async ({ userPage }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(BUDGET.TEST.ADMIN);
     const supabase = serviceClient();
     const created: string[] = [];
 
@@ -333,7 +334,7 @@ test.describe('Public feature request board', () => {
       'Admin E2E tests require E2E_ADMIN_EMAIL to be included in ADMIN_EMAILS',
     );
 
-    test.setTimeout(180_000);
+    test.setTimeout(BUDGET.TEST.CLAIM);
     const supabase = serviceClient();
     const created: string[] = [];
 
