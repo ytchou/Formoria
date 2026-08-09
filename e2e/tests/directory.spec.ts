@@ -1,3 +1,4 @@
+import zhTW from "../../messages/zh-TW.json";
 import { BUDGET } from "../budgets";
 import { test, expect } from "@playwright/test";
 
@@ -60,15 +61,26 @@ test.describe("Directory deep", () => {
 
   test("pagination controls work", async ({ page }) => {
     await page.goto("/brands");
-    const pagination = page.locator('nav[aria-label="Pagination"]');
-    const nextLink = pagination.locator('a[aria-label="下一頁"]');
-    if (!(await nextLink.isVisible())) return; // fewer than 2 pages of data — skip
+
+    // Names come from the message catalogue, not from a hardcoded string. The
+    // nav was matched as `nav[aria-label="Pagination"]`, but that label is
+    // localized and reads 分頁導覽 — so the locator had matched nothing since the
+    // day it was translated. A guard of `if (!(await nextLink.isVisible()))
+    // return;` then turned that permanent drift into a permanent green pass, and
+    // a test named "pagination controls work" spent that whole time asserting
+    // nothing (DEV-1414).
+    const labels = zhTW.brands.pagination;
+    const pagination = page.getByRole("navigation", { name: labels.label });
+    const nextLink = pagination.getByRole("link", { name: labels.nextAria });
+
+    // The directory holds hundreds of approved brands, so a missing next link is
+    // a bug rather than a data shortage. Asserted, never guarded.
+    await expect(nextLink).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await nextLink.click();
     await expect(page).toHaveURL(/\/brands\?[^#]*page=2(?:&|$)/);
-    const prevLink = page.locator(
-      'nav[aria-label="Pagination"] a[aria-label="上一頁"]',
-    );
-    await expect(prevLink).toBeVisible({ timeout: BUDGET.INTERACTIVE });
+    await expect(
+      pagination.getByRole("link", { name: labels.previousAria }),
+    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
   });
 
   test("category landing loads with filtered brands", async ({ page }) => {

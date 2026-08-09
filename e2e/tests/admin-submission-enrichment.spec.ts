@@ -12,6 +12,14 @@ const PNG_1X1 = Buffer.from(
 );
 
 test.describe("Admin submission enrichment lifecycle", () => {
+  // Declared, not implied. Seven module-level variables — submissionId, jobId,
+  // approvedBrandId and friends — are written by one test and read by the next,
+  // so this describe has always been order-dependent; it just was not saying so.
+  // Under `fullyParallel` that is a race waiting for a scheduler change, and a
+  // failure would surface as a null id in a later test rather than as the
+  // ordering problem it is (DEV-1414).
+  test.describe.configure({ mode: "serial" });
+
   test.beforeEach(() => {
     const adminEmail = process.env.E2E_ADMIN_EMAIL;
     const admins = (process.env.ADMIN_EMAILS ?? "")

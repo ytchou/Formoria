@@ -136,7 +136,7 @@
       "count": 1
     },
     "playwright/no-conditional-in-test": {
-      "count": 2
+      "count": 1
     }
   },
   "e2e/tests/event-detail.spec.ts": {
