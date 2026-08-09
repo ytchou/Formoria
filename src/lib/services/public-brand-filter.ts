@@ -1,5 +1,6 @@
 /** e2e specs seed brands under this prefix; they must never reach a public count or listing. */
-export const TEST_BRAND_NAME_PATTERN = '[E2E-TEST]%'
+export const TEST_BRAND_NAME_PREFIX = '[E2E-TEST]'
+export const TEST_BRAND_NAME_PATTERN = `${TEST_BRAND_NAME_PREFIX}%`
 
 /**
  * Applies the test-brand exclusion to any brands query. Every public-facing

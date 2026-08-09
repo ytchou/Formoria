@@ -407,11 +407,13 @@ export const ANALYTICS_EVENTS = {
   BRAND_CLAIM_APPROVED: 'brand_claim_approved',
 
   /**
-   * Server-side: a submitted brand was approved and published. Attributed to the
-   * submitter, not the approving admin. Covers both single and bulk approval.
+   * Server-side: a submitted brand was approved and published. Machine/inventory
+   * telemetry uses the reserved service identity, not the submitter. Covers both
+   * single and bulk approval.
    * @property brand_id {string} Brand UUID.
    * @property brand_slug {string} Brand slug.
    * @property is_brand_owner {boolean} Whether the submitter is the brand's owner.
+   * @property $process_person_profile {false} Prevents this machine/inventory event from creating a person profile.
    */
   BRAND_LISTING_PUBLISHED: 'brand_listing_published',
 
@@ -769,6 +771,7 @@ export interface AnalyticsEventPayloads {
     brand_id: string
     brand_slug: string
     is_brand_owner: boolean
+    '$process_person_profile': false
   }
   [ANALYTICS_EVENTS.BRAND_OWNER_EDIT_PUBLISHED]: { brand_id: string; brand_slug: string }
   [ANALYTICS_EVENTS.MIT_DECLARED]: {
