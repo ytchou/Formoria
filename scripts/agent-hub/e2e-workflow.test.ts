@@ -25,18 +25,15 @@ describe("nightly E2E Agent Hub reporting", () => {
     expect(mobileSpec).not.toMatch(/test\.describe\.skip\s*\(/);
     expect(mobileSpec).not.toMatch(/(?<!\w)test\.skip\s*\(\s*\)/);
     expect(workflow).toContain(
-      "TEST_ARGS=(--project=deep --project=mobile --reporter=html,json)",
+      "TEST_ARGS=(--project=deep --project=mobile --last-failed-file playwright-last-run.json --reporter=html,json)",
     );
     expect(workflow).toContain(
       'project: ([$spec.tests[]?.projectName // empty] | unique | .[0] // "deep")',
     );
-    expect(workflow).toContain("cluster_project=");
-    expect(workflow).toContain(
-      "CLUSTER_PROJECT: ${{ steps.context.outputs.cluster_project }}",
-    );
-    expect(workflow).toContain('--project="$CLUSTER_PROJECT"');
+    expect(workflow).toContain("PLAYWRIGHT_LAST_RUN_OUTPUT_FILE: playwright-last-run.json");
+    expect(workflow).toContain("node scripts/selfheal/verify-targeted.mjs");
     expect(guidance).toContain(
-      "affected spec with its supplied Playwright project",
+      "Playwright's native `--last-failed-file` selection",
     );
     expect(guidance).not.toContain("affected deep spec");
   });
@@ -77,7 +74,7 @@ describe("nightly E2E Agent Hub reporting", () => {
     expect(workflow).toContain(
       'cp "$RUNNER_TEMP/formoria-selfheal-build.log" "$REPORT_DIR/build.log"',
     );
-    expect(workflow).toContain("cluster_context:");
+    expect(workflow).toContain("playwright-last-run.json");
     expect(workflow).toContain(
       'GH_TOKEN="$WORKFLOW_DISPATCH_TOKEN" gh workflow run e2e-nightly.yml',
     );
@@ -87,7 +84,7 @@ describe("nightly E2E Agent Hub reporting", () => {
     expect(workflow).toContain(
       '--allowedTools "Read,Write,Edit,Replace,Glob,Grep',
     );
-    expect(workflow).toContain("Bash(pnpm:*)");
+    expect(workflow).toContain("Bash(node scripts/selfheal/verify-targeted.mjs:*)");
     expect(workflow).toContain("Bash(git status:*)");
     expect(workflow).not.toContain("Bash(git:*)");
     expect(workflow).toContain("additional_permissions: |");
@@ -105,22 +102,35 @@ describe("nightly E2E Agent Hub reporting", () => {
     expect(alertIndex).toBeGreaterThan(reportIndex);
   });
 
-  it("repairs one cluster per round and persists incomplete work", async () => {
-    const workflow = await readFile(
-      ".github/workflows/e2e-nightly.yml",
-      "utf8",
-    );
+  it("repairs one shrinking set in at most two cycles", async () => {
+    const [workflow, contract] = await Promise.all([
+      readFile(".github/workflows/e2e-nightly.yml", "utf8"),
+      readFile(".github/selfheal/README.md", "utf8"),
+    ]);
 
-    expect(workflow).toContain("cluster_file=");
-    expect(workflow).toContain("cluster_specs=");
+    expect(workflow).toContain("--max-turns 120");
+    expect(workflow).toContain("repair_cycle:");
     expect(workflow).toContain("Checkpoint repair progress");
-    expect(workflow).toContain("previous_state");
-    expect(workflow).toContain("no_progress=true");
     expect(workflow).toContain("steps.checkpoint.outputs.complete == 'true'");
     expect(workflow).toContain("steps.checkpoint.outputs.complete != 'true'");
-    expect(workflow).toContain("Continue incomplete self-heal");
-    expect(workflow).not.toMatch(/max[_-](attempts|retries|rounds)/i);
-    expect(workflow).not.toContain("--max-turns 60");
+    expect(workflow).toContain("Continue incomplete repair as cycle 2");
+    expect(workflow).toContain("steps.context.outputs.repair_cycle == '1'");
+    expect(workflow).toContain("--field previous_state=\"$STATE_AFTER\" --field repair_cycle=2");
+    expect(workflow).toContain("Create blocked draft PR at cycle cap");
+    expect(workflow).not.toContain("Continue incomplete self-heal");
+    expect(workflow).not.toContain("repair_cycle=3");
+    expect(contract).toContain("A third cycle is forbidden");
+    expect(contract).toContain("root_source_run_id");
+  });
+
+  it("validates declared checkpoints and reports additive incident usage", async () => {
+    const workflow = await readFile(".github/workflows/e2e-nightly.yml", "utf8");
+    expect(workflow).toContain("declared changed_files do not match the actual repair diff");
+    expect(workflow).toContain("$RUNNER_TEMP/selfheal-scratch");
+    expect(workflow).toContain("Record repair usage");
+    expect(workflow).toContain("root_source_run_id");
+    expect(workflow).toContain("targeted_attempts");
+    expect(workflow).toContain("model_usage");
   });
 
   it("guards canary bases and never auto-merges a self-heal PR", async () => {
