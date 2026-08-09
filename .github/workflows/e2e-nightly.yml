@@ -740,7 +740,7 @@ jobs:
             --field source_failure_state="$SOURCE_FAILURE_STATE" \
             --field root_source_run_id="$ROOT_SOURCE_RUN_ID" \
             --field repair_branch="$REPAIR_BRANCH" --field repair_base="$REPAIR_BASE" \
-            --field previous_state="$STATE_AFTER" --field repair_cycle=2 --field e2e_grep="$E2E_GREP"
+            --field previous_state="$STATE_AFTER" --field repair_cycle=2 --raw-field e2e_grep="$E2E_GREP"
           echo "dispatched=true" >> "$GITHUB_OUTPUT"
           exit 1
 
@@ -882,7 +882,7 @@ jobs:
             --field source_failure_state="$SOURCE_FAILURE_STATE" \
             --field root_source_run_id="$ROOT_SOURCE_RUN_ID" \
             --field repair_branch="$REPAIR_BRANCH" --field repair_base="$REPAIR_BASE" \
-            --field previous_state="$STATE_AFTER" --field repair_cycle=2 --field e2e_grep="$E2E_GREP"
+            --field previous_state="$STATE_AFTER" --field repair_cycle=2 --raw-field e2e_grep="$E2E_GREP"
           echo "dispatched=true" >> "$GITHUB_OUTPUT"
           exit 1
 
