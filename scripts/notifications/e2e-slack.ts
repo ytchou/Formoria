@@ -11,11 +11,19 @@ import {
 
 export type E2ESlackPhase = "blocked" | "initial" | "ready";
 
+export interface E2EFailedSpec {
+  file?: string | null;
+  project?: string;
+  title: string;
+}
+
 export interface E2ESlackNotification {
   failed: number;
+  failedSpecs?: readonly (E2EFailedSpec | string)[];
   passed: number;
   phase: E2ESlackPhase;
   prUrl?: string;
+  reportAvailable?: boolean;
   reason?: string;
   runAttempt: string;
   runId: string;
@@ -29,19 +37,33 @@ export interface E2ESlackDependencies extends AdapterDependencies {
   webhookUrl: string;
 }
 
+function formatFailedSpec(spec: E2EFailedSpec | string): string {
+  if (typeof spec === "string") return `• ${spec}`;
+  const title = spec.title.trim();
+  const file = spec.file?.trim();
+  return `• ${file ? `${file} — ` : ""}${title}`;
+}
+
 function e2eNotification(input: E2ESlackNotification): AgentNotification {
-  const summary = `• ${input.passed} passed · ${input.failed} failed · ${input.skipped} skipped`;
+  const failedSpecs = (input.failedSpecs ?? [])
+    .map(formatFailedSpec)
+    .filter((spec) => spec !== "• ");
+  const remainingFailedSpecs =
+    failedSpecs.length > 0 ? failedSpecs.length : input.failed;
+  const summary =
+    input.reportAvailable === false
+      ? remainingFailedSpecs > 0
+        ? `• ${remainingFailedSpecs} remaining failed specs`
+        : "• Remaining failed specs unavailable"
+      : `• ${input.passed} passed · ${input.failed} failed · ${input.skipped} skipped`;
   if (input.phase === "ready") {
     return {
       agent: "E2E",
-      details: [
-        "• Self-heal validation is green",
-        "• Automatic merge is disabled",
-      ],
-      managerAction: "Review and merge the repair PR",
+      failedSpecs,
+      pullRequestLabel: "Repair PR",
+      pullRequestUrl: input.prUrl,
       status: "success",
       summary: [summary],
-      workDone: [`• Repair PR: <${input.prUrl ?? input.workflowUrl}|Open PR>`],
       workflowUrl: input.workflowUrl,
     };
   }
@@ -49,42 +71,21 @@ function e2eNotification(input: E2ESlackNotification): AgentNotification {
   if (input.phase === "blocked") {
     return {
       agent: "E2E",
-      details: [
-        `• Reason: ${input.reason ?? "the repair process could not continue"}`,
-      ],
-      managerAction: "Investigate why self-heal stopped",
+      failedSpecs,
+      pullRequestLabel: "Blocked draft PR",
+      pullRequestUrl: input.prUrl,
       status: "failed",
       summary: [summary],
-      workDone: ["• No repair PR created"],
       workflowUrl: input.workflowUrl,
     };
   }
 
   const succeeded = input.status === "success";
-  const selfHealEnabled = input.selfHealEnabled === true;
   return {
     agent: "E2E",
-    details: [
-      succeeded
-        ? "• No failures detected"
-        : selfHealEnabled
-          ? "• Self-heal is enabled and will run after guard checks"
-          : "• Self-heal is disabled",
-    ],
-    managerAction: succeeded
-      ? "None"
-      : selfHealEnabled
-        ? "Monitor self-heal; investigate if no repair run starts"
-        : "Investigate the failed E2E checks",
+    failedSpecs,
     status: succeeded ? "success" : "needs_attention",
     summary: [summary],
-    workDone: [
-      succeeded
-        ? "• No repair needed"
-        : selfHealEnabled
-          ? "• Automated repair requested"
-          : "• No automated repair started",
-    ],
     workflowUrl: input.workflowUrl,
   };
 }
@@ -109,24 +110,90 @@ export interface PlaywrightStats {
   skipped: number;
 }
 
-async function readPlaywrightStats(path: string): Promise<PlaywrightStats> {
+export interface PlaywrightReport {
+  failedSpecs: E2EFailedSpec[];
+  reportAvailable: boolean;
+  stats: PlaywrightStats;
+}
+
+const emptyPlaywrightReport = (): PlaywrightReport => ({
+  failedSpecs: [],
+  reportAvailable: false,
+  stats: { failed: 0, passed: 0, skipped: 0 },
+});
+
+function nonnegativeNumber(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.max(0, value)
+    : 0;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function collectFailedSpecs(
+  suites: unknown,
+  inheritedFile: string | null,
+  result: E2EFailedSpec[],
+): void {
+  if (!Array.isArray(suites)) return;
+  for (const suite of suites) {
+    if (!isRecord(suite)) continue;
+    const file =
+      typeof suite.file === "string" && suite.file.trim()
+        ? suite.file.trim()
+        : inheritedFile;
+    if (Array.isArray(suite.specs)) {
+      for (const spec of suite.specs) {
+        if (!isRecord(spec) || spec.ok !== false) continue;
+        if (typeof spec.title !== "string" || !spec.title.trim()) continue;
+        const projectValue = Array.isArray(spec.tests)
+          ? spec.tests.find(
+              (test): test is Record<string, unknown> =>
+                isRecord(test) && typeof test.projectName === "string",
+            )?.projectName
+          : undefined;
+        const project =
+          typeof projectValue === "string" ? projectValue : undefined;
+        result.push({
+          file,
+          ...(project ? { project } : {}),
+          title: spec.title.trim(),
+        });
+      }
+    }
+    collectFailedSpecs(suite.suites, file, result);
+  }
+}
+
+export function parsePlaywrightReport(value: unknown): PlaywrightReport {
+  if (!isRecord(value)) return emptyPlaywrightReport();
+  if (!isRecord(value.stats) && !Array.isArray(value.suites)) {
+    return emptyPlaywrightReport();
+  }
+  const stats = isRecord(value.stats) ? value.stats : {};
+  const failedSpecs: E2EFailedSpec[] = [];
+  collectFailedSpecs(value.suites, null, failedSpecs);
+  return {
+    failedSpecs,
+    reportAvailable: true,
+    stats: {
+      failed: nonnegativeNumber(stats.unexpected),
+      passed:
+        nonnegativeNumber(stats.expected) + nonnegativeNumber(stats.flaky),
+      skipped: nonnegativeNumber(stats.skipped),
+    },
+  };
+}
+
+export async function readPlaywrightReport(
+  path: string,
+): Promise<PlaywrightReport> {
   try {
-    const value = JSON.parse(await readFile(path, "utf8")) as {
-      stats?: {
-        expected?: number;
-        flaky?: number;
-        skipped?: number;
-        unexpected?: number;
-      };
-    };
-    const stats = value.stats ?? {};
-    return {
-      failed: stats.unexpected ?? 0,
-      passed: (stats.expected ?? 0) + (stats.flaky ?? 0),
-      skipped: stats.skipped ?? 0,
-    };
+    return parsePlaywrightReport(JSON.parse(await readFile(path, "utf8")));
   } catch {
-    return { failed: 0, passed: 0, skipped: 0 };
+    return emptyPlaywrightReport();
   }
 }
 
@@ -142,11 +209,62 @@ export function playwrightStatsFromEnvironment(
   stats: PlaywrightStats,
   environment: Readonly<Record<string, string | undefined>> = process.env,
 ): PlaywrightStats {
-  return {
-    failed: Number(environment.E2E_FAILED ?? stats.failed),
-    passed: Number(environment.E2E_PASSED ?? stats.passed),
-    skipped: Number(environment.E2E_SKIPPED ?? stats.skipped),
+  const countFromEnvironment = (name: string, fallback: number): number => {
+    const value = Number(environment[name]);
+    return Number.isFinite(value) && value >= 0 ? value : fallback;
   };
+  return {
+    failed: countFromEnvironment("E2E_FAILED", stats.failed),
+    passed: countFromEnvironment("E2E_PASSED", stats.passed),
+    skipped: countFromEnvironment("E2E_SKIPPED", stats.skipped),
+  };
+}
+
+export function failedSpecsFromEnvironment(
+  environment: Readonly<Record<string, string | undefined>> = process.env,
+): E2EFailedSpec[] {
+  const value = environment.E2E_FAILED_SPECS;
+  if (!value) return [];
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.flatMap((spec): E2EFailedSpec[] => {
+      if (
+        !isRecord(spec) ||
+        typeof spec.title !== "string" ||
+        !spec.title.trim()
+      ) {
+        return [];
+      }
+      const file =
+        typeof spec.file === "string" && spec.file.trim()
+          ? spec.file.trim()
+          : null;
+      const project =
+        typeof spec.project === "string" && spec.project.trim()
+          ? spec.project.trim()
+          : undefined;
+      return [
+        {
+          file,
+          ...(project ? { project } : {}),
+          title: spec.title.trim(),
+        },
+      ];
+    });
+  } catch {
+    return [];
+  }
+}
+
+export function reportAvailabilityFromEnvironment(
+  fallback: boolean,
+  environment: Readonly<Record<string, string | undefined>> = process.env,
+): boolean {
+  const value = environment.E2E_REPORT_AVAILABLE;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  return fallback;
 }
 
 function requiredEnvironment(name: string): string {
@@ -160,17 +278,25 @@ async function main(): Promise<void> {
   if (phase !== "initial" && phase !== "ready" && phase !== "blocked") {
     throw new Error(`Unsupported E2E Slack phase: ${phase}`);
   }
-  const stats = await readPlaywrightStats(
+  const report = await readPlaywrightReport(
     phase === "initial"
       ? "playwright-results.json"
       : "playwright-results-validation.json",
   );
-  const reportedStats = playwrightStatsFromEnvironment(stats);
+  const environmentFailedSpecs = failedSpecsFromEnvironment();
+  const reportedStats = playwrightStatsFromEnvironment(report.stats);
   await sendE2ESlackNotification(
     {
       ...reportedStats,
+      failedSpecs:
+        environmentFailedSpecs.length > 0
+          ? environmentFailedSpecs
+          : report.failedSpecs,
       phase,
       prUrl: process.env.PR_URL,
+      reportAvailable: reportAvailabilityFromEnvironment(
+        report.reportAvailable,
+      ),
       reason: process.env.BLOCKED_REASON,
       runAttempt: requiredEnvironment("GITHUB_RUN_ATTEMPT"),
       runId: requiredEnvironment("GITHUB_RUN_ID"),
