@@ -9,7 +9,6 @@ import { useFilterParams } from '@/hooks/use-filter-params'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import {
-  trackSearchNoResults,
   trackSearchExecuted,
   trackSearchResultClicked,
   trackSearchSuggestionSelect,
@@ -161,6 +160,9 @@ function SearchInput({
 
   function handleSelect(slug: string, index: number) {
     const selected = suggestions[index]
+    // Stays here, unlike the submit path: picking a suggestion goes straight to the
+    // brand and never reaches a results page, so this is the only chance to count the
+    // search. `suggestions.length` is honest on this path — it is what was on screen.
     trackSearchExecuted(value, suggestions.length)
     trackSearchResultClicked(value, index, selected?.id, slug)
     trackSearchSuggestionSelect(slug, selected?.id)
@@ -176,10 +178,10 @@ function SearchInput({
     }
     const q = (new FormData(e.currentTarget).get('q') as string)?.trim() ?? ''
     if (q) {
-      trackSearchExecuted(q, suggestions.length)
-      if (suggestions.length === 0) {
-        trackSearchNoResults(q)
-      }
+      // No search event here. This form only knows `suggestions` — the typeahead's
+      // list, which answers a different query, caps at 5, and is still empty inside
+      // the 200ms debounce. SearchResultsTracker emits from the results page, where
+      // the real total is known (DEV-1412).
       if (redirectTo) {
         // Use native navigation for cross-page redirects — router.push
         // intermittently fails in WebKit when navigating from / to /brands.

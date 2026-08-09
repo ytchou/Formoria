@@ -18,6 +18,7 @@ import {
   type ActiveDirectoryFilter,
 } from '@/components/brands/search-empty-state'
 import { ViewItemListTracker } from '@/components/analytics/view-item-list-tracker'
+import { SearchResultsTracker } from '@/components/analytics/search-results-tracker'
 import { surfaceCardStyles } from '@/components/ui/card'
 import { SavedBrandsProvider } from '@/hooks/use-saved-brands'
 import type { Locale } from '@/lib/seo/alternates'
@@ -280,6 +281,9 @@ export async function DirectoryView({ locale, filters, page, sort, canonical, is
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(categoryBreadcrumbJsonLd) }} />
         ) : null}
         <ViewItemListTracker listName="directory" itemCount={displayBrands.length} />
+        {/* `totalCount`, not `displayBrands.length` — the search matched that many,
+            the page only renders one slice of them. */}
+        <SearchResultsTracker query={search} resultCount={totalCount} />
 
         <aside className="hidden lg:block" aria-label={t('filters.title')}>
           <div className="sticky top-(--nav-height)">
