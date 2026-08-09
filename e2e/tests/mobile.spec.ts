@@ -84,8 +84,10 @@ test.describe("Mobile responsive", () => {
     }
 
     const explorer = page.getByRole("region", { name: "全部參展單位" });
+    // The zone code leads the accessible name — it is what ties the chip to
+    // the `K2-###` booth numbers on the floor plan and in every row.
     const k2Chip = explorer.getByRole("button", {
-      name: /^工藝與文化永續 \d+$/,
+      name: /^K2 工藝與文化永續 \d+$/,
     });
     await k2Chip.click();
     await expect(k2Chip).toHaveAttribute("aria-pressed", "true");
