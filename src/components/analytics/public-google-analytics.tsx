@@ -10,9 +10,11 @@ interface PublicGoogleAnalyticsProps {
   gaId: string
 }
 
-// Params carrying raw user-typed text. The privacy policy promises search text is excluded
-// from analytics events, and GA derives `dl`/`dr` from whatever we hand it — so these must be
-// stripped before they reach `page_location`/`page_referrer`. Filter/sort/page params are
+// Params carrying raw user-typed text. Search terms ARE captured deliberately as of
+// DEV-1408 — but only as the `search_term` property on PostHog's search events, where the
+// value is guarded and truncated at the call site. A query smuggled through a URL gets none
+// of that: GA derives `dl`/`dr` from whatever we hand it, so these must still be stripped
+// before they reach `page_location`/`page_referrer`. Filter/sort/page params are
 // deliberately kept: they are a closed vocabulary and carry no user text.
 const FREE_TEXT_PARAMS = ['search']
 

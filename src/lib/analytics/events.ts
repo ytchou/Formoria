@@ -226,18 +226,24 @@ export const ANALYTICS_EVENTS = {
   // ---------------------------------------------------------------------------
 
   /**
-   * A brand search ran. Raw query text is deliberately never sent — the privacy policy
-   * excludes search text from analytics; `query_length` preserves the useful signal.
+   * A brand search ran.
    * @property query_length {number} Character length of the query.
    * @property result_count {number} Number of results returned.
    * @property has_results {boolean} Whether the query returned anything.
+   * @property search_term {string | undefined} The query text, trimmed and capped at 100
+   *   characters. Added DEV-1408, reversing the original exclusion. Absent — not empty —
+   *   when the query looked like an email address or contained a run of 7+ digits.
+   *   Historical rows before that deploy carry no `search_term` at all.
    */
   BRAND_SEARCH_EXECUTED: 'brand_search_executed',
 
   /**
    * A search returned zero results. Denominator partner of `brand_search_executed`
-   * for the query success rate.
+   * for the query success rate, and the catalog-gap signal: `search_term` on this event
+   * names what the directory failed to stock.
    * @property query_length {number} Character length of the query.
+   * @property search_term {string | undefined} Same shape and caveats as on
+   *   `brand_search_executed`.
    */
   BRAND_SEARCH_EMPTY: 'brand_search_empty',
 

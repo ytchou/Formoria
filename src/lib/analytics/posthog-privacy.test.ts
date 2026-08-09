@@ -51,7 +51,7 @@ describe('PostHog path privacy', () => {
         properties: {
           $current_url: 'https://formoria.com/en/brands?search=private&utm_campaign=launch',
           query: 'private',
-          search_term: 'private',
+          search_term: 'ceramic mugs',
           email: 'person@example.com',
           user_email: 'another@example.com',
           full_name: 'Private Person',
@@ -67,6 +67,8 @@ describe('PostHog path privacy', () => {
       properties: expect.objectContaining({
         $current_url: 'https://formoria.com/en/brands?utm_campaign=launch',
         query_length: 7,
+        // Survives on purpose (DEV-1408) — the generic `query` key beside it does not.
+        search_term: 'ceramic mugs',
         analytics_schema_version: 1,
         environment: 'production',
         locale: 'en',
@@ -91,6 +93,24 @@ describe('PostHog path privacy', () => {
     expect(serialized).not.toContain('Private proposal')
     expect(serialized).not.toContain('Bearer secret')
     expect(serialized).not.toContain('person@example.com')
+  })
+
+  // Regression guard for DEV-1408. The scrubber deletes sensitive keys silently, so if
+  // `search_term` were ever put back on the deny list the capture would keep type-checking
+  // and keep passing every other test while sending nothing.
+  it('keeps search_term but still drops the generic query key', () => {
+    const sanitized = sanitizePostHogEvent({
+      event: 'brand_search_empty',
+      properties: {
+        $current_url: 'https://formoria.com/en/brands',
+        search_term: 'linen apron',
+        query: 'linen apron',
+        query_length: 11,
+      },
+    })
+
+    expect(sanitized?.properties?.search_term).toBe('linen apron')
+    expect(sanitized?.properties).not.toHaveProperty('query')
   })
 
   it('removes nested autocapture text and attributes', () => {
