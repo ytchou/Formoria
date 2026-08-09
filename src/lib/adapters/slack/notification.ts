@@ -13,7 +13,10 @@ export type AgentNotificationStatus = "failed" | "needs_attention" | "success";
 export interface AgentNotification {
   agent: string;
   details?: readonly string[];
+  failedSpecs?: readonly string[];
   managerAction?: string;
+  pullRequestLabel?: string;
+  pullRequestUrl?: string;
   status: AgentNotificationStatus;
   summary: readonly string[];
   workDone?: readonly string[];
@@ -55,6 +58,14 @@ export function renderAgentNotification(input: AgentNotification): string {
   ];
   if (input.workDone && input.workDone.length > 0) {
     sections.push(`*Work done*\n${input.workDone.join("\n")}`);
+  }
+  if (input.failedSpecs && input.failedSpecs.length > 0) {
+    sections.push(`*Failed specs*\n${input.failedSpecs.join("\n")}`);
+  }
+  if (input.pullRequestUrl) {
+    sections.push(
+      `*${input.pullRequestLabel ?? "Pull request"}*\n<${input.pullRequestUrl}|Open PR>`,
+    );
   }
   if (input.managerAction) {
     sections.push(`*Manager action*\n• ${input.managerAction}`);
