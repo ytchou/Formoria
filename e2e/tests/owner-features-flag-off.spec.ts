@@ -4,6 +4,7 @@ import {
   ownerFeaturesDisabled,
   OWNER_FEATURES_ON_REASON,
 } from "../helpers/owner-features";
+import { waitForViewerReady } from "../helpers/viewer-ready";
 
 /**
  * Owner features gated off (DEV-1261).
@@ -73,14 +74,12 @@ test.describe("Owner features gated off", () => {
     });
 
     // The claim CTA is client-gated on ViewerContext.ownerFeaturesEnabled, so it
-    // is absent before hydration too. The account trigger only replaces its
-    // placeholder once useUser() has resolved the viewer — wait for that, then
-    // the absence below is a real gate and not a race.
-    await expect(
-      userPage.getByRole("button", { name: /account|帳號/i }),
-    ).toBeVisible({
-      timeout: 30_000,
-    });
+    // is absent before hydration too — the absence below only means anything
+    // once the viewer has resolved. This used to wait on the account trigger
+    // replacing its placeholder as a proxy for that; the readiness signal is the
+    // thing itself, so the assertion no longer depends on an unrelated control's
+    // render order (DEV-1414).
+    await waitForViewerReady(userPage);
 
     await expect(
       userPage.getByRole("button", { name: "認領這個品牌" }),
