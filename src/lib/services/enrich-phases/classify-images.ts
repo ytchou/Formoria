@@ -2,7 +2,13 @@ import { z } from "zod";
 import { auditedCall } from "@/lib/audit";
 import { IMAGE_CLASSIFY_SYSTEM_PROMPT } from "@/lib/prompts";
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
-import { MAX_BRAND_ACTIVE_IMAGES } from "@/lib/constants/brand-images";
+import {
+  BRAND_IMAGE_LOGO_TAG,
+  HERO_TARGET_RATIO,
+  isLogoImageTags,
+  MAX_BRAND_ACTIVE_IMAGES,
+} from "@/lib/constants/brand-images";
+import { cropDamage } from "@/lib/images/crop-damage";
 import { parseJson, type OpenAIChatResult } from "../openai-client";
 import {
   buildProfiledEnrichmentConfig,
@@ -80,7 +86,10 @@ const IMAGE_TAGS = [
  *     directly about the product.
  * Everything else is a rejection, which the disposition/reasons contract carries.
  */
-const KEEP_TAGS = ["product", "logo"] as const;
+// The `logo` member is the shared BRAND_IMAGE_LOGO_TAG rather than a second
+// literal: this vocabulary and the renderers' logo carve-out must name the
+// same string, and a duplicated literal is how they would drift.
+const KEEP_TAGS = ["product", BRAND_IMAGE_LOGO_TAG] as const;
 
 /**
  * LEGACY tags that are still valid images, mapped onto their modern equivalent.
@@ -126,18 +135,59 @@ export const JUNK_TAGS = new Set(["promo", "text_banner", "irrelevant"]);
  * Tag-major ranking existed to stop high-scoring logos taking every hero slot,
  * but it also pinned genuinely worse product shots above genuinely better brand
  * imagery. With the vocabulary down to two tags the ranking signal has to come
- * from the score itself, corrected for the one shape effect we measured:
- * 58% of human-rejected images were portrait versus 23% of kept ones.
+ * from the score itself, corrected for shape (see `heroQuality`).
  *
- * PROVISIONAL: 15 points is a judgement call, not a fitted value — enough to
- * demote a portrait past a comparable landscape, not enough to bury it. Ceiling:
- * it is one flat number for every brand. Upgrade path: calibrate against the
- * image-eval golden set once it has enough labelled portrait heroes.
+ * This is a QUALITY prior, not a geometry one, and the rename is the whole
+ * point. The geometry claim the old `PORTRAIT_PENALTY` comment made — "portrait
+ * crops badly in the landscape hero frame" — is now computed exactly, per image,
+ * by `cropDamage`. Keeping a flat penalty for that would double-charge it. What
+ * survives is a separate, measured effect: portrait images are WORSE, not just
+ * worse-framed.
+ *
+ * Measured 2026-08-08 against `scripts/image-eval/corpus`, the same 231 labelled
+ * images the old comment cited:
+ *   - Portrait share of human rejects 58.2% vs keeps 24.8% — reproduces the old
+ *     "58% vs 23%" headline.
+ *   - Logistic `reject ~ cropDamage + isPortrait`: the portrait residual
+ *     coefficient is 1.206 (odds multiplier 3.34x), likelihood-ratio chi-square
+ *     6.56 on 1 df, p < 0.05. The portrait effect SURVIVES conditioning on crop
+ *     damage — it is not just a restatement of the geometry.
+ *   - Stratified, in the 0.25-0.40 crop-damage band (the only band containing
+ *     both groups): portraits reject at 78%, non-portraits at 34%. Same crop
+ *     damage, very different outcome.
+ *   - Likely mechanism is provenance, not shape: portrait web images skew toward
+ *     Instagram crops, screenshots, and product-detail strips.
+ *
+ * CAVEAT, recorded because it bounds how much this number can be trusted:
+ * portrait and crop damage are heavily collinear at a 4/3 target — 88 of the 98
+ * corpus portraits sit in the top damage band, which contains zero
+ * non-portraits — so the coefficient rests on a ~9-image overlap. The DIRECTION
+ * is solid; the MAGNITUDE in score-points is not derivable from a log-odds
+ * coefficient, which lives on a different scale entirely.
+ *
+ * So 6 is a documented judgement call, not a fitted value. Chosen because a
+ * typical portrait already earns ~10-12 points of computed crop damage and the
+ * old flat penalty was 15, making a ~16-18 point total the nearest defensible
+ * neighbour of the behaviour this replaces. Ceiling: one flat number for every
+ * brand, resting on a thin overlap. Upgrade path: refit against the corpus above
+ * once it carries more low-damage portraits, which is the only thing that can
+ * separate the two effects properly.
+ *
+ * Exported so tests can assert against the constant rather than a literal — see
+ * the junk-promotion guard in `__tests__/classify-images.test.ts`.
  */
-const PORTRAIT_PENALTY = 15;
+export const PORTRAIT_QUALITY_PRIOR = 6;
 
-/** Images a human picked. The classifier must never retag, reorder away, or delete these. */
-const EXEMPT_SOURCES = new Set(["owner", "admin"]);
+/**
+ * Images a human picked. The classifier must never retag, reorder away, or
+ * delete these.
+ *
+ * Exported alongside `isExemptSource` because the hero re-sort scripts under
+ * `scripts/resort-heroes/` need the identical rule; an unexported constant
+ * forced a hand-copied `['owner', 'admin']` literal over there, which is a
+ * silent divergence waiting to reorder somebody's hand-picked hero.
+ */
+export const EXEMPT_SOURCES = new Set(["owner", "admin"]);
 
 /**
  * sort_order doubles as the hero designation (position 0) and as the gallery
@@ -208,9 +258,29 @@ type ClassifiedImage = {
   storage_path?: string | null;
   disposition?: "keep" | "reject";
   rejectionReasons?: ImageRejectionReason[];
-  /** Only used to detect portrait orientation for the hero ranking. */
+  /** Source dimensions. Feed the hero ranking's crop-damage term — see `heroQuality`. */
   width?: number | null;
   height?: number | null;
+  /**
+   * Normalised focal point in [0, 1], null when the image was never measured.
+   * The renderers position `object-cover` from these (`src/lib/images/focal.ts`),
+   * so ranking reads them too — otherwise it would score a crop the page does
+   * not actually perform.
+   */
+  focalX?: number | null;
+  focalY?: number | null;
+  /**
+   * Whether the RENDERER will treat this image as a logo, i.e. whether `logo`
+   * appears anywhere in the row's `tags` array — the same question
+   * `isLogoImageTags` answers for every render site.
+   *
+   * Distinct from `tag === "logo"`, which reads only the FIRST classification
+   * tag. On a row tagged `['product', 'logo']` the two disagree: ranking
+   * charged crop damage while the page rendered `object-contain` and never
+   * cropped it. Populated at both real construction sites; optional only so the
+   * unit tests can keep building bare literals.
+   */
+  isLogo?: boolean;
 };
 
 function toStrictJsonSchema(shape: z.ZodType): Record<string, unknown> {
@@ -259,10 +329,24 @@ type ClassifyImagesPhaseOutput = {
   patch: Record<string, unknown>;
 };
 
-type BrandImageForClassification = BrandImageRow & {
+export type BrandImageForClassification = BrandImageRow & {
   id: string;
   alt_zh?: string | null;
   alt_en?: string | null;
+};
+
+export type HeroResortPlan = {
+  assignments: Array<{ id: string; sortOrder: number }>;
+  demotedIds: string[];
+  rejectedUpdates: ReturnType<typeof applyClassifications>["rejectedUpdates"];
+  ranked: Array<{
+    id: string;
+    score: number;
+    cropDamage: number;
+    heroQuality: number;
+  }>;
+  skipReason:
+    null | "junk_tagged_active" | "over_capacity" | "no_managed_images";
 };
 
 type BrandImagesSelectQuery = {
@@ -337,7 +421,7 @@ function scoreValue(value: BrandImageRow["score"]): number {
   return 0;
 }
 
-function isExemptSource(
+export function isExemptSource(
   source: BrandImageRow["source"] | string | null,
 ): boolean {
   return typeof source === "string" && EXEMPT_SOURCES.has(source);
@@ -362,6 +446,13 @@ function classifiedImageFromRow(
     storage_path: row.storage_path,
     width: row.width ?? null,
     height: row.height ?? null,
+    focalX: row.focal_x ?? null,
+    focalY: row.focal_y ?? null,
+    // From the whole `tags` array, not from `storedTag` above: `storedTag` is
+    // the first classification tag, while the renderer asks whether `logo` is
+    // present at all. Reading the array here is what keeps ranking and
+    // rendering answering the same question.
+    isLogo: isLogoImageTags(row.tags),
     disposition: JUNK_TAGS.has(storedTag) ? "reject" : "keep",
     ...(storedTag === "promo"
       ? { rejectionReasons: ["promo_subject" as const] }
@@ -478,7 +569,7 @@ export function parseClassificationBatch(
   return verdicts;
 }
 
-/** Taller than wide. Square and unknown-dimension images are not penalised. */
+/** Taller than wide. Square and unknown-dimension images carry no quality prior. */
 function isPortrait(image: ClassifiedImage): boolean {
   const { width, height } = image;
   return (
@@ -487,51 +578,153 @@ function isPortrait(image: ClassifiedImage): boolean {
 }
 
 /**
- * Wider than this crops badly in the landscape hero frame, but is still a fine
- * gallery entry — so it is demoted, not excluded. The download gate keeps its
- * hard cap at 3:1 for genuinely degenerate strips; this covers the band between.
+ * Full weight of the crop-damage term, in score points.
+ *
+ * Calibrated so this replacement lands on top of the flat penalties it retires
+ * rather than silently reshuffling every hero in the catalogue:
+ *   - exact 4/3 (1200x900)  -> damage 0.000 -> 0.0 points
+ *   - square  (1000x1000)   -> damage 0.250 -> 4.5 points
+ *   - 2.39:1  (1600x670)    -> damage 0.442 -> 10.3 points, within a point of
+ *     the deleted flat WIDE_ASPECT_PENALTY of 10
+ *   - 2:3 portrait (800x1200) -> damage 0.500 -> 12.0 points (the cap)
+ *
+ * Exported so tests assert against the constant rather than a literal: raising
+ * this must fail CI, not quietly promote junk past a good image.
+ *
+ * GATE C1 — stored dimensions validated against the actual image bytes
+ * (2026-08-08). 60 active `brand_images` rows, sampled evenly across the full
+ * aspect-ratio range, were re-probed with `sharp` against the bytes in Storage:
+ * 0 mismatches at a 2% aspect-ratio drift tolerance.
+ *
+ * Recorded here because it is the blocking gate that this entire term rests on,
+ * and because a passed gate leaves no trace in the code otherwise. `cropDamage`
+ * is computed purely from the stored `width`/`height` columns, so a
+ * systematically wrong aspect ratio would produce a confidently wrong damage
+ * value — and the re-sort PREVIEW could not reveal it, because the preview is
+ * computed from the same wrong number. There is no self-check available here;
+ * the only way to know is to measure the bytes, which is what C1 did. Re-run it
+ * if the download pipeline ever changes what it writes into those columns.
  */
-const WIDE_ASPECT_THRESHOLD = 2.0;
+export const CROP_DAMAGE_WEIGHT = 12;
 
 /**
- * Same shape as PORTRAIT_PENALTY and for the same reason: a wide image must be
- * clearly better than its rivals to lead the page, but a brand whose images are
- * all wide still gets a hero.
+ * Damage below this is free, damage at or above it costs the full weight.
  *
- * PROVISIONAL, like the portrait penalty — a judgement call, not a fitted
- * value. Calibrate both together against the labelled set (DEV-1305).
+ * The floor exists because a 1.5:1 photo loses 11% of its area and is still a
+ * perfectly good hero — charging it would make the term fire on almost every
+ * image and stop discriminating. The ceiling is where "cropped" becomes
+ * "destroyed": a 2:3 portrait already loses half its area at 0.50, and images
+ * past that (phone screenshots, description strips) are not meaningfully worse
+ * as heroes than each other — they are all unusable, and the download gate at
+ * 3:1 is what actually keeps the extremes out.
  */
-const WIDE_ASPECT_PENALTY = 10;
+const CROP_DAMAGE_FLOOR = 0.1;
+const CROP_DAMAGE_CEILING = 0.5;
 
-function isWide(image: ClassifiedImage): boolean {
-  const { width, height } = image;
-  if (typeof width !== "number" || typeof height !== "number") return false;
-  if (width <= 0 || height <= 0) return false;
-  return width / height > WIDE_ASPECT_THRESHOLD;
+/**
+ * Shape corrections are quantised to this before subtraction.
+ *
+ * Not cosmetic: the re-sort preview and the apply must produce byte-identical
+ * orderings from the same rows, and float noise in the tenth decimal place is
+ * enough to swap two images whose corrected scores are otherwise tied. Rounding
+ * to a tenth of a point makes near-ties resolve by the sort's stability (input
+ * order) instead of by accumulated rounding error.
+ *
+ * Expressed as steps-per-point and applied as `round(x * N) / N` rather than
+ * `round(x / q) * q`: multiplying back by an inexact 0.1 re-introduces the noise
+ * the rounding just removed (103 * 0.1 is 10.300000000000001, 103 / 10 is 10.3).
+ */
+const SHAPE_CORRECTION_STEPS_PER_POINT = 10;
+
+function cropDamagePenalty(image: ClassifiedImage): number {
+  // `focalAware: true` because the renderers now emit `object-position` from the
+  // stored focal point (`src/lib/images/focal.ts`, applied in `brand-card.tsx`,
+  // `image-carousel.tsx`, `hero.tsx`, `brand-gallery.tsx`). MUST STAY IN SYNC
+  // WITH THE RENDERER: if ranking and rendering disagree about whether the crop
+  // window follows the subject, ranking systematically mis-scores exactly the
+  // images the page frames well, and nothing here would catch it.
+  //
+  // Safe to land ahead of the focal backfill — with focal_x/focal_y still null
+  // everywhere, `cropDamage` treats the window as centred and this evaluates
+  // identically to the focal-unaware path.
+  const damage = cropDamage({
+    width: image.width,
+    height: image.height,
+    focalX: image.focalX,
+    focalY: image.focalY,
+    // Logos render `object-contain` and are never cut, so they must take zero
+    // crop damage whatever their shape. 83 of 844 production heroes are logos;
+    // charging them for a crop that does not happen would demote a tenth of the
+    // catalogue's heroes for nothing.
+    //
+    // `image.isLogo` carries the renderer's own answer (membership in `tags`).
+    // The fallback covers callers that built a `ClassifiedImage` without a tag
+    // array — only the unit tests do — and routes through the same shared
+    // predicate so there is still exactly one definition of "is a logo".
+    isLogo: image.isLogo ?? isLogoImageTags([image.tag]),
+    targetRatio: HERO_TARGET_RATIO,
+    focalAware: true,
+  });
+
+  const scaled =
+    (damage - CROP_DAMAGE_FLOOR) / (CROP_DAMAGE_CEILING - CROP_DAMAGE_FLOOR);
+  return CROP_DAMAGE_WEIGHT * Math.min(Math.max(scaled, 0), 1);
 }
 
 /**
  * The single ranking signal for hero selection: the model's quality score, minus
- * a fixed penalty for portrait orientation.
+ * how badly the hero frame will cut the image, minus the portrait quality prior.
  *
- * A penalty rather than an exclusion, because portrait images are perfectly good
- * gallery entries — they just crop badly in the landscape hero frame. At 15 a
- * portrait must be clearly better than its landscape rivals to take slot 0, but
- * a brand whose only images are portrait still gets a hero.
+ *   heroQuality = score - cropDamagePenalty - portraitQualityPrior
+ *
+ * This replaces three flat constants (a 15-point portrait penalty, a 10-point
+ * wide penalty, and a 2:1 threshold that decided which applied) with one
+ * computed term plus one residual prior. The flat penalties charged a mildly
+ * tall photo and a phone-screenshot strip exactly the same amount, and charged
+ * a 1.99:1 banner nothing at all while its 2.01:1 twin lost 10 points.
+ *
+ * The asymmetry — the portrait prior survives, the wide penalty does NOT — is
+ * the whole justification for the split, so it is stated rather than implied:
+ *   - The old WIDE_ASPECT_PENALTY comment claimed only a crop rationale ("crops
+ *     badly in the landscape hero frame") and cited no quality evidence. Crop
+ *     damage now computes that rationale exactly, so the constant is fully
+ *     replaced and was deleted.
+ *   - PORTRAIT_QUALITY_PRIOR has evidence that outlives the geometry: the
+ *     portrait effect survives conditioning on crop damage (see the constant).
+ *     Deleting it would discard a measured signal, not a redundant one.
+ *
+ * The prior is deliberately NOT exempted for logos, unlike crop damage. Its
+ * mechanism is provenance (a portrait web image skews toward an Instagram crop
+ * or a screenshot), which has nothing to do with how the image is rendered — a
+ * portrait logo is as likely to be a scraped screenshot as a portrait photo is.
+ *
+ * Still a correction, never an exclusion: a brand whose images are all portrait
+ * still gets a hero, because every candidate takes the same subtraction.
  *
  * The kept band is MIN_KEEP_SCORE-100. The prompt pushes the model to spread
  * scores across that range rather than cluster near 85, because this sort is
  * the only thing deciding which image leads the page.
  */
 function heroQuality(image: ClassifiedImage): number {
-  const shapePenalty = isPortrait(image)
-    ? PORTRAIT_PENALTY
-    : isWide(image)
-      ? WIDE_ASPECT_PENALTY
-      : 0;
-  return image.score - shapePenalty;
+  const correction =
+    cropDamagePenalty(image) + (isPortrait(image) ? PORTRAIT_QUALITY_PRIOR : 0);
+  const quantised =
+    Math.round(correction * SHAPE_CORRECTION_STEPS_PER_POINT) /
+    SHAPE_CORRECTION_STEPS_PER_POINT;
+  return image.score - quantised;
 }
 
+/**
+ * Applies the model's verdicts and produces the hero ordering.
+ *
+ * RE-BASELINE NOTE for `scripts/image-eval/pipeline-ab.ts`, which consumes this
+ * function to compare pipeline variants: its stored baselines predate the
+ * crop-damage ranking term (`heroQuality` above), so the first A/B run after
+ * this change will show an ordering shift on almost every brand. That shift is
+ * the intended new behaviour, not a regression — re-baseline before reading the
+ * comparison. Left here rather than in that script because this is where the
+ * ordering is decided, and the next operator will be reading this file.
+ */
 export function applyClassifications(images: ClassifiedImage[]): {
   rejectedIds: string[];
   rejectedUpdates: Array<{
@@ -634,6 +827,83 @@ export function planActiveImageOrder(input: {
   return { assignments, demotedIds };
 }
 
+/**
+ * Builds the one ordering plan shared by the live classifier and the re-sort
+ * review. Resort mode refuses before `applyClassifications` can produce a
+ * destructive status update: its contract is an ordering-only, lossless pass.
+ */
+export function planHeroResort(input: {
+  activeImages: BrandImageForClassification[];
+  mode: "classify" | "resort";
+}): HeroResortPlan {
+  const { activeImages, mode } = input;
+  const managedRows = activeImages.filter((row) => !isExemptSource(row.source));
+
+  if (mode === "resort") {
+    if (
+      activeImages.some((row) =>
+        (row.tags ?? []).some((tag) => JUNK_TAGS.has(tag)),
+      )
+    ) {
+      return {
+        assignments: [],
+        demotedIds: [],
+        rejectedUpdates: [],
+        ranked: [],
+        skipReason: "junk_tagged_active",
+      };
+    }
+    if (activeImages.length > MAX_ACTIVE_IMAGES) {
+      return {
+        assignments: [],
+        demotedIds: [],
+        rejectedUpdates: [],
+        ranked: [],
+        skipReason: "over_capacity",
+      };
+    }
+  }
+
+  const classified = activeImages
+    .map(classifiedImageFromRow)
+    .filter((image): image is ClassifiedImage => image !== null);
+  const applied = applyClassifications(classified);
+  const rejectedIdSet = new Set(applied.rejectedIds);
+  const ordering = planActiveImageOrder({
+    activeImages: activeImages.filter((row) => !rejectedIdSet.has(row.id)),
+    rankedJudgedIds: applied.ordered.map((image) => image.id),
+  });
+
+  const result: HeroResortPlan = {
+    assignments: ordering.assignments,
+    demotedIds: ordering.demotedIds,
+    rejectedUpdates: applied.rejectedUpdates,
+    ranked: applied.ordered.map((image) => ({
+      id: image.id,
+      score: image.score,
+      cropDamage: cropDamagePenalty(image),
+      heroQuality: heroQuality(image),
+    })),
+    skipReason:
+      mode === "resort" &&
+      (managedRows.length === 0 || applied.ordered.length === 0)
+        ? "no_managed_images"
+        : null,
+  };
+
+  if (mode === "resort") {
+    if (result.demotedIds.length > 0) {
+      throw new Error(
+        "resort mode produced demotedIds; ordering-only plan violated",
+      );
+    }
+    if (result.skipReason === "no_managed_images") {
+      result.assignments = [];
+    }
+  }
+  return result;
+}
+
 function classifyImagesClient(supabase: unknown): ClassifyImagesClient {
   return supabase as ClassifyImagesClient;
 }
@@ -646,7 +916,7 @@ async function getUnclassifiedImages(
   const { data, error } = await classifyImagesClient(supabase)
     .from(storage.table)
     .select(
-      "id, url, source, status, tags, score, sort_order, storage_path, width, height",
+      "id, url, source, status, tags, score, sort_order, storage_path, width, height, focal_x, focal_y",
     )
     .eq(storage.foreignKey, target.id)
     .in("status", ["active", "candidate"])
@@ -667,7 +937,7 @@ async function getActiveImages(
   const { data, error } = await classifyImagesClient(supabase)
     .from(storage.table)
     .select(
-      "id, url, source, status, tags, score, sort_order, storage_path, width, height",
+      "id, url, source, status, tags, score, sort_order, storage_path, width, height, focal_x, focal_y",
     )
     .eq(storage.foreignKey, target.id)
     .eq("status", "active")
@@ -865,8 +1135,11 @@ async function classifyChunk(
     VISION_LOAD_CONCURRENCY,
     (image) => loadVisionDataUri(image),
   );
-  const { sendable, unavailableIds, failure: loadFailure } =
-    partitionLoadedImages(chunk, loaded);
+  const {
+    sendable,
+    unavailableIds,
+    failure: loadFailure,
+  } = partitionLoadedImages(chunk, loaded);
 
   if (loadFailure) {
     return {
@@ -988,6 +1261,11 @@ export function planChunkImageWrites(input: {
       storage_path: image.storage_path,
       width: image.width ?? null,
       height: image.height ?? null,
+      // Mirrors the `tags` value written for this row a few lines below, so
+      // ranking sees exactly the array the renderer will later read back.
+      isLogo: isLogoImageTags(
+        classification.tag === null ? null : [classification.tag],
+      ),
       disposition: classification.disposition,
       rejectionReasons: classification.reasons,
     });
@@ -1147,255 +1425,266 @@ export async function runClassifyImagesPhase({
   }
 
   return auditedCall(
-    { provider: "enrich", operation: "runClassifyImagesPhase", kind: "service" },
-    async () => {
-  const target = requestedTarget ?? brandTarget(brand.id);
-  const supabase = createServiceClient();
-
-  if (overwrite) {
-    const resetCount = await resetImageTags(supabase, target);
-    if (resetCount > 0) {
-      console.log(
-        `  [CLASSIFY] Reset tags on ${resetCount} images for reclassification`,
-      );
-    }
-  }
-
-  const images = await getUnclassifiedImages(supabase, target);
-  if (images.length === 0) {
-    return {
-      phaseResult: buildPhaseResult(
-        "classify_images",
-        "skipped",
-        [],
-        0,
-        undefined,
-        "no unclassified images",
-      ),
-      patch: {},
-    };
-  }
-
-  // The model comes from the shared resolver, never a second literal: this object
-  // is the stored audit contract, and a drifting copy makes every brand_ai_results
-  // row for this phase record a model that never ran.
-  const config = buildProfiledEnrichmentConfig(
-    "classify_images",
-    IMAGE_CLASSIFY_SYSTEM_PROMPT,
-    "classifyImages",
     {
-      batchSize: BATCH_SIZE,
-      detail: CLASSIFY_IMAGE_DETAIL,
+      provider: "enrich",
+      operation: "runClassifyImagesPhase",
+      kind: "service",
     },
-  );
-  const client = createProfiledOpenAIClient("classifyImages", {
-    target,
-    phase: "classify_images",
-    ...(jobId ? { jobId } : {}),
-    config,
-  });
-  const { result, durationMs } = await timePhase(async () => {
-    const classifications: ClassifiedImage[] = [];
-    const failedBatches: BatchFailure[] = [];
-    // Denominator for the provider-failure verdict: a phase only fails when
-    // EVERY batch it attempted died at the provider.
-    let attemptedBatches = 0;
-    let unjudgedCount = 0;
-    let unavailableCount = 0;
-    let rejectedCount = 0;
+    async () => {
+      const target = requestedTarget ?? brandTarget(brand.id);
+      const supabase = createServiceClient();
 
-    const brandContext = buildBrandContext({
-      name: brand.name ?? brand.slug,
-      productType: brand.product_type ?? null,
-      website: preferPatched(pendingPatch, brand.purchase_website, "purchase_website"),
-      pinkoi: preferPatched(pendingPatch, brand.purchase_pinkoi, "purchase_pinkoi"),
-      instagram: preferPatched(pendingPatch, brand.social_instagram, "social_instagram"),
-    });
-
-    for (let i = 0; i < images.length; i += BATCH_SIZE) {
-      const chunk = images.slice(i, i + BATCH_SIZE);
-      attemptedBatches += 1;
-      const outcome = await classifyChunk(client, brandContext, chunk);
-      unavailableCount += new Set(outcome.unavailableIds).size;
-
-      if (outcome.failure) {
-        // Leave every remaining row untouched (tags stay null, status stays active)
-        // so the next run retries them instead of destroying them.
-        failedBatches.push(outcome.failure);
-        console.error(
-          `  [CLASSIFY] Batch of ${chunk.length} images skipped for ${target.type} ${target.id}: ${outcome.failure.reason}`,
-        );
-        continue;
+      if (overwrite) {
+        const resetCount = await resetImageTags(supabase, target);
+        if (resetCount > 0) {
+          console.log(
+            `  [CLASSIFY] Reset tags on ${resetCount} images for reclassification`,
+          );
+        }
       }
 
-      // Which rows may be written is decided in one pure place, so the
-      // "unloadable image is never written to" invariant is testable rather
-      // than resting on a `continue` inside an un-mockable loop (DEV-1255).
-      const plan = planChunkImageWrites({
-        chunk,
-        verdictsByImageId: outcome.verdictsByImageId,
-        unavailableIds: outcome.unavailableIds,
-        now: new Date().toISOString(),
-      });
-      classifications.push(...plan.classifications);
-      rejectedCount += plan.rejectedCount;
-      unjudgedCount += plan.unjudgedCount;
-
-      for (const write of plan.writes) {
-        await updateImage(supabase, target, write.id, write.row);
+      const images = await getUnclassifiedImages(supabase, target);
+      if (images.length === 0) {
+        return {
+          phaseResult: buildPhaseResult(
+            "classify_images",
+            "skipped",
+            [],
+            0,
+            undefined,
+            "no unclassified images",
+          ),
+          patch: {},
+        };
       }
-    }
 
-    const activeImages = await getActiveImages(supabase, target);
-    const { rejectedIds, rejectedUpdates, ordered } = applyClassifications(
-      activeImages
-        .map(classifiedImageFromRow)
-        .filter((image): image is ClassifiedImage => image !== null),
-    );
-
-    for (const update of rejectedUpdates) {
-      await updateImage(supabase, target, update.id, {
-        ...update.row,
-        rejected_at: new Date().toISOString(),
-      });
-    }
-    rejectedCount += rejectedIds.length;
-
-    // Reindex every row that is still active — including ones the model never
-    // judged. Human-chosen images keep their reserved positions so a
-    // classifier-managed image cannot steal sort_order 0 from an admin pick.
-    const rejectedIdSet = new Set(rejectedIds);
-    const { assignments, demotedIds } = planActiveImageOrder({
-      activeImages: activeImages.filter((row) => !rejectedIdSet.has(row.id)),
-      rankedJudgedIds: ordered.map((image) => image.id),
-    });
-
-    for (const { id, sortOrder } of assignments) {
-      await updateImage(supabase, target, id, { sort_order: sortOrder });
-    }
-
-    // Overflow past the MAX_ACTIVE_IMAGES window steps down to 'rejected', but
-    // its storage object is deliberately kept: these ranked below the cap, they
-    // are not junk, and deleting them would be irreversible.
-    for (const id of demotedIds) {
-      await updateImage(supabase, target, id, { status: "rejected" });
-    }
-
-    if (target.type === "brand") {
-      await syncHeroDenormalized(supabase, target.id);
-    }
-
-    const finalActiveImages =
-      target.type === "submission"
-        ? await getActiveImages(supabase, target)
-        : [];
-
-    return {
-      classifiedCount: classifications.length,
-      rejectedCount,
-      unjudgedCount,
-      unavailableCount,
-      failedBatches,
-      attemptedBatches,
-      heroImageUrl: finalActiveImages.at(0)?.url ?? null,
-    };
-  });
-
-  const changedFields =
-    result.classifiedCount > 0
-      ? [target.type === "brand" ? "brand_images" : "submission_images"]
-      : [];
-  const patch =
-    target.type === "submission" && result.classifiedCount > 0
-      ? { hero_image_url: result.heroImageUrl }
-      : {};
-
-  const detail = [
-    `${result.classifiedCount} classified`,
-    `${result.rejectedCount} rejected`,
-    ...(result.unjudgedCount > 0
-      ? [`${result.unjudgedCount} left unjudged`]
-      : []),
-    ...(result.unavailableCount > 0
-      ? [`${result.unavailableCount} unavailable`]
-      : []),
-    ...(result.failedBatches.length > 0
-      ? [
-          `${result.failedBatches.length} batch(es) skipped: ${result.failedBatches
-            .map((failure) => failure.reason)
-            .join("; ")}`,
-        ]
-      : []),
-  ].join(", ");
-
-  // Nothing was judged: every batch we attempted died. `succeeded` with zero
-  // classifications is what an admin then approved 103 times on 2026-08-02, so
-  // the target has to fail — but only when the whole phase died. A run where one
-  // batch was refused and another classified fine stays `succeeded`.
-  const allBatchesFailed =
-    result.attemptedBatches > 0 &&
-    result.failedBatches.length === result.attemptedBatches;
-
-  const allBatchesProviderFailed =
-    allBatchesFailed &&
-    result.failedBatches.every((failure) => failure.kind === "provider");
-
-  // Same outcome, different culprit, and the difference is expensive: only
-  // `providerFailure` feeds Gate C and the LLM circuit breaker, whose trip
-  // cancels every unstarted target in the job and pages for an OpenAI outage. A
-  // batch set that includes one of OUR storage failures is not evidence about
-  // OpenAI, so it fails the target under its own name instead. Mixed with a
-  // `content` failure it stays out of both branches, as before — the model
-  // answered for at least one batch, so the phase is not wholly untrusted.
-  const allBatchesStorageFailed =
-    allBatchesFailed &&
-    !allBatchesProviderFailed &&
-    result.failedBatches.every(
-      (failure) => failure.kind === "storage" || failure.kind === "provider",
-    );
-
-  if (allBatchesStorageFailed) {
-    return {
-      phaseResult: buildPhaseResult(
+      // The model comes from the shared resolver, never a second literal: this object
+      // is the stored audit contract, and a drifting copy makes every brand_ai_results
+      // row for this phase record a model that never ran.
+      const config = buildProfiledEnrichmentConfig(
         "classify_images",
-        "failed",
-        [],
-        durationMs,
-        `${STORAGE_FAILURE_PREFIX} — could not read the images for any of ${result.attemptedBatches} batch(es) out of Storage`,
-        detail,
-      ),
-      patch: {},
-    };
-  }
+        IMAGE_CLASSIFY_SYSTEM_PROMPT,
+        "classifyImages",
+        {
+          batchSize: BATCH_SIZE,
+          detail: CLASSIFY_IMAGE_DETAIL,
+        },
+      );
+      const client = createProfiledOpenAIClient("classifyImages", {
+        target,
+        phase: "classify_images",
+        ...(jobId ? { jobId } : {}),
+        config,
+      });
+      const { result, durationMs } = await timePhase(async () => {
+        const classifications: ClassifiedImage[] = [];
+        const failedBatches: BatchFailure[] = [];
+        // Denominator for the provider-failure verdict: a phase only fails when
+        // EVERY batch it attempted died at the provider.
+        let attemptedBatches = 0;
+        let unjudgedCount = 0;
+        let unavailableCount = 0;
+        let rejectedCount = 0;
 
-  if (allBatchesProviderFailed) {
-    return {
-      phaseResult: {
-        ...buildPhaseResult(
+        const brandContext = buildBrandContext({
+          name: brand.name ?? brand.slug,
+          productType: brand.product_type ?? null,
+          website: preferPatched(
+            pendingPatch,
+            brand.purchase_website,
+            "purchase_website",
+          ),
+          pinkoi: preferPatched(
+            pendingPatch,
+            brand.purchase_pinkoi,
+            "purchase_pinkoi",
+          ),
+          instagram: preferPatched(
+            pendingPatch,
+            brand.social_instagram,
+            "social_instagram",
+          ),
+        });
+
+        for (let i = 0; i < images.length; i += BATCH_SIZE) {
+          const chunk = images.slice(i, i + BATCH_SIZE);
+          attemptedBatches += 1;
+          const outcome = await classifyChunk(client, brandContext, chunk);
+          unavailableCount += new Set(outcome.unavailableIds).size;
+
+          if (outcome.failure) {
+            // Leave every remaining row untouched (tags stay null, status stays active)
+            // so the next run retries them instead of destroying them.
+            failedBatches.push(outcome.failure);
+            console.error(
+              `  [CLASSIFY] Batch of ${chunk.length} images skipped for ${target.type} ${target.id}: ${outcome.failure.reason}`,
+            );
+            continue;
+          }
+
+          // Which rows may be written is decided in one pure place, so the
+          // "unloadable image is never written to" invariant is testable rather
+          // than resting on a `continue` inside an un-mockable loop (DEV-1255).
+          const plan = planChunkImageWrites({
+            chunk,
+            verdictsByImageId: outcome.verdictsByImageId,
+            unavailableIds: outcome.unavailableIds,
+            now: new Date().toISOString(),
+          });
+          classifications.push(...plan.classifications);
+          rejectedCount += plan.rejectedCount;
+          unjudgedCount += plan.unjudgedCount;
+
+          for (const write of plan.writes) {
+            await updateImage(supabase, target, write.id, write.row);
+          }
+        }
+
+        const activeImages = await getActiveImages(supabase, target);
+        const plan = planHeroResort({ activeImages, mode: "classify" });
+        const { rejectedUpdates } = plan;
+        const rejectedIds = plan.rejectedUpdates.map((update) => update.id);
+
+        for (const update of rejectedUpdates) {
+          await updateImage(supabase, target, update.id, {
+            ...update.row,
+            rejected_at: new Date().toISOString(),
+          });
+        }
+        rejectedCount += rejectedIds.length;
+
+        // Reindex every row that is still active — including ones the model never
+        // judged. Human-chosen images keep their reserved positions so a
+        // classifier-managed image cannot steal sort_order 0 from an admin pick.
+        const { assignments, demotedIds } = plan;
+
+        for (const { id, sortOrder } of assignments) {
+          await updateImage(supabase, target, id, { sort_order: sortOrder });
+        }
+
+        // Overflow past the MAX_ACTIVE_IMAGES window steps down to 'rejected', but
+        // its storage object is deliberately kept: these ranked below the cap, they
+        // are not junk, and deleting them would be irreversible.
+        for (const id of demotedIds) {
+          await updateImage(supabase, target, id, { status: "rejected" });
+        }
+
+        if (target.type === "brand") {
+          await syncHeroDenormalized(supabase, target.id);
+        }
+
+        const finalActiveImages =
+          target.type === "submission"
+            ? await getActiveImages(supabase, target)
+            : [];
+
+        return {
+          classifiedCount: classifications.length,
+          rejectedCount,
+          unjudgedCount,
+          unavailableCount,
+          failedBatches,
+          attemptedBatches,
+          heroImageUrl: finalActiveImages.at(0)?.url ?? null,
+        };
+      });
+
+      const changedFields =
+        result.classifiedCount > 0
+          ? [target.type === "brand" ? "brand_images" : "submission_images"]
+          : [];
+      const patch =
+        target.type === "submission" && result.classifiedCount > 0
+          ? { hero_image_url: result.heroImageUrl }
+          : {};
+
+      const detail = [
+        `${result.classifiedCount} classified`,
+        `${result.rejectedCount} rejected`,
+        ...(result.unjudgedCount > 0
+          ? [`${result.unjudgedCount} left unjudged`]
+          : []),
+        ...(result.unavailableCount > 0
+          ? [`${result.unavailableCount} unavailable`]
+          : []),
+        ...(result.failedBatches.length > 0
+          ? [
+              `${result.failedBatches.length} batch(es) skipped: ${result.failedBatches
+                .map((failure) => failure.reason)
+                .join("; ")}`,
+            ]
+          : []),
+      ].join(", ");
+
+      // Nothing was judged: every batch we attempted died. `succeeded` with zero
+      // classifications is what an admin then approved 103 times on 2026-08-02, so
+      // the target has to fail — but only when the whole phase died. A run where one
+      // batch was refused and another classified fine stays `succeeded`.
+      const allBatchesFailed =
+        result.attemptedBatches > 0 &&
+        result.failedBatches.length === result.attemptedBatches;
+
+      const allBatchesProviderFailed =
+        allBatchesFailed &&
+        result.failedBatches.every((failure) => failure.kind === "provider");
+
+      // Same outcome, different culprit, and the difference is expensive: only
+      // `providerFailure` feeds Gate C and the LLM circuit breaker, whose trip
+      // cancels every unstarted target in the job and pages for an OpenAI outage. A
+      // batch set that includes one of OUR storage failures is not evidence about
+      // OpenAI, so it fails the target under its own name instead. Mixed with a
+      // `content` failure it stays out of both branches, as before — the model
+      // answered for at least one batch, so the phase is not wholly untrusted.
+      const allBatchesStorageFailed =
+        allBatchesFailed &&
+        !allBatchesProviderFailed &&
+        result.failedBatches.every(
+          (failure) =>
+            failure.kind === "storage" || failure.kind === "provider",
+        );
+
+      if (allBatchesStorageFailed) {
+        return {
+          phaseResult: buildPhaseResult(
+            "classify_images",
+            "failed",
+            [],
+            durationMs,
+            `${STORAGE_FAILURE_PREFIX} — could not read the images for any of ${result.attemptedBatches} batch(es) out of Storage`,
+            detail,
+          ),
+          patch: {},
+        };
+      }
+
+      if (allBatchesProviderFailed) {
+        return {
+          phaseResult: {
+            ...buildPhaseResult(
+              "classify_images",
+              "failed",
+              [],
+              durationMs,
+              `LLM provider failed all ${result.attemptedBatches} image batch(es)`,
+              detail,
+            ),
+            providerFailure: true,
+          },
+          patch: {},
+        };
+      }
+
+      return {
+        phaseResult: buildPhaseResult(
           "classify_images",
-          "failed",
-          [],
+          "succeeded",
+          changedFields,
           durationMs,
-          `LLM provider failed all ${result.attemptedBatches} image batch(es)`,
+          undefined,
           detail,
         ),
-        providerFailure: true,
-      },
-      patch: {},
-    };
-  }
-
-  return {
-    phaseResult: buildPhaseResult(
-      "classify_images",
-      "succeeded",
-      changedFields,
-      durationMs,
-      undefined,
-      detail,
-    ),
-    patch,
-  };
+        patch,
+      };
     },
     {
       classify: (result) =>

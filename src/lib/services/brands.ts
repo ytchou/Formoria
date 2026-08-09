@@ -19,6 +19,12 @@ import {
   captureReadFailure,
 } from "@/lib/degraded-render";
 import { BRAND_SORT_CONFIG, DEFAULT_PAGE_SIZE } from "@/lib/pagination";
+import { isLogoImageTags } from "@/lib/constants/brand-images";
+import {
+  chunkBrandHeroUrlBatches,
+  fetchActiveBrandImageRows,
+  type BrandImageQueryClient,
+} from "./_shared/brand-image-batch";
 import { isNonImageHost } from "@/lib/images/allowed-image-hosts";
 import { RESERVED_ROUTES } from "@/proxy";
 import {
@@ -780,6 +786,173 @@ async function brandToDomainWithImages(
   return { ...brand, ...toImageFields(images) };
 }
 
+const CARD_IMAGE_SELECT =
+  "brand_id, url, tags, alt_zh, alt_en, sort_order, width, height, focal_x, focal_y";
+
+type CardImageRow = Pick<
+  Database["public"]["Tables"]["brand_images"]["Row"],
+  | "brand_id"
+  | "url"
+  | "tags"
+  | "alt_zh"
+  | "alt_en"
+  | "sort_order"
+  | "width"
+  | "height"
+> & {
+  // The generated database types intentionally lag the applied migration;
+  // keep this narrow query forward-compatible until the next type refresh.
+  focal_x: number | null;
+  focal_y: number | null;
+};
+
+/**
+ * Fills in the hero image's `brand_images` metadata for a list of cards.
+ *
+ * `brandToDomain` hard-codes `imageAlts: []` because the narrow directory
+ * projection reads the `brands` table only, and `brandToDomainWithImages` is
+ * not an option for lists — it fires one query per brand. Without this step
+ * `isLogo` is always false on every card surface, so the logo carve-out (which
+ * renders a logo `object-contain` instead of cover-cropping it) never fires
+ * outside the detail page. This batches the lookup for the whole page instead.
+ *
+ * REPLACES, never merges: `imageAlts` and `heroImageMetadata` are overwritten
+ * wholesale, so passing an already-hydrated brand through this DISCARDS what it
+ * carried. The generic signature accepts any `{ id, heroImageUrl }`, which
+ * makes a pre-hydrated caller look legal — it is not. This is for card
+ * projections, whose `productPhotos` are empty by construction; a detail brand
+ * carries per-image metadata for its whole gallery and must use
+ * `brandToDomainWithImages` instead.
+ *
+ * CACHE INTERACTION, recorded because it is invisible from here: results flow
+ * into `getCachedExploreBrandPool`, which freezes them in `unstable_cache` for
+ * an hour under PUBLIC_BRAND_DATA_TAG. Re-classification and the focal-point
+ * backfill both write `brand_images` WITHOUT touching the `brands` table, so
+ * neither invalidates that cache on its own — the homepage can keep serving the
+ * old fill mode and object-position for up to `revalidate` seconds. Accepted:
+ * the stale render is the previous correct render, not a broken one. After a
+ * backfill, revalidate PUBLIC_BRAND_DATA_TAG to pick the change up immediately.
+ *
+ * Batching, paging and the `.order()`-before-`.range()` invariant live in
+ * `_shared/brand-image-batch.ts`, shared with `getAdminBrandReviewImages`.
+ */
+export async function hydrateCardImageMeta<
+  T extends Pick<Brand, "id" | "heroImageUrl">,
+>(
+  supabase: ReturnType<typeof createServiceClient>,
+  brands: T[],
+): Promise<Array<T & Pick<Brand, "imageAlts" | "heroImageMetadata">>> {
+  const withDefaults = (
+    brand: T,
+  ): T & Pick<Brand, "imageAlts" | "heroImageMetadata"> => ({
+    ...brand,
+    imageAlts: [],
+    heroImageMetadata: null,
+  });
+
+  if (brands.length === 0) return [];
+
+  // Narrowed to the hero URLs, not every active row: a brand carries 10-14
+  // active images and exactly one of them is ever kept below, so an unnarrowed
+  // read discards ~90% of what it transfers. Brands with no hero URL are left
+  // out of the query entirely — nothing could match them.
+  const pairs = [
+    ...new Map(
+      brands
+        .filter(
+          (brand): brand is T & { heroImageUrl: string } =>
+            typeof brand.heroImageUrl === "string" &&
+            brand.heroImageUrl.length > 0,
+        )
+        .map((brand) => [
+          `${brand.id}\n${brand.heroImageUrl}`,
+          { brandId: brand.id, url: brand.heroImageUrl },
+        ]),
+    ).values(),
+  ];
+
+  if (pairs.length === 0) return brands.map(withDefaults);
+
+  let rows: CardImageRow[];
+  try {
+    rows = await fetchActiveBrandImageRows<CardImageRow>(
+      supabase as unknown as BrandImageQueryClient,
+      CARD_IMAGE_SELECT,
+      chunkBrandHeroUrlBatches(pairs),
+    );
+  } catch (error) {
+    /*
+     * Degrade, never throw. Two independent reasons, both of which have to hold
+     * for this to go back to a bare rethrow — do not "tidy" it:
+     *
+     * 1. This is DECORATIVE per-image metadata: alt text, a logo flag, a focal
+     *    point. Falling back to unhydrated brands reproduces exactly the
+     *    behaviour these surfaces had before this function existed
+     *    (`imageAlts: []`, centred `object-cover`). Taking down /brands, the
+     *    homepage, /favorites, story galleries and every microsite because a
+     *    decoration could not be loaded is never the right trade.
+     * 2. It closes the deploy-order window. Railway deploys on a push to main
+     *    but Supabase migrations are applied by hand, so between the two
+     *    `focal_x` does not exist, PostgREST answers 42703, and the service
+     *    client has no `<Database>` generic to have caught it at compile time.
+     *    Without this catch that window is a site-wide outage on every card
+     *    surface.
+     *
+     * Reported through `captureReadFailure`, the same observability path as
+     * every other degraded page read, so this stays visible in Sentry rather
+     * than being swallowed.
+     */
+    captureReadFailure("brands.cardImageMeta")(error);
+    return brands.map(withDefaults);
+  }
+
+  const rowsByBrand = new Map<string, CardImageRow[]>();
+  for (const row of rows) {
+    const brandRows = rowsByBrand.get(row.brand_id) ?? [];
+    brandRows.push(row);
+    rowsByBrand.set(row.brand_id, brandRows);
+  }
+
+  return brands.map((brand) => {
+    // Match on `url`, not `sort_order`. `hero_image_url` is the denormalized
+    // copy of whichever row the brand currently leads with, and a row can be
+    // rejected or re-ordered without that copy moving — so position is not a
+    // reliable key, while the url is. Rows arrive ordered by `sort_order`, so
+    // the first match is also the lowest-`sort_order` one; that makes the
+    // behavior defined if two active rows ever share a url.
+    const heroRow = rowsByBrand
+      .get(brand.id)
+      ?.find((row) => row.url === brand.heroImageUrl);
+
+    // No matching row is not an error: brands whose hero predates
+    // `brand_images` (or whose row was rejected) simply keep `imageAlts: []`
+    // and degrade to the uncarved `object-cover` render they get today.
+    if (!heroRow) return withDefaults(brand);
+
+    // `imageAlts` is index-aligned with `[heroImageUrl, ...productPhotos]`, and
+    // the card projection leaves `productPhotos` empty — so exactly one entry.
+    // Widening this to every image would silently desync those indices.
+    return {
+      ...brand,
+      imageAlts: [
+        {
+          altZh: heroRow.alt_zh ?? null,
+          altEn: heroRow.alt_en ?? null,
+          isLogo: isLogoImageTags(heroRow.tags),
+          focalX: heroRow.focal_x ?? null,
+          focalY: heroRow.focal_y ?? null,
+        },
+      ],
+      heroImageMetadata: {
+        altZh: heroRow.alt_zh ?? null,
+        altEn: heroRow.alt_en ?? null,
+        width: heroRow.width && heroRow.width > 0 ? heroRow.width : null,
+        height: heroRow.height && heroRow.height > 0 ? heroRow.height : null,
+      },
+    };
+  });
+}
+
 export function brandToInsert(data: BrandWriteInput): Record<string, unknown> {
   const row = baseToBrandRow(data);
   if (data.reputationSummary !== undefined) {
@@ -1207,8 +1380,32 @@ async function resolveBrandsBySlugKey(
 }
 
 const getBrandsBySlugKey = cache(
-  (slugKey: string): Promise<Map<string, Brand>> =>
-    fetchBrandsBySlugKey(createServiceClient(), slugKey),
+  async (slugKey: string): Promise<Map<string, Brand>> => {
+    const supabase = createServiceClient();
+    const bySlug = await fetchBrandsBySlugKey(supabase, slugKey);
+
+    // Hydrated inside the cache, not at the `getBrandsBySlugs` boundary: a page
+    // can resolve the same slug set several times (one story gallery per
+    // section), and hydrating outside would re-query `brand_images` each time.
+    // One brand can appear under several slugs via redirects, so rebuild the
+    // map by id rather than assuming a 1:1 pairing.
+    //
+    // Note this sits OUTSIDE `fetchBrandsBySlugKey`'s prerender-degrade catch,
+    // which returns before this line runs. That is only safe because
+    // `hydrateCardImageMeta` degrades internally — a `brand_images` failure
+    // here must not abort a story-page export. Do not add a throw to it.
+    const hydratedById = new Map(
+      (
+        await hydrateCardImageMeta(supabase, [...new Set(bySlug.values())])
+      ).map((brand) => [brand.id, brand]),
+    );
+    return new Map(
+      [...bySlug].map(([slug, brand]): [string, Brand] => [
+        slug,
+        hydratedById.get(brand.id) ?? brand,
+      ]),
+    );
+  },
 );
 
 /**
@@ -1324,6 +1521,17 @@ export async function getBrands(
   const supabase = createServiceClient();
   const expandedSubcategoryTags = expandSubcategoryTags(filters?.subcategoryTags);
 
+  // Card surfaces need the hero's `brand_images` metadata to render the logo
+  // carve-out; the admin table does not. `includeDetailColumns` is admin-only
+  // (see `getBrandsSelect`), and that caller runs unbounded over the full
+  // corpus on a `force-dynamic` page while already loading the same rows via
+  // `getAdminBrandReviewImages`. Hydrating there would double a whole-corpus
+  // read of `brand_images` for data the page holds in hand.
+  const withCardImageMeta = async (brands: Brand[]): Promise<Brand[]> =>
+    filters?.includeDetailColumns
+      ? brands
+      : hydrateCardImageMeta(supabase, brands);
+
   // Search filtering is handled in the bounded, service-only page RPC; this
   // branch only hydrates the returned IDs with the card projection.
   //
@@ -1422,7 +1630,7 @@ export async function getBrands(
       (left, right) =>
         (rankById.get(left.id) ?? 0) - (rankById.get(right.id) ?? 0),
     );
-    return { brands, totalCount };
+    return { brands: await withCardImageMeta(brands), totalCount };
   }
 
   const verificationFilter = filters?.verificationFilter;
@@ -1491,7 +1699,7 @@ export async function getBrands(
       return { brands: [], totalCount: count ?? 0 };
     throw error;
   }
-  const brands = (data ?? []).map(brandToDomain);
+  const brands = await withCardImageMeta((data ?? []).map(brandToDomain));
   if (sortKey === "random") shuffleArray(brands, getDailySeed());
   return { brands, totalCount: count ?? 0 };
 }
@@ -1750,7 +1958,8 @@ export async function getPublicMicrositeBrandBySlug(
 
   if (error) throw error;
   if (!data) return null;
-  return toPublicMicrositeBrand(brandToDomain(data));
+  const [brand] = await hydrateCardImageMeta(supabase, [brandToDomain(data)]);
+  return toPublicMicrositeBrand(brand);
 }
 
 /** Owner/admin callers receive a contract rather than a raw database row. */
@@ -2341,7 +2550,11 @@ export async function getRandomBrands(limit = 4): Promise<PublicBrandCard[]> {
     [rows[i], rows[j]] = [rows[j], rows[i]];
   }
 
-  return rows.slice(0, limit).map(brandToDomain).map(toPublicBrandCard);
+  const brands = await hydrateCardImageMeta(
+    supabase,
+    rows.slice(0, limit).map(brandToDomain),
+  );
+  return brands.map(toPublicBrandCard);
 }
 
 export async function getNewBrands(limit = 4): Promise<Brand[]> {
@@ -2358,7 +2571,7 @@ export async function getNewBrands(limit = 4): Promise<Brand[]> {
   if (error) throw error;
   const rows = data ?? [];
   shuffleArray(rows);
-  return rows.slice(0, limit).map(brandToDomain);
+  return hydrateCardImageMeta(supabase, rows.slice(0, limit).map(brandToDomain));
 }
 
 const getCachedRecentBrandCount = unstable_cache(

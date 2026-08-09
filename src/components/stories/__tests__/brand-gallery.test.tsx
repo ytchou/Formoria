@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import enMessages from "../../../../messages/en.json";
 import type { Brand } from "@/lib/types";
+import type { BrandImageMeta } from "@/lib/types/brand";
 
 const loadBrands = vi.fn<(slugs: string[]) => Promise<Map<string, Brand>>>();
 
@@ -40,7 +41,7 @@ function makeBrand(
   name: string,
   heroImageUrl: string | null = imageUrl("hero"),
   productPhotos: string[] = [],
-  imageAlts: Array<{ altZh: string | null; altEn: string | null }> = [],
+  imageAlts: BrandImageMeta[] = [],
 ): Brand {
   return {
     id: `id-${slug}`,
@@ -73,7 +74,7 @@ function makeBrand(
 function makeImageFields(
   heroImageUrl: string | null = null,
   productPhotos: string[] = [],
-  imageAlts: Array<{ altZh: string | null; altEn: string | null }> = [],
+  imageAlts: BrandImageMeta[] = [],
 ) {
   return async () => ({
     heroImageUrl,
@@ -230,7 +231,7 @@ describe("BrandGallery", () => {
             "Molasses",
             imageUrl("hero"),
             [imageUrl("one")],
-            [{ altZh: null, altEn: "A product hero" }],
+            [{ altZh: null, altEn: "A product hero", isLogo: false, focalX: null, focalY: null }],
           ),
         ],
       ]),

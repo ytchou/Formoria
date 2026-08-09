@@ -25,9 +25,13 @@ const MIN_IMAGE_SHORT_EDGE_PX = 480
 // (2.39:1) were discarded while the genuine junk this gate exists for is far
 // more extreme (750x4050 description strips, 5.4:1).
 //
-// Shape between 2.0 and 3.0 is handled by WIDE_ASPECT_PENALTY at ranking time
-// instead: a wide image crops badly in the landscape hero frame but is a
-// perfectly good gallery entry, which is a ranking question, not a gate.
+// Shape between 2.0 and 3.0 is handled by the crop-damage term at ranking time
+// instead (`cropDamage` in src/lib/images/crop-damage.ts, weighted by
+// CROP_DAMAGE_WEIGHT in the classify phase): a wide image crops badly in the
+// landscape hero frame but is a perfectly good gallery entry, which is a
+// ranking question, not a gate. The band is still covered — that same 1600x670
+// banner earns ~10 points of crop damage, which is what the deleted flat
+// WIDE_ASPECT_PENALTY used to charge it.
 const MAX_IMAGE_ASPECT_RATIO = 3.0
 // Catches degenerate input — solid-colour fills and blank canvases. It is NOT
 // a quality signal and must not be raised as if it were: measured against 231
@@ -247,6 +251,184 @@ async function loadPerceptualHashGuard(
   }
 }
 
+/** Normalized 0-1 position of an image's subject, origin top-left. */
+export type FocalPoint = { x: number; y: number }
+
+/** Long edge of the working copy every focal probe runs against. */
+const FOCAL_WORKING_EDGE_PX = 256
+
+/**
+ * A probe slice is a quarter of the axis it measures. Narrow enough that
+ * libvips has to commit to one region, wide enough that it is not chasing a
+ * single high-contrast pixel.
+ */
+const FOCAL_PROBE_FRACTION = 4
+
+/**
+ * Above this, the two mirrored readings of one axis disagree about where the
+ * subject is, which means there is no subject on that axis. 0.25 of the axis.
+ */
+const FOCAL_DEGENERATE_TOLERANCE = 0.25
+
+/**
+ * Position of one axis's attention peak, as a 0-1 fraction of `extent`.
+ *
+ * The slice keeps the *other* axis at full size, so `fit: 'cover'` can only
+ * crop along the axis being measured — that is what makes the reading
+ * independent of the source's aspect ratio.
+ *
+ * The returned value is the slice CENTRE, so it is structurally confined to
+ * `[FOCAL_PROBE_HALF_SLICE, 1 - FOCAL_PROBE_HALF_SLICE]`. `resolveAxis` stretches
+ * it back onto [0, 1]; do not treat this raw number as a focal coordinate.
+ */
+async function probeAxis(
+  working: Buffer,
+  axis: 'x' | 'y',
+  width: number,
+  height: number,
+  mirror: boolean,
+): Promise<number> {
+  const extent = axis === 'x' ? width : height
+  const sliceSize = Math.max(1, Math.round(extent / FOCAL_PROBE_FRACTION))
+
+  const pipeline = sharp(working)
+  // Mirror before probing, not after: we need libvips to re-run attention on
+  // the flipped picture, which is the whole point of the check below.
+  const mirrored = mirror ? (axis === 'x' ? pipeline.flop() : pipeline.flip()) : pipeline
+
+  const { info } = await mirrored
+    .resize({
+      width: axis === 'x' ? sliceSize : width,
+      height: axis === 'x' ? height : sliceSize,
+      fit: 'cover',
+      position: sharp.strategy.attention,
+    })
+    .toBuffer({ resolveWithObject: true })
+
+  // sharp reports these offsets as NEGATIVE in this configuration, contrary to
+  // the documented sign — take the magnitude rather than trusting the sign.
+  const offset = Math.abs(axis === 'x' ? (info.cropOffsetLeft ?? 0) : (info.cropOffsetTop ?? 0))
+  return (offset + sliceSize / 2) / extent
+}
+
+/**
+ * Half the width of a probe slice, as a fraction of the axis.
+ *
+ * `probeAxis` reports the CENTRE of the best slice, and a slice centre can
+ * never sit closer to an edge than half a slice — so every raw reading is
+ * structurally confined to `[half, 1 - half]`, which is `[0.125, 0.875]` at
+ * FOCAL_PROBE_FRACTION = 4. Derived rather than hard-coded so the two cannot
+ * drift apart.
+ */
+const FOCAL_PROBE_HALF_SLICE = 1 / (2 * FOCAL_PROBE_FRACTION)
+
+/**
+ * Stretch a raw probe reading from its reachable band onto the full unit
+ * interval.
+ *
+ * Without this a subject flush against the left edge measures 0.125 and renders
+ * as `object-position: 12.5%` instead of `0%` — a silent partial mis-frame on
+ * exactly the images this feature exists for. It also made `focalMiss = 1`
+ * unreachable in `cropDamage` for any source retaining more than a quarter of
+ * its axis.
+ *
+ * Linear and symmetric about 0.5 by construction: 0.125 -> 0, 0.5 -> 0.5,
+ * 0.875 -> 1, and `rescale(1 - x) === 1 - rescale(x)`.
+ */
+function rescaleProbeReading(raw: number): number {
+  const half = FOCAL_PROBE_HALF_SLICE
+  return Math.min(Math.max((raw - half) / (1 - 2 * half), 0), 1)
+}
+
+/**
+ * Resolve one axis from its normal and mirrored readings.
+ *
+ * The flip check is load-bearing, not an optimisation. On a flat-background
+ * image libvips has nothing to attend to and returns offset 0 on both axes, so
+ * the raw formula yields ~0.125 — which would slam every flat-background
+ * product shot to the top-left corner, strictly worse than the centring we do
+ * today. A real subject moves with the mirror (`v + vMirrored ≈ 1`); a
+ * degenerate one does not, and we fall back to the centre. When it is real,
+ * averaging the two readings also cancels the half-slice bias baked into the
+ * formula.
+ *
+ * Order matters and is deliberate: the degenerate check runs on the RAW
+ * readings, then the surviving average is rescaled. Doing it this way keeps
+ * FOCAL_DEGENERATE_TOLERANCE expressed in the same units the readings were
+ * calibrated in — rescaling first would widen every disagreement by 1.5x and
+ * silently retune the threshold. The check itself would survive either order
+ * (`rescaleProbeReading` is symmetric about 0.5, so `v + mirrored - 1` is
+ * preserved up to that same constant factor), and rescaling the average is
+ * identical to averaging the rescales because the map is linear.
+ *
+ * The degenerate fallback returns exactly 0.5, which is also a fixed point of
+ * the rescale, so a flat image still centres.
+ */
+function resolveAxis(value: number, mirrored: number): number {
+  if (Math.abs(value + mirrored - 1) > FOCAL_DEGENERATE_TOLERANCE) return 0.5
+  return rescaleProbeReading((value + (1 - mirrored)) / 2)
+}
+
+function clampFocal(value: number): number {
+  return Math.round(Math.min(1, Math.max(0, value)) * 10_000) / 10_000
+}
+
+/**
+ * Where the subject of an image actually sits, as a normalized 0-1 point.
+ *
+ * Images render into fixed aspect boxes with `object-cover`, which crops from
+ * the centre and can cut the subject out of frame. This measures the asset and
+ * discards it — it never crops or rewrites the stored image; the renderer turns
+ * the point into `object-position`.
+ *
+ * Deliberately NOT derived from a single target-ratio `attention` crop:
+ * `sharp.strategy.attention` returns the best crop *for that ratio*, not where
+ * the subject is, so a point measured at 4/3 is wrong at 1/1 and 16/9. Probing
+ * each axis separately recovers a ratio-independent position that is correct at
+ * every render ratio at once.
+ *
+ * Returns `null` on any failure rather than throwing. Every caller wants the
+ * same thing from a bad image, and `null` renders as the centre — exactly
+ * today's behavior — so this can never fail an image download.
+ */
+export async function computeFocalPoint(buffer: Buffer): Promise<FocalPoint | null> {
+  try {
+    // One downscale, then every probe reads this working copy: attention on a
+    // 256px edge costs a fraction of full resolution and the answer is a
+    // normalized fraction either way.
+    const image = sharp(buffer)
+    const metadata = await image.metadata()
+    if (!metadata.width || !metadata.height) return null
+
+    const { data: working, info } = await image
+      .resize({
+        width: FOCAL_WORKING_EDGE_PX,
+        height: FOCAL_WORKING_EDGE_PX,
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
+      .toBuffer({ resolveWithObject: true })
+
+    const width = info.width
+    const height = info.height
+    if (!width || !height) return null
+
+    const [x, xMirrored, y, yMirrored] = await Promise.all([
+      probeAxis(working, 'x', width, height, false),
+      probeAxis(working, 'x', width, height, true),
+      probeAxis(working, 'y', width, height, false),
+      probeAxis(working, 'y', width, height, true),
+    ])
+
+    return {
+      x: clampFocal(resolveAxis(x, xMirrored)),
+      y: clampFocal(resolveAxis(y, yMirrored)),
+    }
+  } catch {
+    return null
+  }
+}
+
 function channelToHex(value: number): string {
   return Math.max(0, Math.min(255, Math.round(value)))
     .toString(16)
@@ -381,6 +563,20 @@ export async function downloadAndStoreImages(
           maxFileSizeBytes: 30 * 1024 * 1024,
         })
         const uploadBuffer = processed.buffer
+        // Measure the post-process bytes that are actually stored and rendered;
+        // processImage applies EXIF rotation (and may resize), so probing the
+        // source would measure a different orientation, size, and crop geometry
+        // than the backfill, which downloads these stored bytes.
+        //
+        // Cost, accepted deliberately: one extra decode plus four serial
+        // `sharp.strategy.attention` passes per image, on EVERY downloaded
+        // image — including logos, whose focal point no renderer reads. Logos
+        // cannot be skipped here because the classification tag is unknown at
+        // download time; classification runs after this phase. Upgrade path if
+        // this ever matters: time a download batch with and without this call,
+        // and if the delta is material, move focal computation into the
+        // classify phase, where the tag is known and logos can be skipped.
+        const focalPoint = await computeFocalPoint(uploadBuffer)
         const uploadContentType = processed.contentType
         const uploadWidth = processed.width
         const uploadHeight = processed.height
@@ -428,6 +624,8 @@ export async function downloadAndStoreImages(
             phash,
             sharpness: sharpness ?? null,
             entropy: entropy ?? null,
+            focal_x: focalPoint?.x ?? null,
+            focal_y: focalPoint?.y ?? null,
           } as never)
 
         if (insertError) {

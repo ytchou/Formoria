@@ -16,16 +16,9 @@ import {
   purchaseChannelByKey,
 } from "@/lib/brands/purchase-channels";
 import { loadCohort, snapshotDir } from "./cohort";
-
-const ARTIFACT_ROOT = `${process.env.HOME}/project/.artifact/formoria`;
-
-/** review_<cohort>_<YYYY-MM-DD-HHmmss>.html, matching the existing artifact naming. */
-function artifactPath(cohortName: string): string {
-  const t = new Date();
-  const p = (n: number): string => String(n).padStart(2, "0");
-  const stamp = `${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}-${p(t.getHours())}${p(t.getMinutes())}${p(t.getSeconds())}`;
-  return resolve(ARTIFACT_ROOT, `review_${cohortName}_${stamp}.html`);
-}
+// ARTIFACT_ROOT / artifactPath / esc are shared with
+// scripts/resort-heroes/render.ts; see scripts/shared/artifact.ts.
+import { ARTIFACT_ROOT, artifactPath, esc } from "../shared/artifact";
 
 type Img = Record<string, unknown> & {
   url: string;
@@ -53,12 +46,6 @@ type Snapshot = {
   children: Record<string, Img[]>;
 };
 
-const esc = (s: string): string =>
-  s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 
 const hostOf = (u: string | null | undefined): string => {
   if (!u) return "—";

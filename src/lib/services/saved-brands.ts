@@ -1,6 +1,7 @@
 import { auditedCall } from '@/lib/audit'
 import { createServiceClient } from '@/lib/supabase/service'
 import type { SavedBrand } from '@/lib/types/saved-brand'
+import { hydrateCardImageMeta } from '@/lib/services/brands'
 
 type BrandSaveRow = {
   brand_id: string
@@ -52,15 +53,33 @@ export async function getUserSavedBrands(
   }
 
   const rows = (data ?? []) as unknown as BrandSaveWithBrandRow[]
-  return rows
-    .filter((row) => row.brands?.status === 'approved')
-    .map((row) => ({
-      brandId: row.brand_id,
-      brandName: row.brands!.name,
-      brandSlug: row.brands!.slug,
-      heroImageUrl: row.brands!.hero_image_url ?? null,
-      savedAt: row.created_at,
-    }))
+  const approvedRows = rows.filter((row) => row.brands?.status === 'approved')
+
+  // This query reads `brands` directly rather than going through `getBrands`,
+  // so it needs the hero's `brand_images` metadata hydrated on its own to know
+  // which saved cards render a logo. Only `id` and `heroImageUrl` are required.
+  const hydrated = await hydrateCardImageMeta(
+    supabase,
+    approvedRows.map((row) => ({
+      id: row.brands!.id,
+      heroImageUrl: row.brands!.hero_image_url,
+    })),
+  )
+  // One map, one lookup per row: the fill mode and the object-position both
+  // come from the same hero `BrandImageMeta`, so splitting them into two maps
+  // meant two passes over `hydrated` reading the same `imageAlts.at(0)`.
+  const heroMetaByBrandId = new Map(
+    hydrated.map((brand) => [brand.id, brand.imageAlts.at(0) ?? null]),
+  )
+
+  return approvedRows.map((row) => ({
+    brandId: row.brand_id,
+    brandName: row.brands!.name,
+    brandSlug: row.brands!.slug,
+    heroImageUrl: row.brands!.hero_image_url ?? null,
+    savedAt: row.created_at,
+    heroImageMeta: heroMetaByBrandId.get(row.brands!.id) ?? null,
+  }))
 }
 
 export async function saveBrand(

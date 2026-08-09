@@ -49,6 +49,12 @@ Thumbs.db
 scripts/.backfill-backup-*.json
 scripts/.quality-purge-backup-*.json
 scripts/backup/
+scripts/resort-heroes/preview.json
+scripts/resort-heroes/completed.jsonl
+# Restore manifests now live next to the review artifact (outside the repo, see
+# scripts/shared/artifact.ts) so a `git clean -xdf` cannot destroy the only
+# rollback record. This entry only covers manifests left by earlier local runs.
+scripts/resort-heroes/manifests/
 
 # local scratch / generated image output
 /images/
