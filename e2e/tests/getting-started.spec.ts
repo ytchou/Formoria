@@ -14,7 +14,7 @@ test.describe("Getting Started page deep", () => {
     await expect(
       page.getByRole("heading", {
         level: 1,
-        name: "Find your next favorite brand",
+        name: "Find a Taiwanese brand tonight",
       }),
     ).toBeVisible();
   });
