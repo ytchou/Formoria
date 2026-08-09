@@ -93,7 +93,7 @@ test.describe("Submit funnel", () => {
     });
 
     // Navigate with PREVIEW_MODE guard
-    const resp = await anonPage.goto("/submit/recommend", { timeout: 60_000 });
+    const resp = await anonPage.goto("/submit/recommend");
     if (resp?.status() === 503) {
       test.skip(true, "PREVIEW_MODE active — skipping");
       return;
@@ -101,7 +101,7 @@ test.describe("Submit funnel", () => {
 
     // Auth-redirect resilience: middleware can transiently send to /auth/sign-in
     if (anonPage.url().includes("/auth/sign-in")) {
-      await anonPage.goto("/submit/recommend", { timeout: 60_000 });
+      await anonPage.goto("/submit/recommend");
     }
 
     // Wait for the flat-form heading (confirms hydration)
@@ -204,9 +204,7 @@ test.describe("Submit funnel", () => {
       });
     });
 
-    const resp = await userPage.goto("/submit/owner/details", {
-      timeout: 60_000,
-    });
+    const resp = await userPage.goto("/submit/owner/details");
     if (resp?.status() === 503) {
       test.skip(true, "PREVIEW_MODE active — skipping");
       return;

@@ -155,7 +155,7 @@ test.describe('Admin dashboard deep', () => {
   test('admin dashboard shows accurate stats', async ({ adminPage }) => {
     test.setTimeout(120_000);
     await adminPage.setViewportSize({ width: 1512, height: 828 });
-    await adminPage.goto('/admin', { timeout: 60_000 });
+    await adminPage.goto('/admin');
     await expect(adminPage.getByRole('heading', { name: /^Admin$/ })).toBeVisible({ timeout: 60_000 });
     await expect(adminPage.getByRole('heading', { name: 'Operations overview' })).toBeVisible();
     await expect(adminPage.getByRole('link', { name: /Needs data/ })).toHaveAttribute(
@@ -173,7 +173,7 @@ test.describe('Admin dashboard deep', () => {
 
   test('operations ledger remains actionable on mobile', async ({ adminPage }) => {
     await adminPage.setViewportSize({ width: 390, height: 844 });
-    await adminPage.goto('/admin', { timeout: 60_000 });
+    await adminPage.goto('/admin');
     const needsData = adminPage.getByRole('link', { name: /Needs data/ });
     await expect(needsData).toBeVisible({ timeout: 60_000 });
     await expect(needsData).toHaveCSS('min-height', '160px');
@@ -184,13 +184,13 @@ test.describe('Admin dashboard deep', () => {
     // DEV-762: admin sub-routes also cold-compile in CI dev mode; bump per-link
     // <main> wait to 15s and add a 60s test budget.
     test.setTimeout(120_000);
-    await adminPage.goto('/admin', { timeout: 60_000 });
+    await adminPage.goto('/admin');
     const navLinks = adminPage.locator('nav a, [data-testid="admin-nav"] a');
     const count = await navLinks.count();
     for (let i = 0; i < count; i++) {
       const href = await navLinks.nth(i).getAttribute('href');
       if (href?.startsWith('/admin')) {
-        await adminPage.goto(href, { timeout: 60_000 });
+        await adminPage.goto(href);
         await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
         await expect(adminPage.getByText(/something went wrong/i)).not.toBeVisible();
       }
@@ -202,7 +202,7 @@ test.describe('Admin dashboard deep', () => {
     // approve action generous budgets.
     test.setTimeout(120_000);
     if (!testSubmissionId) test.skip();
-    await adminPage.goto('/admin/submissions?stage=ready', { timeout: 60_000 });
+    await adminPage.goto('/admin/submissions?stage=ready');
     // Wait for the page to be interactive before looking for the seeded row.
     await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
     const readyRow = adminPage.locator('tbody tr').filter({ hasText: testBrandName }).first();
@@ -235,7 +235,7 @@ test.describe('Admin dashboard deep', () => {
     if (!data?.id) throw new Error('Needs-data submission seed failed');
 
     try {
-      await adminPage.goto('/admin/submissions?stage=needs_data', { timeout: 60_000 });
+      await adminPage.goto('/admin/submissions?stage=needs_data');
       await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
       const rejectRow = adminPage.locator('tbody tr').filter({ hasText: rejectBrandName });
       await expect(rejectRow).toBeVisible({ timeout: 10_000 });

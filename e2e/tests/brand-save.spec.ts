@@ -171,7 +171,7 @@ test.describe.serial('Brand save/unsave — card overlay', () => {
       .toBe(true);
 
     // Saved brands now live at /favorites (not the dashboard saved tab)
-    const resp = await userPage.goto('/favorites', { timeout: 60_000 });
+    const resp = await userPage.goto('/favorites');
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping.');
       return;
@@ -236,7 +236,6 @@ test.describe.serial('Brand save/unsave — card overlay', () => {
 
       // Saved brands now live at /favorites
       const resp = await userPage.goto('/favorites', {
-        timeout: 60_000,
         waitUntil: 'domcontentloaded',
       });
       await expect(userPage.getByRole('heading').first()).toBeVisible();

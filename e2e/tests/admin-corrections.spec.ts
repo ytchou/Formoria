@@ -35,7 +35,7 @@ test.describe("Admin brand corrections", () => {
     adminPage,
   }) => {
     test.setTimeout(120_000);
-    await adminPage.goto("/admin/corrections", { timeout: 60_000 });
+    await adminPage.goto("/admin/corrections");
     await expect(adminPage.getByRole("heading", { name: "Brand Corrections" })).toBeVisible({
       timeout: 60_000,
     });
@@ -108,7 +108,7 @@ test.describe("Admin brand corrections", () => {
       correctionIds.push(correction.id);
     }
 
-    await adminPage.goto("/admin/corrections", { timeout: 60_000 });
+    await adminPage.goto("/admin/corrections");
     await expect(adminPage.getByRole("heading", { name: "Brand Corrections" })).toBeVisible({
       timeout: 60_000,
     });

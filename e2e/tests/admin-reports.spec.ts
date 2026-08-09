@@ -70,7 +70,7 @@ test.describe('Admin reports deep', () => {
   test('reports page renders heading and table columns or empty state', async ({ adminPage }) => {
     // DEV-762: admin sub-routes cold-compile in CI dev mode; give generous budget
     test.setTimeout(120_000);
-    await adminPage.goto('/admin/reports', { timeout: 60_000 });
+    await adminPage.goto('/admin/reports');
     await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
 
     await expect(
@@ -102,7 +102,7 @@ test.describe('Admin reports deep', () => {
     // DEV-762: admin sub-routes cold-compile in CI dev mode; give generous budget
     test.setTimeout(120_000);
 
-    await adminPage.goto('/admin/reports', { timeout: 60_000 });
+    await adminPage.goto('/admin/reports');
     // Wait for main to confirm the page loaded before looking for the seeded row
     await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
 

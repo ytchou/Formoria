@@ -74,7 +74,7 @@ test.describe('Dashboard — tab navigation', () => {
   test('default dashboard landing shows the single brand with owner actions', async ({ userPage }) => {
     test.setTimeout(120_000);
 
-    const resp = await userPage.goto('/dashboard', { timeout: 60_000 });
+    const resp = await userPage.goto('/dashboard');
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping.');
       return;
@@ -104,7 +104,7 @@ test.describe('Dashboard — tab navigation', () => {
   test('a stale brand query cannot switch away from the account owner brand', async ({ userPage }) => {
     test.setTimeout(120_000);
 
-    const resp = await userPage.goto('/dashboard?brand=totally-bogus-brand-that-does-not-exist', { timeout: 60_000 });
+    const resp = await userPage.goto('/dashboard?brand=totally-bogus-brand-that-does-not-exist');
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping.');
       return;
@@ -141,12 +141,12 @@ test.describe('Dashboard — legacy brand route redirect', () => {
     test.setTimeout(120_000);
 
     // Resolve the current brand slug by letting /dashboard redirect
-    await userPage.goto('/dashboard', { timeout: 60_000 });
+    await userPage.goto('/dashboard');
     await expect(userPage).toHaveURL(/\/dashboard\/brands\/[^/]+$/, { timeout: 60_000 });
     const brandUrl = userPage.url();
 
     // Navigate directly to the path-based URL — verify it renders without an extra redirect
-    const resp = await userPage.goto(brandUrl, { timeout: 60_000 });
+    const resp = await userPage.goto(brandUrl);
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping.');
       return;

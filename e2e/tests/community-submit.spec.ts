@@ -60,9 +60,7 @@ test.describe("Community submit flow", () => {
     userPage,
   }) => {
     test.setTimeout(60_000);
-    const probe = await userPage.goto("/submit/owner/quick", {
-      timeout: 60_000,
-    });
+    const probe = await userPage.goto("/submit/owner/quick");
     if (probe?.status() === 404) {
       test.skip(true, OWNER_FEATURES_OFF_REASON);
       return;

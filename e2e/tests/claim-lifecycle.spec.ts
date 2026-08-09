@@ -151,7 +151,7 @@ async function cleanupScenario(
 }
 
 async function openAdminClaim(page: Page, brandName: string) {
-  await page.goto('/admin/claims', { timeout: 60_000 });
+  await page.goto('/admin/claims');
   await expect(page.getByRole('heading', { name: /claim requests/i })).toBeVisible({
     timeout: 60_000,
   });

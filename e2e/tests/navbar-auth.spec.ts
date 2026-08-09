@@ -97,7 +97,7 @@ test.describe("Navbar auth journey", () => {
 
     try {
       // Sign in via the UI as the disposable user
-      await page.goto("/auth/sign-in", { timeout: 60_000 });
+      await page.goto("/auth/sign-in");
       await expect(
         page.getByRole("heading", { name: "登入 Formoria" }),
       ).toBeVisible({ timeout: 30_000 });
@@ -105,9 +105,7 @@ test.describe("Navbar auth journey", () => {
       await page.getByLabel("密碼", { exact: true }).fill(disposablePassword);
       await page.getByRole("button", { name: "登入", exact: true }).click();
       // Wait for any redirect away from the sign-in page (to /dashboard or similar)
-      await page.waitForURL((url) => !url.pathname.includes("/auth/sign-in"), {
-        timeout: 60_000,
-      });
+      await page.waitForURL((url) => !url.pathname.includes("/auth/sign-in"));
 
       // Navigate home — verify the account menu is present (user is authenticated)
       await page.goto("/");

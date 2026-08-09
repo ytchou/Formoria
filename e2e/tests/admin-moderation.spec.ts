@@ -136,9 +136,7 @@ test.describe('Content moderation flow', () => {
   });
 
   async function saveBasicInfoDraft(ownerPage: Page, description: string) {
-    await ownerPage.goto(`/zh-TW/dashboard/brands/${brandSlug}/edit?step=0`, {
-      timeout: 60_000,
-    });
+    await ownerPage.goto(`/zh-TW/dashboard/brands/${brandSlug}/edit?step=0`);
     await expect(ownerPage.locator('#description')).toBeVisible({
       timeout: 30_000,
     });
@@ -174,9 +172,7 @@ test.describe('Content moderation flow', () => {
   }
 
   async function publishDraft(ownerPage: Page) {
-    await ownerPage.goto(`/zh-TW/dashboard/brands/${brandSlug}/edit?step=4`, {
-      timeout: 60_000,
-    });
+    await ownerPage.goto(`/zh-TW/dashboard/brands/${brandSlug}/edit?step=4`);
     await expect(ownerPage.getByRole('button', { name: '發布' })).toBeVisible({
       timeout: 30_000,
     });
@@ -215,7 +211,7 @@ test.describe('Content moderation flow', () => {
     expect(flagsError).toBeNull();
     expect(flags).toEqual([]);
 
-    await ownerPage.goto(`/zh-TW/brands/${brandSlug}`, { timeout: 60_000 });
+    await ownerPage.goto(`/zh-TW/brands/${brandSlug}`);
     await expect(ownerPage.getByText(updatedDescription, { exact: true })).toBeVisible({
       timeout: 30_000,
     });
@@ -249,7 +245,7 @@ test.describe('Content moderation flow', () => {
       blockedDescription,
     );
 
-    await ownerPage.goto(`/zh-TW/brands/${brandSlug}`, { timeout: 60_000 });
+    await ownerPage.goto(`/zh-TW/brands/${brandSlug}`);
     await expect(
       ownerPage.getByText(`${cleanDescription}，新增耐用設計說明`, {
         exact: true,
@@ -278,7 +274,7 @@ test.describe('Content moderation flow', () => {
   }) => {
     test.setTimeout(120_000);
 
-    await adminPage.goto('/admin/brands', { timeout: 60_000 });
+    await adminPage.goto('/admin/brands');
     await adminPage.getByPlaceholder('Search brand name...').fill(brandName);
     const brandRow = adminPage.locator('tbody tr').filter({ hasText: brandName });
     await expect(brandRow).toBeVisible({ timeout: 30_000 });
@@ -324,7 +320,7 @@ test.describe('Content moderation flow', () => {
     });
     adminBlockedFlagId = adminFlag?.id ?? '';
 
-    await adminPage.goto('/admin/moderation', { timeout: 60_000 });
+    await adminPage.goto('/admin/moderation');
     await expect(
       adminPage.locator('table').getByRole('columnheader', { name: 'Brand' }),
     ).toBeVisible({ timeout: 30_000 });

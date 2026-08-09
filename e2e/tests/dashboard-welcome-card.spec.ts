@@ -97,7 +97,7 @@ test.describe('Dashboard — quick actions', () => {
   test('quick actions section visible with 4 action links', async ({ userPage }) => {
     test.setTimeout(120_000)
 
-    const resp = await userPage.goto(`/dashboard/brands/${brandSlug}`, { timeout: 60_000 })
+    const resp = await userPage.goto(`/dashboard/brands/${brandSlug}`)
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping')
       return

@@ -204,7 +204,7 @@ test.describe("Claim request smoke", () => {
     }
     expect(proofStorageKeys.size).toBeGreaterThanOrEqual(1);
 
-    await adminPage.goto("/admin/claims", { timeout: 60_000 });
+    await adminPage.goto("/admin/claims");
     await expect(
       adminPage.getByRole("heading", { name: /claim requests/i }),
     ).toBeVisible({ timeout: 60_000 });

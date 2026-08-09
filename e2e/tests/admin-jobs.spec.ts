@@ -190,7 +190,7 @@ test.describe('Admin curation jobs deep', () => {
   test('admin sees one job log and cancels active work', async ({ adminPage }) => {
     test.setTimeout(120_000);
     if (!cancellableJobId) test.skip();
-    await adminPage.goto('/admin/jobs', { timeout: 60_000 });
+    await adminPage.goto('/admin/jobs');
     await expect(adminPage.getByRole('navigation', { name: 'Filter data jobs' })).toHaveCount(0);
     const row = adminPage.locator('tbody tr').filter({ has: adminPage.locator(`a[href="/admin/jobs/${cancellableJobId}"]`) });
     await expect(row).toBeVisible({ timeout: 60_000 });
@@ -207,13 +207,13 @@ test.describe('Admin curation jobs deep', () => {
   test('admin reviews a failed curation target and manually reruns it', async ({ adminPage }) => {
     test.setTimeout(120_000);
 
-    await adminPage.goto('/admin/jobs', { timeout: 60_000 });
+    await adminPage.goto('/admin/jobs');
     await expect(adminPage.getByRole('heading', { name: 'Data Jobs' })).toBeVisible({ timeout: 60_000 });
 
     const historyLink = adminPage.locator(`a[href="/admin/jobs/${parentJobId}"]`);
     const historyRow = adminPage.locator('tbody tr').filter({ has: historyLink });
     await expect(async () => {
-      await adminPage.reload({ timeout: 60_000 });
+      await adminPage.reload({});
       await expect(historyLink).toHaveCount(1);
       await expect(historyRow).toBeVisible();
       await expect(historyRow).toContainText('Completed with failures');
@@ -273,7 +273,7 @@ test.describe('Admin curation jobs deep', () => {
       exact: true,
     });
     await expect(async () => {
-      await adminPage.reload({ timeout: 60_000 });
+      await adminPage.reload({});
       const childTriggerField = adminPage.getByText('Trigger', { exact: true }).locator('..');
       await expect(childTriggerField).toContainText('Manual rerun');
       await expect(childTargetRow).toBeVisible();

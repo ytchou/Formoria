@@ -36,7 +36,7 @@ test.describe('Admin newsletter operations deep', () => {
   });
 
   test('admin filters pending subscribers without exposing action tokens', async ({ adminPage }) => {
-    await adminPage.goto(`/admin/newsletter?status=pending&q=${encodeURIComponent(subscriberEmail)}`, { timeout: 60_000 });
+    await adminPage.goto(`/admin/newsletter?status=pending&q=${encodeURIComponent(subscriberEmail)}`);
     await expect(adminPage.getByRole('heading', { name: 'Newsletter' })).toBeVisible({ timeout: 60_000 });
     const row = adminPage.locator('tbody tr').filter({ hasText: subscriberEmail });
     await expect(row).toBeVisible();

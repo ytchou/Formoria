@@ -239,7 +239,7 @@ test.afterAll(async () => {
 test.describe('Dashboard brand edit', () => {
   test('edit form has city select with placeholder and city options', async ({ userPage }) => {
     test.setTimeout(60_000);
-    await userPage.goto(`/dashboard/brands/${descriptionBrandSlug}/edit`, { timeout: 60_000 });
+    await userPage.goto(`/dashboard/brands/${descriptionBrandSlug}/edit`);
     await expect(
       userPage.getByRole('heading', { name: /^編輯 / }),
     ).toBeVisible({ timeout: 60_000 });
@@ -254,7 +254,7 @@ test.describe('Dashboard brand edit', () => {
   test('owner can edit description and change persists', async ({ userPage }) => {
     test.setTimeout(120_000);
 
-    await userPage.goto(`/dashboard/brands/${descriptionBrandSlug}/edit`, { timeout: 60_000 });
+    await userPage.goto(`/dashboard/brands/${descriptionBrandSlug}/edit`);
     await expect(
       userPage.getByRole('heading', { name: /^編輯 / }),
     ).toBeVisible({ timeout: 60_000 });
@@ -300,7 +300,7 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
   test('wizard loads at step 0 (Basic Info) by default', async ({ userPage }) => {
     test.setTimeout(60_000);
 
-    const resp = await userPage.goto(`/dashboard/brands/${wizardBrandSlug}/edit`, { timeout: 60_000 });
+    const resp = await userPage.goto(`/dashboard/brands/${wizardBrandSlug}/edit`);
     if (resp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
     await expect(
@@ -321,7 +321,7 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
   test('sidebar shows all five step labels', async ({ userPage }) => {
     test.setTimeout(60_000);
 
-    const resp = await userPage.goto(`/dashboard/brands/${wizardBrandSlug}/edit`, { timeout: 60_000 });
+    const resp = await userPage.goto(`/dashboard/brands/${wizardBrandSlug}/edit`);
     if (resp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
     await expect(
@@ -341,7 +341,7 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
     test.setTimeout(90_000);
     const nextName = `Reload Check ${Date.now()}`;
 
-    const resp = await userPage.goto(`/dashboard/brands/${wizardBrandSlug}/edit`, { timeout: 60_000 });
+    const resp = await userPage.goto(`/dashboard/brands/${wizardBrandSlug}/edit`);
     if (resp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
     await expect(
@@ -387,7 +387,6 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
 
     const basicResp = await userPage.goto(
       `/dashboard/brands/${wizardBrandSlug}/edit?step=0`,
-      { timeout: 60_000 },
     );
     if (basicResp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
@@ -406,7 +405,6 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
 
     const linksResp = await userPage.goto(
       `/dashboard/brands/${wizardBrandSlug}/edit?step=2`,
-      { timeout: 60_000 },
     );
     if (linksResp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
@@ -436,7 +434,6 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
 
     const resp = await userPage.goto(
       `/dashboard/brands/${wizardBrandSlug}/edit?step=0`,
-      { timeout: 60_000 },
     );
     if (resp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
@@ -483,7 +480,7 @@ test.describe('Dashboard — brand image upload', () => {
     test.setTimeout(120_000);
 
     const editPath = `/dashboard/brands/${imageUploadBrandSlug}/edit?step=1`;
-    const editResp = await userPage.goto(editPath, { timeout: 60_000 });
+    const editResp = await userPage.goto(editPath);
     if (editResp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
     await expect(
@@ -570,7 +567,7 @@ test.describe('Dashboard — governed field integrity', () => {
 
     // userPage owns governedBrand (layout renders children).
     // adminBrand is owned by adminUser — userPage is neither admin nor owner → redirect.
-    const resp = await userPage.goto(`/dashboard/brands/${adminBrandSlug}/edit`, { timeout: 60_000 });
+    const resp = await userPage.goto(`/dashboard/brands/${adminBrandSlug}/edit`);
     if (resp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
     // /dashboard redirects to /dashboard/brands/<slug> client-side, so the final
@@ -586,7 +583,7 @@ test.describe('Dashboard — governed field integrity', () => {
     test.setTimeout(120_000);
 
     const editPath = `/dashboard/brands/${governedBrandSlug}/edit`;
-    const editResp = await userPage.goto(editPath, { timeout: 60_000 });
+    const editResp = await userPage.goto(editPath);
     if (editResp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
     await expect(userPage.getByRole('heading', { level: 1, name: /edit|編輯/i })).toBeVisible({ timeout: 60_000 });

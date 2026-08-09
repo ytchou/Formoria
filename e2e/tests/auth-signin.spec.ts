@@ -74,7 +74,7 @@ test.describe("Auth — Google OAuth offline guard", () => {
       await route.abort();
     });
 
-    await anonPage.goto("/auth/sign-in", { timeout: 60_000 });
+    await anonPage.goto("/auth/sign-in");
 
     await expect(
       anonPage.getByRole("heading", { name: "登入 Formoria", exact: true }),
@@ -121,7 +121,7 @@ test.describe("Auth — sign-in flow", () => {
       throw new Error("E2E_USER_EMAIL and E2E_USER_PASSWORD must be set");
     }
 
-    await anonPage.goto("/auth/sign-in", { timeout: 60_000 });
+    await anonPage.goto("/auth/sign-in");
 
     await expect(
       anonPage.getByRole("heading", { name: "登入 Formoria", exact: true }),
@@ -140,9 +140,7 @@ test.describe("Auth — sign-in flow", () => {
     await Promise.all([
       // Server Action → Supabase round-trip plus a cold-compile of the landing
       // page can be slow in dev.
-      anonPage.waitForURL((url) => !url.pathname.includes("/auth/sign-in"), {
-        timeout: 60_000,
-      }),
+      anonPage.waitForURL((url) => !url.pathname.includes("/auth/sign-in")),
       anonPage.getByRole("button", { name: "登入", exact: true }).click(),
     ]);
 

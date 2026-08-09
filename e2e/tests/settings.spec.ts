@@ -13,7 +13,7 @@ test.describe('Settings page', () => {
   test('renders settings form with user data', async ({ userPage }) => {
     test.setTimeout(60_000)
 
-    const resp = await userPage.goto('/settings', { timeout: 60_000 })
+    const resp = await userPage.goto('/settings')
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping')
       return

@@ -54,9 +54,7 @@ test.describe("Owner features gated off", () => {
   }) => {
     test.setTimeout(90_000);
 
-    const resp = await userPage.goto(`/brands/${brandSlug}`, {
-      timeout: 60_000,
-    });
+    const resp = await userPage.goto(`/brands/${brandSlug}`);
     if (resp?.status() === 503) {
       test.skip(
         true,
@@ -93,7 +91,7 @@ test.describe("Owner features gated off", () => {
 
     // Signed in, so the (protected) layout's auth check passes and the flag gate
     // below it answers notFound() — a 404, not the signed-out sign-in redirect.
-    const dashboard = await userPage.goto("/dashboard", { timeout: 60_000 });
+    const dashboard = await userPage.goto("/dashboard");
     if (dashboard?.status() === 503) {
       test.skip(
         true,
@@ -111,7 +109,7 @@ test.describe("Owner features gated off", () => {
       "/submit/owner/details",
       "/en/submit/owner",
     ]) {
-      const response = await userPage.goto(ownerPath, { timeout: 60_000 });
+      const response = await userPage.goto(ownerPath);
       expect(response?.status(), `${ownerPath} must not be reachable`).toBe(
         404,
       );
@@ -130,7 +128,7 @@ test.describe("Owner features gated off", () => {
       "E2E_USER_EMAIL and E2E_USER_PASSWORD are required to exercise the sign-in landing.",
     );
 
-    await anonPage.goto("/auth/sign-in", { timeout: 60_000 });
+    await anonPage.goto("/auth/sign-in");
     await expect(
       anonPage.getByRole("heading", { name: "登入 Formoria", exact: true }),
     ).toBeVisible({ timeout: 60_000 });
@@ -139,9 +137,7 @@ test.describe("Owner features gated off", () => {
     await anonPage.getByLabel("密碼", { exact: true }).fill(password!);
 
     await Promise.all([
-      anonPage.waitForURL((url) => !url.pathname.includes("/auth/sign-in"), {
-        timeout: 60_000,
-      }),
+      anonPage.waitForURL((url) => !url.pathname.includes("/auth/sign-in")),
       anonPage.getByRole("button", { name: "登入", exact: true }).click(),
     ]);
 
@@ -155,7 +151,7 @@ test.describe("Owner features gated off", () => {
   }) => {
     test.setTimeout(90_000);
 
-    const resp = await userPage.goto("/", { timeout: 60_000 });
+    const resp = await userPage.goto("/");
     if (resp?.status() === 503) {
       test.skip(
         true,

@@ -129,7 +129,7 @@ async function cleanupFeatureRequests(
 }
 
 async function gotoAndGuard(page: Page, path: string): Promise<void> {
-  const response = await page.goto(path, { timeout: 60_000 });
+  const response = await page.goto(path);
   if (response?.status() === 503) {
     test.skip(true, 'PREVIEW_MODE returns 503 for this route in the current env.');
   }

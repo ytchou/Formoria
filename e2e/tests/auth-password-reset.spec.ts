@@ -9,13 +9,13 @@ test.describe('Auth — forgot password request', () => {
     // Auth pages can cold-compile slowly in dev.
     test.setTimeout(120_000);
 
-    await anonPage.goto('/auth/sign-in', { timeout: 60_000 });
+    await anonPage.goto('/auth/sign-in');
 
     const forgotLink = anonPage.getByRole('link', { name: '忘記密碼？', exact: true });
     await expect(forgotLink).toBeVisible({ timeout: 60_000 });
 
     await Promise.all([
-      anonPage.waitForURL(/\/auth\/forgot-password(?:[/?#]|$)/, { timeout: 60_000 }),
+      anonPage.waitForURL(/\/auth\/forgot-password(?:[/?#]|$)/),
       forgotLink.click(),
     ]);
 
@@ -33,7 +33,7 @@ test.describe('Auth — forgot password request', () => {
   }) => {
     test.setTimeout(120_000);
 
-    await anonPage.goto('/auth/forgot-password', { timeout: 60_000 });
+    await anonPage.goto('/auth/forgot-password');
 
     const emailInput = anonPage.getByLabel('電子郵件', { exact: true });
     const submitBtn = anonPage.getByRole('button', { name: '傳送重設連結', exact: true });
@@ -64,7 +64,7 @@ test.describe('Auth — forgot password request', () => {
     // Server Action → Supabase round-trip can be slow in dev.
     test.setTimeout(120_000);
 
-    await anonPage.goto('/auth/forgot-password', { timeout: 60_000 });
+    await anonPage.goto('/auth/forgot-password');
 
     const emailInput = anonPage.getByLabel('電子郵件', { exact: true });
     await expect(emailInput).toBeVisible({ timeout: 60_000 });
@@ -94,7 +94,7 @@ test.describe('Auth — reset password page guard', () => {
     test.setTimeout(120_000);
 
     // Direct visit with no recovery session — the form must still render
-    await anonPage.goto('/auth/reset-password', { timeout: 60_000 });
+    await anonPage.goto('/auth/reset-password');
 
     await expect(
       anonPage.getByRole('heading', { name: '設定新密碼', exact: true })
@@ -132,7 +132,7 @@ test.describe('Auth — reset password page guard', () => {
     // /dashboard, breaking the recovery flow (callback authenticates, then
     // sends the user here). The guard now lives on sign-in/sign-up/forgot-password
     // pages only — the reset form must render for a signed-in user.
-    await userPage.goto('/auth/reset-password', { timeout: 60_000 });
+    await userPage.goto('/auth/reset-password');
 
     await expect(
       userPage.getByRole('heading', { name: '設定新密碼', exact: true })
@@ -151,10 +151,8 @@ test.describe('Auth — reset password page guard', () => {
     // from the sign-in page. The destination depends on the owner-features flag
     // (DEV-1261) — `/` while owner features are off — so assert only that the
     // guard fired and the user did not stay on the sign-in page.
-    await userPage.goto('/auth/sign-in', { timeout: 60_000 });
-    await userPage.waitForURL((url) => !url.pathname.includes('/auth/sign-in'), {
-      timeout: 60_000,
-    });
+    await userPage.goto('/auth/sign-in');
+    await userPage.waitForURL((url) => !url.pathname.includes('/auth/sign-in'));
     await expect(userPage.getByRole('button', { name: /account|帳號/i })).toBeVisible({
       timeout: 30_000,
     });

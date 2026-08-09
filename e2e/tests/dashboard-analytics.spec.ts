@@ -46,7 +46,6 @@ test.describe('Dashboard — analytics', () => {
     const resp = await userPage.goto(
       `/dashboard/brands/${brandSlug}/analytics`,
       {
-        timeout: 60_000,
       },
     )
     if (resp?.status() === 503) {
