@@ -1,4 +1,5 @@
 import { auditedCall } from '@/lib/audit'
+import { isLogoImageTags } from '@/lib/constants/brand-images'
 import type { BrandImageMeta } from '@/lib/types/brand'
 import { deleteBrandImages, deleteStoredImagePaths } from './image-upload'
 
@@ -106,13 +107,35 @@ function brandHeroTable(supabase: unknown): BrandHeroTable {
   return (supabase as BrandHeroClient).from('brands')
 }
 
+/**
+ * Gallery URLs paired with their index in the UNFILTERED
+ * `[heroImageUrl, ...productPhotos]` sequence.
+ *
+ * The pairing is load-bearing, not a convenience. `imageAlts` is built by
+ * `toImageFields` as `active.map(...)` over that same unfiltered sequence, so a
+ * brand with a null `heroImageUrl` shifts every later gallery position by one
+ * against its metadata. That used to mis-assign only alt text; it now also
+ * decides fill mode (`isLogo`) and `object-position`, so a shift visibly
+ * letterboxes a product photo and crops a logo. Callers that render metadata
+ * alongside the image MUST index by `sourceIndex`, never by array position —
+ * the same `sourceIndex` discipline `image-carousel.tsx` uses for its own
+ * host-filter drop.
+ */
+export function getBrandGalleryImageEntries(brand: {
+  heroImageUrl: string | null
+  productPhotos: readonly string[]
+}): Array<{ url: string; sourceIndex: number }> {
+  return [brand.heroImageUrl, ...brand.productPhotos].flatMap((url, sourceIndex) =>
+    url ? [{ url, sourceIndex }] : [],
+  )
+}
+
+/** URL-only view of {@link getBrandGalleryImageEntries}, for callers with no per-image metadata. */
 export function getBrandGalleryImages(brand: {
   heroImageUrl: string | null
   productPhotos: readonly string[]
 }): string[] {
-  return [brand.heroImageUrl, ...brand.productPhotos].filter(
-    (url): url is string => Boolean(url),
-  )
+  return getBrandGalleryImageEntries(brand).map((entry) => entry.url)
 }
 
 export function toImageFields(rows: BrandImageRow[]): {
@@ -146,7 +169,7 @@ export function toImageFields(rows: BrandImageRow[]): {
     imageAlts: active.map((row) => ({
       altZh: row.alt_zh ?? null,
       altEn: row.alt_en ?? null,
-      isLogo: (row.tags ?? []).includes('logo'),
+      isLogo: isLogoImageTags(row.tags),
       focalX: row.focal_x ?? null,
       focalY: row.focal_y ?? null,
     })),

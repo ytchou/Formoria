@@ -3,7 +3,9 @@ import { auditedCall } from "@/lib/audit";
 import { IMAGE_CLASSIFY_SYSTEM_PROMPT } from "@/lib/prompts";
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 import {
+  BRAND_IMAGE_LOGO_TAG,
   HERO_TARGET_RATIO,
+  isLogoImageTags,
   MAX_BRAND_ACTIVE_IMAGES,
 } from "@/lib/constants/brand-images";
 import { cropDamage } from "@/lib/images/crop-damage";
@@ -84,7 +86,10 @@ const IMAGE_TAGS = [
  *     directly about the product.
  * Everything else is a rejection, which the disposition/reasons contract carries.
  */
-const KEEP_TAGS = ["product", "logo"] as const;
+// The `logo` member is the shared BRAND_IMAGE_LOGO_TAG rather than a second
+// literal: this vocabulary and the renderers' logo carve-out must name the
+// same string, and a duplicated literal is how they would drift.
+const KEEP_TAGS = ["product", BRAND_IMAGE_LOGO_TAG] as const;
 
 /**
  * LEGACY tags that are still valid images, mapped onto their modern equivalent.
@@ -173,8 +178,16 @@ export const JUNK_TAGS = new Set(["promo", "text_banner", "irrelevant"]);
  */
 export const PORTRAIT_QUALITY_PRIOR = 6;
 
-/** Images a human picked. The classifier must never retag, reorder away, or delete these. */
-const EXEMPT_SOURCES = new Set(["owner", "admin"]);
+/**
+ * Images a human picked. The classifier must never retag, reorder away, or
+ * delete these.
+ *
+ * Exported alongside `isExemptSource` because the hero re-sort scripts under
+ * `scripts/resort-heroes/` need the identical rule; an unexported constant
+ * forced a hand-copied `['owner', 'admin']` literal over there, which is a
+ * silent divergence waiting to reorder somebody's hand-picked hero.
+ */
+export const EXEMPT_SOURCES = new Set(["owner", "admin"]);
 
 /**
  * sort_order doubles as the hero designation (position 0) and as the gallery
@@ -256,6 +269,18 @@ type ClassifiedImage = {
    */
   focalX?: number | null;
   focalY?: number | null;
+  /**
+   * Whether the RENDERER will treat this image as a logo, i.e. whether `logo`
+   * appears anywhere in the row's `tags` array — the same question
+   * `isLogoImageTags` answers for every render site.
+   *
+   * Distinct from `tag === "logo"`, which reads only the FIRST classification
+   * tag. On a row tagged `['product', 'logo']` the two disagree: ranking
+   * charged crop damage while the page rendered `object-contain` and never
+   * cropped it. Populated at both real construction sites; optional only so the
+   * unit tests can keep building bare literals.
+   */
+  isLogo?: boolean;
 };
 
 function toStrictJsonSchema(shape: z.ZodType): Record<string, unknown> {
@@ -396,7 +421,7 @@ function scoreValue(value: BrandImageRow["score"]): number {
   return 0;
 }
 
-function isExemptSource(
+export function isExemptSource(
   source: BrandImageRow["source"] | string | null,
 ): boolean {
   return typeof source === "string" && EXEMPT_SOURCES.has(source);
@@ -423,6 +448,11 @@ function classifiedImageFromRow(
     height: row.height ?? null,
     focalX: row.focal_x ?? null,
     focalY: row.focal_y ?? null,
+    // From the whole `tags` array, not from `storedTag` above: `storedTag` is
+    // the first classification tag, while the renderer asks whether `logo` is
+    // present at all. Reading the array here is what keeps ranking and
+    // rendering answering the same question.
+    isLogo: isLogoImageTags(row.tags),
     disposition: JUNK_TAGS.has(storedTag) ? "reject" : "keep",
     ...(storedTag === "promo"
       ? { rejectionReasons: ["promo_subject" as const] }
@@ -560,6 +590,20 @@ function isPortrait(image: ClassifiedImage): boolean {
  *
  * Exported so tests assert against the constant rather than a literal: raising
  * this must fail CI, not quietly promote junk past a good image.
+ *
+ * GATE C1 — stored dimensions validated against the actual image bytes
+ * (2026-08-08). 60 active `brand_images` rows, sampled evenly across the full
+ * aspect-ratio range, were re-probed with `sharp` against the bytes in Storage:
+ * 0 mismatches at a 2% aspect-ratio drift tolerance.
+ *
+ * Recorded here because it is the blocking gate that this entire term rests on,
+ * and because a passed gate leaves no trace in the code otherwise. `cropDamage`
+ * is computed purely from the stored `width`/`height` columns, so a
+ * systematically wrong aspect ratio would produce a confidently wrong damage
+ * value — and the re-sort PREVIEW could not reveal it, because the preview is
+ * computed from the same wrong number. There is no self-check available here;
+ * the only way to know is to measure the bytes, which is what C1 did. Re-run it
+ * if the download pipeline ever changes what it writes into those columns.
  */
 export const CROP_DAMAGE_WEIGHT = 12;
 
@@ -612,7 +656,12 @@ function cropDamagePenalty(image: ClassifiedImage): number {
     // crop damage whatever their shape. 83 of 844 production heroes are logos;
     // charging them for a crop that does not happen would demote a tenth of the
     // catalogue's heroes for nothing.
-    isLogo: image.tag === "logo",
+    //
+    // `image.isLogo` carries the renderer's own answer (membership in `tags`).
+    // The fallback covers callers that built a `ClassifiedImage` without a tag
+    // array — only the unit tests do — and routes through the same shared
+    // predicate so there is still exactly one definition of "is a logo".
+    isLogo: image.isLogo ?? isLogoImageTags([image.tag]),
     targetRatio: HERO_TARGET_RATIO,
     focalAware: true,
   });
@@ -665,6 +714,17 @@ function heroQuality(image: ClassifiedImage): number {
   return image.score - quantised;
 }
 
+/**
+ * Applies the model's verdicts and produces the hero ordering.
+ *
+ * RE-BASELINE NOTE for `scripts/image-eval/pipeline-ab.ts`, which consumes this
+ * function to compare pipeline variants: its stored baselines predate the
+ * crop-damage ranking term (`heroQuality` above), so the first A/B run after
+ * this change will show an ordering shift on almost every brand. That shift is
+ * the intended new behaviour, not a regression — re-baseline before reading the
+ * comparison. Left here rather than in that script because this is where the
+ * ordering is decided, and the next operator will be reading this file.
+ */
 export function applyClassifications(images: ClassifiedImage[]): {
   rejectedIds: string[];
   rejectedUpdates: Array<{
@@ -1201,6 +1261,11 @@ export function planChunkImageWrites(input: {
       storage_path: image.storage_path,
       width: image.width ?? null,
       height: image.height ?? null,
+      // Mirrors the `tags` value written for this row a few lines below, so
+      // ranking sees exactly the array the renderer will later read back.
+      isLogo: isLogoImageTags(
+        classification.tag === null ? null : [classification.tag],
+      ),
       disposition: classification.disposition,
       rejectionReasons: classification.reasons,
     });

@@ -1,6 +1,6 @@
 import Image from 'next/image'
 import type { PublicMicrositeBrand } from '@/lib/brands/contracts'
-import { objectPositionStyle } from '@/lib/images/focal'
+import { brandImageFill } from '@/lib/images/focal'
 
 type HeroProps = {
   brand: PublicMicrositeBrand
@@ -8,6 +8,8 @@ type HeroProps = {
 }
 
 export function Hero({ brand, siteContent }: HeroProps) {
+  const heroFill = brandImageFill(brand.heroImageMeta, { inset: 'p-6' })
+
   return (
     <section className="px-6 pt-12 md:px-10 md:pt-16">
       <div className="mx-auto grid max-w-[1280px] items-center gap-8 md:grid-cols-[minmax(0,0.85fr)_minmax(320px,1fr)] md:gap-12">
@@ -37,10 +39,13 @@ export function Hero({ brand, siteContent }: HeroProps) {
               src={brand.heroImageUrl}
               alt={brand.name}
               fill
-              // Same carve-out as the brand card: a logo's whitespace is part
-              // of the mark, so contain it rather than cover-cropping it.
-              className={brand.isLogo ? 'object-contain p-6' : 'object-cover'}
-              style={brand.isLogo ? undefined : { ...objectPositionStyle(brand) }}
+              // Shared with every other brand image surface: a logo is
+              // contained (its whitespace is part of the mark), everything else
+              // covers and is anchored on its focal point. The container above
+              // already paints the plate a contained logo sits on.
+              className={heroFill.className}
+              // Assigned, never spread — `undefined` is meaningful here.
+              style={heroFill.style}
               sizes="(max-width: 768px) 100vw, 50vw"
               preload
             />

@@ -46,3 +46,32 @@ export const DRAFT_PARK_SORT_ORDER = MAX_BRAND_IMAGE_SELECTION
 // for a box that no longer exists.
 export const HERO_TARGET_RATIO = 4 / 3
 
+// The classification tag that switches an image from cover-cropping to
+// `object-contain`. A logo's surrounding whitespace is part of the mark, so
+// cropping it is a defect rather than a framing choice.
+export const BRAND_IMAGE_LOGO_TAG = 'logo'
+
+/**
+ * The single definition of "this image is a logo".
+ *
+ * It lives in this leaf module, NOT next to the tag vocabulary in
+ * `enrich-phases/classify-images.ts`, because that module pulls in the OpenAI
+ * client, the vision loader, `sharp` (via `image-download`) and the Supabase
+ * service client. Every render site that needs this predicate is a client
+ * component, so importing from there would drag server-only dependencies into
+ * the browser bundle. This file has no imports at all and `classify-images.ts`
+ * already reads `HERO_TARGET_RATIO` from it, so the dependency runs the safe
+ * way round. `classify-images.ts` imports the predicate from here too — there
+ * is exactly one definition.
+ *
+ * Note the semantics: MEMBERSHIP in the tag list, not "the first classification
+ * tag". Ranking used to ask `tag === 'logo'` while every renderer asked
+ * `tags.includes('logo')`, so a row tagged `['product', 'logo']` was charged up
+ * to CROP_DAMAGE_WEIGHT points for a crop it would never receive — it renders
+ * `object-contain`. No writer emits multi-tag rows today, but `tags` is a bare
+ * `text[]` with no constraint, so nothing prevents one.
+ */
+export function isLogoImageTags(tags: readonly string[] | null | undefined): boolean {
+  return tags?.includes(BRAND_IMAGE_LOGO_TAG) ?? false
+}
+

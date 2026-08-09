@@ -4,7 +4,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server'
 import { Heart } from 'lucide-react'
 import { Link } from '@/i18n/navigation'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
-import { objectPositionStyle } from '@/lib/images/focal'
+import { brandImageFill } from '@/lib/images/focal'
 import { getUserSavedBrands } from '@/lib/services/saved-brands'
 import { requireUserPage } from '@/lib/auth/require-user'
 import type { SavedBrand } from '@/lib/types/saved-brand'
@@ -38,13 +38,17 @@ function BrandImage({ brand }: { brand: SavedBrand }) {
     )
   }
 
+  // Shared with every other brand image surface: a logo is contained (its
+  // whitespace is part of the mark), everything else covers and is anchored on
+  // its focal point.
+  const imageFill = brandImageFill(brand.heroImageMeta, { inset: 'p-6' })
+
   return (
     <Image
       alt={brand.brandName}
-      // Same carve-out as the brand card: a logo's whitespace is part of the
-      // mark, so contain it rather than cover-cropping it.
-      className={brand.isLogo ? 'object-contain p-6' : 'object-cover'}
-      style={brand.isLogo ? undefined : { ...objectPositionStyle(brand) }}
+      className={imageFill.className}
+      // Assigned, never spread — `undefined` is meaningful here.
+      style={imageFill.style}
       fill
       sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
       src={heroImageUrl}

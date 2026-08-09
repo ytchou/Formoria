@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  getBrandGalleryImageEntries,
   getBrandGalleryImages,
   insertBrandImage,
   rejectBrandImages,
@@ -231,6 +232,51 @@ describe('getBrandGalleryImages', () => {
       'https://images.example.com/hero.webp',
       'https://images.example.com/product-one.webp',
       'https://images.example.com/product-two.webp',
+    ])
+  })
+})
+
+describe('getBrandGalleryImageEntries', () => {
+  /*
+   * The index a dropped entry shifts is not decorative any more. `imageAlts` is
+   * built as `active.map(...)` over the UNFILTERED
+   * `[heroImageUrl, ...productPhotos]` sequence, and that metadata now selects
+   * fill mode and object-position as well as alt text — so a one-place shift
+   * letterboxes a product photo and crops a logo, rather than merely mislabelling
+   * one.
+   */
+  it('reports the unfiltered position of each surviving url', () => {
+    expect(
+      getBrandGalleryImageEntries({
+        heroImageUrl: 'https://images.example.com/hero.webp',
+        productPhotos: [
+          'https://images.example.com/product-one.webp',
+          '',
+          'https://images.example.com/product-two.webp',
+        ],
+      }),
+    ).toEqual([
+      { url: 'https://images.example.com/hero.webp', sourceIndex: 0 },
+      { url: 'https://images.example.com/product-one.webp', sourceIndex: 1 },
+      { url: 'https://images.example.com/product-two.webp', sourceIndex: 3 },
+    ])
+  })
+
+  it('keeps product photos on their original indices when the hero is null', () => {
+    // The case that shifted everything: a null hero is dropped, so the first
+    // product photo lands at array position 0 while its metadata still lives at
+    // index 1.
+    expect(
+      getBrandGalleryImageEntries({
+        heroImageUrl: null,
+        productPhotos: [
+          'https://images.example.com/product-one.webp',
+          'https://images.example.com/product-two.webp',
+        ],
+      }),
+    ).toEqual([
+      { url: 'https://images.example.com/product-one.webp', sourceIndex: 1 },
+      { url: 'https://images.example.com/product-two.webp', sourceIndex: 2 },
     ])
   })
 })

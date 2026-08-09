@@ -108,6 +108,57 @@ describe('cropDamage', () => {
       expect(cropDamage({ ...tall, focalY: 0 })).toBeGreaterThan(cropDamage(tall))
     })
 
+    /*
+     * Regression guard for the CSS model itself.
+     *
+     * `object-position: p%` aligns the image's p% point with the box's p%
+     * point, so the surviving window is `[f * (1 - visible), ... + visible]` —
+     * it is NOT centred on the focal point. A centred model agrees with CSS
+     * only at f ∈ {0, 0.5, 1}, which is exactly the set every other case in
+     * this file used, so it shipped undetected and reported ZERO focal damage
+     * for images the page really does crop off-subject.
+     *
+     * 800x1200 is chosen so `visible` is exactly 0.5 at the 4/3 hero box
+     * (a = 2/3, visible = (2/3) / (4/3)), which makes the arithmetic below
+     * checkable by hand: areaLoss = 0.5 and the cut axis is y.
+     */
+    describe('intermediate focal values (the centred-window model got these wrong)', () => {
+      const halfVisible = { width: 800, height: 1200 }
+
+      it.each([
+        // focalY, focalMiss = 2 * |f - 0.5|, damage = 0.5 * (1 + focalMiss)
+        [0.25, 0.75],
+        [0.75, 0.75],
+        [0.4, 0.6],
+        [0.6, 0.6],
+        [0.1, 0.9],
+      ])('charges focalY %s a damage of %s', (focalY, expected) => {
+        expect(cropDamage({ ...halfVisible, focalY, focalAware: true })).toBeCloseTo(expected, 10)
+      })
+
+      it('reports non-zero focal damage where the centred model reported none', () => {
+        // The specific number the bug produced: the old code clamped the window
+        // to [0, 0.5], put its centre at 0.25, and scored focalMiss = 0 — i.e.
+        // bare areaLoss, as if the subject were dead centre.
+        const damage = cropDamage({ ...halfVisible, focalY: 0.25, focalAware: true })
+        expect(damage).toBeGreaterThan(0.5)
+        expect(damage).toBeCloseTo(0.75, 10)
+      })
+
+      it('depends only on the focal point, not on how much is cropped', () => {
+        // The algebraic consequence of proportional alignment: `visible`
+        // cancels out of focalMiss, so the focal term is the same at any crop
+        // severity and only the multiplicative areaLoss differs.
+        const mild = cropDamage({ width: 1000, height: 1000, focalY: 0.25, focalAware: true })
+        const severe = cropDamage({ width: 900, height: 1200, focalY: 0.25, focalAware: true })
+
+        // areaLoss 0.25 and 0.4375 respectively, both multiplied by the same
+        // (1 + focalMiss) = 1.5.
+        expect(mild).toBeCloseTo(0.25 * 1.5, 10)
+        expect(severe).toBeCloseTo(0.4375 * 1.5, 10)
+      })
+    })
+
     it('is irrelevant when nothing is cropped', () => {
       // The multiplicative property: with areaLoss at 0 there is no crop to sit
       // outside of, so an off-centre subject must cost exactly nothing.
@@ -122,15 +173,29 @@ describe('cropDamage', () => {
 
   describe('properties over a swept grid', () => {
     it('never scores a focal-aware renderer worse than a centred one', () => {
-      // This is what makes flipping the `focalAware` default safe: honouring the
-      // focal point can only move the window closer to the subject, never
-      // further away.
+      // Still holds under the corrected (proportional-alignment) window, and
+      // is what made flipping the `focalAware` default safe. Algebraically:
+      // focal-aware focalMiss is 2|f - 0.5|, centred is 2|f - 0.5| / visible,
+      // and `visible` is in (0, 1] — so the aware branch is never larger.
       for (const ratio of ASPECT_RATIOS) {
         for (const focal of FOCALS) {
           const base = { width: 1000 * ratio, height: 1000, focalX: focal, focalY: focal }
           expect(cropDamage({ ...base, focalAware: true })).toBeLessThanOrEqual(
             cropDamage({ ...base, focalAware: false }) + 1e-12,
           )
+        }
+      }
+    })
+
+    it('defaults to the focal-aware model that actually ships', () => {
+      // Every brand image surface emits `object-position` now, so the default
+      // must model that renderer. Guards against the default silently
+      // reverting to the centred model, which would mis-score exactly the
+      // images the page frames well.
+      for (const ratio of ASPECT_RATIOS) {
+        for (const focal of FOCALS) {
+          const base = { width: 1000 * ratio, height: 1000, focalX: focal, focalY: focal }
+          expect(cropDamage(base)).toBe(cropDamage({ ...base, focalAware: true }))
         }
       }
     })

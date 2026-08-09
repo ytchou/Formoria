@@ -571,6 +571,8 @@ export type Database = {
           created_at: string
           dominant_color: string | null
           entropy: number | null
+          focal_x: number | null
+          focal_y: number | null
           height: number | null
           id: string
           phash: string | null
@@ -595,6 +597,8 @@ export type Database = {
           created_at?: string
           dominant_color?: string | null
           entropy?: number | null
+          focal_x?: number | null
+          focal_y?: number | null
           height?: number | null
           id?: string
           phash?: string | null
@@ -619,6 +623,8 @@ export type Database = {
           created_at?: string
           dominant_color?: string | null
           entropy?: number | null
+          focal_x?: number | null
+          focal_y?: number | null
           height?: number | null
           id?: string
           phash?: string | null
@@ -1149,6 +1155,7 @@ export type Database = {
           mit_status: string
           mit_story: string | null
           mit_verified_at: string | null
+          model_faq_count: number
           name: string
           onboarding_dismissed_at: string | null
           other_urls: Json
@@ -1164,6 +1171,7 @@ export type Database = {
           retail_locations: Json | null
           romanized_name: string | null
           search_vector: unknown
+          seo_promoted: boolean | null
           site_content: Json | null
           slug: string
           social_facebook: string | null
@@ -1198,6 +1206,7 @@ export type Database = {
           mit_status?: string
           mit_story?: string | null
           mit_verified_at?: string | null
+          model_faq_count?: number
           name: string
           onboarding_dismissed_at?: string | null
           other_urls?: Json
@@ -1213,6 +1222,7 @@ export type Database = {
           retail_locations?: Json | null
           romanized_name?: string | null
           search_vector?: unknown
+          seo_promoted?: boolean | null
           site_content?: Json | null
           slug: string
           social_facebook?: string | null
@@ -1247,6 +1257,7 @@ export type Database = {
           mit_status?: string
           mit_story?: string | null
           mit_verified_at?: string | null
+          model_faq_count?: number
           name?: string
           onboarding_dismissed_at?: string | null
           other_urls?: Json
@@ -1262,6 +1273,7 @@ export type Database = {
           retail_locations?: Json | null
           romanized_name?: string | null
           search_vector?: unknown
+          seo_promoted?: boolean | null
           site_content?: Json | null
           slug?: string
           social_facebook?: string | null
@@ -2675,6 +2687,8 @@ export type Database = {
           created_at: string
           dominant_color: string | null
           entropy: number | null
+          focal_x: number | null
+          focal_y: number | null
           height: number | null
           id: string
           origin_brand_image_id: string | null
@@ -2700,6 +2714,8 @@ export type Database = {
           created_at?: string
           dominant_color?: string | null
           entropy?: number | null
+          focal_x?: number | null
+          focal_y?: number | null
           height?: number | null
           id?: string
           origin_brand_image_id?: string | null
@@ -2725,6 +2741,8 @@ export type Database = {
           created_at?: string
           dominant_color?: string | null
           entropy?: number | null
+          focal_x?: number | null
+          focal_y?: number | null
           height?: number | null
           id?: string
           origin_brand_image_id?: string | null
@@ -3284,6 +3302,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      recount_brand_model_faq: {
+        Args: { target_brand_id: string }
+        Returns: undefined
       }
       recover_stale_curation_jobs: {
         Args: { p_stale_before: string }

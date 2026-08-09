@@ -3,9 +3,15 @@ import { auditedCall } from "@/lib/audit";
 import { ValidationError } from "@/lib/errors";
 import {
   DRAFT_PARK_SORT_ORDER,
+  isLogoImageTags,
   MAX_BRAND_IMAGE_SELECTION,
 } from "@/lib/constants/brand-images";
 import { createServiceClient } from "@/lib/supabase/service";
+import {
+  chunkBrandIdBatches,
+  fetchActiveBrandImageRows,
+  type BrandImageQueryClient,
+} from "./_shared/brand-image-batch";
 import { deleteStoredImagePaths } from "@/lib/services/image-upload";
 import {
   rejectBrandImages,
@@ -22,9 +28,6 @@ import type {
   SubmissionReviewImage,
 } from "@/lib/services/submissions";
 
-const BRAND_IMAGE_PAGE_SIZE = 1_000;
-const SUPABASE_IN_FILTER_CHUNK_SIZE = 200;
-
 type BrandImageRow = {
   id: string;
   brand_id: string;
@@ -39,10 +42,14 @@ type BrandImageRow = {
   width: number | null;
   height: number | null;
   source_url: string | null;
+  // The generated database types intentionally lag the applied migration; this
+  // is a hand-written projection, so it can carry the columns already.
+  focal_x: number | null;
+  focal_y: number | null;
 };
 
 const ADMIN_BRAND_IMAGE_SELECT =
-  "id, brand_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, tags, width, height, source_url";
+  "id, brand_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, tags, width, height, source_url, focal_x, focal_y";
 
 export async function getAdminBrandReviewImages(
   brandIds: string[],
@@ -51,39 +58,15 @@ export async function getAdminBrandReviewImages(
   if (uniqueBrandIds.length === 0) return {};
 
   const supabase = createServiceClient();
-  const chunks: string[][] = [];
-  for (
-    let index = 0;
-    index < uniqueBrandIds.length;
-    index += SUPABASE_IN_FILTER_CHUNK_SIZE
-  ) {
-    chunks.push(
-      uniqueBrandIds.slice(index, index + SUPABASE_IN_FILTER_CHUNK_SIZE),
-    );
-  }
-  const rows = (
-    await Promise.all(
-      chunks.map(async (brandIds) => {
-        const chunkRows: BrandImageRow[] = [];
-        for (let offset = 0; ; offset += BRAND_IMAGE_PAGE_SIZE) {
-          const { data, error } = await supabase
-            .from("brand_images")
-            .select(ADMIN_BRAND_IMAGE_SELECT)
-            .in("brand_id", brandIds)
-            .eq("status", "active")
-            .order("brand_id", { ascending: true })
-            .order("sort_order", { ascending: true })
-            .order("id", { ascending: true })
-            .range(offset, offset + BRAND_IMAGE_PAGE_SIZE - 1);
-          if (error) throw error;
-          const page = (data ?? []) as BrandImageRow[];
-          chunkRows.push(...page);
-          if (page.length < BRAND_IMAGE_PAGE_SIZE) break;
-        }
-        return chunkRows;
-      }),
-    )
-  ).flat();
+  // Unnarrowed on purpose, unlike `hydrateCardImageMeta`: the review screen
+  // needs every active row for a brand, not just the hero. Throws on error,
+  // also on purpose — an admin editing a gallery must never be shown a
+  // silently-partial one.
+  const rows = await fetchActiveBrandImageRows<BrandImageRow>(
+    supabase as unknown as BrandImageQueryClient,
+    ADMIN_BRAND_IMAGE_SELECT,
+    chunkBrandIdBatches(uniqueBrandIds),
+  );
 
   const result: Record<string, SubmissionReviewImage[]> = {};
   for (const row of rows) {
@@ -288,7 +271,9 @@ function toReviewImage(row: BrandImageRow): SubmissionReviewImage {
     sortOrder: row.sort_order,
     altZh: row.alt_zh,
     altEn: row.alt_en,
-    isLogo: row.tags?.includes("logo") ?? false,
+    isLogo: isLogoImageTags(row.tags),
+    focalX: row.focal_x ?? null,
+    focalY: row.focal_y ?? null,
     width: row.width,
     height: row.height,
     originBrandImageId: row.status === "draft" ? null : row.id,

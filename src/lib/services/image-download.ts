@@ -276,6 +276,10 @@ const FOCAL_DEGENERATE_TOLERANCE = 0.25
  * The slice keeps the *other* axis at full size, so `fit: 'cover'` can only
  * crop along the axis being measured — that is what makes the reading
  * independent of the source's aspect ratio.
+ *
+ * The returned value is the slice CENTRE, so it is structurally confined to
+ * `[FOCAL_PROBE_HALF_SLICE, 1 - FOCAL_PROBE_HALF_SLICE]`. `resolveAxis` stretches
+ * it back onto [0, 1]; do not treat this raw number as a focal coordinate.
  */
 async function probeAxis(
   working: Buffer,
@@ -308,6 +312,35 @@ async function probeAxis(
 }
 
 /**
+ * Half the width of a probe slice, as a fraction of the axis.
+ *
+ * `probeAxis` reports the CENTRE of the best slice, and a slice centre can
+ * never sit closer to an edge than half a slice — so every raw reading is
+ * structurally confined to `[half, 1 - half]`, which is `[0.125, 0.875]` at
+ * FOCAL_PROBE_FRACTION = 4. Derived rather than hard-coded so the two cannot
+ * drift apart.
+ */
+const FOCAL_PROBE_HALF_SLICE = 1 / (2 * FOCAL_PROBE_FRACTION)
+
+/**
+ * Stretch a raw probe reading from its reachable band onto the full unit
+ * interval.
+ *
+ * Without this a subject flush against the left edge measures 0.125 and renders
+ * as `object-position: 12.5%` instead of `0%` — a silent partial mis-frame on
+ * exactly the images this feature exists for. It also made `focalMiss = 1`
+ * unreachable in `cropDamage` for any source retaining more than a quarter of
+ * its axis.
+ *
+ * Linear and symmetric about 0.5 by construction: 0.125 -> 0, 0.5 -> 0.5,
+ * 0.875 -> 1, and `rescale(1 - x) === 1 - rescale(x)`.
+ */
+function rescaleProbeReading(raw: number): number {
+  const half = FOCAL_PROBE_HALF_SLICE
+  return Math.min(Math.max((raw - half) / (1 - 2 * half), 0), 1)
+}
+
+/**
  * Resolve one axis from its normal and mirrored readings.
  *
  * The flip check is load-bearing, not an optimisation. On a flat-background
@@ -318,10 +351,22 @@ async function probeAxis(
  * degenerate one does not, and we fall back to the centre. When it is real,
  * averaging the two readings also cancels the half-slice bias baked into the
  * formula.
+ *
+ * Order matters and is deliberate: the degenerate check runs on the RAW
+ * readings, then the surviving average is rescaled. Doing it this way keeps
+ * FOCAL_DEGENERATE_TOLERANCE expressed in the same units the readings were
+ * calibrated in — rescaling first would widen every disagreement by 1.5x and
+ * silently retune the threshold. The check itself would survive either order
+ * (`rescaleProbeReading` is symmetric about 0.5, so `v + mirrored - 1` is
+ * preserved up to that same constant factor), and rescaling the average is
+ * identical to averaging the rescales because the map is linear.
+ *
+ * The degenerate fallback returns exactly 0.5, which is also a fixed point of
+ * the rescale, so a flat image still centres.
  */
 function resolveAxis(value: number, mirrored: number): number {
   if (Math.abs(value + mirrored - 1) > FOCAL_DEGENERATE_TOLERANCE) return 0.5
-  return (value + (1 - mirrored)) / 2
+  return rescaleProbeReading((value + (1 - mirrored)) / 2)
 }
 
 function clampFocal(value: number): number {
@@ -522,6 +567,15 @@ export async function downloadAndStoreImages(
         // processImage applies EXIF rotation (and may resize), so probing the
         // source would measure a different orientation, size, and crop geometry
         // than the backfill, which downloads these stored bytes.
+        //
+        // Cost, accepted deliberately: one extra decode plus four serial
+        // `sharp.strategy.attention` passes per image, on EVERY downloaded
+        // image — including logos, whose focal point no renderer reads. Logos
+        // cannot be skipped here because the classification tag is unknown at
+        // download time; classification runs after this phase. Upgrade path if
+        // this ever matters: time a download batch with and without this call,
+        // and if the delta is material, move focal computation into the
+        // classify phase, where the tag is known and logos can be skipped.
         const focalPoint = await computeFocalPoint(uploadBuffer)
         const uploadContentType = processed.contentType
         const uploadWidth = processed.width

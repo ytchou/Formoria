@@ -24,7 +24,7 @@ export type CropDamageInput = {
   isLogo?: boolean
   /** Aspect ratio of the box the image renders into. Defaults to the hero box. */
   targetRatio?: number
-  /** Whether the renderer honours the focal point. Defaults to false — see below. */
+  /** Whether the renderer honours the focal point. Defaults to true — see below. */
   focalAware?: boolean
 }
 
@@ -44,7 +44,7 @@ export function cropDamage(input: CropDamageInput): number {
     focalY,
     isLogo = false,
     targetRatio = HERO_TARGET_RATIO,
-    focalAware = false,
+    focalAware = true,
   } = input
 
   // (1) Logos are exempt, and this is load-bearing rather than a shortcut.
@@ -75,23 +75,51 @@ export function cropDamage(input: CropDamageInput): number {
   // (y). A missing measurement means centre, which is what the renderer does.
   const f = a > t ? (focalX ?? 0.5) : (focalY ?? 0.5)
 
-  // (4) `focalAware` defaults to false because ranking must model what actually
-  // ships, and the renderers currently emit bare centred `object-cover`. Flip
-  // the default in the same commit that teaches the renderer to honour focal
-  // points: if the two ever disagree, ranking systematically mis-scores exactly
-  // the images the renderer frames well, and no test or metric would catch it.
+  // (4) `focalAware` defaults to TRUE because that is what ships: every brand
+  // image surface now emits `object-position` from the stored focal point via
+  // `objectPositionStyle` (`./focal`) — brand-card, image-carousel,
+  // microsite/hero, stories/brand-gallery, favorites and the admin review
+  // preview. Ranking must model the renderer it actually has; if the two
+  // disagree, ranking systematically mis-scores exactly the images the page
+  // frames well, and no test or metric would catch it.
+  //
+  // The `false` branch is NOT dead: it is the correct model for any renderer
+  // that emits no `object-position` at all (CSS then defaults to `50% 50%`),
+  // and it stays available for callers that render that way.
   const windowStart = focalAware
-    ? // The renderer slides the visible window to sit on the focal point, as far
-      // as the source edges allow.
-      clamp(f - visible / 2, 0, 1 - visible)
-    : // Today's renderers emit bare centred `object-cover`, so the window is
-      // pinned to the middle regardless of where the subject is.
+    ? // CSS `object-position: p%` under `object-cover` aligns the IMAGE's p%
+      // point with the BOX's p% point. Concretely, with the image scaled to
+      // length L over a box of length B (so `visible = B / L`), the origin
+      // offset is p * (B - L) and the surviving window in normalised image
+      // coordinates is [p * (1 - visible), p * (1 - visible) + visible].
+      //
+      // So the window is NOT centred on the focal point — it is anchored by
+      // proportional alignment. Modelling it as centred (`f - visible / 2`)
+      // agrees with CSS only at f ∈ {0, 0.5, 1} and reports zero focal damage
+      // for genuinely off-subject crops in between: at f = 0.25, visible = 0.5
+      // the real window is [0.125, 0.625] (centre 0.375, focalMiss 0.5), while
+      // the centred model gives [0, 0.5] (centre 0.25, focalMiss 0).
+      f * (1 - visible)
+    : // A renderer that emits no `object-position` gets the CSS default of
+      // 50%, so the window is pinned to the middle regardless of where the
+      // subject is.
       (1 - visible) / 2
   const windowCentre = windowStart + visible / 2
 
   // How far the subject sits from the centre of what survives, in units of half
   // the visible window: 0 when the subject is dead centre, 1 once it is at (or
   // past) the edge of the crop.
+  //
+  // Worth stating because it is not obvious from the expression: on the
+  // focal-aware branch this collapses algebraically to
+  // `clamp(2 * Math.abs(f - 0.5), 0, 1)` — `visible` cancels out entirely, so
+  // the focal term depends only on WHERE the subject is, not on how much is
+  // cropped. That is a property of proportional alignment, not an accident:
+  // CSS keeps the subject at the same relative position in the surviving
+  // window however hard the crop bites. The multiplicative `areaLoss` factor
+  // below is what re-introduces crop severity. It is kept in the general form
+  // so the centred branch (where `visible` does NOT cancel) shares one
+  // expression.
   const focalMiss = clamp(Math.abs(f - windowCentre) / (visible / 2), 0, 1)
 
   // (3) The focal term multiplies, it does not add. When `areaLoss` is 0 — an

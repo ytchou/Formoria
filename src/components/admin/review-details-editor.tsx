@@ -22,6 +22,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { getProductTypeLabel } from "@/lib/brands/category-label";
+import { brandImageFill } from "@/lib/images/focal";
 import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 import type { OtherUrl } from "@/lib/types";
 import type {
@@ -461,76 +462,83 @@ export function ReviewDetailsEditor({
           {editingSection === "images" ? (
             <div className="space-y-4">
               <div className="grid gap-3 sm:grid-cols-2">
-                {draftImages.map((image, index) => (
-                  <div
-                    key={image.id}
-                    className="overflow-hidden rounded-md border bg-card"
-                  >
-                    <div className="relative">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={image.url}
-                        alt={image.altZh ?? t("imageAlt", { n: index + 1 })}
-                        className={cn(
-                          "aspect-[4/3] w-full",
-                          // Same carve-out as the brand card: moderators need
-                          // to judge the mark, not a crop of it.
-                          image.isLogo
-                            ? "bg-muted object-contain p-6"
-                            : "object-cover",
-                        )}
-                      />
-                      <Button
-                        shape="pill"
-                        variant={index === 0 ? "primary" : "secondary"}
-                        className="absolute left-2 top-2 h-12 w-12 p-0 shadow-sm"
-                        onClick={() => setHero(image.id)}
-                        aria-label={t("setHero", { n: index + 1 })}
-                      >
-                        <Star className="size-4" aria-hidden="true" />
-                      </Button>
+                {draftImages.map((image, index) => {
+                  // The SAME helper the public surfaces use, including the
+                  // focal `object-position` these previews used to omit. A
+                  // moderation preview that frames an image differently from
+                  // production is worse than no preview: it approves a crop
+                  // nobody will ever see. `logoPlate` stays, because unlike the
+                  // public cards there is no container behind this image.
+                  const fill = brandImageFill(image, {
+                    inset: "p-6",
+                    logoPlate: "bg-muted",
+                  });
+                  return (
+                    <div
+                      key={image.id}
+                      className="overflow-hidden rounded-md border bg-card"
+                    >
+                      <div className="relative">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={image.url}
+                          alt={image.altZh ?? t("imageAlt", { n: index + 1 })}
+                          className={cn("aspect-[4/3] w-full", fill.className)}
+                          // Assigned, never spread — `undefined` is meaningful here.
+                          style={fill.style}
+                        />
+                        <Button
+                          shape="pill"
+                          variant={index === 0 ? "primary" : "secondary"}
+                          className="absolute left-2 top-2 h-12 w-12 p-0 shadow-sm"
+                          onClick={() => setHero(image.id)}
+                          aria-label={t("setHero", { n: index + 1 })}
+                        >
+                          <Star className="size-4" aria-hidden="true" />
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-3 gap-1 border-t p-2">
+                        <Button
+                          shape="square"
+                          size="icon"
+                          variant="ghost"
+                          className="h-12 w-full"
+                          onClick={() => moveImage(image.id, -1)}
+                          disabled={index === 0}
+                          aria-label={t("moveLeft", { n: index + 1 })}
+                        >
+                          <ChevronLeft className="size-4" aria-hidden="true" />
+                        </Button>
+                        <Button
+                          shape="square"
+                          size="icon"
+                          variant="ghost"
+                          className="h-12 w-full"
+                          onClick={() => moveImage(image.id, 1)}
+                          disabled={index === draftImages.length - 1}
+                          aria-label={t("moveRight", { n: index + 1 })}
+                        >
+                          <ChevronRight className="size-4" aria-hidden="true" />
+                        </Button>
+                        <Button
+                          shape="square"
+                          size="icon"
+                          className="h-12 w-full"
+                          variant="ghost"
+                          onClick={() => removeImage(image.id)}
+                          disabled={
+                            !canRemovePersistedImages &&
+                            image.originBrandImageId !== null &&
+                            (image.source === "owner" || image.source === "admin")
+                          }
+                          aria-label={t("removeImage", { n: index + 1 })}
+                        >
+                          <Trash2 className="size-4" aria-hidden="true" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-1 border-t p-2">
-                      <Button
-                        shape="square"
-                        size="icon"
-                        variant="ghost"
-                        className="h-12 w-full"
-                        onClick={() => moveImage(image.id, -1)}
-                        disabled={index === 0}
-                        aria-label={t("moveLeft", { n: index + 1 })}
-                      >
-                        <ChevronLeft className="size-4" aria-hidden="true" />
-                      </Button>
-                      <Button
-                        shape="square"
-                        size="icon"
-                        variant="ghost"
-                        className="h-12 w-full"
-                        onClick={() => moveImage(image.id, 1)}
-                        disabled={index === draftImages.length - 1}
-                        aria-label={t("moveRight", { n: index + 1 })}
-                      >
-                        <ChevronRight className="size-4" aria-hidden="true" />
-                      </Button>
-                      <Button
-                        shape="square"
-                        size="icon"
-                        className="h-12 w-full"
-                        variant="ghost"
-                        onClick={() => removeImage(image.id)}
-                        disabled={
-                          !canRemovePersistedImages &&
-                          image.originBrandImageId !== null &&
-                          (image.source === "owner" || image.source === "admin")
-                        }
-                        aria-label={t("removeImage", { n: index + 1 })}
-                      >
-                        <Trash2 className="size-4" aria-hidden="true" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               {draftImages.length < MAX_BRAND_ACTIVE_IMAGES && (
                 <ImageUploader
@@ -548,29 +556,36 @@ export function ReviewDetailsEditor({
             <>
               {gallery.length > 0 ? (
                 <div className="grid grid-cols-2 gap-3">
-                  {gallery.map((image, index) => (
-                    <figure
-                      key={image.id}
-                      className={index === 0 ? "col-span-2" : undefined}
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={image.url}
-                        alt={image.altZh ?? t("imageAlt", { n: index + 1 })}
-                        className={cn(
-                          "aspect-[4/3] w-full rounded-md border",
-                          image.isLogo
-                            ? "bg-muted object-contain p-6"
-                            : "object-cover",
+                  {gallery.map((image, index) => {
+                    // Same helper, same reasoning as the draft grid above.
+                    const fill = brandImageFill(image, {
+                      inset: "p-6",
+                      logoPlate: "bg-muted",
+                    });
+                    return (
+                      <figure
+                        key={image.id}
+                        className={index === 0 ? "col-span-2" : undefined}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={image.url}
+                          alt={image.altZh ?? t("imageAlt", { n: index + 1 })}
+                          className={cn(
+                            "aspect-[4/3] w-full rounded-md border",
+                            fill.className,
+                          )}
+                          // Assigned, never spread — `undefined` is meaningful here.
+                          style={fill.style}
+                        />
+                        {index === 0 && (
+                          <figcaption className="mt-1 type-caption">
+                            {t("fields.mainImage")}
+                          </figcaption>
                         )}
-                      />
-                      {index === 0 && (
-                        <figcaption className="mt-1 type-caption">
-                          {t("fields.mainImage")}
-                        </figcaption>
-                      )}
-                    </figure>
-                  ))}
+                      </figure>
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="type-card-description">{t("fields.noImages")}</p>

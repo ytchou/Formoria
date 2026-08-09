@@ -1,26 +1,10 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { isLogoImageTags } from '@/lib/constants/brand-images'
 import { CROP_DAMAGE_WEIGHT } from '@/lib/services/enrich-phases/classify-images'
-import {
-  ARTIFACT_ROOT,
-  PREVIEW_PATH,
-  type PreviewBrand,
-  type PreviewFile,
-} from './shared'
-
-const esc = (value: string): string =>
-  value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-
-function artifactPath(): string {
-  const now = new Date()
-  const pad = (value: number): string => String(value).padStart(2, '0')
-  const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
-  return resolve(ARTIFACT_ROOT, `review_resort-heroes_${stamp}.html`)
-}
+// esc / artifactPath / ARTIFACT_ROOT are shared with
+// scripts/curation-rerun/render.ts; see scripts/shared/artifact.ts.
+import { ARTIFACT_ROOT, artifactPath, esc } from '../shared/artifact'
+import { PREVIEW_PATH, type PreviewBrand, type PreviewFile } from './shared'
 
 function ratio(
   image: { width: number | null; height: number | null } | null,
@@ -83,8 +67,8 @@ async function main(): Promise<void> {
     skipped.set(entry.skipReason!, (skipped.get(entry.skipReason!) ?? 0) + 1)
   const logoPromotions = changed.filter(
     (entry) =>
-      (entry.newHero?.tags ?? []).includes('logo') &&
-      !(entry.oldHero?.tags ?? []).includes('logo'),
+      isLogoImageTags(entry.newHero?.tags) &&
+      !isLogoImageTags(entry.oldHero?.tags),
   )
   // A brand whose hero row carries no score cannot answer this question, so it is
   // excluded rather than defaulted — a defaulted 0 would manufacture alarms.
@@ -121,7 +105,7 @@ async function main(): Promise<void> {
   const html = `<!doctype html><meta charset="utf-8"><title>Hero resort review</title><style>
 body{font:14px system-ui;margin:32px;color:#202124}article{border-top:1px solid #ddd;padding:20px 0}.alarm{background:#fff3cd;padding:14px;margin:8px 0}.side-by-side{display:flex;gap:20px}.hero-frame{width:360px;aspect-ratio:4/3;overflow:hidden;background:#eee}.hero-frame img{width:100%;height:100%;object-fit:cover}.raw{max-width:180px;max-height:120px;display:block;margin-top:8px}figure{margin:0}table{border-collapse:collapse;margin-top:16px}td,th{border:1px solid #ddd;padding:6px;text-align:left}.missing{width:360px;aspect-ratio:4/3;background:#eee;padding:12px;box-sizing:border-box}.muted{color:#666}
 </style><h1>Hero resort review</h1><p>${preview.brands.length} brands · generated ${esc(preview.generatedAt)}</p><section><h2>Go/no-go alarms</h2><div class="alarm">Logo promotions: ${logoPromotions.length} ${logoPromotions.map((e) => esc(e.slug)).join(', ')}</div><div class="alarm">Raw-score drops greater than ${CROP_DAMAGE_WEIGHT}: ${scoreAlarms.length}</div><div class="alarm">Brands with no active hero: ${noHero.length}</div><p>Mean cropDamage, old → new: ${mean(cropPairs.map((v) => v.old))} → ${mean(cropPairs.map((v) => v.next))}</p><p>Shape transitions: ${[...transitions].map(([key, count]) => `${esc(key)} (${count})`).join(', ') || '—'}</p></section><section><h2>Summary</h2><p>A no change: ${unchanged}</p><details><summary>B gallery reorder, hero unchanged: ${gallery.length}</summary><ul>${gallery.map((e) => `<li>${esc(e.slug)}</li>`).join('')}</ul></details><h2>C hero changed: ${changed.length}</h2>${changed.map(renderChanged).join('')}<h2>D skipped</h2><ul>${[...skipped].map(([reason, count]) => `<li>${esc(reason)}: ${count}</li>`).join('')}</ul></section>`
-  const out = artifactPath()
+  const out = artifactPath('resort-heroes')
   await mkdir(ARTIFACT_ROOT, { recursive: true })
   await writeFile(out, html, 'utf8')
   console.log(`wrote ${out}`)

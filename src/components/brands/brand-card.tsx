@@ -15,7 +15,7 @@ import { surfaceCardStyles } from '@/components/ui/card'
 import { buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
-import { objectPositionStyle } from '@/lib/images/focal'
+import { brandImageFill } from '@/lib/images/focal'
 import { getBrandCategoryLabel } from '@/lib/brands/category-label'
 import { NO_SNIPPET } from '@/lib/seo/snippet'
 import { SaveBrandButton } from './save-brand-button'
@@ -63,7 +63,7 @@ export function BrandCard({
   const imageSrc = imageIndex === -1 ? null : imageCandidates[imageIndex]
   const showImage = imageSrc != null && !imgError
   const imageMeta = imageIndex >= 0 ? brand.imageAlts.at(imageIndex) : undefined
-  const isLogoImage = imageMeta?.isLogo ?? false
+  const imageFill = brandImageFill(imageMeta, { inset: 'p-6' })
 
   const categoryLabel = getBrandCategoryLabel(brand, locale === 'en' ? 'en' : 'zh-TW')
   // The directory blurb, resolved once: both the directory variant and the
@@ -93,15 +93,11 @@ export function BrandCard({
             alt=""
             fill
             preload={preload}
-            className={cn(
-              'transition-transform group-hover:scale-[1.02]',
-              // A logo's whitespace is part of the mark, so it is contained on
-              // the container's own `bg-muted` plate; every other image covers,
-              // which is what keeps a grid of mixed aspect ratios from reading
-              // as ragged letterboxed strips.
-              isLogoImage ? 'object-contain p-6' : 'object-cover',
-            )}
-            style={isLogoImage ? undefined : { ...objectPositionStyle(imageMeta) }}
+            className={cn('transition-transform group-hover:scale-[1.02]', imageFill.className)}
+            // Assigned, never spread: `brandImageFill` returns `undefined` when
+            // there is nothing to position, and `{ ...undefined }` would turn
+            // that into an empty object.
+            style={imageFill.style}
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
             onError={() => setImgError(true)}
           />

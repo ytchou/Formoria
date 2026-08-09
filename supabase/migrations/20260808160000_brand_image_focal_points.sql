@@ -57,6 +57,45 @@ comment on column public.brand_images.focal_x is
 comment on column public.brand_images.focal_y is
   'Normalized 0-1 vertical subject position for object-position. Null means never measured; the renderer falls back to centre.';
 
+commit;
+
+-- Deliberately a SECOND transaction. The column adds above are what the deployed
+-- app reads on every brand page; the function patch below only matters at
+-- submission-approval time. Sharing one transaction meant any failure in the
+-- patch rolled the columns back too, leaving an operator with a failed push, no
+-- columns, and code already deployed that selects them. Committing the DDL first
+-- makes the worst case "columns present, functions unpatched" — degraded
+-- approval behaviour, not a broken site — and re-running the migration then
+-- retries only the part that failed.
+
+begin;
+
+-- `replace()` is global: it rewrites every occurrence while the old guards only
+-- asserted that at least one changed. These functions are patched from their
+-- LIVE definitions (they have no canonical source file and are known to drift),
+-- so a second, unexpected occurrence of an anchor would silently inject focal_x
+-- into another insert whose target table has no such column. Requiring exactly
+-- one occurrence turns that into a loud failure.
+create or replace function pg_temp.patch_once(
+  v_body text,
+  v_old text,
+  v_new text,
+  v_label text
+) returns text as $patch_once$
+declare
+  v_count int;
+begin
+  v_count := (length(v_body) - length(replace(v_body, v_old, ''))) / length(v_old);
+  if v_count = 0 then
+    raise exception '%: anchor not found', v_label;
+  end if;
+  if v_count > 1 then
+    raise exception '%: anchor found % times, expected exactly 1', v_label, v_count;
+  end if;
+  return replace(v_body, v_old, v_new);
+end
+$patch_once$ language plpgsql;
+
 -- Carry the new columns across the submission -> brand copy sites.
 --
 -- These function bodies have no canonical source file, so each replace is
@@ -64,6 +103,14 @@ comment on column public.brand_images.focal_y is
 -- changed *at all*, which passes even when some anchors have drifted and the
 -- column is silently dropped on approve — the exact failure the guard exists to
 -- catch. Per-replace assertions make a partial match abort the migration.
+--
+-- Each function is skipped when it is ALREADY patched, so re-application (a
+-- repaired ledger row, or `supabase db push --linked --include-all` after the
+-- functions were patched) is a no-op instead of an exception. "Already applied"
+-- and "anchor missing" are different failures and only the second may raise. The
+-- presence test cannot see a half-patched body, and does not need to: every
+-- replace for a function happens before its single `execute`, so a partial patch
+-- can never be committed.
 --
 -- Two sites are deliberately NOT patched, matching that precedent:
 --   1. The in-place refresh UPDATE (`... = reference.<col>`). It copies from a
@@ -76,37 +123,33 @@ do $migration$
 declare
   v_definition text;
   v_updated text;
-  v_before text;
 begin
   -- approve_submission: plain insert ... select, no on-conflict clause.
   select pg_get_functiondef('public.approve_submission(uuid,uuid,jsonb)'::regprocedure)
     into v_definition;
-  v_updated := v_definition;
 
-  v_before := v_updated;
-  v_updated := replace(
-    v_updated,
-    $old$    alt_en, width, height, dominant_color, sort_order, source_url, phash,
+  if position('focal_x' in v_definition) > 0 then
+    raise notice 'approve_submission: already carries focal_x; skipping';
+  else
+    v_updated := pg_temp.patch_once(
+      v_definition,
+      $old$    alt_en, width, height, dominant_color, sort_order, source_url, phash,
     sharpness, entropy, created_at$old$,
-    $new$    alt_en, width, height, dominant_color, sort_order, source_url, phash,
-    sharpness, entropy, focal_x, focal_y, created_at$new$
-  );
-  if v_updated = v_before then
-    raise exception 'approve_submission: brand_images insert column list anchor not found';
-  end if;
+      $new$    alt_en, width, height, dominant_color, sort_order, source_url, phash,
+    sharpness, entropy, focal_x, focal_y, created_at$new$,
+      'approve_submission: brand_images insert column list'
+    );
 
-  v_before := v_updated;
-  v_updated := replace(
-    v_updated,
-    $old$    image.phash, image.sharpness, image.entropy, image.created_at$old$,
-    $new$    image.phash, image.sharpness, image.entropy, image.focal_x,
-    image.focal_y, image.created_at$new$
-  );
-  if v_updated = v_before then
-    raise exception 'approve_submission: brand_images select list anchor not found';
-  end if;
+    v_updated := pg_temp.patch_once(
+      v_updated,
+      $old$    image.phash, image.sharpness, image.entropy, image.created_at$old$,
+      $new$    image.phash, image.sharpness, image.entropy, image.focal_x,
+    image.focal_y, image.created_at$new$,
+      'approve_submission: brand_images select list'
+    );
 
-  execute v_updated;
+    execute v_updated;
+  end if;
 
   -- apply_brand_refresh_with_protected_location_gate: insert ... select with an
   -- on-conflict update, so three sites rather than two.
@@ -114,46 +157,42 @@ begin
       'public.apply_brand_refresh_with_protected_location_gate(uuid,uuid)'::regprocedure
     )
     into v_definition;
-  v_updated := v_definition;
 
-  v_before := v_updated;
-  v_updated := replace(
-    v_updated,
-    $old$    width, height, dominant_color, sort_order, source_url, phash, sharpness,
+  if position('focal_x' in v_definition) > 0 then
+    raise notice 'apply_brand_refresh gate: already carries focal_x; skipping';
+  else
+    v_updated := pg_temp.patch_once(
+      v_definition,
+      $old$    width, height, dominant_color, sort_order, source_url, phash, sharpness,
     entropy, created_at$old$,
-    $new$    width, height, dominant_color, sort_order, source_url, phash, sharpness,
-    entropy, focal_x, focal_y, created_at$new$
-  );
-  if v_updated = v_before then
-    raise exception 'apply_brand_refresh gate: brand_images insert column list anchor not found';
-  end if;
+      $new$    width, height, dominant_color, sort_order, source_url, phash, sharpness,
+    entropy, focal_x, focal_y, created_at$new$,
+      'apply_brand_refresh gate: brand_images insert column list'
+    );
 
-  v_before := v_updated;
-  v_updated := replace(
-    v_updated,
-    $old$    image.phash, image.sharpness, image.entropy, image.created_at$old$,
-    $new$    image.phash, image.sharpness, image.entropy, image.focal_x,
-    image.focal_y, image.created_at$new$
-  );
-  if v_updated = v_before then
-    raise exception 'apply_brand_refresh gate: brand_images select list anchor not found';
-  end if;
+    v_updated := pg_temp.patch_once(
+      v_updated,
+      $old$    image.phash, image.sharpness, image.entropy, image.created_at$old$,
+      $new$    image.phash, image.sharpness, image.entropy, image.focal_x,
+    image.focal_y, image.created_at$new$,
+      'apply_brand_refresh gate: brand_images select list'
+    );
 
-  v_before := v_updated;
-  v_updated := replace(
-    v_updated,
-    $old$    phash = excluded.phash, sharpness = excluded.sharpness,
+    v_updated := pg_temp.patch_once(
+      v_updated,
+      $old$    phash = excluded.phash, sharpness = excluded.sharpness,
     entropy = excluded.entropy;$old$,
-    $new$    phash = excluded.phash, sharpness = excluded.sharpness,
+      $new$    phash = excluded.phash, sharpness = excluded.sharpness,
     entropy = excluded.entropy, focal_x = excluded.focal_x,
-    focal_y = excluded.focal_y;$new$
-  );
-  if v_updated = v_before then
-    raise exception 'apply_brand_refresh gate: brand_images on-conflict set list anchor not found';
-  end if;
+    focal_y = excluded.focal_y;$new$,
+      'apply_brand_refresh gate: brand_images on-conflict set list'
+    );
 
-  execute v_updated;
+    execute v_updated;
+  end if;
 end
 $migration$;
+
+drop function pg_temp.patch_once(text, text, text, text);
 
 commit;

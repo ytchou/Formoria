@@ -65,20 +65,11 @@ export async function getUserSavedBrands(
       heroImageUrl: row.brands!.hero_image_url,
     })),
   )
-  const isLogoByBrandId = new Map(
-    hydrated.map((brand) => [brand.id, brand.imageAlts.at(0)?.isLogo ?? false]),
-  )
-  const focalByBrandId = new Map(
-    hydrated.map((brand) => {
-      const heroMeta = brand.imageAlts.at(0)
-      return [
-        brand.id,
-        {
-          focalX: heroMeta?.focalX ?? null,
-          focalY: heroMeta?.focalY ?? null,
-        },
-      ]
-    }),
+  // One map, one lookup per row: the fill mode and the object-position both
+  // come from the same hero `BrandImageMeta`, so splitting them into two maps
+  // meant two passes over `hydrated` reading the same `imageAlts.at(0)`.
+  const heroMetaByBrandId = new Map(
+    hydrated.map((brand) => [brand.id, brand.imageAlts.at(0) ?? null]),
   )
 
   return approvedRows.map((row) => ({
@@ -87,9 +78,7 @@ export async function getUserSavedBrands(
     brandSlug: row.brands!.slug,
     heroImageUrl: row.brands!.hero_image_url ?? null,
     savedAt: row.created_at,
-    isLogo: isLogoByBrandId.get(row.brands!.id) ?? false,
-    focalX: focalByBrandId.get(row.brands!.id)?.focalX ?? null,
-    focalY: focalByBrandId.get(row.brands!.id)?.focalY ?? null,
+    heroImageMeta: heroMetaByBrandId.get(row.brands!.id) ?? null,
   }))
 }
 

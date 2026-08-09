@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
-import { objectPositionStyle } from '@/lib/images/focal'
+import { brandImageFill } from '@/lib/images/focal'
 import type { BrandImageMeta } from '@/lib/types/brand'
 import { trackGalleryPhotoView, trackGalleryCompleted } from '@/lib/analytics'
 import { Button } from '@/components/ui/button'
@@ -68,8 +68,15 @@ export function ImageCarousel({
     )
   }
 
-  function metaFor(index: number) {
-    return imageAlts?.[validImages[index]?.sourceIndex ?? index]
+  // Returns undefined for an out-of-range index rather than guessing. There is
+  // no honest fallback: `imageAlts` is index-aligned with the UNFILTERED
+  // `images` prop, so substituting the display index would hand back another
+  // image's alt text and fill mode — the exact desync `sourceIndex` exists to
+  // prevent. (The previous `?? index` fallback was unreachable while in range
+  // and wrong out of it.)
+  function metaFor(index: number): BrandImageMeta | undefined {
+    const sourceIndex = validImages[index]?.sourceIndex
+    return sourceIndex === undefined ? undefined : imageAlts?.[sourceIndex]
   }
 
   function getAlt(index: number): string {
@@ -81,21 +88,10 @@ export function ImageCarousel({
     return t('gallery.photoAltWithBrand', { brand: alt, n: index + 1 })
   }
 
-  /**
-   * Same carve-out as the brand card: a logo is contained on the container's
-   * `bg-muted` plate because its padding is part of the mark; everything else
-   * covers so mixed aspect ratios stop letterboxing.
-   *
-   * The inset is per-surface because it is absolute, not proportional — the
-   * card's `p-6` on a 64px thumbnail would leave a 16px mark.
-   */
-  function fillClass(index: number, inset: string): string {
-    return metaFor(index)?.isLogo ? `object-contain ${inset}` : 'object-cover'
-  }
-
-  function positionStyle(index: number): { objectPosition: string } | undefined {
-    const meta = metaFor(index)
-    return meta?.isLogo ? undefined : objectPositionStyle(meta)
+  // Shared with every other brand image surface. The container already paints
+  // the `bg-muted` plate a contained logo sits on, so no `logoPlate` here.
+  function fill(index: number, inset: string) {
+    return brandImageFill(metaFor(index), { inset })
   }
 
   const heroInset = variant === 'detail' ? 'p-6' : 'p-3'
@@ -123,6 +119,25 @@ export function ImageCarousel({
   }
 
   const isCurrentBroken = brokenImages.has(current)
+  /*
+   * Bounds-guarded, not indexed directly.
+   *
+   * `current` and `previous` are `useState` indices while `validImages` is
+   * recomputed from props on every render, so a prop change that shortens the
+   * list leaves them pointing past the end. Reading `.src` off `undefined`
+   * throws and takes the page down; on `main` the same expression merely passed
+   * `undefined` through. A missing current image falls back to the same
+   * placeholder a broken one gets, and a missing previous image simply skips
+   * the cross-fade.
+   */
+  const currentImage = validImages[current]
+  const previousImage =
+    previous !== null && !brokenImages.has(previous) ? validImages[previous] : undefined
+  const currentFill = brandImageFill(metaFor(current), { inset: heroInset })
+  const previousFill = brandImageFill(
+    previous === null ? undefined : metaFor(previous),
+    { inset: heroInset },
+  )
 
   return (
     <div className={cn(variant === 'detail' && 'space-y-3')}>
@@ -133,17 +148,20 @@ export function ImageCarousel({
           variant === 'detail' ? 'aspect-[4/3]' : 'aspect-square',
         )}
       >
-        {previous !== null && !brokenImages.has(previous) && (
+        {previousImage && (
           <Image
-            src={validImages[previous].src}
+            src={previousImage.src}
             alt=""
             fill
             className={cn(
               'transition-opacity duration-200 opacity-0',
-              fillClass(previous, heroInset),
+              previousFill.className,
             )}
+            // Merged rather than assigned, because there IS another real
+            // property here. The spread of a possibly-undefined
+            // `previousFill.style` is safe in that case.
             style={{
-              ...positionStyle(previous),
+              ...previousFill.style,
               transitionTimingFunction: 'var(--ease-settle)',
             }}
             sizes={variant === 'detail' ? '(max-width: 1024px) 100vw, 580px' : '192px'}
@@ -151,16 +169,17 @@ export function ImageCarousel({
           />
         )}
 
-        {isCurrentBroken ? (
+        {isCurrentBroken || !currentImage ? (
           <BrandImageFallback name={alt} category={category ?? null} size="detail" />
         ) : (
           <Image
             key={current}
-            src={validImages[current].src}
+            src={currentImage.src}
             alt={getAlt(current)}
             fill
-            className={cn('animate-in fade-in duration-200', fillClass(current, heroInset))}
-            style={{ ...positionStyle(current) }}
+            className={cn('animate-in fade-in duration-200', currentFill.className)}
+            // Assigned, never spread — `undefined` is meaningful here.
+            style={currentFill.style}
             sizes={variant === 'detail' ? '(max-width: 1024px) 100vw, 580px' : '192px'}
             preload={variant === 'detail' && current === 0}
             onError={() => handleImageError(current)}
@@ -219,7 +238,9 @@ export function ImageCarousel({
       {/* Thumbnail grid */}
       {total > 1 && variant === 'detail' && (
         <div className="scrollbar-none flex gap-2 overflow-x-auto">
-          {validImages.map(({ src }, i) => (
+          {validImages.map(({ src }, i) => {
+            const thumbFill = fill(i, 'p-1.5')
+            return (
             <Button
               key={i}
               type="button"
@@ -244,14 +265,16 @@ export function ImageCarousel({
                   src={src}
                   alt={getAlt(i)}
                   fill
-                  className={fillClass(i, 'p-1.5')}
-                  style={{ ...positionStyle(i) }}
+                  className={thumbFill.className}
+                  // Assigned, never spread — `undefined` is meaningful here.
+                  style={thumbFill.style}
                   sizes="64px"
                   onError={() => handleImageError(i)}
                 />
               )}
             </Button>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

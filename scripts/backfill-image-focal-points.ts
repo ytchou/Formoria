@@ -5,14 +5,31 @@ import { computeFocalPoint } from '@/lib/services/image-download'
 /**
  * Backfill focal measurements from the stored object, never source_url: the
  * stored bytes are what render and have already passed the live path's rotate
- * and resize processing. The live write path leaves a failed measurement null
- * (never measured), while this resumable job writes 0.5/0.5 for a degenerate
- * image (measured, centred); keeping that asymmetry is what makes focal_x null
- * a reliable resume cursor.
+ * and resize processing.
  *
- * Dry-run is the default. Review its 3x3 histogram and degenerate count before
- * using --live. This script only updates focal columns and never mutates
- * storage objects.
+ * Three outcomes, deliberately written differently:
+ *   1. measured, off-centre  -> the measured point is written.
+ *   2. measured, centred     -> 0.5/0.5 is written. `computeFocalPoint` read the
+ *      image fine and its flip-check either found the subject at the centre or
+ *      fell back to the centre because the image is degenerate. Writing the
+ *      value is what stops the resume cursor from re-downloading it forever.
+ *   3. unreadable (null)     -> NOTHING is written; the row stays null. It was
+ *      never measured, and recording it as a measured centre would burn the
+ *      resume cursor (`focal_x is null`) on a row only a full `--force` pass
+ *      over every row could ever revisit. Such rows are counted as skipped and
+ *      re-attempted by the next run.
+ * The live write path also leaves a failed measurement null, so (3) matches it;
+ * (2) is the deliberate asymmetry that keeps focal_x null a reliable cursor.
+ *
+ * A row whose storage object is missing or whose update fails is counted and
+ * skipped, never fatal: image retention and brand-storage-maintenance delete
+ * objects while rows survive, and without a per-row catch one such row made the
+ * whole backfill permanently uncompletable — every re-run re-selected it and
+ * died on it again.
+ *
+ * Dry-run is the default. Review its 3x3 histogram and the centred/unreadable
+ * counts before using --live. This script only updates focal columns and never
+ * mutates storage objects. A run that skipped any row exits non-zero.
  */
 
 const PAGE_SIZE = 500
@@ -122,34 +139,81 @@ async function main(): Promise<void> {
     rows.push(...tableRows.map((row) => ({ table, row })))
   }
   const histogram = Array.from({ length: 3 }, () => [0, 0, 0])
-  let degenerate = 0
+  let measured = 0
+  let centredBoth = 0
+  let centredOneAxis = 0
+  let unreadable = 0
+  const failures: string[] = []
 
   await mapWithConcurrency(rows, CONCURRENCY, async ({ table, row }) => {
-    const { data: blob, error } = await supabase.storage.from('brand-images').download(row.storage_path)
-    if (error) throw error
-    if (!blob) throw new Error(`Storage download returned no data for ${table}/${row.id}`)
-    const focal = await computeFocalPoint(Buffer.from(await blob.arrayBuffer()))
-    const focalX = focal?.x ?? 0.5
-    const focalY = focal?.y ?? 0.5
-    if (!focal) degenerate += 1
-    incrementHistogram(histogram, focalX, focalY)
+    // One bad row must never end the run: mapWithConcurrency awaits Promise.all,
+    // so a single rejection aborts every remaining row after an arbitrary prefix
+    // has already been written under --live.
+    try {
+      const { data: blob, error } = await supabase.storage.from('brand-images').download(row.storage_path)
+      if (error) throw error
+      if (!blob) throw new Error(`Storage download returned no data for ${table}/${row.id}`)
+      const focal = await computeFocalPoint(Buffer.from(await blob.arrayBuffer()))
+      if (!focal) {
+        // Unreadable: bad bytes, unsupported format, or sharp threw. Leave the
+        // row null so the next run retries it instead of recording a centre
+        // that was never measured.
+        unreadable += 1
+        failures.push(`${table}/${row.id}: unreadable image (${row.storage_path})`)
+        return
+      }
 
-    if (options.live) {
-      // `as never` because the generated database types predate the focal
-      // migration, so the typed `update` payload rejects columns the remote
-      // schema will have. Drop the cast once `pnpm db:types` is regenerated.
-      const { error: updateError } = await supabase
-        .from(table)
-        .update({ focal_x: focalX, focal_y: focalY } as never)
-        .eq('id', row.id)
-      if (updateError) throw updateError
+      measured += 1
+      // `computeFocalPoint` returns a bare point, so a genuinely centred subject
+      // and `resolveAxis`'s degenerate fallback are indistinguishable from the
+      // returned value alone — both are exactly 0.5 on that axis. The counter is
+      // therefore labelled for what it can honestly measure ("centred") rather
+      // than claiming to count degeneracy. Upgrade path: have computeFocalPoint
+      // report per-axis degeneracy (src/lib/services/image-download.ts) and
+      // split this counter.
+      const axesAtCentre = (focal.x === 0.5 ? 1 : 0) + (focal.y === 0.5 ? 1 : 0)
+      if (axesAtCentre === 2) centredBoth += 1
+      else if (axesAtCentre === 1) centredOneAxis += 1
+      incrementHistogram(histogram, focal.x, focal.y)
+
+      if (options.live) {
+        // `as never` because the generated database types predate the focal
+        // migration, so the typed `update` payload rejects columns the remote
+        // schema will have. Drop the cast once `pnpm db:types` is regenerated.
+        const { error: updateError } = await supabase
+          .from(table)
+          .update({ focal_x: focal.x, focal_y: focal.y } as never)
+          .eq('id', row.id)
+        if (updateError) throw updateError
+      }
+    } catch (error: unknown) {
+      failures.push(
+        `${table}/${row.id}: ${error instanceof Error ? error.message : String(error)}`,
+      )
     }
   })
 
-  console.log(`${options.live ? 'Live' : 'Dry run'}: measured ${rows.length} row(s)`)
-  console.log('Focal-point histogram (rows: Y thirds, columns: X thirds):')
+  const failed = failures.length - unreadable
+  console.log(`${options.live ? 'Live' : 'Dry run'}: ${rows.length} row(s) selected, ${measured} measured`)
+  console.log('Focal-point histogram over measured rows (rows: Y thirds, columns: X thirds):')
   for (const row of histogram) console.log(row.join('  '))
-  console.log(`Degenerate images (measured, centred): ${degenerate}`)
+  console.log(
+    `Centred on both axes (degenerate fallback or a truly centred subject — not separable): ${centredBoth}` +
+      ` (${measured === 0 ? '0.0' : ((centredBoth / measured) * 100).toFixed(1)}% of measured)`,
+  )
+  console.log(`Centred on exactly one axis: ${centredOneAxis}`)
+  console.log(`Unreadable (left null, retried next run): ${unreadable}`)
+  console.log(`Errored (download or update failed, left null): ${failed}`)
+  if (failures.length > 0) {
+    // Bounded sample: a full list of thousands of ids would bury the summary the
+    // operator gate actually reads.
+    for (const line of failures.slice(0, 20)) console.log(`  skipped ${line}`)
+    if (failures.length > 20) console.log(`  ... and ${failures.length - 20} more`)
+    console.log(
+      `${failures.length} row(s) skipped and left null. Repair them (or accept the loss) and re-run; the run is NOT complete.`,
+    )
+    process.exitCode = 1
+  }
   if (!options.live) console.log('No changes made. Re-run with --live to apply.')
 }
 

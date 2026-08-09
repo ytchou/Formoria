@@ -7,9 +7,10 @@ import {
   type BrandImageFields,
 } from '@/lib/services/brands'
 import { normalizePublicBrandCard } from '@/lib/brands/contracts'
-import { getBrandGalleryImages } from '@/lib/services/brand-images'
+import { getBrandGalleryImageEntries } from '@/lib/services/brand-images'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
-import { objectPositionStyle } from '@/lib/images/focal'
+import { brandImageFill } from '@/lib/images/focal'
+import { cn } from '@/lib/utils'
 
 type BrandGalleryProps = {
   slug: string
@@ -48,16 +49,21 @@ export async function BrandGallery({
   const imageFields = await loadImages(brand.id)
   const source = imageFields.heroImageUrl ? imageFields : brand
 
-  const urls = getBrandGalleryImages(source)
+  // Entries, not bare URLs: `getBrandGalleryImageEntries` drops a null hero,
+  // which shifts every later position against `source.imageAlts`. That index
+  // now selects fill mode and object-position as well as alt text, so indexing
+  // by array position would letterbox a photo and crop a logo. Two independent
+  // filters shift this list — the null hero here and the unsafe-host filter
+  // below — and `sourceIndex` survives both.
+  const entries = getBrandGalleryImageEntries(source)
   const locale = await getLocale()
   const isEnglish = locale === 'en'
 
   // `toImageFields` builds `active` as active rows sorted by `sort_order`, then
   // sets `heroImageUrl = active[0].url`, `productPhotos = active.slice(1).map`
-  // and `imageAlts = active.map(...)`; preserve that original parallel index
-  // before filtering unsafe hosts.
-  const images = urls
-    .map((url, index) => {
+  // and `imageAlts = active.map(...)`; index into it by `sourceIndex`.
+  const images = entries
+    .map(({ url, sourceIndex: index }) => {
       const imageAlt = source.imageAlts[index]
       const heroMetadata = index === 0 ? source.heroImageMetadata : null
       const preferredAlt = isEnglish ? imageAlt?.altEn : imageAlt?.altZh
@@ -71,28 +77,15 @@ export async function BrandGallery({
         metadataOtherAlt ||
         t('galleryImageAlt', { brand: brand.name })
 
-      return {
-        url,
-        alt,
-        isLogo: imageAlt?.isLogo ?? false,
-        focalX: imageAlt?.focalX ?? null,
-        focalY: imageAlt?.focalY ?? null,
-      }
+      // The whole meta rides along rather than three unpacked fields: this is
+      // the same `BrandImageMeta` the shared fill helper takes, so nothing has
+      // to be re-flattened at the render site.
+      return { url, alt, meta: imageAlt ?? null }
     })
-    .map(({ url, alt, isLogo, focalX, focalY }) => {
-      const src = safeImageSrc(url)
-      return src ? { src, alt, isLogo, focalX, focalY } : null
+    .flatMap((image) => {
+      const src = safeImageSrc(image.url)
+      return src ? [{ src, alt: image.alt, meta: image.meta }] : []
     })
-    .filter(
-      (image): image is {
-        src: string
-        alt: string
-        isLogo: boolean
-        focalX: number | null
-        focalY: number | null
-      } =>
-        image !== null,
-    )
     .slice(0, 4)
 
   if (images.length === 0) return null
@@ -100,18 +93,27 @@ export async function BrandGallery({
   return (
     <figure className="mx-auto mt-7 mb-6 w-full max-w-2xl">
       <div className="grid grid-cols-2 gap-2">
-        {images.map(({ src, alt, isLogo, focalX, focalY }, index) => (
-          // eslint-disable-next-line @next/next/no-img-element -- remote listing URL with no intrinsic size; raw img keeps arbitrary allowed hosts working without next/image configuration.
-          <img
-            key={`${index}-${src}`}
-            src={src}
-            alt={alt}
-            loading="lazy"
-            decoding="async"
-            className={`aspect-[4/3] w-full rounded-lg border border-border bg-muted ${isLogo ? 'object-contain p-6' : 'object-cover'}`}
-            style={isLogo ? undefined : { ...objectPositionStyle({ focalX, focalY }) }}
-          />
-        ))}
+        {images.map(({ src, alt, meta }, index) => {
+          // `cn()` like every other surface — this was the one site building its
+          // class list with a template literal.
+          const fill = brandImageFill(meta, { inset: 'p-6' })
+          return (
+            // eslint-disable-next-line @next/next/no-img-element -- remote listing URL with no intrinsic size; raw img keeps arbitrary allowed hosts working without next/image configuration.
+            <img
+              key={`${index}-${src}`}
+              src={src}
+              alt={alt}
+              loading="lazy"
+              decoding="async"
+              className={cn(
+                'aspect-[4/3] w-full rounded-lg border border-border bg-muted',
+                fill.className,
+              )}
+              // Assigned, never spread — `undefined` is meaningful here.
+              style={fill.style}
+            />
+          )
+        })}
       </div>
       {caption ? <figcaption className="mt-2 type-caption">{caption}</figcaption> : null}
     </figure>

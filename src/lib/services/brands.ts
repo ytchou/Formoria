@@ -19,6 +19,12 @@ import {
   captureReadFailure,
 } from "@/lib/degraded-render";
 import { BRAND_SORT_CONFIG, DEFAULT_PAGE_SIZE } from "@/lib/pagination";
+import { isLogoImageTags } from "@/lib/constants/brand-images";
+import {
+  chunkBrandHeroUrlBatches,
+  fetchActiveBrandImageRows,
+  type BrandImageQueryClient,
+} from "./_shared/brand-image-batch";
 import { isNonImageHost } from "@/lib/images/allowed-image-hosts";
 import { RESERVED_ROUTES } from "@/proxy";
 import {
@@ -780,8 +786,8 @@ async function brandToDomainWithImages(
   return { ...brand, ...toImageFields(images) };
 }
 
-const CARD_IMAGE_PAGE_SIZE = 1_000;
-const CARD_IMAGE_IN_FILTER_CHUNK_SIZE = 200;
+const CARD_IMAGE_SELECT =
+  "brand_id, url, tags, alt_zh, alt_en, sort_order, width, height, focal_x, focal_y";
 
 type CardImageRow = Pick<
   Database["public"]["Tables"]["brand_images"]["Row"],
@@ -810,11 +816,25 @@ type CardImageRow = Pick<
  * renders a logo `object-contain` instead of cover-cropping it) never fires
  * outside the detail page. This batches the lookup for the whole page instead.
  *
- * Batching copies `getAdminBrandReviewImages`: chunked `.in()` because
- * PostgREST caps the filter list, plus an inner `.range()` pager because one
- * chunk of 200 brands can still exceed the row cap. The `.order()` chain is
- * load-bearing for that pager — `.range()` over an unordered result set can
- * repeat or skip rows between pages.
+ * REPLACES, never merges: `imageAlts` and `heroImageMetadata` are overwritten
+ * wholesale, so passing an already-hydrated brand through this DISCARDS what it
+ * carried. The generic signature accepts any `{ id, heroImageUrl }`, which
+ * makes a pre-hydrated caller look legal — it is not. This is for card
+ * projections, whose `productPhotos` are empty by construction; a detail brand
+ * carries per-image metadata for its whole gallery and must use
+ * `brandToDomainWithImages` instead.
+ *
+ * CACHE INTERACTION, recorded because it is invisible from here: results flow
+ * into `getCachedExploreBrandPool`, which freezes them in `unstable_cache` for
+ * an hour under PUBLIC_BRAND_DATA_TAG. Re-classification and the focal-point
+ * backfill both write `brand_images` WITHOUT touching the `brands` table, so
+ * neither invalidates that cache on its own — the homepage can keep serving the
+ * old fill mode and object-position for up to `revalidate` seconds. Accepted:
+ * the stale render is the previous correct render, not a broken one. After a
+ * backfill, revalidate PUBLIC_BRAND_DATA_TAG to pick the change up immediately.
+ *
+ * Batching, paging and the `.order()`-before-`.range()` invariant live in
+ * `_shared/brand-image-batch.ts`, shared with `getAdminBrandReviewImages`.
  */
 export async function hydrateCardImageMeta<
   T extends Pick<Brand, "id" | "heroImageUrl">,
@@ -832,41 +852,59 @@ export async function hydrateCardImageMeta<
 
   if (brands.length === 0) return [];
 
-  const brandIds = [...new Set(brands.map((brand) => brand.id))];
-  const chunks: string[][] = [];
-  for (
-    let index = 0;
-    index < brandIds.length;
-    index += CARD_IMAGE_IN_FILTER_CHUNK_SIZE
-  ) {
-    chunks.push(brandIds.slice(index, index + CARD_IMAGE_IN_FILTER_CHUNK_SIZE));
-  }
+  // Narrowed to the hero URLs, not every active row: a brand carries 10-14
+  // active images and exactly one of them is ever kept below, so an unnarrowed
+  // read discards ~90% of what it transfers. Brands with no hero URL are left
+  // out of the query entirely — nothing could match them.
+  const pairs = [
+    ...new Map(
+      brands
+        .filter(
+          (brand): brand is T & { heroImageUrl: string } =>
+            typeof brand.heroImageUrl === "string" &&
+            brand.heroImageUrl.length > 0,
+        )
+        .map((brand) => [
+          `${brand.id}\n${brand.heroImageUrl}`,
+          { brandId: brand.id, url: brand.heroImageUrl },
+        ]),
+    ).values(),
+  ];
 
-  const rows = (
-    await Promise.all(
-      chunks.map(async (chunk) => {
-        const chunkRows: CardImageRow[] = [];
-        for (let offset = 0; ; offset += CARD_IMAGE_PAGE_SIZE) {
-          const { data, error } = await supabase
-            .from("brand_images")
-            .select(
-              "brand_id, url, tags, alt_zh, alt_en, sort_order, width, height, focal_x, focal_y",
-            )
-            .in("brand_id", chunk)
-            .eq("status", "active")
-            .order("brand_id", { ascending: true })
-            .order("sort_order", { ascending: true })
-            .order("id", { ascending: true })
-            .range(offset, offset + CARD_IMAGE_PAGE_SIZE - 1);
-          if (error) throw error;
-          const page = (data ?? []) as CardImageRow[];
-          chunkRows.push(...page);
-          if (page.length < CARD_IMAGE_PAGE_SIZE) break;
-        }
-        return chunkRows;
-      }),
-    )
-  ).flat();
+  if (pairs.length === 0) return brands.map(withDefaults);
+
+  let rows: CardImageRow[];
+  try {
+    rows = await fetchActiveBrandImageRows<CardImageRow>(
+      supabase as unknown as BrandImageQueryClient,
+      CARD_IMAGE_SELECT,
+      chunkBrandHeroUrlBatches(pairs),
+    );
+  } catch (error) {
+    /*
+     * Degrade, never throw. Two independent reasons, both of which have to hold
+     * for this to go back to a bare rethrow — do not "tidy" it:
+     *
+     * 1. This is DECORATIVE per-image metadata: alt text, a logo flag, a focal
+     *    point. Falling back to unhydrated brands reproduces exactly the
+     *    behaviour these surfaces had before this function existed
+     *    (`imageAlts: []`, centred `object-cover`). Taking down /brands, the
+     *    homepage, /favorites, story galleries and every microsite because a
+     *    decoration could not be loaded is never the right trade.
+     * 2. It closes the deploy-order window. Railway deploys on a push to main
+     *    but Supabase migrations are applied by hand, so between the two
+     *    `focal_x` does not exist, PostgREST answers 42703, and the service
+     *    client has no `<Database>` generic to have caught it at compile time.
+     *    Without this catch that window is a site-wide outage on every card
+     *    surface.
+     *
+     * Reported through `captureReadFailure`, the same observability path as
+     * every other degraded page read, so this stays visible in Sentry rather
+     * than being swallowed.
+     */
+    captureReadFailure("brands.cardImageMeta")(error);
+    return brands.map(withDefaults);
+  }
 
   const rowsByBrand = new Map<string, CardImageRow[]>();
   for (const row of rows) {
@@ -900,7 +938,7 @@ export async function hydrateCardImageMeta<
         {
           altZh: heroRow.alt_zh ?? null,
           altEn: heroRow.alt_en ?? null,
-          isLogo: (heroRow.tags ?? []).includes("logo"),
+          isLogo: isLogoImageTags(heroRow.tags),
           focalX: heroRow.focal_x ?? null,
           focalY: heroRow.focal_y ?? null,
         },
@@ -1351,6 +1389,11 @@ const getBrandsBySlugKey = cache(
     // section), and hydrating outside would re-query `brand_images` each time.
     // One brand can appear under several slugs via redirects, so rebuild the
     // map by id rather than assuming a 1:1 pairing.
+    //
+    // Note this sits OUTSIDE `fetchBrandsBySlugKey`'s prerender-degrade catch,
+    // which returns before this line runs. That is only safe because
+    // `hydrateCardImageMeta` degrades internally — a `brand_images` failure
+    // here must not abort a story-page export. Do not add a throw to it.
     const hydratedById = new Map(
       (
         await hydrateCardImageMeta(supabase, [...new Set(bySlug.values())])

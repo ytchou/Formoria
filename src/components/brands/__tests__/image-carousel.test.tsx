@@ -20,9 +20,6 @@ vi.mock("next-intl", () => ({
   useLocale: () => "en",
   useTranslations: () => (key: string) => key,
 }));
-vi.mock("@/lib/images/allowed-image-hosts", () => ({
-  safeImageSrc: (url: string | null) => (url === "BAD" ? null : url),
-}));
 vi.mock("@/lib/analytics", () => ({
   trackGalleryPhotoView: vi.fn(),
   trackGalleryCompleted: vi.fn(),
@@ -31,11 +28,25 @@ vi.mock("../brand-engagement-tracker", () => ({
   useBrandEngagement: () => ({ reportEngagement: vi.fn() }),
 }));
 
-// The middle URL is rejected by `safeImageSrc`, so the rendered list is one
-// shorter than `imageAlts`. Every entry below therefore has a DIFFERENT value
-// at its filtered position than at its original position — which is what makes
-// the assertions able to fail if the component ever indexes the filtered list.
-const IMAGES = ["https://good.test/first.jpg", "BAD", "https://good.test/third.jpg"];
+/*
+ * REAL urls against the REAL host allowlist, deliberately not a stub.
+ *
+ * `safeImageSrc` is the very thing whose drop these assertions are about, so
+ * mocking it would leave the spec unable to notice a change in host filtering —
+ * it would only ever test the stub. `ALLOWED_IMAGE_HOSTS` is `*.supabase.co`,
+ * so a supabase URL survives and any other host is rejected for real.
+ *
+ * The middle URL is the one that gets dropped, so the rendered list is one
+ * shorter than `imageAlts`. Every entry below therefore has a DIFFERENT value
+ * at its filtered position than at its original position — which is what makes
+ * the assertions able to fail if the component ever indexes the filtered list.
+ */
+const ALLOWED_HOST = "https://xkcayngbttpxyibgzern.supabase.co";
+const IMAGES = [
+  `${ALLOWED_HOST}/first.jpg`,
+  "https://evil.example.com/dropped.jpg",
+  `${ALLOWED_HOST}/third.jpg`,
+];
 const IMAGE_ALTS: BrandImageMeta[] = [
   { altZh: "第一張", altEn: "First logo", isLogo: true, focalX: null, focalY: null },
   { altZh: "第二張", altEn: "Second photo", isLogo: false, focalX: 0.25, focalY: 0.75 },
@@ -112,7 +123,7 @@ describe("ImageCarousel", () => {
   it("applies focal positioning to normal images but not logos", () => {
     render(
       <ImageCarousel
-        images={["https://good.test/logo.jpg", "https://good.test/photo.jpg"]}
+        images={[`${ALLOWED_HOST}/logo.jpg`, `${ALLOWED_HOST}/photo.jpg`]}
         alt="Formoria"
         brandId="brand-id"
         brandSlug="formoria"

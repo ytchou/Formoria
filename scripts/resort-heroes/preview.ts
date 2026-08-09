@@ -95,13 +95,16 @@ async function main(): Promise<void> {
     generatedAt: new Date().toISOString(),
     brands: entries,
   }
-  await mkdir(dirname(PREVIEW_PATH), { recursive: true })
-  await writeFile(PREVIEW_PATH, `${JSON.stringify(output, null, 2)}\n`, 'utf8')
+  // Assert before writing, never after: a preview that attempted a blocked write
+  // is uncertified, and leaving its preview.json on disk lets an operator feed it
+  // straight into apply. The artifact must not exist unless this passes.
   if (blocked.length > 0) {
     // The planner is pure and preview never needs a write. Any blocked call proves
     // a transitive import escaped the preview boundary and must fail the run.
     throw new Error(`preview attempted ${blocked.length} blocked write(s)`)
   }
+  await mkdir(dirname(PREVIEW_PATH), { recursive: true })
+  await writeFile(PREVIEW_PATH, `${JSON.stringify(output, null, 2)}\n`, 'utf8')
   console.log(
     `wrote ${PREVIEW_PATH} (${entries.length} brands, ${rows.length} active rows)`,
   )

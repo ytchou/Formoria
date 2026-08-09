@@ -83,9 +83,18 @@ export type PublicMicrositeBrand = {
   status: 'approved' | 'hidden'
   description: string | null
   heroImageUrl: string | null
-  isLogo: boolean
-  focalX: number | null
-  focalY: number | null
+  /**
+   * Metadata for the hero image ONLY — this surface renders exactly one image,
+   * so a full index-aligned `imageAlts` array would be dishonest about what is
+   * carried. Nullable because a brand's hero can predate `brand_images`.
+   *
+   * Deliberately a whole `BrandImageMeta` rather than the flattened
+   * `isLogo`/`focalX`/`focalY` triple it replaces: the flattened names only
+   * satisfied `objectPositionStyle` by coinciding with its structural
+   * parameter, so nothing tied them to `BrandImageMeta` and a field added there
+   * would never have reached this contract.
+   */
+  heroImageMeta: BrandImageMeta | null
   foundingYear: number | null
   mitVerified: boolean
   siteContent: PublicSiteContent
@@ -300,9 +309,7 @@ export function toPublicMicrositeBrand(brand: Brand): PublicMicrositeBrand | nul
     slug: brand.slug,
     status: brand.status,
     heroImageUrl: brand.heroImageUrl,
-    isLogo: brand.imageAlts.at(0)?.isLogo ?? false,
-    focalX: brand.imageAlts.at(0)?.focalX ?? null,
-    focalY: brand.imageAlts.at(0)?.focalY ?? null,
+    heroImageMeta: brand.imageAlts.at(0) ?? null,
     description: brand.description,
     foundingYear: brand.foundingYear,
     mitVerified: brand.mitStatus === 'verified' || brand.mitVerified === true,

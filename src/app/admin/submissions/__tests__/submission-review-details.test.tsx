@@ -41,6 +41,8 @@ vi.mock("@/components/upload/ImageUploader", () => ({
           altZh: null,
           altEn: null,
           isLogo: false,
+          focalX: null,
+          focalY: null,
           width: 1200,
           height: 900,
         })
@@ -475,6 +477,8 @@ function reviewImage(
     altZh: null,
     altEn: null,
     isLogo: false,
+    focalX: null,
+    focalY: null,
     width: 1200,
     height: 900,
     originBrandImageId: null,
