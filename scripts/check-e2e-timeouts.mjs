@@ -79,6 +79,9 @@ function specFiles(dir) {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const path = join(dir, entry.name)
     if (entry.isDirectory()) return path.includes('node_modules') ? [] : specFiles(path)
+    // budgets.ts is where the numbers are *defined*; counting its literals as
+    // usage sites would make adding a named budget look like adding a bare one.
+    if (path === BUDGETS_FILE) return []
     return /\.ts$/.test(entry.name) && !entry.name.endsWith('.d.ts') ? [path] : []
   })
 }

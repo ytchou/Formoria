@@ -4,7 +4,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { test, expect } from '../fixtures/auth';
 import { ownerFeaturesDisabled, OWNER_FEATURES_OFF_REASON } from '../helpers/owner-features';
 
-import { BUDGET } from '../budgets';
+import { BUDGET, POLL } from '../budgets';
 // Suite-level gate (DEV-1261). The claim CTA is not rendered and the owner
 // dashboard 404s while the flag is off, so the whole lifecycle is unreachable.
 // Probes the running app, never app_settings.
@@ -154,10 +154,10 @@ async function cleanupScenario(
 async function openAdminClaim(page: Page, brandName: string) {
   await page.goto('/admin/claims');
   await expect(page.getByRole('heading', { name: /claim requests/i })).toBeVisible({
-    timeout: 60_000,
+    timeout: BUDGET.NAVIGATION,
   });
   const row = page.getByRole('row').filter({ hasText: brandName }).first();
-  await expect(row).toBeVisible({ timeout: 60_000 });
+  await expect(row).toBeVisible({ timeout: BUDGET.NAVIGATION });
   await row.click();
 }
 
@@ -192,7 +192,7 @@ test.describe('Claim request lifecycle', () => {
 
       await expect
         .poll(async () => (await getClaimRow(supabase, brand!.id, isolatedUser.id))?.id ?? null, {
-          timeout: 15_000,
+          timeout: BUDGET.SERVER_RENDER,
           intervals: [500, 1_000, 2_000],
         })
         .not.toBeNull();
@@ -262,7 +262,7 @@ test.describe('Claim request lifecycle', () => {
       await adminPage.getByRole('button', { name: /^approve$/i }).click();
       // The decision closes the modal drawer; its backdrop covers the tab strip
       // until it unmounts, so wait for that instead of racing the click.
-      await expect(adminPage.getByRole('dialog')).toBeHidden({ timeout: 15_000 });
+      await expect(adminPage.getByRole('dialog')).toBeHidden({ timeout: BUDGET.SERVER_RENDER });
       await adminPage.getByRole('tab', { name: /^Approved \(/ }).click();
       const approvedRow = adminPage.getByRole('row').filter({ hasText: brand.name }).first();
       await expect(approvedRow).toBeVisible();
@@ -286,15 +286,15 @@ test.describe('Claim request lifecycle', () => {
         await isolatedUserPage.goto('/dashboard');
         await expect(isolatedUserPage).toHaveURL(
           new RegExp(`/dashboard/brands/${brand.slug}$`),
-          { timeout: 5_000 },
+          { timeout: BUDGET.RENDERED },
         );
         await expect(
           isolatedUserPage.getByRole('heading', { level: 1, name: brand.name }),
-        ).toBeVisible({ timeout: 5_000 });
+        ).toBeVisible({ timeout: BUDGET.RENDERED });
         await expect(
           isolatedUserPage.getByRole('link', { name: '編輯品牌' }).first(),
-        ).toBeVisible({ timeout: 5_000 });
-      }).toPass({ timeout: 120_000, intervals: [2_000, 3_000, 5_000, 10_000] });
+        ).toBeVisible({ timeout: BUDGET.RENDERED });
+      }).toPass(POLL.CLAIM);
     } finally {
       await cleanupScenario(supabase, brand, isolatedUser.id, claimId, storageKeys);
     }
@@ -329,13 +329,13 @@ test.describe('Claim request lifecycle', () => {
         buffer: minimalPdf(),
       });
       const submit = isolatedUserPage.getByRole('button', { name: '送出認領申請' });
-      await expect(submit).toBeEnabled({ timeout: 15_000 });
+      await expect(submit).toBeEnabled({ timeout: BUDGET.SERVER_RENDER });
       await submit.click();
       await expect(isolatedUserPage.getByText('已收到你的認領申請')).toBeVisible();
 
       await expect
         .poll(async () => (await getClaimRow(supabase, brand!.id, isolatedUser.id))?.id ?? null, {
-          timeout: 15_000,
+          timeout: BUDGET.SERVER_RENDER,
           intervals: [500, 1_000, 2_000],
         })
         .not.toBeNull();
@@ -367,10 +367,10 @@ test.describe('Claim request lifecycle', () => {
 
       // The decision closes the modal drawer; its backdrop covers the tab strip
       // until it unmounts, so wait for that instead of racing the click.
-      await expect(adminPage.getByRole('dialog')).toBeHidden({ timeout: 15_000 });
+      await expect(adminPage.getByRole('dialog')).toBeHidden({ timeout: BUDGET.SERVER_RENDER });
       await adminPage.getByRole('tab', { name: /^Rejected \(/ }).click();
       const rejectedRow = adminPage.getByRole('row').filter({ hasText: brand.name }).first();
-      await expect(rejectedRow).toBeVisible({ timeout: 15_000 });
+      await expect(rejectedRow).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
       const rejectedDisclosure = rejectedRow.getByRole('button', {
         name: `Show details for ${brand.name}`,
       });

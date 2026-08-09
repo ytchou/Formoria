@@ -68,7 +68,7 @@ test.describe("Owner features gated off", () => {
     await expect(
       userPage.getByRole("heading", { level: 1, name: brandName }),
     ).toBeVisible({
-      timeout: 60_000,
+      timeout: BUDGET.NAVIGATION,
     });
 
     // The claim CTA is client-gated on ViewerContext.ownerFeaturesEnabled, so it
@@ -129,7 +129,7 @@ test.describe("Owner features gated off", () => {
     await anonPage.goto("/auth/sign-in");
     await expect(
       anonPage.getByRole("heading", { name: "登入 Formoria", exact: true }),
-    ).toBeVisible({ timeout: 60_000 });
+    ).toBeVisible({ timeout: BUDGET.NAVIGATION });
 
     await anonPage.getByLabel("電子郵件", { exact: true }).fill(email!);
     await anonPage.getByLabel("密碼", { exact: true }).fill(password!);
@@ -162,23 +162,23 @@ test.describe("Owner features gated off", () => {
     const accountTrigger = userPage.getByRole("button", {
       name: /account|帳號/i,
     });
-    await expect(accountTrigger).toBeVisible({ timeout: 30_000 });
+    await expect(accountTrigger).toBeVisible({ timeout: BUDGET.GATED_UI });
 
     const header = userPage.locator("header").first();
     const submitCta = header.getByRole("link", { name: "推薦品牌" }).first();
-    await expect(submitCta).toBeVisible({ timeout: 15_000 });
+    await expect(submitCta).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
     await expect(submitCta).toHaveAttribute("href", /^(?:\/en)?\/submit$/);
     // The "我的品牌" dashboard link is the branch the flag turns off.
     await expect(header.getByRole("link", { name: "我的品牌" })).toHaveCount(0);
 
     await accountTrigger.click();
     const accountMenu = userPage.locator('[data-slot="dropdown-menu-content"]');
-    await expect(accountMenu).toBeVisible({ timeout: 15_000 });
+    await expect(accountMenu).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
     // Sanity: the menu really did open with its always-on entries.
     await expect(
       accountMenu.getByRole("menuitem", { name: "帳號設定" }),
     ).toBeVisible({
-      timeout: 10_000,
+      timeout: BUDGET.INTERACTIVE,
     });
     await expect(
       accountMenu.getByRole("menuitem", { name: "我的推薦" }),

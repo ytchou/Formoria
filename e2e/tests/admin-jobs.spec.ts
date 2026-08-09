@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { test, expect } from '../fixtures/auth';
 
-import { BUDGET } from '../budgets';
+import { BUDGET, POLL } from '../budgets';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
@@ -194,7 +194,7 @@ test.describe('Admin curation jobs deep', () => {
     await adminPage.goto('/admin/jobs');
     await expect(adminPage.getByRole('navigation', { name: 'Filter data jobs' })).toHaveCount(0);
     const row = adminPage.locator('tbody tr').filter({ has: adminPage.locator(`a[href="/admin/jobs/${cancellableJobId}"]`) });
-    await expect(row).toBeVisible({ timeout: 60_000 });
+    await expect(row).toBeVisible({ timeout: BUDGET.NAVIGATION });
     await expect(row.locator('[data-slot="badge"]', { hasText: 'Queued' })).toBeVisible();
     await expect(adminPage.getByRole('columnheader', { name: 'Created' })).toBeVisible();
     await expect(adminPage.getByRole('columnheader', { name: 'Started' })).toBeVisible();
@@ -202,13 +202,13 @@ test.describe('Admin curation jobs deep', () => {
     const dialog = adminPage.getByRole('alertdialog');
     await expect(dialog.getByRole('heading', { name: 'Cancel this job?' })).toBeVisible();
     await dialog.getByRole('button', { name: 'Cancel job' }).click();
-    await expect(row.locator('[data-slot="badge"]', { hasText: 'Cancelled' })).toBeVisible({ timeout: 30_000 });
+    await expect(row.locator('[data-slot="badge"]', { hasText: 'Cancelled' })).toBeVisible({ timeout: BUDGET.GATED_UI });
   });
 
   test('admin reviews a failed curation target and manually reruns it', async ({ adminPage }) => {
     test.setTimeout(BUDGET.TEST.ADMIN);
     await adminPage.goto('/admin/jobs');
-    await expect(adminPage.getByRole('heading', { name: 'Data Jobs' })).toBeVisible({ timeout: 60_000 });
+    await expect(adminPage.getByRole('heading', { name: 'Data Jobs' })).toBeVisible({ timeout: BUDGET.NAVIGATION });
 
     const historyLink = adminPage.locator(`a[href="/admin/jobs/${parentJobId}"]`);
     const historyRow = adminPage.locator('tbody tr').filter({ has: historyLink });
@@ -218,11 +218,11 @@ test.describe('Admin curation jobs deep', () => {
       await expect(historyRow).toBeVisible();
       await expect(historyRow).toContainText('Completed with failures');
       await expect(historyRow).toContainText('0 ok, 0 skipped, 1 failed');
-    }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 10_000] });
+    }).toPass(POLL.DB);
 
     await historyLink.click();
-    await expect(adminPage).toHaveURL(new RegExp(`/admin/jobs/${parentJobId}$`), { timeout: 60_000 });
-    await expect(adminPage.getByRole('heading', { name: 'Job Detail' })).toBeVisible({ timeout: 60_000 });
+    await expect(adminPage).toHaveURL(new RegExp(`/admin/jobs/${parentJobId}$`), { timeout: BUDGET.NAVIGATION });
+    await expect(adminPage.getByRole('heading', { name: 'Job Detail' })).toBeVisible({ timeout: BUDGET.NAVIGATION });
     await expect(adminPage.getByText(parentJobId, { exact: true })).toBeVisible();
 
     const triggerField = adminPage.getByText('Trigger', { exact: true }).locator('..');
@@ -256,7 +256,7 @@ test.describe('Admin curation jobs deep', () => {
     await expect
       .poll(
         () => new URL(adminPage.url()).pathname,
-        { timeout: 60_000, intervals: [500, 1_000, 2_000, 5_000] },
+        { timeout: BUDGET.NAVIGATION, intervals: [500, 1_000, 2_000, 5_000] },
       )
       .toMatch(new RegExp(`^/admin/jobs/(?!${parentJobId}$)[^/]+$`));
 
@@ -279,7 +279,7 @@ test.describe('Admin curation jobs deep', () => {
       await expect(childTargetRow).toBeVisible();
       await expect(childTargetRow).toContainText(brandName);
       await expect(parentLineageLink).toHaveAttribute('href', `/admin/jobs/${parentJobId}`);
-    }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 10_000] });
+    }).toPass(POLL.DB);
 
     const childDetailsToggle = childTargetRow.getByText('View details', { exact: true });
     await expect(childDetailsToggle).toHaveCount(1);

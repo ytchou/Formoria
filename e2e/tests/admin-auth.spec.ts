@@ -5,13 +5,13 @@ test.describe('Admin auth guards', () => {
   test('unauthenticated user is redirected from /admin', async ({ anonPage }) => {
     test.setTimeout(BUDGET.TEST.ADMIN);
     await anonPage.goto('/admin');
-    await expect(anonPage).toHaveURL(/\/sign-in|\/login/i, { timeout: 60_000 });
+    await expect(anonPage).toHaveURL(/\/sign-in|\/login/i, { timeout: BUDGET.NAVIGATION });
   });
 
   test('unauthenticated user is redirected from /admin/submissions', async ({ anonPage }) => {
     test.setTimeout(BUDGET.TEST.ADMIN);
     await anonPage.goto('/admin/submissions');
-    await expect(anonPage).toHaveURL(/\/sign-in|\/login/i, { timeout: 60_000 });
+    await expect(anonPage).toHaveURL(/\/sign-in|\/login/i, { timeout: BUDGET.NAVIGATION });
   });
 
   test('non-admin authenticated user is redirected from /admin', async ({ userPage }) => {

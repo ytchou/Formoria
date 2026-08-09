@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-import { BUDGET } from '../budgets';
+import { BUDGET, POLL } from '../budgets';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
@@ -52,13 +52,13 @@ test.describe('Brand city badge', () => {
     // ISR pages may serve a stale cache — poll-reload until the seeded brand's city badge appears
     await expect(async () => {
       await page.goto(`/brands/${brandSlug}`, { waitUntil: 'domcontentloaded' });
-      await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 10_000 });
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: BUDGET.INTERACTIVE });
       // City badge: rendered as a <span data-slot="badge"> containing the next-intl
       // translated city name. Scope to the badge — the FAQ copy on this page can
       // also mention the city name in prose (brandFaq.context.city).
       await expect(
         page.locator('[data-slot="badge"]', { hasText: '臺北市' }),
-      ).toBeVisible({ timeout: 5_000 });
-    }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 10_000] });
+      ).toBeVisible({ timeout: BUDGET.RENDERED });
+    }).toPass(POLL.DB);
   });
 });

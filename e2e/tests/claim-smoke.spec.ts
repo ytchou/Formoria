@@ -1,4 +1,4 @@
-import { BUDGET } from "../budgets";
+import { BUDGET, POLL } from "../budgets";
 import { test, expect } from "../fixtures/auth";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -140,11 +140,11 @@ test.describe("Claim request smoke", () => {
 
     await expect(
       userPage.getByRole("heading", { level: 1, name: brandName }),
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await expect(
       userPage.getByRole("button", { name: "認領這個品牌" }),
     ).toBeVisible({
-      timeout: 10_000,
+      timeout: BUDGET.INTERACTIVE,
     });
     await expect(userPage.getByTitle("由品牌方經營管理")).toHaveCount(0);
 
@@ -159,13 +159,13 @@ test.describe("Claim request smoke", () => {
     const submitClaimButton = userPage.getByRole("button", {
       name: "送出認領申請",
     });
-    await expect(submitClaimButton).toBeEnabled({ timeout: 15_000 });
+    await expect(submitClaimButton).toBeEnabled({ timeout: BUDGET.SERVER_RENDER });
     await submitClaimButton.click();
     await expect(userPage.getByText("已收到你的認領申請")).toBeVisible({
-      timeout: 10_000,
+      timeout: BUDGET.INTERACTIVE,
     });
     await expect(userPage.getByText(/我們會盡快審核/)).toBeVisible({
-      timeout: 5_000,
+      timeout: BUDGET.RENDERED,
     });
 
     await expect
@@ -183,7 +183,7 @@ test.describe("Claim request smoke", () => {
             ? data.proof_evidence.length
             : 0;
         },
-        { timeout: 15_000, intervals: [500, 1_000, 2_000] },
+        { timeout: BUDGET.SERVER_RENDER, intervals: [500, 1_000, 2_000] },
       )
       .toBeGreaterThanOrEqual(1);
 
@@ -207,24 +207,24 @@ test.describe("Claim request smoke", () => {
     await adminPage.goto("/admin/claims");
     await expect(
       adminPage.getByRole("heading", { name: /claim requests/i }),
-    ).toBeVisible({ timeout: 60_000 });
+    ).toBeVisible({ timeout: BUDGET.NAVIGATION });
     const claimsTable = adminPage.locator('table');
     await expect(claimsTable.getByText(brandName, { exact: true })).toBeVisible({
-      timeout: 60_000,
+      timeout: BUDGET.NAVIGATION,
     });
 
     await claimsTable.getByText(brandName, { exact: true }).click();
     const approveBtn = adminPage.getByRole("button", { name: /^approve$/i });
-    await expect(approveBtn).toBeVisible({ timeout: 5_000 });
+    await expect(approveBtn).toBeVisible({ timeout: BUDGET.RENDERED });
     await approveBtn.click();
-    await expect(approveBtn).toBeHidden({ timeout: 15_000 });
+    await expect(approveBtn).toBeHidden({ timeout: BUDGET.SERVER_RENDER });
 
     await adminPage.getByRole("tab", { name: /^Approved \(/ }).click();
     const approvedRow = adminPage
       .getByRole("row")
       .filter({ hasText: brandName })
       .first();
-    await expect(approvedRow).toBeVisible({ timeout: 15_000 });
+    await expect(approvedRow).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
     const approvedDisclosure = approvedRow.getByRole("button", {
       name: `Show details for ${brandName}`,
     });
@@ -250,7 +250,7 @@ test.describe("Claim request smoke", () => {
           if (error) throw error;
           return data?.status ?? null;
         },
-        { timeout: 15_000, intervals: [500, 1_000, 2_000] },
+        { timeout: BUDGET.SERVER_RENDER, intervals: [500, 1_000, 2_000] },
       )
       .toBe("completed");
 
@@ -263,7 +263,7 @@ test.describe("Claim request smoke", () => {
               .download(claimProofPath(storageKey));
             return data !== null;
           },
-          { timeout: 15_000, intervals: [500, 1_000, 2_000] },
+          { timeout: BUDGET.SERVER_RENDER, intervals: [500, 1_000, 2_000] },
         )
         .toBe(false);
     }
@@ -281,7 +281,7 @@ test.describe("Claim request smoke", () => {
           if (error) throw error;
           return data?.user_id ?? null;
         },
-        { timeout: 15_000, intervals: [500, 1_000, 2_000] },
+        { timeout: BUDGET.SERVER_RENDER, intervals: [500, 1_000, 2_000] },
       )
       .toBe(userId);
 
@@ -290,17 +290,17 @@ test.describe("Claim request smoke", () => {
       await expect(userPage).toHaveURL(
         new RegExp(`/dashboard/brands/${brandSlug}$`),
         {
-          timeout: 5_000,
+          timeout: BUDGET.RENDERED,
         },
       );
       await expect(
         userPage.getByRole("heading", { level: 1, name: brandName }),
-      ).toBeVisible({ timeout: 5_000 });
+      ).toBeVisible({ timeout: BUDGET.RENDERED });
       await expect(
         userPage.getByRole("link", { name: "編輯品牌" }).first(),
       ).toBeVisible({
-        timeout: 5_000,
+        timeout: BUDGET.RENDERED,
       });
-    }).toPass({ timeout: 120_000, intervals: [2_000, 3_000, 5_000, 10_000] });
+    }).toPass(POLL.CLAIM);
   });
 });

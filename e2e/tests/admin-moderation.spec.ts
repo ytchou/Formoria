@@ -139,21 +139,21 @@ test.describe('Content moderation flow', () => {
   async function saveBasicInfoDraft(ownerPage: Page, description: string) {
     await ownerPage.goto(`/zh-TW/dashboard/brands/${brandSlug}/edit?step=0`);
     await expect(ownerPage.locator('#description')).toBeVisible({
-      timeout: 30_000,
+      timeout: BUDGET.GATED_UI,
     });
     await expect(ownerPage.locator('#name')).toHaveValue(brandName, {
-      timeout: 30_000,
+      timeout: BUDGET.GATED_UI,
     });
     await expect(ownerPage.locator('#productType')).toHaveValue('crafts', {
-      timeout: 30_000,
+      timeout: BUDGET.GATED_UI,
     });
     await expect(ownerPage.locator('#priceRange')).toHaveValue('2', {
-      timeout: 30_000,
+      timeout: BUDGET.GATED_UI,
     });
     await ownerPage.locator('#description').fill(description);
     await ownerPage.getByRole('button', { name: '儲存並繼續' }).click();
     await expect(ownerPage.getByRole('heading', { name: '產品圖片' })).toBeVisible({
-      timeout: 60_000,
+      timeout: BUDGET.NAVIGATION,
     });
     await expect
       .poll(
@@ -167,7 +167,7 @@ test.describe('Content moderation flow', () => {
           return (data?.draft_data as Record<string, unknown> | null)
             ?.description;
         },
-        { timeout: 30_000, intervals: [500, 1_000, 2_000] },
+        { timeout: BUDGET.GATED_UI, intervals: [500, 1_000, 2_000] },
       )
       .toBe(description);
   }
@@ -175,7 +175,7 @@ test.describe('Content moderation flow', () => {
   async function publishDraft(ownerPage: Page) {
     await ownerPage.goto(`/zh-TW/dashboard/brands/${brandSlug}/edit?step=4`);
     await expect(ownerPage.getByRole('button', { name: '發布' })).toBeVisible({
-      timeout: 30_000,
+      timeout: BUDGET.GATED_UI,
     });
     await ownerPage.getByRole('button', { name: '發布' }).click();
   }
@@ -201,7 +201,7 @@ test.describe('Content moderation flow', () => {
             draftData: data?.draft_data,
           };
         },
-        { timeout: 30_000, intervals: [500, 1_000, 2_000] },
+        { timeout: BUDGET.GATED_UI, intervals: [500, 1_000, 2_000] },
       )
       .toEqual({ description: updatedDescription, draftData: null });
 
@@ -214,7 +214,7 @@ test.describe('Content moderation flow', () => {
 
     await ownerPage.goto(`/zh-TW/brands/${brandSlug}`);
     await expect(ownerPage.getByText(updatedDescription, { exact: true })).toBeVisible({
-      timeout: 30_000,
+      timeout: BUDGET.GATED_UI,
     });
   });
 
@@ -228,11 +228,11 @@ test.describe('Content moderation flow', () => {
     await publishDraft(ownerPage);
 
     await expect(ownerPage.getByRole('heading', { name: '基本資料' })).toBeVisible({
-      timeout: 30_000,
+      timeout: BUDGET.GATED_UI,
     });
     await expect(ownerPage.locator('#description-error')).toHaveText(
       /此欄位不可放電話號碼/,
-      { timeout: 30_000 },
+      { timeout: BUDGET.GATED_UI },
     );
 
     const { data: brand, error: brandError } = await supabase
@@ -251,7 +251,7 @@ test.describe('Content moderation flow', () => {
       ownerPage.getByText(`${cleanDescription}，新增耐用設計說明`, {
         exact: true,
       }),
-    ).toBeVisible({ timeout: 30_000 });
+    ).toBeVisible({ timeout: BUDGET.GATED_UI });
     await expect(ownerPage.getByText(blockedDescription, { exact: true })).toHaveCount(0);
 
     const { data: flags, error: flagsError } = await supabase
@@ -277,11 +277,11 @@ test.describe('Content moderation flow', () => {
     await adminPage.goto('/admin/brands');
     await adminPage.getByPlaceholder('Search brand name...').fill(brandName);
     const brandRow = adminPage.locator('tbody tr').filter({ hasText: brandName });
-    await expect(brandRow).toBeVisible({ timeout: 30_000 });
+    await expect(brandRow).toBeVisible({ timeout: BUDGET.GATED_UI });
     await brandRow.getByText(brandName, { exact: true }).click();
 
     const brandPanel = adminPage.getByRole('dialog', { name: brandName });
-    await expect(brandPanel).toBeVisible({ timeout: 10_000 });
+    await expect(brandPanel).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     const contentSection = brandPanel.locator('section').filter({
       has: brandPanel.getByRole('heading', { name: 'Content', exact: true }),
     });
@@ -292,7 +292,7 @@ test.describe('Content moderation flow', () => {
     await contentSection.getByRole('button', { name: 'Save' }).click();
     await expect(brandPanel).toContainText(
       'Phone numbers are not allowed in this field',
-      { timeout: 30_000 },
+      { timeout: BUDGET.GATED_UI },
     );
 
     const { data: brand, error: brandError } = await supabase
@@ -323,7 +323,7 @@ test.describe('Content moderation flow', () => {
     await adminPage.goto('/admin/moderation');
     await expect(
       adminPage.locator('table').getByRole('columnheader', { name: 'Brand' }),
-    ).toBeVisible({ timeout: 30_000 });
+    ).toBeVisible({ timeout: BUDGET.GATED_UI });
     await expect(
       adminPage.locator('table').getByRole('columnheader', { name: 'Actions' }),
     ).toBeVisible();
@@ -331,15 +331,15 @@ test.describe('Content moderation flow', () => {
     await expect(adminPage.getByText('Filter by tier')).toHaveCount(0);
 
     const pendingRows = adminPage.locator('tbody tr').filter({ hasText: brandName });
-    await expect(pendingRows).toHaveCount(2, { timeout: 30_000 });
+    await expect(pendingRows).toHaveCount(2, { timeout: BUDGET.GATED_UI });
     await expect(pendingRows.first()).toContainText('Phone number');
     await expect(pendingRows.first().getByRole('button', { name: 'Mark reviewed' })).toBeVisible();
     await expect(pendingRows.first().getByRole('button', { name: 'Dismiss' })).toBeVisible();
 
     await pendingRows.first().getByRole('button', { name: 'Mark reviewed' }).click();
-    await expect(pendingRows).toHaveCount(1, { timeout: 30_000 });
+    await expect(pendingRows).toHaveCount(1, { timeout: BUDGET.GATED_UI });
     await pendingRows.first().getByRole('button', { name: 'Dismiss' }).click();
-    await expect(pendingRows).toHaveCount(0, { timeout: 30_000 });
+    await expect(pendingRows).toHaveCount(0, { timeout: BUDGET.GATED_UI });
 
     const { data: reviewedFlags, error: reviewedFlagsError } = await supabase
       .from('moderation_flags')

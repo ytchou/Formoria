@@ -1,3 +1,4 @@
+import { BUDGET } from "../budgets";
 import { test, expect } from "../fixtures/auth";
 import {
   NO_SEEDED_EVENTS,
@@ -72,7 +73,7 @@ test.describe("Event detail deep", () => {
       name: "參展品牌",
       exact: true,
     });
-    await expect(lineup).toBeVisible({ timeout: 10_000 });
+    await expect(lineup).toBeVisible({ timeout: BUDGET.INTERACTIVE });
 
     // `role="group"` named events.areaFilterAria. Absent when the lineup has no areas
     // to filter by — an authoring state, not a regression.
@@ -127,7 +128,7 @@ test.describe("Event detail deep", () => {
     await expect
       .poll(async () => cards.count(), {
         message: `filtering by "${areaLabel}" did not shrink the brand grid`,
-        timeout: 10_000,
+        timeout: BUDGET.INTERACTIVE,
       })
       .toBeLessThan(totalCards);
 
@@ -156,7 +157,7 @@ test.describe("Event detail deep", () => {
     // "全部區域" restores the full lineup without a navigation either.
     await chips.first().click();
     await expect
-      .poll(async () => cards.count(), { timeout: 10_000 })
+      .poll(async () => cards.count(), { timeout: BUDGET.INTERACTIVE })
       .toBe(totalCards);
     expect(new URL(anonPage.url()).pathname).toBe(pathnameBefore);
   });
@@ -217,7 +218,7 @@ test.describe("Event detail deep", () => {
     const response = await anonPage.goto(`/en/events/${event.slug}`);
     expect(response?.status()).toBe(200);
     await expect(anonPage.getByRole("heading", { level: 1 })).toBeVisible({
-      timeout: 10_000,
+      timeout: BUDGET.INTERACTIVE,
     });
 
     const enCanonical = anonPage.locator('link[rel="canonical"]');
@@ -412,7 +413,7 @@ test.describe("Creative Expo exhibitor list", () => {
     // non-fatal — this keeps a silent warm-up failure from looking like a
     // navigation bug in the product.
     await expect(anonPage).toHaveURL(/\/en\/brands\/shiye$/, {
-      timeout: 30_000,
+      timeout: BUDGET.GATED_UI,
     });
   });
 

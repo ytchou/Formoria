@@ -55,7 +55,7 @@ test.describe('Dashboard — analytics', () => {
 
     const available = userPage.getByText(/^(Profile visits|品牌頁瀏覽)$/)
     const unavailable = userPage.getByRole('heading', { name: /^(Analytics temporarily unavailable|數據分析暫時無法使用)$/ })
-    await expect(available.or(unavailable)).toBeVisible({ timeout: 30_000 })
+    await expect(available.or(unavailable)).toBeVisible({ timeout: BUDGET.GATED_UI })
 
     if (await available.isVisible()) {
       await expect(userPage.getByText(/^(Outbound clicks|外部連結點擊)$/)).toBeVisible()

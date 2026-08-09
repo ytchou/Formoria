@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { expect, test } from "../fixtures/auth";
 
-import { BUDGET } from "../budgets";
+import { BUDGET, POLL } from "../budgets";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
@@ -250,7 +250,7 @@ test.describe("Admin submission enrichment lifecycle", () => {
       expect(submission?.status).toBe("approved");
       expect(submission?.brand_id).toBeTruthy();
       approvedBrandId = submission?.brand_id;
-    }).toPass({ timeout: 30_000, intervals: [1_000, 2_000, 5_000] });
+    }).toPass(POLL.APPLY);
 
     const { data: brand, error: brandError } = await supabase
       .from("brands")

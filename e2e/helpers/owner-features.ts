@@ -1,3 +1,4 @@
+import { BUDGET } from '../budgets';
 import type { Browser } from '@playwright/test'
 
 /**
@@ -43,7 +44,7 @@ export async function ownerFeaturesDisabled(browser: Browser): Promise<boolean> 
     const page = await context.newPage()
     const response = await page.goto('/submit/owner', {
       waitUntil: 'commit',
-      timeout: 30_000,
+      timeout: BUDGET.GATED_UI,
     })
     return response?.status() === 404
   } finally {

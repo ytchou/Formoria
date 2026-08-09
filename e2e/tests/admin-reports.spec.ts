@@ -72,16 +72,16 @@ test.describe('Admin reports deep', () => {
     // DEV-762: admin sub-routes cold-compile in CI dev mode; give generous budget
     test.setTimeout(BUDGET.TEST.ADMIN);
     await adminPage.goto('/admin/reports');
-    await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
+    await expect(adminPage.getByRole('main')).toBeVisible({ timeout: BUDGET.NAVIGATION });
 
     await expect(
       adminPage.getByRole('heading', { name: 'Brand Reports' })
-    ).toBeVisible({ timeout: 60_000 });
+    ).toBeVisible({ timeout: BUDGET.NAVIGATION });
 
     const table = adminPage.locator('table').first();
     const emptyState = adminPage.getByText('No pending reports.');
 
-    await expect(table.or(emptyState)).toBeVisible({ timeout: 10_000 });
+    await expect(table.or(emptyState)).toBeVisible({ timeout: BUDGET.INTERACTIVE });
 
     if (await table.isVisible()) {
       await expect(adminPage.getByRole('columnheader', { name: 'Brand' })).toBeVisible();
@@ -104,20 +104,20 @@ test.describe('Admin reports deep', () => {
     test.setTimeout(BUDGET.TEST.ADMIN);
     await adminPage.goto('/admin/reports');
     // Wait for main to confirm the page loaded before looking for the seeded row
-    await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
+    await expect(adminPage.getByRole('main')).toBeVisible({ timeout: BUDGET.NAVIGATION });
 
     const seededRow = adminPage.locator('tbody tr', { hasText: seededReportBrandName! }).filter({
       hasText: 'Incorrect information',
     }).first();
 
-    await expect(seededRow).toBeVisible({ timeout: 15_000 });
+    await expect(seededRow).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
     await expect(seededRow.getByText('Incorrect information')).toBeVisible();
     await expect(seededRow.getByText('Pending')).toBeVisible();
 
     await seededRow.click();
 
     const drawer = adminPage.getByRole('dialog');
-    await expect(drawer).toBeVisible({ timeout: 10_000 });
+    await expect(drawer).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await expect(drawer.getByText(seededReportNote!, { exact: true })).toBeVisible();
     await expect(drawer.getByRole('button', { name: 'Mark reviewed' })).toBeVisible();
     await expect(drawer.getByRole('button', { name: 'Dismiss' })).toBeVisible();

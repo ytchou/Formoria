@@ -1,3 +1,4 @@
+import { BUDGET, POLL } from '../budgets';
 import { test, expect } from '../fixtures/auth';
 import { NO_PUBLISHED_STORIES, publishedStories } from '../utils/published-stories';
 
@@ -19,7 +20,7 @@ test.describe('Story detail deep', () => {
     await expect(anonPage).toHaveTitle(new RegExp(escapeRegExp(firstStory.title)));
     await expect(
       anonPage.getByRole('heading', { name: firstStory.title, level: 1 })
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await expect(anonPage.getByText(/something went wrong|發生錯誤/i)).not.toBeVisible();
   });
 
@@ -33,7 +34,7 @@ test.describe('Story detail deep', () => {
     const hasBrandCard = await anonPage
       .locator('main a[href*="/brands/"], main [class*="border-dashed"]')
       .first()
-      .isVisible({ timeout: 5_000 })
+      .isVisible({ timeout: BUDGET.RENDERED })
       .catch(() => false);
     test.skip(!hasBrandCard, 'story embeds no BrandCard');
 
@@ -42,7 +43,7 @@ test.describe('Story detail deep', () => {
       const brandLink = anonPage.locator('main a[href*="/brands/"]').first();
       const placeholder = anonPage.locator('main [class*="border-dashed"]').first();
 
-      if (await brandLink.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      if (await brandLink.isVisible({ timeout: BUDGET.RENDERED }).catch(() => false)) {
         // A resolved card must show the brand's NAME, not just link to it. Asserting
         // only on the href let a bare-slug stub pass — the DEV-930 regression this
         // test exists to catch. The name must also differ from the slug in the href,
@@ -56,9 +57,9 @@ test.describe('Story detail deep', () => {
       } else {
         // Unresolvable slug: the dashed placeholder must render and name the slug,
         // and the page must still be 200 rather than 500.
-        await expect(placeholder).toBeVisible({ timeout: 5_000 });
+        await expect(placeholder).toBeVisible({ timeout: BUDGET.RENDERED });
       }
-    }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 10_000] });
+    }).toPass(POLL.DB);
   });
 
   test('FaqBlock renders and first accordion item expands on click', async ({ anonPage }) => {
@@ -66,7 +67,7 @@ test.describe('Story detail deep', () => {
     // FaqBlock renders as <details>/<summary> accordion elements. `faq` is optional
     // frontmatter, so a story without one is not a failure.
     const firstDetails = anonPage.locator('main details').first();
-    const hasFaq = await firstDetails.isVisible({ timeout: 5_000 }).catch(() => false);
+    const hasFaq = await firstDetails.isVisible({ timeout: BUDGET.RENDERED }).catch(() => false);
     test.skip(!hasFaq, 'story has no faq frontmatter');
 
     await firstDetails.locator('summary').click();
@@ -105,7 +106,7 @@ test.describe('Story detail deep', () => {
     expect(response?.status()).toBe(200);
     await expect(
       anonPage.getByRole('heading', { name: firstStory.title, level: 1 })
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
 
     const canonical = anonPage.locator('link[rel="canonical"]');
     await expect(canonical).toHaveCount(1);
@@ -117,7 +118,7 @@ test.describe('Story detail deep', () => {
     await expect(canonical).not.toHaveAttribute('href', /\/en\/stories\//);
     // English chrome, not the zh-TW fallback the old force-static behavior produced.
     await expect(anonPage.getByRole('link', { name: 'Stories' }).first()).toBeVisible({
-      timeout: 10_000,
+      timeout: BUDGET.INTERACTIVE,
     });
   });
 });

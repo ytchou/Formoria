@@ -24,7 +24,7 @@ const ADMIN_PATH = '/admin/feature-requests';
 // a mutation — every board assertion polls with a reload rather than asserting
 // once.
 const BOARD_POLL = {
-  timeout: 60_000,
+  timeout: BUDGET.NAVIGATION,
   intervals: [1_000, 2_000, 3_000, 5_000],
 };
 
@@ -146,15 +146,15 @@ function upvoteButton(page: Page, title: string): Locator {
 
 async function waitForBoardRow(page: Page, title: string): Promise<void> {
   await expect(async () => {
-    await page.reload({ timeout: 30_000 });
-    await expect(boardRow(page, title)).toBeVisible({ timeout: 5_000 });
+    await page.reload({ timeout: BUDGET.GATED_UI });
+    await expect(boardRow(page, title)).toBeVisible({ timeout: BUDGET.RENDERED });
   }).toPass(BOARD_POLL);
 }
 
 async function waitForBoardRowGone(page: Page, title: string): Promise<void> {
   await expect(async () => {
-    await page.reload({ timeout: 30_000 });
-    await expect(boardRow(page, title)).toHaveCount(0, { timeout: 5_000 });
+    await page.reload({ timeout: BUDGET.GATED_UI });
+    await expect(boardRow(page, title)).toHaveCount(0, { timeout: BUDGET.RENDERED });
   }).toPass(BOARD_POLL);
 }
 
@@ -216,12 +216,12 @@ test.describe('Public feature request board', () => {
       );
       await expect(button).toHaveAttribute('aria-pressed', 'false');
       await expect(button).toHaveText('0');
-      await expect(button).toBeEnabled({ timeout: 30_000 });
+      await expect(button).toBeEnabled({ timeout: BUDGET.GATED_UI });
 
       await button.click();
 
       await expect(button).toHaveAttribute('aria-pressed', 'true', {
-        timeout: 30_000,
+        timeout: BUDGET.GATED_UI,
       });
       await expect(button).toHaveText('1');
       await expect(anonPage).not.toHaveURL(/\/auth\/sign-in/);
@@ -233,7 +233,7 @@ test.describe('Public feature request board', () => {
       await expect(upvoteButton(anonPage, request.title)).toHaveAttribute(
         'aria-pressed',
         'true',
-        { timeout: 30_000 },
+        { timeout: BUDGET.GATED_UI },
       );
     } finally {
       await cleanupFeatureRequests(supabase, created);
@@ -261,7 +261,7 @@ test.describe('Public feature request board', () => {
 
       await expect(
         userPage.getByText('謝謝你，我們已經收到你的建議。'),
-      ).toBeVisible({ timeout: 30_000 });
+      ).toBeVisible({ timeout: BUDGET.GATED_UI });
       await expect(dialog).toBeHidden();
 
       await waitForBoardRow(userPage, title);
@@ -289,11 +289,11 @@ test.describe('Public feature request board', () => {
       const button = upvoteButton(userPage, request.title);
       await expect(button).toHaveAttribute('aria-pressed', 'false');
       await expect(button).toHaveText('0');
-      await expect(button).toBeEnabled({ timeout: 30_000 });
+      await expect(button).toBeEnabled({ timeout: BUDGET.GATED_UI });
 
       await button.click();
       await expect(button).toHaveAttribute('aria-pressed', 'true', {
-        timeout: 30_000,
+        timeout: BUDGET.GATED_UI,
       });
       await expect(button).toHaveText('1');
       await expect(button).toHaveAttribute(
@@ -303,7 +303,7 @@ test.describe('Public feature request board', () => {
 
       await button.click();
       await expect(button).toHaveAttribute('aria-pressed', 'false', {
-        timeout: 30_000,
+        timeout: BUDGET.GATED_UI,
       });
       await expect(button).toHaveText('0');
       await expect(button).toHaveAttribute(
@@ -314,9 +314,9 @@ test.describe('Public feature request board', () => {
       // The un-vote must survive a reload: an optimistic-only rollback would
       // pass every assertion above and still leave the vote in the database.
       await expect(async () => {
-        await userPage.reload({ timeout: 30_000 });
+        await userPage.reload({ timeout: BUDGET.GATED_UI });
         await expect(upvoteButton(userPage, request.title)).toHaveText('0', {
-          timeout: 5_000,
+          timeout: BUDGET.RENDERED,
         });
       }).toPass(BOARD_POLL);
     } finally {
@@ -359,13 +359,13 @@ test.describe('Public feature request board', () => {
       await gotoAndGuard(adminPage, ADMIN_PATH);
       await expect(
         adminPage.getByRole('heading', { name: /Feature requests|功能許願/i }),
-      ).toBeVisible({ timeout: 60_000 });
+      ).toBeVisible({ timeout: BUDGET.NAVIGATION });
 
       const mergeLabel = new RegExp(
         `(Merge ${escapeRegExp(source.title)} into|把「${escapeRegExp(source.title)}」併入)`,
       );
       const mergeSelect = adminPage.getByRole('combobox', { name: mergeLabel });
-      await expect(mergeSelect).toBeVisible({ timeout: 30_000 });
+      await expect(mergeSelect).toBeVisible({ timeout: BUDGET.GATED_UI });
       // Scope by the select, not by row text: every row's merge dropdown lists
       // every other request's title as an option, so a text filter matches all.
       const sourceRow = adminPage
@@ -377,14 +377,14 @@ test.describe('Public feature request board', () => {
       await sourceRow.getByRole('button', { name: /^(Merge|合併)$/ }).click();
 
       await expect(async () => {
-        await adminPage.reload({ timeout: 30_000 });
+        await adminPage.reload({ timeout: BUDGET.GATED_UI });
         await expect(
           adminPage
             .getByRole('row')
             .filter({ hasText: source.title })
             .first()
             .getByText(/Merged|已合併/),
-        ).toBeVisible({ timeout: 5_000 });
+        ).toBeVisible({ timeout: BUDGET.RENDERED });
       }).toPass(BOARD_POLL);
 
       // The merged source leaves the public board, and the target absorbs the

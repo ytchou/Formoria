@@ -12,7 +12,7 @@ test.describe('Auth — forgot password request', () => {
     await anonPage.goto('/auth/sign-in');
 
     const forgotLink = anonPage.getByRole('link', { name: '忘記密碼？', exact: true });
-    await expect(forgotLink).toBeVisible({ timeout: 60_000 });
+    await expect(forgotLink).toBeVisible({ timeout: BUDGET.NAVIGATION });
 
     await Promise.all([
       anonPage.waitForURL(/\/auth\/forgot-password(?:[/?#]|$)/),
@@ -21,7 +21,7 @@ test.describe('Auth — forgot password request', () => {
 
     await expect(
       anonPage.getByRole('heading', { name: '重設密碼', exact: true })
-    ).toBeVisible({ timeout: 60_000 });
+    ).toBeVisible({ timeout: BUDGET.NAVIGATION });
     await expect(anonPage.getByLabel('電子郵件', { exact: true })).toBeVisible();
     await expect(
       anonPage.getByRole('button', { name: '傳送重設連結', exact: true })
@@ -36,7 +36,7 @@ test.describe('Auth — forgot password request', () => {
 
     const emailInput = anonPage.getByLabel('電子郵件', { exact: true });
     const submitBtn = anonPage.getByRole('button', { name: '傳送重設連結', exact: true });
-    await expect(emailInput).toBeVisible({ timeout: 60_000 });
+    await expect(emailInput).toBeVisible({ timeout: BUDGET.NAVIGATION });
 
     // Empty submit: native constraint validation (required) blocks the request
     await submitBtn.click();
@@ -65,14 +65,14 @@ test.describe('Auth — forgot password request', () => {
     await anonPage.goto('/auth/forgot-password');
 
     const emailInput = anonPage.getByLabel('電子郵件', { exact: true });
-    await expect(emailInput).toBeVisible({ timeout: 60_000 });
+    await expect(emailInput).toBeVisible({ timeout: BUDGET.NAVIGATION });
 
     // Account does not exist — the message must be identical either way (anti-enumeration)
     await emailInput.fill(`e2e-nonexistent+${Date.now()}@example.com`);
     await anonPage.getByRole('button', { name: '傳送重設連結', exact: true }).click();
 
     await expect(anonPage.getByText(GENERIC_SUCCESS, { exact: true })).toBeVisible({
-      timeout: 60_000,
+      timeout: BUDGET.NAVIGATION,
     });
     // Success state replaces the form
     await expect(emailInput).not.toBeVisible();
@@ -95,7 +95,7 @@ test.describe('Auth — reset password page guard', () => {
 
     await expect(
       anonPage.getByRole('heading', { name: '設定新密碼', exact: true })
-    ).toBeVisible({ timeout: 60_000 });
+    ).toBeVisible({ timeout: BUDGET.NAVIGATION });
 
     const passwordInput = anonPage.getByLabel('新密碼', { exact: true });
     const confirmInput = anonPage.getByLabel('確認新密碼', { exact: true });
@@ -112,7 +112,7 @@ test.describe('Auth — reset password page guard', () => {
     // (filter out Next.js's route announcer, which also has role="alert")
     await expect(
       anonPage.getByRole('alert').filter({ hasText: SESSION_EXPIRED })
-    ).toBeVisible({ timeout: 60_000 });
+    ).toBeVisible({ timeout: BUDGET.NAVIGATION });
     await expect(anonPage).toHaveURL(/\/auth\/reset-password(?:[/?#]|$)/);
     await expect(
       anonPage.getByRole('heading', { name: '設定新密碼', exact: true })
@@ -132,7 +132,7 @@ test.describe('Auth — reset password page guard', () => {
 
     await expect(
       userPage.getByRole('heading', { name: '設定新密碼', exact: true })
-    ).toBeVisible({ timeout: 60_000 });
+    ).toBeVisible({ timeout: BUDGET.NAVIGATION });
     await expect(userPage).toHaveURL(/\/auth\/reset-password(?:[/?#]|$)/);
     await expect(userPage.getByLabel('新密碼', { exact: true })).toBeVisible();
     await expect(userPage.getByLabel('確認新密碼', { exact: true })).toBeVisible();
@@ -149,7 +149,7 @@ test.describe('Auth — reset password page guard', () => {
     await userPage.goto('/auth/sign-in');
     await userPage.waitForURL((url) => !url.pathname.includes('/auth/sign-in'));
     await expect(userPage.getByRole('button', { name: /account|帳號/i })).toBeVisible({
-      timeout: 30_000,
+      timeout: BUDGET.GATED_UI,
     });
   });
 });

@@ -78,26 +78,26 @@ test.describe("Auth — Google OAuth offline guard", () => {
 
     await expect(
       anonPage.getByRole("heading", { name: "登入 Formoria", exact: true }),
-    ).toBeVisible({ timeout: 60_000 });
+    ).toBeVisible({ timeout: BUDGET.NAVIGATION });
 
     // Button must be visible before any click
     const googleBtn = anonPage.getByRole("button", {
       name: "使用 Google 登入",
       exact: true,
     });
-    await expect(googleBtn).toBeVisible({ timeout: 60_000 });
+    await expect(googleBtn).toBeVisible({ timeout: BUDGET.NAVIGATION });
 
     // Click — the Server Action fires, and the browser is redirected to Supabase /authorize.
     // The route intercept aborts that navigation; a navigation error is expected — swallow it.
     await Promise.race([
       googleBtn.click(),
       anonPage
-        .waitForURL("**/auth/v1/authorize**", { timeout: 10_000 })
+        .waitForURL("**/auth/v1/authorize**", { timeout: BUDGET.INTERACTIVE })
         .catch(() => {}),
     ]).catch(() => {});
 
     await expect
-      .poll(() => capturedAuthorizeUrl, { timeout: 10_000 })
+      .poll(() => capturedAuthorizeUrl, { timeout: BUDGET.INTERACTIVE })
       .toBeTruthy();
 
     // The intercepted URL must include provider=google
@@ -125,12 +125,12 @@ test.describe("Auth — sign-in flow", () => {
     await expect(
       anonPage.getByRole("heading", { name: "登入 Formoria", exact: true }),
     ).toBeVisible({
-      timeout: 60_000,
+      timeout: BUDGET.NAVIGATION,
     });
     await expect(
       anonPage.getByRole("button", { name: "使用 Google 登入", exact: true }),
     ).toBeVisible({
-      timeout: 60_000,
+      timeout: BUDGET.NAVIGATION,
     });
 
     await anonPage.getByLabel("電子郵件", { exact: true }).fill(email);
@@ -151,7 +151,7 @@ test.describe("Auth — sign-in flow", () => {
     await expect(
       anonPage.getByRole("button", { name: /account|帳號/i }),
     ).toBeVisible({
-      timeout: 10_000,
+      timeout: BUDGET.INTERACTIVE,
     });
   });
 });

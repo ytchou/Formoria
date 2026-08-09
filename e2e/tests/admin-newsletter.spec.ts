@@ -1,3 +1,4 @@
+import { BUDGET } from '../budgets';
 import { randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { test, expect } from '../fixtures/auth';
@@ -37,7 +38,7 @@ test.describe('Admin newsletter operations deep', () => {
 
   test('admin filters pending subscribers without exposing action tokens', async ({ adminPage }) => {
     await adminPage.goto(`/admin/newsletter?status=pending&q=${encodeURIComponent(subscriberEmail)}`);
-    await expect(adminPage.getByRole('heading', { name: 'Newsletter' })).toBeVisible({ timeout: 60_000 });
+    await expect(adminPage.getByRole('heading', { name: 'Newsletter' })).toBeVisible({ timeout: BUDGET.NAVIGATION });
     const row = adminPage.locator('tbody tr').filter({ hasText: subscriberEmail });
     await expect(row).toBeVisible();
     await expect(row).toContainText('Pending');

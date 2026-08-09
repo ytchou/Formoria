@@ -243,10 +243,10 @@ test.describe('Dashboard brand edit', () => {
     await userPage.goto(`/dashboard/brands/${descriptionBrandSlug}/edit`);
     await expect(
       userPage.getByRole('heading', { name: /^編輯 / }),
-    ).toBeVisible({ timeout: 60_000 });
+    ).toBeVisible({ timeout: BUDGET.NAVIGATION });
 
     const citySelect = userPage.locator('#city');
-    await expect(citySelect).toBeVisible({ timeout: 10_000 });
+    await expect(citySelect).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await expect(citySelect).toHaveValue('');
     await expect(citySelect.locator('option').first()).toHaveText('請選擇品牌創立城市');
     await expect(citySelect.locator('option[value="taipei"]')).toHaveText('臺北市');
@@ -257,17 +257,17 @@ test.describe('Dashboard brand edit', () => {
     await userPage.goto(`/dashboard/brands/${descriptionBrandSlug}/edit`);
     await expect(
       userPage.getByRole('heading', { name: /^編輯 / }),
-    ).toBeVisible({ timeout: 60_000 });
+    ).toBeVisible({ timeout: BUDGET.NAVIGATION });
 
     const descriptionField = userPage.locator('textarea[name="description"]');
-    await expect(descriptionField).toBeVisible({ timeout: 5_000 });
-    await expect(descriptionField).toHaveValue(initialDescription, { timeout: 5_000 });
+    await expect(descriptionField).toBeVisible({ timeout: BUDGET.RENDERED });
+    await expect(descriptionField).toHaveValue(initialDescription, { timeout: BUDGET.RENDERED });
     await descriptionField.fill('');
     await descriptionField.fill(updatedDescription);
 
     await userPage.getByRole('button', { name: '儲存並繼續' }).click();
     await expect(userPage).toHaveURL(/\/dashboard\/brands\/.+\/edit\?step=1/, {
-      timeout: 15_000,
+      timeout: BUDGET.SERVER_RENDER,
     });
   });
 });
@@ -304,14 +304,14 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
 
     await expect(
       userPage.getByRole('heading', { name: /^編輯 / }),
-    ).toBeVisible({ timeout: 60_000 });
+    ).toBeVisible({ timeout: BUDGET.NAVIGATION });
 
-    await expect(userPage.locator('#main-content #basic-info')).toBeVisible({ timeout: 10_000 });
+    await expect(userPage.locator('#main-content #basic-info')).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await expect(userPage.getByRole('heading', { name: '編輯品牌資料' })).toBeVisible();
     await expect(userPage.getByText('已完成 0／4 步').first()).toBeVisible();
     await expect(
       userPage.locator('aside nav button').first(),
-    ).toHaveAttribute('aria-current', 'step', { timeout: 5_000 });
+    ).toHaveAttribute('aria-current', 'step', { timeout: BUDGET.RENDERED });
     await expect(userPage.getByText('為必填欄位')).toBeVisible();
     await expect(userPage.locator('#description')).toHaveAttribute('aria-required', 'true');
     await expect(userPage.locator('#priceRange')).toHaveAttribute('aria-required', 'true');
@@ -324,13 +324,13 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
 
     await expect(
       userPage.getByRole('heading', { name: /^編輯 / }),
-    ).toBeVisible({ timeout: 60_000 });
+    ).toBeVisible({ timeout: BUDGET.NAVIGATION });
 
     const sidebarNav = userPage.locator('aside nav');
     for (const label of ['基本資料', '品牌圖片', '社群與購買連結', '品牌口碑']) {
       await expect(
         sidebarNav.locator('button').filter({ hasText: label }),
-      ).toBeVisible({ timeout: 5_000 });
+      ).toBeVisible({ timeout: BUDGET.RENDERED });
     }
     await expect(sidebarNav.locator('button')).toHaveCount(4);
   });
@@ -344,8 +344,8 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
 
     await expect(
       userPage.getByRole('heading', { name: /^編輯 / }),
-    ).toBeVisible({ timeout: 60_000 });
-    await expect(userPage.locator('#main-content #basic-info')).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: BUDGET.NAVIGATION });
+    await expect(userPage.locator('#main-content #basic-info')).toBeVisible({ timeout: BUDGET.INTERACTIVE });
 
     // Triple-click selects all text before fill to avoid appending to existing value
     await userPage.locator('#name').click({ clickCount: 3 });
@@ -354,7 +354,7 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
 
     await userPage.getByRole('button', { name: '儲存並繼續' }).click();
     // Increase timeout: saveSectionDraftAction can be slow when dev server is under load
-    await expect(userPage.locator('#main-content #media')).toBeVisible({ timeout: 30_000 });
+    await expect(userPage.locator('#main-content #media')).toBeVisible({ timeout: BUDGET.GATED_UI });
 
     // Poll for the draft save (async write after URL navigation)
     await expect.poll(async () => {
@@ -364,19 +364,19 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
         .eq('id', wizardBrandId)
         .single();
       return (data?.draft_data as Record<string, unknown>)?.__wizardCompletedSteps ?? null;
-    }, { timeout: 15_000, intervals: [500, 1_000, 2_000] }).toEqual([0]);
+    }, { timeout: BUDGET.SERVER_RENDER, intervals: [500, 1_000, 2_000] }).toEqual([0]);
 
     await userPage.reload();
-    await expect(userPage.locator('#main-content #media')).toBeVisible({ timeout: 30_000 });
+    await expect(userPage.locator('#main-content #media')).toBeVisible({ timeout: BUDGET.GATED_UI });
     await expect(userPage.getByText('已完成 1／4 步').first()).toBeVisible();
     await expect(userPage.locator('aside nav button').first().locator('svg')).toHaveCount(1);
     // Back button visible on step 1 (non-first, non-final step)
     await expect(
       userPage.getByRole('button', { name: '上一步' }),
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
 
     await userPage.locator('aside nav button').filter({ hasText: '基本資料' }).click();
-    await expect(userPage.locator('#main-content #basic-info')).toBeVisible({ timeout: 30_000 });
+    await expect(userPage.locator('#main-content #basic-info')).toBeVisible({ timeout: BUDGET.GATED_UI });
     await expect(userPage.locator('#name')).toHaveValue(nextName);
   });
 
@@ -395,7 +395,7 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
     // "resolved to 2 elements".
     await expect(
       userPage.locator('#main-content #romanizedName'),
-    ).toBeVisible({ timeout: 30_000 });
+    ).toBeVisible({ timeout: BUDGET.GATED_UI });
     await expect(
       userPage.locator('#main-content #romanizedName'),
     ).toHaveAttribute('readonly', '');
@@ -435,16 +435,16 @@ test.describe('Brand edit sidebar wizard — navigation', () => {
 
     await expect(
       userPage.getByRole('heading', { name: /^編輯 / }),
-    ).toBeVisible({ timeout: 60_000 });
-    await expect(userPage.locator('#main-content #basic-info')).toBeVisible({ timeout: 30_000 });
+    ).toBeVisible({ timeout: BUDGET.NAVIGATION });
+    await expect(userPage.locator('#main-content #basic-info')).toBeVisible({ timeout: BUDGET.GATED_UI });
 
     const sidebarNav = userPage.locator('aside nav');
     await sidebarNav.locator('button').filter({ hasText: '品牌口碑' }).click();
-    await expect(userPage.locator('#main-content #reputation')).toBeVisible({ timeout: 30_000 });
-    await expect(userPage).toHaveURL(/\?step=3/, { timeout: 10_000 });
+    await expect(userPage.locator('#main-content #reputation')).toBeVisible({ timeout: BUDGET.GATED_UI });
+    await expect(userPage).toHaveURL(/\?step=3/, { timeout: BUDGET.INTERACTIVE });
     await expect(
       sidebarNav.locator('button').filter({ hasText: '品牌口碑' }),
-    ).toHaveAttribute('aria-current', 'step', { timeout: 5_000 });
+    ).toHaveAttribute('aria-current', 'step', { timeout: BUDGET.RENDERED });
   });
 
 });
@@ -480,7 +480,7 @@ test.describe('Dashboard — brand image upload', () => {
 
     await expect(
       userPage.getByRole('heading', { level: 1, name: /edit|編輯/i }),
-    ).toBeVisible({ timeout: 60_000 });
+    ).toBeVisible({ timeout: BUDGET.NAVIGATION });
 
     const heroInput = userPage.locator('#image-upload-heroImageUrl');
 
@@ -502,10 +502,10 @@ test.describe('Dashboard — brand image upload', () => {
 
     await expect(
       userPage.locator('#image-upload-heroImageUrl-replace'),
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await expect(
       userPage.locator('#image-upload-heroImageUrl-replace').locator('..').getByRole('img'),
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
 
     const productInput = userPage.locator('#productPhotos-upload');
     const productUploadResponsePromise = userPage.waitForResponse(
@@ -526,7 +526,7 @@ test.describe('Dashboard — brand image upload', () => {
     ).toBeVisible();
 
     await userPage.getByRole('button', { name: '儲存並繼續' }).click();
-    await expect(userPage).toHaveURL(/\?step=2/, { timeout: 15_000 });
+    await expect(userPage).toHaveURL(/\?step=2/, { timeout: BUDGET.SERVER_RENDER });
 
     const { data: brandDraft } = await supabase
       .from('brands')
@@ -568,8 +568,8 @@ test.describe('Dashboard — governed field integrity', () => {
     // URL is not /dashboard but /dashboard/brands/<slug>.  Assert stable state:
     // the user is somewhere in /dashboard (not on adminBrand's edit page) and
     // the edit form is not rendered.
-    await expect(userPage).toHaveURL(/\/dashboard/, { timeout: 60_000 });
-    await expect(userPage).not.toHaveURL(new RegExp(`/dashboard/brands/${adminBrandSlug}`), { timeout: 5_000 });
+    await expect(userPage).toHaveURL(/\/dashboard/, { timeout: BUDGET.NAVIGATION });
+    await expect(userPage).not.toHaveURL(new RegExp(`/dashboard/brands/${adminBrandSlug}`), { timeout: BUDGET.RENDERED });
     await expect(userPage.locator('section#basic-info')).toHaveCount(0);
   });
 
@@ -579,16 +579,16 @@ test.describe('Dashboard — governed field integrity', () => {
     const editResp = await userPage.goto(editPath);
     if (editResp?.status() === 503) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
-    await expect(userPage.getByRole('heading', { level: 1, name: /edit|編輯/i })).toBeVisible({ timeout: 60_000 });
+    await expect(userPage.getByRole('heading', { level: 1, name: /edit|編輯/i })).toBeVisible({ timeout: BUDGET.NAVIGATION });
 
     const descField = userPage.locator('textarea[name="description"]');
-    await expect(descField).toBeVisible({ timeout: 5_000 });
+    await expect(descField).toBeVisible({ timeout: BUDGET.RENDERED });
     const updatedDesc = `[E2E-TEST] Updated via owner edit ${Date.now()}`;
     await descField.fill('');
     await descField.fill(updatedDesc);
 
     await userPage.getByRole('button', { name: '儲存並繼續' }).click();
-    await expect(userPage).toHaveURL(/\?step=1/, { timeout: 15_000 });
+    await expect(userPage).toHaveURL(/\?step=1/, { timeout: BUDGET.SERVER_RENDER });
 
     // The wizard saves to brands.draft_data (camelCase keys), not pending_brand_edits.
     // pending_brand_edits is only created on final publish.
@@ -599,7 +599,7 @@ test.describe('Dashboard — governed field integrity', () => {
         .eq('id', governedBrandId)
         .single();
       return (data?.draft_data as Record<string, unknown>)?.description ?? null;
-    }, { timeout: 15_000, intervals: [500, 1_000, 2_000] }).toBe(updatedDesc);
+    }, { timeout: BUDGET.SERVER_RENDER, intervals: [500, 1_000, 2_000] }).toBe(updatedDesc);
 
     const { data: row, error } = await supabase
       .from('brands')

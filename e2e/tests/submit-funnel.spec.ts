@@ -106,7 +106,7 @@ test.describe("Submit funnel", () => {
     // Wait for the flat-form heading (confirms hydration)
     await expect(
       anonPage.getByRole("heading", { name: "推薦品牌", exact: true }),
-    ).toBeVisible({ timeout: 30_000 });
+    ).toBeVisible({ timeout: BUDGET.GATED_UI });
 
     // Fill required fields
     await anonPage.locator("#submit-website").fill(websiteUrl);
@@ -130,12 +130,12 @@ test.describe("Submit funnel", () => {
     await submitBtn.click();
 
     // Must land on the confirmation page
-    await anonPage.waitForURL(/\/submit\/confirmation/, { timeout: 30_000 });
+    await anonPage.waitForURL(/\/submit\/confirmation/, { timeout: BUDGET.GATED_UI });
 
     // Confirmation heading
     await expect(
       anonPage.getByRole("heading", { name: "我們已收到你的品牌推薦" }),
-    ).toBeVisible({ timeout: 15_000 });
+    ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
 
     // Both CTAs: return home and submit another
     await expect(anonPage.locator('a[href="/"]').first()).toBeVisible();
@@ -163,7 +163,7 @@ test.describe("Submit funnel", () => {
           savedSubmission = data;
           return Boolean(data);
         },
-        { timeout: 30_000, intervals: [500, 1_000, 2_000, 5_000] },
+        { timeout: BUDGET.GATED_UI, intervals: [500, 1_000, 2_000, 5_000] },
       )
       .toBe(true);
 
@@ -217,7 +217,7 @@ test.describe("Submit funnel", () => {
 
     await expect(
       userPage.getByRole("heading", { name: "填寫品牌資料", exact: true }),
-    ).toBeVisible({ timeout: 30_000 });
+    ).toBeVisible({ timeout: BUDGET.GATED_UI });
     await userPage.locator("#name").fill(brandName);
     await userPage.locator("#romanizedName").fill("Detailed Wizard Brand");
     await expect(userPage.locator("#brand-url-preview")).toHaveValue(
@@ -227,7 +227,7 @@ test.describe("Submit funnel", () => {
     await userPage.locator("#description").fill("台灣製造的詳細提交測試品牌。");
 
     await userPage.getByRole("button", { name: "儲存並繼續" }).click();
-    await expect(userPage.locator("#media")).toBeVisible({ timeout: 30_000 });
+    await expect(userPage.locator("#media")).toBeVisible({ timeout: BUDGET.GATED_UI });
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -256,11 +256,11 @@ test.describe("Submit funnel", () => {
     expect((await uploadResponsePromise).status()).toBe(200);
     await expect(
       userPage.locator("#image-upload-heroImageUrl-replace"),
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
 
     await userPage.getByRole("button", { name: "儲存並繼續" }).click();
     await expect(userPage.locator("#purchase")).toBeVisible({
-      timeout: 30_000,
+      timeout: BUDGET.GATED_UI,
     });
     await expect(userPage.locator("#purchase fieldset")).toHaveCount(3);
     // 3 social + 4 purchase channels (PURCHASE_CHANNELS). Bump when a channel is added.
@@ -279,9 +279,9 @@ test.describe("Submit funnel", () => {
     await userPage.locator("#submission-pdpa").check();
 
     const submitButton = userPage.getByRole("button", { name: "送出品牌資料" });
-    await expect(submitButton).toBeEnabled({ timeout: 15_000 });
+    await expect(submitButton).toBeEnabled({ timeout: BUDGET.SERVER_RENDER });
     await submitButton.click();
-    await userPage.waitForURL(/\/submit\/confirmation/, { timeout: 30_000 });
+    await userPage.waitForURL(/\/submit\/confirmation/, { timeout: BUDGET.GATED_UI });
 
     const { data, error } = await supabase
       .from("brand_submissions")

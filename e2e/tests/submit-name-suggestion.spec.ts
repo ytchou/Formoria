@@ -1,7 +1,7 @@
 import { test, expect } from '../fixtures/auth';
 import { gotoSubmitRecommend } from '../utils/submit-form';
 
-import { BUDGET } from '../budgets';
+import { BUDGET, POLL } from '../budgets';
 // ---------------------------------------------------------------------------
 // Journey: Name cleanup suggestion
 // When the user enters a dirty brand name and blurs the field, a suggestion
@@ -20,7 +20,7 @@ test.describe('Submit name suggestion', () => {
 
     // Name field is immediately visible on the flat single-screen form
     const nameInput = userPage.locator('#submit-name');
-    await expect(nameInput).toBeVisible({ timeout: 5_000 });
+    await expect(nameInput).toBeVisible({ timeout: BUDGET.RENDERED });
 
     // Type a name that contains an emoji — triggers the emoji cleanup pattern
     await nameInput.fill('TestBrand🥑');
@@ -31,7 +31,7 @@ test.describe('Submit name suggestion', () => {
     // Suggestion alert must appear — locate by unique content rather than
     // bare role="alert" (avoids collision with route announcer / other alerts)
     const suggestionAlert = userPage.getByText('建議名稱：');
-    await expect(suggestionAlert).toBeVisible({ timeout: 15_000 });
+    await expect(suggestionAlert).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
 
     // Alert body contains the cleaned name
     const alertContainer = suggestionAlert.locator('..');
@@ -50,7 +50,7 @@ test.describe('Submit name suggestion', () => {
     // event dispatch.
     await expect(async () => {
       await applyBtn.click({ timeout: 3_000 });
-    }).toPass({ timeout: 20_000, intervals: [500, 1_000, 2_000] });
+    }).toPass(POLL.UI);
 
     // Field now holds the cleaned name
     await expect(nameInput).toHaveValue('TestBrand');
@@ -67,13 +67,13 @@ test.describe('Submit name suggestion', () => {
 
     // Name field is immediately visible — no skip step needed
     const nameInput = userPage.locator('#submit-name');
-    await expect(nameInput).toBeVisible({ timeout: 5_000 });
+    await expect(nameInput).toBeVisible({ timeout: BUDGET.RENDERED });
 
     await nameInput.fill('TestBrand🥑');
     await nameInput.press('Tab');
 
     const suggestionAlert = userPage.getByText('建議名稱：');
-    await expect(suggestionAlert).toBeVisible({ timeout: 15_000 });
+    await expect(suggestionAlert).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
 
     // User resumes typing — onChange clears the suggestion
     await nameInput.focus();

@@ -1,3 +1,4 @@
+import { BUDGET } from "../budgets";
 import { test, expect } from "@playwright/test";
 
 // These tests run under the 'mobile' project (375px viewport via Pixel 5 device)
@@ -34,7 +35,7 @@ test.describe("Mobile responsive", () => {
     const firstCard = page
       .locator('main [role="list"] [role="listitem"] article')
       .first();
-    await expect(firstCard).toBeVisible({ timeout: 10_000 });
+    await expect(firstCard).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await expect(firstCard.getByRole("link")).toHaveAttribute(
       "href",
       /\/brands\//,
@@ -51,10 +52,10 @@ test.describe("Mobile responsive", () => {
     });
     const nav = page.getByRole("banner").getByRole("navigation");
     if (await hamburger.isVisible().catch(() => false)) {
-      await expect(hamburger).toBeVisible({ timeout: 5_000 });
+      await expect(hamburger).toBeVisible({ timeout: BUDGET.RENDERED });
       return;
     }
-    await expect(nav).toBeVisible({ timeout: 5_000 });
+    await expect(nav).toBeVisible({ timeout: BUDGET.RENDERED });
   });
 
   test("sign-in page has no horizontal overflow at 375px", async ({ page }) => {
@@ -63,7 +64,7 @@ test.describe("Mobile responsive", () => {
     await page.goto("/auth/sign-in");
     await page.waitForLoadState("domcontentloaded");
     await expect(page.getByRole("heading").first()).toBeVisible({
-      timeout: 5_000,
+      timeout: BUDGET.RENDERED,
     });
     const body = await page.evaluate(() => document.body.scrollWidth);
     expect(body).toBeLessThanOrEqual(page.viewportSize()!.width + 5);

@@ -1,3 +1,4 @@
+import { BUDGET } from "./budgets";
 import path from "path";
 import fs from "fs";
 import { execFileSync } from "child_process";
@@ -175,7 +176,7 @@ async function globalSetup() {
       const page = await context.newPage();
       await page.goto(`${baseURL}/submit/recommend`, {
         waitUntil: "domcontentloaded",
-        timeout: 60000,
+        timeout: BUDGET.NAVIGATION,
       });
       await page
         .locator('input[type="url"]')
@@ -188,7 +189,7 @@ async function globalSetup() {
       try {
         await page.goto(`${baseURL}/submit`, {
           waitUntil: "domcontentloaded",
-          timeout: 60000,
+          timeout: BUDGET.NAVIGATION,
         });
         await page
           .getByRole("heading", { level: 1 })
@@ -204,7 +205,7 @@ async function globalSetup() {
       try {
         await page.goto(baseURL + "/dashboard", {
           waitUntil: "domcontentloaded",
-          timeout: 60000,
+          timeout: BUDGET.NAVIGATION,
         });
         console.log("[global-setup] /dashboard warm-up complete");
       } catch (err) {
@@ -216,7 +217,7 @@ async function globalSetup() {
       try {
         await page.goto(baseURL + "/admin", {
           waitUntil: "domcontentloaded",
-          timeout: 60000,
+          timeout: BUDGET.NAVIGATION,
         });
         console.log("[global-setup] /admin warm-up complete");
       } catch (err) {
@@ -232,7 +233,7 @@ async function globalSetup() {
       try {
         await page.goto(baseURL + "/brands", {
           waitUntil: "domcontentloaded",
-          timeout: 60000,
+          timeout: BUDGET.NAVIGATION,
         });
         await page
           .locator("main a[aria-label]")
@@ -252,7 +253,7 @@ async function globalSetup() {
       try {
         await page.goto(baseURL + "/stories", {
           waitUntil: "domcontentloaded",
-          timeout: 60000,
+          timeout: BUDGET.NAVIGATION,
         });
         console.log("[global-setup] /stories warm-up complete");
       } catch (err) {
@@ -276,7 +277,7 @@ async function globalSetup() {
         if (warmBrand?.slug) {
           await page.goto(`${baseURL}/brands/${warmBrand.slug}`, {
             waitUntil: "domcontentloaded",
-            timeout: 60000,
+            timeout: BUDGET.NAVIGATION,
           });
           await page
             .getByRole("heading", { level: 1 })
@@ -290,7 +291,7 @@ async function globalSetup() {
           // `expect` budget, which reads as "the link does not navigate".
           await page.goto(`${baseURL}/en/brands/${warmBrand.slug}`, {
             waitUntil: "domcontentloaded",
-            timeout: 60000,
+            timeout: BUDGET.NAVIGATION,
           });
           await page
             .getByRole("heading", { level: 1 })

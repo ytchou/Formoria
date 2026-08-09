@@ -81,7 +81,7 @@ test.describe.serial('Auth — signup to first value', () => {
       await anonPage.getByRole('button', { name: '建立帳號', exact: true }).click();
 
       const registered = await anonPage
-        .waitForURL(/\/auth\/sign-in/, { timeout: 15_000 })
+        .waitForURL(/\/auth\/sign-in/, { timeout: BUDGET.SERVER_RENDER })
         .then(() => true)
         .catch(() => false);
 
@@ -89,7 +89,7 @@ test.describe.serial('Auth — signup to first value', () => {
         const alertText = await anonPage
           .locator('[role="alert"]:not(#__next-route-announcer__)')
           .first()
-          .textContent({ timeout: 5_000 })
+          .textContent({ timeout: BUDGET.RENDERED })
           .catch(() => null);
         const observed = `url=${anonPage.url()} error=${alertText?.trim() || '(no error alert rendered)'}`;
 
@@ -142,13 +142,13 @@ test.describe.serial('Auth — signup to first value', () => {
           'confirmation token did not complete the OTP verification',
         ).toBe('/dashboard?is_new_user=1');
       }
-      await expect(anonPage).toHaveURL(/\/dashboard\?.*is_new_user=1/, { timeout: 30_000 });
+      await expect(anonPage).toHaveURL(/\/dashboard\?.*is_new_user=1/, { timeout: BUDGET.GATED_UI });
 
       // 5. First value: the account with no brand yet sees the owner empty state
       //    with both onward CTAs. This is the payoff the whole funnel exists for.
       await expect(
         anonPage.getByRole('heading', { level: 1, name: '此頁面為品牌經營者專屬主控台' }),
-      ).toBeVisible({ timeout: 15_000 });
+      ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
       await expect(anonPage.getByRole('link', { name: '提交你的品牌' })).toHaveAttribute(
         'href',
         /\/submit$/,

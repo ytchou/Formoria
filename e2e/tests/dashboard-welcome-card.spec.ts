@@ -105,7 +105,7 @@ test.describe('Dashboard — quick actions', () => {
 
     // Brand profile wrapper must be present.
     await expect(userPage.locator('[data-testid="brand-profile"]')).toBeVisible({
-      timeout: 30_000,
+      timeout: BUDGET.GATED_UI,
     })
 
     // Assert all 4 quick action links with their expected hrefs.

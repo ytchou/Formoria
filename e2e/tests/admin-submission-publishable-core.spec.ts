@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { expect, test } from "../fixtures/auth";
 
-import { BUDGET } from "../budgets";
+import { BUDGET, POLL } from "../budgets";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
@@ -208,7 +208,7 @@ test.describe("Submission publishable-core link guard", () => {
       const readyRow = adminPage
         .locator("tbody tr")
         .filter({ hasText: seeded.brandName });
-      await expect(readyRow).toBeVisible({ timeout: 30_000 });
+      await expect(readyRow).toBeVisible({ timeout: BUDGET.GATED_UI });
 
       await readyRow
         .getByRole("button", { name: `Expand review for ${seeded.brandName}` })
@@ -225,7 +225,7 @@ test.describe("Submission publishable-core link guard", () => {
       // The row leaves the `ready` filter only after the server action has
       // finished and refreshed; waiting here keeps the teardown below from
       // deleting the brand while post-approval image sync is still running.
-      await expect(readyRow).toHaveCount(0, { timeout: 60_000 });
+      await expect(readyRow).toHaveCount(0, { timeout: BUDGET.NAVIGATION });
 
       await expect(async () => {
         const { data: submission, error } = await supabase
@@ -237,7 +237,7 @@ test.describe("Submission publishable-core link guard", () => {
         expect(submission?.status).toBe("approved");
         expect(submission?.brand_id).toBeTruthy();
         approvedBrandId = submission?.brand_id;
-      }).toPass({ timeout: 30_000, intervals: [1_000, 2_000, 5_000] });
+      }).toPass(POLL.APPLY);
 
       const { data: brand, error: brandError } = await supabase
         .from("brands")

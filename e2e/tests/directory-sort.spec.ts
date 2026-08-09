@@ -1,3 +1,4 @@
+import { BUDGET } from "../budgets";
 import { test, expect } from "@playwright/test";
 
 test.describe("Directory sort deep", () => {
@@ -6,7 +7,7 @@ test.describe("Directory sort deep", () => {
   }) => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading").first()).toBeVisible({
-      timeout: 10_000,
+      timeout: BUDGET.INTERACTIVE,
     });
     await expect(
       page.locator('main form[role="search"] input[role="searchbox"]'),
@@ -17,15 +18,15 @@ test.describe("Directory sort deep", () => {
     await page.goto("/brands");
 
     const sortSelect = page.getByRole("combobox", { name: "排序方式" });
-    await expect(sortSelect).toBeVisible({ timeout: 10_000 });
+    await expect(sortSelect).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await expect(sortSelect).toHaveValue("random");
     await expect(page).not.toHaveURL(/sort=/);
 
     await sortSelect.selectOption("name");
 
-    await expect(page).toHaveURL(/sort=name/, { timeout: 10_000 });
+    await expect(page).toHaveURL(/sort=name/, { timeout: BUDGET.INTERACTIVE });
     await expect(page.locator("main a[aria-label]").first()).toBeVisible({
-      timeout: 10_000,
+      timeout: BUDGET.INTERACTIVE,
     });
   });
 
@@ -35,7 +36,7 @@ test.describe("Directory sort deep", () => {
     await page.goto("/categories/home");
 
     const sortSelect = page.getByRole("combobox", { name: "排序方式" });
-    await expect(sortSelect).toBeVisible({ timeout: 10_000 });
+    await expect(sortSelect).toBeVisible({ timeout: BUDGET.INTERACTIVE });
 
     await sortSelect.selectOption("newest");
 
@@ -43,10 +44,10 @@ test.describe("Directory sort deep", () => {
       (url) =>
         url.pathname === "/categories/home" &&
         url.searchParams.get("sort") === "newest",
-      { timeout: 10_000 },
+      { timeout: BUDGET.INTERACTIVE },
     );
     await expect(page.locator("main a[aria-label]").first()).toBeVisible({
-      timeout: 10_000,
+      timeout: BUDGET.INTERACTIVE,
     });
   });
 
@@ -54,13 +55,13 @@ test.describe("Directory sort deep", () => {
     await page.goto("/brands");
 
     const sortSelect = page.getByRole("combobox", { name: "排序方式" });
-    await expect(sortSelect).toBeVisible({ timeout: 10_000 });
+    await expect(sortSelect).toBeVisible({ timeout: BUDGET.INTERACTIVE });
 
     await sortSelect.selectOption("year");
 
-    await expect(page).toHaveURL(/sort=year/, { timeout: 10_000 });
+    await expect(page).toHaveURL(/sort=year/, { timeout: BUDGET.INTERACTIVE });
     await expect(page.locator("main a[aria-label]").first()).toBeVisible({
-      timeout: 10_000,
+      timeout: BUDGET.INTERACTIVE,
     });
   });
 
@@ -70,14 +71,14 @@ test.describe("Directory sort deep", () => {
     await page.goto("/brands?sort=name");
 
     const sortSelect = page.getByRole("combobox", { name: "排序方式" });
-    await expect(sortSelect).toBeVisible({ timeout: 10_000 });
+    await expect(sortSelect).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await expect(sortSelect).toHaveValue("name");
 
     await sortSelect.selectOption("random");
 
-    await expect(page).not.toHaveURL(/sort=/, { timeout: 10_000 });
+    await expect(page).not.toHaveURL(/sort=/, { timeout: BUDGET.INTERACTIVE });
     await expect(page.locator("main a[aria-label]").first()).toBeVisible({
-      timeout: 10_000,
+      timeout: BUDGET.INTERACTIVE,
     });
   });
 
@@ -87,7 +88,7 @@ test.describe("Directory sort deep", () => {
     await page.goto("/brands?sort=newest");
 
     const sortSelect = page.getByRole("combobox", { name: "排序方式" });
-    await expect(sortSelect).toBeVisible({ timeout: 10_000 });
+    await expect(sortSelect).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await expect(sortSelect).toHaveValue("newest");
   });
 });

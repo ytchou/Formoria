@@ -1,3 +1,4 @@
+import { BUDGET } from '../budgets';
 import { expect, type Page } from '@playwright/test';
 
 /**
@@ -49,12 +50,12 @@ export async function resolveSeededEvent(page: Page): Promise<SeededEvent | null
   // The hub is a permanent surface: it renders its heading whether or not any event
   // exists. If even this is missing, the hub itself is broken and the deep specs
   // should not quietly skip on the back of it.
-  await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
 
   const isEmpty = await page
     .getByText(COMING_SOON)
     .first()
-    .isVisible({ timeout: 5_000 })
+    .isVisible({ timeout: BUDGET.RENDERED })
     .catch(() => false);
 
   if (isEmpty) {
@@ -66,7 +67,7 @@ export async function resolveSeededEvent(page: Page): Promise<SeededEvent | null
   // 展會回顧) render `EventCard`, which links to `/events/<slug>`; a section with zero
   // members renders nothing, so whichever section exists supplies the first card.
   const firstCard = page.locator('main a[href*="/events/"]').first();
-  await expect(firstCard).toBeVisible({ timeout: 10_000 });
+  await expect(firstCard).toBeVisible({ timeout: BUDGET.INTERACTIVE });
 
   const href = (await firstCard.getAttribute('href')) ?? '';
   const slug = href.split('/events/')[1]?.split(/[?#]/)[0] ?? '';

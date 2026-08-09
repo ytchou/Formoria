@@ -41,7 +41,7 @@ test.describe("Brand detail actions", () => {
     const supportButton = anonPage.getByRole("button", {
       name: /支持這個品牌，目前有 \d+ 個支持/,
     });
-    await expect(supportButton).toBeVisible({ timeout: 15_000 });
+    await expect(supportButton).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
     await expect(supportButton).toHaveAttribute("aria-pressed", "false");
     await expect(supportButton).toHaveAttribute(
       "aria-label",
@@ -53,7 +53,7 @@ test.describe("Brand detail actions", () => {
     const removeSupportButton = anonPage.getByRole("button", {
       name: /收回對這個品牌的支持，目前有 \d+ 個支持/,
     });
-    await expect(removeSupportButton).toBeVisible({ timeout: 15_000 });
+    await expect(removeSupportButton).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
     await expect(removeSupportButton).toHaveAttribute("aria-pressed", "true");
     await expect(removeSupportButton).toHaveAttribute(
       "aria-label",

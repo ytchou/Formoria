@@ -1,3 +1,4 @@
+import { BUDGET, POLL } from "../budgets";
 import { randomUUID } from "node:crypto";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
@@ -222,7 +223,7 @@ test.describe.serial("Public brand data boundary", () => {
     await auditCurrentDocument(page, canaries, "story surface");
 
     await expect
-      .poll(() => rscBodies.length, { timeout: 10_000 })
+      .poll(() => rscBodies.length, { timeout: BUDGET.INTERACTIVE })
       .toBeGreaterThan(0);
     const capturedRsc = (await Promise.all(rscBodies)).join("\n");
     assertCanariesAbsent(capturedRsc, canaries, "captured RSC responses");
@@ -240,9 +241,9 @@ async function openSeededRoute(
     await expect(
       page.getByRole("heading", { level: 1, name: heading }),
     ).toBeVisible({
-      timeout: 10_000,
+      timeout: BUDGET.INTERACTIVE,
     });
-  }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 10_000] });
+  }).toPass(POLL.DB);
 }
 
 async function auditCurrentDocument(

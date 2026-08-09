@@ -1,3 +1,4 @@
+import { BUDGET } from "../budgets";
 import { test, expect } from "../fixtures/auth";
 
 test.describe("Stories navigation deep", () => {
@@ -8,7 +9,7 @@ test.describe("Stories navigation deep", () => {
     const storiesLink = anonPage
       .getByRole("contentinfo")
       .getByRole("link", { name: "專題", exact: true });
-    await expect(storiesLink).toBeVisible({ timeout: 10_000 });
+    await expect(storiesLink).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await expect(storiesLink).toHaveAttribute("href", "/stories");
   });
 
@@ -21,10 +22,10 @@ test.describe("Stories navigation deep", () => {
       .getByRole("link", { name: "專題", exact: true })
       .click();
     await expect(anonPage).toHaveURL(/\/stories(?:[?#]|$)/, {
-      timeout: 15_000,
+      timeout: BUDGET.SERVER_RENDER,
     });
     await expect(
       anonPage.getByRole("heading", { name: "專題", level: 1 }),
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
   });
 });

@@ -7,7 +7,7 @@ test.describe("Navbar auth journey", () => {
     await anonPage.goto("/");
 
     const signInLink = anonPage.getByRole("link", { name: /sign in|登入/i });
-    await expect(signInLink).toBeVisible({ timeout: 10_000 });
+    await expect(signInLink).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     // href includes ?next=... query param — assert it starts with the sign-in
     // route, which carries an /en prefix on English pages.
     await expect(signInLink).toHaveAttribute(
@@ -24,7 +24,7 @@ test.describe("Navbar auth journey", () => {
     const accountTrigger = userPage.getByRole("button", {
       name: /account|帳號/i,
     });
-    await expect(accountTrigger).toBeVisible({ timeout: 10_000 });
+    await expect(accountTrigger).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await expect(
       userPage.getByRole("link", { name: /sign in|登入/i }),
     ).toHaveCount(0);
@@ -39,21 +39,21 @@ test.describe("Navbar auth journey", () => {
     // Account dropdown: Base-UI DropdownMenuItem renders role="menuitem" (not "link")
     // even when the render prop is a Link/anchor — use getByRole('menuitem').
     const accountMenu = userPage.locator('[data-slot="dropdown-menu-content"]');
-    await expect(accountMenu).toBeVisible({ timeout: 10_000 });
+    await expect(accountMenu).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await expect(
       accountMenu.getByRole("menuitem", { name: "帳號設定" }),
-    ).toBeVisible({ timeout: 5_000 });
+    ).toBeVisible({ timeout: BUDGET.RENDERED });
     await expect(
       accountMenu.getByRole("menuitem", { name: "收藏品牌" }),
-    ).toBeVisible({ timeout: 5_000 });
+    ).toBeVisible({ timeout: BUDGET.RENDERED });
     await expect(
       accountMenu.getByRole("menuitem", { name: "我的貢獻" }),
-    ).toBeVisible({ timeout: 5_000 });
+    ).toBeVisible({ timeout: BUDGET.RENDERED });
     // "我的推薦" is deliberately not asserted here: it is gated on
     // ownerFeaturesEnabled (DEV-1261), so its presence is flag state, not navbar
     // behaviour. Its absence is owned by owner-features-flag-off.spec.ts.
     const signOutItem = accountMenu.getByText(/sign out|登出/i);
-    await expect(signOutItem).toBeVisible({ timeout: 10_000 });
+    await expect(signOutItem).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     // Dashboard link is NOT in the dropdown (moved to main nav)
     await expect(accountMenu.locator('a[href="/dashboard"]')).toHaveCount(0);
   });
@@ -100,7 +100,7 @@ test.describe("Navbar auth journey", () => {
       await page.goto("/auth/sign-in");
       await expect(
         page.getByRole("heading", { name: "登入 Formoria" }),
-      ).toBeVisible({ timeout: 30_000 });
+      ).toBeVisible({ timeout: BUDGET.GATED_UI });
       await page.getByLabel("電子郵件", { exact: true }).fill(disposableEmail);
       await page.getByLabel("密碼", { exact: true }).fill(disposablePassword);
       await page.getByRole("button", { name: "登入", exact: true }).click();
@@ -112,12 +112,12 @@ test.describe("Navbar auth journey", () => {
       const accountTrigger = page.getByRole("button", {
         name: /account|帳號/i,
       });
-      await expect(accountTrigger).toBeVisible({ timeout: 15_000 });
+      await expect(accountTrigger).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
       await accountTrigger.click();
 
       const accountMenu = page.locator('[data-slot="dropdown-menu-content"]');
       const signOutItem = accountMenu.getByText(/sign out|登出/i);
-      await expect(signOutItem).toBeVisible({ timeout: 10_000 });
+      await expect(signOutItem).toBeVisible({ timeout: BUDGET.INTERACTIVE });
 
       await signOutItem.click();
 

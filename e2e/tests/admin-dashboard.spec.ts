@@ -157,7 +157,7 @@ test.describe('Admin dashboard deep', () => {
     test.setTimeout(BUDGET.TEST.ADMIN);
     await adminPage.setViewportSize({ width: 1512, height: 828 });
     await adminPage.goto('/admin');
-    await expect(adminPage.getByRole('heading', { name: /^Admin$/ })).toBeVisible({ timeout: 60_000 });
+    await expect(adminPage.getByRole('heading', { name: /^Admin$/ })).toBeVisible({ timeout: BUDGET.NAVIGATION });
     await expect(adminPage.getByRole('heading', { name: 'Operations overview' })).toBeVisible();
     await expect(adminPage.getByRole('link', { name: /Needs data/ })).toHaveAttribute(
       'href',
@@ -176,7 +176,7 @@ test.describe('Admin dashboard deep', () => {
     await adminPage.setViewportSize({ width: 390, height: 844 });
     await adminPage.goto('/admin');
     const needsData = adminPage.getByRole('link', { name: /Needs data/ });
-    await expect(needsData).toBeVisible({ timeout: 60_000 });
+    await expect(needsData).toBeVisible({ timeout: BUDGET.NAVIGATION });
     await expect(needsData).toHaveCSS('min-height', '160px');
     await expect(adminPage.getByRole('button', { name: 'Enrich needs-data submissions' })).toBeVisible();
   });
@@ -192,7 +192,7 @@ test.describe('Admin dashboard deep', () => {
       const href = await navLinks.nth(i).getAttribute('href');
       if (href?.startsWith('/admin')) {
         await adminPage.goto(href);
-        await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
+        await expect(adminPage.getByRole('main')).toBeVisible({ timeout: BUDGET.NAVIGATION });
         await expect(adminPage.getByText(/something went wrong/i)).not.toBeVisible();
       }
     }
@@ -205,17 +205,17 @@ test.describe('Admin dashboard deep', () => {
     if (!testSubmissionId) test.skip();
     await adminPage.goto('/admin/submissions?stage=ready');
     // Wait for the page to be interactive before looking for the seeded row.
-    await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
+    await expect(adminPage.getByRole('main')).toBeVisible({ timeout: BUDGET.NAVIGATION });
     const readyRow = adminPage.locator('tbody tr').filter({ hasText: testBrandName }).first();
-    await expect(readyRow).toBeVisible({ timeout: 10_000 });
+    await expect(readyRow).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     // Approve now lives in the row's drawer rather than inline in the table row.
     await readyRow.getByText(testBrandName, { exact: true }).click();
     const reviewDrawer = adminPage.getByRole('dialog');
     const approveBtn = reviewDrawer.getByRole('button', { name: 'Approve', exact: true });
-    await expect(approveBtn).toBeVisible({ timeout: 10_000 });
+    await expect(approveBtn).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await approveBtn.click();
     // After approval the server action revalidates and the drawer closes
-    await expect(reviewDrawer).toBeHidden({ timeout: 30_000 });
+    await expect(reviewDrawer).toBeHidden({ timeout: BUDGET.GATED_UI });
   });
 
   test('needs-data submission can be dropped and is removed from the database', async ({ adminPage }) => {
@@ -236,9 +236,9 @@ test.describe('Admin dashboard deep', () => {
 
     try {
       await adminPage.goto('/admin/submissions?stage=needs_data');
-      await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
+      await expect(adminPage.getByRole('main')).toBeVisible({ timeout: BUDGET.NAVIGATION });
       const rejectRow = adminPage.locator('tbody tr').filter({ hasText: rejectBrandName });
-      await expect(rejectRow).toBeVisible({ timeout: 10_000 });
+      await expect(rejectRow).toBeVisible({ timeout: BUDGET.INTERACTIVE });
       await expect(rejectRow.getByRole('button', { name: 'Approve', exact: true })).toHaveCount(0);
       await expect(rejectRow.getByRole('button', { name: 'Reject', exact: true })).toHaveCount(0);
       await expect(adminPage.getByRole('button', { name: 'Fetch Data' })).toBeVisible();

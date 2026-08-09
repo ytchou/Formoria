@@ -77,13 +77,13 @@ test.describe("Static & compliance pages", () => {
   test("about page contains the mission and owner-led vision", async ({
     anonPage,
   }) => {
-    const resp = await anonPage.goto("/about", { timeout: 30_000 });
+    const resp = await anonPage.goto("/about", { timeout: BUDGET.GATED_UI });
     if (resp?.status() === 503) {
       test.skip(true, "PREVIEW_MODE active");
       return;
     }
     await expect(anonPage.getByRole("heading", { level: 1 })).toBeVisible({
-      timeout: 15_000,
+      timeout: BUDGET.SERVER_RENDER,
     });
     await expect(
       anonPage.getByRole("heading", {
@@ -95,7 +95,7 @@ test.describe("Static & compliance pages", () => {
   test("vision page redirects to the merged section on about", async ({
     anonPage,
   }) => {
-    const resp = await anonPage.goto("/vision", { timeout: 30_000 });
+    const resp = await anonPage.goto("/vision", { timeout: BUDGET.GATED_UI });
     if (resp?.status() === 503) {
       test.skip(true, "PREVIEW_MODE active");
       return;
@@ -105,29 +105,29 @@ test.describe("Static & compliance pages", () => {
       anonPage.getByRole("heading", {
         name: "成為一間由品牌自主經營的線上台灣選物店",
       }),
-    ).toBeVisible({ timeout: 15_000 });
+    ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
   });
 
   test("privacy page renders", async ({ anonPage }) => {
-    const resp = await anonPage.goto("/privacy", { timeout: 30_000 });
+    const resp = await anonPage.goto("/privacy", { timeout: BUDGET.GATED_UI });
     if (resp?.status() === 503) {
       test.skip(true, "PREVIEW_MODE active");
       return;
     }
     await expect(
       anonPage.getByRole("heading", { name: "隱私權政策" }),
-    ).toBeVisible({ timeout: 15_000 });
+    ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
   });
 
   test("terms page renders", async ({ anonPage }) => {
-    const resp = await anonPage.goto("/terms", { timeout: 30_000 });
+    const resp = await anonPage.goto("/terms", { timeout: BUDGET.GATED_UI });
     if (resp?.status() === 503) {
       test.skip(true, "PREVIEW_MODE active");
       return;
     }
     await expect(
       anonPage.getByRole("heading", { name: "服務條款" }),
-    ).toBeVisible({ timeout: 15_000 });
+    ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
   });
 
   test("legal page titles are single-suffixed", async ({ anonPage }) => {
@@ -139,7 +139,7 @@ test.describe("Static & compliance pages", () => {
     ] as const;
 
     for (const [path, title] of pages) {
-      await anonPage.goto(path, { timeout: 30_000 });
+      await anonPage.goto(path, { timeout: BUDGET.GATED_UI });
       await expect(anonPage).toHaveTitle(title);
     }
   });
@@ -148,14 +148,14 @@ test.describe("Static & compliance pages", () => {
     anonPage,
   }) => {
     // /challenge uses the default zh-TW locale; /en/challenge is the English variant.
-    const resp = await anonPage.goto("/challenge", { timeout: 30_000 });
+    const resp = await anonPage.goto("/challenge", { timeout: BUDGET.GATED_UI });
     if (resp?.status() === 503) {
       test.skip(true, "PREVIEW_MODE active");
       return;
     }
     await expect(
       anonPage.getByRole("heading", { name: "快速驗證" }),
-    ).toBeVisible({ timeout: 15_000 });
+    ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
     // Turnstile container (div rendered by TurnstileWidget, or the "Verifying..." text)
     // The widget may redirect quickly in dev; assert the heading appeared above.
   });
@@ -164,7 +164,7 @@ test.describe("Static & compliance pages", () => {
     anonPage,
     browser,
   }) => {
-    const resp = await anonPage.goto("/submit", { timeout: 30_000 });
+    const resp = await anonPage.goto("/submit", { timeout: BUDGET.GATED_UI });
     if (resp?.status() === 503) {
       test.skip(true, "PREVIEW_MODE active");
       return;
@@ -172,9 +172,9 @@ test.describe("Static & compliance pages", () => {
     // Heading: "推薦台灣品牌"
     await expect(
       anonPage.getByRole("heading", { name: "推薦台灣品牌" }),
-    ).toBeVisible({ timeout: 15_000 });
+    ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
     await expect(anonPage.locator('a[href*="/submit/recommend"]')).toBeVisible({
-      timeout: 10_000,
+      timeout: BUDGET.INTERACTIVE,
     });
     // The owner fork CTA is gated by `owner_features_enabled` (DEV-1261). Assert
     // both polarities here rather than skipping: the recommendation CTA above is
@@ -186,7 +186,7 @@ test.describe("Static & compliance pages", () => {
     if (await ownerFeaturesDisabled(browser)) {
       await expect(ownerCta).toHaveCount(0);
     } else {
-      await expect(ownerCta).toBeVisible({ timeout: 10_000 });
+      await expect(ownerCta).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     }
   });
 
@@ -201,17 +201,17 @@ test.describe("Static & compliance pages", () => {
     // ISR: allow time for the page to become available after the brand seed.
     await expect(async () => {
       const resp = await anonPage.goto(`/site/${micrositeSlug}`, {
-        timeout: 15_000,
+        timeout: BUDGET.SERVER_RENDER,
       });
       if (resp?.status() === 503) throw new Error("503");
       if (resp?.status() === 404)
         throw new Error("404 — ISR not yet generated");
       await expect(
         anonPage.getByRole("heading", { level: 1, name: micrositeBrandName }),
-      ).toBeVisible({ timeout: 10_000 });
+      ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
       await expect(
         anonPage.getByText(micrositeTagline, { exact: true }),
-      ).toBeVisible({ timeout: 10_000 });
-    }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 8_000, 13_000] });
+      ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
+    }).toPass({ timeout: BUDGET.NAVIGATION, intervals: [3_000, 5_000, 8_000, 13_000] });
   });
 });

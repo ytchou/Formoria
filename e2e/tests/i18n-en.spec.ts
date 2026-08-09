@@ -1,3 +1,4 @@
+import { BUDGET } from "../budgets";
 import { test, expect } from "@playwright/test";
 import { load } from "cheerio";
 
@@ -140,7 +141,7 @@ test.describe("i18n English browse", () => {
     // Header renders "Recommend a Brand" in English; html[lang] is "en"
     await expect(
       page.locator("header").getByRole("link", { name: "Recommend a Brand" }),
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
   });
 
@@ -155,7 +156,7 @@ test.describe("i18n English browse", () => {
         .locator('main [role="list"] [role="listitem"]')
         .first()
         .or(page.locator("[data-empty]").first()),
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
   });
 
@@ -167,15 +168,15 @@ test.describe("i18n English browse", () => {
     const switcherBtn = page
       .getByRole("banner")
       .getByRole("button", { name: "Switch language" });
-    await expect(switcherBtn).toBeVisible({ timeout: 10_000 });
+    await expect(switcherBtn).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await switcherBtn.click();
 
     const zhItem = page.getByRole("menuitem", { name: "Traditional Chinese" });
-    await expect(zhItem).toBeVisible({ timeout: 5_000 });
+    await expect(zhItem).toBeVisible({ timeout: BUDGET.RENDERED });
     await zhItem.click();
 
     await expect(page).toHaveURL(/\/categories\/home\/furniture$/, {
-      timeout: 10_000,
+      timeout: BUDGET.INTERACTIVE,
     });
     await expect(page.locator("html")).toHaveAttribute("lang", "zh-TW");
     await expect
@@ -196,14 +197,14 @@ test.describe("i18n English browse", () => {
     const switcherBtn = page
       .getByRole("banner")
       .getByRole("button", { name: "切換語言" });
-    await expect(switcherBtn).toBeVisible({ timeout: 10_000 });
+    await expect(switcherBtn).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await switcherBtn.click();
 
     const enItem = page.getByRole("menuitem", { name: "English" });
-    await expect(enItem).toBeVisible({ timeout: 5_000 });
+    await expect(enItem).toBeVisible({ timeout: BUDGET.RENDERED });
     await enItem.click();
 
-    await expect(page).toHaveURL(/\/en\/brands/, { timeout: 10_000 });
+    await expect(page).toHaveURL(/\/en\/brands/, { timeout: BUDGET.INTERACTIVE });
   });
 
   test("LocaleSwitcher preserves repeated and encoded query parameters", async ({
@@ -215,7 +216,7 @@ test.describe("i18n English browse", () => {
     const switcherBtn = page
       .getByRole("banner")
       .getByRole("button", { name: "切換語言" });
-    await expect(switcherBtn).toBeVisible({ timeout: 10_000 });
+    await expect(switcherBtn).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await switcherBtn.click();
     await page.getByRole("menuitem", { name: "English" }).click();
 
@@ -223,7 +224,7 @@ test.describe("i18n English browse", () => {
       (url) =>
         url.pathname === "/en/categories/food-drink" &&
         url.searchParams.getAll("tag").join("|") === "rice/grains|gift boxes",
-      { timeout: 10_000 },
+      { timeout: BUDGET.INTERACTIVE },
     );
   });
 
@@ -233,7 +234,7 @@ test.describe("i18n English browse", () => {
       .locator('main [role="list"] article a[href*="/brands/"]')
       .first();
     const hasBrand = await firstBrand
-      .isVisible({ timeout: 10_000 })
+      .isVisible({ timeout: BUDGET.INTERACTIVE })
       .catch(() => false);
     if (!hasBrand) {
       test.skip(
@@ -247,7 +248,7 @@ test.describe("i18n English browse", () => {
     expect(href).toContain("/en/brands/");
     await page.goto(href!);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
-      timeout: 10_000,
+      timeout: BUDGET.INTERACTIVE,
     });
   });
 
@@ -259,7 +260,7 @@ test.describe("i18n English browse", () => {
       .locator('main [role="list"] article a[href*="/brands/"]')
       .first();
     const hasBrand = await firstBrand
-      .isVisible({ timeout: 10_000 })
+      .isVisible({ timeout: BUDGET.INTERACTIVE })
       .catch(() => false);
     if (!hasBrand) {
       test.skip(true, "No brands seeded — skipping brand detail locale check");
@@ -271,7 +272,7 @@ test.describe("i18n English browse", () => {
     await expect(
       page.getByRole("link", { name: "About Formoria" }),
     ).toBeVisible({
-      timeout: 10_000,
+      timeout: BUDGET.INTERACTIVE,
     });
     await expect(page.getByText("關於 Formoria")).toHaveCount(0);
   });
@@ -288,7 +289,7 @@ test.describe("i18n English browse", () => {
     await expect(
       page.getByRole("link", { name: "About Formoria" }),
     ).toBeVisible({
-      timeout: 10_000,
+      timeout: BUDGET.INTERACTIVE,
     });
     await expect(page.getByText("關於 Formoria")).toHaveCount(0);
   });
@@ -303,16 +304,16 @@ test.describe("i18n English browse", () => {
     const switcherBtn = page
       .getByRole("banner")
       .getByRole("button", { name: "切換語言" });
-    await expect(switcherBtn).toBeVisible({ timeout: 10_000 });
+    await expect(switcherBtn).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await switcherBtn.click();
     const enItem = page.getByRole("menuitem", { name: "English" });
-    await expect(enItem).toBeVisible({ timeout: 10_000 });
+    await expect(enItem).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await enItem.click();
-    await expect(page).toHaveURL(/\/en/, { timeout: 10_000 });
+    await expect(page).toHaveURL(/\/en/, { timeout: BUDGET.INTERACTIVE });
     // After switching: header submit link should be in English
     await expect(
       page.locator("header").getByRole("link", { name: "Recommend a Brand" }),
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
   });
 });

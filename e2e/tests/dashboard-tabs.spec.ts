@@ -84,10 +84,10 @@ test.describe('Dashboard — tab navigation', () => {
     // (concurrent files may have changed which brand the user owns).
     await expect(userPage).toHaveURL(
       /\/dashboard\/brands\/[^/]+$/,
-      { timeout: 60_000 }
+      { timeout: BUDGET.NAVIGATION }
     );
     await expect(userPage.getByRole('heading', { level: 1 }).first()).toBeVisible({
-      timeout: 60_000,
+      timeout: BUDGET.NAVIGATION,
     });
 
     const mainNav = userPage.locator('header').first();
@@ -98,7 +98,7 @@ test.describe('Dashboard — tab navigation', () => {
     const tabNav = userPage.locator('nav[aria-label]').first();
     await expect(tabNav.getByRole('link')).toHaveCount(7);
     const overviewLink = tabNav.getByRole('link', { name: '總覽' });
-    await expect(overviewLink).toHaveAttribute('aria-current', 'page', { timeout: 60_000 });
+    await expect(overviewLink).toHaveAttribute('aria-current', 'page', { timeout: BUDGET.NAVIGATION });
   });
 
   test('a stale brand query cannot switch away from the account owner brand', async ({ userPage }) => {
@@ -112,14 +112,14 @@ test.describe('Dashboard — tab navigation', () => {
     // Stale query is ignored — user lands on their actual brand, any slug
     await expect(userPage).toHaveURL(
       /\/dashboard\/brands\/[^/]+$/,
-      { timeout: 60_000 }
+      { timeout: BUDGET.NAVIGATION }
     );
-    await expect(userPage.getByRole('heading', { level: 1 }).first()).toBeVisible({ timeout: 60_000 });
+    await expect(userPage.getByRole('heading', { level: 1 }).first()).toBeVisible({ timeout: BUDGET.NAVIGATION });
 
     // Tab nav Overview link is active on the canonical path-based brand overview.
     const tabNav = userPage.locator('nav[aria-label]').first();
     const overviewLink = tabNav.getByRole('link', { name: '總覽' });
-    await expect(overviewLink).toHaveAttribute('aria-current', 'page', { timeout: 5_000 });
+    await expect(overviewLink).toHaveAttribute('aria-current', 'page', { timeout: BUDGET.RENDERED });
   });
 
 });
@@ -140,7 +140,7 @@ test.describe('Dashboard — legacy brand route redirect', () => {
     test.setTimeout(BUDGET.TEST.ADMIN);
     // Resolve the current brand slug by letting /dashboard redirect
     await userPage.goto('/dashboard');
-    await expect(userPage).toHaveURL(/\/dashboard\/brands\/[^/]+$/, { timeout: 60_000 });
+    await expect(userPage).toHaveURL(/\/dashboard\/brands\/[^/]+$/, { timeout: BUDGET.NAVIGATION });
     const brandUrl = userPage.url();
 
     // Navigate directly to the path-based URL — verify it renders without an extra redirect
@@ -152,6 +152,6 @@ test.describe('Dashboard — legacy brand route redirect', () => {
 
     await expect(
       userPage.locator('[data-testid="brand-profile"]')
-    ).toBeVisible({ timeout: 60_000 });
+    ).toBeVisible({ timeout: BUDGET.NAVIGATION });
   });
 });

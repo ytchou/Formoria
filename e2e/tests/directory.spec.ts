@@ -1,3 +1,4 @@
+import { BUDGET } from "../budgets";
 import { test, expect } from "@playwright/test";
 
 test.describe("Directory deep", () => {
@@ -26,7 +27,7 @@ test.describe("Directory deep", () => {
           .locator('main [role="list"] [role="listitem"]')
           .first()
           .or(page.locator("[data-empty]").first()),
-      ).toBeVisible({ timeout: 5_000 });
+      ).toBeVisible({ timeout: BUDGET.RENDERED });
       await filters.nth(i).click(); // deselect
     }
   });
@@ -67,7 +68,7 @@ test.describe("Directory deep", () => {
     const prevLink = page.locator(
       'nav[aria-label="Pagination"] a[aria-label="上一頁"]',
     );
-    await expect(prevLink).toBeVisible({ timeout: 10_000 });
+    await expect(prevLink).toBeVisible({ timeout: BUDGET.INTERACTIVE });
   });
 
   test("category landing loads with filtered brands", async ({ page }) => {
@@ -79,7 +80,7 @@ test.describe("Directory deep", () => {
         .locator('main [role="list"] [role="listitem"]')
         .first()
         .or(page.locator("[data-empty]").first()),
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
   });
 
   test("empty search shows empty state not error", async ({ page }) => {
@@ -89,7 +90,7 @@ test.describe("Directory deep", () => {
       .first();
     await search.fill("zzzzzzzzzzzzz_nonexistent");
     await page.keyboard.press("Enter");
-    await expect(page.locator("[data-empty]")).toBeVisible({ timeout: 5_000 });
+    await expect(page.locator("[data-empty]")).toBeVisible({ timeout: BUDGET.RENDERED });
   });
 
   test("empty filtered search shows empty state without recovery actions", async ({

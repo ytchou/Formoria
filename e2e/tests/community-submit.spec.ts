@@ -22,10 +22,10 @@ test.describe("Community submit flow", () => {
     test.setTimeout(BUDGET.TEST.JOURNEY);
     await gotoSubmitRecommend(userPage);
     await expect(userPage.locator("#submit-source")).toBeVisible({
-      timeout: 5_000,
+      timeout: BUDGET.RENDERED,
     });
     await expect(userPage.locator("#submit-guest-email")).toBeVisible({
-      timeout: 5_000,
+      timeout: BUDGET.RENDERED,
     });
     await expect(userPage.locator("#submit-instagram")).toHaveCount(0);
   });
@@ -36,7 +36,7 @@ test.describe("Community submit flow", () => {
     test.setTimeout(BUDGET.TEST.JOURNEY);
     await gotoSubmitRecommend(userPage);
     await expect(userPage.locator("#submit-source")).toBeVisible({
-      timeout: 5_000,
+      timeout: BUDGET.RENDERED,
     });
   });
 
@@ -46,10 +46,10 @@ test.describe("Community submit flow", () => {
     test.setTimeout(BUDGET.TEST.JOURNEY);
     await gotoSubmitRecommend(userPage);
     await expect(userPage.locator("#submit-website")).toBeVisible({
-      timeout: 5_000,
+      timeout: BUDGET.RENDERED,
     });
     await expect(userPage.locator("#submit-name")).toBeVisible({
-      timeout: 5_000,
+      timeout: BUDGET.RENDERED,
     });
     await expect(userPage.locator("#submit-pdpa")).toBeVisible({
       timeout: 3_000,
@@ -69,7 +69,7 @@ test.describe("Community submit flow", () => {
 
     await gotoSubmitOwner(userPage);
     await expect(userPage.locator("#submit-name")).toBeVisible({
-      timeout: 5_000,
+      timeout: BUDGET.RENDERED,
     });
     await expect(userPage.locator("#submit-website")).toBeVisible();
     await expect(userPage.locator("#submit-description")).toBeVisible();
@@ -88,11 +88,11 @@ test.describe("Community submit flow", () => {
     test.setTimeout(BUDGET.TEST.JOURNEY);
     await userPage.goto("/my-submissions");
     await userPage.waitForURL((url) => isHomePath(url.pathname), {
-      timeout: 15_000,
+      timeout: BUDGET.SERVER_RENDER,
     });
     expect(new URL(userPage.url()).pathname).not.toContain("/dashboard");
     await expect(userPage.locator("main, section").first()).toBeVisible({
-      timeout: 10_000,
+      timeout: BUDGET.INTERACTIVE,
     });
   });
 
@@ -103,11 +103,11 @@ test.describe("Community submit flow", () => {
     const res = await userPage.goto("/en/my-submissions");
     expect(res?.status()).toBeLessThan(400);
     await userPage.waitForURL((url) => isHomePath(url.pathname), {
-      timeout: 15_000,
+      timeout: BUDGET.SERVER_RENDER,
     });
     expect(new URL(userPage.url()).pathname).not.toContain("/dashboard");
     await expect(userPage.locator("main, section").first()).toBeVisible({
-      timeout: 10_000,
+      timeout: BUDGET.INTERACTIVE,
     });
   });
 });
