@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   CRAWLER_REGISTRY,
@@ -6,6 +6,8 @@ import {
 } from "@/lib/security/crawler-registry";
 import { CONTENT_SIGNAL } from "./robots-content";
 import { GET } from "./route";
+
+afterEach(() => vi.unstubAllEnvs());
 
 interface ParsedGroup {
   allow: string[];
@@ -130,5 +132,14 @@ describe("GET /robots.txt", () => {
   it("never blocks the whole site", async () => {
     const body = await getBody();
     expect(body).not.toMatch(/Disallow: \/$|Disallow: \*$/m);
+  });
+
+  it("blocks every crawler and omits the sitemap in staging", async () => {
+    vi.stubEnv("FORMORIA_DEPLOYMENT_ENV", "staging");
+
+    const body = await getBody();
+    expect(body).toContain("User-Agent: *");
+    expect(body).toContain("Disallow: /");
+    expect(body).not.toContain("Sitemap:");
   });
 });

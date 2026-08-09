@@ -32,6 +32,10 @@ import {
   subcategoryBySlug,
 } from "@/lib/taxonomy/ontology";
 import { recordCrawlerHit } from "@/lib/security/crawler-telemetry";
+import {
+  isAllowedStagingRequest,
+  isStagingRequest,
+} from "@/lib/deployment-environment";
 
 /**
  * Routes that are reserved for static pages and cannot be used as brand slugs.
@@ -395,10 +399,36 @@ async function refreshSupabaseSession(
   return supabaseResponse;
 }
 
+function finalizeResponse(
+  response: NextResponse,
+  staging: boolean,
+): NextResponse {
+  if (staging) {
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
+    response.headers.set("Cache-Control", "private, no-store");
+  }
+  return response;
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const staging = isStagingRequest(request.headers.get("host"));
   const isPlaywrightTest = process.env.PLAYWRIGHT_TEST === "true";
   const routerRequest = isRouterRequest(request);
+
+  if (staging && pathname === "/sitemap.xml") {
+    return finalizeResponse(
+      new NextResponse("Not found", { status: 404 }),
+      staging,
+    );
+  }
+
+  if (staging && !isAllowedStagingRequest(request.method, pathname)) {
+    return finalizeResponse(
+      NextResponse.json({ error: "Staging is read-only" }, { status: 403 }),
+      staging,
+    );
+  }
 
   // `isLikelyCrawler` is one precompiled union regex; `recordCrawlerHit` re-scans
   // the registry entry by entry. Gating on it keeps the human-traffic common
@@ -430,11 +460,11 @@ export async function proxy(request: NextRequest) {
       ) {
         const url = request.nextUrl.clone();
         url.pathname = `/site${pathname}`;
-        return NextResponse.rewrite(url);
+        return finalizeResponse(NextResponse.rewrite(url), staging);
       }
     }
 
-    return NextResponse.next();
+    return finalizeResponse(NextResponse.next(), staging);
   }
 
   const cfOriginSecret = process.env.CF_ORIGIN_SECRET;
@@ -467,19 +497,26 @@ export async function proxy(request: NextRequest) {
       edgeSecret !== cfOriginSecret &&
       !isOriginGuardExempt(request.nextUrl.pathname)
     ) {
-      return new NextResponse("Forbidden", { status: 403 });
+      return finalizeResponse(
+        new NextResponse("Forbidden", { status: 403 }),
+        staging,
+      );
     }
   }
 
+  if (pathname === "/auth/callback") {
+    return finalizeResponse(NextResponse.next(), staging);
+  }
+
   if (pathname.startsWith("/admin/content")) {
-    return NextResponse.next();
+    return finalizeResponse(NextResponse.next(), staging);
   }
 
   const normalizedPathname = normalizePathname(pathname);
   if (normalizedPathname !== pathname) {
     const url = request.nextUrl.clone();
     url.pathname = normalizedPathname;
-    return NextResponse.redirect(url, 301);
+    return finalizeResponse(NextResponse.redirect(url, 301), staging);
   }
 
   const taxonomyRedirect = decideDirectoryTaxonomyRedirect(
@@ -491,7 +528,10 @@ export async function proxy(request: NextRequest) {
     const destination = new URL(taxonomyRedirect.pathname, request.url);
     url.pathname = destination.pathname;
     url.search = destination.search;
-    return NextResponse.redirect(url, taxonomyRedirect.status);
+    return finalizeResponse(
+      NextResponse.redirect(url, taxonomyRedirect.status),
+      staging,
+    );
   }
 
   // Below BOTH 301s — the pathname normalization above and the taxonomy
@@ -504,7 +544,7 @@ export async function proxy(request: NextRequest) {
   // Check rate limit before regular request processing
   if (!isPlaywrightTest) {
     const rateLimitResponse = await checkRateLimit(request);
-    if (rateLimitResponse) return rateLimitResponse;
+    if (rateLimitResponse) return finalizeResponse(rateLimitResponse, staging);
   }
 
   if (!isPlaywrightTest && !routerRequest && isSoftLimitPath(pathname)) {
@@ -527,7 +567,7 @@ export async function proxy(request: NextRequest) {
         const url = request.nextUrl.clone();
         url.pathname = "/challenge";
         url.searchParams.set("returnTo", pathname + request.nextUrl.search);
-        return NextResponse.redirect(url);
+        return finalizeResponse(NextResponse.redirect(url), staging);
       }
     }
   }
@@ -539,7 +579,7 @@ export async function proxy(request: NextRequest) {
     try {
       decodedSlug = decodeURIComponent(brandSlug);
     } catch {
-      return new NextResponse(null, { status: 404 });
+      return finalizeResponse(new NextResponse(null, { status: 404 }), staging);
     }
 
     const redirectSlug = await resolveApprovedBrandRedirect(decodedSlug);
@@ -550,7 +590,7 @@ export async function proxy(request: NextRequest) {
         `/brands/${encodeURIComponent(redirectSlug)}`,
         locale,
       );
-      return NextResponse.redirect(url, 308);
+      return finalizeResponse(NextResponse.redirect(url, 308), staging);
     }
   }
 
@@ -575,12 +615,18 @@ export async function proxy(request: NextRequest) {
 
       const decision = decideBareBrandSlug(slug, isApproved);
       if (decision.action === "not-found") {
-        return new NextResponse(null, { status: decision.status });
+        return finalizeResponse(
+          new NextResponse(null, { status: decision.status }),
+          staging,
+        );
       }
 
       const url = request.nextUrl.clone();
       url.pathname = decision.pathname;
-      return NextResponse.redirect(url, decision.status);
+      return finalizeResponse(
+        NextResponse.redirect(url, decision.status),
+        staging,
+      );
     }
   }
 
@@ -610,7 +656,7 @@ export async function proxy(request: NextRequest) {
       });
     }
     localeResponse.headers.set("Cache-Control", "private, no-store");
-    return localeResponse;
+    return finalizeResponse(localeResponse, staging);
   }
 
   let response: NextResponse;
@@ -669,11 +715,14 @@ export async function proxy(request: NextRequest) {
       "favorites",
     ]);
     if (!AUTH_REQUIRED_SEGMENTS.has(segment)) {
-      return response;
+      return finalizeResponse(response, staging);
     }
   }
 
-  return refreshSupabaseSession(request, response);
+  return finalizeResponse(
+    await refreshSupabaseSession(request, response),
+    staging,
+  );
 }
 
 export const config = {
@@ -684,9 +733,8 @@ export const config = {
      * - _next/image (image optimization files)
      * - _next/webpack-hmr (Webpack dev HMR WebSocket endpoint)
      * - favicon.ico (favicon file)
-     * - auth/callback (handles its own session exchange)
      * - Files with extensions (e.g. .png, .svg, .jpg)
      */
-    "/((?!_next/static|_next/image|_next/webpack-hmr|favicon.ico|auth/callback|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|_next/webpack-hmr|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

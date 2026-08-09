@@ -33,6 +33,17 @@ describe("getRequestOrigin", () => {
     return expect(getRequestOrigin()).resolves.toBe("https://formoria.com");
   });
 
+  it("uses the staging runtime origin without changing the canonical site URL", () => {
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://formoria.com");
+    vi.stubEnv("FORMORIA_RUNTIME_URL", "https://staging.formoria.com");
+    mockHeaders.set("x-forwarded-host", "staging.formoria.com");
+    mockHeaders.set("x-forwarded-proto", "https");
+
+    return expect(getRequestOrigin()).resolves.toBe(
+      "https://staging.formoria.com",
+    );
+  });
+
   it("returns localhost when x-forwarded-host is localhost despite prod SITE_URL", async () => {
     vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://formoria.com");
     mockHeaders.set("x-forwarded-host", "localhost:3000");

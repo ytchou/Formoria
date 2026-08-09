@@ -199,6 +199,10 @@ describe("selective E2E workflow project routing", () => {
   it("runs every case in affected specs while keeping cross-browser filtering scoped", () => {
     const workflow = readFileSync(".github/workflows/e2e-pr.yml", "utf8");
     const config = readFileSync("playwright.config.ts", "utf8");
+    const frontendCi = readFileSync(
+      ".github/workflows/frontend-ci.yml",
+      "utf8",
+    );
 
     const selectedChromiumCommand = workflow
       .split("\n")
@@ -228,6 +232,12 @@ describe("selective E2E workflow project routing", () => {
     );
     expect(workflow).toContain("if: needs.select.outputs.has_work == 'true'");
     expect(workflow).not.toContain("smoke-cross-browser");
+    expect(workflow).toContain("branches: [main, staging]");
+    expect(workflow).toContain("BASE_REF: ${{ github.base_ref || 'main' }}");
+    expect(workflow).toContain(
+      "E2E_SELECT_BASE: origin/${{ github.base_ref || 'main' }}",
+    );
+    expect(frontendCi).toContain("branches: [main, staging]");
 
     expect(config).toMatch(
       /testMatch:\s*["']e2e\/tests\/\*\*\/\*\.spec\.ts["']/,

@@ -2,7 +2,9 @@ name: E2E PR (targeted)
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, staging]
+    # Evaluated before a runner is allocated: a PR touching none of these
+    # costs zero runner-seconds.
     paths:
       - "src/**"
       - "e2e/**"
@@ -34,8 +36,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Fetch origin/main to diff against
-        run: git fetch --no-tags origin main:refs/remotes/origin/main
+      - name: Fetch pull request base to diff against
+        env:
+          BASE_REF: ${{ github.base_ref || 'main' }}
+        run: git fetch --no-tags origin "$BASE_REF:refs/remotes/origin/$BASE_REF"
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -43,6 +47,8 @@ jobs:
 
       - name: Determine targeted E2E work
         id: select-specs
+        env:
+          E2E_SELECT_BASE: origin/${{ github.base_ref || 'main' }}
         run: |
           set -euo pipefail
           SELECTION=$(node scripts/e2e-select-specs.mjs --json)

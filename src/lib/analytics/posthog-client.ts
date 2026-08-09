@@ -20,6 +20,7 @@ export function initializePostHog(client: PostHogClient = posthog): boolean {
 
   if (
     process.env.NODE_ENV !== 'production'
+    || process.env.NEXT_PUBLIC_DEPLOYMENT_ENV === 'staging'
     || !token
     || apiHost !== MANAGED_POSTHOG_HOST
     || uiHost !== 'https://us.posthog.com'

@@ -150,6 +150,17 @@ check_env() {
     # NOTE: the scheduled HTTP jobs authenticate with ORIGIN_SECRET and are
     # configured entirely in the database, not here. Scheduling, host routing and
     # how to verify a job actually ran: docs/runbooks/cloudflare-edge.md.
+    if grep -q '^FORMORIA_DEPLOYMENT_ENV=staging$' .env.local 2>/dev/null; then
+      if ! grep -q '^NEXT_PUBLIC_DEPLOYMENT_ENV=staging$' .env.local; then
+        echo "WARN: staging requires NEXT_PUBLIC_DEPLOYMENT_ENV=staging to disable browser side effects"
+      fi
+      if ! grep -q '^FORMORIA_RUNTIME_URL=https://staging.formoria.com/?$' .env.local; then
+        echo "WARN: staging FORMORIA_RUNTIME_URL must be https://staging.formoria.com"
+      fi
+    fi
+    # NOTE: MIT registry sync is scheduled via pg_cron (Sundays 2 AM UTC,
+    # job name: sync-mit-registry-weekly). Auth uses ORIGIN_SECRET (app.origin_secret).
+    # See supabase/migrations/20260702130000_schedule_mit_registry_sync.sql
   fi
 }
 

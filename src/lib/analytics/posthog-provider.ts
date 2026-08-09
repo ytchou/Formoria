@@ -20,6 +20,7 @@ type PendingCapture = { event: string; properties?: Record<string, unknown> }
 export function isPostHogConfigured(): boolean {
   return (
     process.env.NODE_ENV === 'production'
+    && process.env.NEXT_PUBLIC_DEPLOYMENT_ENV !== 'staging'
     && Boolean(process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN)
     && process.env.NEXT_PUBLIC_POSTHOG_HOST === 'https://e.formoria.com'
   )
