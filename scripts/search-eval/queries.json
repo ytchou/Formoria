@@ -70,6 +70,33 @@
       "minResults": 1
     },
     {
+      "q": "台灣咖啡",
+      "note": "Two conceptual words typed with no space — the dominant shape of real Chinese input, and the case the first fixture missed entirely. Requiring the junction bigram 灣咖 made this return 0.",
+      "minResults": 10
+    },
+    {
+      "q": "茶 咖啡",
+      "note": "A lone ideograph beside a word. The lone 茶 must become a prefix term; handing it to the english parser as an exact whole-run token zeroed the query.",
+      "minResults": 5
+    },
+    {
+      "q": "台灣 -咖啡",
+      "note": "Negation. The excluded term must not become a required one — this returned 16 rows of exclusively coffee brands.",
+      "mustExclude": ["reshock-coffee"],
+      "minResults": 50
+    },
+    {
+      "q": "紙有光",
+      "note": "A brand stored as 紙。有光, searched the way it is spoken. Name bigrams bridge separators so the seam 紙有 exists; without that this was unreachable and the CJK trigram cutoff meant nothing caught it.",
+      "mustInclude": ["chih-yu-kuang"],
+      "minResults": 1
+    },
+    {
+      "q": "小 木",
+      "note": "Two lone ideographs. Must not fall through to the pg_trgm 0.25 floor, which returned 13 brands that merely contain 小 or 木.",
+      "mustExclude": ["farfarawayvillage", "hsiao-chu-tien-tien", "87rabbit"]
+    },
+    {
       "q": "zzzzqqqq nonexistent",
       "note": "Precision canary. If broader CJK recall ever makes this non-empty, the change matched everything rather than the right things.",
       "expectEmpty": true

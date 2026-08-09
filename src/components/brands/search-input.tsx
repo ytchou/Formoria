@@ -160,10 +160,16 @@ function SearchInput({
 
   function handleSelect(slug: string, index: number) {
     const selected = suggestions[index]
-    // Stays here, unlike the submit path: picking a suggestion goes straight to the
-    // brand and never reaches a results page, so this is the only chance to count the
-    // search. `suggestions.length` is honest on this path — it is what was on screen.
-    trackSearchExecuted(value, suggestions.length)
+    // Only the instance that does NOT drive a results page counts the search here.
+    // With `redirectTo` set (the header box on another page) the URL is never rewritten
+    // with the query, so picking a suggestion jumps straight to the brand and nothing
+    // else would count it; `suggestions.length` is what was on screen, so it is honest.
+    // Without `redirectTo` the box rewrites the URL as you type and SearchResultsTracker
+    // already emits the true total — emitting again would double-count one search with
+    // two incompatible counts (DEV-1412).
+    if (redirectTo) {
+      trackSearchExecuted(value, suggestions.length)
+    }
     trackSearchResultClicked(value, index, selected?.id, slug)
     trackSearchSuggestionSelect(slug, selected?.id)
     setShowDropdown(false)

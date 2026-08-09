@@ -25,6 +25,9 @@ const BASELINE_PATH = join(RUNS_DIR, "baseline.json");
 /** Mirrors the page size hardcoded in `search_brand_page`. */
 const RPC_PAGE_SIZE = 12;
 
+/** PostgREST serialises `.in()` into the query string, which has a URI length ceiling. */
+const IN_CHUNK_SIZE = 100;
+
 interface FixtureCase {
   q: string;
   note?: string;
@@ -83,11 +86,38 @@ async function collectMatches(
   return { ids, totalCount };
 }
 
+function chunked<T>(values: T[], size = IN_CHUNK_SIZE): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+  return chunks;
+}
+
 async function slugsForIds(supabase: Supabase, ids: string[]): Promise<Map<string, string>> {
-  if (ids.length === 0) return new Map();
-  const { data, error } = await supabase.from("brands").select("id, slug").in("id", ids);
-  if (error) throw new Error(`brand slug lookup: ${error.message}`);
-  return new Map((data ?? []).map((row) => [row.id as string, row.slug as string]));
+  const slugById = new Map<string, string>();
+
+  for (const chunk of chunked(ids)) {
+    const { data, error } = await supabase.from("brands").select("id, slug").in("id", chunk);
+    if (error) throw new Error(`brand slug lookup: ${error.message}`);
+    for (const row of data ?? []) {
+      slugById.set(row.id as string, row.slug as string);
+    }
+  }
+
+  return slugById;
+}
+
+/**
+ * Throws rather than falling back to the raw id: an unresolved id would surface as
+ * `missing: <uuid>`, blaming the ranking change for what is a data-fetch problem.
+ */
+function slugsFor(ids: string[], slugById: Map<string, string>, query: string): string[] {
+  return ids.map((id) => {
+    const slug = slugById.get(id);
+    if (!slug) throw new Error(`brand slug lookup("${query}"): no slug for id ${id}`);
+    return slug;
+  });
 }
 
 function evaluate(fixture: FixtureCase, slugs: string[], totalCount: number): CaseResult {
@@ -123,7 +153,7 @@ async function runFixture(): Promise<CaseResult[]> {
   for (const fixture of fixtures) {
     const { ids, totalCount } = await collectMatches(supabase, fixture.q);
     const slugById = await slugsForIds(supabase, ids);
-    const slugs = ids.map((id) => slugById.get(id) ?? id);
+    const slugs = slugsFor(ids, slugById, fixture.q);
     results.push(evaluate(fixture, slugs, totalCount));
   }
 
