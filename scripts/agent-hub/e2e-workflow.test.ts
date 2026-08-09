@@ -132,6 +132,29 @@ describe("nightly E2E Agent Hub reporting", () => {
     expect(contract).toContain("root_source_run_id");
   });
 
+  it("passes cycle-2 grep values as raw workflow fields", async () => {
+    const workflow = await readFile(
+      ".github/workflows/e2e-nightly.yml",
+      "utf8",
+    );
+    const continuationBlocks = [
+      workflow.slice(
+        workflow.indexOf("Continue incomplete repair as cycle 2"),
+        workflow.indexOf("Refresh dependencies after fix"),
+      ),
+      workflow.slice(
+        workflow.indexOf("Continue red self-heal"),
+        workflow.indexOf("Create blocked draft PR at cycle cap"),
+      ),
+    ];
+
+    expect(continuationBlocks).toHaveLength(2);
+    for (const block of continuationBlocks) {
+      expect(block).toContain('--raw-field e2e_grep="$E2E_GREP"');
+      expect(block).not.toContain('--field e2e_grep="$E2E_GREP"');
+    }
+  });
+
   it("validates declared checkpoints and reports additive incident usage", async () => {
     const workflow = await readFile(
       ".github/workflows/e2e-nightly.yml",
