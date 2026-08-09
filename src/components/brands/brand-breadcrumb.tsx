@@ -31,7 +31,7 @@ export async function BrandBreadcrumb({ locale, categorySlug, categoryLabel, bra
             </li>
             <li>
               <Link
-                href={`/brands?category=${encodeURIComponent(categorySlug)}`}
+                href={`/categories/${encodeURIComponent(categorySlug)}`}
                 className="transition-colors hover:text-foreground"
               >
                 {categoryLabel}

@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type ButtonSize = React.ComponentProps<typeof Button>["size"];
@@ -18,6 +18,21 @@ const toggleChipSelectedClasses = cn(
   "border-primary bg-primary text-primary-foreground",
   "hover:border-primary hover:bg-primary hover:text-primary-foreground",
 );
+
+function taxonomyLinkClasses({
+  active = false,
+  className,
+}: {
+  active?: boolean;
+  className?: string;
+} = {}) {
+  return buttonVariants({
+    variant: "secondary",
+    shape: "pill",
+    size: "chip",
+    className: cn(active && toggleChipSelectedClasses, className),
+  });
+}
 
 type ToggleChipProps = Omit<
   React.ComponentProps<"button">,
@@ -76,4 +91,4 @@ function ToggleChip({
   );
 }
 
-export { ToggleChip, toggleChipSelectedClasses };
+export { ToggleChip, taxonomyLinkClasses };

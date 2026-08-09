@@ -3,7 +3,7 @@ import {
   purchaseChannelByKey,
   type PurchaseChannelColumn,
 } from '@/lib/brands/purchase-channels'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
 /** The brand's own site; every other registry channel counts as a marketplace. */
 const WEBSITE_COLUMN = purchaseChannelByKey.website.column

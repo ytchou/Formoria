@@ -82,7 +82,7 @@ async function main(): Promise<void> {
       notification: {
         agent: "Health Agent findings",
         details: [
-          `• Product ${findingCount("link-checker") + findingCount("directory-health")} · Runtime ${findingCount("sentry-triage")} · Repository ${findingCount("quality-health")}`,
+          `• Product ${findingCount("link-checker") + findingCount("directory-health")} · Runtime ${findingCount("sentry-triage")} · Cron ${findingCount("cron-health")} · Repository ${findingCount("quality-health")}`,
           `• ${repairable} repairable · ${escalation} escalation-only`,
           `• Self-heal: ${selfHeal ? "will run" : "will not run"}`,
         ],

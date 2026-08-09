@@ -1,5 +1,12 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
+import {
+  KNIP_KNOWN_NOISE,
+  KNIP_VERSION,
+  isKnownKnipNoise,
+} from "./knip-known-noise";
 import { evaluateQualityReports } from "./quality";
 
 const trackedFiles = new Set([
@@ -10,6 +17,28 @@ const trackedFiles = new Set([
 ]);
 
 describe("repository health", () => {
+  it("suppresses only the versioned Knip fixtures and keeps nearby signatures visible", () => {
+    const config = readFileSync("knip.json", "utf8");
+    expect(KNIP_VERSION).toBe("6.23.0");
+    expect(KNIP_KNOWN_NOISE).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "files",
+          signature: "src/test/server-only.ts",
+        }),
+        expect.objectContaining({ kind: "binaries", signature: "tesseract" }),
+      ]),
+    );
+    expect(isKnownKnipNoise("files", "src/test/server-only.ts")).toBe(true);
+    expect(isKnownKnipNoise("binaries", "tesseract")).toBe(true);
+    expect(config).toContain('"src/test/server-only.ts": ["files"]');
+    expect(config).toContain('"ignoreBinaries": ["lsof", "tesseract"]');
+    expect(isKnownKnipNoise("files", "src/test/server-only.test.ts")).toBe(
+      false,
+    );
+    expect(isKnownKnipNoise("binaries", "imagemagick")).toBe(false);
+  });
+
   it("turns valid Vitest and Knip failures into one complete quality result", () => {
     const result = evaluateQualityReports({
       knipExitCode: 1,
@@ -97,6 +126,55 @@ describe("repository health", () => {
     expect(result.findings[0]?.evidence).toMatchObject({
       repairScopeTrusted: false,
     });
+  });
+
+  it("parses knip `duplicates`, which knip reports as an array of symbol groups", () => {
+    // Regression for DEV-1381: `duplicates` is the one kind knip nests — each
+    // element is the group of symbols sharing a definition, not a single
+    // symbol. isRecord() excludes arrays, so before the fix this whole report
+    // parsed as null, surfaced as `dead-code:malformed_output`, and failed the
+    // nightly health run. Shape copied from a real `pnpm knip --reporter json`.
+    const result = evaluateQualityReports({
+      knipExitCode: 1,
+      knipReport: {
+        issues: [
+          {
+            duplicates: [
+              [
+                {
+                  col: 14,
+                  line: 29,
+                  name: "MAX_BRAND_IMAGE_SELECTION",
+                  pos: 1555,
+                },
+                { col: 14, line: 39, name: "DRAFT_PARK_SORT_ORDER", pos: 2111 },
+              ],
+            ],
+            file: "src/lib/services/submissions.ts",
+          },
+        ],
+      },
+      repoRoot: "/repo",
+      trackedFiles,
+      vitestExitCode: 0,
+      vitestReport: {
+        numFailedTestSuites: 0,
+        numFailedTests: 0,
+        numTotalTestSuites: 1,
+        numTotalTests: 1,
+        success: true,
+        testResults: [],
+      },
+    });
+
+    expect(result.failures).not.toContain("dead-code:malformed_output");
+    const duplicate = result.findings.find((finding) =>
+      finding.fingerprint.startsWith("quality:dead-code:"),
+    );
+    expect(duplicate).toBeDefined();
+    // Both members name the group, so the finding stays actionable.
+    expect(JSON.stringify(duplicate)).toContain("MAX_BRAND_IMAGE_SELECTION");
+    expect(JSON.stringify(duplicate)).toContain("DRAFT_PARK_SORT_ORDER");
   });
 
   it("keeps long human-readable test names within the queue identity limit", () => {

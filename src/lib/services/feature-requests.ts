@@ -1,5 +1,5 @@
 import type { Database } from "@/lib/supabase/database.types";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { auditedCall } from "@/lib/audit";
 
 type FeatureRequestRow =

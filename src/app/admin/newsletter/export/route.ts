@@ -1,7 +1,7 @@
 import { withAuditScope } from "@/lib/audit";
 import { requireAdminAction } from "@/lib/auth/require-admin";
 import { getRequestOrigin } from "@/lib/auth/site-url";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import {
   getAdminNewsletterExport,
   parseAdminNewsletterFilters,

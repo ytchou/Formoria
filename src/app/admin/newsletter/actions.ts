@@ -3,7 +3,7 @@
 import { runWithAuditContext } from "@/lib/audit/context";
 import { revalidatePath } from "next/cache";
 import { requireAdminAction } from "@/lib/auth/require-admin";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { logAdminAction } from "@/lib/services/admin-audit";
 import {
   adminUnsubscribeNewsletterSubscriber,

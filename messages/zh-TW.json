@@ -64,8 +64,6 @@
     "gettingStarted": "開始使用",
     "stories": "專題",
     "events": "展會",
-    "glossary": "名詞解說",
-    "stats": "統計資料",
     "submit": "推薦品牌",
     "companyHeading": "關於",
     "faq": "常見問題",
@@ -76,18 +74,15 @@
   },
   "landing": {
     "metadata": {
-      "title": "Formoria — 台灣品牌探索與選物平台",
+      "title": "Formoria：台灣品牌探索與選物平台",
       "description": "Formoria 是台灣品牌探索與選物平台，整理台灣品牌的品牌故事、產品特色與官方購買通路，讓值得認識的台灣品牌更容易被看見、被選擇。"
     },
     "hero": {
       "eyebrow": "TAIWANESE BRANDS",
       "headline": "找到真正適合你的台灣品牌",
-      "subheadline": "從服飾、居家、飲食到工藝，Formoria 讓你更快找到符合品味與需求的台灣選物",
-      "intro": "Formoria 是台灣品牌探索與選物平台，整理品牌故事、產品特色與官方購買通路，讓值得認識的台灣品牌更容易被看見、被選擇。",
+      "subheadline": "Formoria 是台灣品牌的探索平台。從服飾、居家、飲食到工藝，讓你更快找到符合品味與需求的台灣選物。",
       "statsBrands": "品牌",
       "statsCategories": "分類",
-      "recentWeek": "新品牌（近 7 天）",
-      "recentMonth": "新品牌（近 30 天）",
       "cta": "探索品牌…"
     },
     "showcase": {
@@ -119,17 +114,21 @@
     },
     "submitBand": {
       "headline": "推薦一個值得被看見的台灣品牌",
-      "body": "發現了不該被錯過的品牌嗎？歡迎推薦給 Formoria。我們會確認品牌資料，通過審核後收錄於平台",
+      "body": "發現了不該被錯過的品牌嗎？歡迎推薦給 Formoria。通過審核後收錄於平台",
       "cta": "推薦品牌"
     },
     "featureRequestBand": {
       "headline": "一起讓 Formoria 更好用",
-      "body": "你希望增加新的分類、篩選方式或探索功能嗎？告訴我們你的想法，或為其他使用者提出的建議投票",
+      "body": "你希望增加新的分類、篩選方式或探索功能嗎？告訴我們你的想法",
       "cta": "提出建議"
     },
     "newBrands": {
       "heading": "最新品牌",
       "linkText": "瀏覽全部品牌 →"
+    },
+    "events": {
+      "heading": "展會資訊",
+      "linkText": "瀏覽所有展會 →"
     },
     "latestStories": {
       "heading": "Formoria 最新專題",
@@ -166,7 +165,7 @@
   "brands": {
     "breadcrumbAria": "麵包屑導覽",
     "metadata": {
-      "title": "品牌目錄 — 依分類探索台灣品牌 | Formoria",
+      "title": "台灣品牌目錄｜依分類探索品牌、產品與購買通路 | Formoria",
       "description": "探索台灣品牌，依分類瀏覽、搜尋，認識在台灣創立、設計或製造的品牌。"
     },
     "heading": "台灣品牌目錄",
@@ -302,36 +301,6 @@
     "description": "請完成驗證以繼續瀏覽。",
     "verifying": "驗證中…",
     "error": "驗證失敗，請再試一次。"
-  },
-  "stats": {
-    "metadata": {
-      "title": "台灣品牌數據",
-      "description": "台灣品牌生態系即時數據——品牌總數、類別分布、MIT 認證比例、創立年代分布。"
-    },
-    "hero": {
-      "title": "台灣品牌數據",
-      "subtitle": "來自 Formoria 目錄的即時數據",
-      "totalBrands": "追蹤 {count} 個品牌",
-      "asOf": "資料更新至 {date}"
-    },
-    "categories": {
-      "title": "類別分布",
-      "description": "共 {count} 個品牌橫跨所有類別",
-      "brandCount": "{count} 個品牌"
-    },
-    "mitVerified": {
-      "title": "MIT 認證",
-      "description": "{total} 個品牌中有 {verified} 個通過 MIT 認證（{percentage}%）"
-    },
-    "geographicDistribution": "地理分布",
-    "geographicDistributionDesc": "台灣各縣市品牌數量分布（僅含有地點資料的品牌）",
-    "mapAria": "台灣品牌分布地圖",
-    "noCityData": "尚無城市資料",
-    "foundingDecade": {
-      "title": "創立年代分布",
-      "description": "台灣品牌的創立時間（僅含有創立年份資料的品牌）",
-      "label": "{decade} 年代"
-    }
   },
   "cities": {
     "taipei": "臺北市",
@@ -747,6 +716,12 @@
     }
   },
   "categories": {
+    "landing": {
+      "updated": "更新於 {date}",
+      "faqTitle": "分類常見問題",
+      "definitionTitle": "分類說明",
+      "categoryLinksAria": "探索此分類的子分類"
+    },
     "metadata": {
       "title": "{displayName} 台灣品牌",
       "description": "探索台灣的 {displayName} 品牌。"
@@ -768,123 +743,349 @@
       "outdoor": "台灣戶外品牌源自島嶼豐富的山岳地形、亞熱帶步道與四季皆宜的露營文化。裝備設計者在高海拔稜線到海岸營地之間實地測試，打造輕量、耐用且適應在地條件的產品。許多品牌強調手工製作、永續材質與可維修設計。Formoria 收錄背包、露營裝備與攀岩用品等為真實冒險而生的台灣品牌。",
       "fitness": "台灣運動健身品牌結合機能設計與島嶼活躍的生活風格，從瑜珈墊、阻力訓練器材到運動服飾與恢復工具，著重人體工學細節與材料品質。許多品牌同時服務健身房使用者與戶外運動族群，產品經過台灣濕熱氣候的實際考驗。Formoria 收錄以功能、舒適與耐用為優先的運動用品品牌。",
       "kids-pets": "台灣母嬰寵物品牌重視安全、溫和材質與貼心設計，為家中最小的成員和毛孩提供優質選擇。有機棉童裝、木製玩具、無毒配件與手作寵物用品是常見品項，許多品牌取得國際安全認證並使用在地素材。Formoria 收錄以用心與創意為核心的兒童、嬰幼兒與寵物品牌。"
-    }
-  },
-  "glossary": {
-    "metadata": {
-      "title": "名詞解說",
-      "description": "Formoria 名詞解說——台灣製造定義、信任標章說明，以及目錄分類標籤總覽。"
     },
-    "eyebrow": "參考",
-    "heading": "名詞解說",
-    "lede": "Formoria 上使用的名詞與定義——從「台灣製造」的意義、信任標章的運作，到我們如何組織整個目錄。",
-    "breadcrumbHome": "首頁",
-    "sectionsLabel": "分類",
-    "sectionsAria": "名詞解說分類",
-    "verifiedBadgeLabel": "MIT 微笑認證",
-    "verifiedBadgeTitle": "已通過 MIT 微笑標章登錄驗證",
-    "ownerBadgeLabel": "品牌經營",
-    "ownerBadgeTitle": "由品牌方經營管理",
-    "sections": {
-      "core": {
-        "title": "核心概念",
-        "terms": {
-          "madeInTaiwan": {
-            "zh": "台灣製造",
-            "en": "Made in Taiwan",
-            "definition": "主要設計、製造或創立根植於台灣——是對工藝的承諾，而非僅是產地標籤。"
+    "l1": {
+      "home": {
+        "title": "台灣居家生活品牌｜探索家具、餐桌與日常物件 | Formoria",
+        "description": "探索台灣居家生活品牌，從家具、收納到餐桌器皿，認識不同材質與生活場景的設計。",
+        "h1": "台灣居家生活品牌",
+        "intro": "本分類聚焦讓居家生活更美好，涵蓋家具、收納、照明、餐桌器皿與日常布置。",
+        "definition": "本分類聚焦讓居住空間更好使用的物件，而不只限於裝飾品。品牌可能以陶瓷、木作、竹材、金工或複合材料為主，收錄條件則看品牌是否在台灣創立、設計或製造，並以核准資料中的產品類型作為分類依據。",
+        "faq": [
+          {
+            "question": "居家生活品牌包含哪些產品？",
+            "answer": "常見範圍包括家具、收納、燈具、餐桌器皿、香氛與居家布置小物；實際標籤會依品牌的主要產品而定。"
           },
-          "communityCurated": {
-            "zh": "社群共編",
-            "en": "Community-contributed",
-            "definition": "品牌資料由社群提供，經 Formoria 人工審核後收錄；這與編輯主動挑選的「Formoria 精選」不同。"
+          {
+            "question": "這裡的品牌都是台灣製造嗎？",
+            "answer": "不一定。Formoria 收錄與台灣有明確連結的品牌，可能是在台灣創立、設計或製造；製造資訊會另依品牌聲明或驗證狀態呈現。"
           }
-        }
+        ]
       },
-      "verification": {
-        "title": "驗證標章",
-        "terms": {
-          "mitVerified": {
-            "zh": "MIT 微笑標章",
-            "en": "Verified",
-            "definition": "比對微笑產品標章登錄資料確認——經獨立查核，而非自行申報。",
-            "badge": "verified"
+      "fashion": {
+        "title": "台灣服飾鞋履品牌｜探索服裝、鞋款與穿搭配件 | Formoria",
+        "description": "探索台灣服飾鞋履品牌，依上衣、鞋款與日常穿著場景認識設計與材料選擇。",
+        "h1": "台灣服飾鞋履品牌",
+        "intro": "本分類聚焦讓日常穿著更自在有型，涵蓋服裝、鞋款與穿搭配件。",
+        "definition": "服飾品牌的設計可能來自剪裁、布料、鞋楦或穿著情境，分類不代表每件產品都在台灣製造。Formoria 會保留品牌在台灣創立、設計或製造的連結，並以可查證的產品資料協助讀者理解不同品牌的範圍。",
+        "faq": [
+          {
+            "question": "服飾鞋履分類會收錄哪些品牌？",
+            "answer": "從日常服裝、機能服飾到休閒鞋與皮鞋都可能收錄，判斷重點是品牌主要產品與其公開分類標籤。"
           },
-          "ownerClaimed": {
-            "zh": "品牌經營",
-            "en": "Owner-claimed",
-            "definition": "品牌經營者已認領並主動維護此頁面——是持續維護的真實存在。",
-            "badge": "owner"
-          },
-          "communityLabel": {
-            "zh": "社群標記",
-            "en": "Community label",
-            "definition": "由社群維護，尚無經營者認領、也未經登錄查核——隨時歡迎認領。"
+          {
+            "question": "品牌的產地資訊在哪裡查看？",
+            "answer": "每個品牌頁會分別呈現品牌創立、設計與製造相關的資料；分類頁本身不把所有品牌概括為台灣製造。"
           }
-        }
+        ]
       },
-      "materials": {
-        "title": "材質",
-        "terms": {
-          "leather": {
-            "zh": "皮革",
-            "en": "Leather",
-            "definition": "全粒面或頭層、植鞣皮革——非合成材質。"
+      "beauty": {
+        "title": "台灣美妝保養品牌｜探索保養、髮品與身體護理 | Formoria",
+        "description": "探索台灣美妝保養品牌，從臉部保養、髮品到日常清潔，認識配方與使用情境。",
+        "h1": "台灣美妝保養品牌",
+        "intro": "本分類聚焦照顧肌膚、頭髮與身體，涵蓋保養、彩妝、髮品與清潔用品。",
+        "definition": "這個分類以使用部位與功能為界線，不以天然、無添加或單一成分作為收錄保證。品牌與台灣的關係可能是創立、設計或製造，配方、驗證與製造資訊仍應回到各品牌頁及品牌公開資料確認。",
+        "faq": [
+          {
+            "question": "美妝保養分類包含哪些產品？",
+            "answer": "包含臉部與身體保養、洗沐清潔、髮品、彩妝、香氛與防曬等，子分類會依主要用途細分。"
           },
-          "ceramic": {
-            "zh": "陶瓷",
-            "en": "Ceramic",
-            "definition": "陶土、瓷器與炻器，深植鶯歌工藝傳統。"
-          },
-          "naturalFibre": {
-            "zh": "天然纖維",
-            "en": "Natural Fibre",
-            "definition": "棉、麻、羊毛、絲或竹——僅限植物或動物來源。"
+          {
+            "question": "Formoria 會替保養品背書嗎？",
+            "answer": "不會。目錄整理品牌與產品資訊，並在有資料時標示品牌聲明或驗證狀態；使用前仍請參考產品標示與專業建議。"
           }
-        }
+        ]
       },
-      "priceRange": {
-        "title": "價格區間",
-        "terms": {
-          "accessible": {
-            "zh": "親民",
-            "en": "Accessible",
-            "definition": "日常價位，低於 NT$1,000。",
-            "range": "低於 NT$1,000"
+      "food-drink": {
+        "title": "台灣食品飲料品牌｜探索茶、咖啡、零食與日常風味 | Formoria",
+        "description": "探索台灣食品飲料品牌，從茶與咖啡到零食、醬料與甜點，認識產品風味與來源。",
+        "h1": "台灣食品飲料品牌",
+        "intro": "本分類聚焦讓日常飲食更有風味，涵蓋食材、加工食品、茶、咖啡、零食與各式飲品。",
+        "definition": "食品品牌的特色可能來自原料產地、配方、加工方式或家族工法，本分類不把所有產品都視為台灣原料或台灣製造。收錄品牌需與台灣有明確連結，產品的成分、產地與保存方式則以品牌公開資訊為準。",
+        "faq": [
+          {
+            "question": "食品飲料分類可以找到哪些品項？",
+            "answer": "茶、咖啡、果乾、零食、醬料、烘焙點心與其他日常食品都可能出現，會再依產品標籤分到子分類。"
           },
-          "midRange": {
-            "zh": "中價位",
-            "en": "Mid-range",
-            "definition": "進階選擇，NT$1,000 至 NT$5,000。",
-            "range": "NT$1,000 – NT$5,000"
-          },
-          "premium": {
-            "zh": "精品",
-            "en": "Premium",
-            "definition": "精品工藝，高於 NT$5,000。",
-            "range": "高於 NT$5,000"
+          {
+            "question": "分類頁代表產品原料都來自台灣嗎？",
+            "answer": "不代表。分類呈現品牌與產品範圍，不對所有原料或製造地做概括；請查看品牌頁的來源與製造資訊。"
           }
-        }
+        ]
       },
-      "values": {
-        "title": "價值理念",
-        "terms": {
-          "slowMade": {
-            "zh": "慢工出細活",
-            "en": "Slow-made",
-            "definition": "小批量、手工製作——是策展訊號，而非認證。"
+      "crafts": {
+        "title": "台灣工藝文創品牌｜探索陶作、木工、織品與手作 | Formoria",
+        "description": "探索台灣工藝文創品牌，認識陶作、木工、金工、織品與當代手作的不同做法。",
+        "h1": "台灣工藝文創品牌",
+        "intro": "本分類聚焦讓手作工藝融入日常、延續文化創意，涵蓋陶作、木工、織品、金工與印刷。",
+        "definition": "工藝不等於每件作品都由手工完成，也不等於單一地方文化的代表。Formoria 看的是品牌公開的製作方式、產品類型與台灣連結，讓讀者能從品牌頁進一步了解工作室規模、材料與製作細節。",
+        "faq": [
+          {
+            "question": "工藝文創和居家品牌有什麼不同？",
+            "answer": "兩者可能重疊；工藝文創更重視技法、材料與文化脈絡，居家生活則以產品在空間中的用途作為主要分類線索。"
           },
-          "ecoConscious": {
-            "zh": "永續意識",
-            "en": "Eco-conscious",
-            "definition": "在選料、包裝與廢棄物上，對環境責任的實質承諾。"
-          },
-          "familyRun": {
-            "zh": "家族傳承",
-            "en": "Family-run",
-            "definition": "家族擁有並經營，往往跨越數代傳承。"
+          {
+            "question": "手作品牌一定是台灣製造嗎？",
+            "answer": "不一定。Formoria 會分開呈現創立、設計與製造的資料，不以分類名稱代替品牌的實際產地說明。"
           }
-        }
+        ]
+      },
+      "bags-accessories": {
+        "title": "台灣包袋配件品牌｜探索包款、皮件與日常配件 | Formoria",
+        "description": "探索台灣包袋配件品牌，從後背包、皮夾到眼鏡與帽款，依使用情境認識產品特色。",
+        "h1": "台灣包袋配件品牌",
+        "intro": "本分類聚焦讓攜帶、收納與穿搭更便利，涵蓋包款、皮件與日常配件。",
+        "definition": "同一品牌可能同時製作包袋、錢包與其他配件，因此子分類以主要產品標籤為準。收錄資料不代表每個品項都由同一地點製造，材料與產地資訊請以品牌頁上的公開說明及驗證狀態為準。",
+        "faq": [
+          {
+            "question": "包袋配件包含哪些子分類？",
+            "answer": "後背包、托特包、斜背包、皮夾、眼鏡、帽子與旅行配件等，都會依品牌主要品項分到相應子分類。"
+          },
+          {
+            "question": "皮件品牌都使用真皮嗎？",
+            "answer": "不一定。品牌可能使用真皮、植物皮革、再生布料或其他材料；請查看各品牌的產品與材質說明。"
+          }
+        ]
+      },
+      "jewelry": {
+        "title": "台灣飾品珠寶品牌｜探索耳環、項鍊、戒指與手鍊 | Formoria",
+        "description": "探索台灣飾品珠寶品牌，依耳環、項鍊、戒指與手鍊等品項認識材質與設計風格。",
+        "h1": "台灣飾品珠寶品牌",
+        "intro": "本分類聚焦以飾品展現個人風格，涵蓋耳環、項鍊、戒指、手鍊與髮飾。",
+        "definition": "本分類涵蓋日常飾品與珠寶設計，但不預設所有作品使用貴金屬、天然寶石或台灣材料。品牌頁會盡可能區分材質、製作與產地資訊，讓讀者從產品內容理解每個品牌的定位。",
+        "faq": [
+          {
+            "question": "飾品和珠寶在這裡如何分類？",
+            "answer": "主要依產品品項與佩戴方式整理，日常飾品與珠寶品牌可以同時出現在耳環、項鍊或戒指等子分類。"
+          },
+          {
+            "question": "分類頁會驗證每件飾品的材質嗎？",
+            "answer": "不會替每件商品做材質保證；有關金屬、寶石與製造方式的資訊，請以品牌頁和品牌提供的證明為準。"
+          }
+        ]
+      },
+      "kids-pets": {
+        "title": "台灣母嬰寵物品牌｜探索兒童用品、嬰幼兒與毛孩生活 | Formoria",
+        "description": "探索台灣母嬰寵物品牌，從兒童用品、嬰幼兒服飾到寵物用品，依使用對象認識品牌。",
+        "h1": "台灣母嬰寵物品牌",
+        "intro": "本分類聚焦陪伴孩子與毛孩的成長與日常照護，涵蓋玩具、服飾、餐具、寵物用品與配件。",
+        "definition": "安全、尺寸與使用年齡是此分類的重要閱讀線索，但目錄不取代法規、檢驗或醫療建議。品牌可能在台灣創立、設計或製造，產品的適用年齡、材質與認證請回到品牌頁及包裝標示確認。",
+        "faq": [
+          {
+            "question": "母嬰寵物品牌會收錄哪些產品？",
+            "answer": "兒童與嬰幼兒服飾、玩具、餐具、居家用品，以及寵物食用品與配件都可能收錄。"
+          },
+          {
+            "question": "Formoria 會確認產品適合所有孩子或寵物嗎？",
+            "answer": "不會。目錄整理品牌公開資訊，實際年齡、尺寸與安全條件仍應依產品標示及專業建議判斷。"
+          }
+        ]
+      },
+      "stationery": {
+        "title": "台灣文具設計品牌｜探索筆記、紙品、筆具與桌面工具 | Formoria",
+        "description": "探索台灣文具設計品牌，從筆具、筆記本到紙膠帶與桌面用品，找到適合工作與創作的工具。",
+        "h1": "台灣文具設計品牌",
+        "intro": "本分類聚焦讓書寫、記錄與桌面整理更順手，涵蓋筆記、紙品、筆具與桌面工具。",
+        "definition": "文具的差異可以來自紙張、墨水、印刷、機構或插畫內容，本分類不以外觀相似就視為同一用途。品牌的台灣連結、合作工廠與材料資訊各有不同，請透過品牌頁了解實際細節。",
+        "faq": [
+          {
+            "question": "文具設計包含哪些用品？",
+            "answer": "筆具、筆記本、手帳、紙品、印章、貼紙與桌面整理工具等，都會依主要用途與產品標籤整理。"
+          },
+          {
+            "question": "文具品牌都是台灣工廠製作嗎？",
+            "answer": "不一定。品牌可能在台灣設計、創立或製造；各品牌的產品產地和合作資訊會另外標示。"
+          }
+        ]
+      },
+      "outdoor": {
+        "title": "台灣戶外露營品牌｜探索登山、露營與戶外裝備 | Formoria",
+        "description": "探索台灣戶外露營品牌，從背包、帳篷到登山與露營配件，依戶外使用情境瀏覽裝備。",
+        "h1": "台灣戶外露營品牌",
+        "intro": "本分類聚焦讓戶外探索更自在盡興，涵蓋登山、露營、攀岩與旅行裝備，以及相關服裝、背包與配件。",
+        "definition": "戶外裝備的適用條件會受到地形、天候與使用者經驗影響，分類頁不替任何裝備做安全或性能保證。品牌的創立、設計與製造連結分開記錄，購買前仍應閱讀規格、負重與使用說明。",
+        "faq": [
+          {
+            "question": "戶外露營分類涵蓋哪些活動？",
+            "answer": "登山健行、露營、攀岩與戶外旅行用品都可能收錄，子分類會依主要裝備用途再細分。"
+          },
+          {
+            "question": "分類頁上的裝備適合高山使用嗎？",
+            "answer": "不能只靠分類判斷。請依品牌提供的規格、測試條件與個人行程需求選擇裝備。"
+          }
+        ]
+      }
+    },
+    "l2": {
+      "bath-and-shower": {
+        "title": "台灣洗沐清潔品牌｜探索沐浴、洗臉與日常清潔 | Formoria",
+        "description": "探索台灣洗沐清潔品牌，依沐浴、洗臉與身體清潔用途認識配方與使用情境。",
+        "h1": "台灣洗沐清潔品牌",
+        "intro": "本分類聚焦滿足日常沐浴與清潔需求，涵蓋沐浴、洗臉與身體清潔用品。",
+        "definition": "這個子分類以清潔用途為界線，不代表所有產品都適合每種膚質，也不預設成分或製造地。請以品牌提供的成分、使用方式與台灣連結資料為準。",
+        "faq": [
+          {
+            "question": "洗沐清潔和身體保養有何不同？",
+            "answer": "洗沐清潔主要移除汗水、油脂或髒污，身體保養則聚焦清潔後的滋潤與護理；部分品牌會同時涵蓋兩者。"
+          },
+          {
+            "question": "敏感肌可以直接使用這裡的產品嗎？",
+            "answer": "不能只靠分類判斷，使用前請閱讀成分與注意事項，必要時詢問專業人士。"
+          }
+        ]
+      },
+      "necklaces": {
+        "title": "台灣項鍊品牌｜探索日常鍊墜、金工與設計飾品 | Formoria",
+        "description": "探索台灣項鍊品牌，從日常鍊墜到金工設計，依材質與佩戴風格認識品牌。",
+        "h1": "台灣項鍊品牌",
+        "intro": "本分類聚焦讓日常穿搭更有個人風格，涵蓋鍊身、墜飾與各式項鍊設計。",
+        "definition": "項鍊可能使用金屬、礦石、珍珠、織品或其他材料，本分類不替材質、過敏性或耐用度背書。產品細節與產地請以品牌頁、商品說明及可用驗證資料為準。",
+        "faq": [
+          {
+            "question": "項鍊子分類會包含手作品牌嗎？",
+            "answer": "會，只要品牌的主要產品是項鍊或鍊墜，並符合 Formoria 的品牌收錄範圍，就可能出現在此分類。"
+          },
+          {
+            "question": "如何確認項鍊材質？",
+            "answer": "請查看品牌提供的商品材質、保養與產地說明；分類名稱本身不代表特定金屬或寶石。"
+          }
+        ]
+      },
+      "earrings": {
+        "title": "台灣耳環品牌｜探索耳針、耳夾與日常飾品 | Formoria",
+        "description": "探索台灣耳環品牌，從耳針、耳夾到手工設計款，依佩戴方式與風格瀏覽品牌。",
+        "h1": "台灣耳環品牌",
+        "intro": "本分類聚焦讓耳畔造型更有個人風格，涵蓋耳針、耳夾與其他耳部飾品。",
+        "definition": "不同耳環的材質、重量與固定方式會影響佩戴感受，本分類不代替商品規格或過敏資訊。品牌與台灣的創立、設計或製造連結，會在品牌頁中分開說明。",
+        "faq": [
+          {
+            "question": "耳夾也會列在耳環分類嗎？",
+            "answer": "會。耳夾與耳針都屬於耳部佩戴產品，Formoria 會依品牌標籤與主要品項整理。"
+          },
+          {
+            "question": "耳環材質適合所有人嗎？",
+            "answer": "不一定。請確認商品材質、尺寸與保養資訊，對金屬敏感者尤其應先閱讀品牌說明。"
+          }
+        ]
+      },
+      "storage": {
+        "title": "台灣收納品牌｜探索居家整理、置物與空間工具 | Formoria",
+        "description": "探索台灣收納品牌，依置物、整理與小空間使用情境認識家具與生活用品。",
+        "h1": "台灣收納品牌",
+        "intro": "本分類聚焦讓居家整理更有秩序、空間更好運用，涵蓋收納盒、收納架、收納袋與其他收納用品。",
+        "definition": "收納產品可能同時具有家具、旅行或工作用途，子分類以品牌主要產品標籤為準。尺寸、承重與材質差異很大，購買前請回到品牌頁和商品規格確認。",
+        "faq": [
+          {
+            "question": "收納分類會包含大型家具嗎？",
+            "answer": "若品牌以收納家具或置物系統為主要產品，可能同時出現在家具與收納相關分類；實際路徑依標籤而定。"
+          },
+          {
+            "question": "如何挑選適合小空間的收納？",
+            "answer": "先量測可用尺寸，再查看商品的容量、承重、開合方式與安裝條件，分類頁只提供探索入口。"
+          }
+        ]
+      },
+      "furniture": {
+        "title": "台灣家具品牌｜探索桌椅、櫃體與居家空間設計 | Formoria",
+        "description": "探索台灣家具品牌，從桌椅、櫃體到生活空間物件，認識材質與使用情境。",
+        "h1": "台灣家具品牌",
+        "intro": "本分類聚焦讓居家空間更舒適實用，涵蓋桌椅、櫃體、床架與其他家具。",
+        "definition": "家具的尺寸、結構與材料需要配合空間與使用方式，本子分類不代表所有作品都由台灣工坊製作。各品牌的設計、製造、運送與安裝資訊，請以品牌公開資料為準。",
+        "faq": [
+          {
+            "question": "家具分類包含哪些物件？",
+            "answer": "桌子、椅子、櫃體、床架與其他支撐日常活動的居家物件都可能收錄。"
+          },
+          {
+            "question": "家具可以直接在 Formoria 購買嗎？",
+            "answer": "Formoria 是品牌探索目錄；實際購買、尺寸與交貨方式請前往品牌提供的官方通路確認。"
+          }
+        ]
+      },
+      "skincare": {
+        "title": "台灣臉部保養品牌｜探索清潔、保濕與日常護理 | Formoria",
+        "description": "探索台灣臉部保養品牌，依清潔、保濕、修護與日常護理用途認識產品。",
+        "h1": "台灣臉部保養品牌",
+        "intro": "本分類聚焦照顧每日的臉部肌膚，涵蓋清潔、化妝水、精華、乳霜與面膜。",
+        "definition": "肌膚需求會因個人狀況、季節與產品配方而不同，本分類不提供診斷或功效保證。請以完整成分、使用方式與品牌提供的製造及驗證資訊做選擇。",
+        "faq": [
+          {
+            "question": "臉部保養包含彩妝嗎？",
+            "answer": "主要聚焦保養與清潔，彩妝會在美妝保養的其他子分類中呈現；品牌可能跨越多個用途。"
+          },
+          {
+            "question": "保養品的功效都經過 Formoria 驗證嗎？",
+            "answer": "不會。Formoria 整理品牌資料，不替產品宣稱背書；請參考產品標示與專業建議。"
+          }
+        ]
+      },
+      "tops-and-tshirts": {
+        "title": "台灣上衣與 T 恤品牌｜探索日常剪裁與機能穿著 | Formoria",
+        "description": "探索台灣上衣與 T 恤品牌，從基本款、襯衫到機能上衣，依穿著情境瀏覽品牌。",
+        "h1": "台灣上衣與 T 恤品牌",
+        "intro": "本分類聚焦讓日常上身穿著更自在有型，涵蓋 T 恤、襯衫、帽 T、Polo 衫與針織衫。",
+        "definition": "上衣可能涵蓋 T 恤、襯衫、帽 T、Polo 衫與針織衫等不同結構，本子分類不預設布料、版型或製造地。尺寸、洗滌與產地資料請以品牌商品頁為準。",
+        "faq": [
+          {
+            "question": "上衣與 T 恤分類包含襯衫嗎？",
+            "answer": "若品牌將襯衫或其他上身服裝列為主要產品，就可能在此子分類出現，實際以產品標籤為準。"
+          },
+          {
+            "question": "如何確認上衣的布料與產地？",
+            "answer": "請查看品牌商品頁的材質、洗滌、尺寸與產地欄位；分類頁不把所有品牌概括為台灣製造。"
+          }
+        ]
+      },
+      "tableware": {
+        "title": "台灣餐桌器皿品牌｜探索陶瓷、玻璃與日常餐具 | Formoria",
+        "description": "探索台灣餐桌器皿品牌，從盤杯、碗具到餐桌配件，認識材質與使用情境。",
+        "h1": "台灣餐桌器皿品牌",
+        "intro": "本分類聚焦讓用餐與餐桌時光更愉快，涵蓋盤、杯、碗、餐具與餐桌配件。",
+        "definition": "陶瓷、玻璃、木材與金屬器皿各有清潔、耐熱與使用限制，本子分類不替產品做食品接觸或安全認證保證。請查閱品牌規格、保養方式及製造資訊。",
+        "faq": [
+          {
+            "question": "餐桌器皿會包含廚房用品嗎？",
+            "answer": "以盛裝與用餐相關物件為主；若產品主要用於烹調或廚房收納，可能會落在其他居家子分類。"
+          },
+          {
+            "question": "如何確認器皿是否可以微波或洗碗機清洗？",
+            "answer": "請以品牌商品頁和包裝標示為準，不要僅依材質名稱推測使用方式。"
+          }
+        ]
+      },
+      "casual-shoes": {
+        "title": "台灣休閒鞋品牌｜探索日常鞋款、帆布鞋與輕便穿著 | Formoria",
+        "description": "探索台灣休閒鞋品牌，從帆布鞋、小白鞋到日常便鞋，依穿著情境認識鞋款。",
+        "h1": "台灣休閒鞋品牌",
+        "intro": "本分類聚焦讓日常步行與穿搭更輕鬆自在，涵蓋休閒鞋、帆布鞋與其他輕便鞋款。",
+        "definition": "休閒鞋不等於適合所有運動或地形，鞋底、楦頭、支撐與防水條件各自不同。請閱讀品牌規格、尺寸建議與製造資料，再依實際需求選擇。",
+        "faq": [
+          {
+            "question": "休閒鞋和運動鞋有什麼不同？",
+            "answer": "休閒鞋主要面向日常穿著；運動鞋會依特定運動與支撐需求另行分類，仍以品牌產品定位和規格為準。"
+          },
+          {
+            "question": "休閒鞋品牌都在台灣製鞋嗎？",
+            "answer": "不一定。Formoria 會分開呈現品牌創立、設計與製造的資訊，請查看各品牌頁的產地說明。"
+          }
+        ]
+      },
+      "desserts-and-pastries": {
+        "title": "台灣甜點與糕點品牌｜探索烘焙、點心與地方風味 | Formoria",
+        "description": "探索台灣甜點與糕點品牌，從烘焙、伴手禮到地方點心，認識風味與製作方式。",
+        "h1": "台灣甜點與糕點品牌",
+        "intro": "本分類聚焦讓日常甜點時光更有滋味，涵蓋烘焙、糖果、餅乾與地方糕點。",
+        "definition": "甜點的原料、保存期限、過敏原與配送條件會因產品而異，本子分類不取代食品標示或保存建議。品牌的台灣連結與製作地也各有不同，請回到品牌頁查閱細節。",
+        "faq": [
+          {
+            "question": "甜點與糕點包含哪些品項？",
+            "answer": "蛋糕、麵包、餅乾、糖果、傳統糕點與其他甜味點心都可能收錄，會依品牌主要產品分到相關分類。"
+          },
+          {
+            "question": "可以把這裡的品牌當作食品安全推薦嗎？",
+            "answer": "不行。目錄提供品牌探索入口，請以產品包裝、保存方式、過敏原與官方通路資訊做購買判斷。"
+          }
+        ]
       }
     }
   },
@@ -896,7 +1097,7 @@
       },
       "title": "服務條款",
       "intro": "感謝您使用 Formoria。使用本平台即表示您同意以下條款。請在提供品牌資料前仔細閱讀。",
-      "lastUpdated": "最後更新：2026 年 7 月",
+      "lastUpdated": "最後更新：2026 年 8 月",
       "contentOwnership": {
         "heading": "內容所有權",
         "body": "您提供給 Formoria 的品牌資料（包括名稱、描述、圖片、連結等）應為您合法擁有或已獲授權使用的內容。提供內容即表示您授予 Formoria 非獨家、免授權費的使用權，用於在本平台展示及推廣台灣品牌。"
@@ -904,6 +1105,11 @@
       "dataUse": {
         "heading": "資料使用方式",
         "body": "品牌資料用於建立與維護目錄、提供搜尋與選物功能、改善資料品質、支援品牌主維護頁面，以及在 Formoria 上展示與推廣台灣品牌。我們不會將您的個人資料或品牌資訊出售予第三方。資料使用方式以本條款及相關隱私政策為準。"
+      },
+      "automatedAccess": {
+        "heading": "自動化存取與資料擷取",
+        "body": "一般瀏覽、經允許的搜尋引擎索引，以及標註 Formoria 出處並連回原始頁面的引用，均不在本條限制之列。除上述情形外，未經 Formoria 事前書面同意，您不得以自動化方式大量擷取本平台目錄內容、重製或散布本平台資料集之全部或重要部分、將本目錄複製為競爭性或商業性服務、大規模轉載本平台編輯撰寫之品牌介紹、以本平台內容訓練或微調人工智慧模型、規避流量限制、存取控制或人機驗證機制，亦不得逾越圖片權利人授權 Formoria 之範圍使用來源圖片。",
+        "bodyDetail": "自動化程式應遵守本平台於 /robots.txt 公布之機器可讀取用規則：該規則允許搜尋索引與生成式回答中的引用，但不允許用於人工智慧模型訓練。如有學術研究、授權合作或大量資料存取需求，請來信 hello@formoria.com，我們將個案審酌。"
       },
       "reviewProcess": {
         "heading": "品牌審核流程",
@@ -2301,508 +2507,6 @@
       "cta": "到功能許願板登記你的需求"
     }
   },
-  "admin": {
-    "layout": {
-      "title": "Admin",
-      "nav": {
-        "overview": "總覽",
-        "submissions": "品牌提交",
-        "jobs": "資料任務",
-        "moderation": "內容審核",
-        "evidence": "產地佐證",
-        "claims": "認領申請",
-        "reports": "檢舉",
-        "brands": "品牌目錄",
-        "quality": "品質儀表板",
-        "newsletter": "電子報",
-        "scripts": "工具",
-        "settings": "設定",
-        "corrections": "資料修正",
-        "featureRequests": "功能許願"
-      }
-    },
-    "dashboard": {
-      "description": "待處理的審核佇列、品牌資料及分類狀態。",
-      "reviewQueues": "審核佇列",
-      "reviewQueuesSub": "依目前待審數量排序。",
-      "newSubmissions": "新品牌提交",
-      "newSubmissionsSub": "人工審核前需完成資料抓取。",
-      "overview": "總覽",
-      "overviewSub": "站台資料與治理範圍的快速指標。",
-      "newsletterSection": "電子報訂閱者",
-      "newsletterSectionSub": "電子郵件收集清單與訂閱確認狀態。",
-      "stages": {
-        "needsData": "待資料處理",
-        "readyToReview": "可供審核",
-        "emptyNeedsData": "無待處理資料工作。",
-        "emptyReadyToReview": "目前沒有可審核的品牌提交。"
-      },
-      "stats": {
-        "totalBrandsLabel": "品牌總數",
-        "totalBrandsDesc": "資料庫中的品牌記錄",
-        "flaggedContentLabel": "待審內容標記",
-        "flaggedContentDesc": "內容審核佇列中的標記數量"
-      },
-      "evidence": {
-        "label": "產地佐證",
-        "description": "等待審核的產地佐證"
-      },
-      "ownerFeatures": {
-        "label": "品牌主功能",
-        "enabled": "已啟用",
-        "disabled": "已停用",
-        "manage": "管理功能開關"
-      },
-      "queues": {
-        "claims": {
-          "title": "品牌認領",
-          "empty": "無待審品牌認領。"
-        },
-        "reports": {
-          "title": "品牌檢舉",
-          "empty": "無待審品牌檢舉。"
-        }
-      },
-      "noDate": "無日期"
-    },
-    "enrichment": {
-      "complete": "資料抓取完成：{success} 筆成功、{skipped} 筆略過、{failed} 筆失敗"
-    },
-    "moderation": {
-      "blockedCount": "{count} 筆被阻擋的內容",
-      "dashboard": "內容審核",
-      "columnBrand": "品牌",
-      "columnField": "欄位",
-      "columnRule": "規則",
-      "columnExplanation": "說明",
-      "columnDetected": "偵測日期",
-      "columnActions": "操作",
-      "markReviewed": "標記為已查看",
-      "dismiss": "忽略",
-      "noBlockedContent": "目前沒有等待審核的被阻擋內容。",
-      "rules": {
-        "suspicious_tld": "可疑網域",
-        "excessive_urls": "連結過多",
-        "english_spam": "促銷式垃圾訊息",
-        "contact_injection_phone": "電話號碼",
-        "contact_injection_email": "電子郵件地址",
-        "excessive_emoji": "emoji 過多",
-        "short_description": "介紹太短",
-        "identical_description": "重複品牌名稱"
-      }
-    },
-    "evidence": {
-      "title": "產地佐證",
-      "description": "審核用於支持或反駁台灣製造聲明的佐證資料。",
-      "tabs": {
-        "all": "全部",
-        "pending": "待審核",
-        "approved": "已核准",
-        "rejected": "已拒絕"
-      },
-      "table": {
-        "brand": "品牌",
-        "stance": "立場",
-        "product": "產品",
-        "date": "提交日期",
-        "status": "狀態"
-      },
-      "fields": {
-        "stance": "立場",
-        "product": "產品",
-        "sourceType": "來源類型",
-        "notes": "備註",
-        "photos": "照片",
-        "reviewerNotes": "審核備註"
-      },
-      "stances": {
-        "supports": "支持台灣製造聲明",
-        "contradicts": "反駁台灣製造聲明"
-      },
-      "sourceTypes": {
-        "product_label": "產品標籤",
-        "packaging": "包裝",
-        "official_site": "官方網站",
-        "in_store": "實體店面",
-        "other": "其他"
-      },
-      "actions": {
-        "approve": "核准",
-        "reject": "拒絕"
-      },
-      "reviewerNotesPlaceholder": "新增此決定的審核備註",
-      "stripDeclaration": "移除聲明",
-      "unknownBrand": "未知品牌",
-      "notProvided": "未提供",
-      "noEvidence": "找不到佐證資料。",
-      "photoAlt": "佐證照片 {index}",
-      "errors": {
-        "notesRequired": "拒絕佐證時必須填寫審核備註。",
-        "generic": "無法審核佐證，請再試一次。"
-      }
-    },
-    "corrections": {
-      "title": "品牌資料修正",
-      "description": "審核訪客針對品牌篩選資料提出的修正，核准後會更新目錄。",
-      "table": {
-        "brand": "品牌",
-        "field": "欄位",
-        "current": "目前值",
-        "proposed": "建議值",
-        "date": "提交日期"
-      },
-      "fields": {
-        "price_range": "價格區間",
-        "product_type": "產品類型",
-        "product_tags": "產品標籤",
-        "purchase_website": "品牌官網",
-        "purchase_pinkoi": "Pinkoi",
-        "purchase_shopee": "蝦皮購物",
-        "purchase_myship": "7-ELEVEN 賣貨便",
-        "social_instagram": "Instagram",
-        "social_threads": "Threads",
-        "social_facebook": "Facebook"
-      },
-      "tagDelta": {
-        "projected": "套用後結果"
-      },
-      "stale": "提交後，品牌資料已變更",
-      "novelTag": "不在分類表中",
-      "novelTagTitle": "核准後只會新增純顯示用的標籤：它不對應任何 ?sub= 篩選條件，不會出現在目錄篩選中。",
-      "tooManyTags": "無法核准：套用後會超過 5 個產品標籤",
-      "actions": {
-        "approve": "核准",
-        "reject": "拒絕"
-      },
-      "reviewerNotes": "審核備註",
-      "reviewerNotesPlaceholder": "補充這項審核決定的備註",
-      "unknownBrand": "未知品牌",
-      "notAvailable": "無法取得",
-      "empty": "目前沒有待審核的品牌修正。",
-      "errors": {
-        "generic": "無法審核這項品牌修正，請稍後再試。"
-      }
-    },
-    "claimRequests": {
-      "adminProofLabel": "擁有權證明",
-      "mitCertApprovalLabel": "MIT 標章編號 — 核准後也會嘗試進行 MIT 驗證",
-      "mitRegistryCompanyLabel": "登錄公司",
-      "domainEmailVerified": "✓ 已驗證",
-      "domainEmailPending": "⏳ 待驗證",
-      "ownerAlreadyManagesShort": "已擁有品牌",
-      "ownerAlreadyManagesTitle": "無法核准：已達品牌管理上限",
-      "ownerAlreadyManagesBody": "此申請者已管理 {brandName}。請使用已有品牌的原因拒絕此申請。",
-      "cleanupWarning": "審核決定已儲存，證明檔案仍在刪除佇列中，系統會自動重試。",
-      "cleanupStatus": {
-        "label": "證明檔案清理狀態",
-        "pending": {
-          "label": "已排入佇列／重試中",
-          "description": "刪除作業已排入佇列，失敗時會自動重試。"
-        },
-        "failed": {
-          "label": "重試失敗",
-          "description": "自動重試次數已用完，需要管理員介入處理。"
-        },
-        "completed": {
-          "label": "已刪除",
-          "description": "私密證明檔案已刪除。"
-        }
-      },
-      "proofTypes": {
-        "domainEmail": "品牌網域信箱",
-        "backendScreenshot": "後台截圖",
-        "businessDoc": "商業登記文件"
-      },
-      "rejectReasons": {
-        "placeholder": "選擇常見原因…",
-        "insufficientProof": "證明不足，無法確認您為品牌經營者。",
-        "proofMismatch": "提供的證明與此品牌不符。",
-        "emailUnverified": "Email 尚未完成驗證。",
-        "alreadyClaimed": "此品牌已由他人完成認領。",
-        "screenshotInsufficient": "上傳的後台截圖無法證明您管理此品牌。",
-        "docMismatch": "商業登記文件與品牌不符或無法辨識。",
-        "proofInauthentic": "提供的證明疑似經過編輯或不實。",
-        "needMoreEvidence": "現有證明不足，請補充其他佐證後再次申請。"
-      }
-    },
-    "submissions": {
-      "denialReasons": {
-        "not_mit": "非台灣品牌",
-        "insufficient_info": "資訊不足",
-        "duplicate": "重複提交",
-        "policy_violation": "違反政策",
-        "admin_reject": "管理員拒絕",
-        "other": "其他"
-      },
-      "title": "品牌提交",
-      "description": "人工核准或拒絕前請先完成資料抓取。",
-      "noSubmitter": "未提供",
-      "noSkipReason": "未記錄略過原因",
-      "viewJob": "查看任務",
-      "notFound": "找不到提交記錄。",
-      "confirmBulkApprove": "核准已選取的 {count} 筆提交？",
-      "dropTitle": "捨棄已選取的提交？",
-      "dropDescription": "這會永久刪除 {count} 筆待資料處理的提交及其專屬資料，抓取任務紀錄仍會保留。",
-      "dropSelected": "捨棄已選取",
-      "dropSuccess": "已捨棄 {count} 筆提交。",
-      "dropStorageCleanupWarning": "提交已刪除，但部分提交圖片檔案仍需清理。",
-      "approveSelected": "核准已選取的 {count} 筆",
-      "rejectSelected": "拒絕已選取的 {count} 筆",
-      "confirmRejectSelected": "確認拒絕已選取的 {count} 筆",
-      "expandReview": "展開 {name} 的審核",
-      "collapseReview": "收合 {name} 的審核",
-      "confirmReject": "拒絕此提交？",
-      "fetching": "抓取中…",
-      "fetchData": "抓取資料",
-      "approve": "核准",
-      "approveRefresh": "核准 — 將更新線上品牌資料",
-      "runStepCuration": {
-        "context": "重新執行「基本資料」步驟（{count}）",
-        "image": "重新執行「圖片」步驟（{count}）",
-        "detail": "重新執行「詳細內容」步驟（{count}）"
-      },
-      "storageCleanupWarning": "資料已更新，但部分已淘汰的圖片檔案仍需清理。",
-      "reject": "拒絕",
-      "edit": "編輯",
-      "save": "儲存變更",
-      "cancel": "取消",
-      "saved": "審核內容已儲存",
-      "reviewDetails": "提交內容審核",
-      "missingRequired": "尚缺必填資料",
-      "searchLabel": "搜尋提交記錄",
-      "searchPlaceholder": "搜尋品牌、提交者、Email 或網站",
-      "submittedDate": {
-        "from": "提交日期起始",
-        "to": "提交日期截止"
-      },
-      "selectVisible": "選取本頁提交記錄",
-      "selectSubmission": "選取 {name}",
-      "imageAlt": "審核圖片 {n}",
-      "setHero": "將圖片 {n} 設為主圖",
-      "moveLeft": "將圖片 {n} 向左移",
-      "moveRight": "將圖片 {n} 向右移",
-      "removeImage": "移除圖片 {n}",
-      "confirmRejectButton": "確認拒絕",
-      "bulkRejectReason": "批次拒絕原因",
-      "selectReason": "選擇拒絕原因",
-      "tabs": {
-        "needsData": "待資料處理",
-        "enriching": "抓取中",
-        "skipped": "已略過",
-        "ready": "可供審核",
-        "approved": "已核准",
-        "rejected": "已拒絕",
-        "all": "全部"
-      },
-      "intentFilter": {
-        "ariaLabel": "依提交意圖篩選",
-        "all": "全部提交",
-        "recommend": "社群提交",
-        "ownerClaim": "業主提交"
-      },
-      "table": {
-        "brand": "品牌",
-        "category": "類別",
-        "images": "圖片",
-        "source": "來源",
-        "status": "狀態",
-        "enrichment": "資料抓取",
-        "reason": "略過原因",
-        "submitter": "提交者",
-        "date": "日期",
-        "actions": "操作",
-        "details": "審核內容"
-      },
-      "enrichmentFilter": {
-        "label": "依資料完整度篩選",
-        "all": "全部資料狀態",
-        "complete": "完整",
-        "incomplete": "不完整"
-      },
-      "reviewKindFilter": {
-        "label": "依提交類型篩選",
-        "all": "全部類型",
-        "new": "新品牌",
-        "refresh": "更新"
-      },
-      "pagination": {
-        "summary": "顯示第 {from}–{to} 筆，共 {total} 筆",
-        "pageSize": "每頁筆數",
-        "previous": "上一頁",
-        "next": "下一頁"
-      },
-      "missingFields": {
-        "description": "品牌描述",
-        "productType": "有效的產品類型",
-        "productTags": "1–5 個產品標籤",
-        "priceRange": "價格區間",
-        "website": "有效的官方網站",
-        "heroImage": "主圖",
-        "successfulEnrichment": "最近一次資料抓取成功"
-      },
-      "duplicateWarning": {
-        "liveBrand": "可能重複 — 品牌「{name}」已存在，核准後會再建立一個頁面。",
-        "pendingOnly": "可能重複 — 另有 {count} 筆待審核提交使用相同名稱，兩筆都核准會建立兩個頁面。"
-      },
-      "details": {
-        "content": "內容",
-        "brandName": "品牌名稱",
-        "chineseContent": "中文內容",
-        "englishContent": "英文內容",
-        "chineseDescription": "中文描述",
-        "englishDescription": "英文描述",
-        "chineseBlurb": "中文摘要",
-        "englishBlurb": "英文摘要",
-        "blurb": "簡短摘要",
-        "languageTabs": {
-          "label": "敘述語言",
-          "mandarin": "中文",
-          "english": "英文"
-        },
-        "catalog": "目錄分類",
-        "priceRange": "價格區間",
-        "productTags": "產品標籤",
-        "tagsPlaceholder": "以逗號分隔，最多五個標籤",
-        "city": "城市",
-        "foundingYear": "創立年份",
-        "links": "連結",
-        "otherLinks": "其他連結",
-        "mitEvidence": "台灣製造證據",
-        "reputation": "口碑摘要",
-        "reputationSources": "來源",
-        "locations": "實體通路",
-        "locationEditor": {
-          "item": "通路 {number}",
-          "kind": "資訊類型",
-          "physical": "實體地點",
-          "chain": "零售連鎖",
-          "name": "名稱",
-          "relationshipLabel": "通路關係",
-          "relationship": {
-            "brand_store": "品牌店",
-            "stockist": "合作店家",
-            "department_counter": "百貨專櫃"
-          },
-          "statusLabel": "驗證狀態",
-          "status": {
-            "verified": "已驗證",
-            "manual": "手動地址",
-            "needs_review": "待審核",
-            "rejected": "已拒絕"
-          },
-          "address": "地址",
-          "city": "城市",
-          "venue": "場館",
-          "floor": "樓層或櫃位",
-          "latitude": "緯度",
-          "longitude": "經度",
-          "coordinates": "座標：{latitude}、{longitude}",
-          "evidence": "證據與來源連結",
-          "acceptCandidate": "採用這筆候選資料",
-          "addLocation": "新增實體地點",
-          "addChain": "新增零售連鎖",
-          "remove": "移除通路 {number}",
-          "removeLabel": "移除",
-          "unnamed": "未命名地點"
-        }
-      },
-      "links": {
-        "official": "官方網站"
-      },
-      "enrichmentStatus": {
-        "queued": "排隊中",
-        "running": "執行中",
-        "failed": "失敗",
-        "skipped": "略過",
-        "complete": "完成",
-        "partial": "部分完成",
-        "none": "待處理"
-      },
-      "intent": {
-        "ownerClaim": "業主提交",
-        "recommend": "社群提交",
-        "refresh": "資料更新"
-      },
-      "sourceAttribution": {
-        "question": "你如何認識這個品牌？",
-        "bought_product": "買過他們的產品",
-        "saw_at_market": "在市集或活動看到",
-        "found_online": "在網路上發現",
-        "friend_recommended": "朋友推薦",
-        "work_there": "在那裡工作或認識團隊"
-      },
-      "fields": {
-        "description": "品牌描述",
-        "productType": "產品類型",
-        "purchaseLinks": "購買連結",
-        "socialLinks": "社群連結",
-        "heroImages": "主視覺 / 產品圖片",
-        "noImages": "無圖片",
-        "label": "標籤",
-        "url": "網址",
-        "remove": "移除",
-        "addLink": "新增連結",
-        "mainImage": "主要圖片"
-      },
-      "placeholders": {
-        "description": "品牌描述",
-        "selectProductType": "選擇產品類型",
-        "officialWebsite": "官方網站網址",
-        "pinkoiLink": "Pinkoi 網址",
-        "shopeeLink": "蝦皮網址",
-        "instagramLink": "Instagram 網址",
-        "threadsLink": "Threads 網址",
-        "facebookLink": "Facebook 網址",
-        "notesRequired": "補充說明（必填）",
-        "notesOptional": "補充說明（選填）"
-      },
-      "rejectReasonLabel": "拒絕原因",
-      "rejectReasonAriaLabel": "拒絕原因",
-      "bulkRejectAriaLabel": "批次拒絕原因",
-      "errors": {
-        "selectReason": "請選擇拒絕原因",
-        "enterNotes": "請輸入補充說明",
-        "invalidUploadResponse": "無法將上傳的圖片加入本次審核",
-        "imageLimit": "每筆審核最多可保留七張圖片"
-      },
-      "claimNote": "核准後，系統將發送品牌認領邀請給提交者；後續證明審核將在認領申請佇列中處理。",
-      "categoryGap": "類別缺口",
-      "suggestedTags": "建議標籤",
-      "approvalRequired": "需完成資料抓取才可核准。",
-      "notSet": "未設定"
-    },
-    "featureRequests": {
-      "title": "功能許願",
-      "description": "調整許願的狀態，並把重複的許願併入正確的那一則。",
-      "empty": "目前沒有任何功能許願。",
-      "table": {
-        "request": "許願",
-        "votes": "票數",
-        "status": "狀態",
-        "merge": "併入"
-      },
-      "status": {
-        "open": "待評估",
-        "planned": "已排入規劃",
-        "in_progress": "開發中",
-        "shipped": "已上線",
-        "declined": "不會做",
-        "duplicate": "重複"
-      },
-      "statusLabel": "「{title}」的狀態",
-      "noteLabel": "「{title}」的管理備註",
-      "saveStatus": "儲存狀態",
-      "mergeLabel": "把「{title}」併入",
-      "mergeTargetNone": "選擇目標",
-      "mergeAction": "合併",
-      "mergedInto": "已合併",
-      "toast": {
-        "statusSaved": "狀態已更新。",
-        "merged": "許願已合併。",
-        "error": "操作失敗，請再試一次。"
-      }
-    }
-  },
   "saveBrand": {
     "save": "收藏",
     "unsave": "取消收藏",
@@ -2933,6 +2637,7 @@
     "schedule": "參觀時間",
     "travel": "交通",
     "admission": "入場方式",
+    "boothLabel": "攤位",
     "brandsHeading": "參展品牌",
     "brandCount": "共 {count} 個品牌",
     "brandCountFiltered": "共 {count} 個品牌（篩選自 {total} 個）",
@@ -2951,8 +2656,47 @@
     "lineupSortBooth": "攤位編號",
     "lineupSearchEmptyTitle": "沒有符合的品牌",
     "lineupSearchEmptyBody": "可以檢查拼字、只輸入名稱的一部分，或返回完整名單。",
-    "relatedStories": "相關專題",
+    "relatedStories": "文博會相關專題",
     "storiesEmptyTitle": "尚無相關的專題報導",
+    "explorerHeading": "全部參展單位",
+    "explorerRosterUnavailable": "參展名單暫時無法取得",
+    "explorerRosterUnavailableBody": "活動資訊與平面圖仍可查看，請稍後再試參展品牌探索器。",
+    "explorerRosterEmpty": "目前沒有可顯示的參展單位。",
+    "explorerSearchAria": "搜尋參展單位名稱、羅馬拼音或攤位編號",
+    "explorerSearchPlaceholder": "搜尋品牌…",
+    "explorerListedOnly": "只看 Formoria 收錄品牌",
+    "zoneFilterAria": "依展區篩選參展單位",
+    "allZones": "全部展區",
+    "exhibitorCount": "共 {count} 個參展單位",
+    "exhibitorCountFiltered": "共 {count} 個參展單位（篩選自 {total} 個）",
+    "exhibitorEmptyTitle": "沒有符合的參展單位",
+    "exhibitorEmptyBody": "可以檢查拼字、只輸入名稱的一部分，或改看其他展區。",
+    "exhibitorListed": "Formoria 收錄",
+    "exhibitorNotListed": "尚未收錄",
+    "exhibitorOfficialSite": "官方連結",
+    "exhibitorOfficialSiteAria": "{name} 的官方連結（另開新視窗）",
+    "paginationLabel": "參展名單分頁",
+    "paginationPrevious": "上一頁",
+    "paginationNext": "下一頁",
+    "paginationPreviousAria": "前往上一頁",
+    "paginationNextAria": "前往下一頁",
+    "paginationPageAria": "第 {page} 頁",
+    "paginationPosition": "第 {page} 頁，共 {pageCount} 頁",
+    "explorerSource": "官方參展名單",
+    "officialMapHeading": "展場平面圖",
+    "officialMapDescription": "主辦單位公布的完整平面圖，含其他展館與服務區域。",
+    "floorMapLabel": "可選擇展區的 2026 臺灣文博會平面圖",
+    "floorMapOpenViewer": "全螢幕平面圖",
+    "floorMapViewerTitle": "全螢幕平面圖",
+    "floorMapViewerDescription": "可上下左右捲動平移，選擇縮放比例或查看完整平面圖。",
+    "floorMapCloseViewer": "關閉平面圖檢視器",
+    "floorMapZoom": "縮放",
+    "floorMapFit": "完整檢視",
+    "floorMapZoomTimes": "{value} 倍",
+    "floorMapUnavailable": "平面圖圖片目前無法載入。",
+    "floorMapUnavailableHint": "可開啟官方 PDF 查看完整平面圖與攤位名單。",
+    "floorMapOfficialPdf": "官方平面圖 PDF",
+    "floorMapAttribution": "平面圖來源：2026 臺灣文博會",
     "notFound": {
       "title": "找不到展會",
       "description": "您所尋找的展會不存在或已被移除。",

@@ -21,7 +21,12 @@ import { linkColumnFor } from '../link-enrichment'
 
 export type SiteIdentityQuarantine = QuarantineGroup & {
   patch: EnrichPatch
-  /** Unread; drop once the caller stops populating it. */
+  /**
+   * The SAME object the caller holds as `state.scrapedData` (see
+   * `curation-operations`), not a copy — `revokeText` mutates it in place so the
+   * channels, reputation and faq phases, which run after this one, never see
+   * text from a page judged not-owned. Do not spread it on the way in.
+   */
   scrapedData?: EnrichScrapedData
   linksResult?: LinksPhaseOutput | null
 }
@@ -74,17 +79,25 @@ function applyRevocation(
   brand: EnrichBrand,
   quarantine: SiteIdentityQuarantine,
   reason: string,
-  options: { columns?: string[]; filterImages?: boolean } = {},
+  options: { columns?: string[]; revokeHostContent?: boolean } = {},
 ): SiteIdentityApplication {
   const { removedColumns, newlyCleared, clearedFields } = revokeFields(quarantine, brand, options.columns)
-  if (options.filterImages ?? true) {
+  // Images and DEV-1367's text revoke are both whole-host actions justified by a
+  // verdict. The `no-evidence` path has no verdict, so it opts out of both.
+  // (For text the opt-out is belt-and-braces: empty evidence means no page on
+  // the host contributed text, so no `textProvenance` entry can point back at it.)
+  const revokeHostContent = options.revokeHostContent ?? true
+  const revokedText = revokeHostContent
+    ? revokeText(quarantine, quarantine.subjectUrl, quarantine.subjectKind)
+    : []
+  if (revokeHostContent) {
     filterRevokedImages(quarantine.linksResult, quarantine.subjectUrl, quarantine.subjectKind)
   }
   return {
     phaseResult: buildPhaseResult(
       'site_identity',
       'succeeded',
-      [...removedColumns, ...newlyCleared],
+      [...removedColumns, ...newlyCleared, ...revokedText],
       0,
       undefined,
       reason,
@@ -160,14 +173,17 @@ function normalisePath(pathname: string): string {
   return path === '/' ? '' : path
 }
 
-function filterRevokedImages(
-  linksResult: LinksPhaseOutput | null | undefined,
+/**
+ * "Does this URL belong to the revoked subject?" — the one ownership rule the
+ * image filter and the text revoke both apply. Returns null when the subject
+ * URL has no parseable host, which releases everything: the safe direction.
+ */
+function revokedUrlMatcher(
   subjectUrl: string,
   subjectKind: SiteIdentityQuarantine['subjectKind'],
-): void {
-  if (!linksResult) return
+): ((url: string) => boolean) | null {
   const host = hostOf(subjectUrl)
-  if (!host) return
+  if (!host) return null
   const subjectPath = (() => {
     try {
       return normalisePath(new URL(subjectUrl).pathname)
@@ -175,7 +191,7 @@ function filterRevokedImages(
       return ''
     }
   })()
-  const sameHost = (url: string): boolean => {
+  return (url: string): boolean => {
     if (hostOf(url) !== host) return false
     // A website owns its whole domain; a source-page owns only that page subtree.
     if (subjectKind === 'website' || !subjectPath) return true
@@ -186,6 +202,73 @@ function filterRevokedImages(
       return false
     }
   }
+}
+
+/**
+ * DEV-1367. Strikes `description`/`story` that the revoked page supplied.
+ *
+ * Text needed its own path because the two existing revoke surfaces miss it
+ * entirely: `revokeFields` walks `quarantine.columns`, which `buildQuarantine`
+ * populates from LINK_FIELDS only, and `filterRevokedImages` handles images. For
+ * a brand whose name yields zero Latin tokens the link-identity gate is a no-op,
+ * so a stranger's social page can be scraped and — when the official site
+ * yielded no text — win the merge. Without this, a high-confidence "not owned"
+ * verdict left that copy in `scrapedData` for the channels, reputation and faq
+ * phases, all of which run after this one.
+ *
+ * Scope is this run's payload, deliberately. Text is NOT added to
+ * `_cleared_fields` the way a revoked link column is: `textProvenance` describes
+ * only the current run, and nothing anywhere records the source of a description
+ * an earlier run wrote. Striking the stored column on this run's verdict would
+ * destroy legitimate copy whenever a host that once served good text later
+ * serves one bad page.
+ *
+ * `perSourceText` is left intact — the arbiter has already read it, and it is
+ * the evidence backing the verdict being recorded.
+ */
+function revokeText(
+  quarantine: SiteIdentityQuarantine,
+  subjectUrl: string,
+  subjectKind: SiteIdentityQuarantine['subjectKind'],
+): string[] {
+  const scraped = quarantine.scrapedData
+  if (!scraped) return []
+  const isRevoked = revokedUrlMatcher(subjectUrl, subjectKind)
+  if (!isRevoked) return []
+
+  const revoked: string[] = []
+  for (const field of ['description', 'story'] as const) {
+    if (!isStoredValue(scraped[field])) continue
+    // Same fallback chain `mergeScrapedData` uses when it records provenance, so
+    // a value and its recorded source cannot disagree about which page won.
+    // Text with no source at all is released, not struck — matching the
+    // unprovenanced-image rule above.
+    const sourceUrl = scraped.textProvenance?.[field]?.sourceUrl ?? scraped.textSourceUrl
+    if (!sourceUrl || !isRevoked(sourceUrl)) continue
+
+    scraped[field] = null
+    if (scraped.textProvenance) {
+      delete scraped.textProvenance[field]
+      if (Object.keys(scraped.textProvenance).length === 0) delete scraped.textProvenance
+    }
+    revoked.push(field)
+  }
+
+  if (scraped.textSourceUrl && isRevoked(scraped.textSourceUrl)) {
+    delete scraped.textSourceUrl
+  }
+
+  return revoked
+}
+
+function filterRevokedImages(
+  linksResult: LinksPhaseOutput | null | undefined,
+  subjectUrl: string,
+  subjectKind: SiteIdentityQuarantine['subjectKind'],
+): void {
+  if (!linksResult) return
+  const sameHost = revokedUrlMatcher(subjectUrl, subjectKind)
+  if (!sameHost) return
   const revokedUrls = new Set(
     linksResult.scrapedImageSources
       .filter((image: ScrapedImageSource) => sameHost(image.pageUrl))
@@ -309,7 +392,7 @@ export async function runSiteIdentityPhase(
               revokedNoEvidence[quarantine.subjectKind] += 1
               const application = applyRevocation(brand, quarantine, 'no-evidence', {
                 columns: quarantine.columns.filter((column) => column === linkColumnFor('purchaseWebsite')),
-                filterImages: false,
+                revokeHostContent: false,
               })
               mergeApplication(
                 applications,

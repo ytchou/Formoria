@@ -8,7 +8,7 @@ import type {
   ChannelCandidate,
   ChannelType,
 } from '@/lib/types/brand-channel'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { logAdminAction } from './admin-audit'
 import { isOwnerOf } from './brand-owners'
 

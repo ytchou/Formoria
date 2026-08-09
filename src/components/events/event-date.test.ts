@@ -12,11 +12,11 @@ describe('formatEventDateRange', () => {
   it('formatEventDateRange_same_month', () => {
     // Same year AND month: the tail drops the year only, keeping month/day so
     // the range still reads as two dates rather than a day number.
-    expect(formatEventDateRange('2026-08-06', '2026-08-16')).toBe('2026/08/06–08/16')
+    expect(formatEventDateRange('2026-08-06', '2026-08-16')).toBe('2026/08/06 – 08/16')
   })
 
   it('formatEventDateRange_cross_month', () => {
-    expect(formatEventDateRange('2026-08-01', '2026-10-31')).toBe('2026/08/01–2026/10/31')
+    expect(formatEventDateRange('2026-08-01', '2026-10-31')).toBe('2026/08/01 – 2026/10/31')
   })
 
   it('formatEventDateRange_same_day', () => {
@@ -77,7 +77,7 @@ describe('formatEventDateRange', () => {
 
   it('formatEventDateRange_tolerates_surrounding_whitespace', () => {
     expect(formatEventDateRange(' 2026-08-06 ', ' 2026-08-16 ')).toBe(
-      '2026/08/06–08/16',
+      '2026/08/06 – 08/16',
     )
   })
 })

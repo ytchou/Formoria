@@ -1,8 +1,10 @@
 import { buildDeclarationRemovedEmail } from '@/lib/email/templates'
 import { auditedCall } from '@/lib/audit'
 import { sendEmail } from '@/lib/email/send'
+import { describeError } from '@/lib/errors'
 import type { Database } from '@/lib/supabase/database.types'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
+import { validateIdBatch } from '@/lib/validation/id-batch'
 import { stripDeclaration } from './mit-declaration'
 import { uploadWithRetry } from './storage-retry'
 
@@ -85,11 +87,49 @@ export type ReviewEvidenceResult =
   | { ok: true }
   | { ok: false; code: string }
 
+export type EvidenceBatchFailure = { id: string; code: string }
+
+export type ReviewEvidenceBatchResult =
+  | { failures: EvidenceBatchFailure[] }
+  | { error: string }
+
+/**
+ * Injection seam for `reviewEvidenceBatch`. The production default delegates
+ * to the single-item service, while tests can exercise batch behavior without
+ * mocking service or provider modules.
+ */
+export type ReviewEvidenceBatchDeps = {
+  reviewOne: (
+    id: string,
+    decision: OriginEvidenceDecision,
+    notes: string,
+    opts: ReviewEvidenceOptions,
+  ) => Promise<ReviewEvidenceResult>
+}
+
+export const MAX_BULK_EVIDENCE = 100
+const MAX_EVIDENCE_ID_LENGTH = 64
+const INVALID_EVIDENCE_BATCH_ERROR = 'Invalid bulk evidence selection'
+
+type ValidateEvidenceBatchResult =
+  | { ok: true; ids: string[] }
+  | { ok: false; error: string }
+
 export type ListPendingEvidenceOptions = {
   page?: number
   pageSize?: number
   limit?: number
   offset?: number
+}
+
+export function validateEvidenceBatch(
+  ids: unknown,
+): ValidateEvidenceBatchResult {
+  return validateIdBatch(ids, {
+    max: MAX_BULK_EVIDENCE,
+    maxIdLength: MAX_EVIDENCE_ID_LENGTH,
+    errorMessage: INVALID_EVIDENCE_BATCH_ERROR,
+  })
 }
 
 function rowToEvidence(row: OriginEvidenceRowWithBrand): OriginEvidence {
@@ -240,9 +280,9 @@ export async function reviewEvidence(
   notes: string,
   opts: ReviewEvidenceOptions,
 ): Promise<ReviewEvidenceResult> {
-  return auditedCall(
+  return auditedCall<ReviewEvidenceResult>(
     { provider: 'brands', operation: 'reviewEvidence', kind: 'service' },
-    async () => {
+    async (ctx) => {
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('origin_evidence')
@@ -257,7 +297,13 @@ export async function reviewEvidence(
     .select('id, brand_id, brands(name)')
     .maybeSingle()
 
-  if (error) return { ok: false, code: 'database_error' }
+  if (error) {
+    // The envelope classifies on the RETURNED value, so the underlying error
+    // has to be carried out by hand or it is lost entirely.
+    console.error('[origin-evidence] reviewEvidence claim failed:', error)
+    ctx.summary.claimError = describeError(error)
+    return { ok: false, code: 'database_error' }
+  }
   if (!data) return { ok: false, code: 'already_reviewed_or_not_found' }
   if (opts.tierAction !== 'strip_declaration') return { ok: true }
 
@@ -304,5 +350,68 @@ export async function reviewEvidence(
 
   return { ok: true }
     },
+    {
+      // Without this a swallowed failure is audited as `succeeded` with normal
+      // latency. `already_reviewed_or_not_found` is not a fault — no pending
+      // row was claimed — so it maps to `empty`. Everything else, including a
+      // failed `stripDeclaration`, is a genuine write failure.
+      classify: (result) => {
+        if (result.ok) return 'succeeded'
+        return result.code === 'already_reviewed_or_not_found' ? 'empty' : 'failed'
+      },
+    },
   )
+}
+
+export const defaultReviewEvidenceBatchDeps: ReviewEvidenceBatchDeps = {
+  reviewOne: (id, decision, notes, ctx) =>
+    reviewEvidence(id, decision, notes, ctx),
+}
+
+/**
+ * Bulk review, delegating every item to the single-item `reviewEvidence` so the two paths cannot
+ * drift on claim-then-write semantics. Each delegated call carries its own `auditedCall` span, so
+ * a batch of N decisions leaves N audit entries rather than one.
+ *
+ * Concurrency is deliberately FLAT — unlike `reviewCorrections`, which serializes per brand_id.
+ * The reason is the write set, not the row count: `reviewEvidence` touches only its own
+ * `origin_evidence` row (a claim-then-write guarded by `.eq('status','pending')`), and touches the
+ * shared `brands` row ONLY on the `tierAction: 'strip_declaration'` path. Bulk NEVER passes
+ * `tierAction` — stripping a declaration is a per-item drawer decision that also sends the owner a
+ * notification email, and is deliberately not offered as a batch operation. With no shared row in
+ * the write set there is no read-modify-write to lose, so items are free to overlap.
+ *
+ * CEILING: if bulk ever gains a strip-declaration option, this must become grouped-per-`brand_id`
+ * exactly like `reviewCorrections`, because `stripDeclaration()` is a read-modify-write on
+ * `brands`.
+ */
+export async function reviewEvidenceBatch(
+  ids: string[],
+  decision: OriginEvidenceDecision,
+  notes: string,
+  { reviewerId }: { reviewerId: string },
+  deps: ReviewEvidenceBatchDeps = defaultReviewEvidenceBatchDeps,
+): Promise<ReviewEvidenceBatchResult> {
+  const validated = validateEvidenceBatch(ids)
+  if (!validated.ok) return { error: validated.error }
+  if (decision !== 'approved' && decision !== 'rejected') {
+    return { error: 'Invalid evidence decision' }
+  }
+
+  const results = await Promise.all(
+    validated.ids.map(async (id): Promise<EvidenceBatchFailure | null> => {
+      try {
+        const result = await deps.reviewOne(id, decision, notes, { reviewerId })
+        return result.ok ? null : { id, code: result.code }
+      } catch {
+        return { id, code: 'database_error' }
+      }
+    }),
+  )
+
+  return {
+    failures: results.filter(
+      (result): result is EvidenceBatchFailure => result !== null,
+    ),
+  }
 }

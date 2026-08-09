@@ -55,6 +55,7 @@ import {
   loadCollectorArtifact,
   readBoundedJson,
   redactForAudit,
+  safeErrorCode,
   taipeiDate,
   validateCollectorArtifact,
   writeRedactedJson,
@@ -75,12 +76,19 @@ import {
   requiresHumanPolicy,
   type AuditLogger,
   type AuditRecord,
+  type HealthDeliveryWarning,
   type HealthFinding,
   type HealthFindingLifecycle,
+  type HealthInfrastructureFailure,
   type HealthSource,
   type HealthSummary,
   type JsonValue,
 } from "./contracts";
+import {
+  CRON_HEALTH_LOOKBACK_HOURS,
+  evaluateCronHealth,
+  type CronHttpLogRow,
+} from "./cron-health";
 
 const MAX_RUNTIME_FINDINGS = 10_000;
 const FINGERPRINT_STATE_BATCH_SIZE = 40;
@@ -99,6 +107,21 @@ const ACTIVE_QUEUE_STATUSES = [
 const MAX_RUNTIME_ISSUES = 20;
 const execFileAsync = promisify(execFile);
 
+function fingerprintBatches(
+  fingerprints: readonly string[],
+): readonly string[][] {
+  return Array.from(
+    {
+      length: Math.ceil(fingerprints.length / FINGERPRINT_STATE_BATCH_SIZE),
+    },
+    (_, index) =>
+      fingerprints.slice(
+        index * FINGERPRINT_STATE_BATCH_SIZE,
+        (index + 1) * FINGERPRINT_STATE_BATCH_SIZE,
+      ),
+  );
+}
+
 function safeRuntimeFailure(error: unknown): string {
   if (!(error instanceof Error)) return "operation_failed";
   return error.message
@@ -107,11 +130,32 @@ function safeRuntimeFailure(error: unknown): string {
     .slice(0, 300);
 }
 
+export function healthAgentLedgerRunId(workflowRunId: string): string {
+  const runId = workflowRunId.trim();
+  if (!runId) throw new Error("invalid_workflow_run_id");
+  return `gha:${runId}`;
+}
+
+function optionalDeliveryWarning(
+  code: string,
+  operation: string,
+  error: unknown,
+): HealthDeliveryWarning {
+  return {
+    category: "optional_delivery",
+    code,
+    operation,
+    reason: safeRuntimeFailure(error),
+  };
+}
+
 type RuntimeEnvironment = Readonly<Record<string, string | undefined>>;
 type RuntimeFiles = JsonFileStore | ArtifactFileSystem;
 type JsonObject = Record<string, JsonValue>;
 
 export const WORKFLOW_RUNTIME_COMMANDS = [
+  "admit-run",
+  "collect-cron-health",
   "collect-link",
   "collect-brand-review",
   "collect-directory-evidence",
@@ -121,6 +165,9 @@ export const WORKFLOW_RUNTIME_COMMANDS = [
   "evaluate-directory",
   "aggregate-and-deliver",
   "final-report",
+  "finalize-run",
+  "record-artifact-upload",
+  "terminal-status",
   "cleanup-stale-branches",
   "enqueue-and-claim",
   "repair-snapshot",
@@ -234,6 +281,7 @@ export interface DirectoryEvidenceCollectInput {
 export interface AggregateWorkflowInput {
   auditPath?: string;
   brandReviewArtifactPath?: string;
+  cronArtifactPath?: string;
   deferDelivery?: boolean;
   directoryArtifactPath: string;
   exhaustedAutomationFingerprints?: readonly string[];
@@ -262,6 +310,44 @@ export interface FinalReportInput {
   workflowAttempt: number;
   workflowRunId: string;
   workflowUrl?: string;
+}
+
+export interface AdmissionInput {
+  mode: "canary_fix" | "live" | "preflight";
+  outputPath: string;
+  runAt: string;
+  terminalOutputPath?: string;
+  workflowAttempt: number;
+  workflowRunId: string;
+}
+
+export interface FinalizeAdmissionInput {
+  mode: "canary_fix" | "live" | "preflight";
+  outputPath: string;
+  resultPath?: string;
+  runAt: string;
+  status: "failed" | "success";
+  workflowAttempt: number;
+  workflowRunId: string;
+}
+
+export interface ArtifactUploadInput {
+  inputPath: string;
+  outputPath: string;
+  reason?: string;
+  status: "failed" | "success";
+}
+
+export interface TerminalStatusDecisionInput {
+  artifactStatus: string;
+  finalReportStatus: string;
+  uploadClassifierStatus: string;
+  uploadRetryStatus: string;
+  uploadStatus: string;
+}
+
+export interface TerminalStatusInput extends TerminalStatusDecisionInput {
+  outputPath: string;
 }
 
 export interface QueueWorkflowInput {
@@ -767,16 +853,7 @@ function supabaseQueueDependencies(
     // rows that were enqueued but never ticketed.
     listUnticketedFingerprints: async (fingerprints) => {
       if (fingerprints.length === 0) return [];
-      const batches = Array.from(
-        {
-          length: Math.ceil(fingerprints.length / FINGERPRINT_STATE_BATCH_SIZE),
-        },
-        (_, index) =>
-          fingerprints.slice(
-            index * FINGERPRINT_STATE_BATCH_SIZE,
-            (index + 1) * FINGERPRINT_STATE_BATCH_SIZE,
-          ),
-      );
+      const batches = fingerprintBatches(fingerprints);
       const values = await Promise.all(
         batches.map((batch) => {
           const params = new URLSearchParams({
@@ -807,6 +884,140 @@ function supabaseQueueDependencies(
           seen.add(candidate.fingerprint);
           return [candidate.fingerprint];
         });
+    },
+    reserveTicketCandidates: async (fingerprints, reservationIdentifier) => {
+      if (fingerprints.length === 0) return;
+      const reservation = reservationIdentifier.trim();
+      if (!reservation) throw new Error("linear_reservation_required");
+      const ticketedAt = new Date().toISOString();
+      const values = await Promise.all(
+        fingerprintBatches(fingerprints).map((batch) => {
+          const params = new URLSearchParams({
+            fingerprint: `in.(${batch.join(",")})`,
+            linear_identifier: "is.null",
+            select: "fingerprint",
+            status: `in.(${ACTIVE_QUEUE_STATUSES.join(",")})`,
+            ticketed_at: "is.null",
+          });
+          return supabaseRequest(
+            dependencies,
+            "reserve_health_fingerprint_tickets",
+            `/rest/v1/health_fix_queue?${params.toString()}`,
+            "HEALTH_AGENT_WRITER_TOKEN",
+            {
+              body: JSON.stringify({
+                linear_identifier: reservation,
+                ticketed_at: ticketedAt,
+              }),
+              headers: { Prefer: "return=representation" },
+              method: "PATCH",
+            },
+            (candidate) => Array.isArray(candidate),
+          );
+        }),
+      );
+      const reserved = new Set(
+        values
+          .flatMap((value) => recordRows(value))
+          .flatMap((row) =>
+            typeof row.fingerprint === "string" ? [row.fingerprint] : [],
+          ),
+      );
+      if (
+        new Set(fingerprints).size !== reserved.size ||
+        fingerprints.some((fingerprint) => !reserved.has(fingerprint))
+      ) {
+        throw new Error("linear_reservation_incomplete");
+      }
+    },
+    finalizeTicketReservation: async (
+      fingerprints,
+      reservationIdentifier,
+      linearIdentifier,
+    ) => {
+      if (fingerprints.length === 0) return;
+      const reservation = reservationIdentifier.trim();
+      const identifier = linearIdentifier.trim();
+      if (!reservation) throw new Error("linear_reservation_required");
+      if (!identifier) throw new Error("linear_identifier_required");
+      const values = await Promise.all(
+        fingerprintBatches(fingerprints).map((batch) => {
+          const params = new URLSearchParams({
+            fingerprint: `in.(${batch.join(",")})`,
+            linear_identifier: `eq.${reservation}`,
+            select: "fingerprint",
+            status: `in.(${ACTIVE_QUEUE_STATUSES.join(",")})`,
+          });
+          return supabaseRequest(
+            dependencies,
+            "finalize_health_fingerprint_tickets",
+            `/rest/v1/health_fix_queue?${params.toString()}`,
+            "HEALTH_AGENT_WRITER_TOKEN",
+            {
+              body: JSON.stringify({ linear_identifier: identifier }),
+              headers: { Prefer: "return=representation" },
+              method: "PATCH",
+            },
+            (candidate) => Array.isArray(candidate),
+          );
+        }),
+      );
+      const finalized = new Set(
+        values
+          .flatMap((value) => recordRows(value))
+          .flatMap((row) =>
+            typeof row.fingerprint === "string" ? [row.fingerprint] : [],
+          ),
+      );
+      if (
+        new Set(fingerprints).size !== finalized.size ||
+        fingerprints.some((fingerprint) => !finalized.has(fingerprint))
+      ) {
+        throw new Error("linear_reservation_finalize_incomplete");
+      }
+    },
+    releaseTicketReservation: async (fingerprints, reservationIdentifier) => {
+      if (fingerprints.length === 0) return;
+      const reservation = reservationIdentifier.trim();
+      if (!reservation) throw new Error("linear_reservation_required");
+      const values = await Promise.all(
+        fingerprintBatches(fingerprints).map((batch) => {
+          const params = new URLSearchParams({
+            fingerprint: `in.(${batch.join(",")})`,
+            linear_identifier: `eq.${reservation}`,
+            select: "fingerprint",
+            status: `in.(${ACTIVE_QUEUE_STATUSES.join(",")})`,
+          });
+          return supabaseRequest(
+            dependencies,
+            "release_health_fingerprint_ticket_reservation",
+            `/rest/v1/health_fix_queue?${params.toString()}`,
+            "HEALTH_AGENT_WRITER_TOKEN",
+            {
+              body: JSON.stringify({
+                linear_identifier: null,
+                ticketed_at: null,
+              }),
+              headers: { Prefer: "return=representation" },
+              method: "PATCH",
+            },
+            (candidate) => Array.isArray(candidate),
+          );
+        }),
+      );
+      const released = new Set(
+        values
+          .flatMap((value) => recordRows(value))
+          .flatMap((row) =>
+            typeof row.fingerprint === "string" ? [row.fingerprint] : [],
+          ),
+      );
+      if (
+        new Set(fingerprints).size !== released.size ||
+        fingerprints.some((fingerprint) => !released.has(fingerprint))
+      ) {
+        throw new Error("linear_reservation_release_incomplete");
+      }
     },
     markFingerprintsTicketed: async (fingerprints, linearIdentifier) => {
       if (fingerprints.length === 0) return;
@@ -960,14 +1171,259 @@ function successfulBooleanRpcResult(value: unknown): boolean {
   );
 }
 
+function duplicateTerminalReport(
+  input: AdmissionInput,
+  replay: boolean,
+): JsonObject {
+  const envelope: HealthAgentEnvelope = {
+    data: {
+      admission: replay ? "replay" : "duplicate",
+      detector_failures: [],
+      delivery_warnings: [],
+      failures: [],
+      infrastructure_failures: [],
+      notification_owner: "github_actions",
+      overall_status: "healthy",
+    },
+    date: taipeiDate(input.runAt),
+    project: "formoria",
+    routine: "health-agent",
+    run_at: input.runAt,
+    source: "github_actions",
+    source_run_id: `github-actions:health-agent:${input.workflowRunId}:${input.workflowAttempt}`,
+    status: "success",
+    tickets_created: [],
+    verdict_severity: "ok",
+    verdict_text: replay
+      ? "Health Agent replay already completed for this logical day."
+      : "Health Agent duplicate invocation was admitted previously.",
+    version: 1,
+  };
+  return {
+    agent_hub: "skipped",
+    delivery_warnings: [],
+    envelope: envelope as unknown as JsonValue,
+    infrastructure_failures: [],
+    slack: "skipped",
+    terminal: true,
+    version: 1,
+  };
+}
+
+export async function admitHealthAgentRun(
+  input: AdmissionInput,
+  dependencies: WorkflowRuntimeDependencies = createWorkflowRuntimeDependencies(),
+): Promise<JsonObject> {
+  const files = filesFor(dependencies);
+  const requestedRunId = healthAgentLedgerRunId(input.workflowRunId);
+  const claim =
+    input.mode === "live"
+      ? brandReviewLedgerClaim(
+          await supabaseRequest(
+            dependencies,
+            "claim_health_agent_run",
+            "/rest/v1/rpc/claim_health_agent_run",
+            "HEALTH_AGENT_WRITER_TOKEN",
+            {
+              body: JSON.stringify({
+                p_dry_run: false,
+                p_logical_date: taipeiDate(input.runAt),
+                p_requested_run_id: requestedRunId,
+                p_routine: "health-agent",
+                p_workflow_attempt: input.workflowAttempt,
+              }),
+              method: "POST",
+            },
+            (value) => isRecord(value) && typeof value.claimed === "boolean",
+          ),
+        )
+      : { claimed: true, replay: false };
+  const result: JsonObject = {
+    claimed: claim.claimed,
+    logical_date: taipeiDate(input.runAt),
+    replay: claim.replay,
+    requested_run_id: requestedRunId,
+    routine: "health-agent",
+    status: claim.claimed ? "admitted" : "duplicate",
+    terminal: !claim.claimed,
+    version: 1,
+  };
+  await writeRedactedJson(input.outputPath, result, files);
+  if (!claim.claimed && input.terminalOutputPath) {
+    await writeRedactedJson(
+      input.terminalOutputPath,
+      duplicateTerminalReport(input, claim.replay),
+      files,
+    );
+  }
+  return result;
+}
+
+export async function finalizeHealthAgentRun(
+  input: FinalizeAdmissionInput,
+  dependencies: WorkflowRuntimeDependencies = createWorkflowRuntimeDependencies(),
+): Promise<JsonObject> {
+  const fallbackResult = {
+    error: "health_agent_terminal_delivery_failed",
+    status: "failed",
+    terminal: true,
+    version: 1,
+  };
+  let finalStatus = input.status;
+  let resultValue: unknown = fallbackResult;
+  if (input.status === "success" && input.resultPath) {
+    try {
+      const loaded = await readBoundedJson(
+        input.resultPath,
+        filesFor(dependencies),
+      );
+      if (isRecord(loaded)) {
+        resultValue = loaded;
+      } else {
+        finalStatus = "failed";
+      }
+    } catch {
+      finalStatus = "failed";
+    }
+  } else if (input.status === "success") {
+    finalStatus = "failed";
+  }
+  const requestedRunId = healthAgentLedgerRunId(input.workflowRunId);
+  let finalized = true;
+  if (input.mode === "live") {
+    const body = {
+      p_logical_date: taipeiDate(input.runAt),
+      p_requested_run_id: requestedRunId,
+      p_result: objectValue(resultValue),
+      p_routine: "health-agent",
+      p_workflow_attempt: input.workflowAttempt,
+    };
+    if (finalStatus === "success") {
+      finalized = successfulBooleanRpcResult(
+        await supabaseRequest(
+          dependencies,
+          "complete_health_agent_run",
+          "/rest/v1/rpc/complete_health_agent_run",
+          "HEALTH_AGENT_WRITER_TOKEN",
+          { body: JSON.stringify(body), method: "POST" },
+          (value) => successfulBooleanRpcResult(value),
+        ),
+      );
+    } else {
+      finalized = successfulBooleanRpcResult(
+        await supabaseRequest(
+          dependencies,
+          "fail_health_agent_run",
+          "/rest/v1/rpc/fail_health_agent_run",
+          "HEALTH_AGENT_WRITER_TOKEN",
+          {
+            body: JSON.stringify({
+              ...body,
+              p_error: "health_agent_terminal_delivery_failed",
+            }),
+            method: "POST",
+          },
+          (value) => successfulBooleanRpcResult(value),
+        ),
+      );
+    }
+  }
+  const result: JsonObject = {
+    finalized,
+    logical_date: taipeiDate(input.runAt),
+    requested_run_id: requestedRunId,
+    routine: "health-agent",
+    status: finalStatus,
+    version: 1,
+  };
+  await writeRedactedJson(input.outputPath, result, filesFor(dependencies));
+  return result;
+}
+
+export async function recordArtifactUploadOutcome(
+  input: ArtifactUploadInput,
+  dependencies: WorkflowRuntimeDependencies = createWorkflowRuntimeDependencies(),
+): Promise<JsonObject> {
+  let artifact: unknown = {};
+  let readFailure: string | undefined;
+  try {
+    artifact = await readBoundedJson(input.inputPath, filesFor(dependencies));
+  } catch (error) {
+    readFailure = safeRuntimeFailure(error);
+  }
+  const base = isRecord(artifact) ? artifact : {};
+  const existingFailures: JsonValue[] = Array.isArray(
+    base.infrastructure_failures,
+  )
+    ? base.infrastructure_failures.map((failure) => redactForAudit(failure))
+    : [];
+  const failed = input.status === "failed" || readFailure !== undefined;
+  const failure: HealthInfrastructureFailure = {
+    category: "infrastructure",
+    code:
+      input.status === "failed"
+        ? "health_run_artifact_upload_failed"
+        : "health_run_artifact_invalid",
+    operation: "upload_artifact",
+    reason:
+      input.reason?.trim().slice(0, 300) ||
+      readFailure ||
+      "health_run_artifact_upload_failed",
+  };
+  const result = {
+    ...base,
+    artifact_delivery: {
+      ...(failed ? { code: failure.code, reason: failure.reason } : {}),
+      operation: "upload_artifact",
+      status: failed ? "failed" : "success",
+    },
+    ...(failed
+      ? { infrastructure_failures: [...existingFailures, failure] }
+      : {}),
+  };
+  await writeRedactedJson(input.outputPath, result, filesFor(dependencies));
+  return objectValue(result);
+}
+
+export function decideTerminalStatus(
+  input: TerminalStatusDecisionInput,
+): "failed" | "success" {
+  const uploadSucceeded =
+    input.uploadStatus === "success" || input.uploadRetryStatus === "success";
+  return input.finalReportStatus === "success" &&
+    input.artifactStatus === "success" &&
+    uploadSucceeded &&
+    input.uploadClassifierStatus === "success"
+    ? "success"
+    : "failed";
+}
+
+export async function writeTerminalStatus(
+  input: TerminalStatusInput,
+  dependencies: WorkflowRuntimeDependencies = createWorkflowRuntimeDependencies(),
+): Promise<JsonObject> {
+  const result: JsonObject = {
+    artifact_status: input.artifactStatus,
+    final_report_status: input.finalReportStatus,
+    status: decideTerminalStatus(input),
+    upload_classifier_status: input.uploadClassifierStatus,
+    upload_retry_status: input.uploadRetryStatus,
+    upload_status: input.uploadStatus,
+    version: 1,
+  };
+  await writeRedactedJson(input.outputPath, result, filesFor(dependencies));
+  return result;
+}
+
 async function supabaseRows(
   dependencies: WorkflowRuntimeDependencies,
   resource: string,
   select: string,
   operation: string,
   filters: Readonly<Record<string, string>> = {},
+  order = "id",
 ): Promise<Record<string, unknown>[]> {
-  const query = new URLSearchParams({ order: "id", select, ...filters });
+  const query = new URLSearchParams({ order, select, ...filters });
   return recordRows(
     await supabaseRequest(
       dependencies,
@@ -1111,7 +1567,7 @@ async function collectBrandReview(
 
     if (input.mode !== "live" || !input.mutate) return;
 
-    const requestedRunId = `gha:${input.workflowRunId}/${input.workflowAttempt}`;
+    const requestedRunId = healthAgentLedgerRunId(input.workflowRunId);
     const ledgerBody = {
       p_routine: "brand-review",
       p_logical_date: taipeiDate(input.runAt),
@@ -1911,6 +2367,15 @@ export async function collectLinkArtifact(
             workflowRunId: input.workflowRunId,
           }),
           {
+            // Without this the link collector is the one caller that never
+            // supplies an audit logger, so `emitAudit` inside
+            // executeLinkHealthRequest is a no-op — including the failure record
+            // that carries the HTTP status. The workflow passes `--audit` for
+            // this collector and got an empty file, which is why six nights of
+            // failures could not be told apart and why an HTTP 401 here was
+            // indistinguishable from a malformed response (DEV-1381). Every
+            // other collector already threads it the same way.
+            audit: auditFor(dependencies),
             fetchImplementation: fetchFor(dependencies),
             originSecret: optionalEnvironment(
               environmentFor(dependencies),
@@ -1924,11 +2389,19 @@ export async function collectLinkArtifact(
       runAt,
       input.mode,
     );
-  } catch {
+  } catch (error) {
+    // Keep the error's class in the reason. A bare `catch {}` here reported every
+    // cause as the same opaque `link_collection_failed`, which is why a run that
+    // had already failed for six nights still could not be diagnosed from the
+    // uploaded artifact — a network fault, a timeout, and an invalid summary were
+    // indistinguishable (DEV-1381). `safeErrorCode` returns only `error.name`,
+    // never the message, and `failedCollectorArtifact` redacts on top, so no URL
+    // or credential can reach the artifact. Matches how the sentry collector and
+    // `invalid_link_artifact` already report their failures.
     artifact = failedCollectorArtifact(
       "link-checker",
       runAt,
-      "link_collection_failed",
+      `${safeErrorCode(error)}:link_collection_failed`,
     );
   }
   await writeRedactedJson(input.outputPath, artifact, files);
@@ -2277,6 +2750,99 @@ export async function evaluateDirectoryArtifact(
   return artifact;
 }
 
+export interface CronHealthInput {
+  outputPath: string;
+  runAt: string;
+}
+
+function cronHttpLogRow(value: Record<string, unknown>): CronHttpLogRow {
+  const {
+    created,
+    error_msg: errorMsg,
+    job_name: jobName,
+    logged_at: loggedAt,
+    request_id: requestId,
+    status_code: statusCode,
+    timed_out: timedOut,
+  } = value;
+  if (
+    typeof requestId !== "number" ||
+    typeof jobName !== "string" ||
+    (statusCode !== null && typeof statusCode !== "number") ||
+    typeof timedOut !== "boolean" ||
+    (errorMsg !== null && typeof errorMsg !== "string") ||
+    (created !== null && typeof created !== "string") ||
+    typeof loggedAt !== "string"
+  ) {
+    throw new Error("cron_http_log_row_invalid");
+  }
+  // Rebuilt field by field from the narrowed locals: a field added to
+  // CronHttpLogRow later fails to compile here instead of being cast away.
+  return {
+    created,
+    error_msg: errorMsg,
+    job_name: jobName,
+    logged_at: loggedAt,
+    request_id: requestId,
+    status_code: statusCode,
+    timed_out: timedOut,
+  };
+}
+
+export async function collectCronHealthArtifact(
+  input: CronHealthInput,
+  dependencies: WorkflowRuntimeDependencies = createWorkflowRuntimeDependencies(),
+): Promise<HealthCollectorArtifact> {
+  const runAt = input.runAt;
+  const runAtMs = Date.parse(runAt);
+  // A malformed --run-at would otherwise reach toISOString() as NaN and throw a
+  // bare RangeError; name it instead, so the failure reads as config, not a bug.
+  if (!Number.isFinite(runAtMs)) throw new Error("cron_health_run_at_invalid");
+  const cutoff = new Date(
+    runAtMs - CRON_HEALTH_LOOKBACK_HOURS * 60 * 60 * 1000,
+  ).toISOString();
+  try {
+    const values = await supabaseRows(
+      dependencies,
+      "cron_http_log",
+      "request_id,job_name,status_code,timed_out,error_msg,created,logged_at",
+      "read_cron_http_log",
+      { logged_at: `gte.${cutoff}` },
+      "request_id",
+    );
+    // An empty read is a normal input: evaluateCronHealth reports every
+    // expected job as stale. Only a failed read reaches the catch below.
+    const rows = values.map(cronHttpLogRow);
+    const findings = evaluateCronHealth(rows, new Date(runAtMs));
+    const summary = {
+      lookbackHours: CRON_HEALTH_LOOKBACK_HOURS,
+      rowCount: rows.length,
+    };
+    const artifact: HealthCollectorArtifact = {
+      collectedAt: runAt,
+      evidence: summary,
+      failures: [],
+      findings,
+      routine: "cron-health",
+      skippedActions: [],
+      snapshot: summary,
+      status: "success",
+      version: 1,
+    };
+    await writeRedactedJson(input.outputPath, artifact, filesFor(dependencies));
+    return artifact;
+  } catch (error) {
+    const reason = safeRuntimeFailure(error);
+    const artifact = failedCollectorArtifact(
+      "cron-health",
+      runAt,
+      `cron_http_log_read_failed:${reason}`,
+    );
+    await writeRedactedJson(input.outputPath, artifact, filesFor(dependencies));
+    return artifact;
+  }
+}
+
 export async function runAggregateAndDeliver(
   input: AggregateWorkflowInput,
   dependencies: WorkflowRuntimeDependencies = createWorkflowRuntimeDependencies(),
@@ -2284,6 +2850,7 @@ export async function runAggregateAndDeliver(
   const result = await aggregateAndDeliver(
     {
       artifactPaths: {
+        "cron-health": input.cronArtifactPath,
         "directory-health": input.directoryArtifactPath,
         "link-checker": input.linkArtifactPath,
         "quality-health": input.qualityArtifactPath,
@@ -2432,6 +2999,19 @@ function ticketLedger(dependencies: WorkflowRuntimeDependencies): {
   listUnticketed?: (
     fingerprints: readonly string[],
   ) => Promise<readonly string[]>;
+  reserve?: (
+    fingerprints: readonly string[],
+    reservationIdentifier: string,
+  ) => Promise<unknown>;
+  finalize?: (
+    fingerprints: readonly string[],
+    reservationIdentifier: string,
+    linearIdentifier: string,
+  ) => Promise<unknown>;
+  release?: (
+    fingerprints: readonly string[],
+    reservationIdentifier: string,
+  ) => Promise<unknown>;
   markTicketed?: (
     fingerprints: readonly string[],
     linearIdentifier: string,
@@ -2443,8 +3023,17 @@ function ticketLedger(dependencies: WorkflowRuntimeDependencies): {
     database?.listUnticketedFingerprints ?? queue?.listUnticketedFingerprints;
   const markTicketed =
     database?.markFingerprintsTicketed ?? queue?.markFingerprintsTicketed;
+  const reserve =
+    database?.reserveTicketCandidates ?? queue?.reserveTicketCandidates;
+  const finalize =
+    database?.finalizeTicketReservation ?? queue?.finalizeTicketReservation;
+  const release =
+    database?.releaseTicketReservation ?? queue?.releaseTicketReservation;
   return {
     ...(listUnticketed ? { listUnticketed } : {}),
+    ...(reserve ? { reserve } : {}),
+    ...(finalize ? { finalize } : {}),
+    ...(release ? { release } : {}),
     ...(markTicketed ? { markTicketed } : {}),
   };
 }
@@ -2545,6 +3134,7 @@ export async function deliverFinalHealthReport(
     link: terminalCheck(aggregate, "link-checker"),
     quality: terminalCheck(aggregate, "quality-health"),
     sentry: terminalCheck(aggregate, "sentry-triage"),
+    cron: terminalCheck(aggregate, "cron-health"),
   };
   const findingCount = Object.values(checks).reduce(
     (total, check) => total + check.findingCount,
@@ -2585,6 +3175,7 @@ export async function deliverFinalHealthReport(
     ...aggregateFailures(aggregate),
     ...(isRecord(queue) ? stringArray(queue.failures) : []),
   ];
+  const deliveryWarnings: HealthDeliveryWarning[] = [];
   const lifecycle = queueLifecycle(queue);
   const verifiedFixed = queueVerifiedFixedCount(queue);
   const exhaustedAutomationFingerprints = automatic.pr
@@ -2627,9 +3218,69 @@ export async function deliverFinalHealthReport(
         ticketFindings = reviewFindings.filter(({ fingerprint }) =>
           unticketed.has(fingerprint),
         );
-      } catch {
+      } catch (error) {
         ticketFindings = [];
-        failures.push("linear_ticket_candidates:failed");
+        deliveryWarnings.push(
+          optionalDeliveryWarning(
+            "linear_ticket_candidates_failed",
+            "list_unticketed_health_fingerprints",
+            error,
+          ),
+        );
+      }
+    }
+    const reservationReady = Boolean(ledger.reserve && ledger.finalize);
+    const ticketFingerprints = () =>
+      ticketFindings.map(({ fingerprint }) => fingerprint);
+    const reservationIdentifier = `health-agent-reservation:${input.workflowRunId}:${input.workflowAttempt}`;
+    let reservationHeld = false;
+    const releaseReservation = async (): Promise<void> => {
+      if (!reservationHeld) return;
+      if (!ledger.release) {
+        deliveryWarnings.push({
+          category: "optional_delivery",
+          code: "linear_ticket_reservation_release_unavailable",
+          operation: "release_health_fingerprint_ticket_reservation",
+          reason: "reservation_release_unavailable",
+        });
+        return;
+      }
+      try {
+        await ledger.release(ticketFingerprints(), reservationIdentifier);
+        reservationHeld = false;
+      } catch (error) {
+        deliveryWarnings.push(
+          optionalDeliveryWarning(
+            "linear_ticket_reservation_release_failed",
+            "release_health_fingerprint_ticket_reservation",
+            error,
+          ),
+        );
+      }
+    };
+    if (ticketFindings.length > 0 && !reservationReady) {
+      ticketFindings = [];
+      deliveryWarnings.push({
+        category: "optional_delivery",
+        code: "linear_ticket_reservation_unavailable",
+        operation: "reserve_health_fingerprint_tickets",
+        reason: "linear_ticket_reservation_unavailable",
+      });
+    }
+    if (ticketFindings.length > 0 && ledger.reserve && ledger.finalize) {
+      reservationHeld = true;
+      try {
+        await ledger.reserve(ticketFingerprints(), reservationIdentifier);
+      } catch (error) {
+        deliveryWarnings.push(
+          optionalDeliveryWarning(
+            "linear_ticket_reservation_failed",
+            "reserve_health_fingerprint_tickets",
+            error,
+          ),
+        );
+        await releaseReservation();
+        ticketFindings = [];
       }
     }
     if (ticketFindings.length > 0) {
@@ -2657,18 +3308,51 @@ export async function deliverFinalHealthReport(
         });
         linearOutcomes.push(...(sync.outcomes ?? []));
         const identifier = linearOutcomeIdentifier(sync.outcomes ?? []);
-        if (identifier && ledger.markTicketed) {
+        if (!identifier) {
+          deliveryWarnings.push({
+            category: "optional_delivery",
+            code: "linear_ticket_identifier_missing",
+            operation: "linear_sync",
+            reason: "linear_identifier_missing",
+          });
+        } else if (reservationHeld && ledger.finalize) {
           try {
-            await ledger.markTicketed(
-              ticketFindings.map(({ fingerprint }) => fingerprint),
+            await ledger.finalize(
+              ticketFingerprints(),
+              reservationIdentifier,
               identifier,
             );
-          } catch {
-            failures.push("linear_ticket_ledger:failed");
+            reservationHeld = false;
+          } catch (error) {
+            deliveryWarnings.push(
+              optionalDeliveryWarning(
+                "linear_ticket_ledger_failed",
+                "finalize_health_fingerprint_tickets",
+                error,
+              ),
+            );
+          }
+        } else if (ledger.markTicketed) {
+          try {
+            await ledger.markTicketed(ticketFingerprints(), identifier);
+          } catch (error) {
+            deliveryWarnings.push(
+              optionalDeliveryWarning(
+                "linear_ticket_ledger_failed",
+                "mark_health_fingerprints_ticketed",
+                error,
+              ),
+            );
           }
         }
-      } catch {
-        failures.push("linear_final_sync:failed");
+      } catch (error) {
+        deliveryWarnings.push(
+          optionalDeliveryWarning(
+            "linear_final_sync_failed",
+            "linear_sync",
+            error,
+          ),
+        );
       }
     }
   }
@@ -2714,6 +3398,7 @@ export async function deliverFinalHealthReport(
   };
   const healthSummary: HealthSummary = {
     checks,
+    ...(deliveryWarnings.length > 0 ? { deliveryWarnings } : {}),
     lifecycle,
     overallStatus,
     phases: input.phases,
@@ -2722,6 +3407,9 @@ export async function deliverFinalHealthReport(
   };
   const queued = repair.queued;
   const claimed = repair.claimed;
+  const deliveryWarningValues: JsonValue[] = deliveryWarnings.map((warning) =>
+    redactForAudit(warning),
+  );
   const envelope: HealthAgentEnvelope = {
     data: {
       checks: {
@@ -2772,8 +3460,22 @@ export async function deliverFinalHealthReport(
           severities: checks.sentry.severities,
           status: checks.sentry.status,
         },
+        cron: {
+          finding_count: checks.cron.findingCount,
+          urgency: {
+            follow_up:
+              checks.cron.severities.medium + checks.cron.severities.low,
+            urgent:
+              checks.cron.severities.critical + checks.cron.severities.high,
+          },
+          severities: checks.cron.severities,
+          status: checks.cron.status,
+        },
       },
+      detector_failures: failures,
+      delivery_warnings: deliveryWarningValues,
       failures,
+      infrastructure_failures: [],
       lifecycle: {
         new: lifecycle.new,
         ongoing: lifecycle.ongoing,
@@ -2828,10 +3530,38 @@ export async function deliverFinalHealthReport(
           workflowUrl: input.workflowUrl,
         }),
       ]);
+  const infrastructureFailures: HealthInfrastructureFailure[] = [
+    ...(agentHub.status === "rejected"
+      ? [
+          {
+            category: "infrastructure" as const,
+            code: "agent_hub_delivery_failed",
+            operation: "deliver_envelope",
+            reason: safeRuntimeFailure(agentHub.reason),
+          },
+        ]
+      : []),
+    ...(slack.status === "rejected"
+      ? [
+          {
+            category: "infrastructure" as const,
+            code: "slack_delivery_failed",
+            operation: "deliver_digest",
+            reason: safeRuntimeFailure(slack.reason),
+          },
+        ]
+      : []),
+  ];
   const result: JsonObject = {
     agent_hub: agentHub.status,
+    delivery_warnings: deliveryWarningValues,
     envelope: envelope as unknown as JsonValue,
+    infrastructure_failures: infrastructureFailures.map((failure) =>
+      redactForAudit(failure),
+    ),
     slack: slack.status,
+    terminal: true,
+    version: 1,
   };
   await writeRedactedJson(input.outputPath, result, filesFor(dependencies));
   if (agentHub.status === "rejected" || slack.status === "rejected") {
@@ -3109,6 +3839,7 @@ function completedDetectorSources(value: unknown): HealthSource[] {
   if (!isRecord(value) || !isRecord(value.artifacts)) return [];
   const artifacts = value.artifacts;
   const routines = [
+    ["cron-health", "cron"],
     ["directory-health", "directory"],
     ["link-checker", "link"],
     ["quality-health", "quality"],
@@ -3725,6 +4456,29 @@ export async function runWorkflowCommand(
   dependencies: WorkflowRuntimeDependencies = createWorkflowRuntimeDependencies(),
 ): Promise<unknown> {
   switch (canonicalCommand(command)) {
+    case "admit-run":
+      return admitHealthAgentRun(
+        {
+          mode: safeMode(input.mode),
+          outputPath: safeString(input.outputPath, "outputPath"),
+          runAt: safeString(input.runAt, "runAt"),
+          terminalOutputPath:
+            typeof input.terminalOutputPath === "string"
+              ? input.terminalOutputPath
+              : undefined,
+          workflowAttempt: safeAttempt(input.workflowAttempt),
+          workflowRunId: safeString(input.workflowRunId, "workflowRunId"),
+        },
+        dependencies,
+      );
+    case "collect-cron-health":
+      return collectCronHealthArtifact(
+        {
+          outputPath: safeString(input.outputPath, "outputPath"),
+          runAt: safeString(input.runAt, "runAt"),
+        },
+        dependencies,
+      );
     case "collect-link":
       return collectLinkArtifact(
         {
@@ -3821,6 +4575,10 @@ export async function runWorkflowCommand(
             typeof input.brandReviewArtifactPath === "string"
               ? input.brandReviewArtifactPath
               : undefined,
+          cronArtifactPath:
+            typeof input.cronArtifactPath === "string"
+              ? input.cronArtifactPath
+              : undefined,
           deferDelivery: input.deferDelivery === true,
           directoryArtifactPath: safeString(
             input.directoryArtifactPath,
@@ -3896,6 +4654,54 @@ export async function runWorkflowCommand(
             typeof input.workflowUrl === "string"
               ? input.workflowUrl
               : undefined,
+        },
+        dependencies,
+      );
+    case "finalize-run":
+      return finalizeHealthAgentRun(
+        {
+          mode: safeMode(input.mode),
+          outputPath: safeString(input.outputPath, "outputPath"),
+          resultPath:
+            typeof input.resultPath === "string" ? input.resultPath : undefined,
+          runAt: safeString(input.runAt, "runAt"),
+          status: input.status === "failed" ? "failed" : "success",
+          workflowAttempt: safeAttempt(input.workflowAttempt),
+          workflowRunId: safeString(input.workflowRunId, "workflowRunId"),
+        },
+        dependencies,
+      );
+    case "record-artifact-upload":
+      return recordArtifactUploadOutcome(
+        {
+          inputPath: safeString(input.inputPath, "inputPath"),
+          outputPath: safeString(input.outputPath, "outputPath"),
+          reason:
+            typeof input.reason === "string"
+              ? input.reason.trim().slice(0, 300)
+              : undefined,
+          status: input.status === "success" ? "success" : "failed",
+        },
+        dependencies,
+      );
+    case "terminal-status":
+      return writeTerminalStatus(
+        {
+          artifactStatus: safeString(input.artifactStatus, "artifactStatus"),
+          finalReportStatus: safeString(
+            input.finalReportStatus,
+            "finalReportStatus",
+          ),
+          outputPath: safeString(input.outputPath, "outputPath"),
+          uploadClassifierStatus: safeString(
+            input.uploadClassifierStatus,
+            "uploadClassifierStatus",
+          ),
+          uploadRetryStatus: safeString(
+            input.uploadRetryStatus,
+            "uploadRetryStatus",
+          ),
+          uploadStatus: safeString(input.uploadStatus, "uploadStatus"),
         },
         dependencies,
       );
@@ -4057,6 +4863,7 @@ export async function main(
     auditPath: optionalArgument(argv, "--audit"),
     batchKind: optionalArgument(argv, "--batch"),
     brandReviewArtifactPath: optionalArgument(argv, "--brand-review-artifact"),
+    cronArtifactPath: optionalArgument(argv, "--cron-artifact"),
     canaryFingerprints: optionalArgument(argv, "--canary-fingerprints")
       ?.split(",")
       .filter(Boolean),
@@ -4084,17 +4891,27 @@ export async function main(
     runAt: optionalArgument(argv, "--run-at"),
     sentryArtifactPath: optionalArgument(argv, "--sentry-artifact"),
     snapshotPath: optionalArgument(argv, "--snapshot"),
+    status: optionalArgument(argv, "--status"),
+    terminalOutputPath: optionalArgument(argv, "--terminal-output"),
+    uploadClassifierStatus: optionalArgument(
+      argv,
+      "--upload-classifier-status",
+    ),
+    uploadRetryStatus: optionalArgument(argv, "--upload-retry-status"),
+    uploadStatus: optionalArgument(argv, "--upload-status"),
     workflowAttempt: attempt ? Number(attempt) : undefined,
     workflowRunId: optionalArgument(argv, "--run-id"),
     workflowUrl: optionalArgument(argv, "--workflow-url"),
     windowHours: windowHours ? Number(windowHours) : 25,
     autoMergeEnabled: optionalArgument(argv, "--auto-merge-enabled") === "true",
     automaticPrResultPath: optionalArgument(argv, "--automatic-pr-result"),
+    artifactStatus: optionalArgument(argv, "--artifact-status"),
     collectStatus: optionalArgument(argv, "--collect-status"),
     deferDelivery: optionalArgument(argv, "--defer-delivery") === "true",
     deliverStatus: optionalArgument(argv, "--deliver-status"),
     expectedEscalation:
       optionalArgument(argv, "--expected-escalation") === "true",
+    finalReportStatus: optionalArgument(argv, "--final-report-status"),
     humanPrResultPath: optionalArgument(argv, "--human-pr-result"),
     publishStatus: optionalArgument(argv, "--publish-status"),
     queueArtifactPath: optionalArgument(argv, "--queue-artifact"),

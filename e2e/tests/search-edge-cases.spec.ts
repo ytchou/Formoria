@@ -82,6 +82,7 @@ test.describe.serial('Public brand search edge cases', () => {
           name: exactName,
           slug: exactSlug,
           status: 'approved',
+          approved_at: new Date().toISOString(),
           product_type: 'crafts',
           description: `[E2E-TEST] Exact-name search probe ${suffix}.`,
           blurb_en: `Exact prism teaware ${suffix}.`,
@@ -92,6 +93,7 @@ test.describe.serial('Public brand search edge cases', () => {
           name: descriptionName,
           slug: descriptionSlug,
           status: 'approved',
+          approved_at: new Date().toISOString(),
           product_type: 'crafts',
           description: `[E2E-TEST] Description-only phrase ${exactQuery}.`,
           retail_locations: [],
@@ -101,6 +103,7 @@ test.describe.serial('Public brand search edge cases', () => {
           name: bilingualName,
           slug: bilingualSlug,
           status: 'approved',
+          approved_at: new Date().toISOString(),
           product_type: 'crafts',
           description: `[E2E-TEST] Bilingual search probe ${suffix}.`,
           blurb_en: `${englishToken} Aurora Copper Vessel.`,
@@ -122,6 +125,7 @@ test.describe.serial('Public brand search edge cases', () => {
           name: sortLastName,
           slug: `e2e-search-sort-last-${suffix}`,
           status: 'approved',
+          approved_at: new Date().toISOString(),
           product_type: 'crafts',
           description: `[E2E-TEST] A-Z search sort probe ${sortQuery}.`,
           retail_locations: [],
@@ -131,6 +135,7 @@ test.describe.serial('Public brand search edge cases', () => {
           name: sortFirstName,
           slug: `e2e-search-sort-first-${suffix}`,
           status: 'approved',
+          approved_at: new Date().toISOString(),
           product_type: 'crafts',
           description: `[E2E-TEST] A-Z search sort probe ${sortQuery}.`,
           retail_locations: [],
@@ -242,27 +247,32 @@ test.describe.serial('Public brand search edge cases', () => {
   test('directory sidebar and nav stay synchronized while unrelated filters survive', async ({ page }) => {
     if (!supabase) { test.skip(true, 'PREVIEW_MODE active'); return; }
 
-    await page.goto('/brands?category=crafts&sort=name&page=2');
+    await page.goto('/categories/crafts?sort=name&page=2');
     const sidebarSearch = page.locator(
       'main form[aria-label="依品牌或產品關鍵字篩選"] input[role="searchbox"]',
     );
     const navSearch = page.locator('header form[role="search"] input[role="searchbox"]:visible');
     await sidebarSearch.fill(exactQuery);
 
-    await expect(page).toHaveURL((url) =>
-      url.searchParams.get('search') === exactQuery
-      && url.searchParams.get('category') === 'crafts'
-      && url.searchParams.get('sort') === 'name'
-      && !url.searchParams.has('page'),
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === '/categories/crafts' &&
+        url.searchParams.get('search') === exactQuery &&
+        url.searchParams.get('sort') === 'name' &&
+        !url.searchParams.has('page'),
     );
     await expect(navSearch).toHaveValue(exactQuery);
     await expect(sidebarSearch).toHaveValue(exactQuery);
 
-    await sidebarSearch.locator('..').getByRole('button', { name: '清除搜尋' }).click();
-    await expect(page).toHaveURL((url) =>
-      !url.searchParams.has('search')
-      && url.searchParams.get('category') === 'crafts'
-      && url.searchParams.get('sort') === 'name',
+    await sidebarSearch
+      .locator('..')
+      .getByRole('button', { name: '清除搜尋' })
+      .click();
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === '/categories/crafts' &&
+        !url.searchParams.has('search') &&
+        url.searchParams.get('sort') === 'name',
     );
     await expect(navSearch).toHaveValue('');
   });

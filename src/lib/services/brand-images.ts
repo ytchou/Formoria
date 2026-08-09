@@ -1,4 +1,6 @@
 import { auditedCall } from '@/lib/audit'
+import { isLogoImageTags } from '@/lib/constants/brand-images'
+import type { BrandImageMeta } from '@/lib/types/brand'
 import { deleteBrandImages, deleteStoredImagePaths } from './image-upload'
 
 type BrandImageStatus = 'active' | 'candidate' | 'rejected'
@@ -23,6 +25,8 @@ export type BrandImageRow = {
   alt_en?: string | null
   width?: number | null
   height?: number | null
+  focal_x?: number | null
+  focal_y?: number | null
 }
 
 export type BrandImageInsert = {
@@ -38,6 +42,8 @@ export type BrandImageInsert = {
   tags?: string[] | null
   score?: number | null
   sort_order?: number
+  focal_x?: number | null
+  focal_y?: number | null
 }
 
 type QueryError = { code?: string; message?: string }
@@ -101,13 +107,35 @@ function brandHeroTable(supabase: unknown): BrandHeroTable {
   return (supabase as BrandHeroClient).from('brands')
 }
 
+/**
+ * Gallery URLs paired with their index in the UNFILTERED
+ * `[heroImageUrl, ...productPhotos]` sequence.
+ *
+ * The pairing is load-bearing, not a convenience. `imageAlts` is built by
+ * `toImageFields` as `active.map(...)` over that same unfiltered sequence, so a
+ * brand with a null `heroImageUrl` shifts every later gallery position by one
+ * against its metadata. That used to mis-assign only alt text; it now also
+ * decides fill mode (`isLogo`) and `object-position`, so a shift visibly
+ * letterboxes a product photo and crops a logo. Callers that render metadata
+ * alongside the image MUST index by `sourceIndex`, never by array position —
+ * the same `sourceIndex` discipline `image-carousel.tsx` uses for its own
+ * host-filter drop.
+ */
+export function getBrandGalleryImageEntries(brand: {
+  heroImageUrl: string | null
+  productPhotos: readonly string[]
+}): Array<{ url: string; sourceIndex: number }> {
+  return [brand.heroImageUrl, ...brand.productPhotos].flatMap((url, sourceIndex) =>
+    url ? [{ url, sourceIndex }] : [],
+  )
+}
+
+/** URL-only view of {@link getBrandGalleryImageEntries}, for callers with no per-image metadata. */
 export function getBrandGalleryImages(brand: {
   heroImageUrl: string | null
   productPhotos: readonly string[]
 }): string[] {
-  return [brand.heroImageUrl, ...brand.productPhotos].filter(
-    (url): url is string => Boolean(url),
-  )
+  return getBrandGalleryImageEntries(brand).map((entry) => entry.url)
 }
 
 export function toImageFields(rows: BrandImageRow[]): {
@@ -119,7 +147,7 @@ export function toImageFields(rows: BrandImageRow[]): {
     height: number | null
   } | null
   productPhotos: string[]
-  imageAlts: Array<{ altZh: string | null; altEn: string | null }>
+  imageAlts: BrandImageMeta[]
 } {
   const active = rows
     .filter((row) => row.status === 'active')
@@ -138,7 +166,13 @@ export function toImageFields(rows: BrandImageRow[]): {
         }
       : null,
     productPhotos: active.slice(1).map((row) => row.url),
-    imageAlts: active.map((row) => ({ altZh: row.alt_zh ?? null, altEn: row.alt_en ?? null })),
+    imageAlts: active.map((row) => ({
+      altZh: row.alt_zh ?? null,
+      altEn: row.alt_en ?? null,
+      isLogo: isLogoImageTags(row.tags),
+      focalX: row.focal_x ?? null,
+      focalY: row.focal_y ?? null,
+    })),
   }
 }
 
@@ -147,7 +181,7 @@ export async function getBrandImages(
   brandId: string,
 ): Promise<BrandImageRow[]> {
   const { data, error } = await brandImagesTable(supabase)
-    .select('url, status, tags, score, sort_order, source_url, alt_zh, alt_en, width, height')
+    .select('url, status, tags, score, sort_order, source_url, alt_zh, alt_en, width, height, focal_x, focal_y')
     .eq('brand_id', brandId)
     .eq('status', 'active')
     .order('sort_order', { ascending: true })

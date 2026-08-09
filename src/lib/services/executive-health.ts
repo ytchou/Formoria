@@ -1,4 +1,4 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
 type ExecutiveHealthStatus = 'healthy' | 'degraded' | 'down' | 'unconfigured'
 type ExecutiveHealthTier = 'customer-critical' | 'customer-flow' | 'back-office'

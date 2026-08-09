@@ -164,6 +164,11 @@ describe("Slack adapter", () => {
             severities: { critical: 0, high: 0, low: 0, medium: 0 },
             status: "success",
           },
+          cron: {
+            findingCount: 0,
+            severities: { critical: 0, high: 0, low: 0, medium: 0 },
+            status: "success",
+          },
           sentry: {
             findingCount: 10,
             severities: { critical: 2, high: 8, low: 0, medium: 0 },
@@ -171,6 +176,14 @@ describe("Slack adapter", () => {
           },
         },
         overallStatus: "needs_attention",
+        deliveryWarnings: [
+          {
+            category: "optional_delivery",
+            code: "linear_ticket_candidates_failed",
+            operation: "list_unticketed_health_fingerprints",
+            reason: "ledger_reader_unavailable",
+          },
+        ],
         phases: {
           analyze: "success",
           collect: "success",
@@ -209,6 +222,11 @@ describe("Slack adapter", () => {
     expect(digest).not.toContain("Human — 0 · not required");
     expect(digest).not.toContain("Untitled finding");
     expect(digest).not.toContain("linear.app");
+    expect(digest).toContain("Optional delivery warnings (1)");
+    expect(digest).toContain(
+      "linear_ticket_candidates_failed (list_unticketed_health_fingerprints)",
+    );
+    expect(digest).toContain("ledger_reader_unavailable");
   });
 
   it("uses the manager summary format and links this run's digest ticket", () => {
@@ -226,6 +244,11 @@ describe("Slack adapter", () => {
             status: "success",
           },
           quality: {
+            findingCount: 0,
+            severities: { critical: 0, high: 0, low: 0, medium: 0 },
+            status: "success",
+          },
+          cron: {
             findingCount: 0,
             severities: { critical: 0, high: 0, low: 0, medium: 0 },
             status: "success",
@@ -494,7 +517,9 @@ describe("Linear adapter", () => {
     const createInput = (
       bodyAt(fetchImpl, 1).variables as Record<string, unknown>
     ).input as Record<string, unknown>;
-    expect(createInput.title).toBe("Health Agent — 2 new findings (2026-07-29)");
+    expect(createInput.title).toBe(
+      "Health Agent — 2 new findings (2026-07-29)",
+    );
     expect(createInput.description).not.toContain("This rolling ticket");
   });
 

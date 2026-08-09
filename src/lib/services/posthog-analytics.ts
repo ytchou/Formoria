@@ -14,7 +14,7 @@ import type {
   TopBrandRow,
   TopPageRow,
 } from '@/lib/analytics/posthog-types'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
 const TIME_ZONE = 'Asia/Taipei' as const
 const CACHE_TTL_MS = 15 * 60_000

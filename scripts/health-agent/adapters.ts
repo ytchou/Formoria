@@ -5,6 +5,7 @@ import {
   type AgentNotificationStatus,
 } from "@/lib/adapters/slack/notification";
 import {
+  type HealthDeliveryWarning,
   requiresHumanPolicy,
   type AuditLogger,
   type HealthFinding,
@@ -335,7 +336,7 @@ function groupedCounts(entries: unknown[], key: string): string {
     .join(", ");
 }
 
-function failureLines(entries: unknown[]): string[] {
+function failureLines(entries: readonly unknown[]): string[] {
   return entries.slice(0, 3).map((entry) => {
     if (typeof entry === "string") return `- ${entry.slice(0, 180)}`;
     if (!isRecord(entry)) return "- Unspecified failure";
@@ -345,6 +346,17 @@ function failureLines(entries: unknown[]): string[] {
       stringValue(entry.status);
     return `- ${(reason ?? "Unspecified failure").slice(0, 180)}`;
   });
+}
+
+function deliveryWarningLines(
+  entries: readonly HealthDeliveryWarning[],
+): string[] {
+  return entries
+    .slice(0, 3)
+    .map(
+      ({ code, operation, reason }) =>
+        `- ${code} (${operation}): ${reason.slice(0, 180)}`,
+    );
 }
 
 export type SlackEntry = string | Readonly<Record<string, JsonValue>>;
@@ -396,11 +408,27 @@ function renderHealthSummary(
         return [`• ${label} — ${batch.findingCount} · ${state}${pr}`];
       })
     : [];
+  const deliveryWarnings = summary.deliveryWarnings
+    ? deliveryWarningLines(summary.deliveryWarnings)
+    : [];
+  const infrastructureFailureLines = summary.infrastructureFailures
+    ? failureLines(summary.infrastructureFailures)
+    : [];
   return renderAgentNotification({
     agent: "Health Agent",
     details: [
-      `• Links ${summary.checks.link.findingCount} · Directory ${summary.checks.directory.findingCount} · Sentry ${summary.checks.sentry.findingCount} · Repository ${summary.checks.quality.findingCount}`,
+      `• Links ${summary.checks.link.findingCount} · Directory ${summary.checks.directory.findingCount} · Sentry ${summary.checks.sentry.findingCount} · Cron ${summary.checks.cron.findingCount} · Repository ${summary.checks.quality.findingCount}`,
       `• Pipeline: ${pipeline}`,
+      ...(deliveryWarnings.length > 0
+        ? [
+            `• Optional delivery warnings (${deliveryWarnings.length})\n${deliveryWarnings.join("\n")}`,
+          ]
+        : []),
+      ...(infrastructureFailureLines.length > 0
+        ? [
+            `• Infrastructure failures (${infrastructureFailureLines.length})\n${infrastructureFailureLines.join("\n")}`,
+          ]
+        : []),
     ],
     managerAction: operationalManagerAction(summary, pipeline),
     status:
@@ -712,11 +740,12 @@ function groupedLinearDescription(
   findings: readonly HealthFinding[],
   summary?: LinearSyncSummary,
 ): string {
-  const sources = (["sentry", "directory", "link", "quality"] as const)
+  const sources = (["sentry", "directory", "link", "cron", "quality"] as const)
     .map((source) => {
       const matches = findings.filter((finding) => finding.source === source);
       if (matches.length === 0) return undefined;
       const label = {
+        cron: "Cron",
         directory: "Directory",
         link: "Link",
         quality: "Repository",

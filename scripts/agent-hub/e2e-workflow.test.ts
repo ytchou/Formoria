@@ -13,7 +13,17 @@ describe("nightly E2E Agent Hub reporting", () => {
     expect(config).toMatch(
       /testIgnore:\s*["']e2e\/tests\/mobile\.spec\.ts["']/,
     );
-    expect(mobileSpec).not.toContain("test.skip(");
+    // Mobile coverage must not be disabled wholesale — that is what would make
+    // the nightly self-heal route repairs against a project that never ran.
+    // A conditional in-test environment guard is NOT that: `test.skip(cond, …)`
+    // after a 503 from PREVIEW_MODE, or the `test.skip(!adminEmail, …)` idiom the
+    // admin specs use, still executes the spec everywhere the condition is false
+    // (no workflow sets PREVIEW_MODE, so it never fires in CI). The original
+    // assertion banned the substring `test.skip(` outright, which turned the
+    // first legitimate guarded skip (#618) into a red main. Forbid only the
+    // forms that remove coverage unconditionally.
+    expect(mobileSpec).not.toMatch(/test\.describe\.skip\s*\(/);
+    expect(mobileSpec).not.toMatch(/(?<!\w)test\.skip\s*\(\s*\)/);
     expect(workflow).toContain(
       "TEST_ARGS=(--project=deep --project=mobile --reporter=html,json)",
     );

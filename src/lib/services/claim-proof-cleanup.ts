@@ -1,4 +1,4 @@
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { auditedCall } from "@/lib/audit";
 import { uploadWithRetry } from "./storage-retry";
 import { randomUUID } from "node:crypto";

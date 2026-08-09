@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest'
 import {
   PRODUCT_TYPE_CATEGORIES,
   PRODUCT_SUBCATEGORIES,
+  isCompositeSubcategory,
   matchSubcategory,
   resolveSubcategorySlugs,
   subcategoryBySlug,
   subcategoryLabel,
   deriveCategoryFromProductType,
   categoryTint,
+  RETIRED_COMPOSITE_LABELS,
 } from '../ontology'
 
 describe('PRODUCT_TYPE_CATEGORIES', () => {
@@ -89,7 +91,16 @@ describe('categoryTint', () => {
 })
 
 describe('PRODUCT_SUBCATEGORIES', () => {
-  it('every subcategory has a valid L1 parent', () => {
+  it('no subcategory names an occasion, packaging format, fulfilment mode or service', () => {
+    const disqualifyingTokens = ['禮盒', '伴手禮', '彌月', '客製化', '體驗課程', '課程', '服務']
+    const offenders = PRODUCT_SUBCATEGORIES.filter(subcategory =>
+      disqualifyingTokens.some(token => subcategory.nameZh.includes(token)),
+    ).map(subcategory => `${subcategory.slug} (${subcategory.nameZh})`)
+
+    expect(offenders, `non-taxonomic L2s: ${offenders.join(', ')}`).toEqual([])
+  })
+
+  it("every subcategory's parent L1 exists", () => {
     const l1 = new Set(PRODUCT_TYPE_CATEGORIES.map((c) => c.slug))
     for (const sub of PRODUCT_SUBCATEGORIES) {
       expect(l1.has(sub.category), `${sub.slug} parent ${sub.category}`).toBe(true)
@@ -115,6 +126,40 @@ describe('PRODUCT_SUBCATEGORIES', () => {
   it('has entries for every L1 category', () => {
     const covered = new Set(PRODUCT_SUBCATEGORIES.map((s) => s.category))
     expect(covered.size).toBe(PRODUCT_TYPE_CATEGORIES.length)
+  })
+
+  it('no new composite subcategories are added', () => {
+    expect(PRODUCT_SUBCATEGORIES.filter(isCompositeSubcategory).length).toBeLessThanOrEqual(57)
+  })
+
+  it('registers the sixteen DEV-1361 atomic replacements with exclusive aliases', () => {
+    const expected: Record<string, { nameZh: string; category: string; aliases: string[] }> = {
+      'home-fragrance': { nameZh: '居家香氛', category: 'home', aliases: ['線香', '擴香', '香氛袋'] },
+      candles: { nameZh: '蠟燭', category: 'home', aliases: [] },
+      keychains: { nameZh: '鑰匙圈', category: 'bags-accessories', aliases: [] },
+      charms: { nameZh: '吊飾', category: 'bags-accessories', aliases: [] },
+      'storage-pouches': { nameZh: '收納包', category: 'bags-accessories', aliases: ['旅行收納包'] },
+      'cosmetic-bags': { nameZh: '化妝包', category: 'bags-accessories', aliases: [] },
+      'tea-bags': { nameZh: '茶包', category: 'food-drink', aliases: [] },
+      'tea-drinks': { nameZh: '茶飲', category: 'food-drink', aliases: ['冷泡茶'] },
+      toys: { nameZh: '玩具', category: 'kids-pets', aliases: ['布偶', '益智玩具'] },
+      'learning-aids': { nameZh: '教具', category: 'kids-pets', aliases: [] },
+      'floral-arrangements': { nameZh: '花藝', category: 'home', aliases: [] },
+      plants: { nameZh: '植栽', category: 'home', aliases: ['盆栽'] },
+      towels: { nameZh: '毛巾', category: 'home', aliases: ['浴巾'] },
+      'home-textiles': { nameZh: '居家織品', category: 'home', aliases: ['抱枕', '毯'] },
+      'phone-bags': { nameZh: '手機袋', category: 'bags-accessories', aliases: [] },
+      'phone-straps': { nameZh: '手機背帶', category: 'bags-accessories', aliases: ['手機掛繩', '手機吊飾'] },
+    }
+
+    for (const [slug, value] of Object.entries(expected)) {
+      expect(subcategoryBySlug(slug), `${slug} should exist`).toMatchObject(value)
+    }
+    expect(matchSubcategory('香氛')).toBeNull()
+    expect(matchSubcategory('花器')).toBeNull()
+    expect(matchSubcategory('花草茶')).toBeNull()
+    expect(matchSubcategory('手機吊飾')?.slug).toBe('phone-straps')
+    expect(matchSubcategory('吊飾')?.slug).toBe('charms')
   })
 })
 
@@ -143,6 +188,28 @@ describe('matchSubcategory', () => {
   it('returns null on no match', () => {
     expect(matchSubcategory('口金短夾')).toBeNull()
     expect(matchSubcategory('')).toBeNull()
+  })
+
+  it('does not resolve retired composite spellings while retaining the synonym pair', () => {
+    for (const label of RETIRED_COMPOSITE_LABELS) {
+      expect(matchSubcategory(label), `${label} should be retired`).toBeNull()
+      expect(matchSubcategory(label.replace('・', '')), `${label} compact spelling should be retired`).toBeNull()
+    }
+    expect(matchSubcategory('卡片・明信片')?.slug).toBe('cards-and-postcards')
+    expect(matchSubcategory('卡片明信片')?.slug).toBe('cards-and-postcards')
+  })
+
+  it('retired non-taxonomic labels no longer resolve', () => {
+    for (const label of ['食品禮盒', '客製化禮品', '體驗課程・DIY材料', '彌月禮盒']) {
+      expect(matchSubcategory(label), `${label} should be retired`).toBeNull()
+    }
+  })
+
+  it('reparented subcategories resolve under their new L1', () => {
+    expect(matchSubcategory('保健食品')?.category).toBe('food-drink')
+    expect(matchSubcategory('手工具')?.category).toBe('home')
+    expect(matchSubcategory('照護輔具')?.category).toBe('fitness')
+    expect(matchSubcategory('按摩・放鬆')?.category).toBe('fitness')
   })
 })
 

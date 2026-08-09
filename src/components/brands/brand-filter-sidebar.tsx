@@ -3,7 +3,8 @@
 import { useMemo, useState, useTransition, type ReactNode } from "react";
 import { ChevronDown, Info, Loader2, SlidersHorizontal } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import {
   trackCategoryFilterApplied,
   trackFilterCleared,
@@ -13,6 +14,7 @@ import {
 } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { SurfaceCard } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -34,6 +36,7 @@ import {
 import { DirectoryFilterToken } from "./directory-filter-token";
 import { SearchInput } from "./search-input";
 import type { ActiveDirectoryFilter } from "./search-empty-state";
+import { buildCategoryTabTarget } from "@/components/navigation/category-tab-target";
 
 type VerificationFilterValue = NonNullable<BrandFilters["verificationFilter"]>;
 
@@ -52,9 +55,11 @@ type SubcategoryOption = {
 type BrandFilterSidebarProps = {
   activeFilters?: ActiveDirectoryFilter[];
   categories: CategoryOption[];
+  activeCategorySlugs?: string[];
   subcategories?: SubcategoryOption[];
   activeSubSlugs?: string[];
   className?: string;
+  announceSearchLoading?: boolean;
   totalCount: number;
 };
 
@@ -130,21 +135,22 @@ function FilterSection({
 export function BrandFilterSidebar({
   activeFilters = [],
   categories,
+  activeCategorySlugs = [],
   subcategories = [],
   activeSubSlugs = [],
   className,
+  announceSearchLoading = true,
   totalCount,
 }: BrandFilterSidebarProps) {
   const locale = useLocale();
   const t = useTranslations("brands.filters");
-  const searchT = useTranslations("brands.search");
   const verificationT = useTranslations("brands.verificationFilter");
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const activeCategories = useMemo(
-    () => new Set(parseCommaParam(searchParams.get("category"))),
-    [searchParams],
+    () => new Set(activeCategorySlugs.length > 0 ? activeCategorySlugs : parseCommaParam(searchParams.get("category"))),
+    [activeCategorySlugs, searchParams],
   );
   const activeVerification = (
     searchParams.get("verification") === "mit-verified" ||
@@ -174,39 +180,16 @@ export function BrandFilterSidebar({
       next.delete(slug);
     }
 
-    startTransition(() => {
-      router.replace(
-        updateDirectoryUrl(pathname, searchParams, {
-          category: next.size > 0 ? Array.from(next).join(",") : null,
-          ...(!checked || next.size > 1 ? { sub: null } : {}),
-        }),
-        { scroll: false },
-      );
+    const target = buildCategoryTabTarget({
+      pathname,
+      searchParams: searchParams.toString(),
+      slug,
+      categorySlugs: Array.from(next),
+      locale,
     });
-  }
-
-  function toggleSubcategory(
-    slug: string,
-    checked: boolean,
-    parentCategorySlug: string,
-    resultCount: number,
-  ) {
-    const next = new Set(activeSubcategories);
-    if (checked) {
-      next.add(slug);
-      trackSubcategoryFilterApplied(slug, parentCategorySlug, resultCount);
-    } else {
-      next.delete(slug);
-      trackFilterCleared("single", "subcategory", slug);
-    }
-
     startTransition(() => {
-      router.replace(
-        updateDirectoryUrl(pathname, searchParams, {
-          sub: next.size > 0 ? Array.from(next).join(",") : null,
-        }),
-        { scroll: false },
-      );
+      const navigate = target.routerPath.split('?')[0] === pathname ? router.replace : router.push;
+      navigate(target.routerPath, { scroll: false });
     });
   }
 
@@ -259,9 +242,6 @@ export function BrandFilterSidebar({
           )}
         />
       </div>
-      <span className="sr-only" role="status" aria-live="polite">
-        {isPending ? searchT("loading") : ""}
-      </span>
       {activeFilters.length > 0 ? (
         <section
           aria-label={t("currentConditions")}
@@ -299,13 +279,14 @@ export function BrandFilterSidebar({
             className="max-w-none"
             formAriaLabel={t("brandSearchLandmark")}
             showAutocomplete={false}
+            announceLoading={announceSearchLoading}
           />
           <p className="type-caption">{t("brandSearchHelp")}</p>
         </section>
 
         <Separator />
 
-        <FilterSection title={t("category")}>
+        <FilterSection title={t("category")} defaultOpen={activeCategories.size > 0}>
           <div className="space-y-1">
             {categories.map((category) => {
               const checked = activeCategories.has(category.slug);
@@ -341,20 +322,39 @@ export function BrandFilterSidebar({
                         const subcategoryChecked = activeSubcategories.has(
                           subcategory.slug,
                         );
+                        const subcategoryTarget = buildCategoryTabTarget({
+                          pathname,
+                          searchParams: searchParams.toString(),
+                          slug: category.slug,
+                          categorySlugs: [category.slug],
+                          subSlug: subcategoryChecked
+                            ? activeSubSlugs.filter((slug) => slug !== subcategory.slug).join(',') || null
+                            : Array.from(new Set([...activeSubSlugs, subcategory.slug])).join(','),
+                          locale,
+                        });
                         return (
-                          <ToggleChip
+                          <Link
                             key={subcategory.slug}
-                            pressed={subcategoryChecked}
-                            onPressedChange={(next) =>
-                              toggleSubcategory(
-                                subcategory.slug,
-                                next,
-                                category.slug,
-                                subcategory.count,
-                              )
-                            }
-                            className="min-h-12 active:animate-spring-pop"
+                            href={subcategoryTarget.routerPath}
+                            prefetch={false}
+                            aria-current={subcategoryChecked ? 'page' : undefined}
+                            className={cn(
+                              buttonVariants({ variant: 'secondary', shape: 'pill' }),
+                              'min-h-12',
+                              subcategoryChecked && 'border-primary bg-primary text-primary-foreground hover:border-primary hover:bg-primary hover:text-primary-foreground',
+                            )}
                             data-ph-no-autocapture
+                            onClick={() => {
+                              if (subcategoryChecked) {
+                                trackFilterCleared("single", "subcategory", subcategory.slug)
+                              } else {
+                                trackSubcategoryFilterApplied(
+                                  subcategory.slug,
+                                  category.slug,
+                                  subcategory.count,
+                                )
+                              }
+                            }}
                           >
                             {subcategory.label}{" "}
                             <span
@@ -366,7 +366,7 @@ export function BrandFilterSidebar({
                             >
                               {subcategory.count}
                             </span>
-                          </ToggleChip>
+                          </Link>
                         );
                       })}
                     </div>
@@ -457,8 +457,10 @@ function FilterRadio({
 export function BrandFilterDrawer({
   activeFilters = [],
   categories,
+  activeCategorySlugs = [],
   subcategories = [],
   activeSubSlugs = [],
+  announceSearchLoading = true,
   totalCount,
 }: BrandFilterDrawerProps) {
   const [open, setOpen] = useState(false);
@@ -486,8 +488,10 @@ export function BrandFilterDrawer({
           <BrandFilterSidebar
             activeFilters={activeFilters}
             categories={categories}
+            activeCategorySlugs={activeCategorySlugs}
             subcategories={subcategories}
             activeSubSlugs={activeSubSlugs}
+            announceSearchLoading={announceSearchLoading}
             totalCount={totalCount}
           />
         </div>

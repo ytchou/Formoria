@@ -36,9 +36,25 @@ e2e/playwright-report/
 Thumbs.db
 *.csv
 *.png
+# Images the app or the public front door needs. `*.png` above is deny-by-default
+# and these were tracked in spite of it, not because of it — see the invariant
+# note in the markdown block below. src/app/{icon,apple-icon}.png are what
+# Next.js builds the favicon and apple-touch-icon from; a build cannot recover
+# from losing them.
+!public/images/*.png
+!public/images/**/*.png
+!src/app/icon.png
+!src/app/apple-icon.png
+!src/assets/brand/*.png
 scripts/.backfill-backup-*.json
 scripts/.quality-purge-backup-*.json
 scripts/backup/
+scripts/resort-heroes/preview.json
+scripts/resort-heroes/completed.jsonl
+# Restore manifests now live next to the review artifact (outside the repo, see
+# scripts/shared/artifact.ts) so a `git clean -xdf` cannot destroy the only
+# rollback record. This entry only covers manifests left by earlier local runs.
+scripts/resort-heroes/manifests/
 
 # local scratch / generated image output
 /images/
@@ -69,16 +85,35 @@ next-env.d.ts
 *.swp
 
 # Strategy/internal docs (keep local, never push)
+#
+# INVARIANT: this is deny-by-default with named exceptions. Anything CI or the
+# build reads MUST be listed below, or it will be silently unaddable the moment
+# it is ever removed and re-added. That failure is invisible locally — the file
+# stays on disk, so only a fresh clone or a CI runner sees it missing.
+#
+# These rules do not retroactively hide anything: gitignore has no effect on
+# files that are already tracked. DEV-1389 untracked the ~89 that had been
+# force-added past this block; until then it had been silently inert.
+#
+# MECHANIC: `docs/` below excludes the DIRECTORY, so no `!docs/...` negation can
+# ever re-include a file inside it. Keeping an individual doc tracked requires
+# relocating it out of docs/, not allow-listing it.
 *.md
 !README.md
+!CONTRIBUTING.md
 !marketing/cards/**/*.md
 !marketing/items/**/*.md
 !marketing/strategy/**/*.md
 !.github/selfheal/*.md
-!scripts/zh-check/*.md
+# health-agent.yml reads these three at runtime (repair/review/sentry-classifier).
+!.github/health-agent/*.md
+!.github/PULL_REQUEST_TEMPLATE.md
 # SEO measurement artifacts are shipped content, not internal strategy docs.
 !content/seo/**/*.md
 docs/
+# Ad-hoc production data-health queries. Not markdown, so the rule above misses
+# them; referenced by nothing in the repo — they are hand-run pastes.
+scripts/health-audit-*.sql
 *.pen
 
 # Supabase local artifacts only (keep migrations/config/functions/seed tracked)

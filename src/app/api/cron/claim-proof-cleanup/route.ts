@@ -1,12 +1,13 @@
 import { withAuditScope } from "@/lib/audit/scope";
 import { NextResponse } from "next/server";
+import { isAuthorizedMachineCaller } from "@/lib/security/machine-caller";
 import { processClaimProofCleanup } from "@/lib/services/claim-proof-cleanup";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
 export const POST = withAuditScope(async (req: Request) => {
-  if (req.headers.get("x-origin-verify") !== process.env.ORIGIN_SECRET) {
+  if (!isAuthorizedMachineCaller(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

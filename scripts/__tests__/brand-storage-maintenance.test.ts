@@ -1,6 +1,8 @@
+import { randomUUID } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 
 import {
+  buildReferenceSet,
   categorizeObjects,
   planPurge,
   selectPurgeableManifests,
@@ -125,6 +127,73 @@ describe('categorizeObjects', () => {
 
     expect(result.anomalies.map((object) => object.path)).toEqual([path])
     expect(result.rejected).toEqual([])
+  })
+
+  it('a roster-owned event-exhibitors object is referenced, never untracked', () => {
+    const path = `event-exhibitors/${randomUUID()}/${randomUUID()}.webp`
+    const result = categorizeObjects([{ path, size: 1 }], {
+      ...refs,
+      // What buildReferenceSet produces for an event_exhibitors row whose
+      // image_storage_path is set — see the buildReferenceSet suite below.
+      otherReferencedPaths: new Set([path]),
+    })
+
+    expect(result.protected.map((object) => object.path)).toEqual([path])
+    expect(result.untracked).toEqual([])
+    expect(result.rejected).toEqual([])
+  })
+})
+
+/**
+ * Chainable stand-in for the service client. This is a plain argument, not a
+ * module mock: `scripts/check-test-boundaries.mjs` forbids vi.mock of
+ * `@/lib/supabase/` and `@supabase/`, and buildReferenceSet takes its client as
+ * a parameter precisely so it can be driven this way.
+ *
+ * Ceiling: it only models select/not/order/range and returns a single page. If
+ * buildReferenceSet ever needs real filtering or pagination semantics, replace
+ * this with an integration test against a seeded project rather than growing
+ * the stub.
+ */
+function stubReferenceClient(
+  rowsByTable: Record<string, unknown[]>,
+): Parameters<typeof buildReferenceSet>[0] {
+  const client = {
+    from(table: string) {
+      const chain = {
+        select: () => chain,
+        not: () => chain,
+        order: () => chain,
+        range: () =>
+          Promise.resolve({ data: rowsByTable[table] ?? [], error: null }),
+      }
+      return chain
+    },
+  }
+  return client as unknown as Parameters<typeof buildReferenceSet>[0]
+}
+
+describe('buildReferenceSet', () => {
+  it('treats event_exhibitors.image_storage_path as a reference', async () => {
+    const rosterKey = `event-exhibitors/${randomUUID()}/${randomUUID()}.webp`
+    const refsFromDb = await buildReferenceSet(
+      stubReferenceClient({
+        brand_images: [],
+        submission_images: [],
+        brands: [],
+        brand_submissions: [],
+        event_exhibitors: [
+          { image_storage_path: rosterKey },
+          { image_storage_path: null },
+        ],
+      }),
+    )
+
+    expect(refsFromDb.otherReferencedPaths.has(rosterKey)).toBe(true)
+
+    const result = categorizeObjects([{ path: rosterKey, size: 1 }], refsFromDb)
+    expect(result.protected.map((object) => object.path)).toEqual([rosterKey])
+    expect(result.untracked).toEqual([])
   })
 })
 

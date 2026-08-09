@@ -58,6 +58,7 @@ test.describe("Scheduled brand refresh review", () => {
       name: brandName,
       slug: brandSlug,
       status: "approved",
+      approved_at: new Date().toISOString(),
       description: "更新前的完整品牌介紹",
       city: "tainan",
       hero_image_url: heroUrl,
@@ -271,6 +272,13 @@ test.describe("Scheduled brand refresh review", () => {
       .locator("tbody tr")
       .filter({ hasText: brandName });
     await readyRow
+      // `/admin/submissions` overrides the shell's default disclosure label with
+      // `admin.submissions.expandReview` — "Expand review for {name}".
+      .getByRole("button", { name: `Expand review for ${brandName}` })
+      .click();
+    const reviewDrawer = adminPage.getByRole("dialog");
+    await expect(reviewDrawer).toBeVisible();
+    await reviewDrawer
       .getByRole("button", { name: "Approve — updates the live brand" })
       .click();
 
@@ -432,6 +440,7 @@ test.describe("Bulk refresh approval", () => {
       name: staleName,
       slug: `e2e-bulk-refresh-stale-${suffix}`,
       status: "approved",
+      approved_at: new Date().toISOString(),
       description: "完整的品牌介紹",
       hero_image_url: staleHeroUrl,
       product_type: "crafts",

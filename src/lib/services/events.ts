@@ -9,7 +9,7 @@ import {
 } from "@/lib/brands/contracts";
 import { getBrandCategoryLabel } from "@/lib/brands/category-label";
 import { isoDateInTimeZone } from "@/lib/date-range";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { brandsBySlugsCacheKey, getPublicBrandsBySlugs } from "./brands";
 
 // ---------------------------------------------------------------------------
@@ -98,6 +98,64 @@ export type EventBrandEntry = Omit<EventBrandLink, "brandSlug"> & {
   brand: PublicBrandCard;
 };
 
+/** Canonical event roster row, independent of whether Formoria has a brand. */
+export type EventExhibitor = {
+  id: string;
+  eventId: string;
+  sourceKey: string;
+  name: string;
+  nameEn: string | null;
+  booth: string | null;
+  area: string | null;
+  areaEn: string | null;
+  zone: string | null;
+  eventCategory: string;
+  sourceUrl: string;
+  websiteUrl: string | null;
+  verifiedAt: string;
+  sortOrder: number;
+  /**
+   * Roster-owned content for exhibitors Formoria has no brand row for. The
+   * roster is the source of truth: enrichment output is copied onto these
+   * columns, and nothing on the render path reads through a submission.
+   */
+  imageUrl: string | null;
+  imageAltZh: string | null;
+  imageAltEn: string | null;
+  summaryZh: string | null;
+  summaryEn: string | null;
+  contentSource: string | null;
+  contentVerifiedAt: string | null;
+};
+
+/** Every included exhibitor is returned; an unavailable brand is `null`. */
+export type EventExhibitorEntry = EventExhibitor & {
+  brand: PublicBrandCard | null;
+};
+
+/** Canonical Creative Expo zones surfaced by the interactive explorer. */
+const CREATIVE_EXPO_ZONE_CODES = ["K1", "K2", "K3", "S"] as const;
+
+export type CreativeExpoZone = (typeof CREATIVE_EXPO_ZONE_CODES)[number];
+
+/**
+ * A canonical exhibitor in a core zone, linked or not. The exhibitor list
+ * renders the whole hall, so `brand` stays nullable here; only `zone` is
+ * narrowed, because the zone allowlist is what defines "the hall".
+ */
+export type CreativeExpoEntry = Omit<EventExhibitorEntry, "zone"> & {
+  zone: CreativeExpoZone;
+};
+
+/** A canonical exhibitor with a linked, public Formoria brand in a core zone. */
+export type LinkedEventExhibitorEntry = Omit<
+  EventExhibitorEntry,
+  "brand" | "zone"
+> & {
+  brand: PublicBrandCard;
+  zone: CreativeExpoZone;
+};
+
 /**
  * `value` stays the zh area string in every locale so an `?area=` filter link
  * survives a locale switch; only `label` localizes.
@@ -138,6 +196,25 @@ const EVENT_BRAND_SELECT =
  * plus an explicit `brands.status` filter, matching `EVENT_BRAND_SELECT`.
  */
 const EVENT_BRAND_COUNT_SELECT = "event_id, brands!inner(status)";
+
+/**
+ * Canonical roster projection. The inner event embed applies the same
+ * published-event guard as the legacy lineup query without changing that
+ * query's contract.
+ *
+ * `EventExhibitorJoinRow` is hand-written rather than derived from this string,
+ * so a content column added to the type but not here still compiles and comes
+ * back `undefined` at runtime. `fetchEventExhibitors` is covered by a read-path
+ * test that projects its fixture through this exact string for that reason.
+ *
+ * `image_storage_path` and `content_submission_id` are deliberately absent:
+ * they are write-side provenance for the offline enrichment vehicle, and the
+ * render path must not be able to reach a submission through the roster.
+ */
+const EVENT_EXHIBITOR_SELECT =
+  "id, event_id, source_key, name, name_en, booth, area, area_en, zone, event_category, source_url, website_url, verified_at, sort_order, image_url, image_alt_zh, image_alt_en, summary_zh, summary_en, content_source, content_verified_at, events!inner(slug, status)";
+
+const EVENT_EXHIBITOR_BRAND_SELECT = "event_exhibitor_id, brands!inner(slug)";
 
 // ---------------------------------------------------------------------------
 // Dates
@@ -264,6 +341,79 @@ export function eventBrandRowToDomain(
   };
 }
 
+export type EventExhibitorJoinRow = {
+  id: string;
+  event_id: string;
+  source_key: string;
+  name: string;
+  name_en: string | null;
+  booth: string | null;
+  area: string | null;
+  area_en: string | null;
+  zone: string | null;
+  event_category: string;
+  source_url: string;
+  website_url: string | null;
+  verified_at: string;
+  sort_order: number;
+  image_url: string | null;
+  image_alt_zh: string | null;
+  image_alt_en: string | null;
+  summary_zh: string | null;
+  summary_en: string | null;
+  content_source: string | null;
+  content_verified_at: string | null;
+  events:
+    | { slug: string; status: string }
+    | Array<{ slug: string; status: string }>
+    | null;
+};
+
+export function eventExhibitorRowToDomain(
+  row: EventExhibitorJoinRow,
+): EventExhibitor | null {
+  const embedded = Array.isArray(row.events) ? row.events[0] : row.events;
+  if (!embedded?.slug || embedded.status !== "published") return null;
+
+  return {
+    id: row.id,
+    eventId: row.event_id,
+    sourceKey: row.source_key,
+    name: row.name,
+    nameEn: row.name_en,
+    booth: row.booth,
+    area: row.area,
+    areaEn: row.area_en,
+    zone: row.zone,
+    eventCategory: row.event_category,
+    sourceUrl: row.source_url,
+    websiteUrl: row.website_url,
+    verifiedAt: row.verified_at,
+    sortOrder: row.sort_order,
+    imageUrl: row.image_url,
+    imageAltZh: row.image_alt_zh,
+    imageAltEn: row.image_alt_en,
+    summaryZh: row.summary_zh,
+    summaryEn: row.summary_en,
+    contentSource: row.content_source,
+    contentVerifiedAt: row.content_verified_at,
+  };
+}
+
+export type EventExhibitorBrandJoinRow = {
+  event_exhibitor_id: string | null;
+  brands: { slug: string } | Array<{ slug: string }> | null;
+};
+
+function eventExhibitorBrandRowToSlug(
+  row: EventExhibitorBrandJoinRow,
+): { exhibitorId: string; brandSlug: string } | null {
+  if (!row.event_exhibitor_id) return null;
+  const embedded = Array.isArray(row.brands) ? row.brands[0] : row.brands;
+  if (!embedded?.slug) return null;
+  return { exhibitorId: row.event_exhibitor_id, brandSlug: embedded.slug };
+}
+
 // ---------------------------------------------------------------------------
 // Composition
 // ---------------------------------------------------------------------------
@@ -314,6 +464,80 @@ export function composeEventBrands(
       compareStrings(a.brand.name, b.brand.name) ||
       compareStrings(a.brand.slug, b.brand.slug),
   );
+}
+
+/**
+ * Joins canonical exhibitors to optional public brands. Unlike the legacy
+ * lineup composition, unresolved/hidden brands are retained as `brand: null`
+ * so an official exhibitor never disappears from the event roster.
+ */
+export function composeEventExhibitorEntries(
+  exhibitors: EventExhibitor[],
+  brandSlugsByExhibitor: Map<string, string>,
+  brandsBySlug: Map<string, Brand | PublicBrandCard>,
+): EventExhibitorEntry[] {
+  return exhibitors
+    .map((exhibitor) => {
+      const brandSlug = brandSlugsByExhibitor.get(exhibitor.id);
+      const brand = brandSlug ? brandsBySlug.get(brandSlug) : undefined;
+
+      return {
+        ...exhibitor,
+        brand: brand ? normalizePublicBrandCard(brand) : null,
+      };
+    })
+    .sort(
+      (a, b) =>
+        a.sortOrder - b.sortOrder || compareStrings(a.sourceKey, b.sourceKey),
+    );
+}
+
+/**
+ * Narrows the canonical roster to linked Formoria brands in the four
+ * interactive Creative Expo zones. `zone` is copied from the canonical row;
+ * booth-prefix parsing belongs to the floor-map consistency check and never
+ * changes this placement truth.
+ */
+export function selectLinkedEventExhibitorEntries(
+  entries: readonly EventExhibitorEntry[],
+): LinkedEventExhibitorEntry[] {
+  return entries.filter(
+    (entry): entry is LinkedEventExhibitorEntry =>
+      entry.brand !== null &&
+      (CREATIVE_EXPO_ZONE_CODES as readonly string[]).includes(
+        entry.zone ?? "",
+      ),
+  );
+}
+
+/**
+ * Narrows the canonical roster to the four Creative Expo zones without
+ * requiring a Formoria brand link. Deliberately a sibling of
+ * `selectLinkedEventExhibitorEntries` rather than a generalization of it: the
+ * shared `EventBrandGrid` path still needs the linked-only projection, and the
+ * two selections diverge on exactly the `brand !== null` clause.
+ */
+export function selectCreativeExpoEntries(
+  entries: readonly EventExhibitorEntry[],
+): CreativeExpoEntry[] {
+  return entries.filter((entry): entry is CreativeExpoEntry =>
+    (CREATIVE_EXPO_ZONE_CODES as readonly string[]).includes(entry.zone ?? ""),
+  );
+}
+
+/** Adapts linked canonical rows to the existing shared BrandCard entry shape. */
+export function projectLinkedEventExhibitorEntries(
+  entries: readonly LinkedEventExhibitorEntry[],
+): EventBrandEntry[] {
+  return entries.map((entry) => ({
+    brand: entry.brand,
+    booth: entry.booth,
+    area: entry.area,
+    areaEn: entry.areaEn,
+    note: null,
+    noteEn: null,
+    sortOrder: entry.sortOrder,
+  }));
 }
 
 /**
@@ -379,7 +603,7 @@ export function deriveCategoryOptions(
 // Every query takes its client as the first argument and is exported on its
 // own; `createServiceClient()` appears only inside the `cache()` wrappers at the
 // bottom. That split is what lets the tests drive these with a query-builder
-// double instead of mocking `@/lib/supabase/server`, which
+// double instead of mocking `@/lib/supabase/service`, which
 // scripts/check-test-boundaries.mjs forbids.
 //
 // Error convention (matches brands.ts, deliberately not stories.ts): a query
@@ -501,6 +725,65 @@ export async function fetchEventBrandLinks(
 }
 
 /**
+ * Reads the canonical exhibitor roster for one published event. The roster is
+ * paged independently from event_brands because an official event can include
+ * exhibitors that have no Formoria brand row yet.
+ */
+export async function fetchEventExhibitors(
+  supabase: ServiceClient,
+  slug: string,
+): Promise<EventExhibitor[]> {
+  const rows = await fetchAllPages<EventExhibitorJoinRow>(
+    "fetchEventExhibitors",
+    `Failed to fetch exhibitors for ${slug}`,
+    (from, to) =>
+      supabase
+        .from("event_exhibitors")
+        .select(EVENT_EXHIBITOR_SELECT)
+        .eq("events.slug", slug)
+        .eq("events.status", "published")
+        .order("sort_order")
+        .order("id")
+        .range(from, to),
+  );
+
+  return rows
+    .map(eventExhibitorRowToDomain)
+    .filter((row): row is EventExhibitor => row !== null);
+}
+
+/**
+ * Reads the optional compatibility links for the canonical roster in one
+ * batched query. `event_exhibitor_id` is nullable on legacy rows, and the
+ * inner brand embed intentionally omits links whose brand has no slug.
+ */
+export async function fetchEventExhibitorBrandSlugs(
+  supabase: ServiceClient,
+  exhibitorIds: string[],
+): Promise<Map<string, string>> {
+  if (exhibitorIds.length === 0) return new Map();
+
+  const rows = await fetchAllPages<EventExhibitorBrandJoinRow>(
+    "fetchEventExhibitorBrandSlugs",
+    "Failed to fetch exhibitor brand links",
+    (from, to) =>
+      supabase
+        .from("event_brands")
+        .select(EVENT_EXHIBITOR_BRAND_SELECT)
+        .in("event_exhibitor_id", exhibitorIds)
+        .order("id")
+        .range(from, to),
+  );
+
+  const links = new Map<string, string>();
+  for (const row of rows) {
+    const link = eventExhibitorBrandRowToSlug(row);
+    if (link) links.set(link.exhibitorId, link.brandSlug);
+  }
+  return links;
+}
+
+/**
  * Brand counts for the hub, as one grouped query over every event on the page
  * rather than one `count` per event — constant in event count.
  *
@@ -552,9 +835,12 @@ export const getPublishedEventBySlug = cache(
     fetchPublishedEventBySlug(createServiceClient(), slug),
 );
 
-const getEventBrandLinks = cache(
-  (slug: string): Promise<EventBrandLink[]> =>
-    fetchEventBrandLinks(createServiceClient(), slug),
+const getEventBrandLinks = cache((slug: string): Promise<EventBrandLink[]> =>
+  fetchEventBrandLinks(createServiceClient(), slug),
+);
+
+const getEventExhibitors = cache((slug: string): Promise<EventExhibitor[]> =>
+  fetchEventExhibitors(createServiceClient(), slug),
 );
 
 /**
@@ -568,8 +854,38 @@ export async function getEventBrandEntries(
   const links = await getEventBrandLinks(slug);
   if (links.length === 0) return [];
 
-  const brands = await getPublicBrandsBySlugs(links.map((link) => link.brandSlug));
+  const brands = await getPublicBrandsBySlugs(
+    links.map((link) => link.brandSlug),
+  );
   return composeEventBrands(links, brands);
+}
+
+/**
+ * Canonical event roster with optional public-brand hydration. Every official
+ * exhibitor remains in the result when its linked brand is hidden, deleted, or
+ * not yet curated; only the `brand` field becomes `null`.
+ */
+export async function getEventExhibitorEntries(
+  slug: string,
+): Promise<EventExhibitorEntry[]> {
+  const exhibitors = await getEventExhibitors(slug);
+  if (exhibitors.length === 0) return [];
+
+  const brandSlugsByExhibitor = await fetchEventExhibitorBrandSlugs(
+    createServiceClient(),
+    exhibitors.map((exhibitor) => exhibitor.id),
+  );
+  const brandSlugs = [...new Set(brandSlugsByExhibitor.values())];
+  const brands =
+    brandSlugs.length === 0
+      ? new Map<string, PublicBrandCard>()
+      : await getPublicBrandsBySlugs(brandSlugs);
+
+  return composeEventExhibitorEntries(
+    exhibitors,
+    brandSlugsByExhibitor,
+    brands,
+  );
 }
 
 /**

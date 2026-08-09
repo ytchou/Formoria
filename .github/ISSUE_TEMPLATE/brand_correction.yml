@@ -1,0 +1,68 @@
+name: Brand correction
+description: Report incorrect, outdated, or missing information about a brand
+title: "[Brand] "
+labels: ["brand-data"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping keep the directory accurate. Brand records live in the
+        database and go through a review queue — please report the problem here
+        rather than opening a pull request.
+
+  - type: input
+    id: brand
+    attributes:
+      label: Brand name
+      placeholder: e.g. 光年 Lightyear
+    validations:
+      required: true
+
+  - type: input
+    id: url
+    attributes:
+      label: Page URL on formoria.com
+      placeholder: https://formoria.com/brands/...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What is wrong?
+      options:
+        - Manufacturing-verification tier is incorrect
+        - Category or tags are wrong
+        - Purchase link is dead or wrong
+        - Description or details are outdated
+        - This brand should not be listed
+        - Something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: details
+    attributes:
+      label: What should it say instead?
+      description: Describe the correct information as specifically as you can.
+    validations:
+      required: true
+
+  - type: textarea
+    id: source
+    attributes:
+      label: Source
+      description: >
+        A link that backs this up — official site, product page, company
+        registration. Verification-tier corrections need evidence; that is what
+        the tier system is for.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: affiliation
+    attributes:
+      label: Are you connected to this brand?
+      options:
+        - label: I own or work for this brand
+          required: false

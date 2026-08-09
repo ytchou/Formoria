@@ -1,5 +1,6 @@
 import type {
   Brand,
+  BrandImageMeta,
   OtherUrl,
   ReputationSummary,
   SiteContent,
@@ -34,7 +35,7 @@ export type PublicBrandCard = {
   productTagsEn: string[]
   foundingYear: number | null
   productPhotos: string[]
-  imageAlts: Array<{ altZh: string | null; altEn: string | null }>
+  imageAlts: BrandImageMeta[]
   heroImageMetadata: Brand['heroImageMetadata']
 }
 
@@ -48,7 +49,7 @@ export type PublicBrandDetail = PublicBrandCard &
     mitStory: string | null
     /** The certificate number is public; the evidence object is not. */
     mitCertificateNumber: string | null
-    imageAlts: Array<{ altZh: string | null; altEn: string | null }>
+    imageAlts: BrandImageMeta[]
     heroImageMetadata: Brand['heroImageMetadata']
   }
 
@@ -82,6 +83,18 @@ export type PublicMicrositeBrand = {
   status: 'approved' | 'hidden'
   description: string | null
   heroImageUrl: string | null
+  /**
+   * Metadata for the hero image ONLY — this surface renders exactly one image,
+   * so a full index-aligned `imageAlts` array would be dishonest about what is
+   * carried. Nullable because a brand's hero can predate `brand_images`.
+   *
+   * Deliberately a whole `BrandImageMeta` rather than the flattened
+   * `isLogo`/`focalX`/`focalY` triple it replaces: the flattened names only
+   * satisfied `objectPositionStyle` by coinciding with its structural
+   * parameter, so nothing tied them to `BrandImageMeta` and a field added there
+   * would never have reached this contract.
+   */
+  heroImageMeta: BrandImageMeta | null
   foundingYear: number | null
   mitVerified: boolean
   siteContent: PublicSiteContent
@@ -119,7 +132,7 @@ export type OwnerBrandEditor = PublicBrandDetail & {
   reputationSummary: ReputationSummary | null
   mitEvidence: NonNullable<Brand['mitEvidence']> | null
   siteContent: SiteContent | null
-  imageAlts: Array<{ altZh: string | null; altEn: string | null }>
+  imageAlts: BrandImageMeta[]
 }
 
 export type AdminBrandListItem = {
@@ -203,7 +216,13 @@ export function toPublicBrandCard(brand: Brand): PublicBrandCard {
     productTagsEn: [...brand.productTagsEn],
     foundingYear: brand.foundingYear,
     productPhotos: [...brand.productPhotos],
-    imageAlts: brand.imageAlts.map((alt) => ({ altZh: alt.altZh, altEn: alt.altEn })),
+    imageAlts: brand.imageAlts.map((alt) => ({
+      altZh: alt.altZh,
+      altEn: alt.altEn,
+      isLogo: alt.isLogo,
+      focalX: alt.focalX,
+      focalY: alt.focalY,
+    })),
     heroImageMetadata: brand.heroImageMetadata ?? null,
   }
 }
@@ -243,7 +262,15 @@ export function normalizePublicBrandCard(
     productTags: Array.isArray(brand.productTags) ? [...brand.productTags] : [],
     productTagsEn: Array.isArray(brand.productTagsEn) ? [...brand.productTagsEn] : [],
     productPhotos: Array.isArray(brand.productPhotos) ? [...brand.productPhotos] : [],
-    imageAlts: Array.isArray(brand.imageAlts) ? [...brand.imageAlts] : [],
+    imageAlts: Array.isArray(brand.imageAlts)
+      ? brand.imageAlts.map((alt) => ({
+          altZh: alt.altZh,
+          altEn: alt.altEn,
+          isLogo: alt.isLogo,
+          focalX: alt.focalX,
+          focalY: alt.focalY,
+        }))
+      : [],
     heroImageMetadata: brand.heroImageMetadata ?? null,
   }
 }
@@ -262,7 +289,13 @@ export function toPublicBrandDetail(brand: Brand): PublicBrandDetail {
     otherUrls: brand.otherUrls.map((link) => ({ label: link.label, url: link.url })),
     mitStory: brand.mitStory ?? null,
     mitCertificateNumber: brand.mitEvidence?.mit_smile_cert ?? null,
-    imageAlts: brand.imageAlts.map((alt) => ({ altZh: alt.altZh, altEn: alt.altEn })),
+    imageAlts: brand.imageAlts.map((alt) => ({
+      altZh: alt.altZh,
+      altEn: alt.altEn,
+      isLogo: alt.isLogo,
+      focalX: alt.focalX,
+      focalY: alt.focalY,
+    })),
     heroImageMetadata: brand.heroImageMetadata ?? null,
   }
 }
@@ -276,6 +309,7 @@ export function toPublicMicrositeBrand(brand: Brand): PublicMicrositeBrand | nul
     slug: brand.slug,
     status: brand.status,
     heroImageUrl: brand.heroImageUrl,
+    heroImageMeta: brand.imageAlts.at(0) ?? null,
     description: brand.description,
     foundingYear: brand.foundingYear,
     mitVerified: brand.mitStatus === 'verified' || brand.mitVerified === true,

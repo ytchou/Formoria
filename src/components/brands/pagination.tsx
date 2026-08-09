@@ -5,29 +5,12 @@ import { Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { trackDirectoryPageNavigated } from '@/lib/analytics'
+import { getPageRange } from '@/lib/pagination'
 
 interface PaginationProps {
   totalCount: number
   currentPage: number
   pageSize: number
-}
-
-function getPageRange(currentPage: number, totalPages: number): (number | 'ellipsis')[] {
-  if (totalPages <= 5) {
-    return Array.from({ length: totalPages }, (_, i) => i + 1)
-  }
-
-  const pages: (number | 'ellipsis')[] = []
-
-  if (currentPage <= 3) {
-    pages.push(1, 2, 3, 4, 'ellipsis', totalPages)
-  } else if (currentPage >= totalPages - 2) {
-    pages.push(1, 'ellipsis', totalPages - 3, totalPages - 2, totalPages - 1, totalPages)
-  } else {
-    pages.push(1, 'ellipsis', currentPage - 1, currentPage, currentPage + 1, 'ellipsis', totalPages)
-  }
-
-  return pages
 }
 
 function buildPageUrl(pathname: string, searchParams: URLSearchParams, page: number): string {

@@ -13,16 +13,14 @@ export const GET = withAuditScope(async () => {
     ["Brands", "/brands"],
     ["Stories", "/stories"],
     ["About", "/about"],
-    ["Glossary", "/glossary"],
     ["Events", "/events"],
     ["FAQ", "/faq"],
-    ["Stats", "/stats"],
   ].map(([label, path]) => ({ label, url: canonical(path) }));
 
   const categories = PRODUCT_TYPE_CATEGORIES.map((category) => ({
     name: category.name,
     nameZh: category.nameZh,
-    url: canonical(`/brands?category=${category.slug}`),
+    url: canonical(`/categories/${category.slug}`),
     description:
       en.categories.descriptions[category.slug] ??
       zhTW.categories.descriptions[category.slug],

@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/seo/alternates";
+import { buildAlternates } from "@/lib/seo/alternates";
 import { PURCHASE_CHANNELS } from "@/lib/brands/purchase-channels";
 import { FORMORIA_SOCIALS } from "./constants";
 import { getSiteUrl } from "./seo/site-url";
@@ -17,20 +18,20 @@ export type BreadcrumbItem = {
 export type JsonLdObject = Record<string, any>;
 
 export type BrandJsonLdInput = {
-  name: string
-  description: string | null
-  descriptionEn: string | null
-  heroImageUrl: string | null
-  foundingYear: number | null
-  socialInstagram: string | null
-  socialThreads: string | null
-  socialFacebook: string | null
-  purchaseWebsite: string | null
-  purchasePinkoi: string | null
-  purchaseShopee: string | null
-  purchaseMyship: string | null
-  otherUrls: Array<{ label: string; url: string }>
-}
+  name: string;
+  description: string | null;
+  descriptionEn: string | null;
+  heroImageUrl: string | null;
+  foundingYear: number | null;
+  socialInstagram: string | null;
+  socialThreads: string | null;
+  socialFacebook: string | null;
+  purchaseWebsite: string | null;
+  purchasePinkoi: string | null;
+  purchaseShopee: string | null;
+  purchaseMyship: string | null;
+  otherUrls: Array<{ label: string; url: string }>;
+};
 
 type JsonLdLocale = Locale | string | undefined;
 
@@ -41,10 +42,22 @@ function toInLanguage(locale: JsonLdLocale = "zh-TW"): string {
 
 /**
  * Build Organization JSON-LD structured data for a brand detail page.
+ *
+ * `canonicalUrl` is what separates the zh-TW and /en editions as DOCUMENTS.
+ * Without it both locales emit an Organization carrying the same name, the same
+ * external `url` and the same `sameAs` set, with nothing stating which page
+ * describes it — two indistinguishable descriptions of one entity, which is a
+ * consolidation signal on a pair Search Console already reports as
+ * "Duplicate, Google chose different canonical than user".
+ *
+ * `@id` is locale-scoped and `mainEntityOfPage` names this page specifically;
+ * the shared external `url` stays put, because both editions really are about
+ * the same company.
  */
 export function buildBrandJsonLd(
   brand: BrandJsonLdInput,
   locale: Locale = "zh-TW",
+  canonicalUrl?: string,
 ): JsonLdObject {
   const allSameAs = [
     brand.socialInstagram,
@@ -59,12 +72,14 @@ export function buildBrandJsonLd(
   const jsonLd: JsonLdObject = {
     "@context": "https://schema.org",
     "@type": "Organization",
+    ...(canonicalUrl ? { "@id": `${canonicalUrl}#organization` } : {}),
     name: brand.name,
     description:
       (locale === "en"
         ? (brand.descriptionEn ?? brand.description)
         : brand.description) ?? undefined,
     inLanguage: toInLanguage(locale),
+    ...(canonicalUrl ? { mainEntityOfPage: canonicalUrl } : {}),
   };
 
   const url =
@@ -84,9 +99,13 @@ export function buildBrandJsonLd(
  */
 export function buildBreadcrumbJsonLd(
   items: BreadcrumbItem[],
-  locale: Locale = "zh-TW",
+  localeOrCanonical: Locale | string = "zh-TW",
 ): JsonLdObject {
   const siteUrl = getSiteUrl();
+  const locale: Locale =
+    localeOrCanonical === "en" || localeOrCanonical === "zh-TW"
+      ? localeOrCanonical
+      : "zh-TW";
 
   return {
     "@context": "https://schema.org",
@@ -99,7 +118,16 @@ export function buildBreadcrumbJsonLd(
         name: item.label,
       };
       if (item.href) {
-        element.item = `${siteUrl}${item.href}`;
+        // Callers that already resolved a canonical URL pass it through
+        // untouched. Legacy callers still pass a path; use the shared
+        // alternates builder so locale prefixing remains one-source-of-truth.
+        if (/^https?:\/\//.test(item.href)) {
+          element.item = item.href;
+        } else if (item.href === "/en" || item.href.startsWith("/en/")) {
+          element.item = `${siteUrl}${item.href}`;
+        } else {
+          element.item = buildAlternates(item.href, locale).canonical;
+        }
       }
       return element;
     }),
@@ -111,7 +139,7 @@ export function buildBreadcrumbJsonLd(
  */
 export function buildCategoryItemListJsonLd(
   categoryName: string,
-  categorySlug: string,
+  canonicalUrl: string,
   brands: Array<{ name: string; slug: string }>,
   locale: Locale = "zh-TW",
   description?: string,
@@ -124,14 +152,14 @@ export function buildCategoryItemListJsonLd(
     "@context": "https://schema.org",
     "@type": "ItemList",
     name: `${categoryName} — Taiwanese Brands`,
-    url: `${siteUrl}/brands?category=${categorySlug}`,
+    url: canonicalUrl,
     inLanguage: toInLanguage(locale),
     numberOfItems: brands.length,
     itemListElement: brands.map((brand, index) => ({
       "@type": "ListItem",
       position: index + 1,
       name: brand.name,
-      url: `${siteUrl}/brands/${brand.slug}`,
+      url: `${siteUrl}${locale === "en" ? "/en" : ""}/brands/${brand.slug}`,
     })),
     ...(parentGroupName
       ? { about: { "@type": "Thing", name: parentGroupName } }
@@ -367,28 +395,6 @@ export function buildEventJsonLd({
   return jsonLd;
 }
 
-/**
- * Build DefinedTermSet JSON-LD structured data for glossary pages.
- */
-export function buildDefinedTermSetJsonLd(
-  terms: Array<{ name: string; description: string }>,
-  locale?: string,
-): JsonLdObject {
-  const inLanguage = toInLanguage(locale);
-
-  return {
-    "@context": "https://schema.org",
-    "@type": "DefinedTermSet",
-    name: inLanguage === "zh-TW" ? "Formoria 詞彙表" : "Formoria Glossary",
-    inLanguage,
-    hasDefinedTerm: terms.map((term) => ({
-      "@type": "DefinedTerm",
-      name: term.name,
-      description: term.description,
-    })),
-  };
-}
-
 export type FaqQuestion = {
   q: string;
   a: string;
@@ -402,6 +408,7 @@ export type FaqQuestion = {
 export function buildFaqPageJsonLd(
   questions: FaqQuestion[] | null | undefined,
   locale?: string,
+  canonicalUrl?: string,
 ): JsonLdObject | null {
   const entries = questions ?? [];
   if (entries.length === 0) return null;
@@ -409,7 +416,11 @@ export function buildFaqPageJsonLd(
   return {
     "@context": "https://schema.org",
     "@type": "FAQPage",
+    // Same reasoning as buildBrandJsonLd: a locale-scoped @id keeps the two
+    // editions of one brand's FAQ from reading as a single node.
+    ...(canonicalUrl ? { "@id": `${canonicalUrl}#faq` } : {}),
     inLanguage: toInLanguage(locale),
+    ...(canonicalUrl ? { mainEntityOfPage: canonicalUrl } : {}),
     mainEntity: entries.map((entry) => ({
       "@type": "Question",
       name: entry.q,

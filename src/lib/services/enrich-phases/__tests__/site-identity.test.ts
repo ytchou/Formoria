@@ -155,6 +155,34 @@ describe('site identity quarantine', () => {
     expect(result.phaseResult.detail).toBeUndefined()
   })
 
+  // DEV-1367 revokes text a verdict rejected. The no-evidence path has no
+  // verdict, so it must not reach text — the same reason it does not drop
+  // images. Nothing said the site was wrong; only that it could not be judged.
+  it('keeps scraped text when an unverifiable website is revoked without evidence', async () => {
+    const input = group({
+      subjectUrl: 'https://other.example',
+      subjectKind: 'website',
+      evidence: {},
+      unverifiable: true,
+      scrapedData: {
+        description: 'Brand copy',
+        story: 'Brand story',
+        textSourceUrl: 'https://other.example',
+        textProvenance: { description: { sourceUrl: 'https://other.example' } },
+      },
+    })
+
+    const result = await runSiteIdentityPhase(ctx(), new Map([['brand-1', [input]]]))
+
+    expect(input.scrapedData?.description).toBe('Brand copy')
+    expect(input.scrapedData?.story).toBe('Brand story')
+    expect(input.scrapedData?.textSourceUrl).toBe('https://other.example')
+    expect(input.scrapedData?.textProvenance).toEqual({
+      description: { sourceUrl: 'https://other.example' },
+    })
+    expect(result.applications.get('brand-1')?.phaseResult.changedFields).toEqual(['purchase_website'])
+  })
+
   it('publishes the revocation-only audit summary', async () => {
     const input = group({ subjectKind: 'website', evidence: {}, unverifiable: true })
     const summary: Record<string, unknown> = {}
@@ -286,6 +314,145 @@ describe('site identity quarantine', () => {
     arbitrate.mockResolvedValue({ results: new Map([[siteIdentityKey(brand.slug, input.subjectUrl), { slug: brand.slug, owned: false, confidence: 'high', reason: 'wrong' }]]), calls: { attempted: 1, providerFailed: 0 } })
     await runSiteIdentityPhase(ctx(), new Map([['brand-1', [input]]]))
     expect(input.linksResult?.scrapedImageUrls).toEqual(['https://www.facebook.com/highjewellerydream/a.jpg'])
+  })
+
+  // DEV-1367. For a Han-only brand name the link-identity gate is a no-op
+  // (`handleMatchesBrand` returns true on zero tokens), so a stranger's
+  // Instagram can be scraped and — when the official site yielded no text —
+  // its bio becomes the merged `description`/`story`. Before this, `revokeFields`
+  // cleared link columns and `filterRevokedImages` cleared images, but NOTHING
+  // cleared text: a high-confidence not-owned verdict still left another party's
+  // copy in `state.scrapedData` for the reputation and faq phases to consume.
+  const textGroup = (overrides: Partial<SiteIdentityQuarantine> = {}): SiteIdentityQuarantine =>
+    group({
+      subjectUrl: 'https://www.instagram.com/stranger',
+      columns: ['social_instagram'],
+      patch: { social_instagram: 'https://www.instagram.com/stranger' },
+      scrapedData: {
+        description: "A stranger's bio",
+        story: "A stranger's story",
+        textProvenance: {
+          description: { sourceUrl: 'https://www.instagram.com/stranger' },
+          story: { sourceUrl: 'https://www.instagram.com/stranger' },
+        },
+        textSourceUrl: 'https://www.instagram.com/stranger',
+      },
+      ...overrides,
+    })
+  const revokes = (subjectUrl: string) =>
+    arbitrate.mockResolvedValue({
+      results: new Map([[siteIdentityKey(brand.slug, subjectUrl), { slug: brand.slug, owned: false, confidence: 'high', reason: 'wrong' }]]),
+      calls: { attempted: 1, providerFailed: 0 },
+    })
+
+  it('revokes text sourced from the revoked page', async () => {
+    const input = textGroup()
+    revokes(input.subjectUrl)
+
+    const result = await runSiteIdentityPhase(ctx(), new Map([['brand-1', [input]]]))
+
+    expect(input.scrapedData?.description).toBeNull()
+    expect(input.scrapedData?.story).toBeNull()
+    expect(input.scrapedData?.textProvenance).toBeUndefined()
+    expect(input.scrapedData?.textSourceUrl).toBeUndefined()
+    expect(result.applications.get('brand-1')?.phaseResult.changedFields).toContain('description')
+    expect(result.applications.get('brand-1')?.phaseResult.changedFields).toContain('story')
+  })
+
+  // The stored column is deliberately untouched: `textProvenance` describes THIS
+  // run only, and nothing records the source of a description written by an
+  // earlier one. Clearing it would destroy legitimate copy on a host that later
+  // serves one bad page.
+  it('does not add text fields to _cleared_fields', async () => {
+    const input = textGroup()
+    revokes(input.subjectUrl)
+
+    const result = await runSiteIdentityPhase(
+      { ...ctx(), chunk: [{ ...brand, description: 'Stored copy' }] },
+      new Map([['brand-1', [input]]]),
+    )
+
+    expect(result.applications.get('brand-1')?.patch._cleared_fields ?? []).not.toContain('description')
+  })
+
+  // Same rule the image filter follows: text whose source page is unknown is
+  // released, not struck. Releasing is the safe direction.
+  it('leaves text with no provenance alone', async () => {
+    const input = textGroup({
+      scrapedData: { description: 'Unprovenanced copy', story: null },
+    })
+    revokes(input.subjectUrl)
+
+    await runSiteIdentityPhase(ctx(), new Map([['brand-1', [input]]]))
+
+    expect(input.scrapedData?.description).toBe('Unprovenanced copy')
+  })
+
+  it('leaves text sourced from a different page alone', async () => {
+    const input = textGroup({
+      scrapedData: {
+        description: 'Official copy',
+        story: null,
+        textProvenance: { description: { sourceUrl: 'https://official.example' } },
+        textSourceUrl: 'https://official.example',
+      },
+    })
+    revokes(input.subjectUrl)
+
+    await runSiteIdentityPhase(ctx(), new Map([['brand-1', [input]]]))
+
+    expect(input.scrapedData?.description).toBe('Official copy')
+    expect(input.scrapedData?.textSourceUrl).toBe('https://official.example')
+  })
+
+  // A source-page subject owns its own subtree, not the whole host — the same
+  // asymmetry `filterRevokedImages` already applies to images.
+  it('a source-page verdict does not revoke text from a sibling page on the same host', async () => {
+    const input = textGroup({
+      subjectUrl: 'https://www.facebook.com/impostor',
+      scrapedData: {
+        description: 'Real brand page copy',
+        story: null,
+        textProvenance: { description: { sourceUrl: 'https://www.facebook.com/realbrand' } },
+      },
+    })
+    revokes(input.subjectUrl)
+
+    await runSiteIdentityPhase(ctx(), new Map([['brand-1', [input]]]))
+
+    expect(input.scrapedData?.description).toBe('Real brand page copy')
+  })
+
+  // A website subject owns the whole domain, so every page under it goes.
+  it('a website verdict revokes text from any page on that host', async () => {
+    const input = textGroup({
+      subjectUrl: 'https://impostor.example',
+      subjectKind: 'website',
+      columns: ['purchase_website'],
+      patch: { purchase_website: 'https://impostor.example' },
+      scrapedData: {
+        description: 'Deep page copy',
+        story: null,
+        textProvenance: { description: { sourceUrl: 'https://impostor.example/about' } },
+      },
+    })
+    revokes(input.subjectUrl)
+
+    await runSiteIdentityPhase(ctx(), new Map([['brand-1', [input]]]))
+
+    expect(input.scrapedData?.description).toBeNull()
+  })
+
+  it('a released verdict leaves text intact', async () => {
+    const input = textGroup()
+    arbitrate.mockResolvedValue({
+      results: new Map([[siteIdentityKey(brand.slug, input.subjectUrl), { slug: brand.slug, owned: false, confidence: 'medium', reason: 'unsure' }]]),
+      calls: { attempted: 1, providerFailed: 0 },
+    })
+
+    await runSiteIdentityPhase(ctx(), new Map([['brand-1', [input]]]))
+
+    expect(input.scrapedData?.description).toBe("A stranger's bio")
   })
 
   it('provider failure reports skipped and releases all', async () => {

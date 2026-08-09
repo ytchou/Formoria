@@ -1,4 +1,4 @@
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { auditedCall } from "@/lib/audit";
 
 export const IMAGE_EVAL_BUCKET = "image-eval" as const;

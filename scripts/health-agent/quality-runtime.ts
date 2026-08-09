@@ -9,6 +9,7 @@ import {
   writeRedactedJson,
   type HealthCollectorArtifact,
 } from "./orchestrator";
+import { KNIP_KNOWN_NOISE, KNIP_VERSION } from "./knip-known-noise";
 import { evaluateQualityReports } from "./quality";
 
 const execFileAsync = promisify(execFile);
@@ -105,6 +106,12 @@ export async function collectQualityArtifact({
             "DOTENV_CONFIG_QUIET=true pnpm --silent knip --reporter json",
           fullUnitSuite:
             "pnpm test --reporter=json --outputFile=<temporary-file>",
+        },
+        knip: {
+          knownNoiseSuppressions: KNIP_KNOWN_NOISE.map((entry) => ({
+            ...entry,
+          })),
+          version: KNIP_VERSION,
         },
         summary: result.summary,
       },

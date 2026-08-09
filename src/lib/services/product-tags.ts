@@ -1,4 +1,5 @@
 import {
+  isRetiredCompositeLabel,
   matchSubcategory,
   normalizeTagKey,
   type ProductSubcategory,
@@ -16,7 +17,7 @@ export type ProductTagsDelta = {
   remove: string[]
 }
 
-export type NovelTagRejectionReason = 'length' | 'blocklist'
+export type NovelTagRejectionReason = 'length' | 'blocklist' | 'retired-composite'
 
 export type ProductTagInputResult =
   | { ok: true; tag: string; canonical: boolean }
@@ -41,6 +42,8 @@ const BLOCKLIST_SIZE_PREFIX = /^(超|迷你|小|大|長|短)/u
  * Expects an already-trimmed tag.
  */
 export function novelTagRejection(tag: string): NovelTagRejectionReason | null {
+  if (isRetiredCompositeLabel(tag)) return 'retired-composite'
+
   // Code points, not `.length`: `String.prototype.length` counts UTF-16 code
   // units, so one astral character (an emoji) would score 2 and clear the min,
   // and four would score 8 and clear the max — the exact input the band exists
@@ -83,6 +86,13 @@ export function resolveProductTagInput(input: string): ProductTagInputResult {
   const sub = matchSubcategory(trimmed)
   if (sub) return { ok: true, tag: sub.nameZh, canonical: true }
 
+  // Canonical ontology matching always wins first (for example, the accepted
+  // 卡片・明信片 synonym). Retired DEV-1361 composites are then blocked from
+  // the novel-tag escape hatch, including their compact no-dot spellings.
+  if (isRetiredCompositeLabel(trimmed)) {
+    return { ok: false, reason: 'retired-composite' }
+  }
+
   const rejection = novelTagRejection(trimmed)
   if (rejection) return { ok: false, reason: rejection }
 
@@ -99,6 +109,16 @@ export function normalizeProductTags(
   const crossBranch: string[] = []
   const seenSlugs = new Set<string>()
 
+  const addCanonicalSubcategory = (sub: ProductSubcategory): void => {
+    // Vocab match — dedupe by slug, first occurrence wins
+    if (seenSlugs.has(sub.slug)) return
+    seenSlugs.add(sub.slug)
+    pairs.push({ zh: sub.nameZh, en: sub.nameEn })
+    if (brandCategory !== undefined && sub.category !== brandCategory) {
+      crossBranch.push(sub.nameZh)
+    }
+  }
+
   for (let i = 0; i < tags.length; i++) {
     const rawZh = tags[i]
     const rawEn = tagsEn[i] ?? ''
@@ -107,14 +127,24 @@ export function normalizeProductTags(
 
     const sub = matchSubcategory(zh)
     if (sub) {
-      // Vocab match — dedupe by slug, first occurrence wins
-      if (seenSlugs.has(sub.slug)) continue
-      seenSlugs.add(sub.slug)
-      pairs.push({ zh: sub.nameZh, en: sub.nameEn })
-      if (brandCategory !== undefined && sub.category !== brandCategory) {
-        crossBranch.push(sub.nameZh)
-      }
+      addCanonicalSubcategory(sub)
     } else {
+      if (isRetiredCompositeLabel(zh)) {
+        rejected.push({ tag: rawZh, reason: 'retired-composite' })
+        continue
+      }
+
+      // An unmatched composite is not a product kind by itself. Keep only
+      // halves that resolve to canonical ontology tags; unresolved halves and
+      // the original composite must not become novel tags.
+      if (zh.includes('・')) {
+        for (const half of zh.split('・')) {
+          const halfSub = matchSubcategory(half.trim())
+          if (halfSub) addCanonicalSubcategory(halfSub)
+        }
+        continue
+      }
+
       // Novel tag heuristics
       const rejection = novelTagRejection(zh)
       if (rejection) {

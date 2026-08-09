@@ -86,7 +86,11 @@ async function globalSetup() {
     }
   }
 
-  // Sweep orphaned test data from previous runs (runs once, globally)
+  // Sweep orphaned test data from previous runs (runs once, globally). The 6h
+  // window is deliberate here — a tighter one would delete a concurrently
+  // running suite's live fixtures. Teardown sweeps THIS run's rows instead,
+  // using the timestamp recorded below (setup and teardown share a process).
+  process.env.E2E_RUN_STARTED_AT = new Date().toISOString();
   await cleanupTestData();
 
   const requiredVars = [
@@ -117,6 +121,9 @@ async function globalSetup() {
       name: "[E2E-TEST] Preflight Probe",
       slug: `e2e-preflight-probe-${Date.now()}`,
       status: "approved",
+      // `brands_approved_requires_timestamp` (#643): an approved row without
+      // this column is rejected outright.
+      approved_at: new Date().toISOString(),
     })
     .select("id")
     .single();
@@ -276,6 +283,20 @@ async function globalSetup() {
             .first()
             .waitFor({ state: "visible", timeout: 120_000 });
           console.log("[global-setup] /brands/[slug] warm-up complete");
+          // The unprefixed URL above redirects to the default locale (zh-TW),
+          // so the `en` render of this route is still cold. Specs navigate to
+          // /en/brands/[slug] client-side, where the first on-demand compile
+          // was measured at 4.4-8.4s — well past Playwright's 5s default
+          // `expect` budget, which reads as "the link does not navigate".
+          await page.goto(`${baseURL}/en/brands/${warmBrand.slug}`, {
+            waitUntil: "domcontentloaded",
+            timeout: 60000,
+          });
+          await page
+            .getByRole("heading", { level: 1 })
+            .first()
+            .waitFor({ state: "visible", timeout: 120_000 });
+          console.log("[global-setup] /en/brands/[slug] warm-up complete");
         }
       } catch (err) {
         console.warn(

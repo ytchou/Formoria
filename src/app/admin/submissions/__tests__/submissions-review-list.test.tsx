@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -16,6 +16,7 @@ const actions = vi.hoisted(() => ({
   approve: vi.fn(),
   bulkApprove: vi.fn(),
   reject: vi.fn(),
+  bulkReject: vi.fn(),
   enrich: vi.fn(),
   drop: vi.fn(),
 }));
@@ -28,6 +29,7 @@ vi.mock("@/app/admin/actions", () => ({
   approveSubmissionAction: actions.approve,
   approveSubmissionsAction: actions.bulkApprove,
   rejectSubmissionAction: actions.reject,
+  rejectSubmissionsAction: actions.bulkReject,
 }));
 vi.mock("@/app/admin/operations/actions", () => ({
   startCurationJobAction: actions.enrich,
@@ -52,6 +54,7 @@ beforeEach(() => {
   actions.approve.mockResolvedValue(undefined);
   actions.bulkApprove.mockResolvedValue({ failures: [] });
   actions.reject.mockResolvedValue(undefined);
+  actions.bulkReject.mockResolvedValue({ failures: [] });
   actions.enrich.mockResolvedValue({
     jobId: "job-1",
     detailPath: "/admin/jobs/job-1",
@@ -63,10 +66,11 @@ beforeEach(() => {
 });
 
 describe("SubmissionsReviewList", () => {
-  it("warns about a duplicate without blocking approval", () => {
+  it("warns about a duplicate without blocking approval", async () => {
     // Advisory by design: the slug is deduped, so approving a duplicate
     // succeeds and silently creates a second brand page. `TONELIT 同理` is live
     // twice from exactly this, so the reviewer is the only backstop.
+    const user = userEvent.setup();
     renderList(
       [
         makeSubmission({
@@ -82,15 +86,8 @@ describe("SubmissionsReviewList", () => {
     );
 
     expect(screen.getByText(/already exists/i)).toBeInTheDocument();
-    // The row's own Approve button, not the bulk "Approve N selected" one —
-    // that is disabled simply because nothing is checked.
-    const rowApprove = screen
-      .getAllByRole("button", { name: /approve/i })
-      .filter(
-        (button) => !/selected/i.test(button.getAttribute("aria-label") ?? ""),
-      );
-    expect(rowApprove.length).toBeGreaterThan(0);
-    for (const button of rowApprove) expect(button).toBeEnabled();
+    await openDrawer(user, "TONELIT 同理");
+    expect(screen.getByRole("button", { name: /^Approve$/ })).toBeEnabled();
   });
 
   it("warns when only other pending submissions share the name", () => {
@@ -125,17 +122,14 @@ describe("SubmissionsReviewList", () => {
       "ready",
     );
 
-    await user.click(
-      screen.getByRole("combobox", { name: /enrichment completeness/i }),
-    );
-    await user.click(await screen.findByRole("option", { name: "Complete" }));
+    const filter = screen.getByRole("combobox", {
+      name: /enrichment completeness/i,
+    });
+    await user.selectOptions(filter, "complete");
     expect(screen.getByText("Complete Brand")).toBeInTheDocument();
     expect(screen.queryByText("Incomplete Brand")).not.toBeInTheDocument();
 
-    await user.click(
-      screen.getByRole("combobox", { name: /enrichment completeness/i }),
-    );
-    await user.click(await screen.findByRole("option", { name: "Incomplete" }));
+    await user.selectOptions(filter, "incomplete");
     expect(screen.queryByText("Complete Brand")).not.toBeInTheDocument();
     expect(screen.getByText("Incomplete Brand")).toBeInTheDocument();
   });
@@ -199,19 +193,10 @@ describe("SubmissionsReviewList", () => {
     ).not.toBeChecked();
   });
 
-  it("bulk approves exactly the selected ready submissions", async () => {
+  it("bulk approve calls the array action exactly once", async () => {
     const user = userEvent.setup();
     vi.spyOn(window, "confirm").mockReturnValue(true);
-    renderList(
-      Array.from({ length: 5 }, (_, index) =>
-        makeSubmission({
-          id: `ready-${index + 1}`,
-          brandName: `Ready Brand ${index + 1}`,
-          reviewData: { ...baseReviewData, name: `Ready Brand ${index + 1}` },
-        }),
-      ),
-      "ready",
-    );
+    renderList(readySubmissions(5), "ready");
 
     for (const name of ["Ready Brand 1", "Ready Brand 3", "Ready Brand 5"]) {
       await user.click(
@@ -228,10 +213,122 @@ describe("SubmissionsReviewList", () => {
       "ready-3",
       "ready-5",
     ]);
+    // Unselected rows are untouched, and no per-item fan-out ever runs.
     expect(actions.approve).not.toHaveBeenCalled();
+  });
+
+  it("does not call router.refresh after bulk approve", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderList(readySubmissions(2), "ready");
+
+    await user.click(
+      screen.getByRole("checkbox", { name: "Select Ready Brand 1" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Approve 1 selected" }),
+    );
+
+    expect(actions.bulkApprove).toHaveBeenCalledOnce();
     expect(navigation.refresh).not.toHaveBeenCalled();
+  });
+
+  it("optimistically removes approved rows", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderList(readySubmissions(3), "ready");
+
+    await user.click(
+      screen.getByRole("checkbox", { name: "Select Ready Brand 1" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Approve 1 selected" }),
+    );
+
     expect(screen.queryByText("Ready Brand 1")).not.toBeInTheDocument();
     expect(screen.getByText("Ready Brand 2")).toBeInTheDocument();
+  });
+
+  it("keeps failed rows selected after a partial bulk failure", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    actions.bulkApprove.mockResolvedValue({
+      failures: [{ submissionId: "ready-2", error: "Base brand changed" }],
+    });
+    renderList(readySubmissions(2), "ready");
+
+    await user.click(
+      screen.getByRole("checkbox", { name: "Select Ready Brand 1" }),
+    );
+    await user.click(
+      screen.getByRole("checkbox", { name: "Select Ready Brand 2" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Approve 2 selected" }),
+    );
+
+    expect(screen.queryByText("Ready Brand 1")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: "Select Ready Brand 2" }),
+    ).toBeChecked();
+    // The e2e suite selects `p.type-error` and asserts it names the brand.
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Ready Brand 2: Base brand changed",
+    );
+  });
+
+  it("bulk reject calls a single array action", async () => {
+    const user = userEvent.setup();
+    renderList(readySubmissions(3), "ready");
+
+    await user.click(
+      screen.getByRole("checkbox", { name: "Select Ready Brand 1" }),
+    );
+    await user.click(
+      screen.getByRole("checkbox", { name: "Select Ready Brand 3" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Reject 2 selected" }));
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Bulk rejection reason" }),
+      "duplicate",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Confirm reject 2 selected" }),
+    );
+
+    expect(actions.bulkReject).toHaveBeenCalledOnce();
+    expect(actions.bulkReject).toHaveBeenCalledWith(
+      ["ready-1", "ready-3"],
+      "duplicate",
+    );
+    expect(actions.reject).not.toHaveBeenCalled();
+  });
+
+  it("per-row approve and reject remain reachable by their existing names", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderList(
+      [
+        makeSubmission({ id: "one", brandName: "First Brand" }),
+        makeSubmission({ id: "two", brandName: "Second Brand" }),
+      ],
+      "ready",
+    );
+
+    // Per wireframe R1 the per-row controls live in the drawer; the accessible
+    // names are unchanged.
+    await openDrawer(user, "Second Brand");
+    expect(screen.getByRole("button", { name: /^Approve$/ })).toBeVisible();
+    expect(screen.getByRole("button", { name: /^Reject$/ })).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: /^Approve$/ }));
+    expect(actions.approve).toHaveBeenCalledTimes(1);
+    expect(actions.approve).toHaveBeenCalledWith("two");
+
+    await openDrawer(user, "First Brand");
+    await user.click(screen.getByRole("button", { name: /^Reject$/ }));
+    expect(actions.reject).toHaveBeenCalledTimes(1);
+    expect(actions.reject).toHaveBeenCalledWith("one", "admin_reject", "");
   });
 
   it("routes mixed bulk approval through the shared action", async () => {
@@ -251,11 +348,14 @@ describe("SubmissionsReviewList", () => {
       "ready",
     );
 
+    await openDrawer(user, "Existing Brand");
     expect(
       screen.getByRole("button", {
         name: "Approve — updates the live brand",
       }),
     ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Close dialog" }));
+
     await user.click(
       screen.getByRole("checkbox", { name: "Select New Brand" }),
     );
@@ -295,12 +395,13 @@ describe("SubmissionsReviewList", () => {
       screen.getByRole("button", { name: "Run Detail step again (0)" }),
     ).toBeDisabled();
     expect(screen.getAllByRole("checkbox")).toHaveLength(2);
+    // Row-level decisions moved into the drawer, so the closed table has none.
     expect(
-      screen.getByRole("button", { name: /^Approve$/ }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: /^Approve$/ }),
+    ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /^Reject$/ }),
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: /^Reject$/ }),
+    ).not.toBeInTheDocument();
 
     readyView.unmount();
     renderList(
@@ -330,12 +431,6 @@ describe("SubmissionsReviewList", () => {
       screen.queryByRole("button", { name: /Reject \d+ selected/ }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /^Approve$/ }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /^Reject$/ }),
-    ).not.toBeInTheDocument();
-    expect(
       screen.queryByRole("button", { name: /Run Image step again/ }),
     ).not.toBeInTheDocument();
     expect(
@@ -345,13 +440,7 @@ describe("SubmissionsReviewList", () => {
 
   it("re-runs only the image step for the selected ready submissions", async () => {
     const user = userEvent.setup();
-    renderList(
-      [
-        makeSubmission({ id: "ready-1", brandName: "Ready Brand 1" }),
-        makeSubmission({ id: "ready-2", brandName: "Ready Brand 2" }),
-      ],
-      "ready",
-    );
+    renderList(readySubmissions(2), "ready");
 
     await user.click(
       screen.getByRole("checkbox", { name: "Select Ready Brand 2" }),
@@ -370,10 +459,7 @@ describe("SubmissionsReviewList", () => {
 
   it("re-runs the detail step for the selected ready submissions", async () => {
     const user = userEvent.setup();
-    renderList(
-      [makeSubmission({ id: "ready-1", brandName: "Ready Brand 1" })],
-      "ready",
-    );
+    renderList(readySubmissions(1), "ready");
 
     await user.click(
       screen.getByRole("checkbox", { name: "Select Ready Brand 1" }),
@@ -417,9 +503,8 @@ describe("SubmissionsReviewList", () => {
     expect(screen.getByRole("button", { name: "Fetch Data" })).toBeEnabled();
   });
 
-  it("opens a wide accessible review drawer and keeps row actions independent", async () => {
+  it("opens a wide accessible review drawer for one row at a time", async () => {
     const user = userEvent.setup();
-    vi.spyOn(window, "confirm").mockReturnValue(true);
     renderList(
       [
         makeSubmission({ id: "one", brandName: "First Brand" }),
@@ -442,28 +527,14 @@ describe("SubmissionsReviewList", () => {
     );
     expect(screen.queryByText("details-one")).not.toBeInTheDocument();
     expect(screen.getByText("details-two")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Close dialog" }));
-
-    const secondRow = screen.getByText("Second Brand").closest("tr");
-    expect(secondRow).not.toBeNull();
-    await user.click(
-      within(secondRow!).getByRole("button", { name: "Approve" }),
-    );
-    expect(actions.approve).toHaveBeenCalledTimes(1);
-    expect(actions.approve).toHaveBeenCalledWith("two");
-    expect(screen.queryByText("details-two")).not.toBeInTheDocument();
-
-    const firstRow = screen.getByText("First Brand").closest("tr");
-    expect(firstRow).not.toBeNull();
-    await user.click(within(firstRow!).getByRole("button", { name: "Reject" }));
-    expect(actions.reject).toHaveBeenCalledTimes(1);
-    expect(actions.reject).toHaveBeenCalledWith("one", "admin_reject", "");
   });
 
-  it("keeps row approval disabled when review data is incomplete", () => {
+  it("keeps row approval disabled when review data is incomplete", async () => {
+    const user = userEvent.setup();
     renderList(
       [
         makeSubmission({
+          brandName: "Partial Brand",
           reviewCompleteness: {
             complete: false,
             missingFields: ["heroImage"],
@@ -473,9 +544,30 @@ describe("SubmissionsReviewList", () => {
       "ready",
     );
 
-    expect(screen.getByRole("button", { name: "Approve" })).toBeDisabled();
+    await openDrawer(user, "Partial Brand");
+    expect(screen.getByRole("button", { name: /^Approve$/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^Reject$/ })).toBeEnabled();
   });
 });
+
+async function openDrawer(
+  user: ReturnType<typeof userEvent.setup>,
+  brandName: string,
+) {
+  await user.click(
+    screen.getByRole("button", { name: `Expand review for ${brandName}` }),
+  );
+}
+
+function readySubmissions(count: number): ReviewSubmission[] {
+  return Array.from({ length: count }, (_, index) =>
+    makeSubmission({
+      id: `ready-${index + 1}`,
+      brandName: `Ready Brand ${index + 1}`,
+      reviewData: { ...baseReviewData, name: `Ready Brand ${index + 1}` },
+    }),
+  );
+}
 
 const baseReviewData = {
   name: "Test Brand",
@@ -582,6 +674,9 @@ function image(id: string, url: string, sortOrder: number) {
     altEn: null,
     width: 1200,
     height: 900,
+    isLogo: false,
+    focalX: null,
+    focalY: null,
     originBrandImageId: null,
   };
 }

@@ -3,7 +3,7 @@ import type {
   FormoriaBusinessDataSource,
 } from '@/lib/services/formoria-business'
 import type { DateWindow } from '@/lib/analytics/posthog-types'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
 type ApprovedBrandRow = {
   id: string

@@ -137,7 +137,12 @@ jobs:
             ${{ runner.os }}-nextjs-
 
       - name: Build Next.js (production)
-        run: pnpm build
+        run: |
+          if ! pnpm build; then
+            echo "Initial build failed; clearing the generated output and retrying once."
+            rm -rf .next
+            pnpm build
+          fi
 
       - name: Install all desktop Playwright browsers
         if: needs.select.outputs.cross_browser == 'true'
@@ -147,14 +152,14 @@ jobs:
         if: needs.select.outputs.cross_browser != 'true' && needs.select.outputs.specs != ''
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Run selected canonical smoke cases in Chromium
+      - name: Run selected E2E specs in Chromium
         if: needs.select.outputs.specs != ''
         env:
           SPECS: ${{ needs.select.outputs.specs }}
         run: |
           set -euo pipefail
           read -r -a SPEC_PATHS <<< "$SPECS"
-          pnpm exec playwright test --project=deep --grep '@smoke' "${SPEC_PATHS[@]}"
+          pnpm exec playwright test --project=deep "${SPEC_PATHS[@]}"
 
       - name: Run the dedicated compatibility journey in three browsers
         if: needs.select.outputs.cross_browser == 'true'

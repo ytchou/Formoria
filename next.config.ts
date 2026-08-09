@@ -1,45 +1,70 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
-import createNextIntlPlugin from 'next-intl/plugin'
-import { ALLOWED_IMAGE_HOSTS } from './src/lib/images/allowed-image-hosts'
+import createNextIntlPlugin from "next-intl/plugin";
+import { ALLOWED_IMAGE_HOSTS } from "./src/lib/images/allowed-image-hosts";
 
 // Ensure the E2E admin account is recognised as admin by the Next.js server.
 // playwright.config.ts patches ADMIN_EMAILS for the test runner process, but
 // the dev server is a separate process — it needs the same patch at startup.
 if (process.env.E2E_ADMIN_EMAIL) {
-  const current = process.env.ADMIN_EMAILS ?? '';
-  const admins = current.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+  const current = process.env.ADMIN_EMAILS ?? "";
+  const admins = current
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
   const e2eAdmin = process.env.E2E_ADMIN_EMAIL.trim().toLowerCase();
   if (!admins.includes(e2eAdmin)) {
-    process.env.ADMIN_EMAILS = current ? `${current},${process.env.E2E_ADMIN_EMAIL}` : process.env.E2E_ADMIN_EMAIL;
+    process.env.ADMIN_EMAILS = current
+      ? `${current},${process.env.E2E_ADMIN_EMAIL}`
+      : process.env.E2E_ADMIN_EMAIL;
   }
 }
 
-const imgSrcHosts = ALLOWED_IMAGE_HOSTS.map((hostname) => `https://${hostname}`).join(' ')
-const mapTileImgSrcHosts = 'https://*.tile.openstreetmap.org'
-const googleAdsImgSrcHosts = 'https://www.google.com https://www.google.com.tw'
+/**
+ * Retired L1 taxonomy slugs and the category that absorbed each one.
+ *
+ * Pairs, not a record, so the two slugs that both merged into
+ * `bags-accessories` (and the two into `kids-pets`) stay expressible.
+ */
+const RETIRED_CATEGORY_SLUGS: ReadonlyArray<
+  readonly [from: string, to: string]
+> = [
+  ["accessories", "bags-accessories"],
+  ["bags", "bags-accessories"],
+  ["baby-kids", "kids-pets"],
+  ["pets", "kids-pets"],
+  ["food", "food-drink"],
+  ["beverages", "food-drink"],
+  ["clothing", "fashion"],
+];
+
+const imgSrcHosts = ALLOWED_IMAGE_HOSTS.map(
+  (hostname) => `https://${hostname}`,
+).join(" ");
+const mapTileImgSrcHosts = "https://*.tile.openstreetmap.org";
+const googleAdsImgSrcHosts = "https://www.google.com https://www.google.com.tw";
 const supabaseOrigin = (() => {
-  const configuredUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()
-  if (!configuredUrl) return ''
+  const configuredUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  if (!configuredUrl) return "";
   try {
-    return new URL(configuredUrl).origin
+    return new URL(configuredUrl).origin;
   } catch {
-    return ''
+    return "";
   }
-})()
+})();
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ['adm-zip', '@playwright/test'],
-  transpilePackages: ['react-simple-maps'],
+  serverExternalPackages: ["adm-zip", "@playwright/test"],
+  transpilePackages: ["react-simple-maps"],
   experimental: {
     turbopackFileSystemCacheForDev: false,
     serverActions: {
-      bodySizeLimit: '5mb',
+      bodySizeLimit: "5mb",
     },
   },
   images: {
     remotePatterns: ALLOWED_IMAGE_HOSTS.map((hostname) => ({
-      protocol: 'https',
+      protocol: "https",
       hostname,
     })),
     // WebP only, no AVIF: brand images are already stored as WebP (1,647 of
@@ -47,7 +72,7 @@ const nextConfig: NextConfig = {
     // contentType: 'image/webp'), so AVIF's marginal payload win over an
     // already-efficient source does not justify its much slower encode on a
     // container whose optimizer cache is ephemeral and re-derives on cold start.
-    formats: ['image/webp'],
+    formats: ["image/webp"],
     // The optimizer cache lives on the single Railway container's ephemeral disk,
     // so every cold start re-derives from source. A long TTL maximises reuse within
     // a container's lifetime; 30 days bounds staleness if a brand image is replaced
@@ -57,10 +82,10 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: '/(.*)',
+        source: "/(.*)",
         headers: [
           {
-            key: 'Content-Security-Policy',
+            key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://challenges.cloudflare.com https://*.sentry.io https://static.cloudflareinsights.com https://e.formoria.com",
@@ -74,83 +99,126 @@ const nextConfig: NextConfig = {
               "form-action 'self'",
               "base-uri 'self'",
               "object-src 'none'",
-            ].join('; '),
+            ].join("; "),
           },
           {
-            key: 'X-Frame-Options',
-            value: 'DENY',
+            key: "X-Frame-Options",
+            value: "DENY",
           },
           {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff',
+            key: "X-Content-Type-Options",
+            value: "nosniff",
           },
           {
-            key: 'Referrer-Policy',
-            value: 'strict-origin-when-cross-origin',
+            key: "Referrer-Policy",
+            value: "strict-origin-when-cross-origin",
           },
           {
-            key: 'Strict-Transport-Security',
-            value: 'max-age=31536000; includeSubDomains',
+            key: "Strict-Transport-Security",
+            value: "max-age=31536000; includeSubDomains",
           },
           {
-            key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=()',
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=()",
           },
         ],
       },
-    ]
+    ];
   },
   async redirects() {
     return [
       {
-        source: '/index.html',
-        destination: '/',
+        source: "/index.html",
+        destination: "/",
         permanent: true,
       },
-      // Legacy category routes consolidate into the brands directory filter.
+      // Legacy singular category routes now point at the taxonomy landing surface.
       {
-        source: '/category/:category',
-        destination: '/brands?category=:category',
-        permanent: true,
+        source: "/category/:category",
+        destination: "/categories/:category",
+        statusCode: 301,
       },
       {
-        source: '/categories',
-        destination: '/brands',
-        permanent: true,
-      },
-      {
-        source: '/categories/:category',
-        destination: '/brands?category=:category',
+        source: "/categories",
+        destination: "/brands",
         permanent: true,
       },
       {
-        source: '/en/category/:category',
-        destination: '/en/brands?category=:category',
+        source: "/en/category/:category",
+        destination: "/en/categories/:category",
+        statusCode: 301,
+      },
+      {
+        source: "/zh-TW/category/:category",
+        destination: "/categories/:category",
+        statusCode: 301,
+      },
+      {
+        source: "/en/categories",
+        destination: "/en/brands",
         permanent: true,
       },
       {
-        source: '/zh-TW/category/:category',
-        destination: '/brands?category=:category',
+        source: "/zh-TW/categories",
+        destination: "/brands",
+        permanent: true,
+      },
+      // L1 taxonomy slugs that were merged or renamed. Search Console reports
+      // every one of these still being crawled and 404ing, so the equity they
+      // earned is recoverable — category pages are the highest-value non-brand
+      // URLs in the directory.
+      //
+      // `/category/:category` above already 301s the singular form into
+      // `/categories/:category`, so a legacy `/category/food` now resolves in
+      // two hops rather than landing on a 404. Two is within Google's budget;
+      // do not stack a third by pointing anything here at another alias.
+      ...RETIRED_CATEGORY_SLUGS.flatMap(([from, to]) => [
+        {
+          source: `/categories/${from}`,
+          destination: `/categories/${to}`,
+          permanent: true,
+        },
+        {
+          source: `/en/categories/${from}`,
+          destination: `/en/categories/${to}`,
+          permanent: true,
+        },
+        {
+          source: `/zh-TW/categories/${from}`,
+          destination: `/categories/${to}`,
+          permanent: true,
+        },
+      ]),
+      // `others` was a catch-all bucket with no successor L1; the directory
+      // root is the closest surface that still answers the same intent.
+      {
+        source: "/categories/others",
+        destination: "/brands",
         permanent: true,
       },
       {
-        source: '/en/categories',
-        destination: '/en/brands',
+        source: "/en/categories/others",
+        destination: "/en/brands",
         permanent: true,
       },
       {
-        source: '/zh-TW/categories',
-        destination: '/brands',
+        source: "/zh-TW/categories/others",
+        destination: "/brands",
         permanent: true,
       },
       {
-        source: '/en/categories/:category',
-        destination: '/en/brands?category=:category',
+        source: "/about-us",
+        destination: "/about",
         permanent: true,
       },
       {
-        source: '/zh-TW/categories/:category',
-        destination: '/brands?category=:category',
+        source: "/en/about-us",
+        destination: "/en/about",
+        permanent: true,
+      },
+      {
+        source: "/zh-TW/about-us",
+        destination: "/about",
         permanent: true,
       },
       // The editorial surface was renamed /guides -> /stories. `guides` was also
@@ -161,33 +229,33 @@ const nextConfig: NextConfig = {
       // Slugs are NOT preserved: the two /guides/* documents were placeholder
       // content that no longer exists, so /stories/:slug would only 404 again.
       {
-        source: '/guides',
-        destination: '/stories',
+        source: "/guides",
+        destination: "/stories",
         permanent: true,
       },
       {
-        source: '/guides/:slug*',
-        destination: '/stories',
+        source: "/guides/:slug*",
+        destination: "/stories",
         permanent: true,
       },
       {
-        source: '/en/guides',
-        destination: '/en/stories',
+        source: "/en/guides",
+        destination: "/en/stories",
         permanent: true,
       },
       {
-        source: '/en/guides/:slug*',
-        destination: '/en/stories',
+        source: "/en/guides/:slug*",
+        destination: "/en/stories",
         permanent: true,
       },
       {
-        source: '/zh-TW/guides',
-        destination: '/stories',
+        source: "/zh-TW/guides",
+        destination: "/stories",
         permanent: true,
       },
       {
-        source: '/zh-TW/guides/:slug*',
-        destination: '/stories',
+        source: "/zh-TW/guides/:slug*",
+        destination: "/stories",
         permanent: true,
       },
       // Same trap as /guides above: the feature-request board moved from
@@ -196,40 +264,40 @@ const nextConfig: NextConfig = {
       // 308 to /brands/feedback, which 404s. These keep the old internal links
       // (footer, FAQ, account menu) landing on the board.
       {
-        source: '/feedback',
-        destination: '/feature-requests',
+        source: "/feedback",
+        destination: "/feature-requests",
         permanent: true,
       },
       {
-        source: '/en/feedback',
-        destination: '/en/feature-requests',
+        source: "/en/feedback",
+        destination: "/en/feature-requests",
         permanent: true,
       },
       {
-        source: '/zh-TW/feedback',
-        destination: '/feature-requests',
+        source: "/zh-TW/feedback",
+        destination: "/feature-requests",
         permanent: true,
       },
       {
-        source: '/zh-TW/auth/:path*',
-        destination: '/auth/:path*',
+        source: "/zh-TW/auth/:path*",
+        destination: "/auth/:path*",
         permanent: true,
       },
       {
-        source: '/admin/claim-requests',
-        destination: '/admin/claims',
+        source: "/admin/claim-requests",
+        destination: "/admin/claims",
         permanent: true,
       },
       {
-        source: '/admin/taxonomy',
-        destination: '/admin/catalog/taxonomy',
+        source: "/admin/taxonomy",
+        destination: "/admin/catalog/taxonomy",
         permanent: true,
       },
-    ]
+    ];
   },
 };
 
-const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts')
+const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 export default withSentryConfig(withNextIntl(nextConfig), {
   // For all available options, see:

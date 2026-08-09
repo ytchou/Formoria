@@ -114,6 +114,20 @@ test.describe('Auth — sign-up flow', () => {
 
       const outcome = await waitForDelivery(signupEmail, { apiKey: resendApiKey });
 
+      if (outcome.status === 'unobservable') {
+        // Resend refused the credential (needs read access for GET /emails, which
+        // a sending-only key does not have). That says nothing about whether the
+        // message was delivered, so failing here would assert something this test
+        // never established — and it would take the whole production synthetic
+        // suite down with it. Same treatment as the quota case below: visibly
+        // incomplete, never falsely green. Tracked on DEV-1380.
+        test.skip(
+          true,
+          `Resend rejected the API key (HTTP ${outcome.httpStatus}) — delivery to ${signupEmail} could not be observed; rotate RESEND_API_KEY to a full-access key (DEV-1380)`,
+        );
+        return;
+      }
+
       if (outcome.status === 'pending') {
         // Still in flight after the poll window. Genuinely unknown, not a defect —
         // same treatment as the quota case: visibly incomplete, never falsely green.

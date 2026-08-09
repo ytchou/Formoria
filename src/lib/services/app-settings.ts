@@ -1,11 +1,10 @@
 import { cache } from 'react'
 import type { Json } from '@/lib/supabase/database.types'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { OWNER_FEATURES_KEY } from './app-settings-config'
 export {
   FEATURE_FLAGS,
   OWNER_FEATURES_KEY,
-  SUBCATEGORY_FILTER_KEY,
 } from './app-settings-config'
 
 export async function getAppSetting<T extends Json = Json>(

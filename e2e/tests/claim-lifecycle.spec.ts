@@ -85,6 +85,7 @@ async function seedBrand(supabase: AnySupabaseClient, suffix: string): Promise<S
       name,
       slug,
       status: 'approved',
+      approved_at: new Date().toISOString(),
       product_type: 'crafts',
       description: `Disposable ${suffix} claim lifecycle brand.`,
       retail_locations: [],
@@ -258,6 +259,9 @@ test.describe('Claim request lifecycle', () => {
       await openAdminClaim(adminPage, brand.name);
       await expect(adminPage.getByText(/Verified|已驗證/)).toBeVisible();
       await adminPage.getByRole('button', { name: /^approve$/i }).click();
+      // The decision closes the modal drawer; its backdrop covers the tab strip
+      // until it unmounts, so wait for that instead of racing the click.
+      await expect(adminPage.getByRole('dialog')).toBeHidden({ timeout: 15_000 });
       await adminPage.getByRole('tab', { name: /^Approved \(/ }).click();
       const approvedRow = adminPage.getByRole('row').filter({ hasText: brand.name }).first();
       await expect(approvedRow).toBeVisible();
@@ -360,13 +364,22 @@ test.describe('Claim request lifecycle', () => {
         .fill(rejectionNotes);
       await adminPage.getByRole('button', { name: /confirm reject/i }).click();
 
+      // The decision closes the modal drawer; its backdrop covers the tab strip
+      // until it unmounts, so wait for that instead of racing the click.
+      await expect(adminPage.getByRole('dialog')).toBeHidden({ timeout: 15_000 });
       await adminPage.getByRole('tab', { name: /^Rejected \(/ }).click();
       const rejectedRow = adminPage.getByRole('row').filter({ hasText: brand.name }).first();
       await expect(rejectedRow).toBeVisible({ timeout: 15_000 });
-      await expect(rejectedRow).toHaveAttribute('aria-expanded', 'true');
-      await expect(adminPage.getByText(rejectionNotes, { exact: true })).toBeVisible();
-      await expect(adminPage.getByText(/Proof file cleanup|證明檔案清理狀態/)).toBeVisible();
-      await expect(adminPage.getByText(/Deleted|已刪除/, { exact: true })).toBeVisible();
+      const rejectedDisclosure = rejectedRow.getByRole('button', {
+        name: `Show details for ${brand.name}`,
+      });
+      await expect(rejectedDisclosure).toHaveAttribute('aria-expanded', 'false');
+      await rejectedDisclosure.click();
+      const rejectedDrawer = adminPage.getByRole('dialog');
+      await expect(rejectedDrawer).toBeVisible();
+      await expect(rejectedDrawer.getByText(rejectionNotes, { exact: true })).toBeVisible();
+      await expect(rejectedDrawer.getByText(/Proof file cleanup|證明檔案清理狀態/)).toBeVisible();
+      await expect(rejectedDrawer.getByText(/Deleted|已刪除/, { exact: true })).toBeVisible();
 
       await expect
         .poll(async () => {

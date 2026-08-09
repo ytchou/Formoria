@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  getBrandGalleryImageEntries,
   getBrandGalleryImages,
   insertBrandImage,
   rejectBrandImages,
   releaseBrandImageUrls,
-  syncHeroDenormalized,
   toImageFields,
 } from './brand-images'
 
@@ -18,20 +18,6 @@ vi.mock('./image-upload', () => ({
   deleteStoredImagePaths: storageRemoveMock,
   deleteBrandImages: deleteBrandImagesMock,
 }))
-
-function createSyncClient(images: unknown[]) {
-  const order = vi.fn().mockResolvedValue({ data: images, error: null })
-  const statusEq = vi.fn(() => ({ order }))
-  const brandIdEq = vi.fn(() => ({ eq: statusEq }))
-  const select = vi.fn(() => ({ eq: brandIdEq }))
-  const updateEq = vi.fn().mockResolvedValue({ error: null })
-  const update = vi.fn(() => ({ eq: updateEq }))
-  const from = vi.fn((table: string) => (
-    table === 'brand_images' ? { select } : { update }
-  ))
-
-  return { client: { from }, update, updateEq }
-}
 
 function createRejectClient(images: unknown[]) {
   const selectIn = vi.fn().mockResolvedValue({ data: images, error: null })
@@ -177,6 +163,8 @@ describe('toImageFields', () => {
       alt_en: 'Handwoven rush-grass tote bag',
       width: 1600,
       height: 1200,
+      focal_x: 0.25,
+      focal_y: 0.75,
     },
     { url: 'https://images.formoria.com/workshop.webp', status: 'active', sort_order: 1 },
   ]
@@ -192,10 +180,40 @@ describe('toImageFields', () => {
       },
       productPhotos: ['https://images.formoria.com/workshop.webp'],
       imageAlts: [
-        { altZh: '職人手工編織的藺草提包', altEn: 'Handwoven rush-grass tote bag' },
-        { altZh: null, altEn: null },
+        {
+          altZh: '職人手工編織的藺草提包',
+          altEn: 'Handwoven rush-grass tote bag',
+          isLogo: false,
+          focalX: 0.25,
+          focalY: 0.75,
+        },
+        { altZh: null, altEn: null, isLogo: false, focalX: null, focalY: null },
       ],
     })
+  })
+
+  it('flags logo-tagged images so the renderer can contain rather than crop them', () => {
+    const tagged = [
+      {
+        url: 'https://images.formoria.com/mark.webp',
+        status: 'active',
+        sort_order: 0,
+        tags: ['logo'],
+      },
+      {
+        url: 'https://images.formoria.com/tote.webp',
+        status: 'active',
+        sort_order: 1,
+        tags: ['product'],
+      },
+      { url: 'https://images.formoria.com/untagged.webp', status: 'active', sort_order: 2 },
+    ]
+
+    expect(toImageFields(tagged as never).imageAlts.map((meta) => meta.isLogo)).toEqual([
+      true,
+      false,
+      false,
+    ])
   })
 })
 
@@ -214,6 +232,51 @@ describe('getBrandGalleryImages', () => {
       'https://images.example.com/hero.webp',
       'https://images.example.com/product-one.webp',
       'https://images.example.com/product-two.webp',
+    ])
+  })
+})
+
+describe('getBrandGalleryImageEntries', () => {
+  /*
+   * The index a dropped entry shifts is not decorative any more. `imageAlts` is
+   * built as `active.map(...)` over the UNFILTERED
+   * `[heroImageUrl, ...productPhotos]` sequence, and that metadata now selects
+   * fill mode and object-position as well as alt text — so a one-place shift
+   * letterboxes a product photo and crops a logo, rather than merely mislabelling
+   * one.
+   */
+  it('reports the unfiltered position of each surviving url', () => {
+    expect(
+      getBrandGalleryImageEntries({
+        heroImageUrl: 'https://images.example.com/hero.webp',
+        productPhotos: [
+          'https://images.example.com/product-one.webp',
+          '',
+          'https://images.example.com/product-two.webp',
+        ],
+      }),
+    ).toEqual([
+      { url: 'https://images.example.com/hero.webp', sourceIndex: 0 },
+      { url: 'https://images.example.com/product-one.webp', sourceIndex: 1 },
+      { url: 'https://images.example.com/product-two.webp', sourceIndex: 3 },
+    ])
+  })
+
+  it('keeps product photos on their original indices when the hero is null', () => {
+    // The case that shifted everything: a null hero is dropped, so the first
+    // product photo lands at array position 0 while its metadata still lives at
+    // index 1.
+    expect(
+      getBrandGalleryImageEntries({
+        heroImageUrl: null,
+        productPhotos: [
+          'https://images.example.com/product-one.webp',
+          'https://images.example.com/product-two.webp',
+        ],
+      }),
+    ).toEqual([
+      { url: 'https://images.example.com/product-one.webp', sourceIndex: 1 },
+      { url: 'https://images.example.com/product-two.webp', sourceIndex: 2 },
     ])
   })
 })

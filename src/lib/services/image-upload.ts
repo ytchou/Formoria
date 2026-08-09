@@ -1,4 +1,4 @@
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { auditedCall } from '@/lib/audit'
 import type { ImageProcessorConfig } from '@/lib/security/image-processor'
 import { uploadWithRetry } from './storage-retry'
@@ -12,6 +12,11 @@ export type AllowedUploadBucket = (typeof ALLOWED_UPLOAD_BUCKETS)[number]
 const BRAND_IMAGES_BUCKET = ALLOWED_UPLOAD_BUCKETS[0]
 const BRAND_IMAGES_PUBLIC_SEGMENT = `/storage/v1/object/public/${BRAND_IMAGES_BUCKET}/`
 const BRAND_IMAGES_KEY_PREFIX = 'brands/'
+const SUBMISSION_IMAGES_KEY_PREFIX = 'submissions/'
+const READABLE_IMAGE_KEY_PREFIXES = [
+  BRAND_IMAGES_KEY_PREFIX,
+  SUBMISSION_IMAGES_KEY_PREFIX,
+] as const
 const CLAIM_PROOF_IMAGE_CONFIG: Partial<ImageProcessorConfig> = {
   maxWidth: 2400,
   maxHeight: 2400,
@@ -44,6 +49,12 @@ export function getUploadImageProcessingConfig(
   return bucket === 'claim-proofs' ? CLAIM_PROOF_IMAGE_CONFIG : {}
 }
 
+/**
+ * DELETE-path key derivation: `brands/` only. Its consumer is
+ * `deleteBrandImages`, which removes every object it resolves, so anything it
+ * fails to recognise is merely left alone — a safe failure. Widening it would
+ * hand a delete path keys it was never audited to destroy.
+ */
 export function storageKeyFromPublicUrl(url: string): string | null {
   const prefix = getBrandImagesPublicPrefix()
   if (!url || !prefix || !url.startsWith(prefix)) {
@@ -59,28 +70,29 @@ export function storageKeyFromPublicUrl(url: string): string | null {
 }
 
 /**
- * Public render-endpoint URL for a stored brand image, width-capped so vision calls
- * fetch a small derivative instead of the full-size original (a 1.04 MB jpg comes back
- * as ~38 KB at width 512). Returns the input URL unchanged for external/legacy
- * hotlinks or when the Supabase base URL is not configured.
+ * READ-path twin, deliberately a separate function rather than a loosened
+ * `storageKeyFromPublicUrl`. `brands/` and `submissions/` are both in the
+ * `brand-images` bucket, and on a read an unrecognised key is the *unsafe*
+ * failure: DEV-1374 (2026-08-07) shipped the vision loader on the delete-path
+ * helper, so 23 queued `submission_images` rows — the ones with `storage_path`
+ * null and a `.../brand-images/submissions/<id>/x.webp` url — resolved to no
+ * key and failed their classify phase on every single run, permanently.
  *
- * Never persist this URL — the `url` column must stay the canonical object URL that
- * `storageKeyFromPublicUrl` and the site both depend on.
+ * The asymmetry is the point: the delete path fails closed, the read path fails
+ * open, so they cannot share a prefix list.
  */
-export function brandImageRenderUrl(
-  input: { storagePath?: string | null; url: string },
-  opts?: { width?: number; quality?: number }
-): string {
-  const base = process.env.NEXT_PUBLIC_SUPABASE_URL
-  if (!base) return input.url
+export function storageKeyFromPublicUrlForRead(url: string): string | null {
+  const prefix = getBrandImagesPublicPrefix()
+  if (!url || !prefix || !url.startsWith(prefix)) {
+    return null
+  }
 
-  const key = input.storagePath?.trim() || storageKeyFromPublicUrl(input.url)
-  if (!key) return input.url
+  const key = url.slice(prefix.length)
+  if (!READABLE_IMAGE_KEY_PREFIXES.some((allowed) => key.startsWith(allowed))) {
+    return null
+  }
 
-  const width = opts?.width ?? 512
-  const quality = opts?.quality ?? 70
-
-  return `${base}/storage/v1/render/image/public/${BRAND_IMAGES_BUCKET}/${key}?width=${width}&quality=${quality}`
+  return key
 }
 
 export async function deleteBrandImages(urls: string[]): Promise<void> {

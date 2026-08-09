@@ -15,8 +15,14 @@ type CalendarParts = { year: string; month: string; day: string }
 
 const ISO_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/
 
-/** En dash, the typographic range separator — not a hyphen. */
-const RANGE_SEPARATOR = '–'
+/**
+ * En dash, the typographic range separator — not a hyphen. Padded with a
+ * space on both sides so the range reads with the same rhythm as the authored
+ * schedule note beside it (`8/6(weekday) – 8/7(weekday) 10:00 – 18:00`, with
+ * the weekday written in Han); an unspaced
+ * dash between two slash-heavy dates ran the two ends together.
+ */
+const RANGE_SEPARATOR = ' – '
 
 function toCalendarParts(value: string | null | undefined): CalendarParts | null {
   if (!value) return null
@@ -72,8 +78,8 @@ function isSameDay(a: CalendarParts, b: CalendarParts): boolean {
  * `{dateLabel ? … : null}` — the same falsy check both branches already use.
  *
  * - single day → `2026/08/06`
- * - within one month → `2026/08/06–08/16` (year stated once)
- * - anything wider → `2026/08/01–2026/10/31`
+ * - within one month → `2026/08/06 – 08/16` (year stated once)
+ * - anything wider → `2026/08/01 – 2026/10/31`
  */
 export function formatEventDateRange(
   startsOn: string | null | undefined,

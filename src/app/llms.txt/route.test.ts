@@ -17,24 +17,24 @@ describe("GET /llms.txt", () => {
     for (const category of PRODUCT_TYPE_CATEGORIES) {
       expect(body).toContain(
         buildAlternates(
-          `/brands?category=${category.slug}`,
+          `/categories/${category.slug}`,
           "zh-TW",
         ).canonical,
       );
       expect(body).toContain(category.nameZh);
     }
 
-    for (const path of ["/events", "/faq", "/stats"]) {
+    for (const path of ["/events", "/faq"]) {
       expect(body).toContain(buildAlternates(path, "zh-TW").canonical);
     }
 
-    for (const path of ["/brands", "/stories", "/about", "/glossary"]) {
+    for (const path of ["/brands", "/stories", "/about"]) {
       expect(body).toContain(buildAlternates(path, "zh-TW").canonical);
     }
   });
 
   it("keeps a category URL when its optional description is missing", () => {
-    const url = "https://formoria.com/brands?category=fashion";
+    const url = "https://formoria.com/categories/fashion";
     const body = formatLlmsTxt({
       links: [],
       categories: [{ name: "Fashion & Apparel", nameZh: "服飾鞋履", url }],

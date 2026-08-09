@@ -18,7 +18,11 @@ import {
 import type { BreadcrumbItem } from "@/lib/json-ld";
 import { buildAlternates } from "@/lib/seo/alternates";
 import type { Locale } from "@/lib/seo/alternates";
-import { toPublicBrandCard, type PublicBrandCard, type PublicBrandDetail } from "@/lib/brands/contracts";
+import {
+  toPublicBrandCard,
+  type PublicBrandCard,
+  type PublicBrandDetail,
+} from "@/lib/brands/contracts";
 import { BrandViewTracker } from "@/components/brands/brand-view-tracker";
 import { BrandEngagementTracker } from "@/components/brands/brand-engagement-tracker";
 import { BrandBreadcrumb } from "@/components/brands/brand-breadcrumb";
@@ -82,14 +86,16 @@ type BrandFaqTranslateFn = (
   params?: Record<string, unknown>,
 ) => string;
 
-const loadApprovedBrand = cache(async (slug: string): Promise<PublicBrandDetail> => {
-  try {
-    return await getPublicBrandDetailBySlug(slug);
-  } catch (error) {
-    if (!(error instanceof NotFoundError) || error.cause) throw error;
-  }
-  notFound();
-});
+const loadApprovedBrand = cache(
+  async (slug: string): Promise<PublicBrandDetail> => {
+    try {
+      return await getPublicBrandDetailBySlug(slug);
+    } catch (error) {
+      if (!(error instanceof NotFoundError) || error.cause) throw error;
+    }
+    notFound();
+  },
+);
 
 export async function generateMetadata({
   params,
@@ -183,19 +189,23 @@ export default async function BrandDetailPage({ params }: PageProps) {
   const cityLabel = displayBrand.city ? tCities(displayBrand.city) : null;
   const faqContext = await getPublicBrandFaqContextById(displayBrand.id);
   const [faqItems, channels] = await Promise.all([
-    getBrandFaq(
-      displayBrand.id,
-      faqContext,
-      tBrandFaq,
-      safeLocale,
-      cityLabel,
-    ),
+    getBrandFaq(displayBrand.id, faqContext, tBrandFaq, safeLocale, cityLabel),
     // Skip the round trip entirely while the section is hidden.
     LOCATIONS_SECTION_ENABLED
       ? getChannelsForBrand(displayBrand.id)
       : Promise.resolve({ confirmed: [], possible: [] }),
   ]);
-  const faqJsonLd = buildFaqPageJsonLd(faqItemsToQuestions(faqItems), safeLocale);
+  // Same builder generateMetadata uses for <link rel="canonical">, so the
+  // structured data can never name a different URL than the page's own tag.
+  const { canonical: canonicalUrl } = buildAlternates(
+    `/brands/${displayBrand.slug}`,
+    safeLocale,
+  );
+  const faqJsonLd = buildFaqPageJsonLd(
+    faqItemsToQuestions(faqItems),
+    safeLocale,
+    canonicalUrl,
+  );
 
   const galleryImages = getBrandGalleryImages(displayBrand);
 
@@ -214,8 +224,9 @@ export default async function BrandDetailPage({ params }: PageProps) {
   // Parallel fetch: related brands + category count by product_type slug.
   const [relatedBrands, categoryCount] = await Promise.all([
     categoryTag
-      ? getRelatedBrands(categoryTag.slug, displayBrand.slug, 4)
-          .then((brands) => brands.map(toPublicBrandCard))
+      ? getRelatedBrands(categoryTag.slug, displayBrand.slug, 4).then(
+          (brands) => brands.map(toPublicBrandCard),
+        )
       : Promise.resolve<PublicBrandCard[]>([]),
     categoryTag
       ? getBrandCountByCategory(categoryTag.slug, displayBrand.slug)
@@ -257,7 +268,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
       ? [
           {
             label: categoryLabel || categoryTag.name,
-            href: `/brands?category=${categoryTag.slug}`,
+            href: `/categories/${categoryTag.slug}`,
           },
         ]
       : []),
@@ -278,7 +289,7 @@ export default async function BrandDetailPage({ params }: PageProps) {
             type="application/ld+json"
             dangerouslySetInnerHTML={{
               __html: safeJsonLdStringify(
-                buildBrandJsonLd(displayBrand, safeLocale),
+                buildBrandJsonLd(displayBrand, safeLocale, canonicalUrl),
               ),
             }}
           />
@@ -293,7 +304,9 @@ export default async function BrandDetailPage({ params }: PageProps) {
           {faqJsonLd && (
             <script
               type="application/ld+json"
-              dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(faqJsonLd) }}
+              dangerouslySetInnerHTML={{
+                __html: safeJsonLdStringify(faqJsonLd),
+              }}
             />
           )}
           {/* Breadcrumb */}
@@ -364,7 +377,12 @@ export default async function BrandDetailPage({ params }: PageProps) {
             <div
               className={cn(
                 "flex min-w-0 flex-col gap-8",
-                hasSectionNav && "md:col-span-4",
+                // Mobile only: the nav is a full-width sticky strip directly
+                // above this column, and the first section carries `first:pt-0`,
+                // so its heading would otherwise sit flush against the strip's
+                // bottom rule. On md+ the nav is a left rail beside this column,
+                // not above it, and the offset would be dead space.
+                hasSectionNav && "pt-6 md:col-span-4 md:pt-0",
               )}
             >
               {description && (

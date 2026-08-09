@@ -9,8 +9,10 @@
  * one keeps a hidden brand row alive. This closes them out with the detector's
  * own verdict recorded as the reviewer note, so a reopen has the reason.
  *
- * Mirrors rejectSubmissionAction (src/app/admin/actions.ts) with two deliberate
- * differences, both forced by running outside a Next request context:
+ * Mirrors rejectSubmissionForAdmin (src/app/admin/actions.ts) — the single-item
+ * workflow shared by rejectSubmissionAction and rejectSubmissionsAction — with
+ * two deliberate differences, both forced by running outside a Next request
+ * context:
  *
  *  1. No email is ever sent. The admin action mails a rejection notice for
  *     non-refresh submissions from a real submitter address; this script SKIPS
@@ -33,7 +35,7 @@ import {
   rejectSubmission,
   isGeneratedGuestSubmissionEmail,
 } from "@/lib/services/submissions";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 
 const APPLY = process.argv.includes("--apply");
 const ONLY = (

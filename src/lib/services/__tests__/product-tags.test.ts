@@ -67,6 +67,58 @@ describe('normalizeProductTags', () => {
     const result = normalizeProductTags(['手工皂'], [], 'fashion')
     expect(result.crossBranch).toEqual(['手工皂'])
   })
+
+  it('splits an unmatched composite tag and keeps the halves that resolve', () => {
+    const result = normalizeProductTags(['糖果・糕點'], [])
+
+    expect(result.tags).toEqual(['甜點・糕點'])
+    expect(result.tagsEn).toEqual(['Desserts & Pastries'])
+    expect(result.tags).not.toContain('糖果・糕點')
+  })
+
+  it('keeps a canonical composite tag untouched', () => {
+    const result = normalizeProductTags(['甜點・糕點'], [])
+
+    expect(result.tags).toEqual(['甜點・糕點'])
+    expect(result.tagsEn).toEqual(['Desserts & Pastries'])
+  })
+
+  it('rejects retired split composites after canonical synonym matching', () => {
+    const result = normalizeProductTags(['香氛・蠟燭', '香氛蠟燭'], [])
+
+    expect(result.tags).toEqual([])
+    expect(result.rejected).toEqual([
+      { tag: '香氛・蠟燭', reason: 'retired-composite' },
+      { tag: '香氛蠟燭', reason: 'retired-composite' },
+    ])
+    expect(resolveProductTagInput('香氛・蠟燭')).toEqual({
+      ok: false,
+      reason: 'retired-composite',
+    })
+    expect(resolveProductTagInput('卡片・明信片')).toEqual({
+      ok: true,
+      tag: '卡片・明信片',
+      canonical: true,
+    })
+    expect(resolveProductTagInput('手機吊飾')).toEqual({
+      ok: true,
+      tag: '手機背帶',
+      canonical: true,
+    })
+  })
+
+  it('drops an unmatched composite when neither half resolves', () => {
+    const result = normalizeProductTags(['地板・地板材料'], [])
+
+    expect(result.tags).not.toContain('地板・地板材料')
+    expect(result.tags).toEqual([])
+  })
+
+  it('preserves a non-composite novel tag', () => {
+    const result = normalizeProductTags(['雨傘'], [])
+
+    expect(result.tags).toEqual(['雨傘'])
+  })
 })
 
 describe('deriveProductTypeFromTags', () => {
@@ -156,6 +208,11 @@ describe('resolveProductTagInput', () => {
 describe('novelTagRejection', () => {
   it('novelTagRejection returns null for an acceptable novel tag', () => {
     expect(novelTagRejection('手工燈籠')).toBeNull()
+  })
+
+  it('rejects retired composite spellings before the novel-tag escape hatch', () => {
+    expect(novelTagRejection('香氛・蠟燭')).toBe('retired-composite')
+    expect(novelTagRejection('香氛蠟燭')).toBe('retired-composite')
   })
 
   it('agrees with the heuristics it replaced', () => {

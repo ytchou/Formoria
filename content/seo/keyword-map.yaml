@@ -17,6 +17,9 @@
 # getSubcategoryCounts and `/brands?category=…`: a fashion brand tagged 手鍊
 # does not count toward the jewelry subcategory it would never render on.
 # data/formoria-seed.csv (139 rows) is STALE and was NOT used for any count.
+# DEV-1361 replacement rows deliberately use brand_count: 0/data_quality: thin
+# until the reviewed per-brand split artifact supplies scoped assignments; the
+# source counts are not divided or presented as measured demand.
 #
 # ---------------------------------------------------------------------------
 # PRIORITY IS DERIVED, NEVER HAND-ASSIGNED
@@ -72,20 +75,21 @@
 # ---------------------------------------------------------------------------
 # SYNONYM vs MULTI-INTENT (the `composite` field)
 # ---------------------------------------------------------------------------
-# 57 of the 160 ontology subcategories have a middle-dot (・) name.
+# 48 of the 164 ontology subcategories have a middle-dot (・) name.
 # Each is classified exactly once, here or in unmapped_backlog:
 #
-#   composite: synonym       (19 rows)
+#   composite: synonym       (21 rows)
 #     The two terms name ONE intent — one is a subset, an alias, or a rewording
 #     of the other, and a searcher using either would accept the same brand set.
 #     Example: 皮夾・錢包, 陶瓷・陶藝, 涼鞋・拖鞋, 甜點・糕點.
 #     Eligible like any other row; one page legitimately owns both terms.
 #
-#   composite: multi-intent  (38 rows)
+#   composite: multi-intent  (27 rows)
 #     The two terms name genuinely DIFFERENT products that happen to share a
 #     slug. Example: 香氛・蠟燭, 鑰匙圈・吊飾, 體驗課程・DIY材料, 茶包・茶飲.
 #     These carry eligibility: reject-taxonomy and NO target_url. The schema
-#     refuses multi-intent + launch. Unblocked by the ontology split: DEV-1361.
+#     refuses multi-intent + launch. DEV-1361 replaces eight of these with
+#     atomic, explicitly deferred rows below.
 #
 #   composite: none
 #     Single-term subcategory name.
@@ -95,7 +99,7 @@
 # ---------------------------------------------------------------------------
 # l1-category and l2-category rows key off `ontology_slug` (kebab-case ASCII,
 # resolvable via subcategoryBySlug / PRODUCT_TYPE_CATEGORIES) — NEVER off a raw
-# product_tags string. 445 distinct tags are in use against 160 ontology
+# product_tags string. 445 distinct tags are in use against 156 ontology
 # entries, so a tag-keyed URL space would be uncontrolled. Raw tags may appear
 # only as secondary_keywords.
 #
@@ -123,7 +127,7 @@ version: 1
 generated_at: '2026-08-06'
 source: pnpm seo:counts (live Supabase, status=approved AND is_demo<>true)
 owner: DEV-1354
-notes: '87 clusters over 718 approved brands. l1-category and l2-category rows are target_status: proposed
+notes: '94 clusters over 718 approved brands. l1-category and l2-category rows are target_status: proposed
   — the /categories/[l1] and /categories/[l1]/[l2] URL shape is ratified by Ticket B, not by this file.
   Priority is derived; see the header block.'
 clusters:
@@ -210,7 +214,7 @@ clusters:
   search_intent: commercial
   page_type: l1-category
   target_url: /categories/home
-  target_status: proposed
+  target_status: live
   ontology_slug: home
   brand_count: 135
   data_quality: pass
@@ -236,7 +240,7 @@ clusters:
   search_intent: commercial
   page_type: l1-category
   target_url: /categories/fashion
-  target_status: proposed
+  target_status: live
   ontology_slug: fashion
   brand_count: 103
   data_quality: pass
@@ -262,7 +266,7 @@ clusters:
   search_intent: commercial
   page_type: l1-category
   target_url: /categories/beauty
-  target_status: proposed
+  target_status: live
   ontology_slug: beauty
   brand_count: 103
   data_quality: pass
@@ -289,7 +293,7 @@ clusters:
   search_intent: commercial
   page_type: l1-category
   target_url: /categories/food-drink
-  target_status: proposed
+  target_status: live
   ontology_slug: food-drink
   brand_count: 100
   data_quality: pass
@@ -315,7 +319,7 @@ clusters:
   search_intent: commercial
   page_type: l1-category
   target_url: /categories/crafts
-  target_status: proposed
+  target_status: live
   ontology_slug: crafts
   brand_count: 83
   data_quality: pass
@@ -344,7 +348,7 @@ clusters:
   search_intent: commercial
   page_type: l1-category
   target_url: /categories/bags-accessories
-  target_status: proposed
+  target_status: live
   ontology_slug: bags-accessories
   brand_count: 58
   data_quality: pass
@@ -370,7 +374,7 @@ clusters:
   search_intent: commercial
   page_type: l1-category
   target_url: /categories/jewelry
-  target_status: proposed
+  target_status: live
   ontology_slug: jewelry
   brand_count: 40
   data_quality: pass
@@ -396,7 +400,7 @@ clusters:
   search_intent: commercial
   page_type: l1-category
   target_url: /categories/kids-pets
-  target_status: proposed
+  target_status: live
   ontology_slug: kids-pets
   brand_count: 30
   data_quality: pass
@@ -423,7 +427,7 @@ clusters:
   search_intent: commercial
   page_type: l1-category
   target_url: /categories/stationery
-  target_status: proposed
+  target_status: live
   ontology_slug: stationery
   brand_count: 25
   data_quality: pass
@@ -448,7 +452,7 @@ clusters:
   search_intent: commercial
   page_type: l1-category
   target_url: /categories/outdoor
-  target_status: proposed
+  target_status: live
   ontology_slug: outdoor
   brand_count: 17
   data_quality: thin
@@ -526,7 +530,7 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /categories/beauty/bath-and-shower
-  target_status: proposed
+  target_status: live
   ontology_slug: bath-and-shower
   brand_count: 54
   data_quality: pass
@@ -559,7 +563,7 @@ clusters:
   intent_fit: 3
   differentiation: 3
   priority: P0
-  eligibility: launch
+  eligibility: defer-no-demand
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -578,7 +582,7 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /categories/jewelry/necklaces
-  target_status: proposed
+  target_status: live
   ontology_slug: necklaces
   brand_count: 35
   data_quality: pass
@@ -604,7 +608,7 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /categories/jewelry/earrings
-  target_status: proposed
+  target_status: live
   ontology_slug: earrings
   brand_count: 33
   data_quality: pass
@@ -629,7 +633,7 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /categories/home/storage
-  target_status: proposed
+  target_status: live
   ontology_slug: storage
   brand_count: 33
   data_quality: pass
@@ -655,7 +659,7 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /categories/home/tableware
-  target_status: proposed
+  target_status: live
   ontology_slug: tableware
   brand_count: 31
   data_quality: pass
@@ -681,7 +685,7 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /categories/fashion/casual-shoes
-  target_status: proposed
+  target_status: live
   ontology_slug: casual-shoes
   brand_count: 31
   data_quality: pass
@@ -713,7 +717,7 @@ clusters:
   intent_fit: 3
   differentiation: 3
   priority: P0
-  eligibility: launch
+  eligibility: defer-no-demand
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -732,7 +736,7 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /categories/beauty/skincare
-  target_status: proposed
+  target_status: live
   ontology_slug: skincare
   brand_count: 32
   data_quality: pass
@@ -758,7 +762,7 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /categories/home/furniture
-  target_status: proposed
+  target_status: live
   ontology_slug: furniture
   brand_count: 33
   data_quality: pass
@@ -790,7 +794,7 @@ clusters:
   intent_fit: 3
   differentiation: 3
   priority: P0
-  eligibility: launch
+  eligibility: defer-no-demand
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -815,7 +819,7 @@ clusters:
   intent_fit: 2
   differentiation: 2
   priority: P1
-  eligibility: launch
+  eligibility: defer-no-demand
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -840,7 +844,7 @@ clusters:
   intent_fit: 3
   differentiation: 3
   priority: P1
-  eligibility: launch
+  eligibility: defer-no-demand
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -866,7 +870,7 @@ clusters:
   intent_fit: 3
   differentiation: 2
   priority: P1
-  eligibility: launch
+  eligibility: defer-no-demand
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -892,7 +896,7 @@ clusters:
   intent_fit: 3
   differentiation: 3
   priority: P0
-  eligibility: launch
+  eligibility: defer-no-demand
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -917,7 +921,7 @@ clusters:
   intent_fit: 3
   differentiation: 3
   priority: P0
-  eligibility: launch
+  eligibility: defer-no-demand
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -942,16 +946,17 @@ clusters:
   intent_fit: 3
   differentiation: 2
   priority: P1
-  eligibility: launch
+  eligibility: defer-no-demand
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
   indexability: index
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
-    B. Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete
-    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
-    shape ships.'
+  notes: 'Activewear is the sole page owner for the overlapping 機能服飾/運動服飾 intent; performance-apparel
+    remains ontology-compatible but non-owning. target_status is proposed: the /categories/[l1]/[l2] URL
+    shape is not ratified until Ticket B. Cannibalization risk 3: today the ?sub= filter views fold into
+    this L1 page, so L1 and L2 compete for the same query. Ticket B must reposition ?sub= (canonical or
+    redirect) before the /categories/[l1]/[l2] shape ships.'
 - id: l2-socks
   primary_keyword: 台灣襪子品牌
   secondary_keywords:
@@ -968,7 +973,7 @@ clusters:
   intent_fit: 3
   differentiation: 3
   priority: P0
-  eligibility: launch
+  eligibility: defer-no-demand
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -993,7 +998,7 @@ clusters:
   intent_fit: 2
   differentiation: 1
   priority: P2
-  eligibility: launch
+  eligibility: defer-no-demand
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -1018,7 +1023,7 @@ clusters:
   intent_fit: 3
   differentiation: 2
   priority: P1
-  eligibility: launch
+  eligibility: defer-no-demand
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -1044,7 +1049,7 @@ clusters:
   intent_fit: 3
   differentiation: 2
   priority: P1
-  eligibility: launch
+  eligibility: defer-no-demand
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -1069,7 +1074,7 @@ clusters:
   intent_fit: 3
   differentiation: 3
   priority: P1
-  eligibility: launch
+  eligibility: defer-no-demand
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -1086,7 +1091,6 @@ clusters:
   - MIT 機能布料
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/fashion/performance-apparel
   target_status: proposed
   ontology_slug: performance-apparel
   brand_count: 16
@@ -1094,16 +1098,16 @@ clusters:
   intent_fit: 3
   differentiation: 2
   priority: P1
-  eligibility: launch
+  eligibility: reject-taxonomy
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
-  indexability: index
+  indexability: noindex
   locale: zh-TW
-  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket
-    B. Cannibalization risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete
-    for the same query. Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2]
-    shape ships.'
+  notes: 'Non-owning collision with activewear: no stable shopper boundary exists between 機能服飾 and 運動服飾,
+    so keywords consolidate into activewear. Keep this slug for ontology matching, but reject taxonomy and
+    noindex it; target_status remains proposed with no target_url. Ticket B must reposition ?sub= (canonical
+    or redirect) before the /categories/[l1]/[l2] shape ships.'
 - id: l2-bedding
   primary_keyword: 台灣寢具品牌
   secondary_keywords:
@@ -1119,7 +1123,7 @@ clusters:
   intent_fit: 2
   differentiation: 2
   priority: P2
-  eligibility: launch
+  eligibility: defer-no-demand
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -1144,7 +1148,7 @@ clusters:
   intent_fit: 3
   differentiation: 2
   priority: P1
-  eligibility: launch
+  eligibility: defer-no-demand
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -1169,7 +1173,7 @@ clusters:
   intent_fit: 2
   differentiation: 2
   priority: P2
-  eligibility: launch
+  eligibility: defer-brands
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -1194,7 +1198,7 @@ clusters:
   intent_fit: 2
   differentiation: 2
   priority: P2
-  eligibility: launch
+  eligibility: defer-no-demand
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -1219,7 +1223,7 @@ clusters:
   intent_fit: 3
   differentiation: 2
   priority: P1
-  eligibility: launch
+  eligibility: defer-no-demand
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -1244,7 +1248,7 @@ clusters:
   intent_fit: 2
   differentiation: 1
   priority: P2
-  eligibility: launch
+  eligibility: defer-no-demand
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -1262,7 +1266,7 @@ clusters:
   - MIT 保健食品
   search_intent: commercial
   page_type: l2-category
-  target_url: /categories/beauty/supplements
+  target_url: /categories/food-drink/supplements
   target_status: proposed
   ontology_slug: supplements
   brand_count: 6
@@ -1270,7 +1274,7 @@ clusters:
   intent_fit: 2
   differentiation: 1
   priority: P3
-  eligibility: launch
+  eligibility: defer-brands
   composite: none
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -1315,7 +1319,7 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /categories/fashion/tops-and-tshirts
-  target_status: proposed
+  target_status: live
   ontology_slug: tops-and-tshirts
   brand_count: 32
   data_quality: pass
@@ -1341,7 +1345,7 @@ clusters:
   search_intent: commercial
   page_type: l2-category
   target_url: /categories/food-drink/desserts-and-pastries
-  target_status: proposed
+  target_status: live
   ontology_slug: desserts-and-pastries
   brand_count: 31
   data_quality: pass
@@ -1374,7 +1378,7 @@ clusters:
   intent_fit: 3
   differentiation: 3
   priority: P0
-  eligibility: launch
+  eligibility: defer-no-demand
   composite: synonym
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -1400,7 +1404,7 @@ clusters:
   intent_fit: 3
   differentiation: 2
   priority: P1
-  eligibility: launch
+  eligibility: defer-no-demand
   composite: synonym
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -1425,7 +1429,7 @@ clusters:
   intent_fit: 3
   differentiation: 3
   priority: P1
-  eligibility: launch
+  eligibility: defer-brands
   composite: synonym
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -1451,7 +1455,7 @@ clusters:
   intent_fit: 3
   differentiation: 3
   priority: P1
-  eligibility: launch
+  eligibility: defer-no-demand
   composite: synonym
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -1477,7 +1481,7 @@ clusters:
   intent_fit: 3
   differentiation: 2
   priority: P1
-  eligibility: launch
+  eligibility: defer-no-demand
   composite: synonym
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -1503,7 +1507,7 @@ clusters:
   intent_fit: 3
   differentiation: 2
   priority: P2
-  eligibility: launch
+  eligibility: defer-brands
   composite: synonym
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -1529,7 +1533,7 @@ clusters:
   intent_fit: 3
   differentiation: 3
   priority: P1
-  eligibility: launch
+  eligibility: defer-brands
   composite: synonym
   content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
     grid, and CollectionPage + ItemList JSON-LD.
@@ -1539,118 +1543,175 @@ clusters:
     B. composite synonym: 皮夾・錢包 is two words for one intent, so one page legitimately owns both. Cannibalization
     risk 3: today the ?sub= filter views fold into this L1 page, so L1 and L2 compete for the same query.
     Ticket B must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2] shape ships.'
-- id: l2-home-fragrance-and-candles
-  primary_keyword: 台灣香氛蠟燭品牌
+- id: l2-home-fragrance
+  primary_keyword: 台灣居家香氛品牌
   secondary_keywords:
-  - 台灣香氛品牌
-  - 台灣蠟燭品牌
-  - 擴香
+  - 台灣擴香品牌
+  - 台灣線香品牌
+  - 台灣香氛袋品牌
   search_intent: commercial
   page_type: l2-category
   target_status: proposed
-  ontology_slug: home-fragrance-and-candles
-  brand_count: 12
-  data_quality: pass
+  ontology_slug: home-fragrance
+  brand_count: 0
+  data_quality: thin
   intent_fit: 3
-  differentiation: 3
-  priority: P1
-  eligibility: reject-taxonomy
-  composite: multi-intent
-  content_requirement: None until the ontology split lands (DEV-1361). Do not build a page for this slug.
+  differentiation: 1
+  priority: P3
+  eligibility: defer-data
+  composite: none
+  content_requirement: No page until DEV-1366 supplies candidate-level demand evidence and confirms route ownership.
   indexability: noindex
   locale: zh-TW
-  notes: 'Rejected on taxonomy, not on demand: 香氛・蠟燭 bundles two genuinely distinct products behind one
-    slug, so a single page cannot satisfy either query. No target_url until the ontology split lands —
-    follow-up ticket DEV-1361.'
-- id: l2-keychains-and-charms
-  primary_keyword: 台灣鑰匙圈吊飾品牌
+  notes: 'Atomic replacement for retired 香氛・蠟燭. brand_count is intentionally 0 until the reviewed DEV-1361
+    split artifact supplies scoped assignments; no GSC demand is claimed. Keep proposed/noindex pending DEV-1366.'
+- id: l2-candles
+  primary_keyword: 台灣蠟燭品牌
   secondary_keywords:
-  - 台灣鑰匙圈品牌
-  - 台灣吊飾品牌
+  - 手工蠟燭品牌
+  - 台灣蠟燭工作室
   search_intent: commercial
   page_type: l2-category
   target_status: proposed
-  ontology_slug: keychains-and-charms
-  brand_count: 8
-  data_quality: pass
+  ontology_slug: candles
+  brand_count: 0
+  data_quality: thin
   intent_fit: 3
-  differentiation: 2
-  priority: P2
-  eligibility: reject-taxonomy
-  composite: multi-intent
-  content_requirement: None until the ontology split lands (DEV-1361). Do not build a page for this slug.
+  differentiation: 1
+  priority: P3
+  eligibility: defer-data
+  composite: none
+  content_requirement: No page until DEV-1366 supplies candidate-level demand evidence and confirms route ownership.
   indexability: noindex
   locale: zh-TW
-  notes: 'Rejected on taxonomy, not on demand: 鑰匙圈・吊飾 bundles two genuinely distinct products behind one
-    slug, so a single page cannot satisfy either query. No target_url until the ontology split lands —
-    follow-up ticket DEV-1361.'
-- id: l2-workshops-and-diy-kits
-  primary_keyword: 台灣體驗課程 DIY 品牌
+  notes: 'Atomic replacement for retired 香氛・蠟燭. brand_count is intentionally 0 until the reviewed DEV-1361
+    split artifact supplies scoped assignments; no GSC demand is claimed. Keep proposed/noindex pending DEV-1366.'
+- id: l2-keychains
+  primary_keyword: 台灣鑰匙圈品牌
   secondary_keywords:
-  - 台灣手作課程
-  - 台灣 DIY 材料包
+  - 手作鑰匙圈品牌
+  - 設計鑰匙圈品牌
   search_intent: commercial
   page_type: l2-category
   target_status: proposed
-  ontology_slug: workshops-and-diy-kits
-  brand_count: 21
-  data_quality: pass
+  ontology_slug: keychains
+  brand_count: 0
+  data_quality: thin
   intent_fit: 3
-  differentiation: 3
-  priority: P0
-  eligibility: reject-taxonomy
-  composite: multi-intent
-  content_requirement: None until the ontology split lands (DEV-1361). Do not build a page for this slug.
+  differentiation: 1
+  priority: P3
+  eligibility: defer-data
+  composite: none
+  content_requirement: No page until DEV-1366 supplies candidate-level demand evidence and confirms route ownership.
   indexability: noindex
   locale: zh-TW
-  notes: 'Rejected on taxonomy, not on demand: 體驗課程・DIY材料 bundles two genuinely distinct products behind
-    one slug, so a single page cannot satisfy either query. No target_url until the ontology split lands
-    — follow-up ticket DEV-1361.'
-- id: l2-pouches
-  primary_keyword: 台灣收納包化妝包品牌
+  notes: 'Atomic replacement for retired 鑰匙圈・吊飾. brand_count is intentionally 0 until the reviewed DEV-1361
+    split artifact supplies scoped assignments; no GSC demand is claimed. Keep proposed/noindex pending DEV-1366.'
+- id: l2-charms
+  primary_keyword: 台灣吊飾品牌
   secondary_keywords:
-  - 台灣化妝包品牌
+  - 非手機吊飾品牌
+  - 設計吊飾品牌
+  search_intent: commercial
+  page_type: l2-category
+  target_status: proposed
+  ontology_slug: charms
+  brand_count: 0
+  data_quality: thin
+  intent_fit: 3
+  differentiation: 1
+  priority: P3
+  eligibility: defer-data
+  composite: none
+  content_requirement: No page until DEV-1366 supplies candidate-level demand evidence and confirms route ownership.
+  indexability: noindex
+  locale: zh-TW
+  notes: 'Atomic replacement for retired 鑰匙圈・吊飾. brand_count is intentionally 0 until the reviewed DEV-1361
+    split artifact supplies scoped assignments; no GSC demand is claimed. Keep proposed/noindex pending DEV-1366.'
+- id: l2-storage-pouches
+  primary_keyword: 台灣收納包品牌
+  secondary_keywords:
   - 台灣旅行收納包
+  - 收納袋品牌
   search_intent: commercial
   page_type: l2-category
   target_status: proposed
-  ontology_slug: pouches
-  brand_count: 21
-  data_quality: pass
+  ontology_slug: storage-pouches
+  brand_count: 0
+  data_quality: thin
   intent_fit: 3
-  differentiation: 2
-  priority: P1
-  eligibility: reject-taxonomy
-  composite: multi-intent
-  content_requirement: None until the ontology split lands (DEV-1361). Do not build a page for this slug.
+  differentiation: 1
+  priority: P3
+  eligibility: defer-data
+  composite: none
+  content_requirement: No page until DEV-1366 supplies candidate-level demand evidence and confirms route ownership.
   indexability: noindex
   locale: zh-TW
-  notes: 'Rejected on taxonomy, not on demand: 收納包・化妝包 bundles two genuinely distinct products behind
-    one slug, so a single page cannot satisfy either query. No target_url until the ontology split lands
-    — follow-up ticket DEV-1361.'
-- id: l2-tea-bags-and-drinks
-  primary_keyword: 台灣茶包茶飲品牌
+  notes: 'Atomic replacement for retired 收納包・化妝包. brand_count is intentionally 0 until the reviewed DEV-1361
+    split artifact supplies scoped assignments; no GSC demand is claimed. Keep proposed/noindex pending DEV-1366.'
+- id: l2-cosmetic-bags
+  primary_keyword: 台灣化妝包品牌
   secondary_keywords:
-  - 台灣茶包品牌
-  - 台灣冷泡茶品牌
-  - 花草茶
+  - 手工化妝包
+  - 化妝收納包
   search_intent: commercial
   page_type: l2-category
   target_status: proposed
-  ontology_slug: tea-bags-and-drinks
-  brand_count: 26
-  data_quality: pass
+  ontology_slug: cosmetic-bags
+  brand_count: 0
+  data_quality: thin
   intent_fit: 3
-  differentiation: 2
-  priority: P1
-  eligibility: reject-taxonomy
-  composite: multi-intent
-  content_requirement: None until the ontology split lands (DEV-1361). Do not build a page for this slug.
+  differentiation: 1
+  priority: P3
+  eligibility: defer-data
+  composite: none
+  content_requirement: No page until DEV-1366 supplies candidate-level demand evidence and confirms route ownership.
   indexability: noindex
   locale: zh-TW
-  notes: 'Rejected on taxonomy, not on demand: 茶包・茶飲 bundles two genuinely distinct products behind one
-    slug, so a single page cannot satisfy either query. No target_url until the ontology split lands —
-    follow-up ticket DEV-1361.'
+  notes: 'Atomic replacement for retired 收納包・化妝包. brand_count is intentionally 0 until the reviewed DEV-1361
+    split artifact supplies scoped assignments; no GSC demand is claimed. Keep proposed/noindex pending DEV-1366.'
+- id: l2-tea-bags
+  primary_keyword: 台灣茶包品牌
+  secondary_keywords:
+  - 三角茶包品牌
+  - 原葉茶包品牌
+  search_intent: commercial
+  page_type: l2-category
+  target_status: proposed
+  ontology_slug: tea-bags
+  brand_count: 0
+  data_quality: thin
+  intent_fit: 3
+  differentiation: 1
+  priority: P3
+  eligibility: defer-data
+  composite: none
+  content_requirement: No page until DEV-1366 supplies candidate-level demand evidence and confirms route ownership.
+  indexability: noindex
+  locale: zh-TW
+  notes: 'Atomic replacement for retired 茶包・茶飲. brand_count is intentionally 0 until the reviewed DEV-1361
+    split artifact supplies scoped assignments; no GSC demand is claimed. Keep proposed/noindex pending DEV-1366.'
+- id: l2-tea-drinks
+  primary_keyword: 台灣茶飲品牌
+  secondary_keywords:
+  - 台灣冷泡茶品牌
+  - 瓶裝茶飲品牌
+  search_intent: commercial
+  page_type: l2-category
+  target_status: proposed
+  ontology_slug: tea-drinks
+  brand_count: 0
+  data_quality: thin
+  intent_fit: 3
+  differentiation: 1
+  priority: P3
+  eligibility: defer-data
+  composite: none
+  content_requirement: No page until DEV-1366 supplies candidate-level demand evidence and confirms route ownership.
+  indexability: noindex
+  locale: zh-TW
+  notes: 'Atomic replacement for retired 茶包・茶飲. brand_count is intentionally 0 until the reviewed DEV-1361
+    split artifact supplies scoped assignments; no GSC demand is claimed. Keep proposed/noindex pending DEV-1366.'
 - id: l2-bracelets-and-bangles
   primary_keyword: 台灣手鍊手環品牌
   secondary_keywords:
@@ -1658,6 +1719,7 @@ clusters:
   - 台灣手環品牌
   search_intent: commercial
   page_type: l2-category
+  target_url: /categories/jewelry/bracelets-and-bangles
   target_status: proposed
   ontology_slug: bracelets-and-bangles
   brand_count: 21
@@ -1665,14 +1727,17 @@ clusters:
   intent_fit: 3
   differentiation: 3
   priority: P0
-  eligibility: reject-taxonomy
-  composite: multi-intent
-  content_requirement: None until the ontology split lands (DEV-1361). Do not build a page for this slug.
-  indexability: noindex
+  eligibility: defer-no-demand
+  composite: synonym
+  content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
+    grid, and CollectionPage + ItemList JSON-LD.
+  indexability: index
   locale: zh-TW
-  notes: 'Rejected on taxonomy, not on demand: 手鍊・手環 bundles two genuinely distinct products behind one
-    slug, so a single page cannot satisfy either query. No target_url until the ontology split lands —
-    follow-up ticket DEV-1361.'
+  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket B.
+    composite synonym: 手鍊・手環 are two names for the same jewelry shelf and buyer intent, so one page
+    legitimately owns both. Cannibalization risk 3: today the ?sub= filter views fold into this L1 page,
+    so L1 and L2 compete for the same query. Ticket B must reposition ?sub= (canonical or redirect) before
+    the /categories/[l1]/[l2] shape ships.'
 - id: l2-essential-oils-and-hydrosols
   primary_keyword: 台灣精油純露品牌
   secondary_keywords:
@@ -1680,6 +1745,7 @@ clusters:
   - 台灣純露品牌
   search_intent: commercial
   page_type: l2-category
+  target_url: /categories/beauty/essential-oils-and-hydrosols
   target_status: proposed
   ontology_slug: essential-oils-and-hydrosols
   brand_count: 22
@@ -1687,105 +1753,186 @@ clusters:
   intent_fit: 3
   differentiation: 2
   priority: P1
-  eligibility: reject-taxonomy
-  composite: multi-intent
-  content_requirement: None until the ontology split lands (DEV-1361). Do not build a page for this slug.
-  indexability: noindex
+  eligibility: defer-no-demand
+  composite: synonym
+  content_requirement: Subcategory intro naming what distinguishes Taiwanese brands here, filtered brand
+    grid, and CollectionPage + ItemList JSON-LD.
+  indexability: index
   locale: zh-TW
-  notes: 'Rejected on taxonomy, not on demand: 精油・純露 bundles two genuinely distinct products behind one
-    slug, so a single page cannot satisfy either query. No target_url until the ontology split lands —
-    follow-up ticket DEV-1361.'
-- id: l2-floral-and-plants
-  primary_keyword: 台灣花藝植栽品牌
+  notes: 'target_status is proposed: the /categories/[l1]/[l2] URL shape is not ratified until Ticket B.
+    composite synonym: 精油・純露 share the same shelf and buyer intent because hydrosol is the distillation
+    byproduct sold alongside essential oil, so one page legitimately owns both. Cannibalization risk 3:
+    today the ?sub= filter views fold into this L1 page, so L1 and L2 compete for the same query. Ticket B
+    must reposition ?sub= (canonical or redirect) before the /categories/[l1]/[l2] shape ships.'
+- id: l2-floral-arrangements
+  primary_keyword: 台灣花藝品牌
   secondary_keywords:
-  - 台灣花藝品牌
-  - 台灣植栽品牌
-  - 花器
+  - 花藝設計品牌
+  - 花藝工作室品牌
   search_intent: commercial
   page_type: l2-category
   target_status: proposed
-  ontology_slug: floral-and-plants
-  brand_count: 9
-  data_quality: pass
-  intent_fit: 2
-  differentiation: 2
-  priority: P2
-  eligibility: reject-taxonomy
-  composite: multi-intent
-  content_requirement: None until the ontology split lands (DEV-1361). Do not build a page for this slug.
-  indexability: noindex
-  locale: zh-TW
-  notes: 'Rejected on taxonomy, not on demand: 花藝・植栽 bundles two genuinely distinct products behind one
-    slug, so a single page cannot satisfy either query. No target_url until the ontology split lands —
-    follow-up ticket DEV-1361.'
-- id: l2-toys-and-learning
-  primary_keyword: 台灣玩具教具品牌
-  secondary_keywords:
-  - 台灣玩具品牌
-  - 台灣教具品牌
-  - 益智玩具
-  search_intent: commercial
-  page_type: l2-category
-  target_status: proposed
-  ontology_slug: toys-and-learning
-  brand_count: 12
-  data_quality: pass
+  ontology_slug: floral-arrangements
+  brand_count: 0
+  data_quality: thin
   intent_fit: 3
-  differentiation: 2
-  priority: P1
-  eligibility: reject-taxonomy
-  composite: multi-intent
-  content_requirement: None until the ontology split lands (DEV-1361). Do not build a page for this slug.
+  differentiation: 1
+  priority: P3
+  eligibility: defer-data
+  composite: none
+  content_requirement: No page until DEV-1366 supplies candidate-level demand evidence and confirms route ownership.
   indexability: noindex
   locale: zh-TW
-  notes: 'Rejected on taxonomy, not on demand: 玩具・教具 bundles two genuinely distinct products behind one
-    slug, so a single page cannot satisfy either query. No target_url until the ontology split lands —
-    follow-up ticket DEV-1361.'
-- id: l2-phone-bags-and-straps
-  primary_keyword: 台灣手機袋背帶品牌
+  notes: 'Atomic replacement for retired 花藝・植栽. brand_count is intentionally 0 until the reviewed DEV-1361
+    split artifact supplies scoped assignments; no GSC demand is claimed. Keep proposed/noindex pending DEV-1366.'
+- id: l2-plants
+  primary_keyword: 台灣植栽品牌
   secondary_keywords:
-  - 台灣手機袋品牌
-  - 台灣手機背帶品牌
+  - 台灣盆栽品牌
+  - 室內植栽品牌
   search_intent: commercial
   page_type: l2-category
   target_status: proposed
-  ontology_slug: phone-bags-and-straps
-  brand_count: 12
-  data_quality: pass
+  ontology_slug: plants
+  brand_count: 0
+  data_quality: thin
   intent_fit: 3
-  differentiation: 2
-  priority: P1
-  eligibility: reject-taxonomy
-  composite: multi-intent
-  content_requirement: None until the ontology split lands (DEV-1361). Do not build a page for this slug.
+  differentiation: 1
+  priority: P3
+  eligibility: defer-data
+  composite: none
+  content_requirement: No page until DEV-1366 supplies candidate-level demand evidence and confirms route ownership.
   indexability: noindex
   locale: zh-TW
-  notes: 'Rejected on taxonomy, not on demand: 手機袋・手機背帶 bundles two genuinely distinct products behind
-    one slug, so a single page cannot satisfy either query. No target_url until the ontology split lands
-    — follow-up ticket DEV-1361.'
-- id: l2-towels-and-textiles
-  primary_keyword: 台灣毛巾生活織品品牌
+  notes: 'Atomic replacement for retired 花藝・植栽. brand_count is intentionally 0 until the reviewed DEV-1361
+    split artifact supplies scoped assignments; no GSC demand is claimed. Keep proposed/noindex pending DEV-1366.'
+- id: l2-toys
+  primary_keyword: 台灣玩具品牌
   secondary_keywords:
-  - 台灣毛巾品牌
+  - 木製玩具品牌
+  - 益智玩具品牌
+  search_intent: commercial
+  page_type: l2-category
+  target_status: proposed
+  ontology_slug: toys
+  brand_count: 0
+  data_quality: thin
+  intent_fit: 3
+  differentiation: 1
+  priority: P3
+  eligibility: defer-data
+  composite: none
+  content_requirement: No page until DEV-1366 supplies candidate-level demand evidence and confirms route ownership.
+  indexability: noindex
+  locale: zh-TW
+  notes: 'Atomic replacement for retired 玩具・教具. brand_count is intentionally 0 until the reviewed DEV-1361
+    split artifact supplies scoped assignments; no GSC demand is claimed. Keep proposed/noindex pending DEV-1366.'
+- id: l2-learning-aids
+  primary_keyword: 台灣教具品牌
+  secondary_keywords:
+  - 幼兒教具品牌
+  - 教學教具品牌
+  search_intent: commercial
+  page_type: l2-category
+  target_status: proposed
+  ontology_slug: learning-aids
+  brand_count: 0
+  data_quality: thin
+  intent_fit: 3
+  differentiation: 1
+  priority: P3
+  eligibility: defer-data
+  composite: none
+  content_requirement: No page until DEV-1366 supplies candidate-level demand evidence and confirms route ownership.
+  indexability: noindex
+  locale: zh-TW
+  notes: 'Atomic replacement for retired 玩具・教具. brand_count is intentionally 0 until the reviewed DEV-1361
+    split artifact supplies scoped assignments; no GSC demand is claimed. Keep proposed/noindex pending DEV-1366.'
+- id: l2-phone-bags
+  primary_keyword: 台灣手機袋品牌
+  secondary_keywords:
+  - 手機斜背袋品牌
+  - 手機收納袋品牌
+  search_intent: commercial
+  page_type: l2-category
+  target_status: proposed
+  ontology_slug: phone-bags
+  brand_count: 0
+  data_quality: thin
+  intent_fit: 3
+  differentiation: 1
+  priority: P3
+  eligibility: defer-data
+  composite: none
+  content_requirement: No page until DEV-1366 supplies candidate-level demand evidence and confirms route ownership.
+  indexability: noindex
+  locale: zh-TW
+  notes: 'Atomic replacement for retired 手機袋・手機背帶. brand_count is intentionally 0 until the reviewed DEV-1361
+    split artifact supplies scoped assignments; no GSC demand is claimed. Keep proposed/noindex pending DEV-1366.'
+- id: l2-phone-straps
+  primary_keyword: 台灣手機背帶品牌
+  secondary_keywords:
+  - 台灣手機掛繩品牌
+  - 台灣手機吊飾品牌
+  - 手機背帶工作室
+  search_intent: commercial
+  page_type: l2-category
+  target_status: proposed
+  ontology_slug: phone-straps
+  brand_count: 0
+  data_quality: thin
+  intent_fit: 3
+  differentiation: 1
+  priority: P3
+  eligibility: defer-data
+  composite: none
+  content_requirement: No page until DEV-1366 supplies candidate-level demand evidence and confirms route ownership.
+  indexability: noindex
+  locale: zh-TW
+  notes: 'Atomic replacement for retired 手機袋・手機背帶. brand_count is intentionally 0 until the reviewed DEV-1361
+    split artifact supplies scoped assignments; no GSC demand is claimed. Keep proposed/noindex pending DEV-1366.'
+- id: l2-towels
+  primary_keyword: 台灣毛巾品牌
+  secondary_keywords:
   - MIT 浴巾
-  - 台灣抱枕品牌
+  - 手工毛巾品牌
   search_intent: commercial
   page_type: l2-category
   target_status: proposed
-  ontology_slug: towels-and-textiles
-  brand_count: 10
-  data_quality: pass
+  ontology_slug: towels
+  brand_count: 0
+  data_quality: thin
   intent_fit: 3
-  differentiation: 2
-  priority: P1
-  eligibility: reject-taxonomy
-  composite: multi-intent
-  content_requirement: None until the ontology split lands (DEV-1361). Do not build a page for this slug.
+  differentiation: 1
+  priority: P3
+  eligibility: defer-data
+  composite: none
+  content_requirement: No page until DEV-1366 supplies candidate-level demand evidence and confirms route ownership.
   indexability: noindex
   locale: zh-TW
-  notes: 'Rejected on taxonomy, not on demand: 毛巾・生活織品 bundles two genuinely distinct products behind
-    one slug, so a single page cannot satisfy either query. No target_url until the ontology split lands
-    — follow-up ticket DEV-1361.'
+  notes: 'Atomic replacement for retired 毛巾・生活織品. brand_count is intentionally 0 until the reviewed DEV-1361
+    split artifact supplies scoped assignments; no GSC demand is claimed. Keep proposed/noindex pending DEV-1366.'
+- id: l2-home-textiles
+  primary_keyword: 台灣居家織品品牌
+  secondary_keywords:
+  - 台灣抱枕品牌
+  - 居家布藝品牌
+  search_intent: commercial
+  page_type: l2-category
+  target_status: proposed
+  ontology_slug: home-textiles
+  brand_count: 0
+  data_quality: thin
+  intent_fit: 3
+  differentiation: 1
+  priority: P3
+  eligibility: defer-data
+  composite: none
+  content_requirement: No page until DEV-1366 supplies candidate-level demand evidence and confirms route ownership.
+  indexability: noindex
+  locale: zh-TW
+  notes: 'Atomic replacement for retired 毛巾・生活織品. brand_count is intentionally 0 until the reviewed DEV-1361
+    split artifact supplies scoped assignments; no GSC demand is claimed. Keep proposed/noindex pending DEV-1366.'
 - id: topic-cultural-creative
   primary_keyword: 台灣文創品牌
   secondary_keywords:
@@ -2416,8 +2563,6 @@ unmapped_backlog:
   composite: multi-intent
 - slug: baby-bedding
   brand_count: 3
-- slug: baby-gift-sets
-  brand_count: 4
 - slug: belt-and-sling-bags
   brand_count: 4
   composite: multi-intent
@@ -2511,14 +2656,17 @@ unmapped_backlog:
   brand_count: 1
 - slug: desk-organization
   brand_count: 0
+  notes: Kept as a legitimate stationery product kind; supply controls rendering, not ontology structure.
 - slug: leather-craft
   brand_count: 1
 - slug: milk-powder
   brand_count: 1
 - slug: picnic-supplies
   brand_count: 0
+  notes: Kept as a legitimate outdoor product kind; supply controls rendering, not ontology structure.
 - slug: protective-gear
   brand_count: 0
+  notes: Kept as a legitimate fitness product kind; supply controls rendering, not ontology structure.
 - slug: stands-and-mounts
   brand_count: 1
 - slug: storage-devices
@@ -2530,8 +2678,11 @@ unmapped_backlog:
   composite: multi-intent
 - slug: earphones-and-headphones
   brand_count: 0
+  notes: Kept as a legitimate tech product kind; supply controls rendering, not ontology structure.
 - slug: natural-dyeing
   brand_count: 0
   composite: synonym
+  notes: Kept as a signature Taiwanese craft product kind; supply controls rendering, not ontology structure.
 - slug: speakers
   brand_count: 0
+  notes: Kept as a legitimate tech product kind; supply controls rendering, not ontology structure.

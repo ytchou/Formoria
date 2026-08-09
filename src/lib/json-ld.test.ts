@@ -5,7 +5,6 @@ import {
   buildBreadcrumbJsonLd,
   buildCategoryItemListJsonLd,
   buildBrandsItemListJsonLd,
-  buildDefinedTermSetJsonLd,
   buildEventJsonLd,
   buildFaqPageJsonLd,
   buildOrganizationJsonLd,
@@ -15,6 +14,7 @@ import {
   type JsonLdObject,
 } from "@/lib/json-ld";
 import type { Brand } from "@/lib/types";
+import { getSiteUrl } from "@/lib/site-url";
 import { faqItemsToQuestions, getBrandFaq } from "@/lib/services/brand-faq";
 import type { FaqSupabase } from "@/lib/services/brand-faq";
 
@@ -177,6 +177,44 @@ describe("buildBrandJsonLd", () => {
     expect(jsonLd.foundingDate).toBeUndefined();
     expect(jsonLd.sameAs).toBeUndefined();
   });
+
+  describe("page-scoped identity", () => {
+    const canonicalZh = `${getSiteUrl()}/brands/chatzutang`;
+    const canonicalEn = `${getSiteUrl()}/en/brands/chatzutang`;
+
+    it("scopes @id and mainEntityOfPage to the page's own canonical", () => {
+      const jsonLd = buildBrandJsonLd(makeBrand(), "en", canonicalEn);
+
+      expect(jsonLd["@id"]).toBe(`${canonicalEn}#organization`);
+      expect(jsonLd.mainEntityOfPage).toBe(canonicalEn);
+    });
+
+    // The whole point of the field: without it the two editions are
+    // indistinguishable descriptions of one entity, which is a canonical
+    // consolidation signal on a pair Search Console already flags.
+    it("gives the two locale editions different identities", () => {
+      const zh = buildBrandJsonLd(makeBrand(), "zh-TW", canonicalZh);
+      const en = buildBrandJsonLd(makeBrand(), "en", canonicalEn);
+
+      expect(zh["@id"]).not.toBe(en["@id"]);
+      expect(zh.mainEntityOfPage).not.toBe(en.mainEntityOfPage);
+    });
+
+    // Both editions describe the same real company; only the documents differ.
+    it("keeps the shared external url on both editions", () => {
+      const zh = buildBrandJsonLd(makeBrand(), "zh-TW", canonicalZh);
+      const en = buildBrandJsonLd(makeBrand(), "en", canonicalEn);
+
+      expect(en.url).toBe(zh.url);
+    });
+
+    it("emits neither field when no canonical is supplied", () => {
+      const jsonLd = buildBrandJsonLd(makeBrand(), "en");
+
+      expect(jsonLd["@id"]).toBeUndefined();
+      expect(jsonLd.mainEntityOfPage).toBeUndefined();
+    });
+  });
 });
 
 describe("buildCategoryItemListJsonLd", () => {
@@ -187,16 +225,22 @@ describe("buildCategoryItemListJsonLd", () => {
   ];
 
   it("returns valid ItemList JSON-LD", () => {
-    const result = buildCategoryItemListJsonLd("美妝", "beauty", mockBrands);
+    const canonical = "https://formoria.com/categories/beauty";
+    const result = buildCategoryItemListJsonLd("美妝", canonical, mockBrands);
 
     expect(result["@context"]).toBe("https://schema.org");
     expect(result["@type"]).toBe("ItemList");
+    expect(result.url).toBe(canonical);
     expect(result.name).toContain("美妝");
     expect(result.numberOfItems).toBe(3);
   });
 
   it("generates ListItem entries with correct positions", () => {
-    const result = buildCategoryItemListJsonLd("美妝", "beauty", mockBrands);
+    const result = buildCategoryItemListJsonLd(
+      "美妝",
+      "https://formoria.com/categories/beauty",
+      mockBrands,
+    );
     const items = result.itemListElement;
 
     expect(items).toHaveLength(3);
@@ -210,16 +254,22 @@ describe("buildCategoryItemListJsonLd", () => {
   });
 
   it("handles empty brands array", () => {
-    const result = buildCategoryItemListJsonLd("食品", "food", []);
+    const result = buildCategoryItemListJsonLd(
+      "食品",
+      "https://formoria.com/categories/food",
+      [],
+    );
 
     expect(result.numberOfItems).toBe(0);
     expect(result.itemListElement).toEqual([]);
   });
 
   it("uses /brands/:slug for brand item URLs", () => {
-    const result = buildCategoryItemListJsonLd("美妝", "beauty", [
-      { name: "Test", slug: "test-brand" },
-    ]);
+    const result = buildCategoryItemListJsonLd(
+      "美妝",
+      "https://formoria.com/categories/beauty",
+      [{ name: "Test", slug: "test-brand" }],
+    );
     expect(result.itemListElement[0].url).toContain("/brands/test-brand");
     expect(result.itemListElement[0].url).not.toMatch(
       /^https?:\/\/[^/]+\/test-brand$/,
@@ -231,7 +281,7 @@ describe("buildCategoryItemListJsonLd parentGroup", () => {
   it("adds an about Thing when a parent group is provided", () => {
     const result = buildCategoryItemListJsonLd(
       "服飾",
-      "clothing",
+      "https://formoria.com/categories/fashion/tops-and-tshirts",
       [{ name: "oqLiq", slug: "oqliq" }],
       "zh-TW",
       "Taiwan clothing brands",
@@ -244,7 +294,7 @@ describe("buildCategoryItemListJsonLd parentGroup", () => {
   it("omits about when no parent group is provided", () => {
     const result = buildCategoryItemListJsonLd(
       "服飾",
-      "clothing",
+      "https://formoria.com/categories/fashion/tops-and-tshirts",
       [{ name: "oqLiq", slug: "oqliq" }],
       "zh-TW",
       "Taiwan clothing brands",
@@ -256,6 +306,15 @@ describe("buildCategoryItemListJsonLd parentGroup", () => {
 });
 
 describe("buildBreadcrumbJsonLd", () => {
+  it("breadcrumb item URLs carry the locale prefix", () => {
+    const jsonLd = buildBreadcrumbJsonLd(
+      [{ label: "Brands", href: "/brands" }, { label: "Brand Name" }],
+      "en",
+    );
+
+    expect(jsonLd.itemListElement[0].item).toBe(`${getSiteUrl()}/en/brands`);
+  });
+
   it("builds BreadcrumbList with correct positions", () => {
     const items = [
       { label: "Brands", href: "/" },
@@ -386,18 +445,6 @@ describe("buildArticleJsonLd", () => {
     expect(ld["@type"]).toBe("Article");
     expect(ld.headline).toBe("About");
     expect(ld.publisher["@type"]).toBe("Organization");
-  });
-});
-
-describe("buildDefinedTermSetJsonLd", () => {
-  it("emits a DefinedTermSet with DefinedTerm members", () => {
-    const ld = buildDefinedTermSetJsonLd(
-      [{ name: "台灣製造", description: "Made in Taiwan" }],
-      "zh-TW",
-    ) as JsonLdObject;
-    expect(ld["@type"]).toBe("DefinedTermSet");
-    expect(ld.hasDefinedTerm[0]["@type"]).toBe("DefinedTerm");
-    expect(ld.hasDefinedTerm[0].name).toBe("台灣製造");
   });
 });
 
@@ -611,6 +658,21 @@ describe("buildFaqPageJsonLd", () => {
     expect(buildFaqPageJsonLd(undefined)).toBeNull();
   });
 
+  it("scopes @id and mainEntityOfPage to the supplied canonical", () => {
+    const canonical = `${getSiteUrl()}/en/brands/chatzutang`;
+    const ld = buildFaqPageJsonLd(storyFaq, "en", canonical) as JsonLdObject;
+
+    expect(ld["@id"]).toBe(`${canonical}#faq`);
+    expect(ld.mainEntityOfPage).toBe(canonical);
+  });
+
+  it("stays unidentified when callers omit the canonical", () => {
+    const ld = buildFaqPageJsonLd(storyFaq, "en") as JsonLdObject;
+
+    expect(ld["@id"]).toBeUndefined();
+    expect(ld.mainEntityOfPage).toBeUndefined();
+  });
+
   it("escapes values safely via safeJsonLdStringify", () => {
     const ld = buildFaqPageJsonLd(
       [
@@ -631,12 +693,14 @@ describe("buildFaqPageJsonLd", () => {
   it("emits FAQPage JSON-LD matching the rendered items", async () => {
     const client = {
       from(table: string) {
-        if (table !== "brand_faq_entries") throw new Error(`unexpected table: ${table}`);
+        if (table !== "brand_faq_entries")
+          throw new Error(`unexpected table: ${table}`);
         const builder = {
           select: () => builder,
           eq: () => builder,
-          then: (resolve: (result: { data: never[]; error: null }) => unknown) =>
-            Promise.resolve({ data: [], error: null }).then(resolve),
+          then: (
+            resolve: (result: { data: never[]; error: null }) => unknown,
+          ) => Promise.resolve({ data: [], error: null }).then(resolve),
         };
         return builder;
       },
@@ -651,7 +715,10 @@ describe("buildFaqPageJsonLd", () => {
       null,
       client as unknown as FaqSupabase,
     );
-    const ld = buildFaqPageJsonLd(faqItemsToQuestions(items), "zh-TW") as JsonLdObject;
+    const ld = buildFaqPageJsonLd(
+      faqItemsToQuestions(items),
+      "zh-TW",
+    ) as JsonLdObject;
 
     expect(ld.mainEntity.map((entry: JsonLdObject) => entry.name)).toEqual(
       items.map((item) => item.question),

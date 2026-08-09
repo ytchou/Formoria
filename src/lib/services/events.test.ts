@@ -1,19 +1,27 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Brand } from "@/lib/types";
-import type { createServiceClient } from "@/lib/supabase/server";
+import type { createServiceClient } from "@/lib/supabase/service";
 import {
   composeEventBrands,
+  composeEventExhibitorEntries,
   deriveAreaOptions,
+  eventExhibitorRowToDomain,
   eventBrandRowToDomain,
   eventRowToDomain,
   fetchEventBrandCounts,
   fetchEventBrandLinks,
+  fetchEventExhibitors,
   fetchPublishedEventBySlug,
   fetchPublishedEvents,
+  projectLinkedEventExhibitorEntries,
   resolveEventPhase,
+  selectCreativeExpoEntries,
+  selectLinkedEventExhibitorEntries,
   taipeiToday,
   type EventBrandLink,
+  type EventExhibitor,
+  type EventExhibitorJoinRow,
   type EventRow,
 } from "./events";
 
@@ -57,7 +65,9 @@ function eventRow(overrides: Partial<EventRow> = {}): EventRow {
   };
 }
 
-function link(overrides: Partial<EventBrandLink> & { brandSlug: string }): EventBrandLink {
+function link(
+  overrides: Partial<EventBrandLink> & { brandSlug: string },
+): EventBrandLink {
   return {
     booth: null,
     area: null,
@@ -88,7 +98,9 @@ type JoinFixture = {
 };
 
 function joinRow(
-  overrides: Partial<JoinFixture> & { brands: { slug: string; status: string } },
+  overrides: Partial<JoinFixture> & {
+    brands: { slug: string; status: string };
+  },
 ): JoinFixture {
   return {
     event_id: "2b0f5a4c-0000-4000-8000-000000000001",
@@ -117,12 +129,39 @@ function brandMap(...brands: Brand[]): Map<string, Brand> {
   return new Map(brands.map((entry) => [entry.slug, entry]));
 }
 
+function exhibitor(overrides: Partial<EventExhibitor> = {}): EventExhibitor {
+  return {
+    id: "2b0f5a4c-0000-4000-8000-0000000000e1",
+    eventId: "2b0f5a4c-0000-4000-8000-000000000001",
+    sourceKey: "creative-expo:322",
+    name: "沃廚",
+    nameEn: "WOKY",
+    booth: "K1-001",
+    area: "文創品牌展區",
+    areaEn: "Cultural & Creative Brands",
+    zone: "K1",
+    eventCategory: "cultural_creative",
+    sourceUrl: "https://creativexpo.tw/zh-TW/exhibitor_list/322",
+    websiteUrl: null,
+    verifiedAt: "2026-08-06",
+    sortOrder: 0,
+    imageUrl: null,
+    imageAltZh: null,
+    imageAltEn: null,
+    summaryZh: null,
+    summaryEn: null,
+    contentSource: null,
+    contentVerifiedAt: null,
+    ...overrides,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Supabase query-builder double
 //
 // Mirrors src/lib/services/__tests__/brands-by-slugs.test.ts: the filters are
 // actually applied to the fixture rows, so `status = 'published'` is exercised
-// rather than merely recorded. Mocking `@/lib/supabase/server` to reach the
+// rather than merely recorded. Mocking `@/lib/supabase/service` to reach the
 // same place is what scripts/check-test-boundaries.mjs forbids.
 //
 // `.range()` is honoured for real, which is what lets the pagination loops be
@@ -141,7 +180,36 @@ type QueryCall = {
 const queries: QueryCall[] = [];
 let eventsTable: EventRow[] = [];
 let eventBrandsTable: JoinFixture[] = [];
+let eventExhibitorsTable: EventExhibitorJoinRow[] = [];
 let queryError: { message: string } | null = null;
+
+/**
+ * Top-level columns of a PostgREST select string, embeds included by name.
+ * `'events!inner(slug, status)'` is one column, `'events'`.
+ */
+function selectedColumns(select: string): string[] {
+  return select
+    .replaceAll(/\([^)]*\)/g, "")
+    .split(",")
+    .map((token) => token.trim().split("!")[0]!.trim())
+    .filter(Boolean);
+}
+
+/**
+ * PostgREST returns exactly the columns it was asked for. Projecting the
+ * roster fixture through the real select string is what makes a column that
+ * reaches `EventExhibitorJoinRow` but not `EVENT_EXHIBITOR_SELECT` fail here —
+ * that row type is hand-written, so the omission otherwise type-checks and
+ * only shows up as `undefined` in production.
+ */
+function projectSelect(row: unknown, select: string): unknown {
+  const source = row as Record<string, unknown>;
+  return Object.fromEntries(
+    selectedColumns(select)
+      .filter((column) => column in source)
+      .map((column) => [column, source[column]]),
+  );
+}
 
 /** Resolves `'events.slug'` against the embedded object, like PostgREST does. */
 function readPath(row: unknown, column: string): unknown {
@@ -158,7 +226,11 @@ function readPath(row: unknown, column: string): unknown {
 
 function resolveRows(call: QueryCall): unknown[] {
   const source: unknown[] =
-    call.table === "events" ? eventsTable : eventBrandsTable;
+    call.table === "events"
+      ? eventsTable
+      : call.table === "event_exhibitors"
+        ? eventExhibitorsTable
+        : eventBrandsTable;
 
   let rows = source.filter(
     (row) =>
@@ -171,6 +243,9 @@ function resolveRows(call: QueryCall): unknown[] {
   );
 
   for (const [from, to] of call.ranges) rows = rows.slice(from, to + 1);
+  if (call.table === "event_exhibitors") {
+    return rows.map((row) => projectSelect(row, call.select));
+  }
   return rows;
 }
 
@@ -253,6 +328,7 @@ describe("events service", () => {
     queryError = null;
     eventsTable = [];
     eventBrandsTable = [];
+    eventExhibitorsTable = [];
   });
 
   it("resolveEventPhase_resolves_five_boundaries", () => {
@@ -266,6 +342,205 @@ describe("events service", () => {
     expect(resolveEventPhase(event, "2026-08-07")).toBe("ongoing");
     expect(resolveEventPhase(event, "2026-08-09")).toBe("ongoing");
     expect(resolveEventPhase(event, "2026-08-10")).toBe("past");
+  });
+
+  it("keeps an official exhibitor when its linked brand is hidden", () => {
+    // The canonical roster is event truth; a hidden/deleted brand should only
+    // clear the optional public card, never make the exhibitor disappear.
+    const rows = composeEventExhibitorEntries(
+      [
+        exhibitor(),
+        exhibitor({
+          id: "2b0f5a4c-0000-4000-8000-0000000000e2",
+          sourceKey: "creative-expo:325",
+          booth: "S-001",
+          sortOrder: 1,
+        }),
+      ],
+      new Map([
+        ["2b0f5a4c-0000-4000-8000-0000000000e1", "woky"],
+        ["2b0f5a4c-0000-4000-8000-0000000000e2", "hidden-brand"],
+      ]),
+      brandMap(brand("woky", "WOKY")),
+    );
+
+    expect(rows).toHaveLength(2);
+    expect(rows[0]?.brand?.slug).toBe("woky");
+    expect(rows[1]?.brand).toBeNull();
+    expect(rows.map((row) => row.sourceKey)).toEqual([
+      "creative-expo:322",
+      "creative-expo:325",
+    ]);
+  });
+
+  it("selects only linked exhibitors in canonical interactive zones", () => {
+    const rows = composeEventExhibitorEntries(
+      [
+        exhibitor({ sortOrder: 0, zone: "K1" }),
+        exhibitor({
+          id: "2b0f5a4c-0000-4000-8000-0000000000e2",
+          sourceKey: "creative-expo:325",
+          booth: "K2-010",
+          zone: "K2",
+          sortOrder: 1,
+        }),
+        exhibitor({
+          id: "2b0f5a4c-0000-4000-8000-0000000000e3",
+          sourceKey: "creative-expo:401",
+          booth: "H-001",
+          zone: "H",
+          sortOrder: 2,
+        }),
+      ],
+      new Map([
+        ["2b0f5a4c-0000-4000-8000-0000000000e1", "woky"],
+        ["2b0f5a4c-0000-4000-8000-0000000000e2", "kiln-studio"],
+        ["2b0f5a4c-0000-4000-8000-0000000000e3", "hall-brand"],
+      ]),
+      brandMap(
+        brand("woky", "沃廚"),
+        brand("kiln-studio", "Kiln Studio"),
+        brand("hall-brand", "Hall Brand"),
+      ),
+    );
+
+    const selected = selectLinkedEventExhibitorEntries(rows);
+
+    expect(selected.map((row) => [row.sourceKey, row.zone])).toEqual([
+      ["creative-expo:322", "K1"],
+      ["creative-expo:325", "K2"],
+    ]);
+    expect(projectLinkedEventExhibitorEntries(selected)).toMatchObject([
+      { booth: "K1-001", note: null, noteEn: null },
+      { booth: "K2-010", note: null, noteEn: null },
+    ]);
+  });
+
+  it("keeps unlinked exhibitors when selecting the whole expo hall", () => {
+    const rows = composeEventExhibitorEntries(
+      [
+        exhibitor({ sortOrder: 0, zone: "K1" }),
+        exhibitor({
+          id: "2b0f5a4c-0000-4000-8000-0000000000e2",
+          sourceKey: "creative-expo:325",
+          booth: "S-010",
+          zone: "S",
+          sortOrder: 1,
+        }),
+        exhibitor({
+          id: "2b0f5a4c-0000-4000-8000-0000000000e3",
+          sourceKey: "creative-expo:401",
+          booth: "H-001",
+          zone: "H",
+          sortOrder: 2,
+        }),
+      ],
+      new Map([["2b0f5a4c-0000-4000-8000-0000000000e1", "woky"]]),
+      brandMap(brand("woky", "沃廚")),
+    );
+
+    // The S row has no brand link and the H row is outside the allowlist:
+    // only the zone gate applies here, unlike the linked-only selection.
+    expect(
+      selectCreativeExpoEntries(rows).map((row) => [
+        row.sourceKey,
+        row.zone,
+        row.brand?.slug ?? null,
+      ]),
+    ).toEqual([
+      ["creative-expo:322", "K1", "woky"],
+      ["creative-expo:325", "S", null],
+    ]);
+  });
+
+  it("maps only a published event exhibitor embed", () => {
+    const row: EventExhibitorJoinRow = {
+      id: "2b0f5a4c-0000-4000-8000-0000000000e1",
+      event_id: "2b0f5a4c-0000-4000-8000-000000000001",
+      source_key: "creative-expo:322",
+      name: "沃廚",
+      name_en: "WOKY",
+      booth: "K1-001",
+      area: "文創品牌展區",
+      area_en: "Cultural & Creative Brands",
+      zone: "K1",
+      event_category: "cultural_creative",
+      source_url: "https://creativexpo.tw/zh-TW/exhibitor_list/322",
+      website_url: null,
+      verified_at: "2026-08-06",
+      sort_order: 0,
+      image_url: null,
+      image_alt_zh: null,
+      image_alt_en: null,
+      summary_zh: null,
+      summary_en: null,
+      content_source: null,
+      content_verified_at: null,
+      events: { slug: "2026-taiwan-creative-expo", status: "published" },
+    };
+
+    expect(eventExhibitorRowToDomain(row)).toMatchObject({
+      sourceKey: "creative-expo:322",
+      eventCategory: "cultural_creative",
+    });
+    expect(
+      eventExhibitorRowToDomain({
+        ...row,
+        events: { slug: "2026-taiwan-creative-expo", status: "hidden" },
+      }),
+    ).toBeNull();
+  });
+
+  it("carries roster-owned exhibitor content all the way to the domain object", async () => {
+    // The whole read path, not just the mapper: the fixture is projected
+    // through EVENT_EXHIBITOR_SELECT, so a content column missing from that
+    // string arrives `undefined` here even though the hand-written row type
+    // still type-checks. That silent omission is the failure this guards.
+    eventExhibitorsTable = [
+      {
+        id: "2b0f5a4c-0000-4000-8000-0000000000e3",
+        event_id: "2b0f5a4c-0000-4000-8000-000000000001",
+        source_key: "creative-expo:417",
+        name: "禾亮家",
+        name_en: "Herbalight",
+        booth: "K2-014",
+        area: "文創品牌展區",
+        area_en: "Cultural & Creative Brands",
+        zone: "K2",
+        event_category: "cultural_creative",
+        source_url: "https://creativexpo.tw/zh-TW/exhibitor_list/417",
+        website_url: "https://herbalight.com.tw",
+        verified_at: "2026-08-06",
+        sort_order: 3,
+        image_url:
+          "https://xkcayngbttpxyibgzern.supabase.co/storage/v1/object/public/event-exhibitors/2026-taiwan-creative-expo/herbalight.jpg",
+        image_alt_zh: "禾亮家的青草茶包裝罐",
+        image_alt_en: "Herbalight herbal tea canisters",
+        summary_zh: "以台灣在地青草入茶的漢方飲品品牌。",
+        summary_en: "Herbal drinks brewed from Taiwan-grown medicinal plants.",
+        content_source: "enriched",
+        content_verified_at: "2026-08-08T06:00:00+00:00",
+        events: { slug: "2026-taiwan-creative-expo", status: "published" },
+      },
+    ];
+
+    const exhibitors = await fetchEventExhibitors(
+      clientDouble(),
+      "2026-taiwan-creative-expo",
+    );
+
+    expect(exhibitors).toHaveLength(1);
+    expect(exhibitors[0]).toMatchObject({
+      sourceKey: "creative-expo:417",
+      imageUrl:
+        "https://xkcayngbttpxyibgzern.supabase.co/storage/v1/object/public/event-exhibitors/2026-taiwan-creative-expo/herbalight.jpg",
+      imageAltZh: "禾亮家的青草茶包裝罐",
+      imageAltEn: "Herbalight herbal tea canisters",
+      summaryZh: "以台灣在地青草入茶的漢方飲品品牌。",
+      summaryEn: "Herbal drinks brewed from Taiwan-grown medicinal plants.",
+      contentSource: "enriched",
+      contentVerifiedAt: "2026-08-08T06:00:00+00:00",
+    });
   });
 
   it("taipeiToday_crosses_utc_boundary", () => {
@@ -303,8 +578,15 @@ describe("events service", () => {
     );
 
     const first = composeEventBrands(links, brands).map((e) => e.brand.slug);
-    const shuffled = [links[3], links[0], links[2], links[1]] as EventBrandLink[];
-    const second = composeEventBrands(shuffled, brands).map((e) => e.brand.slug);
+    const shuffled = [
+      links[3],
+      links[0],
+      links[2],
+      links[1],
+    ] as EventBrandLink[];
+    const second = composeEventBrands(shuffled, brands).map(
+      (e) => e.brand.slug,
+    );
 
     expect(first).toEqual(["molasses", "tide", "arbor", "kiln-studio"]);
     expect(second).toEqual(first);
@@ -362,7 +644,8 @@ describe("events service", () => {
     };
 
     expect(
-      eventBrandRowToDomain({ ...base, brands: { slug: "molasses" } })?.brandSlug,
+      eventBrandRowToDomain({ ...base, brands: { slug: "molasses" } })
+        ?.brandSlug,
     ).toBe("molasses");
     expect(
       eventBrandRowToDomain({ ...base, brands: [{ slug: "molasses" }] })?.booth,
@@ -397,7 +680,9 @@ describe("events service", () => {
     // be cached for the full ISR window and look exactly like "no events yet",
     // with no signal anywhere that the database ever failed.
     queryError = { message: "connection reset" };
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
 
     await expect(fetchPublishedEvents(clientDouble())).rejects.toThrow();
 

@@ -808,4 +808,60 @@ describe("CorrectionDialog", () => {
       expect(chip(ADD_TAGS_HEADING, OTHER_CHIP)).toHaveFocus();
     });
   });
+
+  // The submission flow strips the query string off a pasted link; the queue
+  // only ever sees the cleaned form from either entry point.
+  describe("link cleaning", () => {
+    function openLinkField() {
+      fireEvent.click(
+        screen.getByRole("button", { name: COPY.purchaseTrigger }),
+      );
+      fireEvent.change(
+        screen.getByRole("combobox", { name: COPY.purchaseFieldPickerLabel }),
+        { target: { value: "purchase_shopee" } },
+      );
+      return screen.getByLabelText(COPY.purchaseUrlLabel);
+    }
+
+    it("strips the query string from a pasted link on blur", () => {
+      renderDialog({ mode: "purchaseLinks" });
+      const input = openLinkField();
+
+      fireEvent.change(input, {
+        target: { value: "https://shopee.tw/warmwood?utm_source=ig" },
+      });
+      fireEvent.blur(input);
+
+      expect(input).toHaveValue("https://shopee.tw/warmwood");
+    });
+
+    it("submits the cleaned URL", async () => {
+      renderDialog({ mode: "purchaseLinks" });
+      const input = openLinkField();
+
+      fireEvent.change(input, {
+        target: { value: "https://shopee.tw/warmwood?utm_source=ig" },
+      });
+      fireEvent.blur(input);
+      submit();
+
+      await waitFor(() => {
+        expect(mocks.submitCorrection).toHaveBeenCalledWith({
+          brandId: BRAND_ID,
+          field: "purchase_shopee",
+          proposedValue: "https://shopee.tw/warmwood",
+        });
+      });
+    });
+
+    it("leaves a query-only value alone so validation can reject it", () => {
+      renderDialog({ mode: "purchaseLinks" });
+      const input = openLinkField();
+
+      fireEvent.change(input, { target: { value: "?utm_source=ig" } });
+      fireEvent.blur(input);
+
+      expect(input).toHaveValue("?utm_source=ig");
+    });
+  });
 });

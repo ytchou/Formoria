@@ -12,15 +12,11 @@ import {
   type PurchaseChannelCamelField,
   type PurchaseChannelColumn,
 } from '@/lib/brands/purchase-channels'
-import * as supabaseServer from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import type { EmailMessage } from '@/lib/email/types'
 import { normalizeOwnerLocale, type OwnerLocale } from '@/lib/types'
 import { computeProfileCompleteness } from '@/lib/services/profile-completeness'
 import { isOwnerFeaturesEnabled } from './app-settings'
-
-declare module '@/lib/supabase/server' {
-  export function createAdminClient(): unknown
-}
 
 type DripKey =
   | 'welcome'
@@ -314,12 +310,7 @@ async function queryOwnerLocales(
 }
 
 function getAdminClient(): SupabaseClientLike {
-  const serverModule = supabaseServer as typeof supabaseServer & {
-    createAdminClient?: () => unknown
-  }
-  const client =
-    serverModule.createAdminClient?.() ?? serverModule.createServiceClient()
-  return client as SupabaseClientLike
+  return createServiceClient() as unknown as SupabaseClientLike
 }
 
 function queryEligibleOwners(

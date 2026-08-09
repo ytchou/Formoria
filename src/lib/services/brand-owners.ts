@@ -1,7 +1,7 @@
 import { cache } from 'react'
 import { auditedCall } from '@/lib/audit'
 import type { Database } from '@/lib/supabase/database.types'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
 // ---------------------------------------------------------------------------
 // Row types

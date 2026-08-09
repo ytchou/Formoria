@@ -15,6 +15,7 @@ import { surfaceCardStyles } from '@/components/ui/card'
 import { buttonVariants } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { safeImageSrc } from '@/lib/images/allowed-image-hosts'
+import { brandImageFill } from '@/lib/images/focal'
 import { getBrandCategoryLabel } from '@/lib/brands/category-label'
 import { NO_SNIPPET } from '@/lib/seo/snippet'
 import { SaveBrandButton } from './save-brand-button'
@@ -52,11 +53,17 @@ export function BrandCard({
   // Safe on surfaces with no SavedBrandsProvider — the hook falls back to an empty set.
   const { savedIds } = useSavedBrands()
   const [imgError, setImgError] = useState(false)
-  const imageSrc =
-    [brand.heroImageUrl, ...brand.productPhotos]
-      .map((url) => safeImageSrc(url))
-      .find((src): src is string => src !== null) ?? null
-  const showImage = imageSrc !== null && !imgError
+  // Index-tracked rather than `.find()`: `imageAlts` is index-aligned with
+  // `[heroImageUrl, ...productPhotos]`, and the fill mode below needs the
+  // metadata of whichever candidate actually renders.
+  const imageCandidates = [brand.heroImageUrl, ...brand.productPhotos].map((url) =>
+    safeImageSrc(url),
+  )
+  const imageIndex = imageCandidates.findIndex((src) => src !== null)
+  const imageSrc = imageIndex === -1 ? null : imageCandidates[imageIndex]
+  const showImage = imageSrc != null && !imgError
+  const imageMeta = imageIndex >= 0 ? brand.imageAlts.at(imageIndex) : undefined
+  const imageFill = brandImageFill(imageMeta, { inset: 'p-6' })
 
   const categoryLabel = getBrandCategoryLabel(brand, locale === 'en' ? 'en' : 'zh-TW')
   // The directory blurb, resolved once: both the directory variant and the
@@ -86,7 +93,11 @@ export function BrandCard({
             alt=""
             fill
             preload={preload}
-            className="object-contain transition-transform group-hover:scale-[1.02]"
+            className={cn('transition-transform group-hover:scale-[1.02]', imageFill.className)}
+            // Assigned, never spread: `brandImageFill` returns `undefined` when
+            // there is nothing to position, and `{ ...undefined }` would turn
+            // that into an empty object.
+            style={imageFill.style}
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
             onError={() => setImgError(true)}
           />

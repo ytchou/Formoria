@@ -12,7 +12,7 @@ import {
   type CurationJobTarget,
 } from "./curation-jobs";
 import { sanitizeJobError } from "./job-errors";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 
 const MAX_EVENTS_PER_PHASE = 300;
 const LEGACY_QUERY_CHUNK_SIZE = 100;

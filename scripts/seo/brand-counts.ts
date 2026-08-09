@@ -9,7 +9,7 @@ import {
   excludeTestBrands,
   TEST_BRAND_NAME_PATTERN,
 } from '@/lib/services/public-brand-filter'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import {
   isCompositeSubcategory,
   matchSubcategory,
@@ -49,6 +49,8 @@ export type SubcategoryBrandCount = Pick<
   'slug' | 'nameZh' | 'nameEn' | 'category'
 > & {
   brand_count: number
+  corpus_brand_count: number
+  l1_branches: number
   isComposite: boolean
 }
 
@@ -76,7 +78,11 @@ function compareSubcategories(
 
 function toSubcategoryBrandCount(
   slug: string,
-  brand_count: number,
+  counts: {
+    brand_count: number
+    corpus_brand_count: number
+    l1_branches: number
+  },
 ): SubcategoryBrandCount | null {
   const subcategory = subcategoryBySlug(slug)
   if (!subcategory) return null
@@ -86,7 +92,7 @@ function toSubcategoryBrandCount(
     nameZh: subcategory.nameZh,
     nameEn: subcategory.nameEn,
     category: subcategory.category,
-    brand_count,
+    ...counts,
     isComposite: isCompositeSubcategory(subcategory),
   }
 }
@@ -98,6 +104,8 @@ export function aggregateBrandCounts(rows: BrandCountRow[]): BrandCountResult {
   }
 
   const subcategoryCounts = new Map<string, number>()
+  const corpusSubcategoryCounts = new Map<string, number>()
+  const l1Branches = new Map<string, Set<ProductTypeSlug>>()
   const unmatchedCounts = new Map<string, { tag: string; brand_count: number }>()
 
   for (const row of rows) {
@@ -116,11 +124,33 @@ export function aggregateBrandCounts(rows: BrandCountRow[]): BrandCountResult {
     }
 
     const seenSubcategorySlugs = new Set<string>()
+    const seenCorpusSubcategorySlugs = new Set<string>()
     const seenUnmatchedTagKeys = new Set<string>()
 
     for (const tag of row.product_tags ?? []) {
       const matchedSubcategory = matchSubcategory(tag)
       if (matchedSubcategory) {
+        const subcategory = subcategoryBySlug(matchedSubcategory.slug)
+        if (!subcategory) continue
+
+        // Corpus measurement is deliberately unscoped: it answers how many
+        // approved brands carry a tag anywhere in the directory, even when the
+        // brand's L1 differs from the subcategory's parent. Keep this tally
+        // separate from the L1-scoped set below so the guard cannot suppress it.
+        if (!seenCorpusSubcategorySlugs.has(subcategory.slug)) {
+          seenCorpusSubcategorySlugs.add(subcategory.slug)
+          corpusSubcategoryCounts.set(
+            subcategory.slug,
+            (corpusSubcategoryCounts.get(subcategory.slug) ?? 0) + 1,
+          )
+
+          if (productTypeCategory) {
+            const branches = l1Branches.get(subcategory.slug) ?? new Set<ProductTypeSlug>()
+            branches.add(productTypeCategory.slug)
+            l1Branches.set(subcategory.slug, branches)
+          }
+        }
+
         // Scope the tag to the brand's own L1: `/brands?category=jewelry`
         // filters on product_type, so a fashion brand tagged 手鍊 never appears
         // under the jewelry subcategory page. Counting it would inflate every
@@ -130,8 +160,7 @@ export function aggregateBrandCounts(rows: BrandCountRow[]): BrandCountResult {
         // real subcategory, just not one this brand's page belongs to.
         if (matchedSubcategory.category !== row.product_type) continue
 
-        const subcategory = subcategoryBySlug(matchedSubcategory.slug)
-        if (!subcategory || seenSubcategorySlugs.has(subcategory.slug)) continue
+        if (seenSubcategorySlugs.has(subcategory.slug)) continue
 
         seenSubcategorySlugs.add(subcategory.slug)
         subcategoryCounts.set(
@@ -154,8 +183,18 @@ export function aggregateBrandCounts(rows: BrandCountRow[]): BrandCountResult {
     }
   }
 
-  const subcategories = Array.from(subcategoryCounts.entries())
-    .map(([slug, brand_count]) => toSubcategoryBrandCount(slug, brand_count))
+  const allSubcategorySlugs = new Set([
+    ...corpusSubcategoryCounts.keys(),
+    ...subcategoryCounts.keys(),
+  ])
+  const subcategories = Array.from(allSubcategorySlugs)
+    .map((slug) =>
+      toSubcategoryBrandCount(slug, {
+        brand_count: subcategoryCounts.get(slug) ?? 0,
+        corpus_brand_count: corpusSubcategoryCounts.get(slug) ?? 0,
+        l1_branches: l1Branches.get(slug)?.size ?? 0,
+      }),
+    )
     .filter((entry): entry is SubcategoryBrandCount => entry !== null)
     .sort(compareSubcategories)
 

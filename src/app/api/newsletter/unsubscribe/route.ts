@@ -1,7 +1,7 @@
 import { withAuditScope } from '@/lib/audit/scope'
 import { NextRequest, NextResponse } from 'next/server'
 import { unsubscribeNewsletter } from '@/lib/services/newsletter'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { extractToken } from './helpers'
 
 const htmlHeaders = {

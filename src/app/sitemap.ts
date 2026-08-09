@@ -2,24 +2,34 @@ import type { MetadataRoute } from "next";
 import { getBrandSeoEntries } from "@/lib/services/brands";
 import { getPublishedEvents } from "@/lib/services/events";
 import { getAllStories } from "@/lib/services/stories";
-import { PRODUCT_TYPE_CATEGORIES } from "@/lib/taxonomy/ontology";
 import { buildAlternates, type Locale } from "@/lib/seo/alternates";
-import { getBrandIndexability } from "@/lib/seo/brand-indexability";
+import { buildBrandSitemapEntries } from "@/lib/seo/brand-sitemap";
+import { buildDirectorySitemapSection } from "@/lib/seo/directory-sitemap";
 
 export const revalidate = 3600;
 
 const ALL_LOCALES: readonly Locale[] = ["zh-TW", "en"];
 
-function localizedEntries(
+/**
+ * `alternateLocales` defaults to the emitted set, which is right for every
+ * surface whose "should we list it" and "which translations exist" answers are
+ * the same question. Brands are the exception: DEV-1405 gates *membership* on
+ * the raised promotion bar while hreflang still has to describe which
+ * translations exist, and the brand detail page derives its own alternates from
+ * the unchanged indexability bar. Narrowing `languages` to the promoted set
+ * would put the sitemap and the page in direct disagreement.
+ */
+export function localizedEntries(
   path: string,
   availableLocales: readonly Locale[] = ALL_LOCALES,
   lastModified?: Date,
+  alternateLocales: readonly Locale[] = availableLocales,
 ): MetadataRoute.Sitemap {
   return availableLocales.map((locale) => {
     const { canonical, languages } = buildAlternates(
       path,
       locale,
-      availableLocales,
+      alternateLocales,
     );
     return {
       url: canonical,
@@ -35,8 +45,8 @@ function validDate(value: string | undefined): Date | undefined {
   return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
-function latestBrandDate(
-  entries: Array<{ updatedAt: string }>,
+export function latestBrandDate(
+  entries: ReadonlyArray<{ updatedAt: string }>,
 ): Date | undefined {
   const timestamps = entries
     .map((entry) => validDate(entry.updatedAt)?.getTime())
@@ -51,9 +61,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Deliberately in staticPages, not the try block: the hub is a real page with
     // zero events, and it must stay listed even when the dynamic block throws.
     "/events",
-    "/stats",
     "/about",
-    "/glossary",
     "/faq",
     "/contact",
     "/terms",
@@ -70,8 +78,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const storyIndexPages = localizedEntries("/stories", ["zh-TW"]);
 
   try {
-    const [brands, storyResult, events] = await Promise.all([
-      getBrandSeoEntries(),
+    const rawBrandsPromise = getBrandSeoEntries();
+    const brandsPromise = rawBrandsPromise.catch(() => []);
+    const directoryPagesPromise = buildDirectorySitemapSection(rawBrandsPromise);
+    const [brands, storyResult, events, categoryPages] = await Promise.all([
+      brandsPromise,
       getAllStories(),
       // Degrade to zero event entries instead of taking the sitemap down with
       // them: the events service throws on any query error, and an unguarded
@@ -80,32 +91,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       // every ?category= and every /stories/<slug> URL for the full revalidate
       // window. Same resilience as `storyResult.ok` on the next line.
       getPublishedEvents().catch(() => []),
+      directoryPagesPromise,
     ]);
     const stories = storyResult.ok ? storyResult.stories : [];
 
-    const brandPages = brands.flatMap((brand) => {
-      const indexability = getBrandIndexability(brand);
-      const availableLocales: Locale[] = [
-        ...(indexability["zh-TW"] ? (["zh-TW"] as const) : []),
-        ...(indexability.en ? (["en"] as const) : []),
-      ];
-      return localizedEntries(
-        `/brands/${brand.slug}`,
-        availableLocales,
-        validDate(brand.updatedAt),
-      );
-    });
-
-    const categoryPages = PRODUCT_TYPE_CATEGORIES.flatMap((category) => {
-      const categoryBrands = brands.filter(
-        (brand) => brand.productType === category.slug,
-      );
-      return localizedEntries(
-        `/brands?category=${category.slug}`,
-        ALL_LOCALES,
-        latestBrandDate(categoryBrands),
-      );
-    });
+    const brandPages = buildBrandSitemapEntries(brands);
 
     const storyPages = stories.flatMap((story) => {
       if (story.frontmatter.locale === "en") return [];

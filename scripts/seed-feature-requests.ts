@@ -13,7 +13,7 @@
  *
  * Run: pnpm tsx --env-file=.env.local scripts/seed-feature-requests.ts
  */
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
 type SeedRequest = {
   title: string

@@ -74,6 +74,7 @@ test.describe.serial('Brand save/unsave — card overlay', () => {
         name: brandName,
         slug: brandSlug,
         status: 'approved',
+        approved_at: new Date().toISOString(),
         product_type: 'crafts',
         description: '[E2E-TEST] Save-brand journey test brand.',
         retail_locations: [],
@@ -121,7 +122,7 @@ test.describe.serial('Brand save/unsave — card overlay', () => {
 
     const { error: brandStatusError } = await supabase
       .from('brands')
-      .update({ status: 'approved' })
+      .update({ status: 'approved', approved_at: new Date().toISOString() })
       .eq('id', brandId);
     if (brandStatusError) {
       throw new Error(`Failed to mark brand approved: ${brandStatusError.message}`);
@@ -293,9 +294,10 @@ test.describe('Brand save — card overlay on directory', () => {
     );
 
     const ts = Date.now();
-    // Directory queries intentionally exclude names prefixed with [E2E-TEST],
-    // so this seed uses a cleanup-safe slug without that filtered name prefix.
-    brandName = `E2E Save Overlay ${ts}`;
+    // Prefixed so the orphan sweep can reach it if this run dies before
+    // afterAll. Safe despite the directory filter: this journey only visits
+    // /brands/<slug>, and detail-by-slug applies no test-brand exclusion.
+    brandName = `[E2E-TEST] Save Overlay ${ts}`;
     brandSlug = `e2e-save-overlay-${ts}`;
 
     const { data: stale } = await supabase
@@ -316,6 +318,7 @@ test.describe('Brand save — card overlay on directory', () => {
         name: brandName,
         slug: brandSlug,
         status: 'approved',
+        approved_at: new Date().toISOString(),
         product_type: 'crafts',
         description: '[E2E-TEST] Save-overlay journey test brand.',
         retail_locations: [],

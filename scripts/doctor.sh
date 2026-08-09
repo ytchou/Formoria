@@ -93,6 +93,29 @@ check_env() {
     if ! grep -q "CF_ORIGIN_SECRET=." .env.local; then
       echo "⚠ CF_ORIGIN_SECRET not set (optional — needed for Cloudflare origin protection)"
     fi
+    # These two secrets belong to separate trust domains and MUST never share a
+    # value. Rationale and the full model: docs/runbooks/cloudflare-edge.md.
+    #
+    # Normalise before comparing: ORIGIN_SECRET="abc" and CF_ORIGIN_SECRET=abc
+    # are the SAME secret, and a trailing space or CRLF would likewise make two
+    # identical values compare unequal. A security check that fails open is
+    # worse than no check, so strip quoting and trailing whitespace first.
+    __strip_env_value() {
+      printf '%s' "$1" \
+        | tr -d '\r' \
+        | sed -e 's/[[:space:]]*$//' \
+              -e 's/^"\(.*\)"$/\1/' \
+              -e "s/^'\(.*\)'$/\1/" \
+              -e 's/[[:space:]]*$//'
+    }
+    __origin_secret=$(__strip_env_value "$(grep -m1 '^ORIGIN_SECRET=' .env.local 2>/dev/null | cut -d= -f2-)")
+    __cf_origin_secret=$(__strip_env_value "$(grep -m1 '^CF_ORIGIN_SECRET=' .env.local 2>/dev/null | cut -d= -f2-)")
+    if [ -n "$__origin_secret" ] && [ "$__origin_secret" = "$__cf_origin_secret" ]; then
+      echo "ERROR: ORIGIN_SECRET equals CF_ORIGIN_SECRET — these are two different trust domains and must never share a value"
+      ERRORS=$((ERRORS + 1))
+    fi
+    unset __origin_secret __cf_origin_secret
+    unset -f __strip_env_value
     if ! grep -q "CHALLENGE_SECRET=." .env.local; then
       echo "WARN: CHALLENGE_SECRET not set — progressive CAPTCHA challenge will fail in production"
     fi
@@ -109,9 +132,9 @@ check_env() {
     if ! grep -q "INDEXNOW_KEY=." .env.local 2>/dev/null; then
       echo "WARN: INDEXNOW_KEY not set (optional — needed for Bing IndexNow submission)"
     fi
-    # NOTE: MIT registry sync is scheduled via pg_cron (Sundays 2 AM UTC,
-    # job name: sync-mit-registry-weekly). Auth uses ORIGIN_SECRET (app.origin_secret).
-    # See supabase/migrations/20260702130000_schedule_mit_registry_sync.sql
+    # NOTE: the scheduled HTTP jobs authenticate with ORIGIN_SECRET and are
+    # configured entirely in the database, not here. Scheduling, host routing and
+    # how to verify a job actually ran: docs/runbooks/cloudflare-edge.md.
   fi
 }
 
@@ -165,15 +188,57 @@ check_ai_results_phase() {
   # No psql or no connection string: fall back to the migration ledger, which is
   # the same question one step removed — has that migration reached the remote?
   if command -v supabase &> /dev/null; then
-    local row
-    row=$(supabase migration list --linked 2>/dev/null | grep "20260803033000" || true)
-    if [ -z "$row" ]; then
+    local ledger
+    ledger=$(supabase migration list --linked 2>/dev/null || true)
+    if [ -z "$ledger" ]; then
       echo "WARN: could not read the migration ledger — verify by hand that the live brand_ai_results phase CHECK accepts 'facts' and 'reputation' (${PHASE_CHECK_REMEDIATION})"
+      return
+    fi
+
+    # Supabase CLI v2 emits JSON by default; older versions emit a pipe-delimited
+    # table. Keep both formats working so a healthy remote ledger is not reported
+    # as missing merely because the CLI was upgraded.
+    if printf '%s\n' "$ledger" | grep -Eq '^[[:space:]]*\{'; then
+      local json_status
+      json_status=$(printf '%s\n' "$ledger" | node -e '
+        let input = "";
+        process.stdin.setEncoding("utf8");
+        process.stdin.on("data", (chunk) => { input += chunk; });
+        process.stdin.on("end", () => {
+          try {
+            const payload = JSON.parse(input);
+            const migration = Array.isArray(payload.migrations)
+              ? payload.migrations.find((row) => row?.local === "20260803033000")
+              : null;
+            process.stdout.write(
+              typeof migration?.remote === "string" && migration.remote.trim()
+                ? "found"
+                : "missing",
+            );
+          } catch {
+            process.stdout.write("invalid");
+          }
+        });
+      ' 2>/dev/null || true)
+      if [ "$json_status" = "found" ]; then
+        echo "OK: brand_ai_results phase CHECK migration applied on the linked project"
+      else
+        echo "ERROR: brand_ai_results phase CHECK migration is not applied on the linked project. ${PHASE_CHECK_REMEDIATION}"
+        ERRORS=$((ERRORS + 1))
+      fi
+      return
+    fi
+
+    local row
+    row=$(printf '%s\n' "$ledger" | grep "20260803033000" || true)
+    if [ -z "$row" ]; then
+      echo "ERROR: brand_ai_results phase CHECK migration is not applied on the linked project. ${PHASE_CHECK_REMEDIATION}"
+      ERRORS=$((ERRORS + 1))
       return
     fi
     # Ledger rows are "local | remote | time"; a remote-applied row has a version
     # in the second column.
-    if echo "$row" | awk -F'|' '{ gsub(/ /, "", $2); exit ($2 == "" ? 1 : 0) }'; then
+    if echo "$row" | awk -F'|' '{ gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); exit ($2 == "" ? 1 : 0) }'; then
       echo "OK: brand_ai_results phase CHECK migration applied on the linked project"
     else
       echo "ERROR: brand_ai_results phase CHECK migration is not applied on the linked project. ${PHASE_CHECK_REMEDIATION}"

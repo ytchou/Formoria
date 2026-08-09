@@ -1,9 +1,16 @@
-import { access, readFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { promisify } from "node:util";
 
 import * as prettier from "prettier";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { parse as parseYaml } from "yaml";
 
+const execFileAsync = promisify(execFile);
 const workflowPath = ".github/workflows/health-agent.yml";
+const temporaryDirectories: string[] = [];
 const retiredPaths = [
   ".github/workflows/health-agent-collect.yml",
   ".github/workflows/health-agent-analyze.yml",
@@ -16,7 +23,83 @@ const retiredPaths = [
   "scripts/notifications/quality-slack.ts",
 ];
 
+afterEach(async () => {
+  await Promise.all(
+    temporaryDirectories
+      .splice(0)
+      .map((directory) => rm(directory, { force: true, recursive: true })),
+  );
+});
+
+type ArtifactStatus = "failed" | "skipped" | "success";
+
+async function runProductMerge(
+  directoryStatus: ArtifactStatus,
+  brandStatus?: ArtifactStatus,
+): Promise<Record<string, unknown>> {
+  const artifactRoot = await mkdtemp(
+    path.join(tmpdir(), "formoria-product-merge-"),
+  );
+  temporaryDirectories.push(artifactRoot);
+
+  const workflow = parseYaml(await readFile(workflowPath, "utf8")) as {
+    jobs: {
+      "nightly-health": {
+        steps: Array<{ id?: string; run?: string }>;
+      };
+    };
+  };
+  const mergeStep = workflow.jobs["nightly-health"].steps.find(
+    (step) => step.id === "product",
+  );
+  if (!mergeStep?.run) {
+    throw new Error("product merge command is missing from workflow");
+  }
+
+  const artifact = (routine: string, status: ArtifactStatus) => ({
+    collectedAt: "2026-08-08T10:00:00.000Z",
+    evidence: { mode: "preflight" },
+    failures: [],
+    findings: [],
+    routine,
+    skippedActions: status === "skipped" ? [`${routine}_collection`] : [],
+    status,
+    version: 1,
+  });
+  await writeFile(
+    path.join(artifactRoot, "directory-health.json"),
+    `${JSON.stringify(artifact("directory-health", directoryStatus))}\n`,
+  );
+  if (brandStatus) {
+    await writeFile(
+      path.join(artifactRoot, "brand-review.json"),
+      `${JSON.stringify(artifact("brand-review", brandStatus))}\n`,
+    );
+  }
+
+  await execFileAsync("bash", ["-euo", "pipefail", "-c", mergeStep.run], {
+    cwd: process.cwd(),
+    env: { ...process.env, HEALTH_ARTIFACT_DIR: artifactRoot },
+  });
+  return JSON.parse(
+    await readFile(path.join(artifactRoot, "directory-health.json"), "utf8"),
+  ) as Record<string, unknown>;
+}
+
 describe("unified health-agent workflow contract", () => {
+  it("admits before collection and gates duplicate replays without workflow-wide cancellation", async () => {
+    const workflow = await readFile(workflowPath, "utf8");
+    expect(workflow).not.toContain("concurrency:");
+    const admission = workflow.indexOf("id: admission");
+    const firstCollector = workflow.indexOf("id: link");
+    expect(admission).toBeGreaterThan(-1);
+    expect(admission).toBeLessThan(firstCollector);
+    expect(workflow).toContain("workflow-runtime.ts admit-run");
+    expect(workflow).toContain("--terminal-output");
+    expect(workflow).toContain("if: steps.admission.outputs.claimed == 'true'");
+    expect(workflow).toContain("id: duplicate-terminal");
+  });
+
   it("keeps the scheduled and manual control plane in one job with five visible stages", async () => {
     const workflow = await readFile(workflowPath, "utf8");
     await expect(
@@ -121,13 +204,113 @@ describe("unified health-agent workflow contract", () => {
     expect(workflow.match(/workflow-runtime\.ts final-report/g)).toHaveLength(
       1,
     );
-    expect(workflow.match(/actions\/upload-artifact@/g)).toHaveLength(1);
+    expect(workflow.match(/actions\/upload-artifact@/g)).toHaveLength(2);
     expect(workflow).toContain(
       "health-run-${{ github.run_id }}-${{ github.run_attempt }}",
     );
     expect(workflow).toContain("health-run.json");
     expect(workflow).toContain("audit.jsonl");
     expect(workflow).not.toContain("actions/download-artifact@");
+  });
+
+  it("keeps final-report runtime arguments in one folded shell command", async () => {
+    const workflow = parseYaml(await readFile(workflowPath, "utf8")) as {
+      jobs: {
+        "nightly-health": {
+          steps: Array<{ id?: string; run?: string }>;
+        };
+      };
+    };
+    const finalReport = workflow.jobs["nightly-health"].steps.find(
+      (step) => step.id === "final-report",
+    );
+
+    expect(finalReport?.run).toBeDefined();
+    expect(finalReport?.run).not.toContain("\n");
+    for (const argument of [
+      "--run-at",
+      "--attempt",
+      "--workflow-url",
+      "--output",
+      "--audit",
+    ]) {
+      expect(finalReport?.run).toContain(argument);
+    }
+  });
+
+  it.each([
+    ["success", "success", "success"],
+    ["success", "skipped", "success"],
+    ["success", "failed", "failed"],
+    ["failed", "skipped", "failed"],
+  ] as const)(
+    "merges directory %s and brand %s artifacts as %s",
+    async (directoryStatus, brandStatus, expectedStatus) => {
+      const merged = await runProductMerge(directoryStatus, brandStatus);
+
+      expect(merged).toMatchObject({
+        failures: [],
+        findings: [],
+        status: expectedStatus,
+      });
+    },
+  );
+
+  it("fails closed when the brand review artifact is missing", async () => {
+    await expect(runProductMerge("success")).rejects.toThrow();
+  });
+
+  it("classifies failed artifact uploads and gates terminal success on both attempts", async () => {
+    const workflow = await readFile(workflowPath, "utf8");
+
+    expect(workflow).toMatch(
+      /name: "Stage 5 · Upload health run"[\s\S]*?id: upload/,
+    );
+    expect(workflow).toContain("id: upload-retry");
+    expect(workflow).toContain("record-artifact-upload");
+    expect(workflow).toContain("steps.upload.outcome != 'success'");
+    expect(workflow).toContain(
+      '"${{ steps.upload-retry.outcome }}" == success',
+    );
+    expect(workflow).toContain(
+      'test "${{ steps.upload.outcome }}" = success || test "${{ steps.upload-retry.outcome }}" = success',
+    );
+  });
+
+  it("finalizes the claimed ledger only after required terminal delivery", async () => {
+    const workflow = await readFile(workflowPath, "utf8");
+    const finalize = workflow.indexOf("id: finalize\n");
+    const uploadStatus = workflow.indexOf("id: upload-status\n");
+    const surface = workflow.indexOf(
+      'name: "Stage 5 · Surface infrastructure failures"',
+    );
+
+    expect(finalize).toBeGreaterThan(uploadStatus);
+    expect(surface).toBeGreaterThan(finalize);
+    const finalization = workflow.slice(finalize, surface);
+    expect(finalization).toContain(
+      "if: always() && steps.admission.outputs.claimed == 'true'",
+    );
+    for (const outcome of [
+      "steps.final-report.outcome",
+      "steps.artifact.outcome",
+      "steps.upload.outcome",
+      "steps.upload-retry.outcome",
+      "steps.upload-status.outcome",
+    ]) {
+      expect(finalization).toContain(outcome);
+    }
+    expect(finalization).toContain('--status "$terminal_status"');
+    expect(workflow).toContain("terminal-status");
+    expect(workflow).toContain("terminal_status=failed");
+    expect(workflow).toContain('"$terminal_status" == success');
+
+    const duplicateTerminal = workflow.indexOf("id: duplicate-terminal\n");
+    expect(duplicateTerminal).toBeGreaterThan(-1);
+    expect(finalize).toBeGreaterThan(duplicateTerminal);
+    expect(workflow.slice(duplicateTerminal, finalize)).not.toContain(
+      "id: finalize\n",
+    );
   });
 
   it("caps repair at two cycles, publishes at most one human-reviewed PR, and never merges", async () => {

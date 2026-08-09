@@ -7,6 +7,7 @@ import type {
   SourceAttribution,
 } from "@/lib/types";
 import { auditedCall } from "@/lib/audit";
+import { isLogoImageTags } from "@/lib/constants/brand-images";
 import type {
   DuplicateCandidate,
   DuplicateCheckResult,
@@ -24,7 +25,7 @@ import {
   type SubmissionReviewStage,
 } from "./submission-review-stage";
 import { ConflictError, NotFoundError } from "@/lib/errors";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import {
   extractLatinRun,
   generateSlug,
@@ -83,7 +84,12 @@ type SubmissionRowWithProductTypeNote = Omit<
   [Column in PurchaseChannelColumn]?: string | null;
 };
 type SubmissionImageRow =
-  Database["public"]["Tables"]["submission_images"]["Row"];
+  Database["public"]["Tables"]["submission_images"]["Row"] & {
+    // The generated database types intentionally lag the applied migration;
+    // keep this forward-compatible until the next type refresh.
+    focal_x?: number | null;
+    focal_y?: number | null;
+  };
 type OwnerRecipientRow = Pick<
   Database["public"]["Tables"]["brand_submissions"]["Row"],
   "id" | "brand_id" | "submitter_email" | "submitted_at"
@@ -110,9 +116,15 @@ type BrandImageReviewRow = Pick<
   | "sort_order"
   | "alt_zh"
   | "alt_en"
+  | "tags"
   | "width"
   | "height"
->;
+> & {
+  // The generated database types intentionally lag the applied migration; keep
+  // this narrow projection forward-compatible until the next type refresh.
+  focal_x: number | null;
+  focal_y: number | null;
+};
 export type BrandSubmissionWithProductTypeNote = BrandSubmission & {
   websiteUrl: string | null;
   productTypeNote: string | null;
@@ -127,8 +139,17 @@ export type SubmissionReviewImage = {
   sortOrder: number;
   altZh: string | null;
   altEn: string | null;
+  isLogo: boolean;
   width: number | null;
   height: number | null;
+  /**
+   * Normalised focal point, carried so the moderation preview frames an image
+   * exactly as the public page will. Without it the two admin previews rendered
+   * a centre crop of an image that ships focal-cropped, and a moderator was
+   * approving a frame nobody would ever see.
+   */
+  focalX: number | null;
+  focalY: number | null;
   originBrandImageId: string | null;
 };
 type SubmissionLocationCandidate = {
@@ -558,8 +579,11 @@ function submissionImageToReviewImage(
     sortOrder: row.sort_order,
     altZh: row.alt_zh,
     altEn: row.alt_en,
+    isLogo: isLogoImageTags(row.tags),
     width: row.width,
     height: row.height,
+    focalX: row.focal_x ?? null,
+    focalY: row.focal_y ?? null,
     originBrandImageId: row.origin_brand_image_id,
   };
 }
@@ -578,8 +602,11 @@ function brandImageToReviewImage(
     sortOrder: row.sort_order,
     altZh: row.alt_zh,
     altEn: row.alt_en,
+    isLogo: isLogoImageTags(row.tags),
     width: row.width,
     height: row.height,
+    focalX: row.focal_x ?? null,
+    focalY: row.focal_y ?? null,
     originBrandImageId: row.id,
   };
 }
@@ -1436,7 +1463,7 @@ export async function getSubmissionsForReview(options?: {
             const { data: imageData, error: imagesError } = await supabase
               .from("submission_images")
               .select(
-                "id, submission_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, width, height, origin_brand_image_id",
+                "id, submission_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, tags, width, height, focal_x, focal_y, origin_brand_image_id",
               )
               .in("submission_id", targetIds)
               .order("submission_id", { ascending: true })
@@ -1488,7 +1515,7 @@ export async function getSubmissionsForReview(options?: {
             const { data: imageData, error: imagesError } = await supabase
               .from("brand_images")
               .select(
-                "id, brand_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, width, height",
+                "id, brand_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, tags, width, height, focal_x, focal_y",
               )
               .in("brand_id", brandIds)
               .eq("status", "active")
@@ -2148,13 +2175,13 @@ export async function approveSubmission(
   const { data: imageRows, error: imageError } = await supabase
     .from("submission_images")
     .select(
-      "id, submission_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, width, height, origin_brand_image_id",
+      "id, submission_id, storage_path, url, source, status, sort_order, alt_zh, alt_en, tags, width, height, focal_x, focal_y, origin_brand_image_id",
     )
     .eq("submission_id", id)
     .order("sort_order", { ascending: true });
   if (imageError) throw imageError;
   const reviewImages = normalizeSubmissionReviewImages(
-    ((imageRows ?? []) as SubmissionImageRow[]).map(
+    ((imageRows ?? []) as unknown as SubmissionImageRow[]).map(
       submissionImageToReviewImage,
     ),
   );

@@ -44,6 +44,8 @@ describe('aggregateBrandCounts', () => {
         nameEn: 'Bracelets & Bangles',
         category: 'jewelry',
         brand_count: 1,
+        corpus_brand_count: 1,
+        l1_branches: 1,
         isComposite: true,
       },
       {
@@ -52,8 +54,44 @@ describe('aggregateBrandCounts', () => {
         nameEn: 'Pants',
         category: 'fashion',
         brand_count: 1,
+        corpus_brand_count: 1,
+        l1_branches: 1,
         isComposite: false,
       },
+    ])
+  })
+
+  it('reports corpus_brand_count unscoped by product_type', () => {
+    const result = aggregateBrandCounts([brand('beauty', ['家具'])])
+
+    expect(result.subcategories).toEqual([
+      {
+        slug: 'furniture',
+        nameZh: '家具',
+        nameEn: 'Furniture',
+        category: 'home',
+        brand_count: 0,
+        corpus_brand_count: 1,
+        l1_branches: 1,
+        isComposite: false,
+      },
+    ])
+  })
+
+  it('reports l1_branches as the number of distinct product_types carrying the tag', () => {
+    const result = aggregateBrandCounts([
+      brand('home', ['家具']),
+      brand('beauty', ['家具']),
+      brand('crafts', ['家具']),
+    ])
+
+    expect(result.subcategories).toEqual([
+      expect.objectContaining({
+        slug: 'furniture',
+        brand_count: 1,
+        corpus_brand_count: 3,
+        l1_branches: 3,
+      }),
     ])
   })
 
@@ -63,11 +101,21 @@ describe('aggregateBrandCounts', () => {
     const result = aggregateBrandCounts([brand('fashion', ['牛仔褲', '手鍊'])])
 
     expect(result.subcategories).toEqual([
-      expect.objectContaining({ slug: 'pants', category: 'fashion', brand_count: 1 }),
+      expect.objectContaining({
+        slug: 'pants',
+        category: 'fashion',
+        brand_count: 1,
+        corpus_brand_count: 1,
+        l1_branches: 1,
+      }),
+      expect.objectContaining({
+        slug: 'bracelets-and-bangles',
+        category: 'jewelry',
+        brand_count: 0,
+        corpus_brand_count: 1,
+        l1_branches: 1,
+      }),
     ])
-    expect(result.subcategories.map(({ slug }) => slug)).not.toContain(
-      'bracelets-and-bangles',
-    )
     // It resolves to a real subcategory, so it is not backlogged as unmatched either.
     expect(result.unmatched).toEqual([])
   })
@@ -78,7 +126,14 @@ describe('aggregateBrandCounts', () => {
       brand('not-a-category', ['手鍊']),
     ])
 
-    expect(result.subcategories).toEqual([])
+    expect(result.subcategories).toEqual([
+      expect.objectContaining({
+        slug: 'bracelets-and-bangles',
+        brand_count: 0,
+        corpus_brand_count: 2,
+        l1_branches: 0,
+      }),
+    ])
   })
 
   it('collects unmatched tags separately', () => {

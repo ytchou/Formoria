@@ -31,7 +31,7 @@
  *   pnpm clear-contaminated-links            # dry run: report only
  *   pnpm clear-contaminated-links --apply    # clear
  */
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { isNonBrandSiteHost } from "@/lib/services/enrich-phases/scraper/input-detector";
 
 const APPLY = process.argv.includes("--apply");

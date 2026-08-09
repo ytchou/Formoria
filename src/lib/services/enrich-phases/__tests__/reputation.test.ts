@@ -13,7 +13,7 @@ import type { EnrichBrand } from "../types";
  * Tested through the pure resolver rather than by driving the whole phase: the
  * phase reads Supabase, and this project forbids mocking it — `pnpm lint` runs
  * `check:test-boundaries`, which fails on a test that mocks
- * `@/lib/supabase/server`. The resolver is where the entire decision lives, so
+ * `@/lib/supabase/service`. The resolver is where the entire decision lives, so
  * nothing is lost by testing it directly.
  */
 const research = (reputationSummary: unknown = null) => ({ reputationSummary });

@@ -4,7 +4,8 @@ import { runWithAuditContext } from "@/lib/audit/context";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { getLocale, getTranslations } from "next-intl/server";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import {
   isRelativeUrl,
   getSignInSchema,

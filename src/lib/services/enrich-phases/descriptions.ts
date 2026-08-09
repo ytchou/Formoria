@@ -14,7 +14,7 @@ import {
 import { normalizeProductTags } from "@/lib/services/product-tags";
 import { CLEARED_FIELDS_KEY } from "@/lib/services/brand-write-policy";
 import { resolveEnrichedPriceRange } from "@/lib/brands/price-range";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { productTypeNameZh } from "@/lib/taxonomy/ontology";
 import {
   addLlmCalls,
