@@ -1,0 +1,24 @@
+{
+  "name": "dev-1310-han-only-links",
+  "title": "DEV-1310 — zero-token/Han-only brands with legacy first-eligible purchase websites",
+  "subtitle": "Seventeen approved brands whose name yields zero Latin tokens, so the hostname identity check could not run and deriveOfficialWebsite fell back to first-eligible. Each purchase_website below was scored offline against fetched page evidence and returned a high-confidence not-owned verdict: shopping malls (iopenmall), business directories (iyp.com.tw x2), a government e-commerce platform, a crowdfunding page, a price-comparison site, Behance, OpenRice, and a media site. Seven further brands were UNSCOREABLE (403/503/no text captured) and are deliberately excluded — a site that could not be judged is not a site judged wrong. DEV-1310 Task 7 shipped first, so cleared rows are not re-derived on the next curation sweep. 'Tw' and '專業研發、雙認證工廠製作' are DEV-1321 mangled-name rows: the link is cleared here, the name is not.",
+  "labels": {
+    "cha-hsi-tzu-kao-shan-cha": "茶曦子高山茶",
+    "fu-guan-fabric": "福冠布業",
+    "man-man-soap": "慢蔓皂屋",
+    "morty-chocolate": "莫蒂精品巧克力",
+    "muyutowel": "沐羽毛巾",
+    "nsou": "nsòu 純淨美妝",
+    "seeseamylove": "大自然的珠寶盒",
+    "tang-hsin-wu": "糖心屋",
+    "tw": "Tw",
+    "yu": "魚氏 YU",
+    "基隆寵物鮮食-冷凍肉品": "基隆寵物鮮食",
+    "客製化空間搭配": "客製化空間搭配",
+    "專業研發-雙認證工廠製作": "專業研發、雙認證工廠製作",
+    "嶼霧茶堂-台灣茶品牌": "嶼霧茶堂",
+    "有一隻魚": "有一隻魚",
+    "梨大爺": "梨大爺",
+    "植椛-飾-封存溫柔片刻的手作飾品": "植椛。飾"
+  }
+}
