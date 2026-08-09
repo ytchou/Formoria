@@ -152,9 +152,7 @@ After the cluster is repaired and verified, return a JSON object:
   ],
   "summary": "Minimal root-cause and repair summary",
   "changed_files": ["e2e/tests/foo.spec.ts", "src/lib/services/foo.ts"],
-  "commands_run": [
-    "node scripts/selfheal/verify-targeted.mjs"
-  ],
+  "commands_run": ["node scripts/selfheal/verify-targeted.mjs"],
   "remaining_work": [],
   "complete": true
 }
