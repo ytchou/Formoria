@@ -75,6 +75,7 @@ import {
 import { getSiteUrl } from '@/lib/site-url'
 import { getPostHogClient } from '@/lib/posthog-server'
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events'
+import { buildBrandListingPublishedEvent } from '@/lib/analytics/server-supply-events'
 import { revalidatePublicBrand } from '@/lib/cache/public-brand-cache'
 
 // Analytics runs inside withApprovalTimeout and after the DB commit, so an unbounded
@@ -285,14 +286,19 @@ async function approveSubmissionForAdmin(
     }))
   }
 
-  // Attributed to the submitter, not the approving admin. Instrumenting the shared
-  // helper covers both the single and bulk approval actions.
-  if (submitterEmail) {
-    await captureSupplyEvent(submitterEmail, ANALYTICS_EVENTS.BRAND_LISTING_PUBLISHED, {
-      brand_id: brandId,
-      brand_slug: brand.slug,
-      is_brand_owner: isBrandOwner,
-    })
+  // Inventory telemetry is attributed to one machine identity, never to the
+  // submitter. Instrumenting the shared helper covers single and bulk approvals.
+  const listingPublishedEvent = buildBrandListingPublishedEvent(brand.name, {
+    brand_id: brandId,
+    brand_slug: brand.slug,
+    is_brand_owner: isBrandOwner,
+  })
+  if (listingPublishedEvent) {
+    await captureSupplyEvent(
+      listingPublishedEvent.distinctId,
+      listingPublishedEvent.event,
+      listingPublishedEvent.properties,
+    )
   }
 
   return {
