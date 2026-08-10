@@ -22,22 +22,31 @@ describe("GET /api/internal/personal-os/spend", () => {
   });
 
   it("returns 503 when the service throws", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("database unavailable")));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new Error("database unavailable")),
+    );
 
     const response = await GET(request());
 
     expect(response.status).toBe(503);
-    await expect(response.json()).resolves.toMatchObject({ code: "spend_unavailable" });
+    await expect(response.json()).resolves.toMatchObject({
+      code: "spend_unavailable",
+    });
   });
 
   it("returns the spend snapshot for an authorized caller", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockImplementation(async () =>
-        new Response("[]", {
-          status: 200,
-          headers: { "content-type": "application/json", "content-range": "*/0" },
-        }),
+      vi.fn().mockImplementation(
+        async () =>
+          new Response("[]", {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+              "content-range": "*/0",
+            },
+          }),
       ),
     );
 

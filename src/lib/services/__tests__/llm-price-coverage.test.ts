@@ -19,15 +19,23 @@ function seededModels(): Set<string> {
     .filter((file) => file.endsWith(".sql"))
     .map((file) => readFileSync(join(migrations, file), "utf8"))
     .join("\n");
-  const inserts = sql.match(/insert into llm_model_prices[\s\S]*?on conflict/gi) ?? [];
+  const inserts =
+    sql.match(/insert into llm_model_prices[\s\S]*?on conflict/gi) ?? [];
   return new Set(
-    [...inserts.join("\n").matchAll(/'([^']+)'\s*,\s*[\d.]+\s*,\s*[\d.]+\s*,\s*[\d.]+/g)]
+    [
+      ...inserts
+        .join("\n")
+        .matchAll(/'([^']+)'\s*,\s*[\d.]+\s*,\s*[\d.]+\s*,\s*[\d.]+/g),
+    ]
       .map((match) => match[1])
       .filter((model): model is string => Boolean(model)),
   );
 }
 
-function modelsWithoutSeed(models: readonly string[], seeded: ReadonlySet<string>): string[] {
+function modelsWithoutSeed(
+  models: readonly string[],
+  seeded: ReadonlySet<string>,
+): string[] {
   return [...new Set(models)].filter(
     (model) => !DORMANT_MODELS.has(model) && !seeded.has(model),
   );
@@ -35,7 +43,9 @@ function modelsWithoutSeed(models: readonly string[], seeded: ReadonlySet<string
 
 describe("LLM price migration coverage", () => {
   it("every active model has a seeded price row", () => {
-    expect(modelsWithoutSeed(Object.values(LLM_MODELS), seededModels())).toEqual([]);
+    expect(
+      modelsWithoutSeed(Object.values(LLM_MODELS), seededModels()),
+    ).toEqual([]);
   });
 
   it("fails when a model has no seeded price", () => {

@@ -85,8 +85,18 @@ describe("spend snapshot", () => {
     const result = snapshot({
       registry: [service("openai", { meter: "llm-tokens" })],
       llmRows: [
-        { model: "gpt-5.6-luna", cost_usd: 1.25, prompt_tokens: 100, completion_tokens: 20 },
-        { model: "gpt-5.6-luna", cost_usd: 2.5, prompt_tokens: 200, completion_tokens: 30 },
+        {
+          model: "gpt-5.6-luna",
+          cost_usd: 1.25,
+          prompt_tokens: 100,
+          completion_tokens: 20,
+        },
+        {
+          model: "gpt-5.6-luna",
+          cost_usd: 2.5,
+          prompt_tokens: 200,
+          completion_tokens: 30,
+        },
       ],
       billableRows: [
         { model: "gpt-5.6-luna", raw_response: { ok: true } },
@@ -112,7 +122,12 @@ describe("spend snapshot", () => {
     const result = buildSpendSnapshot({
       registry: [service("openai", { meter: "llm-tokens" })],
       llmRows: [
-        { model: "gpt-5.6-luna", cost_usd: 0.5, prompt_tokens: 10, completion_tokens: 5 },
+        {
+          model: "gpt-5.6-luna",
+          cost_usd: 0.5,
+          prompt_tokens: 10,
+          completion_tokens: 5,
+        },
       ],
       billableCallsByModel,
       auditSpans: [],
@@ -128,7 +143,13 @@ describe("spend snapshot", () => {
       registry: [
         service("serper", {
           meter: "serper-credits",
-          quota: { metric: "Search credits", included: 2500, unit: "credits / cycle", overageUsdPerUnit: 0.02, cycleResetsOnDay: 1 },
+          quota: {
+            metric: "Search credits",
+            included: 2500,
+            unit: "credits / cycle",
+            overageUsdPerUnit: 0.02,
+            cycleResetsOnDay: 1,
+          },
         }),
       ],
       auditSpans: [
@@ -145,7 +166,13 @@ describe("spend snapshot", () => {
     const registry = [
       service("serper", {
         meter: "serper-credits",
-        quota: { metric: "Search credits", included: 2500, unit: "credits / cycle", overageUsdPerUnit: 0.02, cycleResetsOnDay: 1 },
+        quota: {
+          metric: "Search credits",
+          included: 2500,
+          unit: "credits / cycle",
+          overageUsdPerUnit: 0.02,
+          cycleResetsOnDay: 1,
+        },
       }),
     ];
     const spans = (count: number): AuditSpanRow[] =>
@@ -155,8 +182,12 @@ describe("spend snapshot", () => {
         terminal_status: "succeeded",
       }));
 
-    expect(snapshot({ registry, auditSpans: spans(311) }).services.at(0)?.amountUsd).toBe(0);
-    expect(snapshot({ registry, auditSpans: spans(2600) }).services.at(0)?.amountUsd).toBe(2);
+    expect(
+      snapshot({ registry, auditSpans: spans(311) }).services.at(0)?.amountUsd,
+    ).toBe(0);
+    expect(
+      snapshot({ registry, auditSpans: spans(2600) }).services.at(0)?.amountUsd,
+    ).toBe(2);
   });
 
   it("marks services with no meter as unmetered with a null amount", () => {

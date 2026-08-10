@@ -245,7 +245,7 @@ export function buildSpendSnapshot({
       billableCallsByModel,
       auditSpans,
     });
-    derivedCycleUsd += entry.meter ? derived.amountUsd ?? 0 : 0;
+    derivedCycleUsd += entry.meter ? (derived.amountUsd ?? 0) : 0;
     unpricedCalls += derived.unpricedCalls;
 
     if (entry.plan.monthlyUsd !== undefined) {
@@ -346,19 +346,22 @@ export async function loadSpendSnapshot(
         .order("id", { ascending: true })
         .range(from, to),
   );
-  const billableCountRequests = models.map(async (model) => [
-    model,
-    await exactCount(
-      supabase
-        .from("brand_ai_results")
-        .select("id", { count: "exact", head: true })
-        .gte("created_at", cycle.start)
-        .lt("created_at", cycle.end)
-        .eq("model", model)
-        .not("raw_response", "is", null)
-        .eq("raw_response->>ok", true),
-    ),
-  ] as const);
+  const billableCountRequests = models.map(
+    async (model) =>
+      [
+        model,
+        await exactCount(
+          supabase
+            .from("brand_ai_results")
+            .select("id", { count: "exact", head: true })
+            .gte("created_at", cycle.start)
+            .lt("created_at", cycle.end)
+            .eq("model", model)
+            .not("raw_response", "is", null)
+            .eq("raw_response->>ok", true),
+        ),
+      ] as const,
+  );
   const auditSpansRequest = loadAllPages<AuditSpanRow>(
     (from, to, includeCount) =>
       supabase
