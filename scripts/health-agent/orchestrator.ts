@@ -27,6 +27,7 @@ import {
   type RepairSnapshot,
 } from "./repair";
 import {
+  HEALTH_SEVERITIES,
   HEALTH_SOURCES,
   stableFingerprint,
   type AuditLogger,
@@ -1582,6 +1583,40 @@ async function loadBrandReviewFailures(
   }
 }
 
+/**
+ * How many findings one run may claim for repair.
+ *
+ * Ceiling: 25 by default, overridable with HEALTH_REPAIR_CLAIM_LIMIT so it can
+ * be tuned without a deploy. Raise it only alongside evidence that the claim
+ * result still fits MAX_RESULT_BYTES — the queue grows over time, so a cap that
+ * merely fits today is the bug this constant exists to prevent.
+ */
+const DEFAULT_REPAIR_CLAIM_LIMIT = 25;
+
+export function repairClaimLimit(environment: Environment = process.env): number {
+  const raw = environment.HEALTH_REPAIR_CLAIM_LIMIT;
+  const parsed = Number.parseInt(raw ?? "", 10);
+  return Number.isInteger(parsed) && parsed > 0
+    ? parsed
+    : DEFAULT_REPAIR_CLAIM_LIMIT;
+}
+
+/**
+ * Most severe first, then by fingerprint so a truncated claim is deterministic
+ * rather than an arbitrary slice of whatever order the detectors emitted.
+ * HEALTH_SEVERITIES is declared ascending, so a higher index is more severe.
+ */
+function severityOrdered(
+  findings: readonly HealthFinding[],
+): HealthFinding[] {
+  return [...findings].sort((a, b) => {
+    const rank =
+      HEALTH_SEVERITIES.indexOf(b.severity) -
+      HEALTH_SEVERITIES.indexOf(a.severity);
+    return rank !== 0 ? rank : a.fingerprint.localeCompare(b.fingerprint);
+  });
+}
+
 function uniqueFindings(findings: readonly HealthFinding[]): HealthFinding[] {
   const seen = new Set<string>();
   const result: HealthFinding[] = [];
@@ -2315,10 +2350,22 @@ export async function enqueueAndClaimPolicyBatches(
   const leaseOwner = input.leaseOwner ?? "github-actions-health-agent";
   let automaticClaimed: RepairFinding[] = [];
   let humanClaimed: RepairFinding[] = [];
-  const automaticFingerprints = eligible
+  // Everything eligible is still enqueued above; only the *claim* is capped.
+  // A run opens at most one repair PR, so claiming the whole backlog buys
+  // nothing and costs everything: 144 claimed findings serialized past
+  // MAX_RESULT_BYTES, queue.json never written, and every downstream step
+  // failing on the missing file (DEV-1428). Successive runs drain the queue.
+  const claimLimit = repairClaimLimit(environment);
+  const claimable = severityOrdered(eligible).slice(0, claimLimit);
+  if (claimable.length < eligible.length) {
+    skippedActions.push(
+      `claim_limit:${claimable.length}/${eligible.length}`,
+    );
+  }
+  const automaticFingerprints = claimable
     .filter(({ mergePolicy }) => mergePolicy === "automatic")
     .map(({ fingerprint }) => fingerprint);
-  const humanFingerprints = eligible
+  const humanFingerprints = claimable
     .filter(({ mergePolicy }) => mergePolicy === "human")
     .map(({ fingerprint }) => fingerprint);
   try {
