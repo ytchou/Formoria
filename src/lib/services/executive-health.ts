@@ -1,10 +1,16 @@
 import { createServiceClient } from '@/lib/supabase/service'
+import {
+  SERVICE_REGISTRY,
+  toInventoryProjection,
+  type InventoryEntry,
+} from '@/lib/services/service-registry'
 
 type ExecutiveHealthStatus = 'healthy' | 'degraded' | 'down' | 'unconfigured'
 type ExecutiveHealthTier = 'customer-critical' | 'customer-flow' | 'back-office'
 export type ExecutiveOverallHealth = 'healthy' | 'warning' | 'critical'
 
 export interface ExecutiveServiceHealth {
+  id: string
   service: string
   tier: ExecutiveHealthTier
   status: ExecutiveHealthStatus
@@ -16,6 +22,7 @@ export interface ExecutiveHealthSnapshot {
   status: ExecutiveOverallHealth
   checkedAt: string
   services: ExecutiveServiceHealth[]
+  inventory: InventoryEntry[]
 }
 
 interface CheckResult {
@@ -24,6 +31,7 @@ interface CheckResult {
 }
 
 export interface ExecutiveHealthCheckDefinition {
+  id: string
   service: string
   tier: ExecutiveHealthTier
   request: Record<string, unknown>
@@ -60,6 +68,7 @@ export async function runExecutiveHealthCheck(
   }
 
   const result: ExecutiveServiceHealth = {
+    id: definition.id,
     service: definition.service,
     tier: definition.tier,
     ...checkResult,
@@ -85,12 +94,13 @@ export function classifyExecutiveHealth(
   return 'healthy'
 }
 
-async function loadExecutiveHealth(): Promise<ExecutiveHealthSnapshot> {
+export async function loadExecutiveHealth(): Promise<ExecutiveHealthSnapshot> {
   const services = await Promise.all(defaultChecks().map((check) => runExecutiveHealthCheck(check)))
   return {
     status: classifyExecutiveHealth(services),
     checkedAt: new Date().toISOString(),
     services,
+    inventory: SERVICE_REGISTRY.map(toInventoryProjection),
   }
 }
 
@@ -141,7 +151,7 @@ function responseResult(response: Response, healthyMessage = 'API reachable'): C
     : { status: 'down', message: `API returned ${response.status}` }
 }
 
-function defaultChecks(): ExecutiveHealthCheckDefinition[] {
+export function defaultChecks(): ExecutiveHealthCheckDefinition[] {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
   const resendKey = process.env.RESEND_API_KEY
   const turnstileKey = process.env.TURNSTILE_SECRET_KEY
@@ -149,9 +159,21 @@ function defaultChecks(): ExecutiveHealthCheckDefinition[] {
   const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN
   const serperKey = process.env.SERPER_API_KEY
   const openAiKey = process.env.OPENAI_API_KEY
+  const sentryBaseUrl = process.env.SENTRY_BASE_URL?.replace(/\/+$/, '')
+  const sentryOrganization = process.env.SENTRY_ORGANIZATION
+  const sentryToken =
+    process.env.SENTRY_READ_TOKEN ?? process.env.SENTRY_AUTH_TOKEN
+  const posthogHost = (process.env.POSTHOG_API_HOST ?? '').replace(/\/+$/, '')
+  const posthogProjectId = process.env.POSTHOG_PROJECT_ID
+  const posthogToken = process.env.POSTHOG_PERSONAL_API_KEY
+  const githubToken = process.env.GITHUB_TOKEN
+  const linearToken = process.env.LINEAR_OAUTH_ACCESS_TOKEN
+  const curationWorkerUrl = process.env.CURATION_WORKER_URL?.replace(/\/+$/, '')
+  const curationWorkerToken = process.env.CURATION_WORKER_CONTROL_TOKEN
 
   return [
     {
+      id: 'public-site',
       service: 'Public site',
       tier: 'customer-critical',
       request: { endpoint: siteUrl ?? null, method: 'HEAD', configured: Boolean(siteUrl) },
@@ -163,6 +185,7 @@ function defaultChecks(): ExecutiveHealthCheckDefinition[] {
       ),
     },
     {
+      id: 'supabase',
       service: 'Supabase',
       tier: 'customer-critical',
       request: { table: 'brands', operation: 'select', limit: 1 },
@@ -174,6 +197,7 @@ function defaultChecks(): ExecutiveHealthCheckDefinition[] {
       },
     },
     {
+      id: 'resend',
       service: 'Resend',
       tier: 'customer-flow',
       request: { endpoint: 'https://api.resend.com/domains', configured: Boolean(resendKey) },
@@ -187,6 +211,7 @@ function defaultChecks(): ExecutiveHealthCheckDefinition[] {
       ),
     },
     {
+      id: 'cloudflare-turnstile',
       service: 'Turnstile',
       tier: 'customer-flow',
       request: {
@@ -207,6 +232,7 @@ function defaultChecks(): ExecutiveHealthCheckDefinition[] {
       }),
     },
     {
+      id: 'upstash-redis',
       service: 'Upstash Redis',
       tier: 'customer-flow',
       request: { endpoint: upstashUrl ? `${upstashUrl}/ping` : null, configured: Boolean(upstashUrl && upstashToken) },
@@ -223,6 +249,7 @@ function defaultChecks(): ExecutiveHealthCheckDefinition[] {
       ),
     },
     {
+      id: 'serper',
       service: 'Serper',
       tier: 'back-office',
       request: { endpoint: 'https://google.serper.dev/account', configured: Boolean(serperKey) },
@@ -240,6 +267,7 @@ function defaultChecks(): ExecutiveHealthCheckDefinition[] {
     // work we actually do — a lapsed balance on a dormant fallback provider
     // must not page anyone. See deepseek-client.ts for the revival path.
     {
+      id: 'openai',
       service: 'OpenAI',
       tier: 'back-office',
       request: { endpoint: 'https://api.openai.com/v1/models', configured: Boolean(openAiKey) },
@@ -250,6 +278,130 @@ function defaultChecks(): ExecutiveHealthCheckDefinition[] {
             signal: AbortSignal.timeout(3_000),
           }),
         ),
+      ),
+    },
+    {
+      id: 'sentry',
+      service: 'Sentry',
+      tier: 'customer-critical',
+      request: {
+        endpoint:
+          sentryBaseUrl && sentryOrganization
+            ? `${sentryBaseUrl}/api/0/organizations/${encodeURIComponent(sentryOrganization)}/`
+            : null,
+        configured: Boolean(sentryBaseUrl && sentryOrganization && sentryToken),
+      },
+      run: configured(
+        sentryBaseUrl && sentryOrganization && sentryToken
+          ? sentryToken
+          : undefined,
+        'Sentry is not configured',
+        async () =>
+          responseResult(
+            await fetch(
+              `${sentryBaseUrl}/api/0/organizations/${encodeURIComponent(sentryOrganization!)}/`,
+              {
+                headers: { Authorization: `Bearer ${sentryToken}` },
+                signal: AbortSignal.timeout(5_000),
+              },
+            ),
+            'Sentry reachable',
+          ),
+      ),
+    },
+    {
+      id: 'posthog',
+      service: 'PostHog',
+      tier: 'back-office',
+      request: {
+        endpoint:
+          posthogHost && posthogProjectId
+            ? `${posthogHost}/api/projects/${posthogProjectId}/`
+            : null,
+        configured: Boolean(posthogHost && posthogProjectId && posthogToken),
+      },
+      run: configured(
+        posthogHost && posthogProjectId && posthogToken
+          ? posthogToken
+          : undefined,
+        'PostHog is not configured',
+        async () =>
+          responseResult(
+            await fetch(`${posthogHost}/api/projects/${posthogProjectId}/`, {
+              headers: { Authorization: `Bearer ${posthogToken}` },
+              signal: AbortSignal.timeout(5_000),
+            }),
+            'PostHog reachable',
+          ),
+      ),
+    },
+    {
+      id: 'github',
+      service: 'GitHub',
+      tier: 'back-office',
+      request: {
+        endpoint: 'https://api.github.com/rate_limit',
+        configured: Boolean(githubToken),
+      },
+      run: configured(githubToken, 'GitHub is not configured', async () =>
+        responseResult(
+          await fetch('https://api.github.com/rate_limit', {
+            headers: {
+              Accept: 'application/vnd.github+json',
+              Authorization: `Bearer ${githubToken}`,
+              'X-GitHub-Api-Version': '2022-11-28',
+            },
+            signal: AbortSignal.timeout(5_000),
+          }),
+          'GitHub reachable',
+        ),
+      ),
+    },
+    {
+      id: 'linear',
+      service: 'Linear',
+      tier: 'back-office',
+      request: {
+        endpoint: 'https://api.linear.app/graphql',
+        method: 'POST',
+        configured: Boolean(linearToken),
+      },
+      run: configured(linearToken, 'Linear is not configured', async () =>
+        responseResult(
+          await fetch('https://api.linear.app/graphql', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${linearToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ query: '{ viewer { id } }' }),
+            signal: AbortSignal.timeout(5_000),
+          }),
+          'Linear reachable',
+        ),
+      ),
+    },
+    {
+      id: 'railway-curation-worker',
+      service: 'Curation worker',
+      tier: 'back-office',
+      request: {
+        endpoint: curationWorkerUrl ? `${curationWorkerUrl}/health` : null,
+        configured: Boolean(curationWorkerUrl && curationWorkerToken),
+      },
+      run: configured(
+        curationWorkerUrl && curationWorkerToken
+          ? curationWorkerToken
+          : undefined,
+        'Curation worker is not configured',
+        async () =>
+          responseResult(
+            await fetch(`${curationWorkerUrl}/health`, {
+              headers: { Authorization: `Bearer ${curationWorkerToken}` },
+              signal: AbortSignal.timeout(5_000),
+            }),
+            'Curation worker reachable',
+          ),
       ),
     },
   ]
