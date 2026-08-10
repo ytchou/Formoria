@@ -1,56 +1,56 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it } from "vitest";
 import {
   SERVICE_REGISTRY,
   toInventoryProjection,
-} from '@/lib/services/service-registry'
+} from "@/lib/services/service-registry";
 
-describe('service registry', () => {
-  it('every entry has a unique id', () => {
-    const ids = SERVICE_REGISTRY.map((entry) => entry.id)
+describe("service registry", () => {
+  it("every entry has a unique id", () => {
+    const ids = SERVICE_REGISTRY.map((entry) => entry.id);
 
-    expect(new Set(ids).size).toBe(ids.length)
-  })
+    expect(new Set(ids).size).toBe(ids.length);
+  });
 
-  it('every id is kebab-case', () => {
+  it("every id is kebab-case", () => {
     expect(
       SERVICE_REGISTRY.every((entry) =>
         /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(entry.id),
       ),
-    ).toBe(true)
-  })
+    ).toBe(true);
+  });
 
-  it('probed entries declare env vars', () => {
+  it("probed entries declare env vars", () => {
     expect(
-      SERVICE_REGISTRY.filter((entry) => entry.probe === 'executive-health')
-        .filter((entry) => entry.name !== 'Public site')
+      SERVICE_REGISTRY.filter((entry) => entry.probe === "executive-health")
+        .filter((entry) => entry.name !== "Public site")
         .every((entry) => entry.envVars.length > 0),
-    ).toBe(true)
-  })
+    ).toBe(true);
+  });
 
-  it('supabase quota resets on the 19th', () => {
-    const supabase = SERVICE_REGISTRY.find((entry) => entry.id === 'supabase')
+  it("supabase quota resets on the 19th", () => {
+    const supabase = SERVICE_REGISTRY.find((entry) => entry.id === "supabase");
 
-    expect(supabase?.quota?.cycleResetsOnDay).toBe(19)
+    expect(supabase?.quota?.cycleResetsOnDay).toBe(19);
     expect(
       SERVICE_REGISTRY.some((entry) => entry.quota?.cycleResetsOnDay === 1),
-    ).toBe(true)
-  })
+    ).toBe(true);
+  });
 
-  it('dead keys are marked unwired', () => {
+  it("dead keys are marked unwired", () => {
     expect(
-      SERVICE_REGISTRY.find((entry) => entry.envVars.includes('INDEXNOW_KEY'))
+      SERVICE_REGISTRY.find((entry) => entry.envVars.includes("INDEXNOW_KEY"))
         ?.status,
-    ).toBe('unwired')
+    ).toBe("unwired");
     expect(
       SERVICE_REGISTRY.find((entry) =>
-        entry.envVars.includes('NEXT_PUBLIC_GOOGLE_MAPS_API_KEY'),
+        entry.envVars.includes("NEXT_PUBLIC_GOOGLE_MAPS_API_KEY"),
       )?.status,
-    ).toBe('unwired')
-  })
+    ).toBe("unwired");
+  });
 
-  it('toInventoryProjection omits internal fields', () => {
-    const entry = SERVICE_REGISTRY[0]
-    const projection = toInventoryProjection(entry)
+  it("toInventoryProjection omits internal fields", () => {
+    const entry = SERVICE_REGISTRY[0];
+    const projection = toInventoryProjection(entry);
 
     expect(projection).toEqual(
       expect.objectContaining({
@@ -67,9 +67,9 @@ describe('service registry', () => {
         },
         dashboardUrl: entry.dashboardUrl ?? null,
       }),
-    )
-    expect(projection).not.toHaveProperty('envVars')
-    expect(projection).not.toHaveProperty('probe')
-    expect(projection).not.toHaveProperty('meter')
-  })
-})
+    );
+    expect(projection).not.toHaveProperty("envVars");
+    expect(projection).not.toHaveProperty("probe");
+    expect(projection).not.toHaveProperty("meter");
+  });
+});
