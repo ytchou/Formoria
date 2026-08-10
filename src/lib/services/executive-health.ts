@@ -1,4 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/service";
+import { checkMitRegistryHealth } from "@/lib/services/mit-registry";
 import {
   SERVICE_REGISTRY,
   toInventoryProjection,
@@ -96,7 +97,14 @@ export function classifyExecutiveHealth(
   ) {
     return "critical";
   }
-  if (services.some((service) => service.status !== "healthy"))
+  if (
+    services.some(
+      (service) =>
+        (service.tier === "customer-critical" ||
+          service.tier === "customer-flow") &&
+        service.status !== "healthy",
+    )
+  )
     return "warning";
   return "healthy";
 }
@@ -164,6 +172,36 @@ function responseResult(
   return response.ok
     ? { status: "healthy", message: healthyMessage }
     : { status: "down", message: `API returned ${response.status}` };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+async function turnstileHealthResult(response: Response): Promise<CheckResult> {
+  if (!response.ok) {
+    return { status: "down", message: `API returned ${response.status}` };
+  }
+
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    return { status: "down", message: "Turnstile returned malformed JSON" };
+  }
+
+  const errorCodes = isRecord(payload) ? payload["error-codes"] : undefined;
+  if (
+    !isRecord(payload) ||
+    payload.success !== false ||
+    !Array.isArray(errorCodes) ||
+    errorCodes.length !== 1 ||
+    errorCodes.at(0) !== "missing-input-response"
+  ) {
+    return { status: "down", message: "Turnstile health probe was rejected" };
+  }
+
+  return { status: "healthy", message: "Turnstile Siteverify reachable" };
 }
 
 export function defaultChecks(): ExecutiveHealthCheckDefinition[] {
@@ -249,11 +287,18 @@ export function defaultChecks(): ExecutiveHealthCheckDefinition[] {
         endpoint: "https://challenges.cloudflare.com/turnstile/v0/siteverify",
         configured: Boolean(turnstileKey),
       },
-      run: configured(turnstileKey, "Turnstile is not configured", async () => {
+      run: async () => {
+        if (!turnstileKey) {
+          return {
+            status: "down",
+            message: "Turnstile secret is not configured",
+          };
+        }
+
         const body = new FormData();
-        body.set("secret", turnstileKey!);
+        body.set("secret", turnstileKey);
         body.set("response", "");
-        return responseResult(
+        return turnstileHealthResult(
           await fetch(
             "https://challenges.cloudflare.com/turnstile/v0/siteverify",
             {
@@ -263,7 +308,7 @@ export function defaultChecks(): ExecutiveHealthCheckDefinition[] {
             },
           ),
         );
-      }),
+      },
     },
     {
       id: "upstash-redis",
@@ -327,7 +372,7 @@ export function defaultChecks(): ExecutiveHealthCheckDefinition[] {
     {
       id: "sentry",
       service: "Sentry",
-      tier: "customer-critical",
+      tier: "back-office",
       request: {
         endpoint:
           sentryBaseUrl && sentryOrganization
@@ -339,7 +384,7 @@ export function defaultChecks(): ExecutiveHealthCheckDefinition[] {
         sentryBaseUrl && sentryOrganization && sentryToken
           ? sentryToken
           : undefined,
-        "Sentry is not configured",
+        "Sentry health-read probe is not configured",
         async () =>
           responseResult(
             await fetch(
@@ -368,7 +413,7 @@ export function defaultChecks(): ExecutiveHealthCheckDefinition[] {
         posthogHost && posthogProjectId && posthogToken
           ? posthogToken
           : undefined,
-        "PostHog is not configured",
+        "PostHog query probe is not configured",
         async () =>
           responseResult(
             await fetch(`${posthogHost}/api/projects/${posthogProjectId}/`, {
@@ -378,6 +423,18 @@ export function defaultChecks(): ExecutiveHealthCheckDefinition[] {
             "PostHog reachable",
           ),
       ),
+    },
+    {
+      id: "mit-registry",
+      service: "MIT registry",
+      tier: "customer-flow",
+      request: {
+        table: "mit_registry",
+        operation: "select",
+        orderBy: "synced_at",
+        limit: 1,
+      },
+      run: checkMitRegistryHealth,
     },
     {
       id: "github",

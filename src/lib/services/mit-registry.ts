@@ -12,6 +12,60 @@ export type MitRegistryRecord = {
   valid_until: string | null
 }
 
+export const MIT_REGISTRY_SYNC_MAX_AGE_HOURS = 192
+
+export type MitRegistrySyncRow = {
+  cert_number: string
+  synced_at: string | null
+}
+
+export type MitRegistryHealth = {
+  status: 'healthy' | 'degraded' | 'down'
+  message: string
+}
+
+export function classifyMitRegistryHealth(
+  rows: readonly MitRegistrySyncRow[],
+  now: Date = new Date(),
+): MitRegistryHealth {
+  const latest = rows.at(0)
+  if (!latest) {
+    return { status: 'down', message: 'MIT registry mirror is empty' }
+  }
+
+  const syncedAtMs =
+    typeof latest.synced_at === 'string' ? Date.parse(latest.synced_at) : Number.NaN
+  if (!Number.isFinite(syncedAtMs)) {
+    return { status: 'degraded', message: 'MIT registry sync timestamp is invalid' }
+  }
+
+  const ageHours = (now.getTime() - syncedAtMs) / (60 * 60 * 1000)
+  if (!Number.isFinite(ageHours) || ageHours > MIT_REGISTRY_SYNC_MAX_AGE_HOURS) {
+    return { status: 'degraded', message: 'MIT registry mirror is stale' }
+  }
+
+  return { status: 'healthy', message: 'MIT registry mirror is fresh' }
+}
+
+async function queryLatestMitRegistrySync(): Promise<MitRegistrySyncRow[]> {
+  const { data, error } = await createServiceClient()
+    .from('mit_registry')
+    .select('cert_number, synced_at')
+    .order('synced_at', { ascending: false })
+    .limit(1)
+
+  if (error) throw error
+  return (data ?? []) as MitRegistrySyncRow[]
+}
+
+export async function checkMitRegistryHealth(): Promise<MitRegistryHealth> {
+  try {
+    return classifyMitRegistryHealth(await queryLatestMitRegistrySync())
+  } catch {
+    return { status: 'down', message: 'MIT registry query failed' }
+  }
+}
+
 /**
  * Parse a single CSV line following RFC 4180: fields may be wrapped in double
  * quotes, and a literal double-quote inside a quoted field is escaped as "".

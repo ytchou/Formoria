@@ -7,6 +7,7 @@ import {
   type CronHttpLogRow,
 } from "./cron-health";
 import { collectCronHealthArtifact } from "./workflow-runtime";
+import { MIT_REGISTRY_SYNC_MAX_AGE_HOURS } from "@/lib/services/mit-registry";
 
 const runAt = "2026-08-07T04:00:00.000Z";
 const now = new Date(runAt);
@@ -75,6 +76,12 @@ function dependencyWithRows(rows: unknown[]) {
 }
 
 describe("evaluateCronHealth", () => {
+  it("shares the MIT registry freshness budget with the provider health probe", () => {
+    expect(
+      EXPECTED_CRON_JOBS.find((job) => job.jobName === WEEKLY)?.maxAgeHours,
+    ).toBe(MIT_REGISTRY_SYNC_MAX_AGE_HOURS);
+  });
+
   it("reads a window wider than the slowest job's staleness budget", () => {
     const widest = Math.max(
       ...EXPECTED_CRON_JOBS.map((job) => job.maxAgeHours),

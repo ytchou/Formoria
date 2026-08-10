@@ -3,6 +3,7 @@ import {
   type HealthFinding,
   type JsonValue,
 } from "./contracts";
+import { MIT_REGISTRY_SYNC_MAX_AGE_HOURS } from "@/lib/services/mit-registry";
 
 export interface ExpectedCronJob {
   /** `cron.job.jobname` of a scheduled pg_cron HTTP dispatch. */
@@ -22,7 +23,10 @@ export interface ExpectedCronJob {
  */
 export const EXPECTED_CRON_JOBS: readonly ExpectedCronJob[] = [
   { jobName: "claim-proof-cleanup-hourly", maxAgeHours: 3 }, // hourly + 2 missed ticks
-  { jobName: "sync-mit-registry-weekly", maxAgeHours: 192 }, // weekly + 24h grace
+  {
+    jobName: "sync-mit-registry-weekly",
+    maxAgeHours: MIT_REGISTRY_SYNC_MAX_AGE_HOURS,
+  }, // weekly + 24h grace
   { jobName: "classifier-image-retention-6h", maxAgeHours: 18 }, // 6h + 2 missed ticks
 ] as const;
 

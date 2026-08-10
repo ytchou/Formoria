@@ -329,7 +329,7 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     name: "Sentry",
     vendor: "Sentry",
     category: "observability",
-    criticality: "customer-critical",
+    criticality: "back-office",
     envVars: [
       "NEXT_PUBLIC_SENTRY_DSN",
       "SENTRY_DSN",
@@ -461,7 +461,10 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
       asOf: TODAY,
       sourceUrl: "https://keid.nat.gov.tw/mittw/",
     },
+    probe: "executive-health",
     dashboardUrl: "https://keid.nat.gov.tw/mittw/",
+    notes:
+      "Health is read from the local mirror and its weekly sync timestamp.",
   },
   {
     id: "linear",
