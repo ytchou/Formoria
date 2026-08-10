@@ -170,6 +170,7 @@ export const WORKFLOW_RUNTIME_COMMANDS = [
   "record-artifact-upload",
   "terminal-status",
   "cleanup-stale-branches",
+  "release-claims",
   "enqueue-and-claim",
   "repair-snapshot",
   "repair-metadata",
@@ -684,9 +685,11 @@ const HEALTH_AGENT_RPC_NAMES = new Set([
   "complete_health_agent_run",
   "enqueue_health_fix",
   "fail_health_agent_run",
+  "rearm_health_fix_canary",
   "record_health_snapshot",
   "record_link_health_result",
   "reconcile_health_fix_lifecycle",
+  "release_health_fix_claims",
   "transition_health_fix",
 ]);
 
@@ -791,6 +794,18 @@ function supabaseQueueDependencies(
         return claimedFindingId ? { ...finding, claimedFindingId } : finding;
       });
     },
+    rearmCanary: async (fingerprint) =>
+      supabaseRequest(
+        dependencies,
+        "rearm_health_fix_canary",
+        "/rest/v1/rpc/rearm_health_fix_canary",
+        "HEALTH_AGENT_WRITER_TOKEN",
+        {
+          body: JSON.stringify({ p_fingerprint: fingerprint }),
+          method: "POST",
+        },
+        (candidate) => Array.isArray(candidate),
+      ),
     enqueue: async (entry) => {
       await supabaseRequest(
         dependencies,
@@ -2693,6 +2708,48 @@ export async function prepareSentryClassificationArtifact(
   const artifact = normalizeClassificationArtifact(value);
   await writeRedactedJson(input.outputPath, artifact, filesFor(dependencies));
   return artifact;
+}
+
+/**
+ * Hand back claims this run never attempted.
+ *
+ * `claim_health_fixes` charges an attempt at claim time, so a run that dies
+ * before the repair stage spends one on nothing — and two crashes retire a
+ * finding nobody ever looked at (DEV-1429). Any row still sitting in `claimed`
+ * under this run's lease was never attempted: a real repair would already have
+ * moved it via `transition_health_fix`. Runs from an `always()` step so a
+ * crashed run still releases.
+ */
+export async function releaseUnattemptedClaims(
+  input: { leaseOwner: string },
+  dependencies: WorkflowRuntimeDependencies = createWorkflowRuntimeDependencies(),
+): Promise<JsonObject> {
+  try {
+    const released = await supabaseRequest(
+      dependencies,
+      "release_health_fix_claims",
+      "/rest/v1/rpc/release_health_fix_claims",
+      "HEALTH_AGENT_WRITER_TOKEN",
+      {
+        body: JSON.stringify({ p_lease_owner: input.leaseOwner }),
+        method: "POST",
+      },
+      (candidate) => Array.isArray(candidate),
+    );
+    const count = (released as unknown[]).length;
+    if (count > 0) {
+      console.warn(
+        `[health-agent] released ${count} unattempted claim(s) for ${input.leaseOwner}`,
+      );
+    }
+    return { leaseOwner: input.leaseOwner, released: count, version: 1 };
+  } catch (error) {
+    // Cleanup must never fail the run it is cleaning up after. The lease still
+    // expires on its own; the cost of a miss is the attempt this would refund.
+    const failure = internalErrorCode(error);
+    console.error(`[health-agent] claim release failed: ${failure}`);
+    return { failure, leaseOwner: input.leaseOwner, released: 0, version: 1 };
+  }
 }
 
 export async function combineSentryClassificationArtifact(
@@ -4780,6 +4837,11 @@ export async function runWorkflowCommand(
           workflowAttempt: safeAttempt(input.workflowAttempt),
           workflowRunId: safeString(input.workflowRunId, "workflowRunId"),
         },
+        dependencies,
+      );
+    case "release-claims":
+      return releaseUnattemptedClaims(
+        { leaseOwner: safeString(input.leaseOwner, "leaseOwner") },
         dependencies,
       );
     case "enqueue-and-claim":

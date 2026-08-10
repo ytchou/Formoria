@@ -524,6 +524,14 @@ jobs:
         env:
           AGENT_HUB_INGEST_TOKEN: ${{ secrets.AGENT_HUB_INGEST_TOKEN }}
           AGENT_HUB_INGEST_URL: ${{ secrets.AGENT_HUB_INGEST_URL }}
+          # This step is the sole Linear writer, and it has to read
+          # health_fix_queue to find which findings are not ticketed yet.
+          # Without these two the read throws `required_runtime_environment`,
+          # which surfaces only as an optional-delivery warning — so every run
+          # since the ledger began reported `linear_ticket_candidates_failed`
+          # and created no tickets at all (DEV-1431).
+          HEALTH_AGENT_READER_TOKEN: ${{ secrets.HEALTH_AGENT_READER_TOKEN }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           LINEAR_ASSIGNEE_ID: ${{ vars.LINEAR_ASSIGNEE_ID }}
           LINEAR_OAUTH_ACCESS_TOKEN: ${{ secrets.LINEAR_OAUTH_ACCESS_TOKEN }}
           LINEAR_PROJECT_ID: ${{ vars.LINEAR_PROJECT_ID }}
@@ -604,6 +612,21 @@ jobs:
             --output "$HEALTH_ARTIFACT_DIR/health-run.json" \
             --status "$upload_status" \
             --reason "actions/upload-artifact outcome: $upload_status"
+      - name: "Stage 5 · Release claims this run never attempted"
+        id: release-claims
+        # always(), because the whole point is to recover from the runs that
+        # died. A claim charges an attempt up front, so without this a crashed
+        # run spends one on nothing and two crashes retire a finding nobody
+        # looked at (DEV-1429). Rows a repair actually touched have already left
+        # 'claimed', so only unattempted work is handed back.
+        if: always() && steps.admission.outputs.claimed == 'true'
+        continue-on-error: true
+        env:
+          HEALTH_AGENT_WRITER_TOKEN: ${{ secrets.HEALTH_AGENT_WRITER_TOKEN }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+        run: >-
+          pnpm exec tsx scripts/health-agent/workflow-runtime.ts release-claims
+          --lease-owner "github-actions:${GITHUB_RUN_ID}:${GITHUB_RUN_ATTEMPT}"
       - name: "Stage 5 · Admission — finalize logical day"
         id: finalize
         if: always() && steps.admission.outputs.claimed == 'true'
