@@ -14,6 +14,7 @@ import {
   createRoutineEnvelope,
   createRepairPullRequest,
   enqueueAndClaimPolicyBatches,
+  repairClaimLimit,
   enqueueAndClaimBatch,
   failedCollectorArtifact,
   internalErrorCode,
@@ -611,7 +612,19 @@ describe("queue mutation gates", () => {
       human: human as RepairFinding[],
     };
     const enqueue = vi.fn(async () => undefined);
-    const claim = vi.fn(async (policy: MergePolicy) => claims[policy]);
+    // Honor the requested scope the way the real claim RPC does — returning
+    // rows that were never requested trips the out-of-scope guard, which is
+    // covered by its own test.
+    const claim = vi.fn(
+      async (
+        policy: MergePolicy,
+        _leaseOwner: string,
+        fingerprints: readonly string[],
+      ) =>
+        claims[policy].filter(({ fingerprint }) =>
+          fingerprints.includes(fingerprint),
+        ),
+    );
     const result = await enqueueAndClaimBatch(
       {
         findings: [...automatic, ...human],
@@ -625,20 +638,28 @@ describe("queue mutation gates", () => {
       enabled,
     );
 
+    // Enqueue stays uncapped — every finding still reaches the queue.
     expect(enqueue).toHaveBeenCalledTimes(62);
-    expect(result.automatic.findings).toHaveLength(35);
-    expect(result.human.findings).toHaveLength(27);
-    expect(claim).toHaveBeenCalledTimes(2);
-    expect(claim).toHaveBeenCalledWith(
-      "automatic",
-      "run-2",
-      automatic.map(({ fingerprint }) => fingerprint),
-    );
-    expect(claim).toHaveBeenCalledWith(
-      "human",
-      "run-2",
-      human.map(({ fingerprint }) => fingerprint),
-    );
+
+    // DEV-1428: the *claim* is now capped. This test previously asserted all 35
+    // automatic and all 27 human fingerprints were claimed in one run, which is
+    // the behavior that blew MAX_RESULT_BYTES and left queue.json unwritten.
+    // The cap is global and severity-ordered, and `finding()` makes human
+    // findings `high` and automatic `medium` — so the 27 human findings consume
+    // the default budget of 25 and no automatic work is claimed this run. The
+    // remainder stays queued for the following run.
+    // Ties within a severity break on fingerprint, so the truncated claim is
+    // deterministic across runs (lexicographic, not the numeric order these
+    // fixture names suggest).
+    const expectedHuman = human
+      .map(({ fingerprint }) => fingerprint)
+      .sort((a, b) => a.localeCompare(b))
+      .slice(0, 25);
+    expect(claim).toHaveBeenCalledTimes(1);
+    expect(claim).toHaveBeenCalledWith("human", "run-2", expectedHuman);
+    expect(result.human.findings).toHaveLength(25);
+    expect(result.automatic.findings).toHaveLength(0);
+    expect(result.skippedActions).toContain("claim_limit:25/62");
     claims.automatic.push(finding("sentry:late") as RepairFinding);
     expect(result.automatic.findings).not.toEqual(
       expect.arrayContaining([
@@ -788,6 +809,52 @@ describe("queue mutation gates", () => {
     ]);
     expect(result.automatic.findings).toHaveLength(1);
     expect(result.human.findings).toHaveLength(1);
+  });
+
+  it("caps how many findings one run claims, most severe first", async () => {
+    // DEV-1428: with autofix finally enabled, the claim path serialized every
+    // eligible finding into the queue result and blew MAX_RESULT_BYTES, so
+    // queue.json was never written and every downstream step failed on the
+    // missing file. A run opens at most one repair PR, so claiming the whole
+    // backlog was never useful anyway.
+    const findings = [
+      ...Array.from({ length: 40 }, (_, i) => ({
+        ...finding(`sentry:low-${String(i).padStart(3, "0")}`),
+        severity: "low" as const,
+      })),
+      ...Array.from({ length: 5 }, (_, i) => ({
+        ...finding(`sentry:crit-${i}`),
+        severity: "critical" as const,
+      })),
+    ];
+    const claim = vi.fn(async () => []);
+    const enqueue = vi.fn(async () => undefined);
+
+    const result = await enqueueAndClaimPolicyBatches(
+      { findings, leaseOwner: "run-cap", mode: "live" },
+      {
+        database: { claimFindings: claim, enqueueFindings: enqueue },
+      },
+      { ...enabled, HEALTH_REPAIR_CLAIM_LIMIT: "10" },
+    );
+
+    const claimed = claim.mock.calls.flatMap(
+      (call) => (call as unknown as [string, string, string[]])[2],
+    );
+    expect(claimed).toHaveLength(10);
+    // Every critical is claimed before any low — a truncated claim must not be
+    // an arbitrary slice of detector emission order.
+    expect(claimed.filter((f) => f.startsWith("sentry:crit-"))).toHaveLength(5);
+    // The cap bounds the claim, never the enqueue: the rest stays queued.
+    expect(result.skippedActions).toContain("claim_limit:10/45");
+  });
+
+  it("defaults the claim cap when the override is absent or nonsense", async () => {
+    expect(repairClaimLimit({})).toBe(25);
+    expect(repairClaimLimit({ HEALTH_REPAIR_CLAIM_LIMIT: "0" })).toBe(25);
+    expect(repairClaimLimit({ HEALTH_REPAIR_CLAIM_LIMIT: "-5" })).toBe(25);
+    expect(repairClaimLimit({ HEALTH_REPAIR_CLAIM_LIMIT: "abc" })).toBe(25);
+    expect(repairClaimLimit({ HEALTH_REPAIR_CLAIM_LIMIT: "50" })).toBe(50);
   });
 
   it("claims human work when the automatic-active query is unavailable", async () => {
