@@ -335,10 +335,18 @@ describe("Sentry REST collection", () => {
       return response({ detail: "unavailable" }, 503);
     });
 
-    await expect(
-      collectSentryIssues({ ...collectorOptions(fetchImpl), audit }),
-    ).rejects.toThrow("invalid latest-event evidence");
+    // DEV-1424: this used to assert the collection rejected outright. It no
+    // longer does. Latest-event enrichment is best-effort — losing one issue's
+    // evidence must not discard the issues that were collected successfully,
+    // which is precisely how a single HTTP 429 stranded four nights of runs.
+    const result = await collectSentryIssues({
+      ...collectorOptions(fetchImpl),
+      audit,
+    });
+
     expect(latestStarted).toBe(2);
+    expect(result.candidates).toHaveLength(2);
+    expect(result.latestEventFailures).toHaveLength(2);
     expect(audit).toHaveBeenCalledWith(
       expect.objectContaining({
         operation: "get-latest-issue-event",
@@ -346,6 +354,60 @@ describe("Sentry REST collection", () => {
         status: "failure",
       }),
     );
+  });
+
+  it("classifies a throttled latest-event request as rate limited, not malformed", async () => {
+    // The real DEV-1424 failure: Sentry returned 429 on the per-issue endpoint
+    // and the collector reported `invalid_provider_response`, which read as a
+    // data problem for four days when it was simply throttling.
+    const audit = vi.fn();
+    const fetchImpl = vi.fn<typeof fetch>(async (input) =>
+      String(input).includes("/organizations/")
+        ? response([productionIssue({ id: "123456", latestEvent: undefined })])
+        : response({ detail: "rate limit exceeded" }, 429),
+    );
+
+    const result = await collectSentryIssues({
+      ...collectorOptions(fetchImpl),
+      audit,
+    });
+
+    expect(result.candidates).toHaveLength(1);
+    expect(result.latestEventFailures).toEqual(["rate_limited"]);
+    expect(audit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operation: "get-latest-issue-event",
+        response: expect.objectContaining({
+          error: "rate_limited",
+          httpStatus: 429,
+        }),
+        status: "failure",
+      }),
+    );
+  });
+
+  it("bounds latest-event concurrency so the provider is not burst-throttled", async () => {
+    let inFlight = 0;
+    let peak = 0;
+    const fetchImpl = vi.fn<typeof fetch>(async (input) => {
+      if (String(input).includes("/organizations/")) {
+        return response(
+          Array.from({ length: 12 }, (_, i) =>
+            productionIssue({ id: `issue-${i}`, latestEvent: undefined }),
+          ),
+        );
+      }
+      inFlight += 1;
+      peak = Math.max(peak, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      inFlight -= 1;
+      return response({ eventID: "e", tags: { environment: "production" } });
+    });
+
+    const result = await collectSentryIssues(collectorOptions(fetchImpl));
+
+    expect(result.candidates).toHaveLength(12);
+    expect(peak).toBeLessThanOrEqual(4);
   });
 
   it("follows bounded cursors and stops at the configured request/page bound", async () => {

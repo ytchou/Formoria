@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -10,6 +10,7 @@ import {
   cleanupStaleBranches,
   collectDirectoryEvidence,
   collectLinkArtifact,
+  combineSentryClassificationArtifact,
   createRpcClient,
   createWorkflowRuntimeDependencies,
   deliverRepairFailure,
@@ -252,6 +253,110 @@ function terminalAggregate() {
     linearOutcomes: [] as unknown[],
   };
 }
+
+describe("degraded vs failed run verdict", () => {
+  // DEV-1424: one failed collector out of six turned the whole run red, which
+  // skipped nothing technically but made every night look like a total loss and
+  // left 147 valid findings from the healthy detectors stranded. A detector
+  // failure must degrade the run, not fail it.
+  async function verdictFor(aggregate: unknown, phases?: Record<string, string>) {
+    const contents = new Map<string, string>([
+      ["aggregate.json", JSON.stringify(aggregate)],
+      [
+        "queue.json",
+        JSON.stringify({
+          automatic: { findings: [] },
+          claimedFingerprints: [],
+          enqueuedFingerprints: ["directory:one", "link:one"],
+          human: { findings: [] },
+          lifecycle: { new: 1, ongoing: 1, regressed: 0 },
+        }),
+      ],
+    ]);
+    const agentHub = vi.fn(async (envelope: unknown) => void envelope);
+    const slack = vi.fn(async (report: unknown) => void report);
+    await deliverFinalHealthReport(
+      {
+        aggregateArtifactPath: "aggregate.json",
+        mode: "live",
+        outputPath: "final.json",
+        phases: {
+          analyze: "success",
+          collect: "success",
+          deliver: "success",
+          publish: "skipped",
+          repair: "skipped",
+          ...(phases ?? {}),
+        },
+        queueArtifactPath: "queue.json",
+        runAt: now,
+        workflowAttempt: 1,
+        workflowRunId: "987654321",
+        workflowUrl: "https://github.com/ytchou/Formoria/actions/runs/987654321",
+      } as unknown as Parameters<typeof deliverFinalHealthReport>[0],
+      {
+        delivery: { agentHub, slack },
+        files: {
+          read: async (path: string) => contents.get(path) ?? "",
+          write: async (path: string, value: string) =>
+            void contents.set(path, value),
+        },
+      } as unknown as Parameters<typeof deliverFinalHealthReport>[1],
+    );
+    const envelope = agentHub.mock.calls[0]?.[0] as {
+      data: { overall_status: string };
+    };
+    return envelope.data.overall_status;
+  }
+
+  function withFailedDetectors(routines: readonly string[]) {
+    // Round-trip through JSON so the readonly finding arrays from
+    // terminalAggregate() become plain mutable objects.
+    const base = JSON.parse(JSON.stringify(terminalAggregate())) as {
+      artifacts: Record<
+        string,
+        { failures: string[]; findings: unknown[]; status: string }
+      >;
+    };
+    for (const routine of routines) {
+      const artifact = base.artifacts[routine];
+      if (!artifact) throw new Error(`unknown routine ${routine}`);
+      artifact.status = "failed";
+      artifact.failures = ["sentry_collection_issues_invalid"];
+      artifact.findings = [];
+    }
+    return base;
+  }
+
+  it("degrades rather than fails when one detector is down", async () => {
+    // The exact shape of the 2026-08-09 run: Sentry broken, five detectors fine.
+    await expect(verdictFor(withFailedDetectors(["sentry-triage"]))).resolves.toBe(
+      "needs_attention",
+    );
+  });
+
+  it("still fails when every detector is down", async () => {
+    // "Degraded" would be a lie — the run produced no signal at all.
+    await expect(
+      verdictFor(
+        withFailedDetectors([
+          "directory-health",
+          "link-checker",
+          "quality-health",
+          "cron-health",
+          "sentry-triage",
+        ]),
+      ),
+    ).resolves.toBe("failed");
+  });
+
+  it("still fails when a pipeline phase broke", async () => {
+    // The machinery itself failing is a real run failure, detectors aside.
+    await expect(
+      verdictFor(terminalAggregate(), { analyze: "failed" }),
+    ).resolves.toBe("failed");
+  });
+});
 
 describe("terminal health report", () => {
   it("delivers one unified envelope and one grouped Slack summary after publish", async () => {
@@ -3423,6 +3528,72 @@ describe("link collection failure reporting", () => {
     expect(artifact.failure).not.toContain("/");
 
     await rm(dir, { force: true, recursive: true });
+  });
+});
+
+describe("sentry triage failure reporting", () => {
+  // DEV-1424: a failed Sentry collector and a genuinely clean Sentry both write
+  // `issues: []`. The workflow gates classification on `issues | length`, so a
+  // thrown collector read as "nothing to classify" and the run died four steps
+  // later reporting only `collector_artifact_unavailable`. The two states must
+  // be distinguishable, and the real reason must survive to the artifact.
+  const runAt = "2026-08-09T23:45:14.000Z";
+
+  async function combine(issues: unknown) {
+    const dir = await mkdtemp(join(tmpdir(), "sentry-combine-"));
+    const issuesPath = join(dir, "sentry-issues.json");
+    const classificationsPath = join(dir, "classifications.json");
+    const outputPath = join(dir, "sentry-triage.json");
+    await writeFile(issuesPath, JSON.stringify(issues), "utf8");
+    await writeFile(classificationsPath, "[]", "utf8");
+    const artifact = await combineSentryClassificationArtifact({
+      classificationsPath,
+      issuesPath,
+      mode: "live",
+      outputPath,
+      runAt,
+    });
+    await rm(dir, { force: true, recursive: true });
+    return artifact;
+  }
+
+  const cleanCollection = {
+    candidateIssueCount: 0,
+    classificationsRequired: 0,
+    hasMore: false,
+    incidentMode: false,
+    issues: [],
+    requestCount: 1,
+    status: "success",
+    version: 1,
+  };
+
+  it("treats a genuinely clean Sentry as success", async () => {
+    const artifact = await combine(cleanCollection);
+
+    expect(artifact.status).toBe("success");
+    expect(artifact.findings).toEqual([]);
+    expect(artifact.failures).toEqual([]);
+  });
+
+  it("reports the collector's own reason when collection failed", async () => {
+    const artifact = await combine({
+      ...cleanCollection,
+      failure: "sentry_collection_issues_invalid",
+      status: "failed",
+    });
+
+    expect(artifact.status).toBe("failed");
+    // The specific cause, not the generic sentinel that hid this for four days.
+    expect(artifact.failures).toEqual(["sentry_collection_issues_invalid"]);
+    expect(artifact.failures).not.toContain("collector_artifact_unavailable");
+  });
+
+  it("falls back to a stated reason when the collector recorded none", async () => {
+    const artifact = await combine({ ...cleanCollection, status: "failed" });
+
+    expect(artifact.status).toBe("failed");
+    expect(artifact.failures).toEqual(["sentry_collection_failed"]);
   });
 });
 

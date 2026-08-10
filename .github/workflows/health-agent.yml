@@ -80,7 +80,17 @@ jobs:
           echo "run_at=$run_at" >> "$GITHUB_OUTPUT"
           echo "expected_at=$expected_at" >> "$GITHUB_OUTPUT"
           echo "delay_seconds=$delay_seconds" >> "$GITHUB_OUTPUT"
-          autofix=false
+          # Self-heal was left hardcoded off during development and never turned
+          # back on, so Stage 4 had never run and every finding sat unrepaired.
+          # Preflight has no credentials, so repair stays off there.
+          #
+          # Blast radius when on: the publish step opens at most one PR per run,
+          # from the human batch only, with --auto-merge-enabled false. Nothing
+          # merges without review.
+          case "$mode" in
+            live|canary_fix) autofix=true ;;
+            *) autofix=false ;;
+          esac
           echo "autofix=$autofix" >> "$GITHUB_OUTPUT"
           jq -n --arg run_id "$GITHUB_RUN_ID" --arg attempt "$GITHUB_RUN_ATTEMPT" --arg mode "$mode" --arg expected_at "$expected_at" --arg started_at "$run_at" --argjson delay_seconds "$delay_seconds" '{version:1,runId:$run_id,attempt:($attempt|tonumber),mode:$mode,schedule:{expectedAt:$expected_at,startedAt:$started_at,delaySeconds:$delay_seconds},groups:{},canonicalFindings:[],lifecycle:null,repair:null,managerReport:null}' > "$HEALTH_ARTIFACT_DIR/health-run.json"
 
@@ -199,6 +209,15 @@ jobs:
           schema="$(pnpm exec tsx scripts/health-agent/write-sentry-schema.ts "$HEALTH_ARTIFACT_DIR/sentry-issues.json" "$HEALTH_ARTIFACT_DIR/sentry-classification.schema.json")"
           echo "schema=$schema" >> "$GITHUB_OUTPUT"
           echo "count=$(jq '.issues | length' "$HEALTH_ARTIFACT_DIR/sentry-issues.json")" >> "$GITHUB_OUTPUT"
+          # `count` alone cannot tell a clean Sentry from a collector that threw:
+          # a failed collection also writes zero issues, so classification gets
+          # skipped and the run dies four steps later with no stated cause
+          # (DEV-1424). Surface the collector's own verdict next to the count.
+          collector_status="$(jq -r '.status // "success"' "$HEALTH_ARTIFACT_DIR/sentry-issues.json")"
+          echo "collector_status=$collector_status" >> "$GITHUB_OUTPUT"
+          if [[ "$collector_status" != success ]]; then
+            echo "::warning title=Sentry collector failed::$(jq -r '.failure // "unknown"' "$HEALTH_ARTIFACT_DIR/sentry-issues.json") — runtime health will report failed"
+          fi
       - name: "Stage 2 · Runtime health — classify Sentry"
         id: sentry-analysis-1
         if: steps.admission.outputs.claimed == 'true' && steps.sentry-schema.outputs.count != '0'
@@ -298,6 +317,13 @@ jobs:
         continue-on-error: true
         env:
           HEALTH_AGENT_ENABLED: ${{ vars.HEALTH_AGENT_ENABLED }}
+          # This step is the one that actually claims findings for repair, and
+          # `mutationPolicy` reads HEALTH_AUTOFIX_ENABLED to decide whether to
+          # claim at all. It was missing here while the sibling aggregate step
+          # had it, so the claim silently short-circuited to
+          # skippedActions: ["claim","pull_request","autofix_disabled"] — a live
+          # run made 144 enqueue calls and zero claim calls (DEV-1424).
+          HEALTH_AUTOFIX_ENABLED: ${{ vars.HEALTH_AUTOFIX_ENABLED }}
           HEALTH_AGENT_READER_TOKEN: ${{ secrets.HEALTH_AGENT_READER_TOKEN }}
           HEALTH_AGENT_WRITER_TOKEN: ${{ secrets.HEALTH_AGENT_WRITER_TOKEN }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -611,7 +637,16 @@ jobs:
         run: |
           test "${{ steps.upload.outcome }}" = success || test "${{ steps.upload-retry.outcome }}" = success
           test "${{ steps.upload-status.outcome }}" = success
-          jq -e '.groups | all(.status != "failed")' "$HEALTH_ARTIFACT_DIR/health-run.json" >/dev/null
+          # A failed detector is reported, not fatal. This assertion used to be
+          # `.groups | all(.status != "failed")`, so one broken collector out of
+          # six turned four nights of otherwise-healthy results red and stopped
+          # the agent repairing anything (DEV-1424). Name the degraded detectors
+          # loudly instead — the envelope status below still fails the run when
+          # the pipeline itself broke or when every detector failed.
+          degraded="$(jq -r '[.groups | to_entries[] | select(.value.status == "failed") | .key] | join(", ")' "$HEALTH_ARTIFACT_DIR/health-run.json")"
+          if [[ -n "$degraded" ]]; then
+            echo "::warning title=Health agent degraded::Detector(s) failed: $degraded — findings from the remaining detectors were still collected and queued"
+          fi
           if [[ "${{ steps.admission.outputs.claimed }}" == true ]]; then
             test "${{ steps.aggregate.outcome }}" = success
             test "${{ steps.queue.outcome }}" = success

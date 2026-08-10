@@ -52,6 +52,7 @@ import {
   enqueueAndClaimPolicyBatches,
   executeLinkHealthRequest,
   failedCollectorArtifact,
+  internalErrorCode,
   loadCollectorArtifact,
   readBoundedJson,
   redactForAudit,
@@ -205,8 +206,19 @@ export interface RuntimeDependencyOptions {
 export interface SanitizedSentryArtifact {
   candidateIssueCount: number;
   classificationsRequired: number;
+  /**
+   * Why collection failed. Only set when `status` is "failed" — a failed
+   * collector and a genuinely clean Sentry both produce `issues: []`, and
+   * without this field the two are indistinguishable downstream.
+   */
+  failure?: string;
   hasMore: boolean;
   incidentMode: boolean;
+  /**
+   * Distinct error codes from issues whose latest-event enrichment was skipped.
+   * Present only on a degraded-but-successful collection.
+   */
+  latestEventFailures?: string[];
   issues: SanitizedSentryCandidate[];
   requestCount: number;
   status?: "failed" | "success";
@@ -2423,14 +2435,20 @@ function normalizeSentryCollectionArtifact(
   const hasMore = value.hasMore === true;
   const requestCount =
     typeof value.requestCount === "number" ? value.requestCount : 0;
+  const status = value.status === "failed" ? "failed" : "success";
+  const failure =
+    status === "failed" && typeof value.failure === "string" && value.failure
+      ? value.failure
+      : undefined;
   return {
     candidateIssueCount: issues.length,
     classificationsRequired: issues.length,
+    ...(failure ? { failure } : {}),
     hasMore,
     incidentMode,
     issues,
     requestCount,
-    status: value.status === "failed" ? "failed" : "success",
+    status,
     version: 1,
   };
 }
@@ -2499,20 +2517,41 @@ export async function collectSanitizedSentryArtifact(
       project: optionalEnvironment(environment, "SENTRY_PROJECT"),
       readToken: optionalEnvironment(environment, "SENTRY_READ_TOKEN"),
     });
+    if (result.latestEventFailures.length > 0) {
+      // Collected successfully, but with thinner evidence on some issues.
+      // Say so — a degraded collection that looks identical to a clean one is
+      // how DEV-1424 stayed invisible.
+      console.warn(
+        `[health-agent] sentry latest-event enrichment skipped for ${result.latestEventFailures.length} issue(s): ${[...new Set(result.latestEventFailures)].join(", ")}`,
+      );
+    }
     artifact = {
       candidateIssueCount: result.candidateIssueCount,
       classificationsRequired: result.issues.length,
       hasMore: result.hasMore,
       incidentMode: result.incidentMode,
       issues: result.candidates.map(sanitizeSentryCandidate),
+      ...(result.latestEventFailures.length > 0
+        ? { latestEventFailures: [...new Set(result.latestEventFailures)] }
+        : {}),
       requestCount: result.requestCount,
       status: "success",
       version: 1,
     };
-  } catch {
+  } catch (error) {
+    // This catch used to be bare. It turned every collector failure into an
+    // artifact indistinguishable from "Sentry is clean" — the workflow gates
+    // classification on `issues | length`, so a thrown collector read as zero
+    // issues and the run died four steps later with no trace of the cause
+    // (DEV-1424). Record the reason and say so on stderr.
+    const failure = internalErrorCode(error);
+    console.error(
+      `[health-agent] sentry collection failed: ${failure}`,
+    );
     artifact = {
       candidateIssueCount: 0,
       classificationsRequired: 0,
+      failure,
       hasMore: false,
       incidentMode: false,
       issues: [],
@@ -2670,24 +2709,27 @@ export async function combineSentryClassificationArtifact(
     const classifications = normalizeClassificationArtifact(
       await readBoundedJson(input.classificationsPath, files),
     );
-    if (
-      issues.status !== "success" ||
-      classifications.status !== "success" ||
-      issues.issues.length !== classifications.classifications.length
-    ) {
-      throw new Error("sentry_classification_input_incomplete");
+    // Carry the collector's own reason through rather than collapsing it into
+    // a generic code here. When collection failed, the interesting failure
+    // happened upstream and this step is only the messenger.
+    if (issues.status !== "success") {
+      throw new Error(issues.failure ?? "sentry_collection_failed");
+    }
+    if (classifications.status !== "success") {
+      throw new Error("sentry_classification_unavailable");
+    }
+    if (issues.issues.length !== classifications.classifications.length) {
+      throw new Error("sentry_classification_count_mismatch");
     }
     artifact = finalizeSentryArtifact(
       issues,
       classifications.classifications,
       runAt,
     );
-  } catch {
-    artifact = failedCollectorArtifact(
-      "sentry-triage",
-      runAt,
-      "sentry_classification_failed",
-    );
+  } catch (error) {
+    const failure = internalErrorCode(error);
+    console.error(`[health-agent] sentry triage failed: ${failure}`);
+    artifact = failedCollectorArtifact("sentry-triage", runAt, failure);
   }
   await writeRedactedJson(input.outputPath, artifact, files);
   return artifact;
@@ -3171,10 +3213,9 @@ export async function deliverFinalHealthReport(
         : 0),
     0,
   );
-  const failures = [
-    ...aggregateFailures(aggregate),
-    ...(isRecord(queue) ? stringArray(queue.failures) : []),
-  ];
+  const detectorFailures = aggregateFailures(aggregate);
+  const queueFailures = isRecord(queue) ? stringArray(queue.failures) : [];
+  const failures = [...detectorFailures, ...queueFailures];
   const deliveryWarnings: HealthDeliveryWarning[] = [];
   const lifecycle = queueLifecycle(queue);
   const verifiedFixed = queueVerifiedFixedCount(queue);
@@ -3194,10 +3235,25 @@ export async function deliverFinalHealthReport(
   const pullRequestUrls = prResults.flatMap((result) =>
     typeof result.batch.pr_url === "string" ? [result.batch.pr_url] : [],
   );
+  // A detector that fails degrades the run; it does not fail it. The other
+  // detectors' findings are still valid, still queued and still repairable —
+  // and failing the whole run over one collector is exactly what stranded 147
+  // findings for four nights while Sentry was broken (DEV-1424). A degraded run
+  // reports `needs_attention` and still proceeds to repair and publish.
+  //
+  // Three things remain genuine run failures:
+  //   - a pipeline phase failed (the machinery itself broke),
+  //   - the queue failed (findings could not be persisted or reconciled),
+  //   - every detector failed at once, which means the run produced no signal
+  //     and "degraded" would be a lie.
+  const checkValues = Object.values(checks);
+  const failedCheckCount = checkValues.filter(
+    (check) => check.status === "failed",
+  ).length;
   const hasOperationalFailure = () =>
-    failures.length > 0 ||
+    queueFailures.length > 0 ||
     Object.values(input.phases).includes("failed") ||
-    Object.values(checks).some((check) => check.status === "failed");
+    (checkValues.length > 0 && failedCheckCount === checkValues.length);
   const linearOutcomes: JsonValue[] = [];
   const linear = linearSyncFunction(dependencies);
   if (input.mode === "live" && linear) {
