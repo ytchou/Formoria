@@ -74,6 +74,12 @@ begin
     raise exception 'rearm is restricted to canary fingerprints: %', p_fingerprint;
   end if;
 
+  -- Exactly one row, not every row sharing the fingerprint. The queue keeps
+  -- terminal history (`fixed`, `skipped`) alongside the live row, and
+  -- health_fix_queue_active_fingerprint_idx is a partial unique index over the
+  -- active statuses — so re-arming every historical row tries to make four rows
+  -- active at once and fails with 23505. Target only the row currently holding
+  -- the active slot; if it is already pending there is nothing to do.
   return query
   update public.health_fix_queue as queue
   set status = 'pending',
@@ -83,8 +89,22 @@ begin
       last_error = null,
       next_attempt_at = now(),
       updated_at = now()
-  where queue.fingerprint = p_fingerprint
-    and queue.status is distinct from 'pending'
+  where queue.id = (
+    select active.id
+    from public.health_fix_queue as active
+    where active.fingerprint = p_fingerprint
+      and active.status in (
+        'claimed',
+        'pr_opened',
+        'awaiting_human',
+        'merged',
+        'deployed',
+        'failed',
+        'needs_human'
+      )
+    order by active.updated_at desc
+    limit 1
+  )
   returning queue.*;
 end;
 $function$;
