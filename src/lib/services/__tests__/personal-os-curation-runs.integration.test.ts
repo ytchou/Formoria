@@ -51,4 +51,51 @@ describeWithDb("Personal OS curation run projection integration", () => {
     });
     expect(JSON.stringify(run)).not.toMatch(/params|worker_token|token/i);
   });
+
+  it("returns only runs assigned to the requested inclusive-exclusive window", async () => {
+    const client = createTestClient();
+    const enqueue = async (suffix: string) => {
+      const { data, error } = await client.rpc("enqueue_curation_job", {
+        p_operation: "enrich",
+        p_params: { target: "submissions", submissionIds: [randomUUID()] },
+        p_dry_run: true,
+        p_started_by: "personal-os-integration",
+        p_trigger: "admin",
+        p_parent_job_id: null,
+        p_attempt: 1,
+        p_scheduled_for: null,
+        p_run_after: "2098-01-01T00:00:00.000Z",
+        p_dedupe_key: `personal-os-curation-window:${suffix}:${randomUUID()}`,
+        p_targets: [],
+      });
+      expect(error).toBeNull();
+      expect(data).toBeTruthy();
+      createdJobIds.add(data!);
+      return data!;
+    };
+    const insideId = await enqueue("inside");
+    const adjacentId = await enqueue("adjacent");
+    const [insideUpdate, adjacentUpdate] = await Promise.all([
+      client
+        .from("curation_jobs")
+        .update({ started_at: "2098-01-01T12:00:00.000Z" })
+        .eq("id", insideId),
+      client
+        .from("curation_jobs")
+        .update({ started_at: "2098-01-02T00:00:00.000Z" })
+        .eq("id", adjacentId),
+    ]);
+    expect(insideUpdate.error).toBeNull();
+    expect(adjacentUpdate.error).toBeNull();
+
+    const window = {
+      start: "2098-01-01T00:00:00.000Z",
+      end: "2098-01-02T00:00:00.000Z",
+    };
+    const snapshot = await getPersonalOsCurationRuns(undefined, window);
+
+    expect(snapshot.window).toEqual(window);
+    expect(snapshot.runs.some((run) => run.id === insideId)).toBe(true);
+    expect(snapshot.runs.some((run) => run.id === adjacentId)).toBe(false);
+  });
 });

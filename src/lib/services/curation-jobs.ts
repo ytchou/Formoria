@@ -569,6 +569,7 @@ export async function listCurationJobs(options?: {
   limit?: number;
   cursor?: string;
   direction?: "next" | "previous";
+  window?: { start: string; end: string };
 }): Promise<CurationJobPage> {
   const supabase = createServiceClient();
   const limit = Math.min(Math.max(options?.limit ?? 50, 1), 100);
@@ -582,6 +583,13 @@ export async function listCurationJobs(options?: {
     .select("*", { count: "exact" })
     .order("created_at", { ascending })
     .order("id", { ascending });
+
+  if (options?.window) {
+    const { start, end } = options.window;
+    query = query.or(
+      `and(started_at.gte.${start},started_at.lt.${end}),and(started_at.is.null,completed_at.gte.${start},completed_at.lt.${end})`,
+    );
+  }
 
   if (cursor) {
     const comparator = direction === "previous" ? "gt" : "lt";
