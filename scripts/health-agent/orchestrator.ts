@@ -238,6 +238,30 @@ export function safeErrorCode(error: unknown): string {
     : "operation_failed";
 }
 
+/**
+ * `safeErrorCode` returns `error.name`, which is "Error" for every error this
+ * codebase throws — so a report built from it says only that something failed.
+ * That is why DEV-1381's link-collector fix still left runs undiagnosable, and
+ * why DEV-1424 sat hidden for four days.
+ *
+ * This surfaces the message, but only when the message is already one of our
+ * own literal failure codes: a bare snake_case token. Collector errors are
+ * raised while handling untrusted upstream payloads, and an arbitrary runtime
+ * error ("fetch failed: https://…?token=…") must never reach an artifact — so
+ * anything that is not a plain code falls back to `safeErrorCode`. The shape
+ * check is the allow-list; there is no sanitizing of near-misses.
+ *
+ * Ceiling: 64 chars, identifier-shaped. If a failure code ever needs structured
+ * fields (issue id, HTTP status), give the error a typed subclass and serialize
+ * that explicitly rather than loosening this pattern.
+ */
+const INTERNAL_ERROR_CODE = /^[a-z][a-z0-9_]{0,63}$/;
+
+export function internalErrorCode(error: unknown): string {
+  const message = error instanceof Error ? error.message.trim() : "";
+  return INTERNAL_ERROR_CODE.test(message) ? message : safeErrorCode(error);
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -618,7 +642,11 @@ export function failedCollectorArtifact(
     collectedAt: runAtForArtifact(runAt),
     evidence: {},
     failure: redactText(reason),
-    failures: ["collector_artifact_unavailable"],
+    // The reason has to reach `failures[]`, not just `.failure` — the run
+    // report and the Stage 5 gate read the array. Hardcoding it here meant
+    // every distinct collector failure surfaced as the same unactionable
+    // string, which is what hid DEV-1424 for four days.
+    failures: [redactText(reason)],
     findings: [],
     routine,
     skippedActions: [],
@@ -687,7 +715,7 @@ export async function loadCollectorArtifact(
     return failedCollectorArtifact(
       routine,
       runAt,
-      `${safeErrorCode(error)}:collector_artifact_unavailable`,
+      `${internalErrorCode(error)}:collector_artifact_unavailable`,
     );
   }
 }
@@ -975,7 +1003,7 @@ export async function collectSentryArtifact(
     artifact = failedCollectorArtifact(
       "sentry-triage",
       command.runAt,
-      `${safeErrorCode(error)}:sentry_collection_failed`,
+      `${internalErrorCode(error)}:sentry_collection_failed`,
     );
   }
   await writeCollectorArtifact(command.outputPath, artifact, files);

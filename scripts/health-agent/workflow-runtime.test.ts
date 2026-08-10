@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -10,6 +10,7 @@ import {
   cleanupStaleBranches,
   collectDirectoryEvidence,
   collectLinkArtifact,
+  combineSentryClassificationArtifact,
   createRpcClient,
   createWorkflowRuntimeDependencies,
   deliverRepairFailure,
@@ -3423,6 +3424,72 @@ describe("link collection failure reporting", () => {
     expect(artifact.failure).not.toContain("/");
 
     await rm(dir, { force: true, recursive: true });
+  });
+});
+
+describe("sentry triage failure reporting", () => {
+  // DEV-1424: a failed Sentry collector and a genuinely clean Sentry both write
+  // `issues: []`. The workflow gates classification on `issues | length`, so a
+  // thrown collector read as "nothing to classify" and the run died four steps
+  // later reporting only `collector_artifact_unavailable`. The two states must
+  // be distinguishable, and the real reason must survive to the artifact.
+  const runAt = "2026-08-09T23:45:14.000Z";
+
+  async function combine(issues: unknown) {
+    const dir = await mkdtemp(join(tmpdir(), "sentry-combine-"));
+    const issuesPath = join(dir, "sentry-issues.json");
+    const classificationsPath = join(dir, "classifications.json");
+    const outputPath = join(dir, "sentry-triage.json");
+    await writeFile(issuesPath, JSON.stringify(issues), "utf8");
+    await writeFile(classificationsPath, "[]", "utf8");
+    const artifact = await combineSentryClassificationArtifact({
+      classificationsPath,
+      issuesPath,
+      mode: "live",
+      outputPath,
+      runAt,
+    });
+    await rm(dir, { force: true, recursive: true });
+    return artifact;
+  }
+
+  const cleanCollection = {
+    candidateIssueCount: 0,
+    classificationsRequired: 0,
+    hasMore: false,
+    incidentMode: false,
+    issues: [],
+    requestCount: 1,
+    status: "success",
+    version: 1,
+  };
+
+  it("treats a genuinely clean Sentry as success", async () => {
+    const artifact = await combine(cleanCollection);
+
+    expect(artifact.status).toBe("success");
+    expect(artifact.findings).toEqual([]);
+    expect(artifact.failures).toEqual([]);
+  });
+
+  it("reports the collector's own reason when collection failed", async () => {
+    const artifact = await combine({
+      ...cleanCollection,
+      failure: "sentry_collection_issues_invalid",
+      status: "failed",
+    });
+
+    expect(artifact.status).toBe("failed");
+    // The specific cause, not the generic sentinel that hid this for four days.
+    expect(artifact.failures).toEqual(["sentry_collection_issues_invalid"]);
+    expect(artifact.failures).not.toContain("collector_artifact_unavailable");
+  });
+
+  it("falls back to a stated reason when the collector recorded none", async () => {
+    const artifact = await combine({ ...cleanCollection, status: "failed" });
+
+    expect(artifact.status).toBe("failed");
+    expect(artifact.failures).toEqual(["sentry_collection_failed"]);
   });
 });
 

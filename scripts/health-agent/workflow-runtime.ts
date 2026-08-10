@@ -52,6 +52,7 @@ import {
   enqueueAndClaimPolicyBatches,
   executeLinkHealthRequest,
   failedCollectorArtifact,
+  internalErrorCode,
   loadCollectorArtifact,
   readBoundedJson,
   redactForAudit,
@@ -205,6 +206,12 @@ export interface RuntimeDependencyOptions {
 export interface SanitizedSentryArtifact {
   candidateIssueCount: number;
   classificationsRequired: number;
+  /**
+   * Why collection failed. Only set when `status` is "failed" — a failed
+   * collector and a genuinely clean Sentry both produce `issues: []`, and
+   * without this field the two are indistinguishable downstream.
+   */
+  failure?: string;
   hasMore: boolean;
   incidentMode: boolean;
   issues: SanitizedSentryCandidate[];
@@ -2423,14 +2430,20 @@ function normalizeSentryCollectionArtifact(
   const hasMore = value.hasMore === true;
   const requestCount =
     typeof value.requestCount === "number" ? value.requestCount : 0;
+  const status = value.status === "failed" ? "failed" : "success";
+  const failure =
+    status === "failed" && typeof value.failure === "string" && value.failure
+      ? value.failure
+      : undefined;
   return {
     candidateIssueCount: issues.length,
     classificationsRequired: issues.length,
+    ...(failure ? { failure } : {}),
     hasMore,
     incidentMode,
     issues,
     requestCount,
-    status: value.status === "failed" ? "failed" : "success",
+    status,
     version: 1,
   };
 }
@@ -2509,10 +2522,20 @@ export async function collectSanitizedSentryArtifact(
       status: "success",
       version: 1,
     };
-  } catch {
+  } catch (error) {
+    // This catch used to be bare. It turned every collector failure into an
+    // artifact indistinguishable from "Sentry is clean" — the workflow gates
+    // classification on `issues | length`, so a thrown collector read as zero
+    // issues and the run died four steps later with no trace of the cause
+    // (DEV-1424). Record the reason and say so on stderr.
+    const failure = internalErrorCode(error);
+    console.error(
+      `[health-agent] sentry collection failed: ${failure}`,
+    );
     artifact = {
       candidateIssueCount: 0,
       classificationsRequired: 0,
+      failure,
       hasMore: false,
       incidentMode: false,
       issues: [],
@@ -2670,24 +2693,27 @@ export async function combineSentryClassificationArtifact(
     const classifications = normalizeClassificationArtifact(
       await readBoundedJson(input.classificationsPath, files),
     );
-    if (
-      issues.status !== "success" ||
-      classifications.status !== "success" ||
-      issues.issues.length !== classifications.classifications.length
-    ) {
-      throw new Error("sentry_classification_input_incomplete");
+    // Carry the collector's own reason through rather than collapsing it into
+    // a generic code here. When collection failed, the interesting failure
+    // happened upstream and this step is only the messenger.
+    if (issues.status !== "success") {
+      throw new Error(issues.failure ?? "sentry_collection_failed");
+    }
+    if (classifications.status !== "success") {
+      throw new Error("sentry_classification_unavailable");
+    }
+    if (issues.issues.length !== classifications.classifications.length) {
+      throw new Error("sentry_classification_count_mismatch");
     }
     artifact = finalizeSentryArtifact(
       issues,
       classifications.classifications,
       runAt,
     );
-  } catch {
-    artifact = failedCollectorArtifact(
-      "sentry-triage",
-      runAt,
-      "sentry_classification_failed",
-    );
+  } catch (error) {
+    const failure = internalErrorCode(error);
+    console.error(`[health-agent] sentry triage failed: ${failure}`);
+    artifact = failedCollectorArtifact("sentry-triage", runAt, failure);
   }
   await writeRedactedJson(input.outputPath, artifact, files);
   return artifact;

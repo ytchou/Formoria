@@ -199,6 +199,15 @@ jobs:
           schema="$(pnpm exec tsx scripts/health-agent/write-sentry-schema.ts "$HEALTH_ARTIFACT_DIR/sentry-issues.json" "$HEALTH_ARTIFACT_DIR/sentry-classification.schema.json")"
           echo "schema=$schema" >> "$GITHUB_OUTPUT"
           echo "count=$(jq '.issues | length' "$HEALTH_ARTIFACT_DIR/sentry-issues.json")" >> "$GITHUB_OUTPUT"
+          # `count` alone cannot tell a clean Sentry from a collector that threw:
+          # a failed collection also writes zero issues, so classification gets
+          # skipped and the run dies four steps later with no stated cause
+          # (DEV-1424). Surface the collector's own verdict next to the count.
+          collector_status="$(jq -r '.status // "success"' "$HEALTH_ARTIFACT_DIR/sentry-issues.json")"
+          echo "collector_status=$collector_status" >> "$GITHUB_OUTPUT"
+          if [[ "$collector_status" != success ]]; then
+            echo "::warning title=Sentry collector failed::$(jq -r '.failure // "unknown"' "$HEALTH_ARTIFACT_DIR/sentry-issues.json") — runtime health will report failed"
+          fi
       - name: "Stage 2 · Runtime health — classify Sentry"
         id: sentry-analysis-1
         if: steps.admission.outputs.claimed == 'true' && steps.sentry-schema.outputs.count != '0'

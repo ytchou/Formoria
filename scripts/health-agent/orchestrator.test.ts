@@ -15,6 +15,8 @@ import {
   createRepairPullRequest,
   enqueueAndClaimPolicyBatches,
   enqueueAndClaimBatch,
+  failedCollectorArtifact,
+  internalErrorCode,
   loadCollectorArtifact,
   mutationPolicy,
   redactForAudit,
@@ -120,10 +122,40 @@ describe("artifact and envelope contracts", () => {
     await expect(
       loadCollectorArtifact("sentry-triage", "invalid", runAt, store),
     ).resolves.toMatchObject({
-      failures: ["collector_artifact_unavailable"],
+      failures: ["Error:collector_artifact_unavailable"],
       routine: "sentry-triage",
       status: "failed",
     });
+  });
+
+  it("puts the specific reason in failures, not a fixed string", async () => {
+    // Regression: `failedCollectorArtifact` hardcoded
+    // failures: ["collector_artifact_unavailable"] while accepting a `reason`
+    // it only wrote to `.failure`. The run report and the Stage 5 gate read the
+    // array, so every distinct collector failure looked identical (DEV-1424).
+    const artifact = failedCollectorArtifact(
+      "sentry-triage",
+      runAt,
+      "sentry_collection_issues_invalid",
+    );
+    expect(artifact.failures).toEqual(["sentry_collection_issues_invalid"]);
+    expect(artifact.failure).toBe("sentry_collection_issues_invalid");
+  });
+
+  it("surfaces internal failure codes but never arbitrary error text", () => {
+    // Our own throws use bare snake_case codes and should stay readable.
+    expect(internalErrorCode(new Error("sentry_collection_failed"))).toBe(
+      "sentry_collection_failed",
+    );
+    // Anything else may carry untrusted upstream content (URLs, tokens) and
+    // must fall back to the error's class instead of its message.
+    expect(
+      internalErrorCode(new Error("fetch failed: https://x.io/?token=abc123")),
+    ).toBe("Error");
+    expect(internalErrorCode(new TypeError("Cannot read x of undefined"))).toBe(
+      "TypeError",
+    );
+    expect(internalErrorCode("not an error")).toBe("operation_failed");
   });
 
   it("makes Growth Pulse and traffic correlation impossible by command and routine", () => {
