@@ -63,6 +63,7 @@ export default function SubmitQuickForm() {
   const nameBlurRequestRef = useRef(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const submitLockRef = useRef(false)
+  const idempotencyKeyRef = useRef(crypto.randomUUID())
   const [pendingRedirect, setPendingRedirect] = useState<string | null>(null)
   const [nameSuggestion, setNameSuggestion] = useState<string | null>(null)
   const [urlSuggestion, setUrlSuggestion] = useState<string | null>(null)
@@ -179,7 +180,7 @@ export default function SubmitQuickForm() {
       }
 
       try {
-        const result = await submitOwnerQuick(data)
+        const result = await submitOwnerQuick(data, idempotencyKeyRef.current)
         if (result?.error) {
           setSubmitError(result.error)
           unlock()

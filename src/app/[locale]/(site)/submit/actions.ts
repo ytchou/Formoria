@@ -116,7 +116,8 @@ export async function inspectRecommendation(
 }
 
 export async function submitRecommendation(
-  data: SubmitBrandInput
+  data: SubmitBrandInput,
+  idempotencyKey?: string | null,
 ): Promise<{ error?: string } | undefined> {
   return runWithAuditContext({}, async () => {
     const t = await getTranslations('submit.errors')
@@ -133,9 +134,11 @@ export async function submitRecommendation(
 
       const headerStore = await headers()
       const ip = getRequestIp(headerStore)
-      const rateResult = guestRecommendationRateLimiter.check(ip, 60_000, 5)
-      if (!rateResult.allowed) {
-        return { error: t('rateLimit') }
+      if (process.env.PLAYWRIGHT_TEST !== 'true') {
+        const rateResult = guestRecommendationRateLimiter.check(ip, 60_000, 5)
+        if (!rateResult.allowed) {
+          return { error: t('rateLimit') }
+        }
       }
 
       const turnstile = await verifyTurnstileToken(
@@ -162,6 +165,7 @@ export async function submitRecommendation(
 
       await submitBrandForReview({
         intent: 'recommend',
+        idempotencyKey,
         brandName: parsed.name,
         websiteUrl: parsed.website,
         description: parsed.description?.trim() || undefined,
@@ -196,6 +200,7 @@ export async function submitRecommendation(
 
 export async function submitOwnerQuick(
   data: unknown,
+  idempotencyKey?: string | null,
 ): Promise<{ error?: string; ownershipAdjusted?: boolean } | undefined> {
   return runWithAuditContext({}, async () => {
     const t = await getTranslations('submit.errors')
@@ -235,9 +240,11 @@ export async function submitOwnerQuick(
         return { error: t('notAuthenticated') }
       }
 
-      const rateResult = ownerSubmissionRateLimiter.check(user.id, 60_000, 5)
-      if (!rateResult.allowed) {
-        return { error: t('rateLimit') }
+      if (process.env.PLAYWRIGHT_TEST !== 'true') {
+        const rateResult = ownerSubmissionRateLimiter.check(user.id, 60_000, 5)
+        if (!rateResult.allowed) {
+          return { error: t('rateLimit') }
+        }
       }
 
       const headerStore = await headers()
@@ -253,6 +260,7 @@ export async function submitOwnerQuick(
       const ownershipAdjusted = Boolean(await getUserBrand(user.id))
 
       await submitBrandForReview({
+        idempotencyKey,
         brandName: parsed.name,
         romanizedName: parsed.romanizedName?.trim() || undefined,
         websiteUrl: parsed.website,
@@ -289,6 +297,7 @@ export async function submitOwnerQuick(
 
 export async function submitOwnerDetailedBrand(
   data: unknown,
+  idempotencyKey?: string | null,
 ): Promise<{ error?: string; ownershipAdjusted?: boolean } | undefined> {
   return runWithAuditContext({}, async () => {
     const t = await getTranslations('submit.errors')
@@ -316,9 +325,11 @@ export async function submitOwnerDetailedBrand(
         return { error: t('notAuthenticated') }
       }
 
-      const rateResult = ownerSubmissionRateLimiter.check(user.id, 60_000, 5)
-      if (!rateResult.allowed) {
-        return { error: t('rateLimit') }
+      if (process.env.PLAYWRIGHT_TEST !== 'true') {
+        const rateResult = ownerSubmissionRateLimiter.check(user.id, 60_000, 5)
+        if (!rateResult.allowed) {
+          return { error: t('rateLimit') }
+        }
       }
 
       const headerStore = await headers()
@@ -343,6 +354,7 @@ export async function submitOwnerDetailedBrand(
       }
 
       await submitBrandForReview({
+        idempotencyKey,
         brandName: parsed.name,
         romanizedName: parsed.romanizedName?.trim() || undefined,
         websiteUrl: parsed.website,

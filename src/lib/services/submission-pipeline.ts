@@ -9,6 +9,7 @@ import {
 } from '@/lib/brands/purchase-channels'
 
 export interface SubmitBrandForReviewParams {
+  idempotencyKey?: string | null
   intent?: SubmissionIntent
   brandName: string
   romanizedName?: string | null
@@ -106,6 +107,7 @@ export async function submitBrandForReview(
 
   const submission = await createSubmission({
     brandId: null,
+    idempotencyKey: params.idempotencyKey,
     intent: params.intent ?? 'recommend',
     brandName: params.brandName,
     romanizedName: params.romanizedName,

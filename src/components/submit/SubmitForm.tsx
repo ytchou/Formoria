@@ -102,6 +102,7 @@ export default function SubmitForm({
   const { complete } = useSubmissionAnalytics(source, 'recommend', 'opened')
   const nameBlurRequestRef = useRef(0)
   const submitLockRef = useRef(false)
+  const idempotencyKeyRef = useRef(crypto.randomUUID())
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [pendingRedirect, setPendingRedirect] = useState<string | null>(null)
   const [turnstileError, setTurnstileError] = useState(false)
@@ -306,7 +307,7 @@ export default function SubmitForm({
       try {
         const result:
           | { error?: string; ownershipAdjusted?: boolean }
-          | undefined = await submitRecommendation(data)
+          | undefined = await submitRecommendation(data, idempotencyKeyRef.current)
 
         if (result?.error) {
           setSubmitError(result.error)

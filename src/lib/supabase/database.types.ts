@@ -1010,6 +1010,7 @@ export type Database = {
           enriched_data: Json | null
           hero_image_url: string | null
           id: string
+          idempotency_key: string | null
           intent: string
           is_brand_owner: boolean | null
           notified_at: string | null
@@ -1050,6 +1051,7 @@ export type Database = {
           enriched_data?: Json | null
           hero_image_url?: string | null
           id?: string
+          idempotency_key?: string | null
           intent?: string
           is_brand_owner?: boolean | null
           notified_at?: string | null
@@ -1090,6 +1092,7 @@ export type Database = {
           enriched_data?: Json | null
           hero_image_url?: string | null
           id?: string
+          idempotency_key?: string | null
           intent?: string
           is_brand_owner?: boolean | null
           notified_at?: string | null
