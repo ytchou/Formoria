@@ -317,6 +317,13 @@ jobs:
         continue-on-error: true
         env:
           HEALTH_AGENT_ENABLED: ${{ vars.HEALTH_AGENT_ENABLED }}
+          # This step is the one that actually claims findings for repair, and
+          # `mutationPolicy` reads HEALTH_AUTOFIX_ENABLED to decide whether to
+          # claim at all. It was missing here while the sibling aggregate step
+          # had it, so the claim silently short-circuited to
+          # skippedActions: ["claim","pull_request","autofix_disabled"] — a live
+          # run made 144 enqueue calls and zero claim calls (DEV-1424).
+          HEALTH_AUTOFIX_ENABLED: ${{ vars.HEALTH_AUTOFIX_ENABLED }}
           HEALTH_AGENT_READER_TOKEN: ${{ secrets.HEALTH_AGENT_READER_TOKEN }}
           HEALTH_AGENT_WRITER_TOKEN: ${{ secrets.HEALTH_AGENT_WRITER_TOKEN }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
