@@ -436,10 +436,12 @@ function submissionToInsert(
     suggestedTags?: SuggestedTagsInput;
     productTypeNote?: string | null;
     ownerData?: Record<string, unknown>;
+    idempotencyKey?: string | null;
   },
 ): Record<string, unknown> {
   return {
     ...toSubmissionRow(data),
+    idempotency_key: data.idempotencyKey ?? null,
     owner_data: data.ownerData ?? null,
   };
 }
@@ -1223,6 +1225,7 @@ export async function createSubmission(
       productTypeNote?: string | null;
       intent?: SubmissionIntent;
       ownerData?: Record<string, unknown>;
+      idempotencyKey?: string | null;
     },
   _options?: { useServiceRole?: boolean },
 ): Promise<BrandSubmissionWithProductTypeNote> {
@@ -1240,7 +1243,19 @@ export async function createSubmission(
     .select("*")
     .single();
 
-  if (error) throw error;
+  if (error) {
+    if (error.code !== "23505" || !data.idempotencyKey) throw error;
+
+    const { data: existing, error: lookupError } = await supabase
+      .from("brand_submissions")
+      .select("*")
+      .eq("idempotency_key", data.idempotencyKey)
+      .maybeSingle();
+
+    if (lookupError) throw lookupError;
+    if (!existing) throw error;
+    return submissionToDomain(existing);
+  }
   return submissionToDomain(inserted);
     },
   );

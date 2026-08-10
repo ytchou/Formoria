@@ -5,6 +5,7 @@ import {
   useCallback,
   useId,
   useMemo,
+  useRef,
   useState,
 } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -103,6 +104,7 @@ export default function SubmissionWizard({
   const tReview = useTranslations('submit.review')
   const router = useRouter()
   const uploadSessionId = useId().replaceAll(':', '')
+  const idempotencyKeyRef = useRef(crypto.randomUUID())
   const { complete, stepCompleted } = useSubmissionAnalytics(
     'hero_cta',
     'owner_claim',
@@ -194,7 +196,10 @@ export default function SubmissionWizard({
       setSubmitError(null)
       setIsSubmitting(true)
       try {
-        const result = await submitOwnerDetailedBrand(values)
+        const result = await submitOwnerDetailedBrand(
+          values,
+          idempotencyKeyRef.current,
+        )
         if (result?.error) {
           setSubmitError(result.error)
           return

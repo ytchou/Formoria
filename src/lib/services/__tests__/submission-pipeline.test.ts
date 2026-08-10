@@ -119,4 +119,33 @@ describeWithDb('submitBrandForReview (submission-first)', () => {
 
     expect(submission!.owner_data).toBeNull()
   })
+
+  it('returns one submission for concurrent retries with the same request UUID', async () => {
+    const idempotencyKey = crypto.randomUUID()
+
+    const [first, second] = await Promise.all([
+      submitBrandForReview({
+        brandName: testBrandName,
+        websiteUrl: 'https://test-submit.example.com',
+        submitterEmail: 'submitter@example.com',
+        idempotencyKey,
+      }),
+      submitBrandForReview({
+        brandName: testBrandName,
+        websiteUrl: 'https://test-submit.example.com',
+        submitterEmail: 'submitter@example.com',
+        idempotencyKey,
+      }),
+    ])
+
+    expect(first.submissionId).toBe(second.submissionId)
+
+    const { data: submissions, error } = await supabase!
+      .from('brand_submissions')
+      .select('id')
+      .eq('brand_name', testBrandName)
+
+    expect(error).toBeNull()
+    expect(submissions).toHaveLength(1)
+  })
 })
