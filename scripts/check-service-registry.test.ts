@@ -55,6 +55,25 @@ describe('check-service-registry', () => {
     )
   })
 
+  it('flags an env var declared only in .env.example', () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'service-registry-'))
+    writeFixture(cwd, '.env.example', 'NEW_VENDOR_API_KEY=')
+
+    const violations = collectServiceRegistryViolations({
+      cwd,
+      registrySource: registrySource(),
+    })
+
+    expect(violations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'NEW_VENDOR_API_KEY',
+          file: '.env.example',
+        }),
+      ]),
+    )
+  })
+
   it('accepts an env var present in a registry entry', () => {
     const cwd = mkdtempSync(join(tmpdir(), 'service-registry-'))
     writeFixture(

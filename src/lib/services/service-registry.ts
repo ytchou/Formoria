@@ -80,6 +80,7 @@ export const NON_SERVICE_ENV: Readonly<Record<string, string>> = {
   CLAIM_TOKEN_SECRET:
     'Internal claim-token signing secret, not a provider service.',
   FORMORIA_LINK_HEALTH_URL: 'Optional internal health-agent link target.',
+  CURATION_WORKER_URL: 'Internal worker routing target, not a credential.',
   NEXT_PUBLIC_SITE_URL:
     'Public host used by absolute links and the availability probe; not a credential.',
   ORIGIN_SECRET: 'Internal machine-caller authentication secret.',
@@ -88,6 +89,7 @@ export const NON_SERVICE_ENV: Readonly<Record<string, string>> = {
   FORMORIA_LINK_HEALTH_ORIGIN_SECRET:
     'Internal health-agent link authentication secret.',
   PR_URL: 'CI notification metadata, not a provider service.',
+  RAILWAY_LOGS_URL: 'Internal log-query target, not a provider credential.',
   SEARCH_LOAD_BASE_URL: 'Load-test target URL, not a provider service.',
 }
 
@@ -420,7 +422,7 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     vendor: 'Railway',
     category: 'hosting',
     criticality: 'customer-critical',
-    envVars: ['FORMORIA_RAILWAY_URL', 'RAILWAY_LOGS_URL'],
+    envVars: ['FORMORIA_RAILWAY_URL'],
     status: 'active',
     plan: {
       kind: 'usage',
@@ -436,7 +438,6 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     category: 'hosting',
     criticality: 'back-office',
     envVars: [
-      'CURATION_WORKER_URL',
       'CURATION_WORKER_CONTROL_TOKEN',
       'RAILWAY_GIT_COMMIT_SHA',
     ],

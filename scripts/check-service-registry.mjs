@@ -9,6 +9,7 @@ const sourceExtension = /\.[cm]?[jt]sx?$/
 const credentialEnvName =
   /(?:_API_KEY|_TOKEN|_SECRET|_DSN|_URL|_KEY|_WEBHOOK_URL)$/
 const envReference = /process\.env\.([A-Z][A-Z0-9_]*)/g
+const envExampleDeclaration = /^([A-Z][A-Z0-9_]*)=/gm
 const exemptFiles = [
   'scripts/check-service-registry.mjs',
   'scripts/check-service-registry.test.ts',
@@ -137,6 +138,24 @@ export function collectServiceRegistryViolations({
   const violations = parsed.entries
     .map((entry) => stalePlanViolation(entry, registrySource, now))
     .filter(Boolean)
+
+  const envExamplePath = join(cwd, '.env.example')
+  if (existsSync(envExamplePath)) {
+    const source = readFileSync(envExamplePath, 'utf8')
+    for (const match of source.matchAll(envExampleDeclaration)) {
+      const name = match[1]
+      if (!credentialEnvName.test(name)) continue
+      if (parsed.envVars.has(name) || parsed.nonServiceEnv.has(name)) continue
+
+      violations.push({
+        type: 'unknown-env',
+        name,
+        file: '.env.example',
+        line: lineNumber(source, match.index ?? 0),
+        message: `Unknown credential env var ${name}. Remedy: add to a registry entry's envVars, or to NON_SERVICE_ENV with a reason.`,
+      })
+    }
+  }
 
   for (const file of roots.flatMap((root) => collectSourceFiles(cwd, root))) {
     const normalized = file.replaceAll('\\', '/')
