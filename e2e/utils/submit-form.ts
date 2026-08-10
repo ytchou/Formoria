@@ -1,3 +1,4 @@
+import { BUDGET } from "../budgets";
 import { type Page, expect } from "@playwright/test";
 
 export async function gotoSubmitRecommend(
@@ -7,7 +8,7 @@ export async function gotoSubmitRecommend(
   const timeout = opts?.timeout ?? 90_000;
 
   await expect(async () => {
-    await page.goto("/submit/recommend", { timeout: 60_000 });
+    await page.goto("/submit/recommend");
 
     const heading = page.getByRole("heading", {
       name: "推薦品牌",
@@ -18,7 +19,7 @@ export async function gotoSubmitRecommend(
       return;
     }
 
-    await expect(heading).toBeVisible({ timeout: 5_000 });
+    await expect(heading).toBeVisible({ timeout: BUDGET.RENDERED });
   }).toPass({ timeout, intervals: [2_000, 4_000, 8_000] });
 }
 
@@ -36,9 +37,9 @@ export async function gotoSubmitOwner(
   const timeout = opts?.timeout ?? 90_000;
 
   await expect(async () => {
-    await page.goto("/submit/owner/quick", { timeout: 60_000 });
+    await page.goto("/submit/owner/quick");
     await expect(
       page.getByRole("heading", { name: "快速建立品牌頁", exact: true }),
-    ).toBeVisible({ timeout: 5_000 });
+    ).toBeVisible({ timeout: BUDGET.RENDERED });
   }).toPass({ timeout, intervals: [2_000, 4_000, 8_000] });
 }

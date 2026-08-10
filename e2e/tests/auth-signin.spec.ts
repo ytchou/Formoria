@@ -1,6 +1,7 @@
 import { test, expect } from "../fixtures/auth";
 import { load } from "cheerio";
 
+import { BUDGET } from "../budgets";
 function signInDocument(html: string) {
   const $ = load(html);
   const credentialForm = $("form").has('input[name="email"]');
@@ -64,8 +65,7 @@ test.describe("Auth — Google OAuth offline guard", () => {
   test("@smoke sign-in page renders the heading and Google entry point", async ({
     anonPage,
   }) => {
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     let capturedAuthorizeUrl: string | null = null;
 
     // Intercept the browser navigation to Supabase /auth/v1/authorize and abort it
@@ -74,30 +74,30 @@ test.describe("Auth — Google OAuth offline guard", () => {
       await route.abort();
     });
 
-    await anonPage.goto("/auth/sign-in", { timeout: 60_000 });
+    await anonPage.goto("/auth/sign-in");
 
     await expect(
       anonPage.getByRole("heading", { name: "登入 Formoria", exact: true }),
-    ).toBeVisible({ timeout: 60_000 });
+    ).toBeVisible({ timeout: BUDGET.NAVIGATION });
 
     // Button must be visible before any click
     const googleBtn = anonPage.getByRole("button", {
       name: "使用 Google 登入",
       exact: true,
     });
-    await expect(googleBtn).toBeVisible({ timeout: 60_000 });
+    await expect(googleBtn).toBeVisible({ timeout: BUDGET.NAVIGATION });
 
     // Click — the Server Action fires, and the browser is redirected to Supabase /authorize.
     // The route intercept aborts that navigation; a navigation error is expected — swallow it.
     await Promise.race([
       googleBtn.click(),
       anonPage
-        .waitForURL("**/auth/v1/authorize**", { timeout: 10_000 })
+        .waitForURL("**/auth/v1/authorize**", { timeout: BUDGET.INTERACTIVE })
         .catch(() => {}),
     ]).catch(() => {});
 
     await expect
-      .poll(() => capturedAuthorizeUrl, { timeout: 10_000 })
+      .poll(() => capturedAuthorizeUrl, { timeout: BUDGET.INTERACTIVE })
       .toBeTruthy();
 
     // The intercepted URL must include provider=google
@@ -112,8 +112,7 @@ test.describe("Auth — sign-in flow", () => {
   }) => {
     // Supabase signInWithPassword and a cold-compile of the landing page can be
     // slow in dev.
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     const email = process.env.E2E_USER_EMAIL;
     const password = process.env.E2E_USER_PASSWORD;
 
@@ -121,17 +120,17 @@ test.describe("Auth — sign-in flow", () => {
       throw new Error("E2E_USER_EMAIL and E2E_USER_PASSWORD must be set");
     }
 
-    await anonPage.goto("/auth/sign-in", { timeout: 60_000 });
+    await anonPage.goto("/auth/sign-in");
 
     await expect(
       anonPage.getByRole("heading", { name: "登入 Formoria", exact: true }),
     ).toBeVisible({
-      timeout: 60_000,
+      timeout: BUDGET.NAVIGATION,
     });
     await expect(
       anonPage.getByRole("button", { name: "使用 Google 登入", exact: true }),
     ).toBeVisible({
-      timeout: 60_000,
+      timeout: BUDGET.NAVIGATION,
     });
 
     await anonPage.getByLabel("電子郵件", { exact: true }).fill(email);
@@ -140,9 +139,7 @@ test.describe("Auth — sign-in flow", () => {
     await Promise.all([
       // Server Action → Supabase round-trip plus a cold-compile of the landing
       // page can be slow in dev.
-      anonPage.waitForURL((url) => !url.pathname.includes("/auth/sign-in"), {
-        timeout: 60_000,
-      }),
+      anonPage.waitForURL((url) => !url.pathname.includes("/auth/sign-in")),
       anonPage.getByRole("button", { name: "登入", exact: true }).click(),
     ]);
 
@@ -154,7 +151,7 @@ test.describe("Auth — sign-in flow", () => {
     await expect(
       anonPage.getByRole("button", { name: /account|帳號/i }),
     ).toBeVisible({
-      timeout: 10_000,
+      timeout: BUDGET.INTERACTIVE,
     });
   });
 });

@@ -1,3 +1,4 @@
+import { BUDGET } from '../budgets';
 import { randomUUID } from 'node:crypto';
 import {
   expect,
@@ -173,7 +174,7 @@ test.describe.serial('Public brand search edge cases', () => {
 
     await page.goto(`/brands?search=${encodeURIComponent(exactQuery)}`);
     const cardHeadings = page.locator('main [role="list"] [role="listitem"] h3');
-    await expect(cardHeadings.filter({ hasText: exactName })).toBeVisible({ timeout: 15_000 });
+    await expect(cardHeadings.filter({ hasText: exactName })).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
     const names = await cardHeadings.allTextContents();
     expect(names.indexOf(exactName)).toBeGreaterThanOrEqual(0);
     expect(names.indexOf(descriptionName)).toBeGreaterThan(names.indexOf(exactName));
@@ -205,11 +206,11 @@ test.describe.serial('Public brand search edge cases', () => {
 
     // Typo tolerance uses trigram — only available via full directory search (prefix_mode=false)
     await page.goto(`/en/brands?search=${encodeURIComponent(typo)}`);
-    await expect(page.getByRole('link', { name: bilingualName })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('link', { name: bilingualName })).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
 
     await page.goto(`/en/brands?search=${encodeURIComponent(englishToken)}`);
     await expect(page).toHaveURL(/\/en\/brands\?search=/);
-    await expect(page.getByRole('link', { name: bilingualName })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('link', { name: bilingualName })).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
   });
 
   test('landing, desktop nav, localized directory, and mobile menu reach search', async ({ page }) => {
@@ -222,7 +223,7 @@ test.describe.serial('Public brand search edge cases', () => {
     await expect(page).toHaveURL((url) =>
       url.pathname === '/brands' && url.searchParams.get('search') === exactQuery,
     );
-    await expect(page.getByRole('link', { name: exactName })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('link', { name: exactName })).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
 
     await page.goto('/about');
     const desktopNavSearch = page.locator('header form[role="search"] input[role="searchbox"]:visible');
@@ -241,7 +242,7 @@ test.describe.serial('Public brand search edge cases', () => {
     await expect(page).toHaveURL((url) =>
       url.pathname === '/en/brands' && url.searchParams.get('search') === englishToken,
     );
-    await expect(page.getByRole('link', { name: bilingualName })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('link', { name: bilingualName })).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
   });
 
   test('directory sidebar and nav stay synchronized while unrelated filters survive', async ({ page }) => {
@@ -349,7 +350,7 @@ test.describe.serial('Public brand search edge cases', () => {
     const missingQuery = `<img src=x onerror=alert(1)>-${randomUUID()}`;
     await page.goto(`/brands?search=${encodeURIComponent(missingQuery)}`);
     const emptyState = page.locator('[data-empty]');
-    await expect(emptyState).toBeVisible({ timeout: 15_000 });
+    await expect(emptyState).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
     await expect(page.getByText('共 0 個品牌', { exact: true })).toBeVisible();
     await expect(page.getByText('本目錄收錄在台灣創立、設計或製造的品牌。', { exact: true })).toHaveCount(0);
     await expect(page.getByText('找不到品牌', { exact: true })).toHaveCount(0);

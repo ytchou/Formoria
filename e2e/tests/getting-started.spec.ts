@@ -1,3 +1,4 @@
+import { BUDGET } from "../budgets";
 import { test, expect } from "@playwright/test";
 
 test.describe("Getting Started page deep", () => {
@@ -10,7 +11,7 @@ test.describe("Getting Started page deep", () => {
     // (strict mode violation), so pin it to the eyebrow's exact text.
     await expect(
       page.getByText("Explore Formoria", { exact: true }),
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await expect(
       page.getByRole("heading", {
         level: 1,
@@ -24,7 +25,7 @@ test.describe("Getting Started page deep", () => {
   }) => {
     await expect(
       page.getByRole("heading", { name: "How to explore Formoria" }),
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await expect(
       page
         .getByRole("article")
@@ -44,7 +45,7 @@ test.describe("Getting Started page deep", () => {
   test("While you browse section renders with checklist", async ({ page }) => {
     await expect(
       page.getByRole("heading", { name: "While you browse" }),
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await expect(
       page.getByText(
         "Read the description and product details to understand what each brand offers.",
@@ -61,7 +62,7 @@ test.describe("Getting Started page deep", () => {
     page,
   }) => {
     const heading = page.getByRole("heading", { name: "If you own a brand" });
-    await expect(heading).toBeVisible({ timeout: 10_000 });
+    await expect(heading).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     const section = page.locator("section").filter({ has: heading });
     await expect(
       section.getByRole("article").filter({ hasText: "Claim Your Brand" }),
@@ -88,7 +89,7 @@ test.describe("Getting Started page deep", () => {
   }) => {
     await expect(
       page.getByRole("heading", { name: "Ready to explore Taiwanese brands?" }),
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     const browseLink = page.getByRole("link", { name: "Browse brands" }).last();
     await expect(browseLink).toBeVisible();
     const href = await browseLink.getAttribute("href");
@@ -99,6 +100,6 @@ test.describe("Getting Started page deep", () => {
     const footerLink = page
       .getByRole("contentinfo")
       .getByRole("link", { name: "Getting Started" });
-    await expect(footerLink).toBeVisible({ timeout: 10_000 });
+    await expect(footerLink).toBeVisible({ timeout: BUDGET.INTERACTIVE });
   });
 });

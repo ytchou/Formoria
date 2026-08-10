@@ -1,6 +1,7 @@
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
+import playwright from "eslint-plugin-playwright";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -28,6 +29,41 @@ const eslintConfig = defineConfig([
     "playwright-report/**",
     "test-results/**",
   ]),
+  // Vacuity rules for the e2e suite.
+  //
+  // A test that reports green without exercising the behaviour it names is worse
+  // than a flaky one: a flake tells you something is wrong, a vacuous pass tells
+  // you something is right when nothing was checked. This suite had 122 skip
+  // sites and 47 guarded early returns against ~260 tests, so roughly a third of
+  // it could pass having asserted nothing (DEV-1414).
+  //
+  // `allowConditional: true` is deliberate. An environment-conditional skip
+  // (PREVIEW_MODE, missing admin credentials, a feature flag that is off by
+  // deployed default) is a legitimate portability guard. A *state*-conditional
+  // skip is not, because the condition it depends on is the very thing the test
+  // should be asserting — but that distinction is semantic and no rule can see
+  // it. What the rule can stop is the static `test.skip()` that quietly disables
+  // a test forever.
+  //
+  // Existing violations are recorded in eslint-suppressions.json and only ever
+  // shrink: `pnpm lint` fails on a *new* violation, and --prune-suppressions
+  // removes entries as they are fixed. Big-banging a suite this size would mean
+  // either a red gate for weeks or a wave of reflexive eslint-disable comments.
+  {
+    files: ["e2e/**/*.ts"],
+    plugins: { playwright },
+    rules: {
+      "playwright/no-skipped-test": ["error", { allowConditional: true }],
+      "playwright/no-conditional-in-test": "error",
+      "playwright/no-conditional-expect": "error",
+      "playwright/expect-expect": "error",
+      "playwright/no-focused-test": "error",
+      // Hard sleeps. Only one in this suite is defensible — proving a popup did
+      // *not* open has no readiness signal to wait on — so this stays a warning
+      // rather than forcing a disable comment onto the one legitimate case.
+      "playwright/no-wait-for-timeout": "warn",
+    },
+  },
   // UI sourcing rules: raw styled HTML elements must use ui/ primitives.
   {
     files: ["src/**/*.tsx"],

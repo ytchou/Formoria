@@ -1,3 +1,4 @@
+import { BUDGET } from "../budgets";
 import { test, expect } from "../fixtures/auth";
 import {
   NO_PUBLISHED_STORIES,
@@ -13,12 +14,15 @@ test.describe("Stories hub deep", () => {
     const response = await anonPage.goto("/stories");
     expect(response?.status()).toBe(200);
     await expect(
-      anonPage.getByRole("heading", { name: "專題", level: 1 }),
-    ).toBeVisible({ timeout: 10_000 });
+      anonPage.getByRole("heading", { name: "專題", level: 1, exact: true }),
+    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
 
     if (stories.length === 0) {
-      await expect(anonPage.getByText("敬請期待")).toBeVisible({
-        timeout: 10_000,
+      // The empty-state copy is 首波專題正在整理中，敬請期待。 — a bare substring
+      // match on the tail also resolves to any other "敬請期待" the page grows,
+      // so it is scoped to main and taken as the first match explicitly.
+      await expect(anonPage.locator("main").getByText("敬請期待").first()).toBeVisible({
+        timeout: BUDGET.INTERACTIVE,
       });
       await expect(anonPage.locator('main a[href*="/stories/"]')).toHaveCount(
         0,
@@ -26,7 +30,7 @@ test.describe("Stories hub deep", () => {
     } else {
       await expect(
         anonPage.locator('main a[href*="/stories/"]').first(),
-      ).toBeVisible({ timeout: 10_000 });
+      ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     }
   });
 
@@ -37,24 +41,24 @@ test.describe("Stories hub deep", () => {
     await anonPage.goto("/stories");
     await expect(
       anonPage.locator('main a[href*="/stories/"]').first(),
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
   });
 
   test("?tag= URL renders the hub and is not redirected away", async ({
     anonPage,
   }) => {
     await anonPage.goto("/stories?tag=beauty");
-    await expect(anonPage).toHaveURL(/[?&]tag=beauty/, { timeout: 10_000 });
+    await expect(anonPage).toHaveURL(/[?&]tag=beauty/, { timeout: BUDGET.INTERACTIVE });
     await expect(
       anonPage.getByRole("heading", { name: "專題", level: 1 }),
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
   });
 
   test("hub no longer renders a tag filter nav", async ({ anonPage }) => {
     await anonPage.goto("/stories");
     await expect(
       anonPage.getByRole("heading", { name: "專題", level: 1 }),
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await expect(
       anonPage.getByRole("navigation", { name: "專題標籤" }),
     ).toHaveCount(0);
@@ -66,14 +70,14 @@ test.describe("Stories hub deep", () => {
     test.skip(stories.length === 0, NO_PUBLISHED_STORIES);
     await anonPage.goto("/stories");
     const firstRow = anonPage.locator('main a[href*="/stories/"]').first();
-    await expect(firstRow).toBeVisible({ timeout: 10_000 });
+    await expect(firstRow).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await firstRow.click();
     await expect(anonPage).toHaveURL(/\/stories\/[a-z0-9][a-z0-9-]+/, {
-      timeout: 15_000,
+      timeout: BUDGET.SERVER_RENDER,
     });
     await expect(anonPage).not.toHaveTitle(/^404/);
     await expect(anonPage.getByRole("heading", { level: 1 })).toBeVisible({
-      timeout: 10_000,
+      timeout: BUDGET.INTERACTIVE,
     });
   });
 });

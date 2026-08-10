@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { BUDGET } from "./e2e/budgets";
 
 // Load .env.local so global-setup can access env vars outside the Next.js runtime
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -48,6 +49,14 @@ export default defineConfig({
   // cold compile — that alone can push a first `page.goto` past 30s. Keep CI
   // strict so a genuine regression still fails there.
   timeout: process.env.CI && !isTargetedSelfheal ? 30_000 : 60_000,
+  expect: {
+    // Playwright's own default, restated so it is greppable and so any change
+    // to it shows up in a diff. Around 540 assertions in e2e/ carry no explicit
+    // timeout and land here; raising this silently lengthens every one of them
+    // and hides regressions in exactly the 5-10s band where /admin/brands
+    // already sits. Anything that needs longer states its own budget.
+    timeout: BUDGET.RENDERED,
+  },
   use: {
     baseURL,
     // Not 'on-first-retry': with retries=1 a fail-then-pass keeps only the
@@ -55,6 +64,17 @@ export default defineConfig({
     // the fact. Retain the attempt that actually failed.
     trace: "retain-on-failure",
     locale: "zh-TW",
+    // Pinned alongside locale. event-detail.spec.ts asserts a raw Taipei
+    // calendar date in Event JSON-LD and was correct only because CI happens to
+    // run UTC — an unpinned timezone makes that assertion depend on where it
+    // runs, which is the one genuine day-boundary hazard in the suite.
+    timezoneId: "Asia/Taipei",
+    // 74 of the 86 explicit goto timeouts were already exactly this, so for
+    // them it changes nothing and lets the argument be deleted. For the 168
+    // gotos that carried no ceiling at all it replaces "however long the test
+    // budget allows" with a real bound, which is what makes a hung navigation
+    // report as itself instead of as whichever assertion ran out of time.
+    navigationTimeout: 60_000,
   },
   projects: [
     // Deep: the canonical suite, including smoke-tagged cases, runs in Chrome.

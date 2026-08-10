@@ -1,6 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures/auth';
 import { seedBrand, SeededBrand } from '../helpers/seed';
+import { BUDGET, POLL } from '../budgets';
 // DEV-1261 note: deliberately NOT gated on `owner_features_enabled`. This is an
 // anonymous crowd-QA journey that touches no owner surface, and it is live at
 // launch — pausing it would take consumer coverage dark for no reason. Verified
@@ -81,7 +82,7 @@ async function expectToast(
 ): Promise<void> {
   await expect(
     page.locator(`[data-sonner-toast][data-type="${type}"]`).filter({ hasText: text }),
-  ).toBeVisible({ timeout: 15_000 });
+  ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
 }
 
 // Brand detail is force-static with 1h ISR — a freshly seeded brand needs a
@@ -90,9 +91,9 @@ async function openSeededBrand(page: Page, seeded: SeededBrand): Promise<void> {
   await expect(async () => {
     await page.goto(`/brands/${seeded.slug}`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { level: 1 })).toContainText(seeded.brand.name, {
-      timeout: 10_000,
+      timeout: BUDGET.INTERACTIVE,
     });
-  }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 10_000] });
+  }).toPass(POLL.DB);
 }
 
 function correctionTrigger(page: Page) {
@@ -128,7 +129,7 @@ async function openCorrectionDialog(page: Page, field: 'product_type' | 'product
   await expect(async () => {
     if (!(await dialog.isVisible())) await correctionTrigger(page).click();
     await expect(dialog).toBeVisible({ timeout: 2_000 });
-  }).toPass({ timeout: 20_000, intervals: [500, 1_000, 2_000] });
+  }).toPass(POLL.UI);
   // The field picker is the one control that is still a real <select>. The
   // picker opens on a disabled placeholder with no field selected, so the value
   // rows only exist after this selection.
@@ -184,7 +185,7 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
   test(
     'anonymous visitor can submit a category correction',
     async ({ anonPage }, testInfo) => {
-      test.setTimeout(90_000);
+      test.setTimeout(BUDGET.TEST.MUTATION);
       await isolateVisitorIp(anonPage, testInfo.workerIndex);
       await openSeededBrand(anonPage, seeded);
 
@@ -218,7 +219,7 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
   );
 
   test('submit stays disabled until the value changes', async ({ anonPage }, testInfo) => {
-    test.setTimeout(90_000);
+    test.setTimeout(BUDGET.TEST.MUTATION);
     await isolateVisitorIp(anonPage, testInfo.workerIndex);
     await openSeededBrand(anonPage, seeded);
 
@@ -251,7 +252,7 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
   test(
     'page still shows the original value after submitting',
     async ({ anonPage }, testInfo) => {
-      test.setTimeout(90_000);
+      test.setTimeout(BUDGET.TEST.MUTATION);
       await isolateVisitorIp(anonPage, testInfo.workerIndex);
       await openSeededBrand(anonPage, seeded);
 
@@ -272,7 +273,7 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
   );
 
   test('a second submission for the same field is rejected', async ({ anonPage }, testInfo) => {
-    test.setTimeout(120_000);
+    test.setTimeout(BUDGET.TEST.ADMIN);
     await isolateVisitorIp(anonPage, testInfo.workerIndex);
     await openSeededBrand(anonPage, seeded);
 
@@ -291,7 +292,7 @@ test.describe('Brand corrections — anonymous crowd QA', () => {
   test(
     'a visitor can propose a tag the taxonomy does not offer',
     async ({ anonPage }, testInfo) => {
-      test.setTimeout(90_000);
+      test.setTimeout(BUDGET.TEST.MUTATION);
       await isolateVisitorIp(anonPage, testInfo.workerIndex);
       await openSeededBrand(anonPage, seeded);
 

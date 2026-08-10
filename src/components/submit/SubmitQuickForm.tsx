@@ -62,6 +62,7 @@ export default function SubmitQuickForm() {
   const { complete } = useSubmissionAnalytics('quick', 'owner', 'opened')
   const nameBlurRequestRef = useRef(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const submitLockRef = useRef(false)
   const [pendingRedirect, setPendingRedirect] = useState<string | null>(null)
   const [nameSuggestion, setNameSuggestion] = useState<string | null>(null)
   const [urlSuggestion, setUrlSuggestion] = useState<string | null>(null)
@@ -161,15 +162,27 @@ export default function SubmitQuickForm() {
 
   const submitForm = useCallback(
     async (data: QuickSubmissionFormData) => {
-      if (isSubmitting) return
+      // Ref, not state: `isSubmitting` does not update until the next render, so
+      // two activations in the same tick both read `false` and both submit.
+      // The lock is released only on paths that leave the visitor on this form —
+      // a successful submission is terminal, and the redirect that follows is a
+      // router.push that takes real time (DEV-1415).
+      if (submitLockRef.current) return
+      submitLockRef.current = true
 
       setSubmitError(null)
       setIsSubmitting(true)
+
+      const unlock = () => {
+        submitLockRef.current = false
+        setIsSubmitting(false)
+      }
 
       try {
         const result = await submitOwnerQuick(data)
         if (result?.error) {
           setSubmitError(result.error)
+          unlock()
           return
         }
 
@@ -182,11 +195,12 @@ export default function SubmitQuickForm() {
           complete(),
           'owner_claim',
         )
-      } finally {
-        setIsSubmitting(false)
+      } catch (error) {
+        unlock()
+        throw error
       }
     },
-    [complete, isSubmitting],
+    [complete],
   )
 
   const onSubmit = useCallback(

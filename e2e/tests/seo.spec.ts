@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 
+import { BUDGET } from "../budgets";
 // `property`/`name` and `content` can appear in either order in the rendered
 // tag, so match the whole `<meta ...>` element first and pull `content` out
 // of it rather than assuming attribute order.
@@ -254,7 +255,7 @@ test.describe("SEO deep", () => {
     // The sitemap includes every locale and category variant; in a full dev
     // run those route bundles may still compile lazily after the other SEO
     // journeys have exercised the server. Keep the budget local to this sweep.
-    test.setTimeout(120_000);
+    test.setTimeout(BUDGET.TEST.ADMIN);
     const sitemapResponse = await request.get("/sitemap.xml");
     expect(sitemapResponse.status()).toBe(200);
     const sitemap = await sitemapResponse.text();

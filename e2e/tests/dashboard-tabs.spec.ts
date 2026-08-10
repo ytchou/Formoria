@@ -6,6 +6,7 @@ import { ensureOwnedBrand } from '../helpers/owned-brand';
 import { writeAuthStorageStateForCredentials } from '../helpers/auth-session';
 import { ownerFeaturesDisabled, OWNER_FEATURES_OFF_REASON } from '../helpers/owner-features';
 
+import { BUDGET } from '../budgets';
 const test = baseTest.extend<{ userPage: Page }>({
   userPage: async ({ browser, isolatedUser }, provideFixture, testInfo) => {
     const storagePath = path.join(testInfo.outputDir, 'dashboard-tabs-owner.json');
@@ -72,9 +73,8 @@ test.describe('Dashboard — tab navigation', () => {
   // (cleanupTestData) handles removal.
 
   test('default dashboard landing shows the single brand with owner actions', async ({ userPage }) => {
-    test.setTimeout(120_000);
-
-    const resp = await userPage.goto('/dashboard', { timeout: 60_000 });
+    test.setTimeout(BUDGET.TEST.ADMIN);
+    const resp = await userPage.goto('/dashboard');
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping.');
       return;
@@ -84,10 +84,10 @@ test.describe('Dashboard — tab navigation', () => {
     // (concurrent files may have changed which brand the user owns).
     await expect(userPage).toHaveURL(
       /\/dashboard\/brands\/[^/]+$/,
-      { timeout: 60_000 }
+      { timeout: BUDGET.NAVIGATION }
     );
     await expect(userPage.getByRole('heading', { level: 1 }).first()).toBeVisible({
-      timeout: 60_000,
+      timeout: BUDGET.NAVIGATION,
     });
 
     const mainNav = userPage.locator('header').first();
@@ -98,13 +98,12 @@ test.describe('Dashboard — tab navigation', () => {
     const tabNav = userPage.locator('nav[aria-label]').first();
     await expect(tabNav.getByRole('link')).toHaveCount(7);
     const overviewLink = tabNav.getByRole('link', { name: '總覽' });
-    await expect(overviewLink).toHaveAttribute('aria-current', 'page', { timeout: 60_000 });
+    await expect(overviewLink).toHaveAttribute('aria-current', 'page', { timeout: BUDGET.NAVIGATION });
   });
 
   test('a stale brand query cannot switch away from the account owner brand', async ({ userPage }) => {
-    test.setTimeout(120_000);
-
-    const resp = await userPage.goto('/dashboard?brand=totally-bogus-brand-that-does-not-exist', { timeout: 60_000 });
+    test.setTimeout(BUDGET.TEST.ADMIN);
+    const resp = await userPage.goto('/dashboard?brand=totally-bogus-brand-that-does-not-exist');
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping.');
       return;
@@ -113,14 +112,14 @@ test.describe('Dashboard — tab navigation', () => {
     // Stale query is ignored — user lands on their actual brand, any slug
     await expect(userPage).toHaveURL(
       /\/dashboard\/brands\/[^/]+$/,
-      { timeout: 60_000 }
+      { timeout: BUDGET.NAVIGATION }
     );
-    await expect(userPage.getByRole('heading', { level: 1 }).first()).toBeVisible({ timeout: 60_000 });
+    await expect(userPage.getByRole('heading', { level: 1 }).first()).toBeVisible({ timeout: BUDGET.NAVIGATION });
 
     // Tab nav Overview link is active on the canonical path-based brand overview.
     const tabNav = userPage.locator('nav[aria-label]').first();
     const overviewLink = tabNav.getByRole('link', { name: '總覽' });
-    await expect(overviewLink).toHaveAttribute('aria-current', 'page', { timeout: 5_000 });
+    await expect(overviewLink).toHaveAttribute('aria-current', 'page', { timeout: BUDGET.RENDERED });
   });
 
 });
@@ -138,15 +137,14 @@ test.describe('Dashboard — legacy brand route redirect', () => {
   });
 
   test('navigating to /dashboard/brands/<slug> renders the brand overview directly', async ({ userPage }) => {
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     // Resolve the current brand slug by letting /dashboard redirect
-    await userPage.goto('/dashboard', { timeout: 60_000 });
-    await expect(userPage).toHaveURL(/\/dashboard\/brands\/[^/]+$/, { timeout: 60_000 });
+    await userPage.goto('/dashboard');
+    await expect(userPage).toHaveURL(/\/dashboard\/brands\/[^/]+$/, { timeout: BUDGET.NAVIGATION });
     const brandUrl = userPage.url();
 
     // Navigate directly to the path-based URL — verify it renders without an extra redirect
-    const resp = await userPage.goto(brandUrl, { timeout: 60_000 });
+    const resp = await userPage.goto(brandUrl);
     if (resp?.status() === 503) {
       test.skip(true, 'PREVIEW_MODE active — skipping.');
       return;
@@ -154,6 +152,6 @@ test.describe('Dashboard — legacy brand route redirect', () => {
 
     await expect(
       userPage.locator('[data-testid="brand-profile"]')
-    ).toBeVisible({ timeout: 60_000 });
+    ).toBeVisible({ timeout: BUDGET.NAVIGATION });
   });
 });

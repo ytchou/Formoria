@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { test, expect } from '../fixtures/auth';
+import { seedBrand, type SeededBrand } from '../helpers/seed';
 
+import { BUDGET } from '../budgets';
 test.describe('Admin reports deep', () => {
   test.beforeEach(() => {
     const adminEmail = process.env.E2E_ADMIN_EMAIL;
@@ -10,32 +12,41 @@ test.describe('Admin reports deep', () => {
   });
 
   let supabase: ReturnType<typeof createClient> | null = null;
+  let seededBrand: SeededBrand | null = null;
   let seededReportId: string | null = null;
   let seededReportNote: string | null = null;
   let seededReportBrandName: string | null = null;
 
-  test.beforeAll(async () => {
+  // Seeding failures are thrown, not swallowed. This hook used to `return` on a
+  // missing brand or a failed insert, leaving `seededReportId` unset — and the
+  // test below skipped itself on exactly that, so a broken report insert was
+  // reported as a green run that had asserted nothing (DEV-1414). It also picked
+  // an arbitrary existing brand with `.limit(1)`, which made the whole spec
+  // depend on production data volume; it seeds its own brand now, so the
+  // precondition can no longer be absent and the skip is gone with it.
+  test.beforeAll(async ({}, workerInfo) => {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!url || !key) return;
+    if (!url || !key) {
+      throw new Error(
+        'NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required to seed admin reports.',
+      );
+    }
 
     supabase = createClient(url, key);
 
-    const { data: brand, error: brandError } = await supabase
-      .from('brands')
-      .select('id, name')
-      .limit(1)
-      .maybeSingle();
-
-    if (brandError || !brand?.id) return;
-    seededReportBrandName = brand.name;
-
+    seededBrand = await seedBrand({
+      name: 'reports',
+      status: 'approved',
+      workerIndex: workerInfo.workerIndex,
+    });
+    seededReportBrandName = seededBrand.brand.name;
     seededReportNote = `[E2E-TEST] reports ${Date.now()}`;
 
     const { data: report, error: reportError } = await supabase
       .from('brand_reports')
       .insert({
-        brand_id: brand.id,
+        brand_id: seededBrand.brand.id,
         reason: 'incorrect_info',
         notes: seededReportNote,
         status: 'pending',
@@ -44,33 +55,33 @@ test.describe('Admin reports deep', () => {
       .single();
 
     if (reportError || !report?.id) {
-      seededReportNote = null;
-      return;
+      throw new Error(`Failed to seed brand report: ${reportError?.message ?? 'no row returned'}`);
     }
 
-    seededReportId = report.id;
+    seededReportId = report.id as string;
   });
 
   test.afterAll(async () => {
-    if (!supabase || !seededReportId) return;
-
-    await supabase.from('brand_reports').delete().eq('id', seededReportId);
+    if (supabase && seededReportId) {
+      await supabase.from('brand_reports').delete().eq('id', seededReportId);
+    }
+    await seededBrand?.cleanup();
   });
 
   test('reports page renders heading and table columns or empty state', async ({ adminPage }) => {
     // DEV-762: admin sub-routes cold-compile in CI dev mode; give generous budget
-    test.setTimeout(120_000);
-    await adminPage.goto('/admin/reports', { timeout: 60_000 });
-    await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
+    test.setTimeout(BUDGET.TEST.ADMIN);
+    await adminPage.goto('/admin/reports');
+    await expect(adminPage.getByRole('main')).toBeVisible({ timeout: BUDGET.NAVIGATION });
 
     await expect(
       adminPage.getByRole('heading', { name: 'Brand Reports' })
-    ).toBeVisible({ timeout: 60_000 });
+    ).toBeVisible({ timeout: BUDGET.NAVIGATION });
 
     const table = adminPage.locator('table').first();
     const emptyState = adminPage.getByText('No pending reports.');
 
-    await expect(table.or(emptyState)).toBeVisible({ timeout: 10_000 });
+    await expect(table.or(emptyState)).toBeVisible({ timeout: BUDGET.INTERACTIVE });
 
     if (await table.isVisible()) {
       await expect(adminPage.getByRole('columnheader', { name: 'Brand' })).toBeVisible();
@@ -84,30 +95,29 @@ test.describe('Admin reports deep', () => {
     ).not.toBeVisible();
   });
 
-  test('seeded pending report appears when safe seeding succeeds', async ({ adminPage }) => {
-    test.skip(
-      !seededReportId || !seededReportNote || !seededReportBrandName,
-      'Skipped because no existing brand was available for safe report seeding.'
-    );
+  test('seeded pending report appears in the reports table', async ({ adminPage }) => {
+    // No skip guard here any more. It used to skip when the seed had silently
+    // failed, which is the one circumstance under which this test most needs to
+    // run — the seed now throws instead, so reaching this line means the report
+    // exists (DEV-1414).
     // DEV-762: admin sub-routes cold-compile in CI dev mode; give generous budget
-    test.setTimeout(120_000);
-
-    await adminPage.goto('/admin/reports', { timeout: 60_000 });
+    test.setTimeout(BUDGET.TEST.ADMIN);
+    await adminPage.goto('/admin/reports');
     // Wait for main to confirm the page loaded before looking for the seeded row
-    await expect(adminPage.getByRole('main')).toBeVisible({ timeout: 60_000 });
+    await expect(adminPage.getByRole('main')).toBeVisible({ timeout: BUDGET.NAVIGATION });
 
     const seededRow = adminPage.locator('tbody tr', { hasText: seededReportBrandName! }).filter({
       hasText: 'Incorrect information',
     }).first();
 
-    await expect(seededRow).toBeVisible({ timeout: 15_000 });
+    await expect(seededRow).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
     await expect(seededRow.getByText('Incorrect information')).toBeVisible();
     await expect(seededRow.getByText('Pending')).toBeVisible();
 
     await seededRow.click();
 
     const drawer = adminPage.getByRole('dialog');
-    await expect(drawer).toBeVisible({ timeout: 10_000 });
+    await expect(drawer).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await expect(drawer.getByText(seededReportNote!, { exact: true })).toBeVisible();
     await expect(drawer.getByRole('button', { name: 'Mark reviewed' })).toBeVisible();
     await expect(drawer.getByRole('button', { name: 'Dismiss' })).toBeVisible();

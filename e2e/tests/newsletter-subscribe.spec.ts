@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
 
+import { BUDGET } from '../budgets';
 /**
  * Newsletter subscribe flow — anonymous visitor journey
  *
@@ -36,32 +37,31 @@ test.describe('Newsletter subscribe flow', () => {
   });
 
   test('anonymous visitor can subscribe from the homepage', async ({ page }) => {
-    test.setTimeout(60_000);
-
+    test.setTimeout(BUDGET.TEST.JOURNEY);
     await page.goto('/');
 
     // --- Newsletter section heading ---
     const heading = page.getByRole('heading', { name: '掌握最新動態' });
     await heading.scrollIntoViewIfNeeded();
-    await expect(heading).toBeVisible({ timeout: 15_000 });
+    await expect(heading).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
 
     // --- "Curated Picks" chip is pre-selected (aria-pressed="true") ---
     // zh-TW label: "選物推薦"
     const curatedPicksChip = page.getByRole('button', { name: /選物推薦/ });
-    await expect(curatedPicksChip).toBeVisible({ timeout: 5_000 });
+    await expect(curatedPicksChip).toBeVisible({ timeout: BUDGET.RENDERED });
     await expect(curatedPicksChip).toHaveAttribute('aria-pressed', 'true');
 
     // --- Toggle "Brand Stories" chip on ---
     // zh-TW label: "品牌故事 Brand Stories"
     const brandStoriesChip = page.getByRole('button', { name: /品牌故事/ });
-    await expect(brandStoriesChip).toBeVisible({ timeout: 5_000 });
+    await expect(brandStoriesChip).toBeVisible({ timeout: BUDGET.RENDERED });
     await expect(brandStoriesChip).toHaveAttribute('aria-pressed', 'false');
     await brandStoriesChip.click();
     await expect(brandStoriesChip).toHaveAttribute('aria-pressed', 'true');
 
     // --- Enter a unique test email ---
     const emailInput = page.locator('input[name="email"][type="email"]');
-    await expect(emailInput).toBeVisible({ timeout: 5_000 });
+    await expect(emailInput).toBeVisible({ timeout: BUDGET.RENDERED });
     await emailInput.fill(testEmail);
 
     // --- Submit ---

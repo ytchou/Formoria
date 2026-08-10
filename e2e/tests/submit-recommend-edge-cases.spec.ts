@@ -1,9 +1,11 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { Page } from '@playwright/test'
 import { test, expect } from '../fixtures/auth'
+import { POLL } from '../budgets'
 import { seedBrand } from '../helpers/seed'
 import { gotoSubmitRecommend } from '../utils/submit-form'
 
+import { BUDGET } from '../budgets'
 const SUBMISSION_PREFIX = '[E2E-TEST] Submit Recommend Edge'
 
 async function installTurnstileStub(page: Page) {
@@ -68,7 +70,7 @@ test.describe('Submit recommendation edge cases', () => {
   test('blocks a duplicate name and recovers after the visitor edits it', async ({
     anonPage,
   }) => {
-    test.setTimeout(90_000)
+    test.setTimeout(BUDGET.TEST.MUTATION);
     await installTurnstileStub(anonPage)
     await gotoSubmitRecommend(anonPage)
 
@@ -83,7 +85,7 @@ test.describe('Submit recommendation edge cases', () => {
     // element's full text is "發現相似品牌名稱 <brand>".
     await expect(
       anonPage.getByText('發現相似品牌名稱'),
-    ).toBeVisible({ timeout: 15_000 })
+    ).toBeVisible({ timeout: BUDGET.SERVER_RENDER })
 
     const submitButton = anonPage.getByRole('button', { name: '送出推薦' })
     await expect(submitButton).toBeDisabled()
@@ -95,13 +97,13 @@ test.describe('Submit recommendation edge cases', () => {
     await expect(
       anonPage.getByText('發現相似品牌名稱'),
     ).toHaveCount(0)
-    await expect(submitButton).toBeEnabled({ timeout: 15_000 })
+    await expect(submitButton).toBeEnabled({ timeout: BUDGET.SERVER_RENDER })
   })
 
   test('rapid repeat activation creates exactly one submission', async ({
     anonPage,
   }, workerInfo) => {
-    test.setTimeout(90_000)
+    test.setTimeout(BUDGET.TEST.MUTATION);
     const suffix = `${Date.now()}-${workerInfo.workerIndex}`
     const brandName = `${SUBMISSION_PREFIX} ${suffix}`
 
@@ -113,28 +115,37 @@ test.describe('Submit recommendation edge cases', () => {
     })
 
     const submitButton = anonPage.getByRole('button', { name: '送出推薦' })
-    await expect(submitButton).toBeEnabled({ timeout: 15_000 })
+    await expect(submitButton).toBeEnabled({ timeout: BUDGET.SERVER_RENDER })
 
     const attempts = await Promise.allSettled([
-      submitButton.click({ timeout: 5_000 }),
-      submitButton.click({ timeout: 5_000 }),
+      submitButton.click({ timeout: BUDGET.RENDERED }),
+      submitButton.click({ timeout: BUDGET.RENDERED }),
     ])
     expect(attempts.some((attempt) => attempt.status === 'fulfilled')).toBe(true)
 
-    await anonPage.waitForURL(/\/submit\/confirmation/, { timeout: 30_000 })
+    await anonPage.waitForURL(/\/submit\/confirmation/, { timeout: BUDGET.GATED_UI })
     await expect(
       anonPage.getByRole('heading', {
         name: '我們已收到你的品牌推薦',
       }),
-    ).toBeVisible({ timeout: 15_000 })
+    ).toBeVisible({ timeout: BUDGET.SERVER_RENDER })
 
-    await anonPage.waitForTimeout(1_000)
-    const { count, error } = await supabaseAdmin
-      .from('brand_submissions')
-      .select('id', { count: 'exact', head: true })
-      .eq('brand_name', brandName)
-
-    expect(error).toBeNull()
-    expect(count).toBe(1)
+    // Poll the count instead of sleeping for a second and hoping the write has
+    // landed. This also strengthens the assertion: a duplicate arriving *after*
+    // the old fixed wait would have been missed entirely, and a duplicate is
+    // precisely what this test exists to catch.
+    await expect
+      .poll(
+        async () => {
+          const { count, error } = await supabaseAdmin
+            .from('brand_submissions')
+            .select('id', { count: 'exact', head: true })
+            .eq('brand_name', brandName)
+          expect(error).toBeNull()
+          return count
+        },
+        { timeout: POLL.UI.timeout, intervals: [...POLL.UI.intervals] },
+      )
+      .toBe(1)
   })
 })

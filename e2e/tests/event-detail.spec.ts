@@ -1,4 +1,14 @@
+import type { Page } from "@playwright/test";
+
+import { BUDGET } from "../budgets";
 import { test, expect } from "../fixtures/auth";
+import {
+  EXPO_SLUG,
+  LINKED_EXHIBITORS,
+  RENDERED_EXHIBITORS,
+  SEARCH_SUBJECT,
+  ledgerZoneCount,
+} from "../utils/expo-exhibitors";
 import {
   NO_SEEDED_EVENTS,
   resolveSeededEvent,
@@ -72,7 +82,7 @@ test.describe("Event detail deep", () => {
       name: "參展品牌",
       exact: true,
     });
-    await expect(lineup).toBeVisible({ timeout: 10_000 });
+    await expect(lineup).toBeVisible({ timeout: BUDGET.INTERACTIVE });
 
     // `role="group"` named events.areaFilterAria. Absent when the lineup has no areas
     // to filter by — an authoring state, not a regression.
@@ -127,7 +137,7 @@ test.describe("Event detail deep", () => {
     await expect
       .poll(async () => cards.count(), {
         message: `filtering by "${areaLabel}" did not shrink the brand grid`,
-        timeout: 10_000,
+        timeout: BUDGET.INTERACTIVE,
       })
       .toBeLessThan(totalCards);
 
@@ -156,7 +166,7 @@ test.describe("Event detail deep", () => {
     // "全部區域" restores the full lineup without a navigation either.
     await chips.first().click();
     await expect
-      .poll(async () => cards.count(), { timeout: 10_000 })
+      .poll(async () => cards.count(), { timeout: BUDGET.INTERACTIVE })
       .toBe(totalCards);
     expect(new URL(anonPage.url()).pathname).toBe(pathnameBefore);
   });
@@ -217,7 +227,7 @@ test.describe("Event detail deep", () => {
     const response = await anonPage.goto(`/en/events/${event.slug}`);
     expect(response?.status()).toBe(200);
     await expect(anonPage.getByRole("heading", { level: 1 })).toBeVisible({
-      timeout: 10_000,
+      timeout: BUDGET.INTERACTIVE,
     });
 
     const enCanonical = anonPage.locator('link[rel="canonical"]');
@@ -250,13 +260,28 @@ test.describe("Event detail deep", () => {
   });
 });
 
-const CREATIVE_EXPO_SLUG = "2026-taiwan-creative-expo";
+const CREATIVE_EXPO_SLUG = EXPO_SLUG;
 
-/** Mirrors `EXHIBITOR_PAGE_SIZE` in `taiwan-creative-expo-explorer.tsx`. */
-const EXHIBITOR_PAGE_SIZE = 10;
-
+/**
+ * One test used to assert roughly twenty things across the DOM window, the zone
+ * chips, three searches, pagination, and a brand navigation. Any one failure took
+ * the other nineteen assertions with it and reported under a name that described
+ * none of them, so the split below is by contract, not by convenience:
+ *
+ *   1. the crawler window — every row in the DOM, one page-sized slice visible
+ *   2. zone chips and the `?zone=` round trip
+ *   3. search, and the journey from a booth number to a brand page
+ *   4. pagination, including the reset-to-page-1 rule
+ *
+ * Every expected exhibitor fact now comes from `e2e/utils/expo-exhibitors.ts`,
+ * which reads the committed ledger — see that file for exactly what that does and
+ * does not guard (DEV-1414).
+ */
 test.describe("Creative Expo exhibitor list", () => {
-  test("@smoke zone chips, search, pagination, and brand navigation stay synchronized", async ({
+  const explorerOf = (page: Page) =>
+    page.getByRole("region", { name: "All exhibitors" });
+
+  test("@smoke every exhibitor is in the DOM and one page-sized window is visible", async ({
     anonPage,
   }) => {
     const response = await anonPage.goto(`/en/events/${CREATIVE_EXPO_SLUG}`);
@@ -268,152 +293,188 @@ test.describe("Creative Expo exhibitor list", () => {
     }
     expect(response?.status()).toBe(200);
 
-    const explorer = anonPage.getByRole("region", { name: "All exhibitors" });
-    const status = explorer.getByRole("status");
-    const search = explorer.getByRole("searchbox", {
-      name: "Search exhibitor names, romanization, or booth number",
-    });
-    const total = statusCount(await status.innerText());
-    expect(total).toBeGreaterThan(EXHIBITOR_PAGE_SIZE);
+    const explorer = explorerOf(anonPage);
+    const total = statusCount(await explorer.getByRole("status").innerText());
+
+    // The roster the page serves is the roster the ledger records. A partial
+    // import used to read as a smaller-but-consistent page, which every
+    // page-derived assertion below would have happily agreed with.
+    expect(total).toBe(RENDERED_EXHIBITORS.length);
 
     // The load-bearing property of this list: every exhibitor is in the DOM and
     // only a page-sized window is visible. A slice here would hide most of the
     // hall from crawlers, which is the whole reason the rows are CSS-hidden.
     await expect(explorer.locator("li")).toHaveCount(total);
-    await expect(explorer.locator("li:visible")).toHaveCount(
-      EXHIBITOR_PAGE_SIZE,
+
+    // The page size is read off the page rather than mirrored from the
+    // component. A mirrored constant is a second source of truth that goes
+    // stale silently; the invariants that actually matter — the window is
+    // smaller than the hall, and the page count is exactly what that window
+    // implies — are checkable without one.
+    const visible = await explorer.locator("li:visible").count();
+    expect(visible).toBeGreaterThan(0);
+    expect(visible).toBeLessThan(total);
+
+    const pageCount = pagePositionCount(
+      await explorer.getByText(/^Page \d+ of \d+$/).innerText(),
     );
+    expect(pageCount).toBe(Math.ceil(total / visible));
+  });
 
-    // The zone code leads the accessible name — it is what ties the chip to
-    // the `K2-###` booth numbers on the floor plan and in every row.
-    const k2Chip = explorer.getByRole("button", {
-      name: /^K2 Craftsmanship & Cultural Sustainability \d+$/,
-    });
-    const allK2Count = trailingCount(await k2Chip.innerText());
+  test("zone chips filter the roster and round-trip through ?zone=", async ({
+    anonPage,
+  }) => {
+    await anonPage.goto(`/en/events/${CREATIVE_EXPO_SLUG}`);
+    const explorer = explorerOf(anonPage);
+    const status = explorer.getByRole("status");
+    const total = statusCount(await status.innerText());
 
-    await k2Chip.click();
-    await expect(k2Chip).toHaveAttribute("aria-pressed", "true");
+    // Only the explorer's canonical zone codes get a chip, so which zones those
+    // are is read off the page; the ledger then says how many rows each holds.
+    // The zone code leads the accessible name — it is what ties the chip to the
+    // `K2-###` booth numbers on the floor plan and in every row.
+    const zoneGroup = explorer.getByRole("group", { name: "Filter exhibitors by zone" });
+    const zoneChip = zoneGroup
+      .getByRole("button")
+      .filter({ hasNotText: /^All zones/ })
+      .first();
+    const chipLabel = await zoneChip.innerText();
+    const zoneCode = chipLabel.trim().split(/\s+/)[0]!;
+    const chipCount = trailingCount(chipLabel);
+    expect(chipCount).toBe(ledgerZoneCount(zoneCode));
+
+    await zoneChip.click();
+    await expect(zoneChip).toHaveAttribute("aria-pressed", "true");
     // The `?zone=` round trip is the one URL contract that survived the map's
     // retirement; shared zone links must keep working.
-    await expect(anonPage).toHaveURL(/\?zone=K2$/);
-    await expect(status).toHaveText(`${allK2Count} of ${total} exhibitors`);
-    await expect(explorer.locator("li")).toHaveCount(allK2Count);
+    await expect(anonPage).toHaveURL(new RegExp(`\\?zone=${zoneCode}$`));
+    await expect(status).toHaveText(`${chipCount} of ${total} exhibitors`);
+    await expect(explorer.locator("li")).toHaveCount(chipCount);
 
     // "All zones" is the only zone reset now — the redundant button beside the
     // count line is gone, so this chip carries the `?zone=` clearing contract.
-    const allZones = explorer.getByRole("button", { name: "All zones" });
-    await allZones.click();
+    await explorer.getByRole("button", { name: "All zones" }).click();
     await expect(status).toHaveText(`${total} exhibitors`);
     await expect(anonPage).toHaveURL(`/en/events/${CREATIVE_EXPO_SLUG}`);
 
-    await search.fill("思謀研器有限公司");
-    await expect(status).toHaveText(`1 of ${total} exhibitors`);
-    // `exact` matters on every brand-name link lookup in this file: a listed row
-    // carries two links, and the outbound one is named "<brand> official link
-    // (opens in a new tab)", so a substring match resolves to both and trips
-    // strict mode.
-    const studioSmoll = explorer.getByRole("link", {
-      name: "思謀研器 Studio Smoll",
-      exact: true,
+    // A shared `?zone=` link must land pre-filtered, not merely unfiltered.
+    await anonPage.goto(
+      `/en/events/${CREATIVE_EXPO_SLUG}?zone=${zoneCode}`,
+    );
+    await expect(zoneChip).toHaveAttribute("aria-pressed", "true");
+    await expect(status).toHaveText(`${chipCount} of ${total} exhibitors`);
+  });
+
+  test("search narrows the roster and the brand name opens the brand page", async ({
+    anonPage,
+  }) => {
+    // The user-facing journey: type a booth number, click the one remaining
+    // brand, land on its page. Subject comes from the ledger, so re-deriving the
+    // roster does not require editing this file.
+    const subject = SEARCH_SUBJECT;
+
+    await anonPage.goto(`/en/events/${CREATIVE_EXPO_SLUG}`);
+    const explorer = explorerOf(anonPage);
+    const status = explorer.getByRole("status");
+    const total = statusCount(await status.innerText());
+    const search = explorer.getByRole("searchbox", {
+      name: "Search exhibitor names, romanization, or booth number",
     });
-    await expect(studioSmoll).toBeVisible();
-    await expect(studioSmoll.locator("xpath=ancestor::li[1]")).toContainText(
-      "K1-002",
+
+    // Anchored on the brand slug, not on a name string. A listed row's visible
+    // label is the BRAND record's name, which is free to differ from the
+    // ledger's transcription of the official listing — `沃廚 / WOKY` in the
+    // ledger renders under whatever the brand itself is called. Building the
+    // expected label from the ledger looked right and matched nothing; the href
+    // is the one thing both sides genuinely agree on.
+    //
+    // The row also carries an outbound link named "<brand> official link (opens
+    // in a new tab)", so any name-based lookup here needs `exact: true` anyway.
+    const subjectLink = explorer.locator(
+      `li a[href="/en/brands/${subject.brandSlug}"]`,
     );
 
-    await search.fill("Studio Smoll");
-    await expect(studioSmoll).toBeVisible();
+    // Booth number, Chinese name, and romanization are three separate index
+    // paths to the same row; all three have to reach it.
+    await search.fill(subject.booth);
     await expect(status).toHaveText(`1 of ${total} exhibitors`);
-
-    await search.fill("K2-022");
-    const shiye = explorer.getByRole("link", {
-      name: "鉐葉 SHIYE",
-      exact: true,
-    });
-    await expect(shiye).toBeVisible();
-    await expect(shiye.locator("xpath=ancestor::li[1]")).toContainText(
-      "K2-022",
+    await expect(subjectLink).toBeVisible();
+    await expect(subjectLink.locator("xpath=ancestor::li[1]")).toContainText(
+      subject.booth,
     );
-    await expect(status).toHaveText(`1 of ${total} exhibitors`);
+
+    // The row names the brand rather than echoing its slug — the same
+    // bare-slug-stub regression story-detail guards for BrandCard.
+    const label = (await subjectLink.innerText()).trim();
+    expect(label.length).toBeGreaterThan(0);
+    expect(label).not.toBe(subject.brandSlug);
+
+    await search.fill(subject.name);
+    await expect(subjectLink).toBeVisible();
+
+    await search.fill(subject.nameEn!);
+    await expect(subjectLink).toBeVisible();
 
     // Clearing the query is the search field's own job — no button resets it.
     await search.fill("");
     await expect(search).toHaveValue("");
     await expect(status).toHaveText(`${total} exhibitors`);
 
-    const position = explorer.getByText(/^Page \d+ of \d+$/);
-    const pageCount = pagePositionCount(await position.innerText());
-    expect(pageCount).toBeGreaterThan(1);
-
-    const pagination = explorer.getByRole("navigation", {
-      name: "Exhibitor list pagination",
-    });
-    await pagination.getByRole("button", { name: "Go to next page" }).click();
-    await expect(position).toHaveText(`Page 2 of ${pageCount}`);
-    await expect(anonPage).toHaveURL(/\?page=2$/);
-    await expect(explorer.locator("li:visible")).toHaveCount(
-      EXHIBITOR_PAGE_SIZE,
-    );
-
-    // A filter change must force page 1. Page 2 of the full hall usually does
-    // not exist inside a single zone, and landing on an empty-but-filtered page
-    // is exactly the failure this guards.
-    await k2Chip.click();
-    await expect(anonPage).toHaveURL(/\?zone=K2$/);
-    await expect(position).toHaveText(new RegExp(`^Page 1 of \\d+$`));
-
-    await allZones.click();
-    await search.fill("K2-022");
     // Wait for the filtered list to settle before clicking. Every row stays in
     // the DOM and pagination only toggles `hidden`, so this row is present but
     // display:none until the search narrows the set onto page 1 — clicking
     // straight after `fill` races that re-render.
-    await expect(shiye).toBeVisible();
-    await shiye.click();
-    await expect(anonPage).toHaveURL(/\/en\/brands\/shiye$/);
-    await expect(anonPage.getByRole("heading", { level: 1 })).toContainText(
-      "鉐葉",
-    );
-    await anonPage.goBack();
-    await expect(anonPage).toHaveURL(`/en/events/${CREATIVE_EXPO_SLUG}`);
-    await expect(search).toHaveValue("");
-    await search.fill("K2-022");
-    await expect(shiye).toBeVisible();
-
-    await anonPage.goto(`/en/events/${CREATIVE_EXPO_SLUG}?zone=K2`);
-    await expect(k2Chip).toHaveAttribute("aria-pressed", "true");
-    await expect(status).toHaveText(
-      `${trailingCount(await k2Chip.innerText())} of ${total} exhibitors`,
-    );
-  });
-
-  test("search narrows the roster and the brand name opens the brand page", async ({
-    anonPage,
-  }) => {
-    // The user-facing journey in isolation: type a booth number, click the one
-    // remaining brand, land on its page. It was previously only covered inside
-    // the long @smoke test, where a failure here is easy to misread.
-    await anonPage.goto(`/en/events/${CREATIVE_EXPO_SLUG}`);
-    const explorer = anonPage.getByRole("region", { name: "All exhibitors" });
-    await explorer
-      .getByRole("searchbox", {
-        name: "Search exhibitor names, romanization, or booth number",
-      })
-      .fill("K2-022");
-    const shiye = explorer.getByRole("link", {
-      name: "鉐葉 SHIYE",
-      exact: true,
-    });
-    await expect(shiye).toBeVisible();
-    await shiye.click();
+    await search.fill(subject.booth);
+    await expect(subjectLink).toBeVisible();
+    await subjectLink.click();
     // Explicit budget: locally the first navigation to /en/brands/[slug] pays
     // Turbopack's on-demand compile (measured 4.4-8.4s) and would blow the 5s
     // default. global-setup warms that route, but the warm-up is deliberately
     // non-fatal — this keeps a silent warm-up failure from looking like a
     // navigation bug in the product.
-    await expect(anonPage).toHaveURL(/\/en\/brands\/shiye$/, {
-      timeout: 30_000,
-    });
+    await expect(anonPage).toHaveURL(
+      new RegExp(`/en/brands/${escapeRegExp(subject.brandSlug!)}$`),
+      { timeout: BUDGET.GATED_UI },
+    );
+    await expect(anonPage.getByRole("heading", { level: 1 })).toBeVisible();
+
+    // Back restores the unfiltered list, and the same search still works on it.
+    await anonPage.goBack();
+    await expect(anonPage).toHaveURL(`/en/events/${CREATIVE_EXPO_SLUG}`);
+    await expect(search).toHaveValue("");
+    await search.fill(subject.booth);
+    await expect(subjectLink).toBeVisible();
+  });
+
+  test("paging advances the window and any filter change resets to page 1", async ({
+    anonPage,
+  }) => {
+    await anonPage.goto(`/en/events/${CREATIVE_EXPO_SLUG}`);
+    const explorer = explorerOf(anonPage);
+    const position = explorer.getByText(/^Page \d+ of \d+$/);
+    const pageCount = pagePositionCount(await position.innerText());
+    expect(pageCount).toBeGreaterThan(1);
+    const windowSize = await explorer.locator("li:visible").count();
+
+    await explorer
+      .getByRole("navigation", { name: "Exhibitor list pagination" })
+      .getByRole("button", { name: "Go to next page" })
+      .click();
+    await expect(position).toHaveText(`Page 2 of ${pageCount}`);
+    await expect(anonPage).toHaveURL(/\?page=2$/);
+    await expect(explorer.locator("li:visible")).toHaveCount(windowSize);
+
+    // A filter change must force page 1. Page 2 of the full hall usually does
+    // not exist inside a single zone, and landing on an empty-but-filtered page
+    // is exactly the failure this guards.
+    await explorer
+      .getByRole("group", { name: "Filter exhibitors by zone" })
+      .getByRole("button")
+      .filter({ hasNotText: /^All zones/ })
+      .first()
+      .click();
+    await expect(anonPage).toHaveURL(/\?zone=[A-Z0-9]+$/);
+    await expect(position).toHaveText(/^Page 1 of \d+$/);
   });
 
   test("localized source context and server-rendered brand links preserve the event contract", async ({
@@ -464,14 +525,17 @@ test.describe("Creative Expo exhibitor list", () => {
     // Pagination hides rows with CSS and never slices them, so every exhibitor
     // — including the ones on the last page and the ones we do not list — has
     // to be in the server HTML. That is the crawler-visibility guarantee the
-    // 20-row window is allowed to trade nothing away for.
+    // paged window is allowed to trade nothing away for.
     const explorer = anonPage.getByRole("region", { name: "All exhibitors" });
     const brandHrefs = await explorer
       .locator('a[href^="/en/brands/"]')
       .evaluateAll((links) =>
         links.map((link) => link.getAttribute("href") ?? ""),
       );
-    expect(brandHrefs.length).toBeGreaterThan(EXHIBITOR_PAGE_SIZE);
+    // Exactly the ledger's linked rows, not merely "more than one page". The
+    // old `toBeGreaterThan(pageSize)` passed while any number of links above
+    // ten were missing.
+    expect(brandHrefs.length).toBe(LINKED_EXHIBITORS.length);
     expect(
       brandHrefs.filter((href) => !serverHtml.includes(`href="${href}"`)),
     ).toEqual([]);

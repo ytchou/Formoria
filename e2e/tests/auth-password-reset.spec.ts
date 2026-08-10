@@ -1,5 +1,6 @@
 import { test, expect } from '../fixtures/auth';
 
+import { BUDGET } from '../budgets';
 // zh-TW copy from messages/zh-TW.json (auth.forgotPassword.* / auth.resetPassword.*)
 const GENERIC_SUCCESS = '若此電子郵件已註冊帳號，我們已寄出密碼重設連結';
 const SESSION_EXPIRED = '重設連結已過期，請重新申請';
@@ -7,21 +8,20 @@ const SESSION_EXPIRED = '重設連結已過期，請重新申請';
 test.describe('Auth — forgot password request', () => {
   test('sign-in page links to the forgot-password form', async ({ anonPage }) => {
     // Auth pages can cold-compile slowly in dev.
-    test.setTimeout(120_000);
-
-    await anonPage.goto('/auth/sign-in', { timeout: 60_000 });
+    test.setTimeout(BUDGET.TEST.ADMIN);
+    await anonPage.goto('/auth/sign-in');
 
     const forgotLink = anonPage.getByRole('link', { name: '忘記密碼？', exact: true });
-    await expect(forgotLink).toBeVisible({ timeout: 60_000 });
+    await expect(forgotLink).toBeVisible({ timeout: BUDGET.NAVIGATION });
 
     await Promise.all([
-      anonPage.waitForURL(/\/auth\/forgot-password(?:[/?#]|$)/, { timeout: 60_000 }),
+      anonPage.waitForURL(/\/auth\/forgot-password(?:[/?#]|$)/),
       forgotLink.click(),
     ]);
 
     await expect(
       anonPage.getByRole('heading', { name: '重設密碼', exact: true })
-    ).toBeVisible({ timeout: 60_000 });
+    ).toBeVisible({ timeout: BUDGET.NAVIGATION });
     await expect(anonPage.getByLabel('電子郵件', { exact: true })).toBeVisible();
     await expect(
       anonPage.getByRole('button', { name: '傳送重設連結', exact: true })
@@ -31,13 +31,12 @@ test.describe('Auth — forgot password request', () => {
   test('empty or malformed email is blocked by validation — no success message', async ({
     anonPage,
   }) => {
-    test.setTimeout(120_000);
-
-    await anonPage.goto('/auth/forgot-password', { timeout: 60_000 });
+    test.setTimeout(BUDGET.TEST.ADMIN);
+    await anonPage.goto('/auth/forgot-password');
 
     const emailInput = anonPage.getByLabel('電子郵件', { exact: true });
     const submitBtn = anonPage.getByRole('button', { name: '傳送重設連結', exact: true });
-    await expect(emailInput).toBeVisible({ timeout: 60_000 });
+    await expect(emailInput).toBeVisible({ timeout: BUDGET.NAVIGATION });
 
     // Empty submit: native constraint validation (required) blocks the request
     await submitBtn.click();
@@ -62,19 +61,18 @@ test.describe('Auth — forgot password request', () => {
     anonPage,
   }) => {
     // Server Action → Supabase round-trip can be slow in dev.
-    test.setTimeout(120_000);
-
-    await anonPage.goto('/auth/forgot-password', { timeout: 60_000 });
+    test.setTimeout(BUDGET.TEST.ADMIN);
+    await anonPage.goto('/auth/forgot-password');
 
     const emailInput = anonPage.getByLabel('電子郵件', { exact: true });
-    await expect(emailInput).toBeVisible({ timeout: 60_000 });
+    await expect(emailInput).toBeVisible({ timeout: BUDGET.NAVIGATION });
 
     // Account does not exist — the message must be identical either way (anti-enumeration)
     await emailInput.fill(`e2e-nonexistent+${Date.now()}@example.com`);
     await anonPage.getByRole('button', { name: '傳送重設連結', exact: true }).click();
 
     await expect(anonPage.getByText(GENERIC_SUCCESS, { exact: true })).toBeVisible({
-      timeout: 60_000,
+      timeout: BUDGET.NAVIGATION,
     });
     // Success state replaces the form
     await expect(emailInput).not.toBeVisible();
@@ -91,14 +89,13 @@ test.describe('Auth — reset password page guard', () => {
   test('reset page without a recovery session fails gracefully with session-expired error', async ({
     anonPage,
   }) => {
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     // Direct visit with no recovery session — the form must still render
-    await anonPage.goto('/auth/reset-password', { timeout: 60_000 });
+    await anonPage.goto('/auth/reset-password');
 
     await expect(
       anonPage.getByRole('heading', { name: '設定新密碼', exact: true })
-    ).toBeVisible({ timeout: 60_000 });
+    ).toBeVisible({ timeout: BUDGET.NAVIGATION });
 
     const passwordInput = anonPage.getByLabel('新密碼', { exact: true });
     const confirmInput = anonPage.getByLabel('確認新密碼', { exact: true });
@@ -115,7 +112,7 @@ test.describe('Auth — reset password page guard', () => {
     // (filter out Next.js's route announcer, which also has role="alert")
     await expect(
       anonPage.getByRole('alert').filter({ hasText: SESSION_EXPIRED })
-    ).toBeVisible({ timeout: 60_000 });
+    ).toBeVisible({ timeout: BUDGET.NAVIGATION });
     await expect(anonPage).toHaveURL(/\/auth\/reset-password(?:[/?#]|$)/);
     await expect(
       anonPage.getByRole('heading', { name: '設定新密碼', exact: true })
@@ -126,17 +123,16 @@ test.describe('Auth — reset password page guard', () => {
   test('authenticated user is NOT bounced off the reset page (recovery session flow)', async ({
     userPage,
   }) => {
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     // Regression: the auth layout used to redirect any authenticated user to
     // /dashboard, breaking the recovery flow (callback authenticates, then
     // sends the user here). The guard now lives on sign-in/sign-up/forgot-password
     // pages only — the reset form must render for a signed-in user.
-    await userPage.goto('/auth/reset-password', { timeout: 60_000 });
+    await userPage.goto('/auth/reset-password');
 
     await expect(
       userPage.getByRole('heading', { name: '設定新密碼', exact: true })
-    ).toBeVisible({ timeout: 60_000 });
+    ).toBeVisible({ timeout: BUDGET.NAVIGATION });
     await expect(userPage).toHaveURL(/\/auth\/reset-password(?:[/?#]|$)/);
     await expect(userPage.getByLabel('新密碼', { exact: true })).toBeVisible();
     await expect(userPage.getByLabel('確認新密碼', { exact: true })).toBeVisible();
@@ -145,18 +141,15 @@ test.describe('Auth — reset password page guard', () => {
   test('authenticated user visiting sign-in is still redirected away', async ({
     userPage,
   }) => {
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     // Inverse sanity: moving the guard out of the layout must not drop it
     // from the sign-in page. The destination depends on the owner-features flag
     // (DEV-1261) — `/` while owner features are off — so assert only that the
     // guard fired and the user did not stay on the sign-in page.
-    await userPage.goto('/auth/sign-in', { timeout: 60_000 });
-    await userPage.waitForURL((url) => !url.pathname.includes('/auth/sign-in'), {
-      timeout: 60_000,
-    });
+    await userPage.goto('/auth/sign-in');
+    await userPage.waitForURL((url) => !url.pathname.includes('/auth/sign-in'));
     await expect(userPage.getByRole('button', { name: /account|帳號/i })).toBeVisible({
-      timeout: 30_000,
+      timeout: BUDGET.GATED_UI,
     });
   });
 });

@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { test, expect } from "../fixtures/auth";
 import { seedBrand, type SeededBrand } from "../helpers/seed";
 
+import { BUDGET } from "../budgets";
 test.describe("Admin brand corrections", () => {
   test.describe.configure({ mode: "serial" });
 
@@ -34,17 +35,17 @@ test.describe("Admin brand corrections", () => {
   test("renders the corrections heading and either a queue table or the empty state", async ({
     adminPage,
   }) => {
-    test.setTimeout(120_000);
-    await adminPage.goto("/admin/corrections", { timeout: 60_000 });
+    test.setTimeout(BUDGET.TEST.ADMIN);
+    await adminPage.goto("/admin/corrections");
     await expect(adminPage.getByRole("heading", { name: "Brand Corrections" })).toBeVisible({
-      timeout: 60_000,
+      timeout: BUDGET.NAVIGATION,
     });
 
     // Real visitor corrections may be pending in this environment, so the queue
     // is asserted as table-or-empty rather than pinned to one of the two.
     const table = adminPage.locator("table").first();
     const emptyState = adminPage.getByText("No pending brand corrections.");
-    await expect(table.or(emptyState).first()).toBeVisible({ timeout: 15_000 });
+    await expect(table.or(emptyState).first()).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
 
     if (await table.isVisible()) {
       await expect(
@@ -63,7 +64,7 @@ test.describe("Admin brand corrections", () => {
   });
 
   test("opens correction details and approves only the selected rows", async ({ adminPage }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(BUDGET.TEST.ADMIN);
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
     test.skip(!url || !key, "Supabase service-role credentials are required for correction seeding.");
@@ -108,16 +109,16 @@ test.describe("Admin brand corrections", () => {
       correctionIds.push(correction.id);
     }
 
-    await adminPage.goto("/admin/corrections", { timeout: 60_000 });
+    await adminPage.goto("/admin/corrections");
     await expect(adminPage.getByRole("heading", { name: "Brand Corrections" })).toBeVisible({
-      timeout: 60_000,
+      timeout: BUDGET.NAVIGATION,
     });
 
     const selectedRow = adminPage
       .getByRole("row")
       .filter({ hasText: seededBrands[0].brand.name })
       .first();
-    await expect(selectedRow).toBeVisible({ timeout: 30_000 });
+    await expect(selectedRow).toBeVisible({ timeout: BUDGET.GATED_UI });
     await selectedRow
       .getByRole("button", { name: `Show details for ${seededBrands[0].brand.name}` })
       .click();

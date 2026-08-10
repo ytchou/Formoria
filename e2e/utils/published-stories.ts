@@ -19,6 +19,14 @@ export type PublishedStory = {
   canonicalSlug: string;
   title: string;
   locale: string;
+  /**
+   * MDX body, so a spec can pin the story that actually exercises the component it
+   * names instead of hoping the first story on disk embeds one. Reading the body is
+   * the only way to know: `<BrandCard>` is a body element, not frontmatter.
+   */
+  body: string;
+  /** `faq` frontmatter, which FaqBlock renders. Optional by design. */
+  hasFaq: boolean;
 };
 
 const STORIES_DIR = path.join(process.cwd(), 'content', 'stories');
@@ -33,7 +41,9 @@ export function publishedStories(locale = 'zh-TW'): PublishedStory[] {
 
   return files.flatMap((file) => {
     const slug = file.replace(/\.mdx$/, '');
-    const { data } = matter(fs.readFileSync(path.join(STORIES_DIR, file), 'utf8'));
+    const { data, content } = matter(
+      fs.readFileSync(path.join(STORIES_DIR, file), 'utf8'),
+    );
     if (data.draft === true) return [];
     const authoredLocale = data.locale ?? 'zh-TW';
     if (authoredLocale !== locale) return [];
@@ -43,6 +53,8 @@ export function publishedStories(locale = 'zh-TW'): PublishedStory[] {
         canonicalSlug: data.slug ?? slug,
         title: data.title ?? '',
         locale: authoredLocale,
+        body: content,
+        hasFaq: Array.isArray(data.faq) && data.faq.length > 0,
       },
     ];
   });

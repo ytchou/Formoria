@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { expect, test } from "../fixtures/auth";
 
+import { BUDGET, POLL } from "../budgets";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
@@ -134,8 +135,7 @@ test.describe("Scheduled brand refresh review", () => {
   test("requests, stages, and applies a refresh to the existing brand", async ({
     adminPage,
   }) => {
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     await adminPage.goto("/admin/brands");
     await adminPage.getByPlaceholder("Search brand name...").fill(brandName);
     const brandRow = adminPage
@@ -165,7 +165,7 @@ test.describe("Scheduled brand refresh review", () => {
       expect(error).toBeNull();
       refreshSubmissionId = data?.id;
       expect(refreshSubmissionId).toBeTruthy();
-    }).toPass({ timeout: 15_000 });
+    }).toPass({ timeout: BUDGET.SERVER_RENDER });
 
     await adminPage.goto("/admin/submissions?stage=needs_data");
     const needsDataRow = adminPage
@@ -314,7 +314,7 @@ test.describe("Scheduled brand refresh review", () => {
       expect(source?.reviewed_at).toBeTruthy();
       expect(refresh?.status).toBe("approved");
       expect(count).toBe(1);
-    }).toPass({ timeout: 30_000, intervals: [1_000, 2_000, 5_000] });
+    }).toPass(POLL.APPLY);
 
     const { data: images } = await supabase
       .from("brand_images")
@@ -370,7 +370,7 @@ test.describe("Bulk refresh approval", () => {
   test("keeps a failed refresh selected while removing successful approvals", async ({
     adminPage,
   }) => {
-    test.setTimeout(90_000);
+    test.setTimeout(BUDGET.TEST.MUTATION);
     supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -561,9 +561,9 @@ test.describe("Bulk refresh approval", () => {
           { id: submissionIds[1], status: "pending" },
         ]),
       );
-    }).toPass({ timeout: 30_000, intervals: [1_000, 2_000, 5_000] });
+    }).toPass(POLL.APPLY);
 
-    await expect(validRow).toBeHidden({ timeout: 30_000 });
+    await expect(validRow).toBeHidden({ timeout: BUDGET.GATED_UI });
     await expect(staleRow).toBeVisible();
     await expect(staleRow.getByRole("checkbox")).toBeChecked();
     await expect(adminPage.locator("p.type-error")).toContainText(staleName);

@@ -110,6 +110,11 @@ next-env.d.ts
 !.github/PULL_REQUEST_TEMPLATE.md
 # SEO measurement artifacts are shipped content, not internal strategy docs.
 !content/seo/**/*.md
+# The e2e failure-triage procedure. Named here per the INVARIANT above: the
+# check:e2e-timeouts gate points contributors at it from its failure output, so
+# CI depends on it existing. It lives in e2e/ rather than docs/ because the
+# MECHANIC note above means nothing inside docs/ can ever be re-included.
+!e2e/TRIAGE.md
 docs/
 # Ad-hoc production data-health queries. Not markdown, so the rule above misses
 # them; referenced by nothing in the repo — they are hand-run pastes.

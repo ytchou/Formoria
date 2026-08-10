@@ -1,3 +1,4 @@
+import { BUDGET, POLL } from '../budgets';
 import { test, expect, type Page } from '@playwright/test';
 
 /**
@@ -33,7 +34,7 @@ async function openShareDialog(page: Page) {
   await expect(async () => {
     if (!(await dialog.isVisible())) await trigger.click();
     await expect(dialog).toBeVisible({ timeout: 2_000 });
-  }).toPass({ timeout: 20_000, intervals: [500, 1_000, 2_000] });
+  }).toPass(POLL.UI);
   return dialog;
 }
 
@@ -45,7 +46,7 @@ test.describe('Brand share dialog', () => {
     const page = await browser.newPage();
     await page.goto('/brands');
     const brandLinks = page.locator('main a[href^="/brands/"]');
-    await brandLinks.first().waitFor({ state: 'visible', timeout: 10_000 });
+    await brandLinks.first().waitFor({ state: 'visible', timeout: BUDGET.INTERACTIVE });
     const href = await brandLinks.first().getAttribute('href');
     await page.close();
 
@@ -65,7 +66,7 @@ test.describe('Brand share dialog', () => {
     }
 
     // Wait for the page heading to confirm the brand detail loaded
-    await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: BUDGET.INTERACTIVE });
 
     // Grab the brand name from the h1 for later assertion in the dialog
     const brandName = await page.getByRole('heading', { level: 1 }).innerText();
@@ -101,7 +102,7 @@ test.describe('Brand share dialog', () => {
       return;
     }
 
-    await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: BUDGET.INTERACTIVE });
 
     // Grant clipboard permission so navigator.clipboard.writeText succeeds
     await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
@@ -117,7 +118,7 @@ test.describe('Brand share dialog', () => {
 
     // After ~2s the label reverts to "複製"
     await expect(dialog.getByRole('button', { name: '複製' })).toBeVisible({
-      timeout: 5_000,
+      timeout: BUDGET.RENDERED,
     });
   });
 
@@ -143,7 +144,7 @@ test.describe('Brand share dialog', () => {
       return;
     }
 
-    await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: BUDGET.INTERACTIVE });
 
     let popupOpened = false;
     page.on('popup', () => {
@@ -173,7 +174,7 @@ test.describe('Brand share dialog', () => {
       return;
     }
 
-    await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: BUDGET.INTERACTIVE });
 
     const dialog = await openShareDialog(page);
 

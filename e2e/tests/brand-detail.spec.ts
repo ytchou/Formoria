@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { load } from "cheerio";
 import { seedBrand, SeededBrand } from "../helpers/seed";
 
+import { BUDGET, POLL } from "../budgets";
 test.describe("Brand detail deep", () => {
   let brandHref: string;
   let seeded: SeededBrand;
@@ -24,7 +25,7 @@ test.describe("Brand detail deep", () => {
     const page = await browser.newPage();
     await page.goto("/brands", { waitUntil: "domcontentloaded" });
     const cards = page.locator("main a[aria-label]");
-    await cards.first().waitFor({ state: "visible", timeout: 15_000 });
+    await cards.first().waitFor({ state: "visible", timeout: BUDGET.SERVER_RENDER });
     const count = await cards.count();
     let href: string | null = null;
     for (let i = 0; i < count; i++) {
@@ -45,7 +46,7 @@ test.describe("Brand detail deep", () => {
   test("@smoke all sections render without error", async ({ page }) => {
     await page.goto(brandHref);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
-      timeout: 10_000,
+      timeout: BUDGET.INTERACTIVE,
     });
     // No error boundaries or 404
     await expect(
@@ -63,12 +64,12 @@ test.describe("Brand detail deep", () => {
     // Verify the social section heading is visible
     await expect(
       page.getByRole("heading", { name: "社群平台", level: 2 }),
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
 
     // Verify the purchase section heading is visible
     await expect(
       page.getByRole("heading", { name: "購買管道", level: 2 }),
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
 
     // Both sections must appear on the same page — confirming structural separation
     const socialSection = page.getByRole("heading", {
@@ -97,7 +98,7 @@ test.describe("Brand detail deep", () => {
       level: 2,
     });
 
-    await expect(socialHeading).toBeVisible({ timeout: 10_000 });
+    await expect(socialHeading).toBeVisible({ timeout: BUDGET.INTERACTIVE });
     await expect(purchaseHeading).toBeVisible();
 
     // Social section must appear before purchase section in document order
@@ -111,7 +112,7 @@ test.describe("Brand detail deep", () => {
   test("tab nav click scrolls to correct section", async ({ page }) => {
     await page.goto(`/brands/${seeded.slug}`);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible({
-      timeout: 10_000,
+      timeout: BUDGET.INTERACTIVE,
     });
 
     // The seeded brand has social links — the tab nav must include a "社群平台" link
@@ -121,7 +122,7 @@ test.describe("Brand detail deep", () => {
     // After the smooth-scroll the social section heading must be visible in the viewport
     await expect(
       page.getByRole("heading", { name: "社群平台", level: 2 }),
-    ).toBeInViewport({ timeout: 5_000 });
+    ).toBeInViewport({ timeout: BUDGET.RENDERED });
   });
 
   test("mobile brand detail keeps the website CTA in the document flow", async ({
@@ -165,7 +166,7 @@ test.describe("Brand detail deep", () => {
     await nav.getByRole("link", { name: "購買資訊" }).click();
     await expect(
       page.getByRole("heading", { name: "購買管道", level: 2 }),
-    ).toBeInViewport({ timeout: 5_000 });
+    ).toBeInViewport({ timeout: BUDGET.RENDERED });
   });
 
   test('external links have target="_blank" and rel="noopener"', async ({
@@ -218,8 +219,7 @@ test.describe("Brand detail deep", () => {
   });
 
   test("FAQ renders on a data-rich brand", async ({ page }) => {
-    test.setTimeout(90_000);
-
+    test.setTimeout(BUDGET.TEST.MUTATION);
     // Seeded via `withFaqEvidence`: mit_status, product_tags and price_range.
     // Those — not links — are what the surviving presets gate their template
     // floors on, so a link-only fixture would render just `taiwan-origin`.
@@ -230,8 +230,8 @@ test.describe("Brand detail deep", () => {
       // FAQ section heading (zh-TW default locale — brandDetail.sections.faq)
       await expect(
         page.getByRole("heading", { name: "常見問題", level: 2 }),
-      ).toBeVisible({ timeout: 10_000 });
-    }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 10_000] });
+      ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
+    }).toPass(POLL.DB);
 
     // At least one FAQ question row is present and visible. The rows are native
     // <details>/<summary> — there is no accordion-trigger slot to select on.
@@ -249,8 +249,7 @@ test.describe("Brand detail deep", () => {
     page,
     request,
   }) => {
-    test.setTimeout(90_000);
-
+    test.setTimeout(BUDGET.TEST.MUTATION);
     // The whole point of DEV-1317: answers must be readable without opening
     // anything. Nothing here clicks — a test that expands first would pass
     // just as happily against JS-only, open-gated answer rendering.
@@ -260,8 +259,8 @@ test.describe("Brand detail deep", () => {
       });
       await expect(
         page.getByRole("heading", { name: "常見問題", level: 2 }),
-      ).toBeVisible({ timeout: 10_000 });
-    }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 10_000] });
+      ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
+    }).toPass(POLL.DB);
 
     const firstItem = page.locator('details[id^="faq-"]').first();
     // taiwan-origin leads the catalog and is eligible for every approved
@@ -308,8 +307,7 @@ test.describe("Brand detail — brand without links", () => {
   test("social section is hidden and purchase section shows its empty prompt when brand has no links", async ({
     page,
   }) => {
-    test.setTimeout(90_000);
-
+    test.setTimeout(BUDGET.TEST.MUTATION);
     // ISR pages may serve a stale cache — poll-reload until the seeded brand page renders
     await expect(async () => {
       await page.goto(`/brands/${seeded.slug}`, {
@@ -318,10 +316,10 @@ test.describe("Brand detail — brand without links", () => {
       await expect(page.getByRole("heading", { level: 1 })).toContainText(
         "nolinks",
         {
-          timeout: 10_000,
+          timeout: BUDGET.INTERACTIVE,
         },
       );
-    }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 10_000] });
+    }).toPass(POLL.DB);
 
     // Both link sections stay rendered when the brand has no links: every
     // destination shows as a dimmed, inert chip so the gap reads as "unknown"
@@ -370,17 +368,16 @@ test.describe("Brand detail — myship-only purchase channel", () => {
   test("myship renders as a live link while the website chip stays inert", async ({
     page,
   }) => {
-    test.setTimeout(90_000);
-
+    test.setTimeout(BUDGET.TEST.MUTATION);
     await expect(async () => {
       await page.goto(`/brands/${seeded.slug}`, {
         waitUntil: "domcontentloaded",
       });
       await expect(page.getByRole("heading", { level: 1 })).toContainText(
         "myship-only",
-        { timeout: 10_000 },
+        { timeout: BUDGET.INTERACTIVE },
       );
-    }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 10_000] });
+    }).toPass(POLL.DB);
 
     await expect(
       page.getByRole("link", { name: "前往 7-ELEVEN 賣貨便" }),
@@ -674,15 +671,14 @@ test.describe
   });
 
   test("group headings render with correct counts", async ({ page }) => {
-    test.setTimeout(90_000);
-
+    test.setTimeout(BUDGET.TEST.MUTATION);
     await expect(async () => {
       await page.goto(`/brands/${seeded.slug}`, {
         waitUntil: "domcontentloaded",
       });
       await expect(page.getByRole("heading", { level: 1 })).toContainText(
         seeded.brand.name,
-        { timeout: 10_000 },
+        { timeout: BUDGET.INTERACTIVE },
       );
       await expect(
         page.getByRole("heading", { name: "官方通路 (2)", level: 3 }),
@@ -693,7 +689,7 @@ test.describe
           level: 3,
         }),
       ).toBeVisible();
-    }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 10_000] });
+    }).toPass(POLL.DB);
   });
 
   test("category badges render", async ({ page }) => {
@@ -756,7 +752,7 @@ test.describe
   test("signed-in confirm increments the confirmation count", async ({
     userPage,
   }) => {
-    test.setTimeout(90_000);
+    test.setTimeout(BUDGET.TEST.MUTATION);
     await userPage.goto(`/brands/${seeded.slug}`, {
       waitUntil: "domcontentloaded",
     });
@@ -777,7 +773,7 @@ test.describe
     // queue, so the confirm can still be waiting behind the mount-time actions.
     // Reloading now would tear the page down before the write is ever dispatched.
     await expect(channelChip).not.toHaveAttribute("data-confirm-pending", "", {
-      timeout: 15_000,
+      timeout: BUDGET.SERVER_RENDER,
     });
 
     // The page is `force-static` with `revalidate = 3600`, so on-demand
@@ -794,13 +790,13 @@ test.describe
           .filter({ hasText: signedInChannelName })
           .getByText("1/3 人確認"),
       ).toBeVisible();
-    }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 10_000] });
+    }).toPass(POLL.DB);
   });
 
   test("submitted channel appears in the online group", async ({
     userPage,
   }) => {
-    test.setTimeout(90_000);
+    test.setTimeout(BUDGET.TEST.MUTATION);
     await userPage.goto(`/brands/${seeded.slug}`, {
       waitUntil: "domcontentloaded",
     });
@@ -823,7 +819,7 @@ test.describe
     await expect(async () => {
       if (!(await dialog.isVisible())) await trigger.click();
       await expect(dialog).toBeVisible({ timeout: 2_000 });
-    }).toPass({ timeout: 20_000, intervals: [500, 1_000, 2_000] });
+    }).toPass(POLL.UI);
     await dialog
       .getByRole("textbox", { name: "通路名稱" })
       .fill(submittedChannelName);
@@ -840,7 +836,7 @@ test.describe
     await dialog.getByRole("button", { name: "送出", exact: true }).click();
     // The submit still queues behind the like-button action, so give it 30s.
     await expect(dialog.getByText("感謝您提供的資訊！")).toBeVisible({
-      timeout: 30_000,
+      timeout: BUDGET.GATED_UI,
     });
     await dialog.getByRole("button", { name: "關閉", exact: true }).click();
 
@@ -857,6 +853,6 @@ test.describe
           .locator("[data-channel-chip]")
           .filter({ hasText: submittedChannelName }),
       ).toBeVisible();
-    }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 10_000] });
+    }).toPass(POLL.DB);
   });
 });

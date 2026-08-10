@@ -42,6 +42,10 @@ jobs:
             lint)
               node scripts/check-favicon-rgba.mjs
               node scripts/check-event-registry.mjs
+              # Ahead of `pnpm lint`, which is an `&&` chain: a failure in an
+              # earlier link silently skips every check after it, so a gate that
+              # only lives inside the chain can go unrun without anyone noticing.
+              node scripts/check-e2e-timeouts.mjs
               pnpm lint
               ;;
             type-check)

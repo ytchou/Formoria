@@ -4,7 +4,9 @@ import {
   ownerFeaturesDisabled,
   OWNER_FEATURES_ON_REASON,
 } from "../helpers/owner-features";
+import { waitForViewerReady } from "../helpers/viewer-ready";
 
+import { BUDGET } from "../budgets";
 /**
  * Owner features gated off (DEV-1261).
  *
@@ -51,11 +53,8 @@ test.describe("Owner features gated off", () => {
   test("a signed-in visitor is offered no claim CTA on a brand page", async ({
     userPage,
   }) => {
-    test.setTimeout(90_000);
-
-    const resp = await userPage.goto(`/brands/${brandSlug}`, {
-      timeout: 60_000,
-    });
+    test.setTimeout(BUDGET.TEST.MUTATION);
+    const resp = await userPage.goto(`/brands/${brandSlug}`);
     if (resp?.status() === 503) {
       test.skip(
         true,
@@ -69,18 +68,16 @@ test.describe("Owner features gated off", () => {
     await expect(
       userPage.getByRole("heading", { level: 1, name: brandName }),
     ).toBeVisible({
-      timeout: 60_000,
+      timeout: BUDGET.NAVIGATION,
     });
 
     // The claim CTA is client-gated on ViewerContext.ownerFeaturesEnabled, so it
-    // is absent before hydration too. The account trigger only replaces its
-    // placeholder once useUser() has resolved the viewer — wait for that, then
-    // the absence below is a real gate and not a race.
-    await expect(
-      userPage.getByRole("button", { name: /account|帳號/i }),
-    ).toBeVisible({
-      timeout: 30_000,
-    });
+    // is absent before hydration too — the absence below only means anything
+    // once the viewer has resolved. This used to wait on the account trigger
+    // replacing its placeholder as a proxy for that; the readiness signal is the
+    // thing itself, so the assertion no longer depends on an unrelated control's
+    // render order (DEV-1414).
+    await waitForViewerReady(userPage);
 
     await expect(
       userPage.getByRole("button", { name: "認領這個品牌" }),
@@ -90,11 +87,10 @@ test.describe("Owner features gated off", () => {
   test("the owner dashboard and owner submit fork are unreachable for a signed-in non-admin", async ({
     userPage,
   }) => {
-    test.setTimeout(90_000);
-
+    test.setTimeout(BUDGET.TEST.MUTATION);
     // Signed in, so the (protected) layout's auth check passes and the flag gate
     // below it answers notFound() — a 404, not the signed-out sign-in redirect.
-    const dashboard = await userPage.goto("/dashboard", { timeout: 60_000 });
+    const dashboard = await userPage.goto("/dashboard");
     if (dashboard?.status() === 503) {
       test.skip(
         true,
@@ -112,7 +108,7 @@ test.describe("Owner features gated off", () => {
       "/submit/owner/details",
       "/en/submit/owner",
     ]) {
-      const response = await userPage.goto(ownerPath, { timeout: 60_000 });
+      const response = await userPage.goto(ownerPath);
       expect(response?.status(), `${ownerPath} must not be reachable`).toBe(
         404,
       );
@@ -122,8 +118,7 @@ test.describe("Owner features gated off", () => {
   test("signing in lands on the home page, not the dashboard", async ({
     anonPage,
   }) => {
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     const email = process.env.E2E_USER_EMAIL;
     const password = process.env.E2E_USER_PASSWORD;
     test.skip(
@@ -131,18 +126,16 @@ test.describe("Owner features gated off", () => {
       "E2E_USER_EMAIL and E2E_USER_PASSWORD are required to exercise the sign-in landing.",
     );
 
-    await anonPage.goto("/auth/sign-in", { timeout: 60_000 });
+    await anonPage.goto("/auth/sign-in");
     await expect(
       anonPage.getByRole("heading", { name: "登入 Formoria", exact: true }),
-    ).toBeVisible({ timeout: 60_000 });
+    ).toBeVisible({ timeout: BUDGET.NAVIGATION });
 
     await anonPage.getByLabel("電子郵件", { exact: true }).fill(email!);
     await anonPage.getByLabel("密碼", { exact: true }).fill(password!);
 
     await Promise.all([
-      anonPage.waitForURL((url) => !url.pathname.includes("/auth/sign-in"), {
-        timeout: 60_000,
-      }),
+      anonPage.waitForURL((url) => !url.pathname.includes("/auth/sign-in")),
       anonPage.getByRole("button", { name: "登入", exact: true }).click(),
     ]);
 
@@ -154,9 +147,8 @@ test.describe("Owner features gated off", () => {
   test("nav offers the recommendation CTA and the account menu has no my-submissions entry", async ({
     userPage,
   }) => {
-    test.setTimeout(90_000);
-
-    const resp = await userPage.goto("/", { timeout: 60_000 });
+    test.setTimeout(BUDGET.TEST.MUTATION);
+    const resp = await userPage.goto("/");
     if (resp?.status() === 503) {
       test.skip(
         true,
@@ -170,23 +162,23 @@ test.describe("Owner features gated off", () => {
     const accountTrigger = userPage.getByRole("button", {
       name: /account|帳號/i,
     });
-    await expect(accountTrigger).toBeVisible({ timeout: 30_000 });
+    await expect(accountTrigger).toBeVisible({ timeout: BUDGET.GATED_UI });
 
     const header = userPage.locator("header").first();
     const submitCta = header.getByRole("link", { name: "推薦品牌" }).first();
-    await expect(submitCta).toBeVisible({ timeout: 15_000 });
+    await expect(submitCta).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
     await expect(submitCta).toHaveAttribute("href", /^(?:\/en)?\/submit$/);
     // The "我的品牌" dashboard link is the branch the flag turns off.
     await expect(header.getByRole("link", { name: "我的品牌" })).toHaveCount(0);
 
     await accountTrigger.click();
     const accountMenu = userPage.locator('[data-slot="dropdown-menu-content"]');
-    await expect(accountMenu).toBeVisible({ timeout: 15_000 });
+    await expect(accountMenu).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
     // Sanity: the menu really did open with its always-on entries.
     await expect(
       accountMenu.getByRole("menuitem", { name: "帳號設定" }),
     ).toBeVisible({
-      timeout: 10_000,
+      timeout: BUDGET.INTERACTIVE,
     });
     await expect(
       accountMenu.getByRole("menuitem", { name: "我的推薦" }),

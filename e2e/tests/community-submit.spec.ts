@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { gotoSubmitOwner, gotoSubmitRecommend } from "../utils/submit-form";
 import { OWNER_FEATURES_OFF_REASON } from "../helpers/owner-features";
 
+import { BUDGET } from "../budgets";
 test.describe("Community submit flow", () => {
   test.afterAll(async () => {
     const supabase = createClient(
@@ -18,13 +19,13 @@ test.describe("Community submit flow", () => {
   test("@smoke recommendation flow is available without owner-only controls", async ({
     userPage,
   }) => {
-    test.setTimeout(60_000);
+    test.setTimeout(BUDGET.TEST.JOURNEY);
     await gotoSubmitRecommend(userPage);
     await expect(userPage.locator("#submit-source")).toBeVisible({
-      timeout: 5_000,
+      timeout: BUDGET.RENDERED,
     });
     await expect(userPage.locator("#submit-guest-email")).toBeVisible({
-      timeout: 5_000,
+      timeout: BUDGET.RENDERED,
     });
     await expect(userPage.locator("#submit-instagram")).toHaveCount(0);
   });
@@ -32,23 +33,23 @@ test.describe("Community submit flow", () => {
   test("source attribution select is visible on the recommendation form", async ({
     userPage,
   }) => {
-    test.setTimeout(60_000);
+    test.setTimeout(BUDGET.TEST.JOURNEY);
     await gotoSubmitRecommend(userPage);
     await expect(userPage.locator("#submit-source")).toBeVisible({
-      timeout: 5_000,
+      timeout: BUDGET.RENDERED,
     });
   });
 
   test("recommendation required fields are visible immediately", async ({
     userPage,
   }) => {
-    test.setTimeout(60_000);
+    test.setTimeout(BUDGET.TEST.JOURNEY);
     await gotoSubmitRecommend(userPage);
     await expect(userPage.locator("#submit-website")).toBeVisible({
-      timeout: 5_000,
+      timeout: BUDGET.RENDERED,
     });
     await expect(userPage.locator("#submit-name")).toBeVisible({
-      timeout: 5_000,
+      timeout: BUDGET.RENDERED,
     });
     await expect(userPage.locator("#submit-pdpa")).toBeVisible({
       timeout: 3_000,
@@ -59,10 +60,8 @@ test.describe("Community submit flow", () => {
   test("@smoke owner quick form shows its core fields when owner features are enabled", async ({
     userPage,
   }) => {
-    test.setTimeout(60_000);
-    const probe = await userPage.goto("/submit/owner/quick", {
-      timeout: 60_000,
-    });
+    test.setTimeout(BUDGET.TEST.JOURNEY);
+    const probe = await userPage.goto("/submit/owner/quick");
     if (probe?.status() === 404) {
       test.skip(true, OWNER_FEATURES_OFF_REASON);
       return;
@@ -70,7 +69,7 @@ test.describe("Community submit flow", () => {
 
     await gotoSubmitOwner(userPage);
     await expect(userPage.locator("#submit-name")).toBeVisible({
-      timeout: 5_000,
+      timeout: BUDGET.RENDERED,
     });
     await expect(userPage.locator("#submit-website")).toBeVisible();
     await expect(userPage.locator("#submit-description")).toBeVisible();
@@ -86,29 +85,29 @@ test.describe("Community submit flow", () => {
   test("@smoke my-submissions redirects authenticated users to the home page", async ({
     userPage,
   }) => {
-    test.setTimeout(60_000);
+    test.setTimeout(BUDGET.TEST.JOURNEY);
     await userPage.goto("/my-submissions");
     await userPage.waitForURL((url) => isHomePath(url.pathname), {
-      timeout: 15_000,
+      timeout: BUDGET.SERVER_RENDER,
     });
     expect(new URL(userPage.url()).pathname).not.toContain("/dashboard");
     await expect(userPage.locator("main, section").first()).toBeVisible({
-      timeout: 10_000,
+      timeout: BUDGET.INTERACTIVE,
     });
   });
 
   test("my-submissions /en redirects to the home page", async ({
     userPage,
   }) => {
-    test.setTimeout(60_000);
+    test.setTimeout(BUDGET.TEST.JOURNEY);
     const res = await userPage.goto("/en/my-submissions");
     expect(res?.status()).toBeLessThan(400);
     await userPage.waitForURL((url) => isHomePath(url.pathname), {
-      timeout: 15_000,
+      timeout: BUDGET.SERVER_RENDER,
     });
     expect(new URL(userPage.url()).pathname).not.toContain("/dashboard");
     await expect(userPage.locator("main, section").first()).toBeVisible({
-      timeout: 10_000,
+      timeout: BUDGET.INTERACTIVE,
     });
   });
 });

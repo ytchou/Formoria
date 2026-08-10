@@ -1,3 +1,4 @@
+import { BUDGET, POLL } from "../budgets";
 import { randomUUID } from "node:crypto";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
@@ -215,14 +216,17 @@ test.describe.serial("Public brand data boundary", () => {
     } else {
       const response = await page.goto("/stories");
       expect(response?.status()).toBe(200);
+      // `exact` on a two-character name: "專題" is a substring of several story
+      // and nav labels, so an unanchored match resolves to more than one node
+      // the moment any of them is also a heading (DEV-1414).
       await expect(
-        page.getByRole("heading", { level: 1, name: "專題" }),
+        page.getByRole("heading", { level: 1, name: "專題", exact: true }),
       ).toBeVisible();
     }
     await auditCurrentDocument(page, canaries, "story surface");
 
     await expect
-      .poll(() => rscBodies.length, { timeout: 10_000 })
+      .poll(() => rscBodies.length, { timeout: BUDGET.INTERACTIVE })
       .toBeGreaterThan(0);
     const capturedRsc = (await Promise.all(rscBodies)).join("\n");
     assertCanariesAbsent(capturedRsc, canaries, "captured RSC responses");
@@ -240,9 +244,9 @@ async function openSeededRoute(
     await expect(
       page.getByRole("heading", { level: 1, name: heading }),
     ).toBeVisible({
-      timeout: 10_000,
+      timeout: BUDGET.INTERACTIVE,
     });
-  }).toPass({ timeout: 60_000, intervals: [3_000, 5_000, 10_000] });
+  }).toPass(POLL.DB);
 }
 
 async function auditCurrentDocument(

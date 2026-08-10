@@ -26,6 +26,10 @@ interface MainNavProps {
 export function MainNav({ categories }: MainNavProps) {
   const [open, setOpen] = useState(false)
   const t = useTranslations('nav')
+  // Reads `user` and `viewer` with no loading gate, which is only safe because
+  // ViewerProvider commits both in the same update — `viewer` can never resolve
+  // first. If that ever changes, this renders "My Brands" beside the signed-out
+  // LocaleSwitcher below (DEV-1414); add a `viewerLoading` gate here first.
   const { user, viewer } = useUser()
   const hasOwnedBrand = viewer.hasOwnedBrand
   const ownerFeaturesEnabled = viewer.ownerFeaturesEnabled

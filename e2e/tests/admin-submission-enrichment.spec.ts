@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { expect, test } from "../fixtures/auth";
 
+import { BUDGET, POLL } from "../budgets";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = SupabaseClient<any, any, any>;
 
@@ -11,6 +12,14 @@ const PNG_1X1 = Buffer.from(
 );
 
 test.describe("Admin submission enrichment lifecycle", () => {
+  // Declared, not implied. Seven module-level variables — submissionId, jobId,
+  // approvedBrandId and friends — are written by one test and read by the next,
+  // so this describe has always been order-dependent; it just was not saying so.
+  // Under `fullyParallel` that is a race waiting for a scheduler change, and a
+  // failure would surface as a null id in a later test rather than as the
+  // ordering problem it is (DEV-1414).
+  test.describe.configure({ mode: "serial" });
+
   test.beforeEach(() => {
     const adminEmail = process.env.E2E_ADMIN_EMAIL;
     const admins = (process.env.ADMIN_EMAILS ?? "")
@@ -93,8 +102,7 @@ test.describe("Admin submission enrichment lifecycle", () => {
   test("moves from needs data to enriching to ready, then creates the brand on approval", async ({
     adminPage,
   }) => {
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     await adminPage.goto("/admin/submissions?stage=needs_data");
     await adminPage
       .getByPlaceholder("Search brand, submitter, email, or website")
@@ -250,7 +258,7 @@ test.describe("Admin submission enrichment lifecycle", () => {
       expect(submission?.status).toBe("approved");
       expect(submission?.brand_id).toBeTruthy();
       approvedBrandId = submission?.brand_id;
-    }).toPass({ timeout: 30_000, intervals: [1_000, 2_000, 5_000] });
+    }).toPass(POLL.APPLY);
 
     const { data: brand, error: brandError } = await supabase
       .from("brands")

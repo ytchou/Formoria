@@ -1,3 +1,4 @@
+import { BUDGET } from '../budgets';
 import { type Page, expect } from '@playwright/test';
 
 /**
@@ -9,12 +10,12 @@ import { type Page, expect } from '@playwright/test';
  */
 export async function gotoBrandsPage(page: Page): Promise<void> {
   await page.goto('/brands', { waitUntil: 'domcontentloaded' });
-  await expect(page.locator('main a[aria-label]').first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator('main a[aria-label]').first()).toBeVisible({ timeout: BUDGET.GATED_UI });
   await page.waitForFunction(
     () => {
       const el = document.querySelector('select, [role="combobox"]');
       return el instanceof HTMLSelectElement && el.value !== '';
     },
-    { timeout: 30_000 },
+    { timeout: BUDGET.GATED_UI },
   );
 }

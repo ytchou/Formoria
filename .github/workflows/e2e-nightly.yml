@@ -119,6 +119,20 @@ jobs:
             TEST_ARGS+=(--grep "$E2E_GREP")
           fi
           pnpm exec playwright test "${TEST_ARGS[@]}"
+      # Uploaded on green runs too, unlike the failure report below. A test that
+      # fails and passes on retry is reported "flaky" and the run is green — so
+      # the only record of it lived in an artifact that green runs never wrote,
+      # which is why this suite could not measure its own flake rate (DEV-1414).
+      # Kept small (JSON only, no traces) and retained long enough for a history
+      # to accumulate; `scripts/flake-report.mjs` aggregates it.
+      - name: Upload results JSON for flake history
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: playwright-results-history
+          path: playwright-results.json
+          if-no-files-found: ignore
+          retention-days: 90
       - name: Prepare nightly failure report
         if: >-
           always() &&

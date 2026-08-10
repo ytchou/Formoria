@@ -1,6 +1,34 @@
 import { test, expect } from "../fixtures/auth";
+import type { Locator, Page } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
+import { BUDGET } from "../budgets";
 import { OWNER_FEATURES_OFF_REASON } from "../helpers/owner-features";
+
+/**
+ * Turnstile is normally solved by the addInitScript mock. When that has not
+ * fired, post the synthetic Cloudflare success message as a last resort.
+ *
+ * Lives outside the test body on purpose: branching on page state inside a test
+ * means some assertions never run on some paths, so the caller asserts the
+ * outcome unconditionally instead and this helper only nudges.
+ */
+async function ensureTurnstileSolved(page: Page, submitBtn: Locator) {
+  if (await submitBtn.isEnabled()) return;
+
+  // Harmless when the mock is merely slow: the suite runs against dummy
+  // Turnstile keys, so any token validates. The caller does the waiting.
+  await page.evaluate(() => {
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: JSON.stringify({
+          event: "turnstile-callback",
+          token: "e2e-fallback-token",
+        }),
+        origin: "https://challenges.cloudflare.com",
+      }),
+    );
+  });
+}
 
 const TINY_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
@@ -39,8 +67,7 @@ test.describe("Submit funnel", () => {
   test("submits brand and reaches confirmation page", async ({
     anonPage,
   }, workerInfo) => {
-    test.setTimeout(60_000);
-
+    test.setTimeout(BUDGET.TEST.JOURNEY);
     const ts = Date.now();
     const wi = workerInfo.workerIndex;
     const brandName = `[E2E-TEST] Submit Funnel ${ts}-${wi}`;
@@ -65,7 +92,7 @@ test.describe("Submit funnel", () => {
     });
 
     // Navigate with PREVIEW_MODE guard
-    const resp = await anonPage.goto("/submit/recommend", { timeout: 60_000 });
+    const resp = await anonPage.goto("/submit/recommend");
     if (resp?.status() === 503) {
       test.skip(true, "PREVIEW_MODE active — skipping");
       return;
@@ -73,13 +100,13 @@ test.describe("Submit funnel", () => {
 
     // Auth-redirect resilience: middleware can transiently send to /auth/sign-in
     if (anonPage.url().includes("/auth/sign-in")) {
-      await anonPage.goto("/submit/recommend", { timeout: 60_000 });
+      await anonPage.goto("/submit/recommend");
     }
 
     // Wait for the flat-form heading (confirms hydration)
     await expect(
       anonPage.getByRole("heading", { name: "推薦品牌", exact: true }),
-    ).toBeVisible({ timeout: 30_000 });
+    ).toBeVisible({ timeout: BUDGET.GATED_UI });
 
     // Fill required fields
     await anonPage.locator("#submit-website").fill(websiteUrl);
@@ -91,36 +118,24 @@ test.describe("Submit funnel", () => {
     // PDPA consent
     await anonPage.locator("#submit-pdpa").check();
 
-    // Wait for submit button to be enabled (Turnstile fires via addInitScript mock).
-    // Fallback: if not enabled within 15s, post a synthetic Cloudflare postMessage.
     const submitBtn = anonPage.getByRole("button", { name: "送出推薦" });
-    try {
-      await expect(submitBtn).toBeEnabled({ timeout: 15_000 });
-    } catch {
-      await anonPage.evaluate(() => {
-        // Synthetic Cloudflare Turnstile success message (last-resort fallback)
-        window.dispatchEvent(
-          new MessageEvent("message", {
-            data: JSON.stringify({
-              event: "turnstile-callback",
-              token: "e2e-fallback-token",
-            }),
-            origin: "https://challenges.cloudflare.com",
-          }),
-        );
-      });
-      await anonPage.waitForTimeout(500);
-    }
+    await ensureTurnstileSolved(anonPage, submitBtn);
+    // The single assertion that decides whether the widget was solved. It used
+    // to sit inside the fallback's catch block, and the fallback ended in a
+    // fixed 500ms sleep that passed whether or not the token was ever accepted —
+    // so a dropped message surfaced 20 lines later as a confirmation-URL
+    // timeout, looking like a slow submit (DEV-1414).
+    await expect(submitBtn).toBeEnabled({ timeout: BUDGET.INTERACTIVE });
 
     await submitBtn.click();
 
     // Must land on the confirmation page
-    await anonPage.waitForURL(/\/submit\/confirmation/, { timeout: 30_000 });
+    await anonPage.waitForURL(/\/submit\/confirmation/, { timeout: BUDGET.GATED_UI });
 
     // Confirmation heading
     await expect(
       anonPage.getByRole("heading", { name: "我們已收到你的品牌推薦" }),
-    ).toBeVisible({ timeout: 15_000 });
+    ).toBeVisible({ timeout: BUDGET.SERVER_RENDER });
 
     // Both CTAs: return home and submit another
     await expect(anonPage.locator('a[href="/"]').first()).toBeVisible();
@@ -148,7 +163,7 @@ test.describe("Submit funnel", () => {
           savedSubmission = data;
           return Boolean(data);
         },
-        { timeout: 30_000, intervals: [500, 1_000, 2_000, 5_000] },
+        { timeout: BUDGET.GATED_UI, intervals: [500, 1_000, 2_000, 5_000] },
       )
       .toBe(true);
 
@@ -164,7 +179,7 @@ test.describe("Submit funnel", () => {
   test("detailed owner wizard writes only on final submit and preserves shared links", async ({
     userPage,
   }, workerInfo) => {
-    test.setTimeout(120_000);
+    test.setTimeout(BUDGET.TEST.ADMIN);
     const ts = Date.now();
     const brandName = `[E2E-TEST] Submit Funnel Detailed ${ts}-${workerInfo.workerIndex}`;
     const sourceWebsite = `https://detailed-${ts}.example.com`;
@@ -188,9 +203,7 @@ test.describe("Submit funnel", () => {
       });
     });
 
-    const resp = await userPage.goto("/submit/owner/details", {
-      timeout: 60_000,
-    });
+    const resp = await userPage.goto("/submit/owner/details");
     if (resp?.status() === 503) {
       test.skip(true, "PREVIEW_MODE active — skipping");
       return;
@@ -204,7 +217,7 @@ test.describe("Submit funnel", () => {
 
     await expect(
       userPage.getByRole("heading", { name: "填寫品牌資料", exact: true }),
-    ).toBeVisible({ timeout: 30_000 });
+    ).toBeVisible({ timeout: BUDGET.GATED_UI });
     await userPage.locator("#name").fill(brandName);
     await userPage.locator("#romanizedName").fill("Detailed Wizard Brand");
     await expect(userPage.locator("#brand-url-preview")).toHaveValue(
@@ -214,7 +227,7 @@ test.describe("Submit funnel", () => {
     await userPage.locator("#description").fill("台灣製造的詳細提交測試品牌。");
 
     await userPage.getByRole("button", { name: "儲存並繼續" }).click();
-    await expect(userPage.locator("#media")).toBeVisible({ timeout: 30_000 });
+    await expect(userPage.locator("#media")).toBeVisible({ timeout: BUDGET.GATED_UI });
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -243,11 +256,11 @@ test.describe("Submit funnel", () => {
     expect((await uploadResponsePromise).status()).toBe(200);
     await expect(
       userPage.locator("#image-upload-heroImageUrl-replace"),
-    ).toBeVisible({ timeout: 10_000 });
+    ).toBeVisible({ timeout: BUDGET.INTERACTIVE });
 
     await userPage.getByRole("button", { name: "儲存並繼續" }).click();
     await expect(userPage.locator("#purchase")).toBeVisible({
-      timeout: 30_000,
+      timeout: BUDGET.GATED_UI,
     });
     await expect(userPage.locator("#purchase fieldset")).toHaveCount(3);
     // 3 social + 4 purchase channels (PURCHASE_CHANNELS). Bump when a channel is added.
@@ -266,9 +279,9 @@ test.describe("Submit funnel", () => {
     await userPage.locator("#submission-pdpa").check();
 
     const submitButton = userPage.getByRole("button", { name: "送出品牌資料" });
-    await expect(submitButton).toBeEnabled({ timeout: 15_000 });
+    await expect(submitButton).toBeEnabled({ timeout: BUDGET.SERVER_RENDER });
     await submitButton.click();
-    await userPage.waitForURL(/\/submit\/confirmation/, { timeout: 30_000 });
+    await userPage.waitForURL(/\/submit\/confirmation/, { timeout: BUDGET.GATED_UI });
 
     const { data, error } = await supabase
       .from("brand_submissions")

@@ -1,3 +1,4 @@
+import { BUDGET } from '../budgets';
 import { test, expect } from '../fixtures/auth';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
@@ -107,12 +108,12 @@ test.describe('MIT verification badges', () => {
     }
 
     await expect(anonPage.getByRole('heading', { level: 1, name: mitBrandName })).toBeVisible({
-      timeout: 10_000,
+      timeout: BUDGET.INTERACTIVE,
     });
 
     // MIT badge in brand-header: label = 'MIT 微笑認證', title = '已通過 MIT 微笑標章登錄驗證'
     const mitBadge = anonPage.locator('span[title="已通過 MIT 微笑標章登錄驗證"]').first();
-    await expect(mitBadge).toBeVisible({ timeout: 5_000 });
+    await expect(mitBadge).toBeVisible({ timeout: BUDGET.RENDERED });
     await expect(mitBadge).toContainText('MIT 微笑認證');
 
     // Owner badge (品牌經營) must NOT appear — no brand_owners row
@@ -130,12 +131,12 @@ test.describe('MIT verification badges', () => {
 
     // Allow up to 30s: freshly seeded brand page may need ISR generation under parallel-worker load
     await expect(anonPage.getByRole('heading', { level: 1, name: ownerBrandName })).toBeVisible({
-      timeout: 30_000,
+      timeout: BUDGET.GATED_UI,
     });
 
     // Owner badge must appear
     const ownerBadge = anonPage.locator('span[title="由品牌方經營管理"]');
-    await expect(ownerBadge).toBeVisible({ timeout: 5_000 });
+    await expect(ownerBadge).toBeVisible({ timeout: BUDGET.RENDERED });
     await expect(ownerBadge).toContainText('品牌經營');
 
     // MIT badge must NOT appear

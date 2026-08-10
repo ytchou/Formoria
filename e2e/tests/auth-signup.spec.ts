@@ -6,6 +6,7 @@ import {
 } from '../helpers/signup-namespace';
 import { waitForDelivery } from '../helpers/resend-delivery';
 
+import { BUDGET } from '../budgets';
 // Post-signup behavior per src/app/auth/actions.ts signUp():
 //   supabase.auth.signUp() → redirect("/auth/sign-in?message=請確認您的電子郵件以完成帳號驗證")
 // The user is created in an unconfirmed state in Supabase; the UI shows a
@@ -30,7 +31,7 @@ test.describe('Auth — sign-up flow', () => {
     await anonPage.goto('/auth/sign-up');
 
     await expect(anonPage.getByRole('heading', { name: '建立帳號', exact: true })).toBeVisible({
-      timeout: 10_000,
+      timeout: BUDGET.INTERACTIVE,
     });
     await expect(anonPage.locator('#email')).toBeVisible();
     await expect(anonPage.locator('#password')).toBeVisible();
@@ -48,7 +49,7 @@ test.describe('Auth — sign-up flow', () => {
     await anonPage.getByRole('button', { name: '建立帳號', exact: true }).click();
 
     // Zod refine: "密碼不一致"
-    await expect(anonPage.getByText('密碼不一致')).toBeVisible({ timeout: 10_000 });
+    await expect(anonPage.getByText('密碼不一致')).toBeVisible({ timeout: BUDGET.INTERACTIVE });
   });
 
   test('shows validation error when password is too short', async ({ anonPage }) => {
@@ -61,7 +62,7 @@ test.describe('Auth — sign-up flow', () => {
     await anonPage.getByRole('button', { name: '建立帳號', exact: true }).click();
 
     // Zod min(8): "密碼至少需要 8 個字元"
-    await expect(anonPage.getByText('密碼至少需要 8 個字元')).toBeVisible({ timeout: 10_000 });
+    await expect(anonPage.getByText('密碼至少需要 8 個字元')).toBeVisible({ timeout: BUDGET.INTERACTIVE });
   });
 
   // Three outcomes, and only one of them is a pass. A green run of this spec must
@@ -81,8 +82,7 @@ test.describe('Auth — sign-up flow', () => {
     anonPage,
   }) => {
     // Generous: the signup itself is ~15s, the delivery poll up to 60s more.
-    test.setTimeout(120_000);
-
+    test.setTimeout(BUDGET.TEST.ADMIN);
     signupEmail = signupTestEmail('happy', test.info().workerIndex);
 
     await anonPage.goto('/auth/sign-up');
@@ -95,14 +95,14 @@ test.describe('Auth — sign-up flow', () => {
 
     // actions.ts happy path: redirect("/auth/sign-in?message=請確認您的電子郵件以完成帳號驗證")
     const redirected = await anonPage
-      .waitForURL(/\/auth\/sign-in/, { timeout: 15_000 })
+      .waitForURL(/\/auth\/sign-in/, { timeout: BUDGET.SERVER_RENDER })
       .then(() => true)
       .catch(() => false);
 
     if (redirected) {
       // (1) Success — Supabase accepted the sign-up and created the unconfirmed user.
       await expect(anonPage.getByText('請確認您的電子郵件以完成帳號驗證')).toBeVisible({
-        timeout: 10_000,
+        timeout: BUDGET.INTERACTIVE,
       });
 
       // (1b) …but acceptance is not delivery. Supabase Auth sends through Resend
@@ -154,7 +154,7 @@ test.describe('Auth — sign-up flow', () => {
     const alertText = await anonPage
       .locator('[role="alert"]:not(#__next-route-announcer__)')
       .first()
-      .textContent({ timeout: 5_000 })
+      .textContent({ timeout: BUDGET.RENDERED })
       .catch(() => null);
     const observed = `url=${anonPage.url()} error=${alertText?.trim() || '(no error alert rendered)'}`;
 
