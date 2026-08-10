@@ -4,6 +4,7 @@ import {
   buildSpendSnapshot,
   countBillableLlmRows,
   cycleForResetDay,
+  loadAllPages,
   type AuditSpanRow,
   type LlmSpendRow,
 } from "../spend";
@@ -52,6 +53,21 @@ function snapshot({
 }
 
 describe("spend snapshot", () => {
+  // Bug caught: PostgREST's 1,000-row response cap silently truncated cycle spend.
+  it("loads every page when the database caps a response", async () => {
+    const rows = Array.from({ length: 2501 }, (_, id) => ({ id }));
+
+    await expect(
+      loadAllPages((from, to) =>
+        Promise.resolve({
+          data: rows.slice(from, to + 1),
+          count: rows.length,
+          error: null,
+        }),
+      ),
+    ).resolves.toHaveLength(2501);
+  });
+
   it("builds a cycle starting on the registry reset day", () => {
     expect(cycleForResetDay(AT, 19)).toEqual({
       resetsOnDay: 19,

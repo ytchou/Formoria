@@ -53,6 +53,7 @@ export type AuditSpanRow = {
 };
 
 const CACHE_TTL_MS = 5 * 60_000;
+const PAGE_SIZE = 1_000;
 const DEEPSEEK_MODELS = ["deepseek-v4-flash"] as const;
 const AUDITED_METER_PROVIDERS = ["serper", "resend"] as const;
 
@@ -93,6 +94,41 @@ export function countBillableLlmRows(
     counts[row.model] = (counts[row.model] ?? 0) + 1;
   }
   return counts;
+}
+
+type PageResult<T> = {
+  data: T[] | null;
+  count: number | null;
+  error: { message: string } | null;
+};
+
+export async function loadAllPages<T>(
+  loadPage: (
+    from: number,
+    to: number,
+    includeCount: boolean,
+  ) => PromiseLike<PageResult<T>>,
+): Promise<T[]> {
+  const first = await loadPage(0, PAGE_SIZE - 1, true);
+  if (first.error) throw new Error(first.error.message);
+  const rows = first.data ?? [];
+  const total = first.count ?? rows.length;
+  const remainingPageStarts = Array.from(
+    { length: Math.max(0, Math.ceil(total / PAGE_SIZE) - 1) },
+    (_, index) => (index + 1) * PAGE_SIZE,
+  );
+  const remaining = await Promise.all(
+    remainingPageStarts.map(async (from) => {
+      const page = await loadPage(
+        from,
+        Math.min(total - 1, from + PAGE_SIZE - 1),
+        false,
+      );
+      if (page.error) throw new Error(page.error.message);
+      return page.data ?? [];
+    }),
+  );
+  return rows.concat(...remaining);
 }
 
 function modelsForService(id: string): readonly string[] {
@@ -294,13 +330,22 @@ export async function loadSpendSnapshot(
   const models = [
     ...new Set([...Object.values(LLM_MODELS), ...DEEPSEEK_MODELS]),
   ];
-  const pricedRowsRequest = supabase
-    .from("brand_ai_results")
-    .select("model, cost_usd, prompt_tokens, completion_tokens")
-    .gte("created_at", cycle.start)
-    .lt("created_at", cycle.end)
-    .in("model", models)
-    .not("cost_usd", "is", null);
+  const pricedRowsRequest = loadAllPages<LlmSpendRow>(
+    (from, to, includeCount) =>
+      supabase
+        .from("brand_ai_results")
+        .select(
+          "id, model, cost_usd, prompt_tokens, completion_tokens, created_at",
+          includeCount ? { count: "exact" } : {},
+        )
+        .gte("created_at", cycle.start)
+        .lt("created_at", cycle.end)
+        .in("model", models)
+        .not("cost_usd", "is", null)
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+  );
   const billableCountRequests = models.map(async (model) => [
     model,
     await exactCount(
@@ -314,27 +359,33 @@ export async function loadSpendSnapshot(
         .eq("raw_response->>ok", true),
     ),
   ] as const);
-  const auditSpansRequest = supabase
-    .from("external_call_audit_spans")
-    .select("provider, kind, terminal_status")
-    .gte("started_at", cycle.start)
-    .lt("started_at", cycle.end)
-    .in("provider", [...AUDITED_METER_PROVIDERS])
-    .neq("kind", "service");
+  const auditSpansRequest = loadAllPages<AuditSpanRow>(
+    (from, to, includeCount) =>
+      supabase
+        .from("external_call_audit_spans")
+        .select(
+          "span_id, provider, kind, terminal_status, started_at",
+          includeCount ? { count: "exact" } : {},
+        )
+        .gte("started_at", cycle.start)
+        .lt("started_at", cycle.end)
+        .in("provider", [...AUDITED_METER_PROVIDERS])
+        .neq("kind", "service")
+        .order("started_at", { ascending: true })
+        .order("span_id", { ascending: true })
+        .range(from, to),
+  );
 
-  const [pricedRowsResult, billableEntries, auditSpansResult] =
-    await Promise.all([
-      pricedRowsRequest,
-      Promise.all(billableCountRequests),
-      auditSpansRequest,
-    ]);
-  if (pricedRowsResult.error) throw new Error(pricedRowsResult.error.message);
-  if (auditSpansResult.error) throw new Error(auditSpansResult.error.message);
+  const [pricedRows, billableEntries, auditSpans] = await Promise.all([
+    pricedRowsRequest,
+    Promise.all(billableCountRequests),
+    auditSpansRequest,
+  ]);
 
   return buildSpendSnapshot({
-    llmRows: (pricedRowsResult.data ?? []) as LlmSpendRow[],
+    llmRows: pricedRows,
     billableCallsByModel: Object.fromEntries(billableEntries),
-    auditSpans: (auditSpansResult.data ?? []) as AuditSpanRow[],
+    auditSpans,
     at,
   });
 }
