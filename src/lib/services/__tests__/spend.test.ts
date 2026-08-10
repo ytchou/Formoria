@@ -95,7 +95,7 @@ describe("spend snapshot", () => {
       ],
     });
 
-    expect(result.services[0]).toMatchObject({
+    expect(result.services.at(0)).toMatchObject({
       amountUsd: 3.75,
       units: 350,
       pricingCoverage: 2 / 3,
@@ -119,7 +119,7 @@ describe("spend snapshot", () => {
       at: AT,
     });
 
-    expect(result.services[0]?.pricingCoverage).toBe(1);
+    expect(result.services.at(0)?.pricingCoverage).toBe(1);
     expect(result.coverage.unpricedCalls).toBe(0);
   });
 
@@ -137,7 +137,7 @@ describe("spend snapshot", () => {
       ],
     });
 
-    expect(result.services[0]?.units).toBe(1);
+    expect(result.services.at(0)?.units).toBe(1);
     expect(result.coverage.inFlightCalls).toBe(1);
   });
 
@@ -155,14 +155,14 @@ describe("spend snapshot", () => {
         terminal_status: "succeeded",
       }));
 
-    expect(snapshot({ registry, auditSpans: spans(311) }).services[0]?.amountUsd).toBe(0);
-    expect(snapshot({ registry, auditSpans: spans(2600) }).services[0]?.amountUsd).toBe(2);
+    expect(snapshot({ registry, auditSpans: spans(311) }).services.at(0)?.amountUsd).toBe(0);
+    expect(snapshot({ registry, auditSpans: spans(2600) }).services.at(0)?.amountUsd).toBe(2);
   });
 
   it("marks services with no meter as unmetered with a null amount", () => {
     const result = snapshot({ registry: [service("railway")] });
 
-    expect(result.services[0]).toMatchObject({
+    expect(result.services.at(0)).toMatchObject({
       provenance: "unmetered",
       amountUsd: null,
     });
