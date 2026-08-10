@@ -214,6 +214,11 @@ export interface SanitizedSentryArtifact {
   failure?: string;
   hasMore: boolean;
   incidentMode: boolean;
+  /**
+   * Distinct error codes from issues whose latest-event enrichment was skipped.
+   * Present only on a degraded-but-successful collection.
+   */
+  latestEventFailures?: string[];
   issues: SanitizedSentryCandidate[];
   requestCount: number;
   status?: "failed" | "success";
@@ -2512,12 +2517,23 @@ export async function collectSanitizedSentryArtifact(
       project: optionalEnvironment(environment, "SENTRY_PROJECT"),
       readToken: optionalEnvironment(environment, "SENTRY_READ_TOKEN"),
     });
+    if (result.latestEventFailures.length > 0) {
+      // Collected successfully, but with thinner evidence on some issues.
+      // Say so — a degraded collection that looks identical to a clean one is
+      // how DEV-1424 stayed invisible.
+      console.warn(
+        `[health-agent] sentry latest-event enrichment skipped for ${result.latestEventFailures.length} issue(s): ${[...new Set(result.latestEventFailures)].join(", ")}`,
+      );
+    }
     artifact = {
       candidateIssueCount: result.candidateIssueCount,
       classificationsRequired: result.issues.length,
       hasMore: result.hasMore,
       incidentMode: result.incidentMode,
       issues: result.candidates.map(sanitizeSentryCandidate),
+      ...(result.latestEventFailures.length > 0
+        ? { latestEventFailures: [...new Set(result.latestEventFailures)] }
+        : {}),
       requestCount: result.requestCount,
       status: "success",
       version: 1,

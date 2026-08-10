@@ -154,6 +154,13 @@ export interface SentryIssueCollection {
   issues: SanitizedSentryIssue[];
   incidentMode: boolean;
   hasMore: boolean;
+  /**
+   * Error codes from issues whose latest-event enrichment was skipped. Empty on
+   * a clean collection. Non-empty means the collection succeeded with less
+   * evidence than usual — degraded, not failed, and it must stay visible rather
+   * than becoming the next silent swallow.
+   */
+  latestEventFailures: string[];
   requestCount: number;
   candidateIssueCount: number;
 }
@@ -191,7 +198,10 @@ interface SentryPage {
 }
 
 export type SentryCollectorErrorCode =
-  "invalid_configuration" | "request_failed" | "invalid_provider_response";
+  | "invalid_configuration"
+  | "request_failed"
+  | "invalid_provider_response"
+  | "rate_limited";
 
 export class SentryCollectorError extends Error {
   public readonly code: SentryCollectorErrorCode;
@@ -1060,6 +1070,39 @@ async function fetchSentryPage(
   }
 }
 
+/**
+ * Latest-event enrichment fans out one request per issue. Firing all of them at
+ * once is what earned the 429 that killed four nights of collection — Sentry
+ * throttles the per-issue endpoint well below the page size.
+ *
+ * Ceiling: a fixed pool of 4. If issue volume grows past a page, prefer asking
+ * Sentry for the events in bulk over widening this.
+ */
+const LATEST_EVENT_CONCURRENCY = 4;
+
+async function mapWithConcurrency<In, Out>(
+  items: readonly In[],
+  limit: number,
+  map: (item: In) => Promise<Out>,
+): Promise<Out[]> {
+  const results = new Array<Out>(items.length);
+  let next = 0;
+  const workers = Array.from(
+    { length: Math.max(1, Math.min(limit, items.length)) },
+    async () => {
+      while (true) {
+        const index = next++;
+        if (index >= items.length) return;
+        const item = items[index];
+        if (item === undefined) return;
+        results[index] = await map(item);
+      }
+    },
+  );
+  await Promise.all(workers);
+  return results;
+}
+
 async function fetchLatestEvent(
   config: CollectorConfig,
   issueId: string,
@@ -1080,6 +1123,16 @@ async function fetchLatestEvent(
           : undefined,
     });
     const body: unknown = await response.json().catch(() => null);
+    // A throttled request is not a malformed one. Reporting 429 as
+    // `invalid_provider_response` is what made DEV-1424 look like a data
+    // problem for four days when Sentry was simply rate-limiting us.
+    if (response.status === 429 || response.status >= 500) {
+      throw new SentryCollectorError(
+        response.status === 429 ? "rate_limited" : "request_failed",
+        "Sentry latest-event request was throttled or unavailable.",
+        response.status,
+      );
+    }
     if (!response.ok || !isRecord(body)) {
       throw new SentryCollectorError(
         "invalid_provider_response",
@@ -1127,6 +1180,7 @@ async function collectIssueCandidates(
   candidates: SanitizedSentryCandidate[];
   incidentMode: boolean;
   hasMore: boolean;
+  latestEventFailures: string[];
   requestCount: number;
 }> {
   const config = collectorConfig(options);
@@ -1138,6 +1192,7 @@ async function collectIssueCandidates(
   let hasMore = false;
   let totalFromProvider: number | null = null;
   let paginationIncomplete = false;
+  const latestEventFailures: string[] = [];
 
   while (requestCount < config.maxRequests && pageCount < config.maxPages) {
     const page = await fetchSentryPage(config, cursor, pageCount + 1);
@@ -1162,17 +1217,34 @@ async function collectIssueCandidates(
         }
         return { issueId, rawIssue };
       });
-    const issuesWithLatest = await Promise.all(
-      pageIssues.map(async ({ issueId, rawIssue }) => ({
-        issueId,
-        rawIssue,
-        issueWithLatest: nestedRecord(rawIssue, "latestEvent")
-          ? rawIssue
-          : {
+    // Enrichment is best-effort. It used to run through Promise.all, so a
+    // single throttled issue rejected the whole batch and discarded every
+    // successfully collected issue with it (DEV-1424). An issue without its
+    // latest event is still a usable finding — every consumer reads
+    // `latestEvent ?? {}` — whereas losing the page loses the night.
+    const issuesWithLatest = await mapWithConcurrency(
+      pageIssues,
+      LATEST_EVENT_CONCURRENCY,
+      async ({ issueId, rawIssue }) => {
+        if (nestedRecord(rawIssue, "latestEvent")) {
+          return { issueId, issueWithLatest: rawIssue, rawIssue };
+        }
+        try {
+          return {
+            issueId,
+            issueWithLatest: {
               ...rawIssue,
               latestEvent: await fetchLatestEvent(config, issueId),
             },
-      })),
+            rawIssue,
+          };
+        } catch (error) {
+          latestEventFailures.push(
+            error instanceof SentryCollectorError ? error.code : "request_failed",
+          );
+          return { issueId, issueWithLatest: rawIssue, rawIssue };
+        }
+      },
     );
     for (const { issueId, issueWithLatest, rawIssue } of issuesWithLatest) {
       const sanitized = sanitizeSentryIssue(issueWithLatest);
@@ -1212,6 +1284,7 @@ async function collectIssueCandidates(
     candidates: boundedCandidates,
     incidentMode,
     hasMore: incidentMode || hasMore,
+    latestEventFailures,
     requestCount,
   };
 }
@@ -1225,6 +1298,7 @@ export async function collectSentryIssues(
     issues: collected.candidates.map((candidate) => candidate.issue),
     incidentMode: collected.incidentMode,
     hasMore: collected.hasMore,
+    latestEventFailures: collected.latestEventFailures,
     requestCount: collected.requestCount,
     candidateIssueCount: collected.candidates.length,
   };
@@ -1727,6 +1801,7 @@ export async function collectSentryFindings(
     issues: collected.candidates.map((candidate) => candidate.issue),
     incidentMode: collected.incidentMode,
     hasMore: collected.hasMore,
+    latestEventFailures: collected.latestEventFailures,
     requestCount: collected.requestCount,
     candidateIssueCount: collected.candidates.length,
     findings,

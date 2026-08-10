@@ -258,8 +258,16 @@ export function safeErrorCode(error: unknown): string {
 const INTERNAL_ERROR_CODE = /^[a-z][a-z0-9_]{0,63}$/;
 
 export function internalErrorCode(error: unknown): string {
-  const message = error instanceof Error ? error.message.trim() : "";
-  return INTERNAL_ERROR_CODE.test(message) ? message : safeErrorCode(error);
+  if (error instanceof Error) {
+    // Typed collector errors carry a `code` enum — the most precise signal
+    // available, and the reason a run can say `invalid_provider_response`
+    // instead of `SentryCollectorError`. Prefer it over the message.
+    const code = (error as { code?: unknown }).code;
+    if (typeof code === "string" && INTERNAL_ERROR_CODE.test(code)) return code;
+    const message = error.message.trim();
+    if (INTERNAL_ERROR_CODE.test(message)) return message;
+  }
+  return safeErrorCode(error);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
