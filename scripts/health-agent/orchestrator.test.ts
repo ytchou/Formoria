@@ -4,6 +4,7 @@ import type { HealthFinding, MergePolicy } from "./contracts";
 import type { RepairFinding } from "./repair";
 import { partitionRepairBatch } from "./repair";
 import {
+  HEALTH_AGENT_CANARY_FINGERPRINT,
   HEALTH_AGENT_COMMANDS,
   HEALTH_ROUTINES,
   aggregateAndDeliver,
@@ -809,6 +810,80 @@ describe("queue mutation gates", () => {
     ]);
     expect(result.automatic.findings).toHaveLength(1);
     expect(result.human.findings).toHaveLength(1);
+  });
+
+  it("re-arms the canary before enqueueing so canary_fix can rehearse", async () => {
+    // DEV-1430: enqueue_health_fix upserts while a row is in any live status,
+    // and the canary settled on `deployed` — so it was only ever updated in
+    // place, never returned to `pending`, and canary_fix claimed nothing from
+    // 2026-07-27 onward. Re-arm has to happen before the enqueue.
+    const calls: string[] = [];
+    const rearmCanary = vi.fn(async (fingerprint: string) => {
+      calls.push(`rearm:${fingerprint}`);
+    });
+    const enqueue = vi.fn(async () => {
+      calls.push("enqueue");
+    });
+
+    await enqueueAndClaimPolicyBatches(
+      {
+        canaryFingerprints: [HEALTH_AGENT_CANARY_FINGERPRINT],
+        findings: [],
+        leaseOwner: "run-canary",
+        mode: "canary_fix",
+      },
+      { queue: { claim: async () => [], enqueue, rearmCanary } },
+      enabled,
+    );
+
+    expect(rearmCanary).toHaveBeenCalledWith(HEALTH_AGENT_CANARY_FINGERPRINT);
+    expect(calls[0]).toBe(`rearm:${HEALTH_AGENT_CANARY_FINGERPRINT}`);
+    expect(calls.indexOf("enqueue")).toBeGreaterThan(0);
+  });
+
+  it("still runs the canary rehearsal when re-arming fails", async () => {
+    // A rehearsal that cannot re-arm should report and continue, not abort the
+    // queue stage — the failure is worth surfacing, not worth losing the run.
+    const rearmCanary = vi.fn(async () => {
+      throw new Error("rearm_unavailable");
+    });
+
+    const result = await enqueueAndClaimPolicyBatches(
+      {
+        canaryFingerprints: [HEALTH_AGENT_CANARY_FINGERPRINT],
+        findings: [],
+        leaseOwner: "run-canary",
+        mode: "canary_fix",
+      },
+      {
+        queue: { claim: async () => [], enqueue: async () => undefined, rearmCanary },
+      },
+      enabled,
+    );
+
+    expect(
+      result.skippedActions.some((action) => action.startsWith("canary_rearm:")),
+    ).toBe(true);
+  });
+
+  it("never re-arms the canary outside canary_fix mode", async () => {
+    // The re-arm resets attempt_count, so it must not touch live runs.
+    const rearmCanary = vi.fn(async () => undefined);
+
+    await enqueueAndClaimPolicyBatches(
+      {
+        canaryFingerprints: [HEALTH_AGENT_CANARY_FINGERPRINT],
+        findings: [finding("sentry:one")],
+        leaseOwner: "run-live",
+        mode: "live",
+      },
+      {
+        queue: { claim: async () => [], enqueue: async () => undefined, rearmCanary },
+      },
+      enabled,
+    );
+
+    expect(rearmCanary).not.toHaveBeenCalled();
   });
 
   it("caps how many findings one run claims, most severe first", async () => {

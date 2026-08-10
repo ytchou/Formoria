@@ -1362,6 +1362,13 @@ export interface QueueDependencies {
     fingerprints: readonly string[],
   ): Promise<readonly RepairFinding[]>;
   enqueue(input: QueueEntryInput): Promise<unknown>;
+  /**
+   * Return a canary fingerprint to a claimable state. The canary shipped once,
+   * settled on `deployed`, and `enqueue_health_fix` upserts rather than
+   * inserting while a row is in any live status — so it never became claimable
+   * again and `canary_fix` rehearsed nothing (DEV-1430).
+   */
+  rearmCanary?: (fingerprint: string) => Promise<unknown>;
   listFingerprintStates?: (
     fingerprints: readonly string[],
   ) => Promise<readonly HealthFingerprintState[]>;
@@ -2217,6 +2224,27 @@ export async function enqueueAndClaimPolicyBatches(
   }
 
   const requestedCanary = new Set(input.canaryFingerprints ?? []);
+  // Re-arm before enqueue. `enqueue_health_fix` upserts while a row is in any
+  // live status, so a canary parked on `deployed` is only ever updated in place
+  // and never returns to `pending` — which is why canary_fix has claimed
+  // nothing since 2026-07-27 (DEV-1430). Best-effort: a rehearsal that cannot
+  // re-arm should still run and report, not abort the whole queue stage.
+  if (input.mode === "canary_fix" && requestedCanary.size > 0) {
+    const rearm = dependencies.queue?.rearmCanary;
+    if (rearm) {
+      for (const fingerprint of requestedCanary) {
+        try {
+          await rearm(fingerprint);
+        } catch (error) {
+          skippedActions.push(
+            `canary_rearm:${fingerprint}:${safeErrorCode(error)}`,
+          );
+        }
+      }
+    } else {
+      skippedActions.push("canary_rearm_unavailable");
+    }
+  }
   const candidates =
     input.mode === "canary_fix" &&
     requestedCanary.has(HEALTH_AGENT_CANARY_FINGERPRINT)
