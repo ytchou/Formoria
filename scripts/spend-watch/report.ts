@@ -6,6 +6,7 @@ import {
   type SlackReport,
 } from "../health-agent/adapters";
 import type { AuditLogger, AuditRecord } from "../health-agent/contracts";
+import { isoDateInTimeZone } from "@/lib/date-range";
 import type { SpendReportV1 } from "@/lib/services/spend-report";
 
 export type SpendWatchReport = SpendReportV1;
@@ -80,28 +81,47 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isTimestamp(value: unknown): value is string {
+  return typeof value === "string" && Number.isFinite(Date.parse(value));
+}
+
+function isSpendLine(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.id === "string" &&
+    (value.amountUsd === null || isFiniteNumber(value.amountUsd)) &&
+    (value.units === null || isFiniteNumber(value.units)) &&
+    (value.unitLabel === null || typeof value.unitLabel === "string")
+  );
+}
+
 function isSpendWatchReport(value: unknown): value is SpendWatchReport {
   if (!isRecord(value) || value.schemaVersion !== 1) return false;
   const day = value.day;
   const cycle = value.cycle;
   const coverage = value.coverage;
   return (
-    typeof value.generatedAt === "string" &&
+    isTimestamp(value.generatedAt) &&
     isRecord(day) &&
-    typeof day.start === "string" &&
-    typeof day.end === "string" &&
-    typeof day.llmUsd === "number" &&
+    isTimestamp(day.start) &&
+    isTimestamp(day.end) &&
+    isFiniteNumber(day.llmUsd) &&
     Array.isArray(day.lines) &&
-    typeof day.unpricedCalls === "number" &&
+    day.lines.every(isSpendLine) &&
+    isFiniteNumber(day.unpricedCalls) &&
     isRecord(cycle) &&
-    typeof cycle.start === "string" &&
-    typeof cycle.end === "string" &&
-    typeof cycle.derivedUsd === "number" &&
-    typeof cycle.declaredMonthlyUsd === "number" &&
+    isTimestamp(cycle.start) &&
+    isTimestamp(cycle.end) &&
+    isFiniteNumber(cycle.derivedUsd) &&
+    isFiniteNumber(cycle.declaredMonthlyUsd) &&
     isRecord(coverage) &&
-    typeof coverage.unmeteredServices === "number" &&
-    typeof coverage.unpricedCalls === "number" &&
-    typeof coverage.inFlightCalls === "number" &&
+    isFiniteNumber(coverage.unmeteredServices) &&
+    isFiniteNumber(coverage.unpricedCalls) &&
+    isFiniteNumber(coverage.inFlightCalls) &&
     coverage.nonLlmDollarsAvailable === false
   );
 }
@@ -203,7 +223,7 @@ function lineFor(report: SpendWatchReport, id: string) {
 }
 
 function dateLabel(report: SpendWatchReport): string {
-  return report.generatedAt.slice(0, 10);
+  return isoDateInTimeZone(report.generatedAt, "Asia/Taipei");
 }
 
 function successNotification(report: SpendWatchReport): AgentNotification {

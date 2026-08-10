@@ -121,6 +121,26 @@ describe("spend-watch report", () => {
     expect(records.some((record) => record.adapter === "slack")).toBe(true);
   });
 
+  it("labels the scheduled report with the Taipei calendar date", async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ...report,
+          generatedAt: "2026-08-10T23:30:00.000Z",
+        }),
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    await runSpendReport({
+      clock: () => AT,
+      env: environment(),
+      fetchImpl,
+    });
+
+    expect(responseBody(fetchImpl, 1).text).toContain("spend — 2026-08-11");
+  });
+
   it("sends a failed notification and exits non-zero on a non-2xx response", async () => {
     const { audit } = auditLog();
     const fetchImpl = vi
@@ -140,6 +160,27 @@ describe("spend-watch report", () => {
     expect(result.status).toBe("failed");
     expect(process.exitCode).toBe(1);
     expect(responseBody(fetchImpl, 1).text).toContain("HTTP_503");
+  });
+
+  it("sends a failed notification when a successful response is malformed", async () => {
+    const malformed = {
+      ...report,
+      day: { ...report.day, lines: [null] },
+    };
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse(malformed))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    const result = await runSpendReport({
+      clock: () => AT,
+      env: environment(),
+      fetchImpl,
+    });
+
+    expect(result.status).toBe("failed");
+    expect(process.exitCode).toBe(1);
+    expect(responseBody(fetchImpl, 1).text).toContain("InvalidSpendReport");
   });
 
   it("fails loudly when a required credential is missing", async () => {
