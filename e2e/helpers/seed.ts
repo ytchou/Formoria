@@ -32,11 +32,9 @@ export async function seedBrand(opts: {
    */
   purchaseChannel?: 'website' | 'myship';
   /**
-   * Seed the brand evidence the surviving FAQ presets gate their template
-   * floors on, so a fixture renders several FAQ items instead of only the
-   * always-eligible `taiwan-origin` one:
-   *   - `taiwan-origin`  — eligible for every approved brand; `mit_status`
-   *     only decides *which* branch renders (declared vs. "not submitted").
+   * Seed the brand evidence the FAQ presets gate their template floors on, so
+   * a fixture renders several FAQ items. `taiwan-origin` requires a verified
+   * `mit_status` and is intentionally absent from this declared fixture:
    *   - `main-products`  — needs `product_tags` (and `product_tags_en` for /en).
    *   - `price-positioning` — needs `price_range` (smallint ordinal 1/2/3).
    *   - `reputation`     — needs `reputation_summary.text`; deliberately left
@@ -75,8 +73,9 @@ export async function seedBrand(opts: {
   };
 
   if (opts.withFaqEvidence) {
-    // 'declared' (not 'verified'): a self-declaration needs no registry match,
-    // so the fixture stays valid without seeding MIT registry rows.
+    // 'declared' (not 'verified') intentionally suppresses the taiwan-origin
+    // template floor; a self-declaration needs no registry match, so the
+    // fixture stays valid without seeding MIT registry rows.
     brandData.mit_status = 'declared';
     brandData.mit_declared_scope = 'all';
     brandData.product_tags = ['手工陶器', '茶具'];

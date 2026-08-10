@@ -684,20 +684,10 @@
         "founded": "founded in {year}",
         "suffix": " It is {details}."
       },
-      "taiwanOrigin": {
-        "undeclaredAnswer": "{brandName} has not submitted manufacturing verification to Formoria, so it currently carries no Made-in-Taiwan verification status.{context} Brands listed on Formoria must have a clear connection to Taiwan: founded in Taiwan, designed in Taiwan, or made in Taiwan."
-      },
       "isMadeInTaiwan": {
         "question": "Is {brandName} a Taiwanese brand?",
         "answer": "Formoria matched a product from {brandName} to the MIT Smile registry. This verification applies only to products covered by the registry entry.",
         "registrySource": "Source: MIT Smile registry.",
-        "scopeLabels": {
-          "all": "all products",
-          "most": "most products",
-          "some": "some products",
-          "unspecified": "products (scope not specified)"
-        },
-        "declaredAnswer": "According to the brand declaration, {scope} from {brandName} are made in Taiwan. This information was provided by the brand.",
         "verificationMarker": "verified"
       },
       "mainProducts": {

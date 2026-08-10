@@ -90,11 +90,11 @@ function clientDouble(rows: StoredRow[]) {
         },
         then(resolve: (result: { data: StoredRow[]; error: null }) => unknown) {
           return Promise.resolve({
-            data: rows.filter((candidate) =>
-              filters.every(([column, value]) =>
-                column === "brand_id" ? value === "brand-1" : true,
-              ),
-            ),
+            data: filters.every(([column, value]) =>
+              column === "brand_id" ? value === "brand-1" : true,
+            )
+              ? rows
+              : [],
             error: null,
           }).then(resolve);
         },
@@ -185,7 +185,7 @@ describe("getBrandFaq", () => {
       }),
     ]);
 
-    expect(items.map((item) => item.id)).toEqual(["taiwan-origin", "main-products"]);
+    expect(items.map((item) => item.id)).toEqual(["main-products"]);
   });
 
   it("omits ineligible presets entirely", async () => {
@@ -197,10 +197,13 @@ describe("getBrandFaq", () => {
     expect(ids).not.toContain("main-products");
     expect(ids).not.toContain("reputation");
     expect(ids).not.toContain("price-positioning");
+    expect(ids).not.toContain("taiwan-origin");
   });
 
-  it("orders taiwan-origin first", async () => {
-    const { items } = await getFaq(makeBrand({ productTags: ["陶瓷"] }));
+  it("orders verified taiwan-origin before other presets", async () => {
+    const { items } = await getFaq(
+      makeBrand({ mitStatus: "verified", productTags: ["陶瓷"] }),
+    );
 
     expect(items[0].id).toBe("taiwan-origin");
   });
@@ -232,10 +235,9 @@ describe("getBrandFaq", () => {
       }),
     );
 
-    // category-position is prompt-only (no template floor) and correctly
-    // renders nothing; the other four all reach the page.
+    // category-position is prompt-only (no template floor) and taiwan-origin
+    // requires verified MIT evidence; the other three reach the page.
     expect(items.map((item) => item.id)).toEqual([
-      "taiwan-origin",
       "main-products",
       "price-positioning",
       "reputation",
