@@ -254,6 +254,110 @@ function terminalAggregate() {
   };
 }
 
+describe("degraded vs failed run verdict", () => {
+  // DEV-1424: one failed collector out of six turned the whole run red, which
+  // skipped nothing technically but made every night look like a total loss and
+  // left 147 valid findings from the healthy detectors stranded. A detector
+  // failure must degrade the run, not fail it.
+  async function verdictFor(aggregate: unknown, phases?: Record<string, string>) {
+    const contents = new Map<string, string>([
+      ["aggregate.json", JSON.stringify(aggregate)],
+      [
+        "queue.json",
+        JSON.stringify({
+          automatic: { findings: [] },
+          claimedFingerprints: [],
+          enqueuedFingerprints: ["directory:one", "link:one"],
+          human: { findings: [] },
+          lifecycle: { new: 1, ongoing: 1, regressed: 0 },
+        }),
+      ],
+    ]);
+    const agentHub = vi.fn(async (envelope: unknown) => void envelope);
+    const slack = vi.fn(async (report: unknown) => void report);
+    await deliverFinalHealthReport(
+      {
+        aggregateArtifactPath: "aggregate.json",
+        mode: "live",
+        outputPath: "final.json",
+        phases: {
+          analyze: "success",
+          collect: "success",
+          deliver: "success",
+          publish: "skipped",
+          repair: "skipped",
+          ...(phases ?? {}),
+        },
+        queueArtifactPath: "queue.json",
+        runAt: now,
+        workflowAttempt: 1,
+        workflowRunId: "987654321",
+        workflowUrl: "https://github.com/ytchou/Formoria/actions/runs/987654321",
+      } as unknown as Parameters<typeof deliverFinalHealthReport>[0],
+      {
+        delivery: { agentHub, slack },
+        files: {
+          read: async (path: string) => contents.get(path) ?? "",
+          write: async (path: string, value: string) =>
+            void contents.set(path, value),
+        },
+      } as unknown as Parameters<typeof deliverFinalHealthReport>[1],
+    );
+    const envelope = agentHub.mock.calls[0]?.[0] as {
+      data: { overall_status: string };
+    };
+    return envelope.data.overall_status;
+  }
+
+  function withFailedDetectors(routines: readonly string[]) {
+    // Round-trip through JSON so the readonly finding arrays from
+    // terminalAggregate() become plain mutable objects.
+    const base = JSON.parse(JSON.stringify(terminalAggregate())) as {
+      artifacts: Record<
+        string,
+        { failures: string[]; findings: unknown[]; status: string }
+      >;
+    };
+    for (const routine of routines) {
+      const artifact = base.artifacts[routine];
+      if (!artifact) throw new Error(`unknown routine ${routine}`);
+      artifact.status = "failed";
+      artifact.failures = ["sentry_collection_issues_invalid"];
+      artifact.findings = [];
+    }
+    return base;
+  }
+
+  it("degrades rather than fails when one detector is down", async () => {
+    // The exact shape of the 2026-08-09 run: Sentry broken, five detectors fine.
+    await expect(verdictFor(withFailedDetectors(["sentry-triage"]))).resolves.toBe(
+      "needs_attention",
+    );
+  });
+
+  it("still fails when every detector is down", async () => {
+    // "Degraded" would be a lie — the run produced no signal at all.
+    await expect(
+      verdictFor(
+        withFailedDetectors([
+          "directory-health",
+          "link-checker",
+          "quality-health",
+          "cron-health",
+          "sentry-triage",
+        ]),
+      ),
+    ).resolves.toBe("failed");
+  });
+
+  it("still fails when a pipeline phase broke", async () => {
+    // The machinery itself failing is a real run failure, detectors aside.
+    await expect(
+      verdictFor(terminalAggregate(), { analyze: "failed" }),
+    ).resolves.toBe("failed");
+  });
+});
+
 describe("terminal health report", () => {
   it("delivers one unified envelope and one grouped Slack summary after publish", async () => {
     const contents = new Map<string, string>([

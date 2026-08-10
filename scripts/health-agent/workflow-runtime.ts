@@ -3197,10 +3197,9 @@ export async function deliverFinalHealthReport(
         : 0),
     0,
   );
-  const failures = [
-    ...aggregateFailures(aggregate),
-    ...(isRecord(queue) ? stringArray(queue.failures) : []),
-  ];
+  const detectorFailures = aggregateFailures(aggregate);
+  const queueFailures = isRecord(queue) ? stringArray(queue.failures) : [];
+  const failures = [...detectorFailures, ...queueFailures];
   const deliveryWarnings: HealthDeliveryWarning[] = [];
   const lifecycle = queueLifecycle(queue);
   const verifiedFixed = queueVerifiedFixedCount(queue);
@@ -3220,10 +3219,25 @@ export async function deliverFinalHealthReport(
   const pullRequestUrls = prResults.flatMap((result) =>
     typeof result.batch.pr_url === "string" ? [result.batch.pr_url] : [],
   );
+  // A detector that fails degrades the run; it does not fail it. The other
+  // detectors' findings are still valid, still queued and still repairable —
+  // and failing the whole run over one collector is exactly what stranded 147
+  // findings for four nights while Sentry was broken (DEV-1424). A degraded run
+  // reports `needs_attention` and still proceeds to repair and publish.
+  //
+  // Three things remain genuine run failures:
+  //   - a pipeline phase failed (the machinery itself broke),
+  //   - the queue failed (findings could not be persisted or reconciled),
+  //   - every detector failed at once, which means the run produced no signal
+  //     and "degraded" would be a lie.
+  const checkValues = Object.values(checks);
+  const failedCheckCount = checkValues.filter(
+    (check) => check.status === "failed",
+  ).length;
   const hasOperationalFailure = () =>
-    failures.length > 0 ||
+    queueFailures.length > 0 ||
     Object.values(input.phases).includes("failed") ||
-    Object.values(checks).some((check) => check.status === "failed");
+    (checkValues.length > 0 && failedCheckCount === checkValues.length);
   const linearOutcomes: JsonValue[] = [];
   const linear = linearSyncFunction(dependencies);
   if (input.mode === "live" && linear) {
