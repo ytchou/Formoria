@@ -168,9 +168,10 @@ describe("FAQ preset catalog", () => {
       (item) => item.id,
     );
 
-    // Every evidence-gated preset drops out. `taiwan-origin` and `custom`
-    // carry no `requiredEvidence`, so they are the only survivors.
-    expect(eligible).toEqual(["taiwan-origin", "custom"]);
+    // Every evidence-gated preset drops out. `custom` carries no
+    // `requiredEvidence` and is the only survivor; taiwan-origin still needs
+    // an actual MIT verification before its template floor can render.
+    expect(eligible).toEqual(["custom"]);
     for (const item of FAQ_PRESETS) {
       if (item.requiredEvidence.length === 0) continue;
       expect(item.eligible(withoutEvidence)).toBe(false);
@@ -256,38 +257,32 @@ describe("FAQ preset catalog", () => {
     expect(FAQ_PROMPT_PREAMBLE).toContain("禁止價格數字");
   });
 
-  it("taiwan-origin is eligible for a brand with no mit_status", () => {
-    const preset = FAQ_PRESETS[0];
-    const context = makeContext({ brand: makeBrand({ mitStatus: undefined }) });
+  it("renders the zh-TW price floor without duplicating the range label", () => {
+    const preset = presetById("price-positioning");
+    const answer = preset.render?.templateFloor(
+      makeContext({ brand: makeBrand({ priceRange: 2 }) }),
+      resolveBrandDetail,
+      "zh-TW",
+    );
 
-    expect(preset.id).toBe("taiwan-origin");
-    expect(preset.eligible(context)).toBe(true);
+    expect(answer).toBe("Harbor Form 的產品定位在中價位。");
   });
 
-  it("undeclared taiwan-origin floor states verification was not submitted and claims no MIT status", () => {
-    const preset = FAQ_PRESETS[0];
-    const context = makeContext({
-      brand: makeBrand({ mitStatus: "unverified" }),
-    });
-    const floor = preset.render?.templateFloor(context, resolveBrandDetail, "zh");
-    const contextSuffix = resolveBrandDetail("brandFaq.context.suffix", {
-      details: [
-        resolveBrandDetail("brandFaq.context.city", { city: "taipei" }),
-        resolveBrandDetail("brandFaq.context.founded", { year: 2021 }),
-      ].join(resolveBrandDetail("brandFaq.listSeparator")),
-    });
+  it("taiwan-origin template floor requires verified MIT status", () => {
+    const preset = presetById("taiwan-origin");
 
-    expect(floor).toBe(
-      resolveBrandDetail("brandFaq.taiwanOrigin.undeclaredAnswer", {
-        brandName: context.brand.name,
-        context: contextSuffix,
-      }),
-    );
-    expect(floor).toContain("尚未");
-    expect(floor).toContain("沒有台灣製造");
-    expect(floor).not.toContain("已驗證");
-    expect(floor).not.toContain("通過驗證");
-    expect(floor).not.toContain(resolveBrandDetail("brandFaq.isMadeInTaiwan.registrySource"));
+    expect(preset.id).toBe("taiwan-origin");
+    expect(
+      preset.eligible(
+        makeContext({ brand: makeBrand({ mitStatus: "verified" }) }),
+      ),
+    ).toBe(true);
+
+    for (const mitStatus of [undefined, "unverified", "declared"] as const) {
+      expect(
+        preset.eligible(makeContext({ brand: makeBrand({ mitStatus }) })),
+      ).toBe(false);
+    }
   });
 
   it("assembled prompt contains only eligible fragments", () => {

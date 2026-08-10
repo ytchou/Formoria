@@ -221,8 +221,9 @@ test.describe("Brand detail deep", () => {
   test("FAQ renders on a data-rich brand", async ({ page }) => {
     test.setTimeout(BUDGET.TEST.MUTATION);
     // Seeded via `withFaqEvidence`: mit_status, product_tags and price_range.
-    // Those — not links — are what the surviving presets gate their template
-    // floors on, so a link-only fixture would render just `taiwan-origin`.
+    // Those — not links — are what the FAQ floors gate on. This fixture is
+    // declared rather than MIT-verified, so taiwan-origin is intentionally
+    // absent while the product and price floors still render.
     await expect(async () => {
       await page.goto(`/brands/${seeded.slug}`, {
         waitUntil: "domcontentloaded",
@@ -238,11 +239,38 @@ test.describe("Brand detail deep", () => {
     const questions = page.locator('details[id^="faq-"] > summary');
     await expect(questions.first()).toBeVisible();
 
-    // "Data-rich" means more than the always-eligible taiwan-origin question:
-    // each seeded evidence field must pull its own preset onto the page.
-    for (const id of ["taiwan-origin", "main-products", "price-positioning"]) {
+    // Each seeded evidence field must pull its own preset onto the page, while
+    // an unverified/declared brand must not receive a taiwan-origin floor.
+    for (const id of ["main-products", "price-positioning"]) {
       await expect(page.locator(`details#faq-${id}`)).toHaveCount(1);
     }
+    await expect(page.locator("details#faq-taiwan-origin")).toHaveCount(0);
+
+    const priceAnswer = page.locator("#faq-price-positioning p");
+    await expect(priceAnswer).toContainText("產品定位在中價位。");
+    await expect(priceAnswer).not.toContainText("中價位價位");
+
+    const jsonLdNodes = await page
+      .locator('script[type="application/ld+json"]')
+      .allTextContents();
+    const faqJsonLd = jsonLdNodes
+      .map(
+        (content) =>
+          JSON.parse(content) as {
+            "@type"?: string;
+            mainEntity?: Array<{ name?: string }>;
+          },
+      )
+      .find((node) => node["@type"] === "FAQPage");
+    const faqQuestions = faqJsonLd?.mainEntity?.map(
+      (entry) => entry.name ?? "",
+    );
+
+    expect(faqJsonLd).toBeDefined();
+    expect(faqQuestions).toContain(`${seeded.brand.name} 的價位屬於哪個區間？`);
+    expect(
+      faqQuestions?.some((question) => question.includes("是台灣品牌嗎？")),
+    ).toBe(false);
   });
 
   test("FAQ answer text is in the DOM while collapsed", async ({
@@ -263,10 +291,10 @@ test.describe("Brand detail deep", () => {
     }).toPass(POLL.DB);
 
     const firstItem = page.locator('details[id^="faq-"]').first();
-    // taiwan-origin leads the catalog and is eligible for every approved
-    // brand, so the fixture's declared MIT status decides the answer copy.
-    await expect(firstItem).toHaveAttribute("id", "faq-taiwan-origin");
-    await expect(firstItem.locator("p")).toContainText("此資訊由品牌方提供");
+    // The declared fixture has no taiwan-origin floor, so the first rendered
+    // item is the main-products floor.
+    await expect(firstItem).toHaveAttribute("id", "faq-main-products");
+    await expect(firstItem.locator("p")).toContainText("代表產品包含");
     expect(
       await firstItem.evaluate((el) => (el as HTMLDetailsElement).open),
     ).toBe(false);
@@ -279,12 +307,12 @@ test.describe("Brand detail deep", () => {
     });
     expect(response.status()).toBe(200);
     const html = await response.text();
-    expect(html).toContain("此資訊由品牌方提供");
+    expect(html).toContain("代表產品包含");
     const $ = load(html);
     const serverItem = $('details[id^="faq-"]').first();
-    expect(serverItem.attr("id")).toBe("faq-taiwan-origin");
+    expect(serverItem.attr("id")).toBe("faq-main-products");
     expect(serverItem.attr("open")).toBeUndefined();
-    expect(serverItem.find("p").text()).toContain("此資訊由品牌方提供");
+    expect(serverItem.find("p").text()).toContain("代表產品包含");
   });
 });
 
