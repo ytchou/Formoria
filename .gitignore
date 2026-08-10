@@ -23,6 +23,10 @@ e2e/playwright-report/
 # Claude Code local state
 .claude/
 
+# Health agent run output (HEALTH_ARTIFACT_DIR). Written by every local or CI
+# health-agent command; the durable copy is the uploaded workflow artifact.
+.health-agent-artifacts/
+
 # next.js
 /.next/
 /out/
