@@ -120,7 +120,6 @@ const PROVIDERS = {
     "persistSubmissionEnrichmentResults",
     "rewriteBrandDescription",
     "runBrandImagePhase",
-    "runChannelsPhase",
     "runClassifyImagesPhase",
     "runCleanPhase",
     "runDescriptionsPhase",

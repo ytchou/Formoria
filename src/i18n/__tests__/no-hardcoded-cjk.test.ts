@@ -101,8 +101,6 @@ const ALLOWLIST = [
   "lib/growth/share-card.tsx",
   // Badge embed snippet alt text is intentional zh-TW brand copy pasted into third-party sites.
   "lib/growth/share-assets.ts",
-  // Channel enrichment uses Chinese city name variants and retailer keywords (data constants, not UI copy).
-  "lib/services/enrich-phases/channels.ts",
   // Channel name normalization uses Chinese retailer noise words for stripping (data constants, not UI copy).
   "lib/brands/channels.ts",
   // FAQ preset LLM prompt fragments are Chinese model instructions, not UI copy.

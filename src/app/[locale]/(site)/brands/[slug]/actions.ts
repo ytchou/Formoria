@@ -39,6 +39,7 @@ import { isOwnerOf } from '@/lib/services/brand-owners'
 import type { ChannelType } from '@/lib/types/brand-channel'
 import { createServiceClient } from '@/lib/supabase/service'
 import { trackOriginEvidenceSubmitted } from '@/lib/analytics'
+import { LOCATIONS_SECTION_ENABLED } from './locations-section'
 
 const REPORT_REASONS = [
   'incorrect_info',
@@ -105,6 +106,8 @@ export async function confirmChannelAction(
   channelId: string,
   brandSlug: string,
 ): Promise<{ confirmationCount: number } | { error: string }> {
+  if (!LOCATIONS_SECTION_ENABLED) return { error: 'unknown' }
+
   return runWithAuditContext({}, async () => {
     try {
       const user = await requireClaimUser()
@@ -123,6 +126,10 @@ export async function confirmChannelAction(
 export async function getChannelViewerStateAction(
   brandId: string,
 ): Promise<{ isOwner: boolean; confirmedChannelIds: string[] }> {
+  if (!LOCATIONS_SECTION_ENABLED) {
+    return { isOwner: false, confirmedChannelIds: [] }
+  }
+
   return runWithAuditContext({}, async () => {
     const user = await requireClaimUser()
     if (!user) return { isOwner: false, confirmedChannelIds: [] }
@@ -146,6 +153,8 @@ export async function submitChannelInfoAction(
   _prevState: ChannelFormState,
   formData: FormData,
 ): Promise<ChannelFormState> {
+  if (!LOCATIONS_SECTION_ENABLED) return { error: 'unknown' }
+
   return runWithAuditContext({}, async () => {
     const t = await getTranslations('brandDetail.channels.errors')
 
@@ -183,6 +192,8 @@ export async function ownerModerateChannelAction(
   brandSlug: string,
   status: 'confirmed' | 'rejected',
 ): Promise<{ success: true } | { error: string }> {
+  if (!LOCATIONS_SECTION_ENABLED) return { error: 'unknown' }
+
   return runWithAuditContext({}, async () => {
     try {
       const user = await requireClaimUser()

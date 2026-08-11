@@ -21,7 +21,6 @@ import { classifyHttpResponse, IN_PROCESS, withRetry } from '@/lib/retry'
 
 const SERPER_SERP_ENDPOINT = 'https://google.serper.dev/search'
 const SERPER_IMAGE_ENDPOINT = 'https://google.serper.dev/images'
-const SERPER_MAPS_ENDPOINT = 'https://google.serper.dev/maps'
 const SEARCH_TIMEOUT_MS = 60_000
 const MIN_IMAGE_DIMENSION = 480
 const MAX_ERROR_LENGTH = 1_000
@@ -97,21 +96,6 @@ export type SerperRawImageSearchOutcome = {
   auditResultId?: string
 }
 
-export type SerperMapPlace = {
-  title: string
-  address?: string
-  latitude?: number
-  longitude?: number
-  website?: string
-  link?: string
-  category?: string
-  phoneNumber?: string
-}
-
-type SerperMapsResponse = {
-  places?: Array<Record<string, unknown>>
-}
-
 type SerperCallResult<T> = {
   data: T | null
   fullResponse: unknown
@@ -120,16 +104,6 @@ type SerperCallResult<T> = {
   httpStatus: number | null
   error: string | null
   response?: Response
-  auditResultId?: string
-}
-
-export type BrandMapsSearchResult = {
-  places: SerperMapPlace[]
-  rawResponse: unknown
-  latencyMs: number
-  callStatus: SearchCallStatus
-  httpStatus: number | null
-  error: string | null
   auditResultId?: string
 }
 
@@ -190,13 +164,6 @@ export function parseSerperImageCandidates(
       ...(optionalString(entry.googleUrl) ? { googleUrl: optionalString(entry.googleUrl) } : {}),
     }]
   })
-}
-
-function isSerperMapsResponse(value: unknown): value is SerperMapsResponse {
-  return (
-    isRecord(value) &&
-    isOptionalArrayOf(value.places, (entry) => isRecord(entry) && typeof entry.title === 'string')
-  )
 }
 
 function errorText(error: unknown): string {
@@ -315,9 +282,7 @@ async function callSerperJson<T>(
         const resultCount =
           searchType === 'serp'
             ? ((responseBody as SerperSerpResponse).organic?.length ?? 0)
-            : searchType === 'image'
-              ? ((responseBody as SerperImageResponse).images?.length ?? 0)
-              : ((responseBody as SerperMapsResponse).places?.length ?? 0)
+            : ((responseBody as SerperImageResponse).images?.length ?? 0)
         const normalized = normalizeResponse(responseBody)
         return await finalize({
           data: responseBody,
@@ -403,9 +368,9 @@ function resolveAuditOptions<T>(resolver: AuditResolver<T> | undefined, input: T
 }
 
 /**
- * Single source of truth for the text-query request body (`/search` and
- * `/places`). It was three literal copies, and they drifted: the images body
- * has carried `autocorrect: false` for a while but these had not, so Google was
+ * Single source of truth for the `/search` request body. It previously had
+ * multiple literal copies that drifted: the images body has carried
+ * `autocorrect: false` for a while but these had not, so Google was
  * free to "correct" a Taiwanese brand name into a generic dictionary word and
  * hand back an entirely different company's URLs — the same wrong-brand failure
  * `buildImageSearchBody` already documents. One factory so they cannot diverge
@@ -829,67 +794,4 @@ export async function batchSearchBrandImages(
   }
   await Promise.all(Array.from({ length: workerCount }, () => worker()))
   return results
-}
-
-function parseMapsPlace(value: Record<string, unknown>): SerperMapPlace | null {
-  const title = typeof value.title === 'string' ? value.title.trim() : ''
-  if (!title) return null
-  const optionalNumber = (candidate: unknown): number | undefined => {
-    if (candidate === null || candidate === undefined) return undefined
-    if (typeof candidate === 'string' && candidate.trim() === '') return undefined
-    const number = typeof candidate === 'number' ? candidate : Number(candidate)
-    return Number.isFinite(number) ? number : undefined
-  }
-  const latitude = optionalNumber(value.latitude)
-  const longitude = optionalNumber(value.longitude)
-  return {
-    title,
-    ...(typeof value.address === 'string' && value.address.trim() ? { address: value.address.trim() } : {}),
-    ...(latitude !== undefined ? { latitude } : {}),
-    ...(longitude !== undefined ? { longitude } : {}),
-    ...(typeof value.website === 'string' && value.website.trim() ? { website: value.website.trim() } : {}),
-    ...(typeof value.link === 'string' && value.link.trim() ? { link: value.link.trim() } : {}),
-    ...(typeof value.category === 'string' && value.category.trim() ? { category: value.category.trim() } : {}),
-    ...(typeof value.phoneNumber === 'string' && value.phoneNumber.trim()
-      ? { phoneNumber: value.phoneNumber.trim() }
-      : {}),
-  }
-}
-
-export async function searchBrandMaps(
-  query: string,
-  auditOptions?: SerperAuditOptions,
-): Promise<BrandMapsSearchResult> {
-  const result = await callSerperJson(
-    SERPER_MAPS_ENDPOINT,
-    'maps',
-    query,
-    buildSerperQueryBody(query),
-    isSerperMapsResponse,
-    (value) => ({
-      urls: (value.places ?? []).flatMap((place) => {
-        const url =
-          typeof place.website === 'string' ? place.website : typeof place.link === 'string' ? place.link : null
-        return url ? [url] : []
-      }),
-      snippets: (value.places ?? []).flatMap((place) => {
-        const title = typeof place.title === 'string' ? place.title : ''
-        const address = typeof place.address === 'string' ? place.address : ''
-        return title || address ? [title && address ? `${title} — ${address}` : title || address] : []
-      }),
-    }),
-    auditOptions,
-  )
-  return {
-    places: (result.data?.places ?? []).flatMap((place) => {
-      const parsed = parseMapsPlace(place)
-      return parsed ? [parsed] : []
-    }),
-    rawResponse: result.fullResponse,
-    latencyMs: result.latencyMs,
-    callStatus: result.callStatus,
-    httpStatus: result.httpStatus,
-    error: result.error,
-    ...(result.auditResultId ? { auditResultId: result.auditResultId } : {}),
-  }
 }
