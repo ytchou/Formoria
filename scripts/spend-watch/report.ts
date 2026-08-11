@@ -99,6 +99,40 @@ function isSpendLine(value: unknown): boolean {
   );
 }
 
+function isAlertMeter(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    [
+      "ready",
+      "unsupported",
+      "unconfigured",
+      "error",
+      "not_applicable",
+    ].includes(String(value.state)) &&
+    ["normal", "warning", "critical", "unknown"].includes(String(value.risk)) &&
+    (value.value === null || isFiniteNumber(value.value)) &&
+    (value.limit === null || isFiniteNumber(value.limit)) &&
+    (value.percentage === null || isFiniteNumber(value.percentage)) &&
+    (value.projection === null || isFiniteNumber(value.projection)) &&
+    (value.message === null || typeof value.message === "string")
+  );
+}
+
+function isOperationalAlertSummary(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.needsAttention === "boolean" &&
+    typeof value.unavailableUpstash === "boolean" &&
+    Array.isArray(value.warnings) &&
+    value.warnings.every((item) => typeof item === "string") &&
+    Array.isArray(value.lowerBoundCaveats) &&
+    value.lowerBoundCaveats.every((item) => typeof item === "string") &&
+    (value.openai === null || isAlertMeter(value.openai)) &&
+    (value.upstash === null || isAlertMeter(value.upstash)) &&
+    (value.posthog === null || isAlertMeter(value.posthog))
+  );
+}
+
 function isSpendWatchReport(value: unknown): value is SpendWatchReport {
   if (!isRecord(value) || value.schemaVersion !== 1) return false;
   const day = value.day;
@@ -122,7 +156,9 @@ function isSpendWatchReport(value: unknown): value is SpendWatchReport {
     isFiniteNumber(coverage.unmeteredServices) &&
     isFiniteNumber(coverage.unpricedCalls) &&
     isFiniteNumber(coverage.inFlightCalls) &&
-    coverage.nonLlmDollarsAvailable === false
+    coverage.nonLlmDollarsAvailable === false &&
+    (value.operations === undefined ||
+      isOperationalAlertSummary(value.operations))
   );
 }
 
@@ -226,19 +262,65 @@ function dateLabel(report: SpendWatchReport): string {
   return isoDateInTimeZone(report.generatedAt, "Asia/Taipei");
 }
 
+function operationalMeterLine(
+  label: string,
+  meter: NonNullable<SpendWatchReport["operations"]>["openai"],
+): string {
+  if (!meter) return `• ${label}: unavailable`;
+  const currency = label === "OpenAI budget";
+  const value =
+    meter.value === null
+      ? "unknown"
+      : currency
+        ? usd(meter.value)
+        : units(meter.value);
+  const limit =
+    meter.limit === null
+      ? "no authoritative limit"
+      : currency
+        ? usd(meter.limit)
+        : units(meter.limit);
+  const headroom =
+    meter.value !== null && meter.limit !== null
+      ? currency
+        ? usd(Math.max(0, meter.limit - meter.value))
+        : units(Math.max(0, meter.limit - meter.value))
+      : "unknown";
+  const percentage =
+    meter.percentage === null
+      ? "unknown"
+      : `${Math.round(meter.percentage * 100)}%`;
+  const projection =
+    meter.projection === null
+      ? "unknown"
+      : `${Math.round(meter.projection * 100)}%`;
+  return `• ${label}: ${value}/${limit} (${percentage}) · headroom ${headroom} · projection ${projection} · ${meter.risk}`;
+}
+
 function successNotification(report: SpendWatchReport): AgentNotification {
   const serper = lineFor(report, "serper");
   const resend = lineFor(report, "resend");
+  const operations = report.operations;
+  const operationDetails = operations
+    ? [
+        operationalMeterLine("OpenAI budget", operations.openai),
+        operationalMeterLine("Upstash commands", operations.upstash),
+        operationalMeterLine("PostHog events", operations.posthog),
+        ...operations.lowerBoundCaveats.map((caveat) => `• Caveat: ${caveat}`),
+      ]
+    : [];
   return {
     agent: `spend — ${dateLabel(report)}`,
     details: [
       `• LLM ${usd(report.day.llmUsd)} · Serper ${units(serper?.units)} ${unitName(serper?.unitLabel, "credits")} ${usd(serper?.amountUsd)} · Resend ${units(resend?.units)} ${unitName(resend?.unitLabel, "sends")} ${usd(resend?.amountUsd)}`,
       `• ${report.coverage.unpricedCalls} unpriced calls · ${report.coverage.inFlightCalls} in-flight · ${report.coverage.unmeteredServices} services unmetered`,
+      ...operationDetails,
     ],
-    status: "success",
+    status: operations?.needsAttention ? "needs_attention" : "success",
     summary: [
       `• Yesterday: ${usd(report.day.llmUsd)} derived`,
       `• Cycle to date: ${usd(report.cycle.derivedUsd)} derived · ~${usd(report.cycle.declaredMonthlyUsd)}/mo declared fixed`,
+      ...(operations?.warnings ?? []),
     ],
   };
 }
@@ -338,7 +420,7 @@ export async function runSpendReport(
     process.exitCode = 1;
     throw error;
   }
-  return { notification, report, status: "success" };
+  return { notification, report, status: notification.status };
 }
 
 async function main(): Promise<void> {

@@ -279,7 +279,8 @@ RLS: users can view/insert own evidence. Admin reads via service-role client.
 
 Formoria `/admin` owns operational workflows. Personal OS consumes separate business, analytics, system-status, feedback, and marketing projections through bearer-protected, `no-store` internal routes. Authentication always precedes provider or database access. Formoria owns PostHog Query API credentials and returns a versioned, provider-neutral analytics snapshot; Personal OS never receives PostHog secrets.
 
-The version 1 `system-status` projection carries live probe results plus the
+The additive version 1 `operations` projection carries live probe results,
+subscription metadata, and measured usage plus the
 visible service registry inventory. Each registry entry declares an
 `operationalSection` (`production`, `back-office`, `agents`, `deprecated`, or
 `null`) and an `operationalKind` (`dependency`, `worker`, or `alert`). Null
@@ -289,3 +290,13 @@ registry order; Linear and GitHub remain inventory-only and are not executive
 health probes.
 
 Public discovery metrics use complete Asia/Taipei windows ending yesterday. PostHog is the sole queried analytics source, while GA4 remains installed and collecting for possible future advertising use. The legacy executive route, local analytics storage, and Growth Pulse artifacts remain temporarily available only until production proxy, privacy, event-shape, and saved-insight reconciliation gates pass.
+
+`GET /api/internal/personal-os/operations` is bearer-protected and `no-store`.
+Usage meters are provider-neutral and explicitly report `ready`,
+`unsupported`, `unconfigured`, `error`, or `not_applicable`. Ratios are only
+shown when the numerator and limit share a proven unit and reset window;
+lower-bound local measurements remain visibly caveated. Cloudflare is one
+Personal OS row with Turnstile and direct-origin enforcement child checks.
+The legacy `system-status` and `spend` routes remain available during the
+additive rollout. Daily Spend Watch uses the operations projection for
+warnings and never disables a provider or changes limiter fallback behavior.

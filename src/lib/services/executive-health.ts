@@ -1,3 +1,4 @@
+import { auditedCall } from "@/lib/audit";
 import { createServiceClient } from "@/lib/supabase/service";
 import { checkMitRegistryHealth } from "@/lib/services/mit-registry";
 import {
@@ -177,6 +178,46 @@ function responseResult(
     : { status: "down", message: `API returned ${response.status}` };
 }
 
+async function probeCloudflareOrigin(endpoint: string): Promise<CheckResult> {
+  return auditedCall(
+    {
+      provider: "cloudflare",
+      operation: "origin_probe",
+      kind: "external",
+      meta: { endpoint, method: "GET" },
+    },
+    async (context) => {
+      const response = await fetch(endpoint, {
+        headers: { Accept: "text/plain" },
+        signal: AbortSignal.timeout(5_000),
+      });
+      const body = await response.text();
+      context.summary.httpStatus = response.status;
+      context.summary.bodyLength = body.length;
+      if (response.status === 403 && body === "Forbidden") {
+        return {
+          status: "healthy" as const,
+          message: "Direct Railway origin is blocked by Cloudflare guard",
+        };
+      }
+      if (response.status === 401) {
+        return {
+          status: "down" as const,
+          message: "Origin guard is not enforced (route returned 401)",
+        };
+      }
+      return {
+        status: "down" as const,
+        message: `Origin guard returned ${response.status}`,
+      };
+    },
+    {
+      classify: (result) =>
+        result.status === "healthy" ? "succeeded" : "failed",
+    },
+  );
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -227,6 +268,8 @@ export function defaultChecks(): ExecutiveHealthCheckDefinition[] {
     "",
   );
   const curationWorkerToken = process.env.CURATION_WORKER_CONTROL_TOKEN;
+  const railwayUrl = process.env.FORMORIA_RAILWAY_URL?.replace(/\/+$/, "");
+  const cfOriginSecret = process.env.CF_ORIGIN_SECRET;
 
   return [
     {
@@ -291,7 +334,7 @@ export function defaultChecks(): ExecutiveHealthCheckDefinition[] {
       run: async () => {
         if (!turnstileKey) {
           return {
-            status: "down",
+            status: "unconfigured",
             message: "Turnstile secret is not configured",
           };
         }
@@ -308,6 +351,29 @@ export function defaultChecks(): ExecutiveHealthCheckDefinition[] {
               signal: AbortSignal.timeout(3_000),
             },
           ),
+        );
+      },
+    },
+    {
+      id: "cloudflare-origin",
+      service: "Cloudflare origin protection",
+      tier: "customer-critical",
+      request: {
+        endpoint: railwayUrl
+          ? `${railwayUrl}/api/internal/personal-os/operations`
+          : null,
+        method: "GET",
+        configured: Boolean(railwayUrl && cfOriginSecret),
+      },
+      run: async () => {
+        if (!railwayUrl || !cfOriginSecret) {
+          return {
+            status: "unconfigured",
+            message: "Cloudflare origin protection is not configured",
+          };
+        }
+        return probeCloudflareOrigin(
+          `${railwayUrl}/api/internal/personal-os/operations`,
         );
       },
     },

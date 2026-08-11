@@ -54,6 +54,40 @@ const report: SpendWatchReport = {
   },
 };
 
+const operations = {
+  needsAttention: false,
+  unavailableUpstash: false,
+  warnings: [],
+  lowerBoundCaveats: ["Resend usage is a lower bound from local measurements."],
+  openai: {
+    state: "ready" as const,
+    risk: "normal" as const,
+    value: 1.23,
+    limit: 25,
+    percentage: 0.0492,
+    projection: 0.2,
+    message: null,
+  },
+  upstash: {
+    state: "ready" as const,
+    risk: "normal" as const,
+    value: 100,
+    limit: 1000,
+    percentage: 0.1,
+    projection: 0.4,
+    message: null,
+  },
+  posthog: {
+    state: "ready" as const,
+    risk: "normal" as const,
+    value: 1000,
+    limit: 1_000_000,
+    percentage: 0.001,
+    projection: 0.01,
+    message: null,
+  },
+};
+
 function environment(
   overrides: Partial<SpendWatchEnvironment> = {},
 ): SpendWatchEnvironment {
@@ -119,6 +153,107 @@ describe("spend-watch report", () => {
     expect(text).toContain("41 credits $0.00");
     expect(text).toContain("2 sends $0.00");
     expect(records.some((record) => record.adapter === "slack")).toBe(true);
+  });
+
+  it("marks warning usage as needs_attention while still delivering the report", async () => {
+    const warningReport = {
+      ...report,
+      operations: {
+        ...operations,
+        needsAttention: true,
+        warnings: ["OpenAI usage is warning."],
+        openai: {
+          ...operations.openai,
+          risk: "warning" as const,
+          value: 18,
+          percentage: 0.72,
+        },
+      },
+    };
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse(warningReport))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    const result = await runSpendReport({
+      env: environment(),
+      clock: () => AT,
+      fetchImpl,
+    });
+
+    expect(result.status).toBe("needs_attention");
+    expect(responseBody(fetchImpl, 1).text).toContain("OpenAI budget");
+    expect(responseBody(fetchImpl, 1).text).toContain(
+      "OpenAI usage is warning.",
+    );
+  });
+
+  it("delivers a critical usage report as needs_attention, not failed", async () => {
+    const criticalReport = {
+      ...report,
+      operations: {
+        ...operations,
+        needsAttention: true,
+        warnings: ["Upstash Redis secondary usage is critical."],
+        upstash: {
+          ...operations.upstash,
+          risk: "critical" as const,
+          value: 950,
+          percentage: 0.95,
+        },
+      },
+    };
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse(criticalReport))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    const result = await runSpendReport({
+      env: environment(),
+      clock: () => AT,
+      fetchImpl,
+    });
+
+    expect(result.status).toBe("needs_attention");
+    expect(responseBody(fetchImpl, 1).text).toContain("Upstash commands");
+    expect(responseBody(fetchImpl, 1).text).toContain("critical");
+    expect(responseBody(fetchImpl, 1).text).toContain(
+      "Upstash Redis secondary usage is critical.",
+    );
+  });
+
+  it("surfaces unavailable Upstash monitoring as needs_attention, not failed", async () => {
+    const unavailableReport = {
+      ...report,
+      operations: {
+        ...operations,
+        needsAttention: true,
+        unavailableUpstash: true,
+        upstash: {
+          state: "unconfigured" as const,
+          risk: "unknown" as const,
+          value: null,
+          limit: null,
+          percentage: null,
+          projection: null,
+          message: "Upstash monitoring credentials are not configured.",
+        },
+      },
+    };
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(jsonResponse(unavailableReport))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    const result = await runSpendReport({
+      env: environment(),
+      clock: () => AT,
+      fetchImpl,
+    });
+
+    expect(result.status).toBe("needs_attention");
+    expect(responseBody(fetchImpl, 1).text).toContain("Upstash commands");
+    expect(responseBody(fetchImpl, 1).text).not.toContain("Failed");
   });
 
   it("labels the scheduled report with the Taipei calendar date", async () => {
