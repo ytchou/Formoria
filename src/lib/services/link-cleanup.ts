@@ -64,6 +64,83 @@ type CandidateRow = {
 
 type QueryResult<T> = Promise<{ data: T; error: { message: string } | null }>;
 
+export type LinkCleanupRecentRemoval = {
+  brandName: string | null;
+  field: string;
+  url: string;
+  removedAt: string;
+};
+
+/**
+ * Links auto-nulled inside a recent window, newest first.
+ *
+ * A run only ever reports its *own* removals, so a scheduled run that finds
+ * nothing left to do reports nothing — which reads as "no dead links" when the
+ * truth may be "they were removed an hour ago by a manual run". The nightly
+ * Slack message carries this so the channel reflects what happened to the data,
+ * not merely what this particular invocation did.
+ *
+ * Deliberately its own reader with its own seam: `LinkCleanupDatabaseClient` is
+ * narrowed to the exact two statements the cleanup path issues, and widening it
+ * to carry a reporting query would blur what that contract is for.
+ */
+export async function listRecentRemovals(
+  windowHours = 24,
+  client?: {
+    from(table: "link_check_results"): {
+      select(columns: string): {
+        gte(
+          column: "auto_nulled_at",
+          value: string,
+        ): {
+          order(
+            column: "auto_nulled_at",
+            options: { ascending: boolean },
+          ): QueryResult<
+            | {
+                field: string;
+                url: string;
+                auto_nulled_at: string;
+                brands:
+                  { name: string | null } | { name: string | null }[] | null;
+              }[]
+            | null
+          >;
+        };
+      };
+    };
+  },
+  now: () => Date = () => new Date(),
+): Promise<LinkCleanupRecentRemoval[]> {
+  const db =
+    client ??
+    (createServiceClient() as unknown as NonNullable<
+      Parameters<typeof listRecentRemovals>[1]
+    >);
+  const since = new Date(
+    now().getTime() - windowHours * 60 * 60 * 1000,
+  ).toISOString();
+
+  const { data, error } = await db
+    .from("link_check_results")
+    .select("field, url, auto_nulled_at, brands(name)")
+    .gte("auto_nulled_at", since)
+    .order("auto_nulled_at", { ascending: false });
+
+  if (error) {
+    throw new Error(`Failed to load recent link removals: ${error.message}`);
+  }
+
+  return (data ?? []).map((row) => ({
+    brandName: Array.isArray(row.brands)
+      ? (row.brands[0]?.name ?? null)
+      : (row.brands?.name ?? null),
+    field: row.field,
+    removedAt: row.auto_nulled_at,
+    url: row.url,
+  }));
+}
+
 /**
  * The database boundary, narrowed to exactly the two statements this service
  * issues. Injected only by tests; production always uses the service client,

@@ -25,6 +25,8 @@ import { postSlackAlert } from "@/lib/adapters/alerting/slack";
 import type { AgentNotification } from "@/lib/adapters/slack/notification";
 import {
   cleanupDeadLinks,
+  listRecentRemovals,
+  type LinkCleanupRecentRemoval,
   type LinkCleanupResult,
 } from "@/lib/services/link-cleanup";
 
@@ -53,6 +55,7 @@ const REPORT_ONLY_TICKETS = [
 function buildNotification(
   result: LinkCleanupResult,
   applied: boolean,
+  recent: readonly LinkCleanupRecentRemoval[],
 ): AgentNotification {
   const summary = [
     applied
@@ -61,10 +64,18 @@ function buildNotification(
     `Scanned ${result.scanned} flagged ${result.scanned === 1 ? "row" : "rows"}; ${result.skipped.length} skipped.`,
   ];
 
-  const workDone = result.applied.map(
-    (entry) =>
-      `${entry.brandName ?? entry.brandId} · ${entry.field} · HTTP ${entry.statusCode} · ${entry.url}`,
-  );
+  const workDone =
+    result.applied.length > 0
+      ? result.applied.map(
+          (entry) =>
+            `${entry.brandName ?? entry.brandId} · ${entry.field} · HTTP ${entry.statusCode} · ${entry.url}`,
+        )
+      : // Nothing to do this run is the steady state, and an empty message reads
+        // as "no dead links" when the truth may be "removed an hour ago".
+        recent.map(
+          (entry) =>
+            `earlier today: ${entry.brandName ?? "(unknown brand)"} · ${entry.field} · ${entry.url}`,
+        );
 
   const details = [
     ...result.skipped.map(
@@ -111,7 +122,8 @@ async function main(): Promise<void> {
   }
 
   if (notify) {
-    const sent = await postSlackAlert(buildNotification(result, apply));
+    const recent = await listRecentRemovals(24);
+    const sent = await postSlackAlert(buildNotification(result, apply, recent));
     console.log(`[link-cleanup] slack: ${sent ? "sent" : "not configured"}`);
   }
 }
