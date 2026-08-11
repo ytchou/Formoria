@@ -532,10 +532,22 @@ test.describe("Creative Expo exhibitor list", () => {
       .evaluateAll((links) =>
         links.map((link) => link.getAttribute("href") ?? ""),
       );
-    // Exactly the ledger's linked rows, not merely "more than one page". The
-    // old `toBeGreaterThan(pageSize)` passed while any number of links above
-    // ten were missing.
-    expect(brandHrefs.length).toBe(LINKED_EXHIBITORS.length);
+    // The ledger names candidate rows, but `composeEventExhibitorEntries`
+    // intentionally drops a row to `brand: null` once its brand is hidden,
+    // rejected, or renamed after the event was curated (see that function's
+    // doc comment) — a live brand can leave the resolved count without the
+    // committed ledger ever changing. The "Formoria brands only" toggle
+    // renders that same resolved count from the live page, so it — not the
+    // static ledger figure — is the crawler-visibility ground truth: exactly
+    // the "more than pageSize" regression this assertion exists to catch
+    // stays caught, without the test going red every time a brand's
+    // moderation status moves.
+    const listedOnlyCount = await explorer
+      .getByRole("button", { name: /Formoria brands only/ })
+      .evaluate((el) => Number(el.textContent?.match(/\d+/)?.[0] ?? NaN));
+    expect(listedOnlyCount).toBeGreaterThan(0);
+    expect(listedOnlyCount).toBeLessThanOrEqual(LINKED_EXHIBITORS.length);
+    expect(brandHrefs.length).toBe(listedOnlyCount);
     expect(
       brandHrefs.filter((href) => !serverHtml.includes(`href="${href}"`)),
     ).toEqual([]);
