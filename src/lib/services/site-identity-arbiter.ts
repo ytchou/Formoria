@@ -52,7 +52,7 @@ type UnknownRecord = Record<string, unknown>;
  * The 2026-08-03 DEV-1321 eval returned no usable verdicts for that shape
  * (0/26), so the object wrapper is part of this adapter's contract.
  */
-export const SITE_IDENTITY_SCHEMA = {
+const SITE_IDENTITY_SCHEMA = {
   name: "site_identity",
   schema: {
     type: "object",

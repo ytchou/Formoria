@@ -63,17 +63,6 @@ const PROTECTED_SPAN_PATTERN = /\u0000TW_PROTECTED_(\d+)\u0000/gu;
 const URL_PATTERN = /https?:\/\/\S+/gu;
 const QUOTED_SPAN_PATTERN = /「[^」]*」/gu;
 const CJK_CHARACTER = "[一-鿿]";
-const CJK_TEXT_PATTERN = new RegExp(CJK_CHARACTER, "u");
-
-/**
- * The single "is this string Chinese?" gate. Callers that need to branch on
- * language (localization, bilingual pairing) share this one range so a future
- * widening — extension blocks, Bopomofo — lands in one place instead of in the
- * handful of ad-hoc `/[一-鿿]/` literals that used to be scattered around.
- */
-export function containsCjk(text: string): boolean {
-  return CJK_TEXT_PATTERN.test(text);
-}
 
 function protectSpans(
   text: string,

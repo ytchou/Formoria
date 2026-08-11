@@ -24,7 +24,7 @@
  * UTM parameters spread onto acquisition-relevant events by `getUtmParams()`.
  * Every key is optional — only the params present on the landing URL are attached.
  */
-export interface UtmProperties {
+interface UtmProperties {
   utm_source?: string
   utm_medium?: string
   utm_campaign?: string
@@ -573,8 +573,6 @@ export const ANALYTICS_EVENTS = {
    */
   FEATURE_REQUEST_VOTED: 'feature_request_voted',
 } as const
-
-export type AnalyticsEventName = (typeof ANALYTICS_EVENTS)[keyof typeof ANALYTICS_EVENTS]
 
 /**
  * Property shape for each event, derived from the emitted object literals.

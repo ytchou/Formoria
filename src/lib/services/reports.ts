@@ -63,7 +63,7 @@ export type BrandReport = {
   brandHasOwner?: boolean
 }
 
-export const defaultUpdateReportStatusDeps: UpdateReportStatusDeps = {
+const defaultUpdateReportStatusDeps: UpdateReportStatusDeps = {
   async claim(reportId, update) {
     const { createServiceClient } = await import('@/lib/supabase/service')
     const supabase = createServiceClient()

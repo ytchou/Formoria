@@ -1,9 +1,9 @@
-export type LlmsLink = {
+type LlmsLink = {
   label: string
   url: string
 }
 
-export type LlmsCategory = {
+type LlmsCategory = {
   name: string
   nameZh: string
   url: string
