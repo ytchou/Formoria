@@ -384,7 +384,7 @@ export type UpdateModerationFlagStatusDeps = {
   ) => Promise<{ data: { id: string } | null; error: unknown }>;
 };
 
-export const defaultUpdateModerationFlagStatusDeps: UpdateModerationFlagStatusDeps = {
+const defaultUpdateModerationFlagStatusDeps: UpdateModerationFlagStatusDeps = {
   async claim(flagId, update) {
     const supabase = createModerationClient();
     const { data, error } = await supabase

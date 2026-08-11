@@ -53,7 +53,7 @@ const VALID_PRODUCT_TYPES = new Set<string>(
  * Validates against the real L1 slug list. Anything else — absent, null, a made
  * up slug, a Chinese category name — is undefined, never a rejection.
  */
-export function parseDescriptionProductType(raw: unknown): string | undefined {
+function parseDescriptionProductType(raw: unknown): string | undefined {
   if (typeof raw !== "string") return undefined;
   const trimmed = raw.trim();
   return VALID_PRODUCT_TYPES.has(trimmed) ? trimmed : undefined;
@@ -80,7 +80,7 @@ export type ListingVerdict = {
  * verdict string is a model error, and the correct fallback is "no opinion"
  * (which the consumer treats as `list`), not a discarded extraction.
  */
-export function parseListingVerdict(raw: unknown): ListingVerdict | undefined {
+function parseListingVerdict(raw: unknown): ListingVerdict | undefined {
   if (typeof raw !== "object" || raw === null || Array.isArray(raw))
     return undefined;
   const listing = raw as Record<string, unknown>;

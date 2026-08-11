@@ -81,7 +81,7 @@ export function classifyQuery(raw: string): QueryClassification {
   }
 }
 
-export const LANDING_PAGE_TYPES = [...PAGE_TYPES, 'event', 'other/static'] as const
+const LANDING_PAGE_TYPES = [...PAGE_TYPES, 'event', 'other/static'] as const
 
 export type LandingPageType = (typeof LANDING_PAGE_TYPES)[number]
 

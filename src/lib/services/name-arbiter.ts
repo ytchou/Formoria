@@ -54,7 +54,7 @@ type UnknownRecord = Record<string, unknown>;
  * every call in the 2026-08-03 DEV-1321 eval (0/26 verdicts). Never reintroduce
  * a bare-array contract here or in NAME_ARBITER_SYSTEM_PROMPT.
  */
-export const NAME_ARBITRATION_SCHEMA = {
+const NAME_ARBITRATION_SCHEMA = {
   name: "name_arbitration",
   schema: {
     type: "object",

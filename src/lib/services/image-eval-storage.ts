@@ -1,8 +1,8 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { auditedCall } from "@/lib/audit";
 
-export const IMAGE_EVAL_BUCKET = "image-eval" as const;
-export const IMAGE_EVAL_SIGNED_URL_SECONDS = 60 * 60;
+const IMAGE_EVAL_BUCKET = "image-eval" as const;
+const IMAGE_EVAL_SIGNED_URL_SECONDS = 60 * 60;
 
 export async function uploadImageEvalAsset(
   path: string,

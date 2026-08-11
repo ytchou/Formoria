@@ -107,7 +107,7 @@ export type ReviewEvidenceBatchDeps = {
   ) => Promise<ReviewEvidenceResult>
 }
 
-export const MAX_BULK_EVIDENCE = 100
+const MAX_BULK_EVIDENCE = 100
 const MAX_EVIDENCE_ID_LENGTH = 64
 const INVALID_EVIDENCE_BATCH_ERROR = 'Invalid bulk evidence selection'
 
@@ -363,7 +363,7 @@ export async function reviewEvidence(
   )
 }
 
-export const defaultReviewEvidenceBatchDeps: ReviewEvidenceBatchDeps = {
+const defaultReviewEvidenceBatchDeps: ReviewEvidenceBatchDeps = {
   reviewOne: (id, decision, notes, ctx) =>
     reviewEvidence(id, decision, notes, ctx),
 }

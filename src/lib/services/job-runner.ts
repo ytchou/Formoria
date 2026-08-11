@@ -370,7 +370,7 @@ function parseStatus(value: unknown): BrandStatus | undefined {
  * names, so an unmapped `expansion` would silently shrink the run instead of
  * failing loudly.
  */
-export function normalizeLegacyEnrichPhase(phase: string): string {
+function normalizeLegacyEnrichPhase(phase: string): string {
   return phase === "expansion" ? "reputation" : phase;
 }
 
