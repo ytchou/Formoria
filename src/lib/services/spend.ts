@@ -102,6 +102,8 @@ type PageResult<T> = {
   error: { message: string } | null;
 };
 
+type SpendClient = ReturnType<typeof createServiceClient>;
+
 export async function loadAllPages<T>(
   loadPage: (
     from: number,
@@ -322,11 +324,15 @@ async function exactCount(
   return count ?? 0;
 }
 
-export async function loadSpendSnapshot(
-  supabase = createServiceClient(),
-  at = new Date(),
-): Promise<SpendSnapshotV1> {
-  const cycle = cycleForResetDay(at, 1);
+export async function loadSpendWindow(
+  supabase: SpendClient,
+  start: string,
+  end: string,
+): Promise<{
+  llmRows: LlmSpendRow[];
+  billableCallsByModel: Record<string, number>;
+  auditSpans: AuditSpanRow[];
+}> {
   const models = [
     ...new Set([...Object.values(LLM_MODELS), ...DEEPSEEK_MODELS]),
   ];
@@ -338,8 +344,8 @@ export async function loadSpendSnapshot(
           "id, model, cost_usd, prompt_tokens, completion_tokens, created_at",
           includeCount ? { count: "exact" } : {},
         )
-        .gte("created_at", cycle.start)
-        .lt("created_at", cycle.end)
+        .gte("created_at", start)
+        .lt("created_at", end)
         .in("model", models)
         .not("cost_usd", "is", null)
         .order("created_at", { ascending: true })
@@ -354,8 +360,8 @@ export async function loadSpendSnapshot(
           supabase
             .from("brand_ai_results")
             .select("id", { count: "exact", head: true })
-            .gte("created_at", cycle.start)
-            .lt("created_at", cycle.end)
+            .gte("created_at", start)
+            .lt("created_at", end)
             .eq("model", model)
             .not("raw_response", "is", null)
             .eq("raw_response->>ok", true),
@@ -370,8 +376,8 @@ export async function loadSpendSnapshot(
           "span_id, provider, kind, terminal_status, started_at",
           includeCount ? { count: "exact" } : {},
         )
-        .gte("started_at", cycle.start)
-        .lt("started_at", cycle.end)
+        .gte("started_at", start)
+        .lt("started_at", end)
         .in("provider", [...AUDITED_METER_PROVIDERS])
         .neq("kind", "service")
         .order("started_at", { ascending: true })
@@ -379,15 +385,33 @@ export async function loadSpendSnapshot(
         .range(from, to),
   );
 
-  const [pricedRows, billableEntries, auditSpans] = await Promise.all([
+  const [llmRows, billableEntries, auditSpans] = await Promise.all([
     pricedRowsRequest,
     Promise.all(billableCountRequests),
     auditSpansRequest,
   ]);
 
-  return buildSpendSnapshot({
-    llmRows: pricedRows,
+  return {
+    llmRows,
     billableCallsByModel: Object.fromEntries(billableEntries),
+    auditSpans,
+  };
+}
+
+export async function loadSpendSnapshot(
+  supabase = createServiceClient(),
+  at = new Date(),
+): Promise<SpendSnapshotV1> {
+  const cycle = cycleForResetDay(at, 1);
+  const { llmRows, billableCallsByModel, auditSpans } = await loadSpendWindow(
+    supabase,
+    cycle.start,
+    cycle.end,
+  );
+
+  return buildSpendSnapshot({
+    llmRows,
+    billableCallsByModel,
     auditSpans,
     at,
   });

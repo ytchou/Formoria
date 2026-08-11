@@ -1,0 +1,46 @@
+name: Formoria Spend Watch
+
+on:
+  schedule:
+    - cron: "30 23 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  spend-watch:
+    name: Daily spend report
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: "Setup — checkout"
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: "Setup — pnpm"
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - name: "Setup — Node.js"
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: "Setup — install once"
+        run: pnpm install --frozen-lockfile
+      - name: "Setup — credentials"
+        env:
+          FORMORIA_RAILWAY_URL: ${{ vars.FORMORIA_RAILWAY_URL }}
+          ORIGIN_SECRET: ${{ secrets.ORIGIN_SECRET }}
+          SLACK_HEALTH_WEBHOOK_URL: ${{ secrets.SLACK_HEALTH_WEBHOOK_URL }}
+        run: |
+          set -euo pipefail
+          for name in FORMORIA_RAILWAY_URL ORIGIN_SECRET SLACK_HEALTH_WEBHOOK_URL; do
+            test -n "${!name:-}" || { echo "Missing required credential: $name" >&2; exit 1; }
+          done
+      - name: "Run spend report"
+        env:
+          FORMORIA_RAILWAY_URL: ${{ vars.FORMORIA_RAILWAY_URL }}
+          ORIGIN_SECRET: ${{ secrets.ORIGIN_SECRET }}
+          SLACK_HEALTH_WEBHOOK_URL: ${{ secrets.SLACK_HEALTH_WEBHOOK_URL }}
+        run: pnpm exec tsx scripts/spend-watch/report.ts
