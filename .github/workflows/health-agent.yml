@@ -575,7 +575,13 @@ jobs:
             [[ -f "$file" ]] || continue
             jq -c '.records[]?' "$file" >> "$HEALTH_ARTIFACT_DIR/audit.jsonl"
           done
-          [[ -f "$HEALTH_ARTIFACT_DIR/initial-audit.jsonl" ]] && cat "$HEALTH_ARTIFACT_DIR/initial-audit.jsonl" >> "$HEALTH_ARTIFACT_DIR/audit.jsonl"
+          # Not `[[ -f … ]] && cat …`: as the last command under `bash -e` a
+          # false test fails the whole step. The file is absent whenever the run
+          # short-circuits (duplicate logical day), which is exactly when the
+          # artifact matters most.
+          if [[ -f "$HEALTH_ARTIFACT_DIR/initial-audit.jsonl" ]]; then
+            cat "$HEALTH_ARTIFACT_DIR/initial-audit.jsonl" >> "$HEALTH_ARTIFACT_DIR/audit.jsonl"
+          fi
       - name: "Stage 5 · Upload health run"
         id: upload
         if: always() && steps.artifact.outcome == 'success'

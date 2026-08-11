@@ -1609,14 +1609,32 @@ export function repairClaimLimit(environment: Environment = process.env): number
 }
 
 /**
- * Most severe first, then by fingerprint so a truncated claim is deterministic
- * rather than an arbitrary slice of whatever order the detectors emitted.
- * HEALTH_SEVERITIES is declared ascending, so a higher index is more severe.
+ * A finding the repair stage can actually act on. `buildRepairSnapshot` drops
+ * anything without tracked `changedFiles`, so a claim spent on one of these
+ * produces an empty snapshot and no PR — while still burning an attempt.
+ */
+function repairable(finding: HealthFinding): boolean {
+  return (finding.changedFiles?.length ?? 0) > 0;
+}
+
+/**
+ * Repairable first, then most severe, then by fingerprint so a truncated claim
+ * is deterministic rather than an arbitrary slice of whatever order the
+ * detectors emitted. HEALTH_SEVERITIES is declared ascending, so a higher index
+ * is more severe.
+ *
+ * Repairability outranks severity because the claim budget is a *repair*
+ * budget. Severity alone put 24 `medium` link findings — data cleanups with no
+ * changedFiles, unrepairable by construction — ahead of 131 `medium` quality
+ * findings on nothing but `"link:" < "quality:"`, so every run filled its cap
+ * with work the repair stage would discard and opened no PR at all.
  */
 function severityOrdered(
   findings: readonly HealthFinding[],
 ): HealthFinding[] {
   return [...findings].sort((a, b) => {
+    const fixable = Number(repairable(b)) - Number(repairable(a));
+    if (fixable !== 0) return fixable;
     const rank =
       HEALTH_SEVERITIES.indexOf(b.severity) -
       HEALTH_SEVERITIES.indexOf(a.severity);
@@ -2389,6 +2407,12 @@ export async function enqueueAndClaimPolicyBatches(
     skippedActions.push(
       `claim_limit:${claimable.length}/${eligible.length}`,
     );
+  }
+  // A claim of only unrepairable findings ends the run with no PR and no
+  // explanation. Name it in the report so the next empty run is one grep away.
+  const repairableClaimed = claimable.filter(repairable).length;
+  if (repairableClaimed === 0 && claimable.length > 0) {
+    skippedActions.push(`claim_unrepairable:${claimable.length}`);
   }
   const automaticFingerprints = claimable
     .filter(({ mergePolicy }) => mergePolicy === "automatic")
