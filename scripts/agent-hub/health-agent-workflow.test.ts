@@ -8,6 +8,8 @@ import * as prettier from "prettier";
 import { afterEach, describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
 
+import { repairClaimLimit } from "../health-agent/orchestrator";
+
 const execFileAsync = promisify(execFile);
 const workflowPath = ".github/workflows/health-agent.yml";
 const temporaryDirectories: string[] = [];
@@ -113,6 +115,33 @@ describe("unified health-agent workflow contract", () => {
       });
 
     expect(offenders).toEqual([]);
+  });
+
+  it("gives the repair agent enough turns for a full claim", async () => {
+    // Run 31452751135 claimed 25 findings against a 40-turn budget and died on
+    // `error_max_turns` at turn 41 with the repair half-applied. Every finding
+    // costs at least a Read and an Edit, so the budget has to scale with
+    // HEALTH_REPAIR_CLAIM_LIMIT or raising the cap silently starves the agent.
+    const workflow = parseYaml(await readFile(workflowPath, "utf8")) as {
+      jobs: {
+        "nightly-health": {
+          steps: Array<{ name?: string; with?: { claude_args?: string } }>;
+        };
+      };
+    };
+
+    const repairSteps = workflow.jobs["nightly-health"].steps.filter((step) =>
+      step.name?.includes("repair cycle"),
+    );
+    expect(repairSteps.length).toBeGreaterThan(0);
+
+    for (const step of repairSteps) {
+      const turns = Number(
+        /--max-turns\s+(\d+)/.exec(step.with?.claude_args ?? "")?.[1],
+      );
+      // Read + Edit per finding, plus orientation and a verification pass.
+      expect(turns).toBeGreaterThanOrEqual(repairClaimLimit({}) * 4);
+    }
   });
 
   it("validates repairs against the claim, not the whole repository", async () => {
