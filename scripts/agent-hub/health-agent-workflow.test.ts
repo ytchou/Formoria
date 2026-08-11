@@ -87,6 +87,34 @@ async function runProductMerge(
 }
 
 describe("unified health-agent workflow contract", () => {
+  it("passes --output to every workflow-runtime command", async () => {
+    // The CLI builds its input object with `outputPath: requiredArgument(argv,
+    // "--output")` for *every* command, before dispatch — so a step that omits
+    // it dies with `invalid_runtime_input` no matter what the command needs.
+    // That is how the DEV-1429 release-claims step shipped broken: it threw
+    // before reaching its handler, the canary stayed leased, and the failure
+    // only showed up in the step log.
+    const workflow = parseYaml(await readFile(workflowPath, "utf8")) as {
+      jobs: {
+        "nightly-health": { steps: Array<{ name?: string; run?: string }> };
+      };
+    };
+
+    const offenders = workflow.jobs["nightly-health"].steps
+      .filter((step) => step.run?.includes("workflow-runtime.ts"))
+      .flatMap((step) => {
+        // One step may chain several runtime invocations.
+        const invocations = (step.run ?? "")
+          .split("workflow-runtime.ts")
+          .slice(1);
+        return invocations.some((invocation) => !invocation.includes("--output"))
+          ? [step.name ?? "(unnamed step)"]
+          : [];
+      });
+
+    expect(offenders).toEqual([]);
+  });
+
   it("admits before collection and gates duplicate replays without workflow-wide cancellation", async () => {
     const workflow = await readFile(workflowPath, "utf8");
     expect(workflow).not.toContain("concurrency:");
