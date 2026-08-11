@@ -152,14 +152,14 @@ export const keywordClusterSchema = keywordClusterShape.superRefine((row, ctx) =
   }
 })
 
-export const unmappedBacklogRowSchema = z.object({
+const unmappedBacklogRowSchema = z.object({
   slug: z.string().min(1),
   brand_count: z.number().int().min(0),
   composite: z.enum(COMPOSITES).optional(),
   notes: z.string().optional(),
 }).strict()
 
-export const keywordMapSchema = z.object({
+const keywordMapSchema = z.object({
   version: z.union([z.number(), z.string()]).optional(),
   generated_at: z.string().optional(),
   source: z.string().optional(),

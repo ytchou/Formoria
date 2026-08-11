@@ -932,7 +932,7 @@ function parseJobParams(params: Json | null): CurationJobParams {
  * already carries an explicit, pre-filtered target list, so a stale limit would
  * silently truncate that list instead of capping a broad scan.
  */
-export function rerunJobParams(
+function rerunJobParams(
   params: Json | null,
   options?: { overwrite?: boolean },
 ): CurationJobParams {

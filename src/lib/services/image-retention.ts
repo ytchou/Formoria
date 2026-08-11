@@ -193,4 +193,3 @@ export async function purgeExpiredClassifierJunk(
   )
 }
 
-export { RETENTION_MS, retentionCutoff }

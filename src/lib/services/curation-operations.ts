@@ -189,7 +189,7 @@ const LLM_BREAKER_CONSECUTIVE_LIMIT = 3;
  * drained. `runJob` identifies it to sweep the job's untouched targets to
  * `cancelled` before finalizing the job as `failed`; nothing else catches it.
  */
-export class LlmCircuitBreakerError extends Error {
+class LlmCircuitBreakerError extends Error {
   constructor(consecutiveFailures: number) {
     super(
       `LLM circuit breaker tripped after ${consecutiveFailures} consecutive provider failures — remaining targets were not attempted`,
@@ -217,7 +217,7 @@ function delay(ms: number): Promise<void> {
   });
 }
 
-export { ENRICH_CHUNK_SIZE, mapWithConcurrency };
+export { mapWithConcurrency };
 
 export { ENRICH_PHASES };
 

@@ -941,7 +941,7 @@ export function validateCorrectionBatch(
   });
 }
 
-export const defaultReviewCorrectionsDeps: ReviewCorrectionsDeps = {
+const defaultReviewCorrectionsDeps: ReviewCorrectionsDeps = {
   async fetchPendingBrandIds(ids) {
     const supabase = createServiceClient();
     const { data, error } = await supabase

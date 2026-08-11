@@ -27,7 +27,7 @@ export const BRAND_IMAGE_PAGE_SIZE = 1_000;
  * flat count is a safe proxy for them: 200 ids is ~7.4 KB of query string,
  * comfortably inside the usual 8-16 KB server limits.
  */
-export const BRAND_IMAGE_IN_FILTER_CHUNK_SIZE = 200;
+const BRAND_IMAGE_IN_FILTER_CHUNK_SIZE = 200;
 
 /**
  * Budget for a `.in('url', ...)` filter, in characters.
@@ -45,7 +45,7 @@ export const BRAND_IMAGE_IN_FILTER_CHUNK_SIZE = 200;
  * hydrate: move the hero lookup into a database view or RPC keyed on
  * `(brand_id, url)` so neither list has to travel in the query string.
  */
-export const BRAND_IMAGE_URL_FILTER_BUDGET = 2_000;
+const BRAND_IMAGE_URL_FILTER_BUDGET = 2_000;
 
 /** One request's worth of filters. `urls`, when present, narrows the rows further. */
 export type BrandImageBatch = {

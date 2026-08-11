@@ -8,7 +8,7 @@ import { resolveUrl } from '../fetch-guards'
 
 // Default cap for the generic web path. Callers that pull from a source with
 // no per-image cost (platform adapters) pass a larger explicit limit instead.
-export const MAX_GALLERY_IMAGES = 5
+const MAX_GALLERY_IMAGES = 5
 
 /**
  * cheerio does not re-export domhandler's node types, so derive the node type

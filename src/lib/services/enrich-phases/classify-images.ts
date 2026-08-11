@@ -182,12 +182,12 @@ export const PORTRAIT_QUALITY_PRIOR = 6;
  * Images a human picked. The classifier must never retag, reorder away, or
  * delete these.
  *
- * Exported alongside `isExemptSource` because the hero re-sort scripts under
- * `scripts/resort-heroes/` need the identical rule; an unexported constant
- * forced a hand-copied `['owner', 'admin']` literal over there, which is a
- * silent divergence waiting to reorder somebody's hand-picked hero.
+ * The hero re-sort scripts under `scripts/resort-heroes/` need the identical
+ * rule; they get it through the exported `isExemptSource` function rather
+ * than this constant, so a hand-copied `['owner', 'admin']` literal never
+ * has to diverge and reorder somebody's hand-picked hero.
  */
-export const EXEMPT_SOURCES = new Set(["owner", "admin"]);
+const EXEMPT_SOURCES = new Set(["owner", "admin"]);
 
 /**
  * sort_order doubles as the hero designation (position 0) and as the gallery

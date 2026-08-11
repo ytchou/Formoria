@@ -2,7 +2,6 @@ import type { Brand, BrandFlatLinkColumns } from '@/lib/types'
 import type { ScrapedBrandData } from '@/lib/types/scraper'
 export {
   LINK_FIELDS,
-  LINK_FIELD_TO_COLUMN,
   type LinkColumn,
   type LinkField,
 } from '@/lib/types/link-fields'
@@ -218,7 +217,7 @@ export function isMarketplaceSearchUrl(url: string): boolean {
  * trailing slash, a duplicated slash, and a query string are all noise, and the
  * rules that follow are the last gate before a value is published as a link.
  */
-export function urlPathSegments(url: string): string[] | null {
+function urlPathSegments(url: string): string[] | null {
   try {
     return new URL(url).pathname.split('/').filter(Boolean)
   } catch {
