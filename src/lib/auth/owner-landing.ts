@@ -19,7 +19,7 @@ function stripLocalePrefix(pathname: string): string {
  * True when an unlocalized-or-localized relative target points at a surface the
  * owner-features flag hides. Query string and hash are ignored.
  */
-export function isGatedOwnerPath(target: string): boolean {
+function isGatedOwnerPath(target: string): boolean {
   const suffixIndex = target.search(/[?#]/)
   const pathOnly = suffixIndex === -1 ? target : target.slice(0, suffixIndex)
   const path = stripLocalePrefix(pathOnly).replace(/\/+$/, '') || '/'

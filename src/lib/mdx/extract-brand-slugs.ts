@@ -54,7 +54,7 @@ const FENCE_LINE = /^ {0,3}(`{3,}|~{3,})/
  * swallows the rest of the file, which is the safe direction — an unterminated
  * block is malformed content, and under-counting beats inventing references.
  */
-export function stripFencedCodeBlocks(source: string): string {
+function stripFencedCodeBlocks(source: string): string {
   const kept: string[] = []
   let openFence: string | null = null
 

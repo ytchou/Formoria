@@ -24,7 +24,7 @@ function nonEmptyString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim().length > 0 ? value : undefined
 }
 
-export function readDirectoryLandingCopy(
+function readDirectoryLandingCopy(
   translator: TranslationShape,
   categorySlug?: string,
   subcategorySlug?: string,

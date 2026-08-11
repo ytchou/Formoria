@@ -1,4 +1,4 @@
-export const PROVIDERS = {
+const PROVIDERS = {
   serper: ["search", "images", "maps"],
   openai: ["chat_completions"],
   deepseek: ["chat_completions", "balance"],

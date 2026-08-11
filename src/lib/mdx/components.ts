@@ -211,5 +211,3 @@ export function createStoryComponentMap({ currentStorySlug }: { currentStorySlug
       }),
   }
 }
-
-export const storyComponentMap = createStoryComponentMap()
