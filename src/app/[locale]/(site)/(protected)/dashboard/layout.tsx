@@ -10,18 +10,15 @@ import { DashboardEmptyState } from '@/components/dashboard/dashboard-empty-stat
 type DashboardLayoutProps = {
   children: ReactNode
   params: Promise<{ locale: string }>
-  searchParams?: Promise<{ brand?: string }>
 }
 
 export default async function DashboardLayout({
   children,
   params,
-  searchParams,
 }: DashboardLayoutProps) {
   const { locale } = await params
   setRequestLocale(locale)
 
-  const resolvedSearchParams = searchParams ? await searchParams : {}
   const supabase = await createClient()
   const {
     data: { user },
@@ -40,11 +37,7 @@ export default async function DashboardLayout({
     notFound()
   }
 
-  const ctx = await resolveDashboardBrand(
-    user.id,
-    user.email ?? null,
-    resolvedSearchParams.brand,
-  )
+  const ctx = await resolveDashboardBrand(user.id, user.email ?? null)
 
   if (!ctx) {
     return <DashboardEmptyState />

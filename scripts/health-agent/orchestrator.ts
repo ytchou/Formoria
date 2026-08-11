@@ -1627,23 +1627,19 @@ function repairable(finding: HealthFinding): boolean {
 }
 
 /**
- * Repairable first, then most severe, then by fingerprint so a truncated claim
- * is deterministic rather than an arbitrary slice of whatever order the
- * detectors emitted. HEALTH_SEVERITIES is declared ascending, so a higher index
- * is more severe.
+ * Most severe first, then by fingerprint so a truncated claim is deterministic
+ * rather than an arbitrary slice of whatever order the detectors emitted.
+ * HEALTH_SEVERITIES is declared ascending, so a higher index is more severe.
  *
- * Repairability outranks severity because the claim budget is a *repair*
- * budget. Severity alone put 24 `medium` link findings — data cleanups with no
- * changedFiles, unrepairable by construction — ahead of 131 `medium` quality
- * findings on nothing but `"link:" < "quality:"`, so every run filled its cap
- * with work the repair stage would discard and opened no PR at all.
+ * This does not rank repairable findings first. It used to, back when the whole
+ * eligible set was sorted and sliced; the caller now filters to repairable
+ * findings before sorting, so the tiebreak could never fire and its rationale
+ * has moved to that filter.
  */
 function severityOrdered(
   findings: readonly HealthFinding[],
 ): HealthFinding[] {
   return [...findings].sort((a, b) => {
-    const fixable = Number(repairable(b)) - Number(repairable(a));
-    if (fixable !== 0) return fixable;
     const rank =
       HEALTH_SEVERITIES.indexOf(b.severity) -
       HEALTH_SEVERITIES.indexOf(a.severity);
