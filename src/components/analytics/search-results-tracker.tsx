@@ -21,7 +21,7 @@ export const SEARCH_SETTLE_MS = 800
  * for a shorter query would report a zero-result search that never ran — and the
  * first keystroke of every Chinese search is a single ideograph.
  */
-export const MIN_SEARCH_QUERY_LENGTH = 2
+const MIN_SEARCH_QUERY_LENGTH = 2
 
 /**
  * Module-scoped rather than a ref: client-side navigation between directory URLs

@@ -1,6 +1,6 @@
-export const DEFAULT_REDACTION_MAX_BYTES = 64 * 1024;
-export const REDACTED_VALUE = "[redacted]";
-export const CIRCULAR_VALUE = "[circular]";
+const DEFAULT_REDACTION_MAX_BYTES = 64 * 1024;
+const REDACTED_VALUE = "[redacted]";
+const CIRCULAR_VALUE = "[circular]";
 
 /**
  * Matched as a SUBSTRING of the normalized key. A whole-string match missed

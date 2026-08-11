@@ -22,8 +22,6 @@ export const LLM_MODELS = {
 
 export type LlmModelKey = keyof typeof LLM_MODELS;
 
-export const DEFAULT_OPENAI_MODEL = LLM_MODELS.text;
-
 /**
  * Single source of truth for "which model is this process calling".
  *

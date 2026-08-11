@@ -1,7 +1,6 @@
 import { cn } from '@/lib/utils'
 import type { BrandStatus, SubmissionStatus } from '@/lib/types/brand'
 
-type Status = BrandStatus | SubmissionStatus
 type StatusConfig = { label: string; className: string }
 
 const submissionStatusConfig: Record<SubmissionStatus, StatusConfig> = {
@@ -46,13 +45,4 @@ export function BrandStatusBadge({ status }: { status: BrandStatus }) {
 
 export function SubmissionStatusBadge({ status }: { status: SubmissionStatus }) {
   return <StatusBadgeBase config={submissionStatusConfig[status]} />
-}
-
-const statusConfig: Record<Status, StatusConfig> = {
-  ...submissionStatusConfig,
-  hidden: brandStatusConfig.hidden,
-}
-
-export function StatusBadge({ status }: { status: Status }) {
-  return <StatusBadgeBase config={statusConfig[status]} />
 }

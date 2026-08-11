@@ -20,7 +20,7 @@ export function hasObservedVerifiedHeader(): boolean {
   return observedVerifiedHeader
 }
 
-export function isCrawlerVerificationShadowMode(): boolean {
+function isCrawlerVerificationShadowMode(): boolean {
   const value = process.env.VERIFIED_CRAWLER_SHADOW?.trim().toLowerCase()
   return value === undefined || !['off', '0', 'false'].includes(value)
 }

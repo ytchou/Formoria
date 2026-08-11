@@ -43,7 +43,7 @@ export const FAQ_PRESETS: readonly FaqPreset[] = [
  * predicate; `price-positioning` is the case that does not, because its prompt
  * is comparative and needs peer stats the request path never loads.
  */
-export function isFaqPresetAuthorable(
+function isFaqPresetAuthorable(
   preset: FaqPreset,
   ctx: FaqBrandContext,
 ): boolean {
