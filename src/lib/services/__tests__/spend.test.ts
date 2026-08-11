@@ -21,6 +21,8 @@ function service(
     vendor: "Example provider",
     category: "tooling",
     criticality: "back-office",
+    operationalSection: "back-office",
+    operationalKind: "dependency",
     envVars: [],
     status: "active",
     plan: {

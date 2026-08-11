@@ -118,7 +118,7 @@ describe("executive health", () => {
       (entry) => entry.probe === "executive-health",
     );
 
-    expect(checks).toHaveLength(13);
+    expect(checks).toHaveLength(11);
     expect(new Set(checks.map((check) => check.id))).toEqual(
       new Set(probedEntries.map((entry) => entry.id)),
     );
@@ -281,15 +281,38 @@ describe("executive health", () => {
   it("snapshot carries an inventory array", async () => {
     const snapshot = await loadExecutiveHealth();
 
-    expect(snapshot.inventory).toHaveLength(SERVICE_REGISTRY.length);
+    expect(snapshot.inventory).toHaveLength(
+      SERVICE_REGISTRY.filter((entry) => entry.operationalSection !== null)
+        .length,
+    );
+    expect(snapshot.inventory.map((entry) => entry.operationalSection)).toEqual(
+      expect.arrayContaining([
+        "production",
+        "back-office",
+        "agents",
+        "deprecated",
+      ]),
+    );
   });
 
   it("unprobed services do not appear in services[]", async () => {
     const snapshot = await loadExecutiveHealth();
     const probedIds = new Set(defaultChecks().map((check) => check.id));
 
-    expect(snapshot.services).toHaveLength(13);
+    expect(snapshot.services).toHaveLength(11);
     expect(snapshot.inventory.length).toBeGreaterThan(snapshot.services.length);
+    expect(
+      snapshot.inventory.some((entry) =>
+        [
+          "linear",
+          "github",
+          "google-maps",
+          "agent-hub",
+          "anthropic",
+          "indexnow",
+        ].includes(entry.id),
+      ),
+    ).toBe(false);
     expect(
       snapshot.services.every((service) => probedIds.has(service.id)),
     ).toBe(true);

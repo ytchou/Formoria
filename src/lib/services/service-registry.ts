@@ -13,6 +13,10 @@ export type ServiceCategory =
 export type ServiceCriticality =
   "customer-critical" | "customer-flow" | "back-office" | "dev-tooling";
 
+export type OperationalSection =
+  "production" | "back-office" | "agents" | "deprecated" | null;
+export type OperationalKind = "dependency" | "worker" | "alert";
+
 export type ServiceStatus = "active" | "unwired" | "dormant";
 export type ServicePlanKind = "free" | "subscription" | "metered" | "usage";
 export type ServiceMeter = "llm-tokens" | "serper-credits" | "resend-sends";
@@ -38,6 +42,8 @@ export interface ServiceEntry {
   vendor: string;
   category: ServiceCategory;
   criticality: ServiceCriticality;
+  operationalSection: OperationalSection;
+  operationalKind: OperationalKind;
   envVars: readonly string[];
   status: ServiceStatus;
   plan: ServicePlan;
@@ -68,6 +74,8 @@ export interface InventoryEntry {
   vendor: string;
   category: ServiceCategory;
   criticality: ServiceCriticality;
+  operationalSection: Exclude<OperationalSection, null>;
+  operationalKind: OperationalKind;
   status: ServiceStatus;
   plan: InventoryPlan;
   quota: InventoryQuota | null;
@@ -102,6 +110,8 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     vendor: "Formoria",
     category: "hosting",
     criticality: "customer-critical",
+    operationalSection: "production",
+    operationalKind: "dependency",
     envVars: [],
     status: "active",
     plan: {
@@ -121,6 +131,8 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     vendor: "Supabase",
     category: "database",
     criticality: "customer-critical",
+    operationalSection: "production",
+    operationalKind: "dependency",
     envVars: [
       "NEXT_PUBLIC_SUPABASE_URL",
       "NEXT_PUBLIC_SUPABASE_ANON_KEY",
@@ -154,6 +166,8 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     vendor: "OpenAI",
     category: "ai",
     criticality: "back-office",
+    operationalSection: "back-office",
+    operationalKind: "dependency",
     envVars: ["OPENAI_API_KEY"],
     status: "active",
     plan: {
@@ -174,6 +188,8 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     vendor: "DeepSeek",
     category: "ai",
     criticality: "back-office",
+    operationalSection: "deprecated",
+    operationalKind: "dependency",
     envVars: ["DEEPSEEK_API_KEY"],
     status: "dormant",
     plan: {
@@ -193,6 +209,8 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     vendor: "Serper",
     category: "search",
     criticality: "back-office",
+    operationalSection: "back-office",
+    operationalKind: "dependency",
     envVars: ["SERPER_API_KEY"],
     status: "active",
     plan: {
@@ -218,6 +236,8 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     vendor: "Resend",
     category: "email",
     criticality: "customer-flow",
+    operationalSection: "production",
+    operationalKind: "dependency",
     envVars: ["RESEND_API_KEY", "E2E_RESEND_API_KEY"],
     status: "active",
     plan: {
@@ -243,6 +263,8 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     vendor: "Cloudflare",
     category: "security",
     criticality: "customer-flow",
+    operationalSection: "production",
+    operationalKind: "dependency",
     envVars: ["NEXT_PUBLIC_TURNSTILE_SITE_KEY", "TURNSTILE_SECRET_KEY"],
     status: "active",
     plan: {
@@ -260,6 +282,8 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     vendor: "Cloudflare",
     category: "security",
     criticality: "customer-critical",
+    operationalSection: "production",
+    operationalKind: "dependency",
     envVars: ["CF_ORIGIN_SECRET"],
     status: "active",
     plan: {
@@ -276,6 +300,8 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     vendor: "Upstash",
     category: "database",
     criticality: "customer-flow",
+    operationalSection: "production",
+    operationalKind: "dependency",
     envVars: ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"],
     status: "active",
     plan: {
@@ -299,6 +325,8 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     vendor: "PostHog",
     category: "analytics",
     criticality: "back-office",
+    operationalSection: "back-office",
+    operationalKind: "dependency",
     envVars: [
       "NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN",
       "NEXT_PUBLIC_POSTHOG_HOST",
@@ -330,6 +358,8 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     vendor: "Sentry",
     category: "observability",
     criticality: "back-office",
+    operationalSection: "back-office",
+    operationalKind: "dependency",
     envVars: [
       "NEXT_PUBLIC_SENTRY_DSN",
       "SENTRY_DSN",
@@ -355,6 +385,8 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     vendor: "Google",
     category: "analytics",
     criticality: "back-office",
+    operationalSection: "back-office",
+    operationalKind: "dependency",
     envVars: ["NEXT_PUBLIC_GA_ID"],
     status: "active",
     plan: {
@@ -371,6 +403,8 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     vendor: "Google",
     category: "search",
     criticality: "back-office",
+    operationalSection: "back-office",
+    operationalKind: "dependency",
     envVars: [
       "GOOGLE_SEARCH_CONSOLE_SERVICE_ACCOUNT_JSON",
       "GOOGLE_SEARCH_CONSOLE_PROPERTY",
@@ -390,6 +424,8 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     vendor: "Slack",
     category: "observability",
     criticality: "back-office",
+    operationalSection: "agents",
+    operationalKind: "alert",
     envVars: ["SLACK_FORMORIA_WEBHOOK_URL"],
     status: "active",
     plan: {
@@ -406,6 +442,8 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     vendor: "Slack",
     category: "observability",
     criticality: "back-office",
+    operationalSection: "agents",
+    operationalKind: "alert",
     envVars: ["SLACK_HEALTH_WEBHOOK_URL"],
     status: "active",
     plan: {
@@ -422,6 +460,8 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     vendor: "Railway",
     category: "hosting",
     criticality: "customer-critical",
+    operationalSection: "production",
+    operationalKind: "dependency",
     envVars: ["FORMORIA_RAILWAY_URL"],
     status: "active",
     plan: {
@@ -437,6 +477,8 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     vendor: "Railway",
     category: "hosting",
     criticality: "back-office",
+    operationalSection: "agents",
+    operationalKind: "worker",
     envVars: ["CURATION_WORKER_CONTROL_TOKEN", "RAILWAY_GIT_COMMIT_SHA"],
     status: "active",
     plan: {
@@ -453,6 +495,8 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     vendor: "Taiwan Ministry of Economic Affairs",
     category: "registry",
     criticality: "customer-flow",
+    operationalSection: "production",
+    operationalKind: "dependency",
     envVars: [],
     status: "active",
     plan: {
@@ -472,6 +516,8 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     vendor: "Linear",
     category: "tooling",
     criticality: "back-office",
+    operationalSection: null,
+    operationalKind: "dependency",
     envVars: [
       "LINEAR_OAUTH_ACCESS_TOKEN",
       "LINEAR_OAUTH_CLIENT_ID",
@@ -487,7 +533,6 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
       asOf: TODAY,
       sourceUrl: "https://linear.app/pricing",
     },
-    probe: "executive-health",
     dashboardUrl: "https://linear.app/",
   },
   {
@@ -496,6 +541,8 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     vendor: "GitHub",
     category: "tooling",
     criticality: "back-office",
+    operationalSection: null,
+    operationalKind: "dependency",
     envVars: [
       "GITHUB_TOKEN",
       "HEALTH_AGENT_GITHUB_APP_ID",
@@ -509,7 +556,6 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
       asOf: TODAY,
       sourceUrl: "https://github.com/pricing",
     },
-    probe: "executive-health",
     dashboardUrl: "https://github.com/ytchou/Formoria",
   },
   {
@@ -518,6 +564,8 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     vendor: "Anthropic",
     category: "ai",
     criticality: "dev-tooling",
+    operationalSection: null,
+    operationalKind: "dependency",
     envVars: ["CLAUDE_CODE_OAUTH_TOKEN"],
     status: "active",
     plan: {
@@ -533,6 +581,8 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     vendor: "Formoria",
     category: "tooling",
     criticality: "dev-tooling",
+    operationalSection: null,
+    operationalKind: "dependency",
     envVars: [
       "AGENT_HUB_INGEST_URL",
       "AGENT_HUB_INGEST_TOKEN",
@@ -554,6 +604,8 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     vendor: "Microsoft Bing",
     category: "search",
     criticality: "back-office",
+    operationalSection: null,
+    operationalKind: "dependency",
     envVars: ["INDEXNOW_KEY"],
     status: "unwired",
     plan: {
@@ -571,6 +623,8 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
     vendor: "Google",
     category: "tooling",
     criticality: "customer-flow",
+    operationalSection: null,
+    operationalKind: "dependency",
     envVars: ["NEXT_PUBLIC_GOOGLE_MAPS_API_KEY"],
     status: "unwired",
     plan: {
@@ -584,13 +638,19 @@ export const SERVICE_REGISTRY: readonly ServiceEntry[] = [
   },
 ];
 
-export function toInventoryProjection(entry: ServiceEntry): InventoryEntry {
+export function toInventoryProjection(
+  entry: ServiceEntry,
+): InventoryEntry | null {
+  if (entry.operationalSection === null) return null;
+
   return {
     id: entry.id,
     name: entry.name,
     vendor: entry.vendor,
     category: entry.category,
     criticality: entry.criticality,
+    operationalSection: entry.operationalSection,
+    operationalKind: entry.operationalKind,
     status: entry.status,
     plan: {
       kind: entry.plan.kind,

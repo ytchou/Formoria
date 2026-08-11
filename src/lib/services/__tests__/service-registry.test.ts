@@ -19,6 +19,18 @@ describe("service registry", () => {
     ).toBe(true);
   });
 
+  it("every entry declares an operational section and kind", () => {
+    expect(
+      SERVICE_REGISTRY.every(
+        (entry) =>
+          ["production", "back-office", "agents", "deprecated", null].includes(
+            entry.operationalSection,
+          ) &&
+          ["dependency", "worker", "alert"].includes(entry.operationalKind),
+      ),
+    ).toBe(true);
+  });
+
   it("probed entries declare env vars", () => {
     expect(
       SERVICE_REGISTRY.filter((entry) => entry.probe === "executive-health")
@@ -74,5 +86,45 @@ describe("service registry", () => {
     expect(projection).not.toHaveProperty("envVars");
     expect(projection).not.toHaveProperty("probe");
     expect(projection).not.toHaveProperty("meter");
+  });
+
+  it("projects the four visible sections and excludes governed hidden entries", () => {
+    const inventory = SERVICE_REGISTRY.map(toInventoryProjection).filter(
+      (entry): entry is NonNullable<typeof entry> => entry !== null,
+    );
+
+    expect(inventory.map((entry) => entry.operationalSection)).toEqual([
+      "production",
+      "production",
+      "back-office",
+      "deprecated",
+      "back-office",
+      "production",
+      "production",
+      "production",
+      "production",
+      "back-office",
+      "back-office",
+      "back-office",
+      "back-office",
+      "agents",
+      "agents",
+      "production",
+      "agents",
+      "production",
+    ]);
+    expect(inventory).toHaveLength(18);
+    expect(
+      inventory.some((entry) =>
+        [
+          "linear",
+          "github",
+          "google-maps",
+          "agent-hub",
+          "anthropic",
+          "indexnow",
+        ].includes(entry.id),
+      ),
+    ).toBe(false);
   });
 });
