@@ -136,7 +136,7 @@ export type EventExhibitorEntry = EventExhibitor & {
 /** Canonical Creative Expo zones surfaced by the interactive explorer. */
 const CREATIVE_EXPO_ZONE_CODES = ["K1", "K2", "K3", "S"] as const;
 
-export type CreativeExpoZone = (typeof CREATIVE_EXPO_ZONE_CODES)[number];
+type CreativeExpoZone = (typeof CREATIVE_EXPO_ZONE_CODES)[number];
 
 /**
  * A canonical exhibitor in a core zone, linked or not. The exhibitor list
@@ -400,7 +400,7 @@ export function eventExhibitorRowToDomain(
   };
 }
 
-export type EventExhibitorBrandJoinRow = {
+type EventExhibitorBrandJoinRow = {
   event_exhibitor_id: string | null;
   brands: { slug: string } | Array<{ slug: string }> | null;
 };

@@ -12,7 +12,7 @@ export type PersonalOsCurationRunsWindow = {
   end: string;
 };
 
-export type PersonalOsCurationRun = {
+type PersonalOsCurationRun = {
   id: string;
   runner: "curation-worker";
   source: "formoria";

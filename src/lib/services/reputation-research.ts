@@ -8,7 +8,7 @@ import {
 import type { ReputationSummary } from "@/lib/types/brand";
 import type { LlmCallCounts } from "@/lib/services/_shared/llm-call-outcome";
 
-export type ReputationResult = {
+type ReputationResult = {
   reputationSummary: ReputationSummary | null;
 };
 
