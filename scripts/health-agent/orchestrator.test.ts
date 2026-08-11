@@ -924,6 +924,68 @@ describe("queue mutation gates", () => {
     expect(result.skippedActions).toContain("claim_limit:10/45");
   });
 
+  it("spends the claim budget on findings the repair stage can act on", async () => {
+    // Reproduces run 31443830086 (2026-08-11): 24 link findings and 131 quality
+    // findings, all `medium`. Ordering by severity then fingerprint made
+    // "link:" < "quality:" decide the whole cap, so all 25 slots went to link
+    // findings — data cleanups with no changedFiles that buildRepairSnapshot
+    // discards. The snapshot came out empty, the repair step never fired, and
+    // the run reported "0 repaired; no repair PR created" while 131 repairable
+    // dead-code findings sat pending. Severity must not outrank repairability.
+    const findings = [
+      ...Array.from({ length: 24 }, (_, i) => ({
+        ...finding(`link:link-cleanup:${String(i).padStart(3, "0")}`),
+        severity: "medium" as const,
+      })),
+      ...Array.from({ length: 131 }, (_, i) => ({
+        ...finding(`quality:dead-code:${String(i).padStart(3, "0")}`),
+        changedFiles: ["src/lib/services/spend.ts"],
+        severity: "medium" as const,
+      })),
+    ];
+    const claim = vi.fn(async () => []);
+
+    const result = await enqueueAndClaimPolicyBatches(
+      { findings, leaseOwner: "run-starve", mode: "live" },
+      {
+        database: {
+          claimFindings: claim,
+          enqueueFindings: vi.fn(async () => undefined),
+        },
+      },
+      enabled,
+    );
+
+    const claimed = claim.mock.calls.flatMap(
+      (call) => (call as unknown as [string, string, string[]])[2],
+    );
+    expect(claimed).toHaveLength(25);
+    expect(claimed.every((f) => f.startsWith("quality:dead-code:"))).toBe(true);
+    expect(result.skippedActions).not.toContain("claim_unrepairable:25");
+  });
+
+  it("names a claim that no repair stage can act on", async () => {
+    // The failure mode above is silent otherwise: a green run, an empty PR set,
+    // and nothing in the report explaining why.
+    const findings = Array.from({ length: 3 }, (_, i) => ({
+      ...finding(`link:link-cleanup:${i}`),
+      severity: "medium" as const,
+    }));
+
+    const result = await enqueueAndClaimPolicyBatches(
+      { findings, leaseOwner: "run-unrepairable", mode: "live" },
+      {
+        database: {
+          claimFindings: vi.fn(async () => []),
+          enqueueFindings: vi.fn(async () => undefined),
+        },
+      },
+      enabled,
+    );
+
+    expect(result.skippedActions).toContain("claim_unrepairable:3");
+  });
+
   it("defaults the claim cap when the override is absent or nonsense", async () => {
     expect(repairClaimLimit({})).toBe(25);
     expect(repairClaimLimit({ HEALTH_REPAIR_CLAIM_LIMIT: "0" })).toBe(25);
