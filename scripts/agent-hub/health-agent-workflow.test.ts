@@ -115,6 +115,32 @@ describe("unified health-agent workflow contract", () => {
     expect(offenders).toEqual([]);
   });
 
+  it("validates repairs against the claim, not the whole repository", async () => {
+    // `pnpm knip` exits non-zero while any unused symbol remains anywhere in
+    // the repo, but a run claims at most HEALTH_REPAIR_CLAIM_LIMIT findings.
+    // Gating validation on it demanded a repo-wide clean bill of health for a
+    // scoped repair, so validate could not pass while a backlog existed —
+    // exactly when there is work to do. Run 31451295997 repaired 25 claimed
+    // quality findings and still failed here, so review and publish never ran.
+    const workflow = parseYaml(await readFile(workflowPath, "utf8")) as {
+      jobs: {
+        "nightly-health": { steps: Array<{ name?: string; run?: string }> };
+      };
+    };
+
+    const validateSteps = workflow.jobs["nightly-health"].steps.filter((step) =>
+      step.name?.includes("validate cycle"),
+    );
+    expect(validateSteps.length).toBeGreaterThan(0);
+
+    for (const step of validateSteps) {
+      const run = step.run ?? "";
+      // A repo-wide dead-code sweep as a pass/fail gate, in any form.
+      expect(run).not.toMatch(/(^|\s|&&\s*)pnpm (--silent )?knip\b/m);
+      expect(run).toContain("verify-claimed-findings.sh");
+    }
+  });
+
   it("admits before collection and gates duplicate replays without workflow-wide cancellation", async () => {
     const workflow = await readFile(workflowPath, "utf8");
     expect(workflow).not.toContain("concurrency:");
@@ -375,9 +401,11 @@ describe("unified health-agent workflow contract", () => {
     expect(workflow).not.toMatch(
       /steps\.review-[12]\.outcome == 'success' \|\|/,
     );
-    expect(workflow.match(/startswith\("quality:dead-code:"\)/g)).toHaveLength(
-      2,
-    );
+    // One re-check guard per validate cycle. Widened from
+    // `quality:dead-code:` to `quality:` so the same scoped verification also
+    // covers full-unit-suite findings — a claimed failing test must now be
+    // shown passing, not merely have `pnpm test` run somewhere in the step.
+    expect(workflow.match(/startswith\("quality:"\)/g)).toHaveLength(2);
     expect(workflow).toContain(
       "permissions:\n  contents: read\n  id-token: write\n  pull-requests: read",
     );
