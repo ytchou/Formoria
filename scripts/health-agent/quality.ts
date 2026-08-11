@@ -311,19 +311,27 @@ function parseKnipReport(
           suppressed += 1;
           continue;
         }
-        // repair.md forbids the agent from touching dependency manifests, so a
-        // manifest-scoped finding can never be repaired by it. Reporting it
-        // with an empty scope keeps it visible and ticketable while keeping it
-        // out of the repair claim — same contract as any other finding without
-        // changedFiles. Claiming these spent the budget on work the agent was
-        // instructed to refuse, and the refusal then read as a failed repair.
-        const manifestScoped =
+        // Kinds the repair agent cannot resolve, whatever it does. Reporting
+        // them with an empty scope keeps them visible and ticketable while
+        // keeping them out of the repair claim — the same contract every other
+        // finding without changedFiles follows. Claiming them spends the budget
+        // on work the agent must refuse, and the refusal then reads as a failed
+        // repair that discards the whole batch alongside it.
+        //
+        // - manifest kinds: repair.md forbids touching dependency manifests.
+        // - `files`: the fix is deleting the file, and the agent's allow-list
+        //   (Read, Edit, Write, Glob, Grep, TodoWrite, a few git/pnpm reads) has
+        //   no way to delete one. Emptying it does not help — knip still reports
+        //   an unused file. Run 31461399467 lost 24 good repairs to this single
+        //   finding, src/components/ui/accordion.tsx.
+        const agentCannotRepair =
           kind === "dependencies" ||
           kind === "devDependencies" ||
           kind === "optionalPeerDependencies" ||
           kind === "unlisted" ||
-          kind === "binaries";
-        const scopeCandidate = manifestScoped ? undefined : reportedFile;
+          kind === "binaries" ||
+          kind === "files";
+        const scopeCandidate = agentCannotRepair ? undefined : reportedFile;
         const changedFiles = trackedScope([scopeCandidate], trackedFiles);
         const identityFile = reportedFile ?? "package.json";
         findings.push(

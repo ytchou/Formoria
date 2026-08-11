@@ -222,8 +222,17 @@ describe("unified health-agent workflow contract", () => {
     ]) {
       expect(workflow).toContain(stage);
     }
-    expect(workflow).toContain('cron: "13 23 * * *"');
-    expect(workflow).toContain("expected_at");
+    // Pin the relationship, not the literal. #700 moved the cron into the
+    // morning window and this assertion still named the old time — the schedule
+    // is allowed to move, but `expected_at` computes the scheduling delay and
+    // has to move with it, which is the bug a hardcoded string cannot catch.
+    // (CI's unit-changed job scopes to changed files, so a workflow-only edit
+    // never runs this file.)
+    const cron = /- cron: "(\d+) (\d+) \* \* \*"/.exec(workflow);
+    expect(cron).not.toBeNull();
+    const expectedAt = /setUTCHours\((\d+),\s*(\d+),\s*0,\s*0\)/.exec(workflow);
+    expect(expectedAt).not.toBeNull();
+    expect([expectedAt?.[1], expectedAt?.[2]]).toEqual([cron?.[2], cron?.[1]]);
     expect(workflow).toContain("delay_seconds");
   });
 

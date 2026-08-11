@@ -138,6 +138,45 @@ describe("repository health", () => {
     expect(dependency?.changedFiles ?? []).toEqual([]);
   });
 
+  it("reports an unused file without offering it for repair", () => {
+    // The fix for a knip `files` finding is deleting the file, and the repair
+    // agent's allow-list has no tool that can delete one — emptying it leaves
+    // knip still reporting an unused file. Run 31461399467 exhausted both
+    // repair cycles on src/components/ui/accordion.tsx and discarded 24
+    // successful repairs along with it.
+    const result = evaluateQualityReports({
+      knipExitCode: 1,
+      knipReport: {
+        issues: [
+          {
+            file: "src/components/ui/accordion.tsx",
+            files: ["src/components/ui/accordion.tsx"],
+          },
+        ],
+      },
+      repoRoot: "/repo",
+      trackedFiles: new Set([
+        ...trackedFiles,
+        "src/components/ui/accordion.tsx",
+      ]),
+      vitestExitCode: 0,
+      vitestReport: {
+        numFailedTestSuites: 0,
+        numFailedTests: 0,
+        numTotalTestSuites: 1,
+        numTotalTests: 1,
+        success: true,
+        testResults: [],
+      },
+    });
+
+    const unusedFile = result.findings.find((finding) =>
+      finding.fingerprint.includes(":files:"),
+    );
+    expect(unusedFile).toBeDefined();
+    expect(unusedFile?.changedFiles ?? []).toEqual([]);
+  });
+
   it("turns valid Vitest and Knip failures into one complete quality result", () => {
     const result = evaluateQualityReports({
       knipExitCode: 1,
