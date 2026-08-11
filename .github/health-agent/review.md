@@ -74,7 +74,7 @@ evidence contents or unredacted paths:
   "merged": false,
   "findings": [
     {
-      "fingerprint": "<snapshotted fingerprint>",
+      "fingerprint": "<copied verbatim from the snapshot, e.g. quality:dead-code:exports:src/lib/x.ts:symbolname>",
       "source": "<snapshotted source>",
       "root_cause_key": "<stable key>",
       "evidence_artifact_ref": "[redacted]/<basename>",
@@ -93,3 +93,11 @@ evidence contents or unredacted paths:
 The per-finding array is mandatory traceability. `auto_merge_enabled` is a
 configuration/policy state; `merged` is an observed state. A passing review
 does not imply that a merge occurred.
+
+`fingerprint` must be the snapshot's fingerprint string, copied character for
+character — `quality:dead-code:exports:src/lib/x.ts:symbolname`, not the file
+path, the symbol name, or any label you compose yourself. The publish gate
+compares your fingerprint set against the snapshot's and refuses to publish
+when they differ, because a review that does not name what it reviewed cannot
+be traced to the findings it cleared. Emit exactly one entry per snapshotted
+finding: no additions, no omissions, no renames.
