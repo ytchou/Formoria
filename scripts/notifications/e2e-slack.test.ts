@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { AuditRecord } from "../health-agent/contracts";
 import {
   e2eSlackWebhookUrl,
@@ -7,9 +7,24 @@ import {
   readPlaywrightReport,
   renderE2ESlackNotification,
   sendE2ESlackNotification,
+  taipeiRunDate,
 } from "./e2e-slack";
 
 describe("E2E Slack notifications", () => {
+  // Titles carry the run date, so the exact-message assertions below need a
+  // fixed clock. Only `Date` is faked — timers stay real so the async send
+  // tests are unaffected. 22:30 UTC is deliberate: it is already the next day
+  // in Asia/Taipei, which is the case the nightly's 22:10 UTC start hits.
+  beforeAll(() => {
+    vi.useFakeTimers({
+      now: new Date("2026-08-10T22:30:00Z"),
+      toFake: ["Date"],
+    });
+  });
+  afterAll(() => {
+    vi.useRealTimers();
+  });
+
   it("requires the Formoria-owned webhook instead of the shared health webhook", () => {
     expect(
       e2eSlackWebhookUrl({
@@ -119,7 +134,7 @@ describe("E2E Slack notifications", () => {
       }),
     ).toBe(
       [
-        "⚠️ *Formoria E2E — Needs attention*",
+        "⚠️ *Formoria E2E — Needs attention* · 2026-08-11",
         "*Summary*\n• 8 passed · 2 failed · 1 skipped",
         "*Failed specs*\n• e2e/tests/search.spec.ts — searches by category",
         "<https://github.com/ytchou/Formoria/actions/runs/42|Open workflow run>",
@@ -142,11 +157,56 @@ describe("E2E Slack notifications", () => {
       }),
     ).toBe(
       [
-        "✅ *Formoria E2E — Success*",
+        "✅ *Formoria E2E — Success* · 2026-08-11",
         "*Summary*\n• 12 passed · 0 failed · 0 skipped",
         "<https://github.com/ytchou/Formoria/actions/runs/46|Open workflow run>",
       ].join("\n\n"),
     );
+  });
+
+  it("names the monitor and its probed origin when a label is supplied", () => {
+    expect(
+      renderE2ESlackNotification({
+        failed: 0,
+        label: "E2E Production (Synthetic)",
+        passed: 4,
+        phase: "initial",
+        reportAvailable: true,
+        runAttempt: "1",
+        runId: "47",
+        scope: "Signup + confirmation-email delivery on the live deployment",
+        skipped: 1,
+        status: "success",
+        target: "https://formoria.com",
+        workflowUrl: "https://github.com/ytchou/Formoria/actions/runs/47",
+      }),
+    ).toBe(
+      [
+        "✅ *Formoria E2E Production (Synthetic) — Success* · 2026-08-11",
+        "*Summary*\n• Scope: Signup + confirmation-email delivery on the live deployment\n• 4 passed · 0 failed · 1 skipped\n• Target: https://formoria.com",
+        "<https://github.com/ytchou/Formoria/actions/runs/47|Open workflow run>",
+      ].join("\n\n"),
+    );
+  });
+
+  it("dates the title in Asia/Taipei and prefers an explicit run date", () => {
+    // 22:30 UTC is already the next day in Taipei — the nightly's own window.
+    expect(taipeiRunDate(new Date("2026-08-10T22:30:00Z"))).toBe("2026-08-11");
+    expect(taipeiRunDate(new Date("2026-08-10T15:59:00Z"))).toBe("2026-08-10");
+    expect(
+      renderE2ESlackNotification({
+        date: "2026-08-09",
+        failed: 0,
+        passed: 4,
+        phase: "initial",
+        reportAvailable: true,
+        runAttempt: "1",
+        runId: "48",
+        skipped: 0,
+        status: "success",
+        workflowUrl: "https://github.com/ytchou/Formoria/actions/runs/48",
+      }),
+    ).toContain("✅ *Formoria E2E — Success* · 2026-08-09");
   });
 
   it("formats the exact terminal-ready message", () => {
@@ -165,7 +225,7 @@ describe("E2E Slack notifications", () => {
       }),
     ).toBe(
       [
-        "✅ *Formoria E2E — Success*",
+        "✅ *Formoria E2E — Success* · 2026-08-11",
         "*Summary*\n• 10 passed · 0 failed · 0 skipped",
         "*Repair PR*\n<https://github.com/ytchou/Formoria/pull/99|Open PR>",
         "<https://github.com/ytchou/Formoria/actions/runs/43|Open workflow run>",
@@ -200,7 +260,7 @@ describe("E2E Slack notifications", () => {
       }),
     ).toBe(
       [
-        "❌ *Formoria E2E — Failed*",
+        "❌ *Formoria E2E — Failed* · 2026-08-11",
         "*Summary*\n• 2 remaining failed specs",
         "*Failed specs*\n• e2e/tests/search.spec.ts — searches by category\n• e2e/tests/mobile.spec.ts — keeps the selected filter",
         "*Blocked draft PR*\n<https://github.com/ytchou/Formoria/pull/100|Open PR>",
@@ -224,7 +284,7 @@ describe("E2E Slack notifications", () => {
       }),
     ).toBe(
       [
-        "❌ *Formoria E2E — Failed*",
+        "❌ *Formoria E2E — Failed* · 2026-08-11",
         "*Summary*\n• 3 remaining failed specs",
         "<https://github.com/ytchou/Formoria/actions/runs/47|Open workflow run>",
       ].join("\n\n"),
@@ -268,7 +328,7 @@ describe("E2E Slack notifications", () => {
     };
     expect(body.text).toBe(
       [
-        "⚠️ *Formoria E2E — Needs attention*",
+        "⚠️ *Formoria E2E — Needs attention* · 2026-08-11",
         "*Summary*\n• 8 passed · 2 failed · 1 skipped",
         "*Failed specs*\n• e2e/tests/search.spec.ts — searches by category",
         "<https://github.com/ytchou/Formoria/actions/runs/42|Open workflow run>",
@@ -312,7 +372,7 @@ describe("E2E Slack notifications", () => {
     };
     expect(body.text).toBe(
       [
-        "✅ *Formoria E2E — Success*",
+        "✅ *Formoria E2E — Success* · 2026-08-11",
         "*Summary*\n• 10 passed · 0 failed · 0 skipped",
         "*Repair PR*\n<https://github.com/ytchou/Formoria/pull/99|Open PR>",
         "<https://github.com/ytchou/Formoria/actions/runs/43|Open workflow run>",
@@ -357,7 +417,7 @@ describe("E2E Slack notifications", () => {
     };
     expect(body.text).toBe(
       [
-        "❌ *Formoria E2E — Failed*",
+        "❌ *Formoria E2E — Failed* · 2026-08-11",
         "*Summary*\n• 1 remaining failed specs",
         "*Failed specs*\n• e2e/tests/search.spec.ts — searches by category",
         "*Blocked draft PR*\n<https://github.com/ytchou/Formoria/pull/100|Open PR>",

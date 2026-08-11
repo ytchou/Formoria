@@ -22,12 +22,18 @@ export interface ExpectedCronJob {
  * "silently unscheduled" detectable. Keep this in sync with the cron migration.
  */
 export const EXPECTED_CRON_JOBS: readonly ExpectedCronJob[] = [
-  { jobName: "claim-proof-cleanup-hourly", maxAgeHours: 3 }, // hourly + 2 missed ticks
+  // Both daily jobs run 03:05–03:15 Taipei and are read by the 04:50 health
+  // agent, so a punctual dispatch is ~2h old at check time. 25h is sized to
+  // fire on the FIRST missed day (age ~26h at the next check) rather than
+  // tolerating one — the names still say "hourly"/"6h" because renaming a
+  // pg_cron job means recreating it. See
+  // supabase/migrations/20260811120000_standardize_cron_maintenance_window.sql.
+  { jobName: "claim-proof-cleanup-hourly", maxAgeHours: 25 }, // daily 03:05 Taipei
   {
     jobName: "sync-mit-registry-weekly",
     maxAgeHours: MIT_REGISTRY_SYNC_MAX_AGE_HOURS,
   }, // weekly + 24h grace
-  { jobName: "classifier-image-retention-6h", maxAgeHours: 18 }, // 6h + 2 missed ticks
+  { jobName: "classifier-image-retention-6h", maxAgeHours: 25 }, // daily 03:15 Taipei
 ] as const;
 
 /**

@@ -12,6 +12,10 @@ export type AgentNotificationStatus = "failed" | "needs_attention" | "success";
 
 export interface AgentNotification {
   agent: string;
+  // Run date, already formatted (YYYY-MM-DD, Asia/Taipei by project
+  // convention). Rendered after the status so a scrollback of green
+  // notifications stays attributable to a day without hovering timestamps.
+  date?: string;
   details?: readonly string[];
   failedSpecs?: readonly string[];
   managerAction?: string;
@@ -52,8 +56,9 @@ function notificationStatusEmoji(status: AgentNotificationStatus): string {
 }
 
 export function renderAgentNotification(input: AgentNotification): string {
+  const date = input.date?.trim();
   const sections = [
-    `${notificationStatusEmoji(input.status)} *Formoria ${input.agent} — ${notificationStatusLabel(input.status)}*`,
+    `${notificationStatusEmoji(input.status)} *Formoria ${input.agent} — ${notificationStatusLabel(input.status)}*${date ? ` · ${date}` : ""}`,
     `*Summary*\n${input.summary.join("\n")}`,
   ];
   if (input.workDone && input.workDone.length > 0) {

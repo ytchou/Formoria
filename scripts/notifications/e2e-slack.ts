@@ -17,9 +17,33 @@ export interface E2EFailedSpec {
   title: string;
 }
 
+const TAIPEI_TIME_ZONE = "Asia/Taipei";
+
+/**
+ * `YYYY-MM-DD` in Asia/Taipei — the same basis as the Agent Hub report date
+ * (`TZ=Asia/Taipei date +%F` in the workflows). UTC would be wrong for the
+ * nightly, which starts 22:10 UTC and so belongs to the *following* Taipei day.
+ */
+export function taipeiRunDate(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: TAIPEI_TIME_ZONE,
+    year: "numeric",
+  }).format(now);
+}
+
 export interface E2ESlackNotification {
+  // Defaults to today in Asia/Taipei. Overridable so a caller can pass the
+  // run's own start time rather than the moment the notification is sent.
+  date?: string;
   failed: number;
   failedSpecs?: readonly (E2EFailedSpec | string)[];
+  // Distinguishes the two monitors in Slack. The nightly deep suite and the
+  // production synthetic probe both render "Formoria E2E — Success", which made
+  // them indistinguishable at a glance. Defaults to "E2E" so any caller that
+  // does not set it keeps the original title.
+  label?: string;
   passed: number;
   phase: E2ESlackPhase;
   prUrl?: string;
@@ -27,9 +51,15 @@ export interface E2ESlackNotification {
   reason?: string;
   runAttempt: string;
   runId: string;
+  // One line on what this run actually covers. Counts alone do not say whether
+  // 4 passing specs are the whole story or a deliberate slice.
+  scope?: string;
   selfHealEnabled?: boolean;
   skipped: number;
   status: string;
+  // What was probed — a deployed origin for the synthetic monitor, omitted for
+  // the nightly suite, which tests a server it builds itself.
+  target?: string;
   workflowUrl: string;
 }
 
@@ -45,47 +75,59 @@ function formatFailedSpec(spec: E2EFailedSpec | string): string {
 }
 
 function e2eNotification(input: E2ESlackNotification): AgentNotification {
+  const agent = input.label?.trim() || "E2E";
+  const date = input.date?.trim() || taipeiRunDate();
   const failedSpecs = (input.failedSpecs ?? [])
     .map(formatFailedSpec)
     .filter((spec) => spec !== "• ");
   const remainingFailedSpecs =
     failedSpecs.length > 0 ? failedSpecs.length : input.failed;
-  const summary =
+  const counts =
     input.reportAvailable === false
       ? remainingFailedSpecs > 0
         ? `• ${remainingFailedSpecs} remaining failed specs`
         : "• Remaining failed specs unavailable"
       : `• ${input.passed} passed · ${input.failed} failed · ${input.skipped} skipped`;
+  const scope = input.scope?.trim();
+  const target = input.target?.trim();
+  const summary = [
+    ...(scope ? [`• Scope: ${scope}`] : []),
+    counts,
+    ...(target ? [`• Target: ${target}`] : []),
+  ];
   if (input.phase === "ready") {
     return {
-      agent: "E2E",
+      agent,
+      date,
       failedSpecs,
       pullRequestLabel: "Repair PR",
       pullRequestUrl: input.prUrl,
       status: "success",
-      summary: [summary],
+      summary,
       workflowUrl: input.workflowUrl,
     };
   }
 
   if (input.phase === "blocked") {
     return {
-      agent: "E2E",
+      agent,
+      date,
       failedSpecs,
       pullRequestLabel: "Blocked draft PR",
       pullRequestUrl: input.prUrl,
       status: "failed",
-      summary: [summary],
+      summary,
       workflowUrl: input.workflowUrl,
     };
   }
 
   const succeeded = input.status === "success";
   return {
-    agent: "E2E",
+    agent,
+    date,
     failedSpecs,
     status: succeeded ? "success" : "needs_attention",
-    summary: [summary],
+    summary,
     workflowUrl: input.workflowUrl,
   };
 }
@@ -292,6 +334,8 @@ async function main(): Promise<void> {
         environmentFailedSpecs.length > 0
           ? environmentFailedSpecs
           : report.failedSpecs,
+      date: process.env.E2E_SLACK_DATE,
+      label: process.env.E2E_SLACK_LABEL,
       phase,
       prUrl: process.env.PR_URL,
       reportAvailable: reportAvailabilityFromEnvironment(
@@ -300,8 +344,10 @@ async function main(): Promise<void> {
       reason: process.env.BLOCKED_REASON,
       runAttempt: requiredEnvironment("GITHUB_RUN_ATTEMPT"),
       runId: requiredEnvironment("GITHUB_RUN_ID"),
+      scope: process.env.E2E_SLACK_SCOPE,
       selfHealEnabled: process.env.SELFHEAL_ENABLED === "true",
       status: process.env.JOB_STATUS ?? "unknown",
+      target: process.env.E2E_SLACK_TARGET,
       workflowUrl: requiredEnvironment("WORKFLOW_URL"),
     },
     {

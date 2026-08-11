@@ -46,7 +46,7 @@ describe("nightly E2E Agent Hub reporting", () => {
       "utf8",
     );
 
-    expect(workflow).toContain('cron: "10 22 * * *"');
+    expect(workflow).toContain('cron: "5 20 * * *"');
     expect(workflow).toContain("AGENT_HUB_INGEST_URL");
     expect(workflow).toContain("AGENT_HUB_INGEST_TOKEN");
     expect(workflow).toContain("node scripts/agent-hub/report-run.mjs --file");
