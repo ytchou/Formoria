@@ -6,6 +6,7 @@ import {
   type HealthFinding,
   type JsonValue,
 } from "./contracts";
+import { isKnownKnipNoise } from "./knip-known-noise";
 
 const KNIP_KINDS = [
   "binaries",
@@ -291,6 +292,7 @@ function parseKnipReport(
 ): HealthFinding[] | null {
   if (!isRecord(value) || !Array.isArray(value.issues)) return null;
   const findings: HealthFinding[] = [];
+  let suppressed = 0;
   for (const issue of value.issues) {
     if (!isRecord(issue)) return null;
     const reportedFile = repositoryPath(issue.file, repoRoot);
@@ -301,15 +303,27 @@ function parseKnipReport(
       for (const [index, entry] of entries.entries()) {
         const symbol = knipSymbol(entry, String(index + 1));
         if (!symbol) return null;
-        const scopeCandidate =
-          reportedFile ??
-          (kind === "dependencies" ||
+        // The suppression list existed and was tested but never consulted, so
+        // known false positives were queued as repairs. The repair agent
+        // correctly refuses to delete code that is actually used, which then
+        // read as a failed repair and blocked the PR (run 31453535132).
+        if (isKnownKnipNoise(kind, symbol, reportedFile)) {
+          suppressed += 1;
+          continue;
+        }
+        // repair.md forbids the agent from touching dependency manifests, so a
+        // manifest-scoped finding can never be repaired by it. Reporting it
+        // with an empty scope keeps it visible and ticketable while keeping it
+        // out of the repair claim — same contract as any other finding without
+        // changedFiles. Claiming these spent the budget on work the agent was
+        // instructed to refuse, and the refusal then read as a failed repair.
+        const manifestScoped =
+          kind === "dependencies" ||
           kind === "devDependencies" ||
           kind === "optionalPeerDependencies" ||
           kind === "unlisted" ||
-          kind === "binaries"
-            ? "package.json"
-            : undefined);
+          kind === "binaries";
+        const scopeCandidate = manifestScoped ? undefined : reportedFile;
         const changedFiles = trackedScope([scopeCandidate], trackedFiles);
         const identityFile = reportedFile ?? "package.json";
         findings.push(
@@ -334,7 +348,10 @@ function parseKnipReport(
     }
   }
   if (exitCode === 0 && findings.length > 0) return null;
-  if (exitCode !== 0 && findings.length === 0) return null;
+  // A nonzero knip exit with nothing to report means the parse disagreed with
+  // knip — unless every issue it raised was known noise, which is a clean
+  // repository, not malformed output.
+  if (exitCode !== 0 && findings.length === 0 && suppressed === 0) return null;
   return findings.sort((left, right) =>
     left.fingerprint.localeCompare(right.fingerprint),
   );
