@@ -47,6 +47,24 @@ describe("GET /api/internal/personal-os/system-status", () => {
     expect(body.inventory.length).toBeGreaterThan(body.services.length);
   });
 
+  it("authenticates before returning the MIT health row without credentials", async () => {
+    const response = await GET(authorizedRequest());
+    const body = await response.json();
+    const mit = body.services.find(
+      (service: Record<string, unknown>) => service.id === "mit-registry",
+    );
+
+    expect(response.status).toBe(200);
+    expect(mit).toEqual(
+      expect.objectContaining({
+        id: "mit-registry",
+        tier: "customer-flow",
+      }),
+    );
+    expect(JSON.stringify(mit)).not.toContain("service-role-test-key");
+    expect(JSON.stringify(body)).not.toContain("_API_KEY");
+  });
+
   it("inventory omits env var names", async () => {
     const response = await GET(authorizedRequest());
     const body = await response.json();
